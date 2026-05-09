@@ -1,6 +1,11 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+} from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import {
   AppProvisioningEventLevel,
   AppProvisioningRunState,
@@ -11,6 +16,37 @@ import { assertConnectedVault } from "./vaultState";
 
 const { id, literal, string, union } = v;
 const MAX_EVENTS_TO_LINK_TO_VAULT = 20;
+
+async function recordRepositoryFullNameForRun(
+  ctx: MutationCtx,
+  args: {
+    runId: Id<"appProvisioningRuns">;
+    repositoryFullName: string;
+  },
+): Promise<void> {
+  const run = await ctx.db.get(args.runId);
+  if (!run) {
+    throw new Error("Provisioning run not found.");
+  }
+  await ctx.db.patch(args.runId, {
+    repositoryFullName: args.repositoryFullName,
+    updatedAt: Date.now(),
+  });
+  if (
+    run.repositoryFullName &&
+    run.repositoryFullName !== args.repositoryFullName
+  ) {
+    const events = await ctx.db
+      .query("appProvisioningEvents")
+      .withIndex("by_run_and_created_at", (q) => q.eq("runId", args.runId))
+      .take(MAX_EVENTS_TO_LINK_TO_VAULT);
+    for (const event of events) {
+      await ctx.db.patch(event._id, {
+        repositoryFullName: args.repositoryFullName,
+      });
+    }
+  }
+}
 
 export const getById = internalQuery({
   args: {
@@ -49,6 +85,19 @@ export const createForVault = internalMutation({
   },
 });
 
+export const recordRepositoryFullName = internalMutation({
+  args: {
+    runId: id("appProvisioningRuns"),
+    repositoryFullName: string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await recordRepositoryFullNameForRun(ctx, args);
+
+    return null;
+  },
+});
+
 export const recordRepositoryCreated = internalMutation({
   args: {
     runId: id("appProvisioningRuns"),
@@ -56,28 +105,7 @@ export const recordRepositoryCreated = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const run = await ctx.db.get(args.runId);
-    if (!run) {
-      throw new Error("Provisioning run not found.");
-    }
-    await ctx.db.patch(args.runId, {
-      repositoryFullName: args.repositoryFullName,
-      updatedAt: Date.now(),
-    });
-    if (
-      run.repositoryFullName &&
-      run.repositoryFullName !== args.repositoryFullName
-    ) {
-      const events = await ctx.db
-        .query("appProvisioningEvents")
-        .withIndex("by_run_and_created_at", (q) => q.eq("runId", args.runId))
-        .take(MAX_EVENTS_TO_LINK_TO_VAULT);
-      for (const event of events) {
-        await ctx.db.patch(event._id, {
-          repositoryFullName: args.repositoryFullName,
-        });
-      }
-    }
+    await recordRepositoryFullNameForRun(ctx, args);
 
     return null;
   },

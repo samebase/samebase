@@ -79,6 +79,7 @@ export const AppProvisioningStep = union(
   literal("initialize_vault"),
   literal("validate_connections"),
   literal("create_github_repo"),
+  literal("fetch_github_repo"),
   literal("seed_starter"),
   literal("connect_github"),
   literal("create_vault"),
@@ -97,6 +98,7 @@ export const AppProvisioningRunStep = union(
   literal("initialize_vault"),
   literal("validate_connections"),
   literal("create_github_repo"),
+  literal("fetch_github_repo"),
   literal("seed_starter"),
   literal("connect_github"),
   literal("create_vault"),
@@ -112,6 +114,7 @@ export type AppProvisioningRunStep = Infer<typeof AppProvisioningRunStep>;
 
 export const AppProvisioningRunTrigger = union(
   literal("create"),
+  literal("connect_existing_repository"),
   literal("retry"),
 );
 export type AppProvisioningRunTrigger = Infer<typeof AppProvisioningRunTrigger>;

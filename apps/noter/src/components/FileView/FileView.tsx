@@ -289,24 +289,10 @@ function FileViewWrapper() {
       setIsConnectingRepository(true);
 
       try {
-        const connectResult = await connectRepository({
+        await connectRepository({
           repositoryFullName,
         });
-        const [canonicalOwner, canonicalRepoName] =
-          connectResult.repositoryFullName.split("/");
-        if (!canonicalOwner || !canonicalRepoName) {
-          setConnectRouteError("Invalid repository name received from server");
-          return;
-        }
-
-        const nextBranch = routeBranch ?? connectResult.defaultBranch;
-        const nextPath = buildVaultFileRoute({
-          owner: canonicalOwner,
-          repoName: canonicalRepoName,
-          branch: nextBranch,
-          filePath: selectedFile.length > 0 ? selectedFile : undefined,
-        });
-        navigateByHref(appendCurrentSearch(nextPath), { replace: true });
+        navigateByHref("/", { replace: true });
       } catch (connectRepositoryError) {
         setConnectRouteError(
           connectRepositoryError instanceof Error
@@ -318,13 +304,10 @@ function FileViewWrapper() {
       }
     })();
   }, [
-    appendCurrentSearch,
     connectRepository,
     isConnectingRepository,
     navigateByHref,
     repositoryFullName,
-    routeBranch,
-    selectedFile,
   ]);
 
   /**

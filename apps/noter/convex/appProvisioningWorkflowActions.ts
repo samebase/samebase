@@ -38,6 +38,33 @@ function readDefaultBranch(repoData: unknown): string {
   return "main";
 }
 
+function readRequiredDefaultBranch(repoData: unknown): string {
+  if (typeof repoData !== "object" || repoData === null) {
+    throw new Error("GitHub repository does not have a default branch.");
+  }
+  const value = Reflect.get(repoData, "default_branch");
+  if (typeof value === "string" && value.length > 0) {
+    return value;
+  }
+  throw new Error("GitHub repository does not have a default branch.");
+}
+
+function assertRepositoryCoordinates(args: {
+  ownerName: string;
+  repoName: string;
+}): void {
+  const ownerName = args.ownerName.trim();
+  const repoName = args.repoName.trim();
+  if (
+    !ownerName ||
+    !repoName ||
+    ownerName.includes("/") ||
+    repoName.includes("/")
+  ) {
+    throw new Error("Invalid repository full name.");
+  }
+}
+
 async function getProvisioningRun(
   ctx: Pick<ActionCtx, "runQuery">,
   runId: Id<"appProvisioningRuns">,
@@ -78,9 +105,11 @@ async function appendRunEvent(
     step:
       | "validate_connections"
       | "create_github_repo"
+      | "fetch_github_repo"
       | "seed_starter"
       | "connect_github"
-      | "sync_tree";
+      | "sync_tree"
+      | "finish";
     level: "info" | "warn" | "error";
     message: string;
     state: "unchanged" | "queued" | "running" | "succeeded" | "failed";
@@ -104,6 +133,46 @@ async function assertCreateRun(
     run.vaultId !== args.vaultId
   ) {
     throw new Error("Provisioning run does not match create workflow.");
+  }
+  return run;
+}
+
+async function assertConnectExistingRepositoryRun(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"appProvisioningRuns">;
+    userId: Id<"users">;
+  },
+): Promise<Doc<"appProvisioningRuns">> {
+  const run = await getProvisioningRun(ctx, args.runId);
+  if (
+    run.userId !== args.userId ||
+    run.trigger !== "connect_existing_repository" ||
+    run.vaultId !== args.vaultId
+  ) {
+    throw new Error(
+      "Provisioning run does not match existing repository workflow.",
+    );
+  }
+  return run;
+}
+
+async function assertSourceSetupRun(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"appProvisioningRuns">;
+    userId: Id<"users">;
+  },
+): Promise<Doc<"appProvisioningRuns">> {
+  const run = await getProvisioningRun(ctx, args.runId);
+  if (
+    run.userId !== args.userId ||
+    run.vaultId !== args.vaultId ||
+    (run.trigger !== "create" && run.trigger !== "connect_existing_repository")
+  ) {
+    throw new Error("Provisioning run does not match source setup workflow.");
   }
   return run;
 }
@@ -266,6 +335,112 @@ export const createGitHubRepository = internalAction({
   },
 });
 
+export const validateExistingRepositoryConnection = internalAction({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    ownerName: string(),
+    repoName: string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await assertConnectExistingRepositoryRun(ctx, args);
+
+    await appendRunEvent(ctx, {
+      runId: args.runId,
+      step: "validate_connections",
+      level: "info",
+      message: "Checking provider connections.",
+      state: "running",
+    });
+
+    assertRepositoryCoordinates(args);
+
+    const [currentUser, githubConnection] = await Promise.all([
+      ctx.runQuery(internal.users.getById, { userId: args.userId }),
+      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+        userId: args.userId,
+        kind: "github",
+      }),
+    ]);
+
+    if (!currentUser) {
+      throw new Error("User not found.");
+    }
+    if (githubConnection?.kind !== "github") {
+      throw new Error("GitHub is not connected.");
+    }
+
+    return null;
+  },
+});
+
+export const fetchExistingGitHubRepository = internalAction({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    ownerName: string(),
+    repoName: string(),
+  },
+  returns: githubRepositoryResult,
+  handler: async (ctx, args) => {
+    await assertConnectExistingRepositoryRun(ctx, args);
+    assertRepositoryCoordinates(args);
+
+    await appendRunEvent(ctx, {
+      runId: args.runId,
+      step: "fetch_github_repo",
+      level: "info",
+      message: "Checking existing GitHub repository.",
+      state: "running",
+    });
+
+    const octokit = await resolveGitHubOctokit(ctx, args.userId);
+    const repo = await octokit.rest.repos.get({
+      owner: args.ownerName,
+      repo: args.repoName,
+    });
+    const defaultBranch = readRequiredDefaultBranch(repo.data);
+    await octokit.rest.repos.getBranch({
+      owner: repo.data.owner.login,
+      repo: repo.data.name,
+      branch: defaultBranch,
+    });
+
+    const ownerName = repo.data.owner.login;
+    const repoFinalName = repo.data.name;
+    const repositoryFullName = `${ownerName}/${repoFinalName}`;
+    const visibility: "private" | "public" = repo.data.private
+      ? "private"
+      : "public";
+    await ctx.runMutation(
+      internal.appProvisioningRuns.recordRepositoryFullName,
+      {
+        runId: args.runId,
+        repositoryFullName,
+      },
+    );
+
+    await appendRunEvent(ctx, {
+      runId: args.runId,
+      step: "fetch_github_repo",
+      level: "info",
+      message: `Checked existing GitHub repository ${repositoryFullName}.`,
+      state: "running",
+    });
+
+    return {
+      ghRepoId: repo.data.id.toString(),
+      ownerName,
+      repoName: repoFinalName,
+      defaultBranch,
+      visibility,
+    };
+  },
+});
+
 export const seedStarterRepository = internalAction({
   args: {
     vaultId: id("vaults"),
@@ -363,6 +538,51 @@ export const createVaultForRepository = internalAction({
   },
 });
 
+export const connectExistingRepositoryVault = internalAction({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    ghRepoId: string(),
+    ownerName: string(),
+    repoName: string(),
+    defaultBranch: string(),
+    visibility: union(literal("private"), literal("public")),
+  },
+  returns: vaultCreatedResult,
+  handler: async (ctx, args): Promise<{ vaultId: Id<"vaults"> }> => {
+    await assertConnectExistingRepositoryRun(ctx, args);
+
+    await appendRunEvent(ctx, {
+      runId: args.runId,
+      step: "connect_github",
+      level: "info",
+      message: "Connecting the Noter vault to GitHub.",
+      state: "running",
+    });
+
+    await ctx.runMutation(internal.vault.connectExistingRepositoryVaultGitHub, {
+      vaultId: args.vaultId,
+      userId: args.userId,
+      ghRepoId: args.ghRepoId,
+      ghRepoOwner: args.ownerName,
+      ghRepoName: args.repoName,
+      defaultBranch: args.defaultBranch,
+      visibility: args.visibility,
+      runId: args.runId,
+    });
+    await appendRunEvent(ctx, {
+      runId: args.runId,
+      step: "connect_github",
+      level: "info",
+      message: "Connected the Noter vault to GitHub.",
+      state: "running",
+    });
+
+    return { vaultId: args.vaultId };
+  },
+});
+
 export const syncVaultTreeForRepository = internalAction({
   args: {
     vaultId: id("vaults"),
@@ -374,7 +594,7 @@ export const syncVaultTreeForRepository = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
-    await assertCreateRun(ctx, args);
+    await assertSourceSetupRun(ctx, args);
 
     await appendRunEvent(ctx, {
       runId: args.runId,
@@ -410,6 +630,28 @@ export const syncVaultTreeForRepository = internalAction({
       level: "info",
       message: "Synced the default branch tree.",
       state: "running",
+    });
+
+    return null;
+  },
+});
+
+export const finishExistingRepositoryConnection = internalAction({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    await assertConnectExistingRepositoryRun(ctx, args);
+
+    await appendRunEvent(ctx, {
+      runId: args.runId,
+      step: "finish",
+      level: "info",
+      message: "Connected existing repository.",
+      state: "succeeded",
     });
 
     return null;

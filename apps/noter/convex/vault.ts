@@ -764,48 +764,160 @@ export const getByIdForUser = internalQuery({
   },
 });
 
-// mutation to add new vault
-export const addVault = internalMutation({
+function normalizeGitHubRepositoryCoordinate(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+export const createInitializingExistingRepositoryVaultForUser =
+  internalMutation({
+    args: {
+      userId: id("users"),
+      ghRepoOwner: string(),
+      ghRepoName: string(),
+    },
+    returns: object({
+      vaultId: id("vaults"),
+      runId: id("appProvisioningRuns"),
+    }),
+    handler: async (
+      ctx,
+      args,
+    ): Promise<{
+      vaultId: Id<"vaults">;
+      runId: Id<"appProvisioningRuns">;
+    }> => {
+      const user = await ctx.db.get(args.userId);
+      if (!user) {
+        throw new Error("User not found");
+      }
+      const owner = args.ghRepoOwner.trim();
+      const name = args.ghRepoName.trim();
+      if (!owner || !name) {
+        throw new Error("Invalid repository full name");
+      }
+
+      const normalizedOwner = normalizeGitHubRepositoryCoordinate(owner);
+      const normalizedName = normalizeGitHubRepositoryCoordinate(name);
+      const userVaults = await ctx.db
+        .query("vaults")
+        .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+        .collect();
+      const existingVault = userVaults.find((vault) => {
+        if (vault.state === "not_connected") {
+          return false;
+        }
+        return (
+          normalizeGitHubRepositoryCoordinate(vault.owner) ===
+            normalizedOwner &&
+          normalizeGitHubRepositoryCoordinate(vault.name) === normalizedName
+        );
+      });
+      if (existingVault) {
+        throw new Error("Vault already exists for this repository.");
+      }
+
+      const now = Date.now();
+      const vaultId = await ctx.db.insert("vaults", {
+        userId: args.userId,
+        state: "not_connected",
+      });
+      const repositoryFullName = `${owner}/${name}`;
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId: args.userId,
+        vaultId,
+        repositoryFullName,
+        trigger: "connect_existing_repository",
+        state: "queued",
+        currentStep: "run_created",
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      // The run owns source setup for this existing repository connection.
+      await ctx.db.patch(vaultId, {
+        state: "provisioning",
+        githubMode: "connect_existing_repository",
+        runId,
+        startedAt: now,
+        owner,
+        name,
+      });
+      await ctx.db.insert("appProvisioningEvents", {
+        userId: args.userId,
+        vaultId,
+        repositoryFullName,
+        runId,
+        step: "initialize_vault",
+        level: "info",
+        message: "Queued existing repository connection.",
+        createdAt: now,
+      });
+
+      return { vaultId, runId };
+    },
+  });
+
+export const connectExistingRepositoryVaultGitHub = internalMutation({
   args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
     ghRepoId: v.string(),
     ghRepoOwner: v.string(),
     ghRepoName: v.string(),
     defaultBranch: v.string(),
     visibility: GitHubRepositoryVisibility,
   },
-  handler: async (ctx, args): Promise<Id<"vaults">> => {
-    const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
-
-    if (!currentUser) {
-      throw new Error("User not found");
+  returns: nullValidator,
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || vault.userId !== args.userId) {
+      throw new Error("Vault not found");
     }
 
     // GitHub repository id stays stable across owner/name renames.
     const existingVault = await ctx.db
       .query("vaults")
       .withIndex("by_userId_and_ghRepoId", (q) =>
-        q.eq("userId", currentUser._id).eq("ghRepoId", args.ghRepoId),
+        q.eq("userId", args.userId).eq("ghRepoId", args.ghRepoId),
       )
       .first();
-
-    if (existingVault) {
-      const connectedVault = assertConnectedVault(existingVault);
-      // Keep reconnect idempotency limited to the fields this path just read
-      // from GitHub. Broader repository drift correction belongs in one future
-      // refresh worker, not in a second ad hoc refresh implementation here.
-      await ctx.db.patch(connectedVault._id, {
-        owner: args.ghRepoOwner,
-        name: args.ghRepoName,
-        defaultBranch: args.defaultBranch,
-        visibility: args.visibility,
-      });
-      return connectedVault._id;
+    if (existingVault && existingVault._id !== args.vaultId) {
+      throw new Error("Vault already exists for this GitHub repository.");
+    }
+    if (isConnectedVault(vault)) {
+      if (
+        vault.githubMode !== "connect_existing_repository" ||
+        vault.ghRepoId !== args.ghRepoId ||
+        vault.runId !== args.runId
+      ) {
+        throw new Error(
+          "Connected vault repository identity cannot be changed.",
+        );
+      }
+      return null;
+    }
+    if (
+      vault.state !== "provisioning" ||
+      vault.githubMode !== "connect_existing_repository" ||
+      vault.runId !== args.runId
+    ) {
+      throw new Error("Vault is not waiting for existing repository setup.");
     }
 
-    return await ctx.db.insert("vaults", {
-      userId: currentUser._id,
+    await ctx.db.replace(args.vaultId, {
+      userId: vault.userId,
+      lastTreeRefreshAt: vault.lastTreeRefreshAt,
+      treeRefreshStartedAt: vault.treeRefreshStartedAt,
+      lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
+      treeRefreshFailureKind: vault.treeRefreshFailureKind,
+      treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
+      treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
+      activeCodespaceId: vault.activeCodespaceId,
+      devcontainerConfig: vault.devcontainerConfig,
       state: "connected",
       githubMode: "connect_existing_repository",
+      runId: args.runId,
       ghRepoId: args.ghRepoId,
       owner: args.ghRepoOwner,
       name: args.ghRepoName,
@@ -815,6 +927,8 @@ export const addVault = internalMutation({
       convex: { state: "not_configured" },
       cloudflare: { state: "not_configured" },
     });
+
+    return null;
   },
 });
 
@@ -997,6 +1111,47 @@ export const markNoterManagedGithubProvisioningFailed = internalMutation({
       owner: vault.owner,
       name: vault.name,
       visibility: vault.visibility,
+      failedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+export const markExistingRepositoryGithubProvisioningFailed = internalMutation({
+  args: {
+    runId: id("appProvisioningRuns"),
+  },
+  returns: nullValidator,
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run) {
+      return null;
+    }
+    const vault = await ctx.db.get(run.vaultId);
+    if (
+      vault?.state !== "provisioning" ||
+      vault.githubMode !== "connect_existing_repository" ||
+      vault.runId !== args.runId
+    ) {
+      return null;
+    }
+
+    await ctx.db.replace(vault._id, {
+      userId: vault.userId,
+      lastTreeRefreshAt: vault.lastTreeRefreshAt,
+      treeRefreshStartedAt: vault.treeRefreshStartedAt,
+      lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
+      treeRefreshFailureKind: vault.treeRefreshFailureKind,
+      treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
+      treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
+      activeCodespaceId: vault.activeCodespaceId,
+      devcontainerConfig: vault.devcontainerConfig,
+      state: "failed",
+      githubMode: "connect_existing_repository",
+      runId: args.runId,
+      owner: vault.owner,
+      name: vault.name,
       failedAt: Date.now(),
     });
 

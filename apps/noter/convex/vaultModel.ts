@@ -178,9 +178,7 @@ export const VaultRow = union(
     ...vaultOperationalFields,
     state: literal("connected"),
     githubMode: literal("connect_existing_repository"),
-
-    // TODO(Vault-First Phase 5): add runId when existing-repository
-    // onboarding moves onto provisioning runs.
+    runId: id("appProvisioningRuns"),
 
     ...connectedRepositoryIdentityFields,
     convex: VaultConvexState,

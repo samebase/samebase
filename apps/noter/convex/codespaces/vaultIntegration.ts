@@ -45,76 +45,149 @@ export const createVaultWithCodespace = action({
     args,
   ): Promise<Infer<typeof createVaultWithCodespaceResult>> => {
     const userId = await getUserId(ctx);
-
-    const githubAccessToken = await getGithubAccessToken(ctx, userId);
-
-    const octokit = new Octokit({
-      auth: githubAccessToken,
-    });
-
-    const repo = await octokit.rest.repos.get({
-      owner: args.repoOwner,
-      repo: args.repoName,
-    });
-    // TODO(Codespaces): persist authoritative repo.data owner/name/id/visibility
-    // instead of caller-supplied coordinates when this path becomes active again.
-
-    const branch = args.branch ?? repo.data.default_branch;
-    if (typeof branch !== "string" || branch.length === 0) {
-      throw new Error("Repository branch is required");
-    }
-
-    // Get latest commit SHA from GitHub
-    const { data: branchData } = await octokit.rest.repos.getBranch({
-      owner: args.repoOwner,
-      repo: args.repoName,
-      branch,
-    });
-
-    const commitSha = branchData.commit.sha;
-
-    // Generate devcontainer config
-    const devcontainerConfig = generateDevcontainerConfig();
-
-    // Create vault record using existing addVault mutation
-    const vaultId = await ctx.runMutation(internal.vault.addVault, {
-      ghRepoId: args.ghRepoId.toString(),
-      ghRepoOwner: args.repoOwner,
-      ghRepoName: args.repoName,
-      defaultBranch: repo.data.default_branch,
-      visibility: repo.data.private ? "private" : "public",
-    });
-    await ctx.runMutation(internal.vault.upsertVaultBranchTree, {
-      vaultId,
-      branch,
-      treeData: {
-        sha: branchData.commit.commit.tree.sha,
-        url: branchData.commit.commit.tree.url,
-        truncated: false,
-        tree: [],
-      },
-      commitSHA: commitSha,
-    });
-
-    await ctx.runMutation(internal.vault.updateVaultDevcontainerConfig, {
-      vaultId,
-      devcontainerConfig,
-    });
-
-    // Create Codespace
-    const { codespaceId } = await ctx.runAction(
-      api.codespaces.index.createCodespace,
+    const { vaultId, runId } = await ctx.runMutation(
+      internal.vault.createInitializingExistingRepositoryVaultForUser,
       {
-        vaultId,
-        branch,
-        commitSha,
+        userId,
+        ghRepoOwner: args.repoOwner,
+        ghRepoName: args.repoName,
       },
     );
 
-    return {
-      vaultId,
-      codespaceId,
-    };
+    try {
+      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+        runId,
+        step: "validate_connections",
+        level: "info",
+        message: "Checking provider connections.",
+        state: "running",
+      });
+      const githubAccessToken = await getGithubAccessToken(ctx, userId);
+
+      const octokit = new Octokit({
+        auth: githubAccessToken,
+      });
+
+      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+        runId,
+        step: "fetch_github_repo",
+        level: "info",
+        message: "Checking existing GitHub repository.",
+        state: "running",
+      });
+      const repo = await octokit.rest.repos.get({
+        owner: args.repoOwner,
+        repo: args.repoName,
+      });
+      // TODO(Codespaces): move this legacy codespace-first path onto the
+      // connect-existing Workflow if it becomes an active entrypoint again.
+      const defaultBranch = repo.data.default_branch;
+      if (typeof defaultBranch !== "string" || defaultBranch.length === 0) {
+        throw new Error("Repository default branch is required");
+      }
+      const branch = args.branch ?? defaultBranch;
+      if (typeof branch !== "string" || branch.length === 0) {
+        throw new Error("Repository branch is required");
+      }
+
+      const { data: branchData } = await octokit.rest.repos.getBranch({
+        owner: repo.data.owner.login,
+        repo: repo.data.name,
+        branch,
+      });
+      const commitSha = branchData.commit.sha;
+      const repositoryFullName = `${repo.data.owner.login}/${repo.data.name}`;
+      await ctx.runMutation(
+        internal.appProvisioningRuns.recordRepositoryFullName,
+        {
+          runId,
+          repositoryFullName,
+        },
+      );
+      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+        runId,
+        step: "fetch_github_repo",
+        level: "info",
+        message: `Checked existing GitHub repository ${repositoryFullName}.`,
+        state: "running",
+      });
+
+      await ctx.runMutation(
+        internal.vault.connectExistingRepositoryVaultGitHub,
+        {
+          vaultId,
+          runId,
+          userId,
+          ghRepoId: repo.data.id.toString(),
+          ghRepoOwner: repo.data.owner.login,
+          ghRepoName: repo.data.name,
+          defaultBranch,
+          visibility: repo.data.private ? "private" : "public",
+        },
+      );
+      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+        runId,
+        step: "connect_github",
+        level: "info",
+        message: "Connected the Noter vault to GitHub.",
+        state: "running",
+      });
+
+      await ctx.runMutation(internal.vault.upsertVaultBranchTree, {
+        vaultId,
+        branch,
+        treeData: {
+          sha: branchData.commit.commit.tree.sha,
+          url: branchData.commit.commit.tree.url,
+          truncated: false,
+          tree: [],
+        },
+        commitSHA: commitSha,
+      });
+      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+        runId,
+        step: "sync_tree",
+        level: "info",
+        message: "Synced the default branch tree.",
+        state: "running",
+      });
+
+      await ctx.runMutation(internal.vault.updateVaultDevcontainerConfig, {
+        vaultId,
+        devcontainerConfig: generateDevcontainerConfig(),
+      });
+
+      const { codespaceId } = await ctx.runAction(
+        api.codespaces.index.createCodespace,
+        {
+          vaultId,
+          branch,
+          commitSha,
+        },
+      );
+      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+        runId,
+        step: "finish",
+        level: "info",
+        message: "Connected existing repository.",
+        state: "succeeded",
+      });
+
+      return {
+        vaultId,
+        codespaceId,
+      };
+    } catch (error) {
+      await ctx.runMutation(
+        internal.infraProvisioning.markWorkflowProvisioningFailed,
+        {
+          runId,
+          workflowId: "codespace-first",
+          message: error instanceof Error ? error.message : "Unknown error.",
+        },
+      );
+      throw error;
+    }
   },
 });
 

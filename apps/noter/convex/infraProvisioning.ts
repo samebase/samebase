@@ -670,6 +670,7 @@ function buildProviderFailurePatch(args: {
       break;
     case "initialize_vault":
     case "create_github_repo":
+    case "fetch_github_repo":
     case "connect_github":
     case "create_vault":
     case "seed_starter":
@@ -1683,12 +1684,7 @@ export const markWorkflowStartupFailed = internalMutation({
 
     const now = Date.now();
     const safeRunError = "Provisioning workflow failed to start.";
-    const eventStep =
-      run.currentStep === "run_created" && run.trigger === "create"
-        ? "validate_connections"
-        : run.currentStep === "run_created"
-          ? "claim_infra"
-          : run.currentStep;
+    const eventStep = resolveWorkflowFailureEventStep(run);
     const vault = await ctx.db.get(run.vaultId);
     if (
       vault?.state === "provisioning" &&
@@ -1697,6 +1693,17 @@ export const markWorkflowStartupFailed = internalMutation({
     ) {
       await ctx.runMutation(
         internal.vault.markNoterManagedGithubProvisioningFailed,
+        {
+          runId: args.runId,
+        },
+      );
+    } else if (
+      vault?.state === "provisioning" &&
+      vault.githubMode === "connect_existing_repository" &&
+      vault.runId === args.runId
+    ) {
+      await ctx.runMutation(
+        internal.vault.markExistingRepositoryGithubProvisioningFailed,
         {
           runId: args.runId,
         },
@@ -1741,12 +1748,29 @@ export const markWorkflowStartupFailed = internalMutation({
   },
 });
 
+function resolveWorkflowFailureEventStep(run: {
+  currentStep: AppProvisioningStep | "run_created";
+  trigger: "create" | "connect_existing_repository" | "retry";
+}): AppProvisioningStep {
+  if (run.currentStep !== "run_created") {
+    return run.currentStep;
+  }
+  if (
+    run.trigger === "create" ||
+    run.trigger === "connect_existing_repository"
+  ) {
+    return "validate_connections";
+  }
+  return "claim_infra";
+}
+
 function isCreateAppPreInfrastructureStep(step: string): boolean {
   return (
     step === "run_created" ||
     step === "initialize_vault" ||
     step === "validate_connections" ||
     step === "create_github_repo" ||
+    step === "fetch_github_repo" ||
     step === "connect_github" ||
     step === "create_vault" ||
     step === "seed_starter" ||
@@ -1774,12 +1798,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
     }
 
     const now = Date.now();
-    const eventStep =
-      run.currentStep === "run_created" && run.trigger === "create"
-        ? "validate_connections"
-        : run.currentStep === "run_created"
-          ? "claim_infra"
-          : run.currentStep;
+    const eventStep = resolveWorkflowFailureEventStep(run);
     const vaultId = run.vaultId;
     const vault = await ctx.db.get(vaultId);
     const safeRunError =
@@ -1822,6 +1841,41 @@ export const markWorkflowProvisioningFailed = internalMutation({
       return null;
     }
     if (
+      vault?.state === "provisioning" &&
+      vault.githubMode === "connect_existing_repository" &&
+      vault.runId === args.runId
+    ) {
+      await ctx.runMutation(
+        internal.vault.markExistingRepositoryGithubProvisioningFailed,
+        {
+          runId: args.runId,
+        },
+      );
+      await ctx.db.patch(args.runId, {
+        state: "failed",
+        lastError: safeRunError,
+        updatedAt: now,
+        completedAt: now,
+      });
+      await ctx.runMutation(internal.appProvisioningEvents.append, {
+        userId: run.userId,
+        vaultId,
+        repositoryFullName: run.repositoryFullName,
+        runId: args.runId,
+        step: eventStep,
+        level: "error",
+        message: safeRunError,
+        createdAt: now,
+      });
+      console.error("app:connect_existing:failed", {
+        vaultId,
+        repo: run.repositoryFullName,
+        step: run.currentStep,
+        message: args.message,
+      });
+      return null;
+    }
+    if (
       run.trigger === "create" &&
       isCreateAppPreInfrastructureStep(run.currentStep)
     ) {
@@ -1842,6 +1896,31 @@ export const markWorkflowProvisioningFailed = internalMutation({
         createdAt: now,
       });
       console.error("app:provision:failed", {
+        vaultId,
+        repo: run.repositoryFullName,
+        step: run.currentStep,
+        message: args.message,
+      });
+      return null;
+    }
+    if (run.trigger === "connect_existing_repository") {
+      await ctx.db.patch(args.runId, {
+        state: "failed",
+        lastError: safeRunError,
+        updatedAt: now,
+        completedAt: now,
+      });
+      await ctx.runMutation(internal.appProvisioningEvents.append, {
+        userId: run.userId,
+        vaultId,
+        repositoryFullName: run.repositoryFullName,
+        runId: args.runId,
+        step: eventStep,
+        level: "error",
+        message: safeRunError,
+        createdAt: now,
+      });
+      console.error("app:connect_existing:failed", {
         vaultId,
         repo: run.repositoryFullName,
         step: run.currentStep,

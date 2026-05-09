@@ -67,6 +67,9 @@ describe("VaultBranchLinkContent", () => {
 describe("formatVaultSourceSetupStep", () => {
   it("uses dashboard labels for create-app setup steps", () => {
     expect(formatVaultSourceSetupStep("connect_github")).toBe("connect GitHub");
+    expect(formatVaultSourceSetupStep("fetch_github_repo")).toBe(
+      "fetch GitHub repo",
+    );
     expect(formatVaultSourceSetupStep("create_vault")).toBe("connect GitHub");
     expect(formatVaultSourceSetupStep("seed_starter")).toBe("seed starter");
     expect(formatVaultSourceSetupStep("sync_tree")).toBe("sync tree");
