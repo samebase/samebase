@@ -129,19 +129,36 @@ export const createCodespace = action({
       state: codespace.state,
     });
 
-    // Store codespace record in database
-    const codespaceId = await ctx.runMutation(
-      internal.codespaces.mutations.createCodespaceRecord,
-      {
-        vaultId: args.vaultId,
-        userId,
-        ghCodespaceId: codespace.id.toString(),
-        ghCodespaceName: codespace.name,
-        commitSha: args.commitSha,
-        branch: args.branch,
-        agentToken,
-      },
-    );
+    let codespaceId: Id<"codespaces">;
+    try {
+      // Store codespace record in database
+      codespaceId = await ctx.runMutation(
+        internal.codespaces.mutations.createCodespaceRecord,
+        {
+          vaultId: args.vaultId,
+          userId,
+          ghCodespaceId: codespace.id.toString(),
+          ghCodespaceName: codespace.name,
+          commitSha: args.commitSha,
+          branch: args.branch,
+          agentToken,
+        },
+      );
+    } catch (error) {
+      try {
+        await octokit.rest.codespaces.deleteForAuthenticatedUser({
+          codespace_name: codespace.name,
+        });
+      } catch (deleteError) {
+        if (!isNotFoundError(deleteError)) {
+          console.log("codespaces:createCodespace:cleanup:error", {
+            ghCodespaceName: codespace.name,
+            message: formatError(deleteError),
+          });
+        }
+      }
+      throw error;
+    }
     console.log("codespaces:createCodespace:db:created", {
       codespaceId,
       ghCodespaceId: codespace.id,

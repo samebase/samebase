@@ -1972,8 +1972,8 @@ export function VaultDeletionStatusSection({
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs">
       <span className="min-w-0 flex-1 text-destructive [overflow-wrap:anywhere]">
-        {deletion.lastError ||
-          deletion.message ||
+        {deletion.message ||
+          deletion.lastError ||
           `Delete failed during ${stepLabel}.`}
       </span>
       <Button

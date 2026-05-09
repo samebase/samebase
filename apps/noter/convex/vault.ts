@@ -1155,7 +1155,9 @@ export const updateVaultDevcontainerConfig = internalMutation({
   },
   returns: nullValidator,
   handler: async (ctx, args) => {
-    assertConnectedVault(await ctx.db.get(args.vaultId));
+    if (!isLiveConnectedVault(await ctx.db.get(args.vaultId))) {
+      return null;
+    }
     await ctx.db.patch(args.vaultId, {
       devcontainerConfig: args.devcontainerConfig,
     });

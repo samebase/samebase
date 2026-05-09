@@ -5,6 +5,7 @@ import {
   type MutationCtx,
 } from "./_generated/server";
 import { v } from "convex/values";
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { getUserId } from "./common";
 
 import { ChangeSet, Text } from "@codemirror/state";
@@ -46,8 +47,14 @@ export const getDocument = query({
   }),
   handler: async (ctx, args) => {
     console.log("getDocument:", args.filePath);
+    const userId = await getAuthUserId(ctx);
     const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault)) {
+    if (
+      !userId ||
+      !vault ||
+      vault.userId !== userId ||
+      !isLiveConnectedVault(vault)
+    ) {
       return {
         version: 0,
         content: "",

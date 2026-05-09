@@ -384,7 +384,7 @@ export const retryInfrastructureProvisioning = action({
     }
     if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
       throw new Error(
-        "Infrastructure retry is available only for Noter-managed vaults",
+        "Infrastructure retry is available only for live Noter-managed vaults",
       );
     }
     const runId = await ctx.runMutation(
