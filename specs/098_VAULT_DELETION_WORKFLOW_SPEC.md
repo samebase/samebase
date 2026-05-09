@@ -698,19 +698,21 @@ vault-scoped rows.
 
 The initial registry should cover these tables.
 
-All cleanup entries must achieve vault-wide coverage. When the only available
-index is user-scoped, such as `by_user_and_vault` or `by_userId_and_vaultId`,
-the cleanup implementation must either iterate every user row associated with
-that vault or add a vault-prefixed index before using the entry. Vault deletion
-must never clean only the requesting user's rows.
+All cleanup entries must achieve vault-wide coverage. Phase 1 adds
+vault-prefixed indexes for tables that were previously only reachable through
+user-scoped indexes. If a future cleanup entry only has a user-scoped index, the
+implementation must either add a vault-prefixed index or explicitly iterate
+every user row associated with that vault. Vault deletion must never clean only
+the requesting user's rows.
 
 Delete rows:
 
-1. `vaultBranchFilters` via `by_user_and_vault`, vault-wide across all users
-2. `fileStaging` via `by_vault`
+1. `vaultBranchFilters` via `by_vault`
+2. `fileStaging` via `by_vault`; use `by_vault_and_storageId` when checking
+   staged storage references and delete staged-only storage objects before rows
 3. `collaborativeUpdates` via `by_vault`
-4. `blobs` via a new `by_vault` index, deleting storage objects before rows
-5. `folderExpansionState` via `by_user_and_vault`, vault-wide across all users
+4. `blobs` via `by_vault`, deleting storage objects before rows
+5. `folderExpansionState` via `by_vault`
 6. `vaultRemoteBranches` via `by_vault`
 7. `vaultBranchTrees` via `by_vault_and_branch` with the `vaultId` prefix
 8. `vaultDomains` via `by_vault`
@@ -718,7 +720,7 @@ Delete rows:
    exists
 10. `vaultInfrastructureOwnership` via `by_vault`
 11. `codespaces` via `by_vault`
-12. `agentGraphNodeLayout` via `by_user_and_vault`, vault-wide across all users
+12. `agentGraphNodeLayout` via `by_vault`
 13. `appProvisioningEvents` via `by_vault_and_created_at`
 14. `appProvisioningRuns` via `by_vault_and_updated_at`
 
@@ -727,10 +729,9 @@ Patch or delete rows:
 1. `aiProdAccessRequests` via `by_vault`: clear `vaultId`; move `proposed` and
    `approved` requests to `expired`; preserve executed, failed, rejected, and
    already expired statuses for every matching request.
-2. `agentThreadContext` via `by_userId_and_vaultId`, vault-wide across all
-   users: either clear `vaultId`, `repositoryFullName`, `branch`, and
-   `filePath`, or delete the row if the legacy chat cleanup/removal path makes
-   deletion simpler.
+2. `agentThreadContext` via `by_vault`: either clear `vaultId`,
+   `repositoryFullName`, `branch`, and `filePath`, or delete the row if the
+   legacy chat cleanup/removal path makes deletion simpler.
 
 Preserve rows:
 
