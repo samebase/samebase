@@ -131,6 +131,12 @@ export const createVaultWithCodespace = action({
         state: "running",
       });
 
+      // TODO(Codespaces/workpool): this is deliberately a placeholder, not a
+      // real tree sync. The codespace-first reload path is currently broken;
+      // until the work-pool refresh owns it, this path only records the branch
+      // tree SHA with an empty tree to avoid blocking legacy Codespace creation.
+      // Do not treat the following `sync_tree` event as proof that repository
+      // files are hydrated.
       await ctx.runMutation(internal.vault.upsertVaultBranchTree, {
         vaultId,
         branch,
