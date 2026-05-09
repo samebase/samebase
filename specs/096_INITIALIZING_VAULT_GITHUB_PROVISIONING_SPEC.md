@@ -987,6 +987,8 @@ guard exists.
 
 ### Vault-First Phase 6: Existing Repository Onboarding
 
+Status: runtime behavior shipped in `v1257` / `#733`.
+
 Goal: move existing-repository connection onto the same vault/run/provider-state
 model.
 
@@ -1005,8 +1007,7 @@ Scope:
    Noter-managed repository creation
 
 Manual provider retry is intentionally parked until there is a concrete product
-need and a designed UX. Existing-repository onboarding is the next named phase
-after backend durability.
+need and a designed UX.
 
 ## Parked Follow-Up Work
 

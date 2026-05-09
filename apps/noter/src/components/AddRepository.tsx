@@ -21,7 +21,7 @@ import {
   type RepositorySearchMatch,
 } from "@/lib/repositorySearch";
 import { resolveDisplayedRepositories } from "@/lib/addRepositoryPicker";
-import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
+import { queueExistingRepositoryAndNavigateToDashboard } from "@/lib/existingRepositoryConnectHandoff";
 
 type Repository = FunctionReturnType<
   typeof api.github.listRepositories
@@ -261,12 +261,13 @@ export function AddRepository() {
       setConnectError(null);
       setConnectingRepositoryFullName(repositoryFullName);
       try {
-        await connectRepository({ repositoryFullName });
-        await navigate({
-          href: buildPathWithTanStackSearch({
-            pathname: "/",
-            search: location.search,
-          }),
+        await queueExistingRepositoryAndNavigateToDashboard({
+          connectRepository,
+          repositoryFullName,
+          search: location.search,
+          navigateByHref: async (href) => {
+            await navigate({ href });
+          },
         });
       } catch (connectRepositoryError) {
         setConnectError(
