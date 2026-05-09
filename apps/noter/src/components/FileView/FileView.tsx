@@ -77,6 +77,7 @@ import {
 } from "@/lib/legacyBranchlessRoute";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
+import { queueExistingRepositoryAndNavigateToDashboard } from "@/lib/existingRepositoryConnectHandoff";
 import {
   buildStagingPreviewRefreshKey,
   getBranchComparePreviewReloadMode,
@@ -290,10 +291,13 @@ function FileViewWrapper() {
       setIsConnectingRepository(true);
 
       try {
-        await connectRepository({
+        await queueExistingRepositoryAndNavigateToDashboard({
+          connectRepository,
+          navigateByHref,
           repositoryFullName,
+          replace: true,
+          search: location.search,
         });
-        navigateByHref(appendCurrentSearch("/"), { replace: true });
       } catch (connectRepositoryError) {
         setConnectRouteError(
           connectRepositoryError instanceof Error
@@ -306,8 +310,8 @@ function FileViewWrapper() {
     })();
   }, [
     connectRepository,
-    appendCurrentSearch,
     isConnectingRepository,
+    location.search,
     navigateByHref,
     repositoryFullName,
   ]);

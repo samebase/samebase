@@ -369,8 +369,6 @@ cleanup inside normal user flows.
 
 Phase 1 and Phase 2 runtime behavior shipped together in `v1257` / `#733`. Keep
 this checklist as the landed behavior contract, not as still-open runtime scope.
-The Testing Plan remains the coverage target; explicit route-level tests for the
-`/add` and direct file-route handoffs are still a hardening gap.
 
 ### Phase 1: Backend Workflow And Direct State
 
