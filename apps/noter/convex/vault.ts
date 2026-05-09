@@ -25,9 +25,16 @@ import { cloudflareStateValidator } from "./cloudflareState";
 import {
   assertConnectedVault,
   isConnectedVault,
+  isLiveConnectedVault,
   isNoterManagedVault,
   type NoterManagedConnectedVault,
 } from "./vaultState";
+import { VaultDeletionStep } from "./vaultDeletionModel";
+import { readVaultDeletionEligibility } from "./vaultDeletionEligibility";
+import {
+  isVaultDeletingOrDeleteFailed,
+  readVaultDeletionState,
+} from "./vaultDeletionState";
 import {
   doesTreeRefreshClaimMatch,
   getLastRepositoryMetadataRefreshAt,
@@ -102,12 +109,44 @@ const providerSetupSummary = union(
     updatedAt: number(),
   }),
 );
+const vaultDeletionSummary = union(
+  object({
+    state: literal("not_deleting"),
+    deleteAction: union(
+      object({
+        state: literal("available"),
+      }),
+      object({
+        state: literal("disabled"),
+        reason: string(),
+      }),
+    ),
+  }),
+  object({
+    state: literal("deleting"),
+    runId: id("vaultDeletionRuns"),
+    requestedAt: number(),
+    currentStep: VaultDeletionStep,
+    message: string(),
+    updatedAt: number(),
+  }),
+  object({
+    state: literal("delete_failed"),
+    runId: id("vaultDeletionRuns"),
+    failedAt: number(),
+    currentStep: VaultDeletionStep,
+    message: string(),
+    lastError: string(),
+    updatedAt: number(),
+  }),
+);
 
 type CloudflarePreviewMetadata = Infer<
   typeof cloudflarePreviewMetadataValidator
 >;
 type SourceSetupSummary = Infer<typeof sourceSetupSummary>;
 type ProviderSetupSummary = Infer<typeof providerSetupSummary>;
+type VaultDeletionSummary = Infer<typeof vaultDeletionSummary>;
 type SourceSetupVault = Extract<
   Doc<"vaults">,
   { githubMode: "create_repository" | "connect_existing_repository" }
@@ -265,6 +304,76 @@ async function readRunningProviderRunSummary(
     step: run.currentStep,
     updatedAt: run.updatedAt,
   };
+}
+
+async function readLatestDeletionEvent(
+  ctx: Pick<QueryCtx, "db">,
+  runId: Id<"vaultDeletionRuns">,
+): Promise<Doc<"vaultDeletionEvents"> | null> {
+  return await ctx.db
+    .query("vaultDeletionEvents")
+    .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
+    .order("desc")
+    .first();
+}
+
+async function resolveVaultDeletionSummary(
+  ctx: Pick<QueryCtx, "db">,
+  vault: Doc<"vaults">,
+): Promise<VaultDeletionSummary> {
+  const deletion = readVaultDeletionState(vault);
+  switch (deletion.state) {
+    case "not_deleting": {
+      const eligibility = await readVaultDeletionEligibility(ctx, vault);
+      return {
+        state: "not_deleting",
+        deleteAction:
+          eligibility.state === "eligible"
+            ? { state: "available" }
+            : {
+                state: "disabled",
+                reason: eligibility.reason,
+              },
+      };
+    }
+    case "deleting": {
+      const [run, latestEvent] = await Promise.all([
+        ctx.db.get(deletion.runId),
+        readLatestDeletionEvent(ctx, deletion.runId),
+      ]);
+      return {
+        state: "deleting",
+        runId: deletion.runId,
+        requestedAt: deletion.requestedAt,
+        currentStep: run?.currentStep ?? "initialize_deletion",
+        message: latestEvent?.message ?? "Deleting vault.",
+        updatedAt:
+          run?.updatedAt ?? latestEvent?.createdAt ?? deletion.requestedAt,
+      };
+    }
+    case "delete_failed": {
+      const [run, latestEvent] = await Promise.all([
+        ctx.db.get(deletion.runId),
+        readLatestDeletionEvent(ctx, deletion.runId),
+      ]);
+      const lastError =
+        run?.state === "failed" ? run.lastError : "Vault deletion failed.";
+      return {
+        state: "delete_failed",
+        runId: deletion.runId,
+        failedAt: deletion.failedAt,
+        currentStep: run?.currentStep ?? "initialize_deletion",
+        message: latestEvent?.message ?? lastError,
+        lastError,
+        updatedAt:
+          run?.updatedAt ?? latestEvent?.createdAt ?? deletion.failedAt,
+      };
+    }
+    default: {
+      deletion satisfies never;
+      throw new Error("Unknown vault deletion state.");
+    }
+  }
 }
 
 async function readActiveVaultInfrastructureOwnership(
@@ -573,6 +682,9 @@ export const setVaultBranchFilters = mutation({
     if (!vault || vault.userId !== userId) {
       throw new Error("Vault not found");
     }
+    if (isVaultDeletingOrDeleteFailed(vault)) {
+      throw new Error("Vault deletion is in progress.");
+    }
 
     const existing = await ctx.db
       .query("vaultBranchFilters")
@@ -771,6 +883,9 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
     if (!vault || vault.userId !== args.userId) {
       throw new Error("Vault not found");
     }
+    if (isVaultDeletingOrDeleteFailed(vault)) {
+      return null;
+    }
 
     // GitHub repository id stays stable across owner/name renames.
     const existingVault = await ctx.db
@@ -924,6 +1039,9 @@ export const connectNoterManagedVaultGitHub = internalMutation({
     if (!vault || vault.userId !== args.userId) {
       throw new Error("Vault not found");
     }
+    if (isVaultDeletingOrDeleteFailed(vault)) {
+      return null;
+    }
     if (isConnectedVault(vault)) {
       if (!isNoterManagedVault(vault)) {
         throw new Error(
@@ -984,6 +1102,9 @@ export const markGithubProvisioningFailed = internalMutation({
       return null;
     }
     const vault = await ctx.db.get(run.vaultId);
+    if (vault && isVaultDeletingOrDeleteFailed(vault)) {
+      return null;
+    }
     if (vault?.state !== "provisioning" || vault.runId !== args.runId) {
       return null;
     }
@@ -1034,6 +1155,7 @@ export const updateVaultDevcontainerConfig = internalMutation({
   },
   returns: nullValidator,
   handler: async (ctx, args) => {
+    assertConnectedVault(await ctx.db.get(args.vaultId));
     await ctx.db.patch(args.vaultId, {
       devcontainerConfig: args.devcontainerConfig,
     });
@@ -1246,6 +1368,7 @@ const getUserVaultsResult = array(
     state: union(literal("copying_files"), literal("ready"), literal("failed")),
     sourceSetup: sourceSetupSummary,
     providerSetup: providerSetupSummary,
+    deletion: vaultDeletionSummary,
     isNoterManaged: boolean(),
     hasConnectedGitHubRepository: boolean(),
     hasConvexProvision: boolean(),
@@ -1310,6 +1433,7 @@ export const getUserVaults = query({
       if (vault.state !== "provisioning" && vault.state !== "failed") {
         continue;
       }
+      const deletion = await resolveVaultDeletionSummary(ctx, vault);
       initializingVaultResults.push({
         _id: vault._id,
         _creationTime: vault._creationTime,
@@ -1331,6 +1455,7 @@ export const getUserVaults = query({
           vault,
         }),
         providerSetup: { status: "not_applicable" },
+        deletion,
         isNoterManaged: vault.githubMode === "create_repository",
         hasConnectedGitHubRepository: false,
         hasConvexProvision: false,
@@ -1346,6 +1471,40 @@ export const getUserVaults = query({
     // Get staging stats for each vault
     const vaultResults: UserVaultResult[] = await Promise.all(
       connectedVaults.map(async (vault) => {
+        const deletion = await resolveVaultDeletionSummary(ctx, vault);
+        if (deletion.state !== "not_deleting") {
+          return {
+            _id: vault._id,
+            _creationTime: vault._creationTime,
+            ghRepoOwner: vault.owner,
+            ghRepoName: vault.name,
+            repositoryFullName: `${vault.owner}/${vault.name}`,
+            commitSHA: undefined,
+            fileCount: 0,
+            lastEditTime: undefined,
+            lastTreeRefreshAt: vault.lastTreeRefreshAt,
+            treeRefreshStartedAt: vault.treeRefreshStartedAt,
+            lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
+            treeRefreshFailureKind: vault.treeRefreshFailureKind,
+            treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
+            treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
+            state:
+              deletion.state === "delete_failed" ? "failed" : "copying_files",
+            sourceSetup: { status: "not_applicable" },
+            providerSetup: { status: "not_applicable" },
+            deletion,
+            isNoterManaged: isNoterManagedVault(vault),
+            hasConnectedGitHubRepository: true,
+            hasConvexProvision: vault.convex.state === "connected",
+            hasCloudflareProvision: vault.cloudflare.state === "connected",
+            remoteBranches: [],
+            cloudflareProductionUrl: undefined,
+            cloudflareProjectDashboardUrl: undefined,
+            convexProjectSettingsDashboardUrl: undefined,
+            convexDeploymentDashboardUrl: undefined,
+          };
+        }
+
         const [stagingData, remoteBranches, defaultBranchTree] =
           await Promise.all([
             ctx.db
@@ -1413,6 +1572,7 @@ export const getUserVaults = query({
           state: hasUsableDefaultBranchTree ? "ready" : "copying_files",
           sourceSetup,
           providerSetup,
+          deletion,
           isNoterManaged: isNoterManagedVault(vault),
           hasConnectedGitHubRepository: true,
           hasConvexProvision,
@@ -1477,7 +1637,11 @@ export const getUserVaults = query({
     return [...vaultResults, ...initializingVaultResults].sort((a, b) => {
       const aTime = a.lastEditTime ?? a._creationTime;
       const bTime = b.lastEditTime ?? b._creationTime;
-      return bTime - aTime;
+      return (
+        bTime - aTime ||
+        a.repositoryFullName.localeCompare(b.repositoryFullName) ||
+        a._id.localeCompare(b._id)
+      );
     });
   },
 });
@@ -1530,7 +1694,7 @@ export const getVaultRemoteBranches = query({
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== userId) {
+    if (!vault || vault.userId !== userId || !isLiveConnectedVault(vault)) {
       return [];
     }
 
@@ -1613,7 +1777,7 @@ export const syncVaultRemoteBranches = internalMutation({
   returns: nullValidator,
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault) {
+    if (!vault || isVaultDeletingOrDeleteFailed(vault)) {
       return null;
     }
 
@@ -1800,6 +1964,11 @@ export const syncVaultRemoteBranchCloudflarePreviews = internalMutation({
   },
   returns: nullValidator,
   handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || isVaultDeletingOrDeleteFailed(vault)) {
+      return null;
+    }
+
     const existing = await ctx.db
       .query("vaultRemoteBranches")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
@@ -1873,6 +2042,11 @@ export const upsertVaultBranchTree = internalMutation({
   },
   returns: nullValidator,
   handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || isVaultDeletingOrDeleteFailed(vault)) {
+      return null;
+    }
+
     const now = Date.now();
     const existing = await ctx.db
       .query("vaultBranchTrees")
@@ -1947,7 +2121,7 @@ async function getVaultByRepositoryHelper(
     .filter((q) => q.eq(q.field("userId"), args.userId))
     .first();
 
-  if (!isConnectedVault(vault)) {
+  if (!isLiveConnectedVault(vault)) {
     return null;
   }
 
@@ -2099,7 +2273,7 @@ export const getVaultInfrastructure = query({
     if (!vault || vault.userId !== userId) {
       return null;
     }
-    if (!isConnectedVault(vault)) {
+    if (!isLiveConnectedVault(vault)) {
       return null;
     }
 
@@ -2198,7 +2372,9 @@ export const claimTreeRefresh = internalMutation({
     reason?: "cooldown" | "recent_success" | "in_progress";
   }> => {
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault) return { claimed: false };
+    if (!vault || isVaultDeletingOrDeleteFailed(vault)) {
+      return { claimed: false };
+    }
 
     const now = Date.now();
     const debounceMs =
@@ -2243,7 +2419,7 @@ export const startTreeRefreshOptimistic = mutation({
   args: { vaultId: v.id("vaults") },
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault) return;
+    if (!vault || isVaultDeletingOrDeleteFailed(vault)) return;
 
     // Optimistically set the refresh started timestamp
     await ctx.db.patch(args.vaultId, { treeRefreshStartedAt: Date.now() });
@@ -2266,7 +2442,7 @@ export const releaseTreeRefresh = internalMutation({
   }),
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault) {
+    if (!vault || isVaultDeletingOrDeleteFailed(vault)) {
       return { released: false };
     }
 
@@ -2340,7 +2516,7 @@ export const recordTreeRefreshFailure = internalMutation({
   returns: nullValidator,
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault) {
+    if (!vault || isVaultDeletingOrDeleteFailed(vault)) {
       return null;
     }
     // Ignore stale fallback failures once another refresh claim has taken over.

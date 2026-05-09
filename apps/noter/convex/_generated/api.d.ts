@@ -90,6 +90,7 @@ import type * as users from "../users.js";
 import type * as vault from "../vault.js";
 import type * as vaultActions from "../vaultActions.js";
 import type * as vaultDeletionCleanup from "../vaultDeletionCleanup.js";
+import type * as vaultDeletionEligibility from "../vaultDeletionEligibility.js";
 import type * as vaultDeletionEvents from "../vaultDeletionEvents.js";
 import type * as vaultDeletionModel from "../vaultDeletionModel.js";
 import type * as vaultDeletionRuns from "../vaultDeletionRuns.js";
@@ -192,6 +193,7 @@ declare const fullApi: ApiFromModules<{
   vault: typeof vault;
   vaultActions: typeof vaultActions;
   vaultDeletionCleanup: typeof vaultDeletionCleanup;
+  vaultDeletionEligibility: typeof vaultDeletionEligibility;
   vaultDeletionEvents: typeof vaultDeletionEvents;
   vaultDeletionModel: typeof vaultDeletionModel;
   vaultDeletionRuns: typeof vaultDeletionRuns;

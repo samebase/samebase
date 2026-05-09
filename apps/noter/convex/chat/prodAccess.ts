@@ -2,6 +2,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { getConnectionByUserAndKind } from "../providerConnections";
 import { isAdminUser } from "../users";
+import { assertConnectedVault } from "../vaultState";
 
 type ProdReadAccessArgs = {
   requesterUserId: Id<"users">;
@@ -45,6 +46,7 @@ export async function assertProdReadAccess(
     if (!vault || vault.userId !== args.requesterUserId) {
       throw new Error("Vault not found");
     }
+    assertConnectedVault(vault);
     return { user, vault };
   }
 

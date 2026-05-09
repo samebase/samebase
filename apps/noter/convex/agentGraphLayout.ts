@@ -1,6 +1,7 @@
 import { Infer, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { assertConnectedVault, isLiveConnectedVault } from "./vaultState";
 
 const { id, array, object, string, number, null: vNull } = v;
 
@@ -36,6 +37,10 @@ export const getNodeLayouts = query({
     if (!userId) {
       return [];
     }
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || vault.userId !== userId || !isLiveConnectedVault(vault)) {
+      return [];
+    }
 
     const layouts = await ctx.db
       .query("agentGraphNodeLayout")
@@ -60,6 +65,11 @@ export const setNodeLayout = mutation({
     if (!userId) {
       throw new Error("User not authenticated");
     }
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || vault.userId !== userId) {
+      throw new Error("Vault not found");
+    }
+    assertConnectedVault(vault);
 
     const existing = await ctx.db
       .query("agentGraphNodeLayout")

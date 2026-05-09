@@ -1,6 +1,6 @@
 import { Infer, v } from "convex/values";
 import { internalQuery } from "../_generated/server";
-import { isConnectedVault } from "../vaultState";
+import { isLiveConnectedVault } from "../vaultState";
 
 const { array, boolean, id, literal, object, optional, string, union } = v;
 
@@ -33,7 +33,7 @@ export const listVaultsForUser = internalQuery({
       .collect();
 
     return await Promise.all(
-      vaults.filter(isConnectedVault).map(async (vault) => {
+      vaults.filter(isLiveConnectedVault).map(async (vault) => {
         const defaultBranchTree = await ctx.db
           .query("vaultBranchTrees")
           .withIndex("by_vault_and_branch", (q) =>

@@ -12,6 +12,7 @@ import {
   VaultDeletionStep,
   type VaultDeletionRetainedSnapshot,
 } from "./vaultDeletionModel";
+import { readVaultDeletionEligibility } from "./vaultDeletionEligibility";
 import { isConnectedVault, isNoterManagedVault } from "./vaultState";
 import { readVaultDeletionState } from "./vaultDeletionState";
 
@@ -89,75 +90,13 @@ async function getVaultInfrastructure(
     .first();
 }
 
-async function assertNoActiveProvisioningRuns(
-  ctx: MutationCtx,
-  vaultId: Id<"vaults">,
-): Promise<void> {
-  const queuedRun = await ctx.db
-    .query("appProvisioningRuns")
-    .withIndex("by_vault_and_state", (q) =>
-      q.eq("vaultId", vaultId).eq("state", "queued"),
-    )
-    .first();
-  if (queuedRun) {
-    throw new Error("Vault setup is still queued.");
-  }
-
-  const runningRun = await ctx.db
-    .query("appProvisioningRuns")
-    .withIndex("by_vault_and_state", (q) =>
-      q.eq("vaultId", vaultId).eq("state", "running"),
-    )
-    .first();
-  if (runningRun) {
-    throw new Error("Vault setup is still running.");
-  }
-}
-
-async function assertNoActiveInfrastructureOwner(
-  ctx: MutationCtx,
-  vaultId: Id<"vaults">,
-): Promise<void> {
-  const activeOwner = await ctx.db
-    .query("vaultInfrastructureOwnership")
-    .withIndex("by_vault_and_state", (q) =>
-      q.eq("vaultId", vaultId).eq("state", "active"),
-    )
-    .first();
-  if (activeOwner) {
-    throw new Error("Vault infrastructure provisioning is still running.");
-  }
-}
-
 async function assertVaultIsQuiescentForDeletion(
   ctx: MutationCtx,
   vault: Doc<"vaults">,
 ): Promise<void> {
-  const deletion = readVaultDeletionState(vault);
-  if (deletion.state !== "not_deleting") {
-    throw new Error("Vault deletion is already in progress.");
-  }
-  if (vault.state === "not_connected") {
-    throw new Error("Vault is not ready to delete yet.");
-  }
-  if (vault.state === "provisioning") {
-    throw new Error("Vault source setup is still running.");
-  }
-  if (vault.state === "connected") {
-    if (vault.convex.state === "provisioning") {
-      throw new Error("Vault Convex provisioning is still running.");
-    }
-    if (vault.cloudflare.state === "provisioning") {
-      throw new Error("Vault Cloudflare provisioning is still running.");
-    }
-  }
-
-  await assertNoActiveProvisioningRuns(ctx, vault._id);
-  await assertNoActiveInfrastructureOwner(ctx, vault._id);
-
-  const infrastructure = await getVaultInfrastructure(ctx, vault._id);
-  if (infrastructure?.status === "provisioning") {
-    throw new Error("Vault infrastructure provisioning is still running.");
+  const eligibility = await readVaultDeletionEligibility(ctx, vault);
+  if (eligibility.state === "blocked") {
+    throw new Error(eligibility.reason);
   }
 }
 

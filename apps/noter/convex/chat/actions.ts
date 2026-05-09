@@ -17,7 +17,7 @@ import {
   buildProdReadResultPayload,
   buildToolActivityPayload,
 } from "./metadata";
-import { isConnectedVault, type ConnectedVault } from "../vaultState";
+import { isLiveConnectedVault, type ConnectedVault } from "../vaultState";
 
 const MODEL = "claude-sonnet-4-20250514";
 
@@ -110,7 +110,7 @@ export const generateResponse = internalAction({
       const v = await ctx.runQuery(internal.vault.getById, {
         id: threadContext.vaultId,
       });
-      if (isConnectedVault(v)) {
+      if (isLiveConnectedVault(v)) {
         vault = v;
         const githubConnection = await ctx.runQuery(
           internal.providerConnections.getByUserAndKind,

@@ -4,6 +4,7 @@ import { Infer, v } from "convex/values";
 import { action, type ActionCtx } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { Octokit } from "@octokit/rest";
+import { RequestError } from "@octokit/request-error";
 import { getUserId } from "../common";
 import { Id } from "../_generated/dataModel";
 import { resolveDeploymentProfile } from "../deploymentProfile";
@@ -24,6 +25,22 @@ async function getGithubAccessToken(
     throw new Error("GitHub is not connected");
   }
   return connection.auth.credential;
+}
+
+async function assertCodespaceVaultIsLive(
+  ctx: ActionCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    userId: Id<"users">;
+  },
+): Promise<void> {
+  const vault = await ctx.runQuery(internal.codespaces.mutations.getVault, {
+    vaultId: args.vaultId,
+  });
+  if (!vault || vault.userId !== args.userId) {
+    throw new Error("Vault not found");
+  }
+  assertConnectedVault(vault);
 }
 
 function inferCodespaceDisplayEnvLabel(): "prod" | "dev" {
@@ -246,6 +263,10 @@ export const getCodespaceConnection = action({
     if (!codespace || codespace.userId !== userId) {
       throw new Error("Codespace not found");
     }
+    await assertCodespaceVaultIsLive(ctx, {
+      vaultId: codespace.vaultId,
+      userId,
+    });
 
     if (!codespace.webUrl || !codespace.agentUrl || !codespace.agentToken) {
       throw new Error("Codespace connection details not available");
@@ -279,6 +300,10 @@ export const startCodespace = action({
     if (!codespace || codespace.userId !== userId) {
       throw new Error("Codespace not found");
     }
+    await assertCodespaceVaultIsLive(ctx, {
+      vaultId: codespace.vaultId,
+      userId,
+    });
 
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
@@ -348,6 +373,10 @@ export const stopCodespace = action({
     if (!codespace || codespace.userId !== userId) {
       throw new Error("Codespace not found");
     }
+    await assertCodespaceVaultIsLive(ctx, {
+      vaultId: codespace.vaultId,
+      userId,
+    });
 
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
@@ -390,6 +419,10 @@ export const deleteCodespace = action({
     if (!codespace || codespace.userId !== userId) {
       throw new Error("Codespace not found");
     }
+    await assertCodespaceVaultIsLive(ctx, {
+      vaultId: codespace.vaultId,
+      userId,
+    });
 
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
@@ -516,14 +549,7 @@ async function pollCodespaceState(
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const isNotFoundError = (error: unknown): error is Error => {
-  if (!(error instanceof Error) || typeof error.message !== "string") {
-    return false;
-  }
-  const status =
-    typeof (error as { status?: number }).status === "number"
-      ? (error as { status?: number }).status
-      : undefined;
-  return status === 404 || error.message.includes("Not Found");
+  return error instanceof RequestError && error.status === 404;
 };
 
 const formatError = (error: unknown) =>

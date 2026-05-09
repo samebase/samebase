@@ -70,6 +70,12 @@ export const createThread = mutation({
     const userId = await getUserId(ctx);
 
     if (args.vaultId) {
+      const vault = await ctx.db.get(args.vaultId);
+      if (!vault || vault.userId !== userId) {
+        throw new Error("Vault not found");
+      }
+      assertConnectedVault(vault);
+
       const existing = await ctx.db
         .query("agentThreadContext")
         .withIndex("by_userId_and_vaultId", (q) =>

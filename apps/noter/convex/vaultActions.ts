@@ -7,7 +7,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "./common";
 import { toErrorMessage } from "./jsonUtils";
-import { isConnectedVault, isNoterManagedVault } from "./vaultState";
+import { isLiveConnectedVault, isNoterManagedVault } from "./vaultState";
 import { toSafeRepoName } from "./repoName";
 
 const { array, literal, object, optional, string, union } = v;
@@ -382,7 +382,7 @@ export const retryInfrastructureProvisioning = action({
     if (!vault || vault.userId !== userId) {
       throw new Error("Vault not found");
     }
-    if (!isConnectedVault(vault) || !isNoterManagedVault(vault)) {
+    if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
       throw new Error(
         "Infrastructure retry is available only for Noter-managed vaults",
       );

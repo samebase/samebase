@@ -209,6 +209,15 @@ export type VaultDeleteDialogTarget = {
 type VaultDeleteIntent = VaultDeleteDialogTarget & {
   id: Id<"vaults">;
 };
+type VaultDashboardDeletion = VaultDashboardVault["deletion"];
+type VaultDashboardDeleteAction = Extract<
+  VaultDashboardDeletion,
+  { state: "not_deleting" }
+>["deleteAction"];
+type VaultDashboardDeletionStep = Extract<
+  VaultDashboardDeletion,
+  { state: "deleting" | "delete_failed" }
+>["currentStep"];
 
 function formatProviderSetupDeveloperLabel(
   providerSetup: VaultDashboardProviderSetup,
@@ -256,6 +265,7 @@ type VaultDashboardLocalState = {
   removeConvexProvision: boolean;
   removeGithubRepo: boolean;
   removeCloudflareProvision: boolean;
+  retryingDeletionRunId: Id<"vaultDeletionRuns"> | null;
   selectedGithubRepositoryOwner: string;
   shouldAutoFocusChatInput: boolean;
 };
@@ -288,6 +298,7 @@ function readVaultDashboardInitialLocalState(): VaultDashboardLocalState {
     removeConvexProvision: false,
     removeGithubRepo: false,
     removeCloudflareProvision: false,
+    retryingDeletionRunId: null,
     selectedGithubRepositoryOwner: "",
     shouldAutoFocusChatInput: false,
   };
@@ -425,6 +436,11 @@ function useVaultDashboardLocalStore() {
       setIsDeleting: (isDeleting: boolean) => {
         setState((state) => ({ ...state, isDeleting }));
       },
+      setRetryingDeletionRunId: (
+        retryingDeletionRunId: Id<"vaultDeletionRuns"> | null,
+      ) => {
+        setState((state) => ({ ...state, retryingDeletionRunId }));
+      },
       setIsLoadingGithubRepositoryOwners: (
         isLoadingGithubRepositoryOwners: boolean,
       ) => {
@@ -454,6 +470,13 @@ function useVaultDashboardLocalStore() {
 }
 
 function buildVaultDeleteIntent(vault: VaultDashboardVault): VaultDeleteIntent {
+  if (
+    vault.deletion.state !== "not_deleting" ||
+    vault.deletion.deleteAction.state !== "available"
+  ) {
+    throw new Error("Vault cannot open the delete dialog.");
+  }
+
   return {
     id: vault._id,
     repositoryFullName: vault.repositoryFullName,
@@ -484,13 +507,18 @@ const DashboardLinkIconSlot = ({
 );
 
 export function VaultDashboardDeleteControl({
+  deleteAction,
   isRemovingVault = false,
   repositoryFullName,
 }: {
+  deleteAction: VaultDashboardDeleteAction;
   isRemovingVault?: boolean;
   repositoryFullName: string;
 }) {
-  const deleteTriggerDisabled = isRemovingVault;
+  const deleteTriggerDisabled =
+    isRemovingVault || deleteAction.state === "disabled";
+  const title =
+    deleteAction.state === "disabled" ? deleteAction.reason : "Remove vault";
 
   return (
     <span className="absolute right-4 top-4">
@@ -501,7 +529,7 @@ export function VaultDashboardDeleteControl({
           delete: repositoryFullName,
         })}
         aria-label={`Remove vault ${repositoryFullName}`}
-        title="Remove vault"
+        title={title}
         aria-disabled={deleteTriggerDisabled ? true : undefined}
         tabIndex={deleteTriggerDisabled ? -1 : undefined}
         onClick={(event) => {
@@ -1915,9 +1943,72 @@ export function VaultProviderSetupSection({
   );
 }
 
+function formatVaultDeletionStep(step: VaultDashboardDeletionStep): string {
+  return step.replace(/_/g, " ");
+}
+
+export function VaultDeletionStatusSection({
+  deletion,
+  isRetrying,
+  onRetry,
+}: {
+  deletion: Extract<
+    VaultDashboardDeletion,
+    { state: "deleting" | "delete_failed" }
+  >;
+  isRetrying: boolean;
+  onRetry: (runId: Id<"vaultDeletionRuns">) => void;
+}) {
+  const stepLabel = formatVaultDeletionStep(deletion.currentStep);
+  if (deletion.state === "deleting") {
+    return (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <UpdateIcon className="h-3 w-3 shrink-0 animate-spin" />
+        <span>{deletion.message || `Deleting vault: ${stepLabel}`}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs">
+      <span className="min-w-0 flex-1 text-destructive [overflow-wrap:anywhere]">
+        {deletion.lastError ||
+          deletion.message ||
+          `Delete failed during ${stepLabel}.`}
+      </span>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          onRetry(deletion.runId);
+        }}
+        disabled={isRetrying}
+      >
+        {isRetrying ? (
+          <>
+            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+            Retrying...
+          </>
+        ) : (
+          <>
+            <UpdateIcon className="mr-1 h-3.5 w-3.5" />
+            Retry
+          </>
+        )}
+      </Button>
+    </div>
+  );
+}
+
+export function VaultDeleteBlockedSection({ reason }: { reason: string }) {
+  return <div className="text-xs text-muted-foreground">{reason}</div>;
+}
+
 type VaultDashboardBodyProps = {
   developerToolsVisible: boolean;
   isRemovingVault: boolean;
+  retryingDeletionRunId: Id<"vaultDeletionRuns"> | null;
   now: number;
   themeColorSearch: AppThemeColorSearch;
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
@@ -1926,6 +2017,7 @@ type VaultDashboardBodyProps = {
   vaults: VaultDashboardVault[];
   onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
   onRefreshVaultTree: (vault: DashboardManualRefreshVault) => void;
+  onRetryVaultDeletion: (runId: Id<"vaultDeletionRuns">) => void;
   onSaveVaultBranchFilters: (
     vaultId: Id<"vaults">,
     nextVaultBranchFilters: VaultBranchFiltersState,
@@ -1935,6 +2027,7 @@ type VaultDashboardBodyProps = {
 function VaultDashboardBody({
   developerToolsVisible,
   isRemovingVault,
+  retryingDeletionRunId,
   now,
   themeColorSearch,
   openDeveloperToolsByVaultId,
@@ -1943,6 +2036,7 @@ function VaultDashboardBody({
   vaults,
   onOpenDeveloperToolsChange,
   onRefreshVaultTree,
+  onRetryVaultDeletion,
   onSaveVaultBranchFilters,
 }: VaultDashboardBodyProps) {
   const deleteCardElementsRef = useRef(new Map<string, HTMLDivElement>());
@@ -1981,7 +2075,9 @@ function VaultDashboardBody({
   return (
     <VaultDashboardRepositoryList>
       {vaults.map((vault) => {
-        const isReady = vault.state === "ready";
+        const deletion = vault.deletion;
+        const isDeletingVault = deletion.state !== "not_deleting";
+        const isReady = vault.state === "ready" && !isDeletingVault;
         const remoteBranches = vault.remoteBranches;
         const vaultBranchFilters =
           persistedVaultBranchFiltersByVaultId.get(vault._id) ??
@@ -1993,23 +2089,26 @@ function VaultDashboardBody({
           (branch) => branch.isDefault,
         )?.name;
         const primaryBranch = defaultBranch || activeRemoteBranches[0]?.name;
-        const chatRoute = primaryBranch
-          ? buildVaultCodespaceChatRoute({
-              repositoryFullName: vault.repositoryFullName,
-              branch: primaryBranch,
-            })
-          : null;
+        const chatRoute =
+          primaryBranch && !isDeletingVault
+            ? buildVaultCodespaceChatRoute({
+                repositoryFullName: vault.repositoryFullName,
+                branch: primaryBranch,
+              })
+            : null;
         const githubRepositoryUrl = `https://github.com/${vault.ghRepoOwner}/${vault.ghRepoName}`;
         const developerToolsOpen =
           developerToolsVisible &&
           (openDeveloperToolsByVaultId[vault._id] ?? false);
-        const repositoryExternalLinks =
-          buildVaultDashboardRepositoryExternalLinks({
-            cloudflareProjectDashboardUrl: vault.cloudflareProjectDashboardUrl,
-            convexProjectSettingsDashboardUrl:
-              vault.convexProjectSettingsDashboardUrl,
-            githubRepositoryUrl,
-          });
+        const repositoryExternalLinks = isDeletingVault
+          ? []
+          : buildVaultDashboardRepositoryExternalLinks({
+              cloudflareProjectDashboardUrl:
+                vault.cloudflareProjectDashboardUrl,
+              convexProjectSettingsDashboardUrl:
+                vault.convexProjectSettingsDashboardUrl,
+              githubRepositoryUrl,
+            });
         const sharedLastSyncedAt = vault.lastTreeRefreshAt;
         const treeRefreshUiState = getTreeRefreshUiState({
           now,
@@ -2052,7 +2151,26 @@ function VaultDashboardBody({
               vaultId={vault._id}
             />
           ) : undefined;
-        const setupSection = sourceSetupSection ?? providerSetupSection;
+        const deleteBlockedSection =
+          !isDeletingVault &&
+          deleteRepositoryFullName === vault.repositoryFullName &&
+          deletion.deleteAction.state === "disabled" ? (
+            <VaultDeleteBlockedSection reason={deletion.deleteAction.reason} />
+          ) : undefined;
+        const deletionSection =
+          deletion.state === "deleting" ||
+          deletion.state === "delete_failed" ? (
+            <VaultDeletionStatusSection
+              deletion={deletion}
+              isRetrying={retryingDeletionRunId === deletion.runId}
+              onRetry={onRetryVaultDeletion}
+            />
+          ) : undefined;
+        const setupSection =
+          deletionSection ??
+          deleteBlockedSection ??
+          sourceSetupSection ??
+          providerSetupSection;
 
         return (
           <div
@@ -2086,7 +2204,18 @@ function VaultDashboardBody({
                 ) : undefined
               }
               titleSuffix={
-                vault.sourceSetup.status === "failed" ? (
+                deletion.state === "deleting" ? (
+                  <>
+                    <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+                    <span className="shrink-0 text-xs font-normal text-muted-foreground">
+                      (deleting...)
+                    </span>
+                  </>
+                ) : deletion.state === "delete_failed" ? (
+                  <span className="shrink-0 text-xs font-normal text-destructive">
+                    (delete failed)
+                  </span>
+                ) : vault.sourceSetup.status === "failed" ? (
                   <span className="shrink-0 text-xs font-normal text-destructive">
                     (setup failed)
                   </span>
@@ -2105,10 +2234,13 @@ function VaultDashboardBody({
               }
               setupSection={setupSection}
               topRightAction={
-                <VaultDashboardDeleteControl
-                  repositoryFullName={vault.repositoryFullName}
-                  isRemovingVault={isRemovingVault}
-                />
+                deletion.state === "not_deleting" ? (
+                  <VaultDashboardDeleteControl
+                    repositoryFullName={vault.repositoryFullName}
+                    deleteAction={deletion.deleteAction}
+                    isRemovingVault={isRemovingVault}
+                  />
+                ) : undefined
               }
               repositoryStatus={renderVaultDashboardRepositoryStatus({
                 isReady,
@@ -2226,6 +2358,7 @@ export function VaultDashboard() {
   const vaults = useQuery(api.vault.getUserVaults);
   const now = useNow();
   const deleteVault = useAction(api.vaultActions.deleteVault);
+  const retryDeleteVault = useAction(api.vaultActions.retryDeleteVault);
   const createRepository = useAction(api.vaultActions.createRepository);
   const listGithubRepositoryOwners = useAction(
     api.vaultActions.listRepositoryOwners,
@@ -2414,6 +2547,7 @@ export function VaultDashboard() {
     removeConvexProvision,
     removeGithubRepo,
     removeCloudflareProvision,
+    retryingDeletionRunId,
     selectedGithubRepositoryOwner,
     shouldAutoFocusChatInput,
   } = useSelector(dashboardLocalStore);
@@ -2442,6 +2576,7 @@ export function VaultDashboard() {
     setIsLoadingGithubRepositoryOwners,
     setIsSigningOut,
     setNewRepositoryName,
+    setRetryingDeletionRunId,
     setSelectedGithubRepositoryOwner,
   } = dashboardLocalStore.actions;
 
@@ -2475,9 +2610,13 @@ export function VaultDashboard() {
           (vault) => vault.repositoryFullName === deleteRepositoryFullName,
         ) ?? null)
       : null;
-  const vaultToDelete = deleteDialogVault
-    ? buildVaultDeleteIntent(deleteDialogVault)
-    : null;
+  const canOpenDeleteDialog =
+    deleteDialogVault?.deletion.state === "not_deleting" &&
+    deleteDialogVault.deletion.deleteAction.state === "available";
+  const vaultToDelete =
+    deleteDialogVault && canOpenDeleteDialog
+      ? buildVaultDeleteIntent(deleteDialogVault)
+      : null;
   const stagedChangesCount = deleteDialogVault?.fileCount ?? 0;
   const connectedCodespacesCount = useConvexQuery(
     api.codespaces.mutations.getConnectedCodespacesCount,
@@ -2526,7 +2665,7 @@ export function VaultDashboard() {
         preparedDeleteRepositoryRef.current = null;
         resetDeleteDialogState();
       }
-      if (deleteRepositoryFullName && vaults) {
+      if (deleteRepositoryFullName && vaults && !deleteDialogVault) {
         clearDeleteSearchParam({ preferHistoryBack: false });
       }
       return;
@@ -2547,6 +2686,7 @@ export function VaultDashboard() {
     deleteRepositoryFullName,
     prepareDeleteDialog,
     resetDeleteDialogState,
+    deleteDialogVault,
     vaultToDelete,
     vaults,
   ]);
@@ -2665,6 +2805,26 @@ export function VaultDashboard() {
       );
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleRetryVaultDeletion = async (runId: Id<"vaultDeletionRuns">) => {
+    if (retryingDeletionRunId) {
+      return;
+    }
+
+    setRetryingDeletionRunId(runId);
+    try {
+      await retryDeleteVault({ runId });
+    } catch (error) {
+      toast({
+        title: "Could not retry vault deletion",
+        description:
+          error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setRetryingDeletionRunId(null);
     }
   };
 
@@ -3170,6 +3330,7 @@ export function VaultDashboard() {
     <VaultDashboardBody
       developerToolsVisible={developerToolsVisible}
       isRemovingVault={isDeleting || isCommitting}
+      retryingDeletionRunId={retryingDeletionRunId}
       now={now}
       themeColorSearch={rootRouteSearch}
       openDeveloperToolsByVaultId={openDeveloperToolsByVaultId}
@@ -3180,6 +3341,9 @@ export function VaultDashboard() {
       vaults={vaults}
       onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
       onRefreshVaultTree={refreshVaultTreeFromStatusClick}
+      onRetryVaultDeletion={(runId) => {
+        void handleRetryVaultDeletion(runId);
+      }}
       onSaveVaultBranchFilters={handleVaultBranchFiltersChange}
     />
   );

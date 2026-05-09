@@ -157,7 +157,12 @@ function FixtureRepositoryLinks() {
 }
 
 function FixtureDeleteControl() {
-  return <VaultDashboardDeleteControl repositoryFullName="noter-md/noter" />;
+  return (
+    <VaultDashboardDeleteControl
+      repositoryFullName="noter-md/noter"
+      deleteAction={{ state: "available" }}
+    />
+  );
 }
 
 const fixtureDeleteDialogTarget = {
