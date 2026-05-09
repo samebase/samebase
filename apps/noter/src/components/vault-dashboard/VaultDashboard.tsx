@@ -539,7 +539,7 @@ export function VaultDashboardDeleteControl({
         }}
         className={clsx(
           buttonVariants({ variant: "destructive", size: "icon-sm" }),
-          deleteTriggerDisabled && "pointer-events-none opacity-50",
+          deleteTriggerDisabled && "cursor-not-allowed opacity-50",
         )}
       >
         <TrashIcon className="h-4 w-4" aria-hidden="true" />

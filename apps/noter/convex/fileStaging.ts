@@ -399,6 +399,13 @@ async function readDeletionSnapshotSeed(
   });
 }
 
+/**
+ * Gate staging writes behind the live connected-vault invariant.
+ *
+ * This throws through assertConnectedVault when the vault is missing,
+ * disconnected, deleting, or delete_failed, so staging mutations do not drift
+ * from the rest of the vault write gates.
+ */
 async function assertVaultAllowsStagingWrites(
   ctx: MutationCtx,
   vaultId: Infer<typeof vaultIdValidator>,
