@@ -4,21 +4,28 @@ import type { Id } from "./_generated/dataModel";
 
 const { id, literal, number, object, union } = v;
 
-const vaultLocalCleanupTable = union(
+const deleteOnlyByVaultCleanupTables = union(
   literal("vaultBranchFilters"),
   literal("fileStaging"),
   literal("collaborativeUpdates"),
-  literal("blobs"),
   literal("folderExpansionState"),
   literal("vaultRemoteBranches"),
-  literal("vaultBranchTrees"),
   literal("vaultDomains"),
   literal("vaultInfrastructure"),
   literal("vaultInfrastructureOwnership"),
   literal("codespaces"),
   literal("agentGraphNodeLayout"),
-  literal("aiProdAccessRequests"),
   literal("agentThreadContext"),
+);
+type DeleteOnlyByVaultCleanupTable = Infer<
+  typeof deleteOnlyByVaultCleanupTables
+>;
+
+const vaultLocalCleanupTable = union(
+  deleteOnlyByVaultCleanupTables,
+  literal("blobs"),
+  literal("vaultBranchTrees"),
+  literal("aiProdAccessRequests"),
   literal("appProvisioningEvents"),
   literal("appProvisioningRuns"),
 );
@@ -50,46 +57,24 @@ type VaultLocalCleanupHandler = (
   args: VaultLocalCleanupArgs,
 ) => Promise<number>;
 
-async function deleteVaultBranchFiltersBatch(
-  ctx: VaultLocalCleanupCtx,
-  args: VaultLocalCleanupArgs,
-): Promise<number> {
-  const rows = await ctx.db
-    .query("vaultBranchFilters")
-    .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-    .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
-  for (const row of rows) {
-    await ctx.db.delete(row._id);
-  }
-  return rows.length;
-}
+function deleteByVaultBatch(
+  tableName: DeleteOnlyByVaultCleanupTable,
+): VaultLocalCleanupHandler {
+  return async function deleteByVault(
+    ctx: VaultLocalCleanupCtx,
+    args: VaultLocalCleanupArgs,
+  ): Promise<number> {
+    const rows = await ctx.db
+      .query(tableName)
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
 
-async function deleteFileStagingBatch(
-  ctx: VaultLocalCleanupCtx,
-  args: VaultLocalCleanupArgs,
-): Promise<number> {
-  const rows = await ctx.db
-    .query("fileStaging")
-    .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-    .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
-  for (const row of rows) {
-    await ctx.db.delete(row._id);
-  }
-  return rows.length;
-}
+    for (const row of rows) {
+      await ctx.db.delete(row._id);
+    }
 
-async function deleteCollaborativeUpdatesBatch(
-  ctx: VaultLocalCleanupCtx,
-  args: VaultLocalCleanupArgs,
-): Promise<number> {
-  const rows = await ctx.db
-    .query("collaborativeUpdates")
-    .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-    .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
-  for (const row of rows) {
-    await ctx.db.delete(row._id);
-  }
-  return rows.length;
+    return rows.length;
+  };
 }
 
 async function deleteBlobsBatch(
@@ -109,34 +94,6 @@ async function deleteBlobsBatch(
   return rows.length;
 }
 
-async function deleteFolderExpansionStateBatch(
-  ctx: VaultLocalCleanupCtx,
-  args: VaultLocalCleanupArgs,
-): Promise<number> {
-  const rows = await ctx.db
-    .query("folderExpansionState")
-    .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-    .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
-  for (const row of rows) {
-    await ctx.db.delete(row._id);
-  }
-  return rows.length;
-}
-
-async function deleteVaultRemoteBranchesBatch(
-  ctx: VaultLocalCleanupCtx,
-  args: VaultLocalCleanupArgs,
-): Promise<number> {
-  const rows = await ctx.db
-    .query("vaultRemoteBranches")
-    .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-    .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
-  for (const row of rows) {
-    await ctx.db.delete(row._id);
-  }
-  return rows.length;
-}
-
 async function deleteVaultBranchTreesBatch(
   ctx: VaultLocalCleanupCtx,
   args: VaultLocalCleanupArgs,
@@ -144,76 +101,6 @@ async function deleteVaultBranchTreesBatch(
   const rows = await ctx.db
     .query("vaultBranchTrees")
     .withIndex("by_vault_and_branch", (q) => q.eq("vaultId", args.vaultId))
-    .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
-  for (const row of rows) {
-    await ctx.db.delete(row._id);
-  }
-  return rows.length;
-}
-
-async function deleteVaultDomainsBatch(
-  ctx: VaultLocalCleanupCtx,
-  args: VaultLocalCleanupArgs,
-): Promise<number> {
-  const rows = await ctx.db
-    .query("vaultDomains")
-    .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-    .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
-  for (const row of rows) {
-    await ctx.db.delete(row._id);
-  }
-  return rows.length;
-}
-
-async function deleteVaultInfrastructureBatch(
-  ctx: VaultLocalCleanupCtx,
-  args: VaultLocalCleanupArgs,
-): Promise<number> {
-  const rows = await ctx.db
-    .query("vaultInfrastructure")
-    .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-    .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
-  for (const row of rows) {
-    await ctx.db.delete(row._id);
-  }
-  return rows.length;
-}
-
-async function deleteVaultInfrastructureOwnershipBatch(
-  ctx: VaultLocalCleanupCtx,
-  args: VaultLocalCleanupArgs,
-): Promise<number> {
-  const rows = await ctx.db
-    .query("vaultInfrastructureOwnership")
-    .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-    .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
-  for (const row of rows) {
-    await ctx.db.delete(row._id);
-  }
-  return rows.length;
-}
-
-async function deleteCodespacesBatch(
-  ctx: VaultLocalCleanupCtx,
-  args: VaultLocalCleanupArgs,
-): Promise<number> {
-  const rows = await ctx.db
-    .query("codespaces")
-    .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-    .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
-  for (const row of rows) {
-    await ctx.db.delete(row._id);
-  }
-  return rows.length;
-}
-
-async function deleteAgentGraphNodeLayoutBatch(
-  ctx: VaultLocalCleanupCtx,
-  args: VaultLocalCleanupArgs,
-): Promise<number> {
-  const rows = await ctx.db
-    .query("agentGraphNodeLayout")
-    .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
     .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
   for (const row of rows) {
     await ctx.db.delete(row._id);
@@ -241,20 +128,6 @@ async function patchAiProdAccessRequestsBatch(
           ? "Vault was deleted before production access was used."
           : row.error,
     });
-  }
-  return rows.length;
-}
-
-async function deleteAgentThreadContextBatch(
-  ctx: VaultLocalCleanupCtx,
-  args: VaultLocalCleanupArgs,
-): Promise<number> {
-  const rows = await ctx.db
-    .query("agentThreadContext")
-    .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-    .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
-  for (const row of rows) {
-    await ctx.db.delete(row._id);
   }
   return rows.length;
 }
@@ -290,15 +163,15 @@ async function deleteAppProvisioningRunsBatch(
 const vaultLocalCleanupRegistry = [
   {
     table: "vaultBranchFilters",
-    cleanup: deleteVaultBranchFiltersBatch,
+    cleanup: deleteByVaultBatch("vaultBranchFilters"),
   },
   {
     table: "fileStaging",
-    cleanup: deleteFileStagingBatch,
+    cleanup: deleteByVaultBatch("fileStaging"),
   },
   {
     table: "collaborativeUpdates",
-    cleanup: deleteCollaborativeUpdatesBatch,
+    cleanup: deleteByVaultBatch("collaborativeUpdates"),
   },
   {
     table: "blobs",
@@ -306,11 +179,11 @@ const vaultLocalCleanupRegistry = [
   },
   {
     table: "folderExpansionState",
-    cleanup: deleteFolderExpansionStateBatch,
+    cleanup: deleteByVaultBatch("folderExpansionState"),
   },
   {
     table: "vaultRemoteBranches",
-    cleanup: deleteVaultRemoteBranchesBatch,
+    cleanup: deleteByVaultBatch("vaultRemoteBranches"),
   },
   {
     table: "vaultBranchTrees",
@@ -318,23 +191,23 @@ const vaultLocalCleanupRegistry = [
   },
   {
     table: "vaultDomains",
-    cleanup: deleteVaultDomainsBatch,
+    cleanup: deleteByVaultBatch("vaultDomains"),
   },
   {
     table: "vaultInfrastructure",
-    cleanup: deleteVaultInfrastructureBatch,
+    cleanup: deleteByVaultBatch("vaultInfrastructure"),
   },
   {
     table: "vaultInfrastructureOwnership",
-    cleanup: deleteVaultInfrastructureOwnershipBatch,
+    cleanup: deleteByVaultBatch("vaultInfrastructureOwnership"),
   },
   {
     table: "codespaces",
-    cleanup: deleteCodespacesBatch,
+    cleanup: deleteByVaultBatch("codespaces"),
   },
   {
     table: "agentGraphNodeLayout",
-    cleanup: deleteAgentGraphNodeLayoutBatch,
+    cleanup: deleteByVaultBatch("agentGraphNodeLayout"),
   },
   {
     table: "aiProdAccessRequests",
@@ -342,7 +215,7 @@ const vaultLocalCleanupRegistry = [
   },
   {
     table: "agentThreadContext",
-    cleanup: deleteAgentThreadContextBatch,
+    cleanup: deleteByVaultBatch("agentThreadContext"),
   },
   {
     table: "appProvisioningEvents",
