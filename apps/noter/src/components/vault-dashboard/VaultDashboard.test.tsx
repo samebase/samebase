@@ -8,6 +8,7 @@ import {
   VaultBranchLinkContent,
   VaultProviderSetupSection,
 } from "./VaultDashboard";
+import { VaultDashboardRepositoryCard } from "./VaultDashboardChrome";
 import { resolveVaultProviderSetupStatus } from "./vaultProviderSetup";
 import { formatVaultSourceSetupStep } from "./vaultSourceSetup";
 
@@ -61,6 +62,28 @@ describe("VaultBranchLinkContent", () => {
       'href="https://github.com/noter-md/noter/tree/codex/dashboard%20branch-link"',
     );
     expect(markup).toContain('title="Open branch on GitHub"');
+  });
+});
+
+describe("VaultDashboardRepositoryCard", () => {
+  it("keeps the repository title passive when no title href is provided", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardRepositoryCard
+        isReady={false}
+        repositoryOwner="noter-md"
+        repositoryName="noter"
+        titleSuffix={
+          <span className="shrink-0 text-xs font-normal text-muted-foreground">
+            (deleting...)
+          </span>
+        }
+      />,
+    );
+
+    expect(markup).toContain("noter-md/");
+    expect(markup).toContain("noter");
+    expect(markup).toContain("(deleting...)");
+    expect(markup).not.toContain("<a");
   });
 });
 

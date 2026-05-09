@@ -2191,10 +2191,14 @@ function VaultDashboardBody({
               isReady={isReady}
               repositoryOwner={vault.ghRepoOwner}
               repositoryName={vault.ghRepoName}
-              titleHref={githubRepositoryUrl}
-              titleTarget="_blank"
-              titleTitle={`Open ${vault.repositoryFullName} on GitHub`}
-              titleClassName={linkStyle}
+              titleHref={isDeletingVault ? undefined : githubRepositoryUrl}
+              titleTarget={isDeletingVault ? undefined : "_blank"}
+              titleTitle={
+                isDeletingVault
+                  ? undefined
+                  : `Open ${vault.repositoryFullName} on GitHub`
+              }
+              titleClassName={isDeletingVault ? undefined : linkStyle}
               repositoryLinks={
                 repositoryExternalLinks.length > 0 ? (
                   <VaultDashboardRepositoryExternalLinks
