@@ -121,13 +121,14 @@ deletion run that is still finishing the vault removal.
 
 ### Separate Vault Deletion Gate
 
-Add a separate deletion gate on the vault row. Absence means "not deleting." The
-field is optional during rollout because existing vault rows will not have it.
-
-Conceptual shape:
+Add a separate deletion gate on the vault row. The target app model is an
+explicit union, not a set of optional flags:
 
 ```ts
-type VaultDeletionGate =
+type VaultDeletionState =
+  | {
+      state: "not_deleting";
+    }
   | {
       state: "deleting";
       runId: Id<"vaultDeletionRuns">;
@@ -139,6 +140,12 @@ type VaultDeletionGate =
       failedAt: number;
     };
 ```
+
+The persisted rollout may temporarily represent `"not_deleting"` as an absent
+field because existing vault rows will not have the new field. That
+compatibility detail must stay behind a helper that returns
+`VaultDeletionState`; product code should not spread optional deletion checks
+across the app.
 
 This gate is not a GitHub source-workspace state. A vault can still be
 `state: "connected"` while `deletion.state === "deleting"`, but repo-backed
@@ -210,13 +217,43 @@ retention behavior.
 
 ## Data Model
 
-### Deletion Options
+### Model Quality Bar
 
-Deletion options are required booleans on the run. The queueing action should
-normalize absent client booleans to explicit `false` values.
+The deletion schema is part of the product contract. Small changes here affect
+backend state transitions, frontend affordances, retry behavior, and user trust,
+so implementation should treat the data model as the highest-leverage code in
+this project.
+
+The persisted model should use the smallest set of required discriminated
+variants that makes invalid business states unrepresentable. Optional fields are
+allowed only for:
+
+1. migration windows over existing rows
+2. external provider data that is genuinely absent in one explicit variant
+3. a short start gap before the Workflow component returns `workflowId`
+4. post-success scrubbing of retry-only provider identifiers
+
+Do not preserve an optional field from this spec if implementation finds a
+cleaner union that encodes the same business rule. Conversely, do not add
+compatibility mirrors, raw UI state, provider payloads, or future-proof variants
+unless a current caller or persisted-data constraint requires them. If
+implementation changes the durable shape, update this spec and the tests in the
+same PR so the accepted contract stays current.
+
+The TypeScript snippets below may use intersections to keep the document
+readable. Convex schema validators should still define complete persisted
+variants when that makes validation clearer or prevents accidental optional
+fields.
+
+### Deletion Request Options
+
+The delete dialog may still send checkbox-shaped request options. Those raw
+options are not the durable model. The queueing action must validate them
+against the current vault and provider state, then persist a validated deletion
+plan.
 
 ```ts
-type VaultDeletionOptions = {
+type VaultDeletionRequestOptions = {
   removeCodespaces: boolean;
   removeGithubRepo: boolean;
   removeConvexProvision: boolean;
@@ -224,50 +261,115 @@ type VaultDeletionOptions = {
 };
 ```
 
-### Deletion Snapshot
+### Deletion Plan
 
-The snapshot stores only identifiers needed for provider teardown, retry, and
-safe display. It must not store credentials or raw provider responses.
+The deletion plan records the source-workspace state being deleted plus the
+accepted destructive provider work. The first implementation should model only
+states the current product can create. Do not add a `not_connected` deletion
+target until a shipped flow creates user-visible not-connected vaults.
+
+```ts
+type VaultDeletionPlan = ProviderCleanupPlan &
+  (
+    | {
+        target: {
+          kind: "noter_managed_repository";
+          ghRepoId: string;
+          owner: string;
+          name: string;
+          repositoryFullName: string;
+        };
+        githubRepository:
+          | {
+              action: "skip";
+              reason: "not_requested";
+            }
+          | {
+              action: "delete_repository";
+              ghRepoId: string;
+              owner: string;
+              name: string;
+            };
+      }
+    | {
+        target: {
+          kind: "existing_repository";
+          ghRepoId: string;
+          owner: string;
+          name: string;
+          repositoryFullName: string;
+        };
+        githubRepository: {
+          action: "skip";
+          reason: "not_requested" | "not_noter_managed";
+        };
+      }
+    | {
+        target: {
+          kind: "failed_repository_setup";
+          githubMode: "create_repository" | "connect_existing_repository";
+          owner: string;
+          name: string;
+          repositoryFullName: string;
+        };
+        githubRepository: {
+          action: "skip";
+          reason: "not_requested" | "no_confirmed_identity";
+        };
+      }
+  );
+```
+
+This shape deliberately binds the target kind to allowed GitHub repository
+teardown. "Delete an existing repository's GitHub repo" and "delete an unknown
+failed-create repo" do not fit in the persisted plan.
+
+```ts
+type ProviderCleanupPlan = {
+  codespaces:
+    | {
+        action: "skip";
+        reason: "not_requested";
+      }
+    | {
+        action: "delete_connected_codespaces";
+      };
+  convex:
+    | {
+        action: "skip";
+        reason: "not_requested" | "not_noter_managed" | "not_recorded";
+      }
+    | {
+        action: "delete_project";
+        projectId: string;
+      }
+    | {
+        action: "delete_deployment";
+        deploymentName: string;
+      };
+  cloudflare:
+    | {
+        action: "skip";
+        reason: "not_requested" | "not_noter_managed" | "not_recorded";
+      }
+    | {
+        action: "delete_pages_project";
+        accountId: string;
+        projectName: string;
+      };
+};
+```
+
+The retry snapshot stores only the deletion plan and identifiers needed for
+provider teardown, retry, and safe display. It must not store credentials or raw
+provider responses.
 
 Conceptual shape:
 
 ```ts
 type VaultDeletionSnapshot = {
-  repositoryFullName: string;
-  github:
-    | {
-        mode: "create_repository";
-        ghRepoId: string;
-        owner: string;
-        name: string;
-      }
-    | {
-        mode: "connect_existing_repository";
-        ghRepoId: string;
-        owner: string;
-        name: string;
-      }
-    | {
-        mode: "failed";
-        owner: string;
-        name: string;
-      }
-    | {
-        mode: "not_connected";
-      };
-  codespaces: {
-    activeCodespaceId?: Id<"codespaces">;
-  };
-  convex?: {
-    projectId?: string;
-    deploymentName?: string;
-    deploymentType?: "prod" | "dev";
-    deployKeyId?: string;
-  };
-  cloudflare?: {
-    accountId: string;
-    projectName: string;
-  };
+  state: "retained_for_retry";
+  plan: VaultDeletionPlan;
 };
 ```
 
@@ -285,29 +387,82 @@ requested `owner/name`.
 Conceptual shape:
 
 ```ts
-type VaultDeletionRun = {
+type VaultDeletionRunBase = {
   userId: Id<"users">;
   vaultId: Id<"vaults">;
   repositoryFullName: string;
-  workflowId?: string;
-  retryOf?: Id<"vaultDeletionRuns">;
-  state: "queued" | "running" | "succeeded" | "failed";
-  currentStep: VaultDeletionStep;
-  options: VaultDeletionOptions;
-  snapshot: VaultDeletionSnapshot | { scrubbedAfterSuccess: true };
-  lastError?: string;
+  attempt:
+    | {
+        kind: "initial";
+      }
+    | {
+        kind: "retry";
+        retryOf: Id<"vaultDeletionRuns">;
+      };
   createdAt: number;
   updatedAt: number;
-  completedAt?: number;
 };
+
+type VaultDeletionWorkflowRef =
+  | {
+      state: "not_started";
+    }
+  | {
+      state: "started";
+      workflowId: string;
+    };
+
+type VaultDeletionRun = VaultDeletionRunBase &
+  (
+    | {
+        state: "queued";
+        workflow: {
+          state: "not_started";
+        };
+        currentStep: "initialize_deletion";
+        snapshot: VaultDeletionSnapshot;
+      }
+    | {
+        state: "running";
+        workflow: {
+          state: "started";
+          workflowId: string;
+        };
+        currentStep: VaultDeletionStep;
+        snapshot: VaultDeletionSnapshot;
+      }
+    | {
+        state: "failed";
+        workflow: VaultDeletionWorkflowRef;
+        currentStep: VaultDeletionStep;
+        snapshot: VaultDeletionSnapshot;
+        error: {
+          message: string;
+          failedAt: number;
+        };
+        completedAt: number;
+      }
+    | {
+        state: "succeeded";
+        workflow: {
+          state: "started";
+          workflowId: string;
+        };
+        currentStep: "finish";
+        snapshot: {
+          state: "scrubbed_after_success";
+        };
+        completedAt: number;
+      }
+  );
 ```
 
 Required indexes:
 
 1. `vaultDeletionRuns.by_vault_and_updated_at`
 2. `vaultDeletionRuns.by_user_and_updated_at`
-3. `vaultDeletionRuns.by_workflow_id`
-4. `vaultDeletionRuns.by_retry_of`
+3. `vaultDeletionRuns.by_workflow_id`, using the final workflow field path
+4. `vaultDeletionRuns.by_retry_of`, using the final retry field path
 
 The active gate lives on the vault row, so hot repo-backed paths should not need
 to query `vaultDeletionRuns` after they have already loaded the vault.
@@ -390,7 +545,7 @@ It should:
 4. validate selected teardown options against current local state
 5. require local provider connection rows for selected provider teardown options
    when those rows are already known to be necessary
-6. build the deletion snapshot
+6. build the validated deletion plan and retry snapshot
 7. insert `vaultDeletionRuns` and the first event
 8. patch the vault deletion gate to `deleting`
 9. start the deletion Workflow
@@ -473,24 +628,26 @@ vault-scoped rows.
 
 ### Cloudflare
 
-1. Delete only the snapshot's Cloudflare Pages project.
+1. Delete only a `delete_pages_project` plan's Cloudflare Pages project.
 2. Require a Cloudflare connection when Cloudflare teardown is requested.
 3. Treat provider not-found as success.
 4. Do not delete account-level or unrelated Cloudflare resources.
 
 ### Convex
 
-1. Delete only the snapshot's Convex project or deployment.
-2. Prefer project deletion when `convexProjectId` is available; otherwise use
-   the recorded deployment name.
+1. Delete only a `delete_project` or `delete_deployment` plan's Convex resource.
+2. The queueing action chooses `delete_project` when project identity is
+   recorded; otherwise it chooses `delete_deployment` only when deployment
+   identity is recorded.
 3. Require a Convex connection when Convex teardown is requested.
 4. Treat provider not-found as success.
-5. Store deploy-key identifiers only as identifiers, never credential values.
+5. Do not store Convex deploy-key credentials or identifiers in the deletion
+   plan unless implementation proves a current provider call needs them.
 
 ### GitHub Repository
 
-1. Delete the repository only when `removeGithubRepo` is true and the snapshot
-   records connected `githubMode: "create_repository"` identity.
+1. Delete the repository only from a `noter_managed_repository` plan whose
+   `githubRepository.action` is `delete_repository`.
 2. Treat provider not-found as success.
 3. Do not delete repositories for `connect_existing_repository` vaults.
 4. Do not delete repositories for failed create attempts without confirmed
@@ -587,9 +744,9 @@ deletion run and latest event. Failed-deletion cards should show the latest
 user-safe error and a retry action.
 
 Retry creates a new `vaultDeletionRuns` row with `retryOf` pointing at the
-failed run, copies the failed run's options and retained snapshot, patches the
-vault gate back to `deleting`, and starts a new Workflow. Retry does not let the
-user edit teardown options in the first implementation.
+failed run, copies the failed run's retained deletion plan, patches the vault
+gate back to `deleting`, and starts a new Workflow. Retry does not let the user
+edit teardown options in the first implementation.
 
 ## Implementation Plan
 
@@ -642,20 +799,21 @@ split if UI review starts hiding backend state-machine review.
 Backend:
 
 1. queueing deletion creates a run before any provider delete
-2. selected teardown options are stored as explicit booleans
-3. invalid teardown options fail before queueing
-4. provider not-found responses count as successful cleanup
-5. provider failures leave the vault visible with `delete_failed`
-6. retry uses the failed run's stored options and snapshot
-7. branch-heavy cleanup completes through multiple bounded batches
-8. `blobs` cleanup deletes storage objects and rows
-9. pending-upload blob cleanup uses the vault-scoped blob index
-10. `collaborativeUpdates` are deleted at vault scope
-11. `aiProdAccessAudit` rows are preserved while requests are detached
-12. `agentThreadContext` rows are detached rather than deleted
-13. `appProvisioningRuns` and `appProvisioningEvents` are deleted in batches
-14. the vault row is deleted only after dependent cleanup succeeds
-15. source setup and provider provisioning writes fail closed after deletion
+2. selected teardown options are converted into a validated deletion plan
+3. invalid deletion plans are unrepresentable in persisted deletion runs
+4. invalid teardown options fail before queueing
+5. provider not-found responses count as successful cleanup
+6. provider failures leave the vault visible with `delete_failed`
+7. retry uses the failed run's retained deletion plan
+8. branch-heavy cleanup completes through multiple bounded batches
+9. `blobs` cleanup deletes storage objects and rows
+10. pending-upload blob cleanup uses the vault-scoped blob index
+11. `collaborativeUpdates` are deleted at vault scope
+12. `aiProdAccessAudit` rows are preserved while requests are detached
+13. `agentThreadContext` rows are detached rather than deleted
+14. `appProvisioningRuns` and `appProvisioningEvents` are deleted in batches
+15. the vault row is deleted only after dependent cleanup succeeds
+16. source setup and provider provisioning writes fail closed after deletion
     starts
 
 Frontend:
@@ -673,11 +831,13 @@ Frontend:
 1. Vault deletion is one user action backed by durable Workflow state.
 2. No external provider delete runs before a deletion run and vault gate exist.
 3. The vault deletion gate is separate from GitHub source-workspace `state`.
-4. Provider teardown is idempotent and provider not-found is success.
-5. Branch-heavy vault cleanup is bounded by table-specific batches.
-6. No cleanup mutation loads all blobs, branches, staged files, collaborative
+4. The durable deletion run stores a validated discriminated deletion plan, not
+   raw UI checkbox state.
+5. Provider teardown is idempotent and provider not-found is success.
+6. Branch-heavy vault cleanup is bounded by table-specific batches.
+7. No cleanup mutation loads all blobs, branches, staged files, collaborative
    updates, or provisioning history for a vault in one transaction.
-7. The vault row is deleted once, last.
-8. Failed deletion leaves a retryable visible state.
-9. Repo-backed writers fail closed while deletion is active or failed.
-10. Audit and chat retention follow the explicit rules in this spec.
+8. The vault row is deleted once, last.
+9. Failed deletion leaves a retryable visible state.
+10. Repo-backed writers fail closed while deletion is active or failed.
+11. Audit and chat retention follow the explicit rules in this spec.
