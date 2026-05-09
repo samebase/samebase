@@ -655,6 +655,7 @@ function normalizeGitHubRepositoryCoordinate(value: string): string {
 function pickProvisioningVaultOperationalFields(vault: ProvisioningVault) {
   return {
     userId: vault.userId,
+    deletion: vault.deletion,
     lastTreeRefreshAt: vault.lastTreeRefreshAt,
     treeRefreshStartedAt: vault.treeRefreshStartedAt,
     lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
@@ -714,6 +715,7 @@ export const createInitializingExistingRepositoryVaultForUser =
       const now = Date.now();
       const vaultId = await ctx.db.insert("vaults", {
         userId: args.userId,
+        deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const repositoryFullName = `${owner}/${name}`;
@@ -802,6 +804,7 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
 
     await ctx.db.replace(args.vaultId, {
       userId: vault.userId,
+      deletion: vault.deletion,
       lastTreeRefreshAt: vault.lastTreeRefreshAt,
       treeRefreshStartedAt: vault.treeRefreshStartedAt,
       lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
@@ -864,6 +867,7 @@ export const createInitializingNoterManagedVaultForUser = internalMutation({
     const now = Date.now();
     const vaultId = await ctx.db.insert("vaults", {
       userId: args.userId,
+      deletion: { state: "not_deleting" },
       state: "not_connected",
     });
     const repositoryFullName = `${args.ghRepoOwner}/${args.ghRepoName}`;
@@ -943,6 +947,7 @@ export const connectNoterManagedVaultGitHub = internalMutation({
 
     await ctx.db.replace(args.vaultId, {
       userId: vault.userId,
+      deletion: vault.deletion,
       lastTreeRefreshAt: vault.lastTreeRefreshAt,
       treeRefreshStartedAt: vault.treeRefreshStartedAt,
       lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,

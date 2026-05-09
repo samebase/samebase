@@ -175,11 +175,9 @@ type VaultDeletionState =
     };
 ```
 
-The persisted rollout may temporarily represent `"not_deleting"` as an absent
-field because existing vault rows will not have the new field. That
-compatibility detail must stay behind a helper that returns
-`VaultDeletionState`; product code should not spread optional deletion checks
-across the app.
+Persist `deletion` as a required `VaultDeletionState` on every vault row. New
+vault rows start with `{ state: "not_deleting" }`; product code must not model
+`not_deleting` as an absent optional field.
 
 This gate is not a GitHub source-workspace state. A vault can still be
 `state: "connected"` while `deletion.state === "deleting"`, but repo-backed
@@ -843,9 +841,9 @@ instead of creating rows for a vault that is deleting or already deleted.
 Phase 2 implementation note:
 
 - The persisted run model uses required discriminated variants for queued,
-  running, failed, and succeeded runs. The vault deletion gate remains optional
-  on the vault row only for the existing-row rollout window; helpers interpret
-  absence as `not_deleting`.
+  running, failed, and succeeded runs. The vault deletion gate is also required
+  on the vault row, with `{ state: "not_deleting" }` representing the idle
+  state.
 - The Workflow calls one action per cleanup phase. Each cleanup action loops
   bounded cleanup mutations until that phase is done, so individual row batches
   do not become separate durable Workflow journal entries.

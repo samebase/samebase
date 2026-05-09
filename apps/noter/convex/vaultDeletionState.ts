@@ -4,7 +4,7 @@ import type { VaultDeletionState } from "./vaultDeletionModel";
 export function readVaultDeletionState(
   vault: Doc<"vaults">,
 ): VaultDeletionState {
-  return vault.deletion ?? { state: "not_deleting" };
+  return vault.deletion;
 }
 
 export function isVaultDeletingOrDeleteFailed(vault: Doc<"vaults">): boolean {

@@ -14,6 +14,7 @@ describe("vault deletion workflow", () => {
       });
       const vaultId = await ctx.db.insert("vaults", {
         userId,
+        deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("appProvisioningRuns", {
@@ -29,6 +30,7 @@ describe("vault deletion workflow", () => {
       });
       await ctx.db.replace(vaultId, {
         userId,
+        deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
         runId,
@@ -122,6 +124,7 @@ describe("vault deletion workflow", () => {
       });
       const vaultId = await ctx.db.insert("vaults", {
         userId,
+        deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("appProvisioningRuns", {
@@ -137,6 +140,7 @@ describe("vault deletion workflow", () => {
       });
       await ctx.db.replace(vaultId, {
         userId,
+        deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
         runId,
@@ -257,6 +261,7 @@ describe("vault deletion workflow", () => {
       });
       const vaultId = await ctx.db.insert("vaults", {
         userId,
+        deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("appProvisioningRuns", {
@@ -271,6 +276,7 @@ describe("vault deletion workflow", () => {
       });
       await ctx.db.replace(vaultId, {
         userId,
+        deletion: { state: "not_deleting" },
         state: "provisioning",
         githubMode: "create_repository",
         runId,
@@ -306,7 +312,7 @@ describe("vault deletion workflow", () => {
         .collect();
       return { runs, vault };
     });
-    expect(snapshot.vault?.deletion).toBeUndefined();
+    expect(snapshot.vault?.deletion).toEqual({ state: "not_deleting" });
     expect(snapshot.runs).toHaveLength(0);
   });
 
@@ -320,6 +326,7 @@ describe("vault deletion workflow", () => {
       });
       const vaultId = await ctx.db.insert("vaults", {
         userId,
+        deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("appProvisioningRuns", {
@@ -335,6 +342,7 @@ describe("vault deletion workflow", () => {
       });
       await ctx.db.replace(vaultId, {
         userId,
+        deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "connect_existing_repository",
         runId,
@@ -375,6 +383,7 @@ describe("vault deletion workflow", () => {
       });
       const vaultId = await ctx.db.insert("vaults", {
         userId,
+        deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const setupRunId = await ctx.db.insert("appProvisioningRuns", {
@@ -390,6 +399,7 @@ describe("vault deletion workflow", () => {
       });
       await ctx.db.replace(vaultId, {
         userId,
+        deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
         runId: setupRunId,

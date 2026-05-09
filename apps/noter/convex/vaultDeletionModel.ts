@@ -2,6 +2,11 @@ import { Infer, v } from "convex/values";
 
 const { id, literal, number, object, string, union } = v;
 
+export const VaultDeletionNotDeleting = object({
+  state: literal("not_deleting"),
+});
+export type VaultDeletionNotDeleting = Infer<typeof VaultDeletionNotDeleting>;
+
 export const VaultDeletionGate = union(
   object({
     state: literal("deleting"),
@@ -16,11 +21,11 @@ export const VaultDeletionGate = union(
 );
 export type VaultDeletionGate = Infer<typeof VaultDeletionGate>;
 
-export type VaultDeletionState =
-  | {
-      state: "not_deleting";
-    }
-  | VaultDeletionGate;
+export const VaultDeletionState = union(
+  VaultDeletionNotDeleting,
+  VaultDeletionGate,
+);
+export type VaultDeletionState = Infer<typeof VaultDeletionState>;
 
 export const VaultDeletionStep = union(
   literal("initialize_deletion"),
