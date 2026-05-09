@@ -59,6 +59,14 @@ request. Multiple tabs can converge through backend claim/cooldown, but there is
 no single durable backend record that says "this vault/branch refresh was
 requested, queued, running, skipped, failed, or completed."
 
+That durable record should also be the first product/billing boundary. Reload is
+paid compute, even when a free plan still receives eventual refresh. A free user
+with many vaults or branches may need slower claim windows, lower active refresh
+slots, or smaller monthly/daily refresh budgets. A paid user may get faster
+interactive claims and larger background budgets. This points toward logical
+per-user queues from the first request-table design, even if the underlying
+Workpool topology stays shared at first.
+
 ## Vocabulary
 
 This codebase uses several "reload" meanings:
@@ -456,6 +464,16 @@ the hood to bound step parallelism.
 `@convex-dev/workpool` is installed in `apps/noter/package.json`, but there is
 no direct named Workpool component installed in `convex.config.ts` yet.
 
+There are two different design axes:
+
+1. lifecycle primitive: Workflow versus scheduler action versus Workpool work
+2. tenant scheduling: user/account queues, budgets, priority, and cost units
+
+The tenant scheduling axis should be modeled in app data, not hidden inside a
+specific Workpool topology. That keeps hosted Noter free/paid refresh policy
+explicit, and it leaves room for later self-hosted or Convex-component
+deployments where the tenant pays for the compute in their own Convex project.
+
 Workpool fits repository reload because:
 
 1. most refresh jobs are one-shot actions
@@ -478,26 +496,41 @@ Decision rule:
 
 1. Workpool for bounded execution of independent refresh/cache jobs.
 2. Workflow for durable user-visible operations with a lifecycle.
+3. Request rows for tenant fairness, plan policy, budget accounting, and
+   self-hosted/component portability.
 
 ## Recommended Next Architecture
 
-Start with a durable refresh request model before adding Workpool mechanics.
+Start with a durable refresh request model before adding Workpool mechanics. The
+request model should include logical per-user queue policy from the beginning,
+even if every current plan maps to the same limits in the first PR.
 
-### Slice 1: Refresh Requests Without Workpool
+### Slice 1: Refresh Requests And Logical Queues
 
 Add a `refreshRequests` table with fields shaped around the existing backend
 contract:
 
 1. `userId`
-2. `vaultId`
-3. optional `branch`
-4. `kind`: `repo_metadata`, `branch_tree`, or `combined`
-5. `priority`: `interactive`, `visible`, or `background`
-6. `trigger`: `manual`, `page_load`, `visibility`, `post_commit`, or `polling`
-7. `idempotencyKey`
-8. `state`: `queued`, `running`, `succeeded`, `skipped`, `failed`, or `canceled`
-9. timestamps
-10. optional skip reason, failure kind/message, and work id
+2. `queueKey`, initially user/account scoped
+3. `vaultId`
+4. optional `branch`
+5. `kind`: `repo_metadata`, `branch_tree`, or `combined`
+6. `priority`: `interactive`, `visible`, or `background`
+7. `trigger`: `manual`, `page_load`, `visibility`, `post_commit`, or `polling`
+8. `idempotencyKey`
+9. `state`: `queued`, `running`, `succeeded`, `skipped`, `failed`, or `canceled`
+10. `costUnits` or an estimated cost bucket
+11. `planPriority` or an entitlement snapshot used for claim ordering
+12. optional `notBefore` for delayed free/background work
+13. timestamps
+14. optional skip reason, delay reason, failure kind/message, and work id
+
+Add a companion budget/queue state table only when the first implementation
+needs durable counters. The likely shape is user/account scoped: active jobs,
+recent cost units, period budget, next refill/reset, and the last claim time.
+Avoid hard-coding the queue key to hosted user IDs in a way that would prevent a
+future self-hosted component from using deployment, workspace, or account as the
+paying subject.
 
 Then add a cheap mutation like `requestRepositoryRefresh` that:
 
@@ -507,12 +540,14 @@ Then add a cheap mutation like `requestRepositoryRefresh` that:
 3. normalizes branch/kind/trigger
 4. computes an idempotency key from user, vault, branch, kind, and a debounce
    bucket
-5. inserts or updates the request
-6. schedules execution with `ctx.scheduler.runAfter(0, ...)` for the first PR
+5. assigns queue key, priority, cost estimate, entitlement snapshot, and
+   optional `notBefore`
+6. inserts or updates the request
+7. schedules execution with `ctx.scheduler.runAfter(0, ...)` for the first PR
 
 This first slice can keep the existing `refreshRepositoryTree` action as the
-runner. The point is to prove request semantics and UI subscription shape before
-choosing component topology.
+runner. The point is to prove request semantics, logical queue semantics, and UI
+subscription shape before choosing component topology.
 
 ### Slice 2: Move Automatic Clients To Request Mutation
 
@@ -529,16 +564,30 @@ The UI should subscribe to request status through existing vault/dashboard
 queries so users can see queued/running/skipped/failed state without each tab
 running its own action.
 
+If a free user has enough vaults or branches that background reloads wait, the
+UI should be able to distinguish "queued/backlogged" from "failed." The product
+copy can stay minimal, but the state should exist so the dashboard does not make
+delayed refresh look broken.
+
 ### Slice 3: Install Named Workpools
 
-After request semantics are stable, install a small number of named pools:
+After request semantics are stable, install a small number of physical named
+pools:
 
 1. `interactiveRefreshWorkpool` for manual clicks, post-commit refreshes, and
    direct file-view work
 2. `backgroundRefreshWorkpool` for dashboard visibility/page-load hints
 
-Do not create a pool per vault, branch, or user. Put fairness in request
-claiming, idempotency keys, and per-user budgets.
+Do not start by creating a physical Workpool component per vault, branch, or
+user. Put per-user queueing, fairness, cost units, and plan budgets in request
+claiming. Claiming should avoid draining one user's backlog while other users
+have eligible work, and it should let paid/interactive work outrank free
+background work without bypassing provider cooldowns.
+
+Physical per-user or per-tenant execution components may become useful later if
+the backend is split into Convex components or self-hosted deployments. That
+should be an implementation topology change over the same durable request
+contract, not the first version of the hosted scheduler.
 
 The Workpool runner should:
 
@@ -556,9 +605,24 @@ Add metrics and state that answer:
 2. queue lag by priority
 3. GitHub rate-limit cooldown by user/provider connection
 4. per-vault and per-user refresh fanout
-5. Workpool backlog and failure rate
+5. cost units spent, remaining, delayed, and skipped by plan/account
+6. Workpool backlog and failure rate
 
-This is where global per-user refresh budget becomes realistic.
+This is where global per-user refresh budgets become enforceable and auditable.
+
+### Hosted, Component, And Self-Hosted Direction
+
+The request table is the portable contract:
+
+1. hosted Noter can meter and prioritize refresh work by account/plan
+2. future Convex components can expose the same request/claim/result boundary
+3. self-hosted users can pay their own Convex compute while keeping the same
+   logical scheduler semantics
+
+This does not mean the first implementation should expose component boundaries
+or self-hosting configuration. It does mean the queue key, budget policy, and
+cost accounting should not be treated as afterthoughts, because changing them
+later would require rewriting request identity, UI status, and billing history.
 
 ## Deletion Merge Caveat
 
@@ -598,16 +662,26 @@ cleanup, and retry after partial failure.
 6. How long should completed refresh request status be retained?
 7. Should `useCacheQuery` expose stale/live metadata so the dashboard can avoid
    showing cached "Updated ..." status as though it were live?
+8. Is the paying queue subject always a user, or should the model start with an
+   account/workspace-shaped key even before teams exist?
+9. What is the first cost-unit model: per GitHub API call, per branch tree, per
+   metadata sync, or a coarse refresh-size bucket?
+10. Should free-plan background work be delayed through `notBefore`, lower claim
+    priority, smaller active slots, or all three?
+11. Which parts of the request/runner boundary should be kept component-shaped
+    so a future self-hosted Convex deployment can own the compute cost?
 
 ## Recommended First PR
 
 The first code PR should not install Workpool yet. It should add the durable
-request table and one backend request mutation, then migrate the dashboard
-automatic refresh hints to that mutation while leaving the existing direct
-runner intact.
+request table, logical queue fields, and one backend request mutation, then
+migrate the dashboard automatic refresh hints to that mutation while leaving the
+existing direct runner intact.
 
 This gives the product one observable backend-owned reload request without
-changing every GitHub sync path at once. After that, swapping request execution
-from scheduler to Workpool is a contained mechanical change with a clearer
-success criterion: fewer client-owned bursts and visible queued/running/skipped
-status on the dashboard.
+changing every GitHub sync path at once. It also creates the first place to
+model free versus paid refresh treatment without adding billing enforcement
+everywhere. After that, swapping request execution from scheduler to Workpool is
+a contained mechanical change with a clearer success criterion: fewer
+client-owned bursts and visible queued/running/skipped/delayed status on the
+dashboard.
