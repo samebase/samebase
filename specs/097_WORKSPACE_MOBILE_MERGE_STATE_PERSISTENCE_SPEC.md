@@ -165,6 +165,9 @@ store updates. The exact action names can follow the current
 A persisted merge is valid only when the route has the merged side pane and the
 current viewport can render the side/main fit.
 
+The default fit must render at a 320px mobile viewport. With the current 96px
+side-pane minimum, that means the persisted main pane minimum is 224px.
+
 If durable state says `left+main` but the route has no left pane, render and
 persist `"unmerged"`. Same for `main+right` without a right pane.
 

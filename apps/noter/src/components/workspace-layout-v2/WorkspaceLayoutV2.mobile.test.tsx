@@ -39,6 +39,8 @@ const originalGetBoundingClientRectDescriptor = Object.getOwnPropertyDescriptor(
 let latestSetRenderedMobilePane:
   | ((nextPane: WorkspaceSidebarState["mobilePane"]) => void)
   | null = null;
+let testViewportWidthPx = VIEWPORT_WIDTH_PX;
+let testViewportHeightPx = VIEWPORT_HEIGHT_PX;
 
 Object.defineProperty(window, "matchMedia", {
   configurable: true,
@@ -56,20 +58,18 @@ Object.defineProperty(window, "matchMedia", {
 
 Object.defineProperty(window, "innerWidth", {
   configurable: true,
-  value: VIEWPORT_WIDTH_PX,
-  writable: true,
+  get: () => testViewportWidthPx,
 });
 
 Object.defineProperty(window, "innerHeight", {
   configurable: true,
-  value: VIEWPORT_HEIGHT_PX,
-  writable: true,
+  get: () => testViewportHeightPx,
 });
 
 HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
   return DOMRect.fromRect({
-    height: VIEWPORT_HEIGHT_PX,
-    width: VIEWPORT_WIDTH_PX,
+    height: testViewportHeightPx,
+    width: testViewportWidthPx,
     x: 0,
     y: 0,
   });
@@ -282,6 +282,8 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
   });
 
   afterEach(() => {
+    testViewportWidthPx = VIEWPORT_WIDTH_PX;
+    testViewportHeightPx = VIEWPORT_HEIGHT_PX;
     latestSetRenderedMobilePane = null;
     if (root !== null) {
       const mountedRoot = root;
@@ -922,6 +924,74 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
           '[data-testid="workspace-layout-v2-pane-left"]',
         ).style.width,
       ).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("lets a 320px mobile viewport settle into a right merged pane", () => {
+    vi.useFakeTimers();
+    try {
+      testViewportWidthPx = 320;
+      const mountedRoot = root;
+      if (mountedRoot === null || rootElement === null) {
+        throw new Error("Expected mounted root");
+      }
+      const rootElementNode = rootElement;
+
+      act(() => {
+        mountedRoot.render(
+          renderMobileLayout({
+            mobilePane: "right",
+            showMobileResizeGripDots: true,
+          }),
+        );
+      });
+
+      const rightHandle = getRequiredElement(
+        rootElement,
+        '[data-testid="workspace-layout-v2-right-resize"]',
+      );
+      const getMainPane = () =>
+        getRequiredElement(
+          rootElementNode,
+          "[data-workspace-layout-v2-mobile-main-pane]",
+        );
+
+      expect(getMainPane().style.width).toBe("272px");
+
+      act(() => {
+        rightHandle.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            key: "ArrowRight",
+          }),
+        );
+      });
+
+      expect(getMainPane().style.width).toBe("248px");
+
+      act(() => {
+        vi.advanceTimersByTime(121);
+      });
+
+      expect(
+        rootElement.querySelector(
+          '[data-workspace-layout-v2-mobile-merged-pane="right"]',
+        ),
+      ).not.toBeNull();
+      expect(getMainPane().style.width).toBe("224px");
+      expect(
+        getRequiredElement(
+          rootElement,
+          '[data-testid="workspace-layout-v2-pane-right"]',
+        ).style.width,
+      ).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
+      expect(
+        rootElement
+          .querySelector("[data-workspace-layout-v2]")
+          ?.getAttribute("data-mobile-pane"),
+      ).toBe("right");
     } finally {
       vi.useRealTimers();
     }

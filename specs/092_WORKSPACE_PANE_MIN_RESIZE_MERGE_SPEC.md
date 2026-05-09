@@ -180,6 +180,10 @@ fail closed into the existing slide behavior for that route or viewport. It
 should not invent placeholder widths or produce an unusable negative/zero-width
 pane.
 
+The default merged fit must support a 320px mobile viewport. With the current
+96px side-pane minimum, the main pane minimum is 224px so small responsive
+viewports can commit the same merge they preview while dragging.
+
 When a route has both side panes, a fitted side/main merge must still allow
 carousel travel to the opposite side pane. For example, after the left side pane
 fits beside the main pane, the visible left/main pair should behave as one
