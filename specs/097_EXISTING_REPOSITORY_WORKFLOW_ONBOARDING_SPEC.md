@@ -2,10 +2,12 @@
 
 ## Document Control
 
-- Status: Accepted next-phase implementation plan
+- Status: Accepted implementation reference; Phase 1 and Phase 2 shipped in
+  `v1257` / `#733`
 - Owner: Noter existing repository onboarding, vault source setup, and
   provisioning runs
 - Created: 2026-05-08
+- Last updated: 2026-05-09
 - Related docs:
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
   - `specs/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
@@ -364,6 +366,9 @@ This cleanup is operator action, not product behavior. Do not hide destructive
 cleanup inside normal user flows.
 
 ## Implementation Plan
+
+Phase 1 and Phase 2 shipped together in `v1257` / `#733`. Keep this checklist as
+the landed behavior contract, not as still-open implementation scope.
 
 ### Phase 1: Backend Workflow And Direct State
 
