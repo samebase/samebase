@@ -103,17 +103,16 @@ second confirmation or manually start tree sync.
 
 ### Workflow Trigger
 
-Add a provisioning run trigger:
+Add one provisioning run trigger for this flow:
 
 ```ts
-type AppProvisioningRunTrigger =
-  | "create"
-  | "retry"
-  | "connect_existing_repository";
+type ExistingRepositoryInitialRunTrigger = "connect_existing_repository";
 ```
 
 `"connect_existing_repository"` is the trigger for the initial import attempt.
-Do not record the initial connect as `"create"` or `"retry"`.
+Do not record the initial connect as a create-app trigger or as any other
+existing trigger. This spec does not add, rename, or depend on provider retry
+trigger semantics.
 
 ### Step Taxonomy
 
