@@ -878,6 +878,17 @@ Phase 2 implementation note:
 Phases 2 and 3 may land together if the diff remains reviewable. They should
 split if UI review starts hiding backend state-machine review.
 
+Phase 3 implementation note:
+
+- Dashboard state uses a query-only `deletion` view union derived from
+  `vault.deletion`, `vaultDeletionRuns`, `vaultDeletionEvents`, and the shared
+  deletion eligibility helper. It does not add persisted UI state.
+- Repo-backed code uses the live-vault invariant: connected GitHub state is not
+  enough once `vault.deletion` is `deleting` or `delete_failed`.
+- Direct `?delete=` targets for deleting, failed-deletion, or non-quiescent
+  vaults scroll to the card status instead of opening a second destructive
+  dialog.
+
 ## Testing Plan
 
 Backend:

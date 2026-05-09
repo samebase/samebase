@@ -3,7 +3,7 @@ import { internalQuery } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { PullRequestLabel } from "../schema";
-import { isConnectedVault } from "../vaultState";
+import { isLiveConnectedVault } from "../vaultState";
 
 const {
   array,
@@ -137,7 +137,7 @@ export const listVaultsForUser = internalQuery({
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .collect();
     return await Promise.all(
-      vaults.filter(isConnectedVault).map(async (vault) => {
+      vaults.filter(isLiveConnectedVault).map(async (vault) => {
         const defaultBranchTree = await getDefaultBranchTree(ctx, {
           vaultId: vault._id,
           defaultBranch: vault.defaultBranch,
@@ -162,7 +162,11 @@ export const listVaultRemoteBranchesForUser = internalQuery({
     args: ListVaultRemoteBranchesForUserArgs,
   ): Promise<ListVaultRemoteBranchesForUserResult> => {
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== args.userId) {
+    if (
+      !vault ||
+      vault.userId !== args.userId ||
+      !isLiveConnectedVault(vault)
+    ) {
       return [];
     }
 
@@ -202,7 +206,11 @@ export const getVaultContextForUser = internalQuery({
       return null;
     }
     const vault = await ctx.db.get(vaultId);
-    if (!vault || vault.userId !== args.userId || !isConnectedVault(vault)) {
+    if (
+      !vault ||
+      vault.userId !== args.userId ||
+      !isLiveConnectedVault(vault)
+    ) {
       return null;
     }
     const defaultBranchTree = await getDefaultBranchTree(ctx, {

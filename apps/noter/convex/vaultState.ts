@@ -1,5 +1,8 @@
 import type { Doc } from "./_generated/dataModel";
-import { isVaultDeletingOrDeleteFailed } from "./vaultDeletionState";
+import {
+  isVaultDeletingOrDeleteFailed,
+  readVaultDeletionState,
+} from "./vaultDeletionState";
 
 export type ConnectedVault = Extract<Doc<"vaults">, { state: "connected" }>;
 export type NoterManagedConnectedVault = Extract<
@@ -13,6 +16,12 @@ export function isConnectedVault(
   return vault?.state === "connected";
 }
 
+export function isLiveConnectedVault(
+  vault: Doc<"vaults"> | null | undefined,
+): vault is ConnectedVault {
+  return isConnectedVault(vault) && !isVaultDeletingOrDeleteFailed(vault);
+}
+
 /**
  * Asserts both that the vault row exists and that repo-backed code can use it.
  * Callers that need different errors for missing vs. pre-GitHub vaults should
@@ -21,11 +30,16 @@ export function isConnectedVault(
 export function assertConnectedVault(
   vault: Doc<"vaults"> | null | undefined,
 ): ConnectedVault {
-  if (!isConnectedVault(vault)) {
+  if (!isLiveConnectedVault(vault)) {
+    if (vault && isVaultDeletingOrDeleteFailed(vault)) {
+      const deletion = readVaultDeletionState(vault);
+      throw new Error(
+        deletion.state === "delete_failed"
+          ? "Vault deletion failed. Retry deletion to continue."
+          : "Vault deletion is in progress.",
+      );
+    }
     throw new Error("Vault is not connected to a GitHub repository.");
-  }
-  if (isVaultDeletingOrDeleteFailed(vault)) {
-    throw new Error("Vault deletion is in progress.");
   }
   return vault;
 }

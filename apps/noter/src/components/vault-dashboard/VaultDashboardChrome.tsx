@@ -338,7 +338,7 @@ export function VaultDashboardRepositoryCard({
   repositoryStatus?: ReactNode;
   setupSection?: ReactNode;
   titleClassName?: string;
-  titleHref: string;
+  titleHref?: string;
   titleSuffix?: ReactNode;
   titleTarget?: string;
   titleTitle?: string;
@@ -350,6 +350,19 @@ export function VaultDashboardRepositoryCard({
   // Keep long branch lists anchored to their repository without taking over
   // unrelated card content.
   const shouldStickHeader = Boolean(branchSection);
+  const titleContent = (
+    <h3 className="min-w-0 font-semibold leading-6">
+      <span className="flex min-w-0 items-start gap-2">
+        <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
+          <span className="font-normal text-muted-foreground">
+            {repositoryOwner}/
+          </span>
+          <span>{repositoryName}</span>
+        </span>
+        {titleSuffix}
+      </span>
+    </h3>
+  );
 
   return (
     <div className={clsx("relative p-4", !isReady && "bg-muted/30 opacity-75")}>
@@ -365,28 +378,26 @@ export function VaultDashboardRepositoryCard({
           {topRightAction}
 
           <div className="flex flex-col items-start pr-10">
-            <a
-              href={titleHref}
-              target={titleTarget}
-              rel={titleTarget === "_blank" ? "noopener noreferrer" : undefined}
-              className={clsx(
-                "-mx-2 -my-1 inline-flex min-h-9 max-w-full items-start px-2 py-1 text-base leading-6 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
-                titleClassName,
-              )}
-              title={titleTitle}
-            >
-              <h3 className="min-w-0 font-semibold leading-6">
-                <span className="flex min-w-0 items-start gap-2">
-                  <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
-                    <span className="font-normal text-muted-foreground">
-                      {repositoryOwner}/
-                    </span>
-                    <span>{repositoryName}</span>
-                  </span>
-                  {titleSuffix}
-                </span>
-              </h3>
-            </a>
+            {titleHref ? (
+              <a
+                href={titleHref}
+                target={titleTarget}
+                rel={
+                  titleTarget === "_blank" ? "noopener noreferrer" : undefined
+                }
+                className={clsx(
+                  "-mx-2 -my-1 inline-flex min-h-9 max-w-full items-start px-2 py-1 text-base leading-6 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
+                  titleClassName,
+                )}
+                title={titleTitle}
+              >
+                {titleContent}
+              </a>
+            ) : (
+              <div className="-mx-2 -my-1 inline-flex min-h-9 max-w-full items-start px-2 py-1 text-base leading-6">
+                {titleContent}
+              </div>
+            )}
             {repositoryLinks}
             {repositoryStatus ? (
               <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">

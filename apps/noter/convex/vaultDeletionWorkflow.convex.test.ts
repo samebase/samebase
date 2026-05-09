@@ -5,6 +5,63 @@ import { makeConvexTest } from "./test.setup";
 import { VAULT_LOCAL_CLEANUP_BATCH_SIZE } from "./vaultDeletionCleanup";
 
 describe("vault deletion workflow", () => {
+  async function createConnectedVault() {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/delete-me",
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: 3,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "delete-me",
+        defaultBranch: "main",
+        visibility: "private",
+        convex: { state: "not_configured" },
+        cloudflare: { state: "not_configured" },
+        connectedAt: 4,
+      });
+      await ctx.db.insert("vaultBranchTrees", {
+        vaultId,
+        branch: "main",
+        treeSHA: "tree",
+        treeData: {
+          sha: "tree",
+          truncated: false,
+          tree: [],
+        },
+        lastTreeRefreshAt: 5,
+      });
+
+      return { userId, vaultId };
+    });
+
+    return { ids, t };
+  }
+
   it("queues a durable run and gate before scheduled workflow work", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
@@ -113,6 +170,128 @@ describe("vault deletion workflow", () => {
     );
 
     expect(queued.vault).toMatchObject({ _id: ids.vaultId });
+  });
+
+  it("returns dashboard deletion state and closes live repository lookups", async () => {
+    const { ids, t } = await createConnectedVault();
+    const { deletionRunId } = await t.mutation(
+      internal.vaultDeletionRuns.createInitialRun,
+      {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        options: {
+          removeCodespaces: false,
+          removeGithubRepo: false,
+          removeConvexProvision: false,
+          removeCloudflareProvision: false,
+        },
+      },
+    );
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    const [vaults, liveRepositoryVault] = await Promise.all([
+      asUser.query(api.vault.getUserVaults),
+      t.query(internal.vault.getByRepositoryFullName, {
+        userId: ids.userId,
+        repositoryFullName: "ada/delete-me",
+      }),
+    ]);
+
+    expect(liveRepositoryVault).toBeNull();
+    expect(vaults).toHaveLength(1);
+    expect(vaults[0]).toMatchObject({
+      _id: ids.vaultId,
+      repositoryFullName: "ada/delete-me",
+      remoteBranches: [],
+      deletion: {
+        state: "deleting",
+        runId: deletionRunId,
+        currentStep: "initialize_deletion",
+        message: "Queued vault deletion.",
+      },
+    });
+  });
+
+  it("blocks branch refresh writes after deletion starts", async () => {
+    const { ids, t } = await createConnectedVault();
+    await t.mutation(internal.vaultDeletionRuns.createInitialRun, {
+      userId: ids.userId,
+      vaultId: ids.vaultId,
+      options: {
+        removeCodespaces: false,
+        removeGithubRepo: false,
+        removeConvexProvision: false,
+        removeCloudflareProvision: false,
+      },
+    });
+
+    const claim = await t.mutation(internal.vault.claimTreeRefresh, {
+      vaultId: ids.vaultId,
+      force: true,
+    });
+    await t.mutation(internal.vault.syncVaultRemoteBranches, {
+      vaultId: ids.vaultId,
+      syncedAt: 10,
+      branches: [
+        {
+          name: "main",
+          headCommitSha: "abc",
+          aheadBehindState: "unavailable",
+          pullRequestState: "preserve",
+          isDefault: true,
+          isProtected: false,
+        },
+      ],
+    });
+    const remoteBranches = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("vaultRemoteBranches")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .collect();
+    });
+
+    expect(claim).toEqual({ claimed: false });
+    expect(remoteBranches).toHaveLength(0);
+  });
+
+  it("returns the dashboard delete disabled reason while source setup runs", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+    });
+    await t.mutation(
+      internal.vault.createInitializingExistingRepositoryVaultForUser,
+      {
+        userId,
+        ghRepoOwner: "ada",
+        ghRepoName: "existing-app",
+      },
+    );
+    const asUser = t.withIdentity({
+      subject: `${userId}|test-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+
+    const vaults = await asUser.query(api.vault.getUserVaults);
+
+    expect(vaults).toHaveLength(1);
+    expect(vaults[0]).toMatchObject({
+      repositoryFullName: "ada/existing-app",
+      deletion: {
+        state: "not_deleting",
+        deleteAction: {
+          state: "disabled",
+          reason: "Vault source setup is still running.",
+        },
+      },
+    });
   });
 
   it("finishes local cleanup through workflow cleanup batches", async () => {

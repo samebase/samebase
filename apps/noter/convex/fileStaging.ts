@@ -15,7 +15,7 @@ import {
   readStagedFileKind,
   type StagedFileChangeCandidate,
 } from "./stagingChanges";
-import { assertConnectedVault, isConnectedVault } from "./vaultState";
+import { assertConnectedVault, isLiveConnectedVault } from "./vaultState";
 
 export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
 const {
@@ -399,6 +399,20 @@ async function readDeletionSnapshotSeed(
   });
 }
 
+/**
+ * Gate staging writes behind the live connected-vault invariant.
+ *
+ * This throws through assertConnectedVault when the vault is missing,
+ * disconnected, deleting, or delete_failed, so staging mutations do not drift
+ * from the rest of the vault write gates.
+ */
+async function assertVaultAllowsStagingWrites(
+  ctx: MutationCtx,
+  vaultId: Infer<typeof vaultIdValidator>,
+): Promise<void> {
+  assertConnectedVault(await ctx.db.get(vaultId));
+}
+
 // MARK: Public
 
 export const generateUploadUrl = mutation({
@@ -417,6 +431,7 @@ export const generateUploadUrl = mutation({
     ) {
       throw new Error("Unauthorized");
     }
+    assertConnectedVault(vault);
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -438,6 +453,7 @@ export const deletePendingUploadBlob = mutation({
     ) {
       throw new Error("Unauthorized");
     }
+    assertConnectedVault(vault);
 
     const stagedFile = await ctx.db
       .query("fileStaging")
@@ -564,6 +580,8 @@ export const duplicateBranchStaging = internalMutation({
   args: duplicateBranchStagingArgsValidator,
   returns: nullResultValidator,
   handler: async (ctx, args) => {
+    await assertVaultAllowsStagingWrites(ctx, args.vaultId);
+
     if (args.sourceBranch === args.targetBranch) {
       throw new Error("Source and target branches must differ.");
     }
@@ -791,7 +809,7 @@ export async function clearAllStagingImpl(
     branch: args.branch,
     cleanupCutoffTimestamp,
     vault:
-      vault && isConnectedVault(vault)
+      vault && isLiveConnectedVault(vault)
         ? {
             userId: vault.userId,
             owner: vault.owner,
@@ -974,6 +992,7 @@ export const markFileForDeletion = mutation({
   returns: nullResultValidator,
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
+    await assertVaultAllowsStagingWrites(ctx, args.vaultId);
 
     const existingStaging = await ctx.db
       .query("fileStaging")
@@ -1111,6 +1130,7 @@ export const revertDeletedFileInStaging = mutation({
   returns: nullResultValidator,
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
+    await assertVaultAllowsStagingWrites(ctx, args.vaultId);
 
     const existingStaging = await ctx.db
       .query("fileStaging")
@@ -1164,6 +1184,7 @@ export const updateStagedFileContent = mutation({
     if (existingStaging.ownerId !== userId) {
       throw new Error("Unauthorized");
     }
+    await assertVaultAllowsStagingWrites(ctx, existingStaging.vaultId);
 
     if (existingStaging.fileDeleted) {
       throw new Error("Cannot update content for a deleted staged file.");
@@ -1203,6 +1224,7 @@ export const saveToStaging = internalMutation({
   returns: stagedFileValidator,
   handler: async (ctx, args) => {
     const userId = args.userId ?? (await getUserId(ctx));
+    await assertVaultAllowsStagingWrites(ctx, args.vaultId);
 
     const existingStaging = await ctx.db
       .query("fileStaging")
@@ -1279,6 +1301,8 @@ export const internalMarkFileForDeletion = internalMutation({
   args: internalDeletionArgsValidator,
   returns: nullResultValidator,
   handler: async (ctx, args) => {
+    await assertVaultAllowsStagingWrites(ctx, args.vaultId);
+
     const existingStaging = await ctx.db
       .query("fileStaging")
       .withIndex("by_vault_and_branch_and_path", (q) =>
@@ -1614,6 +1638,8 @@ export const reconcileStagingWithTree = internalMutation({
   },
   returns: nullResultValidator,
   handler: async (ctx, args) => {
+    await assertVaultAllowsStagingWrites(ctx, args.vaultId);
+
     const cleanupCutoffTimestamp = Date.now() + 1;
     for (const instruction of args.instructions) {
       if (instruction.action === "delete") {

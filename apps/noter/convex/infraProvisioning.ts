@@ -19,7 +19,7 @@ import type { AppProvisioningStep, GithubTreeData } from "./schema";
 import { sanitizeSlug, vaultSuffix } from "./slugUtils";
 import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
 import {
-  isConnectedVault,
+  isLiveConnectedVault,
   isNoterManagedVault,
   type NoterManagedConnectedVault,
 } from "./vaultState";
@@ -552,7 +552,7 @@ async function getManagedProvisioningVault(
   const vault = await ctx.runQuery(internal.vault.getById, {
     id: vaultId,
   });
-  if (!isConnectedVault(vault) || !isNoterManagedVault(vault)) {
+  if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
     return null;
   }
   return vault;
@@ -865,6 +865,10 @@ export const upsertInfrastructureRecord = internalMutation({
     ) {
       return { applied: false };
     }
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
+      return { applied: false };
+    }
 
     const existing = await ctx.db
       .query("vaultInfrastructure")
@@ -914,7 +918,7 @@ export const markCloudflareProvisioning = internalMutation({
     }
 
     const vault = await ctx.db.get(args.vaultId);
-    if (!isConnectedVault(vault) || !isNoterManagedVault(vault)) {
+    if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
       return { applied: false };
     }
     const cloudflare = vault.cloudflare;
@@ -954,7 +958,7 @@ export const markConvexConnected = internalMutation({
     }
 
     const vault = await ctx.db.get(args.vaultId);
-    if (!isConnectedVault(vault) || !isNoterManagedVault(vault)) {
+    if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
       return { applied: false };
     }
 
@@ -991,7 +995,7 @@ export const markCloudflareConnected = internalMutation({
     }
 
     const vault = await ctx.db.get(args.vaultId);
-    if (!isConnectedVault(vault) || !isNoterManagedVault(vault)) {
+    if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
       return { applied: false };
     }
 
@@ -1022,8 +1026,13 @@ export const upsertDomainRecord = internalMutation({
     ),
     active: v.boolean(),
   },
-  returns: v.null(),
+  returns: infrastructurePatchResult,
   handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
+      return { applied: false };
+    }
+
     const existing = await ctx.db
       .query("vaultDomains")
       .withIndex("by_vault_and_branch", (q) =>
@@ -1039,7 +1048,7 @@ export const upsertDomainRecord = internalMutation({
         active: args.active,
         lastSyncedAt: Date.now(),
       });
-      return null;
+      return { applied: true };
     }
 
     await ctx.db.insert("vaultDomains", {
@@ -1052,7 +1061,7 @@ export const upsertDomainRecord = internalMutation({
       lastSyncedAt: Date.now(),
     });
 
-    return null;
+    return { applied: true };
   },
 });
 
@@ -1073,7 +1082,7 @@ export const claimWorkflowProvisioning = internalMutation({
     }
 
     const vault = await ctx.db.get(args.vaultId);
-    if (!isConnectedVault(vault) || !isNoterManagedVault(vault)) {
+    if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
       await appendProvisioningRunEvent(ctx, {
         runId: args.runId,
         step: "claim_infra",
@@ -1593,14 +1602,20 @@ export const ensureCloudflareInfrastructure = internalAction({
       return null;
     }
 
-    await ctx.runMutation(internal.infraProvisioning.upsertDomainRecord, {
-      vaultId: args.vaultId,
-      branch: defaultBranch,
-      kind: "main",
-      url: provisionedCloudflare.productionUrl,
-      source: "cloudflare_pages_default",
-      active: true,
-    });
+    const domainRecordResult = await ctx.runMutation(
+      internal.infraProvisioning.upsertDomainRecord,
+      {
+        vaultId: args.vaultId,
+        branch: defaultBranch,
+        kind: "main",
+        url: provisionedCloudflare.productionUrl,
+        source: "cloudflare_pages_default",
+        active: true,
+      },
+    );
+    if (!domainRecordResult.applied) {
+      return null;
+    }
     await appendProvisioningRunEvent(ctx, {
       runId: args.runId,
       step: "record_domains",
@@ -1642,7 +1657,7 @@ export const finishWorkflowProvisioning = internalMutation({
     }
 
     const vault = await ctx.db.get(args.vaultId);
-    if (!isConnectedVault(vault) || !isNoterManagedVault(vault)) {
+    if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
       return null;
     }
 
@@ -1690,7 +1705,7 @@ export const markWorkflowStartupFailed = internalMutation({
       await ctx.runMutation(internal.vault.markGithubProvisioningFailed, {
         runId: args.runId,
       });
-    } else if (isConnectedVault(vault) && isNoterManagedVault(vault)) {
+    } else if (isLiveConnectedVault(vault) && isNoterManagedVault(vault)) {
       const providerPatch = buildProviderFailurePatch({
         vault,
         runId: args.runId,
@@ -1893,7 +1908,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
         });
       }
 
-      if (isConnectedVault(vault) && isNoterManagedVault(vault)) {
+      if (isLiveConnectedVault(vault) && isNoterManagedVault(vault)) {
         const providerPatch = buildProviderFailurePatch({
           vault,
           runId: args.runId,

@@ -1,10 +1,17 @@
-import { query, mutation, internalMutation } from "./_generated/server";
+import {
+  query,
+  mutation,
+  internalMutation,
+  type MutationCtx,
+} from "./_generated/server";
 import { v } from "convex/values";
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { getUserId } from "./common";
 
 import { ChangeSet, Text } from "@codemirror/state";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+import { assertConnectedVault, isLiveConnectedVault } from "./vaultState";
 import {
   STALE_BASE_VERSION_ERROR_CODE,
   buildStaleBaseVersionErrorMessage,
@@ -14,6 +21,14 @@ import {
 // Older updates are pruned since the content is already applied to staging.
 const MAX_UPDATES_TO_KEEP = 200;
 const CLEANUP_BATCH_SIZE = 500;
+
+async function assertVaultAllowsCollaborativeWrites(
+  ctx: Pick<MutationCtx, "db">,
+  vaultId: Id<"vaults">,
+): Promise<void> {
+  const vault = await ctx.db.get(vaultId);
+  assertConnectedVault(vault);
+}
 
 /**
  * Get a document for collaborative editing - similar to the authority's getDocument
@@ -32,6 +47,20 @@ export const getDocument = query({
   }),
   handler: async (ctx, args) => {
     console.log("getDocument:", args.filePath);
+    const userId = await getAuthUserId(ctx);
+    const vault = await ctx.db.get(args.vaultId);
+    if (
+      !userId ||
+      !vault ||
+      vault.userId !== userId ||
+      !isLiveConnectedVault(vault)
+    ) {
+      return {
+        version: 0,
+        content: "",
+        exists: false,
+      };
+    }
 
     // Check if there's staged content for this file
     const staging = await ctx.db
@@ -258,6 +287,8 @@ export const applyUpdatesToStaging = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await assertVaultAllowsCollaborativeWrites(ctx, args.vaultId);
+
     // Get current staging record
     const staging = await ctx.db
       .query("fileStaging")
@@ -325,6 +356,8 @@ export const pushContentUpdate = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await assertVaultAllowsCollaborativeWrites(ctx, args.vaultId);
+
     const staging = await ctx.db
       .query("fileStaging")
       .withIndex("by_vault_and_branch_and_path", (q) =>
@@ -415,6 +448,8 @@ export const pushSerializedChangeSetUpdate = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await assertVaultAllowsCollaborativeWrites(ctx, args.vaultId);
+
     const staging = await ctx.db
       .query("fileStaging")
       .withIndex("by_vault_and_branch_and_path", (q) =>
@@ -574,7 +609,7 @@ export const getActiveEditors = query({
     const recentTimestamp = Date.now() - 30 * 1000;
 
     // Group by user and get the most recent activity
-    const userActivity = new Map<string, number>();
+    const userActivity = new Map<Id<"users">, number>();
     for (const update of recentUpdates) {
       if (update.timestamp < recentTimestamp) break;
       const currentLatest = userActivity.get(update.userId) ?? 0;
@@ -584,7 +619,7 @@ export const getActiveEditors = query({
     }
 
     return Array.from(userActivity.entries()).map(([userId, lastActive]) => ({
-      userId: userId as Id<"users">,
+      userId,
       lastActive,
     }));
   },

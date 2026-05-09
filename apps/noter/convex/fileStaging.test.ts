@@ -27,6 +27,7 @@ function createClearAllStagingTestContext(args: {
   vault: {
     userId: string;
     state: "connected";
+    deletion: { state: "not_deleting" };
     owner: string;
     name: string;
   } | null;
@@ -463,6 +464,7 @@ describe("buildClearAllStagingPlan", () => {
       vault: {
         userId: "users:owner",
         state: "connected",
+        deletion: { state: "not_deleting" },
         owner: "octo",
         name: "repo",
       },

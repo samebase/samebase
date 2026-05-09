@@ -4,10 +4,14 @@ import { Infer, v } from "convex/values";
 import { action, type ActionCtx } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { Octokit } from "@octokit/rest";
+import { RequestError } from "@octokit/request-error";
 import { getUserId } from "../common";
 import { Id } from "../_generated/dataModel";
 import { resolveDeploymentProfile } from "../deploymentProfile";
 import { assertConnectedVault } from "../vaultState";
+
+const CODESPACE_CLEANUP_DELETE_TIMEOUT_MS = 60_000;
+const CODESPACE_CLEANUP_DELETE_RETRY_MS = 2_000;
 
 async function getGithubAccessToken(
   ctx: ActionCtx,
@@ -24,6 +28,22 @@ async function getGithubAccessToken(
     throw new Error("GitHub is not connected");
   }
   return connection.auth.credential;
+}
+
+async function assertCodespaceVaultIsLive(
+  ctx: ActionCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    userId: Id<"users">;
+  },
+): Promise<void> {
+  const vault = await ctx.runQuery(internal.codespaces.mutations.getVault, {
+    vaultId: args.vaultId,
+  });
+  if (!vault || vault.userId !== args.userId) {
+    throw new Error("Vault not found");
+  }
+  assertConnectedVault(vault);
 }
 
 function inferCodespaceDisplayEnvLabel(): "prod" | "dev" {
@@ -112,19 +132,32 @@ export const createCodespace = action({
       state: codespace.state,
     });
 
-    // Store codespace record in database
-    const codespaceId = await ctx.runMutation(
-      internal.codespaces.mutations.createCodespaceRecord,
-      {
-        vaultId: args.vaultId,
-        userId,
-        ghCodespaceId: codespace.id.toString(),
-        ghCodespaceName: codespace.name,
-        commitSha: args.commitSha,
-        branch: args.branch,
-        agentToken,
-      },
-    );
+    let codespaceId: Id<"codespaces">;
+    try {
+      // Store codespace record in database
+      codespaceId = await ctx.runMutation(
+        internal.codespaces.mutations.createCodespaceRecord,
+        {
+          vaultId: args.vaultId,
+          userId,
+          ghCodespaceId: codespace.id.toString(),
+          ghCodespaceName: codespace.name,
+          commitSha: args.commitSha,
+          branch: args.branch,
+          agentToken,
+        },
+      );
+    } catch (error) {
+      try {
+        await deleteCodespaceWithRetry(octokit, codespace.name);
+      } catch (deleteError) {
+        console.log("codespaces:createCodespace:cleanup:error", {
+          ghCodespaceName: codespace.name,
+          message: formatError(deleteError),
+        });
+      }
+      throw error;
+    }
     console.log("codespaces:createCodespace:db:created", {
       codespaceId,
       ghCodespaceId: codespace.id,
@@ -246,6 +279,10 @@ export const getCodespaceConnection = action({
     if (!codespace || codespace.userId !== userId) {
       throw new Error("Codespace not found");
     }
+    await assertCodespaceVaultIsLive(ctx, {
+      vaultId: codespace.vaultId,
+      userId,
+    });
 
     if (!codespace.webUrl || !codespace.agentUrl || !codespace.agentToken) {
       throw new Error("Codespace connection details not available");
@@ -279,6 +316,10 @@ export const startCodespace = action({
     if (!codespace || codespace.userId !== userId) {
       throw new Error("Codespace not found");
     }
+    await assertCodespaceVaultIsLive(ctx, {
+      vaultId: codespace.vaultId,
+      userId,
+    });
 
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
@@ -348,6 +389,10 @@ export const stopCodespace = action({
     if (!codespace || codespace.userId !== userId) {
       throw new Error("Codespace not found");
     }
+    await assertCodespaceVaultIsLive(ctx, {
+      vaultId: codespace.vaultId,
+      userId,
+    });
 
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
@@ -390,6 +435,10 @@ export const deleteCodespace = action({
     if (!codespace || codespace.userId !== userId) {
       throw new Error("Codespace not found");
     }
+    await assertCodespaceVaultIsLive(ctx, {
+      vaultId: codespace.vaultId,
+      userId,
+    });
 
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
@@ -516,18 +565,43 @@ async function pollCodespaceState(
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const isNotFoundError = (error: unknown): error is Error => {
-  if (!(error instanceof Error) || typeof error.message !== "string") {
-    return false;
-  }
-  const status =
-    typeof (error as { status?: number }).status === "number"
-      ? (error as { status?: number }).status
-      : undefined;
-  return status === 404 || error.message.includes("Not Found");
+  return error instanceof RequestError && error.status === 404;
 };
 
 const formatError = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
+
+async function deleteCodespaceWithRetry(
+  octokit: Octokit,
+  codespaceName: string,
+): Promise<void> {
+  const startTime = Date.now();
+  let notFoundCount = 0;
+
+  while (Date.now() - startTime < CODESPACE_CLEANUP_DELETE_TIMEOUT_MS) {
+    try {
+      await octokit.rest.codespaces.deleteForAuthenticatedUser({
+        codespace_name: codespaceName,
+      });
+      return;
+    } catch (error) {
+      if (!isNotFoundError(error)) {
+        throw error;
+      }
+      notFoundCount += 1;
+      if (Date.now() - startTime >= CODESPACE_CLEANUP_DELETE_TIMEOUT_MS) {
+        console.log("codespaces:createCodespace:cleanup:timeout_not_found", {
+          ghCodespaceName: codespaceName,
+          notFoundCount,
+          elapsedMs: Date.now() - startTime,
+        });
+        throw error;
+      }
+      await delay(CODESPACE_CLEANUP_DELETE_RETRY_MS);
+    }
+  }
+  throw new Error(`Timeout deleting Codespace: ${codespaceName}`);
+}
 
 async function getCodespaceWithRetry(
   octokit: Octokit,

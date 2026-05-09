@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery, query } from "../_generated/server";
 import { CodespaceState } from "./model";
 import { getUserId } from "../common";
+import { assertConnectedVault, isLiveConnectedVault } from "../vaultState";
 
 /**
  * Internal: Get Codespace by ID
@@ -48,6 +49,12 @@ export const createCodespaceRecord = internalMutation({
   },
   returns: v.id("codespaces"),
   handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || vault.userId !== args.userId) {
+      throw new Error("Vault not found");
+    }
+    assertConnectedVault(vault);
+
     const codespaceId = await ctx.db.insert("codespaces", {
       vaultId: args.vaultId,
       userId: args.userId,
@@ -224,7 +231,11 @@ export const getActiveCodespace = query({
     const userId = await getUserId(ctx);
     const vault = await ctx.db.get(args.vaultId);
 
-    if (!vault?.activeCodespaceId || vault.userId !== userId) {
+    if (
+      !vault?.activeCodespaceId ||
+      vault.userId !== userId ||
+      !isLiveConnectedVault(vault)
+    ) {
       return null;
     }
 
