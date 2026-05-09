@@ -56,6 +56,45 @@ describe("vault dashboard Convex contract", () => {
     ]);
   });
 
+  it("exposes initializing existing repository source setup", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+    });
+    const ids = await t.mutation(
+      internal.vault.createInitializingExistingRepositoryVaultForUser,
+      {
+        userId,
+        ghRepoOwner: "ada",
+        ghRepoName: "existing-app",
+      },
+    );
+
+    const asUser = t.withIdentity({
+      subject: `${userId}|test-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    const vaults = await asUser.query(api.vault.getUserVaults);
+
+    expect(vaults).toHaveLength(1);
+    expect(vaults[0]).toMatchObject({
+      _id: ids.vaultId,
+      hasConnectedGitHubRepository: false,
+      repositoryFullName: "ada/existing-app",
+      state: "copying_files",
+      sourceSetup: {
+        status: "running",
+        runId: ids.runId,
+        step: "run_created",
+        updatedAt: expect.any(Number),
+      },
+    });
+  });
+
   it("rejects duplicate existing repository targets before GitHub fetch", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
@@ -211,7 +250,7 @@ describe("vault dashboard Convex contract", () => {
         cloudflare: { state: "not_configured" },
       });
 
-      return { runId, vaultId };
+      return { runId, userId, vaultId };
     });
 
     await t.mutation(
@@ -252,6 +291,26 @@ describe("vault dashboard Convex contract", () => {
         message: "Provisioning failed during sync_tree.",
       },
     ]);
+
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+    const vaults = await asUser.query(api.vault.getUserVaults);
+
+    expect(vaults[0]).toMatchObject({
+      _id: ids.vaultId,
+      hasConnectedGitHubRepository: true,
+      repositoryFullName: "ada/imported",
+      state: "copying_files",
+      sourceSetup: {
+        status: "failed",
+        runId: ids.runId,
+        step: "sync_tree",
+        message: "Provisioning failed during sync_tree.",
+        updatedAt: expect.any(Number),
+      },
+    });
   });
 
   it("records initializing vault creation before external GitHub work", async () => {

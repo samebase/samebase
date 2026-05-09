@@ -85,8 +85,9 @@ export const createVaultWithCodespace = action({
       if (typeof defaultBranch !== "string" || defaultBranch.length === 0) {
         throw new Error("Repository default branch is required");
       }
-      const branch = args.branch ?? defaultBranch;
-      if (typeof branch !== "string" || branch.length === 0) {
+      const requestedBranch = args.branch?.trim();
+      const branch = requestedBranch || defaultBranch;
+      if (branch.length === 0) {
         throw new Error("Repository branch is required");
       }
 
@@ -178,14 +179,23 @@ export const createVaultWithCodespace = action({
         codespaceId,
       };
     } catch (error) {
-      await ctx.runMutation(
-        internal.infraProvisioning.markWorkflowProvisioningFailed,
-        {
+      try {
+        await ctx.runMutation(
+          internal.infraProvisioning.markWorkflowProvisioningFailed,
+          {
+            runId,
+            workflowId: "codespace-first",
+            message: error instanceof Error ? error.message : "Unknown error.",
+          },
+        );
+      } catch (markError) {
+        console.error("codespaces:vault:create_mark_failed_error", {
           runId,
           workflowId: "codespace-first",
-          message: error instanceof Error ? error.message : "Unknown error.",
-        },
-      );
+          message:
+            markError instanceof Error ? markError.message : "Unknown error.",
+        });
+      }
       throw error;
     }
   },

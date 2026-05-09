@@ -111,6 +111,10 @@ type NoterManagedConnectedVault = Extract<
   Doc<"vaults">,
   { githubMode: "create_repository"; state: "connected" }
 >;
+type SourceSetupVault = Extract<
+  Doc<"vaults">,
+  { githubMode: "create_repository" | "connect_existing_repository" }
+>;
 type VaultDomain = Doc<"vaultDomains">;
 type VaultInfrastructureOwnership = Doc<"vaultInfrastructureOwnership">;
 type ConnectedCloudflareState = Extract<
@@ -135,7 +139,7 @@ async function resolveSourceSetupSummary(
   ctx: Pick<QueryCtx, "db">,
   args: {
     hasUsableDefaultBranchTree: boolean;
-    vault: NoterManagedConnectedVault;
+    vault: SourceSetupVault;
   },
 ): Promise<SourceSetupSummary> {
   if (args.hasUsableDefaultBranchTree) {
@@ -149,7 +153,7 @@ async function resolveSourceSetupSummary(
       runId: args.vault.runId,
       step: "run_created",
       message: "Provisioning run not found.",
-      updatedAt: args.vault.connectedAt,
+      updatedAt: getSourceSetupVaultFallbackUpdatedAt(args.vault),
     };
   }
 
@@ -177,6 +181,19 @@ async function resolveSourceSetupSummary(
   }
 
   return { status: "not_applicable" };
+}
+
+function getSourceSetupVaultFallbackUpdatedAt(vault: SourceSetupVault): number {
+  switch (vault.state) {
+    case "connected":
+      return vault.connectedAt;
+    case "failed":
+      return vault.failedAt;
+    case "provisioning":
+      return vault.startedAt;
+    default:
+      return vault satisfies never;
+  }
 }
 
 async function readProviderRunSummary(
@@ -1468,7 +1485,10 @@ export const getUserVaults = query({
         treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
         treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
         state: vault.state === "failed" ? "failed" : "copying_files",
-        sourceSetup: { status: "not_applicable" },
+        sourceSetup: await resolveSourceSetupSummary(ctx, {
+          hasUsableDefaultBranchTree: false,
+          vault,
+        }),
         providerSetup: { status: "not_applicable" },
         isNoterManaged: vault.githubMode === "create_repository",
         hasConnectedGitHubRepository: false,
@@ -1512,12 +1532,10 @@ export const getUserVaults = query({
 
         const repositoryFullName = `${vault.owner}/${vault.name}`;
         const hasUsableDefaultBranchTree = Boolean(defaultBranchTree);
-        const sourceSetup = isNoterManagedVault(vault)
-          ? await resolveSourceSetupSummary(ctx, {
-              hasUsableDefaultBranchTree,
-              vault,
-            })
-          : { status: "not_applicable" as const };
+        const sourceSetup = await resolveSourceSetupSummary(ctx, {
+          hasUsableDefaultBranchTree,
+          vault,
+        });
         const providerSetup =
           isNoterManagedVault(vault) && hasUsableDefaultBranchTree
             ? await resolveProviderSetupSummary(ctx, vault)

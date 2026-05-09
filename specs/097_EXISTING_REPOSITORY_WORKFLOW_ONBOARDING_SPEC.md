@@ -263,7 +263,9 @@ The run becomes failed and source setup derives the failed step and message from
 run/events.
 
 Starting the Workflow can also fail. In that case the queueing action must mark
-the run and initializing vault failed before returning the error or navigating.
+the run and initializing vault failed before returning an error response. The
+client only performs the dashboard handoff after the queueing action returns
+successfully.
 
 ## Duplicate And Idempotency Rules
 
@@ -330,6 +332,9 @@ When the user clicks Connect:
 
 The repository picker should hide repositories that already have an
 initializing, failed, or connected vault for the same `repositoryFullName`.
+Failed vaults remain visible on the dashboard with the existing delete action.
+Phase 1 does not add manual retry UX; deleting the failed vault is the explicit
+operator path that unblocks a fresh connect attempt for the same repository.
 
 ### Direct File Route
 
