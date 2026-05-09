@@ -34,6 +34,13 @@ on one `vaultActions.deleteVault` call, that action performs optional external
 teardown, then it calls one large `vault.removeVault` mutation for local
 cleanup.
 
+One major failure mode is a branch-heavy vault. A repository with many branches,
+like Noter itself, can accumulate enough vault-scoped blobs, staging rows,
+collaborative updates, branch trees, and remote-branch metadata that current
+delete has to load far too much into one Convex execution context. That is not
+just a missing-index bug; even indexed reads are unsafe if the mutation still
+collects and deletes the entire vault in one transaction.
+
 That ordering is the opposite of the vault-first direction from specs 096
 and 097. Creation and existing-repo connection now create a durable vault/run
 before provider work so the dashboard can show progress and failure. Deletion
@@ -107,6 +114,12 @@ can accumulate enough staging rows, blobs, collaborative updates, branch caches,
 events, or agent state to exceed a single mutation's read/write/time limits. A
 durable workflow should own orchestration, while bounded internal mutations
 delete local rows in table-sized batches.
+
+The branch-heavy case is the practical forcing function. Vault deletion should
+not depend on Noter-managed repos staying small or having only a handful of
+branches. A vault with roughly 100 branches and many blob-backed edits/uploads
+must make steady progress through batched cleanup instead of trying to read all
+matching documents before the first delete can commit.
 
 ## Workflow Candidate Steps
 
@@ -225,6 +238,11 @@ comments around staged-file collaborative state. `vault.ts` already has
 `deleteVaultBranchArtifacts`, which uses batched collaborative-update cleanup
 for branch deletion. Vault deletion should reuse that shape at vault scope
 instead of inventing a one-shot scan.
+
+Branch-heavy vaults should drive the cleanup design. `vaultRemoteBranches`,
+`vaultBranchTrees`, `fileStaging`, `collaborativeUpdates`, and `blobs` need
+bounded cleanup phases whose progress can survive retries. Loading all branch or
+blob rows before writing is the exact shape the workflow is meant to replace.
 
 `vaultInfrastructure` is read as one row, but the schema only indexes by
 `vaultId`; the cleanup contract should either enforce one row per vault or
