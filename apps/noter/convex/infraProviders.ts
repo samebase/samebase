@@ -9,6 +9,28 @@ export interface ConvexManagementProvider {
   ): Promise<unknown>;
 }
 
+export class ConvexManagementApiError extends Error {
+  readonly status: number;
+
+  readonly path: string;
+
+  readonly payload: unknown;
+
+  constructor(args: { status: number; path: string; payload: unknown }) {
+    super(
+      `Convex API request failed (${args.status}) for ${args.path}: ${payloadToString(args.payload)}`,
+    );
+    this.name = "ConvexManagementApiError";
+    this.status = args.status;
+    this.path = args.path;
+    this.payload = args.payload;
+  }
+}
+
+export function isConvexManagementNotFoundError(error: unknown): boolean {
+  return error instanceof ConvexManagementApiError && error.status === 404;
+}
+
 export function getRequiredEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -68,9 +90,11 @@ async function requestProviderApi(args: {
 
   if (!response.ok) {
     const payload = await parseResponseBody(response);
-    throw new Error(
-      `${args.provider} API request failed (${response.status}) for ${args.path}: ${payloadToString(payload)}`,
-    );
+    throw new ConvexManagementApiError({
+      status: response.status,
+      path: args.path,
+      payload,
+    });
   }
 
   return await parseResponseBody(response);

@@ -853,14 +853,14 @@ Phase 2 implementation note:
   owns the wider dashboard and writer-gate audit for callsites that do not use
   that helper.
 - Phase 2 avoids generic provider error heuristics. GitHub deletes use Octokit's
-  `RequestError` for replay-safe 404 handling; Convex and Cloudflare not-found
-  normalization should be added behind typed provider boundaries in a focused
-  follow-up.
+  `RequestError`, Convex deletion uses `ConvexManagementApiError`, and
+  Cloudflare Pages deletion uses `CloudflarePagesApiError` so provider not-found
+  responses are replay-safe behind provider-owned boundaries.
 - Backend coverage now checks queue-before-work, local cleanup completion,
   non-quiescent rejection, invalid existing-repository GitHub deletion plans,
-  and retry run creation from a retained failed snapshot. Provider-specific
-  success/not-found/failure tests should be added with the provider test harness
-  when those integrations get mocked seams.
+  provider not-found classifiers, and retry run creation from a retained failed
+  snapshot. Provider-specific success/not-found/failure action tests should be
+  added with the provider test harness when those integrations get mocked seams.
 
 ### Phase 3: Dashboard And Writer Gates
 
