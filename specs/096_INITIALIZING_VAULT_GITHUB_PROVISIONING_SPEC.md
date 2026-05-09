@@ -987,7 +987,7 @@ guard exists.
 
 ### Vault-First Phase 6: Existing Repository Onboarding
 
-Status: shipped in `v1257` / `#733`.
+Status: runtime behavior shipped in `v1257` / `#733`.
 
 Goal: move existing-repository connection onto the same vault/run/provider-state
 model.
