@@ -74,7 +74,6 @@ import type * as oauthState from "../oauthState.js";
 import type * as oauthUtils from "../oauthUtils.js";
 import type * as polarWebhooks from "../polarWebhooks.js";
 import type * as providerConnections from "../providerConnections.js";
-import type * as providerErrors from "../providerErrors.js";
 import type * as repoName from "../repoName.js";
 import type * as slugUtils from "../slugUtils.js";
 import type * as stagingChanges from "../stagingChanges.js";
@@ -177,7 +176,6 @@ declare const fullApi: ApiFromModules<{
   oauthUtils: typeof oauthUtils;
   polarWebhooks: typeof polarWebhooks;
   providerConnections: typeof providerConnections;
-  providerErrors: typeof providerErrors;
   repoName: typeof repoName;
   slugUtils: typeof slugUtils;
   stagingChanges: typeof stagingChanges;

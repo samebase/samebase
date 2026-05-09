@@ -1,5 +1,6 @@
 "use node";
 
+import { RequestError } from "@octokit/request-error";
 import { Octokit } from "@octokit/rest";
 import { v } from "convex/values";
 import { internalAction, type ActionCtx } from "./_generated/server";
@@ -8,7 +9,6 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { createInfraProviders } from "./infraProviders";
 import { deleteCloudflareResources } from "./cloudflareResources";
 import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
-import { isProviderNotFoundError } from "./providerErrors";
 import { readRetainedSnapshot } from "./vaultDeletionRuns";
 import type { VaultLocalCleanupStepBatchResult } from "./vaultDeletionCleanup";
 import {
@@ -143,7 +143,7 @@ export const deleteConnectedCodespaces = internalAction({
           codespace_name: codespace.ghCodespaceName,
         });
       } catch (error) {
-        if (!isProviderNotFoundError(error)) {
+        if (!(error instanceof RequestError && error.status === 404)) {
           await ctx.runMutation(
             internal.codespaces.mutations.updateCodespaceState,
             {
@@ -205,19 +205,12 @@ export const deleteCloudflare = internalAction({
       throw new Error("Cloudflare connection is required to remove resources.");
     }
 
-    try {
-      await deleteCloudflareResources({
-        accountId: plan.cloudflare.accountId,
-        projectName: plan.cloudflare.projectName,
-        cloudflareToken: cloudflareConnection.auth.credential,
-        cloudflareServerUrl:
-          resolveCloudflareMcpServerUrl(cloudflareConnection),
-      });
-    } catch (error) {
-      if (!isProviderNotFoundError(error)) {
-        throw error;
-      }
-    }
+    await deleteCloudflareResources({
+      accountId: plan.cloudflare.accountId,
+      projectName: plan.cloudflare.projectName,
+      cloudflareToken: cloudflareConnection.auth.credential,
+      cloudflareServerUrl: resolveCloudflareMcpServerUrl(cloudflareConnection),
+    });
 
     return null;
   },
@@ -255,22 +248,16 @@ export const deleteConvex = internalAction({
     const providers = createInfraProviders({
       convexToken: convexConnection.auth.credential,
     });
-    try {
-      if (plan.convex.action === "delete_project") {
-        await providers.convex.request(
-          `/projects/${encodeURIComponent(plan.convex.projectId)}/delete`,
-          "POST",
-        );
-      } else {
-        await providers.convex.request(
-          `/deployments/${encodeURIComponent(plan.convex.deploymentName)}/delete`,
-          "POST",
-        );
-      }
-    } catch (error) {
-      if (!isProviderNotFoundError(error)) {
-        throw error;
-      }
+    if (plan.convex.action === "delete_project") {
+      await providers.convex.request(
+        `/projects/${encodeURIComponent(plan.convex.projectId)}/delete`,
+        "POST",
+      );
+    } else {
+      await providers.convex.request(
+        `/deployments/${encodeURIComponent(plan.convex.deploymentName)}/delete`,
+        "POST",
+      );
     }
 
     return null;
@@ -302,7 +289,7 @@ export const deleteGitHubRepository = internalAction({
         repo: plan.githubRepository.name,
       });
     } catch (error) {
-      if (!isProviderNotFoundError(error)) {
+      if (!(error instanceof RequestError && error.status === 404)) {
         throw error;
       }
     }
