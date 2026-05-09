@@ -112,6 +112,17 @@ Convex state:
   existing `workspaceSidebarState` rows once. That operational cleanup replaces
   a widen-migrate-narrow rollout for this one-user state.
 
+Operational cleanup:
+
+- Owner: the release operator for this PR owns the one-time cleanup.
+- Timing: run it immediately before deploying the required Convex schema.
+- Approach: manually clear or patch every existing `workspaceSidebarState` row
+  so each row has `mobileSurface: { kind: "unmerged" }`; do not add app-level
+  fallback code.
+- Verification: record the command in the deployment checklist, confirm the
+  pre-deploy query finds no `workspaceSidebarState` rows missing
+  `mobileSurface`, and repeat the query after deploy.
+
 Local storage state:
 
 - Bump the local-storage payload version.
@@ -215,8 +226,9 @@ merge for old data or preserve fields from old clients.
 
 ### Step 5. Cover The Refresh Contract
 
-Add route-level Playwright coverage to `workspace-sidebar-drag.spec.ts` for the
-real shipped route:
+Add route-level Playwright coverage to `workspace-sidebar-drag.spec.ts` for
+`/logo?dev`, the deterministic shipped route used by the workspace sidebar drag
+suite:
 
 1. Create a right-side merge through the mobile resize gesture.
 2. Wait for the persisted write to flush.
@@ -224,9 +236,10 @@ real shipped route:
 4. Assert the matching merged surface still renders and the main pane width
    remains the persisted merged width.
 
-Add the symmetric left-side case if the chosen route has useful left-pane
-content. Add focused unit coverage around parser rejection of old local-storage
-payloads and state equality for `mobileSurface` changes.
+Do not add a symmetric left-side case for `/logo?dev` because that route does
+not ship useful left-pane content. Add focused unit coverage around parser
+rejection of old local-storage payloads and state equality for `mobileSurface`
+changes.
 
 ## Acceptance Criteria
 

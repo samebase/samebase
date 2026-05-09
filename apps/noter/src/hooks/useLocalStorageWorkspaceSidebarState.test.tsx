@@ -240,6 +240,28 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
     ).toBe("288");
   });
 
+  it("falls back to defaults for malformed mobile surface payloads", () => {
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          ...STORED_SIDEBAR_STATE,
+          mobileSurface: { kind: "merged", mainWidthPx: 0, side: "right" },
+        },
+        version: 2,
+      }),
+    );
+
+    renderProbe();
+
+    expect(
+      rootElement?.firstElementChild?.getAttribute("data-mobile-pane"),
+    ).toBe("main");
+    expect(
+      rootElement?.firstElementChild?.getAttribute("data-right-width"),
+    ).toBe("288");
+  });
+
   it("clears localStorage when the reset flag is active", () => {
     window.localStorage.setItem(
       STORAGE_KEY,

@@ -20,6 +20,12 @@ export type WorkspaceMobileSidebarPane = Infer<
   typeof workspaceMobileSidebarPaneValidator
 >;
 
+/**
+ * unmerged = mobile carousel panes stay separate
+ *
+ * merged = the side pane and main pane share one mobile surface, and
+ * mainWidthPx is the main pane's width inside that pair
+ */
 export const workspaceMobileSurfaceValidator = union(
   object({
     kind: literal("unmerged"),

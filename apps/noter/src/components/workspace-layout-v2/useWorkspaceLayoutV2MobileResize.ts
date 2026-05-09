@@ -94,6 +94,7 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
   const isMobileMergedFit =
     hasMobileMergedPane &&
     mobileMergedMainWidthPx !== null &&
+    mobileMergedMainWidthPx >= WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX &&
     mobileMergedSideWidthPx + mobileMergedMainWidthPx <=
       viewportWidthPx + MOBILE_PANE_SETTLED_TOLERANCE_PX;
   const durableMobileMergedSideWidthPx =
@@ -105,6 +106,8 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
   const isDurableMobileMergedFit =
     durableMobileMergedMainWidthPx !== null &&
     durableMobileMergedSide !== null &&
+    durableMobileMergedMainWidthPx >=
+      WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX &&
     durableMobileMergedSideWidthPx + durableMobileMergedMainWidthPx <=
       viewportWidthPx + MOBILE_PANE_SETTLED_TOLERANCE_PX;
   const hasOppositePaneForMergedSide =
@@ -302,13 +305,16 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
         viewportWidthPx,
       });
 
-      if (settledMainWidthPx !== null && carouselNode !== null) {
-        if (currentMobileGrip.shouldSettleMergedOnEnd) {
-          settleMobileMergedSurface({
-            mainWidthPx: settledMainWidthPx,
-            side: resizeHandle.side,
-            sideWidthPx: resizeHandle.minWidthPx,
-          });
+      if (
+        settledMainWidthPx !== null &&
+        currentMobileGrip.shouldSettleMergedOnEnd
+      ) {
+        settleMobileMergedSurface({
+          mainWidthPx: settledMainWidthPx,
+          side: resizeHandle.side,
+          sideWidthPx: resizeHandle.minWidthPx,
+        });
+        if (carouselNode !== null) {
           carouselNode.scrollLeft = getMobilePaneScrollLeftPx(
             resizeHandle.side,
             {
@@ -328,10 +334,8 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
               mergedSurfaceSide: resizeHandle.side,
             },
           );
-          didSettleMergedMainPane = true;
-        } else {
-          setMobileSurface(WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE);
         }
+        didSettleMergedMainPane = true;
       } else {
         setMobileSurface(WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE);
       }

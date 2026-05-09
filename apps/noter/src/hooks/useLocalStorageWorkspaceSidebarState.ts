@@ -1,5 +1,6 @@
 import * as React from "react";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
+import { WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX } from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
 import { notifyBrowserLocalStorageChanged } from "@/lib/localStorageSnapshot";
 import type {
   WorkspaceSidebarStateController,
@@ -81,7 +82,8 @@ function parseMobileSurface(
   if (
     value.kind === "merged" &&
     (value.side === "left" || value.side === "right") &&
-    isFiniteNumber(value.mainWidthPx)
+    isFiniteNumber(value.mainWidthPx) &&
+    value.mainWidthPx >= WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX
   ) {
     return {
       kind: "merged",
