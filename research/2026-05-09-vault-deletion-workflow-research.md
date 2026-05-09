@@ -324,7 +324,7 @@ type VaultDeletionRun = {
   vaultId: Id<"vaults">;
   repositoryFullName: string;
   workflowId?: string;
-  state: "queued" | "running" | "succeeded" | "failed" | "canceled";
+  state: "queued" | "running" | "succeeded" | "failed";
   currentStep: VaultDeletionStep;
   options: {
     removeCodespaces: boolean;
