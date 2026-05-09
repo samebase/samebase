@@ -191,12 +191,9 @@ describe("vault dashboard Convex contract", () => {
       },
     );
 
-    await t.mutation(
-      internal.vault.markExistingRepositoryGithubProvisioningFailed,
-      {
-        runId: ids.runId,
-      },
-    );
+    await t.mutation(internal.vault.markGithubProvisioningFailed, {
+      runId: ids.runId,
+    });
 
     const vault = await t.run(async (ctx) => {
       return await ctx.db.get(ids.vaultId);

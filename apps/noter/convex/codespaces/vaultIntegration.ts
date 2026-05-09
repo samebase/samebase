@@ -7,6 +7,7 @@ import { Octokit } from "@octokit/rest";
 import { getUserId } from "../common";
 import type { Id } from "../_generated/dataModel";
 import { assertConnectedVault } from "../vaultState";
+import { toErrorMessage } from "../jsonUtils";
 
 async function getGithubAccessToken(
   ctx: ActionCtx,
@@ -36,7 +37,6 @@ export const createVaultWithCodespace = action({
   args: {
     repoOwner: v.string(),
     repoName: v.string(),
-    ghRepoId: v.number(),
     branch: v.optional(v.string()),
   },
   returns: createVaultWithCodespaceResult,
@@ -87,9 +87,6 @@ export const createVaultWithCodespace = action({
       }
       const requestedBranch = args.branch?.trim();
       const branch = requestedBranch || defaultBranch;
-      if (branch.length === 0) {
-        throw new Error("Repository branch is required");
-      }
 
       const { data: branchData } = await octokit.rest.repos.getBranch({
         owner: repo.data.owner.login,
@@ -185,15 +182,14 @@ export const createVaultWithCodespace = action({
           {
             runId,
             workflowId: "codespace-first",
-            message: error instanceof Error ? error.message : "Unknown error.",
+            message: toErrorMessage(error),
           },
         );
       } catch (markError) {
         console.error("codespaces:vault:create_mark_failed_error", {
           runId,
           workflowId: "codespace-first",
-          message:
-            markError instanceof Error ? markError.message : "Unknown error.",
+          message: toErrorMessage(markError),
         });
       }
       throw error;

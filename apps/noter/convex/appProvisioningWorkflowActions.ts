@@ -8,6 +8,11 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
 import { toSafeRepoName } from "./repoName";
 import { isAdminUser } from "./users";
+import type {
+  AppProvisioningEventLevel,
+  AppProvisioningRunState,
+  AppProvisioningStep,
+} from "./schema";
 import {
   createStarterSeedGitClient,
   seedRepositoryWithStarter,
@@ -27,32 +32,36 @@ const vaultCreatedResult = object({
   vaultId: id("vaults"),
 });
 
-function readDefaultBranch(repoData: unknown): string {
+function readRepositoryDefaultBranch(repoData: unknown): string | null {
   if (typeof repoData !== "object" || repoData === null) {
-    return "main";
+    return null;
   }
   const value = Reflect.get(repoData, "default_branch");
   if (typeof value === "string" && value.length > 0) {
     return value;
   }
-  return "main";
+  return null;
+}
+
+function readDefaultBranch(repoData: unknown): string {
+  return readRepositoryDefaultBranch(repoData) ?? "main";
 }
 
 function readRequiredDefaultBranch(repoData: unknown): string {
-  if (typeof repoData !== "object" || repoData === null) {
-    throw new Error("GitHub repository does not have a default branch.");
-  }
-  const value = Reflect.get(repoData, "default_branch");
-  if (typeof value === "string" && value.length > 0) {
-    return value;
+  const defaultBranch = readRepositoryDefaultBranch(repoData);
+  if (defaultBranch) {
+    return defaultBranch;
   }
   throw new Error("GitHub repository does not have a default branch.");
 }
 
-function assertRepositoryCoordinates(args: {
+function readRepositoryCoordinates(args: {
   ownerName: string;
   repoName: string;
-}): void {
+}): {
+  ownerName: string;
+  repoName: string;
+} {
   const ownerName = args.ownerName.trim();
   const repoName = args.repoName.trim();
   if (
@@ -63,6 +72,7 @@ function assertRepositoryCoordinates(args: {
   ) {
     throw new Error("Invalid repository full name.");
   }
+  return { ownerName, repoName };
 }
 
 async function getProvisioningRun(
@@ -102,17 +112,10 @@ async function appendRunEvent(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
     runId: Id<"appProvisioningRuns">;
-    step:
-      | "validate_connections"
-      | "create_github_repo"
-      | "fetch_github_repo"
-      | "seed_starter"
-      | "connect_github"
-      | "sync_tree"
-      | "finish";
-    level: "info" | "warn" | "error";
+    step: AppProvisioningStep;
+    level: AppProvisioningEventLevel;
     message: string;
-    state: "unchanged" | "queued" | "running" | "succeeded" | "failed";
+    state: "unchanged" | AppProvisioningRunState;
   },
 ): Promise<void> {
   await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, args);
@@ -308,7 +311,7 @@ export const createGitHubRepository = internalAction({
     const repoFinalName = repo.data.name;
     const repositoryFullName = `${ownerName}/${repoFinalName}`;
     await ctx.runMutation(
-      internal.appProvisioningRuns.recordRepositoryCreated,
+      internal.appProvisioningRuns.recordRepositoryFullName,
       {
         runId: args.runId,
         repositoryFullName,
@@ -355,7 +358,7 @@ export const validateExistingRepositoryConnection = internalAction({
       state: "running",
     });
 
-    assertRepositoryCoordinates(args);
+    readRepositoryCoordinates(args);
 
     const [currentUser, githubConnection] = await Promise.all([
       ctx.runQuery(internal.users.getById, { userId: args.userId }),
@@ -387,7 +390,7 @@ export const fetchExistingGitHubRepository = internalAction({
   returns: githubRepositoryResult,
   handler: async (ctx, args) => {
     await assertConnectExistingRepositoryRun(ctx, args);
-    assertRepositoryCoordinates(args);
+    const requestedRepository = readRepositoryCoordinates(args);
 
     await appendRunEvent(ctx, {
       runId: args.runId,
@@ -399,8 +402,8 @@ export const fetchExistingGitHubRepository = internalAction({
 
     const octokit = await resolveGitHubOctokit(ctx, args.userId);
     const repo = await octokit.rest.repos.get({
-      owner: args.ownerName,
-      repo: args.repoName,
+      owner: requestedRepository.ownerName,
+      repo: requestedRepository.repoName,
     });
     const defaultBranch = readRequiredDefaultBranch(repo.data);
     await octokit.rest.repos.getBranch({

@@ -28,23 +28,23 @@ async function recordRepositoryFullNameForRun(
   if (!run) {
     throw new Error("Provisioning run not found.");
   }
+  if (run.repositoryFullName === args.repositoryFullName) {
+    return;
+  }
+
   await ctx.db.patch(args.runId, {
     repositoryFullName: args.repositoryFullName,
     updatedAt: Date.now(),
   });
-  if (
-    run.repositoryFullName &&
-    run.repositoryFullName !== args.repositoryFullName
-  ) {
-    const events = await ctx.db
-      .query("appProvisioningEvents")
-      .withIndex("by_run_and_created_at", (q) => q.eq("runId", args.runId))
-      .take(MAX_EVENTS_TO_LINK_TO_VAULT);
-    for (const event of events) {
-      await ctx.db.patch(event._id, {
-        repositoryFullName: args.repositoryFullName,
-      });
-    }
+
+  const events = await ctx.db
+    .query("appProvisioningEvents")
+    .withIndex("by_run_and_created_at", (q) => q.eq("runId", args.runId))
+    .take(MAX_EVENTS_TO_LINK_TO_VAULT);
+  for (const event of events) {
+    await ctx.db.patch(event._id, {
+      repositoryFullName: args.repositoryFullName,
+    });
   }
 }
 
@@ -86,19 +86,6 @@ export const createForVault = internalMutation({
 });
 
 export const recordRepositoryFullName = internalMutation({
-  args: {
-    runId: id("appProvisioningRuns"),
-    repositoryFullName: string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await recordRepositoryFullNameForRun(ctx, args);
-
-    return null;
-  },
-});
-
-export const recordRepositoryCreated = internalMutation({
   args: {
     runId: id("appProvisioningRuns"),
     repositoryFullName: string(),

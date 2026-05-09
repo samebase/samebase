@@ -50,6 +50,33 @@ function isProviderNotFoundError(error: unknown): boolean {
   );
 }
 
+async function markProvisioningStartupFailed(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    runId: Id<"appProvisioningRuns">;
+    logName: string;
+    error: unknown;
+    vaultId: Id<"vaults">;
+  },
+): Promise<void> {
+  const message = toErrorMessage(args.error);
+  try {
+    await ctx.runMutation(
+      internal.infraProvisioning.markWorkflowStartupFailed,
+      {
+        runId: args.runId,
+        message,
+      },
+    );
+  } catch (markError) {
+    console.error(args.logName, {
+      runId: args.runId,
+      vaultId: args.vaultId,
+      message: toErrorMessage(markError),
+    });
+  }
+}
+
 async function startVaultInfrastructureProvisioningOrFail(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
@@ -64,22 +91,12 @@ async function startVaultInfrastructureProvisioningOrFail(
       args,
     );
   } catch (error) {
-    const message = toErrorMessage(error);
-    try {
-      await ctx.runMutation(
-        internal.infraProvisioning.markWorkflowStartupFailed,
-        {
-          runId: args.runId,
-          message,
-        },
-      );
-    } catch (markError) {
-      console.error("vault:provisioning_start_failure_mark_failed", {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        message: toErrorMessage(markError),
-      });
-    }
+    await markProvisioningStartupFailed(ctx, {
+      runId: args.runId,
+      vaultId: args.vaultId,
+      logName: "vault:provisioning_start_failure_mark_failed",
+      error,
+    });
     throw error;
   }
 }
@@ -102,21 +119,12 @@ async function startCreateAppProvisioningOrFail(
       args,
     );
   } catch (error) {
-    const message = toErrorMessage(error);
-    try {
-      await ctx.runMutation(
-        internal.infraProvisioning.markWorkflowStartupFailed,
-        {
-          runId: args.runId,
-          message,
-        },
-      );
-    } catch (markError) {
-      console.error("vault:create:provisioning_start_failure_mark_failed", {
-        runId: args.runId,
-        message: toErrorMessage(markError),
-      });
-    }
+    await markProvisioningStartupFailed(ctx, {
+      runId: args.runId,
+      vaultId: args.vaultId,
+      logName: "vault:create:provisioning_start_failure_mark_failed",
+      error,
+    });
     throw error;
   }
 }
@@ -138,21 +146,12 @@ async function startConnectExistingRepositoryProvisioningOrFail(
       args,
     );
   } catch (error) {
-    const message = toErrorMessage(error);
-    try {
-      await ctx.runMutation(
-        internal.infraProvisioning.markWorkflowStartupFailed,
-        {
-          runId: args.runId,
-          message,
-        },
-      );
-    } catch (markError) {
-      console.error("vault:connect:provisioning_start_failure_mark_failed", {
-        runId: args.runId,
-        message: toErrorMessage(markError),
-      });
-    }
+    await markProvisioningStartupFailed(ctx, {
+      runId: args.runId,
+      vaultId: args.vaultId,
+      logName: "vault:connect:provisioning_start_failure_mark_failed",
+      error,
+    });
     throw error;
   }
 }
