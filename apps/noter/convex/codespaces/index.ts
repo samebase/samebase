@@ -10,6 +10,9 @@ import { Id } from "../_generated/dataModel";
 import { resolveDeploymentProfile } from "../deploymentProfile";
 import { assertConnectedVault } from "../vaultState";
 
+const CODESPACE_CLEANUP_DELETE_TIMEOUT_MS = 60_000;
+const CODESPACE_CLEANUP_DELETE_RETRY_MS = 2_000;
+
 async function getGithubAccessToken(
   ctx: ActionCtx,
   userId: Id<"users">,
@@ -146,16 +149,12 @@ export const createCodespace = action({
       );
     } catch (error) {
       try {
-        await octokit.rest.codespaces.deleteForAuthenticatedUser({
-          codespace_name: codespace.name,
-        });
+        await deleteCodespaceWithRetry(octokit, codespace.name);
       } catch (deleteError) {
-        if (!isNotFoundError(deleteError)) {
-          console.log("codespaces:createCodespace:cleanup:error", {
-            ghCodespaceName: codespace.name,
-            message: formatError(deleteError),
-          });
-        }
+        console.log("codespaces:createCodespace:cleanup:error", {
+          ghCodespaceName: codespace.name,
+          message: formatError(deleteError),
+        });
       }
       throw error;
     }
@@ -571,6 +570,38 @@ const isNotFoundError = (error: unknown): error is Error => {
 
 const formatError = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
+
+async function deleteCodespaceWithRetry(
+  octokit: Octokit,
+  codespaceName: string,
+): Promise<void> {
+  const startTime = Date.now();
+  let notFoundCount = 0;
+
+  while (Date.now() - startTime < CODESPACE_CLEANUP_DELETE_TIMEOUT_MS) {
+    try {
+      await octokit.rest.codespaces.deleteForAuthenticatedUser({
+        codespace_name: codespaceName,
+      });
+      return;
+    } catch (error) {
+      if (!isNotFoundError(error)) {
+        throw error;
+      }
+      notFoundCount += 1;
+      if (Date.now() - startTime >= CODESPACE_CLEANUP_DELETE_TIMEOUT_MS) {
+        console.log("codespaces:createCodespace:cleanup:timeout_not_found", {
+          ghCodespaceName: codespaceName,
+          notFoundCount,
+          elapsedMs: Date.now() - startTime,
+        });
+        throw error;
+      }
+      await delay(CODESPACE_CLEANUP_DELETE_RETRY_MS);
+    }
+  }
+  throw new Error(`Timeout deleting Codespace: ${codespaceName}`);
+}
 
 async function getCodespaceWithRetry(
   octokit: Octokit,

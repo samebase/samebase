@@ -1026,11 +1026,11 @@ export const upsertDomainRecord = internalMutation({
     ),
     active: v.boolean(),
   },
-  returns: v.null(),
+  returns: infrastructurePatchResult,
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
     if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
-      return null;
+      return { applied: false };
     }
 
     const existing = await ctx.db
@@ -1048,7 +1048,7 @@ export const upsertDomainRecord = internalMutation({
         active: args.active,
         lastSyncedAt: Date.now(),
       });
-      return null;
+      return { applied: true };
     }
 
     await ctx.db.insert("vaultDomains", {
@@ -1061,7 +1061,7 @@ export const upsertDomainRecord = internalMutation({
       lastSyncedAt: Date.now(),
     });
 
-    return null;
+    return { applied: true };
   },
 });
 
@@ -1602,14 +1602,20 @@ export const ensureCloudflareInfrastructure = internalAction({
       return null;
     }
 
-    await ctx.runMutation(internal.infraProvisioning.upsertDomainRecord, {
-      vaultId: args.vaultId,
-      branch: defaultBranch,
-      kind: "main",
-      url: provisionedCloudflare.productionUrl,
-      source: "cloudflare_pages_default",
-      active: true,
-    });
+    const domainRecordResult = await ctx.runMutation(
+      internal.infraProvisioning.upsertDomainRecord,
+      {
+        vaultId: args.vaultId,
+        branch: defaultBranch,
+        kind: "main",
+        url: provisionedCloudflare.productionUrl,
+        source: "cloudflare_pages_default",
+        active: true,
+      },
+    );
+    if (!domainRecordResult.applied) {
+      return null;
+    }
     await appendProvisioningRunEvent(ctx, {
       runId: args.runId,
       step: "record_domains",
