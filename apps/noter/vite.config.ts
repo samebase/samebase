@@ -606,9 +606,6 @@ export default defineConfig({
       "@": path.resolve(currentDir, "./src"),
     },
   },
-  esbuild: {
-    logOverride: { "this-is-undefined-in-esm": "silent" },
-  },
   server: browserConvexProxyServerConfig,
   build: {
     rollupOptions: {
