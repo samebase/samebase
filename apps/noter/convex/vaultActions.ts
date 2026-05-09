@@ -6,13 +6,9 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "./common";
-import { createInfraProviders } from "./infraProviders";
-import { deleteCloudflareResources } from "./cloudflareResources";
 import { toErrorMessage } from "./jsonUtils";
-import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
 import { isConnectedVault, isNoterManagedVault } from "./vaultState";
 import { toSafeRepoName } from "./repoName";
-import type { VaultLocalCleanupBatchResult } from "./vaultDeletionCleanup";
 
 const { array, literal, object, optional, string, union } = v;
 const githubRepositoryOwnerKind = union(
@@ -23,33 +19,6 @@ const githubRepositoryOwnerOption = object({
   login: string(),
   kind: githubRepositoryOwnerKind,
 });
-
-function isProviderNotFoundError(error: unknown): boolean {
-  if (typeof error === "object" && error !== null) {
-    const status = Reflect.get(error, "status");
-    if (typeof status === "number" && status === 404) {
-      return true;
-    }
-    const response = Reflect.get(error, "response");
-    if (typeof response === "object" && response !== null) {
-      const responseStatus = Reflect.get(response, "status");
-      if (typeof responseStatus === "number" && responseStatus === 404) {
-        return true;
-      }
-    }
-  }
-
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
-  const message = error.message.toLowerCase();
-  return (
-    message.includes("(404)") ||
-    message.includes("not found") ||
-    message.includes("404")
-  );
-}
 
 async function markProvisioningStartupFailed(
   ctx: Pick<ActionCtx, "runMutation">,
@@ -102,20 +71,53 @@ async function startVaultInfrastructureProvisioningOrFail(
   }
 }
 
-async function deleteVaultLocalDataToCompletion(
+async function markDeletionStartupFailed(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    runId: Id<"vaultDeletionRuns">;
+    logName: string;
+    error: unknown;
+    vaultId: Id<"vaults">;
+  },
+): Promise<void> {
+  const message = toErrorMessage(args.error);
+  try {
+    await ctx.runMutation(internal.vaultDeletionRuns.markWorkflowFailed, {
+      runId: args.runId,
+      message,
+    });
+  } catch (markError) {
+    console.error(args.logName, {
+      runId: args.runId,
+      vaultId: args.vaultId,
+      message: toErrorMessage(markError),
+    });
+  }
+}
+
+async function startVaultDeletionOrFail(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
     vaultId: Id<"vaults">;
+    runId: Id<"vaultDeletionRuns">;
     userId: Id<"users">;
   },
 ): Promise<void> {
-  let result: VaultLocalCleanupBatchResult;
-  do {
-    result = await ctx.runMutation(
-      internal.vaultDeletionCleanup.deleteVaultLocalDataBatch,
-      args,
-    );
-  } while (result.state === "needs_more");
+  try {
+    await ctx.runMutation(internal.vaultDeletionWorkflow.startVaultDeletion, {
+      vaultId: args.vaultId,
+      runId: args.runId,
+      userId: args.userId,
+    });
+  } catch (error) {
+    await markDeletionStartupFailed(ctx, {
+      runId: args.runId,
+      vaultId: args.vaultId,
+      logName: "vault:delete:workflow_start_failure_mark_failed",
+      error,
+    });
+    throw error;
+  }
 }
 
 async function startCreateAppProvisioningOrFail(
@@ -411,211 +413,66 @@ export const deleteVault = action({
     removeConvexProvision: v.optional(v.boolean()),
     removeCloudflareProvision: v.optional(v.boolean()),
   },
-  returns: v.null(),
-  handler: async (ctx, args) => {
+  returns: v.object({
+    deletionRunId: v.id("vaultDeletionRuns"),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ deletionRunId: Id<"vaultDeletionRuns"> }> => {
     const userId = await getUserId(ctx);
-    const [githubConnection, convexConnection, cloudflareConnection] =
-      await Promise.all([
-        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-          userId,
-          kind: "github",
-        }),
-        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-          userId,
-          kind: "convex",
-        }),
-        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-          userId,
-          kind: "cloudflare",
-        }),
-      ]);
-    let octokit: Octokit | null = null;
-    const getOctokit = async (): Promise<Octokit> => {
-      if (octokit) {
-        return octokit;
-      }
-
-      if (githubConnection?.kind !== "github") {
-        throw new Error("GitHub is not connected");
-      }
-
-      octokit = new Octokit({
-        auth: githubConnection.auth.credential,
-      });
-      return octokit;
-    };
-
-    const vault = await ctx.runQuery(internal.vault.getById, {
-      id: args.vaultId,
-    });
-
-    if (!vault || vault.userId !== userId) {
-      throw new Error("Vault not found");
-    }
-    const connectedVault = isConnectedVault(vault) ? vault : null;
-    const isNoterManaged = connectedVault
-      ? isNoterManagedVault(connectedVault)
-      : false;
-
-    const infrastructure = await ctx.runQuery(
-      internal.vault.getInfrastructureByVaultId,
-      {
+    const result: { deletionRunId: Id<"vaultDeletionRuns"> } =
+      await ctx.runMutation(internal.vaultDeletionRuns.createInitialRun, {
+        userId,
         vaultId: args.vaultId,
-      },
-    );
-
-    const cloudflare = infrastructure?.cloudflare;
-    const shouldRemoveCloudflareProvision =
-      args.removeCloudflareProvision && isNoterManaged;
-    const shouldRemoveConvexProvision =
-      args.removeConvexProvision &&
-      isNoterManaged &&
-      (typeof infrastructure?.convexProjectId === "string" ||
-        typeof infrastructure?.convexDeploymentName === "string");
-    const shouldRemoveCodespaces = args.removeCodespaces;
-
-    if (shouldRemoveCloudflareProvision || shouldRemoveConvexProvision) {
-      const convexToken = shouldRemoveConvexProvision
-        ? convexConnection?.kind === "convex"
-          ? convexConnection.auth.credential
-          : undefined
-        : undefined;
-      if (shouldRemoveConvexProvision && !convexToken) {
-        throw new Error("Convex connection is required to remove resources.");
-      }
-      const cloudflareToken = shouldRemoveCloudflareProvision
-        ? cloudflareConnection?.kind === "cloudflare"
-          ? cloudflareConnection.auth.credential
-          : undefined
-        : undefined;
-      const cloudflareServerUrl =
-        shouldRemoveCloudflareProvision &&
-        cloudflareConnection?.kind === "cloudflare"
-          ? resolveCloudflareMcpServerUrl(cloudflareConnection)
-          : resolveCloudflareMcpServerUrl(null);
-
-      const providers = createInfraProviders({
-        convexToken,
+        options: {
+          removeCodespaces: args.removeCodespaces ?? false,
+          removeGithubRepo: args.removeGithubRepo ?? false,
+          removeConvexProvision: args.removeConvexProvision ?? false,
+          removeCloudflareProvision: args.removeCloudflareProvision ?? false,
+        },
       });
-
-      if (shouldRemoveCloudflareProvision) {
-        if (!cloudflare) {
-          throw new Error("Cloudflare resources are not recorded for vault.");
-        }
-        if (!cloudflareToken) {
-          throw new Error(
-            "Cloudflare connection is required to remove resources.",
-          );
-        }
-        try {
-          await deleteCloudflareResources({
-            accountId: cloudflare.accountId,
-            projectName: cloudflare.projectName,
-            cloudflareToken,
-            cloudflareServerUrl,
-          });
-        } catch (error) {
-          if (!isProviderNotFoundError(error)) {
-            throw error;
-          }
-        }
-      }
-
-      if (shouldRemoveConvexProvision) {
-        const convexProjectId = infrastructure.convexProjectId;
-        const convexDeploymentName = infrastructure.convexDeploymentName;
-        try {
-          if (typeof convexProjectId === "string") {
-            await providers.convex.request(
-              `/projects/${encodeURIComponent(convexProjectId)}/delete`,
-              "POST",
-            );
-          } else if (typeof convexDeploymentName === "string") {
-            await providers.convex.request(
-              `/deployments/${encodeURIComponent(convexDeploymentName)}/delete`,
-              "POST",
-            );
-          }
-        } catch (error) {
-          if (!isProviderNotFoundError(error)) {
-            throw error;
-          }
-        }
-      }
-    }
-
-    if (shouldRemoveCodespaces) {
-      const codespaces = await ctx.runQuery(
-        internal.codespaces.mutations.listConnectedCodespacesForVault,
-        { vaultId: args.vaultId, userId },
-      );
-
-      if (codespaces.length > 0) {
-        const octokit = await getOctokit();
-
-        for (const codespace of codespaces) {
-          await ctx.runMutation(
-            internal.codespaces.mutations.updateCodespaceState,
-            {
-              codespaceId: codespace._id,
-              state: "deleting",
-            },
-          );
-
-          try {
-            await octokit.rest.codespaces.deleteForAuthenticatedUser({
-              codespace_name: codespace.ghCodespaceName,
-            });
-          } catch (error) {
-            if (!isProviderNotFoundError(error)) {
-              await ctx.runMutation(
-                internal.codespaces.mutations.updateCodespaceState,
-                {
-                  codespaceId: codespace._id,
-                  state: "failed",
-                },
-              );
-              throw error;
-            }
-          }
-
-          await ctx.runMutation(
-            internal.codespaces.mutations.updateCodespaceState,
-            {
-              codespaceId: codespace._id,
-              state: "deleted",
-              deletedAt: Date.now(),
-            },
-          );
-          await ctx.runMutation(
-            internal.codespaces.mutations.clearActiveCodespace,
-            {
-              vaultId: args.vaultId,
-              codespaceId: codespace._id,
-            },
-          );
-        }
-      }
-    }
-
-    if (
-      args.removeGithubRepo &&
-      connectedVault &&
-      isNoterManagedVault(connectedVault)
-    ) {
-      const octokit = await getOctokit();
-
-      await octokit.rest.repos.delete({
-        owner: connectedVault.owner,
-        repo: connectedVault.name,
-      });
-    }
-
-    await deleteVaultLocalDataToCompletion(ctx, {
+    const { deletionRunId } = result;
+    await startVaultDeletionOrFail(ctx, {
       vaultId: args.vaultId,
+      runId: deletionRunId,
       userId,
     });
 
-    return null;
+    return { deletionRunId };
+  },
+});
+
+export const retryDeleteVault = action({
+  args: {
+    runId: v.id("vaultDeletionRuns"),
+  },
+  returns: v.object({
+    deletionRunId: v.id("vaultDeletionRuns"),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ deletionRunId: Id<"vaultDeletionRuns"> }> => {
+    const userId = await getUserId(ctx);
+    const result: { deletionRunId: Id<"vaultDeletionRuns"> } =
+      await ctx.runMutation(internal.vaultDeletionRuns.createRetryRun, {
+        userId,
+        failedRunId: args.runId,
+      });
+    const { deletionRunId } = result;
+    const retryRun = await ctx.runQuery(internal.vaultDeletionRuns.getById, {
+      runId: deletionRunId,
+    });
+    if (!retryRun) {
+      throw new Error("Deletion retry run not found.");
+    }
+    await startVaultDeletionOrFail(ctx, {
+      vaultId: retryRun.vaultId,
+      runId: deletionRunId,
+      userId,
+    });
+
+    return { deletionRunId };
   },
 });

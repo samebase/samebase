@@ -1,4 +1,5 @@
 import { Infer, v } from "convex/values";
+import { VaultDeletionState } from "./vaultDeletionModel";
 
 const { array, boolean, id, literal, number, object, optional, string, union } =
   v;
@@ -124,6 +125,7 @@ export type VaultCloudflareState = Infer<typeof VaultCloudflareState>;
  */
 const vaultOperationalFields = {
   userId: id("users"),
+  deletion: VaultDeletionState,
   lastTreeRefreshAt: optional(number()),
   treeRefreshStartedAt: optional(number()),
   lastTreeRefreshFailedAt: optional(number()),

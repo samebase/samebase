@@ -175,11 +175,9 @@ type VaultDeletionState =
     };
 ```
 
-The persisted rollout may temporarily represent `"not_deleting"` as an absent
-field because existing vault rows will not have the new field. That
-compatibility detail must stay behind a helper that returns
-`VaultDeletionState`; product code should not spread optional deletion checks
-across the app.
+Persist `deletion` as a required `VaultDeletionState` on every vault row. New
+vault rows start with `{ state: "not_deleting" }`; product code must not model
+`not_deleting` as an absent optional field.
 
 This gate is not a GitHub source-workspace state. A vault can still be
 `state: "connected"` while `deletion.state === "deleting"`, but repo-backed
@@ -629,10 +627,11 @@ The deletion Workflow runs:
 13. `finish`: mark the deletion run succeeded and scrub retry-only snapshot
     identifiers
 
-Each cleanup step may internally loop over multiple batch mutations. A failed or
-retried workflow may restart a cleanup step from the beginning because deleting
-an already deleted row, detaching an already detached row, and seeing a provider
-not-found response are all successful idempotent outcomes.
+Each cleanup step repeats bounded cleanup mutations as separate durable Workflow
+steps until that phase is done. A failed or retried workflow may restart a
+cleanup step from the beginning because deleting an already deleted row,
+detaching an already detached row, and seeing a provider not-found response are
+all successful idempotent outcomes.
 
 ### Completion Handling
 
@@ -661,11 +660,12 @@ vault-scoped rows.
 ### Codespaces
 
 1. Delete only Codespaces recorded for the vault and user.
-2. Mark local Codespaces `deleting` before provider deletion.
-3. Treat GitHub not-found as success.
-4. Mark local Codespaces `deleted` and clear `activeCodespaceId` after provider
-   success.
-5. Delete Codespaces table rows later in `cleanup_runtime_state`.
+2. Require a GitHub connection when Codespaces teardown is requested.
+3. Mark local Codespaces `deleting` before provider deletion.
+4. Treat GitHub not-found as success.
+5. Clear `activeCodespaceId` before marking local Codespaces `deleted` after
+   provider success.
+6. Delete Codespaces table rows later in `cleanup_runtime_state`.
 
 ### Cloudflare
 
@@ -839,6 +839,28 @@ instead of creating rows for a vault that is deleting or already deleted.
 8. Add backend tests for provider success, provider not-found, provider failure,
    local cleanup failure, workflow startup failure, and retry after partial
    external cleanup.
+
+Phase 2 implementation note:
+
+- The persisted run model uses required discriminated variants for queued,
+  running, failed, and succeeded runs. The vault deletion gate is also required
+  on the vault row, with `{ state: "not_deleting" }` representing the idle
+  state.
+- The Workflow records one event per cleanup phase, then runs one bounded
+  cleanup mutation per Workflow journal step until that phase is done.
+- Phase 2 adds the first backend live-workspace gate by making
+  `assertConnectedVault` reject deleting and delete-failed vaults. Phase 3 still
+  owns the wider dashboard and writer-gate audit for callsites that do not use
+  that helper.
+- Phase 2 avoids generic provider error heuristics. GitHub deletes use Octokit's
+  `RequestError`, Convex deletion uses `ConvexManagementApiError`, and
+  Cloudflare Pages deletion uses `CloudflarePagesApiError` so provider not-found
+  responses are replay-safe behind provider-owned boundaries.
+- Backend coverage now checks queue-before-work, local cleanup completion,
+  non-quiescent rejection, invalid existing-repository GitHub deletion plans,
+  provider not-found classifiers, and retry run creation from a retained failed
+  snapshot. Provider-specific success/not-found/failure action tests should be
+  added with the provider test harness when those integrations get mocked seams.
 
 ### Phase 3: Dashboard And Writer Gates
 

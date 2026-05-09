@@ -219,6 +219,7 @@ describe("vault dashboard Convex contract", () => {
       });
       const vaultId = await ctx.db.insert("vaults", {
         userId,
+        deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("appProvisioningRuns", {
@@ -235,6 +236,7 @@ describe("vault dashboard Convex contract", () => {
 
       await ctx.db.replace(vaultId, {
         userId,
+        deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "connect_existing_repository",
         runId,
@@ -372,6 +374,7 @@ describe("vault dashboard Convex contract", () => {
       });
       const vaultId = await ctx.db.insert("vaults", {
         userId,
+        deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("appProvisioningRuns", {
@@ -389,6 +392,7 @@ describe("vault dashboard Convex contract", () => {
 
       await ctx.db.replace(vaultId, {
         userId,
+        deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
         runId,
@@ -448,6 +452,7 @@ describe("vault dashboard Convex contract", () => {
       });
       const vaultId = await ctx.db.insert("vaults", {
         userId,
+        deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("appProvisioningRuns", {
@@ -463,6 +468,7 @@ describe("vault dashboard Convex contract", () => {
 
       await ctx.db.replace(vaultId, {
         userId,
+        deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
         runId,
@@ -511,6 +517,7 @@ describe("vault dashboard Convex contract", () => {
       });
       const vaultId = await ctx.db.insert("vaults", {
         userId,
+        deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("appProvisioningRuns", {
@@ -526,6 +533,7 @@ describe("vault dashboard Convex contract", () => {
 
       await ctx.db.replace(vaultId, {
         userId,
+        deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
         runId,
@@ -611,6 +619,7 @@ describe("vault dashboard Convex contract", () => {
       });
       const vaultId = await ctx.db.insert("vaults", {
         userId,
+        deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const createRunId = await ctx.db.insert("appProvisioningRuns", {
@@ -637,6 +646,7 @@ describe("vault dashboard Convex contract", () => {
 
       await ctx.db.replace(vaultId, {
         userId,
+        deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
         runId: createRunId,
@@ -707,6 +717,7 @@ describe("vault dashboard Convex contract", () => {
       });
       const vaultId = await ctx.db.insert("vaults", {
         userId,
+        deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("appProvisioningRuns", {
@@ -722,6 +733,7 @@ describe("vault dashboard Convex contract", () => {
 
       await ctx.db.replace(vaultId, {
         userId,
+        deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
         runId,
@@ -781,6 +793,7 @@ describe("vault dashboard Convex contract", () => {
       });
       const vaultId = await ctx.db.insert("vaults", {
         userId,
+        deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("appProvisioningRuns", {
@@ -797,6 +810,7 @@ describe("vault dashboard Convex contract", () => {
 
       await ctx.db.replace(vaultId, {
         userId,
+        deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
         runId,
@@ -858,6 +872,7 @@ describe("vault dashboard Convex contract", () => {
       });
       const vaultId = await ctx.db.insert("vaults", {
         userId,
+        deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("appProvisioningRuns", {
@@ -874,6 +889,7 @@ describe("vault dashboard Convex contract", () => {
 
       await ctx.db.replace(vaultId, {
         userId,
+        deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
         runId,
@@ -971,6 +987,7 @@ describe("vault dashboard Convex contract", () => {
       });
       const vaultId = await ctx.db.insert("vaults", {
         userId,
+        deletion: { state: "not_deleting" },
         state: "not_connected",
       });
 
@@ -1046,6 +1063,7 @@ describe("vault dashboard Convex contract", () => {
       });
       const vaultId = await ctx.db.insert("vaults", {
         userId,
+        deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("appProvisioningRuns", {

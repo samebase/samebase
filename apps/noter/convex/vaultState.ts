@@ -1,4 +1,5 @@
 import type { Doc } from "./_generated/dataModel";
+import { isVaultDeletingOrDeleteFailed } from "./vaultDeletionState";
 
 export type ConnectedVault = Extract<Doc<"vaults">, { state: "connected" }>;
 export type NoterManagedConnectedVault = Extract<
@@ -22,6 +23,9 @@ export function assertConnectedVault(
 ): ConnectedVault {
   if (!isConnectedVault(vault)) {
     throw new Error("Vault is not connected to a GitHub repository.");
+  }
+  if (isVaultDeletingOrDeleteFailed(vault)) {
+    throw new Error("Vault deletion is in progress.");
   }
   return vault;
 }

@@ -7,6 +7,7 @@ import {
 import {
   asRecord,
   clamp,
+  readBoolean,
   readString,
   readStringOrNumber,
   toErrorMessage,
@@ -34,6 +35,103 @@ type CloudflareBuildConfig = {
 };
 
 type CloudflarePagesRequestMethod = "GET" | "POST" | "PATCH" | "DELETE";
+
+const CLOUDFLARE_PAGES_PROJECT_NOT_FOUND_CODE = "8000007";
+
+type CloudflarePagesApiErrorDetail = {
+  code?: string;
+  message?: string;
+};
+
+/**
+ * CloudflarePagesApiError surfaces a Cloudflare Pages API failure returned
+ * through MCP. The request method and path stay with the error, and details
+ * carry parsed provider code/message fields when Cloudflare returns them.
+ */
+export class CloudflarePagesApiError extends Error {
+  readonly method: CloudflarePagesRequestMethod;
+
+  readonly path: string;
+
+  readonly details: readonly CloudflarePagesApiErrorDetail[];
+
+  constructor(args: {
+    method: CloudflarePagesRequestMethod;
+    path: string;
+    details: readonly CloudflarePagesApiErrorDetail[];
+  }) {
+    super(
+      `Cloudflare API request failed for ${args.method} ${args.path}: ${formatCloudflarePagesApiErrorDetails(args.details)}`,
+    );
+    this.name = "CloudflarePagesApiError";
+    this.method = args.method;
+    this.path = args.path;
+    this.details = args.details;
+  }
+}
+
+function formatCloudflarePagesApiErrorDetails(
+  details: readonly CloudflarePagesApiErrorDetail[],
+): string {
+  if (details.length === 0) {
+    return "unknown Cloudflare API error";
+  }
+
+  return details
+    .map((detail) => {
+      const code = detail.code ? `code ${detail.code}` : "unknown code";
+      return detail.message ? `${code}: ${detail.message}` : code;
+    })
+    .join("; ");
+}
+
+function readCloudflarePagesApiErrorDetail(
+  value: unknown,
+): CloudflarePagesApiErrorDetail | null {
+  const record = asRecord(value);
+  const code = readStringOrNumber(record, "code");
+  const message = readString(record, "message");
+  if (!code && !message) {
+    return null;
+  }
+  const detail: CloudflarePagesApiErrorDetail = {};
+  if (code) {
+    detail.code = code;
+  }
+  if (message) {
+    detail.message = message;
+  }
+  return detail;
+}
+
+function readCloudflarePagesApiErrorDetails(
+  value: unknown,
+): readonly CloudflarePagesApiErrorDetail[] {
+  if (Array.isArray(value)) {
+    return value.map(readCloudflarePagesApiErrorDetail).filter(notEmpty);
+  }
+
+  const detail = readCloudflarePagesApiErrorDetail(value);
+  return detail ? [detail] : [];
+}
+
+/**
+ * isCloudflarePagesProjectNotFoundError matches the explicit Pages project
+ * not-found contract. Exact CLOUDFLARE_PAGES_PROJECT_NOT_FOUND_CODE and message
+ * checks avoid treating unrelated Cloudflare errors as replay-safe deletion.
+ */
+export function isCloudflarePagesProjectNotFoundError(error: unknown): boolean {
+  return (
+    error instanceof CloudflarePagesApiError &&
+    error.details.some(
+      (detail) =>
+        detail.code === CLOUDFLARE_PAGES_PROJECT_NOT_FOUND_CODE ||
+        detail.message === "Project not found" ||
+        detail.message ===
+          "The specified project name does not match any of your existing projects.",
+    )
+  );
+}
 
 function parseJsonText(value: string): unknown {
   try {
@@ -84,17 +182,10 @@ async function requestCloudflarePagesApi(args: {
   const bodyPart =
     args.body === undefined ? "" : `, body: ${JSON.stringify(args.body)}`;
   const code = `async () => {
-  const response = await cloudflare.request({
+  return await cloudflare.request({
     method: ${JSON.stringify(args.method)},
     path: ${JSON.stringify(args.path)}${bodyPart}
   });
-  if (!response || response.success !== true) {
-    const errors = response && Array.isArray(response.errors)
-      ? response.errors
-      : response;
-    throw new Error("Cloudflare API error: " + JSON.stringify(errors));
-  }
-  return response.result;
 }`;
   const text = await callCloudflareMcpTool({
     token: args.token,
@@ -102,7 +193,15 @@ async function requestCloudflarePagesApi(args: {
     toolArgs: { code },
     serverUrl: args.serverUrl ?? CLOUDFLARE_MCP_SERVER_URL,
   });
-  return parseJsonText(text);
+  const response = asRecord(parseJsonText(text));
+  if (readBoolean(response, "success") !== true) {
+    throw new CloudflarePagesApiError({
+      method: args.method,
+      path: args.path,
+      details: readCloudflarePagesApiErrorDetails(response["errors"]),
+    });
+  }
+  return response["result"];
 }
 
 export type ProvisionedCloudflareResources = CloudflareState & {

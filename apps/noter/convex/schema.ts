@@ -11,6 +11,11 @@ import {
   VaultRow,
 } from "./vaultModel";
 import {
+  VaultDeletionEventLevel as vaultDeletionEventLevelValidator,
+  VaultDeletionRun as vaultDeletionRunValidator,
+  VaultDeletionStep as vaultDeletionStepValidator,
+} from "./vaultDeletionModel";
+import {
   mcpTokenHealthSourceValidator,
   mcpTokenHealthStatusValidator,
   mcpTokenHealthValidator,
@@ -145,6 +150,10 @@ export const VaultRemoteBranchState = union(
 
 export const TreeRefreshFailureKind = treeRefreshFailureKindValidator;
 export type TreeRefreshFailureKind = Infer<typeof TreeRefreshFailureKind>;
+export const VaultDeletionStep = vaultDeletionStepValidator;
+export type VaultDeletionStep = Infer<typeof VaultDeletionStep>;
+export const VaultDeletionEventLevel = vaultDeletionEventLevelValidator;
+export type VaultDeletionEventLevel = Infer<typeof VaultDeletionEventLevel>;
 
 export const ProdAccessScope = union(literal("vault"), literal("global"));
 
@@ -470,6 +479,7 @@ export default defineSchema({
     updatedAt: number(),
   })
     .index("by_vault", ["vaultId"])
+    .index("by_vault_and_state", ["vaultId", "state"])
     .index("by_run", ["runId"]),
 
   /**
@@ -491,6 +501,7 @@ export default defineSchema({
     completedAt: optional(number()),
   })
     .index("by_vault_and_updated_at", ["vaultId", "updatedAt"])
+    .index("by_vault_and_state", ["vaultId", "state"])
     .index("by_user_and_updated_at", ["userId", "updatedAt"])
     .index("by_workflow_id", ["workflowId"]),
 
@@ -504,6 +515,33 @@ export default defineSchema({
     runId: id("appProvisioningRuns"),
     step: AppProvisioningStep,
     level: AppProvisioningEventLevel,
+    message: string(),
+    createdAt: number(),
+  })
+    .index("by_vault_and_created_at", ["vaultId", "createdAt"])
+    .index("by_run_and_created_at", ["runId", "createdAt"]),
+
+  /**
+   * Durable operation runs for vault deletion. These rows intentionally outlive
+   * the vault so failed and completed destructive work remains auditable.
+   */
+  vaultDeletionRuns: defineTable(vaultDeletionRunValidator)
+    .index("by_vault_and_updated_at", ["vaultId", "updatedAt"])
+    .index("by_user_and_updated_at", ["userId", "updatedAt"])
+    .index("by_workflow_id", ["workflow.workflowId"])
+    .index("by_retry_of", ["attempt.retryOf"]),
+
+  /**
+   * User-safe deletion progress events. Events never store credentials,
+   * provider request payloads, or response bodies.
+   */
+  vaultDeletionEvents: defineTable({
+    userId: id("users"),
+    vaultId: id("vaults"),
+    repositoryFullName: string(),
+    runId: id("vaultDeletionRuns"),
+    step: VaultDeletionStep,
+    level: VaultDeletionEventLevel,
     message: string(),
     createdAt: number(),
   })

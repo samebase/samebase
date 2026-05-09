@@ -1,6 +1,7 @@
 import { v, type Infer } from "convex/values";
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { VaultDeletionCleanupStep } from "./vaultDeletionModel";
 
 const { id, literal, number, object, union } = v;
 
@@ -43,6 +44,20 @@ const vaultLocalCleanupBatchResult = union(
 );
 export type VaultLocalCleanupBatchResult = Infer<
   typeof vaultLocalCleanupBatchResult
+>;
+
+const vaultLocalCleanupStepBatchResult = union(
+  object({
+    state: literal("needs_more"),
+    table: vaultLocalCleanupTable,
+    rowsChanged: number(),
+  }),
+  object({
+    state: literal("done"),
+  }),
+);
+export type VaultLocalCleanupStepBatchResult = Infer<
+  typeof vaultLocalCleanupStepBatchResult
 >;
 
 export const VAULT_LOCAL_CLEANUP_BATCH_SIZE = 50;
@@ -277,6 +292,40 @@ const vaultLocalCleanupRegistry = [
   cleanup: VaultLocalCleanupHandler;
 }>;
 
+const vaultLocalCleanupRegistryByStep = {
+  cleanup_editor_state: ["fileStaging", "collaborativeUpdates", "blobs"],
+  cleanup_source_caches: [
+    "vaultBranchFilters",
+    "folderExpansionState",
+    "vaultRemoteBranches",
+    "vaultBranchTrees",
+  ],
+  cleanup_runtime_state: [
+    "vaultDomains",
+    "vaultInfrastructure",
+    "vaultInfrastructureOwnership",
+    "codespaces",
+    "agentGraphNodeLayout",
+  ],
+  cleanup_access_state: ["aiProdAccessRequests"],
+  detach_agent_context: ["agentThreadContext"],
+  cleanup_provisioning_history: [
+    "appProvisioningEvents",
+    "appProvisioningRuns",
+  ],
+} satisfies Record<VaultDeletionCleanupStep, readonly VaultLocalCleanupTable[]>;
+
+function cleanupEntriesForStep(step: VaultDeletionCleanupStep): ReadonlyArray<{
+  table: VaultLocalCleanupTable;
+  cleanup: VaultLocalCleanupHandler;
+}> {
+  const tables: readonly VaultLocalCleanupTable[] =
+    vaultLocalCleanupRegistryByStep[step];
+  return vaultLocalCleanupRegistry.filter((entry) =>
+    tables.some((table) => table === entry.table),
+  );
+}
+
 export async function deleteVaultLocalDataBatchForUser(
   ctx: VaultLocalCleanupCtx,
   args: VaultLocalCleanupArgs,
@@ -306,6 +355,34 @@ export async function deleteVaultLocalDataBatchForUser(
   return { state: "deleted" };
 }
 
+export async function cleanupVaultLocalDataStepBatchForUser(
+  ctx: VaultLocalCleanupCtx,
+  args: VaultLocalCleanupArgs & {
+    step: VaultDeletionCleanupStep;
+  },
+): Promise<VaultLocalCleanupStepBatchResult> {
+  const vault = await ctx.db.get(args.vaultId);
+  if (!vault) {
+    return { state: "done" };
+  }
+  if (vault.userId !== args.userId) {
+    throw new Error("Vault not found");
+  }
+
+  for (const entry of cleanupEntriesForStep(args.step)) {
+    const rowsChanged = await entry.cleanup(ctx, args);
+    if (rowsChanged > 0) {
+      return {
+        state: "needs_more",
+        table: entry.table,
+        rowsChanged,
+      };
+    }
+  }
+
+  return { state: "done" };
+}
+
 export const deleteVaultLocalDataBatch = internalMutation({
   args: {
     vaultId: id("vaults"),
@@ -313,4 +390,34 @@ export const deleteVaultLocalDataBatch = internalMutation({
   },
   returns: vaultLocalCleanupBatchResult,
   handler: deleteVaultLocalDataBatchForUser,
+});
+
+export const cleanupVaultLocalDataStepBatch = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    userId: id("users"),
+    step: VaultDeletionCleanupStep,
+  },
+  returns: vaultLocalCleanupStepBatchResult,
+  handler: cleanupVaultLocalDataStepBatchForUser,
+});
+
+export const deleteVaultRow = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    userId: id("users"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault) {
+      return null;
+    }
+    if (vault.userId !== args.userId) {
+      throw new Error("Vault not found");
+    }
+
+    await ctx.db.delete(vault._id);
+    return null;
+  },
 });

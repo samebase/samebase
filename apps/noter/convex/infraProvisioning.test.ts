@@ -105,6 +105,7 @@ describe("infrastructure provisioning ownership", () => {
       });
       const vaultId = await ctx.db.insert("vaults", {
         userId,
+        deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const activeRunId = await ctx.db.insert("appProvisioningRuns", {
@@ -130,6 +131,7 @@ describe("infrastructure provisioning ownership", () => {
 
       await ctx.db.replace(vaultId, {
         userId,
+        deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
         runId: activeRunId,
@@ -191,6 +193,7 @@ describe("infrastructure provisioning ownership", () => {
       });
       const vaultId = await ctx.db.insert("vaults", {
         userId,
+        deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("appProvisioningRuns", {
@@ -207,6 +210,7 @@ describe("infrastructure provisioning ownership", () => {
 
       await ctx.db.replace(vaultId, {
         userId,
+        deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
         runId,
