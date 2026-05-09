@@ -64,17 +64,19 @@ not only the immediate unindexed reads.
 
 1. Preserve a single user confirmation for vault deletion.
 2. Create a durable deletion run before external provider deletes begin.
-3. Mark the vault as deleting before any destructive work starts.
-4. Keep repo-backed behavior blocked while deletion is active or failed.
-5. Snapshot only the provider identifiers needed for idempotent retry.
-6. Delete provider resources idempotently and treat provider not-found as
+3. Allow deletion only when the vault is quiescent: source setup and provider
+   provisioning are completed, failed, or not configured.
+4. Mark the vault as deleting before any destructive work starts.
+5. Keep repo-backed behavior blocked while deletion is active or failed.
+6. Snapshot only the provider identifiers needed for idempotent retry.
+7. Delete provider resources idempotently and treat provider not-found as
    success.
-7. Replace unbounded local cleanup with an explicit bounded cleanup registry.
-8. Delete the vault row once, last.
-9. Preserve audit boundaries deliberately instead of deleting or retaining rows
-   by accident.
-10. Show deleting and failed-deletion states from durable backend state.
-11. Support retry after partial external cleanup by reusing the stored snapshot.
+8. Replace unbounded local cleanup with an explicit bounded cleanup registry.
+9. Delete the vault row once, last.
+10. Preserve audit boundaries deliberately instead of deleting or retaining rows
+    by accident.
+11. Show deleting and failed-deletion states from durable backend state.
+12. Support retry after partial external cleanup by reusing the stored snapshot.
 
 ## Non-Goals
 
@@ -86,6 +88,8 @@ not only the immediate unindexed reads.
 6. Delete account-level chat history or Agent component threads in this pass.
 7. Redesign unrelated app provisioning, branch refresh, editor, or Codespaces
    behavior beyond the deletion gate they must honor.
+8. Accept deletion while source setup, Convex provisioning, Cloudflare
+   provisioning, or another vault lifecycle run is active.
 
 ## Accepted Decisions
 
@@ -107,6 +111,34 @@ After acceptance:
 Do not hide the vault card immediately after queueing. A visible deleting or
 failed-deletion state is the user's only reliable progress surface while the
 vault row still exists.
+
+### Quiescent Vault Requirement
+
+Deletion is available only for quiescent vaults. This intentionally makes
+half-provisioned cleanup cases unrepresentable instead of asking the deletion
+Workflow to coordinate with active source and provider workflows.
+
+A vault is quiescent for deletion when:
+
+1. the vault has no active deletion gate
+2. source setup is not running: the vault is connected or failed, but not
+   provisioning
+3. no `appProvisioningRuns` row for the vault is `queued` or `running`
+4. connected Convex state is `not_configured`, `connected`, or `failed`, but not
+   `provisioning`
+5. connected Cloudflare state is `not_configured`, `connected`, or `failed`, but
+   not `provisioning`
+6. no vault infrastructure ownership row is active for an in-flight provider
+   workflow
+
+The dashboard should hide or disable delete while a vault is not quiescent. A
+direct `?delete=` URL for a non-quiescent vault should show the current setup
+state instead of opening the destructive dialog.
+
+The queueing action must also enforce this rule. If a vault becomes
+non-quiescent between render and click, the action rejects without inserting a
+deletion run, without setting the deletion gate, and without touching providers.
+The user can delete after the active setup run succeeds or fails.
 
 ### Dedicated Deletion Runs
 
@@ -267,6 +299,10 @@ The deletion plan records the source-workspace state being deleted plus the
 accepted destructive provider work. The first implementation should model only
 states the current product can create. Do not add a `not_connected` deletion
 target until a shipped flow creates user-visible not-connected vaults.
+
+The deletion plan can be built only from a quiescent vault. Running source or
+provider setup states are not deletion targets and should not appear as plan
+variants.
 
 ```ts
 type VaultDeletionPlan = ProviderCleanupPlan &
@@ -542,18 +578,20 @@ It should:
 1. authenticate the user
 2. load and authorize the vault
 3. reject a vault that already has an active `deletion` gate
-4. validate selected teardown options against current local state
-5. require local provider connection rows for selected provider teardown options
+4. reject any vault that is not quiescent for deletion
+5. validate selected teardown options against current local state
+6. require local provider connection rows for selected provider teardown options
    when those rows are already known to be necessary
-6. build the validated deletion plan and retry snapshot
-7. insert `vaultDeletionRuns` and the first event
-8. patch the vault deletion gate to `deleting`
-9. start the deletion Workflow
-10. return `{ deletionRunId }`
+7. build the validated deletion plan and retry snapshot
+8. insert `vaultDeletionRuns` and the first event
+9. patch the vault deletion gate to `deleting`
+10. start the deletion Workflow
+11. return `{ deletionRunId }`
 
 External provider API validation happens inside Workflow after the durable run
-exists. Pure local validation can still fail before queueing. For example,
-requesting GitHub repository deletion for an existing-repository vault should
+exists. Local validation, including quiescence, fails before queueing. For
+example, requesting GitHub repository deletion for an existing-repository vault
+or deleting a vault whose Cloudflare provider state is still provisioning should
 fail before the run is inserted.
 
 If Workflow startup fails after the run and gate are inserted, the action must
@@ -721,7 +759,8 @@ the vault and check the gate or be moved behind a helper that does so.
 
 Provisioning workflows from specs 096 and 097 must fail closed if they try to
 write connected state, tree state, or provider state after deletion has started.
-Deletion wins over source setup.
+That is a race-safety fallback, not permission to start deletion while a known
+provisioning run is active.
 
 ## Dashboard Behavior
 
@@ -729,9 +768,11 @@ The delete dialog remains route-owned by `?delete=<owner>/<repo>`.
 
 When the target vault is not deleting:
 
-1. show the same teardown options as today
-2. disable the confirm button while the queueing action is pending
-3. close the dialog when the deletion run is accepted
+1. show the same teardown options as today only if the vault is quiescent
+2. show the current setup state instead of destructive controls when the vault
+   is not quiescent
+3. disable the confirm button while the queueing action is pending
+4. close the dialog when the deletion run is accepted
 
 When the target vault is deleting or delete-failed:
 
@@ -771,11 +812,12 @@ the local cleanup must already be bounded.
 
 1. Add `vaultDeletionRuns`, `vaultDeletionEvents`, validators, and helpers.
 2. Add the vault deletion gate field.
-3. Replace `vaultActions.deleteVault` with a queueing action.
-4. Add the deletion Workflow, completion handler, and provider teardown steps.
-5. Move local cleanup orchestration into Workflow.
-6. Add retry by creating a new run from a failed run's retained snapshot.
-7. Add backend tests for provider success, provider not-found, provider failure,
+3. Add the quiescent-vault deletion eligibility helper.
+4. Replace `vaultActions.deleteVault` with a queueing action.
+5. Add the deletion Workflow, completion handler, and provider teardown steps.
+6. Move local cleanup orchestration into Workflow.
+7. Add retry by creating a new run from a failed run's retained snapshot.
+8. Add backend tests for provider success, provider not-found, provider failure,
    local cleanup failure, workflow startup failure, and retry after partial
    external cleanup.
 
@@ -785,10 +827,11 @@ the local cleanup must already be bounded.
 2. Render deleting and failed-deletion card states.
 3. Update the delete dialog to close after queue acceptance.
 4. Make direct `?delete=` links no-op into the status card for deleting vaults.
-5. Gate staging, collaborative updates, branch refresh, Codespaces,
+5. Hide or disable delete while source or provider setup is running.
+6. Gate staging, collaborative updates, branch refresh, Codespaces,
    infrastructure provisioning, source setup completion writes, AI prod access,
    and live-repository chat/tool actions.
-6. Add route-level or production-component tests for deleting, failed-deletion,
+7. Add route-level or production-component tests for deleting, failed-deletion,
    retry, and blocked controls.
 
 Phases 2 and 3 may land together if the diff remains reviewable. They should
@@ -801,29 +844,31 @@ Backend:
 1. queueing deletion creates a run before any provider delete
 2. selected teardown options are converted into a validated deletion plan
 3. invalid deletion plans are unrepresentable in persisted deletion runs
-4. invalid teardown options fail before queueing
-5. provider not-found responses count as successful cleanup
-6. provider failures leave the vault visible with `delete_failed`
-7. retry uses the failed run's retained deletion plan
-8. branch-heavy cleanup completes through multiple bounded batches
-9. `blobs` cleanup deletes storage objects and rows
-10. pending-upload blob cleanup uses the vault-scoped blob index
-11. `collaborativeUpdates` are deleted at vault scope
-12. `aiProdAccessAudit` rows are preserved while requests are detached
-13. `agentThreadContext` rows are detached rather than deleted
-14. `appProvisioningRuns` and `appProvisioningEvents` are deleted in batches
-15. the vault row is deleted only after dependent cleanup succeeds
-16. source setup and provider provisioning writes fail closed after deletion
+4. non-quiescent vaults fail before queueing and do not create deletion runs
+5. invalid teardown options fail before queueing
+6. provider not-found responses count as successful cleanup
+7. provider failures leave the vault visible with `delete_failed`
+8. retry uses the failed run's retained deletion plan
+9. branch-heavy cleanup completes through multiple bounded batches
+10. `blobs` cleanup deletes storage objects and rows
+11. pending-upload blob cleanup uses the vault-scoped blob index
+12. `collaborativeUpdates` are deleted at vault scope
+13. `aiProdAccessAudit` rows are preserved while requests are detached
+14. `agentThreadContext` rows are detached rather than deleted
+15. `appProvisioningRuns` and `appProvisioningEvents` are deleted in batches
+16. the vault row is deleted only after dependent cleanup succeeds
+17. source setup and provider provisioning writes fail closed after deletion
     starts
 
 Frontend:
 
 1. the delete dialog closes after the deletion request is accepted
-2. deleting vaults keep a visible card until the vault row is removed
-3. deleting vaults do not expose repo-backed controls
-4. failed deletion shows the latest safe backend error
-5. retry starts a new deletion run without changing options
-6. direct delete URLs do not open a second dialog for deleting or failed-delete
+2. non-quiescent vaults do not expose destructive delete controls
+3. deleting vaults keep a visible card until the vault row is removed
+4. deleting vaults do not expose repo-backed controls
+5. failed deletion shows the latest safe backend error
+6. retry starts a new deletion run without changing options
+7. direct delete URLs do not open a second dialog for deleting or failed-delete
    vaults
 
 ## Acceptance Criteria
@@ -831,13 +876,15 @@ Frontend:
 1. Vault deletion is one user action backed by durable Workflow state.
 2. No external provider delete runs before a deletion run and vault gate exist.
 3. The vault deletion gate is separate from GitHub source-workspace `state`.
-4. The durable deletion run stores a validated discriminated deletion plan, not
+4. Deletion is available only for quiescent vaults; active provisioning states
+   cannot enter the deletion workflow.
+5. The durable deletion run stores a validated discriminated deletion plan, not
    raw UI checkbox state.
-5. Provider teardown is idempotent and provider not-found is success.
-6. Branch-heavy vault cleanup is bounded by table-specific batches.
-7. No cleanup mutation loads all blobs, branches, staged files, collaborative
+6. Provider teardown is idempotent and provider not-found is success.
+7. Branch-heavy vault cleanup is bounded by table-specific batches.
+8. No cleanup mutation loads all blobs, branches, staged files, collaborative
    updates, or provisioning history for a vault in one transaction.
-8. The vault row is deleted once, last.
-9. Failed deletion leaves a retryable visible state.
-10. Repo-backed writers fail closed while deletion is active or failed.
-11. Audit and chat retention follow the explicit rules in this spec.
+9. The vault row is deleted once, last.
+10. Failed deletion leaves a retryable visible state.
+11. Repo-backed writers fail closed while deletion is active or failed.
+12. Audit and chat retention follow the explicit rules in this spec.
