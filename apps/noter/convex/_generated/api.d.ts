@@ -89,6 +89,7 @@ import type * as toolRuntime_utils from "../toolRuntime/utils.js";
 import type * as users from "../users.js";
 import type * as vault from "../vault.js";
 import type * as vaultActions from "../vaultActions.js";
+import type * as vaultDeletionCleanup from "../vaultDeletionCleanup.js";
 import type * as vaultModel from "../vaultModel.js";
 import type * as vaultState from "../vaultState.js";
 import type * as waitlist from "../waitlist.js";
@@ -184,6 +185,7 @@ declare const fullApi: ApiFromModules<{
   users: typeof users;
   vault: typeof vault;
   vaultActions: typeof vaultActions;
+  vaultDeletionCleanup: typeof vaultDeletionCleanup;
   vaultModel: typeof vaultModel;
   vaultState: typeof vaultState;
   waitlist: typeof waitlist;

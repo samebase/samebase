@@ -807,7 +807,9 @@ edit teardown options in the first implementation.
 3. Delete storage objects inside the blob cleanup batch before deleting blob
    rows.
 4. Update `fileStaging.deletePendingUploadBlob` to use the same vault-scoped
-   blob index instead of scanning `blobs`.
+   blob index instead of scanning `blobs`; if the implementation needs exact
+   storage-reference checks, add vault-prefixed storage indexes instead of
+   collecting all vault blobs or staged files.
 5. Include `collaborativeUpdates`, `vaultInfrastructureOwnership`,
    `agentGraphNodeLayout`, `agentThreadContext`, `aiProdAccessRequests`,
    `appProvisioningRuns`, and `appProvisioningEvents`.
