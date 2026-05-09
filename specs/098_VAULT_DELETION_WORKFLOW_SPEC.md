@@ -840,6 +840,25 @@ instead of creating rows for a vault that is deleting or already deleted.
    local cleanup failure, workflow startup failure, and retry after partial
    external cleanup.
 
+Phase 2 implementation note:
+
+- The persisted run model uses required discriminated variants for queued,
+  running, failed, and succeeded runs. The vault deletion gate remains optional
+  on the vault row only for the existing-row rollout window; helpers interpret
+  absence as `not_deleting`.
+- The Workflow calls one action per cleanup phase. Each cleanup action loops
+  bounded cleanup mutations until that phase is done, so individual row batches
+  do not become separate durable Workflow journal entries.
+- Phase 2 adds the first backend live-workspace gate by making
+  `assertConnectedVault` reject deleting and delete-failed vaults. Phase 3 still
+  owns the wider dashboard and writer-gate audit for callsites that do not use
+  that helper.
+- Backend coverage now checks queue-before-work, local cleanup completion,
+  non-quiescent rejection, invalid existing-repository GitHub deletion plans,
+  and retry run creation from a retained failed snapshot. Provider-specific
+  success/not-found/failure tests should be added with the provider test harness
+  when those integrations get mocked seams.
+
 ### Phase 3: Dashboard And Writer Gates
 
 1. Return deletion summaries from dashboard vault queries.

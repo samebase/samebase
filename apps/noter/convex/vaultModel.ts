@@ -1,4 +1,5 @@
 import { Infer, v } from "convex/values";
+import { VaultDeletionGate } from "./vaultDeletionModel";
 
 const { array, boolean, id, literal, number, object, optional, string, union } =
   v;
@@ -124,6 +125,9 @@ export type VaultCloudflareState = Infer<typeof VaultCloudflareState>;
  */
 const vaultOperationalFields = {
   userId: id("users"),
+  // Existing vault rows have no deletion field; helpers treat absence as
+  // not_deleting until a later migration makes the union required.
+  deletion: optional(VaultDeletionGate),
   lastTreeRefreshAt: optional(number()),
   treeRefreshStartedAt: optional(number()),
   lastTreeRefreshFailedAt: optional(number()),
