@@ -120,6 +120,12 @@ Key domain entities:
   patch semantics. Start from the simplest required shape, then make something
   optional only after a real caller or persisted-data constraint proves it needs
   that extra state.
+- Keep product state spaces as orthogonal and small as possible. When two
+  workflows could combine into a large cross-product of states, first ask
+  whether the product can forbid that interaction until there is a real need for
+  it. Prefer making unsupported combinations unrepresentable through the data
+  model and UI gates over adding orchestration for pause/cancel/delete cases
+  that the current product does not need.
 - When returning collections from queries or building user-visible lists, always
   choose an explicit deterministic sort order with stable tie-breakers. Do not
   rely on incidental storage order or live-update fields unless the product

@@ -85,7 +85,8 @@ not only the immediate unindexed reads.
 3. Keep a deleting vault usable as a repository workspace.
 4. Delete GitHub repositories for existing-repository vaults.
 5. Infer or delete an unknown GitHub repository from a failed create attempt.
-6. Delete account-level chat history or Agent component threads in this pass.
+6. Design new account-level chat retention behavior for the unused legacy chat
+   system.
 7. Redesign unrelated app provisioning, branch refresh, editor, or Codespaces
    behavior beyond the deletion gate they must honor.
 8. Accept deletion while source setup, Convex provisioning, Cloudflare
@@ -131,9 +132,10 @@ A vault is quiescent for deletion when:
 6. no vault infrastructure ownership row is active for an in-flight provider
    workflow
 
-The dashboard should hide or disable delete while a vault is not quiescent. A
-direct `?delete=` URL for a non-quiescent vault should show the current setup
-state instead of opening the destructive dialog.
+The dashboard should disable delete with a short reason while a vault is not
+quiescent. A direct `?delete=` URL for a non-quiescent vault should show the
+current setup state and the same reason instead of opening the destructive
+dialog.
 
 The queueing action must also enforce this rule. If a vault becomes
 non-quiescent between render and click, the action rejects without inserting a
@@ -239,11 +241,12 @@ Accepted retention rules:
 4. `aiProdAccessAudit` rows are preserved. Matching `aiProdAccessRequests` are
    preserved as audit context, detached from the vault by clearing `vaultId`,
    and any still-active request for the deleted vault is expired.
-5. `agentThreadContext` rows are detached from the vault by clearing `vaultId`,
-   `repositoryFullName`, `branch`, and `filePath`. Agent component threads and
-   chat messages are not deleted in this phase.
+5. Legacy chat and agent context are not product-critical for this workflow. If
+   those tables still exist when deletion ships, use the simplest safe cleanup:
+   delete or detach vault-scoped app rows, but do not add new account-level chat
+   retention machinery.
 
-If a future privacy requirement says vault deletion must erase audit or chat
+If a future privacy requirement says vault deletion must erase prod-access audit
 history, that must be a new spec because it changes compliance and product
 retention behavior.
 
@@ -713,21 +716,20 @@ Delete rows:
 13. `appProvisioningEvents` via `by_vault_and_created_at`
 14. `appProvisioningRuns` via `by_vault_and_updated_at`
 
-Patch rows:
+Patch or delete rows:
 
 1. `aiProdAccessRequests` via `by_vault`: clear `vaultId`; move `proposed` and
    `approved` requests to `expired`; preserve executed, failed, rejected, and
    already expired statuses.
-2. `agentThreadContext` via `by_userId_and_vaultId`: clear `vaultId`,
-   `repositoryFullName`, `branch`, and `filePath`.
+2. `agentThreadContext` via `by_userId_and_vaultId`: either clear `vaultId`,
+   `repositoryFullName`, `branch`, and `filePath`, or delete the row if the
+   legacy chat cleanup/removal path makes deletion simpler.
 
 Preserve rows:
 
 1. `aiProdAccessAudit`
-2. `chatMessageMetadata`
-3. `vaultDeletionRuns`
-4. `vaultDeletionEvents`
-5. Agent component-owned thread/message tables
+2. `vaultDeletionRuns`
+3. `vaultDeletionEvents`
 
 The registry must be fail closed. If a new vault-scoped table is added later,
 the table owner must either add it to this cleanup registry or explicitly mark
@@ -769,7 +771,7 @@ The delete dialog remains route-owned by `?delete=<owner>/<repo>`.
 When the target vault is not deleting:
 
 1. show the same teardown options as today only if the vault is quiescent
-2. show the current setup state instead of destructive controls when the vault
+2. show the current setup state and disable delete with a reason when the vault
    is not quiescent
 3. disable the confirm button while the queueing action is pending
 4. close the dialog when the deletion run is accepted
@@ -827,7 +829,7 @@ the local cleanup must already be bounded.
 2. Render deleting and failed-deletion card states.
 3. Update the delete dialog to close after queue acceptance.
 4. Make direct `?delete=` links no-op into the status card for deleting vaults.
-5. Hide or disable delete while source or provider setup is running.
+5. Disable delete with a reason while source or provider setup is running.
 6. Gate staging, collaborative updates, branch refresh, Codespaces,
    infrastructure provisioning, source setup completion writes, AI prod access,
    and live-repository chat/tool actions.
@@ -854,7 +856,8 @@ Backend:
 11. pending-upload blob cleanup uses the vault-scoped blob index
 12. `collaborativeUpdates` are deleted at vault scope
 13. `aiProdAccessAudit` rows are preserved while requests are detached
-14. `agentThreadContext` rows are detached rather than deleted
+14. legacy `agentThreadContext` rows are deleted or detached using the simplest
+    safe path
 15. `appProvisioningRuns` and `appProvisioningEvents` are deleted in batches
 16. the vault row is deleted only after dependent cleanup succeeds
 17. source setup and provider provisioning writes fail closed after deletion
@@ -863,7 +866,7 @@ Backend:
 Frontend:
 
 1. the delete dialog closes after the deletion request is accepted
-2. non-quiescent vaults do not expose destructive delete controls
+2. non-quiescent vaults show disabled delete controls with a reason
 3. deleting vaults keep a visible card until the vault row is removed
 4. deleting vaults do not expose repo-backed controls
 5. failed deletion shows the latest safe backend error
@@ -887,4 +890,5 @@ Frontend:
 9. The vault row is deleted once, last.
 10. Failed deletion leaves a retryable visible state.
 11. Repo-backed writers fail closed while deletion is active or failed.
-12. Audit and chat retention follow the explicit rules in this spec.
+12. Prod-access audit retention and legacy chat cleanup follow the explicit
+    rules in this spec.
