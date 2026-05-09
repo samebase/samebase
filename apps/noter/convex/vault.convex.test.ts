@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { api, internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
+import { VAULT_LOCAL_CLEANUP_BATCH_SIZE } from "./vaultDeletionCleanup";
 
 describe("vault dashboard Convex contract", () => {
   it("records initializing existing repository connection before external GitHub work", async () => {
@@ -958,5 +959,375 @@ describe("vault dashboard Convex contract", () => {
       "https://a-feature.pages.dev",
       "https://z-feature.pages.dev",
     ]);
+  });
+
+  it("keeps the vault row until branch-heavy local cleanup finishes", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        state: "not_connected",
+      });
+
+      for (let index = 0; index < VAULT_LOCAL_CLEANUP_BATCH_SIZE + 1; index++) {
+        await ctx.db.insert("vaultBranchTrees", {
+          vaultId,
+          branch: `branch-${index}`,
+          treeSHA: `tree-${index}`,
+          treeData: {
+            sha: `tree-${index}`,
+            truncated: false,
+            tree: [],
+          },
+          lastTreeRefreshAt: index,
+        });
+      }
+
+      return { userId, vaultId };
+    });
+
+    const firstResult = await t.mutation(
+      internal.vaultDeletionCleanup.deleteVaultLocalDataBatch,
+      ids,
+    );
+
+    expect(firstResult).toEqual({
+      state: "needs_more",
+      table: "vaultBranchTrees",
+      rowsChanged: VAULT_LOCAL_CLEANUP_BATCH_SIZE,
+    });
+    await expect(
+      t.run(async (ctx) => {
+        const vault = await ctx.db.get(ids.vaultId);
+        const branchTrees = await ctx.db
+          .query("vaultBranchTrees")
+          .withIndex("by_vault_and_branch", (q) => q.eq("vaultId", ids.vaultId))
+          .collect();
+        return { branchTreeCount: branchTrees.length, vault };
+      }),
+    ).resolves.toMatchObject({
+      branchTreeCount: 1,
+      vault: { _id: ids.vaultId },
+    });
+
+    let result = firstResult;
+    while (result.state === "needs_more") {
+      result = await t.mutation(
+        internal.vaultDeletionCleanup.deleteVaultLocalDataBatch,
+        ids,
+      );
+    }
+
+    expect(result).toEqual({ state: "deleted" });
+    await expect(
+      t.run(async (ctx) => {
+        return await ctx.db.get(ids.vaultId);
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it("cleans the vault-wide local registry and preserves prod access audit", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const collaboratorId = await ctx.db.insert("users", {
+        name: "Grace",
+        email: "grace@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/delete-me",
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: 3,
+      });
+      const storageId = await ctx.storage.store(
+        new Blob(["cached"], { type: "text/plain" }),
+      );
+      const stagedStorageId = await ctx.storage.store(
+        new Blob(["staged"], { type: "text/plain" }),
+      );
+
+      await ctx.db.insert("vaultBranchFilters", {
+        userId,
+        vaultId,
+        hiddenLabels: [],
+        includeDrafts: false,
+      });
+      await ctx.db.insert("vaultBranchFilters", {
+        userId: collaboratorId,
+        vaultId,
+        hiddenLabels: ["wip"],
+        includeDrafts: true,
+      });
+      await ctx.db.insert("fileStaging", {
+        ownerId: userId,
+        vaultId,
+        fileDeleted: false,
+        kind: "text",
+        filePath: "README.md",
+        initialFilePath: "README.md",
+        content: "hello",
+        initialContent: "hello",
+        parentCommitSha: null,
+        lastEditTime: 4,
+        lastEditUserId: userId,
+        branch: "main",
+        version: 1,
+      });
+      await ctx.db.insert("fileStaging", {
+        ownerId: userId,
+        vaultId,
+        fileDeleted: false,
+        kind: "binary",
+        filePath: "image.png",
+        initialFilePath: "image.png",
+        content: "",
+        initialContent: "",
+        storageId: stagedStorageId,
+        mime: "image/png",
+        size: 6,
+        stagedBlobSha: "staged-blob-sha",
+        parentCommitSha: null,
+        lastEditTime: 5,
+        lastEditUserId: userId,
+        branch: "main",
+        version: 1,
+      });
+      await ctx.db.insert("collaborativeUpdates", {
+        vaultId,
+        branch: "main",
+        filePath: "README.md",
+        version: 1,
+        clientId: "client-1",
+        changes: "[]",
+        userId,
+        timestamp: 6,
+      });
+      await ctx.db.insert("blobs", {
+        vaultId,
+        sha: "blob-sha",
+        size: 6,
+        storageId,
+        mime: "text/plain",
+        ext: "txt",
+      });
+      await ctx.db.insert("folderExpansionState", {
+        userId: collaboratorId,
+        vaultId,
+        folderPath: "/",
+        isExpanded: true,
+      });
+      await ctx.db.insert("vaultRemoteBranches", {
+        vaultId,
+        name: "main",
+        headCommitSha: "commit",
+        isDefault: true,
+        isProtected: false,
+        remoteState: "active",
+        lastSyncedAt: 6,
+      });
+      await ctx.db.insert("vaultBranchTrees", {
+        vaultId,
+        branch: "main",
+        treeSHA: "tree",
+        treeData: {
+          sha: "tree",
+          truncated: false,
+          tree: [],
+        },
+        lastTreeRefreshAt: 7,
+      });
+      await ctx.db.insert("vaultDomains", {
+        vaultId,
+        branch: "main",
+        kind: "main",
+        url: "https://delete-me.pages.dev",
+        source: "cloudflare_pages_default",
+        active: true,
+        lastSyncedAt: 8,
+      });
+      await ctx.db.insert("vaultInfrastructure", {
+        vaultId,
+        status: "ready",
+        provisioningVersion: 1,
+      });
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId,
+        runId,
+        provisioningVersion: 1,
+        state: "succeeded",
+        updatedAt: 9,
+      });
+      await ctx.db.insert("codespaces", {
+        vaultId,
+        userId,
+        ghCodespaceId: "codespace-id",
+        ghCodespaceName: "codespace-name",
+        state: "stopped",
+        createdAt: 10,
+        commitSha: "commit",
+        branch: "main",
+      });
+      await ctx.db.insert("agentGraphNodeLayout", {
+        userId: collaboratorId,
+        vaultId,
+        nodeId: "README.md",
+        width: 120,
+        height: 80,
+        updatedAt: 11,
+      });
+      await ctx.db.insert("agentThreadContext", {
+        threadId: "thread-1",
+        userId: collaboratorId,
+        vaultId,
+        repositoryFullName: "ada/delete-me",
+        branch: "main",
+        filePath: "README.md",
+        createdAt: 12,
+      });
+      const requestId = await ctx.db.insert("aiProdAccessRequests", {
+        threadId: "thread-1",
+        requesterUserId: userId,
+        vaultId,
+        scope: "vault",
+        provider: "convex",
+        resourceKind: "logs",
+        toolName: "readLogs",
+        paramsJson: "{}",
+        status: "approved",
+        redactionLevel: "default",
+        approvedBy: collaboratorId,
+        approvedAt: 13,
+      });
+      const auditId = await ctx.db.insert("aiProdAccessAudit", {
+        requestId,
+        actorUserId: collaboratorId,
+        action: "approved",
+        toolName: "readLogs",
+        endpoint: "convex:logs",
+        argumentHash: "hash",
+        createdAt: 14,
+      });
+      await ctx.db.insert("appProvisioningEvents", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/delete-me",
+        runId,
+        step: "finish",
+        level: "info",
+        message: "Finished.",
+        createdAt: 15,
+      });
+
+      return {
+        auditId,
+        requestId,
+        stagedStorageId,
+        storageId,
+        userId,
+        vaultId,
+      };
+    });
+
+    const tables: string[] = [];
+    let result = await t.mutation(
+      internal.vaultDeletionCleanup.deleteVaultLocalDataBatch,
+      { vaultId: ids.vaultId, userId: ids.userId },
+    );
+    while (result.state === "needs_more") {
+      tables.push(result.table);
+      result = await t.mutation(
+        internal.vaultDeletionCleanup.deleteVaultLocalDataBatch,
+        { vaultId: ids.vaultId, userId: ids.userId },
+      );
+    }
+
+    expect(result).toEqual({ state: "deleted" });
+    expect(tables).toEqual(
+      expect.arrayContaining([
+        "vaultBranchFilters",
+        "fileStaging",
+        "collaborativeUpdates",
+        "blobs",
+        "folderExpansionState",
+        "vaultRemoteBranches",
+        "vaultBranchTrees",
+        "vaultDomains",
+        "vaultInfrastructure",
+        "vaultInfrastructureOwnership",
+        "codespaces",
+        "agentGraphNodeLayout",
+        "aiProdAccessRequests",
+        "agentThreadContext",
+        "appProvisioningEvents",
+        "appProvisioningRuns",
+      ]),
+    );
+
+    const snapshot = await t.run(async (ctx) => {
+      const request = await ctx.db.get(ids.requestId);
+      const audit = await ctx.db.get(ids.auditId);
+      const storage = await ctx.db.system.get("_storage", ids.storageId);
+      const stagedStorage = await ctx.db.system.get(
+        "_storage",
+        ids.stagedStorageId,
+      );
+      return {
+        audit,
+        request,
+        stagedStorage,
+        storage,
+        vault: await ctx.db.get(ids.vaultId),
+        branchFilters: await ctx.db
+          .query("vaultBranchFilters")
+          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+          .collect(),
+        branchTrees: await ctx.db
+          .query("vaultBranchTrees")
+          .withIndex("by_vault_and_branch", (q) => q.eq("vaultId", ids.vaultId))
+          .collect(),
+        prodRequestsForVault: await ctx.db
+          .query("aiProdAccessRequests")
+          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+          .collect(),
+      };
+    });
+
+    expect(snapshot.vault).toBeNull();
+    expect(snapshot.branchFilters).toHaveLength(0);
+    expect(snapshot.branchTrees).toHaveLength(0);
+    expect(snapshot.prodRequestsForVault).toHaveLength(0);
+    expect(snapshot.storage).toBeNull();
+    expect(snapshot.stagedStorage).toBeNull();
+    expect(snapshot.request).toMatchObject({
+      _id: ids.requestId,
+      status: "expired",
+      scope: "vault",
+      error: "Vault was deleted before production access was used.",
+    });
+    expect(snapshot.request?.vaultId).toBeUndefined();
+    expect(snapshot.audit).toMatchObject({
+      _id: ids.auditId,
+      requestId: ids.requestId,
+    });
   });
 });

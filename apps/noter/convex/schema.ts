@@ -373,7 +373,8 @@ export default defineSchema({
     branchesExpanded: optional(boolean()),
   })
     .index("by_user", ["userId"])
-    .index("by_user_and_vault", ["userId", "vaultId"]),
+    .index("by_user_and_vault", ["userId", "vaultId"])
+    .index("by_vault", ["vaultId"]),
 
   /**
    * Vault is the durable app container. Repo-backed behavior must require the
@@ -567,6 +568,7 @@ export default defineSchema({
       "initialFilePath",
     ])
     .index("by_vault", ["vaultId"])
+    .index("by_vault_and_storageId", ["vaultId", "storageId"])
     .index("by_user", ["lastEditUserId"]),
 
   // Unique content (dedup by sha)
@@ -581,7 +583,10 @@ export default defineSchema({
     storageId: optional(id("_storage")),
     mime: optional(string()),
     ext: optional(string()),
-  }).index("by_sha", ["sha"]),
+  })
+    .index("by_sha", ["sha"])
+    .index("by_vault", ["vaultId"])
+    .index("by_vault_and_storageId", ["vaultId", "storageId"]),
 
   /**
    * Folder expansion state for file tree sidebar.
@@ -593,6 +598,7 @@ export default defineSchema({
     folderPath: string(), // path to the folder
     isExpanded: boolean(),
   })
+    .index("by_vault", ["vaultId"])
     .index("by_user_and_vault", ["userId", "vaultId"])
     .index("by_user_vault_and_path", ["userId", "vaultId", "folderPath"]),
 
@@ -608,6 +614,7 @@ export default defineSchema({
     height: number(),
     updatedAt: number(),
   })
+    .index("by_vault", ["vaultId"])
     .index("by_user_and_vault", ["userId", "vaultId"])
     .index("by_user_vault_and_node", ["userId", "vaultId", "nodeId"]),
 
@@ -634,6 +641,7 @@ export default defineSchema({
   })
     .index("by_threadId", ["threadId"])
     .index("by_userId", ["userId"])
+    .index("by_vault", ["vaultId"])
     .index("by_userId_and_vaultId", ["userId", "vaultId"]),
 
   /**

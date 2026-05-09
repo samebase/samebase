@@ -2,7 +2,7 @@
 
 import { v } from "convex/values";
 import { action, type ActionCtx } from "./_generated/server";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "./common";
@@ -12,6 +12,7 @@ import { toErrorMessage } from "./jsonUtils";
 import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
 import { isConnectedVault, isNoterManagedVault } from "./vaultState";
 import { toSafeRepoName } from "./repoName";
+import type { VaultLocalCleanupBatchResult } from "./vaultDeletionCleanup";
 
 const { array, literal, object, optional, string, union } = v;
 const githubRepositoryOwnerKind = union(
@@ -99,6 +100,22 @@ async function startVaultInfrastructureProvisioningOrFail(
     });
     throw error;
   }
+}
+
+async function deleteVaultLocalDataToCompletion(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    vaultId: Id<"vaults">;
+    userId: Id<"users">;
+  },
+): Promise<void> {
+  let result: VaultLocalCleanupBatchResult;
+  do {
+    result = await ctx.runMutation(
+      internal.vaultDeletionCleanup.deleteVaultLocalDataBatch,
+      args,
+    );
+  } while (result.state === "needs_more");
 }
 
 async function startCreateAppProvisioningOrFail(
@@ -594,8 +611,9 @@ export const deleteVault = action({
       });
     }
 
-    await ctx.runMutation(api.vault.removeVault, {
+    await deleteVaultLocalDataToCompletion(ctx, {
       vaultId: args.vaultId,
+      userId,
     });
 
     return null;

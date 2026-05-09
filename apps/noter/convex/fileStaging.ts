@@ -344,30 +344,6 @@ export function buildDeletionSnapshotSeed(args: {
   };
 }
 
-export function isPendingUploadBlobReferencedByStaging(args: {
-  stagedFiles: Array<{
-    storageId?: string | null;
-  }>;
-  storageId: string;
-}): boolean {
-  return args.stagedFiles.some((file) => file.storageId === args.storageId);
-}
-
-export function isPendingUploadBlobProtected(args: {
-  stagedFiles: Array<{
-    storageId?: string | null;
-  }>;
-  cachedBlobs: Array<{
-    storageId?: string | null;
-  }>;
-  storageId: string;
-}): boolean {
-  return (
-    isPendingUploadBlobReferencedByStaging(args) ||
-    args.cachedBlobs.some((blob) => blob.storageId === args.storageId)
-  );
-}
-
 export function shouldDeleteSupersededStagedBinaryUpload(args: {
   existingStaging: {
     kind?: "text" | "binary";
@@ -463,21 +439,19 @@ export const deletePendingUploadBlob = mutation({
       throw new Error("Unauthorized");
     }
 
-    const stagedFiles = await ctx.db
+    const stagedFile = await ctx.db
       .query("fileStaging")
-      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .collect();
-    const cachedBlobs = await ctx.db
+      .withIndex("by_vault_and_storageId", (q) =>
+        q.eq("vaultId", args.vaultId).eq("storageId", args.storageId),
+      )
+      .first();
+    const cachedBlob = await ctx.db
       .query("blobs")
-      .filter((q) => q.eq(q.field("vaultId"), args.vaultId))
-      .collect();
-    if (
-      isPendingUploadBlobProtected({
-        stagedFiles,
-        cachedBlobs,
-        storageId: args.storageId,
-      })
-    ) {
+      .withIndex("by_vault_and_storageId", (q) =>
+        q.eq("vaultId", args.vaultId).eq("storageId", args.storageId),
+      )
+      .first();
+    if (stagedFile || cachedBlob) {
       throw new Error(
         "Cannot delete a blob that is already attached to staging.",
       );
