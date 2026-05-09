@@ -508,6 +508,7 @@ test("logo mobile merge resize keeps main width while opening the right sidebar"
 test("logo mobile right merge survives reload from localStorage", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
   await gotoLogoPage(page);
   await page.evaluate(() => {
     window.localStorage.clear();
