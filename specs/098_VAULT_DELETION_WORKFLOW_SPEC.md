@@ -805,7 +805,8 @@ edit teardown options in the first implementation.
 1. Add the missing cleanup index `blobs.by_vault`.
 2. Build the explicit local cleanup registry and table-specific batch mutations.
 3. Delete storage objects inside the blob cleanup batch before deleting blob
-   rows.
+   rows, and delete directly owned staged-upload storage inside the
+   `fileStaging` cleanup batch before deleting staging rows.
 4. Update `fileStaging.deletePendingUploadBlob` to use the same vault-scoped
    blob index instead of scanning `blobs`; if the implementation needs exact
    storage-reference checks, add vault-prefixed storage indexes instead of
@@ -818,6 +819,12 @@ edit teardown options in the first implementation.
 
 This phase may temporarily keep the existing action-level provider teardown, but
 the local cleanup must already be bounded.
+
+Phase 1 intentionally does not add the full deletion gate. The current
+single-user product risk is acceptable for this foundation slice, but Phase 2
+must close the remaining orphan-write race before deletion is considered
+durable: once a deletion run is accepted, vault-scoped writers must fail closed
+instead of creating rows for a vault that is deleting or already deleted.
 
 ### Phase 2: Durable Deletion Workflow
 

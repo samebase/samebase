@@ -6,7 +6,6 @@ const { id, literal, number, object, union } = v;
 
 const deleteOnlyByVaultCleanupTables = union(
   literal("vaultBranchFilters"),
-  literal("fileStaging"),
   literal("collaborativeUpdates"),
   literal("folderExpansionState"),
   literal("vaultRemoteBranches"),
@@ -23,6 +22,7 @@ type DeleteOnlyByVaultCleanupTable = Infer<
 
 const vaultLocalCleanupTable = union(
   deleteOnlyByVaultCleanupTables,
+  literal("fileStaging"),
   literal("blobs"),
   literal("vaultBranchTrees"),
   literal("aiProdAccessRequests"),
@@ -75,6 +75,53 @@ function deleteByVaultBatch(
 
     return rows.length;
   };
+}
+
+async function deleteFileStagingBatch(
+  ctx: VaultLocalCleanupCtx,
+  args: VaultLocalCleanupArgs,
+): Promise<number> {
+  const rows = await ctx.db
+    .query("fileStaging")
+    .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+    .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
+  const rowIdsInBatch = new Set(rows.map((row) => row._id));
+  const storageIds = new Set<Id<"_storage">>();
+  for (const row of rows) {
+    if (row.storageId) {
+      storageIds.add(row.storageId);
+    }
+  }
+
+  for (const storageId of storageIds) {
+    const cachedBlob = await ctx.db
+      .query("blobs")
+      .withIndex("by_vault_and_storageId", (q) =>
+        q.eq("vaultId", args.vaultId).eq("storageId", storageId),
+      )
+      .first();
+    if (cachedBlob) {
+      continue;
+    }
+
+    const stagingReferences = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_storageId", (q) =>
+        q.eq("vaultId", args.vaultId).eq("storageId", storageId),
+      )
+      .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE + 1);
+    if (
+      stagingReferences.length <= VAULT_LOCAL_CLEANUP_BATCH_SIZE &&
+      stagingReferences.every((row) => rowIdsInBatch.has(row._id))
+    ) {
+      await ctx.storage.delete(storageId);
+    }
+  }
+
+  for (const row of rows) {
+    await ctx.db.delete(row._id);
+  }
+  return rows.length;
 }
 
 async function deleteBlobsBatch(
@@ -167,7 +214,7 @@ const vaultLocalCleanupRegistry = [
   },
   {
     table: "fileStaging",
-    cleanup: deleteByVaultBatch("fileStaging"),
+    cleanup: deleteFileStagingBatch,
   },
   {
     table: "collaborativeUpdates",

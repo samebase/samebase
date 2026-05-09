@@ -1062,6 +1062,9 @@ describe("vault dashboard Convex contract", () => {
       const storageId = await ctx.storage.store(
         new Blob(["cached"], { type: "text/plain" }),
       );
+      const stagedStorageId = await ctx.storage.store(
+        new Blob(["staged"], { type: "text/plain" }),
+      );
 
       await ctx.db.insert("vaultBranchFilters", {
         userId,
@@ -1090,6 +1093,25 @@ describe("vault dashboard Convex contract", () => {
         branch: "main",
         version: 1,
       });
+      await ctx.db.insert("fileStaging", {
+        ownerId: userId,
+        vaultId,
+        fileDeleted: false,
+        kind: "binary",
+        filePath: "image.png",
+        initialFilePath: "image.png",
+        content: "",
+        initialContent: "",
+        storageId: stagedStorageId,
+        mime: "image/png",
+        size: 6,
+        stagedBlobSha: "staged-blob-sha",
+        parentCommitSha: null,
+        lastEditTime: 5,
+        lastEditUserId: userId,
+        branch: "main",
+        version: 1,
+      });
       await ctx.db.insert("collaborativeUpdates", {
         vaultId,
         branch: "main",
@@ -1098,7 +1120,7 @@ describe("vault dashboard Convex contract", () => {
         clientId: "client-1",
         changes: "[]",
         userId,
-        timestamp: 5,
+        timestamp: 6,
       });
       await ctx.db.insert("blobs", {
         vaultId,
@@ -1216,7 +1238,14 @@ describe("vault dashboard Convex contract", () => {
         createdAt: 15,
       });
 
-      return { auditId, requestId, storageId, userId, vaultId };
+      return {
+        auditId,
+        requestId,
+        stagedStorageId,
+        storageId,
+        userId,
+        vaultId,
+      };
     });
 
     const tables: string[] = [];
@@ -1258,9 +1287,14 @@ describe("vault dashboard Convex contract", () => {
       const request = await ctx.db.get(ids.requestId);
       const audit = await ctx.db.get(ids.auditId);
       const storage = await ctx.db.system.get("_storage", ids.storageId);
+      const stagedStorage = await ctx.db.system.get(
+        "_storage",
+        ids.stagedStorageId,
+      );
       return {
         audit,
         request,
+        stagedStorage,
         storage,
         vault: await ctx.db.get(ids.vaultId),
         branchFilters: await ctx.db
@@ -1283,6 +1317,7 @@ describe("vault dashboard Convex contract", () => {
     expect(snapshot.branchTrees).toHaveLength(0);
     expect(snapshot.prodRequestsForVault).toHaveLength(0);
     expect(snapshot.storage).toBeNull();
+    expect(snapshot.stagedStorage).toBeNull();
     expect(snapshot.request).toMatchObject({
       _id: ids.requestId,
       status: "expired",

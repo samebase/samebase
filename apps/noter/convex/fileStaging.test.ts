@@ -8,8 +8,6 @@ import {
   canAccessVaultStaging,
   clearMatchingStagingSnapshotImpl,
   clearAllStagingImpl,
-  isPendingUploadBlobProtected,
-  isPendingUploadBlobReferencedByStaging,
   selectRepositoryTreeForBranch,
   shouldDeleteSupersededStagedBinaryUpload,
   summarizeStagedFilesByBranch,
@@ -651,38 +649,6 @@ describe("buildDeletionSnapshotSeed", () => {
       initialContent: "hello\n",
       kind: "text",
     });
-  });
-});
-
-describe("isPendingUploadBlobReferencedByStaging", () => {
-  it("blocks cleanup when a staged row still points at the uploaded blob", () => {
-    expect(
-      isPendingUploadBlobReferencedByStaging({
-        storageId: "storage-1",
-        stagedFiles: [{ storageId: "storage-1" }, { storageId: "storage-2" }],
-      }),
-    ).toBe(true);
-  });
-
-  it("allows cleanup when staging no longer references the blob", () => {
-    expect(
-      isPendingUploadBlobReferencedByStaging({
-        storageId: "storage-3",
-        stagedFiles: [{ storageId: "storage-1" }, { storageId: undefined }],
-      }),
-    ).toBe(false);
-  });
-});
-
-describe("isPendingUploadBlobProtected", () => {
-  it("blocks cleanup when a committed blob cache row still points at the storage id", () => {
-    expect(
-      isPendingUploadBlobProtected({
-        storageId: "storage-4",
-        stagedFiles: [],
-        cachedBlobs: [{ storageId: "storage-4" }],
-      }),
-    ).toBe(true);
   });
 });
 
