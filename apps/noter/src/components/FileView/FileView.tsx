@@ -63,6 +63,7 @@ import { VaultSyncStatus } from "@/components/VaultSyncStatus";
 import { RepositoryMediaViewer } from "@/components/RepositoryMediaViewer";
 import { RepositoryRouteConnectState } from "@/components/RepositoryRouteConnectState";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
+import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
 import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import { MediaUploadDialog } from "@/components/MediaUploadDialog";
@@ -289,24 +290,10 @@ function FileViewWrapper() {
       setIsConnectingRepository(true);
 
       try {
-        const connectResult = await connectRepository({
+        await connectRepository({
           repositoryFullName,
         });
-        const [canonicalOwner, canonicalRepoName] =
-          connectResult.repositoryFullName.split("/");
-        if (!canonicalOwner || !canonicalRepoName) {
-          setConnectRouteError("Invalid repository name received from server");
-          return;
-        }
-
-        const nextBranch = routeBranch ?? connectResult.defaultBranch;
-        const nextPath = buildVaultFileRoute({
-          owner: canonicalOwner,
-          repoName: canonicalRepoName,
-          branch: nextBranch,
-          filePath: selectedFile.length > 0 ? selectedFile : undefined,
-        });
-        navigateByHref(appendCurrentSearch(nextPath), { replace: true });
+        navigateByHref(appendCurrentSearch("/"), { replace: true });
       } catch (connectRepositoryError) {
         setConnectRouteError(
           connectRepositoryError instanceof Error
@@ -318,13 +305,11 @@ function FileViewWrapper() {
       }
     })();
   }, [
-    appendCurrentSearch,
     connectRepository,
+    appendCurrentSearch,
     isConnectingRepository,
     navigateByHref,
     repositoryFullName,
-    routeBranch,
-    selectedFile,
   ]);
 
   /**
@@ -656,7 +641,14 @@ function FileViewWrapper() {
     return null;
   }
   if (!hasFileViewVaultTree(vault)) {
-    return null;
+    return (
+      <FileViewRepositorySetupState
+        repositoryFullName={`${owner}/${repoName}`}
+        onBackToVaults={() => {
+          navigateByHref(appendCurrentSearch("/"), { replace: true });
+        }}
+      />
+    );
   }
 
   return (
@@ -667,6 +659,52 @@ function FileViewWrapper() {
       owner={owner}
       repoName={repoName}
       stagedFile={stagedFile ?? null}
+    />
+  );
+}
+
+function FileViewRepositorySetupState({
+  onBackToVaults,
+  repositoryFullName,
+}: {
+  onBackToVaults: () => void;
+  repositoryFullName: string;
+}) {
+  return (
+    <WorkspaceLayoutV2FullPage
+      left={{ footer: <AppSidebarMetaSection /> }}
+      main={{
+        header: (
+          <RepositoryWorkspacePaneHeader
+            title={repositoryFullName}
+            right={
+              <a
+                href={`https://github.com/${repositoryFullName}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+              >
+                GitHub
+              </a>
+            }
+          />
+        ),
+        content: (
+          <div className="flex h-full min-h-0 items-center justify-center p-6">
+            <div className="w-full max-w-xl">
+              <h1 className="text-xl font-semibold">{repositoryFullName}</h1>
+              <p className="mt-3 max-w-lg text-sm text-muted-foreground">
+                Repository setup is not ready.
+              </p>
+              <div className="mt-5">
+                <Button variant="outline" onClick={onBackToVaults}>
+                  Back to Vaults
+                </Button>
+              </div>
+            </div>
+          </div>
+        ),
+      }}
     />
   );
 }

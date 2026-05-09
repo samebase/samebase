@@ -4,6 +4,7 @@ export type ProvisioningLogStep =
   | "initialize_vault"
   | "validate_connections"
   | "create_github_repo"
+  | "fetch_github_repo"
   | "seed_starter"
   | "connect_github"
   | "create_vault"
@@ -26,6 +27,7 @@ const provisioningStepLabels = {
   initialize_vault: "initialize vault",
   validate_connections: "validate connections",
   create_github_repo: "create GitHub repo",
+  fetch_github_repo: "fetch GitHub repo",
   seed_starter: "seed starter",
   connect_github: "connect GitHub",
   create_vault: "connect GitHub",

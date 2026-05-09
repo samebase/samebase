@@ -21,6 +21,8 @@ export function formatVaultSourceSetupStep(
       return "validate connections";
     case "create_github_repo":
       return "create GitHub repo";
+    case "fetch_github_repo":
+      return "fetch GitHub repo";
     case "connect_github":
       return "connect GitHub";
     case "create_vault":

@@ -229,6 +229,80 @@ export const provisionApp = workflow.define({
   },
 });
 
+export const connectExistingRepository = workflow.define({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    repositoryOwner: string(),
+    repositoryName: string(),
+  },
+  returns: v.null(),
+  handler: async (step, args): Promise<null> => {
+    await step.runAction(
+      internal.appProvisioningWorkflowActions
+        .validateExistingRepositoryConnection,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+        ownerName: args.repositoryOwner,
+        repoName: args.repositoryName,
+      },
+      { name: "validate_connections", retry: false },
+    );
+    const repository = await step.runAction(
+      internal.appProvisioningWorkflowActions.fetchExistingGitHubRepository,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+        ownerName: args.repositoryOwner,
+        repoName: args.repositoryName,
+      },
+      { name: "fetch_github_repo", retry: false },
+    );
+    await step.runAction(
+      internal.appProvisioningWorkflowActions.connectExistingRepositoryVault,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+        ghRepoId: repository.ghRepoId,
+        ownerName: repository.ownerName,
+        repoName: repository.repoName,
+        defaultBranch: repository.defaultBranch,
+        visibility: repository.visibility,
+      },
+      { name: "connect_github", retry: false },
+    );
+    await step.runAction(
+      internal.appProvisioningWorkflowActions.syncVaultTreeForRepository,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+        ownerName: repository.ownerName,
+        repoName: repository.repoName,
+        defaultBranch: repository.defaultBranch,
+      },
+      { name: "sync_tree", retry: idempotentProviderStepRetry },
+    );
+    await step.runAction(
+      internal.appProvisioningWorkflowActions
+        .finishExistingRepositoryConnection,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+      },
+      { name: "finish", retry: false },
+    );
+
+    return null;
+  },
+});
+
 export const startCreateAppProvisioning = internalMutation({
   args: {
     vaultId: id("vaults"),
@@ -264,6 +338,46 @@ export const startCreateAppProvisioning = internalMutation({
       step: "validate_connections",
       level: "info",
       message: "Queued app provisioning.",
+      state: "queued",
+    });
+
+    return workflowId;
+  },
+});
+
+export const startConnectExistingRepositoryProvisioning = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    repositoryName: string(),
+    repositoryOwner: string(),
+  },
+  returns: string(),
+  handler: async (ctx, args): Promise<string> => {
+    const workflowId: string = await workflow.start(
+      ctx,
+      internal.appProvisioningWorkflow.connectExistingRepository,
+      args,
+      {
+        startAsync: true,
+        onComplete:
+          internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
+        context: {
+          runId: args.runId,
+        },
+      },
+    );
+
+    await ctx.db.patch(args.runId, {
+      workflowId,
+      updatedAt: Date.now(),
+    });
+    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+      runId: args.runId,
+      step: "validate_connections",
+      level: "info",
+      message: "Queued existing repository connection.",
       state: "queued",
     });
 

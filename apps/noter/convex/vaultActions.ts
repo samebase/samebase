@@ -50,6 +50,33 @@ function isProviderNotFoundError(error: unknown): boolean {
   );
 }
 
+async function markProvisioningStartupFailed(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    runId: Id<"appProvisioningRuns">;
+    logName: string;
+    error: unknown;
+    vaultId: Id<"vaults">;
+  },
+): Promise<void> {
+  const message = toErrorMessage(args.error);
+  try {
+    await ctx.runMutation(
+      internal.infraProvisioning.markWorkflowStartupFailed,
+      {
+        runId: args.runId,
+        message,
+      },
+    );
+  } catch (markError) {
+    console.error(args.logName, {
+      runId: args.runId,
+      vaultId: args.vaultId,
+      message: toErrorMessage(markError),
+    });
+  }
+}
+
 async function startVaultInfrastructureProvisioningOrFail(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
@@ -64,22 +91,12 @@ async function startVaultInfrastructureProvisioningOrFail(
       args,
     );
   } catch (error) {
-    const message = toErrorMessage(error);
-    try {
-      await ctx.runMutation(
-        internal.infraProvisioning.markWorkflowStartupFailed,
-        {
-          runId: args.runId,
-          message,
-        },
-      );
-    } catch (markError) {
-      console.error("vault:provisioning_start_failure_mark_failed", {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        message: toErrorMessage(markError),
-      });
-    }
+    await markProvisioningStartupFailed(ctx, {
+      runId: args.runId,
+      vaultId: args.vaultId,
+      logName: "vault:provisioning_start_failure_mark_failed",
+      error,
+    });
     throw error;
   }
 }
@@ -102,23 +119,57 @@ async function startCreateAppProvisioningOrFail(
       args,
     );
   } catch (error) {
-    const message = toErrorMessage(error);
-    try {
-      await ctx.runMutation(
-        internal.infraProvisioning.markWorkflowStartupFailed,
-        {
-          runId: args.runId,
-          message,
-        },
-      );
-    } catch (markError) {
-      console.error("vault:create:provisioning_start_failure_mark_failed", {
-        runId: args.runId,
-        message: toErrorMessage(markError),
-      });
-    }
+    await markProvisioningStartupFailed(ctx, {
+      runId: args.runId,
+      vaultId: args.vaultId,
+      logName: "vault:create:provisioning_start_failure_mark_failed",
+      error,
+    });
     throw error;
   }
+}
+
+async function startConnectExistingRepositoryProvisioningOrFail(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"appProvisioningRuns">;
+    userId: Id<"users">;
+    repositoryName: string;
+    repositoryOwner: string;
+  },
+): Promise<void> {
+  try {
+    await ctx.runMutation(
+      internal.appProvisioningWorkflow
+        .startConnectExistingRepositoryProvisioning,
+      args,
+    );
+  } catch (error) {
+    await markProvisioningStartupFailed(ctx, {
+      runId: args.runId,
+      vaultId: args.vaultId,
+      logName: "vault:connect:provisioning_start_failure_mark_failed",
+      error,
+    });
+    throw error;
+  }
+}
+
+function parseRepositoryFullName(repositoryFullName: string): {
+  owner: string;
+  name: string;
+} {
+  const parts = repositoryFullName.split("/");
+  if (parts.length !== 2) {
+    throw new Error("Invalid repository full name");
+  }
+  const trimmedOwner = parts[0].trim();
+  const trimmedName = parts[1].trim();
+  if (!trimmedOwner || !trimmedName) {
+    throw new Error("Invalid repository full name");
+  }
+  return { owner: trimmedOwner, name: trimmedName };
 }
 
 async function resolveGithubConnectionUsername(
@@ -196,21 +247,18 @@ export const connectRepository = action({
     repositoryFullName: v.string(),
   },
   returns: v.object({
-    vaultId: v.string(),
-    repositoryFullName: v.string(),
-    defaultBranch: v.string(),
-    filesDownloaded: v.optional(v.number()),
+    vaultId: v.id("vaults"),
+    runId: v.id("appProvisioningRuns"),
   }),
   handler: async (
     ctx,
     args,
   ): Promise<{
-    vaultId: string;
-    repositoryFullName: string;
-    defaultBranch: string;
-    filesDownloaded?: number;
+    vaultId: Id<"vaults">;
+    runId: Id<"appProvisioningRuns">;
   }> => {
     const userId = await getUserId(ctx);
+    const { owner, name } = parseRepositoryFullName(args.repositoryFullName);
     const githubConnection = await ctx.runQuery(
       internal.providerConnections.getByUserAndKind,
       {
@@ -222,66 +270,23 @@ export const connectRepository = action({
       throw new Error("GitHub is not connected");
     }
 
-    const octokit = new Octokit({
-      auth: githubConnection.auth.credential,
-    });
-
-    const ownerName = args.repositoryFullName.split("/")[0];
-    const repoName = args.repositoryFullName.split("/")[1];
-
-    if (!ownerName || !repoName) {
-      throw new Error("Invalid repository full name");
-    }
-
-    const repo = await octokit.rest.repos.get({
-      owner: ownerName,
-      repo: repoName,
-    });
-
-    const defaultBranch = repo.data.default_branch;
-    const branchData = await octokit.rest.repos.getBranch({
-      owner: ownerName,
-      repo: repoName,
-      branch: defaultBranch,
-    });
-
-    const tree = await octokit.rest.git.getTree({
-      owner: ownerName,
-      repo: repoName,
-      tree_sha: defaultBranch,
-      recursive: "1",
-    });
-
-    const vaultId = await ctx.runMutation(internal.vault.addVault, {
-      ghRepoId: repo.data.id.toString(),
-      ghRepoOwner: repo.data.owner.login,
-      ghRepoName: repo.data.name,
-      defaultBranch,
-      visibility: repo.data.private ? "private" : "public",
-    });
-    await ctx.runMutation(internal.vault.upsertVaultBranchTree, {
+    const { vaultId, runId } = await ctx.runMutation(
+      internal.vault.createInitializingExistingRepositoryVaultForUser,
+      {
+        userId,
+        ghRepoOwner: owner,
+        ghRepoName: name,
+      },
+    );
+    await startConnectExistingRepositoryProvisioningOrFail(ctx, {
       vaultId,
-      branch: defaultBranch,
-      treeData: tree.data,
-      commitSHA: branchData.data.commit.sha,
+      runId,
+      userId,
+      repositoryOwner: owner,
+      repositoryName: name,
     });
 
-    // await ctx.scheduler.runAfter(
-    //   0,
-    //   internal.gitOperationsActions.downloadGitRepositoryAndMarkReady,
-    //   {
-    //     userId: currentUser._id,
-    //     vaultId,
-    //     repositoryUrl: repo.data.clone_url,
-    //     branch: repo.data.default_branch,
-    //   },
-    // );
-
-    return {
-      vaultId,
-      repositoryFullName: `${repo.data.owner.login}/${repo.data.name}`,
-      defaultBranch,
-    };
+    return { vaultId, runId };
   },
 });
 

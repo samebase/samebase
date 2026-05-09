@@ -21,6 +21,7 @@ import {
   type RepositorySearchMatch,
 } from "@/lib/repositorySearch";
 import { resolveDisplayedRepositories } from "@/lib/addRepositoryPicker";
+import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 
 type Repository = FunctionReturnType<
   typeof api.github.listRepositories
@@ -261,7 +262,12 @@ export function AddRepository() {
       setConnectingRepositoryFullName(repositoryFullName);
       try {
         await connectRepository({ repositoryFullName });
-        await navigate({ to: "/" });
+        await navigate({
+          href: buildPathWithTanStackSearch({
+            pathname: "/",
+            search: location.search,
+          }),
+        });
       } catch (connectRepositoryError) {
         setConnectError(
           connectRepositoryError instanceof Error
