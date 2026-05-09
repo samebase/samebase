@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { PublicLandingLogo } from "@/components/PublicLandingLogo";
 import { type AppThemeColorSearch } from "@/lib/appThemeColorSearch";
 import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
@@ -23,6 +23,10 @@ const DEVELOPER_TOOLS_TRIGGER_CLASS_NAME =
   "h-auto gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180";
 const DEVELOPER_TOOLS_PLACEHOLDER_TRIGGER_CLASS_NAME =
   "invisible pointer-events-none h-auto gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180";
+const SCROLLABLE_OVERFLOW_VALUES = new Set(["auto", "scroll", "overlay"]);
+const VAULT_DASHBOARD_BRANCH_ROW_SELECTOR = "[data-vault-dashboard-branch-row]";
+const VAULT_DASHBOARD_REPOSITORY_HEADER_SELECTOR =
+  '[data-testid="vault-dashboard-repository-header"]';
 
 export type VaultDashboardProviderActionViewModel = {
   disabled?: boolean;
@@ -288,8 +292,137 @@ export function VaultDashboardRepositoryList({
   );
 }
 
+function findVaultDashboardVerticalScrollport(
+  element: HTMLElement,
+): HTMLElement | null {
+  let currentElement = element.parentElement;
+  while (currentElement) {
+    if (
+      SCROLLABLE_OVERFLOW_VALUES.has(
+        window.getComputedStyle(currentElement).overflowY,
+      )
+    ) {
+      return currentElement;
+    }
+    currentElement = currentElement.parentElement;
+  }
+  return null;
+}
+
+function resolveVaultDashboardScrollEndTarget(target: HTMLElement): {
+  element: HTMLElement;
+  topPx: number;
+} {
+  const branchRows = target.querySelectorAll<HTMLElement>(
+    VAULT_DASHBOARD_BRANCH_ROW_SELECTOR,
+  );
+  const header = target.querySelector<HTMLElement>(
+    VAULT_DASHBOARD_REPOSITORY_HEADER_SELECTOR,
+  );
+  if (branchRows.length > 0 && header) {
+    const lastBranchRow = branchRows[branchRows.length - 1];
+    return {
+      element: lastBranchRow,
+      topPx: header.offsetHeight,
+    };
+  }
+  return {
+    element: target,
+    topPx: 0,
+  };
+}
+
 export function VaultDashboardScrollTargetEndPadding() {
-  return <div aria-hidden="true" className="h-svh" />;
+  const elementRef = useRef<HTMLDivElement>(null);
+  const [heightPx, setHeightPx] = useState(0);
+
+  useLayoutEffect(() => {
+    const element = elementRef.current;
+    if (!element) {
+      return;
+    }
+
+    const syncHeight = () => {
+      const target = element.previousElementSibling;
+      const scrollport = findVaultDashboardVerticalScrollport(element);
+      if (!(target instanceof HTMLElement) || !scrollport) {
+        setHeightPx(0);
+        return;
+      }
+
+      const scrollEndTarget = resolveVaultDashboardScrollEndTarget(target);
+      const targetRect = scrollEndTarget.element.getBoundingClientRect();
+      const scrollportRect = scrollport.getBoundingClientRect();
+      const maxScrollTopPx = Math.max(
+        scrollport.scrollHeight - scrollport.clientHeight,
+        0,
+      );
+      const targetTopAtScrollStartPx =
+        targetRect.top - scrollportRect.top + scrollport.scrollTop;
+      const targetTopAtScrollEndPx = targetTopAtScrollStartPx - maxScrollTopPx;
+
+      // Branch rows are the final meaningful content: keep the vault header
+      // sticky and let earlier rows scroll underneath it.
+      const nextHeightPx = Math.max(
+        element.offsetHeight + targetTopAtScrollEndPx - scrollEndTarget.topPx,
+        0,
+      );
+      setHeightPx((currentHeightPx) =>
+        Math.abs(currentHeightPx - nextHeightPx) < 0.5
+          ? currentHeightPx
+          : nextHeightPx,
+      );
+    };
+
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(syncHeight);
+
+    const observeCurrentTarget = () => {
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+        const target = element.previousElementSibling;
+        const scrollport = findVaultDashboardVerticalScrollport(element);
+        if (target instanceof HTMLElement) {
+          resizeObserver.observe(target);
+        }
+        if (scrollport) {
+          resizeObserver.observe(scrollport);
+        }
+      }
+      syncHeight();
+    };
+
+    observeCurrentTarget();
+
+    const parentElement = element.parentElement;
+    let mutationObserver: MutationObserver | null = null;
+    if (typeof MutationObserver !== "undefined" && parentElement) {
+      mutationObserver = new MutationObserver(observeCurrentTarget);
+      mutationObserver.observe(parentElement, { childList: true });
+    }
+    window.addEventListener("resize", observeCurrentTarget);
+
+    return () => {
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      if (mutationObserver) {
+        mutationObserver.disconnect();
+      }
+      window.removeEventListener("resize", observeCurrentTarget);
+    };
+  }, []);
+
+  return (
+    <div
+      ref={elementRef}
+      aria-hidden="true"
+      className="shrink-0"
+      style={{ height: `${heightPx}px` }}
+    />
+  );
 }
 
 export function VaultDashboardSidebarContent({

@@ -628,6 +628,26 @@ function VaultDashboardBottomTargetScrollFixture() {
     "noter-delta",
     "noter-bottom-target",
   ];
+  const bottomTargetBranches = [
+    {
+      branch: fixtureVaultBranch({
+        name: "main",
+        headCommitSha: "1234567890abcdef1234567890abcdef12345678",
+        isDefault: true,
+        aheadBy: 0,
+        behindBy: 0,
+      }),
+    },
+    {
+      branch: fixtureVaultBranch({
+        name: "codex/bottom-target-last-branch",
+        headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
+        isDefault: false,
+        aheadBy: 2,
+        behindBy: 0,
+      }),
+    },
+  ] satisfies FixtureVaultBranchRow[];
 
   return (
     <FixtureDashboardShell
@@ -651,6 +671,25 @@ function VaultDashboardBottomTargetScrollFixture() {
                   repositoryLinks={<FixtureRepositoryLinks />}
                   repositoryStatus={<span>Updated 12s ago</span>}
                   topRightAction={<FixtureDeleteControl />}
+                  branchSection={
+                    repositoryName === "noter-bottom-target" ? (
+                      <div className="space-y-1.5">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground/80">
+                          Branches
+                        </p>
+                        <div className="-mx-4 overflow-hidden border bg-muted">
+                          {bottomTargetBranches.map((branchRow) => (
+                            <VaultBranchLinkRow
+                              key={branchRow.branch.name}
+                              vaultId={fakeVaultId()}
+                              repositoryFullName="noter-md/noter-bottom-target"
+                              branch={branchRow.branch}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ) : undefined
+                  }
                 />
               </div>
             ))}
