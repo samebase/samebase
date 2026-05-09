@@ -13,6 +13,8 @@
 - Related research:
   - `research/2026-05-06-vault-first-provisioning-model.md`
   - `research/2026-05-08-existing-repository-workflow-onboarding.md`
+- Related operational context:
+  - [PR #724: Research vault deletion workflow failure](https://github.com/noter-md/noter/pull/724)
 
 ## Prompt
 
@@ -40,6 +42,12 @@ collaborative updates, branch trees, and remote-branch metadata that current
 delete has to load far too much into one Convex execution context. That is not
 just a missing-index bug; even indexed reads are unsafe if the mutation still
 collects and deletes the entire vault in one transaction.
+
+PR #724 captured the production version of this failure class: a read-only
+Convex query hit `Too many bytes read in a single function execution` with the
+16 MiB read limit while investigating deletion after manually cleaning staged
+changes and remote branches. That incident supports treating branch-heavy
+deletion as an execution-budget problem, not just as a missing index.
 
 That ordering is the opposite of the vault-first direction from specs 096
 and 097. Creation and existing-repo connection now create a durable vault/run
@@ -114,6 +122,11 @@ can accumulate enough staging rows, blobs, collaborative updates, branch caches,
 events, or agent state to exceed a single mutation's read/write/time limits. A
 durable workflow should own orchestration, while bounded internal mutations
 delete local rows in table-sized batches.
+
+The Workflow should own durable phase orchestration, not thousands of individual
+row or batch steps. Large table cleanup should stay in bounded mutations whose
+progress can be retried safely without turning the Workflow journal into the
+next limit surface.
 
 The branch-heavy case is the practical forcing function. Vault deletion should
 not depend on Noter-managed repos staying small or having only a handful of
@@ -238,6 +251,11 @@ comments around staged-file collaborative state. `vault.ts` already has
 `deleteVaultBranchArtifacts`, which uses batched collaborative-update cleanup
 for branch deletion. Vault deletion should reuse that shape at vault scope
 instead of inventing a one-shot scan.
+
+`apps/noter/convex/fileStaging.ts` has a sibling blob read in
+`deletePendingUploadBlob`: it already scopes `fileStaging` by `by_vault`, then
+scans `blobs` with `.filter()` on `vaultId`. The same `blobs.by_vault` index
+needed for vault cleanup should also remove that pending-upload scan.
 
 Branch-heavy vaults should drive the cleanup design. `vaultRemoteBranches`,
 `vaultBranchTrees`, `fileStaging`, `collaborativeUpdates`, and `blobs` need

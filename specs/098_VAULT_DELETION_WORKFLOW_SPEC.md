@@ -12,6 +12,7 @@
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
   - `research/2026-05-09-vault-deletion-workflow-research.md`
+  - [PR #724: Research vault deletion workflow failure](https://github.com/noter-md/noter/pull/724)
 
 ## Summary
 
@@ -51,6 +52,13 @@ That shape has two unacceptable failure modes:
 The current delete path has no durable run, no event log, no retry surface after
 partial provider cleanup, and no central gate that prevents sibling writers from
 continuing to mutate a vault after deletion has started.
+
+PR #724 captured the production failure class behind this spec: a read-only
+Convex investigation query hit
+`Too many bytes read in a single function execution` with the 16 MiB read limit
+after staged changes and remote branches were manually cleaned. That evidence
+means the accepted fix must address execution budgets for branch-heavy vaults,
+not only the immediate unindexed reads.
 
 ## Goals
 
@@ -166,6 +174,12 @@ No registry entry may use an unbounded `.collect()` for data that can grow with
 branches, files, edits, blobs, agent work, or provisioning history. Tests should
 force multiple batches with a small batch size so one-pass cleanup does not mask
 an unsafe implementation.
+
+Workflow owns durable phase orchestration; batch mutations own row cleanup. Do
+not model each deleted row or each cleanup batch as a separate Workflow step.
+For very large vaults, a Workflow step should call bounded cleanup mutations
+until the current phase is complete, with idempotent progress checks on each
+retry. The Workflow journal must not become the next unbounded cleanup surface.
 
 ### Retention Decisions
 
@@ -524,6 +538,11 @@ The registry must be fail closed. If a new vault-scoped table is added later,
 the table owner must either add it to this cleanup registry or explicitly mark
 it preserved with a retention reason.
 
+The `blobs.by_vault` index is also required for sibling cleanup outside the
+deletion Workflow. `fileStaging.deletePendingUploadBlob` must use the same
+vault-scoped blob index when checking whether an uploaded storage object is
+protected by staging.
+
 ## Deletion Gate Requirements
 
 An active or failed deletion gate must block or hide:
@@ -580,11 +599,13 @@ user edit teardown options in the first implementation.
 2. Build the explicit local cleanup registry and table-specific batch mutations.
 3. Delete storage objects inside the blob cleanup batch before deleting blob
    rows.
-4. Include `collaborativeUpdates`, `vaultInfrastructureOwnership`,
+4. Update `fileStaging.deletePendingUploadBlob` to use the same vault-scoped
+   blob index instead of scanning `blobs`.
+5. Include `collaborativeUpdates`, `vaultInfrastructureOwnership`,
    `agentGraphNodeLayout`, `agentThreadContext`, `aiProdAccessRequests`,
    `appProvisioningRuns`, and `appProvisioningEvents`.
-5. Delete the vault row once, last.
-6. Add tests that force branch-heavy cleanup across multiple batches.
+6. Delete the vault row once, last.
+7. Add tests that force branch-heavy cleanup across multiple batches.
 
 This phase may temporarily keep the existing action-level provider teardown, but
 the local cleanup must already be bounded.
@@ -628,12 +649,13 @@ Backend:
 6. retry uses the failed run's stored options and snapshot
 7. branch-heavy cleanup completes through multiple bounded batches
 8. `blobs` cleanup deletes storage objects and rows
-9. `collaborativeUpdates` are deleted at vault scope
-10. `aiProdAccessAudit` rows are preserved while requests are detached
-11. `agentThreadContext` rows are detached rather than deleted
-12. `appProvisioningRuns` and `appProvisioningEvents` are deleted in batches
-13. the vault row is deleted only after dependent cleanup succeeds
-14. source setup and provider provisioning writes fail closed after deletion
+9. pending-upload blob cleanup uses the vault-scoped blob index
+10. `collaborativeUpdates` are deleted at vault scope
+11. `aiProdAccessAudit` rows are preserved while requests are detached
+12. `agentThreadContext` rows are detached rather than deleted
+13. `appProvisioningRuns` and `appProvisioningEvents` are deleted in batches
+14. the vault row is deleted only after dependent cleanup succeeds
+15. source setup and provider provisioning writes fail closed after deletion
     starts
 
 Frontend:
