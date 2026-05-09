@@ -1,6 +1,12 @@
+import {
+  type RegisteredRouter,
+  type RouterState,
+} from "@tanstack/react-router";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 
-type RouteSearch = Record<string, unknown>;
+type RouteSearch = RouterState<
+  RegisteredRouter["routeTree"]
+>["location"]["search"];
 
 type ConnectExistingRepository = (args: {
   repositoryFullName: string;
