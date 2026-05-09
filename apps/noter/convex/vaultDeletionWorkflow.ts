@@ -174,26 +174,34 @@ export const startVaultDeletion = internalMutation({
   },
   returns: string(),
   handler: async (ctx, args): Promise<string> => {
-    const workflowId: string = await workflow.start(
-      ctx,
-      internal.vaultDeletionWorkflow.deleteVaultWorkflow,
-      args,
-      {
-        startAsync: true,
-        onComplete:
-          internal.vaultDeletionWorkflow.handleVaultDeletionWorkflowComplete,
-        context: {
-          runId: args.runId,
+    try {
+      const workflowId: string = await workflow.start(
+        ctx,
+        internal.vaultDeletionWorkflow.deleteVaultWorkflow,
+        args,
+        {
+          startAsync: true,
+          onComplete:
+            internal.vaultDeletionWorkflow.handleVaultDeletionWorkflowComplete,
+          context: {
+            runId: args.runId,
+          },
         },
-      },
-    );
+      );
 
-    await ctx.runMutation(internal.vaultDeletionRuns.markWorkflowStarted, {
-      runId: args.runId,
-      workflowId,
-    });
+      await ctx.runMutation(internal.vaultDeletionRuns.markWorkflowStarted, {
+        runId: args.runId,
+        workflowId,
+      });
 
-    return workflowId;
+      return workflowId;
+    } catch (error) {
+      await ctx.runMutation(internal.vaultDeletionRuns.markWorkflowFailed, {
+        runId: args.runId,
+        message: toErrorMessage(error),
+      });
+      throw error;
+    }
   },
 });
 

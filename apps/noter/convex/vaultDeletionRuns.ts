@@ -366,6 +366,38 @@ async function buildDeletionPlan(
   }
 }
 
+async function assertPlanProviderConnections(
+  ctx: MutationCtx,
+  args: {
+    userId: Id<"users">;
+    plan: VaultDeletionPlan;
+  },
+): Promise<void> {
+  if (
+    args.plan.codespaces.action === "delete_connected_codespaces" ||
+    args.plan.githubRepository.action === "delete_repository"
+  ) {
+    await requireProviderConnection(ctx, {
+      userId: args.userId,
+      kind: "github",
+    });
+  }
+
+  if (args.plan.convex.action !== "skip") {
+    await requireProviderConnection(ctx, {
+      userId: args.userId,
+      kind: "convex",
+    });
+  }
+
+  if (args.plan.cloudflare.action === "delete_pages_project") {
+    await requireProviderConnection(ctx, {
+      userId: args.userId,
+      kind: "cloudflare",
+    });
+  }
+}
+
 async function appendDeletionEvent(
   ctx: MutationCtx,
   args: {
@@ -492,6 +524,11 @@ export const createRetryRun = internalMutation({
     }
 
     const retainedSnapshot = readRetainedSnapshot(failedRun);
+    await assertPlanProviderConnections(ctx, {
+      userId: args.userId,
+      plan: retainedSnapshot.plan,
+    });
+
     const now = Date.now();
     const deletionRunId = await ctx.db.insert("vaultDeletionRuns", {
       userId: args.userId,

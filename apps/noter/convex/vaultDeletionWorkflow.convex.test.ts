@@ -569,4 +569,102 @@ describe("vault deletion workflow", () => {
       runId: retry.deletionRunId,
     });
   });
+
+  it("rejects a retry when retained provider connections are missing", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const githubConnectionId = await ctx.db.insert("providerConnections", {
+        kind: "github",
+        userId,
+        auth: {
+          method: "api_key",
+          credential: "test-github-api-key",
+        },
+        username: "ada",
+        createdAt: 1,
+        updatedAt: 2,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const setupRunId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/retry-missing-provider",
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 3,
+        updatedAt: 4,
+        completedAt: 5,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId: setupRunId,
+        ghRepoId: "789",
+        owner: "ada",
+        name: "retry-missing-provider",
+        defaultBranch: "main",
+        visibility: "private",
+        convex: { state: "not_configured" },
+        cloudflare: { state: "not_configured" },
+        connectedAt: 6,
+      });
+
+      return { githubConnectionId, userId, vaultId };
+    });
+    const initial = await t.mutation(
+      internal.vaultDeletionRuns.createInitialRun,
+      {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        options: {
+          removeCodespaces: false,
+          removeGithubRepo: true,
+          removeConvexProvision: false,
+          removeCloudflareProvision: false,
+        },
+      },
+    );
+    await t.mutation(internal.vaultDeletionRuns.markWorkflowFailed, {
+      runId: initial.deletionRunId,
+      message: "Provider cleanup failed.",
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.delete(ids.githubConnectionId);
+    });
+
+    await expect(
+      t.mutation(internal.vaultDeletionRuns.createRetryRun, {
+        userId: ids.userId,
+        failedRunId: initial.deletionRunId,
+      }),
+    ).rejects.toThrow("GitHub is not connected.");
+
+    const snapshot = await t.run(async (ctx) => {
+      const vault = await ctx.db.get(ids.vaultId);
+      const runs = await ctx.db
+        .query("vaultDeletionRuns")
+        .withIndex("by_vault_and_updated_at", (q) =>
+          q.eq("vaultId", ids.vaultId),
+        )
+        .collect();
+      return { runs, vault };
+    });
+    expect(snapshot.vault?.deletion).toMatchObject({
+      state: "delete_failed",
+      runId: initial.deletionRunId,
+    });
+    expect(snapshot.runs).toHaveLength(1);
+  });
 });

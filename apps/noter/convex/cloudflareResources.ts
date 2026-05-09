@@ -43,6 +43,11 @@ type CloudflarePagesApiErrorDetail = {
   message?: string;
 };
 
+/**
+ * CloudflarePagesApiError surfaces a Cloudflare Pages API failure returned
+ * through MCP. The request method and path stay with the error, and details
+ * carry parsed provider code/message fields when Cloudflare returns them.
+ */
 export class CloudflarePagesApiError extends Error {
   readonly method: CloudflarePagesRequestMethod;
 
@@ -110,6 +115,11 @@ function readCloudflarePagesApiErrorDetails(
   return detail ? [detail] : [];
 }
 
+/**
+ * isCloudflarePagesProjectNotFoundError matches the explicit Pages project
+ * not-found contract. Exact CLOUDFLARE_PAGES_PROJECT_NOT_FOUND_CODE and message
+ * checks avoid treating unrelated Cloudflare errors as replay-safe deletion.
+ */
 export function isCloudflarePagesProjectNotFoundError(error: unknown): boolean {
   return (
     error instanceof CloudflarePagesApiError &&
