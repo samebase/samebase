@@ -138,6 +138,7 @@ const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
   leftDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   leftMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   mobilePane: "main",
+  mobileSurface: { kind: "unmerged" },
   rightDesktopOpen: true,
   rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,

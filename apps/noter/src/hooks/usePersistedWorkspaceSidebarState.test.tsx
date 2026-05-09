@@ -42,6 +42,7 @@ const DEFAULT_SIDEBAR_STATE = {
   leftDesktopWidthPx: 280,
   leftMobileWidthPx: 280,
   mobilePane: "main",
+  mobileSurface: { kind: "unmerged" },
   rightDesktopOpen: false,
   rightDesktopWidthPx: 320,
   rightMobileWidthPx: 320,
@@ -80,6 +81,23 @@ function setLatestMobilePane(
       ...state,
       mobilePane:
         nextPane instanceof Function ? nextPane(state.mobilePane) : nextPane,
+    }),
+    "immediate",
+  );
+}
+
+function setLatestMobileSurface(
+  nextSurface: WorkspaceSidebarState["mobileSurface"],
+) {
+  const controller = latestSidebarStateController;
+  if (controller === null) {
+    throw new Error("Expected sidebar state controller");
+  }
+
+  controller.setState(
+    (state) => ({
+      ...state,
+      mobileSurface: nextSurface,
     }),
     "immediate",
   );
@@ -224,6 +242,38 @@ describe("usePersistedWorkspaceSidebarState", () => {
     expect(
       rootElement.firstElementChild?.getAttribute("data-mobile-pane"),
     ).toBe("right");
+  });
+
+  it("persists mobile surface changes even when pane and widths stay unchanged", () => {
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+    const mountedRoot = root;
+
+    mockedQueryState = null;
+    act(() => {
+      mountedRoot.render(<SidebarStateProbe />);
+    });
+
+    act(() => {
+      setLatestMobileSurface({
+        kind: "merged",
+        mainWidthPx: 294,
+        side: "right",
+      });
+    });
+
+    expect(mockedMutation).toHaveBeenCalledWith({
+      state: {
+        ...DEFAULT_SIDEBAR_STATE,
+        mobileSurface: {
+          kind: "merged",
+          mainWidthPx: 294,
+          side: "right",
+        },
+      },
+      workspaceKey: "machines",
+    });
   });
 
   it("keeps the provider unmounted until the persisted query hydrates", () => {

@@ -46,6 +46,7 @@ export function WorkspaceLayoutV2FixtureFrame({
     leftDesktopWidthPx: desktopSidebarWidthPx,
     leftMobileWidthPx: WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX,
     mobilePane: mobilePane ?? "main",
+    mobileSurface: { kind: "unmerged" },
     rightDesktopOpen: defaultRightOpen,
     rightDesktopWidthPx: desktopSidebarWidthPx,
     rightMobileWidthPx:

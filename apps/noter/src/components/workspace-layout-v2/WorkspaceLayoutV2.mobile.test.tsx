@@ -102,6 +102,7 @@ function createMobileSidebarState({
     leftDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
     leftMobileWidthPx,
     mobilePane,
+    mobileSurface: { kind: "unmerged" },
     rightDesktopOpen: false,
     rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
     rightMobileWidthPx,

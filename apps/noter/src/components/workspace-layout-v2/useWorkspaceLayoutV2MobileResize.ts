@@ -20,6 +20,8 @@ import {
 import {
   useWorkspaceLayoutV2Actions,
   useWorkspaceLayoutV2Selector,
+  useWorkspacePaneActions,
+  useWorkspacePaneState,
 } from "./WorkspacePaneRuntime";
 import { type WorkspaceLayoutV2ResizeHandleConfig } from "./WorkspaceLayoutV2ResizeHandleConfigs";
 
@@ -53,22 +55,30 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
   viewportWidthPx: number;
 }) {
   const mobileGrip = useWorkspaceLayoutV2Selector((state) => state.mobile.grip);
-  const mobileSurface = useWorkspaceLayoutV2Selector(
-    (state) => state.mobile.surface,
-  );
-  const { setMobileGrip, setMobileSurface } = useWorkspaceLayoutV2Actions();
+  const { mobileSurface } = useWorkspacePaneState();
+  const { setMobileGrip } = useWorkspaceLayoutV2Actions();
+  const { setMobileSurface, settleMobileMergedSurface } =
+    useWorkspacePaneActions();
   const mobileGripRef = useRef<WorkspaceLayoutV2MobileGrip>(mobileGrip);
+  const activeMobileSurface =
+    mobileGrip.kind === "dragging" ? mobileGrip.previewSurface : mobileSurface;
   const mobileSurfaceRef =
-    useRef<WorkspaceLayoutV2MobileSurface>(mobileSurface);
+    useRef<WorkspaceLayoutV2MobileSurface>(activeMobileSurface);
   mobileGripRef.current = mobileGrip;
-  mobileSurfaceRef.current = mobileSurface;
+  mobileSurfaceRef.current = activeMobileSurface;
   const mobileDefaultPaneWidthPx = getMobilePaneWidthPx({
     peekWidthPx,
     viewportWidthPx,
   });
   const mobileMergedSide =
-    mobileSurface.kind === "merged" ? mobileSurface.side : null;
+    activeMobileSurface.kind === "merged" ? activeMobileSurface.side : null;
   const mobileMergedMainWidthPx =
+    activeMobileSurface.kind === "merged"
+      ? activeMobileSurface.mainWidthPx
+      : null;
+  const durableMobileMergedSide =
+    mobileSurface.kind === "merged" ? mobileSurface.side : null;
+  const durableMobileMergedMainWidthPx =
     mobileSurface.kind === "merged" ? mobileSurface.mainWidthPx : null;
   const mobileGripSlideOffsetPx =
     mobileGrip.kind === "dragging" ? mobileGrip.slideOffsetPx : 0;
@@ -78,10 +88,24 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
       : mobileMergedSide === "right"
         ? rightWidthPx
         : 0;
+  const hasMobileMergedPane =
+    (mobileMergedSide === "left" && hasLeftPane) ||
+    (mobileMergedSide === "right" && hasRightPane);
   const isMobileMergedFit =
+    hasMobileMergedPane &&
     mobileMergedMainWidthPx !== null &&
-    mobileMergedSide !== null &&
     mobileMergedSideWidthPx + mobileMergedMainWidthPx <=
+      viewportWidthPx + MOBILE_PANE_SETTLED_TOLERANCE_PX;
+  const durableMobileMergedSideWidthPx =
+    durableMobileMergedSide === "left"
+      ? leftWidthPx
+      : durableMobileMergedSide === "right"
+        ? rightWidthPx
+        : 0;
+  const isDurableMobileMergedFit =
+    durableMobileMergedMainWidthPx !== null &&
+    durableMobileMergedSide !== null &&
+    durableMobileMergedSideWidthPx + durableMobileMergedMainWidthPx <=
       viewportWidthPx + MOBILE_PANE_SETTLED_TOLERANCE_PX;
   const hasOppositePaneForMergedSide =
     (mobileMergedSide === "left" && hasRightPane) ||
@@ -91,27 +115,37 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
     isMobileMergedFit &&
     !hasOppositePaneForMergedSide;
 
-  function clearMobileMergedSurface() {
-    mobileSurfaceRef.current = WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE;
-    setMobileSurface(WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE);
-  }
-
-  function setMobileMergedSurface(
-    side: WorkspaceLayoutV2MobileMergedSide,
-    mainWidthPx: number,
-  ) {
-    const nextSurface: WorkspaceLayoutV2MobileSurface = {
-      kind: "merged",
-      mainWidthPx,
-      side,
-    };
-    mobileSurfaceRef.current = nextSurface;
-    setMobileSurface(nextSurface);
-  }
-
   function setMobileGripState(nextMobileGrip: WorkspaceLayoutV2MobileGrip) {
     mobileGripRef.current = nextMobileGrip;
     setMobileGrip(nextMobileGrip);
+  }
+
+  function setPreviewMobileSurface(surface: WorkspaceLayoutV2MobileSurface) {
+    mobileSurfaceRef.current = surface;
+    const currentMobileGrip = mobileGripRef.current;
+    if (currentMobileGrip.kind !== "dragging") {
+      return;
+    }
+
+    setMobileGripState({
+      ...currentMobileGrip,
+      previewSurface: surface,
+    });
+  }
+
+  function clearPreviewMobileSurface() {
+    setPreviewMobileSurface(WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE);
+  }
+
+  function setPreviewMobileMergedSurface(
+    side: WorkspaceLayoutV2MobileMergedSide,
+    mainWidthPx: number,
+  ) {
+    setPreviewMobileSurface({
+      kind: "merged",
+      mainWidthPx,
+      side,
+    });
   }
 
   function setMobileGripSlideOffsetPx(slideOffsetPx: number) {
@@ -127,12 +161,11 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
   }
 
   const clearMobileMergedSurfaceEffect = useEffectEvent(() => {
-    clearMobileMergedSurface();
+    setMobileSurface(WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE);
   });
   const resetMobileGripResizeEffect = useEffectEvent(() => {
     activeGripResizeSideRef.current = null;
     setMobileGripState(WORKSPACE_LAYOUT_V2_IDLE_MOBILE_GRIP);
-    clearMobileMergedSurface();
   });
 
   /**
@@ -148,17 +181,36 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
   }, [isMobile]);
 
   /**
-   * Drops merged pane geometry when viewport constraints or resize behavior
-   * change the meaning of that transient fit.
+   * Clears impossible durable merge state for the current mobile route and
+   * viewport. Width alone never creates a merge, but an existing merge must
+   * still fit the panes currently on screen.
    */
   useEffect(() => {
+    if (!isMobile || viewportWidthPx <= 0 || mobileSurface.kind !== "merged") {
+      return;
+    }
+
+    const hasMergedPane =
+      (durableMobileMergedSide === "left" && hasLeftPane) ||
+      (durableMobileMergedSide === "right" && hasRightPane);
+    if (
+      mobileMinResizeBehavior === "min_resize_to_merge" &&
+      hasMergedPane &&
+      isDurableMobileMergedFit
+    ) {
+      return;
+    }
+
     clearMobileMergedSurfaceEffect();
   }, [
     hasLeftPane,
     hasRightPane,
+    isDurableMobileMergedFit,
     isMobile,
-    mobileDefaultPaneWidthPx,
     mobileMinResizeBehavior,
+    durableMobileMergedSide,
+    mobileSurface.kind,
+    viewportWidthPx,
   ]);
 
   /**
@@ -171,8 +223,12 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
       return;
     }
 
+    if (mobileSurface.kind === "unmerged") {
+      return;
+    }
+
     clearMobileMergedSurfaceEffect();
-  }, [mobilePane]);
+  }, [mobilePane, mobileSurface.kind]);
 
   function getGripPositionPx(
     resizeHandle: WorkspaceLayoutV2ResizeHandleConfig,
@@ -210,6 +266,7 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
     setMobileGripState({
       kind: "dragging",
       mergeTargetSide,
+      previewSurface: currentSurface,
       shouldSettleMergedOnEnd: false,
       side: resizeHandle.side,
       slideOffsetPx: 0,
@@ -247,8 +304,11 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
 
       if (settledMainWidthPx !== null && carouselNode !== null) {
         if (currentMobileGrip.shouldSettleMergedOnEnd) {
-          resizeHandle.onWidthChange(resizeHandle.minWidthPx);
-          setMobileMergedSurface(resizeHandle.side, settledMainWidthPx);
+          settleMobileMergedSurface({
+            mainWidthPx: settledMainWidthPx,
+            side: resizeHandle.side,
+            sideWidthPx: resizeHandle.minWidthPx,
+          });
           carouselNode.scrollLeft = getMobilePaneScrollLeftPx(
             resizeHandle.side,
             {
@@ -270,11 +330,20 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
           );
           didSettleMergedMainPane = true;
         } else {
-          clearMobileMergedSurface();
+          setMobileSurface(WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE);
         }
       } else {
-        clearMobileMergedSurface();
+        setMobileSurface(WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE);
       }
+    }
+    if (
+      mobileMinResizeBehavior === "min_resize_to_merge" &&
+      currentMobileGrip.kind === "dragging" &&
+      currentMobileGrip.mergeTargetSide === null &&
+      currentSurface.kind === "merged" &&
+      currentSurface.side !== resizeHandle.side
+    ) {
+      setMobileSurface(currentSurface);
     }
 
     carouselNode?.style.removeProperty("scroll-snap-type");
@@ -378,7 +447,7 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
               slideOffsetPx: 0,
             });
             resizeHandle.onWidthChange(mergeResizeWidths.sideWidthPx);
-            setMobileMergedSurface(handoffSide, handoffMainWidthPx);
+            setPreviewMobileMergedSurface(handoffSide, handoffMainWidthPx);
             carouselNode.scrollLeft = getMobilePaneScrollLeftPx(
               resizeHandle.side,
               {
@@ -393,9 +462,9 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
 
         resizeHandle.onWidthChange(mergeResizeWidths.sideWidthPx);
         if (mergeResizeWidths.mainWidthPx >= mobileDefaultPaneWidthPx) {
-          clearMobileMergedSurface();
+          clearPreviewMobileSurface();
         } else {
-          setMobileMergedSurface(
+          setPreviewMobileMergedSurface(
             resizeHandle.side,
             mergeResizeWidths.mainWidthPx,
           );
@@ -436,7 +505,7 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
       return;
     }
 
-    clearMobileMergedSurface();
+    clearPreviewMobileSurface();
     const scrollOffsetArgs = {
       hasLeftPane,
       hasRightPane,
@@ -475,6 +544,7 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
     isMobileMergedFit,
     lockCarouselScroll,
     mobileDefaultMainWidthPx: mobileDefaultPaneWidthPx,
+    mobileSurface: activeMobileSurface,
     startResize,
   };
 }

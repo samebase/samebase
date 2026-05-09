@@ -103,9 +103,6 @@ export function WorkspaceLayoutV2({
   const activeResizeSide = useWorkspaceLayoutV2Selector(
     (state) => state.activeResizeSide,
   );
-  const mobileSurface = useWorkspaceLayoutV2Selector(
-    (state) => state.mobile.surface,
-  );
   const isMobilePaneSettled = useWorkspaceLayoutV2Selector(
     (state) => state.mobile.isPaneSettled,
   );
@@ -199,8 +196,8 @@ export function WorkspaceLayoutV2({
     viewportWidthPx: viewportSize.widthPx,
   });
   const activeMobileSurface =
-    mobileSurface.kind === "merged" && mobilePane !== "main"
-      ? mobileSurface
+    mobileGripResize.mobileSurface.kind === "merged" && mobilePane !== "main"
+      ? mobileGripResize.mobileSurface
       : null;
   const activeMobileMergedSurfaceSide =
     activeMobileSurface !== null && mobileGripResize.isMobileMergedFit

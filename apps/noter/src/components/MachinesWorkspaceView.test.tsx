@@ -73,6 +73,7 @@ function MachinesWorkspaceTestSidebarProvider({
         leftDesktopWidthPx: MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
         leftMobileWidthPx: MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
         mobilePane: "main",
+        mobileSurface: { kind: "unmerged" },
         rightDesktopOpen: false,
         rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
         rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,

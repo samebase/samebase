@@ -8,7 +8,7 @@ import type {
 } from "@/lib/workspaceSidebarStateController";
 
 const SIDEBAR_WIDTH_PERSIST_DELAY_MS = 160;
-const STORED_WORKSPACE_SIDEBAR_STATE_VERSION = 1;
+const STORED_WORKSPACE_SIDEBAR_STATE_VERSION = 2;
 
 type UseLocalStorageWorkspaceSidebarStateArgs = {
   defaults: WorkspaceSidebarState;
@@ -16,12 +16,23 @@ type UseLocalStorageWorkspaceSidebarStateArgs = {
   storageKey: string;
 };
 
+function serializeWorkspaceMobileSurface(
+  surface: WorkspaceSidebarState["mobileSurface"],
+) {
+  if (surface.kind === "unmerged") {
+    return "unmerged";
+  }
+
+  return `merged:${surface.side}:${surface.mainWidthPx}`;
+}
+
 function serializeWorkspaceSidebarState(state: WorkspaceSidebarState): string {
   return [
     state.leftDesktopOpen ? "1" : "0",
     `${state.leftDesktopWidthPx}`,
     `${state.leftMobileWidthPx}`,
     state.mobilePane,
+    serializeWorkspaceMobileSurface(state.mobileSurface),
     state.rightDesktopOpen ? "1" : "0",
     `${state.rightDesktopWidthPx}`,
     `${state.rightMobileWidthPx}`,
@@ -56,6 +67,32 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+function parseMobileSurface(
+  value: unknown,
+): WorkspaceSidebarState["mobileSurface"] | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (value.kind === "unmerged") {
+    return { kind: "unmerged" };
+  }
+
+  if (
+    value.kind === "merged" &&
+    (value.side === "left" || value.side === "right") &&
+    isFiniteNumber(value.mainWidthPx)
+  ) {
+    return {
+      kind: "merged",
+      mainWidthPx: value.mainWidthPx,
+      side: value.side,
+    };
+  }
+
+  return null;
+}
+
 function parseWorkspaceSidebarState(
   value: unknown,
 ): WorkspaceSidebarState | null {
@@ -64,11 +101,13 @@ function parseWorkspaceSidebarState(
   }
 
   const mobilePane = parseMobilePane(value.mobilePane);
+  const mobileSurface = parseMobileSurface(value.mobileSurface);
   if (
     typeof value.leftDesktopOpen !== "boolean" ||
     !isFiniteNumber(value.leftDesktopWidthPx) ||
     !isFiniteNumber(value.leftMobileWidthPx) ||
     mobilePane === null ||
+    mobileSurface === null ||
     typeof value.rightDesktopOpen !== "boolean" ||
     !isFiniteNumber(value.rightDesktopWidthPx) ||
     !isFiniteNumber(value.rightMobileWidthPx)
@@ -81,6 +120,7 @@ function parseWorkspaceSidebarState(
     leftDesktopWidthPx: value.leftDesktopWidthPx,
     leftMobileWidthPx: value.leftMobileWidthPx,
     mobilePane,
+    mobileSurface,
     rightDesktopOpen: value.rightDesktopOpen,
     rightDesktopWidthPx: value.rightDesktopWidthPx,
     rightMobileWidthPx: value.rightMobileWidthPx,

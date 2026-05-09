@@ -21,7 +21,6 @@ import {
   WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE,
   type WorkspaceLayoutV2ActiveResizeSide,
   type WorkspaceLayoutV2MobileGrip,
-  type WorkspaceLayoutV2MobileSurface,
 } from "./WorkspaceLayoutV2Geometry";
 
 const WORKSPACE_PANE_KEYBOARD_SHORTCUT = "b";
@@ -38,9 +37,17 @@ export type WorkspacePaneActions = {
   setLeftDesktopWidthPx: Dispatch<SetStateAction<number>>;
   setLeftMobileWidthPx: Dispatch<SetStateAction<number>>;
   setMobilePane: Dispatch<SetStateAction<WorkspaceMobilePane>>;
+  setMobileSurface: Dispatch<
+    SetStateAction<WorkspaceSidebarState["mobileSurface"]>
+  >;
   setRightDesktopOpen: Dispatch<SetStateAction<boolean>>;
   setRightDesktopWidthPx: Dispatch<SetStateAction<number>>;
   setRightMobileWidthPx: Dispatch<SetStateAction<number>>;
+  settleMobileMergedSurface: (args: {
+    mainWidthPx: number;
+    side: WorkspacePaneSide;
+    sideWidthPx: number;
+  }) => void;
   toggleLeftPane: () => void;
   toggleRightPane: () => void;
 };
@@ -50,7 +57,6 @@ export type WorkspaceLayoutV2LocalStoreState = {
   mobile: {
     grip: WorkspaceLayoutV2MobileGrip;
     isPaneSettled: boolean;
-    surface: WorkspaceLayoutV2MobileSurface;
   };
   viewportSize: ElementSize;
 };
@@ -66,7 +72,6 @@ const WORKSPACE_LAYOUT_V2_LOCAL_STORE_INITIAL_STATE: WorkspaceLayoutV2LocalStore
     mobile: {
       grip: WORKSPACE_LAYOUT_V2_IDLE_MOBILE_GRIP,
       isPaneSettled: true,
-      surface: WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE,
     },
     viewportSize: WORKSPACE_LAYOUT_V2_EMPTY_ELEMENT_SIZE,
   };
@@ -106,16 +111,6 @@ function useCreateWorkspaceLayoutV2Store() {
             : {
                 ...state,
                 mobile: { ...state.mobile, grip },
-              },
-        );
-      },
-      setMobileSurface: (surface: WorkspaceLayoutV2MobileSurface) => {
-        setState((state) =>
-          state.mobile.surface === surface
-            ? state
-            : {
-                ...state,
-                mobile: { ...state.mobile, surface },
               },
         );
       },
@@ -193,6 +188,25 @@ function resolveNextPaneValue<T>(
   nextValue: SetStateAction<T>,
 ) {
   return nextValue instanceof Function ? nextValue(currentValue) : nextValue;
+}
+
+function areMobileSurfacesEqual(
+  left: WorkspaceSidebarState["mobileSurface"],
+  right: WorkspaceSidebarState["mobileSurface"],
+) {
+  if (left.kind !== right.kind) {
+    return false;
+  }
+
+  if (left.kind === "unmerged") {
+    return true;
+  }
+
+  return (
+    right.kind === "merged" &&
+    left.side === right.side &&
+    left.mainWidthPx === right.mainWidthPx
+  );
 }
 
 /**
@@ -273,9 +287,84 @@ export function WorkspacePaneRuntimeProvider({
 
   const setMobilePane = useCallback(
     (nextPane: SetStateAction<WorkspaceMobilePane>) => {
-      updatePaneState("mobilePane", nextPane, "immediate");
+      controller.setState((state) => {
+        const nextMobilePane = resolveNextPaneValue(state.mobilePane, nextPane);
+        if (
+          state.mobilePane === nextMobilePane &&
+          (nextMobilePane !== "main" || state.mobileSurface.kind === "unmerged")
+        ) {
+          return state;
+        }
+
+        return {
+          ...state,
+          mobilePane: nextMobilePane,
+          mobileSurface:
+            nextMobilePane === "main"
+              ? WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE
+              : state.mobileSurface,
+        };
+      }, "immediate");
     },
-    [updatePaneState],
+    [controller],
+  );
+
+  const setMobileSurface = useCallback(
+    (nextSurface: SetStateAction<WorkspaceSidebarState["mobileSurface"]>) => {
+      controller.setState((state) => {
+        const nextMobileSurface = resolveNextPaneValue(
+          state.mobileSurface,
+          nextSurface,
+        );
+        if (areMobileSurfacesEqual(state.mobileSurface, nextMobileSurface)) {
+          return state;
+        }
+
+        return { ...state, mobileSurface: nextMobileSurface };
+      }, "immediate");
+    },
+    [controller],
+  );
+
+  const settleMobileMergedSurface = useCallback(
+    ({
+      mainWidthPx,
+      side,
+      sideWidthPx,
+    }: {
+      mainWidthPx: number;
+      side: WorkspacePaneSide;
+      sideWidthPx: number;
+    }) => {
+      controller.setState((state) => {
+        const nextMobileSurface = {
+          kind: "merged",
+          mainWidthPx,
+          side,
+        } satisfies WorkspaceSidebarState["mobileSurface"];
+        const nextState = {
+          ...state,
+          leftMobileWidthPx:
+            side === "left" ? sideWidthPx : state.leftMobileWidthPx,
+          mobilePane: side,
+          mobileSurface: nextMobileSurface,
+          rightMobileWidthPx:
+            side === "right" ? sideWidthPx : state.rightMobileWidthPx,
+        };
+
+        if (
+          state.mobilePane === nextState.mobilePane &&
+          state.leftMobileWidthPx === nextState.leftMobileWidthPx &&
+          state.rightMobileWidthPx === nextState.rightMobileWidthPx &&
+          areMobileSurfacesEqual(state.mobileSurface, nextMobileSurface)
+        ) {
+          return state;
+        }
+
+        return nextState;
+      }, "immediate");
+    },
+    [controller],
   );
 
   const {
@@ -283,6 +372,7 @@ export function WorkspacePaneRuntimeProvider({
     leftDesktopWidthPx,
     leftMobileWidthPx,
     mobilePane,
+    mobileSurface,
     rightDesktopOpen,
     rightDesktopWidthPx,
     rightMobileWidthPx,
@@ -317,6 +407,7 @@ export function WorkspacePaneRuntimeProvider({
       leftDesktopWidthPx,
       leftMobileWidthPx,
       mobilePane,
+      mobileSurface,
       rightDesktopOpen,
       rightDesktopWidthPx,
       rightMobileWidthPx,
@@ -327,6 +418,7 @@ export function WorkspacePaneRuntimeProvider({
       leftDesktopWidthPx,
       leftMobileWidthPx,
       mobilePane,
+      mobileSurface,
       rightDesktopOpen,
       rightDesktopWidthPx,
       rightMobileWidthPx,
@@ -339,9 +431,11 @@ export function WorkspacePaneRuntimeProvider({
       setLeftDesktopWidthPx,
       setLeftMobileWidthPx,
       setMobilePane,
+      setMobileSurface,
       setRightDesktopOpen,
       setRightDesktopWidthPx,
       setRightMobileWidthPx,
+      settleMobileMergedSurface,
       toggleLeftPane,
       toggleRightPane,
     }),
@@ -350,9 +444,11 @@ export function WorkspacePaneRuntimeProvider({
       setLeftDesktopWidthPx,
       setLeftMobileWidthPx,
       setMobilePane,
+      setMobileSurface,
       setRightDesktopOpen,
       setRightDesktopWidthPx,
       setRightMobileWidthPx,
+      settleMobileMergedSurface,
       toggleLeftPane,
       toggleRightPane,
     ],

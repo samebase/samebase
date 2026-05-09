@@ -13,12 +13,23 @@ import type {
 
 const SIDEBAR_WIDTH_PERSIST_DELAY_MS = 160;
 
+function serializeWorkspaceMobileSurface(
+  surface: WorkspaceSidebarState["mobileSurface"],
+) {
+  if (surface.kind === "unmerged") {
+    return "unmerged";
+  }
+
+  return `merged:${surface.side}:${surface.mainWidthPx}`;
+}
+
 function serializeWorkspaceSidebarState(state: WorkspaceSidebarState): string {
   return [
     state.leftDesktopOpen ? "1" : "0",
     `${state.leftDesktopWidthPx}`,
     `${state.leftMobileWidthPx}`,
     state.mobilePane,
+    serializeWorkspaceMobileSurface(state.mobileSurface),
     state.rightDesktopOpen ? "1" : "0",
     `${state.rightDesktopWidthPx}`,
     `${state.rightMobileWidthPx}`,

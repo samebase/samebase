@@ -27,6 +27,7 @@ const DEFAULT_SIDEBAR_STATE = {
   leftDesktopWidthPx: 280,
   leftMobileWidthPx: 280,
   mobilePane: "main",
+  mobileSurface: { kind: "unmerged" },
   rightDesktopOpen: true,
   rightDesktopWidthPx: 288,
   rightMobileWidthPx: 288,
@@ -104,6 +105,19 @@ function setLatestMobilePane(
   );
 }
 
+function setLatestMobileSurface(
+  nextSurface: WorkspaceSidebarState["mobileSurface"],
+) {
+  const controller = getLatestSidebarStateController();
+  controller.setState(
+    (state) => ({
+      ...state,
+      mobileSurface: nextSurface,
+    }),
+    "immediate",
+  );
+}
+
 function setLatestRightDesktopWidthPx(
   nextWidthPx: React.SetStateAction<number>,
 ) {
@@ -171,7 +185,7 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
       STORAGE_KEY,
       JSON.stringify({
         state: STORED_SIDEBAR_STATE,
-        version: 1,
+        version: 2,
       }),
     );
 
@@ -193,6 +207,25 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
           ...STORED_SIDEBAR_STATE,
           rightDesktopWidthPx: "wide",
         },
+        version: 2,
+      }),
+    );
+
+    renderProbe();
+
+    expect(
+      rootElement?.firstElementChild?.getAttribute("data-mobile-pane"),
+    ).toBe("main");
+    expect(
+      rootElement?.firstElementChild?.getAttribute("data-right-width"),
+    ).toBe("288");
+  });
+
+  it("falls back to defaults for old localStorage payload versions", () => {
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        state: STORED_SIDEBAR_STATE,
         version: 1,
       }),
     );
@@ -212,7 +245,7 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
       STORAGE_KEY,
       JSON.stringify({
         state: STORED_SIDEBAR_STATE,
-        version: 1,
+        version: 2,
       }),
     );
 
@@ -241,7 +274,36 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
       state: {
         mobilePane: "left",
       },
-      version: 1,
+      version: 2,
+    });
+  });
+
+  it("persists immediate mobile surface changes to localStorage", () => {
+    renderProbe();
+
+    act(() => {
+      setLatestMobileSurface({
+        kind: "merged",
+        mainWidthPx: 294,
+        side: "right",
+      });
+    });
+
+    const storedValue = window.localStorage.getItem(STORAGE_KEY);
+    expect(storedValue).not.toBeNull();
+    if (storedValue === null) {
+      return;
+    }
+
+    expect(JSON.parse(storedValue)).toMatchObject({
+      state: {
+        mobileSurface: {
+          kind: "merged",
+          mainWidthPx: 294,
+          side: "right",
+        },
+      },
+      version: 2,
     });
   });
 
@@ -272,7 +334,7 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
       state: {
         rightDesktopWidthPx: 340,
       },
-      version: 1,
+      version: 2,
     });
   });
 
@@ -305,7 +367,7 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
       state: {
         rightDesktopWidthPx: 340,
       },
-      version: 1,
+      version: 2,
     });
   });
 });

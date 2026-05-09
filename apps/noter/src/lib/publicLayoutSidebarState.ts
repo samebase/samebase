@@ -36,6 +36,11 @@ export function sanitizePublicLayoutSidebarState({
             ? "main"
             : defaultSidebarState.mobilePane
           : state.mobilePane,
+      mobileSurface:
+        state.mobileSurface.kind === "merged" &&
+        state.mobileSurface.side === "left"
+          ? { kind: "unmerged" }
+          : state.mobileSurface,
     },
   };
 }
