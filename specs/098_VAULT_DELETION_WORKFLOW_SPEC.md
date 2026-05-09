@@ -627,10 +627,11 @@ The deletion Workflow runs:
 13. `finish`: mark the deletion run succeeded and scrub retry-only snapshot
     identifiers
 
-Each cleanup step may internally loop over multiple batch mutations. A failed or
-retried workflow may restart a cleanup step from the beginning because deleting
-an already deleted row, detaching an already detached row, and seeing a provider
-not-found response are all successful idempotent outcomes.
+Each cleanup step repeats bounded cleanup mutations as separate durable Workflow
+steps until that phase is done. A failed or retried workflow may restart a
+cleanup step from the beginning because deleting an already deleted row,
+detaching an already detached row, and seeing a provider not-found response are
+all successful idempotent outcomes.
 
 ### Completion Handling
 
@@ -659,11 +660,12 @@ vault-scoped rows.
 ### Codespaces
 
 1. Delete only Codespaces recorded for the vault and user.
-2. Mark local Codespaces `deleting` before provider deletion.
-3. Treat GitHub not-found as success.
-4. Mark local Codespaces `deleted` and clear `activeCodespaceId` after provider
-   success.
-5. Delete Codespaces table rows later in `cleanup_runtime_state`.
+2. Require a GitHub connection when Codespaces teardown is requested.
+3. Mark local Codespaces `deleting` before provider deletion.
+4. Treat GitHub not-found as success.
+5. Clear `activeCodespaceId` before marking local Codespaces `deleted` after
+   provider success.
+6. Delete Codespaces table rows later in `cleanup_runtime_state`.
 
 ### Cloudflare
 
@@ -844,13 +846,16 @@ Phase 2 implementation note:
   running, failed, and succeeded runs. The vault deletion gate is also required
   on the vault row, with `{ state: "not_deleting" }` representing the idle
   state.
-- The Workflow calls one action per cleanup phase. Each cleanup action loops
-  bounded cleanup mutations until that phase is done, so individual row batches
-  do not become separate durable Workflow journal entries.
+- The Workflow records one event per cleanup phase, then runs one bounded
+  cleanup mutation per Workflow journal step until that phase is done.
 - Phase 2 adds the first backend live-workspace gate by making
   `assertConnectedVault` reject deleting and delete-failed vaults. Phase 3 still
   owns the wider dashboard and writer-gate audit for callsites that do not use
   that helper.
+- Phase 2 avoids generic provider error heuristics. GitHub deletes use Octokit's
+  `RequestError` for replay-safe 404 handling; Convex and Cloudflare not-found
+  normalization should be added behind typed provider boundaries in a focused
+  follow-up.
 - Backend coverage now checks queue-before-work, local cleanup completion,
   non-quiescent rejection, invalid existing-repository GitHub deletion plans,
   and retry run creation from a retained failed snapshot. Provider-specific

@@ -4,6 +4,7 @@ import { WorkflowManager } from "@convex-dev/workflow";
 import { components, internal } from "./_generated/api";
 import { internalMutation } from "./_generated/server";
 import { toErrorMessage } from "./jsonUtils";
+import type { VaultDeletionCleanupStep } from "./vaultDeletionModel";
 
 const workflow = new WorkflowManager(components.workflow);
 const { id, object, string } = v;
@@ -26,6 +27,15 @@ const cleanupSteps = [
   "detach_agent_context",
   "cleanup_provisioning_history",
 ] as const;
+
+const cleanupStepMessage = {
+  cleanup_editor_state: "Cleaning staged edits and blobs.",
+  cleanup_source_caches: "Cleaning branch and source caches.",
+  cleanup_runtime_state: "Cleaning vault runtime state.",
+  cleanup_access_state: "Detaching production access history.",
+  detach_agent_context: "Detaching vault chat context.",
+  cleanup_provisioning_history: "Cleaning setup history.",
+} satisfies Record<VaultDeletionCleanupStep, string>;
 
 export function resolveVaultDeletionWorkflowError(
   result: RunResult,
@@ -86,16 +96,43 @@ export const deleteVaultWorkflow = workflow.define({
     );
 
     for (const cleanupStep of cleanupSteps) {
-      await step.runAction(
-        internal.vaultDeletionWorkflowActions.cleanupLocalDataToCompletion,
+      await step.runMutation(
+        internal.vaultDeletionRuns.appendRunEvent,
+        {
+          runId: args.runId,
+          step: cleanupStep,
+          level: "info",
+          message: cleanupStepMessage[cleanupStep],
+          state: "running",
+        },
+        { name: `${cleanupStep}_event` },
+      );
+
+      let cleanupResult = await step.runMutation(
+        internal.vaultDeletionCleanup.cleanupVaultLocalDataStepBatch,
         {
           vaultId: args.vaultId,
-          runId: args.runId,
           userId: args.userId,
           step: cleanupStep,
         },
-        { name: cleanupStep },
+        { name: `${cleanupStep}_batch_0` },
       );
+
+      for (
+        let batchNumber = 1;
+        cleanupResult.state === "needs_more";
+        batchNumber += 1
+      ) {
+        cleanupResult = await step.runMutation(
+          internal.vaultDeletionCleanup.cleanupVaultLocalDataStepBatch,
+          {
+            vaultId: args.vaultId,
+            userId: args.userId,
+            step: cleanupStep,
+          },
+          { name: `${cleanupStep}_batch_${batchNumber}` },
+        );
+      }
     }
 
     await step.runMutation(

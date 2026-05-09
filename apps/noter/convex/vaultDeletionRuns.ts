@@ -161,15 +161,28 @@ async function assertVaultIsQuiescentForDeletion(
   }
 }
 
-function buildCodespacesPlan(options: DeletionRequestOptions) {
-  return options.removeCodespaces
-    ? ({
-        action: "delete_connected_codespaces",
-      } as const)
-    : ({
-        action: "skip",
-        reason: "not_requested",
-      } as const);
+async function buildCodespacesPlan(
+  ctx: MutationCtx,
+  args: {
+    userId: Id<"users">;
+    options: DeletionRequestOptions;
+  },
+): Promise<VaultDeletionPlan["codespaces"]> {
+  if (!args.options.removeCodespaces) {
+    return {
+      action: "skip",
+      reason: "not_requested",
+    };
+  }
+
+  await requireProviderConnection(ctx, {
+    userId: args.userId,
+    kind: "github",
+  });
+
+  return {
+    action: "delete_connected_codespaces",
+  };
 }
 
 async function buildConvexPlan(
@@ -258,7 +271,10 @@ async function buildDeletionPlan(
     options: DeletionRequestOptions;
   },
 ): Promise<VaultDeletionPlan> {
-  const codespaces = buildCodespacesPlan(args.options);
+  const codespaces = await buildCodespacesPlan(ctx, {
+    userId: args.vault.userId,
+    options: args.options,
+  });
   const convex = await buildConvexPlan(ctx, args);
   const cloudflare = await buildCloudflarePlan(ctx, args);
   const repositoryFullName = getRepositoryFullName(args.vault);
@@ -475,6 +491,7 @@ export const createRetryRun = internalMutation({
       throw new Error("Vault is not waiting for deletion retry.");
     }
 
+    const retainedSnapshot = readRetainedSnapshot(failedRun);
     const now = Date.now();
     const deletionRunId = await ctx.db.insert("vaultDeletionRuns", {
       userId: args.userId,
@@ -489,7 +506,7 @@ export const createRetryRun = internalMutation({
       currentStep: "initialize_deletion",
       snapshot: {
         state: "retained_for_retry",
-        plan: failedRun.snapshot.plan,
+        plan: retainedSnapshot.plan,
       },
       createdAt: now,
       updatedAt: now,

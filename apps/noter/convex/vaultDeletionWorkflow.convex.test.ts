@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { api, internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
+import { VAULT_LOCAL_CLEANUP_BATCH_SIZE } from "./vaultDeletionCleanup";
 
 describe("vault deletion workflow", () => {
   it("queues a durable run and gate before scheduled workflow work", async () => {
@@ -114,7 +115,7 @@ describe("vault deletion workflow", () => {
     expect(queued.vault).toMatchObject({ _id: ids.vaultId });
   });
 
-  it("finishes local cleanup through workflow actions", async () => {
+  it("finishes local cleanup through workflow cleanup batches", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
@@ -153,17 +154,23 @@ describe("vault deletion workflow", () => {
         cloudflare: { state: "not_configured" },
         connectedAt: 4,
       });
-      await ctx.db.insert("vaultBranchTrees", {
-        vaultId,
-        branch: "main",
-        treeSHA: "tree",
-        treeData: {
-          sha: "tree",
-          truncated: false,
-          tree: [],
-        },
-        lastTreeRefreshAt: 5,
-      });
+      for (
+        let index = 0;
+        index < VAULT_LOCAL_CLEANUP_BATCH_SIZE + 1;
+        index += 1
+      ) {
+        await ctx.db.insert("vaultBranchTrees", {
+          vaultId,
+          branch: `branch-${index}`,
+          treeSHA: `tree-${index}`,
+          treeData: {
+            sha: `tree-${index}`,
+            truncated: false,
+            tree: [],
+          },
+          lastTreeRefreshAt: 5 + index,
+        });
+      }
 
       return { userId, vaultId };
     });
@@ -189,6 +196,7 @@ describe("vault deletion workflow", () => {
       vaultId: ids.vaultId,
       userId: ids.userId,
     });
+    let sourceCleanupBatches = 0;
     for (const step of [
       "cleanup_editor_state",
       "cleanup_source_caches",
@@ -197,15 +205,39 @@ describe("vault deletion workflow", () => {
       "detach_agent_context",
       "cleanup_provisioning_history",
     ] as const) {
-      await t.action(
-        internal.vaultDeletionWorkflowActions.cleanupLocalDataToCompletion,
+      await t.mutation(internal.vaultDeletionRuns.appendRunEvent, {
+        runId: deletionRunId,
+        step,
+        level: "info",
+        message: "Cleaning vault data.",
+        state: "running",
+      });
+
+      let cleanupResult = await t.mutation(
+        internal.vaultDeletionCleanup.cleanupVaultLocalDataStepBatch,
         {
           vaultId: ids.vaultId,
-          runId: deletionRunId,
           userId: ids.userId,
           step,
         },
       );
+      if (step === "cleanup_source_caches") {
+        sourceCleanupBatches += 1;
+      }
+
+      for (; cleanupResult.state === "needs_more"; ) {
+        cleanupResult = await t.mutation(
+          internal.vaultDeletionCleanup.cleanupVaultLocalDataStepBatch,
+          {
+            vaultId: ids.vaultId,
+            userId: ids.userId,
+            step,
+          },
+        );
+        if (step === "cleanup_source_caches") {
+          sourceCleanupBatches += 1;
+        }
+      }
     }
     await t.mutation(internal.vaultDeletionRuns.appendRunEvent, {
       runId: deletionRunId,
@@ -241,6 +273,7 @@ describe("vault deletion workflow", () => {
 
     expect(completed.vault).toBeNull();
     expect(completed.branchTrees).toHaveLength(0);
+    expect(sourceCleanupBatches).toBeGreaterThan(1);
     expect(completed.run).toMatchObject({
       state: "succeeded",
       currentStep: "finish",
@@ -371,6 +404,76 @@ describe("vault deletion workflow", () => {
         },
       }),
     ).rejects.toThrow("cannot remove the GitHub repository");
+  });
+
+  it("requires GitHub before accepting Codespaces cleanup", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/codespaces",
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: 3,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        ghRepoId: "789",
+        owner: "ada",
+        name: "codespaces",
+        defaultBranch: "main",
+        visibility: "private",
+        convex: { state: "not_configured" },
+        cloudflare: { state: "not_configured" },
+        connectedAt: 4,
+      });
+
+      return { userId, vaultId };
+    });
+
+    await expect(
+      t.mutation(internal.vaultDeletionRuns.createInitialRun, {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        options: {
+          removeCodespaces: true,
+          removeGithubRepo: false,
+          removeConvexProvision: false,
+          removeCloudflareProvision: false,
+        },
+      }),
+    ).rejects.toThrow("GitHub is not connected.");
+
+    const snapshot = await t.run(async (ctx) => {
+      const vault = await ctx.db.get(ids.vaultId);
+      const runs = await ctx.db
+        .query("vaultDeletionRuns")
+        .withIndex("by_vault_and_updated_at", (q) =>
+          q.eq("vaultId", ids.vaultId),
+        )
+        .collect();
+      return { runs, vault };
+    });
+    expect(snapshot.vault?.deletion).toEqual({ state: "not_deleting" });
+    expect(snapshot.runs).toHaveLength(0);
   });
 
   it("retries a failed retained snapshot with a new run", async () => {

@@ -10,9 +10,7 @@ import { createInfraProviders } from "./infraProviders";
 import { deleteCloudflareResources } from "./cloudflareResources";
 import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
 import { readRetainedSnapshot } from "./vaultDeletionRuns";
-import type { VaultLocalCleanupStepBatchResult } from "./vaultDeletionCleanup";
 import {
-  VaultDeletionCleanupStep,
   type VaultDeletionEventLevel,
   type VaultDeletionPlan,
   type VaultDeletionStep,
@@ -32,15 +30,6 @@ const providerStepRetryMessage = {
   | "delete_github_repo",
   string
 >;
-
-const cleanupStepMessage = {
-  cleanup_editor_state: "Cleaning staged edits and blobs.",
-  cleanup_source_caches: "Cleaning branch and source caches.",
-  cleanup_runtime_state: "Cleaning vault runtime state.",
-  cleanup_access_state: "Detaching production access history.",
-  detach_agent_context: "Detaching vault chat context.",
-  cleanup_provisioning_history: "Cleaning setup history.",
-} satisfies Record<VaultDeletionCleanupStep, string>;
 
 async function getDeletionRun(
   ctx: Pick<ActionCtx, "runQuery">,
@@ -156,18 +145,18 @@ export const deleteConnectedCodespaces = internalAction({
       }
 
       await ctx.runMutation(
+        internal.codespaces.mutations.clearActiveCodespace,
+        {
+          vaultId: args.vaultId,
+          codespaceId: codespace._id,
+        },
+      );
+      await ctx.runMutation(
         internal.codespaces.mutations.updateCodespaceState,
         {
           codespaceId: codespace._id,
           state: "deleted",
           deletedAt: Date.now(),
-        },
-      );
-      await ctx.runMutation(
-        internal.codespaces.mutations.clearActiveCodespace,
-        {
-          vaultId: args.vaultId,
-          codespaceId: codespace._id,
         },
       );
     }
@@ -293,38 +282,6 @@ export const deleteGitHubRepository = internalAction({
         throw error;
       }
     }
-
-    return null;
-  },
-});
-
-export const cleanupLocalDataToCompletion = internalAction({
-  args: {
-    vaultId: id("vaults"),
-    runId: id("vaultDeletionRuns"),
-    userId: id("users"),
-    step: VaultDeletionCleanupStep,
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await appendRunEvent(ctx, {
-      runId: args.runId,
-      step: args.step,
-      level: "info",
-      message: cleanupStepMessage[args.step],
-    });
-
-    let result: VaultLocalCleanupStepBatchResult;
-    do {
-      result = await ctx.runMutation(
-        internal.vaultDeletionCleanup.cleanupVaultLocalDataStepBatch,
-        {
-          vaultId: args.vaultId,
-          userId: args.userId,
-          step: args.step,
-        },
-      );
-    } while (result.state === "needs_more");
 
     return null;
   },
