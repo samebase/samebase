@@ -1553,7 +1553,10 @@ export function VaultBranchLinkRow({
   const showRowActions = Boolean(hasStagedChanges && vaultId);
 
   return (
-    <div className="flex items-start gap-2 border-b border-border/40 px-2 py-3.5 last:border-b-0">
+    <div
+      data-vault-dashboard-branch-row=""
+      className="flex items-start gap-2 border-b border-border/40 px-2 py-3.5 last:border-b-0"
+    >
       <VaultBranchLinkContent
         repositoryFullName={repositoryFullName}
         branch={branch}
