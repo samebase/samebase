@@ -31,6 +31,36 @@ async function expectElementsDoNotOverlap(first: Locator, second: Locator) {
     .toBe(true);
 }
 
+/**
+ * expectElementInsideContainer checks boundingBox containment with 1px of
+ * tolerance for sub-pixel layout rounding; missing boxes fail closed.
+ */
+async function expectElementInsideContainer(
+  element: Locator,
+  container: Locator,
+) {
+  await expect
+    .poll(async () => {
+      const [elementBox, containerBox] = await Promise.all([
+        element.boundingBox(),
+        container.boundingBox(),
+      ]);
+      if (elementBox === null || containerBox === null) {
+        return false;
+      }
+
+      return (
+        elementBox.x >= containerBox.x - 1 &&
+        elementBox.y >= containerBox.y - 1 &&
+        elementBox.x + elementBox.width <=
+          containerBox.x + containerBox.width + 1 &&
+        elementBox.y + elementBox.height <=
+          containerBox.y + containerBox.height + 1
+      );
+    })
+    .toBe(true);
+}
+
 async function expectSidebarTextOwnsWrappedLine({
   iconTestId,
   row,
@@ -650,7 +680,7 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
     .nth(1);
   const header = page.getByTestId("vault-dashboard-repository-header");
 
-  await page.getByRole("button", { name: "Show 29 more" }).click();
+  await page.getByRole("button", { name: "Show 23 more branches" }).click();
   await scrollport.evaluate((element) => {
     element.scrollTop = 560;
   });
@@ -671,10 +701,24 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
   await expect(
     page.getByRole("link", { name: "noter-md/noter", exact: true }),
   ).toBeVisible();
+  const branchExpansionButton = header.getByRole("button", {
+    name: "Show less branches",
+    exact: true,
+  });
+  const branchFilterCount = header.getByText("28 of 32", { exact: true });
+  const branchFiltersButton = header.getByRole("button", {
+    name: "Filters",
+    exact: true,
+  });
+  await expect(branchExpansionButton).toBeVisible();
+  await expect(branchFilterCount).toBeVisible();
+  await expect(branchFiltersButton).toBeVisible();
+  await expectElementInsideContainer(branchExpansionButton, header);
+  await expectElementInsideContainer(branchFilterCount, header);
+  await expectElementInsideContainer(branchFiltersButton, header);
   await expect(
     page.getByText("codex/sticky-dashboard-branch-05"),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Show less" })).toBeVisible();
   await expect(page).toHaveScreenshot("vault-dashboard-sticky-header.png", {
     animations: "disabled",
     caret: "hide",
@@ -691,14 +735,18 @@ test("vault dashboard fixture (list spacing expansion)", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   await expect(page.getByText("codex/archive-doc-taxonomy")).toHaveCount(0);
-  await page.getByRole("button", { name: "Show 5 more" }).click();
+  await page.getByRole("button", { name: "Show 5 more branches" }).click();
 
   await expect(page.getByText("codex/archive-doc-taxonomy")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Show less" })).toBeVisible();
-  await page.getByRole("button", { name: "Show less" }).click();
+  await expect(
+    page.getByRole("button", { name: "Show less branches" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Show less branches" }).click();
 
   await expect(page.getByText("codex/archive-doc-taxonomy")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Show 5 more" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Show 5 more branches" }),
+  ).toBeVisible();
 });
 
 test("vault dashboard fixture (branch filters popover)", async ({ page }) => {

@@ -107,12 +107,15 @@ import {
 } from "@/lib/pullRequestLabels";
 import { applySearchPatch } from "@/lib/routeSearchFlags";
 import {
-  buildVaultBranchFilterOptions,
-  filterVaultRemoteBranches,
   getDefaultVaultBranchFilters,
   normalizeVaultBranchFilters,
+  type VaultBranchFilterOption,
   type VaultBranchFilters as VaultBranchFiltersState,
 } from "@/components/vault-dashboard/vaultDashboardBranchFilters";
+import {
+  buildVaultBranchSectionState,
+  type VaultRemoteBranchListItem,
+} from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import { toast } from "@/components/ui/use-toast";
 import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
 import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
@@ -144,7 +147,6 @@ const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
   rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
 } satisfies WorkspaceSidebarState;
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
-const COLLAPSED_BRANCH_LIMIT = 5;
 
 const formatMcpTokenStatusLabel = (
   status:
@@ -1085,27 +1087,6 @@ interface StagedSummary {
   total: number;
 }
 
-interface VaultRemoteBranchListItem {
-  name: string;
-  headCommitSha: string;
-  isDefault: boolean;
-  isProtected: boolean;
-  remoteState: "active" | "deleted_upstream";
-  lastSyncedAt: number;
-  aheadBy?: number;
-  behindBy?: number;
-  pullRequestUrl?: string;
-  pullRequestNumber?: number;
-  pullRequestLabels?: Array<string | { name: string; color?: string }>;
-  pullRequestTitle?: string;
-  pullRequestIsDraft?: boolean;
-  cloudflareBranchPreviewUrl?: string;
-  cloudflarePreviewPullRequestNumber?: number;
-  cloudflarePreviewLogsUrl?: string;
-  cloudflarePreviewStatus?: string;
-  convexPreviewDeploymentDashboardUrl?: string;
-}
-
 interface VaultBranchLinkRowProps {
   vaultId?: Id<"vaults">;
   repositoryFullName: string;
@@ -1610,7 +1591,11 @@ export function VaultBranchListExpansionControl({
       aria-expanded={isExpanded}
       onClick={onToggle}
     >
-      <span>{isExpanded ? "Show less" : `Show ${hiddenBranchCount} more`}</span>
+      <span>
+        {isExpanded
+          ? "Show less branches"
+          : `Show ${hiddenBranchCount} more branches`}
+      </span>
       <ChevronDownIcon
         className={isExpanded ? "rotate-180" : undefined}
         aria-hidden="true"
@@ -1661,86 +1646,66 @@ function VaultBranchList({
   );
 }
 
-function VaultBranchSection({
-  vaultId,
-  repositoryFullName,
-  remoteBranches,
-  productionDeploymentDashboardUrl,
+export function VaultBranchHeaderControls({
+  expansion,
+  filteredBranchCount,
+  filterOptions,
   filters,
+  hiddenBranchCount,
   onChangeFilters,
-  showListExpansionControl = true,
+  remoteBranchCount,
 }: {
-  vaultId: Id<"vaults">;
-  repositoryFullName: string;
-  remoteBranches: VaultRemoteBranchListItem[];
-  productionDeploymentDashboardUrl?: string;
+  expansion?: VaultBranchListExpansionProps;
+  filteredBranchCount: number;
+  filterOptions: VaultBranchFilterOption[];
   filters: VaultBranchFiltersState;
+  hiddenBranchCount: number;
   onChangeFilters: (nextFilters: VaultBranchFiltersState) => void;
-  showListExpansionControl?: boolean;
+  remoteBranchCount: number;
 }) {
-  const filteredRemoteBranches = filterVaultRemoteBranches(
-    remoteBranches,
-    filters,
-  );
-  const hasBranchListOverflow =
-    filteredRemoteBranches.length > COLLAPSED_BRANCH_LIMIT;
-  const branchesExpanded = filters.branchesExpanded;
-  const visibleRemoteBranches =
-    hasBranchListOverflow && !branchesExpanded
-      ? filteredRemoteBranches.slice(0, COLLAPSED_BRANCH_LIMIT)
-      : filteredRemoteBranches;
-  const collapsedBranchCount =
-    filteredRemoteBranches.length - COLLAPSED_BRANCH_LIMIT;
-  const hiddenBranchCount =
-    remoteBranches.length - filteredRemoteBranches.length;
-  const filterOptions = buildVaultBranchFilterOptions({
-    branches: remoteBranches,
-    hiddenLabels: filters.hiddenLabels,
-    includeNoLabel: filters.includeNoLabel,
-  });
-
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground/80">
-          Branches
-        </p>
-        <div className="flex items-center gap-2">
-          {hiddenBranchCount > 0 ? (
-            <span className="text-xs text-muted-foreground/80">
-              {filteredRemoteBranches.length} of {remoteBranches.length}
-            </span>
-          ) : null}
-          <VaultBranchFiltersControl
-            value={filters}
-            options={filterOptions}
-            onChange={onChangeFilters}
-          />
-        </div>
+    <div className="flex w-full flex-wrap items-center justify-between gap-2">
+      {expansion ? <VaultBranchListExpansionControl {...expansion} /> : null}
+      <div className="ml-auto flex flex-wrap items-center gap-2">
+        {hiddenBranchCount > 0 ? (
+          <span className="text-xs text-muted-foreground/80">
+            {filteredBranchCount} of {remoteBranchCount}
+          </span>
+        ) : null}
+        <VaultBranchFiltersControl
+          value={filters}
+          options={filterOptions}
+          onChange={onChangeFilters}
+        />
       </div>
-      {filteredRemoteBranches.length > 0 ? (
+    </div>
+  );
+}
+
+function VaultBranchSection({
+  filteredBranchCount,
+  productionDeploymentDashboardUrl,
+  repositoryFullName,
+  vaultId,
+  visibleRemoteBranches,
+}: {
+  filteredBranchCount: number;
+  productionDeploymentDashboardUrl?: string;
+  repositoryFullName: string;
+  vaultId: Id<"vaults">;
+  visibleRemoteBranches: VaultRemoteBranchListItem[];
+}) {
+  return (
+    <>
+      {filteredBranchCount > 0 ? (
         <VaultBranchList
           vaultId={vaultId}
           repositoryFullName={repositoryFullName}
           remoteBranches={visibleRemoteBranches}
           productionDeploymentDashboardUrl={productionDeploymentDashboardUrl}
-          expansion={
-            showListExpansionControl && hasBranchListOverflow
-              ? {
-                  hiddenBranchCount: collapsedBranchCount,
-                  isExpanded: branchesExpanded,
-                  onToggle: () => {
-                    onChangeFilters({
-                      ...filters,
-                      branchesExpanded: !branchesExpanded,
-                    });
-                  },
-                }
-              : undefined
-          }
         />
       ) : null}
-    </div>
+    </>
   );
 }
 
@@ -2121,15 +2086,10 @@ function VaultDashboardBody({
           treeRefreshFailureKind: vault.treeRefreshFailureKind,
           treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
         });
-        const filteredRemoteBranches = filterVaultRemoteBranches(
+        const branchSectionState = buildVaultBranchSectionState({
+          filters: vaultBranchFilters,
           remoteBranches,
-          vaultBranchFilters,
-        );
-        const hasBranchListOverflow =
-          filteredRemoteBranches.length > COLLAPSED_BRANCH_LIMIT;
-        const branchesExpanded = vaultBranchFilters.branchesExpanded;
-        const collapsedBranchCount =
-          filteredRemoteBranches.length - COLLAPSED_BRANCH_LIMIT;
+        });
         const sourceSetupSection =
           !isReady &&
           (vault.sourceSetup.status === "failed" ||
@@ -2258,37 +2218,56 @@ function VaultDashboardBody({
                 vault,
               })}
               headerControls={
-                isReady && hasBranchListOverflow ? (
-                  <VaultBranchListExpansionControl
-                    hiddenBranchCount={collapsedBranchCount}
-                    isExpanded={branchesExpanded}
-                    onToggle={() => {
-                      onSaveVaultBranchFilters(vault._id, {
-                        ...vaultBranchFilters,
-                        branchesExpanded: !branchesExpanded,
-                      });
-                    }}
-                    placement="header"
-                  />
-                ) : undefined
-              }
-              branchSection={
                 isReady && remoteBranches.length > 0 ? (
-                  <VaultBranchSection
-                    vaultId={vault._id}
-                    repositoryFullName={vault.repositoryFullName}
-                    remoteBranches={remoteBranches}
-                    productionDeploymentDashboardUrl={
-                      vault.convexDeploymentDashboardUrl
+                  <VaultBranchHeaderControls
+                    filteredBranchCount={
+                      branchSectionState.filteredRemoteBranches.length
                     }
+                    filterOptions={branchSectionState.filterOptions}
                     filters={vaultBranchFilters}
+                    hiddenBranchCount={branchSectionState.hiddenBranchCount}
                     onChangeFilters={(nextVaultBranchFilters) => {
                       onSaveVaultBranchFilters(
                         vault._id,
                         nextVaultBranchFilters,
                       );
                     }}
-                    showListExpansionControl={false}
+                    remoteBranchCount={remoteBranches.length}
+                    expansion={
+                      branchSectionState.hasBranchListOverflow
+                        ? {
+                            hiddenBranchCount:
+                              branchSectionState.collapsedBranchCount,
+                            isExpanded: vaultBranchFilters.branchesExpanded,
+                            onToggle: () => {
+                              onSaveVaultBranchFilters(vault._id, {
+                                ...vaultBranchFilters,
+                                branchesExpanded:
+                                  !vaultBranchFilters.branchesExpanded,
+                              });
+                            },
+                            placement: "header",
+                          }
+                        : undefined
+                    }
+                  />
+                ) : undefined
+              }
+              branchSection={
+                isReady &&
+                branchSectionState.filteredRemoteBranches.length > 0 ? (
+                  <VaultBranchSection
+                    filteredBranchCount={
+                      branchSectionState.filteredRemoteBranches.length
+                    }
+                    vaultId={vault._id}
+                    repositoryFullName={vault.repositoryFullName}
+                    visibleRemoteBranches={
+                      branchSectionState.visibleRemoteBranches
+                    }
+                    productionDeploymentDashboardUrl={
+                      vault.convexDeploymentDashboardUrl
+                    }
                   />
                 ) : undefined
               }
