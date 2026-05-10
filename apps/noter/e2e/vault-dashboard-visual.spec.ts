@@ -578,7 +578,7 @@ test("vault dashboard fixture (bottom target can align at top)", async ({
         }
 
         const header = targetElement.querySelector(
-          '[data-testid="vault-dashboard-repository-header"]',
+          "[data-vault-dashboard-repository-header]",
         );
         const scrollportElement = targetElement
           .closest('[data-testid="workspace-layout-v2-main-viewport"]')

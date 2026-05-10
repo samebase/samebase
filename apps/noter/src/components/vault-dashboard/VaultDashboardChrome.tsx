@@ -26,7 +26,7 @@ const DEVELOPER_TOOLS_PLACEHOLDER_TRIGGER_CLASS_NAME =
 const SCROLLABLE_OVERFLOW_VALUES = new Set(["auto", "scroll", "overlay"]);
 const VAULT_DASHBOARD_BRANCH_ROW_SELECTOR = "[data-vault-dashboard-branch-row]";
 const VAULT_DASHBOARD_REPOSITORY_HEADER_SELECTOR =
-  '[data-testid="vault-dashboard-repository-header"]';
+  "[data-vault-dashboard-repository-header]";
 
 export type VaultDashboardProviderActionViewModel = {
   disabled?: boolean;
@@ -386,6 +386,12 @@ export function VaultDashboardScrollTargetEndPadding() {
         const scrollport = findVaultDashboardVerticalScrollport(element);
         if (target instanceof HTMLElement) {
           resizeObserver.observe(target);
+          // Rows above the final vault can expand while the final card keeps
+          // the same size, so watch the list container as well.
+          const listContainer = target.parentElement;
+          if (listContainer) {
+            resizeObserver.observe(listContainer);
+          }
         }
         if (scrollport) {
           resizeObserver.observe(scrollport);
@@ -501,6 +507,7 @@ export function VaultDashboardRepositoryCard({
     <div className={clsx("relative p-4", !isReady && "bg-muted/30 opacity-75")}>
       <div>
         <div
+          data-vault-dashboard-repository-header=""
           data-testid="vault-dashboard-repository-header"
           className={clsx(
             "relative -mx-4 -mt-4 px-4 pt-4",
