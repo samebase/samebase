@@ -31,6 +31,32 @@ async function expectElementsDoNotOverlap(first: Locator, second: Locator) {
     .toBe(true);
 }
 
+async function expectElementInsideContainer(
+  element: Locator,
+  container: Locator,
+) {
+  await expect
+    .poll(async () => {
+      const [elementBox, containerBox] = await Promise.all([
+        element.boundingBox(),
+        container.boundingBox(),
+      ]);
+      if (elementBox === null || containerBox === null) {
+        return false;
+      }
+
+      return (
+        elementBox.x >= containerBox.x - 1 &&
+        elementBox.y >= containerBox.y - 1 &&
+        elementBox.x + elementBox.width <=
+          containerBox.x + containerBox.width + 1 &&
+        elementBox.y + elementBox.height <=
+          containerBox.y + containerBox.height + 1
+      );
+    })
+    .toBe(true);
+}
+
 async function expectSidebarTextOwnsWrappedLine({
   iconTestId,
   row,
@@ -650,7 +676,7 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
     .nth(1);
   const header = page.getByTestId("vault-dashboard-repository-header");
 
-  await page.getByRole("button", { name: "Show 29 more" }).click();
+  await page.getByRole("button", { name: "Show 25 more" }).click();
   await scrollport.evaluate((element) => {
     element.scrollTop = 560;
   });
@@ -671,6 +697,18 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
   await expect(
     page.getByRole("link", { name: "noter-md/noter", exact: true }),
   ).toBeVisible();
+  const branchHeading = header.getByText("Branches", { exact: true });
+  const branchFilterCount = header.getByText("28 of 32", { exact: true });
+  const branchFiltersButton = header.getByRole("button", {
+    name: "Filters",
+    exact: true,
+  });
+  await expect(branchHeading).toBeVisible();
+  await expect(branchFilterCount).toBeVisible();
+  await expect(branchFiltersButton).toBeVisible();
+  await expectElementInsideContainer(branchHeading, header);
+  await expectElementInsideContainer(branchFilterCount, header);
+  await expectElementInsideContainer(branchFiltersButton, header);
   await expect(
     page.getByText("codex/sticky-dashboard-branch-05"),
   ).toBeVisible();

@@ -561,7 +561,7 @@ export function VaultDashboardRepositoryCard({
               </div>
             ) : null}
             {headerControls ? (
-              <div className="mt-2 flex max-w-full flex-wrap items-center gap-2 pr-10">
+              <div className="mt-2 flex w-full max-w-full flex-wrap items-center gap-2">
                 {headerControls}
               </div>
             ) : null}

@@ -36,6 +36,11 @@ import {
 } from "@/components/vault-dashboard/VaultDashboard";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 import { formatProvisioningLogText } from "@/lib/provisioningLog";
+import {
+  buildVaultBranchFilterOptions,
+  filterVaultRemoteBranches,
+  type VaultBranchFilters,
+} from "@/components/vault-dashboard/vaultDashboardBranchFilters";
 
 export type VaultDashboardVisualMode =
   | "vault-create-control"
@@ -334,6 +339,10 @@ const STICKY_HEADER_BRANCHES: FixtureVaultBranchRow[] = Array.from(
       isDefault: index === 0,
       aheadBy: index === 0 ? 0 : index % 4,
       behindBy: index === 0 ? 0 : index % 3,
+      pullRequestLabels:
+        index > 0 && index % 7 === 0
+          ? [{ name: "hidden", color: "#6f42c1" }]
+          : undefined,
     }),
   }),
 );
@@ -708,11 +717,30 @@ function VaultDashboardStickyHeaderFixture() {
     (state) => state.branchesExpanded,
   );
   const { toggleBranchesExpanded } = branchExpansionStore.actions;
+  const stickyHeaderBranches = STICKY_HEADER_BRANCHES.map(
+    (branchRow) => branchRow.branch,
+  );
+  const stickyHeaderFilters = {
+    hiddenLabels: ["hidden"],
+    includeDrafts: false,
+    includeNoLabel: true,
+    branchesExpanded,
+  } satisfies VaultBranchFilters;
+  const filteredBranches = filterVaultRemoteBranches(
+    stickyHeaderBranches,
+    stickyHeaderFilters,
+  );
   const visibleBranches = branchesExpanded
-    ? STICKY_HEADER_BRANCHES
-    : STICKY_HEADER_BRANCHES.slice(0, 3);
-  const hiddenBranchCount =
-    STICKY_HEADER_BRANCHES.length - visibleBranches.length;
+    ? filteredBranches
+    : filteredBranches.slice(0, 3);
+  const hiddenBranchCount = filteredBranches.length - visibleBranches.length;
+  const filteredOutBranchCount =
+    STICKY_HEADER_BRANCHES.length - filteredBranches.length;
+  const filterOptions = buildVaultBranchFilterOptions({
+    branches: stickyHeaderBranches,
+    hiddenLabels: stickyHeaderFilters.hiddenLabels,
+    includeNoLabel: stickyHeaderFilters.includeNoLabel,
+  });
 
   return (
     <FixtureDashboardShell
@@ -741,36 +769,43 @@ function VaultDashboardStickyHeaderFixture() {
                 <span data-testid="sticky-header-status">Updated 12s ago</span>
               }
               headerControls={
-                <VaultBranchListExpansionControl
-                  isExpanded={branchesExpanded}
-                  hiddenBranchCount={hiddenBranchCount}
-                  onToggle={toggleBranchesExpanded}
-                  placement="header"
-                />
-              }
-              branchSection={
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between gap-3">
+                <div className="flex w-full flex-col items-start gap-2">
+                  <div className="flex w-full flex-wrap items-center justify-between gap-2">
                     <p className="text-xs uppercase tracking-wide text-muted-foreground/80">
                       Branches
                     </p>
-                    <span className="text-xs text-muted-foreground/80">
-                      {STICKY_HEADER_BRANCHES.length} branches
-                    </span>
-                  </div>
-                  <div className="-mx-4 overflow-hidden border bg-muted">
-                    {visibleBranches.map((branchRow) => (
-                      <VaultBranchLinkRow
-                        key={branchRow.branch.name}
-                        vaultId={fakeVaultId()}
-                        repositoryFullName="noter-md/noter"
-                        branch={branchRow.branch}
-                        productionDeploymentDashboardUrl={
-                          branchRow.productionDeploymentDashboardUrl
-                        }
+                    <div className="flex flex-wrap items-center gap-2">
+                      {filteredOutBranchCount > 0 ? (
+                        <span className="text-xs text-muted-foreground/80">
+                          {filteredBranches.length} of{" "}
+                          {STICKY_HEADER_BRANCHES.length}
+                        </span>
+                      ) : null}
+                      <VaultBranchFiltersControl
+                        value={stickyHeaderFilters}
+                        options={filterOptions}
+                        onChange={() => {}}
                       />
-                    ))}
+                    </div>
                   </div>
+                  <VaultBranchListExpansionControl
+                    isExpanded={branchesExpanded}
+                    hiddenBranchCount={hiddenBranchCount}
+                    onToggle={toggleBranchesExpanded}
+                    placement="header"
+                  />
+                </div>
+              }
+              branchSection={
+                <div className="-mx-4 overflow-hidden border bg-muted">
+                  {visibleBranches.map((branch) => (
+                    <VaultBranchLinkRow
+                      key={branch.name}
+                      vaultId={fakeVaultId()}
+                      repositoryFullName="noter-md/noter"
+                      branch={branch}
+                    />
+                  ))}
                 </div>
               }
             />
