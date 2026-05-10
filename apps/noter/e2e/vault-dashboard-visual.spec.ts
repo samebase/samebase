@@ -528,7 +528,9 @@ test("vault dashboard fixture (bottom target can align at top)", async ({
     .locator("section > div")
     .nth(1);
   const target = page.getByTestId("vault-dashboard-bottom-target-card");
-  const targetHeader = target.getByTestId("vault-dashboard-repository-header");
+  const targetHeader = target.locator(
+    "[data-vault-dashboard-repository-header]",
+  );
   const targetRepositoryLink = page.getByRole("link", {
     name: "noter-md/noter-bottom-target",
     exact: true,
@@ -570,6 +572,8 @@ test("vault dashboard fixture (bottom target can align at top)", async ({
       return Math.abs(headerBox.y - scrollportBox.y);
     })
     .toBeLessThanOrEqual(1);
+  // Rows covered by the sticky repository header do not count as visible at
+  // max scroll; only the final branch should remain below it.
   await expect
     .poll(() =>
       target.evaluate((targetElement) => {
