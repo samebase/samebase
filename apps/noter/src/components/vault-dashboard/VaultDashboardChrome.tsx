@@ -292,6 +292,10 @@ export function VaultDashboardRepositoryList({
   );
 }
 
+/**
+ * Finds the scrollport that owns dashboard scrolling so spacer math uses the
+ * same scroll bounds as route chrome.
+ */
 function findVaultDashboardVerticalScrollport(
   element: HTMLElement,
 ): HTMLElement | null {
@@ -309,6 +313,11 @@ function findVaultDashboardVerticalScrollport(
   return null;
 }
 
+/**
+ * Chooses the content that should remain visible at max scroll: the final
+ * branch row below the sticky header, or the whole card when there are no
+ * branch rows.
+ */
 function resolveVaultDashboardScrollEndTarget(target: HTMLElement): {
   element: HTMLElement;
   topPx: number;
@@ -332,6 +341,13 @@ function resolveVaultDashboardScrollEndTarget(target: HTMLElement): {
   };
 }
 
+/**
+ * Adds just enough trailing height for the immediately preceding repository
+ * card to reach the scrollport top. It depends on production dashboard markers
+ * for branch rows and the sticky header, then keeps the height fresh by
+ * observing the target card, its list container, the scrollport, child changes,
+ * and window resizes.
+ */
 export function VaultDashboardScrollTargetEndPadding() {
   const elementRef = useRef<HTMLDivElement>(null);
   const [heightPx, setHeightPx] = useState(0);
