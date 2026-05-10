@@ -1611,7 +1611,11 @@ export function VaultBranchListExpansionControl({
       aria-expanded={isExpanded}
       onClick={onToggle}
     >
-      <span>{isExpanded ? "Show less" : `Show ${hiddenBranchCount} more`}</span>
+      <span>
+        {isExpanded
+          ? "Show less branches"
+          : `Show ${hiddenBranchCount} more branches`}
+      </span>
       <ChevronDownIcon
         className={isExpanded ? "rotate-180" : undefined}
         aria-hidden="true"
