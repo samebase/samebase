@@ -697,22 +697,24 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
   await expect(
     page.getByRole("link", { name: "noter-md/noter", exact: true }),
   ).toBeVisible();
-  const branchHeading = header.getByText("Branches", { exact: true });
+  const branchExpansionButton = header.getByRole("button", {
+    name: "Show less",
+    exact: true,
+  });
   const branchFilterCount = header.getByText("28 of 32", { exact: true });
   const branchFiltersButton = header.getByRole("button", {
     name: "Filters",
     exact: true,
   });
-  await expect(branchHeading).toBeVisible();
+  await expect(branchExpansionButton).toBeVisible();
   await expect(branchFilterCount).toBeVisible();
   await expect(branchFiltersButton).toBeVisible();
-  await expectElementInsideContainer(branchHeading, header);
+  await expectElementInsideContainer(branchExpansionButton, header);
   await expectElementInsideContainer(branchFilterCount, header);
   await expectElementInsideContainer(branchFiltersButton, header);
   await expect(
     page.getByText("codex/sticky-dashboard-branch-05"),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Show less" })).toBeVisible();
   await expect(page).toHaveScreenshot("vault-dashboard-sticky-header.png", {
     animations: "disabled",
     caret: "hide",

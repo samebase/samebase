@@ -1720,25 +1720,20 @@ function VaultBranchHeaderControls({
   remoteBranchCount: number;
 }) {
   return (
-    <div className="flex w-full flex-col items-start gap-2">
-      <div className="flex w-full flex-wrap items-center justify-between gap-2">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground/80">
-          Branches
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          {hiddenBranchCount > 0 ? (
-            <span className="text-xs text-muted-foreground/80">
-              {filteredBranchCount} of {remoteBranchCount}
-            </span>
-          ) : null}
-          <VaultBranchFiltersControl
-            value={filters}
-            options={filterOptions}
-            onChange={onChangeFilters}
-          />
-        </div>
-      </div>
+    <div className="flex w-full flex-wrap items-center justify-between gap-2">
       {expansion ? <VaultBranchListExpansionControl {...expansion} /> : null}
+      <div className="ml-auto flex flex-wrap items-center gap-2">
+        {hiddenBranchCount > 0 ? (
+          <span className="text-xs text-muted-foreground/80">
+            {filteredBranchCount} of {remoteBranchCount}
+          </span>
+        ) : null}
+        <VaultBranchFiltersControl
+          value={filters}
+          options={filterOptions}
+          onChange={onChangeFilters}
+        />
+      </div>
     </div>
   );
 }

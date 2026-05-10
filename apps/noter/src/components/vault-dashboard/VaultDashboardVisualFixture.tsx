@@ -769,31 +769,26 @@ function VaultDashboardStickyHeaderFixture() {
                 <span data-testid="sticky-header-status">Updated 12s ago</span>
               }
               headerControls={
-                <div className="flex w-full flex-col items-start gap-2">
-                  <div className="flex w-full flex-wrap items-center justify-between gap-2">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground/80">
-                      Branches
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {filteredOutBranchCount > 0 ? (
-                        <span className="text-xs text-muted-foreground/80">
-                          {filteredBranches.length} of{" "}
-                          {STICKY_HEADER_BRANCHES.length}
-                        </span>
-                      ) : null}
-                      <VaultBranchFiltersControl
-                        value={stickyHeaderFilters}
-                        options={filterOptions}
-                        onChange={() => {}}
-                      />
-                    </div>
-                  </div>
+                <div className="flex w-full flex-wrap items-center justify-between gap-2">
                   <VaultBranchListExpansionControl
                     isExpanded={branchesExpanded}
                     hiddenBranchCount={hiddenBranchCount}
                     onToggle={toggleBranchesExpanded}
                     placement="header"
                   />
+                  <div className="ml-auto flex flex-wrap items-center gap-2">
+                    {filteredOutBranchCount > 0 ? (
+                      <span className="text-xs text-muted-foreground/80">
+                        {filteredBranches.length} of{" "}
+                        {STICKY_HEADER_BRANCHES.length}
+                      </span>
+                    ) : null}
+                    <VaultBranchFiltersControl
+                      value={stickyHeaderFilters}
+                      options={filterOptions}
+                      onChange={() => {}}
+                    />
+                  </div>
                 </div>
               }
               branchSection={
