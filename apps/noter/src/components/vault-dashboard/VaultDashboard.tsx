@@ -107,13 +107,15 @@ import {
 } from "@/lib/pullRequestLabels";
 import { applySearchPatch } from "@/lib/routeSearchFlags";
 import {
-  buildVaultBranchFilterOptions,
-  filterVaultRemoteBranches,
   getDefaultVaultBranchFilters,
   normalizeVaultBranchFilters,
   type VaultBranchFilterOption,
   type VaultBranchFilters as VaultBranchFiltersState,
 } from "@/components/vault-dashboard/vaultDashboardBranchFilters";
+import {
+  buildVaultBranchSectionState,
+  type VaultRemoteBranchListItem,
+} from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import { toast } from "@/components/ui/use-toast";
 import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
 import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
@@ -145,7 +147,6 @@ const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
   rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
 } satisfies WorkspaceSidebarState;
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
-const COLLAPSED_BRANCH_LIMIT = 5;
 
 const formatMcpTokenStatusLabel = (
   status:
@@ -1086,27 +1087,6 @@ interface StagedSummary {
   total: number;
 }
 
-interface VaultRemoteBranchListItem {
-  name: string;
-  headCommitSha: string;
-  isDefault: boolean;
-  isProtected: boolean;
-  remoteState: "active" | "deleted_upstream";
-  lastSyncedAt: number;
-  aheadBy?: number;
-  behindBy?: number;
-  pullRequestUrl?: string;
-  pullRequestNumber?: number;
-  pullRequestLabels?: Array<string | { name: string; color?: string }>;
-  pullRequestTitle?: string;
-  pullRequestIsDraft?: boolean;
-  cloudflareBranchPreviewUrl?: string;
-  cloudflarePreviewPullRequestNumber?: number;
-  cloudflarePreviewLogsUrl?: string;
-  cloudflarePreviewStatus?: string;
-  convexPreviewDeploymentDashboardUrl?: string;
-}
-
 interface VaultBranchLinkRowProps {
   vaultId?: Id<"vaults">;
   repositoryFullName: string;
@@ -1666,47 +1646,7 @@ function VaultBranchList({
   );
 }
 
-function buildVaultBranchSectionState({
-  filters,
-  remoteBranches,
-}: {
-  filters: VaultBranchFiltersState;
-  remoteBranches: VaultRemoteBranchListItem[];
-}) {
-  const filteredRemoteBranches = filterVaultRemoteBranches(
-    remoteBranches,
-    filters,
-  );
-  const hasBranchListOverflow =
-    filteredRemoteBranches.length > COLLAPSED_BRANCH_LIMIT;
-  const branchesExpanded = filters.branchesExpanded;
-  const visibleRemoteBranches =
-    hasBranchListOverflow && !branchesExpanded
-      ? filteredRemoteBranches.slice(0, COLLAPSED_BRANCH_LIMIT)
-      : filteredRemoteBranches;
-  const collapsedBranchCount = Math.max(
-    filteredRemoteBranches.length - COLLAPSED_BRANCH_LIMIT,
-    0,
-  );
-  const hiddenBranchCount =
-    remoteBranches.length - filteredRemoteBranches.length;
-  const filterOptions = buildVaultBranchFilterOptions({
-    branches: remoteBranches,
-    hiddenLabels: filters.hiddenLabels,
-    includeNoLabel: filters.includeNoLabel,
-  });
-
-  return {
-    collapsedBranchCount,
-    filteredRemoteBranches,
-    filterOptions,
-    hasBranchListOverflow,
-    hiddenBranchCount,
-    visibleRemoteBranches,
-  };
-}
-
-function VaultBranchHeaderControls({
+export function VaultBranchHeaderControls({
   expansion,
   filteredBranchCount,
   filterOptions,
@@ -2314,7 +2254,8 @@ function VaultDashboardBody({
                 ) : undefined
               }
               branchSection={
-                isReady && remoteBranches.length > 0 ? (
+                isReady &&
+                branchSectionState.filteredRemoteBranches.length > 0 ? (
                   <VaultBranchSection
                     filteredBranchCount={
                       branchSectionState.filteredRemoteBranches.length

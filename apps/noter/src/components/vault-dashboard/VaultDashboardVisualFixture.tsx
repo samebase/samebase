@@ -25,7 +25,9 @@ import {
   VaultDashboardScrollTargetEndPadding,
   VaultDashboardSidebarContent,
 } from "@/components/vault-dashboard/VaultDashboardChrome";
+import { buildVaultBranchSectionState } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import {
+  VaultBranchHeaderControls,
   VaultBranchLinkRow,
   VaultBranchListExpansionControl,
   VaultDashboardDeleteControl,
@@ -36,11 +38,7 @@ import {
 } from "@/components/vault-dashboard/VaultDashboard";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 import { formatProvisioningLogText } from "@/lib/provisioningLog";
-import {
-  buildVaultBranchFilterOptions,
-  filterVaultRemoteBranches,
-  type VaultBranchFilters,
-} from "@/components/vault-dashboard/vaultDashboardBranchFilters";
+import { type VaultBranchFilters } from "@/components/vault-dashboard/vaultDashboardBranchFilters";
 
 export type VaultDashboardVisualMode =
   | "vault-create-control"
@@ -726,20 +724,9 @@ function VaultDashboardStickyHeaderFixture() {
     includeNoLabel: true,
     branchesExpanded,
   } satisfies VaultBranchFilters;
-  const filteredBranches = filterVaultRemoteBranches(
-    stickyHeaderBranches,
-    stickyHeaderFilters,
-  );
-  const visibleBranches = branchesExpanded
-    ? filteredBranches
-    : filteredBranches.slice(0, 3);
-  const hiddenBranchCount = filteredBranches.length - visibleBranches.length;
-  const filteredOutBranchCount =
-    STICKY_HEADER_BRANCHES.length - filteredBranches.length;
-  const filterOptions = buildVaultBranchFilterOptions({
-    branches: stickyHeaderBranches,
-    hiddenLabels: stickyHeaderFilters.hiddenLabels,
-    includeNoLabel: stickyHeaderFilters.includeNoLabel,
+  const branchSectionState = buildVaultBranchSectionState({
+    filters: stickyHeaderFilters,
+    remoteBranches: stickyHeaderBranches,
   });
 
   return (
@@ -769,31 +756,31 @@ function VaultDashboardStickyHeaderFixture() {
                 <span data-testid="sticky-header-status">Updated 12s ago</span>
               }
               headerControls={
-                <div className="flex w-full flex-wrap items-center justify-between gap-2">
-                  <VaultBranchListExpansionControl
-                    isExpanded={branchesExpanded}
-                    hiddenBranchCount={hiddenBranchCount}
-                    onToggle={toggleBranchesExpanded}
-                    placement="header"
-                  />
-                  <div className="ml-auto flex flex-wrap items-center gap-2">
-                    {filteredOutBranchCount > 0 ? (
-                      <span className="text-xs text-muted-foreground/80">
-                        {filteredBranches.length} of{" "}
-                        {STICKY_HEADER_BRANCHES.length}
-                      </span>
-                    ) : null}
-                    <VaultBranchFiltersControl
-                      value={stickyHeaderFilters}
-                      options={filterOptions}
-                      onChange={() => {}}
-                    />
-                  </div>
-                </div>
+                <VaultBranchHeaderControls
+                  filteredBranchCount={
+                    branchSectionState.filteredRemoteBranches.length
+                  }
+                  filterOptions={branchSectionState.filterOptions}
+                  filters={stickyHeaderFilters}
+                  hiddenBranchCount={branchSectionState.hiddenBranchCount}
+                  onChangeFilters={() => {}}
+                  remoteBranchCount={stickyHeaderBranches.length}
+                  expansion={
+                    branchSectionState.hasBranchListOverflow
+                      ? {
+                          hiddenBranchCount:
+                            branchSectionState.collapsedBranchCount,
+                          isExpanded: branchesExpanded,
+                          onToggle: toggleBranchesExpanded,
+                          placement: "header",
+                        }
+                      : undefined
+                  }
+                />
               }
               branchSection={
                 <div className="-mx-4 overflow-hidden border bg-muted">
-                  {visibleBranches.map((branch) => (
+                  {branchSectionState.visibleRemoteBranches.map((branch) => (
                     <VaultBranchLinkRow
                       key={branch.name}
                       vaultId={fakeVaultId()}

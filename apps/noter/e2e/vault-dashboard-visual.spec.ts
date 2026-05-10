@@ -31,6 +31,10 @@ async function expectElementsDoNotOverlap(first: Locator, second: Locator) {
     .toBe(true);
 }
 
+/**
+ * expectElementInsideContainer checks boundingBox containment with 1px of
+ * tolerance for sub-pixel layout rounding; missing boxes fail closed.
+ */
 async function expectElementInsideContainer(
   element: Locator,
   container: Locator,
@@ -676,7 +680,7 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
     .nth(1);
   const header = page.getByTestId("vault-dashboard-repository-header");
 
-  await page.getByRole("button", { name: "Show 25 more branches" }).click();
+  await page.getByRole("button", { name: "Show 23 more branches" }).click();
   await scrollport.evaluate((element) => {
     element.scrollTop = 560;
   });
