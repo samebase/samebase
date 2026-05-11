@@ -442,6 +442,12 @@ Behavior:
 - choose internal repository steps from demand source
 - call the internal GitHub refresh action with `scope: "repository"` and
   backend-selected args
+- `dashboard` demand requests branch/PR metadata without Cloudflare preview
+  hydration
+- `manual` and `source_setup` demand request Cloudflare preview hydration from
+  backend policy, not from caller-provided provider/depth fields
+- `source_setup` uses a distinct GitHub refresh trigger so the one-time
+  create/connect finish path does not inherit passive dashboard large-repo caps
 - update `vaultRemoteBranches` through the existing metadata sync path
 - refresh the default branch tree when the selected backend trigger requires it
 - finish the request as `succeeded`, `failed`, or `canceled`
@@ -455,7 +461,8 @@ Behavior:
 
 Deferred:
 
-- backend policy for preview-link enrichment target branches
+- targeted preview-link hydration for a subset of branches after passive
+  dashboard refresh
 
 Retry policy:
 
@@ -476,6 +483,7 @@ This PR fixes:
 
 - dashboard auto metadata freshness
 - existing-repository connect branch-list visibility after setup
+- existing-repository connect Cloudflare preview-link visibility after setup
 
 Do not:
 
@@ -487,10 +495,14 @@ Do not:
 
 Manual repository refresh is queued demand with `manual` priority.
 
+Current policy:
+
+- repository manual refresh requests Cloudflare preview hydration
+- provider choice stays backend-owned
+
 Still later:
 
 - branch-level manual refresh
-- deeper manual-specific refresh policy
 - explicit provider cooldown bypass rules if the product needs them
 
 ## Later: Branch Demand Worker

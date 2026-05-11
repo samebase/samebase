@@ -58,6 +58,7 @@ const REPOSITORY_REFRESH_RUNNING_LEASE_MS = 15 * 60 * 1000;
 
 type RepositoryRefreshWorkerTrigger =
   | RepositoryRefreshBrowserTrigger
+  | "source_setup"
   | "manual";
 
 const repositoryRefreshWorkpoolContext = object({
@@ -139,9 +140,14 @@ function makeRepositoryRefreshProviderFailure(args: {
 }
 
 /**
- * Maps durable repository demand onto the existing GitHub refresh trigger.
- * Source setup uses page_load semantics because setup completion needs the same
- * branch discovery/default-tree reconciliation as opening the dashboard.
+ * Maps durable repository demand onto the GitHub refresh trigger.
+ *
+ * dashboard = passive browser freshness, so large repos stay on the cheap path
+ *
+ * manual = explicit user click, so the GitHub policy can run fuller work
+ *
+ * source_setup = one-time create/connect finish, so new vaults can hydrate
+ * branch/PR/provider-link state without React sending branch batches
  */
 function getRepositoryRefreshWorkerTrigger(
   demand: RepositoryScopeRefreshDemand,
@@ -152,10 +158,26 @@ function getRepositoryRefreshWorkerTrigger(
     case "manual":
       return "manual";
     case "source_setup":
-      return "page_load";
+      return "source_setup";
     default: {
       demand satisfies never;
       return "page_load";
+    }
+  }
+}
+
+function shouldHydrateCloudflarePreviewLinks(
+  demand: RepositoryScopeRefreshDemand,
+): boolean {
+  switch (demand.source) {
+    case "dashboard":
+      return false;
+    case "manual":
+    case "source_setup":
+      return true;
+    default: {
+      demand satisfies never;
+      return false;
     }
   }
 }
@@ -946,7 +968,9 @@ export const runRepositoryRefreshRequest = internalAction({
           repo: input.repo,
           includeAheadBehind: true,
           includePullRequestLinks: true,
-          includeCloudflarePreviewLinks: false,
+          includeCloudflarePreviewLinks: shouldHydrateCloudflarePreviewLinks(
+            input.demand,
+          ),
           cloudflarePreviewBranchNames: [],
           trigger: getRepositoryRefreshWorkerTrigger(input.demand),
         },

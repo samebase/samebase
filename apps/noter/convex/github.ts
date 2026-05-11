@@ -75,11 +75,15 @@ type TreeRefreshFailureDescriptor = {
   message: string;
   cooldownUntil: number;
 };
-const refreshRepositoryTrigger = union(
+const publicRefreshRepositoryTrigger = union(
   literal("focus"),
   literal("visibility"),
   literal("page_load"),
   literal("manual"),
+);
+const refreshRepositoryTrigger = union(
+  publicRefreshRepositoryTrigger,
+  literal("source_setup"),
 );
 const refreshRepositoryTreeReason = union(
   literal("cooldown"),
@@ -162,9 +166,10 @@ const MAX_GITHUB_REPOSITORY_PAGES = 100;
 const GITHUB_RATE_LIMIT_FALLBACK_MS = 5 * 60 * 1000;
 const MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS = 30 * 1000;
 /**
- * Automatic refreshes above this cached branch count keep PR lookup and branch
- * commit timestamps, but skip ahead/behind and preview-comment backfills to
- * bound the noisiest GitHub fan-out work for large repos.
+ * Passive refreshes above this cached branch count keep PR lookup and branch
+ * commit timestamps, but skip ahead/behind and preview-comment backfills.
+ * Source setup is a one-time connect/create finish path, so it can hydrate
+ * provider links without teaching React about branch batches.
  */
 const MAX_AUTO_REFRESH_BRANCH_ENRICHMENT_BRANCHES = 40;
 
@@ -409,11 +414,13 @@ export function shouldRefreshRepositoryMetadata(args: {
     return false;
   }
 
-  // Entering the dashboard should reconcile the repo-level branch/PR catalog at
-  // least once, even when cached metadata still falls inside the long stale
-  // window. This keeps page-load dashboard views trustworthy without
-  // reintroducing visibility/focus churn fan-out.
-  if (args.trigger === "page_load" && args.requestedBranch === undefined) {
+  // Entering the dashboard and finishing source setup should reconcile the
+  // repo-level branch/PR catalog once, even when cached metadata still falls
+  // inside the long stale window.
+  if (
+    (args.trigger === "page_load" || args.trigger === "source_setup") &&
+    args.requestedBranch === undefined
+  ) {
     return true;
   }
 
@@ -454,7 +461,7 @@ export function shouldRefreshBranchTree(args: {
     return true;
   }
 
-  return args.trigger === "page_load";
+  return args.trigger === "page_load" || args.trigger === "source_setup";
 }
 
 interface RepositoryRefreshPlan {
@@ -476,6 +483,7 @@ function shouldLimitAutomaticRepositoryMetadataEnrichment(args: {
 }): boolean {
   return (
     args.trigger !== "manual" &&
+    args.trigger !== "source_setup" &&
     typeof args.remoteBranchCount === "number" &&
     args.remoteBranchCount > MAX_AUTO_REFRESH_BRANCH_ENRICHMENT_BRANCHES
   );
@@ -2519,7 +2527,7 @@ export const refreshRepositoryTree = action({
     includePullRequestLinks: boolean(),
     includeCloudflarePreviewLinks: boolean(),
     cloudflarePreviewBranchNames: array(string()),
-    trigger: refreshRepositoryTrigger,
+    trigger: publicRefreshRepositoryTrigger,
   },
   returns: refreshRepositoryTreeResult,
   handler: async (ctx, args): Promise<RefreshRepositoryTreeResult> => {
