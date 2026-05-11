@@ -19,7 +19,12 @@ import {
   type RepositoryRefreshDemand,
 } from "./repositoryRefreshModel";
 
-const { id, literal, object, union } = v;
+const { array, id, literal, object, union } = v;
+
+// One dashboard page load can report many visible vaults, but this mutation
+// still runs as one Convex transaction. Keep the batch bounded until Workpool
+// owns the fan-out.
+export const MAX_DASHBOARD_REFRESH_DEMAND_BATCH_SIZE = 50;
 
 const vSourceSetupRepositoryRefreshMode = union(
   literal("create_repository"),
@@ -27,11 +32,20 @@ const vSourceSetupRepositoryRefreshMode = union(
 );
 
 const enqueueDashboardRepositoryRefreshArgs = object({
-  vaultId: id("vaults"),
+  vaultIds: array(id("vaults")),
   trigger: vRepositoryRefreshBrowserTrigger,
 });
 type EnqueueDashboardRepositoryRefreshArgs = Infer<
   typeof enqueueDashboardRepositoryRefreshArgs
+>;
+const vEnqueueDashboardRepositoryRefreshResult = array(
+  object({
+    vaultId: id("vaults"),
+    result: vEnqueueRepositoryRefreshResult,
+  }),
+);
+type EnqueueDashboardRepositoryRefreshResult = Infer<
+  typeof vEnqueueDashboardRepositoryRefreshResult
 >;
 
 const enqueueManualRepositoryRefreshArgs = object({
@@ -58,6 +72,19 @@ type EnqueueRepositoryRefreshArgs = {
 };
 
 type ActiveRepositoryRefreshState = "queued" | "running";
+
+function getUniqueVaultIds(vaultIds: Id<"vaults">[]): Id<"vaults">[] {
+  const uniqueVaultIds: Id<"vaults">[] = [];
+  const seenVaultIds = new Set<Id<"vaults">>();
+  for (const vaultId of vaultIds) {
+    if (seenVaultIds.has(vaultId)) {
+      continue;
+    }
+    seenVaultIds.add(vaultId);
+    uniqueVaultIds.push(vaultId);
+  }
+  return uniqueVaultIds;
+}
 
 async function getActiveRepositoryRefreshRequestForState(
   ctx: MutationCtx,
@@ -192,25 +219,36 @@ async function enqueueRepositoryRefresh(
 
 export const enqueueDashboardRepositoryRefresh = mutation({
   args: enqueueDashboardRepositoryRefreshArgs,
-  returns: vEnqueueRepositoryRefreshResult,
+  returns: vEnqueueDashboardRepositoryRefreshResult,
   handler: async (
     ctx,
     args: EnqueueDashboardRepositoryRefreshArgs,
-  ): Promise<EnqueueRepositoryRefreshResult> => {
+  ): Promise<EnqueueDashboardRepositoryRefreshResult> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       throw new Error("User not authenticated");
     }
+    if (args.vaultIds.length > MAX_DASHBOARD_REFRESH_DEMAND_BATCH_SIZE) {
+      throw new Error("Too many dashboard repository refresh demands.");
+    }
 
-    return await enqueueRepositoryRefresh(ctx, {
-      userId,
-      vaultId: args.vaultId,
-      demand: {
-        scope: "repository",
-        source: "dashboard",
-        trigger: args.trigger,
-      },
-    });
+    const results: EnqueueDashboardRepositoryRefreshResult = [];
+    const vaultIds = getUniqueVaultIds(args.vaultIds);
+    for (const vaultId of vaultIds) {
+      results.push({
+        vaultId,
+        result: await enqueueRepositoryRefresh(ctx, {
+          userId,
+          vaultId,
+          demand: {
+            scope: "repository",
+            source: "dashboard",
+            trigger: args.trigger,
+          },
+        }),
+      });
+    }
+    return results;
   },
 });
 

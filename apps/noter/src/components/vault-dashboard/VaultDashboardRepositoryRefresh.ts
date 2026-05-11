@@ -5,6 +5,9 @@ import { claimRefreshDebounce } from "@/lib/treeRefreshDebounce";
 import { useCallback, useEffect, useRef } from "react";
 
 const DASHBOARD_REFRESH_CONCURRENCY = 3;
+// Backend enforces this limit; chunking keeps large dashboards from turning one
+// visibility event into one mutation per vault.
+const DASHBOARD_REFRESH_DEMAND_BATCH_SIZE = 50;
 
 type DashboardTreeRefreshTrigger = "visibility" | "page_load";
 type DashboardRefreshTree = (
@@ -66,25 +69,21 @@ export function useDashboardRepositoryTreeRefresh({
         for (
           let index = 0;
           index < readyVaults.length;
-          index += DASHBOARD_REFRESH_CONCURRENCY
+          index += DASHBOARD_REFRESH_DEMAND_BATCH_SIZE
         ) {
           const batch = readyVaults.slice(
             index,
-            index + DASHBOARD_REFRESH_CONCURRENCY,
+            index + DASHBOARD_REFRESH_DEMAND_BATCH_SIZE,
           );
-          await Promise.all(
-            batch.map((vault) =>
-              enqueueDashboardRepositoryRefresh({
-                vaultId: vault._id,
-                trigger,
-              }).catch((error: unknown) => {
-                console.error(
-                  "Failed to enqueue repository refresh demand from dashboard:",
-                  error,
-                );
-              }),
-            ),
-          );
+          await enqueueDashboardRepositoryRefresh({
+            vaultIds: batch.map((vault) => vault._id),
+            trigger,
+          }).catch((error: unknown) => {
+            console.error(
+              "Failed to enqueue repository refresh demand from dashboard:",
+              error,
+            );
+          });
         }
       })();
     },

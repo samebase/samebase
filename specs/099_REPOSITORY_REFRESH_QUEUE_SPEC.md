@@ -279,7 +279,7 @@ Add enqueue mutations/actions.
 
 Entry points:
 
-- dashboard auto-refresh
+- dashboard auto-refresh batch
 - dashboard manual refresh if small
 - existing-repository connection finish
 
@@ -350,6 +350,8 @@ Implementation shape:
 Implemented shape:
 
 - `repositoryRefresh.enqueueDashboardRepositoryRefresh`
+  - accepts up to 50 `vaultIds`
+  - deduplicates repeated ids inside one batch
 - `repositoryRefresh.enqueueManualRepositoryRefresh`
 - `repositoryRefresh.enqueueSourceSetupRepositoryRefresh`
 - active lookup uses `userId + dedupeKey + lifecycle.state`

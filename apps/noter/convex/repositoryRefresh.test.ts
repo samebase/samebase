@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
+import { MAX_DASHBOARD_REFRESH_DEMAND_BATCH_SIZE } from "./repositoryRefresh";
 import { makeConvexTest } from "./test.setup";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
@@ -76,16 +77,26 @@ async function listRefreshRequests(t: ConvexTest) {
   });
 }
 
+function readSingleDashboardResult(
+  results: (typeof api.repositoryRefresh.enqueueDashboardRepositoryRefresh)["_returnType"],
+) {
+  expect(results).toHaveLength(1);
+  const entry = results[0];
+  return entry.result;
+}
+
 describe("repository refresh demand ingest", () => {
   it("coalesces duplicate dashboard demand without rewriting queued rows", async () => {
     const { asUser, ids, t } = await createConnectedVault();
 
-    const first = await asUser.mutation(
-      api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-      {
-        vaultId: ids.vaultId,
-        trigger: "page_load",
-      },
+    const first = readSingleDashboardResult(
+      await asUser.mutation(
+        api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
+        {
+          vaultIds: [ids.vaultId],
+          trigger: "page_load",
+        },
+      ),
     );
     expect(first.kind).toBe("created");
     if (first.kind !== "created") {
@@ -93,12 +104,14 @@ describe("repository refresh demand ingest", () => {
     }
 
     const before = await getRefreshRequest(t, first.requestId);
-    const second = await asUser.mutation(
-      api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-      {
-        vaultId: ids.vaultId,
-        trigger: "visibility",
-      },
+    const second = readSingleDashboardResult(
+      await asUser.mutation(
+        api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
+        {
+          vaultIds: [ids.vaultId],
+          trigger: "visibility",
+        },
+      ),
     );
 
     expect(second).toEqual({
@@ -110,15 +123,110 @@ describe("repository refresh demand ingest", () => {
     );
   });
 
+  it("enqueues dashboard demand for multiple vaults in one mutation", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    const secondVaultId = await t.run(async (ctx) => {
+      const vaultId = await ctx.db.insert("vaults", {
+        userId: ids.userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId: ids.userId,
+        vaultId,
+        repositoryFullName: "ada/second-refresh",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: 3,
+      });
+      await ctx.db.replace(vaultId, {
+        userId: ids.userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId,
+        ghRepoId: "456",
+        owner: "ada",
+        name: "second-refresh",
+        defaultBranch: "main",
+        visibility: "private",
+        convex: { state: "not_configured" },
+        cloudflare: { state: "not_configured" },
+        connectedAt: 4,
+      });
+      return vaultId;
+    });
+
+    const results = await asUser.mutation(
+      api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
+      {
+        vaultIds: [ids.vaultId, secondVaultId],
+        trigger: "page_load",
+      },
+    );
+
+    expect(results).toMatchObject([
+      {
+        vaultId: ids.vaultId,
+        result: { kind: "created" },
+      },
+      {
+        vaultId: secondVaultId,
+        result: { kind: "created" },
+      },
+    ]);
+    await expect(listRefreshRequests(t)).resolves.toHaveLength(2);
+  });
+
+  it("bounds dashboard demand batches", async () => {
+    const { asUser, ids } = await createConnectedVault();
+    const tooManyVaultIds = Array.from(
+      { length: MAX_DASHBOARD_REFRESH_DEMAND_BATCH_SIZE + 1 },
+      () => ids.vaultId,
+    );
+
+    await expect(
+      asUser.mutation(api.repositoryRefresh.enqueueDashboardRepositoryRefresh, {
+        vaultIds: tooManyVaultIds,
+        trigger: "page_load",
+      }),
+    ).rejects.toThrow("Too many dashboard repository refresh demands.");
+  });
+
+  it("deduplicates repeated vault ids inside one dashboard batch", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+
+    const results = await asUser.mutation(
+      api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
+      {
+        vaultIds: [ids.vaultId, ids.vaultId],
+        trigger: "page_load",
+      },
+    );
+
+    expect(results).toMatchObject([
+      {
+        vaultId: ids.vaultId,
+        result: { kind: "created" },
+      },
+    ]);
+    await expect(listRefreshRequests(t)).resolves.toHaveLength(1);
+  });
+
   it("upgrades queued dashboard demand when manual demand arrives", async () => {
     const { asUser, ids, t } = await createConnectedVault();
 
-    const dashboard = await asUser.mutation(
-      api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-      {
-        vaultId: ids.vaultId,
-        trigger: "page_load",
-      },
+    const dashboard = readSingleDashboardResult(
+      await asUser.mutation(
+        api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
+        {
+          vaultIds: [ids.vaultId],
+          trigger: "page_load",
+        },
+      ),
     );
     expect(dashboard.kind).toBe("created");
     if (dashboard.kind !== "created") {
@@ -159,12 +267,14 @@ describe("repository refresh demand ingest", () => {
 
   it("reuses running demand unchanged", async () => {
     const { asUser, ids, t } = await createConnectedVault();
-    const created = await asUser.mutation(
-      api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-      {
-        vaultId: ids.vaultId,
-        trigger: "page_load",
-      },
+    const created = readSingleDashboardResult(
+      await asUser.mutation(
+        api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
+        {
+          vaultIds: [ids.vaultId],
+          trigger: "page_load",
+        },
+      ),
     );
     expect(created.kind).toBe("created");
     if (created.kind !== "created") {
@@ -201,12 +311,14 @@ describe("repository refresh demand ingest", () => {
 
   it("creates a new row when the matching row is terminal history", async () => {
     const { asUser, ids, t } = await createConnectedVault();
-    const created = await asUser.mutation(
-      api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-      {
-        vaultId: ids.vaultId,
-        trigger: "page_load",
-      },
+    const created = readSingleDashboardResult(
+      await asUser.mutation(
+        api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
+        {
+          vaultIds: [ids.vaultId],
+          trigger: "page_load",
+        },
+      ),
     );
     expect(created.kind).toBe("created");
     if (created.kind !== "created") {
@@ -227,12 +339,14 @@ describe("repository refresh demand ingest", () => {
       });
     });
 
-    const next = await asUser.mutation(
-      api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-      {
-        vaultId: ids.vaultId,
-        trigger: "visibility",
-      },
+    const next = readSingleDashboardResult(
+      await asUser.mutation(
+        api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
+        {
+          vaultIds: [ids.vaultId],
+          trigger: "visibility",
+        },
+      ),
     );
 
     expect(next.kind).toBe("created");
@@ -258,13 +372,18 @@ describe("repository refresh demand ingest", () => {
 
     await expect(
       asUser.mutation(api.repositoryRefresh.enqueueDashboardRepositoryRefresh, {
-        vaultId: ids.vaultId,
+        vaultIds: [ids.vaultId],
         trigger: "page_load",
       }),
-    ).resolves.toEqual({
-      kind: "blocked",
-      reason: "vault_deleting",
-    });
+    ).resolves.toEqual([
+      {
+        vaultId: ids.vaultId,
+        result: {
+          kind: "blocked",
+          reason: "vault_deleting",
+        },
+      },
+    ]);
     await expect(listRefreshRequests(t)).resolves.toHaveLength(0);
   });
 
