@@ -65,7 +65,6 @@ const repositoryRefreshWorkerInput = union(
     vaultId: id("vaults"),
     owner: string(),
     repo: string(),
-    branch: string(),
     demand: vRepositoryScopeRefreshDemand,
   }),
   object({
@@ -104,10 +103,6 @@ type EnqueueRepositoryRefreshArgs = {
 };
 
 type ActiveRepositoryRefreshState = "queued" | "scheduled" | "running";
-type ConnectedRepositoryRefreshVault = Extract<
-  Doc<"vaults">,
-  { state: "connected" }
->;
 
 type DashboardRefreshVaultPage = {
   vaultIds: Id<"vaults">[];
@@ -168,15 +163,9 @@ function isRunningRepositoryRefreshLeaseValid(
 ): boolean {
   return (
     request.lifecycle.state === "running" &&
+    typeof request.lifecycle.leaseExpiresAt === "number" &&
     request.lifecycle.leaseExpiresAt > now
   );
-}
-
-function readRepositoryRefreshDefaultBranch(
-  vault: ConnectedRepositoryRefreshVault,
-): string | null {
-  const branch = vault.defaultBranch.trim();
-  return branch.length > 0 ? branch : null;
 }
 
 async function markExpiredRunningRepositoryRefreshRequestFailed(
@@ -626,14 +615,6 @@ export const startRepositoryRefreshRequest = internalMutation({
       };
     }
 
-    const branch = readRepositoryRefreshDefaultBranch(vault);
-    if (!branch) {
-      return {
-        kind: "fail",
-        message: "Repository refresh vault has no default branch.",
-      };
-    }
-
     const now = Date.now();
     const running = markRepositoryRefreshRequestRunning(request, {
       now,
@@ -650,7 +631,6 @@ export const startRepositoryRefreshRequest = internalMutation({
       vaultId: vault._id,
       owner: vault.owner,
       repo: vault.name,
-      branch,
       demand: request.demand,
     };
   },
@@ -941,15 +921,17 @@ export const runRepositoryRefreshRequest = internalAction({
       const refreshResult: {
         refreshed: boolean;
       } = await ctx.runAction(internal.github.refreshRepositoryTreeForUser, {
-        userId: input.userId,
-        owner: input.owner,
-        repo: input.repo,
-        branch: input.branch,
-        includeAheadBehind: true,
-        includePullRequestLinks: true,
-        includeCloudflarePreviewLinks: false,
-        cloudflarePreviewBranchNames: [],
-        trigger: getRepositoryRefreshWorkerTrigger(input.demand),
+        input: {
+          scope: "repository",
+          userId: input.userId,
+          owner: input.owner,
+          repo: input.repo,
+          includeAheadBehind: true,
+          includePullRequestLinks: true,
+          includeCloudflarePreviewLinks: false,
+          cloudflarePreviewBranchNames: [],
+          trigger: getRepositoryRefreshWorkerTrigger(input.demand),
+        },
       });
       const result = toRepositoryRefreshResult(refreshResult);
       await ctx.runMutation(

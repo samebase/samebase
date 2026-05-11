@@ -109,7 +109,9 @@ type RepositoryRefreshLifecycle =
       state: "running";
       attempt: number;
       startedAt: number;
-      leaseExpiresAt: number;
+      // Optional only during the deploy that introduces running leases.
+      // New writes must set it; missing means an older running row is stale.
+      leaseExpiresAt?: number;
       workpoolJobId: string;
     }
   | {
@@ -174,7 +176,9 @@ Schema rules:
 - no `source_setup` without `runId`
 - no `queued` row with `workpoolJobId`
 - no `scheduled` row with `leaseExpiresAt`
-- no `running` row without `leaseExpiresAt`
+- new code never writes `running` without `leaseExpiresAt`
+- missing `running.leaseExpiresAt` is deploy compatibility only and counts as
+  expired
 - no `succeeded` row without result
 - build rows through constructors only
 
@@ -244,14 +248,14 @@ failure.kind -> failure fields
 
 `lifecycle.state -> lifecycle fields`:
 
-| State       | Fields                                                             |
-| ----------- | ------------------------------------------------------------------ |
-| `queued`    | `notBefore`, `queuedAt`                                            |
-| `scheduled` | `notBefore`, `queuedAt`, `scheduledAt`, `attempt`, `workpoolJobId` |
-| `running`   | `attempt`, `startedAt`, `leaseExpiresAt`, `workpoolJobId`          |
-| `succeeded` | `attempt`, `startedAt`, `completedAt`, `result`                    |
-| `failed`    | `attempt`, `startedAt`, `failedAt`, `failure`                      |
-| `canceled`  | `canceledAt`, `reason`                                             |
+| State       | Fields                                                                   |
+| ----------- | ------------------------------------------------------------------------ |
+| `queued`    | `notBefore`, `queuedAt`                                                  |
+| `scheduled` | `notBefore`, `queuedAt`, `scheduledAt`, `attempt`, `workpoolJobId`       |
+| `running`   | `attempt`, `startedAt`, `workpoolJobId`; new writes add `leaseExpiresAt` |
+| `succeeded` | `attempt`, `startedAt`, `completedAt`, `result`                          |
+| `failed`    | `attempt`, `startedAt`, `failedAt`, `failure`                            |
+| `canceled`  | `canceledAt`, `reason`                                                   |
 
 Tests should enumerate these edges with small matrices. When a forbidden state
 is still representable, simplify the state shape first; add runtime guards only
@@ -419,7 +423,7 @@ Do not:
 
 - expose dashboard fan-out, batch size, or pagination to React
 - expose exact step/depth choices to callers
-- execute queued request rows yet
+- execute branch-scoped queued rows yet
 - remove direct file-view refresh
 - redesign dashboard query
 
@@ -440,14 +444,15 @@ Behavior:
 - fail scheduled/running work if the vault is no longer connected
 - refresh the lease after worker start
 - choose internal repository steps from demand source
-- call the internal GitHub refresh action with backend-selected args
+- call the internal GitHub refresh action with `scope: "repository"` and
+  backend-selected args
 - update `vaultRemoteBranches` through the existing metadata sync path
 - refresh the default branch tree when the selected backend trigger requires it
 - finish the request as `succeeded`, `failed`, or `canceled`
 - Workpool `canceled` completion marks `workpool_canceled`
 - public direct branch refresh accepts `vaultId` plus required branch/options,
   validates `userId + vaultId`, then derives repository coordinates from the
-  vault
+  vault and calls the same internal helper with `scope: "branch"`
 - keep file-view branch refresh on the old direct action for now
 
 Deferred:

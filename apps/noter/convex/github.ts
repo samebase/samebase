@@ -4,7 +4,6 @@ import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { getUserId } from "./common";
 import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
 import { Octokit } from "@octokit/rest";
 import { guessMime, withRetry } from "./gitOperationsActions";
 import { isRecord, toErrorMessage } from "./jsonUtils";
@@ -94,17 +93,34 @@ const refreshRepositoryTreeResult = object({
 });
 type RefreshRepositoryTreeResult = Infer<typeof refreshRepositoryTreeResult>;
 type RefreshRepositoryTrigger = Infer<typeof refreshRepositoryTrigger>;
-type RefreshRepositoryTreeForUserArgs = {
-  userId: Id<"users">;
-  owner: string;
-  repo: string;
-  branch: string;
-  includeAheadBehind: boolean;
-  includePullRequestLinks: boolean;
-  includeCloudflarePreviewLinks: boolean;
-  cloudflarePreviewBranchNames: string[];
-  trigger: RefreshRepositoryTrigger;
-};
+const refreshRepositoryTreeForUserInput = union(
+  object({
+    scope: literal("repository"),
+    userId: id("users"),
+    owner: string(),
+    repo: string(),
+    includeAheadBehind: boolean(),
+    includePullRequestLinks: boolean(),
+    includeCloudflarePreviewLinks: boolean(),
+    cloudflarePreviewBranchNames: array(string()),
+    trigger: refreshRepositoryTrigger,
+  }),
+  object({
+    scope: literal("branch"),
+    userId: id("users"),
+    owner: string(),
+    repo: string(),
+    branch: string(),
+    includeAheadBehind: boolean(),
+    includePullRequestLinks: boolean(),
+    includeCloudflarePreviewLinks: boolean(),
+    cloudflarePreviewBranchNames: array(string()),
+    trigger: refreshRepositoryTrigger,
+  }),
+);
+type RefreshRepositoryTreeForUserArgs = Infer<
+  typeof refreshRepositoryTreeForUserInput
+>;
 
 const GITHUB_REPOSITORY_DISCOVERY_AFFILIATION =
   "owner,collaborator,organization_member";
@@ -2255,14 +2271,17 @@ async function refreshRepositoryTreeForUserHelper(
   args: RefreshRepositoryTreeForUserArgs,
 ): Promise<RefreshRepositoryTreeResult> {
   const trigger = args.trigger;
-  const requestedBranch = normalizeRequiredRepositoryBranch(args.branch);
+  const requestedBranch =
+    args.scope === "branch"
+      ? normalizeRequiredRepositoryBranch(args.branch)
+      : undefined;
   const requestedCloudflarePreviewBranchNames =
     normalizeCloudflarePreviewBranchNames(args.cloudflarePreviewBranchNames);
   const includeCloudflarePreviewLinks =
     args.includeCloudflarePreviewLinks === true;
 
   const repositoryFullName = `${args.owner}/${args.repo}`;
-  const readVault = async (branch: string) =>
+  const readVault = async (branch: string | undefined) =>
     ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName,
       userId: args.userId,
@@ -2482,6 +2501,7 @@ export const refreshRepositoryTree = action({
     }
 
     return await refreshRepositoryTreeForUserHelper(ctx, {
+      scope: "branch",
       userId,
       owner: vault.owner,
       repo: vault.name,
@@ -2503,19 +2523,11 @@ export const refreshRepositoryTree = action({
  */
 export const refreshRepositoryTreeForUser = internalAction({
   args: {
-    userId: id("users"),
-    owner: string(),
-    repo: string(),
-    branch: string(),
-    includeAheadBehind: boolean(),
-    includePullRequestLinks: boolean(),
-    includeCloudflarePreviewLinks: boolean(),
-    cloudflarePreviewBranchNames: array(string()),
-    trigger: refreshRepositoryTrigger,
+    input: refreshRepositoryTreeForUserInput,
   },
   returns: refreshRepositoryTreeResult,
   handler: async (ctx, args): Promise<RefreshRepositoryTreeResult> => {
-    return await refreshRepositoryTreeForUserHelper(ctx, args);
+    return await refreshRepositoryTreeForUserHelper(ctx, args.input);
   },
 });
 
