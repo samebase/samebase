@@ -134,6 +134,16 @@ Key domain entities:
   it. Prefer making unsupported combinations unrepresentable through the data
   model and UI gates over adding orchestration for pause/cancel/delete cases
   that the current product does not need.
+- When modeling durable product state, put as many invariants as possible into
+  the state shape itself. Prefer discriminated unions, required variant-specific
+  fields, closed literal sets, and Convex validators that reject impossible
+  rows. Use runtime transition functions only for rules that genuinely depend on
+  current database contents, time, provider responses, or other facts the static
+  state shape cannot express.
+- For important state models, start tests by enumerating the state axes and
+  allowed combinations. Use that matrix to simplify the model before adding
+  runtime guards, so tests pressure the schema toward making impossible states
+  impossible instead of documenting a pile of forbidden combinations.
 - When returning collections from queries or building user-visible lists, always
   choose an explicit deterministic sort order with stable tie-breakers. Do not
   rely on incidental storage order or live-update fields unless the product
