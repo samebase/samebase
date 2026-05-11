@@ -446,6 +446,10 @@ Behavior:
   hydration
 - `manual` and `source_setup` demand request Cloudflare preview hydration from
   backend policy, not from caller-provided provider/depth fields
+- current preview hydration target policy is broad:
+  `cloudflarePreviewBranchNames: []` means all remote branches; branches without
+  PRs are cleared locally, branches with PRs may read PR comments for Cloudflare
+  Pages links
 - `source_setup` uses a distinct GitHub refresh trigger so the one-time
   create/connect finish path does not inherit passive dashboard large-repo caps
 - update `vaultRemoteBranches` through the existing metadata sync path
@@ -463,6 +467,9 @@ Deferred:
 
 - targeted preview-link hydration for a subset of branches after passive
   dashboard refresh
+- bounded preview-link hydration for `source_setup` and manual repository
+  refresh; current behavior is correct structurally but too broad for large
+  repos
 
 Retry policy:
 
