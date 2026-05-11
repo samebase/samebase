@@ -28,7 +28,7 @@ jobs:
           node-version: 24.x
           cache: "pnpm"
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
       - name: Bootstrap Convex for CI
         run: node ./scripts/ci-bootstrap-convex.ts
       - name: Build noter preview

@@ -15,8 +15,8 @@
     "@codemirror/state": "^6.4.1",
     "@codemirror/view": "^6.28.4",
     "@prosemark/core": "^0.0.7",
-    "@tanstack/solid-router": "^1.168.20",
-    "@tanstack/solid-router-devtools": "^1.166.13",
+    "@tanstack/solid-router": "1.168.20",
+    "@tanstack/solid-router-devtools": "1.166.13",
     "monaco-editor": "^0.55.1",
     "solid-js": "^1.9.12"
   },

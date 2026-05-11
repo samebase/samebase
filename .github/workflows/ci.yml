@@ -36,7 +36,7 @@ jobs:
         run: node ./scripts/validate-main-build-label.ts
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       # Bootstrap an anonymous local Convex deployment so CONVEX_DEPLOYMENT
       # exists and generated files are materialized for CI-only lint/build.
@@ -88,7 +88,7 @@ jobs:
           cache: "pnpm"
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       # Bootstrap an anonymous local Convex deployment so CONVEX_DEPLOYMENT
       # exists and generated files are materialized for CI-only lint/build.
@@ -148,7 +148,7 @@ jobs:
           cache: "pnpm"
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Run sync smoke tests on Windows
         run:
