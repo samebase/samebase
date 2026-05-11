@@ -2,7 +2,7 @@ import { Infer, v } from "convex/values";
 
 const { boolean, id, literal, number, object, string, union } = v;
 
-// MARK: Request Axes
+// MARK: Providers, Enrichment, and Priority
 
 /**
  * Provider-specific link parser used by refresh work.
@@ -68,7 +68,7 @@ export const RepositoryRefreshPriority = union(
 );
 export type RepositoryRefreshPriority = Infer<typeof RepositoryRefreshPriority>;
 
-// MARK: Intent Schema
+// MARK: Refresh Intents
 
 /**
  * Dashboard mounted or became visible and asks for background freshness.
@@ -157,7 +157,7 @@ export const RepositoryRefreshIntent = union(
 );
 export type RepositoryRefreshIntent = Infer<typeof RepositoryRefreshIntent>;
 
-// MARK: Work Schema
+// MARK: Refresh Work
 
 /**
  * Repo-wide cache refresh.
@@ -200,7 +200,7 @@ export const LinkEnrichmentRefreshWork = object({
 });
 export type LinkEnrichmentRefreshWork = Infer<typeof LinkEnrichmentRefreshWork>;
 
-// MARK: Lifecycle Schema
+// MARK: Refresh Lifecycle
 
 /**
  * Successful worker outcome.
@@ -298,7 +298,7 @@ export type RepositoryRefreshLifecycle = Infer<
   typeof RepositoryRefreshLifecycle
 >;
 
-// MARK: Request Schema
+// MARK: Request Rows
 
 const repositoryRefreshBaseFields = {
   userId: id("users"),
@@ -377,7 +377,7 @@ export const RepositoryRefreshRequest = union(
 );
 export type RepositoryRefreshRequest = Infer<typeof RepositoryRefreshRequest>;
 
-// MARK: Constructor Types
+// MARK: Builder Inputs
 
 type MakeRepositoryMetadataRefreshRequestArgs = {
   userId: RepositoryRefreshRequest["userId"];
@@ -428,7 +428,7 @@ type RepositoryRefreshRequestBaseFields = {
   updatedAt: number;
 };
 
-// MARK: Scheduling Helpers
+// MARK: Scheduling
 
 function assertValidScheduleTime(args: {
   now: number;
@@ -481,7 +481,7 @@ export function deriveRepositoryRefreshDedupeKey(args: {
   }
 }
 
-// MARK: Request Builders
+// MARK: Builders
 
 function isRepositoryMetadataRefreshRequestArgs(
   args: MakeRepositoryRefreshRequestArgs,
