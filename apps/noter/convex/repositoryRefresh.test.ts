@@ -1,4 +1,11 @@
-import { describe, expect, it } from "vite-plus/test";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vite-plus/test";
 
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -191,6 +198,18 @@ async function insertScheduledRepositoryRefreshRequest(
 }
 
 describe("repository refresh demand ingest", () => {
+  beforeEach(() => {
+    // convex-test runs scheduled Workpool timers automatically; these tests
+    // inspect demand rows and call worker mutations explicitly when needed.
+    vi.useFakeTimers();
+  });
+
+  afterEach(async () => {
+    await Promise.resolve();
+    vi.clearAllTimers();
+    vi.useRealTimers();
+  });
+
   it("coalesces duplicate dashboard demand without rewriting scheduled rows", async () => {
     const { asUser, t } = await createConnectedVault();
 
