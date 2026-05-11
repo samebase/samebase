@@ -747,6 +747,10 @@ type ClearAllStagingPlan<
     owner: string;
     repo: string;
     branch?: string;
+    includeAheadBehind: boolean;
+    includePullRequestLinks: boolean;
+    includeCloudflarePreviewLinks: boolean;
+    cloudflarePreviewBranchNames: string[];
   } | null;
 };
 
@@ -786,6 +790,10 @@ export function buildClearAllStagingPlan<
           owner: args.vault.owner,
           repo: args.vault.name,
           branch: args.branch,
+          includeAheadBehind: false,
+          includePullRequestLinks: false,
+          includeCloudflarePreviewLinks: false,
+          cloudflarePreviewBranchNames: [],
         }
       : null,
   };

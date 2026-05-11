@@ -399,6 +399,10 @@ describe("buildClearAllStagingPlan", () => {
         owner: "octo",
         repo: "repo",
         branch: "feature/login",
+        includeAheadBehind: false,
+        includePullRequestLinks: false,
+        includeCloudflarePreviewLinks: false,
+        cloudflarePreviewBranchNames: [],
       },
     });
   });
@@ -429,6 +433,10 @@ describe("buildClearAllStagingPlan", () => {
         owner: "octo",
         repo: "repo",
         branch: undefined,
+        includeAheadBehind: false,
+        includePullRequestLinks: false,
+        includeCloudflarePreviewLinks: false,
+        cloudflarePreviewBranchNames: [],
       },
     });
   });
@@ -511,6 +519,10 @@ describe("buildClearAllStagingPlan", () => {
           owner: "octo",
           repo: "repo",
           branch: targetBranch,
+          includeAheadBehind: false,
+          includePullRequestLinks: false,
+          includeCloudflarePreviewLinks: false,
+          cloudflarePreviewBranchNames: [],
         },
       },
     ]);

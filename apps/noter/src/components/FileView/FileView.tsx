@@ -411,6 +411,7 @@ function FileViewWrapper() {
         !vaultId ||
         !owner ||
         !repoName ||
+        !branch ||
         (typeof vault.treeRefreshCooldownUntil === "number" &&
           vault.treeRefreshCooldownUntil > Date.now())
       ) {
@@ -428,6 +429,8 @@ function FileViewWrapper() {
         branch,
         includeAheadBehind: true,
         includePullRequestLinks: true,
+        includeCloudflarePreviewLinks: false,
+        cloudflarePreviewBranchNames: [],
         trigger,
       }).catch((error: unknown) => {
         console.error("Failed to refresh repository tree:", error);
@@ -1720,6 +1723,8 @@ function FileViewInner({
           branch: args.nextBranch,
           includeAheadBehind: true,
           includePullRequestLinks: true,
+          includeCloudflarePreviewLinks: false,
+          cloudflarePreviewBranchNames: [],
           trigger: "manual",
         });
         didHydrateNextBranch = refreshResult.refreshed;

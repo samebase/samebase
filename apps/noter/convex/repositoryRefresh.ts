@@ -848,6 +848,10 @@ export const runRepositoryRefreshRequest = internalAction({
         userId: input.userId,
         owner: input.owner,
         repo: input.repo,
+        includeAheadBehind: true,
+        includePullRequestLinks: true,
+        includeCloudflarePreviewLinks: false,
+        cloudflarePreviewBranchNames: [],
         trigger: getRepositoryRefreshWorkerTrigger(input.demand),
       });
       const result = toRepositoryRefreshResult(refreshResult);

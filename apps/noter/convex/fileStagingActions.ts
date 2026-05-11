@@ -2369,6 +2369,8 @@ export const createDraftPullRequest = action({
           repo: vault.name,
           includeAheadBehind: true,
           includePullRequestLinks: true,
+          includeCloudflarePreviewLinks: false,
+          cloudflarePreviewBranchNames: [],
         });
       } catch (error) {
         console.warn(
@@ -2417,6 +2419,8 @@ export const createDraftPullRequest = action({
           repo: vault.name,
           includeAheadBehind: true,
           includePullRequestLinks: true,
+          includeCloudflarePreviewLinks: false,
+          cloudflarePreviewBranchNames: [],
         });
       } catch (error) {
         console.warn(
@@ -2446,6 +2450,8 @@ export const createDraftPullRequest = action({
             repo: vault.name,
             includeAheadBehind: true,
             includePullRequestLinks: true,
+            includeCloudflarePreviewLinks: false,
+            cloudflarePreviewBranchNames: [],
           });
         } catch (refreshError) {
           console.warn(
@@ -2652,6 +2658,8 @@ export const createDraftPullRequestFromDefaultBranch = action({
           repo: vault.name,
           includeAheadBehind: true,
           includePullRequestLinks: true,
+          includeCloudflarePreviewLinks: false,
+          cloudflarePreviewBranchNames: [],
         });
       } catch (error) {
         console.warn(
@@ -2984,6 +2992,10 @@ export const pullFromGitHubInternal = internalAction({
         owner: connectedVault.owner,
         repo: connectedVault.name,
         branch,
+        includeAheadBehind: false,
+        includePullRequestLinks: false,
+        includeCloudflarePreviewLinks: false,
+        cloudflarePreviewBranchNames: [],
       });
     }
 
@@ -2992,6 +3004,10 @@ export const pullFromGitHubInternal = internalAction({
       userId: args.userId,
       owner: connectedVault.owner,
       repo: connectedVault.name,
+      includeAheadBehind: false,
+      includePullRequestLinks: false,
+      includeCloudflarePreviewLinks: false,
+      cloudflarePreviewBranchNames: [],
     });
 
     return null;
@@ -3038,6 +3054,10 @@ export const batchReadFiles = action({
           owner: connectedVault.owner,
           repo: connectedVault.name,
           branch: branchToLoad,
+          includeAheadBehind: false,
+          includePullRequestLinks: false,
+          includeCloudflarePreviewLinks: false,
+          cloudflarePreviewBranchNames: [],
         });
         branchTree = await ctx.runQuery(internal.vault.getVaultBranchTree, {
           vaultId: args.vaultId,
@@ -4083,6 +4103,10 @@ export const commitAllStaged = internalAction({
             owner: repoOwner,
             repo: repoName,
             branch: commitBranch,
+            includeAheadBehind: false,
+            includePullRequestLinks: false,
+            includeCloudflarePreviewLinks: false,
+            cloudflarePreviewBranchNames: [],
           });
         },
         loadUpdatedVault: async () =>
