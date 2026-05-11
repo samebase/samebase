@@ -119,6 +119,9 @@ Key domain entities:
 - In Convex modules, define result validators before handlers, derive types via
   `Infer<typeof ...>`, and prefer destructuring validator builders once instead
   of repeated `v.<fn>()` call sites.
+- Name exported reusable Convex validators with a leading `v`, such as
+  `vProviderAuth`, and name the inferred type without the prefix, such as
+  `ProviderAuth`.
 - Default to required properties and required function/mutation/action
   arguments. Treat every optional field or argument as another explicit state
   that must be justified by current behavior, data migration, external input, or
