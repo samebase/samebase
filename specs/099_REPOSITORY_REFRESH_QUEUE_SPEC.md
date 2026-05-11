@@ -287,7 +287,9 @@ Behavior:
 
 - authenticate user
 - dashboard entry point selects connected, non-deleting vaults for the
-  authenticated user
+  authenticated user in bounded backend pages
+- dashboard page cursor is opaque backend pagination state; callers never pass
+  vault ids
 - manual entry point loads one requested vault and blocks if deleting
 - source setup entry point derives mode from the provisioning run
 - build typed demand
@@ -352,10 +354,13 @@ Implementation shape:
 Implemented shape:
 
 - `repositoryRefresh.enqueueDashboardRepositoryRefresh`
-  - accepts only `trigger`
+  - accepts `trigger` and an opaque `cursor`
   - caller does not pass `vaultIds`
-  - selects up to 50 connected, non-deleting vaults for the authenticated user
-  - returns one enqueue result per selected vault
+  - selects up to 50 connected, non-deleting vaults per page for the
+    authenticated user
+  - returns one enqueue result per selected vault plus `isDone` and
+    `continueCursor`
+  - frontend repeats with `continueCursor` until `isDone`
 - `repositoryRefresh.enqueueManualRepositoryRefresh`
 - `repositoryRefresh.enqueueSourceSetupRepositoryRefresh`
   - derives `mode` from `appProvisioningRuns.trigger`

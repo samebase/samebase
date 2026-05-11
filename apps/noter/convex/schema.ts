@@ -392,7 +392,11 @@ export default defineSchema({
    */
   vaults: defineTable(VaultRow)
     .index("by_userId", ["userId"])
-    .index("by_userId_and_state", ["userId", "state"])
+    .index("by_userId_and_state_and_deletion_state", [
+      "userId",
+      "state",
+      "deletion.state",
+    ])
     .index("by_userId_and_ghRepoId", ["userId", "ghRepoId"])
     .index("by_owner_and_name", ["owner", "name"]),
 

@@ -20,7 +20,7 @@ import {
   type RepositoryRefreshDemand,
 } from "./repositoryRefreshModel";
 
-const { array, id, literal, object, union } = v;
+const { array, boolean, id, literal, null: vNull, object, string, union } = v;
 
 /**
  * Source setup mode stored on demand rows.
@@ -34,14 +34,19 @@ const vSourceSetupRepositoryRefreshMode = union(
 
 /**
  * Dashboard enqueue returns one coalescing result per backend-selected vault.
- * The browser does not pass vault ids for this entry point.
+ * The browser does not pass vault ids for this entry point; it may pass only
+ * the opaque continuation cursor returned by the previous page.
  */
-const vEnqueueDashboardRepositoryRefreshResult = array(
-  object({
-    vaultId: id("vaults"),
-    result: vEnqueueRepositoryRefreshResult,
-  }),
-);
+const vEnqueueDashboardRepositoryRefreshResult = object({
+  results: array(
+    object({
+      vaultId: id("vaults"),
+      result: vEnqueueRepositoryRefreshResult,
+    }),
+  ),
+  isDone: boolean(),
+  continueCursor: union(string(), vNull()),
+});
 type EnqueueDashboardRepositoryRefreshResult = Infer<
   typeof vEnqueueDashboardRepositoryRefreshResult
 >;
@@ -58,24 +63,42 @@ type EnqueueRepositoryRefreshArgs = {
 
 type ActiveRepositoryRefreshState = "queued" | "running";
 
+type DashboardRefreshVaultPage = {
+  vaultIds: Id<"vaults">[];
+  isDone: boolean;
+  continueCursor: string | null;
+};
+
 /**
- * Selects the vault set implied by one dashboard freshness signal.
+ * Selects one page of vaults implied by a dashboard freshness signal.
  * Example: a page load from user A can enqueue user A's connected vaults only;
- * ids for user B are not accepted from the browser at all.
+ * ids for user B are not accepted from the browser at all. The continuation
+ * cursor is opaque backend state, not a caller-selected vault list.
  */
-async function selectDashboardRefreshVaultIds(
+async function selectDashboardRefreshVaultPage(
   ctx: MutationCtx,
-  userId: Id<"users">,
-): Promise<Id<"vaults">[]> {
-  const connectedVaults = await ctx.db
+  args: {
+    userId: Id<"users">;
+    cursor: string | null;
+  },
+): Promise<DashboardRefreshVaultPage> {
+  const page = await ctx.db
     .query("vaults")
-    .withIndex("by_userId_and_state", (q) =>
-      q.eq("userId", userId).eq("state", "connected"),
+    .withIndex("by_userId_and_state_and_deletion_state", (q) =>
+      q
+        .eq("userId", args.userId)
+        .eq("state", "connected")
+        .eq("deletion.state", "not_deleting"),
     )
-    .take(MAX_DASHBOARD_REFRESH_DEMAND_VAULTS);
-  return connectedVaults
-    .filter((vault) => vault.deletion.state === "not_deleting")
-    .map((vault) => vault._id);
+    .paginate({
+      cursor: args.cursor,
+      numItems: MAX_DASHBOARD_REFRESH_DEMAND_VAULTS,
+    });
+  return {
+    vaultIds: page.page.map((vault) => vault._id),
+    isDone: page.isDone,
+    continueCursor: page.isDone ? null : page.continueCursor,
+  };
 }
 
 /**
@@ -246,14 +269,15 @@ async function enqueueRepositoryRefresh(
 /**
  * Public dashboard auto-refresh signal.
  *
- * The browser passes only `trigger`; Convex selects up to
- * `MAX_DASHBOARD_REFRESH_DEMAND_VAULTS` connected, non-deleting vaults for the
+ * The browser passes `trigger` plus an opaque cursor from the previous response.
+ * Convex selects the next page of connected, non-deleting vaults for the
  * authenticated user and enqueues repository-level demand for each selected
- * vault.
+ * vault. The browser owns the loop; Convex owns which vault ids each page means.
  */
 export const enqueueDashboardRepositoryRefresh = mutation({
   args: object({
     trigger: vRepositoryRefreshBrowserTrigger,
+    cursor: union(string(), vNull()),
   }),
   returns: vEnqueueDashboardRepositoryRefreshResult,
   handler: async (
@@ -265,9 +289,12 @@ export const enqueueDashboardRepositoryRefresh = mutation({
       throw new Error("User not authenticated");
     }
 
-    const results: EnqueueDashboardRepositoryRefreshResult = [];
-    const vaultIds = await selectDashboardRefreshVaultIds(ctx, userId);
-    for (const vaultId of vaultIds) {
+    const results: EnqueueDashboardRepositoryRefreshResult["results"] = [];
+    const page = await selectDashboardRefreshVaultPage(ctx, {
+      userId,
+      cursor: args.cursor,
+    });
+    for (const vaultId of page.vaultIds) {
       results.push({
         vaultId,
         result: await enqueueRepositoryRefresh(ctx, {
@@ -281,7 +308,11 @@ export const enqueueDashboardRepositoryRefresh = mutation({
         }),
       });
     }
-    return results;
+    return {
+      results,
+      isDone: page.isDone,
+      continueCursor: page.continueCursor,
+    };
   },
 });
 

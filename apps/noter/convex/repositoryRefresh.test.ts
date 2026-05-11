@@ -125,10 +125,10 @@ async function insertConnectedVaultForUser(
 }
 
 function readSingleDashboardResult(
-  results: (typeof api.repositoryRefresh.enqueueDashboardRepositoryRefresh)["_returnType"],
+  page: (typeof api.repositoryRefresh.enqueueDashboardRepositoryRefresh)["_returnType"],
 ) {
-  expect(results).toHaveLength(1);
-  const entry = results[0];
+  expect(page.results).toHaveLength(1);
+  const entry = page.results[0];
   return entry.result;
 }
 
@@ -141,6 +141,7 @@ describe("repository refresh demand ingest", () => {
         api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
         {
           trigger: "page_load",
+          cursor: null,
         },
       ),
     );
@@ -155,6 +156,7 @@ describe("repository refresh demand ingest", () => {
         api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
         {
           trigger: "visibility",
+          cursor: null,
         },
       ),
     );
@@ -183,10 +185,11 @@ describe("repository refresh demand ingest", () => {
       api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
       {
         trigger: "page_load",
+        cursor: null,
       },
     );
 
-    expect(results).toMatchObject([
+    expect(results.results).toMatchObject([
       {
         vaultId: ids.vaultId,
         result: { kind: "created" },
@@ -221,10 +224,11 @@ describe("repository refresh demand ingest", () => {
       api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
       {
         trigger: "page_load",
+        cursor: null,
       },
     );
 
-    expect(results).toMatchObject([
+    expect(results.results).toMatchObject([
       {
         vaultId: ids.vaultId,
         result: { kind: "created" },
@@ -233,7 +237,7 @@ describe("repository refresh demand ingest", () => {
     await expect(listRefreshRequests(t)).resolves.toHaveLength(1);
   });
 
-  it("bounds backend-selected dashboard vaults", async () => {
+  it("continues backend-selected dashboard vault pages", async () => {
     const { asUser, ids, t } = await createConnectedVault();
     for (let index = 1; index <= MAX_DASHBOARD_REFRESH_DEMAND_VAULTS; index++) {
       await insertConnectedVaultForUser(t, {
@@ -250,12 +254,28 @@ describe("repository refresh demand ingest", () => {
       api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
       {
         trigger: "page_load",
+        cursor: null,
       },
     );
 
-    expect(results).toHaveLength(MAX_DASHBOARD_REFRESH_DEMAND_VAULTS);
+    expect(results.results).toHaveLength(MAX_DASHBOARD_REFRESH_DEMAND_VAULTS);
+    expect(results.isDone).toBe(false);
+    if (!results.continueCursor) {
+      throw new Error("Expected continuation cursor.");
+    }
+    const next = await asUser.mutation(
+      api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
+      {
+        trigger: "page_load",
+        cursor: results.continueCursor,
+      },
+    );
+
+    expect(next.results).toHaveLength(1);
+    expect(next.isDone).toBe(true);
+    expect(next.continueCursor).toBeNull();
     await expect(listRefreshRequests(t)).resolves.toHaveLength(
-      MAX_DASHBOARD_REFRESH_DEMAND_VAULTS,
+      MAX_DASHBOARD_REFRESH_DEMAND_VAULTS + 1,
     );
   });
 
@@ -267,6 +287,7 @@ describe("repository refresh demand ingest", () => {
         api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
         {
           trigger: "page_load",
+          cursor: null,
         },
       ),
     );
@@ -314,6 +335,7 @@ describe("repository refresh demand ingest", () => {
         api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
         {
           trigger: "page_load",
+          cursor: null,
         },
       ),
     );
@@ -357,6 +379,7 @@ describe("repository refresh demand ingest", () => {
         api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
         {
           trigger: "page_load",
+          cursor: null,
         },
       ),
     );
@@ -384,6 +407,7 @@ describe("repository refresh demand ingest", () => {
         api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
         {
           trigger: "visibility",
+          cursor: null,
         },
       ),
     );
@@ -412,8 +436,13 @@ describe("repository refresh demand ingest", () => {
     await expect(
       asUser.mutation(api.repositoryRefresh.enqueueDashboardRepositoryRefresh, {
         trigger: "page_load",
+        cursor: null,
       }),
-    ).resolves.toEqual([]);
+    ).resolves.toEqual({
+      results: [],
+      isDone: true,
+      continueCursor: null,
+    });
     await expect(listRefreshRequests(t)).resolves.toHaveLength(0);
   });
 
