@@ -556,7 +556,8 @@ async function scheduleQueuedRepositoryRefreshRequest(
 /**
  * Ingests demand and immediately hands repository-scoped queued rows to
  * Workpool. Already-running/scheduled rows are left alone; already-queued rows
- * are also kicked so rows written before this runner deployed do not stay inert.
+ * are kicked again because enqueue is idempotent and callers should not care
+ * whether this signal created the row or found a queued duplicate.
  */
 async function enqueueAndScheduleRepositoryRefresh(
   ctx: MutationCtx,
@@ -695,7 +696,7 @@ async function finishRunningRepositoryRefreshRequestSucceeded(
 
 /**
  * Loads a scheduled/running row only if the caller still owns the Workpool job.
- * onComplete passes `workpoolJobId` so an old Workpool completion callback
+ * onComplete passes `workpoolJobId` so a stale Workpool completion callback
  * cannot mutate a row that has already been reused or replaced by newer work.
  */
 async function getOwnedActiveRepositoryRefreshRequest(
@@ -793,7 +794,7 @@ export const finishRepositoryRefreshRequestSucceeded = internalMutation({
 
 /**
  * Terminal failure transition used by the action and by Workpool onComplete.
- * workpoolJobId is required for onComplete so an old job cannot fail a newer
+ * workpoolJobId is required for onComplete so a stale job cannot fail a newer
  * owner. The action path omits it because it is the current worker code path.
  */
 export const finishRepositoryRefreshRequestFailed = internalMutation({
@@ -835,7 +836,7 @@ export const finishRepositoryRefreshRequestCanceled = internalMutation({
 });
 
 /**
- * Workpool completion fallback.
+ * Workpool completion handler.
  *
  * The action itself writes success/failure so it can use typed return values.
  * onComplete is still required for worker crashes and component cancellation.
@@ -877,7 +878,7 @@ export const handleRepositoryRefreshComplete = internalMutation({
 /**
  * Workpool action for repository-scoped demand.
  *
- * It re-checks live vault state, lets backend policy choose the old GitHub
+ * It re-checks live vault state, lets backend policy choose the existing GitHub
  * refresh trigger, and records a terminal request lifecycle. Branch demand is
  * intentionally not executed here.
  */

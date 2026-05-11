@@ -268,7 +268,8 @@ Deliberate limits:
 - no retry counters on queued rows
 - expired running leases fail the stale owner; the next demand creates fresh
   work
-- branch/file-view refresh stays on the old direct path
+- internal post-write refresh chooses an explicit repository/branch target
+- branch/file-view refresh stays on the existing direct path in this PR
 - provider-link enrichment stays out of request rows
 
 ## Non-Goals

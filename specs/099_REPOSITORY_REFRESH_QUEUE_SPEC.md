@@ -449,7 +449,9 @@ Behavior:
 - public direct branch refresh accepts `vaultId` plus required branch/options,
   validates `userId + vaultId`, then derives repository coordinates from the
   vault and calls the same internal helper with `scope: "branch"`
-- keep file-view branch refresh on the old direct action for now
+- internal post-write refresh uses explicit `target: { scope: "repository" }` or
+  `target: { scope: "branch"; branch: string }`; no optional branch fallback
+- keep file-view branch refresh on the existing direct action in this PR
 
 Deferred:
 

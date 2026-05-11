@@ -581,11 +581,11 @@ describe("repository refresh demand ingest", () => {
       internal.repositoryRefresh.finishRepositoryRefreshRequestFailed,
       {
         requestId: request._id,
-        workpoolJobId: "older-job",
+        workpoolJobId: "stale-job",
         failure: {
           kind: "provider_error",
           cooldownUntil: 200,
-          message: "Old job failed late.",
+          message: "Stale job failed late.",
         },
       },
     );

@@ -94,6 +94,25 @@ const refreshRepositoryTreeResult = object({
 type RefreshRepositoryTreeResult = Infer<typeof refreshRepositoryTreeResult>;
 type RefreshRepositoryTrigger = Infer<typeof refreshRepositoryTrigger>;
 /**
+ * Internal post-write refresh target.
+ *
+ * repository = refresh repository metadata, then refresh the vault's resolved
+ * branch.
+ *
+ * branch = refresh one concrete branch. Empty branch strings fail instead of
+ * becoming repository-scoped work.
+ */
+const updateRepositoryTreeTarget = union(
+  object({
+    scope: literal("repository"),
+  }),
+  object({
+    scope: literal("branch"),
+    branch: string(),
+  }),
+);
+
+/**
  * Internal GitHub refresh input.
  *
  * repository = no branch was requested; the planner can reconcile repository
@@ -2755,17 +2774,15 @@ export const refreshBranchTree = internalAction({
 /**
  * Internal follow-up after a repository write such as commit, pull, or PR open.
  *
- * A provided branch refreshes that exact branch. A missing branch means
- * "refresh repository metadata if requested, then refresh the vault's resolved
- * default branch"; that is the one intentional branchless state left in this
- * action.
+ * `target` makes the scope explicit: repository-scoped callers refresh metadata
+ * plus the vault's resolved branch; branch-scoped callers refresh one branch.
  */
 export const updateRepositoryTree = internalAction({
   args: {
     userId: id("users"),
     owner: string(),
     repo: string(),
-    branch: optional(string()),
+    target: updateRepositoryTreeTarget,
     includeAheadBehind: boolean(),
     includePullRequestLinks: boolean(),
     includeCloudflarePreviewLinks: boolean(),
@@ -2773,7 +2790,10 @@ export const updateRepositoryTree = internalAction({
   },
   returns: nullValidator(),
   handler: async (ctx, args) => {
-    const targetBranch = normalizeOptionalRepositoryBranch(args.branch);
+    const targetBranch =
+      args.target.scope === "branch"
+        ? normalizeRequiredRepositoryBranch(args.target.branch)
+        : undefined;
     const requestedCloudflarePreviewBranchNames =
       normalizeCloudflarePreviewBranchNames(args.cloudflarePreviewBranchNames);
     // This path runs after app-owned repository writes. Use manual debounce
