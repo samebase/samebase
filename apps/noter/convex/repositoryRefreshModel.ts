@@ -19,6 +19,10 @@ export const vRepositoryRefreshBrowserTrigger = union(
   literal("page_load"),
   literal("visibility"),
 );
+/**
+ * Browser-origin trigger value stored on dashboard and file-view demand.
+ * Use this when the caller can only say why the browser asked for freshness.
+ */
 export type RepositoryRefreshBrowserTrigger = Infer<
   typeof vRepositoryRefreshBrowserTrigger
 >;
@@ -32,6 +36,10 @@ export type RepositoryRefreshBrowserTrigger = Infer<
 export const vRepositoryRefreshManualTrigger = literal(
   "dashboard_status_click",
 );
+/**
+ * Manual trigger value for the dashboard refresh control.
+ * The current UI has one manual trigger; exact backend work stays derived.
+ */
 export type RepositoryRefreshManualTrigger = Infer<
   typeof vRepositoryRefreshManualTrigger
 >;
@@ -54,6 +62,10 @@ export const vRepositoryRefreshPriority = union(
   literal("manual"),
   literal("system"),
 );
+/**
+ * Scheduler lane derived from demand source by `getRepositoryRefreshPriority`.
+ * It is intentionally not persisted on request rows.
+ */
 export type RepositoryRefreshPriority = Infer<
   typeof vRepositoryRefreshPriority
 >;
@@ -76,6 +88,10 @@ export const vDashboardRepositoryRefreshDemand = object({
   source: literal("dashboard"),
   trigger: vRepositoryRefreshBrowserTrigger,
 });
+/**
+ * Repository demand created by passive dashboard signals.
+ * Example: dashboard page load asks the backend to make vault metadata fresh.
+ */
 export type DashboardRepositoryRefreshDemand = Infer<
   typeof vDashboardRepositoryRefreshDemand
 >;
@@ -92,6 +108,10 @@ export const vManualRepositoryRefreshDemand = object({
   source: literal("manual"),
   trigger: vRepositoryRefreshManualTrigger,
 });
+/**
+ * Repository demand created by an explicit dashboard status click.
+ * It upgrades passive dashboard demand because the user requested it directly.
+ */
 export type ManualRepositoryRefreshDemand = Infer<
   typeof vManualRepositoryRefreshDemand
 >;
@@ -112,6 +132,10 @@ export const vSourceSetupRepositoryRefreshDemand = object({
     literal("connect_existing_repository"),
   ),
 });
+/**
+ * Repository demand created by backend setup completion.
+ * The run id and mode are audit context, not caller-selected refresh depth.
+ */
 export type SourceSetupRepositoryRefreshDemand = Infer<
   typeof vSourceSetupRepositoryRefreshDemand
 >;
@@ -128,6 +152,10 @@ export const vFileViewBranchRefreshDemand = object({
   source: literal("file_view"),
   trigger: vRepositoryRefreshBrowserTrigger,
 });
+/**
+ * Branch demand created by opening or resuming a file route.
+ * The branch is required because file freshness is branch-specific.
+ */
 export type FileViewBranchRefreshDemand = Infer<
   typeof vFileViewBranchRefreshDemand
 >;
@@ -144,6 +172,10 @@ export const vManualBranchRefreshDemand = object({
   source: literal("manual"),
   trigger: vRepositoryRefreshManualTrigger,
 });
+/**
+ * Branch demand created by a direct branch refresh click.
+ * It is separate from repository manual demand so dedupe includes the branch.
+ */
 export type ManualBranchRefreshDemand = Infer<
   typeof vManualBranchRefreshDemand
 >;
@@ -158,6 +190,9 @@ export const vCommitBranchRefreshDemand = object({
   branch: string(),
   source: literal("commit"),
 });
+/**
+ * Branch demand created after a local commit changes one branch.
+ */
 export type CommitBranchRefreshDemand = Infer<
   typeof vCommitBranchRefreshDemand
 >;
@@ -173,6 +208,9 @@ export const vPullBranchRefreshDemand = object({
   branch: string(),
   source: literal("pull"),
 });
+/**
+ * Branch demand created after a pull updates one local checkout branch.
+ */
 export type PullBranchRefreshDemand = Infer<typeof vPullBranchRefreshDemand>;
 
 /**
@@ -186,6 +224,10 @@ export const vRepositoryScopeRefreshDemand = union(
   vManualRepositoryRefreshDemand,
   vSourceSetupRepositoryRefreshDemand,
 );
+/**
+ * All demand whose dedupe key is the whole repository.
+ * These states cannot carry `branch`.
+ */
 export type RepositoryScopeRefreshDemand = Infer<
   typeof vRepositoryScopeRefreshDemand
 >;
@@ -202,6 +244,10 @@ export const vBranchScopeRefreshDemand = union(
   vCommitBranchRefreshDemand,
   vPullBranchRefreshDemand,
 );
+/**
+ * All demand whose dedupe key includes one branch name.
+ * These states always carry `branch`.
+ */
 export type BranchScopeRefreshDemand = Infer<typeof vBranchScopeRefreshDemand>;
 
 /**
@@ -216,6 +262,10 @@ export const vRepositoryRefreshDemand = union(
   vRepositoryScopeRefreshDemand,
   vBranchScopeRefreshDemand,
 );
+/**
+ * Caller-facing freshness demand persisted on `repositoryRefreshRequests`.
+ * Backend workers may expand this into several provider/API steps later.
+ */
 export type RepositoryRefreshDemand = Infer<typeof vRepositoryRefreshDemand>;
 
 // MARK: Refresh Lifecycle
@@ -239,6 +289,9 @@ export const vRepositoryRefreshResult = union(
     refreshedAt: number(),
   }),
 );
+/**
+ * Terminal success payload for a completed worker attempt.
+ */
 export type RepositoryRefreshResult = Infer<typeof vRepositoryRefreshResult>;
 
 /**
@@ -259,6 +312,9 @@ export const vRepositoryRefreshFailure = union(
     message: string(),
   }),
 );
+/**
+ * Terminal failure payload plus the retry/cooldown hint the scheduler needs.
+ */
 export type RepositoryRefreshFailure = Infer<typeof vRepositoryRefreshFailure>;
 
 /**
@@ -273,6 +329,9 @@ export const vRepositoryRefreshCancelReason = union(
   literal("vault_deleting"),
   literal("vault_deleted"),
 );
+/**
+ * Why a queued or running request stopped without success/failure.
+ */
 export type RepositoryRefreshCancelReason = Infer<
   typeof vRepositoryRefreshCancelReason
 >;
@@ -316,6 +375,10 @@ export const vRepositoryRefreshLifecycle = union(
     reason: vRepositoryRefreshCancelReason,
   }),
 );
+/**
+ * Durable execution state for one refresh request row.
+ * The union keeps worker-only fields out of queued/terminal states.
+ */
 export type RepositoryRefreshLifecycle = Infer<
   typeof vRepositoryRefreshLifecycle
 >;
@@ -340,6 +403,10 @@ export const vRepositoryRefreshRequest = object({
   createdAt: number(),
   updatedAt: number(),
 });
+/**
+ * Full row shape stored in `repositoryRefreshRequests`.
+ * Use constructors/transitions below instead of assembling this by hand.
+ */
 export type RepositoryRefreshRequest = Infer<typeof vRepositoryRefreshRequest>;
 
 // MARK: Enqueue Results
@@ -383,6 +450,10 @@ export const vEnqueueRepositoryRefreshResult = union(
     reason: literal("vault_deleting"),
   }),
 );
+/**
+ * Public result shape shared by all demand-ingest entry points.
+ * This reports queue/coalescing outcome, not whether refresh work has run.
+ */
 export type EnqueueRepositoryRefreshResult = Infer<
   typeof vEnqueueRepositoryRefreshResult
 >;
@@ -410,6 +481,14 @@ export type MakeRepositoryRefreshRequestArgs = {
 // Priority maps demand source to a backend lane without being duplicated into
 // the row. dedupeKey collapses repeated demand for the same user/vault/scope.
 
+/**
+ * Derives the scheduler lane from demand source.
+ *
+ * Examples:
+ * - dashboard -> background
+ * - file_view -> normal
+ * - source_setup, commit, pull -> system
+ */
 export function getRepositoryRefreshPriority(
   demand: RepositoryRefreshDemand,
 ): RepositoryRefreshPriority {
@@ -451,6 +530,10 @@ function getRepositoryRefreshPriorityRank(
   }
 }
 
+/**
+ * Strict priority comparison used when a queued row already exists.
+ * Equal priority does not rewrite the row; only stronger demand upgrades it.
+ */
 export function isRepositoryRefreshPriorityStronger(args: {
   incoming: RepositoryRefreshPriority;
   existing: RepositoryRefreshPriority;
@@ -461,6 +544,10 @@ export function isRepositoryRefreshPriorityStronger(args: {
   );
 }
 
+/**
+ * Builds the stable key used to find an active queued/running request.
+ * Repository demand ignores source; branch demand includes the branch name.
+ */
 export function deriveRepositoryRefreshDedupeKey(args: {
   userId: RepositoryRefreshRequest["userId"];
   vaultId: RepositoryRefreshRequest["vaultId"];
@@ -484,6 +571,10 @@ export function deriveRepositoryRefreshDedupeKey(args: {
 // They do not choose provider calls, start Workpool jobs, or mutate existing
 // rows. Later phases can insert/upsert the returned row.
 
+/**
+ * Creates a new queued request row from caller demand.
+ * `dedupeKey`, `lifecycle.notBefore`, and timestamps are derived here.
+ */
 export function makeRepositoryRefreshRequest(
   args: MakeRepositoryRefreshRequestArgs,
 ): RepositoryRefreshRequest {
@@ -502,6 +593,10 @@ export function makeRepositoryRefreshRequest(
   };
 }
 
+/**
+ * Replaces a queued row's demand when a stronger request arrives.
+ * Preserves `createdAt` and `queuedAt` so the row keeps its original age.
+ */
 export function upgradeQueuedRepositoryRefreshRequest(
   request: RepositoryRefreshRequest,
   args: {
@@ -535,6 +630,10 @@ function assertPositiveAttempt(attempt: number): void {
   }
 }
 
+/**
+ * Moves a queued request into running state after a Workpool job claims it.
+ * The attempt number must be positive and the worker job id becomes durable.
+ */
 export function markRepositoryRefreshRequestRunning(
   request: RepositoryRefreshRequest,
   args: {
@@ -559,6 +658,10 @@ export function markRepositoryRefreshRequestRunning(
   };
 }
 
+/**
+ * Marks a running request as completed successfully.
+ * Preserves attempt/start time from the running lifecycle state.
+ */
 export function markRepositoryRefreshRequestSucceeded(
   request: RepositoryRefreshRequest,
   args: {
@@ -582,6 +685,9 @@ export function markRepositoryRefreshRequestSucceeded(
   };
 }
 
+/**
+ * Marks a running request as failed with a retry/cooldown-aware failure payload.
+ */
 export function markRepositoryRefreshRequestFailed(
   request: RepositoryRefreshRequest,
   args: {
@@ -605,6 +711,10 @@ export function markRepositoryRefreshRequestFailed(
   };
 }
 
+/**
+ * Cancels queued or running work before normal success/failure.
+ * Terminal requests cannot be canceled again.
+ */
 export function markRepositoryRefreshRequestCanceled(
   request: RepositoryRefreshRequest,
   args: {

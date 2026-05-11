@@ -22,11 +22,20 @@ import {
 
 const { array, id, literal, object, union } = v;
 
+/**
+ * Source setup mode stored on demand rows.
+ * This is derived from `appProvisioningRuns.trigger`, never accepted from a
+ * caller, so setup retries cannot invent a different original setup mode.
+ */
 const vSourceSetupRepositoryRefreshMode = union(
   literal("create_repository"),
   literal("connect_existing_repository"),
 );
 
+/**
+ * Dashboard enqueue returns one coalescing result per backend-selected vault.
+ * The browser does not pass vault ids for this entry point.
+ */
 const vEnqueueDashboardRepositoryRefreshResult = array(
   object({
     vaultId: id("vaults"),
@@ -49,6 +58,11 @@ type EnqueueRepositoryRefreshArgs = {
 
 type ActiveRepositoryRefreshState = "queued" | "running";
 
+/**
+ * Selects the vault set implied by one dashboard freshness signal.
+ * Example: a page load from user A can enqueue user A's connected vaults only;
+ * ids for user B are not accepted from the browser at all.
+ */
 async function selectDashboardRefreshVaultIds(
   ctx: MutationCtx,
   userId: Id<"users">,
@@ -64,6 +78,11 @@ async function selectDashboardRefreshVaultIds(
     .map((vault) => vault._id);
 }
 
+/**
+ * Converts the completed setup run into the durable source_setup mode.
+ * Retry runs are rejected because the original create/connect run defines the
+ * setup meaning.
+ */
 async function getSourceSetupRepositoryRefreshMode(
   run: Doc<"appProvisioningRuns">,
 ): Promise<SourceSetupRepositoryRefreshMode> {
@@ -81,6 +100,11 @@ async function getSourceSetupRepositoryRefreshMode(
   }
 }
 
+/**
+ * Reads one active row for a specific lifecycle state.
+ * Kept separate so `getActiveRepositoryRefreshRequest` can prefer running over
+ * queued if older data ever contains both.
+ */
 async function getActiveRepositoryRefreshRequestForState(
   ctx: MutationCtx,
   args: {
@@ -127,6 +151,13 @@ async function getActiveRepositoryRefreshRequest(
   });
 }
 
+/**
+ * Shared demand-ingest helper for all current entry points.
+ *
+ * It owns the invariant that there is at most one useful active row per
+ * `userId + dedupeKey`: running rows are reused, queued rows upgrade only for
+ * stronger demand, and terminal rows are treated as history.
+ */
 async function enqueueRepositoryRefresh(
   ctx: MutationCtx,
   args: EnqueueRepositoryRefreshArgs,
@@ -212,6 +243,14 @@ async function enqueueRepositoryRefresh(
   }
 }
 
+/**
+ * Public dashboard auto-refresh signal.
+ *
+ * The browser passes only `trigger`; Convex selects up to
+ * `MAX_DASHBOARD_REFRESH_DEMAND_VAULTS` connected, non-deleting vaults for the
+ * authenticated user and enqueues repository-level demand for each selected
+ * vault.
+ */
 export const enqueueDashboardRepositoryRefresh = mutation({
   args: object({
     trigger: vRepositoryRefreshBrowserTrigger,
@@ -246,6 +285,13 @@ export const enqueueDashboardRepositoryRefresh = mutation({
   },
 });
 
+/**
+ * Public manual dashboard refresh for one explicit vault.
+ *
+ * This accepts a vault id because the user clicked one vault's status control.
+ * The shared helper still verifies ownership/deletion state before creating or
+ * upgrading queue state.
+ */
 export const enqueueManualRepositoryRefresh = mutation({
   args: object({
     vaultId: id("vaults"),
@@ -269,6 +315,14 @@ export const enqueueManualRepositoryRefresh = mutation({
   },
 });
 
+/**
+ * Internal setup-completion refresh demand.
+ *
+ * Called after repository create/connect workflow actions finish. It verifies
+ * that the provisioning run belongs to the provided user/vault, derives
+ * create-vs-connect mode from that run, then enqueues repository-level demand
+ * so branch discovery can happen without a dashboard reload.
+ */
 export const enqueueSourceSetupRepositoryRefresh = internalMutation({
   args: object({
     userId: id("users"),
