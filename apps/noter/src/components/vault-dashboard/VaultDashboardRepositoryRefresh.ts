@@ -1,7 +1,7 @@
 import type { api } from "../../../convex/_generated/api";
 import { useCallback, useEffect, useRef } from "react";
 
-type DashboardTreeRefreshTrigger = "visibility" | "page_load";
+type DashboardRepositoryRefreshTrigger = "visibility" | "page_load";
 type EnqueueDashboardRepositoryRefresh = (
   args: (typeof api.repositoryRefresh.enqueueDashboardRepositoryRefresh)["_args"],
 ) => Promise<
@@ -38,8 +38,8 @@ export function useDashboardRepositoryTreeRefresh({
   vaults: VaultDashboardVault[] | undefined;
 }) {
   const enqueueDashboardDemand = useCallback(
-    (trigger: DashboardTreeRefreshTrigger) => {
-      if (!vaults) {
+    (trigger: DashboardRepositoryRefreshTrigger) => {
+      if (!vaults || vaults.length === 0) {
         return;
       }
 
@@ -56,18 +56,8 @@ export function useDashboardRepositoryTreeRefresh({
     [enqueueDashboardRepositoryRefresh, vaults],
   );
 
-  const refreshVaultTreesIfNeeded = useCallback(
-    (trigger: DashboardTreeRefreshTrigger = "visibility") => {
-      if (!vaults || vaults.length === 0) {
-        return;
-      }
-      enqueueDashboardDemand(trigger);
-    },
-    [enqueueDashboardDemand, vaults],
-  );
-
   useVisibleDashboardRepositoryTreeRefresh({
-    refreshVaultTreesIfNeeded,
+    enqueueDashboardDemand,
     vaults,
   });
 
@@ -98,10 +88,10 @@ export function useDashboardRepositoryTreeRefresh({
  * Emits one backend demand signal for visible page load and tab resume.
  */
 function useVisibleDashboardRepositoryTreeRefresh({
-  refreshVaultTreesIfNeeded,
+  enqueueDashboardDemand,
   vaults,
 }: {
-  refreshVaultTreesIfNeeded: (trigger?: DashboardTreeRefreshTrigger) => void;
+  enqueueDashboardDemand: (trigger: DashboardRepositoryRefreshTrigger) => void;
   vaults: VaultDashboardVault[] | undefined;
 }) {
   const initialDashboardPageLoadSentRef = useRef(false);
@@ -116,7 +106,7 @@ function useVisibleDashboardRepositoryTreeRefresh({
         return;
       }
       initialDashboardPageLoadSentRef.current = true;
-      refreshVaultTreesIfNeeded("page_load");
+      enqueueDashboardDemand("page_load");
     };
 
     const handleVisibilityChange = () => {
@@ -129,7 +119,7 @@ function useVisibleDashboardRepositoryTreeRefresh({
         return;
       }
 
-      refreshVaultTreesIfNeeded("visibility");
+      enqueueDashboardDemand("visibility");
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -141,5 +131,5 @@ function useVisibleDashboardRepositoryTreeRefresh({
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [refreshVaultTreesIfNeeded, vaults]);
+  }, [enqueueDashboardDemand, vaults]);
 }

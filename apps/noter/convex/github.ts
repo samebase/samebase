@@ -93,6 +93,15 @@ const refreshRepositoryTreeResult = object({
 });
 type RefreshRepositoryTreeResult = Infer<typeof refreshRepositoryTreeResult>;
 type RefreshRepositoryTrigger = Infer<typeof refreshRepositoryTrigger>;
+/**
+ * Internal GitHub refresh input.
+ *
+ * repository = no branch was requested; the planner can reconcile repository
+ * metadata and then refresh the default branch when policy wants it.
+ *
+ * branch = one route/operation requested one concrete branch. Empty branch
+ * strings fail before the planner can silently fall back to default-branch work.
+ */
 const refreshRepositoryTreeForUserInput = union(
   object({
     scope: literal("repository"),
@@ -569,10 +578,7 @@ export function computeRepositoryTreeMetadataSyncPlan(args: {
   const includePullRequestLinks =
     args.includePullRequestLinks || args.includeCloudflarePreviewLinks;
   const shouldSyncMetadata =
-    isRepoScoped ||
-    includeAheadBehind ||
-    includePullRequestLinks ||
-    args.includeCloudflarePreviewLinks;
+    isRepoScoped || includeAheadBehind || includePullRequestLinks;
 
   return applyRepositoryTreeMetadataSyncBudget({
     shouldSyncMetadata,
@@ -2266,6 +2272,15 @@ export const getRepositoryMediaAsset = action({
   },
 });
 
+/**
+ * Shared refresh planner for the old direct file-view action and the new
+ * Workpool runner.
+ *
+ * It claims the existing vault refresh lock once, runs metadata/tree work chosen
+ * from the scope and trigger, then always releases or records failure on that
+ * same claim. The caller chooses repository vs branch scope; this helper chooses
+ * provider/API depth.
+ */
 async function refreshRepositoryTreeForUserHelper(
   ctx: ActionCtx,
   args: RefreshRepositoryTreeForUserArgs,
@@ -2277,8 +2292,7 @@ async function refreshRepositoryTreeForUserHelper(
       : undefined;
   const requestedCloudflarePreviewBranchNames =
     normalizeCloudflarePreviewBranchNames(args.cloudflarePreviewBranchNames);
-  const includeCloudflarePreviewLinks =
-    args.includeCloudflarePreviewLinks === true;
+  const includeCloudflarePreviewLinks = args.includeCloudflarePreviewLinks;
 
   const repositoryFullName = `${args.owner}/${args.repo}`;
   const readVault = async (branch: string | undefined) =>

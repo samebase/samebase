@@ -190,20 +190,6 @@ async function markExpiredRunningRepositoryRefreshRequestFailed(
   });
 }
 
-function throwBlockedSourceSetupRefresh(args: {
-  runId: Id<"appProvisioningRuns">;
-  userId: Id<"users">;
-  vaultId: Id<"vaults">;
-  reason: Extract<
-    EnqueueRepositoryRefreshResult,
-    { kind: "blocked" }
-  >["reason"];
-}): never {
-  throw new Error(
-    `Source setup refresh blocked after existing repository connection: reason=${args.reason}, runId=${args.runId}, userId=${args.userId}, vaultId=${args.vaultId}.`,
-  );
-}
-
 /**
  * Selects one internal page of vaults implied by a dashboard freshness signal.
  * Example: a page load from user A can enqueue user A's connected vaults only;
@@ -286,9 +272,9 @@ async function enqueueDashboardRepositoryRefreshPageForUser(
  * Retry runs are rejected because the original create/connect run defines the
  * setup meaning.
  */
-async function getSourceSetupRepositoryRefreshMode(
+function getSourceSetupRepositoryRefreshMode(
   run: Doc<"appProvisioningRuns">,
-): Promise<SourceSetupRepositoryRefreshMode> {
+): SourceSetupRepositoryRefreshMode {
   switch (run.trigger) {
     case "create":
       return "create_repository";
@@ -301,6 +287,21 @@ async function getSourceSetupRepositoryRefreshMode(
       throw new Error("Unsupported source setup run trigger.");
     }
   }
+}
+
+/**
+ * Only stronger demand rewrites an active queued/scheduled row.
+ * Equal priority coalesces so repeated dashboard visibility signals do not
+ * churn `updatedAt` or reschedule Workpool work.
+ */
+function shouldUpgradeRepositoryRefreshDemand(args: {
+  incoming: RepositoryRefreshDemand;
+  existing: RepositoryRefreshDemand;
+}): boolean {
+  return isRepositoryRefreshPriorityStronger({
+    incoming: getRepositoryRefreshPriority(args.incoming),
+    existing: getRepositoryRefreshPriority(args.existing),
+  });
 }
 
 /**
@@ -429,14 +430,10 @@ async function enqueueRepositoryRefresh(
         requestId: activeRequest._id,
       };
     case "scheduled": {
-      const incomingPriority = getRepositoryRefreshPriority(args.demand);
-      const existingPriority = getRepositoryRefreshPriority(
-        activeRequest.demand,
-      );
       if (
-        !isRepositoryRefreshPriorityStronger({
-          incoming: incomingPriority,
-          existing: existingPriority,
+        !shouldUpgradeRepositoryRefreshDemand({
+          incoming: args.demand,
+          existing: activeRequest.demand,
         })
       ) {
         return {
@@ -460,14 +457,10 @@ async function enqueueRepositoryRefresh(
       };
     }
     case "queued": {
-      const incomingPriority = getRepositoryRefreshPriority(args.demand);
-      const existingPriority = getRepositoryRefreshPriority(
-        activeRequest.demand,
-      );
       if (
-        !isRepositoryRefreshPriorityStronger({
-          incoming: incomingPriority,
-          existing: existingPriority,
+        !shouldUpgradeRepositoryRefreshDemand({
+          incoming: args.demand,
+          existing: activeRequest.demand,
         })
       ) {
         return {
@@ -1059,7 +1052,7 @@ export const enqueueSourceSetupRepositoryRefresh = internalMutation({
       throw new Error("Source setup run has not succeeded.");
     }
 
-    const mode = await getSourceSetupRepositoryRefreshMode(run);
+    const mode = getSourceSetupRepositoryRefreshMode(run);
     return await enqueueAndScheduleRepositoryRefresh(ctx, {
       userId: args.userId,
       vaultId: args.vaultId,
@@ -1147,12 +1140,9 @@ export const completeExistingRepositoryConnectionAndEnqueueRefresh =
         },
       });
       if (result.kind === "blocked") {
-        throwBlockedSourceSetupRefresh({
-          runId: args.runId,
-          userId: args.userId,
-          vaultId: args.vaultId,
-          reason: result.reason,
-        });
+        throw new Error(
+          `Source setup refresh blocked after existing repository connection: reason=${result.reason}, runId=${args.runId}, userId=${args.userId}, vaultId=${args.vaultId}.`,
+        );
       }
       return result;
     },
