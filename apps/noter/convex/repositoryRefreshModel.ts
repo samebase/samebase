@@ -8,7 +8,7 @@ const { boolean, id, literal, number, object, string, union } = v;
  * Provider-specific link parser used by refresh work.
  *
  * Today this means "read Cloudflare Pages URLs from GitHub PR comments". A
- * future CodeRabbit/Vercel/etc parser should add a new literal here and its own
+ * future CodeRabbit/Netlify/etc parser should add a new literal here and its own
  * worker path instead of making Cloudflare behavior generic by accident.
  */
 export const RepositoryRefreshLinkProvider = union(

@@ -440,6 +440,8 @@ Detailed flow rules live in `docs/agent-workflows.md`.
 - Assume Cloudflare is the default front door and observability layer for
   `noter.md`, and keep application logic in Convex by default unless there is a
   clear reason not to.
+- Never use Vercel as an example provider or integration. Use Netlify when a
+  non-Cloudflare deploy/preview provider example is needed.
 - Prefer shell commands first and Node/ECMAScript second; do not reach for
   Python first in this repo.
 - Use template literals instead of arrays joined with `'\n'` for multi-line
