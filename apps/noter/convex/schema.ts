@@ -441,8 +441,8 @@ export default defineSchema({
   }).index("by_vault_and_branch", ["vaultId", "branch"]),
 
   /**
-   * Durable refresh intent and worker status. Each row is one work unit so
-   * branch/tree/link states stay explicit instead of becoming optional fields.
+   * Durable freshness demand and worker status. Each row is one repository- or
+   * branch-scoped demand; exact refresh steps stay backend execution policy.
    */
   repositoryRefreshRequests: defineTable(vRepositoryRefreshRequest)
     .index("by_userId_and_dedupeKey", ["userId", "dedupeKey"])

@@ -301,6 +301,8 @@ Accepted enqueue policy:
 - terminal rows are history; a new matching demand creates a new row
 - running rows are reused unchanged
 - queued rows are updated only when incoming demand has stronger priority
+- queued-row upgrades replace `demand`, set `lifecycle.notBefore = now`, set
+  `updatedAt = now`, and preserve `createdAt` plus `lifecycle.queuedAt`
 - weaker or equal queued duplicates return the existing queued row without a
   write
 - deletion returns `blocked`; do not create a canceled request row for work that
