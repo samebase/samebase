@@ -1,507 +1,272 @@
-# Dashboard Reload Queue Research
+# Dashboard Reload Sync Workpool Research
 
 ## Document Control
 
-- Status: Draft research
+- Status: Simplified research
 - Owner: dashboard reload, GitHub sync, branch cache freshness
 - Created: 2026-05-09
-- Rewritten: 2026-05-11
+- Simplified: 2026-05-11
+- Authoritative implementation spec:
+  - `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
 - Related specs:
-  - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
-  - `specs/070_GITHUB_SYNC_PHASED_ROLLOUT_SPEC.md`
-  - `specs/079_DASHBOARD_UPDATED_STATUS_MANUAL_REFRESH_SPEC.md`
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
   - `specs/097_EXISTING_REPOSITORY_WORKFLOW_ONBOARDING_SPEC.md`
   - `specs/098_VAULT_DELETION_WORKFLOW_SPEC.md`
 
-## Short Answer
+## Core Rule
 
-The refresh system should be optimized for clarity first.
+- Frontend reports demand.
+- Backend owns supply.
+- Spec 099 owns the implementation shape.
 
-The product rule:
+Research explains why. Spec 099 defines what to build.
 
-- frontend reports demand
-- backend schedules supply
+## Merge-Critical Fixes From Review
 
-The code shape should make that rule obvious from one top-level module. That
-module should read like Workflow definitions do: a small set of named steps that
-show how refresh intent becomes refresh work, without requiring the reader to
-open every GitHub or Convex helper.
+These are the five points that must stay true before merging this PR.
 
-## Scope Classification
+### 1. No Superseded State Model
 
-### Important Now
+Do not keep or reintroduce the old request model.
 
-These are implementation constraints for the first queue work:
+Request rows must not store:
 
-- Start from the persisted state model.
-  - Write the logical TypeScript type first.
-  - Then encode the same shape in Convex validators.
-  - Prefer unions that make invalid request states unrepresentable.
-- Create a durable refresh intent/request model.
-- Let all relevant entry points enqueue bounded intent:
-  - dashboard page load / visibility
-  - dashboard manual refresh
-  - existing-repository connection completion
-  - later-compatible sources such as file view, commit, and pull
-- Keep the backend responsible for deciding:
-  - what work runs
-  - when it runs
-  - whether expensive enrichment is included
-- Use Workpool for bounded execution of refresh jobs.
-- Keep Workflow for lifecycle operations:
-  - create a new Noter-managed vault
-  - connect an existing GitHub repository
-  - delete a vault
-- Split the mental model of "refresh" into work units:
-  - repository metadata sync
-  - branch tree refresh
-  - link enrichment
-- Make manual refresh a priority signal, not an unconditional provider call.
-- Preserve the deletion gate and provider cooldown/rate-limit behavior.
+- `work`
+- `priority`
+- metadata depth
+- ahead/behind settings
+- provider/comment parser
 
-### Important Later
+Those are backend execution policy, not caller state.
 
-These are likely follow-ups after the first queue proves itself:
-
-- Move file-view automatic refresh into the same queue.
-- Move post-commit and pull cache refresh into the same queue if it stays clear.
-- Split repository metadata, branch tree, and link enrichment into separate job
-  types if the first combined worker gets hard to reason about.
-- Move high-churn refresh status off `vaults`.
-- Add dashboard summary rows if `getUserVaults` remains too expensive.
-- Add queue/backlog observability.
-
-### Future Pressure, Not Current Scope
-
-These ideas should influence boundaries, but should not be built now:
-
-- Running refresh work in a user's own Convex deployment.
-- Packaging refresh execution as a Convex component.
-- User-configurable plugins.
-- A generic provider framework.
-
-The only current lesson from those future ideas is single responsibility:
-refresh orchestration should have a narrow input/output contract so it can be
-moved later if that ever becomes useful.
-
-### Not Needed Now
-
-Avoid these in the first implementation:
-
-- One Workpool per user, vault, or branch.
-- A new Workflow for every refresh.
-- A broad plugin system.
-- A full dashboard query rewrite.
-- A full replacement of existing vault refresh status fields.
-- Speculative provider abstractions beyond the known work units.
-
-## Clarity-Oriented Code Shape
-
-Create one top-level refresh orchestration module. Exact file name can change,
-but the purpose should be stable.
-
-Suggested module:
-
-- `apps/noter/convex/repositoryRefresh.ts`
-
-The file should answer, at a glance:
-
-- What can ask for refresh?
-- What work units can refresh perform?
-- How are duplicate requests coalesced?
-- How does priority work?
-- What does the worker execute?
-- What status does the UI read?
-
-The top-level code should look conceptually like this:
+The request row stores demand:
 
 ```ts
-const refreshSystem = {
-  makeRequest,
-  ingestIntent,
-  chooseWork,
-  enqueueWorkpoolJob,
-  runWorker,
-  finishRequest,
-};
-```
-
-The implementation does not need this exact object. The point is that the file
-should read as a system map. Lower-level details can live elsewhere:
-
-- GitHub calls stay in GitHub-specific helpers.
-- Vault cache writes stay in vault-specific helpers.
-- Workpool plumbing stays small and explicit.
-- Policy calculation gets one named helper instead of scattered checks.
-
-Prefer explicit closed unions over a generic framework:
-
-- intent source:
-  - `dashboard`
-  - `manual`
-  - `source_setup`
-  - `file_view`
-  - `commit`
-  - `pull`
-- work kind:
-  - `repo_metadata`
-  - `branch_tree`
-  - `link_enrichment`
-
-If a reader opens the orchestration file, they should understand the refresh
-system before they understand Octokit, Cloudflare comments, or Workpool
-internals.
-
-## State Model
-
-Start with the persisted state. The Convex schema can use validators, but this
-is the logical TypeScript shape the validators should encode.
-
-One request row should represent one work unit. If one entry point needs
-metadata and branch tree refresh, it should create or coalesce two request rows.
-That keeps impossible combinations out of the row.
-
-```ts
-type RepositoryRefreshRequest =
-  | (RepositoryRefreshRequestBase & {
-      state: "queued";
-      notBefore: number;
-      queuedAt: number;
-    })
-  | (RepositoryRefreshRequestBase & {
-      state: "running";
-      attempt: number;
-      startedAt: number;
-      workpoolJobId: string;
-    })
-  | (RepositoryRefreshRequestBase & {
-      state: "succeeded";
-      attempt: number;
-      startedAt: number;
-      completedAt: number;
-      result: RepositoryRefreshResult;
-    })
-  | (RepositoryRefreshRequestBase & {
-      state: "failed";
-      attempt: number;
-      startedAt: number;
-      failedAt: number;
-      failure: RepositoryRefreshFailure;
-    })
-  | (RepositoryRefreshRequestBase & {
-      state: "canceled";
-      canceledAt: number;
-      reason: RepositoryRefreshCancelReason;
-    });
-
-type RepositoryRefreshRequestBase = {
+type RepositoryRefreshRequest = {
   userId: Id<"users">;
   vaultId: Id<"vaults">;
-  intent: RepositoryRefreshIntent;
-  work: RepositoryRefreshWork;
-  priority: RepositoryRefreshPriority;
+  dedupeKey: string;
+  demand: RepositoryRefreshDemand;
+  lifecycle: RepositoryRefreshLifecycle;
   createdAt: number;
   updatedAt: number;
 };
 
-type RepositoryRefreshIntent =
+type RepositoryRefreshDemand =
+  | RepositoryScopeRefreshDemand
+  | BranchScopeRefreshDemand;
+```
+
+### 2. Spec 099 Is Authoritative
+
+If this research and Spec 099 conflict, Spec 099 wins.
+
+The accepted state model is:
+
+```ts
+type RepositoryScopeRefreshDemand =
   | {
+      scope: "repository";
       source: "dashboard";
       trigger: "page_load" | "visibility";
     }
   | {
+      scope: "repository";
       source: "manual";
       trigger: "dashboard_status_click";
     }
   | {
+      scope: "repository";
       source: "source_setup";
       runId: Id<"appProvisioningRuns">;
       mode: "create_repository" | "connect_existing_repository";
-    }
+    };
+
+type BranchScopeRefreshDemand =
   | {
+      scope: "branch";
+      branch: string;
       source: "file_view";
       trigger: "page_load" | "visibility";
     }
   | {
+      scope: "branch";
+      branch: string;
+      source: "manual";
+      trigger: "dashboard_status_click";
+    }
+  | {
+      scope: "branch";
+      branch: string;
       source: "commit";
     }
   | {
+      scope: "branch";
+      branch: string;
       source: "pull";
     };
-
-type RepositoryRefreshWork =
-  | {
-      kind: "repo_metadata";
-      enrichment: RepositoryMetadataEnrichment;
-    }
-  | {
-      kind: "branch_tree";
-      branch: string;
-    }
-  | {
-      kind: "link_enrichment";
-      branch: string;
-      provider: RepositoryRefreshLinkProvider;
-    };
-
-type RepositoryMetadataEnrichment =
-  | {
-      kind: "none";
-    }
-  | {
-      kind: "pull_request_metadata";
-      includeAheadBehind: boolean;
-    };
-
-type RepositoryRefreshLinkProvider = "cloudflare_pages_comments";
-
-type RepositoryRefreshPriority = "background" | "normal" | "manual" | "system";
-
-type RepositoryRefreshResult =
-  | {
-      kind: "no_work_needed";
-    }
-  | {
-      kind: "refreshed";
-      refreshedAt: number;
-    };
-
-type RepositoryRefreshFailure =
-  | {
-      kind: "rate_limited";
-      retryAfter: number;
-      message: string;
-    }
-  | {
-      kind: "provider_error";
-      cooldownUntil: number;
-      message: string;
-    };
-
-type RepositoryRefreshCancelReason =
-  | "superseded"
-  | "vault_deleting"
-  | "vault_deleted";
 ```
 
-This type intentionally avoids these impossible states:
+This prevents:
 
-- `branch_tree` without a branch
-- `link_enrichment` without a branch and provider
-- `source_setup` without the run that caused it
-- `queued` with a Workpool job id
-- `running` without an attempt and start time
-- `succeeded` without a result
-- `failed` without a failure kind
+- dashboard demand with a branch
+- file-view demand without a branch
+- commit demand without a branch
+- pull demand without a branch
+- source-setup demand without a provisioning run
 
-Implementation notes:
+### 3. Dedupe Shape Is Explicit
 
-- If Convex needs an indexed string key, store a derived `dedupeKey`, but do not
-  let callers pass it by hand.
-- Build requests through one constructor/helper so `dedupeKey`, `priority`, and
-  `notBefore` stay consistent with `intent` and `work`.
-- Define Convex result validators before handlers, then derive TypeScript types
-  from those validators in the final implementation.
+Callers never pass `dedupeKey`.
+
+The backend derives it from `userId`, `vaultId`, and demand scope:
+
+| Scope        | Key shape                              |
+| ------------ | -------------------------------------- |
+| `repository` | `user:{id}:vault:{id}:repository`      |
+| `branch`     | `user:{id}:vault:{id}:branch:{branch}` |
+
+Active row rule:
+
+- active = `queued` or `running`
+- one active row per `userId + dedupeKey`
+- terminal rows are history
+- running rows are reused
+- queued rows upgrade only when incoming demand has stronger priority
+
+### 4. Workpool Questions Move To The Workpool PR
+
+This PR records demand. It does not execute queued rows.
+
+The Workpool PR must decide these before implementation:
+
+- stale `running` recovery
+  - Example: worker starts, process crashes, row remains `running`.
+- retry semantics
+  - Example: provider rate-limits; decide attempt count, backoff, and final
+    failure state.
+- terminal row retention
+  - Example: keep recent success/failure rows for debugging, then prune.
+- result audit detail
+  - Example: decide whether `result.refreshed` should include executed steps.
+- pool topology
+  - Example: one pool with priority/notBefore, or separate interactive and
+    background pools.
+
+Default for the next PR: start with the smallest Workpool shape that executes
+repository demand clearly. Split only when the implementation proves one pool is
+unclear or unfair.
+
+### 5. Future Pressure Stays Deferred
+
+Do not add current state for operations that do not exist.
+
+Deferred:
+
+- `user_canceled`
+  - No cancel UI or admin operation exists.
+- free/paid thresholds
+  - Pricing policy is not part of this PR.
+- generic provider plugins
+  - Provider parsing stays internal.
+- extra provider parsers
+  - Cloudflare Pages comments can be first; Netlify or CodeRabbit-style parsers
+    can be added later as internal handlers.
+- self-hosted/user Convex execution
+  - This only pushes us toward narrow boundaries now.
 
 ## Current Entry Points
 
-| Entry point                      | Current behavior                                                            | Queue behavior                                                   |
-| -------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Dashboard page load / visibility | React batches direct `refreshRepositoryTree` calls                          | Enqueue bounded dashboard intent                                 |
-| Dashboard manual refresh         | "Updated ..." click calls direct refresh                                    | Enqueue higher-priority manual intent                            |
-| Existing repository connect      | Workflow syncs default branch tree, but branch list may require page reload | Enqueue `source_setup` metadata refresh when connection finishes |
-| File view page load / visibility | Direct refresh for active branch                                            | Later: enqueue branch-scoped intent                              |
-| Commit / pull paths              | Direct cache refresh or shared lock usage                                   | Later: enqueue high-priority branch intent if clear              |
+| Entry point                      | Current code                  | Queue direction                      |
+| -------------------------------- | ----------------------------- | ------------------------------------ |
+| Dashboard page load / visibility | frontend signals freshness    | backend selects user vaults          |
+| Dashboard manual refresh         | one explicit vault demand     | backend priority policy              |
+| Existing repo connect finish     | workflow completion           | backend enqueues source-setup demand |
+| File view page load / visibility | direct branch refresh remains | later branch demand                  |
+| Commit / pull                    | direct cache refresh remains  | later branch demand if clearer       |
 
-Important existing functions:
+Important current files:
 
-- `VaultDashboardRepositoryRefresh.ts`
-  - `useVisibleDashboardRepositoryTreeRefresh`
-  - `refreshVaultTreesIfNeeded`
-- `VaultLastUpdatedStatus.tsx`
-- `FileView.tsx`
-  - `refreshTreeIfNeeded`
-- `appProvisioningWorkflow.ts`
-  - `connectExistingRepository`
-- `appProvisioningWorkflowActions.ts`
-  - `syncVaultTreeForRepository`
-  - `finishExistingRepositoryConnection`
-- `github.ts`
-  - `refreshRepositoryTree`
-  - `syncRepositoryMetadata`
-  - `refreshBranchTree`
-- `vault.ts`
-  - `claimTreeRefresh`
-  - `releaseTreeRefresh`
-  - `recordTreeRefreshFailure`
-  - `syncVaultRemoteBranches`
-  - `upsertVaultBranchTree`
+- `apps/noter/convex/repositoryRefreshModel.ts`
+  - state validators
+  - constructors
+  - priority derivation
+  - dedupe derivation
+- `apps/noter/convex/repositoryRefresh.ts`
+  - demand ingest
+  - dashboard backend fan-out
+  - source setup enqueue
+- `apps/noter/convex/appProvisioningWorkflowActions.ts`
+  - existing-repository completion enqueue
 
-## Refresh Work Units
+## Backend Execution Policy
 
-Refresh intent is cheap.
+Demand can later expand into internal steps:
 
-- It records that some surface wants fresher data.
-- It can be emitted by many tabs or machines.
-- It should be rate-limited enough to avoid accidental spam.
-- It should not imply provider work must run immediately.
+```ts
+type RepositoryRefreshStep =
+  | "discover_branches"
+  | "sync_pull_requests"
+  | "sync_branch_tree"
+  | "sync_provider_links";
+```
 
-Repository metadata sync is expensive but broad.
+Steps are not caller choices and are not request-row fields.
 
-- Updates `vaultRemoteBranches`.
-- Discovers branch list, default branch changes, upstream deletions, timestamps.
-- May include pull request metadata.
-- May include ahead/behind.
-- Does not parse preview/comment links; those enter through `link_enrichment`.
-- Should be budgeted for branch-heavy repositories.
+Examples:
 
-Branch tree refresh is expensive and narrow.
+- dashboard demand may run branch discovery
+- source-setup demand may run repository metadata sync
+- branch demand may run tree refresh
+- provider-link refresh may parse Cloudflare Pages comments
 
-- Updates `vaultBranchTrees`.
-- Fetches recursive GitHub tree data for one branch.
-- Should usually be branch-scoped.
-- Should not run only because metadata refreshed.
+## Manual Refresh Meaning
 
-Link enrichment is optional.
-
-- Current source: Cloudflare Pages links from PR comments.
-- Possible future source: CodeRabbit comments or another deployment bot.
-- Should be developer-extensible through a closed internal dispatch.
-- Should not be a user plugin system.
-
-## Proposed Backend Flow
-
-Ingest:
-
-- authenticate user
-- load vault
-- reject or no-op if deletion is active
-- build a typed `RepositoryRefreshRequest`
-- derive the dedupe key from `intent` and `work`
-- coalesce by the derived dedupe key
-- return request status
-
-Choose work:
-
-- inspect queued/running requests for the same user/vault/branch
-- apply cooldowns and GitHub rate-limit state
-- apply free/paid policy
-- decide priority and `notBefore`
-- decide which work units to run now
-
-Execute:
-
-- Workpool worker re-reads the request
-- worker re-checks vault state and deletion gate
-- worker claims the current vault refresh lock
-- worker runs selected metadata/tree/enrichment helpers
-- worker writes cache updates
-- worker records status
-
-Finish:
-
-- clear running state
-- preserve existing UI status fields for now
-- record failure/cooldown in one place
-- leave enough status for the dashboard to explain queued/running/failed refresh
-
-## Manual Refresh Semantics
-
-Manual refresh is stronger intent.
+Manual refresh is stronger demand, not direct provider work.
 
 It can:
 
-- raise priority
-- target one vault or branch
-- request deeper metadata
-- request link enrichment
-- bypass recent-success debounce when product behavior allows it
+- raise scheduler priority
+- bypass a recent-success debounce if policy allows
+- target a repository or one branch
 
-It must still respect:
+It cannot:
 
-- deletion gates
-- provider cooldowns
-- GitHub rate limits
-- active in-flight work with the same idempotency key
-- user plan policy
+- bypass deletion
+- bypass non-connected vault state
+- bypass provider cooldown
+- bypass GitHub rate limits
+- choose metadata depth
+- choose provider parsers
 
-## Free And Paid Freshness
+## What This PR Proves
 
-The policy boundary should be the user.
+This PR is mergeable only if it proves:
 
-Why:
+- durable request rows exist
+- impossible demand states are unrepresentable
+- dashboard sends one trigger, not vault batches
+- backend owns dashboard fan-out
+- existing-repository connect enqueues source-setup demand
+- no caller can select work/depth/provider/priority/dedupe
 
-- GitHub API budget is tied to the user's token.
-- A user may open many tabs or machines.
-- A user may have many vaults and branches.
-- Paid freshness should not require React code changes.
+## What The Workpool PR Proves
 
-Free users should still get reloads:
+The next PR should prove:
 
-- fewer running jobs
-- longer automatic intervals
-- lower enrichment depth
-- slower rotation across many vaults
+- queued repository demand executes
+- Workpool owns worker start/run/finish
+- workers re-check vault state and deletion
+- branch discovery updates after existing-repository connect
+- dashboard freshness no longer depends on frontend refresh loops
+- status remains clear enough for the dashboard
 
-Paid users can get:
+## Non-Goals
 
-- shorter automatic intervals
-- more running jobs
-- higher priority
-- deeper automatic metadata/enrichment
-
-## First Useful Slice
-
-Build only the smallest version that proves the model.
-
-- Add refresh request validators and table.
-- Add the clear orchestration module.
-- Add enqueue for refresh intent.
-- Wire dashboard auto-refresh to enqueue.
-- Wire existing-repository connection finish to enqueue metadata refresh.
-- Include dashboard manual refresh as priority intent if the UI change stays
-  small.
-- Add one Workpool worker that can reuse existing refresh internals.
-- Preserve current vault refresh status fields so the dashboard does not need a
-  full rewrite.
-
-Tests:
-
-- duplicate browser requests coalesce
-- manual request raises priority
-- existing-repository connection queues branch metadata visibility work
-- deletion gate blocks queued work
-- cooldown/rate-limit state delays work
-- free and paid policy choose different scheduling
-
-## Later Slices
-
-- Move file-view automatic refresh to the queue.
-- Move commit/pull refresh to the queue if it stays clearer than direct cache
-  warming.
-- Split combined worker into separate job kinds if needed.
-- Move high-churn refresh status out of `vaults`.
-- Add dashboard summary rows if `getUserVaults` gets too heavy.
-- Add internal link enrichers for sources beyond Cloudflare Pages comments.
-- Add queue/backlog observability.
-
-## Open Decisions
-
-- Should the first worker run combined metadata-plus-default-tree, or split job
-  kinds immediately?
-- After existing-repository connect, should the queued work run only repository
-  metadata or also targeted branch tree/link enrichment?
-- How much should manual refresh bypass recent-success debounce?
-- Where should the derived free/paid refresh policy live?
-- When deletion starts, should queued jobs be canceled immediately or no-op when
-  workers observe the gate?
-
-## Recommendation
-
-Build refresh as backend intent ingestion plus Workpool execution.
-
-Optimize the implementation for an operator reading one orchestration file and
-understanding the whole system. Keep future self-hosted/component ideas as
-boundary pressure only. The current job is not to make refresh generic; it is to
-make refresh explicit, durable, and easy to follow.
+- Workflow per refresh
+- one Workpool per user/vault/branch
+- user-configurable plugins
+- caller-selected refresh depth
+- caller-selected provider parsing
+- dashboard query rewrite before queue pressure is proven
+- self-hosted execution in this PR
