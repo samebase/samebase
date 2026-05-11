@@ -21,6 +21,14 @@ import {
   shouldSyncCloudflarePreviewLinks,
 } from "./github";
 
+const repositoryMetadataSyncRequest = {
+  includeAheadBehind: false,
+  includePullRequestLinks: false,
+  includeCloudflarePreviewLinks: false,
+  cloudflarePreviewBranchNames: [],
+  trigger: "manual",
+} satisfies Parameters<typeof computeRepositoryTreeMetadataSyncPlan>[0];
+
 describe("normalizeGitHubRepositoryListItem", () => {
   it("drops extra fields from GitHub repository payloads", () => {
     const normalized = normalizeGitHubRepositoryListItem({
@@ -469,6 +477,18 @@ describe("shouldRefreshRepositoryMetadata", () => {
     ).toBe(true);
   });
 
+  it("refreshes repo-scoped source setup even when cached metadata is fresh", () => {
+    expect(
+      shouldRefreshRepositoryMetadata({
+        trigger: "source_setup",
+        branchNotFound: false,
+        includeCloudflarePreviewLinks: true,
+        lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
+        now,
+      }),
+    ).toBe(true);
+  });
+
   it("refreshes stale repo metadata from branch-scoped views", () => {
     expect(
       shouldRefreshRepositoryMetadata({
@@ -569,6 +589,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
   it("skips repo metadata sync for branch-only refreshes by default", () => {
     expect(
       computeRepositoryTreeMetadataSyncPlan({
+        ...repositoryMetadataSyncRequest,
         targetBranch: "feature/login",
       }),
     ).toEqual({
@@ -581,10 +602,12 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
   });
 
   it("keeps repo metadata sync for repo-scoped refreshes", () => {
-    expect(computeRepositoryTreeMetadataSyncPlan({})).toEqual({
+    expect(
+      computeRepositoryTreeMetadataSyncPlan(repositoryMetadataSyncRequest),
+    ).toEqual({
       shouldSyncMetadata: true,
-      includeAheadBehind: true,
-      includePullRequestLinks: true,
+      includeAheadBehind: false,
+      includePullRequestLinks: false,
       includeCloudflarePreviewLinks: false,
       includeLastCommitTimestamps: true,
     });
@@ -593,6 +616,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
   it("treats preview enrichment as an explicit metadata sync request", () => {
     expect(
       computeRepositoryTreeMetadataSyncPlan({
+        ...repositoryMetadataSyncRequest,
         targetBranch: "feature/login",
         includeCloudflarePreviewLinks: true,
       }),
@@ -608,13 +632,14 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
   it("keeps automatic large-repo refreshes on the cheap ahead/behind path without dropping branch ordering metadata", () => {
     expect(
       computeRepositoryTreeMetadataSyncPlan({
+        ...repositoryMetadataSyncRequest,
         trigger: "visibility",
         remoteBranchCount: 75,
       }),
     ).toEqual({
       shouldSyncMetadata: true,
       includeAheadBehind: false,
-      includePullRequestLinks: true,
+      includePullRequestLinks: false,
       includeCloudflarePreviewLinks: false,
       includeLastCommitTimestamps: true,
     });
@@ -623,6 +648,9 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
   it("treats the 40-branch boundary as still eligible for full enrichment", () => {
     expect(
       computeRepositoryTreeMetadataSyncPlan({
+        ...repositoryMetadataSyncRequest,
+        includeAheadBehind: true,
+        includePullRequestLinks: true,
         includeCloudflarePreviewLinks: true,
         trigger: "visibility",
         remoteBranchCount: 40,
@@ -639,6 +667,9 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
   it("keeps manual refreshes fully enriched even for large repos", () => {
     expect(
       computeRepositoryTreeMetadataSyncPlan({
+        ...repositoryMetadataSyncRequest,
+        includeAheadBehind: true,
+        includePullRequestLinks: true,
         trigger: "manual",
         remoteBranchCount: 75,
       }),
@@ -651,9 +682,29 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
     });
   });
 
+  it("keeps source-setup preview hydration for large repos", () => {
+    expect(
+      computeRepositoryTreeMetadataSyncPlan({
+        ...repositoryMetadataSyncRequest,
+        includeAheadBehind: true,
+        includePullRequestLinks: true,
+        includeCloudflarePreviewLinks: true,
+        trigger: "source_setup",
+        remoteBranchCount: 75,
+      }),
+    ).toEqual({
+      shouldSyncMetadata: true,
+      includeAheadBehind: true,
+      includePullRequestLinks: true,
+      includeCloudflarePreviewLinks: true,
+      includeLastCommitTimestamps: true,
+    });
+  });
+
   it("skips preview-comment backfills during automatic large-repo refreshes while preserving commit timestamps", () => {
     expect(
       computeRepositoryTreeMetadataSyncPlan({
+        ...repositoryMetadataSyncRequest,
         targetBranch: "feature/login",
         includeCloudflarePreviewLinks: true,
         trigger: "page_load",
@@ -671,6 +722,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
   it("keeps targeted preview-comment backfills during automatic large-repo refreshes", () => {
     expect(
       computeRepositoryTreeMetadataSyncPlan({
+        ...repositoryMetadataSyncRequest,
         targetBranch: "feature/login",
         includeCloudflarePreviewLinks: true,
         cloudflarePreviewBranchNames: ["feature/login"],
@@ -695,6 +747,7 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
         includeAheadBehind: true,
         includePullRequestLinks: true,
         includeCloudflarePreviewLinks: true,
+        cloudflarePreviewBranchNames: [],
         includeLastCommitTimestamps: true,
         trigger: "visibility",
         remoteBranchCount: 75,
@@ -715,6 +768,7 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
         includeAheadBehind: true,
         includePullRequestLinks: true,
         includeCloudflarePreviewLinks: true,
+        cloudflarePreviewBranchNames: [],
         includeLastCommitTimestamps: true,
         trigger: "visibility",
         remoteBranchCount: 40,
@@ -735,8 +789,30 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
         includeAheadBehind: true,
         includePullRequestLinks: true,
         includeCloudflarePreviewLinks: true,
+        cloudflarePreviewBranchNames: [],
         includeLastCommitTimestamps: true,
         trigger: "manual",
+        remoteBranchCount: 75,
+      }),
+    ).toEqual({
+      shouldSyncMetadata: true,
+      includeAheadBehind: true,
+      includePullRequestLinks: true,
+      includeCloudflarePreviewLinks: true,
+      includeLastCommitTimestamps: true,
+    });
+  });
+
+  it("keeps source-setup large-repo refreshes fully enriched", () => {
+    expect(
+      applyRepositoryTreeMetadataSyncBudget({
+        shouldSyncMetadata: true,
+        includeAheadBehind: true,
+        includePullRequestLinks: true,
+        includeCloudflarePreviewLinks: true,
+        cloudflarePreviewBranchNames: [],
+        includeLastCommitTimestamps: true,
+        trigger: "source_setup",
         remoteBranchCount: 75,
       }),
     ).toEqual({
@@ -788,6 +864,15 @@ describe("shouldRefreshBranchTree", () => {
         branchNotFound: false,
       }),
     ).toBe(false);
+  });
+
+  it("refreshes the default branch tree after source setup", () => {
+    expect(
+      shouldRefreshBranchTree({
+        trigger: "source_setup",
+        branchNotFound: false,
+      }),
+    ).toBe(true);
   });
 
   it("skips tree refresh entirely while the requested branch is still missing", () => {

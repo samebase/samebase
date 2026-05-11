@@ -746,7 +746,11 @@ type ClearAllStagingPlan<
     userId: UserId;
     owner: string;
     repo: string;
-    branch?: string;
+    target: { scope: "repository" } | { scope: "branch"; branch: string };
+    includeAheadBehind: boolean;
+    includePullRequestLinks: boolean;
+    includeCloudflarePreviewLinks: boolean;
+    cloudflarePreviewBranchNames: string[];
   } | null;
 };
 
@@ -785,7 +789,14 @@ export function buildClearAllStagingPlan<
           userId: args.vault.userId,
           owner: args.vault.owner,
           repo: args.vault.name,
-          branch: args.branch,
+          target:
+            args.branch === undefined
+              ? { scope: "repository" }
+              : { scope: "branch", branch: args.branch },
+          includeAheadBehind: false,
+          includePullRequestLinks: false,
+          includeCloudflarePreviewLinks: false,
+          cloudflarePreviewBranchNames: [],
         }
       : null,
   };

@@ -1,6 +1,6 @@
 "use node";
 
-import { action, internalAction } from "./_generated/server";
+import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { getUserId } from "./common";
 import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
@@ -75,11 +75,15 @@ type TreeRefreshFailureDescriptor = {
   message: string;
   cooldownUntil: number;
 };
-const refreshRepositoryTrigger = union(
+const publicRefreshRepositoryTrigger = union(
   literal("focus"),
   literal("visibility"),
   literal("page_load"),
   literal("manual"),
+);
+const refreshRepositoryTrigger = union(
+  publicRefreshRepositoryTrigger,
+  literal("source_setup"),
 );
 const refreshRepositoryTreeReason = union(
   literal("cooldown"),
@@ -93,6 +97,66 @@ const refreshRepositoryTreeResult = object({
 });
 type RefreshRepositoryTreeResult = Infer<typeof refreshRepositoryTreeResult>;
 type RefreshRepositoryTrigger = Infer<typeof refreshRepositoryTrigger>;
+/**
+ * Internal post-write refresh target.
+ *
+ * repository = refresh repository metadata, then refresh the vault's resolved
+ * branch.
+ *
+ * branch = refresh one concrete branch. Empty branch strings fail instead of
+ * becoming repository-scoped work.
+ */
+const updateRepositoryTreeTarget = union(
+  object({
+    scope: literal("repository"),
+  }),
+  object({
+    scope: literal("branch"),
+    branch: string(),
+  }),
+);
+
+/**
+ * Internal GitHub refresh input.
+ *
+ * repository = no branch was requested; the planner can reconcile repository
+ * metadata and then refresh the default branch when policy wants it.
+ *
+ * branch = one route/operation requested one concrete branch. Empty branch
+ * strings fail before the planner can silently fall back to default-branch work.
+ *
+ * The include* fields are internal execution policy knobs. They are required so
+ * callers must state the cost they are asking for; they are not stored on
+ * repositoryRefreshRequests.
+ */
+const refreshRepositoryTreeForUserInput = union(
+  object({
+    scope: literal("repository"),
+    userId: id("users"),
+    owner: string(),
+    repo: string(),
+    includeAheadBehind: boolean(),
+    includePullRequestLinks: boolean(),
+    includeCloudflarePreviewLinks: boolean(),
+    cloudflarePreviewBranchNames: array(string()),
+    trigger: refreshRepositoryTrigger,
+  }),
+  object({
+    scope: literal("branch"),
+    userId: id("users"),
+    owner: string(),
+    repo: string(),
+    branch: string(),
+    includeAheadBehind: boolean(),
+    includePullRequestLinks: boolean(),
+    includeCloudflarePreviewLinks: boolean(),
+    cloudflarePreviewBranchNames: array(string()),
+    trigger: refreshRepositoryTrigger,
+  }),
+);
+type RefreshRepositoryTreeForUserArgs = Infer<
+  typeof refreshRepositoryTreeForUserInput
+>;
 
 const GITHUB_REPOSITORY_DISCOVERY_AFFILIATION =
   "owner,collaborator,organization_member";
@@ -102,11 +166,42 @@ const MAX_GITHUB_REPOSITORY_PAGES = 100;
 const GITHUB_RATE_LIMIT_FALLBACK_MS = 5 * 60 * 1000;
 const MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS = 30 * 1000;
 /**
- * Automatic refreshes above this cached branch count keep PR lookup and branch
- * commit timestamps, but skip ahead/behind and preview-comment backfills to
- * bound the noisiest GitHub fan-out work for large repos.
+ * Passive refreshes above this cached branch count keep PR lookup and branch
+ * commit timestamps, but skip ahead/behind and preview-comment backfills.
+ * Source setup is a one-time connect/create finish path, so it can hydrate
+ * provider links without teaching React about branch batches.
  */
 const MAX_AUTO_REFRESH_BRANCH_ENRICHMENT_BRANCHES = 40;
+
+/**
+ * Missing branch means "use the default branch"; an empty provided branch is a
+ * caller bug and must not silently become default-branch work.
+ */
+function normalizeOptionalRepositoryBranch(
+  branch: string | undefined,
+): string | undefined {
+  if (branch === undefined) {
+    return undefined;
+  }
+
+  const trimmedBranch = branch.trim();
+  if (trimmedBranch.length === 0) {
+    throw new Error("Branch is required when provided.");
+  }
+  return trimmedBranch;
+}
+
+/**
+ * Branch-scoped work already chose a branch before this point. Empty strings
+ * fail here instead of falling back to another branch.
+ */
+function normalizeRequiredRepositoryBranch(branch: string): string {
+  const trimmedBranch = branch.trim();
+  if (trimmedBranch.length === 0) {
+    throw new Error("Branch is required.");
+  }
+  return trimmedBranch;
+}
 
 function toHeaderMap(value: unknown): HeaderMap | null {
   if (!isRecord(value)) {
@@ -319,11 +414,13 @@ export function shouldRefreshRepositoryMetadata(args: {
     return false;
   }
 
-  // Entering the dashboard should reconcile the repo-level branch/PR catalog at
-  // least once, even when cached metadata still falls inside the long stale
-  // window. This keeps page-load dashboard views trustworthy without
-  // reintroducing visibility/focus churn fan-out.
-  if (args.trigger === "page_load" && args.requestedBranch === undefined) {
+  // Entering the dashboard and finishing source setup should reconcile the
+  // repo-level branch/PR catalog once, even when cached metadata still falls
+  // inside the long stale window.
+  if (
+    (args.trigger === "page_load" || args.trigger === "source_setup") &&
+    args.requestedBranch === undefined
+  ) {
     return true;
   }
 
@@ -364,7 +461,7 @@ export function shouldRefreshBranchTree(args: {
     return true;
   }
 
-  return args.trigger === "page_load";
+  return args.trigger === "page_load" || args.trigger === "source_setup";
 }
 
 interface RepositoryRefreshPlan {
@@ -381,11 +478,12 @@ interface RepositoryTreeMetadataSyncPlan {
 }
 
 function shouldLimitAutomaticRepositoryMetadataEnrichment(args: {
-  trigger?: RefreshRepositoryTrigger;
+  trigger: RefreshRepositoryTrigger;
   remoteBranchCount?: number;
 }): boolean {
   return (
     args.trigger !== "manual" &&
+    args.trigger !== "source_setup" &&
     typeof args.remoteBranchCount === "number" &&
     args.remoteBranchCount > MAX_AUTO_REFRESH_BRANCH_ENRICHMENT_BRANCHES
   );
@@ -393,11 +491,10 @@ function shouldLimitAutomaticRepositoryMetadataEnrichment(args: {
 
 function shouldPreserveTargetedCloudflarePreviewHydration(args: {
   includeCloudflarePreviewLinks: boolean;
-  cloudflarePreviewBranchNames?: string[];
+  cloudflarePreviewBranchNames: string[];
 }): boolean {
   return (
     args.includeCloudflarePreviewLinks &&
-    Array.isArray(args.cloudflarePreviewBranchNames) &&
     args.cloudflarePreviewBranchNames.some(
       (branchName) => branchName.trim().length > 0,
     )
@@ -405,12 +502,12 @@ function shouldPreserveTargetedCloudflarePreviewHydration(args: {
 }
 
 function normalizeCloudflarePreviewBranchNames(
-  branchNames: string[] | undefined,
+  branchNames: string[],
 ): string[] {
   const normalizedBranchNames: string[] = [];
   const seenBranchNames = new Set<string>();
 
-  for (const branchName of branchNames ?? []) {
+  for (const branchName of branchNames) {
     const nextBranchName = branchName.trim();
     if (nextBranchName.length === 0 || seenBranchNames.has(nextBranchName)) {
       continue;
@@ -427,9 +524,9 @@ export function applyRepositoryTreeMetadataSyncBudget(args: {
   includeAheadBehind: boolean;
   includePullRequestLinks: boolean;
   includeCloudflarePreviewLinks: boolean;
-  cloudflarePreviewBranchNames?: string[];
+  cloudflarePreviewBranchNames: string[];
   includeLastCommitTimestamps: boolean;
-  trigger?: RefreshRepositoryTrigger;
+  trigger: RefreshRepositoryTrigger;
   remoteBranchCount?: number;
 }): RepositoryTreeMetadataSyncPlan {
   if (!args.shouldSyncMetadata) {
@@ -500,32 +597,25 @@ export function computeRepositoryRefreshPlan(args: {
  */
 export function computeRepositoryTreeMetadataSyncPlan(args: {
   targetBranch?: string;
-  includeAheadBehind?: boolean;
-  includePullRequestLinks?: boolean;
-  includeCloudflarePreviewLinks?: boolean;
-  cloudflarePreviewBranchNames?: string[];
-  trigger?: RefreshRepositoryTrigger;
+  includeAheadBehind: boolean;
+  includePullRequestLinks: boolean;
+  includeCloudflarePreviewLinks: boolean;
+  cloudflarePreviewBranchNames: string[];
+  trigger: RefreshRepositoryTrigger;
   remoteBranchCount?: number;
 }): RepositoryTreeMetadataSyncPlan {
   const isRepoScoped = args.targetBranch === undefined;
-  const requestedCloudflarePreviewLinks =
-    args.includeCloudflarePreviewLinks === true;
-  const includeAheadBehind = isRepoScoped || args.includeAheadBehind === true;
+  const includeAheadBehind = args.includeAheadBehind;
   const includePullRequestLinks =
-    isRepoScoped ||
-    args.includePullRequestLinks === true ||
-    requestedCloudflarePreviewLinks;
+    args.includePullRequestLinks || args.includeCloudflarePreviewLinks;
   const shouldSyncMetadata =
-    isRepoScoped ||
-    includeAheadBehind ||
-    includePullRequestLinks ||
-    requestedCloudflarePreviewLinks;
+    isRepoScoped || includeAheadBehind || includePullRequestLinks;
 
   return applyRepositoryTreeMetadataSyncBudget({
     shouldSyncMetadata,
     includeAheadBehind,
     includePullRequestLinks,
-    includeCloudflarePreviewLinks: requestedCloudflarePreviewLinks,
+    includeCloudflarePreviewLinks: args.includeCloudflarePreviewLinks,
     cloudflarePreviewBranchNames: args.cloudflarePreviewBranchNames,
     includeLastCommitTimestamps: shouldSyncMetadata,
     trigger: args.trigger,
@@ -1586,7 +1676,7 @@ async function listRemoteBranches(args: {
   includeAheadBehind: boolean;
   includePullRequestLinks: boolean;
   includeLastCommitTimestamps: boolean;
-  trigger?: RefreshRepositoryTrigger;
+  trigger: RefreshRepositoryTrigger;
 }): Promise<RemoteBranchSummary[]> {
   const repoResponse = await args.octokit.rest.repos.get({
     owner: args.owner,
@@ -1641,6 +1731,7 @@ async function listRemoteBranches(args: {
     includeAheadBehind: args.includeAheadBehind,
     includePullRequestLinks: args.includePullRequestLinks,
     includeCloudflarePreviewLinks: false,
+    cloudflarePreviewBranchNames: [],
     includeLastCommitTimestamps: args.includeLastCommitTimestamps,
     trigger: args.trigger,
     remoteBranchCount: branches.length,
@@ -1922,7 +2013,7 @@ export const getRepositoryFileContent = action({
   },
   returns: repositoryFileContentResult,
   handler: async (ctx, args): Promise<RepositoryFileContent> => {
-    const requestedBranch = args.branch?.trim() || undefined;
+    const requestedBranch = normalizeOptionalRepositoryBranch(args.branch);
     const userId = await getUserId(ctx);
 
     const currentUser = await ctx.runQuery(internal.users.getById, {
@@ -2025,7 +2116,7 @@ export const getRepositoryMediaAsset = action({
       return { found: false, reason: "missing" };
     }
 
-    const requestedBranch = args.branch?.trim() || undefined;
+    const requestedBranch = normalizeOptionalRepositoryBranch(args.branch);
     const userId = await getUserId(ctx);
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
@@ -2212,235 +2303,296 @@ export const getRepositoryMediaAsset = action({
   },
 });
 
-// Public action to refresh repository tree (called from frontend on vault open)
+/**
+ * Shared refresh planner for the direct file-view action and Workpool runner.
+ *
+ * It claims the existing vault refresh lock once, applies metadata budget rules,
+ * runs the selected metadata/tree work, then always releases or records failure
+ * on that same claim. The queue runner calls it with repository scope; the file
+ * route still calls it directly with branch scope.
+ */
+async function refreshRepositoryTreeForUserHelper(
+  ctx: ActionCtx,
+  args: RefreshRepositoryTreeForUserArgs,
+): Promise<RefreshRepositoryTreeResult> {
+  const trigger = args.trigger;
+  const requestedBranch =
+    args.scope === "branch"
+      ? normalizeRequiredRepositoryBranch(args.branch)
+      : undefined;
+  const requestedCloudflarePreviewBranchNames =
+    normalizeCloudflarePreviewBranchNames(args.cloudflarePreviewBranchNames);
+  const includeCloudflarePreviewLinks = args.includeCloudflarePreviewLinks;
+
+  const repositoryFullName = `${args.owner}/${args.repo}`;
+  const readVault = async (branch: string | undefined) =>
+    ctx.runQuery(internal.vault.getByRepositoryFullName, {
+      repositoryFullName,
+      userId: args.userId,
+      branch,
+    });
+
+  let vault = await readVault(requestedBranch);
+  if (!vault) {
+    return { refreshed: false };
+  }
+
+  let refreshPlan = computeRepositoryRefreshPlan({
+    trigger,
+    requestedBranch,
+    branchNotFound: vault.branchNotFound,
+    lastRepositoryMetadataRefreshAt: vault.lastRepositoryMetadataRefreshAt,
+    includeCloudflarePreviewLinks,
+  });
+
+  if (!refreshPlan.shouldSyncMetadata && !refreshPlan.shouldRefreshTreeData) {
+    return vault.branchNotFound
+      ? {
+          refreshed: false,
+          reason: "branch_not_found",
+        }
+      : { refreshed: false };
+  }
+
+  const debounceMs = vault.branchNotFound
+    ? MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS
+    : trigger === "page_load"
+      ? PAGE_LOAD_REFRESH_DEBOUNCE_MS
+      : undefined;
+  const skipRecentSuccessDebounce =
+    refreshPlan.shouldSyncMetadata ||
+    shouldBypassRecentSuccessDebounceForBranchRefresh({
+      requestedBranch,
+      defaultBranch: vault.defaultBranch,
+      branchNotFound: vault.branchNotFound,
+      hasResolvedBranchTree: vault.hasResolvedBranchTree,
+      lastRepositoryMetadataRefreshAt: vault.lastRepositoryMetadataRefreshAt,
+    });
+
+  // Atomically claim the refresh lock; skip if debounced or already running
+  const claim = await ctx.runMutation(internal.vault.claimTreeRefresh, {
+    vaultId: vault._id,
+    debounceMs,
+    // Missing or stale branch metadata still needs a refresh even when the
+    // repo itself synced recently.
+    skipRecentSuccessDebounce,
+  });
+  if (!claim.claimed) {
+    return {
+      refreshed: false,
+      reason: claim.reason,
+    };
+  }
+  if (typeof claim.startedAt !== "number") {
+    throw new Error("Tree refresh claim missing start timestamp");
+  }
+
+  let refreshError: unknown = null;
+  let refreshFailure: TreeRefreshFailureDescriptor | null = null;
+  let didSyncMetadata = false;
+  let didRefreshTreeData = false;
+  const metadataSyncPlan = computeRepositoryTreeMetadataSyncPlan({
+    targetBranch: requestedBranch,
+    includeAheadBehind: args.includeAheadBehind,
+    includePullRequestLinks: args.includePullRequestLinks,
+    includeCloudflarePreviewLinks,
+    cloudflarePreviewBranchNames: requestedCloudflarePreviewBranchNames,
+    trigger,
+    remoteBranchCount: vault.remoteBranchCount,
+  });
+  try {
+    if (refreshPlan.shouldSyncMetadata) {
+      didSyncMetadata = true;
+      await ctx.runAction(internal.github.syncRepositoryMetadata, {
+        userId: args.userId,
+        owner: args.owner,
+        repo: args.repo,
+        includeAheadBehind: metadataSyncPlan.includeAheadBehind,
+        includePullRequestLinks: metadataSyncPlan.includePullRequestLinks,
+        includeCloudflarePreviewLinks:
+          metadataSyncPlan.includeCloudflarePreviewLinks,
+        cloudflarePreviewBranchNames: requestedCloudflarePreviewBranchNames,
+        includeLastCommitTimestamps:
+          metadataSyncPlan.includeLastCommitTimestamps,
+        trigger,
+      });
+
+      const refreshedVault = await readVault(requestedBranch);
+      if (!refreshedVault) {
+        throw new Error("Vault not found");
+      }
+      vault = refreshedVault;
+      refreshPlan = computeRepositoryRefreshPlan({
+        trigger,
+        requestedBranch,
+        branchNotFound: vault.branchNotFound,
+        lastRepositoryMetadataRefreshAt: vault.lastRepositoryMetadataRefreshAt,
+        includeCloudflarePreviewLinks,
+      });
+    }
+
+    if (vault.branchNotFound) {
+      await ctx.runMutation(internal.vault.releaseTreeRefresh, {
+        vaultId: vault._id,
+        startedAt: claim.startedAt,
+        markRefreshed: true,
+        updateLastTreeRefreshAt: false,
+      });
+      return {
+        refreshed: false,
+        reason: "branch_not_found",
+      };
+    }
+
+    if (refreshPlan.shouldRefreshTreeData) {
+      didRefreshTreeData = true;
+      await ctx.runAction(internal.github.refreshBranchTree, {
+        userId: args.userId,
+        owner: args.owner,
+        repo: args.repo,
+        branch: vault.resolvedBranch,
+      });
+    }
+  } catch (error) {
+    refreshError = error;
+    refreshFailure = describeRepositoryTreeRefreshFailure(error);
+    console.error("Failed to refresh repository tree", {
+      owner: args.owner,
+      repo: args.repo,
+      branch: requestedBranch,
+      trigger,
+      didSyncMetadata,
+      didRefreshTreeData,
+      kind: refreshFailure.kind,
+      message: refreshFailure.message,
+      error,
+    });
+  }
+
+  if (refreshFailure) {
+    try {
+      const releaseResult = await ctx.runMutation(
+        internal.vault.releaseTreeRefresh,
+        {
+          vaultId: vault._id,
+          startedAt: claim.startedAt,
+          markRefreshed: false,
+          failureKind: refreshFailure.kind,
+          failureMessage: refreshFailure.message,
+          cooldownUntil: refreshFailure.cooldownUntil,
+        },
+      );
+      if (!releaseResult.released) {
+        await ctx.runMutation(internal.vault.recordTreeRefreshFailure, {
+          vaultId: vault._id,
+          startedAt: claim.startedAt,
+          failureKind: refreshFailure.kind,
+          failureMessage: refreshFailure.message,
+          cooldownUntil: refreshFailure.cooldownUntil,
+        });
+      }
+    } catch (releaseError) {
+      console.error("Failed to persist repository tree refresh failure", {
+        owner: args.owner,
+        repo: args.repo,
+        branch: requestedBranch,
+        releaseError,
+        refreshError,
+      });
+    }
+    throw refreshError;
+  }
+
+  await ctx.runMutation(internal.vault.releaseTreeRefresh, {
+    vaultId: vault._id,
+    startedAt: claim.startedAt,
+    markRefreshed: true,
+    updateLastTreeRefreshAt: didRefreshTreeData,
+  });
+  return { refreshed: true };
+}
+
+/**
+ * Public branch refresh used by the file route.
+ *
+ * The browser identifies the vault and branch it is viewing. The action checks
+ * `userId + vaultId`, derives owner/repo from the vault, then runs the shared
+ * branch refresh helper. URL owner/repo strings are not trusted for access.
+ */
 export const refreshRepositoryTree = action({
   args: {
-    owner: string(),
-    repo: string(),
-    branch: optional(string()),
-    includeAheadBehind: optional(boolean()),
-    includePullRequestLinks: optional(boolean()),
-    includeCloudflarePreviewLinks: optional(boolean()),
-    cloudflarePreviewBranchNames: optional(array(string())),
-    trigger: optional(refreshRepositoryTrigger),
+    vaultId: id("vaults"),
+    branch: string(),
+    includeAheadBehind: boolean(),
+    includePullRequestLinks: boolean(),
+    includeCloudflarePreviewLinks: boolean(),
+    cloudflarePreviewBranchNames: array(string()),
+    trigger: publicRefreshRepositoryTrigger,
   },
   returns: refreshRepositoryTreeResult,
   handler: async (ctx, args): Promise<RefreshRepositoryTreeResult> => {
     const userId = await getUserId(ctx);
-    const trigger = args.trigger ?? "manual";
-    const requestedBranch =
-      typeof args.branch === "string" && args.branch.trim().length > 0
-        ? args.branch.trim()
-        : undefined;
-    const requestedCloudflarePreviewBranchNames =
-      normalizeCloudflarePreviewBranchNames(args.cloudflarePreviewBranchNames);
-    const includeCloudflarePreviewLinks =
-      args.includeCloudflarePreviewLinks === true;
-
-    const repositoryFullName = `${args.owner}/${args.repo}`;
-    const readVault = async (branch: string | undefined) =>
-      ctx.runQuery(internal.vault.getByRepositoryFullName, {
-        repositoryFullName,
-        userId,
-        branch,
-      });
-
-    let vault = await readVault(requestedBranch);
-    if (!vault) {
-      return { refreshed: false };
-    }
-
-    let refreshPlan = computeRepositoryRefreshPlan({
-      trigger,
-      requestedBranch,
-      branchNotFound: vault.branchNotFound,
-      lastRepositoryMetadataRefreshAt: vault.lastRepositoryMetadataRefreshAt,
-      includeCloudflarePreviewLinks,
+    const vault = await ctx.runQuery(internal.vault.getByIdForUser, {
+      userId,
+      vaultId: args.vaultId,
     });
-
-    if (!refreshPlan.shouldSyncMetadata && !refreshPlan.shouldRefreshTreeData) {
-      return requestedBranch !== undefined && vault.branchNotFound
-        ? {
-            refreshed: false,
-            reason: "branch_not_found",
-          }
-        : { refreshed: false };
+    if (
+      !vault ||
+      vault.state !== "connected" ||
+      vault.deletion.state !== "not_deleting"
+    ) {
+      throw new Error("Vault not found.");
     }
 
-    const debounceMs =
-      requestedBranch !== undefined && vault.branchNotFound
-        ? MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS
-        : trigger === "page_load"
-          ? PAGE_LOAD_REFRESH_DEBOUNCE_MS
-          : undefined;
-    const skipRecentSuccessDebounce =
-      refreshPlan.shouldSyncMetadata ||
-      (requestedBranch !== undefined &&
-        shouldBypassRecentSuccessDebounceForBranchRefresh({
-          requestedBranch,
-          defaultBranch: vault.defaultBranch,
-          branchNotFound: vault.branchNotFound,
-          hasResolvedBranchTree: vault.hasResolvedBranchTree,
-          lastRepositoryMetadataRefreshAt:
-            vault.lastRepositoryMetadataRefreshAt,
-        }));
-
-    // Atomically claim the refresh lock; skip if debounced or already running
-    const claim = await ctx.runMutation(internal.vault.claimTreeRefresh, {
-      vaultId: vault._id,
-      debounceMs,
-      // Missing or stale branch metadata still needs a refresh even when the
-      // repo itself synced recently.
-      skipRecentSuccessDebounce,
-    });
-    if (!claim.claimed) {
-      return {
-        refreshed: false,
-        reason: claim.reason,
-      };
-    }
-    if (typeof claim.startedAt !== "number") {
-      throw new Error("Tree refresh claim missing start timestamp");
-    }
-
-    let refreshError: unknown = null;
-    let refreshFailure: TreeRefreshFailureDescriptor | null = null;
-    let didSyncMetadata = false;
-    let didRefreshTreeData = false;
-    const metadataSyncPlan = computeRepositoryTreeMetadataSyncPlan({
-      targetBranch: requestedBranch,
+    return await refreshRepositoryTreeForUserHelper(ctx, {
+      scope: "branch",
+      userId,
+      owner: vault.owner,
+      repo: vault.name,
+      branch: args.branch,
       includeAheadBehind: args.includeAheadBehind,
       includePullRequestLinks: args.includePullRequestLinks,
-      includeCloudflarePreviewLinks,
-      cloudflarePreviewBranchNames: requestedCloudflarePreviewBranchNames,
-      trigger,
-      remoteBranchCount: vault.remoteBranchCount,
+      includeCloudflarePreviewLinks: args.includeCloudflarePreviewLinks,
+      cloudflarePreviewBranchNames: args.cloudflarePreviewBranchNames,
+      trigger: args.trigger,
     });
-    try {
-      if (refreshPlan.shouldSyncMetadata) {
-        didSyncMetadata = true;
-        await ctx.runAction(internal.github.syncRepositoryMetadata, {
-          userId,
-          owner: args.owner,
-          repo: args.repo,
-          includeAheadBehind: metadataSyncPlan.includeAheadBehind,
-          includePullRequestLinks: metadataSyncPlan.includePullRequestLinks,
-          includeCloudflarePreviewLinks:
-            metadataSyncPlan.includeCloudflarePreviewLinks,
-          cloudflarePreviewBranchNames: requestedCloudflarePreviewBranchNames,
-          includeLastCommitTimestamps:
-            metadataSyncPlan.includeLastCommitTimestamps,
-          trigger,
-        });
-
-        const refreshedVault = await readVault(requestedBranch);
-        if (!refreshedVault) {
-          throw new Error("Vault not found");
-        }
-        vault = refreshedVault;
-        refreshPlan = computeRepositoryRefreshPlan({
-          trigger,
-          requestedBranch,
-          branchNotFound: vault.branchNotFound,
-          lastRepositoryMetadataRefreshAt:
-            vault.lastRepositoryMetadataRefreshAt,
-          includeCloudflarePreviewLinks,
-        });
-      }
-
-      if (vault.branchNotFound) {
-        await ctx.runMutation(internal.vault.releaseTreeRefresh, {
-          vaultId: vault._id,
-          startedAt: claim.startedAt,
-          markRefreshed: true,
-          updateLastTreeRefreshAt: false,
-        });
-        return {
-          refreshed: false,
-          reason: "branch_not_found",
-        };
-      }
-
-      if (refreshPlan.shouldRefreshTreeData) {
-        didRefreshTreeData = true;
-        await ctx.runAction(internal.github.refreshBranchTree, {
-          userId,
-          owner: args.owner,
-          repo: args.repo,
-          branch: requestedBranch,
-        });
-      }
-    } catch (error) {
-      refreshError = error;
-      refreshFailure = describeRepositoryTreeRefreshFailure(error);
-      console.error("Failed to refresh repository tree", {
-        owner: args.owner,
-        repo: args.repo,
-        branch: requestedBranch,
-        trigger,
-        didSyncMetadata,
-        didRefreshTreeData,
-        kind: refreshFailure.kind,
-        message: refreshFailure.message,
-        error,
-      });
-    }
-
-    if (refreshFailure) {
-      try {
-        const releaseResult = await ctx.runMutation(
-          internal.vault.releaseTreeRefresh,
-          {
-            vaultId: vault._id,
-            startedAt: claim.startedAt,
-            markRefreshed: false,
-            failureKind: refreshFailure.kind,
-            failureMessage: refreshFailure.message,
-            cooldownUntil: refreshFailure.cooldownUntil,
-          },
-        );
-        if (!releaseResult.released) {
-          await ctx.runMutation(internal.vault.recordTreeRefreshFailure, {
-            vaultId: vault._id,
-            startedAt: claim.startedAt,
-            failureKind: refreshFailure.kind,
-            failureMessage: refreshFailure.message,
-            cooldownUntil: refreshFailure.cooldownUntil,
-          });
-        }
-      } catch (releaseError) {
-        console.error("Failed to persist repository tree refresh failure", {
-          owner: args.owner,
-          repo: args.repo,
-          branch: requestedBranch,
-          releaseError,
-          refreshError,
-        });
-      }
-      throw refreshError;
-    }
-
-    await ctx.runMutation(internal.vault.releaseTreeRefresh, {
-      vaultId: vault._id,
-      startedAt: claim.startedAt,
-      markRefreshed: true,
-      updateLastTreeRefreshAt: didRefreshTreeData,
-    });
-    return { refreshed: true };
   },
 });
 
+/**
+ * Internal refresh entry point for backend-owned scheduling.
+ *
+ * The caller supplies the already-authorized user id. Queue rows store demand
+ * only; the runner translates demand into these execution flags.
+ */
+export const refreshRepositoryTreeForUser = internalAction({
+  args: {
+    input: refreshRepositoryTreeForUserInput,
+  },
+  returns: refreshRepositoryTreeResult,
+  handler: async (ctx, args): Promise<RefreshRepositoryTreeResult> => {
+    return await refreshRepositoryTreeForUserHelper(ctx, args.input);
+  },
+});
+
+/**
+ * Syncs repository-level GitHub metadata into vault branch rows.
+ *
+ * Every enrichment flag is required on purpose. The caller must choose whether
+ * this pass pays for ahead/behind counts, pull request metadata, preview-link
+ * parsing, and commit timestamps instead of inheriting hidden defaults.
+ */
 export const syncRepositoryMetadata = internalAction({
   args: {
     userId: id("users"),
     owner: string(),
     repo: string(),
-    includeAheadBehind: optional(boolean()),
-    includePullRequestLinks: optional(boolean()),
-    includeCloudflarePreviewLinks: optional(boolean()),
-    cloudflarePreviewBranchNames: optional(array(string())),
-    includeLastCommitTimestamps: optional(boolean()),
-    trigger: optional(refreshRepositoryTrigger),
+    includeAheadBehind: boolean(),
+    includePullRequestLinks: boolean(),
+    includeCloudflarePreviewLinks: boolean(),
+    cloudflarePreviewBranchNames: array(string()),
+    includeLastCommitTimestamps: boolean(),
+    trigger: refreshRepositoryTrigger,
   },
   returns: nullValidator(),
   handler: async (ctx, args) => {
@@ -2481,19 +2633,18 @@ export const syncRepositoryMetadata = internalAction({
       octokit,
       owner: args.owner,
       repo: args.repo,
-      includeAheadBehind: args.includeAheadBehind === true,
-      includePullRequestLinks: args.includePullRequestLinks === true,
-      includeLastCommitTimestamps: args.includeLastCommitTimestamps !== false,
+      includeAheadBehind: args.includeAheadBehind,
+      includePullRequestLinks: args.includePullRequestLinks,
+      includeLastCommitTimestamps: args.includeLastCommitTimestamps,
       trigger: args.trigger,
     });
     const effectiveSyncPlan = applyRepositoryTreeMetadataSyncBudget({
       shouldSyncMetadata: true,
-      includeAheadBehind: args.includeAheadBehind === true,
-      includePullRequestLinks: args.includePullRequestLinks === true,
-      includeCloudflarePreviewLinks:
-        args.includeCloudflarePreviewLinks === true,
+      includeAheadBehind: args.includeAheadBehind,
+      includePullRequestLinks: args.includePullRequestLinks,
+      includeCloudflarePreviewLinks: args.includeCloudflarePreviewLinks,
       cloudflarePreviewBranchNames: requestedCloudflarePreviewBranchNames,
-      includeLastCommitTimestamps: args.includeLastCommitTimestamps !== false,
+      includeLastCommitTimestamps: args.includeLastCommitTimestamps,
       trigger: args.trigger,
       remoteBranchCount: remoteBranches.length,
     });
@@ -2535,12 +2686,19 @@ export const syncRepositoryMetadata = internalAction({
   },
 });
 
+/**
+ * Refreshes the cached tree for one concrete branch.
+ *
+ * No default-branch fallback lives here. Callers that mean "default branch"
+ * must resolve that branch before calling so empty or missing branch state fails
+ * at the boundary closest to the caller.
+ */
 export const refreshBranchTree = internalAction({
   args: {
     userId: id("users"),
     owner: string(),
     repo: string(),
-    branch: optional(string()),
+    branch: string(),
   },
   returns: nullValidator(),
   handler: async (ctx, args) => {
@@ -2562,10 +2720,7 @@ export const refreshBranchTree = internalAction({
       throw new Error("GitHub is not connected");
     }
 
-    const targetBranch =
-      typeof args.branch === "string" && args.branch.trim().length > 0
-        ? args.branch.trim()
-        : undefined;
+    const targetBranch = normalizeRequiredRepositoryBranch(args.branch);
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: `${args.owner}/${args.repo}`,
       userId: args.userId,
@@ -2579,7 +2734,7 @@ export const refreshBranchTree = internalAction({
     const octokit: Octokit = new Octokit({
       auth: githubConnection.auth.credential,
     });
-    const resolvedBranch = targetBranch ?? vault.defaultBranch ?? "main";
+    const resolvedBranch = targetBranch;
 
     const tree = await octokit.rest.git.getTree({
       owner: args.owner,
@@ -2624,28 +2779,33 @@ export const refreshBranchTree = internalAction({
   },
 });
 
-// Get repository tree structure
+/**
+ * Internal follow-up after a repository write such as commit, pull, or PR open.
+ *
+ * `target` makes the scope explicit: repository-scoped callers refresh metadata
+ * plus the vault's resolved branch; branch-scoped callers refresh one branch.
+ */
 export const updateRepositoryTree = internalAction({
   args: {
     userId: id("users"),
     owner: string(),
     repo: string(),
-    branch: optional(string()),
-    includeAheadBehind: optional(boolean()),
-    includePullRequestLinks: optional(boolean()),
-    includeCloudflarePreviewLinks: optional(boolean()),
-    cloudflarePreviewBranchNames: optional(array(string())),
+    target: updateRepositoryTreeTarget,
+    includeAheadBehind: boolean(),
+    includePullRequestLinks: boolean(),
+    includeCloudflarePreviewLinks: boolean(),
+    cloudflarePreviewBranchNames: array(string()),
   },
   returns: nullValidator(),
   handler: async (ctx, args) => {
     const targetBranch =
-      typeof args.branch === "string" && args.branch.trim().length > 0
-        ? args.branch.trim()
+      args.target.scope === "branch"
+        ? normalizeRequiredRepositoryBranch(args.target.branch)
         : undefined;
     const requestedCloudflarePreviewBranchNames =
       normalizeCloudflarePreviewBranchNames(args.cloudflarePreviewBranchNames);
-    // All current callers are user-driven follow-ups after a repo mutation, so
-    // this helper should stay on the fully enriched manual path.
+    // This path runs after app-owned repository writes. Use manual debounce
+    // semantics while explicit caller flags choose metadata depth.
     const metadataSyncPlan = computeRepositoryTreeMetadataSyncPlan({
       targetBranch,
       includeAheadBehind: args.includeAheadBehind,
@@ -2670,11 +2830,22 @@ export const updateRepositoryTree = internalAction({
         trigger: "manual",
       });
     }
+    let branchToRefresh = targetBranch;
+    if (!branchToRefresh) {
+      const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
+        repositoryFullName: `${args.owner}/${args.repo}`,
+        userId: args.userId,
+      });
+      if (!vault) {
+        throw new Error("Vault not found");
+      }
+      branchToRefresh = normalizeRequiredRepositoryBranch(vault.resolvedBranch);
+    }
     await ctx.runAction(internal.github.refreshBranchTree, {
       userId: args.userId,
       owner: args.owner,
       repo: args.repo,
-      branch: targetBranch,
+      branch: branchToRefresh,
     });
     return null;
   },

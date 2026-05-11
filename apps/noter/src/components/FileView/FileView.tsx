@@ -411,6 +411,7 @@ function FileViewWrapper() {
         !vaultId ||
         !owner ||
         !repoName ||
+        !branch ||
         (typeof vault.treeRefreshCooldownUntil === "number" &&
           vault.treeRefreshCooldownUntil > Date.now())
       ) {
@@ -423,11 +424,12 @@ function FileViewWrapper() {
       });
       if (!claimRefreshDebounce("file_view", key)) return;
       void refreshTree({
-        owner,
-        repo: repoName,
+        vaultId,
         branch,
         includeAheadBehind: true,
         includePullRequestLinks: true,
+        includeCloudflarePreviewLinks: false,
+        cloudflarePreviewBranchNames: [],
         trigger,
       }).catch((error: unknown) => {
         console.error("Failed to refresh repository tree:", error);
@@ -1715,11 +1717,12 @@ function FileViewInner({
       let didHydrateNextBranch = false;
       try {
         const refreshResult = await refreshRepositoryTree({
-          owner,
-          repo: repoName,
+          vaultId: vault._id,
           branch: args.nextBranch,
           includeAheadBehind: true,
           includePullRequestLinks: true,
+          includeCloudflarePreviewLinks: false,
+          cloudflarePreviewBranchNames: [],
           trigger: "manual",
         });
         didHydrateNextBranch = refreshResult.refreshed;
@@ -1809,11 +1812,10 @@ function FileViewInner({
     handleUpstreamConflictDetected,
     isDefaultBranch,
     navigateByHref,
-    owner,
     refreshRepositoryTree,
-    repoName,
     repositoryFullName,
     selectedFile,
+    vault._id,
   ]);
 
   const handleResetToGitHub = useCallback(() => {

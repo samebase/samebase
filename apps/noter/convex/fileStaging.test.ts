@@ -398,7 +398,11 @@ describe("buildClearAllStagingPlan", () => {
         userId: "users:owner",
         owner: "octo",
         repo: "repo",
-        branch: "feature/login",
+        target: { scope: "branch", branch: "feature/login" },
+        includeAheadBehind: false,
+        includePullRequestLinks: false,
+        includeCloudflarePreviewLinks: false,
+        cloudflarePreviewBranchNames: [],
       },
     });
   });
@@ -428,7 +432,11 @@ describe("buildClearAllStagingPlan", () => {
         userId: "users:owner",
         owner: "octo",
         repo: "repo",
-        branch: undefined,
+        target: { scope: "repository" },
+        includeAheadBehind: false,
+        includePullRequestLinks: false,
+        includeCloudflarePreviewLinks: false,
+        cloudflarePreviewBranchNames: [],
       },
     });
   });
@@ -510,7 +518,11 @@ describe("buildClearAllStagingPlan", () => {
           userId: "users:owner",
           owner: "octo",
           repo: "repo",
-          branch: targetBranch,
+          target: { scope: "branch", branch: targetBranch },
+          includeAheadBehind: false,
+          includePullRequestLinks: false,
+          includeCloudflarePreviewLinks: false,
+          cloudflarePreviewBranchNames: [],
         },
       },
     ]);

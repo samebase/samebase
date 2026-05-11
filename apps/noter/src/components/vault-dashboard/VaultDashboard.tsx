@@ -2350,7 +2350,6 @@ export function VaultDashboard() {
     api.vaultActions.listRepositoryOwners,
   );
   const commitStaging = useAction(api.fileStagingActions.commitStaging);
-  const refreshTree = useAction(api.github.refreshRepositoryTree);
   const enqueueDashboardRepositoryRefresh = useMutation(
     api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
   );
@@ -2585,7 +2584,6 @@ export function VaultDashboard() {
     {
       enqueueDashboardRepositoryRefresh,
       enqueueManualRepositoryRefresh,
-      refreshTree,
       vaults,
     },
   );

@@ -98,9 +98,18 @@ type RepositoryRefreshLifecycle =
       queuedAt: number;
     }
   | {
+      state: "scheduled";
+      notBefore: number;
+      queuedAt: number;
+      scheduledAt: number;
+      attempt: number;
+      workpoolJobId: string;
+    }
+  | {
       state: "running";
       attempt: number;
       startedAt: number;
+      leaseExpiresAt: number;
       workpoolJobId: string;
     }
   | {
@@ -146,6 +155,7 @@ type RepositoryRefreshFailure =
 
 type RepositoryRefreshCancelReason =
   | "superseded"
+  | "workpool_canceled"
   | "vault_deleting"
   | "vault_deleted";
 ```
@@ -163,6 +173,8 @@ Schema rules:
 - no dashboard branch fan-out
 - no `source_setup` without `runId`
 - no `queued` row with `workpoolJobId`
+- no `scheduled` row with `leaseExpiresAt`
+- no `running` row without `leaseExpiresAt`
 - no `succeeded` row without result
 - build rows through constructors only
 
@@ -232,19 +244,20 @@ failure.kind -> failure fields
 
 `lifecycle.state -> lifecycle fields`:
 
-| State       | Fields                                          |
-| ----------- | ----------------------------------------------- |
-| `queued`    | `notBefore`, `queuedAt`                         |
-| `running`   | `attempt`, `startedAt`, `workpoolJobId`         |
-| `succeeded` | `attempt`, `startedAt`, `completedAt`, `result` |
-| `failed`    | `attempt`, `startedAt`, `failedAt`, `failure`   |
-| `canceled`  | `canceledAt`, `reason`                          |
+| State       | Fields                                                             |
+| ----------- | ------------------------------------------------------------------ |
+| `queued`    | `notBefore`, `queuedAt`                                            |
+| `scheduled` | `notBefore`, `queuedAt`, `scheduledAt`, `attempt`, `workpoolJobId` |
+| `running`   | `attempt`, `startedAt`, `leaseExpiresAt`, `workpoolJobId`          |
+| `succeeded` | `attempt`, `startedAt`, `completedAt`, `result`                    |
+| `failed`    | `attempt`, `startedAt`, `failedAt`, `failure`                      |
+| `canceled`  | `canceledAt`, `reason`                                             |
 
 Tests should enumerate these edges with small matrices. When a forbidden state
 is still representable, simplify the state shape first; add runtime guards only
 when the rule depends on live database/provider/time facts.
 
-## Current PR: State And Constructors
+## Implemented: State And Constructors
 
 Add:
 
@@ -255,7 +268,7 @@ Add:
 - scheduler priority derivation from demand source
 - lifecycle transition helpers
 
-Do not:
+This slice did not:
 
 - call Workpool
 - change dashboard behavior
@@ -273,7 +286,7 @@ Tests:
 - state matrices cover dependent axes only
 - invalid lifecycle transitions fail
 
-## Current PR: Demand Ingest
+## Implemented: Demand Ingest
 
 Add enqueue mutations/actions.
 
@@ -311,17 +324,21 @@ Accepted enqueue policy:
 
 - backend computes `notBefore`; callers do not pass it
 - current PR created/updated rows use `notBefore = now`
-- active means `queued` or `running`
+- active means `queued`, `scheduled`, or `running`
 - there should be one active row per `userId + dedupeKey`
 - terminal rows are history; a new matching demand creates a new row
-- current PR production code does not create `running` rows
-- Workpool runner must add a running lease before creating production `running`
-  rows
+- Workpool job creation transitions `queued -> scheduled`
+- worker start transitions `scheduled -> running`
+- running leases start only when worker code starts
 - running rows are reused only while the lease is valid
 - queued rows are updated only when incoming demand has stronger priority
+- scheduled rows are updated only when incoming demand has stronger priority
+- scheduled-row upgrades replace `demand`, set `lifecycle.notBefore = now`, set
+  `updatedAt = now`, and preserve `workpoolJobId`, `attempt`, `createdAt`,
+  `lifecycle.queuedAt`, and `lifecycle.scheduledAt`
 - queued-row upgrades replace `demand`, set `lifecycle.notBefore = now`, set
   `updatedAt = now`, and preserve `createdAt` plus `lifecycle.queuedAt`
-- weaker or equal queued duplicates return the existing queued row without a
+- weaker or equal queued/scheduled duplicates return the existing row without a
   write
 - deletion/non-connected vault state returns `blocked`; do not create a canceled
   request row for work that should never run
@@ -346,6 +363,10 @@ type EnqueueRepositoryRefreshResult =
     }
   | {
       kind: "already_queued";
+      requestId: Id<"repositoryRefreshRequests">;
+    }
+  | {
+      kind: "already_scheduled";
       requestId: Id<"repositoryRefreshRequests">;
     }
   | {
@@ -392,49 +413,84 @@ Implemented shape:
   - writes the finish event
   - enqueues source-setup demand in the same mutation
 - active lookup uses `userId + dedupeKey + lifecycle.state`
-- dashboard still runs the current GitHub refresh action until the Workpool
-  runner replaces it
 - existing-repository finish enqueues `source_setup`
 
 Do not:
 
 - expose dashboard fan-out, batch size, or pagination to React
 - expose exact step/depth choices to callers
-- execute queued request rows yet
+- execute branch-scoped queued rows yet
 - remove direct file-view refresh
 - redesign dashboard query
 
-Compatibility:
+## Current PR: Workpool Runner
 
-- the old dashboard `github.refreshRepositoryTree` action still runs from React
-  until the next PR installs the backend execution runner
-- do not add new React orchestration; only delete or shrink it as backend
-  execution moves in
-
-## Next PR: Workpool Runner
-
-Replace the current internal scheduled continuation boundary with Workpool and
-start executing queued repository demand.
+Execute queued repository demand through one backend Workpool.
 
 Behavior:
 
-- re-read request
-- re-check vault/deletion gate
-- transition queued rows to running with `leaseExpiresAt`
-- refresh the lease while processing
-- recover expired running rows deterministically:
-  - requeue with retry metadata when more attempts are allowed
-  - fail with failure metadata when retry budget is exhausted
-- choose internal repository steps
-- run repository metadata sync
-- update `vaultRemoteBranches`
-- finish request
-- preserve current vault refresh UI fields
+- install `repositoryRefreshWorkpool`
+- enqueue repository-scoped rows into Workpool from backend mutations
+- transition queued rows to `scheduled` with `workpoolJobId`
+- re-read request when the worker starts
+- transition scheduled rows to `running` with `leaseExpiresAt` when worker code
+  starts
+- re-check vault/deletion gate when the worker starts
+- cancel scheduled/running work if the vault was deleted or started deleting
+- fail scheduled/running work if the vault is no longer connected
+- refresh the lease after worker start
+- choose internal repository steps from demand source
+- call the internal GitHub refresh action with `scope: "repository"` and
+  backend-selected args
+- `dashboard` demand requests branch/PR metadata without Cloudflare preview
+  hydration
+- `manual` and `source_setup` demand request Cloudflare preview hydration from
+  backend policy, not from caller-provided provider/depth fields
+- current preview hydration target policy is broad:
+  `cloudflarePreviewBranchNames: []` means all remote branches; branches without
+  PRs are cleared locally, branches with PRs may read PR comments for Cloudflare
+  Pages links
+- `source_setup` uses a distinct GitHub refresh trigger so the one-time
+  create/connect finish path does not inherit passive dashboard large-repo caps
+- update `vaultRemoteBranches` through the existing metadata sync path
+- refresh the default branch tree when the selected backend trigger requires it
+- finish the request as `succeeded`, `failed`, or `canceled`
+- Workpool `canceled` completion marks `workpool_canceled`
+- public direct branch refresh accepts `vaultId` plus required branch/options,
+  validates `userId + vaultId`, then derives repository coordinates from the
+  vault and calls the same internal helper with `scope: "branch"`
+- internal post-write refresh uses explicit `target: { scope: "repository" }` or
+  `target: { scope: "branch"; branch: string }`; no optional branch fallback
+- keep file-view branch refresh on the existing direct action in this PR
 
-Workpool PR fixes:
+Deferred:
+
+- targeted preview-link hydration for a subset of branches after passive
+  dashboard refresh
+- bounded preview-link hydration for `source_setup` and manual repository
+  refresh; current behavior is correct structurally but too broad for large
+  repos
+
+Retry policy:
+
+- Workpool retries are off in this first runner.
+- Provider failures become terminal request failures.
+- Existing vault cooldown fields decide when later demand may make another row.
+- No retry counters are added to queued request state.
+- If a running lease expires, the next matching demand fails the stale owner and
+  creates or upgrades fresh work.
+
+Dashboard cleanup:
+
+- dashboard page load and visibility send one backend demand signal
+- dashboard manual refresh sends one vault-level demand
+- React does not loop vaults, batch ids, choose depth, or call GitHub directly
+
+This PR fixes:
 
 - dashboard auto metadata freshness
 - existing-repository connect branch-list visibility after setup
+- existing-repository connect Cloudflare preview-link visibility after setup
 
 Do not:
 
@@ -442,18 +498,19 @@ Do not:
 - expose provider choices to frontend
 - move file view yet
 
-## Next PR Or Later: Manual Priority
+## Implemented Basic Manual Priority
 
-Manual refresh becomes queued priority demand.
+Manual repository refresh is queued demand with `manual` priority.
 
-Rules:
+Current policy:
 
-- can raise scheduling priority
-- can ask backend policy for deeper freshness
-- cannot bypass deletion
-- cannot bypass provider cooldown
-- cannot bypass GitHub rate limit
-- must coalesce with identical running demand
+- repository manual refresh requests Cloudflare preview hydration
+- provider choice stays backend-owned
+
+Still later:
+
+- branch-level manual refresh
+- explicit provider cooldown bypass rules if the product needs them
 
 ## Later: Branch Demand Worker
 

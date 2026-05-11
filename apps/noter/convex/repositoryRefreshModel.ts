@@ -4,8 +4,8 @@ const { id, literal, number, object, string, union } = v;
 
 // MARK: Demand Sources and Scheduler Priority
 // These are caller-visible reasons for freshness, not exact worker steps.
-// The frontend reports demand; backend policy later decides depth, provider
-// parsing, cooldown, fan-out, and Workpool scheduling.
+// The frontend reports demand; backend policy decides depth, provider parsing,
+// cooldown, fan-out, and Workpool scheduling.
 
 /**
  * Browser demand trigger.
@@ -74,7 +74,7 @@ export type RepositoryRefreshPriority = Infer<
 // Demand answers "what user-visible freshness is needed?"
 // It intentionally does not answer "which provider calls should run?"
 // Backend execution policy may turn one demand into metadata, PR, branch-tree,
-// and provider-link steps in later phases.
+// and provider-link steps without widening request state.
 
 /**
  * Dashboard asks for vault-level freshness.
@@ -264,7 +264,7 @@ export const vRepositoryRefreshDemand = union(
 );
 /**
  * Caller-facing freshness demand persisted on `repositoryRefreshRequests`.
- * Backend workers may expand this into several provider/API steps later.
+ * Backend workers expand this into provider/API steps during execution.
  */
 export type RepositoryRefreshDemand = Infer<typeof vRepositoryRefreshDemand>;
 
@@ -320,12 +320,16 @@ export type RepositoryRefreshFailure = Infer<typeof vRepositoryRefreshFailure>;
 /**
  * Request stopped before normal success/failure.
  *
- * superseded means a newer deduped row replaced this row; vault_deleting and
- * vault_deleted prevent work from running against a vault that is going away or
- * gone.
+ * superseded = a newer deduped row replaced this row.
+ *
+ * workpool_canceled = the Workpool component canceled the pending/running job.
+ *
+ * vault_deleting/vault_deleted = worker started after the vault became unsafe
+ * to refresh.
  */
 export const vRepositoryRefreshCancelReason = union(
   literal("superseded"),
+  literal("workpool_canceled"),
   literal("vault_deleting"),
   literal("vault_deleted"),
 );
@@ -339,9 +343,16 @@ export type RepositoryRefreshCancelReason = Infer<
 /**
  * Durable execution state.
  *
- * queued has notBefore and no workpool job. running has attempt + workpoolJobId
- * and may become succeeded, failed, or canceled. Terminal variants carry only
- * the fields meaningful for that terminal state.
+ * queued = durable demand exists, but no Workpool job exists yet.
+ *
+ * scheduled = Workpool has a job id, but worker code has not started; no lease
+ * exists yet, so this state cannot pretend refresh compute is running.
+ *
+ * running = worker code started and owns a lease. If the lease expires before
+ * success/failure, the next backend demand can fail the stale owner and enqueue
+ * fresh work.
+ *
+ * terminal variants carry only the fields meaningful for that terminal state.
  */
 export const vRepositoryRefreshLifecycle = union(
   object({
@@ -350,9 +361,18 @@ export const vRepositoryRefreshLifecycle = union(
     queuedAt: number(),
   }),
   object({
+    state: literal("scheduled"),
+    notBefore: number(),
+    queuedAt: number(),
+    scheduledAt: number(),
+    attempt: number(),
+    workpoolJobId: string(),
+  }),
+  object({
     state: literal("running"),
     attempt: number(),
     startedAt: number(),
+    leaseExpiresAt: number(),
     workpoolJobId: string(),
   }),
   object({
@@ -411,8 +431,8 @@ export type RepositoryRefreshRequest = Infer<typeof vRepositoryRefreshRequest>;
 
 // MARK: Enqueue Results
 // Enqueue results describe what happened to durable demand. They intentionally
-// do not expose execution details because Phase 2 only records demand; workers
-// start in later phases.
+// do not expose execution details: callers learn whether demand coalesced, not
+// whether provider calls have finished.
 
 /**
  * Result returned by demand-ingest mutations.
@@ -422,9 +442,13 @@ export type RepositoryRefreshRequest = Infer<typeof vRepositoryRefreshRequest>;
  * updated = an existing queued row was upgraded to stronger demand, such as a
  * dashboard row becoming a manual row.
  *
- * already_queued = an equal or weaker duplicate was coalesced without writing.
+ * already_queued = an equal or weaker duplicate was coalesced before Workpool
+ * scheduling.
  *
- * already_running = Workpool or a future worker already owns this demand.
+ * already_scheduled = an equal or weaker duplicate was coalesced after a
+ * Workpool job already exists, but before worker code starts.
+ *
+ * already_running = a worker already owns this demand.
  *
  * blocked = the vault is deleting/deleted or not connected, so no row is
  * created.
@@ -440,6 +464,10 @@ export const vEnqueueRepositoryRefreshResult = union(
   }),
   object({
     kind: literal("already_queued"),
+    requestId: id("repositoryRefreshRequests"),
+  }),
+  object({
+    kind: literal("already_scheduled"),
     requestId: id("repositoryRefreshRequests"),
   }),
   object({
@@ -462,7 +490,7 @@ export type EnqueueRepositoryRefreshResult = Infer<
 // MARK: Builder Inputs
 // Builder input is the backend request constructor, not a frontend contract.
 // Frontend/backend entry points provide demand. The builder derives dedupeKey
-// and creates an immediately claimable queued lifecycle for Phase 1.
+// and creates an immediately claimable queued lifecycle.
 
 /**
  * Public builder input.
@@ -620,8 +648,37 @@ export function upgradeQueuedRepositoryRefreshRequest(
   };
 }
 
+/**
+ * Replaces a scheduled row's demand when a stronger request arrives.
+ * The existing Workpool job stays pending; when it starts, it reads this newer
+ * demand from the row. No lease is created here because worker code has not
+ * started yet.
+ */
+export function upgradeScheduledRepositoryRefreshRequest(
+  request: RepositoryRefreshRequest,
+  args: {
+    now: number;
+    demand: RepositoryRefreshDemand;
+  },
+): RepositoryRefreshRequest {
+  if (request.lifecycle.state !== "scheduled") {
+    throw new Error(
+      "Only scheduled repository refresh requests can be upgraded.",
+    );
+  }
+  return {
+    ...request,
+    demand: args.demand,
+    lifecycle: {
+      ...request.lifecycle,
+      notBefore: args.now,
+    },
+    updatedAt: args.now,
+  };
+}
+
 // MARK: Lifecycle Transitions
-// Lifecycle transitions are pure state moves used by future queue mutations.
+// Lifecycle transitions are pure state moves used by queue mutations.
 // Each transition checks the current state before returning the next row shape,
 // which keeps invalid moves such as succeeded -> failed out of callers.
 
@@ -632,10 +689,12 @@ function assertPositiveAttempt(attempt: number): void {
 }
 
 /**
- * Moves a queued request into running state after a Workpool job claims it.
- * The attempt number must be positive and the worker job id becomes durable.
+ * Records that a queued repository request now has a Workpool job.
+ * No lease is stored here. A queued row can sit inside Workpool before worker
+ * code starts, so marking it running at enqueue time would create fake compute
+ * ownership.
  */
-export function markRepositoryRefreshRequestRunning(
+export function markRepositoryRefreshRequestScheduled(
   request: RepositoryRefreshRequest,
   args: {
     now: number;
@@ -644,16 +703,48 @@ export function markRepositoryRefreshRequestRunning(
   },
 ): RepositoryRefreshRequest {
   if (request.lifecycle.state !== "queued") {
-    throw new Error("Only queued repository refresh requests can start.");
+    throw new Error(
+      "Only queued repository refresh requests can be scheduled.",
+    );
   }
   assertPositiveAttempt(args.attempt);
   return {
     ...request,
     lifecycle: {
-      state: "running",
+      state: "scheduled",
+      notBefore: request.lifecycle.notBefore,
+      queuedAt: request.lifecycle.queuedAt,
+      scheduledAt: args.now,
       attempt: args.attempt,
-      startedAt: args.now,
       workpoolJobId: args.workpoolJobId,
+    },
+    updatedAt: args.now,
+  };
+}
+
+/**
+ * Moves a scheduled request into running state when worker code starts.
+ * The Workpool job id and attempt are already known from `scheduled`; this
+ * transition adds `startedAt` and `leaseExpiresAt`, the actual ownership timer.
+ */
+export function markRepositoryRefreshRequestRunning(
+  request: RepositoryRefreshRequest,
+  args: {
+    now: number;
+    leaseExpiresAt: number;
+  },
+): RepositoryRefreshRequest {
+  if (request.lifecycle.state !== "scheduled") {
+    throw new Error("Only scheduled repository refresh requests can start.");
+  }
+  return {
+    ...request,
+    lifecycle: {
+      state: "running",
+      attempt: request.lifecycle.attempt,
+      startedAt: args.now,
+      leaseExpiresAt: args.leaseExpiresAt,
+      workpoolJobId: request.lifecycle.workpoolJobId,
     },
     updatedAt: args.now,
   };
@@ -687,7 +778,10 @@ export function markRepositoryRefreshRequestSucceeded(
 }
 
 /**
- * Marks a running request as failed with a retry/cooldown-aware failure payload.
+ * Marks scheduled/running work as failed with a retry/cooldown-aware payload.
+ * Scheduled failure is possible when Workpool reports failure before our action
+ * managed to claim a running lease; in that case start/fail share one timestamp
+ * so the row cannot stay stuck as active demand forever.
  */
 export function markRepositoryRefreshRequestFailed(
   request: RepositoryRefreshRequest,
@@ -696,15 +790,24 @@ export function markRepositoryRefreshRequestFailed(
     failure: RepositoryRefreshFailure;
   },
 ): RepositoryRefreshRequest {
-  if (request.lifecycle.state !== "running") {
-    throw new Error("Only running repository refresh requests can fail.");
+  if (
+    request.lifecycle.state !== "scheduled" &&
+    request.lifecycle.state !== "running"
+  ) {
+    throw new Error(
+      "Only scheduled or running repository refresh requests can fail.",
+    );
   }
+  const startedAt =
+    request.lifecycle.state === "running"
+      ? request.lifecycle.startedAt
+      : args.now;
   return {
     ...request,
     lifecycle: {
       state: "failed",
       attempt: request.lifecycle.attempt,
-      startedAt: request.lifecycle.startedAt,
+      startedAt,
       failedAt: args.now,
       failure: args.failure,
     },
@@ -713,7 +816,7 @@ export function markRepositoryRefreshRequestFailed(
 }
 
 /**
- * Cancels queued or running work before normal success/failure.
+ * Cancels queued, scheduled, or running work before normal success/failure.
  * Terminal requests cannot be canceled again.
  */
 export function markRepositoryRefreshRequestCanceled(
@@ -725,6 +828,7 @@ export function markRepositoryRefreshRequestCanceled(
 ): RepositoryRefreshRequest {
   switch (request.lifecycle.state) {
     case "queued":
+    case "scheduled":
     case "running":
       return {
         ...request,
@@ -739,7 +843,7 @@ export function markRepositoryRefreshRequestCanceled(
     case "failed":
     case "canceled":
       throw new Error(
-        "Only queued or running repository refresh requests can be canceled.",
+        "Only queued, scheduled, or running repository refresh requests can be canceled.",
       );
     default: {
       request.lifecycle satisfies never;

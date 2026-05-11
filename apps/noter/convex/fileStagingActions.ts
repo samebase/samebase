@@ -2367,8 +2367,11 @@ export const createDraftPullRequest = action({
           userId,
           owner: vault.owner,
           repo: vault.name,
+          target: { scope: "repository" },
           includeAheadBehind: true,
           includePullRequestLinks: true,
+          includeCloudflarePreviewLinks: false,
+          cloudflarePreviewBranchNames: [],
         });
       } catch (error) {
         console.warn(
@@ -2415,8 +2418,11 @@ export const createDraftPullRequest = action({
           userId,
           owner: vault.owner,
           repo: vault.name,
+          target: { scope: "repository" },
           includeAheadBehind: true,
           includePullRequestLinks: true,
+          includeCloudflarePreviewLinks: false,
+          cloudflarePreviewBranchNames: [],
         });
       } catch (error) {
         console.warn(
@@ -2444,8 +2450,11 @@ export const createDraftPullRequest = action({
             userId,
             owner: vault.owner,
             repo: vault.name,
+            target: { scope: "repository" },
             includeAheadBehind: true,
             includePullRequestLinks: true,
+            includeCloudflarePreviewLinks: false,
+            cloudflarePreviewBranchNames: [],
           });
         } catch (refreshError) {
           console.warn(
@@ -2650,8 +2659,11 @@ export const createDraftPullRequestFromDefaultBranch = action({
           userId,
           owner: vault.owner,
           repo: vault.name,
+          target: { scope: "repository" },
           includeAheadBehind: true,
           includePullRequestLinks: true,
+          includeCloudflarePreviewLinks: false,
+          cloudflarePreviewBranchNames: [],
         });
       } catch (error) {
         console.warn(
@@ -2983,15 +2995,24 @@ export const pullFromGitHubInternal = internalAction({
         userId: args.userId,
         owner: connectedVault.owner,
         repo: connectedVault.name,
-        branch,
+        target: { scope: "branch", branch },
+        includeAheadBehind: false,
+        includePullRequestLinks: false,
+        includeCloudflarePreviewLinks: false,
+        cloudflarePreviewBranchNames: [],
       });
     }
 
-    // Keep legacy default-branch cache current as well.
+    // Also refresh repository metadata and the vault's resolved branch.
     await ctx.runAction(internal.github.updateRepositoryTree, {
       userId: args.userId,
       owner: connectedVault.owner,
       repo: connectedVault.name,
+      target: { scope: "repository" },
+      includeAheadBehind: false,
+      includePullRequestLinks: false,
+      includeCloudflarePreviewLinks: false,
+      cloudflarePreviewBranchNames: [],
     });
 
     return null;
@@ -3037,7 +3058,11 @@ export const batchReadFiles = action({
           userId,
           owner: connectedVault.owner,
           repo: connectedVault.name,
-          branch: branchToLoad,
+          target: { scope: "branch", branch: branchToLoad },
+          includeAheadBehind: false,
+          includePullRequestLinks: false,
+          includeCloudflarePreviewLinks: false,
+          cloudflarePreviewBranchNames: [],
         });
         branchTree = await ctx.runQuery(internal.vault.getVaultBranchTree, {
           vaultId: args.vaultId,
@@ -4082,7 +4107,11 @@ export const commitAllStaged = internalAction({
             userId: args.userId,
             owner: repoOwner,
             repo: repoName,
-            branch: commitBranch,
+            target: { scope: "branch", branch: commitBranch },
+            includeAheadBehind: false,
+            includePullRequestLinks: false,
+            includeCloudflarePreviewLinks: false,
+            cloudflarePreviewBranchNames: [],
           });
         },
         loadUpdatedVault: async () =>

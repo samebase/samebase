@@ -217,6 +217,8 @@ Examples:
 
 - dashboard demand may run branch discovery
 - source-setup demand may run repository metadata sync
+- source-setup demand may hydrate Cloudflare preview links once after connect or
+  create, without adding provider/depth fields to request rows
 - branch demand may run tree refresh
 - provider-link refresh may parse Cloudflare Pages comments
 
@@ -228,6 +230,7 @@ It can:
 
 - raise scheduler priority
 - bypass a recent-success debounce if policy allows
+- request backend-owned provider-link hydration
 - target a repository or one branch
 
 It cannot:
@@ -250,16 +253,30 @@ This PR is mergeable only if it proves:
 - existing-repository connect enqueues source-setup demand
 - no caller can select work/depth/provider/priority/dedupe
 
-## What The Workpool PR Proves
+## What The Workpool Runner PR Proves
 
-The next PR should prove:
+This PR should prove:
 
 - queued repository demand executes
 - Workpool owns worker start/run/finish
 - workers re-check vault state and deletion
 - branch discovery updates after existing-repository connect
+- Cloudflare preview links hydrate after existing-repository connect
 - dashboard freshness no longer depends on frontend refresh loops
 - status remains clear enough for the dashboard
+
+Deliberate limits:
+
+- one repository refresh Workpool
+- no Workpool retries yet
+- no retry counters on queued rows
+- expired running leases fail the stale owner; the next demand creates fresh
+  work
+- internal post-write refresh chooses an explicit repository/branch target
+- branch/file-view refresh stays on the existing direct path in this PR
+- provider-link enrichment stays out of request rows
+- passive dashboard refresh still avoids repo-wide preview-comment backfills for
+  large repos
 
 ## Non-Goals
 

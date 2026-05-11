@@ -8,6 +8,7 @@ import {
   markRepositoryRefreshRequestCanceled,
   markRepositoryRefreshRequestFailed,
   markRepositoryRefreshRequestRunning,
+  markRepositoryRefreshRequestScheduled,
   markRepositoryRefreshRequestSucceeded,
   type MakeRepositoryRefreshRequestArgs,
   type RepositoryRefreshDemand,
@@ -250,21 +251,48 @@ const lifecycleMatrix = {
   queued: {
     fields: ["notBefore", "queuedAt", "state"],
     story:
-      "Queued work has not started yet, so it only carries the earliest claim time and queued timestamp.",
+      "Queued work has durable demand only; no Workpool job or worker lease exists yet.",
     makeLifecycle: () => ({
       state: "queued",
       notBefore: 10,
       queuedAt: 10,
     }),
   },
-  running: {
-    fields: ["attempt", "startedAt", "state", "workpoolJobId"],
+  scheduled: {
+    fields: [
+      "attempt",
+      "notBefore",
+      "queuedAt",
+      "scheduledAt",
+      "state",
+      "workpoolJobId",
+    ],
     story:
-      "Running work has been claimed by Workpool and has no terminal result yet.",
+      "Scheduled work has a Workpool job id, but no running lease because worker code has not started.",
+    makeLifecycle: () => ({
+      state: "scheduled",
+      notBefore: 10,
+      queuedAt: 10,
+      scheduledAt: 11,
+      attempt: 1,
+      workpoolJobId: "job-1",
+    }),
+  },
+  running: {
+    fields: [
+      "attempt",
+      "leaseExpiresAt",
+      "startedAt",
+      "state",
+      "workpoolJobId",
+    ],
+    story:
+      "Running work means worker code started and carries a lease so stale ownership can be detected.",
     makeLifecycle: () => ({
       state: "running",
       attempt: 1,
       startedAt: 11,
+      leaseExpiresAt: 191,
       workpoolJobId: "job-1",
     }),
   },
@@ -510,7 +538,7 @@ describe("repository refresh model", () => {
     });
   });
 
-  it("transitions queued requests through running and succeeded", async () => {
+  it("transitions queued requests through scheduled, running, and succeeded", async () => {
     const { ids } = await createVaultIds();
     const queued = makeRepositoryRefreshRequest({
       userId: ids.userId,
@@ -522,33 +550,46 @@ describe("repository refresh model", () => {
         trigger: "dashboard_status_click",
       },
     });
-    const running = markRepositoryRefreshRequestRunning(queued, {
+    const scheduled = markRepositoryRefreshRequestScheduled(queued, {
       now: 11,
       attempt: 1,
       workpoolJobId: "job-1",
     });
-    const succeeded = markRepositoryRefreshRequestSucceeded(running, {
+    const running = markRepositoryRefreshRequestRunning(scheduled, {
       now: 12,
+      leaseExpiresAt: 192,
+    });
+    const succeeded = markRepositoryRefreshRequestSucceeded(running, {
+      now: 13,
       result: {
         kind: "refreshed",
-        refreshedAt: 12,
+        refreshedAt: 13,
       },
     });
 
+    expect(scheduled.lifecycle).toEqual({
+      state: "scheduled",
+      notBefore: 10,
+      queuedAt: 10,
+      scheduledAt: 11,
+      attempt: 1,
+      workpoolJobId: "job-1",
+    });
     expect(running.lifecycle).toEqual({
       state: "running",
       attempt: 1,
-      startedAt: 11,
+      startedAt: 12,
+      leaseExpiresAt: 192,
       workpoolJobId: "job-1",
     });
     expect(succeeded.lifecycle).toEqual({
       state: "succeeded",
       attempt: 1,
-      startedAt: 11,
-      completedAt: 12,
+      startedAt: 12,
+      completedAt: 13,
       result: {
         kind: "refreshed",
-        refreshedAt: 12,
+        refreshedAt: 13,
       },
     });
   });
@@ -565,13 +606,17 @@ describe("repository refresh model", () => {
         trigger: "visibility",
       },
     });
-    const running = markRepositoryRefreshRequestRunning(queued, {
+    const scheduled = markRepositoryRefreshRequestScheduled(queued, {
       now: 11,
       attempt: 1,
       workpoolJobId: "job-1",
     });
-    const failed = markRepositoryRefreshRequestFailed(running, {
+    const running = markRepositoryRefreshRequestRunning(scheduled, {
       now: 12,
+      leaseExpiresAt: 192,
+    });
+    const failed = markRepositoryRefreshRequestFailed(running, {
+      now: 13,
       failure: {
         kind: "provider_error",
         cooldownUntil: 60,
@@ -586,19 +631,25 @@ describe("repository refresh model", () => {
       }),
     ).toThrow("Only running repository refresh requests can succeed.");
     expect(() =>
-      markRepositoryRefreshRequestRunning(failed, {
+      markRepositoryRefreshRequestRunning(queued, {
+        now: 13,
+        leaseExpiresAt: 193,
+      }),
+    ).toThrow("Only scheduled repository refresh requests can start.");
+    expect(() =>
+      markRepositoryRefreshRequestScheduled(failed, {
         now: 13,
         attempt: 2,
         workpoolJobId: "job-2",
       }),
-    ).toThrow("Only queued repository refresh requests can start.");
+    ).toThrow("Only queued repository refresh requests can be scheduled.");
     expect(() =>
       markRepositoryRefreshRequestCanceled(failed, {
         now: 13,
         reason: "superseded",
       }),
     ).toThrow(
-      "Only queued or running repository refresh requests can be canceled.",
+      "Only queued, scheduled, or running repository refresh requests can be canceled.",
     );
   });
 });
