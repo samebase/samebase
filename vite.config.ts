@@ -134,8 +134,10 @@ export default defineConfig({
         rules: {
           "@convex-dev/import-wrong-runtime": "off",
           "@convex-dev/no-old-registered-function-syntax": "error",
-          "@convex-dev/no-missing-args-validator": "off",
-          "@convex-dev/no-args-without-validator": "error",
+          "@convex-dev/require-args-validator": [
+            "error",
+            { ignoreUnusedArguments: true },
+          ],
         },
       },
     ],

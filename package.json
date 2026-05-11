@@ -63,7 +63,7 @@
     "typecheck:scripts": "tsgo -p tsconfig.scripts.json --pretty false"
   },
   "devDependencies": {
-    "@convex-dev/eslint-plugin": "0.0.1-alpha.4",
+    "@convex-dev/eslint-plugin": "2.0.0",
     "@edge-runtime/vm": "^5.0.0",
     "@playwright/test": "1.58.2",
     "@robolex/sure": "^0.12.0",
