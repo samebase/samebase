@@ -3,6 +3,7 @@ import { Infer, v } from "convex/values";
 const { boolean, id, literal, number, object, string, union } = v;
 
 // MARK: Providers, Enrichment, and Priority
+//
 // These are request dimensions, not queue rows by themselves.
 //
 // Provider = which external integration-specific parser a worker should use.
@@ -79,6 +80,7 @@ export const RepositoryRefreshPriority = union(
 export type RepositoryRefreshPriority = Infer<typeof RepositoryRefreshPriority>;
 
 // MARK: Refresh Intents
+//
 // Intents answer "why did a refresh request enter the backend?"
 //
 // page_load = the route/surface opened and asked for stale data to be refreshed.
@@ -178,6 +180,7 @@ export const RepositoryRefreshIntent = union(
 export type RepositoryRefreshIntent = Infer<typeof RepositoryRefreshIntent>;
 
 // MARK: Refresh Work
+//
 // Work answers "what should the backend refresh?"
 //
 // repo_metadata refreshes repo-wide data such as branch lists and optional PR
@@ -229,6 +232,7 @@ export const LinkEnrichmentRefreshWork = object({
 export type LinkEnrichmentRefreshWork = Infer<typeof LinkEnrichmentRefreshWork>;
 
 // MARK: Refresh Lifecycle
+//
 // Lifecycle is the durable execution state stored on each request row.
 //
 // The union keeps state-specific fields out of impossible states: queued has no
@@ -332,6 +336,7 @@ export type RepositoryRefreshLifecycle = Infer<
 >;
 
 // MARK: Request Rows
+//
 // Request rows combine:
 //
 // - who owns the refresh: userId + vaultId
@@ -421,6 +426,7 @@ export const RepositoryRefreshRequest = union(
 export type RepositoryRefreshRequest = Infer<typeof RepositoryRefreshRequest>;
 
 // MARK: Builder Inputs
+//
 // Builder input types match the request row union, but omit all derived fields.
 //
 // Callers provide userId, vaultId, timestamps, intent, and work. The builder
@@ -476,6 +482,7 @@ type RepositoryRefreshRequestBaseFields = {
 };
 
 // MARK: Scheduling
+//
 // Scheduling helpers turn domain state into queue mechanics.
 //
 // notBefore prevents requests from being scheduled in the past. priority maps
@@ -534,6 +541,7 @@ export function deriveRepositoryRefreshDedupeKey(args: {
 }
 
 // MARK: Builders
+//
 // Builders create valid queued rows only.
 //
 // They do not start Workpool jobs and they do not mutate existing rows. Later
@@ -599,6 +607,7 @@ export function makeRepositoryRefreshRequest(
 }
 
 // MARK: Lifecycle Transitions
+//
 // Lifecycle transitions are pure state moves used by future queue mutations.
 //
 // Each transition checks the current state before returning the next row shape,
