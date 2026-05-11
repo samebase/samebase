@@ -98,6 +98,14 @@ type RepositoryRefreshLifecycle =
       queuedAt: number;
     }
   | {
+      state: "scheduled";
+      notBefore: number;
+      queuedAt: number;
+      scheduledAt: number;
+      attempt: number;
+      workpoolJobId: string;
+    }
+  | {
       state: "running";
       attempt: number;
       startedAt: number;
@@ -147,6 +155,7 @@ type RepositoryRefreshFailure =
 
 type RepositoryRefreshCancelReason =
   | "superseded"
+  | "workpool_canceled"
   | "vault_deleting"
   | "vault_deleted";
 ```
@@ -164,6 +173,8 @@ Schema rules:
 - no dashboard branch fan-out
 - no `source_setup` without `runId`
 - no `queued` row with `workpoolJobId`
+- no `scheduled` row with `leaseExpiresAt`
+- no `running` row without `leaseExpiresAt`
 - no `succeeded` row without result
 - build rows through constructors only
 
@@ -233,13 +244,14 @@ failure.kind -> failure fields
 
 `lifecycle.state -> lifecycle fields`:
 
-| State       | Fields                                                    |
-| ----------- | --------------------------------------------------------- |
-| `queued`    | `notBefore`, `queuedAt`                                   |
-| `running`   | `attempt`, `startedAt`, `leaseExpiresAt`, `workpoolJobId` |
-| `succeeded` | `attempt`, `startedAt`, `completedAt`, `result`           |
-| `failed`    | `attempt`, `startedAt`, `failedAt`, `failure`             |
-| `canceled`  | `canceledAt`, `reason`                                    |
+| State       | Fields                                                             |
+| ----------- | ------------------------------------------------------------------ |
+| `queued`    | `notBefore`, `queuedAt`                                            |
+| `scheduled` | `notBefore`, `queuedAt`, `scheduledAt`, `attempt`, `workpoolJobId` |
+| `running`   | `attempt`, `startedAt`, `leaseExpiresAt`, `workpoolJobId`          |
+| `succeeded` | `attempt`, `startedAt`, `completedAt`, `result`                    |
+| `failed`    | `attempt`, `startedAt`, `failedAt`, `failure`                      |
+| `canceled`  | `canceledAt`, `reason`                                             |
 
 Tests should enumerate these edges with small matrices. When a forbidden state
 is still representable, simplify the state shape first; add runtime guards only
@@ -312,17 +324,21 @@ Accepted enqueue policy:
 
 - backend computes `notBefore`; callers do not pass it
 - current PR created/updated rows use `notBefore = now`
-- active means `queued` or `running`
+- active means `queued`, `scheduled`, or `running`
 - there should be one active row per `userId + dedupeKey`
 - terminal rows are history; a new matching demand creates a new row
-- current PR production code does not create `running` rows
-- Workpool runner must add a running lease before creating production `running`
-  rows
+- Workpool job creation transitions `queued -> scheduled`
+- worker start transitions `scheduled -> running`
+- running leases start only when worker code starts
 - running rows are reused only while the lease is valid
 - queued rows are updated only when incoming demand has stronger priority
+- scheduled rows are updated only when incoming demand has stronger priority
+- scheduled-row upgrades replace `demand`, set `lifecycle.notBefore = now`, set
+  `updatedAt = now`, and preserve `workpoolJobId`, `attempt`, `createdAt`,
+  `lifecycle.queuedAt`, and `lifecycle.scheduledAt`
 - queued-row upgrades replace `demand`, set `lifecycle.notBefore = now`, set
   `updatedAt = now`, and preserve `createdAt` plus `lifecycle.queuedAt`
-- weaker or equal queued duplicates return the existing queued row without a
+- weaker or equal queued/scheduled duplicates return the existing row without a
   write
 - deletion/non-connected vault state returns `blocked`; do not create a canceled
   request row for work that should never run
@@ -347,6 +363,10 @@ type EnqueueRepositoryRefreshResult =
     }
   | {
       kind: "already_queued";
+      requestId: Id<"repositoryRefreshRequests">;
+    }
+  | {
+      kind: "already_scheduled";
       requestId: Id<"repositoryRefreshRequests">;
     }
   | {
@@ -411,18 +431,28 @@ Behavior:
 
 - install `repositoryRefreshWorkpool`
 - enqueue repository-scoped rows into Workpool from backend mutations
-- transition queued rows to running with `leaseExpiresAt`
+- transition queued rows to `scheduled` with `workpoolJobId`
 - re-read request when the worker starts
+- transition scheduled rows to `running` with `leaseExpiresAt` when worker code
+  starts
 - re-check vault/deletion gate when the worker starts
-- cancel running work if the vault was deleted or started deleting
-- fail running work if the vault is no longer connected
-- refresh the lease at worker start
+- cancel scheduled/running work if the vault was deleted or started deleting
+- fail scheduled/running work if the vault is no longer connected
+- refresh the lease after worker start
 - choose internal repository steps from demand source
 - call the internal GitHub refresh action with backend-selected args
 - update `vaultRemoteBranches` through the existing metadata sync path
 - refresh the default branch tree when the selected backend trigger requires it
 - finish the request as `succeeded`, `failed`, or `canceled`
+- Workpool `canceled` completion marks `workpool_canceled`
+- public direct branch refresh accepts `vaultId` plus required branch/options,
+  validates `userId + vaultId`, then derives repository coordinates from the
+  vault
 - keep file-view branch refresh on the old direct action for now
+
+Deferred:
+
+- backend policy for preview-link enrichment target branches
 
 Retry policy:
 

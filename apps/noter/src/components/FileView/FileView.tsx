@@ -424,8 +424,7 @@ function FileViewWrapper() {
       });
       if (!claimRefreshDebounce("file_view", key)) return;
       void refreshTree({
-        owner,
-        repo: repoName,
+        vaultId,
         branch,
         includeAheadBehind: true,
         includePullRequestLinks: true,
@@ -1718,8 +1717,7 @@ function FileViewInner({
       let didHydrateNextBranch = false;
       try {
         const refreshResult = await refreshRepositoryTree({
-          owner,
-          repo: repoName,
+          vaultId: vault._id,
           branch: args.nextBranch,
           includeAheadBehind: true,
           includePullRequestLinks: true,
@@ -1814,11 +1812,10 @@ function FileViewInner({
     handleUpstreamConflictDetected,
     isDefaultBranch,
     navigateByHref,
-    owner,
     refreshRepositoryTree,
-    repoName,
     repositoryFullName,
     selectedFile,
+    vault._id,
   ]);
 
   const handleResetToGitHub = useCallback(() => {

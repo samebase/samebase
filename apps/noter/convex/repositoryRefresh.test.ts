@@ -4,7 +4,11 @@ import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { makeConvexTest } from "./test.setup";
 import { MAX_DASHBOARD_REFRESH_DEMAND_VAULTS } from "../shared/repositoryRefresh";
-import { makeRepositoryRefreshRequest } from "./repositoryRefreshModel";
+import {
+  makeRepositoryRefreshRequest,
+  markRepositoryRefreshRequestScheduled,
+  type RepositoryRefreshDemand,
+} from "./repositoryRefreshModel";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
@@ -155,8 +159,39 @@ async function readSingleRefreshRequest(
   return requests[0];
 }
 
+async function insertScheduledRepositoryRefreshRequest(
+  t: ConvexTest,
+  args: {
+    userId: Id<"users">;
+    vaultId: Id<"vaults">;
+    demand?: RepositoryRefreshDemand;
+    workpoolJobId?: string;
+  },
+): Promise<Id<"repositoryRefreshRequests">> {
+  return await t.run(async (ctx) => {
+    const queued = makeRepositoryRefreshRequest({
+      userId: args.userId,
+      vaultId: args.vaultId,
+      now: 100,
+      demand:
+        args.demand ??
+        ({
+          scope: "repository",
+          source: "dashboard",
+          trigger: "page_load",
+        } satisfies RepositoryRefreshDemand),
+    });
+    const scheduled = markRepositoryRefreshRequestScheduled(queued, {
+      now: 101,
+      attempt: 1,
+      workpoolJobId: args.workpoolJobId ?? "job-1",
+    });
+    return await ctx.db.insert("repositoryRefreshRequests", scheduled);
+  });
+}
+
 describe("repository refresh demand ingest", () => {
-  it("coalesces duplicate dashboard demand without rewriting queued rows", async () => {
+  it("coalesces duplicate dashboard demand without rewriting scheduled rows", async () => {
     const { asUser, t } = await createConnectedVault();
 
     await expect(
@@ -170,7 +205,7 @@ describe("repository refresh demand ingest", () => {
       source: "dashboard",
       trigger: "page_load",
     });
-    expect(first.lifecycle.state).toBe("running");
+    expect(first.lifecycle.state).toBe("scheduled");
 
     const before = await getRefreshRequest(t, first._id);
     await expect(
@@ -251,7 +286,7 @@ describe("repository refresh demand ingest", () => {
     expect(requests.map((request) => request.vaultId)).toEqual([ids.vaultId]);
   });
 
-  it("continues dashboard vault pages inside Convex", async () => {
+  it("keeps dashboard vault-page continuation inside Convex", async () => {
     const { asUser, ids, t } = await createConnectedVault();
     for (let index = 1; index <= MAX_DASHBOARD_REFRESH_DEMAND_VAULTS; index++) {
       await insertConnectedVaultForUser(t, {
@@ -346,12 +381,49 @@ describe("repository refresh demand ingest", () => {
       trigger: "dashboard_status_click",
     });
     expect(after.createdAt).toBe(before.createdAt);
-    if (after.lifecycle.state !== "running") {
-      throw new Error("Expected running request.");
+    if (after.lifecycle.state !== "scheduled") {
+      throw new Error("Expected scheduled request.");
     }
     expect(after.lifecycle.attempt).toBe(1);
     expect(after.lifecycle.workpoolJobId).toEqual(expect.any(String));
     expect(after.updatedAt).toBeGreaterThanOrEqual(before.updatedAt);
+  });
+
+  it("upgrades scheduled dashboard demand before the worker starts", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    await asUser.mutation(
+      api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
+      {
+        trigger: "page_load",
+      },
+    );
+    const before = await readSingleRefreshRequest(t);
+    if (before.lifecycle.state !== "scheduled") {
+      throw new Error("Expected scheduled request.");
+    }
+
+    const manual = await asUser.mutation(
+      api.repositoryRefresh.enqueueManualRepositoryRefresh,
+      {
+        vaultId: ids.vaultId,
+      },
+    );
+
+    expect(manual).toEqual({
+      kind: "updated",
+      requestId: before._id,
+    });
+    const after = await getRefreshRequest(t, before._id);
+    expect(after.demand).toEqual({
+      scope: "repository",
+      source: "manual",
+      trigger: "dashboard_status_click",
+    });
+    expect(after.lifecycle).toMatchObject({
+      state: "scheduled",
+      workpoolJobId: before.lifecycle.workpoolJobId,
+      scheduledAt: before.lifecycle.scheduledAt,
+    });
   });
 
   it("blocks manual demand for non-connected owned vaults", async () => {
@@ -405,15 +477,12 @@ describe("repository refresh demand ingest", () => {
     await expect(getRefreshRequest(t, created._id)).resolves.toEqual(before);
   });
 
-  it("worker input cancels running work after vault deletion starts", async () => {
-    const { asUser, ids, t } = await createConnectedVault();
-    await asUser.mutation(
-      api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-      {
-        trigger: "page_load",
-      },
-    );
-    const request = await readSingleRefreshRequest(t);
+  it("worker start cancels scheduled work after vault deletion starts", async () => {
+    const { ids, t } = await createConnectedVault();
+    const requestId = await insertScheduledRepositoryRefreshRequest(t, {
+      userId: ids.userId,
+      vaultId: ids.vaultId,
+    });
     await t.mutation(internal.vaultDeletionRuns.createInitialRun, {
       userId: ids.userId,
       vaultId: ids.vaultId,
@@ -426,8 +495,8 @@ describe("repository refresh demand ingest", () => {
     });
 
     await expect(
-      t.query(internal.repositoryRefresh.getRepositoryRefreshWorkerInput, {
-        requestId: request._id,
+      t.mutation(internal.repositoryRefresh.startRepositoryRefreshRequest, {
+        requestId,
       }),
     ).resolves.toEqual({
       kind: "cancel",
@@ -435,17 +504,56 @@ describe("repository refresh demand ingest", () => {
     });
   });
 
-  it("ignores failed completion from a stale Workpool job", async () => {
-    const { asUser, t } = await createConnectedVault();
-    await asUser.mutation(
-      api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-      {
-        trigger: "page_load",
-      },
-    );
-    const request = await readSingleRefreshRequest(t);
-    if (request.lifecycle.state !== "running") {
+  it("worker start creates the running lease only when work begins", async () => {
+    const { ids, t } = await createConnectedVault();
+    const requestId = await insertScheduledRepositoryRefreshRequest(t, {
+      userId: ids.userId,
+      vaultId: ids.vaultId,
+    });
+    const request = await getRefreshRequest(t, requestId);
+    if (request.lifecycle.state !== "scheduled") {
+      throw new Error("Expected scheduled request.");
+    }
+
+    await expect(
+      t.mutation(internal.repositoryRefresh.startRepositoryRefreshRequest, {
+        requestId,
+      }),
+    ).resolves.toMatchObject({
+      kind: "ready",
+      userId: ids.userId,
+      vaultId: ids.vaultId,
+      owner: "ada",
+      repo: "refresh-me",
+      branch: "main",
+    });
+
+    const running = await getRefreshRequest(t, request._id);
+    expect(running.lifecycle).toMatchObject({
+      state: "running",
+      attempt: request.lifecycle.attempt,
+      workpoolJobId: request.lifecycle.workpoolJobId,
+    });
+    if (running.lifecycle.state !== "running") {
       throw new Error("Expected running request.");
+    }
+    expect(running.lifecycle.startedAt).toBeGreaterThanOrEqual(
+      request.lifecycle.scheduledAt,
+    );
+    expect(running.lifecycle.leaseExpiresAt).toBeGreaterThan(
+      running.lifecycle.startedAt,
+    );
+  });
+
+  it("ignores failed completion from a stale Workpool job", async () => {
+    const { ids, t } = await createConnectedVault();
+    const requestId = await insertScheduledRepositoryRefreshRequest(t, {
+      userId: ids.userId,
+      vaultId: ids.vaultId,
+    });
+    const request = await getRefreshRequest(t, requestId);
+    if (request.lifecycle.state !== "scheduled") {
+      throw new Error("Expected scheduled request.");
     }
 
     await t.mutation(
@@ -462,6 +570,34 @@ describe("repository refresh demand ingest", () => {
     );
 
     await expect(getRefreshRequest(t, request._id)).resolves.toEqual(request);
+  });
+
+  it("marks Workpool cancellation with its own cancel reason", async () => {
+    const { ids, t } = await createConnectedVault();
+    const requestId = await insertScheduledRepositoryRefreshRequest(t, {
+      userId: ids.userId,
+      vaultId: ids.vaultId,
+    });
+    const request = await getRefreshRequest(t, requestId);
+    if (request.lifecycle.state !== "scheduled") {
+      throw new Error("Expected scheduled request.");
+    }
+
+    await t.mutation(
+      internal.repositoryRefresh.finishRepositoryRefreshRequestCanceled,
+      {
+        requestId: request._id,
+        workpoolJobId: request.lifecycle.workpoolJobId,
+        reason: "workpool_canceled",
+      },
+    );
+
+    await expect(getRefreshRequest(t, request._id)).resolves.toMatchObject({
+      lifecycle: {
+        state: "canceled",
+        reason: "workpool_canceled",
+      },
+    });
   });
 
   it("creates a new row when the matching row is terminal history", async () => {
@@ -549,7 +685,7 @@ describe("repository refresh demand ingest", () => {
           mode: "connect_existing_repository",
         },
         lifecycle: {
-          state: "running",
+          state: "scheduled",
         },
       },
     );

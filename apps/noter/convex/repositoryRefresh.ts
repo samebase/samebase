@@ -7,7 +7,6 @@ import type { Doc, Id } from "./_generated/dataModel";
 import {
   internalAction,
   internalMutation,
-  internalQuery,
   mutation,
   type MutationCtx,
 } from "./_generated/server";
@@ -22,7 +21,9 @@ import {
   markRepositoryRefreshRequestCanceled,
   markRepositoryRefreshRequestFailed,
   markRepositoryRefreshRequestRunning,
+  markRepositoryRefreshRequestScheduled,
   markRepositoryRefreshRequestSucceeded,
+  upgradeScheduledRepositoryRefreshRequest,
   upgradeQueuedRepositoryRefreshRequest,
   vEnqueueRepositoryRefreshResult,
   vRepositoryRefreshCancelReason,
@@ -64,6 +65,7 @@ const repositoryRefreshWorkerInput = union(
     vaultId: id("vaults"),
     owner: string(),
     repo: string(),
+    branch: string(),
     demand: vRepositoryScopeRefreshDemand,
   }),
   object({
@@ -101,7 +103,11 @@ type EnqueueRepositoryRefreshArgs = {
   demand: RepositoryRefreshDemand;
 };
 
-type ActiveRepositoryRefreshState = "queued" | "running";
+type ActiveRepositoryRefreshState = "queued" | "scheduled" | "running";
+type ConnectedRepositoryRefreshVault = Extract<
+  Doc<"vaults">,
+  { state: "connected" }
+>;
 
 type DashboardRefreshVaultPage = {
   vaultIds: Id<"vaults">[];
@@ -164,6 +170,13 @@ function isRunningRepositoryRefreshLeaseValid(
     request.lifecycle.state === "running" &&
     request.lifecycle.leaseExpiresAt > now
   );
+}
+
+function readRepositoryRefreshDefaultBranch(
+  vault: ConnectedRepositoryRefreshVault,
+): string | null {
+  const branch = vault.defaultBranch.trim();
+  return branch.length > 0 ? branch : null;
 }
 
 async function markExpiredRunningRepositoryRefreshRequestFailed(
@@ -302,9 +315,9 @@ async function getSourceSetupRepositoryRefreshMode(
 }
 
 /**
- * Reads one active row for a specific lifecycle state.
- * Kept separate so `getActiveRepositoryRefreshRequest` can prefer running over
- * queued if older data ever contains both.
+ * Reads one active row for a specific lifecycle state. The caller checks states
+ * in ownership order: running lease first, then scheduled Workpool job, then
+ * queued demand waiting to be scheduled.
  */
 async function getActiveRepositoryRefreshRequestForState(
   ctx: MutationCtx,
@@ -328,8 +341,8 @@ async function getActiveRepositoryRefreshRequestForState(
 
 /**
  * One active row should exist per user + dedupe key. Running rows only win
- * while their Workpool lease is still valid; an expired owner is failed before
- * the next demand is allowed to create or upgrade work.
+ * while their Workpool lease is still valid; scheduled rows win over unscheduled
+ * queued demand because a Workpool job already exists.
  */
 async function getActiveRepositoryRefreshRequest(
   ctx: MutationCtx,
@@ -355,6 +368,14 @@ async function getActiveRepositoryRefreshRequest(
     );
   }
 
+  const scheduled = await getActiveRepositoryRefreshRequestForState(ctx, {
+    ...args,
+    state: "scheduled",
+  });
+  if (scheduled) {
+    return scheduled;
+  }
+
   return await getActiveRepositoryRefreshRequestForState(ctx, {
     ...args,
     state: "queued",
@@ -365,8 +386,8 @@ async function getActiveRepositoryRefreshRequest(
  * Shared demand-ingest helper for all current entry points.
  *
  * It owns the invariant that there is at most one useful active row per
- * `userId + dedupeKey`: running rows are reused, queued rows upgrade only for
- * stronger demand, and terminal rows are treated as history.
+ * `userId + dedupeKey`: running rows are reused, queued/scheduled rows upgrade
+ * only for stronger demand, and terminal rows are treated as history.
  */
 async function enqueueRepositoryRefresh(
   ctx: MutationCtx,
@@ -418,6 +439,37 @@ async function enqueueRepositoryRefresh(
         kind: "already_running",
         requestId: activeRequest._id,
       };
+    case "scheduled": {
+      const incomingPriority = getRepositoryRefreshPriority(args.demand);
+      const existingPriority = getRepositoryRefreshPriority(
+        activeRequest.demand,
+      );
+      if (
+        !isRepositoryRefreshPriorityStronger({
+          incoming: incomingPriority,
+          existing: existingPriority,
+        })
+      ) {
+        return {
+          kind: "already_scheduled",
+          requestId: activeRequest._id,
+        };
+      }
+
+      const upgraded = upgradeScheduledRepositoryRefreshRequest(activeRequest, {
+        demand: args.demand,
+        now,
+      });
+      await ctx.db.patch(activeRequest._id, {
+        demand: upgraded.demand,
+        lifecycle: upgraded.lifecycle,
+        updatedAt: upgraded.updatedAt,
+      });
+      return {
+        kind: "updated",
+        requestId: activeRequest._id,
+      };
+    }
     case "queued": {
       const incomingPriority = getRepositoryRefreshPriority(args.demand);
       const existingPriority = getRepositoryRefreshPriority(
@@ -466,6 +518,9 @@ async function enqueueRepositoryRefresh(
  * Branch demand remains queued for the later branch worker. That keeps this PR
  * narrow: dashboard/source-setup/manual repository freshness moves backend-side
  * without pretending branch/file-view semantics are done.
+ *
+ * The row becomes `scheduled`, not `running`. Workpool has accepted the job,
+ * but the refresh lease starts only when the action handler begins.
  */
 async function scheduleQueuedRepositoryRefreshRequest(
   ctx: MutationCtx,
@@ -491,22 +546,21 @@ async function scheduleQueuedRepositoryRefreshRequest(
       runAt: request.lifecycle.notBefore,
     },
   );
-  const running = markRepositoryRefreshRequestRunning(request, {
+  const scheduled = markRepositoryRefreshRequestScheduled(request, {
     now,
     attempt: 1,
-    leaseExpiresAt: getRepositoryRefreshLeaseExpiresAt(now),
     workpoolJobId,
   });
   await ctx.db.patch(request._id, {
-    lifecycle: running.lifecycle,
-    updatedAt: running.updatedAt,
+    lifecycle: scheduled.lifecycle,
+    updatedAt: scheduled.updatedAt,
   });
 }
 
 /**
  * Ingests demand and immediately hands repository-scoped queued rows to
- * Workpool. Already-running rows are left alone; already-queued rows are also
- * kicked so rows written before this runner deployed do not stay inert.
+ * Workpool. Already-running/scheduled rows are left alone; already-queued rows
+ * are also kicked so rows written before this runner deployed do not stay inert.
  */
 async function enqueueAndScheduleRepositoryRefresh(
   ctx: MutationCtx,
@@ -519,6 +573,7 @@ async function enqueueAndScheduleRepositoryRefresh(
     case "already_queued":
       await scheduleQueuedRepositoryRefreshRequest(ctx, result.requestId);
       return result;
+    case "already_scheduled":
     case "already_running":
     case "blocked":
       return result;
@@ -530,20 +585,21 @@ async function enqueueAndScheduleRepositoryRefresh(
 }
 
 /**
- * Worker read model for one queued repository refresh.
+ * Claims one scheduled repository refresh for worker execution.
  *
- * The action re-reads through this query instead of trusting enqueue-time state:
- * a vault can start deleting, disappear, or become disconnected after demand
- * was recorded but before Workpool starts the job.
+ * The action re-reads through this mutation instead of trusting enqueue-time
+ * state: a vault can start deleting, disappear, or become disconnected after
+ * demand was recorded but before Workpool starts the job. Only this mutation
+ * creates the running lease.
  */
-export const getRepositoryRefreshWorkerInput = internalQuery({
+export const startRepositoryRefreshRequest = internalMutation({
   args: object({
     requestId: id("repositoryRefreshRequests"),
   }),
   returns: repositoryRefreshWorkerInput,
   handler: async (ctx, args): Promise<RepositoryRefreshWorkerInput> => {
     const request = await ctx.db.get(args.requestId);
-    if (!request || request.lifecycle.state !== "running") {
+    if (!request || request.lifecycle.state !== "scheduled") {
       return { kind: "no_work_needed" };
     }
     if (request.demand.scope !== "repository") {
@@ -570,12 +626,31 @@ export const getRepositoryRefreshWorkerInput = internalQuery({
       };
     }
 
+    const branch = readRepositoryRefreshDefaultBranch(vault);
+    if (!branch) {
+      return {
+        kind: "fail",
+        message: "Repository refresh vault has no default branch.",
+      };
+    }
+
+    const now = Date.now();
+    const running = markRepositoryRefreshRequestRunning(request, {
+      now,
+      leaseExpiresAt: getRepositoryRefreshLeaseExpiresAt(now),
+    });
+    await ctx.db.patch(request._id, {
+      lifecycle: running.lifecycle,
+      updatedAt: running.updatedAt,
+    });
+
     return {
       kind: "ready",
       userId: request.userId,
       vaultId: vault._id,
       owner: vault.owner,
       repo: vault.name,
+      branch,
       demand: request.demand,
     };
   },
@@ -631,7 +706,7 @@ async function finishRunningRepositoryRefreshRequestSucceeded(
   });
 }
 
-async function finishRunningRepositoryRefreshRequestFailed(
+async function finishActiveRepositoryRefreshRequestFailed(
   ctx: MutationCtx,
   args: {
     requestId: Id<"repositoryRefreshRequests">;
@@ -640,7 +715,11 @@ async function finishRunningRepositoryRefreshRequestFailed(
   },
 ): Promise<void> {
   const request = await ctx.db.get(args.requestId);
-  if (!request || request.lifecycle.state !== "running") {
+  if (
+    !request ||
+    (request.lifecycle.state !== "scheduled" &&
+      request.lifecycle.state !== "running")
+  ) {
     return;
   }
   if (
@@ -661,7 +740,7 @@ async function finishRunningRepositoryRefreshRequestFailed(
   });
 }
 
-async function finishRunningRepositoryRefreshRequestCanceled(
+async function finishActiveRepositoryRefreshRequestCanceled(
   ctx: MutationCtx,
   args: {
     requestId: Id<"repositoryRefreshRequests">;
@@ -670,7 +749,11 @@ async function finishRunningRepositoryRefreshRequestCanceled(
   },
 ): Promise<void> {
   const request = await ctx.db.get(args.requestId);
-  if (!request || request.lifecycle.state !== "running") {
+  if (
+    !request ||
+    (request.lifecycle.state !== "scheduled" &&
+      request.lifecycle.state !== "running")
+  ) {
     return;
   }
   if (
@@ -714,7 +797,7 @@ export const finishRepositoryRefreshRequestSucceeded = internalMutation({
 /**
  * Terminal failure transition used by the action and by Workpool onComplete.
  * workpoolJobId is required for onComplete so an old job cannot fail a newer
- * owner. The action path omits it because it is the current running code path.
+ * owner. The action path omits it because it is the current worker code path.
  */
 export const finishRepositoryRefreshRequestFailed = internalMutation({
   args: object({
@@ -724,7 +807,7 @@ export const finishRepositoryRefreshRequestFailed = internalMutation({
   }),
   returns: vNull(),
   handler: async (ctx, args): Promise<null> => {
-    await finishRunningRepositoryRefreshRequestFailed(ctx, {
+    await finishActiveRepositoryRefreshRequestFailed(ctx, {
       requestId: args.requestId,
       workpoolJobId: args.workpoolJobId,
       failure: args.failure,
@@ -745,7 +828,7 @@ export const finishRepositoryRefreshRequestCanceled = internalMutation({
   }),
   returns: vNull(),
   handler: async (ctx, args): Promise<null> => {
-    await finishRunningRepositoryRefreshRequestCanceled(ctx, {
+    await finishActiveRepositoryRefreshRequestCanceled(ctx, {
       requestId: args.requestId,
       workpoolJobId: args.workpoolJobId,
       reason: args.reason,
@@ -769,7 +852,7 @@ export const handleRepositoryRefreshComplete = internalMutation({
         return null;
       case "failed": {
         const now = Date.now();
-        await finishRunningRepositoryRefreshRequestFailed(ctx, {
+        await finishActiveRepositoryRefreshRequestFailed(ctx, {
           requestId: args.context.requestId,
           workpoolJobId: args.workId,
           failure: makeRepositoryRefreshProviderFailure({
@@ -780,10 +863,10 @@ export const handleRepositoryRefreshComplete = internalMutation({
         return null;
       }
       case "canceled":
-        await finishRunningRepositoryRefreshRequestCanceled(ctx, {
+        await finishActiveRepositoryRefreshRequestCanceled(ctx, {
           requestId: args.context.requestId,
           workpoolJobId: args.workId,
-          reason: "superseded",
+          reason: "workpool_canceled",
         });
         return null;
       default: {
@@ -807,8 +890,8 @@ export const runRepositoryRefreshRequest = internalAction({
   }),
   returns: vRepositoryRefreshResult,
   handler: async (ctx, args): Promise<RepositoryRefreshResult> => {
-    const input: RepositoryRefreshWorkerInput = await ctx.runQuery(
-      internal.repositoryRefresh.getRepositoryRefreshWorkerInput,
+    const input: RepositoryRefreshWorkerInput = await ctx.runMutation(
+      internal.repositoryRefresh.startRepositoryRefreshRequest,
       args,
     );
     switch (input.kind) {
@@ -824,8 +907,21 @@ export const runRepositoryRefreshRequest = internalAction({
           },
         );
         return { kind: "no_work_needed" };
-      case "fail":
+      case "fail": {
+        const now = Date.now();
+        await ctx.runMutation(
+          internal.repositoryRefresh.finishRepositoryRefreshRequestFailed,
+          {
+            requestId: args.requestId,
+            workpoolJobId: null,
+            failure: makeRepositoryRefreshProviderFailure({
+              now,
+              message: input.message,
+            }),
+          },
+        );
         throw new Error(input.message);
+      }
       case "ready":
         break;
       default: {
@@ -848,6 +944,7 @@ export const runRepositoryRefreshRequest = internalAction({
         userId: input.userId,
         owner: input.owner,
         repo: input.repo,
+        branch: input.branch,
         includeAheadBehind: true,
         includePullRequestLinks: true,
         includeCloudflarePreviewLinks: false,
