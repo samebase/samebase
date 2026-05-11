@@ -649,15 +649,9 @@ export const finishExistingRepositoryConnection = internalAction({
   handler: async (ctx, args): Promise<null> => {
     await assertConnectExistingRepositoryRun(ctx, args);
 
-    await appendRunEvent(ctx, {
-      runId: args.runId,
-      step: "finish",
-      level: "info",
-      message: "Connected existing repository.",
-      state: "succeeded",
-    });
     await ctx.runMutation(
-      internal.repositoryRefresh.enqueueSourceSetupRepositoryRefresh,
+      internal.repositoryRefresh
+        .completeExistingRepositoryConnectionAndEnqueueRefresh,
       {
         userId: args.userId,
         vaultId: args.vaultId,

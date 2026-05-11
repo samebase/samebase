@@ -426,7 +426,8 @@ export type RepositoryRefreshRequest = Infer<typeof vRepositoryRefreshRequest>;
  *
  * already_running = Workpool or a future worker already owns this demand.
  *
- * blocked = the vault is deleting or deletion failed, so no row is created.
+ * blocked = the vault is deleting/deleted or not connected, so no row is
+ * created.
  */
 export const vEnqueueRepositoryRefreshResult = union(
   object({
@@ -447,7 +448,7 @@ export const vEnqueueRepositoryRefreshResult = union(
   }),
   object({
     kind: literal("blocked"),
-    reason: literal("vault_deleting"),
+    reason: union(literal("vault_deleting"), literal("vault_not_connected")),
   }),
 );
 /**

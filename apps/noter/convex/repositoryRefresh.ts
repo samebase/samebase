@@ -223,6 +223,12 @@ async function enqueueRepositoryRefresh(
       reason: "vault_deleting",
     };
   }
+  if (vault.state !== "connected") {
+    return {
+      kind: "blocked",
+      reason: "vault_not_connected",
+    };
+  }
 
   const now = Date.now();
   const dedupeKey = deriveRepositoryRefreshDedupeKey(args);
@@ -390,6 +396,9 @@ export const enqueueSourceSetupRepositoryRefresh = internalMutation({
     if (!run || run.userId !== args.userId || run.vaultId !== args.vaultId) {
       throw new Error("Source setup run does not match refresh demand.");
     }
+    if (run.state !== "succeeded") {
+      throw new Error("Source setup run has not succeeded.");
+    }
 
     const mode = await getSourceSetupRepositoryRefreshMode(run);
     return await enqueueRepositoryRefresh(ctx, {
@@ -404,3 +413,65 @@ export const enqueueSourceSetupRepositoryRefresh = internalMutation({
     });
   },
 });
+
+/**
+ * Atomically marks an existing-repository connection complete and persists the
+ * source-setup refresh demand. If enqueue fails, the success event is rolled
+ * back with the run state update because both writes are in one mutation.
+ */
+export const completeExistingRepositoryConnectionAndEnqueueRefresh =
+  internalMutation({
+    args: object({
+      userId: id("users"),
+      vaultId: id("vaults"),
+      runId: id("appProvisioningRuns"),
+    }),
+    returns: vEnqueueRepositoryRefreshResult,
+    handler: async (ctx, args): Promise<EnqueueRepositoryRefreshResult> => {
+      const run = await ctx.db.get(args.runId);
+      if (
+        !run ||
+        run.userId !== args.userId ||
+        run.vaultId !== args.vaultId ||
+        run.trigger !== "connect_existing_repository"
+      ) {
+        throw new Error(
+          "Provisioning run does not match existing repository workflow.",
+        );
+      }
+      if (run.state === "failed" || run.state === "canceled") {
+        throw new Error("Terminal source setup run cannot be completed.");
+      }
+
+      const now = Date.now();
+      if (run.state !== "succeeded") {
+        await ctx.db.insert("appProvisioningEvents", {
+          userId: run.userId,
+          vaultId: run.vaultId,
+          repositoryFullName: run.repositoryFullName,
+          runId: args.runId,
+          step: "finish",
+          level: "info",
+          message: "Connected existing repository.",
+          createdAt: now,
+        });
+        await ctx.db.patch(args.runId, {
+          state: "succeeded",
+          currentStep: "finish",
+          updatedAt: now,
+          completedAt: now,
+        });
+      }
+
+      return await enqueueRepositoryRefresh(ctx, {
+        userId: args.userId,
+        vaultId: args.vaultId,
+        demand: {
+          scope: "repository",
+          source: "source_setup",
+          runId: args.runId,
+          mode: "connect_existing_repository",
+        },
+      });
+    },
+  });

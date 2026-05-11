@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Draft implementation plan for review
+- Status: Accepted current implementation plan
 - Owner: dashboard reload, GitHub sync, branch cache freshness
 - Created: 2026-05-11
 - Related docs:
@@ -320,8 +320,8 @@ Accepted enqueue policy:
   `updatedAt = now`, and preserve `createdAt` plus `lifecycle.queuedAt`
 - weaker or equal queued duplicates return the existing queued row without a
   write
-- deletion returns `blocked`; do not create a canceled request row for work that
-  should never run
+- deletion/non-connected vault state returns `blocked`; do not create a canceled
+  request row for work that should never run
 
 Priority strength:
 
@@ -351,7 +351,7 @@ type EnqueueRepositoryRefreshResult =
     }
   | {
       kind: "blocked";
-      reason: "vault_deleting";
+      reason: "vault_deleting" | "vault_not_connected";
     };
 ```
 
@@ -382,7 +382,12 @@ Implemented shape:
 - `repositoryRefresh.enqueueSourceSetupRepositoryRefresh`
   - derives `mode` from `appProvisioningRuns.trigger`
   - rejects mismatched run/user/vault state
+  - rejects runs that have not reached `succeeded`
   - rejects retry runs because the original trigger owns the setup mode
+- `repositoryRefresh.completeExistingRepositoryConnectionAndEnqueueRefresh`
+  - marks the existing-repository run `succeeded`
+  - writes the finish event
+  - enqueues source-setup demand in the same mutation
 - active lookup uses `userId + dedupeKey + lifecycle.state`
 - dashboard still runs the current GitHub refresh action until the Workpool
   runner replaces it

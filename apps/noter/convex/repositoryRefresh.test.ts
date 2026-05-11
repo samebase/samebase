@@ -124,6 +124,28 @@ async function insertConnectedVaultForUser(
   });
 }
 
+async function createNotConnectedVault() {
+  const t = makeConvexTest();
+  const ids = await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", {
+      name: "Ada",
+      email: "ada@example.com",
+      isApproved: true,
+    });
+    const vaultId = await ctx.db.insert("vaults", {
+      userId,
+      deletion: { state: "not_deleting" },
+      state: "not_connected",
+    });
+    return { userId, vaultId };
+  });
+  const asUser = t.withIdentity({
+    subject: `${ids.userId}|test-session`,
+    tokenIdentifier: `test:${ids.userId}`,
+  });
+  return { asUser, ids, t };
+}
+
 async function readSingleRefreshRequest(
   t: ConvexTest,
 ): Promise<Doc<"repositoryRefreshRequests">> {
@@ -177,22 +199,27 @@ describe("repository refresh demand ingest", () => {
     ).resolves.toBeNull();
 
     const requests = await listRefreshRequests(t);
-    expect(requests.map((request) => request.vaultId)).toEqual([
-      ids.vaultId,
-      secondVaultId,
-    ]);
-    expect(requests.map((request) => request.demand)).toEqual([
-      {
-        scope: "repository",
-        source: "dashboard",
-        trigger: "page_load",
-      },
-      {
-        scope: "repository",
-        source: "dashboard",
-        trigger: "page_load",
-      },
-    ]);
+    expect(requests).toHaveLength(2);
+    expect(requests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          vaultId: ids.vaultId,
+          demand: {
+            scope: "repository",
+            source: "dashboard",
+            trigger: "page_load",
+          },
+        }),
+        expect.objectContaining({
+          vaultId: secondVaultId,
+          demand: {
+            scope: "repository",
+            source: "dashboard",
+            trigger: "page_load",
+          },
+        }),
+      ]),
+    );
   });
 
   it("does not enqueue dashboard demand for another user's vault", async () => {
@@ -306,6 +333,20 @@ describe("repository refresh demand ingest", () => {
       before.lifecycle.notBefore,
     );
     expect(after.updatedAt).toBeGreaterThanOrEqual(before.updatedAt);
+  });
+
+  it("blocks manual demand for non-connected owned vaults", async () => {
+    const { asUser, ids, t } = await createNotConnectedVault();
+
+    await expect(
+      asUser.mutation(api.repositoryRefresh.enqueueManualRepositoryRefresh, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual({
+      kind: "blocked",
+      reason: "vault_not_connected",
+    });
+    await expect(listRefreshRequests(t)).resolves.toHaveLength(0);
   });
 
   it("reuses running demand unchanged", async () => {
@@ -435,6 +476,50 @@ describe("repository refresh demand ingest", () => {
     );
   });
 
+  it("completes existing repository setup and enqueues refresh atomically", async () => {
+    const { ids, t } = await createConnectedVault();
+    await t.run(async (ctx) => {
+      await ctx.db.patch(ids.runId, {
+        state: "running",
+        currentStep: "finish",
+        completedAt: undefined,
+      });
+    });
+
+    const result = await t.mutation(
+      internal.repositoryRefresh
+        .completeExistingRepositoryConnectionAndEnqueueRefresh,
+      {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+      },
+    );
+
+    expect(result.kind).toBe("created");
+    const run = await t.run(async (ctx) => {
+      return await ctx.db.get(ids.runId);
+    });
+    expect(run).toMatchObject({
+      state: "succeeded",
+      currentStep: "finish",
+    });
+    const events = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("appProvisioningEvents")
+        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
+        .collect();
+    });
+    expect(events).toEqual([
+      expect.objectContaining({
+        step: "finish",
+        level: "info",
+        message: "Connected existing repository.",
+      }),
+    ]);
+    await expect(listRefreshRequests(t)).resolves.toHaveLength(1);
+  });
+
   it("derives source setup mode from the provisioning run", async () => {
     const { ids, t } = await createConnectedVault();
     const createRunId = await t.run(async (ctx) => {
@@ -507,6 +592,28 @@ describe("repository refresh demand ingest", () => {
         },
       ),
     ).rejects.toThrow("Source setup run does not match refresh demand.");
+  });
+
+  it("rejects source setup demand before the run succeeds", async () => {
+    const { ids, t } = await createConnectedVault();
+    await t.run(async (ctx) => {
+      await ctx.db.patch(ids.runId, {
+        state: "running",
+        currentStep: "finish",
+        completedAt: undefined,
+      });
+    });
+
+    await expect(
+      t.mutation(
+        internal.repositoryRefresh.enqueueSourceSetupRepositoryRefresh,
+        {
+          userId: ids.userId,
+          vaultId: ids.vaultId,
+          runId: ids.runId,
+        },
+      ),
+    ).rejects.toThrow("Source setup run has not succeeded.");
   });
 
   it("rejects source setup demand for retry runs", async () => {
