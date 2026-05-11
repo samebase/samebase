@@ -273,7 +273,7 @@ Tests:
 - state matrices cover dependent axes only
 - invalid lifecycle transitions fail
 
-## Phase 2: Intent Ingest
+## Phase 2: Demand Ingest
 
 Add enqueue mutations/actions.
 
@@ -287,10 +287,63 @@ Behavior:
 
 - authenticate user
 - load vault
-- reject/no-op if deleting
+- block if deleting
 - build typed demand
 - coalesce by dedupe key
 - return request status
+
+Accepted enqueue policy:
+
+- backend computes `notBefore`; callers do not pass it
+- Phase 2 created/updated rows use `notBefore = now`
+- active means `queued` or `running`
+- there should be one active row per `userId + dedupeKey`
+- terminal rows are history; a new matching demand creates a new row
+- running rows are reused unchanged
+- queued rows are updated only when incoming demand has stronger priority
+- weaker or equal queued duplicates return the existing queued row without a
+  write
+- deletion returns `blocked`; do not create a canceled request row for work that
+  should never run
+
+Priority strength:
+
+```txt
+system > manual > normal > background
+```
+
+Return shape:
+
+```ts
+type EnqueueRepositoryRefreshResult =
+  | {
+      kind: "created";
+      requestId: Id<"repositoryRefreshRequests">;
+    }
+  | {
+      kind: "updated";
+      requestId: Id<"repositoryRefreshRequests">;
+    }
+  | {
+      kind: "already_queued";
+      requestId: Id<"repositoryRefreshRequests">;
+    }
+  | {
+      kind: "already_running";
+      requestId: Id<"repositoryRefreshRequests">;
+    }
+  | {
+      kind: "blocked";
+      reason: "vault_deleting";
+    };
+```
+
+Implementation shape:
+
+- one shared enqueue helper owns all coalescing
+- public/browser entry points build demand, then call the helper
+- backend setup entry points build demand, then call the helper
+- do not duplicate active-row lookup rules in each entry point
 
 Do not:
 
