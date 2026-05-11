@@ -5,9 +5,6 @@ import { claimRefreshDebounce } from "@/lib/treeRefreshDebounce";
 import { useCallback, useEffect, useRef } from "react";
 
 const DASHBOARD_REFRESH_CONCURRENCY = 3;
-// Backend enforces this limit; chunking keeps large dashboards from turning one
-// visibility event into one mutation per vault.
-const DASHBOARD_REFRESH_DEMAND_BATCH_SIZE = 50;
 
 type DashboardTreeRefreshTrigger = "visibility" | "page_load";
 type DashboardRefreshTree = (
@@ -54,38 +51,22 @@ export function useDashboardRepositoryTreeRefresh({
   refreshTree: DashboardRefreshTree;
   vaults: VaultDashboardVault[] | undefined;
 }) {
-  const enqueueReadyVaults = useCallback(
+  const enqueueDashboardDemand = useCallback(
     (trigger: DashboardTreeRefreshTrigger) => {
-      if (!vaults || vaults.length === 0) {
+      if (!vaults) {
         return;
       }
 
-      const readyVaults = vaults.filter((vault) => vault.state === "ready");
-      if (readyVaults.length === 0) {
-        return;
-      }
-
-      void (async () => {
-        for (
-          let index = 0;
-          index < readyVaults.length;
-          index += DASHBOARD_REFRESH_DEMAND_BATCH_SIZE
-        ) {
-          const batch = readyVaults.slice(
-            index,
-            index + DASHBOARD_REFRESH_DEMAND_BATCH_SIZE,
-          );
-          await enqueueDashboardRepositoryRefresh({
-            vaultIds: batch.map((vault) => vault._id),
-            trigger,
-          }).catch((error: unknown) => {
-            console.error(
-              "Failed to enqueue repository refresh demand from dashboard:",
-              error,
-            );
-          });
-        }
-      })();
+      // Convex selects this user's eligible vaults; the browser only reports a
+      // dashboard freshness signal.
+      void enqueueDashboardRepositoryRefresh({
+        trigger,
+      }).catch((error: unknown) => {
+        console.error(
+          "Failed to enqueue repository refresh demand from dashboard:",
+          error,
+        );
+      });
     },
     [enqueueDashboardRepositoryRefresh, vaults],
   );
@@ -95,7 +76,7 @@ export function useDashboardRepositoryTreeRefresh({
       if (!vaults || vaults.length === 0) {
         return;
       }
-      enqueueReadyVaults(trigger);
+      enqueueDashboardDemand(trigger);
 
       const now = Date.now();
       const readyVaults = vaults.filter((vault) => vault.state === "ready");
@@ -153,7 +134,7 @@ export function useDashboardRepositoryTreeRefresh({
         }
       })();
     },
-    [enqueueReadyVaults, refreshTree, vaults],
+    [enqueueDashboardDemand, refreshTree, vaults],
   );
 
   useVisibleDashboardRepositoryTreeRefresh({

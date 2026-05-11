@@ -279,15 +279,17 @@ Add enqueue mutations/actions.
 
 Entry points:
 
-- dashboard auto-refresh batch
-- dashboard manual refresh if small
+- dashboard auto-refresh signal
+- dashboard manual status click
 - existing-repository connection finish
 
 Behavior:
 
 - authenticate user
-- load vault
-- block if deleting
+- dashboard entry point selects connected, non-deleting vaults for the
+  authenticated user
+- manual entry point loads one requested vault and blocks if deleting
+- source setup entry point derives mode from the provisioning run
 - build typed demand
 - coalesce by dedupe key
 - return request status
@@ -350,10 +352,15 @@ Implementation shape:
 Implemented shape:
 
 - `repositoryRefresh.enqueueDashboardRepositoryRefresh`
-  - accepts up to 50 `vaultIds`
-  - deduplicates repeated ids inside one batch
+  - accepts only `trigger`
+  - caller does not pass `vaultIds`
+  - selects up to 50 connected, non-deleting vaults for the authenticated user
+  - returns one enqueue result per selected vault
 - `repositoryRefresh.enqueueManualRepositoryRefresh`
 - `repositoryRefresh.enqueueSourceSetupRepositoryRefresh`
+  - derives `mode` from `appProvisioningRuns.trigger`
+  - rejects mismatched run/user/vault state
+  - rejects retry runs because the original trigger owns the setup mode
 - active lookup uses `userId + dedupeKey + lifecycle.state`
 - dashboard still runs the current GitHub refresh action until Phase 3 has a
   worker

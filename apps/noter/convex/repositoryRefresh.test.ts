@@ -2,8 +2,8 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { MAX_DASHBOARD_REFRESH_DEMAND_BATCH_SIZE } from "./repositoryRefresh";
 import { makeConvexTest } from "./test.setup";
+import { MAX_DASHBOARD_REFRESH_DEMAND_VAULTS } from "../shared/repositoryRefresh";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
@@ -77,6 +77,53 @@ async function listRefreshRequests(t: ConvexTest) {
   });
 }
 
+async function insertConnectedVaultForUser(
+  t: ConvexTest,
+  args: {
+    userId: Id<"users">;
+    repositoryFullName: string;
+    ghRepoId: string;
+    owner: string;
+    name: string;
+    connectedAt: number;
+  },
+): Promise<Id<"vaults">> {
+  return await t.run(async (ctx) => {
+    const vaultId = await ctx.db.insert("vaults", {
+      userId: args.userId,
+      deletion: { state: "not_deleting" },
+      state: "not_connected",
+    });
+    const runId = await ctx.db.insert("appProvisioningRuns", {
+      userId: args.userId,
+      vaultId,
+      repositoryFullName: args.repositoryFullName,
+      trigger: "connect_existing_repository",
+      state: "succeeded",
+      currentStep: "finish",
+      createdAt: 1,
+      updatedAt: 2,
+      completedAt: 3,
+    });
+    await ctx.db.replace(vaultId, {
+      userId: args.userId,
+      deletion: { state: "not_deleting" },
+      state: "connected",
+      githubMode: "connect_existing_repository",
+      runId,
+      ghRepoId: args.ghRepoId,
+      owner: args.owner,
+      name: args.name,
+      defaultBranch: "main",
+      visibility: "private",
+      convex: { state: "not_configured" },
+      cloudflare: { state: "not_configured" },
+      connectedAt: args.connectedAt,
+    });
+    return vaultId;
+  });
+}
+
 function readSingleDashboardResult(
   results: (typeof api.repositoryRefresh.enqueueDashboardRepositoryRefresh)["_returnType"],
 ) {
@@ -87,13 +134,12 @@ function readSingleDashboardResult(
 
 describe("repository refresh demand ingest", () => {
   it("coalesces duplicate dashboard demand without rewriting queued rows", async () => {
-    const { asUser, ids, t } = await createConnectedVault();
+    const { asUser, t } = await createConnectedVault();
 
     const first = readSingleDashboardResult(
       await asUser.mutation(
         api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
         {
-          vaultIds: [ids.vaultId],
           trigger: "page_load",
         },
       ),
@@ -108,7 +154,6 @@ describe("repository refresh demand ingest", () => {
       await asUser.mutation(
         api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
         {
-          vaultIds: [ids.vaultId],
           trigger: "visibility",
         },
       ),
@@ -123,47 +168,20 @@ describe("repository refresh demand ingest", () => {
     );
   });
 
-  it("enqueues dashboard demand for multiple vaults in one mutation", async () => {
+  it("selects all connected dashboard vaults on the backend", async () => {
     const { asUser, ids, t } = await createConnectedVault();
-    const secondVaultId = await t.run(async (ctx) => {
-      const vaultId = await ctx.db.insert("vaults", {
-        userId: ids.userId,
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-      });
-      const runId = await ctx.db.insert("appProvisioningRuns", {
-        userId: ids.userId,
-        vaultId,
-        repositoryFullName: "ada/second-refresh",
-        trigger: "connect_existing_repository",
-        state: "succeeded",
-        currentStep: "finish",
-        createdAt: 1,
-        updatedAt: 2,
-        completedAt: 3,
-      });
-      await ctx.db.replace(vaultId, {
-        userId: ids.userId,
-        deletion: { state: "not_deleting" },
-        state: "connected",
-        githubMode: "connect_existing_repository",
-        runId,
-        ghRepoId: "456",
-        owner: "ada",
-        name: "second-refresh",
-        defaultBranch: "main",
-        visibility: "private",
-        convex: { state: "not_configured" },
-        cloudflare: { state: "not_configured" },
-        connectedAt: 4,
-      });
-      return vaultId;
+    const secondVaultId = await insertConnectedVaultForUser(t, {
+      userId: ids.userId,
+      repositoryFullName: "ada/second-refresh",
+      ghRepoId: "456",
+      owner: "ada",
+      name: "second-refresh",
+      connectedAt: 5,
     });
 
     const results = await asUser.mutation(
       api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
       {
-        vaultIds: [ids.vaultId, secondVaultId],
         trigger: "page_load",
       },
     );
@@ -181,28 +199,27 @@ describe("repository refresh demand ingest", () => {
     await expect(listRefreshRequests(t)).resolves.toHaveLength(2);
   });
 
-  it("bounds dashboard demand batches", async () => {
-    const { asUser, ids } = await createConnectedVault();
-    const tooManyVaultIds = Array.from(
-      { length: MAX_DASHBOARD_REFRESH_DEMAND_BATCH_SIZE + 1 },
-      () => ids.vaultId,
-    );
-
-    await expect(
-      asUser.mutation(api.repositoryRefresh.enqueueDashboardRepositoryRefresh, {
-        vaultIds: tooManyVaultIds,
-        trigger: "page_load",
-      }),
-    ).rejects.toThrow("Too many dashboard repository refresh demands.");
-  });
-
-  it("deduplicates repeated vault ids inside one dashboard batch", async () => {
+  it("does not enqueue dashboard demand for another user's vault", async () => {
     const { asUser, ids, t } = await createConnectedVault();
+    const otherUserId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        name: "Grace",
+        email: "grace@example.com",
+        isApproved: true,
+      });
+    });
+    await insertConnectedVaultForUser(t, {
+      userId: otherUserId,
+      repositoryFullName: "grace/private-refresh",
+      ghRepoId: "999",
+      owner: "grace",
+      name: "private-refresh",
+      connectedAt: 5,
+    });
 
     const results = await asUser.mutation(
       api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
       {
-        vaultIds: [ids.vaultId, ids.vaultId],
         trigger: "page_load",
       },
     );
@@ -216,6 +233,32 @@ describe("repository refresh demand ingest", () => {
     await expect(listRefreshRequests(t)).resolves.toHaveLength(1);
   });
 
+  it("bounds backend-selected dashboard vaults", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    for (let index = 1; index <= MAX_DASHBOARD_REFRESH_DEMAND_VAULTS; index++) {
+      await insertConnectedVaultForUser(t, {
+        userId: ids.userId,
+        repositoryFullName: `ada/refresh-${index}`,
+        ghRepoId: `bulk-${index}`,
+        owner: "ada",
+        name: `refresh-${index}`,
+        connectedAt: index + 4,
+      });
+    }
+
+    const results = await asUser.mutation(
+      api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
+      {
+        trigger: "page_load",
+      },
+    );
+
+    expect(results).toHaveLength(MAX_DASHBOARD_REFRESH_DEMAND_VAULTS);
+    await expect(listRefreshRequests(t)).resolves.toHaveLength(
+      MAX_DASHBOARD_REFRESH_DEMAND_VAULTS,
+    );
+  });
+
   it("upgrades queued dashboard demand when manual demand arrives", async () => {
     const { asUser, ids, t } = await createConnectedVault();
 
@@ -223,7 +266,6 @@ describe("repository refresh demand ingest", () => {
       await asUser.mutation(
         api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
         {
-          vaultIds: [ids.vaultId],
           trigger: "page_load",
         },
       ),
@@ -271,7 +313,6 @@ describe("repository refresh demand ingest", () => {
       await asUser.mutation(
         api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
         {
-          vaultIds: [ids.vaultId],
           trigger: "page_load",
         },
       ),
@@ -310,12 +351,11 @@ describe("repository refresh demand ingest", () => {
   });
 
   it("creates a new row when the matching row is terminal history", async () => {
-    const { asUser, ids, t } = await createConnectedVault();
+    const { asUser, t } = await createConnectedVault();
     const created = readSingleDashboardResult(
       await asUser.mutation(
         api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
         {
-          vaultIds: [ids.vaultId],
           trigger: "page_load",
         },
       ),
@@ -343,7 +383,6 @@ describe("repository refresh demand ingest", () => {
       await asUser.mutation(
         api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
         {
-          vaultIds: [ids.vaultId],
           trigger: "visibility",
         },
       ),
@@ -357,7 +396,7 @@ describe("repository refresh demand ingest", () => {
     await expect(listRefreshRequests(t)).resolves.toHaveLength(2);
   });
 
-  it("blocks demand after vault deletion starts", async () => {
+  it("skips dashboard demand after vault deletion starts", async () => {
     const { asUser, ids, t } = await createConnectedVault();
     await t.mutation(internal.vaultDeletionRuns.createInitialRun, {
       userId: ids.userId,
@@ -372,18 +411,9 @@ describe("repository refresh demand ingest", () => {
 
     await expect(
       asUser.mutation(api.repositoryRefresh.enqueueDashboardRepositoryRefresh, {
-        vaultIds: [ids.vaultId],
         trigger: "page_load",
       }),
-    ).resolves.toEqual([
-      {
-        vaultId: ids.vaultId,
-        result: {
-          kind: "blocked",
-          reason: "vault_deleting",
-        },
-      },
-    ]);
+    ).resolves.toEqual([]);
     await expect(listRefreshRequests(t)).resolves.toHaveLength(0);
   });
 
@@ -396,7 +426,6 @@ describe("repository refresh demand ingest", () => {
         userId: ids.userId,
         vaultId: ids.vaultId,
         runId: ids.runId,
-        mode: "connect_existing_repository",
       },
     );
 
@@ -419,5 +448,107 @@ describe("repository refresh demand ingest", () => {
         },
       },
     );
+  });
+
+  it("derives source setup mode from the provisioning run", async () => {
+    const { ids, t } = await createConnectedVault();
+    const createRunId = await t.run(async (ctx) => {
+      return await ctx.db.insert("appProvisioningRuns", {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        repositoryFullName: "ada/refresh-me",
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: 3,
+      });
+    });
+
+    const result = await t.mutation(
+      internal.repositoryRefresh.enqueueSourceSetupRepositoryRefresh,
+      {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        runId: createRunId,
+      },
+    );
+
+    expect(result.kind).toBe("created");
+    if (result.kind !== "created") {
+      throw new Error("Expected created result.");
+    }
+    await expect(getRefreshRequest(t, result.requestId)).resolves.toMatchObject(
+      {
+        demand: {
+          scope: "repository",
+          source: "source_setup",
+          runId: createRunId,
+          mode: "create_repository",
+        },
+      },
+    );
+  });
+
+  it("rejects source setup demand for mismatched runs", async () => {
+    const { ids, t } = await createConnectedVault();
+    const otherRunId = await t.run(async (ctx) => {
+      const otherVaultId = await ctx.db.insert("vaults", {
+        userId: ids.userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      return await ctx.db.insert("appProvisioningRuns", {
+        userId: ids.userId,
+        vaultId: otherVaultId,
+        repositoryFullName: "ada/other",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: 3,
+      });
+    });
+
+    await expect(
+      t.mutation(
+        internal.repositoryRefresh.enqueueSourceSetupRepositoryRefresh,
+        {
+          userId: ids.userId,
+          vaultId: ids.vaultId,
+          runId: otherRunId,
+        },
+      ),
+    ).rejects.toThrow("Source setup run does not match refresh demand.");
+  });
+
+  it("rejects source setup demand for retry runs", async () => {
+    const { ids, t } = await createConnectedVault();
+    const retryRunId = await t.run(async (ctx) => {
+      return await ctx.db.insert("appProvisioningRuns", {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        repositoryFullName: "ada/refresh-me",
+        trigger: "retry",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: 3,
+      });
+    });
+
+    await expect(
+      t.mutation(
+        internal.repositoryRefresh.enqueueSourceSetupRepositoryRefresh,
+        {
+          userId: ids.userId,
+          vaultId: ids.vaultId,
+          runId: retryRunId,
+        },
+      ),
+    ).rejects.toThrow("Retry run is not source setup refresh demand.");
   });
 });

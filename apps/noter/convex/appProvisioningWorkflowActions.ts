@@ -662,7 +662,6 @@ export const finishExistingRepositoryConnection = internalAction({
         userId: args.userId,
         vaultId: args.vaultId,
         runId: args.runId,
-        mode: "connect_existing_repository",
       },
     );
 

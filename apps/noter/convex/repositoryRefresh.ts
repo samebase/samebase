@@ -7,6 +7,7 @@ import {
   mutation,
   type MutationCtx,
 } from "./_generated/server";
+import { MAX_DASHBOARD_REFRESH_DEMAND_VAULTS } from "../shared/repositoryRefresh";
 import {
   deriveRepositoryRefreshDedupeKey,
   getRepositoryRefreshPriority,
@@ -21,18 +22,12 @@ import {
 
 const { array, id, literal, object, union } = v;
 
-// One dashboard page load can report many visible vaults, but this mutation
-// still runs as one Convex transaction. Keep the batch bounded until Workpool
-// owns the fan-out.
-export const MAX_DASHBOARD_REFRESH_DEMAND_BATCH_SIZE = 50;
-
 const vSourceSetupRepositoryRefreshMode = union(
   literal("create_repository"),
   literal("connect_existing_repository"),
 );
 
 const enqueueDashboardRepositoryRefreshArgs = object({
-  vaultIds: array(id("vaults")),
   trigger: vRepositoryRefreshBrowserTrigger,
 });
 type EnqueueDashboardRepositoryRefreshArgs = Infer<
@@ -59,10 +54,12 @@ const enqueueSourceSetupRepositoryRefreshArgs = object({
   userId: id("users"),
   vaultId: id("vaults"),
   runId: id("appProvisioningRuns"),
-  mode: vSourceSetupRepositoryRefreshMode,
 });
 type EnqueueSourceSetupRepositoryRefreshArgs = Infer<
   typeof enqueueSourceSetupRepositoryRefreshArgs
+>;
+type SourceSetupRepositoryRefreshMode = Infer<
+  typeof vSourceSetupRepositoryRefreshMode
 >;
 
 type EnqueueRepositoryRefreshArgs = {
@@ -73,17 +70,42 @@ type EnqueueRepositoryRefreshArgs = {
 
 type ActiveRepositoryRefreshState = "queued" | "running";
 
-function getUniqueVaultIds(vaultIds: Id<"vaults">[]): Id<"vaults">[] {
-  const uniqueVaultIds: Id<"vaults">[] = [];
-  const seenVaultIds = new Set<Id<"vaults">>();
-  for (const vaultId of vaultIds) {
-    if (seenVaultIds.has(vaultId)) {
-      continue;
-    }
-    seenVaultIds.add(vaultId);
-    uniqueVaultIds.push(vaultId);
+async function selectDashboardRefreshVaultIds(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+): Promise<Id<"vaults">[]> {
+  const connectedVaults = await ctx.db
+    .query("vaults")
+    .withIndex("by_userId_and_state", (q) =>
+      q.eq("userId", userId).eq("state", "connected"),
+    )
+    .take(MAX_DASHBOARD_REFRESH_DEMAND_VAULTS);
+  return connectedVaults
+    .filter((vault) => vault.deletion.state === "not_deleting")
+    .map((vault) => vault._id);
+}
+
+async function getSourceSetupRepositoryRefreshMode(
+  ctx: MutationCtx,
+  args: EnqueueSourceSetupRepositoryRefreshArgs,
+): Promise<SourceSetupRepositoryRefreshMode> {
+  const run = await ctx.db.get(args.runId);
+  if (!run || run.userId !== args.userId || run.vaultId !== args.vaultId) {
+    throw new Error("Source setup run does not match refresh demand.");
   }
-  return uniqueVaultIds;
+
+  switch (run.trigger) {
+    case "create":
+      return "create_repository";
+    case "connect_existing_repository":
+      return "connect_existing_repository";
+    case "retry":
+      throw new Error("Retry run is not source setup refresh demand.");
+    default: {
+      run.trigger satisfies never;
+      throw new Error("Unsupported source setup run trigger.");
+    }
+  }
 }
 
 async function getActiveRepositoryRefreshRequestForState(
@@ -228,12 +250,9 @@ export const enqueueDashboardRepositoryRefresh = mutation({
     if (!userId) {
       throw new Error("User not authenticated");
     }
-    if (args.vaultIds.length > MAX_DASHBOARD_REFRESH_DEMAND_BATCH_SIZE) {
-      throw new Error("Too many dashboard repository refresh demands.");
-    }
 
     const results: EnqueueDashboardRepositoryRefreshResult = [];
-    const vaultIds = getUniqueVaultIds(args.vaultIds);
+    const vaultIds = await selectDashboardRefreshVaultIds(ctx, userId);
     for (const vaultId of vaultIds) {
       results.push({
         vaultId,
@@ -283,6 +302,7 @@ export const enqueueSourceSetupRepositoryRefresh = internalMutation({
     ctx,
     args: EnqueueSourceSetupRepositoryRefreshArgs,
   ): Promise<EnqueueRepositoryRefreshResult> => {
+    const mode = await getSourceSetupRepositoryRefreshMode(ctx, args);
     return await enqueueRepositoryRefresh(ctx, {
       userId: args.userId,
       vaultId: args.vaultId,
@@ -290,7 +310,7 @@ export const enqueueSourceSetupRepositoryRefresh = internalMutation({
         scope: "repository",
         source: "source_setup",
         runId: args.runId,
-        mode: args.mode,
+        mode,
       },
     });
   },
