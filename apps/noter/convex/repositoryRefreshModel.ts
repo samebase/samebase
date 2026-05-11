@@ -4,8 +4,8 @@ const { id, literal, number, object, optional, string, union } = v;
 
 // MARK: Demand Sources and Scheduler Priority
 // These are caller-visible reasons for freshness, not exact worker steps.
-// The frontend reports demand; backend policy later decides depth, provider
-// parsing, cooldown, fan-out, and Workpool scheduling.
+// The frontend reports demand; backend policy decides depth, provider parsing,
+// cooldown, fan-out, and Workpool scheduling.
 
 /**
  * Browser demand trigger.
@@ -74,7 +74,7 @@ export type RepositoryRefreshPriority = Infer<
 // Demand answers "what user-visible freshness is needed?"
 // It intentionally does not answer "which provider calls should run?"
 // Backend execution policy may turn one demand into metadata, PR, branch-tree,
-// and provider-link steps in later phases.
+// and provider-link steps without widening request state.
 
 /**
  * Dashboard asks for vault-level freshness.
@@ -264,7 +264,7 @@ export const vRepositoryRefreshDemand = union(
 );
 /**
  * Caller-facing freshness demand persisted on `repositoryRefreshRequests`.
- * Backend workers may expand this into several provider/API steps later.
+ * Backend workers expand this into provider/API steps during execution.
  */
 export type RepositoryRefreshDemand = Infer<typeof vRepositoryRefreshDemand>;
 
@@ -450,7 +450,7 @@ export type RepositoryRefreshRequest = Infer<typeof vRepositoryRefreshRequest>;
  * already_scheduled = an equal or weaker duplicate was coalesced after a
  * Workpool job already exists, but before worker code starts.
  *
- * already_running = Workpool or a future worker already owns this demand.
+ * already_running = a worker already owns this demand.
  *
  * blocked = the vault is deleting/deleted or not connected, so no row is
  * created.

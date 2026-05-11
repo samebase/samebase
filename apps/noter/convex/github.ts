@@ -2277,14 +2277,12 @@ export const getRepositoryMediaAsset = action({
 });
 
 /**
- * Shared refresh planner for the old direct file-view action and the new
- * Workpool runner.
+ * Shared refresh planner for the direct file-view action and Workpool runner.
  *
  * It claims the existing vault refresh lock once, applies metadata budget rules,
  * runs the selected metadata/tree work, then always releases or records failure
- * on that same claim. The Workpool caller builds repository-scope args from
- * backend policy; the direct file-view action still passes branch-scope args
- * until branch demand moves onto the queue.
+ * on that same claim. The queue runner calls it with repository scope; the file
+ * route still calls it directly with branch scope.
  */
 async function refreshRepositoryTreeForUserHelper(
   ctx: ActionCtx,
@@ -2537,8 +2535,8 @@ export const refreshRepositoryTree = action({
 /**
  * Internal refresh entry point for backend-owned scheduling.
  *
- * The caller supplies the already-authorized user id. Request rows still do not
- * store exact work; Workpool policy decides which args to pass here.
+ * The caller supplies the already-authorized user id. Queue rows store demand
+ * only; the runner translates demand into these execution flags.
  */
 export const refreshRepositoryTreeForUser = internalAction({
   args: {
@@ -2760,7 +2758,7 @@ export const refreshBranchTree = internalAction({
  * A provided branch refreshes that exact branch. A missing branch means
  * "refresh repository metadata if requested, then refresh the vault's resolved
  * default branch"; that is the one intentional branchless state left in this
- * older helper.
+ * action.
  */
 export const updateRepositoryTree = internalAction({
   args: {
@@ -2778,8 +2776,8 @@ export const updateRepositoryTree = internalAction({
     const targetBranch = normalizeOptionalRepositoryBranch(args.branch);
     const requestedCloudflarePreviewBranchNames =
       normalizeCloudflarePreviewBranchNames(args.cloudflarePreviewBranchNames);
-    // All current callers are user-driven follow-ups after a repo mutation, so
-    // this helper should stay on the fully enriched manual path.
+    // This path runs after app-owned repository writes. Use manual debounce
+    // semantics while explicit caller flags choose metadata depth.
     const metadataSyncPlan = computeRepositoryTreeMetadataSyncPlan({
       targetBranch,
       includeAheadBehind: args.includeAheadBehind,

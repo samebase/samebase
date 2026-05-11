@@ -44,8 +44,8 @@ const { id, literal, null: vNull, object, string, union } = v;
 /**
  * One repository refresh pool for this runner.
  *
- * The queue row still carries the demand source, so priority and later policy
- * can evolve without exposing multiple pools or pool choice to callers.
+ * The request row carries demand source. Scheduler priority is derived from
+ * that demand, so callers never choose a pool or queue lane.
  */
 const repositoryRefreshWorkpool = new Workpool(
   components.repositoryRefreshWorkpool,
@@ -513,9 +513,8 @@ async function enqueueRepositoryRefresh(
 /**
  * Schedules repository-scoped queued demand on the Workpool.
  *
- * Branch demand remains queued for the later branch worker. That keeps this PR
- * narrow: dashboard/source-setup/manual repository freshness moves backend-side
- * without pretending branch/file-view semantics are done.
+ * This runner only executes repository demand. Branch demand stays queued until
+ * there is a branch runner, which keeps file-view semantics out of this worker.
  *
  * The row becomes `scheduled`, not `running`. Workpool has accepted the job,
  * but the refresh lease starts only when the action handler begins.
