@@ -21,11 +21,11 @@ const { boolean, id, literal, number, object, string, union } = v;
  * future CodeRabbit/Netlify/etc parser should add a new literal here and its own
  * worker path instead of making Cloudflare behavior generic by accident.
  */
-export const RepositoryRefreshLinkProvider = union(
+export const vRepositoryRefreshLinkProvider = union(
   literal("cloudflare_pages_comments"),
 );
 export type RepositoryRefreshLinkProvider = Infer<
-  typeof RepositoryRefreshLinkProvider
+  typeof vRepositoryRefreshLinkProvider
 >;
 
 /**
@@ -40,7 +40,7 @@ export type RepositoryRefreshLinkProvider = Infer<
  * pull_request_links = also parse provider comments, for example Cloudflare
  * Pages URLs in GitHub PR comments.
  */
-export const RepositoryMetadataEnrichment = union(
+export const vRepositoryMetadataEnrichment = union(
   object({
     kind: literal("none"),
   }),
@@ -51,11 +51,11 @@ export const RepositoryMetadataEnrichment = union(
   object({
     kind: literal("pull_request_links"),
     includeAheadBehind: boolean(),
-    provider: RepositoryRefreshLinkProvider,
+    provider: vRepositoryRefreshLinkProvider,
   }),
 );
 export type RepositoryMetadataEnrichment = Infer<
-  typeof RepositoryMetadataEnrichment
+  typeof vRepositoryMetadataEnrichment
 >;
 
 /**
@@ -71,13 +71,15 @@ export type RepositoryMetadataEnrichment = Infer<
  * system = backend correctness after create/connect/commit/pull; used when
  * stale refresh state would make the product contradict a completed operation.
  */
-export const RepositoryRefreshPriority = union(
+export const vRepositoryRefreshPriority = union(
   literal("background"),
   literal("normal"),
   literal("manual"),
   literal("system"),
 );
-export type RepositoryRefreshPriority = Infer<typeof RepositoryRefreshPriority>;
+export type RepositoryRefreshPriority = Infer<
+  typeof vRepositoryRefreshPriority
+>;
 
 // MARK: Refresh Intents
 //
@@ -98,21 +100,21 @@ export type RepositoryRefreshPriority = Infer<typeof RepositoryRefreshPriority>;
  * dashboard rows. It cannot enqueue branch_tree work; trees are refreshed by
  * file view, manual, commit, or pull signals.
  */
-export const DashboardRefreshIntent = object({
+export const vDashboardRefreshIntent = object({
   source: literal("dashboard"),
   trigger: union(literal("page_load"), literal("visibility")),
 });
-export type DashboardRefreshIntent = Infer<typeof DashboardRefreshIntent>;
+export type DashboardRefreshIntent = Infer<typeof vDashboardRefreshIntent>;
 
 /**
  * Dashboard status button. Manual can queue metadata, branch tree, or link work
  * when the UI knows the work target.
  */
-export const ManualRefreshIntent = object({
+export const vManualRefreshIntent = object({
   source: literal("manual"),
   trigger: literal("dashboard_status_click"),
 });
-export type ManualRefreshIntent = Infer<typeof ManualRefreshIntent>;
+export type ManualRefreshIntent = Infer<typeof vManualRefreshIntent>;
 
 /**
  * GitHub repo create/connect flow finished.
@@ -121,7 +123,7 @@ export type ManualRefreshIntent = Infer<typeof ManualRefreshIntent>;
  * should enqueue repo_metadata work so branches appear without a browser reload.
  * runId points at the provisioning run for debugging and audit.
  */
-export const SourceSetupRefreshIntent = object({
+export const vSourceSetupRefreshIntent = object({
   source: literal("source_setup"),
   runId: id("appProvisioningRuns"),
   mode: union(
@@ -129,7 +131,7 @@ export const SourceSetupRefreshIntent = object({
     literal("connect_existing_repository"),
   ),
 });
-export type SourceSetupRefreshIntent = Infer<typeof SourceSetupRefreshIntent>;
+export type SourceSetupRefreshIntent = Infer<typeof vSourceSetupRefreshIntent>;
 
 /**
  * File route loaded or became visible for a specific branch.
@@ -138,29 +140,29 @@ export type SourceSetupRefreshIntent = Infer<typeof SourceSetupRefreshIntent>;
  * request repo_metadata because the file view is branch-scoped. visibility here
  * means returning to an already-open file tab.
  */
-export const FileViewRefreshIntent = object({
+export const vFileViewRefreshIntent = object({
   source: literal("file_view"),
   trigger: union(literal("page_load"), literal("visibility")),
 });
-export type FileViewRefreshIntent = Infer<typeof FileViewRefreshIntent>;
+export type FileViewRefreshIntent = Infer<typeof vFileViewRefreshIntent>;
 
 /**
  * Local commit finished. The follow-up work should refresh the branch tree that
  * changed so persisted UI state catches up with the write.
  */
-export const CommitRefreshIntent = object({
+export const vCommitRefreshIntent = object({
   source: literal("commit"),
 });
-export type CommitRefreshIntent = Infer<typeof CommitRefreshIntent>;
+export type CommitRefreshIntent = Infer<typeof vCommitRefreshIntent>;
 
 /**
  * Local pull finished. The follow-up work should refresh the branch tree whose
  * provider state moved underneath the local checkout.
  */
-export const PullRefreshIntent = object({
+export const vPullRefreshIntent = object({
   source: literal("pull"),
 });
-export type PullRefreshIntent = Infer<typeof PullRefreshIntent>;
+export type PullRefreshIntent = Infer<typeof vPullRefreshIntent>;
 
 /**
  * All reasons a refresh request may enter the queue.
@@ -169,15 +171,15 @@ export type PullRefreshIntent = Infer<typeof PullRefreshIntent>;
  * honestly describe. For example, source_setup can discover branches through
  * repo_metadata, but it cannot create branch_tree or link_enrichment rows.
  */
-export const RepositoryRefreshIntent = union(
-  DashboardRefreshIntent,
-  ManualRefreshIntent,
-  SourceSetupRefreshIntent,
-  FileViewRefreshIntent,
-  CommitRefreshIntent,
-  PullRefreshIntent,
+export const vRepositoryRefreshIntent = union(
+  vDashboardRefreshIntent,
+  vManualRefreshIntent,
+  vSourceSetupRefreshIntent,
+  vFileViewRefreshIntent,
+  vCommitRefreshIntent,
+  vPullRefreshIntent,
 );
-export type RepositoryRefreshIntent = Infer<typeof RepositoryRefreshIntent>;
+export type RepositoryRefreshIntent = Infer<typeof vRepositoryRefreshIntent>;
 
 // MARK: Refresh Work
 //
@@ -197,12 +199,12 @@ export type RepositoryRefreshIntent = Infer<typeof RepositoryRefreshIntent>;
  * after a new or connected GitHub repo. This work does not refresh one branch's
  * file tree.
  */
-export const RepositoryMetadataRefreshWork = object({
+export const vRepositoryMetadataRefreshWork = object({
   kind: literal("repo_metadata"),
-  enrichment: RepositoryMetadataEnrichment,
+  enrichment: vRepositoryMetadataEnrichment,
 });
 export type RepositoryMetadataRefreshWork = Infer<
-  typeof RepositoryMetadataRefreshWork
+  typeof vRepositoryMetadataRefreshWork
 >;
 
 /**
@@ -211,11 +213,11 @@ export type RepositoryMetadataRefreshWork = Infer<
  * Example: branch="main" after commit/pull, or when opening a file route on
  * main. This keeps branch work out of repo-wide dashboard polling.
  */
-export const BranchTreeRefreshWork = object({
+export const vBranchTreeRefreshWork = object({
   kind: literal("branch_tree"),
   branch: string(),
 });
-export type BranchTreeRefreshWork = Infer<typeof BranchTreeRefreshWork>;
+export type BranchTreeRefreshWork = Infer<typeof vBranchTreeRefreshWork>;
 
 /**
  * Provider link parsing for one branch.
@@ -224,12 +226,14 @@ export type BranchTreeRefreshWork = Infer<typeof BranchTreeRefreshWork>;
  * "main". This is separate from branch_tree because comment parsing can be more
  * expensive than reading the tree.
  */
-export const LinkEnrichmentRefreshWork = object({
+export const vLinkEnrichmentRefreshWork = object({
   kind: literal("link_enrichment"),
   branch: string(),
-  provider: RepositoryRefreshLinkProvider,
+  provider: vRepositoryRefreshLinkProvider,
 });
-export type LinkEnrichmentRefreshWork = Infer<typeof LinkEnrichmentRefreshWork>;
+export type LinkEnrichmentRefreshWork = Infer<
+  typeof vLinkEnrichmentRefreshWork
+>;
 
 // MARK: Refresh Lifecycle
 //
@@ -245,7 +249,7 @@ export type LinkEnrichmentRefreshWork = Infer<typeof LinkEnrichmentRefreshWork>;
  * no_work_needed means the worker checked state and skipped writes; refreshed
  * records when backend refresh state actually changed.
  */
-export const RepositoryRefreshResult = union(
+export const vRepositoryRefreshResult = union(
   object({
     kind: literal("no_work_needed"),
   }),
@@ -254,7 +258,7 @@ export const RepositoryRefreshResult = union(
     refreshedAt: number(),
   }),
 );
-export type RepositoryRefreshResult = Infer<typeof RepositoryRefreshResult>;
+export type RepositoryRefreshResult = Infer<typeof vRepositoryRefreshResult>;
 
 /**
  * Failed worker outcome with scheduling hints.
@@ -262,7 +266,7 @@ export type RepositoryRefreshResult = Infer<typeof RepositoryRefreshResult>;
  * rate_limited tells the scheduler when the provider may be retried.
  * provider_error cools this lane after a non-rate-limit provider failure.
  */
-export const RepositoryRefreshFailure = union(
+export const vRepositoryRefreshFailure = union(
   object({
     kind: literal("rate_limited"),
     retryAfter: number(),
@@ -274,7 +278,7 @@ export const RepositoryRefreshFailure = union(
     message: string(),
   }),
 );
-export type RepositoryRefreshFailure = Infer<typeof RepositoryRefreshFailure>;
+export type RepositoryRefreshFailure = Infer<typeof vRepositoryRefreshFailure>;
 
 /**
  * Request stopped before normal success/failure.
@@ -283,13 +287,13 @@ export type RepositoryRefreshFailure = Infer<typeof RepositoryRefreshFailure>;
  * vault_deleted prevent work from running against a vault that is going away or
  * gone.
  */
-export const RepositoryRefreshCancelReason = union(
+export const vRepositoryRefreshCancelReason = union(
   literal("superseded"),
   literal("vault_deleting"),
   literal("vault_deleted"),
 );
 export type RepositoryRefreshCancelReason = Infer<
-  typeof RepositoryRefreshCancelReason
+  typeof vRepositoryRefreshCancelReason
 >;
 
 /**
@@ -299,7 +303,7 @@ export type RepositoryRefreshCancelReason = Infer<
  * and may become succeeded, failed, or canceled. Terminal variants carry only
  * the fields meaningful for that terminal state.
  */
-export const RepositoryRefreshLifecycle = union(
+export const vRepositoryRefreshLifecycle = union(
   object({
     state: literal("queued"),
     notBefore: number(),
@@ -316,23 +320,23 @@ export const RepositoryRefreshLifecycle = union(
     attempt: number(),
     startedAt: number(),
     completedAt: number(),
-    result: RepositoryRefreshResult,
+    result: vRepositoryRefreshResult,
   }),
   object({
     state: literal("failed"),
     attempt: number(),
     startedAt: number(),
     failedAt: number(),
-    failure: RepositoryRefreshFailure,
+    failure: vRepositoryRefreshFailure,
   }),
   object({
     state: literal("canceled"),
     canceledAt: number(),
-    reason: RepositoryRefreshCancelReason,
+    reason: vRepositoryRefreshCancelReason,
   }),
 );
 export type RepositoryRefreshLifecycle = Infer<
-  typeof RepositoryRefreshLifecycle
+  typeof vRepositoryRefreshLifecycle
 >;
 
 // MARK: Request Rows
@@ -351,8 +355,8 @@ const repositoryRefreshBaseFields = {
   userId: id("users"),
   vaultId: id("vaults"),
   dedupeKey: string(),
-  priority: RepositoryRefreshPriority,
-  lifecycle: RepositoryRefreshLifecycle,
+  priority: vRepositoryRefreshPriority,
+  lifecycle: vRepositoryRefreshLifecycle,
   createdAt: number(),
   updatedAt: number(),
 } as const;
@@ -363,17 +367,17 @@ const repositoryRefreshBaseFields = {
  * Valid intents are dashboard for passive metadata freshness, manual for an
  * explicit reload, and source_setup for initial branch discovery.
  */
-export const RepositoryMetadataRefreshRequest = object({
+export const vRepositoryMetadataRefreshRequest = object({
   ...repositoryRefreshBaseFields,
-  work: RepositoryMetadataRefreshWork,
+  work: vRepositoryMetadataRefreshWork,
   intent: union(
-    DashboardRefreshIntent,
-    ManualRefreshIntent,
-    SourceSetupRefreshIntent,
+    vDashboardRefreshIntent,
+    vManualRefreshIntent,
+    vSourceSetupRefreshIntent,
   ),
 });
 export type RepositoryMetadataRefreshRequest = Infer<
-  typeof RepositoryMetadataRefreshRequest
+  typeof vRepositoryMetadataRefreshRequest
 >;
 
 /**
@@ -384,17 +388,17 @@ export type RepositoryMetadataRefreshRequest = Infer<
  * refreshed one branch at a time and should not be fanned out by passive
  * dashboard polling.
  */
-export const BranchTreeRefreshRequest = object({
+export const vBranchTreeRefreshRequest = object({
   ...repositoryRefreshBaseFields,
-  work: BranchTreeRefreshWork,
+  work: vBranchTreeRefreshWork,
   intent: union(
-    ManualRefreshIntent,
-    FileViewRefreshIntent,
-    CommitRefreshIntent,
-    PullRefreshIntent,
+    vManualRefreshIntent,
+    vFileViewRefreshIntent,
+    vCommitRefreshIntent,
+    vPullRefreshIntent,
   ),
 });
-export type BranchTreeRefreshRequest = Infer<typeof BranchTreeRefreshRequest>;
+export type BranchTreeRefreshRequest = Infer<typeof vBranchTreeRefreshRequest>;
 
 /**
  * Provider link request row.
@@ -403,13 +407,13 @@ export type BranchTreeRefreshRequest = Infer<typeof BranchTreeRefreshRequest>;
  * commit, and pull do not create this row because they do not imply PR comment
  * parsing.
  */
-export const LinkEnrichmentRefreshRequest = object({
+export const vLinkEnrichmentRefreshRequest = object({
   ...repositoryRefreshBaseFields,
-  work: LinkEnrichmentRefreshWork,
-  intent: union(ManualRefreshIntent, DashboardRefreshIntent),
+  work: vLinkEnrichmentRefreshWork,
+  intent: union(vManualRefreshIntent, vDashboardRefreshIntent),
 });
 export type LinkEnrichmentRefreshRequest = Infer<
-  typeof LinkEnrichmentRefreshRequest
+  typeof vLinkEnrichmentRefreshRequest
 >;
 
 /**
@@ -418,12 +422,12 @@ export type LinkEnrichmentRefreshRequest = Infer<
  * The union forbids impossible pairings, such as source_setup + branch_tree or
  * commit + link_enrichment.
  */
-export const RepositoryRefreshRequest = union(
-  RepositoryMetadataRefreshRequest,
-  BranchTreeRefreshRequest,
-  LinkEnrichmentRefreshRequest,
+export const vRepositoryRefreshRequest = union(
+  vRepositoryMetadataRefreshRequest,
+  vBranchTreeRefreshRequest,
+  vLinkEnrichmentRefreshRequest,
 );
-export type RepositoryRefreshRequest = Infer<typeof RepositoryRefreshRequest>;
+export type RepositoryRefreshRequest = Infer<typeof vRepositoryRefreshRequest>;
 
 // MARK: Builder Inputs
 //

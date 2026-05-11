@@ -27,7 +27,7 @@ import {
   machineRegistrationBootstrapRateLimitRowValidator,
   machineRegistrationRequestRowValidator,
 } from "./connectedMachineModel";
-import { RepositoryRefreshRequest as repositoryRefreshRequestValidator } from "./repositoryRefreshModel";
+import { vRepositoryRefreshRequest } from "./repositoryRefreshModel";
 import { codespacesTable } from "./codespaces/model";
 import { workspaceSidebarStateRowValidator } from "./workspaceSidebarStateModel";
 
@@ -444,7 +444,7 @@ export default defineSchema({
    * Durable refresh intent and worker status. Each row is one work unit so
    * branch/tree/link states stay explicit instead of becoming optional fields.
    */
-  repositoryRefreshRequests: defineTable(repositoryRefreshRequestValidator)
+  repositoryRefreshRequests: defineTable(vRepositoryRefreshRequest)
     .index("by_userId_and_dedupeKey", ["userId", "dedupeKey"])
     .index("by_userId_and_updatedAt", ["userId", "updatedAt"])
     .index("by_vaultId_and_updatedAt", ["vaultId", "updatedAt"])
