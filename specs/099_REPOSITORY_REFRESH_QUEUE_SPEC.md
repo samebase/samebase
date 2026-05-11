@@ -16,65 +16,80 @@
 
 ## Contract
 
-Frontend reports refresh demand. Backend schedules refresh supply.
+Frontend reports freshness demand.
 
-Optimize for:
+Backend owns refresh supply:
 
-- schema-enforced state
-- one readable orchestration module
-- small reviewable phases
-- no generic plugin/provider framework
+- exact steps
+- depth
+- priority
+- `notBefore`
+- cooldowns
+- provider/comment parsing
+- Workpool fan-out
+
+Persist demand, not old frontend refresh mechanics.
 
 ## State Model
 
 Start here. Convex validators must encode this shape.
 
 ```ts
-type RepositoryRefreshRequest =
-  | RepositoryMetadataRefreshRequest
-  | BranchTreeRefreshRequest
-  | LinkEnrichmentRefreshRequest;
-
-type RepositoryMetadataRefreshRequest = RepositoryRefreshBase & {
-  work: {
-    kind: "repo_metadata";
-    enrichment: RepositoryMetadataEnrichment;
-  };
-  intent:
-    | DashboardRefreshIntent
-    | ManualRefreshIntent
-    | SourceSetupRefreshIntent;
-};
-
-type BranchTreeRefreshRequest = RepositoryRefreshBase & {
-  work: {
-    kind: "branch_tree";
-    branch: string;
-  };
-  intent:
-    | ManualRefreshIntent
-    | FileViewRefreshIntent
-    | CommitRefreshIntent
-    | PullRefreshIntent;
-};
-
-type LinkEnrichmentRefreshRequest = RepositoryRefreshBase & {
-  work: {
-    kind: "link_enrichment";
-    branch: string;
-    provider: RepositoryRefreshLinkProvider;
-  };
-  intent: ManualRefreshIntent | DashboardRefreshIntent;
-};
-
-type RepositoryRefreshBase = {
+type RepositoryRefreshRequest = {
   userId: Id<"users">;
   vaultId: Id<"vaults">;
   dedupeKey: string;
+  demand: RepositoryRefreshDemand;
   lifecycle: RepositoryRefreshLifecycle;
   createdAt: number;
   updatedAt: number;
 };
+
+type RepositoryRefreshDemand =
+  | RepositoryScopeRefreshDemand
+  | BranchScopeRefreshDemand;
+
+type RepositoryScopeRefreshDemand =
+  | {
+      scope: "repository";
+      source: "dashboard";
+      trigger: "page_load" | "visibility";
+    }
+  | {
+      scope: "repository";
+      source: "manual";
+      trigger: "dashboard_status_click";
+    }
+  | {
+      scope: "repository";
+      source: "source_setup";
+      runId: Id<"appProvisioningRuns">;
+      mode: "create_repository" | "connect_existing_repository";
+    };
+
+type BranchScopeRefreshDemand =
+  | {
+      scope: "branch";
+      branch: string;
+      source: "file_view";
+      trigger: "page_load" | "visibility";
+    }
+  | {
+      scope: "branch";
+      branch: string;
+      source: "manual";
+      trigger: "dashboard_status_click";
+    }
+  | {
+      scope: "branch";
+      branch: string;
+      source: "commit";
+    }
+  | {
+      scope: "branch";
+      branch: string;
+      source: "pull";
+    };
 
 type RepositoryRefreshLifecycle =
   | {
@@ -108,46 +123,6 @@ type RepositoryRefreshLifecycle =
       reason: RepositoryRefreshCancelReason;
     };
 
-type DashboardRefreshIntent = {
-  source: "dashboard";
-  trigger: "page_load" | "visibility";
-};
-
-type ManualRefreshIntent = {
-  source: "manual";
-  trigger: "dashboard_status_click";
-};
-
-type SourceSetupRefreshIntent = {
-  source: "source_setup";
-  runId: Id<"appProvisioningRuns">;
-  mode: "create_repository" | "connect_existing_repository";
-};
-
-type FileViewRefreshIntent = {
-  source: "file_view";
-  trigger: "page_load" | "visibility";
-};
-
-type CommitRefreshIntent = {
-  source: "commit";
-};
-
-type PullRefreshIntent = {
-  source: "pull";
-};
-
-type RepositoryMetadataEnrichment =
-  | {
-      kind: "none";
-    }
-  | {
-      kind: "pull_request_metadata";
-      includeAheadBehind: boolean;
-    };
-
-type RepositoryRefreshLinkProvider = "cloudflare_pages_comments";
-
 type RepositoryRefreshResult =
   | {
       kind: "no_work_needed";
@@ -177,47 +152,69 @@ type RepositoryRefreshCancelReason =
 
 Schema rules:
 
-- no optional `branch` on the base row
-- no `link_enrichment` without provider
-- no provider/comment link parsing inside `repo_metadata`
+- no `work` field on request rows
+- no caller-provided provider parser
+- no caller-provided metadata depth
+- no caller-provided ahead/behind setting
+- no caller-provided `priority`
+- no caller-provided `dedupeKey`
+- no repository demand with `branch`
+- no branch demand without `branch`
+- no dashboard branch fan-out
 - no `source_setup` without `runId`
 - no `queued` row with `workpoolJobId`
 - no `succeeded` row without result
-- no persisted `priority`; scheduler priority is derived from `intent`
-- no caller-provided `dedupeKey`
 - build rows through constructors only
+
+## Backend Execution Policy
+
+Demand may later expand into internal steps:
+
+```ts
+type RepositoryRefreshStep =
+  | "discover_branches"
+  | "sync_pull_requests"
+  | "sync_branch_tree"
+  | "sync_provider_links";
+```
+
+Steps are not Phase 1 persisted request state.
+
+Examples:
+
+- repository demand may run branch discovery and PR metadata
+- branch demand may run tree refresh and provider-link refresh
+- provider-link refresh may parse Cloudflare Pages comments today
+- another provider parser should add an internal handler later
+
+Do not model these as frontend request choices.
 
 ## State Matrix Rules
 
-Only multiply dependent axes. If `scope` is fully determined by `work`, do not
-test `intent × scope`; that would imply intent owns scope state.
+Only multiply dependent axes. If execution steps are backend policy, do not
+matrix `source × step`; that would make callers own steps again.
 
 Current dependency edges:
 
 ```txt
-intent -> allowed work
-intent -> scheduler priority
-work -> scope
-work -> dedupe key shape
+scope -> allowed source
+source -> scheduler priority
+scope -> dedupe key shape
 lifecycle.state -> lifecycle fields
 result.kind -> result fields
 failure.kind -> failure fields
 ```
 
-`intent -> allowed work`:
+`scope -> allowed source`:
 
-| Intent         | Work                               | User story                                                        |
-| -------------- | ---------------------------------- | ----------------------------------------------------------------- |
-| `dashboard`    | `repo_metadata`, `link_enrichment` | dashboard asks for row freshness without branch tree fan-out      |
-| `manual`       | all work kinds                     | user explicitly asks for a refresh target                         |
-| `source_setup` | `repo_metadata`                    | create/connect finished; discover branches without browser reload |
-| `file_view`    | `branch_tree`                      | visible file route refreshes the branch it is showing             |
-| `commit`       | `branch_tree`                      | commit changed one branch tree                                    |
-| `pull`         | `branch_tree`                      | pull moved one branch tree                                        |
+| Scope        | Sources                                 | User story                              |
+| ------------ | --------------------------------------- | --------------------------------------- |
+| `repository` | `dashboard`, `manual`, `source_setup`   | vault-level freshness, branch discovery |
+| `branch`     | `file_view`, `manual`, `commit`, `pull` | one branch needs freshness              |
 
-`intent -> scheduler priority`:
+`source -> scheduler priority`:
 
-| Intent         | Priority     | Stored? |
+| Source         | Priority     | Stored? |
 | -------------- | ------------ | ------- |
 | `dashboard`    | `background` | no      |
 | `manual`       | `manual`     | no      |
@@ -226,13 +223,12 @@ failure.kind -> failure fields
 | `commit`       | `system`     | no      |
 | `pull`         | `system`     | no      |
 
-`work -> scope`:
+`scope -> dedupe key shape`:
 
-| Work              | Scope                    | Rule                         |
-| ----------------- | ------------------------ | ---------------------------- |
-| `repo_metadata`   | repository               | no branch                    |
-| `branch_tree`     | branch                   | branch required              |
-| `link_enrichment` | branch + provider parser | branch and provider required |
+| Scope        | Key shape                              |
+| ------------ | -------------------------------------- |
+| `repository` | `user:{id}:vault:{id}:repository`      |
+| `branch`     | `user:{id}:vault:{id}:branch:{branch}` |
 
 `lifecycle.state -> lifecycle fields`:
 
@@ -248,63 +244,29 @@ Tests should enumerate these edges with small matrices. When a forbidden state
 is still representable, simplify the state shape first; add runtime guards only
 when the rule depends on live database/provider/time facts.
 
-## Orchestration File
-
-Create one map-like module:
-
-- `apps/noter/convex/repositoryRefresh.ts`
-
-It should expose the system in this order:
-
-```ts
-type RepositoryRefreshPhase =
-  | "make_request"
-  | "ingest_intent"
-  | "choose_work"
-  | "enqueue_work"
-  | "run_worker"
-  | "finish_request";
-```
-
-Keep lower-level details elsewhere:
-
-- GitHub API calls stay below orchestration.
-- Vault cache writes stay below orchestration.
-- Workpool calls stay thin.
-- Policy lives in one helper.
-
-## Phase 0: Type Review
-
-Goal: agree on state before code.
-
-Deliverable:
-
-- this spec
-
-No code.
-
 ## Phase 1: Schema And Constructors
 
 Add:
 
 - `repositoryRefreshRequests` table
-- validators mirroring `RepositoryRefreshRequest`
+- demand validators
 - `makeRepositoryRefreshRequest`
-- dedupe-key derivation
-- scheduler priority derivation from intent
-- state transition helpers
+- dedupe-key derivation from demand scope
+- scheduler priority derivation from demand source
+- lifecycle transition helpers
 
 Do not:
 
 - call Workpool
 - change dashboard behavior
 - call GitHub
+- encode exact work/depth/provider parsing in request rows
 
 Tests:
 
-- constructors produce valid state
-- branch work requires branch
-- link work requires branch and provider
+- constructors produce valid demand rows
+- repository demand cannot carry branch state
+- branch demand requires branch
 - source setup requires run id
 - dedupe key is derived
 - priority is derived, not stored
@@ -326,29 +288,26 @@ Behavior:
 - authenticate user
 - load vault
 - reject/no-op if deleting
-- build typed request
+- build typed demand
 - coalesce by dedupe key
 - return request status
 
 Do not:
 
 - execute refresh work yet
+- expose exact step/depth choices to callers
 - remove direct file-view refresh
 - redesign dashboard query
 
-## Phase 3: Metadata Worker
+## Phase 3: Repository Worker
 
-Add one Workpool worker for:
-
-```ts
-type Phase3Work = RepositoryMetadataRefreshRequest;
-```
+Add one Workpool worker for repository demand.
 
 Behavior:
 
 - re-read request
 - re-check vault/deletion gate
-- claim existing vault refresh lock
+- choose internal repository steps
 - run repository metadata sync
 - update `vaultRemoteBranches`
 - finish request
@@ -361,31 +320,26 @@ This phase fixes:
 
 Do not:
 
-- refresh every branch tree
-- add link providers
+- refresh every branch tree unless policy explicitly chooses it
+- expose provider choices to frontend
 - move file view yet
 
 ## Phase 4: Manual Priority
 
-Manual refresh becomes queued priority intent.
+Manual refresh becomes queued priority demand.
 
 Rules:
 
-- can raise priority
-- can request deeper metadata
-- can target branch tree later
+- can raise scheduling priority
+- can ask backend policy for deeper freshness
 - cannot bypass deletion
 - cannot bypass provider cooldown
 - cannot bypass GitHub rate limit
-- must coalesce with identical running work
+- must coalesce with identical running demand
 
-## Phase 5: Branch Tree Work
+## Phase 5: Branch Demand Worker
 
-Add:
-
-```ts
-type Phase5Work = BranchTreeRefreshRequest;
-```
+Add worker behavior for branch demand.
 
 Entry points:
 
@@ -396,27 +350,9 @@ Entry points:
 Rules:
 
 - branch is required by schema
-- one branch per request
-- metadata refresh does not imply tree refresh
-
-## Phase 6: Link Enrichment
-
-Add:
-
-```ts
-type Phase6Work = LinkEnrichmentRefreshRequest;
-```
-
-Current provider:
-
-- `cloudflare_pages_comments`
-
-Provider/comment links only enter through `LinkEnrichmentRefreshRequest`.
-`repo_metadata` may fetch PR metadata, but it does not parse PR comments for
-links.
-
-Future provider examples are not scope. A second provider should add one closed
-union member plus one internal handler.
+- one branch per demand row
+- repository demand does not imply every branch refresh
+- backend chooses tree/provider-link steps
 
 ## Later
 
@@ -426,6 +362,7 @@ Possible after queue proves useful:
 - add dashboard summary rows
 - add backlog/latency observability
 - package execution for another Convex deployment
+- add a second provider-link parser, such as Netlify comments
 
 These do not change Phase 1-3 scope.
 
@@ -435,6 +372,8 @@ These do not change Phase 1-3 scope.
 - Workflow per refresh
 - user-configurable plugins
 - generic provider framework
+- caller-selected refresh depth
+- caller-selected provider parsing
 - dashboard query rewrite before the queue proves pressure
 - self-hosted execution in the first implementation
 

@@ -10,11 +10,11 @@ import {
   markRepositoryRefreshRequestRunning,
   markRepositoryRefreshRequestSucceeded,
   type MakeRepositoryRefreshRequestArgs,
-  type RepositoryRefreshIntent,
+  type RepositoryRefreshDemand,
   type RepositoryRefreshLifecycle,
   type RepositoryRefreshPriority,
   type RepositoryRefreshRequest,
-  type SourceSetupRefreshIntent,
+  type SourceSetupRepositoryRefreshDemand,
 } from "./repositoryRefreshModel";
 
 type RepositoryRefreshMatrixContext = {
@@ -22,280 +22,223 @@ type RepositoryRefreshMatrixContext = {
     userId: RepositoryRefreshRequest["userId"];
     vaultId: RepositoryRefreshRequest["vaultId"];
   };
-  runId: SourceSetupRefreshIntent["runId"];
+  runId: SourceSetupRepositoryRefreshDemand["runId"];
 };
 
-type RepositoryRefreshIntentSource = RepositoryRefreshIntent["source"];
-type RepositoryRefreshWorkKind = RepositoryRefreshRequest["work"]["kind"];
+type RepositoryRefreshScope = RepositoryRefreshDemand["scope"];
+type RepositoryRefreshSource = RepositoryRefreshDemand["source"];
 
-type WorkKindForIntent<Intent extends RepositoryRefreshIntentSource> =
-  MakeRepositoryRefreshRequestArgs extends infer Args
-    ? Args extends {
-        intent: RepositoryRefreshIntent;
-        work: { kind: RepositoryRefreshWorkKind };
-      }
-      ? Extract<Args["intent"], { source: Intent }> extends never
-        ? never
-        : Args["work"]["kind"]
+type SourceForScope<Scope extends RepositoryRefreshScope> =
+  RepositoryRefreshDemand extends infer Demand
+    ? Demand extends { scope: Scope; source: RepositoryRefreshSource }
+      ? Demand["source"]
       : never
     : never;
 
-type MakeRepositoryRefreshRequestArgsForIntentWork<
-  Intent extends RepositoryRefreshIntentSource,
-  Work extends WorkKindForIntent<Intent>,
-> = Extract<MakeRepositoryRefreshRequestArgs, { work: { kind: Work } }> & {
-  intent: Extract<RepositoryRefreshIntent, { source: Intent }>;
+type MakeRepositoryRefreshRequestArgsForScopeSource<
+  Scope extends RepositoryRefreshScope,
+  Source extends SourceForScope<Scope>,
+> = MakeRepositoryRefreshRequestArgs & {
+  demand: Extract<RepositoryRefreshDemand, { scope: Scope; source: Source }>;
 };
 
-type IntentWorkMatrixRow<
-  Intent extends RepositoryRefreshIntentSource,
-  Work extends WorkKindForIntent<Intent>,
+type DemandMatrixRow<
+  Scope extends RepositoryRefreshScope,
+  Source extends SourceForScope<Scope>,
 > = {
-  intent: Intent;
-  work: Work;
+  scope: Scope;
+  source: Source;
   expectedPriority: RepositoryRefreshPriority;
   story: string;
   make: (
     context: RepositoryRefreshMatrixContext,
-  ) => MakeRepositoryRefreshRequestArgsForIntentWork<Intent, Work>;
+  ) => MakeRepositoryRefreshRequestArgsForScopeSource<Scope, Source>;
   expectedDedupeKey: (context: RepositoryRefreshMatrixContext) => string;
 };
 
-type IntentWorkMatrix = {
-  [Intent in RepositoryRefreshIntentSource]: {
-    [Work in WorkKindForIntent<Intent>]: IntentWorkMatrixRow<Intent, Work>;
+type DemandMatrix = {
+  [Scope in RepositoryRefreshScope]: {
+    [Source in SourceForScope<Scope>]: DemandMatrixRow<Scope, Source>;
   };
 };
 
-const intentWorkMatrix = {
-  dashboard: {
-    repo_metadata: {
-      intent: "dashboard",
-      work: "repo_metadata",
+const demandMatrix = {
+  repository: {
+    dashboard: {
+      scope: "repository",
+      source: "dashboard",
       expectedPriority: "background",
       story:
-        "Dashboard opens or returns to the foreground and asks for repo/branch list freshness.",
+        "Dashboard opens or returns to the foreground and asks for vault-level freshness.",
       make: ({ ids }) => ({
         userId: ids.userId,
         vaultId: ids.vaultId,
         now: 100,
-        notBefore: 100,
-        intent: { source: "dashboard", trigger: "page_load" },
-        work: { kind: "repo_metadata", enrichment: { kind: "none" } },
+        demand: {
+          scope: "repository",
+          source: "dashboard",
+          trigger: "page_load",
+        },
       }),
       expectedDedupeKey: ({ ids }) =>
-        `user:${ids.userId}:vault:${ids.vaultId}:repo_metadata`,
+        `user:${ids.userId}:vault:${ids.vaultId}:repository`,
     },
-    link_enrichment: {
-      intent: "dashboard",
-      work: "link_enrichment",
-      expectedPriority: "background",
+    manual: {
+      scope: "repository",
+      source: "manual",
+      expectedPriority: "manual",
       story:
-        "Dashboard refreshes provider links shown in branch rows without refreshing branch trees.",
+        "User clicks a vault-level refresh control; backend decides how deep to refresh.",
       make: ({ ids }) => ({
         userId: ids.userId,
         vaultId: ids.vaultId,
         now: 101,
-        notBefore: 101,
-        intent: { source: "dashboard", trigger: "visibility" },
-        work: {
-          kind: "link_enrichment",
-          branch: "main",
-          provider: "cloudflare_pages_comments",
+        demand: {
+          scope: "repository",
+          source: "manual",
+          trigger: "dashboard_status_click",
         },
       }),
       expectedDedupeKey: ({ ids }) =>
-        `user:${ids.userId}:vault:${ids.vaultId}:branch:main:link_enrichment:cloudflare_pages_comments`,
+        `user:${ids.userId}:vault:${ids.vaultId}:repository`,
     },
-  },
-  manual: {
-    repo_metadata: {
-      intent: "manual",
-      work: "repo_metadata",
-      expectedPriority: "manual",
-      story:
-        "User clicks the dashboard refresh control and asks for repo-wide freshness.",
-      make: ({ ids }) => ({
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        now: 102,
-        notBefore: 102,
-        intent: { source: "manual", trigger: "dashboard_status_click" },
-        work: {
-          kind: "repo_metadata",
-          enrichment: {
-            kind: "pull_request_metadata",
-            includeAheadBehind: true,
-          },
-        },
-      }),
-      expectedDedupeKey: ({ ids }) =>
-        `user:${ids.userId}:vault:${ids.vaultId}:repo_metadata`,
-    },
-    branch_tree: {
-      intent: "manual",
-      work: "branch_tree",
-      expectedPriority: "manual",
-      story:
-        "User asks a specific branch to refresh, so only that branch tree is queued.",
-      make: ({ ids }) => ({
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        now: 103,
-        notBefore: 103,
-        intent: { source: "manual", trigger: "dashboard_status_click" },
-        work: { kind: "branch_tree", branch: "main" },
-      }),
-      expectedDedupeKey: ({ ids }) =>
-        `user:${ids.userId}:vault:${ids.vaultId}:branch:main:tree`,
-    },
-    link_enrichment: {
-      intent: "manual",
-      work: "link_enrichment",
-      expectedPriority: "manual",
-      story:
-        "User asks for provider links for one branch without forcing metadata or tree work.",
-      make: ({ ids }) => ({
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        now: 104,
-        notBefore: 104,
-        intent: { source: "manual", trigger: "dashboard_status_click" },
-        work: {
-          kind: "link_enrichment",
-          branch: "main",
-          provider: "cloudflare_pages_comments",
-        },
-      }),
-      expectedDedupeKey: ({ ids }) =>
-        `user:${ids.userId}:vault:${ids.vaultId}:branch:main:link_enrichment:cloudflare_pages_comments`,
-    },
-  },
-  source_setup: {
-    repo_metadata: {
-      intent: "source_setup",
-      work: "repo_metadata",
+    source_setup: {
+      scope: "repository",
+      source: "source_setup",
       expectedPriority: "system",
       story:
         "Create/connect finished; backend discovers branches so the dashboard works without a browser reload.",
       make: ({ ids, runId }) => ({
         userId: ids.userId,
         vaultId: ids.vaultId,
-        now: 105,
-        notBefore: 105,
-        intent: {
+        now: 102,
+        demand: {
+          scope: "repository",
           source: "source_setup",
           runId,
           mode: "connect_existing_repository",
         },
-        work: { kind: "repo_metadata", enrichment: { kind: "none" } },
       }),
       expectedDedupeKey: ({ ids }) =>
-        `user:${ids.userId}:vault:${ids.vaultId}:repo_metadata`,
+        `user:${ids.userId}:vault:${ids.vaultId}:repository`,
     },
   },
-  file_view: {
-    branch_tree: {
-      intent: "file_view",
-      work: "branch_tree",
+  branch: {
+    file_view: {
+      scope: "branch",
+      source: "file_view",
       expectedPriority: "normal",
       story:
-        "A file route opens or becomes visible and asks for the visible branch tree.",
+        "A file route opens or becomes visible and asks for the branch it is showing.",
+      make: ({ ids }) => ({
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        now: 103,
+        demand: {
+          scope: "branch",
+          branch: "main",
+          source: "file_view",
+          trigger: "page_load",
+        },
+      }),
+      expectedDedupeKey: ({ ids }) =>
+        `user:${ids.userId}:vault:${ids.vaultId}:branch:main`,
+    },
+    manual: {
+      scope: "branch",
+      source: "manual",
+      expectedPriority: "manual",
+      story:
+        "User asks a specific branch to refresh; backend decides branch-scoped steps.",
+      make: ({ ids }) => ({
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        now: 104,
+        demand: {
+          scope: "branch",
+          branch: "main",
+          source: "manual",
+          trigger: "dashboard_status_click",
+        },
+      }),
+      expectedDedupeKey: ({ ids }) =>
+        `user:${ids.userId}:vault:${ids.vaultId}:branch:main`,
+    },
+    commit: {
+      scope: "branch",
+      source: "commit",
+      expectedPriority: "system",
+      story:
+        "A local commit changed one branch; persisted branch-visible state must catch up.",
+      make: ({ ids }) => ({
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        now: 105,
+        demand: {
+          scope: "branch",
+          branch: "main",
+          source: "commit",
+        },
+      }),
+      expectedDedupeKey: ({ ids }) =>
+        `user:${ids.userId}:vault:${ids.vaultId}:branch:main`,
+    },
+    pull: {
+      scope: "branch",
+      source: "pull",
+      expectedPriority: "system",
+      story:
+        "A pull moved one branch under the local checkout; persisted branch-visible state must catch up.",
       make: ({ ids }) => ({
         userId: ids.userId,
         vaultId: ids.vaultId,
         now: 106,
-        notBefore: 106,
-        intent: { source: "file_view", trigger: "page_load" },
-        work: { kind: "branch_tree", branch: "main" },
+        demand: {
+          scope: "branch",
+          branch: "main",
+          source: "pull",
+        },
       }),
       expectedDedupeKey: ({ ids }) =>
-        `user:${ids.userId}:vault:${ids.vaultId}:branch:main:tree`,
+        `user:${ids.userId}:vault:${ids.vaultId}:branch:main`,
     },
   },
-  commit: {
-    branch_tree: {
-      intent: "commit",
-      work: "branch_tree",
-      expectedPriority: "system",
-      story:
-        "A local commit changed one branch; the backend refreshes that branch tree.",
-      make: ({ ids }) => ({
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        now: 107,
-        notBefore: 107,
-        intent: { source: "commit" },
-        work: { kind: "branch_tree", branch: "main" },
-      }),
-      expectedDedupeKey: ({ ids }) =>
-        `user:${ids.userId}:vault:${ids.vaultId}:branch:main:tree`,
-    },
-  },
-  pull: {
-    branch_tree: {
-      intent: "pull",
-      work: "branch_tree",
-      expectedPriority: "system",
-      story:
-        "A pull moved one branch under the local checkout; the backend refreshes that branch tree.",
-      make: ({ ids }) => ({
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        now: 108,
-        notBefore: 108,
-        intent: { source: "pull" },
-        work: { kind: "branch_tree", branch: "main" },
-      }),
-      expectedDedupeKey: ({ ids }) =>
-        `user:${ids.userId}:vault:${ids.vaultId}:branch:main:tree`,
-    },
-  },
-} satisfies IntentWorkMatrix;
+} satisfies DemandMatrix;
 
-type WorkScopeMatrixRow = {
-  scope: "repository" | "branch_tree" | "branch_provider_links";
+type ScopeMatrixRow = {
   story: string;
-  makeWork: () => RepositoryRefreshRequest["work"];
+  makeDemand: (
+    context: RepositoryRefreshMatrixContext,
+  ) => RepositoryRefreshDemand;
   expectedDedupeKey: (ids: RepositoryRefreshMatrixContext["ids"]) => string;
 };
 
-const workScopeMatrix = {
-  repo_metadata: {
-    scope: "repository",
+const scopeMatrix = {
+  repository: {
     story:
-      "Repo metadata is vault-wide: branch discovery and optional PR metadata, never one branch tree.",
-    makeWork: () => ({
-      kind: "repo_metadata",
-      enrichment: { kind: "none" },
+      "Repository demand is vault-wide and has no branch, provider, or metadata-depth fields.",
+    makeDemand: ({ runId }) => ({
+      scope: "repository",
+      source: "source_setup",
+      runId,
+      mode: "connect_existing_repository",
     }),
     expectedDedupeKey: (ids) =>
-      `user:${ids.userId}:vault:${ids.vaultId}:repo_metadata`,
+      `user:${ids.userId}:vault:${ids.vaultId}:repository`,
   },
-  branch_tree: {
-    scope: "branch_tree",
+  branch: {
     story:
-      "Branch tree work is branch-scoped and cannot exist without a branch name.",
-    makeWork: () => ({ kind: "branch_tree", branch: "main" }),
-    expectedDedupeKey: (ids) =>
-      `user:${ids.userId}:vault:${ids.vaultId}:branch:main:tree`,
-  },
-  link_enrichment: {
-    scope: "branch_provider_links",
-    story:
-      "Link enrichment is branch + provider scoped so provider comment parsing has its own queue lane.",
-    makeWork: () => ({
-      kind: "link_enrichment",
+      "Branch demand is branch-scoped and cannot exist without a branch name.",
+    makeDemand: () => ({
+      scope: "branch",
       branch: "main",
-      provider: "cloudflare_pages_comments",
+      source: "file_view",
+      trigger: "page_load",
     }),
     expectedDedupeKey: (ids) =>
-      `user:${ids.userId}:vault:${ids.vaultId}:branch:main:link_enrichment:cloudflare_pages_comments`,
+      `user:${ids.userId}:vault:${ids.vaultId}:branch:main`,
   },
-} satisfies Record<
-  RepositoryRefreshRequest["work"]["kind"],
-  WorkScopeMatrixRow
->;
+} satisfies Record<RepositoryRefreshDemand["scope"], ScopeMatrixRow>;
 
 type LifecycleMatrixRow = {
   fields: readonly string[];
@@ -403,16 +346,16 @@ describe("repository refresh model", () => {
     return { ids, runId, t };
   }
 
-  it("enumerates allowed intent-work states", async () => {
+  it("enumerates allowed scope-source demand states", async () => {
     const context = await createMatrixContext();
 
-    for (const rowsByWork of Object.values(intentWorkMatrix)) {
-      for (const row of Object.values(rowsByWork)) {
+    for (const rowsBySource of Object.values(demandMatrix)) {
+      for (const row of Object.values(rowsBySource)) {
         const request = makeRepositoryRefreshRequest(row.make(context));
 
-        expect(request.intent.source).toBe(row.intent);
-        expect(request.work.kind).toBe(row.work);
-        expect(getRepositoryRefreshPriority(request.intent)).toBe(
+        expect(request.demand.scope).toBe(row.scope);
+        expect(request.demand.source).toBe(row.source);
+        expect(getRepositoryRefreshPriority(request.demand)).toBe(
           row.expectedPriority,
         );
         expect(request.dedupeKey).toBe(row.expectedDedupeKey(context));
@@ -429,20 +372,20 @@ describe("repository refresh model", () => {
     }
   });
 
-  it("derives scope from work without reading intent", async () => {
-    const { ids } = await createVaultIds();
+  it("derives dedupe keys from demand scope only", async () => {
+    const context = await createMatrixContext();
 
-    for (const [workKind, row] of Object.entries(workScopeMatrix)) {
-      const work = row.makeWork();
+    for (const [scope, row] of Object.entries(scopeMatrix)) {
+      const demand = row.makeDemand(context);
 
-      expect(work.kind).toBe(workKind);
+      expect(demand.scope).toBe(scope);
       expect(
         deriveRepositoryRefreshDedupeKey({
-          userId: ids.userId,
-          vaultId: ids.vaultId,
-          work,
+          userId: context.ids.userId,
+          vaultId: context.ids.vaultId,
+          demand,
         }),
-      ).toBe(row.expectedDedupeKey(ids));
+      ).toBe(row.expectedDedupeKey(context.ids));
     }
   });
 
@@ -455,30 +398,31 @@ describe("repository refresh model", () => {
     }
   });
 
-  it("creates queued metadata requests with derived queue fields", async () => {
+  it("creates queued repository demand with derived queue fields", async () => {
     const { ids, t } = await createVaultIds();
     const request = makeRepositoryRefreshRequest({
       userId: ids.userId,
       vaultId: ids.vaultId,
       now: 10,
-      notBefore: 12,
-      intent: {
+      demand: {
+        scope: "repository",
         source: "dashboard",
         trigger: "page_load",
-      },
-      work: {
-        kind: "repo_metadata",
-        enrichment: { kind: "none" },
       },
     });
 
     expect(request).toMatchObject({
       userId: ids.userId,
       vaultId: ids.vaultId,
-      dedupeKey: `user:${ids.userId}:vault:${ids.vaultId}:repo_metadata`,
+      dedupeKey: `user:${ids.userId}:vault:${ids.vaultId}:repository`,
+      demand: {
+        scope: "repository",
+        source: "dashboard",
+        trigger: "page_load",
+      },
       lifecycle: {
         state: "queued",
-        notBefore: 12,
+        notBefore: 10,
         queuedAt: 10,
       },
       createdAt: 10,
@@ -495,58 +439,27 @@ describe("repository refresh model", () => {
     expect(stored).toMatchObject(request);
   });
 
-  it("derives work-specific dedupe keys", async () => {
-    const { ids } = await createVaultIds();
-
-    expect(
-      deriveRepositoryRefreshDedupeKey({
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        work: {
-          kind: "branch_tree",
-          branch: "main",
-        },
-      }),
-    ).toBe(`user:${ids.userId}:vault:${ids.vaultId}:branch:main:tree`);
-    expect(
-      deriveRepositoryRefreshDedupeKey({
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        work: {
-          kind: "link_enrichment",
-          branch: "main",
-          provider: "cloudflare_pages_comments",
-        },
-      }),
-    ).toBe(
-      `user:${ids.userId}:vault:${ids.vaultId}:branch:main:link_enrichment:cloudflare_pages_comments`,
-    );
-  });
-
-  it("creates link enrichment as separate provider work", async () => {
+  it("creates branch demand without exact work semantics", async () => {
     const { ids, t } = await createVaultIds();
     const request = makeRepositoryRefreshRequest({
       userId: ids.userId,
       vaultId: ids.vaultId,
       now: 14,
-      notBefore: 14,
-      intent: {
-        source: "dashboard",
-        trigger: "visibility",
-      },
-      work: {
-        kind: "link_enrichment",
+      demand: {
+        scope: "branch",
         branch: "main",
-        provider: "cloudflare_pages_comments",
+        source: "manual",
+        trigger: "dashboard_status_click",
       },
     });
 
     expect(request).toMatchObject({
-      dedupeKey: `user:${ids.userId}:vault:${ids.vaultId}:branch:main:link_enrichment:cloudflare_pages_comments`,
-      work: {
-        kind: "link_enrichment",
+      dedupeKey: `user:${ids.userId}:vault:${ids.vaultId}:branch:main`,
+      demand: {
+        scope: "branch",
         branch: "main",
-        provider: "cloudflare_pages_comments",
+        source: "manual",
+        trigger: "dashboard_status_click",
       },
     });
 
@@ -560,7 +473,7 @@ describe("repository refresh model", () => {
     expect(stored).toMatchObject(request);
   });
 
-  it("keeps source setup intent tied to the provisioning run", async () => {
+  it("keeps source setup demand tied to the provisioning run", async () => {
     const { ids, t } = await createVaultIds();
     const runId = await t.run(async (ctx) => {
       return await ctx.db.insert("appProvisioningRuns", {
@@ -580,20 +493,17 @@ describe("repository refresh model", () => {
       userId: ids.userId,
       vaultId: ids.vaultId,
       now: 20,
-      notBefore: 20,
-      intent: {
+      demand: {
+        scope: "repository",
         source: "source_setup",
         runId,
         mode: "connect_existing_repository",
       },
-      work: {
-        kind: "repo_metadata",
-        enrichment: { kind: "none" },
-      },
     });
 
-    expect(getRepositoryRefreshPriority(request.intent)).toBe("system");
-    expect(request.intent).toEqual({
+    expect(getRepositoryRefreshPriority(request.demand)).toBe("system");
+    expect(request.demand).toEqual({
+      scope: "repository",
       source: "source_setup",
       runId,
       mode: "connect_existing_repository",
@@ -606,17 +516,10 @@ describe("repository refresh model", () => {
       userId: ids.userId,
       vaultId: ids.vaultId,
       now: 10,
-      notBefore: 10,
-      intent: {
+      demand: {
+        scope: "repository",
         source: "manual",
         trigger: "dashboard_status_click",
-      },
-      work: {
-        kind: "repo_metadata",
-        enrichment: {
-          kind: "pull_request_metadata",
-          includeAheadBehind: true,
-        },
       },
     });
     const running = markRepositoryRefreshRequestRunning(queued, {
@@ -656,14 +559,10 @@ describe("repository refresh model", () => {
       userId: ids.userId,
       vaultId: ids.vaultId,
       now: 10,
-      notBefore: 10,
-      intent: {
+      demand: {
+        scope: "repository",
         source: "dashboard",
         trigger: "visibility",
-      },
-      work: {
-        kind: "repo_metadata",
-        enrichment: { kind: "none" },
       },
     });
     const running = markRepositoryRefreshRequestRunning(queued, {
@@ -704,122 +603,94 @@ describe("repository refresh model", () => {
   });
 });
 
-function _checkForbiddenIntentWorkPairs(
+function _checkForbiddenDemandStates(
   userId: RepositoryRefreshRequest["userId"],
   vaultId: RepositoryRefreshRequest["vaultId"],
-  runId: SourceSetupRefreshIntent["runId"],
+  runId: SourceSetupRepositoryRefreshDemand["runId"],
 ) {
-  // @ts-expect-error dashboard cannot fan out branch trees from passive refresh.
   makeRepositoryRefreshRequest({
     userId,
     vaultId,
     now: 1,
-    notBefore: 1,
-    intent: { source: "dashboard", trigger: "page_load" },
-    work: { kind: "branch_tree", branch: "main" },
+    // @ts-expect-error dashboard cannot fan out branch demand.
+    demand: {
+      scope: "branch",
+      branch: "main",
+      source: "dashboard",
+      trigger: "page_load",
+    },
   });
 
-  // @ts-expect-error source setup discovers branches through repo_metadata first.
   makeRepositoryRefreshRequest({
     userId,
     vaultId,
     now: 1,
-    notBefore: 1,
-    intent: {
+    // @ts-expect-error source setup discovers branches through repository demand first.
+    demand: {
+      scope: "branch",
+      branch: "main",
       source: "source_setup",
       runId,
       mode: "connect_existing_repository",
     },
-    work: { kind: "branch_tree", branch: "main" },
   });
 
-  // @ts-expect-error source setup does not parse provider comments.
   makeRepositoryRefreshRequest({
     userId,
     vaultId,
     now: 1,
-    notBefore: 1,
-    intent: {
+    // @ts-expect-error file view is branch-scoped.
+    demand: {
+      scope: "repository",
+      source: "file_view",
+      trigger: "page_load",
+    },
+  });
+
+  makeRepositoryRefreshRequest({
+    userId,
+    vaultId,
+    now: 1,
+    // @ts-expect-error commit follow-up is branch-scoped.
+    demand: {
+      scope: "repository",
+      source: "commit",
+    },
+  });
+
+  makeRepositoryRefreshRequest({
+    userId,
+    vaultId,
+    now: 1,
+    // @ts-expect-error pull follow-up is branch-scoped.
+    demand: {
+      scope: "repository",
+      source: "pull",
+    },
+  });
+
+  makeRepositoryRefreshRequest({
+    userId,
+    vaultId,
+    now: 1,
+    // @ts-expect-error source setup demand must keep its run id.
+    demand: {
+      scope: "repository",
       source: "source_setup",
-      runId,
       mode: "connect_existing_repository",
     },
-    work: {
-      kind: "link_enrichment",
+  });
+
+  makeRepositoryRefreshRequest({
+    userId,
+    vaultId,
+    now: 1,
+    demand: {
+      scope: "repository",
+      source: "manual",
+      trigger: "dashboard_status_click",
+      // @ts-expect-error repository demand has no branch field.
       branch: "main",
-      provider: "cloudflare_pages_comments",
-    },
-  });
-
-  // @ts-expect-error file view is branch-scoped and cannot request repo metadata.
-  makeRepositoryRefreshRequest({
-    userId,
-    vaultId,
-    now: 1,
-    notBefore: 1,
-    intent: { source: "file_view", trigger: "page_load" },
-    work: { kind: "repo_metadata", enrichment: { kind: "none" } },
-  });
-
-  // @ts-expect-error file view does not imply PR comment parsing.
-  makeRepositoryRefreshRequest({
-    userId,
-    vaultId,
-    now: 1,
-    notBefore: 1,
-    intent: { source: "file_view", trigger: "page_load" },
-    work: {
-      kind: "link_enrichment",
-      branch: "main",
-      provider: "cloudflare_pages_comments",
-    },
-  });
-
-  // @ts-expect-error commit follow-up refreshes the changed branch tree only.
-  makeRepositoryRefreshRequest({
-    userId,
-    vaultId,
-    now: 1,
-    notBefore: 1,
-    intent: { source: "commit" },
-    work: { kind: "repo_metadata", enrichment: { kind: "none" } },
-  });
-
-  // @ts-expect-error commit follow-up does not imply provider comment parsing.
-  makeRepositoryRefreshRequest({
-    userId,
-    vaultId,
-    now: 1,
-    notBefore: 1,
-    intent: { source: "commit" },
-    work: {
-      kind: "link_enrichment",
-      branch: "main",
-      provider: "cloudflare_pages_comments",
-    },
-  });
-
-  // @ts-expect-error pull follow-up refreshes the moved branch tree only.
-  makeRepositoryRefreshRequest({
-    userId,
-    vaultId,
-    now: 1,
-    notBefore: 1,
-    intent: { source: "pull" },
-    work: { kind: "repo_metadata", enrichment: { kind: "none" } },
-  });
-
-  // @ts-expect-error pull follow-up does not imply provider comment parsing.
-  makeRepositoryRefreshRequest({
-    userId,
-    vaultId,
-    now: 1,
-    notBefore: 1,
-    intent: { source: "pull" },
-    work: {
-      kind: "link_enrichment",
-      branch: "main",
-      provider: "cloudflare_pages_comments",
     },
   });
 
@@ -827,10 +698,38 @@ function _checkForbiddenIntentWorkPairs(
     userId,
     vaultId,
     now: 1,
-    notBefore: 1,
+    demand: {
+      scope: "branch",
+      source: "manual",
+      trigger: "dashboard_status_click",
+      // @ts-expect-error branch demand requires branch instead of exact work.
+      work: { kind: "branch_tree" },
+    },
+  });
+
+  makeRepositoryRefreshRequest({
+    userId,
+    vaultId,
+    now: 1,
+    demand: {
+      scope: "repository",
+      source: "dashboard",
+      trigger: "page_load",
+    },
     // @ts-expect-error callers cannot provide priority because it is derived.
     priority: "system",
-    intent: { source: "dashboard", trigger: "page_load" },
-    work: { kind: "repo_metadata", enrichment: { kind: "none" } },
+  });
+
+  makeRepositoryRefreshRequest({
+    userId,
+    vaultId,
+    now: 1,
+    demand: {
+      scope: "repository",
+      source: "dashboard",
+      trigger: "page_load",
+    },
+    // @ts-expect-error callers cannot choose provider/comment parsing.
+    provider: "cloudflare_pages_comments",
   });
 }

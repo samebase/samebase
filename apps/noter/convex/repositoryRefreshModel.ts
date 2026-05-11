@@ -1,62 +1,43 @@
 import { Infer, v } from "convex/values";
 
-const { boolean, id, literal, number, object, string, union } = v;
+const { id, literal, number, object, string, union } = v;
 
-// MARK: Providers, Enrichment, and Scheduler Priority
-//
-// These are request dimensions, not queue rows by themselves.
-//
-// Provider = which external integration-specific parser a worker should use.
-//
-// Enrichment = how much repository-level metadata a repo_metadata refresh should
-// fetch beyond the basic repo + branch list.
-//
-// Scheduler priority is derived from intent when enqueuing or claiming work.
-// It is not stored on the request row, because storing it would allow impossible
-// duplicate state such as dashboard intent with system priority.
+// MARK: Demand Sources and Scheduler Priority
+// These are caller-visible reasons for freshness, not exact worker steps.
+// The frontend reports demand; backend policy later decides depth, provider
+// parsing, cooldown, fan-out, and Workpool scheduling.
 
 /**
- * Provider-specific link parser used by refresh work.
+ * Browser demand trigger.
  *
- * Today this means "read Cloudflare Pages URLs from GitHub PR comments". A
- * future CodeRabbit/Netlify/etc parser should add a new literal here and its own
- * worker path instead of making Cloudflare behavior generic by accident.
+ * page_load = the route/surface opened.
+ *
+ * visibility = the browser document became visible again after being hidden or
+ * backgrounded. It is about the browser tab, not repository visibility.
  */
-export const vRepositoryRefreshLinkProvider = union(
-  literal("cloudflare_pages_comments"),
+export const vRepositoryRefreshBrowserTrigger = union(
+  literal("page_load"),
+  literal("visibility"),
 );
-export type RepositoryRefreshLinkProvider = Infer<
-  typeof vRepositoryRefreshLinkProvider
+export type RepositoryRefreshBrowserTrigger = Infer<
+  typeof vRepositoryRefreshBrowserTrigger
 >;
 
 /**
- * Cost/coverage knob for repo_metadata work.
+ * Dashboard status button.
  *
- * none = repository + branch list only.
- *
- * pull_request_metadata = also read PR state. includeAheadBehind controls
- * whether GitHub compare data is fetched for each branch: aheadBy/behindBy are
- * commit counts relative to the default branch.
- *
- * Provider/comment links are not metadata enrichment. They are always separate
- * link_enrichment work so comment parsing has one queue path.
+ * The click says "make this vault/branch fresh". It does not say whether to
+ * fetch pull requests, ahead/behind counts, provider comments, or branch trees.
  */
-export const vRepositoryMetadataEnrichment = union(
-  object({
-    kind: literal("none"),
-  }),
-  object({
-    kind: literal("pull_request_metadata"),
-    includeAheadBehind: boolean(),
-  }),
+export const vRepositoryRefreshManualTrigger = literal(
+  "dashboard_status_click",
 );
-export type RepositoryMetadataEnrichment = Infer<
-  typeof vRepositoryMetadataEnrichment
+export type RepositoryRefreshManualTrigger = Infer<
+  typeof vRepositoryRefreshManualTrigger
 >;
 
 /**
- * Backend scheduling lane. Callers pass an intent; the builder derives this so
- * a browser request cannot ask for faster service directly.
+ * Backend scheduling lane derived from demand source.
  *
  * background = passive dashboard freshness, safe to delay behind visible work.
  *
@@ -65,7 +46,7 @@ export type RepositoryMetadataEnrichment = Infer<
  * manual = explicit refresh click.
  *
  * system = backend correctness after create/connect/commit/pull; used when
- * stale refresh state would make the product contradict a completed operation.
+ * stale refresh state would contradict a completed operation.
  */
 export const vRepositoryRefreshPriority = union(
   literal("background"),
@@ -77,49 +58,53 @@ export type RepositoryRefreshPriority = Infer<
   typeof vRepositoryRefreshPriority
 >;
 
-// MARK: Refresh Intents
-//
-// Intents answer "why did a refresh request enter the backend?"
-//
-// page_load = the route/surface opened and asked for stale data to be refreshed.
-//
-// visibility = the browser document became visible again after being hidden or
-// backgrounded. It is about the browser tab, not GitHub repository visibility.
-//
-// The intent does not decide the worker alone. Request row validators below
-// restrict which intents are valid for each work kind.
+// MARK: Refresh Demand
+// Demand answers "what user-visible freshness is needed?"
+// It intentionally does not answer "which provider calls should run?"
+// Backend execution policy may turn one demand into metadata, PR, branch-tree,
+// and provider-link steps in later phases.
 
 /**
- * Dashboard mounted or became visible and asks for background freshness.
+ * Dashboard asks for vault-level freshness.
  *
- * Use it for dashboard-owned data: repo metadata or provider links shown in
- * dashboard rows. It cannot enqueue branch_tree work; trees are refreshed by
- * file view, manual, commit, or pull signals.
+ * Example: dashboard opens after repository setup. The demand is repository
+ * freshness; the backend decides whether branch discovery, PR metadata, or
+ * provider-link parsing should run.
  */
-export const vDashboardRefreshIntent = object({
+export const vDashboardRepositoryRefreshDemand = object({
+  scope: literal("repository"),
   source: literal("dashboard"),
-  trigger: union(literal("page_load"), literal("visibility")),
+  trigger: vRepositoryRefreshBrowserTrigger,
 });
-export type DashboardRefreshIntent = Infer<typeof vDashboardRefreshIntent>;
+export type DashboardRepositoryRefreshDemand = Infer<
+  typeof vDashboardRepositoryRefreshDemand
+>;
 
 /**
- * Dashboard status button. Manual can queue metadata, branch tree, or link work
- * when the UI knows the work target.
+ * Manual vault-level refresh.
+ *
+ * Example: user clicks the dashboard refresh control without targeting one
+ * branch. The backend may choose deeper work than passive dashboard demand, but
+ * that depth is not caller state.
  */
-export const vManualRefreshIntent = object({
+export const vManualRepositoryRefreshDemand = object({
+  scope: literal("repository"),
   source: literal("manual"),
-  trigger: literal("dashboard_status_click"),
+  trigger: vRepositoryRefreshManualTrigger,
 });
-export type ManualRefreshIntent = Infer<typeof vManualRefreshIntent>;
+export type ManualRepositoryRefreshDemand = Infer<
+  typeof vManualRepositoryRefreshDemand
+>;
 
 /**
  * GitHub repo create/connect flow finished.
  *
- * This is the initial branch-discovery entry point: connecting an existing repo
- * should enqueue repo_metadata work so branches appear without a browser reload.
- * runId points at the provisioning run for debugging and audit.
+ * This is the branch-discovery demand created by backend setup completion.
+ * Connecting an existing repo should make branches appear without requiring a
+ * browser reload. runId points at the provisioning run for audit/debugging.
  */
-export const vSourceSetupRefreshIntent = object({
+export const vSourceSetupRepositoryRefreshDemand = object({
+  scope: literal("repository"),
   source: literal("source_setup"),
   runId: id("appProvisioningRuns"),
   mode: union(
@@ -127,114 +112,114 @@ export const vSourceSetupRefreshIntent = object({
     literal("connect_existing_repository"),
   ),
 });
-export type SourceSetupRefreshIntent = Infer<typeof vSourceSetupRefreshIntent>;
+export type SourceSetupRepositoryRefreshDemand = Infer<
+  typeof vSourceSetupRepositoryRefreshDemand
+>;
 
 /**
- * File route loaded or became visible for a specific branch.
+ * File route asks for freshness for the branch it is showing.
  *
- * Example: opening a file on main can request branch_tree for main. It cannot
- * request repo_metadata because the file view is branch-scoped. visibility here
- * means returning to an already-open file tab.
+ * Example: opening a file on main creates branch demand for main. It does not
+ * choose tree-only work; the backend decides which branch-scoped steps to run.
  */
-export const vFileViewRefreshIntent = object({
+export const vFileViewBranchRefreshDemand = object({
+  scope: literal("branch"),
+  branch: string(),
   source: literal("file_view"),
-  trigger: union(literal("page_load"), literal("visibility")),
+  trigger: vRepositoryRefreshBrowserTrigger,
 });
-export type FileViewRefreshIntent = Infer<typeof vFileViewRefreshIntent>;
+export type FileViewBranchRefreshDemand = Infer<
+  typeof vFileViewBranchRefreshDemand
+>;
 
 /**
- * Local commit finished. The follow-up work should refresh the branch tree that
- * changed so persisted UI state catches up with the write.
+ * Manual branch-level refresh.
+ *
+ * Example: user clicks refresh for branch "main". The demand is branch
+ * freshness, not "tree refresh" or "provider link refresh".
  */
-export const vCommitRefreshIntent = object({
+export const vManualBranchRefreshDemand = object({
+  scope: literal("branch"),
+  branch: string(),
+  source: literal("manual"),
+  trigger: vRepositoryRefreshManualTrigger,
+});
+export type ManualBranchRefreshDemand = Infer<
+  typeof vManualBranchRefreshDemand
+>;
+
+/**
+ * Local commit finished for one branch.
+ *
+ * The branch changed locally, so persisted branch-visible state should catch up.
+ */
+export const vCommitBranchRefreshDemand = object({
+  scope: literal("branch"),
+  branch: string(),
   source: literal("commit"),
 });
-export type CommitRefreshIntent = Infer<typeof vCommitRefreshIntent>;
+export type CommitBranchRefreshDemand = Infer<
+  typeof vCommitBranchRefreshDemand
+>;
 
 /**
- * Local pull finished. The follow-up work should refresh the branch tree whose
- * provider state moved underneath the local checkout.
+ * Local pull finished for one branch.
+ *
+ * Provider state moved under the local checkout, so persisted branch-visible
+ * state should catch up.
  */
-export const vPullRefreshIntent = object({
+export const vPullBranchRefreshDemand = object({
+  scope: literal("branch"),
+  branch: string(),
   source: literal("pull"),
 });
-export type PullRefreshIntent = Infer<typeof vPullRefreshIntent>;
+export type PullBranchRefreshDemand = Infer<typeof vPullBranchRefreshDemand>;
 
 /**
- * All reasons a refresh request may enter the queue.
+ * Repository-level freshness demand.
  *
- * Request validators below pair these intents with only the work kinds they can
- * honestly describe. For example, source_setup can discover branches through
- * repo_metadata, but it cannot create branch_tree or link_enrichment rows.
+ * No branch field exists here. Source setup belongs here because setup should
+ * first discover repository/branch metadata before any branch-specific work.
  */
-export const vRepositoryRefreshIntent = union(
-  vDashboardRefreshIntent,
-  vManualRefreshIntent,
-  vSourceSetupRefreshIntent,
-  vFileViewRefreshIntent,
-  vCommitRefreshIntent,
-  vPullRefreshIntent,
+export const vRepositoryScopeRefreshDemand = union(
+  vDashboardRepositoryRefreshDemand,
+  vManualRepositoryRefreshDemand,
+  vSourceSetupRepositoryRefreshDemand,
 );
-export type RepositoryRefreshIntent = Infer<typeof vRepositoryRefreshIntent>;
-
-// MARK: Refresh Work
-//
-// Work answers "what should the backend refresh?"
-//
-// repo_metadata refreshes repo-wide data such as branch lists and optional PR
-// metadata.
-//
-// branch_tree refreshes one branch's file tree.
-//
-// link_enrichment refreshes provider-derived links for one branch.
-
-/**
- * Repo-wide cache refresh.
- *
- * Example: source_setup + repo_metadata + enrichment none discovers branches
- * after a new or connected GitHub repo. This work does not refresh one branch's
- * file tree.
- */
-export const vRepositoryMetadataRefreshWork = object({
-  kind: literal("repo_metadata"),
-  enrichment: vRepositoryMetadataEnrichment,
-});
-export type RepositoryMetadataRefreshWork = Infer<
-  typeof vRepositoryMetadataRefreshWork
+export type RepositoryScopeRefreshDemand = Infer<
+  typeof vRepositoryScopeRefreshDemand
 >;
 
 /**
- * One branch's file tree cache.
+ * Branch-level freshness demand.
  *
- * Example: branch="main" after commit/pull, or when opening a file route on
- * main. This keeps branch work out of repo-wide dashboard polling.
+ * Branch is required by schema. Dashboard passive refresh is intentionally not a
+ * branch demand so a dashboard visit cannot fan out one request per branch.
  */
-export const vBranchTreeRefreshWork = object({
-  kind: literal("branch_tree"),
-  branch: string(),
-});
-export type BranchTreeRefreshWork = Infer<typeof vBranchTreeRefreshWork>;
+export const vBranchScopeRefreshDemand = union(
+  vFileViewBranchRefreshDemand,
+  vManualBranchRefreshDemand,
+  vCommitBranchRefreshDemand,
+  vPullBranchRefreshDemand,
+);
+export type BranchScopeRefreshDemand = Infer<typeof vBranchScopeRefreshDemand>;
 
 /**
- * Provider link parsing for one branch.
+ * All durable refresh demand accepted by the queue.
  *
- * Example: read Cloudflare Pages preview links from PR comments for branch
- * "main". This is separate from branch_tree because comment parsing can be more
- * expensive than reading the tree.
+ * This is the persisted contract between refresh entry points and backend
+ * scheduling. Exact work such as PR metadata, ahead/behind counts, branch tree
+ * reads, and provider comment parsing is backend execution policy, not request
+ * state.
  */
-export const vLinkEnrichmentRefreshWork = object({
-  kind: literal("link_enrichment"),
-  branch: string(),
-  provider: vRepositoryRefreshLinkProvider,
-});
-export type LinkEnrichmentRefreshWork = Infer<
-  typeof vLinkEnrichmentRefreshWork
->;
+export const vRepositoryRefreshDemand = union(
+  vRepositoryScopeRefreshDemand,
+  vBranchScopeRefreshDemand,
+);
+export type RepositoryRefreshDemand = Infer<typeof vRepositoryRefreshDemand>;
 
 // MARK: Refresh Lifecycle
-//
 // Lifecycle is the durable execution state stored on each request row.
-//
 // The union keeps state-specific fields out of impossible states: queued has no
 // workpool job, running has no result, succeeded has no failure, and canceled
 // has no worker result.
@@ -336,171 +321,54 @@ export type RepositoryRefreshLifecycle = Infer<
 >;
 
 // MARK: Request Rows
-//
-// Request rows combine:
-//
-// - who owns the refresh: userId + vaultId
-// - what is being refreshed: work
-// - why it entered the queue: intent
-// - when/how it should run: lifecycle + dedupeKey
-//
-// The three row validators intentionally repeat the base fields so each work
-// kind can have a smaller allowed intent set.
-
-const repositoryRefreshBaseFields = {
-  userId: id("users"),
-  vaultId: id("vaults"),
-  dedupeKey: string(),
-  lifecycle: vRepositoryRefreshLifecycle,
-  createdAt: number(),
-  updatedAt: number(),
-} as const;
-
-/**
- * Repo-level request row.
- *
- * Valid intents are dashboard for passive metadata freshness, manual for an
- * explicit reload, and source_setup for initial branch discovery.
- */
-export const vRepositoryMetadataRefreshRequest = object({
-  ...repositoryRefreshBaseFields,
-  work: vRepositoryMetadataRefreshWork,
-  intent: union(
-    vDashboardRefreshIntent,
-    vManualRefreshIntent,
-    vSourceSetupRefreshIntent,
-  ),
-});
-export type RepositoryMetadataRefreshRequest = Infer<
-  typeof vRepositoryMetadataRefreshRequest
->;
-
-/**
- * Branch tree request row.
- *
- * Valid intents all name a branch-level reason: manual, file_view, commit, or
- * pull. Dashboard auto-refresh cannot create this row because branch trees are
- * refreshed one branch at a time and should not be fanned out by passive
- * dashboard polling.
- */
-export const vBranchTreeRefreshRequest = object({
-  ...repositoryRefreshBaseFields,
-  work: vBranchTreeRefreshWork,
-  intent: union(
-    vManualRefreshIntent,
-    vFileViewRefreshIntent,
-    vCommitRefreshIntent,
-    vPullRefreshIntent,
-  ),
-});
-export type BranchTreeRefreshRequest = Infer<typeof vBranchTreeRefreshRequest>;
-
-/**
- * Provider link request row.
- *
- * Dashboard may queue passive link checks; manual may force one. File view,
- * commit, and pull do not create this row because they do not imply PR comment
- * parsing.
- */
-export const vLinkEnrichmentRefreshRequest = object({
-  ...repositoryRefreshBaseFields,
-  work: vLinkEnrichmentRefreshWork,
-  intent: union(vManualRefreshIntent, vDashboardRefreshIntent),
-});
-export type LinkEnrichmentRefreshRequest = Infer<
-  typeof vLinkEnrichmentRefreshRequest
->;
+// Request rows combine ownership, demand, dedupe, and lifecycle.
+// There is no persisted exact-work field. Later workers can expand demand into
+// internal execution steps without widening the caller-facing state space.
 
 /**
  * Persisted repositoryRefreshRequests row.
  *
- * The union forbids impossible pairings, such as source_setup + branch_tree or
- * commit + link_enrichment.
+ * The demand union forbids impossible states, such as dashboard branch fan-out
+ * or source_setup without the provisioning run id.
  */
-export const vRepositoryRefreshRequest = union(
-  vRepositoryMetadataRefreshRequest,
-  vBranchTreeRefreshRequest,
-  vLinkEnrichmentRefreshRequest,
-);
+export const vRepositoryRefreshRequest = object({
+  userId: id("users"),
+  vaultId: id("vaults"),
+  dedupeKey: string(),
+  demand: vRepositoryRefreshDemand,
+  lifecycle: vRepositoryRefreshLifecycle,
+  createdAt: number(),
+  updatedAt: number(),
+});
 export type RepositoryRefreshRequest = Infer<typeof vRepositoryRefreshRequest>;
 
 // MARK: Builder Inputs
-//
-// Builder input types match the request row union, but omit all derived fields.
-//
-// Callers provide userId, vaultId, timestamps, intent, and work. The builder
-// fills in dedupeKey, createdAt/updatedAt, and queued lifecycle.
-
-type MakeRepositoryMetadataRefreshRequestArgs = {
-  userId: RepositoryRefreshRequest["userId"];
-  vaultId: RepositoryRefreshRequest["vaultId"];
-  now: number;
-  notBefore: number;
-  intent: RepositoryMetadataRefreshRequest["intent"];
-  work: RepositoryMetadataRefreshWork;
-};
-
-type MakeBranchTreeRefreshRequestArgs = {
-  userId: RepositoryRefreshRequest["userId"];
-  vaultId: RepositoryRefreshRequest["vaultId"];
-  now: number;
-  notBefore: number;
-  intent: BranchTreeRefreshRequest["intent"];
-  work: BranchTreeRefreshWork;
-};
-
-type MakeLinkEnrichmentRefreshRequestArgs = {
-  userId: RepositoryRefreshRequest["userId"];
-  vaultId: RepositoryRefreshRequest["vaultId"];
-  now: number;
-  notBefore: number;
-  intent: LinkEnrichmentRefreshRequest["intent"];
-  work: LinkEnrichmentRefreshWork;
-};
+// Builder input is the backend request constructor, not a frontend contract.
+// Frontend/backend entry points provide demand. The builder derives dedupeKey
+// and creates an immediately claimable queued lifecycle for Phase 1.
 
 /**
  * Public builder input.
  *
- * Callers provide the domain reason and requested work. The builder derives the
- * dedupe key and queued lifecycle. Example: source_setup + repo_metadata
- * dedupes by user/vault/repo_metadata; scheduler priority stays derived from
- * intent instead of being stored on the row.
+ * Callers provide only the ownership, time, and freshness demand. They cannot
+ * provide priority, dedupeKey, provider parser, metadata depth, or exact work.
  */
-export type MakeRepositoryRefreshRequestArgs =
-  | MakeRepositoryMetadataRefreshRequestArgs
-  | MakeBranchTreeRefreshRequestArgs
-  | MakeLinkEnrichmentRefreshRequestArgs;
-
-type RepositoryRefreshRequestBaseFields = {
+export type MakeRepositoryRefreshRequestArgs = {
   userId: RepositoryRefreshRequest["userId"];
   vaultId: RepositoryRefreshRequest["vaultId"];
-  dedupeKey: string;
-  lifecycle: Extract<RepositoryRefreshLifecycle, { state: "queued" }>;
-  createdAt: number;
-  updatedAt: number;
+  now: number;
+  demand: RepositoryRefreshDemand;
 };
 
 // MARK: Scheduling
-//
 // Scheduling helpers turn domain state into queue mechanics.
-//
-// notBefore prevents requests from being scheduled in the past. Scheduler
-// priority maps intent to a backend lane without being duplicated into the row.
-// dedupeKey collapses repeated requests for the same user/vault/work target.
-
-function assertValidScheduleTime(args: {
-  now: number;
-  notBefore: number;
-}): void {
-  if (args.notBefore < args.now) {
-    throw new Error("Repository refresh notBefore cannot be before now.");
-  }
-}
+// Priority maps demand source to a backend lane without being duplicated into
+// the row. dedupeKey collapses repeated demand for the same user/vault/scope.
 
 export function getRepositoryRefreshPriority(
-  intent: RepositoryRefreshIntent,
+  demand: RepositoryRefreshDemand,
 ): RepositoryRefreshPriority {
-  switch (intent.source) {
+  switch (demand.source) {
     case "dashboard":
       return "background";
     case "manual":
@@ -513,7 +381,7 @@ export function getRepositoryRefreshPriority(
     case "pull":
       return "system";
     default: {
-      intent satisfies never;
+      demand satisfies never;
       return "normal";
     }
   }
@@ -522,52 +390,37 @@ export function getRepositoryRefreshPriority(
 export function deriveRepositoryRefreshDedupeKey(args: {
   userId: RepositoryRefreshRequest["userId"];
   vaultId: RepositoryRefreshRequest["vaultId"];
-  work: RepositoryRefreshRequest["work"];
+  demand: RepositoryRefreshDemand;
 }): string {
   const prefix = `user:${args.userId}:vault:${args.vaultId}`;
-  switch (args.work.kind) {
-    case "repo_metadata":
-      return `${prefix}:repo_metadata`;
-    case "branch_tree":
-      return `${prefix}:branch:${args.work.branch}:tree`;
-    case "link_enrichment":
-      return `${prefix}:branch:${args.work.branch}:link_enrichment:${args.work.provider}`;
+  switch (args.demand.scope) {
+    case "repository":
+      return `${prefix}:repository`;
+    case "branch":
+      return `${prefix}:branch:${args.demand.branch}`;
     default: {
-      args.work satisfies never;
+      args.demand satisfies never;
       return prefix;
     }
   }
 }
 
 // MARK: Builders
-//
 // Builders create valid queued rows only.
-//
-// They do not start Workpool jobs and they do not mutate existing rows. Later
-// phases can insert or upsert the returned row into repositoryRefreshRequests.
+// They do not choose provider calls, start Workpool jobs, or mutate existing
+// rows. Later phases can insert/upsert the returned row.
 
-function isRepositoryMetadataRefreshRequestArgs(
+export function makeRepositoryRefreshRequest(
   args: MakeRepositoryRefreshRequestArgs,
-): args is MakeRepositoryMetadataRefreshRequestArgs {
-  return args.work.kind === "repo_metadata";
-}
-
-function isBranchTreeRefreshRequestArgs(
-  args: MakeRepositoryRefreshRequestArgs,
-): args is MakeBranchTreeRefreshRequestArgs {
-  return args.work.kind === "branch_tree";
-}
-
-function makeRepositoryRefreshRequestBase(
-  args: MakeRepositoryRefreshRequestArgs,
-): RepositoryRefreshRequestBaseFields {
+): RepositoryRefreshRequest {
   return {
     userId: args.userId,
     vaultId: args.vaultId,
     dedupeKey: deriveRepositoryRefreshDedupeKey(args),
+    demand: args.demand,
     lifecycle: {
       state: "queued",
-      notBefore: args.notBefore,
+      notBefore: args.now,
       queuedAt: args.now,
     },
     createdAt: args.now,
@@ -575,39 +428,8 @@ function makeRepositoryRefreshRequestBase(
   };
 }
 
-export function makeRepositoryRefreshRequest(
-  args: MakeRepositoryRefreshRequestArgs,
-): RepositoryRefreshRequest {
-  assertValidScheduleTime(args);
-  const base = makeRepositoryRefreshRequestBase(args);
-
-  if (isRepositoryMetadataRefreshRequestArgs(args)) {
-    return {
-      ...base,
-      intent: args.intent,
-      work: args.work,
-    };
-  }
-
-  if (isBranchTreeRefreshRequestArgs(args)) {
-    return {
-      ...base,
-      intent: args.intent,
-      work: args.work,
-    };
-  }
-
-  return {
-    ...base,
-    intent: args.intent,
-    work: args.work,
-  };
-}
-
 // MARK: Lifecycle Transitions
-//
 // Lifecycle transitions are pure state moves used by future queue mutations.
-//
 // Each transition checks the current state before returning the next row shape,
 // which keeps invalid moves such as succeeded -> failed out of callers.
 
