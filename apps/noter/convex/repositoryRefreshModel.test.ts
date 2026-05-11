@@ -25,190 +25,233 @@ type RepositoryRefreshMatrixContext = {
   runId: SourceSetupRefreshIntent["runId"];
 };
 
-type IntentWorkMatrixRow = {
-  intent: RepositoryRefreshIntent["source"];
-  work: RepositoryRefreshRequest["work"]["kind"];
+type RepositoryRefreshIntentSource = RepositoryRefreshIntent["source"];
+type RepositoryRefreshWorkKind = RepositoryRefreshRequest["work"]["kind"];
+
+type WorkKindForIntent<Intent extends RepositoryRefreshIntentSource> =
+  MakeRepositoryRefreshRequestArgs extends infer Args
+    ? Args extends {
+        intent: RepositoryRefreshIntent;
+        work: { kind: RepositoryRefreshWorkKind };
+      }
+      ? Extract<Args["intent"], { source: Intent }> extends never
+        ? never
+        : Args["work"]["kind"]
+      : never
+    : never;
+
+type MakeRepositoryRefreshRequestArgsForIntentWork<
+  Intent extends RepositoryRefreshIntentSource,
+  Work extends WorkKindForIntent<Intent>,
+> = Extract<MakeRepositoryRefreshRequestArgs, { work: { kind: Work } }> & {
+  intent: Extract<RepositoryRefreshIntent, { source: Intent }>;
+};
+
+type IntentWorkMatrixRow<
+  Intent extends RepositoryRefreshIntentSource,
+  Work extends WorkKindForIntent<Intent>,
+> = {
+  intent: Intent;
+  work: Work;
   expectedPriority: RepositoryRefreshPriority;
   story: string;
   make: (
     context: RepositoryRefreshMatrixContext,
-  ) => MakeRepositoryRefreshRequestArgs;
+  ) => MakeRepositoryRefreshRequestArgsForIntentWork<Intent, Work>;
   expectedDedupeKey: (context: RepositoryRefreshMatrixContext) => string;
 };
 
-const intentWorkMatrix = [
-  {
-    intent: "dashboard",
-    work: "repo_metadata",
-    expectedPriority: "background",
-    story:
-      "Dashboard opens or returns to the foreground and asks for repo/branch list freshness.",
-    make: ({ ids }) => ({
-      userId: ids.userId,
-      vaultId: ids.vaultId,
-      now: 100,
-      notBefore: 100,
-      intent: { source: "dashboard", trigger: "page_load" },
-      work: { kind: "repo_metadata", enrichment: { kind: "none" } },
-    }),
-    expectedDedupeKey: ({ ids }) =>
-      `user:${ids.userId}:vault:${ids.vaultId}:repo_metadata`,
-  },
-  {
-    intent: "dashboard",
-    work: "link_enrichment",
-    expectedPriority: "background",
-    story:
-      "Dashboard refreshes provider links shown in branch rows without refreshing branch trees.",
-    make: ({ ids }) => ({
-      userId: ids.userId,
-      vaultId: ids.vaultId,
-      now: 101,
-      notBefore: 101,
-      intent: { source: "dashboard", trigger: "visibility" },
-      work: {
-        kind: "link_enrichment",
-        branch: "main",
-        provider: "cloudflare_pages_comments",
-      },
-    }),
-    expectedDedupeKey: ({ ids }) =>
-      `user:${ids.userId}:vault:${ids.vaultId}:branch:main:link_enrichment:cloudflare_pages_comments`,
-  },
-  {
-    intent: "manual",
-    work: "repo_metadata",
-    expectedPriority: "manual",
-    story:
-      "User clicks the dashboard refresh control and asks for repo-wide freshness.",
-    make: ({ ids }) => ({
-      userId: ids.userId,
-      vaultId: ids.vaultId,
-      now: 102,
-      notBefore: 102,
-      intent: { source: "manual", trigger: "dashboard_status_click" },
-      work: {
-        kind: "repo_metadata",
-        enrichment: {
-          kind: "pull_request_metadata",
-          includeAheadBehind: true,
+type IntentWorkMatrix = {
+  [Intent in RepositoryRefreshIntentSource]: {
+    [Work in WorkKindForIntent<Intent>]: IntentWorkMatrixRow<Intent, Work>;
+  };
+};
+
+const intentWorkMatrix = {
+  dashboard: {
+    repo_metadata: {
+      intent: "dashboard",
+      work: "repo_metadata",
+      expectedPriority: "background",
+      story:
+        "Dashboard opens or returns to the foreground and asks for repo/branch list freshness.",
+      make: ({ ids }) => ({
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        now: 100,
+        notBefore: 100,
+        intent: { source: "dashboard", trigger: "page_load" },
+        work: { kind: "repo_metadata", enrichment: { kind: "none" } },
+      }),
+      expectedDedupeKey: ({ ids }) =>
+        `user:${ids.userId}:vault:${ids.vaultId}:repo_metadata`,
+    },
+    link_enrichment: {
+      intent: "dashboard",
+      work: "link_enrichment",
+      expectedPriority: "background",
+      story:
+        "Dashboard refreshes provider links shown in branch rows without refreshing branch trees.",
+      make: ({ ids }) => ({
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        now: 101,
+        notBefore: 101,
+        intent: { source: "dashboard", trigger: "visibility" },
+        work: {
+          kind: "link_enrichment",
+          branch: "main",
+          provider: "cloudflare_pages_comments",
         },
-      },
-    }),
-    expectedDedupeKey: ({ ids }) =>
-      `user:${ids.userId}:vault:${ids.vaultId}:repo_metadata`,
+      }),
+      expectedDedupeKey: ({ ids }) =>
+        `user:${ids.userId}:vault:${ids.vaultId}:branch:main:link_enrichment:cloudflare_pages_comments`,
+    },
   },
-  {
-    intent: "manual",
-    work: "branch_tree",
-    expectedPriority: "manual",
-    story:
-      "User asks a specific branch to refresh, so only that branch tree is queued.",
-    make: ({ ids }) => ({
-      userId: ids.userId,
-      vaultId: ids.vaultId,
-      now: 103,
-      notBefore: 103,
-      intent: { source: "manual", trigger: "dashboard_status_click" },
-      work: { kind: "branch_tree", branch: "main" },
-    }),
-    expectedDedupeKey: ({ ids }) =>
-      `user:${ids.userId}:vault:${ids.vaultId}:branch:main:tree`,
+  manual: {
+    repo_metadata: {
+      intent: "manual",
+      work: "repo_metadata",
+      expectedPriority: "manual",
+      story:
+        "User clicks the dashboard refresh control and asks for repo-wide freshness.",
+      make: ({ ids }) => ({
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        now: 102,
+        notBefore: 102,
+        intent: { source: "manual", trigger: "dashboard_status_click" },
+        work: {
+          kind: "repo_metadata",
+          enrichment: {
+            kind: "pull_request_metadata",
+            includeAheadBehind: true,
+          },
+        },
+      }),
+      expectedDedupeKey: ({ ids }) =>
+        `user:${ids.userId}:vault:${ids.vaultId}:repo_metadata`,
+    },
+    branch_tree: {
+      intent: "manual",
+      work: "branch_tree",
+      expectedPriority: "manual",
+      story:
+        "User asks a specific branch to refresh, so only that branch tree is queued.",
+      make: ({ ids }) => ({
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        now: 103,
+        notBefore: 103,
+        intent: { source: "manual", trigger: "dashboard_status_click" },
+        work: { kind: "branch_tree", branch: "main" },
+      }),
+      expectedDedupeKey: ({ ids }) =>
+        `user:${ids.userId}:vault:${ids.vaultId}:branch:main:tree`,
+    },
+    link_enrichment: {
+      intent: "manual",
+      work: "link_enrichment",
+      expectedPriority: "manual",
+      story:
+        "User asks for provider links for one branch without forcing metadata or tree work.",
+      make: ({ ids }) => ({
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        now: 104,
+        notBefore: 104,
+        intent: { source: "manual", trigger: "dashboard_status_click" },
+        work: {
+          kind: "link_enrichment",
+          branch: "main",
+          provider: "cloudflare_pages_comments",
+        },
+      }),
+      expectedDedupeKey: ({ ids }) =>
+        `user:${ids.userId}:vault:${ids.vaultId}:branch:main:link_enrichment:cloudflare_pages_comments`,
+    },
   },
-  {
-    intent: "manual",
-    work: "link_enrichment",
-    expectedPriority: "manual",
-    story:
-      "User asks for provider links for one branch without forcing metadata or tree work.",
-    make: ({ ids }) => ({
-      userId: ids.userId,
-      vaultId: ids.vaultId,
-      now: 104,
-      notBefore: 104,
-      intent: { source: "manual", trigger: "dashboard_status_click" },
-      work: {
-        kind: "link_enrichment",
-        branch: "main",
-        provider: "cloudflare_pages_comments",
-      },
-    }),
-    expectedDedupeKey: ({ ids }) =>
-      `user:${ids.userId}:vault:${ids.vaultId}:branch:main:link_enrichment:cloudflare_pages_comments`,
+  source_setup: {
+    repo_metadata: {
+      intent: "source_setup",
+      work: "repo_metadata",
+      expectedPriority: "system",
+      story:
+        "Create/connect finished; backend discovers branches so the dashboard works without a browser reload.",
+      make: ({ ids, runId }) => ({
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        now: 105,
+        notBefore: 105,
+        intent: {
+          source: "source_setup",
+          runId,
+          mode: "connect_existing_repository",
+        },
+        work: { kind: "repo_metadata", enrichment: { kind: "none" } },
+      }),
+      expectedDedupeKey: ({ ids }) =>
+        `user:${ids.userId}:vault:${ids.vaultId}:repo_metadata`,
+    },
   },
-  {
-    intent: "source_setup",
-    work: "repo_metadata",
-    expectedPriority: "system",
-    story:
-      "Create/connect finished; backend discovers branches so the dashboard works without a browser reload.",
-    make: ({ ids, runId }) => ({
-      userId: ids.userId,
-      vaultId: ids.vaultId,
-      now: 105,
-      notBefore: 105,
-      intent: {
-        source: "source_setup",
-        runId,
-        mode: "connect_existing_repository",
-      },
-      work: { kind: "repo_metadata", enrichment: { kind: "none" } },
-    }),
-    expectedDedupeKey: ({ ids }) =>
-      `user:${ids.userId}:vault:${ids.vaultId}:repo_metadata`,
+  file_view: {
+    branch_tree: {
+      intent: "file_view",
+      work: "branch_tree",
+      expectedPriority: "normal",
+      story:
+        "A file route opens or becomes visible and asks for the visible branch tree.",
+      make: ({ ids }) => ({
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        now: 106,
+        notBefore: 106,
+        intent: { source: "file_view", trigger: "page_load" },
+        work: { kind: "branch_tree", branch: "main" },
+      }),
+      expectedDedupeKey: ({ ids }) =>
+        `user:${ids.userId}:vault:${ids.vaultId}:branch:main:tree`,
+    },
   },
-  {
-    intent: "file_view",
-    work: "branch_tree",
-    expectedPriority: "normal",
-    story:
-      "A file route opens or becomes visible and asks for the visible branch tree.",
-    make: ({ ids }) => ({
-      userId: ids.userId,
-      vaultId: ids.vaultId,
-      now: 106,
-      notBefore: 106,
-      intent: { source: "file_view", trigger: "page_load" },
-      work: { kind: "branch_tree", branch: "main" },
-    }),
-    expectedDedupeKey: ({ ids }) =>
-      `user:${ids.userId}:vault:${ids.vaultId}:branch:main:tree`,
+  commit: {
+    branch_tree: {
+      intent: "commit",
+      work: "branch_tree",
+      expectedPriority: "system",
+      story:
+        "A local commit changed one branch; the backend refreshes that branch tree.",
+      make: ({ ids }) => ({
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        now: 107,
+        notBefore: 107,
+        intent: { source: "commit" },
+        work: { kind: "branch_tree", branch: "main" },
+      }),
+      expectedDedupeKey: ({ ids }) =>
+        `user:${ids.userId}:vault:${ids.vaultId}:branch:main:tree`,
+    },
   },
-  {
-    intent: "commit",
-    work: "branch_tree",
-    expectedPriority: "system",
-    story:
-      "A local commit changed one branch; the backend refreshes that branch tree.",
-    make: ({ ids }) => ({
-      userId: ids.userId,
-      vaultId: ids.vaultId,
-      now: 107,
-      notBefore: 107,
-      intent: { source: "commit" },
-      work: { kind: "branch_tree", branch: "main" },
-    }),
-    expectedDedupeKey: ({ ids }) =>
-      `user:${ids.userId}:vault:${ids.vaultId}:branch:main:tree`,
+  pull: {
+    branch_tree: {
+      intent: "pull",
+      work: "branch_tree",
+      expectedPriority: "system",
+      story:
+        "A pull moved one branch under the local checkout; the backend refreshes that branch tree.",
+      make: ({ ids }) => ({
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        now: 108,
+        notBefore: 108,
+        intent: { source: "pull" },
+        work: { kind: "branch_tree", branch: "main" },
+      }),
+      expectedDedupeKey: ({ ids }) =>
+        `user:${ids.userId}:vault:${ids.vaultId}:branch:main:tree`,
+    },
   },
-  {
-    intent: "pull",
-    work: "branch_tree",
-    expectedPriority: "system",
-    story:
-      "A pull moved one branch under the local checkout; the backend refreshes that branch tree.",
-    make: ({ ids }) => ({
-      userId: ids.userId,
-      vaultId: ids.vaultId,
-      now: 108,
-      notBefore: 108,
-      intent: { source: "pull" },
-      work: { kind: "branch_tree", branch: "main" },
-    }),
-    expectedDedupeKey: ({ ids }) =>
-      `user:${ids.userId}:vault:${ids.vaultId}:branch:main:tree`,
-  },
-] satisfies readonly IntentWorkMatrixRow[];
+} satisfies IntentWorkMatrix;
 
 type WorkScopeMatrixRow = {
   scope: "repository" | "branch_tree" | "branch_provider_links";
@@ -363,24 +406,26 @@ describe("repository refresh model", () => {
   it("enumerates allowed intent-work states", async () => {
     const context = await createMatrixContext();
 
-    for (const row of intentWorkMatrix) {
-      const request = makeRepositoryRefreshRequest(row.make(context));
+    for (const rowsByWork of Object.values(intentWorkMatrix)) {
+      for (const row of Object.values(rowsByWork)) {
+        const request = makeRepositoryRefreshRequest(row.make(context));
 
-      expect(request.intent.source).toBe(row.intent);
-      expect(request.work.kind).toBe(row.work);
-      expect(getRepositoryRefreshPriority(request.intent)).toBe(
-        row.expectedPriority,
-      );
-      expect(request.dedupeKey).toBe(row.expectedDedupeKey(context));
-
-      const stored = await context.t.run(async (ctx) => {
-        const requestId = await ctx.db.insert(
-          "repositoryRefreshRequests",
-          request,
+        expect(request.intent.source).toBe(row.intent);
+        expect(request.work.kind).toBe(row.work);
+        expect(getRepositoryRefreshPriority(request.intent)).toBe(
+          row.expectedPriority,
         );
-        return await ctx.db.get(requestId);
-      });
-      expect(stored).toMatchObject(request);
+        expect(request.dedupeKey).toBe(row.expectedDedupeKey(context));
+
+        const stored = await context.t.run(async (ctx) => {
+          const requestId = await ctx.db.insert(
+            "repositoryRefreshRequests",
+            request,
+          );
+          return await ctx.db.get(requestId);
+        });
+        expect(stored).toMatchObject(request);
+      }
     }
   });
 
