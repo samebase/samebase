@@ -287,7 +287,7 @@ describe("lint config", () => {
     const appPackage = readPackageSurface("apps/noter/package.json");
 
     expect(rootPackage.devDependencies).toMatchObject({
-      "@convex-dev/eslint-plugin": "0.0.1-alpha.4",
+      "@convex-dev/eslint-plugin": "2.0.0",
       "eslint-plugin-react-refresh": "^0.4.7",
     });
     expect(
