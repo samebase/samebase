@@ -205,6 +205,7 @@ describe("repository refresh demand ingest", () => {
   });
 
   afterEach(async () => {
+    // Let pending Workpool promises settle before timer cleanup.
     await Promise.resolve();
     vi.clearAllTimers();
     vi.useRealTimers();
