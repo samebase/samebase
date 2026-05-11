@@ -496,54 +496,6 @@ describe("repository refresh demand ingest", () => {
     await expect(getRefreshRequest(t, created._id)).resolves.toEqual(before);
   });
 
-  it("treats pre-lease running demand as expired rollout data", async () => {
-    const { asUser, ids, t } = await createConnectedVault();
-    const oldRunningRequestId = await t.run(async (ctx) => {
-      const queued = makeRepositoryRefreshRequest({
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        now: 10,
-        demand: {
-          scope: "repository",
-          source: "dashboard",
-          trigger: "page_load",
-        },
-      });
-      return await ctx.db.insert("repositoryRefreshRequests", {
-        ...queued,
-        lifecycle: {
-          state: "running",
-          attempt: 1,
-          startedAt: 20,
-          workpoolJobId: "job-without-lease",
-        },
-        updatedAt: 20,
-      });
-    });
-
-    const result = await asUser.mutation(
-      api.repositoryRefresh.enqueueManualRepositoryRefresh,
-      {
-        vaultId: ids.vaultId,
-      },
-    );
-
-    expect(result.kind).toBe("created");
-    const oldRunningRequest = await getRefreshRequest(t, oldRunningRequestId);
-    expect(oldRunningRequest.lifecycle).toMatchObject({
-      state: "failed",
-      failure: {
-        kind: "provider_error",
-        message: "Repository refresh worker lease expired.",
-      },
-    });
-    const requests = await listRefreshRequests(t);
-    expect(requests).toHaveLength(2);
-    expect(
-      requests.some((request) => request.lifecycle.state === "scheduled"),
-    ).toBe(true);
-  });
-
   it("worker start cancels scheduled work after vault deletion starts", async () => {
     const { ids, t } = await createConnectedVault();
     const requestId = await insertScheduledRepositoryRefreshRequest(t, {

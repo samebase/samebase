@@ -109,9 +109,7 @@ type RepositoryRefreshLifecycle =
       state: "running";
       attempt: number;
       startedAt: number;
-      // Optional only during the deploy that introduces running leases.
-      // New writes must set it; missing means an older running row is stale.
-      leaseExpiresAt?: number;
+      leaseExpiresAt: number;
       workpoolJobId: string;
     }
   | {
@@ -176,9 +174,7 @@ Schema rules:
 - no `source_setup` without `runId`
 - no `queued` row with `workpoolJobId`
 - no `scheduled` row with `leaseExpiresAt`
-- new code never writes `running` without `leaseExpiresAt`
-- missing `running.leaseExpiresAt` is deploy compatibility only and counts as
-  expired
+- no `running` row without `leaseExpiresAt`
 - no `succeeded` row without result
 - build rows through constructors only
 
@@ -248,14 +244,14 @@ failure.kind -> failure fields
 
 `lifecycle.state -> lifecycle fields`:
 
-| State       | Fields                                                                   |
-| ----------- | ------------------------------------------------------------------------ |
-| `queued`    | `notBefore`, `queuedAt`                                                  |
-| `scheduled` | `notBefore`, `queuedAt`, `scheduledAt`, `attempt`, `workpoolJobId`       |
-| `running`   | `attempt`, `startedAt`, `workpoolJobId`; new writes add `leaseExpiresAt` |
-| `succeeded` | `attempt`, `startedAt`, `completedAt`, `result`                          |
-| `failed`    | `attempt`, `startedAt`, `failedAt`, `failure`                            |
-| `canceled`  | `canceledAt`, `reason`                                                   |
+| State       | Fields                                                             |
+| ----------- | ------------------------------------------------------------------ |
+| `queued`    | `notBefore`, `queuedAt`                                            |
+| `scheduled` | `notBefore`, `queuedAt`, `scheduledAt`, `attempt`, `workpoolJobId` |
+| `running`   | `attempt`, `startedAt`, `leaseExpiresAt`, `workpoolJobId`          |
+| `succeeded` | `attempt`, `startedAt`, `completedAt`, `result`                    |
+| `failed`    | `attempt`, `startedAt`, `failedAt`, `failure`                      |
+| `canceled`  | `canceledAt`, `reason`                                             |
 
 Tests should enumerate these edges with small matrices. When a forbidden state
 is still representable, simplify the state shape first; add runtime guards only

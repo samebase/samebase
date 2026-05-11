@@ -179,7 +179,6 @@ function isRunningRepositoryRefreshLeaseValid(
 ): boolean {
   return (
     request.lifecycle.state === "running" &&
-    typeof request.lifecycle.leaseExpiresAt === "number" &&
     request.lifecycle.leaseExpiresAt > now
   );
 }

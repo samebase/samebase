@@ -1,6 +1,6 @@
 import { Infer, v } from "convex/values";
 
-const { id, literal, number, object, optional, string, union } = v;
+const { id, literal, number, object, string, union } = v;
 
 // MARK: Demand Sources and Scheduler Priority
 // These are caller-visible reasons for freshness, not exact worker steps.
@@ -372,9 +372,7 @@ export const vRepositoryRefreshLifecycle = union(
     state: literal("running"),
     attempt: number(),
     startedAt: number(),
-    // Optional only for the deploy that introduces leases. New running rows
-    // always write this field; older running rows without it are stale.
-    leaseExpiresAt: optional(number()),
+    leaseExpiresAt: number(),
     workpoolJobId: string(),
   }),
   object({
