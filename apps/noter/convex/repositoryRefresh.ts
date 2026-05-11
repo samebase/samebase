@@ -41,6 +41,12 @@ import {
 } from "./repositoryRefreshModel";
 
 const { id, literal, null: vNull, object, string, union } = v;
+/**
+ * One repository refresh pool for this runner.
+ *
+ * The queue row still carries the demand source, so priority and later policy
+ * can evolve without exposing multiple pools or pool choice to callers.
+ */
 const repositoryRefreshWorkpool = new Workpool(
   components.repositoryRefreshWorkpool,
   {
@@ -58,6 +64,13 @@ const repositoryRefreshWorkpoolContext = object({
   requestId: id("repositoryRefreshRequests"),
 });
 
+/**
+ * Result of claiming a scheduled row immediately before provider work.
+ *
+ * ready = the row is still valid and the action may call GitHub.
+ * cancel/fail = live vault state changed after scheduling; the action records a
+ * terminal lifecycle instead of doing provider work.
+ */
 const repositoryRefreshWorkerInput = union(
   object({
     kind: literal("ready"),
@@ -125,6 +138,11 @@ function makeRepositoryRefreshProviderFailure(args: {
   };
 }
 
+/**
+ * Maps durable repository demand onto the existing GitHub refresh trigger.
+ * Source setup uses page_load semantics because setup completion needs the same
+ * branch discovery/default-tree reconciliation as opening the dashboard.
+ */
 function getRepositoryRefreshWorkerTrigger(
   demand: RepositoryScopeRefreshDemand,
 ): RepositoryRefreshWorkerTrigger {
@@ -134,8 +152,6 @@ function getRepositoryRefreshWorkerTrigger(
     case "manual":
       return "manual";
     case "source_setup":
-      // Source setup needs the same repository-level reconciliation as opening
-      // the dashboard after setup: branch discovery plus the default tree.
       return "page_load";
     default: {
       demand satisfies never;
@@ -679,6 +695,36 @@ async function finishRunningRepositoryRefreshRequestSucceeded(
   });
 }
 
+/**
+ * Loads a scheduled/running row only if the caller still owns the Workpool job.
+ * onComplete passes `workpoolJobId` so an old Workpool completion callback
+ * cannot mutate a row that has already been reused or replaced by newer work.
+ */
+async function getOwnedActiveRepositoryRefreshRequest(
+  ctx: MutationCtx,
+  args: {
+    requestId: Id<"repositoryRefreshRequests">;
+    workpoolJobId: string | null;
+  },
+): Promise<Doc<"repositoryRefreshRequests"> | null> {
+  const request = await ctx.db.get(args.requestId);
+  if (
+    !request ||
+    (request.lifecycle.state !== "scheduled" &&
+      request.lifecycle.state !== "running")
+  ) {
+    return null;
+  }
+  if (
+    args.workpoolJobId !== null &&
+    request.lifecycle.workpoolJobId !== args.workpoolJobId
+  ) {
+    return null;
+  }
+
+  return request;
+}
+
 async function finishActiveRepositoryRefreshRequestFailed(
   ctx: MutationCtx,
   args: {
@@ -687,18 +733,8 @@ async function finishActiveRepositoryRefreshRequestFailed(
     failure: RepositoryRefreshFailure;
   },
 ): Promise<void> {
-  const request = await ctx.db.get(args.requestId);
-  if (
-    !request ||
-    (request.lifecycle.state !== "scheduled" &&
-      request.lifecycle.state !== "running")
-  ) {
-    return;
-  }
-  if (
-    args.workpoolJobId !== null &&
-    request.lifecycle.workpoolJobId !== args.workpoolJobId
-  ) {
+  const request = await getOwnedActiveRepositoryRefreshRequest(ctx, args);
+  if (!request) {
     return;
   }
 
@@ -721,18 +757,8 @@ async function finishActiveRepositoryRefreshRequestCanceled(
     reason: RepositoryRefreshCancelReason;
   },
 ): Promise<void> {
-  const request = await ctx.db.get(args.requestId);
-  if (
-    !request ||
-    (request.lifecycle.state !== "scheduled" &&
-      request.lifecycle.state !== "running")
-  ) {
-    return;
-  }
-  if (
-    args.workpoolJobId !== null &&
-    request.lifecycle.workpoolJobId !== args.workpoolJobId
-  ) {
+  const request = await getOwnedActiveRepositoryRefreshRequest(ctx, args);
+  if (!request) {
     return;
   }
 

@@ -101,6 +101,10 @@ type RefreshRepositoryTrigger = Infer<typeof refreshRepositoryTrigger>;
  *
  * branch = one route/operation requested one concrete branch. Empty branch
  * strings fail before the planner can silently fall back to default-branch work.
+ *
+ * The include* fields are internal execution policy knobs. They are required so
+ * callers must state the cost they are asking for; they are not stored on
+ * repositoryRefreshRequests.
  */
 const refreshRepositoryTreeForUserInput = union(
   object({
@@ -2276,10 +2280,11 @@ export const getRepositoryMediaAsset = action({
  * Shared refresh planner for the old direct file-view action and the new
  * Workpool runner.
  *
- * It claims the existing vault refresh lock once, runs metadata/tree work chosen
- * from the scope and trigger, then always releases or records failure on that
- * same claim. The caller chooses repository vs branch scope; this helper chooses
- * provider/API depth.
+ * It claims the existing vault refresh lock once, applies metadata budget rules,
+ * runs the selected metadata/tree work, then always releases or records failure
+ * on that same claim. The Workpool caller builds repository-scope args from
+ * backend policy; the direct file-view action still passes branch-scope args
+ * until branch demand moves onto the queue.
  */
 async function refreshRepositoryTreeForUserHelper(
   ctx: ActionCtx,
@@ -2545,6 +2550,13 @@ export const refreshRepositoryTreeForUser = internalAction({
   },
 });
 
+/**
+ * Syncs repository-level GitHub metadata into vault branch rows.
+ *
+ * Every enrichment flag is required on purpose. The caller must choose whether
+ * this pass pays for ahead/behind counts, pull request metadata, preview-link
+ * parsing, and commit timestamps instead of inheriting hidden defaults.
+ */
 export const syncRepositoryMetadata = internalAction({
   args: {
     userId: id("users"),
@@ -2649,6 +2661,13 @@ export const syncRepositoryMetadata = internalAction({
   },
 });
 
+/**
+ * Refreshes the cached tree for one concrete branch.
+ *
+ * No default-branch fallback lives here. Callers that mean "default branch"
+ * must resolve that branch before calling so empty or missing branch state fails
+ * at the boundary closest to the caller.
+ */
 export const refreshBranchTree = internalAction({
   args: {
     userId: id("users"),
@@ -2735,7 +2754,14 @@ export const refreshBranchTree = internalAction({
   },
 });
 
-// Get repository tree structure
+/**
+ * Internal follow-up after a repository write such as commit, pull, or PR open.
+ *
+ * A provided branch refreshes that exact branch. A missing branch means
+ * "refresh repository metadata if requested, then refresh the vault's resolved
+ * default branch"; that is the one intentional branchless state left in this
+ * older helper.
+ */
 export const updateRepositoryTree = internalAction({
   args: {
     userId: id("users"),

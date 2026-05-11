@@ -1,9 +1,12 @@
 import type { api } from "../../../convex/_generated/api";
 import { useCallback, useEffect, useRef } from "react";
 
-type DashboardRepositoryRefreshTrigger = "visibility" | "page_load";
+type EnqueueDashboardRepositoryRefreshArgs =
+  (typeof api.repositoryRefresh.enqueueDashboardRepositoryRefresh)["_args"];
+type DashboardRepositoryRefreshTrigger =
+  EnqueueDashboardRepositoryRefreshArgs["trigger"];
 type EnqueueDashboardRepositoryRefresh = (
-  args: (typeof api.repositoryRefresh.enqueueDashboardRepositoryRefresh)["_args"],
+  args: EnqueueDashboardRepositoryRefreshArgs,
 ) => Promise<
   (typeof api.repositoryRefresh.enqueueDashboardRepositoryRefresh)["_returnType"]
 >;
@@ -37,9 +40,10 @@ export function useDashboardRepositoryTreeRefresh({
   enqueueManualRepositoryRefresh: EnqueueManualRepositoryRefresh;
   vaults: VaultDashboardVault[] | undefined;
 }) {
+  const hasVaults = Boolean(vaults?.length);
   const enqueueDashboardDemand = useCallback(
     (trigger: DashboardRepositoryRefreshTrigger) => {
-      if (!vaults || vaults.length === 0) {
+      if (!hasVaults) {
         return;
       }
 
@@ -53,12 +57,12 @@ export function useDashboardRepositoryTreeRefresh({
         );
       });
     },
-    [enqueueDashboardRepositoryRefresh, vaults],
+    [enqueueDashboardRepositoryRefresh, hasVaults],
   );
 
   useVisibleDashboardRepositoryTreeRefresh({
     enqueueDashboardDemand,
-    vaults,
+    hasVaults,
   });
 
   const refreshVaultTreeFromStatusClick = useCallback(
@@ -89,15 +93,15 @@ export function useDashboardRepositoryTreeRefresh({
  */
 function useVisibleDashboardRepositoryTreeRefresh({
   enqueueDashboardDemand,
-  vaults,
+  hasVaults,
 }: {
   enqueueDashboardDemand: (trigger: DashboardRepositoryRefreshTrigger) => void;
-  vaults: VaultDashboardVault[] | undefined;
+  hasVaults: boolean;
 }) {
   const initialDashboardPageLoadSentRef = useRef(false);
 
   useEffect(() => {
-    if (!vaults || vaults.length === 0) {
+    if (!hasVaults) {
       return;
     }
 
@@ -131,5 +135,5 @@ function useVisibleDashboardRepositoryTreeRefresh({
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [enqueueDashboardDemand, vaults]);
+  }, [enqueueDashboardDemand, hasVaults]);
 }
