@@ -250,9 +250,9 @@ This PR is mergeable only if it proves:
 - existing-repository connect enqueues source-setup demand
 - no caller can select work/depth/provider/priority/dedupe
 
-## What The Workpool PR Proves
+## What The Workpool Runner PR Proves
 
-The next PR should prove:
+This PR should prove:
 
 - queued repository demand executes
 - Workpool owns worker start/run/finish
@@ -260,6 +260,16 @@ The next PR should prove:
 - branch discovery updates after existing-repository connect
 - dashboard freshness no longer depends on frontend refresh loops
 - status remains clear enough for the dashboard
+
+Deliberate limits:
+
+- one repository refresh Workpool
+- no Workpool retries yet
+- no retry counters on queued rows
+- expired running leases fail the stale owner; the next demand creates fresh
+  work
+- branch/file-view refresh stays on the old direct path
+- provider-link enrichment stays out of request rows
 
 ## Non-Goals
 

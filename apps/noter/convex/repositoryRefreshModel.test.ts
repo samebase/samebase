@@ -258,13 +258,20 @@ const lifecycleMatrix = {
     }),
   },
   running: {
-    fields: ["attempt", "startedAt", "state", "workpoolJobId"],
+    fields: [
+      "attempt",
+      "leaseExpiresAt",
+      "startedAt",
+      "state",
+      "workpoolJobId",
+    ],
     story:
-      "Running work has been claimed by Workpool and has no terminal result yet.",
+      "Running work has been claimed by Workpool and carries a lease so stale ownership can be detected.",
     makeLifecycle: () => ({
       state: "running",
       attempt: 1,
       startedAt: 11,
+      leaseExpiresAt: 191,
       workpoolJobId: "job-1",
     }),
   },
@@ -525,6 +532,7 @@ describe("repository refresh model", () => {
     const running = markRepositoryRefreshRequestRunning(queued, {
       now: 11,
       attempt: 1,
+      leaseExpiresAt: 191,
       workpoolJobId: "job-1",
     });
     const succeeded = markRepositoryRefreshRequestSucceeded(running, {
@@ -539,6 +547,7 @@ describe("repository refresh model", () => {
       state: "running",
       attempt: 1,
       startedAt: 11,
+      leaseExpiresAt: 191,
       workpoolJobId: "job-1",
     });
     expect(succeeded.lifecycle).toEqual({
@@ -568,6 +577,7 @@ describe("repository refresh model", () => {
     const running = markRepositoryRefreshRequestRunning(queued, {
       now: 11,
       attempt: 1,
+      leaseExpiresAt: 191,
       workpoolJobId: "job-1",
     });
     const failed = markRepositoryRefreshRequestFailed(running, {
@@ -589,6 +599,7 @@ describe("repository refresh model", () => {
       markRepositoryRefreshRequestRunning(failed, {
         now: 13,
         attempt: 2,
+        leaseExpiresAt: 193,
         workpoolJobId: "job-2",
       }),
     ).toThrow("Only queued repository refresh requests can start.");

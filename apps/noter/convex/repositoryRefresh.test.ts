@@ -1,9 +1,10 @@
-import { describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { makeConvexTest } from "./test.setup";
 import { MAX_DASHBOARD_REFRESH_DEMAND_VAULTS } from "../shared/repositoryRefresh";
+import { makeRepositoryRefreshRequest } from "./repositoryRefreshModel";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
@@ -169,7 +170,7 @@ describe("repository refresh demand ingest", () => {
       source: "dashboard",
       trigger: "page_load",
     });
-    expect(first.lifecycle.state).toBe("queued");
+    expect(first.lifecycle.state).toBe("running");
 
     const before = await getRefreshRequest(t, first._id);
     await expect(
@@ -251,58 +252,78 @@ describe("repository refresh demand ingest", () => {
   });
 
   it("continues dashboard vault pages inside Convex", async () => {
-    vi.useFakeTimers();
-    try {
-      const { asUser, ids, t } = await createConnectedVault();
-      for (
-        let index = 1;
-        index <= MAX_DASHBOARD_REFRESH_DEMAND_VAULTS;
-        index++
-      ) {
-        await insertConnectedVaultForUser(t, {
-          userId: ids.userId,
-          repositoryFullName: `ada/refresh-${index}`,
-          ghRepoId: `bulk-${index}`,
-          owner: "ada",
-          name: `refresh-${index}`,
-          connectedAt: index + 4,
-        });
-      }
-
-      await expect(
-        asUser.mutation(
-          api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-          {
-            trigger: "page_load",
-          },
-        ),
-      ).resolves.toBeNull();
-
-      await expect(listRefreshRequests(t)).resolves.toHaveLength(
-        MAX_DASHBOARD_REFRESH_DEMAND_VAULTS,
-      );
-
-      await t.finishAllScheduledFunctions(() => vi.runAllTimers());
-
-      await expect(listRefreshRequests(t)).resolves.toHaveLength(
-        MAX_DASHBOARD_REFRESH_DEMAND_VAULTS + 1,
-      );
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("upgrades queued dashboard demand when manual demand arrives", async () => {
     const { asUser, ids, t } = await createConnectedVault();
+    for (let index = 1; index <= MAX_DASHBOARD_REFRESH_DEMAND_VAULTS; index++) {
+      await insertConnectedVaultForUser(t, {
+        userId: ids.userId,
+        repositoryFullName: `ada/refresh-${index}`,
+        ghRepoId: `bulk-${index}`,
+        owner: "ada",
+        name: `refresh-${index}`,
+        connectedAt: index + 4,
+      });
+    }
 
-    await asUser.mutation(
-      api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-      {
+    const firstPage = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("vaults")
+        .withIndex("by_userId_and_state_and_deletion_state", (q) =>
+          q
+            .eq("userId", ids.userId)
+            .eq("state", "connected")
+            .eq("deletion.state", "not_deleting"),
+        )
+        .paginate({
+          cursor: null,
+          numItems: MAX_DASHBOARD_REFRESH_DEMAND_VAULTS,
+        });
+    });
+    if (firstPage.isDone) {
+      throw new Error("Expected another dashboard vault page.");
+    }
+
+    await expect(
+      asUser.mutation(api.repositoryRefresh.enqueueDashboardRepositoryRefresh, {
         trigger: "page_load",
+      }),
+    ).resolves.toBeNull();
+
+    await expect(listRefreshRequests(t)).resolves.toHaveLength(
+      MAX_DASHBOARD_REFRESH_DEMAND_VAULTS,
+    );
+
+    await t.mutation(
+      internal.repositoryRefresh.enqueueDashboardRepositoryRefreshPage,
+      {
+        userId: ids.userId,
+        trigger: "page_load",
+        cursor: firstPage.continueCursor,
       },
     );
-    const dashboard = await readSingleRefreshRequest(t);
-    const before = await getRefreshRequest(t, dashboard._id);
+
+    await expect(listRefreshRequests(t)).resolves.toHaveLength(
+      MAX_DASHBOARD_REFRESH_DEMAND_VAULTS + 1,
+    );
+  });
+
+  it("upgrades queued dashboard demand from before the runner claimed it", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    const requestId = await t.run(async (ctx) => {
+      return await ctx.db.insert(
+        "repositoryRefreshRequests",
+        makeRepositoryRefreshRequest({
+          userId: ids.userId,
+          vaultId: ids.vaultId,
+          now: 100,
+          demand: {
+            scope: "repository",
+            source: "dashboard",
+            trigger: "page_load",
+          },
+        }),
+      );
+    });
+    const before = await getRefreshRequest(t, requestId);
     if (before.lifecycle.state !== "queued") {
       throw new Error("Expected queued request.");
     }
@@ -315,23 +336,21 @@ describe("repository refresh demand ingest", () => {
     );
     expect(manual).toEqual({
       kind: "updated",
-      requestId: dashboard._id,
+      requestId,
     });
 
-    const after = await getRefreshRequest(t, dashboard._id);
+    const after = await getRefreshRequest(t, requestId);
     expect(after.demand).toEqual({
       scope: "repository",
       source: "manual",
       trigger: "dashboard_status_click",
     });
     expect(after.createdAt).toBe(before.createdAt);
-    if (after.lifecycle.state !== "queued") {
-      throw new Error("Expected queued request.");
+    if (after.lifecycle.state !== "running") {
+      throw new Error("Expected running request.");
     }
-    expect(after.lifecycle.queuedAt).toBe(before.lifecycle.queuedAt);
-    expect(after.lifecycle.notBefore).toBeGreaterThanOrEqual(
-      before.lifecycle.notBefore,
-    );
+    expect(after.lifecycle.attempt).toBe(1);
+    expect(after.lifecycle.workpoolJobId).toEqual(expect.any(String));
     expect(after.updatedAt).toBeGreaterThanOrEqual(before.updatedAt);
   });
 
@@ -364,6 +383,7 @@ describe("repository refresh demand ingest", () => {
           state: "running",
           attempt: 1,
           startedAt: 20,
+          leaseExpiresAt: Date.now() + 60_000,
           workpoolJobId: "job-1",
         },
         updatedAt: 20,
@@ -383,6 +403,65 @@ describe("repository refresh demand ingest", () => {
       requestId: created._id,
     });
     await expect(getRefreshRequest(t, created._id)).resolves.toEqual(before);
+  });
+
+  it("worker input cancels running work after vault deletion starts", async () => {
+    const { asUser, ids, t } = await createConnectedVault();
+    await asUser.mutation(
+      api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
+      {
+        trigger: "page_load",
+      },
+    );
+    const request = await readSingleRefreshRequest(t);
+    await t.mutation(internal.vaultDeletionRuns.createInitialRun, {
+      userId: ids.userId,
+      vaultId: ids.vaultId,
+      options: {
+        removeCodespaces: false,
+        removeGithubRepo: false,
+        removeConvexProvision: false,
+        removeCloudflareProvision: false,
+      },
+    });
+
+    await expect(
+      t.query(internal.repositoryRefresh.getRepositoryRefreshWorkerInput, {
+        requestId: request._id,
+      }),
+    ).resolves.toEqual({
+      kind: "cancel",
+      reason: "vault_deleting",
+    });
+  });
+
+  it("ignores failed completion from a stale Workpool job", async () => {
+    const { asUser, t } = await createConnectedVault();
+    await asUser.mutation(
+      api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
+      {
+        trigger: "page_load",
+      },
+    );
+    const request = await readSingleRefreshRequest(t);
+    if (request.lifecycle.state !== "running") {
+      throw new Error("Expected running request.");
+    }
+
+    await t.mutation(
+      internal.repositoryRefresh.finishRepositoryRefreshRequestFailed,
+      {
+        requestId: request._id,
+        workpoolJobId: "older-job",
+        failure: {
+          kind: "provider_error",
+          cooldownUntil: 200,
+          message: "Old job failed late.",
+        },
+      },
+    );
+
+    await expect(getRefreshRequest(t, request._id)).resolves.toEqual(request);
   });
 
   it("creates a new row when the matching row is terminal history", async () => {
@@ -470,7 +549,7 @@ describe("repository refresh demand ingest", () => {
           mode: "connect_existing_repository",
         },
         lifecycle: {
-          state: "queued",
+          state: "running",
         },
       },
     );

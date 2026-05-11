@@ -1,15 +1,7 @@
 import type { api } from "../../../convex/_generated/api";
-import { getCloudflareBranchPreviewHydrationTargets } from "@/lib/cloudflarePreviewLinks";
-import { shouldAutoRefreshVault } from "@/lib/treeRefreshStatus";
-import { claimRefreshDebounce } from "@/lib/treeRefreshDebounce";
 import { useCallback, useEffect, useRef } from "react";
 
-const DASHBOARD_REFRESH_CONCURRENCY = 3;
-
 type DashboardTreeRefreshTrigger = "visibility" | "page_load";
-type DashboardRefreshTree = (
-  args: (typeof api.github.refreshRepositoryTree)["_args"],
-) => Promise<(typeof api.github.refreshRepositoryTree)["_returnType"]>;
 type EnqueueDashboardRepositoryRefresh = (
   args: (typeof api.repositoryRefresh.enqueueDashboardRepositoryRefresh)["_args"],
 ) => Promise<
@@ -26,29 +18,23 @@ export type VaultDashboardVault = NonNullable<
 >[number];
 export type DashboardManualRefreshVault = Pick<
   VaultDashboardVault,
-  | "_id"
-  | "ghRepoName"
-  | "ghRepoOwner"
-  | "remoteBranches"
-  | "repositoryFullName"
-  | "state"
-  | "treeRefreshCooldownUntil"
+  "_id" | "repositoryFullName" | "state"
 >;
 
 /**
- * Owns repository tree refresh scheduling and manual dashboard refreshes. Keep
- * this as a hook while refreshes depend on browser visibility and React action
- * calls; remove it by moving scheduling to the backend or route data layer.
+ * Sends dashboard freshness demand to Convex.
+ *
+ * React only reports that the dashboard loaded, became visible, or the user
+ * clicked refresh. Convex selects vaults, coalesces rows, and schedules Workpool
+ * jobs so multiple browser tabs cannot create their own refresh loops.
  */
 export function useDashboardRepositoryTreeRefresh({
   enqueueDashboardRepositoryRefresh,
   enqueueManualRepositoryRefresh,
-  refreshTree,
   vaults,
 }: {
   enqueueDashboardRepositoryRefresh: EnqueueDashboardRepositoryRefresh;
   enqueueManualRepositoryRefresh: EnqueueManualRepositoryRefresh;
-  refreshTree: DashboardRefreshTree;
   vaults: VaultDashboardVault[] | undefined;
 }) {
   const enqueueDashboardDemand = useCallback(
@@ -76,64 +62,8 @@ export function useDashboardRepositoryTreeRefresh({
         return;
       }
       enqueueDashboardDemand(trigger);
-
-      const now = Date.now();
-      const readyVaults = vaults.filter((vault) => vault.state === "ready");
-      const vaultsToRefresh = readyVaults.filter((vault) =>
-        typeof vault.treeRefreshCooldownUntil !== "number" ||
-        vault.treeRefreshCooldownUntil <= now
-          ? shouldAutoRefreshVault({
-              lastTreeRefreshAt: vault.lastTreeRefreshAt,
-              remoteBranches: vault.remoteBranches,
-              trigger,
-              now,
-            }) && claimRefreshDebounce("dashboard", vault.repositoryFullName)
-          : false,
-      );
-
-      if (vaultsToRefresh.length === 0) {
-        return;
-      }
-
-      void (async () => {
-        for (
-          let index = 0;
-          index < vaultsToRefresh.length;
-          index += DASHBOARD_REFRESH_CONCURRENCY
-        ) {
-          const batch = vaultsToRefresh.slice(
-            index,
-            index + DASHBOARD_REFRESH_CONCURRENCY,
-          );
-
-          await Promise.all(
-            batch.map(async (vault) => {
-              const cloudflarePreviewBranchNames =
-                getCloudflareBranchPreviewHydrationTargets(
-                  vault.remoteBranches,
-                );
-              await refreshTree({
-                owner: vault.ghRepoOwner,
-                repo: vault.ghRepoName,
-                // Preview-comment scans are expensive compared to the default
-                // branch tree refresh itself, so only re-run them for the
-                // current PR branches that still lack cached preview metadata.
-                includeCloudflarePreviewLinks:
-                  cloudflarePreviewBranchNames.length > 0,
-                cloudflarePreviewBranchNames,
-                trigger,
-              }).catch((error: unknown) => {
-                console.error(
-                  "Failed to refresh repository tree from dashboard:",
-                  error,
-                );
-              });
-            }),
-          );
-        }
-      })();
     },
-    [enqueueDashboardDemand, refreshTree, vaults],
+    [enqueueDashboardDemand, vaults],
   );
 
   useVisibleDashboardRepositoryTreeRefresh({
@@ -155,32 +85,8 @@ export function useDashboardRepositoryTreeRefresh({
           error,
         );
       });
-
-      if (
-        (typeof vault.treeRefreshCooldownUntil === "number" &&
-          vault.treeRefreshCooldownUntil > Date.now()) ||
-        !claimRefreshDebounce("dashboard", vault.repositoryFullName)
-      ) {
-        return;
-      }
-
-      const cloudflarePreviewBranchNames =
-        getCloudflareBranchPreviewHydrationTargets(vault.remoteBranches);
-
-      void refreshTree({
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
-        includeCloudflarePreviewLinks: cloudflarePreviewBranchNames.length > 0,
-        cloudflarePreviewBranchNames,
-        trigger: "manual",
-      }).catch((error: unknown) => {
-        console.error(
-          "Failed to refresh repository tree from dashboard status click:",
-          error,
-        );
-      });
     },
-    [enqueueManualRepositoryRefresh, refreshTree],
+    [enqueueManualRepositoryRefresh],
   );
 
   return {
@@ -189,9 +95,7 @@ export function useDashboardRepositoryTreeRefresh({
 }
 
 /**
- * Schedules dashboard repository tree refreshes for visible page load and tab
- * resume. Remove this hook by moving refresh scheduling to backend work or a
- * route-level data invalidation layer.
+ * Emits one backend demand signal for visible page load and tab resume.
  */
 function useVisibleDashboardRepositoryTreeRefresh({
   refreshVaultTreesIfNeeded,

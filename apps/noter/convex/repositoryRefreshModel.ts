@@ -339,9 +339,10 @@ export type RepositoryRefreshCancelReason = Infer<
 /**
  * Durable execution state.
  *
- * queued has notBefore and no workpool job. running has attempt + workpoolJobId
- * and may become succeeded, failed, or canceled. Terminal variants carry only
- * the fields meaningful for that terminal state.
+ * queued has notBefore and no Workpool job. running means Workpool owns the
+ * request and carries a lease. If the lease expires before success/failure, the
+ * next backend demand can fail the stale owner and enqueue fresh work.
+ * Terminal variants carry only the fields meaningful for that terminal state.
  */
 export const vRepositoryRefreshLifecycle = union(
   object({
@@ -353,6 +354,7 @@ export const vRepositoryRefreshLifecycle = union(
     state: literal("running"),
     attempt: number(),
     startedAt: number(),
+    leaseExpiresAt: number(),
     workpoolJobId: string(),
   }),
   object({
@@ -633,13 +635,15 @@ function assertPositiveAttempt(attempt: number): void {
 
 /**
  * Moves a queued request into running state after a Workpool job claims it.
- * The attempt number must be positive and the worker job id becomes durable.
+ * The attempt number must be positive. workpoolJobId identifies the component
+ * job that owns this row, and leaseExpiresAt is the stale-owner recovery line.
  */
 export function markRepositoryRefreshRequestRunning(
   request: RepositoryRefreshRequest,
   args: {
     now: number;
     attempt: number;
+    leaseExpiresAt: number;
     workpoolJobId: string;
   },
 ): RepositoryRefreshRequest {
@@ -653,6 +657,7 @@ export function markRepositoryRefreshRequestRunning(
       state: "running",
       attempt: args.attempt,
       startedAt: args.now,
+      leaseExpiresAt: args.leaseExpiresAt,
       workpoolJobId: args.workpoolJobId,
     },
     updatedAt: args.now,

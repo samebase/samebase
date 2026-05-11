@@ -101,6 +101,7 @@ type RepositoryRefreshLifecycle =
       state: "running";
       attempt: number;
       startedAt: number;
+      leaseExpiresAt: number;
       workpoolJobId: string;
     }
   | {
@@ -232,19 +233,19 @@ failure.kind -> failure fields
 
 `lifecycle.state -> lifecycle fields`:
 
-| State       | Fields                                          |
-| ----------- | ----------------------------------------------- |
-| `queued`    | `notBefore`, `queuedAt`                         |
-| `running`   | `attempt`, `startedAt`, `workpoolJobId`         |
-| `succeeded` | `attempt`, `startedAt`, `completedAt`, `result` |
-| `failed`    | `attempt`, `startedAt`, `failedAt`, `failure`   |
-| `canceled`  | `canceledAt`, `reason`                          |
+| State       | Fields                                                    |
+| ----------- | --------------------------------------------------------- |
+| `queued`    | `notBefore`, `queuedAt`                                   |
+| `running`   | `attempt`, `startedAt`, `leaseExpiresAt`, `workpoolJobId` |
+| `succeeded` | `attempt`, `startedAt`, `completedAt`, `result`           |
+| `failed`    | `attempt`, `startedAt`, `failedAt`, `failure`             |
+| `canceled`  | `canceledAt`, `reason`                                    |
 
 Tests should enumerate these edges with small matrices. When a forbidden state
 is still representable, simplify the state shape first; add runtime guards only
 when the rule depends on live database/provider/time facts.
 
-## Current PR: State And Constructors
+## Implemented: State And Constructors
 
 Add:
 
@@ -255,7 +256,7 @@ Add:
 - scheduler priority derivation from demand source
 - lifecycle transition helpers
 
-Do not:
+This slice did not:
 
 - call Workpool
 - change dashboard behavior
@@ -273,7 +274,7 @@ Tests:
 - state matrices cover dependent axes only
 - invalid lifecycle transitions fail
 
-## Current PR: Demand Ingest
+## Implemented: Demand Ingest
 
 Add enqueue mutations/actions.
 
@@ -392,8 +393,6 @@ Implemented shape:
   - writes the finish event
   - enqueues source-setup demand in the same mutation
 - active lookup uses `userId + dedupeKey + lifecycle.state`
-- dashboard still runs the current GitHub refresh action until the Workpool
-  runner replaces it
 - existing-repository finish enqueues `source_setup`
 
 Do not:
@@ -404,34 +403,43 @@ Do not:
 - remove direct file-view refresh
 - redesign dashboard query
 
-Compatibility:
+## Current PR: Workpool Runner
 
-- the old dashboard `github.refreshRepositoryTree` action still runs from React
-  until the next PR installs the backend execution runner
-- do not add new React orchestration; only delete or shrink it as backend
-  execution moves in
-
-## Next PR: Workpool Runner
-
-Replace the current internal scheduled continuation boundary with Workpool and
-start executing queued repository demand.
+Execute queued repository demand through one backend Workpool.
 
 Behavior:
 
-- re-read request
-- re-check vault/deletion gate
+- install `repositoryRefreshWorkpool`
+- enqueue repository-scoped rows into Workpool from backend mutations
 - transition queued rows to running with `leaseExpiresAt`
-- refresh the lease while processing
-- recover expired running rows deterministically:
-  - requeue with retry metadata when more attempts are allowed
-  - fail with failure metadata when retry budget is exhausted
-- choose internal repository steps
-- run repository metadata sync
-- update `vaultRemoteBranches`
-- finish request
-- preserve current vault refresh UI fields
+- re-read request when the worker starts
+- re-check vault/deletion gate when the worker starts
+- cancel running work if the vault was deleted or started deleting
+- fail running work if the vault is no longer connected
+- refresh the lease at worker start
+- choose internal repository steps from demand source
+- call the internal GitHub refresh action with backend-selected args
+- update `vaultRemoteBranches` through the existing metadata sync path
+- refresh the default branch tree when the selected backend trigger requires it
+- finish the request as `succeeded`, `failed`, or `canceled`
+- keep file-view branch refresh on the old direct action for now
 
-Workpool PR fixes:
+Retry policy:
+
+- Workpool retries are off in this first runner.
+- Provider failures become terminal request failures.
+- Existing vault cooldown fields decide when later demand may make another row.
+- No retry counters are added to queued request state.
+- If a running lease expires, the next matching demand fails the stale owner and
+  creates or upgrades fresh work.
+
+Dashboard cleanup:
+
+- dashboard page load and visibility send one backend demand signal
+- dashboard manual refresh sends one vault-level demand
+- React does not loop vaults, batch ids, choose depth, or call GitHub directly
+
+This PR fixes:
 
 - dashboard auto metadata freshness
 - existing-repository connect branch-list visibility after setup
@@ -442,18 +450,15 @@ Do not:
 - expose provider choices to frontend
 - move file view yet
 
-## Next PR Or Later: Manual Priority
+## Implemented Basic Manual Priority
 
-Manual refresh becomes queued priority demand.
+Manual repository refresh is queued demand with `manual` priority.
 
-Rules:
+Still later:
 
-- can raise scheduling priority
-- can ask backend policy for deeper freshness
-- cannot bypass deletion
-- cannot bypass provider cooldown
-- cannot bypass GitHub rate limit
-- must coalesce with identical running demand
+- branch-level manual refresh
+- deeper manual-specific refresh policy
+- explicit provider cooldown bypass rules if the product needs them
 
 ## Later: Branch Demand Worker
 
