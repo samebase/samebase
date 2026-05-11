@@ -183,8 +183,70 @@ Schema rules:
 - no `source_setup` without `runId`
 - no `queued` row with `workpoolJobId`
 - no `succeeded` row without result
+- no persisted `priority`; scheduler priority is derived from `intent`
 - no caller-provided `dedupeKey`
 - build rows through constructors only
+
+## State Matrix Rules
+
+Only multiply dependent axes. If `scope` is fully determined by `work`, do not
+test `intent × scope`; that would imply intent owns scope state.
+
+Current dependency edges:
+
+```txt
+intent -> allowed work
+intent -> scheduler priority
+work -> scope
+work -> dedupe key shape
+lifecycle.state -> lifecycle fields
+result.kind -> result fields
+failure.kind -> failure fields
+```
+
+`intent -> allowed work`:
+
+| Intent         | Work                               | User story                                                        |
+| -------------- | ---------------------------------- | ----------------------------------------------------------------- |
+| `dashboard`    | `repo_metadata`, `link_enrichment` | dashboard asks for row freshness without branch tree fan-out      |
+| `manual`       | all work kinds                     | user explicitly asks for a refresh target                         |
+| `source_setup` | `repo_metadata`                    | create/connect finished; discover branches without browser reload |
+| `file_view`    | `branch_tree`                      | visible file route refreshes the branch it is showing             |
+| `commit`       | `branch_tree`                      | commit changed one branch tree                                    |
+| `pull`         | `branch_tree`                      | pull moved one branch tree                                        |
+
+`intent -> scheduler priority`:
+
+| Intent         | Priority     | Stored? |
+| -------------- | ------------ | ------- |
+| `dashboard`    | `background` | no      |
+| `manual`       | `manual`     | no      |
+| `source_setup` | `system`     | no      |
+| `file_view`    | `normal`     | no      |
+| `commit`       | `system`     | no      |
+| `pull`         | `system`     | no      |
+
+`work -> scope`:
+
+| Work              | Scope                    | Rule                         |
+| ----------------- | ------------------------ | ---------------------------- |
+| `repo_metadata`   | repository               | no branch                    |
+| `branch_tree`     | branch                   | branch required              |
+| `link_enrichment` | branch + provider parser | branch and provider required |
+
+`lifecycle.state -> lifecycle fields`:
+
+| State       | Fields                                          |
+| ----------- | ----------------------------------------------- |
+| `queued`    | `notBefore`, `queuedAt`                         |
+| `running`   | `attempt`, `startedAt`, `workpoolJobId`         |
+| `succeeded` | `attempt`, `startedAt`, `completedAt`, `result` |
+| `failed`    | `attempt`, `startedAt`, `failedAt`, `failure`   |
+| `canceled`  | `canceledAt`, `reason`                          |
+
+Tests should enumerate these edges with small matrices. When a forbidden state
+is still representable, simplify the state shape first; add runtime guards only
+when the rule depends on live database/provider/time facts.
 
 ## Orchestration File
 
@@ -229,6 +291,7 @@ Add:
 - validators mirroring `RepositoryRefreshRequest`
 - `makeRepositoryRefreshRequest`
 - dedupe-key derivation
+- scheduler priority derivation from intent
 - state transition helpers
 
 Do not:
@@ -244,6 +307,8 @@ Tests:
 - link work requires branch and provider
 - source setup requires run id
 - dedupe key is derived
+- priority is derived, not stored
+- state matrices cover dependent axes only
 - invalid lifecycle transitions fail
 
 ## Phase 2: Intent Ingest

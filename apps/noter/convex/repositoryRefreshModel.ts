@@ -2,7 +2,7 @@ import { Infer, v } from "convex/values";
 
 const { boolean, id, literal, number, object, string, union } = v;
 
-// MARK: Providers, Enrichment, and Priority
+// MARK: Providers, Enrichment, and Scheduler Priority
 //
 // These are request dimensions, not queue rows by themselves.
 //
@@ -11,8 +11,9 @@ const { boolean, id, literal, number, object, string, union } = v;
 // Enrichment = how much repository-level metadata a repo_metadata refresh should
 // fetch beyond the basic repo + branch list.
 //
-// Priority = the scheduler lane derived from the intent. Frontend callers never
-// choose it directly.
+// Scheduler priority is derived from intent when enqueuing or claiming work.
+// It is not stored on the request row, because storing it would allow impossible
+// duplicate state such as dashboard intent with system priority.
 
 /**
  * Provider-specific link parser used by refresh work.
@@ -341,7 +342,7 @@ export type RepositoryRefreshLifecycle = Infer<
 // - who owns the refresh: userId + vaultId
 // - what is being refreshed: work
 // - why it entered the queue: intent
-// - when/how it should run: priority + lifecycle + dedupeKey
+// - when/how it should run: lifecycle + dedupeKey
 //
 // The three row validators intentionally repeat the base fields so each work
 // kind can have a smaller allowed intent set.
@@ -350,7 +351,6 @@ const repositoryRefreshBaseFields = {
   userId: id("users"),
   vaultId: id("vaults"),
   dedupeKey: string(),
-  priority: vRepositoryRefreshPriority,
   lifecycle: vRepositoryRefreshLifecycle,
   createdAt: number(),
   updatedAt: number(),
@@ -429,7 +429,7 @@ export type RepositoryRefreshRequest = Infer<typeof vRepositoryRefreshRequest>;
 // Builder input types match the request row union, but omit all derived fields.
 //
 // Callers provide userId, vaultId, timestamps, intent, and work. The builder
-// fills in dedupeKey, priority, createdAt/updatedAt, and queued lifecycle.
+// fills in dedupeKey, createdAt/updatedAt, and queued lifecycle.
 
 type MakeRepositoryMetadataRefreshRequestArgs = {
   userId: RepositoryRefreshRequest["userId"];
@@ -461,9 +461,10 @@ type MakeLinkEnrichmentRefreshRequestArgs = {
 /**
  * Public builder input.
  *
- * Callers provide the domain reason and requested work. The builder derives
- * priority, dedupeKey, and queued lifecycle. Example: source_setup +
- * repo_metadata becomes system priority and dedupes by user/vault/repo_metadata.
+ * Callers provide the domain reason and requested work. The builder derives the
+ * dedupe key and queued lifecycle. Example: source_setup + repo_metadata
+ * dedupes by user/vault/repo_metadata; scheduler priority stays derived from
+ * intent instead of being stored on the row.
  */
 export type MakeRepositoryRefreshRequestArgs =
   | MakeRepositoryMetadataRefreshRequestArgs
@@ -474,7 +475,6 @@ type RepositoryRefreshRequestBaseFields = {
   userId: RepositoryRefreshRequest["userId"];
   vaultId: RepositoryRefreshRequest["vaultId"];
   dedupeKey: string;
-  priority: RepositoryRefreshPriority;
   lifecycle: Extract<RepositoryRefreshLifecycle, { state: "queued" }>;
   createdAt: number;
   updatedAt: number;
@@ -484,9 +484,9 @@ type RepositoryRefreshRequestBaseFields = {
 //
 // Scheduling helpers turn domain state into queue mechanics.
 //
-// notBefore prevents requests from being scheduled in the past. priority maps
-// intent to a backend lane. dedupeKey collapses repeated requests for the same
-// user/vault/work target.
+// notBefore prevents requests from being scheduled in the past. Scheduler
+// priority maps intent to a backend lane without being duplicated into the row.
+// dedupeKey collapses repeated requests for the same user/vault/work target.
 
 function assertValidScheduleTime(args: {
   now: number;
@@ -565,7 +565,6 @@ function makeRepositoryRefreshRequestBase(
     userId: args.userId,
     vaultId: args.vaultId,
     dedupeKey: deriveRepositoryRefreshDedupeKey(args),
-    priority: getRepositoryRefreshPriority(args.intent),
     lifecycle: {
       state: "queued",
       notBefore: args.notBefore,
