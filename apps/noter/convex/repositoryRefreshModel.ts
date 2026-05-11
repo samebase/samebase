@@ -2,6 +2,11 @@ import { Infer, v } from "convex/values";
 
 const { boolean, id, literal, number, object, string, union } = v;
 
+// MARK: Request Axes
+
+/**
+ * Link source used by refresh work that reads PR bot comments.
+ */
 export const RepositoryRefreshLinkProvider = union(
   literal("cloudflare_pages_comments"),
 );
@@ -9,6 +14,11 @@ export type RepositoryRefreshLinkProvider = Infer<
   typeof RepositoryRefreshLinkProvider
 >;
 
+/**
+ * Extra repository metadata requested with repo_metadata work.
+ *
+ * none = branch/repo shape only; pull_request_links includes provider parsing.
+ */
 export const RepositoryMetadataEnrichment = union(
   object({
     kind: literal("none"),
@@ -27,6 +37,9 @@ export type RepositoryMetadataEnrichment = Infer<
   typeof RepositoryMetadataEnrichment
 >;
 
+/**
+ * Scheduler priority derived from intent, not user input.
+ */
 export const RepositoryRefreshPriority = union(
   literal("background"),
   literal("normal"),
@@ -35,18 +48,29 @@ export const RepositoryRefreshPriority = union(
 );
 export type RepositoryRefreshPriority = Infer<typeof RepositoryRefreshPriority>;
 
+// MARK: Intent Schema
+
+/**
+ * Passive dashboard reload signal.
+ */
 export const DashboardRefreshIntent = object({
   source: literal("dashboard"),
   trigger: union(literal("page_load"), literal("visibility")),
 });
 export type DashboardRefreshIntent = Infer<typeof DashboardRefreshIntent>;
 
+/**
+ * User-clicked refresh signal.
+ */
 export const ManualRefreshIntent = object({
   source: literal("manual"),
   trigger: literal("dashboard_status_click"),
 });
 export type ManualRefreshIntent = Infer<typeof ManualRefreshIntent>;
 
+/**
+ * Source setup completion signal; fixes initial branch discovery after create/connect.
+ */
 export const SourceSetupRefreshIntent = object({
   source: literal("source_setup"),
   runId: id("appProvisioningRuns"),
@@ -57,22 +81,34 @@ export const SourceSetupRefreshIntent = object({
 });
 export type SourceSetupRefreshIntent = Infer<typeof SourceSetupRefreshIntent>;
 
+/**
+ * Passive branch-scoped file-view reload signal.
+ */
 export const FileViewRefreshIntent = object({
   source: literal("file_view"),
   trigger: union(literal("page_load"), literal("visibility")),
 });
 export type FileViewRefreshIntent = Infer<typeof FileViewRefreshIntent>;
 
+/**
+ * Post-commit signal for the touched branch tree.
+ */
 export const CommitRefreshIntent = object({
   source: literal("commit"),
 });
 export type CommitRefreshIntent = Infer<typeof CommitRefreshIntent>;
 
+/**
+ * Post-pull signal for locally changed branch state.
+ */
 export const PullRefreshIntent = object({
   source: literal("pull"),
 });
 export type PullRefreshIntent = Infer<typeof PullRefreshIntent>;
 
+/**
+ * All entry points allowed to enqueue repository refresh work.
+ */
 export const RepositoryRefreshIntent = union(
   DashboardRefreshIntent,
   ManualRefreshIntent,
@@ -83,6 +119,11 @@ export const RepositoryRefreshIntent = union(
 );
 export type RepositoryRefreshIntent = Infer<typeof RepositoryRefreshIntent>;
 
+// MARK: Work Schema
+
+/**
+ * Repository-wide work: branch catalog plus optional PR/link enrichment.
+ */
 export const RepositoryMetadataRefreshWork = object({
   kind: literal("repo_metadata"),
   enrichment: RepositoryMetadataEnrichment,
@@ -91,12 +132,18 @@ export type RepositoryMetadataRefreshWork = Infer<
   typeof RepositoryMetadataRefreshWork
 >;
 
+/**
+ * Branch-scoped tree refresh work.
+ */
 export const BranchTreeRefreshWork = object({
   kind: literal("branch_tree"),
   branch: string(),
 });
 export type BranchTreeRefreshWork = Infer<typeof BranchTreeRefreshWork>;
 
+/**
+ * Branch-scoped provider link refresh; separate because it can be more expensive.
+ */
 export const LinkEnrichmentRefreshWork = object({
   kind: literal("link_enrichment"),
   branch: string(),
@@ -104,6 +151,11 @@ export const LinkEnrichmentRefreshWork = object({
 });
 export type LinkEnrichmentRefreshWork = Infer<typeof LinkEnrichmentRefreshWork>;
 
+// MARK: Lifecycle Schema
+
+/**
+ * Worker terminal result.
+ */
 export const RepositoryRefreshResult = union(
   object({
     kind: literal("no_work_needed"),
@@ -115,6 +167,9 @@ export const RepositoryRefreshResult = union(
 );
 export type RepositoryRefreshResult = Infer<typeof RepositoryRefreshResult>;
 
+/**
+ * Worker failure details used for retry and cooldown decisions.
+ */
 export const RepositoryRefreshFailure = union(
   object({
     kind: literal("rate_limited"),
@@ -129,6 +184,9 @@ export const RepositoryRefreshFailure = union(
 );
 export type RepositoryRefreshFailure = Infer<typeof RepositoryRefreshFailure>;
 
+/**
+ * Non-worker terminal stop reason.
+ */
 export const RepositoryRefreshCancelReason = union(
   literal("superseded"),
   literal("vault_deleting"),
@@ -138,6 +196,9 @@ export type RepositoryRefreshCancelReason = Infer<
   typeof RepositoryRefreshCancelReason
 >;
 
+/**
+ * Durable request state; impossible fields stay out of each variant.
+ */
 export const RepositoryRefreshLifecycle = union(
   object({
     state: literal("queued"),
@@ -174,6 +235,8 @@ export type RepositoryRefreshLifecycle = Infer<
   typeof RepositoryRefreshLifecycle
 >;
 
+// MARK: Request Schema
+
 const repositoryRefreshBaseFields = {
   userId: id("users"),
   vaultId: id("vaults"),
@@ -184,6 +247,9 @@ const repositoryRefreshBaseFields = {
   updatedAt: number(),
 } as const;
 
+/**
+ * Repository metadata request; only dashboard/manual/setup may create it.
+ */
 export const RepositoryMetadataRefreshRequest = object({
   ...repositoryRefreshBaseFields,
   work: RepositoryMetadataRefreshWork,
@@ -197,6 +263,9 @@ export type RepositoryMetadataRefreshRequest = Infer<
   typeof RepositoryMetadataRefreshRequest
 >;
 
+/**
+ * Branch tree request; only branch or explicit write signals may create it.
+ */
 export const BranchTreeRefreshRequest = object({
   ...repositoryRefreshBaseFields,
   work: BranchTreeRefreshWork,
@@ -209,6 +278,9 @@ export const BranchTreeRefreshRequest = object({
 });
 export type BranchTreeRefreshRequest = Infer<typeof BranchTreeRefreshRequest>;
 
+/**
+ * Provider link request; dashboard/manual only for now.
+ */
 export const LinkEnrichmentRefreshRequest = object({
   ...repositoryRefreshBaseFields,
   work: LinkEnrichmentRefreshWork,
@@ -218,12 +290,17 @@ export type LinkEnrichmentRefreshRequest = Infer<
   typeof LinkEnrichmentRefreshRequest
 >;
 
+/**
+ * Table row validator. Work kind determines the allowed intent shape.
+ */
 export const RepositoryRefreshRequest = union(
   RepositoryMetadataRefreshRequest,
   BranchTreeRefreshRequest,
   LinkEnrichmentRefreshRequest,
 );
 export type RepositoryRefreshRequest = Infer<typeof RepositoryRefreshRequest>;
+
+// MARK: Constructor Types
 
 type MakeRepositoryMetadataRefreshRequestArgs = {
   userId: RepositoryRefreshRequest["userId"];
@@ -252,6 +329,9 @@ type MakeLinkEnrichmentRefreshRequestArgs = {
   work: LinkEnrichmentRefreshWork;
 };
 
+/**
+ * Builder input before dedupe, priority, and queued lifecycle are derived.
+ */
 export type MakeRepositoryRefreshRequestArgs =
   | MakeRepositoryMetadataRefreshRequestArgs
   | MakeBranchTreeRefreshRequestArgs
@@ -266,6 +346,8 @@ type RepositoryRefreshRequestBaseFields = {
   createdAt: number;
   updatedAt: number;
 };
+
+// MARK: Scheduling Helpers
 
 function assertValidScheduleTime(args: {
   now: number;
@@ -317,6 +399,8 @@ export function deriveRepositoryRefreshDedupeKey(args: {
     }
   }
 }
+
+// MARK: Request Builders
 
 function isRepositoryMetadataRefreshRequestArgs(
   args: MakeRepositoryRefreshRequestArgs,
@@ -376,6 +460,8 @@ export function makeRepositoryRefreshRequest(
     work: args.work,
   };
 }
+
+// MARK: Lifecycle Transitions
 
 function assertPositiveAttempt(attempt: number): void {
   if (attempt < 1) {
