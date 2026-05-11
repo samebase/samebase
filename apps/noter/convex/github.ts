@@ -120,6 +120,36 @@ const MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS = 30 * 1000;
  */
 const MAX_AUTO_REFRESH_BRANCH_ENRICHMENT_BRANCHES = 40;
 
+/**
+ * Missing branch means "use the default branch"; an empty provided branch is a
+ * caller bug and must not silently become default-branch work.
+ */
+function normalizeOptionalRepositoryBranch(
+  branch: string | undefined,
+): string | undefined {
+  if (branch === undefined) {
+    return undefined;
+  }
+
+  const trimmedBranch = branch.trim();
+  if (trimmedBranch.length === 0) {
+    throw new Error("Branch is required when provided.");
+  }
+  return trimmedBranch;
+}
+
+/**
+ * Branch-scoped work already chose a branch before this point. Empty strings
+ * fail here instead of falling back to another branch.
+ */
+function normalizeRequiredRepositoryBranch(branch: string): string {
+  const trimmedBranch = branch.trim();
+  if (trimmedBranch.length === 0) {
+    throw new Error("Branch is required.");
+  }
+  return trimmedBranch;
+}
+
 function toHeaderMap(value: unknown): HeaderMap | null {
   if (!isRecord(value)) {
     return null;
@@ -1934,7 +1964,7 @@ export const getRepositoryFileContent = action({
   },
   returns: repositoryFileContentResult,
   handler: async (ctx, args): Promise<RepositoryFileContent> => {
-    const requestedBranch = args.branch?.trim() || undefined;
+    const requestedBranch = normalizeOptionalRepositoryBranch(args.branch);
     const userId = await getUserId(ctx);
 
     const currentUser = await ctx.runQuery(internal.users.getById, {
@@ -2037,7 +2067,7 @@ export const getRepositoryMediaAsset = action({
       return { found: false, reason: "missing" };
     }
 
-    const requestedBranch = args.branch?.trim() || undefined;
+    const requestedBranch = normalizeOptionalRepositoryBranch(args.branch);
     const userId = await getUserId(ctx);
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
@@ -2229,10 +2259,7 @@ async function refreshRepositoryTreeForUserHelper(
   args: RefreshRepositoryTreeForUserArgs,
 ): Promise<RefreshRepositoryTreeResult> {
   const trigger = args.trigger ?? "manual";
-  const requestedBranch =
-    typeof args.branch === "string" && args.branch.trim().length > 0
-      ? args.branch.trim()
-      : undefined;
+  const requestedBranch = normalizeOptionalRepositoryBranch(args.branch);
   const requestedCloudflarePreviewBranchNames =
     normalizeCloudflarePreviewBranchNames(args.cloudflarePreviewBranchNames);
   const includeCloudflarePreviewLinks =
@@ -2366,7 +2393,7 @@ async function refreshRepositoryTreeForUserHelper(
         userId: args.userId,
         owner: args.owner,
         repo: args.repo,
-        branch: requestedBranch,
+        branch: vault.resolvedBranch,
       });
     }
   } catch (error) {
@@ -2584,7 +2611,7 @@ export const refreshBranchTree = internalAction({
     userId: id("users"),
     owner: string(),
     repo: string(),
-    branch: optional(string()),
+    branch: string(),
   },
   returns: nullValidator(),
   handler: async (ctx, args) => {
@@ -2606,10 +2633,7 @@ export const refreshBranchTree = internalAction({
       throw new Error("GitHub is not connected");
     }
 
-    const targetBranch =
-      typeof args.branch === "string" && args.branch.trim().length > 0
-        ? args.branch.trim()
-        : undefined;
+    const targetBranch = normalizeRequiredRepositoryBranch(args.branch);
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: `${args.owner}/${args.repo}`,
       userId: args.userId,
@@ -2623,7 +2647,7 @@ export const refreshBranchTree = internalAction({
     const octokit: Octokit = new Octokit({
       auth: githubConnection.auth.credential,
     });
-    const resolvedBranch = targetBranch ?? vault.defaultBranch ?? "main";
+    const resolvedBranch = targetBranch;
 
     const tree = await octokit.rest.git.getTree({
       owner: args.owner,
@@ -2682,10 +2706,7 @@ export const updateRepositoryTree = internalAction({
   },
   returns: nullValidator(),
   handler: async (ctx, args) => {
-    const targetBranch =
-      typeof args.branch === "string" && args.branch.trim().length > 0
-        ? args.branch.trim()
-        : undefined;
+    const targetBranch = normalizeOptionalRepositoryBranch(args.branch);
     const requestedCloudflarePreviewBranchNames =
       normalizeCloudflarePreviewBranchNames(args.cloudflarePreviewBranchNames);
     // All current callers are user-driven follow-ups after a repo mutation, so
@@ -2714,11 +2735,22 @@ export const updateRepositoryTree = internalAction({
         trigger: "manual",
       });
     }
+    let branchToRefresh = targetBranch;
+    if (!branchToRefresh) {
+      const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
+        repositoryFullName: `${args.owner}/${args.repo}`,
+        userId: args.userId,
+      });
+      if (!vault) {
+        throw new Error("Vault not found");
+      }
+      branchToRefresh = vault.resolvedBranch;
+    }
     await ctx.runAction(internal.github.refreshBranchTree, {
       userId: args.userId,
       owner: args.owner,
       repo: args.repo,
-      branch: targetBranch,
+      branch: branchToRefresh,
     });
     return null;
   },
