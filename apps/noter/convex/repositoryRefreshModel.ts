@@ -5,7 +5,11 @@ const { boolean, id, literal, number, object, string, union } = v;
 // MARK: Request Axes
 
 /**
- * Link source used by refresh work that reads PR bot comments.
+ * Provider-specific link parser used by refresh work.
+ *
+ * Today this means "read Cloudflare Pages URLs from GitHub PR comments". A
+ * future CodeRabbit/Vercel/etc parser should add a new literal here and its own
+ * worker path instead of making Cloudflare behavior generic by accident.
  */
 export const RepositoryRefreshLinkProvider = union(
   literal("cloudflare_pages_comments"),
@@ -15,9 +19,15 @@ export type RepositoryRefreshLinkProvider = Infer<
 >;
 
 /**
- * Extra repository metadata requested with repo_metadata work.
+ * Cost/coverage knob for repo_metadata work.
  *
- * none = branch/repo shape only; pull_request_links includes provider parsing.
+ * none = repository + branch list only.
+ *
+ * pull_request_metadata = also read PR state; includeAheadBehind controls
+ * whether we pay for ahead/behind counts.
+ *
+ * pull_request_links = also parse provider comments, for example Cloudflare
+ * Pages URLs in GitHub PR comments.
  */
 export const RepositoryMetadataEnrichment = union(
   object({
@@ -38,7 +48,17 @@ export type RepositoryMetadataEnrichment = Infer<
 >;
 
 /**
- * Scheduler priority derived from intent, not user input.
+ * Backend scheduling lane. Callers pass an intent; the builder derives this so
+ * a browser request cannot ask for faster service directly.
+ *
+ * background = passive dashboard freshness, safe to delay behind visible work.
+ *
+ * normal = branch freshness for a file route the user is reading.
+ *
+ * manual = explicit refresh click.
+ *
+ * system = backend correctness after create/connect/commit/pull; used when
+ * stale refresh state would make the product contradict a completed operation.
  */
 export const RepositoryRefreshPriority = union(
   literal("background"),
@@ -51,7 +71,11 @@ export type RepositoryRefreshPriority = Infer<typeof RepositoryRefreshPriority>;
 // MARK: Intent Schema
 
 /**
- * Passive dashboard reload signal.
+ * Dashboard mounted or became visible and asks for background freshness.
+ *
+ * Use it for dashboard-owned data: repo metadata or provider links shown in
+ * dashboard rows. It cannot enqueue branch_tree work; trees are refreshed by
+ * file view, manual, commit, or pull signals.
  */
 export const DashboardRefreshIntent = object({
   source: literal("dashboard"),
@@ -60,7 +84,8 @@ export const DashboardRefreshIntent = object({
 export type DashboardRefreshIntent = Infer<typeof DashboardRefreshIntent>;
 
 /**
- * User-clicked refresh signal.
+ * Dashboard status button. Manual can queue metadata, branch tree, or link work
+ * when the UI knows the work target.
  */
 export const ManualRefreshIntent = object({
   source: literal("manual"),
@@ -69,7 +94,11 @@ export const ManualRefreshIntent = object({
 export type ManualRefreshIntent = Infer<typeof ManualRefreshIntent>;
 
 /**
- * Source setup completion signal; fixes initial branch discovery after create/connect.
+ * GitHub repo create/connect flow finished.
+ *
+ * This is the initial branch-discovery entry point: connecting an existing repo
+ * should enqueue repo_metadata work so branches appear without a browser reload.
+ * runId points at the provisioning run for debugging and audit.
  */
 export const SourceSetupRefreshIntent = object({
   source: literal("source_setup"),
@@ -82,7 +111,10 @@ export const SourceSetupRefreshIntent = object({
 export type SourceSetupRefreshIntent = Infer<typeof SourceSetupRefreshIntent>;
 
 /**
- * Passive branch-scoped file-view reload signal.
+ * File route loaded or became visible for a specific branch.
+ *
+ * Example: opening a file on main can request branch_tree for main. It cannot
+ * request repo_metadata because the file view is branch-scoped.
  */
 export const FileViewRefreshIntent = object({
   source: literal("file_view"),
@@ -91,7 +123,8 @@ export const FileViewRefreshIntent = object({
 export type FileViewRefreshIntent = Infer<typeof FileViewRefreshIntent>;
 
 /**
- * Post-commit signal for the touched branch tree.
+ * Local commit finished. The follow-up work should refresh the branch tree that
+ * changed so persisted UI state catches up with the write.
  */
 export const CommitRefreshIntent = object({
   source: literal("commit"),
@@ -99,7 +132,8 @@ export const CommitRefreshIntent = object({
 export type CommitRefreshIntent = Infer<typeof CommitRefreshIntent>;
 
 /**
- * Post-pull signal for locally changed branch state.
+ * Local pull finished. The follow-up work should refresh the branch tree whose
+ * provider state moved underneath the local checkout.
  */
 export const PullRefreshIntent = object({
   source: literal("pull"),
@@ -107,7 +141,11 @@ export const PullRefreshIntent = object({
 export type PullRefreshIntent = Infer<typeof PullRefreshIntent>;
 
 /**
- * All entry points allowed to enqueue repository refresh work.
+ * All reasons a refresh request may enter the queue.
+ *
+ * Request validators below pair these intents with only the work kinds they can
+ * honestly describe. For example, source_setup can discover branches through
+ * repo_metadata, but it cannot create branch_tree or link_enrichment rows.
  */
 export const RepositoryRefreshIntent = union(
   DashboardRefreshIntent,
@@ -122,7 +160,11 @@ export type RepositoryRefreshIntent = Infer<typeof RepositoryRefreshIntent>;
 // MARK: Work Schema
 
 /**
- * Repository-wide work: branch catalog plus optional PR/link enrichment.
+ * Repo-wide cache refresh.
+ *
+ * Example: source_setup + repo_metadata + enrichment none discovers branches
+ * after a new or connected GitHub repo. This work does not refresh one branch's
+ * file tree.
  */
 export const RepositoryMetadataRefreshWork = object({
   kind: literal("repo_metadata"),
@@ -133,7 +175,10 @@ export type RepositoryMetadataRefreshWork = Infer<
 >;
 
 /**
- * Branch-scoped tree refresh work.
+ * One branch's file tree cache.
+ *
+ * Example: branch="main" after commit/pull, or when opening a file route on
+ * main. This keeps branch work out of repo-wide dashboard polling.
  */
 export const BranchTreeRefreshWork = object({
   kind: literal("branch_tree"),
@@ -142,7 +187,11 @@ export const BranchTreeRefreshWork = object({
 export type BranchTreeRefreshWork = Infer<typeof BranchTreeRefreshWork>;
 
 /**
- * Branch-scoped provider link refresh; separate because it can be more expensive.
+ * Provider link parsing for one branch.
+ *
+ * Example: read Cloudflare Pages preview links from PR comments for branch
+ * "main". This is separate from branch_tree because comment parsing can be more
+ * expensive than reading the tree.
  */
 export const LinkEnrichmentRefreshWork = object({
   kind: literal("link_enrichment"),
@@ -154,7 +203,10 @@ export type LinkEnrichmentRefreshWork = Infer<typeof LinkEnrichmentRefreshWork>;
 // MARK: Lifecycle Schema
 
 /**
- * Worker terminal result.
+ * Successful worker outcome.
+ *
+ * no_work_needed means the worker checked state and skipped writes; refreshed
+ * records when backend refresh state actually changed.
  */
 export const RepositoryRefreshResult = union(
   object({
@@ -168,7 +220,10 @@ export const RepositoryRefreshResult = union(
 export type RepositoryRefreshResult = Infer<typeof RepositoryRefreshResult>;
 
 /**
- * Worker failure details used for retry and cooldown decisions.
+ * Failed worker outcome with scheduling hints.
+ *
+ * rate_limited tells the scheduler when the provider may be retried.
+ * provider_error cools this lane after a non-rate-limit provider failure.
  */
 export const RepositoryRefreshFailure = union(
   object({
@@ -185,7 +240,11 @@ export const RepositoryRefreshFailure = union(
 export type RepositoryRefreshFailure = Infer<typeof RepositoryRefreshFailure>;
 
 /**
- * Non-worker terminal stop reason.
+ * Request stopped before normal success/failure.
+ *
+ * superseded means a newer deduped row replaced this row; vault_deleting and
+ * vault_deleted prevent work from running against a vault that is going away or
+ * gone.
  */
 export const RepositoryRefreshCancelReason = union(
   literal("superseded"),
@@ -197,7 +256,11 @@ export type RepositoryRefreshCancelReason = Infer<
 >;
 
 /**
- * Durable request state; impossible fields stay out of each variant.
+ * Durable execution state.
+ *
+ * queued has notBefore and no workpool job. running has attempt + workpoolJobId
+ * and may become succeeded, failed, or canceled. Terminal variants carry only
+ * the fields meaningful for that terminal state.
  */
 export const RepositoryRefreshLifecycle = union(
   object({
@@ -248,7 +311,10 @@ const repositoryRefreshBaseFields = {
 } as const;
 
 /**
- * Repository metadata request; only dashboard/manual/setup may create it.
+ * Repo-level request row.
+ *
+ * Valid intents are dashboard for passive metadata freshness, manual for an
+ * explicit reload, and source_setup for initial branch discovery.
  */
 export const RepositoryMetadataRefreshRequest = object({
   ...repositoryRefreshBaseFields,
@@ -264,7 +330,11 @@ export type RepositoryMetadataRefreshRequest = Infer<
 >;
 
 /**
- * Branch tree request; only branch or explicit write signals may create it.
+ * Branch tree request row.
+ *
+ * Valid intents all name a branch-level reason: manual, file_view, commit, or
+ * pull. Dashboard auto-refresh cannot create this row because branch trees are
+ * paid per branch and should not be refreshed by passive dashboard polling.
  */
 export const BranchTreeRefreshRequest = object({
   ...repositoryRefreshBaseFields,
@@ -279,7 +349,11 @@ export const BranchTreeRefreshRequest = object({
 export type BranchTreeRefreshRequest = Infer<typeof BranchTreeRefreshRequest>;
 
 /**
- * Provider link request; dashboard/manual only for now.
+ * Provider link request row.
+ *
+ * Dashboard may queue passive link checks; manual may force one. File view,
+ * commit, and pull do not create this row because they do not imply PR comment
+ * parsing.
  */
 export const LinkEnrichmentRefreshRequest = object({
   ...repositoryRefreshBaseFields,
@@ -291,7 +365,10 @@ export type LinkEnrichmentRefreshRequest = Infer<
 >;
 
 /**
- * Table row validator. Work kind determines the allowed intent shape.
+ * Persisted repositoryRefreshRequests row.
+ *
+ * The union forbids impossible pairings, such as source_setup + branch_tree or
+ * commit + link_enrichment.
  */
 export const RepositoryRefreshRequest = union(
   RepositoryMetadataRefreshRequest,
@@ -330,7 +407,11 @@ type MakeLinkEnrichmentRefreshRequestArgs = {
 };
 
 /**
- * Builder input before dedupe, priority, and queued lifecycle are derived.
+ * Public builder input.
+ *
+ * Callers provide the domain reason and requested work. The builder derives
+ * priority, dedupeKey, and queued lifecycle. Example: source_setup +
+ * repo_metadata becomes system priority and dedupes by user/vault/repo_metadata.
  */
 export type MakeRepositoryRefreshRequestArgs =
   | MakeRepositoryMetadataRefreshRequestArgs
