@@ -4,6 +4,18 @@ const { boolean, id, literal, number, object, string, union } = v;
 
 // MARK: Providers, Enrichment, and Priority
 
+/*
+ * These are request dimensions, not queue rows by themselves.
+ *
+ * Provider = which external integration-specific parser a worker should use.
+ *
+ * Enrichment = how much repository-level metadata a repo_metadata refresh should
+ * fetch beyond the basic repo + branch list.
+ *
+ * Priority = the scheduler lane derived from the intent. Frontend callers never
+ * choose it directly.
+ */
+
 /**
  * Provider-specific link parser used by refresh work.
  *
@@ -23,8 +35,9 @@ export type RepositoryRefreshLinkProvider = Infer<
  *
  * none = repository + branch list only.
  *
- * pull_request_metadata = also read PR state; includeAheadBehind controls
- * whether we pay for ahead/behind counts.
+ * pull_request_metadata = also read PR state. includeAheadBehind controls
+ * whether GitHub compare data is fetched for each branch: aheadBy/behindBy are
+ * commit counts relative to the default branch.
  *
  * pull_request_links = also parse provider comments, for example Cloudflare
  * Pages URLs in GitHub PR comments.
@@ -70,6 +83,18 @@ export type RepositoryRefreshPriority = Infer<typeof RepositoryRefreshPriority>;
 
 // MARK: Refresh Intents
 
+/*
+ * Intents answer "why did a refresh request enter the backend?"
+ *
+ * page_load = the route/surface opened and asked for stale data to be refreshed.
+ *
+ * visibility = the browser document became visible again after being hidden or
+ * backgrounded. It is about the browser tab, not GitHub repository visibility.
+ *
+ * The intent does not decide the worker alone. Request row validators below
+ * restrict which intents are valid for each work kind.
+ */
+
 /**
  * Dashboard mounted or became visible and asks for background freshness.
  *
@@ -114,7 +139,8 @@ export type SourceSetupRefreshIntent = Infer<typeof SourceSetupRefreshIntent>;
  * File route loaded or became visible for a specific branch.
  *
  * Example: opening a file on main can request branch_tree for main. It cannot
- * request repo_metadata because the file view is branch-scoped.
+ * request repo_metadata because the file view is branch-scoped. visibility here
+ * means returning to an already-open file tab.
  */
 export const FileViewRefreshIntent = object({
   source: literal("file_view"),
@@ -159,6 +185,17 @@ export type RepositoryRefreshIntent = Infer<typeof RepositoryRefreshIntent>;
 
 // MARK: Refresh Work
 
+/*
+ * Work answers "what should the backend refresh?"
+ *
+ * repo_metadata refreshes repo-wide data such as branch lists and optional PR
+ * metadata.
+ *
+ * branch_tree refreshes one branch's file tree.
+ *
+ * link_enrichment refreshes provider-derived links for one branch.
+ */
+
 /**
  * Repo-wide cache refresh.
  *
@@ -201,6 +238,14 @@ export const LinkEnrichmentRefreshWork = object({
 export type LinkEnrichmentRefreshWork = Infer<typeof LinkEnrichmentRefreshWork>;
 
 // MARK: Refresh Lifecycle
+
+/*
+ * Lifecycle is the durable execution state stored on each request row.
+ *
+ * The union keeps state-specific fields out of impossible states: queued has no
+ * workpool job, running has no result, succeeded has no failure, and canceled
+ * has no worker result.
+ */
 
 /**
  * Successful worker outcome.
@@ -300,6 +345,18 @@ export type RepositoryRefreshLifecycle = Infer<
 
 // MARK: Request Rows
 
+/*
+ * Request rows combine:
+ *
+ * - who owns the refresh: userId + vaultId
+ * - what is being refreshed: work
+ * - why it entered the queue: intent
+ * - when/how it should run: priority + lifecycle + dedupeKey
+ *
+ * The three row validators intentionally repeat the base fields so each work
+ * kind can have a smaller allowed intent set.
+ */
+
 const repositoryRefreshBaseFields = {
   userId: id("users"),
   vaultId: id("vaults"),
@@ -334,7 +391,8 @@ export type RepositoryMetadataRefreshRequest = Infer<
  *
  * Valid intents all name a branch-level reason: manual, file_view, commit, or
  * pull. Dashboard auto-refresh cannot create this row because branch trees are
- * paid per branch and should not be refreshed by passive dashboard polling.
+ * refreshed one branch at a time and should not be fanned out by passive
+ * dashboard polling.
  */
 export const BranchTreeRefreshRequest = object({
   ...repositoryRefreshBaseFields,
@@ -378,6 +436,13 @@ export const RepositoryRefreshRequest = union(
 export type RepositoryRefreshRequest = Infer<typeof RepositoryRefreshRequest>;
 
 // MARK: Builder Inputs
+
+/*
+ * Builder input types match the request row union, but omit all derived fields.
+ *
+ * Callers provide userId, vaultId, timestamps, intent, and work. The builder
+ * fills in dedupeKey, priority, createdAt/updatedAt, and queued lifecycle.
+ */
 
 type MakeRepositoryMetadataRefreshRequestArgs = {
   userId: RepositoryRefreshRequest["userId"];
@@ -429,6 +494,14 @@ type RepositoryRefreshRequestBaseFields = {
 };
 
 // MARK: Scheduling
+
+/*
+ * Scheduling helpers turn domain state into queue mechanics.
+ *
+ * notBefore prevents requests from being scheduled in the past. priority maps
+ * intent to a backend lane. dedupeKey collapses repeated requests for the same
+ * user/vault/work target.
+ */
 
 function assertValidScheduleTime(args: {
   now: number;
@@ -482,6 +555,13 @@ export function deriveRepositoryRefreshDedupeKey(args: {
 }
 
 // MARK: Builders
+
+/*
+ * Builders create valid queued rows only.
+ *
+ * They do not start Workpool jobs and they do not mutate existing rows. Later
+ * phases can insert or upsert the returned row into repositoryRefreshRequests.
+ */
 
 function isRepositoryMetadataRefreshRequestArgs(
   args: MakeRepositoryRefreshRequestArgs,
@@ -543,6 +623,13 @@ export function makeRepositoryRefreshRequest(
 }
 
 // MARK: Lifecycle Transitions
+
+/*
+ * Lifecycle transitions are pure state moves used by future queue mutations.
+ *
+ * Each transition checks the current state before returning the next row shape,
+ * which keeps invalid moves such as succeeded -> failed out of callers.
+ */
 
 function assertPositiveAttempt(attempt: number): void {
   if (attempt < 1) {
