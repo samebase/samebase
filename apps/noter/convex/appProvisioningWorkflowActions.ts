@@ -649,7 +649,7 @@ export const finishExistingRepositoryConnection = internalAction({
   handler: async (ctx, args): Promise<null> => {
     await assertConnectExistingRepositoryRun(ctx, args);
 
-    await ctx.runMutation(
+    const result = await ctx.runMutation(
       internal.repositoryRefresh
         .completeExistingRepositoryConnectionAndEnqueueRefresh,
       {
@@ -658,6 +658,11 @@ export const finishExistingRepositoryConnection = internalAction({
         runId: args.runId,
       },
     );
+    if (result.kind === "blocked") {
+      throw new Error(
+        `Existing repository refresh enqueue was blocked: reason=${result.reason}, runId=${args.runId}, userId=${args.userId}, vaultId=${args.vaultId}.`,
+      );
+    }
 
     return null;
   },

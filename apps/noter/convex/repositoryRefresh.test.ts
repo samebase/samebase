@@ -481,7 +481,7 @@ describe("repository refresh demand ingest", () => {
     await t.run(async (ctx) => {
       await ctx.db.patch(ids.runId, {
         state: "running",
-        currentStep: "finish",
+        currentStep: "sync_tree",
         completedAt: undefined,
       });
     });
@@ -518,6 +518,75 @@ describe("repository refresh demand ingest", () => {
       }),
     ]);
     await expect(listRefreshRequests(t)).resolves.toHaveLength(1);
+  });
+
+  it("rejects existing repository completion before the finish boundary", async () => {
+    const { ids, t } = await createConnectedVault();
+    await t.run(async (ctx) => {
+      await ctx.db.patch(ids.runId, {
+        state: "running",
+        currentStep: "connect_github",
+        completedAt: undefined,
+      });
+    });
+
+    await expect(
+      t.mutation(
+        internal.repositoryRefresh
+          .completeExistingRepositoryConnectionAndEnqueueRefresh,
+        {
+          userId: ids.userId,
+          vaultId: ids.vaultId,
+          runId: ids.runId,
+        },
+      ),
+    ).rejects.toThrow(
+      "Existing repository workflow has not reached the finish boundary.",
+    );
+    await expect(listRefreshRequests(t)).resolves.toHaveLength(0);
+    const run = await t.run(async (ctx) => {
+      return await ctx.db.get(ids.runId);
+    });
+    expect(run).toMatchObject({
+      state: "running",
+      currentStep: "connect_github",
+    });
+  });
+
+  it("rejects existing repository completion before the vault is connected", async () => {
+    const { ids, t } = await createNotConnectedVault();
+    const runId = await t.run(async (ctx) => {
+      return await ctx.db.insert("appProvisioningRuns", {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        repositoryFullName: "ada/refresh-me",
+        trigger: "connect_existing_repository",
+        state: "running",
+        currentStep: "sync_tree",
+        createdAt: 1,
+        updatedAt: 2,
+      });
+    });
+
+    await expect(
+      t.mutation(
+        internal.repositoryRefresh
+          .completeExistingRepositoryConnectionAndEnqueueRefresh,
+        {
+          userId: ids.userId,
+          vaultId: ids.vaultId,
+          runId,
+        },
+      ),
+    ).rejects.toThrow("Existing repository vault is not connected.");
+    await expect(listRefreshRequests(t)).resolves.toHaveLength(0);
+    const run = await t.run(async (ctx) => {
+      return await ctx.db.get(runId);
+    });
+    expect(run).toMatchObject({
+      state: "running",
+      currentStep: "sync_tree",
+    });
   });
 
   it("derives source setup mode from the provisioning run", async () => {

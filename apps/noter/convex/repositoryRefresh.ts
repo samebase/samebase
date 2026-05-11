@@ -52,6 +52,20 @@ type DashboardRefreshVaultPage = {
   continueCursor: string | null;
 };
 
+function throwBlockedSourceSetupRefresh(args: {
+  runId: Id<"appProvisioningRuns">;
+  userId: Id<"users">;
+  vaultId: Id<"vaults">;
+  reason: Extract<
+    EnqueueRepositoryRefreshResult,
+    { kind: "blocked" }
+  >["reason"];
+}): never {
+  throw new Error(
+    `Source setup refresh blocked after existing repository connection: reason=${args.reason}, runId=${args.runId}, userId=${args.userId}, vaultId=${args.vaultId}.`,
+  );
+}
+
 /**
  * Selects one internal page of vaults implied by a dashboard freshness signal.
  * Example: a page load from user A can enqueue user A's connected vaults only;
@@ -445,6 +459,20 @@ export const completeExistingRepositoryConnectionAndEnqueueRefresh =
 
       const now = Date.now();
       if (run.state !== "succeeded") {
+        if (run.state !== "running" || run.currentStep !== "sync_tree") {
+          throw new Error(
+            "Existing repository workflow has not reached the finish boundary.",
+          );
+        }
+        const vault = await ctx.db.get(args.vaultId);
+        if (
+          !vault ||
+          vault.userId !== args.userId ||
+          vault.state !== "connected" ||
+          vault.deletion.state !== "not_deleting"
+        ) {
+          throw new Error("Existing repository vault is not connected.");
+        }
         await ctx.db.insert("appProvisioningEvents", {
           userId: run.userId,
           vaultId: run.vaultId,
@@ -463,7 +491,7 @@ export const completeExistingRepositoryConnectionAndEnqueueRefresh =
         });
       }
 
-      return await enqueueRepositoryRefresh(ctx, {
+      const result = await enqueueRepositoryRefresh(ctx, {
         userId: args.userId,
         vaultId: args.vaultId,
         demand: {
@@ -473,5 +501,14 @@ export const completeExistingRepositoryConnectionAndEnqueueRefresh =
           mode: "connect_existing_repository",
         },
       });
+      if (result.kind === "blocked") {
+        throwBlockedSourceSetupRefresh({
+          runId: args.runId,
+          userId: args.userId,
+          vaultId: args.vaultId,
+          reason: result.reason,
+        });
+      }
+      return result;
     },
   });

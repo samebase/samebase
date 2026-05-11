@@ -314,7 +314,10 @@ Accepted enqueue policy:
 - active means `queued` or `running`
 - there should be one active row per `userId + dedupeKey`
 - terminal rows are history; a new matching demand creates a new row
-- running rows are reused unchanged
+- current PR production code does not create `running` rows
+- Workpool runner must add a running lease before creating production `running`
+  rows
+- running rows are reused only while the lease is valid
 - queued rows are updated only when incoming demand has stronger priority
 - queued-row upgrades replace `demand`, set `lifecycle.notBefore = now`, set
   `updatedAt = now`, and preserve `createdAt` plus `lifecycle.queuedAt`
@@ -417,6 +420,11 @@ Behavior:
 
 - re-read request
 - re-check vault/deletion gate
+- transition queued rows to running with `leaseExpiresAt`
+- refresh the lease while processing
+- recover expired running rows deterministically:
+  - requeue with retry metadata when more attempts are allowed
+  - fail with failure metadata when retry budget is exhausted
 - choose internal repository steps
 - run repository metadata sync
 - update `vaultRemoteBranches`
