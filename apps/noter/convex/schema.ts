@@ -27,6 +27,7 @@ import {
   machineRegistrationBootstrapRateLimitRowValidator,
   machineRegistrationRequestRowValidator,
 } from "./connectedMachineModel";
+import { vRepositoryRefreshRequest } from "./repositoryRefreshModel";
 import { codespacesTable } from "./codespaces/model";
 import { workspaceSidebarStateRowValidator } from "./workspaceSidebarStateModel";
 
@@ -391,6 +392,11 @@ export default defineSchema({
    */
   vaults: defineTable(VaultRow)
     .index("by_userId", ["userId"])
+    .index("by_userId_and_state_and_deletion_state", [
+      "userId",
+      "state",
+      "deletion.state",
+    ])
     .index("by_userId_and_ghRepoId", ["userId", "ghRepoId"])
     .index("by_owner_and_name", ["owner", "name"]),
 
@@ -438,6 +444,24 @@ export default defineSchema({
     lastTreeRefreshAt: number(),
     treeRefreshStartedAt: optional(number()),
   }).index("by_vault_and_branch", ["vaultId", "branch"]),
+
+  /**
+   * Durable freshness demand and worker status. Each row is one repository- or
+   * branch-scoped demand; exact refresh steps stay backend execution policy.
+   */
+  repositoryRefreshRequests: defineTable(vRepositoryRefreshRequest)
+    .index("by_userId_and_dedupeKey", ["userId", "dedupeKey"])
+    .index("by_userId_and_dedupeKey_and_lifecycle_state", [
+      "userId",
+      "dedupeKey",
+      "lifecycle.state",
+    ])
+    .index("by_userId_and_updatedAt", ["userId", "updatedAt"])
+    .index("by_vaultId_and_updatedAt", ["vaultId", "updatedAt"])
+    .index("by_lifecycle_state_and_lifecycle_notBefore", [
+      "lifecycle.state",
+      "lifecycle.notBefore",
+    ]),
 
   /**
    * External infrastructure identifiers and operational status for provider

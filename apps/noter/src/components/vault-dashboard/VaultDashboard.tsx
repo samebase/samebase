@@ -2351,6 +2351,12 @@ export function VaultDashboard() {
   );
   const commitStaging = useAction(api.fileStagingActions.commitStaging);
   const refreshTree = useAction(api.github.refreshRepositoryTree);
+  const enqueueDashboardRepositoryRefresh = useMutation(
+    api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
+  );
+  const enqueueManualRepositoryRefresh = useMutation(
+    api.repositoryRefresh.enqueueManualRepositoryRefresh,
+  );
   const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
   const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
   const getCloudflareMcpOAuthUrl = useAction(
@@ -2577,6 +2583,8 @@ export function VaultDashboard() {
 
   const { refreshVaultTreeFromStatusClick } = useDashboardRepositoryTreeRefresh(
     {
+      enqueueDashboardRepositoryRefresh,
+      enqueueManualRepositoryRefresh,
       refreshTree,
       vaults,
     },

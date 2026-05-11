@@ -649,13 +649,20 @@ export const finishExistingRepositoryConnection = internalAction({
   handler: async (ctx, args): Promise<null> => {
     await assertConnectExistingRepositoryRun(ctx, args);
 
-    await appendRunEvent(ctx, {
-      runId: args.runId,
-      step: "finish",
-      level: "info",
-      message: "Connected existing repository.",
-      state: "succeeded",
-    });
+    const result = await ctx.runMutation(
+      internal.repositoryRefresh
+        .completeExistingRepositoryConnectionAndEnqueueRefresh,
+      {
+        userId: args.userId,
+        vaultId: args.vaultId,
+        runId: args.runId,
+      },
+    );
+    if (result.kind === "blocked") {
+      throw new Error(
+        `Existing repository refresh enqueue was blocked: reason=${result.reason}, runId=${args.runId}, userId=${args.userId}, vaultId=${args.vaultId}.`,
+      );
+    }
 
     return null;
   },
