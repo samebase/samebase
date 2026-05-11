@@ -27,12 +27,6 @@ const vSourceSetupRepositoryRefreshMode = union(
   literal("connect_existing_repository"),
 );
 
-const vEnqueueDashboardRepositoryRefreshArgs = object({
-  trigger: vRepositoryRefreshBrowserTrigger,
-});
-type EnqueueDashboardRepositoryRefreshArgs = Infer<
-  typeof vEnqueueDashboardRepositoryRefreshArgs
->;
 const vEnqueueDashboardRepositoryRefreshResult = array(
   object({
     vaultId: id("vaults"),
@@ -43,21 +37,6 @@ type EnqueueDashboardRepositoryRefreshResult = Infer<
   typeof vEnqueueDashboardRepositoryRefreshResult
 >;
 
-const vEnqueueManualRepositoryRefreshArgs = object({
-  vaultId: id("vaults"),
-});
-type EnqueueManualRepositoryRefreshArgs = Infer<
-  typeof vEnqueueManualRepositoryRefreshArgs
->;
-
-const vEnqueueSourceSetupRepositoryRefreshArgs = object({
-  userId: id("users"),
-  vaultId: id("vaults"),
-  runId: id("appProvisioningRuns"),
-});
-type EnqueueSourceSetupRepositoryRefreshArgs = Infer<
-  typeof vEnqueueSourceSetupRepositoryRefreshArgs
->;
 type SourceSetupRepositoryRefreshMode = Infer<
   typeof vSourceSetupRepositoryRefreshMode
 >;
@@ -86,14 +65,8 @@ async function selectDashboardRefreshVaultIds(
 }
 
 async function getSourceSetupRepositoryRefreshMode(
-  ctx: MutationCtx,
-  args: EnqueueSourceSetupRepositoryRefreshArgs,
+  run: Doc<"appProvisioningRuns">,
 ): Promise<SourceSetupRepositoryRefreshMode> {
-  const run = await ctx.db.get(args.runId);
-  if (!run || run.userId !== args.userId || run.vaultId !== args.vaultId) {
-    throw new Error("Source setup run does not match refresh demand.");
-  }
-
   switch (run.trigger) {
     case "create":
       return "create_repository";
@@ -240,11 +213,13 @@ async function enqueueRepositoryRefresh(
 }
 
 export const enqueueDashboardRepositoryRefresh = mutation({
-  args: vEnqueueDashboardRepositoryRefreshArgs,
+  args: object({
+    trigger: vRepositoryRefreshBrowserTrigger,
+  }),
   returns: vEnqueueDashboardRepositoryRefreshResult,
   handler: async (
     ctx,
-    args: EnqueueDashboardRepositoryRefreshArgs,
+    args,
   ): Promise<EnqueueDashboardRepositoryRefreshResult> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
@@ -272,12 +247,11 @@ export const enqueueDashboardRepositoryRefresh = mutation({
 });
 
 export const enqueueManualRepositoryRefresh = mutation({
-  args: vEnqueueManualRepositoryRefreshArgs,
+  args: object({
+    vaultId: id("vaults"),
+  }),
   returns: vEnqueueRepositoryRefreshResult,
-  handler: async (
-    ctx,
-    args: EnqueueManualRepositoryRefreshArgs,
-  ): Promise<EnqueueRepositoryRefreshResult> => {
+  handler: async (ctx, args): Promise<EnqueueRepositoryRefreshResult> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       throw new Error("User not authenticated");
@@ -296,13 +270,19 @@ export const enqueueManualRepositoryRefresh = mutation({
 });
 
 export const enqueueSourceSetupRepositoryRefresh = internalMutation({
-  args: vEnqueueSourceSetupRepositoryRefreshArgs,
+  args: object({
+    userId: id("users"),
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+  }),
   returns: vEnqueueRepositoryRefreshResult,
-  handler: async (
-    ctx,
-    args: EnqueueSourceSetupRepositoryRefreshArgs,
-  ): Promise<EnqueueRepositoryRefreshResult> => {
-    const mode = await getSourceSetupRepositoryRefreshMode(ctx, args);
+  handler: async (ctx, args): Promise<EnqueueRepositoryRefreshResult> => {
+    const run = await ctx.db.get(args.runId);
+    if (!run || run.userId !== args.userId || run.vaultId !== args.vaultId) {
+      throw new Error("Source setup run does not match refresh demand.");
+    }
+
+    const mode = await getSourceSetupRepositoryRefreshMode(run);
     return await enqueueRepositoryRefresh(ctx, {
       userId: args.userId,
       vaultId: args.vaultId,
