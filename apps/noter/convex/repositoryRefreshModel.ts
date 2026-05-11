@@ -342,6 +342,51 @@ export const vRepositoryRefreshRequest = object({
 });
 export type RepositoryRefreshRequest = Infer<typeof vRepositoryRefreshRequest>;
 
+// MARK: Enqueue Results
+// Enqueue results describe what happened to durable demand. They intentionally
+// do not expose execution details because Phase 2 only records demand; workers
+// start in later phases.
+
+/**
+ * Result returned by demand-ingest mutations.
+ *
+ * created = a new queued row now represents this demand.
+ *
+ * updated = an existing queued row was upgraded to stronger demand, such as a
+ * dashboard row becoming a manual row.
+ *
+ * already_queued = an equal or weaker duplicate was coalesced without writing.
+ *
+ * already_running = Workpool or a future worker already owns this demand.
+ *
+ * blocked = the vault is deleting or deletion failed, so no row is created.
+ */
+export const vEnqueueRepositoryRefreshResult = union(
+  object({
+    kind: literal("created"),
+    requestId: id("repositoryRefreshRequests"),
+  }),
+  object({
+    kind: literal("updated"),
+    requestId: id("repositoryRefreshRequests"),
+  }),
+  object({
+    kind: literal("already_queued"),
+    requestId: id("repositoryRefreshRequests"),
+  }),
+  object({
+    kind: literal("already_running"),
+    requestId: id("repositoryRefreshRequests"),
+  }),
+  object({
+    kind: literal("blocked"),
+    reason: literal("vault_deleting"),
+  }),
+);
+export type EnqueueRepositoryRefreshResult = Infer<
+  typeof vEnqueueRepositoryRefreshResult
+>;
+
 // MARK: Builder Inputs
 // Builder input is the backend request constructor, not a frontend contract.
 // Frontend/backend entry points provide demand. The builder derives dedupeKey
@@ -387,6 +432,35 @@ export function getRepositoryRefreshPriority(
   }
 }
 
+function getRepositoryRefreshPriorityRank(
+  priority: RepositoryRefreshPriority,
+): number {
+  switch (priority) {
+    case "background":
+      return 0;
+    case "normal":
+      return 1;
+    case "manual":
+      return 2;
+    case "system":
+      return 3;
+    default: {
+      priority satisfies never;
+      return 0;
+    }
+  }
+}
+
+export function isRepositoryRefreshPriorityStronger(args: {
+  incoming: RepositoryRefreshPriority;
+  existing: RepositoryRefreshPriority;
+}): boolean {
+  return (
+    getRepositoryRefreshPriorityRank(args.incoming) >
+    getRepositoryRefreshPriorityRank(args.existing)
+  );
+}
+
 export function deriveRepositoryRefreshDedupeKey(args: {
   userId: RepositoryRefreshRequest["userId"];
   vaultId: RepositoryRefreshRequest["vaultId"];
@@ -424,6 +498,28 @@ export function makeRepositoryRefreshRequest(
       queuedAt: args.now,
     },
     createdAt: args.now,
+    updatedAt: args.now,
+  };
+}
+
+export function upgradeQueuedRepositoryRefreshRequest(
+  request: RepositoryRefreshRequest,
+  args: {
+    now: number;
+    demand: RepositoryRefreshDemand;
+  },
+): RepositoryRefreshRequest {
+  if (request.lifecycle.state !== "queued") {
+    throw new Error("Only queued repository refresh requests can be upgraded.");
+  }
+  return {
+    ...request,
+    demand: args.demand,
+    lifecycle: {
+      state: "queued",
+      notBefore: args.now,
+      queuedAt: request.lifecycle.queuedAt,
+    },
     updatedAt: args.now,
   };
 }

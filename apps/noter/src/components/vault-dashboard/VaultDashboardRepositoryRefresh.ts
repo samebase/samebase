@@ -10,12 +10,23 @@ type DashboardTreeRefreshTrigger = "visibility" | "page_load";
 type DashboardRefreshTree = (
   args: (typeof api.github.refreshRepositoryTree)["_args"],
 ) => Promise<(typeof api.github.refreshRepositoryTree)["_returnType"]>;
+type EnqueueDashboardRepositoryRefresh = (
+  args: (typeof api.repositoryRefresh.enqueueDashboardRepositoryRefresh)["_args"],
+) => Promise<
+  (typeof api.repositoryRefresh.enqueueDashboardRepositoryRefresh)["_returnType"]
+>;
+type EnqueueManualRepositoryRefresh = (
+  args: (typeof api.repositoryRefresh.enqueueManualRepositoryRefresh)["_args"],
+) => Promise<
+  (typeof api.repositoryRefresh.enqueueManualRepositoryRefresh)["_returnType"]
+>;
 
 export type VaultDashboardVault = NonNullable<
   (typeof api.vault.getUserVaults)["_returnType"]
 >[number];
 export type DashboardManualRefreshVault = Pick<
   VaultDashboardVault,
+  | "_id"
   | "ghRepoName"
   | "ghRepoOwner"
   | "remoteBranches"
@@ -30,17 +41,62 @@ export type DashboardManualRefreshVault = Pick<
  * calls; remove it by moving scheduling to the backend or route data layer.
  */
 export function useDashboardRepositoryTreeRefresh({
+  enqueueDashboardRepositoryRefresh,
+  enqueueManualRepositoryRefresh,
   refreshTree,
   vaults,
 }: {
+  enqueueDashboardRepositoryRefresh: EnqueueDashboardRepositoryRefresh;
+  enqueueManualRepositoryRefresh: EnqueueManualRepositoryRefresh;
   refreshTree: DashboardRefreshTree;
   vaults: VaultDashboardVault[] | undefined;
 }) {
+  const enqueueReadyVaults = useCallback(
+    (trigger: DashboardTreeRefreshTrigger) => {
+      if (!vaults || vaults.length === 0) {
+        return;
+      }
+
+      const readyVaults = vaults.filter((vault) => vault.state === "ready");
+      if (readyVaults.length === 0) {
+        return;
+      }
+
+      void (async () => {
+        for (
+          let index = 0;
+          index < readyVaults.length;
+          index += DASHBOARD_REFRESH_CONCURRENCY
+        ) {
+          const batch = readyVaults.slice(
+            index,
+            index + DASHBOARD_REFRESH_CONCURRENCY,
+          );
+          await Promise.all(
+            batch.map((vault) =>
+              enqueueDashboardRepositoryRefresh({
+                vaultId: vault._id,
+                trigger,
+              }).catch((error: unknown) => {
+                console.error(
+                  "Failed to enqueue repository refresh demand from dashboard:",
+                  error,
+                );
+              }),
+            ),
+          );
+        }
+      })();
+    },
+    [enqueueDashboardRepositoryRefresh, vaults],
+  );
+
   const refreshVaultTreesIfNeeded = useCallback(
     (trigger: DashboardTreeRefreshTrigger = "visibility") => {
       if (!vaults || vaults.length === 0) {
         return;
       }
+      enqueueReadyVaults(trigger);
 
       const now = Date.now();
       const readyVaults = vaults.filter((vault) => vault.state === "ready");
@@ -98,7 +154,7 @@ export function useDashboardRepositoryTreeRefresh({
         }
       })();
     },
-    [refreshTree, vaults],
+    [enqueueReadyVaults, refreshTree, vaults],
   );
 
   useVisibleDashboardRepositoryTreeRefresh({
@@ -108,8 +164,20 @@ export function useDashboardRepositoryTreeRefresh({
 
   const refreshVaultTreeFromStatusClick = useCallback(
     (vault: DashboardManualRefreshVault) => {
+      if (vault.state !== "ready") {
+        return;
+      }
+
+      void enqueueManualRepositoryRefresh({
+        vaultId: vault._id,
+      }).catch((error: unknown) => {
+        console.error(
+          "Failed to enqueue manual repository refresh demand:",
+          error,
+        );
+      });
+
       if (
-        vault.state !== "ready" ||
         (typeof vault.treeRefreshCooldownUntil === "number" &&
           vault.treeRefreshCooldownUntil > Date.now()) ||
         !claimRefreshDebounce("dashboard", vault.repositoryFullName)
@@ -133,7 +201,7 @@ export function useDashboardRepositoryTreeRefresh({
         );
       });
     },
-    [refreshTree],
+    [enqueueManualRepositoryRefresh, refreshTree],
   );
 
   return {

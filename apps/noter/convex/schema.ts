@@ -446,6 +446,11 @@ export default defineSchema({
    */
   repositoryRefreshRequests: defineTable(vRepositoryRefreshRequest)
     .index("by_userId_and_dedupeKey", ["userId", "dedupeKey"])
+    .index("by_userId_and_dedupeKey_and_lifecycle_state", [
+      "userId",
+      "dedupeKey",
+      "lifecycle.state",
+    ])
     .index("by_userId_and_updatedAt", ["userId", "updatedAt"])
     .index("by_vaultId_and_updatedAt", ["vaultId", "updatedAt"])
     .index("by_lifecycle_state_and_lifecycle_notBefore", [

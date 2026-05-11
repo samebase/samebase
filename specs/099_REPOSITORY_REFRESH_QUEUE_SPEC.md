@@ -347,6 +347,16 @@ Implementation shape:
 - backend setup entry points build demand, then call the helper
 - do not duplicate active-row lookup rules in each entry point
 
+Implemented shape:
+
+- `repositoryRefresh.enqueueDashboardRepositoryRefresh`
+- `repositoryRefresh.enqueueManualRepositoryRefresh`
+- `repositoryRefresh.enqueueSourceSetupRepositoryRefresh`
+- active lookup uses `userId + dedupeKey + lifecycle.state`
+- dashboard still runs the current GitHub refresh action until Phase 3 has a
+  worker
+- existing-repository finish enqueues `source_setup`
+
 Do not:
 
 - execute refresh work yet

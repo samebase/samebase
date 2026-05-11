@@ -656,6 +656,15 @@ export const finishExistingRepositoryConnection = internalAction({
       message: "Connected existing repository.",
       state: "succeeded",
     });
+    await ctx.runMutation(
+      internal.repositoryRefresh.enqueueSourceSetupRepositoryRefresh,
+      {
+        userId: args.userId,
+        vaultId: args.vaultId,
+        runId: args.runId,
+        mode: "connect_existing_repository",
+      },
+    );
 
     return null;
   },
