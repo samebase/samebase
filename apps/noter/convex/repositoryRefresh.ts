@@ -1,6 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Infer, v } from "convex/values";
 
+import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
   internalMutation,
@@ -17,10 +18,11 @@ import {
   vEnqueueRepositoryRefreshResult,
   vRepositoryRefreshBrowserTrigger,
   type EnqueueRepositoryRefreshResult,
+  type RepositoryRefreshBrowserTrigger,
   type RepositoryRefreshDemand,
 } from "./repositoryRefreshModel";
 
-const { array, boolean, id, literal, null: vNull, object, string, union } = v;
+const { id, literal, null: vNull, object, string, union } = v;
 
 /**
  * Source setup mode stored on demand rows.
@@ -31,25 +33,6 @@ const vSourceSetupRepositoryRefreshMode = union(
   literal("create_repository"),
   literal("connect_existing_repository"),
 );
-
-/**
- * Dashboard enqueue returns one coalescing result per backend-selected vault.
- * The browser does not pass vault ids for this entry point; it may pass only
- * the opaque continuation cursor returned by the previous page.
- */
-const vEnqueueDashboardRepositoryRefreshResult = object({
-  results: array(
-    object({
-      vaultId: id("vaults"),
-      result: vEnqueueRepositoryRefreshResult,
-    }),
-  ),
-  isDone: boolean(),
-  continueCursor: union(string(), vNull()),
-});
-type EnqueueDashboardRepositoryRefreshResult = Infer<
-  typeof vEnqueueDashboardRepositoryRefreshResult
->;
 
 type SourceSetupRepositoryRefreshMode = Infer<
   typeof vSourceSetupRepositoryRefreshMode
@@ -70,10 +53,10 @@ type DashboardRefreshVaultPage = {
 };
 
 /**
- * Selects one page of vaults implied by a dashboard freshness signal.
+ * Selects one internal page of vaults implied by a dashboard freshness signal.
  * Example: a page load from user A can enqueue user A's connected vaults only;
- * ids for user B are not accepted from the browser at all. The continuation
- * cursor is opaque backend state, not a caller-selected vault list.
+ * ids for user B are not accepted from the browser at all. The cursor is only
+ * used between Convex functions so the browser never owns fan-out.
  */
 async function selectDashboardRefreshVaultPage(
   ctx: MutationCtx,
@@ -99,6 +82,51 @@ async function selectDashboardRefreshVaultPage(
     isDone: page.isDone,
     continueCursor: page.isDone ? null : page.continueCursor,
   };
+}
+
+/**
+ * Converts one dashboard signal page into repository demand rows.
+ * If more vaults remain, this schedules the next internal page immediately.
+ * The Workpool PR will replace this scheduling boundary without changing
+ * the public dashboard mutation.
+ */
+async function enqueueDashboardRepositoryRefreshPageForUser(
+  ctx: MutationCtx,
+  args: {
+    userId: Id<"users">;
+    trigger: RepositoryRefreshBrowserTrigger;
+    cursor: string | null;
+  },
+): Promise<void> {
+  const page = await selectDashboardRefreshVaultPage(ctx, {
+    userId: args.userId,
+    cursor: args.cursor,
+  });
+  for (const vaultId of page.vaultIds) {
+    await enqueueRepositoryRefresh(ctx, {
+      userId: args.userId,
+      vaultId,
+      demand: {
+        scope: "repository",
+        source: "dashboard",
+        trigger: args.trigger,
+      },
+    });
+  }
+
+  if (page.isDone) {
+    return;
+  }
+
+  await ctx.scheduler.runAfter(
+    0,
+    internal.repositoryRefresh.enqueueDashboardRepositoryRefreshPage,
+    {
+      userId: args.userId,
+      trigger: args.trigger,
+      cursor: page.continueCursor,
+    },
+  );
 }
 
 /**
@@ -269,50 +297,46 @@ async function enqueueRepositoryRefresh(
 /**
  * Public dashboard auto-refresh signal.
  *
- * The browser passes `trigger` plus an opaque cursor from the previous response.
- * Convex selects the next page of connected, non-deleting vaults for the
- * authenticated user and enqueues repository-level demand for each selected
- * vault. The browser owns the loop; Convex owns which vault ids each page means.
+ * The browser passes only `trigger`. Convex owns eligible vault selection and
+ * internal continuation so React never batches, loops, or sends vault ids.
  */
 export const enqueueDashboardRepositoryRefresh = mutation({
   args: object({
     trigger: vRepositoryRefreshBrowserTrigger,
-    cursor: union(string(), vNull()),
   }),
-  returns: vEnqueueDashboardRepositoryRefreshResult,
-  handler: async (
-    ctx,
-    args,
-  ): Promise<EnqueueDashboardRepositoryRefreshResult> => {
+  returns: vNull(),
+  handler: async (ctx, args): Promise<null> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       throw new Error("User not authenticated");
     }
 
-    const results: EnqueueDashboardRepositoryRefreshResult["results"] = [];
-    const page = await selectDashboardRefreshVaultPage(ctx, {
+    await enqueueDashboardRepositoryRefreshPageForUser(ctx, {
       userId,
-      cursor: args.cursor,
+      trigger: args.trigger,
+      cursor: null,
     });
-    for (const vaultId of page.vaultIds) {
-      results.push({
-        vaultId,
-        result: await enqueueRepositoryRefresh(ctx, {
-          userId,
-          vaultId,
-          demand: {
-            scope: "repository",
-            source: "dashboard",
-            trigger: args.trigger,
-          },
-        }),
-      });
-    }
-    return {
-      results,
-      isDone: page.isDone,
-      continueCursor: page.continueCursor,
-    };
+    return null;
+  },
+});
+
+/**
+ * Internal continuation for dashboard demand fan-out.
+ *
+ * This keeps transaction size bounded without exposing pagination to the
+ * browser. The next PR moves this boundary to Workpool while preserving the
+ * same public dashboard signal.
+ */
+export const enqueueDashboardRepositoryRefreshPage = internalMutation({
+  args: object({
+    userId: id("users"),
+    trigger: vRepositoryRefreshBrowserTrigger,
+    cursor: union(string(), vNull()),
+  }),
+  returns: vNull(),
+  handler: async (ctx, args): Promise<null> => {
+    await enqueueDashboardRepositoryRefreshPageForUser(ctx, args);
+    return null;
   },
 });
 

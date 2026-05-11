@@ -178,7 +178,7 @@ type RepositoryRefreshStep =
   | "sync_provider_links";
 ```
 
-Steps are not Phase 1 persisted request state.
+Steps are not persisted request state in this PR.
 
 Examples:
 
@@ -244,7 +244,7 @@ Tests should enumerate these edges with small matrices. When a forbidden state
 is still representable, simplify the state shape first; add runtime guards only
 when the rule depends on live database/provider/time facts.
 
-## Phase 1: Schema And Constructors
+## Current PR: State And Constructors
 
 Add:
 
@@ -273,7 +273,7 @@ Tests:
 - state matrices cover dependent axes only
 - invalid lifecycle transitions fail
 
-## Phase 2: Demand Ingest
+## Current PR: Demand Ingest
 
 Add enqueue mutations/actions.
 
@@ -286,20 +286,31 @@ Entry points:
 Behavior:
 
 - authenticate user
+- dashboard entry point accepts one browser signal:
+
+```ts
+enqueueDashboardRepositoryRefresh({
+  trigger: "page_load" | "visibility",
+});
+```
+
 - dashboard entry point selects connected, non-deleting vaults for the
   authenticated user in bounded backend pages
-- dashboard page cursor is opaque backend pagination state; callers never pass
-  vault ids
+- dashboard pagination is internal Convex state only
+- browser never passes `vaultIds`
+- browser never passes cursor
+- browser never loops pages
 - manual entry point loads one requested vault and blocks if deleting
 - source setup entry point derives mode from the provisioning run
 - build typed demand
 - coalesce by dedupe key
-- return request status
+- dashboard signal returns `null`; explicit one-vault/setup entry points return
+  enqueue status
 
 Accepted enqueue policy:
 
 - backend computes `notBefore`; callers do not pass it
-- Phase 2 created/updated rows use `notBefore = now`
+- current PR created/updated rows use `notBefore = now`
 - active means `queued` or `running`
 - there should be one active row per `userId + dedupeKey`
 - terminal rows are history; a new matching demand creates a new row
@@ -347,40 +358,55 @@ type EnqueueRepositoryRefreshResult =
 Implementation shape:
 
 - one shared enqueue helper owns all coalescing
-- public/browser entry points build demand, then call the helper
+- public/browser entry points build a signal or one explicit demand, then call
+  backend helpers
 - backend setup entry points build demand, then call the helper
 - do not duplicate active-row lookup rules in each entry point
 
 Implemented shape:
 
 - `repositoryRefresh.enqueueDashboardRepositoryRefresh`
-  - accepts `trigger` and an opaque `cursor`
+  - accepts only `trigger`
   - caller does not pass `vaultIds`
-  - selects up to 50 connected, non-deleting vaults per page for the
-    authenticated user
-  - returns one enqueue result per selected vault plus `isDone` and
-    `continueCursor`
-  - frontend repeats with `continueCursor` until `isDone`
+  - caller does not pass cursor
+  - returns `null`
+  - converts the first bounded vault page into repository demand
+  - schedules `repositoryRefresh.enqueueDashboardRepositoryRefreshPage` when
+    more vaults remain
+- `repositoryRefresh.enqueueDashboardRepositoryRefreshPage`
+  - internal mutation only
+  - accepts `userId`, `trigger`, and internal cursor
+  - converts one bounded page into repository demand
+  - schedules itself until the backend reaches the end
 - `repositoryRefresh.enqueueManualRepositoryRefresh`
 - `repositoryRefresh.enqueueSourceSetupRepositoryRefresh`
   - derives `mode` from `appProvisioningRuns.trigger`
   - rejects mismatched run/user/vault state
   - rejects retry runs because the original trigger owns the setup mode
 - active lookup uses `userId + dedupeKey + lifecycle.state`
-- dashboard still runs the current GitHub refresh action until Phase 3 has a
-  worker
+- dashboard still runs the current GitHub refresh action until the Workpool
+  runner replaces it
 - existing-repository finish enqueues `source_setup`
 
 Do not:
 
-- execute refresh work yet
+- expose dashboard fan-out, batch size, or pagination to React
 - expose exact step/depth choices to callers
+- execute queued request rows yet
 - remove direct file-view refresh
 - redesign dashboard query
 
-## Phase 3: Repository Worker
+Compatibility:
 
-Add one Workpool worker for repository demand.
+- the old dashboard `github.refreshRepositoryTree` action still runs from React
+  until the next PR installs the backend execution runner
+- do not add new React orchestration; only delete or shrink it as backend
+  execution moves in
+
+## Next PR: Workpool Runner
+
+Replace the current internal scheduled continuation boundary with Workpool and
+start executing queued repository demand.
 
 Behavior:
 
@@ -392,7 +418,7 @@ Behavior:
 - finish request
 - preserve current vault refresh UI fields
 
-This phase fixes:
+Workpool PR fixes:
 
 - dashboard auto metadata freshness
 - existing-repository connect branch-list visibility after setup
@@ -403,7 +429,7 @@ Do not:
 - expose provider choices to frontend
 - move file view yet
 
-## Phase 4: Manual Priority
+## Next PR Or Later: Manual Priority
 
 Manual refresh becomes queued priority demand.
 
@@ -416,7 +442,7 @@ Rules:
 - cannot bypass GitHub rate limit
 - must coalesce with identical running demand
 
-## Phase 5: Branch Demand Worker
+## Later: Branch Demand Worker
 
 Add worker behavior for branch demand.
 
@@ -443,7 +469,7 @@ Possible after queue proves useful:
 - package execution for another Convex deployment
 - add a second provider-link parser, such as Netlify comments
 
-These do not change Phase 1-3 scope.
+These do not change this PR or the next Workpool PR.
 
 ## Non-Goals
 
@@ -462,7 +488,7 @@ Review in this order:
 
 1. state model
 2. impossible states
-3. phase boundaries
+3. PR boundaries
 4. entry points
 5. Workpool usage
 6. future pressure

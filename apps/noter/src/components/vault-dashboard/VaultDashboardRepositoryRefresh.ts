@@ -57,28 +57,10 @@ export function useDashboardRepositoryTreeRefresh({
         return;
       }
 
-      // The browser loops through opaque backend pages, not vault ids. Convex
-      // owns which vaults each page contains.
-      void (async () => {
-        let cursor: string | null = null;
-        let isDone = false;
-        while (!isDone) {
-          const page = await enqueueDashboardRepositoryRefresh({
-            trigger,
-            cursor,
-          });
-          isDone = page.isDone;
-          if (!page.continueCursor) {
-            if (isDone) {
-              return;
-            }
-            throw new Error(
-              "Dashboard refresh demand page is missing a continuation cursor.",
-            );
-          }
-          cursor = page.continueCursor;
-        }
-      })().catch((error: unknown) => {
+      // React emits one signal. Convex owns vault fan-out and continuation.
+      void enqueueDashboardRepositoryRefresh({
+        trigger,
+      }).catch((error: unknown) => {
         console.error(
           "Failed to enqueue repository refresh demand from dashboard:",
           error,
