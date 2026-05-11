@@ -27,11 +27,11 @@ const vSourceSetupRepositoryRefreshMode = union(
   literal("connect_existing_repository"),
 );
 
-const enqueueDashboardRepositoryRefreshArgs = object({
+const vEnqueueDashboardRepositoryRefreshArgs = object({
   trigger: vRepositoryRefreshBrowserTrigger,
 });
 type EnqueueDashboardRepositoryRefreshArgs = Infer<
-  typeof enqueueDashboardRepositoryRefreshArgs
+  typeof vEnqueueDashboardRepositoryRefreshArgs
 >;
 const vEnqueueDashboardRepositoryRefreshResult = array(
   object({
@@ -43,20 +43,20 @@ type EnqueueDashboardRepositoryRefreshResult = Infer<
   typeof vEnqueueDashboardRepositoryRefreshResult
 >;
 
-const enqueueManualRepositoryRefreshArgs = object({
+const vEnqueueManualRepositoryRefreshArgs = object({
   vaultId: id("vaults"),
 });
 type EnqueueManualRepositoryRefreshArgs = Infer<
-  typeof enqueueManualRepositoryRefreshArgs
+  typeof vEnqueueManualRepositoryRefreshArgs
 >;
 
-const enqueueSourceSetupRepositoryRefreshArgs = object({
+const vEnqueueSourceSetupRepositoryRefreshArgs = object({
   userId: id("users"),
   vaultId: id("vaults"),
   runId: id("appProvisioningRuns"),
 });
 type EnqueueSourceSetupRepositoryRefreshArgs = Infer<
-  typeof enqueueSourceSetupRepositoryRefreshArgs
+  typeof vEnqueueSourceSetupRepositoryRefreshArgs
 >;
 type SourceSetupRepositoryRefreshMode = Infer<
   typeof vSourceSetupRepositoryRefreshMode
@@ -240,7 +240,7 @@ async function enqueueRepositoryRefresh(
 }
 
 export const enqueueDashboardRepositoryRefresh = mutation({
-  args: enqueueDashboardRepositoryRefreshArgs,
+  args: vEnqueueDashboardRepositoryRefreshArgs,
   returns: vEnqueueDashboardRepositoryRefreshResult,
   handler: async (
     ctx,
@@ -272,7 +272,7 @@ export const enqueueDashboardRepositoryRefresh = mutation({
 });
 
 export const enqueueManualRepositoryRefresh = mutation({
-  args: enqueueManualRepositoryRefreshArgs,
+  args: vEnqueueManualRepositoryRefreshArgs,
   returns: vEnqueueRepositoryRefreshResult,
   handler: async (
     ctx,
@@ -296,7 +296,7 @@ export const enqueueManualRepositoryRefresh = mutation({
 });
 
 export const enqueueSourceSetupRepositoryRefresh = internalMutation({
-  args: enqueueSourceSetupRepositoryRefreshArgs,
+  args: vEnqueueSourceSetupRepositoryRefreshArgs,
   returns: vEnqueueRepositoryRefreshResult,
   handler: async (
     ctx,
