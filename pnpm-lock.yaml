@@ -144,7 +144,7 @@ importers:
         specifier: ^5.83.0
         version: 5.91.3(@tanstack/react-query@5.90.20(react@19.2.4))(react@19.2.4)
       '@tanstack/react-router':
-        specifier: ^1.168.10
+        specifier: 1.168.10
         version: 1.168.10(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@tanstack/react-store':
         specifier: ^0.11.0
@@ -250,10 +250,10 @@ importers:
         specifier: ^4.2.2
         version: 4.2.2(vite@8.0.8(@types/node@20.19.32)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.3))
       '@tanstack/router-plugin':
-        specifier: ^1.167.12
+        specifier: 1.167.12
         version: 1.167.12(@tanstack/react-router@1.168.10(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(vite-plugin-solid@2.11.12(solid-js@1.9.12)(vite@8.0.8(@types/node@20.19.32)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.3)))(vite@8.0.8(@types/node@20.19.32)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.3))
       '@tanstack/virtual-file-routes':
-        specifier: ^1.161.7
+        specifier: 1.161.7
         version: 1.161.7
       '@types/node':
         specifier: ^20.14.9
@@ -328,10 +328,10 @@ importers:
         specifier: ^0.0.7
         version: 0.0.7(@codemirror/autocomplete@6.20.0)(@codemirror/commands@6.10.2)(@codemirror/lang-markdown@6.5.0)(@codemirror/language-data@6.5.2)(@codemirror/language@6.12.1)(@codemirror/lint@6.9.3)(@codemirror/search@6.6.0)(@codemirror/state@6.5.4)(@codemirror/view@6.39.12)
       '@tanstack/solid-router':
-        specifier: ^1.168.20
+        specifier: 1.168.20
         version: 1.168.20(solid-js@1.9.12)
       '@tanstack/solid-router-devtools':
-        specifier: ^1.166.13
+        specifier: 1.166.13
         version: 1.166.13(@tanstack/router-core@1.168.15)(@tanstack/solid-router@1.168.20(solid-js@1.9.12))(csstype@3.2.3)(solid-js@1.9.12)
       monaco-editor:
         specifier: ^0.55.1
