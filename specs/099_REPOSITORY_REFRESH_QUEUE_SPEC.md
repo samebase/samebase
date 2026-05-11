@@ -144,11 +144,6 @@ type RepositoryMetadataEnrichment =
   | {
       kind: "pull_request_metadata";
       includeAheadBehind: boolean;
-    }
-  | {
-      kind: "pull_request_links";
-      includeAheadBehind: boolean;
-      provider: RepositoryRefreshLinkProvider;
     };
 
 type RepositoryRefreshLinkProvider = "cloudflare_pages_comments";
@@ -184,6 +179,7 @@ Schema rules:
 
 - no optional `branch` on the base row
 - no `link_enrichment` without provider
+- no provider/comment link parsing inside `repo_metadata`
 - no `source_setup` without `runId`
 - no `queued` row with `workpoolJobId`
 - no `succeeded` row without result
@@ -349,6 +345,10 @@ type Phase6Work = LinkEnrichmentRefreshRequest;
 Current provider:
 
 - `cloudflare_pages_comments`
+
+Provider/comment links only enter through `LinkEnrichmentRefreshRequest`.
+`repo_metadata` may fetch PR metadata, but it does not parse PR comments for
+links.
 
 Future provider examples are not scope. A second provider should add one closed
 union member plus one internal handler.

@@ -98,6 +98,44 @@ describe("repository refresh model", () => {
     );
   });
 
+  it("creates link enrichment as separate provider work", async () => {
+    const { ids, t } = await createVaultIds();
+    const request = makeRepositoryRefreshRequest({
+      userId: ids.userId,
+      vaultId: ids.vaultId,
+      now: 14,
+      notBefore: 14,
+      intent: {
+        source: "dashboard",
+        trigger: "visibility",
+      },
+      work: {
+        kind: "link_enrichment",
+        branch: "main",
+        provider: "cloudflare_pages_comments",
+      },
+    });
+
+    expect(request).toMatchObject({
+      dedupeKey: `user:${ids.userId}:vault:${ids.vaultId}:branch:main:link_enrichment:cloudflare_pages_comments`,
+      priority: "background",
+      work: {
+        kind: "link_enrichment",
+        branch: "main",
+        provider: "cloudflare_pages_comments",
+      },
+    });
+
+    const stored = await t.run(async (ctx) => {
+      const requestId = await ctx.db.insert(
+        "repositoryRefreshRequests",
+        request,
+      );
+      return await ctx.db.get(requestId);
+    });
+    expect(stored).toMatchObject(request);
+  });
+
   it("keeps source setup intent tied to the provisioning run", async () => {
     const { ids, t } = await createVaultIds();
     const runId = await t.run(async (ctx) => {

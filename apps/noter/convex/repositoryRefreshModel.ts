@@ -37,8 +37,8 @@ export type RepositoryRefreshLinkProvider = Infer<
  * whether GitHub compare data is fetched for each branch: aheadBy/behindBy are
  * commit counts relative to the default branch.
  *
- * pull_request_links = also parse provider comments, for example Cloudflare
- * Pages URLs in GitHub PR comments.
+ * Provider/comment links are not metadata enrichment. They are always separate
+ * link_enrichment work so comment parsing has one queue path.
  */
 export const vRepositoryMetadataEnrichment = union(
   object({
@@ -47,11 +47,6 @@ export const vRepositoryMetadataEnrichment = union(
   object({
     kind: literal("pull_request_metadata"),
     includeAheadBehind: boolean(),
-  }),
-  object({
-    kind: literal("pull_request_links"),
-    includeAheadBehind: boolean(),
-    provider: vRepositoryRefreshLinkProvider,
   }),
 );
 export type RepositoryMetadataEnrichment = Infer<

@@ -252,11 +252,6 @@ type RepositoryMetadataEnrichment =
   | {
       kind: "pull_request_metadata";
       includeAheadBehind: boolean;
-    }
-  | {
-      kind: "pull_request_links";
-      includeAheadBehind: boolean;
-      provider: RepositoryRefreshLinkProvider;
     };
 
 type RepositoryRefreshLinkProvider = "cloudflare_pages_comments";
@@ -358,7 +353,7 @@ Repository metadata sync is expensive but broad.
 - Discovers branch list, default branch changes, upstream deletions, timestamps.
 - May include pull request metadata.
 - May include ahead/behind.
-- May include preview/comment link enrichment.
+- Does not parse preview/comment links; those enter through `link_enrichment`.
 - Should be budgeted for branch-heavy repositories.
 
 Branch tree refresh is expensive and narrow.
@@ -498,7 +493,6 @@ Tests:
 - After existing-repository connect, should the queued work run only repository
   metadata or also targeted branch tree/link enrichment?
 - How much should manual refresh bypass recent-success debounce?
-- Should link enrichment run as part of metadata sync or as its own job?
 - Where should the derived free/paid refresh policy live?
 - When deletion starts, should queued jobs be canceled immediately or no-op when
   workers observe the gate?
