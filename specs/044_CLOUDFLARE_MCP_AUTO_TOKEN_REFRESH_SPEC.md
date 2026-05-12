@@ -4,7 +4,7 @@
 
 - Status: Proposed
 - Owner: Noter platform
-- Last updated: 2026-03-08
+- Last updated: 2026-05-12
 - Related specs:
   - `specs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
   - `rfcs/032_CLOUDFLARE_HOSTING_PILOT_SPEC.md`
@@ -53,13 +53,17 @@ state.
    - Cloudflare has a manual `Check token` button.
    - no automatic background token check on focus/page load.
 
-### Git refresh orchestration today (target behavior to mirror)
+### Repository Refresh Comparison At Spec Time
+
+This comparison is historical. Current repository refresh queue behavior is
+defined by `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`; Cloudflare token
+refresh still reuses the generic browser duplicate-request guard.
 
 1. Frontend triggers on focus and page-load:
    - `apps/noter/src/components/FileView.tsx`
    - `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
-2. Frontend debounce:
-   - `apps/noter/src/lib/treeRefreshDebounce.ts`
+2. Frontend duplicate-request guard:
+   - `apps/noter/src/lib/refreshDebounce.ts`
 3. Backend lock/debounce/stale lock:
    - `apps/noter/convex/vault.ts` (`claimTreeRefresh`, `releaseTreeRefresh`)
 4. Backend action uses lock in `try/finally`:

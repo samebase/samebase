@@ -193,10 +193,10 @@ General rule:
 
 Example:
 
-- Dashboard repository-tree auto refresh and manual status-click refresh share
-  the same `refreshTree` action, branch preview hydration, and debounce rules,
-  so they should live in a named dashboard refresh hook instead of as separate
-  inline `useCallback` blocks in `VaultDashboard`.
+- Dashboard repository freshness should live in a named refresh-demand hook that
+  reports page-load, visibility, and manual-click demand to Convex. The
+  dashboard should not inline GitHub action calls, vault loops, branch preview
+  hydration, or debounce policy inside `VaultDashboard`.
 
 ## Document Side Effects
 

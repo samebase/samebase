@@ -4,8 +4,15 @@
 
 - Status: Accepted phased rollout plan
 - Owner: Noter backend/frontend sync flows
-- Last updated: 2026-03-27
+- Last updated: 2026-05-12
 - Related research: none retained in-repo; Phase 1 scope shipped in `#347`
+
+## Supersession
+
+Repository refresh queue behavior is now defined by
+`specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`. Keep this document as historical
+rollout context; do not use its dashboard fan-out or repository-tree `focus`
+trigger contract for new implementation.
 
 ## Summary
 
