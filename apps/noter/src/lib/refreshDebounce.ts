@@ -21,6 +21,12 @@ export function claimRefreshDebounce(
   return true;
 }
 
+/**
+ * Clears an in-memory debounce slot after an async action settles.
+ *
+ * This is only a browser-tab duplicate-request guard. Convex still owns durable
+ * dedupe, cooldown, and retry policy for repository refresh work.
+ */
 export function releaseRefreshDebounce(scope: string, key: string): void {
   refreshDebounceByScopeAndKey.delete(getRefreshDebounceKey(scope, key));
 }

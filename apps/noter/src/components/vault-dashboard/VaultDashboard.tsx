@@ -40,7 +40,7 @@ import {
 import {
   claimRefreshDebounce,
   releaseRefreshDebounce,
-} from "@/lib/treeRefreshDebounce";
+} from "@/lib/refreshDebounce";
 import { useNow } from "@/hooks/useNow";
 import {
   useAction,

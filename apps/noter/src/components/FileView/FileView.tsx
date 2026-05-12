@@ -52,7 +52,7 @@ import {
   shouldLoadRepositorySimpleViewConfig,
 } from "@/lib/simpleView";
 import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "@/lib/commitReviewStatus";
-import { claimRefreshDebounce } from "@/lib/treeRefreshDebounce";
+import { claimRefreshDebounce } from "@/lib/refreshDebounce";
 import { buildFileViewRefreshDebounceKey } from "@/lib/fileViewRefresh";
 import { getAncestorFolderPaths } from "@/lib/fileTreeState";
 import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
