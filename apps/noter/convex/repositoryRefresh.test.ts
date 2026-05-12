@@ -213,10 +213,7 @@ describe("repository refresh demand ingest", () => {
     const { asUser, t } = await createConnectedVault();
 
     await expect(
-      asUser.mutation(
-        api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-        {},
-      ),
+      asUser.mutation(api.repositoryRefresh.enqueueDashboardRepositoryRefresh),
     ).resolves.toBeNull();
     const first = await readSingleRefreshRequest(t);
     expect(first.demand).toEqual({
@@ -227,10 +224,7 @@ describe("repository refresh demand ingest", () => {
 
     const before = await getRefreshRequest(t, first._id);
     await expect(
-      asUser.mutation(
-        api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-        {},
-      ),
+      asUser.mutation(api.repositoryRefresh.enqueueDashboardRepositoryRefresh),
     ).resolves.toBeNull();
 
     await expect(getRefreshRequest(t, first._id)).resolves.toEqual(before);
@@ -248,10 +242,7 @@ describe("repository refresh demand ingest", () => {
     });
 
     await expect(
-      asUser.mutation(
-        api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-        {},
-      ),
+      asUser.mutation(api.repositoryRefresh.enqueueDashboardRepositoryRefresh),
     ).resolves.toBeNull();
 
     const requests = await listRefreshRequests(t);
@@ -295,10 +286,7 @@ describe("repository refresh demand ingest", () => {
     });
 
     await expect(
-      asUser.mutation(
-        api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-        {},
-      ),
+      asUser.mutation(api.repositoryRefresh.enqueueDashboardRepositoryRefresh),
     ).resolves.toBeNull();
 
     const requests = await listRefreshRequests(t);
@@ -337,10 +325,7 @@ describe("repository refresh demand ingest", () => {
     }
 
     await expect(
-      asUser.mutation(
-        api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-        {},
-      ),
+      asUser.mutation(api.repositoryRefresh.enqueueDashboardRepositoryRefresh),
     ).resolves.toBeNull();
 
     await expect(listRefreshRequests(t)).resolves.toHaveLength(
@@ -409,7 +394,6 @@ describe("repository refresh demand ingest", () => {
     const { asUser, ids, t } = await createConnectedVault();
     await asUser.mutation(
       api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-      {},
     );
     const before = await readSingleRefreshRequest(t);
     if (before.lifecycle.state !== "scheduled") {
@@ -457,7 +441,6 @@ describe("repository refresh demand ingest", () => {
     const { asUser, ids, t } = await createConnectedVault();
     await asUser.mutation(
       api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-      {},
     );
     const created = await readSingleRefreshRequest(t);
     await t.run(async (ctx) => {
@@ -615,7 +598,6 @@ describe("repository refresh demand ingest", () => {
     const { asUser, t } = await createConnectedVault();
     await asUser.mutation(
       api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-      {},
     );
     const created = await readSingleRefreshRequest(t);
     await t.run(async (ctx) => {
@@ -634,7 +616,6 @@ describe("repository refresh demand ingest", () => {
 
     await asUser.mutation(
       api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-      {},
     );
 
     const requests = await listRefreshRequests(t);
@@ -657,10 +638,7 @@ describe("repository refresh demand ingest", () => {
     });
 
     await expect(
-      asUser.mutation(
-        api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-        {},
-      ),
+      asUser.mutation(api.repositoryRefresh.enqueueDashboardRepositoryRefresh),
     ).resolves.toBeNull();
     await expect(listRefreshRequests(t)).resolves.toHaveLength(0);
   });

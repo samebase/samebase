@@ -308,10 +308,11 @@ Entry points:
 Behavior:
 
 - authenticate user
-- dashboard entry point accepts no caller-selected work or trigger fields:
+- dashboard entry point accepts no caller-selected work or trigger fields and no
+  arguments:
 
 ```ts
-enqueueDashboardRepositoryRefresh({});
+enqueueDashboardRepositoryRefresh();
 ```
 
 - dashboard entry point selects connected, non-deleting vaults for the
@@ -422,7 +423,9 @@ Target shape:
   - marks the existing-repository run `succeeded`
   - writes the finish event
   - enqueues source-setup demand in the same mutation
-- active lookup uses `userId + vaultId + dedupeKey + lifecycle.state`
+- active coalescing identity is `userId + vaultId + dedupeKey`;
+  `lifecycle.state` may be used only to scan/filter active rows or terminal
+  rows, not to define a different active row identity
 - existing-repository finish enqueues `source_setup`
 
 Do not:

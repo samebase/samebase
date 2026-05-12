@@ -37,7 +37,7 @@ export function useDashboardRepositoryRefreshDemand() {
       lastDashboardDemandAtRef.current = now;
 
       // Surface-level signal only. Convex owns vault selection and continuation.
-      void enqueueDashboardRepositoryRefreshMutation({}).catch(
+      void enqueueDashboardRepositoryRefreshMutation().catch(
         (error: unknown) => {
           console.error(
             "Failed to enqueue repository refresh demand from dashboard:",
