@@ -185,12 +185,10 @@ async function insertScheduledRepositoryRefreshRequest(
         ({
           scope: "repository",
           source: "dashboard",
-          trigger: "page_load",
         } satisfies RepositoryRefreshDemand),
     });
     const scheduled = markRepositoryRefreshRequestScheduled(queued, {
       now: 101,
-      attempt: 1,
       workpoolJobId: args.workpoolJobId ?? "job-1",
     });
     return await ctx.db.insert("repositoryRefreshRequests", scheduled);
@@ -215,23 +213,24 @@ describe("repository refresh demand ingest", () => {
     const { asUser, t } = await createConnectedVault();
 
     await expect(
-      asUser.mutation(api.repositoryRefresh.enqueueDashboardRepositoryRefresh, {
-        trigger: "page_load",
-      }),
+      asUser.mutation(
+        api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
+        {},
+      ),
     ).resolves.toBeNull();
     const first = await readSingleRefreshRequest(t);
     expect(first.demand).toEqual({
       scope: "repository",
       source: "dashboard",
-      trigger: "page_load",
     });
     expect(first.lifecycle.state).toBe("scheduled");
 
     const before = await getRefreshRequest(t, first._id);
     await expect(
-      asUser.mutation(api.repositoryRefresh.enqueueDashboardRepositoryRefresh, {
-        trigger: "visibility",
-      }),
+      asUser.mutation(
+        api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
+        {},
+      ),
     ).resolves.toBeNull();
 
     await expect(getRefreshRequest(t, first._id)).resolves.toEqual(before);
@@ -249,9 +248,10 @@ describe("repository refresh demand ingest", () => {
     });
 
     await expect(
-      asUser.mutation(api.repositoryRefresh.enqueueDashboardRepositoryRefresh, {
-        trigger: "page_load",
-      }),
+      asUser.mutation(
+        api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
+        {},
+      ),
     ).resolves.toBeNull();
 
     const requests = await listRefreshRequests(t);
@@ -263,7 +263,6 @@ describe("repository refresh demand ingest", () => {
           demand: {
             scope: "repository",
             source: "dashboard",
-            trigger: "page_load",
           },
         }),
         expect.objectContaining({
@@ -271,7 +270,6 @@ describe("repository refresh demand ingest", () => {
           demand: {
             scope: "repository",
             source: "dashboard",
-            trigger: "page_load",
           },
         }),
       ]),
@@ -297,9 +295,10 @@ describe("repository refresh demand ingest", () => {
     });
 
     await expect(
-      asUser.mutation(api.repositoryRefresh.enqueueDashboardRepositoryRefresh, {
-        trigger: "page_load",
-      }),
+      asUser.mutation(
+        api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
+        {},
+      ),
     ).resolves.toBeNull();
 
     const requests = await listRefreshRequests(t);
@@ -338,9 +337,10 @@ describe("repository refresh demand ingest", () => {
     }
 
     await expect(
-      asUser.mutation(api.repositoryRefresh.enqueueDashboardRepositoryRefresh, {
-        trigger: "page_load",
-      }),
+      asUser.mutation(
+        api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
+        {},
+      ),
     ).resolves.toBeNull();
 
     await expect(listRefreshRequests(t)).resolves.toHaveLength(
@@ -351,7 +351,6 @@ describe("repository refresh demand ingest", () => {
       internal.repositoryRefresh.enqueueDashboardRepositoryRefreshPage,
       {
         userId: ids.userId,
-        trigger: "page_load",
         cursor: firstPage.continueCursor,
       },
     );
@@ -373,7 +372,6 @@ describe("repository refresh demand ingest", () => {
           demand: {
             scope: "repository",
             source: "dashboard",
-            trigger: "page_load",
           },
         }),
       );
@@ -398,13 +396,11 @@ describe("repository refresh demand ingest", () => {
     expect(after.demand).toEqual({
       scope: "repository",
       source: "manual",
-      trigger: "dashboard_status_click",
     });
     expect(after.createdAt).toBe(before.createdAt);
     if (after.lifecycle.state !== "scheduled") {
       throw new Error("Expected scheduled request.");
     }
-    expect(after.lifecycle.attempt).toBe(1);
     expect(after.lifecycle.workpoolJobId).toEqual(expect.any(String));
     expect(after.updatedAt).toBeGreaterThanOrEqual(before.updatedAt);
   });
@@ -413,9 +409,7 @@ describe("repository refresh demand ingest", () => {
     const { asUser, ids, t } = await createConnectedVault();
     await asUser.mutation(
       api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-      {
-        trigger: "page_load",
-      },
+      {},
     );
     const before = await readSingleRefreshRequest(t);
     if (before.lifecycle.state !== "scheduled") {
@@ -437,7 +431,6 @@ describe("repository refresh demand ingest", () => {
     expect(after.demand).toEqual({
       scope: "repository",
       source: "manual",
-      trigger: "dashboard_status_click",
     });
     expect(after.lifecycle).toMatchObject({
       state: "scheduled",
@@ -464,16 +457,13 @@ describe("repository refresh demand ingest", () => {
     const { asUser, ids, t } = await createConnectedVault();
     await asUser.mutation(
       api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-      {
-        trigger: "page_load",
-      },
+      {},
     );
     const created = await readSingleRefreshRequest(t);
     await t.run(async (ctx) => {
       await ctx.db.patch(created._id, {
         lifecycle: {
           state: "running",
-          attempt: 1,
           startedAt: 20,
           leaseExpiresAt: Date.now() + 60_000,
           workpoolJobId: "job-1",
@@ -553,7 +543,6 @@ describe("repository refresh demand ingest", () => {
     const running = await getRefreshRequest(t, request._id);
     expect(running.lifecycle).toMatchObject({
       state: "running",
-      attempt: request.lifecycle.attempt,
       workpoolJobId: request.lifecycle.workpoolJobId,
     });
     if (running.lifecycle.state !== "running") {
@@ -610,14 +599,14 @@ describe("repository refresh demand ingest", () => {
       {
         requestId: request._id,
         workpoolJobId: request.lifecycle.workpoolJobId,
-        reason: "workpool_canceled",
+        reason: "worker_canceled",
       },
     );
 
     await expect(getRefreshRequest(t, request._id)).resolves.toMatchObject({
       lifecycle: {
         state: "canceled",
-        reason: "workpool_canceled",
+        reason: "worker_canceled",
       },
     });
   });
@@ -626,16 +615,13 @@ describe("repository refresh demand ingest", () => {
     const { asUser, t } = await createConnectedVault();
     await asUser.mutation(
       api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-      {
-        trigger: "page_load",
-      },
+      {},
     );
     const created = await readSingleRefreshRequest(t);
     await t.run(async (ctx) => {
       await ctx.db.patch(created._id, {
         lifecycle: {
           state: "succeeded",
-          attempt: 1,
           startedAt: 20,
           completedAt: 21,
           result: {
@@ -648,9 +634,7 @@ describe("repository refresh demand ingest", () => {
 
     await asUser.mutation(
       api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-      {
-        trigger: "visibility",
-      },
+      {},
     );
 
     const requests = await listRefreshRequests(t);
@@ -673,9 +657,10 @@ describe("repository refresh demand ingest", () => {
     });
 
     await expect(
-      asUser.mutation(api.repositoryRefresh.enqueueDashboardRepositoryRefresh, {
-        trigger: "page_load",
-      }),
+      asUser.mutation(
+        api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
+        {},
+      ),
     ).resolves.toBeNull();
     await expect(listRefreshRequests(t)).resolves.toHaveLength(0);
   });
@@ -704,7 +689,6 @@ describe("repository refresh demand ingest", () => {
           scope: "repository",
           source: "source_setup",
           runId: ids.runId,
-          mode: "connect_existing_repository",
         },
         lifecycle: {
           state: "scheduled",
@@ -826,7 +810,7 @@ describe("repository refresh demand ingest", () => {
     });
   });
 
-  it("derives source setup mode from the provisioning run", async () => {
+  it("accepts create source setup demand from the provisioning run", async () => {
     const { ids, t } = await createConnectedVault();
     const createRunId = await t.run(async (ctx) => {
       return await ctx.db.insert("appProvisioningRuns", {
@@ -861,7 +845,6 @@ describe("repository refresh demand ingest", () => {
           scope: "repository",
           source: "source_setup",
           runId: createRunId,
-          mode: "create_repository",
         },
       },
     );

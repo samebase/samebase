@@ -69,8 +69,7 @@ const demandMatrix = {
       scope: "repository",
       source: "dashboard",
       expectedPriority: "background",
-      story:
-        "Dashboard opens or returns to the foreground and asks for vault-level freshness.",
+      story: "Dashboard becomes active and asks for vault-level freshness.",
       make: ({ ids }) => ({
         userId: ids.userId,
         vaultId: ids.vaultId,
@@ -78,11 +77,9 @@ const demandMatrix = {
         demand: {
           scope: "repository",
           source: "dashboard",
-          trigger: "page_load",
         },
       }),
-      expectedDedupeKey: ({ ids }) =>
-        `user:${ids.userId}:vault:${ids.vaultId}:repository`,
+      expectedDedupeKey: () => "repository",
     },
     manual: {
       scope: "repository",
@@ -97,11 +94,9 @@ const demandMatrix = {
         demand: {
           scope: "repository",
           source: "manual",
-          trigger: "dashboard_status_click",
         },
       }),
-      expectedDedupeKey: ({ ids }) =>
-        `user:${ids.userId}:vault:${ids.vaultId}:repository`,
+      expectedDedupeKey: () => "repository",
     },
     source_setup: {
       scope: "repository",
@@ -117,11 +112,9 @@ const demandMatrix = {
           scope: "repository",
           source: "source_setup",
           runId,
-          mode: "connect_existing_repository",
         },
       }),
-      expectedDedupeKey: ({ ids }) =>
-        `user:${ids.userId}:vault:${ids.vaultId}:repository`,
+      expectedDedupeKey: () => "repository",
     },
   },
   branch: {
@@ -130,7 +123,7 @@ const demandMatrix = {
       source: "file_view",
       expectedPriority: "normal",
       story:
-        "A file route opens or becomes visible and asks for the branch it is showing.",
+        "A file route becomes active and asks for the branch it is showing.",
       make: ({ ids }) => ({
         userId: ids.userId,
         vaultId: ids.vaultId,
@@ -139,11 +132,9 @@ const demandMatrix = {
           scope: "branch",
           branch: "main",
           source: "file_view",
-          trigger: "page_load",
         },
       }),
-      expectedDedupeKey: ({ ids }) =>
-        `user:${ids.userId}:vault:${ids.vaultId}:branch:main`,
+      expectedDedupeKey: () => "branch:main",
     },
     manual: {
       scope: "branch",
@@ -159,11 +150,9 @@ const demandMatrix = {
           scope: "branch",
           branch: "main",
           source: "manual",
-          trigger: "dashboard_status_click",
         },
       }),
-      expectedDedupeKey: ({ ids }) =>
-        `user:${ids.userId}:vault:${ids.vaultId}:branch:main`,
+      expectedDedupeKey: () => "branch:main",
     },
     commit: {
       scope: "branch",
@@ -181,8 +170,7 @@ const demandMatrix = {
           source: "commit",
         },
       }),
-      expectedDedupeKey: ({ ids }) =>
-        `user:${ids.userId}:vault:${ids.vaultId}:branch:main`,
+      expectedDedupeKey: () => "branch:main",
     },
     pull: {
       scope: "branch",
@@ -200,8 +188,7 @@ const demandMatrix = {
           source: "pull",
         },
       }),
-      expectedDedupeKey: ({ ids }) =>
-        `user:${ids.userId}:vault:${ids.vaultId}:branch:main`,
+      expectedDedupeKey: () => "branch:main",
     },
   },
 } satisfies DemandMatrix;
@@ -222,10 +209,8 @@ const scopeMatrix = {
       scope: "repository",
       source: "source_setup",
       runId,
-      mode: "connect_existing_repository",
     }),
-    expectedDedupeKey: (ids) =>
-      `user:${ids.userId}:vault:${ids.vaultId}:repository`,
+    expectedDedupeKey: () => "repository",
   },
   branch: {
     story:
@@ -234,10 +219,8 @@ const scopeMatrix = {
       scope: "branch",
       branch: "main",
       source: "file_view",
-      trigger: "page_load",
     }),
-    expectedDedupeKey: (ids) =>
-      `user:${ids.userId}:vault:${ids.vaultId}:branch:main`,
+    expectedDedupeKey: () => "branch:main",
   },
 } satisfies Record<RepositoryRefreshDemand["scope"], ScopeMatrixRow>;
 
@@ -259,14 +242,7 @@ const lifecycleMatrix = {
     }),
   },
   scheduled: {
-    fields: [
-      "attempt",
-      "notBefore",
-      "queuedAt",
-      "scheduledAt",
-      "state",
-      "workpoolJobId",
-    ],
+    fields: ["notBefore", "queuedAt", "scheduledAt", "state", "workpoolJobId"],
     story:
       "Scheduled work has a Workpool job id, but no running lease because worker code has not started.",
     makeLifecycle: () => ({
@@ -274,47 +250,37 @@ const lifecycleMatrix = {
       notBefore: 10,
       queuedAt: 10,
       scheduledAt: 11,
-      attempt: 1,
       workpoolJobId: "job-1",
     }),
   },
   running: {
-    fields: [
-      "attempt",
-      "leaseExpiresAt",
-      "startedAt",
-      "state",
-      "workpoolJobId",
-    ],
+    fields: ["leaseExpiresAt", "startedAt", "state", "workpoolJobId"],
     story:
       "Running work means worker code started and carries a lease so stale ownership can be detected.",
     makeLifecycle: () => ({
       state: "running",
-      attempt: 1,
       startedAt: 11,
       leaseExpiresAt: 191,
       workpoolJobId: "job-1",
     }),
   },
   succeeded: {
-    fields: ["attempt", "completedAt", "result", "startedAt", "state"],
+    fields: ["completedAt", "result", "startedAt", "state"],
     story:
       "Succeeded work keeps the worker timing plus the successful outcome only.",
     makeLifecycle: () => ({
       state: "succeeded",
-      attempt: 1,
       startedAt: 11,
       completedAt: 12,
-      result: { kind: "refreshed", refreshedAt: 12 },
+      result: { kind: "refreshed" },
     }),
   },
   failed: {
-    fields: ["attempt", "failedAt", "failure", "startedAt", "state"],
+    fields: ["failedAt", "failure", "startedAt", "state"],
     story:
       "Failed work keeps the worker timing plus the retry/cooldown failure only.",
     makeLifecycle: () => ({
       state: "failed",
-      attempt: 1,
       startedAt: 11,
       failedAt: 12,
       failure: {
@@ -407,13 +373,9 @@ describe("repository refresh model", () => {
       const demand = row.makeDemand(context);
 
       expect(demand.scope).toBe(scope);
-      expect(
-        deriveRepositoryRefreshDedupeKey({
-          userId: context.ids.userId,
-          vaultId: context.ids.vaultId,
-          demand,
-        }),
-      ).toBe(row.expectedDedupeKey(context.ids));
+      expect(deriveRepositoryRefreshDedupeKey(demand)).toBe(
+        row.expectedDedupeKey(),
+      );
     }
   });
 
@@ -435,18 +397,16 @@ describe("repository refresh model", () => {
       demand: {
         scope: "repository",
         source: "dashboard",
-        trigger: "page_load",
       },
     });
 
     expect(request).toMatchObject({
       userId: ids.userId,
       vaultId: ids.vaultId,
-      dedupeKey: `user:${ids.userId}:vault:${ids.vaultId}:repository`,
+      dedupeKey: "repository",
       demand: {
         scope: "repository",
         source: "dashboard",
-        trigger: "page_load",
       },
       lifecycle: {
         state: "queued",
@@ -477,17 +437,15 @@ describe("repository refresh model", () => {
         scope: "branch",
         branch: "main",
         source: "manual",
-        trigger: "dashboard_status_click",
       },
     });
 
     expect(request).toMatchObject({
-      dedupeKey: `user:${ids.userId}:vault:${ids.vaultId}:branch:main`,
+      dedupeKey: "branch:main",
       demand: {
         scope: "branch",
         branch: "main",
         source: "manual",
-        trigger: "dashboard_status_click",
       },
     });
 
@@ -525,7 +483,6 @@ describe("repository refresh model", () => {
         scope: "repository",
         source: "source_setup",
         runId,
-        mode: "connect_existing_repository",
       },
     });
 
@@ -534,7 +491,6 @@ describe("repository refresh model", () => {
       scope: "repository",
       source: "source_setup",
       runId,
-      mode: "connect_existing_repository",
     });
   });
 
@@ -547,12 +503,10 @@ describe("repository refresh model", () => {
       demand: {
         scope: "repository",
         source: "manual",
-        trigger: "dashboard_status_click",
       },
     });
     const scheduled = markRepositoryRefreshRequestScheduled(queued, {
       now: 11,
-      attempt: 1,
       workpoolJobId: "job-1",
     });
     const running = markRepositoryRefreshRequestRunning(scheduled, {
@@ -563,7 +517,6 @@ describe("repository refresh model", () => {
       now: 13,
       result: {
         kind: "refreshed",
-        refreshedAt: 13,
       },
     });
 
@@ -572,24 +525,20 @@ describe("repository refresh model", () => {
       notBefore: 10,
       queuedAt: 10,
       scheduledAt: 11,
-      attempt: 1,
       workpoolJobId: "job-1",
     });
     expect(running.lifecycle).toEqual({
       state: "running",
-      attempt: 1,
       startedAt: 12,
       leaseExpiresAt: 192,
       workpoolJobId: "job-1",
     });
     expect(succeeded.lifecycle).toEqual({
       state: "succeeded",
-      attempt: 1,
       startedAt: 12,
       completedAt: 13,
       result: {
         kind: "refreshed",
-        refreshedAt: 13,
       },
     });
   });
@@ -603,12 +552,10 @@ describe("repository refresh model", () => {
       demand: {
         scope: "repository",
         source: "dashboard",
-        trigger: "visibility",
       },
     });
     const scheduled = markRepositoryRefreshRequestScheduled(queued, {
       now: 11,
-      attempt: 1,
       workpoolJobId: "job-1",
     });
     const running = markRepositoryRefreshRequestRunning(scheduled, {
@@ -639,7 +586,6 @@ describe("repository refresh model", () => {
     expect(() =>
       markRepositoryRefreshRequestScheduled(failed, {
         now: 13,
-        attempt: 2,
         workpoolJobId: "job-2",
       }),
     ).toThrow("Only queued repository refresh requests can be scheduled.");
@@ -668,7 +614,6 @@ function _checkForbiddenDemandStates(
       scope: "branch",
       branch: "main",
       source: "dashboard",
-      trigger: "page_load",
     },
   });
 
@@ -682,7 +627,6 @@ function _checkForbiddenDemandStates(
       branch: "main",
       source: "source_setup",
       runId,
-      mode: "connect_existing_repository",
     },
   });
 
@@ -694,7 +638,6 @@ function _checkForbiddenDemandStates(
     demand: {
       scope: "repository",
       source: "file_view",
-      trigger: "page_load",
     },
   });
 
@@ -728,7 +671,6 @@ function _checkForbiddenDemandStates(
     demand: {
       scope: "repository",
       source: "source_setup",
-      mode: "connect_existing_repository",
     },
   });
 
@@ -739,7 +681,6 @@ function _checkForbiddenDemandStates(
     demand: {
       scope: "repository",
       source: "manual",
-      trigger: "dashboard_status_click",
       // @ts-expect-error repository demand has no branch field.
       branch: "main",
     },
@@ -752,7 +693,6 @@ function _checkForbiddenDemandStates(
     demand: {
       scope: "branch",
       source: "manual",
-      trigger: "dashboard_status_click",
       // @ts-expect-error branch demand requires branch instead of exact work.
       work: { kind: "branch_tree" },
     },
@@ -765,7 +705,56 @@ function _checkForbiddenDemandStates(
     demand: {
       scope: "repository",
       source: "dashboard",
+      // @ts-expect-error browser event mechanics collapse before durable demand.
       trigger: "page_load",
+    },
+  });
+
+  makeRepositoryRefreshRequest({
+    userId,
+    vaultId,
+    now: 1,
+    demand: {
+      scope: "branch",
+      branch: "main",
+      source: "file_view",
+      // @ts-expect-error browser event mechanics collapse before durable demand.
+      trigger: "visibility",
+    },
+  });
+
+  makeRepositoryRefreshRequest({
+    userId,
+    vaultId,
+    now: 1,
+    demand: {
+      scope: "repository",
+      source: "source_setup",
+      runId,
+      // @ts-expect-error source setup mode is run context, not request state.
+      mode: "connect_existing_repository",
+    },
+  });
+
+  makeRepositoryRefreshRequest({
+    userId,
+    vaultId,
+    now: 1,
+    demand: {
+      scope: "repository",
+      source: "manual",
+      // @ts-expect-error manual request state stores source only.
+      trigger: "dashboard_status_click",
+    },
+  });
+
+  makeRepositoryRefreshRequest({
+    userId,
+    vaultId,
+    now: 1,
+    demand: {
+      scope: "repository",
+      source: "dashboard",
     },
     // @ts-expect-error callers cannot provide priority because it is derived.
     priority: "system",
@@ -778,7 +767,6 @@ function _checkForbiddenDemandStates(
     demand: {
       scope: "repository",
       source: "dashboard",
-      trigger: "page_load",
     },
     // @ts-expect-error callers cannot choose provider/comment parsing.
     provider: "cloudflare_pages_comments",

@@ -450,9 +450,14 @@ export default defineSchema({
    * branch-scoped demand; exact refresh steps stay backend execution policy.
    */
   repositoryRefreshRequests: defineTable(vRepositoryRefreshRequest)
-    .index("by_userId_and_dedupeKey", ["userId", "dedupeKey"])
-    .index("by_userId_and_dedupeKey_and_lifecycle_state", [
+    .index("by_userId_and_vaultId_and_dedupeKey", [
       "userId",
+      "vaultId",
+      "dedupeKey",
+    ])
+    .index("by_userId_and_vaultId_and_dedupeKey_and_lifecycle_state", [
+      "userId",
+      "vaultId",
       "dedupeKey",
       "lifecycle.state",
     ])
