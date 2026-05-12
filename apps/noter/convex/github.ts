@@ -75,13 +75,12 @@ type TreeRefreshFailureDescriptor = {
   message: string;
   cooldownUntil: number;
 };
-const publicRefreshRepositoryTrigger = union(
-  literal("visibility"),
-  literal("page_load"),
+const publicRefreshRepositoryIntent = union(
+  literal("passive"),
   literal("manual"),
 );
-const refreshRepositoryTrigger = union(
-  publicRefreshRepositoryTrigger,
+const refreshRepositoryIntent = union(
+  publicRefreshRepositoryIntent,
   literal("source_setup"),
 );
 const refreshRepositoryTreeReason = union(
@@ -95,7 +94,7 @@ const refreshRepositoryTreeResult = object({
   reason: optional(refreshRepositoryTreeReason),
 });
 type RefreshRepositoryTreeResult = Infer<typeof refreshRepositoryTreeResult>;
-type RefreshRepositoryTrigger = Infer<typeof refreshRepositoryTrigger>;
+type RefreshRepositoryIntent = Infer<typeof refreshRepositoryIntent>;
 /**
  * Internal post-write refresh target.
  *
@@ -138,7 +137,7 @@ const refreshRepositoryTreeForUserInput = union(
     includePullRequestLinks: boolean(),
     includeCloudflarePreviewLinks: boolean(),
     cloudflarePreviewBranchNames: array(string()),
-    trigger: refreshRepositoryTrigger,
+    intent: refreshRepositoryIntent,
   }),
   object({
     scope: literal("branch"),
@@ -150,7 +149,7 @@ const refreshRepositoryTreeForUserInput = union(
     includePullRequestLinks: boolean(),
     includeCloudflarePreviewLinks: boolean(),
     cloudflarePreviewBranchNames: array(string()),
-    trigger: refreshRepositoryTrigger,
+    intent: refreshRepositoryIntent,
   }),
 );
 type RefreshRepositoryTreeForUserArgs = Infer<
@@ -396,24 +395,20 @@ export function shouldBypassRecentSuccessDebounceForBranchRefresh(args: {
 }
 
 export function shouldRefreshRepositoryMetadata(args: {
-  trigger: RefreshRepositoryTrigger;
+  intent: RefreshRepositoryIntent;
   requestedBranch?: string;
   branchNotFound: boolean;
   lastRepositoryMetadataRefreshAt?: number;
   includeCloudflarePreviewLinks: boolean;
   now?: number;
 }): boolean {
-  if (args.trigger === "manual") {
+  if (args.intent === "manual") {
     return true;
   }
 
-  // Entering the dashboard and finishing source setup should reconcile the
-  // repo-level branch/PR catalog once, even when cached metadata still falls
-  // inside the long stale window.
-  if (
-    (args.trigger === "page_load" || args.trigger === "source_setup") &&
-    args.requestedBranch === undefined
-  ) {
+  // Source setup should reconcile the repo-level branch/PR catalog once, even
+  // when cached metadata still falls inside the long stale window.
+  if (args.intent === "source_setup" && args.requestedBranch === undefined) {
     return true;
   }
 
@@ -438,7 +433,7 @@ export function shouldRefreshRepositoryMetadata(args: {
 }
 
 export function shouldRefreshBranchTree(args: {
-  trigger: RefreshRepositoryTrigger;
+  intent: RefreshRepositoryIntent;
   requestedBranch?: string;
   branchNotFound: boolean;
 }): boolean {
@@ -446,7 +441,7 @@ export function shouldRefreshBranchTree(args: {
     return false;
   }
 
-  if (args.trigger === "manual") {
+  if (args.intent === "manual") {
     return true;
   }
 
@@ -454,7 +449,7 @@ export function shouldRefreshBranchTree(args: {
     return true;
   }
 
-  return args.trigger === "page_load" || args.trigger === "source_setup";
+  return args.intent === "source_setup";
 }
 
 interface RepositoryRefreshPlan {
@@ -471,12 +466,12 @@ interface RepositoryTreeMetadataSyncPlan {
 }
 
 function shouldLimitAutomaticRepositoryMetadataEnrichment(args: {
-  trigger: RefreshRepositoryTrigger;
+  intent: RefreshRepositoryIntent;
   remoteBranchCount?: number;
 }): boolean {
   return (
-    args.trigger !== "manual" &&
-    args.trigger !== "source_setup" &&
+    args.intent !== "manual" &&
+    args.intent !== "source_setup" &&
     typeof args.remoteBranchCount === "number" &&
     args.remoteBranchCount > MAX_AUTO_REFRESH_BRANCH_ENRICHMENT_BRANCHES
   );
@@ -519,7 +514,7 @@ export function applyRepositoryTreeMetadataSyncBudget(args: {
   includeCloudflarePreviewLinks: boolean;
   cloudflarePreviewBranchNames: string[];
   includeLastCommitTimestamps: boolean;
-  trigger: RefreshRepositoryTrigger;
+  intent: RefreshRepositoryIntent;
   remoteBranchCount?: number;
 }): RepositoryTreeMetadataSyncPlan {
   if (!args.shouldSyncMetadata) {
@@ -534,7 +529,7 @@ export function applyRepositoryTreeMetadataSyncBudget(args: {
 
   if (
     !shouldLimitAutomaticRepositoryMetadataEnrichment({
-      trigger: args.trigger,
+      intent: args.intent,
       remoteBranchCount: args.remoteBranchCount,
     })
   ) {
@@ -567,7 +562,7 @@ export function applyRepositoryTreeMetadataSyncBudget(args: {
  * can converge when metadata changes branch existence or default-branch state.
  */
 export function computeRepositoryRefreshPlan(args: {
-  trigger: RefreshRepositoryTrigger;
+  intent: RefreshRepositoryIntent;
   requestedBranch?: string;
   branchNotFound: boolean;
   lastRepositoryMetadataRefreshAt?: number;
@@ -577,7 +572,7 @@ export function computeRepositoryRefreshPlan(args: {
   return {
     shouldSyncMetadata: shouldRefreshRepositoryMetadata(args),
     shouldRefreshTreeData: shouldRefreshBranchTree({
-      trigger: args.trigger,
+      intent: args.intent,
       requestedBranch: args.requestedBranch,
       branchNotFound: args.branchNotFound,
     }),
@@ -594,7 +589,7 @@ export function computeRepositoryTreeMetadataSyncPlan(args: {
   includePullRequestLinks: boolean;
   includeCloudflarePreviewLinks: boolean;
   cloudflarePreviewBranchNames: string[];
-  trigger: RefreshRepositoryTrigger;
+  intent: RefreshRepositoryIntent;
   remoteBranchCount?: number;
 }): RepositoryTreeMetadataSyncPlan {
   const isRepoScoped = args.targetBranch === undefined;
@@ -611,7 +606,7 @@ export function computeRepositoryTreeMetadataSyncPlan(args: {
     includeCloudflarePreviewLinks: args.includeCloudflarePreviewLinks,
     cloudflarePreviewBranchNames: args.cloudflarePreviewBranchNames,
     includeLastCommitTimestamps: shouldSyncMetadata,
-    trigger: args.trigger,
+    intent: args.intent,
     remoteBranchCount: args.remoteBranchCount,
   });
 }
@@ -845,7 +840,6 @@ const repositoryFileContentResult = union(
 );
 
 type RepositoryFileContent = Infer<typeof repositoryFileContentResult>;
-const PAGE_LOAD_REFRESH_DEBOUNCE_MS = 10 * 1000;
 const MAX_REPOSITORY_MEDIA_BYTES = 1_000_000;
 const REPOSITORY_MEDIA_TOO_LARGE_MESSAGE =
   "Preview unavailable for files larger than 1 MB.";
@@ -1669,7 +1663,7 @@ async function listRemoteBranches(args: {
   includeAheadBehind: boolean;
   includePullRequestLinks: boolean;
   includeLastCommitTimestamps: boolean;
-  trigger: RefreshRepositoryTrigger;
+  intent: RefreshRepositoryIntent;
 }): Promise<RemoteBranchSummary[]> {
   const repoResponse = await args.octokit.rest.repos.get({
     owner: args.owner,
@@ -1726,7 +1720,7 @@ async function listRemoteBranches(args: {
     includeCloudflarePreviewLinks: false,
     cloudflarePreviewBranchNames: [],
     includeLastCommitTimestamps: args.includeLastCommitTimestamps,
-    trigger: args.trigger,
+    intent: args.intent,
     remoteBranchCount: branches.length,
   });
   const baseBranch = resolveAheadBehindBaseBranch({
@@ -2308,7 +2302,7 @@ async function refreshRepositoryTreeForUserHelper(
   ctx: ActionCtx,
   args: RefreshRepositoryTreeForUserArgs,
 ): Promise<RefreshRepositoryTreeResult> {
-  const trigger = args.trigger;
+  const intent = args.intent;
   const requestedBranch =
     args.scope === "branch"
       ? normalizeRequiredRepositoryBranch(args.branch)
@@ -2331,7 +2325,7 @@ async function refreshRepositoryTreeForUserHelper(
   }
 
   let refreshPlan = computeRepositoryRefreshPlan({
-    trigger,
+    intent,
     requestedBranch,
     branchNotFound: vault.branchNotFound,
     lastRepositoryMetadataRefreshAt: vault.lastRepositoryMetadataRefreshAt,
@@ -2349,9 +2343,7 @@ async function refreshRepositoryTreeForUserHelper(
 
   const debounceMs = vault.branchNotFound
     ? MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS
-    : trigger === "page_load"
-      ? PAGE_LOAD_REFRESH_DEBOUNCE_MS
-      : undefined;
+    : undefined;
   const skipRecentSuccessDebounce =
     refreshPlan.shouldSyncMetadata ||
     shouldBypassRecentSuccessDebounceForBranchRefresh({
@@ -2390,7 +2382,7 @@ async function refreshRepositoryTreeForUserHelper(
     includePullRequestLinks: args.includePullRequestLinks,
     includeCloudflarePreviewLinks,
     cloudflarePreviewBranchNames: requestedCloudflarePreviewBranchNames,
-    trigger,
+    intent,
     remoteBranchCount: vault.remoteBranchCount,
   });
   try {
@@ -2407,7 +2399,7 @@ async function refreshRepositoryTreeForUserHelper(
         cloudflarePreviewBranchNames: requestedCloudflarePreviewBranchNames,
         includeLastCommitTimestamps:
           metadataSyncPlan.includeLastCommitTimestamps,
-        trigger,
+        intent,
       });
 
       const refreshedVault = await readVault(requestedBranch);
@@ -2416,7 +2408,7 @@ async function refreshRepositoryTreeForUserHelper(
       }
       vault = refreshedVault;
       refreshPlan = computeRepositoryRefreshPlan({
-        trigger,
+        intent,
         requestedBranch,
         branchNotFound: vault.branchNotFound,
         lastRepositoryMetadataRefreshAt: vault.lastRepositoryMetadataRefreshAt,
@@ -2453,7 +2445,7 @@ async function refreshRepositoryTreeForUserHelper(
       owner: args.owner,
       repo: args.repo,
       branch: requestedBranch,
-      trigger,
+      intent,
       didSyncMetadata,
       didRefreshTreeData,
       kind: refreshFailure.kind,
@@ -2508,7 +2500,7 @@ async function refreshRepositoryTreeForUserHelper(
 /**
  * Public branch refresh used by the file route.
  *
- * The browser identifies the vault, branch, and user-visible trigger. The
+ * The browser identifies the vault, branch, and user-visible intent. The
  * action checks `userId + vaultId`, derives owner/repo from the vault, then
  * applies the current file-view branch refresh policy. URL owner/repo strings
  * and GitHub metadata-depth choices are not trusted from React.
@@ -2517,7 +2509,7 @@ export const refreshRepositoryTree = action({
   args: {
     vaultId: id("vaults"),
     branch: string(),
-    trigger: publicRefreshRepositoryTrigger,
+    intent: publicRefreshRepositoryIntent,
   },
   returns: refreshRepositoryTreeResult,
   handler: async (ctx, args): Promise<RefreshRepositoryTreeResult> => {
@@ -2544,7 +2536,7 @@ export const refreshRepositoryTree = action({
       includePullRequestLinks: true,
       includeCloudflarePreviewLinks: false,
       cloudflarePreviewBranchNames: [],
-      trigger: args.trigger,
+      intent: args.intent,
     });
   },
 });
@@ -2582,7 +2574,7 @@ export const syncRepositoryMetadata = internalAction({
     includeCloudflarePreviewLinks: boolean(),
     cloudflarePreviewBranchNames: array(string()),
     includeLastCommitTimestamps: boolean(),
-    trigger: refreshRepositoryTrigger,
+    intent: refreshRepositoryIntent,
   },
   returns: nullValidator(),
   handler: async (ctx, args) => {
@@ -2626,7 +2618,7 @@ export const syncRepositoryMetadata = internalAction({
       includeAheadBehind: args.includeAheadBehind,
       includePullRequestLinks: args.includePullRequestLinks,
       includeLastCommitTimestamps: args.includeLastCommitTimestamps,
-      trigger: args.trigger,
+      intent: args.intent,
     });
     const effectiveSyncPlan = applyRepositoryTreeMetadataSyncBudget({
       shouldSyncMetadata: true,
@@ -2635,7 +2627,7 @@ export const syncRepositoryMetadata = internalAction({
       includeCloudflarePreviewLinks: args.includeCloudflarePreviewLinks,
       cloudflarePreviewBranchNames: requestedCloudflarePreviewBranchNames,
       includeLastCommitTimestamps: args.includeLastCommitTimestamps,
-      trigger: args.trigger,
+      intent: args.intent,
       remoteBranchCount: remoteBranches.length,
     });
     await ctx.runMutation(internal.vault.syncVaultRemoteBranches, {
@@ -2802,7 +2794,7 @@ export const updateRepositoryTree = internalAction({
       includePullRequestLinks: args.includePullRequestLinks,
       includeCloudflarePreviewLinks: args.includeCloudflarePreviewLinks,
       cloudflarePreviewBranchNames: requestedCloudflarePreviewBranchNames,
-      trigger: "manual",
+      intent: "manual",
     });
 
     if (metadataSyncPlan.shouldSyncMetadata) {
@@ -2817,7 +2809,7 @@ export const updateRepositoryTree = internalAction({
         cloudflarePreviewBranchNames: requestedCloudflarePreviewBranchNames,
         includeLastCommitTimestamps:
           metadataSyncPlan.includeLastCommitTimestamps,
-        trigger: "manual",
+        intent: "manual",
       });
     }
     let branchToRefresh = targetBranch;

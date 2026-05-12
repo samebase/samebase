@@ -8,43 +8,6 @@ const { id, literal, number, object, string, union } = v;
 // cooldown, fan-out, and Workpool scheduling.
 
 /**
- * Browser demand trigger.
- *
- * page_load = the route/surface opened.
- *
- * visibility = the browser document became visible again after being hidden or
- * backgrounded. It is about the browser tab, not repository visibility.
- */
-export const vRepositoryRefreshBrowserTrigger = union(
-  literal("page_load"),
-  literal("visibility"),
-);
-/**
- * Browser-origin trigger value stored on dashboard and file-view demand.
- * Use this when the caller can only say why the browser asked for freshness.
- */
-export type RepositoryRefreshBrowserTrigger = Infer<
-  typeof vRepositoryRefreshBrowserTrigger
->;
-
-/**
- * Dashboard status button.
- *
- * The click says "make this vault/branch fresh". It does not say whether to
- * fetch pull requests, ahead/behind counts, provider comments, or branch trees.
- */
-export const vRepositoryRefreshManualTrigger = literal(
-  "dashboard_status_click",
-);
-/**
- * Manual trigger value for the dashboard refresh control.
- * The current UI has one manual trigger; exact backend work stays derived.
- */
-export type RepositoryRefreshManualTrigger = Infer<
-  typeof vRepositoryRefreshManualTrigger
->;
-
-/**
  * Backend scheduling lane derived from demand source.
  *
  * background = passive dashboard freshness, safe to delay behind visible work.
@@ -86,11 +49,10 @@ export type RepositoryRefreshPriority = Infer<
 export const vDashboardRepositoryRefreshDemand = object({
   scope: literal("repository"),
   source: literal("dashboard"),
-  trigger: vRepositoryRefreshBrowserTrigger,
 });
 /**
- * Repository demand created by passive dashboard signals.
- * Example: dashboard page load asks the backend to make vault metadata fresh.
+ * Repository demand created by passive dashboard activation.
+ * Route load, visibility resume, and window focus all collapse before Convex.
  */
 export type DashboardRepositoryRefreshDemand = Infer<
   typeof vDashboardRepositoryRefreshDemand
@@ -106,10 +68,9 @@ export type DashboardRepositoryRefreshDemand = Infer<
 export const vManualRepositoryRefreshDemand = object({
   scope: literal("repository"),
   source: literal("manual"),
-  trigger: vRepositoryRefreshManualTrigger,
 });
 /**
- * Repository demand created by an explicit dashboard status click.
+ * Repository demand created by an explicit dashboard refresh action.
  * It upgrades passive dashboard demand because the user requested it directly.
  */
 export type ManualRepositoryRefreshDemand = Infer<
@@ -127,14 +88,10 @@ export const vSourceSetupRepositoryRefreshDemand = object({
   scope: literal("repository"),
   source: literal("source_setup"),
   runId: id("appProvisioningRuns"),
-  mode: union(
-    literal("create_repository"),
-    literal("connect_existing_repository"),
-  ),
 });
 /**
  * Repository demand created by backend setup completion.
- * The run id and mode are audit context, not caller-selected refresh depth.
+ * The run id is audit context, not caller-selected refresh depth.
  */
 export type SourceSetupRepositoryRefreshDemand = Infer<
   typeof vSourceSetupRepositoryRefreshDemand
@@ -150,10 +107,9 @@ export const vFileViewBranchRefreshDemand = object({
   scope: literal("branch"),
   branch: string(),
   source: literal("file_view"),
-  trigger: vRepositoryRefreshBrowserTrigger,
 });
 /**
- * Branch demand created by opening or resuming a file route.
+ * Branch demand created by file-route activation.
  * The branch is required because file freshness is branch-specific.
  */
 export type FileViewBranchRefreshDemand = Infer<
@@ -170,7 +126,6 @@ export const vManualBranchRefreshDemand = object({
   scope: literal("branch"),
   branch: string(),
   source: literal("manual"),
-  trigger: vRepositoryRefreshManualTrigger,
 });
 /**
  * Branch demand created by a direct branch refresh click.
@@ -286,11 +241,10 @@ export const vRepositoryRefreshResult = union(
   }),
   object({
     kind: literal("refreshed"),
-    refreshedAt: number(),
   }),
 );
 /**
- * Terminal success payload for a completed worker attempt.
+ * Terminal success payload for completed worker work.
  */
 export type RepositoryRefreshResult = Infer<typeof vRepositoryRefreshResult>;
 
@@ -322,14 +276,14 @@ export type RepositoryRefreshFailure = Infer<typeof vRepositoryRefreshFailure>;
  *
  * superseded = a newer deduped row replaced this row.
  *
- * workpool_canceled = the Workpool component canceled the pending/running job.
+ * worker_canceled = the worker infrastructure canceled pending/running work.
  *
  * vault_deleting/vault_deleted = worker started after the vault became unsafe
  * to refresh.
  */
 export const vRepositoryRefreshCancelReason = union(
   literal("superseded"),
-  literal("workpool_canceled"),
+  literal("worker_canceled"),
   literal("vault_deleting"),
   literal("vault_deleted"),
 );
@@ -365,26 +319,22 @@ export const vRepositoryRefreshLifecycle = union(
     notBefore: number(),
     queuedAt: number(),
     scheduledAt: number(),
-    attempt: number(),
     workpoolJobId: string(),
   }),
   object({
     state: literal("running"),
-    attempt: number(),
     startedAt: number(),
     leaseExpiresAt: number(),
     workpoolJobId: string(),
   }),
   object({
     state: literal("succeeded"),
-    attempt: number(),
     startedAt: number(),
     completedAt: number(),
     result: vRepositoryRefreshResult,
   }),
   object({
     state: literal("failed"),
-    attempt: number(),
     startedAt: number(),
     failedAt: number(),
     failure: vRepositoryRefreshFailure,
@@ -508,7 +458,7 @@ export type MakeRepositoryRefreshRequestArgs = {
 // MARK: Scheduling
 // Scheduling helpers turn domain state into queue mechanics.
 // Priority maps demand source to a backend lane without being duplicated into
-// the row. dedupeKey collapses repeated demand for the same user/vault/scope.
+// the row. dedupeKey collapses repeated demand for the same repository scope.
 
 /**
  * Derives the scheduler lane from demand source.
@@ -577,20 +527,17 @@ export function isRepositoryRefreshPriorityStronger(args: {
  * Builds the stable key used to find an active queued/running request.
  * Repository demand ignores source; branch demand includes the branch name.
  */
-export function deriveRepositoryRefreshDedupeKey(args: {
-  userId: RepositoryRefreshRequest["userId"];
-  vaultId: RepositoryRefreshRequest["vaultId"];
-  demand: RepositoryRefreshDemand;
-}): string {
-  const prefix = `user:${args.userId}:vault:${args.vaultId}`;
-  switch (args.demand.scope) {
+export function deriveRepositoryRefreshDedupeKey(
+  demand: RepositoryRefreshDemand,
+): string {
+  switch (demand.scope) {
     case "repository":
-      return `${prefix}:repository`;
+      return "repository";
     case "branch":
-      return `${prefix}:branch:${args.demand.branch}`;
+      return `branch:${demand.branch}`;
     default: {
-      args.demand satisfies never;
-      return prefix;
+      demand satisfies never;
+      return "repository";
     }
   }
 }
@@ -610,7 +557,7 @@ export function makeRepositoryRefreshRequest(
   return {
     userId: args.userId,
     vaultId: args.vaultId,
-    dedupeKey: deriveRepositoryRefreshDedupeKey(args),
+    dedupeKey: deriveRepositoryRefreshDedupeKey(args.demand),
     demand: args.demand,
     lifecycle: {
       state: "queued",
@@ -682,12 +629,6 @@ export function upgradeScheduledRepositoryRefreshRequest(
 // Each transition checks the current state before returning the next row shape,
 // which keeps invalid moves such as succeeded -> failed out of callers.
 
-function assertPositiveAttempt(attempt: number): void {
-  if (attempt < 1) {
-    throw new Error("Repository refresh attempt must be positive.");
-  }
-}
-
 /**
  * Records that a queued repository request now has a Workpool job.
  * No lease is stored here. A queued row can sit inside Workpool before worker
@@ -698,7 +639,6 @@ export function markRepositoryRefreshRequestScheduled(
   request: RepositoryRefreshRequest,
   args: {
     now: number;
-    attempt: number;
     workpoolJobId: string;
   },
 ): RepositoryRefreshRequest {
@@ -707,7 +647,6 @@ export function markRepositoryRefreshRequestScheduled(
       "Only queued repository refresh requests can be scheduled.",
     );
   }
-  assertPositiveAttempt(args.attempt);
   return {
     ...request,
     lifecycle: {
@@ -715,7 +654,6 @@ export function markRepositoryRefreshRequestScheduled(
       notBefore: request.lifecycle.notBefore,
       queuedAt: request.lifecycle.queuedAt,
       scheduledAt: args.now,
-      attempt: args.attempt,
       workpoolJobId: args.workpoolJobId,
     },
     updatedAt: args.now,
@@ -724,8 +662,8 @@ export function markRepositoryRefreshRequestScheduled(
 
 /**
  * Moves a scheduled request into running state when worker code starts.
- * The Workpool job id and attempt are already known from `scheduled`; this
- * transition adds `startedAt` and `leaseExpiresAt`, the actual ownership timer.
+ * The Workpool job id is already known from `scheduled`; this transition adds
+ * `startedAt` and `leaseExpiresAt`, the actual ownership timer.
  */
 export function markRepositoryRefreshRequestRunning(
   request: RepositoryRefreshRequest,
@@ -741,7 +679,6 @@ export function markRepositoryRefreshRequestRunning(
     ...request,
     lifecycle: {
       state: "running",
-      attempt: request.lifecycle.attempt,
       startedAt: args.now,
       leaseExpiresAt: args.leaseExpiresAt,
       workpoolJobId: request.lifecycle.workpoolJobId,
@@ -752,7 +689,7 @@ export function markRepositoryRefreshRequestRunning(
 
 /**
  * Marks a running request as completed successfully.
- * Preserves attempt/start time from the running lifecycle state.
+ * Preserves start time from the running lifecycle state.
  */
 export function markRepositoryRefreshRequestSucceeded(
   request: RepositoryRefreshRequest,
@@ -768,7 +705,6 @@ export function markRepositoryRefreshRequestSucceeded(
     ...request,
     lifecycle: {
       state: "succeeded",
-      attempt: request.lifecycle.attempt,
       startedAt: request.lifecycle.startedAt,
       completedAt: args.now,
       result: args.result,
@@ -806,7 +742,6 @@ export function markRepositoryRefreshRequestFailed(
     ...request,
     lifecycle: {
       state: "failed",
-      attempt: request.lifecycle.attempt,
       startedAt,
       failedAt: args.now,
       failure: args.failure,

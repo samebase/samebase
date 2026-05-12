@@ -3,17 +3,17 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { useMutation } from "convex/react";
 import { useCallback, useEffect, useRef } from "react";
 
-type DashboardRepositoryRefreshTrigger =
-  (typeof api.repositoryRefresh.enqueueDashboardRepositoryRefresh)["_args"]["trigger"];
+const DASHBOARD_REFRESH_DEMAND_EVENT_GUARD_MS = 1000;
 
 /**
  * Sends dashboard freshness demand to Convex.
  *
- * React only reports that the dashboard loaded, became visible, or that the
- * user clicked one vault's refresh status. Convex decides which vaults exist,
- * coalesces duplicate demand, and schedules Workpool jobs. This hook does not
- * accept the dashboard vault list, and manual clicks pass only a vault id,
- * because vault selection and ready/deleting validation are backend policy.
+ * React only reports that the dashboard surface became active. Route load,
+ * visibility resume, and window focus are the same demand here. Convex decides
+ * which vaults exist, coalesces duplicate demand, and schedules Workpool jobs.
+ * This hook does not accept the dashboard vault list, and manual clicks pass
+ * only a vault id, because vault selection and ready/deleting validation are
+ * backend policy.
  */
 export function useDashboardRepositoryRefreshDemand() {
   const enqueueDashboardRepositoryRefreshMutation = useMutation(
@@ -22,29 +22,37 @@ export function useDashboardRepositoryRefreshDemand() {
   const enqueueManualRepositoryRefreshMutation = useMutation(
     api.repositoryRefresh.enqueueManualRepositoryRefresh,
   );
-  const initialDashboardPageLoadSentRef = useRef(false);
+  const initialDashboardDemandSentRef = useRef(false);
+  const lastDashboardDemandAtRef = useRef(0);
 
   useEffect(() => {
-    const enqueueDashboardDemand = (
-      trigger: DashboardRepositoryRefreshTrigger,
-    ) => {
-      // Route-level signal only. Convex owns vault selection and continuation.
-      void enqueueDashboardRepositoryRefreshMutation({
-        trigger,
-      }).catch((error: unknown) => {
-        console.error(
-          "Failed to enqueue repository refresh demand from dashboard:",
-          error,
-        );
-      });
-    };
-
-    const triggerInitialPageLoad = () => {
-      if (initialDashboardPageLoadSentRef.current) {
+    const enqueueDashboardDemand = () => {
+      const now = Date.now();
+      if (
+        now - lastDashboardDemandAtRef.current <
+        DASHBOARD_REFRESH_DEMAND_EVENT_GUARD_MS
+      ) {
         return;
       }
-      initialDashboardPageLoadSentRef.current = true;
-      enqueueDashboardDemand("page_load");
+      lastDashboardDemandAtRef.current = now;
+
+      // Surface-level signal only. Convex owns vault selection and continuation.
+      void enqueueDashboardRepositoryRefreshMutation().catch(
+        (error: unknown) => {
+          console.error(
+            "Failed to enqueue repository refresh demand from dashboard:",
+            error,
+          );
+        },
+      );
+    };
+
+    const enqueueInitialDashboardDemand = () => {
+      if (initialDashboardDemandSentRef.current) {
+        return;
+      }
+      initialDashboardDemandSentRef.current = true;
+      enqueueDashboardDemand();
     };
 
     const handleVisibilityChange = () => {
@@ -52,22 +60,37 @@ export function useDashboardRepositoryRefreshDemand() {
         return;
       }
 
-      if (!initialDashboardPageLoadSentRef.current) {
-        triggerInitialPageLoad();
+      if (!initialDashboardDemandSentRef.current) {
+        enqueueInitialDashboardDemand();
         return;
       }
 
-      enqueueDashboardDemand("visibility");
+      enqueueDashboardDemand();
+    };
+
+    const handleFocus = () => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+
+      if (!initialDashboardDemandSentRef.current) {
+        enqueueInitialDashboardDemand();
+        return;
+      }
+
+      enqueueDashboardDemand();
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
 
     if (document.visibilityState === "visible") {
-      triggerInitialPageLoad();
+      enqueueInitialDashboardDemand();
     }
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
     };
   }, [enqueueDashboardRepositoryRefreshMutation]);
 

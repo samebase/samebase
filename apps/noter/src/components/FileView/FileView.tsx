@@ -112,9 +112,9 @@ import {
   type StagedFileRecord,
 } from "./fileViewShared";
 
-type FileViewAutoRefreshTrigger = Extract<
-  (typeof api.github.refreshRepositoryTree)["_args"]["trigger"],
-  "visibility" | "page_load"
+type FileViewAutoRefreshIntent = Extract<
+  (typeof api.github.refreshRepositoryTree)["_args"]["intent"],
+  "passive"
 >;
 
 function FileViewWrapper() {
@@ -409,7 +409,7 @@ function FileViewWrapper() {
   ]);
 
   const refreshTreeIfNeeded = useCallback(
-    (trigger: FileViewAutoRefreshTrigger = "visibility") => {
+    (intent: FileViewAutoRefreshIntent = "passive") => {
       if (
         !vaultId ||
         !owner ||
@@ -425,7 +425,7 @@ function FileViewWrapper() {
       void refreshTree({
         vaultId,
         branch,
-        trigger,
+        intent,
       }).catch((error: unknown) => {
         console.error("Failed to refresh repository tree:", error);
       });
@@ -441,27 +441,35 @@ function FileViewWrapper() {
   );
 
   /**
-   * Refresh the active branch when the tab becomes visible again, plus one
-   * initial sync if the vault loads while the tab is already active.
+   * Refresh the active branch when the file route becomes active. Route load,
+   * visibility resume, and window focus are the same passive demand.
    */
   useEffect(() => {
     if (!vaultId || !owner || !repoName) return;
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        refreshTreeIfNeeded("visibility");
+        refreshTreeIfNeeded();
+      }
+    };
+
+    const handleFocus = () => {
+      if (document.visibilityState === "visible") {
+        refreshTreeIfNeeded();
       }
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
 
     // Initial sync when the vault loads while this tab is already active.
     if (document.visibilityState === "visible") {
-      refreshTreeIfNeeded("page_load");
+      refreshTreeIfNeeded();
     }
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
     };
   }, [vaultId, owner, repoName, refreshTreeIfNeeded]);
 
@@ -1714,7 +1722,7 @@ function FileViewInner({
         const refreshResult = await refreshRepositoryTree({
           vaultId: vault._id,
           branch: args.nextBranch,
-          trigger: "manual",
+          intent: "manual",
         });
         didHydrateNextBranch = refreshResult.refreshed;
         if (!refreshResult.refreshed) {

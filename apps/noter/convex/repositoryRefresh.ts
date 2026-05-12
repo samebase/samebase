@@ -27,12 +27,10 @@ import {
   upgradeQueuedRepositoryRefreshRequest,
   vEnqueueRepositoryRefreshResult,
   vRepositoryRefreshCancelReason,
-  vRepositoryRefreshBrowserTrigger,
   vRepositoryRefreshFailure,
   vRepositoryRefreshResult,
   vRepositoryScopeRefreshDemand,
   type EnqueueRepositoryRefreshResult,
-  type RepositoryRefreshBrowserTrigger,
   type RepositoryRefreshCancelReason,
   type RepositoryRefreshDemand,
   type RepositoryRefreshFailure,
@@ -56,10 +54,7 @@ const repositoryRefreshWorkpool = new Workpool(
 );
 const REPOSITORY_REFRESH_RUNNING_LEASE_MS = 15 * 60 * 1000;
 
-type RepositoryRefreshWorkerTrigger =
-  | RepositoryRefreshBrowserTrigger
-  | "source_setup"
-  | "manual";
+type RepositoryRefreshWorkerIntent = "passive" | "source_setup" | "manual";
 
 const repositoryRefreshWorkpoolContext = object({
   requestId: id("repositoryRefreshRequests"),
@@ -96,20 +91,6 @@ const repositoryRefreshWorkerInput = union(
 
 type RepositoryRefreshWorkerInput = Infer<typeof repositoryRefreshWorkerInput>;
 
-/**
- * Source setup mode stored on demand rows.
- * This is derived from `appProvisioningRuns.trigger`, never accepted from a
- * caller, so setup retries cannot invent a different original setup mode.
- */
-const vSourceSetupRepositoryRefreshMode = union(
-  literal("create_repository"),
-  literal("connect_existing_repository"),
-);
-
-type SourceSetupRepositoryRefreshMode = Infer<
-  typeof vSourceSetupRepositoryRefreshMode
->;
-
 type EnqueueRepositoryRefreshArgs = {
   userId: Id<"users">;
   vaultId: Id<"vaults">;
@@ -140,28 +121,28 @@ function makeRepositoryRefreshProviderFailure(args: {
 }
 
 /**
- * Maps durable repository demand onto the GitHub refresh trigger.
+ * Maps durable repository demand onto the GitHub refresh intent.
  *
- * dashboard = passive browser freshness, so large repos stay on the cheap path
+ * dashboard = passive surface activation, so large repos stay on the cheap path
  *
  * manual = explicit user click, so the GitHub policy can run fuller work
  *
  * source_setup = one-time create/connect finish, so new vaults can hydrate
  * branch/PR/provider-link state without React sending branch batches
  */
-function getRepositoryRefreshWorkerTrigger(
+function getRepositoryRefreshWorkerIntent(
   demand: RepositoryScopeRefreshDemand,
-): RepositoryRefreshWorkerTrigger {
+): RepositoryRefreshWorkerIntent {
   switch (demand.source) {
     case "dashboard":
-      return demand.trigger;
+      return "passive";
     case "manual":
       return "manual";
     case "source_setup":
       return "source_setup";
     default: {
       demand satisfies never;
-      return "page_load";
+      return "passive";
     }
   }
 }
@@ -191,7 +172,6 @@ function toRepositoryRefreshResult(args: {
 
   return {
     kind: "refreshed",
-    refreshedAt: Date.now(),
   };
 }
 
@@ -269,7 +249,6 @@ async function enqueueDashboardRepositoryRefreshPageForUser(
   ctx: MutationCtx,
   args: {
     userId: Id<"users">;
-    trigger: RepositoryRefreshBrowserTrigger;
     cursor: string | null;
   },
 ): Promise<void> {
@@ -284,7 +263,6 @@ async function enqueueDashboardRepositoryRefreshPageForUser(
       demand: {
         scope: "repository",
         source: "dashboard",
-        trigger: args.trigger,
       },
     });
   }
@@ -298,25 +276,22 @@ async function enqueueDashboardRepositoryRefreshPageForUser(
     internal.repositoryRefresh.enqueueDashboardRepositoryRefreshPage,
     {
       userId: args.userId,
-      trigger: args.trigger,
       cursor: page.continueCursor,
     },
   );
 }
 
 /**
- * Converts the completed setup run into the durable source_setup mode.
- * Retry runs are rejected because the original create/connect run defines the
- * setup meaning.
+ * Accepts completed create/connect setup runs only.
+ * Retry runs are rejected because retries are not original source setup demand.
  */
-function getSourceSetupRepositoryRefreshMode(
+function assertSourceSetupRepositoryRefreshRun(
   run: Doc<"appProvisioningRuns">,
-): SourceSetupRepositoryRefreshMode {
+): void {
   switch (run.trigger) {
     case "create":
-      return "create_repository";
     case "connect_existing_repository":
-      return "connect_existing_repository";
+      return;
     case "retry":
       throw new Error("Retry run is not source setup refresh demand.");
     default: {
@@ -328,7 +303,7 @@ function getSourceSetupRepositoryRefreshMode(
 
 /**
  * Only stronger demand rewrites an active queued/scheduled row.
- * Equal priority coalesces so repeated dashboard visibility signals do not
+ * Equal priority coalesces so repeated dashboard activation signals do not
  * churn `updatedAt` or reschedule Workpool work.
  */
 function shouldUpgradeRepositoryRefreshDemand(args: {
@@ -350,15 +325,17 @@ async function getActiveRepositoryRefreshRequestForState(
   ctx: MutationCtx,
   args: {
     userId: Id<"users">;
+    vaultId: Id<"vaults">;
     dedupeKey: string;
     state: ActiveRepositoryRefreshState;
   },
 ): Promise<Doc<"repositoryRefreshRequests"> | null> {
   return await ctx.db
     .query("repositoryRefreshRequests")
-    .withIndex("by_userId_and_dedupeKey_and_lifecycle_state", (q) =>
+    .withIndex("by_userId_and_vaultId_and_dedupeKey_and_lifecycle_state", (q) =>
       q
         .eq("userId", args.userId)
+        .eq("vaultId", args.vaultId)
         .eq("dedupeKey", args.dedupeKey)
         .eq("lifecycle.state", args.state),
     )
@@ -367,14 +344,15 @@ async function getActiveRepositoryRefreshRequestForState(
 }
 
 /**
- * One active row should exist per user + dedupe key. Running rows only win
- * while their Workpool lease is still valid; scheduled rows win over unscheduled
- * queued demand because a Workpool job already exists.
+ * One active row should exist per user + vault + dedupe key. Running rows only
+ * win while their Workpool lease is still valid; scheduled rows win over
+ * unscheduled queued demand because a Workpool job already exists.
  */
 async function getActiveRepositoryRefreshRequest(
   ctx: MutationCtx,
   args: {
     userId: Id<"users">;
+    vaultId: Id<"vaults">;
     dedupeKey: string;
     now: number;
   },
@@ -413,8 +391,9 @@ async function getActiveRepositoryRefreshRequest(
  * Shared demand-ingest helper for all current entry points.
  *
  * It owns the invariant that there is at most one useful active row per
- * `userId + dedupeKey`: running rows are reused, queued/scheduled rows upgrade
- * only for stronger demand, and terminal rows are treated as history.
+ * `userId + vaultId + dedupeKey`: running rows are reused, queued/scheduled
+ * rows upgrade only for stronger demand, and terminal rows are treated as
+ * history.
  */
 async function enqueueRepositoryRefresh(
   ctx: MutationCtx,
@@ -438,9 +417,10 @@ async function enqueueRepositoryRefresh(
   }
 
   const now = Date.now();
-  const dedupeKey = deriveRepositoryRefreshDedupeKey(args);
+  const dedupeKey = deriveRepositoryRefreshDedupeKey(args.demand);
   const activeRequest = await getActiveRepositoryRefreshRequest(ctx, {
     userId: args.userId,
+    vaultId: args.vaultId,
     dedupeKey,
     now,
   });
@@ -566,7 +546,6 @@ async function scheduleQueuedRepositoryRefreshRequest(
   );
   const scheduled = markRepositoryRefreshRequestScheduled(request, {
     now,
-    attempt: 1,
     workpoolJobId,
   });
   await ctx.db.patch(request._id, {
@@ -667,7 +646,7 @@ export const startRepositoryRefreshRequest = internalMutation({
 });
 
 /**
- * Extends the running lease from inside a worker attempt.
+ * Extends the running lease from inside worker execution.
  * If another path already made the row terminal, this becomes a no-op.
  */
 export const refreshRepositoryRefreshRequestLease = internalMutation({
@@ -886,7 +865,7 @@ export const handleRepositoryRefreshComplete = internalMutation({
         await finishActiveRepositoryRefreshRequestCanceled(ctx, {
           requestId: args.context.requestId,
           workpoolJobId: args.workId,
-          reason: "workpool_canceled",
+          reason: "worker_canceled",
         });
         return null;
       default: {
@@ -901,7 +880,7 @@ export const handleRepositoryRefreshComplete = internalMutation({
  * Workpool action for repository-scoped demand.
  *
  * It re-checks live vault state, lets backend policy choose the existing GitHub
- * refresh trigger, and records a terminal request lifecycle. Branch demand is
+ * refresh intent, and records a terminal request lifecycle. Branch demand is
  * intentionally not executed here.
  */
 export const runRepositoryRefreshRequest = internalAction({
@@ -972,7 +951,7 @@ export const runRepositoryRefreshRequest = internalAction({
             input.demand,
           ),
           cloudflarePreviewBranchNames: [],
-          trigger: getRepositoryRefreshWorkerTrigger(input.demand),
+          intent: getRepositoryRefreshWorkerIntent(input.demand),
         },
       });
       const result = toRepositoryRefreshResult(refreshResult);
@@ -1005,15 +984,14 @@ export const runRepositoryRefreshRequest = internalAction({
 /**
  * Public dashboard auto-refresh signal.
  *
- * The browser passes only `trigger`. Convex owns eligible vault selection and
- * internal continuation so React never batches, loops, or sends vault ids.
+ * The browser sends one surface-activation demand. Convex owns eligible vault
+ * selection and internal continuation so React never batches, loops, sends
+ * vault ids, or persists browser event mechanics.
  */
 export const enqueueDashboardRepositoryRefresh = mutation({
-  args: object({
-    trigger: vRepositoryRefreshBrowserTrigger,
-  }),
+  args: object({}),
   returns: vNull(),
-  handler: async (ctx, args): Promise<null> => {
+  handler: async (ctx): Promise<null> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       throw new Error("User not authenticated");
@@ -1021,7 +999,6 @@ export const enqueueDashboardRepositoryRefresh = mutation({
 
     await enqueueDashboardRepositoryRefreshPageForUser(ctx, {
       userId,
-      trigger: args.trigger,
       cursor: null,
     });
     return null;
@@ -1037,7 +1014,6 @@ export const enqueueDashboardRepositoryRefresh = mutation({
 export const enqueueDashboardRepositoryRefreshPage = internalMutation({
   args: object({
     userId: id("users"),
-    trigger: vRepositoryRefreshBrowserTrigger,
     cursor: union(string(), vNull()),
   }),
   returns: vNull(),
@@ -1071,7 +1047,6 @@ export const enqueueManualRepositoryRefresh = mutation({
       demand: {
         scope: "repository",
         source: "manual",
-        trigger: "dashboard_status_click",
       },
     });
   },
@@ -1081,9 +1056,9 @@ export const enqueueManualRepositoryRefresh = mutation({
  * Internal setup-completion refresh demand.
  *
  * Called after repository create/connect workflow actions finish. It verifies
- * that the provisioning run belongs to the provided user/vault, derives
- * create-vs-connect mode from that run, then enqueues repository-level demand
- * so branch discovery can happen without a dashboard reload.
+ * that the provisioning run belongs to the provided user/vault, then enqueues
+ * repository-level demand so branch discovery can happen without a dashboard
+ * reload.
  */
 export const enqueueSourceSetupRepositoryRefresh = internalMutation({
   args: object({
@@ -1101,7 +1076,7 @@ export const enqueueSourceSetupRepositoryRefresh = internalMutation({
       throw new Error("Source setup run has not succeeded.");
     }
 
-    const mode = getSourceSetupRepositoryRefreshMode(run);
+    assertSourceSetupRepositoryRefreshRun(run);
     return await enqueueAndScheduleRepositoryRefresh(ctx, {
       userId: args.userId,
       vaultId: args.vaultId,
@@ -1109,7 +1084,6 @@ export const enqueueSourceSetupRepositoryRefresh = internalMutation({
         scope: "repository",
         source: "source_setup",
         runId: args.runId,
-        mode,
       },
     });
   },
@@ -1185,7 +1159,6 @@ export const completeExistingRepositoryConnectionAndEnqueueRefresh =
           scope: "repository",
           source: "source_setup",
           runId: args.runId,
-          mode: "connect_existing_repository",
         },
       });
       if (result.kind === "blocked") {

@@ -26,7 +26,7 @@ const repositoryMetadataSyncRequest = {
   includePullRequestLinks: false,
   includeCloudflarePreviewLinks: false,
   cloudflarePreviewBranchNames: [],
-  trigger: "manual",
+  intent: "manual",
 } satisfies Parameters<typeof computeRepositoryTreeMetadataSyncPlan>[0];
 
 describe("normalizeGitHubRepositoryListItem", () => {
@@ -431,10 +431,10 @@ describe("resolveStagedRepositoryMediaAsset", () => {
 describe("shouldRefreshRepositoryMetadata", () => {
   const now = Date.parse("2026-03-27T12:00:00Z");
 
-  it("refreshes metadata on manual triggers", () => {
+  it("refreshes metadata on manual intent", () => {
     expect(
       shouldRefreshRepositoryMetadata({
-        trigger: "manual",
+        intent: "manual",
         branchNotFound: false,
         includeCloudflarePreviewLinks: false,
         now,
@@ -445,17 +445,7 @@ describe("shouldRefreshRepositoryMetadata", () => {
   it("keeps branch file views on the tree-only path while repo metadata is fresh", () => {
     expect(
       shouldRefreshRepositoryMetadata({
-        trigger: "page_load",
-        requestedBranch: "feature/login",
-        branchNotFound: false,
-        includeCloudflarePreviewLinks: false,
-        lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
-        now,
-      }),
-    ).toBe(false);
-    expect(
-      shouldRefreshRepositoryMetadata({
-        trigger: "visibility",
+        intent: "passive",
         requestedBranch: "feature/login",
         branchNotFound: false,
         includeCloudflarePreviewLinks: false,
@@ -465,22 +455,22 @@ describe("shouldRefreshRepositoryMetadata", () => {
     ).toBe(false);
   });
 
-  it("refreshes repo-scoped page loads even when cached metadata is fresh", () => {
+  it("keeps passive repository metadata stale-gated", () => {
     expect(
       shouldRefreshRepositoryMetadata({
-        trigger: "page_load",
+        intent: "passive",
         branchNotFound: false,
         includeCloudflarePreviewLinks: false,
         lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
         now,
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("refreshes repo-scoped source setup even when cached metadata is fresh", () => {
     expect(
       shouldRefreshRepositoryMetadata({
-        trigger: "source_setup",
+        intent: "source_setup",
         branchNotFound: false,
         includeCloudflarePreviewLinks: true,
         lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
@@ -492,7 +482,7 @@ describe("shouldRefreshRepositoryMetadata", () => {
   it("refreshes stale repo metadata from branch-scoped views", () => {
     expect(
       shouldRefreshRepositoryMetadata({
-        trigger: "visibility",
+        intent: "passive",
         requestedBranch: "feature/login",
         branchNotFound: false,
         includeCloudflarePreviewLinks: false,
@@ -502,10 +492,10 @@ describe("shouldRefreshRepositoryMetadata", () => {
     ).toBe(true);
   });
 
-  it("refreshes stale dashboard metadata on visibility", () => {
+  it("refreshes stale dashboard metadata on passive activation", () => {
     expect(
       shouldRefreshRepositoryMetadata({
-        trigger: "visibility",
+        intent: "passive",
         branchNotFound: false,
         includeCloudflarePreviewLinks: false,
         lastRepositoryMetadataRefreshAt: now - 11 * 60 * 1000,
@@ -517,7 +507,7 @@ describe("shouldRefreshRepositoryMetadata", () => {
   it("rechecks missing branches only after the missing-branch debounce expires", () => {
     expect(
       shouldRefreshRepositoryMetadata({
-        trigger: "visibility",
+        intent: "passive",
         requestedBranch: "feature/login",
         branchNotFound: true,
         includeCloudflarePreviewLinks: false,
@@ -527,7 +517,7 @@ describe("shouldRefreshRepositoryMetadata", () => {
     ).toBe(true);
     expect(
       shouldRefreshRepositoryMetadata({
-        trigger: "visibility",
+        intent: "passive",
         requestedBranch: "feature/login",
         branchNotFound: true,
         includeCloudflarePreviewLinks: false,
@@ -544,7 +534,7 @@ describe("computeRepositoryRefreshPlan", () => {
   it("re-enables branch tree refresh after metadata sync resolves a missing branch", () => {
     expect(
       computeRepositoryRefreshPlan({
-        trigger: "visibility",
+        intent: "passive",
         requestedBranch: "feature/login",
         branchNotFound: true,
         includeCloudflarePreviewLinks: false,
@@ -558,7 +548,7 @@ describe("computeRepositoryRefreshPlan", () => {
 
     expect(
       computeRepositoryRefreshPlan({
-        trigger: "visibility",
+        intent: "passive",
         requestedBranch: "feature/login",
         branchNotFound: false,
         includeCloudflarePreviewLinks: false,
@@ -620,7 +610,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
     expect(
       computeRepositoryTreeMetadataSyncPlan({
         ...repositoryMetadataSyncRequest,
-        trigger: "visibility",
+        intent: "passive",
         remoteBranchCount: 75,
       }),
     ).toEqual({
@@ -639,7 +629,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
         includeAheadBehind: true,
         includePullRequestLinks: true,
         includeCloudflarePreviewLinks: true,
-        trigger: "visibility",
+        intent: "passive",
         remoteBranchCount: 40,
       }),
     ).toEqual({
@@ -657,7 +647,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
         ...repositoryMetadataSyncRequest,
         includeAheadBehind: true,
         includePullRequestLinks: true,
-        trigger: "manual",
+        intent: "manual",
         remoteBranchCount: 75,
       }),
     ).toEqual({
@@ -676,7 +666,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
         includeAheadBehind: true,
         includePullRequestLinks: true,
         includeCloudflarePreviewLinks: true,
-        trigger: "source_setup",
+        intent: "source_setup",
         remoteBranchCount: 75,
       }),
     ).toEqual({
@@ -694,7 +684,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
         ...repositoryMetadataSyncRequest,
         targetBranch: "feature/login",
         includeCloudflarePreviewLinks: true,
-        trigger: "page_load",
+        intent: "passive",
         remoteBranchCount: 75,
       }),
     ).toEqual({
@@ -713,7 +703,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
         targetBranch: "feature/login",
         includeCloudflarePreviewLinks: true,
         cloudflarePreviewBranchNames: ["feature/login"],
-        trigger: "page_load",
+        intent: "passive",
         remoteBranchCount: 75,
       }),
     ).toEqual({
@@ -736,7 +726,7 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
         includeCloudflarePreviewLinks: true,
         cloudflarePreviewBranchNames: [],
         includeLastCommitTimestamps: true,
-        trigger: "visibility",
+        intent: "passive",
         remoteBranchCount: 75,
       }),
     ).toEqual({
@@ -757,7 +747,7 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
         includeCloudflarePreviewLinks: true,
         cloudflarePreviewBranchNames: [],
         includeLastCommitTimestamps: true,
-        trigger: "visibility",
+        intent: "passive",
         remoteBranchCount: 40,
       }),
     ).toEqual({
@@ -778,7 +768,7 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
         includeCloudflarePreviewLinks: true,
         cloudflarePreviewBranchNames: [],
         includeLastCommitTimestamps: true,
-        trigger: "manual",
+        intent: "manual",
         remoteBranchCount: 75,
       }),
     ).toEqual({
@@ -799,7 +789,7 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
         includeCloudflarePreviewLinks: true,
         cloudflarePreviewBranchNames: [],
         includeLastCommitTimestamps: true,
-        trigger: "source_setup",
+        intent: "source_setup",
         remoteBranchCount: 75,
       }),
     ).toEqual({
@@ -820,7 +810,7 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
         includeCloudflarePreviewLinks: true,
         cloudflarePreviewBranchNames: ["feature/login"],
         includeLastCommitTimestamps: true,
-        trigger: "visibility",
+        intent: "passive",
         remoteBranchCount: 75,
       }),
     ).toEqual({
@@ -834,20 +824,20 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
 });
 
 describe("shouldRefreshBranchTree", () => {
-  it("refreshes branch views on visibility", () => {
+  it("refreshes branch views on passive activation", () => {
     expect(
       shouldRefreshBranchTree({
-        trigger: "visibility",
+        intent: "passive",
         requestedBranch: "feature/login",
         branchNotFound: false,
       }),
     ).toBe(true);
   });
 
-  it("skips default-branch dashboard refreshes on plain visibility", () => {
+  it("skips default-branch dashboard refreshes on passive activation", () => {
     expect(
       shouldRefreshBranchTree({
-        trigger: "visibility",
+        intent: "passive",
         branchNotFound: false,
       }),
     ).toBe(false);
@@ -856,7 +846,7 @@ describe("shouldRefreshBranchTree", () => {
   it("refreshes the default branch tree after source setup", () => {
     expect(
       shouldRefreshBranchTree({
-        trigger: "source_setup",
+        intent: "source_setup",
         branchNotFound: false,
       }),
     ).toBe(true);
@@ -865,7 +855,7 @@ describe("shouldRefreshBranchTree", () => {
   it("skips tree refresh entirely while the requested branch is still missing", () => {
     expect(
       shouldRefreshBranchTree({
-        trigger: "manual",
+        intent: "manual",
         requestedBranch: "feature/login",
         branchNotFound: true,
       }),
