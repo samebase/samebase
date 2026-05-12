@@ -20,8 +20,8 @@ changed upstream.
 This investigation predates the repository refresh queue. Use
 `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md` for new refresh-trigger work. The
 current contract collapses route load, Page Visibility resume, and window focus
-into one passive `surface_active` backend trigger; do not revive separate
-`page_load`, `visibility`, or `focus` policy from this research log.
+into the same passive source demand; do not revive separate `page_load`,
+`visibility`, or `focus` policy from this research log.
 
 ## Initial Hypotheses
 
