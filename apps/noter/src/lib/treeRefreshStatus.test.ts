@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  getTreeRefreshUiState,
-  shouldAutoRefreshVault,
-} from "./treeRefreshStatus";
+import { getTreeRefreshUiState } from "./treeRefreshStatus";
 
 describe("getTreeRefreshUiState", () => {
   const now = Date.parse("2026-03-26T18:00:00Z");
@@ -69,109 +66,5 @@ describe("getTreeRefreshUiState", () => {
         treeRefreshFailureKind: "failed",
       }),
     ).toEqual({ kind: "idle" });
-  });
-});
-
-describe("shouldAutoRefreshVault", () => {
-  const now = Date.parse("2026-04-03T12:00:00Z");
-
-  it("backfills metadata even before any active branch rows exist", () => {
-    expect(
-      shouldAutoRefreshVault({
-        lastTreeRefreshAt: now - 1_000,
-        remoteBranches: [],
-        trigger: "page_load",
-        now,
-      }),
-    ).toBe(true);
-  });
-
-  it("refreshes on page load even when metadata and tree timestamps look fresh", () => {
-    expect(
-      shouldAutoRefreshVault({
-        lastTreeRefreshAt: now - 5_000,
-        remoteBranches: [
-          {
-            remoteState: "active",
-            lastSyncedAt: now - 30_000,
-          },
-        ],
-        trigger: "page_load",
-        now,
-      }),
-    ).toBe(true);
-  });
-
-  it("uses deleted-upstream rows as freshness fallback when active rows are absent", () => {
-    expect(
-      shouldAutoRefreshVault({
-        lastTreeRefreshAt: now - 1_000,
-        remoteBranches: [
-          {
-            remoteState: "deleted_upstream",
-            lastSyncedAt: now - 30_000,
-            pullRequestNumber: 42,
-          },
-        ],
-        trigger: "visibility",
-        now,
-      }),
-    ).toBe(false);
-  });
-
-  it("ignores deleted-upstream preview gaps when deciding metadata staleness", () => {
-    expect(
-      shouldAutoRefreshVault({
-        lastTreeRefreshAt: now - 1_000,
-        remoteBranches: [
-          {
-            remoteState: "deleted_upstream",
-            lastSyncedAt: now - 30_000,
-            pullRequestNumber: 42,
-          },
-          {
-            remoteState: "active",
-            lastSyncedAt: now - 30_000,
-          },
-        ],
-        trigger: "visibility",
-        now,
-      }),
-    ).toBe(false);
-  });
-
-  it("refreshes when a cached preview belongs to a different PR", () => {
-    expect(
-      shouldAutoRefreshVault({
-        lastTreeRefreshAt: now - 1_000,
-        remoteBranches: [
-          {
-            remoteState: "active",
-            lastSyncedAt: now - 30_000,
-            pullRequestNumber: 43,
-            cloudflareBranchPreviewUrl: "https://branch.pages.dev/",
-            cloudflarePreviewPullRequestNumber: 42,
-          },
-        ],
-        trigger: "visibility",
-        now,
-      }),
-    ).toBe(true);
-  });
-
-  it("still refreshes page load checks when the tree timestamp is invalid", () => {
-    expect(
-      shouldAutoRefreshVault({
-        lastTreeRefreshAt: Number.NaN,
-        remoteBranches: [
-          {
-            remoteState: "active",
-            lastSyncedAt: now - 30_000,
-          },
-        ],
-        trigger: "page_load",
-        now,
-      }),
-    ).toBe(true);
   });
 });

@@ -125,7 +125,6 @@ export type PendingMediaUpload = {
   file: File;
   preferredFolderPath: string;
 };
-export type RefreshTrigger = "visibility" | "page_load";
 
 export const BRANCH_COMPARE_PREVIEW_STAGING_DEBOUNCE_MS = 1000;
 

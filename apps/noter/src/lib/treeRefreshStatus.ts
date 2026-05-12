@@ -1,9 +1,4 @@
-import {
-  getLastRepositoryMetadataRefreshAt,
-  isRepositoryMetadataStale,
-  TREE_REFRESH_STALE_LOCK_MS,
-} from "../../shared/treeRefresh";
-import { shouldHydrateCloudflareBranchPreview } from "./cloudflarePreviewLinks";
+import { TREE_REFRESH_STALE_LOCK_MS } from "../../shared/treeRefresh";
 
 type TreeRefreshFailureKind = "failed" | "rate_limited";
 
@@ -22,8 +17,6 @@ type TreeRefreshUiState =
   | { kind: "cooldown"; cooldownUntil: number }
   | { kind: "failed" }
   | { kind: "idle" };
-
-type DashboardRefreshTrigger = "visibility" | "page_load";
 
 /**
  * Collapses the shared repo refresh timestamps into the UI state used by the
@@ -71,47 +64,4 @@ export function getTreeRefreshUiState(
   }
 
   return { kind: "idle" };
-}
-
-/**
- * Dashboard auto-refresh treats a fresh page load as an explicit "show me the
- * latest" entrypoint, then falls back to stale-gated metadata checks on later
- * visibility resumes so background tab churn does not fan out GitHub syncs.
- */
-export function shouldAutoRefreshVault(args: {
-  lastTreeRefreshAt?: number;
-  remoteBranches: Array<{
-    remoteState: "active" | "deleted_upstream";
-    lastSyncedAt: number;
-    pullRequestNumber?: number;
-    cloudflareBranchPreviewUrl?: string;
-    cloudflarePreviewPullRequestNumber?: number;
-  }>;
-  trigger: DashboardRefreshTrigger;
-  now?: number;
-}): boolean {
-  const now = args.now ?? Date.now();
-  const activeRemoteBranches = args.remoteBranches.filter(
-    (branch) => branch.remoteState === "active",
-  );
-  const freshnessBranches =
-    activeRemoteBranches.length > 0
-      ? activeRemoteBranches
-      : args.remoteBranches;
-  const hasMissingPreviewLinks = activeRemoteBranches.some((branch) =>
-    shouldHydrateCloudflareBranchPreview(branch),
-  );
-  const metadataStale =
-    hasMissingPreviewLinks ||
-    isRepositoryMetadataStale({
-      lastRepositoryMetadataRefreshAt:
-        getLastRepositoryMetadataRefreshAt(freshnessBranches),
-      now,
-    });
-
-  if (args.trigger === "page_load") {
-    return true;
-  }
-
-  return metadataStale;
 }
