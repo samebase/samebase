@@ -30,11 +30,19 @@ Backend owns refresh supply:
 
 Persist demand, not old frontend refresh mechanics.
 
+Browser activation events collapse before demand reaches Convex. Route load,
+Page Visibility resumes, window focus, and future browser activation edges all
+mean the same thing to the backend: the user is looking at a surface and wants
+it fresh if policy allows. Durable demand must not preserve `page_load`,
+`visibility`, or `focus` as separate backend trigger values.
+
 ## State Model
 
 Start here. Convex validators must encode this shape.
 
 ```ts
+type RepositoryRefreshBrowserTrigger = "surface_active";
+
 type RepositoryRefreshRequest = {
   userId: Id<"users">;
   vaultId: Id<"vaults">;
@@ -53,7 +61,7 @@ type RepositoryScopeRefreshDemand =
   | {
       scope: "repository";
       source: "dashboard";
-      trigger: "page_load" | "visibility";
+      trigger: RepositoryRefreshBrowserTrigger;
     }
   | {
       scope: "repository";
@@ -72,7 +80,7 @@ type BranchScopeRefreshDemand =
       scope: "branch";
       branch: string;
       source: "file_view";
-      trigger: "page_load" | "visibility";
+      trigger: RepositoryRefreshBrowserTrigger;
     }
   | {
       scope: "branch";
@@ -177,6 +185,8 @@ Schema rules:
 - no `running` row without `leaseExpiresAt`
 - no `succeeded` row without result
 - build rows through constructors only
+- no durable browser trigger values for `page_load`, `visibility`, or `focus`;
+  frontend browser events all map to `surface_active`
 
 ## Backend Execution Policy
 
@@ -299,17 +309,19 @@ Entry points:
 Behavior:
 
 - authenticate user
-- dashboard entry point accepts one browser signal:
+- dashboard entry point accepts one passive activation signal:
 
 ```ts
 enqueueDashboardRepositoryRefresh({
-  trigger: "page_load" | "visibility",
+  trigger: "surface_active",
 });
 ```
 
 - dashboard entry point selects connected, non-deleting vaults for the
   authenticated user in bounded backend pages
 - dashboard pagination is internal Convex state only
+- route load, Page Visibility, and window focus are frontend event sources only;
+  the browser never passes the event subtype to Convex
 - browser never passes `vaultIds`
 - browser never passes cursor
 - browser never loops pages
@@ -382,15 +394,15 @@ type EnqueueRepositoryRefreshResult =
 Implementation shape:
 
 - one shared enqueue helper owns all coalescing
-- public/browser entry points build a signal or one explicit demand, then call
-  backend helpers
+- public/browser entry points build one passive activation signal or one
+  explicit demand, then call backend helpers
 - backend setup entry points build demand, then call the helper
 - do not duplicate active-row lookup rules in each entry point
 
 Implemented shape:
 
 - `repositoryRefresh.enqueueDashboardRepositoryRefresh`
-  - accepts only `trigger`
+  - accepts only `trigger: "surface_active"`
   - caller does not pass `vaultIds`
   - caller does not pass cursor
   - returns `null`
@@ -399,7 +411,7 @@ Implemented shape:
     more vaults remain
 - `repositoryRefresh.enqueueDashboardRepositoryRefreshPage`
   - internal mutation only
-  - accepts `userId`, `trigger`, and internal cursor
+  - accepts `userId`, `trigger: "surface_active"`, and internal cursor
   - converts one bounded page into repository demand
   - schedules itself until the backend reaches the end
 - `repositoryRefresh.enqueueManualRepositoryRefresh`
@@ -450,10 +462,12 @@ Behavior:
   `cloudflarePreviewBranchNames: []` means all remote branches; branches without
   PRs are cleared locally, branches with PRs may read PR comments for Cloudflare
   Pages links
+- passive `dashboard` demand uses one backend passive refresh policy; it does
+  not preserve route-load, Page Visibility, or window-focus distinctions
 - `source_setup` uses a distinct GitHub refresh trigger so the one-time
   create/connect finish path does not inherit passive dashboard large-repo caps
 - update `vaultRemoteBranches` through the existing metadata sync path
-- refresh the default branch tree when the selected backend trigger requires it
+- refresh the default branch tree when backend policy requires it
 - finish the request as `succeeded`, `failed`, or `canceled`
 - Workpool `canceled` completion marks `workpool_canceled`
 - public direct branch refresh accepts `vaultId` plus required branch/options,
@@ -482,15 +496,16 @@ Retry policy:
 
 Dashboard cleanup:
 
-- dashboard page load and visibility send one backend demand signal
+- dashboard route load, Page Visibility resume, and window focus send the same
+  backend demand signal
 - dashboard manual refresh sends one vault-level demand
 - React does not loop vaults, batch ids, choose depth, or call GitHub directly
 
 This PR fixes:
 
 - dashboard auto metadata freshness
-- existing-repository connect branch-list visibility after setup
-- existing-repository connect Cloudflare preview-link visibility after setup
+- existing-repository connect branch-list display after setup
+- existing-repository connect Cloudflare preview-link display after setup
 
 Do not:
 
@@ -504,12 +519,14 @@ Remove dashboard-era refresh mechanics that duplicate backend ownership.
 
 Rules:
 
-- dashboard route emits one `page_load` demand when visible
-- dashboard route emits one `visibility` demand when the tab becomes visible
+- dashboard route emits one `surface_active` demand when the surface becomes
+  active from route load, Page Visibility resume, or window focus
 - dashboard route does not wait for `vaults` before emitting demand
 - backend treats "no connected vaults" as an empty dashboard demand page
 - manual dashboard refresh sends only `{ vaultId }`
 - a small dashboard demand hook owns the queue mutations
+- React may listen to multiple browser events, but it does not pass browser
+  event subtype to Convex
 - React does not import the GitHub refresh action for dashboard freshness
 - React does not debounce, batch, paginate, or loop dashboard repository refresh
 - React does not compute dashboard metadata staleness or missing preview-link
@@ -522,8 +539,9 @@ Rules:
   calls direct tree refresh code
 - file-view direct refresh keeps a branch-scoped debounce key; no branchless
   refresh bucket remains
-- direct GitHub tree refresh uses `visibility`, `page_load`, or `manual`
-  triggers; the old repository-tree `focus` trigger is gone
+- direct GitHub tree refresh uses `surface_active` or `manual`; the old
+  repository-tree `page_load`, `visibility`, and `focus` trigger contract is
+  gone
 - direct GitHub tree refresh accepts vault, branch, and trigger from React; the
   public action owns ahead/behind, PR metadata, and provider-link depth
 - generic frontend duplicate-request guards live in `refreshDebounce`, not a
@@ -565,7 +583,7 @@ Add worker behavior for branch demand.
 
 Entry points:
 
-- file view page load / visibility
+- file view surface activation
 - manual branch refresh
 - commit/pull if clearer than direct cache warming
 

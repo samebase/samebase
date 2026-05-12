@@ -11,8 +11,9 @@
 
 Repository refresh queue behavior is now defined by
 `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`. Keep this document as historical
-rollout context; do not use its dashboard fan-out or repository-tree `focus`
-trigger contract for new implementation.
+rollout context; do not use its dashboard fan-out or browser-event trigger
+contract for new implementation. Backend demand now collapses page load, Page
+Visibility resume, and window focus into one passive `surface_active` trigger.
 
 ## Summary
 
