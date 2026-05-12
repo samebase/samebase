@@ -52,8 +52,7 @@ import {
   shouldLoadRepositorySimpleViewConfig,
 } from "@/lib/simpleView";
 import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "@/lib/commitReviewStatus";
-import { claimRefreshDebounce } from "@/lib/treeRefreshDebounce";
-import { buildFileViewRefreshDebounceKey } from "@/lib/fileViewRefresh";
+import { claimRefreshDebounce } from "@/lib/refreshDebounce";
 import { getAncestorFolderPaths } from "@/lib/fileTreeState";
 import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
 import { type GithubTreeType } from "../../../convex/schema";
@@ -109,10 +108,14 @@ import {
   parseUpstreamConflictPaths,
   readGraphViewMode,
   type RebaseConflictPreview,
-  type RefreshTrigger,
   type SidebarMode,
   type StagedFileRecord,
 } from "./fileViewShared";
+
+type FileViewAutoRefreshTrigger = Extract<
+  (typeof api.github.refreshRepositoryTree)["_args"]["trigger"],
+  "visibility" | "page_load"
+>;
 
 function FileViewWrapper() {
   const router = useRouter();
@@ -406,7 +409,7 @@ function FileViewWrapper() {
   ]);
 
   const refreshTreeIfNeeded = useCallback(
-    (trigger: RefreshTrigger = "visibility") => {
+    (trigger: FileViewAutoRefreshTrigger = "visibility") => {
       if (
         !vaultId ||
         !owner ||
@@ -417,19 +420,11 @@ function FileViewWrapper() {
       ) {
         return;
       }
-      const key = buildFileViewRefreshDebounceKey({
-        owner,
-        repoName,
-        branch,
-      });
+      const key = `${owner}/${repoName}:branch:${branch}`;
       if (!claimRefreshDebounce("file_view", key)) return;
       void refreshTree({
         vaultId,
         branch,
-        includeAheadBehind: true,
-        includePullRequestLinks: true,
-        includeCloudflarePreviewLinks: false,
-        cloudflarePreviewBranchNames: [],
         trigger,
       }).catch((error: unknown) => {
         console.error("Failed to refresh repository tree:", error);
@@ -1719,10 +1714,6 @@ function FileViewInner({
         const refreshResult = await refreshRepositoryTree({
           vaultId: vault._id,
           branch: args.nextBranch,
-          includeAheadBehind: true,
-          includePullRequestLinks: true,
-          includeCloudflarePreviewLinks: false,
-          cloudflarePreviewBranchNames: [],
           trigger: "manual",
         });
         didHydrateNextBranch = refreshResult.refreshed;

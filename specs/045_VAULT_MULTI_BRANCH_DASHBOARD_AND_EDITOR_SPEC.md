@@ -4,8 +4,9 @@
 
 - Status: In progress
 - Owner: Noter frontend/editor + Convex vault/github
-- Last updated: 2026-05-08
+- Last updated: 2026-05-12
 - Related specs:
+  - `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
   - `rfcs/046_VAULT_MULTI_BRANCH_ROLLOUT_PLAN.md`
   - `specs/037_EDITOR_COMMIT_DIFF_RELIABILITY_SPEC.md`
   - `specs/008_CHAT_ONLY_CODESPACE_MODE_SPEC.md`
@@ -240,8 +241,10 @@ Behavior:
 
 Update actions:
 
-1. `github.refreshRepositoryTree({ owner, repo, branch?, trigger? })`
-2. `internal.github.updateRepositoryTree({ userId, owner, repo, branch? })`
+1. public file-view refresh:
+   `github.refreshRepositoryTree({ vaultId, branch, trigger })`
+2. backend-owned follow-up after repository writes:
+   `internal.github.updateRepositoryTree({ userId, owner, repo, target, ...policy })`
 
 Behavior:
 

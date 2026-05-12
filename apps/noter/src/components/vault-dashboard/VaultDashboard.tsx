@@ -40,7 +40,7 @@ import {
 import {
   claimRefreshDebounce,
   releaseRefreshDebounce,
-} from "@/lib/treeRefreshDebounce";
+} from "@/lib/refreshDebounce";
 import { useNow } from "@/hooks/useNow";
 import {
   useAction,
@@ -130,11 +130,7 @@ import {
   NoterLogoMark,
   PullRequestStateLogo,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
-import {
-  useDashboardRepositoryTreeRefresh,
-  type DashboardManualRefreshVault,
-  type VaultDashboardVault,
-} from "@/components/vault-dashboard/VaultDashboardRepositoryRefresh";
+import { useDashboardRepositoryRefreshDemand } from "@/components/vault-dashboard/VaultDashboardRepositoryRefreshDemand";
 
 const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
   leftDesktopOpen: false,
@@ -147,6 +143,10 @@ const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
   rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
 } satisfies WorkspaceSidebarState;
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
+
+type VaultDashboardVault = NonNullable<
+  (typeof api.vault.getUserVaults)["_returnType"]
+>[number];
 
 const formatMcpTokenStatusLabel = (
   status:
@@ -1736,17 +1736,18 @@ function renderVaultDashboardCooldownStatus({
 function renderVaultDashboardRepositoryStatus({
   isReady,
   now,
-  onRefreshVaultTree,
+  onManualRepositoryRefresh,
   sharedLastSyncedAt,
   treeRefreshUiState,
   vault,
 }: {
   isReady: boolean;
   now: number;
-  onRefreshVaultTree: (vault: DashboardManualRefreshVault) => void;
+  onManualRepositoryRefresh: (vaultId: Id<"vaults">) => void;
   sharedLastSyncedAt: number | undefined;
   treeRefreshUiState: ReturnType<typeof getTreeRefreshUiState>;
-  vault: DashboardManualRefreshVault & {
+  vault: Pick<VaultDashboardVault, "_id"> & {
+    repositoryFullName: string;
     treeRefreshFailureMessage?: string;
   };
 }) {
@@ -1805,7 +1806,7 @@ function renderVaultDashboardRepositoryStatus({
         lastSyncedAt={sharedLastSyncedAt}
         now={now}
         onRefresh={() => {
-          onRefreshVaultTree(vault);
+          onManualRepositoryRefresh(vault._id);
         }}
         repositoryFullName={vault.repositoryFullName}
       />
@@ -1984,7 +1985,7 @@ type VaultDashboardBodyProps = {
   deleteRepositoryFullName?: string;
   vaults: VaultDashboardVault[];
   onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
-  onRefreshVaultTree: (vault: DashboardManualRefreshVault) => void;
+  onManualRepositoryRefresh: (vaultId: Id<"vaults">) => void;
   onRetryVaultDeletion: (runId: Id<"vaultDeletionRuns">) => void;
   onSaveVaultBranchFilters: (
     vaultId: Id<"vaults">,
@@ -2003,7 +2004,7 @@ function VaultDashboardBody({
   deleteRepositoryFullName,
   vaults,
   onOpenDeveloperToolsChange,
-  onRefreshVaultTree,
+  onManualRepositoryRefresh,
   onRetryVaultDeletion,
   onSaveVaultBranchFilters,
 }: VaultDashboardBodyProps) {
@@ -2212,7 +2213,7 @@ function VaultDashboardBody({
               repositoryStatus={renderVaultDashboardRepositoryStatus({
                 isReady,
                 now,
-                onRefreshVaultTree,
+                onManualRepositoryRefresh,
                 sharedLastSyncedAt,
                 treeRefreshUiState,
                 vault,
@@ -2350,12 +2351,6 @@ export function VaultDashboard() {
     api.vaultActions.listRepositoryOwners,
   );
   const commitStaging = useAction(api.fileStagingActions.commitStaging);
-  const enqueueDashboardRepositoryRefresh = useMutation(
-    api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-  );
-  const enqueueManualRepositoryRefresh = useMutation(
-    api.repositoryRefresh.enqueueManualRepositoryRefresh,
-  );
   const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
   const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
   const getCloudflareMcpOAuthUrl = useAction(
@@ -2580,13 +2575,8 @@ export function VaultDashboard() {
     githubPopupRef,
   });
 
-  const { refreshVaultTreeFromStatusClick } = useDashboardRepositoryTreeRefresh(
-    {
-      enqueueDashboardRepositoryRefresh,
-      enqueueManualRepositoryRefresh,
-      vaults,
-    },
-  );
+  const { enqueueManualRepositoryRefresh } =
+    useDashboardRepositoryRefreshDemand();
 
   useCloudflareMcpTokenAutoCheck({
     cloudflareConnection,
@@ -3332,7 +3322,7 @@ export function VaultDashboard() {
       deleteRepositoryFullName={deleteRepositoryFullName}
       vaults={vaults}
       onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
-      onRefreshVaultTree={refreshVaultTreeFromStatusClick}
+      onManualRepositoryRefresh={enqueueManualRepositoryRefresh}
       onRetryVaultDeletion={(runId) => {
         void handleRetryVaultDeletion(runId);
       }}

@@ -4,8 +4,9 @@
 
 - Status: Proposed
 - Owner: Noter dashboard/frontend + Convex infra
-- Last updated: 2026-03-21
+- Last updated: 2026-05-12
 - Related specs:
+  - `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
   - `specs/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md`
@@ -163,14 +164,12 @@ Instead:
 
 ### Best place to sync
 
-The existing dashboard refresh path is the best integration point:
+Current refresh ownership changed after this RFC was written. The dashboard now
+reports repository refresh demand to Convex, and backend policy chooses GitHub
+metadata and provider-link work.
 
-1. `VaultDashboard` already triggers `github.refreshRepositoryTree(...)` on page
-   load, focus, and visibility regain.
-2. `github.updateRepositoryTree(...)` already refreshes the GitHub branch list
-   and writes branch metadata into Convex.
-3. That action is the natural place to also refresh the Cloudflare branch-domain
-   view for the same vault.
+If this RFC resumes, integrate branch preview syncing behind the backend
+repository refresh policy in `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`.
 
 This keeps branch-sync work in one place instead of inventing a separate
 dashboard polling loop.

@@ -76,7 +76,6 @@ type TreeRefreshFailureDescriptor = {
   cooldownUntil: number;
 };
 const publicRefreshRepositoryTrigger = union(
-  literal("focus"),
   literal("visibility"),
   literal("page_load"),
   literal("manual"),
@@ -406,12 +405,6 @@ export function shouldRefreshRepositoryMetadata(args: {
 }): boolean {
   if (args.trigger === "manual") {
     return true;
-  }
-
-  // Keep args.trigger === "focus" on the tree-only path by short-circuiting
-  // before branchNotFound can re-enter repo-metadata revalidation.
-  if (args.trigger === "focus") {
-    return false;
   }
 
   // Entering the dashboard and finishing source setup should reconcile the
@@ -2515,18 +2508,15 @@ async function refreshRepositoryTreeForUserHelper(
 /**
  * Public branch refresh used by the file route.
  *
- * The browser identifies the vault and branch it is viewing. The action checks
- * `userId + vaultId`, derives owner/repo from the vault, then runs the shared
- * branch refresh helper. URL owner/repo strings are not trusted for access.
+ * The browser identifies the vault, branch, and user-visible trigger. The
+ * action checks `userId + vaultId`, derives owner/repo from the vault, then
+ * applies the current file-view branch refresh policy. URL owner/repo strings
+ * and GitHub metadata-depth choices are not trusted from React.
  */
 export const refreshRepositoryTree = action({
   args: {
     vaultId: id("vaults"),
     branch: string(),
-    includeAheadBehind: boolean(),
-    includePullRequestLinks: boolean(),
-    includeCloudflarePreviewLinks: boolean(),
-    cloudflarePreviewBranchNames: array(string()),
     trigger: publicRefreshRepositoryTrigger,
   },
   returns: refreshRepositoryTreeResult,
@@ -2550,10 +2540,10 @@ export const refreshRepositoryTree = action({
       owner: vault.owner,
       repo: vault.name,
       branch: args.branch,
-      includeAheadBehind: args.includeAheadBehind,
-      includePullRequestLinks: args.includePullRequestLinks,
-      includeCloudflarePreviewLinks: args.includeCloudflarePreviewLinks,
-      cloudflarePreviewBranchNames: args.cloudflarePreviewBranchNames,
+      includeAheadBehind: true,
+      includePullRequestLinks: true,
+      includeCloudflarePreviewLinks: false,
+      cloudflarePreviewBranchNames: [],
       trigger: args.trigger,
     });
   },

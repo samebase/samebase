@@ -423,7 +423,7 @@ Do not:
 - remove direct file-view refresh
 - redesign dashboard query
 
-## Current PR: Workpool Runner
+## Implemented: Workpool Runner
 
 Execute queued repository demand through one backend Workpool.
 
@@ -497,6 +497,53 @@ Do not:
 - refresh every branch tree unless policy explicitly chooses it
 - expose provider choices to frontend
 - move file view yet
+
+## Current PR: Frontend Refresh Cleanup
+
+Remove dashboard-era refresh mechanics that duplicate backend ownership.
+
+Rules:
+
+- dashboard route emits one `page_load` demand when visible
+- dashboard route emits one `visibility` demand when the tab becomes visible
+- dashboard route does not wait for `vaults` before emitting demand
+- backend treats "no connected vaults" as an empty dashboard demand page
+- manual dashboard refresh sends only `{ vaultId }`
+- a small dashboard demand hook owns the queue mutations
+- React does not import the GitHub refresh action for dashboard freshness
+- React does not debounce, batch, paginate, or loop dashboard repository refresh
+- React does not compute dashboard metadata staleness or missing preview-link
+  policy before sending demand
+- React does not choose ahead/behind, PR metadata, provider links, or target
+  branches
+- React keeps Cloudflare preview-link rendering helpers, but not frontend
+  hydration-target selection helpers
+- dashboard naming should say "refresh demand", not "tree refresh", unless it
+  calls direct tree refresh code
+- file-view direct refresh keeps a branch-scoped debounce key; no branchless
+  refresh bucket remains
+- direct GitHub tree refresh uses `visibility`, `page_load`, or `manual`
+  triggers; the old repository-tree `focus` trigger is gone
+- direct GitHub tree refresh accepts vault, branch, and trigger from React; the
+  public action owns ahead/behind, PR metadata, and provider-link depth
+- generic frontend duplicate-request guards live in `refreshDebounce`, not a
+  dashboard/tree-refresh named module
+
+Keep:
+
+- file-view branch refresh on direct `github.refreshRepositoryTree`
+- draft-PR branch hydration on direct `github.refreshRepositoryTree`
+- Cloudflare MCP token health polling; it is provider auth maintenance, not
+  repository freshness
+- provider OAuth popup reload; it is connection-state recovery, not repository
+  freshness
+
+This PR proves:
+
+- dashboard freshness is a route-level demand signal
+- frontend has no vault-list gate before dashboard demand
+- dashboard repository-refresh code has names matching the queue contract
+- no file-view branch behavior moves before the branch-demand worker
 
 ## Implemented Basic Manual Priority
 
