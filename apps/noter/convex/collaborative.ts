@@ -116,10 +116,13 @@ export const pullUpdates = query({
   > => {
     const userId = await getUserId(ctx);
 
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName: args.repositoryFullName,
-      userId,
-    });
+    const vault = await ctx.runQuery(
+      internal.vault.records.getByRepositoryFullName,
+      {
+        repositoryFullName: args.repositoryFullName,
+        userId,
+      },
+    );
 
     if (!vault) {
       throw new Error("Vault not found");
@@ -172,10 +175,13 @@ export const pushUpdates = mutation({
   ): Promise<{ success: boolean; newVersion: number }> => {
     const userId = await getUserId(ctx);
 
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName: args.repositoryFullName,
-      userId,
-    });
+    const vault = await ctx.runQuery(
+      internal.vault.records.getByRepositoryFullName,
+      {
+        repositoryFullName: args.repositoryFullName,
+        userId,
+      },
+    );
 
     if (!vault) {
       throw new Error("Vault not found");

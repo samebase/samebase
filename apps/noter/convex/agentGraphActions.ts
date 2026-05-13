@@ -165,7 +165,7 @@ export const sendAgentMessage = action({
       userId,
     });
 
-    const vault = await ctx.runQuery(internal.vault.getById, {
+    const vault = await ctx.runQuery(internal.vault.records.getById, {
       id: args.vaultId,
     });
 

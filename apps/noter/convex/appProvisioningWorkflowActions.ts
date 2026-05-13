@@ -519,16 +519,19 @@ export const createVaultForRepository = internalAction({
       state: "running",
     });
 
-    await ctx.runMutation(internal.vault.connectNoterManagedVaultGitHub, {
-      vaultId: args.vaultId,
-      userId: args.userId,
-      ghRepoId: args.ghRepoId,
-      ghRepoOwner: args.ownerName,
-      ghRepoName: args.repoName,
-      defaultBranch: args.defaultBranch,
-      visibility: args.visibility,
-      runId: args.runId,
-    });
+    await ctx.runMutation(
+      internal.vault.records.connectNoterManagedVaultGitHub,
+      {
+        vaultId: args.vaultId,
+        userId: args.userId,
+        ghRepoId: args.ghRepoId,
+        ghRepoOwner: args.ownerName,
+        ghRepoName: args.repoName,
+        defaultBranch: args.defaultBranch,
+        visibility: args.visibility,
+        runId: args.runId,
+      },
+    );
     await appendRunEvent(ctx, {
       runId: args.runId,
       step: "connect_github",
@@ -564,16 +567,19 @@ export const connectExistingRepositoryVault = internalAction({
       state: "running",
     });
 
-    await ctx.runMutation(internal.vault.connectExistingRepositoryVaultGitHub, {
-      vaultId: args.vaultId,
-      userId: args.userId,
-      ghRepoId: args.ghRepoId,
-      ghRepoOwner: args.ownerName,
-      ghRepoName: args.repoName,
-      defaultBranch: args.defaultBranch,
-      visibility: args.visibility,
-      runId: args.runId,
-    });
+    await ctx.runMutation(
+      internal.vault.records.connectExistingRepositoryVaultGitHub,
+      {
+        vaultId: args.vaultId,
+        userId: args.userId,
+        ghRepoId: args.ghRepoId,
+        ghRepoOwner: args.ownerName,
+        ghRepoName: args.repoName,
+        defaultBranch: args.defaultBranch,
+        visibility: args.visibility,
+        runId: args.runId,
+      },
+    );
     await appendRunEvent(ctx, {
       runId: args.runId,
       step: "connect_github",
@@ -620,7 +626,7 @@ export const syncVaultTreeForRepository = internalAction({
       branch: args.defaultBranch,
     });
 
-    await ctx.runMutation(internal.vault.upsertVaultBranchTree, {
+    await ctx.runMutation(internal.vault.branches.upsertVaultBranchTree, {
       vaultId: args.vaultId,
       branch: args.defaultBranch,
       treeData: tree.data,

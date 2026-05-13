@@ -107,7 +107,7 @@ export const generateResponse = internalAction({
     let githubAccessToken: string | null = null;
 
     if (threadContext.vaultId) {
-      const v = await ctx.runQuery(internal.vault.getById, {
+      const v = await ctx.runQuery(internal.vault.records.getById, {
         id: threadContext.vaultId,
       });
       if (isLiveConnectedVault(v)) {
@@ -137,10 +137,13 @@ export const generateResponse = internalAction({
 
     if (vault) {
       const contextBranch = threadContext.branch || vault.defaultBranch;
-      const branchTree = await ctx.runQuery(internal.vault.getVaultBranchTree, {
-        vaultId: vault._id,
-        branch: contextBranch,
-      });
+      const branchTree = await ctx.runQuery(
+        internal.vault.branches.getVaultBranchTree,
+        {
+          vaultId: vault._id,
+          branch: contextBranch,
+        },
+      );
       if (branchTree) {
         repoTree = branchTree.treeData.tree
           .filter((t) => t.type === "blob")

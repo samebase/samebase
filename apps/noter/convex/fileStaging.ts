@@ -264,7 +264,7 @@ async function resolveRepositoryTreeForVault(args: {
   requestedBranch: string;
 }): Promise<GithubTreeType[]> {
   const branchTree = await args.ctx.runQuery(
-    internal.vault.getVaultBranchTree,
+    internal.vault.branches.getVaultBranchTree,
     {
       vaultId: args.vaultId,
       branch: args.requestedBranch,
@@ -1064,7 +1064,7 @@ export const createFileInStaging = mutation({
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
 
-    const vault = await ctx.runQuery(internal.vault.getById, {
+    const vault = await ctx.runQuery(internal.vault.records.getById, {
       id: args.vaultId,
     });
     if (!vault) {
@@ -1367,7 +1367,7 @@ export const saveBinaryUploadToStaging = internalMutation({
   args: saveBinaryUploadToStagingArgsValidator,
   returns: stagedFileValidator,
   handler: async (ctx, args) => {
-    const vault = await ctx.runQuery(internal.vault.getById, {
+    const vault = await ctx.runQuery(internal.vault.records.getById, {
       id: args.vaultId,
     });
     if (!vault) {
@@ -1531,7 +1531,7 @@ export const rename = internalMutation({
   handler: async (ctx, args): Promise<StagedFile> => {
     await getUserId(ctx);
 
-    const vault = await ctx.runQuery(internal.vault.getById, {
+    const vault = await ctx.runQuery(internal.vault.records.getById, {
       id: args.vaultId,
     });
 

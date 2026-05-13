@@ -132,7 +132,7 @@ function FileViewWrapper() {
 
   const firstDocAction = useAction(api.fileStagingActions.getFileForEditing);
   const refreshTree = useAction(api.github.refreshRepositoryTree);
-  const connectRepository = useAction(api.vaultActions.connectRepository);
+  const connectRepository = useAction(api.vault.actions.connectRepository);
   const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
   const routeBranch = branchParam;
   const selectedFile = filePathParam ?? "";
@@ -141,7 +141,7 @@ function FileViewWrapper() {
   // Get vault for this repository
   // TODO: Keep vault existence checks on live query until useCacheQuery exposes
   // freshness metadata (cached null can trigger a false redirect to dashboard).
-  const vault = useLiveQuery(api.vault.getVaultByRepository, {
+  const vault = useLiveQuery(api.vault.records.getVaultByRepository, {
     repositoryFullName: repositoryFullName ?? "skip",
     branch: routeBranch,
   });
@@ -719,18 +719,20 @@ function FileViewRepositorySetupState({
 }
 
 type FileViewVault = NonNullable<
-  (typeof api.vault.getVaultByRepository)["_returnType"]
+  (typeof api.vault.records.getVaultByRepository)["_returnType"]
 > & {
   treeData: NonNullable<
     NonNullable<
-      (typeof api.vault.getVaultByRepository)["_returnType"]
+      (typeof api.vault.records.getVaultByRepository)["_returnType"]
     >["treeData"]
   >;
   treeSHA: string;
 };
 
 function hasFileViewVaultTree(
-  vault: NonNullable<(typeof api.vault.getVaultByRepository)["_returnType"]>,
+  vault: NonNullable<
+    (typeof api.vault.records.getVaultByRepository)["_returnType"]
+  >,
 ): vault is FileViewVault {
   return Boolean(vault.treeSHA && vault.treeData);
 }
@@ -796,7 +798,7 @@ function FileViewInner({
 
   // Get current user for sidebar
   const user = useQuery(api.users.viewer);
-  const remoteBranches = useQuery(api.vault.getVaultRemoteBranches, {
+  const remoteBranches = useQuery(api.vault.branches.getVaultRemoteBranches, {
     vaultId: vault._id,
   });
   const refreshRepositoryTree = useAction(api.github.refreshRepositoryTree);

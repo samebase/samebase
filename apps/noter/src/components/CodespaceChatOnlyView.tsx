@@ -36,7 +36,7 @@ export function CodespaceChatOnlyView() {
   }, [owner, repoName]);
 
   const vault = useVaultQuery(
-    api.vault.getVaultByRepository,
+    api.vault.records.getVaultByRepository,
     repositoryFullName
       ? {
           repositoryFullName,

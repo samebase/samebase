@@ -1,14 +1,14 @@
 "use node";
 
 import { v } from "convex/values";
-import { action, type ActionCtx } from "./_generated/server";
-import { internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
+import { action, type ActionCtx } from "../_generated/server";
+import { internal } from "../_generated/api";
+import type { Doc, Id } from "../_generated/dataModel";
 import { Octokit } from "@octokit/rest";
-import { getUserId } from "./common";
-import { toErrorMessage } from "./jsonUtils";
-import { isLiveConnectedVault, isNoterManagedVault } from "./vault/state";
-import { toSafeRepoName } from "./repoName";
+import { getUserId } from "../common";
+import { toErrorMessage } from "../jsonUtils";
+import { isLiveConnectedVault, isNoterManagedVault } from "./state";
+import { toSafeRepoName } from "../repoName";
 
 const { array, literal, object, optional, string, union } = v;
 const githubRepositoryOwnerKind = union(
@@ -290,7 +290,7 @@ export const connectRepository = action({
     }
 
     const { vaultId, runId } = await ctx.runMutation(
-      internal.vault.createInitializingExistingRepositoryVaultForUser,
+      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
         ghRepoOwner: owner,
@@ -347,7 +347,7 @@ export const createRepository = action({
 
     const visibility = args.private === false ? "public" : "private";
     const { vaultId, runId } = await ctx.runMutation(
-      internal.vault.createInitializingNoterManagedVaultForUser,
+      internal.vault.records.createInitializingNoterManagedVaultForUser,
       {
         userId,
         ghRepoOwner,
@@ -376,7 +376,7 @@ export const retryInfrastructureProvisioning = action({
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    const vault = await ctx.runQuery(internal.vault.getById, {
+    const vault = await ctx.runQuery(internal.vault.records.getById, {
       id: args.vaultId,
     });
     if (!vault || vault.userId !== userId) {

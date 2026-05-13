@@ -4,6 +4,8 @@ import {
   buildConvexDeploymentDashboardUrl,
   buildConvexPreviewDeploymentDashboardUrl,
   buildConvexProjectSettingsDashboardUrl,
+} from "./dashboard";
+import {
   countActiveRemoteBranches,
   hasBranchStagingChanges,
   resolveSyncedBranchLastCommitAt,
@@ -11,7 +13,7 @@ import {
   resolveVaultBranchSelection,
   selectDeletedUpstreamBranchesToAutoPrune,
   shouldClearCloudflarePreviewForPullRequestSync,
-} from "./vault";
+} from "./branches";
 
 describe("buildConvexDeploymentDashboardUrl", () => {
   it("targets the project-scoped production deployment dashboard", () => {

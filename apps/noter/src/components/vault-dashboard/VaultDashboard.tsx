@@ -145,7 +145,7 @@ const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 
 type VaultDashboardVault = NonNullable<
-  (typeof api.vault.getUserVaults)["_returnType"]
+  (typeof api.vault.dashboard.getUserVaults)["_returnType"]
 >[number];
 
 const formatMcpTokenStatusLabel = (
@@ -2342,13 +2342,13 @@ export function VaultDashboard() {
   const rootRouteSearch = useRootRouteSearch();
   const developerToolsVisible =
     rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
-  const vaults = useQuery(api.vault.getUserVaults);
+  const vaults = useQuery(api.vault.dashboard.getUserVaults);
   const now = useNow();
-  const deleteVault = useAction(api.vaultActions.deleteVault);
-  const retryDeleteVault = useAction(api.vaultActions.retryDeleteVault);
-  const createRepository = useAction(api.vaultActions.createRepository);
+  const deleteVault = useAction(api.vault.actions.deleteVault);
+  const retryDeleteVault = useAction(api.vault.actions.retryDeleteVault);
+  const createRepository = useAction(api.vault.actions.createRepository);
   const listGithubRepositoryOwners = useAction(
-    api.vaultActions.listRepositoryOwners,
+    api.vault.actions.listRepositoryOwners,
   );
   const commitStaging = useAction(api.fileStagingActions.commitStaging);
   const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
@@ -2432,7 +2432,7 @@ export function VaultDashboard() {
     api.users.getCloudflareConnectionStatus,
   );
   const userVaultBranchFilters = useConvexQuery(
-    api.vault.getUserVaultBranchFilters,
+    api.vault.dashboard.getUserVaultBranchFilters,
   );
   const user = useConvexQuery(api.users.viewer);
   const authProviders = useConvexQuery(api.users.getViewerAuthProviders);
@@ -2445,10 +2445,10 @@ export function VaultDashboard() {
   const dashboardProvidersPanelOpen = dashboardSettings?.providersPanelOpen;
   const deleteRepositoryFullName = rootRouteSearch.delete;
   const setVaultBranchFilters = useMutation(
-    api.vault.setVaultBranchFilters,
+    api.vault.dashboard.setVaultBranchFilters,
   ).withOptimisticUpdate((localStore, args) => {
     const currentFilters = localStore.getQuery(
-      api.vault.getUserVaultBranchFilters,
+      api.vault.dashboard.getUserVaultBranchFilters,
       {},
     );
     if (!currentFilters) {
@@ -2475,7 +2475,11 @@ export function VaultDashboard() {
       });
     }
 
-    localStore.setQuery(api.vault.getUserVaultBranchFilters, {}, nextFilters);
+    localStore.setQuery(
+      api.vault.dashboard.getUserVaultBranchFilters,
+      {},
+      nextFilters,
+    );
   });
   const githubPopupRef = useRef<Window | null>(null);
   const convexPopupRef = useRef<Window | null>(null);

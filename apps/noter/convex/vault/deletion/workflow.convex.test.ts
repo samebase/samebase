@@ -121,7 +121,7 @@ describe("vault deletion workflow", () => {
       tokenIdentifier: `test:${ids.userId}`,
     });
     const { deletionRunId } = await asUser.action(
-      api.vaultActions.deleteVault,
+      api.vault.actions.deleteVault,
       {
         vaultId: ids.vaultId,
         removeCodespaces: false,
@@ -193,8 +193,8 @@ describe("vault deletion workflow", () => {
     });
 
     const [vaults, liveRepositoryVault] = await Promise.all([
-      asUser.query(api.vault.getUserVaults),
-      t.query(internal.vault.getByRepositoryFullName, {
+      asUser.query(api.vault.dashboard.getUserVaults),
+      t.query(internal.vault.records.getByRepositoryFullName, {
         userId: ids.userId,
         repositoryFullName: "ada/delete-me",
       }),
@@ -228,11 +228,11 @@ describe("vault deletion workflow", () => {
       },
     });
 
-    const claim = await t.mutation(internal.vault.claimTreeRefresh, {
+    const claim = await t.mutation(internal.vault.branches.claimTreeRefresh, {
       vaultId: ids.vaultId,
       force: true,
     });
-    await t.mutation(internal.vault.syncVaultRemoteBranches, {
+    await t.mutation(internal.vault.branches.syncVaultRemoteBranches, {
       vaultId: ids.vaultId,
       syncedAt: 10,
       branches: [
@@ -267,7 +267,7 @@ describe("vault deletion workflow", () => {
       });
     });
     await t.mutation(
-      internal.vault.createInitializingExistingRepositoryVaultForUser,
+      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
         ghRepoOwner: "ada",
@@ -279,7 +279,7 @@ describe("vault deletion workflow", () => {
       tokenIdentifier: `test:${userId}`,
     });
 
-    const vaults = await asUser.query(api.vault.getUserVaults);
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
 
     expect(vaults).toHaveLength(1);
     expect(vaults[0]).toMatchObject({
@@ -719,7 +719,7 @@ describe("vault deletion workflow", () => {
       subject: `${ids.userId}|test-session`,
       tokenIdentifier: `test:${ids.userId}`,
     });
-    const retry = await asUser.action(api.vaultActions.retryDeleteVault, {
+    const retry = await asUser.action(api.vault.actions.retryDeleteVault, {
       runId: initial.deletionRunId,
     });
 

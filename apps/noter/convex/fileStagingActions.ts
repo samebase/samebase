@@ -1970,7 +1970,7 @@ export const renameFileInStaging = action({
         throw new Error("Branch is required to rename a staged file");
       })();
 
-    const vault = await ctx.runQuery(internal.vault.getById, {
+    const vault = await ctx.runQuery(internal.vault.records.getById, {
       id: args.vaultId,
     });
 
@@ -2015,10 +2015,13 @@ export const getFileForEditing = action({
     const userId = await getUserId(ctx);
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName: args.repositoryFullName,
-      userId,
-    });
+    const vault = await ctx.runQuery(
+      internal.vault.records.getByRepositoryFullName,
+      {
+        repositoryFullName: args.repositoryFullName,
+        userId,
+      },
+    );
 
     if (!vault) {
       throw new Error("Vault not found");
@@ -2227,10 +2230,13 @@ export const stageUploadedMedia = action({
 
     const userId = await getUserId(ctx);
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName: args.repositoryFullName,
-      userId,
-    });
+    const vault = await ctx.runQuery(
+      internal.vault.records.getByRepositoryFullName,
+      {
+        repositoryFullName: args.repositoryFullName,
+        userId,
+      },
+    );
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -2288,10 +2294,13 @@ export const commitStaging = action({
     const userId = await getUserId(ctx);
 
     // Get the vault information while we have auth context
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName: args.repositoryFullName,
-      userId,
-    });
+    const vault = await ctx.runQuery(
+      internal.vault.records.getByRepositoryFullName,
+      {
+        repositoryFullName: args.repositoryFullName,
+        userId,
+      },
+    );
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -2316,10 +2325,13 @@ export const createDraftPullRequest = action({
   returns: draftPullRequestResult,
   handler: async (ctx, args): Promise<DraftPullRequestResult> => {
     const userId = await getUserId(ctx);
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName: args.repositoryFullName,
-      userId,
-    });
+    const vault = await ctx.runQuery(
+      internal.vault.records.getByRepositoryFullName,
+      {
+        repositoryFullName: args.repositoryFullName,
+        userId,
+      },
+    );
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -2485,10 +2497,13 @@ export const createDraftPullRequestFromDefaultBranch = action({
   returns: defaultBranchDraftPullRequestResult,
   handler: async (ctx, args): Promise<DefaultBranchDraftPullRequestResult> => {
     const userId = await getUserId(ctx);
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName: args.repositoryFullName,
-      userId,
-    });
+    const vault = await ctx.runQuery(
+      internal.vault.records.getByRepositoryFullName,
+      {
+        repositoryFullName: args.repositoryFullName,
+        userId,
+      },
+    );
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -2697,7 +2712,7 @@ export const pullFromGitHub = action({
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
 
-    const vault = await ctx.runQuery(internal.vault.getById, {
+    const vault = await ctx.runQuery(internal.vault.records.getById, {
       id: args.vaultId,
     });
     if (!vault) {
@@ -2705,10 +2720,13 @@ export const pullFromGitHub = action({
     }
 
     // Atomically claim the refresh lock; force because user explicitly requested pull
-    const claim = await ctx.runMutation(internal.vault.claimTreeRefresh, {
-      vaultId: vault._id,
-      force: true,
-    });
+    const claim = await ctx.runMutation(
+      internal.vault.branches.claimTreeRefresh,
+      {
+        vaultId: vault._id,
+        force: true,
+      },
+    );
     if (!claim.claimed) return null;
     if (typeof claim.startedAt !== "number") {
       throw new Error("Tree refresh claim missing start timestamp");
@@ -2719,7 +2737,7 @@ export const pullFromGitHub = action({
         userId,
         vaultId: args.vaultId,
       });
-      await ctx.runMutation(internal.vault.releaseTreeRefresh, {
+      await ctx.runMutation(internal.vault.branches.releaseTreeRefresh, {
         vaultId: vault._id,
         startedAt: claim.startedAt,
         markRefreshed: true,
@@ -2730,7 +2748,7 @@ export const pullFromGitHub = action({
         githubRateLimitResetByUser.set(userId, failure.cooldownUntil);
       }
       const releaseResult = await ctx.runMutation(
-        internal.vault.releaseTreeRefresh,
+        internal.vault.branches.releaseTreeRefresh,
         {
           vaultId: vault._id,
           startedAt: claim.startedAt,
@@ -2741,13 +2759,16 @@ export const pullFromGitHub = action({
         },
       );
       if (!releaseResult.released) {
-        await ctx.runMutation(internal.vault.recordTreeRefreshFailure, {
-          vaultId: vault._id,
-          startedAt: claim.startedAt,
-          failureKind: failure.kind,
-          failureMessage: failure.message,
-          cooldownUntil: failure.cooldownUntil,
-        });
+        await ctx.runMutation(
+          internal.vault.branches.recordTreeRefreshFailure,
+          {
+            vaultId: vault._id,
+            startedAt: claim.startedAt,
+            failureKind: failure.kind,
+            failureMessage: failure.message,
+            cooldownUntil: failure.cooldownUntil,
+          },
+        );
       }
       throw error;
     }
@@ -2766,7 +2787,7 @@ export const pullFromGitHubInternal = internalAction({
   handler: async (ctx, args) => {
     const githubAccessToken = await getGithubAccessToken(ctx, args.userId);
 
-    const vault = await ctx.runQuery(internal.vault.getById, {
+    const vault = await ctx.runQuery(internal.vault.records.getById, {
       id: args.vaultId,
     });
     if (!vault) {
@@ -3032,7 +3053,7 @@ export const batchReadFiles = action({
     const userId = await getUserId(ctx);
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
-    const vault = await ctx.runQuery(internal.vault.getById, {
+    const vault = await ctx.runQuery(internal.vault.records.getById, {
       id: args.vaultId,
     });
     if (!vault) {
@@ -3048,10 +3069,13 @@ export const batchReadFiles = action({
     const defaultBranch = connectedVault.defaultBranch;
     const branchToLoad = requestedBranch ?? defaultBranch;
     if (branchToLoad) {
-      let branchTree = await ctx.runQuery(internal.vault.getVaultBranchTree, {
-        vaultId: args.vaultId,
-        branch: branchToLoad,
-      });
+      let branchTree = await ctx.runQuery(
+        internal.vault.branches.getVaultBranchTree,
+        {
+          vaultId: args.vaultId,
+          branch: branchToLoad,
+        },
+      );
 
       if (!branchTree) {
         await ctx.runAction(internal.github.updateRepositoryTree, {
@@ -3064,10 +3088,13 @@ export const batchReadFiles = action({
           includeCloudflarePreviewLinks: false,
           cloudflarePreviewBranchNames: [],
         });
-        branchTree = await ctx.runQuery(internal.vault.getVaultBranchTree, {
-          vaultId: args.vaultId,
-          branch: branchToLoad,
-        });
+        branchTree = await ctx.runQuery(
+          internal.vault.branches.getVaultBranchTree,
+          {
+            vaultId: args.vaultId,
+            branch: branchToLoad,
+          },
+        );
       }
 
       if (branchTree) {
@@ -3203,10 +3230,13 @@ export const getCommitPreview = action({
     const userId = await getUserId(ctx);
     const includePatch = args.includePatch ?? true;
 
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName: args.repositoryFullName,
-      userId,
-    });
+    const vault = await ctx.runQuery(
+      internal.vault.records.getByRepositoryFullName,
+      {
+        repositoryFullName: args.repositoryFullName,
+        userId,
+      },
+    );
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -3267,10 +3297,13 @@ export const getBranchComparePreview = action({
     const userId = await getUserId(ctx);
     const includePatch = args.includePatch ?? true;
 
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName: args.repositoryFullName,
-      userId,
-    });
+    const vault = await ctx.runQuery(
+      internal.vault.records.getByRepositoryFullName,
+      {
+        repositoryFullName: args.repositoryFullName,
+        userId,
+      },
+    );
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -3431,10 +3464,13 @@ export const restoreComparedDeletedFileToStaging = action({
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const userId = await getUserId(ctx);
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName: args.repositoryFullName,
-      userId,
-    });
+    const vault = await ctx.runQuery(
+      internal.vault.records.getByRepositoryFullName,
+      {
+        repositoryFullName: args.repositoryFullName,
+        userId,
+      },
+    );
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -3527,10 +3563,13 @@ export const getRebaseConflictPreview = action({
   handler: async (ctx, args): Promise<RebaseConflictPreviewResult> => {
     const userId = await getUserId(ctx);
 
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName: args.repositoryFullName,
-      userId,
-    });
+    const vault = await ctx.runQuery(
+      internal.vault.records.getByRepositoryFullName,
+      {
+        repositoryFullName: args.repositoryFullName,
+        userId,
+      },
+    );
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -3589,10 +3628,13 @@ export const getRebaseConflictBundle = action({
   handler: async (ctx, args): Promise<string> => {
     const userId = await getUserId(ctx);
 
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName: args.repositoryFullName,
-      userId,
-    });
+    const vault = await ctx.runQuery(
+      internal.vault.records.getByRepositoryFullName,
+      {
+        repositoryFullName: args.repositoryFullName,
+        userId,
+      },
+    );
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -4008,7 +4050,7 @@ export const commitAllStaged = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const vault = await ctx.runQuery(internal.vault.getByIdForUser, {
+    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
       vaultId: args.vaultId,
       userId: args.userId,
     });
@@ -4115,7 +4157,7 @@ export const commitAllStaged = internalAction({
           });
         },
         loadUpdatedVault: async () =>
-          await ctx.runQuery(internal.vault.getByRepositoryFullName, {
+          await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
             repositoryFullName: fullRepo,
             userId: args.userId,
             branch: commitBranch,

@@ -2011,10 +2011,13 @@ export const getRepositoryFileContent = action({
       throw new Error("User not found");
     }
 
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName: args.repositoryFullName,
-      userId,
-    });
+    const vault = await ctx.runQuery(
+      internal.vault.records.getByRepositoryFullName,
+      {
+        repositoryFullName: args.repositoryFullName,
+        userId,
+      },
+    );
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -2105,11 +2108,14 @@ export const getRepositoryMediaAsset = action({
 
     const requestedBranch = normalizeOptionalRepositoryBranch(args.branch);
     const userId = await getUserId(ctx);
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName: args.repositoryFullName,
-      userId,
-      branch: requestedBranch,
-    });
+    const vault = await ctx.runQuery(
+      internal.vault.records.getByRepositoryFullName,
+      {
+        repositoryFullName: args.repositoryFullName,
+        userId,
+        branch: requestedBranch,
+      },
+    );
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -2313,7 +2319,7 @@ async function refreshRepositoryTreeForUserHelper(
 
   const repositoryFullName = `${args.owner}/${args.repo}`;
   const readVault = async (branch: string | undefined) =>
-    ctx.runQuery(internal.vault.getByRepositoryFullName, {
+    ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName,
       userId: args.userId,
       branch,
@@ -2355,13 +2361,16 @@ async function refreshRepositoryTreeForUserHelper(
     });
 
   // Atomically claim the refresh lock; skip if debounced or already running
-  const claim = await ctx.runMutation(internal.vault.claimTreeRefresh, {
-    vaultId: vault._id,
-    debounceMs,
-    // Missing or stale branch metadata still needs a refresh even when the
-    // repo itself synced recently.
-    skipRecentSuccessDebounce,
-  });
+  const claim = await ctx.runMutation(
+    internal.vault.branches.claimTreeRefresh,
+    {
+      vaultId: vault._id,
+      debounceMs,
+      // Missing or stale branch metadata still needs a refresh even when the
+      // repo itself synced recently.
+      skipRecentSuccessDebounce,
+    },
+  );
   if (!claim.claimed) {
     return {
       refreshed: false,
@@ -2417,7 +2426,7 @@ async function refreshRepositoryTreeForUserHelper(
     }
 
     if (vault.branchNotFound) {
-      await ctx.runMutation(internal.vault.releaseTreeRefresh, {
+      await ctx.runMutation(internal.vault.branches.releaseTreeRefresh, {
         vaultId: vault._id,
         startedAt: claim.startedAt,
         markRefreshed: true,
@@ -2457,7 +2466,7 @@ async function refreshRepositoryTreeForUserHelper(
   if (refreshFailure) {
     try {
       const releaseResult = await ctx.runMutation(
-        internal.vault.releaseTreeRefresh,
+        internal.vault.branches.releaseTreeRefresh,
         {
           vaultId: vault._id,
           startedAt: claim.startedAt,
@@ -2468,13 +2477,16 @@ async function refreshRepositoryTreeForUserHelper(
         },
       );
       if (!releaseResult.released) {
-        await ctx.runMutation(internal.vault.recordTreeRefreshFailure, {
-          vaultId: vault._id,
-          startedAt: claim.startedAt,
-          failureKind: refreshFailure.kind,
-          failureMessage: refreshFailure.message,
-          cooldownUntil: refreshFailure.cooldownUntil,
-        });
+        await ctx.runMutation(
+          internal.vault.branches.recordTreeRefreshFailure,
+          {
+            vaultId: vault._id,
+            startedAt: claim.startedAt,
+            failureKind: refreshFailure.kind,
+            failureMessage: refreshFailure.message,
+            cooldownUntil: refreshFailure.cooldownUntil,
+          },
+        );
       }
     } catch (releaseError) {
       console.error("Failed to persist repository tree refresh failure", {
@@ -2488,7 +2500,7 @@ async function refreshRepositoryTreeForUserHelper(
     throw refreshError;
   }
 
-  await ctx.runMutation(internal.vault.releaseTreeRefresh, {
+  await ctx.runMutation(internal.vault.branches.releaseTreeRefresh, {
     vaultId: vault._id,
     startedAt: claim.startedAt,
     markRefreshed: true,
@@ -2514,7 +2526,7 @@ export const refreshRepositoryTree = action({
   returns: refreshRepositoryTreeResult,
   handler: async (ctx, args): Promise<RefreshRepositoryTreeResult> => {
     const userId = await getUserId(ctx);
-    const vault = await ctx.runQuery(internal.vault.getByIdForUser, {
+    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
       userId,
       vaultId: args.vaultId,
     });
@@ -2596,10 +2608,13 @@ export const syncRepositoryMetadata = internalAction({
       throw new Error("GitHub is not connected");
     }
 
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName: `${args.owner}/${args.repo}`,
-      userId: args.userId,
-    });
+    const vault = await ctx.runQuery(
+      internal.vault.records.getByRepositoryFullName,
+      {
+        repositoryFullName: `${args.owner}/${args.repo}`,
+        userId: args.userId,
+      },
+    );
 
     if (!vault) {
       throw new Error("Vault not found");
@@ -2630,7 +2645,7 @@ export const syncRepositoryMetadata = internalAction({
       intent: args.intent,
       remoteBranchCount: remoteBranches.length,
     });
-    await ctx.runMutation(internal.vault.syncVaultRemoteBranches, {
+    await ctx.runMutation(internal.vault.branches.syncVaultRemoteBranches, {
       vaultId: vault._id,
       syncedAt: Date.now(),
       branches: remoteBranches,
@@ -2656,7 +2671,7 @@ export const syncRepositoryMetadata = internalAction({
         branches: cloudflarePreviewTargetBranches,
       });
       await ctx.runMutation(
-        internal.vault.syncVaultRemoteBranchCloudflarePreviews,
+        internal.vault.branches.syncVaultRemoteBranchCloudflarePreviews,
         {
           vaultId: vault._id,
           branches: cloudflarePreviews,
@@ -2703,11 +2718,14 @@ export const refreshBranchTree = internalAction({
     }
 
     const targetBranch = normalizeRequiredRepositoryBranch(args.branch);
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName: `${args.owner}/${args.repo}`,
-      userId: args.userId,
-      branch: targetBranch,
-    });
+    const vault = await ctx.runQuery(
+      internal.vault.records.getByRepositoryFullName,
+      {
+        repositoryFullName: `${args.owner}/${args.repo}`,
+        userId: args.userId,
+        branch: targetBranch,
+      },
+    );
 
     if (!vault) {
       throw new Error("Vault not found");
@@ -2733,7 +2751,7 @@ export const refreshBranchTree = internalAction({
     const latestCommitSha = latestCommits.data[0]?.sha;
 
     const cachedBranchTree = await ctx.runQuery(
-      internal.vault.getVaultBranchTree,
+      internal.vault.branches.getVaultBranchTree,
       {
         vaultId: vault._id,
         branch: resolvedBranch,
@@ -2750,7 +2768,7 @@ export const refreshBranchTree = internalAction({
       return null;
     }
 
-    await ctx.runMutation(internal.vault.upsertVaultBranchTree, {
+    await ctx.runMutation(internal.vault.branches.upsertVaultBranchTree, {
       vaultId: vault._id,
       branch: resolvedBranch,
       treeData: tree.data,
@@ -2814,10 +2832,13 @@ export const updateRepositoryTree = internalAction({
     }
     let branchToRefresh = targetBranch;
     if (!branchToRefresh) {
-      const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-        repositoryFullName: `${args.owner}/${args.repo}`,
-        userId: args.userId,
-      });
+      const vault = await ctx.runQuery(
+        internal.vault.records.getByRepositoryFullName,
+        {
+          repositoryFullName: `${args.owner}/${args.repo}`,
+          userId: args.userId,
+        },
+      );
       if (!vault) {
         throw new Error("Vault not found");
       }

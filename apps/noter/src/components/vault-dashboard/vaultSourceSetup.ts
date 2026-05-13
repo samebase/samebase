@@ -1,7 +1,7 @@
 import type { api } from "../../../convex/_generated/api";
 
 type VaultDashboardVault = NonNullable<
-  (typeof api.vault.getUserVaults)["_returnType"]
+  (typeof api.vault.dashboard.getUserVaults)["_returnType"]
 >[number];
 export type VaultDashboardSourceSetup = VaultDashboardVault["sourceSetup"];
 export type VaultDashboardSourceSetupStep = Extract<
