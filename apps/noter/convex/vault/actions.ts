@@ -7,6 +7,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "../common";
 import { toErrorMessage } from "../jsonUtils";
+import { parseRepositoryFullName } from "./model";
 import { isLiveConnectedVault, isNoterManagedVault } from "./state";
 import { toSafeRepoName } from "../repoName";
 
@@ -173,22 +174,6 @@ async function startConnectExistingRepositoryProvisioningOrFail(
     });
     throw error;
   }
-}
-
-function parseRepositoryFullName(repositoryFullName: string): {
-  owner: string;
-  name: string;
-} {
-  const parts = repositoryFullName.split("/");
-  if (parts.length !== 2) {
-    throw new Error("Invalid repository full name");
-  }
-  const trimmedOwner = parts[0].trim();
-  const trimmedName = parts[1].trim();
-  if (!trimmedOwner || !trimmedName) {
-    throw new Error("Invalid repository full name");
-  }
-  return { owner: trimmedOwner, name: trimmedName };
 }
 
 async function resolveGithubConnectionUsername(

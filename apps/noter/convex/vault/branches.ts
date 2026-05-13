@@ -130,14 +130,14 @@ export function compareRemoteBranchSortOrder(
     name: string;
   },
 ): number {
-  if (left.remoteState !== right.remoteState) {
-    return left.remoteState === "active" ? -1 : 1;
-  }
   // Keep the repository default branch pinned at the top regardless of activity.
   // `isDefault` comes from GitHub's `default_branch`, so it works for `main`,
   // `master`, or any custom default branch name.
   if (left.isDefault !== right.isDefault) {
     return left.isDefault ? -1 : 1;
+  }
+  if (left.remoteState !== right.remoteState) {
+    return left.remoteState === "active" ? -1 : 1;
   }
   const leftLastCommitAt = left.lastCommitAt ?? Number.NEGATIVE_INFINITY;
   const rightLastCommitAt = right.lastCommitAt ?? Number.NEGATIVE_INFINITY;
@@ -866,8 +866,12 @@ export const claimTreeRefresh = internalMutation({
 export const startTreeRefreshOptimistic = mutation({
   args: { vaultId: v.id("vaults") },
   handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault || isVaultDeletingOrDeleteFailed(vault)) return;
+    if (!vault || vault.userId !== userId) {
+      throw new Error("Vault not found");
+    }
+    if (isVaultDeletingOrDeleteFailed(vault)) return;
 
     // Optimistically set the refresh started timestamp
     await ctx.db.patch(args.vaultId, { treeRefreshStartedAt: Date.now() });

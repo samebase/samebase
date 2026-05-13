@@ -43,6 +43,22 @@ export type GitHubRepositoryVisibility = Infer<
   typeof GitHubRepositoryVisibility
 >;
 
+export function parseRepositoryFullName(repositoryFullName: string): {
+  owner: string;
+  name: string;
+} {
+  const parts = repositoryFullName.split("/");
+  if (parts.length !== 2) {
+    throw new Error("Invalid repository full name");
+  }
+  const owner = parts[0].trim();
+  const name = parts[1].trim();
+  if (!owner || !name) {
+    throw new Error("Invalid repository full name");
+  }
+  return { owner, name };
+}
+
 export const TreeRefreshFailureKind = union(
   literal("failed"),
   literal("rate_limited"),
