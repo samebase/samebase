@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/convex/schemas/convex.schema.json",
   "node": {
-    "nodeVersion": "22"
+    "nodeVersion": "24"
   },
   "aiFiles": {
     "skills": {

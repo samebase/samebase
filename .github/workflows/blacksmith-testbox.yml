@@ -6,6 +6,10 @@ on:
         type: string
         description: "Testbox session ID"
         required: true
+
+permissions:
+  contents: read
+
 jobs:
   playwright:
     name: playwright
@@ -19,14 +23,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
-          version: 9.15.0
+          version: 11.1.1
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24.x
           cache: "pnpm"
+      - name: Install dependencies without lifecycle scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Audit package signatures
+        run: pnpm audit signatures
+      - name: Audit known vulnerabilities
+        run: pnpm audit
+      - name: Reset script-disabled install
+        run: rm -rf node_modules
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Bootstrap Convex for CI
