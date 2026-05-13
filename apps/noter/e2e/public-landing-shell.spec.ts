@@ -211,7 +211,7 @@ async function readLandingToggleLayout(
       '[data-testid="public-landing-content"]',
     );
     const waitlistLink = document.querySelector(
-      'a[href="https://x.com/noter_md"]',
+      'a[href="https://x.com/notermd"]',
     );
     const googleButton = Array.from(document.querySelectorAll("button")).find(
       (button) => button.textContent?.includes("Google") ?? false,
@@ -1026,11 +1026,11 @@ test("public landing renders the routed landing UI directly", async ({
     page.getByRole("button", { name: "Google", includeHidden: true }),
   ).toBeDisabled();
   await expect(
-    page.getByRole("link", { name: "https://x.com/noter_md", exact: true }),
+    page.getByRole("link", { name: "https://x.com/notermd", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "https://x.com/noter_md", exact: true }),
-  ).toHaveAttribute("href", "https://x.com/noter_md");
+    page.getByRole("link", { name: "https://x.com/notermd", exact: true }),
+  ).toHaveAttribute("href", "https://x.com/notermd");
 });
 
 test("landing dev mode shows Google sign-in", async ({ page }) => {
@@ -1055,7 +1055,7 @@ test("public landing interactive elements use pointer cursors", async ({
     "pointer",
   );
   await expect(
-    page.getByRole("link", { name: "https://x.com/noter_md", exact: true }),
+    page.getByRole("link", { name: "https://x.com/notermd", exact: true }),
   ).toHaveCSS("cursor", "pointer");
 });
 
@@ -1072,7 +1072,7 @@ test("public landing renders the closed Google signup return state", async ({
     landingContent.getByRole("link", { name: "go back" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "https://x.com/noter_md", exact: true }),
+    page.getByRole("link", { name: "https://x.com/notermd", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Google", includeHidden: true }),
@@ -1564,21 +1564,21 @@ test("waitlist link stays visible through the dev toggle", async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
 
   const waitlistLink = page.getByRole("link", {
-    name: "https://x.com/noter_md",
+    name: "https://x.com/notermd",
     exact: true,
   });
   await expect(waitlistLink).toBeVisible();
-  await expect(waitlistLink).toHaveAttribute("href", "https://x.com/noter_md");
+  await expect(waitlistLink).toHaveAttribute("href", "https://x.com/notermd");
   await page
     .getByRole("link", { name: LANDING_DEV_MODE_LINK_LABEL, exact: true })
     .click();
   await expect(page).toHaveURL(/\/\?dev$/);
   await expect(
-    page.getByRole("link", { name: "https://x.com/noter_md", exact: true }),
+    page.getByRole("link", { name: "https://x.com/notermd", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "https://x.com/noter_md", exact: true }),
-  ).toHaveAttribute("href", "https://x.com/noter_md");
+    page.getByRole("link", { name: "https://x.com/notermd", exact: true }),
+  ).toHaveAttribute("href", "https://x.com/notermd");
 });
 
 test("public landing keeps the card height stable while toggling dev mode", async ({
@@ -1840,7 +1840,7 @@ test("prod-ui mode hides developer password auth controls", async ({
   ).toBeDisabled();
 
   await expect(
-    page.getByRole("link", { name: "https://x.com/noter_md", exact: true }),
+    page.getByRole("link", { name: "https://x.com/notermd", exact: true }),
   ).toBeVisible();
   await expect(page.getByText("Password auth (dev)")).toHaveCount(0);
   await expect(
@@ -1856,7 +1856,7 @@ test("prod-ui mode does not override landing dev editing", async ({ page }) => {
 
   await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "https://x.com/noter_md", exact: true }),
+    page.getByRole("link", { name: "https://x.com/notermd", exact: true }),
   ).toBeVisible();
   await expect(page.getByText("Password auth (dev)")).toHaveCount(0);
   const landingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);

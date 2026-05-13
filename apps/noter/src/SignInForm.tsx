@@ -69,11 +69,11 @@ export function SignInForm({
           <div className="flex flex-col gap-2 pt-2">
             <a
               className="text-center text-sm text-muted-foreground underline underline-offset-4"
-              href="https://x.com/noter_md"
+              href="https://x.com/notermd"
               rel="noopener noreferrer"
               target="_blank"
             >
-              https://x.com/noter_md
+              https://x.com/notermd
             </a>
           </div>
         </div>
@@ -93,7 +93,7 @@ function GoogleSignupClosedNotice() {
       <p className="text-sm text-muted-foreground">
         Please{" "}
         <a
-          href="https://x.com/noter_md"
+          href="https://x.com/notermd"
           target="_blank"
           rel="noopener noreferrer"
         >
