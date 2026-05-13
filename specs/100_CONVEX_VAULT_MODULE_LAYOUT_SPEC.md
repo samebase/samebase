@@ -160,8 +160,10 @@ The accepted public and internal Convex references are named by responsibility:
 - `internal.vault.deletion.workflow.*`
 - `internal.vault.deletion.providerActions.*`
 
-Do not preserve old names such as `api.vault.*`, `api.vaultActions.*`, or
-`internal.vaultDeletionRuns.*` through root wrappers. Those shims would keep two
+Do not preserve legacy direct-members such as `api.vault.getUserVaults`,
+`api.vaultActions.*`, or `internal.vaultDeletionRuns.*` through root wrappers.
+Use only responsibility-scoped paths like `api.vault.dashboard.*`,
+`api.vault.actions.*`, and `api.vault.branches.*`. Root shims would keep two
 entrypoints alive for one domain and would conflict with the repo rule against
 same-name pass-through modules.
 
