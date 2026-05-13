@@ -9,7 +9,7 @@ import {
   type MutationCtx,
 } from "../_generated/server";
 import { getUserId } from "../common";
-import { PullRequestLabel } from "../schema";
+import { vPullRequestLabel, type PullRequestLabel } from "../schema";
 import { vGithubTreeData, vTreeRefreshFailureKind } from "./model";
 import {
   hasStagedFileChanges,
@@ -315,7 +315,7 @@ export const getVaultRemoteBranches = query({
       behindBy: optional(number()),
       pullRequestUrl: optional(string()),
       pullRequestNumber: optional(number()),
-      pullRequestLabels: optional(array(PullRequestLabel)),
+      pullRequestLabels: optional(array(vPullRequestLabel)),
       pullRequestTitle: optional(string()),
       pullRequestIsDraft: optional(boolean()),
       isDefault: boolean(),
@@ -400,7 +400,7 @@ export const syncVaultRemoteBranches = internalMutation({
         ),
         pullRequestUrl: optional(string()),
         pullRequestNumber: optional(number()),
-        pullRequestLabels: optional(array(PullRequestLabel)),
+        pullRequestLabels: optional(array(vPullRequestLabel)),
         pullRequestTitle: optional(string()),
         pullRequestIsDraft: optional(boolean()),
         pullRequestState: union(literal("resolved"), literal("preserve")),

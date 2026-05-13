@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery, query } from "../_generated/server";
-import { CodespaceState } from "./model";
+import { vCodespaceState } from "./model";
 import { getUserId } from "../common";
 import { assertConnectedVault, isLiveConnectedVault } from "../vault/state";
 
@@ -84,7 +84,7 @@ export const updateCodespaceConnection = internalMutation({
     codespaceId: v.id("codespaces"),
     webUrl: v.string(),
     agentUrl: v.string(),
-    state: CodespaceState,
+    state: vCodespaceState,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -103,7 +103,7 @@ export const updateCodespaceConnection = internalMutation({
 export const updateCodespaceState = internalMutation({
   args: {
     codespaceId: v.id("codespaces"),
-    state: CodespaceState,
+    state: vCodespaceState,
     lastStartedAt: v.optional(v.number()),
     lastStoppedAt: v.optional(v.number()),
     deletedAt: v.optional(v.number()),

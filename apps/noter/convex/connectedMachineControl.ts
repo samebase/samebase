@@ -1,12 +1,12 @@
 import { internalMutation, mutation } from "./_generated/server";
 import { getUserId } from "./common";
 import {
-  introspectMachineControlTokenArgsValidator,
-  issueMachineControlTokenArgsValidator,
-  issueMachineControlTokenReturns,
+  vIntrospectMachineControlTokenArgs,
+  vIssueMachineControlTokenArgs,
+  vIssueMachineControlTokenReturns,
   MACHINE_CONTROL_TOKEN_TTL_MS,
   type MachineControlTokenIntrospectionResult,
-  machineControlTokenIntrospectionResultValidator,
+  vMachineControlTokenIntrospectionResult,
 } from "./connectedMachineModel";
 import { createMachineControlTokenValue, sha256Hex } from "./mcp/tokens";
 import { resolveConnectedMachineStatus } from "../shared/connectedMachinePresence";
@@ -17,8 +17,8 @@ import { resolveConnectedMachineStatus } from "../shared/connectedMachinePresenc
  * machine credential with the browser.
  */
 export const issueMachineControlToken = mutation({
-  args: issueMachineControlTokenArgsValidator,
-  returns: issueMachineControlTokenReturns,
+  args: vIssueMachineControlTokenArgs,
+  returns: vIssueMachineControlTokenReturns,
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
     const machine = await ctx.db
@@ -72,8 +72,8 @@ export const issueMachineControlToken = mutation({
  * machine ownership at the moment the local service checks the token.
  */
 export const introspectMachineControlToken = internalMutation({
-  args: introspectMachineControlTokenArgsValidator,
-  returns: machineControlTokenIntrospectionResultValidator,
+  args: vIntrospectMachineControlTokenArgs,
+  returns: vMachineControlTokenIntrospectionResult,
   handler: async (
     ctx,
     args,

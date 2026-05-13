@@ -3,7 +3,7 @@ import { v } from "convex/values";
 
 const { boolean, id, literal, number, optional, string, union } = v;
 
-export const CodespaceState = union(
+export const vCodespaceState = union(
   literal("creating"),
   literal("starting"),
   literal("running"),
@@ -25,7 +25,7 @@ export const codespacesTable = defineTable({
   ghCodespaceId: string(),
   ghCodespaceName: string(),
 
-  state: CodespaceState,
+  state: vCodespaceState,
 
   webUrl: optional(string()),
 

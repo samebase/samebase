@@ -26,46 +26,44 @@ export const MACHINE_REGISTRATION_BOOTSTRAP_RATE_LIMIT_WINDOW_MS =
   MACHINE_REGISTRATION_REQUEST_TTL_MS;
 export const MACHINE_CONTROL_TOKEN_TTL_MS = 15 * 60 * 1000;
 
-export const connectedMachineCapabilityValidator = union(
+export const vConnectedMachineCapability = union(
   literal("presence"),
   literal("liveControl"),
 );
 export type ConnectedMachineCapability = Infer<
-  typeof connectedMachineCapabilityValidator
+  typeof vConnectedMachineCapability
 >;
 
-export const connectedMachineStatusValidator = union(
+export const vConnectedMachineStatus = union(
   literal("online"),
   literal("offline"),
 );
-export type ConnectedMachineStatus = Infer<
-  typeof connectedMachineStatusValidator
->;
+export type ConnectedMachineStatus = Infer<typeof vConnectedMachineStatus>;
 
-export const connectedMachineControlStatusValidator = union(
+export const vConnectedMachineControlStatus = union(
   literal("unavailable"),
   literal("starting"),
   literal("ready"),
 );
 export type ConnectedMachineControlStatus = Infer<
-  typeof connectedMachineControlStatusValidator
+  typeof vConnectedMachineControlStatus
 >;
 
-export const connectedMachineOsValidator = union(
+export const vConnectedMachineOs = union(
   literal("linux"),
   literal("macos"),
   literal("windows"),
 );
-export type ConnectedMachineOs = Infer<typeof connectedMachineOsValidator>;
+export type ConnectedMachineOs = Infer<typeof vConnectedMachineOs>;
 
 const connectedMachineLiveControlFields = {
-  controlStatus: optional(connectedMachineControlStatusValidator),
+  controlStatus: optional(vConnectedMachineControlStatus),
   controlStatusDetail: optional(string()),
   controlUrl: optional(string()),
   controlUrlUpdatedAt: optional(number()),
 };
 
-export const connectedMachineRowValidator = object({
+export const vConnectedMachineRow = object({
   userId: id("users"),
   machineId: string(),
   displayName: string(),
@@ -73,60 +71,60 @@ export const connectedMachineRowValidator = object({
   // Older rows may not have a persisted sidebar order until a heartbeat writes
   // one, so the stored shape keeps this optional during the migration window.
   sidebarOrder: optional(number()),
-  os: connectedMachineOsValidator,
-  status: connectedMachineStatusValidator,
+  os: vConnectedMachineOs,
+  status: vConnectedMachineStatus,
   lastSeenAt: number(),
   connectorVersion: string(),
-  capabilities: array(connectedMachineCapabilityValidator),
+  capabilities: array(vConnectedMachineCapability),
   allowedRoots: array(string()),
   ...connectedMachineLiveControlFields,
 });
-export type ConnectedMachineRow = Infer<typeof connectedMachineRowValidator>;
+export type ConnectedMachineRow = Infer<typeof vConnectedMachineRow>;
 
-export const connectedMachineViewValidator = object({
+export const vConnectedMachineView = object({
   machineId: string(),
   displayName: string(),
   hostname: string(),
   // Browser consumers should always see one effective order value even when the
   // stored row still relies on the deterministic creation-time fallback.
   sidebarOrder: number(),
-  os: connectedMachineOsValidator,
-  status: connectedMachineStatusValidator,
+  os: vConnectedMachineOs,
+  status: vConnectedMachineStatus,
   lastSeenAt: number(),
   connectorVersion: string(),
-  capabilities: array(connectedMachineCapabilityValidator),
+  capabilities: array(vConnectedMachineCapability),
   allowedRoots: array(string()),
   ...connectedMachineLiveControlFields,
 });
-export type ConnectedMachineView = Infer<typeof connectedMachineViewValidator>;
+export type ConnectedMachineView = Infer<typeof vConnectedMachineView>;
 
-export const machineRegistrationRequestRowValidator = object({
+export const vMachineRegistrationRequestRow = object({
   requestId: string(),
   credentialHash: string(),
   userId: optional(id("users")),
   machineId: string(),
   displayName: string(),
   hostname: string(),
-  os: connectedMachineOsValidator,
+  os: vConnectedMachineOs,
   connectorVersion: string(),
   createdAt: number(),
   expiresAt: number(),
   approvedAt: optional(number()),
 });
 export type MachineRegistrationRequestRow = Infer<
-  typeof machineRegistrationRequestRowValidator
+  typeof vMachineRegistrationRequestRow
 >;
 
-export const machineCredentialRowValidator = object({
+export const vMachineCredentialRow = object({
   userId: id("users"),
   machineId: string(),
   credentialHash: string(),
   createdAt: number(),
   lastUsedAt: optional(number()),
 });
-export type MachineCredentialRow = Infer<typeof machineCredentialRowValidator>;
+export type MachineCredentialRow = Infer<typeof vMachineCredentialRow>;
 
-export const machineControlTokenRowValidator = object({
+export const vMachineControlTokenRow = object({
   userId: id("users"),
   machineId: string(),
   tokenHash: string(),
@@ -135,53 +133,51 @@ export const machineControlTokenRowValidator = object({
   lastUsedAt: optional(number()),
   revokedAt: optional(number()),
 });
-export type MachineControlTokenRow = Infer<
-  typeof machineControlTokenRowValidator
->;
+export type MachineControlTokenRow = Infer<typeof vMachineControlTokenRow>;
 
-export const machineRegistrationBootstrapRateLimitRowValidator = object({
+export const vMachineRegistrationBootstrapRateLimitRow = object({
   fingerprint: string(),
   requestCount: number(),
   windowStartedAt: number(),
 });
 export type MachineRegistrationBootstrapRateLimitRow = Infer<
-  typeof machineRegistrationBootstrapRateLimitRowValidator
+  typeof vMachineRegistrationBootstrapRateLimitRow
 >;
 
-export const publishHeartbeatFromConnectorArgsValidator = object({
+export const vPublishHeartbeatFromConnectorArgs = object({
   credentialHash: string(),
   now: number(),
   machineId: string(),
   displayName: string(),
   hostname: string(),
-  os: connectedMachineOsValidator,
-  status: optional(connectedMachineStatusValidator),
+  os: vConnectedMachineOs,
+  status: optional(vConnectedMachineStatus),
   connectorVersion: string(),
-  capabilities: array(connectedMachineCapabilityValidator),
+  capabilities: array(vConnectedMachineCapability),
   allowedRoots: array(string()),
   ...connectedMachineLiveControlFields,
 });
 export type PublishHeartbeatFromConnectorArgs = Infer<
-  typeof publishHeartbeatFromConnectorArgsValidator
+  typeof vPublishHeartbeatFromConnectorArgs
 >;
 
-export const createMachineRegistrationRequestArgsValidator = object({
+export const vCreateMachineRegistrationRequestArgs = object({
   bootstrapFingerprint: string(),
   requestId: string(),
   credentialHash: string(),
   machineId: string(),
   displayName: string(),
   hostname: string(),
-  os: connectedMachineOsValidator,
+  os: vConnectedMachineOs,
   connectorVersion: string(),
   createdAt: number(),
   expiresAt: number(),
 });
 export type CreateMachineRegistrationRequestArgs = Infer<
-  typeof createMachineRegistrationRequestArgsValidator
+  typeof vCreateMachineRegistrationRequestArgs
 >;
 
-export const machineRegistrationBrowserViewValidator = union(
+export const vMachineRegistrationBrowserView = union(
   object({
     kind: literal("sign_in_required"),
   }),
@@ -194,7 +190,7 @@ export const machineRegistrationBrowserViewValidator = union(
     machineId: string(),
     displayName: string(),
     hostname: string(),
-    os: connectedMachineOsValidator,
+    os: vConnectedMachineOs,
     connectorVersion: string(),
     expiresAt: number(),
     serverNow: number(),
@@ -205,7 +201,7 @@ export const machineRegistrationBrowserViewValidator = union(
     machineId: string(),
     displayName: string(),
     hostname: string(),
-    os: connectedMachineOsValidator,
+    os: vConnectedMachineOs,
     connectorVersion: string(),
     approvedAt: number(),
   }),
@@ -215,16 +211,16 @@ export const machineRegistrationBrowserViewValidator = union(
     machineId: string(),
     displayName: string(),
     hostname: string(),
-    os: connectedMachineOsValidator,
+    os: vConnectedMachineOs,
     connectorVersion: string(),
     expiresAt: number(),
   }),
 );
 export type MachineRegistrationBrowserView = Infer<
-  typeof machineRegistrationBrowserViewValidator
+  typeof vMachineRegistrationBrowserView
 >;
 
-export const validateMachineCredentialResultValidator = union(
+export const vValidateMachineCredentialResult = union(
   object({
     ok: literal(true),
     userId: id("users"),
@@ -236,36 +232,36 @@ export const validateMachineCredentialResultValidator = union(
   }),
 );
 export type ValidateMachineCredentialResult = Infer<
-  typeof validateMachineCredentialResultValidator
+  typeof vValidateMachineCredentialResult
 >;
 
-export const approveMachineRegistrationRequestReturns = vNull();
+export const vApproveMachineRegistrationRequestReturns = vNull();
 
-export const issueMachineControlTokenArgsValidator = object({
+export const vIssueMachineControlTokenArgs = object({
   machineId: string(),
 });
 export type IssueMachineControlTokenArgs = Infer<
-  typeof issueMachineControlTokenArgsValidator
+  typeof vIssueMachineControlTokenArgs
 >;
 
-export const issueMachineControlTokenReturns = object({
+export const vIssueMachineControlTokenReturns = object({
   expiresAt: number(),
   token: string(),
 });
 export type IssueMachineControlTokenResult = Infer<
-  typeof issueMachineControlTokenReturns
+  typeof vIssueMachineControlTokenReturns
 >;
 
-export const introspectMachineControlTokenArgsValidator = object({
+export const vIntrospectMachineControlTokenArgs = object({
   machineId: string(),
   now: number(),
   tokenHash: string(),
 });
 export type IntrospectMachineControlTokenArgs = Infer<
-  typeof introspectMachineControlTokenArgsValidator
+  typeof vIntrospectMachineControlTokenArgs
 >;
 
-export const machineControlTokenIntrospectionResultValidator = union(
+export const vMachineControlTokenIntrospectionResult = union(
   object({
     active: literal(true),
     audience: literal("machine-control"),
@@ -278,10 +274,10 @@ export const machineControlTokenIntrospectionResultValidator = union(
   }),
 );
 export type MachineControlTokenIntrospectionResult = Infer<
-  typeof machineControlTokenIntrospectionResultValidator
+  typeof vMachineControlTokenIntrospectionResult
 >;
 
-export const machineControlTokenIntrospectionHttpResponseValidator = object({
+export const vMachineControlTokenIntrospectionHttpResponse = object({
   active: boolean(),
   audience: optional(literal("machine-control")),
   expiresAt: optional(number()),
@@ -289,5 +285,5 @@ export const machineControlTokenIntrospectionHttpResponseValidator = object({
   userId: optional(string()),
 });
 export type MachineControlTokenIntrospectionHttpResponse = Infer<
-  typeof machineControlTokenIntrospectionHttpResponseValidator
+  typeof vMachineControlTokenIntrospectionHttpResponse
 >;

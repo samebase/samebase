@@ -1,7 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
-import { cloudflareStateValidator } from "./cloudflareState";
+import { vCloudflareState } from "./cloudflareState";
 import {
   vGithubTree,
   vGithubTreeData,
@@ -16,20 +16,20 @@ import {
   vVaultDeletionStep,
 } from "./vault/deletion/model";
 import {
-  mcpTokenHealthSourceValidator,
-  mcpTokenHealthStatusValidator,
-  mcpTokenHealthValidator,
+  vMcpTokenHealthSource,
+  vMcpTokenHealthStatus,
+  vMcpTokenHealth,
 } from "./mcpTokenHealth";
 import {
-  connectedMachineRowValidator,
-  machineControlTokenRowValidator,
-  machineCredentialRowValidator,
-  machineRegistrationBootstrapRateLimitRowValidator,
-  machineRegistrationRequestRowValidator,
+  vConnectedMachineRow,
+  vMachineControlTokenRow,
+  vMachineCredentialRow,
+  vMachineRegistrationBootstrapRateLimitRow,
+  vMachineRegistrationRequestRow,
 } from "./connectedMachineModel";
 import { vRepositoryRefreshRequest } from "./repositoryRefreshModel";
 import { codespacesTable } from "./codespaces/model";
-import { workspaceSidebarStateRowValidator } from "./workspaceSidebarStateModel";
+import { vWorkspaceSidebarStateRow } from "./workspaceSidebarStateModel";
 
 const { array, boolean, id, literal, number, object, optional, string, union } =
   v;
@@ -54,14 +54,14 @@ const PricingBillingCycle = optional(
   union(literal("monthly"), literal("annual")),
 );
 
-export const PullRequestLabel = union(
+export const vPullRequestLabel = union(
   string(),
   object({
     name: string(),
     color: optional(string()),
   }),
 );
-export type PullRequestLabel = Infer<typeof PullRequestLabel>;
+export type PullRequestLabel = Infer<typeof vPullRequestLabel>;
 
 export type GithubTree = Infer<typeof vGithubTree>;
 export type GithubTreeType = GithubTree;
@@ -71,14 +71,16 @@ export type GitHubRepositoryVisibility = Infer<
 >;
 export type InfraState = Infer<typeof vInfraState>;
 
-export const AppProvisioningEventLevel = union(
+export const vAppProvisioningEventLevel = union(
   literal("info"),
   literal("warn"),
   literal("error"),
 );
-export type AppProvisioningEventLevel = Infer<typeof AppProvisioningEventLevel>;
+export type AppProvisioningEventLevel = Infer<
+  typeof vAppProvisioningEventLevel
+>;
 
-export const AppProvisioningStep = union(
+export const vAppProvisioningStep = union(
   literal("initialize_vault"),
   literal("validate_connections"),
   literal("create_github_repo"),
@@ -94,9 +96,9 @@ export const AppProvisioningStep = union(
   literal("record_domains"),
   literal("finish"),
 );
-export type AppProvisioningStep = Infer<typeof AppProvisioningStep>;
+export type AppProvisioningStep = Infer<typeof vAppProvisioningStep>;
 
-export const AppProvisioningRunStep = union(
+export const vAppProvisioningRunStep = union(
   literal("run_created"),
   literal("initialize_vault"),
   literal("validate_connections"),
@@ -113,35 +115,37 @@ export const AppProvisioningRunStep = union(
   literal("record_domains"),
   literal("finish"),
 );
-export type AppProvisioningRunStep = Infer<typeof AppProvisioningRunStep>;
+export type AppProvisioningRunStep = Infer<typeof vAppProvisioningRunStep>;
 
-export const AppProvisioningRunTrigger = union(
+export const vAppProvisioningRunTrigger = union(
   literal("create"),
   literal("connect_existing_repository"),
   literal("retry"),
 );
-export type AppProvisioningRunTrigger = Infer<typeof AppProvisioningRunTrigger>;
+export type AppProvisioningRunTrigger = Infer<
+  typeof vAppProvisioningRunTrigger
+>;
 
-export const AppProvisioningRunState = union(
+export const vAppProvisioningRunState = union(
   literal("queued"),
   literal("running"),
   literal("succeeded"),
   literal("failed"),
   literal("canceled"),
 );
-export type AppProvisioningRunState = Infer<typeof AppProvisioningRunState>;
+export type AppProvisioningRunState = Infer<typeof vAppProvisioningRunState>;
 
-export const VaultDomainKind = union(
+export const vVaultDomainKind = union(
   literal("main"),
   literal("branch_preview"),
 );
 
-export const VaultDomainSource = union(
+export const vVaultDomainSource = union(
   literal("cloudflare_pages_default"),
   literal("cloudflare_pages_custom"),
 );
 
-export const VaultRemoteBranchState = union(
+export const vVaultRemoteBranchState = union(
   literal("active"),
   literal("deleted_upstream"),
 );
@@ -150,14 +154,14 @@ export type TreeRefreshFailureKind = Infer<typeof vTreeRefreshFailureKind>;
 export type VaultDeletionStep = Infer<typeof vVaultDeletionStep>;
 export type VaultDeletionEventLevel = Infer<typeof vVaultDeletionEventLevel>;
 
-export const ProdAccessScope = union(literal("vault"), literal("global"));
+export const vProdAccessScope = union(literal("vault"), literal("global"));
 
-export const ProdAccessProvider = union(
+export const vProdAccessProvider = union(
   literal("convex"),
   literal("cloudflare"),
 );
 
-export const ProdAccessResourceKind = union(
+export const vProdAccessResourceKind = union(
   literal("deployment_status"),
   literal("logs"),
   literal("data_query"),
@@ -166,7 +170,7 @@ export const ProdAccessResourceKind = union(
   literal("pages_project_inventory"),
 );
 
-export const ProdAccessStatus = union(
+export const vProdAccessStatus = union(
   literal("proposed"),
   literal("approved"),
   literal("rejected"),
@@ -175,13 +179,13 @@ export const ProdAccessStatus = union(
   literal("expired"),
 );
 
-export const ProdAccessRedactionLevel = union(
+export const vProdAccessRedactionLevel = union(
   literal("default"),
   literal("strict"),
   literal("raw_fallback"),
 );
 
-export const ProdAccessAuditAction = union(
+export const vProdAccessAuditAction = union(
   literal("proposed"),
   literal("approved"),
   literal("rejected"),
@@ -190,44 +194,44 @@ export const ProdAccessAuditAction = union(
   literal("expired"),
 );
 
-export const ProviderKind = union(
+export const vProviderKind = union(
   literal("github"),
   literal("convex"),
   literal("cloudflare"),
 );
-export type ProviderKind = Infer<typeof ProviderKind>;
+export type ProviderKind = Infer<typeof vProviderKind>;
 
-export const McpOauthClientCreatedBy = union(
+export const vMcpOauthClientCreatedBy = union(
   literal("dynamic_registration"),
   literal("manual"),
 );
-export const McpOauthClientRegistrationStatus = union(
+export const vMcpOauthClientRegistrationStatus = union(
   literal("provisional"),
   literal("active"),
   literal("expired"),
   literal("disabled"),
 );
-export const McpAuthRequestStatus = union(
+export const vMcpAuthRequestStatus = union(
   literal("pending"),
   literal("approved"),
   literal("denied"),
   literal("expired"),
 );
-export const McpGrantStatus = union(literal("active"), literal("revoked"));
-export const McpRefreshTokenStatus = union(
+export const vMcpGrantStatus = union(literal("active"), literal("revoked"));
+export const vMcpRefreshTokenStatus = union(
   literal("active"),
   literal("rotated"),
   literal("revoked"),
   literal("expired"),
 );
 
-export const OAuthAuth = object({
+export const vOAuthAuth = object({
   method: literal("oauth"),
   credential: string(),
   refreshCredential: optional(string()),
   credentialExpiresAt: optional(number()),
 });
-export const McpOAuthAuth = object({
+export const vMcpOAuthAuth = object({
   method: literal("mcp_oauth"),
   credential: string(),
   refreshCredential: optional(string()),
@@ -235,58 +239,55 @@ export const McpOAuthAuth = object({
   clientId: optional(string()),
   mcpServerUrl: string(),
 });
-export const ApiKeyAuth = object({
+export const vApiKeyAuth = object({
   method: literal("api_key"),
   credential: string(),
   credentialExpiresAt: optional(number()),
 });
-export const StandardProviderAuth = union(OAuthAuth, ApiKeyAuth);
-export type StandardProviderAuth = Infer<typeof StandardProviderAuth>;
-export const CloudflareProviderAuth = union(McpOAuthAuth, ApiKeyAuth);
-export type CloudflareProviderAuth = Infer<typeof CloudflareProviderAuth>;
-export const ProviderAuth = union(OAuthAuth, McpOAuthAuth, ApiKeyAuth);
-export type ProviderAuth = Infer<typeof ProviderAuth>;
-export const McpTokenHealthStatus = mcpTokenHealthStatusValidator;
-export type McpTokenHealthStatus = Infer<typeof McpTokenHealthStatus>;
-export const McpTokenHealthSource = mcpTokenHealthSourceValidator;
-export type McpTokenHealthSource = Infer<typeof McpTokenHealthSource>;
-export const McpTokenHealth = mcpTokenHealthValidator;
-export type McpTokenHealth = Infer<typeof McpTokenHealth>;
+export const vStandardProviderAuth = union(vOAuthAuth, vApiKeyAuth);
+export type StandardProviderAuth = Infer<typeof vStandardProviderAuth>;
+export const vCloudflareProviderAuth = union(vMcpOAuthAuth, vApiKeyAuth);
+export type CloudflareProviderAuth = Infer<typeof vCloudflareProviderAuth>;
+export const vProviderAuth = union(vOAuthAuth, vMcpOAuthAuth, vApiKeyAuth);
+export type ProviderAuth = Infer<typeof vProviderAuth>;
+export type McpTokenHealthStatus = Infer<typeof vMcpTokenHealthStatus>;
+export type McpTokenHealthSource = Infer<typeof vMcpTokenHealthSource>;
+export type McpTokenHealth = Infer<typeof vMcpTokenHealth>;
 
-export const GithubProviderConnection = object({
+export const vGithubProviderConnection = object({
   kind: literal("github"),
   userId: id("users"),
-  auth: StandardProviderAuth,
+  auth: vStandardProviderAuth,
   username: optional(string()),
   createdAt: number(),
   updatedAt: number(),
 });
-export const ConvexProviderConnection = object({
+export const vConvexProviderConnection = object({
   kind: literal("convex"),
   userId: id("users"),
-  auth: StandardProviderAuth,
+  auth: vStandardProviderAuth,
   teamId: string(),
   teamSlug: optional(string()),
   createdAt: number(),
   updatedAt: number(),
 });
-export const CloudflareProviderConnection = object({
+export const vCloudflareProviderConnection = object({
   kind: literal("cloudflare"),
   userId: id("users"),
-  auth: CloudflareProviderAuth,
+  auth: vCloudflareProviderAuth,
   accountId: optional(string()),
-  tokenHealth: optional(McpTokenHealth),
+  tokenHealth: optional(vMcpTokenHealth),
   tokenRefreshStartedAt: optional(number()),
   lastTokenRefreshAt: optional(number()),
   createdAt: number(),
   updatedAt: number(),
 });
-export const ProviderConnection = union(
-  GithubProviderConnection,
-  ConvexProviderConnection,
-  CloudflareProviderConnection,
+export const vProviderConnection = union(
+  vGithubProviderConnection,
+  vConvexProviderConnection,
+  vCloudflareProviderConnection,
 );
-export type ProviderConnection = Infer<typeof ProviderConnection>;
+export type ProviderConnection = Infer<typeof vProviderConnection>;
 
 // The schema is normally optional, but Convex Auth
 // requires indexes defined on `authTables`.
@@ -319,32 +320,30 @@ export default defineSchema({
     .index("phone", ["phone"])
     .index("by_polar_external_customer_id", ["billingPolarExternalCustomerId"]),
 
-  providerConnections: defineTable(ProviderConnection)
+  providerConnections: defineTable(vProviderConnection)
     .index("by_user", ["userId"])
     .index("by_user_kind", ["userId", "kind"])
     .index("by_kind_method", ["kind", "auth.method"]),
 
-  connectedMachines: defineTable(connectedMachineRowValidator)
+  connectedMachines: defineTable(vConnectedMachineRow)
     .index("by_user", ["userId"])
     .index("by_machine_id", ["machineId"])
     .index("by_user_machine_id", ["userId", "machineId"]),
 
-  machineRegistrationRequests: defineTable(
-    machineRegistrationRequestRowValidator,
-  )
+  machineRegistrationRequests: defineTable(vMachineRegistrationRequestRow)
     .index("by_request_id", ["requestId"])
     .index("by_machine_id", ["machineId"]),
 
   machineRegistrationBootstrapRateLimits: defineTable(
-    machineRegistrationBootstrapRateLimitRowValidator,
+    vMachineRegistrationBootstrapRateLimitRow,
   ).index("by_fingerprint", ["fingerprint"]),
 
-  machineCredentials: defineTable(machineCredentialRowValidator)
+  machineCredentials: defineTable(vMachineCredentialRow)
     .index("by_machine_id", ["machineId"])
     .index("by_user_machine_id", ["userId", "machineId"])
     .index("by_credential_hash", ["credentialHash"]),
 
-  machineControlTokens: defineTable(machineControlTokenRowValidator)
+  machineControlTokens: defineTable(vMachineControlTokenRow)
     .index("by_token_hash", ["tokenHash"])
     .index("by_user_machine_id", ["userId", "machineId"])
     .index("by_expires_at", ["expiresAt"]),
@@ -359,7 +358,7 @@ export default defineSchema({
     globalChatOpen: optional(boolean()),
   }).index("by_user", ["userId"]),
 
-  workspaceSidebarState: defineTable(workspaceSidebarStateRowValidator).index(
+  workspaceSidebarState: defineTable(vWorkspaceSidebarStateRow).index(
     "by_user_and_workspace_key",
     ["userId", "workspaceKey"],
   ),
@@ -406,7 +405,7 @@ export default defineSchema({
     behindBy: optional(number()),
     pullRequestUrl: optional(string()),
     pullRequestNumber: optional(number()),
-    pullRequestLabels: optional(array(PullRequestLabel)),
+    pullRequestLabels: optional(array(vPullRequestLabel)),
     pullRequestTitle: optional(string()),
     pullRequestIsDraft: optional(boolean()),
     cloudflareBranchPreviewUrl: optional(string()),
@@ -418,7 +417,7 @@ export default defineSchema({
     cloudflarePreviewCommentCreatedAt: optional(number()),
     isDefault: boolean(),
     isProtected: boolean(),
-    remoteState: VaultRemoteBranchState,
+    remoteState: vVaultRemoteBranchState,
     deletedUpstreamAt: optional(number()),
     lastSyncedAt: number(),
   })
@@ -484,7 +483,7 @@ export default defineSchema({
     convexDeployKeyId: optional(string()),
 
     // Cloudflare resource state. Pages is the current implementation detail.
-    cloudflare: optional(cloudflareStateValidator),
+    cloudflare: optional(vCloudflareState),
   })
     .index("by_vault", ["vaultId"])
     .index("by_status", ["status"]),
@@ -515,9 +514,9 @@ export default defineSchema({
     // Assigned after the Workflow component start call returns; run identity
     // exists first so early events can still be linked deterministically.
     workflowId: optional(string()),
-    trigger: AppProvisioningRunTrigger,
-    state: AppProvisioningRunState,
-    currentStep: AppProvisioningRunStep,
+    trigger: vAppProvisioningRunTrigger,
+    state: vAppProvisioningRunState,
+    currentStep: vAppProvisioningRunStep,
     lastError: optional(string()),
     createdAt: number(),
     updatedAt: number(),
@@ -536,8 +535,8 @@ export default defineSchema({
     vaultId: id("vaults"),
     repositoryFullName: string(),
     runId: id("appProvisioningRuns"),
-    step: AppProvisioningStep,
-    level: AppProvisioningEventLevel,
+    step: vAppProvisioningStep,
+    level: vAppProvisioningEventLevel,
     message: string(),
     createdAt: number(),
   })
@@ -577,9 +576,9 @@ export default defineSchema({
   vaultDomains: defineTable({
     vaultId: id("vaults"),
     branch: string(),
-    kind: VaultDomainKind,
+    kind: vVaultDomainKind,
     url: string(),
-    source: VaultDomainSource,
+    source: vVaultDomainSource,
     active: boolean(),
     lastSyncedAt: number(),
   })
@@ -739,14 +738,14 @@ export default defineSchema({
     requesterUserId: id("users"),
     vaultId: optional(id("vaults")),
 
-    scope: ProdAccessScope,
-    provider: ProdAccessProvider,
-    resourceKind: ProdAccessResourceKind,
+    scope: vProdAccessScope,
+    provider: vProdAccessProvider,
+    resourceKind: vProdAccessResourceKind,
     toolName: string(),
     paramsJson: string(),
 
-    status: ProdAccessStatus,
-    redactionLevel: ProdAccessRedactionLevel,
+    status: vProdAccessStatus,
+    redactionLevel: vProdAccessRedactionLevel,
 
     approvedBy: optional(id("users")),
     approvedAt: optional(number()),
@@ -765,7 +764,7 @@ export default defineSchema({
   aiProdAccessAudit: defineTable({
     requestId: id("aiProdAccessRequests"),
     actorUserId: id("users"),
-    action: ProdAccessAuditAction,
+    action: vProdAccessAuditAction,
     toolName: string(),
     endpoint: string(),
     argumentHash: string(),
@@ -811,8 +810,8 @@ export default defineSchema({
     tokenEndpointAuthMethod: literal("none"),
     createdAt: number(),
     updatedAt: number(),
-    createdBy: McpOauthClientCreatedBy,
-    registrationStatus: McpOauthClientRegistrationStatus,
+    createdBy: vMcpOauthClientCreatedBy,
+    registrationStatus: vMcpOauthClientRegistrationStatus,
     provisionalExpiresAt: optional(number()),
     firstTokenExchangedAt: optional(number()),
     metadataJson: string(),
@@ -834,7 +833,7 @@ export default defineSchema({
     codeChallenge: string(),
     codeChallengeMethod: literal("S256"),
     userId: optional(id("users")),
-    status: McpAuthRequestStatus,
+    status: vMcpAuthRequestStatus,
     createdAt: number(),
     expiresAt: number(),
   })
@@ -872,7 +871,7 @@ export default defineSchema({
     clientId: string(),
     resource: string(),
     scope: string(),
-    status: McpGrantStatus,
+    status: vMcpGrantStatus,
     createdAt: number(),
     updatedAt: number(),
     lastUsedAt: optional(number()),
@@ -911,7 +910,7 @@ export default defineSchema({
     clientId: string(),
     userId: id("users"),
     tokenHash: string(),
-    status: McpRefreshTokenStatus,
+    status: vMcpRefreshTokenStatus,
     createdAt: number(),
     expiresAt: optional(number()),
     rotatedAt: optional(number()),

@@ -1,17 +1,17 @@
 import { Infer, v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 
-export const OAuthProvider = v.union(
+export const vOAuthProvider = v.union(
   v.literal("github"),
   v.literal("convex"),
   v.literal("cloudflare_mcp"),
 );
 
-export type OAuthProvider = Infer<typeof OAuthProvider>;
+export type OAuthProvider = Infer<typeof vOAuthProvider>;
 
 export const createOauthState = internalMutation({
   args: {
-    provider: OAuthProvider,
+    provider: vOAuthProvider,
     userId: v.id("users"),
     state: v.string(),
     returnToPath: v.optional(v.string()),
@@ -39,7 +39,7 @@ export const createOauthState = internalMutation({
 
 export const getOauthStateByState = internalQuery({
   args: {
-    provider: OAuthProvider,
+    provider: vOAuthProvider,
     state: v.string(),
   },
   handler: async (ctx, args) => {

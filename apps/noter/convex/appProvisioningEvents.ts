@@ -1,6 +1,6 @@
 import { v, type Infer } from "convex/values";
 import { internalMutation, query } from "./_generated/server";
-import { AppProvisioningEventLevel, AppProvisioningStep } from "./schema";
+import { vAppProvisioningEventLevel, vAppProvisioningStep } from "./schema";
 import { getUserId } from "./common";
 
 const { array, id, number, object, string } = v;
@@ -10,11 +10,11 @@ const MAX_PROVISIONING_MESSAGE_LENGTH = 800;
 const provisioningEventResult = object({
   _id: id("appProvisioningEvents"),
   createdAt: number(),
-  level: AppProvisioningEventLevel,
+  level: vAppProvisioningEventLevel,
   message: string(),
   repositoryFullName: string(),
   runId: id("appProvisioningRuns"),
-  step: AppProvisioningStep,
+  step: vAppProvisioningStep,
 });
 type ProvisioningEventResult = Infer<typeof provisioningEventResult>;
 
@@ -30,8 +30,8 @@ export const append = internalMutation({
     vaultId: id("vaults"),
     repositoryFullName: string(),
     runId: id("appProvisioningRuns"),
-    step: AppProvisioningStep,
-    level: AppProvisioningEventLevel,
+    step: vAppProvisioningStep,
+    level: vAppProvisioningEventLevel,
     message: string(),
     createdAt: number(),
   },
