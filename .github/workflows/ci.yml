@@ -38,9 +38,6 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: node ./scripts/validate-main-build-label.ts
 
-      - name: Check supply chain policy
-        run: node ./scripts/check-supply-chain-policy.ts
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 

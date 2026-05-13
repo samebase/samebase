@@ -2,12 +2,20 @@ packages:
   - "apps/*"
   - "packages/*"
 
+# Wait 7 days before resolving newly published package versions. This gives the
+# ecosystem time to detect and yank compromised releases before CI can install
+# them.
 minimumReleaseAge: 10080
+# Keep release-age exceptions exact so future Convex releases do not bypass the
+# cooling period automatically.
 minimumReleaseAgeExclude:
   - convex@1.38.0
 minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
+# Blocks transitive git/tarball dependencies, including the remote GitHub
+# optional dependency path used in the TanStack compromise.
 blockExoticSubdeps: true
+# Rejects releases whose registry trust evidence is weaker than prior releases.
 trustPolicy: no-downgrade
 overrides:
   "@protobufjs/utf8": 1.1.1
@@ -25,6 +33,8 @@ overrides:
   "picomatch@4.0.3": 4.0.4
   postcss: 8.5.10
   protobufjs: 7.5.6
+# Every dependency lifecycle script is reviewed explicitly. `true` allows the
+# script to run; `false` records that the script was seen and suppressed.
 allowBuilds:
   core-js: false
   esbuild: true
