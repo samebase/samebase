@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Accepted next-phase implementation plan
+- Status: Accepted and implemented
 - Owner: Noter backend
 - Created: 2026-05-12
 - Related docs:
@@ -17,10 +17,10 @@ Move the root-level Convex vault modules into a dedicated `vault/` folder, but
 do not hide the move behind root re-export shims and do not collapse the public
 API into `api.vault.index.*`.
 
-The current root `apps/noter/convex/` directory already has foldered domains for
-`agent/`, `chat/`, `codespaces/`, `mcp/`, and `toolRuntime/`. Vault is now the
-largest remaining root-level backend domain. Keeping it flat makes root
-navigation worse and makes related deletion, branch, state, and model files look
+Before this change, the root `apps/noter/convex/` directory already had foldered
+domains for `agent/`, `chat/`, `codespaces/`, `mcp/`, and `toolRuntime/`. Vault
+was the largest remaining root-level backend domain. Keeping it flat made root
+navigation worse and made related deletion, branch, state, and model files look
 like miscellaneous backend utilities instead of one product domain.
 
 The accepted direction is a breaking, mechanical module-path cleanup. The app is
@@ -28,9 +28,9 @@ pre-user and operator-owned, so preserving old root function references is not a
 goal. Prefer one clear tree now over compatibility scaffolding that would
 pollute navigation.
 
-## Current Shape
+## Original Shape
 
-The narrow vault cluster is currently 15 root-level Convex files:
+The narrow vault cluster started as 15 root-level Convex files:
 
 - `vault.ts`
 - `vaultActions.ts`
@@ -52,7 +52,7 @@ Together these files are about 8.1k lines. `vault.ts` alone is about 2.5k lines,
 so a pure folder move would improve root shape but leave the most important file
 too broad.
 
-Current generated Convex references are root-level:
+The original generated Convex references were root-level:
 
 - `api.vault.*`
 - `api.vaultActions.*`
@@ -109,9 +109,8 @@ The old root `vault.ts` should be split while moving:
   repository-owner discovery.
 - `vault/records.ts` owns internal vault row creation, lookup, source
   connection, readiness, and failure mutations.
-- `vault/branches.ts` owns branch filters that are not dashboard-specific,
-  remote branch sync, branch-tree cache, tree refresh claims, and branch
-  selection helpers.
+- `vault/branches.ts` owns remote branch sync, branch-tree cache, tree refresh
+  claims, Cloudflare preview metadata sync, and branch selection helpers.
 - `vault/model.ts` owns vault validators and vault-owned state validators used
   by schema.
 - `vault/state.ts` owns runtime guards such as `assertConnectedVault` and
@@ -131,16 +130,20 @@ The accepted public and internal Convex references are named by responsibility:
 - `api.vault.dashboard.getVaultInfrastructure`
 - `api.vault.dashboard.getUserVaultBranchFilters`
 - `api.vault.dashboard.setVaultBranchFilters`
+- `api.vault.records.getVaultByRepository`
 - `api.vault.actions.connectRepository`
 - `api.vault.actions.createRepository`
 - `api.vault.actions.deleteVault`
+- `api.vault.actions.listRepositoryOwners`
 - `api.vault.actions.retryDeleteVault`
 - `api.vault.actions.retryInfrastructureProvisioning`
 - `api.vault.branches.getVaultRemoteBranches`
 - `api.vault.branches.startTreeRefreshOptimistic`
 - `internal.vault.records.getById`
 - `internal.vault.records.getByIdForUser`
+- `internal.vault.records.getInfrastructureByVaultId`
 - `internal.vault.records.getByRepositoryFullName`
+- `internal.vault.records.hasOtherVaultsForRepository`
 - `internal.vault.records.createInitializingExistingRepositoryVaultForUser`
 - `internal.vault.records.createInitializingNoterManagedVaultForUser`
 - `internal.vault.records.connectExistingRepositoryVaultGitHub`
@@ -148,6 +151,7 @@ The accepted public and internal Convex references are named by responsibility:
 - `internal.vault.records.markGithubProvisioningFailed`
 - `internal.vault.records.markVaultAsReady`
 - `internal.vault.records.updateVaultDevcontainerConfig`
+- `internal.vault.branches.getVaultRemoteBranch`
 - `internal.vault.branches.getVaultBranchTree`
 - `internal.vault.branches.upsertVaultBranchTree`
 - `internal.vault.branches.syncVaultRemoteBranches`
@@ -156,6 +160,7 @@ The accepted public and internal Convex references are named by responsibility:
 - `internal.vault.branches.releaseTreeRefresh`
 - `internal.vault.branches.recordTreeRefreshFailure`
 - `internal.vault.deletion.runs.*`
+- `internal.vault.deletion.events.*`
 - `internal.vault.deletion.cleanup.*`
 - `internal.vault.deletion.workflow.*`
 - `internal.vault.deletion.providerActions.*`
@@ -163,9 +168,9 @@ The accepted public and internal Convex references are named by responsibility:
 Do not preserve legacy direct-members such as `api.vault.getUserVaults`,
 `api.vaultActions.*`, or `internal.vaultDeletionRuns.*` through root wrappers.
 Use only responsibility-scoped paths like `api.vault.dashboard.*`,
-`api.vault.actions.*`, and `api.vault.branches.*`. Root shims would keep two
-entrypoints alive for one domain and would conflict with the repo rule against
-same-name pass-through modules.
+`api.vault.records.*`, `api.vault.actions.*`, and `api.vault.branches.*`. Root
+shims would keep two entrypoints alive for one domain and would conflict with
+the repo rule against same-name pass-through modules.
 
 Do not use `api.vault.index.*`. The folder is the namespace; the file name
 should communicate why the function exists.
@@ -227,13 +232,16 @@ part of their arguments.
 10. Update `apps/noter/convex/README.md` so the backend overview points at the
     foldered vault domain.
 
+`getVaultByRepository` belongs in `vault/records.ts` because it returns the
+single-vault read model used by file surfaces, not the dashboard aggregate.
+
 ## Validation Expectations
 
 At minimum, run:
 
 ```bash
 pnpm --dir apps/noter run typecheck
-pnpm --dir apps/noter exec vitest run convex/vault*.test.ts convex/vault/**/*.test.ts
+pnpm --dir apps/noter exec vp test run convex/vault/branches.test.ts convex/vault/dashboard.convex.test.ts convex/vault/deletion/workflow.convex.test.ts
 ```
 
 If test glob support is awkward after the move, run the specific moved vault
@@ -242,7 +250,6 @@ before shipping the implementation PR.
 
 ## Non-Goals
 
-- Implement the move in this spec PR.
 - Rename persisted Convex tables.
 - Create root-level re-export shims.
 - Convert vault into a Convex Component.

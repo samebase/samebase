@@ -6,10 +6,11 @@ collaboration logic, chat orchestration, and infrastructure provisioning.
 ## Start Here
 
 1. `schema.ts` - full data model and indexes
-2. `vaultActions.ts` - repository connect/create/delete + infra retry actions
-3. `infraProvisioning.ts` - async Convex/Cloudflare provisioning flow
-4. `chat/index.ts` + `chat/actions.ts` - AI Fab chat lifecycle + approvals
-5. `codespaces/index.ts` + `codespaces/vaultIntegration.ts` - Codespaces
+2. `vault/dashboard.ts` - vault dashboard queries and infrastructure summary
+3. `vault/actions.ts` - repository connect/create/delete + infra retry actions
+4. `infraProvisioning.ts` - async Convex/Cloudflare provisioning flow
+5. `chat/index.ts` + `chat/actions.ts` - AI Fab chat lifecycle + approvals
+6. `codespaces/index.ts` + `codespaces/vaultIntegration.ts` - Codespaces
    lifecycle integration
 
 ## AI Fab / Agent Flow
@@ -50,13 +51,27 @@ flowchart LR
 - `chat/threads.ts` - thread access helpers.
 - `agent/` - LLM graph, tools, and system prompt builders.
 
+## Vault Module Map
+
+- `vault/actions.ts` - public actions for GitHub repository ownership,
+  connect/create, provisioning retry, and deletion retry.
+- `vault/dashboard.ts` - public dashboard queries for vault cards, branch
+  filters, and infrastructure/domain summaries.
+- `vault/records.ts` - vault row creation, lookup, readiness, and GitHub
+  connection mutations.
+- `vault/branches.ts` - remote branch sync, branch-tree cache, tree refresh
+  claims, and branch selection helpers.
+- `vault/model.ts` + `vault/state.ts` - validators and runtime guards.
+- `vault/deletion/` - deletion eligibility, runs, events, local cleanup,
+  workflow orchestration, and provider actions.
+
 ## Key Workflows
 
 ### Vault Creation Paths
 
-- `createRepository` (`vaultActions.ts`): creates an app provisioning run and
+- `createRepository` (`vault/actions.ts`): creates an app provisioning run and
   starts the full create-app Workflow.
-- `connectRepository` (`vaultActions.ts`): connects an existing GitHub repo and
+- `connectRepository` (`vault/actions.ts`): connects an existing GitHub repo and
   creates vault without infra auto-provisioning.
 
 ### Infrastructure Provisioning
@@ -66,7 +81,7 @@ flowchart LR
 - State tracking: `vaults.convex`, `vaults.cloudflare`, and provider metadata in
   the `vaultInfrastructure` table
 - Domain tracking: `vaultDomains` table
-- Retry path: `vaultActions.retryInfrastructureProvisioning`
+- Retry path: `api.vault.actions.retryInfrastructureProvisioning`
 
 ### Chat Approval Flows
 
