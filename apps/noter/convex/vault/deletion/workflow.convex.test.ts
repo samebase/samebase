@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { api, internal } from "./_generated/api";
-import { makeConvexTest } from "./test.setup";
-import { VAULT_LOCAL_CLEANUP_BATCH_SIZE } from "./vaultDeletionCleanup";
+import { api, internal } from "../../_generated/api";
+import { makeConvexTest } from "../../test.setup";
+import { VAULT_LOCAL_CLEANUP_BATCH_SIZE } from "./cleanup";
 
 describe("vault deletion workflow", () => {
   async function createConnectedVault() {
@@ -121,7 +121,7 @@ describe("vault deletion workflow", () => {
       tokenIdentifier: `test:${ids.userId}`,
     });
     const { deletionRunId } = await asUser.action(
-      api.vaultActions.deleteVault,
+      api.vault.actions.deleteVault,
       {
         vaultId: ids.vaultId,
         removeCodespaces: false,
@@ -175,7 +175,7 @@ describe("vault deletion workflow", () => {
   it("returns dashboard deletion state and closes live repository lookups", async () => {
     const { ids, t } = await createConnectedVault();
     const { deletionRunId } = await t.mutation(
-      internal.vaultDeletionRuns.createInitialRun,
+      internal.vault.deletion.runs.createInitialRun,
       {
         userId: ids.userId,
         vaultId: ids.vaultId,
@@ -193,8 +193,8 @@ describe("vault deletion workflow", () => {
     });
 
     const [vaults, liveRepositoryVault] = await Promise.all([
-      asUser.query(api.vault.getUserVaults),
-      t.query(internal.vault.getByRepositoryFullName, {
+      asUser.query(api.vault.dashboard.getUserVaults),
+      t.query(internal.vault.records.getByRepositoryFullName, {
         userId: ids.userId,
         repositoryFullName: "ada/delete-me",
       }),
@@ -217,7 +217,7 @@ describe("vault deletion workflow", () => {
 
   it("blocks branch refresh writes after deletion starts", async () => {
     const { ids, t } = await createConnectedVault();
-    await t.mutation(internal.vaultDeletionRuns.createInitialRun, {
+    await t.mutation(internal.vault.deletion.runs.createInitialRun, {
       userId: ids.userId,
       vaultId: ids.vaultId,
       options: {
@@ -228,11 +228,11 @@ describe("vault deletion workflow", () => {
       },
     });
 
-    const claim = await t.mutation(internal.vault.claimTreeRefresh, {
+    const claim = await t.mutation(internal.vault.branches.claimTreeRefresh, {
       vaultId: ids.vaultId,
       force: true,
     });
-    await t.mutation(internal.vault.syncVaultRemoteBranches, {
+    await t.mutation(internal.vault.branches.syncVaultRemoteBranches, {
       vaultId: ids.vaultId,
       syncedAt: 10,
       branches: [
@@ -267,7 +267,7 @@ describe("vault deletion workflow", () => {
       });
     });
     await t.mutation(
-      internal.vault.createInitializingExistingRepositoryVaultForUser,
+      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
         ghRepoOwner: "ada",
@@ -279,7 +279,7 @@ describe("vault deletion workflow", () => {
       tokenIdentifier: `test:${userId}`,
     });
 
-    const vaults = await asUser.query(api.vault.getUserVaults);
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
 
     expect(vaults).toHaveLength(1);
     expect(vaults[0]).toMatchObject({
@@ -354,7 +354,7 @@ describe("vault deletion workflow", () => {
       return { userId, vaultId };
     });
     const { deletionRunId } = await t.mutation(
-      internal.vaultDeletionRuns.createInitialRun,
+      internal.vault.deletion.runs.createInitialRun,
       {
         userId: ids.userId,
         vaultId: ids.vaultId,
@@ -366,11 +366,11 @@ describe("vault deletion workflow", () => {
         },
       },
     );
-    await t.mutation(internal.vaultDeletionRuns.markWorkflowStarted, {
+    await t.mutation(internal.vault.deletion.runs.markWorkflowStarted, {
       runId: deletionRunId,
       workflowId: "workflow-test",
     });
-    await t.mutation(internal.vaultDeletionRuns.claimWorkflowRun, {
+    await t.mutation(internal.vault.deletion.runs.claimWorkflowRun, {
       runId: deletionRunId,
       vaultId: ids.vaultId,
       userId: ids.userId,
@@ -384,7 +384,7 @@ describe("vault deletion workflow", () => {
       "detach_agent_context",
       "cleanup_provisioning_history",
     ] as const) {
-      await t.mutation(internal.vaultDeletionRuns.appendRunEvent, {
+      await t.mutation(internal.vault.deletion.runs.appendRunEvent, {
         runId: deletionRunId,
         step,
         level: "info",
@@ -393,7 +393,7 @@ describe("vault deletion workflow", () => {
       });
 
       let cleanupResult = await t.mutation(
-        internal.vaultDeletionCleanup.cleanupVaultLocalDataStepBatch,
+        internal.vault.deletion.cleanup.cleanupVaultLocalDataStepBatch,
         {
           vaultId: ids.vaultId,
           userId: ids.userId,
@@ -406,7 +406,7 @@ describe("vault deletion workflow", () => {
 
       for (; cleanupResult.state === "needs_more"; ) {
         cleanupResult = await t.mutation(
-          internal.vaultDeletionCleanup.cleanupVaultLocalDataStepBatch,
+          internal.vault.deletion.cleanup.cleanupVaultLocalDataStepBatch,
           {
             vaultId: ids.vaultId,
             userId: ids.userId,
@@ -418,18 +418,18 @@ describe("vault deletion workflow", () => {
         }
       }
     }
-    await t.mutation(internal.vaultDeletionRuns.appendRunEvent, {
+    await t.mutation(internal.vault.deletion.runs.appendRunEvent, {
       runId: deletionRunId,
       step: "delete_vault",
       level: "info",
       message: "Removing vault.",
       state: "running",
     });
-    await t.mutation(internal.vaultDeletionCleanup.deleteVaultRow, {
+    await t.mutation(internal.vault.deletion.cleanup.deleteVaultRow, {
       vaultId: ids.vaultId,
       userId: ids.userId,
     });
-    await t.mutation(internal.vaultDeletionRuns.finishWorkflowRun, {
+    await t.mutation(internal.vault.deletion.runs.finishWorkflowRun, {
       runId: deletionRunId,
     });
 
@@ -502,7 +502,7 @@ describe("vault deletion workflow", () => {
     });
 
     await expect(
-      t.mutation(internal.vaultDeletionRuns.createInitialRun, {
+      t.mutation(internal.vault.deletion.runs.createInitialRun, {
         userId: ids.userId,
         vaultId: ids.vaultId,
         options: {
@@ -572,7 +572,7 @@ describe("vault deletion workflow", () => {
     });
 
     await expect(
-      t.mutation(internal.vaultDeletionRuns.createInitialRun, {
+      t.mutation(internal.vault.deletion.runs.createInitialRun, {
         userId: ids.userId,
         vaultId: ids.vaultId,
         options: {
@@ -629,7 +629,7 @@ describe("vault deletion workflow", () => {
     });
 
     await expect(
-      t.mutation(internal.vaultDeletionRuns.createInitialRun, {
+      t.mutation(internal.vault.deletion.runs.createInitialRun, {
         userId: ids.userId,
         vaultId: ids.vaultId,
         options: {
@@ -698,7 +698,7 @@ describe("vault deletion workflow", () => {
       return { userId, vaultId };
     });
     const initial = await t.mutation(
-      internal.vaultDeletionRuns.createInitialRun,
+      internal.vault.deletion.runs.createInitialRun,
       {
         userId: ids.userId,
         vaultId: ids.vaultId,
@@ -710,7 +710,7 @@ describe("vault deletion workflow", () => {
         },
       },
     );
-    await t.mutation(internal.vaultDeletionRuns.markWorkflowFailed, {
+    await t.mutation(internal.vault.deletion.runs.markWorkflowFailed, {
       runId: initial.deletionRunId,
       message: "Provider cleanup failed.",
     });
@@ -719,7 +719,7 @@ describe("vault deletion workflow", () => {
       subject: `${ids.userId}|test-session`,
       tokenIdentifier: `test:${ids.userId}`,
     });
-    const retry = await asUser.action(api.vaultActions.retryDeleteVault, {
+    const retry = await asUser.action(api.vault.actions.retryDeleteVault, {
       runId: initial.deletionRunId,
     });
 
@@ -803,7 +803,7 @@ describe("vault deletion workflow", () => {
       return { githubConnectionId, userId, vaultId };
     });
     const initial = await t.mutation(
-      internal.vaultDeletionRuns.createInitialRun,
+      internal.vault.deletion.runs.createInitialRun,
       {
         userId: ids.userId,
         vaultId: ids.vaultId,
@@ -815,7 +815,7 @@ describe("vault deletion workflow", () => {
         },
       },
     );
-    await t.mutation(internal.vaultDeletionRuns.markWorkflowFailed, {
+    await t.mutation(internal.vault.deletion.runs.markWorkflowFailed, {
       runId: initial.deletionRunId,
       message: "Provider cleanup failed.",
     });
@@ -824,7 +824,7 @@ describe("vault deletion workflow", () => {
     });
 
     await expect(
-      t.mutation(internal.vaultDeletionRuns.createRetryRun, {
+      t.mutation(internal.vault.deletion.runs.createRetryRun, {
         userId: ids.userId,
         failedRunId: initial.deletionRunId,
       }),

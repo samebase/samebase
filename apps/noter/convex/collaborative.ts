@@ -11,7 +11,7 @@ import { getUserId } from "./common";
 import { ChangeSet, Text } from "@codemirror/state";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
-import { assertConnectedVault, isLiveConnectedVault } from "./vaultState";
+import { assertConnectedVault, isLiveConnectedVault } from "./vault/state";
 import {
   STALE_BASE_VERSION_ERROR_CODE,
   buildStaleBaseVersionErrorMessage,
@@ -116,10 +116,13 @@ export const pullUpdates = query({
   > => {
     const userId = await getUserId(ctx);
 
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName: args.repositoryFullName,
-      userId,
-    });
+    const vault = await ctx.runQuery(
+      internal.vault.records.getByRepositoryFullName,
+      {
+        repositoryFullName: args.repositoryFullName,
+        userId,
+      },
+    );
 
     if (!vault) {
       throw new Error("Vault not found");
@@ -172,10 +175,13 @@ export const pushUpdates = mutation({
   ): Promise<{ success: boolean; newVersion: number }> => {
     const userId = await getUserId(ctx);
 
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName: args.repositoryFullName,
-      userId,
-    });
+    const vault = await ctx.runQuery(
+      internal.vault.records.getByRepositoryFullName,
+      {
+        repositoryFullName: args.repositoryFullName,
+        userId,
+      },
+    );
 
     if (!vault) {
       throw new Error("Vault not found");

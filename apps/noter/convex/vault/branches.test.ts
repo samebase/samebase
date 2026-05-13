@@ -4,6 +4,9 @@ import {
   buildConvexDeploymentDashboardUrl,
   buildConvexPreviewDeploymentDashboardUrl,
   buildConvexProjectSettingsDashboardUrl,
+} from "./dashboard";
+import {
+  compareRemoteBranchSortOrder,
   countActiveRemoteBranches,
   hasBranchStagingChanges,
   resolveSyncedBranchLastCommitAt,
@@ -11,7 +14,7 @@ import {
   resolveVaultBranchSelection,
   selectDeletedUpstreamBranchesToAutoPrune,
   shouldClearCloudflarePreviewForPullRequestSync,
-} from "./vault";
+} from "./branches";
 
 describe("buildConvexDeploymentDashboardUrl", () => {
   it("targets the project-scoped production deployment dashboard", () => {
@@ -177,6 +180,36 @@ describe("resolveVaultBranchSelection", () => {
       resolvedBranch: "master",
       branchNotFound: false,
     });
+  });
+});
+
+describe("compareRemoteBranchSortOrder", () => {
+  it("pins the repository default branch before deleted-upstream state", () => {
+    expect(
+      [
+        {
+          name: "feature/live",
+          isDefault: false,
+          remoteState: "active" as const,
+        },
+        {
+          name: "main",
+          isDefault: true,
+          remoteState: "deleted_upstream" as const,
+        },
+      ].sort(compareRemoteBranchSortOrder),
+    ).toEqual([
+      {
+        name: "main",
+        isDefault: true,
+        remoteState: "deleted_upstream",
+      },
+      {
+        name: "feature/live",
+        isDefault: false,
+        remoteState: "active",
+      },
+    ]);
   });
 });
 

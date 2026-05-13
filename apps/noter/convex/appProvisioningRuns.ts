@@ -12,7 +12,7 @@ import {
   AppProvisioningRunTrigger,
   AppProvisioningStep,
 } from "./schema";
-import { assertConnectedVault } from "./vaultState";
+import { assertConnectedVault } from "./vault/state";
 
 const { id, literal, string, union } = v;
 const MAX_EVENTS_TO_LINK_TO_VAULT = 20;

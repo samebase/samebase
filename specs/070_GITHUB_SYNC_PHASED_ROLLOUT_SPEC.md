@@ -325,7 +325,7 @@ Phase advancement rule:
 ## Source of Truth Files
 
 - `apps/noter/convex/schema.ts`
-- `apps/noter/convex/vault.ts`
+- `apps/noter/convex/vault/branches.ts`
 - `apps/noter/convex/github.ts`
 - `apps/noter/convex/githubChecks.ts`
 - `apps/noter/convex/fileStagingActions.ts`

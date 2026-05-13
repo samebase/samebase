@@ -201,10 +201,13 @@ export const getCommitStatus = action({
   returns: commitStatusResultValidator,
   handler: async (ctx, { owner, repo, ref }): Promise<CommitStatusResult> => {
     const userId = await getUserId(ctx);
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName: `${owner}/${repo}`,
-      userId,
-    });
+    const vault = await ctx.runQuery(
+      internal.vault.records.getByRepositoryFullName,
+      {
+        repositoryFullName: `${owner}/${repo}`,
+        userId,
+      },
+    );
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -277,7 +280,7 @@ export const getCommitStatus = action({
       }
 
       const failure = describeRepositoryTreeRefreshFailure(error);
-      await ctx.runMutation(internal.vault.recordTreeRefreshFailure, {
+      await ctx.runMutation(internal.vault.branches.recordTreeRefreshFailure, {
         vaultId: vault._id,
         failureKind: failure.kind,
         failureMessage: failure.message,

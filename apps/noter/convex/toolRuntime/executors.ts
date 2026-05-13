@@ -291,7 +291,7 @@ async function repositoryTreeContainsPath(args: {
   const vault = requireVault(args.context);
   const branch = requireBranch(args.context);
   const branchTree = await args.context.ctx.runQuery(
-    internal.vault.getVaultBranchTree,
+    internal.vault.branches.getVaultBranchTree,
     {
       vaultId: vault._id,
       branch,

@@ -1,5 +1,5 @@
 import { Infer, v } from "convex/values";
-import { VaultDeletionState } from "./vaultDeletionModel";
+import { VaultDeletionState } from "./deletion/model";
 
 const { array, boolean, id, literal, number, object, optional, string, union } =
   v;
@@ -42,6 +42,22 @@ export const GitHubRepositoryVisibility = union(
 export type GitHubRepositoryVisibility = Infer<
   typeof GitHubRepositoryVisibility
 >;
+
+export function parseRepositoryFullName(repositoryFullName: string): {
+  owner: string;
+  name: string;
+} {
+  const parts = repositoryFullName.split("/");
+  if (parts.length !== 2) {
+    throw new Error("Invalid repository full name");
+  }
+  const owner = parts[0].trim();
+  const name = parts[1].trim();
+  if (!owner || !name) {
+    throw new Error("Invalid repository full name");
+  }
+  return { owner, name };
+}
 
 export const TreeRefreshFailureKind = union(
   literal("failed"),

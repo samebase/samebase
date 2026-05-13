@@ -232,7 +232,7 @@ export const downloadGitRepositoryAndMarkReady = internalAction({
       );
     }
 
-    await ctx.runMutation(internal.vault.markVaultAsReady, {
+    await ctx.runMutation(internal.vault.records.markVaultAsReady, {
       vaultId: args.vaultId,
     });
   },

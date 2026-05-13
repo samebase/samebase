@@ -3,24 +3,24 @@
 import { RequestError } from "@octokit/request-error";
 import { Octokit } from "@octokit/rest";
 import { v } from "convex/values";
-import { internalAction, type ActionCtx } from "./_generated/server";
-import { internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
+import { internalAction, type ActionCtx } from "../../_generated/server";
+import { internal } from "../../_generated/api";
+import type { Doc, Id } from "../../_generated/dataModel";
 import {
   createInfraProviders,
   isConvexManagementNotFoundError,
-} from "./infraProviders";
+} from "../../infraProviders";
 import {
   deleteCloudflareResources,
   isCloudflarePagesProjectNotFoundError,
-} from "./cloudflareResources";
-import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
-import { readRetainedSnapshot } from "./vaultDeletionRuns";
+} from "../../cloudflareResources";
+import { resolveCloudflareMcpServerUrl } from "../../cloudflareMcp";
+import { readRetainedSnapshot } from "./runs";
 import {
   type VaultDeletionEventLevel,
   type VaultDeletionPlan,
   type VaultDeletionStep,
-} from "./vaultDeletionModel";
+} from "./model";
 
 const { id } = v;
 
@@ -41,7 +41,7 @@ async function getDeletionRun(
   ctx: Pick<ActionCtx, "runQuery">,
   runId: Id<"vaultDeletionRuns">,
 ): Promise<Doc<"vaultDeletionRuns">> {
-  const run = await ctx.runQuery(internal.vaultDeletionRuns.getById, {
+  const run = await ctx.runQuery(internal.vault.deletion.runs.getById, {
     runId,
   });
   if (!run) {
@@ -67,7 +67,7 @@ async function appendRunEvent(
     message: string;
   },
 ): Promise<void> {
-  await ctx.runMutation(internal.vaultDeletionRuns.appendRunEvent, {
+  await ctx.runMutation(internal.vault.deletion.runs.appendRunEvent, {
     ...args,
     state: "running",
   });

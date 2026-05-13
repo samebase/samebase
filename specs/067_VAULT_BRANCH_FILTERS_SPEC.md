@@ -25,7 +25,7 @@ The branch filter UI is inclusive:
 - `apps/noter/src/components/vault-dashboard/VaultBranchFilters.tsx`
 - `apps/noter/src/components/vault-dashboard/vaultDashboardBranchFilters.ts`
 - `apps/noter/src/lib/pullRequestLabels.ts`
-- `apps/noter/convex/vault.ts`
+- `apps/noter/convex/vault/dashboard.ts`
 - `apps/noter/convex/schema.ts`
 
 ## UI Behavior

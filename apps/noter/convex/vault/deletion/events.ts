@@ -1,10 +1,7 @@
 import { v, type Infer } from "convex/values";
-import { internalMutation, query } from "./_generated/server";
-import {
-  VaultDeletionEventLevel,
-  VaultDeletionStep,
-} from "./vaultDeletionModel";
-import { getUserId } from "./common";
+import { internalMutation, query } from "../../_generated/server";
+import { VaultDeletionEventLevel, VaultDeletionStep } from "./model";
+import { getUserId } from "../../common";
 
 const { array, id, number, object, string } = v;
 const MAX_DELETION_EVENTS = 80;

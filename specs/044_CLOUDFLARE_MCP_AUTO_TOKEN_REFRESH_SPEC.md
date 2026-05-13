@@ -65,7 +65,8 @@ refresh still reuses the generic browser duplicate-request guard.
 2. Frontend duplicate-request guard:
    - `apps/noter/src/lib/refreshDebounce.ts`
 3. Backend lock/debounce/stale lock:
-   - `apps/noter/convex/vault.ts` (`claimTreeRefresh`, `releaseTreeRefresh`)
+   - `apps/noter/convex/vault/branches.ts` (`claimTreeRefresh`,
+     `releaseTreeRefresh`)
 4. Backend action uses lock in `try/finally`:
    - `apps/noter/convex/github.ts` (`refreshRepositoryTree`)
 

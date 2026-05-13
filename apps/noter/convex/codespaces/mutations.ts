@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery, query } from "../_generated/server";
 import { CodespaceState } from "./model";
 import { getUserId } from "../common";
-import { assertConnectedVault, isLiveConnectedVault } from "../vaultState";
+import { assertConnectedVault, isLiveConnectedVault } from "../vault/state";
 
 /**
  * Internal: Get Codespace by ID

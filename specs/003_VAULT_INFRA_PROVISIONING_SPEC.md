@@ -24,23 +24,25 @@ downstream provisioning partially fails.
 
 ## Important Behavior
 
-- `vaultActions.createRepository` (new noter-managed repo) requires a selected
-  GitHub user/org owner and starts the create-app Workflow after inserting the
-  initializing vault and run. The Workflow validates provider connections and
-  starts infrastructure provisioning after source setup succeeds.
-- `vaultActions.connectRepository` (existing GitHub repo connection) does
+- `api.vault.actions.createRepository` (new noter-managed repo) requires a
+  selected GitHub user/org owner and starts the create-app Workflow after
+  inserting the initializing vault and run. The Workflow validates provider
+  connections and starts infrastructure provisioning after source setup
+  succeeds.
+- `api.vault.actions.connectRepository` (existing GitHub repo connection) does
   **not** auto-provision infra.
-- `vaultActions.retryInfrastructureProvisioning` still exists as a backend
+- `api.vault.actions.retryInfrastructureProvisioning` still exists as a backend
   action, but the dashboard no longer exposes `Provision infra` or `Retry infra`
   as the normal Noter-managed create-app path. Manual provider retry UI belongs
   to a later vault-first phase.
 
 ## Source of Truth Files
 
-- `apps/noter/convex/vaultActions.ts`
+- `apps/noter/convex/vault/actions.ts`
+- `apps/noter/convex/vault/dashboard.ts`
+- `apps/noter/convex/vault/records.ts`
 - `apps/noter/convex/infraProvisioning.ts`
 - `apps/noter/convex/infraProviders.ts`
-- `apps/noter/convex/vault.ts`
 - `apps/noter/convex/schema.ts`
 - `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
 
@@ -102,19 +104,19 @@ Repository default branch:
 
 ### Public
 
-1. `vaultActions.createRepository`
+1. `api.vault.actions.createRepository`
 
 - Returns: `{ vaultId: string }`
 - Side effect: starts async infra provisioning through Convex Workflow
 
-2. `vaultActions.retryInfrastructureProvisioning`
+2. `api.vault.actions.retryInfrastructureProvisioning`
 
 - Args: `{ vaultId: Id<"vaults"> }`
 - Returns: `null`
 - Behavior: validates ownership + noter-managed, starts a forced provisioning
   retry
 
-3. `vault.getVaultInfrastructure`
+3. `api.vault.dashboard.getVaultInfrastructure`
 
 - Args: `{ vaultId: Id<"vaults"> }`
 - Returns: vault infra state + infrastructure snapshot + domain mappings (or
@@ -132,7 +134,7 @@ Repository default branch:
 
 ```mermaid
 sequenceDiagram
-  participant VA as "vaultActions.createRepository"
+  participant VA as "api.vault.actions.createRepository"
   participant WF as "appProvisioningWorkflow"
   participant IP as "infraProvisioning steps"
   participant CVX as "Convex Mgmt API"

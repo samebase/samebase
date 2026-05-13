@@ -6,7 +6,7 @@ import { api, internal } from "../_generated/api";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "../common";
 import type { Id } from "../_generated/dataModel";
-import { assertConnectedVault } from "../vaultState";
+import { assertConnectedVault } from "../vault/state";
 import { toErrorMessage } from "../jsonUtils";
 
 async function getGithubAccessToken(
@@ -46,7 +46,7 @@ export const createVaultWithCodespace = action({
   ): Promise<Infer<typeof createVaultWithCodespaceResult>> => {
     const userId = await getUserId(ctx);
     const { vaultId, runId } = await ctx.runMutation(
-      internal.vault.createInitializingExistingRepositoryVaultForUser,
+      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
         ghRepoOwner: args.repoOwner,
@@ -111,7 +111,7 @@ export const createVaultWithCodespace = action({
       });
 
       await ctx.runMutation(
-        internal.vault.connectExistingRepositoryVaultGitHub,
+        internal.vault.records.connectExistingRepositoryVaultGitHub,
         {
           vaultId,
           runId,
@@ -137,7 +137,7 @@ export const createVaultWithCodespace = action({
       // tree SHA with an empty tree to avoid blocking legacy Codespace creation.
       // Do not treat the following `sync_tree` event as proof that repository
       // files are hydrated.
-      await ctx.runMutation(internal.vault.upsertVaultBranchTree, {
+      await ctx.runMutation(internal.vault.branches.upsertVaultBranchTree, {
         vaultId,
         branch,
         treeData: {
@@ -156,10 +156,13 @@ export const createVaultWithCodespace = action({
         state: "running",
       });
 
-      await ctx.runMutation(internal.vault.updateVaultDevcontainerConfig, {
-        vaultId,
-        devcontainerConfig: generateDevcontainerConfig(),
-      });
+      await ctx.runMutation(
+        internal.vault.records.updateVaultDevcontainerConfig,
+        {
+          vaultId,
+          devcontainerConfig: generateDevcontainerConfig(),
+        },
+      );
 
       const { codespaceId } = await ctx.runAction(
         api.codespaces.index.createCodespace,

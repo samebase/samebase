@@ -1,10 +1,10 @@
 import { v } from "convex/values";
 import { vResultValidator, type RunResult } from "@convex-dev/workpool";
 import { WorkflowManager } from "@convex-dev/workflow";
-import { components, internal } from "./_generated/api";
-import { internalMutation } from "./_generated/server";
-import { toErrorMessage } from "./jsonUtils";
-import type { VaultDeletionCleanupStep } from "./vaultDeletionModel";
+import { components, internal } from "../../_generated/api";
+import { internalMutation } from "../../_generated/server";
+import { toErrorMessage } from "../../jsonUtils";
+import type { VaultDeletionCleanupStep } from "./model";
 
 const workflow = new WorkflowManager(components.workflow);
 const { id, object, string } = v;
@@ -62,16 +62,20 @@ export const deleteVaultWorkflow = workflow.define({
   },
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
-    await step.runMutation(internal.vaultDeletionRuns.claimWorkflowRun, args, {
-      name: "lock_vault",
-    });
+    await step.runMutation(
+      internal.vault.deletion.runs.claimWorkflowRun,
+      args,
+      {
+        name: "lock_vault",
+      },
+    );
     await step.runAction(
-      internal.vaultDeletionWorkflowActions.deleteConnectedCodespaces,
+      internal.vault.deletion.providerActions.deleteConnectedCodespaces,
       args,
       { name: "delete_codespaces", retry: idempotentProviderStepRetry },
     );
     await step.runAction(
-      internal.vaultDeletionWorkflowActions.deleteCloudflare,
+      internal.vault.deletion.providerActions.deleteCloudflare,
       {
         runId: args.runId,
         userId: args.userId,
@@ -79,7 +83,7 @@ export const deleteVaultWorkflow = workflow.define({
       { name: "delete_cloudflare", retry: idempotentProviderStepRetry },
     );
     await step.runAction(
-      internal.vaultDeletionWorkflowActions.deleteConvex,
+      internal.vault.deletion.providerActions.deleteConvex,
       {
         runId: args.runId,
         userId: args.userId,
@@ -87,7 +91,7 @@ export const deleteVaultWorkflow = workflow.define({
       { name: "delete_convex", retry: idempotentProviderStepRetry },
     );
     await step.runAction(
-      internal.vaultDeletionWorkflowActions.deleteGitHubRepository,
+      internal.vault.deletion.providerActions.deleteGitHubRepository,
       {
         runId: args.runId,
         userId: args.userId,
@@ -97,7 +101,7 @@ export const deleteVaultWorkflow = workflow.define({
 
     for (const cleanupStep of cleanupSteps) {
       await step.runMutation(
-        internal.vaultDeletionRuns.appendRunEvent,
+        internal.vault.deletion.runs.appendRunEvent,
         {
           runId: args.runId,
           step: cleanupStep,
@@ -109,7 +113,7 @@ export const deleteVaultWorkflow = workflow.define({
       );
 
       let cleanupResult = await step.runMutation(
-        internal.vaultDeletionCleanup.cleanupVaultLocalDataStepBatch,
+        internal.vault.deletion.cleanup.cleanupVaultLocalDataStepBatch,
         {
           vaultId: args.vaultId,
           userId: args.userId,
@@ -124,7 +128,7 @@ export const deleteVaultWorkflow = workflow.define({
         batchNumber += 1
       ) {
         cleanupResult = await step.runMutation(
-          internal.vaultDeletionCleanup.cleanupVaultLocalDataStepBatch,
+          internal.vault.deletion.cleanup.cleanupVaultLocalDataStepBatch,
           {
             vaultId: args.vaultId,
             userId: args.userId,
@@ -136,7 +140,7 @@ export const deleteVaultWorkflow = workflow.define({
     }
 
     await step.runMutation(
-      internal.vaultDeletionRuns.appendRunEvent,
+      internal.vault.deletion.runs.appendRunEvent,
       {
         runId: args.runId,
         step: "delete_vault",
@@ -147,7 +151,7 @@ export const deleteVaultWorkflow = workflow.define({
       { name: "delete_vault_event" },
     );
     await step.runMutation(
-      internal.vaultDeletionCleanup.deleteVaultRow,
+      internal.vault.deletion.cleanup.deleteVaultRow,
       {
         vaultId: args.vaultId,
         userId: args.userId,
@@ -155,7 +159,7 @@ export const deleteVaultWorkflow = workflow.define({
       { name: "delete_vault" },
     );
     await step.runMutation(
-      internal.vaultDeletionRuns.finishWorkflowRun,
+      internal.vault.deletion.runs.finishWorkflowRun,
       {
         runId: args.runId,
       },
@@ -177,26 +181,27 @@ export const startVaultDeletion = internalMutation({
     try {
       const workflowId: string = await workflow.start(
         ctx,
-        internal.vaultDeletionWorkflow.deleteVaultWorkflow,
+        internal.vault.deletion.workflow.deleteVaultWorkflow,
         args,
         {
           startAsync: true,
           onComplete:
-            internal.vaultDeletionWorkflow.handleVaultDeletionWorkflowComplete,
+            internal.vault.deletion.workflow
+              .handleVaultDeletionWorkflowComplete,
           context: {
             runId: args.runId,
           },
         },
       );
 
-      await ctx.runMutation(internal.vaultDeletionRuns.markWorkflowStarted, {
+      await ctx.runMutation(internal.vault.deletion.runs.markWorkflowStarted, {
         runId: args.runId,
         workflowId,
       });
 
       return workflowId;
     } catch (error) {
-      await ctx.runMutation(internal.vaultDeletionRuns.markWorkflowFailed, {
+      await ctx.runMutation(internal.vault.deletion.runs.markWorkflowFailed, {
         runId: args.runId,
         message: toErrorMessage(error),
       });
@@ -229,13 +234,13 @@ export const handleVaultDeletionWorkflowComplete = internalMutation({
 
     const error = resolveVaultDeletionWorkflowError(args.result);
     if (!error) {
-      await ctx.runMutation(internal.vaultDeletionRuns.finishWorkflowRun, {
+      await ctx.runMutation(internal.vault.deletion.runs.finishWorkflowRun, {
         runId: args.context.runId,
       });
       return null;
     }
 
-    await ctx.runMutation(internal.vaultDeletionRuns.markWorkflowFailed, {
+    await ctx.runMutation(internal.vault.deletion.runs.markWorkflowFailed, {
       runId: args.context.runId,
       message: toErrorMessage(error),
     });

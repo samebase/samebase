@@ -22,7 +22,7 @@ import {
   isLiveConnectedVault,
   isNoterManagedVault,
   type NoterManagedConnectedVault,
-} from "./vaultState";
+} from "./vault/state";
 
 const PROVISIONING_STALE_MS = 10 * 60 * 1000;
 const GITHUB_API_VERSION = "2022-11-28";
@@ -549,7 +549,7 @@ async function getManagedProvisioningVault(
   ctx: ActionCtx,
   vaultId: Id<"vaults">,
 ): Promise<NoterManagedConnectedVault | null> {
-  const vault = await ctx.runQuery(internal.vault.getById, {
+  const vault = await ctx.runQuery(internal.vault.records.getById, {
     id: vaultId,
   });
   if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
@@ -1471,7 +1471,7 @@ export const ensureCloudflareInfrastructure = internalAction({
     }
 
     const defaultBranchTree = await ctx.runQuery(
-      internal.vault.getVaultBranchTree,
+      internal.vault.branches.getVaultBranchTree,
       {
         vaultId: args.vaultId,
         branch: vault.defaultBranch,
@@ -1702,9 +1702,12 @@ export const markWorkflowStartupFailed = internalMutation({
     const eventStep = resolveWorkflowFailureEventStep(run);
     const vault = await ctx.db.get(run.vaultId);
     if (vault?.state === "provisioning" && vault.runId === args.runId) {
-      await ctx.runMutation(internal.vault.markGithubProvisioningFailed, {
-        runId: args.runId,
-      });
+      await ctx.runMutation(
+        internal.vault.records.markGithubProvisioningFailed,
+        {
+          runId: args.runId,
+        },
+      );
     } else if (isLiveConnectedVault(vault) && isNoterManagedVault(vault)) {
       const providerPatch = buildProviderFailurePatch({
         vault,
@@ -1819,9 +1822,12 @@ export const markWorkflowProvisioningFailed = internalMutation({
         ? "Provisioning failed before the first step."
         : `Provisioning failed during ${run.currentStep}.`;
     if (vault?.state === "provisioning" && vault.runId === args.runId) {
-      await ctx.runMutation(internal.vault.markGithubProvisioningFailed, {
-        runId: args.runId,
-      });
+      await ctx.runMutation(
+        internal.vault.records.markGithubProvisioningFailed,
+        {
+          runId: args.runId,
+        },
+      );
       await recordWorkflowRunFailure(ctx, {
         eventStep,
         now,

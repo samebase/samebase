@@ -3,7 +3,7 @@ import { internalQuery } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { PullRequestLabel } from "../schema";
-import { isLiveConnectedVault } from "../vaultState";
+import { isLiveConnectedVault } from "../vault/state";
 
 const {
   array,

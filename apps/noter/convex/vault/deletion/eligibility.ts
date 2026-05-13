@@ -1,6 +1,6 @@
-import type { Doc, Id } from "./_generated/dataModel";
-import type { QueryCtx } from "./_generated/server";
-import { readVaultDeletionState } from "./vaultDeletionState";
+import type { Doc, Id } from "../../_generated/dataModel";
+import type { QueryCtx } from "../../_generated/server";
+import { readVaultDeletionState } from "./state";
 
 export type VaultDeletionEligibility =
   | {

@@ -1,14 +1,15 @@
 "use node";
 
 import { v } from "convex/values";
-import { action, type ActionCtx } from "./_generated/server";
-import { internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
+import { action, type ActionCtx } from "../_generated/server";
+import { internal } from "../_generated/api";
+import type { Doc, Id } from "../_generated/dataModel";
 import { Octokit } from "@octokit/rest";
-import { getUserId } from "./common";
-import { toErrorMessage } from "./jsonUtils";
-import { isLiveConnectedVault, isNoterManagedVault } from "./vaultState";
-import { toSafeRepoName } from "./repoName";
+import { getUserId } from "../common";
+import { toErrorMessage } from "../jsonUtils";
+import { parseRepositoryFullName } from "./model";
+import { isLiveConnectedVault, isNoterManagedVault } from "./state";
+import { toSafeRepoName } from "../repoName";
 
 const { array, literal, object, optional, string, union } = v;
 const githubRepositoryOwnerKind = union(
@@ -82,7 +83,7 @@ async function markDeletionStartupFailed(
 ): Promise<void> {
   const message = toErrorMessage(args.error);
   try {
-    await ctx.runMutation(internal.vaultDeletionRuns.markWorkflowFailed, {
+    await ctx.runMutation(internal.vault.deletion.runs.markWorkflowFailed, {
       runId: args.runId,
       message,
     });
@@ -104,7 +105,7 @@ async function startVaultDeletionOrFail(
   },
 ): Promise<void> {
   try {
-    await ctx.runMutation(internal.vaultDeletionWorkflow.startVaultDeletion, {
+    await ctx.runMutation(internal.vault.deletion.workflow.startVaultDeletion, {
       vaultId: args.vaultId,
       runId: args.runId,
       userId: args.userId,
@@ -173,22 +174,6 @@ async function startConnectExistingRepositoryProvisioningOrFail(
     });
     throw error;
   }
-}
-
-function parseRepositoryFullName(repositoryFullName: string): {
-  owner: string;
-  name: string;
-} {
-  const parts = repositoryFullName.split("/");
-  if (parts.length !== 2) {
-    throw new Error("Invalid repository full name");
-  }
-  const trimmedOwner = parts[0].trim();
-  const trimmedName = parts[1].trim();
-  if (!trimmedOwner || !trimmedName) {
-    throw new Error("Invalid repository full name");
-  }
-  return { owner: trimmedOwner, name: trimmedName };
 }
 
 async function resolveGithubConnectionUsername(
@@ -290,7 +275,7 @@ export const connectRepository = action({
     }
 
     const { vaultId, runId } = await ctx.runMutation(
-      internal.vault.createInitializingExistingRepositoryVaultForUser,
+      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
         ghRepoOwner: owner,
@@ -347,7 +332,7 @@ export const createRepository = action({
 
     const visibility = args.private === false ? "public" : "private";
     const { vaultId, runId } = await ctx.runMutation(
-      internal.vault.createInitializingNoterManagedVaultForUser,
+      internal.vault.records.createInitializingNoterManagedVaultForUser,
       {
         userId,
         ghRepoOwner,
@@ -376,7 +361,7 @@ export const retryInfrastructureProvisioning = action({
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    const vault = await ctx.runQuery(internal.vault.getById, {
+    const vault = await ctx.runQuery(internal.vault.records.getById, {
       id: args.vaultId,
     });
     if (!vault || vault.userId !== userId) {
@@ -422,7 +407,7 @@ export const deleteVault = action({
   ): Promise<{ deletionRunId: Id<"vaultDeletionRuns"> }> => {
     const userId = await getUserId(ctx);
     const result: { deletionRunId: Id<"vaultDeletionRuns"> } =
-      await ctx.runMutation(internal.vaultDeletionRuns.createInitialRun, {
+      await ctx.runMutation(internal.vault.deletion.runs.createInitialRun, {
         userId,
         vaultId: args.vaultId,
         options: {
@@ -456,12 +441,12 @@ export const retryDeleteVault = action({
   ): Promise<{ deletionRunId: Id<"vaultDeletionRuns"> }> => {
     const userId = await getUserId(ctx);
     const result: { deletionRunId: Id<"vaultDeletionRuns"> } =
-      await ctx.runMutation(internal.vaultDeletionRuns.createRetryRun, {
+      await ctx.runMutation(internal.vault.deletion.runs.createRetryRun, {
         userId,
         failedRunId: args.runId,
       });
     const { deletionRunId } = result;
-    const retryRun = await ctx.runQuery(internal.vaultDeletionRuns.getById, {
+    const retryRun = await ctx.runQuery(internal.vault.deletion.runs.getById, {
       runId: deletionRunId,
     });
     if (!retryRun) {

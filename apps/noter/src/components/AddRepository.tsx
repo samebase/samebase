@@ -117,13 +117,13 @@ function renderHighlightedText(
 export function AddRepository() {
   const location = useLocation();
   const navigate = useNavigate();
-  const vaults = useQuery(api.vault.getUserVaults);
+  const vaults = useQuery(api.vault.dashboard.getUserVaults);
   const [searchQuery, setSearchQuery] = useState("");
   const [retryingFullRepositories, setRetryingFullRepositories] =
     useState(false);
   const listRepositoriesPreview = useAction(api.github.listRepositoriesPreview);
   const listRepositories = useAction(api.github.listRepositories);
-  const connectRepository = useAction(api.vaultActions.connectRepository);
+  const connectRepository = useAction(api.vault.actions.connectRepository);
   const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
   const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
   const githubConnected = githubConnection?.connected === true;

@@ -1,5 +1,5 @@
-import type { Doc } from "./_generated/dataModel";
-import type { VaultDeletionState } from "./vaultDeletionModel";
+import type { Doc } from "../../_generated/dataModel";
+import type { VaultDeletionState } from "./model";
 
 export function readVaultDeletionState(
   vault: Doc<"vaults">,

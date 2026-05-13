@@ -19,7 +19,7 @@ import {
 } from "./fileViewShared";
 
 type VaultId = NonNullable<
-  (typeof api.vault.getVaultByRepository)["_returnType"]
+  (typeof api.vault.records.getVaultByRepository)["_returnType"]
 >["_id"];
 type StorageId = Id<"_storage">;
 
