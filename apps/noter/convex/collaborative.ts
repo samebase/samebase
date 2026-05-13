@@ -11,7 +11,7 @@ import { getUserId } from "./common";
 import { ChangeSet, Text } from "@codemirror/state";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
-import { assertConnectedVault, isLiveConnectedVault } from "./vaultState";
+import { assertConnectedVault, isLiveConnectedVault } from "./vault/state";
 import {
   STALE_BASE_VERSION_ERROR_CODE,
   buildStaleBaseVersionErrorMessage,

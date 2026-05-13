@@ -28,13 +28,13 @@ import {
   isLiveConnectedVault,
   isNoterManagedVault,
   type NoterManagedConnectedVault,
-} from "./vaultState";
-import { VaultDeletionStep } from "./vaultDeletionModel";
-import { readVaultDeletionEligibility } from "./vaultDeletionEligibility";
+} from "./vault/state";
+import { VaultDeletionStep } from "./vault/deletion/model";
+import { readVaultDeletionEligibility } from "./vault/deletion/eligibility";
 import {
   isVaultDeletingOrDeleteFailed,
   readVaultDeletionState,
-} from "./vaultDeletionState";
+} from "./vault/deletion/state";
 import {
   doesTreeRefreshClaimMatch,
   getLastRepositoryMetadataRefreshAt,

@@ -7,7 +7,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "./common";
 import { toErrorMessage } from "./jsonUtils";
-import { isLiveConnectedVault, isNoterManagedVault } from "./vaultState";
+import { isLiveConnectedVault, isNoterManagedVault } from "./vault/state";
 import { toSafeRepoName } from "./repoName";
 
 const { array, literal, object, optional, string, union } = v;
@@ -82,7 +82,7 @@ async function markDeletionStartupFailed(
 ): Promise<void> {
   const message = toErrorMessage(args.error);
   try {
-    await ctx.runMutation(internal.vaultDeletionRuns.markWorkflowFailed, {
+    await ctx.runMutation(internal.vault.deletion.runs.markWorkflowFailed, {
       runId: args.runId,
       message,
     });
@@ -104,7 +104,7 @@ async function startVaultDeletionOrFail(
   },
 ): Promise<void> {
   try {
-    await ctx.runMutation(internal.vaultDeletionWorkflow.startVaultDeletion, {
+    await ctx.runMutation(internal.vault.deletion.workflow.startVaultDeletion, {
       vaultId: args.vaultId,
       runId: args.runId,
       userId: args.userId,
@@ -422,7 +422,7 @@ export const deleteVault = action({
   ): Promise<{ deletionRunId: Id<"vaultDeletionRuns"> }> => {
     const userId = await getUserId(ctx);
     const result: { deletionRunId: Id<"vaultDeletionRuns"> } =
-      await ctx.runMutation(internal.vaultDeletionRuns.createInitialRun, {
+      await ctx.runMutation(internal.vault.deletion.runs.createInitialRun, {
         userId,
         vaultId: args.vaultId,
         options: {
@@ -456,12 +456,12 @@ export const retryDeleteVault = action({
   ): Promise<{ deletionRunId: Id<"vaultDeletionRuns"> }> => {
     const userId = await getUserId(ctx);
     const result: { deletionRunId: Id<"vaultDeletionRuns"> } =
-      await ctx.runMutation(internal.vaultDeletionRuns.createRetryRun, {
+      await ctx.runMutation(internal.vault.deletion.runs.createRetryRun, {
         userId,
         failedRunId: args.runId,
       });
     const { deletionRunId } = result;
-    const retryRun = await ctx.runQuery(internal.vaultDeletionRuns.getById, {
+    const retryRun = await ctx.runQuery(internal.vault.deletion.runs.getById, {
       runId: deletionRunId,
     });
     if (!retryRun) {

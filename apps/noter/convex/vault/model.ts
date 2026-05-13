@@ -1,5 +1,5 @@
 import { Infer, v } from "convex/values";
-import { VaultDeletionState } from "./vaultDeletionModel";
+import { VaultDeletionState } from "./deletion/model";
 
 const { array, boolean, id, literal, number, object, optional, string, union } =
   v;

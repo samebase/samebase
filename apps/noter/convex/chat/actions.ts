@@ -17,7 +17,7 @@ import {
   buildProdReadResultPayload,
   buildToolActivityPayload,
 } from "./metadata";
-import { isLiveConnectedVault, type ConnectedVault } from "../vaultState";
+import { isLiveConnectedVault, type ConnectedVault } from "../vault/state";
 
 const MODEL = "claude-sonnet-4-20250514";
 

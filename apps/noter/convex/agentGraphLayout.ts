@@ -1,7 +1,7 @@
 import { Infer, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { assertConnectedVault, isLiveConnectedVault } from "./vaultState";
+import { assertConnectedVault, isLiveConnectedVault } from "./vault/state";
 
 const { id, array, object, string, number, null: vNull } = v;
 

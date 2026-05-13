@@ -3,18 +3,18 @@ import {
   internalMutation,
   internalQuery,
   type MutationCtx,
-} from "./_generated/server";
-import { internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
+} from "../../_generated/server";
+import { internal } from "../../_generated/api";
+import type { Doc, Id } from "../../_generated/dataModel";
 import {
   VaultDeletionEventLevel,
   VaultDeletionPlan,
   VaultDeletionStep,
   type VaultDeletionRetainedSnapshot,
-} from "./vaultDeletionModel";
-import { readVaultDeletionEligibility } from "./vaultDeletionEligibility";
-import { isConnectedVault, isNoterManagedVault } from "./vaultState";
-import { readVaultDeletionState } from "./vaultDeletionState";
+} from "./model";
+import { readVaultDeletionEligibility } from "./eligibility";
+import { isConnectedVault, isNoterManagedVault } from "../state";
+import { readVaultDeletionState } from "./state";
 
 const { boolean, id, literal, object, string, union } = v;
 
@@ -347,7 +347,7 @@ async function appendDeletionEvent(
     createdAt: number;
   },
 ): Promise<void> {
-  await ctx.runMutation(internal.vaultDeletionEvents.append, {
+  await ctx.runMutation(internal.vault.deletion.events.append, {
     userId: args.run.userId,
     vaultId: args.run.vaultId,
     repositoryFullName: args.run.repositoryFullName,

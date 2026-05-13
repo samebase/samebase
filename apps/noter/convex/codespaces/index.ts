@@ -8,7 +8,7 @@ import { RequestError } from "@octokit/request-error";
 import { getUserId } from "../common";
 import { Id } from "../_generated/dataModel";
 import { resolveDeploymentProfile } from "../deploymentProfile";
-import { assertConnectedVault } from "../vaultState";
+import { assertConnectedVault } from "../vault/state";
 
 const CODESPACE_CLEANUP_DELETE_TIMEOUT_MS = 60_000;
 const CODESPACE_CLEANUP_DELETE_RETRY_MS = 2_000;

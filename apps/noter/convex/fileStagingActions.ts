@@ -26,7 +26,7 @@ import {
 } from "./stagingChanges";
 import { sanitizeSlug } from "./slugUtils";
 import { describeRepositoryTreeRefreshFailure } from "./github";
-import { assertConnectedVault } from "./vaultState";
+import { assertConnectedVault } from "./vault/state";
 import { getRepositoryMediaKind } from "../shared/repositoryMedia";
 import { isStaleBaseVersionError } from "../shared/stagingErrors";
 

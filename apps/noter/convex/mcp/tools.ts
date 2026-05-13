@@ -1,6 +1,6 @@
 import { Infer, v } from "convex/values";
 import { internalQuery } from "../_generated/server";
-import { isLiveConnectedVault } from "../vaultState";
+import { isLiveConnectedVault } from "../vault/state";
 
 const { array, boolean, id, literal, object, optional, string, union } = v;
 

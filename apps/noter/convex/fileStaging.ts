@@ -15,7 +15,7 @@ import {
   readStagedFileKind,
   type StagedFileChangeCandidate,
 } from "./stagingChanges";
-import { assertConnectedVault, isLiveConnectedVault } from "./vaultState";
+import { assertConnectedVault, isLiveConnectedVault } from "./vault/state";
 
 export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
 const {

@@ -22,7 +22,7 @@ import {
   isLiveConnectedVault,
   isNoterManagedVault,
   type NoterManagedConnectedVault,
-} from "./vaultState";
+} from "./vault/state";
 
 const PROVISIONING_STALE_MS = 10 * 60 * 1000;
 const GITHUB_API_VERSION = "2022-11-28";

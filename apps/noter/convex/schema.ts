@@ -9,12 +9,12 @@ import {
   InfraState as infraStateValidator,
   TreeRefreshFailureKind as treeRefreshFailureKindValidator,
   VaultRow,
-} from "./vaultModel";
+} from "./vault/model";
 import {
   VaultDeletionEventLevel as vaultDeletionEventLevelValidator,
   VaultDeletionRun as vaultDeletionRunValidator,
   VaultDeletionStep as vaultDeletionStepValidator,
-} from "./vaultDeletionModel";
+} from "./vault/deletion/model";
 import {
   mcpTokenHealthSourceValidator,
   mcpTokenHealthStatusValidator,

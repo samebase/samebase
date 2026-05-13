@@ -1,8 +1,8 @@
-import type { Doc } from "./_generated/dataModel";
+import type { Doc } from "../_generated/dataModel";
 import {
   isVaultDeletingOrDeleteFailed,
   readVaultDeletionState,
-} from "./vaultDeletionState";
+} from "./deletion/state";
 
 export type ConnectedVault = Extract<Doc<"vaults">, { state: "connected" }>;
 export type NoterManagedConnectedVault = Extract<

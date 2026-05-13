@@ -10,7 +10,7 @@ import { runAgentGraph } from "./agent/graph";
 import { saveMessage } from "@convex-dev/agent";
 import { Octokit } from "@octokit/rest";
 import { isRecord } from "./jsonUtils";
-import { assertConnectedVault, type ConnectedVault } from "./vaultState";
+import { assertConnectedVault, type ConnectedVault } from "./vault/state";
 
 const { object, string, optional, id } = v;
 

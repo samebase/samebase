@@ -38,7 +38,7 @@ import {
 } from "./metadata";
 import { assertProdReadAccess, hashText } from "./prodAccess";
 import { ensureThreadAccess, getThreadById } from "./threads";
-import { assertConnectedVault } from "../vaultState";
+import { assertConnectedVault } from "../vault/state";
 import {
   buildClaimedCommitProposalPayload,
   canClaimCommitProposal,

@@ -476,7 +476,7 @@ describe("repository refresh demand ingest", () => {
       userId: ids.userId,
       vaultId: ids.vaultId,
     });
-    await t.mutation(internal.vaultDeletionRuns.createInitialRun, {
+    await t.mutation(internal.vault.deletion.runs.createInitialRun, {
       userId: ids.userId,
       vaultId: ids.vaultId,
       options: {
@@ -626,7 +626,7 @@ describe("repository refresh demand ingest", () => {
 
   it("skips dashboard demand after vault deletion starts", async () => {
     const { asUser, ids, t } = await createConnectedVault();
-    await t.mutation(internal.vaultDeletionRuns.createInitialRun, {
+    await t.mutation(internal.vault.deletion.runs.createInitialRun, {
       userId: ids.userId,
       vaultId: ids.vaultId,
       options: {

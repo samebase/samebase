@@ -6,7 +6,7 @@ import { api, internal } from "../_generated/api";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "../common";
 import type { Id } from "../_generated/dataModel";
-import { assertConnectedVault } from "../vaultState";
+import { assertConnectedVault } from "../vault/state";
 import { toErrorMessage } from "../jsonUtils";
 
 async function getGithubAccessToken(

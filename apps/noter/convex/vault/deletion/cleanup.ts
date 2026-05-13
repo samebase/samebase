@@ -1,7 +1,7 @@
 import { v, type Infer } from "convex/values";
-import { internalMutation, type MutationCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
-import { VaultDeletionCleanupStep } from "./vaultDeletionModel";
+import { internalMutation, type MutationCtx } from "../../_generated/server";
+import type { Id } from "../../_generated/dataModel";
+import { VaultDeletionCleanupStep } from "./model";
 
 const { id, literal, number, object, union } = v;
 

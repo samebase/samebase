@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { api, internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
-import { VAULT_LOCAL_CLEANUP_BATCH_SIZE } from "./vaultDeletionCleanup";
+import { VAULT_LOCAL_CLEANUP_BATCH_SIZE } from "./vault/deletion/cleanup";
 
 describe("vault dashboard Convex contract", () => {
   it("records initializing existing repository connection before external GitHub work", async () => {
@@ -1009,7 +1009,7 @@ describe("vault dashboard Convex contract", () => {
     });
 
     const firstResult = await t.mutation(
-      internal.vaultDeletionCleanup.deleteVaultLocalDataBatch,
+      internal.vault.deletion.cleanup.deleteVaultLocalDataBatch,
       ids,
     );
 
@@ -1035,7 +1035,7 @@ describe("vault dashboard Convex contract", () => {
     let result = firstResult;
     while (result.state === "needs_more") {
       result = await t.mutation(
-        internal.vaultDeletionCleanup.deleteVaultLocalDataBatch,
+        internal.vault.deletion.cleanup.deleteVaultLocalDataBatch,
         ids,
       );
     }
@@ -1268,13 +1268,13 @@ describe("vault dashboard Convex contract", () => {
 
     const tables: string[] = [];
     let result = await t.mutation(
-      internal.vaultDeletionCleanup.deleteVaultLocalDataBatch,
+      internal.vault.deletion.cleanup.deleteVaultLocalDataBatch,
       { vaultId: ids.vaultId, userId: ids.userId },
     );
     while (result.state === "needs_more") {
       tables.push(result.table);
       result = await t.mutation(
-        internal.vaultDeletionCleanup.deleteVaultLocalDataBatch,
+        internal.vault.deletion.cleanup.deleteVaultLocalDataBatch,
         { vaultId: ids.vaultId, userId: ids.userId },
       );
     }
