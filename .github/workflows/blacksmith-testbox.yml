@@ -31,8 +31,14 @@ jobs:
         with:
           node-version: 24.x
           cache: "pnpm"
-      - name: Audit package signatures and vulnerabilities
-        run: pnpm audit:supply-chain
+      - name: Install dependencies without lifecycle scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Audit package signatures
+        run: pnpm audit signatures
+      - name: Audit known vulnerabilities
+        run: pnpm audit
+      - name: Reset script-disabled install
+        run: rm -rf node_modules
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Bootstrap Convex for CI

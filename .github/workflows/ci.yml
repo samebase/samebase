@@ -30,8 +30,14 @@ jobs:
           node-version: 24.x
           cache: "pnpm"
 
-      - name: Audit package signatures and vulnerabilities
-        run: pnpm audit:supply-chain
+      - name: Install dependencies without lifecycle scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Audit package signatures
+        run: pnpm audit signatures
+
+      - name: Audit known vulnerabilities
+        run: pnpm audit
 
   checks:
     name: checks
