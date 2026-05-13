@@ -8,8 +8,7 @@ import {
   type QueryCtx,
 } from "../_generated/server";
 import { getUserId } from "../common";
-import { GitHubRepositoryVisibility } from "../schema";
-import { parseRepositoryFullName } from "./model";
+import { parseRepositoryFullName, vGitHubRepositoryVisibility } from "./model";
 import {
   assertConnectedVault,
   isConnectedVault,
@@ -189,7 +188,7 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
     ghRepoOwner: v.string(),
     ghRepoName: v.string(),
     defaultBranch: v.string(),
-    visibility: GitHubRepositoryVisibility,
+    visibility: vGitHubRepositoryVisibility,
   },
   returns: nullValidator,
   handler: async (ctx, args) => {
@@ -264,7 +263,7 @@ export const createInitializingNoterManagedVaultForUser = internalMutation({
     userId: id("users"),
     ghRepoOwner: string(),
     ghRepoName: string(),
-    visibility: GitHubRepositoryVisibility,
+    visibility: vGitHubRepositoryVisibility,
   },
   returns: object({
     vaultId: id("vaults"),
@@ -345,7 +344,7 @@ export const connectNoterManagedVaultGitHub = internalMutation({
     ghRepoOwner: string(),
     ghRepoName: string(),
     defaultBranch: string(),
-    visibility: GitHubRepositoryVisibility,
+    visibility: vGitHubRepositoryVisibility,
   },
   returns: nullValidator,
   handler: async (ctx, args) => {

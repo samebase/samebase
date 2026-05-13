@@ -3,18 +3,15 @@ import { mutation, query, type QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { getUserId } from "../common";
 import { cloudflareStateValidator } from "../cloudflareState";
-import {
-  AppProvisioningRunStep,
-  PullRequestLabel,
-  TreeRefreshFailureKind,
-} from "../schema";
+import { AppProvisioningRunStep, PullRequestLabel } from "../schema";
+import { vTreeRefreshFailureKind } from "./model";
 import {
   isConnectedVault,
   isLiveConnectedVault,
   isNoterManagedVault,
   type NoterManagedConnectedVault,
 } from "./state";
-import { VaultDeletionStep } from "./deletion/model";
+import { vVaultDeletionStep } from "./deletion/model";
 import { readVaultDeletionEligibility } from "./deletion/eligibility";
 import {
   isVaultDeletingOrDeleteFailed,
@@ -39,7 +36,7 @@ const cloudflarePreviewMetadataFields = {
 } as const;
 const treeRefreshFailureFields = {
   lastTreeRefreshFailedAt: optional(number()),
-  treeRefreshFailureKind: optional(TreeRefreshFailureKind),
+  treeRefreshFailureKind: optional(vTreeRefreshFailureKind),
   treeRefreshFailureMessage: optional(string()),
   treeRefreshCooldownUntil: optional(number()),
 } as const;
@@ -105,7 +102,7 @@ const vaultDeletionSummary = union(
     state: literal("deleting"),
     runId: id("vaultDeletionRuns"),
     requestedAt: number(),
-    currentStep: VaultDeletionStep,
+    currentStep: vVaultDeletionStep,
     message: string(),
     updatedAt: number(),
   }),
@@ -113,7 +110,7 @@ const vaultDeletionSummary = union(
     state: literal("delete_failed"),
     runId: id("vaultDeletionRuns"),
     failedAt: number(),
-    currentStep: VaultDeletionStep,
+    currentStep: vVaultDeletionStep,
     message: string(),
     lastError: string(),
     updatedAt: number(),

@@ -7,9 +7,11 @@ import {
 import { internal } from "../../_generated/api";
 import type { Doc, Id } from "../../_generated/dataModel";
 import {
-  VaultDeletionEventLevel,
-  VaultDeletionPlan,
-  VaultDeletionStep,
+  vVaultDeletionEventLevel,
+  vVaultDeletionStep,
+  type VaultDeletionEventLevel,
+  type VaultDeletionPlan,
+  type VaultDeletionStep,
   type VaultDeletionRetainedSnapshot,
 } from "./model";
 import { readVaultDeletionEligibility } from "./eligibility";
@@ -540,8 +542,8 @@ export const markWorkflowStarted = internalMutation({
 export const appendRunEvent = internalMutation({
   args: {
     runId: id("vaultDeletionRuns"),
-    step: VaultDeletionStep,
-    level: VaultDeletionEventLevel,
+    step: vVaultDeletionStep,
+    level: vVaultDeletionEventLevel,
     message: string(),
     state: deletionRunEventState,
   },

@@ -1,10 +1,10 @@
 import { Infer, v } from "convex/values";
-import { VaultDeletionState } from "./deletion/model";
+import { vVaultDeletionState } from "./deletion/model";
 
 const { array, boolean, id, literal, number, object, optional, string, union } =
   v;
 
-export const GithubTree = object({
+export const vGithubTree = object({
   path: string(),
   mode: string(),
   type: string(),
@@ -12,35 +12,35 @@ export const GithubTree = object({
   size: optional(number()),
   url: optional(string()),
 });
-export type GithubTree = Infer<typeof GithubTree>;
+export type GithubTree = Infer<typeof vGithubTree>;
 
-export const GithubTreeData = object({
+export const vGithubTreeData = object({
   sha: string(),
   url: optional(string()),
   truncated: boolean(),
-  tree: array(GithubTree),
+  tree: array(vGithubTree),
 });
-export type GithubTreeData = Infer<typeof GithubTreeData>;
+export type GithubTreeData = Infer<typeof vGithubTreeData>;
 
-export const InfraState = union(
+export const vInfraState = union(
   literal("not_started"),
   literal("provisioning"),
   literal("ready"),
   literal("failed"),
   literal("partial"),
 );
-export type InfraState = Infer<typeof InfraState>;
+export type InfraState = Infer<typeof vInfraState>;
 
 /**
  * GitHub visibility values currently supported by Noter's create and connect
  * flows.
  */
-export const GitHubRepositoryVisibility = union(
+export const vGitHubRepositoryVisibility = union(
   literal("private"),
   literal("public"),
 );
 export type GitHubRepositoryVisibility = Infer<
-  typeof GitHubRepositoryVisibility
+  typeof vGitHubRepositoryVisibility
 >;
 
 export function parseRepositoryFullName(repositoryFullName: string): {
@@ -59,11 +59,11 @@ export function parseRepositoryFullName(repositoryFullName: string): {
   return { owner, name };
 }
 
-export const TreeRefreshFailureKind = union(
+export const vTreeRefreshFailureKind = union(
   literal("failed"),
   literal("rate_limited"),
 );
-export type TreeRefreshFailureKind = Infer<typeof TreeRefreshFailureKind>;
+export type TreeRefreshFailureKind = Infer<typeof vTreeRefreshFailureKind>;
 
 const githubRepositoryCoordinatesFields = {
   owner: string(),
@@ -78,10 +78,10 @@ const githubRepositoryCoordinatesFields = {
  */
 const githubRepositoryWithVisibilityFields = {
   ...githubRepositoryCoordinatesFields,
-  visibility: GitHubRepositoryVisibility,
+  visibility: vGitHubRepositoryVisibility,
 } as const;
 
-export const VaultConvexState = union(
+export const vVaultConvexState = union(
   object({
     state: literal("not_configured"),
   }),
@@ -103,9 +103,9 @@ export const VaultConvexState = union(
     failedAt: number(),
   }),
 );
-export type VaultConvexState = Infer<typeof VaultConvexState>;
+export type VaultConvexState = Infer<typeof vVaultConvexState>;
 
-export const VaultCloudflareState = union(
+export const vVaultCloudflareState = union(
   object({
     state: literal("not_configured"),
   }),
@@ -127,7 +127,7 @@ export const VaultCloudflareState = union(
     failedAt: number(),
   }),
 );
-export type VaultCloudflareState = Infer<typeof VaultCloudflareState>;
+export type VaultCloudflareState = Infer<typeof vVaultCloudflareState>;
 
 /**
  * Compatibility fields from the pre-vault-first vault row. They stay on every
@@ -141,11 +141,11 @@ export type VaultCloudflareState = Infer<typeof VaultCloudflareState>;
  */
 const vaultOperationalFields = {
   userId: id("users"),
-  deletion: VaultDeletionState,
+  deletion: vVaultDeletionState,
   lastTreeRefreshAt: optional(number()),
   treeRefreshStartedAt: optional(number()),
   lastTreeRefreshFailedAt: optional(number()),
-  treeRefreshFailureKind: optional(TreeRefreshFailureKind),
+  treeRefreshFailureKind: optional(vTreeRefreshFailureKind),
   treeRefreshFailureMessage: optional(string()),
   treeRefreshCooldownUntil: optional(number()),
   activeCodespaceId: optional(id("codespaces")),
@@ -157,7 +157,7 @@ const connectedRepositoryIdentityFields = {
   defaultBranch: string(),
 } as const;
 
-export const VaultRow = union(
+export const vVaultRow = union(
   object({
     ...vaultOperationalFields,
     state: literal("not_connected"),
@@ -186,8 +186,8 @@ export const VaultRow = union(
     githubMode: literal("create_repository"),
     runId: id("appProvisioningRuns"),
     ...connectedRepositoryIdentityFields,
-    convex: VaultConvexState,
-    cloudflare: VaultCloudflareState,
+    convex: vVaultConvexState,
+    cloudflare: vVaultCloudflareState,
     connectedAt: number(),
 
     ...githubRepositoryWithVisibilityFields,
@@ -199,8 +199,8 @@ export const VaultRow = union(
     runId: id("appProvisioningRuns"),
 
     ...connectedRepositoryIdentityFields,
-    convex: VaultConvexState,
-    cloudflare: VaultCloudflareState,
+    convex: vVaultConvexState,
+    cloudflare: vVaultCloudflareState,
     connectedAt: number(),
 
     ...githubRepositoryWithVisibilityFields,
@@ -224,4 +224,4 @@ export const VaultRow = union(
     ...githubRepositoryCoordinatesFields,
   }),
 );
-export type VaultRow = Infer<typeof VaultRow>;
+export type VaultRow = Infer<typeof vVaultRow>;

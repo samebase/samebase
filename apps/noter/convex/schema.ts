@@ -3,17 +3,17 @@ import { Infer, v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
 import { cloudflareStateValidator } from "./cloudflareState";
 import {
-  GithubTree as githubTreeValidator,
-  GithubTreeData as githubTreeDataValidator,
-  GitHubRepositoryVisibility as gitHubRepositoryVisibilityValidator,
-  InfraState as infraStateValidator,
-  TreeRefreshFailureKind as treeRefreshFailureKindValidator,
-  VaultRow,
+  vGithubTree,
+  vGithubTreeData,
+  vGitHubRepositoryVisibility,
+  vInfraState,
+  vTreeRefreshFailureKind,
+  vVaultRow,
 } from "./vault/model";
 import {
-  VaultDeletionEventLevel as vaultDeletionEventLevelValidator,
-  VaultDeletionRun as vaultDeletionRunValidator,
-  VaultDeletionStep as vaultDeletionStepValidator,
+  vVaultDeletionEventLevel,
+  vVaultDeletionRun,
+  vVaultDeletionStep,
 } from "./vault/deletion/model";
 import {
   mcpTokenHealthSourceValidator,
@@ -63,16 +63,13 @@ export const PullRequestLabel = union(
 );
 export type PullRequestLabel = Infer<typeof PullRequestLabel>;
 
-export const GithubTree = githubTreeValidator;
-export type GithubTreeType = Infer<typeof GithubTree>;
-export const GithubTreeData = githubTreeDataValidator;
-export type GithubTreeData = Infer<typeof GithubTreeData>;
-export const GitHubRepositoryVisibility = gitHubRepositoryVisibilityValidator;
+export type GithubTree = Infer<typeof vGithubTree>;
+export type GithubTreeType = GithubTree;
+export type GithubTreeData = Infer<typeof vGithubTreeData>;
 export type GitHubRepositoryVisibility = Infer<
-  typeof GitHubRepositoryVisibility
+  typeof vGitHubRepositoryVisibility
 >;
-export const InfraState = infraStateValidator;
-export type InfraState = Infer<typeof InfraState>;
+export type InfraState = Infer<typeof vInfraState>;
 
 export const AppProvisioningEventLevel = union(
   literal("info"),
@@ -149,12 +146,9 @@ export const VaultRemoteBranchState = union(
   literal("deleted_upstream"),
 );
 
-export const TreeRefreshFailureKind = treeRefreshFailureKindValidator;
-export type TreeRefreshFailureKind = Infer<typeof TreeRefreshFailureKind>;
-export const VaultDeletionStep = vaultDeletionStepValidator;
-export type VaultDeletionStep = Infer<typeof VaultDeletionStep>;
-export const VaultDeletionEventLevel = vaultDeletionEventLevelValidator;
-export type VaultDeletionEventLevel = Infer<typeof VaultDeletionEventLevel>;
+export type TreeRefreshFailureKind = Infer<typeof vTreeRefreshFailureKind>;
+export type VaultDeletionStep = Infer<typeof vVaultDeletionStep>;
+export type VaultDeletionEventLevel = Infer<typeof vVaultDeletionEventLevel>;
 
 export const ProdAccessScope = union(literal("vault"), literal("global"));
 
@@ -390,7 +384,7 @@ export default defineSchema({
    * Vault is the durable app container. Repo-backed behavior must require the
    * connected GitHub variant before reading repository identity fields.
    */
-  vaults: defineTable(VaultRow)
+  vaults: defineTable(vVaultRow)
     .index("by_userId", ["userId"])
     .index("by_userId_and_state_and_deletion_state", [
       "userId",
@@ -440,7 +434,7 @@ export default defineSchema({
     branch: string(),
     treeSHA: string(),
     commitSHA: optional(string()),
-    treeData: GithubTreeData,
+    treeData: vGithubTreeData,
     lastTreeRefreshAt: number(),
     treeRefreshStartedAt: optional(number()),
   }).index("by_vault_and_branch", ["vaultId", "branch"]),
@@ -475,7 +469,7 @@ export default defineSchema({
   vaultInfrastructure: defineTable({
     vaultId: id("vaults"),
 
-    status: InfraState,
+    status: vInfraState,
     lastError: optional(string()),
     provisioningVersion: number(),
     lastProvisionedAt: optional(number()),
@@ -554,7 +548,7 @@ export default defineSchema({
    * Durable operation runs for vault deletion. These rows intentionally outlive
    * the vault so failed and completed destructive work remains auditable.
    */
-  vaultDeletionRuns: defineTable(vaultDeletionRunValidator)
+  vaultDeletionRuns: defineTable(vVaultDeletionRun)
     .index("by_vault_and_updated_at", ["vaultId", "updatedAt"])
     .index("by_user_and_updated_at", ["userId", "updatedAt"])
     .index("by_workflow_id", ["workflow.workflowId"])
@@ -569,8 +563,8 @@ export default defineSchema({
     vaultId: id("vaults"),
     repositoryFullName: string(),
     runId: id("vaultDeletionRuns"),
-    step: VaultDeletionStep,
-    level: VaultDeletionEventLevel,
+    step: vVaultDeletionStep,
+    level: vVaultDeletionEventLevel,
     message: string(),
     createdAt: number(),
   })

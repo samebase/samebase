@@ -2,12 +2,12 @@ import { Infer, v } from "convex/values";
 
 const { id, literal, number, object, string, union } = v;
 
-export const VaultDeletionNotDeleting = object({
+export const vVaultDeletionNotDeleting = object({
   state: literal("not_deleting"),
 });
-export type VaultDeletionNotDeleting = Infer<typeof VaultDeletionNotDeleting>;
+export type VaultDeletionNotDeleting = Infer<typeof vVaultDeletionNotDeleting>;
 
-export const VaultDeletionGate = union(
+export const vVaultDeletionGate = union(
   object({
     state: literal("deleting"),
     runId: id("vaultDeletionRuns"),
@@ -19,15 +19,15 @@ export const VaultDeletionGate = union(
     failedAt: number(),
   }),
 );
-export type VaultDeletionGate = Infer<typeof VaultDeletionGate>;
+export type VaultDeletionGate = Infer<typeof vVaultDeletionGate>;
 
-export const VaultDeletionState = union(
-  VaultDeletionNotDeleting,
-  VaultDeletionGate,
+export const vVaultDeletionState = union(
+  vVaultDeletionNotDeleting,
+  vVaultDeletionGate,
 );
-export type VaultDeletionState = Infer<typeof VaultDeletionState>;
+export type VaultDeletionState = Infer<typeof vVaultDeletionState>;
 
-export const VaultDeletionStep = union(
+export const vVaultDeletionStep = union(
   literal("initialize_deletion"),
   literal("lock_vault"),
   literal("delete_codespaces"),
@@ -43,9 +43,9 @@ export const VaultDeletionStep = union(
   literal("delete_vault"),
   literal("finish"),
 );
-export type VaultDeletionStep = Infer<typeof VaultDeletionStep>;
+export type VaultDeletionStep = Infer<typeof vVaultDeletionStep>;
 
-export const VaultDeletionCleanupStep = union(
+export const vVaultDeletionCleanupStep = union(
   literal("cleanup_editor_state"),
   literal("cleanup_source_caches"),
   literal("cleanup_runtime_state"),
@@ -53,14 +53,14 @@ export const VaultDeletionCleanupStep = union(
   literal("detach_agent_context"),
   literal("cleanup_provisioning_history"),
 );
-export type VaultDeletionCleanupStep = Infer<typeof VaultDeletionCleanupStep>;
+export type VaultDeletionCleanupStep = Infer<typeof vVaultDeletionCleanupStep>;
 
-export const VaultDeletionEventLevel = union(
+export const vVaultDeletionEventLevel = union(
   literal("info"),
   literal("warning"),
   literal("error"),
 );
-export type VaultDeletionEventLevel = Infer<typeof VaultDeletionEventLevel>;
+export type VaultDeletionEventLevel = Infer<typeof vVaultDeletionEventLevel>;
 
 const skipNotRequested = object({
   action: literal("skip"),
@@ -122,7 +122,7 @@ const providerCleanupPlan = {
   ),
 } as const;
 
-export const VaultDeletionPlan = union(
+export const vVaultDeletionPlan = union(
   object({
     ...providerCleanupPlan,
     target: object({
@@ -166,23 +166,23 @@ export const VaultDeletionPlan = union(
     }),
   }),
 );
-export type VaultDeletionPlan = Infer<typeof VaultDeletionPlan>;
+export type VaultDeletionPlan = Infer<typeof vVaultDeletionPlan>;
 
-export const VaultDeletionRetainedSnapshot = object({
+export const vVaultDeletionRetainedSnapshot = object({
   state: literal("retained_for_retry"),
-  plan: VaultDeletionPlan,
+  plan: vVaultDeletionPlan,
 });
 export type VaultDeletionRetainedSnapshot = Infer<
-  typeof VaultDeletionRetainedSnapshot
+  typeof vVaultDeletionRetainedSnapshot
 >;
 
-export const VaultDeletionSnapshot = union(
-  VaultDeletionRetainedSnapshot,
+export const vVaultDeletionSnapshot = union(
+  vVaultDeletionRetainedSnapshot,
   object({
     state: literal("scrubbed_after_success"),
   }),
 );
-export type VaultDeletionSnapshot = Infer<typeof VaultDeletionSnapshot>;
+export type VaultDeletionSnapshot = Infer<typeof vVaultDeletionSnapshot>;
 
 const vaultDeletionRunBase = {
   userId: id("users"),
@@ -192,7 +192,7 @@ const vaultDeletionRunBase = {
   updatedAt: number(),
 } as const;
 
-export const VaultDeletionAttempt = union(
+export const vVaultDeletionAttempt = union(
   object({
     kind: literal("initial"),
   }),
@@ -201,53 +201,53 @@ export const VaultDeletionAttempt = union(
     retryOf: id("vaultDeletionRuns"),
   }),
 );
-export type VaultDeletionAttempt = Infer<typeof VaultDeletionAttempt>;
+export type VaultDeletionAttempt = Infer<typeof vVaultDeletionAttempt>;
 
-export const VaultDeletionWorkflowNotStarted = object({
+export const vVaultDeletionWorkflowNotStarted = object({
   state: literal("not_started"),
 });
-export const VaultDeletionWorkflowStarted = object({
+export const vVaultDeletionWorkflowStarted = object({
   state: literal("started"),
   workflowId: string(),
 });
-export const VaultDeletionWorkflowRef = union(
-  VaultDeletionWorkflowNotStarted,
-  VaultDeletionWorkflowStarted,
+export const vVaultDeletionWorkflowRef = union(
+  vVaultDeletionWorkflowNotStarted,
+  vVaultDeletionWorkflowStarted,
 );
-export type VaultDeletionWorkflowRef = Infer<typeof VaultDeletionWorkflowRef>;
+export type VaultDeletionWorkflowRef = Infer<typeof vVaultDeletionWorkflowRef>;
 
-export const VaultDeletionRun = union(
+export const vVaultDeletionRun = union(
   object({
     ...vaultDeletionRunBase,
-    attempt: VaultDeletionAttempt,
+    attempt: vVaultDeletionAttempt,
     state: literal("queued"),
-    workflow: VaultDeletionWorkflowNotStarted,
+    workflow: vVaultDeletionWorkflowNotStarted,
     currentStep: literal("initialize_deletion"),
-    snapshot: VaultDeletionRetainedSnapshot,
+    snapshot: vVaultDeletionRetainedSnapshot,
   }),
   object({
     ...vaultDeletionRunBase,
-    attempt: VaultDeletionAttempt,
+    attempt: vVaultDeletionAttempt,
     state: literal("running"),
-    workflow: VaultDeletionWorkflowStarted,
-    currentStep: VaultDeletionStep,
-    snapshot: VaultDeletionRetainedSnapshot,
+    workflow: vVaultDeletionWorkflowStarted,
+    currentStep: vVaultDeletionStep,
+    snapshot: vVaultDeletionRetainedSnapshot,
   }),
   object({
     ...vaultDeletionRunBase,
-    attempt: VaultDeletionAttempt,
+    attempt: vVaultDeletionAttempt,
     state: literal("failed"),
-    workflow: VaultDeletionWorkflowRef,
-    currentStep: VaultDeletionStep,
-    snapshot: VaultDeletionRetainedSnapshot,
+    workflow: vVaultDeletionWorkflowRef,
+    currentStep: vVaultDeletionStep,
+    snapshot: vVaultDeletionRetainedSnapshot,
     lastError: string(),
     completedAt: number(),
   }),
   object({
     ...vaultDeletionRunBase,
-    attempt: VaultDeletionAttempt,
+    attempt: vVaultDeletionAttempt,
     state: literal("succeeded"),
-    workflow: VaultDeletionWorkflowStarted,
+    workflow: vVaultDeletionWorkflowStarted,
     currentStep: literal("finish"),
     snapshot: object({
       state: literal("scrubbed_after_success"),
@@ -255,4 +255,4 @@ export const VaultDeletionRun = union(
     completedAt: number(),
   }),
 );
-export type VaultDeletionRun = Infer<typeof VaultDeletionRun>;
+export type VaultDeletionRun = Infer<typeof vVaultDeletionRun>;
