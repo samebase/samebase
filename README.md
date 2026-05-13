@@ -59,7 +59,7 @@ with React + Vite on the frontend and Convex on the backend.
 ### Prerequisites
 
 - Node.js 24+ (`.nvmrc`)
-- PNPM 9.15.0
+- PNPM 11.1.1
 - Git
 
 ### Windows (Outside WSL)
@@ -73,11 +73,11 @@ macOS/Linux `make` flow.
 winget install --id OpenJS.NodeJS.LTS -e
 ```
 
-2. Install PNPM 9.15.0. If `corepack` is not available on your PATH after
+2. Install PNPM 11.1.1. If `corepack` is not available on your PATH after
    installing Node, install PNPM directly:
 
 ```powershell
-npm install -g pnpm@9.15.0
+npm install -g pnpm@11.1.1
 ```
 
 3. Verify the toolchain from the repo root:

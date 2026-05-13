@@ -10,10 +10,34 @@ permissions:
   contents: read
 
 jobs:
+  supply_chain:
+    name: supply-chain
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: "pnpm"
+
+      - name: Audit package signatures and vulnerabilities
+        run: pnpm audit:supply-chain
+
   checks:
     name: checks
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 20
+    needs: supply_chain
 
     strategy:
       matrix:
@@ -41,12 +65,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Audit package signatures
-        run: pnpm audit:signatures
-
-      - name: Audit known vulnerabilities
-        run: pnpm audit:vulnerabilities
-
       # Bootstrap an anonymous local Convex deployment so CONVEX_DEPLOYMENT
       # exists and generated files are materialized for CI-only lint/build.
       # Note: `check:ci`/`build:ci` skip Convex codegen and rely on this step.
@@ -63,6 +81,7 @@ jobs:
     name: playwright (${{ matrix.shard }})
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 30
+    needs: supply_chain
     # Keep heavy browser coverage off PRs for now so branch validation stays
     # within the org Actions budget. Main pushes still exercise the full matrix.
     if: ${{ github.event_name == 'push' }}
@@ -133,6 +152,7 @@ jobs:
   sync-windows:
     runs-on: blacksmith-4vcpu-windows-2025
     timeout-minutes: 15
+    needs: supply_chain
     # Keep Windows smoke coverage off PRs for now so branch validation stays
     # within the org Actions budget. Main pushes still exercise the full matrix.
     if: ${{ github.event_name == 'push' }}
@@ -177,7 +197,7 @@ jobs:
   ci:
     name: ci (24.x)
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    needs: [checks, playwright, sync-windows]
+    needs: [supply_chain, checks, playwright, sync-windows]
     if: ${{ always() }}
 
     steps:
@@ -185,6 +205,11 @@ jobs:
       # in parallel jobs underneath it.
       - name: Aggregate parallel CI results
         run: |
+          if [ "${{ needs.supply_chain.result }}" != "success" ]; then
+            echo "supply-chain: ${{ needs.supply_chain.result }}"
+            exit 1
+          fi
+
           if [ "${{ needs.checks.result }}" != "success" ]; then
             echo "checks: ${{ needs.checks.result }}"
             exit 1

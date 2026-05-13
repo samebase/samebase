@@ -31,6 +31,8 @@ jobs:
         with:
           node-version: 24.x
           cache: "pnpm"
+      - name: Audit package signatures and vulnerabilities
+        run: pnpm audit:supply-chain
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Bootstrap Convex for CI
