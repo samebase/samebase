@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
-import { type GithubTreeType } from "../../convex/schema";
+import { type GithubTree } from "../../convex/schema";
 import { buildProjectFilesCacheKey } from "@/lib/editorCacheKeys";
 import {
   getCachedProjectFiles,
@@ -30,7 +30,7 @@ const IGNORED_DIRS = new Set([
 const MAX_BATCH_FILE_PATHS = 200;
 const REPO_SCOPE_ROOTS = new Set(["apps", "packages"]);
 
-function shouldInclude(entry: GithubTreeType): boolean {
+function shouldInclude(entry: GithubTree): boolean {
   if (entry.type !== "blob") return false;
 
   // Skip files > 100KB
@@ -50,7 +50,7 @@ function shouldInclude(entry: GithubTreeType): boolean {
 }
 
 // Also always include tsconfig.json (for compiler options)
-function shouldIncludeTsConfig(entry: GithubTreeType): boolean {
+function shouldIncludeTsConfig(entry: GithubTree): boolean {
   return (
     entry.type === "blob" &&
     (entry.path === "tsconfig.json" || entry.path.endsWith("/tsconfig.json"))
@@ -105,7 +105,7 @@ export type { ProjectFile };
 export function useProjectFiles(
   vaultId: Id<"vaults"> | undefined,
   branch: string,
-  tree: GithubTreeType[],
+  tree: GithubTree[],
   treeSHA: string,
   activeFilePath: string,
 ) {

@@ -1,10 +1,10 @@
-import { type GithubTreeType } from "../../convex/schema";
+import { type GithubTree } from "../../convex/schema";
 
 export function resolveLegacyBranchlessFilePath(args: {
   branchSegment?: string;
   selectedFile: string;
   selectedFileExistsInTree: boolean;
-  tree: GithubTreeType[];
+  tree: GithubTree[];
 }): string | null {
   if (!args.branchSegment || args.selectedFile.length === 0) {
     return null;

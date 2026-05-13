@@ -1,6 +1,6 @@
 import { api } from "../../../convex/_generated/api";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
-import type { GithubTreeType } from "../../../convex/schema";
+import type { GithubTree } from "../../../convex/schema";
 import type { ProsemarkMergeEditorOptions } from "@/components/ProsemarkMergeEditor";
 import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "@/lib/commitReviewStatus";
 import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
@@ -26,7 +26,7 @@ export function isFileTreeNodeType(type: string): type is "tree" | "blob" {
   return type === "tree" || type === "blob";
 }
 
-export function findBestInitialFile(files: GithubTreeType[]) {
+export function findBestInitialFile(files: GithubTree[]) {
   const fileList = files.filter((item) => item.type === "blob");
 
   if (fileList.length === 0) {

@@ -64,7 +64,6 @@ export const vPullRequestLabel = union(
 export type PullRequestLabel = Infer<typeof vPullRequestLabel>;
 
 export type GithubTree = Infer<typeof vGithubTree>;
-export type GithubTreeType = GithubTree;
 export type GithubTreeData = Infer<typeof vGithubTreeData>;
 export type GitHubRepositoryVisibility = Infer<
   typeof vGitHubRepositoryVisibility

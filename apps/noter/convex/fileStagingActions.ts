@@ -8,7 +8,7 @@ import { Octokit, type RestEndpointMethodTypes } from "@octokit/rest";
 import { createTwoFilesPatch, diffLines } from "diff";
 import { getUserId } from "./common";
 import type { Id } from "./_generated/dataModel";
-import type { GithubTreeType } from "./schema";
+import type { GithubTree } from "./schema";
 import {
   guessMime,
   INLINE_TEXT_MAX,
@@ -50,8 +50,8 @@ const PULL_REQUEST_COMPARE_FILE_LIST_LIMIT = 3_000;
 
 export function selectBatchReadRepositoryTree(args: {
   requestedBranch?: string;
-  branchTree: GithubTreeType[] | null;
-}): GithubTreeType[] {
+  branchTree: GithubTree[] | null;
+}): GithubTree[] {
   if (args.branchTree) {
     return args.branchTree;
   }
@@ -3065,7 +3065,7 @@ export const batchReadFiles = action({
       typeof args.branch === "string" && args.branch.trim().length > 0
         ? args.branch.trim()
         : undefined;
-    let branchTreeData: GithubTreeType[] | null = null;
+    let branchTreeData: GithubTree[] | null = null;
     const defaultBranch = connectedVault.defaultBranch;
     const branchToLoad = requestedBranch ?? defaultBranch;
     if (branchToLoad) {

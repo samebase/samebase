@@ -8,7 +8,7 @@ import {
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { getUserId } from "./common";
-import type { GithubTreeType } from "./schema";
+import type { GithubTree } from "./schema";
 import {
   hasStagedFileChanges,
   hasStagedFileContentChange,
@@ -248,8 +248,8 @@ export function canAccessVaultStaging(args: {
 
 export function selectRepositoryTreeForBranch(args: {
   requestedBranch: string;
-  branchTree: GithubTreeType[] | null;
-}): GithubTreeType[] {
+  branchTree: GithubTree[] | null;
+}): GithubTree[] {
   if (args.branchTree) {
     return args.branchTree;
   }
@@ -262,7 +262,7 @@ async function resolveRepositoryTreeForVault(args: {
   ctx: MutationCtx;
   vaultId: Infer<typeof vaultIdValidator>;
   requestedBranch: string;
-}): Promise<GithubTreeType[]> {
+}): Promise<GithubTree[]> {
   const branchTree = await args.ctx.runQuery(
     internal.vault.branches.getVaultBranchTree,
     {
@@ -1106,7 +1106,7 @@ export const createFileInStaging = mutation({
       requestedBranch: args.branch,
     });
     const existsInRepository = repositoryTree.some(
-      (entry: GithubTreeType) =>
+      (entry: GithubTree) =>
         entry.type === "blob" && entry.path === args.filePath,
     );
     if (existsInRepository) {
@@ -1420,7 +1420,7 @@ export const saveBinaryUploadToStaging = internalMutation({
       requestedBranch: args.branch,
     });
     const existingRepositoryEntry = repositoryTree.find(
-      (entry: GithubTreeType) =>
+      (entry: GithubTree) =>
         entry.type === "blob" && entry.path === args.filePath,
     );
     const parentCommitSha = existingRepositoryEntry?.sha ?? null;
@@ -1577,7 +1577,7 @@ export const rename = internalMutation({
       requestedBranch: args.branch,
     });
     const existsInRepository = repositoryTree.some(
-      (entry: GithubTreeType) =>
+      (entry: GithubTree) =>
         entry.type === "blob" &&
         entry.path === args.newPath &&
         entry.path !== file.initialFilePath,

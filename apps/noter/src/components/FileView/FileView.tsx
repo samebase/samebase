@@ -55,7 +55,7 @@ import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "@/lib/co
 import { claimRefreshDebounce } from "@/lib/refreshDebounce";
 import { getAncestorFolderPaths } from "@/lib/fileTreeState";
 import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
-import { type GithubTreeType } from "../../../convex/schema";
+import { type GithubTree } from "../../../convex/schema";
 import { formatStopwatchDuration } from "@/lib/stopwatch";
 import { DraftPullRequestFeedbackBanner } from "@/components/DraftPullRequestFeedbackBanner";
 import { VaultSyncStatus } from "@/components/VaultSyncStatus";
@@ -1522,7 +1522,7 @@ function FileViewInner({
     try {
       // Get the file's SHA from the tree (null for new files)
       const fileSha =
-        vault.treeData.tree.find((t: GithubTreeType) => t.path === originalPath)
+        vault.treeData.tree.find((t: GithubTree) => t.path === originalPath)
           ?.sha ?? null;
 
       // Ensure we retain original file content in staging for review mode.
@@ -2067,7 +2067,7 @@ function FileViewInner({
       (stagedFiles ?? []).map((file) => [file.initialFilePath, file]),
     );
     const treeItems = vault.treeData.tree
-      .map((item: GithubTreeType) => {
+      .map((item: GithubTree) => {
         if (!isFileTreeNodeType(item.type)) {
           return null;
         }
@@ -3216,7 +3216,7 @@ function FileViewInner({
           initialFolderPath={fileCreationDialog.folderPath || ""}
           onFileCreate={handleCreateFileInFolder}
           folders={vault.treeData.tree
-            .map((item: GithubTreeType) => {
+            .map((item: GithubTree) => {
               if (!isFileTreeNodeType(item.type)) {
                 return null;
               }
