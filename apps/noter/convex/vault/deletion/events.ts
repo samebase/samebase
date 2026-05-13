@@ -1,6 +1,6 @@
 import { v, type Infer } from "convex/values";
 import { internalMutation, query } from "../../_generated/server";
-import { VaultDeletionEventLevel, VaultDeletionStep } from "./model";
+import { vVaultDeletionEventLevel, vVaultDeletionStep } from "./model";
 import { getUserId } from "../../common";
 
 const { array, id, number, object, string } = v;
@@ -10,11 +10,11 @@ const MAX_DELETION_MESSAGE_LENGTH = 800;
 const deletionEventResult = object({
   _id: id("vaultDeletionEvents"),
   createdAt: number(),
-  level: VaultDeletionEventLevel,
+  level: vVaultDeletionEventLevel,
   message: string(),
   repositoryFullName: string(),
   runId: id("vaultDeletionRuns"),
-  step: VaultDeletionStep,
+  step: vVaultDeletionStep,
 });
 type DeletionEventResult = Infer<typeof deletionEventResult>;
 
@@ -30,8 +30,8 @@ export const append = internalMutation({
     vaultId: id("vaults"),
     repositoryFullName: string(),
     runId: id("vaultDeletionRuns"),
-    step: VaultDeletionStep,
-    level: VaultDeletionEventLevel,
+    step: vVaultDeletionStep,
+    level: vVaultDeletionEventLevel,
     message: string(),
     createdAt: number(),
   },

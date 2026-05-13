@@ -2,24 +2,21 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { Infer, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import {
-  workspaceSidebarStateKeyValidator,
-  workspaceSidebarStateValidator,
+  vWorkspaceSidebarStateKey,
+  vWorkspaceSidebarState,
   type WorkspaceSidebarState,
 } from "./workspaceSidebarStateModel";
 
 const { null: vNull, object, union } = v;
 
 const getWorkspaceSidebarStateArgs = object({
-  workspaceKey: workspaceSidebarStateKeyValidator,
+  workspaceKey: vWorkspaceSidebarStateKey,
 });
-const getWorkspaceSidebarStateReturns = union(
-  vNull(),
-  workspaceSidebarStateValidator,
-);
+const getWorkspaceSidebarStateReturns = union(vNull(), vWorkspaceSidebarState);
 
 const setWorkspaceSidebarStateArgs = object({
-  state: workspaceSidebarStateValidator,
-  workspaceKey: workspaceSidebarStateKeyValidator,
+  state: vWorkspaceSidebarState,
+  workspaceKey: vWorkspaceSidebarStateKey,
 });
 const setWorkspaceSidebarStateReturns = vNull();
 

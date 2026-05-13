@@ -4,7 +4,7 @@ import { Infer, v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import type { ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { allowedInfraReadTable } from "./infraReadQueries";
+import { vAllowedInfraReadTable } from "./infraReadQueries";
 import { createInfraProviders } from "./infraProviders";
 import {
   readCloudflareDeploymentLogs,
@@ -409,7 +409,7 @@ export const getCloudflarePagesProjectInventory = internalAction({
 
 export const getConvexDataQuery = internalAction({
   args: {
-    table: allowedInfraReadTable,
+    table: vAllowedInfraReadTable,
     limit: v.optional(v.number()),
     vaultId: v.optional(v.id("vaults")),
   },

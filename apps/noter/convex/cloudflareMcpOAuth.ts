@@ -18,7 +18,7 @@ import {
 import { asRecord, readNumber, readString } from "./jsonUtils";
 import {
   deriveMcpTokenStatusFromExpiry,
-  mcpTokenHealthValidator,
+  vMcpTokenHealth,
 } from "./mcpTokenHealth";
 
 const CLOUDFLARE_MCP_OAUTH_ISSUER = "https://mcp.cloudflare.com";
@@ -328,7 +328,7 @@ const cloudflareApiKeyAuthValidator = object({
 const resolvedCloudflareConnectionValidator = object({
   auth: union(cloudflareMcpOauthAuthValidator, cloudflareApiKeyAuthValidator),
   accountId: optional(string()),
-  tokenHealth: optional(mcpTokenHealthValidator),
+  tokenHealth: optional(vMcpTokenHealth),
 });
 const resolveConnectionForUserResultValidator = union(
   resolvedCloudflareConnectionValidator,
@@ -369,7 +369,7 @@ export const resolveConnectionForUser = internalAction({
     const refreshClient = resolveCloudflareMcpRefreshClient({
       clientId: connection.auth.clientId,
     });
-    const derivedTokenHealth: Infer<typeof mcpTokenHealthValidator> = {
+    const derivedTokenHealth: Infer<typeof vMcpTokenHealth> = {
       status: deriveMcpTokenStatusFromExpiry(expiresAt, checkedAt),
       checkedAt,
       expiresAt,
@@ -403,7 +403,7 @@ export const resolveConnectionForUser = internalAction({
     if (!refreshToken) {
       const message =
         "Cloudflare OAuth refresh token is missing. Reconnect Cloudflare and retry.";
-      const tokenHealth: Infer<typeof mcpTokenHealthValidator> = {
+      const tokenHealth: Infer<typeof vMcpTokenHealth> = {
         status: "invalid",
         checkedAt: Date.now(),
         expiresAt,
@@ -430,7 +430,7 @@ export const resolveConnectionForUser = internalAction({
     if (!clientId) {
       const message =
         "Cloudflare OAuth client ID is missing. Reconnect Cloudflare and retry.";
-      const tokenHealth: Infer<typeof mcpTokenHealthValidator> = {
+      const tokenHealth: Infer<typeof vMcpTokenHealth> = {
         status: "invalid",
         checkedAt: Date.now(),
         expiresAt,
@@ -468,7 +468,7 @@ export const resolveConnectionForUser = internalAction({
       });
     } catch (error) {
       const invalidToken = isLikelyInvalidCloudflareTokenError(error);
-      const tokenHealth: Infer<typeof mcpTokenHealthValidator> = {
+      const tokenHealth: Infer<typeof vMcpTokenHealth> = {
         status: invalidToken ? "invalid" : derivedTokenHealth.status,
         checkedAt: Date.now(),
         expiresAt,
@@ -506,7 +506,7 @@ export const resolveConnectionForUser = internalAction({
       mcpServerUrl: connection.auth.mcpServerUrl,
     };
     const nowAfterRefresh = Date.now();
-    const refreshedTokenHealth: Infer<typeof mcpTokenHealthValidator> = {
+    const refreshedTokenHealth: Infer<typeof vMcpTokenHealth> = {
       status: deriveMcpTokenStatusFromExpiry(nextExpiresAt, nowAfterRefresh),
       checkedAt: nowAfterRefresh,
       expiresAt: nextExpiresAt,

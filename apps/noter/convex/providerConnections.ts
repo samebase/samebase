@@ -6,7 +6,7 @@ import {
   type DatabaseWriter,
 } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { mcpTokenHealthValidator } from "./mcpTokenHealth";
+import { vMcpTokenHealth } from "./mcpTokenHealth";
 import {
   CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS,
   CLOUDFLARE_TOKEN_REFRESH_STALE_LOCK_MS,
@@ -25,20 +25,20 @@ const {
   union,
 } = v;
 
-const providerKindValidator = union(
+const vProviderKind = union(
   literal("github"),
   literal("convex"),
   literal("cloudflare"),
 );
-export type ProviderKind = Infer<typeof providerKindValidator>;
+export type ProviderKind = Infer<typeof vProviderKind>;
 
-const oauthAuthValidator = object({
+const vOAuthAuth = object({
   method: literal("oauth"),
   credential: string(),
   refreshCredential: optional(string()),
   credentialExpiresAt: optional(number()),
 });
-const mcpOauthAuthValidator = object({
+const vMcpOauthAuth = object({
   method: literal("mcp_oauth"),
   credential: string(),
   refreshCredential: optional(string()),
@@ -46,85 +46,75 @@ const mcpOauthAuthValidator = object({
   clientId: optional(string()),
   mcpServerUrl: string(),
 });
-const apiKeyAuthValidator = object({
+const vApiKeyAuth = object({
   method: literal("api_key"),
   credential: string(),
   credentialExpiresAt: optional(number()),
 });
-const providerAuthValidator = union(
-  oauthAuthValidator,
-  mcpOauthAuthValidator,
-  apiKeyAuthValidator,
-);
-export type ProviderAuth = Infer<typeof providerAuthValidator>;
+const vProviderAuth = union(vOAuthAuth, vMcpOauthAuth, vApiKeyAuth);
+export type ProviderAuth = Infer<typeof vProviderAuth>;
 
-const standardProviderAuthValidator = union(
-  oauthAuthValidator,
-  apiKeyAuthValidator,
-);
-const cloudflareProviderAuthValidator = union(
-  mcpOauthAuthValidator,
-  apiKeyAuthValidator,
-);
+const vStandardProviderAuth = union(vOAuthAuth, vApiKeyAuth);
+const vCloudflareProviderAuth = union(vMcpOauthAuth, vApiKeyAuth);
 
-const githubConnectionUpsertValidator = object({
+const vGithubConnectionUpsert = object({
   userId: id("users"),
-  auth: standardProviderAuthValidator,
+  auth: vStandardProviderAuth,
   username: optional(string()),
 });
-const convexConnectionUpsertValidator = object({
+const vConvexConnectionUpsert = object({
   userId: id("users"),
-  auth: standardProviderAuthValidator,
+  auth: vStandardProviderAuth,
   teamId: string(),
   teamSlug: optional(string()),
 });
-const cloudflareConnectionUpsertValidator = object({
+const vCloudflareConnectionUpsert = object({
   userId: id("users"),
-  auth: cloudflareProviderAuthValidator,
+  auth: vCloudflareProviderAuth,
   accountId: optional(string()),
-  tokenHealth: optional(mcpTokenHealthValidator),
+  tokenHealth: optional(vMcpTokenHealth),
   tokenRefreshStartedAt: optional(number()),
   lastTokenRefreshAt: optional(number()),
 });
 
-const githubConnectionResultValidator = object({
+const vGithubConnectionResult = object({
   _id: id("providerConnections"),
   _creationTime: number(),
   kind: literal("github"),
   userId: id("users"),
-  auth: standardProviderAuthValidator,
+  auth: vStandardProviderAuth,
   username: optional(string()),
   createdAt: number(),
   updatedAt: number(),
 });
-const convexConnectionResultValidator = object({
+const vConvexConnectionResult = object({
   _id: id("providerConnections"),
   _creationTime: number(),
   kind: literal("convex"),
   userId: id("users"),
-  auth: standardProviderAuthValidator,
+  auth: vStandardProviderAuth,
   teamId: string(),
   teamSlug: optional(string()),
   createdAt: number(),
   updatedAt: number(),
 });
-const cloudflareConnectionResultValidator = object({
+const vCloudflareConnectionResult = object({
   _id: id("providerConnections"),
   _creationTime: number(),
   kind: literal("cloudflare"),
   userId: id("users"),
-  auth: cloudflareProviderAuthValidator,
+  auth: vCloudflareProviderAuth,
   accountId: optional(string()),
-  tokenHealth: optional(mcpTokenHealthValidator),
+  tokenHealth: optional(vMcpTokenHealth),
   tokenRefreshStartedAt: optional(number()),
   lastTokenRefreshAt: optional(number()),
   createdAt: number(),
   updatedAt: number(),
 });
-const providerConnectionResultValidator = union(
-  githubConnectionResultValidator,
-  convexConnectionResultValidator,
-  cloudflareConnectionResultValidator,
+const vProviderConnectionResult = union(
+  vGithubConnectionResult,
+  vConvexConnectionResult,
+  vCloudflareConnectionResult,
 );
 
 export async function getConnectionByUserAndKind(
@@ -152,7 +142,7 @@ async function deleteConnectionByUserAndKind(
 
 async function upsertGithubConnection(
   db: DatabaseWriter,
-  args: Infer<typeof githubConnectionUpsertValidator>,
+  args: Infer<typeof vGithubConnectionUpsert>,
 ): Promise<void> {
   const now = Date.now();
   const existing = await getConnectionByUserAndKind(db, args.userId, "github");
@@ -176,7 +166,7 @@ async function upsertGithubConnection(
 
 async function upsertConvexConnection(
   db: DatabaseWriter,
-  args: Infer<typeof convexConnectionUpsertValidator>,
+  args: Infer<typeof vConvexConnectionUpsert>,
 ): Promise<void> {
   const now = Date.now();
   const existing = await getConnectionByUserAndKind(db, args.userId, "convex");
@@ -202,7 +192,7 @@ async function upsertConvexConnection(
 
 async function upsertCloudflareConnection(
   db: DatabaseWriter,
-  args: Infer<typeof cloudflareConnectionUpsertValidator>,
+  args: Infer<typeof vCloudflareConnectionUpsert>,
 ): Promise<void> {
   const now = Date.now();
   const existing = await getConnectionByUserAndKind(
@@ -251,9 +241,9 @@ async function upsertCloudflareConnection(
 export const getByUserAndKind = internalQuery({
   args: {
     userId: id("users"),
-    kind: providerKindValidator,
+    kind: vProviderKind,
   },
-  returns: union(providerConnectionResultValidator, vNull()),
+  returns: union(vProviderConnectionResult, vNull()),
   handler: async (ctx, args) => {
     return await getConnectionByUserAndKind(ctx.db, args.userId, args.kind);
   },
@@ -263,7 +253,7 @@ export const listByUser = internalQuery({
   args: {
     userId: id("users"),
   },
-  returns: array(providerConnectionResultValidator),
+  returns: array(vProviderConnectionResult),
   handler: async (ctx, args) => {
     return await ctx.db
       .query("providerConnections")
@@ -273,7 +263,7 @@ export const listByUser = internalQuery({
 });
 
 export const upsertGithub = internalMutation({
-  args: githubConnectionUpsertValidator,
+  args: vGithubConnectionUpsert,
   returns: vNull(),
   handler: async (ctx, args) => {
     await upsertGithubConnection(ctx.db, args);
@@ -282,7 +272,7 @@ export const upsertGithub = internalMutation({
 });
 
 export const upsertConvex = internalMutation({
-  args: convexConnectionUpsertValidator,
+  args: vConvexConnectionUpsert,
   returns: vNull(),
   handler: async (ctx, args) => {
     await upsertConvexConnection(ctx.db, args);
@@ -291,7 +281,7 @@ export const upsertConvex = internalMutation({
 });
 
 export const upsertCloudflare = internalMutation({
-  args: cloudflareConnectionUpsertValidator,
+  args: vCloudflareConnectionUpsert,
   returns: vNull(),
   handler: async (ctx, args) => {
     await upsertCloudflareConnection(ctx.db, args);
@@ -400,7 +390,7 @@ export const releaseCloudflareTokenRefresh = internalMutation({
 export const removeByUserAndKind = internalMutation({
   args: {
     userId: id("users"),
-    kind: providerKindValidator,
+    kind: vProviderKind,
   },
   returns: vNull(),
   handler: async (ctx, args) => {

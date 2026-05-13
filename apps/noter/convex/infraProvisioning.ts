@@ -13,7 +13,7 @@ import {
   type ConvexManagementProvider,
 } from "./infraProviders";
 import { ensureCloudflareResources } from "./cloudflareResources";
-import { cloudflareStateValidator } from "./cloudflareState";
+import { vCloudflareState } from "./cloudflareState";
 import { asRecord, readString, readStringOrNumber } from "./jsonUtils";
 import type { AppProvisioningStep, GithubTreeData } from "./schema";
 import { sanitizeSlug, vaultSuffix } from "./slugUtils";
@@ -53,7 +53,7 @@ const infraPatchValidator = v.object({
   convexSiteUrl: v.optional(v.string()),
   convexDeployKeyId: v.optional(v.string()),
 
-  cloudflare: v.optional(cloudflareStateValidator),
+  cloudflare: v.optional(vCloudflareState),
 });
 
 async function readResponseTextSafe(response: Response): Promise<string> {

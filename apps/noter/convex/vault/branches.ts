@@ -9,11 +9,8 @@ import {
   type MutationCtx,
 } from "../_generated/server";
 import { getUserId } from "../common";
-import {
-  GithubTreeData,
-  PullRequestLabel,
-  TreeRefreshFailureKind,
-} from "../schema";
+import { vPullRequestLabel, type PullRequestLabel } from "../schema";
+import { vGithubTreeData, vTreeRefreshFailureKind } from "./model";
 import {
   hasStagedFileChanges,
   type StagedFileChangeCandidate,
@@ -318,7 +315,7 @@ export const getVaultRemoteBranches = query({
       behindBy: optional(number()),
       pullRequestUrl: optional(string()),
       pullRequestNumber: optional(number()),
-      pullRequestLabels: optional(array(PullRequestLabel)),
+      pullRequestLabels: optional(array(vPullRequestLabel)),
       pullRequestTitle: optional(string()),
       pullRequestIsDraft: optional(boolean()),
       isDefault: boolean(),
@@ -403,7 +400,7 @@ export const syncVaultRemoteBranches = internalMutation({
         ),
         pullRequestUrl: optional(string()),
         pullRequestNumber: optional(number()),
-        pullRequestLabels: optional(array(PullRequestLabel)),
+        pullRequestLabels: optional(array(vPullRequestLabel)),
         pullRequestTitle: optional(string()),
         pullRequestIsDraft: optional(boolean()),
         pullRequestState: union(literal("resolved"), literal("preserve")),
@@ -675,7 +672,7 @@ export const upsertVaultBranchTree = internalMutation({
   args: {
     vaultId: id("vaults"),
     branch: string(),
-    treeData: GithubTreeData,
+    treeData: vGithubTreeData,
     commitSHA: optional(string()),
   },
   returns: nullValidator,
@@ -885,7 +882,7 @@ export const releaseTreeRefresh = internalMutation({
     startedAt: v.number(),
     markRefreshed: v.optional(v.boolean()),
     updateLastTreeRefreshAt: v.optional(v.boolean()),
-    failureKind: v.optional(TreeRefreshFailureKind),
+    failureKind: v.optional(vTreeRefreshFailureKind),
     failureMessage: v.optional(v.string()),
     cooldownUntil: v.optional(v.number()),
   },
@@ -961,7 +958,7 @@ export const recordTreeRefreshFailure = internalMutation({
   args: {
     vaultId: id("vaults"),
     startedAt: optional(number()),
-    failureKind: optional(TreeRefreshFailureKind),
+    failureKind: optional(vTreeRefreshFailureKind),
     failureMessage: optional(string()),
     cooldownUntil: optional(number()),
   },

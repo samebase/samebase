@@ -12,7 +12,7 @@ import { getConnectionByUserAndKind } from "./providerConnections";
 import { isRecord, readString } from "./jsonUtils";
 import {
   deriveMcpTokenStatusFromExpiry,
-  mcpTokenHealthStatusValidator,
+  vMcpTokenHealthStatus,
   type McpTokenHealth,
 } from "./mcpTokenHealth";
 import {
@@ -57,7 +57,7 @@ const cloudflareConnectionStatusValidator = object({
   connected: boolean(),
   accountId: optional(string()),
   authMethod: optional(providerAuthMethodValidator),
-  mcpTokenStatus: optional(mcpTokenHealthStatusValidator),
+  mcpTokenStatus: optional(vMcpTokenHealthStatus),
   mcpTokenExpiresAt: optional(number()),
   mcpTokenCheckedAt: optional(number()),
   mcpTokenError: optional(string()),

@@ -2,19 +2,16 @@ import { v, type Infer } from "convex/values";
 import { mutation, query, type QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { getUserId } from "../common";
-import { cloudflareStateValidator } from "../cloudflareState";
-import {
-  AppProvisioningRunStep,
-  PullRequestLabel,
-  TreeRefreshFailureKind,
-} from "../schema";
+import { vCloudflareState } from "../cloudflareState";
+import { vAppProvisioningRunStep, vPullRequestLabel } from "../schema";
+import { vTreeRefreshFailureKind } from "./model";
 import {
   isConnectedVault,
   isLiveConnectedVault,
   isNoterManagedVault,
   type NoterManagedConnectedVault,
 } from "./state";
-import { VaultDeletionStep } from "./deletion/model";
+import { vVaultDeletionStep } from "./deletion/model";
 import { readVaultDeletionEligibility } from "./deletion/eligibility";
 import {
   isVaultDeletingOrDeleteFailed,
@@ -39,7 +36,7 @@ const cloudflarePreviewMetadataFields = {
 } as const;
 const treeRefreshFailureFields = {
   lastTreeRefreshFailedAt: optional(number()),
-  treeRefreshFailureKind: optional(TreeRefreshFailureKind),
+  treeRefreshFailureKind: optional(vTreeRefreshFailureKind),
   treeRefreshFailureMessage: optional(string()),
   treeRefreshCooldownUntil: optional(number()),
 } as const;
@@ -53,13 +50,13 @@ const sourceSetupSummary = union(
   object({
     status: literal("running"),
     runId: id("appProvisioningRuns"),
-    step: AppProvisioningRunStep,
+    step: vAppProvisioningRunStep,
     updatedAt: number(),
   }),
   object({
     status: literal("failed"),
     runId: id("appProvisioningRuns"),
-    step: AppProvisioningRunStep,
+    step: vAppProvisioningRunStep,
     message: string(),
     updatedAt: number(),
   }),
@@ -76,14 +73,14 @@ const providerSetupSummary = union(
     status: literal("running"),
     provider: providerSetupProvider,
     runId: id("appProvisioningRuns"),
-    step: AppProvisioningRunStep,
+    step: vAppProvisioningRunStep,
     updatedAt: number(),
   }),
   object({
     status: literal("failed"),
     provider: providerSetupProvider,
     runId: id("appProvisioningRuns"),
-    step: AppProvisioningRunStep,
+    step: vAppProvisioningRunStep,
     message: string(),
     updatedAt: number(),
   }),
@@ -105,7 +102,7 @@ const vaultDeletionSummary = union(
     state: literal("deleting"),
     runId: id("vaultDeletionRuns"),
     requestedAt: number(),
-    currentStep: VaultDeletionStep,
+    currentStep: vVaultDeletionStep,
     message: string(),
     updatedAt: number(),
   }),
@@ -113,7 +110,7 @@ const vaultDeletionSummary = union(
     state: literal("delete_failed"),
     runId: id("vaultDeletionRuns"),
     failedAt: number(),
-    currentStep: VaultDeletionStep,
+    currentStep: vVaultDeletionStep,
     message: string(),
     lastError: string(),
     updatedAt: number(),
@@ -662,7 +659,7 @@ const getUserVaultsResult = array(
         behindBy: optional(number()),
         pullRequestUrl: optional(string()),
         pullRequestNumber: optional(number()),
-        pullRequestLabels: optional(array(PullRequestLabel)),
+        pullRequestLabels: optional(array(vPullRequestLabel)),
         pullRequestTitle: optional(string()),
         pullRequestIsDraft: optional(boolean()),
         isDefault: boolean(),
@@ -940,7 +937,7 @@ export const getVaultInfrastructure = query({
           convexDeploymentName: v.optional(v.string()),
           convexCloudUrl: v.optional(v.string()),
           convexSiteUrl: v.optional(v.string()),
-          cloudflare: v.optional(cloudflareStateValidator),
+          cloudflare: v.optional(vCloudflareState),
         }),
       ),
       domains: v.array(

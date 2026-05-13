@@ -5,18 +5,18 @@ import type { Id } from "./_generated/dataModel";
 
 const { boolean, literal, null: vNull, object, union } = v;
 
-const billingCycleValidator = union(literal("monthly"), literal("annual"));
-export type BillingCycle = Infer<typeof billingCycleValidator>;
-const chatOpenScopeValidator = union(literal("global"), literal("vault"));
-type ChatOpenScope = Infer<typeof chatOpenScopeValidator>;
+const vBillingCycle = union(literal("monthly"), literal("annual"));
+export type BillingCycle = Infer<typeof vBillingCycle>;
+const vChatOpenScope = union(literal("global"), literal("vault"));
+type ChatOpenScope = Infer<typeof vChatOpenScope>;
 
 const DEFAULT_PRICING_BILLING_CYCLE: BillingCycle = "monthly";
 
-const dashboardSettingsValidator = object({
+const vDashboardSettings = object({
   accountPanelOpen: boolean(),
   providersPanelOpen: boolean(),
   // TODO: Why is this necessary? (probably remove it)
-  pricingBillingCycle: billingCycleValidator,
+  pricingBillingCycle: vBillingCycle,
   // Vault/editor routes own the repository-scoped dock.
   editorChatOpen: boolean(),
   // Dashboard and floating non-vault routes share the global dock state.
@@ -24,7 +24,7 @@ const dashboardSettingsValidator = object({
 });
 
 const getDashboardSettingsArgs = object({});
-const getDashboardSettingsReturns = dashboardSettingsValidator;
+const getDashboardSettingsReturns = vDashboardSettings;
 
 const setProvidersPanelOpenArgs = object({
   isOpen: boolean(),
@@ -37,13 +37,13 @@ const setAccountPanelOpenArgs = object({
 const setAccountPanelOpenReturns = vNull();
 
 const setPricingBillingCycleArgs = object({
-  billingCycle: billingCycleValidator,
+  billingCycle: vBillingCycle,
 });
 const setPricingBillingCycleReturns = vNull();
 
 const setEditorChatOpenArgs = object({
   isOpen: boolean(),
-  scope: chatOpenScopeValidator,
+  scope: vChatOpenScope,
 });
 const setEditorChatOpenReturns = vNull();
 
@@ -52,7 +52,7 @@ type SetAccountPanelOpenArgs = Infer<typeof setAccountPanelOpenArgs>;
 type SetProvidersPanelOpenArgs = Infer<typeof setProvidersPanelOpenArgs>;
 type SetPricingBillingCycleArgs = Infer<typeof setPricingBillingCycleArgs>;
 type SetEditorChatOpenArgs = Infer<typeof setEditorChatOpenArgs>;
-type DashboardSettings = Infer<typeof dashboardSettingsValidator>;
+type DashboardSettings = Infer<typeof vDashboardSettings>;
 
 function getDefaultDashboardSettings(): DashboardSettings {
   return {

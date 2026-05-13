@@ -8,20 +8,20 @@ import {
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, mutation, query } from "./_generated/server";
 import {
-  approveMachineRegistrationRequestReturns,
-  connectedMachineViewValidator,
-  createMachineRegistrationRequestArgsValidator,
+  vApproveMachineRegistrationRequestReturns,
+  vConnectedMachineView,
+  vCreateMachineRegistrationRequestArgs,
   MACHINE_REGISTRATION_BOOTSTRAP_RATE_LIMIT_MAX_REQUESTS,
   MACHINE_REGISTRATION_BOOTSTRAP_RATE_LIMIT_WINDOW_MS,
-  machineRegistrationBrowserViewValidator,
-  publishHeartbeatFromConnectorArgsValidator,
+  vMachineRegistrationBrowserView,
+  vPublishHeartbeatFromConnectorArgs,
   type ConnectedMachineCapability,
   type ConnectedMachineRow,
   type MachineRegistrationBrowserView,
   type MachineRegistrationRequestRow,
   type PublishHeartbeatFromConnectorArgs,
   type ValidateMachineCredentialResult,
-  validateMachineCredentialResultValidator,
+  vValidateMachineCredentialResult,
 } from "./connectedMachineModel";
 import { getUserId } from "./common";
 
@@ -29,7 +29,7 @@ const { array, null: vNull, object, string } = v;
 type ConnectedMachineStoredRow = Doc<"connectedMachines">;
 
 const listConnectedMachinesArgs = object({});
-const listConnectedMachinesReturns = array(connectedMachineViewValidator);
+const listConnectedMachinesReturns = array(vConnectedMachineView);
 
 const getMachineRegistrationRequestForBrowserArgs = object({
   requestId: string(),
@@ -138,7 +138,7 @@ export const listConnectedMachines = query({
 
 export const getMachineRegistrationRequestForBrowser = query({
   args: getMachineRegistrationRequestForBrowserArgs,
-  returns: machineRegistrationBrowserViewValidator,
+  returns: vMachineRegistrationBrowserView,
   handler: async (
     ctx,
     args: GetMachineRegistrationRequestForBrowserArgs,
@@ -176,7 +176,7 @@ export const getMachineRegistrationRequestForBrowser = query({
 
 export const approveMachineRegistrationRequest = mutation({
   args: approveMachineRegistrationRequestArgs,
-  returns: approveMachineRegistrationRequestReturns,
+  returns: vApproveMachineRegistrationRequestReturns,
   handler: async (ctx, args: ApproveMachineRegistrationRequestArgs) => {
     const userId = await getUserId(ctx);
     const now = Date.now();
@@ -250,7 +250,7 @@ export const approveMachineRegistrationRequest = mutation({
 });
 
 export const createMachineRegistrationRequest = internalMutation({
-  args: createMachineRegistrationRequestArgsValidator,
+  args: vCreateMachineRegistrationRequestArgs,
   returns: vNull(),
   handler: async (ctx, args) => {
     const requestRow = {
@@ -332,8 +332,8 @@ export const createMachineRegistrationRequest = internalMutation({
 });
 
 export const publishHeartbeatFromConnector = internalMutation({
-  args: publishHeartbeatFromConnectorArgsValidator,
-  returns: validateMachineCredentialResultValidator,
+  args: vPublishHeartbeatFromConnectorArgs,
+  returns: vValidateMachineCredentialResult,
   handler: async (
     ctx,
     args: PublishHeartbeatFromConnectorArgs,

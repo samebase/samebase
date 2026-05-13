@@ -7,10 +7,10 @@ import {
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
-  AppProvisioningEventLevel,
-  AppProvisioningRunState,
-  AppProvisioningRunTrigger,
-  AppProvisioningStep,
+  vAppProvisioningEventLevel,
+  vAppProvisioningRunState,
+  vAppProvisioningRunTrigger,
+  vAppProvisioningStep,
 } from "./schema";
 import { assertConnectedVault } from "./vault/state";
 
@@ -61,7 +61,7 @@ export const createForVault = internalMutation({
   args: {
     userId: id("users"),
     vaultId: id("vaults"),
-    trigger: AppProvisioningRunTrigger,
+    trigger: vAppProvisioningRunTrigger,
   },
   returns: id("appProvisioningRuns"),
   handler: async (ctx, args) => {
@@ -101,10 +101,10 @@ export const recordRepositoryFullName = internalMutation({
 export const appendRunEvent = internalMutation({
   args: {
     runId: id("appProvisioningRuns"),
-    step: AppProvisioningStep,
-    level: AppProvisioningEventLevel,
+    step: vAppProvisioningStep,
+    level: vAppProvisioningEventLevel,
     message: string(),
-    state: union(literal("unchanged"), AppProvisioningRunState),
+    state: union(literal("unchanged"), vAppProvisioningRunState),
   },
   returns: v.null(),
   handler: async (ctx, args) => {

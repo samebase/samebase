@@ -10,8 +10,8 @@ import {
 import { randomToken } from "../oauthUtils";
 import { applyMcpDenyErrorParamsToRedirectUrl } from "../../shared/mcpOAuth";
 import {
-  McpAuthRequestStatus,
-  McpOauthClientRegistrationStatus,
+  vMcpAuthRequestStatus,
+  vMcpOauthClientRegistrationStatus,
 } from "../schema";
 import {
   getDefaultMcpProtocolValidationOptions,
@@ -62,7 +62,7 @@ const getClientByIdResultValidator = union(
     grantTypes: array(string()),
     responseTypes: array(string()),
     tokenEndpointAuthMethod: literal("none"),
-    registrationStatus: McpOauthClientRegistrationStatus,
+    registrationStatus: vMcpOauthClientRegistrationStatus,
     provisionalExpiresAt: optional(number()),
     firstTokenExchangedAt: optional(number()),
     createdAt: number(),
@@ -184,7 +184,7 @@ const getAuthorizationRequestForCurrentUserResultValidator = union(
     scope: string(),
     scopes: array(string()),
     resource: string(),
-    status: McpAuthRequestStatus,
+    status: vMcpAuthRequestStatus,
     dynamicallyRegistered: boolean(),
     createdAt: number(),
     expiresAt: number(),
@@ -276,7 +276,7 @@ function oauthError(args: {
 
 function isClientInactive(args: {
   client: {
-    registrationStatus: Infer<typeof McpOauthClientRegistrationStatus>;
+    registrationStatus: Infer<typeof vMcpOauthClientRegistrationStatus>;
     provisionalExpiresAt?: number;
   };
   now: number;
@@ -389,7 +389,7 @@ export const getAuthorizationRequestForCurrentUser = query({
       .first();
     const effectiveStatus =
       authRequest.status === "pending" && authRequest.expiresAt <= Date.now()
-        ? ("expired" satisfies Infer<typeof McpAuthRequestStatus>)
+        ? ("expired" satisfies Infer<typeof vMcpAuthRequestStatus>)
         : authRequest.status;
 
     return {
@@ -449,7 +449,7 @@ export const expireAuthRequest = internalMutation({
       return null;
     }
     await ctx.db.patch(args.authRequestId, {
-      status: "expired" satisfies Infer<typeof McpAuthRequestStatus>,
+      status: "expired" satisfies Infer<typeof vMcpAuthRequestStatus>,
     });
     return null;
   },
@@ -486,7 +486,7 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
 
     if (authRequest.expiresAt <= args.now) {
       await ctx.db.patch(authRequest._id, {
-        status: "expired" satisfies Infer<typeof McpAuthRequestStatus>,
+        status: "expired" satisfies Infer<typeof vMcpAuthRequestStatus>,
       });
       return oauthError({
         status: 400,
@@ -588,7 +588,7 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
     });
 
     await ctx.db.patch(authRequest._id, {
-      status: "approved" satisfies Infer<typeof McpAuthRequestStatus>,
+      status: "approved" satisfies Infer<typeof vMcpAuthRequestStatus>,
       userId: args.userId,
     });
 
@@ -638,7 +638,7 @@ export const denyAuthorizationRequest = internalMutation({
     }
     if (authRequest.expiresAt <= args.now) {
       await ctx.db.patch(authRequest._id, {
-        status: "expired" satisfies Infer<typeof McpAuthRequestStatus>,
+        status: "expired" satisfies Infer<typeof vMcpAuthRequestStatus>,
       });
       return oauthError({
         status: 400,
@@ -655,7 +655,7 @@ export const denyAuthorizationRequest = internalMutation({
     }
 
     await ctx.db.patch(authRequest._id, {
-      status: "denied" satisfies Infer<typeof McpAuthRequestStatus>,
+      status: "denied" satisfies Infer<typeof vMcpAuthRequestStatus>,
       userId: args.userId,
     });
 

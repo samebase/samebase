@@ -2,7 +2,7 @@ import { Infer, v } from "convex/values";
 import { internalQuery } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
-import { PullRequestLabel } from "../schema";
+import { vPullRequestLabel } from "../schema";
 import { isLiveConnectedVault } from "../vault/state";
 
 const {
@@ -50,7 +50,7 @@ const vaultRemoteBranchResultValidator = object({
   behindBy: optional(number()),
   pullRequestUrl: optional(string()),
   pullRequestNumber: optional(number()),
-  pullRequestLabels: optional(array(PullRequestLabel)),
+  pullRequestLabels: optional(array(vPullRequestLabel)),
   pullRequestTitle: optional(string()),
   isDefault: boolean(),
   isProtected: boolean(),

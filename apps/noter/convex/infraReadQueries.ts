@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internalQuery } from "./_generated/server";
 import { clamp } from "./jsonUtils";
 
-export const allowedInfraReadTable = v.union(
+export const vAllowedInfraReadTable = v.union(
   v.literal("vaults"),
   v.literal("vaultInfrastructure"),
   v.literal("vaultDomains"),
@@ -14,7 +14,7 @@ export const allowedInfraReadTable = v.union(
 
 export const readTableSample = internalQuery({
   args: {
-    table: allowedInfraReadTable,
+    table: vAllowedInfraReadTable,
     limit: v.optional(v.number()),
     vaultId: v.optional(v.id("vaults")),
   },

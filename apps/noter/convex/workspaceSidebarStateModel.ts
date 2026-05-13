@@ -2,22 +2,20 @@ import { Infer, v } from "convex/values";
 
 const { boolean, id, literal, number, object, union } = v;
 
-export const workspaceSidebarStateKeyValidator = union(
+export const vWorkspaceSidebarStateKey = union(
   literal("dashboard"),
   literal("machines"),
   literal("repository"),
 );
-export type WorkspaceSidebarStateKey = Infer<
-  typeof workspaceSidebarStateKeyValidator
->;
+export type WorkspaceSidebarStateKey = Infer<typeof vWorkspaceSidebarStateKey>;
 
-export const workspaceMobileSidebarPaneValidator = union(
+export const vWorkspaceMobileSidebarPane = union(
   literal("left"),
   literal("main"),
   literal("right"),
 );
 export type WorkspaceMobileSidebarPane = Infer<
-  typeof workspaceMobileSidebarPaneValidator
+  typeof vWorkspaceMobileSidebarPane
 >;
 
 /**
@@ -26,7 +24,7 @@ export type WorkspaceMobileSidebarPane = Infer<
  * merged = the side pane and main pane share one mobile surface, and
  * mainWidthPx is the main pane's width inside that pair
  */
-export const workspaceMobileSurfaceValidator = union(
+export const vWorkspaceMobileSurface = union(
   object({
     kind: literal("unmerged"),
   }),
@@ -36,16 +34,14 @@ export const workspaceMobileSurfaceValidator = union(
     side: union(literal("left"), literal("right")),
   }),
 );
-export type WorkspaceMobileSurface = Infer<
-  typeof workspaceMobileSurfaceValidator
->;
+export type WorkspaceMobileSurface = Infer<typeof vWorkspaceMobileSurface>;
 
 const workspaceSidebarStateFields = {
   leftDesktopOpen: boolean(),
   leftDesktopWidthPx: number(),
   leftMobileWidthPx: number(),
-  mobilePane: workspaceMobileSidebarPaneValidator,
-  mobileSurface: workspaceMobileSurfaceValidator,
+  mobilePane: vWorkspaceMobileSidebarPane,
+  mobileSurface: vWorkspaceMobileSurface,
   rightDesktopOpen: boolean(),
   rightDesktopWidthPx: number(),
   rightMobileWidthPx: number(),
@@ -56,19 +52,13 @@ const workspaceSidebarStateFields = {
  * details such as tree expansion or scroll position should live in route-
  * specific records instead of one generic sidebar bucket.
  */
-export const workspaceSidebarStateValidator = object(
-  workspaceSidebarStateFields,
-);
-export type WorkspaceSidebarState = Infer<
-  typeof workspaceSidebarStateValidator
->;
+export const vWorkspaceSidebarState = object(workspaceSidebarStateFields);
+export type WorkspaceSidebarState = Infer<typeof vWorkspaceSidebarState>;
 
-export const workspaceSidebarStateRowValidator = object({
+export const vWorkspaceSidebarStateRow = object({
   userId: id("users"),
-  workspaceKey: workspaceSidebarStateKeyValidator,
+  workspaceKey: vWorkspaceSidebarStateKey,
   updatedAt: number(),
   ...workspaceSidebarStateFields,
 });
-export type WorkspaceSidebarStateRow = Infer<
-  typeof workspaceSidebarStateRowValidator
->;
+export type WorkspaceSidebarStateRow = Infer<typeof vWorkspaceSidebarStateRow>;

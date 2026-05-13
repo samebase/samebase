@@ -16,7 +16,7 @@ import { api } from "../../convex/_generated/api";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { GetFunctionReferenceReturnType } from "@/lib/convexUtils";
 import { Id } from "../../convex/_generated/dataModel";
-import { type GithubTreeType } from "../../convex/schema";
+import { type GithubTree } from "../../convex/schema";
 import { MonacoEditor } from "./MonacoEditor";
 import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
 
@@ -226,7 +226,7 @@ export function CodeEditorWrapper({
     GetFunctionReferenceReturnType<typeof api.fileStaging.getByNewPath>
   >;
   vaultId: Id<"vaults">;
-  tree: GithubTreeType[];
+  tree: GithubTree[];
   treeSHA: string;
   showMobileLineNumbers?: boolean;
   editorOverride?: CodeEditorOverride;

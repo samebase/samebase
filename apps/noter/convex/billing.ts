@@ -22,46 +22,46 @@ const {
 type PolarServer = "sandbox" | "production";
 type BillingCycle = "monthly" | "annual";
 
-const billingCycleValidator = union(literal("monthly"), literal("annual"));
+const vBillingCycle = union(literal("monthly"), literal("annual"));
 
-const billingPlanValidator = union(literal("free"), literal("pro"));
-export type BillingPlan = Infer<typeof billingPlanValidator>;
+const vBillingPlan = union(literal("free"), literal("pro"));
+export type BillingPlan = Infer<typeof vBillingPlan>;
 
-const billingStatusValidator = union(
+const vBillingStatus = union(
   literal("inactive"),
   literal("active"),
   literal("past_due"),
   literal("canceled"),
   literal("unknown"),
 );
-export type BillingStatus = Infer<typeof billingStatusValidator>;
+export type BillingStatus = Infer<typeof vBillingStatus>;
 
-const viewerBillingStatusValidator = object({
-  plan: billingPlanValidator,
-  status: billingStatusValidator,
+const vViewerBillingStatus = object({
+  plan: vBillingPlan,
+  status: vBillingStatus,
   currentPeriodEndAt: optional(number()),
   provider: optional(literal("polar")),
 });
-export type ViewerBillingStatus = Infer<typeof viewerBillingStatusValidator>;
+export type ViewerBillingStatus = Infer<typeof vViewerBillingStatus>;
 
-const polarCheckoutSessionValidator = object({
+const vPolarCheckoutSession = object({
   url: string(),
 });
 
-const polarPortalSessionValidator = object({
+const vPolarPortalSession = object({
   url: string(),
 });
 
-const polarCustomerSeedValidator = object({
+const vPolarCustomerSeed = object({
   externalCustomerId: string(),
   name: optional(string()),
   email: optional(string()),
 });
 
-const polarApplyStateArgsValidator = object({
+const vPolarApplyStateArgs = object({
   externalCustomerId: string(),
-  plan: billingPlanValidator,
-  status: billingStatusValidator,
+  plan: vBillingPlan,
+  status: vBillingStatus,
   currentPeriodEndAt: optional(number()),
 });
 
@@ -193,7 +193,7 @@ async function fetchPolarJson(args: {
 
 export const getViewerBillingStatus = query({
   args: {},
-  returns: union(viewerBillingStatusValidator, nullValue()),
+  returns: union(vViewerBillingStatus, nullValue()),
   handler: async (ctx): Promise<ViewerBillingStatus | null> => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) {
@@ -218,7 +218,7 @@ export const ensurePolarExternalCustomerId = internalMutation({
   args: {
     userId: id("users"),
   },
-  returns: polarCustomerSeedValidator,
+  returns: vPolarCustomerSeed,
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
     if (!user) {
@@ -248,7 +248,7 @@ export const ensurePolarExternalCustomerId = internalMutation({
 });
 
 export const applyPolarCustomerState = internalMutation({
-  args: polarApplyStateArgsValidator,
+  args: vPolarApplyStateArgs,
   returns: nullValue(),
   handler: async (ctx, args) => {
     const user = await ctx.db
@@ -275,11 +275,11 @@ export const applyPolarCustomerState = internalMutation({
 
 export const createPolarCheckoutSession = action({
   args: object({
-    interval: billingCycleValidator,
+    interval: vBillingCycle,
     successUrl: string(),
     returnUrl: string(),
   }),
-  returns: polarCheckoutSessionValidator,
+  returns: vPolarCheckoutSession,
   handler: async (ctx, args): Promise<{ url: string }> => {
     const userId = await getUserId(ctx);
     const currentUser = await ctx.runQuery(internal.users.getById, { userId });
@@ -345,7 +345,7 @@ export const createPolarCustomerPortalSession = action({
   args: object({
     returnUrl: string(),
   }),
-  returns: polarPortalSessionValidator,
+  returns: vPolarPortalSession,
   handler: async (ctx, args): Promise<{ url: string }> => {
     const userId = await getUserId(ctx);
     const server = inferPolarServer();

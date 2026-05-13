@@ -4,31 +4,31 @@ import { readOptionalEnv } from "./oauthUtils";
 
 const { literal, object, union } = v;
 
-export const deploymentProfileValidator = union(
+export const vDeploymentProfile = union(
   object({ kind: literal("local_development") }),
   object({ kind: literal("local_worktree") }),
   object({ kind: literal("preview") }),
   object({ kind: literal("convex_dev") }),
   object({ kind: literal("production") }),
 );
-export type DeploymentProfile = Infer<typeof deploymentProfileValidator>;
+export type DeploymentProfile = Infer<typeof vDeploymentProfile>;
 
-export const passwordAuthModeValidator = union(
+export const vPasswordAuthMode = union(
   literal("off"),
   literal("local_worktree_seed"),
   literal("preview_seed"),
 );
-export type PasswordAuthMode = Infer<typeof passwordAuthModeValidator>;
+export type PasswordAuthMode = Infer<typeof vPasswordAuthMode>;
 
-const passwordAuthFlowValidator = union(literal("signIn"), literal("signUp"));
-export type PasswordAuthFlow = Infer<typeof passwordAuthFlowValidator>;
+const vPasswordAuthFlow = union(literal("signIn"), literal("signUp"));
+export type PasswordAuthFlow = Infer<typeof vPasswordAuthFlow>;
 
-const publicDeploymentAuthPolicyValidator = object({
-  deploymentProfile: deploymentProfileValidator,
-  passwordAuthMode: passwordAuthModeValidator,
+const vPublicDeploymentAuthPolicy = object({
+  deploymentProfile: vDeploymentProfile,
+  passwordAuthMode: vPasswordAuthMode,
 });
 export type PublicDeploymentAuthPolicy = Infer<
-  typeof publicDeploymentAuthPolicyValidator
+  typeof vPublicDeploymentAuthPolicy
 >;
 
 type DeploymentProfileEnv = {
@@ -222,7 +222,7 @@ export function assertPasswordAuthFlowAllowed(
 
 export const getPublicDeploymentAuthPolicy = query({
   args: {},
-  returns: publicDeploymentAuthPolicyValidator,
+  returns: vPublicDeploymentAuthPolicy,
   handler: async (): Promise<PublicDeploymentAuthPolicy> => {
     const deploymentProfile = resolveDeploymentProfile();
     return {

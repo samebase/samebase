@@ -1,7 +1,10 @@
 import { v, type Infer } from "convex/values";
 import { internalMutation, type MutationCtx } from "../../_generated/server";
 import type { Id } from "../../_generated/dataModel";
-import { VaultDeletionCleanupStep } from "./model";
+import {
+  vVaultDeletionCleanupStep,
+  type VaultDeletionCleanupStep,
+} from "./model";
 
 const { id, literal, number, object, union } = v;
 
@@ -396,7 +399,7 @@ export const cleanupVaultLocalDataStepBatch = internalMutation({
   args: {
     vaultId: id("vaults"),
     userId: id("users"),
-    step: VaultDeletionCleanupStep,
+    step: vVaultDeletionCleanupStep,
   },
   returns: vaultLocalCleanupStepBatchResult,
   handler: cleanupVaultLocalDataStepBatchForUser,
