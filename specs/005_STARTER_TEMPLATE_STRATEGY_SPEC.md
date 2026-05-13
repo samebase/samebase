@@ -8,7 +8,7 @@
 - Related specs:
   - `specs/022_AGENT_GRAPH_VIEW_SPEC.md`
 - Related files:
-  - `apps/noter/convex/vaultActions.ts`
+  - `apps/noter/convex/vault/actions.ts`
   - `apps/noter/convex/starterSeed.ts` (or replacement)
   - `scripts/export-notermd-app-manifest.ts`
   - `apps/noter/convex/starterSeedManifest.generated.ts`
@@ -186,7 +186,7 @@ the selected `notermd/app` snapshot.
 
 ## Public API / Behavior Changes
 
-### `vaultActions.createRepository`
+### `api.vault.actions.createRepository`
 
 Behavioral contract for Iteration 1:
 
