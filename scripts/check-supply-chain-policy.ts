@@ -3,22 +3,64 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
+/**
+ * This is a CI guardrail for the supply-chain controls in this branch.
+ *
+ * It is not trying to be a complete malware scanner. The goal is narrower:
+ * keep the concrete controls we chose after the TanStack incident from being
+ * removed or bypassed accidentally during normal dependency and CI edits.
+ *
+ * The TanStack compromise used a malicious optional dependency that resolved to
+ * a remote GitHub commit and then ran install-time code. These checks make sure
+ * pnpm keeps delaying new releases, blocks transitive exotic sources, reviews
+ * lifecycle scripts explicitly, and fails if obvious git/URL dependency paths
+ * or known incident markers re-enter the repo.
+ */
 const EXPECTED_PACKAGE_MANAGER = "pnpm@11.1.1";
 const EXPECTED_PNPM_ENGINE = ">=11.1.1";
+
+// These settings live in pnpm-workspace.yaml because pnpm 11 no longer reads
+// general project config from package.json. They are the baseline that makes
+// installs fail closed instead of quietly accepting young or unusual packages.
 const REQUIRED_WORKSPACE_SETTINGS = [
+  // 10080 minutes = 7 days. New package versions must survive that long before
+  // pnpm is allowed to resolve them.
   ["minimumReleaseAge", "10080"],
+  // If no version in the requested range is old enough, fail instead of falling
+  // back to a too-new version just to make install succeed.
   ["minimumReleaseAgeStrict", "true"],
+  // Private registries that omit publish times should fail resolution. Without
+  // a publish time, the release-age gate cannot prove the package is mature.
   ["minimumReleaseAgeIgnoreMissingTime", "false"],
+  // Transitive dependencies cannot pull code from git repos or remote tarballs.
+  // This is the control that would have blocked the TanStack optional dep path.
   ["blockExoticSubdeps", "true"],
+  // If a package used to have stronger registry trust evidence, do not accept a
+  // newer release with weaker evidence.
   ["trustPolicy", "no-downgrade"],
 ];
+
+// Keep release-age exceptions exact. A package-name-only exception would allow
+// every future Convex release to bypass the 7-day cooling period.
 const REQUIRED_RELEASE_AGE_EXCLUDES = ["convex@1.38.0"];
+
+// pnpm 11 requires every dependency lifecycle script to be reviewed. `true`
+// means "this package may run its build/install script"; `false` means "we saw
+// the script and intentionally suppress it." Either way, surprise scripts fail.
 const REQUIRED_BUILD_SCRIPT_POLICY = [
+  // These packages advertise lifecycle scripts, but this project does not need
+  // their install-time work to run.
   ["core-js", "false"],
+  // esbuild installs a platform binary through its lifecycle script, so it is
+  // the one reviewed script we allow.
   ["esbuild", "true"],
   ["msw", "false"],
   ["protobufjs", "false"],
 ];
+
+// These overrides are the current audit remediation set. Keeping them explicit
+// makes `pnpm audit` fail only when there is genuinely new work to do, not for
+// already-triaged transitive versions.
 const REQUIRED_OVERRIDES = [
   ["@protobufjs/utf8", "1.1.1"],
   ["ajv@6", "6.15.0"],
@@ -36,6 +78,10 @@ const REQUIRED_OVERRIDES = [
   ["postcss", "8.5.10"],
   ["protobufjs", "7.5.6"],
 ];
+
+// Dependency-like maps can appear in several places, not just dependencies.
+// Scanning overrides/resolutions matters because a remote URL there is still
+// executable supply-chain input.
 const DEPENDENCY_FIELDS = [
   "dependencies",
   "devDependencies",
@@ -44,11 +90,18 @@ const DEPENDENCY_FIELDS = [
   "overrides",
   "resolutions",
 ];
+
+// Direct git and URL specs are banned in package manifests. If we ever need one,
+// it should be a deliberate policy change rather than a quiet package edit.
 const BLOCKED_SPEC_PATTERNS = [
   { label: "GitHub shorthand", pattern: /^github:/i },
   { label: "git URL", pattern: /^git(?:\+|:)/i },
   { label: "remote URL", pattern: /^https?:/i },
 ];
+
+// The lockfile is scanned separately because transitive dependency metadata
+// never appears in our package.json files. This catches the exact class of
+// remote optional dependency that mattered in the TanStack incident.
 const LOCKFILE_BLOCKED_PATTERNS = [
   { label: "GitHub shorthand dependency", pattern: /\bgithub:/i },
   { label: "git URL dependency", pattern: /\bgit\+/i },
@@ -58,6 +111,9 @@ const LOCKFILE_BLOCKED_PATTERNS = [
     pattern: /@tanstack\/setup/i,
   },
 ];
+
+// GitHub Actions tags are mutable. Full SHA pins are tedious, but they stop a
+// compromised action tag from changing what CI runs after review.
 const WORKFLOW_USES_PATTERN = /^\s*uses:\s*([^#\s]+)\s*(?:#.*)?$/;
 const PINNED_ACTION_REF_PATTERN = /^[a-f0-9]{40}$/;
 
@@ -69,6 +125,8 @@ type Issue = {
 const workspaceDir = process.cwd();
 const issues: Issue[] = [];
 
+// Run every independent policy check and report all failures together. That
+// makes CI output useful when a dependency bump touches more than one guardrail.
 checkRootPackage();
 checkPnpmWorkspace();
 checkPackageSpecs();
@@ -85,6 +143,12 @@ if (issues.length > 0) {
 
 console.log("Supply chain policy check passed.");
 
+/**
+ * Verifies the repo is actually using a pnpm version with the controls below.
+ *
+ * Without this, someone could keep the config but downgrade the package manager
+ * to a version that ignores some of the supply-chain settings.
+ */
 function checkRootPackage(): void {
   const packageJsonPath = path.join(workspaceDir, "package.json");
   const packageJson = readJsonRecord(packageJsonPath);
@@ -114,6 +178,13 @@ function checkRootPackage(): void {
   }
 }
 
+/**
+ * Verifies that the chosen pnpm policy is still present.
+ *
+ * This intentionally checks exact values. A one-line edit from strict to
+ * best-effort behavior would be easy to miss in review, so CI treats that as a
+ * policy change that needs an explicit update to this script too.
+ */
 function checkPnpmWorkspace(): void {
   const workspacePath = path.join(workspaceDir, "pnpm-workspace.yaml");
   if (!existsSync(workspacePath)) {
@@ -166,6 +237,15 @@ function checkPnpmWorkspace(): void {
   }
 }
 
+/**
+ * Scans every workspace package manifest for direct dependency specs that fetch
+ * code from git or arbitrary URLs.
+ *
+ * `blockExoticSubdeps` protects transitive dependencies, but direct exotic deps
+ * are still allowed by pnpm. We block them here so the repo has one clear rule:
+ * dependencies come from the configured registry or from local workspace/file
+ * links, unless we intentionally change this policy.
+ */
 function checkPackageSpecs(): void {
   for (const packageJsonPath of findPackageJsonFiles(workspaceDir)) {
     const packageJson = readJsonRecord(packageJsonPath);
@@ -190,6 +270,8 @@ function checkPackageSpecs(): void {
   }
 }
 
+// Dependency maps can be nested inside pnpm override selectors, so recurse
+// through records and check every string value that could be a package spec.
 function checkPackageSpecMap(
   packageJsonPath: string,
   location: string,
@@ -208,6 +290,8 @@ function checkPackageSpecMap(
   }
 }
 
+// Check one concrete package specifier and preserve the package.json path plus
+// field path so the failure points at the dependency that needs review.
 function checkPackageSpec(
   packageJsonPath: string,
   location: string,
@@ -223,6 +307,14 @@ function checkPackageSpec(
   }
 }
 
+/**
+ * Scans the resolved lockfile for transitive exotic sources and incident
+ * indicators.
+ *
+ * This is the defense-in-depth layer. If a package manifest looks clean but the
+ * lockfile still resolves something through git, a remote tarball, or the
+ * TanStack payload package name, CI stops before install policy drift ships.
+ */
 function checkLockfile(): void {
   const lockfilePath = path.join(workspaceDir, "pnpm-lock.yaml");
   if (!existsSync(lockfilePath)) {
@@ -238,6 +330,14 @@ function checkLockfile(): void {
   }
 }
 
+/**
+ * Verifies CI workflows keep a narrow default token and immutable actions.
+ *
+ * The TanStack postmortem involved GitHub Actions trust-boundary mistakes. This
+ * does not prove every workflow is perfect, but it preserves two concrete
+ * defaults that lower blast radius: read-only repository permissions and action
+ * references pinned to reviewed commits.
+ */
 function checkWorkflowActions(): void {
   const workflowsDir = path.join(workspaceDir, ".github", "workflows");
   if (!existsSync(workflowsDir)) {
@@ -279,6 +379,8 @@ function checkWorkflowActions(): void {
   }
 }
 
+// Find package manifests without walking generated output or dependency stores.
+// Those directories can be huge and should not define source-of-truth policy.
 function findPackageJsonFiles(rootDir: string): string[] {
   const results: string[] = [];
   const ignoredDirectories = new Set([
@@ -312,6 +414,7 @@ function findPackageJsonFiles(rootDir: string): string[] {
   return results;
 }
 
+// Workflow policy only applies to files GitHub will read as workflows.
 function findWorkflowFiles(workflowsDir: string): string[] {
   const results: string[] = [];
   for (const entry of readdirSync(workflowsDir, { withFileTypes: true })) {
@@ -326,6 +429,8 @@ function findWorkflowFiles(workflowsDir: string): string[] {
   return results;
 }
 
+// JSON parsing is intentionally typed as unknown first. The small runtime guard
+// below keeps this script within the repo rule against assertion-based parsing.
 function readJsonRecord(filePath: string): Record<string, unknown> | null {
   try {
     const parsed: unknown = JSON.parse(readFileSync(filePath, "utf8"));
@@ -342,6 +447,8 @@ function readJsonRecord(filePath: string): Record<string, unknown> | null {
   }
 }
 
+// Return object-shaped fields only. Missing or scalar fields are normal for
+// most package.json files and simply mean there is nothing to scan there.
 function recordField(
   record: Record<string, unknown>,
   fieldName: string,
@@ -353,10 +460,12 @@ function recordField(
   return null;
 }
 
+// Arrays are not records for this script because dependency maps are objects.
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+// Store paths relative to the workspace so CI errors are easy to read and copy.
 function addIssue(filePath: string, message: string): void {
   issues.push({
     file: path.relative(workspaceDir, filePath),
@@ -364,6 +473,8 @@ function addIssue(filePath: string, message: string): void {
   });
 }
 
+// Policy values are interpolated into regular expressions. Escaping here keeps
+// package names like @scope/name and selectors like ajv@6 literal.
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
