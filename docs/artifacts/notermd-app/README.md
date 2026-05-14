@@ -80,6 +80,54 @@ between template package-manager expectations and the Vite+ command surface.
 For this artifact, start with the simple Vite+ application and add TanStack
 Start manually.
 
+### Scaffold Experiment Findings
+
+Direct TanStack CLI is the cleaner research scaffold:
+
+```sh
+pnpm dlx @tanstack/cli@latest create <name> \
+  --framework react \
+  --package-manager pnpm \
+  --no-install \
+  --no-git \
+  --no-examples \
+  --no-toolchain \
+  --no-intent \
+  --target-dir <name> \
+  --non-interactive
+```
+
+It still creates files and dependencies the artifact usually does not want:
+
+- `.cta.json`
+- public PWA/logo files
+- TanStack devtools
+- testing dependencies
+- Vite scripts instead of Vite+ scripts
+
+Converting that scaffold to Vite+ is possible, but it still needs cleanup:
+remove the generator receipt and demo assets, replace Vite scripts with `vp`
+scripts, remove devtools/testing dependencies if unused, switch `vite` to
+`npm:@voidzero-dev/vite-plus-core@latest`, add `vite-plus`, and run `vp build`
+once before `tsc` can see the generated `src/routeTree.gen.ts`.
+
+The Vite+ TanStack Start path:
+
+```sh
+vp create @tanstack/start -- <name> ...
+```
+
+is currently heavier for this artifact. It installs dependencies immediately,
+writes `.cta.json`, adds `AGENTS.md`, Vite hooks, and editor config, and may add
+Nitro or other adapter pieces that are not part of the first app.
+
+So the current preference is:
+
+1. Use `vp create vite:application` for the artifact history.
+2. Use direct TanStack CLI only as a disposable reference scaffold.
+3. Avoid the Vite+ TanStack Start template for the public artifact until it can
+   produce a smaller SPA-only shape.
+
 ## Workers Migration Notes
 
 For a Workers version of the artifact:
