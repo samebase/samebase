@@ -78,7 +78,9 @@ For a Workers/TanStack Start version:
   hard-code the Worker `name` in `wrangler.jsonc`; use repo-owned deploy scripts
   to pass the connected Cloudflare Worker name to Wrangler. Keep
   `build.command` out of the reusable `wrangler.jsonc` so Workers Builds and
-  local Wrangler checks have one clear build owner each.
+  local Wrangler checks have one clear build owner each. Keep Node-invoked
+  deploy/build helpers as plain ESM JavaScript unless the deploy path
+  intentionally installs and invokes a TypeScript runner.
 - Do not add server functions, Worker request handlers, SSR complexity, extra
   adapters, or demo routes unless the first app truly needs them.
 
