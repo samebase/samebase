@@ -76,7 +76,6 @@ function makeResourceRailBuilderVault(
     hasConvexProvision: false,
     hasCloudflareProvision: false,
     canRemoveCloudflareProvision: false,
-    remoteBranches: [],
   };
   return { ...vault, ...overrides };
 }

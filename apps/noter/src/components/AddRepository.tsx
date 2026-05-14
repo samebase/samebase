@@ -104,7 +104,9 @@ function renderHighlightedText(target: string, matchedIndices: number[]): ReactE
 export function AddRepository() {
   const location = useLocation();
   const navigate = useNavigate();
-  const vaults = useQuery(api.vault.dashboard.getUserVaults);
+  const connectedRepositoryFullNames = useQuery(
+    api.vault.dashboard.listConnectedRepositoryFullNames,
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [retryingFullRepositories, setRetryingFullRepositories] = useState(false);
   const listRepositoriesPreview = useAction(api.github.listRepositoriesPreview);
@@ -186,13 +188,10 @@ export function AddRepository() {
         : "Failed to fetch repositories"
       : null);
 
-  const connectedVaults = vaults || [];
+  const connectedRepositoryFullNameSet = new Set(connectedRepositoryFullNames ?? []);
 
   const filteredRepositories = repositories.flatMap((repo: Repository) => {
-    const isConnected = connectedVaults.some(
-      (vault: (typeof connectedVaults)[number]) => vault.repositoryFullName === repo.full_name,
-    );
-    if (isConnected) {
+    if (connectedRepositoryFullNameSet.has(repo.full_name)) {
       return [];
     }
 

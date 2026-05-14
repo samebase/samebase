@@ -96,6 +96,232 @@ describe("vault dashboard Convex contract", () => {
     });
   });
 
+  it("paginates dashboard vault cards without embedding branch rows", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const firstVaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const firstRunId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId: firstVaultId,
+        repositoryFullName: "ada/first",
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 1,
+        completedAt: 1,
+      });
+      await ctx.db.replace(firstVaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId: firstRunId,
+        ghRepoId: "first-gh",
+        owner: "ada",
+        name: "first",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 1,
+        convex: { state: "not_configured" },
+        cloudflare: { state: "not_configured" },
+      });
+      await ctx.db.insert("vaultBranchTrees", {
+        vaultId: firstVaultId,
+        branch: "main",
+        treeSHA: "tree-first",
+        commitSHA: "commit-first",
+        treeData: { sha: "tree-first", truncated: false, tree: [] },
+        lastTreeRefreshAt: 1,
+      });
+      await ctx.db.insert("vaultRemoteBranches", {
+        vaultId: firstVaultId,
+        name: "main",
+        headCommitSha: "commit-first",
+        isDefault: true,
+        isProtected: false,
+        remoteState: "active",
+        lastSyncedAt: 1,
+      });
+
+      const secondVaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const secondRunId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId: secondVaultId,
+        repositoryFullName: "ada/second",
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 2,
+        updatedAt: 2,
+        completedAt: 2,
+      });
+      await ctx.db.replace(secondVaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId: secondRunId,
+        ghRepoId: "second-gh",
+        owner: "ada",
+        name: "second",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 2,
+        convex: { state: "not_configured" },
+        cloudflare: { state: "not_configured" },
+      });
+      await ctx.db.insert("vaultBranchTrees", {
+        vaultId: secondVaultId,
+        branch: "main",
+        treeSHA: "tree-second",
+        commitSHA: "commit-second",
+        treeData: { sha: "tree-second", truncated: false, tree: [] },
+        lastTreeRefreshAt: 2,
+      });
+
+      return { firstVaultId, secondVaultId, userId };
+    });
+
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+    const firstPage = await asUser.query(api.vault.dashboard.listDashboardVaults, {
+      paginationOpts: { numItems: 1, cursor: null },
+    });
+    const secondPage = await asUser.query(api.vault.dashboard.listDashboardVaults, {
+      paginationOpts: {
+        numItems: 1,
+        cursor: firstPage.continueCursor,
+      },
+    });
+
+    expect(firstPage.page).toMatchObject([
+      {
+        _id: ids.secondVaultId,
+        repositoryFullName: "ada/second",
+        defaultBranchName: "main",
+        commitSHA: "commit-second",
+      },
+    ]);
+    expect(firstPage.page[0]).not.toHaveProperty("remoteBranches");
+    expect(firstPage.isDone).toBe(false);
+    expect(secondPage.page).toMatchObject([
+      {
+        _id: ids.firstVaultId,
+        repositoryFullName: "ada/first",
+        defaultBranchName: "main",
+        commitSHA: "commit-first",
+      },
+    ]);
+  });
+
+  it("paginates dashboard branches independently for one vault", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/branches",
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 1,
+        completedAt: 1,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        ghRepoId: "branches-gh",
+        owner: "ada",
+        name: "branches",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 1,
+        convex: { state: "not_configured" },
+        cloudflare: { state: "not_configured" },
+      });
+      await ctx.db.insert("vaultRemoteBranches", {
+        vaultId,
+        name: "main",
+        headCommitSha: "commit-main",
+        isDefault: true,
+        isProtected: false,
+        remoteState: "active",
+        lastSyncedAt: 1,
+      });
+      await ctx.db.insert("vaultRemoteBranches", {
+        vaultId,
+        name: "feature/demo",
+        headCommitSha: "commit-demo",
+        isDefault: false,
+        isProtected: false,
+        remoteState: "active",
+        lastSyncedAt: 2,
+      });
+
+      return { userId, vaultId };
+    });
+
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+    const firstPage = await asUser.query(api.vault.dashboard.listDashboardBranches, {
+      vaultId: ids.vaultId,
+      paginationOpts: { numItems: 1, cursor: null },
+    });
+    const secondPage = await asUser.query(api.vault.dashboard.listDashboardBranches, {
+      vaultId: ids.vaultId,
+      paginationOpts: {
+        numItems: 1,
+        cursor: firstPage.continueCursor,
+      },
+    });
+
+    expect(firstPage.page).toMatchObject([
+      {
+        name: "main",
+        headCommitSha: "commit-main",
+      },
+    ]);
+    expect(firstPage.isDone).toBe(false);
+    expect(secondPage.page).toMatchObject([
+      {
+        name: "feature/demo",
+        headCommitSha: "commit-demo",
+      },
+    ]);
+  });
+
   it("rejects duplicate existing repository targets before GitHub fetch", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {

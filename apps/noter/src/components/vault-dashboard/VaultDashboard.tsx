@@ -38,7 +38,12 @@ import {
 } from "../../../shared/cloudflareTokenRefresh";
 import { claimRefreshDebounce, releaseRefreshDebounce } from "@/lib/refreshDebounce";
 import { useNow } from "@/hooks/useNow";
-import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
+import {
+  useAction,
+  useMutation,
+  usePaginatedQuery,
+  useQuery as useConvexQuery,
+} from "convex/react";
 import {
   useCallback,
   useEffect,
@@ -135,10 +140,15 @@ const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
   rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
 } satisfies WorkspaceSidebarState;
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
+const DASHBOARD_VAULT_PAGE_SIZE = 20;
+const DASHBOARD_BRANCH_PAGE_SIZE = 5;
 
 type VaultDashboardVault = NonNullable<
-  (typeof api.vault.dashboard.getUserVaults)["_returnType"]
->[number];
+  (typeof api.vault.dashboard.listDashboardVaults)["_returnType"]
+>["page"][number];
+type VaultDashboardBranch = NonNullable<
+  (typeof api.vault.dashboard.listDashboardBranches)["_returnType"]
+>["page"][number];
 
 const formatMcpTokenStatusLabel = (
   status: "valid" | "expiring_soon" | "expired" | "invalid" | "unknown" | undefined,
@@ -1851,11 +1861,19 @@ interface VaultBranchListProps {
   remoteBranches: VaultRemoteBranchListItem[];
   cloudflareWorkersDevUrl?: string;
   productionDeploymentDashboardUrl?: string;
+  pagination?: VaultBranchListPaginationProps;
   expansion?: VaultBranchListExpansionProps;
 }
 
+interface VaultBranchListPaginationProps {
+  canLoadMore: boolean;
+  isExpanded: boolean;
+  isLoadingMore: boolean;
+  onLoadMore: () => void;
+}
+
 interface VaultBranchListExpansionProps {
-  hiddenBranchCount: number;
+  hiddenBranchCount?: number;
   isExpanded: boolean;
   onToggle: () => void;
   placement?: "header" | "list";
@@ -1876,7 +1894,13 @@ export function VaultBranchListExpansionControl({
       aria-expanded={isExpanded}
       onClick={onToggle}
     >
-      <span>{isExpanded ? "Show less branches" : `Show ${hiddenBranchCount} more branches`}</span>
+      <span>
+        {isExpanded
+          ? "Show less branches"
+          : typeof hiddenBranchCount === "number" && hiddenBranchCount > 0
+            ? `Show ${hiddenBranchCount} more branches`
+            : "Show more branches"}
+      </span>
       <ChevronDownIcon className={isExpanded ? "rotate-180" : undefined} aria-hidden="true" />
     </Button>
   );
@@ -1894,6 +1918,7 @@ function VaultBranchList({
   remoteBranches,
   cloudflareWorkersDevUrl,
   productionDeploymentDashboardUrl,
+  pagination,
   expansion,
 }: VaultBranchListProps) {
   const stagedSummaries =
@@ -1921,6 +1946,29 @@ function VaultBranchList({
           }
         />
       ))}
+      {pagination &&
+      pagination.isExpanded &&
+      (pagination.canLoadMore || pagination.isLoadingMore) ? (
+        <div className="px-3 py-1.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            className="w-full"
+            disabled={pagination.isLoadingMore}
+            onClick={pagination.onLoadMore}
+          >
+            {pagination.isLoadingMore ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Loading branches...</span>
+              </>
+            ) : (
+              <span>Load more branches</span>
+            )}
+          </Button>
+        </div>
+      ) : null}
       {expansion ? <VaultBranchListExpansionControl {...expansion} /> : null}
     </div>
   );
@@ -1963,15 +2011,23 @@ export function VaultBranchHeaderControls({
 }
 
 function VaultBranchSection({
+  canLoadMoreBranches,
   cloudflareWorkersDevUrl,
   filteredBranchCount,
+  isExpanded,
+  isLoadingMoreBranches,
+  onLoadMoreBranches,
   productionDeploymentDashboardUrl,
   repositoryFullName,
   vaultId,
   visibleRemoteBranches,
 }: {
+  canLoadMoreBranches: boolean;
   cloudflareWorkersDevUrl?: string;
   filteredBranchCount: number;
+  isExpanded: boolean;
+  isLoadingMoreBranches: boolean;
+  onLoadMoreBranches: () => void;
   productionDeploymentDashboardUrl?: string;
   repositoryFullName: string;
   vaultId: Id<"vaults">;
@@ -1986,6 +2042,12 @@ function VaultBranchSection({
           remoteBranches={visibleRemoteBranches}
           cloudflareWorkersDevUrl={cloudflareWorkersDevUrl}
           productionDeploymentDashboardUrl={productionDeploymentDashboardUrl}
+          pagination={{
+            canLoadMore: canLoadMoreBranches,
+            isExpanded,
+            isLoadingMore: isLoadingMoreBranches,
+            onLoadMore: onLoadMoreBranches,
+          }}
         />
       ) : null}
     </>
@@ -2219,9 +2281,48 @@ export function VaultDeleteBlockedSection({ reason }: { reason: string }) {
   return <div className="text-xs text-muted-foreground">{reason}</div>;
 }
 
+type VaultDashboardBranchDataState = {
+  canLoadMoreBranches: boolean;
+  isLoadingMoreBranches: boolean;
+  onLoadMoreBranches: () => void;
+  remoteBranches: VaultDashboardBranch[];
+};
+
+function VaultDashboardBranchData({
+  children,
+  isReady,
+  vaultId,
+}: {
+  children: (state: VaultDashboardBranchDataState) => ReactNode;
+  isReady: boolean;
+  vaultId: Id<"vaults">;
+}) {
+  const branchPagination = usePaginatedQuery(
+    api.vault.dashboard.listDashboardBranches,
+    isReady ? { vaultId } : "skip",
+    { initialNumItems: DASHBOARD_BRANCH_PAGE_SIZE },
+  );
+  const status = branchPagination.status;
+
+  return (
+    <>
+      {children({
+        canLoadMoreBranches: status === "CanLoadMore",
+        isLoadingMoreBranches: status === "LoadingMore",
+        onLoadMoreBranches: () => {
+          branchPagination.loadMore(DASHBOARD_BRANCH_PAGE_SIZE);
+        },
+        remoteBranches: branchPagination.results,
+      })}
+    </>
+  );
+}
+
 type VaultDashboardBodyProps = {
   developerToolsVisible: boolean;
+  canLoadMoreVaults: boolean;
   isRemovingVault: boolean;
+  isLoadingMoreVaults: boolean;
   retryingDeletionRunId: Id<"vaultDeletionRuns"> | null;
   now: number;
   themeColorSearch: LogoThemeColorSearchInput;
@@ -2231,6 +2332,7 @@ type VaultDashboardBodyProps = {
   connectCloudflareRepositoryFullName?: string;
   vaults: VaultDashboardVault[];
   onConfigureCloudflare: (repositoryHashId: string) => void;
+  onLoadMoreVaults: () => void;
   onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
   onManualRepositoryRefresh: (vaultId: Id<"vaults">) => void;
   onRetryVaultDeletion: (runId: Id<"vaultDeletionRuns">) => void;
@@ -2380,7 +2482,9 @@ function resolveActiveVaultDashboardCardHashId({
 
 function VaultDashboardBody({
   developerToolsVisible,
+  canLoadMoreVaults,
   isRemovingVault,
+  isLoadingMoreVaults,
   retryingDeletionRunId,
   now,
   themeColorSearch,
@@ -2390,6 +2494,7 @@ function VaultDashboardBody({
   connectCloudflareRepositoryFullName,
   vaults,
   onConfigureCloudflare,
+  onLoadMoreVaults,
   onOpenDeveloperToolsChange,
   onManualRepositoryRefresh,
   onRetryVaultDeletion,
@@ -2579,251 +2684,290 @@ function VaultDashboardBody({
         const deletion = vault.deletion;
         const isDeletingVault = deletion.state !== "not_deleting";
         const isReady = vault.state === "ready" && !isDeletingVault;
-        const remoteBranches = vault.remoteBranches;
         const vaultBranchFilters =
           persistedVaultBranchFiltersByVaultId.get(vault._id) ?? getDefaultVaultBranchFilters();
-        const activeRemoteBranches = remoteBranches.filter(
-          (branch) => branch.remoteState === "active",
-        );
-        const defaultBranch = activeRemoteBranches.find((branch) => branch.isDefault)?.name;
-        const primaryBranch = defaultBranch || activeRemoteBranches[0]?.name;
-        const chatRoute =
-          primaryBranch && !isDeletingVault
-            ? buildVaultCodespaceChatRoute({
-                repositoryFullName: vault.repositoryFullName,
-                branch: primaryBranch,
-              })
-            : null;
-        const githubRepositoryUrl = `https://github.com/${vault.ghRepoOwner}/${vault.ghRepoName}`;
-        const developerToolsOpen =
-          developerToolsVisible && (openDeveloperToolsByVaultId[vault._id] ?? false);
-        const resourceRailState = buildVaultDashboardResourceRailState({
-          githubRepositoryUrl,
-          onConfigureCloudflare: () => {
-            onConfigureCloudflare(repositoryHashId);
-          },
-          vault,
-        });
-        const sharedLastSyncedAt = vault.lastTreeRefreshAt;
-        const treeRefreshUiState = getTreeRefreshUiState({
-          now,
-          treeRefreshStartedAt: vault.treeRefreshStartedAt,
-          lastTreeRefreshAt: vault.lastTreeRefreshAt,
-          lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
-          treeRefreshFailureKind: vault.treeRefreshFailureKind,
-          treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
-        });
-        const branchSectionState = buildVaultBranchSectionState({
-          filters: vaultBranchFilters,
-          remoteBranches,
-        });
-        const activeSourceSetup =
-          vault.sourceSetup.status === "failed" || vault.sourceSetup.status === "running"
-            ? vault.sourceSetup
-            : null;
-        const activeProviderSetup =
-          vault.providerSetup.status === "failed" || vault.providerSetup.status === "running"
-            ? vault.providerSetup
-            : null;
-        const hasProvisioningLog =
-          Boolean(activeSourceSetup || activeProviderSetup) || vault.isNoterManaged;
-        const sourceSetupSection =
-          !isReady && activeSourceSetup ? (
-            <VaultSourceSetupSection sourceSetup={activeSourceSetup} />
-          ) : undefined;
-        const providerSetupStatus = isReady
-          ? resolveVaultProviderSetupStatus(vault.providerSetup)
-          : null;
-        const providerSetupSection =
-          providerSetupStatus && activeProviderSetup ? (
-            <VaultProviderSetupSection providerSetup={activeProviderSetup} />
-          ) : undefined;
-        const deleteBlockedSection =
-          !isDeletingVault &&
-          deleteRepositoryFullName === vault.repositoryFullName &&
-          deletion.deleteAction.state === "disabled" ? (
-            <VaultDeleteBlockedSection reason={deletion.deleteAction.reason} />
-          ) : undefined;
-        const deletionSection =
-          deletion.state === "deleting" || deletion.state === "delete_failed" ? (
-            <VaultDeletionStatusSection
-              deletion={deletion}
-              isRetrying={retryingDeletionRunId === deletion.runId}
-              onRetry={onRetryVaultDeletion}
-            />
-          ) : undefined;
-        const setupSection =
-          deletionSection ?? deleteBlockedSection ?? sourceSetupSection ?? providerSetupSection;
-        const repositoryHashId = buildVaultDashboardHashIdForVault({
-          repositoryNameCounts,
-          vault,
-        });
-        const titleRepositoryOwnerVisible = (repositoryNameCounts.get(vault.ghRepoName) ?? 0) > 1;
-
         return (
-          <div
-            key={vault._id}
-            data-vault-dashboard-repository-hash-id={repositoryHashId}
-            ref={(element) => {
-              if (element) {
-                vaultCardElementsRef.current.set(vault.repositoryFullName, element);
-                scrollVaultCardElementForHash(element);
-                return;
-              }
-
-              vaultCardElementsRef.current.delete(vault.repositoryFullName);
-            }}
-          >
-            <VaultDashboardRepositoryCard
-              isReady={isReady}
-              repositoryOwner={vault.ghRepoOwner}
-              repositoryName={vault.ghRepoName}
-              titleRepositoryOwnerVisible={titleRepositoryOwnerVisible}
-              titleHref={buildVaultDashboardRepositoryHashHref(repositoryHashId)}
-              titleTarget={undefined}
-              titleTitle="Link to vault"
-              titleClassName={undefined}
-              repositoryLinks={
-                isDeletingVault ? undefined : <VaultResourceRail state={resourceRailState} />
-              }
-              titleSuffix={
-                deletion.state === "deleting" ? (
-                  <>
-                    <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
-                    <span className="shrink-0 text-xs font-normal text-muted-foreground">
-                      (deleting...)
-                    </span>
-                  </>
-                ) : deletion.state === "delete_failed" ? (
-                  <span className="shrink-0 text-xs font-normal text-destructive">
-                    (delete failed)
-                  </span>
-                ) : vault.sourceSetup.status === "failed" ? (
-                  <span className="shrink-0 text-xs font-normal text-destructive">
-                    (setup failed)
-                  </span>
-                ) : vault.state === "failed" ? (
-                  <span className="shrink-0 text-xs font-normal text-destructive">(failed)</span>
-                ) : !isReady ? (
-                  <>
-                    <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
-                    <span className="shrink-0 text-xs font-normal text-muted-foreground">
-                      (setting up...)
-                    </span>
-                  </>
-                ) : undefined
-              }
-              setupSection={setupSection}
-              topRightAction={
-                deletion.state === "not_deleting" ? (
-                  <VaultDashboardDeleteControl
-                    repositoryFullName={vault.repositoryFullName}
-                    repositoryHashId={repositoryHashId}
-                    deleteAction={deletion.deleteAction}
-                    isRemovingVault={isRemovingVault}
-                  />
-                ) : undefined
-              }
-              repositoryStatus={renderVaultDashboardRepositoryStatus({
-                isReady,
-                now,
-                onManualRepositoryRefresh,
-                sharedLastSyncedAt,
-                treeRefreshUiState,
+          <VaultDashboardBranchData key={vault._id} vaultId={vault._id} isReady={isReady}>
+            {({
+              canLoadMoreBranches,
+              isLoadingMoreBranches,
+              onLoadMoreBranches,
+              remoteBranches,
+            }) => {
+              const activeRemoteBranches = remoteBranches.filter(
+                (branch) => branch.remoteState === "active",
+              );
+              const primaryBranch = vault.defaultBranchName || activeRemoteBranches[0]?.name;
+              const chatRoute =
+                primaryBranch && !isDeletingVault
+                  ? buildVaultCodespaceChatRoute({
+                      repositoryFullName: vault.repositoryFullName,
+                      branch: primaryBranch,
+                    })
+                  : null;
+              const githubRepositoryUrl = `https://github.com/${vault.ghRepoOwner}/${vault.ghRepoName}`;
+              const developerToolsOpen =
+                developerToolsVisible && (openDeveloperToolsByVaultId[vault._id] ?? false);
+              const resourceRailState = buildVaultDashboardResourceRailState({
+                githubRepositoryUrl,
+                onConfigureCloudflare: () => {
+                  onConfigureCloudflare(repositoryHashId);
+                },
                 vault,
-              })}
-              headerControls={
-                isReady && remoteBranches.length > 0 ? (
-                  <VaultBranchHeaderControls
-                    filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
-                    filterOptions={branchSectionState.filterOptions}
-                    filters={vaultBranchFilters}
-                    hiddenBranchCount={branchSectionState.hiddenBranchCount}
-                    onChangeFilters={(nextVaultBranchFilters) => {
-                      onSaveVaultBranchFilters(vault._id, nextVaultBranchFilters);
-                    }}
-                    remoteBranchCount={remoteBranches.length}
-                    expansion={
-                      branchSectionState.hasBranchListOverflow
+              });
+              const sharedLastSyncedAt = vault.lastTreeRefreshAt;
+              const treeRefreshUiState = getTreeRefreshUiState({
+                now,
+                treeRefreshStartedAt: vault.treeRefreshStartedAt,
+                lastTreeRefreshAt: vault.lastTreeRefreshAt,
+                lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
+                treeRefreshFailureKind: vault.treeRefreshFailureKind,
+                treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
+              });
+              const branchSectionState = buildVaultBranchSectionState({
+                filters: vaultBranchFilters,
+                remoteBranches,
+              });
+              const activeSourceSetup =
+                vault.sourceSetup.status === "failed" || vault.sourceSetup.status === "running"
+                  ? vault.sourceSetup
+                  : null;
+              const activeProviderSetup =
+                vault.providerSetup.status === "failed" || vault.providerSetup.status === "running"
+                  ? vault.providerSetup
+                  : null;
+              const hasProvisioningLog =
+                Boolean(activeSourceSetup || activeProviderSetup) || vault.isNoterManaged;
+              const sourceSetupSection =
+                !isReady && activeSourceSetup ? (
+                  <VaultSourceSetupSection sourceSetup={activeSourceSetup} />
+                ) : undefined;
+              const providerSetupStatus = isReady
+                ? resolveVaultProviderSetupStatus(vault.providerSetup)
+                : null;
+              const providerSetupSection =
+                providerSetupStatus && activeProviderSetup ? (
+                  <VaultProviderSetupSection providerSetup={activeProviderSetup} />
+                ) : undefined;
+              const deleteBlockedSection =
+                !isDeletingVault &&
+                deleteRepositoryFullName === vault.repositoryFullName &&
+                deletion.deleteAction.state === "disabled" ? (
+                  <VaultDeleteBlockedSection reason={deletion.deleteAction.reason} />
+                ) : undefined;
+              const deletionSection =
+                deletion.state === "deleting" || deletion.state === "delete_failed" ? (
+                  <VaultDeletionStatusSection
+                    deletion={deletion}
+                    isRetrying={retryingDeletionRunId === deletion.runId}
+                    onRetry={onRetryVaultDeletion}
+                  />
+                ) : undefined;
+              const setupSection =
+                deletionSection ??
+                deleteBlockedSection ??
+                sourceSetupSection ??
+                providerSetupSection;
+              const repositoryHashId = buildVaultDashboardHashIdForVault({
+                repositoryNameCounts,
+                vault,
+              });
+              const titleRepositoryOwnerVisible =
+                (repositoryNameCounts.get(vault.ghRepoName) ?? 0) > 1;
+
+              return (
+                <div
+                  key={vault._id}
+                  data-vault-dashboard-repository-hash-id={repositoryHashId}
+                  ref={(element) => {
+                    if (element) {
+                      vaultCardElementsRef.current.set(vault.repositoryFullName, element);
+                      scrollVaultCardElementForHash(element);
+                      return;
+                    }
+
+                    vaultCardElementsRef.current.delete(vault.repositoryFullName);
+                  }}
+                >
+                  <VaultDashboardRepositoryCard
+                    isReady={isReady}
+                    repositoryOwner={vault.ghRepoOwner}
+                    repositoryName={vault.ghRepoName}
+                    titleRepositoryOwnerVisible={titleRepositoryOwnerVisible}
+                    titleHref={buildVaultDashboardRepositoryHashHref(repositoryHashId)}
+                    titleTarget={undefined}
+                    titleTitle="Link to vault"
+                    titleClassName={undefined}
+                    repositoryLinks={
+                      isDeletingVault ? undefined : <VaultResourceRail state={resourceRailState} />
+                    }
+                    titleSuffix={
+                      deletion.state === "deleting" ? (
+                        <>
+                          <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+                          <span className="shrink-0 text-xs font-normal text-muted-foreground">
+                            (deleting...)
+                          </span>
+                        </>
+                      ) : deletion.state === "delete_failed" ? (
+                        <span className="shrink-0 text-xs font-normal text-destructive">
+                          (delete failed)
+                        </span>
+                      ) : vault.sourceSetup.status === "failed" ? (
+                        <span className="shrink-0 text-xs font-normal text-destructive">
+                          (setup failed)
+                        </span>
+                      ) : vault.state === "failed" ? (
+                        <span className="shrink-0 text-xs font-normal text-destructive">
+                          (failed)
+                        </span>
+                      ) : !isReady ? (
+                        <>
+                          <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+                          <span className="shrink-0 text-xs font-normal text-muted-foreground">
+                            (setting up...)
+                          </span>
+                        </>
+                      ) : undefined
+                    }
+                    setupSection={setupSection}
+                    topRightAction={
+                      deletion.state === "not_deleting" ? (
+                        <VaultDashboardDeleteControl
+                          repositoryFullName={vault.repositoryFullName}
+                          repositoryHashId={repositoryHashId}
+                          deleteAction={deletion.deleteAction}
+                          isRemovingVault={isRemovingVault}
+                        />
+                      ) : undefined
+                    }
+                    repositoryStatus={renderVaultDashboardRepositoryStatus({
+                      isReady,
+                      now,
+                      onManualRepositoryRefresh,
+                      sharedLastSyncedAt,
+                      treeRefreshUiState,
+                      vault,
+                    })}
+                    headerControls={
+                      isReady && remoteBranches.length > 0 ? (
+                        <VaultBranchHeaderControls
+                          filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
+                          filterOptions={branchSectionState.filterOptions}
+                          filters={vaultBranchFilters}
+                          hiddenBranchCount={branchSectionState.hiddenBranchCount}
+                          onChangeFilters={(nextVaultBranchFilters) => {
+                            onSaveVaultBranchFilters(vault._id, nextVaultBranchFilters);
+                          }}
+                          remoteBranchCount={remoteBranches.length}
+                          expansion={
+                            branchSectionState.hasBranchListOverflow
+                              ? {
+                                  hiddenBranchCount: branchSectionState.collapsedBranchCount,
+                                  isExpanded: vaultBranchFilters.branchesExpanded,
+                                  onToggle: () => {
+                                    onSaveVaultBranchFilters(vault._id, {
+                                      ...vaultBranchFilters,
+                                      branchesExpanded: !vaultBranchFilters.branchesExpanded,
+                                    });
+                                  },
+                                  placement: "header",
+                                }
+                              : undefined
+                          }
+                        />
+                      ) : undefined
+                    }
+                    branchSection={
+                      isReady && branchSectionState.filteredRemoteBranches.length > 0 ? (
+                        <VaultBranchSection
+                          canLoadMoreBranches={canLoadMoreBranches}
+                          filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
+                          isExpanded={vaultBranchFilters.branchesExpanded}
+                          isLoadingMoreBranches={isLoadingMoreBranches}
+                          onLoadMoreBranches={onLoadMoreBranches}
+                          vaultId={vault._id}
+                          repositoryFullName={vault.repositoryFullName}
+                          visibleRemoteBranches={branchSectionState.visibleRemoteBranches}
+                          cloudflareWorkersDevUrl={vault.cloudflareWorkersDevUrl}
+                          productionDeploymentDashboardUrl={vault.convexDeploymentDashboardUrl}
+                        />
+                      ) : undefined
+                    }
+                    developerToolsSection={
+                      isReady || hasProvisioningLog
                         ? {
-                            hiddenBranchCount: branchSectionState.collapsedBranchCount,
-                            isExpanded: vaultBranchFilters.branchesExpanded,
-                            onToggle: () => {
-                              onSaveVaultBranchFilters(vault._id, {
-                                ...vaultBranchFilters,
-                                branchesExpanded: !vaultBranchFilters.branchesExpanded,
-                              });
+                            open: developerToolsOpen,
+                            visible: developerToolsVisible,
+                            onOpenChange: (isOpen: boolean) => {
+                              onOpenDeveloperToolsChange(vault._id, isOpen);
                             },
-                            placement: "header",
+                            content: (
+                              <>
+                                {isReady && CODESPACES_ENABLED ? (
+                                  <CodespaceStatus
+                                    vaultId={vault._id}
+                                    repositoryFullName={vault.repositoryFullName}
+                                  />
+                                ) : null}
+                                {hasProvisioningLog ? (
+                                  <div className="space-y-2">
+                                    {activeProviderSetup ? (
+                                      <div className="text-xs text-muted-foreground">
+                                        {formatProviderSetupDeveloperLabel(activeProviderSetup)}
+                                      </div>
+                                    ) : null}
+                                    <VaultProvisioningLog
+                                      repositoryFullName={vault.repositoryFullName}
+                                      vaultId={vault._id}
+                                    />
+                                  </div>
+                                ) : null}
+                              </>
+                            ),
                           }
                         : undefined
                     }
-                  />
-                ) : undefined
-              }
-              branchSection={
-                isReady && branchSectionState.filteredRemoteBranches.length > 0 ? (
-                  <VaultBranchSection
-                    filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
-                    vaultId={vault._id}
-                    repositoryFullName={vault.repositoryFullName}
-                    visibleRemoteBranches={branchSectionState.visibleRemoteBranches}
-                    cloudflareWorkersDevUrl={vault.cloudflareWorkersDevUrl}
-                    productionDeploymentDashboardUrl={vault.convexDeploymentDashboardUrl}
-                  />
-                ) : undefined
-              }
-              developerToolsSection={
-                isReady || hasProvisioningLog
-                  ? {
-                      open: developerToolsOpen,
-                      visible: developerToolsVisible,
-                      onOpenChange: (isOpen: boolean) => {
-                        onOpenDeveloperToolsChange(vault._id, isOpen);
-                      },
-                      content: (
-                        <>
-                          {isReady && CODESPACES_ENABLED ? (
-                            <CodespaceStatus
-                              vaultId={vault._id}
-                              repositoryFullName={vault.repositoryFullName}
-                            />
-                          ) : null}
-                          {hasProvisioningLog ? (
-                            <div className="space-y-2">
-                              {activeProviderSetup ? (
-                                <div className="text-xs text-muted-foreground">
-                                  {formatProviderSetupDeveloperLabel(activeProviderSetup)}
-                                </div>
-                              ) : null}
-                              <VaultProvisioningLog
-                                repositoryFullName={vault.repositoryFullName}
-                                vaultId={vault._id}
-                              />
-                            </div>
-                          ) : null}
-                        </>
-                      ),
+                    footerActions={
+                      CHAT_ENABLED &&
+                      CODESPACES_ENABLED &&
+                      developerToolsVisible &&
+                      developerToolsOpen &&
+                      chatRoute ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button asChild variant="outline" size="sm">
+                            <Link to={chatRoute}>Chat</Link>
+                          </Button>
+                        </div>
+                      ) : undefined
                     }
-                  : undefined
-              }
-              footerActions={
-                CHAT_ENABLED &&
-                CODESPACES_ENABLED &&
-                developerToolsVisible &&
-                developerToolsOpen &&
-                chatRoute ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button asChild variant="outline" size="sm">
-                      <Link to={chatRoute}>Chat</Link>
-                    </Button>
-                  </div>
-                ) : undefined
-              }
-            />
-          </div>
+                  />
+                </div>
+              );
+            }}
+          </VaultDashboardBranchData>
         );
       })}
+      {canLoadMoreVaults || isLoadingMoreVaults ? (
+        <div className="flex justify-center px-4 py-4">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isLoadingMoreVaults}
+            onClick={onLoadMoreVaults}
+          >
+            {isLoadingMoreVaults ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Loading vaults...</span>
+              </>
+            ) : (
+              <span>Load more vaults</span>
+            )}
+          </Button>
+        </div>
+      ) : null}
       <VaultDashboardScrollTargetEndPadding />
     </VaultDashboardRepositoryList>
   );
@@ -3139,7 +3283,13 @@ export function VaultDashboard() {
   const router = useRouter();
   const rootRouteSearch = useRootRouteSearch();
   const developerToolsVisible = rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
-  const vaults = useQuery(api.vault.dashboard.getUserVaults);
+  const vaultPagination = usePaginatedQuery(
+    api.vault.dashboard.listDashboardVaults,
+    {},
+    { initialNumItems: DASHBOARD_VAULT_PAGE_SIZE },
+  );
+  const vaults = vaultPagination.results;
+  const vaultPaginationStatus = vaultPagination.status;
   const now = useNow();
   const deleteVault = useAction(api.vault.actions.deleteVault);
   const retryDeleteVault = useAction(api.vault.actions.retryDeleteVault);
@@ -3229,20 +3379,22 @@ export function VaultDashboard() {
   const dashboardProvidersPanelOpen = dashboardSettings?.providersPanelOpen;
   const deleteModeActive = rootRouteSearch.delete;
   const connectCloudflareModeActive = rootRouteSearch["connect-cloudflare"];
-  const deleteRepositoryFullName =
-    deleteModeActive && vaults
-      ? resolveVaultDashboardRepositoryFullNameForHash({
-          hash: location.hash,
-          vaults,
-        })
-      : undefined;
-  const connectCloudflareRepositoryFullName =
-    connectCloudflareModeActive && vaults
-      ? resolveVaultDashboardRepositoryFullNameForHash({
-          hash: location.hash,
-          vaults,
-        })
-      : undefined;
+  const deleteRepositoryFullName = deleteModeActive
+    ? resolveVaultDashboardRepositoryFullNameForHash({
+        hash: location.hash,
+        vaults,
+      })
+    : undefined;
+  const connectCloudflareRepositoryFullName = connectCloudflareModeActive
+    ? resolveVaultDashboardRepositoryFullNameForHash({
+        hash: location.hash,
+        vaults,
+      })
+    : undefined;
+  const vaultPaginationMayFindSearchTarget =
+    vaultPaginationStatus === "LoadingFirstPage" ||
+    vaultPaginationStatus === "CanLoadMore" ||
+    vaultPaginationStatus === "LoadingMore";
   const setVaultBranchFilters = useMutation(
     api.vault.dashboard.setVaultBranchFilters,
   ).withOptimisticUpdate((localStore, args) => {
@@ -3661,7 +3813,7 @@ export function VaultDashboard() {
         preparedDeleteRepositoryRef.current = null;
         resetDeleteDialogState();
       }
-      if (deleteModeActive && vaults && !deleteDialogVault) {
+      if (deleteModeActive && !vaultPaginationMayFindSearchTarget && !deleteDialogVault) {
         clearDeleteSearchParam({ preferHistoryBack: false });
       }
       return;
@@ -3683,6 +3835,7 @@ export function VaultDashboard() {
     resetDeleteDialogState,
     deleteDialogVault,
     vaultToDelete,
+    vaultPaginationMayFindSearchTarget,
     vaults,
   ]);
 
@@ -3701,7 +3854,7 @@ export function VaultDashboard() {
         preparedConnectCloudflareRepositoryRef.current = null;
         resetCloudflareDialogState();
       }
-      if (connectCloudflareModeActive && vaults) {
+      if (connectCloudflareModeActive && !vaultPaginationMayFindSearchTarget) {
         clearConnectCloudflareSearchParam({ preferHistoryBack: false });
       }
       return;
@@ -3730,6 +3883,7 @@ export function VaultDashboard() {
     resetCloudflareDialogState,
     setCloudflareConnectDialogCreateWorkerName,
     vaultToConnectCloudflare,
+    vaultPaginationMayFindSearchTarget,
     vaults,
   ]);
 
@@ -4726,7 +4880,7 @@ export function VaultDashboard() {
     } satisfies VaultDashboardProviderRowViewModel;
   });
 
-  if (!vaults) {
+  if (vaultPaginationStatus === "LoadingFirstPage") {
     return null;
   }
 
@@ -4807,7 +4961,9 @@ export function VaultDashboard() {
   const dashboardBody = (
     <VaultDashboardBody
       developerToolsVisible={developerToolsVisible}
+      canLoadMoreVaults={vaultPaginationStatus === "CanLoadMore"}
       isRemovingVault={isDeleting || isCommitting}
+      isLoadingMoreVaults={vaultPaginationStatus === "LoadingMore"}
       retryingDeletionRunId={retryingDeletionRunId}
       now={now}
       themeColorSearch={rootRouteSearch}
@@ -4817,6 +4973,9 @@ export function VaultDashboard() {
       connectCloudflareRepositoryFullName={connectCloudflareRepositoryFullName}
       vaults={vaults}
       onConfigureCloudflare={handleConfigureCloudflare}
+      onLoadMoreVaults={() => {
+        vaultPagination.loadMore(DASHBOARD_VAULT_PAGE_SIZE);
+      }}
       onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
       onManualRepositoryRefresh={enqueueManualRepositoryRefresh}
       onRetryVaultDeletion={(runId) => {

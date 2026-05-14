@@ -7,8 +7,8 @@ import {
 } from "./vaultProviderSetup";
 
 type VaultDashboardVault = NonNullable<
-  (typeof api.vault.dashboard.getUserVaults)["_returnType"]
->[number];
+  (typeof api.vault.dashboard.listDashboardVaults)["_returnType"]
+>["page"][number];
 
 function resolveSourceSetupResourceProvider(
   sourceSetup: VaultDashboardSourceSetup,
