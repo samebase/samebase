@@ -74,7 +74,11 @@ For a Workers/TanStack Start version:
 - Deploy with Cloudflare Workers Static Assets using wrangler.jsonc.
 - Read docs/artifacts/notermd-app/cloudflare-workers-install.md before writing
   Workers setup docs. Make `package.json` `build` match the Cloudflare
-  dashboard default and delegate to the Cloudflare-aware build path.
+  dashboard default and delegate to the Cloudflare-aware build path. Do not
+  hard-code the Worker `name` in `wrangler.jsonc`; use repo-owned deploy scripts
+  to pass the connected Cloudflare Worker name to Wrangler. Keep
+  `build.command` out of the reusable `wrangler.jsonc` so Workers Builds and
+  local Wrangler checks have one clear build owner each.
 - Do not add server functions, Worker request handlers, SSR complexity, extra
   adapters, or demo routes unless the first app truly needs them.
 

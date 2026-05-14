@@ -159,9 +159,15 @@ For a Workers version of the artifact:
 - Make `package.json` `build` the Cloudflare dashboard build entrypoint, usually
   delegating to a Cloudflare-specific script while keeping the plain static app
   build visible as `build:app` or similar.
-- Keep `wrangler.jsonc` as the Worker deploy contract for the Worker name,
-  static asset directory, SPA fallback, and local Wrangler deploy/dry-run
-  behavior.
+- Keep `wrangler.jsonc` as the deploy contract for the static asset directory,
+  SPA fallback, preview URL preference, and local Wrangler deploy/dry-run
+  behavior. Do not hard-code `name` in the reusable artifact template.
+- Make `package.json` `deploy` and `deploy:preview` repo-owned wrappers around
+  `wrangler deploy` and `wrangler versions upload` so the real Worker name can
+  come from Cloudflare's connected-build environment or noter.md automation.
+- Keep `build.command` out of the reusable `wrangler.jsonc`; Workers Builds has
+  its own dashboard `Build command`, and local deploy wrappers can run the build
+  before Wrangler.
 - Do not tell users to leave the Cloudflare Workers Git build command empty.
   Workers Builds has its own dashboard build command and currently does not
   honor Wrangler custom build settings there.

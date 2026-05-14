@@ -63,10 +63,10 @@ For non-production branches, the default command is
 `npx wrangler versions upload`. It uploads a Worker version and preview URL
 without promoting it to the active production deployment.
 
-The Worker name in Cloudflare must match `name` in `wrangler.jsonc` for the
-selected root path. If the dashboard project name defaults to the repository
-name, either change the dashboard project name to match `wrangler.jsonc` or
-change `wrangler.jsonc` before deploying.
+If `wrangler.jsonc` contains `name`, Cloudflare requires that value to match the
+Worker name in the dashboard. For a reusable artifact template, do not hard-code
+`name` in `wrangler.jsonc`; let Cloudflare/noter.md own the Worker name and pass
+it to Wrangler from a deploy script.
 
 The `Path` field is the repository root used for build and deploy commands. It
 should stay `/` while the app lives at the repository root.
@@ -87,23 +87,34 @@ In the artifact repo, make `build` delegate to the Cloudflare-aware build script
 so users do not need to type a special command in the Cloudflare dashboard. Keep
 the plain static build visible as a separate script, such as `build:app`.
 
-Use the dashboard default deploy command:
+Use repo-owned deploy commands:
 
 ```sh
-npx wrangler deploy
+pnpm run deploy
+pnpm run deploy:preview
 ```
 
-Keep `wrangler.jsonc` because it still owns the Worker name, static assets
-directory, SPA fallback, and local Wrangler deploy/dry-run behavior. Do not
-claim that the Cloudflare Git build command comes only from `wrangler.jsonc`;
+`pnpm run deploy` should wrap `wrangler deploy --name <worker>`, which uploads a
+new version and promotes it to production. `pnpm run deploy:preview` should wrap
+`wrangler versions upload --name <worker>`, which uploads a version without
+promoting it. In Workers Builds, the wrapper can read
+`WRANGLER_CI_OVERRIDE_NAME`; locally, it can require `CLOUDFLARE_WORKER_NAME`.
+For local checks, the deploy wrapper can run the Cloudflare build path before
+Wrangler. During Workers Builds, it should skip that internal build because the
+dashboard `Build command` has already run.
+
+Keep `wrangler.jsonc` because it still owns the static assets directory, SPA
+fallback, preview URL preference, and local Wrangler deploy/dry-run behavior. Do
+not put `name` or `build.command` in the reusable template `wrangler.jsonc`, and
+do not claim that the Cloudflare Git build command comes from `wrangler.jsonc`;
 the dashboard `Build command` is a real setting in Workers Builds.
 
 Recommended dashboard values for the artifact:
 
-- Project name: match `wrangler.jsonc` `name`.
+- Project name: any valid Worker name.
 - Build command: keep `pnpm run build`.
-- Deploy command: keep `npx wrangler deploy`.
-- Non-production branch deploy command: keep `npx wrangler versions upload`.
+- Deploy command: `pnpm run deploy`.
+- Non-production branch deploy command: `pnpm run deploy:preview`.
 - Path: keep `/`.
 - Build secret: add `CONVEX_DEPLOY_KEY`.
 
@@ -115,3 +126,5 @@ Recommended dashboard values for the artifact:
   <https://developers.cloudflare.com/workers/ci-cd/builds/>
 - Cloudflare Wrangler custom builds:
   <https://developers.cloudflare.com/workers/wrangler/custom-builds/>
+- Cloudflare Workers Preview URLs:
+  <https://developers.cloudflare.com/workers/configuration/previews/>
