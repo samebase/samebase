@@ -21,7 +21,8 @@ docs or disposable repos. The public artifact should look deliberately built.
   `0: empty commit`.
 - Use numbered commit subjects after that, matching the `notermd/app` style:
   `1. initialize ...`, `2. add ...`, and so on.
-- Update `REPO_HISTORY.md` as the canonical explanation of each numbered step.
+- Create or update `REPO_HISTORY.md` inside each numbered commit. It is part of
+  the teaching artifact, not a report reconstructed at the end.
 - Treat the current `notermd/app` final state as the feature-parity source
   before changing the stack. Inventory small visible details, including the QR
   share block, shadcn primitives, Convex todo backend, local workflow, Convex AI
@@ -55,8 +56,28 @@ vp exec ...
 vp run ...
 ```
 
-Avoid hand-writing the first Vite+ application shell unless the CLI is broken and
-the reason is recorded in `REPO_HISTORY.md`.
+Avoid hand-writing the first Vite+ application shell unless the CLI is broken
+and the reason is recorded in `REPO_HISTORY.md`.
+
+The first numbered commit should add `REPO_HISTORY.md` with the exact command
+that created the first step. For example:
+
+````md
+## 1. initialize vite plus application
+
+```sh
+vp create vite:application \
+  --directory app-start-workers \
+  --agent codex \
+  --editor vscode \
+  --hooks \
+  --no-interactive \
+  --verbose
+```
+````
+
+Prefer exact command blocks over broad prose when a step is created by a CLI.
+The command in `REPO_HISTORY.md` should be the command that actually ran.
 
 ## TanStack Start Scaffolding
 
@@ -76,9 +97,9 @@ Do not keep files such as:
 - adapters or config that the first app does not need
 
 Avoid `vp create` with a TanStack Start template if it introduces confusion
-between template package-manager expectations and the Vite+ command surface.
-For this artifact, start with the simple Vite+ application and add TanStack
-Start manually.
+between template package-manager expectations and the Vite+ command surface. For
+this artifact, start with the simple Vite+ application and add TanStack Start
+manually.
 
 ### Scaffold Experiment Findings
 
@@ -135,8 +156,8 @@ For a Workers version of the artifact:
 - Use TanStack Start in SPA mode.
 - Keep Convex as the backend.
 - Use Cloudflare Workers Static Assets through `wrangler.jsonc`.
-- Make `wrangler.jsonc` the deploy contract, including the build command,
-  static asset directory, and SPA fallback.
+- Make `wrangler.jsonc` the deploy contract, including the build command, static
+  asset directory, and SPA fallback.
 - Keep Workers request handlers, server functions, and SSR complexity out of the
   first app unless the template truly needs them.
 

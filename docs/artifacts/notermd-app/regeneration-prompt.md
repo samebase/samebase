@@ -1,6 +1,7 @@
 # Prompt: Regenerate notermd/app-Style Artifact
 
-Use this prompt when asking an agent to recreate a clean public artifact history.
+Use this prompt when asking an agent to recreate a clean public artifact
+history.
 
 ```text
 You are regenerating a notermd/app-style public teaching artifact.
@@ -35,8 +36,12 @@ When implementing:
 3. Commit `0: empty commit`.
 4. Build the app in numbered steps.
 5. Update REPO_HISTORY.md in the same commit that introduces each step.
-6. Prefer CLI commands over hand-written scaffolding whenever a clean CLI exists.
-7. For step 1, use the Vite+ app command, like notermd/app:
+6. Never reconstruct REPO_HISTORY.md at the end. It must evolve with the
+   history: step 1 creates it, step 2 appends or updates step 2, and so on.
+7. Prefer exact command blocks in REPO_HISTORY.md when a step is created by a
+   CLI. The command shown must be the command that actually ran.
+8. Prefer CLI commands over hand-written scaffolding whenever a clean CLI exists.
+9. For step 1, use the Vite+ app command, like notermd/app:
 
    vp create vite:application \
      --directory <target-directory> \
@@ -46,18 +51,20 @@ When implementing:
      --no-interactive \
      --verbose
 
-8. Prefer Vite+ commands for stack changes:
+10. The first numbered commit must include REPO_HISTORY.md with the exact
+    Vite+ create command above, using the real target directory name.
+11. Prefer Vite+ commands for stack changes:
    - vp add
    - vp add -D
    - vp dlx
    - vp exec
    - vp run
 
-9. Do not use the TanStack Start CLI output as the artifact source. It may be
+12. Do not use the TanStack Start CLI output as the artifact source. It may be
    used in a throwaway directory for research, but it adds too many files and
    can confuse package-manager expectations with Vite+.
-10. Do not keep generator leftovers such as .cta.json or .cursorrules.
-11. Run validation after meaningful steps.
+13. Do not keep generator leftovers such as .cta.json or .cursorrules.
+14. Run validation after meaningful steps.
 
 For a Workers/TanStack Start version:
 - Start from a Vite+ application and add TanStack Start manually.
