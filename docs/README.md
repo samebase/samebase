@@ -14,6 +14,8 @@ Use `docs/` for:
 Current key docs:
 
 - `docs/agent-workflows.md` for deeper git/PR/worktree workflow rules
+- `docs/artifacts/notermd-app/` for regenerating the public `notermd/app`
+  artifact history
 - `docs/playwright-visual-testing.md` for Linux-canonical visual test workflow
 - `docs/compliance/` for compliance artifacts
 
