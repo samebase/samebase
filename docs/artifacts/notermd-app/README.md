@@ -156,10 +156,20 @@ For a Workers version of the artifact:
 - Use TanStack Start in SPA mode.
 - Keep Convex as the backend.
 - Use Cloudflare Workers Static Assets through `wrangler.jsonc`.
-- Make `wrangler.jsonc` the deploy contract, including the build command, static
-  asset directory, and SPA fallback.
+- Make `package.json` `build` the Cloudflare dashboard build entrypoint, usually
+  delegating to a Cloudflare-specific script while keeping the plain static app
+  build visible as `build:app` or similar.
+- Keep `wrangler.jsonc` as the Worker deploy contract for the Worker name,
+  static asset directory, SPA fallback, and local Wrangler deploy/dry-run
+  behavior.
+- Do not tell users to leave the Cloudflare Workers Git build command empty.
+  Workers Builds has its own dashboard build command and currently does not
+  honor Wrangler custom build settings there.
 - Keep Workers request handlers, server functions, and SSR complexity out of the
   first app unless the template truly needs them.
 
 Workers research can happen in disposable repos first. Once the shape is known,
 regenerate the artifact history from scratch.
+
+The current Cloudflare Workers Git install trace lives in
+`docs/artifacts/notermd-app/cloudflare-workers-install.md`.
