@@ -166,8 +166,9 @@ For a Workers version of the artifact:
   `wrangler deploy` and `wrangler versions upload` so the real Worker name can
   come from Cloudflare's connected-build environment or noter.md automation.
 - Keep deploy/build helper scripts runnable by plain `node` in Cloudflare's
-  current Workers Builds image. Use ESM JavaScript helper scripts unless the
-  deploy path intentionally installs and invokes a TypeScript runner.
+  Workers Builds image. If those helpers are TypeScript, pin Node 24 with
+  `.node-version` or `NODE_VERSION`; otherwise use ESM JavaScript helpers or an
+  explicit TypeScript runner.
 - Keep `build.command` out of the reusable `wrangler.jsonc`; Workers Builds has
   its own dashboard `Build command`, and local deploy wrappers can run the build
   before Wrangler.

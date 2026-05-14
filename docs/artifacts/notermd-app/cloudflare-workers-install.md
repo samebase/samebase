@@ -103,10 +103,11 @@ For local checks, the deploy wrapper can run the Cloudflare build path before
 Wrangler. During Workers Builds, it should skip that internal build because the
 dashboard `Build command` has already run.
 
-Keep helper scripts runnable by plain `node` in the Workers Builds image. A
-local Node version may execute TypeScript directly, but Cloudflare's current
-Node 22 build image does not run `.ts` files through `node` without a TypeScript
-runner.
+Keep helper scripts runnable by plain `node` in the Workers Builds image.
+Cloudflare defaults Workers Builds to Node 22.16.0, which does not run `.ts`
+files through `node` by default. If the artifact keeps Node-invoked helpers in
+TypeScript, pin Node 24 with `.node-version` or `NODE_VERSION`; otherwise use
+plain ESM JavaScript helpers or an explicit TypeScript runner.
 
 Keep `wrangler.jsonc` because it still owns the static assets directory, SPA
 fallback, preview URL preference, and local Wrangler deploy/dry-run behavior. Do
