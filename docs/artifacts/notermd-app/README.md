@@ -183,3 +183,22 @@ regenerate the artifact history from scratch.
 
 The current Cloudflare Workers Git install trace lives in
 `docs/artifacts/notermd-app/cloudflare-workers-install.md`.
+
+## Toolchain Alignment
+
+Treat the generated app artifact and the Noter app as one shared stack surface.
+When either side changes runtime or package-manager versions, update the other
+side deliberately instead of letting them drift.
+
+Keep these aligned by default:
+
+- Node version pins such as `.node-version`, `NODE_VERSION`, or CI build image
+  settings.
+- Package manager pins such as `packageManager`, pnpm versions, and build image
+  `PNPM_VERSION` settings.
+- Core deploy tooling such as Wrangler, Convex CLI/runtime packages, Vite+,
+  TanStack Start, TypeScript, and React versions when they are part of the
+  shared app/deploy story.
+
+This is a manual invariant for now. Do not introduce an automation script until
+the migration shape is stable enough that the check is clearly worth owning.

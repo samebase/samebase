@@ -23,10 +23,14 @@ Before writing code:
    - convex
    - scripts
    - docs/logos
-3. Produce a feature-parity checklist for the final app. Include small visible
+3. Compare Noter and the generated artifact toolchain pins. Keep Node, pnpm,
+   Wrangler, Convex, Vite+, TanStack Start, TypeScript, React, and related
+   shared deploy tooling aligned unless the plan explicitly explains a temporary
+   divergence.
+4. Produce a feature-parity checklist for the final app. Include small visible
    details like the QR share block.
-4. Produce a numbered commit plan that mirrors REPO_HISTORY.md style.
-5. Do not implement until the plan preserves both feature parity and the
+5. Produce a numbered commit plan that mirrors REPO_HISTORY.md style.
+6. Do not implement until the plan preserves both feature parity and the
    teaching-history shape.
 
 When implementing:
