@@ -44,6 +44,20 @@ describe("provider deletion errors", () => {
         }),
       ),
     ).toBe(true);
+    expect(
+      isCloudflareWorkerNotFoundError(
+        new CloudflareApiError({
+          method: "GET",
+          path: "/accounts/account-123/workers/workers/noter",
+          details: [
+            {
+              code: "10007",
+              message: "This Worker does not exist on your account.",
+            },
+          ],
+        }),
+      ),
+    ).toBe(true);
   });
 
   it("rejects non-not-found Cloudflare errors", () => {

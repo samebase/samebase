@@ -118,7 +118,10 @@ export function isCloudflareWorkerNotFoundError(error: unknown): boolean {
         message === "worker not found" ||
         message === "script not found" ||
         message === "not found" ||
-        message === "workers.api.error.not_found"
+        message === "workers.api.error.not_found" ||
+        (detail.code === "10007" &&
+          message?.includes("worker") === true &&
+          message.includes("does not exist"))
       );
     })
   );
