@@ -17,6 +17,7 @@ import {
   normalizeFolderPath,
   type PendingMediaUpload,
 } from "./fileViewShared";
+import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
 
 type VaultId = NonNullable<
   (typeof api.vault.records.getVaultByRepository)["_returnType"]
@@ -64,6 +65,11 @@ export function useFileViewMediaUpload({
   const [mediaUploadError, setMediaUploadError] = useState<string | null>(null);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [isMediaUploadDragOver, setIsMediaUploadDragOver] = useState(false);
+
+  usePageLeaveGuard({
+    enabled: pendingMediaUpload !== null || isUploadingMedia,
+    reason: "Pending media upload",
+  });
 
   const prepareMediaUpload = useCallback(
     (file: File, preferredFolderPath: string) => {
