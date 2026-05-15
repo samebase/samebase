@@ -1789,6 +1789,63 @@ async function recordWorkflowRunFailure(
   });
 }
 
+const USER_FACING_PROVISIONING_ERROR_MARKERS = [
+  "Cloudflare Workers Builds requires a user-scoped API token.",
+  "Cloudflare API token must be user-scoped and include Workers Builds Configuration Edit plus Workers Scripts Edit.",
+  "Cloudflare API token must be limited to one account for Noter provisioning.",
+  "Cloudflare API token is not scoped to an account.",
+  "Invalid Cloudflare API token.",
+  "Cloudflare Workers needs a configured workers.dev subdomain",
+  "Cloudflare Workers Builds has no build API token",
+  "GitHub owner id is required before Cloudflare Workers Builds can connect the repository.",
+];
+
+function extractUserFacingProvisioningError(message: string): string | null {
+  const firstLine = message.trim().split("\n")[0]?.trim();
+  if (!firstLine) {
+    return null;
+  }
+
+  let cleaned = firstLine;
+  for (;;) {
+    if (cleaned.startsWith("Error: Uncaught Error: ")) {
+      cleaned = cleaned.slice("Error: Uncaught Error: ".length);
+      continue;
+    }
+    if (cleaned.startsWith("Uncaught Error: ")) {
+      cleaned = cleaned.slice("Uncaught Error: ".length);
+      continue;
+    }
+    if (cleaned.startsWith("Error: ")) {
+      cleaned = cleaned.slice("Error: ".length);
+      continue;
+    }
+    break;
+  }
+
+  for (const marker of USER_FACING_PROVISIONING_ERROR_MARKERS) {
+    if (cleaned.includes(marker)) {
+      return cleaned;
+    }
+  }
+
+  return null;
+}
+
+function resolveSafeWorkflowRunError(args: {
+  currentStep: string;
+  message: string;
+}): string {
+  if (args.currentStep === "run_created") {
+    return "Provisioning failed before the first step.";
+  }
+
+  return (
+    extractUserFacingProvisioningError(args.message) ??
+    `Provisioning failed during ${args.currentStep}.`
+  );
+}
+
 function isCreateAppPreInfrastructureStep(step: string): boolean {
   return (
     step === "run_created" ||
@@ -1826,10 +1883,10 @@ export const markWorkflowProvisioningFailed = internalMutation({
     const eventStep = resolveWorkflowFailureEventStep(run);
     const vaultId = run.vaultId;
     const vault = await ctx.db.get(vaultId);
-    const safeRunError =
-      run.currentStep === "run_created"
-        ? "Provisioning failed before the first step."
-        : `Provisioning failed during ${run.currentStep}.`;
+    const safeRunError = resolveSafeWorkflowRunError({
+      currentStep: run.currentStep,
+      message: args.message,
+    });
     if (vault?.state === "provisioning" && vault.runId === args.runId) {
       await ctx.runMutation(
         internal.vault.records.markGithubProvisioningFailed,

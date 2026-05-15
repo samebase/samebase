@@ -42,6 +42,9 @@ type CloudflareApiErrorDetail = {
   message?: string;
 };
 
+const WORKERS_BUILDS_USER_TOKEN_MESSAGE =
+  "Cloudflare Workers Builds requires a user-scoped API token. Connect Cloudflare with a Workers Builds API token and retry.";
+
 export class CloudflareApiError extends Error {
   readonly method: CloudflareRequestMethod;
 
@@ -107,6 +110,32 @@ function readCloudflareApiErrorDetails(
 
   const detail = readCloudflareApiErrorDetail(value);
   return detail ? [detail] : [];
+}
+
+function isWorkersBuildsApiPath(path: string): boolean {
+  return path.includes("/builds/");
+}
+
+export function isWorkersBuildsInvalidTokenMessage(args: {
+  path: string;
+  message: string;
+}): boolean {
+  const message = args.message.toLowerCase();
+  return (
+    isWorkersBuildsApiPath(args.path) &&
+    message.includes("12006") &&
+    message.includes("invalid token")
+  );
+}
+
+function isWorkersBuildsInvalidTokenDetails(args: {
+  path: string;
+  details: readonly CloudflareApiErrorDetail[];
+}): boolean {
+  return (
+    isWorkersBuildsApiPath(args.path) &&
+    args.details.some((detail) => detail.code === "12006")
+  );
 }
 
 export function isCloudflareWorkerNotFoundError(error: unknown): boolean {
@@ -202,13 +231,28 @@ async function requestCloudflareApi(args: {
     toolName: "execute",
     toolArgs: { code },
     serverUrl: args.serverUrl ?? CLOUDFLARE_MCP_SERVER_URL,
+  }).catch((error: unknown) => {
+    const message = toErrorMessage(error);
+    if (
+      isWorkersBuildsInvalidTokenMessage({
+        path: args.path,
+        message,
+      })
+    ) {
+      throw new Error(WORKERS_BUILDS_USER_TOKEN_MESSAGE);
+    }
+    throw error;
   });
   const response = asRecord(parseJsonText(text));
   if (readBoolean(response, "success") !== true) {
+    const details = readCloudflareApiErrorDetails(response["errors"]);
+    if (isWorkersBuildsInvalidTokenDetails({ path: args.path, details })) {
+      throw new Error(WORKERS_BUILDS_USER_TOKEN_MESSAGE);
+    }
     throw new CloudflareApiError({
       method: args.method,
       path: args.path,
-      details: readCloudflareApiErrorDetails(response["errors"]),
+      details,
     });
   }
   return response["result"];
@@ -285,31 +329,17 @@ async function readWorker(args: {
   }
 }
 
-async function readWorkerTag(args: {
-  token: string;
-  serverUrl?: string;
-  accountId: string;
-  workerName: string;
-}): Promise<string> {
-  const raw = await requestCloudflareApi({
-    token: args.token,
-    serverUrl: args.serverUrl,
-    method: "GET",
-    path: `/accounts/${encodeURIComponent(args.accountId)}/workers/scripts`,
-  });
-  const scripts = Array.isArray(raw) ? raw.map(asRecord) : [];
-  const script = scripts.find(
-    (record) => readString(record, "id") === args.workerName,
-  );
-  if (!script) {
-    throw new Error(
-      `Cloudflare Worker ${args.workerName} was created but was not returned by the Workers Scripts API.`,
-    );
-  }
+export function readCloudflareWorkerTag(
+  worker: JsonRecord,
+  workerName: string,
+): string {
+  // New Workers services do not appear in /workers/scripts until they have a
+  // script version, but the Workers service id is the same external_script_id
+  // that Workers Builds calls the worker tag.
   return requireString({
-    record: script,
-    key: "tag",
-    message: `Cloudflare Worker ${args.workerName} did not include a Workers Builds tag.`,
+    record: worker,
+    key: "id",
+    message: `Cloudflare Worker ${workerName} did not include a Workers Builds tag.`,
   });
 }
 
@@ -335,12 +365,7 @@ async function ensureWorker(args: {
     });
     if (existing) {
       const workerName = readString(existing, "name") ?? candidate;
-      const workerTag = await readWorkerTag({
-        token: args.token,
-        serverUrl: args.serverUrl,
-        accountId: args.accountId,
-        workerName,
-      });
+      const workerTag = readCloudflareWorkerTag(existing, workerName);
       return {
         workerName,
         workerTag,
@@ -368,12 +393,7 @@ async function ensureWorker(args: {
   });
   const created = asRecord(createdRaw);
   const workerName = readString(created, "name") ?? args.fallbackWorkerName;
-  const workerTag = await readWorkerTag({
-    token: args.token,
-    serverUrl: args.serverUrl,
-    accountId: args.accountId,
-    workerName,
-  });
+  const workerTag = readCloudflareWorkerTag(created, workerName);
   return {
     workerName,
     workerTag,
@@ -788,14 +808,9 @@ export async function readCloudflareWorkerStatus(
     method: "GET",
     path: workerEndpoint,
   });
+  const workerRecord = asRecord(worker);
   const workerTag =
-    args.workerTag ??
-    (await readWorkerTag({
-      token: args.cloudflareToken,
-      serverUrl: args.cloudflareServerUrl,
-      accountId: args.accountId,
-      workerName: args.workerName,
-    }));
+    args.workerTag ?? readCloudflareWorkerTag(workerRecord, args.workerName);
   const triggers = await listBuildTriggers({
     token: args.cloudflareToken,
     serverUrl: args.cloudflareServerUrl,
@@ -806,7 +821,7 @@ export async function readCloudflareWorkerStatus(
   return {
     summary: `Cloudflare Worker status for ${args.workerName}`,
     endpoint: `${workerEndpoint} + Workers Builds triggers`,
-    raw: JSON.stringify({ worker, triggers }, null, 2),
+    raw: JSON.stringify({ worker: workerRecord, triggers }, null, 2),
     rowCount: 1,
   };
 }

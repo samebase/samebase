@@ -11,18 +11,20 @@ import {
 import { Input } from "@/components/input";
 import { Label } from "@/components/ui/label";
 
-export type ApiKeyProvider = "github" | "convex";
+export type ApiKeyProvider = "github" | "convex" | "cloudflare";
 
 type ConnectWithApiKey = (args: { token: string }) => Promise<unknown>;
 
 type UseApiKeyConnectDialogArgs = {
   connectGithubWithApiKey: ConnectWithApiKey;
   connectConvexWithApiKey: ConnectWithApiKey;
+  connectCloudflareWithApiKey: ConnectWithApiKey;
 };
 
 const getApiKeyProviderLabel = (provider: ApiKeyProvider | null): string => {
   if (provider === "github") return "GitHub";
   if (provider === "convex") return "Convex";
+  if (provider === "cloudflare") return "Cloudflare";
   return "Provider";
 };
 
@@ -33,6 +35,7 @@ const assertNever = (value: never): never => {
 export const useApiKeyConnectDialog = ({
   connectGithubWithApiKey,
   connectConvexWithApiKey,
+  connectCloudflareWithApiKey,
 }: UseApiKeyConnectDialogArgs) => {
   const [apiKeyDialogProvider, setApiKeyDialogProvider] =
     useState<ApiKeyProvider | null>(null);
@@ -81,6 +84,9 @@ export const useApiKeyConnectDialog = ({
         case "convex":
           await connectConvexWithApiKey({ token });
           break;
+        case "cloudflare":
+          await connectCloudflareWithApiKey({ token });
+          break;
         default:
           assertNever(apiKeyDialogProvider);
       }
@@ -100,6 +106,7 @@ export const useApiKeyConnectDialog = ({
   }, [
     apiKeyDialogProvider,
     apiKeyInput,
+    connectCloudflareWithApiKey,
     connectConvexWithApiKey,
     connectGithubWithApiKey,
   ]);
