@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   isWorkersBuildsInvalidTokenMessage,
   readCloudflareWorkerTag,
+  selectCurrentBuildTokenUuid,
 } from "./cloudflareResources";
 
 describe("cloudflare resources", () => {
@@ -26,5 +27,40 @@ describe("cloudflare resources", () => {
           "Cloudflare MCP tool call failed: Error: Cloudflare API error: 12006: Invalid token",
       }),
     ).toBe(true);
+  });
+
+  it("selects the build token backed by the current Cloudflare token", () => {
+    expect(
+      selectCurrentBuildTokenUuid({
+        cloudflareTokenId: "current-token-id",
+        tokens: [
+          {
+            name: "app-workers build token",
+            uuid: "stale-build-token",
+            cloudflareTokenId: "old-token-id",
+          },
+          {
+            name: "noter build token",
+            uuid: "current-build-token",
+            cloudflareTokenId: "current-token-id",
+          },
+        ],
+      }),
+    ).toBe("current-build-token");
+  });
+
+  it("does not select stale build tokens with unrelated Cloudflare token ids", () => {
+    expect(
+      selectCurrentBuildTokenUuid({
+        cloudflareTokenId: "current-token-id",
+        tokens: [
+          {
+            name: "noter build token",
+            uuid: "stale-build-token",
+            cloudflareTokenId: "old-token-id",
+          },
+        ],
+      }),
+    ).toBe(undefined);
   });
 });

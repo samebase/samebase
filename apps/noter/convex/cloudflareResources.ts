@@ -35,6 +35,12 @@ type CloudflareBuildConfig = {
   previewDeployCommand: string;
 };
 
+export type CloudflareBuildToken = {
+  name: string;
+  uuid: string;
+  cloudflareTokenId: string;
+};
+
 type CloudflareRequestMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 type CloudflareApiErrorDetail = {
@@ -44,6 +50,7 @@ type CloudflareApiErrorDetail = {
 
 const WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE =
   "Cloudflare connection is missing Workers Builds write access. Reconnect Cloudflare and grant Workers Builds, Workers, and Workers Scripts access, then retry.";
+const NOTER_WORKERS_BUILD_TOKEN_NAME = "noter build token";
 
 export class CloudflareApiError extends Error {
   readonly method: CloudflareRequestMethod;
@@ -444,31 +451,113 @@ async function resolveBuildTokenUuid(args: {
   serverUrl?: string;
   accountId: string;
 }): Promise<string> {
-  const raw = await requestCloudflareApi({
+  const currentTokenId = await resolveCurrentCloudflareTokenId({
+    token: args.token,
+    serverUrl: args.serverUrl,
+  });
+  const rawTokens = await requestCloudflareApi({
     token: args.token,
     serverUrl: args.serverUrl,
     method: "GET",
     path: `/accounts/${encodeURIComponent(args.accountId)}/builds/tokens?page=1&per_page=100`,
   });
+  const tokens = parseBuildTokens(rawTokens);
+  const existingBuildTokenUuid = selectCurrentBuildTokenUuid({
+    tokens,
+    cloudflareTokenId: currentTokenId,
+  });
+  if (existingBuildTokenUuid) {
+    return existingBuildTokenUuid;
+  }
+  return await createBuildToken({
+    token: args.token,
+    serverUrl: args.serverUrl,
+    accountId: args.accountId,
+    cloudflareTokenId: currentTokenId,
+  });
+}
+
+function parseBuildTokens(raw: unknown): CloudflareBuildToken[] {
   const tokens = Array.isArray(raw) ? raw.map(asRecord) : [];
-  const sortedTokens = tokens
-    .map((tokenRecord) => ({
-      name: readString(tokenRecord, "build_token_name") ?? "",
-      uuid: readString(tokenRecord, "build_token_uuid"),
-    }))
-    .filter((tokenRecord) => typeof tokenRecord.uuid === "string")
+  return tokens
+    .map((tokenRecord) => {
+      const uuid = readString(tokenRecord, "build_token_uuid");
+      const cloudflareTokenId = readString(tokenRecord, "cloudflare_token_id");
+      if (!uuid || !cloudflareTokenId) {
+        return null;
+      }
+      return {
+        name: readString(tokenRecord, "build_token_name") ?? "",
+        uuid,
+        cloudflareTokenId,
+      };
+    })
+    .filter(notEmpty)
     .sort(
       (left, right) =>
         left.name.localeCompare(right.name) ||
-        (left.uuid ?? "").localeCompare(right.uuid ?? ""),
+        left.uuid.localeCompare(right.uuid),
     );
-  const buildTokenUuid = sortedTokens[0]?.uuid;
-  if (!buildTokenUuid) {
-    throw new Error(
-      "Cloudflare Workers Builds has no build API token for this account. Create one once from the Worker build settings, then retry provisioning.",
-    );
+}
+
+export function selectCurrentBuildTokenUuid(args: {
+  tokens: readonly CloudflareBuildToken[];
+  cloudflareTokenId: string;
+}): string | undefined {
+  const matchingTokens = args.tokens.filter(
+    (token) => token.cloudflareTokenId === args.cloudflareTokenId,
+  );
+  if (matchingTokens.length === 0) {
+    return undefined;
   }
-  return buildTokenUuid;
+  return (
+    matchingTokens.find(
+      (token) => token.name === NOTER_WORKERS_BUILD_TOKEN_NAME,
+    ) ?? matchingTokens[0]
+  ).uuid;
+}
+
+async function resolveCurrentCloudflareTokenId(args: {
+  token: string;
+  serverUrl?: string;
+}): Promise<string> {
+  const raw = await requestCloudflareApi({
+    token: args.token,
+    serverUrl: args.serverUrl,
+    method: "GET",
+    path: "/user/tokens/verify",
+  });
+  return requireString({
+    record: asRecord(raw),
+    key: "id",
+    message:
+      "Cloudflare did not return an id for the current token, so Workers Builds cannot create a build token.",
+  });
+}
+
+async function createBuildToken(args: {
+  token: string;
+  serverUrl?: string;
+  accountId: string;
+  cloudflareTokenId: string;
+}): Promise<string> {
+  const raw = await requestCloudflareApi({
+    token: args.token,
+    serverUrl: args.serverUrl,
+    method: "POST",
+    path: `/accounts/${encodeURIComponent(args.accountId)}/builds/tokens`,
+    body: {
+      build_token_name: NOTER_WORKERS_BUILD_TOKEN_NAME,
+      build_token_secret: args.token,
+      cloudflare_token_id: args.cloudflareTokenId,
+    },
+  });
+  return requireString({
+    record: asRecord(raw),
+    key: "build_token_uuid",
+    message:
+      "Cloudflare Workers Builds did not return an id for the created build token.",
+  });
 }
 
 type CloudflareBuildTriggerKind = "production" | "preview";
