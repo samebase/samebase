@@ -143,7 +143,7 @@ function FixtureRepositoryLinks() {
           title: "Open GitHub repository",
         },
         {
-          href: "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/pages/view/noter",
+          href: "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/noter/production/deployments",
           key: "cloudflare",
           label: "Cloudflare",
           title: "Open Cloudflare Worker",

@@ -979,13 +979,54 @@ export async function readCloudflareBuildLogs(
 type DeleteCloudflareResourcesArgs = {
   accountId: string;
   workerName: string;
+  productionTriggerUuid?: string;
+  previewTriggerUuid?: string;
   cloudflareToken: string;
   cloudflareServerUrl?: string;
 };
 
+async function deleteCloudflareBuildTriggerIfRecorded(args: {
+  accountId: string;
+  triggerUuid?: string;
+  cloudflareToken: string;
+  cloudflareServerUrl?: string;
+}): Promise<void> {
+  const triggerUuid = args.triggerUuid?.trim();
+  if (!triggerUuid) {
+    return;
+  }
+
+  try {
+    await requestCloudflareApi({
+      token: args.cloudflareToken,
+      serverUrl: args.cloudflareServerUrl,
+      method: "DELETE",
+      path: `/accounts/${encodeURIComponent(args.accountId)}/workers/builds/triggers/${encodeURIComponent(triggerUuid)}`,
+    });
+  } catch (error) {
+    if (!isCloudflareWorkerNotFoundError(error)) {
+      throw error;
+    }
+  }
+}
+
 export async function deleteCloudflareResources(
   args: DeleteCloudflareResourcesArgs,
 ): Promise<void> {
+  await Promise.all([
+    deleteCloudflareBuildTriggerIfRecorded({
+      accountId: args.accountId,
+      triggerUuid: args.productionTriggerUuid,
+      cloudflareToken: args.cloudflareToken,
+      cloudflareServerUrl: args.cloudflareServerUrl,
+    }),
+    deleteCloudflareBuildTriggerIfRecorded({
+      accountId: args.accountId,
+      triggerUuid: args.previewTriggerUuid,
+      cloudflareToken: args.cloudflareToken,
+      cloudflareServerUrl: args.cloudflareServerUrl,
+    }),
+  ]);
   await requestCloudflareApi({
     token: args.cloudflareToken,
     serverUrl: args.cloudflareServerUrl,

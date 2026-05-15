@@ -1,6 +1,6 @@
 import { Infer, v } from "convex/values";
 
-const { id, literal, number, object, string, union } = v;
+const { id, literal, number, object, optional, string, union } = v;
 
 export const vVaultDeletionNotDeleting = object({
   state: literal("not_deleting"),
@@ -118,6 +118,8 @@ const providerCleanupPlan = {
       action: literal("delete_worker"),
       accountId: string(),
       workerName: string(),
+      productionTriggerUuid: optional(string()),
+      previewTriggerUuid: optional(string()),
     }),
   ),
 } as const;
