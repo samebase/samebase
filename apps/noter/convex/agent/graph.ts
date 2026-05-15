@@ -24,7 +24,7 @@ const PROD_READ_PROPOSAL_SCHEMA = z.object({
     "data_query",
     "project_inventory",
     "account_inventory",
-    "pages_project_inventory",
+    "workers_project_inventory",
   ]),
   toolName: z.string(),
   paramsPreview: z.string(),

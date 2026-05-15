@@ -113,13 +113,13 @@ Common endpoints:
   {
     name: "request_cloudflare_status_read",
     description:
-      "Request approval to read Cloudflare Pages project status for the current vault. This tool only creates an approval proposal.",
+      "Request approval to read Cloudflare Worker status for the current vault. This tool only creates an approval proposal.",
     uiDescription: "Propose Cloudflare status read (approval required)",
   },
   {
     name: "request_cloudflare_logs_read",
     description:
-      "Request approval to read Cloudflare Pages deployment logs for the current vault. This tool only proposes access.",
+      "Request approval to read Cloudflare Workers build logs for the current vault. This tool only proposes access.",
     uiDescription: "Propose Cloudflare logs read (approval required)",
     inputDisplayKey: "maxEntries",
   },
@@ -132,11 +132,11 @@ Common endpoints:
     inputDisplayKey: "limit",
   },
   {
-    name: "request_cloudflare_pages_projects_read",
+    name: "request_cloudflare_workers_projects_read",
     description:
-      "Request approval to list Cloudflare Pages projects for an account. This tool only creates an approval proposal and does not execute direct reads.",
+      "Request approval to list Cloudflare Workers projects for an account. This tool only creates an approval proposal and does not execute direct reads.",
     uiDescription:
-      "Propose Cloudflare Pages project inventory read (approval required)",
+      "Propose Cloudflare Workers project inventory read (approval required)",
     inputDisplayKey: "accountId",
   },
   {

@@ -501,8 +501,10 @@ export function createTools(toolCtx: ToolContext) {
       },
     }),
 
-    request_cloudflare_pages_projects_read: createTool({
-      description: catalogDescription("request_cloudflare_pages_projects_read"),
+    request_cloudflare_workers_projects_read: createTool({
+      description: catalogDescription(
+        "request_cloudflare_workers_projects_read",
+      ),
       args: z.object({
         accountId: z
           .string()
@@ -524,7 +526,7 @@ export function createTools(toolCtx: ToolContext) {
       }),
       handler: async (_ctx, input) => {
         return await executeSharedRuntimeTool(toolCtx, {
-          toolName: "request_cloudflare_pages_projects_read",
+          toolName: "request_cloudflare_workers_projects_read",
           input,
         });
       },

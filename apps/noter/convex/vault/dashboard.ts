@@ -471,9 +471,9 @@ type VaultBranchFilters = Infer<typeof vaultBranchFiltersValidator>;
  * Dashboard URLs fail closed when provider metadata is partial. Trim before
  * checking presence and encode every segment before handing it to the browser.
  */
-function buildCloudflareProjectDashboardUrl(
+function buildCloudflareWorkerDashboardUrl(
   cloudflare:
-    | Pick<ConnectedCloudflareState, "accountId" | "projectName">
+    | Pick<ConnectedCloudflareState, "accountId" | "workerName">
     | null
     | undefined,
 ): string | undefined {
@@ -482,12 +482,12 @@ function buildCloudflareProjectDashboardUrl(
   }
 
   const accountId = cloudflare.accountId.trim();
-  const projectName = cloudflare.projectName.trim();
-  if (accountId.length === 0 || projectName.length === 0) {
+  const workerName = cloudflare.workerName.trim();
+  if (accountId.length === 0 || workerName.length === 0) {
     return undefined;
   }
 
-  return `https://dash.cloudflare.com/?to=/${encodeURIComponent(accountId)}/pages/view/${encodeURIComponent(projectName)}`;
+  return `https://dash.cloudflare.com/?to=/${encodeURIComponent(accountId)}/workers/services/view/${encodeURIComponent(workerName)}/production/deployments`;
 }
 
 /**
@@ -895,7 +895,7 @@ export const getUserVaults = query({
             })),
           cloudflareProductionUrl: connectedCloudflare?.productionUrl,
           cloudflareProjectDashboardUrl:
-            buildCloudflareProjectDashboardUrl(connectedCloudflare),
+            buildCloudflareWorkerDashboardUrl(connectedCloudflare),
           convexProjectSettingsDashboardUrl:
             buildConvexProjectSettingsDashboardUrl({
               projectSlug: convexProjectSlug,
@@ -946,8 +946,8 @@ export const getVaultInfrastructure = query({
           kind: v.union(v.literal("main"), v.literal("branch_preview")),
           url: v.string(),
           source: v.union(
-            v.literal("cloudflare_pages_default"),
-            v.literal("cloudflare_pages_custom"),
+            v.literal("cloudflare_workers_default"),
+            v.literal("cloudflare_workers_custom"),
           ),
           active: v.boolean(),
         }),

@@ -12,7 +12,7 @@ import {
 } from "../../infraProviders";
 import {
   deleteCloudflareResources,
-  isCloudflarePagesProjectNotFoundError,
+  isCloudflareWorkerNotFoundError,
 } from "../../cloudflareResources";
 import { resolveCloudflareMcpServerUrl } from "../../cloudflareMcp";
 import { readRetainedSnapshot } from "./runs";
@@ -185,7 +185,7 @@ export const deleteCloudflare = internalAction({
       level: "info",
       message: providerStepRetryMessage.delete_cloudflare,
     });
-    if (plan.cloudflare.action !== "delete_pages_project") {
+    if (plan.cloudflare.action !== "delete_worker") {
       return null;
     }
 
@@ -203,13 +203,13 @@ export const deleteCloudflare = internalAction({
     try {
       await deleteCloudflareResources({
         accountId: plan.cloudflare.accountId,
-        projectName: plan.cloudflare.projectName,
+        workerName: plan.cloudflare.workerName,
         cloudflareToken: cloudflareConnection.auth.credential,
         cloudflareServerUrl:
           resolveCloudflareMcpServerUrl(cloudflareConnection),
       });
     } catch (error) {
-      if (!isCloudflarePagesProjectNotFoundError(error)) {
+      if (!isCloudflareWorkerNotFoundError(error)) {
         throw error;
       }
     }

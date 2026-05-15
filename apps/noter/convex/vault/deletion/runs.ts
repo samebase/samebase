@@ -186,7 +186,7 @@ async function buildCloudflarePlan(
     vault.cloudflare.state === "connected"
       ? {
           accountId: vault.cloudflare.accountId,
-          projectName: vault.cloudflare.projectName,
+          workerName: vault.cloudflare.workerName,
         }
       : infrastructure?.cloudflare;
   if (!cloudflare) {
@@ -198,9 +198,9 @@ async function buildCloudflarePlan(
     kind: "cloudflare",
   });
   return {
-    action: "delete_pages_project",
+    action: "delete_worker",
     accountId: cloudflare.accountId,
-    projectName: cloudflare.projectName,
+    workerName: cloudflare.workerName,
   };
 }
 
@@ -331,7 +331,7 @@ async function assertPlanProviderConnections(
     });
   }
 
-  if (args.plan.cloudflare.action === "delete_pages_project") {
+  if (args.plan.cloudflare.action === "delete_worker") {
     await requireProviderConnection(ctx, {
       userId: args.userId,
       kind: "cloudflare",

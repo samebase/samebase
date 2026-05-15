@@ -465,10 +465,10 @@ export const executeApprovedProdRead = internalAction({
         );
       } else if (
         request.provider === "cloudflare" &&
-        request.resourceKind === "pages_project_inventory"
+        request.resourceKind === "workers_project_inventory"
       ) {
         executionResult = await ctx.runAction(
-          internal.infraRead.getCloudflarePagesProjectInventory,
+          internal.infraRead.getCloudflareWorkersProjectInventory,
           {
             limit: parseOptionalPositiveNumber(params["limit"]),
             userId: request.requesterUserId,

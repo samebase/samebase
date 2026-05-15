@@ -146,7 +146,7 @@ function FixtureRepositoryLinks() {
           href: "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/pages/view/noter",
           key: "cloudflare",
           label: "Cloudflare",
-          title: "Open Cloudflare Pages project",
+          title: "Open Cloudflare Worker",
         },
         {
           href: "https://dashboard.convex.dev/t/nicu/noter/settings",
@@ -557,7 +557,7 @@ function VaultDashboardProvisioningLogFixture() {
                         level: "info",
                         step: "ensure_cloudflare",
                         message:
-                          "Ensuring Cloudflare Pages project and deploy settings.",
+                          "Ensuring Cloudflare Worker and deploy settings.",
                       },
                     ])}
                   />

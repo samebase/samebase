@@ -392,7 +392,7 @@ function renderProdReadLabel(metadata: {
     data_query: "Data sample",
     project_inventory: "Project inventory",
     account_inventory: "Account inventory",
-    pages_project_inventory: "Pages project inventory",
+    workers_project_inventory: "Workers project inventory",
   };
   return labels[metadata.resourceKind];
 }

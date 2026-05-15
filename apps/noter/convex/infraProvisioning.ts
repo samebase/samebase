@@ -418,7 +418,8 @@ function resolveCloudflareBuildConfig(vault: {
 }): {
   rootDir: string;
   buildCommand: string;
-  destinationDir: string;
+  deployCommand: string;
+  previewDeployCommand: string;
 } {
   const hasMonorepoFrontend = vault.treeData.tree.some(
     (entry) => entry.path === "apps/noter/package.json",
@@ -426,14 +427,16 @@ function resolveCloudflareBuildConfig(vault: {
   if (hasMonorepoFrontend) {
     return {
       rootDir: "apps/noter",
-      buildCommand: "npx convex deploy --cmd 'pnpm run build'",
-      destinationDir: "dist",
+      buildCommand: "pnpm run build",
+      deployCommand: "pnpm exec wrangler deploy",
+      previewDeployCommand: "pnpm exec wrangler versions upload",
     };
   }
   return {
     rootDir: "/",
-    buildCommand: "pnpm run build:cloudflare",
-    destinationDir: "dist",
+    buildCommand: "pnpm run build",
+    deployCommand: "pnpm run deploy",
+    previewDeployCommand: "pnpm run deploy:preview",
   };
 }
 
@@ -981,7 +984,8 @@ export const markCloudflareConnected = internalMutation({
     vaultId: v.id("vaults"),
     runId: v.id("appProvisioningRuns"),
     accountId: v.string(),
-    projectName: v.string(),
+    workerName: v.string(),
+    workerTag: v.string(),
     productionUrl: v.string(),
   },
   returns: infrastructurePatchResult,
@@ -1002,7 +1006,8 @@ export const markCloudflareConnected = internalMutation({
     const connectedCloudflare = {
       state: "connected",
       accountId: args.accountId,
-      projectName: args.projectName,
+      workerName: args.workerName,
+      workerTag: args.workerTag,
       productionUrl: args.productionUrl,
       connectedAt: Date.now(),
     } as const;
@@ -1021,8 +1026,8 @@ export const upsertDomainRecord = internalMutation({
     kind: v.union(v.literal("main"), v.literal("branch_preview")),
     url: v.string(),
     source: v.union(
-      v.literal("cloudflare_pages_default"),
-      v.literal("cloudflare_pages_custom"),
+      v.literal("cloudflare_workers_default"),
+      v.literal("cloudflare_workers_custom"),
     ),
     active: v.boolean(),
   },
@@ -1436,7 +1441,7 @@ export const ensureCloudflareInfrastructure = internalAction({
       runId: args.runId,
       step: "ensure_cloudflare",
       level: "info",
-      message: "Ensuring Cloudflare Pages project and deploy settings.",
+      message: "Ensuring Cloudflare Worker and deploy settings.",
       state: "running",
     });
     const cloudflareState = await ctx.runMutation(
@@ -1530,9 +1535,12 @@ export const ensureCloudflareInfrastructure = internalAction({
       }),
       existing: {
         accountId: cloudflareExisting?.accountId,
-        projectName: cloudflareExisting?.projectName,
-        subdomain: cloudflareExisting?.subdomain,
+        workerName: cloudflareExisting?.workerName,
+        workerTag: cloudflareExisting?.workerTag,
+        accountSubdomain: cloudflareExisting?.accountSubdomain,
         productionUrl: cloudflareExisting?.productionUrl,
+        productionTriggerUuid: cloudflareExisting?.productionTriggerUuid,
+        previewTriggerUuid: cloudflareExisting?.previewTriggerUuid,
       },
       convex: {
         production: {
@@ -1572,7 +1580,8 @@ export const ensureCloudflareInfrastructure = internalAction({
         vaultId: args.vaultId,
         runId: args.runId,
         accountId: provisionedCloudflare.accountId,
-        projectName: provisionedCloudflare.projectName,
+        workerName: provisionedCloudflare.workerName,
+        workerTag: provisionedCloudflare.workerTag,
         productionUrl: provisionedCloudflare.productionUrl,
       },
     );
@@ -1588,7 +1597,7 @@ export const ensureCloudflareInfrastructure = internalAction({
       runId: args.runId,
       step: "ensure_cloudflare",
       level: "info",
-      message: `Cloudflare Pages project ready: ${provisionedCloudflare.projectName}.`,
+      message: `Cloudflare Worker ready: ${provisionedCloudflare.workerName}.`,
       state: "running",
     });
 
@@ -1609,7 +1618,7 @@ export const ensureCloudflareInfrastructure = internalAction({
         branch: defaultBranch,
         kind: "main",
         url: provisionedCloudflare.productionUrl,
-        source: "cloudflare_pages_default",
+        source: "cloudflare_workers_default",
         active: true,
       },
     );
@@ -1629,8 +1638,8 @@ export const ensureCloudflareInfrastructure = internalAction({
       repo: `${vault.owner}/${vault.name}`,
       convexDeploymentName: existing.convexDeploymentName,
       cloudflareAccountId: provisionedCloudflare.accountId,
-      cloudflareProjectName: provisionedCloudflare.projectName,
-      cloudflareSubdomain: provisionedCloudflare.subdomain,
+      cloudflareWorkerName: provisionedCloudflare.workerName,
+      cloudflareWorkerTag: provisionedCloudflare.workerTag,
     });
 
     return null;

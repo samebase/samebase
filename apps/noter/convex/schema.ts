@@ -140,8 +140,8 @@ export const vVaultDomainKind = union(
 );
 
 export const vVaultDomainSource = union(
-  literal("cloudflare_pages_default"),
-  literal("cloudflare_pages_custom"),
+  literal("cloudflare_workers_default"),
+  literal("cloudflare_workers_custom"),
 );
 
 export const vVaultRemoteBranchState = union(
@@ -166,7 +166,7 @@ export const vProdAccessResourceKind = union(
   literal("data_query"),
   literal("project_inventory"),
   literal("account_inventory"),
-  literal("pages_project_inventory"),
+  literal("workers_project_inventory"),
 );
 
 export const vProdAccessStatus = union(

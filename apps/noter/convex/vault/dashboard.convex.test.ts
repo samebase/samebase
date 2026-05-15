@@ -580,8 +580,9 @@ describe("vault dashboard Convex contract", () => {
         convexDeploymentName: "stale-prod",
         cloudflare: {
           accountId: "stale-account",
-          projectName: "stale-pages-project",
-          productionUrl: "https://stale.pages.dev",
+          workerName: "stale-worker",
+          workerTag: "stale-worker-tag",
+          productionUrl: "https://stale.example.workers.dev",
         },
       });
 
@@ -912,8 +913,9 @@ describe("vault dashboard Convex contract", () => {
         cloudflare: {
           state: "connected",
           accountId: "cloudflare-account",
-          projectName: "domain-order-pages",
-          productionUrl: "https://domain-order.pages.dev",
+          workerName: "domain-order-worker",
+          workerTag: "domain-order-worker-tag",
+          productionUrl: "https://domain-order.example.workers.dev",
           connectedAt: 26,
         },
       });
@@ -921,8 +923,8 @@ describe("vault dashboard Convex contract", () => {
         vaultId,
         branch: "z-feature",
         kind: "branch_preview",
-        url: "https://z-feature.pages.dev",
-        source: "cloudflare_pages_default",
+        url: "https://z-feature.example.workers.dev",
+        source: "cloudflare_workers_default",
         active: true,
         lastSyncedAt: 30,
       });
@@ -930,8 +932,8 @@ describe("vault dashboard Convex contract", () => {
         vaultId,
         branch: "main",
         kind: "main",
-        url: "https://b-main.pages.dev",
-        source: "cloudflare_pages_default",
+        url: "https://b-main.example.workers.dev",
+        source: "cloudflare_workers_default",
         active: true,
         lastSyncedAt: 31,
       });
@@ -939,8 +941,8 @@ describe("vault dashboard Convex contract", () => {
         vaultId,
         branch: "a-feature",
         kind: "branch_preview",
-        url: "https://a-feature.pages.dev",
-        source: "cloudflare_pages_default",
+        url: "https://a-feature.example.workers.dev",
+        source: "cloudflare_workers_default",
         active: true,
         lastSyncedAt: 32,
       });
@@ -948,8 +950,8 @@ describe("vault dashboard Convex contract", () => {
         vaultId,
         branch: "main",
         kind: "main",
-        url: "https://a-main.pages.dev",
-        source: "cloudflare_pages_custom",
+        url: "https://a-main.example.workers.dev",
+        source: "cloudflare_workers_custom",
         active: true,
         lastSyncedAt: 33,
       });
@@ -973,10 +975,10 @@ describe("vault dashboard Convex contract", () => {
     }
 
     expect(infrastructure.domains.map((domain) => domain.url)).toEqual([
-      "https://a-main.pages.dev",
-      "https://b-main.pages.dev",
-      "https://a-feature.pages.dev",
-      "https://z-feature.pages.dev",
+      "https://a-main.example.workers.dev",
+      "https://b-main.example.workers.dev",
+      "https://a-feature.example.workers.dev",
+      "https://z-feature.example.workers.dev",
     ]);
   });
 
@@ -1181,8 +1183,8 @@ describe("vault dashboard Convex contract", () => {
         vaultId,
         branch: "main",
         kind: "main",
-        url: "https://delete-me.pages.dev",
-        source: "cloudflare_pages_default",
+        url: "https://delete-me.example.workers.dev",
+        source: "cloudflare_workers_default",
         active: true,
         lastSyncedAt: 8,
       });

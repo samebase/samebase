@@ -117,7 +117,8 @@ export const vVaultCloudflareState = union(
   object({
     state: literal("connected"),
     accountId: string(),
-    projectName: string(),
+    workerName: string(),
+    workerTag: string(),
     productionUrl: string(),
     connectedAt: number(),
   }),

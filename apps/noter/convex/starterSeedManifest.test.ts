@@ -9,7 +9,9 @@ describe("starterSeedManifest", () => {
     expect(starterTemplateManifest.sourceRepo).toBe(
       "https://github.com/notermd/app.git",
     );
-    expect(starterTemplateManifest.sourceBranch.length).toBeGreaterThan(0);
+    expect(starterTemplateManifest.sourceBranch).toBe(
+      "v5-tanstack-start-workers",
+    );
     expect(starterTemplateManifest.sourceCommit).toMatch(/^[0-9a-f]{40}$/);
     expect(starterTemplateManifest.contentHash).toMatch(/^[0-9a-f]{64}$/);
     expect(starterTemplateManifest.commitMessage).toBe(
@@ -23,11 +25,17 @@ describe("starterSeedManifest", () => {
     const allFilePaths = [...filePaths, ...binaryFilePaths];
 
     expect(filePaths).toContain("package.json");
+    expect(filePaths).toContain(".node-version");
+    expect(filePaths).toContain("wrangler.jsonc");
+    expect(filePaths).toContain("scripts/build-cloudflare.ts");
+    expect(filePaths).toContain("scripts/deploy-cloudflare.ts");
+    expect(filePaths).toContain("src/router.tsx");
     expect(filePaths).toContain("src/routes/index.tsx");
     expect(filePaths).toContain("src/routeTree.gen.ts");
     expect(filePaths).toContain("convex/schema.ts");
     expect(filePaths).toContain("convex/_generated/api.d.ts");
     expect(filePaths).toContain("AGENTS.md");
+    expect(filePaths).toContain("docs/local-setup.md");
     expect(starterTemplateManifest.fileModes[".vite-hooks/pre-commit"]).toBe(
       "100755",
     );

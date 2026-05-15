@@ -589,7 +589,7 @@ export function VaultDashboardDeleteDialog({
 }) {
   const hasStagedChanges = stagedChangesCount > 0;
   const removeCloudflareCheckboxId = "remove-cloudflare-provision";
-  const removeCloudflareLabel = "Also remove Cloudflare Pages project";
+  const removeCloudflareLabel = "Also remove Cloudflare Worker";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1140,7 +1140,7 @@ function buildVaultDashboardRepositoryExternalLinks(args: {
       href: args.cloudflareProjectDashboardUrl,
       key: "cloudflare",
       label: "Cloudflare",
-      title: "Open Cloudflare Pages project",
+      title: "Open Cloudflare Worker",
     });
   }
 
