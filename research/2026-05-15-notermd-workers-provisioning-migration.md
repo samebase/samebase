@@ -29,6 +29,13 @@ Noter's current app creation path is deeply Cloudflare Pages-shaped. Replacing
 it with Workers is feasible, but it is a provider-adapter migration, not a
 template-only change.
 
+The product should still present one supported stack. Noter does not yet have
+external users who require backwards compatibility, and the operator can remove
+or rewrite production data before deploying a breaking migration. Therefore the
+default implementation should not preserve Cloudflare Pages support unless doing
+so is clearly simpler than deleting it. Pages should be treated as the old stack
+being replaced, not as a second provider Noter intends to maintain.
+
 The runtime app creation flow does not clone or preserve the public
 `notermd/app` commit history. Noter exports a selected `notermd/app` branch into
 `apps/noter/convex/starterSeedManifest.generated.ts`, then seeds the user's new
@@ -341,12 +348,16 @@ Expected changes:
 
 This alone does not change automatic Cloudflare provisioning.
 
-### 2. Replace Pages Adapter With Workers Adapter
+### 2. Replace Pages Adapter With Workers Code
 
-Introduce a Workers-specific resource adapter instead of reshaping Pages code in
-place. The current `cloudflareResources.ts` owns Pages errors, Pages endpoints,
-Pages status/log reads, and Pages deletion. A Workers adapter should make the
-resource kind explicit.
+Replace the Pages implementation with Workers behavior. The current
+`cloudflareResources.ts` owns Pages errors, Pages endpoints, Pages status/log
+reads, and Pages deletion. If the migration PR can delete or rewrite those paths
+directly, prefer that over introducing a long-term Pages/Workers abstraction.
+
+Only keep a temporary Pages branch if it reduces implementation risk for the
+first deploy. It should not become a supported product path unless a real user
+need appears.
 
 Minimum Workers resource operations:
 
@@ -362,7 +373,7 @@ Minimum Workers resource operations:
 10. read Workers Builds history/logs
 11. delete Worker and build triggers/resources
 
-### 3. Update Cloudflare State Shape
+### 3. Replace Cloudflare State Shape
 
 The current state names `projectName`, `subdomain`, and `productionUrl`. Workers
 probably need at least:
@@ -378,6 +389,11 @@ probably need at least:
 Avoid guessing the final shape until the API implementation proves which IDs are
 needed for idempotent updates and deletion.
 
+Because production data can be cleared or migrated manually, this does not need
+a wide compatibility union that preserves the old Pages shape indefinitely.
+Prefer the simplest Workers state that the new provisioning and deletion paths
+need.
+
 ### 4. Update Domain Sources
 
 `vVaultDomainSource` currently only has:
@@ -390,8 +406,9 @@ Workers provisioning needs new source values, likely:
 1. `cloudflare_workers_default`
 2. `cloudflare_workers_custom`
 
-Existing Pages vaults should remain representable. Do not rename old values in
-place unless a data migration and compatibility plan exists.
+If production data is cleared before rollout, the old Pages source values can be
+removed instead of preserved. Keep them only if the deployment plan
+intentionally ships with existing Pages rows still present.
 
 ### 5. Replace Preview Metadata Source
 
@@ -408,12 +425,10 @@ Preferred implementation direction:
 
 ### 6. Update Deletion
 
-Deletion should branch on Cloudflare resource kind. Existing Pages vaults should
-continue deleting Pages projects. New Workers vaults should delete Workers
-resources and associated build triggers.
-
-Do not convert `delete_pages_project` into a vague Cloudflare delete action
-until the underlying resource model is explicit.
+Deletion should target Workers resources and associated build triggers. If old
+Pages projects still need cleanup, handle that as a one-off operational cleanup
+or a temporary migration path. Do not keep `delete_pages_project` as a long-term
+supported deletion action unless that proves simpler than removing it.
 
 ### 7. Update User-Facing Copy
 
@@ -455,11 +470,13 @@ Workers migration should update copy only when the backing behavior changes.
    Workers preview URL shape and PR comments need real verification before UI
    and cache behavior are changed.
 
-5. **Existing Pages vaults**
+5. **Breaking Pages compatibility is acceptable**
 
-   Existing Noter-managed vaults may already have Pages resources. The first
-   Workers implementation should support new vaults without breaking existing
-   Pages deletion, reads, or dashboard display.
+   Existing Noter-managed vaults may already have Pages resources, but Noter can
+   reset or rewrite that production data before rollout. The implementation
+   should optimize for the future single Workers stack. The deployment checklist
+   should explicitly say whether old Pages rows/projects were removed manually
+   or by a one-off cleanup.
 
 6. **Static asset billing**
 
@@ -471,17 +488,18 @@ Workers migration should update copy only when the backing behavior changes.
 
 1. Export the finalized Workers template snapshot into
    `starterSeedManifest.generated.ts`.
-2. Add explicit Cloudflare resource kind/state support while preserving Pages
-   rows.
-3. Add a Workers adapter with status/log/build-trigger reads and tests around
-   request payloads.
-4. Switch new app provisioning to Workers while leaving existing Pages vaults
-   supported.
+2. Replace the Pages state shape and provisioning code with Workers state and
+   provisioning code.
+3. Add Workers status/log/build-trigger reads and tests around request payloads.
+4. Remove Pages-specific domain source values, deletion actions, preview copy,
+   and read tools unless a short-lived rollout helper needs them.
 5. Update preview metadata source after a real Workers PR preview is inspected.
 6. Update docs, landing preview copy, and dashboard labels.
 
 If this becomes too large, split after step 2. The state-shape change is the
-right boundary before introducing provider API behavior.
+right boundary before introducing provider API behavior. Do not split by adding
+a permanent Pages/Workers provider matrix unless the implementation proves that
+dual support is cheaper than replacement.
 
 ## Sources
 
