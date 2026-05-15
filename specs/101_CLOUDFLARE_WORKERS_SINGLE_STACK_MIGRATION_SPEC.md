@@ -93,8 +93,8 @@ Implementation rules:
 `notermd/app@main` is still Pages-oriented. Noter currently exports that branch
 into `apps/noter/convex/starterSeedManifest.generated.ts`.
 
-The experimental Workers branch is `notermd/app@v5-tanstack-start-workers`. That
-branch proves the rough shape:
+The Workers branch is `notermd/app@v5-tanstack-start-workers`. That branch
+proves the rough shape:
 
 1. TanStack Start in client-first mode
 2. Convex backend
@@ -104,9 +104,9 @@ branch proves the rough shape:
 6. Node 24 pin so small TypeScript helper scripts can run directly in Cloudflare
    Workers Builds
 
-Before this branch becomes the final template source, remove disposable
-`app-start-workers` language and squash/reorder exploratory commits into a
-teaching history.
+The branch is acceptable as the implementation input. Commit numbering, copy
+cleanup, and final artifact polish can happen later. The immediate Noter work is
+to consume this Workers-shaped template and replace Pages auto-provisioning.
 
 ### Generated App Seeding
 
@@ -142,7 +142,10 @@ of the single-stack guarantee, not follow-up cleanup.
 
 ### Template Target
 
-`notermd/app` main should be a Workers teaching artifact.
+`notermd/app` main should be a Workers teaching artifact. For the first Noter
+implementation pass, the current `v5-tanstack-start-workers` branch is good
+enough to consume directly or promote to main. Clean commit numbering and copy
+are polish, not blockers.
 
 Requirements:
 
@@ -191,24 +194,21 @@ New Noter-managed app creation should:
 
 ## Implementation Plan
 
-### Phase 1: Finalize Workers Template Artifact
+### Phase 1: Select Workers Template Source
 
-1. Clean the `notermd/app@v5-tanstack-start-workers` branch.
-2. Remove disposable names and exploratory language.
-3. Decide whether the Node 24 helper-script detour is one commit or folded into
-   the Workers deploy step.
-4. Verify local commands:
+1. Use `notermd/app@v5-tanstack-start-workers` as the implementation source, or
+   promote that branch to `notermd/app@main`.
+2. Verify local commands:
    - `pnpm install --frozen-lockfile`
    - `vp run check`
    - `vp run build`
    - production deploy dry run
    - preview deploy dry run
-5. Verify manual Cloudflare Workers Builds setup from a clean Cloudflare/Convex
+3. Verify manual Cloudflare Workers Builds setup from a clean Cloudflare/Convex
    state.
-6. Move the cleaned branch to the template main when the history is ready.
 
-Do not export the template into Noter until the branch has the final file names,
-scripts, and docs.
+Template history polish remains valuable, but it should not block Noter
+auto-provisioning work.
 
 ### Phase 2: Move Noter Production Hosting To Workers
 
@@ -224,11 +224,11 @@ This phase proves the stack Noter sells is also the stack Noter uses.
 
 ### Phase 3: Export Workers Template Snapshot
 
-After `notermd/app` main or a final named branch is Workers-based, refresh the
-generated starter manifest:
+After selecting the Workers template source, refresh the generated starter
+manifest:
 
 ```bash
-pnpm run template:export -- --branch <final-workers-template-branch>
+pnpm run template:export -- --branch v5-tanstack-start-workers
 ```
 
 Update tests that assert starter files. Expected starter files should include
