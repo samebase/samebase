@@ -132,11 +132,11 @@ Common endpoints:
     inputDisplayKey: "limit",
   },
   {
-    name: "request_cloudflare_workers_projects_read",
+    name: "request_cloudflare_workers_inventory_read",
     description:
-      "Request approval to list Cloudflare Workers projects for an account. This tool only creates an approval proposal and does not execute direct reads.",
+      "Request approval to list Cloudflare Workers for an account. This tool only creates an approval proposal and does not execute direct reads.",
     uiDescription:
-      "Propose Cloudflare Workers project inventory read (approval required)",
+      "Propose Cloudflare Workers inventory read (approval required)",
     inputDisplayKey: "accountId",
   },
   {

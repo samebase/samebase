@@ -390,9 +390,10 @@ type ProviderCleanupPlan = {
         reason: "not_requested" | "not_noter_managed" | "not_recorded";
       }
     | {
-        action: "delete_pages_project";
+        action: "delete_worker";
         accountId: string;
-        projectName: string;
+        workerName: string;
+        workerTag: string;
       };
 };
 ```
@@ -606,8 +607,7 @@ The deletion Workflow runs:
 1. `lock_vault`: claim the run and confirm the vault deletion gate points to
    this run
 2. `delete_codespaces`: delete connected Codespaces when requested
-3. `delete_cloudflare`: delete the recorded Cloudflare Pages project when
-   requested
+3. `delete_cloudflare`: delete the recorded Cloudflare Worker when requested
 4. `delete_convex`: delete the recorded Convex project or deployment when
    requested
 5. `delete_github_repo`: delete the recorded Noter-managed GitHub repository
@@ -669,7 +669,8 @@ vault-scoped rows.
 
 ### Cloudflare
 
-1. Delete only a `delete_pages_project` plan's Cloudflare Pages project.
+1. Delete only a `delete_worker` plan's Cloudflare Worker and its build
+   triggers.
 2. Require a Cloudflare connection when Cloudflare teardown is requested.
 3. Treat provider not-found as success.
 4. Do not delete account-level or unrelated Cloudflare resources.

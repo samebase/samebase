@@ -1537,10 +1537,7 @@ export const ensureCloudflareInfrastructure = internalAction({
         accountId: cloudflareExisting?.accountId,
         workerName: cloudflareExisting?.workerName,
         workerTag: cloudflareExisting?.workerTag,
-        accountSubdomain: cloudflareExisting?.accountSubdomain,
         productionUrl: cloudflareExisting?.productionUrl,
-        productionTriggerUuid: cloudflareExisting?.productionTriggerUuid,
-        previewTriggerUuid: cloudflareExisting?.previewTriggerUuid,
       },
       convex: {
         production: {

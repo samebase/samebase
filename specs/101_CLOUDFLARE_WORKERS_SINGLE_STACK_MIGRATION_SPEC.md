@@ -200,7 +200,7 @@ New Noter-managed app creation should:
 10. configure non-production branch build/deploy commands
 11. set production and preview build variables/secrets
 12. trigger the first production build
-13. record the Workers production URL and trigger IDs
+13. record the Workers production URL and Worker tag
 14. surface preview URLs, status, and logs from Workers-compatible data
 
 ## Implementation Plan
@@ -249,8 +249,9 @@ Required Workers operations:
 8. set preview Convex env vars/secrets
 9. trigger the first production build
 10. read build status and logs
-11. record production URL, Worker tag, and build trigger IDs
-12. delete Worker/build resources when deleting a Noter-managed vault
+11. record production URL and Worker tag
+12. rediscover and delete Worker build triggers when deleting a Noter-managed
+    vault
 
 For generated single-repository apps, use these Workers Builds commands:
 

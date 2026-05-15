@@ -89,7 +89,7 @@ const requestCloudflareAccountsReadInputSchema = z.object({
     "In owner mode, allow explicit raw payload fallback",
   ),
 });
-const requestCloudflareWorkersProjectsReadInputSchema = z.object({
+const requestCloudflareWorkersInventoryReadInputSchema = z.object({
   accountId: z
     .string()
     .optional()
@@ -286,8 +286,8 @@ export const requestCloudflareLogsReadToolInputSchema = zodToToolInputSchema(
 export const requestCloudflareAccountsReadToolInputSchema =
   zodToToolInputSchema(requestCloudflareAccountsReadInputSchema);
 
-export const requestCloudflareWorkersProjectsReadToolInputSchema =
-  zodToToolInputSchema(requestCloudflareWorkersProjectsReadInputSchema);
+export const requestCloudflareWorkersInventoryReadToolInputSchema =
+  zodToToolInputSchema(requestCloudflareWorkersInventoryReadInputSchema);
 
 export const requestConvexDataReadToolInputSchema = zodToToolInputSchema(
   requestConvexDataReadInputSchema,
@@ -491,9 +491,9 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     agentArgs: requestCloudflareAccountsReadInputSchema,
   },
   {
-    name: "request_cloudflare_workers_projects_read",
+    name: "request_cloudflare_workers_inventory_read",
     description:
-      "Request approval to list Cloudflare Workers projects for an account. This tool only creates an approval proposal and does not execute direct reads.",
+      "Request approval to list Cloudflare Workers for an account. This tool only creates an approval proposal and does not execute direct reads.",
     surfaces: ["agent", "mcp"],
     requiredScopes: ["prod.read.propose"],
     requiresVaultContext: false,
@@ -501,8 +501,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiresThreadContext: true,
     requiresGithubConnection: false,
     safety: "proposal_only",
-    inputSchema: requestCloudflareWorkersProjectsReadToolInputSchema,
-    agentArgs: requestCloudflareWorkersProjectsReadInputSchema,
+    inputSchema: requestCloudflareWorkersInventoryReadToolInputSchema,
+    agentArgs: requestCloudflareWorkersInventoryReadInputSchema,
   },
   {
     name: "request_convex_data_read",

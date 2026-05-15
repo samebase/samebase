@@ -42,7 +42,7 @@ describe("listCatalogToolsForSurface", () => {
       "request_cloudflare_status_read",
       "request_cloudflare_logs_read",
       "request_cloudflare_accounts_read",
-      "request_cloudflare_workers_projects_read",
+      "request_cloudflare_workers_inventory_read",
       "request_convex_data_read",
     ]);
 
@@ -70,7 +70,7 @@ describe("listCatalogToolsForSurface", () => {
       "request_cloudflare_status_read",
       "request_cloudflare_logs_read",
       "request_cloudflare_accounts_read",
-      "request_cloudflare_workers_projects_read",
+      "request_cloudflare_workers_inventory_read",
       "request_convex_data_read",
     ]);
   });

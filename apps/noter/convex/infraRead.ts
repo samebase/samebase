@@ -192,7 +192,7 @@ export const getConvexLogs = internalAction({
   },
 });
 
-export const getCloudflareProjectStatus = internalAction({
+export const getCloudflareWorkerStatus = internalAction({
   args: {
     vaultId: v.id("vaults"),
   },
@@ -343,7 +343,7 @@ export const getCloudflareAccountInventory = internalAction({
   },
 });
 
-export const getCloudflareWorkersProjectInventory = internalAction({
+export const getCloudflareWorkersInventory = internalAction({
   args: {
     limit: v.optional(v.number()),
     userId: v.id("users"),
@@ -364,7 +364,7 @@ export const getCloudflareWorkersProjectInventory = internalAction({
     const accountId = args.accountId ?? cloudflareConnection?.accountId;
     if (!accountId) {
       throw new Error(
-        "Cloudflare accountId is required to list Workers projects. Reconnect or select an account first.",
+        "Cloudflare accountId is required to list Workers. Reconnect or select an account first.",
       );
     }
 
@@ -375,19 +375,19 @@ export const getCloudflareWorkersProjectInventory = internalAction({
     path:
       "/accounts/" +
       encodeURIComponent(accountId) +
-	      "/workers/scripts?page=1&per_page=${perPage}",
-	  });
+      "/workers/scripts?page=1&per_page=${perPage}",
+  });
   if (!response || response.success !== true) {
     const errors = response && Array.isArray(response.errors) ? response.errors : response;
     throw new Error("Cloudflare API error: " + JSON.stringify(errors));
   }
   const result = Array.isArray(response.result) ? response.result : [];
-	  return result.map((worker) => ({
-	    name: worker?.id,
-	    tag: worker?.tag,
-	    modifiedOn: worker?.modified_on,
-	  }));
-	}`;
+  return result.map((worker) => ({
+    name: worker?.id,
+    tag: worker?.tag,
+    modifiedOn: worker?.modified_on,
+  }));
+}`;
 
     const text = await callCloudflareMcpTool({
       token,
@@ -401,7 +401,7 @@ export const getCloudflareWorkersProjectInventory = internalAction({
       typeof parsed === "string" ? parsed : JSON.stringify(parsed, null, 2);
 
     return {
-      summary: `Cloudflare Workers project inventory for account ${accountId}`,
+      summary: `Cloudflare Workers inventory for account ${accountId}`,
       endpoint: `/accounts/${encodeURIComponent(accountId)}/workers/scripts`,
       raw,
       rowCount: Array.isArray(parsed) ? parsed.length : undefined,

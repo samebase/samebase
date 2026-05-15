@@ -204,8 +204,7 @@ export const deleteCloudflare = internalAction({
       await deleteCloudflareResources({
         accountId: plan.cloudflare.accountId,
         workerName: plan.cloudflare.workerName,
-        productionTriggerUuid: plan.cloudflare.productionTriggerUuid,
-        previewTriggerUuid: plan.cloudflare.previewTriggerUuid,
+        workerTag: plan.cloudflare.workerTag,
         cloudflareToken: cloudflareConnection.auth.credential,
         cloudflareServerUrl:
           resolveCloudflareMcpServerUrl(cloudflareConnection),

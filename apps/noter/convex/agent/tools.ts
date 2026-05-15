@@ -501,9 +501,9 @@ export function createTools(toolCtx: ToolContext) {
       },
     }),
 
-    request_cloudflare_workers_projects_read: createTool({
+    request_cloudflare_workers_inventory_read: createTool({
       description: catalogDescription(
-        "request_cloudflare_workers_projects_read",
+        "request_cloudflare_workers_inventory_read",
       ),
       args: z.object({
         accountId: z
@@ -526,7 +526,7 @@ export function createTools(toolCtx: ToolContext) {
       }),
       handler: async (_ctx, input) => {
         return await executeSharedRuntimeTool(toolCtx, {
-          toolName: "request_cloudflare_workers_projects_read",
+          toolName: "request_cloudflare_workers_inventory_read",
           input,
         });
       },

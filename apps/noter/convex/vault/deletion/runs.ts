@@ -182,23 +182,18 @@ async function buildCloudflarePlan(
     return { action: "skip", reason: "not_noter_managed" };
   }
 
-  const infrastructureCloudflare = infrastructure?.cloudflare;
   const vaultCloudflare =
     vault.cloudflare.state === "connected"
       ? {
           accountId: vault.cloudflare.accountId,
           workerName: vault.cloudflare.workerName,
+          workerTag: vault.cloudflare.workerTag,
         }
       : null;
-  const cloudflare = vaultCloudflare ?? infrastructureCloudflare;
+  const cloudflare = vaultCloudflare ?? infrastructure?.cloudflare;
   if (!cloudflare) {
     return { action: "skip", reason: "not_recorded" };
   }
-  const matchingInfrastructureCloudflare =
-    infrastructureCloudflare?.accountId === cloudflare.accountId &&
-    infrastructureCloudflare.workerName === cloudflare.workerName
-      ? infrastructureCloudflare
-      : null;
 
   await requireProviderConnection(ctx, {
     userId: vault.userId,
@@ -208,18 +203,7 @@ async function buildCloudflarePlan(
     action: "delete_worker",
     accountId: cloudflare.accountId,
     workerName: cloudflare.workerName,
-    ...(matchingInfrastructureCloudflare?.productionTriggerUuid
-      ? {
-          productionTriggerUuid:
-            matchingInfrastructureCloudflare.productionTriggerUuid,
-        }
-      : {}),
-    ...(matchingInfrastructureCloudflare?.previewTriggerUuid
-      ? {
-          previewTriggerUuid:
-            matchingInfrastructureCloudflare.previewTriggerUuid,
-        }
-      : {}),
+    workerTag: cloudflare.workerTag,
   };
 }
 

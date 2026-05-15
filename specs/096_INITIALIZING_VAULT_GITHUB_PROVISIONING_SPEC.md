@@ -962,8 +962,8 @@ should first make the separate provider states trustworthy enough to retry.
 
 Cloudflare MCP calls used by Cloudflare provisioning should use a 30-second
 per-request timeout. The earlier 10-second timeout was too tight for normal
-Pages project setup latency and could fail `ensure_cloudflare` before backend
-retry and reconcile behavior had a chance to make the step durable.
+Cloudflare setup latency and could fail `ensure_cloudflare` before backend retry
+and reconcile behavior had a chance to make the step durable.
 
 Future Cloudflare durability work should also cover deploy/publish failures
 after asset upload has already succeeded. Production has observed Cloudflare

@@ -166,7 +166,7 @@ export const vProdAccessResourceKind = union(
   literal("data_query"),
   literal("project_inventory"),
   literal("account_inventory"),
-  literal("workers_project_inventory"),
+  literal("workers_inventory"),
 );
 
 export const vProdAccessStatus = union(

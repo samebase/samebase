@@ -9,6 +9,12 @@
   `specs/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
 - Related vault-first cleanup:
   `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
+- Cloudflare Workers migration:
+  `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
+
+> Note: this spec describes the original MVP implementation. Its Cloudflare
+> Pages-specific sections are superseded by the Workers-only direction in
+> `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`.
 
 ## Summary
 

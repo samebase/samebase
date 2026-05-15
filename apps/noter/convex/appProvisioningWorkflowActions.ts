@@ -240,7 +240,7 @@ export const validateCreateAppConnections = internalAction({
     }
     if (cloudflareConnection?.kind !== "cloudflare") {
       throw new Error(
-        "Cloudflare connection is required to create a Cloudflare project.",
+        "Cloudflare connection is required to create a Worker-backed app.",
       );
     }
 

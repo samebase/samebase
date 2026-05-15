@@ -151,6 +151,7 @@ export function isCloudflareWorkerNotFoundError(error: unknown): boolean {
       const message = detail.message?.toLowerCase();
       return (
         message === "worker not found" ||
+        message === "trigger not found" ||
         message === "script not found" ||
         message === "not found" ||
         message === "workers.api.error.not_found" ||
@@ -289,7 +290,6 @@ function buildCloudflareWorkersEnvVars(vars: {
 type CloudflareWorkerIdentity = {
   workerName: string;
   workerTag: string;
-  accountSubdomain: string;
   productionUrl: string;
 };
 
@@ -376,7 +376,6 @@ async function ensureWorker(args: {
       return {
         workerName,
         workerTag,
-        accountSubdomain,
         productionUrl: `https://${workerName}.${accountSubdomain}.workers.dev`,
       };
     }
@@ -404,7 +403,6 @@ async function ensureWorker(args: {
   return {
     workerName,
     workerTag,
-    accountSubdomain,
     productionUrl: `https://${workerName}.${accountSubdomain}.workers.dev`,
   };
 }
@@ -566,13 +564,7 @@ function matchesTriggerKind(args: {
   trigger: JsonRecord;
   kind: CloudflareBuildTriggerKind;
   defaultBranch: string;
-  existingTriggerUuid?: string;
 }): boolean {
-  const triggerUuid = readString(args.trigger, "trigger_uuid");
-  if (args.existingTriggerUuid && triggerUuid === args.existingTriggerUuid) {
-    return true;
-  }
-
   const branchIncludes = readStringArray(args.trigger, "branch_includes");
   const branchExcludes = readStringArray(args.trigger, "branch_excludes");
   if (args.kind === "production") {
@@ -613,7 +605,6 @@ async function upsertBuildTrigger(args: {
   buildTokenUuid: string;
   buildConfig: CloudflareBuildConfig;
   defaultBranch: string;
-  existingTriggerUuid?: string;
   existingTriggers: readonly JsonRecord[];
   kind: CloudflareBuildTriggerKind;
 }): Promise<string> {
@@ -622,7 +613,6 @@ async function upsertBuildTrigger(args: {
       trigger,
       kind: args.kind,
       defaultBranch: args.defaultBranch,
-      existingTriggerUuid: args.existingTriggerUuid,
     }),
   );
   const triggerName =
@@ -780,7 +770,6 @@ export async function ensureCloudflareResources(
       buildTokenUuid,
       buildConfig: args.buildConfig,
       defaultBranch: args.defaultBranch,
-      existingTriggerUuid: args.existing.productionTriggerUuid,
       existingTriggers,
       kind: "production",
     });
@@ -793,7 +782,6 @@ export async function ensureCloudflareResources(
       buildTokenUuid,
       buildConfig: args.buildConfig,
       defaultBranch: args.defaultBranch,
-      existingTriggerUuid: args.existing.previewTriggerUuid,
       existingTriggers,
       kind: "preview",
     });
@@ -837,10 +825,7 @@ export async function ensureCloudflareResources(
       accountId: args.accountId,
       workerName: worker.workerName,
       workerTag: worker.workerTag,
-      accountSubdomain: worker.accountSubdomain,
       productionUrl: worker.productionUrl,
-      productionTriggerUuid,
-      previewTriggerUuid,
     };
 
     console.log("infra:cloudflare:provision:success", {
@@ -979,29 +964,23 @@ export async function readCloudflareBuildLogs(
 type DeleteCloudflareResourcesArgs = {
   accountId: string;
   workerName: string;
-  productionTriggerUuid?: string;
-  previewTriggerUuid?: string;
+  workerTag: string;
   cloudflareToken: string;
   cloudflareServerUrl?: string;
 };
 
-async function deleteCloudflareBuildTriggerIfRecorded(args: {
+async function deleteCloudflareBuildTrigger(args: {
   accountId: string;
-  triggerUuid?: string;
+  triggerUuid: string;
   cloudflareToken: string;
   cloudflareServerUrl?: string;
 }): Promise<void> {
-  const triggerUuid = args.triggerUuid?.trim();
-  if (!triggerUuid) {
-    return;
-  }
-
   try {
     await requestCloudflareApi({
       token: args.cloudflareToken,
       serverUrl: args.cloudflareServerUrl,
       method: "DELETE",
-      path: `/accounts/${encodeURIComponent(args.accountId)}/workers/builds/triggers/${encodeURIComponent(triggerUuid)}`,
+      path: `/accounts/${encodeURIComponent(args.accountId)}/builds/triggers/${encodeURIComponent(args.triggerUuid)}`,
     });
   } catch (error) {
     if (!isCloudflareWorkerNotFoundError(error)) {
@@ -1013,20 +992,31 @@ async function deleteCloudflareBuildTriggerIfRecorded(args: {
 export async function deleteCloudflareResources(
   args: DeleteCloudflareResourcesArgs,
 ): Promise<void> {
-  await Promise.all([
-    deleteCloudflareBuildTriggerIfRecorded({
-      accountId: args.accountId,
-      triggerUuid: args.productionTriggerUuid,
-      cloudflareToken: args.cloudflareToken,
-      cloudflareServerUrl: args.cloudflareServerUrl,
+  const triggers = await listBuildTriggers({
+    token: args.cloudflareToken,
+    serverUrl: args.cloudflareServerUrl,
+    accountId: args.accountId,
+    workerTag: args.workerTag,
+  }).catch((error: unknown) => {
+    if (isCloudflareWorkerNotFoundError(error)) {
+      return [];
+    }
+    throw error;
+  });
+  await Promise.all(
+    triggers.map(async (trigger) => {
+      const triggerUuid = readString(trigger, "trigger_uuid");
+      if (!triggerUuid) {
+        return;
+      }
+      await deleteCloudflareBuildTrigger({
+        accountId: args.accountId,
+        triggerUuid,
+        cloudflareToken: args.cloudflareToken,
+        cloudflareServerUrl: args.cloudflareServerUrl,
+      });
     }),
-    deleteCloudflareBuildTriggerIfRecorded({
-      accountId: args.accountId,
-      triggerUuid: args.previewTriggerUuid,
-      cloudflareToken: args.cloudflareToken,
-      cloudflareServerUrl: args.cloudflareServerUrl,
-    }),
-  ]);
+  );
   await requestCloudflareApi({
     token: args.cloudflareToken,
     serverUrl: args.cloudflareServerUrl,

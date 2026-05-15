@@ -403,11 +403,11 @@ export const executeApprovedProdRead = internalAction({
       ) {
         if (!request.vaultId) {
           throw new Error(
-            "Vault context is required for Cloudflare project status",
+            "Vault context is required for Cloudflare Worker status",
           );
         }
         executionResult = await ctx.runAction(
-          internal.infraRead.getCloudflareProjectStatus,
+          internal.infraRead.getCloudflareWorkerStatus,
           {
             vaultId: request.vaultId,
           },
@@ -465,10 +465,10 @@ export const executeApprovedProdRead = internalAction({
         );
       } else if (
         request.provider === "cloudflare" &&
-        request.resourceKind === "workers_project_inventory"
+        request.resourceKind === "workers_inventory"
       ) {
         executionResult = await ctx.runAction(
-          internal.infraRead.getCloudflareWorkersProjectInventory,
+          internal.infraRead.getCloudflareWorkersInventory,
           {
             limit: parseOptionalPositiveNumber(params["limit"]),
             userId: request.requesterUserId,
