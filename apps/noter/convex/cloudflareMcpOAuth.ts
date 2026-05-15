@@ -85,7 +85,7 @@ async function registerCloudflareMcpClient(args: {
 
   if (!response.ok || !clientId) {
     throw new Error(
-      `Failed to register Cloudflare MCP OAuth client (${response.status}).`,
+      `Failed to register Cloudflare OAuth client (${response.status}).`,
     );
   }
 

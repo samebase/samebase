@@ -322,7 +322,7 @@ describe("infrastructure provisioning ownership", () => {
         runId: ids.runId,
         workflowId: "workflow-cloudflare",
         message:
-          "Error: Uncaught Error: Cloudflare Workers Builds requires a user-scoped API token. Connect Cloudflare with a Workers Builds API token and retry.\n    at requestCloudflareApi",
+          "Error: Uncaught Error: Cloudflare connection is missing Workers Builds write access. Reconnect Cloudflare and grant Workers Builds, Workers, and Workers Scripts access, then retry.\n    at requestCloudflareApi",
       },
     );
 
@@ -336,7 +336,7 @@ describe("infrastructure provisioning ownership", () => {
     });
 
     const expectedMessage =
-      "Cloudflare Workers Builds requires a user-scoped API token. Connect Cloudflare with a Workers Builds API token and retry.";
+      "Cloudflare connection is missing Workers Builds write access. Reconnect Cloudflare and grant Workers Builds, Workers, and Workers Scripts access, then retry.";
     expect(result.run).toMatchObject({
       state: "failed",
       lastError: expectedMessage,

@@ -36,7 +36,8 @@ storage/indexing details.
    - Password: `pass1234`
 3. Provider connections support OAuth and API key methods.
 4. Cloudflare API keys are seed-only for anonymous local development; the
-   user-facing Cloudflare connection flow is MCP OAuth.
+   user-facing Cloudflare connection flow is Cloudflare OAuth backed by the
+   internal `mcp_oauth` credential method.
 5. Allowlist enforcement remains mandatory for sign-in/sign-up.
 
 ## Backend Requirements

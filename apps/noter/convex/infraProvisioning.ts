@@ -1790,11 +1790,7 @@ async function recordWorkflowRunFailure(
 }
 
 const USER_FACING_PROVISIONING_ERROR_MARKERS = [
-  "Cloudflare Workers Builds requires a user-scoped API token.",
-  "Cloudflare API token must be user-scoped and include Workers Builds Configuration Edit plus Workers Scripts Edit.",
-  "Cloudflare API token must be limited to one account for Noter provisioning.",
-  "Cloudflare API token is not scoped to an account.",
-  "Invalid Cloudflare API token.",
+  "Cloudflare connection is missing Workers Builds write access.",
   "Cloudflare Workers needs a configured workers.dev subdomain",
   "Cloudflare Workers Builds has no build API token",
   "GitHub owner id is required before Cloudflare Workers Builds can connect the repository.",

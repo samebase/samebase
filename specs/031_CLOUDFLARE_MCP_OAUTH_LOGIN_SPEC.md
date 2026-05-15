@@ -22,20 +22,25 @@ method**:
 
 Cloudflare is the only provider in our stack (as of 2026-03) that offers a
 hosted remote MCP endpoint with an OAuth consent flow. We want to use that flow
-for end-user Cloudflare connectivity (no copy/paste tokens), while retaining an
-API token path for local/dev seeding and non-interactive bootstrap.
+for end-user Cloudflare connectivity (no copy/paste tokens), while retaining a
+seed-only API token path for local/dev seeding and non-interactive bootstrap.
 
-**Key decision:** even when the user connects Cloudflare via `api_key`, Noter
-should still talk to Cloudflare **through the Cloudflare MCP server** (single
-integration surface) rather than maintaining a parallel direct Cloudflare REST
-integration.
+**Product invariant:** normal users must be able to connect Cloudflare from the
+web app without creating a Cloudflare API token. `mcp_oauth` is an internal
+credential label; user-facing product copy should call this Cloudflare OAuth or
+Cloudflare web auth.
+
+**Key decision:** even when local/dev seeding connects Cloudflare via `api_key`,
+Noter should still talk to Cloudflare **through the Cloudflare MCP server**
+(single integration surface) rather than maintaining a parallel direct
+Cloudflare REST integration.
 
 ## Goals
 
 1. Allow users to connect Cloudflare without manually creating/pasting API
-   tokens by using the Cloudflare MCP OAuth consent flow.
+   tokens by using the Cloudflare web OAuth consent flow.
 2. Keep a non-interactive, seed-friendly Cloudflare auth path using an API token
-   (`api_key`) for `make anon` / worktree seeding.
+   (`api_key`) for `make anon` / worktree seeding only.
 3. Make Cloudflare connection a first-class provider in `providerConnections`,
    consistent with GitHub/Convex provider connections.
 4. Keep the runtime integration surface **one**: Cloudflare MCP.
@@ -66,11 +71,13 @@ integration.
 
 1. Only Cloudflare uses `mcp_oauth` in MVP.
 2. Cloudflare connections must support **both**:
-   - `mcp_oauth` (preferred for interactive user connect)
-   - `api_key` (required for seed/bootstrap)
+   - `mcp_oauth` (required for interactive user connect)
+   - `api_key` (required for seed/bootstrap only)
 3. Internally, Noter calls Cloudflare through **Cloudflare MCP** regardless of
    which Cloudflare auth method is used.
 4. Cloudflare must be integrated as a provider connection, not as app-login.
+5. Cloudflare API tokens must not be presented as the normal create-app
+   prerequisite or fallback for users.
 
 ## Data Model
 
@@ -105,8 +112,8 @@ Notes:
 1. `mcpServerUrl` is stored even if fixed in MVP to keep debugging and future
    migration straightforward.
 2. `credentialExpiresAt` is optional because some flows may not return it.
-3. `api_key` remains as-is. For Cloudflare, it represents a Cloudflare API token
-   (not a global API key), stored in `auth.credential`.
+3. `api_key` remains as-is. For Cloudflare seed/bootstrap, it represents a
+   Cloudflare API token (not a global API key), stored in `auth.credential`.
 
 ### 3) Cloudflare provider connection document
 
@@ -180,16 +187,9 @@ will add env vars similar to other providers:
 Note: Convex enforces an env-var name length limit (<40 chars), so keep these
 names short.
 
-## API Token (Seed + Manual) Flow
+## API Token Seed Flow
 
-### 1) Manual connect via API token
-
-Providers UI should allow:
-
-- “Connect Cloudflare via API token” (paste once)
-- Store as `auth.method="api_key"`
-
-### 2) Dev seed support
+### Dev seed support
 
 Add dev seed input:
 
@@ -240,12 +240,11 @@ Add Cloudflare to the existing providers panel (see spec 029):
 
 1. Show connection status: connected/disconnected.
 2. If connected, show method label:
-   - `MCP OAuth` (preferred)
-   - `API token`
+   - `OAuth` for `mcp_oauth`
+   - `API key` only for dev/operator seeded `api_key` connections
 3. Provide “Disconnect” action that deletes the provider connection row.
-4. For least surprise, keep the “Connect” button single-primary:
-   - Primary: `Connect` (MCP OAuth)
-   - Secondary: `Use API token instead`
+4. For least surprise, keep the Cloudflare connect action as a web auth button.
+   Do not show a Cloudflare API-token button in the normal providers UI.
 
 ## Security / Privacy
 
@@ -265,7 +264,8 @@ Phase 1 (Auth + Connection):
 
 1. Add `ProviderKind.cloudflare`.
 2. Add `ProviderAuth.method="mcp_oauth"`.
-3. Add Cloudflare connect/disconnect UI (MCP OAuth + API token).
+3. Add Cloudflare connect/disconnect UI (web OAuth, no Cloudflare API-token
+   button).
 4. Add seed support via `DEV_SEED_CLOUDFLARE_API_KEY`.
 
 Phase 2 (First capability):

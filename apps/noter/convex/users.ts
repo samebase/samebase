@@ -35,7 +35,6 @@ const ADMIN_EMAILS = new Set([
 const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
 const GITHUB_API_BASE = "https://api.github.com";
 const CONVEX_TOKEN_DETAILS_URL = "https://api.convex.dev/v1/token_details";
-const CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4";
 
 const authProviderSummaryValidator = object({
   providers: array(string()),
@@ -358,111 +357,6 @@ async function fetchConvexTokenDetails(token: string): Promise<{
     field: "slug",
   });
   return { teamId, teamSlug };
-}
-
-function formatCloudflareApiErrors(payload: unknown): string {
-  if (!isRecord(payload)) {
-    return "";
-  }
-  const errors = payload["errors"];
-  if (!Array.isArray(errors)) {
-    return "";
-  }
-
-  const messages: string[] = [];
-  for (const error of errors) {
-    if (!isRecord(error)) {
-      continue;
-    }
-    const code = readNumberAsString(error, "code");
-    const message = readString(error, "message");
-    if (message && code) {
-      messages.push(`${code}: ${message}`);
-      continue;
-    }
-    if (message) {
-      messages.push(message);
-      continue;
-    }
-    if (code) {
-      messages.push(code);
-    }
-  }
-  return messages.join("; ");
-}
-
-async function fetchCloudflareApiRecord(args: {
-  token: string;
-  path: string;
-  invalidMessage: string;
-}): Promise<JsonRecord> {
-  const response = await fetchWithTimeout(
-    `${CLOUDFLARE_API_BASE}${args.path}`,
-    {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${args.token}`,
-      },
-    },
-  );
-
-  const payload = await response.json().catch(() => null);
-  if (!response.ok || !isRecord(payload) || payload["success"] !== true) {
-    const errors = formatCloudflareApiErrors(payload);
-    throw new Error(
-      errors ? `${args.invalidMessage} (${errors})` : args.invalidMessage,
-    );
-  }
-
-  return payload;
-}
-
-async function fetchCloudflareTokenDetails(token: string): Promise<{
-  accountId: string;
-}> {
-  const accountsPayload = await fetchCloudflareApiRecord({
-    token,
-    path: "/accounts",
-    invalidMessage: "Invalid Cloudflare API token.",
-  });
-  const accountsResult = accountsPayload["result"];
-  if (!Array.isArray(accountsResult)) {
-    throw new Error("Cloudflare API token response is missing accounts.");
-  }
-
-  const accountIds: string[] = [];
-  for (const account of accountsResult) {
-    if (!isRecord(account)) {
-      continue;
-    }
-    const accountId = readString(account, "id");
-    if (accountId) {
-      accountIds.push(accountId);
-    }
-  }
-  accountIds.sort((left, right) => left.localeCompare(right));
-
-  if (accountIds.length === 0) {
-    throw new Error("Cloudflare API token is not scoped to an account.");
-  }
-  if (accountIds.length > 1) {
-    throw new Error(
-      "Cloudflare API token must be limited to one account for Noter provisioning.",
-    );
-  }
-
-  const accountId = accountIds[0];
-  if (!accountId) {
-    throw new Error("Cloudflare API token is not scoped to an account.");
-  }
-  await fetchCloudflareApiRecord({
-    token,
-    path: `/accounts/${encodeURIComponent(accountId)}/builds/tokens?page=1&per_page=1`,
-    invalidMessage:
-      "Cloudflare API token must be user-scoped and include Workers Builds Configuration Edit plus Workers Scripts Edit.",
-  });
-
-  return { accountId };
 }
 
 // Public
@@ -965,12 +859,6 @@ const convexApiKeyConnectionResultValidator = v.object({
 type ConvexApiKeyConnectionResult = Infer<
   typeof convexApiKeyConnectionResultValidator
 >;
-const cloudflareApiKeyConnectionResultValidator = v.object({
-  accountId: v.string(),
-});
-type CloudflareApiKeyConnectionResult = Infer<
-  typeof cloudflareApiKeyConnectionResultValidator
->;
 
 export const connectGithubWithApiKey = action({
   args: {
@@ -1024,33 +912,6 @@ export const connectConvexWithApiKey = action({
     });
 
     return { teamId: details.teamId, teamSlug: details.teamSlug };
-  },
-});
-
-export const connectCloudflareWithApiKey = action({
-  args: {
-    token: v.string(),
-  },
-  returns: cloudflareApiKeyConnectionResultValidator,
-  handler: async (ctx, args): Promise<CloudflareApiKeyConnectionResult> => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      throw new Error("User not authenticated");
-    }
-
-    const token = normalizeApiToken(args.token);
-    const details = await fetchCloudflareTokenDetails(token);
-
-    await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
-      userId,
-      auth: {
-        method: "api_key",
-        credential: token,
-      },
-      accountId: details.accountId,
-    });
-
-    return { accountId: details.accountId };
   },
 });
 

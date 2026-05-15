@@ -42,8 +42,8 @@ type CloudflareApiErrorDetail = {
   message?: string;
 };
 
-const WORKERS_BUILDS_USER_TOKEN_MESSAGE =
-  "Cloudflare Workers Builds requires a user-scoped API token. Connect Cloudflare with a Workers Builds API token and retry.";
+const WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE =
+  "Cloudflare connection is missing Workers Builds write access. Reconnect Cloudflare and grant Workers Builds, Workers, and Workers Scripts access, then retry.";
 
 export class CloudflareApiError extends Error {
   readonly method: CloudflareRequestMethod;
@@ -239,7 +239,7 @@ async function requestCloudflareApi(args: {
         message,
       })
     ) {
-      throw new Error(WORKERS_BUILDS_USER_TOKEN_MESSAGE);
+      throw new Error(WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE);
     }
     throw error;
   });
@@ -247,7 +247,7 @@ async function requestCloudflareApi(args: {
   if (readBoolean(response, "success") !== true) {
     const details = readCloudflareApiErrorDetails(response["errors"]);
     if (isWorkersBuildsInvalidTokenDetails({ path: args.path, details })) {
-      throw new Error(WORKERS_BUILDS_USER_TOKEN_MESSAGE);
+      throw new Error(WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE);
     }
     throw new CloudflareApiError({
       method: args.method,

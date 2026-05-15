@@ -795,11 +795,11 @@ const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
   },
   cloudflare: {
     label: "Cloudflare",
-    oauthButtonLabel: "Cloudflare MCP OAuth",
+    oauthButtonLabel: "Cloudflare OAuth",
     popupName: "cloudflare-mcp-oauth",
     completionEventType: "cloudflare-mcp-oauth-complete",
     icon: <CloudflareProviderLogo />,
-    apiKeyProvider: "cloudflare",
+    apiKeyProvider: null,
   },
 };
 
@@ -2361,9 +2361,6 @@ export function VaultDashboard() {
   );
   const connectGithubWithApiKey = useAction(api.users.connectGithubWithApiKey);
   const connectConvexWithApiKey = useAction(api.users.connectConvexWithApiKey);
-  const connectCloudflareWithApiKey = useAction(
-    api.users.connectCloudflareWithApiKey,
-  );
   const disconnectGithub = useMutation(api.users.disconnectGithub);
   const disconnectConvex = useMutation(api.users.disconnectConvex);
   const disconnectCloudflare = useMutation(api.users.disconnectCloudflare);
@@ -2900,10 +2897,8 @@ export function VaultDashboard() {
     !isAutoCheckingCloudflareToken &&
     (cloudflareMcpTokenStatus === "invalid" ||
       cloudflareMcpTokenStatus === "expired");
-  const hasCloudflareProvisioningConnection =
-    cloudflareConnected && cloudflareAuthMethod === "api_key";
   const hasRequiredCreateConnections = Boolean(
-    githubConnected && convexConnected && hasCloudflareProvisioningConnection,
+    githubConnected && convexConnected && cloudflareConnected,
   );
   const canCreateRepo = Boolean(
     hasRequiredCreateConnections && selectedGithubRepositoryOwner.trim(),
@@ -2921,7 +2916,7 @@ export function VaultDashboard() {
     if (method === "api_key") return "API key";
     if (method === "device_auth") return "Device auth";
     if (method === "oauth") return "OAuth";
-    if (method === "mcp_oauth") return "MCP OAuth";
+    if (method === "mcp_oauth") return "OAuth";
     return "Unknown";
   };
   const githubStatus = githubConnected
@@ -2965,7 +2960,7 @@ export function VaultDashboard() {
   const cloudflareStatus = cloudflareConnected
     ? cloudflareAuthMethod === "mcp_oauth"
       ? [
-          "Connected (MCP OAuth).",
+          "Connected (OAuth).",
           `Token ${formatMcpTokenStatusLabel(cloudflareMcpTokenStatus)}.`,
           cloudflareMcpTokenTimeStatus,
           cloudflareSchedulerStatus,
@@ -3011,7 +3006,6 @@ export function VaultDashboard() {
   const { openApiKeyDialog, apiKeyDialog } = useApiKeyConnectDialog({
     connectGithubWithApiKey,
     connectConvexWithApiKey,
-    connectCloudflareWithApiKey,
   });
   const createControl = (
     <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">
@@ -3091,9 +3085,7 @@ export function VaultDashboard() {
         <div className="text-xs text-muted-foreground">
           {hasRequiredCreateConnections
             ? "Choose a GitHub owner to create an app."
-            : cloudflareConnected && !hasCloudflareProvisioningConnection
-              ? "Connect Cloudflare with a Workers Builds API token to create an app."
-              : `Connect GitHub, Convex, and ${requiredCloudflareConnectionLabel} to create an app.`}
+            : `Connect GitHub, Convex, and ${requiredCloudflareConnectionLabel} to create an app.`}
         </div>
       )}
       {githubRepositoryOwnerLoadError && (
@@ -3157,10 +3149,6 @@ export function VaultDashboard() {
     const providerMetadata = PROVIDER_METADATA[provider];
     const providerState = providerConnectionState[provider];
     const apiKeyProvider = providerMetadata.apiKeyProvider;
-    const canReplaceWithApiKey =
-      apiKeyProvider !== null &&
-      provider === "cloudflare" &&
-      cloudflareAuthMethod !== "api_key";
     const actions = providerState.connected
       ? providerState.showTokenCheck
         ? [
@@ -3177,19 +3165,6 @@ export function VaultDashboard() {
               isPending: isCheckingCloudflareToken,
               pendingLabel: "Checking...",
             },
-            ...(canReplaceWithApiKey
-              ? [
-                  {
-                    key: "api-key",
-                    label: "Use API key",
-                    onClick: () => openApiKeyDialog(apiKeyProvider),
-                    disabled:
-                      disconnectingProvider !== null ||
-                      isCheckingCloudflareToken ||
-                      isAutoCheckingCloudflareToken,
-                  },
-                ]
-              : []),
             {
               key: "disconnect",
               label: "Disconnect",
