@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Draft research
+- Status: Research with implementation follow-up
 - Owner: Noter app provisioning and template deployment
 - Created: 2026-05-15
 - Related:
@@ -21,7 +21,8 @@ provision Cloudflare Workers Static Assets through Workers Builds instead.
 
 The immediate product goal is to make the public `notermd/app` template use
 Cloudflare Workers, then replace Noter's automatic Pages provisioning with
-Workers provisioning. This research is intentionally pre-implementation.
+Workers provisioning. This research started before implementation; later notes
+record constraints learned while building the first Workers provisioning PR.
 
 ## Current Finding
 
@@ -48,7 +49,8 @@ reads, log reads, and deletion behavior.
 
 ## Current Template Snapshot
 
-The current generated starter manifest points at `notermd/app@main`:
+Before the Workers implementation, the generated starter manifest pointed at
+`notermd/app@main`:
 
 - `sourceRepo`: `https://github.com/notermd/app.git`
 - `sourceBranch`: `main`
@@ -69,11 +71,18 @@ The exported package is still Pages-oriented:
 }
 ```
 
-The experimental Workers artifact currently lives in `notermd/app` branch
+The Workers artifact currently lives in `notermd/app` branch
 `v5-tanstack-start-workers`. It uses Workers Static Assets, a `wrangler.jsonc`,
-`pnpm run build`, `pnpm run deploy`, and `pnpm run deploy:preview`. Before it is
-exported into Noter, that branch still needs template-language cleanup because
-parts of the exploratory history still refer to `app-start-workers`.
+`pnpm run build`, `pnpm run deploy`, and `pnpm run deploy:preview`.
+
+The first Workers provisioning implementation branch exports:
+
+- `sourceBranch`: `v5-tanstack-start-workers`
+- `sourceCommit`: `5df04d0d2a2883b4d480218a716bf9438461f11e`
+- `version`: `notermd-app-5df04d0d2a28`
+
+That branch is good enough for auto-provisioning. Commit numbering and template
+copy can still improve later without blocking the Noter implementation.
 
 ## Current Noter Flow
 
@@ -322,11 +331,44 @@ Relevant Cloudflare API surface from the Workers Builds docs:
 9. `GET /accounts/:accountId/workers/scripts/:workerName/deployments` to inspect
    active Worker deployments
 
-Cloudflare's docs state the Builds API requires a user-scoped API token for
-configuration. This matters because Noter currently authenticates through
-Cloudflare MCP OAuth or stored Cloudflare API credentials. The implementation
-must verify that the current Cloudflare connection has the required Workers
-Builds permissions.
+Cloudflare's docs state the Builds API requires token-backed credentials for
+configuration. The user-facing Noter flow must still stay web-authenticated
+through the Cloudflare MCP OAuth connection, not a manual API-token setup. Local
+and preview deployments can use operator-seeded Cloudflare credentials, but
+those credentials need the equivalent of Workers Scripts edit, Workers Builds
+Configuration edit, and Account Settings read.
+
+## Implementation Follow-up
+
+The first Workers auto-provisioning implementation chose this shape:
+
+1. Export `notermd/app@v5-tanstack-start-workers` into
+   `starterSeedManifest.generated.ts`.
+2. Keep Cloudflare user authentication on the existing web/MCP OAuth path.
+3. Fail closed with reconnect copy when the Cloudflare connection lacks Workers
+   Builds access.
+4. Derive generated Worker names from owner, repository, and the vault suffix,
+   then preserve the existing recorded Worker name for idempotent retries.
+5. Create or read the Worker through the Workers API and enable `workers.dev`
+   plus preview URLs.
+6. Connect GitHub through Workers Builds repository connections.
+7. Verify the current Cloudflare credential, then create or reuse the Workers
+   Builds build token tied to that credential.
+8. Create or patch production and preview Workers Builds triggers.
+9. Configure generated single-repository apps with:
+   - build command: `pnpm run build`
+   - production deploy command: `pnpm run deploy`
+   - preview deploy command: `pnpm run deploy:preview`
+10. Keep a temporary monorepo fallback with root `apps/noter`, `pnpm run build`,
+    `pnpm exec wrangler deploy`, and `pnpm exec wrangler versions upload`.
+11. Store `accountId`, `workerName`, `workerTag`, optional account subdomain,
+    production URL, production trigger UUID, and preview trigger UUID.
+12. Delete recorded Workers Builds triggers before deleting the Worker during
+    vault teardown.
+
+The first implementation did not finish the branch-preview metadata migration.
+The old Cloudflare Pages PR-comment parser still exists, so preview URLs remain
+the main follow-up risk.
 
 ## Expected Noter Migration Work
 
@@ -484,22 +526,19 @@ Workers migration should update copy only when the backing behavior changes.
    needed. The deployment should rely on Workers Static Assets serving static
    files without introducing server function or SSR complexity.
 
-## Recommended First PR Sequence
+## Recommended Implementation Sequence
 
-1. Export the finalized Workers template snapshot into
-   `starterSeedManifest.generated.ts`.
-2. Replace the Pages state shape and provisioning code with Workers state and
-   provisioning code.
-3. Add Workers status/log/build-trigger reads and tests around request payloads.
-4. Remove Pages-specific domain source values, deletion actions, preview copy,
-   and read tools unless a short-lived rollout helper needs them.
-5. Update preview metadata source after a real Workers PR preview is inspected.
-6. Update docs, landing preview copy, and dashboard labels.
+1. Land the artifact/spec/research PR.
+2. Land the Workers auto-provisioning PR with the template export, Workers state
+   shape, Workers provisioning, build-trigger reads, and deletion updates.
+3. Inspect a real Workers PR preview and replace the remaining Pages preview
+   comment path if Workers gives us a better source.
+4. Move Noter production hosting from Pages to Workers.
+5. Remove remaining Pages copy, fixtures, tests, and operational cleanup paths
+   once production data has been cleared or migrated.
 
-If this becomes too large, split after step 2. The state-shape change is the
-right boundary before introducing provider API behavior. Do not split by adding
-a permanent Pages/Workers provider matrix unless the implementation proves that
-dual support is cheaper than replacement.
+Do not split by adding a permanent Pages/Workers provider matrix unless the
+implementation proves that dual support is cheaper than replacement.
 
 ## Sources
 

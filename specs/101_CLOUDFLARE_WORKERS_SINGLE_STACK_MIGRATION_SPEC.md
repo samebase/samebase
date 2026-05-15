@@ -35,6 +35,11 @@ Cloudflare Pages is legacy after this migration. Noter should not keep a
 permanent Pages/Workers provider matrix unless implementation proves that a
 short-lived Pages helper is cheaper than deleting it.
 
+Generated app provisioning can move to Workers before Noter production hosting
+moves. That is the right first product step because it proves the user-facing
+automation path. The single-stack guarantee is still incomplete until Noter
+itself also deploys through Workers.
+
 ## Product Principle
 
 Noter sells one stack to users. The stack Noter recommends, generates, and
@@ -87,6 +92,9 @@ Implementation rules:
    the migration surface.
 
 ## Current State
+
+This section records the baseline before the Workers implementation PRs land.
+Implementation PRs should update or remove these facts as the code catches up.
 
 ### Template
 
@@ -184,13 +192,16 @@ New Noter-managed app creation should:
 3. create or resolve Convex production deployment
 4. create or resolve Convex preview deployment
 5. create production and preview Convex deploy keys
-6. provision a Cloudflare Worker/Workers Builds setup
-7. configure production build/deploy commands
-8. configure non-production branch build/deploy commands
-9. set production and preview build variables/secrets
-10. trigger the first production build
-11. record the Workers production URL
-12. surface preview URLs, status, and logs from Workers-compatible data
+6. create or reuse a Cloudflare Worker
+7. connect the GitHub repository to Workers Builds
+8. create or reuse a Workers Builds build token tied to the current Cloudflare
+   credential
+9. configure production build/deploy commands
+10. configure non-production branch build/deploy commands
+11. set production and preview build variables/secrets
+12. trigger the first production build
+13. record the Workers production URL and trigger IDs
+14. surface preview URLs, status, and logs from Workers-compatible data
 
 ## Implementation Plan
 
@@ -210,19 +221,7 @@ New Noter-managed app creation should:
 Template history polish remains valuable, but it should not block Noter
 auto-provisioning work.
 
-### Phase 2: Move Noter Production Hosting To Workers
-
-1. Add the minimal Workers config and repo-owned deploy scripts Noter itself
-   needs.
-2. Configure Workers Builds for Noter production and preview branches.
-3. Validate production deploy, preview deploy, logs, and rollback/version
-   behavior.
-4. Update Noter operator docs to use Workers terms.
-5. Remove Pages assumptions from Noter production deployment docs/config.
-
-This phase proves the stack Noter sells is also the stack Noter uses.
-
-### Phase 3: Export Workers Template Snapshot
+### Phase 2: Export Workers Template Snapshot
 
 After selecting the Workers template source, refresh the generated starter
 manifest:
@@ -234,7 +233,7 @@ pnpm run template:export -- --branch v5-tanstack-start-workers
 Update tests that assert starter files. Expected starter files should include
 the Workers config and scripts.
 
-### Phase 4: Replace Pages Provisioning With Workers Provisioning
+### Phase 3: Replace Pages Provisioning With Workers Provisioning
 
 Replace the Pages-specific Cloudflare implementation with Workers behavior.
 
@@ -242,21 +241,39 @@ Required Workers operations:
 
 1. resolve or create the Worker
 2. connect the GitHub repository to Workers Builds
-3. create or patch the production build trigger
-4. create or patch the preview/non-production build trigger
-5. set production Convex env vars/secrets
-6. set preview Convex env vars/secrets
-7. trigger the first production build
-8. read build status and logs
-9. record production URL and build metadata
-10. delete Worker/build resources when deleting a Noter-managed vault
+3. resolve the current Cloudflare credential ID
+4. create or reuse a Workers Builds build token for that credential
+5. create or patch the production build trigger
+6. create or patch the preview/non-production build trigger
+7. set production Convex env vars/secrets
+8. set preview Convex env vars/secrets
+9. trigger the first production build
+10. read build status and logs
+11. record production URL, Worker tag, and build trigger IDs
+12. delete Worker/build resources when deleting a Noter-managed vault
+
+For generated single-repository apps, use these Workers Builds commands:
+
+1. build command: `pnpm run build`
+2. production deploy command: `pnpm run deploy`
+3. preview deploy command: `pnpm run deploy:preview`
+
+For older monorepo-shaped Noter-generated apps, a temporary fallback can use
+`apps/noter` as the root with direct Wrangler commands while the template
+surface converges.
+
+User-facing Cloudflare connection must stay web-authenticated. Do not replace
+the product flow with a manual API-token setup. Local and preview environments
+may continue to use operator-provided seeded Cloudflare credentials, but those
+credentials must include the equivalent of Workers Scripts edit, Workers Builds
+Configuration edit, and Account Settings read.
 
 Avoid a generic provider matrix. The target implementation may rename
 `cloudflareResources.ts` or replace its contents, but the shipped behavior
 should be Workers-only unless a temporary Pages cleanup helper is explicitly
 needed.
 
-### Phase 5: Replace Preview Metadata Path
+### Phase 4: Replace Preview Metadata Path
 
 Inspect real Workers Builds PR behavior before coding the final preview metadata
 source.
@@ -269,6 +286,20 @@ Preferred order:
 
 The existing Pages comment parser should not be treated as the long-term source
 without verification.
+
+### Phase 5: Move Noter Production Hosting To Workers
+
+1. Add the minimal Workers config and repo-owned deploy scripts Noter itself
+   needs.
+2. Configure Workers Builds for Noter production and preview branches.
+3. Validate production deploy, preview deploy, logs, and rollback/version
+   behavior.
+4. Update Noter operator docs to use Workers terms.
+5. Remove Pages assumptions from Noter production deployment docs/config.
+
+This phase proves the stack Noter sells is also the stack Noter uses. It should
+not block the generated-app provisioning migration, but it must happen before
+the migration is considered complete.
 
 ### Phase 6: Remove Pages Product Surface
 
@@ -343,14 +374,10 @@ enough to prove the user/operator flow.
 
 1. Which Workers Builds API response is the most reliable source for preview URL
    and logs?
-2. Does Cloudflare MCP OAuth expose all permissions needed for Workers Builds
-   setup, or does Noter need a clearer API-token permission flow?
-3. Should Noter use `wrangler deploy` only for the first production deployment
-   and `wrangler versions upload` for previews, or should both paths be driven
-   through Workers Builds triggers only?
-4. What exact Worker name should Noter derive for generated apps so it is
-   stable, unique, and readable?
-5. Which Pages cleanup strategy should be used immediately before rollout?
+2. What exact Cloudflare reconnect copy should Noter show when MCP OAuth lacks
+   Workers Builds access?
+3. Which Pages cleanup strategy should be used immediately before rollout?
+4. What exact Workers Builds setup should Noter production use?
 
 ## Sources
 
