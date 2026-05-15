@@ -58,6 +58,13 @@ describe("provider deletion errors", () => {
         }),
       ),
     ).toBe(true);
+    expect(
+      isCloudflareWorkerNotFoundError(
+        new Error(
+          "Cloudflare MCP tool call failed: Error: Cloudflare API error: 10007: This Worker does not exist on your account.",
+        ),
+      ),
+    ).toBe(true);
   });
 
   it("rejects non-not-found Cloudflare errors", () => {

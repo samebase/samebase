@@ -110,9 +110,8 @@ function readCloudflareApiErrorDetails(
 }
 
 export function isCloudflareWorkerNotFoundError(error: unknown): boolean {
-  return (
-    error instanceof CloudflareApiError &&
-    error.details.some((detail) => {
+  if (error instanceof CloudflareApiError) {
+    return error.details.some((detail) => {
       const message = detail.message?.toLowerCase();
       return (
         message === "worker not found" ||
@@ -123,8 +122,19 @@ export function isCloudflareWorkerNotFoundError(error: unknown): boolean {
           message?.includes("worker") === true &&
           message.includes("does not exist"))
       );
-    })
-  );
+    });
+  }
+
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    return (
+      message.includes("10007") &&
+      (message.includes("worker") || message.includes("script")) &&
+      (message.includes("does not exist") || message.includes("not found"))
+    );
+  }
+
+  return false;
 }
 
 function parseJsonText(value: string): unknown {
