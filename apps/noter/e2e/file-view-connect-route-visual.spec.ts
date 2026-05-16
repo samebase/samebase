@@ -16,7 +16,7 @@ for (const fixtureConfig of CONNECT_ROUTE_FIXTURES) {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
-    await page.goto(`/visual-fixture.html?mode=${fixtureConfig.mode}`, {
+    await page.goto(`/visual-fixture?mode=${fixtureConfig.mode}`, {
       waitUntil: "domcontentloaded",
     });
     await page.waitForLoadState("networkidle");

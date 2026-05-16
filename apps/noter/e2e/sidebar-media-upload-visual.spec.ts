@@ -20,7 +20,7 @@ const SCENARIOS = [
 for (const scenario of SCENARIOS) {
   test(`sidebar media upload fixture (${scenario.name})`, async ({ page }) => {
     await page.setViewportSize(scenario.viewport);
-    await page.goto("/visual-fixture.html?mode=sidebar-media-upload", {
+    await page.goto("/visual-fixture?mode=sidebar-media-upload", {
       waitUntil: "domcontentloaded",
     });
 

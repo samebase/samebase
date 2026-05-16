@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("vault sync status fixture", async ({ page }) => {
   await page.setViewportSize({ width: 800, height: 720 });
-  await page.goto("/visual-fixture.html?mode=vault-sync-status-states", {
+  await page.goto("/visual-fixture?mode=vault-sync-status-states", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");

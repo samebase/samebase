@@ -21,7 +21,7 @@ function VisualFixtureRouteComponent() {
   return <VisualFixturePage mode={mode} />;
 }
 
-export const Route = createFileRoute("/visual-fixture.html")({
+export const Route = createFileRoute("/visual-fixture")({
   component: VisualFixtureRouteComponent,
   validateSearch: validateVisualFixtureRouteSearch,
 });

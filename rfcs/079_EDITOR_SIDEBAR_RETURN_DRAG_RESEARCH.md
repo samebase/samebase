@@ -35,15 +35,15 @@ VITE_PORT=4173 npm run dev:frontend
 
 Then visit the fixture routes directly:
 
-- `http://127.0.0.1:4173/visual-fixture.html?mode=fileview-prosemark-drag-editable&swipe-debug`
-- `http://127.0.0.1:4173/visual-fixture.html?mode=fileview-monaco-drag&swipe-debug`
+- `http://127.0.0.1:4173/visual-fixture?mode=fileview-prosemark-drag-editable&swipe-debug`
+- `http://127.0.0.1:4173/visual-fixture?mode=fileview-monaco-drag&swipe-debug`
 
 The screenshots below were captured after opening the left sidebar and then
 attempting the return drag from inside the editor surface.
 
 ### ProseMark fixture
 
-Use `/visual-fixture.html?mode=fileview-prosemark-drag-editable&swipe-debug`.
+Use `/visual-fixture?mode=fileview-prosemark-drag-editable&swipe-debug`.
 
 1. Open the left sidebar from the editor.
 2. Start a leftward drag inside the visible editor slice on the right edge.
@@ -54,7 +54,7 @@ Use `/visual-fixture.html?mode=fileview-prosemark-drag-editable&swipe-debug`.
 
 ### Monaco fixture
 
-Use `/visual-fixture.html?mode=fileview-monaco-drag&swipe-debug`.
+Use `/visual-fixture?mode=fileview-monaco-drag&swipe-debug`.
 
 1. Open the left sidebar from the Monaco surface.
 2. Start a leftward drag inside the visible editor slice on the right edge.

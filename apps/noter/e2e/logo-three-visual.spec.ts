@@ -6,7 +6,7 @@ const MAX_PARITY_MISMATCH_PIXELS = 20_000;
 
 test("logo three reference fixture", async ({ page }) => {
   await page.setViewportSize({ width: 3400, height: 2600 });
-  await page.goto("/visual-fixture.html?mode=logo-three-reference", {
+  await page.goto("/visual-fixture?mode=logo-three-reference", {
     waitUntil: "domcontentloaded",
   });
 

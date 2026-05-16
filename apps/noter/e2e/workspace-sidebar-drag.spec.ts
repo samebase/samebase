@@ -18,7 +18,7 @@ async function gotoFileViewFixture(
       : options?.minResizeBehavior === "slide"
         ? "fileview-layout-slide"
         : "fileview-layout-persistence";
-  await page.goto(`/visual-fixture.html?mode=${mode}`, {
+  await page.goto(`/visual-fixture?mode=${mode}`, {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -29,7 +29,7 @@ async function gotoVisualFixtureDirectory(
   options?: { swipeDebug?: boolean },
 ) {
   const debugQuery = options?.swipeDebug ? "?swipe-debug" : "";
-  await page.goto(`/visual-fixture.html${debugQuery}`, {
+  await page.goto(`/visual-fixture${debugQuery}`, {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");

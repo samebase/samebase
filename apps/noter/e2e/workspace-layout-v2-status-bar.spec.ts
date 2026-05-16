@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 
 async function openWorkspaceLayoutStatusBarFixture(page: Page) {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/visual-fixture.html?mode=workspace-layout-v2-status-bar", {
+  await page.goto("/visual-fixture?mode=workspace-layout-v2-status-bar", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -61,7 +61,7 @@ test("workspace layout v2 keeps mobile sidebars lightly peeked around main", asy
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/visual-fixture.html?mode=workspace-layout-v2-status-bar", {
+  await page.goto("/visual-fixture?mode=workspace-layout-v2-status-bar", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");

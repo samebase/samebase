@@ -276,7 +276,7 @@ async function swipeSurfaceHorizontallyToLeftPane(
 }
 
 async function openFixture(page: Page) {
-  await page.goto("/visual-fixture.html?mode=fileview-prosemark-flex-height", {
+  await page.goto("/visual-fixture?mode=fileview-prosemark-flex-height", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");

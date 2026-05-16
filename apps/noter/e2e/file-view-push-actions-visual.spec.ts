@@ -11,7 +11,7 @@ for (const scenario of SCENARIOS) {
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
-    await page.goto(`/visual-fixture.html?mode=${scenario.mode}`, {
+    await page.goto(`/visual-fixture?mode=${scenario.mode}`, {
       waitUntil: "domcontentloaded",
     });
     await page.waitForLoadState("networkidle");

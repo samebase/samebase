@@ -74,7 +74,7 @@ async function captureLogoSnapCellScreenshot(
   elevationDegrees: number,
 ): Promise<string> {
   await page.goto(
-    `/visual-fixture.html?mode=logo-snap-angles&rotation=${encodeURIComponent(
+    `/visual-fixture?mode=logo-snap-angles&rotation=${encodeURIComponent(
       rotationDegrees,
     )}&elevation=${encodeURIComponent(elevationDegrees)}`,
     { waitUntil: "domcontentloaded" },

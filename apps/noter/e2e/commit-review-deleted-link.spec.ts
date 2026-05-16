@@ -5,7 +5,7 @@ test.use({ serviceWorkers: "block" });
 test("appending a final markdown link does not duplicate the previous last line", async ({
   page,
 }) => {
-  await page.goto("/visual-fixture.html?mode=deleted-markdown-link");
+  await page.goto("/visual-fixture?mode=deleted-markdown-link");
   await page.waitForLoadState("networkidle");
 
   const xUrl = page.locator(
@@ -51,7 +51,7 @@ test("appending a final markdown link does not duplicate the previous last line"
 test("adding only a trailing newline still renders a visible diff", async ({
   page,
 }) => {
-  await page.goto("/visual-fixture.html?mode=trailing-newline-only");
+  await page.goto("/visual-fixture?mode=trailing-newline-only");
   await page.waitForLoadState("networkidle");
 
   const xUrlCount = await page

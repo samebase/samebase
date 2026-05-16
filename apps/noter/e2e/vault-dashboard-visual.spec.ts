@@ -116,7 +116,7 @@ test("vault dashboard fixture (create control)", async ({ page }) => {
   // Keep the shared dashboard shell and right-rail framing aligned with the
   // visual baselines; changing this viewport changes snapshot cropping.
   await page.setViewportSize({ width: 960, height: 760 });
-  await page.goto("/visual-fixture.html?mode=vault-create-control", {
+  await page.goto("/visual-fixture?mode=vault-create-control", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -137,7 +137,7 @@ test("vault dashboard fixture (sidebar machine links)", async ({ page }) => {
   // Keep the shared dashboard shell and right-rail framing aligned with the
   // visual baselines; changing this viewport changes snapshot cropping.
   await page.setViewportSize({ width: 960, height: 760 });
-  await page.goto("/visual-fixture.html?mode=vault-sidebar-machine-links", {
+  await page.goto("/visual-fixture?mode=vault-sidebar-machine-links", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -162,7 +162,7 @@ test("vault dashboard fixture (sidebar machine links)", async ({ page }) => {
 
 test("vault dashboard fixture (sidebar account clamp)", async ({ page }) => {
   await page.setViewportSize({ width: 960, height: 760 });
-  await page.goto("/visual-fixture.html?mode=vault-sidebar-account-clamp", {
+  await page.goto("/visual-fixture?mode=vault-sidebar-account-clamp", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -214,10 +214,9 @@ test("vault dashboard fixture (mobile sidebar min width)", async ({
   });
   const page = await context.newPage();
 
-  await page.goto(
-    "/visual-fixture.html?mode=vault-sidebar-account-mobile-min",
-    { waitUntil: "domcontentloaded" },
-  );
+  await page.goto("/visual-fixture?mode=vault-sidebar-account-mobile-min", {
+    waitUntil: "domcontentloaded",
+  });
   await page.waitForLoadState("networkidle");
 
   await expect(
@@ -267,7 +266,7 @@ test("vault dashboard fixture (mobile sidebar min width)", async ({
 
 test("vault dashboard fixture (branch PR labels)", async ({ page }) => {
   await page.setViewportSize({ width: 640, height: 180 });
-  await page.goto("/visual-fixture.html?mode=vault-branch-pr-labels", {
+  await page.goto("/visual-fixture?mode=vault-branch-pr-labels", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -285,12 +284,9 @@ test("vault dashboard fixture (developer tools query spacing)", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 640, height: 260 });
-  await page.goto(
-    "/visual-fixture.html?mode=vault-dashboard-dev-tools-hidden",
-    {
-      waitUntil: "domcontentloaded",
-    },
-  );
+  await page.goto("/visual-fixture?mode=vault-dashboard-dev-tools-hidden", {
+    waitUntil: "domcontentloaded",
+  });
   await page.waitForLoadState("networkidle");
 
   const hiddenFixture = page.getByTestId("vault-dashboard-visual-fixture");
@@ -315,12 +311,9 @@ test("vault dashboard fixture (developer tools query spacing)", async ({
     },
   );
 
-  await page.goto(
-    "/visual-fixture.html?mode=vault-dashboard-dev-tools-visible",
-    {
-      waitUntil: "domcontentloaded",
-    },
-  );
+  await page.goto("/visual-fixture?mode=vault-dashboard-dev-tools-visible", {
+    waitUntil: "domcontentloaded",
+  });
   await page.waitForLoadState("networkidle");
 
   const visibleFixture = page.getByTestId("vault-dashboard-visual-fixture");
@@ -339,7 +332,7 @@ test("vault dashboard fixture (developer tools query spacing)", async ({
 
 test("vault dashboard fixture (delete dialog)", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 360 });
-  await page.goto("/visual-fixture.html?mode=vault-dashboard-delete-open", {
+  await page.goto("/visual-fixture?mode=vault-dashboard-delete-open", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -372,7 +365,7 @@ test("vault dashboard fixture (delete dialog mobile)", async ({
   });
   const page = await context.newPage();
 
-  await page.goto("/visual-fixture.html?mode=vault-dashboard-delete-open", {
+  await page.goto("/visual-fixture?mode=vault-dashboard-delete-open", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -398,12 +391,9 @@ test("vault dashboard fixture (delete dialog mobile)", async ({
 
 test("vault dashboard fixture (provisioning log)", async ({ page }) => {
   await page.setViewportSize({ width: 640, height: 300 });
-  await page.goto(
-    "/visual-fixture.html?mode=vault-dashboard-provisioning-log",
-    {
-      waitUntil: "domcontentloaded",
-    },
-  );
+  await page.goto("/visual-fixture?mode=vault-dashboard-provisioning-log", {
+    waitUntil: "domcontentloaded",
+  });
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
@@ -425,7 +415,7 @@ test("vault dashboard fixture (provisioning log)", async ({ page }) => {
 
 test("vault dashboard fixture (infra setup progress)", async ({ page }) => {
   await page.setViewportSize({ width: 640, height: 300 });
-  await page.goto("/visual-fixture.html?mode=vault-dashboard-infra-setup", {
+  await page.goto("/visual-fixture?mode=vault-dashboard-infra-setup", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -448,7 +438,7 @@ test("vault dashboard fixture (infra setup progress)", async ({ page }) => {
 
 test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 520 });
-  await page.goto("/visual-fixture.html?mode=vault-dashboard-list-spacing", {
+  await page.goto("/visual-fixture?mode=vault-dashboard-list-spacing", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -494,7 +484,7 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
 
 test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   await page.setViewportSize({ width: 1200, height: 360 });
-  await page.goto("/visual-fixture.html?mode=vault-dashboard-list-spacing", {
+  await page.goto("/visual-fixture?mode=vault-dashboard-list-spacing", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -545,12 +535,9 @@ test("vault dashboard fixture (bottom target can align at top)", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 960, height: 520 });
-  await page.goto(
-    "/visual-fixture.html?mode=vault-dashboard-bottom-target-scroll",
-    {
-      waitUntil: "domcontentloaded",
-    },
-  );
+  await page.goto("/visual-fixture?mode=vault-dashboard-bottom-target-scroll", {
+    waitUntil: "domcontentloaded",
+  });
   await page.waitForLoadState("networkidle");
 
   const scrollport = page
@@ -669,7 +656,7 @@ test("vault dashboard fixture (bottom target can align at top)", async ({
 
 test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
   await page.setViewportSize({ width: 960, height: 520 });
-  await page.goto("/visual-fixture.html?mode=vault-dashboard-sticky-header", {
+  await page.goto("/visual-fixture?mode=vault-dashboard-sticky-header", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -729,7 +716,7 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
 
 test("vault dashboard fixture (list spacing expansion)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 620 });
-  await page.goto("/visual-fixture.html?mode=vault-dashboard-list-spacing", {
+  await page.goto("/visual-fixture?mode=vault-dashboard-list-spacing", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -751,7 +738,7 @@ test("vault dashboard fixture (list spacing expansion)", async ({ page }) => {
 
 test("vault dashboard fixture (branch filters popover)", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 560 });
-  await page.goto("/visual-fixture.html?mode=vault-branch-filters", {
+  await page.goto("/visual-fixture?mode=vault-branch-filters", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -779,7 +766,7 @@ test("vault dashboard fixture (branch filters mobile sheet)", async ({
   });
   const page = await context.newPage();
 
-  await page.goto("/visual-fixture.html?mode=vault-branch-filters", {
+  await page.goto("/visual-fixture?mode=vault-branch-filters", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -802,7 +789,7 @@ test("vault dashboard fixture (branch filters mobile sheet)", async ({
 
 test("vault dashboard fixture (mobile branch alignment)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/visual-fixture.html?mode=vault-branch-mobile-alignment", {
+  await page.goto("/visual-fixture?mode=vault-branch-mobile-alignment", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");

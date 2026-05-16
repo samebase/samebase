@@ -119,7 +119,7 @@ Use these defaults when working in this repository.
    - Click `New app`
    - Wait for new vault card and infra status text
 4. For UI regressions in shared shells or editors, prefer the shipped route over
-   `/visual-fixture.html` unless the fixture is already an honest production
+   `/visual-fixture` unless the fixture is already an honest production
    component mount.
 
 ## Playwright Session Rules

@@ -43,7 +43,7 @@ async function dragHorizontalHandle(
 
 test("fileview sidebar keeps local state across collapse", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 760 });
-  await page.goto("/visual-fixture.html?mode=fileview-layout-persistence", {
+  await page.goto("/visual-fixture?mode=fileview-layout-persistence", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -158,7 +158,7 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
 
 test("fileview right sidebar collapses independently", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 760 });
-  await page.goto("/visual-fixture.html?mode=fileview-layout", {
+  await page.goto("/visual-fixture?mode=fileview-layout", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -214,7 +214,7 @@ test("fileview desktop right sidebar resize persists across collapse", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 760 });
-  await page.goto("/visual-fixture.html?mode=fileview-layout-persistence", {
+  await page.goto("/visual-fixture?mode=fileview-layout-persistence", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -252,7 +252,7 @@ test("fileview desktop right sidebar resize persists across collapse", async ({
 
 test("fileview mobile swipe opens the right sidebar", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/visual-fixture.html?mode=fileview-layout-persistence", {
+  await page.goto("/visual-fixture?mode=fileview-layout-persistence", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");

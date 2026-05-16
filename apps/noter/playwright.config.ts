@@ -65,7 +65,7 @@ export default defineConfig({
   },
   webServer: {
     command: webServerCommand,
-    url: `${playwrightBaseUrl}/visual-fixture.html?mode=rich`,
+    url: `${playwrightBaseUrl}/visual-fixture?mode=rich`,
     reuseExistingServer: process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === "1",
     timeout: 120_000,
   },

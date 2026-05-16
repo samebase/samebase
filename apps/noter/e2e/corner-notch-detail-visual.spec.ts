@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("corner notch detail fixture", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 2400 });
-  await page.goto("/visual-fixture.html?mode=corner-notch-detail", {
+  await page.goto("/visual-fixture?mode=corner-notch-detail", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");

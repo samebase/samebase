@@ -117,7 +117,7 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
   const shouldWriteRecordedArtifacts = shouldWriteParityArtifacts(testInfo);
 
   await page.setViewportSize({ width: 1600, height: 1100 });
-  await page.goto("/visual-fixture.html?mode=file-view-code-parity", {
+  await page.goto("/visual-fixture?mode=file-view-code-parity", {
     waitUntil: "domcontentloaded",
   });
 

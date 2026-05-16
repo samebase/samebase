@@ -21,7 +21,7 @@ const SCENARIOS = [
 
 for (const scenario of SCENARIOS) {
   test(`commit review fixture (${scenario.mode})`, async ({ page }) => {
-    await page.goto(`/visual-fixture.html?mode=${scenario.mode}`);
+    await page.goto(`/visual-fixture?mode=${scenario.mode}`);
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.waitForLoadState("networkidle");
     const fixture = page.getByTestId("commit-review-visual-fixture");
@@ -37,7 +37,7 @@ for (const scenario of SCENARIOS) {
 test("commit review fixture exposes deleted sidebar revert action", async ({
   page,
 }) => {
-  await page.goto("/visual-fixture.html?mode=deleted");
+  await page.goto("/visual-fixture?mode=deleted");
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.waitForLoadState("networkidle");
 
@@ -63,7 +63,7 @@ test("commit review fixture exposes deleted sidebar revert action", async ({
 test("commit review fixture exposes deleted sidebar revert action on mobile", async ({
   page,
 }) => {
-  await page.goto("/visual-fixture.html?mode=deleted");
+  await page.goto("/visual-fixture?mode=deleted");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForLoadState("networkidle");
 
@@ -144,7 +144,7 @@ test("commit review fixture exposes deleted sidebar revert action on mobile", as
 test("commit review fixture renders deleted staged changes popup", async ({
   page,
 }) => {
-  await page.goto("/visual-fixture.html?mode=deleted-staged-changes");
+  await page.goto("/visual-fixture?mode=deleted-staged-changes");
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.waitForLoadState("networkidle");
 
