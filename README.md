@@ -176,9 +176,10 @@ and use:
 - Non-production deploy command: `pnpm run deploy:preview`
 
 `wrangler.jsonc` owns the static asset directory and SPA fallback. The build
-script deploys Convex first when `CONVEX_DEPLOY_KEY` is available. Local
-dry-runs build the app assets without deploying Convex and can validate the
-Worker package with:
+script deploys Convex first by selecting `PROD_CONVEX_DEPLOY_KEY` for `main` and
+`PREVIEW_CONVEX_DEPLOY_KEY` for non-production branches. Do not set a generic
+`CONVEX_DEPLOY_KEY` in the Workers build environment. Local dry-runs build the
+app assets without deploying Convex and can validate the Worker package with:
 
 ```bash
 CLOUDFLARE_WORKER_NAME=noter-next pnpm --filter noter deploy:dry-run
