@@ -223,9 +223,9 @@ For older monorepo-shaped generated apps, it uses:
 }
 ```
 
-### 6. Noter Records Pages Resource State
+### 6. Noter Previously Recorded Pages Resource State
 
-Cloudflare state is currently:
+Before the Workers migration, Cloudflare state was:
 
 ```ts
 {
@@ -236,15 +236,16 @@ Cloudflare state is currently:
 }
 ```
 
-After provisioning succeeds, Noter records:
+After Pages provisioning succeeded, Noter recorded:
 
 1. `vaultInfrastructure.cloudflare`
 2. `vaults.cloudflare`
 3. a `vaultDomains` row for the default branch with source
    `cloudflare_pages_default`
 
-The schema currently only accepts `cloudflare_pages_default` and
-`cloudflare_pages_custom` as vault domain sources.
+The Workers migration keeps Cloudflare resource state on `vaults.cloudflare`,
+removes the duplicate `vaultInfrastructure.cloudflare` copy, and records Worker
+domain sources instead of Pages domain sources.
 
 ### 7. Preview Links Come From GitHub Comments
 
@@ -274,9 +275,9 @@ This is the highest-risk migration dependency. If Workers Builds comments differ
 from Pages comments, Noter should move preview metadata to a first-party
 Cloudflare Builds API read instead of extending a brittle comment parser.
 
-### 8. Status, Logs, Inventory, And Deletion Are Pages-Specific
+### 8. Status, Logs, Inventory, And Deletion Were Pages-Specific
 
-Current Cloudflare read tools use Pages endpoints:
+Before the Workers migration, Cloudflare read tools used Pages endpoints:
 
 1. status: `GET /accounts/:accountId/pages/projects/:projectName`
 2. logs:
@@ -284,7 +285,7 @@ Current Cloudflare read tools use Pages endpoints:
    - `GET /accounts/:accountId/pages/projects/:projectName/deployments/:deploymentId/history/logs`
 3. inventory: `GET /accounts/:accountId/pages/projects`
 
-Current deletion planning uses action `delete_pages_project`, then deletes:
+Previous deletion planning deleted the Pages project through:
 
 ```text
 DELETE /accounts/:accountId/pages/projects/:projectName
@@ -347,8 +348,8 @@ The first Workers auto-provisioning implementation chose this shape:
 2. Keep Cloudflare user authentication on the existing web/MCP OAuth path.
 3. Fail closed with reconnect copy when the Cloudflare connection lacks Workers
    Builds access.
-4. Derive generated Worker names from owner, repository, and the vault suffix,
-   then preserve the existing recorded Worker name for idempotent retries.
+4. Derive deterministic Worker names from owner, repository, and the vault
+   suffix so retries target the same Worker without storing a second copy.
 5. Create or read the Worker through the Workers API and enable `workers.dev`
    plus preview URLs.
 6. Connect GitHub through Workers Builds repository connections.
@@ -361,10 +362,10 @@ The first Workers auto-provisioning implementation chose this shape:
    - preview deploy command: `pnpm run deploy:preview`
 10. Keep a temporary monorepo fallback with root `apps/noter`, `pnpm run build`,
     `pnpm exec wrangler deploy`, and `pnpm exec wrangler versions upload`.
-11. Store `accountId`, `workerName`, `workerTag`, optional account subdomain,
-    production URL, production trigger UUID, and preview trigger UUID.
-12. Delete recorded Workers Builds triggers before deleting the Worker during
-    vault teardown.
+11. Store only `accountId`, `workerName`, `workerTag`, and `productionUrl` on
+    the vault's Cloudflare state.
+12. Rediscover Workers Builds triggers from `workerTag` before deleting the
+    Worker during vault teardown.
 
 The first implementation did not finish the branch-preview metadata migration.
 The old Cloudflare Pages PR-comment parser still exists, so preview URLs remain
@@ -417,19 +418,16 @@ Minimum Workers resource operations:
 
 ### 3. Replace Cloudflare State Shape
 
-The current state names `projectName`, `subdomain`, and `productionUrl`. Workers
-probably need at least:
+The Workers implementation only needs durable Cloudflare state on the vault:
 
 1. `accountId`
 2. `workerName`
 3. `workerTag`
 4. `productionUrl`
-5. `productionTriggerUuid`
-6. `previewTriggerUuid`
-7. possibly `repoConnectionUuid`
 
-Avoid guessing the final shape until the API implementation proves which IDs are
-needed for idempotent updates and deletion.
+Do not store account subdomain, repo connection IDs, or trigger UUIDs unless a
+current shipped path needs them. The provisioning and deletion paths can
+rediscover trigger UUIDs from `workerTag`.
 
 Because production data can be cleared or migrated manually, this does not need
 a wide compatibility union that preserves the old Pages shape indefinitely.
@@ -469,8 +467,8 @@ Preferred implementation direction:
 
 Deletion should target Workers resources and associated build triggers. If old
 Pages projects still need cleanup, handle that as a one-off operational cleanup
-or a temporary migration path. Do not keep `delete_pages_project` as a long-term
-supported deletion action unless that proves simpler than removing it.
+or a temporary migration path instead of preserving Pages as a supported
+deletion action.
 
 ### 7. Update User-Facing Copy
 

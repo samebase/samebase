@@ -170,11 +170,10 @@ async function buildCloudflarePlan(
   ctx: MutationCtx,
   args: {
     vault: Doc<"vaults">;
-    infrastructure: Doc<"vaultInfrastructure"> | null;
     options: DeletionRequestOptions;
   },
 ): Promise<VaultDeletionPlan["cloudflare"]> {
-  const { vault, infrastructure, options } = args;
+  const { vault, options } = args;
   if (!options.removeCloudflareProvision) {
     return { action: "skip", reason: "not_requested" };
   }
@@ -182,16 +181,7 @@ async function buildCloudflarePlan(
     return { action: "skip", reason: "not_noter_managed" };
   }
 
-  const vaultCloudflare =
-    vault.cloudflare.state === "connected"
-      ? {
-          accountId: vault.cloudflare.accountId,
-          workerName: vault.cloudflare.workerName,
-          workerTag: vault.cloudflare.workerTag,
-        }
-      : null;
-  const cloudflare = vaultCloudflare ?? infrastructure?.cloudflare;
-  if (!cloudflare) {
+  if (vault.cloudflare.state !== "connected") {
     return { action: "skip", reason: "not_recorded" };
   }
 
@@ -201,9 +191,9 @@ async function buildCloudflarePlan(
   });
   return {
     action: "delete_worker",
-    accountId: cloudflare.accountId,
-    workerName: cloudflare.workerName,
-    workerTag: cloudflare.workerTag,
+    accountId: vault.cloudflare.accountId,
+    workerName: vault.cloudflare.workerName,
+    workerTag: vault.cloudflare.workerTag,
   };
 }
 

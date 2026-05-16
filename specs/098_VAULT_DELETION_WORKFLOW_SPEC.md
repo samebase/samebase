@@ -855,8 +855,8 @@ Phase 2 implementation note:
   that helper.
 - Phase 2 avoids generic provider error heuristics. GitHub deletes use Octokit's
   `RequestError`, Convex deletion uses `ConvexManagementApiError`, and
-  Cloudflare Pages deletion uses `CloudflarePagesApiError` so provider not-found
-  responses are replay-safe behind provider-owned boundaries.
+  Cloudflare Worker deletion uses provider-owned not-found classification so
+  cleanup remains replay-safe behind provider-owned boundaries.
 - Backend coverage now checks queue-before-work, local cleanup completion,
   non-quiescent rejection, invalid existing-repository GitHub deletion plans,
   provider not-found classifiers, and retry run creation from a retained failed

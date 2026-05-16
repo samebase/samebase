@@ -98,6 +98,7 @@ export const getVaultReadContext = internalQuery({
     if (!vault) {
       return {
         infra: null,
+        vault: null,
         vaultUserId: null,
         convexConnection: null,
       };
@@ -118,6 +119,7 @@ export const getVaultReadContext = internalQuery({
 
     return {
       infra,
+      vault,
       vaultUserId: vault.userId,
       convexConnection:
         convexConnectionRaw?.kind === "convex" ? convexConnectionRaw : null,

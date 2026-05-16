@@ -44,7 +44,7 @@ describe("resolveInfraStateAfterWorkflowFailure", () => {
     expect(
       resolveInfraStateAfterWorkflowFailure({
         convexProjectId: undefined,
-        cloudflare: undefined,
+        cloudflareStarted: false,
       }),
     ).toBe("failed");
   });
@@ -53,7 +53,7 @@ describe("resolveInfraStateAfterWorkflowFailure", () => {
     expect(
       resolveInfraStateAfterWorkflowFailure({
         convexProjectId: "project-123",
-        cloudflare: undefined,
+        cloudflareStarted: false,
       }),
     ).toBe("partial");
   });
@@ -62,7 +62,7 @@ describe("resolveInfraStateAfterWorkflowFailure", () => {
     expect(
       resolveInfraStateAfterWorkflowFailure({
         convexProjectId: undefined,
-        cloudflare: {},
+        cloudflareStarted: true,
       }),
     ).toBe("partial");
   });

@@ -13,7 +13,6 @@ import {
   type ConvexManagementProvider,
 } from "./infraProviders";
 import { ensureCloudflareResources } from "./cloudflareResources";
-import { vCloudflareState } from "./cloudflareState";
 import { asRecord, readString, readStringOrNumber } from "./jsonUtils";
 import type { AppProvisioningStep, GithubTreeData } from "./schema";
 import { sanitizeSlug, vaultSuffix } from "./slugUtils";
@@ -52,8 +51,6 @@ const infraPatchValidator = v.object({
   convexCloudUrl: v.optional(v.string()),
   convexSiteUrl: v.optional(v.string()),
   convexDeployKeyId: v.optional(v.string()),
-
-  cloudflare: v.optional(vCloudflareState),
 });
 
 async function readResponseTextSafe(response: Response): Promise<string> {
@@ -819,9 +816,9 @@ async function resolveCloudflareProvisioningConnection(
 
 export function resolveInfraStateAfterWorkflowFailure(args: {
   convexProjectId?: string;
-  cloudflare: unknown;
+  cloudflareStarted: boolean;
 }): "failed" | "partial" {
-  return args.convexProjectId || args.cloudflare ? "partial" : "failed";
+  return args.convexProjectId || args.cloudflareStarted ? "partial" : "failed";
 }
 
 export const getInfrastructureByVault = internalQuery({
@@ -897,8 +894,6 @@ export const upsertInfrastructureRecord = internalMutation({
       convexCloudUrl: args.patch.convexCloudUrl,
       convexSiteUrl: args.patch.convexSiteUrl,
       convexDeployKeyId: args.patch.convexDeployKeyId,
-
-      cloudflare: args.patch.cloudflare,
     });
 
     return { applied: true };
@@ -1444,14 +1439,14 @@ export const ensureCloudflareInfrastructure = internalAction({
       message: "Ensuring Cloudflare Worker and deploy settings.",
       state: "running",
     });
-    const cloudflareState = await ctx.runMutation(
+    const provisioningMark = await ctx.runMutation(
       internal.infraProvisioning.markCloudflareProvisioning,
       {
         vaultId: args.vaultId,
         runId: args.runId,
       },
     );
-    if (!cloudflareState.applied) {
+    if (!provisioningMark.applied) {
       await cancelSupersededProvisioningRun(ctx, {
         runId: args.runId,
         step: "ensure_cloudflare",
@@ -1519,7 +1514,6 @@ export const ensureCloudflareInfrastructure = internalAction({
       owner: vault.owner,
       repo: vault.name,
     });
-    const cloudflareExisting = existing.cloudflare;
     const provisionedCloudflare = await ensureCloudflareResources({
       owner: vault.owner,
       repo: vault.name,
@@ -1533,12 +1527,6 @@ export const ensureCloudflareInfrastructure = internalAction({
       buildConfig: resolveCloudflareBuildConfig({
         treeData: buildConfigTreeData,
       }),
-      existing: {
-        accountId: cloudflareExisting?.accountId,
-        workerName: cloudflareExisting?.workerName,
-        workerTag: cloudflareExisting?.workerTag,
-        productionUrl: cloudflareExisting?.productionUrl,
-      },
       convex: {
         production: {
           cloudUrl: existing.convexCloudUrl,
@@ -1558,7 +1546,6 @@ export const ensureCloudflareInfrastructure = internalAction({
         patch: {
           status: "ready",
           lastProvisionedAt: Date.now(),
-          cloudflare: provisionedCloudflare,
           lastError: undefined,
           convexDeployKeyId: productionDeployKey.convexDeployKeyId,
         },
@@ -1571,7 +1558,7 @@ export const ensureCloudflareInfrastructure = internalAction({
       });
       return null;
     }
-    const connectedCloudflareState = await ctx.runMutation(
+    const connectionMark = await ctx.runMutation(
       internal.infraProvisioning.markCloudflareConnected,
       {
         vaultId: args.vaultId,
@@ -1582,7 +1569,7 @@ export const ensureCloudflareInfrastructure = internalAction({
         productionUrl: provisionedCloudflare.productionUrl,
       },
     );
-    if (!connectedCloudflareState.applied) {
+    if (!connectionMark.applied) {
       await cancelSupersededProvisioningRun(ctx, {
         runId: args.runId,
         step: "ensure_cloudflare",
@@ -1954,7 +1941,10 @@ export const markWorkflowProvisioningFailed = internalMutation({
       .first();
     const infraState = resolveInfraStateAfterWorkflowFailure({
       convexProjectId: infrastructure?.convexProjectId,
-      cloudflare: infrastructure?.cloudflare,
+      cloudflareStarted:
+        isLiveConnectedVault(vault) &&
+        isNoterManagedVault(vault) &&
+        vault.cloudflare.state !== "not_configured",
     });
     if (ownsActiveClaim && ownership) {
       if (infrastructure) {

@@ -1,7 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
-import { vCloudflareState } from "./cloudflareState";
 import {
   vGithubTree,
   vGithubTreeData,
@@ -480,9 +479,6 @@ export default defineSchema({
     convexCloudUrl: optional(string()),
     convexSiteUrl: optional(string()),
     convexDeployKeyId: optional(string()),
-
-    // Cloudflare resource state. Pages is the current implementation detail.
-    cloudflare: optional(vCloudflareState),
   })
     .index("by_vault", ["vaultId"])
     .index("by_status", ["status"]),

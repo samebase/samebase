@@ -578,12 +578,6 @@ describe("vault dashboard Convex contract", () => {
         convexProjectId: "stale-convex-project",
         convexProjectSlug: "stale-project",
         convexDeploymentName: "stale-prod",
-        cloudflare: {
-          accountId: "stale-account",
-          workerName: "stale-worker",
-          workerTag: "stale-worker-tag",
-          productionUrl: "https://stale.example.workers.dev",
-        },
       });
 
       return { runId, userId, vaultId };

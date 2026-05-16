@@ -2,7 +2,6 @@ import { v, type Infer } from "convex/values";
 import { mutation, query, type QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { getUserId } from "../common";
-import { vCloudflareState } from "../cloudflareState";
 import { vAppProvisioningRunStep, vPullRequestLabel } from "../schema";
 import { vTreeRefreshFailureKind } from "./model";
 import {
@@ -937,7 +936,6 @@ export const getVaultInfrastructure = query({
           convexDeploymentName: v.optional(v.string()),
           convexCloudUrl: v.optional(v.string()),
           convexSiteUrl: v.optional(v.string()),
-          cloudflare: v.optional(vCloudflareState),
         }),
       ),
       domains: v.array(
@@ -986,7 +984,6 @@ export const getVaultInfrastructure = query({
             convexDeploymentName: infrastructure.convexDeploymentName,
             convexCloudUrl: infrastructure.convexCloudUrl,
             convexSiteUrl: infrastructure.convexSiteUrl,
-            cloudflare: infrastructure.cloudflare,
           }
         : undefined,
       domains: [...domains].sort(compareVaultDomainSortOrder).map((domain) => ({

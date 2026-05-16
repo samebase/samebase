@@ -1,5 +1,4 @@
 import { notEmpty } from "@noter-md/dependent/main";
-import type { CloudflareState } from "./cloudflareState";
 import {
   callCloudflareMcpTool,
   CLOUDFLARE_MCP_SERVER_URL,
@@ -14,8 +13,6 @@ import {
   type JsonRecord,
 } from "./jsonUtils";
 import { sanitizeSlug, vaultSuffix } from "./slugUtils";
-
-type CloudflareProvisionExistingState = Partial<CloudflareState>;
 
 type CloudflareProvisionConvexState = {
   production: {
@@ -354,31 +351,23 @@ async function ensureWorker(args: {
   token: string;
   serverUrl?: string;
   accountId: string;
-  existingWorkerName?: string;
   fallbackWorkerName: string;
 }): Promise<CloudflareWorkerIdentity> {
   const accountSubdomain = await readAccountSubdomain(args);
-  const workerCandidates = [
-    args.existingWorkerName,
-    args.fallbackWorkerName,
-  ].filter(notEmpty);
-
-  for (const candidate of workerCandidates) {
-    const existing = await readWorker({
-      token: args.token,
-      serverUrl: args.serverUrl,
-      accountId: args.accountId,
-      workerName: candidate,
-    });
-    if (existing) {
-      const workerName = readString(existing, "name") ?? candidate;
-      const workerTag = readCloudflareWorkerTag(existing, workerName);
-      return {
-        workerName,
-        workerTag,
-        productionUrl: `https://${workerName}.${accountSubdomain}.workers.dev`,
-      };
-    }
+  const existing = await readWorker({
+    token: args.token,
+    serverUrl: args.serverUrl,
+    accountId: args.accountId,
+    workerName: args.fallbackWorkerName,
+  });
+  if (existing) {
+    const workerName = readString(existing, "name") ?? args.fallbackWorkerName;
+    const workerTag = readCloudflareWorkerTag(existing, workerName);
+    return {
+      workerName,
+      workerTag,
+      productionUrl: `https://${workerName}.${accountSubdomain}.workers.dev`,
+    };
   }
 
   const createdRaw = await requestCloudflareApi({
@@ -688,7 +677,10 @@ async function triggerInitialBuild(args: {
   });
 }
 
-export type ProvisionedCloudflareResources = CloudflareState & {
+export type ProvisionedCloudflareResources = {
+  accountId: string;
+  workerName: string;
+  workerTag: string;
   productionUrl: string;
 };
 
@@ -703,7 +695,6 @@ type EnsureCloudflareResourcesArgs = {
   cloudflareServerUrl?: string;
   accountId: string;
   buildConfig: CloudflareBuildConfig;
-  existing: CloudflareProvisionExistingState;
   convex: CloudflareProvisionConvexState;
 };
 
@@ -715,7 +706,7 @@ export async function ensureCloudflareResources(
     `${args.owner}-${args.repo}-${suffix}`,
     58,
   );
-  let workerName = args.existing.workerName ?? fallbackWorkerName;
+  let workerName = fallbackWorkerName;
 
   console.log("infra:cloudflare:provision:start", {
     vaultId: args.vaultId,
@@ -731,7 +722,6 @@ export async function ensureCloudflareResources(
       token: args.cloudflareToken,
       serverUrl: args.cloudflareServerUrl,
       accountId: args.accountId,
-      existingWorkerName: args.existing.workerName,
       fallbackWorkerName,
     });
     workerName = worker.workerName;
@@ -810,16 +800,14 @@ export async function ensureCloudflareResources(
       }),
     ]);
 
-    if (!args.existing.productionUrl) {
-      step = "trigger_initial_build";
-      await triggerInitialBuild({
-        token: args.cloudflareToken,
-        serverUrl: args.cloudflareServerUrl,
-        accountId: args.accountId,
-        triggerUuid: productionTriggerUuid,
-        branch: args.defaultBranch,
-      });
-    }
+    step = "trigger_initial_build";
+    await triggerInitialBuild({
+      token: args.cloudflareToken,
+      serverUrl: args.cloudflareServerUrl,
+      accountId: args.accountId,
+      triggerUuid: productionTriggerUuid,
+      branch: args.defaultBranch,
+    });
 
     const result: ProvisionedCloudflareResources = {
       accountId: args.accountId,

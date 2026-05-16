@@ -127,10 +127,10 @@ generated user repository history intentionally have different jobs:
 1. `notermd/app` teaches the stack through small commits.
 2. generated user repositories start from one clean snapshot commit.
 
-### Current Provisioning
+### Pre-Migration Provisioning
 
-Noter currently provisions Cloudflare Pages in the `ensure_cloudflare` step. The
-Pages implementation owns:
+Before this migration, Noter provisioned Cloudflare Pages in the
+`ensure_cloudflare` step. The Pages implementation owned:
 
 1. Pages project create/patch/read/delete endpoints
 2. Pages build config
@@ -304,11 +304,11 @@ the migration is considered complete.
 
 ### Phase 6: Remove Pages Product Surface
 
-Remove or rewrite:
+Remove or rewrite the Pages product surface instead of preserving parallel
+provider state:
 
-1. `cloudflare_pages_default` and `cloudflare_pages_custom` if production data
-   is cleaned before rollout
-2. `delete_pages_project`
+1. Pages domain source literals
+2. Pages project deletion
 3. Pages project inventory reads
 4. Pages status/log endpoints
 5. Pages dashboard labels

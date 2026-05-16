@@ -287,7 +287,7 @@ Behavior:
 - `infraRead.getCloudflareLogs`
 - `infraRead.getConvexProjectInventory`
 - `infraRead.getCloudflareAccountInventory`
-- `infraRead.getCloudflarePagesProjectInventory`
+- `infraRead.getCloudflareWorkersInventory`
 - `infraRead.getConvexDataQuery`
 
 Executor constraints:
