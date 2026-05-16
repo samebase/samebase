@@ -73,12 +73,17 @@ async function fetchWithTimeout(
 function redactCloudflareOAuthErrorDetail(value: string): string {
   return value
     .replace(
-      /([?&](?:access_token|code|code_verifier|refresh_token|state)=)[^&\s]+/gi,
+      /((?:^|[?&])(?:access_token|code|code_verifier|refresh_token|state)=)[^&\s]+/gi,
       "$1<redacted>",
     )
     .replace(/\b[A-Za-z0-9_-]{32,}\b/g, "<redacted>");
 }
 
+/**
+ * Formats provider-owned OAuth endpoint errors for logs without leaking
+ * credentials: known message fields are deduped, OAuth-bearing values are
+ * redacted, long output is bounded, and empty records return no detail.
+ */
 export function formatCloudflareOAuthEndpointError(
   record: Record<string, unknown>,
 ): string | undefined {

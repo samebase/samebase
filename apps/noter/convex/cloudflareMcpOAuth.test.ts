@@ -50,4 +50,13 @@ describe("formatCloudflareOAuthEndpointError", () => {
       "invalid_request: redirect_uri includes ?code=<redacted>&state=<redacted>",
     );
   });
+
+  it("redacts leading OAuth-bearing values from endpoint details", () => {
+    expect(
+      formatCloudflareOAuthEndpointError({
+        error_description:
+          "code=short-code-value&state=short-state-value failed",
+      }),
+    ).toBe("code=<redacted>&state=<redacted> failed");
+  });
 });
