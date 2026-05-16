@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { selectConvexDeployPlan } from "./build-cloudflare";
+import { selectConvexDeployPlan } from "./build-cloudflare.js";
 
 describe("build-cloudflare", () => {
   it("rejects the generic Convex deploy key", () => {
