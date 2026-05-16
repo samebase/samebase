@@ -2,7 +2,6 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
 import {
-  resolveInfraStateAfterWorkflowFailure,
   resolveConnectionFailureProvider,
   selectCloudflareBuildConfigTreeData,
 } from "./infraProvisioning";
@@ -36,35 +35,6 @@ describe("selectCloudflareBuildConfigTreeData", () => {
         branchTreeData: null,
       }),
     ).toThrow("Default branch tree is not synced yet.");
-  });
-});
-
-describe("resolveInfraStateAfterWorkflowFailure", () => {
-  it("marks failures before provider progress as failed", () => {
-    expect(
-      resolveInfraStateAfterWorkflowFailure({
-        convexProjectId: undefined,
-        cloudflareStarted: false,
-      }),
-    ).toBe("failed");
-  });
-
-  it("marks failures after Convex progress as partial", () => {
-    expect(
-      resolveInfraStateAfterWorkflowFailure({
-        convexProjectId: "project-123",
-        cloudflareStarted: false,
-      }),
-    ).toBe("partial");
-  });
-
-  it("marks failures after Cloudflare progress as partial", () => {
-    expect(
-      resolveInfraStateAfterWorkflowFailure({
-        convexProjectId: undefined,
-        cloudflareStarted: true,
-      }),
-    ).toBe("partial");
   });
 });
 

@@ -5,7 +5,6 @@ import {
   vGithubTree,
   vGithubTreeData,
   vGitHubRepositoryVisibility,
-  vInfraState,
   vTreeRefreshFailureKind,
   vVaultRow,
 } from "./vault/model";
@@ -67,8 +66,6 @@ export type GithubTreeData = Infer<typeof vGithubTreeData>;
 export type GitHubRepositoryVisibility = Infer<
   typeof vGitHubRepositoryVisibility
 >;
-export type InfraState = Infer<typeof vInfraState>;
-
 export const vAppProvisioningEventLevel = union(
   literal("info"),
   literal("warn"),
@@ -460,28 +457,21 @@ export default defineSchema({
     ]),
 
   /**
-   * External infrastructure identifiers and operational status for provider
-   * calls. Product readiness lives on the vault's Convex and Cloudflare states.
+   * Convex resource identifiers that provider calls need after the vault row
+   * records product readiness. Run state lives on the Workflow and vault
+   * provider states.
    */
   vaultInfrastructure: defineTable({
     vaultId: id("vaults"),
 
-    status: vInfraState,
-    lastError: optional(string()),
-    provisioningVersion: number(),
-    lastProvisionedAt: optional(number()),
-
-    // Convex
-    convexProjectId: optional(string()),
-    convexProjectSlug: optional(string()),
-    convexDeploymentName: optional(string()),
-    convexDeploymentType: optional(union(literal("prod"), literal("dev"))),
-    convexCloudUrl: optional(string()),
-    convexSiteUrl: optional(string()),
+    convexProjectId: string(),
+    convexProjectSlug: string(),
+    convexDeploymentName: string(),
+    convexDeploymentType: union(literal("prod"), literal("dev")),
+    convexCloudUrl: string(),
+    convexSiteUrl: string(),
     convexDeployKeyId: optional(string()),
-  })
-    .index("by_vault", ["vaultId"])
-    .index("by_status", ["status"]),
+  }).index("by_vault", ["vaultId"]),
 
   /**
    * Latest Workflow run allowed to write provider state for a vault.

@@ -22,7 +22,7 @@ For noter-managed vaults, infrastructure is provisioned automatically after
 vault creation:
 
 1. Convex project/deployment resources (user-scoped)
-2. Cloudflare Pages project + environment setup (user-scoped)
+2. Cloudflare Worker + Workers Builds setup (user-scoped)
 3. Main-domain tracking in Convex tables
 
 Provisioning is asynchronous and resumable. Vault creation succeeds even if
@@ -54,33 +54,28 @@ downstream provisioning partially fails.
 
 ## Data Model
 
-### `vaults` additions
+### `vaults` provider states
 
-- `infraState: "not_started" | "provisioning" | "ready" | "failed" | "partial"`
-- `infraLastError?: string`
-- `infraLastProvisionedAt?: number`
-- `infraProvisioningStartedAt?: number`
+- `convex: { state: "not_configured" | "provisioning" | "connected" | "failed", ... }`
+- `cloudflare: { state: "not_configured" | "provisioning" | "connected" | "failed", ... }`
 
-These fields are the implemented MVP aggregate. The vault-first follow-up in
-`096` treats them as compatibility mirrors, not the long-term product model.
-Future Convex/Cloudflare cleanup should represent provider progress through
-separate `vault.convex` and `vault.hosting` states, derive dashboard summaries
-from those states, and remove the aggregate `vaults.infra*` fields once
-production rows are clean.
+Provider progress belongs on these provider-specific vault states. Do not add a
+coarse infrastructure aggregate that can disagree with the Convex or Cloudflare
+state.
 
 ### `vaultInfrastructure`
 
 - `vaultId`
-- `status`, `lastError`, `provisioningVersion`, `lastProvisionedAt`
 - Convex fields: `convexProjectId`, `convexProjectSlug`, `convexDeploymentName`,
   `convexDeploymentType`, `convexCloudUrl`, `convexSiteUrl`, `convexDeployKeyId`
-- Hosting fields: `hosting.provider`, `hosting.accountId`,
-  `hosting.projectName`, `hosting.subdomain`, `hosting.productionUrl`
+- No provider readiness, error, or hosting state. Product readiness lives on
+  `vaults.convex` and `vaults.cloudflare`; active writer state lives on
+  `vaultInfrastructureOwnership`; run errors live on `appProvisioningRuns` and
+  `appProvisioningEvents`.
 
 Indexes:
 
 - `by_vault`
-- `by_status`
 
 ### `vaultDomains`
 
@@ -133,7 +128,8 @@ Repository default branch:
 - `appProvisioningWorkflow.startVaultInfrastructureProvisioning({ vaultId, runId, force })`
 - `appProvisioningWorkflow.provisionVaultInfrastructure({ vaultId, runId, force })`
 - `infraProvisioning.claimWorkflowProvisioning({ vaultId, runId, force })`
-- `infraProvisioning.upsertInfrastructureRecord(...)`
+- `infraProvisioning.recordConvexInfrastructure(...)`
+- `infraProvisioning.recordConvexDeployKey(...)`
 - `infraProvisioning.upsertDomainRecord(...)`
 
 ## Provisioning Flow
@@ -144,27 +140,27 @@ sequenceDiagram
   participant WF as "appProvisioningWorkflow"
   participant IP as "infraProvisioning steps"
   participant CVX as "Convex Mgmt API"
-  participant CFL as "Cloudflare Pages API"
+  participant CFL as "Cloudflare Workers API"
   participant DB as "Convex DB"
 
-  VA->>DB: addVault(isNoterManaged=true, infraState=not_started)
+  VA->>DB: add connected vault with provider states
   VA->>DB: create appProvisioningRun
   VA->>WF: start provisioning workflow
   WF->>IP: run ordered steps
-  IP->>DB: claim + set infraState=provisioning
+  IP->>DB: claim ownership + mark provider provisioning
   IP->>CVX: ensure project/deployments
-  IP->>CFL: ensure Pages project/env/deploy
-  IP->>DB: upsert vaultInfrastructure + vaultDomains
-  IP->>DB: set infraState=ready
+  IP->>DB: record Convex resource metadata
+  IP->>CFL: ensure Worker/build triggers/env/deploy
+  IP->>DB: mark provider states connected + upsert vaultDomains
 ```
 
 ## State Machine
 
-- `not_started` -> initial vault state
-- `provisioning` -> active run (with stale-lock handling)
-- `ready` -> full success
-- `partial` -> at least one provider succeeded but run failed before completion
-- `failed` -> run failed before any provider success
+- `vault.convex` and `vault.cloudflare` each move through
+  `not_configured -> provisioning -> connected` or `failed`.
+- `vaultInfrastructureOwnership` records the active/succeeded/failed writer run.
+- `appProvisioningRuns` and `appProvisioningEvents` record workflow progress and
+  user-visible failures.
 
 ## UI Surface
 
@@ -181,8 +177,8 @@ Dashboard external links:
   service-link row near the repository title.
 - The row includes the GitHub repository link and only renders when at least one
   managed-infra link is available.
-- The Cloudflare link targets the specific Pages project:
-  `https://dash.cloudflare.com/?to=/<accountId>/pages/view/<projectName>`.
+- The Cloudflare link targets the specific Worker:
+  `https://dash.cloudflare.com/?to=/<accountId>/workers/services/view/<workerName>/production/deployments`.
 - The `Project settings` Convex link targets the project-scoped settings page:
   `https://dashboard.convex.dev/t/<teamSlug>/<projectSlug>/settings`.
 - The production Convex link renders on the default branch row, not in the

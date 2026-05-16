@@ -22,15 +22,6 @@ export const vGithubTreeData = object({
 });
 export type GithubTreeData = Infer<typeof vGithubTreeData>;
 
-export const vInfraState = union(
-  literal("not_started"),
-  literal("provisioning"),
-  literal("ready"),
-  literal("failed"),
-  literal("partial"),
-);
-export type InfraState = Infer<typeof vInfraState>;
-
 /**
  * GitHub visibility values currently supported by Noter's create and connect
  * flows.

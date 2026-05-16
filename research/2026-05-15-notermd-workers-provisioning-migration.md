@@ -247,6 +247,11 @@ The Workers migration keeps Cloudflare resource state on `vaults.cloudflare`,
 removes the duplicate `vaultInfrastructure.cloudflare` copy, and records Worker
 domain sources instead of Pages domain sources.
 
+`vaultInfrastructure` should stay a Convex resource record only. Its old
+`status`, `lastError`, `provisioningVersion`, and `lastProvisionedAt` fields are
+separate operational axes that can contradict the vault provider states,
+Workflow run state, and ownership row.
+
 ### 7. Preview Links Come From GitHub Comments
 
 Noter does not currently read preview URLs from Cloudflare's API. Instead,

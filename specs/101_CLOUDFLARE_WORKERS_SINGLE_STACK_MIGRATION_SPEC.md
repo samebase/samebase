@@ -327,7 +327,10 @@ strategy:
 2. run a one-off cleanup/migration
 3. keep a temporary Pages cleanup path for one deploy, then remove it
 
-Do not design the runtime model around indefinite Pages compatibility.
+Do not design the runtime model around indefinite Pages compatibility. Do not
+keep duplicate infrastructure status fields that can disagree with the vault
+provider states. `vaultInfrastructure` is only the Convex resource record;
+Cloudflare state belongs on `vaults.cloudflare`.
 
 Rollout checklist:
 

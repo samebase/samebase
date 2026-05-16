@@ -28,31 +28,45 @@ const GITHUB_API_VERSION = "2022-11-28";
 const activeProvisioningRunResult = v.object({ active: v.boolean() });
 const infrastructurePatchResult = v.object({ applied: v.boolean() });
 
-const infraPatchValidator = v.object({
-  status: v.optional(
-    v.union(
-      v.literal("not_started"),
-      v.literal("provisioning"),
-      v.literal("ready"),
-      v.literal("failed"),
-      v.literal("partial"),
-    ),
-  ),
-  lastError: v.optional(v.string()),
-  provisioningVersion: v.optional(v.number()),
-  lastProvisionedAt: v.optional(v.number()),
-
-  convexProjectId: v.optional(v.string()),
-  convexProjectSlug: v.optional(v.string()),
-  convexDeploymentName: v.optional(v.string()),
-  convexDeploymentType: v.optional(
-    v.union(v.literal("prod"), v.literal("dev")),
-  ),
-  convexCloudUrl: v.optional(v.string()),
-  convexSiteUrl: v.optional(v.string()),
-  convexDeployKeyId: v.optional(v.string()),
+const convexInfrastructureRecordValidator = v.object({
+  convexProjectId: v.string(),
+  convexProjectSlug: v.string(),
+  convexDeploymentName: v.string(),
+  convexDeploymentType: v.union(v.literal("prod"), v.literal("dev")),
+  convexCloudUrl: v.string(),
+  convexSiteUrl: v.string(),
 });
 
+async function requireActiveProvisioningVault(
+  ctx: MutationCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"appProvisioningRuns">;
+  },
+): Promise<NoterManagedConnectedVault | null> {
+  const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+  if (
+    !ownership ||
+    !isActiveProvisioningOwner(ownership, { runId: args.runId })
+  ) {
+    return null;
+  }
+  const vault = await ctx.db.get(args.vaultId);
+  if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
+    return null;
+  }
+  return vault;
+}
+
+async function readVaultInfrastructure(
+  ctx: Pick<MutationCtx, "db">,
+  vaultId: Id<"vaults">,
+): Promise<Doc<"vaultInfrastructure"> | null> {
+  return await ctx.db
+    .query("vaultInfrastructure")
+    .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+    .first();
+}
 async function readResponseTextSafe(response: Response): Promise<string> {
   try {
     return await response.text();
@@ -814,13 +828,6 @@ async function resolveCloudflareProvisioningConnection(
   return { cloudflareToken, cloudflareServerUrl, cloudflareAccountId };
 }
 
-export function resolveInfraStateAfterWorkflowFailure(args: {
-  convexProjectId?: string;
-  cloudflareStarted: boolean;
-}): "failed" | "partial" {
-  return args.convexProjectId || args.cloudflareStarted ? "partial" : "failed";
-}
-
 export const getInfrastructureByVault = internalQuery({
   args: {
     vaultId: v.id("vaults"),
@@ -850,50 +857,55 @@ export const isActiveProvisioningRun = internalQuery({
   },
 });
 
-export const upsertInfrastructureRecord = internalMutation({
+export const recordConvexInfrastructure = internalMutation({
   args: {
     vaultId: v.id("vaults"),
     runId: v.id("appProvisioningRuns"),
-    patch: infraPatchValidator,
+    convex: convexInfrastructureRecordValidator,
   },
   returns: infrastructurePatchResult,
   handler: async (ctx, args) => {
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (
-      !ownership ||
-      !isActiveProvisioningOwner(ownership, { runId: args.runId })
-    ) {
-      return { applied: false };
-    }
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
+    const vault = await requireActiveProvisioningVault(ctx, args);
+    if (!vault) {
       return { applied: false };
     }
 
-    const existing = await ctx.db
-      .query("vaultInfrastructure")
-      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .first();
+    const existing = await readVaultInfrastructure(ctx, args.vaultId);
 
     if (existing) {
-      await ctx.db.patch(existing._id, args.patch);
+      await ctx.db.patch(existing._id, args.convex);
       return { applied: true };
     }
 
     await ctx.db.insert("vaultInfrastructure", {
       vaultId: args.vaultId,
-      status: args.patch.status ?? "not_started",
-      provisioningVersion: args.patch.provisioningVersion ?? 0,
-      lastError: args.patch.lastError,
-      lastProvisionedAt: args.patch.lastProvisionedAt,
+      ...args.convex,
+    });
 
-      convexProjectId: args.patch.convexProjectId,
-      convexProjectSlug: args.patch.convexProjectSlug,
-      convexDeploymentName: args.patch.convexDeploymentName,
-      convexDeploymentType: args.patch.convexDeploymentType,
-      convexCloudUrl: args.patch.convexCloudUrl,
-      convexSiteUrl: args.patch.convexSiteUrl,
-      convexDeployKeyId: args.patch.convexDeployKeyId,
+    return { applied: true };
+  },
+});
+
+export const recordConvexDeployKey = internalMutation({
+  args: {
+    vaultId: v.id("vaults"),
+    runId: v.id("appProvisioningRuns"),
+    convexDeployKeyId: v.string(),
+  },
+  returns: infrastructurePatchResult,
+  handler: async (ctx, args) => {
+    const vault = await requireActiveProvisioningVault(ctx, args);
+    if (!vault) {
+      return { applied: false };
+    }
+
+    const existing = await readVaultInfrastructure(ctx, args.vaultId);
+    if (!existing) {
+      return { applied: false };
+    }
+
+    await ctx.db.patch(existing._id, {
+      convexDeployKeyId: args.convexDeployKeyId,
     });
 
     return { applied: true };
@@ -1131,25 +1143,8 @@ export const claimWorkflowProvisioning = internalMutation({
       cloudflare: claimedCloudflare,
     });
 
-    const existing = await ctx.db
-      .query("vaultInfrastructure")
-      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .first();
-    const nextVersion = (existing?.provisioningVersion ?? 0) + 1;
-
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        status: "provisioning",
-        provisioningVersion: nextVersion,
-        lastError: undefined,
-      });
-    } else {
-      await ctx.db.insert("vaultInfrastructure", {
-        vaultId: args.vaultId,
-        status: "provisioning",
-        provisioningVersion: nextVersion,
-      });
-    }
+    const previousVersion = ownership?.provisioningVersion ?? 0;
+    const nextVersion = previousVersion + 1;
 
     if (ownership) {
       if (ownership.state === "active" && ownership.runId !== args.runId) {
@@ -1177,7 +1172,7 @@ export const claimWorkflowProvisioning = internalMutation({
     console.log("infra:provision:start", {
       vaultId: args.vaultId,
       repo: `${vault.owner}/${vault.name}`,
-      previousVersion: existing?.provisioningVersion ?? 0,
+      previousVersion,
       nextVersion,
       force: args.force,
     });
@@ -1291,12 +1286,11 @@ export const ensureConvexInfrastructure = internalAction({
     });
 
     const { applied } = await ctx.runMutation(
-      internal.infraProvisioning.upsertInfrastructureRecord,
+      internal.infraProvisioning.recordConvexInfrastructure,
       {
         vaultId: args.vaultId,
         runId: args.runId,
-        patch: {
-          status: "provisioning",
+        convex: {
           convexProjectId: convex.convexProjectId,
           convexProjectSlug: convex.convexProjectSlug,
           convexDeploymentName: convex.convexDeploymentName,
@@ -1539,16 +1533,11 @@ export const ensureCloudflareInfrastructure = internalAction({
       },
     });
     const { applied } = await ctx.runMutation(
-      internal.infraProvisioning.upsertInfrastructureRecord,
+      internal.infraProvisioning.recordConvexDeployKey,
       {
         vaultId: args.vaultId,
         runId: args.runId,
-        patch: {
-          status: "ready",
-          lastProvisionedAt: Date.now(),
-          lastError: undefined,
-          convexDeployKeyId: productionDeployKey.convexDeployKeyId,
-        },
+        convexDeployKeyId: productionDeployKey.convexDeployKeyId,
       },
     );
     if (!applied) {
@@ -1935,34 +1924,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
       return null;
     }
 
-    const infrastructure = await ctx.db
-      .query("vaultInfrastructure")
-      .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-      .first();
-    const infraState = resolveInfraStateAfterWorkflowFailure({
-      convexProjectId: infrastructure?.convexProjectId,
-      cloudflareStarted:
-        isLiveConnectedVault(vault) &&
-        isNoterManagedVault(vault) &&
-        vault.cloudflare.state !== "not_configured",
-    });
     if (ownsActiveClaim && ownership) {
-      if (infrastructure) {
-        await ctx.db.patch(infrastructure._id, {
-          status: infraState,
-          lastError: args.message,
-          lastProvisionedAt: now,
-        });
-      } else {
-        await ctx.db.insert("vaultInfrastructure", {
-          vaultId,
-          status: infraState,
-          lastError: args.message,
-          lastProvisionedAt: now,
-          provisioningVersion: ownership.provisioningVersion,
-        });
-      }
-
       if (isLiveConnectedVault(vault) && isNoterManagedVault(vault)) {
         const providerPatch = buildProviderFailurePatch({
           vault,
@@ -1990,7 +1952,6 @@ export const markWorkflowProvisioningFailed = internalMutation({
     console.error("infra:provision:failed", {
       vaultId,
       repo: run.repositoryFullName,
-      infraState,
       step: run.currentStep,
       message: args.message,
     });
