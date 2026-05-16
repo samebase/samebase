@@ -27,6 +27,14 @@ const CLOUDFLARE_MCP_TOKEN_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/token`;
 const CLOUDFLARE_MCP_REGISTRATION_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/register`;
 const CLOUDFLARE_MCP_SERVER_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/mcp`;
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
+const FormEncodedParams = globalThis.URLSearchParams;
+const CLOUDFLARE_OAUTH_ERROR_MESSAGE_KEYS = [
+  "error",
+  "error_description",
+  "message",
+  "detail",
+  "statusText",
+] as const;
 const {
   boolean,
   id,
@@ -60,6 +68,57 @@ async function fetchWithTimeout(
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function redactCloudflareOAuthErrorDetail(value: string): string {
+  return value
+    .replace(
+      /((?:^|[?&])(?:access_token|code|code_verifier|refresh_token|state)=)[^&\s]+/gi,
+      "$1<redacted>",
+    )
+    .replace(/\b[A-Za-z0-9_-]{32,}\b/g, "<redacted>");
+}
+
+/**
+ * Formats provider-owned OAuth endpoint errors for logs without leaking
+ * credentials: known message fields are deduped, OAuth-bearing values are
+ * redacted, long output is bounded, and empty records return no detail.
+ */
+export function formatCloudflareOAuthEndpointError(
+  record: Record<string, unknown>,
+): string | undefined {
+  const segments: string[] = [];
+  for (const key of CLOUDFLARE_OAUTH_ERROR_MESSAGE_KEYS) {
+    const segment = readString(record, key)?.trim();
+    if (segment && !segments.includes(segment)) {
+      segments.push(segment);
+    }
+  }
+
+  if (segments.length === 0) {
+    return undefined;
+  }
+
+  const detail = redactCloudflareOAuthErrorDetail(segments.join(": "));
+  if (detail.length <= 240) {
+    return detail;
+  }
+  return `${detail.slice(0, 237)}...`;
+}
+
+function formatCloudflareOAuthRequestFailure(args: {
+  operation:
+    | "exchange Cloudflare OAuth code"
+    | "refresh Cloudflare OAuth token";
+  status: number;
+  record: Record<string, unknown>;
+}): Error {
+  const detail = formatCloudflareOAuthEndpointError(args.record);
+  const message = `Failed to ${args.operation} (${args.status})`;
+  if (!detail) {
+    return new Error(`${message}.`);
+  }
+  return new Error(`${message}: ${detail}.`);
 }
 
 async function registerCloudflareMcpClient(args: {
@@ -107,7 +166,7 @@ async function exchangeCloudflareMcpOAuthCode(args: {
   refreshToken?: string;
   expiresIn?: number;
 }> {
-  const payload = new URLSearchParams({
+  const payload = new FormEncodedParams({
     grant_type: "authorization_code",
     client_id: args.clientId,
     code: args.code,
@@ -128,9 +187,11 @@ async function exchangeCloudflareMcpOAuthCode(args: {
   const accessToken = readString(record, "access_token");
 
   if (!response.ok || !accessToken) {
-    throw new Error(
-      `Failed to exchange Cloudflare OAuth code (${response.status}).`,
-    );
+    throw formatCloudflareOAuthRequestFailure({
+      operation: "exchange Cloudflare OAuth code",
+      status: response.status,
+      record,
+    });
   }
 
   return {
@@ -197,7 +258,7 @@ async function refreshCloudflareMcpOAuthToken(args: {
   refreshToken?: string;
   expiresIn?: number;
 }> {
-  const payload = new URLSearchParams({
+  const payload = new FormEncodedParams({
     grant_type: "refresh_token",
     client_id: args.clientId,
     refresh_token: args.refreshToken,
@@ -216,9 +277,11 @@ async function refreshCloudflareMcpOAuthToken(args: {
   const accessToken = readString(record, "access_token");
 
   if (!response.ok || !accessToken) {
-    throw new Error(
-      `Failed to refresh Cloudflare OAuth token (${response.status}).`,
-    );
+    throw formatCloudflareOAuthRequestFailure({
+      operation: "refresh Cloudflare OAuth token",
+      status: response.status,
+      record,
+    });
   }
 
   return {

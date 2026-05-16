@@ -760,6 +760,7 @@ async function resolveCloudflareProvisioningConnection(
 ): Promise<{
   cloudflareToken: string;
   cloudflareServerUrl: string;
+  cloudflareAuthMethod: "api_key" | "mcp_oauth";
   cloudflareAccountId: string;
 }> {
   const resolvedCloudflareConnection = await ctx.runAction(
@@ -825,7 +826,12 @@ async function resolveCloudflareProvisioningConnection(
     );
   }
 
-  return { cloudflareToken, cloudflareServerUrl, cloudflareAccountId };
+  return {
+    cloudflareToken,
+    cloudflareServerUrl,
+    cloudflareAuthMethod: resolvedCloudflareConnection.auth.method,
+    cloudflareAccountId,
+  };
 }
 
 export const getInfrastructureByVault = internalQuery({
@@ -1483,8 +1489,12 @@ export const ensureCloudflareInfrastructure = internalAction({
       ctx,
       vault.userId,
     );
-    const { cloudflareToken, cloudflareServerUrl, cloudflareAccountId } =
-      await resolveCloudflareProvisioningConnection(ctx, vault.userId);
+    const {
+      cloudflareToken,
+      cloudflareServerUrl,
+      cloudflareAuthMethod,
+      cloudflareAccountId,
+    } = await resolveCloudflareProvisioningConnection(ctx, vault.userId);
     const providers = createInfraProviders({
       convexToken,
     });
@@ -1517,6 +1527,7 @@ export const ensureCloudflareInfrastructure = internalAction({
       vaultId: args.vaultId,
       cloudflareToken,
       cloudflareServerUrl,
+      cloudflareAuthMethod,
       accountId: cloudflareAccountId,
       buildConfig: resolveCloudflareBuildConfig({
         treeData: buildConfigTreeData,
@@ -1766,6 +1777,7 @@ const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "Cloudflare connection is missing Workers Builds write access.",
   "Cloudflare Workers needs a configured workers.dev subdomain",
   "Cloudflare Workers Builds has no build API token",
+  "Cloudflare has multiple Workers build tokens",
   "GitHub owner id is required before Cloudflare Workers Builds can connect the repository.",
 ];
 
