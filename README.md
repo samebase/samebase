@@ -1,7 +1,7 @@
 # noter.md
 
 noter is a collaborative, GitHub-connected code editor built as a PNPM workspace
-with React + Vite on the frontend and Convex on the backend.
+with React + TanStack Start/Vite on the frontend and Convex on the backend.
 
 ## Current Product Capabilities (2026-02-13)
 
@@ -11,7 +11,7 @@ with React + Vite on the frontend and Convex on the backend.
   as a runnable starter in a single commit
 - Automatic infrastructure provisioning for new noter-managed vaults:
   - Convex project/deployment
-  - Cloudflare Pages project + environment wiring
+  - Cloudflare Workers project + environment wiring
   - Infrastructure status surfaced in Vault Dashboard
 - Manual infra retry for failed/partial provisioning
 - GitHub Codespaces integration for cloud execution
@@ -29,7 +29,7 @@ with React + Vite on the frontend and Convex on the backend.
 
 ## Tech Stack
 
-- Frontend: React 18, TypeScript, Vite, React Router
+- Frontend: React, TypeScript, Vite, TanStack Start, TanStack Router
 - Backend: Convex (queries, mutations, actions, scheduler)
 - Editor: CodeMirror 6
 - Auth: Convex Auth (Google in prod, Google + password in dev) + provider
@@ -168,21 +168,21 @@ pnpm anon
 pnpm build
 ```
 
-For Cloudflare Pages, point the project root directory at `apps/noter` and use
-one build command for every environment:
+For Cloudflare Workers Builds, point the project root directory at `apps/noter`
+and use:
+
+- Build command: `pnpm run build`
+- Production deploy command: `pnpm run deploy`
+- Non-production deploy command: `pnpm run deploy:preview`
+
+`wrangler.jsonc` owns the static asset directory and SPA fallback. The build
+script deploys Convex first when `CONVEX_DEPLOY_KEY` is available. Local
+dry-runs build the app assets without deploying Convex and can validate the
+Worker package with:
 
 ```bash
-pnpm run build:cloudflare
+CLOUDFLARE_WORKER_NAME=noter-next pnpm --filter noter deploy:dry-run
 ```
-
-That app-owned entrypoint treats `main` as the production branch and every other
-`CF_PAGES_BRANCH` value as a preview deploy by dispatching to:
-
-- `pnpm run build:cloudflare:production`
-- `pnpm run build:cloudflare:preview`
-
-The Pages UI still only needs the single app-level command, and each app can own
-its own Cloudflare build flow if this workspace grows beyond `apps/noter`.
 
 ### Testing
 

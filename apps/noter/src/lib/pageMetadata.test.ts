@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vite-plus/test";
+import { buildRootHead } from "@/lib/rootHead";
 
 import {
   APP_PAGE_METADATA,
@@ -274,25 +274,49 @@ describe("page metadata", () => {
       "Codex Thread Browser Research | noter",
     );
   });
-  it("keeps the raw html shell aligned with the real public homepage", () => {
-    const html = readFileSync(new URL("../../index.html", import.meta.url), {
-      encoding: "utf8",
-    });
+  it("keeps the Start document shell aligned with the real public homepage", () => {
+    const rootHead = buildRootHead();
 
-    expect(html).toContain('name="robots" content="index,follow"');
-    expect(html).toContain('<link rel="canonical" href="https://noter.md/"');
-    expect(html).toContain('property="og:url" content="https://noter.md/"');
-    expect(html).toContain(
-      'property="og:image"\n      content="https://noter.md/noter-social-card.png"',
-    );
-    expect(html).toContain('name="twitter:image"');
-    expect(html).toContain('<link rel="manifest" href="/manifest.webmanifest"');
-    expect(html).toContain(
-      'window.addEventListener("beforeinstallprompt", (event) => {',
-    );
-    expect(html).toContain("event.preventDefault();");
-    expect(html).toContain(
-      '<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />',
-    );
+    expect(rootHead.meta).toContainEqual({
+      name: "robots",
+      content: "index,follow",
+    });
+    expect(rootHead.links).toContainEqual({
+      rel: "canonical",
+      href: "https://noter.md/",
+    });
+    expect(rootHead.meta).toContainEqual({
+      property: "og:url",
+      content: "https://noter.md/",
+    });
+    expect(rootHead.meta).toContainEqual({
+      property: "og:image",
+      content: "https://noter.md/noter-social-card.png",
+    });
+    expect(rootHead.meta).toContainEqual({
+      name: "twitter:image",
+      content: "https://noter.md/noter-social-card.png",
+    });
+    expect(rootHead.links).toContainEqual({
+      rel: "manifest",
+      href: "/manifest.webmanifest",
+    });
+    expect(
+      rootHead.scripts.some((script) =>
+        script.children.includes(
+          'window.addEventListener("beforeinstallprompt", (event) => {',
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      rootHead.scripts.some((script) =>
+        script.children.includes("event.preventDefault();"),
+      ),
+    ).toBe(true);
+    expect(rootHead.links).toContainEqual({
+      rel: "apple-touch-icon",
+      href: "/apple-touch-icon.png",
+      sizes: "180x180",
+    });
   });
 });

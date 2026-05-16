@@ -15,7 +15,7 @@ function LogoSvgRouteComponent() {
   );
 }
 
-export const Route = createFileRoute(pathname)({
+export const Route = createFileRoute("/logo/svg")({
   component: LogoSvgRouteComponent,
   validateSearch: validateLogoRouteSearch,
 });

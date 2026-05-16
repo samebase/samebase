@@ -25,7 +25,7 @@ function LogoIsoRouteComponent() {
   );
 }
 
-export const Route = createFileRoute(pathname)({
+export const Route = createFileRoute("/logo/iso")({
   component: LogoIsoRouteComponent,
   validateSearch: validateLogoRouteSearch,
 });

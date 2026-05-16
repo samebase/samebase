@@ -196,7 +196,7 @@ vi.mock("@/components/CodexAppServerThreadBrowserResearchPage", () => ({
   ),
 }));
 
-import { createAppRouter } from "./appRouter";
+import { createAppRouter } from "../router";
 import { applySearchPatch } from "./routeSearchFlags";
 import {
   buildPathWithTanStackSearch,
