@@ -12,6 +12,10 @@ function isMode(value: string | undefined): value is Mode {
   return value === "deploy" || value === "preview";
 }
 
+function isReservedWranglerFlag(value: string) {
+  return value === "--name" || value.startsWith("--name=") || value === "-n";
+}
+
 function readWorkerName() {
   const workerName =
     process.env.WRANGLER_CI_OVERRIDE_NAME ?? process.env.CLOUDFLARE_WORKER_NAME;
@@ -57,6 +61,12 @@ const [modeArg, ...extraArgs] = process.argv.slice(2);
 if (!isMode(modeArg)) {
   throw new Error(
     "Usage: pnpm run deploy[:preview][:dry-run] -- [wrangler flags]",
+  );
+}
+
+if (extraArgs.some(isReservedWranglerFlag)) {
+  throw new Error(
+    "Do not pass Wrangler --name/-n manually; set CLOUDFLARE_WORKER_NAME or let Workers Builds provide WRANGLER_CI_OVERRIDE_NAME.",
   );
 }
 
