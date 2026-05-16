@@ -24,7 +24,7 @@ const SCENARIOS = [
 for (const scenario of SCENARIOS) {
   test(`vault branch preview fixture (${scenario.mode})`, async ({ page }) => {
     await page.setViewportSize({ width: 640, height: 180 });
-    await page.goto(`/visual-fixture.html?mode=${scenario.mode}`, {
+    await page.goto(`/visual-fixture?mode=${scenario.mode}`, {
       waitUntil: "domcontentloaded",
     });
     await page.waitForLoadState("networkidle");

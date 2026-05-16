@@ -24,7 +24,7 @@ async function narrowLeftSidebar(page: Page) {
 }
 
 async function openMachinesWorkspaceFixture(page: Page) {
-  await page.goto("/visual-fixture.html?mode=machines-workspace", {
+  await page.goto("/visual-fixture?mode=machines-workspace", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");

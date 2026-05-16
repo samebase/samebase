@@ -10,7 +10,7 @@ const strictScreenshotOptions = {
 
 test("button visual fixture", async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 2200 });
-  await page.goto("/visual-fixture.html?mode=button", {
+  await page.goto("/visual-fixture?mode=button", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");

@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("vault last updated status fixture", async ({ page }) => {
   await page.setViewportSize({ width: 420, height: 220 });
-  await page.goto("/visual-fixture.html?mode=vault-last-updated-status", {
+  await page.goto("/visual-fixture?mode=vault-last-updated-status", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -20,7 +20,7 @@ test("vault last updated status fixture refreshes on click", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 420, height: 220 });
-  await page.goto("/visual-fixture.html?mode=vault-last-updated-status", {
+  await page.goto("/visual-fixture?mode=vault-last-updated-status", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");

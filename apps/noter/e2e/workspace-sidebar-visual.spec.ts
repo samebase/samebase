@@ -4,7 +4,7 @@ const { defaultBrowserType: _pixel7BrowserType, ...pixel7Device } =
   devices["Pixel 7"];
 
 async function gotoFileViewFixture(page: Page) {
-  await page.goto("/visual-fixture.html?mode=fileview-layout-persistence", {
+  await page.goto("/visual-fixture?mode=fileview-layout-persistence", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -51,7 +51,7 @@ async function getFixtureViewportClip(page: Page) {
 
 test("fileview desktop shell with right tree", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 760 });
-  await page.goto("/visual-fixture.html?mode=fileview-layout", {
+  await page.goto("/visual-fixture?mode=fileview-layout", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");

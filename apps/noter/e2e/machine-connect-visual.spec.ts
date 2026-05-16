@@ -19,7 +19,7 @@ async function waitForStableFonts(page: Page) {
 
 test("machine connect fixture", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 2600 });
-  await page.goto("/visual-fixture.html?mode=machine-connect", {
+  await page.goto("/visual-fixture?mode=machine-connect", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");

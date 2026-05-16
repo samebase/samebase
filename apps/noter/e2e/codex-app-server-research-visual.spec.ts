@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 async function openResearchFixture(page: Page) {
-  await page.goto("/visual-fixture.html?mode=codex-app-server-research", {
+  await page.goto("/visual-fixture?mode=codex-app-server-research", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");

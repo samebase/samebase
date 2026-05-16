@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const WORKSPACE_LAYOUT_V2_STATUS_BAR_FIXTURE_URL =
-  "/visual-fixture.html?mode=workspace-layout-v2-status-bar";
+  "/visual-fixture?mode=workspace-layout-v2-status-bar";
 
 async function openWorkspaceLayoutV2Fixture(
   page: Page,

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 async function openBrowserFixture(page: Page) {
-  await page.goto("/visual-fixture.html?mode=codex-thread-browser", {
+  await page.goto("/visual-fixture?mode=codex-thread-browser", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");

@@ -14,7 +14,7 @@ const SCENARIOS = [
 for (const scenario of SCENARIOS) {
   test(`file view compare fixture (${scenario.mode})`, async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
-    await page.goto(`/visual-fixture.html?mode=${scenario.mode}`, {
+    await page.goto(`/visual-fixture?mode=${scenario.mode}`, {
       waitUntil: "domcontentloaded",
     });
     await page.waitForLoadState("networkidle");

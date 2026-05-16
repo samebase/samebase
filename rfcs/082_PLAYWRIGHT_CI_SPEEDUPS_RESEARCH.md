@@ -83,7 +83,7 @@ Recent active-branch CI logs were slightly smaller at `85` tests, which means
 the suite is still growing and the need for parallelism is only getting more
 real.
 
-Most of the main CI suite targets `visual-fixture.html` and uses isolated
+Most of the main CI suite targets `visual-fixture` and uses isolated
 snapshot-style pages. Only the `.live.spec.ts` files carry explicit serial live
 flow behavior, and those are already excluded from
 `apps/noter/playwright.config.ts`.

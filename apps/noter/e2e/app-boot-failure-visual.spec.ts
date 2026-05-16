@@ -44,7 +44,7 @@ async function captureAppBootFailureVisual(
   },
   expectedButtonLayout: "row" | "stack",
 ) {
-  await page.goto(`/visual-fixture.html?mode=${scenario.mode}`, {
+  await page.goto(`/visual-fixture?mode=${scenario.mode}`, {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
