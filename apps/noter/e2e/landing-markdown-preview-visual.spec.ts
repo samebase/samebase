@@ -50,6 +50,50 @@ async function expectSidebarLinksToMatchMarkdown(sidebar: Locator) {
   }
 }
 
+async function waitForVideoCurrentFrame(video: Locator) {
+  await expect(video).toBeVisible();
+  await video.evaluate(async (element) => {
+    if (!(element instanceof HTMLVideoElement)) {
+      throw new Error("Expected landing preview media to render as a video");
+    }
+
+    element.preload = "auto";
+    element.load();
+    if (element.readyState >= element.HAVE_CURRENT_DATA) {
+      return;
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      const timeoutId = window.setTimeout(() => {
+        cleanup();
+        reject(new Error("Timed out waiting for landing video frame"));
+      }, 5_000);
+      const handleFrame = () => {
+        cleanup();
+        resolve();
+      };
+      const handleError = () => {
+        cleanup();
+        reject(
+          new Error(
+            `Landing video failed to load a frame: ${element.error?.code ?? "unknown"}`,
+          ),
+        );
+      };
+      const cleanup = () => {
+        window.clearTimeout(timeoutId);
+        element.removeEventListener("loadeddata", handleFrame);
+        element.removeEventListener("canplay", handleFrame);
+        element.removeEventListener("error", handleError);
+      };
+
+      element.addEventListener("loadeddata", handleFrame);
+      element.addEventListener("canplay", handleFrame);
+      element.addEventListener("error", handleError);
+    });
+  });
+}
+
 test("landing markdown preview route renders markdown in workspace chrome", async ({
   page,
 }) => {
@@ -179,6 +223,9 @@ test("landing markdown preview sidebar hash links keep the mobile sidebar open",
   const sidebar = page.getByTestId(LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID);
   await expect(sidebar).toBeVisible();
   await expectSidebarLinksToMatchMarkdown(sidebar);
+  await waitForVideoCurrentFrame(
+    page.locator(`video[src="${expectedLandingPreviewVideoSrcs[0]}"]`),
+  );
   await expect(page).toHaveScreenshot("landing-markdown-preview-mobile.png", {
     animations: "disabled",
     caret: "hide",
