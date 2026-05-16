@@ -4,6 +4,7 @@ import {
   isWorkersBuildsInvalidTokenMessage,
   readCloudflareWorkerTag,
   selectCurrentBuildTokenUuid,
+  selectReusableBuildTokenUuid,
 } from "./cloudflareResources";
 
 describe("cloudflare resources", () => {
@@ -90,6 +91,68 @@ describe("cloudflare resources", () => {
         ],
       }),
     ).toBe("trigger-build-token");
+  });
+
+  it("reuses an existing named build token for Cloudflare OAuth", () => {
+    expect(
+      selectReusableBuildTokenUuid({
+        tokens: [
+          {
+            name: "other token",
+            uuid: "other-build-token",
+            cloudflareTokenId: "other-token-id",
+          },
+          {
+            name: "noter build token",
+            uuid: "noter-build-token",
+            cloudflareTokenId: "oauth-unverifiable-token-id",
+          },
+        ],
+      }),
+    ).toBe("noter-build-token");
+  });
+
+  it("prefers the reusable build token already attached to Workers Builds triggers", () => {
+    expect(
+      selectReusableBuildTokenUuid({
+        preferredBuildTokenUuids: ["trigger-build-token"],
+        tokens: [
+          {
+            name: "noter build token",
+            uuid: "current-build-token",
+            cloudflareTokenId: "oauth-unverifiable-token-id",
+          },
+          {
+            name: "older noter build token",
+            uuid: "trigger-build-token",
+            cloudflareTokenId: "oauth-unverifiable-token-id",
+          },
+        ],
+      }),
+    ).toBe("trigger-build-token");
+  });
+
+  it("does not invent a reusable build token when Cloudflare has none", () => {
+    expect(selectReusableBuildTokenUuid({ tokens: [] })).toBe(undefined);
+  });
+
+  it("fails when multiple reusable build tokens cannot be distinguished", () => {
+    expect(() =>
+      selectReusableBuildTokenUuid({
+        tokens: [
+          {
+            name: "other build token",
+            uuid: "first-build-token",
+            cloudflareTokenId: "first-token-id",
+          },
+          {
+            name: "another build token",
+            uuid: "second-build-token",
+            cloudflareTokenId: "second-token-id",
+          },
+        ],
+      }),
+    ).toThrow("multiple Workers build tokens");
   });
 
   it("does not select stale build tokens with unrelated Cloudflare token ids", () => {

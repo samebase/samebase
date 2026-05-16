@@ -48,6 +48,7 @@ type CloudflareApiErrorDetail = {
 const WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE =
   "Cloudflare connection is missing Workers Builds write access. Reconnect Cloudflare and grant Workers Builds, Workers, and Workers Scripts access, then retry.";
 const NOTER_WORKERS_BUILD_TOKEN_NAME = "noter build token";
+const WORKERS_BUILDS_TOKEN_REQUIRED_MESSAGE = `Cloudflare Workers Builds has no build API token. In Cloudflare, create a Workers Builds API token named "${NOTER_WORKERS_BUILD_TOKEN_NAME}", then retry.`;
 const BUILD_TOKEN_PAGE_SIZE = 100;
 
 export class CloudflareApiError extends Error {
@@ -437,7 +438,20 @@ async function resolveBuildTokenUuid(args: {
   serverUrl?: string;
   accountId: string;
   existingTriggers: readonly JsonRecord[];
+  authMethod: CloudflareAuthMethod;
 }): Promise<string> {
+  if (args.authMethod === "mcp_oauth") {
+    // Cloudflare MCP OAuth tokens can manage Builds resources, but they are not
+    // API tokens, so /user/tokens/verify rejects them. Reuse an existing build
+    // token instead of trying to prove the OAuth token's token id.
+    return await resolveOAuthBuildTokenUuid({
+      token: args.token,
+      serverUrl: args.serverUrl,
+      accountId: args.accountId,
+      existingTriggers: args.existingTriggers,
+    });
+  }
+
   const currentTokenId = await resolveCurrentCloudflareTokenId({
     token: args.token,
     serverUrl: args.serverUrl,
@@ -458,6 +472,25 @@ async function resolveBuildTokenUuid(args: {
     accountId: args.accountId,
     cloudflareTokenId: currentTokenId,
   });
+}
+
+async function resolveOAuthBuildTokenUuid(args: {
+  token: string;
+  serverUrl?: string;
+  accountId: string;
+  existingTriggers: readonly JsonRecord[];
+}): Promise<string> {
+  const existingBuildTokenUuid = await findReusableBuildTokenUuid({
+    token: args.token,
+    serverUrl: args.serverUrl,
+    accountId: args.accountId,
+    preferredBuildTokenUuids: readTriggerBuildTokenUuids(args.existingTriggers),
+  });
+  if (existingBuildTokenUuid) {
+    return existingBuildTokenUuid;
+  }
+
+  throw new Error(WORKERS_BUILDS_TOKEN_REQUIRED_MESSAGE);
 }
 
 async function findCurrentBuildTokenUuid(args: {
@@ -486,6 +519,30 @@ async function findCurrentBuildTokenUuid(args: {
   }
 }
 
+async function findReusableBuildTokenUuid(args: {
+  token: string;
+  serverUrl?: string;
+  accountId: string;
+  preferredBuildTokenUuids: readonly string[];
+}): Promise<string | undefined> {
+  const tokens: CloudflareBuildToken[] = [];
+  for (let page = 1; ; page += 1) {
+    const rawTokens = await requestCloudflareApi({
+      token: args.token,
+      serverUrl: args.serverUrl,
+      method: "GET",
+      path: `/accounts/${encodeURIComponent(args.accountId)}/builds/tokens?page=${page}&per_page=${BUILD_TOKEN_PAGE_SIZE}`,
+    });
+    tokens.push(...parseBuildTokens(rawTokens));
+    if (!Array.isArray(rawTokens) || rawTokens.length < BUILD_TOKEN_PAGE_SIZE) {
+      return selectReusableBuildTokenUuid({
+        tokens,
+        preferredBuildTokenUuids: args.preferredBuildTokenUuids,
+      });
+    }
+  }
+}
+
 function parseBuildTokens(raw: unknown): CloudflareBuildToken[] {
   const tokens = Array.isArray(raw) ? raw.map(asRecord) : [];
   return tokens
@@ -507,6 +564,48 @@ function parseBuildTokens(raw: unknown): CloudflareBuildToken[] {
         left.name.localeCompare(right.name) ||
         left.uuid.localeCompare(right.uuid),
     );
+}
+
+export function selectReusableBuildTokenUuid(args: {
+  tokens: readonly CloudflareBuildToken[];
+  preferredBuildTokenUuids?: readonly string[];
+}): string | undefined {
+  if (args.tokens.length === 0) {
+    return undefined;
+  }
+
+  const preferredBuildTokenUuids = new Set(args.preferredBuildTokenUuids);
+  const preferredTokens = args.tokens.filter((token) =>
+    preferredBuildTokenUuids.has(token.uuid),
+  );
+  if (preferredTokens.length === 1) {
+    return preferredTokens[0].uuid;
+  }
+  if (preferredTokens.length > 1) {
+    throw new Error(
+      "Cloudflare has multiple Workers build tokens already attached to this Worker. Remove the extra Workers Builds triggers and retry.",
+    );
+  }
+
+  const namedTokens = args.tokens.filter(
+    (token) => token.name === NOTER_WORKERS_BUILD_TOKEN_NAME,
+  );
+  if (namedTokens.length === 1) {
+    return namedTokens[0].uuid;
+  }
+  if (namedTokens.length > 1) {
+    throw new Error(
+      `Cloudflare has multiple Workers build tokens named "${NOTER_WORKERS_BUILD_TOKEN_NAME}". Keep one and retry.`,
+    );
+  }
+
+  if (args.tokens.length === 1) {
+    return args.tokens[0].uuid;
+  }
+
+  throw new Error(
+    `Cloudflare has multiple Workers build tokens. Keep one token named "${NOTER_WORKERS_BUILD_TOKEN_NAME}" and retry.`,
+  );
 }
 
 export function selectCurrentBuildTokenUuid(args: {
@@ -751,10 +850,13 @@ type EnsureCloudflareResourcesArgs = {
   vaultId: string;
   cloudflareToken: string;
   cloudflareServerUrl?: string;
+  cloudflareAuthMethod: CloudflareAuthMethod;
   accountId: string;
   buildConfig: CloudflareBuildConfig;
   convex: CloudflareProvisionConvexState;
 };
+
+type CloudflareAuthMethod = "api_key" | "mcp_oauth";
 
 export async function ensureCloudflareResources(
   args: EnsureCloudflareResourcesArgs,
@@ -809,6 +911,7 @@ export async function ensureCloudflareResources(
       serverUrl: args.cloudflareServerUrl,
       accountId: args.accountId,
       existingTriggers,
+      authMethod: args.cloudflareAuthMethod,
     });
 
     step = "upsert_triggers";
