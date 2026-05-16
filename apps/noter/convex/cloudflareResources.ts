@@ -48,6 +48,7 @@ type CloudflareApiErrorDetail = {
 const WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE =
   "Cloudflare connection is missing Workers Builds write access. Reconnect Cloudflare and grant Workers Builds, Workers, and Workers Scripts access, then retry.";
 const NOTER_WORKERS_BUILD_TOKEN_NAME = "noter build token";
+const BUILD_TOKEN_PAGE_SIZE = 100;
 
 export class CloudflareApiError extends Error {
   readonly method: CloudflareRequestMethod;
@@ -197,13 +198,6 @@ function readStringArray(record: JsonRecord, key: string): string[] {
   return strings;
 }
 
-function containsExactString(
-  values: readonly string[],
-  value: string,
-): boolean {
-  return values.some((item) => item === value);
-}
-
 function requireString(args: {
   record: JsonRecord;
   key: string;
@@ -340,11 +334,16 @@ export function readCloudflareWorkerTag(
   // New Workers services do not appear in /workers/scripts until they have a
   // script version, but the Workers service id is the same external_script_id
   // that Workers Builds calls the worker tag.
-  return requireString({
-    record: worker,
-    key: "id",
-    message: `Cloudflare Worker ${workerName} did not include a Workers Builds tag.`,
-  });
+  const workerTag =
+    readString(worker, "id") ??
+    readString(worker, "external_script_id") ??
+    readString(worker, "tag");
+  if (workerTag) {
+    return workerTag;
+  }
+  throw new Error(
+    `Cloudflare Worker ${workerName} did not include id, external_script_id, or tag.`,
+  );
 }
 
 async function ensureWorker(args: {
@@ -442,15 +441,10 @@ async function resolveBuildTokenUuid(args: {
     token: args.token,
     serverUrl: args.serverUrl,
   });
-  const rawTokens = await requestCloudflareApi({
+  const existingBuildTokenUuid = await findCurrentBuildTokenUuid({
     token: args.token,
     serverUrl: args.serverUrl,
-    method: "GET",
-    path: `/accounts/${encodeURIComponent(args.accountId)}/builds/tokens?page=1&per_page=100`,
-  });
-  const tokens = parseBuildTokens(rawTokens);
-  const existingBuildTokenUuid = selectCurrentBuildTokenUuid({
-    tokens,
+    accountId: args.accountId,
     cloudflareTokenId: currentTokenId,
   });
   if (existingBuildTokenUuid) {
@@ -462,6 +456,32 @@ async function resolveBuildTokenUuid(args: {
     accountId: args.accountId,
     cloudflareTokenId: currentTokenId,
   });
+}
+
+async function findCurrentBuildTokenUuid(args: {
+  token: string;
+  serverUrl?: string;
+  accountId: string;
+  cloudflareTokenId: string;
+}): Promise<string | undefined> {
+  for (let page = 1; ; page += 1) {
+    const rawTokens = await requestCloudflareApi({
+      token: args.token,
+      serverUrl: args.serverUrl,
+      method: "GET",
+      path: `/accounts/${encodeURIComponent(args.accountId)}/builds/tokens?page=${page}&per_page=${BUILD_TOKEN_PAGE_SIZE}`,
+    });
+    const existingBuildTokenUuid = selectCurrentBuildTokenUuid({
+      tokens: parseBuildTokens(rawTokens),
+      cloudflareTokenId: args.cloudflareTokenId,
+    });
+    if (existingBuildTokenUuid) {
+      return existingBuildTokenUuid;
+    }
+    if (!Array.isArray(rawTokens) || rawTokens.length < BUILD_TOKEN_PAGE_SIZE) {
+      return undefined;
+    }
+  }
 }
 
 function parseBuildTokens(raw: unknown): CloudflareBuildToken[] {
@@ -565,8 +585,7 @@ function matchesTriggerKind(args: {
   }
 
   return (
-    containsExactString(branchIncludes, "*") &&
-    containsExactString(branchExcludes, args.defaultBranch)
+    branchIncludes.includes("*") && branchExcludes.includes(args.defaultBranch)
   );
 }
 

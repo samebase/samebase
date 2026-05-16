@@ -19,6 +19,28 @@ describe("cloudflare resources", () => {
     ).toBe("775e3115b5f8411988e4a6b1411d0022");
   });
 
+  it("uses alternate Worker tag fields when the service id is missing", () => {
+    expect(
+      readCloudflareWorkerTag(
+        {
+          external_script_id: "worker-external-script-id",
+          tag: "worker-tag",
+          name: "noter-app",
+        },
+        "noter-app",
+      ),
+    ).toBe("worker-external-script-id");
+    expect(
+      readCloudflareWorkerTag(
+        {
+          tag: "worker-tag",
+          name: "noter-app",
+        },
+        "noter-app",
+      ),
+    ).toBe("worker-tag");
+  });
+
   it("recognizes Workers Builds invalid token failures from MCP errors", () => {
     expect(
       isWorkersBuildsInvalidTokenMessage({
