@@ -52,7 +52,7 @@ test("localStorage route shows raw strings and formatted JSON values", async ({
       hasText: "line one\nline two\nline three",
     }),
   ).toBeVisible();
-  await expect(page.locator("#root main")).toHaveScreenshot(
+  await expect(page.locator("main")).toHaveScreenshot(
     "local-storage-workspace.png",
     localStorageRouteScreenshotOptions,
   );

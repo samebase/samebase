@@ -91,8 +91,6 @@ import {
   SidebarMediaUploadVisualFixture,
   type SidebarMediaUploadVisualMode,
 } from "@/components/SidebarMediaUploadVisualFixture";
-import { GlobalGestureDebugOverlay } from "@/components/GlobalGestureDebugOverlay";
-import { isMobileSidebarDebugEnabled } from "@/lib/mobileSidebarGestureDebug";
 import {
   buildPathWithTanStackSearch,
   parseTanStackSearch,
@@ -560,13 +558,9 @@ function renderVisualFixtureModeDirectory({
 
 export function VisualFixturePage(props: { mode?: string }) {
   const selection = readSelection(props.mode);
-  const showGestureDebugOverlay = isMobileSidebarDebugEnabled(
-    window.location.search,
-  );
 
   return (
     <DialogProvider>
-      {showGestureDebugOverlay ? <GlobalGestureDebugOverlay /> : null}
       {selection.status === "missing"
         ? renderVisualFixtureModeDirectory({})
         : selection.status === "invalid"

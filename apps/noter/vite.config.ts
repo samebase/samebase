@@ -615,6 +615,9 @@ export default defineConfig({
     },
   },
   server: browserConvexProxyServerConfig,
+  preview: {
+    host: "127.0.0.1",
+  },
   build: {
     rollupOptions: {
       onwarn(warning, warn) {
