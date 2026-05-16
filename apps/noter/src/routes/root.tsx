@@ -1,33 +1,29 @@
 import {
-  Outlet,
+  ClientOnly,
+  HeadContent,
+  Scripts,
   createRootRoute,
   lazyRouteComponent,
   redirect,
 } from "@tanstack/react-router";
 import { pick } from "@noter-md/dependent/object";
-import { RouterGestureDebugOverlay } from "@/components/RouterGestureDebugOverlay";
-import {
-  APP_THEME_COLOR_SEARCH_KEYS,
-  syncDocumentThemeColorSearch,
-} from "@/lib/appThemeColorSearch";
+import { AppBootErrorBoundary } from "@/components/AppBootErrorBoundary";
+import { APP_THEME_COLOR_SEARCH_KEYS } from "@/lib/appThemeColorSearch";
 import { applySearchPatch } from "@/lib/routeSearchFlags";
 import {
   type RootRouteSearch,
-  useRootRouteSearch,
   validateRootRouteSearch,
 } from "@/lib/rootRouteSearch";
-import {
-  ROOT_THEME_MODE_SEARCH_KEYS,
-  readRootThemeMode,
-  syncDocumentRootThemeMode,
-} from "@/lib/rootThemeModeSearch";
+import { ROOT_THEME_MODE_SEARCH_KEYS } from "@/lib/rootThemeModeSearch";
+import { buildRootHead } from "@/lib/rootHead";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
-import { useEffect, useLayoutEffect } from "react";
+import { Suspense, lazy, type ReactNode } from "react";
 
-const posthogApiHost =
-  import.meta.env.VITE_PUBLIC_POSTHOG_HOST || "https://eu.i.posthog.com";
-const POSTHOG_INIT_DELAY_MS = 10_000;
-
+const LazyAppRootClient = lazy(() =>
+  import("@/components/AppRootClient").then((module) => ({
+    default: module.AppRootClient,
+  })),
+);
 /**
  * Root-level preview/debug/theme controls should follow public-route
  * navigation until a caller clears the key with a route-search patch tombstone.
@@ -63,66 +59,31 @@ function retainRootSearchParams({
   return nextSearch;
 }
 
-function useDeferredPostHogInit() {
-  useEffect(() => {
-    const posthogProjectToken = import.meta.env
-      .VITE_PUBLIC_POSTHOG_PROJECT_TOKEN;
-    if (!posthogProjectToken) {
-      return;
-    }
-
-    // Keep analytics out of the first paint path; the landing page has no
-    // product dependency on PostHog before the user can see and act on it.
-    let cancelled = false;
-    const timeoutId = window.setTimeout(() => {
-      void import("posthog-js")
-        .then((module) => {
-          if (cancelled) {
-            return;
-          }
-
-          module.default.init(posthogProjectToken, {
-            api_host: posthogApiHost,
-            capture_exceptions: true,
-            defaults: "2026-01-30",
-            // Keep localhost sessions visible while developing instead of
-            // marking them as internal/test users under the defaults snapshot.
-            internal_or_test_user_hostname: import.meta.env.DEV
-              ? null
-              : undefined,
-          });
-        })
-        .catch(() => {});
-    }, POSTHOG_INIT_DELAY_MS);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timeoutId);
-    };
-  }, []);
+function RootComponent() {
+  return (
+    <RootDocument>
+      <AppBootErrorBoundary>
+        <ClientOnly>
+          <Suspense fallback={null}>
+            <LazyAppRootClient />
+          </Suspense>
+        </ClientOnly>
+      </AppBootErrorBoundary>
+    </RootDocument>
+  );
 }
 
-function AppRouterRoot() {
-  const { base, border, dark, light, primary, secondary } =
-    useRootRouteSearch();
-  const themeMode = readRootThemeMode({ dark, light });
-  useDeferredPostHogInit();
-
-  useLayoutEffect(() => {
-    syncDocumentThemeColorSearch({
-      base,
-      border,
-      primary,
-      secondary,
-    });
-    syncDocumentRootThemeMode(themeMode);
-  }, [base, border, primary, secondary, themeMode]);
-
+function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <>
-      <Outlet />
-      <RouterGestureDebugOverlay />
-    </>
+    <html lang="en" translate="no">
+      <head>
+        <HeadContent />
+      </head>
+      <body>
+        {children}
+        <Scripts />
+      </body>
+    </html>
   );
 }
 
@@ -153,7 +114,8 @@ export const Route = createRootRoute({
       });
     }
   },
-  component: AppRouterRoot,
+  component: RootComponent,
+  head: buildRootHead,
   notFoundComponent: lazyRouteComponent(
     () => import("@/components/NotFoundRoutePage"),
     "NotFoundRoutePage",

@@ -25,7 +25,7 @@ function LogoThreeRouteComponent() {
   );
 }
 
-export const Route = createFileRoute(pathname)({
+export const Route = createFileRoute("/logo")({
   component: LogoThreeRouteComponent,
   validateSearch: validateLogoRouteSearch,
 });

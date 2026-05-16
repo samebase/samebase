@@ -40,3 +40,5 @@ allowBuilds:
   esbuild: true
   msw: false
   protobufjs: false
+  sharp: false
+  workerd: true

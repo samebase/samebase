@@ -41,7 +41,7 @@ function CodexResearchRouteComponent() {
   );
 }
 
-export const Route = createFileRoute(CODEX_APP_SERVER_RESEARCH_ROUTE)({
+export const Route = createFileRoute("/research/codex-app-server")({
   component: CodexResearchRouteComponent,
   validateSearch: validateCodexResearchRouteSearch,
 });

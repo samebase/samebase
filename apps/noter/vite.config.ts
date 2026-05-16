@@ -1,7 +1,7 @@
 import { defineConfig, type ViteDevServer } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { tanstackRouter } from "@tanstack/router-plugin/vite";
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import path from "path";
 import { execSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -23,6 +23,7 @@ import { codexAppServerResearchBridgePlugin } from "./dev/codexAppServerResearch
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const gitRoot = path.resolve(currentDir, "..", "..");
+const appTsconfigPath = path.resolve(currentDir, "tsconfig.json");
 const BROWSER_CONVEX_PROXY_PATH = "/__noter_convex_proxy";
 const devPortRaw = process.env.NOTER_DEV_PORT?.trim();
 const devPort = devPortRaw ? Number(devPortRaw) : undefined;
@@ -92,6 +93,7 @@ const appCommit =
   process.env.VITE_APP_COMMIT ??
   readGitOutput("git rev-parse HEAD") ??
   "unknown";
+process.env.JITI_TSCONFIG_PATHS ??= appTsconfigPath;
 const appCommitNumber = resolveAppCommitNumber({
   envCommitNumber: process.env.VITE_APP_COMMIT_NUMBER,
   readGitOutput,
@@ -125,7 +127,7 @@ const staticNoterSyncScriptPath = path.resolve(currentDir, "public/noter.ts");
 const noterConnectConfigPathname = "/noter-connect.json";
 const runtimeNoterConnectConfigPath = path.resolve(
   currentDir,
-  `dist${noterConnectConfigPathname}`,
+  `dist/client${noterConnectConfigPathname}`,
 );
 function isLoopbackHostname(hostname: string): boolean {
   return (
@@ -461,7 +463,7 @@ function syncStaticNoterSyncScriptAssetPlugin() {
       );
     },
     async closeBundle() {
-      const builtScriptPath = path.resolve(currentDir, "dist/noter.ts");
+      const builtScriptPath = path.resolve(currentDir, "dist/client/noter.ts");
       const runtimeScript = await buildRuntimeNoterSyncScript();
       mkdirSync(path.dirname(builtScriptPath), { recursive: true });
       writeFileSync(builtScriptPath, runtimeScript, "utf8");
@@ -591,17 +593,24 @@ export default defineConfig({
     codexAppServerResearchBridgePlugin({
       workspaceRoot: gitRoot,
     }),
-    tanstackRouter({
-      autoCodeSplitting: true,
-      quoteStyle: "double",
-      semicolons: true,
-      target: "react",
-      virtualRouteConfig: "./src/routes.ts",
-    }),
     tailwindcss(),
+    tanstackStart({
+      router: {
+        quoteStyle: "double",
+        semicolons: true,
+        virtualRouteConfig: "./src/routes.ts",
+      },
+      spa: {
+        enabled: true,
+        prerender: {
+          outputPath: "/index.html",
+        },
+      },
+    }),
     react(),
   ],
   resolve: {
+    tsconfigPaths: true,
     alias: {
       "@": path.resolve(currentDir, "./src"),
     },
@@ -609,14 +618,13 @@ export default defineConfig({
   server: browserConvexProxyServerConfig,
   build: {
     rollupOptions: {
-      input: {
-        app: path.resolve(currentDir, "index.html"),
-        ...(shouldIncludeVisualFixture
-          ? {
+      ...(shouldIncludeVisualFixture
+        ? {
+            input: {
               visualFixture: path.resolve(currentDir, "visual-fixture.html"),
-            }
-          : {}),
-      },
+            },
+          }
+        : {}),
       onwarn(warning, warn) {
         // Skip certain warnings
         if (warning.code === "UNUSED_EXTERNAL_IMPORT") return;

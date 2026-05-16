@@ -1,18 +1,25 @@
 import {
-  RouterProvider,
-  createBrowserHistory,
-  createRouter,
+  createRouter as createTanStackRouter,
   type RouterHistory,
 } from "@tanstack/react-router";
-import { createElement, useState, type ReactElement } from "react";
-import { routeTree } from "@/routeTree.gen";
+import { routeTree } from "./routeTree.gen";
 import {
   parseTanStackSearch,
   stringifyTanStackSearch,
 } from "@/lib/tanstackSearchParams";
 
+export function getRouter() {
+  return createTanStackRouter({
+    defaultPreload: false,
+    notFoundMode: "root",
+    parseSearch: parseTanStackSearch,
+    routeTree,
+    stringifySearch: stringifyTanStackSearch,
+  });
+}
+
 export function createAppRouter(history: RouterHistory) {
-  const router = createRouter({
+  const router = createTanStackRouter({
     defaultPreload: false,
     history,
     notFoundMode: "root",
@@ -26,13 +33,7 @@ export function createAppRouter(history: RouterHistory) {
   return router;
 }
 
-export type AppRouter = ReturnType<typeof createAppRouter>;
-
-export function AppRouterProvider(): ReactElement {
-  const [router] = useState(() => createAppRouter(createBrowserHistory()));
-
-  return createElement(RouterProvider, { router });
-}
+export type AppRouter = ReturnType<typeof getRouter>;
 
 declare module "@tanstack/react-router" {
   interface Register {

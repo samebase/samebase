@@ -15,7 +15,7 @@ function LogoIsoStudyRouteComponent() {
   );
 }
 
-export const Route = createFileRoute(pathname)({
+export const Route = createFileRoute("/logo/single-cube")({
   component: LogoIsoStudyRouteComponent,
   validateSearch: validateLogoRouteSearch,
 });

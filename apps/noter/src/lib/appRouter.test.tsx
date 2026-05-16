@@ -196,7 +196,23 @@ vi.mock("@/components/CodexAppServerThreadBrowserResearchPage", () => ({
   ),
 }));
 
-import { createAppRouter } from "./appRouter";
+vi.mock("@/components/AppRootClient", async () => {
+  const { Outlet } = await import("@tanstack/react-router");
+
+  return {
+    AppRootClient: Outlet,
+  };
+});
+
+vi.mock("@/lib/rootHead", () => ({
+  buildRootHead: () => ({
+    links: [],
+    meta: [],
+    scripts: [],
+  }),
+}));
+
+import { createAppRouter } from "../router";
 import { applySearchPatch } from "./routeSearchFlags";
 import {
   buildPathWithTanStackSearch,
@@ -210,6 +226,19 @@ const scrollToMock = vi.fn();
 Object.defineProperty(window, "scrollTo", {
   value: scrollToMock,
   writable: true,
+});
+Object.defineProperty(window, "matchMedia", {
+  configurable: true,
+  value: vi.fn((query: string) => ({
+    addEventListener: vi.fn(),
+    addListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+    matches: false,
+    media: query,
+    onchange: null,
+    removeEventListener: vi.fn(),
+    removeListener: vi.fn(),
+  })),
 });
 
 async function settleRouterRender() {
