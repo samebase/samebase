@@ -518,7 +518,7 @@ export function createTools(toolCtx: ToolContext) {
           .min(1)
           .max(100)
           .optional()
-          .describe("Maximum projects to include"),
+          .describe("Maximum Workers to include"),
         allowRawFallback: z
           .boolean()
           .optional()

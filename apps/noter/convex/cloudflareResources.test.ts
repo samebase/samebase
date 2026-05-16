@@ -71,6 +71,27 @@ describe("cloudflare resources", () => {
     ).toBe("current-build-token");
   });
 
+  it("prefers the current build token already attached to Workers Builds triggers", () => {
+    expect(
+      selectCurrentBuildTokenUuid({
+        cloudflareTokenId: "current-token-id",
+        preferredBuildTokenUuids: ["trigger-build-token"],
+        tokens: [
+          {
+            name: "noter build token",
+            uuid: "current-build-token",
+            cloudflareTokenId: "current-token-id",
+          },
+          {
+            name: "older noter build token",
+            uuid: "trigger-build-token",
+            cloudflareTokenId: "current-token-id",
+          },
+        ],
+      }),
+    ).toBe("trigger-build-token");
+  });
+
   it("does not select stale build tokens with unrelated Cloudflare token ids", () => {
     expect(
       selectCurrentBuildTokenUuid({
@@ -84,5 +105,25 @@ describe("cloudflare resources", () => {
         ],
       }),
     ).toBe(undefined);
+  });
+
+  it("fails when multiple current build tokens cannot be distinguished", () => {
+    expect(() =>
+      selectCurrentBuildTokenUuid({
+        cloudflareTokenId: "current-token-id",
+        tokens: [
+          {
+            name: "other build token",
+            uuid: "first-current-build-token",
+            cloudflareTokenId: "current-token-id",
+          },
+          {
+            name: "another build token",
+            uuid: "second-current-build-token",
+            cloudflareTokenId: "current-token-id",
+          },
+        ],
+      }),
+    ).toThrow("multiple current Workers build tokens");
   });
 });

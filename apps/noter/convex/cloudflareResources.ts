@@ -436,6 +436,7 @@ async function resolveBuildTokenUuid(args: {
   token: string;
   serverUrl?: string;
   accountId: string;
+  existingTriggers: readonly JsonRecord[];
 }): Promise<string> {
   const currentTokenId = await resolveCurrentCloudflareTokenId({
     token: args.token,
@@ -446,6 +447,7 @@ async function resolveBuildTokenUuid(args: {
     serverUrl: args.serverUrl,
     accountId: args.accountId,
     cloudflareTokenId: currentTokenId,
+    preferredBuildTokenUuids: readTriggerBuildTokenUuids(args.existingTriggers),
   });
   if (existingBuildTokenUuid) {
     return existingBuildTokenUuid;
@@ -463,7 +465,9 @@ async function findCurrentBuildTokenUuid(args: {
   serverUrl?: string;
   accountId: string;
   cloudflareTokenId: string;
+  preferredBuildTokenUuids: readonly string[];
 }): Promise<string | undefined> {
+  const tokens: CloudflareBuildToken[] = [];
   for (let page = 1; ; page += 1) {
     const rawTokens = await requestCloudflareApi({
       token: args.token,
@@ -471,15 +475,13 @@ async function findCurrentBuildTokenUuid(args: {
       method: "GET",
       path: `/accounts/${encodeURIComponent(args.accountId)}/builds/tokens?page=${page}&per_page=${BUILD_TOKEN_PAGE_SIZE}`,
     });
-    const existingBuildTokenUuid = selectCurrentBuildTokenUuid({
-      tokens: parseBuildTokens(rawTokens),
-      cloudflareTokenId: args.cloudflareTokenId,
-    });
-    if (existingBuildTokenUuid) {
-      return existingBuildTokenUuid;
-    }
+    tokens.push(...parseBuildTokens(rawTokens));
     if (!Array.isArray(rawTokens) || rawTokens.length < BUILD_TOKEN_PAGE_SIZE) {
-      return undefined;
+      return selectCurrentBuildTokenUuid({
+        tokens,
+        cloudflareTokenId: args.cloudflareTokenId,
+        preferredBuildTokenUuids: args.preferredBuildTokenUuids,
+      });
     }
   }
 }
@@ -510,6 +512,7 @@ function parseBuildTokens(raw: unknown): CloudflareBuildToken[] {
 export function selectCurrentBuildTokenUuid(args: {
   tokens: readonly CloudflareBuildToken[];
   cloudflareTokenId: string;
+  preferredBuildTokenUuids?: readonly string[];
 }): string | undefined {
   const matchingTokens = args.tokens.filter(
     (token) => token.cloudflareTokenId === args.cloudflareTokenId,
@@ -517,11 +520,47 @@ export function selectCurrentBuildTokenUuid(args: {
   if (matchingTokens.length === 0) {
     return undefined;
   }
-  return (
-    matchingTokens.find(
-      (token) => token.name === NOTER_WORKERS_BUILD_TOKEN_NAME,
-    ) ?? matchingTokens[0]
-  ).uuid;
+
+  const preferredBuildTokenUuids = new Set(args.preferredBuildTokenUuids);
+  const preferredTokens = matchingTokens.filter((token) =>
+    preferredBuildTokenUuids.has(token.uuid),
+  );
+  if (preferredTokens.length === 1) {
+    return preferredTokens[0].uuid;
+  }
+  if (preferredTokens.length > 1) {
+    throw new Error(
+      "Cloudflare has multiple current Workers build tokens already attached to this Worker. Remove the extra Workers Builds triggers and retry.",
+    );
+  }
+
+  const namedTokens = matchingTokens.filter(
+    (token) => token.name === NOTER_WORKERS_BUILD_TOKEN_NAME,
+  );
+  if (namedTokens.length === 1) {
+    return namedTokens[0].uuid;
+  }
+  if (namedTokens.length > 1) {
+    throw new Error(
+      `Cloudflare has multiple current Workers build tokens named "${NOTER_WORKERS_BUILD_TOKEN_NAME}". Remove the extra build tokens and retry.`,
+    );
+  }
+
+  if (matchingTokens.length === 1) {
+    return matchingTokens[0].uuid;
+  }
+
+  throw new Error(
+    `Cloudflare has multiple current Workers build tokens. Keep one token named "${NOTER_WORKERS_BUILD_TOKEN_NAME}" and retry.`,
+  );
+}
+
+function readTriggerBuildTokenUuids(
+  triggers: readonly JsonRecord[],
+): readonly string[] {
+  return triggers
+    .map((trigger) => readString(trigger, "build_token_uuid"))
+    .filter(notEmpty);
 }
 
 async function resolveCurrentCloudflareTokenId(args: {
@@ -756,20 +795,23 @@ export async function ensureCloudflareResources(
       repo: args.repo,
     });
 
-    step = "resolve_build_token";
-    const buildTokenUuid = await resolveBuildTokenUuid({
-      token: args.cloudflareToken,
-      serverUrl: args.cloudflareServerUrl,
-      accountId: args.accountId,
-    });
-
-    step = "upsert_triggers";
+    step = "list_triggers";
     const existingTriggers = await listBuildTriggers({
       token: args.cloudflareToken,
       serverUrl: args.cloudflareServerUrl,
       accountId: args.accountId,
       workerTag: worker.workerTag,
     });
+
+    step = "resolve_build_token";
+    const buildTokenUuid = await resolveBuildTokenUuid({
+      token: args.cloudflareToken,
+      serverUrl: args.cloudflareServerUrl,
+      accountId: args.accountId,
+      existingTriggers,
+    });
+
+    step = "upsert_triggers";
     const productionTriggerUuid = await upsertBuildTrigger({
       token: args.cloudflareToken,
       serverUrl: args.cloudflareServerUrl,

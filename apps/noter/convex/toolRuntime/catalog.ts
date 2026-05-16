@@ -102,7 +102,7 @@ const requestCloudflareWorkersInventoryReadInputSchema = z.object({
     .min(1)
     .max(100)
     .optional()
-    .describe("Maximum projects to include"),
+    .describe("Maximum Workers to include"),
   allowRawFallback: prodReadAllowRawFallbackSchema.describe(
     "In owner mode, allow explicit raw payload fallback",
   ),

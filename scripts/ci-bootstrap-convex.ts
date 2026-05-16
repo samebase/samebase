@@ -43,8 +43,11 @@ async function main(): Promise<void> {
     await waitFor(
       async () => {
         const fileContents = await readOptionalFile(envLocalPath);
+        if (!fileContents) {
+          return false;
+        }
         return (
-          fileContents?.includes("CONVEX_DEPLOYMENT=") === true &&
+          fileContents.includes("CONVEX_DEPLOYMENT=") &&
           fileContents.includes("VITE_CONVEX_URL=")
         );
       },
