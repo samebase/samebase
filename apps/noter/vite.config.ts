@@ -110,7 +110,6 @@ const browserConvexProxyTarget = resolveBrowserConvexProxyTarget({
 const browserConvexProxyPath = browserConvexProxyTarget
   ? BROWSER_CONVEX_PROXY_PATH
   : null;
-const shouldIncludeVisualFixture = process.env.PLAYWRIGHT === "1";
 const staticLogoSvgAssetPath = path.resolve(
   currentDir,
   "public/logo-static.svg",
@@ -618,13 +617,6 @@ export default defineConfig({
   server: browserConvexProxyServerConfig,
   build: {
     rollupOptions: {
-      ...(shouldIncludeVisualFixture
-        ? {
-            input: {
-              visualFixture: path.resolve(currentDir, "visual-fixture.html"),
-            },
-          }
-        : {}),
       onwarn(warning, warn) {
         // Skip certain warnings
         if (warning.code === "UNUSED_EXTERNAL_IMPORT") return;
