@@ -1,12 +1,10 @@
 import { defineSchema, defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
-import { vCloudflareState } from "./cloudflareState";
 import {
   vGithubTree,
   vGithubTreeData,
   vGitHubRepositoryVisibility,
-  vInfraState,
   vTreeRefreshFailureKind,
   vVaultRow,
 } from "./vault/model";
@@ -68,8 +66,6 @@ export type GithubTreeData = Infer<typeof vGithubTreeData>;
 export type GitHubRepositoryVisibility = Infer<
   typeof vGitHubRepositoryVisibility
 >;
-export type InfraState = Infer<typeof vInfraState>;
-
 export const vAppProvisioningEventLevel = union(
   literal("info"),
   literal("warn"),
@@ -140,8 +136,8 @@ export const vVaultDomainKind = union(
 );
 
 export const vVaultDomainSource = union(
-  literal("cloudflare_pages_default"),
-  literal("cloudflare_pages_custom"),
+  literal("cloudflare_workers_default"),
+  literal("cloudflare_workers_custom"),
 );
 
 export const vVaultRemoteBranchState = union(
@@ -166,7 +162,7 @@ export const vProdAccessResourceKind = union(
   literal("data_query"),
   literal("project_inventory"),
   literal("account_inventory"),
-  literal("pages_project_inventory"),
+  literal("workers_inventory"),
 );
 
 export const vProdAccessStatus = union(
@@ -461,31 +457,21 @@ export default defineSchema({
     ]),
 
   /**
-   * External infrastructure identifiers and operational status for provider
-   * calls. Product readiness lives on the vault's Convex and Cloudflare states.
+   * Convex resource identifiers that provider calls need after the vault row
+   * records product readiness. Run state lives on the Workflow and vault
+   * provider states.
    */
   vaultInfrastructure: defineTable({
     vaultId: id("vaults"),
 
-    status: vInfraState,
-    lastError: optional(string()),
-    provisioningVersion: number(),
-    lastProvisionedAt: optional(number()),
-
-    // Convex
-    convexProjectId: optional(string()),
-    convexProjectSlug: optional(string()),
-    convexDeploymentName: optional(string()),
-    convexDeploymentType: optional(union(literal("prod"), literal("dev"))),
-    convexCloudUrl: optional(string()),
-    convexSiteUrl: optional(string()),
+    convexProjectId: string(),
+    convexProjectSlug: string(),
+    convexDeploymentName: string(),
+    convexDeploymentType: union(literal("prod"), literal("dev")),
+    convexCloudUrl: string(),
+    convexSiteUrl: string(),
     convexDeployKeyId: optional(string()),
-
-    // Cloudflare resource state. Pages is the current implementation detail.
-    cloudflare: optional(vCloudflareState),
-  })
-    .index("by_vault", ["vaultId"])
-    .index("by_status", ["status"]),
+  }).index("by_vault", ["vaultId"]),
 
   /**
    * Latest Workflow run allowed to write provider state for a vault.

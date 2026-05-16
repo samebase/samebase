@@ -99,16 +99,5 @@ export async function readVaultDeletionEligibility(
     };
   }
 
-  const infrastructure = await ctx.db
-    .query("vaultInfrastructure")
-    .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
-    .first();
-  if (infrastructure?.status === "provisioning") {
-    return {
-      state: "blocked",
-      reason: "Vault infrastructure provisioning is still running.",
-    };
-  }
-
   return { state: "eligible" };
 }

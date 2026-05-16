@@ -89,7 +89,7 @@ const requestCloudflareAccountsReadInputSchema = z.object({
     "In owner mode, allow explicit raw payload fallback",
   ),
 });
-const requestCloudflarePagesProjectsReadInputSchema = z.object({
+const requestCloudflareWorkersInventoryReadInputSchema = z.object({
   accountId: z
     .string()
     .optional()
@@ -102,7 +102,7 @@ const requestCloudflarePagesProjectsReadInputSchema = z.object({
     .min(1)
     .max(100)
     .optional()
-    .describe("Maximum projects to include"),
+    .describe("Maximum Workers to include"),
   allowRawFallback: prodReadAllowRawFallbackSchema.describe(
     "In owner mode, allow explicit raw payload fallback",
   ),
@@ -286,8 +286,8 @@ export const requestCloudflareLogsReadToolInputSchema = zodToToolInputSchema(
 export const requestCloudflareAccountsReadToolInputSchema =
   zodToToolInputSchema(requestCloudflareAccountsReadInputSchema);
 
-export const requestCloudflarePagesProjectsReadToolInputSchema =
-  zodToToolInputSchema(requestCloudflarePagesProjectsReadInputSchema);
+export const requestCloudflareWorkersInventoryReadToolInputSchema =
+  zodToToolInputSchema(requestCloudflareWorkersInventoryReadInputSchema);
 
 export const requestConvexDataReadToolInputSchema = zodToToolInputSchema(
   requestConvexDataReadInputSchema,
@@ -451,7 +451,7 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
   {
     name: "request_cloudflare_status_read",
     description:
-      "Request approval to read Cloudflare Pages project status for the current vault. This tool only creates an approval proposal.",
+      "Request approval to read Cloudflare Worker status for the current vault. This tool only creates an approval proposal.",
     surfaces: ["agent", "mcp"],
     requiredScopes: ["prod.read.propose"],
     requiresVaultContext: true,
@@ -465,7 +465,7 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
   {
     name: "request_cloudflare_logs_read",
     description:
-      "Request approval to read Cloudflare Pages deployment logs for the current vault. This tool only proposes access.",
+      "Request approval to read Cloudflare Workers build logs for the current vault. This tool only proposes access.",
     surfaces: ["agent", "mcp"],
     requiredScopes: ["prod.read.propose"],
     requiresVaultContext: true,
@@ -491,9 +491,9 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     agentArgs: requestCloudflareAccountsReadInputSchema,
   },
   {
-    name: "request_cloudflare_pages_projects_read",
+    name: "request_cloudflare_workers_inventory_read",
     description:
-      "Request approval to list Cloudflare Pages projects for an account. This tool only creates an approval proposal and does not execute direct reads.",
+      "Request approval to list Cloudflare Workers for an account. This tool only creates an approval proposal and does not execute direct reads.",
     surfaces: ["agent", "mcp"],
     requiredScopes: ["prod.read.propose"],
     requiresVaultContext: false,
@@ -501,8 +501,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiresThreadContext: true,
     requiresGithubConnection: false,
     safety: "proposal_only",
-    inputSchema: requestCloudflarePagesProjectsReadToolInputSchema,
-    agentArgs: requestCloudflarePagesProjectsReadInputSchema,
+    inputSchema: requestCloudflareWorkersInventoryReadToolInputSchema,
+    agentArgs: requestCloudflareWorkersInventoryReadInputSchema,
   },
   {
     name: "request_convex_data_read",

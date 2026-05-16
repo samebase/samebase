@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
-  CloudflarePagesApiError,
-  isCloudflarePagesProjectNotFoundError,
+  CloudflareApiError,
+  isCloudflareWorkerNotFoundError,
 } from "./cloudflareResources";
 import {
   ConvexManagementApiError,
@@ -34,24 +34,45 @@ describe("provider deletion errors", () => {
     ).toBe(false);
   });
 
-  it("recognizes Cloudflare Pages project not-found errors", () => {
+  it("recognizes Cloudflare Worker not-found errors", () => {
     expect(
-      isCloudflarePagesProjectNotFoundError(
-        new CloudflarePagesApiError({
+      isCloudflareWorkerNotFoundError(
+        new CloudflareApiError({
           method: "DELETE",
-          path: "/accounts/account-123/pages/projects/noter",
-          details: [{ code: "8000007", message: "Project not found" }],
+          path: "/accounts/account-123/workers/workers/noter",
+          details: [{ code: "10007", message: "Worker not found" }],
         }),
+      ),
+    ).toBe(true);
+    expect(
+      isCloudflareWorkerNotFoundError(
+        new CloudflareApiError({
+          method: "GET",
+          path: "/accounts/account-123/workers/workers/noter",
+          details: [
+            {
+              code: "10007",
+              message: "This Worker does not exist on your account.",
+            },
+          ],
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      isCloudflareWorkerNotFoundError(
+        new Error(
+          "Cloudflare MCP tool call failed: Error: Cloudflare API error: 10007: This Worker does not exist on your account.",
+        ),
       ),
     ).toBe(true);
   });
 
-  it("rejects non-not-found Cloudflare Pages errors", () => {
+  it("rejects non-not-found Cloudflare errors", () => {
     expect(
-      isCloudflarePagesProjectNotFoundError(
-        new CloudflarePagesApiError({
+      isCloudflareWorkerNotFoundError(
+        new CloudflareApiError({
           method: "DELETE",
-          path: "/accounts/account-123/pages/projects/noter",
+          path: "/accounts/account-123/workers/workers/noter",
           details: [{ code: "10000", message: "Authentication error" }],
         }),
       ),

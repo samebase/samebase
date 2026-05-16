@@ -589,7 +589,7 @@ export function VaultDashboardDeleteDialog({
 }) {
   const hasStagedChanges = stagedChangesCount > 0;
   const removeCloudflareCheckboxId = "remove-cloudflare-provision";
-  const removeCloudflareLabel = "Also remove Cloudflare Pages project";
+  const removeCloudflareLabel = "Also remove Cloudflare Worker";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -795,7 +795,7 @@ const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
   },
   cloudflare: {
     label: "Cloudflare",
-    oauthButtonLabel: "Cloudflare MCP OAuth",
+    oauthButtonLabel: "Cloudflare OAuth",
     popupName: "cloudflare-mcp-oauth",
     completionEventType: "cloudflare-mcp-oauth-complete",
     icon: <CloudflareProviderLogo />,
@@ -1140,7 +1140,7 @@ function buildVaultDashboardRepositoryExternalLinks(args: {
       href: args.cloudflareProjectDashboardUrl,
       key: "cloudflare",
       label: "Cloudflare",
-      title: "Open Cloudflare Pages project",
+      title: "Open Cloudflare Worker",
     });
   }
 
@@ -2871,6 +2871,7 @@ export function VaultDashboard() {
   const githubConnected = githubConnection?.connected === true;
   const convexConnected = convexConnection?.connected === true;
   const cloudflareConnected = cloudflareConnection?.connected === true;
+  const cloudflareAuthMethod = cloudflareConnection?.authMethod;
   const requiredCloudflareConnectionLabel = "Cloudflare";
   const cloudflareMcpTokenStatus = cloudflareConnection?.mcpTokenStatus;
   const cloudflareMcpTokenExpiresAt = cloudflareConnection?.mcpTokenExpiresAt;
@@ -2915,7 +2916,7 @@ export function VaultDashboard() {
     if (method === "api_key") return "API key";
     if (method === "device_auth") return "Device auth";
     if (method === "oauth") return "OAuth";
-    if (method === "mcp_oauth") return "MCP OAuth";
+    if (method === "mcp_oauth") return "OAuth";
     return "Unknown";
   };
   const githubStatus = githubConnected
@@ -2939,7 +2940,6 @@ export function VaultDashboard() {
             ? `Last checked ${formatRelativeTimeAgo(cloudflareMcpTokenCheckedAt, now)}.`
             : ""
       : "";
-  const cloudflareAuthMethod = cloudflareConnection?.authMethod;
   const cloudflareSchedulerStatus =
     cloudflareAuthMethod === "mcp_oauth"
       ? isCheckingCloudflareToken || isAutoCheckingCloudflareToken
@@ -2960,7 +2960,7 @@ export function VaultDashboard() {
   const cloudflareStatus = cloudflareConnected
     ? cloudflareAuthMethod === "mcp_oauth"
       ? [
-          "Connected (MCP OAuth).",
+          "Connected (OAuth).",
           `Token ${formatMcpTokenStatusLabel(cloudflareMcpTokenStatus)}.`,
           cloudflareMcpTokenTimeStatus,
           cloudflareSchedulerStatus,

@@ -153,7 +153,7 @@ Phase 1 standardizes shared tooling for these existing names:
 11. `request_cloudflare_status_read`
 12. `request_cloudflare_logs_read`
 13. `request_cloudflare_accounts_read`
-14. `request_cloudflare_pages_projects_read`
+14. `request_cloudflare_workers_inventory_read`
 15. `request_convex_data_read`
 16. `commit_and_push` (shared runtime, surfaces: `agent`, `ui`; `mcp` disabled)
 17. `get_vault_remote_branches`

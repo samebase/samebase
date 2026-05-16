@@ -293,7 +293,7 @@ const ensureAnonymousAuthKeys = async (
 
   const setupResult = spawnSync(
     "npx",
-    ["@convex-dev/auth", "--skip-git-check", "--allow-dirty-git-state"],
+    ["@convex-dev/auth", "--skip-git-check"],
     {
       stdio: "pipe",
       encoding: "utf8",

@@ -49,7 +49,7 @@ type ProdReadResourceKind =
   | "data_query"
   | "project_inventory"
   | "account_inventory"
-  | "pages_project_inventory";
+  | "workers_inventory";
 
 type AllowedDataTable =
   | "vaults"
@@ -83,7 +83,7 @@ const PROD_READ_RESOURCE_LABELS: Record<ProdReadResourceKind, string> = {
   data_query: "data sample",
   project_inventory: "project inventory",
   account_inventory: "account inventory",
-  pages_project_inventory: "Pages project inventory",
+  workers_inventory: "Workers inventory",
 };
 
 const PROD_READ_SCOPE_LABELS: Record<ProdReadScope, string> = {
@@ -111,7 +111,7 @@ type RequestCloudflareAccountsReadInput = {
   allowRawFallback?: boolean;
 };
 
-type RequestCloudflarePagesProjectsReadInput = {
+type RequestCloudflareWorkersInventoryReadInput = {
   accountId?: string;
   limit?: number;
   allowRawFallback?: boolean;
@@ -967,16 +967,16 @@ async function executeRequestCloudflareAccountsRead(
   });
 }
 
-async function executeRequestCloudflarePagesProjectsRead(
+async function executeRequestCloudflareWorkersInventoryRead(
   context: ResolvedToolContext,
-  input: RequestCloudflarePagesProjectsReadInput,
+  input: RequestCloudflareWorkersInventoryReadInput,
 ): Promise<ToolExecutionOutput> {
   return executeProdReadRequest({
     context,
     scope: "global",
     provider: "cloudflare",
-    resourceKind: "pages_project_inventory",
-    toolName: "request_cloudflare_pages_projects_read",
+    resourceKind: "workers_inventory",
+    toolName: "request_cloudflare_workers_inventory_read",
     params: {
       ...(typeof input.accountId === "string"
         ? { accountId: input.accountId }
@@ -1250,9 +1250,9 @@ function parseRequestCloudflareAccountsReadInput(
   };
 }
 
-function parseRequestCloudflarePagesProjectsReadInput(
+function parseRequestCloudflareWorkersInventoryReadInput(
   value: unknown,
-): RequestCloudflarePagesProjectsReadInput | null {
+): RequestCloudflareWorkersInventoryReadInput | null {
   const record = toRecord(value);
   if (!record) {
     return null;
@@ -1417,14 +1417,14 @@ export async function executeRuntimeTool(args: {
       }
       return executeRequestCloudflareAccountsRead(args.context, input);
     }
-    case "request_cloudflare_pages_projects_read": {
-      const input = parseRequestCloudflarePagesProjectsReadInput(args.input);
+    case "request_cloudflare_workers_inventory_read": {
+      const input = parseRequestCloudflareWorkersInventoryReadInput(args.input);
       if (!input) {
         throw new Error(
-          "Invalid request_cloudflare_pages_projects_read input.",
+          "Invalid request_cloudflare_workers_inventory_read input.",
         );
       }
-      return executeRequestCloudflarePagesProjectsRead(args.context, input);
+      return executeRequestCloudflareWorkersInventoryRead(args.context, input);
     }
     case "request_convex_data_read": {
       const input = parseRequestConvexDataReadInput(args.input);

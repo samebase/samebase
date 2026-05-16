@@ -115,9 +115,10 @@ const providerCleanupPlan = {
       ),
     }),
     object({
-      action: literal("delete_pages_project"),
+      action: literal("delete_worker"),
       accountId: string(),
-      projectName: string(),
+      workerName: string(),
+      workerTag: string(),
     }),
   ),
 } as const;

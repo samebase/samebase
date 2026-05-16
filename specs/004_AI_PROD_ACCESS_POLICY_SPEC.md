@@ -96,7 +96,7 @@ Fields:
 - `vaultId?: Id<"vaults">`
 - `scope: "vault" | "global"`
 - `provider: "convex" | "cloudflare"`
-- `resourceKind: "deployment_status" | "logs" | "data_query" | "project_inventory" | "account_inventory" | "pages_project_inventory"`
+- `resourceKind: "deployment_status" | "logs" | "data_query" | "project_inventory" | "account_inventory" | "workers_inventory"`
 - `toolName: string`
 - `paramsJson: string`
 - `status: "proposed" | "approved" | "rejected" | "executed" | "failed" | "expired"`
@@ -161,7 +161,7 @@ aiProdAccessRequests: defineTable({
     v.literal("data_query"),
     v.literal("project_inventory"),
     v.literal("account_inventory"),
-    v.literal("pages_project_inventory"),
+    v.literal("workers_inventory"),
   ),
   toolName: v.string(),
   paramsJson: v.string(),
@@ -216,7 +216,7 @@ Add proposal-only tool entries in `TOOL_CATALOG`:
 - `request_cloudflare_logs_read`
 - `request_convex_projects_read`
 - `request_cloudflare_accounts_read`
-- `request_cloudflare_pages_projects_read`
+- `request_cloudflare_workers_inventory_read`
 - `request_convex_data_read`
 
 Policy requirements:
@@ -242,7 +242,7 @@ args: {
     | "data_query"
     | "project_inventory"
     | "account_inventory"
-    | "pages_project_inventory";
+    | "workers_inventory";
   toolName: string;
   paramsJson: string;
 }
@@ -283,11 +283,11 @@ Behavior:
 
 - `infraRead.getConvexDeploymentStatus`
 - `infraRead.getConvexLogs`
-- `infraRead.getCloudflareProjectStatus`
+- `infraRead.getCloudflareWorkerStatus`
 - `infraRead.getCloudflareLogs`
 - `infraRead.getConvexProjectInventory`
 - `infraRead.getCloudflareAccountInventory`
-- `infraRead.getCloudflarePagesProjectInventory`
+- `infraRead.getCloudflareWorkersInventory`
 - `infraRead.getConvexDataQuery`
 
 Executor constraints:

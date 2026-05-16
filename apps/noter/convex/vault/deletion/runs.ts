@@ -170,11 +170,10 @@ async function buildCloudflarePlan(
   ctx: MutationCtx,
   args: {
     vault: Doc<"vaults">;
-    infrastructure: Doc<"vaultInfrastructure"> | null;
     options: DeletionRequestOptions;
   },
 ): Promise<VaultDeletionPlan["cloudflare"]> {
-  const { vault, infrastructure, options } = args;
+  const { vault, options } = args;
   if (!options.removeCloudflareProvision) {
     return { action: "skip", reason: "not_requested" };
   }
@@ -182,14 +181,7 @@ async function buildCloudflarePlan(
     return { action: "skip", reason: "not_noter_managed" };
   }
 
-  const cloudflare =
-    vault.cloudflare.state === "connected"
-      ? {
-          accountId: vault.cloudflare.accountId,
-          projectName: vault.cloudflare.projectName,
-        }
-      : infrastructure?.cloudflare;
-  if (!cloudflare) {
+  if (vault.cloudflare.state !== "connected") {
     return { action: "skip", reason: "not_recorded" };
   }
 
@@ -198,9 +190,10 @@ async function buildCloudflarePlan(
     kind: "cloudflare",
   });
   return {
-    action: "delete_pages_project",
-    accountId: cloudflare.accountId,
-    projectName: cloudflare.projectName,
+    action: "delete_worker",
+    accountId: vault.cloudflare.accountId,
+    workerName: vault.cloudflare.workerName,
+    workerTag: vault.cloudflare.workerTag,
   };
 }
 
@@ -331,7 +324,7 @@ async function assertPlanProviderConnections(
     });
   }
 
-  if (args.plan.cloudflare.action === "delete_pages_project") {
+  if (args.plan.cloudflare.action === "delete_worker") {
     await requireProviderConnection(ctx, {
       userId: args.userId,
       kind: "cloudflare",

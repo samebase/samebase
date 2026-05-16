@@ -7,8 +7,8 @@ import { internal } from "./_generated/api";
 import { vAllowedInfraReadTable } from "./infraReadQueries";
 import { createInfraProviders } from "./infraProviders";
 import {
-  readCloudflareDeploymentLogs,
-  readCloudflareProjectStatus,
+  readCloudflareBuildLogs,
+  readCloudflareWorkerStatus,
 } from "./cloudflareResources";
 import { asRecord, clamp, readString } from "./jsonUtils";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -35,6 +35,7 @@ async function loadVaultContext(
   vaultId: Id<"vaults">,
 ): Promise<{
   infra: Doc<"vaultInfrastructure"> | null;
+  vault: Doc<"vaults"> | null;
   vaultUserId: Id<"users"> | null;
   convexConnection: {
     kind: "convex";
@@ -43,7 +44,7 @@ async function loadVaultContext(
     teamSlug?: string;
   } | null;
 }> {
-  const { infra, vaultUserId, convexConnection } = await ctx.runQuery(
+  const { infra, vault, vaultUserId, convexConnection } = await ctx.runQuery(
     internal.infraReadQueries.getVaultReadContext,
     {
       vaultId,
@@ -52,6 +53,7 @@ async function loadVaultContext(
 
   return {
     infra,
+    vault,
     vaultUserId,
     convexConnection,
   };
@@ -192,14 +194,17 @@ export const getConvexLogs = internalAction({
   },
 });
 
-export const getCloudflareProjectStatus = internalAction({
+export const getCloudflareWorkerStatus = internalAction({
   args: {
     vaultId: v.id("vaults"),
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { infra, vaultUserId } = await loadVaultContext(ctx, args.vaultId);
-    const cloudflare = infra?.cloudflare;
+    const { vault, vaultUserId } = await loadVaultContext(ctx, args.vaultId);
+    const cloudflare =
+      vault?.state === "connected" && vault.cloudflare.state === "connected"
+        ? vault.cloudflare
+        : null;
     if (!cloudflare || !vaultUserId) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
@@ -211,11 +216,12 @@ export const getCloudflareProjectStatus = internalAction({
       },
     );
 
-    return await readCloudflareProjectStatus({
+    return await readCloudflareWorkerStatus({
       cloudflareToken: resolveCloudflareToken(cloudflareConnection),
       cloudflareServerUrl: resolveCloudflareMcpServerUrl(cloudflareConnection),
       accountId: cloudflare.accountId,
-      projectName: cloudflare.projectName,
+      workerName: cloudflare.workerName,
+      workerTag: cloudflare.workerTag,
     });
   },
 });
@@ -227,8 +233,11 @@ export const getCloudflareLogs = internalAction({
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { infra, vaultUserId } = await loadVaultContext(ctx, args.vaultId);
-    const cloudflare = infra?.cloudflare;
+    const { vault, vaultUserId } = await loadVaultContext(ctx, args.vaultId);
+    const cloudflare =
+      vault?.state === "connected" && vault.cloudflare.state === "connected"
+        ? vault.cloudflare
+        : null;
     if (!cloudflare || !vaultUserId) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
@@ -240,11 +249,12 @@ export const getCloudflareLogs = internalAction({
       },
     );
 
-    return await readCloudflareDeploymentLogs({
+    return await readCloudflareBuildLogs({
       cloudflareToken: resolveCloudflareToken(cloudflareConnection),
       cloudflareServerUrl: resolveCloudflareMcpServerUrl(cloudflareConnection),
       accountId: cloudflare.accountId,
-      projectName: cloudflare.projectName,
+      workerName: cloudflare.workerName,
+      workerTag: cloudflare.workerTag,
       maxEntries: args.maxEntries ?? 10,
     });
   },
@@ -341,7 +351,7 @@ export const getCloudflareAccountInventory = internalAction({
   },
 });
 
-export const getCloudflarePagesProjectInventory = internalAction({
+export const getCloudflareWorkersInventory = internalAction({
   args: {
     limit: v.optional(v.number()),
     userId: v.id("users"),
@@ -362,7 +372,7 @@ export const getCloudflarePagesProjectInventory = internalAction({
     const accountId = args.accountId ?? cloudflareConnection?.accountId;
     if (!accountId) {
       throw new Error(
-        "Cloudflare accountId is required to list Pages projects. Reconnect or select an account first.",
+        "Cloudflare accountId is required to list Workers. Reconnect or select an account first.",
       );
     }
 
@@ -373,17 +383,17 @@ export const getCloudflarePagesProjectInventory = internalAction({
     path:
       "/accounts/" +
       encodeURIComponent(accountId) +
-      "/pages/projects?page=1&per_page=${perPage}",
+      "/workers/scripts?page=1&per_page=${perPage}",
   });
   if (!response || response.success !== true) {
     const errors = response && Array.isArray(response.errors) ? response.errors : response;
     throw new Error("Cloudflare API error: " + JSON.stringify(errors));
   }
   const result = Array.isArray(response.result) ? response.result : [];
-  return result.map((project) => ({
-    name: project?.name,
-    subdomain: project?.subdomain,
-    productionBranch: project?.production_branch,
+  return result.map((worker) => ({
+    name: worker?.id,
+    tag: worker?.tag,
+    modifiedOn: worker?.modified_on,
   }));
 }`;
 
@@ -399,8 +409,8 @@ export const getCloudflarePagesProjectInventory = internalAction({
       typeof parsed === "string" ? parsed : JSON.stringify(parsed, null, 2);
 
     return {
-      summary: `Cloudflare Pages project inventory for account ${accountId}`,
-      endpoint: `/accounts/${encodeURIComponent(accountId)}/pages/projects`,
+      summary: `Cloudflare Workers inventory for account ${accountId}`,
+      endpoint: `/accounts/${encodeURIComponent(accountId)}/workers/scripts`,
       raw,
       rowCount: Array.isArray(parsed) ? parsed.length : undefined,
     };

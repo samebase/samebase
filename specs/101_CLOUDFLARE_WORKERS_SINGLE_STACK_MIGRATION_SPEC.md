@@ -127,10 +127,10 @@ generated user repository history intentionally have different jobs:
 1. `notermd/app` teaches the stack through small commits.
 2. generated user repositories start from one clean snapshot commit.
 
-### Current Provisioning
+### Pre-Migration Provisioning
 
-Noter currently provisions Cloudflare Pages in the `ensure_cloudflare` step. The
-Pages implementation owns:
+Before this migration, Noter provisioned Cloudflare Pages in the
+`ensure_cloudflare` step. The Pages implementation owned:
 
 1. Pages project create/patch/read/delete endpoints
 2. Pages build config
@@ -200,7 +200,7 @@ New Noter-managed app creation should:
 10. configure non-production branch build/deploy commands
 11. set production and preview build variables/secrets
 12. trigger the first production build
-13. record the Workers production URL and trigger IDs
+13. record the Workers production URL and Worker tag
 14. surface preview URLs, status, and logs from Workers-compatible data
 
 ## Implementation Plan
@@ -249,8 +249,9 @@ Required Workers operations:
 8. set preview Convex env vars/secrets
 9. trigger the first production build
 10. read build status and logs
-11. record production URL, Worker tag, and build trigger IDs
-12. delete Worker/build resources when deleting a Noter-managed vault
+11. record production URL and Worker tag
+12. rediscover and delete Worker build triggers when deleting a Noter-managed
+    vault
 
 For generated single-repository apps, use these Workers Builds commands:
 
@@ -303,11 +304,11 @@ the migration is considered complete.
 
 ### Phase 6: Remove Pages Product Surface
 
-Remove or rewrite:
+Remove or rewrite the Pages product surface instead of preserving parallel
+provider state:
 
-1. `cloudflare_pages_default` and `cloudflare_pages_custom` if production data
-   is cleaned before rollout
-2. `delete_pages_project`
+1. Pages domain source literals
+2. Pages project deletion
 3. Pages project inventory reads
 4. Pages status/log endpoints
 5. Pages dashboard labels
@@ -326,7 +327,10 @@ strategy:
 2. run a one-off cleanup/migration
 3. keep a temporary Pages cleanup path for one deploy, then remove it
 
-Do not design the runtime model around indefinite Pages compatibility.
+Do not design the runtime model around indefinite Pages compatibility. Do not
+keep duplicate infrastructure status fields that can disagree with the vault
+provider states. `vaultInfrastructure` is only the Convex resource record;
+Cloudflare state belongs on `vaults.cloudflare`.
 
 Rollout checklist:
 

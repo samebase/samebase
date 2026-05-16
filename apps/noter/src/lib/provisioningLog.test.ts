@@ -12,10 +12,10 @@ describe("formatProvisioningLogLine", () => {
         createdAt: Date.UTC(2026, 4, 2, 12, 30, 5),
         level: "info",
         step: "ensure_cloudflare",
-        message: "Cloudflare Pages project ready.",
+        message: "Cloudflare Worker ready.",
       }),
     ).toBe(
-      "2026-05-02T12:30:05.000Z INFO  ensure Cloudflare - Cloudflare Pages project ready.",
+      "2026-05-02T12:30:05.000Z INFO  ensure Cloudflare - Cloudflare Worker ready.",
     );
   });
 });

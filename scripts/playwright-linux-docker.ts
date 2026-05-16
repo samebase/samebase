@@ -19,7 +19,7 @@ const DEFAULT_VITE_PORT = "43121";
 const CONTAINER_SCRIPT = String.raw`set -euo pipefail
 
 corepack enable
-corepack prepare pnpm@9.15.0 --activate >/dev/null
+corepack prepare pnpm@11.1.1 --activate >/dev/null
 
 rm -rf /work
 mkdir -p /work

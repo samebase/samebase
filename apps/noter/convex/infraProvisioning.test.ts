@@ -2,7 +2,6 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
 import {
-  resolveInfraStateAfterWorkflowFailure,
   resolveConnectionFailureProvider,
   selectCloudflareBuildConfigTreeData,
 } from "./infraProvisioning";
@@ -36,35 +35,6 @@ describe("selectCloudflareBuildConfigTreeData", () => {
         branchTreeData: null,
       }),
     ).toThrow("Default branch tree is not synced yet.");
-  });
-});
-
-describe("resolveInfraStateAfterWorkflowFailure", () => {
-  it("marks failures before provider progress as failed", () => {
-    expect(
-      resolveInfraStateAfterWorkflowFailure({
-        convexProjectId: undefined,
-        cloudflare: undefined,
-      }),
-    ).toBe("failed");
-  });
-
-  it("marks failures after Convex progress as partial", () => {
-    expect(
-      resolveInfraStateAfterWorkflowFailure({
-        convexProjectId: "project-123",
-        cloudflare: undefined,
-      }),
-    ).toBe("partial");
-  });
-
-  it("marks failures after Cloudflare progress as partial", () => {
-    expect(
-      resolveInfraStateAfterWorkflowFailure({
-        convexProjectId: undefined,
-        cloudflare: {},
-      }),
-    ).toBe("partial");
   });
 });
 
@@ -252,6 +222,99 @@ describe("infrastructure provisioning ownership", () => {
     expect(vault).toMatchObject({
       convex: { state: "not_configured" },
       cloudflare: { state: "not_configured" },
+    });
+  });
+
+  it("records known provider errors in the visible provisioning log", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/cloudflare-token-failure",
+        workflowId: "workflow-cloudflare",
+        trigger: "retry",
+        state: "running",
+        currentStep: "ensure_cloudflare",
+        createdAt: 10,
+        updatedAt: 30,
+      });
+
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "cloudflare-token-failure",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+        convex: {
+          state: "connected",
+          projectId: "convex-project",
+          projectSlug: "cloudflare-token-failure",
+          deploymentName: "cloudflare-token-failure-prod",
+          connectedAt: 25,
+        },
+        cloudflare: {
+          state: "provisioning",
+          runId,
+          startedAt: 26,
+        },
+      });
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId,
+        runId,
+        provisioningVersion: 1,
+        state: "active",
+        updatedAt: 31,
+      });
+
+      return { runId };
+    });
+
+    await t.mutation(
+      internal.infraProvisioning.markWorkflowProvisioningFailed,
+      {
+        runId: ids.runId,
+        workflowId: "workflow-cloudflare",
+        message:
+          "Error: Uncaught Error: Cloudflare connection is missing Workers Builds write access. Reconnect Cloudflare and grant Workers Builds, Workers, and Workers Scripts access, then retry.\n    at requestCloudflareApi",
+      },
+    );
+
+    const result = await t.run(async (ctx) => {
+      const run = await ctx.db.get(ids.runId);
+      const event = await ctx.db
+        .query("appProvisioningEvents")
+        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
+        .first();
+      return { event, run };
+    });
+
+    const expectedMessage =
+      "Cloudflare connection is missing Workers Builds write access. Reconnect Cloudflare and grant Workers Builds, Workers, and Workers Scripts access, then retry.";
+    expect(result.run).toMatchObject({
+      state: "failed",
+      lastError: expectedMessage,
+    });
+    expect(result.event).toMatchObject({
+      step: "ensure_cloudflare",
+      level: "error",
+      message: expectedMessage,
     });
   });
 });

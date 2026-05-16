@@ -8,7 +8,6 @@ import path from "node:path";
 const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const convexBootstrapLogPath = path.join(tmpdir(), "convex-bootstrap.log");
 const envLocalPath = path.join("apps", "noter", ".env.local");
-const convexInstanceUrl = "http://127.0.0.1:3210/instance_name";
 const convexEnvSetMaxAttempts = 4;
 
 await main();
@@ -44,13 +43,27 @@ async function main(): Promise<void> {
     await waitFor(
       async () => {
         const fileContents = await readOptionalFile(envLocalPath);
-        return fileContents?.includes("CONVEX_DEPLOYMENT=") ?? false;
+        if (!fileContents) {
+          return false;
+        }
+        return (
+          fileContents.includes("CONVEX_DEPLOYMENT=") &&
+          fileContents.includes("VITE_CONVEX_URL=")
+        );
       },
       60_000,
-      "Timed out waiting for apps/noter/.env.local to include CONVEX_DEPLOYMENT.",
+      "Timed out waiting for apps/noter/.env.local to include Convex local env values.",
     );
     await waitFor(
       async () => {
+        const convexClientUrl = await readGeneratedEnvValue("VITE_CONVEX_URL");
+        if (!convexClientUrl) {
+          return false;
+        }
+        const convexInstanceUrl = new URL(
+          "instance_name",
+          `${convexClientUrl}/`,
+        ).toString();
         try {
           const response = await fetch(convexInstanceUrl);
           return response.ok;
@@ -216,6 +229,31 @@ async function readOptionalFile(filePath: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+async function readGeneratedEnvValue(key: string): Promise<string | null> {
+  const fileContents = await readOptionalFile(envLocalPath);
+  if (!fileContents) {
+    return null;
+  }
+
+  const prefix = `${key}=`;
+  for (const line of fileContents.split("\n")) {
+    const trimmedLine = line.trim();
+    if (trimmedLine.length === 0 || trimmedLine.startsWith("#")) {
+      continue;
+    }
+    if (!trimmedLine.startsWith(prefix)) {
+      continue;
+    }
+
+    return trimmedLine
+      .slice(prefix.length)
+      .trim()
+      .replace(/^['"]|['"]$/g, "");
+  }
+
+  return null;
 }
 
 async function printLogTail(): Promise<void> {
