@@ -206,7 +206,22 @@ test("landing markdown preview sidebar hash links keep the mobile sidebar open",
     })
     .click();
 
-  await expect(page).toHaveURL(/\?dev&left&dark#6-connect-codex-to-github$/);
+  await expect
+    .poll(() => {
+      const url = new URL(page.url());
+      return {
+        dark: url.searchParams.has("dark"),
+        dev: url.searchParams.has("dev"),
+        hash: url.hash,
+        left: url.searchParams.has("left"),
+      };
+    })
+    .toEqual({
+      dark: true,
+      dev: true,
+      hash: "#6-connect-codex-to-github",
+      left: true,
+    });
   await expect(layout).toHaveAttribute("data-mobile-pane", "left");
   await expect
     .poll(() => carousel.evaluate((element) => element.scrollLeft))

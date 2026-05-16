@@ -73,21 +73,19 @@ function AppRouterRoot() {
   }, [base, border, primary, secondary, themeMode]);
 
   return (
-    <>
+    <OptionalThemeProvider forcedTheme={themeMode}>
       <Outlet />
       <RouterGestureDebugOverlay />
-    </>
+    </OptionalThemeProvider>
   );
 }
 
 export function AppRootClient() {
   return (
-    <OptionalThemeProvider>
-      <ConvexAuthProvider client={client}>
-        <QueryProvider>
-          <AppRouterRoot />
-        </QueryProvider>
-      </ConvexAuthProvider>
-    </OptionalThemeProvider>
+    <ConvexAuthProvider client={client}>
+      <QueryProvider>
+        <AppRouterRoot />
+      </QueryProvider>
+    </ConvexAuthProvider>
   );
 }
