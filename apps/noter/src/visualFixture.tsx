@@ -1,10 +1,4 @@
-import { ConvexAuthProvider } from "@convex-dev/auth/react";
-import { StrictMode } from "react";
-import ReactDOM from "react-dom/client";
-import { ThemeProvider } from "next-themes";
 import { DialogProvider } from "@/contexts/DialogContext";
-import { client } from "@/lib/convexClient";
-import { QueryProvider } from "@/lib/providers/query-provider";
 import {
   CommitReviewVisualFixture,
   type CommitReviewVisualMode,
@@ -325,9 +319,14 @@ function isVisualFixtureMode(value: string): value is VisualFixtureMode {
   );
 }
 
-function readSelection(): VisualFixtureSelection {
-  const value = new URLSearchParams(window.location.search).get("mode")?.trim();
+function readSelection(
+  modeSearchValue: string | undefined,
+): VisualFixtureSelection {
+  if (!modeSearchValue) {
+    return { status: "missing" };
+  }
 
+  const value = modeSearchValue.trim();
   if (!value) {
     return { status: "missing" };
   }
@@ -559,28 +558,22 @@ function renderVisualFixtureModeDirectory({
   );
 }
 
-const selection = readSelection();
-const showGestureDebugOverlay = isMobileSidebarDebugEnabled(
-  window.location.search,
-);
+export function VisualFixturePage(props: { mode?: string }) {
+  const selection = readSelection(props.mode);
+  const showGestureDebugOverlay = isMobileSidebarDebugEnabled(
+    window.location.search,
+  );
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
-      <ConvexAuthProvider client={client}>
-        <QueryProvider>
-          <DialogProvider>
-            {showGestureDebugOverlay ? <GlobalGestureDebugOverlay /> : null}
-            {selection.status === "missing"
-              ? renderVisualFixtureModeDirectory({})
-              : selection.status === "invalid"
-                ? renderVisualFixtureModeDirectory({
-                    invalidMode: selection.value,
-                  })
-                : renderVisualFixture(selection.mode)}
-          </DialogProvider>
-        </QueryProvider>
-      </ConvexAuthProvider>
-    </ThemeProvider>
-  </StrictMode>,
-);
+  return (
+    <DialogProvider>
+      {showGestureDebugOverlay ? <GlobalGestureDebugOverlay /> : null}
+      {selection.status === "missing"
+        ? renderVisualFixtureModeDirectory({})
+        : selection.status === "invalid"
+          ? renderVisualFixtureModeDirectory({
+              invalidMode: selection.value,
+            })
+          : renderVisualFixture(selection.mode)}
+    </DialogProvider>
+  );
+}

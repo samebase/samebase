@@ -31,6 +31,7 @@ export const routes = rootRoute("root.tsx", [
   route("/pitch", "pitch.tsx"),
   route("/pitch/print", "pitch-print.tsx"),
   route("/pitch/print/mobile", "pitch-print-mobile.tsx"),
+  route("/visual-fixture[.]html", "visual-fixture.tsx"),
   route(CODEX_APP_SERVER_RESEARCH_ROUTE, "codex-research.tsx"),
   route(
     CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,

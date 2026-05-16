@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from "./routes/root";
+import { Route as visualFixtureRouteImport } from "./routes/visual-fixture";
 import { Route as testRouteImport } from "./routes/test";
 import { Route as pricingRouteImport } from "./routes/pricing";
 import { Route as pitchRouteImport } from "./routes/pitch";
@@ -36,6 +37,11 @@ import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
 import { Route as logoTransitionTransformsLabRouteImport } from "./routes/logo-transition-transforms-lab";
 import { Route as codespaceChatRouteImport } from "./routes/codespace-chat";
 
+const visualFixtureRoute = visualFixtureRouteImport.update({
+  id: "/visual-fixture.html",
+  path: "/visual-fixture.html",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const testRoute = testRouteImport.update({
   id: "/test",
   path: "/test",
@@ -177,6 +183,7 @@ export interface FileRoutesByFullPath {
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/test": typeof testRoute;
+  "/visual-fixture.html": typeof visualFixtureRoute;
   "/home": typeof homeRoute;
   "/localStorage": typeof localStorageRoute;
   "/privacy": typeof privacyRoute;
@@ -203,6 +210,7 @@ export interface FileRoutesByTo {
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/test": typeof testRoute;
+  "/visual-fixture.html": typeof visualFixtureRoute;
   "/": typeof indexRoute;
   "/home": typeof homeRoute;
   "/localStorage": typeof localStorageRoute;
@@ -232,6 +240,7 @@ export interface FileRoutesById {
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/test": typeof testRoute;
+  "/visual-fixture.html": typeof visualFixtureRoute;
   "/_public/": typeof indexRoute;
   "/_public/home": typeof homeRoute;
   "/_public/localStorage": typeof localStorageRoute;
@@ -262,6 +271,7 @@ export interface FileRouteTypes {
     | "/pitch"
     | "/pricing"
     | "/test"
+    | "/visual-fixture.html"
     | "/home"
     | "/localStorage"
     | "/privacy"
@@ -288,6 +298,7 @@ export interface FileRouteTypes {
     | "/pitch"
     | "/pricing"
     | "/test"
+    | "/visual-fixture.html"
     | "/"
     | "/home"
     | "/localStorage"
@@ -316,6 +327,7 @@ export interface FileRouteTypes {
     | "/pitch"
     | "/pricing"
     | "/test"
+    | "/visual-fixture.html"
     | "/_public/"
     | "/_public/home"
     | "/_public/localStorage"
@@ -345,6 +357,7 @@ export interface RootRouteChildren {
   pitchRoute: typeof pitchRoute;
   pricingRoute: typeof pricingRoute;
   testRoute: typeof testRoute;
+  visualFixtureRoute: typeof visualFixtureRoute;
   logoIsoRoute: typeof logoIsoRoute;
   logoIsoStudyRoute: typeof logoIsoStudyRoute;
   logoSvgRoute: typeof logoSvgRoute;
@@ -362,6 +375,13 @@ export interface RootRouteChildren {
 
 declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
+    "/visual-fixture.html": {
+      id: "/visual-fixture.html";
+      path: "/visual-fixture.html";
+      fullPath: "/visual-fixture.html";
+      preLoaderRoute: typeof visualFixtureRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/test": {
       id: "/test";
       path: "/test";
@@ -576,6 +596,7 @@ const rootRouteChildren: RootRouteChildren = {
   pitchRoute: pitchRoute,
   pricingRoute: pricingRoute,
   testRoute: testRoute,
+  visualFixtureRoute: visualFixtureRoute,
   logoIsoRoute: logoIsoRoute,
   logoIsoStudyRoute: logoIsoStudyRoute,
   logoSvgRoute: logoSvgRoute,
