@@ -559,11 +559,25 @@ function parseBuildTokens(raw: unknown): CloudflareBuildToken[] {
       };
     })
     .filter(notEmpty)
-    .sort(
-      (left, right) =>
-        left.name.localeCompare(right.name) ||
-        left.uuid.localeCompare(right.uuid),
-    );
+    .sort(compareBuildTokens);
+}
+
+function compareBuildTokens(
+  left: CloudflareBuildToken,
+  right: CloudflareBuildToken,
+): number {
+  return (
+    left.name.localeCompare(right.name) || left.uuid.localeCompare(right.uuid)
+  );
+}
+
+function selectStableBuildTokenUuid(
+  tokens: readonly CloudflareBuildToken[],
+): string | undefined {
+  if (tokens.length === 0) {
+    return undefined;
+  }
+  return [...tokens].sort(compareBuildTokens)[0].uuid;
 }
 
 export function selectReusableBuildTokenUuid(args: {
@@ -578,29 +592,24 @@ export function selectReusableBuildTokenUuid(args: {
   const preferredTokens = args.tokens.filter((token) =>
     preferredBuildTokenUuids.has(token.uuid),
   );
-  if (preferredTokens.length === 1) {
-    return preferredTokens[0].uuid;
-  }
-  if (preferredTokens.length > 1) {
-    throw new Error(
-      "Cloudflare has multiple Workers build tokens already attached to this Worker. Remove the extra Workers Builds triggers and retry.",
-    );
+  const preferredTokenUuid = selectStableBuildTokenUuid(preferredTokens);
+  if (preferredTokenUuid) {
+    return preferredTokenUuid;
   }
 
   const namedTokens = args.tokens.filter(
     (token) => token.name === NOTER_WORKERS_BUILD_TOKEN_NAME,
   );
-  if (namedTokens.length === 1) {
-    return namedTokens[0].uuid;
-  }
-  if (namedTokens.length > 1) {
-    throw new Error(
-      `Cloudflare has multiple Workers build tokens named "${NOTER_WORKERS_BUILD_TOKEN_NAME}". Keep one and retry.`,
-    );
+  const namedTokenUuid = selectStableBuildTokenUuid(namedTokens);
+  if (namedTokenUuid) {
+    // Failed retries can leave duplicate Noter-named tokens. Cloudflare's list
+    // response has no creation time, so choose by stable UUID order and let the
+    // trigger upserts bind both triggers to the same token.
+    return namedTokenUuid;
   }
 
   if (args.tokens.length === 1) {
-    return args.tokens[0].uuid;
+    return selectStableBuildTokenUuid(args.tokens);
   }
 
   throw new Error(
@@ -624,34 +633,20 @@ export function selectCurrentBuildTokenUuid(args: {
   const preferredTokens = matchingTokens.filter((token) =>
     preferredBuildTokenUuids.has(token.uuid),
   );
-  if (preferredTokens.length === 1) {
-    return preferredTokens[0].uuid;
-  }
-  if (preferredTokens.length > 1) {
-    throw new Error(
-      "Cloudflare has multiple current Workers build tokens already attached to this Worker. Remove the extra Workers Builds triggers and retry.",
-    );
+  const preferredTokenUuid = selectStableBuildTokenUuid(preferredTokens);
+  if (preferredTokenUuid) {
+    return preferredTokenUuid;
   }
 
   const namedTokens = matchingTokens.filter(
     (token) => token.name === NOTER_WORKERS_BUILD_TOKEN_NAME,
   );
-  if (namedTokens.length === 1) {
-    return namedTokens[0].uuid;
-  }
-  if (namedTokens.length > 1) {
-    throw new Error(
-      `Cloudflare has multiple current Workers build tokens named "${NOTER_WORKERS_BUILD_TOKEN_NAME}". Remove the extra build tokens and retry.`,
-    );
+  const namedTokenUuid = selectStableBuildTokenUuid(namedTokens);
+  if (namedTokenUuid) {
+    return namedTokenUuid;
   }
 
-  if (matchingTokens.length === 1) {
-    return matchingTokens[0].uuid;
-  }
-
-  throw new Error(
-    `Cloudflare has multiple current Workers build tokens. Keep one token named "${NOTER_WORKERS_BUILD_TOKEN_NAME}" and retry.`,
-  );
+  return selectStableBuildTokenUuid(matchingTokens);
 }
 
 function readTriggerBuildTokenUuids(

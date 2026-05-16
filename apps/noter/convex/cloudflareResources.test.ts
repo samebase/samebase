@@ -112,6 +112,25 @@ describe("cloudflare resources", () => {
     ).toBe("noter-build-token");
   });
 
+  it("chooses a stable Noter-named build token when Cloudflare has duplicates", () => {
+    expect(
+      selectReusableBuildTokenUuid({
+        tokens: [
+          {
+            name: "noter build token",
+            uuid: "z-noter-build-token",
+            cloudflareTokenId: "oauth-unverifiable-token-id",
+          },
+          {
+            name: "noter build token",
+            uuid: "a-noter-build-token",
+            cloudflareTokenId: "older-oauth-unverifiable-token-id",
+          },
+        ],
+      }),
+    ).toBe("a-noter-build-token");
+  });
+
   it("prefers the reusable build token already attached to Workers Builds triggers", () => {
     expect(
       selectReusableBuildTokenUuid({
@@ -170,8 +189,8 @@ describe("cloudflare resources", () => {
     ).toBe(undefined);
   });
 
-  it("fails when multiple current build tokens cannot be distinguished", () => {
-    expect(() =>
+  it("chooses a stable current build token when Cloudflare has duplicates", () => {
+    expect(
       selectCurrentBuildTokenUuid({
         cloudflareTokenId: "current-token-id",
         tokens: [
@@ -187,6 +206,6 @@ describe("cloudflare resources", () => {
           },
         ],
       }),
-    ).toThrow("multiple current Workers build tokens");
+    ).toBe("second-current-build-token");
   });
 });
