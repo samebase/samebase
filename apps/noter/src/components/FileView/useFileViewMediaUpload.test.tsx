@@ -9,6 +9,12 @@ import { useFileViewMediaUpload } from "./useFileViewMediaUpload";
 const { act } = React;
 Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
 
+function fakeVaultId(): Id<"vaults"> {
+  // @ts-expect-error Convex ids are strings at runtime; this hook test only
+  // needs a stable vault id for generated function arguments.
+  return "k976ryb9d1m2gyvxhps87dac257mv5ps";
+}
+
 function MediaUploadProbe() {
   const mediaUpload = useFileViewMediaUpload({
     branch: "main",
@@ -19,7 +25,7 @@ function MediaUploadProbe() {
     repositoryFullName: "octo/repo",
     selectedFile: "README.md",
     stageUploadedMedia: vi.fn(async () => null),
-    vaultId: "k976ryb9d1m2gyvxhps87dac257mv5ps" as Id<"vaults">,
+    vaultId: fakeVaultId(),
   });
 
   return (
@@ -45,6 +51,12 @@ function setInputFile(input: HTMLInputElement, file: File) {
     configurable: true,
     value: [file],
   });
+}
+
+function dispatchBeforeUnload() {
+  const event = new Event("beforeunload", { cancelable: true });
+  window.dispatchEvent(event);
+  return event.defaultPrevented;
 }
 
 describe("useFileViewMediaUpload", () => {
@@ -93,6 +105,7 @@ describe("useFileViewMediaUpload", () => {
     expect(
       rootElement.querySelector('[data-testid="error-message"]')?.textContent,
     ).toBe("");
+    expect(dispatchBeforeUnload()).toBe(true);
 
     setInputFile(
       input,
@@ -108,5 +121,6 @@ describe("useFileViewMediaUpload", () => {
     expect(
       rootElement.querySelector('[data-testid="error-message"]')?.textContent,
     ).toBe("Only image uploads are supported right now.");
+    expect(dispatchBeforeUnload()).toBe(false);
   });
 });

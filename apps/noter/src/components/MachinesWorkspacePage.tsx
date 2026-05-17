@@ -30,6 +30,7 @@ import { resolveConnectedMachineStatus } from "../../shared/connectedMachinePres
 import type { ConnectedMachineView } from "../../convex/connectedMachineModel";
 import { api } from "../../convex/_generated/api";
 import { MACHINES_ROUTE } from "@/lib/noterSync";
+import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
 
 const THREAD_LIST_LIMIT = 100;
 const THREAD_REFRESH_INTERVAL_MS = 1_500;
@@ -235,6 +236,10 @@ export function MachinesWorkspacePage() {
   const selectedMachineStatusReason = selectedMachine
     ? readMachineStatusReason(selectedMachine)
     : null;
+  usePageLeaveGuard({
+    enabled: turnDraft.trim().length > 0 || isSubmittingTurn,
+    reason: "Pending connected-machine prompt",
+  });
   const userDisplayName =
     user?.name ??
     user?.email ??

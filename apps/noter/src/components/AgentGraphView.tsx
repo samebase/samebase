@@ -26,6 +26,7 @@ import { ChatInput } from "@/components/ChatInput";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { useUIMessages } from "@convex-dev/agent/react";
 import { Kbd, KbdGroup } from "@/components/ui-custom/kbd";
+import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
 
 export type AgentGraphNodeData = {
   label: string;
@@ -135,6 +136,11 @@ function AgentNode({ data, id, width, height }: NodeProps<AgentGraphNode>) {
   const subtitle = isAgent ? "System prompt file" : "Tool definitions";
   const messages = graphContext?.messages ?? [];
   const canResize = Boolean(graphContext?.onResizeNode) && isAgent;
+
+  usePageLeaveGuard({
+    enabled: input.trim().length > 0 || sending,
+    reason: "Pending agent graph prompt",
+  });
 
   const currentWidth =
     typeof width === "number" ? width : DEFAULT_AGENT_NODE_SIZE.width;

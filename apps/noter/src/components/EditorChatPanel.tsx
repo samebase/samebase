@@ -29,6 +29,7 @@ import {
   type MessageMetadata,
   type ProdReadProposalPayload as ProdReadProposal,
 } from "../../shared/chatMetadata";
+import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
 
 // --- Metadata parsing ---
 
@@ -628,6 +629,7 @@ export function EditorChatPanel({
   const [pendingThreadId, setPendingThreadId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [hasUnsavedDraft, setHasUnsavedDraft] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<ChatInputHandle | null>(null);
   const draftSaveTimerRef = useRef<number | null>(null);
@@ -668,6 +670,18 @@ export function EditorChatPanel({
   const updateThreadDraft = useMutation(api.chat.index.updateThreadDraft);
 
   const inputMode = "prosemark";
+
+  usePageLeaveGuard({
+    enabled: hasUnsavedDraft || sending,
+    reason: "Pending chat draft or message",
+  });
+
+  const draftNeedsSave = useCallback((draft: string) => {
+    const lastSavedDraft = lastSavedDraftRef.current;
+    return lastSavedDraft === null
+      ? draft.trim().length > 0
+      : draft !== lastSavedDraft;
+  }, []);
 
   const ensureThreadId = useCallback(async () => {
     if (threadId) return threadId;
@@ -712,6 +726,7 @@ export function EditorChatPanel({
       lastHydratedDraftRef.current = "";
       lastSavedDraftRef.current = null;
       isDirtyDraftRef.current = false;
+      setHasUnsavedDraft(false);
     } finally {
       setIsDeleting(false);
     }
@@ -737,6 +752,7 @@ export function EditorChatPanel({
     lastSavedDraftRef.current = null;
     isDirtyDraftRef.current = false;
     flushDraftPromiseRef.current = null;
+    setHasUnsavedDraft(false);
   }, [vaultId]);
 
   useEffect(() => {
@@ -806,6 +822,7 @@ export function EditorChatPanel({
       if (!isDirtyDraftRef.current) {
         setInput(remoteDraft);
         isDirtyDraftRef.current = false;
+        setHasUnsavedDraft(false);
       }
       return;
     }
@@ -814,6 +831,7 @@ export function EditorChatPanel({
     setInput(remoteDraft);
     lastHydratedDraftRef.current = remoteDraft;
     lastSavedDraftRef.current = remoteDraft;
+    setHasUnsavedDraft(false);
   }, [threadId, threadContextLoaded, threadContext?.draftMessage]);
 
   const flushDraftImmediately = useCallback(() => {
@@ -823,10 +841,12 @@ export function EditorChatPanel({
       draftSaveTimerRef.current = null;
     }
     if (!threadId && draft.trim().length === 0) {
+      setHasUnsavedDraft(false);
       return Promise.resolve();
     }
     if (draft === lastSavedDraftRef.current) {
       isDirtyDraftRef.current = false;
+      setHasUnsavedDraft(false);
       return Promise.resolve();
     }
     if (flushDraftPromiseRef.current) {
@@ -845,9 +865,11 @@ export function EditorChatPanel({
       lastSavedDraftRef.current = draft;
       lastHydratedDraftRef.current = draft;
       isDirtyDraftRef.current = false;
+      setHasUnsavedDraft(false);
     })()
       .catch(() => {
         // keep dirty flag for a future retry
+        setHasUnsavedDraft(true);
       })
       .finally(() => {
         if (flushDraftPromiseRef.current === savePromise) {
@@ -877,6 +899,7 @@ export function EditorChatPanel({
       const draft = input;
       if (draft === lastSavedDraftRef.current) {
         isDirtyDraftRef.current = false;
+        setHasUnsavedDraft(false);
         return;
       }
       void updateThreadDraft({ threadId, draftMessage: draft })
@@ -884,9 +907,11 @@ export function EditorChatPanel({
           lastSavedDraftRef.current = draft;
           lastHydratedDraftRef.current = draft;
           isDirtyDraftRef.current = false;
+          setHasUnsavedDraft(false);
         })
         .catch(() => {
           // keep dirty flag for a future retry
+          setHasUnsavedDraft(true);
         });
     }, 400);
 
@@ -907,6 +932,7 @@ export function EditorChatPanel({
     lastSavedDraftRef.current = "";
     lastHydratedDraftRef.current = "";
     isDirtyDraftRef.current = false;
+    setHasUnsavedDraft(false);
 
     try {
       const activeThreadId = await ensureThreadId();
@@ -920,6 +946,7 @@ export function EditorChatPanel({
     } catch {
       setInput(trimmed);
       isDirtyDraftRef.current = true;
+      setHasUnsavedDraft(true);
     } finally {
       setSending(false);
     }
@@ -1022,6 +1049,7 @@ export function EditorChatPanel({
             onValueChange={(value) => {
               setInput(value);
               isDirtyDraftRef.current = true;
+              setHasUnsavedDraft(draftNeedsSave(value));
             }}
             onSend={() => void handleSend()}
             disabled={sending || isWaitingForResponse || isDeleting}

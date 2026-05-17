@@ -8,6 +8,7 @@ import {
 } from "react";
 import type { ProsemarkMergeEditorOptions } from "@/components/ProsemarkMergeEditor";
 import { getReviewSplitDiffHighlights } from "@/lib/reviewSplitDiff";
+import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
 import { isStaleBaseVersionError } from "../../../shared/stagingErrors";
 import {
   buildInlinePreviewAutosaveContextKey,
@@ -106,10 +107,23 @@ export function useFileViewInlinePreview({
     activePreviewStagingId,
     inlinePreviewDraftStagingId,
   );
+  const hasUnpersistedInlinePreviewEdit =
+    inlinePreviewHasPendingLocalEdit ||
+    inlinePreviewInFlightSave !== null ||
+    inlinePreviewFailedSave !== null;
 
   inlinePreviewDraftContentRef.current = inlinePreviewDraftContent;
   activePreviewStagingIdRef.current = activePreviewStagingId;
   inlinePreviewAutosaveContextKeyRef.current = inlinePreviewAutosaveContextKey;
+
+  usePageLeaveGuard({
+    enabled:
+      commitReviewMode === "review" &&
+      inlinePreviewEditable &&
+      activePreviewStagingId !== null &&
+      hasUnpersistedInlinePreviewEdit,
+    reason: "Pending inline review edits",
+  });
 
   const persistInlinePreviewSave = useCallback(
     (

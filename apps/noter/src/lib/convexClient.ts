@@ -17,4 +17,8 @@ if (!convexUrl) {
   throw new Error("Missing VITE_CONVEX_URL in environment");
 }
 
-export const client = new ConvexReactClient(convexUrl);
+export const client = new ConvexReactClient(convexUrl, {
+  // Convex mutations sync continuously; a broad pending-request unload prompt
+  // makes ordinary tab closes feel unsafe even when app state is recoverable.
+  unsavedChangesWarning: false,
+});

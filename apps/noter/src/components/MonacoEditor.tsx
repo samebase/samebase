@@ -22,6 +22,7 @@ import { useProjectFiles, type ProjectFile } from "@/hooks/useProjectFiles";
 import { buildMonacoAppliedCacheKey } from "@/lib/editorCacheKeys";
 import { buildMonacoFileUri } from "@/lib/monacoFileUri";
 import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
+import { registerPageLeaveGuard } from "@/lib/pageLeaveGuard";
 
 // ---------------------------------------------------------------------------
 // Collab helpers (shared logic with CodeEditor.tsx)
@@ -182,10 +183,34 @@ export function MonacoEditor({
 
   // Guard against concurrent pushes
   const pushingRef = useRef(false);
+  const releasePageLeaveGuardRef = useRef<(() => void) | null>(null);
 
   // Collab version – drives the pullUpdates subscription
   const [version, setVersion] = useState(firstDoc.version);
   const [syncError, setSyncError] = useState<string | null>(null);
+
+  const syncPageLeaveGuard = useCallback(() => {
+    const hasLocalUpdates = sendableUpdates(cmStateRef.current).length > 0;
+
+    if (hasLocalUpdates && releasePageLeaveGuardRef.current === null) {
+      releasePageLeaveGuardRef.current = registerPageLeaveGuard(
+        `Unsynced editor changes in ${filePath}`,
+      );
+      return;
+    }
+
+    if (!hasLocalUpdates && releasePageLeaveGuardRef.current !== null) {
+      releasePageLeaveGuardRef.current();
+      releasePageLeaveGuardRef.current = null;
+    }
+  }, [filePath]);
+
+  useEffect(() => {
+    return () => {
+      releasePageLeaveGuardRef.current?.();
+      releasePageLeaveGuardRef.current = null;
+    };
+  }, []);
 
   // ---- Pull remote updates via Convex real-time query ----
   const remoteUpdates = useQuery(
@@ -291,7 +316,8 @@ export function MonacoEditor({
 
     cmStateRef.current = tr.state;
     setVersion(getSyncedVersion(tr.state));
-  }, [remoteUpdates]);
+    syncPageLeaveGuard();
+  }, [remoteUpdates, syncPageLeaveGuard]);
 
   // ---- Sync project files into Monaco models ----
   useEffect(() => {
@@ -361,6 +387,7 @@ export function MonacoEditor({
 
       const tr = cmStateRef.current.update({ changes });
       cmStateRef.current = tr.state;
+      syncPageLeaveGuard();
 
       void pushToServer();
     });

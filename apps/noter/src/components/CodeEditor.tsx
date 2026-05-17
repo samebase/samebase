@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
-/* eslint-disable prefer-const */
 import { useRef, useEffect, useMemo, useState } from "react";
 import { ChangeSet } from "@codemirror/state";
 import { EditorView } from "codemirror";
@@ -19,6 +18,7 @@ import { Id } from "../../convex/_generated/dataModel";
 import { type GithubTree } from "../../convex/schema";
 import { MonacoEditor } from "./MonacoEditor";
 import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
+import { registerPageLeaveGuard } from "@/lib/pageLeaveGuard";
 
 // Temporary:
 // const tempVaultId = "k976ryb9d1m2gyvxhps87dac257mv5ps" as Id<"vaults">;
@@ -90,6 +90,7 @@ function peerExtension({
       private pushing = false;
       private done = false;
       private retryTimer: number | null = null;
+      private releasePageLeaveGuard: (() => void) | null = null;
 
       private isDestroyed(): boolean {
         return this.done;
@@ -102,7 +103,24 @@ function peerExtension({
 
       update(update: ViewUpdate) {
         if (!this.isDestroyed() && update.docChanged) {
+          this.syncPageLeaveGuard();
           void this.push();
+        }
+      }
+
+      private syncPageLeaveGuard() {
+        const hasLocalUpdates = sendableUpdates(this.view.state).length > 0;
+
+        if (hasLocalUpdates && this.releasePageLeaveGuard === null) {
+          this.releasePageLeaveGuard = registerPageLeaveGuard(
+            `Unsynced editor changes in ${filePath}`,
+          );
+          return;
+        }
+
+        if (!hasLocalUpdates && this.releasePageLeaveGuard !== null) {
+          this.releasePageLeaveGuard();
+          this.releasePageLeaveGuard = null;
         }
       }
 
@@ -159,6 +177,9 @@ function peerExtension({
             }
           }, retryDelayMs);
         }
+        if (!this.isDestroyed()) {
+          this.syncPageLeaveGuard();
+        }
       }
 
       async pull(updates: readonly Update[], incomingVersion: number) {
@@ -172,6 +193,7 @@ function peerExtension({
         //   filePath,
         // });
         this.view.dispatch(receiveUpdates(this.view.state, updates));
+        this.syncPageLeaveGuard();
 
         const newVersion = getSyncedVersion(this.view.state);
         if (!this.isDestroyed()) {
@@ -184,6 +206,10 @@ function peerExtension({
         if (this.retryTimer !== null) {
           window.clearTimeout(this.retryTimer);
           this.retryTimer = null;
+        }
+        if (this.releasePageLeaveGuard !== null) {
+          this.releasePageLeaveGuard();
+          this.releasePageLeaveGuard = null;
         }
       }
     },
