@@ -4,7 +4,7 @@
 
 - Status: Research note
 - Owner: Noter product/frontend
-- Last updated: 2026-03-23
+- Last updated: 2026-05-17
 - Depends on:
   - `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
   - `apps/noter/convex/vault.ts`
@@ -17,6 +17,12 @@ low-complexity recommendation for filtering branches and pull requests per vault
 
 The goal is to make branch/PR triage easier without turning each vault card into a second full
 search UI.
+
+2026-05-17 update: this RFC originally assumed the dashboard had all branch rows for a vault in
+memory. That is no longer a safe assumption for repositories with many branches. The current source
+of truth for pagination-safe branch counts and filtering strategy is
+`research/2026-05-17-dashboard-branch-pagination-filtering.md`, and the accepted product contract is
+in `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`.
 
 ## Research Questions
 
@@ -176,6 +182,10 @@ Assessment:
 Best fit for v1.
 
 ## Recommended Direction
+
+This recommendation describes the pre-pagination product shape. With dashboard branch pagination,
+the same filter controls may still be used as loaded-row filters, but exact repository-wide
+counts/facets require backend stats or server-side filtered pagination.
 
 Add a single `Filter` control to the `Branches` header for each vault. Activating it opens a small
 popover with one compact query input and a short hint.
@@ -339,7 +349,8 @@ label, so it should not compete with actual labels.
 - GitHub-complete search grammar
 - cross-vault global filtering in this slice
 - new dashboard tabs
-- server-side filtering for the initial implementation
+- server-side filtering for the initial implementation. This is a pagination-safety follow-up, not a
+  permanent non-goal.
 - review-state filters such as `review:none`
 - author/assignee/reviewer qualifiers
 

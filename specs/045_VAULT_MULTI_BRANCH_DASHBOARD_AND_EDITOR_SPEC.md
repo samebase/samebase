@@ -4,19 +4,22 @@
 
 - Status: In progress
 - Owner: Noter frontend/editor + Convex vault/github
-- Last updated: 2026-05-12
+- Last updated: 2026-05-17
 - Related specs:
   - `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
   - `rfcs/046_VAULT_MULTI_BRANCH_ROLLOUT_PLAN.md`
   - `specs/037_EDITOR_COMMIT_DIFF_RELIABILITY_SPEC.md`
   - `specs/008_CHAT_ONLY_CODESPACE_MODE_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/067_VAULT_BRANCH_FILTERS_SPEC.md`
+  - `research/2026-05-17-dashboard-branch-pagination-filtering.md`
 
 ## Summary
 
 Enable working with multiple remote branches per vault by introducing:
 
-1. Remote branch catalog in dashboard cards (all remote branches, not local)
+1. Remote branch catalog in dashboard cards (remote branches, not local) without loading every
+   branch row for every vault in the first dashboard payload
 2. Branch-select navigation from dashboard to editor
 3. Branch-scoped repository tree/commit state for editor correctness
 4. Branch-safe routing contract (including branch names with `/`)
@@ -32,6 +35,9 @@ Current rollout note:
    mirrors after the vault-first Phase 4 cleanup
 3. The vault-row mirror fields are removed from the target schema; production rows with those fields
    must be cleared before the narrow schema deploy
+4. Dashboard vault cards and dashboard branch rows are separate paginated read paths;
+   `getUserVaults` is a legacy compatibility query and must not remain the primary dashboard data
+   source for connected vault cards
 
 ## Product Intent
 
@@ -96,12 +102,16 @@ correctness for branch names that contain `/` (for example `feature/oauth/login`
 
 ## Goals
 
-1. Show all remote branches per vault on dashboard
+1. Show remote branches per vault on dashboard without requiring the dashboard to load all branches
+   for all vaults
 2. Open editor on clicked branch from dashboard
 3. Keep editor tree, commit SHA, and staged view consistent with selected branch
 4. Support branch names with slashes and special characters safely in routes
 5. Preserve existing single-user vault ownership and auth model
 6. Keep solution incremental with compatibility for current data
+7. Keep total branch/PR counts available without scanning unbounded branch rows from dashboard
+   queries
+8. Keep filter UI honest when only a branch page, not the whole repository branch set, is loaded
 
 ## Non-Goals (This Spec)
 
@@ -110,6 +120,8 @@ correctness for branch names that contain `/` (for example `feature/oauth/login`
 3. Multi-branch connected-machine launch UX
 4. Per-branch infra/hosting lifecycle changes
 5. Git merge/rebase UX in Noter
+6. GitHub-live exact totals on every dashboard render; dashboard counts reflect the latest completed
+   Noter sync unless an explicit GitHub refresh/search flow says otherwise
 
 ## Scope
 
@@ -212,6 +224,115 @@ Returns:
 1. Branch rows ordered by: `remoteState="active"` first, then `isDefault DESC`, then
    `lastCommitAt DESC` (missing timestamps last), then `name ASC`
 
+### Dashboard pagination contract
+
+Branch cardinality is unbounded in a way vault cardinality is not. The product may cap connected
+vaults/repositories for a user, but it must not rely on a branch cap for GitHub repositories.
+Dashboard reads therefore use two independent levels of pagination:
+
+1. `vault.dashboard.listDashboardVaults({ paginationOpts })` returns a page of vault cards. It
+   includes vault summary, default-branch tree summary, provider/setup/deletion summaries, and
+   branch count/stats fields once those are available. It does not include branch rows.
+2. `vault.dashboard.listDashboardBranches({ vaultId, paginationOpts })` returns one branch page for
+   one vault. Each ready vault card owns this paginated read independently.
+3. `vault.dashboard.getUserVaults()` may exist during rollout for older tests or compatibility, but
+   new dashboard runtime code must not use it for connected vault cards because it returns all
+   branch rows for every connected vault.
+
+The double paginator is intentionally not one nested backend query. The parent query pages vault
+cards; each visible/expanded ready card starts its own branch pagination subscription. This keeps a
+large repository from making every vault page heavy and lets a future virtualized UI decide which
+vault cards should keep branch subscriptions alive.
+
+Convex pagination result objects are cursor/page state only. They do not include total row counts.
+UI totals therefore cannot be derived from `listDashboardBranches().page.length` or
+`usePaginatedQuery().results.length` except as loaded-row counts.
+
+### Dashboard branch count contract
+
+Add a per-vault branch stats source before showing exact repository-wide branch totals in the
+dashboard:
+
+1. `vaultRemoteBranchStats`
+   - `vaultId: Id<"vaults">`
+   - `activeBranchCount: number`
+   - `deletedUpstreamBranchCount: number`
+   - `totalBranchCount: number`
+   - `openPullRequestBranchCount: number`
+   - `draftPullRequestBranchCount: number`
+   - `unlabeledPullRequestBranchCount: number`
+   - `lastBranchStatsSyncedAt: number`
+   - `lastPullRequestStatsSyncedAt?: number`
+2. optional `vaultRemoteBranchLabelStats`
+   - `vaultId: Id<"vaults">`
+   - `labelKey: string` (normalized GitHub label name)
+   - `labelName: string`
+   - `labelColor?: string`
+   - `activeBranchCount: number`
+   - `openPullRequestBranchCount: number`
+   - `draftPullRequestBranchCount: number`
+   - `lastSyncedAt: number`
+
+The stats row is exact for the latest completed Noter sync, not necessarily for GitHub at this
+instant. This is the intended consistency model: the dashboard shows Noter's synchronized view and
+separately exposes refresh/progress/failure state when GitHub sync is in flight or failed.
+
+Stats are maintained on the write/sync path, not by dashboard reads:
+
+1. Branch sync already processes the GitHub branch snapshot and known existing branch rows; update
+   branch stats in the same internal mutation after the branch row changes are known.
+2. PR metadata sync updates PR/draft/label stats when persisted PR metadata changes.
+3. Writers must skip no-op patches when computed stats did not change so count maintenance does not
+   add unnecessary reactive invalidations.
+4. Backfills and reconciliation jobs use cursor-based internal mutations or a migration workflow.
+   They must not use dashboard queries to rebuild counts.
+5. While stats are missing during rollout, the UI should show loaded counts or an unknown total
+   state rather than scanning branch rows to recover an exact count.
+
+The aggregate component is an acceptable future option if the branch stats need range counts,
+rankings, or many independently maintained aggregate keys. For the first dashboard count need, a
+single stats row plus optional label facet rows is simpler because branch and PR sync already own
+the relevant snapshots.
+
+### Cursor and live update behavior
+
+Convex cursors describe positions in an ordered query, not immutable offsets. Reactive paginated
+pages can grow or shrink when rows are inserted, deleted, or changed inside a loaded range. This is
+expected and should not be treated as a cursor corruption case.
+
+Dashboard implications:
+
+1. A new branch inserted before the currently loaded range may appear in earlier loaded results as
+   the reactive pages update.
+2. A deleted or tombstoned branch can shrink a loaded page.
+3. If query arguments, order, or filters change in a way that invalidates a cursor, the client
+   pagination state should reset to the first page.
+4. UI copy must distinguish loaded rows from total rows, for example "Loaded 20 of 214 branches"
+   only when the `214` comes from stats.
+
+### Dashboard branch sort contract
+
+The historical branch order is:
+
+1. active branches before deleted-upstream tombstones
+2. default branch first
+3. newest `lastCommitAt` first, missing timestamps last
+4. branch name ascending
+
+Convex pagination can only be stable and efficient when the database query order matches an index
+order. If this exact dashboard order remains required, branch rows need materialized sort fields and
+a matching index, for example:
+
+1. `dashboardStateSort: 0 | 1`
+2. `dashboardDefaultSort: 0 | 1`
+3. `dashboardLastCommitSort: number`
+4. `nameSortKey: string`
+5. index `by_vault_and_dashboard_order`
+
+The current `by_vault` pagination is safe for payload size, but its natural order is creation-order
+based and does not encode the historical comparator. Do not promise the historical sort in a
+paginated UI until the sort key/index exists.
+
 ### Branch-scoped vault read
 
 Update query:
@@ -282,16 +403,53 @@ Implementation note:
 
 For each ready vault card:
 
-1. Render a branch list section populated from `vaultRemoteBranches`
-2. Show all remote branches in a scrollable list region
+1. Render a branch list section populated from `vault.dashboard.listDashboardBranches`
+2. Show the first branch page in a scrollable list region
 3. Mark default branch with badge/label
 4. Clicking a branch opens `/vault/:owner/:repoName/:encodedBranch`
+5. Show a load-more affordance while the branch paginator can load more rows
+6. Show exact total branch counts only from branch stats; otherwise show loaded counts without
+   implying they are repository-wide totals
 
 Constraints:
 
 1. Keep existing no-placeholder UX style
 2. Avoid noisy loading states; show branch list when available
 3. Keep infra summary aligned to default branch until branch-scoped preview surfaces ship
+4. Do not make filter result counts look global when filters only apply to the currently loaded
+   branch pages
+5. Keep branch subscriptions bounded by user action: loading more branch pages is explicit until a
+   virtualized viewport can unload or avoid unseen branch pages
+
+## Dashboard Branch Filtering Under Pagination
+
+The implemented filter model in `specs/067_VAULT_BRANCH_FILTERS_SPEC.md` filters the branch rows
+currently present on the client. Once branch rows are paginated, that model is loaded-page filtering
+unless the backend accepts filter arguments and pages the filtered result itself.
+
+Required UI truthfulness:
+
+1. Client-side filters may hide loaded rows.
+2. Client-side filters must not present `visible of total` as an exact repository-wide filtered
+   count unless all branches are loaded or an exact backend filtered count exists.
+3. Label option counts derived from loaded branch rows are loaded-label counts, not full-repository
+   label facets.
+4. Full-repository label facet counts must come from `vaultRemoteBranchLabelStats` or another
+   maintained stats source.
+
+Server-side exact branch filtering is a separate follow-up because the current inclusive
+hidden-label checkbox model is not index-friendly. A branch can have many PR labels, and the filter
+means "hide rows containing any hidden label", which is an anti-join across a dynamic label set. The
+standard Convex-safe solutions are:
+
+1. Keep filters loaded-only and label them as such.
+2. Restrict exact server filters to index-friendly predicates such as `remoteState`,
+   `pullRequestIsDraft`, `hasOpenPullRequest`, and one positive label at a time.
+3. Add an inverted index table such as `vaultRemoteBranchLabels` for exact positive label
+   membership, then design a bounded merge/dedupe strategy before promising multi-label OR/AND
+   pagination.
+4. Use an explicit GitHub search mode for ad-hoc PR search, with its own freshness/rate-limit/error
+   state, rather than making dashboard rendering depend on GitHub search.
 
 ## Editor Behavior Changes
 
@@ -348,6 +506,8 @@ Companion plan with concrete tasks and gates:
 4. Phase 4: remove runtime dependency on legacy `vault.treeData/commitSHA` (completed by vault-first
    Phase 4)
 5. Phase 5: deleted-upstream recovery UX + tombstone cleanup
+6. Phase 6: dashboard branch pagination safety: remove all-branches dashboard payloads, add
+   stats-backed counts, and make filters pagination-honest
 
 ### Implementation Snapshot (PR #174)
 
@@ -365,6 +525,7 @@ Pending:
 
 1. Phase 5: deleted-upstream recovery UX and commit guardrails
 2. Optional follow-up: decouple branch catalog sync cadence from every tree refresh call
+3. Phase 6 follow-up: stats-backed dashboard branch totals and pagination-safe filter facets
 
 ### Step 1: additive schema
 
@@ -391,6 +552,16 @@ Pending:
 4. Clear production rows that still contain old vault-row mirrors before deploy
 5. Drop legacy single-branch fields from schema
 
+### Step 5: dashboard cardinality cleanup
+
+1. Move the shipped dashboard to `listDashboardVaults` for vault cards and `listDashboardBranches`
+   for branch rows
+2. Stop returning populated `remoteBranches` from new dashboard vault-card reads
+3. Add branch stats tables and keep them current from branch/PR sync writers
+4. Backfill stats in batches before displaying exact total counts
+5. Replace loaded-page count copy with stats-backed total copy where available
+6. Revisit branch filters with an explicit loaded-only or server-filtered contract
+
 ## Failure Handling
 
 1. If branch catalog sync fails, keep last synced list and log error
@@ -412,15 +583,25 @@ Pending:
 5. Legacy fallback is not required for default-branch editor/read paths after branch cache backfill
 6. Missing upstream branches are tombstoned, not hard-deleted, when branch-local staged state exists
 7. Tombstoned branch rows are garbage-collected only after staged/collab state is empty
+8. `listDashboardVaults` returns paginated vault cards without branch rows
+9. `listDashboardBranches` returns a paginated branch page for one authorized vault
+10. Branch stats backfill and sync updates produce exact counts for the latest completed sync
+    without reading all branches from dashboard queries
+11. Branch stats writers skip no-op patches when counts do not change
 
 ### Frontend
 
-1. Dashboard renders all remote branches for each vault
+1. Dashboard renders the first branch page for each ready vault
 2. Clicking branch navigates to encoded branch route
 3. Route parser handles `feature/x`, `bugfix/foo-bar`, and encoded characters
 4. FileView on non-default branch uses branch-specific tree and commit SHA
 5. Deleted-upstream branch with staged edits is visibly flagged and does not disappear from branch
    list
+6. Load-more fetches additional branch pages for the selected vault without reloading other vault
+   cards
+7. Branch count copy distinguishes loaded-row counts from stats-backed total counts
+8. Filters over loaded rows do not display exact repository-wide filtered counts unless all branches
+   are loaded or backend filtered totals exist
 
 ### Regression
 
@@ -431,7 +612,8 @@ Pending:
 
 ## Acceptance Criteria
 
-1. Dashboard card shows all remote branches for each ready vault
+1. Dashboard card shows remote branches for each ready vault without loading all branch rows for all
+   vaults in the initial dashboard query
 2. Clicking a branch opens editor for that exact branch
 3. Editor tree and commit SHA are branch-correct
 4. Branch names containing `/` work end-to-end in routing and API calls
@@ -439,6 +621,10 @@ Pending:
 6. Deleted-upstream branches with uncommitted work are preserved as tombstones until user resolves
    that work
 7. No regression for existing default-branch users
+8. Exact branch totals, when shown, come from maintained stats rather than `collect().length` or
+   loaded page length
+9. Dashboard filter counts are either explicitly loaded-only or backed by exact
+   stats/server-filtered results
 
 ## Deferred Follow-Ups
 
@@ -449,3 +635,6 @@ Pending:
 5. Agent-owned sandbox model for branch presence: prefer one sandbox per agent, not one sandbox per
    branch. Agents may create worktrees inside their sandbox when needed, and dashboard
    facepiles/avatar circles should reflect that sandbox/worktree activity per branch.
+6. Exact server-side branch filtering for multi-label include/exclude semantics
+7. Optional GitHub search mode for ad-hoc PR queries that are not worth caching into the dashboard
+   hot path

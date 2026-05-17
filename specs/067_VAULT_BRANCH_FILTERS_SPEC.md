@@ -4,8 +4,10 @@
 
 - Status: Implemented
 - Owner: Noter dashboard/frontend
-- Last updated: 2026-03-24
-- Background research: `rfcs/068_VAULT_BRANCH_PR_FILTERING_RESEARCH.md`
+- Last updated: 2026-05-17
+- Background research:
+  - `rfcs/068_VAULT_BRANCH_PR_FILTERING_RESEARCH.md`
+  - `research/2026-05-17-dashboard-branch-pagination-filtering.md`
 
 ## Summary
 
@@ -55,6 +57,23 @@ The branch filter UI is inclusive:
 - When filters hide any rows, the header shows the visible count summary (`visible of total`).
 - Branch rows remain a single list; filtering does not introduce separate tabs or grouped sections.
 
+### Pagination safety update
+
+The implemented filter model operates on the branch rows currently loaded by the dashboard branch
+paginator. Under paginated branch loading, `visible of total` means "visible loaded rows of loaded
+rows" unless the UI has loaded every branch or a backend count/filter result explicitly provides the
+repository-wide total.
+
+Pagination-safe rules:
+
+- Do not present loaded-page filter counts as exact repository-wide counts.
+- Label option counts derived from loaded branch rows are loaded-label counts.
+- Exact total branch counts must come from maintained branch stats, not from the loaded branch
+  array.
+- Exact repository-wide filtered counts require a backend filtered query or maintained filter/facet
+  stats.
+- If the UI keeps client-side filtering for now, copy and layout should make the loaded scope clear.
+
 ## Persistence Model
 
 Saved filters are scoped by `(userId, vaultId)` in `vaultBranchFilters`.
@@ -83,9 +102,14 @@ model in the UI.
 ## Non-Goals
 
 - GitHub-complete search syntax
-- server-side branch filtering
+- server-side branch filtering in the implemented v1 filter slice
 - cross-vault global branch filters
 - PR review-state or author/assignee qualifiers
+
+Server-side filtering is no longer a general non-goal for the dashboard. It is a pagination-safety
+follow-up, and it should be designed around index-friendly predicates or a dedicated
+inverted-index/facet model instead of retrofitting the current loaded-array filter as if it were
+global.
 
 ## Acceptance
 
@@ -94,3 +118,4 @@ model in the UI.
 - [x] Unlabeled branches can be shown or hidden explicitly.
 - [x] Draft visibility remains a separate toggle.
 - [x] Filter state persists per user and per vault.
+- [ ] Pagination-safe count copy does not imply loaded filters are global.
