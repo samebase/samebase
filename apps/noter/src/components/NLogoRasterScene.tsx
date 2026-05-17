@@ -12,6 +12,11 @@ import {
 } from "@/components/logoRotationMath";
 import { getShuffleOriginCandidates } from "@/components/logoShuffleRules";
 import {
+  buildLogoSurfaceQuads,
+  type LogoSurfaceQuad,
+  type LogoSurfaceVertex,
+} from "@/components/logoSurfaceModel";
+import {
   DRAG_ELEVATION_DEGREES_PER_PIXEL,
   DRAG_ROTATION_DEGREES_PER_PIXEL,
 } from "@/components/logoViewDragConstants";
@@ -40,7 +45,12 @@ import { type LogoShuffleAnimationConfig } from "@/components/NLogoScene";
 const DRAG_THRESHOLD_PX = 4;
 const RASTER_BACKING_MIN_SIZE = 256;
 const RASTER_BACKING_MAX_SIZE = 1536;
+// Exact 3-based offscreen levels keep recursive tiles from sampling transparent
+// edges into internal seams while the intermediate canvases stay bounded.
+const RASTER_EXACT_TILE_MAX_SIZE = RASTER_BACKING_MAX_SIZE * 2;
 const RASTER_FRUSTUM_PADDING = 1.18;
+const RASTER_RECURSIVE_FRUSTUM_PADDING = 1;
+const FACE_ON_DOT_THRESHOLD = 1 - 1e-6;
 const SHUFFLE_MOVE_DURATION_MS = 1800;
 const SHUFFLE_MOVE_STAGGER_MS = 520;
 
@@ -73,6 +83,11 @@ type RasterFace = {
   colorKey: keyof FaceColors;
   normal: Vector3;
   vertices: readonly [Vector3, Vector3, Vector3, Vector3];
+};
+
+type RasterFaceOnState = {
+  cells: ReadonlySet<string>;
+  colorKey: keyof FaceColors;
 };
 
 type RasterActiveMove = {
@@ -269,11 +284,13 @@ function createRasterCanvas(sizePx: number): HTMLCanvasElement {
 
 function getRasterProjection({
   elevationDegrees,
+  frustumPadding,
   rotationAxisMode,
   rotationDegrees,
   sizePx,
 }: {
   elevationDegrees: number;
+  frustumPadding: number;
   rotationAxisMode: LogoRotationAxisMode;
   rotationDegrees: number;
   sizePx: number;
@@ -302,7 +319,7 @@ function getRasterProjection({
   const minY = Math.min(...projectedVertices.map((point) => point.y));
   const maxY = Math.max(...projectedVertices.map((point) => point.y));
   const span = Math.max(maxX - minX, maxY - minY, 0.001);
-  const scalePx = sizePx / (span * RASTER_FRUSTUM_PADDING);
+  const scalePx = sizePx / (span * frustumPadding);
   const centerPx = sizePx / 2;
 
   const projectVector = (point: Vector3) => {
@@ -339,6 +356,20 @@ function getFaceCenter(face: RasterFace): Vector3 {
     ),
     1 / face.vertices.length,
   );
+}
+
+function getSurfaceQuadCenter(surfaceQuad: LogoSurfaceQuad): Vector3 {
+  return scaleVector(
+    surfaceQuad.vertices.reduce<Vector3>(
+      (sum, vertex) => addVectors(sum, toRasterSurfaceVertex(vertex)),
+      [0, 0, 0],
+    ),
+    1 / surfaceQuad.vertices.length,
+  );
+}
+
+function toRasterSurfaceVertex([x, y, z]: LogoSurfaceVertex): Vector3 {
+  return [x / GRID_SIZE, y / GRID_SIZE, z / GRID_SIZE];
 }
 
 function drawPolygon(
@@ -401,6 +432,310 @@ function renderCubeUnitCanvas({
     });
 
   context.globalAlpha = 1;
+  return canvas;
+}
+
+function getSortedProjectionRanks(values: readonly number[]): number[] {
+  const ranks: number[] = [];
+  const sortedValues = [...values].sort((left, right) => left - right);
+
+  for (const value of sortedValues) {
+    if (ranks.length === 0) {
+      ranks.push(value);
+      continue;
+    }
+
+    const previousValue = ranks[ranks.length - 1];
+    if (Math.abs(value - previousValue) > 1e-4) {
+      ranks.push(value);
+    }
+  }
+
+  return ranks;
+}
+
+function getProjectionRank(ranks: readonly number[], value: number): number {
+  let nearestRank = 0;
+  let nearestDistance = Number.POSITIVE_INFINITY;
+
+  for (let index = 0; index < ranks.length; index += 1) {
+    const distance = Math.abs(value - ranks[index]);
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearestRank = index;
+    }
+  }
+
+  return nearestRank;
+}
+
+function getFaceOnState({
+  filledVoxels,
+  projection,
+}: {
+  filledVoxels: ReadonlySet<string>;
+  projection: RasterProjection;
+}): RasterFaceOnState | null {
+  let visibleFace: RasterFace | null = null;
+  let visibleFaceDot = -1;
+
+  for (const face of CUBE_FACES) {
+    const dot = dotVectors(
+      projection.rotatePoint(face.normal),
+      projection.cameraDirection,
+    );
+    if (dot > visibleFaceDot) {
+      visibleFace = face;
+      visibleFaceDot = dot;
+    }
+  }
+
+  if (!visibleFace || visibleFaceDot < FACE_ON_DOT_THRESHOLD) {
+    return null;
+  }
+
+  const projectedGridCenters: Point2D[] = [];
+  for (let x = 0; x < GRID_SIZE; x += 1) {
+    for (let y = 0; y < GRID_SIZE; y += 1) {
+      for (let z = 0; z < GRID_SIZE; z += 1) {
+        projectedGridCenters.push(
+          projection.projectPoint(getMotifCenter([x, y, z])),
+        );
+      }
+    }
+  }
+
+  const xRanks = getSortedProjectionRanks(
+    projectedGridCenters.map((point) => point.x),
+  );
+  const yRanks = getSortedProjectionRanks(
+    projectedGridCenters.map((point) => point.y),
+  );
+  if (xRanks.length !== GRID_SIZE || yRanks.length !== GRID_SIZE) {
+    return null;
+  }
+
+  const cells = new Set<string>();
+  for (const key of filledVoxels) {
+    const coordinate = parseVoxelKey(key);
+    if (!coordinate) {
+      continue;
+    }
+
+    const point = projection.projectPoint(getMotifCenter(coordinate));
+    cells.add(
+      `${getProjectionRank(xRanks, point.x)},${getProjectionRank(yRanks, point.y)}`,
+    );
+  }
+
+  return {
+    cells,
+    colorKey: visibleFace.colorKey,
+  };
+}
+
+function renderFaceOnBaseCanvas({
+  cells,
+  color,
+  opacity,
+  sizePx,
+}: {
+  cells: ReadonlySet<string>;
+  color: string;
+  opacity: number;
+  sizePx: number;
+}): HTMLCanvasElement {
+  const canvas = createRasterCanvas(sizePx);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return canvas;
+  }
+
+  const childSize = sizePx / GRID_SIZE;
+  context.fillStyle = color;
+  context.globalAlpha = Math.max(0, Math.min(opacity, 1));
+  for (const cell of cells) {
+    const [columnText, rowText] = cell.split(",");
+    const column = Number(columnText);
+    const row = Number(rowText);
+    if (!Number.isInteger(column) || !Number.isInteger(row)) {
+      continue;
+    }
+
+    context.fillRect(column * childSize, row * childSize, childSize, childSize);
+  }
+
+  context.globalAlpha = 1;
+  return canvas;
+}
+
+function composeFaceOnRasterLevel({
+  cells,
+  childCanvas,
+  sizePx,
+}: {
+  cells: ReadonlySet<string>;
+  childCanvas: HTMLCanvasElement;
+  sizePx: number;
+}): HTMLCanvasElement {
+  const canvas = createRasterCanvas(sizePx);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return canvas;
+  }
+
+  const childSize = childCanvas.width;
+  context.imageSmoothingEnabled = false;
+  for (const cell of cells) {
+    const [columnText, rowText] = cell.split(",");
+    const column = Number(columnText);
+    const row = Number(rowText);
+    if (!Number.isInteger(column) || !Number.isInteger(row)) {
+      continue;
+    }
+
+    context.drawImage(childCanvas, column * childSize, row * childSize);
+  }
+
+  return canvas;
+}
+
+function renderFaceOnRecursiveImage({
+  depth,
+  exactCellSize,
+  faceColors,
+  faceOnState,
+  opacity,
+}: {
+  depth: number;
+  exactCellSize: number;
+  faceColors: FaceColors;
+  faceOnState: RasterFaceOnState;
+  opacity: number;
+}): HTMLCanvasElement {
+  let unitCanvas = renderFaceOnBaseCanvas({
+    cells: faceOnState.cells,
+    color: getTailwindColorHex(faceColors[faceOnState.colorKey]),
+    opacity,
+    sizePx: getExactRasterLevelSize({
+      exactCellSize,
+      level: 1,
+    }),
+  });
+
+  for (let level = 2; level <= depth; level += 1) {
+    unitCanvas = composeFaceOnRasterLevel({
+      cells: faceOnState.cells,
+      childCanvas: unitCanvas,
+      sizePx: getExactRasterLevelSize({
+        exactCellSize,
+        level,
+      }),
+    });
+  }
+
+  return unitCanvas;
+}
+
+function renderSurfaceMotifCanvas({
+  activeMoves,
+  elevationDegrees,
+  faceColors,
+  filledVoxels,
+  opacity,
+  projection,
+  rotationAxisMode,
+  rotationDegrees,
+}: {
+  activeMoves: readonly RasterActiveMove[];
+  elevationDegrees: number;
+  faceColors: FaceColors;
+  filledVoxels: ReadonlySet<string>;
+  opacity: number;
+  projection: RasterProjection;
+  rotationAxisMode: LogoRotationAxisMode;
+  rotationDegrees: number;
+}): HTMLCanvasElement {
+  const canvas = createRasterCanvas(projection.sizePx);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return canvas;
+  }
+
+  const surfaces = buildLogoSurfaceQuads(filledVoxels)
+    .map((surfaceQuad) => {
+      const rotatedNormal = projection.rotatePoint(surfaceQuad.normal);
+      if (dotVectors(rotatedNormal, projection.cameraDirection) <= 0) {
+        return null;
+      }
+
+      return {
+        color: getTailwindColorHex(faceColors[surfaceQuad.colorKey]),
+        depth: dotVectors(
+          projection.rotatePoint(getSurfaceQuadCenter(surfaceQuad)),
+          projection.cameraDirection,
+        ),
+        key: surfaceQuad.key,
+        points: surfaceQuad.vertices.map((vertex) =>
+          projection.projectPoint(toRasterSurfaceVertex(vertex)),
+        ),
+      };
+    })
+    .filter((surface) => surface !== null);
+
+  context.lineJoin = "miter";
+  context.lineWidth = Math.max(1, projection.sizePx / 512);
+  context.globalAlpha = Math.max(0, Math.min(opacity, 1));
+
+  surfaces
+    .sort((left, right) => {
+      if (left.depth !== right.depth) {
+        return left.depth - right.depth;
+      }
+
+      return left.key.localeCompare(right.key);
+    })
+    .forEach((surface) => {
+      context.fillStyle = surface.color;
+      context.strokeStyle = surface.color;
+      drawPolygon(context, surface.points);
+    });
+
+  context.globalAlpha = 1;
+
+  if (activeMoves.length > 0) {
+    const childSize = projection.sizePx / GRID_SIZE;
+    const cubeCanvas = renderCubeUnitCanvas({
+      faceColors,
+      opacity,
+      projection: getRasterProjection({
+        elevationDegrees,
+        frustumPadding: RASTER_RECURSIVE_FRUSTUM_PADDING,
+        rotationAxisMode,
+        rotationDegrees,
+        sizePx: Math.max(1, Math.round(childSize)),
+      }),
+    });
+    const movingItems = getMotifDrawItems({
+      activeMoves,
+      filledVoxels: new Set(),
+      projection,
+    });
+
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    for (const item of movingItems) {
+      const offset = projection.projectVector(item.center);
+      context.drawImage(
+        cubeCanvas,
+        projection.centerPx + offset.x - childSize / 2,
+        projection.centerPx + offset.y - childSize / 2,
+        childSize,
+        childSize,
+      );
+    }
+  }
+
   return canvas;
 }
 
@@ -494,7 +829,7 @@ function composeRasterLevel({
 
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
-  const childSize = projection.sizePx / GRID_SIZE;
+  const childSize = childCanvas.width;
 
   for (const item of drawItems) {
     const offset = projection.projectVector(item.center);
@@ -510,15 +845,46 @@ function composeRasterLevel({
   return canvas;
 }
 
+function getRasterExactCellSize({
+  depth,
+  outputSizePx,
+}: {
+  depth: number;
+  outputSizePx: number;
+}): number {
+  const cellSize = Math.max(1, Math.ceil(outputSizePx / GRID_SIZE ** depth));
+  if (cellSize * GRID_SIZE ** depth <= RASTER_EXACT_TILE_MAX_SIZE) {
+    return cellSize;
+  }
+
+  return 0;
+}
+
+function getExactRasterLevelSize({
+  exactCellSize,
+  level,
+}: {
+  exactCellSize: number;
+  level: number;
+}): number {
+  return exactCellSize * GRID_SIZE ** level;
+}
+
 function getRasterLevelSize({
   depth,
+  exactCellSize,
   level,
   outputSizePx,
 }: {
   depth: number;
+  exactCellSize: number;
   level: number;
   outputSizePx: number;
 }): number {
+  if (exactCellSize > 0) {
+    return getExactRasterLevelSize({ exactCellSize, level });
+  }
+
   return Math.max(1, Math.ceil(outputSizePx / GRID_SIZE ** (depth - level)));
 }
 
@@ -529,43 +895,89 @@ function easeInOutCubic(value: number): number {
 }
 
 function renderRasterRecursiveImage({
+  activeMoves,
   depth,
   drawItems,
   elevationDegrees,
   faceColors,
+  filledVoxels,
   opacity,
   outputSizePx,
   rotationAxisMode,
   rotationDegrees,
 }: {
+  activeMoves: readonly RasterActiveMove[];
   depth: number;
   drawItems: readonly RasterMotifDrawItem[];
   elevationDegrees: number;
   faceColors: FaceColors;
+  filledVoxels: ReadonlySet<string>;
   opacity: number;
   outputSizePx: number;
   rotationAxisMode: LogoRotationAxisMode;
   rotationDegrees: number;
 }): HTMLCanvasElement {
-  const baseLevelSizePx = getRasterLevelSize({
+  const exactCellSize = getRasterExactCellSize({
     depth,
-    level: 0,
     outputSizePx,
   });
-  let unitCanvas = renderCubeUnitCanvas({
+  const faceOnProjection = getRasterProjection({
+    elevationDegrees,
+    frustumPadding: RASTER_RECURSIVE_FRUSTUM_PADDING,
+    rotationAxisMode,
+    rotationDegrees,
+    sizePx: getRasterLevelSize({
+      depth,
+      exactCellSize,
+      level: Math.min(depth, 1),
+      outputSizePx,
+    }),
+  });
+  const faceOnState =
+    activeMoves.length === 0 && exactCellSize > 0
+      ? getFaceOnState({
+          filledVoxels,
+          projection: faceOnProjection,
+        })
+      : null;
+  if (faceOnState) {
+    // Exact snap-to-face views are 2D coverage, so render the recursive mask
+    // directly instead of resampling transparent tile edges into seams.
+    return renderFaceOnRecursiveImage({
+      depth,
+      exactCellSize,
+      faceColors,
+      faceOnState,
+      opacity,
+    });
+  }
+
+  let unitCanvas = renderSurfaceMotifCanvas({
+    activeMoves,
+    elevationDegrees,
     faceColors,
+    filledVoxels,
     opacity,
     projection: getRasterProjection({
       elevationDegrees,
+      frustumPadding: RASTER_RECURSIVE_FRUSTUM_PADDING,
       rotationAxisMode,
       rotationDegrees,
-      sizePx: baseLevelSizePx,
+      sizePx: getRasterLevelSize({
+        depth,
+        exactCellSize,
+        level: 1,
+        outputSizePx,
+      }),
     }),
+    rotationAxisMode,
+    rotationDegrees,
   });
 
-  for (let level = 1; level <= depth; level += 1) {
+  for (let level = 2; level <= depth; level += 1) {
     const levelSizePx = getRasterLevelSize({
       depth,
+      exactCellSize,
       level,
       outputSizePx,
     });
@@ -574,6 +986,7 @@ function renderRasterRecursiveImage({
       drawItems,
       projection: getRasterProjection({
         elevationDegrees,
+        frustumPadding: RASTER_RECURSIVE_FRUSTUM_PADDING,
         rotationAxisMode,
         rotationDegrees,
         sizePx: levelSizePx,
@@ -620,6 +1033,7 @@ function renderRasterScene({
 
   const projection = getRasterProjection({
     elevationDegrees,
+    frustumPadding: RASTER_RECURSIVE_FRUSTUM_PADDING,
     rotationAxisMode,
     rotationDegrees,
     sizePx,
@@ -630,10 +1044,12 @@ function renderRasterScene({
     projection,
   });
   const image = renderRasterRecursiveImage({
+    activeMoves: motion.activeMoves,
     depth: normalizeLogoFractalDepth(fractalDepth),
     drawItems,
     elevationDegrees,
     faceColors,
+    filledVoxels: motion.currentFilledVoxels,
     opacity,
     outputSizePx: sizePx,
     rotationAxisMode,
@@ -643,7 +1059,17 @@ function renderRasterScene({
   context.clearRect(0, 0, sizePx, sizePx);
   context.fillStyle = backgroundColor;
   context.fillRect(0, 0, sizePx, sizePx);
-  context.drawImage(image, 0, 0);
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  const paddedImageSizePx = sizePx / RASTER_FRUSTUM_PADDING;
+  const paddedImageOffsetPx = (sizePx - paddedImageSizePx) / 2;
+  context.drawImage(
+    image,
+    paddedImageOffsetPx,
+    paddedImageOffsetPx,
+    paddedImageSizePx,
+    paddedImageSizePx,
+  );
 }
 
 function createRasterMotionState(voxelState: string): RasterMotionState {

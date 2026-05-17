@@ -19,8 +19,9 @@ view, then compose that rendered unit into the recursive motif repeatedly.
 For `depth > 1`, add an experimental canvas/raster route that renders by
 recursive image composition:
 
-1. Project and rasterize one cube for the current `rot`, `elev`, face colors,
-   and background/opacity settings.
+1. Project and rasterize the 3x3 motif for the current `rot`, `elev`, face
+   colors, and opacity settings. Settled cells should use the shared merged
+   surface model so coplanar cells do not create their own antialiased seams.
 2. Sort the 12 filled motif cells once for the current view, from far to near.
 3. Composite the current unit image into those 12 projected motif positions.
 4. Treat the result as the next reusable unit image.
@@ -44,10 +45,18 @@ starts. Exact recursive voxel grids are still appropriate for the isometric
 renderer, but the raster route should receive only the 3x3 motif plus depth.
 
 Implementation note: each recursive image layer should be sized for its level,
-not for the final output canvas. For a 1500px depth-6 render, the layer sizes
-grow roughly `3px -> 7px -> 19px -> 56px -> 167px -> 500px -> 1500px`. Rendering
-every intermediate layer at 1500px preserves the fake-recursive model but wastes
-most of the cost that the model is supposed to remove.
+not for the final output canvas. When the exact recursive tile size remains
+reasonable, pick a base cell size and grow each level by `3x` so child images
+land on integer tile boundaries. The final scene can apply the visual padding in
+one draw. Rendering every intermediate layer at the final output size preserves
+the fake-recursive model but wastes most of the cost that the model is supposed
+to remove.
+
+Implementation note: exact snap-to-face views are a 2D coverage problem. In that
+state, resampling transparent cached images can create faint lines between
+same-color cells, and recursion multiplies those lines. The raster route should
+draw a recursive 2D face mask directly when no shuffle move is active, then fall
+back to image composition for angled or moving views.
 
 The cache must rebuild when these inputs change:
 
@@ -78,6 +87,9 @@ internal scale while dragging and refresh a sharper cache on release.
 
 - Transparent image padding must be large enough that projected units do not
   clip at steep or near-edge views.
+- Transparent image edges must not be resampled inside a face-on same-color
+  surface. Use merged surfaces for the base motif and a direct 2D mask for exact
+  snapped face views.
 - Image quality can blur if units are repeatedly scaled from too-small cached
   canvases; use device-pixel-ratio-aware backing stores.
 - Painter-order ties must be deterministic to avoid flicker while dragging near

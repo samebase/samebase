@@ -337,6 +337,32 @@ test("logo raster depth 6 keeps recursive preview responsive", async ({
     .toBe("/logo/raster:6:90");
 });
 
+test("logo raster face-on recursion renders without tile seams", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(
+    "/logo/raster?depth=2&top=red-500&elev=0&rot=180&vox=xxx_oox_xxo-xoo_ooo_xox-oxx_xox_xox",
+    {
+      waitUntil: "domcontentloaded",
+    },
+  );
+
+  const canvas = page.locator('canvas[data-logo-renderer="raster"]').first();
+
+  await expect(canvas).toBeVisible();
+  await waitForPaint(page);
+  await expect(canvas).toHaveScreenshot(
+    "logo-raster-face-on-depth-2-scene.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.01,
+      scale: "css",
+    },
+  );
+});
+
 test("logo depth slider clears default depth from the URL", async ({
   page,
 }) => {

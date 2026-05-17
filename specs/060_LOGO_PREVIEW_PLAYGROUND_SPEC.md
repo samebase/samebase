@@ -109,9 +109,12 @@ Example:
 - The Three preview uses a tiled recursive render path for recursive depths so
   changing depth does not build every tiny surface synchronously.
 - `/logo/raster` is an experimental canvas route for high recursive depths. It
-  renders one projected unit for the current view, composites that unit through
-  the recursive motif, reuses the same far-to-near motif order at every level,
-  and must avoid exact recursive voxel-grid expansion.
+  renders one projected merged motif unit for the current view, composites that
+  unit through the recursive motif, reuses the same far-to-near motif order at
+  every level, and must avoid exact recursive voxel-grid expansion.
+- `/logo/raster` renders exact snapped face views as a recursive 2D mask when no
+  shuffle move is active, so same-color joined cells do not inherit seams from
+  transparent image edges.
 - Public landing logos use the same tiled Three render path for recursive
   depths; their initial static SVG fallback stays bounded so a high `depth`
   query param cannot block the page before the canvas is ready.
@@ -238,6 +241,8 @@ The playground should expose at least these presets:
 - Connected voxels should render as continuous surfaces without visible seams
   between joined cubes.
 - The scene should not show fake panel gaps where cubes meet.
+- Raster recursion must not introduce face-on seams by repeatedly resampling
+  transparent cached-image edges.
 
 ### 2. Preset silhouettes
 
