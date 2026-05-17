@@ -20,10 +20,11 @@ describe("rootRouteSearch", () => {
         secondary: "lime-100",
         "sidebar-reset": "",
         signup: "google",
+        top: "white-base",
       }),
     ).toEqual({
       auth: "google",
-      base: "#ffffff",
+      background: "#ffffff",
       border: "stone-300",
       delete: "noter-md/noter",
       dark: true,
@@ -34,6 +35,7 @@ describe("rootRouteSearch", () => {
       secondary: "lime-100",
       "sidebar-reset": true,
       signup: "google",
+      top: "white-base",
     });
   });
 
@@ -41,7 +43,7 @@ describe("rootRouteSearch", () => {
     expect(
       validateRootRouteSearch({
         auth: "github",
-        base: "bad",
+        background: "bad",
         border: "nope-500",
         delete: "missing-repo-separator",
         primary: "nope-500",

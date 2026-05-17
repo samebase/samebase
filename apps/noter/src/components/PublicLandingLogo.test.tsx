@@ -247,9 +247,10 @@ describe("PublicLandingLogo", () => {
         <PublicLandingLogo
           loadInteractiveScene={false}
           themeColorSearch={{
-            base: "#112233",
+            background: "#112233",
             primary: "#445566",
             secondary: "#778899",
+            top: "#abcdef",
           }}
         />,
       );
@@ -258,14 +259,14 @@ describe("PublicLandingLogo", () => {
     const logoImage = getLogoImage(rootElement);
     const source = decodeURIComponent(logoImage.getAttribute("src") ?? "");
 
-    expect(source).toContain("#112233");
+    expect(source).toContain("#abcdef");
     expect(source).toContain("#445566");
     expect(source).toContain("#778899");
   });
 
   it("refreshes default static fallback colors after reset clears stale document overrides", async () => {
     syncDocumentThemeColorSearch({
-      base: "blue-500",
+      background: "blue-500",
       primary: "green-500",
       secondary: "red-500",
     });
@@ -280,7 +281,7 @@ describe("PublicLandingLogo", () => {
         <PublicLandingLogo
           loadInteractiveScene={false}
           themeColorSearch={{
-            base: "blue-500",
+            background: "blue-500",
             primary: "green-500",
             secondary: "red-500",
           }}

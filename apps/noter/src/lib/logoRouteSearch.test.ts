@@ -3,7 +3,7 @@ import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
 } from "@/components/logoIsometricRenderer";
-import { DEFAULT_APP_THEME_COLORS } from "@/components/logoTailwindColors";
+import { DEFAULT_LOGO_THEME_COLORS } from "@/components/logoTailwindColors";
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_ROTATION_DEGREES,
@@ -31,11 +31,12 @@ describe("logoRouteSearch", () => {
         primary: "emerald-500",
         rot: "721",
         secondary: "amber-500",
+        top: "white-base",
         vox: DEFAULT_VOXEL_STATE,
       }),
     ).toEqual({
       axis: "screen-vertical",
-      base: "sky-500",
+      background: "sky-500",
       border: "stone-300",
       dark: true,
       dev: true,
@@ -46,6 +47,7 @@ describe("logoRouteSearch", () => {
       primary: "emerald-500",
       rot: 1,
       secondary: "amber-500",
+      top: "white-base",
       vox: DEFAULT_VOXEL_STATE,
     });
   });
@@ -58,7 +60,7 @@ describe("logoRouteSearch", () => {
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         rotationAxisMode: "cube-y",
         rotationDegrees: DEFAULT_ROTATION_DEGREES,
-        themeColors: DEFAULT_APP_THEME_COLORS,
+        themeColors: DEFAULT_LOGO_THEME_COLORS,
         viewSnapEnabled: true,
         voxelState: DEFAULT_VOXEL_STATE,
       }),
@@ -73,7 +75,7 @@ describe("logoRouteSearch", () => {
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         rotationAxisMode: "cube-y",
         rotationDegrees: DEFAULT_ROTATION_DEGREES,
-        themeColors: DEFAULT_APP_THEME_COLORS,
+        themeColors: DEFAULT_LOGO_THEME_COLORS,
         themeModeSearch: { light: true },
         viewSnapEnabled: true,
         voxelState: DEFAULT_VOXEL_STATE,
@@ -87,7 +89,7 @@ describe("logoRouteSearch", () => {
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         rotationAxisMode: "cube-y",
         rotationDegrees: DEFAULT_ROTATION_DEGREES,
-        themeColors: DEFAULT_APP_THEME_COLORS,
+        themeColors: DEFAULT_LOGO_THEME_COLORS,
         themeModeSearch: { dark: true, light: true },
         viewSnapEnabled: true,
         voxelState: DEFAULT_VOXEL_STATE,

@@ -8,7 +8,7 @@ import {
 } from "@tanstack/react-router";
 import { pick } from "@noter-md/dependent/object";
 import { AppBootErrorBoundary } from "@/components/AppBootErrorBoundary";
-import { APP_THEME_COLOR_SEARCH_KEYS } from "@/lib/appThemeColorSearch";
+import { LOGO_THEME_COLOR_SEARCH_KEYS } from "@/lib/appThemeColorSearch";
 import { applySearchPatch } from "@/lib/routeSearchFlags";
 import {
   type RootRouteSearch,
@@ -32,7 +32,7 @@ const RETAINED_ROOT_SEARCH_KEYS = [
   "dev",
   "devtools",
   ...ROOT_THEME_MODE_SEARCH_KEYS,
-  ...APP_THEME_COLOR_SEARCH_KEYS,
+  ...LOGO_THEME_COLOR_SEARCH_KEYS,
 ] as const satisfies readonly (keyof RootRouteSearch)[];
 
 type RootSearchMiddlewareArgs = {

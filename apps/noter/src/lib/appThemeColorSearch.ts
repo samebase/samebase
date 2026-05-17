@@ -1,10 +1,12 @@
 import {
   APP_THEME_COLOR_KEYS,
   DEFAULT_APP_THEME_COLORS,
-  getFaceColorsFromAppThemeColors,
-  getTailwindColorHex,
+  DEFAULT_LOGO_THEME_COLORS,
+  LOGO_THEME_COLOR_KEYS,
+  getFaceColorsFromLogoThemeColors,
   getLogoColorCssHsl,
   getLogoColorForegroundCssHsl,
+  getTailwindColorHex,
   isLogoColorToken,
   type AppThemeColorKey,
   type AppThemeColors,
@@ -12,6 +14,8 @@ import {
   type HexColorToken,
   type LogoColorToken,
   type LogoColorThemeMode,
+  type LogoThemeColorKey,
+  type LogoThemeColors,
 } from "@/components/logoTailwindColors";
 import {
   useDocumentThemeMode,
@@ -20,27 +24,38 @@ import {
 import { useEffect, useState } from "react";
 import { z } from "zod";
 
-export const APP_THEME_COLOR_SEARCH_KEYS = [
-  "primary",
-  "secondary",
-  "base",
-  "border",
-] as const;
+export const APP_THEME_COLOR_SEARCH_KEYS = APP_THEME_COLOR_KEYS;
+export const LOGO_THEME_COLOR_SEARCH_KEYS = LOGO_THEME_COLOR_KEYS;
+const LEGACY_APP_THEME_COLOR_SEARCH_KEYS = ["base"] as const;
 
 export type AppThemeColorSearchKey =
   (typeof APP_THEME_COLOR_SEARCH_KEYS)[number];
+export type LogoThemeColorSearchKey =
+  (typeof LOGO_THEME_COLOR_SEARCH_KEYS)[number];
 export type AppThemeColorSearch = Partial<
   Record<AppThemeColorSearchKey, LogoColorToken | undefined>
 >;
+export type LogoThemeColorSearch = Partial<
+  Record<LogoThemeColorSearchKey, LogoColorToken | undefined>
+>;
+type LegacyAppThemeColorSearch = Partial<
+  Record<
+    (typeof LEGACY_APP_THEME_COLOR_SEARCH_KEYS)[number],
+    LogoColorToken | undefined
+  >
+>;
+export type LogoThemeColorSearchInput = LogoThemeColorSearch &
+  LegacyAppThemeColorSearch;
 type CssVariableName = `--${string}`;
 type ThemeColorRuleSet = Record<CssVariableName, string>;
 export type ResolvedAppThemeColors = Record<AppThemeColorKey, HexColorToken>;
+export type ResolvedLogoThemeColors = Record<LogoThemeColorKey, HexColorToken>;
 export type ResolvedAppThemeColorState = {
   backgroundColor: HexColorToken;
   cacheKey: string;
   faceColors: FaceColors;
-  resolvedThemeColors: ResolvedAppThemeColors;
-  themeColors: AppThemeColors;
+  resolvedThemeColors: ResolvedLogoThemeColors;
+  themeColors: LogoThemeColors;
   themeMode: DocumentThemeMode;
 };
 
@@ -54,14 +69,14 @@ const LOGO_COLOR_THEME_MODES = [
 ] as const satisfies readonly LogoColorThemeMode[];
 
 const appThemeColorSearchKeyByColorKey = {
-  base: "base",
+  background: "background",
   border: "border",
   primary: "primary",
   secondary: "secondary",
 } as const satisfies Record<AppThemeColorKey, AppThemeColorSearchKey>;
 
 const colorVariableSpecs = {
-  base: {
+  background: {
     colorVariables: [
       "--background",
       "--card",
@@ -86,7 +101,7 @@ const colorVariableSpecs = {
     colorVariables: ["--secondary"],
     foregroundVariables: ["--secondary-foreground"],
   },
-  // Border follows shared theme URLs alongside base and brand colors.
+  // Border follows shared theme URLs alongside background and brand colors.
   border: {
     colorVariables: ["--border", "--input", "--sidebar-border"],
     foregroundVariables: [],
@@ -120,17 +135,24 @@ const optionalLogoColorTokenSchema = z.preprocess(
 
 export const appThemeColorSearchFieldSchema = z.object({
   base: optionalLogoColorTokenSchema,
+  background: optionalLogoColorTokenSchema,
   border: optionalLogoColorTokenSchema,
   primary: optionalLogoColorTokenSchema,
   secondary: optionalLogoColorTokenSchema,
+  top: optionalLogoColorTokenSchema,
 });
 
 export function readAppThemeColorSearch(
-  search: AppThemeColorSearch,
+  search: LogoThemeColorSearchInput,
 ): AppThemeColorSearch {
-  return APP_THEME_COLOR_SEARCH_KEYS.reduce<AppThemeColorSearch>(
-    (result, searchKey) => {
-      const colorToken = search[searchKey];
+  return APP_THEME_COLOR_KEYS.reduce<AppThemeColorSearch>(
+    (result, colorKey) => {
+      const searchKey = appThemeColorSearchKeyByColorKey[colorKey];
+      // `base` is the pre-background URL key; read it only as a fallback.
+      const colorToken =
+        colorKey === "background"
+          ? (search.background ?? search.base)
+          : search[searchKey];
       if (typeof colorToken === "string") {
         result[searchKey] = colorToken;
       }
@@ -141,13 +163,39 @@ export function readAppThemeColorSearch(
 }
 
 export function readAppThemeColors(
-  search: AppThemeColorSearch,
+  search: LogoThemeColorSearchInput,
 ): AppThemeColors {
   return {
-    base: search.base ?? DEFAULT_APP_THEME_COLORS.base,
+    background:
+      search.background ?? search.base ?? DEFAULT_APP_THEME_COLORS.background,
     border: search.border ?? DEFAULT_APP_THEME_COLORS.border,
     primary: search.primary ?? DEFAULT_APP_THEME_COLORS.primary,
     secondary: search.secondary ?? DEFAULT_APP_THEME_COLORS.secondary,
+  };
+}
+
+export function readLogoThemeColorSearch(
+  search: LogoThemeColorSearchInput,
+): LogoThemeColorSearch {
+  const logoThemeColorSearch: LogoThemeColorSearch = {
+    ...readAppThemeColorSearch(search),
+  };
+
+  if (typeof search.top === "string") {
+    logoThemeColorSearch.top = search.top;
+  }
+
+  return logoThemeColorSearch;
+}
+
+export function readLogoThemeColors(
+  search: LogoThemeColorSearchInput,
+): LogoThemeColors {
+  const appThemeColors = readAppThemeColors(search);
+
+  return {
+    ...appThemeColors,
+    top: search.top ?? DEFAULT_LOGO_THEME_COLORS.top,
   };
 }
 
@@ -155,10 +203,19 @@ function resolveAppThemeColorHexes(
   themeColors: AppThemeColors,
 ): ResolvedAppThemeColors {
   return {
-    base: getTailwindColorHex(themeColors.base),
+    background: getTailwindColorHex(themeColors.background),
     border: getTailwindColorHex(themeColors.border),
     primary: getTailwindColorHex(themeColors.primary),
     secondary: getTailwindColorHex(themeColors.secondary),
+  };
+}
+
+function resolveLogoThemeColorHexes(
+  themeColors: LogoThemeColors,
+): ResolvedLogoThemeColors {
+  return {
+    ...resolveAppThemeColorHexes(themeColors),
+    top: getTailwindColorHex(themeColors.top),
   };
 }
 
@@ -166,18 +223,18 @@ export function resolveAppThemeColorState({
   search,
   themeMode,
 }: {
-  search: AppThemeColorSearch;
+  search: LogoThemeColorSearchInput;
   themeMode: DocumentThemeMode;
 }): ResolvedAppThemeColorState {
-  const themeColors = readAppThemeColors(search);
-  const resolvedThemeColors = resolveAppThemeColorHexes(themeColors);
-  const faceColors = getFaceColorsFromAppThemeColors(resolvedThemeColors);
+  const themeColors = readLogoThemeColors(search);
+  const resolvedThemeColors = resolveLogoThemeColorHexes(themeColors);
+  const faceColors = getFaceColorsFromLogoThemeColors(resolvedThemeColors);
 
   return {
-    backgroundColor: resolvedThemeColors.base,
+    backgroundColor: resolvedThemeColors.background,
     cacheKey: [
       themeMode,
-      ...APP_THEME_COLOR_KEYS.map((key) => resolvedThemeColors[key].slice(1)),
+      ...LOGO_THEME_COLOR_KEYS.map((key) => resolvedThemeColors[key].slice(1)),
     ].join(":"),
     faceColors,
     resolvedThemeColors,
@@ -195,7 +252,7 @@ function dispatchAppThemeColorSearchSyncEvent() {
 }
 
 export function useResolvedAppThemeColorState(
-  search: AppThemeColorSearch,
+  search: LogoThemeColorSearchInput,
 ): ResolvedAppThemeColorState {
   const themeMode = useDocumentThemeMode();
   const [, setThemeColorSearchRevision] = useState(0);
@@ -223,10 +280,10 @@ export function useResolvedAppThemeColorState(
   });
 }
 
-export function buildAppThemeColorSearch(
-  themeColors: AppThemeColors,
-): AppThemeColorSearch {
-  return APP_THEME_COLOR_KEYS.reduce<AppThemeColorSearch>(
+export function buildLogoThemeColorSearch(
+  themeColors: LogoThemeColors,
+): LogoThemeColorSearch {
+  const themeColorSearch = APP_THEME_COLOR_KEYS.reduce<LogoThemeColorSearch>(
     (result, colorKey) => {
       const searchKey = appThemeColorSearchKeyByColorKey[colorKey];
       // Own undefined properties block TanStack's retainSearchParams middleware
@@ -241,6 +298,13 @@ export function buildAppThemeColorSearch(
     },
     {},
   );
+
+  themeColorSearch.top =
+    themeColors.top !== DEFAULT_LOGO_THEME_COLORS.top
+      ? themeColors.top
+      : undefined;
+
+  return themeColorSearch;
 }
 
 function removeInlineThemeColorSearchProperties() {
@@ -270,13 +334,14 @@ function getThemeColorStyleElement(): HTMLStyleElement {
 }
 
 function readThemeColorRuleSet(
-  search: AppThemeColorSearch,
+  search: LogoThemeColorSearchInput,
   themeMode: LogoColorThemeMode,
 ): ThemeColorRuleSet {
   const rules: ThemeColorRuleSet = {};
+  const appThemeColorSearch = readAppThemeColorSearch(search);
 
   for (const searchKey of APP_THEME_COLOR_SEARCH_KEYS) {
-    const colorToken = search[searchKey];
+    const colorToken = appThemeColorSearch[searchKey];
     const spec = colorVariableSpecs[searchKey];
 
     if (typeof colorToken !== "string") {
@@ -315,15 +380,20 @@ function formatThemeColorRuleSet(
     .join("\n")}\n}`;
 }
 
-export function syncDocumentThemeColorSearch(search: AppThemeColorSearch) {
+export function syncDocumentThemeColorSearch(
+  search: LogoThemeColorSearchInput,
+) {
   if (typeof document === "undefined") {
     return;
   }
 
   removeInlineThemeColorSearchProperties();
+  const appThemeColorSearch = readAppThemeColorSearch(search);
 
   if (
-    !APP_THEME_COLOR_SEARCH_KEYS.some((key) => typeof search[key] === "string")
+    !APP_THEME_COLOR_SEARCH_KEYS.some(
+      (key) => typeof appThemeColorSearch[key] === "string",
+    )
   ) {
     document.getElementById(APP_THEME_COLOR_STYLE_ELEMENT_ID)?.remove();
     dispatchAppThemeColorSearchSyncEvent();

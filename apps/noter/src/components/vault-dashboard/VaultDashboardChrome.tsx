@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { PublicLandingLogo } from "@/components/PublicLandingLogo";
-import { type AppThemeColorSearch } from "@/lib/appThemeColorSearch";
+import { type LogoThemeColorSearchInput } from "@/lib/appThemeColorSearch";
 import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
 import { Button } from "@/components/ui/button";
 import {
@@ -263,7 +263,7 @@ export function VaultDashboardProvidersSection({
 export function VaultDashboardEmptyState({
   themeColorSearch,
 }: {
-  themeColorSearch?: AppThemeColorSearch;
+  themeColorSearch?: LogoThemeColorSearchInput;
 }) {
   return (
     <div className="container mx-auto max-w-2xl py-6">

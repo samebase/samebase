@@ -2,12 +2,16 @@
 
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
-  buildAppThemeColorSearch,
+  buildLogoThemeColorSearch,
   readAppThemeColors,
+  readLogoThemeColors,
   resolveAppThemeColorState,
   syncDocumentThemeColorSearch,
 } from "@/lib/appThemeColorSearch";
-import { DEFAULT_APP_THEME_COLORS } from "@/components/logoTailwindColors";
+import {
+  DEFAULT_APP_THEME_COLORS,
+  DEFAULT_LOGO_THEME_COLORS,
+} from "@/components/logoTailwindColors";
 
 describe("appThemeColorSearch", () => {
   afterEach(() => {
@@ -16,22 +20,58 @@ describe("appThemeColorSearch", () => {
 
   it("builds non-default colors and retained-param clear markers", () => {
     expect(
-      buildAppThemeColorSearch({
-        ...DEFAULT_APP_THEME_COLORS,
+      buildLogoThemeColorSearch({
+        ...DEFAULT_LOGO_THEME_COLORS,
+        background: "sky-950",
         primary: "red-600",
+        top: "white-base",
       }),
     ).toEqual({
-      base: undefined,
+      background: "sky-950",
       border: undefined,
       primary: "red-600",
       secondary: undefined,
+      top: "white-base",
     });
+
+    expect(
+      buildLogoThemeColorSearch({
+        ...DEFAULT_LOGO_THEME_COLORS,
+        background: "sky-950",
+        top: DEFAULT_LOGO_THEME_COLORS.top,
+      }).top,
+    ).toBeUndefined();
+
+    expect(
+      buildLogoThemeColorSearch({
+        ...DEFAULT_LOGO_THEME_COLORS,
+        background: "sky-950",
+        top: "sky-950",
+      }).top,
+    ).toBe("sky-950");
   });
 
   it("reads route search into semantic app theme colors", () => {
     expect(readAppThemeColors({ base: "#ffffff" })).toEqual({
       ...DEFAULT_APP_THEME_COLORS,
-      base: "#ffffff",
+      background: "#ffffff",
+    });
+
+    expect(
+      readLogoThemeColors({
+        background: "#112233",
+      }).top,
+    ).toBe(DEFAULT_LOGO_THEME_COLORS.top);
+
+    expect(
+      readLogoThemeColors({
+        background: "#112233",
+        top: "#ddeeff",
+      }),
+    ).toEqual({
+      ...DEFAULT_LOGO_THEME_COLORS,
+      background: "#112233",
+      top: "#ddeeff",
     });
   });
 
@@ -39,32 +79,35 @@ describe("appThemeColorSearch", () => {
     expect(
       resolveAppThemeColorState({
         search: {
-          base: "#112233",
+          background: "#112233",
           border: "#334455",
           primary: "#445566",
           secondary: "#778899",
+          top: "#abcdef",
         },
         themeMode: "light",
       }),
     ).toEqual({
       backgroundColor: "#112233",
-      cacheKey: "light:445566:778899:112233:334455",
+      cacheKey: "light:445566:778899:abcdef:112233:334455",
       faceColors: {
         left: "#778899",
         right: "#445566",
-        top: "#112233",
+        top: "#abcdef",
       },
       resolvedThemeColors: {
-        base: "#112233",
+        background: "#112233",
         border: "#334455",
         primary: "#445566",
         secondary: "#778899",
+        top: "#abcdef",
       },
       themeColors: {
-        base: "#112233",
+        background: "#112233",
         border: "#334455",
         primary: "#445566",
         secondary: "#778899",
+        top: "#abcdef",
       },
       themeMode: "light",
     });
@@ -72,7 +115,7 @@ describe("appThemeColorSearch", () => {
 
   it("syncs typed search colors into theme-aware document CSS variables", () => {
     syncDocumentThemeColorSearch({
-      base: "#000000",
+      background: "#000000",
       border: "#333333",
       primary: "primary-base",
       secondary: "lime-100",
