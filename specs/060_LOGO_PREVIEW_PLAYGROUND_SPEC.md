@@ -11,7 +11,8 @@
   `apps/noter/src/components/logoVoxelState.ts`,
   `apps/noter/src/components/logoPresets.ts`,
   `apps/noter/src/components/logoShuffleRules.ts`,
-  `apps/noter/src/components/logoTailwindColors.ts`
+  `apps/noter/src/components/logoTailwindColors.ts`,
+  `specs/090_LOGO_RENDERING_MODEL_SIMPLIFICATION_SPEC.md`
 
 ## Conclusion
 

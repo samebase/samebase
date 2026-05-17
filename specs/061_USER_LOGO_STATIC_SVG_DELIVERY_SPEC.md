@@ -6,8 +6,9 @@
 - Owner: Noter frontend
 - Last updated: 2026-03-18
 - Related files: `specs/060_LOGO_PREVIEW_PLAYGROUND_SPEC.md`,
-  `specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md`, `apps/noter/src/App.tsx`,
-  `apps/noter/src/components/LogoPreviewPage.tsx`,
+  `specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md`,
+  `specs/090_LOGO_RENDERING_MODEL_SIMPLIFICATION_SPEC.md`,
+  `apps/noter/src/App.tsx`, `apps/noter/src/components/LogoPreviewPage.tsx`,
   `apps/noter/src/components/NLogoScene.tsx`,
   `apps/noter/src/components/NLogoIsoScene.tsx`,
   `apps/noter/src/components/logoIsometricRenderer.ts`,

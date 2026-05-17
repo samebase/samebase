@@ -6,12 +6,13 @@ import {
   type FaceColors,
 } from "./logoTailwindColors";
 import {
+  buildLogoSurfaceQuads,
+  type LogoSurfaceQuad,
+  type LogoSurfaceVertex,
+} from "./logoSurfaceModel";
+import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_ROTATION_DEGREES,
-  GRID_SIZE,
-  HALF_GRID,
-  isWithinGrid,
-  voxelKey,
 } from "./logoVoxelState";
 
 export type LogoProjectedPoint = {
@@ -31,26 +32,10 @@ export type LogoProjector = {
   rotateWorldPoint: (point: LogoWorldPoint) => LogoWorldPoint;
 };
 
-type Rectangle = {
-  column: number;
-  height: number;
-  row: number;
-  width: number;
-};
-
 type Vector3 = {
   x: number;
   y: number;
   z: number;
-};
-
-type SurfaceQuad = {
-  color: string;
-  colorKey: FaceColorKey;
-  key: string;
-  materialOrder: number;
-  normal: Vector3;
-  vertices: readonly Vector3[];
 };
 
 export type LogoProjectedQuad = {
@@ -109,279 +94,12 @@ function rotateVectorY(vector: Vector3, radians: number): Vector3 {
   };
 }
 
-function collectRectangles(mask: boolean[][]): Rectangle[] {
-  const visited = mask.map((row) => row.map(() => false));
-  const rectangles: Rectangle[] = [];
-
-  for (let row = 0; row < mask.length; row += 1) {
-    for (let column = 0; column < mask[row].length; column += 1) {
-      if (!mask[row][column] || visited[row][column]) {
-        continue;
-      }
-
-      let width = 1;
-      while (
-        column + width < mask[row].length &&
-        mask[row][column + width] &&
-        !visited[row][column + width]
-      ) {
-        width += 1;
-      }
-
-      let height = 1;
-      let canGrow = true;
-      while (row + height < mask.length && canGrow) {
-        for (
-          let nextColumn = column;
-          nextColumn < column + width;
-          nextColumn += 1
-        ) {
-          if (
-            !mask[row + height][nextColumn] ||
-            visited[row + height][nextColumn]
-          ) {
-            canGrow = false;
-            break;
-          }
-        }
-
-        if (canGrow) {
-          height += 1;
-        }
-      }
-
-      for (let nextRow = row; nextRow < row + height; nextRow += 1) {
-        for (
-          let nextColumn = column;
-          nextColumn < column + width;
-          nextColumn += 1
-        ) {
-          visited[nextRow][nextColumn] = true;
-        }
-      }
-
-      rectangles.push({ column, height, row, width });
-    }
-  }
-
-  return rectangles;
-}
-
-function isVoxelFilled(
-  filledVoxels: ReadonlySet<string>,
-  x: number,
-  y: number,
-  z: number,
-): boolean {
-  if (!isWithinGrid(x, y, z)) {
-    return false;
-  }
-
-  return filledVoxels.has(voxelKey(x, y, z));
-}
-
-function toWorld(boundaryIndex: number): number {
-  return boundaryIndex - HALF_GRID;
-}
-
 function escapeSvgAttribute(value: string): string {
   return value
     .replace(/&/g, "&amp;")
     .replace(/"/g, "&quot;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
-}
-
-function buildSurfaceQuads(
-  faceColors: FaceColors,
-  filledVoxels: ReadonlySet<string>,
-): SurfaceQuad[] {
-  const rightColor = getTailwindColorHex(faceColors.right);
-  const topColor = getTailwindColorHex(faceColors.top);
-  const leftColor = getTailwindColorHex(faceColors.left);
-  const quads: SurfaceQuad[] = [];
-
-  for (let x = 0; x < GRID_SIZE; x += 1) {
-    const positiveXMask = Array.from({ length: GRID_SIZE }, (_, y) =>
-      Array.from(
-        { length: GRID_SIZE },
-        (_, z) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x + 1, y, z),
-      ),
-    );
-    for (const rectangle of collectRectangles(positiveXMask)) {
-      const plane = toWorld(x + 1);
-      const y0 = toWorld(rectangle.row);
-      const y1 = toWorld(rectangle.row + rectangle.height);
-      const z0 = toWorld(rectangle.column);
-      const z1 = toWorld(rectangle.column + rectangle.width);
-      quads.push({
-        color: rightColor,
-        colorKey: "right",
-        key: `positive-x:${x}:${rectangle.row}:${rectangle.column}:${rectangle.height}:${rectangle.width}`,
-        materialOrder: 0,
-        normal: { x: 1, y: 0, z: 0 },
-        vertices: [
-          { x: plane, y: y0, z: z0 },
-          { x: plane, y: y1, z: z0 },
-          { x: plane, y: y1, z: z1 },
-          { x: plane, y: y0, z: z1 },
-        ],
-      });
-    }
-
-    const negativeXMask = Array.from({ length: GRID_SIZE }, (_, y) =>
-      Array.from(
-        { length: GRID_SIZE },
-        (_, z) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x - 1, y, z),
-      ),
-    );
-    for (const rectangle of collectRectangles(negativeXMask)) {
-      const plane = toWorld(x);
-      const y0 = toWorld(rectangle.row);
-      const y1 = toWorld(rectangle.row + rectangle.height);
-      const z0 = toWorld(rectangle.column);
-      const z1 = toWorld(rectangle.column + rectangle.width);
-      quads.push({
-        color: rightColor,
-        colorKey: "right",
-        key: `negative-x:${x}:${rectangle.row}:${rectangle.column}:${rectangle.height}:${rectangle.width}`,
-        materialOrder: 1,
-        normal: { x: -1, y: 0, z: 0 },
-        vertices: [
-          { x: plane, y: y0, z: z1 },
-          { x: plane, y: y1, z: z1 },
-          { x: plane, y: y1, z: z0 },
-          { x: plane, y: y0, z: z0 },
-        ],
-      });
-    }
-  }
-
-  for (let y = 0; y < GRID_SIZE; y += 1) {
-    const positiveYMask = Array.from({ length: GRID_SIZE }, (_, x) =>
-      Array.from(
-        { length: GRID_SIZE },
-        (_, z) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x, y + 1, z),
-      ),
-    );
-    for (const rectangle of collectRectangles(positiveYMask)) {
-      const plane = toWorld(y + 1);
-      const x0 = toWorld(rectangle.row);
-      const x1 = toWorld(rectangle.row + rectangle.height);
-      const z0 = toWorld(rectangle.column);
-      const z1 = toWorld(rectangle.column + rectangle.width);
-      quads.push({
-        color: topColor,
-        colorKey: "top",
-        key: `positive-y:${y}:${rectangle.row}:${rectangle.column}:${rectangle.height}:${rectangle.width}`,
-        materialOrder: 2,
-        normal: { x: 0, y: 1, z: 0 },
-        vertices: [
-          { x: x0, y: plane, z: z1 },
-          { x: x1, y: plane, z: z1 },
-          { x: x1, y: plane, z: z0 },
-          { x: x0, y: plane, z: z0 },
-        ],
-      });
-    }
-
-    const negativeYMask = Array.from({ length: GRID_SIZE }, (_, x) =>
-      Array.from(
-        { length: GRID_SIZE },
-        (_, z) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x, y - 1, z),
-      ),
-    );
-    for (const rectangle of collectRectangles(negativeYMask)) {
-      const plane = toWorld(y);
-      const x0 = toWorld(rectangle.row);
-      const x1 = toWorld(rectangle.row + rectangle.height);
-      const z0 = toWorld(rectangle.column);
-      const z1 = toWorld(rectangle.column + rectangle.width);
-      quads.push({
-        color: topColor,
-        colorKey: "top",
-        key: `negative-y:${y}:${rectangle.row}:${rectangle.column}:${rectangle.height}:${rectangle.width}`,
-        materialOrder: 3,
-        normal: { x: 0, y: -1, z: 0 },
-        vertices: [
-          { x: x0, y: plane, z: z0 },
-          { x: x1, y: plane, z: z0 },
-          { x: x1, y: plane, z: z1 },
-          { x: x0, y: plane, z: z1 },
-        ],
-      });
-    }
-  }
-
-  for (let z = 0; z < GRID_SIZE; z += 1) {
-    const positiveZMask = Array.from({ length: GRID_SIZE }, (_, x) =>
-      Array.from(
-        { length: GRID_SIZE },
-        (_, y) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x, y, z + 1),
-      ),
-    );
-    for (const rectangle of collectRectangles(positiveZMask)) {
-      const plane = toWorld(z + 1);
-      const x0 = toWorld(rectangle.row);
-      const x1 = toWorld(rectangle.row + rectangle.height);
-      const y0 = toWorld(rectangle.column);
-      const y1 = toWorld(rectangle.column + rectangle.width);
-      quads.push({
-        color: leftColor,
-        colorKey: "left",
-        key: `positive-z:${z}:${rectangle.row}:${rectangle.column}:${rectangle.height}:${rectangle.width}`,
-        materialOrder: 4,
-        normal: { x: 0, y: 0, z: 1 },
-        vertices: [
-          { x: x0, y: y0, z: plane },
-          { x: x1, y: y0, z: plane },
-          { x: x1, y: y1, z: plane },
-          { x: x0, y: y1, z: plane },
-        ],
-      });
-    }
-
-    const negativeZMask = Array.from({ length: GRID_SIZE }, (_, x) =>
-      Array.from(
-        { length: GRID_SIZE },
-        (_, y) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x, y, z - 1),
-      ),
-    );
-    for (const rectangle of collectRectangles(negativeZMask)) {
-      const plane = toWorld(z);
-      const x0 = toWorld(rectangle.row);
-      const x1 = toWorld(rectangle.row + rectangle.height);
-      const y0 = toWorld(rectangle.column);
-      const y1 = toWorld(rectangle.column + rectangle.width);
-      quads.push({
-        color: leftColor,
-        colorKey: "left",
-        key: `negative-z:${z}:${rectangle.row}:${rectangle.column}:${rectangle.height}:${rectangle.width}`,
-        materialOrder: 5,
-        normal: { x: 0, y: 0, z: -1 },
-        vertices: [
-          { x: x0, y: y1, z: plane },
-          { x: x1, y: y1, z: plane },
-          { x: x1, y: y0, z: plane },
-          { x: x0, y: y0, z: plane },
-        ],
-      });
-    }
-  }
-
-  return quads;
 }
 
 function getCameraBasis(elevationDegrees: number) {
@@ -432,6 +150,17 @@ function serializePolygon(points: readonly LogoProjectedPoint[]): string {
     .join(" ");
 }
 
+function toLogoWorldPoint([x, y, z]: LogoSurfaceVertex): LogoWorldPoint {
+  return { x, y, z };
+}
+
+function getSurfaceQuadColor(
+  faceColors: FaceColors,
+  surfaceQuad: LogoSurfaceQuad,
+): string {
+  return getTailwindColorHex(faceColors[surfaceQuad.colorKey]);
+}
+
 export function createLogoProjector({
   elevationDegrees = DEFAULT_ELEVATION_DEGREES,
   rotationDegrees = DEFAULT_ROTATION_DEGREES,
@@ -479,23 +208,30 @@ function getProjectedScene({
   rotationDegrees?: number;
   viewBoxSize?: number;
 }) {
-  const surfaceQuads = buildSurfaceQuads(faceColors, filledVoxels);
+  const surfaceQuads = buildLogoSurfaceQuads(filledVoxels);
   const projector = createLogoProjector({
     elevationDegrees,
     rotationDegrees,
-    scenePoints: surfaceQuads.flatMap((quad) => quad.vertices),
+    scenePoints: surfaceQuads.flatMap((quad) =>
+      quad.vertices.map(toLogoWorldPoint),
+    ),
     viewBoxSize,
   });
   const rotatedQuads = surfaceQuads
     .map((quad) => {
-      const normal = projector.rotateWorldPoint(quad.normal);
+      const normal = projector.rotateWorldPoint(toLogoWorldPoint(quad.normal));
       if (dotVectors(normal, projector.cameraDirection) <= 0) {
         return null;
       }
 
       return {
-        ...quad,
-        vertices: quad.vertices.map(projector.rotateWorldPoint),
+        color: getSurfaceQuadColor(faceColors, quad),
+        colorKey: quad.colorKey,
+        key: quad.key,
+        materialOrder: quad.materialIndex,
+        vertices: quad.vertices.map((vertex) =>
+          projector.rotateWorldPoint(toLogoWorldPoint(vertex)),
+        ),
       };
     })
     .filter((quad) => quad !== null);

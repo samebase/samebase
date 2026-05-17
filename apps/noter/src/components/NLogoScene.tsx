@@ -11,6 +11,11 @@ import {
 } from "@/components/logoRotationMath";
 import { getShuffleOriginCandidates } from "@/components/logoShuffleRules";
 import {
+  buildLogoSurfaceQuads,
+  getLogoSurfaceFitRadius,
+  type LogoSurfaceQuad,
+} from "@/components/logoSurfaceModel";
+import {
   DRAG_ELEVATION_DEGREES_PER_PIXEL,
   DRAG_ROTATION_DEGREES_PER_PIXEL,
 } from "@/components/logoViewDragConstants";
@@ -55,13 +60,6 @@ export type LogoShuffleParallelMoves =
 export type LogoShuffleAnimationConfig = {
   enabled: boolean;
   parallelMoves: LogoShuffleParallelMoves;
-};
-
-type Rectangle = {
-  row: number;
-  column: number;
-  height: number;
-  width: number;
 };
 
 type LogoSurfacePart = {
@@ -184,76 +182,6 @@ function randomValueFrom<T>(values: readonly T[]): T | null {
   return values[Math.floor(Math.random() * values.length)] ?? null;
 }
 
-function isVoxelFilled(
-  filledVoxels: Set<string>,
-  x: number,
-  y: number,
-  z: number,
-): boolean {
-  if (!isWithinGrid(x, y, z)) {
-    return false;
-  }
-
-  return filledVoxels.has(voxelKey(x, y, z));
-}
-
-function collectRectangles(mask: boolean[][]): Rectangle[] {
-  const visited = mask.map((row) => row.map(() => false));
-  const rectangles: Rectangle[] = [];
-
-  for (let row = 0; row < mask.length; row += 1) {
-    for (let column = 0; column < mask[row].length; column += 1) {
-      if (!mask[row][column] || visited[row][column]) {
-        continue;
-      }
-
-      let width = 1;
-      while (
-        column + width < mask[row].length &&
-        mask[row][column + width] &&
-        !visited[row][column + width]
-      ) {
-        width += 1;
-      }
-
-      let height = 1;
-      let canGrow = true;
-      while (row + height < mask.length && canGrow) {
-        for (
-          let nextColumn = column;
-          nextColumn < column + width;
-          nextColumn += 1
-        ) {
-          if (
-            !mask[row + height][nextColumn] ||
-            visited[row + height][nextColumn]
-          ) {
-            canGrow = false;
-            break;
-          }
-        }
-        if (canGrow) {
-          height += 1;
-        }
-      }
-
-      for (let nextRow = row; nextRow < row + height; nextRow += 1) {
-        for (
-          let nextColumn = column;
-          nextColumn < column + width;
-          nextColumn += 1
-        ) {
-          visited[nextRow][nextColumn] = true;
-        }
-      }
-
-      rectangles.push({ row, column, height, width });
-    }
-  }
-
-  return rectangles;
-}
-
 function buildQuadGeometry(
   vertices: ReadonlyArray<readonly [number, number, number]>,
   normal: readonly [number, number, number],
@@ -273,213 +201,17 @@ function buildQuadGeometry(
   return geometry;
 }
 
-function toWorld(boundaryIndex: number): number {
-  return boundaryIndex - HALF_GRID;
+function buildLogoSurfacePart(surfaceQuad: LogoSurfaceQuad): LogoSurfacePart {
+  return {
+    geometry: buildQuadGeometry(surfaceQuad.vertices, surfaceQuad.normal),
+    materialIndex: surfaceQuad.materialIndex,
+  };
 }
 
-function getGeometryFitRadius(
-  geometries: readonly THREE.BufferGeometry[],
-): number {
-  let fitRadius = 0;
-
-  for (const geometry of geometries) {
-    const positions = geometry.attributes.position;
-
-    for (let index = 0; index < positions.count; index += 1) {
-      fitRadius = Math.max(
-        fitRadius,
-        Math.hypot(
-          positions.getX(index),
-          positions.getY(index),
-          positions.getZ(index),
-        ),
-      );
-    }
-  }
-
-  return fitRadius || HALF_GRID * Math.sqrt(3);
-}
-
-function buildVoxelSurfaceGeometries(
-  filledVoxels: Set<string>,
+function buildLogoSurfaceParts(
+  surfaceQuads: readonly LogoSurfaceQuad[],
 ): LogoSurfacePart[] {
-  const parts: LogoSurfacePart[] = [];
-
-  for (let x = 0; x < GRID_SIZE; x += 1) {
-    const positiveXMask = Array.from({ length: GRID_SIZE }, (_, y) =>
-      Array.from(
-        { length: GRID_SIZE },
-        (_, z) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x + 1, y, z),
-      ),
-    );
-    for (const rectangle of collectRectangles(positiveXMask)) {
-      const plane = toWorld(x + 1);
-      const y0 = toWorld(rectangle.row);
-      const y1 = toWorld(rectangle.row + rectangle.height);
-      const z0 = toWorld(rectangle.column);
-      const z1 = toWorld(rectangle.column + rectangle.width);
-      parts.push({
-        geometry: buildQuadGeometry(
-          [
-            [plane, y0, z0],
-            [plane, y1, z0],
-            [plane, y1, z1],
-            [plane, y0, z1],
-          ],
-          [1, 0, 0],
-        ),
-        materialIndex: 0,
-      });
-    }
-
-    const negativeXMask = Array.from({ length: GRID_SIZE }, (_, y) =>
-      Array.from(
-        { length: GRID_SIZE },
-        (_, z) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x - 1, y, z),
-      ),
-    );
-    for (const rectangle of collectRectangles(negativeXMask)) {
-      const plane = toWorld(x);
-      const y0 = toWorld(rectangle.row);
-      const y1 = toWorld(rectangle.row + rectangle.height);
-      const z0 = toWorld(rectangle.column);
-      const z1 = toWorld(rectangle.column + rectangle.width);
-      parts.push({
-        geometry: buildQuadGeometry(
-          [
-            [plane, y0, z1],
-            [plane, y1, z1],
-            [plane, y1, z0],
-            [plane, y0, z0],
-          ],
-          [-1, 0, 0],
-        ),
-        materialIndex: 1,
-      });
-    }
-  }
-
-  for (let y = 0; y < GRID_SIZE; y += 1) {
-    const positiveYMask = Array.from({ length: GRID_SIZE }, (_, x) =>
-      Array.from(
-        { length: GRID_SIZE },
-        (_, z) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x, y + 1, z),
-      ),
-    );
-    for (const rectangle of collectRectangles(positiveYMask)) {
-      const plane = toWorld(y + 1);
-      const x0 = toWorld(rectangle.row);
-      const x1 = toWorld(rectangle.row + rectangle.height);
-      const z0 = toWorld(rectangle.column);
-      const z1 = toWorld(rectangle.column + rectangle.width);
-      parts.push({
-        geometry: buildQuadGeometry(
-          [
-            [x0, plane, z1],
-            [x1, plane, z1],
-            [x1, plane, z0],
-            [x0, plane, z0],
-          ],
-          [0, 1, 0],
-        ),
-        materialIndex: 2,
-      });
-    }
-
-    const negativeYMask = Array.from({ length: GRID_SIZE }, (_, x) =>
-      Array.from(
-        { length: GRID_SIZE },
-        (_, z) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x, y - 1, z),
-      ),
-    );
-    for (const rectangle of collectRectangles(negativeYMask)) {
-      const plane = toWorld(y);
-      const x0 = toWorld(rectangle.row);
-      const x1 = toWorld(rectangle.row + rectangle.height);
-      const z0 = toWorld(rectangle.column);
-      const z1 = toWorld(rectangle.column + rectangle.width);
-      parts.push({
-        geometry: buildQuadGeometry(
-          [
-            [x0, plane, z0],
-            [x1, plane, z0],
-            [x1, plane, z1],
-            [x0, plane, z1],
-          ],
-          [0, -1, 0],
-        ),
-        materialIndex: 3,
-      });
-    }
-  }
-
-  for (let z = 0; z < GRID_SIZE; z += 1) {
-    const positiveZMask = Array.from({ length: GRID_SIZE }, (_, x) =>
-      Array.from(
-        { length: GRID_SIZE },
-        (_, y) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x, y, z + 1),
-      ),
-    );
-    for (const rectangle of collectRectangles(positiveZMask)) {
-      const plane = toWorld(z + 1);
-      const x0 = toWorld(rectangle.row);
-      const x1 = toWorld(rectangle.row + rectangle.height);
-      const y0 = toWorld(rectangle.column);
-      const y1 = toWorld(rectangle.column + rectangle.width);
-      parts.push({
-        geometry: buildQuadGeometry(
-          [
-            [x0, y0, plane],
-            [x1, y0, plane],
-            [x1, y1, plane],
-            [x0, y1, plane],
-          ],
-          [0, 0, 1],
-        ),
-        materialIndex: 4,
-      });
-    }
-
-    const negativeZMask = Array.from({ length: GRID_SIZE }, (_, x) =>
-      Array.from(
-        { length: GRID_SIZE },
-        (_, y) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x, y, z - 1),
-      ),
-    );
-    for (const rectangle of collectRectangles(negativeZMask)) {
-      const plane = toWorld(z);
-      const x0 = toWorld(rectangle.row);
-      const x1 = toWorld(rectangle.row + rectangle.height);
-      const y0 = toWorld(rectangle.column);
-      const y1 = toWorld(rectangle.column + rectangle.width);
-      parts.push({
-        geometry: buildQuadGeometry(
-          [
-            [x0, y1, plane],
-            [x1, y1, plane],
-            [x1, y0, plane],
-            [x0, y0, plane],
-          ],
-          [0, 0, -1],
-        ),
-        materialIndex: 5,
-      });
-    }
-  }
-
-  return parts;
+  return surfaceQuads.map(buildLogoSurfacePart);
 }
 
 function pointToVoxelCoordinate(point: THREE.Vector3): VoxelCoordinate | null {
@@ -584,7 +316,8 @@ function replaceLogoGeometry(
   nextFilledVoxels: Set<string>,
   syncCameraFitRadius: boolean,
 ) {
-  const nextParts = buildVoxelSurfaceGeometries(nextFilledVoxels);
+  const nextSurfaceQuads = buildLogoSurfaceQuads(nextFilledVoxels);
+  const nextParts = buildLogoSurfaceParts(nextSurfaceQuads);
   const previousLogoMeshes = sceneState.logoMeshes;
   for (const logoMesh of previousLogoMeshes) {
     sceneState.logoGroup.remove(logoMesh);
@@ -600,9 +333,7 @@ function replaceLogoGeometry(
   });
   sceneState.currentFilledVoxels = new Set(nextFilledVoxels);
   if (syncCameraFitRadius) {
-    sceneState.cameraFitRadius = getGeometryFitRadius(
-      nextParts.map(({ geometry }) => geometry),
-    );
+    sceneState.cameraFitRadius = getLogoSurfaceFitRadius(nextSurfaceQuads);
   }
   sceneState.resizeScene();
 }
@@ -939,7 +670,8 @@ export function NLogoScene({
     applyMaterialOpacity(materials, opacityRef.current);
     const initialFilledVoxels =
       parseVoxelState(voxelStateRef.current) ?? createDefaultFilledVoxelSet();
-    const logoParts = buildVoxelSurfaceGeometries(initialFilledVoxels);
+    const initialSurfaceQuads = buildLogoSurfaceQuads(initialFilledVoxels);
+    const logoParts = buildLogoSurfaceParts(initialSurfaceQuads);
     const logoMeshes = logoParts.map(
       ({ geometry, materialIndex }) =>
         new THREE.Mesh(geometry, materials[materialIndex]),
@@ -950,9 +682,7 @@ export function NLogoScene({
     }
     scene.add(logoGroup);
     const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
-    const initialCameraFitRadius = getGeometryFitRadius(
-      logoParts.map(({ geometry }) => geometry),
-    );
+    const initialCameraFitRadius = getLogoSurfaceFitRadius(initialSurfaceQuads);
     const rotationAxisVector = new THREE.Vector3();
 
     const getFrustumHalfSpan = () => {

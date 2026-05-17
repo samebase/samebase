@@ -13,7 +13,8 @@
   `apps/noter/public/noter-x-profile-banner.png`,
   `apps/noter/public/noter-social-card.svg`,
   `specs/060_LOGO_PREVIEW_PLAYGROUND_SPEC.md`,
-  `specs/061_USER_LOGO_STATIC_SVG_DELIVERY_SPEC.md`
+  `specs/061_USER_LOGO_STATIC_SVG_DELIVERY_SPEC.md`,
+  `specs/090_LOGO_RENDERING_MODEL_SIMPLIFICATION_SPEC.md`
 
 ## Summary
 
