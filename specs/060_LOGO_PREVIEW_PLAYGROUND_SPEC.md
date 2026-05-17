@@ -108,6 +108,10 @@ Example:
   standard Menger sponge.
 - The Three preview uses a tiled recursive render path for recursive depths so
   changing depth does not build every tiny surface synchronously.
+- `/logo/raster` is an experimental canvas route for high recursive depths. It
+  renders one projected unit for the current view, composites that unit through
+  the recursive motif, reuses the same far-to-near motif order at every level,
+  and must avoid exact recursive voxel-grid expansion.
 - Public landing logos use the same tiled Three render path for recursive
   depths; their initial static SVG fallback stays bounded so a high `depth`
   query param cannot block the page before the canvas is ready.

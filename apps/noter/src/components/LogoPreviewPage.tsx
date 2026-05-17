@@ -3,6 +3,7 @@ import {
   NLogoScene,
   type LogoShuffleParallelMoves,
 } from "@/components/NLogoScene";
+import { NLogoRasterScene } from "@/components/NLogoRasterScene";
 import { type LogoRotationAxisMode } from "@/components/logoRotationMath";
 import { LogoIsoThumbnail, NLogoIsoScene } from "@/components/NLogoIsoScene";
 import {
@@ -131,7 +132,7 @@ const LOGO_CONTROL_BUTTON_ROW_CLASS_NAME = "flex flex-wrap gap-2";
 const LOGO_CONTROL_NUMBER_INPUT_CLASS_NAME =
   "h-9 w-full max-w-32 rounded-none border-border bg-background px-2 font-mono text-sm";
 
-type LogoPreviewRenderMode = "three" | "iso";
+type LogoPreviewRenderMode = "three" | "iso" | "raster";
 type LogoPreviewPageProps = {
   renderMode?: LogoPreviewRenderMode;
   replaceRouteSearch: (nextSearch: LogoRouteSearch) => void;
@@ -1154,22 +1155,15 @@ export function LogoPreviewPage({
     [state.voxelState],
   );
   const isRecursiveDepth = state.fractalDepth > DEFAULT_LOGO_FRACTAL_DEPTH;
-  const useThreeRecursiveTileRender =
-    renderMode === "three" && isRecursiveDepth;
   const logoVoxelGrid = useMemo(
     () =>
-      isRecursiveDepth && !useThreeRecursiveTileRender
+      renderMode === "iso" && isRecursiveDepth
         ? createLogoFractalVoxelGrid({
             depth: state.fractalDepth,
             filledVoxels: baseFilledVoxels,
           })
         : undefined,
-    [
-      baseFilledVoxels,
-      isRecursiveDepth,
-      state.fractalDepth,
-      useThreeRecursiveTileRender,
-    ],
+    [baseFilledVoxels, isRecursiveDepth, renderMode, state.fractalDepth],
   );
   const shuffleAnimation = {
     enabled: state.isShuffleEnabled,
@@ -1205,6 +1199,30 @@ export function LogoPreviewPage({
         styleId={state.isoStyleId}
         voxelEditingEnabled={!isRecursiveDepth}
         voxelGrid={logoVoxelGrid}
+        voxelState={state.voxelState}
+      />
+    ) : renderMode === "raster" ? (
+      <NLogoRasterScene
+        backgroundColor={backgroundColor}
+        className={cn(
+          "absolute inset-0 h-full w-full touch-none select-none",
+          state.isSceneInteracting ? "cursor-grabbing" : "cursor-grab",
+        )}
+        elevationDegrees={state.elevationDegrees}
+        faceColors={faceColors}
+        fractalDepth={state.fractalDepth}
+        opacity={state.logoOpacity}
+        onInteractionStart={controls.startSceneInteraction}
+        onInteractionEnd={controls.endSceneInteraction}
+        onViewChange={controls.applyViewState}
+        rotationAxisMode={state.rotationAxisMode}
+        rotationDegrees={state.rotationDegrees}
+        shuffleAnimation={shuffleAnimation}
+        viewDragConfig={
+          state.isViewSnapEnabled
+            ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG
+            : undefined
+        }
         voxelState={state.voxelState}
       />
     ) : (
@@ -1265,6 +1283,16 @@ export function LogoPreviewPage({
           >
             <Link search={modeSearch} to="/logo">
               3D
+            </Link>
+          </Button>
+          <Button
+            asChild
+            size="sm"
+            variant={renderMode === "raster" ? "default" : "outline"}
+            className={LOGO_CONTROL_BUTTON_CLASS_NAME}
+          >
+            <Link search={modeSearch} to="/logo/raster">
+              Raster
             </Link>
           </Button>
           <Button

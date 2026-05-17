@@ -156,6 +156,20 @@ Recursive depths may render by instancing a smaller recursive tile into the
 higher-level motif positions. That tiled path keeps rotation, dragging, and
 shuffle responsive without entering the exact tiny-cube mutation path.
 
+### Phase 6: Raster Recursive Experiment
+
+Add `/logo/raster` as an experimental canvas preview for recursive depths. The
+renderer should project one unit for the current view and compose that rendered
+unit through the 12-cell Noter motif repeatedly. The motif painter order is
+calculated once per view and reused for every recursive level. This keeps the
+rendering model proportional to depth rather than proportional to the number of
+leaf cubes.
+
+The route exists to validate high-depth smoothness before changing `/logo`.
+Direct editing remains outside this renderer, and the shared preview shell must
+not build an exact recursive voxel grid for raster rendering. Recursive shuffle
+should move cached recursive units rather than leaf cubes.
+
 ## Validation
 
 - Unit tests must cover the shared surface model independently from renderers.

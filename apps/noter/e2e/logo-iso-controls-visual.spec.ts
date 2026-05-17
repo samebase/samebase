@@ -296,6 +296,47 @@ test("logo depth 5 keeps the tiled Three preview responsive", async ({
     .toBe("5:90");
 });
 
+test("logo raster depth 6 keeps recursive preview responsive", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo/raster?depth=6&top=red-500&elev=359.9&freeView", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  const canvas = page.locator('canvas[data-logo-renderer="raster"]').first();
+
+  await expect(canvas).toBeVisible();
+  await expect(controlsSidebar.getByLabel("Depth value")).toHaveValue("6");
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Add" }),
+  ).toHaveCount(0);
+  await waitForPaint(page);
+  await expect(canvas).toHaveScreenshot("logo-raster-depth-6-scene.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
+  });
+
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Start shuffle" }),
+  ).toBeVisible();
+  await controlsSidebar.getByRole("button", { name: "Start shuffle" }).click();
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Stop shuffle" }),
+  ).toBeVisible();
+
+  await controlsSidebar.getByLabel("Yaw value").fill("90");
+  await expect
+    .poll(() => {
+      const url = new URL(page.url());
+      return `${url.pathname}:${url.searchParams.get("depth")}:${url.searchParams.get("rot")}`;
+    })
+    .toBe("/logo/raster:6:90");
+});
+
 test("logo depth slider clears default depth from the URL", async ({
   page,
 }) => {

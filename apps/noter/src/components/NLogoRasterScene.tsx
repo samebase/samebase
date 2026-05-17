@@ -1,0 +1,1000 @@
+import {
+  getTailwindColorHex,
+  type FaceColors,
+} from "@/components/logoTailwindColors";
+import {
+  getLogoRotationAxis,
+  getWorldCameraVector,
+  getWorldScreenVerticalAxis,
+  toRenderedRotationDegrees,
+  type LogoRotationAxisMode,
+  type Vector3,
+} from "@/components/logoRotationMath";
+import { getShuffleOriginCandidates } from "@/components/logoShuffleRules";
+import {
+  DRAG_ELEVATION_DEGREES_PER_PIXEL,
+  DRAG_ROTATION_DEGREES_PER_PIXEL,
+} from "@/components/logoViewDragConstants";
+import {
+  GRID_SIZE,
+  createDefaultFilledVoxelSet,
+  normalizeLogoFractalDepth,
+  parseVoxelKey,
+  parseVoxelState,
+  voxelKey,
+  type VoxelCoordinate,
+} from "@/components/logoVoxelState";
+import {
+  resolveLogoViewState,
+  type LogoViewDragConfig,
+} from "@/components/logoViewDrag";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  type MouseEvent,
+  type PointerEvent,
+} from "react";
+import { type LogoShuffleAnimationConfig } from "@/components/NLogoScene";
+
+const DRAG_THRESHOLD_PX = 4;
+const RASTER_BACKING_MIN_SIZE = 256;
+const RASTER_BACKING_MAX_SIZE = 1536;
+const RASTER_FRUSTUM_PADDING = 1.18;
+const SHUFFLE_MOVE_DURATION_MS = 1800;
+const SHUFFLE_MOVE_STAGGER_MS = 520;
+
+type Point2D = {
+  x: number;
+  y: number;
+};
+
+type ProjectedPoint = Point2D & {
+  depth: number;
+};
+
+type RasterProjection = {
+  cameraDirection: Vector3;
+  centerPx: number;
+  projectPoint: (point: Vector3) => ProjectedPoint;
+  projectVector: (point: Vector3) => Point2D;
+  rotatePoint: (point: Vector3) => Vector3;
+  scalePx: number;
+  sizePx: number;
+};
+
+type RasterMotifDrawItem = {
+  center: Vector3;
+  depth: number;
+  key: string;
+};
+
+type RasterFace = {
+  colorKey: keyof FaceColors;
+  normal: Vector3;
+  vertices: readonly [Vector3, Vector3, Vector3, Vector3];
+};
+
+type RasterActiveMove = {
+  durationMs: number;
+  from: VoxelCoordinate;
+  fromKey: string;
+  hasDeparted: boolean;
+  startTimeMs: number;
+  to: VoxelCoordinate;
+  toKey: string;
+};
+
+type RasterMotionState = {
+  activeMoves: RasterActiveMove[];
+  currentFilledVoxels: Set<string>;
+  homeFilledVoxels: Set<string>;
+  lastMovedKey: string | null;
+};
+
+type RasterInteraction = {
+  button: 0 | null;
+  pointerId: number | null;
+  startElevationDegrees: number;
+  startRotationDegrees: number;
+  startX: number;
+  startY: number;
+  status: "idle" | "pending" | "dragging";
+};
+
+type NLogoRasterSceneProps = {
+  backgroundColor: string;
+  className?: string;
+  elevationDegrees: number;
+  faceColors: FaceColors;
+  fractalDepth: number;
+  opacity: number;
+  onInteractionEnd?: () => void;
+  onInteractionStart?: () => void;
+  onViewChange: (nextView: {
+    elevationDegrees: number;
+    rotationDegrees: number;
+  }) => void;
+  rotationAxisMode?: LogoRotationAxisMode;
+  rotationDegrees: number;
+  shuffleAnimation: LogoShuffleAnimationConfig;
+  viewDragConfig?: LogoViewDragConfig;
+  voxelState: string;
+};
+
+const CUBE_VERTICES = [
+  [-0.5, -0.5, -0.5],
+  [0.5, -0.5, -0.5],
+  [0.5, 0.5, -0.5],
+  [-0.5, 0.5, -0.5],
+  [-0.5, -0.5, 0.5],
+  [0.5, -0.5, 0.5],
+  [0.5, 0.5, 0.5],
+  [-0.5, 0.5, 0.5],
+] as const satisfies readonly Vector3[];
+
+const CUBE_FACES = [
+  {
+    colorKey: "right",
+    normal: [1, 0, 0],
+    vertices: [
+      [0.5, -0.5, -0.5],
+      [0.5, 0.5, -0.5],
+      [0.5, 0.5, 0.5],
+      [0.5, -0.5, 0.5],
+    ],
+  },
+  {
+    colorKey: "right",
+    normal: [-1, 0, 0],
+    vertices: [
+      [-0.5, -0.5, 0.5],
+      [-0.5, 0.5, 0.5],
+      [-0.5, 0.5, -0.5],
+      [-0.5, -0.5, -0.5],
+    ],
+  },
+  {
+    colorKey: "top",
+    normal: [0, 1, 0],
+    vertices: [
+      [-0.5, 0.5, 0.5],
+      [0.5, 0.5, 0.5],
+      [0.5, 0.5, -0.5],
+      [-0.5, 0.5, -0.5],
+    ],
+  },
+  {
+    colorKey: "top",
+    normal: [0, -1, 0],
+    vertices: [
+      [-0.5, -0.5, -0.5],
+      [0.5, -0.5, -0.5],
+      [0.5, -0.5, 0.5],
+      [-0.5, -0.5, 0.5],
+    ],
+  },
+  {
+    colorKey: "left",
+    normal: [0, 0, 1],
+    vertices: [
+      [-0.5, -0.5, 0.5],
+      [0.5, -0.5, 0.5],
+      [0.5, 0.5, 0.5],
+      [-0.5, 0.5, 0.5],
+    ],
+  },
+  {
+    colorKey: "left",
+    normal: [0, 0, -1],
+    vertices: [
+      [-0.5, 0.5, -0.5],
+      [0.5, 0.5, -0.5],
+      [0.5, -0.5, -0.5],
+      [-0.5, -0.5, -0.5],
+    ],
+  },
+] as const satisfies readonly RasterFace[];
+
+function addVectors(left: Vector3, right: Vector3): Vector3 {
+  return [left[0] + right[0], left[1] + right[1], left[2] + right[2]];
+}
+
+function scaleVector(vector: Vector3, scale: number): Vector3 {
+  return [vector[0] * scale, vector[1] * scale, vector[2] * scale];
+}
+
+function dotVectors(left: Vector3, right: Vector3): number {
+  return left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
+}
+
+function crossVectors(left: Vector3, right: Vector3): Vector3 {
+  return [
+    left[1] * right[2] - left[2] * right[1],
+    left[2] * right[0] - left[0] * right[2],
+    left[0] * right[1] - left[1] * right[0],
+  ];
+}
+
+function normalizeVector(vector: Vector3): Vector3 {
+  const length = Math.hypot(vector[0], vector[1], vector[2]);
+  if (length === 0) {
+    return [0, 1, 0];
+  }
+
+  return [vector[0] / length, vector[1] / length, vector[2] / length];
+}
+
+function rotateVectorAroundAxis(
+  vector: Vector3,
+  axis: Vector3,
+  rotationDegrees: number,
+): Vector3 {
+  const radians = (rotationDegrees * Math.PI) / 180;
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  const normalizedAxis = normalizeVector(axis);
+  const cross = crossVectors(normalizedAxis, vector);
+  const dot = dotVectors(normalizedAxis, vector);
+
+  return [
+    vector[0] * cosine +
+      cross[0] * sine +
+      normalizedAxis[0] * dot * (1 - cosine),
+    vector[1] * cosine +
+      cross[1] * sine +
+      normalizedAxis[1] * dot * (1 - cosine),
+    vector[2] * cosine +
+      cross[2] * sine +
+      normalizedAxis[2] * dot * (1 - cosine),
+  ];
+}
+
+function getCanvasBackingSize(canvas: HTMLCanvasElement): number {
+  const rect = canvas.getBoundingClientRect();
+  const cssSize = Math.max(1, Math.min(rect.width || 640, rect.height || 640));
+  const targetSize = Math.round(cssSize * Math.min(window.devicePixelRatio, 2));
+  return Math.min(
+    Math.max(targetSize, RASTER_BACKING_MIN_SIZE),
+    RASTER_BACKING_MAX_SIZE,
+  );
+}
+
+function createRasterCanvas(sizePx: number): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = sizePx;
+  canvas.height = sizePx;
+  return canvas;
+}
+
+function getRasterProjection({
+  elevationDegrees,
+  rotationAxisMode,
+  rotationDegrees,
+  sizePx,
+}: {
+  elevationDegrees: number;
+  rotationAxisMode: LogoRotationAxisMode;
+  rotationDegrees: number;
+  sizePx: number;
+}): RasterProjection {
+  const cameraDirection = getWorldCameraVector(elevationDegrees);
+  const up = getWorldScreenVerticalAxis(elevationDegrees);
+  const right = normalizeVector(
+    crossVectors(scaleVector(cameraDirection, -1), up),
+  );
+  const rotationAxis = getLogoRotationAxis({
+    elevationDegrees,
+    mode: rotationAxisMode,
+  });
+  const renderedRotationDegrees = toRenderedRotationDegrees(rotationDegrees);
+  const rotatePoint = (point: Vector3) =>
+    rotateVectorAroundAxis(point, rotationAxis, renderedRotationDegrees);
+  const projectedVertices = CUBE_VERTICES.map((point) => {
+    const rotatedPoint = rotatePoint(point);
+    return {
+      x: dotVectors(rotatedPoint, right),
+      y: -dotVectors(rotatedPoint, up),
+    };
+  });
+  const minX = Math.min(...projectedVertices.map((point) => point.x));
+  const maxX = Math.max(...projectedVertices.map((point) => point.x));
+  const minY = Math.min(...projectedVertices.map((point) => point.y));
+  const maxY = Math.max(...projectedVertices.map((point) => point.y));
+  const span = Math.max(maxX - minX, maxY - minY, 0.001);
+  const scalePx = sizePx / (span * RASTER_FRUSTUM_PADDING);
+  const centerPx = sizePx / 2;
+
+  const projectVector = (point: Vector3) => {
+    const rotatedPoint = rotatePoint(point);
+    return {
+      x: dotVectors(rotatedPoint, right) * scalePx,
+      y: -dotVectors(rotatedPoint, up) * scalePx,
+    };
+  };
+
+  return {
+    cameraDirection,
+    centerPx,
+    projectPoint: (point) => {
+      const rotatedPoint = rotatePoint(point);
+      return {
+        depth: dotVectors(rotatedPoint, cameraDirection),
+        x: centerPx + dotVectors(rotatedPoint, right) * scalePx,
+        y: centerPx - dotVectors(rotatedPoint, up) * scalePx,
+      };
+    },
+    projectVector,
+    rotatePoint,
+    scalePx,
+    sizePx,
+  };
+}
+
+function getFaceCenter(face: RasterFace): Vector3 {
+  return scaleVector(
+    face.vertices.reduce<Vector3>(
+      (sum, vertex) => addVectors(sum, vertex),
+      [0, 0, 0],
+    ),
+    1 / face.vertices.length,
+  );
+}
+
+function drawPolygon(
+  context: CanvasRenderingContext2D,
+  points: readonly Point2D[],
+) {
+  const [firstPoint, ...remainingPoints] = points;
+
+  context.beginPath();
+  context.moveTo(firstPoint.x, firstPoint.y);
+  for (const point of remainingPoints) {
+    context.lineTo(point.x, point.y);
+  }
+  context.closePath();
+  context.fill();
+  context.stroke();
+}
+
+function renderCubeUnitCanvas({
+  faceColors,
+  opacity,
+  projection,
+}: {
+  faceColors: FaceColors;
+  opacity: number;
+  projection: RasterProjection;
+}): HTMLCanvasElement {
+  const canvas = createRasterCanvas(projection.sizePx);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return canvas;
+  }
+
+  const faces = CUBE_FACES.map((face) => {
+    const rotatedNormal = projection.rotatePoint(face.normal);
+    if (dotVectors(rotatedNormal, projection.cameraDirection) <= 0) {
+      return null;
+    }
+
+    return {
+      color: getTailwindColorHex(faceColors[face.colorKey]),
+      depth: dotVectors(
+        projection.rotatePoint(getFaceCenter(face)),
+        projection.cameraDirection,
+      ),
+      points: face.vertices.map((vertex) => projection.projectPoint(vertex)),
+    };
+  }).filter((face) => face !== null);
+
+  context.lineJoin = "round";
+  context.lineWidth = Math.max(1, projection.sizePx / 512);
+  context.globalAlpha = Math.max(0, Math.min(opacity, 1));
+
+  faces
+    .sort((left, right) => left.depth - right.depth)
+    .forEach((face) => {
+      context.fillStyle = face.color;
+      context.strokeStyle = face.color;
+      drawPolygon(context, face.points);
+    });
+
+  context.globalAlpha = 1;
+  return canvas;
+}
+
+function getMotifCenter([x, y, z]: VoxelCoordinate): Vector3 {
+  return [
+    (x + 0.5) / GRID_SIZE - 0.5,
+    (y + 0.5) / GRID_SIZE - 0.5,
+    (z + 0.5) / GRID_SIZE - 0.5,
+  ];
+}
+
+function getMotifDrawItems({
+  activeMoves,
+  filledVoxels,
+  projection,
+}: {
+  activeMoves: readonly RasterActiveMove[];
+  filledVoxels: ReadonlySet<string>;
+  projection: RasterProjection;
+}): RasterMotifDrawItem[] {
+  const drawItems: RasterMotifDrawItem[] = [];
+
+  for (const key of filledVoxels) {
+    const coordinate = parseVoxelKey(key);
+    if (!coordinate) {
+      continue;
+    }
+
+    const center = getMotifCenter(coordinate);
+    drawItems.push({
+      center,
+      depth: dotVectors(
+        projection.rotatePoint(center),
+        projection.cameraDirection,
+      ),
+      key,
+    });
+  }
+
+  for (const move of activeMoves) {
+    if (!move.hasDeparted) {
+      continue;
+    }
+
+    const progress = Math.min(
+      Math.max((performance.now() - move.startTimeMs) / move.durationMs, 0),
+      1,
+    );
+    const startCenter = getMotifCenter(move.from);
+    const endCenter = getMotifCenter(move.to);
+    const travelProgress = easeInOutCubic(progress);
+    const center: Vector3 = [
+      startCenter[0] + (endCenter[0] - startCenter[0]) * travelProgress,
+      startCenter[1] + (endCenter[1] - startCenter[1]) * travelProgress,
+      startCenter[2] + (endCenter[2] - startCenter[2]) * travelProgress,
+    ];
+
+    drawItems.push({
+      center,
+      depth: dotVectors(
+        projection.rotatePoint(center),
+        projection.cameraDirection,
+      ),
+      key: `${move.fromKey}->${move.toKey}`,
+    });
+  }
+
+  return drawItems.sort((left, right) => {
+    if (left.depth !== right.depth) {
+      return left.depth - right.depth;
+    }
+
+    return left.key.localeCompare(right.key);
+  });
+}
+
+function composeRasterLevel({
+  childCanvas,
+  drawItems,
+  projection,
+}: {
+  childCanvas: HTMLCanvasElement;
+  drawItems: readonly RasterMotifDrawItem[];
+  projection: RasterProjection;
+}): HTMLCanvasElement {
+  const canvas = createRasterCanvas(projection.sizePx);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return canvas;
+  }
+
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  const childSize = projection.sizePx / GRID_SIZE;
+
+  for (const item of drawItems) {
+    const offset = projection.projectVector(item.center);
+    context.drawImage(
+      childCanvas,
+      projection.centerPx + offset.x - childSize / 2,
+      projection.centerPx + offset.y - childSize / 2,
+      childSize,
+      childSize,
+    );
+  }
+
+  return canvas;
+}
+
+function getRasterLevelSize({
+  depth,
+  level,
+  outputSizePx,
+}: {
+  depth: number;
+  level: number;
+  outputSizePx: number;
+}): number {
+  return Math.max(1, Math.ceil(outputSizePx / GRID_SIZE ** (depth - level)));
+}
+
+function easeInOutCubic(value: number): number {
+  return value < 0.5
+    ? 4 * value * value * value
+    : 1 - Math.pow(-2 * value + 2, 3) / 2;
+}
+
+function renderRasterRecursiveImage({
+  depth,
+  drawItems,
+  elevationDegrees,
+  faceColors,
+  opacity,
+  outputSizePx,
+  rotationAxisMode,
+  rotationDegrees,
+}: {
+  depth: number;
+  drawItems: readonly RasterMotifDrawItem[];
+  elevationDegrees: number;
+  faceColors: FaceColors;
+  opacity: number;
+  outputSizePx: number;
+  rotationAxisMode: LogoRotationAxisMode;
+  rotationDegrees: number;
+}): HTMLCanvasElement {
+  const baseLevelSizePx = getRasterLevelSize({
+    depth,
+    level: 0,
+    outputSizePx,
+  });
+  let unitCanvas = renderCubeUnitCanvas({
+    faceColors,
+    opacity,
+    projection: getRasterProjection({
+      elevationDegrees,
+      rotationAxisMode,
+      rotationDegrees,
+      sizePx: baseLevelSizePx,
+    }),
+  });
+
+  for (let level = 1; level <= depth; level += 1) {
+    const levelSizePx = getRasterLevelSize({
+      depth,
+      level,
+      outputSizePx,
+    });
+    unitCanvas = composeRasterLevel({
+      childCanvas: unitCanvas,
+      drawItems,
+      projection: getRasterProjection({
+        elevationDegrees,
+        rotationAxisMode,
+        rotationDegrees,
+        sizePx: levelSizePx,
+      }),
+    });
+  }
+
+  return unitCanvas;
+}
+
+function renderRasterScene({
+  backgroundColor,
+  canvas,
+  elevationDegrees,
+  faceColors,
+  fractalDepth,
+  motion,
+  opacity,
+  rotationAxisMode,
+  rotationDegrees,
+}: {
+  backgroundColor: string;
+  canvas: HTMLCanvasElement;
+  elevationDegrees: number;
+  faceColors: FaceColors;
+  fractalDepth: number;
+  motion: RasterMotionState;
+  opacity: number;
+  rotationAxisMode: LogoRotationAxisMode;
+  rotationDegrees: number;
+}) {
+  const sizePx = getCanvasBackingSize(canvas);
+  if (canvas.width !== sizePx) {
+    canvas.width = sizePx;
+  }
+  if (canvas.height !== sizePx) {
+    canvas.height = sizePx;
+  }
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return;
+  }
+
+  const projection = getRasterProjection({
+    elevationDegrees,
+    rotationAxisMode,
+    rotationDegrees,
+    sizePx,
+  });
+  const drawItems = getMotifDrawItems({
+    activeMoves: motion.activeMoves,
+    filledVoxels: motion.currentFilledVoxels,
+    projection,
+  });
+  const image = renderRasterRecursiveImage({
+    depth: normalizeLogoFractalDepth(fractalDepth),
+    drawItems,
+    elevationDegrees,
+    faceColors,
+    opacity,
+    outputSizePx: sizePx,
+    rotationAxisMode,
+    rotationDegrees,
+  });
+
+  context.clearRect(0, 0, sizePx, sizePx);
+  context.fillStyle = backgroundColor;
+  context.fillRect(0, 0, sizePx, sizePx);
+  context.drawImage(image, 0, 0);
+}
+
+function createRasterMotionState(voxelState: string): RasterMotionState {
+  const homeFilledVoxels =
+    parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet();
+  return {
+    activeMoves: [],
+    currentFilledVoxels: new Set(homeFilledVoxels),
+    homeFilledVoxels: new Set(homeFilledVoxels),
+    lastMovedKey: null,
+  };
+}
+
+function resetRasterMotion(motion: RasterMotionState) {
+  motion.activeMoves = [];
+  motion.currentFilledVoxels = new Set(motion.homeFilledVoxels);
+  motion.lastMovedKey = null;
+}
+
+function scheduleNextRasterMove({
+  elevationDegrees,
+  motion,
+  rotationAxisMode,
+  rotationDegrees,
+  startTimeMs,
+}: {
+  elevationDegrees: number;
+  motion: RasterMotionState;
+  rotationAxisMode: LogoRotationAxisMode;
+  rotationDegrees: number;
+  startTimeMs: number;
+}): boolean {
+  const blockedKeys = new Set<string>();
+  for (const move of motion.activeMoves) {
+    blockedKeys.add(move.fromKey);
+    blockedKeys.add(move.toKey);
+  }
+
+  const originCandidates = getShuffleOriginCandidates({
+    blockedKeys,
+    elevationDegrees,
+    filledVoxels: motion.currentFilledVoxels,
+    gridSize: GRID_SIZE,
+    lastMovedCubeKey: motion.lastMovedKey,
+    rotationAxisMode,
+    rotationDegrees,
+  });
+  if (originCandidates.length === 0) {
+    return false;
+  }
+
+  const nextMove =
+    originCandidates[Math.floor(Math.random() * originCandidates.length)];
+  if (nextMove.destinations.length === 0) {
+    return false;
+  }
+
+  const toCoordinate =
+    nextMove.destinations[
+      Math.floor(Math.random() * nextMove.destinations.length)
+    ];
+  const toKey = voxelKey(toCoordinate[0], toCoordinate[1], toCoordinate[2]);
+  motion.activeMoves.push({
+    durationMs: SHUFFLE_MOVE_DURATION_MS,
+    from: nextMove.from,
+    fromKey: nextMove.fromKey,
+    hasDeparted: false,
+    startTimeMs,
+    to: toCoordinate,
+    toKey,
+  });
+  return true;
+}
+
+function syncRasterMotion({
+  elevationDegrees,
+  motion,
+  parallelMoves,
+  rotationAxisMode,
+  rotationDegrees,
+  timestampMs,
+}: {
+  elevationDegrees: number;
+  motion: RasterMotionState;
+  parallelMoves: LogoShuffleAnimationConfig["parallelMoves"];
+  rotationAxisMode: LogoRotationAxisMode;
+  rotationDegrees: number;
+  timestampMs: number;
+}) {
+  const completedMoves: RasterActiveMove[] = [];
+
+  for (const move of motion.activeMoves) {
+    if (!move.hasDeparted && timestampMs >= move.startTimeMs) {
+      move.hasDeparted = true;
+      motion.currentFilledVoxels.delete(move.fromKey);
+    }
+
+    if (move.hasDeparted && timestampMs - move.startTimeMs >= move.durationMs) {
+      completedMoves.push(move);
+    }
+  }
+
+  if (completedMoves.length > 0) {
+    const completedMoveSet = new Set(completedMoves);
+    motion.activeMoves = motion.activeMoves.filter(
+      (move) => !completedMoveSet.has(move),
+    );
+    for (const move of completedMoves) {
+      motion.currentFilledVoxels.add(move.toKey);
+      motion.lastMovedKey = move.toKey;
+    }
+  }
+
+  while (motion.activeMoves.length < parallelMoves) {
+    const didScheduleMove = scheduleNextRasterMove({
+      elevationDegrees,
+      motion,
+      rotationAxisMode,
+      rotationDegrees,
+      startTimeMs:
+        timestampMs + motion.activeMoves.length * SHUFFLE_MOVE_STAGGER_MS,
+    });
+    if (!didScheduleMove) {
+      break;
+    }
+  }
+}
+
+export function NLogoRasterScene({
+  backgroundColor,
+  className,
+  elevationDegrees,
+  faceColors,
+  fractalDepth,
+  opacity,
+  onInteractionEnd,
+  onInteractionStart,
+  onViewChange,
+  rotationAxisMode = "cube-y",
+  rotationDegrees,
+  shuffleAnimation,
+  viewDragConfig,
+  voxelState,
+}: NLogoRasterSceneProps) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const motionRef = useRef(createRasterMotionState(voxelState));
+  const interactionRef = useRef<RasterInteraction>({
+    button: null,
+    pointerId: null,
+    startElevationDegrees: elevationDegrees,
+    startRotationDegrees: rotationDegrees,
+    startX: 0,
+    startY: 0,
+    status: "idle",
+  });
+
+  const renderScene = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    renderRasterScene({
+      backgroundColor,
+      canvas,
+      elevationDegrees,
+      faceColors,
+      fractalDepth,
+      motion: motionRef.current,
+      opacity,
+      rotationAxisMode,
+      rotationDegrees,
+    });
+  }, [
+    backgroundColor,
+    elevationDegrees,
+    faceColors,
+    fractalDepth,
+    opacity,
+    rotationAxisMode,
+    rotationDegrees,
+  ]);
+
+  useEffect(() => {
+    motionRef.current = createRasterMotionState(voxelState);
+    renderScene();
+  }, [renderScene, voxelState]);
+
+  useEffect(() => {
+    renderScene();
+  }, [renderScene]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    const resizeObserver = new ResizeObserver(() => {
+      renderScene();
+    });
+    resizeObserver.observe(canvas);
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [renderScene]);
+
+  useEffect(() => {
+    if (!shuffleAnimation.enabled) {
+      resetRasterMotion(motionRef.current);
+      renderScene();
+      return;
+    }
+
+    let animationFrameId = 0;
+    const step = (timestampMs: number) => {
+      syncRasterMotion({
+        elevationDegrees,
+        motion: motionRef.current,
+        parallelMoves: shuffleAnimation.parallelMoves,
+        rotationAxisMode,
+        rotationDegrees,
+        timestampMs,
+      });
+      renderScene();
+      animationFrameId = window.requestAnimationFrame(step);
+    };
+
+    animationFrameId = window.requestAnimationFrame(step);
+    return () => {
+      window.cancelAnimationFrame(animationFrameId);
+    };
+  }, [
+    elevationDegrees,
+    renderScene,
+    rotationAxisMode,
+    rotationDegrees,
+    shuffleAnimation.enabled,
+    shuffleAnimation.parallelMoves,
+  ]);
+
+  const resetInteraction = (target: HTMLCanvasElement, pointerId: number) => {
+    const wasDragging = interactionRef.current.status === "dragging";
+    if (target.hasPointerCapture(pointerId)) {
+      target.releasePointerCapture(pointerId);
+    }
+    if (wasDragging) {
+      onInteractionEnd?.();
+    }
+
+    interactionRef.current = {
+      button: null,
+      pointerId: null,
+      startElevationDegrees: elevationDegrees,
+      startRotationDegrees: rotationDegrees,
+      startX: 0,
+      startY: 0,
+      status: "idle",
+    };
+  };
+
+  const handlePointerDown = (event: PointerEvent<HTMLCanvasElement>) => {
+    if (event.button !== 0) {
+      return;
+    }
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    interactionRef.current = {
+      button: event.button,
+      pointerId: event.pointerId,
+      startElevationDegrees: elevationDegrees,
+      startRotationDegrees: rotationDegrees,
+      startX: event.clientX,
+      startY: event.clientY,
+      status: "pending",
+    };
+  };
+
+  const handlePointerMove = (event: PointerEvent<HTMLCanvasElement>) => {
+    const interaction = interactionRef.current;
+    if (interaction.pointerId !== event.pointerId || interaction.button !== 0) {
+      return;
+    }
+
+    const deltaX = event.clientX - interaction.startX;
+    const deltaY = event.clientY - interaction.startY;
+
+    if (
+      interaction.status === "pending" &&
+      Math.hypot(deltaX, deltaY) >= DRAG_THRESHOLD_PX
+    ) {
+      interactionRef.current.status = "dragging";
+      onInteractionStart?.();
+    }
+
+    if (interactionRef.current.status !== "dragging") {
+      return;
+    }
+
+    onViewChange(
+      resolveLogoViewState({
+        config: viewDragConfig,
+        disableSnap: event.altKey || event.shiftKey,
+        view: {
+          elevationDegrees:
+            interaction.startElevationDegrees +
+            deltaY * DRAG_ELEVATION_DEGREES_PER_PIXEL,
+          rotationDegrees:
+            interaction.startRotationDegrees +
+            deltaX * DRAG_ROTATION_DEGREES_PER_PIXEL,
+        },
+      }),
+    );
+  };
+
+  const handlePointerUp = (event: PointerEvent<HTMLCanvasElement>) => {
+    const interaction = interactionRef.current;
+    if (
+      interaction.pointerId !== event.pointerId ||
+      interaction.button === null
+    ) {
+      return;
+    }
+
+    resetInteraction(event.currentTarget, event.pointerId);
+  };
+
+  const handlePointerCancel = (event: PointerEvent<HTMLCanvasElement>) => {
+    if (interactionRef.current.pointerId !== event.pointerId) {
+      return;
+    }
+
+    resetInteraction(event.currentTarget, event.pointerId);
+  };
+
+  const handleContextMenu = (event: MouseEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
+  };
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className={className}
+      data-logo-elevation-degrees={elevationDegrees}
+      data-logo-renderer="raster"
+      data-logo-rotation-degrees={rotationDegrees}
+      onContextMenu={handleContextMenu}
+      onPointerCancel={handlePointerCancel}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+    />
+  );
+}
