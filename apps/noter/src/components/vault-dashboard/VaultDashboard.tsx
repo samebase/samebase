@@ -99,7 +99,7 @@ import {
   type VaultDashboardProviderSetup,
 } from "@/components/vault-dashboard/vaultProviderSetup";
 import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
-import { type AppThemeColorSearch } from "@/lib/appThemeColorSearch";
+import { type LogoThemeColorSearchInput } from "@/lib/appThemeColorSearch";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import {
   buildPullRequestLabelStyle,
@@ -1986,7 +1986,7 @@ type VaultDashboardBodyProps = {
   isRemovingVault: boolean;
   retryingDeletionRunId: Id<"vaultDeletionRuns"> | null;
   now: number;
-  themeColorSearch: AppThemeColorSearch;
+  themeColorSearch: LogoThemeColorSearchInput;
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
   persistedVaultBranchFiltersByVaultId: Map<string, VaultBranchFiltersState>;
   deleteRepositoryFullName?: string;

@@ -6,11 +6,11 @@ import {
   normalizeLogoIsometricCubeSidePixels,
   type LogoIsometricStyleId,
 } from "@/components/logoIsometricRenderer";
-import { type AppThemeColors } from "@/components/logoTailwindColors";
+import { type LogoThemeColors } from "@/components/logoTailwindColors";
 import {
   appThemeColorSearchFieldSchema,
-  buildAppThemeColorSearch,
-  readAppThemeColorSearch,
+  buildLogoThemeColorSearch,
+  readLogoThemeColorSearch,
 } from "@/lib/appThemeColorSearch";
 import {
   ROOT_THEME_MODE_SEARCH_KEYS,
@@ -138,7 +138,7 @@ export const logoRouteSearchSchema = logoRouteSearchFieldSchema.transform(
     return {
       ...(themeModeSearch.dark ? { dark: true as const } : {}),
       ...(themeModeSearch.light ? { light: true as const } : {}),
-      ...readAppThemeColorSearch(search),
+      ...readLogoThemeColorSearch(search),
       ...(typeof search.axis === "string" ? { axis: search.axis } : {}),
       ...(search.dev ? { dev: true as const } : {}),
       ...(typeof search.elev === "number"
@@ -176,13 +176,13 @@ export function buildLogoRouteSearch(args: {
   rotationAxisMode: LogoRotationAxisMode;
   rotationDegrees: number;
   themeModeSearch?: RootThemeModeSearch;
-  themeColors: AppThemeColors;
+  themeColors: LogoThemeColors;
   viewSnapEnabled: boolean;
   voxelState: string;
 }): LogoRouteSearch {
   return {
     ...readRootThemeModeSearch(args.themeModeSearch ?? {}),
-    ...buildAppThemeColorSearch(args.themeColors),
+    ...buildLogoThemeColorSearch(args.themeColors),
     ...(args.rotationAxisMode !== "cube-y"
       ? { axis: args.rotationAxisMode }
       : {}),

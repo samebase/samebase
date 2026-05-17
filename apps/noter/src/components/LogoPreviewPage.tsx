@@ -18,8 +18,8 @@ import {
   type LogoIsometricStyleId,
 } from "@/components/logoIsometricRenderer";
 import {
-  APP_THEME_COLOR_KEYS,
-  DEFAULT_APP_THEME_COLORS,
+  DEFAULT_LOGO_THEME_COLORS,
+  LOGO_THEME_COLOR_KEYS,
   TAILWIND_COLOR_FAMILIES,
   getTailwindColorHex,
   getTailwindColorFamily,
@@ -29,9 +29,9 @@ import {
   getTailwindColorTokenForSelection,
   isLogoColorToken,
   isTailwindColorToken,
-  type AppThemeColorKey,
-  type AppThemeColors,
   type LogoColorToken,
+  type LogoThemeColorKey,
+  type LogoThemeColors,
 } from "@/components/logoTailwindColors";
 import {
   CUSTOM_LOGO_PRESET_ID,
@@ -76,7 +76,7 @@ import {
   type LogoViewState,
 } from "@/components/logoViewDrag";
 import {
-  readAppThemeColors,
+  readLogoThemeColors,
   useResolvedAppThemeColorState,
 } from "@/lib/appThemeColorSearch";
 import {
@@ -131,17 +131,19 @@ type LogoPreviewPageProps = {
   routeSearch: LogoRouteSearch;
 };
 
-const THEME_COLOR_LABELS: Record<AppThemeColorKey, string> = {
-  base: "Base",
+const THEME_COLOR_LABELS: Record<LogoThemeColorKey, string> = {
+  background: "Background",
   border: "Border",
   primary: "Primary",
   secondary: "Secondary",
+  top: "Top",
 };
-const RGB_THEME_COLORS: AppThemeColors = {
-  ...DEFAULT_APP_THEME_COLORS,
-  base: "blue-500",
+const RGB_THEME_COLORS: LogoThemeColors = {
+  ...DEFAULT_LOGO_THEME_COLORS,
+  background: "blue-500",
   primary: "green-500",
   secondary: "red-500",
+  top: "blue-500",
 };
 const COLOR_SWATCH_SIZE_CLASS_NAMES = {
   default: "h-4 w-4",
@@ -177,6 +179,32 @@ function readColorInputValue(token: LogoColorToken): string {
   return expandHexColorToken(getTailwindColorHex(token));
 }
 
+function updateLogoThemeColor({
+  colorKey,
+  currentColors,
+  nextToken,
+}: {
+  colorKey: LogoThemeColorKey;
+  currentColors: LogoThemeColors;
+  nextToken: LogoColorToken;
+}): LogoThemeColors {
+  if (colorKey !== "background") {
+    return {
+      ...currentColors,
+      [colorKey]: nextToken,
+    };
+  }
+
+  const shouldTopFollowBackground =
+    currentColors.top === currentColors.background;
+
+  return {
+    ...currentColors,
+    background: nextToken,
+    top: shouldTopFollowBackground ? nextToken : currentColors.top,
+  };
+}
+
 function ColorSwatch({
   color,
   size = "default",
@@ -204,13 +232,16 @@ function ThemeColorPicker({
   onShadeChange,
 }: {
   currentToken: LogoColorToken;
-  themeColorKey: AppThemeColorKey;
+  themeColorKey: LogoThemeColorKey;
   onCustomColorChange: (
-    themeColorKey: AppThemeColorKey,
+    themeColorKey: LogoThemeColorKey,
     nextColor: string,
   ) => void;
-  onFamilyChange: (themeColorKey: AppThemeColorKey, nextFamily: string) => void;
-  onShadeChange: (themeColorKey: AppThemeColorKey, nextShade: string) => void;
+  onFamilyChange: (
+    themeColorKey: LogoThemeColorKey,
+    nextFamily: string,
+  ) => void;
+  onShadeChange: (themeColorKey: LogoThemeColorKey, nextShade: string) => void;
 }) {
   const currentColorHex = getTailwindColorHex(currentToken);
   const colorInputValue = readColorInputValue(currentToken);
@@ -469,7 +500,7 @@ type LogoPreviewRouteState = {
   rotationAxisMode: LogoRotationAxisMode;
   rotationDegrees: number;
   selectedPresetId: LogoPresetSelection;
-  themeColors: AppThemeColors;
+  themeColors: LogoThemeColors;
   voxelState: string;
 };
 
@@ -498,7 +529,7 @@ function readLogoPreviewRouteState(
     rotationAxisMode: readRotationAxisMode(routeSearch),
     rotationDegrees: view.rotationDegrees,
     selectedPresetId: readLogoPresetSelection(routeSearch),
-    themeColors: readAppThemeColors(routeSearch),
+    themeColors: readLogoThemeColors(routeSearch),
     voxelState: readVoxelState(routeSearch),
   };
 }
@@ -528,7 +559,7 @@ function areLogoPreviewRouteStatesEqual(
     left.rotationDegrees === right.rotationDegrees &&
     left.selectedPresetId === right.selectedPresetId &&
     left.voxelState === right.voxelState &&
-    areAppThemeColorsEqual(left.themeColors, right.themeColors)
+    areLogoThemeColorsEqual(left.themeColors, right.themeColors)
   );
 }
 
@@ -848,45 +879,47 @@ function useLogoPreviewController({
       setShuffleEnabled: store.actions.setShuffleEnabled,
       setShuffleParallelMoves: store.actions.setShuffleParallelMoves,
       setThemeColorFamily: (
-        themeColorKey: AppThemeColorKey,
+        themeColorKey: LogoThemeColorKey,
         nextFamily: string,
       ) => {
         commitRouteState((currentState) => ({
           ...currentState,
-          themeColors: {
-            ...currentState.themeColors,
-            [themeColorKey]: getTailwindColorTokenForSelection(
+          themeColors: updateLogoThemeColor({
+            colorKey: themeColorKey,
+            currentColors: currentState.themeColors,
+            nextToken: getTailwindColorTokenForSelection(
               nextFamily,
               getTailwindColorShade(currentState.themeColors[themeColorKey]),
               currentState.themeColors[themeColorKey],
             ),
-          },
+          }),
         }));
       },
       setThemeColorShade: (
-        themeColorKey: AppThemeColorKey,
+        themeColorKey: LogoThemeColorKey,
         nextShade: string,
       ) => {
         commitRouteState((currentState) => ({
           ...currentState,
-          themeColors: {
-            ...currentState.themeColors,
-            [themeColorKey]: getTailwindColorTokenForSelection(
+          themeColors: updateLogoThemeColor({
+            colorKey: themeColorKey,
+            currentColors: currentState.themeColors,
+            nextToken: getTailwindColorTokenForSelection(
               getTailwindColorFamily(currentState.themeColors[themeColorKey]),
               nextShade,
               currentState.themeColors[themeColorKey],
             ),
-          },
+          }),
         }));
       },
-      setThemeColors: (themeColors: AppThemeColors) => {
+      setThemeColors: (themeColors: LogoThemeColors) => {
         commitRouteState((currentState) => ({
           ...currentState,
           themeColors,
         }));
       },
       setThemeCustomColor: (
-        themeColorKey: AppThemeColorKey,
+        themeColorKey: LogoThemeColorKey,
         nextColor: string,
       ) => {
         const normalizedColor = expandHexColorToken(nextColor);
@@ -896,10 +929,11 @@ function useLogoPreviewController({
 
         debounceRouteState((currentState) => ({
           ...currentState,
-          themeColors: {
-            ...currentState.themeColors,
-            [themeColorKey]: normalizedColor,
-          },
+          themeColors: updateLogoThemeColor({
+            colorKey: themeColorKey,
+            currentColors: currentState.themeColors,
+            nextToken: normalizedColor,
+          }),
         }));
       },
       setViewSnapEnabled: (isViewSnapEnabled: boolean) => {
@@ -949,7 +983,7 @@ function readCanonicalLogoRouteSearch(
       rotationAxisMode: readRotationAxisMode(routeSearch),
       rotationDegrees: readRotationDegrees(routeSearch),
       themeModeSearch: routeSearch,
-      themeColors: readAppThemeColors(routeSearch),
+      themeColors: readLogoThemeColors(routeSearch),
       viewSnapEnabled: readViewSnapEnabled(routeSearch),
       voxelState: readVoxelState(routeSearch),
     }),
@@ -959,7 +993,7 @@ function readCanonicalLogoRouteSearch(
 
 const LOGO_ROUTE_SEARCH_KEYS = [
   "axis",
-  ...APP_THEME_COLOR_KEYS,
+  ...LOGO_THEME_COLOR_KEYS,
   "dev",
   "elev",
   "freeView",
@@ -978,11 +1012,11 @@ function areLogoRouteSearchesEqual(
   return LOGO_ROUTE_SEARCH_KEYS.every((key) => left[key] === right[key]);
 }
 
-function areAppThemeColorsEqual(
-  left: AppThemeColors,
-  right: AppThemeColors,
+function areLogoThemeColorsEqual(
+  left: LogoThemeColors,
+  right: LogoThemeColors,
 ): boolean {
-  return APP_THEME_COLOR_KEYS.every((key) => left[key] === right[key]);
+  return LOGO_THEME_COLOR_KEYS.every((key) => left[key] === right[key]);
 }
 
 function LogoPreviewSection({
@@ -1318,7 +1352,7 @@ export function LogoPreviewPage({
             variant="outline"
             className="w-full rounded-none"
             onClick={() => {
-              controls.setThemeColors(DEFAULT_APP_THEME_COLORS);
+              controls.setThemeColors(DEFAULT_LOGO_THEME_COLORS);
             }}
           >
             Default colors
@@ -1643,7 +1677,7 @@ export function LogoPreviewPage({
 
       <LogoPreviewSection title="Colors" testId="logo-preview-colors-section">
         <div className="flex items-center gap-1">
-          {APP_THEME_COLOR_KEYS.map((themeColorKey) => (
+          {LOGO_THEME_COLOR_KEYS.map((themeColorKey) => (
             <ColorSwatch
               key={themeColorKey}
               color={getTailwindColorHex(state.themeColors[themeColorKey])}
@@ -1652,7 +1686,7 @@ export function LogoPreviewPage({
           ))}
         </div>
 
-        {APP_THEME_COLOR_KEYS.map((themeColorKey) => {
+        {LOGO_THEME_COLOR_KEYS.map((themeColorKey) => {
           const currentToken = state.themeColors[themeColorKey];
 
           return (

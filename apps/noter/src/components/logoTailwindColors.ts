@@ -464,8 +464,14 @@ type TailwindColorFamilyKey = (typeof tailwindColorFamilies)[number]["key"];
 export type TailwindColorToken = `${TailwindColorFamilyKey}-${string}`;
 export type LogoColorToken = TailwindColorToken | HexColorToken;
 export type FaceColors = Record<FaceColorKey, LogoColorToken>;
-export type AppThemeColorKey = "base" | "border" | "primary" | "secondary";
+export type AppThemeColorKey =
+  | "background"
+  | "border"
+  | "primary"
+  | "secondary";
 export type AppThemeColors = Record<AppThemeColorKey, LogoColorToken>;
+export type LogoThemeColorKey = AppThemeColorKey | "top";
+export type LogoThemeColors = Record<LogoThemeColorKey, LogoColorToken>;
 
 type TailwindColorOption = {
   family: TailwindColorFamily;
@@ -512,9 +518,16 @@ export const FACE_COLOR_KEYS = ["left", "right", "top"] as const;
 export const APP_THEME_COLOR_KEYS = [
   "primary",
   "secondary",
-  "base",
+  "background",
   "border",
 ] as const satisfies readonly AppThemeColorKey[];
+export const LOGO_THEME_COLOR_KEYS = [
+  "primary",
+  "secondary",
+  "top",
+  "background",
+  "border",
+] as const satisfies readonly LogoThemeColorKey[];
 
 export const DEFAULT_FACE_COLORS: FaceColors = {
   left: "secondary-base",
@@ -523,10 +536,14 @@ export const DEFAULT_FACE_COLORS: FaceColors = {
 };
 
 export const DEFAULT_APP_THEME_COLORS: AppThemeColors = {
-  base: "background-base",
+  background: "background-base",
   border: "border-base",
   primary: "primary-base",
   secondary: "secondary-base",
+};
+export const DEFAULT_LOGO_THEME_COLORS: LogoThemeColors = {
+  ...DEFAULT_APP_THEME_COLORS,
+  top: DEFAULT_APP_THEME_COLORS.background,
 };
 
 export const TAILWIND_COLOR_FAMILIES = tailwindColorFamilies.map(
@@ -602,13 +619,13 @@ export function getLogoColorForegroundCssHsl(
   return bestCandidate.cssHsl;
 }
 
-export function getFaceColorsFromAppThemeColors(
-  themeColors: AppThemeColors,
+export function getFaceColorsFromLogoThemeColors(
+  themeColors: LogoThemeColors,
 ): FaceColors {
   return {
     left: themeColors.secondary,
     right: themeColors.primary,
-    top: themeColors.base,
+    top: themeColors.top,
   };
 }
 

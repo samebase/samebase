@@ -57,20 +57,20 @@ function useDeferredPostHogInit() {
 }
 
 function AppRouterRoot() {
-  const { base, border, dark, light, primary, secondary } =
+  const { background, border, dark, light, primary, secondary } =
     useRootRouteSearch();
   const themeMode = readRootThemeMode({ dark, light });
   useDeferredPostHogInit();
 
   useLayoutEffect(() => {
     syncDocumentThemeColorSearch({
-      base,
+      background,
       border,
       primary,
       secondary,
     });
     syncDocumentRootThemeMode(themeMode);
-  }, [base, border, primary, secondary, themeMode]);
+  }, [background, border, primary, secondary, themeMode]);
 
   return (
     <OptionalThemeProvider forcedTheme={themeMode}>

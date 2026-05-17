@@ -29,7 +29,7 @@ import {
 } from "@/lib/rotatedLogoViewState";
 import {
   useResolvedAppThemeColorState,
-  type AppThemeColorSearch,
+  type LogoThemeColorSearchInput,
 } from "@/lib/appThemeColorSearch";
 import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -66,7 +66,7 @@ export function PublicLandingLogo({
   autoRotate?: boolean;
   enableViewSnapping?: boolean;
   loadInteractiveScene?: boolean;
-  themeColorSearch?: AppThemeColorSearch;
+  themeColorSearch?: LogoThemeColorSearchInput;
   viewStatePersistence?: RotatedLogoViewStatePersistence;
   viewStateKey?: RotatedLogoViewStateKey;
 }) {

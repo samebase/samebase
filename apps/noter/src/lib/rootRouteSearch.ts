@@ -1,5 +1,8 @@
 import { getRouteApi } from "@tanstack/react-router";
-import { appThemeColorSearchFieldSchema } from "@/lib/appThemeColorSearch";
+import {
+  appThemeColorSearchFieldSchema,
+  readLogoThemeColorSearch,
+} from "@/lib/appThemeColorSearch";
 import { PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM } from "@/lib/publicLayoutSidebarPreferences";
 import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
 import {
@@ -80,7 +83,12 @@ function parseRootRouteSearch(search: unknown): RootRouteSearch {
     normalizeRouteSearchPresenceFlags(search, ROOT_ROUTE_PRESENCE_SEARCH_KEYS),
   );
   if (!parsedSearch[SEARCH_RESET_QUERY_PARAM]) {
-    return parsedSearch;
+    const normalizedSearch = {
+      ...parsedSearch,
+      ...readLogoThemeColorSearch(parsedSearch),
+    };
+    delete normalizedSearch.base;
+    return normalizedSearch;
   }
 
   // Reset is a sentinel, so do not let stale or malformed params influence app
