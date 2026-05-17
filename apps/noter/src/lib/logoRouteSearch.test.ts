@@ -56,19 +56,21 @@ describe("logoRouteSearch", () => {
   });
 
   it("drops default logo state when building route search", () => {
-    expect(
-      buildLogoRouteSearch({
-        elevationDegrees: DEFAULT_ELEVATION_DEGREES,
-        fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
-        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
-        isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
-        rotationAxisMode: "cube-y",
-        rotationDegrees: DEFAULT_ROTATION_DEGREES,
-        themeColors: DEFAULT_LOGO_THEME_COLORS,
-        viewSnapEnabled: true,
-        voxelState: DEFAULT_VOXEL_STATE,
-      }),
-    ).toEqual({});
+    const search = buildLogoRouteSearch({
+      elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+      fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
+      isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+      isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+      rotationAxisMode: "cube-y",
+      rotationDegrees: DEFAULT_ROTATION_DEGREES,
+      themeColors: DEFAULT_LOGO_THEME_COLORS,
+      viewSnapEnabled: true,
+      voxelState: DEFAULT_VOXEL_STATE,
+    });
+
+    expect(search).toEqual({});
+    expect("depth" in search).toBe(true);
+    expect(search.depth).toBeUndefined();
   });
 
   it("preserves canonical theme mode flags when building route search", () => {

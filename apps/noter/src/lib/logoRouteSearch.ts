@@ -198,9 +198,10 @@ export function buildLogoRouteSearch(args: {
     ...(args.elevationDegrees !== DEFAULT_ELEVATION_DEGREES
       ? { elev: Number(args.elevationDegrees.toFixed(1)) }
       : {}),
-    ...(fractalDepth !== DEFAULT_LOGO_FRACTAL_DEPTH
-      ? { depth: fractalDepth }
-      : {}),
+    // `depth` is retained by the root route, so default depth needs an own
+    // undefined tombstone to clear a previous recursive preview value.
+    depth:
+      fractalDepth !== DEFAULT_LOGO_FRACTAL_DEPTH ? fractalDepth : undefined,
     ...(args.viewSnapEnabled ? {} : { freeView: true }),
     ...(args.isoCubeSidePixels !== DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX
       ? { isoSide: args.isoCubeSidePixels }

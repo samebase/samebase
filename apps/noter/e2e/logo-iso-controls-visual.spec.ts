@@ -255,6 +255,27 @@ test("logo recursive depth renders a static rotatable Three scene", async ({
   });
 });
 
+test("logo depth slider clears default depth from the URL", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo?depth=3&rot=45", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+
+  await expect(controlsSidebar.getByLabel("Depth value")).toHaveValue("3");
+  await controlsSidebar.getByLabel("Depth slider").fill("1");
+  await expect(controlsSidebar.getByLabel("Depth value")).toHaveValue("1");
+  await expect
+    .poll(() => {
+      const url = new URL(page.url());
+      return url.searchParams.has("depth");
+    })
+    .toBe(false);
+});
+
 test("logo iso controls mobile boot", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/logo/iso?isoSide=6", {
