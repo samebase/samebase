@@ -192,7 +192,7 @@ The playground should expose at least these presets:
 
 - A moving voxel can only slide to a face-adjacent empty cell.
 - No jump moves.
-- No moving outside the `3x3x3` grid.
+- No moving outside the current voxel grid.
 - Motion should be rendered as a direct slide between adjacent cells, not as a
   lifted arc through empty space.
 
@@ -210,14 +210,15 @@ The playground should expose at least these presets:
 ### 5. Origin constraints
 
 - The same cube should not be chosen twice in a row when avoidable.
-- The true center cube `[1,1,1]` must never be selected as a shuffle origin.
+- The true center cube for the current grid must never be selected as a shuffle
+  origin.
 - Shuffle origins should be limited to cubes that currently have at least one
   exposed face visible to the current camera view.
 - A cube only needs to satisfy the visibility rule when selected; it does not
   need to remain visible for the full duration of the move while the logo
   rotates.
-- Shuffle is a depth-1 behavior until recursive motion has a separate product
-  contract.
+- Shuffle may run at recursive depths and moves cubes in the current rendered
+  voxel grid.
 
 ## Rendering Rules
 

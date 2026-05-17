@@ -147,8 +147,8 @@ public landing logo surfaces. The playground slider should stop at `5` as the
 comfortable exploration range, while direct number input and URL state may use
 higher normalized integer depths deliberately. Recursive depths stay static as
 shapes: rotation, dragging, colors, opacity, and static SVG output continue to
-work, but direct tiny-cube editing and shuffle remain depth-1 behaviors until
-recursive motion has its own deliberate contract.
+work. Direct tiny-cube editing remains a depth-1 behavior, while shuffle may
+move cubes in whichever recursive voxel grid is currently rendered.
 
 ## Validation
 

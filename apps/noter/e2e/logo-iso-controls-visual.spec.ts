@@ -210,7 +210,7 @@ test("logo public query links cancel conflicting root theme modes", async ({
   ).toBeVisible();
 });
 
-test("logo recursive depth renders a static rotatable Three scene", async ({
+test("logo recursive depth renders a rotatable shuffleable Three scene", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -228,7 +228,16 @@ test("logo recursive depth renders a static rotatable Three scene", async ({
   ).toHaveCount(0);
   await expect(
     controlsSidebar.getByRole("button", { name: "Start shuffle" }),
-  ).toHaveCount(0);
+  ).toBeVisible();
+  await expect(controlsSidebar).toContainText("Parallel cubes");
+  await controlsSidebar.getByRole("button", { name: "Start shuffle" }).click();
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Stop shuffle" }),
+  ).toBeVisible();
+  await controlsSidebar.getByRole("button", { name: "Stop shuffle" }).click();
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Start shuffle" }),
+  ).toBeVisible();
   await controlsSidebar.getByRole("button", { name: "SVG" }).click();
   await expect
     .poll(() => {

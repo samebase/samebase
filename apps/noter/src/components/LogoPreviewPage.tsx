@@ -829,9 +829,6 @@ function useLogoPreviewController({
       setFaceColorAnimationEnabled: store.actions.setFaceColorAnimationEnabled,
       setFractalDepth: (fractalDepth: number) => {
         const nextFractalDepth = normalizeLogoFractalDepth(fractalDepth);
-        if (nextFractalDepth > DEFAULT_LOGO_FRACTAL_DEPTH) {
-          store.actions.setShuffleEnabled(false);
-        }
         commitRouteState((currentState) => ({
           ...currentState,
           fractalDepth: nextFractalDepth,
@@ -1168,7 +1165,7 @@ export function LogoPreviewPage({
   );
   const isRecursiveDepth = logoVoxelGrid !== undefined;
   const shuffleAnimation = {
-    enabled: state.isShuffleEnabled && !isRecursiveDepth,
+    enabled: state.isShuffleEnabled,
     parallelMoves: state.shuffleParallelMoves,
   };
 
@@ -1643,52 +1640,48 @@ export function LogoPreviewPage({
               {state.isAutoRotating ? "Stop auto rotate" : "Start auto rotate"}
             </Button>
           ) : null}
-          {!isRecursiveDepth ? (
-            <Button
-              type="button"
-              size="sm"
-              variant={state.isShuffleEnabled ? "default" : "outline"}
-              className="w-full rounded-none"
-              onClick={() => {
-                controls.setShuffleEnabled(!state.isShuffleEnabled);
-              }}
-            >
-              {state.isShuffleEnabled ? "Stop shuffle" : "Start shuffle"}
-            </Button>
-          ) : null}
+          <Button
+            type="button"
+            size="sm"
+            variant={state.isShuffleEnabled ? "default" : "outline"}
+            className="w-full rounded-none"
+            onClick={() => {
+              controls.setShuffleEnabled(!state.isShuffleEnabled);
+            }}
+          >
+            {state.isShuffleEnabled ? "Stop shuffle" : "Start shuffle"}
+          </Button>
         </div>
 
-        {!isRecursiveDepth ? (
-          <div className={LOGO_CONTROL_STACK_CLASS_NAME}>
-            <Label className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              Parallel cubes
-            </Label>
-            <Select
-              value={`${state.shuffleParallelMoves}`}
-              onValueChange={(value) => {
-                controls.setShuffleParallelMoves(
-                  parseShuffleParallelMoves(value),
-                );
-              }}
-            >
-              <SelectTrigger className="h-9 rounded-none border-border bg-background px-2 text-sm shadow-none">
-                {state.shuffleParallelMoves}{" "}
-                {state.shuffleParallelMoves === 1 ? "cube" : "cubes"}
-              </SelectTrigger>
-              <SelectContent className="rounded-none border-border">
-                {LOGO_SHUFFLE_PARALLEL_OPTIONS.map((option) => (
-                  <SelectItem
-                    key={option}
-                    value={`${option}`}
-                    className="rounded-none"
-                  >
-                    {option} {option === 1 ? "cube" : "cubes"}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        ) : null}
+        <div className={LOGO_CONTROL_STACK_CLASS_NAME}>
+          <Label className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+            Parallel cubes
+          </Label>
+          <Select
+            value={`${state.shuffleParallelMoves}`}
+            onValueChange={(value) => {
+              controls.setShuffleParallelMoves(
+                parseShuffleParallelMoves(value),
+              );
+            }}
+          >
+            <SelectTrigger className="h-9 rounded-none border-border bg-background px-2 text-sm shadow-none">
+              {state.shuffleParallelMoves}{" "}
+              {state.shuffleParallelMoves === 1 ? "cube" : "cubes"}
+            </SelectTrigger>
+            <SelectContent className="rounded-none border-border">
+              {LOGO_SHUFFLE_PARALLEL_OPTIONS.map((option) => (
+                <SelectItem
+                  key={option}
+                  value={`${option}`}
+                  className="rounded-none"
+                >
+                  {option} {option === 1 ? "cube" : "cubes"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         {renderMode === "three" ? (
           <div className="flex items-start gap-3">
