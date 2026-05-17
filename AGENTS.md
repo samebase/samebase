@@ -303,6 +303,10 @@ Key domain entities:
   would exactly equal its URL, prefix the label with `link` plus a leading space
   so the rendered link stays visible until that ProseMark bug is fixed.
 - Add or update screenshot coverage whenever a patch changes shipped UI.
+- When creating or refreshing Playwright screenshot baselines locally, always
+  use Docker with `linux/arm64`, such as
+  `PLAYWRIGHT_LINUX_PLATFORM=linux/arm64 pnpm test:visual:linux -- --update-snapshots=all <spec>`.
+  Never accept native macOS/browser screenshots as baselines.
 - For bugs involving scroll, touch, drag, focus, selection, pane layout, auth
   wiring, or route shell behavior, reproduce and test the real app route first.
 - If a fixture is still needed, it must mount the exact production component

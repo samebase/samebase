@@ -101,7 +101,7 @@ function commandExists(command: string): boolean {
   return result.status === 0;
 }
 
-function readDockerArchitecture(): string {
+function ensureDockerIsRunning(): void {
   const result = spawnSync(
     "docker",
     ["info", "--format", "{{.Architecture}}"],
@@ -113,25 +113,16 @@ function readDockerArchitecture(): string {
   if (result.status !== 0) {
     fail("Docker is not running. Start OrbStack/Docker and retry.");
   }
-
-  return result.stdout.trim();
-}
-
-function chooseDefaultPlatform(dockerArchitecture: string): string {
-  switch (dockerArchitecture) {
-    case "aarch64":
-    case "arm64":
-      return "linux/arm64";
-    case "amd64":
-    case "x86_64":
-      return "linux/amd64";
-    default:
-      return "linux/arm64";
-  }
 }
 
 function hasSnapshotUpdateArg(args: string[]): boolean {
-  return args.some((arg) => arg === "--update-snapshots" || arg === "-u");
+  return args.some(
+    (arg) =>
+      arg === "--update-snapshots" ||
+      arg === "-u" ||
+      arg.startsWith("--update-snapshots=") ||
+      arg.startsWith("-u="),
+  );
 }
 
 function printRunHeader(image: string, platform: string, outDir: string): void {
@@ -156,8 +147,8 @@ function runDocker(
   outDirPath: string,
   args: string[],
 ): number {
-  const dockerArchitecture = readDockerArchitecture();
-  const defaultPlatform = chooseDefaultPlatform(dockerArchitecture);
+  ensureDockerIsRunning();
+  const defaultPlatform = "linux/arm64";
   const image = readEnv("PLAYWRIGHT_LINUX_IMAGE", DEFAULT_IMAGE);
   const platform = readEnv("PLAYWRIGHT_LINUX_PLATFORM", defaultPlatform);
   const pnpmStoreVolume = readEnv(

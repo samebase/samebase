@@ -2,27 +2,19 @@
 
 ## Canonical Environment
 
-Required Playwright screenshot baselines are Linux baselines. Native macOS
+Required Playwright screenshot baselines are Linux ARM64 baselines. Native macOS
 visual runs are useful for debugging, but they are not authoritative for
-accepting or rejecting screenshot diffs.
+accepting, rejecting, or creating screenshot diffs.
 
-The current local recommendation is to run visual tests inside Docker with the
-official Playwright Linux image:
+Run visual tests inside Docker with the official Playwright Linux image:
 
 ```bash
 pnpm test:visual:linux
 ```
 
-On Apple Silicon Docker hosts, the default platform is `linux/arm64`. That is
-intentional: the OrbStack ARM64 Linux experiment matched the Blacksmith x86_64
-Testbox baseline exactly for the machines workspace header while avoiding macOS
-text rendering. On x86_64 Docker hosts, the default platform is `linux/amd64`.
-If exact Blacksmith CPU architecture is needed from Apple Silicon, run the
-slower emulated pass:
-
-```bash
-PLAYWRIGHT_LINUX_PLATFORM=linux/amd64 pnpm test:visual:linux
-```
+The default platform is always `linux/arm64`. That is intentional: local
+screenshot creation must not depend on the host CPU, and Linux ARM64 avoids the
+macOS text-rendering drift that makes screenshot baselines noisy.
 
 ## Daily Workflow
 
@@ -35,7 +27,7 @@ pnpm test:visual:linux -- machines-workspace-visual.spec.ts
 Update snapshots from Linux only when the rendered UI is intentionally changing:
 
 ```bash
-pnpm test:visual:linux -- --update-snapshots machines-workspace-visual.spec.ts
+pnpm test:visual:linux -- --update-snapshots=all machines-workspace-visual.spec.ts
 ```
 
 The command copies the repo into a temporary Linux workdir inside the container,
@@ -56,9 +48,10 @@ Reports are written locally after each run:
 
 ## Useful Overrides
 
+- `PLAYWRIGHT_LINUX_PLATFORM=linux/arm64` runs the required Linux ARM64
+  container for creating screenshots locally.
 - `PLAYWRIGHT_LINUX_PLATFORM=linux/amd64` runs the x86_64/emulated container.
-- `PLAYWRIGHT_LINUX_PLATFORM=linux/arm64` runs the fast Apple Silicon Linux
-  container.
+  Use it only for one-off diagnostics, not for accepted screenshot baselines.
 - `PLAYWRIGHT_LINUX_IMAGE=mcr.microsoft.com/playwright:v1.58.2-noble` pins the
   Playwright browser image. Keep this aligned with `@playwright/test`.
 - `PLAYWRIGHT_LINUX_OUT=.tmp/playwright-linux` changes the report output
