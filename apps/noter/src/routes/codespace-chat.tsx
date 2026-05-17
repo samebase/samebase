@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import { CodespaceChatOnlyView } from "@/components/CodespaceChatOnlyView";
-import { CHAT_ENABLED } from "@/lib/featureFlags";
+import { CHAT_ENABLED, CODESPACES_ENABLED } from "../../shared/featureFlags";
 import { buildVaultFileRoute } from "@/lib/vaultRoutes";
 
 function DisabledCodespaceChatRedirect() {
@@ -27,7 +27,7 @@ function DisabledCodespaceChatRedirect() {
 function CodespaceChatRouteComponent() {
   return (
     <AuthenticatedAppRoutePage>
-      {CHAT_ENABLED ? (
+      {CHAT_ENABLED && CODESPACES_ENABLED ? (
         <CodespaceChatOnlyView />
       ) : (
         <DisabledCodespaceChatRedirect />

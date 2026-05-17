@@ -84,6 +84,10 @@ const providerCleanupPlan = {
   codespaces: union(
     skipNotRequested,
     object({
+      action: literal("skip"),
+      reason: literal("feature_disabled"),
+    }),
+    object({
       action: literal("delete_connected_codespaces"),
     }),
   ),

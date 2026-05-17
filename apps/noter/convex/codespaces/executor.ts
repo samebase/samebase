@@ -11,6 +11,7 @@ import {
   readString,
 } from "../jsonUtils";
 import { starterTemplateManifest } from "../starterSeedManifest.generated";
+import { assertCodespacesEnabled } from "../../shared/featureFlags";
 
 const executeCommandResult = v.object({
   stdout: v.string(),
@@ -76,6 +77,7 @@ export const executeCommand = action({
   },
   returns: executeCommandResult,
   handler: async (ctx, args): Promise<Infer<typeof executeCommandResult>> => {
+    assertCodespacesEnabled();
     // Get codespace record with agentUrl and agentToken
     const codespace = await ctx.runQuery(
       internal.codespaces.mutations.getCodespace,
@@ -138,6 +140,7 @@ export const writeFileToCodespace = action({
     ctx,
     args,
   ): Promise<Infer<typeof writeFileToCodespaceResult>> => {
+    assertCodespacesEnabled();
     const codespace = await ctx.runQuery(
       internal.codespaces.mutations.getCodespace,
       {
@@ -197,6 +200,7 @@ export const readFileFromCodespace = action({
     ctx,
     args,
   ): Promise<Infer<typeof readFileFromCodespaceResult>> => {
+    assertCodespacesEnabled();
     const codespace = await ctx.runQuery(
       internal.codespaces.mutations.getCodespace,
       {
@@ -259,6 +263,7 @@ export const listFiles = action({
   },
   returns: listFilesResult,
   handler: async (ctx, args): Promise<Infer<typeof listFilesResult>> => {
+    assertCodespacesEnabled();
     const codespace = await ctx.runQuery(
       internal.codespaces.mutations.getCodespace,
       {
@@ -315,6 +320,7 @@ export const deleteFile = action({
   },
   returns: deleteFileResult,
   handler: async (ctx, args): Promise<Infer<typeof deleteFileResult>> => {
+    assertCodespacesEnabled();
     const codespace = await ctx.runQuery(
       internal.codespaces.mutations.getCodespace,
       {
@@ -375,6 +381,7 @@ export const getFileStat = action({
   },
   returns: getFileStatResult,
   handler: async (ctx, args): Promise<Infer<typeof getFileStatResult>> => {
+    assertCodespacesEnabled();
     const codespace = await ctx.runQuery(
       internal.codespaces.mutations.getCodespace,
       {
@@ -431,6 +438,7 @@ export const checkAgentHealth = action({
   },
   returns: checkAgentHealthResult,
   handler: async (ctx, args): Promise<Infer<typeof checkAgentHealthResult>> => {
+    assertCodespacesEnabled();
     const codespace = await ctx.runQuery(
       internal.codespaces.mutations.getCodespace,
       {
@@ -534,6 +542,7 @@ async function getActiveRunningCodespace(
   agentUrl: string;
   agentToken: string;
 }> {
+  assertCodespacesEnabled();
   const codespace = await ctx.runQuery(
     internal.codespaces.mutations.getCodespace,
     {

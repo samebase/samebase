@@ -585,7 +585,7 @@ describe("vault deletion workflow", () => {
     ).rejects.toThrow("cannot remove the GitHub repository");
   });
 
-  it("requires GitHub before accepting Codespaces cleanup", async () => {
+  it("skips Codespaces cleanup while the feature is disabled", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
@@ -628,8 +628,9 @@ describe("vault deletion workflow", () => {
       return { userId, vaultId };
     });
 
-    await expect(
-      t.mutation(internal.vault.deletion.runs.createInitialRun, {
+    const result = await t.mutation(
+      internal.vault.deletion.runs.createInitialRun,
+      {
         userId: ids.userId,
         vaultId: ids.vaultId,
         options: {
@@ -638,8 +639,8 @@ describe("vault deletion workflow", () => {
           removeConvexProvision: false,
           removeCloudflareProvision: false,
         },
-      }),
-    ).rejects.toThrow("GitHub is not connected.");
+      },
+    );
 
     const snapshot = await t.run(async (ctx) => {
       const vault = await ctx.db.get(ids.vaultId);
@@ -651,8 +652,22 @@ describe("vault deletion workflow", () => {
         .collect();
       return { runs, vault };
     });
-    expect(snapshot.vault?.deletion).toEqual({ state: "not_deleting" });
-    expect(snapshot.runs).toHaveLength(0);
+    expect(snapshot.vault?.deletion).toMatchObject({
+      state: "deleting",
+      runId: result.deletionRunId,
+    });
+    expect(snapshot.runs).toHaveLength(1);
+    expect(snapshot.runs[0]).toMatchObject({
+      snapshot: {
+        state: "retained_for_retry",
+        plan: {
+          codespaces: {
+            action: "skip",
+            reason: "feature_disabled",
+          },
+        },
+      },
+    });
   });
 
   it("retries a failed retained snapshot with a new run", async () => {
