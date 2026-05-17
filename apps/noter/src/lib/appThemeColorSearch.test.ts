@@ -38,9 +38,17 @@ describe("appThemeColorSearch", () => {
       buildLogoThemeColorSearch({
         ...DEFAULT_LOGO_THEME_COLORS,
         background: "sky-950",
-        top: "sky-950",
+        top: DEFAULT_LOGO_THEME_COLORS.top,
       }).top,
     ).toBeUndefined();
+
+    expect(
+      buildLogoThemeColorSearch({
+        ...DEFAULT_LOGO_THEME_COLORS,
+        background: "sky-950",
+        top: "sky-950",
+      }).top,
+    ).toBe("sky-950");
   });
 
   it("reads route search into semantic app theme colors", () => {
@@ -48,6 +56,12 @@ describe("appThemeColorSearch", () => {
       ...DEFAULT_APP_THEME_COLORS,
       background: "#ffffff",
     });
+
+    expect(
+      readLogoThemeColors({
+        background: "#112233",
+      }).top,
+    ).toBe(DEFAULT_LOGO_THEME_COLORS.top);
 
     expect(
       readLogoThemeColors({

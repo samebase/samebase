@@ -179,32 +179,6 @@ function readColorInputValue(token: LogoColorToken): string {
   return expandHexColorToken(getTailwindColorHex(token));
 }
 
-function updateLogoThemeColor({
-  colorKey,
-  currentColors,
-  nextToken,
-}: {
-  colorKey: LogoThemeColorKey;
-  currentColors: LogoThemeColors;
-  nextToken: LogoColorToken;
-}): LogoThemeColors {
-  if (colorKey !== "background") {
-    return {
-      ...currentColors,
-      [colorKey]: nextToken,
-    };
-  }
-
-  const shouldTopFollowBackground =
-    currentColors.top === currentColors.background;
-
-  return {
-    ...currentColors,
-    background: nextToken,
-    top: shouldTopFollowBackground ? nextToken : currentColors.top,
-  };
-}
-
 function ColorSwatch({
   color,
   size = "default",
@@ -884,15 +858,14 @@ function useLogoPreviewController({
       ) => {
         commitRouteState((currentState) => ({
           ...currentState,
-          themeColors: updateLogoThemeColor({
-            colorKey: themeColorKey,
-            currentColors: currentState.themeColors,
-            nextToken: getTailwindColorTokenForSelection(
+          themeColors: {
+            ...currentState.themeColors,
+            [themeColorKey]: getTailwindColorTokenForSelection(
               nextFamily,
               getTailwindColorShade(currentState.themeColors[themeColorKey]),
               currentState.themeColors[themeColorKey],
             ),
-          }),
+          },
         }));
       },
       setThemeColorShade: (
@@ -901,15 +874,14 @@ function useLogoPreviewController({
       ) => {
         commitRouteState((currentState) => ({
           ...currentState,
-          themeColors: updateLogoThemeColor({
-            colorKey: themeColorKey,
-            currentColors: currentState.themeColors,
-            nextToken: getTailwindColorTokenForSelection(
+          themeColors: {
+            ...currentState.themeColors,
+            [themeColorKey]: getTailwindColorTokenForSelection(
               getTailwindColorFamily(currentState.themeColors[themeColorKey]),
               nextShade,
               currentState.themeColors[themeColorKey],
             ),
-          }),
+          },
         }));
       },
       setThemeColors: (themeColors: LogoThemeColors) => {
@@ -929,11 +901,10 @@ function useLogoPreviewController({
 
         debounceRouteState((currentState) => ({
           ...currentState,
-          themeColors: updateLogoThemeColor({
-            colorKey: themeColorKey,
-            currentColors: currentState.themeColors,
-            nextToken: normalizedColor,
-          }),
+          themeColors: {
+            ...currentState.themeColors,
+            [themeColorKey]: normalizedColor,
+          },
         }));
       },
       setViewSnapEnabled: (isViewSnapEnabled: boolean) => {

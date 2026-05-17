@@ -1,6 +1,7 @@
 import {
   APP_THEME_COLOR_KEYS,
   DEFAULT_APP_THEME_COLORS,
+  DEFAULT_LOGO_THEME_COLORS,
   LOGO_THEME_COLOR_KEYS,
   getFaceColorsFromLogoThemeColors,
   getLogoColorCssHsl,
@@ -194,7 +195,7 @@ export function readLogoThemeColors(
 
   return {
     ...appThemeColors,
-    top: search.top ?? appThemeColors.background,
+    top: search.top ?? DEFAULT_LOGO_THEME_COLORS.top,
   };
 }
 
@@ -299,7 +300,9 @@ export function buildLogoThemeColorSearch(
   );
 
   themeColorSearch.top =
-    themeColors.top !== themeColors.background ? themeColors.top : undefined;
+    themeColors.top !== DEFAULT_LOGO_THEME_COLORS.top
+      ? themeColors.top
+      : undefined;
 
   return themeColorSearch;
 }
