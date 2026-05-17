@@ -7,7 +7,6 @@ export const MIN_ELEVATION_DEGREES = 0;
 export const MAX_ELEVATION_DEGREES = 360;
 export const DEFAULT_LOGO_FRACTAL_DEPTH = 1;
 export const MIN_LOGO_FRACTAL_DEPTH = 1;
-export const MAX_LOGO_FRACTAL_DEPTH = 3;
 const LEGACY_VOXEL_LAYER_SEPARATOR = ",";
 const LEGACY_VOXEL_ROW_SEPARATOR = "/";
 const VOXEL_LAYER_SEPARATOR = "-";
@@ -86,10 +85,7 @@ export function normalizeLogoFractalDepth(value: number): number {
     return DEFAULT_LOGO_FRACTAL_DEPTH;
   }
 
-  return Math.min(
-    Math.max(Math.round(value), MIN_LOGO_FRACTAL_DEPTH),
-    MAX_LOGO_FRACTAL_DEPTH,
-  );
+  return Math.max(Math.round(value), MIN_LOGO_FRACTAL_DEPTH);
 }
 
 export function getLogoFractalGridSize(depth: number): number {

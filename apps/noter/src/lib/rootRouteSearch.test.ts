@@ -91,9 +91,9 @@ describe("rootRouteSearch", () => {
     });
   });
 
-  it("normalizes root logo depth for public logo routes", () => {
+  it("normalizes root logo depth without capping deliberate values", () => {
     expect(readRootRouteSearch("?depth=99")).toEqual({
-      depth: 3,
+      depth: 99,
     });
   });
 

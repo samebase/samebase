@@ -41,8 +41,8 @@ depth previews of that mark.
 - Persistent storage of logo edits in Convex.
 - A production branding system for the entire app theme.
 - Perfect physically simulated motion.
-- Support for arbitrary grid sizes larger than the bounded recursive depth
-  preview.
+- Making arbitrary large recursive depths fast or polished beyond the
+  comfortable slider range.
 
 ## Route and Layout
 
@@ -101,7 +101,9 @@ Example:
 
 - The `depth` query param controls recursive rendering.
 - Depth `1` is the normal editable logo and is the default.
-- Depth `2` and `3` repeat the depth-1 motif recursively.
+- Depths above `1` repeat the depth-1 motif recursively.
+- The playground depth slider stops at `5`; direct number input and URL state
+  may use higher normalized integer depths deliberately.
 - Recursive depth keeps corners empty according to the Noter motif; it is not a
   standard Menger sponge.
 

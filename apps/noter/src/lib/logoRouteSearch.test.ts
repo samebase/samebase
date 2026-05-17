@@ -22,7 +22,7 @@ describe("logoRouteSearch", () => {
       validateLogoRouteSearch({
         axis: "screen-vertical",
         dev: "",
-        depth: "2",
+        depth: "99",
         elev: "32.4",
         freeView: "",
         isoSide: "52",
@@ -41,7 +41,7 @@ describe("logoRouteSearch", () => {
       background: "sky-500",
       border: "stone-300",
       dark: true,
-      depth: 2,
+      depth: 99,
       dev: true,
       elev: 32.4,
       freeView: true,
@@ -143,7 +143,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
-        fractalDepth: 2,
+        fractalDepth: 6,
         isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         rotationAxisMode: "cube-y",
@@ -152,6 +152,6 @@ describe("logoRouteSearch", () => {
         viewSnapEnabled: true,
         voxelState: DEFAULT_VOXEL_STATE,
       }),
-    ).toEqual({ depth: 2 });
+    ).toEqual({ depth: 6 });
   });
 });

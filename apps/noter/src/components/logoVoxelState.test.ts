@@ -60,9 +60,9 @@ describe("logoVoxelState", () => {
     );
   });
 
-  it("caps logo fractal depth to the supported render range", () => {
+  it("normalizes logo fractal depth without capping deliberate values", () => {
     expect(normalizeLogoFractalDepth(0)).toBe(1);
     expect(normalizeLogoFractalDepth(2.4)).toBe(2);
-    expect(normalizeLogoFractalDepth(99)).toBe(3);
+    expect(normalizeLogoFractalDepth(99)).toBe(99);
   });
 });

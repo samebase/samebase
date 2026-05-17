@@ -264,10 +264,14 @@ test("logo depth slider clears default depth from the URL", async ({
   });
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  const depthSlider = controlsSidebar.getByLabel("Depth slider");
+  const depthValue = controlsSidebar.getByLabel("Depth value");
 
-  await expect(controlsSidebar.getByLabel("Depth value")).toHaveValue("3");
-  await controlsSidebar.getByLabel("Depth slider").fill("1");
-  await expect(controlsSidebar.getByLabel("Depth value")).toHaveValue("1");
+  await expect(depthSlider).toHaveAttribute("max", "5");
+  await expect(depthValue).not.toHaveAttribute("max");
+  await expect(depthValue).toHaveValue("3");
+  await depthSlider.fill("1");
+  await expect(depthValue).toHaveValue("1");
   await expect
     .poll(() => {
       const url = new URL(page.url());

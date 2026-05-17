@@ -141,12 +141,14 @@ shape rules from URL or route state.
 ### Phase 5: Recursive Tile Exploration
 
 Add a `depth` route/search option after the renderer model is simpler. Depth `1`
-is the normal editable logo. Depth `2` and `3` render the recursive settled
-shape through the shared voxel-grid model across Three, smooth SVG, isometric,
-and public landing logo surfaces. Recursive depths stay static as shapes:
-rotation, dragging, colors, opacity, and static SVG output continue to work, but
-direct tiny-cube editing and shuffle remain depth-1 behaviors until recursive
-motion has its own deliberate contract.
+is the normal editable logo. Higher depths render the recursive settled shape
+through the shared voxel-grid model across Three, smooth SVG, isometric, and
+public landing logo surfaces. The playground slider should stop at `5` as the
+comfortable exploration range, while direct number input and URL state may use
+higher normalized integer depths deliberately. Recursive depths stay static as
+shapes: rotation, dragging, colors, opacity, and static SVG output continue to
+work, but direct tiny-cube editing and shuffle remain depth-1 behaviors until
+recursive motion has its own deliberate contract.
 
 ## Validation
 

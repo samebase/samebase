@@ -64,7 +64,6 @@ import {
   DEFAULT_LOGO_FRACTAL_DEPTH,
   DEFAULT_ROTATION_DEGREES,
   DEFAULT_VOXEL_STATE,
-  MAX_LOGO_FRACTAL_DEPTH,
   MAX_ELEVATION_DEGREES,
   MIN_LOGO_FRACTAL_DEPTH,
   MIN_ELEVATION_DEGREES,
@@ -113,6 +112,7 @@ const LOGO_PREVIEW_ROUTE_COMMIT_DEBOUNCE_MS = 150;
 const MIN_LOGO_OPACITY = 0;
 const MAX_LOGO_OPACITY = 1;
 const LOGO_OPACITY_STEP = 0.01;
+const LOGO_FRACTAL_DEPTH_SLIDER_MAX = 5;
 const ROTATION_AXIS_MODE_LABELS: Record<LogoRotationAxisMode, string> = {
   "cube-y": "Cube axis",
   "screen-vertical": "Vertical",
@@ -1042,6 +1042,7 @@ function LogoPreviewSection({
 }
 
 function LogoRangeControl({
+  allowValueAboveMax = false,
   label,
   max,
   min,
@@ -1055,6 +1056,7 @@ function LogoRangeControl({
   valueLabel,
   valueText,
 }: {
+  allowValueAboveMax?: boolean;
   label: string;
   max: number | string;
   min: number | string;
@@ -1109,7 +1111,7 @@ function LogoRangeControl({
             type="number"
             inputMode={valueInputMode}
             min={min}
-            max={max}
+            max={allowValueAboveMax ? undefined : max}
             step={step}
             value={valueLabel}
             onChange={handleValueChange}
@@ -1295,8 +1297,9 @@ export function LogoPreviewPage({
 
       <LogoPreviewSection title="Shape">
         <LogoRangeControl
+          allowValueAboveMax
           label="Depth"
-          max={MAX_LOGO_FRACTAL_DEPTH}
+          max={LOGO_FRACTAL_DEPTH_SLIDER_MAX}
           min={MIN_LOGO_FRACTAL_DEPTH}
           onSliderChange={controls.setFractalDepth}
           onValueChange={controls.setFractalDepth}
