@@ -86,6 +86,9 @@ For a Workers/TanStack Start version:
   deploy/build helpers are TypeScript, pin Node 24 with `.node-version` or
   `NODE_VERSION`; otherwise use plain ESM JavaScript helpers or an explicit
   TypeScript runner.
+- Use the split Convex deploy-key contract: `PROD_CONVEX_DEPLOY_KEY` for the
+  production branch, `PREVIEW_CONVEX_DEPLOY_KEY` for non-production branches,
+  and no generic `CONVEX_DEPLOY_KEY` in the parent Workers build environment.
 - Do not add server functions, Worker request handlers, SSR complexity, extra
   adapters, or demo routes unless the first app truly needs them.
 

@@ -148,6 +148,13 @@ creates two deploy keys:
 Those keys are then injected into Cloudflare's production and preview build
 settings.
 
+For the Workers target, Noter injects those keys with the same names the public
+template and Noter production build use: `PROD_CONVEX_DEPLOY_KEY` for the
+production trigger and `PREVIEW_CONVEX_DEPLOY_KEY` for the preview trigger. Even
+though Workers Builds API triggers can isolate environment variables per
+trigger, using the split names keeps manual template setup, Noter app
+provisioning, and Noter production on one eventual contract.
+
 ### 5. Pages Project Is Created Or Patched
 
 `apps/noter/convex/cloudflareResources.ts:ensureCloudflareResources` is the

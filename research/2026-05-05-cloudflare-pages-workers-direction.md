@@ -174,8 +174,8 @@ request-cost impact.
 
 Verify how Workers Builds handles:
 
-1. production `CONVEX_DEPLOY_KEY`
-2. preview `CONVEX_DEPLOY_KEY`
+1. production `PROD_CONVEX_DEPLOY_KEY`
+2. preview `PREVIEW_CONVEX_DEPLOY_KEY`
 3. `VITE_CONVEX_URL` or generated Convex URL behavior
 4. per-branch or per-environment secrets
 5. build commands equivalent to `pnpm run build:cloudflare`

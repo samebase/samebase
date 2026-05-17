@@ -175,6 +175,10 @@ For a Workers version of the artifact:
 - Do not tell users to leave the Cloudflare Workers Git build command empty.
   Workers Builds has its own dashboard build command and currently does not
   honor Wrangler custom build settings there.
+- Keep Convex deploy-key names aligned with Noter production and
+  Noter-provisioned generated apps: `PROD_CONVEX_DEPLOY_KEY` for `main`,
+  `PREVIEW_CONVEX_DEPLOY_KEY` for non-production branches, and no generic
+  `CONVEX_DEPLOY_KEY` in the parent Workers build environment.
 - Keep Workers request handlers, server functions, and SSR complexity out of the
   first app unless the template truly needs them.
 

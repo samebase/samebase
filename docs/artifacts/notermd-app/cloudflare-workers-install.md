@@ -72,8 +72,9 @@ The `Path` field is the repository root used for build and deploy commands. It
 should stay `/` while the app lives at the repository root.
 
 Build variables and secrets are available only during the Workers build. The
-template needs `CONVEX_DEPLOY_KEY` as a build secret so Cloudflare can deploy
-Convex before producing static assets.
+template needs `PROD_CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY` as build
+secrets so Cloudflare can deploy the matching Convex deployment before producing
+static assets.
 
 ## Template Decision
 
@@ -122,7 +123,8 @@ Recommended dashboard values for the artifact:
 - Deploy command: `pnpm run deploy`.
 - Non-production branch deploy command: `pnpm run deploy:preview`.
 - Path: keep `/`.
-- Build secret: add `CONVEX_DEPLOY_KEY`.
+- Build secret: add `PROD_CONVEX_DEPLOY_KEY`.
+- Build secret: add `PREVIEW_CONVEX_DEPLOY_KEY`.
 
 ## Sources
 

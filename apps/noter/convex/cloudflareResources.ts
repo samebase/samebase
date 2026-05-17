@@ -50,6 +50,12 @@ const WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE =
 const NOTER_WORKERS_BUILD_TOKEN_NAME = "noter build token";
 const WORKERS_BUILDS_TOKEN_REQUIRED_MESSAGE = `Cloudflare Workers Builds has no build API token. In Cloudflare, create a Workers Builds API token named "${NOTER_WORKERS_BUILD_TOKEN_NAME}", then retry.`;
 const BUILD_TOKEN_PAGE_SIZE = 100;
+const PROD_CONVEX_DEPLOY_KEY = "PROD_CONVEX_DEPLOY_KEY";
+const PREVIEW_CONVEX_DEPLOY_KEY = "PREVIEW_CONVEX_DEPLOY_KEY";
+
+type CloudflareConvexDeployKeyName =
+  | typeof PROD_CONVEX_DEPLOY_KEY
+  | typeof PREVIEW_CONVEX_DEPLOY_KEY;
 
 export class CloudflareApiError extends Error {
   readonly method: CloudflareRequestMethod;
@@ -263,12 +269,13 @@ type CloudflareBuildEnvVars = Record<
   { value: string; is_secret: boolean }
 >;
 
-function buildCloudflareWorkersEnvVars(vars: {
+export function buildCloudflareWorkersEnvVars(vars: {
+  deployKeyName: CloudflareConvexDeployKeyName;
   convexDeployKey: string;
   convexUrl: string;
 }): CloudflareBuildEnvVars {
   return {
-    CONVEX_DEPLOY_KEY: {
+    [vars.deployKeyName]: {
       value: vars.convexDeployKey,
       is_secret: true,
     },
@@ -943,6 +950,7 @@ export async function ensureCloudflareResources(
         accountId: args.accountId,
         triggerUuid: productionTriggerUuid,
         envVars: buildCloudflareWorkersEnvVars({
+          deployKeyName: PROD_CONVEX_DEPLOY_KEY,
           convexDeployKey: args.convex.production.deployKey,
           convexUrl: args.convex.production.cloudUrl,
         }),
@@ -953,6 +961,7 @@ export async function ensureCloudflareResources(
         accountId: args.accountId,
         triggerUuid: previewTriggerUuid,
         envVars: buildCloudflareWorkersEnvVars({
+          deployKeyName: PREVIEW_CONVEX_DEPLOY_KEY,
           convexDeployKey: args.convex.preview.deployKey,
           convexUrl: args.convex.preview.cloudUrl,
         }),

@@ -35,6 +35,12 @@ Cloudflare Pages is legacy after this migration. Noter should not keep a
 permanent Pages/Workers provider matrix unless implementation proves that a
 short-lived Pages helper is cheaper than deleting it.
 
+The Convex deploy-key naming contract is part of the stack. Manual template
+users, Noter-provisioned generated apps, and Noter production should all select
+`PROD_CONVEX_DEPLOY_KEY` for the production branch and
+`PREVIEW_CONVEX_DEPLOY_KEY` for non-production branches, then pass the selected
+value to Convex as `CONVEX_DEPLOY_KEY` only inside the build child process.
+
 Generated app provisioning can move to Workers before Noter production hosting
 moves. That is the right first product step because it proves the user-facing
 automation path. The single-stack guarantee is still incomplete until Noter
@@ -245,8 +251,8 @@ Required Workers operations:
 4. create or reuse a Workers Builds build token for that credential
 5. create or patch the production build trigger
 6. create or patch the preview/non-production build trigger
-7. set production Convex env vars/secrets
-8. set preview Convex env vars/secrets
+7. set `PROD_CONVEX_DEPLOY_KEY` and production Convex build vars/secrets
+8. set `PREVIEW_CONVEX_DEPLOY_KEY` and preview Convex build vars/secrets
 9. trigger the first production build
 10. read build status and logs
 11. record production URL and Worker tag
