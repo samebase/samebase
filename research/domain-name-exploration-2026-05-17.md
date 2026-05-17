@@ -82,10 +82,10 @@ Register the best hand-reg candidates immediately while deciding:
 Checked on 2026-05-17. This is still only a practical screen, not legal
 clearance; use a trademark attorney before treating the name as cleared.
 
-- Domain purchase status: [`samebase.com`](https://samebase.com) redirects to
-  the Brandsly sale page, and Verisign RDAP shows nameservers
-  `BUY-DOMAIN.BRANDSLY.COM` and `FOR-SALE.BRANDSLY.COM`. The RDAP record was
-  created on 2018-02-18 and expires on 2027-02-18.
+- Domain purchase status: bought on 2026-05-17 and held at Dynadot. Verisign
+  RDAP shows registrar `Dynadot Inc`, `client transfer prohibited`, nameservers
+  `BUY-DOMAIN.BRANDSLY.COM` and `FOR-SALE.BRANDSLY.COM`, creation 2018-02-18,
+  and expiration 2027-02-18.
 - USPTO: the official [USPTO TMSearch](https://tmsearch.uspto.gov/) public
   backend returned `0` hits for an exact `samebase` wordmark-style query. A
   spaced `"same base"` query is too broad to be useful because it matches
@@ -103,17 +103,76 @@ clearance; use a trademark attorney before treating the name as cleared.
   named "Samebase" with mental-wellness copy, 1 follower, and 0 posts. YouTube
   `@samebase` is also occupied by a channel titled "same base". Bluesky
   `samebase.bsky.social` exists with 0 posts and 8 followers, though buying the
-  domain would let us use `samebase.com` as the Bluesky handle. TikTok
-  `@samebase` appears unclaimed, LinkedIn `/company/samebase/` returns 404, and
-  X/Twitter's public page payload reports a user-not-found style error for
-  `samebase`, but that should be verified while claiming because X is brittle
-  from unauthenticated checks.
+  domain would let us use `samebase.com` as the Bluesky handle. LinkedIn
+  `/company/samebase/` returns 404, and X/Twitter's public oEmbed endpoint
+  returns 404 for `samebase`, but both should be verified while claiming because
+  social availability checks can be brittle when unauthenticated. TikTok needs a
+  logged-in/in-app confirmation.
 - Judgment: this is cleaner than expected. The main risk is not a visible
   trademark/company collision; it is that two consumer-social handles are
   already taken. For a product whose core shtick is "an app creating apps from
   its own base/template", `samebase.com` is still the best paid candidate in
   this pass. If this becomes the leading brand, buy the `.com`, file the mark,
   and claim reachable handles immediately.
+
+### `samebase` account reservation sweep
+
+Checked on 2026-05-17 after buying `samebase.com`. Direct profile checks can
+change quickly, and some platforms hide true availability behind logged-in claim
+flows. Treat this as a practical reservation checklist, not a legal or
+platform-policy guarantee.
+
+Highest priority handles to claim now:
+
+| Surface          | Public check result                                                                                                         | Priority |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------- | -------- |
+| X / Twitter      | [`@samebase`](https://x.com/samebase) returned a 404 from Twitter's public oEmbed endpoint; claim from a logged-in account. | Highest  |
+| LinkedIn company | [`/company/samebase`](https://www.linkedin.com/company/samebase/) returned 404.                                             | Highest  |
+| GitLab           | Public API lookup for `username=samebase` returned `[]`.                                                                    | High     |
+| Docker Hub       | [`hub.docker.com/u/samebase`](https://hub.docker.com/u/samebase) returned 404.                                              | High     |
+| Hugging Face     | [`huggingface.co/samebase`](https://huggingface.co/samebase) returned 404.                                                  | High     |
+| PyPI             | [`pypi.org/pypi/samebase/json`](https://pypi.org/pypi/samebase/json) returned 404 for the package name.                     | High     |
+| crates.io        | [`crates.io/crates/samebase`](https://crates.io/crates/samebase) returned crate-not-found.                                  | High     |
+| RubyGems         | [`rubygems.org/gems/samebase`](https://rubygems.org/gems/samebase) returned not found.                                      | Medium   |
+| NuGet            | [`nuget.org/packages/Samebase`](https://www.nuget.org/packages/Samebase) had no flat-container package.                     | Medium   |
+| Dev.to           | [`dev.to/samebase`](https://dev.to/samebase) returned 404.                                                                  | Medium   |
+| Substack         | [`samebase.substack.com`](https://samebase.substack.com) returned 404.                                                      | Medium   |
+| Figma            | [`figma.com/@samebase`](https://www.figma.com/@samebase) returned 404.                                                      | Medium   |
+| Dribbble         | [`dribbble.com/samebase`](https://dribbble.com/samebase) returned 404.                                                      | Low      |
+| Behance          | [`behance.net/samebase`](https://www.behance.net/samebase) returned 404.                                                    | Low      |
+| Slack workspace  | [`samebase.slack.com`](https://samebase.slack.com) returned Slack's 404/glitch page.                                        | Low      |
+| Cloudflare Pages | [`samebase.pages.dev`](https://samebase.pages.dev) did not resolve.                                                         | Low      |
+| Netlify          | [`samebase.netlify.app`](https://samebase.netlify.app) returned 404.                                                        | Low      |
+| Read the Docs    | [`samebase.readthedocs.io`](https://samebase.readthedocs.io) returned project-not-found.                                    | Low      |
+| GitBook          | [`samebase.gitbook.io`](https://samebase.gitbook.io) returned 404.                                                          | Low      |
+| Intercom Help    | [`samebase.intercom.help`](https://samebase.intercom.help) returned 404.                                                    | Low      |
+
+Already occupied or blocked:
+
+| Surface   | Public check result                                                                                                                                                      |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Instagram | [`@samebase`](https://www.instagram.com/samebase/) exists as a low-signal "Samebase" mental-wellness profile with 1 follower, 0 posts, and no verification.              |
+| Threads   | Threads uses Instagram identity, so the occupied Instagram username should be treated as blocking `@samebase` unless Meta releases/transfers it.                         |
+| YouTube   | [`youtube.com/@samebase`](https://www.youtube.com/@samebase) resolves to a channel titled "same base".                                                                   |
+| Bluesky   | [`samebase.bsky.social`](https://bsky.app/profile/samebase.bsky.social) exists with 0 posts and 8 followers; use `samebase.com` as the Bluesky handle if needed.         |
+| Reddit    | [`u/SameBase`](https://www.reddit.com/user/samebase/about.json) exists, created 2020-04-01, with 1 karma. [`r/samebase`](https://www.reddit.com/r/samebase/) seems open. |
+| Telegram  | [`t.me/samebase`](https://t.me/samebase) resolves to `@samebase`.                                                                                                        |
+| Facebook  | [`facebook.com/samebase`](https://www.facebook.com/samebase) redirects to `facebook.com/same.base`, titled "Same Base".                                                  |
+| Pinterest | [`pinterest.com/samebase`](https://www.pinterest.com/samebase/) resolves to a "Samebase (samebase)" profile.                                                             |
+
+Needs logged-in confirmation:
+
+- TikTok [`@samebase`](https://www.tiktok.com/@samebase): unauthenticated checks
+  hit TikTok's anti-bot/WAF flow and did not reveal profile data.
+- Product Hunt [`@samebase`](https://www.producthunt.com/@samebase) and
+  [`/products/samebase`](https://www.producthunt.com/products/samebase):
+  unauthenticated checks hit Cloudflare, and web search did not surface an
+  obvious public Product Hunt profile or product.
+- Medium [`@samebase`](https://medium.com/@samebase), Hashnode
+  [`samebase.hashnode.dev`](https://samebase.hashnode.dev), Ko-fi
+  [`ko-fi.com/samebase`](https://ko-fi.com/samebase), and Twitch
+  [`twitch.tv/samebase`](https://www.twitch.tv/samebase) need logged-in or
+  platform-native confirmation.
 
 ### Independent second-pass recommendation
 
