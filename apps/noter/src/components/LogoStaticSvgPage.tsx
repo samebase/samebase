@@ -4,7 +4,10 @@ import {
 } from "@/components/logoStaticSvgContract";
 import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
 import {
+  DEFAULT_LOGO_FRACTAL_DEPTH,
+  createLogoFractalVoxelGrid,
   createFilledVoxelSet,
+  normalizeLogoFractalDepth,
   parseVoxelState,
 } from "@/components/logoVoxelState";
 import { Button } from "@/components/ui/button";
@@ -18,13 +21,31 @@ export function LogoStaticSvgPage({
   routeSearch: LogoRouteSearch;
 }) {
   const logoTheme = useResolvedAppThemeColorState(routeSearch);
+  const customFilledVoxels = parseVoxelState(routeSearch.vox ?? null);
+  const fractalDepth =
+    customFilledVoxels === null
+      ? normalizeLogoFractalDepth(
+          routeSearch.depth ?? DEFAULT_LOGO_FRACTAL_DEPTH,
+        )
+      : DEFAULT_LOGO_FRACTAL_DEPTH;
+  const fractalVoxelGrid = createLogoFractalVoxelGrid(fractalDepth);
   const filledVoxels =
-    parseVoxelState(routeSearch.vox ?? null) ??
-    createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES);
-  const staticSvgSrc = `${createStaticLogoSvgDataUrl({
-    faceColors: logoTheme.faceColors,
-    filledVoxels,
-  })}#${logoTheme.cacheKey}`;
+    customFilledVoxels ??
+    (fractalDepth === DEFAULT_LOGO_FRACTAL_DEPTH
+      ? createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES)
+      : fractalVoxelGrid.filledVoxels);
+  const staticSvgOptions =
+    fractalDepth === DEFAULT_LOGO_FRACTAL_DEPTH
+      ? {
+          faceColors: logoTheme.faceColors,
+          filledVoxels,
+        }
+      : {
+          faceColors: logoTheme.faceColors,
+          filledVoxels,
+          gridSize: fractalVoxelGrid.gridSize,
+        };
+  const staticSvgSrc = `${createStaticLogoSvgDataUrl(staticSvgOptions)}#${logoTheme.cacheKey}:${fractalDepth}`;
 
   return (
     <div

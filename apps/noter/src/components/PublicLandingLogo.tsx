@@ -4,7 +4,12 @@ import {
   STATIC_LOGO_ROTATION_DEGREES,
   STATIC_LOGO_VOXEL_STATE,
 } from "@/components/logoStaticSvgContract";
-import { normalizeRotationDegrees } from "@/components/logoVoxelState";
+import {
+  DEFAULT_LOGO_FRACTAL_DEPTH,
+  createLogoFractalVoxelGrid,
+  normalizeLogoFractalDepth,
+  normalizeRotationDegrees,
+} from "@/components/logoVoxelState";
 import {
   PUBLIC_LANDING_LOGO_ALT,
   PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME,
@@ -32,10 +37,13 @@ import {
   type AppThemeColorSearch,
 } from "@/lib/appThemeColorSearch";
 import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type LandingLogoSceneComponent =
   typeof import("@/components/NLogoScene").NLogoScene;
+type PublicLandingLogoSearch = AppThemeColorSearch & {
+  depth?: number;
+};
 
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 const AUTO_ROTATE_RESUME_DURATION_MS = 220;
@@ -66,7 +74,7 @@ export function PublicLandingLogo({
   autoRotate?: boolean;
   enableViewSnapping?: boolean;
   loadInteractiveScene?: boolean;
-  themeColorSearch?: AppThemeColorSearch;
+  themeColorSearch?: PublicLandingLogoSearch;
   viewStatePersistence?: RotatedLogoViewStatePersistence;
   viewStateKey?: RotatedLogoViewStateKey;
 }) {
@@ -85,10 +93,19 @@ export function PublicLandingLogo({
   );
   const logoTheme = useResolvedAppThemeColorState(themeColorSearch);
   const { backgroundColor, faceColors } = logoTheme;
+  const fractalDepth = normalizeLogoFractalDepth(
+    themeColorSearch.depth ?? DEFAULT_LOGO_FRACTAL_DEPTH,
+  );
+  const logoVoxelGrid = useMemo(
+    () => createLogoFractalVoxelGrid(fractalDepth),
+    [fractalDepth],
+  );
   const staticLogoSvgSrc = `${createStaticLogoSvgDataUrl({
     faceColors,
+    filledVoxels: logoVoxelGrid.filledVoxels,
+    gridSize: logoVoxelGrid.gridSize,
     view: initialView,
-  })}#${logoTheme.cacheKey}`;
+  })}#${logoTheme.cacheKey}:${fractalDepth}`;
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [isSvgVisible, setIsSvgVisible] = useState(true);
   const [isAutoRotating, setIsAutoRotating] = useState(autoRotate);
@@ -345,6 +362,7 @@ export function PublicLandingLogo({
                   ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG
                   : undefined
               }
+              voxelGrid={logoVoxelGrid}
               voxelState={STATIC_LOGO_VOXEL_STATE}
             />
           </div>

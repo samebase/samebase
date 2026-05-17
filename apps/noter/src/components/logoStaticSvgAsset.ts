@@ -8,11 +8,12 @@ import {
 } from "./logoStaticSvgContract";
 import { DEFAULT_FACE_COLORS, type FaceColors } from "./logoTailwindColors";
 import { createLogoThreeSvgMarkup } from "./logoThreeSvgRenderer";
-import { createFilledVoxelSet } from "./logoVoxelState";
+import { GRID_SIZE, createFilledVoxelSet } from "./logoVoxelState";
 
 type StaticLogoSvgOptions = {
   faceColors?: FaceColors;
   filledVoxels?: ReadonlySet<string>;
+  gridSize?: number;
   view?: {
     elevationDegrees: number;
     rotationDegrees: number;
@@ -32,6 +33,7 @@ export function createStaticLogoSvgMarkup(options: StaticLogoSvgOptions = {}) {
     elevationDegrees: view.elevationDegrees,
     faceColors: options.faceColors ?? DEFAULT_FACE_COLORS,
     filledVoxels,
+    gridSize: options.gridSize ?? GRID_SIZE,
     rotationDegrees: view.rotationDegrees,
   });
 }
@@ -49,6 +51,7 @@ export function createLogoIdentityViewSvgMarkup(
     elevationDegrees: view.elevationDegrees,
     faceColors: options.faceColors ?? DEFAULT_FACE_COLORS,
     filledVoxels,
+    gridSize: options.gridSize ?? GRID_SIZE,
     rotationDegrees: view.rotationDegrees,
   });
 }

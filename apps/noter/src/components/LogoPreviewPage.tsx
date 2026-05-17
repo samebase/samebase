@@ -60,11 +60,16 @@ import {
 import { Layout, PublicLayoutShell } from "@/Layout";
 import {
   DEFAULT_ELEVATION_DEGREES,
+  DEFAULT_LOGO_FRACTAL_DEPTH,
   DEFAULT_ROTATION_DEGREES,
   DEFAULT_VOXEL_STATE,
+  MAX_LOGO_FRACTAL_DEPTH,
   MAX_ELEVATION_DEGREES,
+  MIN_LOGO_FRACTAL_DEPTH,
   MIN_ELEVATION_DEGREES,
   applyVoxelEdit,
+  createLogoFractalVoxelGrid,
+  normalizeLogoFractalDepth,
   normalizeElevationDegrees,
   normalizeRotationDegrees,
   parseVoxelState,
@@ -381,6 +386,17 @@ function readLogoPresetSelection(
   return getLogoPresetSelection(readVoxelState(routeSearch));
 }
 
+function readLogoFractalDepth(routeSearch: LogoRouteSearch): number {
+  const voxelState = readVoxelState(routeSearch);
+  if (voxelState !== DEFAULT_VOXEL_STATE) {
+    return DEFAULT_LOGO_FRACTAL_DEPTH;
+  }
+
+  return normalizeLogoFractalDepth(
+    routeSearch.depth ?? DEFAULT_LOGO_FRACTAL_DEPTH,
+  );
+}
+
 function readIsoStyleId(routeSearch: LogoRouteSearch): LogoIsometricStyleId {
   const isoStyle = routeSearch.isoStyle ?? null;
   if (!isLogoIsometricStyleId(isoStyle)) {
@@ -463,6 +479,7 @@ function readElevationDegrees(routeSearch: LogoRouteSearch): number {
 
 type LogoPreviewRouteState = {
   elevationDegrees: number;
+  fractalDepth: number;
   isViewSnapEnabled: boolean;
   isoCubeSidePixels: number;
   isoStyleId: LogoIsometricStyleId;
@@ -492,6 +509,7 @@ function readLogoPreviewRouteState(
 
   return {
     elevationDegrees: view.elevationDegrees,
+    fractalDepth: readLogoFractalDepth(routeSearch),
     isViewSnapEnabled: view.viewSnapEnabled,
     isoCubeSidePixels: readIsoCubeSidePixels(routeSearch),
     isoStyleId: readIsoStyleId(routeSearch),
@@ -521,6 +539,7 @@ function areLogoPreviewRouteStatesEqual(
 ): boolean {
   return (
     left.elevationDegrees === right.elevationDegrees &&
+    left.fractalDepth === right.fractalDepth &&
     left.isViewSnapEnabled === right.isViewSnapEnabled &&
     left.isoCubeSidePixels === right.isoCubeSidePixels &&
     left.isoStyleId === right.isoStyleId &&
@@ -547,6 +566,7 @@ function buildLogoPreviewRouteSearch(
   return preserveLogoRouteDevModeSearch(
     buildLogoRouteSearch({
       elevationDegrees: resolvedView.elevationDegrees,
+      fractalDepth: routeState.fractalDepth,
       isoCubeSidePixels: routeState.isoCubeSidePixels,
       isoStyleId: routeState.isoStyleId,
       rotationAxisMode: routeState.rotationAxisMode,
@@ -725,6 +745,7 @@ function useLogoPreviewController({
         store.actions.setShuffleEnabled(false);
         commitRouteState((currentState) => ({
           ...currentState,
+          fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
           selectedPresetId: presetId,
           voxelState: preset.voxelState,
         }));
@@ -740,10 +761,15 @@ function useLogoPreviewController({
       editVoxel: (edit: VoxelEdit) => {
         store.actions.setShuffleEnabled(false);
         commitRouteState((currentState) => {
+          if (currentState.fractalDepth !== DEFAULT_LOGO_FRACTAL_DEPTH) {
+            return currentState;
+          }
+
           const voxelState = applyVoxelEdit(currentState.voxelState, edit);
 
           return {
             ...currentState,
+            fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
             selectedPresetId: getLogoPresetSelection(voxelState),
             voxelState,
           };
@@ -775,6 +801,7 @@ function useLogoPreviewController({
 
           return {
             ...currentState,
+            fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
             selectedPresetId: presetId,
             voxelState: preset.voxelState,
           };
@@ -810,6 +837,16 @@ function useLogoPreviewController({
         );
       },
       setFaceColorAnimationEnabled: store.actions.setFaceColorAnimationEnabled,
+      setFractalDepth: (fractalDepth: number) => {
+        store.actions.setAutoRotating(false);
+        store.actions.setShuffleEnabled(false);
+        commitRouteState((currentState) => ({
+          ...currentState,
+          fractalDepth: normalizeLogoFractalDepth(fractalDepth),
+          selectedPresetId: DEFAULT_LOGO_PRESET_ID,
+          voxelState: DEFAULT_VOXEL_STATE,
+        }));
+      },
       setIsoCubeSidePixels: (isoCubeSidePixels: number) => {
         debounceRouteState((currentState) => ({
           ...currentState,
@@ -827,6 +864,7 @@ function useLogoPreviewController({
       setPresetToCustom: () => {
         setRouteStateDraft((currentState) => ({
           ...currentState,
+          fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
           selectedPresetId: CUSTOM_LOGO_PRESET_ID,
         }));
       },
@@ -944,6 +982,7 @@ function readCanonicalLogoRouteSearch(
   return preserveLogoRouteDevModeSearch(
     buildLogoRouteSearch({
       elevationDegrees: readElevationDegrees(routeSearch),
+      fractalDepth: readLogoFractalDepth(routeSearch),
       isoCubeSidePixels: readIsoCubeSidePixels(routeSearch),
       isoStyleId: readIsoStyleId(routeSearch),
       rotationAxisMode: readRotationAxisMode(routeSearch),
@@ -961,6 +1000,7 @@ const LOGO_ROUTE_SEARCH_KEYS = [
   "axis",
   ...APP_THEME_COLOR_KEYS,
   "dev",
+  "depth",
   "elev",
   "freeView",
   "isoSide",
@@ -1125,6 +1165,7 @@ export function LogoPreviewPage({
   const modeSearch = preserveLogoRouteDevModeSearch(
     buildLogoRouteSearch({
       elevationDegrees: state.elevationDegrees,
+      fractalDepth: state.fractalDepth,
       isoCubeSidePixels: state.isoCubeSidePixels,
       isoStyleId: state.isoStyleId,
       rotationAxisMode: state.rotationAxisMode,
@@ -1135,6 +1176,13 @@ export function LogoPreviewPage({
       voxelState: state.voxelState,
     }),
     routeSearch,
+  );
+  const renderedVoxelGrid = useMemo(
+    () =>
+      state.voxelState === DEFAULT_VOXEL_STATE
+        ? createLogoFractalVoxelGrid(state.fractalDepth)
+        : undefined,
+    [state.fractalDepth, state.voxelState],
   );
 
   const logoScene =
@@ -1151,6 +1199,7 @@ export function LogoPreviewPage({
           parallelMoves: state.shuffleParallelMoves,
         }}
         styleId={state.isoStyleId}
+        voxelGrid={renderedVoxelGrid}
         voxelState={state.voxelState}
       />
     ) : (
@@ -1180,6 +1229,7 @@ export function LogoPreviewPage({
             ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG
             : undefined
         }
+        voxelGrid={renderedVoxelGrid}
         voxelState={state.voxelState}
       />
     );
@@ -1284,6 +1334,21 @@ export function LogoPreviewPage({
           </SelectContent>
         </Select>
 
+        <LogoRangeControl
+          label="Depth"
+          max={MAX_LOGO_FRACTAL_DEPTH}
+          min={MIN_LOGO_FRACTAL_DEPTH}
+          onSliderChange={controls.setFractalDepth}
+          onValueChange={controls.setFractalDepth}
+          sliderAriaLabel="Depth slider"
+          step="1"
+          value={state.fractalDepth}
+          valueAriaLabel="Depth value"
+          valueInputMode="numeric"
+          valueLabel={state.fractalDepth}
+          valueText={`${state.fractalDepth}`}
+        />
+
         <div className={LOGO_CONTROL_BUTTON_ROW_CLASS_NAME}>
           <Button
             type="button"
@@ -1291,6 +1356,7 @@ export function LogoPreviewPage({
             variant={state.editMode === "add" ? "default" : "outline"}
             className={LOGO_CONTROL_BUTTON_CLASS_NAME}
             aria-pressed={state.editMode === "add"}
+            disabled={state.fractalDepth !== DEFAULT_LOGO_FRACTAL_DEPTH}
             onClick={() => {
               controls.setEditMode("add");
             }}
@@ -1303,6 +1369,7 @@ export function LogoPreviewPage({
             variant={state.editMode === "remove" ? "default" : "outline"}
             className={LOGO_CONTROL_BUTTON_CLASS_NAME}
             aria-pressed={state.editMode === "remove"}
+            disabled={state.fractalDepth !== DEFAULT_LOGO_FRACTAL_DEPTH}
             onClick={() => {
               controls.setEditMode("remove");
             }}
@@ -1427,6 +1494,7 @@ export function LogoPreviewPage({
                     faceColors={faceColors}
                     size={size}
                     styleId={state.isoStyleId}
+                    voxelGrid={renderedVoxelGrid}
                     voxelState={state.voxelState}
                   />
                 </div>

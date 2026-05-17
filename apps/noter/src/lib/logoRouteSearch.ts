@@ -20,8 +20,10 @@ import {
 } from "@/lib/rootThemeModeSearch";
 import {
   DEFAULT_ELEVATION_DEGREES,
+  DEFAULT_LOGO_FRACTAL_DEPTH,
   DEFAULT_ROTATION_DEGREES,
   DEFAULT_VOXEL_STATE,
+  normalizeLogoFractalDepth,
   normalizeElevationDegrees,
   normalizeRotationDegrees,
   parseVoxelState,
@@ -119,6 +121,7 @@ const logoRouteSearchFieldSchema = z
       z.enum(LOGO_ROTATION_AXIS_MODE_VALUES).optional(),
     ),
     [LANDING_DEV_MODE_QUERY_PARAM]: z.literal(true).optional(),
+    depth: z.preprocess(readOptionalNumber, z.number().finite().optional()),
     elev: z.preprocess(readOptionalNumber, z.number().finite().optional()),
     freeView: z.literal(true).optional(),
     isoSide: z.preprocess(readOptionalNumber, z.number().finite().optional()),
@@ -141,6 +144,9 @@ export const logoRouteSearchSchema = logoRouteSearchFieldSchema.transform(
       ...readAppThemeColorSearch(search),
       ...(typeof search.axis === "string" ? { axis: search.axis } : {}),
       ...(search.dev ? { dev: true as const } : {}),
+      ...(typeof search.depth === "number"
+        ? { depth: normalizeLogoFractalDepth(search.depth) }
+        : {}),
       ...(typeof search.elev === "number"
         ? { elev: normalizeElevationDegrees(search.elev) }
         : {}),
@@ -171,6 +177,7 @@ export function validateLogoRouteSearch(
 
 export function buildLogoRouteSearch(args: {
   elevationDegrees: number;
+  fractalDepth: number;
   isoCubeSidePixels: number;
   isoStyleId: LogoIsometricStyleId;
   rotationAxisMode: LogoRotationAxisMode;
@@ -188,6 +195,9 @@ export function buildLogoRouteSearch(args: {
       : {}),
     ...(args.elevationDegrees !== DEFAULT_ELEVATION_DEGREES
       ? { elev: Number(args.elevationDegrees.toFixed(1)) }
+      : {}),
+    ...(args.fractalDepth !== DEFAULT_LOGO_FRACTAL_DEPTH
+      ? { depth: args.fractalDepth }
       : {}),
     ...(args.viewSnapEnabled ? {} : { freeView: true }),
     ...(args.isoCubeSidePixels !== DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX

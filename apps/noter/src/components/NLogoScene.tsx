@@ -15,10 +15,10 @@ import {
   DRAG_ROTATION_DEGREES_PER_PIXEL,
 } from "@/components/logoViewDragConstants";
 import {
-  HALF_GRID,
   GRID_SIZE,
   createDefaultFilledVoxelSet,
-  isWithinGrid,
+  isWithinVoxelGrid,
+  type LogoVoxelGrid,
   parseVoxelState,
   type VoxelCoordinate,
   type VoxelEdit,
@@ -47,7 +47,6 @@ const FACE_COLOR_ANIMATION_DEGREES_PER_SECOND = 15;
 const FACE_COLOR_ANIMATION_MIN_LIGHTNESS = 0.38;
 const FACE_COLOR_ANIMATION_MAX_LIGHTNESS = 0.76;
 const FACE_COLOR_ANIMATION_MIN_SATURATION = 0.5;
-const WORLD_CENTER_OFFSET = (GRID_SIZE - 1) / 2;
 
 export const LOGO_SHUFFLE_PARALLEL_OPTIONS = [1, 2, 3] as const;
 export type LogoShuffleParallelMoves =
@@ -95,6 +94,7 @@ type SceneState = {
   cameraFitRadius: number;
   cubeGeometry: THREE.BoxGeometry;
   cubeMaterials: THREE.MeshBasicMaterial[];
+  gridSize: number;
   currentFilledVoxels: Set<string>;
   activeCubeMoves: ActiveCubeMove[];
   homeFilledVoxels: Set<string>;
@@ -133,24 +133,28 @@ type NLogoSceneProps = {
   shuffleAnimation: LogoShuffleAnimationConfig;
   animateFaceColors: boolean;
   viewDragConfig?: LogoViewDragConfig;
+  voxelGrid?: LogoVoxelGrid;
   voxelState: string;
 };
 
 function getVoxelWorldCenter(
   coordinate: VoxelCoordinate,
+  gridSize: number,
 ): readonly [number, number, number] {
+  const worldCenterOffset = (gridSize - 1) / 2;
   return [
-    coordinate[0] - WORLD_CENTER_OFFSET,
-    coordinate[1] - WORLD_CENTER_OFFSET,
-    coordinate[2] - WORLD_CENTER_OFFSET,
+    coordinate[0] - worldCenterOffset,
+    coordinate[1] - worldCenterOffset,
+    coordinate[2] - worldCenterOffset,
   ];
 }
 
 function setCubeMeshPosition(
   mesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial[]>,
   coordinate: VoxelCoordinate,
+  gridSize: number,
 ) {
-  const [x, y, z] = getVoxelWorldCenter(coordinate);
+  const [x, y, z] = getVoxelWorldCenter(coordinate, gridSize);
   mesh.position.set(x, y, z);
 }
 
@@ -165,9 +169,10 @@ function easeInOutCubic(value: number): number {
 function getCubeMovePosition(
   move: ActiveCubeMove,
   progress: number,
+  gridSize: number,
 ): readonly [number, number, number] {
-  const [startX, startY, startZ] = getVoxelWorldCenter(move.from);
-  const [endX, endY, endZ] = getVoxelWorldCenter(move.to);
+  const [startX, startY, startZ] = getVoxelWorldCenter(move.from, gridSize);
+  const [endX, endY, endZ] = getVoxelWorldCenter(move.to, gridSize);
   const travelProgress = easeInOutCubic(progress);
   return [
     startX + (endX - startX) * travelProgress,
@@ -184,13 +189,34 @@ function randomValueFrom<T>(values: readonly T[]): T | null {
   return values[Math.floor(Math.random() * values.length)] ?? null;
 }
 
+function resolveSceneVoxelGrid({
+  voxelGrid,
+  voxelState,
+}: {
+  voxelGrid: LogoVoxelGrid | undefined;
+  voxelState: string;
+}): { filledVoxels: Set<string>; gridSize: number } {
+  if (voxelGrid) {
+    return {
+      filledVoxels: new Set(voxelGrid.filledVoxels),
+      gridSize: voxelGrid.gridSize,
+    };
+  }
+
+  return {
+    filledVoxels: parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet(),
+    gridSize: GRID_SIZE,
+  };
+}
+
 function isVoxelFilled(
   filledVoxels: Set<string>,
+  gridSize: number,
   x: number,
   y: number,
   z: number,
 ): boolean {
-  if (!isWithinGrid(x, y, z)) {
+  if (!isWithinVoxelGrid(gridSize, x, y, z)) {
     return false;
   }
 
@@ -273,12 +299,13 @@ function buildQuadGeometry(
   return geometry;
 }
 
-function toWorld(boundaryIndex: number): number {
-  return boundaryIndex - HALF_GRID;
+function toWorld(boundaryIndex: number, gridSize: number): number {
+  return boundaryIndex - gridSize / 2;
 }
 
 function getGeometryFitRadius(
   geometries: readonly THREE.BufferGeometry[],
+  gridSize: number,
 ): number {
   let fitRadius = 0;
 
@@ -297,29 +324,30 @@ function getGeometryFitRadius(
     }
   }
 
-  return fitRadius || HALF_GRID * Math.sqrt(3);
+  return fitRadius || (gridSize / 2) * Math.sqrt(3);
 }
 
 function buildVoxelSurfaceGeometries(
   filledVoxels: Set<string>,
+  gridSize: number,
 ): LogoSurfacePart[] {
   const parts: LogoSurfacePart[] = [];
 
-  for (let x = 0; x < GRID_SIZE; x += 1) {
-    const positiveXMask = Array.from({ length: GRID_SIZE }, (_, y) =>
+  for (let x = 0; x < gridSize; x += 1) {
+    const positiveXMask = Array.from({ length: gridSize }, (_, y) =>
       Array.from(
-        { length: GRID_SIZE },
+        { length: gridSize },
         (_, z) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x + 1, y, z),
+          isVoxelFilled(filledVoxels, gridSize, x, y, z) &&
+          !isVoxelFilled(filledVoxels, gridSize, x + 1, y, z),
       ),
     );
     for (const rectangle of collectRectangles(positiveXMask)) {
-      const plane = toWorld(x + 1);
-      const y0 = toWorld(rectangle.row);
-      const y1 = toWorld(rectangle.row + rectangle.height);
-      const z0 = toWorld(rectangle.column);
-      const z1 = toWorld(rectangle.column + rectangle.width);
+      const plane = toWorld(x + 1, gridSize);
+      const y0 = toWorld(rectangle.row, gridSize);
+      const y1 = toWorld(rectangle.row + rectangle.height, gridSize);
+      const z0 = toWorld(rectangle.column, gridSize);
+      const z1 = toWorld(rectangle.column + rectangle.width, gridSize);
       parts.push({
         geometry: buildQuadGeometry(
           [
@@ -334,20 +362,20 @@ function buildVoxelSurfaceGeometries(
       });
     }
 
-    const negativeXMask = Array.from({ length: GRID_SIZE }, (_, y) =>
+    const negativeXMask = Array.from({ length: gridSize }, (_, y) =>
       Array.from(
-        { length: GRID_SIZE },
+        { length: gridSize },
         (_, z) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x - 1, y, z),
+          isVoxelFilled(filledVoxels, gridSize, x, y, z) &&
+          !isVoxelFilled(filledVoxels, gridSize, x - 1, y, z),
       ),
     );
     for (const rectangle of collectRectangles(negativeXMask)) {
-      const plane = toWorld(x);
-      const y0 = toWorld(rectangle.row);
-      const y1 = toWorld(rectangle.row + rectangle.height);
-      const z0 = toWorld(rectangle.column);
-      const z1 = toWorld(rectangle.column + rectangle.width);
+      const plane = toWorld(x, gridSize);
+      const y0 = toWorld(rectangle.row, gridSize);
+      const y1 = toWorld(rectangle.row + rectangle.height, gridSize);
+      const z0 = toWorld(rectangle.column, gridSize);
+      const z1 = toWorld(rectangle.column + rectangle.width, gridSize);
       parts.push({
         geometry: buildQuadGeometry(
           [
@@ -363,21 +391,21 @@ function buildVoxelSurfaceGeometries(
     }
   }
 
-  for (let y = 0; y < GRID_SIZE; y += 1) {
-    const positiveYMask = Array.from({ length: GRID_SIZE }, (_, x) =>
+  for (let y = 0; y < gridSize; y += 1) {
+    const positiveYMask = Array.from({ length: gridSize }, (_, x) =>
       Array.from(
-        { length: GRID_SIZE },
+        { length: gridSize },
         (_, z) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x, y + 1, z),
+          isVoxelFilled(filledVoxels, gridSize, x, y, z) &&
+          !isVoxelFilled(filledVoxels, gridSize, x, y + 1, z),
       ),
     );
     for (const rectangle of collectRectangles(positiveYMask)) {
-      const plane = toWorld(y + 1);
-      const x0 = toWorld(rectangle.row);
-      const x1 = toWorld(rectangle.row + rectangle.height);
-      const z0 = toWorld(rectangle.column);
-      const z1 = toWorld(rectangle.column + rectangle.width);
+      const plane = toWorld(y + 1, gridSize);
+      const x0 = toWorld(rectangle.row, gridSize);
+      const x1 = toWorld(rectangle.row + rectangle.height, gridSize);
+      const z0 = toWorld(rectangle.column, gridSize);
+      const z1 = toWorld(rectangle.column + rectangle.width, gridSize);
       parts.push({
         geometry: buildQuadGeometry(
           [
@@ -392,20 +420,20 @@ function buildVoxelSurfaceGeometries(
       });
     }
 
-    const negativeYMask = Array.from({ length: GRID_SIZE }, (_, x) =>
+    const negativeYMask = Array.from({ length: gridSize }, (_, x) =>
       Array.from(
-        { length: GRID_SIZE },
+        { length: gridSize },
         (_, z) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x, y - 1, z),
+          isVoxelFilled(filledVoxels, gridSize, x, y, z) &&
+          !isVoxelFilled(filledVoxels, gridSize, x, y - 1, z),
       ),
     );
     for (const rectangle of collectRectangles(negativeYMask)) {
-      const plane = toWorld(y);
-      const x0 = toWorld(rectangle.row);
-      const x1 = toWorld(rectangle.row + rectangle.height);
-      const z0 = toWorld(rectangle.column);
-      const z1 = toWorld(rectangle.column + rectangle.width);
+      const plane = toWorld(y, gridSize);
+      const x0 = toWorld(rectangle.row, gridSize);
+      const x1 = toWorld(rectangle.row + rectangle.height, gridSize);
+      const z0 = toWorld(rectangle.column, gridSize);
+      const z1 = toWorld(rectangle.column + rectangle.width, gridSize);
       parts.push({
         geometry: buildQuadGeometry(
           [
@@ -421,21 +449,21 @@ function buildVoxelSurfaceGeometries(
     }
   }
 
-  for (let z = 0; z < GRID_SIZE; z += 1) {
-    const positiveZMask = Array.from({ length: GRID_SIZE }, (_, x) =>
+  for (let z = 0; z < gridSize; z += 1) {
+    const positiveZMask = Array.from({ length: gridSize }, (_, x) =>
       Array.from(
-        { length: GRID_SIZE },
+        { length: gridSize },
         (_, y) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x, y, z + 1),
+          isVoxelFilled(filledVoxels, gridSize, x, y, z) &&
+          !isVoxelFilled(filledVoxels, gridSize, x, y, z + 1),
       ),
     );
     for (const rectangle of collectRectangles(positiveZMask)) {
-      const plane = toWorld(z + 1);
-      const x0 = toWorld(rectangle.row);
-      const x1 = toWorld(rectangle.row + rectangle.height);
-      const y0 = toWorld(rectangle.column);
-      const y1 = toWorld(rectangle.column + rectangle.width);
+      const plane = toWorld(z + 1, gridSize);
+      const x0 = toWorld(rectangle.row, gridSize);
+      const x1 = toWorld(rectangle.row + rectangle.height, gridSize);
+      const y0 = toWorld(rectangle.column, gridSize);
+      const y1 = toWorld(rectangle.column + rectangle.width, gridSize);
       parts.push({
         geometry: buildQuadGeometry(
           [
@@ -450,20 +478,20 @@ function buildVoxelSurfaceGeometries(
       });
     }
 
-    const negativeZMask = Array.from({ length: GRID_SIZE }, (_, x) =>
+    const negativeZMask = Array.from({ length: gridSize }, (_, x) =>
       Array.from(
-        { length: GRID_SIZE },
+        { length: gridSize },
         (_, y) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x, y, z - 1),
+          isVoxelFilled(filledVoxels, gridSize, x, y, z) &&
+          !isVoxelFilled(filledVoxels, gridSize, x, y, z - 1),
       ),
     );
     for (const rectangle of collectRectangles(negativeZMask)) {
-      const plane = toWorld(z);
-      const x0 = toWorld(rectangle.row);
-      const x1 = toWorld(rectangle.row + rectangle.height);
-      const y0 = toWorld(rectangle.column);
-      const y1 = toWorld(rectangle.column + rectangle.width);
+      const plane = toWorld(z, gridSize);
+      const x0 = toWorld(rectangle.row, gridSize);
+      const x1 = toWorld(rectangle.row + rectangle.height, gridSize);
+      const y0 = toWorld(rectangle.column, gridSize);
+      const y1 = toWorld(rectangle.column + rectangle.width, gridSize);
       parts.push({
         geometry: buildQuadGeometry(
           [
@@ -482,12 +510,16 @@ function buildVoxelSurfaceGeometries(
   return parts;
 }
 
-function pointToVoxelCoordinate(point: THREE.Vector3): VoxelCoordinate | null {
-  const x = Math.floor(point.x + HALF_GRID);
-  const y = Math.floor(point.y + HALF_GRID);
-  const z = Math.floor(point.z + HALF_GRID);
+function pointToVoxelCoordinate(
+  point: THREE.Vector3,
+  gridSize: number,
+): VoxelCoordinate | null {
+  const halfGrid = gridSize / 2;
+  const x = Math.floor(point.x + halfGrid);
+  const y = Math.floor(point.y + halfGrid);
+  const z = Math.floor(point.z + halfGrid);
 
-  if (!isWithinGrid(x, y, z)) {
+  if (!isWithinVoxelGrid(gridSize, x, y, z)) {
     return null;
   }
 
@@ -582,9 +614,10 @@ function applyMaterialOpacity(
 function replaceLogoGeometry(
   sceneState: SceneState,
   nextFilledVoxels: Set<string>,
+  nextGridSize: number,
   syncCameraFitRadius: boolean,
 ) {
-  const nextParts = buildVoxelSurfaceGeometries(nextFilledVoxels);
+  const nextParts = buildVoxelSurfaceGeometries(nextFilledVoxels, nextGridSize);
   const previousLogoMeshes = sceneState.logoMeshes;
   for (const logoMesh of previousLogoMeshes) {
     sceneState.logoGroup.remove(logoMesh);
@@ -599,9 +632,11 @@ function replaceLogoGeometry(
     return logoMesh;
   });
   sceneState.currentFilledVoxels = new Set(nextFilledVoxels);
+  sceneState.gridSize = nextGridSize;
   if (syncCameraFitRadius) {
     sceneState.cameraFitRadius = getGeometryFitRadius(
       nextParts.map(({ geometry }) => geometry),
+      nextGridSize,
     );
   }
   sceneState.resizeScene();
@@ -648,6 +683,7 @@ function resetShuffleAnimation(
   replaceLogoGeometry(
     sceneState,
     new Set(sceneState.homeFilledVoxels),
+    sceneState.gridSize,
     syncCameraFitRadius,
   );
   lastMovedCubeKeyRef.current = null;
@@ -671,6 +707,7 @@ function scheduleNextCubeMove(
     blockedKeys,
     elevationDegrees,
     filledVoxels: sceneState.currentFilledVoxels,
+    gridSize: sceneState.gridSize,
     lastMovedCubeKey: lastMovedCubeKeyRef.current,
     rotationAxisMode,
     rotationDegrees,
@@ -692,7 +729,7 @@ function scheduleNextCubeMove(
     sceneState.cubeMaterials,
   );
   moveMesh.visible = false;
-  setCubeMeshPosition(moveMesh, nextMove.from);
+  setCubeMeshPosition(moveMesh, nextMove.from, sceneState.gridSize);
   sceneState.logoGroup.add(moveMesh);
   sceneState.activeCubeMoves.push({
     durationMs: SHUFFLE_MOVE_DURATION_MS,
@@ -735,7 +772,7 @@ function syncCubeShuffleAnimation(
       Math.max((timestampMs - move.startTimeMs) / move.durationMs, 0),
       1,
     );
-    const [x, y, z] = getCubeMovePosition(move, progress);
+    const [x, y, z] = getCubeMovePosition(move, progress, sceneState.gridSize);
     move.mesh.position.set(x, y, z);
 
     if (progress >= 1) {
@@ -757,7 +794,12 @@ function syncCubeShuffleAnimation(
   }
 
   if (didChangeOccupancy) {
-    replaceLogoGeometry(sceneState, sceneState.currentFilledVoxels, false);
+    replaceLogoGeometry(
+      sceneState,
+      sceneState.currentFilledVoxels,
+      sceneState.gridSize,
+      false,
+    );
   }
 
   while (sceneState.activeCubeMoves.length < parallelMoves) {
@@ -793,6 +835,7 @@ export function NLogoScene({
   shuffleAnimation,
   animateFaceColors,
   viewDragConfig,
+  voxelGrid,
   voxelState,
 }: NLogoSceneProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -802,6 +845,7 @@ export function NLogoScene({
   const rotationDegreesRef = useRef(rotationDegrees);
   const elevationDegreesRef = useRef(elevationDegrees);
   const rotationAxisModeRef = useRef(rotationAxisMode);
+  const voxelGridRef = useRef(voxelGrid);
   const voxelStateRef = useRef(voxelState);
   const faceColorsRef = useRef(faceColors);
   const opacityRef = useRef(opacity);
@@ -937,9 +981,14 @@ export function NLogoScene({
     ];
     applyFaceColors(materials, faceColorsRef.current);
     applyMaterialOpacity(materials, opacityRef.current);
-    const initialFilledVoxels =
-      parseVoxelState(voxelStateRef.current) ?? createDefaultFilledVoxelSet();
-    const logoParts = buildVoxelSurfaceGeometries(initialFilledVoxels);
+    const initialVoxelGrid = resolveSceneVoxelGrid({
+      voxelGrid: voxelGridRef.current,
+      voxelState: voxelStateRef.current,
+    });
+    const logoParts = buildVoxelSurfaceGeometries(
+      initialVoxelGrid.filledVoxels,
+      initialVoxelGrid.gridSize,
+    );
     const logoMeshes = logoParts.map(
       ({ geometry, materialIndex }) =>
         new THREE.Mesh(geometry, materials[materialIndex]),
@@ -952,6 +1001,7 @@ export function NLogoScene({
     const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
     const initialCameraFitRadius = getGeometryFitRadius(
       logoParts.map(({ geometry }) => geometry),
+      initialVoxelGrid.gridSize,
     );
     const rotationAxisVector = new THREE.Vector3();
 
@@ -1014,9 +1064,10 @@ export function NLogoScene({
       cameraFitRadius: initialCameraFitRadius,
       cubeGeometry,
       cubeMaterials: materials,
-      currentFilledVoxels: new Set(initialFilledVoxels),
+      currentFilledVoxels: new Set(initialVoxelGrid.filledVoxels),
+      gridSize: initialVoxelGrid.gridSize,
       activeCubeMoves: [],
-      homeFilledVoxels: new Set(initialFilledVoxels),
+      homeFilledVoxels: new Set(initialVoxelGrid.filledVoxels),
       logoGroup,
       logoMeshes,
       raycaster: new THREE.Raycaster(),
@@ -1144,6 +1195,7 @@ export function NLogoScene({
   }, []);
 
   useEffect(() => {
+    voxelGridRef.current = voxelGrid;
     voxelStateRef.current = voxelState;
 
     const sceneState = sceneStateRef.current;
@@ -1151,12 +1203,12 @@ export function NLogoScene({
       return;
     }
 
-    const nextFilledVoxels =
-      parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet();
-    sceneState.homeFilledVoxels = new Set(nextFilledVoxels);
+    const nextVoxelGrid = resolveSceneVoxelGrid({ voxelGrid, voxelState });
+    sceneState.homeFilledVoxels = new Set(nextVoxelGrid.filledVoxels);
+    sceneState.gridSize = nextVoxelGrid.gridSize;
     resetShuffleAnimation(sceneState, lastMovedCubeKeyRef, true);
     renderSceneRef.current(performance.now());
-  }, [voxelState]);
+  }, [voxelGrid, voxelState]);
 
   useEffect(() => {
     animateFaceColorsRef.current = animateFaceColors;
@@ -1241,7 +1293,7 @@ export function NLogoScene({
       kind === "add" ? RAYCAST_OFFSET : -RAYCAST_OFFSET,
     );
 
-    const coordinate = pointToVoxelCoordinate(localPoint);
+    const coordinate = pointToVoxelCoordinate(localPoint, sceneState.gridSize);
     if (!coordinate) {
       return null;
     }

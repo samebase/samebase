@@ -13,6 +13,7 @@ import {
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { PublicLandingLogo } from "@/components/PublicLandingLogo";
 import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
+import { createLogoFractalVoxelGrid } from "@/components/logoVoxelState";
 import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
 import {
   resolveAppThemeColorState,
@@ -76,6 +77,12 @@ function getLogoImage(rootElement: HTMLElement) {
   }
 
   return logoImage;
+}
+
+function getLogoImageDecodedSource(rootElement: HTMLElement) {
+  return decodeURIComponent(
+    getLogoImage(rootElement).getAttribute("src") ?? "",
+  );
 }
 
 function installLogoThemeStyle() {
@@ -192,17 +199,53 @@ describe("PublicLandingLogo", () => {
       search: {},
       themeMode: "light",
     });
+    const defaultVoxelGrid = createLogoFractalVoxelGrid(1);
 
     expect(logoImage.getAttribute("src")).toBe(
       `${createStaticLogoSvgDataUrl({
         faceColors: defaultLogoTheme.faceColors,
+        filledVoxels: defaultVoxelGrid.filledVoxels,
+        gridSize: defaultVoxelGrid.gridSize,
         view: persistedView,
-      })}#${defaultLogoTheme.cacheKey}`,
+      })}#${defaultLogoTheme.cacheKey}:1`,
     );
     expect(logoImage.getAttribute("src")).not.toBe(
       `${createStaticLogoSvgDataUrl({
         faceColors: defaultLogoTheme.faceColors,
-      })}#${defaultLogoTheme.cacheKey}`,
+      })}#${defaultLogoTheme.cacheKey}:1`,
+    );
+  });
+
+  it("renders static fallback from the logo depth search param", async () => {
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+
+    await act(async () => {
+      localRoot.render(
+        <PublicLandingLogo
+          loadInteractiveScene={false}
+          themeColorSearch={{ depth: 2 }}
+        />,
+      );
+    });
+
+    const source = getLogoImageDecodedSource(rootElement);
+    const expectedVoxelGrid = createLogoFractalVoxelGrid(2);
+    const defaultLogoTheme = resolveAppThemeColorState({
+      search: {},
+      themeMode: "light",
+    });
+
+    expect(source).toBe(
+      decodeURIComponent(
+        `${createStaticLogoSvgDataUrl({
+          faceColors: defaultLogoTheme.faceColors,
+          filledVoxels: expectedVoxelGrid.filledVoxels,
+          gridSize: expectedVoxelGrid.gridSize,
+        })}#${defaultLogoTheme.cacheKey}:2`,
+      ),
     );
   });
 
