@@ -72,6 +72,44 @@ Register the best hand-reg candidates immediately while deciding:
      phrase uses.
    - Risk: less distinctive visually than the Sierpinski lane.
 
+### `samebase.com` clearance screen
+
+Checked on 2026-05-17. This is still only a practical screen, not legal
+clearance; use a trademark attorney before treating the name as cleared.
+
+- Domain purchase status: [`samebase.com`](https://samebase.com) redirects to
+  the Brandsly sale page, and Verisign RDAP shows nameservers
+  `BUY-DOMAIN.BRANDSLY.COM` and `FOR-SALE.BRANDSLY.COM`. The RDAP record was
+  created on 2018-02-18 and expires on 2027-02-18.
+- USPTO: the official [USPTO TMSearch](https://tmsearch.uspto.gov/) public
+  backend returned `0` hits for an exact `samebase` wordmark-style query. A
+  spaced `"same base"` query is too broad to be useful because it matches
+  generic descriptive uses.
+- Web/company collisions: exact web search did not surface an obvious operating
+  software company, AI product, developer tool, or startup using `Samebase`.
+  Results were mostly the domain listing, source-code variable names, academic
+  text, product descriptions where "same" and "base" were accidentally joined,
+  and generic phrase uses.
+- Package registries: `samebase` was not found on npm, PyPI, crates.io,
+  RubyGems, Packagist, or NuGet.
+- Developer handles: `github.com/samebase` returned 404, GitHub API returned
+  `Not Found`, and GitLab's public user lookup returned `[]`.
+- Social handles: `@samebase` is occupied on Instagram by a low-signal profile
+  named "Samebase" with mental-wellness copy, 1 follower, and 0 posts. YouTube
+  `@samebase` is also occupied by a channel titled "same base". Bluesky
+  `samebase.bsky.social` exists with 0 posts and 8 followers, though buying the
+  domain would let us use `samebase.com` as the Bluesky handle. TikTok
+  `@samebase` appears unclaimed, LinkedIn `/company/samebase/` returns 404, and
+  X/Twitter's public page payload reports a user-not-found style error for
+  `samebase`, but that should be verified while claiming because X is brittle
+  from unauthenticated checks.
+- Judgment: this is cleaner than expected. The main risk is not a visible
+  trademark/company collision; it is that two consumer-social handles are
+  already taken. For a product whose core shtick is "an app creating apps from
+  its own base/template", `samebase.com` is still the best paid candidate in
+  this pass. If this becomes the leading brand, buy the `.com`, file the mark,
+  and claim reachable handles immediately.
+
 2. `corevoid.com`
    - Status: registered and listed for sale.
    - Visible price:
