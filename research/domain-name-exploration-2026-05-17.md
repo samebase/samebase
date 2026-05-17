@@ -15,6 +15,11 @@ search for the exact name and obvious variants. Premium prices are from the
 visible marketplace pages linked below. This is not trademark clearance, and
 domain availability can change quickly.
 
+Budget note: the original `$1k-$2k` band should be treated as comfortable, not
+hard. A truly better name can justify going higher; `ramura.com` at roughly
+`$4.5k` is a useful taste benchmark for a short, pronounceable, organic-feeling
+name.
+
 ## Best recommendation
 
 Register the best hand-reg candidates immediately while deciding:
@@ -66,8 +71,8 @@ Register the best hand-reg candidates immediately while deciding:
    - Visible price:
      [`$1,995` direct on Brandsly](https://brandsly.com/name/samebase-com);
      GoDaddy showed `$2,395`, so the direct listing is the better route.
-   - Why it works: best paid candidate inside budget. It maps cleanly to "apps
-     built from the same base/stack" without needing the fractal metaphor.
+   - Why it works: best paid candidate in this pass. It maps cleanly to "apps
+     built from the same base/template" without needing the fractal metaphor.
    - Collision notes: exact search mostly found the sale listing and generic
      phrase uses.
    - Risk: less distinctive visually than the Sierpinski lane.
@@ -110,7 +115,30 @@ clearance; use a trademark attorney before treating the name as cleared.
   this pass. If this becomes the leading brand, buy the `.com`, file the mark,
   and claim reachable handles immediately.
 
-2. `corevoid.com`
+2. `samestack.com`
+   - Status: registered and listed for sale.
+   - Visible price:
+     [`$3,285` on BrandBucket](https://www.brandbucket.com/names/samestack).
+   - Why it works: extremely direct for "the app builds apps on the same stack",
+     and BrandBucket positions it for technology / app / cloud use.
+   - Collision notes: no major exact-name product surfaced in the original pass,
+     but it should get the same trademark/social/package pass as `samebase.com`
+     before purchase.
+   - Risk: plainer and more developer-jargon than `samebase.com`; "stack" can
+     sound infrastructural rather than magical.
+
+3. `samecore.com`
+   - Status: registered and listed for sale.
+   - Visible price:
+     [`$3,495` on HugeDomains](https://www.hugedomains.com/domain_profile.cfm?d=samecore.com).
+   - Why it works: points at a shared kernel/core that generates descendants;
+     short enough and easy to say.
+   - Collision notes: no major exact-name product surfaced in the original pass,
+     but it needs the same deeper clearance pass before purchase.
+   - Risk: less specific to the template/app-generating-app story than
+     `samebase.com` or `samestack.com`.
+
+4. `corevoid.com`
    - Status: registered and listed for sale.
    - Visible price:
      [`$1,995` on GoDaddy/Afternic](https://www.godaddy.com/forsale/corevoid.com).
@@ -154,17 +182,16 @@ set.
 
 ## Premium names checked and mostly rejected
 
-| Domain          | Status              | Price / reason                                                                                                                                                                                                                                       |
-| --------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sierp.com`     | for sale            | [`$7,996` on GoDaddy/Afternic](https://www.godaddy.com/forsale/sierp.com). Excellent but outside budget.                                                                                                                                             |
-| `samestack.com` | for sale            | [`$3,285` on BrandBucket](https://www.brandbucket.com/names/samestack). Good phrase, above budget.                                                                                                                                                   |
-| `samecore.com`  | for sale            | [`$3,495` on HugeDomains](https://www.hugedomains.com/domain_profile.cfm?d=samecore.com). Good, above budget.                                                                                                                                        |
-| `ninegrid.com`  | for sale            | [`$8,495` on HugeDomains](https://www.hugedomains.com/domain_profile.cfm?d=ninegrid.com). Strong logo name, too expensive.                                                                                                                           |
-| `fracta.com`    | for sale            | [`$1,000` on GoDaddy/Afternic](https://www.godaddy.com/forsale/fracta.com), but rejected: the name is already heavily used by active software/AI/infrastructure companies including [`fracta.ai`](https://fracta.ai/), Fracta LLC, and Fracta Japan. |
-| `replio.com`    | for sale            | Cheap listing surfaced, but rejected: "Replio" is already used by multiple AI/software products across `.co`, `.org`, `.eu`, `.xyz`, and other domains.                                                                                              |
-| `selfsame.com`  | for sale            | Price not confirmed because BuyDomains blocked automated fetch; also rejected for now because [`selfsame.app`](https://selfsame.app/) is an active habit app and the word is used by multiple studios/businesses.                                    |
-| `fractile.com`  | registered/live     | Rejected: forwards to an active AI inference company, [`fractile.ai`](https://www.fractile.ai/).                                                                                                                                                     |
-| `tileio.com`    | unregistered `.com` | Rejected despite availability: "Tileio" is already used by an existing dashboard app and an App Store app.                                                                                                                                           |
+| Domain         | Status              | Price / reason                                                                                                                                                                                                                                       |
+| -------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sierp.com`    | for sale            | [`$7,996` on GoDaddy/Afternic](https://www.godaddy.com/forsale/sierp.com). Excellent and short, but pronunciation/meaning are still hard; only worth pursuing if the brand intentionally leads with Sierpinski/math.                                 |
+| `ninegrid.com` | for sale            | [`$8,495` on HugeDomains](https://www.hugedomains.com/domain_profile.cfm?d=ninegrid.com). Strong logo name, but too literal to justify the price over `samebase.com` or `samestack.com`.                                                             |
+| `ramura.com`   | for sale / parked   | Current static lander is an Afternic/GoDaddy-style for-sale page with no visible buy-now price in the fetched HTML. Good taste benchmark: short, natural, vowel-rich, and organic, but less directly tied to the current app-generating-app concept. |
+| `fracta.com`   | for sale            | [`$1,000` on GoDaddy/Afternic](https://www.godaddy.com/forsale/fracta.com), but rejected: the name is already heavily used by active software/AI/infrastructure companies including [`fracta.ai`](https://fracta.ai/), Fracta LLC, and Fracta Japan. |
+| `replio.com`   | for sale            | Cheap listing surfaced, but rejected: "Replio" is already used by multiple AI/software products across `.co`, `.org`, `.eu`, `.xyz`, and other domains.                                                                                              |
+| `selfsame.com` | for sale            | Price not confirmed because BuyDomains blocked automated fetch; also rejected for now because [`selfsame.app`](https://selfsame.app/) is an active habit app and the word is used by multiple studios/businesses.                                    |
+| `fractile.com` | registered/live     | Rejected: forwards to an active AI inference company, [`fractile.ai`](https://www.fractile.ai/).                                                                                                                                                     |
+| `tileio.com`   | unregistered `.com` | Rejected despite availability: "Tileio" is already used by an existing dashboard app and an App Store app.                                                                                                                                           |
 
 ## My ranking
 
@@ -182,9 +209,15 @@ If the brand should be understandable without explaining Sierpinski:
 
 If spending real money:
 
-1. `samebase.com` is the only premium name I found that is both on-concept and
-   inside the stated $1k-$2k band.
-2. `corevoid.com` is viable, but I would only buy it if the product identity is
+1. `samebase.com` is still the cleanest paid candidate because it is
+   pronounceable, on-concept, and surprisingly uncrowded.
+2. `samestack.com` becomes genuinely worth considering if spending above `$2k`
+   is acceptable. It is more literal/developer-coded than `samebase.com`, but it
+   maps directly to the MVP.
+3. `samecore.com` is viable, but I would put it behind `samebase.com` and
+   `samestack.com` because the product story is base/template/stack more than
+   "core".
+4. `corevoid.com` is viable, but I would only buy it if the product identity is
    intentionally more void/logo-led.
-3. Avoid `fracta.com` despite the attractive `$1,000` price because the name is
+5. Avoid `fracta.com` despite the attractive `$1,000` price because the name is
    already crowded in adjacent AI/software territory.
