@@ -173,58 +173,87 @@ Needs logged-in confirmation:
   [`twitch.tv/samebase`](https://www.twitch.tv/samebase) need logged-in or
   platform-native confirmation.
 
-### Short-link domain sweep
+### Strict `xx.xx` short-link sweep
 
-Checked on 2026-05-17 for an `sb.*` short-link asset analogous to `git.io` or a
-very short brand redirect. These are for redirects and share links, not for the
-primary product identity.
+Checked on 2026-05-17 for a true two-letter-label plus two-letter-TLD short
+link, such as `sb.io`. This is stricter than a merely short redirect: `sb.link`
+is the same length as `same.md`, so it is not worth registering for this job.
 
-Best practical options:
+Best practical candidates:
 
-| Domain    | Result                                                                                      | Judgment                                                                                       |
-| --------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `sb.link` | WHOIS reports available; Dynadot lists `.link` at `$7.71` registration and renewal.         | Best cheap practical pick. Longer TLD, but semantically perfect for links and low-risk to own. |
-| `sb.fm`   | `.fm` WHOIS reports `DOMAIN NOT FOUND`; Dynadot lists regular `.fm` at `$68.25` / `$89.25`. | Best exact two-letter-label candidate if a registrar confirms non-premium checkout pricing.    |
-| `sb.to`   | Registered, nameservers `ns1.dan.com` / `ns2.dan.com`, Afternic/GoDaddy price-request page. | Good shortener semantics, but no public price; inquire only if willing to walk away.           |
-| `sb.sh`   | Registered by Divido; public premium lander links to Domains.io, no visible price.          | Nice developer feel, but likely expensive and less link-specific.                              |
-| `sb.me`   | Registry reports this premium domain is available by contacting `premium@identity.digital`. | Very short and clean, but likely registry-premium priced; ask only if curious.                 |
-| `sb.vc`   | For sale on Dn.com at `$20,000`.                                                            | Clean but not worth it for a redirect domain.                                                  |
+| Domain  | Result                                                                                                                                        | Judgment                                                                                       |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `sb.fm` | `whois.nic.fm` reports `DOMAIN NOT FOUND`; Dynadot lists regular `.fm` at `$68.25` registration and `$89.25` renewal, with no restrictions.   | Best current strict `xx.xx` candidate. Buy if a registrar checkout confirms non-premium price. |
+| `sb.gd` | `whois.nic.gd` reports `DOMAIN NOT FOUND`; `.gd` appears unrestricted and available at roughly EUR28/year at some registrars.                 | Worth a checkout test. Weaker TLD than `.fm`, but exact initials and cheap if not premium.     |
+| `sb.cr` | `whois.nic.cr` reports no entries; NIC Costa Rica lists two-character `.cr` names as premium at `$120` per year.                              | Viable fallback if you like `cr` as "create/core"; otherwise less natural than `sb.fm`.        |
+| `co.py` | No DNS delegation found; `.py` has no official WHOIS path in IANA, and NIC-PY requires foreign applicants to use a Paraguayan representative. | Best semantic hack if it can be registered, but high-friction and needs manual registry check. |
 
-Rejected or unavailable exact `sb` options:
+Beautiful but probably not purchasable:
 
-| Domain     | Result                                                                             |
-| ---------- | ---------------------------------------------------------------------------------- |
-| `sb.io`    | Registered through MarkMonitor / DNStination through 2030; no public sale listing. |
-| `sb.ai`    | Registered through Spaceship; nameservers point to `4.cn`.                         |
-| `sb.dev`   | Registered through Lexsynergy.                                                     |
-| `sb.app`   | Registered through Squarespace Domains II.                                         |
-| `sb.co`    | Registered and resolves to an active site.                                         |
-| `sb.gg`    | Registry-reserved/inactive; not available for normal registration.                 |
-| `sb.so`    | WHOIS says `Prohibited String - Domain Cannot Be Registered`.                      |
-| `sb.cc`    | Registered through NameSilo.                                                       |
-| `sb.md`    | Registered since 2013 and expires in 2027.                                         |
-| `sb.page`  | Registered through Namecheap.                                                      |
-| `sb.xyz`   | Registered through MarkMonitor / DNStination.                                      |
-| `sb.run`   | Registered through Gname.                                                          |
-| `sb.fyi`   | Registered through Cloudflare.                                                     |
-| `sb.tools` | Registered through GoDaddy.                                                        |
-| `sb.chat`  | Registered through GoDaddy.                                                        |
+| Domain  | Meaning | Result                                                                                                                 |
+| ------- | ------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `sa.me` | same    | Registry-reserved `.me` name.                                                                                          |
+| `ba.se` | base    | Registered `.se`, created 2014, expires 2026.                                                                          |
+| `co.re` | core    | AFNIC WHOIS reports `NOT FOUND`, but Afnic says overseas TLDs such as `.re` have a 3-character minimum.                |
+| `sy.nc` | sync    | `.nc` WHOIS reports no entries, but `.nc` requires 3-63 characters plus New Caledonia residency/business proof.        |
+| `pa.ne` | pane    | No DNS delegation found, but major `.ne` registrar references list a 3-character minimum and very high annual pricing. |
+| `ap.ps` | apps    | Registered and delegated.                                                                                              |
+| `gr.id` | grid    | Registry-reserved `.id` name.                                                                                          |
+| `tr.ee` | tree    | Registered and delegated.                                                                                              |
+| `ed.it` | edit    | `.it` WHOIS says `UNASSIGNABLE`.                                                                                       |
+| `do.it` | do it   | `.it` WHOIS says `UNASSIGNABLE`.                                                                                       |
+| `re.do` | redo    | `.do` WHOIS says no object found, but also says the domain is not allowed under registry policy.                       |
+| `co.de` | code    | Registered and delegated.                                                                                              |
+| `no.de` | node    | Registered and delegated.                                                                                              |
+| `ma.ke` | make    | Registered and delegated.                                                                                              |
+| `ma.de` | made    | Registered and delegated.                                                                                              |
+| `pa.ge` | page    | Registered and delegated.                                                                                              |
+| `ap.is` | APIs    | Registered and delegated.                                                                                              |
+| `pu.sh` | push    | Registered and parked.                                                                                                 |
+| `ty.pe` | type    | Registered and parked at Afternic.                                                                                     |
 
-Other available but weaker options:
+Exact `sb.*` names rejected or unavailable:
 
-- `sb.site`, `sb.one`, and `sb.cloud` appear available from WHOIS/RDAP checks,
-  but they are weaker than `sb.link` for a short-link surface.
-- `sb.ing` appears unregistered in Google Registry RDAP, but `sb.ing` reads more
-  like a chopped word than a short-link domain.
-- `sb.new` appears unregistered in Google Registry RDAP, but `.new` domains must
-  resolve directly to an action-generation or creation flow, so it is a poor fit
-  for general redirects.
+| Domain  | Result                                                                                                         |
+| ------- | -------------------------------------------------------------------------------------------------------------- |
+| `sb.io` | Registered through MarkMonitor / DNStination through 2030; no public sale listing.                             |
+| `sb.to` | Registered, nameservers `ns1.dan.com` / `ns2.dan.com`, Afternic/GoDaddy price-request page.                    |
+| `sb.sh` | Registered by Divido; public premium lander links to Domains.io, no visible price.                             |
+| `sb.me` | Registry-premium `.me` name available only by contacting `premium@identity.digital`.                           |
+| `sb.vc` | For sale on Dn.com at `$20,000`.                                                                               |
+| `sb.md` | Registered since 2013 and expires in 2027.                                                                     |
+| `sb.gg` | Registry-reserved/inactive; not available for normal registration.                                             |
+| `sb.so` | WHOIS says `Prohibited String - Domain Cannot Be Registered`.                                                  |
+| `sb.pw` | WHOIS reports available, but major registrar rules list a 3-character minimum for `.pw`; skip.                 |
+| `sb.aw` | WHOIS says free, but `.aw` registrar rules list a 3-character minimum plus trustee/application friction; skip. |
+| `sb.re` | WHOIS reports `NOT FOUND`, but Afnic rules make two-character `.re` names unavailable; skip.                   |
 
-Recommendation: register `sb.link` if the goal is a cheap, clean short-link
-domain. Then optionally check `sb.fm` at a registrar checkout; buy only if it is
-normal-price or an unusually cheap premium. Do not chase `sb.vc` at `$20,000`,
-and do not negotiate for `sb.to`, `sb.sh`, or `sb.me` unless the short-link
-domain becomes strategically important.
+Other checked exact `sb.*` names were registered, reserved, prohibited, or
+otherwise not practically available in direct WHOIS/DNS checks: `sb.ac`,
+`sb.ag`, `sb.ai`, `sb.am`, `sb.as`, `sb.at`, `sb.au`, `sb.be`, `sb.bz`, `sb.ca`,
+`sb.cc`, `sb.ch`, `sb.co`, `sb.cx`, `sb.de`, `sb.dk`, `sb.ee`, `sb.es`, `sb.eu`,
+`sb.fi`, `sb.ge`, `sb.gl`, `sb.gy`, `sb.id`, `sb.is`, `sb.it`, `sb.je`, `sb.la`,
+`sb.li`, `sb.lv`, `sb.ly`, `sb.mx`, `sb.nl`, `sb.nu`, `sb.pe`, `sb.ph`, `sb.pl`,
+`sb.pt`, `sb.se`, `sb.tv`, `sb.uk`, `sb.us`, and `sb.ws`.
+
+Recommendation: `sb.fm` is the only candidate I would actively try to buy right
+now. `sb.gd` and `sb.cr` are worth one registrar-cart check if you want backup
+strict `xx.xx` assets. I would not buy the obscure "available" tail (`sb.bm`,
+`sb.bn`, `sb.bf`, `sb.bj`, `sb.ht`, `sb.ug`) unless the goal becomes collecting
+rather than using a clean public short link.
+
+Source anchors for the policy and pricing calls:
+[Dynadot `.fm`](https://www.dynadot.com/domain/fm),
+[Dynadot `.re`](https://www.dynadot.com/domain/re),
+[Afnic `.re` eligibility](https://www.afnic.fr/produits-services/noms-domaines-ultramarins/le-re/),
+[Afnic FAQ](https://www.afnic.fr/en/noms-de-domaine/faq/),
+[Afnic 1/2-character `.fr` opening](https://www.afnic.fr/en/observatory-and-resources/news/new-registration-rules-as-of-december-8-2014/),
+[NIC Costa Rica FAQ](https://dominios.cr/faqs),
+[101domain `.nc`](https://www.101domain.com/nc-information-help.htm),
+[101domain `.aw`](https://www.101domain.com/aw-information-help.htm),
+[GoDaddy `.pw`](https://www.godaddy.com/help/about-pw-domains-26472),
+[NIC-PY help](https://nic.py/ayuda.php), and
+[DIHOST `.gd`](https://dihost.io/domains/gd-domain).
 
 ### Independent second-pass recommendation
 
