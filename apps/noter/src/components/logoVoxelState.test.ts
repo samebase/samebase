@@ -60,6 +60,15 @@ describe("logoVoxelState", () => {
     );
   });
 
+  it("builds deliberate higher depths from filled motif cells", () => {
+    const voxelGrid = createLogoFractalVoxelGrid({ depth: 5 });
+
+    expect(voxelGrid.gridSize).toBe(243);
+    expect(voxelGrid.filledVoxels.size).toBe(12 ** 5);
+    expect(voxelGrid.filledVoxels.has(voxelKey(0, 0, 0))).toBe(false);
+    expect(voxelGrid.filledVoxels.has(voxelKey(121, 0, 0))).toBe(true);
+  });
+
   it("normalizes logo fractal depth without capping deliberate values", () => {
     expect(normalizeLogoFractalDepth(0)).toBe(1);
     expect(normalizeLogoFractalDepth(2.4)).toBe(2);

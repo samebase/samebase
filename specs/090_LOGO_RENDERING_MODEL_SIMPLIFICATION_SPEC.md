@@ -146,9 +146,15 @@ through the shared voxel-grid model across Three, smooth SVG, isometric, and
 public landing logo surfaces. The playground slider should stop at `5` as the
 comfortable exploration range, while direct number input and URL state may use
 higher normalized integer depths deliberately. Recursive depths stay static as
-shapes: rotation, dragging, colors, opacity, and static SVG output continue to
-work. Direct tiny-cube editing remains a depth-1 behavior, while shuffle may
-move cubes in whichever recursive voxel grid is currently rendered.
+shapes: rotation, dragging, colors, opacity, and bounded static SVG fallbacks
+continue to work. Direct tiny-cube editing remains a depth-1 behavior. Recursive
+Three shuffle moves rendered recursive tile units rather than the smallest leaf
+cubes.
+
+The Three preview must not build every tiny surface for recursive depths.
+Recursive depths may render by instancing a smaller recursive tile into the
+higher-level motif positions. That tiled path keeps rotation, dragging, and
+shuffle responsive without entering the exact tiny-cube mutation path.
 
 ## Validation
 

@@ -1,11 +1,27 @@
 import { type FaceColorKey } from "./logoTailwindColors";
-import { GRID_SIZE, isWithinVoxelGrid, voxelKey } from "./logoVoxelState";
+import { GRID_SIZE, isWithinVoxelGrid, parseVoxelKey } from "./logoVoxelState";
 
 type Rectangle = {
   column: number;
   height: number;
   row: number;
   width: number;
+};
+
+type FacePlaneMap = Map<number, Set<number>>;
+
+type SurfaceFacePlanes = {
+  negativeX: FacePlaneMap;
+  negativeY: FacePlaneMap;
+  negativeZ: FacePlaneMap;
+  positiveX: FacePlaneMap;
+  positiveY: FacePlaneMap;
+  positiveZ: FacePlaneMap;
+};
+
+type FilledVoxelCoordinates = {
+  coordinates: LogoSurfaceVertex[];
+  filledCells: ReadonlySet<number>;
 };
 
 export type LogoSurfaceVertex = readonly [number, number, number];
@@ -23,65 +39,72 @@ export type LogoSurfaceQuad = {
   ];
 };
 
-function collectRectangles(mask: boolean[][]): Rectangle[] {
-  const visited = mask.map((row) => row.map(() => false));
+function collectSparseRectangles(
+  cells: ReadonlySet<number> | undefined,
+  gridSize: number,
+): Rectangle[] {
+  if (!cells || cells.size === 0) {
+    return [];
+  }
+
+  const visited = new Set<number>();
   const rectangles: Rectangle[] = [];
+  const sortedCells = [...cells].sort((left, right) => left - right);
 
-  for (let row = 0; row < mask.length; row += 1) {
-    for (let column = 0; column < mask[row].length; column += 1) {
-      if (!mask[row][column] || visited[row][column]) {
-        continue;
-      }
-
-      let width = 1;
-      while (
-        column + width < mask[row].length &&
-        mask[row][column + width] &&
-        !visited[row][column + width]
-      ) {
-        width += 1;
-      }
-
-      let height = 1;
-      let canGrow = true;
-      while (row + height < mask.length && canGrow) {
-        for (
-          let nextColumn = column;
-          nextColumn < column + width;
-          nextColumn += 1
-        ) {
-          if (
-            !mask[row + height][nextColumn] ||
-            visited[row + height][nextColumn]
-          ) {
-            canGrow = false;
-            break;
-          }
-        }
-        if (canGrow) {
-          height += 1;
-        }
-      }
-
-      for (let nextRow = row; nextRow < row + height; nextRow += 1) {
-        for (
-          let nextColumn = column;
-          nextColumn < column + width;
-          nextColumn += 1
-        ) {
-          visited[nextRow][nextColumn] = true;
-        }
-      }
-
-      rectangles.push({ column, height, row, width });
+  for (const cell of sortedCells) {
+    if (visited.has(cell)) {
+      continue;
     }
+
+    const row = Math.floor(cell / gridSize);
+    const column = cell % gridSize;
+    let width = 1;
+
+    while (column + width < gridSize) {
+      const nextCell = row * gridSize + column + width;
+      if (!cells.has(nextCell) || visited.has(nextCell)) {
+        break;
+      }
+      width += 1;
+    }
+
+    let height = 1;
+    let canGrow = true;
+    while (row + height < gridSize && canGrow) {
+      for (
+        let nextColumn = column;
+        nextColumn < column + width;
+        nextColumn += 1
+      ) {
+        const nextCell = (row + height) * gridSize + nextColumn;
+        if (!cells.has(nextCell) || visited.has(nextCell)) {
+          canGrow = false;
+          break;
+        }
+      }
+      if (canGrow) {
+        height += 1;
+      }
+    }
+
+    for (let nextRow = row; nextRow < row + height; nextRow += 1) {
+      for (
+        let nextColumn = column;
+        nextColumn < column + width;
+        nextColumn += 1
+      ) {
+        visited.add(nextRow * gridSize + nextColumn);
+      }
+    }
+
+    rectangles.push({ column, height, row, width });
   }
 
   return rectangles;
 }
 
 function isVoxelFilled(
-  filledVoxels: ReadonlySet<string>,
+  filledCells: ReadonlySet<number>,
   gridSize: number,
   x: number,
   y: number,
@@ -91,7 +114,109 @@ function isVoxelFilled(
     return false;
   }
 
-  return filledVoxels.has(voxelKey(x, y, z));
+  return filledCells.has(toVoxelCell(gridSize, x, y, z));
+}
+
+function addFaceCell(
+  facePlanes: FacePlaneMap,
+  gridSize: number,
+  plane: number,
+  row: number,
+  column: number,
+) {
+  const cell = row * gridSize + column;
+  const existingCells = facePlanes.get(plane);
+  if (existingCells) {
+    existingCells.add(cell);
+    return;
+  }
+
+  facePlanes.set(plane, new Set([cell]));
+}
+
+function toVoxelCell(
+  gridSize: number,
+  x: number,
+  y: number,
+  z: number,
+): number {
+  return (x * gridSize + y) * gridSize + z;
+}
+
+function readFilledVoxelCoordinates(
+  filledVoxels: ReadonlySet<string>,
+  gridSize: number,
+): FilledVoxelCoordinates {
+  const coordinates: LogoSurfaceVertex[] = [];
+  const filledCells = new Set<number>();
+
+  for (const key of filledVoxels) {
+    const coordinate = parseVoxelKey(key);
+    if (!coordinate) {
+      continue;
+    }
+
+    const [x, y, z] = coordinate;
+    if (!isWithinVoxelGrid(gridSize, x, y, z)) {
+      continue;
+    }
+
+    coordinates.push(coordinate);
+    filledCells.add(toVoxelCell(gridSize, x, y, z));
+  }
+
+  return { coordinates, filledCells };
+}
+
+function collectSurfaceFacePlanes(
+  filledVoxelCoordinates: FilledVoxelCoordinates,
+  gridSize: number,
+): SurfaceFacePlanes {
+  const facePlanes: SurfaceFacePlanes = {
+    negativeX: new Map(),
+    negativeY: new Map(),
+    negativeZ: new Map(),
+    positiveX: new Map(),
+    positiveY: new Map(),
+    positiveZ: new Map(),
+  };
+
+  for (const coordinate of filledVoxelCoordinates.coordinates) {
+    const [x, y, z] = coordinate;
+
+    if (
+      !isVoxelFilled(filledVoxelCoordinates.filledCells, gridSize, x + 1, y, z)
+    ) {
+      addFaceCell(facePlanes.positiveX, gridSize, x, y, z);
+    }
+    if (
+      !isVoxelFilled(filledVoxelCoordinates.filledCells, gridSize, x - 1, y, z)
+    ) {
+      addFaceCell(facePlanes.negativeX, gridSize, x, y, z);
+    }
+    if (
+      !isVoxelFilled(filledVoxelCoordinates.filledCells, gridSize, x, y + 1, z)
+    ) {
+      addFaceCell(facePlanes.positiveY, gridSize, y, x, z);
+    }
+    if (
+      !isVoxelFilled(filledVoxelCoordinates.filledCells, gridSize, x, y - 1, z)
+    ) {
+      addFaceCell(facePlanes.negativeY, gridSize, y, x, z);
+    }
+    if (
+      !isVoxelFilled(filledVoxelCoordinates.filledCells, gridSize, x, y, z + 1)
+    ) {
+      addFaceCell(facePlanes.positiveZ, gridSize, z, x, y);
+    }
+    if (
+      !isVoxelFilled(filledVoxelCoordinates.filledCells, gridSize, x, y, z - 1)
+    ) {
+      addFaceCell(facePlanes.negativeZ, gridSize, z, x, y);
+    }
+  }
+
+  return facePlanes;
 }
 
 function toWorld(boundaryIndex: number, gridSize: number): number {
@@ -108,17 +233,16 @@ export function buildLogoSurfaceQuads(
   gridSize = GRID_SIZE,
 ): LogoSurfaceQuad[] {
   const quads: LogoSurfaceQuad[] = [];
+  const facePlanes = collectSurfaceFacePlanes(
+    readFilledVoxelCoordinates(filledVoxels, gridSize),
+    gridSize,
+  );
 
   for (let x = 0; x < gridSize; x += 1) {
-    const positiveXMask = Array.from({ length: gridSize }, (_, y) =>
-      Array.from(
-        { length: gridSize },
-        (_, z) =>
-          isVoxelFilled(filledVoxels, gridSize, x, y, z) &&
-          !isVoxelFilled(filledVoxels, gridSize, x + 1, y, z),
-      ),
-    );
-    for (const rectangle of collectRectangles(positiveXMask)) {
+    for (const rectangle of collectSparseRectangles(
+      facePlanes.positiveX.get(x),
+      gridSize,
+    )) {
       const plane = toWorld(x + 1, gridSize);
       const y0 = toWorld(rectangle.row, gridSize);
       const y1 = toWorld(rectangle.row + rectangle.height, gridSize);
@@ -138,15 +262,10 @@ export function buildLogoSurfaceQuads(
       });
     }
 
-    const negativeXMask = Array.from({ length: gridSize }, (_, y) =>
-      Array.from(
-        { length: gridSize },
-        (_, z) =>
-          isVoxelFilled(filledVoxels, gridSize, x, y, z) &&
-          !isVoxelFilled(filledVoxels, gridSize, x - 1, y, z),
-      ),
-    );
-    for (const rectangle of collectRectangles(negativeXMask)) {
+    for (const rectangle of collectSparseRectangles(
+      facePlanes.negativeX.get(x),
+      gridSize,
+    )) {
       const plane = toWorld(x, gridSize);
       const y0 = toWorld(rectangle.row, gridSize);
       const y1 = toWorld(rectangle.row + rectangle.height, gridSize);
@@ -168,15 +287,10 @@ export function buildLogoSurfaceQuads(
   }
 
   for (let y = 0; y < gridSize; y += 1) {
-    const positiveYMask = Array.from({ length: gridSize }, (_, x) =>
-      Array.from(
-        { length: gridSize },
-        (_, z) =>
-          isVoxelFilled(filledVoxels, gridSize, x, y, z) &&
-          !isVoxelFilled(filledVoxels, gridSize, x, y + 1, z),
-      ),
-    );
-    for (const rectangle of collectRectangles(positiveYMask)) {
+    for (const rectangle of collectSparseRectangles(
+      facePlanes.positiveY.get(y),
+      gridSize,
+    )) {
       const plane = toWorld(y + 1, gridSize);
       const x0 = toWorld(rectangle.row, gridSize);
       const x1 = toWorld(rectangle.row + rectangle.height, gridSize);
@@ -196,15 +310,10 @@ export function buildLogoSurfaceQuads(
       });
     }
 
-    const negativeYMask = Array.from({ length: gridSize }, (_, x) =>
-      Array.from(
-        { length: gridSize },
-        (_, z) =>
-          isVoxelFilled(filledVoxels, gridSize, x, y, z) &&
-          !isVoxelFilled(filledVoxels, gridSize, x, y - 1, z),
-      ),
-    );
-    for (const rectangle of collectRectangles(negativeYMask)) {
+    for (const rectangle of collectSparseRectangles(
+      facePlanes.negativeY.get(y),
+      gridSize,
+    )) {
       const plane = toWorld(y, gridSize);
       const x0 = toWorld(rectangle.row, gridSize);
       const x1 = toWorld(rectangle.row + rectangle.height, gridSize);
@@ -226,15 +335,10 @@ export function buildLogoSurfaceQuads(
   }
 
   for (let z = 0; z < gridSize; z += 1) {
-    const positiveZMask = Array.from({ length: gridSize }, (_, x) =>
-      Array.from(
-        { length: gridSize },
-        (_, y) =>
-          isVoxelFilled(filledVoxels, gridSize, x, y, z) &&
-          !isVoxelFilled(filledVoxels, gridSize, x, y, z + 1),
-      ),
-    );
-    for (const rectangle of collectRectangles(positiveZMask)) {
+    for (const rectangle of collectSparseRectangles(
+      facePlanes.positiveZ.get(z),
+      gridSize,
+    )) {
       const plane = toWorld(z + 1, gridSize);
       const x0 = toWorld(rectangle.row, gridSize);
       const x1 = toWorld(rectangle.row + rectangle.height, gridSize);
@@ -254,15 +358,10 @@ export function buildLogoSurfaceQuads(
       });
     }
 
-    const negativeZMask = Array.from({ length: gridSize }, (_, x) =>
-      Array.from(
-        { length: gridSize },
-        (_, y) =>
-          isVoxelFilled(filledVoxels, gridSize, x, y, z) &&
-          !isVoxelFilled(filledVoxels, gridSize, x, y, z - 1),
-      ),
-    );
-    for (const rectangle of collectRectangles(negativeZMask)) {
+    for (const rectangle of collectSparseRectangles(
+      facePlanes.negativeZ.get(z),
+      gridSize,
+    )) {
       const plane = toWorld(z, gridSize);
       const x0 = toWorld(rectangle.row, gridSize);
       const x1 = toWorld(rectangle.row + rectangle.height, gridSize);

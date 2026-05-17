@@ -43,6 +43,24 @@ export function voxelKey(x: number, y: number, z: number): string {
   return `${x},${y},${z}`;
 }
 
+export function parseVoxelKey(key: string): VoxelCoordinate | null {
+  const parts = key.split(",");
+  if (parts.length !== 3) {
+    return null;
+  }
+
+  const [xText, yText, zText] = parts;
+  const x = Number(xText);
+  const y = Number(yText);
+  const z = Number(zText);
+
+  if (!Number.isInteger(x) || !Number.isInteger(y) || !Number.isInteger(z)) {
+    return null;
+  }
+
+  return [x, y, z];
+}
+
 export function isWithinGrid(x: number, y: number, z: number): boolean {
   return isWithinVoxelGrid(GRID_SIZE, x, y, z);
 }
@@ -92,44 +110,33 @@ export function getLogoFractalGridSize(depth: number): number {
   return GRID_SIZE ** normalizeLogoFractalDepth(depth);
 }
 
-function isLogoFractalVoxelFilled({
-  baseFilledVoxels,
-  depth,
-  x,
-  y,
-  z,
-}: {
-  baseFilledVoxels: ReadonlySet<string>;
-  depth: number;
-  x: number;
-  y: number;
-  z: number;
-}): boolean {
-  let remainingX = x;
-  let remainingY = y;
-  let remainingZ = z;
+function readBaseFractalCoordinates(
+  filledVoxels: ReadonlySet<string>,
+): VoxelCoordinate[] {
+  const coordinates: VoxelCoordinate[] = [];
 
-  for (let level = 0; level < depth; level += 1) {
-    const xDigit = remainingX % GRID_SIZE;
-    const yDigit = remainingY % GRID_SIZE;
-    const zDigit = remainingZ % GRID_SIZE;
-
-    if (!baseFilledVoxels.has(voxelKey(xDigit, yDigit, zDigit))) {
-      return false;
+  for (const key of filledVoxels) {
+    const coordinate = parseVoxelKey(key);
+    if (!coordinate) {
+      continue;
     }
 
-    remainingX = Math.floor(remainingX / GRID_SIZE);
-    remainingY = Math.floor(remainingY / GRID_SIZE);
-    remainingZ = Math.floor(remainingZ / GRID_SIZE);
+    const [x, y, z] = coordinate;
+    if (!isWithinVoxelGrid(GRID_SIZE, x, y, z)) {
+      continue;
+    }
+
+    coordinates.push(coordinate);
   }
 
-  return true;
+  return coordinates;
 }
 
 /**
  * Repeats the depth-1 motif in every filled voxel. The default motif is the
  * Noter mark, which keeps recursive corners empty instead of becoming a
- * standard Menger sponge.
+ * standard Menger sponge. Generation expands only from filled motif cells so
+ * higher depths do not scan the empty recursive volume.
  */
 export function createLogoFractalVoxelGrid({
   depth,
@@ -140,24 +147,31 @@ export function createLogoFractalVoxelGrid({
 }): LogoVoxelGrid {
   const normalizedDepth = normalizeLogoFractalDepth(depth);
   const gridSize = getLogoFractalGridSize(normalizedDepth);
+  const baseCoordinates = readBaseFractalCoordinates(filledVoxels);
   const nextFilledVoxels = new Set<string>();
+  let origins: VoxelCoordinate[] = [[0, 0, 0]];
+  let scale = 1;
 
-  for (let x = 0; x < gridSize; x += 1) {
-    for (let y = 0; y < gridSize; y += 1) {
-      for (let z = 0; z < gridSize; z += 1) {
-        if (
-          isLogoFractalVoxelFilled({
-            baseFilledVoxels: filledVoxels,
-            depth: normalizedDepth,
-            x,
-            y,
-            z,
-          })
-        ) {
+  for (let level = 0; level < normalizedDepth; level += 1) {
+    const isFinalLevel = level === normalizedDepth - 1;
+    const nextOrigins: VoxelCoordinate[] = [];
+
+    for (const [originX, originY, originZ] of origins) {
+      for (const [baseX, baseY, baseZ] of baseCoordinates) {
+        const x = originX + baseX * scale;
+        const y = originY + baseY * scale;
+        const z = originZ + baseZ * scale;
+
+        if (isFinalLevel) {
           nextFilledVoxels.add(voxelKey(x, y, z));
+        } else {
+          nextOrigins.push([x, y, z]);
         }
       }
     }
+
+    origins = nextOrigins;
+    scale *= GRID_SIZE;
   }
 
   return {

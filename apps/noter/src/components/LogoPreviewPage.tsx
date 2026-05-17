@@ -1153,17 +1153,24 @@ export function LogoPreviewPage({
     () => parseVoxelState(state.voxelState) ?? createDefaultFilledVoxelSet(),
     [state.voxelState],
   );
+  const isRecursiveDepth = state.fractalDepth > DEFAULT_LOGO_FRACTAL_DEPTH;
+  const useThreeRecursiveTileRender =
+    renderMode === "three" && isRecursiveDepth;
   const logoVoxelGrid = useMemo(
     () =>
-      state.fractalDepth > DEFAULT_LOGO_FRACTAL_DEPTH
+      isRecursiveDepth && !useThreeRecursiveTileRender
         ? createLogoFractalVoxelGrid({
             depth: state.fractalDepth,
             filledVoxels: baseFilledVoxels,
           })
         : undefined,
-    [baseFilledVoxels, state.fractalDepth],
+    [
+      baseFilledVoxels,
+      isRecursiveDepth,
+      state.fractalDepth,
+      useThreeRecursiveTileRender,
+    ],
   );
-  const isRecursiveDepth = logoVoxelGrid !== undefined;
   const shuffleAnimation = {
     enabled: state.isShuffleEnabled,
     parallelMoves: state.shuffleParallelMoves,
@@ -1219,6 +1226,7 @@ export function LogoPreviewPage({
         rotationDegrees={state.rotationDegrees}
         shuffleAnimation={shuffleAnimation}
         animateFaceColors={state.isFaceColorAnimationEnabled}
+        fractalDepth={state.fractalDepth}
         voxelEditingEnabled={!isRecursiveDepth}
         voxelGrid={logoVoxelGrid}
         viewDragConfig={

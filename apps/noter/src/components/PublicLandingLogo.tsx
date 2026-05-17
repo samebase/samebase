@@ -45,6 +45,9 @@ type LandingLogoSceneComponent =
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 const AUTO_ROTATE_RESUME_DURATION_MS = 220;
 const AUTO_ROTATE_RESUME_MIN_SPEED_MULTIPLIER = 0.4;
+// The canvas receives the requested depth; the SVG fallback stays cheap enough
+// to render before the interactive scene is ready.
+const LANDING_STATIC_SVG_FALLBACK_DEPTH = 3;
 
 const DEFAULT_LANDING_LOGO_VIEW: RotatedLogoViewState = {
   elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
@@ -97,14 +100,19 @@ export function PublicLandingLogo({
   const fractalDepth = normalizeLogoFractalDepth(
     themeColorSearch.depth ?? DEFAULT_LOGO_FRACTAL_DEPTH,
   );
-  const logoVoxelGrid = useMemo(
-    () => createLogoFractalVoxelGrid({ depth: fractalDepth }),
-    [fractalDepth],
+  const isRecursiveDepth = fractalDepth > DEFAULT_LOGO_FRACTAL_DEPTH;
+  const staticFallbackDepth = Math.min(
+    fractalDepth,
+    LANDING_STATIC_SVG_FALLBACK_DEPTH,
+  );
+  const staticLogoVoxelGrid = useMemo(
+    () => createLogoFractalVoxelGrid({ depth: staticFallbackDepth }),
+    [staticFallbackDepth],
   );
   const staticLogoSvgSrc = `${createStaticLogoSvgDataUrl({
     faceColors,
-    filledVoxels: logoVoxelGrid.filledVoxels,
-    gridSize: logoVoxelGrid.gridSize,
+    filledVoxels: staticLogoVoxelGrid.filledVoxels,
+    gridSize: staticLogoVoxelGrid.gridSize,
     view: initialView,
   })}#${logoTheme.cacheKey}:${fractalDepth}`;
   const [isSceneReady, setIsSceneReady] = useState(false);
@@ -358,7 +366,8 @@ export function PublicLandingLogo({
               rotationDegrees={view.rotationDegrees}
               shuffleAnimation={{ enabled: false, parallelMoves: 1 }}
               animateFaceColors={false}
-              voxelGrid={logoVoxelGrid}
+              fractalDepth={fractalDepth}
+              voxelGrid={isRecursiveDepth ? undefined : staticLogoVoxelGrid}
               voxelEditingEnabled={false}
               viewDragConfig={
                 enableViewSnapping

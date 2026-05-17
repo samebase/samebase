@@ -264,6 +264,38 @@ test("logo recursive depth renders a rotatable shuffleable Three scene", async (
   });
 });
 
+test("logo depth 5 keeps the tiled Three preview responsive", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo?depth=5&rot=45", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+
+  await expect(page.locator("canvas").first()).toBeVisible();
+  await expect(controlsSidebar.getByLabel("Depth value")).toHaveValue("5");
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Add" }),
+  ).toHaveCount(0);
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Start shuffle" }),
+  ).toBeVisible();
+  await controlsSidebar.getByRole("button", { name: "Start shuffle" }).click();
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Stop shuffle" }),
+  ).toBeVisible();
+
+  await controlsSidebar.getByLabel("Yaw value").fill("90");
+  await expect
+    .poll(() => {
+      const url = new URL(page.url());
+      return `${url.searchParams.get("depth")}:${url.searchParams.get("rot")}`;
+    })
+    .toBe("5:90");
+});
+
 test("logo depth slider clears default depth from the URL", async ({
   page,
 }) => {

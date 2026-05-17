@@ -248,6 +248,38 @@ describe("PublicLandingLogo", () => {
     );
   });
 
+  it("bounds the high-depth static fallback while preserving the requested depth", async () => {
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+
+    await act(async () => {
+      localRoot.render(
+        <PublicLandingLogo
+          loadInteractiveScene={false}
+          themeColorSearch={{ depth: 6 }}
+        />,
+      );
+    });
+
+    const fallbackVoxelGrid = createLogoFractalVoxelGrid({ depth: 3 });
+    const defaultLogoTheme = resolveAppThemeColorState({
+      search: {},
+      themeMode: "light",
+    });
+
+    expect(getLogoImageDecodedSource(rootElement)).toBe(
+      decodeURIComponent(
+        `${createStaticLogoSvgDataUrl({
+          faceColors: defaultLogoTheme.faceColors,
+          filledVoxels: fallbackVoxelGrid.filledVoxels,
+          gridSize: fallbackVoxelGrid.gridSize,
+        })}#${defaultLogoTheme.cacheKey}:6`,
+      ),
+    );
+  });
+
   it("refreshes the static fallback when the document theme changes", async () => {
     installLogoThemeStyle();
 

@@ -106,6 +106,11 @@ Example:
   may use higher normalized integer depths deliberately.
 - Recursive depth keeps corners empty according to the Noter motif; it is not a
   standard Menger sponge.
+- The Three preview uses a tiled recursive render path for recursive depths so
+  changing depth does not build every tiny surface synchronously.
+- Public landing logos use the same tiled Three render path for recursive
+  depths; their initial static SVG fallback stays bounded so a high `depth`
+  query param cannot block the page before the canvas is ready.
 
 ## Shape Presets
 
@@ -198,7 +203,7 @@ The playground should expose at least these presets:
 
 ### 3. Parallel motion
 
-- The shuffle control supports `1`, `2`, or `3` parallel moving cubes.
+- The shuffle control supports `1`, `2`, or `3` parallel moving units.
 - The default should be `3`.
 
 ### 4. Staggering
@@ -210,7 +215,7 @@ The playground should expose at least these presets:
 ### 5. Origin constraints
 
 - The same cube should not be chosen twice in a row when avoidable.
-- The true center cube for the current grid must never be selected as a shuffle
+- The true center unit for the current grid must never be selected as a shuffle
   origin.
 - Shuffle origins should be limited to cubes that currently have at least one
   exposed face visible to the current camera view.
@@ -219,6 +224,8 @@ The playground should expose at least these presets:
   rotates.
 - Shuffle may run at recursive depths and moves cubes in the current rendered
   voxel grid.
+- In recursive Three previews, shuffle moves the rendered recursive tile units
+  rather than the smallest leaf cubes.
 
 ## Rendering Rules
 
