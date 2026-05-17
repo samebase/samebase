@@ -104,10 +104,9 @@ clearance; use a trademark attorney before treating the name as cleared.
   `@samebase` is also occupied by a channel titled "same base". Bluesky
   `samebase.bsky.social` exists with 0 posts and 8 followers, though buying the
   domain would let us use `samebase.com` as the Bluesky handle. LinkedIn
-  `/company/samebase/` returns 404, and X/Twitter's public oEmbed endpoint
-  returns 404 for `samebase`, but both should be verified while claiming because
-  social availability checks can be brittle when unauthenticated. TikTok needs a
-  logged-in/in-app confirmation.
+  `/company/samebase/` returns 404. X/Twitter `@samebase` is unavailable from a
+  logged-in check, despite a false unauthenticated oEmbed 404 signal. TikTok
+  needs a logged-in/in-app confirmation.
 - Judgment: this is cleaner than expected. The main risk is not a visible
   trademark/company collision; it is that two consumer-social handles are
   already taken. For a product whose core shtick is "an app creating apps from
@@ -124,33 +123,33 @@ platform-policy guarantee.
 
 Highest priority handles to claim now:
 
-| Surface          | Public check result                                                                                                         | Priority |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------- | -------- |
-| X / Twitter      | [`@samebase`](https://x.com/samebase) returned a 404 from Twitter's public oEmbed endpoint; claim from a logged-in account. | Highest  |
-| LinkedIn company | [`/company/samebase`](https://www.linkedin.com/company/samebase/) returned 404.                                             | Highest  |
-| GitLab           | Public API lookup for `username=samebase` returned `[]`.                                                                    | High     |
-| Docker Hub       | [`hub.docker.com/u/samebase`](https://hub.docker.com/u/samebase) returned 404.                                              | High     |
-| Hugging Face     | [`huggingface.co/samebase`](https://huggingface.co/samebase) returned 404.                                                  | High     |
-| PyPI             | [`pypi.org/pypi/samebase/json`](https://pypi.org/pypi/samebase/json) returned 404 for the package name.                     | High     |
-| crates.io        | [`crates.io/crates/samebase`](https://crates.io/crates/samebase) returned crate-not-found.                                  | High     |
-| RubyGems         | [`rubygems.org/gems/samebase`](https://rubygems.org/gems/samebase) returned not found.                                      | Medium   |
-| NuGet            | [`nuget.org/packages/Samebase`](https://www.nuget.org/packages/Samebase) had no flat-container package.                     | Medium   |
-| Dev.to           | [`dev.to/samebase`](https://dev.to/samebase) returned 404.                                                                  | Medium   |
-| Substack         | [`samebase.substack.com`](https://samebase.substack.com) returned 404.                                                      | Medium   |
-| Figma            | [`figma.com/@samebase`](https://www.figma.com/@samebase) returned 404.                                                      | Medium   |
-| Dribbble         | [`dribbble.com/samebase`](https://dribbble.com/samebase) returned 404.                                                      | Low      |
-| Behance          | [`behance.net/samebase`](https://www.behance.net/samebase) returned 404.                                                    | Low      |
-| Slack workspace  | [`samebase.slack.com`](https://samebase.slack.com) returned Slack's 404/glitch page.                                        | Low      |
-| Cloudflare Pages | [`samebase.pages.dev`](https://samebase.pages.dev) did not resolve.                                                         | Low      |
-| Netlify          | [`samebase.netlify.app`](https://samebase.netlify.app) returned 404.                                                        | Low      |
-| Read the Docs    | [`samebase.readthedocs.io`](https://samebase.readthedocs.io) returned project-not-found.                                    | Low      |
-| GitBook          | [`samebase.gitbook.io`](https://samebase.gitbook.io) returned 404.                                                          | Low      |
-| Intercom Help    | [`samebase.intercom.help`](https://samebase.intercom.help) returned 404.                                                    | Low      |
+| Surface          | Public check result                                                                                     | Priority |
+| ---------------- | ------------------------------------------------------------------------------------------------------- | -------- |
+| LinkedIn company | [`/company/samebase`](https://www.linkedin.com/company/samebase/) returned 404.                         | Highest  |
+| GitLab           | Public API lookup for `username=samebase` returned `[]`.                                                | High     |
+| Docker Hub       | [`hub.docker.com/u/samebase`](https://hub.docker.com/u/samebase) returned 404.                          | High     |
+| Hugging Face     | [`huggingface.co/samebase`](https://huggingface.co/samebase) returned 404.                              | High     |
+| PyPI             | [`pypi.org/pypi/samebase/json`](https://pypi.org/pypi/samebase/json) returned 404 for the package name. | High     |
+| crates.io        | [`crates.io/crates/samebase`](https://crates.io/crates/samebase) returned crate-not-found.              | High     |
+| RubyGems         | [`rubygems.org/gems/samebase`](https://rubygems.org/gems/samebase) returned not found.                  | Medium   |
+| NuGet            | [`nuget.org/packages/Samebase`](https://www.nuget.org/packages/Samebase) had no flat-container package. | Medium   |
+| Dev.to           | [`dev.to/samebase`](https://dev.to/samebase) returned 404.                                              | Medium   |
+| Substack         | [`samebase.substack.com`](https://samebase.substack.com) returned 404.                                  | Medium   |
+| Figma            | [`figma.com/@samebase`](https://www.figma.com/@samebase) returned 404.                                  | Medium   |
+| Dribbble         | [`dribbble.com/samebase`](https://dribbble.com/samebase) returned 404.                                  | Low      |
+| Behance          | [`behance.net/samebase`](https://www.behance.net/samebase) returned 404.                                | Low      |
+| Slack workspace  | [`samebase.slack.com`](https://samebase.slack.com) returned Slack's 404/glitch page.                    | Low      |
+| Cloudflare Pages | [`samebase.pages.dev`](https://samebase.pages.dev) did not resolve.                                     | Low      |
+| Netlify          | [`samebase.netlify.app`](https://samebase.netlify.app) returned 404.                                    | Low      |
+| Read the Docs    | [`samebase.readthedocs.io`](https://samebase.readthedocs.io) returned project-not-found.                | Low      |
+| GitBook          | [`samebase.gitbook.io`](https://samebase.gitbook.io) returned 404.                                      | Low      |
+| Intercom Help    | [`samebase.intercom.help`](https://samebase.intercom.help) returned 404.                                | Low      |
 
-Already occupied or blocked:
+Already occupied, unavailable, or blocked:
 
 | Surface   | Public check result                                                                                                                                                      |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| X/Twitter | [`@samebase`](https://x.com/samebase) shows "This account doesn't exist" publicly, but is unavailable in the logged-in username claim flow.                              |
 | Instagram | [`@samebase`](https://www.instagram.com/samebase/) exists as a low-signal "Samebase" mental-wellness profile with 1 follower, 0 posts, and no verification.              |
 | Threads   | Threads uses Instagram identity, so the occupied Instagram username should be treated as blocking `@samebase` unless Meta releases/transfers it.                         |
 | YouTube   | [`youtube.com/@samebase`](https://www.youtube.com/@samebase) resolves to a channel titled "same base".                                                                   |
