@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  buildCloudflareWorkersEnvVars,
   isWorkersBuildsInvalidTokenMessage,
   readCloudflareWorkerTag,
   selectCurrentBuildTokenUuid,
@@ -8,6 +9,44 @@ import {
 } from "./cloudflareResources";
 
 describe("cloudflare resources", () => {
+  it("uses the split production Convex deploy key for production Workers builds", () => {
+    expect(
+      buildCloudflareWorkersEnvVars({
+        deployKeyName: "PROD_CONVEX_DEPLOY_KEY",
+        convexDeployKey: "prod-key",
+        convexUrl: "https://prod.convex.cloud",
+      }),
+    ).toEqual({
+      PROD_CONVEX_DEPLOY_KEY: {
+        value: "prod-key",
+        is_secret: true,
+      },
+      VITE_CONVEX_URL: {
+        value: "https://prod.convex.cloud",
+        is_secret: false,
+      },
+    });
+  });
+
+  it("uses the split preview Convex deploy key for preview Workers builds", () => {
+    expect(
+      buildCloudflareWorkersEnvVars({
+        deployKeyName: "PREVIEW_CONVEX_DEPLOY_KEY",
+        convexDeployKey: "preview-key",
+        convexUrl: "https://preview.convex.cloud",
+      }),
+    ).toEqual({
+      PREVIEW_CONVEX_DEPLOY_KEY: {
+        value: "preview-key",
+        is_secret: true,
+      },
+      VITE_CONVEX_URL: {
+        value: "https://preview.convex.cloud",
+        is_secret: false,
+      },
+    });
+  });
+
   it("uses the Workers service id as the Workers Builds tag", () => {
     expect(
       readCloudflareWorkerTag(
