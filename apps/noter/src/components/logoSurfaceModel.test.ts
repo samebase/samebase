@@ -7,6 +7,7 @@ import {
 import {
   createDefaultFilledVoxelSet,
   createFilledVoxelSet,
+  createLogoFractalVoxelGrid,
 } from "@/components/logoVoxelState";
 
 describe("buildLogoSurfaceQuads", () => {
@@ -49,6 +50,23 @@ describe("buildLogoSurfaceQuads", () => {
       "positive-z:0:0:0:2:1",
       "negative-z:0:0:0:2:1",
     ]);
+  });
+
+  it("supports larger recursive grids without changing renderer contracts", () => {
+    const voxelGrid = createLogoFractalVoxelGrid({ depth: 2 });
+    const surfaceQuads = buildLogoSurfaceQuads(
+      voxelGrid.filledVoxels,
+      voxelGrid.gridSize,
+    );
+
+    expect(surfaceQuads.length).toBeGreaterThan(72);
+    expect(
+      surfaceQuads.every((surfaceQuad) =>
+        surfaceQuad.vertices.every(([x, y, z]) =>
+          [x, y, z].every((value) => value >= -4.5 && value <= 4.5),
+        ),
+      ),
+    ).toBe(true);
   });
 });
 

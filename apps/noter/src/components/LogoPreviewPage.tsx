@@ -61,12 +61,18 @@ import {
 import { Layout, PublicLayoutShell } from "@/Layout";
 import {
   DEFAULT_ELEVATION_DEGREES,
+  DEFAULT_LOGO_FRACTAL_DEPTH,
   DEFAULT_ROTATION_DEGREES,
   DEFAULT_VOXEL_STATE,
+  MAX_LOGO_FRACTAL_DEPTH,
   MAX_ELEVATION_DEGREES,
+  MIN_LOGO_FRACTAL_DEPTH,
   MIN_ELEVATION_DEGREES,
   applyVoxelEdit,
+  createDefaultFilledVoxelSet,
+  createLogoFractalVoxelGrid,
   normalizeElevationDegrees,
+  normalizeLogoFractalDepth,
   normalizeRotationDegrees,
   parseVoxelState,
   serializeVoxelState,
@@ -460,8 +466,17 @@ function readElevationDegrees(routeSearch: LogoRouteSearch): number {
   return normalizeElevationDegrees(routeSearch.elev);
 }
 
+function readLogoFractalDepth(routeSearch: LogoRouteSearch): number {
+  if (typeof routeSearch.depth !== "number") {
+    return DEFAULT_LOGO_FRACTAL_DEPTH;
+  }
+
+  return normalizeLogoFractalDepth(routeSearch.depth);
+}
+
 type LogoPreviewRouteState = {
   elevationDegrees: number;
+  fractalDepth: number;
   isViewSnapEnabled: boolean;
   isoCubeSidePixels: number;
   isoStyleId: LogoIsometricStyleId;
@@ -491,6 +506,7 @@ function readLogoPreviewRouteState(
 
   return {
     elevationDegrees: view.elevationDegrees,
+    fractalDepth: readLogoFractalDepth(routeSearch),
     isViewSnapEnabled: view.viewSnapEnabled,
     isoCubeSidePixels: readIsoCubeSidePixels(routeSearch),
     isoStyleId: readIsoStyleId(routeSearch),
@@ -520,6 +536,7 @@ function areLogoPreviewRouteStatesEqual(
 ): boolean {
   return (
     left.elevationDegrees === right.elevationDegrees &&
+    left.fractalDepth === right.fractalDepth &&
     left.isViewSnapEnabled === right.isViewSnapEnabled &&
     left.isoCubeSidePixels === right.isoCubeSidePixels &&
     left.isoStyleId === right.isoStyleId &&
@@ -546,6 +563,7 @@ function buildLogoPreviewRouteSearch(
   return preserveLogoRouteDevModeSearch(
     buildLogoRouteSearch({
       elevationDegrees: resolvedView.elevationDegrees,
+      fractalDepth: routeState.fractalDepth,
       isoCubeSidePixels: routeState.isoCubeSidePixels,
       isoStyleId: routeState.isoStyleId,
       rotationAxisMode: routeState.rotationAxisMode,
@@ -809,6 +827,16 @@ function useLogoPreviewController({
         );
       },
       setFaceColorAnimationEnabled: store.actions.setFaceColorAnimationEnabled,
+      setFractalDepth: (fractalDepth: number) => {
+        const nextFractalDepth = normalizeLogoFractalDepth(fractalDepth);
+        if (nextFractalDepth > DEFAULT_LOGO_FRACTAL_DEPTH) {
+          store.actions.setShuffleEnabled(false);
+        }
+        commitRouteState((currentState) => ({
+          ...currentState,
+          fractalDepth: nextFractalDepth,
+        }));
+      },
       setIsoCubeSidePixels: (isoCubeSidePixels: number) => {
         debounceRouteState((currentState) => ({
           ...currentState,
@@ -943,6 +971,7 @@ function readCanonicalLogoRouteSearch(
   return preserveLogoRouteDevModeSearch(
     buildLogoRouteSearch({
       elevationDegrees: readElevationDegrees(routeSearch),
+      fractalDepth: readLogoFractalDepth(routeSearch),
       isoCubeSidePixels: readIsoCubeSidePixels(routeSearch),
       isoStyleId: readIsoStyleId(routeSearch),
       rotationAxisMode: readRotationAxisMode(routeSearch),
@@ -960,6 +989,7 @@ const LOGO_ROUTE_SEARCH_KEYS = [
   "axis",
   ...LOGO_THEME_COLOR_KEYS,
   "dev",
+  "depth",
   "elev",
   "freeView",
   "isoSide",
@@ -1120,10 +1150,30 @@ export function LogoPreviewPage({
   const selectedIsoStyle = getLogoIsometricStyle(state.isoStyleId);
   const rotationAngleControlLabel =
     ROTATION_ANGLE_CONTROL_LABELS[state.rotationAxisMode];
+  const baseFilledVoxels = useMemo(
+    () => parseVoxelState(state.voxelState) ?? createDefaultFilledVoxelSet(),
+    [state.voxelState],
+  );
+  const logoVoxelGrid = useMemo(
+    () =>
+      state.fractalDepth > DEFAULT_LOGO_FRACTAL_DEPTH
+        ? createLogoFractalVoxelGrid({
+            depth: state.fractalDepth,
+            filledVoxels: baseFilledVoxels,
+          })
+        : undefined,
+    [baseFilledVoxels, state.fractalDepth],
+  );
+  const isRecursiveDepth = logoVoxelGrid !== undefined;
+  const shuffleAnimation = {
+    enabled: state.isShuffleEnabled && !isRecursiveDepth,
+    parallelMoves: state.shuffleParallelMoves,
+  };
 
   const modeSearch = preserveLogoRouteDevModeSearch(
     buildLogoRouteSearch({
       elevationDegrees: state.elevationDegrees,
+      fractalDepth: state.fractalDepth,
       isoCubeSidePixels: state.isoCubeSidePixels,
       isoStyleId: state.isoStyleId,
       rotationAxisMode: state.rotationAxisMode,
@@ -1145,11 +1195,10 @@ export function LogoPreviewPage({
         editMode={state.editMode}
         faceColors={faceColors}
         onVoxelEdit={controls.editVoxel}
-        shuffleAnimation={{
-          enabled: state.isShuffleEnabled,
-          parallelMoves: state.shuffleParallelMoves,
-        }}
+        shuffleAnimation={shuffleAnimation}
         styleId={state.isoStyleId}
+        voxelEditingEnabled={!isRecursiveDepth}
+        voxelGrid={logoVoxelGrid}
         voxelState={state.voxelState}
       />
     ) : (
@@ -1169,11 +1218,10 @@ export function LogoPreviewPage({
         onVoxelEdit={controls.editVoxel}
         rotationAxisMode={state.rotationAxisMode}
         rotationDegrees={state.rotationDegrees}
-        shuffleAnimation={{
-          enabled: state.isShuffleEnabled,
-          parallelMoves: state.shuffleParallelMoves,
-        }}
+        shuffleAnimation={shuffleAnimation}
         animateFaceColors={state.isFaceColorAnimationEnabled}
+        voxelEditingEnabled={!isRecursiveDepth}
+        voxelGrid={logoVoxelGrid}
         viewDragConfig={
           state.isViewSnapEnabled
             ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG
@@ -1246,6 +1294,21 @@ export function LogoPreviewPage({
       </LogoPreviewSection>
 
       <LogoPreviewSection title="Shape">
+        <LogoRangeControl
+          label="Depth"
+          max={MAX_LOGO_FRACTAL_DEPTH}
+          min={MIN_LOGO_FRACTAL_DEPTH}
+          onSliderChange={controls.setFractalDepth}
+          onValueChange={controls.setFractalDepth}
+          sliderAriaLabel="Depth slider"
+          step="1"
+          value={state.fractalDepth}
+          valueAriaLabel="Depth value"
+          valueInputMode="numeric"
+          valueLabel={state.fractalDepth}
+          valueText={`${state.fractalDepth}`}
+        />
+
         <Select
           value={state.selectedPresetId}
           onValueChange={(value) => {
@@ -1283,32 +1346,34 @@ export function LogoPreviewPage({
           </SelectContent>
         </Select>
 
-        <div className={LOGO_CONTROL_BUTTON_ROW_CLASS_NAME}>
-          <Button
-            type="button"
-            size="sm"
-            variant={state.editMode === "add" ? "default" : "outline"}
-            className={LOGO_CONTROL_BUTTON_CLASS_NAME}
-            aria-pressed={state.editMode === "add"}
-            onClick={() => {
-              controls.setEditMode("add");
-            }}
-          >
-            Add
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={state.editMode === "remove" ? "default" : "outline"}
-            className={LOGO_CONTROL_BUTTON_CLASS_NAME}
-            aria-pressed={state.editMode === "remove"}
-            onClick={() => {
-              controls.setEditMode("remove");
-            }}
-          >
-            Remove
-          </Button>
-        </div>
+        {!isRecursiveDepth ? (
+          <div className={LOGO_CONTROL_BUTTON_ROW_CLASS_NAME}>
+            <Button
+              type="button"
+              size="sm"
+              variant={state.editMode === "add" ? "default" : "outline"}
+              className={LOGO_CONTROL_BUTTON_CLASS_NAME}
+              aria-pressed={state.editMode === "add"}
+              onClick={() => {
+                controls.setEditMode("add");
+              }}
+            >
+              Add
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={state.editMode === "remove" ? "default" : "outline"}
+              className={LOGO_CONTROL_BUTTON_CLASS_NAME}
+              aria-pressed={state.editMode === "remove"}
+              onClick={() => {
+                controls.setEditMode("remove");
+              }}
+            >
+              Remove
+            </Button>
+          </div>
+        ) : null}
 
         <div className={LOGO_CONTROL_STACK_CLASS_NAME}>
           <Button
@@ -1426,6 +1491,7 @@ export function LogoPreviewPage({
                     faceColors={faceColors}
                     size={size}
                     styleId={state.isoStyleId}
+                    voxelGrid={logoVoxelGrid}
                     voxelState={state.voxelState}
                   />
                 </div>
@@ -1574,48 +1640,52 @@ export function LogoPreviewPage({
               {state.isAutoRotating ? "Stop auto rotate" : "Start auto rotate"}
             </Button>
           ) : null}
-          <Button
-            type="button"
-            size="sm"
-            variant={state.isShuffleEnabled ? "default" : "outline"}
-            className="w-full rounded-none"
-            onClick={() => {
-              controls.setShuffleEnabled(!state.isShuffleEnabled);
-            }}
-          >
-            {state.isShuffleEnabled ? "Stop shuffle" : "Start shuffle"}
-          </Button>
+          {!isRecursiveDepth ? (
+            <Button
+              type="button"
+              size="sm"
+              variant={state.isShuffleEnabled ? "default" : "outline"}
+              className="w-full rounded-none"
+              onClick={() => {
+                controls.setShuffleEnabled(!state.isShuffleEnabled);
+              }}
+            >
+              {state.isShuffleEnabled ? "Stop shuffle" : "Start shuffle"}
+            </Button>
+          ) : null}
         </div>
 
-        <div className={LOGO_CONTROL_STACK_CLASS_NAME}>
-          <Label className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-            Parallel cubes
-          </Label>
-          <Select
-            value={`${state.shuffleParallelMoves}`}
-            onValueChange={(value) => {
-              controls.setShuffleParallelMoves(
-                parseShuffleParallelMoves(value),
-              );
-            }}
-          >
-            <SelectTrigger className="h-9 rounded-none border-border bg-background px-2 text-sm shadow-none">
-              {state.shuffleParallelMoves}{" "}
-              {state.shuffleParallelMoves === 1 ? "cube" : "cubes"}
-            </SelectTrigger>
-            <SelectContent className="rounded-none border-border">
-              {LOGO_SHUFFLE_PARALLEL_OPTIONS.map((option) => (
-                <SelectItem
-                  key={option}
-                  value={`${option}`}
-                  className="rounded-none"
-                >
-                  {option} {option === 1 ? "cube" : "cubes"}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {!isRecursiveDepth ? (
+          <div className={LOGO_CONTROL_STACK_CLASS_NAME}>
+            <Label className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+              Parallel cubes
+            </Label>
+            <Select
+              value={`${state.shuffleParallelMoves}`}
+              onValueChange={(value) => {
+                controls.setShuffleParallelMoves(
+                  parseShuffleParallelMoves(value),
+                );
+              }}
+            >
+              <SelectTrigger className="h-9 rounded-none border-border bg-background px-2 text-sm shadow-none">
+                {state.shuffleParallelMoves}{" "}
+                {state.shuffleParallelMoves === 1 ? "cube" : "cubes"}
+              </SelectTrigger>
+              <SelectContent className="rounded-none border-border">
+                {LOGO_SHUFFLE_PARALLEL_OPTIONS.map((option) => (
+                  <SelectItem
+                    key={option}
+                    value={`${option}`}
+                    className="rounded-none"
+                  >
+                    {option} {option === 1 ? "cube" : "cubes"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
 
         {renderMode === "three" ? (
           <div className="flex items-start gap-3">

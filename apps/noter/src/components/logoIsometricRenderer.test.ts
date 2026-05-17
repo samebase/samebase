@@ -58,4 +58,15 @@ describe("getLogoIsometricFrameMetrics", () => {
       voxelScreenHeight: 18,
     });
   });
+
+  it("scales raster dimensions with recursive grid size", () => {
+    expect(getLogoIsometricFrameMetrics(16, 9)).toMatchObject({
+      canvasHeight: 297,
+      canvasWidth: 297,
+      cubeSidePixels: 16,
+      tileHalfHeight: 8,
+      tileHalfWidth: 16,
+      voxelScreenHeight: 16,
+    });
+  });
 });

@@ -34,6 +34,9 @@ The X profile banner already uses this sequence as the brand explanation. This
 spec makes that sequence a code and asset invariant rather than an implied
 memory.
 
+Recursive `/logo?depth=...` previews are playground render states derived from
+the same mark. They do not change the canonical identity asset contract.
+
 ## Source Of Truth
 
 - The canonical shape is `STATIC_LOGO_VOXEL_COORDINATES`.

@@ -1,7 +1,7 @@
 import {
   FAVICON_ROTATION_DEGREES,
   GRID_SIZE,
-  isWithinGrid,
+  isWithinVoxelGrid,
   type VoxelCoordinate,
   voxelKey,
 } from "@/components/logoVoxelState";
@@ -206,6 +206,7 @@ function getCubeFacePolygon(
 
 function createLogoIsometricFrameMetrics(
   cubeSidePixels: number,
+  gridSize: number,
 ): LogoIsometricFrameMetrics {
   const normalizedCubeSidePixels =
     normalizeLogoIsometricCubeSidePixels(cubeSidePixels);
@@ -227,9 +228,9 @@ function createLogoIsometricFrameMetrics(
     voxelScreenHeight,
   } satisfies LogoIsometricFrameMetrics;
 
-  for (let x = 0; x <= GRID_SIZE; x += 1) {
-    for (let y = 0; y <= GRID_SIZE; y += 1) {
-      for (let z = 0; z <= GRID_SIZE; z += 1) {
+  for (let x = 0; x <= gridSize; x += 1) {
+    for (let y = 0; y <= gridSize; y += 1) {
+      for (let z = 0; z <= gridSize; z += 1) {
         const point = projectPoint([x, y, z], provisionalMetrics);
         minX = Math.min(minX, point.x);
         minY = Math.min(minY, point.y);
@@ -251,19 +252,18 @@ function createLogoIsometricFrameMetrics(
   };
 }
 
-// normalizeLogoIsometricCubeSidePixels limits getLogoIsometricFrameMetrics to a
-// small fixed set of step-aligned keys, so this cache only ever grows to the
-// supported cube-side variants for isometricFrameMetricsCache.
-const isometricFrameMetricsCache = new Map<number, LogoIsometricFrameMetrics>();
+// normalizeLogoIsometricCubeSidePixels and capped fractal depth keep this cache
+// bounded to the supported cube-side and grid-size variants.
+const isometricFrameMetricsCache = new Map<string, LogoIsometricFrameMetrics>();
 
 export function getLogoIsometricFrameMetrics(
   cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+  gridSize = GRID_SIZE,
 ): LogoIsometricFrameMetrics {
   const normalizedCubeSidePixels =
     normalizeLogoIsometricCubeSidePixels(cubeSidePixels);
-  const cachedFrameMetrics = isometricFrameMetricsCache.get(
-    normalizedCubeSidePixels,
-  );
+  const cacheKey = `${normalizedCubeSidePixels}:${gridSize}`;
+  const cachedFrameMetrics = isometricFrameMetricsCache.get(cacheKey);
 
   if (cachedFrameMetrics) {
     return cachedFrameMetrics;
@@ -271,8 +271,9 @@ export function getLogoIsometricFrameMetrics(
 
   const frameMetrics = createLogoIsometricFrameMetrics(
     normalizedCubeSidePixels,
+    gridSize,
   );
-  isometricFrameMetricsCache.set(normalizedCubeSidePixels, frameMetrics);
+  isometricFrameMetricsCache.set(cacheKey, frameMetrics);
   return frameMetrics;
 }
 
@@ -295,11 +296,12 @@ function translatePolygon(
 
 function isVoxelFilled(
   filledVoxels: ReadonlySet<string>,
+  gridSize: number,
   x: number,
   y: number,
   z: number,
 ): boolean {
-  if (!isWithinGrid(x, y, z)) {
+  if (!isWithinVoxelGrid(gridSize, x, y, z)) {
     return false;
   }
 
@@ -568,6 +570,7 @@ function buildStaticRenderFaces(
   filledVoxels: ReadonlySet<string>,
   faceColors: FaceColors,
   frameMetrics: LogoIsometricFrameMetrics,
+  gridSize: number,
 ): RenderFace[] {
   const renderFaces: RenderFace[] = [];
   const topColor = getTailwindColorHex(faceColors.top);
@@ -580,6 +583,7 @@ function buildStaticRenderFaces(
     if (
       !isVoxelFilled(
         filledVoxels,
+        gridSize,
         coordinate[0],
         coordinate[1],
         coordinate[2] + 1,
@@ -599,6 +603,7 @@ function buildStaticRenderFaces(
     if (
       !isVoxelFilled(
         filledVoxels,
+        gridSize,
         coordinate[0] + 1,
         coordinate[1],
         coordinate[2],
@@ -618,6 +623,7 @@ function buildStaticRenderFaces(
     if (
       !isVoxelFilled(
         filledVoxels,
+        gridSize,
         coordinate[0],
         coordinate[1] + 1,
         coordinate[2],
@@ -642,6 +648,7 @@ function buildMovingRenderFaces(
   filledVoxels: ReadonlySet<string>,
   faceColors: FaceColors,
   frameMetrics: LogoIsometricFrameMetrics,
+  gridSize: number,
   movingVoxels: readonly IsometricMovingVoxel[],
 ): RenderFace[] {
   const topColor = getTailwindColorHex(faceColors.top);
@@ -665,6 +672,7 @@ function buildMovingRenderFaces(
     if (
       !isVoxelFilled(
         occupiedVoxelKeys,
+        gridSize,
         movingVoxel.coordinate[0],
         movingVoxel.coordinate[1],
         movingVoxel.coordinate[2] + 1,
@@ -684,6 +692,7 @@ function buildMovingRenderFaces(
     if (
       !isVoxelFilled(
         occupiedVoxelKeys,
+        gridSize,
         movingVoxel.coordinate[0] + 1,
         movingVoxel.coordinate[1],
         movingVoxel.coordinate[2],
@@ -703,6 +712,7 @@ function buildMovingRenderFaces(
     if (
       !isVoxelFilled(
         occupiedVoxelKeys,
+        gridSize,
         movingVoxel.coordinate[0],
         movingVoxel.coordinate[1] + 1,
         movingVoxel.coordinate[2],
@@ -738,6 +748,7 @@ export function drawLogoIsometricFrame({
   context,
   faceColors,
   filledVoxels,
+  gridSize = GRID_SIZE,
   movingVoxels = [],
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
 }: {
@@ -746,20 +757,22 @@ export function drawLogoIsometricFrame({
   context: CanvasRenderingContext2D;
   faceColors: FaceColors;
   filledVoxels: ReadonlySet<string>;
+  gridSize?: number;
   movingVoxels?: readonly IsometricMovingVoxel[];
   styleId?: LogoIsometricStyleId;
 }): readonly IsometricVisibleFace[] {
   const style = getLogoIsometricStyle(styleId);
-  const frameMetrics = getLogoIsometricFrameMetrics(cubeSidePixels);
+  const frameMetrics = getLogoIsometricFrameMetrics(cubeSidePixels, gridSize);
 
   context.clearRect(0, 0, frameMetrics.canvasWidth, frameMetrics.canvasHeight);
 
   const renderFaces = [
-    ...buildStaticRenderFaces(filledVoxels, faceColors, frameMetrics),
+    ...buildStaticRenderFaces(filledVoxels, faceColors, frameMetrics, gridSize),
     ...buildMovingRenderFaces(
       filledVoxels,
       faceColors,
       frameMetrics,
+      gridSize,
       movingVoxels,
     ),
   ].sort(compareRenderFaces);
@@ -796,28 +809,34 @@ export function createLogoIsometricSvgMarkup({
   backgroundColor,
   faceColors,
   filledVoxels,
+  gridSize = GRID_SIZE,
   movingVoxels = [],
   styleId = "flat",
 }: {
   backgroundColor: string;
   faceColors: FaceColors;
   filledVoxels: ReadonlySet<string>;
+  gridSize?: number;
   movingVoxels?: readonly IsometricMovingVoxel[];
   styleId?: LogoIsometricSvgSafeStyleId;
 }): string {
   const style = getLogoIsometricStyle(styleId);
-  const frameMetrics = defaultFrameMetrics;
+  const frameMetrics = getLogoIsometricFrameMetrics(
+    DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+    gridSize,
+  );
 
   if (style.edgeMode !== "none" || style.capWidth !== 2) {
     throw new Error("SVG export only supports flat four-point face geometry.");
   }
 
   const renderFaces = [
-    ...buildStaticRenderFaces(filledVoxels, faceColors, frameMetrics),
+    ...buildStaticRenderFaces(filledVoxels, faceColors, frameMetrics, gridSize),
     ...buildMovingRenderFaces(
       filledVoxels,
       faceColors,
       frameMetrics,
+      gridSize,
       movingVoxels,
     ),
   ].sort(compareRenderFaces);
@@ -838,12 +857,20 @@ export function createLogoIsometricSvgMarkup({
 export function getIsometricAddCoordinate(
   face: IsometricVisibleFace,
   filledVoxels: ReadonlySet<string>,
+  gridSize = GRID_SIZE,
 ): VoxelCoordinate | null {
   const [x, y, z] = face.coordinate;
   const [dx, dy, dz] = face.normal;
   const nextCoordinate: VoxelCoordinate = [x + dx, y + dy, z + dz];
 
-  if (!isWithinGrid(nextCoordinate[0], nextCoordinate[1], nextCoordinate[2])) {
+  if (
+    !isWithinVoxelGrid(
+      gridSize,
+      nextCoordinate[0],
+      nextCoordinate[1],
+      nextCoordinate[2],
+    )
+  ) {
     return null;
   }
 

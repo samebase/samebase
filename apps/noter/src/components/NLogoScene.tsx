@@ -20,10 +20,10 @@ import {
   DRAG_ROTATION_DEGREES_PER_PIXEL,
 } from "@/components/logoViewDragConstants";
 import {
-  HALF_GRID,
   GRID_SIZE,
   createDefaultFilledVoxelSet,
-  isWithinGrid,
+  isWithinVoxelGrid,
+  type LogoVoxelGrid,
   parseVoxelState,
   type VoxelCoordinate,
   type VoxelEdit,
@@ -52,7 +52,7 @@ const FACE_COLOR_ANIMATION_DEGREES_PER_SECOND = 15;
 const FACE_COLOR_ANIMATION_MIN_LIGHTNESS = 0.38;
 const FACE_COLOR_ANIMATION_MAX_LIGHTNESS = 0.76;
 const FACE_COLOR_ANIMATION_MIN_SATURATION = 0.5;
-const WORLD_CENTER_OFFSET = (GRID_SIZE - 1) / 2;
+const SURFACE_MATERIAL_INDICES = [0, 1, 2, 3, 4, 5] as const;
 
 export const LOGO_SHUFFLE_PARALLEL_OPTIONS = [1, 2, 3] as const;
 export type LogoShuffleParallelMoves =
@@ -93,6 +93,7 @@ type SceneState = {
   cameraFitRadius: number;
   cubeGeometry: THREE.BoxGeometry;
   cubeMaterials: THREE.MeshBasicMaterial[];
+  gridSize: number;
   currentFilledVoxels: Set<string>;
   activeCubeMoves: ActiveCubeMove[];
   homeFilledVoxels: Set<string>;
@@ -130,25 +131,30 @@ type NLogoSceneProps = {
   rotationDegrees: number;
   shuffleAnimation: LogoShuffleAnimationConfig;
   animateFaceColors: boolean;
+  voxelGrid?: LogoVoxelGrid;
+  voxelEditingEnabled?: boolean;
   viewDragConfig?: LogoViewDragConfig;
   voxelState: string;
 };
 
 function getVoxelWorldCenter(
   coordinate: VoxelCoordinate,
+  gridSize: number,
 ): readonly [number, number, number] {
+  const worldCenterOffset = (gridSize - 1) / 2;
   return [
-    coordinate[0] - WORLD_CENTER_OFFSET,
-    coordinate[1] - WORLD_CENTER_OFFSET,
-    coordinate[2] - WORLD_CENTER_OFFSET,
+    coordinate[0] - worldCenterOffset,
+    coordinate[1] - worldCenterOffset,
+    coordinate[2] - worldCenterOffset,
   ];
 }
 
 function setCubeMeshPosition(
   mesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial[]>,
   coordinate: VoxelCoordinate,
+  gridSize: number,
 ) {
-  const [x, y, z] = getVoxelWorldCenter(coordinate);
+  const [x, y, z] = getVoxelWorldCenter(coordinate, gridSize);
   mesh.position.set(x, y, z);
 }
 
@@ -163,9 +169,10 @@ function easeInOutCubic(value: number): number {
 function getCubeMovePosition(
   move: ActiveCubeMove,
   progress: number,
+  gridSize: number,
 ): readonly [number, number, number] {
-  const [startX, startY, startZ] = getVoxelWorldCenter(move.from);
-  const [endX, endY, endZ] = getVoxelWorldCenter(move.to);
+  const [startX, startY, startZ] = getVoxelWorldCenter(move.from, gridSize);
+  const [endX, endY, endZ] = getVoxelWorldCenter(move.to, gridSize);
   const travelProgress = easeInOutCubic(progress);
   return [
     startX + (endX - startX) * travelProgress,
@@ -180,6 +187,26 @@ function randomValueFrom<T>(values: readonly T[]): T | null {
   }
 
   return values[Math.floor(Math.random() * values.length)] ?? null;
+}
+
+function resolveSceneVoxelGrid({
+  voxelGrid,
+  voxelState,
+}: {
+  voxelGrid: LogoVoxelGrid | undefined;
+  voxelState: string;
+}): { filledVoxels: Set<string>; gridSize: number } {
+  if (voxelGrid) {
+    return {
+      filledVoxels: new Set(voxelGrid.filledVoxels),
+      gridSize: voxelGrid.gridSize,
+    };
+  }
+
+  return {
+    filledVoxels: parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet(),
+    gridSize: GRID_SIZE,
+  };
 }
 
 function buildQuadGeometry(
@@ -201,6 +228,45 @@ function buildQuadGeometry(
   return geometry;
 }
 
+function buildMergedQuadGeometry(
+  surfaceQuads: readonly LogoSurfaceQuad[],
+): THREE.BufferGeometry {
+  const geometry = new THREE.BufferGeometry();
+  const indices: number[] = [];
+  const normals: number[] = [];
+  const positions: number[] = [];
+
+  for (const surfaceQuad of surfaceQuads) {
+    const vertexOffset = positions.length / 3;
+    for (const [x, y, z] of surfaceQuad.vertices) {
+      positions.push(x, y, z);
+      normals.push(
+        surfaceQuad.normal[0],
+        surfaceQuad.normal[1],
+        surfaceQuad.normal[2],
+      );
+    }
+    indices.push(
+      vertexOffset,
+      vertexOffset + 1,
+      vertexOffset + 2,
+      vertexOffset,
+      vertexOffset + 2,
+      vertexOffset + 3,
+    );
+  }
+
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(positions, 3),
+  );
+  geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
+  geometry.setIndex(indices);
+  geometry.computeBoundingSphere();
+
+  return geometry;
+}
+
 function buildLogoSurfacePart(surfaceQuad: LogoSurfaceQuad): LogoSurfacePart {
   return {
     geometry: buildQuadGeometry(surfaceQuad.vertices, surfaceQuad.normal),
@@ -210,16 +276,39 @@ function buildLogoSurfacePart(surfaceQuad: LogoSurfaceQuad): LogoSurfacePart {
 
 function buildLogoSurfaceParts(
   surfaceQuads: readonly LogoSurfaceQuad[],
+  mergeByMaterial: boolean,
 ): LogoSurfacePart[] {
-  return surfaceQuads.map(buildLogoSurfacePart);
+  if (!mergeByMaterial) {
+    return surfaceQuads.map(buildLogoSurfacePart);
+  }
+
+  return SURFACE_MATERIAL_INDICES.flatMap((materialIndex) => {
+    const materialQuads = surfaceQuads.filter(
+      (surfaceQuad) => surfaceQuad.materialIndex === materialIndex,
+    );
+    if (materialQuads.length === 0) {
+      return [];
+    }
+
+    return [
+      {
+        geometry: buildMergedQuadGeometry(materialQuads),
+        materialIndex,
+      },
+    ];
+  });
 }
 
-function pointToVoxelCoordinate(point: THREE.Vector3): VoxelCoordinate | null {
-  const x = Math.floor(point.x + HALF_GRID);
-  const y = Math.floor(point.y + HALF_GRID);
-  const z = Math.floor(point.z + HALF_GRID);
+function pointToVoxelCoordinate(
+  point: THREE.Vector3,
+  gridSize: number,
+): VoxelCoordinate | null {
+  const halfGrid = gridSize / 2;
+  const x = Math.floor(point.x + halfGrid);
+  const y = Math.floor(point.y + halfGrid);
+  const z = Math.floor(point.z + halfGrid);
 
-  if (!isWithinGrid(x, y, z)) {
+  if (!isWithinVoxelGrid(gridSize, x, y, z)) {
     return null;
   }
 
@@ -314,10 +403,17 @@ function applyMaterialOpacity(
 function replaceLogoGeometry(
   sceneState: SceneState,
   nextFilledVoxels: Set<string>,
+  nextGridSize: number,
   syncCameraFitRadius: boolean,
 ) {
-  const nextSurfaceQuads = buildLogoSurfaceQuads(nextFilledVoxels);
-  const nextParts = buildLogoSurfaceParts(nextSurfaceQuads);
+  const nextSurfaceQuads = buildLogoSurfaceQuads(
+    nextFilledVoxels,
+    nextGridSize,
+  );
+  const nextParts = buildLogoSurfaceParts(
+    nextSurfaceQuads,
+    nextGridSize > GRID_SIZE,
+  );
   const previousLogoMeshes = sceneState.logoMeshes;
   for (const logoMesh of previousLogoMeshes) {
     sceneState.logoGroup.remove(logoMesh);
@@ -332,8 +428,12 @@ function replaceLogoGeometry(
     return logoMesh;
   });
   sceneState.currentFilledVoxels = new Set(nextFilledVoxels);
+  sceneState.gridSize = nextGridSize;
   if (syncCameraFitRadius) {
-    sceneState.cameraFitRadius = getLogoSurfaceFitRadius(nextSurfaceQuads);
+    sceneState.cameraFitRadius = getLogoSurfaceFitRadius(
+      nextSurfaceQuads,
+      nextGridSize,
+    );
   }
   sceneState.resizeScene();
 }
@@ -379,6 +479,7 @@ function resetShuffleAnimation(
   replaceLogoGeometry(
     sceneState,
     new Set(sceneState.homeFilledVoxels),
+    sceneState.gridSize,
     syncCameraFitRadius,
   );
   lastMovedCubeKeyRef.current = null;
@@ -402,6 +503,7 @@ function scheduleNextCubeMove(
     blockedKeys,
     elevationDegrees,
     filledVoxels: sceneState.currentFilledVoxels,
+    gridSize: sceneState.gridSize,
     lastMovedCubeKey: lastMovedCubeKeyRef.current,
     rotationAxisMode,
     rotationDegrees,
@@ -423,7 +525,7 @@ function scheduleNextCubeMove(
     sceneState.cubeMaterials,
   );
   moveMesh.visible = false;
-  setCubeMeshPosition(moveMesh, nextMove.from);
+  setCubeMeshPosition(moveMesh, nextMove.from, sceneState.gridSize);
   sceneState.logoGroup.add(moveMesh);
   sceneState.activeCubeMoves.push({
     durationMs: SHUFFLE_MOVE_DURATION_MS,
@@ -466,7 +568,7 @@ function syncCubeShuffleAnimation(
       Math.max((timestampMs - move.startTimeMs) / move.durationMs, 0),
       1,
     );
-    const [x, y, z] = getCubeMovePosition(move, progress);
+    const [x, y, z] = getCubeMovePosition(move, progress, sceneState.gridSize);
     move.mesh.position.set(x, y, z);
 
     if (progress >= 1) {
@@ -488,7 +590,12 @@ function syncCubeShuffleAnimation(
   }
 
   if (didChangeOccupancy) {
-    replaceLogoGeometry(sceneState, sceneState.currentFilledVoxels, false);
+    replaceLogoGeometry(
+      sceneState,
+      sceneState.currentFilledVoxels,
+      sceneState.gridSize,
+      false,
+    );
   }
 
   while (sceneState.activeCubeMoves.length < parallelMoves) {
@@ -523,6 +630,8 @@ export function NLogoScene({
   rotationDegrees,
   shuffleAnimation,
   animateFaceColors,
+  voxelEditingEnabled = true,
+  voxelGrid,
   viewDragConfig,
   voxelState,
 }: NLogoSceneProps) {
@@ -533,6 +642,8 @@ export function NLogoScene({
   const rotationDegreesRef = useRef(rotationDegrees);
   const elevationDegreesRef = useRef(elevationDegrees);
   const rotationAxisModeRef = useRef(rotationAxisMode);
+  const voxelGridRef = useRef(voxelGrid);
+  const voxelEditingEnabledRef = useRef(voxelEditingEnabled);
   const voxelStateRef = useRef(voxelState);
   const faceColorsRef = useRef(faceColors);
   const opacityRef = useRef(opacity);
@@ -572,6 +683,10 @@ export function NLogoScene({
   useEffect(() => {
     editModeRef.current = editMode;
   }, [editMode]);
+
+  useEffect(() => {
+    voxelEditingEnabledRef.current = voxelEditingEnabled;
+  }, [voxelEditingEnabled]);
 
   useEffect(() => {
     rotationDegreesRef.current = rotationDegrees;
@@ -668,10 +783,18 @@ export function NLogoScene({
     ];
     applyFaceColors(materials, faceColorsRef.current);
     applyMaterialOpacity(materials, opacityRef.current);
-    const initialFilledVoxels =
-      parseVoxelState(voxelStateRef.current) ?? createDefaultFilledVoxelSet();
-    const initialSurfaceQuads = buildLogoSurfaceQuads(initialFilledVoxels);
-    const logoParts = buildLogoSurfaceParts(initialSurfaceQuads);
+    const initialVoxelGrid = resolveSceneVoxelGrid({
+      voxelGrid: voxelGridRef.current,
+      voxelState: voxelStateRef.current,
+    });
+    const initialSurfaceQuads = buildLogoSurfaceQuads(
+      initialVoxelGrid.filledVoxels,
+      initialVoxelGrid.gridSize,
+    );
+    const logoParts = buildLogoSurfaceParts(
+      initialSurfaceQuads,
+      initialVoxelGrid.gridSize > GRID_SIZE,
+    );
     const logoMeshes = logoParts.map(
       ({ geometry, materialIndex }) =>
         new THREE.Mesh(geometry, materials[materialIndex]),
@@ -682,7 +805,10 @@ export function NLogoScene({
     }
     scene.add(logoGroup);
     const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
-    const initialCameraFitRadius = getLogoSurfaceFitRadius(initialSurfaceQuads);
+    const initialCameraFitRadius = getLogoSurfaceFitRadius(
+      initialSurfaceQuads,
+      initialVoxelGrid.gridSize,
+    );
     const rotationAxisVector = new THREE.Vector3();
 
     const getFrustumHalfSpan = () => {
@@ -744,9 +870,10 @@ export function NLogoScene({
       cameraFitRadius: initialCameraFitRadius,
       cubeGeometry,
       cubeMaterials: materials,
-      currentFilledVoxels: new Set(initialFilledVoxels),
+      gridSize: initialVoxelGrid.gridSize,
+      currentFilledVoxels: new Set(initialVoxelGrid.filledVoxels),
       activeCubeMoves: [],
-      homeFilledVoxels: new Set(initialFilledVoxels),
+      homeFilledVoxels: new Set(initialVoxelGrid.filledVoxels),
       logoGroup,
       logoMeshes,
       raycaster: new THREE.Raycaster(),
@@ -874,6 +1001,7 @@ export function NLogoScene({
   }, []);
 
   useEffect(() => {
+    voxelGridRef.current = voxelGrid;
     voxelStateRef.current = voxelState;
 
     const sceneState = sceneStateRef.current;
@@ -881,12 +1009,12 @@ export function NLogoScene({
       return;
     }
 
-    const nextFilledVoxels =
-      parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet();
-    sceneState.homeFilledVoxels = new Set(nextFilledVoxels);
+    const nextVoxelGrid = resolveSceneVoxelGrid({ voxelGrid, voxelState });
+    sceneState.homeFilledVoxels = new Set(nextVoxelGrid.filledVoxels);
+    sceneState.gridSize = nextVoxelGrid.gridSize;
     resetShuffleAnimation(sceneState, lastMovedCubeKeyRef, true);
     renderSceneRef.current(performance.now());
-  }, [voxelState]);
+  }, [voxelGrid, voxelState]);
 
   useEffect(() => {
     animateFaceColorsRef.current = animateFaceColors;
@@ -929,7 +1057,11 @@ export function NLogoScene({
     kind: VoxelEdit["kind"],
   ): VoxelEdit | null => {
     const sceneState = sceneStateRef.current;
-    if (!sceneState || shuffleAnimationRef.current.enabled) {
+    if (
+      !sceneState ||
+      !voxelEditingEnabledRef.current ||
+      shuffleAnimationRef.current.enabled
+    ) {
       return null;
     }
 
@@ -971,7 +1103,7 @@ export function NLogoScene({
       kind === "add" ? RAYCAST_OFFSET : -RAYCAST_OFFSET,
     );
 
-    const coordinate = pointToVoxelCoordinate(localPoint);
+    const coordinate = pointToVoxelCoordinate(localPoint, sceneState.gridSize);
     if (!coordinate) {
       return null;
     }

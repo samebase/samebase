@@ -5,6 +5,9 @@ import {
 import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
 import {
   createFilledVoxelSet,
+  createLogoFractalVoxelGrid,
+  DEFAULT_LOGO_FRACTAL_DEPTH,
+  normalizeLogoFractalDepth,
   parseVoxelState,
 } from "@/components/logoVoxelState";
 import { Button } from "@/components/ui/button";
@@ -18,13 +21,21 @@ export function LogoStaticSvgPage({
   routeSearch: LogoRouteSearch;
 }) {
   const logoTheme = useResolvedAppThemeColorState(routeSearch);
-  const filledVoxels =
+  const baseFilledVoxels =
     parseVoxelState(routeSearch.vox ?? null) ??
     createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES);
+  const fractalDepth = normalizeLogoFractalDepth(
+    routeSearch.depth ?? DEFAULT_LOGO_FRACTAL_DEPTH,
+  );
+  const logoVoxelGrid = createLogoFractalVoxelGrid({
+    depth: fractalDepth,
+    filledVoxels: baseFilledVoxels,
+  });
   const staticSvgSrc = `${createStaticLogoSvgDataUrl({
     faceColors: logoTheme.faceColors,
-    filledVoxels,
-  })}#${logoTheme.cacheKey}`;
+    filledVoxels: logoVoxelGrid.filledVoxels,
+    gridSize: logoVoxelGrid.gridSize,
+  })}#${logoTheme.cacheKey}:${fractalDepth}`;
 
   return (
     <div

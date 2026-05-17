@@ -14,6 +14,8 @@ import {
 import { type FaceColors } from "@/components/logoTailwindColors";
 import {
   createDefaultFilledVoxelSet,
+  GRID_SIZE,
+  type LogoVoxelGrid,
   parseVoxelState,
   type VoxelCoordinate,
   type VoxelEdit,
@@ -51,6 +53,7 @@ type ActiveCubeMove = {
 type SceneState = {
   activeCubeMoves: ActiveCubeMove[];
   currentFilledVoxels: Set<string>;
+  gridSize: number;
   homeFilledVoxels: Set<string>;
 };
 
@@ -77,6 +80,8 @@ type NLogoIsoSceneProps = {
   onVoxelEdit: (edit: VoxelEdit) => void;
   shuffleAnimation: LogoShuffleAnimationConfig;
   styleId?: LogoIsometricStyleId;
+  voxelEditingEnabled?: boolean;
+  voxelGrid?: LogoVoxelGrid;
   voxelState: string;
 };
 
@@ -108,6 +113,26 @@ function randomValueFrom<T>(values: readonly T[]): T | null {
   return values[Math.floor(Math.random() * values.length)] ?? null;
 }
 
+function resolveSceneVoxelGrid({
+  voxelGrid,
+  voxelState,
+}: {
+  voxelGrid: LogoVoxelGrid | undefined;
+  voxelState: string;
+}): { filledVoxels: Set<string>; gridSize: number } {
+  if (voxelGrid) {
+    return {
+      filledVoxels: new Set(voxelGrid.filledVoxels),
+      gridSize: voxelGrid.gridSize,
+    };
+  }
+
+  return {
+    filledVoxels: parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet(),
+    gridSize: GRID_SIZE,
+  };
+}
+
 function resetShuffleAnimation(
   sceneState: SceneState,
   lastMovedCubeKeyRef: MutableRefObject<string | null>,
@@ -132,6 +157,7 @@ function scheduleNextCubeMove(
     blockedKeys,
     elevationDegrees: LOGO_ISOMETRIC_ELEVATION_DEGREES,
     filledVoxels: sceneState.currentFilledVoxels,
+    gridSize: sceneState.gridSize,
     lastMovedCubeKey: lastMovedCubeKeyRef.current,
     rotationAxisMode: "cube-y",
     rotationDegrees: LOGO_ISOMETRIC_ROTATION_DEGREES,
@@ -222,6 +248,7 @@ export function LogoIsoThumbnail({
   faceColors,
   size,
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+  voxelGrid,
   voxelState,
 }: {
   backgroundColor: string;
@@ -231,6 +258,7 @@ export function LogoIsoThumbnail({
   faceColors: FaceColors;
   size: number;
   styleId?: LogoIsometricStyleId;
+  voxelGrid?: LogoVoxelGrid;
   voxelState: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -248,9 +276,11 @@ export function LogoIsoThumbnail({
       return;
     }
 
-    const filledVoxels =
-      parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet();
-    const frameMetrics = getLogoIsometricFrameMetrics(cubeSidePixels);
+    const resolvedVoxelGrid = resolveSceneVoxelGrid({ voxelGrid, voxelState });
+    const frameMetrics = getLogoIsometricFrameMetrics(
+      cubeSidePixels,
+      resolvedVoxelGrid.gridSize,
+    );
     const rasterCanvas = document.createElement("canvas");
     rasterCanvas.width = frameMetrics.canvasWidth;
     rasterCanvas.height = frameMetrics.canvasHeight;
@@ -266,13 +296,22 @@ export function LogoIsoThumbnail({
       cubeSidePixels,
       context: rasterContext,
       faceColors,
-      filledVoxels,
+      filledVoxels: resolvedVoxelGrid.filledVoxels,
+      gridSize: resolvedVoxelGrid.gridSize,
       styleId,
     });
     context.clearRect(0, 0, size, size);
     context.imageSmoothingEnabled = false;
     context.drawImage(rasterCanvas, 0, 0, size, size);
-  }, [backgroundColor, cubeSidePixels, faceColors, size, styleId, voxelState]);
+  }, [
+    backgroundColor,
+    cubeSidePixels,
+    faceColors,
+    size,
+    styleId,
+    voxelGrid,
+    voxelState,
+  ]);
 
   return (
     <canvas
@@ -299,6 +338,8 @@ export function NLogoIsoScene({
   onVoxelEdit,
   shuffleAnimation,
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+  voxelEditingEnabled = true,
+  voxelGrid,
   voxelState,
 }: NLogoIsoSceneProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -306,6 +347,8 @@ export function NLogoIsoScene({
   const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const backgroundColorRef = useRef(backgroundColor);
   const faceColorsRef = useRef(faceColors);
+  const voxelEditingEnabledRef = useRef(voxelEditingEnabled);
+  const voxelGridRef = useRef(voxelGrid);
   const voxelStateRef = useRef(voxelState);
   const shuffleAnimationRef = useRef(shuffleAnimation);
   const onVoxelEditRef = useRef(onVoxelEdit);
@@ -332,6 +375,10 @@ export function NLogoIsoScene({
   }, [faceColors]);
 
   useEffect(() => {
+    voxelEditingEnabledRef.current = voxelEditingEnabled;
+  }, [voxelEditingEnabled]);
+
+  useEffect(() => {
     onVoxelEditRef.current = onVoxelEdit;
   }, [onVoxelEdit]);
 
@@ -353,6 +400,7 @@ export function NLogoIsoScene({
   }, [shuffleAnimation]);
 
   useEffect(() => {
+    voxelGridRef.current = voxelGrid;
     voxelStateRef.current = voxelState;
 
     const sceneState = sceneStateRef.current;
@@ -360,12 +408,12 @@ export function NLogoIsoScene({
       return;
     }
 
-    const nextFilledVoxels =
-      parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet();
-    sceneState.homeFilledVoxels = new Set(nextFilledVoxels);
+    const nextVoxelGrid = resolveSceneVoxelGrid({ voxelGrid, voxelState });
+    sceneState.homeFilledVoxels = new Set(nextVoxelGrid.filledVoxels);
+    sceneState.gridSize = nextVoxelGrid.gridSize;
     resetShuffleAnimation(sceneState, lastMovedCubeKeyRef);
     renderSceneRef.current(performance.now());
-  }, [voxelState]);
+  }, [voxelGrid, voxelState]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -379,7 +427,14 @@ export function NLogoIsoScene({
       return;
     }
 
-    const frameMetrics = getLogoIsometricFrameMetrics(cubeSidePixels);
+    const initialVoxelGrid = resolveSceneVoxelGrid({
+      voxelGrid: voxelGridRef.current,
+      voxelState: voxelStateRef.current,
+    });
+    const frameMetrics = getLogoIsometricFrameMetrics(
+      cubeSidePixels,
+      initialVoxelGrid.gridSize,
+    );
 
     if (!offscreenCanvasRef.current) {
       offscreenCanvasRef.current = document.createElement("canvas");
@@ -395,13 +450,11 @@ export function NLogoIsoScene({
       return;
     }
 
-    const initialFilledVoxels =
-      parseVoxelState(voxelStateRef.current) ?? createDefaultFilledVoxelSet();
-
     sceneStateRef.current = {
       activeCubeMoves: [],
-      currentFilledVoxels: new Set(initialFilledVoxels),
-      homeFilledVoxels: new Set(initialFilledVoxels),
+      currentFilledVoxels: new Set(initialVoxelGrid.filledVoxels),
+      gridSize: initialVoxelGrid.gridSize,
+      homeFilledVoxels: new Set(initialVoxelGrid.filledVoxels),
     };
 
     const renderScene = (timestampMs: number) => {
@@ -430,6 +483,7 @@ export function NLogoIsoScene({
         context: offscreenContext,
         faceColors: faceColorsRef.current,
         filledVoxels: sceneState.currentFilledVoxels,
+        gridSize: sceneState.gridSize,
         movingVoxels,
         styleId,
       });
@@ -539,7 +593,7 @@ export function NLogoIsoScene({
       renderSceneRef.current = () => {};
       syncAnimationLoopRef.current = () => {};
     };
-  }, [cubeSidePixels, styleId]);
+  }, [cubeSidePixels, styleId, voxelGrid]);
 
   const resetInteraction = (target: HTMLDivElement, pointerId: number) => {
     if (target.hasPointerCapture(pointerId)) {
@@ -558,7 +612,10 @@ export function NLogoIsoScene({
     clientX: number,
     clientY: number,
   ): IsometricVisibleFace | null => {
-    if (shuffleAnimationRef.current.enabled) {
+    if (
+      !voxelEditingEnabledRef.current ||
+      shuffleAnimationRef.current.enabled
+    ) {
       return null;
     }
 
@@ -622,6 +679,7 @@ export function NLogoIsoScene({
           const coordinate = getIsometricAddCoordinate(
             face,
             sceneState.currentFilledVoxels,
+            sceneState.gridSize,
           );
 
           if (coordinate) {

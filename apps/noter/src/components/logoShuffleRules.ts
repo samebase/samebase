@@ -1,6 +1,6 @@
 import {
   GRID_SIZE,
-  isWithinGrid,
+  isWithinVoxelGrid,
   type VoxelCoordinate,
   voxelKey,
 } from "@/components/logoVoxelState";
@@ -50,6 +50,7 @@ type ShuffleOriginCandidateContext = {
   blockedKeys: Set<string>;
   elevationDegrees: number;
   filledVoxels: Set<string>;
+  gridSize?: number;
   lastMovedCubeKey: string | null;
   rotationAxisMode: LogoRotationAxisMode;
   rotationDegrees: number;
@@ -68,6 +69,7 @@ function getAdjacentFreeDestinations(
   filledVoxels: Set<string>,
   blockedKeys: Set<string>,
   from: VoxelCoordinate,
+  gridSize: number,
 ): VoxelCoordinate[] {
   const destinations: VoxelCoordinate[] = [];
 
@@ -76,7 +78,7 @@ function getAdjacentFreeDestinations(
     const nextY = from[1] + direction.offset[1];
     const nextZ = from[2] + direction.offset[2];
 
-    if (!isWithinGrid(nextX, nextY, nextZ)) {
+    if (!isWithinVoxelGrid(gridSize, nextX, nextY, nextZ)) {
       continue;
     }
 
@@ -95,6 +97,7 @@ function hasVisibleExposedFace(
   filledVoxels: Set<string>,
   from: VoxelCoordinate,
   cameraLocalVector: Vector3,
+  gridSize: number,
 ): boolean {
   for (const direction of SHUFFLE_FACE_DIRECTIONS) {
     const neighborX = from[0] + direction.offset[0];
@@ -102,7 +105,7 @@ function hasVisibleExposedFace(
     const neighborZ = from[2] + direction.offset[2];
     const neighborKey = voxelKey(neighborX, neighborY, neighborZ);
     const isFaceCovered =
-      isWithinGrid(neighborX, neighborY, neighborZ) &&
+      isWithinVoxelGrid(gridSize, neighborX, neighborY, neighborZ) &&
       filledVoxels.has(neighborKey);
 
     if (isFaceCovered) {
@@ -121,6 +124,7 @@ export function getShuffleOriginCandidates({
   blockedKeys,
   elevationDegrees,
   filledVoxels,
+  gridSize = GRID_SIZE,
   lastMovedCubeKey,
   rotationAxisMode,
   rotationDegrees,
@@ -131,19 +135,29 @@ export function getShuffleOriginCandidates({
     rotationDegrees,
   });
   const candidates: ShuffleOriginCandidate[] = [];
+  const centerIndex = (gridSize - 1) / 2;
+  const centerVoxelKey =
+    gridSize === GRID_SIZE
+      ? CENTER_VOXEL_KEY
+      : voxelKey(centerIndex, centerIndex, centerIndex);
 
   for (const fromKey of filledVoxels) {
     if (
       blockedKeys.has(fromKey) ||
       fromKey === lastMovedCubeKey ||
-      fromKey === CENTER_VOXEL_KEY
+      fromKey === centerVoxelKey
     ) {
       continue;
     }
 
     const fromCoordinate = voxelCoordinateFromKey(fromKey);
     if (
-      !hasVisibleExposedFace(filledVoxels, fromCoordinate, cameraLocalVector)
+      !hasVisibleExposedFace(
+        filledVoxels,
+        fromCoordinate,
+        cameraLocalVector,
+        gridSize,
+      )
     ) {
       continue;
     }
@@ -152,6 +166,7 @@ export function getShuffleOriginCandidates({
       filledVoxels,
       blockedKeys,
       fromCoordinate,
+      gridSize,
     );
     if (destinations.length === 0) {
       continue;

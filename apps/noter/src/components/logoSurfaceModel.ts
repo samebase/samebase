@@ -1,5 +1,5 @@
 import { type FaceColorKey } from "./logoTailwindColors";
-import { GRID_SIZE, isWithinGrid, voxelKey } from "./logoVoxelState";
+import { GRID_SIZE, isWithinVoxelGrid, voxelKey } from "./logoVoxelState";
 
 type Rectangle = {
   column: number;
@@ -82,19 +82,20 @@ function collectRectangles(mask: boolean[][]): Rectangle[] {
 
 function isVoxelFilled(
   filledVoxels: ReadonlySet<string>,
+  gridSize: number,
   x: number,
   y: number,
   z: number,
 ): boolean {
-  if (!isWithinGrid(x, y, z)) {
+  if (!isWithinVoxelGrid(gridSize, x, y, z)) {
     return false;
   }
 
   return filledVoxels.has(voxelKey(x, y, z));
 }
 
-function toWorld(boundaryIndex: number): number {
-  return boundaryIndex - GRID_SIZE / 2;
+function toWorld(boundaryIndex: number, gridSize: number): number {
+  return boundaryIndex - gridSize / 2;
 }
 
 /**
@@ -104,24 +105,25 @@ function toWorld(boundaryIndex: number): number {
  */
 export function buildLogoSurfaceQuads(
   filledVoxels: ReadonlySet<string>,
+  gridSize = GRID_SIZE,
 ): LogoSurfaceQuad[] {
   const quads: LogoSurfaceQuad[] = [];
 
-  for (let x = 0; x < GRID_SIZE; x += 1) {
-    const positiveXMask = Array.from({ length: GRID_SIZE }, (_, y) =>
+  for (let x = 0; x < gridSize; x += 1) {
+    const positiveXMask = Array.from({ length: gridSize }, (_, y) =>
       Array.from(
-        { length: GRID_SIZE },
+        { length: gridSize },
         (_, z) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x + 1, y, z),
+          isVoxelFilled(filledVoxels, gridSize, x, y, z) &&
+          !isVoxelFilled(filledVoxels, gridSize, x + 1, y, z),
       ),
     );
     for (const rectangle of collectRectangles(positiveXMask)) {
-      const plane = toWorld(x + 1);
-      const y0 = toWorld(rectangle.row);
-      const y1 = toWorld(rectangle.row + rectangle.height);
-      const z0 = toWorld(rectangle.column);
-      const z1 = toWorld(rectangle.column + rectangle.width);
+      const plane = toWorld(x + 1, gridSize);
+      const y0 = toWorld(rectangle.row, gridSize);
+      const y1 = toWorld(rectangle.row + rectangle.height, gridSize);
+      const z0 = toWorld(rectangle.column, gridSize);
+      const z1 = toWorld(rectangle.column + rectangle.width, gridSize);
       quads.push({
         colorKey: "right",
         key: `positive-x:${x}:${rectangle.row}:${rectangle.column}:${rectangle.height}:${rectangle.width}`,
@@ -136,20 +138,20 @@ export function buildLogoSurfaceQuads(
       });
     }
 
-    const negativeXMask = Array.from({ length: GRID_SIZE }, (_, y) =>
+    const negativeXMask = Array.from({ length: gridSize }, (_, y) =>
       Array.from(
-        { length: GRID_SIZE },
+        { length: gridSize },
         (_, z) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x - 1, y, z),
+          isVoxelFilled(filledVoxels, gridSize, x, y, z) &&
+          !isVoxelFilled(filledVoxels, gridSize, x - 1, y, z),
       ),
     );
     for (const rectangle of collectRectangles(negativeXMask)) {
-      const plane = toWorld(x);
-      const y0 = toWorld(rectangle.row);
-      const y1 = toWorld(rectangle.row + rectangle.height);
-      const z0 = toWorld(rectangle.column);
-      const z1 = toWorld(rectangle.column + rectangle.width);
+      const plane = toWorld(x, gridSize);
+      const y0 = toWorld(rectangle.row, gridSize);
+      const y1 = toWorld(rectangle.row + rectangle.height, gridSize);
+      const z0 = toWorld(rectangle.column, gridSize);
+      const z1 = toWorld(rectangle.column + rectangle.width, gridSize);
       quads.push({
         colorKey: "right",
         key: `negative-x:${x}:${rectangle.row}:${rectangle.column}:${rectangle.height}:${rectangle.width}`,
@@ -165,21 +167,21 @@ export function buildLogoSurfaceQuads(
     }
   }
 
-  for (let y = 0; y < GRID_SIZE; y += 1) {
-    const positiveYMask = Array.from({ length: GRID_SIZE }, (_, x) =>
+  for (let y = 0; y < gridSize; y += 1) {
+    const positiveYMask = Array.from({ length: gridSize }, (_, x) =>
       Array.from(
-        { length: GRID_SIZE },
+        { length: gridSize },
         (_, z) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x, y + 1, z),
+          isVoxelFilled(filledVoxels, gridSize, x, y, z) &&
+          !isVoxelFilled(filledVoxels, gridSize, x, y + 1, z),
       ),
     );
     for (const rectangle of collectRectangles(positiveYMask)) {
-      const plane = toWorld(y + 1);
-      const x0 = toWorld(rectangle.row);
-      const x1 = toWorld(rectangle.row + rectangle.height);
-      const z0 = toWorld(rectangle.column);
-      const z1 = toWorld(rectangle.column + rectangle.width);
+      const plane = toWorld(y + 1, gridSize);
+      const x0 = toWorld(rectangle.row, gridSize);
+      const x1 = toWorld(rectangle.row + rectangle.height, gridSize);
+      const z0 = toWorld(rectangle.column, gridSize);
+      const z1 = toWorld(rectangle.column + rectangle.width, gridSize);
       quads.push({
         colorKey: "top",
         key: `positive-y:${y}:${rectangle.row}:${rectangle.column}:${rectangle.height}:${rectangle.width}`,
@@ -194,20 +196,20 @@ export function buildLogoSurfaceQuads(
       });
     }
 
-    const negativeYMask = Array.from({ length: GRID_SIZE }, (_, x) =>
+    const negativeYMask = Array.from({ length: gridSize }, (_, x) =>
       Array.from(
-        { length: GRID_SIZE },
+        { length: gridSize },
         (_, z) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x, y - 1, z),
+          isVoxelFilled(filledVoxels, gridSize, x, y, z) &&
+          !isVoxelFilled(filledVoxels, gridSize, x, y - 1, z),
       ),
     );
     for (const rectangle of collectRectangles(negativeYMask)) {
-      const plane = toWorld(y);
-      const x0 = toWorld(rectangle.row);
-      const x1 = toWorld(rectangle.row + rectangle.height);
-      const z0 = toWorld(rectangle.column);
-      const z1 = toWorld(rectangle.column + rectangle.width);
+      const plane = toWorld(y, gridSize);
+      const x0 = toWorld(rectangle.row, gridSize);
+      const x1 = toWorld(rectangle.row + rectangle.height, gridSize);
+      const z0 = toWorld(rectangle.column, gridSize);
+      const z1 = toWorld(rectangle.column + rectangle.width, gridSize);
       quads.push({
         colorKey: "top",
         key: `negative-y:${y}:${rectangle.row}:${rectangle.column}:${rectangle.height}:${rectangle.width}`,
@@ -223,21 +225,21 @@ export function buildLogoSurfaceQuads(
     }
   }
 
-  for (let z = 0; z < GRID_SIZE; z += 1) {
-    const positiveZMask = Array.from({ length: GRID_SIZE }, (_, x) =>
+  for (let z = 0; z < gridSize; z += 1) {
+    const positiveZMask = Array.from({ length: gridSize }, (_, x) =>
       Array.from(
-        { length: GRID_SIZE },
+        { length: gridSize },
         (_, y) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x, y, z + 1),
+          isVoxelFilled(filledVoxels, gridSize, x, y, z) &&
+          !isVoxelFilled(filledVoxels, gridSize, x, y, z + 1),
       ),
     );
     for (const rectangle of collectRectangles(positiveZMask)) {
-      const plane = toWorld(z + 1);
-      const x0 = toWorld(rectangle.row);
-      const x1 = toWorld(rectangle.row + rectangle.height);
-      const y0 = toWorld(rectangle.column);
-      const y1 = toWorld(rectangle.column + rectangle.width);
+      const plane = toWorld(z + 1, gridSize);
+      const x0 = toWorld(rectangle.row, gridSize);
+      const x1 = toWorld(rectangle.row + rectangle.height, gridSize);
+      const y0 = toWorld(rectangle.column, gridSize);
+      const y1 = toWorld(rectangle.column + rectangle.width, gridSize);
       quads.push({
         colorKey: "left",
         key: `positive-z:${z}:${rectangle.row}:${rectangle.column}:${rectangle.height}:${rectangle.width}`,
@@ -252,20 +254,20 @@ export function buildLogoSurfaceQuads(
       });
     }
 
-    const negativeZMask = Array.from({ length: GRID_SIZE }, (_, x) =>
+    const negativeZMask = Array.from({ length: gridSize }, (_, x) =>
       Array.from(
-        { length: GRID_SIZE },
+        { length: gridSize },
         (_, y) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x, y, z - 1),
+          isVoxelFilled(filledVoxels, gridSize, x, y, z) &&
+          !isVoxelFilled(filledVoxels, gridSize, x, y, z - 1),
       ),
     );
     for (const rectangle of collectRectangles(negativeZMask)) {
-      const plane = toWorld(z);
-      const x0 = toWorld(rectangle.row);
-      const x1 = toWorld(rectangle.row + rectangle.height);
-      const y0 = toWorld(rectangle.column);
-      const y1 = toWorld(rectangle.column + rectangle.width);
+      const plane = toWorld(z, gridSize);
+      const x0 = toWorld(rectangle.row, gridSize);
+      const x1 = toWorld(rectangle.row + rectangle.height, gridSize);
+      const y0 = toWorld(rectangle.column, gridSize);
+      const y1 = toWorld(rectangle.column + rectangle.width, gridSize);
       quads.push({
         colorKey: "left",
         key: `negative-z:${z}:${rectangle.row}:${rectangle.column}:${rectangle.height}:${rectangle.width}`,
@@ -286,6 +288,7 @@ export function buildLogoSurfaceQuads(
 
 export function getLogoSurfaceFitRadius(
   surfaceQuads: readonly LogoSurfaceQuad[],
+  gridSize = GRID_SIZE,
 ): number {
   let fitRadius = 0;
 
@@ -295,5 +298,5 @@ export function getLogoSurfaceFitRadius(
     }
   }
 
-  return fitRadius || (GRID_SIZE / 2) * Math.sqrt(3);
+  return fitRadius || (gridSize / 2) * Math.sqrt(3);
 }

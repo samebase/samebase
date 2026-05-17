@@ -108,6 +108,8 @@ These sources support the choice of:
 - Preserve the current orthographic logo appearance closely enough that the
   static SVG can track the interactive Three reference across large and small
   display sizes.
+- Allow routed recursive-depth previews to use generated static SVG while
+  keeping committed identity SVG assets at depth `1`.
 - Keep the existing interactive playground available for design and dev work.
 - Maintain one geometry source of truth for the main smooth logo path.
 - Allow the landing hero to become interactive after first paint without

@@ -210,6 +210,51 @@ test("logo public query links cancel conflicting root theme modes", async ({
   ).toBeVisible();
 });
 
+test("logo recursive depth renders a static rotatable Three scene", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo?depth=3&rot=45", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  const canvas = page.locator("canvas").first();
+
+  await expect(canvas).toBeVisible();
+  await expect(controlsSidebar.getByLabel("Depth value")).toHaveValue("3");
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Add" }),
+  ).toHaveCount(0);
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Start shuffle" }),
+  ).toHaveCount(0);
+  await controlsSidebar.getByRole("button", { name: "SVG" }).click();
+  await expect
+    .poll(() => {
+      const url = new URL(page.url());
+      return `${url.pathname}:${url.searchParams.get("depth")}`;
+    })
+    .toBe("/logo/svg:3");
+  await page.goBack({ waitUntil: "domcontentloaded" });
+
+  await controlsSidebar.getByLabel("Yaw value").fill("90");
+  await expect
+    .poll(() => {
+      const url = new URL(page.url());
+      return `${url.pathname}:${url.searchParams.get("depth")}:${url.searchParams.get("rot")}`;
+    })
+    .toBe("/logo:3:90");
+  await waitForPaint(page);
+
+  await expect(canvas).toHaveScreenshot("logo-depth-3-three-scene.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
+  });
+});
+
 test("logo iso controls mobile boot", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/logo/iso?isoSide=6", {

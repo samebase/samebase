@@ -22,7 +22,8 @@ the logo large, easy to manipulate, easy to recolor, easy to reshape, and easy
 to share through the URL.
 
 The scene is not a generic 3D editor. It is a focused playground for one `3x3x3`
-voxel mark with a small, opinionated control surface.
+voxel mark with a small, opinionated control surface, plus static recursive
+depth previews of that mark.
 
 ## Goals
 
@@ -40,7 +41,8 @@ voxel mark with a small, opinionated control surface.
 - Persistent storage of logo edits in Convex.
 - A production branding system for the entire app theme.
 - Perfect physically simulated motion.
-- Support for arbitrary grid sizes larger than `3x3x3`.
+- Support for arbitrary grid sizes larger than the bounded recursive depth
+  preview.
 
 ## Route and Layout
 
@@ -92,6 +94,16 @@ Example:
 - Right click removes the clicked visible voxel.
 - Editing only needs to work for exposed voxels.
 - Hidden/internal voxels do not need separate direct manipulation affordances.
+- Direct editing is a depth-1 behavior. Recursive depths render the repeated
+  settled motif but do not allow tiny recursive cubes to be edited directly.
+
+### 5. Recursive depth
+
+- The `depth` query param controls recursive rendering.
+- Depth `1` is the normal editable logo and is the default.
+- Depth `2` and `3` repeat the depth-1 motif recursively.
+- Recursive depth keeps corners empty according to the Noter motif; it is not a
+  standard Menger sponge.
 
 ## Shape Presets
 
@@ -202,6 +214,8 @@ The playground should expose at least these presets:
 - A cube only needs to satisfy the visibility rule when selected; it does not
   need to remain visible for the full duration of the move while the logo
   rotates.
+- Shuffle is a depth-1 behavior until recursive motion has a separate product
+  contract.
 
 ## Rendering Rules
 

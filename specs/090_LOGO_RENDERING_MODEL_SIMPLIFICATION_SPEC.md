@@ -43,7 +43,7 @@ concepts. The result is hard to reason about when adding recursive shapes,
 performance improvements, static SVG changes, or motion.
 
 The accepted identity spec still defines the canonical mark as one `3x3x3` voxel
-shape. Recursive depth remains an exploration direction, not the baseline
+shape. Recursive depth is a playground/rendering option, not the baseline
 identity source.
 
 ## Goals
@@ -54,13 +54,14 @@ identity source.
 - Keep smooth SVG output visually aligned with the Three logo surface.
 - Keep pixel-art isometric rendering as a separate projection, not a separate
   shape model.
-- Make future recursive/tiled rendering easier to add without reshaping every
-  renderer.
+- Make recursive/tiled rendering use the same settled-shape input without
+  reshaping every renderer.
 
 ## Non-Goals
 
 - Replacing Three.js in this phase.
-- Shipping recursive depth as a public identity feature in this phase.
+- Making recursive depth a public identity asset or replacing the default brand
+  mark.
 - Removing the isometric renderer.
 - Turning the logo playground into a generic larger-grid voxel editor.
 - Solving all shuffle performance issues in the first extraction.
@@ -139,9 +140,13 @@ shape rules from URL or route state.
 
 ### Phase 5: Recursive Tile Exploration
 
-Only after the renderer model is simpler, revisit recursive depth. Static and
-isometric output can use recursive tile rendering. Interactive shuffle for
-recursive shapes needs its own deliberate motion contract.
+Add a `depth` route/search option after the renderer model is simpler. Depth `1`
+is the normal editable logo. Depth `2` and `3` render the recursive settled
+shape through the shared voxel-grid model across Three, smooth SVG, isometric,
+and public landing logo surfaces. Recursive depths stay static as shapes:
+rotation, dragging, colors, opacity, and static SVG output continue to work, but
+direct tiny-cube editing and shuffle remain depth-1 behaviors until recursive
+motion has its own deliberate contract.
 
 ## Validation
 
@@ -150,5 +155,5 @@ recursive shapes needs its own deliberate motion contract.
   generator.
 - Existing logo Playwright visual coverage must continue to pass after each
   renderer-adapter phase.
-- Any future recursive-depth work must include depth-specific visual coverage
-  and an explicit interaction decision for shuffle.
+- Recursive-depth work must include depth-specific visual coverage and an
+  explicit interaction decision for shuffle.

@@ -12,6 +12,7 @@ describe("rootRouteSearch", () => {
         base: "#ffffff",
         border: "stone-300",
         delete: "noter-md/noter",
+        depth: "2",
         dark: "",
         dev: "",
         devtools: "true",
@@ -27,6 +28,7 @@ describe("rootRouteSearch", () => {
       background: "#ffffff",
       border: "stone-300",
       delete: "noter-md/noter",
+      depth: 2,
       dark: true,
       dev: true,
       devtools: true,
@@ -46,6 +48,7 @@ describe("rootRouteSearch", () => {
         background: "bad",
         border: "nope-500",
         delete: "missing-repo-separator",
+        depth: "nope",
         primary: "nope-500",
         secondary: 3,
         "sidebar-reset": "false",
@@ -85,6 +88,12 @@ describe("rootRouteSearch", () => {
       "prod-ui": true,
       "sidebar-reset": true,
       signup: "google",
+    });
+  });
+
+  it("normalizes root logo depth for public logo routes", () => {
+    expect(readRootRouteSearch("?depth=99")).toEqual({
+      depth: 3,
     });
   });
 

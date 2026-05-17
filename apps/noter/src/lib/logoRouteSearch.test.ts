@@ -6,6 +6,7 @@ import {
 import { DEFAULT_LOGO_THEME_COLORS } from "@/components/logoTailwindColors";
 import {
   DEFAULT_ELEVATION_DEGREES,
+  DEFAULT_LOGO_FRACTAL_DEPTH,
   DEFAULT_ROTATION_DEGREES,
   DEFAULT_VOXEL_STATE,
 } from "@/components/logoVoxelState";
@@ -21,6 +22,7 @@ describe("logoRouteSearch", () => {
       validateLogoRouteSearch({
         axis: "screen-vertical",
         dev: "",
+        depth: "2",
         elev: "32.4",
         freeView: "",
         isoSide: "52",
@@ -39,6 +41,7 @@ describe("logoRouteSearch", () => {
       background: "sky-500",
       border: "stone-300",
       dark: true,
+      depth: 2,
       dev: true,
       elev: 32.4,
       freeView: true,
@@ -56,6 +59,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+        fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         rotationAxisMode: "cube-y",
@@ -71,6 +75,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+        fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         rotationAxisMode: "cube-y",
@@ -85,6 +90,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+        fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         rotationAxisMode: "cube-y",
@@ -114,6 +120,7 @@ describe("logoRouteSearch", () => {
     expect(
       validateLogoRouteSearch({
         axis: "diagonal",
+        depth: { nope: true },
         elev: { nope: true },
         freeView: "false",
         isoSide: Number.NaN,
@@ -128,5 +135,21 @@ describe("logoRouteSearch", () => {
     ).toEqual({
       freeView: true,
     });
+  });
+
+  it("preserves non-default logo depth when building route search", () => {
+    expect(
+      buildLogoRouteSearch({
+        elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+        fractalDepth: 2,
+        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+        rotationAxisMode: "cube-y",
+        rotationDegrees: DEFAULT_ROTATION_DEGREES,
+        themeColors: DEFAULT_LOGO_THEME_COLORS,
+        viewSnapEnabled: true,
+        voxelState: DEFAULT_VOXEL_STATE,
+      }),
+    ).toEqual({ depth: 2 });
   });
 });

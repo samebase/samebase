@@ -13,6 +13,7 @@ import {
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_ROTATION_DEGREES,
+  GRID_SIZE,
 } from "./logoVoxelState";
 
 export type LogoProjectedPoint = {
@@ -199,16 +200,18 @@ function getProjectedScene({
   elevationDegrees = DEFAULT_ELEVATION_DEGREES,
   faceColors,
   filledVoxels,
+  gridSize = GRID_SIZE,
   rotationDegrees = DEFAULT_ROTATION_DEGREES,
   viewBoxSize = LOGO_THREE_SVG_VIEWBOX_SIZE,
 }: {
   elevationDegrees?: number;
   faceColors: FaceColors;
   filledVoxels: ReadonlySet<string>;
+  gridSize?: number;
   rotationDegrees?: number;
   viewBoxSize?: number;
 }) {
-  const surfaceQuads = buildLogoSurfaceQuads(filledVoxels);
+  const surfaceQuads = buildLogoSurfaceQuads(filledVoxels, gridSize);
   const projector = createLogoProjector({
     elevationDegrees,
     rotationDegrees,
@@ -246,12 +249,14 @@ export function createLogoThreeProjectedQuads({
   elevationDegrees = DEFAULT_ELEVATION_DEGREES,
   faceColors,
   filledVoxels,
+  gridSize = GRID_SIZE,
   rotationDegrees = DEFAULT_ROTATION_DEGREES,
   viewBoxSize = LOGO_THREE_SVG_VIEWBOX_SIZE,
 }: {
   elevationDegrees?: number;
   faceColors: FaceColors;
   filledVoxels: ReadonlySet<string>;
+  gridSize?: number;
   rotationDegrees?: number;
   viewBoxSize?: number;
 }): LogoProjectedQuad[] {
@@ -259,6 +264,7 @@ export function createLogoThreeProjectedQuads({
     elevationDegrees,
     faceColors,
     filledVoxels,
+    gridSize,
     rotationDegrees,
     viewBoxSize,
   });
@@ -305,6 +311,7 @@ export function createLogoThreeSvgMarkup({
   elevationDegrees = DEFAULT_ELEVATION_DEGREES,
   faceColors,
   filledVoxels,
+  gridSize = GRID_SIZE,
   rotationDegrees = DEFAULT_ROTATION_DEGREES,
   viewBoxSize = LOGO_THREE_SVG_VIEWBOX_SIZE,
 }: {
@@ -312,6 +319,7 @@ export function createLogoThreeSvgMarkup({
   elevationDegrees?: number;
   faceColors: FaceColors;
   filledVoxels: ReadonlySet<string>;
+  gridSize?: number;
   rotationDegrees?: number;
   viewBoxSize?: number;
 }): string {
@@ -319,6 +327,7 @@ export function createLogoThreeSvgMarkup({
     elevationDegrees,
     faceColors,
     filledVoxels,
+    gridSize,
     rotationDegrees,
     viewBoxSize,
   });

@@ -5,6 +5,9 @@ export const DEFAULT_ROTATION_DEGREES = FAVICON_ROTATION_DEGREES;
 export const DEFAULT_ELEVATION_DEGREES = 35.26438968;
 export const MIN_ELEVATION_DEGREES = 0;
 export const MAX_ELEVATION_DEGREES = 360;
+export const DEFAULT_LOGO_FRACTAL_DEPTH = 1;
+export const MIN_LOGO_FRACTAL_DEPTH = 1;
+export const MAX_LOGO_FRACTAL_DEPTH = 3;
 const LEGACY_VOXEL_LAYER_SEPARATOR = ",";
 const LEGACY_VOXEL_ROW_SEPARATOR = "/";
 const VOXEL_LAYER_SEPARATOR = "-";
@@ -15,6 +18,11 @@ export type VoxelCoordinate = readonly [number, number, number];
 export type VoxelEdit = {
   coordinate: VoxelCoordinate;
   kind: "add" | "remove";
+};
+
+export type LogoVoxelGrid = {
+  filledVoxels: ReadonlySet<string>;
+  gridSize: number;
 };
 
 const defaultVoxelCoordinates = [
@@ -37,13 +45,17 @@ export function voxelKey(x: number, y: number, z: number): string {
 }
 
 export function isWithinGrid(x: number, y: number, z: number): boolean {
+  return isWithinVoxelGrid(GRID_SIZE, x, y, z);
+}
+
+export function isWithinVoxelGrid(
+  gridSize: number,
+  x: number,
+  y: number,
+  z: number,
+): boolean {
   return (
-    x >= 0 &&
-    x < GRID_SIZE &&
-    y >= 0 &&
-    y < GRID_SIZE &&
-    z >= 0 &&
-    z < GRID_SIZE
+    x >= 0 && x < gridSize && y >= 0 && y < gridSize && z >= 0 && z < gridSize
   );
 }
 
@@ -69,7 +81,96 @@ export function createDefaultFilledVoxelSet(): Set<string> {
   return createFilledVoxelSet(defaultVoxelCoordinates);
 }
 
-export function serializeVoxelState(filledVoxels: Set<string>): string {
+export function normalizeLogoFractalDepth(value: number): number {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_LOGO_FRACTAL_DEPTH;
+  }
+
+  return Math.min(
+    Math.max(Math.round(value), MIN_LOGO_FRACTAL_DEPTH),
+    MAX_LOGO_FRACTAL_DEPTH,
+  );
+}
+
+export function getLogoFractalGridSize(depth: number): number {
+  return GRID_SIZE ** normalizeLogoFractalDepth(depth);
+}
+
+function isLogoFractalVoxelFilled({
+  baseFilledVoxels,
+  depth,
+  x,
+  y,
+  z,
+}: {
+  baseFilledVoxels: ReadonlySet<string>;
+  depth: number;
+  x: number;
+  y: number;
+  z: number;
+}): boolean {
+  let remainingX = x;
+  let remainingY = y;
+  let remainingZ = z;
+
+  for (let level = 0; level < depth; level += 1) {
+    const xDigit = remainingX % GRID_SIZE;
+    const yDigit = remainingY % GRID_SIZE;
+    const zDigit = remainingZ % GRID_SIZE;
+
+    if (!baseFilledVoxels.has(voxelKey(xDigit, yDigit, zDigit))) {
+      return false;
+    }
+
+    remainingX = Math.floor(remainingX / GRID_SIZE);
+    remainingY = Math.floor(remainingY / GRID_SIZE);
+    remainingZ = Math.floor(remainingZ / GRID_SIZE);
+  }
+
+  return true;
+}
+
+/**
+ * Repeats the depth-1 motif in every filled voxel. The default motif is the
+ * Noter mark, which keeps recursive corners empty instead of becoming a
+ * standard Menger sponge.
+ */
+export function createLogoFractalVoxelGrid({
+  depth,
+  filledVoxels = createDefaultFilledVoxelSet(),
+}: {
+  depth: number;
+  filledVoxels?: ReadonlySet<string>;
+}): LogoVoxelGrid {
+  const normalizedDepth = normalizeLogoFractalDepth(depth);
+  const gridSize = getLogoFractalGridSize(normalizedDepth);
+  const nextFilledVoxels = new Set<string>();
+
+  for (let x = 0; x < gridSize; x += 1) {
+    for (let y = 0; y < gridSize; y += 1) {
+      for (let z = 0; z < gridSize; z += 1) {
+        if (
+          isLogoFractalVoxelFilled({
+            baseFilledVoxels: filledVoxels,
+            depth: normalizedDepth,
+            x,
+            y,
+            z,
+          })
+        ) {
+          nextFilledVoxels.add(voxelKey(x, y, z));
+        }
+      }
+    }
+  }
+
+  return {
+    filledVoxels: nextFilledVoxels,
+    gridSize,
+  };
+}
+
+export function serializeVoxelState(filledVoxels: ReadonlySet<string>): string {
   const layers: string[] = [];
 
   for (let y = GRID_SIZE - 1; y >= 0; y -= 1) {
