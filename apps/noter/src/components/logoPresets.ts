@@ -9,7 +9,11 @@ import {
 export const CUSTOM_LOGO_PRESET_ID = "custom";
 export const DEFAULT_LOGO_PRESET_ID = "checker-lattice";
 
-export type LogoPresetId = "checker-lattice" | "cornerless-cube" | "n-logo";
+export type LogoPresetId =
+  | "checker-lattice"
+  | "cornerless-cube"
+  | "n-logo"
+  | "sierpinski-carpet";
 export type LogoPresetSelection = LogoPresetId | typeof CUSTOM_LOGO_PRESET_ID;
 
 type LogoPreset = {
@@ -63,6 +67,30 @@ function createCornerlessCubeVoxelState(): string {
   return serializeVoxelState(createFilledVoxelSet(coordinates));
 }
 
+function createSierpinskiCarpetVoxelState(): string {
+  const coordinates: VoxelCoordinate[] = [];
+  const centerIndex = Math.floor(GRID_SIZE / 2);
+
+  for (let x = 0; x < GRID_SIZE; x += 1) {
+    for (let y = 0; y < GRID_SIZE; y += 1) {
+      for (let z = 0; z < GRID_SIZE; z += 1) {
+        const centerAxisCount =
+          Number(x === centerIndex) +
+          Number(y === centerIndex) +
+          Number(z === centerIndex);
+
+        if (centerAxisCount >= 2) {
+          continue;
+        }
+
+        coordinates.push([x, y, z] as const);
+      }
+    }
+  }
+
+  return serializeVoxelState(createFilledVoxelSet(coordinates));
+}
+
 export const LOGO_PRESETS = [
   {
     description: "Three-layer alternating lattice with the center cube removed",
@@ -75,6 +103,12 @@ export const LOGO_PRESETS = [
     id: "n-logo",
     label: "N Logo",
     voxelState: createNLogoVoxelState(),
+  },
+  {
+    description: "3x3x3 level-1 carpet with corners kept and face centers open",
+    id: "sierpinski-carpet",
+    label: "Sierpinski Carpet",
+    voxelState: createSierpinskiCarpetVoxelState(),
   },
   {
     description: "3x3x3 cube with all 8 corner cubes removed",

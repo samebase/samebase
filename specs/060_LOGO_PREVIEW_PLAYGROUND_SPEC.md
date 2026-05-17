@@ -127,14 +127,21 @@ The playground should expose at least these presets:
 
 - `Open Cross`
 - `N Logo`
+- `Sierpinski Carpet`
 - `Cornerless Cube`
 
-### 2. Cornerless Cube definition
+### 2. Sierpinski Carpet definition
+
+- `Sierpinski Carpet` means the `3x3x3` level-1 face-carpet model: all corners
+  and edge-center voxels are filled, while the true center and six face-center
+  voxels are empty.
+
+### 3. Cornerless Cube definition
 
 - `Cornerless Cube` means the full `3x3x3` cube with all eight corner voxels
   removed.
 
-### 3. Reset behavior
+### 4. Reset behavior
 
 - Selecting a preset applies it immediately.
 - `Reset shape` should reset to the currently selected preset.

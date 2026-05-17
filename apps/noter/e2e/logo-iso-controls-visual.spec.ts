@@ -363,6 +363,36 @@ test("logo raster face-on recursion renders without tile seams", async ({
   );
 });
 
+test("logo shape presets include the Sierpinski carpet model", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo/raster?top=red-500", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  const shapeSelect = controlsSidebar
+    .getByRole("combobox")
+    .filter({ hasText: "Checker Lattice" });
+
+  await expect(shapeSelect).toBeVisible();
+  await shapeSelect.click();
+  await expect(
+    page.getByText("Sierpinski Carpet", { exact: true }),
+  ).toBeVisible();
+  await page.getByText("Sierpinski Carpet", { exact: true }).click();
+
+  await expect(
+    controlsSidebar
+      .getByRole("combobox")
+      .filter({ hasText: "Sierpinski Carpet" }),
+  ).toBeVisible();
+  await expect(controlsSidebar).toContainText(
+    "xxx_xox_xxx-xox_ooo_xox-xxx_xox_xxx",
+  );
+});
+
 test("logo depth slider clears default depth from the URL", async ({
   page,
 }) => {
