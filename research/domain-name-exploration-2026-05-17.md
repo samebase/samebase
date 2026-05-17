@@ -173,6 +173,59 @@ Needs logged-in confirmation:
   [`twitch.tv/samebase`](https://www.twitch.tv/samebase) need logged-in or
   platform-native confirmation.
 
+### Short-link domain sweep
+
+Checked on 2026-05-17 for an `sb.*` short-link asset analogous to `git.io` or a
+very short brand redirect. These are for redirects and share links, not for the
+primary product identity.
+
+Best practical options:
+
+| Domain    | Result                                                                                      | Judgment                                                                                       |
+| --------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `sb.link` | WHOIS reports available; Dynadot lists `.link` at `$7.71` registration and renewal.         | Best cheap practical pick. Longer TLD, but semantically perfect for links and low-risk to own. |
+| `sb.fm`   | `.fm` WHOIS reports `DOMAIN NOT FOUND`; Dynadot lists regular `.fm` at `$68.25` / `$89.25`. | Best exact two-letter-label candidate if a registrar confirms non-premium checkout pricing.    |
+| `sb.to`   | Registered, nameservers `ns1.dan.com` / `ns2.dan.com`, Afternic/GoDaddy price-request page. | Good shortener semantics, but no public price; inquire only if willing to walk away.           |
+| `sb.sh`   | Registered by Divido; public premium lander links to Domains.io, no visible price.          | Nice developer feel, but likely expensive and less link-specific.                              |
+| `sb.me`   | Registry reports this premium domain is available by contacting `premium@identity.digital`. | Very short and clean, but likely registry-premium priced; ask only if curious.                 |
+| `sb.vc`   | For sale on Dn.com at `$20,000`.                                                            | Clean but not worth it for a redirect domain.                                                  |
+
+Rejected or unavailable exact `sb` options:
+
+| Domain     | Result                                                                             |
+| ---------- | ---------------------------------------------------------------------------------- |
+| `sb.io`    | Registered through MarkMonitor / DNStination through 2030; no public sale listing. |
+| `sb.ai`    | Registered through Spaceship; nameservers point to `4.cn`.                         |
+| `sb.dev`   | Registered through Lexsynergy.                                                     |
+| `sb.app`   | Registered through Squarespace Domains II.                                         |
+| `sb.co`    | Registered and resolves to an active site.                                         |
+| `sb.gg`    | Registry-reserved/inactive; not available for normal registration.                 |
+| `sb.so`    | WHOIS says `Prohibited String - Domain Cannot Be Registered`.                      |
+| `sb.cc`    | Registered through NameSilo.                                                       |
+| `sb.md`    | Registered since 2013 and expires in 2027.                                         |
+| `sb.page`  | Registered through Namecheap.                                                      |
+| `sb.xyz`   | Registered through MarkMonitor / DNStination.                                      |
+| `sb.run`   | Registered through Gname.                                                          |
+| `sb.fyi`   | Registered through Cloudflare.                                                     |
+| `sb.tools` | Registered through GoDaddy.                                                        |
+| `sb.chat`  | Registered through GoDaddy.                                                        |
+
+Other available but weaker options:
+
+- `sb.site`, `sb.one`, and `sb.cloud` appear available from WHOIS/RDAP checks,
+  but they are weaker than `sb.link` for a short-link surface.
+- `sb.ing` appears unregistered in Google Registry RDAP, but `sb.ing` reads more
+  like a chopped word than a short-link domain.
+- `sb.new` appears unregistered in Google Registry RDAP, but `.new` domains must
+  resolve directly to an action-generation or creation flow, so it is a poor fit
+  for general redirects.
+
+Recommendation: register `sb.link` if the goal is a cheap, clean short-link
+domain. Then optionally check `sb.fm` at a registrar checkout; buy only if it is
+normal-price or an unusually cheap premium. Do not chase `sb.vc` at `$20,000`,
+and do not negotiate for `sb.to`, `sb.sh`, or `sb.me` unless the short-link
+domain becomes strategically important.
+
 ### Independent second-pass recommendation
 
 Checked again on 2026-05-17 after reframing the budget as flexible and the MVP
