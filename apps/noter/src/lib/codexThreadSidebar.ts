@@ -1,4 +1,4 @@
-import { type CodexAppServerThread } from "@/lib/codexAppServerResearch";
+import { type CodexAppServerThread } from "#src/lib/codexAppServerResearch.ts";
 
 export type CodexThreadSidebarThread = {
   id: string;

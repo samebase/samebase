@@ -4,6 +4,9 @@
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
+  "imports": {
+    "#src/*": "./src/*"
+  },
   "scripts": {
     "dev": "npm-run-all --parallel dev:frontend dev:backend",
     "dev:frontend": "node ./scripts/run-vite-dev.ts",

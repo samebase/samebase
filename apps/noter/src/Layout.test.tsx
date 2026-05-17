@@ -1,37 +1,37 @@
-import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { TestRouterProvider } from "#src/test/TestRouterProvider.tsx";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
-import { PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID } from "@/components/PublicRightSidebar";
+import { AppSidebarMetaSection } from "#src/components/AppSidebarMetaSection.tsx";
+import { PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID } from "#src/components/PublicRightSidebar.tsx";
 import {
   LANDING_DEV_MODE_DISABLE_LINK_LABEL,
   LANDING_DEV_MODE_LINK_LABEL,
   LANDING_DEV_MODE_QUERY_PARAM,
-} from "@/lib/landingDevMode";
+} from "#src/lib/landingDevMode.ts";
 import {
   LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM,
   LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
   LANDING_MARKDOWN_PREVIEW_ROUTE,
-} from "@/lib/landingMarkdownPreview";
-import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
+} from "#src/lib/landingMarkdownPreview.ts";
+import { LOCAL_STORAGE_ROUTE } from "#src/lib/localStorageRoute.ts";
 import {
   FORCE_PROD_UI_MODE_LINK_LABEL,
   FORCE_PROD_UI_QUERY_PARAM,
-} from "@/lib/prodUiMode";
+} from "#src/lib/prodUiMode.ts";
 import {
   SEARCH_RESET_LINK_LABEL,
   SEARCH_RESET_QUERY_PARAM,
-} from "@/lib/searchReset";
+} from "#src/lib/searchReset.ts";
 import {
   ROOT_THEME_DARK_MODE_LINK_LABEL,
   ROOT_THEME_LIGHT_MODE_DISABLE_LINK_LABEL,
   ROOT_THEME_LIGHT_MODE_LINK_LABEL,
-} from "@/lib/rootThemeModeSearch";
-import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
-import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "@/lib/noterSync";
+} from "#src/lib/rootThemeModeSearch.ts";
+import { buildPathWithTanStackSearch } from "#src/lib/tanstackSearchParams.ts";
+import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "#src/lib/noterSync.ts";
 import type { WorkspaceSidebarState } from "../convex/workspaceSidebarStateModel";
-import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStateController";
-import { sanitizePublicLayoutSidebarState } from "@/lib/publicLayoutSidebarState";
+import type { WorkspaceSidebarStateController } from "#src/lib/workspaceSidebarStateController.ts";
+import { sanitizePublicLayoutSidebarState } from "#src/lib/publicLayoutSidebarState.ts";
 import { Layout, PublicLayoutShell } from "./Layout";
 
 const {
@@ -62,7 +62,7 @@ vi.mock("convex/react", async (importOriginal) => {
 
 // Keep the public shell tests on the normal browser auth path while stubbing
 // the sign-in actions that the sidebar buttons expose.
-vi.mock("@/authClient", () => ({
+vi.mock("#src/authClient.ts", () => ({
   isInIframe: () => false,
   openAuthPopup: vi.fn(),
   useNoterSignInActions: () => ({
@@ -71,8 +71,9 @@ vi.mock("@/authClient", () => ({
   }),
 }));
 
-vi.mock("@/lib/rootRouteSearch", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/rootRouteSearch")>();
+vi.mock("#src/lib/rootRouteSearch.ts", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("#src/lib/rootRouteSearch.ts")>();
 
   return {
     ...actual,

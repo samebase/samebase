@@ -9,10 +9,7 @@
     "jsxImportSource": "solid-js",
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
-    "paths": {
-      "@/*": ["./src/*"]
-    }
+    "erasableSyntaxOnly": true
   },
   "include": ["src"]
 }

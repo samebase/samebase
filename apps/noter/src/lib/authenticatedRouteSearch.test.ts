@@ -7,7 +7,7 @@ import {
   validateMachinesRouteSearch,
   validateMcpConsentRouteSearch,
   validatePricingRouteSearch,
-} from "@/lib/authenticatedRouteSearch";
+} from "#src/lib/authenticatedRouteSearch.ts";
 
 describe("authenticatedRouteSearch", () => {
   it("trims the MCP consent request id", () => {

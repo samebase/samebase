@@ -1,7 +1,7 @@
-import { Badge } from "@/components/ui/badge";
-import { CodexAppServerThreadInventoryCard } from "@/components/CodexAppServerThreadInventoryCard";
-import { CodexAppServerThreadHistoryItemCard } from "@/components/CodexAppServerThreadHistoryItemCard";
-import { type CodexAppServerThread } from "@/lib/codexAppServerResearch";
+import { Badge } from "#src/components/ui/badge.tsx";
+import { CodexAppServerThreadInventoryCard } from "#src/components/CodexAppServerThreadInventoryCard.tsx";
+import { CodexAppServerThreadHistoryItemCard } from "#src/components/CodexAppServerThreadHistoryItemCard.tsx";
+import { type CodexAppServerThread } from "#src/lib/codexAppServerResearch.ts";
 
 export type CodexThreadHistoryVisualMode = "codex-thread-history";
 

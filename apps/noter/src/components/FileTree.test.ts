@@ -2,15 +2,15 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 
-import { FileTree } from "@/components/FileTree";
+import { FileTree } from "#src/components/FileTree.tsx";
 import {
   getFileTreeTooltipText,
   getRestoreDeletionLabel,
-} from "@/lib/fileTreeLabels";
+} from "#src/lib/fileTreeLabels.ts";
 import {
   buildEffectiveFolderExpansionStates,
   getAncestorFolderPaths,
-} from "@/lib/fileTreeState";
+} from "#src/lib/fileTreeState.ts";
 
 describe("buildEffectiveFolderExpansionStates", () => {
   it("force-opens changed folders in changes mode", () => {

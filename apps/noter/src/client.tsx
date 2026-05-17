@@ -1,7 +1,7 @@
 import { StartClient } from "@tanstack/react-start/client";
 import { StrictMode, startTransition } from "react";
 import { hydrateRoot } from "react-dom/client";
-import { initializeAppBootRecovery } from "@/lib/appBootRecovery";
+import { initializeAppBootRecovery } from "#src/lib/appBootRecovery.ts";
 
 const APP_FONT_LOAD_TIMEOUT_MS = 3_000;
 const APP_FONT_DESCRIPTORS = [

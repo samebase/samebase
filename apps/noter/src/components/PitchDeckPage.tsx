@@ -1,5 +1,5 @@
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { buttonVariants } from "#src/components/ui/button.tsx";
+import { cn } from "#src/lib/utils.ts";
 
 export type PitchDeckMode = "interactive" | "print" | "printMobile";
 

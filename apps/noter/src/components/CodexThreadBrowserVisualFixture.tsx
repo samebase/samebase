@@ -1,9 +1,9 @@
-import { CodexThreadBrowserView } from "@/components/CodexThreadBrowserView";
+import { CodexThreadBrowserView } from "#src/components/CodexThreadBrowserView.tsx";
 import {
   type CodexAppServerThread,
   type CodexAppServerThreadTurn,
-} from "@/lib/codexAppServerResearch";
-import { buildCodexThreadSidebarViewModel } from "@/lib/codexThreadSidebar";
+} from "#src/lib/codexAppServerResearch.ts";
+import { buildCodexThreadSidebarViewModel } from "#src/lib/codexThreadSidebar.ts";
 
 export type CodexThreadBrowserVisualMode = "codex-thread-browser";
 const FIXTURE_RELATIVE_TIME_REFERENCE_MS = 1_774_541_762_000;

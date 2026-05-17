@@ -2,11 +2,11 @@ import { type ComponentProps } from "react";
 import {
   type WorkspaceMobilePane,
   type WorkspacePaneSide,
-} from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
-import { Layout } from "@/Layout";
+} from "#src/components/workspace-layout-v2/WorkspacePaneRuntime.tsx";
+import { Layout } from "#src/Layout.tsx";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
-import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
-import { WorkspaceLayoutV2MemorySidebarProvider } from "@/components/workspace-layout-v2/WorkspaceLayoutV2MemorySidebarProvider";
+import { WorkspaceLayoutV2FullPage } from "#src/components/workspace-layout-v2/WorkspaceLayoutV2FullPage.tsx";
+import { WorkspaceLayoutV2MemorySidebarProvider } from "#src/components/workspace-layout-v2/WorkspaceLayoutV2MemorySidebarProvider.tsx";
 
 const WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX = 320;
 

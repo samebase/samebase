@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   shouldClearCompareOnReviewExit,
   shouldShowCompareBackToEditor,
-} from "@/lib/fileViewReview";
+} from "#src/lib/fileViewReview.ts";
 
 describe("shouldClearCompareOnReviewExit", () => {
   it("clears compare for compare-only review selections", () => {

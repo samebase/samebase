@@ -1,6 +1,6 @@
-import { cn } from "@/lib/utils";
-import { getCornerNotchClass } from "@/lib/cornerNotch";
-import { useCornerNotchBridgeColor } from "@/hooks/useCornerNotchBridgeColor";
+import { cn } from "#src/lib/utils.ts";
+import { getCornerNotchClass } from "#src/lib/cornerNotch.ts";
+import { useCornerNotchBridgeColor } from "#src/hooks/useCornerNotchBridgeColor.ts";
 
 type FixtureBorderWidth = 1 | 2;
 type FixtureZoom = 1 | 12;

@@ -3,8 +3,8 @@
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
-import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStateController";
+import { PersistedSidebarProvider } from "#src/components/PersistedSidebarProvider.tsx";
+import type { WorkspaceSidebarStateController } from "#src/lib/workspaceSidebarStateController.ts";
 import type {
   WorkspaceSidebarState,
   WorkspaceSidebarStateKey,
@@ -19,7 +19,7 @@ vi.mock("convex/react", () => ({
   useQuery: () => mockedQueryState,
 }));
 
-import { usePersistedWorkspaceSidebarState } from "@/hooks/usePersistedWorkspaceSidebarState";
+import { usePersistedWorkspaceSidebarState } from "#src/hooks/usePersistedWorkspaceSidebarState.ts";
 
 const { act } = React;
 Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);

@@ -1,22 +1,26 @@
 import { useCreateStore, useSelector } from "@tanstack/react-store";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/popover";
+import { Badge } from "#src/components/ui/badge.tsx";
+import { Button } from "#src/components/ui/button.tsx";
+import { Checkbox } from "#src/components/ui/checkbox.tsx";
+import { Input } from "#src/components/input.tsx";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "#src/components/popover.tsx";
 import {
   Sheet,
   SheetContent,
   SheetTitle,
   SheetTrigger,
-} from "@/components/sheet";
-import { buildPullRequestLabelStyle } from "@/lib/pullRequestLabels";
+} from "#src/components/sheet.tsx";
+import { buildPullRequestLabelStyle } from "#src/lib/pullRequestLabels.ts";
 import {
   setVaultBranchFilterLabelIncluded,
   type VaultBranchFilterOption,
   type VaultBranchFilters,
-} from "@/components/vault-dashboard/vaultDashboardBranchFilters";
-import { useUsesTouchSheet } from "@/hooks/useUsesTouchSheet";
+} from "#src/components/vault-dashboard/vaultDashboardBranchFilters.ts";
+import { useUsesTouchSheet } from "#src/hooks/useUsesTouchSheet.ts";
 
 function matchesOptionSearch(option: VaultBranchFilterOption, search: string) {
   if (search.length === 0) {

@@ -6,7 +6,7 @@ import { routeTree } from "./routeTree.gen";
 import {
   parseTanStackSearch,
   stringifyTanStackSearch,
-} from "@/lib/tanstackSearchParams";
+} from "#src/lib/tanstackSearchParams.ts";
 
 export function getRouter() {
   return createTanStackRouter({

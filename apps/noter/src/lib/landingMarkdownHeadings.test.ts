@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { getLandingMarkdownHeadings } from "@/lib/landingMarkdownHeadings";
+import { getLandingMarkdownHeadings } from "#src/lib/landingMarkdownHeadings.ts";
 
 describe("getLandingMarkdownHeadings", () => {
   it("builds stable sidebar links from markdown headings", () => {

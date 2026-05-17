@@ -1,10 +1,6 @@
 import { defineConfig } from "vite-plus";
 import tailwindcss from "@tailwindcss/vite";
 import solid from "vite-plugin-solid";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   run: {
@@ -24,9 +20,4 @@ export default defineConfig({
     strictPort: false,
   },
   plugins: [tailwindcss(), solid()],
-  resolve: {
-    alias: {
-      "@": path.resolve(currentDir, "./src"),
-    },
-  },
 });

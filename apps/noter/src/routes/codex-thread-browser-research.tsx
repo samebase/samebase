@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CodexAppServerThreadBrowserResearchPage } from "@/components/CodexAppServerThreadBrowserResearchPage";
-import { CODEX_APP_SERVER_THREAD_BROWSER_ROUTE } from "@/lib/codexAppServerResearch";
-import { validateCodexResearchRouteSearch } from "@/lib/codexResearchRouteSearch";
+import { CodexAppServerThreadBrowserResearchPage } from "#src/components/CodexAppServerThreadBrowserResearchPage.tsx";
+import { CODEX_APP_SERVER_THREAD_BROWSER_ROUTE } from "#src/lib/codexAppServerResearch.ts";
+import { validateCodexResearchRouteSearch } from "#src/lib/codexResearchRouteSearch.ts";
 import { RoutedPage } from "./-publicRouteComponents";
 
 function ResearchRouteUnavailablePage(props: {

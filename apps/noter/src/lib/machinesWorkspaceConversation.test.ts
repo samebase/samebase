@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { startedDraftConversationThreadMatches } from "@/lib/machinesWorkspaceConversation";
+import { startedDraftConversationThreadMatches } from "#src/lib/machinesWorkspaceConversation.ts";
 
 describe("startedDraftConversationThreadMatches", () => {
   it("clears the pending-start guard once the first prompt resolves the started thread", () => {

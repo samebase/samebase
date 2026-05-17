@@ -1,8 +1,8 @@
 import * as React from "react";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 
-import { resolveBaseUiAsChild } from "@/lib/baseUiAsChild";
-import { cn } from "@/lib/utils";
+import { resolveBaseUiAsChild } from "#src/lib/baseUiAsChild.tsx";
+import { cn } from "#src/lib/utils.ts";
 import { ChevronRightIcon, CheckIcon } from "lucide-react";
 
 function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {

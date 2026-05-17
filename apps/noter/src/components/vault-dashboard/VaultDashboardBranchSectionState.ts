@@ -2,7 +2,7 @@ import {
   buildVaultBranchFilterOptions,
   filterVaultRemoteBranches,
   type VaultBranchFilters as VaultBranchFiltersState,
-} from "@/components/vault-dashboard/vaultDashboardBranchFilters";
+} from "#src/components/vault-dashboard/vaultDashboardBranchFilters.ts";
 
 const COLLAPSED_BRANCH_LIMIT = 5;
 

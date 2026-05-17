@@ -1,23 +1,28 @@
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
+import { Badge } from "#src/components/ui/badge.tsx";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "#src/components/card.tsx";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/collapsible";
-import { CodexAppServerThreadHistoryItemCard } from "@/components/CodexAppServerThreadHistoryItemCard";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+} from "#src/components/collapsible.tsx";
+import { CodexAppServerThreadHistoryItemCard } from "#src/components/CodexAppServerThreadHistoryItemCard.tsx";
+import { Button } from "#src/components/ui/button.tsx";
+import { Input } from "#src/components/ui/input.tsx";
+import { Textarea } from "#src/components/ui/textarea.tsx";
 import {
   codexThreadPathIsArchived,
   type CodexAppServerThread,
   type CodexAppServerThreadTurn,
-} from "@/lib/codexAppServerResearch";
+} from "#src/lib/codexAppServerResearch.ts";
 import {
   type CodexThreadSidebarProject,
   type CodexThreadSidebarThread,
-} from "@/lib/codexThreadSidebar";
+} from "#src/lib/codexThreadSidebar.ts";
 import { clsx } from "clsx";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";

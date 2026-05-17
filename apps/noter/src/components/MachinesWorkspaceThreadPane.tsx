@@ -1,16 +1,16 @@
-import { ChatInput } from "@/components/ChatInput";
-import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
-import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
+import { ChatInput } from "#src/components/ChatInput.tsx";
+import { ProsemarkReadOnly } from "#src/components/ProsemarkReadOnly.tsx";
+import type { CodexAppServerThread } from "#src/lib/codexAppServerResearch.ts";
 import {
   readMachinesWorkspaceConversationEnvLabel,
   readMachinesWorkspaceConversationStartCopy,
   type MachinesWorkspaceConversationEnvMode,
-} from "@/lib/machinesWorkspaceConversation";
+} from "#src/lib/machinesWorkspaceConversation.ts";
 import {
   deriveCodexThreadTimelineEntries,
   type CodexThreadTimelineWorkEntry,
-} from "@/lib/codexThreadTimeline";
-import { cn } from "@/lib/utils";
+} from "#src/lib/codexThreadTimeline.ts";
+import { cn } from "#src/lib/utils.ts";
 import {
   Bot,
   CircleAlert,

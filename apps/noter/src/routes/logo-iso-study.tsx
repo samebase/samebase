@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { LogoSingleCubeStudyPage } from "@/components/LogoSingleCubeStudyPage";
-import { validateLogoRouteSearch } from "@/lib/logoRouteSearch";
+import { LogoSingleCubeStudyPage } from "#src/components/LogoSingleCubeStudyPage.tsx";
+import { validateLogoRouteSearch } from "#src/lib/logoRouteSearch.ts";
 import { RoutedPage } from "./-publicRouteComponents";
 
 const pathname = "/logo/single-cube";

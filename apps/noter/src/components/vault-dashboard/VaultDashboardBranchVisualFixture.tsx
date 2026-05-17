@@ -1,5 +1,5 @@
-import { TestRouterProvider } from "@/test/TestRouterProvider";
-import { VaultBranchLinkContent } from "@/components/vault-dashboard/VaultDashboard";
+import { TestRouterProvider } from "#src/test/TestRouterProvider.tsx";
+import { VaultBranchLinkContent } from "#src/components/vault-dashboard/VaultDashboard.tsx";
 
 export function VaultDashboardBranchVisualFixture() {
   return (

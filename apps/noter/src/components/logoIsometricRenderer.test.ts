@@ -6,7 +6,7 @@ import {
   MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   getLogoIsometricFrameMetrics,
   normalizeLogoIsometricCubeSidePixels,
-} from "@/components/logoIsometricRenderer";
+} from "#src/components/logoIsometricRenderer.ts";
 
 describe("normalizeLogoIsometricCubeSidePixels", () => {
   it("rounds incoming values to the nearest supported even pixel step", () => {

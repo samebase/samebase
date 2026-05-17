@@ -5,29 +5,29 @@ import {
   formatAppBuildCommitLabel,
   formatAppBuildVersionLabel,
   hasSelectedAppBuildVersion,
-} from "@/lib/appBuild";
+} from "#src/lib/appBuild.ts";
 import {
   LANDING_DEV_MODE_DISABLE_LINK_LABEL,
   LANDING_DEV_MODE_LINK_LABEL,
   LANDING_DEV_MODE_QUERY_PARAM,
   isLandingDevModeEnabled,
-} from "@/lib/landingDevMode";
+} from "#src/lib/landingDevMode.ts";
 import {
   LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM,
   LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
   LANDING_MARKDOWN_PREVIEW_ROUTE,
-} from "@/lib/landingMarkdownPreview";
-import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
+} from "#src/lib/landingMarkdownPreview.ts";
+import { LOCAL_STORAGE_ROUTE } from "#src/lib/localStorageRoute.ts";
 import {
   FORCE_PROD_UI_MODE_LINK_LABEL,
   FORCE_PROD_UI_QUERY_PARAM,
   isBrowserProductionPublicOrigin,
   isProdUiModeActive,
-} from "@/lib/prodUiMode";
+} from "#src/lib/prodUiMode.ts";
 import {
   SEARCH_RESET_LINK_LABEL,
   SEARCH_RESET_QUERY_PARAM,
-} from "@/lib/searchReset";
+} from "#src/lib/searchReset.ts";
 import {
   ROOT_THEME_DARK_MODE_DISABLE_LINK_LABEL,
   ROOT_THEME_DARK_MODE_LINK_LABEL,
@@ -35,11 +35,11 @@ import {
   ROOT_THEME_LIGHT_MODE_LINK_LABEL,
   buildToggledRootThemeModeSearch,
   readRootThemeMode,
-} from "@/lib/rootThemeModeSearch";
-import { applySearchPatch } from "@/lib/routeSearchFlags";
-import { readRootRouteSearch } from "@/lib/rootRouteSearch";
-import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
-import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "@/lib/noterSync";
+} from "#src/lib/rootThemeModeSearch.ts";
+import { applySearchPatch } from "#src/lib/routeSearchFlags.ts";
+import { readRootRouteSearch } from "#src/lib/rootRouteSearch.ts";
+import { useOptionalPublicLandingLogoLink } from "#src/hooks/useOptionalPublicLandingLogoLink.ts";
+import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "#src/lib/noterSync.ts";
 import { Link, useLocation } from "@tanstack/react-router";
 
 function normalizeRepoUrl(repoUrl: string): string {

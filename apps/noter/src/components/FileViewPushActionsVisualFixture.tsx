@@ -1,5 +1,5 @@
-import { FileViewPushActions } from "@/components/FileViewPushActions";
-import type { FileViewPushActionsVisualMode } from "@/components/fileViewPushActionsVisualModes";
+import { FileViewPushActions } from "#src/components/FileViewPushActions.tsx";
+import type { FileViewPushActionsVisualMode } from "#src/components/fileViewPushActionsVisualModes.ts";
 
 export function FileViewPushActionsVisualFixture({
   mode,

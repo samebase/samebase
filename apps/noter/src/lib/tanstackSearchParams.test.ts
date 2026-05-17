@@ -3,7 +3,7 @@ import {
   buildPathWithTanStackSearch,
   parseTanStackSearch,
   stringifyTanStackSearch,
-} from "@/lib/tanstackSearchParams";
+} from "#src/lib/tanstackSearchParams.ts";
 
 describe("tanstackSearchParams", () => {
   it("parses plain query strings without JSON coercion", () => {

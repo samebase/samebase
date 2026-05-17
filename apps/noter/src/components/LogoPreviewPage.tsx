@@ -2,9 +2,12 @@ import {
   LOGO_SHUFFLE_PARALLEL_OPTIONS,
   NLogoScene,
   type LogoShuffleParallelMoves,
-} from "@/components/NLogoScene";
-import { type LogoRotationAxisMode } from "@/components/logoRotationMath";
-import { LogoIsoThumbnail, NLogoIsoScene } from "@/components/NLogoIsoScene";
+} from "#src/components/NLogoScene.tsx";
+import { type LogoRotationAxisMode } from "#src/components/logoRotationMath.ts";
+import {
+  LogoIsoThumbnail,
+  NLogoIsoScene,
+} from "#src/components/NLogoIsoScene.tsx";
 import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
@@ -16,7 +19,7 @@ import {
   isLogoIsometricStyleId,
   normalizeLogoIsometricCubeSidePixels,
   type LogoIsometricStyleId,
-} from "@/components/logoIsometricRenderer";
+} from "#src/components/logoIsometricRenderer.ts";
 import {
   DEFAULT_LOGO_THEME_COLORS,
   LOGO_THEME_COLOR_KEYS,
@@ -32,7 +35,7 @@ import {
   type LogoColorToken,
   type LogoThemeColorKey,
   type LogoThemeColors,
-} from "@/components/logoTailwindColors";
+} from "#src/components/logoTailwindColors.ts";
 import {
   CUSTOM_LOGO_PRESET_ID,
   DEFAULT_LOGO_PRESET_ID,
@@ -41,23 +44,23 @@ import {
   getLogoPresetSelection,
   type LogoPresetId,
   type LogoPresetSelection,
-} from "@/components/logoPresets";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/input";
-import { Label } from "@/components/ui/label";
+} from "#src/components/logoPresets.ts";
+import { Checkbox } from "#src/components/ui/checkbox.tsx";
+import { Button } from "#src/components/ui/button.tsx";
+import { Input } from "#src/components/input.tsx";
+import { Label } from "#src/components/ui/label.tsx";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
+} from "#src/components/ui/popover.tsx";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-} from "@/components/ui/select";
-import { Layout, PublicLayoutShell } from "@/Layout";
+} from "#src/components/ui/select.tsx";
+import { Layout, PublicLayoutShell } from "#src/Layout.tsx";
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_ROTATION_DEGREES,
@@ -70,24 +73,24 @@ import {
   parseVoxelState,
   serializeVoxelState,
   type VoxelEdit,
-} from "@/components/logoVoxelState";
+} from "#src/components/logoVoxelState.ts";
 import {
   resolveLogoViewState,
   type LogoViewState,
-} from "@/components/logoViewDrag";
+} from "#src/components/logoViewDrag.ts";
 import {
   readLogoThemeColors,
   useResolvedAppThemeColorState,
-} from "@/lib/appThemeColorSearch";
+} from "#src/lib/appThemeColorSearch.ts";
 import {
   buildLogoRouteSearch,
   preserveLogoRouteDevModeSearch,
   type LogoRouteSearch,
-} from "@/lib/logoRouteSearch";
-import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
-import { useAnimationFrameLoop } from "@/lib/useAnimationFrameLoop";
-import { usePacedCommittedState } from "@/lib/usePacedCommittedState";
-import { cn } from "@/lib/utils";
+} from "#src/lib/logoRouteSearch.ts";
+import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "#src/lib/publicLandingLogo.ts";
+import { useAnimationFrameLoop } from "#src/lib/useAnimationFrameLoop.ts";
+import { usePacedCommittedState } from "#src/lib/usePacedCommittedState.ts";
+import { cn } from "#src/lib/utils.ts";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { Link } from "@tanstack/react-router";
 import { PaletteIcon } from "lucide-react";

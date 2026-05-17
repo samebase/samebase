@@ -2,8 +2,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { Id } from "../../../convex/_generated/dataModel";
-import { TestRouterProvider } from "@/test/TestRouterProvider";
-import type { ProvisioningLogEvent } from "@/lib/provisioningLog";
+import { TestRouterProvider } from "#src/test/TestRouterProvider.tsx";
+import type { ProvisioningLogEvent } from "#src/lib/provisioningLog.ts";
 import {
   VaultBranchLinkContent,
   VaultProviderSetupSection,

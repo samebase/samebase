@@ -1,18 +1,22 @@
 import { api } from "../../../convex/_generated/api";
-import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "#src/components/ui/badge.tsx";
+import { Button, buttonVariants } from "#src/components/ui/button.tsx";
+import { Checkbox } from "#src/components/ui/checkbox.tsx";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/input";
-import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
-import { VaultProvisioningLogTextarea } from "@/components/vault-dashboard/VaultProvisioningLogTextarea";
-import { ChevronDownIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
+} from "#src/components/ui/select.tsx";
+import { Input } from "#src/components/input.tsx";
+import { VaultLastUpdatedStatus } from "#src/components/vault-dashboard/VaultLastUpdatedStatus.tsx";
+import { VaultProvisioningLogTextarea } from "#src/components/vault-dashboard/VaultProvisioningLogTextarea.tsx";
+import {
+  ChevronDownIcon,
+  TrashIcon,
+  UpdateIcon,
+} from "#src/lib/radixIcons.tsx";
 import { GitBranch, GitCommitHorizontal, Loader2 } from "lucide-react";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
 import {
@@ -23,16 +27,16 @@ import {
 } from "@tanstack/react-router";
 import { linkStyle } from "../styles";
 import { clsx } from "clsx";
-import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
+import { useCacheQuery as useQuery } from "#src/lib/convexQueryCache.ts";
 import {
   formatRelativeTimeAgo,
   formatRelativeTimeUntil,
-} from "@/lib/formatRelativeTime";
+} from "#src/lib/formatRelativeTime.ts";
 import {
   hasCurrentCloudflareBuildFailureLogs,
   hasCurrentCloudflareBranchPreview,
-} from "@/lib/cloudflarePreviewLinks";
-import { getTreeRefreshUiState } from "@/lib/treeRefreshStatus";
+} from "#src/lib/cloudflarePreviewLinks.ts";
+import { getTreeRefreshUiState } from "#src/lib/treeRefreshStatus.ts";
 import {
   CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS,
   CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS,
@@ -40,8 +44,8 @@ import {
 import {
   claimRefreshDebounce,
   releaseRefreshDebounce,
-} from "@/lib/refreshDebounce";
-import { useNow } from "@/hooks/useNow";
+} from "#src/lib/refreshDebounce.ts";
+import { useNow } from "#src/hooks/useNow.ts";
 import {
   useAction,
   useMutation,
@@ -55,9 +59,9 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import { isInIframe, useNoterAuthActions } from "@/authClient";
-import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
-import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
+import { isInIframe, useNoterAuthActions } from "#src/authClient.ts";
+import { openGithubOAuthPopup } from "#src/lib/githubOAuthFlow.ts";
+import { AppSidebarMetaSection } from "#src/components/AppSidebarMetaSection.tsx";
 import {
   Dialog,
   DialogContent,
@@ -65,11 +69,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/dialog";
-import { CodespaceStatus } from "@/components/CodespaceStatus";
-import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
-import { EditedFilesCategoriesPopover } from "@/components/EditedFilesCategories";
-import { EditorChatPanel } from "@/components/EditorChatPanel";
+} from "#src/components/dialog.tsx";
+import { CodespaceStatus } from "#src/components/CodespaceStatus.tsx";
+import { VaultBranchFiltersControl } from "#src/components/vault-dashboard/VaultBranchFilters.tsx";
+import { EditedFilesCategoriesPopover } from "#src/components/EditedFilesCategories.tsx";
+import { EditorChatPanel } from "#src/components/EditorChatPanel.tsx";
 import {
   VaultDashboardAccountSection,
   VaultDashboardEmptyState,
@@ -79,48 +83,48 @@ import {
   VaultDashboardScrollTargetEndPadding,
   VaultDashboardSidebarContent,
   type VaultDashboardProviderRowViewModel,
-} from "@/components/vault-dashboard/VaultDashboardChrome";
-import { formatAuthProviderLabel } from "@/lib/authProviderLabel";
+} from "#src/components/vault-dashboard/VaultDashboardChrome.tsx";
+import { formatAuthProviderLabel } from "#src/lib/authProviderLabel.ts";
 import {
   useApiKeyConnectDialog,
   type ApiKeyProvider,
-} from "@/components/ApiKeyConnectDialog";
+} from "#src/components/ApiKeyConnectDialog.tsx";
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
   buildVaultCodespaceChatRoute,
   buildVaultFileRoute,
-} from "@/lib/vaultRoutes";
+} from "#src/lib/vaultRoutes.ts";
 import {
   formatVaultSourceSetupStep,
   type VaultDashboardSourceSetup,
-} from "@/components/vault-dashboard/vaultSourceSetup";
+} from "#src/components/vault-dashboard/vaultSourceSetup.ts";
 import {
   resolveVaultProviderSetupStatus,
   type VaultDashboardProviderSetup,
-} from "@/components/vault-dashboard/vaultProviderSetup";
-import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
-import { type LogoThemeColorSearchInput } from "@/lib/appThemeColorSearch";
-import { useRootRouteSearch } from "@/lib/rootRouteSearch";
+} from "#src/components/vault-dashboard/vaultProviderSetup.ts";
+import { buildGitHubBranchTreeUrl } from "#src/lib/githubUrls.ts";
+import { type LogoThemeColorSearchInput } from "#src/lib/appThemeColorSearch.ts";
+import { useRootRouteSearch } from "#src/lib/rootRouteSearch.ts";
 import {
   buildPullRequestLabelStyle,
   normalizePullRequestLabels,
-} from "@/lib/pullRequestLabels";
-import { applySearchPatch } from "@/lib/routeSearchFlags";
+} from "#src/lib/pullRequestLabels.ts";
+import { applySearchPatch } from "#src/lib/routeSearchFlags.ts";
 import {
   getDefaultVaultBranchFilters,
   normalizeVaultBranchFilters,
   type VaultBranchFilterOption,
   type VaultBranchFilters as VaultBranchFiltersState,
-} from "@/components/vault-dashboard/vaultDashboardBranchFilters";
+} from "#src/components/vault-dashboard/vaultDashboardBranchFilters.ts";
 import {
   buildVaultBranchSectionState,
   type VaultRemoteBranchListItem,
-} from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
-import { toast } from "@/components/ui/use-toast";
-import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
-import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
+} from "#src/components/vault-dashboard/VaultDashboardBranchSectionState.ts";
+import { toast } from "#src/components/ui/use-toast.ts";
+import { PersistedSidebarProvider } from "#src/components/PersistedSidebarProvider.tsx";
+import { PublicLandingLogoLinkProvider } from "#src/contexts/PublicLandingLogoLinkContext.tsx";
 import { WorkspaceLayoutV2FullPage } from "../workspace-layout-v2/WorkspaceLayoutV2FullPage";
-import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
+import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "#src/lib/workspacePaneSizes.ts";
 import { CHAT_ENABLED, CODESPACES_ENABLED } from "../../../shared/featureFlags";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import {
@@ -129,8 +133,8 @@ import {
   GitHubProviderLogo,
   NoterLogoMark,
   PullRequestStateLogo,
-} from "@/components/vault-dashboard/VaultDashboardLogos";
-import { useDashboardRepositoryRefreshDemand } from "@/components/vault-dashboard/VaultDashboardRepositoryRefreshDemand";
+} from "#src/components/vault-dashboard/VaultDashboardLogos.tsx";
+import { useDashboardRepositoryRefreshDemand } from "#src/components/vault-dashboard/VaultDashboardRepositoryRefreshDemand.ts";
 
 const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
   leftDesktopOpen: false,

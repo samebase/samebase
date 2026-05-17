@@ -1,11 +1,11 @@
 import { type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vite-plus/test";
-import { WorkspaceLayoutV2MemorySidebarProvider } from "@/components/workspace-layout-v2/WorkspaceLayoutV2MemorySidebarProvider";
-import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
-import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
+import { WorkspaceLayoutV2MemorySidebarProvider } from "#src/components/workspace-layout-v2/WorkspaceLayoutV2MemorySidebarProvider.tsx";
+import type { CodexAppServerThread } from "#src/lib/codexAppServerResearch.ts";
+import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "#src/lib/workspacePaneSizes.ts";
 
-vi.mock("@/components/MachinesWorkspaceThreadPane", () => ({
+vi.mock("#src/components/MachinesWorkspaceThreadPane.tsx", () => ({
   MachinesWorkspaceThreadHeader: ({
     selectedMachineDisplayName,
     thread,

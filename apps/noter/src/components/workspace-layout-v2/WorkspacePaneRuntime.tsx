@@ -9,12 +9,12 @@ import {
   type SetStateAction,
 } from "react";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
-import { useIsMobile } from "@/hooks/use-mobile";
-import type { ElementSize } from "@/hooks/useElementSize";
+import { useIsMobile } from "#src/hooks/use-mobile.tsx";
+import type { ElementSize } from "#src/hooks/useElementSize.ts";
 import type {
   WorkspaceSidebarStateController,
   WorkspaceSidebarStatePersistenceMode,
-} from "@/lib/workspaceSidebarStateController";
+} from "#src/lib/workspaceSidebarStateController.ts";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import {
   WORKSPACE_LAYOUT_V2_IDLE_MOBILE_GRIP,

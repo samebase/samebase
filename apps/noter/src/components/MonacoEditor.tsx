@@ -8,21 +8,24 @@ import {
   receiveUpdates,
   Update,
 } from "@codemirror/collab";
-import { client } from "@/lib/convexClient";
+import { client } from "#src/lib/convexClient.ts";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { type GithubTree } from "../../convex/schema";
-import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
+import { useCacheQuery as useQuery } from "#src/lib/convexQueryCache.ts";
 import {
   setupEditorATA,
   parseTsConfig,
   applyTsConfigToMonaco,
 } from "./monaco/setupEditor";
-import { useProjectFiles, type ProjectFile } from "@/hooks/useProjectFiles";
-import { buildMonacoAppliedCacheKey } from "@/lib/editorCacheKeys";
-import { buildMonacoFileUri } from "@/lib/monacoFileUri";
-import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
-import { registerPageLeaveGuard } from "@/lib/pageLeaveGuard";
+import {
+  useProjectFiles,
+  type ProjectFile,
+} from "#src/hooks/useProjectFiles.ts";
+import { buildMonacoAppliedCacheKey } from "#src/lib/editorCacheKeys.ts";
+import { buildMonacoFileUri } from "#src/lib/monacoFileUri.ts";
+import { MonacoEditorSurface } from "#src/components/MonacoEditorSurface.tsx";
+import { registerPageLeaveGuard } from "#src/lib/pageLeaveGuard.ts";
 
 // ---------------------------------------------------------------------------
 // Collab helpers (shared logic with CodeEditor.tsx)

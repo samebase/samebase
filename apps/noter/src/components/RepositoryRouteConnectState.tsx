@@ -1,8 +1,8 @@
 import { Link } from "@tanstack/react-router";
-import { GitHubLogoIcon } from "@/lib/radixIcons";
-import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
-import { Button } from "@/components/ui/button";
-import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
+import { GitHubLogoIcon } from "#src/lib/radixIcons.tsx";
+import { RepositoryWorkspacePaneHeader } from "#src/components/RepositoryWorkspacePaneHeader.tsx";
+import { Button } from "#src/components/ui/button.tsx";
+import { WorkspaceLayoutV2FullPage } from "#src/components/workspace-layout-v2/WorkspaceLayoutV2FullPage.tsx";
 import type { ReactNode } from "react";
 
 export function RepositoryRouteConnectState({

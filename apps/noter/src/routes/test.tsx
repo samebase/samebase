@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
+import { AuthenticatedAppRoutePage } from "#src/components/AuthenticatedAppRoutePage.tsx";
 
 function RootTestRouteComponent() {
   return (

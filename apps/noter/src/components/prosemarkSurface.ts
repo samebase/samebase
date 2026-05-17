@@ -1,12 +1,12 @@
 import { EditorSelection, type Text } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
-import type { CodeMirrorFileLanguageKind } from "@/lib/codemirrorLanguage";
+import type { CodeMirrorFileLanguageKind } from "#src/lib/codemirrorLanguage.ts";
 import {
   CODE_SURFACE_FONT_FAMILY,
   CODE_SURFACE_FONT_SIZE_PX,
   CODE_SURFACE_LINE_HEIGHT_PX,
-} from "@/lib/codeSurfaceTypography";
+} from "#src/lib/codeSurfaceTypography.ts";
 
 function isBlankLineText(text: string): boolean {
   return text.trim().length === 0;

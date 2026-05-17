@@ -1,4 +1,4 @@
-import { AppBootFailureState } from "@/components/AppBootFailureState";
+import { AppBootFailureState } from "#src/components/AppBootFailureState.tsx";
 
 export type AppBootFailureStateVisualMode =
   | "app-boot-failure-stale"

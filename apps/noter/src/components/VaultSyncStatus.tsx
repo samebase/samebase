@@ -1,14 +1,14 @@
-import { UpdateIcon } from "@/lib/radixIcons";
+import { UpdateIcon } from "#src/lib/radixIcons.tsx";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { useNow } from "@/hooks/useNow";
-import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
+import { useNow } from "#src/hooks/useNow.ts";
+import { useCacheQuery as useQuery } from "#src/lib/convexQueryCache.ts";
 import {
   formatRelativeTimeAgoWithSeconds,
   formatRelativeTimeUntil,
-} from "@/lib/formatRelativeTime";
-import { getTreeRefreshUiState } from "@/lib/treeRefreshStatus";
-import { cn } from "@/lib/utils";
+} from "#src/lib/formatRelativeTime.ts";
+import { getTreeRefreshUiState } from "#src/lib/treeRefreshStatus.ts";
+import { cn } from "#src/lib/utils.ts";
 import { CommitStatus } from "./CommitStatus";
 import { EditedFilesCategoriesPopover } from "./EditedFilesCategories";
 import { linkStyle } from "./styles";

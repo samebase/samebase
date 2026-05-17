@@ -10,15 +10,15 @@ import {
   sendableUpdates,
   Update,
 } from "@codemirror/collab";
-import { client } from "@/lib/convexClient";
+import { client } from "#src/lib/convexClient.ts";
 import { api } from "../../convex/_generated/api";
-import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
-import { GetFunctionReferenceReturnType } from "@/lib/convexUtils";
+import { useCacheQuery as useQuery } from "#src/lib/convexQueryCache.ts";
+import { GetFunctionReferenceReturnType } from "#src/lib/convexUtils.tsx";
 import { Id } from "../../convex/_generated/dataModel";
 import { type GithubTree } from "../../convex/schema";
 import { MonacoEditor } from "./MonacoEditor";
-import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
-import { registerPageLeaveGuard } from "@/lib/pageLeaveGuard";
+import { CodeMirrorFileSurface } from "#src/components/CodeMirrorFileSurface.tsx";
+import { registerPageLeaveGuard } from "#src/lib/pageLeaveGuard.ts";
 
 // Temporary:
 // const tempVaultId = "k976ryb9d1m2gyvxhps87dac257mv5ps" as Id<"vaults">;

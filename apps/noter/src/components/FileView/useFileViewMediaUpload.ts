@@ -11,13 +11,13 @@ import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia
 import {
   readUploadStorageId,
   uploadMediaWithCleanup,
-} from "@/lib/mediaUploadWorkflow";
+} from "#src/lib/mediaUploadWorkflow.ts";
 import {
   getDefaultUploadFolderPath,
   normalizeFolderPath,
   type PendingMediaUpload,
 } from "./fileViewShared";
-import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
+import { usePageLeaveGuard } from "#src/lib/pageLeaveGuard.ts";
 
 type VaultId = NonNullable<
   (typeof api.vault.records.getVaultByRepository)["_returnType"]

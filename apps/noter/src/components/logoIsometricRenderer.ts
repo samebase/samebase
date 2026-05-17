@@ -4,11 +4,11 @@ import {
   isWithinGrid,
   type VoxelCoordinate,
   voxelKey,
-} from "@/components/logoVoxelState";
+} from "#src/components/logoVoxelState.ts";
 import {
   getTailwindColorHex,
   type FaceColors,
-} from "@/components/logoTailwindColors";
+} from "#src/components/logoTailwindColors.ts";
 
 const FRAME_PADDING = 4;
 export const DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX = 16;

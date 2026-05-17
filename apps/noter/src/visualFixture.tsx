@@ -1,100 +1,100 @@
-import { DialogProvider } from "@/contexts/DialogContext";
+import { DialogProvider } from "#src/contexts/DialogContext.tsx";
 import {
   CommitReviewVisualFixture,
   type CommitReviewVisualMode,
-} from "@/components/CommitReviewVisualFixture";
+} from "#src/components/CommitReviewVisualFixture.tsx";
 import {
   RepositoryMediaVisualFixture,
   type RepositoryMediaVisualMode,
-} from "@/components/RepositoryMediaVisualFixture";
+} from "#src/components/RepositoryMediaVisualFixture.tsx";
 import {
   FileViewLayoutVisualFixture,
   type FileViewLayoutVisualMode,
-} from "@/components/FileViewLayoutVisualFixture";
+} from "#src/components/FileViewLayoutVisualFixture.tsx";
 import {
   VaultDashboardVisualFixture,
   type VaultDashboardVisualMode,
-} from "@/components/vault-dashboard/VaultDashboardVisualFixture";
-import { MachineConnectVisualFixture } from "@/components/MachineConnectVisualFixture";
-import { CornerNotchVisualFixture } from "@/components/CornerNotchVisualFixture";
+} from "#src/components/vault-dashboard/VaultDashboardVisualFixture.tsx";
+import { MachineConnectVisualFixture } from "#src/components/MachineConnectVisualFixture.tsx";
+import { CornerNotchVisualFixture } from "#src/components/CornerNotchVisualFixture.tsx";
 import {
   LogoThreeVisualFixture,
   type LogoThreeVisualMode,
-} from "@/components/LogoThreeVisualFixture";
-import { CornerNotchDetailVisualFixture } from "@/components/CornerNotchDetailVisualFixture";
+} from "#src/components/LogoThreeVisualFixture.tsx";
+import { CornerNotchDetailVisualFixture } from "#src/components/CornerNotchDetailVisualFixture.tsx";
 import {
   LogoSnapAnglesVisualFixture,
   type LogoSnapAnglesVisualMode,
-} from "@/components/LogoSnapAnglesVisualFixture";
-import { FileViewPushActionsVisualFixture } from "@/components/FileViewPushActionsVisualFixture";
+} from "#src/components/LogoSnapAnglesVisualFixture.tsx";
+import { FileViewPushActionsVisualFixture } from "#src/components/FileViewPushActionsVisualFixture.tsx";
 import {
   FileViewCompareVisualFixture,
   type FileViewCompareVisualMode,
-} from "@/components/FileViewCompareVisualFixture";
+} from "#src/components/FileViewCompareVisualFixture.tsx";
 import {
   FileViewCodeParityVisualFixture,
   type FileViewCodeParityVisualMode,
-} from "@/components/FileViewCodeParityVisualFixture";
+} from "#src/components/FileViewCodeParityVisualFixture.tsx";
 import {
   FileViewDeveloperToolsVisualFixture,
   type FileViewDeveloperToolsVisualMode,
-} from "@/components/FileViewDeveloperToolsVisualFixture";
+} from "#src/components/FileViewDeveloperToolsVisualFixture.tsx";
 import {
   FileViewMonacoDragVisualFixture,
   type FileViewMonacoDragVisualMode,
-} from "@/components/FileViewMonacoDragVisualFixture";
+} from "#src/components/FileViewMonacoDragVisualFixture.tsx";
 import {
   FileViewProsemarkHeightVisualFixture,
   type FileViewProsemarkHeightVisualMode,
-} from "@/components/FileViewProsemarkHeightVisualFixture";
+} from "#src/components/FileViewProsemarkHeightVisualFixture.tsx";
 import {
   RepositoryRouteConnectStateVisualFixture,
   type RepositoryRouteConnectStateVisualMode,
-} from "@/components/RepositoryRouteConnectStateVisualFixture";
+} from "#src/components/RepositoryRouteConnectStateVisualFixture.tsx";
 import {
   FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES,
   isFileViewPushActionsVisualMode,
   type FileViewPushActionsVisualMode,
-} from "@/components/fileViewPushActionsVisualModes";
-import { VaultDashboardBranchVisualFixture } from "@/components/vault-dashboard/VaultDashboardBranchVisualFixture";
-import { ButtonVisualFixture } from "@/components/ButtonVisualFixture";
+} from "#src/components/fileViewPushActionsVisualModes.ts";
+import { VaultDashboardBranchVisualFixture } from "#src/components/vault-dashboard/VaultDashboardBranchVisualFixture.tsx";
+import { ButtonVisualFixture } from "#src/components/ButtonVisualFixture.tsx";
 import {
   AppBootFailureStateVisualFixture,
   type AppBootFailureStateVisualMode,
-} from "@/components/AppBootFailureStateVisualFixture";
+} from "#src/components/AppBootFailureStateVisualFixture.tsx";
 import {
   CodexThreadBrowserVisualFixture,
   type CodexThreadBrowserVisualMode,
-} from "@/components/CodexThreadBrowserVisualFixture";
+} from "#src/components/CodexThreadBrowserVisualFixture.tsx";
 import {
   CodexAppServerResearchVisualFixture,
   type CodexAppServerResearchVisualMode,
-} from "@/components/CodexAppServerResearchVisualFixture";
-import { MachinesWorkspaceVisualFixture } from "@/components/MachinesWorkspaceVisualFixture";
+} from "#src/components/CodexAppServerResearchVisualFixture.tsx";
+import { MachinesWorkspaceVisualFixture } from "#src/components/MachinesWorkspaceVisualFixture.tsx";
 import {
   WorkspaceLayoutV2VisualFixture,
   type WorkspaceLayoutV2VisualMode,
-} from "@/components/WorkspaceLayoutV2VisualFixture";
+} from "#src/components/WorkspaceLayoutV2VisualFixture.tsx";
 import {
   CodexThreadHistoryVisualFixture,
   type CodexThreadHistoryVisualMode,
-} from "@/components/CodexThreadHistoryVisualFixture";
+} from "#src/components/CodexThreadHistoryVisualFixture.tsx";
 import {
   VaultBranchPreviewVisualFixture,
   type VaultBranchPreviewVisualMode,
-} from "@/components/vault-dashboard/VaultBranchPreviewVisualFixture";
+} from "#src/components/vault-dashboard/VaultBranchPreviewVisualFixture.tsx";
 import {
   VaultSyncStatusVisualFixture,
   type VaultSyncStatusVisualMode,
-} from "@/components/VaultSyncStatusVisualFixture";
+} from "#src/components/VaultSyncStatusVisualFixture.tsx";
 import {
   SidebarMediaUploadVisualFixture,
   type SidebarMediaUploadVisualMode,
-} from "@/components/SidebarMediaUploadVisualFixture";
+} from "#src/components/SidebarMediaUploadVisualFixture.tsx";
 import {
   buildPathWithTanStackSearch,
   parseTanStackSearch,
-} from "@/lib/tanstackSearchParams";
+} from "#src/lib/tanstackSearchParams.ts";
 import "./index.css";
 
 type VisualFixtureMode =

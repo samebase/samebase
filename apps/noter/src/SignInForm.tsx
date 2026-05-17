@@ -1,14 +1,14 @@
-import { LandingCopy } from "@/components/LandingCopy";
-import { PublicLandingAuthControls } from "@/components/PublicLandingAuthControls";
-import { PublicLandingLogo } from "@/components/PublicLandingLogo";
-import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
-import { landingPageMarkdown } from "@/lib/landingCopy";
+import { LandingCopy } from "#src/components/LandingCopy.tsx";
+import { PublicLandingAuthControls } from "#src/components/PublicLandingAuthControls.tsx";
+import { PublicLandingLogo } from "#src/components/PublicLandingLogo.tsx";
+import { isLandingDevModeEnabled } from "#src/lib/landingDevMode.ts";
+import { landingPageMarkdown } from "#src/lib/landingCopy.ts";
 import {
   PUBLIC_LANDING_COPY_TEST_ID,
   PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
-} from "@/lib/publicLanding";
-import { shouldRenderGoogleSignupClosedState } from "@/lib/publicLandingAuthState";
-import { useRootRouteSearch } from "@/lib/rootRouteSearch";
+} from "#src/lib/publicLanding.ts";
+import { shouldRenderGoogleSignupClosedState } from "#src/lib/publicLandingAuthState.ts";
+import { useRootRouteSearch } from "#src/lib/rootRouteSearch.ts";
 import { Link, useLocation } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 

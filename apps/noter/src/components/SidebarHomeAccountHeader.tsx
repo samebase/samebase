@@ -1,6 +1,6 @@
-import { SidebarAccountSection } from "@/components/SidebarAccountSection";
-import { UserMenu } from "@/components/UserMenu";
-import { Button } from "@/components/ui/button";
+import { SidebarAccountSection } from "#src/components/SidebarAccountSection.tsx";
+import { UserMenu } from "#src/components/UserMenu.tsx";
+import { Button } from "#src/components/ui/button.tsx";
 import { Link } from "@tanstack/react-router";
 
 /**

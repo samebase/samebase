@@ -1,6 +1,6 @@
-import { ExpandableClampToggleButton } from "@/components/ExpandableClampText";
-import { useExpandableClampText } from "@/hooks/useExpandableClampText";
-import { type CodexAppServerThread } from "@/lib/codexAppServerResearch";
+import { ExpandableClampToggleButton } from "#src/components/ExpandableClampText.tsx";
+import { useExpandableClampText } from "#src/hooks/useExpandableClampText.ts";
+import { type CodexAppServerThread } from "#src/lib/codexAppServerResearch.ts";
 import { clsx } from "clsx";
 import { type KeyboardEvent, type ReactNode } from "react";
 

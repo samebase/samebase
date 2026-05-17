@@ -1,5 +1,5 @@
 import { useCallback, useId, useMemo, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "#src/components/ui/button.tsx";
 import {
   Dialog,
   DialogContent,
@@ -7,9 +7,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/dialog";
-import { Input } from "@/components/input";
-import { Label } from "@/components/ui/label";
+} from "#src/components/dialog.tsx";
+import { Input } from "#src/components/input.tsx";
+import { Label } from "#src/components/ui/label.tsx";
 
 export type ApiKeyProvider = "github" | "convex";
 

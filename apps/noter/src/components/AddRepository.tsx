@@ -1,8 +1,8 @@
-import { GitHubLogoIcon, ClockIcon } from "@/lib/radixIcons";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/input";
+import { GitHubLogoIcon, ClockIcon } from "#src/lib/radixIcons.tsx";
+import { Button } from "#src/components/ui/button.tsx";
+import { Input } from "#src/components/input.tsx";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
+import { useCacheQuery as useQuery } from "#src/lib/convexQueryCache.ts";
 import {
   useAction,
   useMutation,
@@ -13,15 +13,15 @@ import { useQuery as useReactQuery } from "@tanstack/react-query";
 import { useState, type ReactElement } from "react";
 import { linkStyle } from "./styles";
 import type { FunctionReturnType } from "convex/server";
-import { isInIframe } from "@/authClient";
-import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
+import { isInIframe } from "#src/authClient.ts";
+import { openGithubOAuthPopup } from "#src/lib/githubOAuthFlow.ts";
 import {
   findRepositorySearchMatch,
   splitRepositoryFullNameMatch,
   type RepositorySearchMatch,
-} from "@/lib/repositorySearch";
-import { resolveDisplayedRepositories } from "@/lib/addRepositoryPicker";
-import { queueExistingRepositoryAndNavigateToDashboard } from "@/lib/existingRepositoryConnectHandoff";
+} from "#src/lib/repositorySearch.ts";
+import { resolveDisplayedRepositories } from "#src/lib/addRepositoryPicker.ts";
+import { queueExistingRepositoryAndNavigateToDashboard } from "#src/lib/existingRepositoryConnectHandoff.ts";
 
 type Repository = FunctionReturnType<
   typeof api.github.listRepositories

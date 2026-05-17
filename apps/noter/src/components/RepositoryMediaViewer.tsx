@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAction } from "convex/react";
 import { Loader2 } from "lucide-react";
-import { RepositoryVoxPreview } from "@/components/RepositoryVoxPreview";
+import { RepositoryVoxPreview } from "#src/components/RepositoryVoxPreview.tsx";
 import { api } from "../../convex/_generated/api";
 
 export type RepositoryMediaAsset =

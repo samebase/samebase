@@ -8,7 +8,7 @@ import {
   readRootThemeModeSearch,
   syncDocumentRootThemeMode,
   validateRootThemeModeSearch,
-} from "@/lib/rootThemeModeSearch";
+} from "#src/lib/rootThemeModeSearch.ts";
 
 describe("rootThemeModeSearch", () => {
   beforeEach(() => {

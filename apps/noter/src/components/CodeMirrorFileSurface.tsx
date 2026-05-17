@@ -12,20 +12,20 @@ import { keymap } from "@codemirror/view";
 import { useTheme } from "next-themes";
 import { prosemarkBaseThemeSetup, prosemarkBasicSetup } from "@prosemark/core";
 import { printTree } from "@lezer-unofficial/printer";
-import { useWorkspaceLayoutV2DragSurface } from "@/components/workspace-layout-v2/useWorkspaceLayoutV2DragSurface";
+import { useWorkspaceLayoutV2DragSurface } from "#src/components/workspace-layout-v2/useWorkspaceLayoutV2DragSurface.ts";
 import {
   blurOnOutsidePointerDownExtension,
   collapseSelectionOnBlurExtension,
   findInitialSafeSelectionAnchor,
   getProsemarkFileThemeExtensions,
   prosemarkSurfaceTheme,
-} from "@/components/prosemarkSurface";
+} from "#src/components/prosemarkSurface.ts";
 import {
   getCodeMirrorFileLanguageKind,
   getInitialCodeMirrorLanguageExtension,
   loadCodeMirrorLanguageExtension,
-} from "@/lib/codemirrorLanguage";
-import { fileCodeMirrorBaseExtensions } from "@/lib/fileCodeMirrorBaseExtensions";
+} from "#src/lib/codemirrorLanguage.ts";
+import { fileCodeMirrorBaseExtensions } from "#src/lib/fileCodeMirrorBaseExtensions.ts";
 
 const prosemarkFileViewAutoHeightTheme = EditorView.theme({
   "&": {

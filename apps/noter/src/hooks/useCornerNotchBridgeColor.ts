@@ -1,5 +1,5 @@
 import * as React from "react";
-import { type CornerNotchType } from "@/lib/cornerNotch";
+import { type CornerNotchType } from "#src/lib/cornerNotch.ts";
 
 const CORNER_BRIDGE_SIZE_VARS = [
   "--noter-corner-notch-bridge-top-left-size",

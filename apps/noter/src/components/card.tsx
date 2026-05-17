@@ -6,7 +6,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "#src/components/ui/card.tsx";
 
 export type CardProps = React.ComponentPropsWithoutRef<typeof BaseCard>;
 

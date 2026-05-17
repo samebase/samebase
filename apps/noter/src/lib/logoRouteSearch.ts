@@ -1,23 +1,23 @@
-import { type LogoRotationAxisMode } from "@/components/logoRotationMath";
+import { type LogoRotationAxisMode } from "#src/components/logoRotationMath.ts";
 import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
   isLogoIsometricStyleId,
   normalizeLogoIsometricCubeSidePixels,
   type LogoIsometricStyleId,
-} from "@/components/logoIsometricRenderer";
-import { type LogoThemeColors } from "@/components/logoTailwindColors";
+} from "#src/components/logoIsometricRenderer.ts";
+import { type LogoThemeColors } from "#src/components/logoTailwindColors.ts";
 import {
   appThemeColorSearchFieldSchema,
   buildLogoThemeColorSearch,
   readLogoThemeColorSearch,
-} from "@/lib/appThemeColorSearch";
+} from "#src/lib/appThemeColorSearch.ts";
 import {
   ROOT_THEME_MODE_SEARCH_KEYS,
   readRootThemeModeSearch,
   rootThemeModeSearchFieldSchema,
   type RootThemeModeSearch,
-} from "@/lib/rootThemeModeSearch";
+} from "#src/lib/rootThemeModeSearch.ts";
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_ROTATION_DEGREES,
@@ -26,9 +26,9 @@ import {
   normalizeRotationDegrees,
   parseVoxelState,
   serializeVoxelState,
-} from "@/components/logoVoxelState";
-import { LANDING_DEV_MODE_QUERY_PARAM } from "@/lib/landingDevMode";
-import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
+} from "#src/components/logoVoxelState.ts";
+import { LANDING_DEV_MODE_QUERY_PARAM } from "#src/lib/landingDevMode.ts";
+import { normalizeRouteSearchPresenceFlags } from "#src/lib/routeSearchFlags.ts";
 import { z } from "zod";
 
 const LOGO_ROTATION_AXIS_MODE_VALUES = [

@@ -2,7 +2,7 @@ import {
   type RegisteredRouter,
   type RouterState,
 } from "@tanstack/react-router";
-import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
+import { buildPathWithTanStackSearch } from "#src/lib/tanstackSearchParams.ts";
 
 type RouteSearch = RouterState<
   RegisteredRouter["routeTree"]

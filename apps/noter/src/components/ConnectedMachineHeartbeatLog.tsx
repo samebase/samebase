@@ -1,4 +1,4 @@
-import { Textarea } from "@/components/ui/textarea";
+import { Textarea } from "#src/components/ui/textarea.tsx";
 
 export function ConnectedMachineHeartbeatLogSection(props: {
   heartbeatLog: string;

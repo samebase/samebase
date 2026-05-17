@@ -45,7 +45,7 @@ function installLocalStorageStub() {
 
 async function importRotatedLogoViewState() {
   vi.resetModules();
-  return await import("@/lib/rotatedLogoViewState");
+  return await import("#src/lib/rotatedLogoViewState.ts");
 }
 
 describe("rotatedLogoViewState", () => {

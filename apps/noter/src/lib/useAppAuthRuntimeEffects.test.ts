@@ -52,7 +52,7 @@ vi.mock("react", async () => {
   };
 });
 
-vi.mock("@/authClient", () => ({
+vi.mock("#src/authClient.ts", () => ({
   useAutoSignIn: useAutoSignInMock,
 }));
 

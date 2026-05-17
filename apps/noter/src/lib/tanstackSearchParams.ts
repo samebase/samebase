@@ -1,6 +1,6 @@
 import { includes } from "@noter-md/dependent";
-import { ROUTE_SEARCH_PRESENCE_FLAG_KEYS } from "@/lib/routeSearchFlags";
-import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
+import { ROUTE_SEARCH_PRESENCE_FLAG_KEYS } from "#src/lib/routeSearchFlags.ts";
+import { SEARCH_RESET_QUERY_PARAM } from "#src/lib/searchReset.ts";
 
 type PlainSearchRecord = Record<string, unknown>;
 type PathSearchInput = {

@@ -8,11 +8,11 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { fileURLToPath } from "node:url";
 import { formatWithVpFmt } from "../../scripts/format-with-vp-fmt.ts";
-import { createInstallIconSvgMarkup } from "./src/components/installIconSvgAsset";
+import { createInstallIconSvgMarkup } from "#src/components/installIconSvgAsset.ts";
 import {
   createLogoIdentitySvgAssets,
   createStaticLogoSvgMarkup,
-} from "./src/components/logoStaticSvgAsset";
+} from "#src/components/logoStaticSvgAsset.ts";
 import { buildNoterSyncPublicScript } from "./noterSyncPublicScript";
 import {
   readEnvFileValue,
@@ -608,12 +608,6 @@ export default defineConfig({
     }),
     react(),
   ],
-  resolve: {
-    tsconfigPaths: true,
-    alias: {
-      "@": path.resolve(currentDir, "./src"),
-    },
-  },
   server: browserConvexProxyServerConfig,
   preview: {
     host: "127.0.0.1",

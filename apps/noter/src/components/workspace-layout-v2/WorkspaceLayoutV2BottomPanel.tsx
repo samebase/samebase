@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Button } from "#src/components/ui/button.tsx";
+import { cn } from "#src/lib/utils.ts";
 import { X } from "lucide-react";
 import {
   WorkspaceLayoutV2PaneFrame,

@@ -1,10 +1,10 @@
-import { Button } from "@/components/ui/button";
-import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
+import { Button } from "#src/components/ui/button.tsx";
+import { type LogoRouteSearch } from "#src/lib/logoRouteSearch.ts";
 import {
   SINGLE_CUBE_STUDY_CANVAS_SIZE,
   SINGLE_CUBE_STUDY_SAMPLE_ANGLES,
   drawSingleCubeStudy,
-} from "@/components/logoSingleCubeStudyRenderer";
+} from "#src/components/logoSingleCubeStudyRenderer.ts";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";

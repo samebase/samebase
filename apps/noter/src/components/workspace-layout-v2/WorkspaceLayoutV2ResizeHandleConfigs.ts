@@ -1,4 +1,4 @@
-import { clampNumber } from "@/lib/clampNumber";
+import { clampNumber } from "#src/lib/clampNumber.ts";
 import {
   WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
   type MobilePane,

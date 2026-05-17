@@ -1,14 +1,14 @@
-import { PersonIcon } from "@/lib/radixIcons";
-import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
-import { Button } from "@/components/ui/button";
+import { PersonIcon } from "#src/lib/radixIcons.tsx";
+import { RepositoryWorkspacePaneHeader } from "#src/components/RepositoryWorkspacePaneHeader.tsx";
+import { Button } from "#src/components/ui/button.tsx";
 import {
   FileViewDeveloperTools,
   type FileViewEditorOverride,
   type FileViewMode,
-} from "@/components/FileViewDeveloperTools";
-import { SidebarAccountSection } from "@/components/SidebarAccountSection";
-import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
-import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
+} from "#src/components/FileViewDeveloperTools.tsx";
+import { SidebarAccountSection } from "#src/components/SidebarAccountSection.tsx";
+import { WorkspaceLayoutV2FixtureFrame } from "#src/components/WorkspaceLayoutV2FixtureFrame.tsx";
+import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "#src/lib/fileViewSidebarLayout.ts";
 
 export type FileViewDeveloperToolsVisualMode =
   | "file-view-developer-tools-collapsed"

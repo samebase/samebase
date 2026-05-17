@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vite-plus/test";
-import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
+import type { CodexAppServerThread } from "#src/lib/codexAppServerResearch.ts";
 
-vi.mock("@/components/ChatInput", () => ({
+vi.mock("#src/components/ChatInput.tsx", () => ({
   ChatInput: ({
     placeholder,
     value,
@@ -16,7 +16,7 @@ vi.mock("@/components/ChatInput", () => ({
   ),
 }));
 
-vi.mock("@/components/ProsemarkReadOnly", () => ({
+vi.mock("#src/components/ProsemarkReadOnly.tsx", () => ({
   ProsemarkReadOnly: ({
     className,
     value,

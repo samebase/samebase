@@ -1,5 +1,5 @@
-import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
-import { type RootRouteSearch } from "@/lib/rootRouteSearch";
+import { isLandingDevModeEnabled } from "#src/lib/landingDevMode.ts";
+import { type RootRouteSearch } from "#src/lib/rootRouteSearch.ts";
 import type { PasswordAuthMode as PublicPasswordAuthMode } from "../../convex/deploymentProfile";
 
 const AUTH_FLAG_KEY = "noter_was_authenticated";

@@ -1,4 +1,4 @@
-import { VaultSyncStatusContent } from "@/components/VaultSyncStatus";
+import { VaultSyncStatusContent } from "#src/components/VaultSyncStatus.tsx";
 
 export type VaultSyncStatusVisualMode = "vault-sync-status-states";
 

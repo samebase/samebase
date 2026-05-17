@@ -1,19 +1,22 @@
 import { type ComponentProps } from "react";
 import { useLocation } from "@tanstack/react-router";
-import { FileTree } from "@/components/FileTree";
+import { FileTree } from "#src/components/FileTree.tsx";
 import {
   EditedFilesCategories,
   EditedFilesCategoriesPopoverTrigger,
-} from "@/components/EditedFilesCategories";
+} from "#src/components/EditedFilesCategories.tsx";
 import {
   ProsemarkMergeEditor,
   type ProsemarkMergeEditorOptions,
-} from "@/components/ProsemarkMergeEditor";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { TestRouterProvider } from "@/test/TestRouterProvider";
+} from "#src/components/ProsemarkMergeEditor.tsx";
+import { Button } from "#src/components/ui/button.tsx";
+import { Checkbox } from "#src/components/ui/checkbox.tsx";
+import { Label } from "#src/components/ui/label.tsx";
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "#src/components/ui/toggle-group.tsx";
+import { TestRouterProvider } from "#src/test/TestRouterProvider.tsx";
 
 const README_OLD = `# Noter Starter Template
 
@@ -92,8 +95,8 @@ const DELETED_PATCH = `Index: components.json
 -    "prefix": ""
 -  },
 -  "aliases": {
--    "components": "@/components",
--    "utils": "@/lib/utils"
+-    "components": "#src/components",
+-    "utils": "#src/lib/utils.ts"
 -  }
 -}
 `;

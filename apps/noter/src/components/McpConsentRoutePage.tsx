@@ -1,11 +1,11 @@
-import { Layout, PublicLayoutShell } from "@/Layout";
-import { McpConsentSignInView } from "@/McpConsentSignInView";
-import { SignInForm } from "@/SignInForm";
-import { ApprovalGate } from "@/components/ApprovalGate";
-import { Button } from "@/components/ui/button";
-import { useCloseOAuthPopup } from "@/lib/useCloseOAuthPopup";
-import { resolvePageMetadata } from "@/lib/pageMetadata";
-import { usePageMetadata } from "@/lib/usePageMetadata";
+import { Layout, PublicLayoutShell } from "#src/Layout.tsx";
+import { McpConsentSignInView } from "#src/McpConsentSignInView.tsx";
+import { SignInForm } from "#src/SignInForm.tsx";
+import { ApprovalGate } from "#src/components/ApprovalGate.tsx";
+import { Button } from "#src/components/ui/button.tsx";
+import { useCloseOAuthPopup } from "#src/lib/useCloseOAuthPopup.ts";
+import { resolvePageMetadata } from "#src/lib/pageMetadata.ts";
+import { usePageMetadata } from "#src/lib/usePageMetadata.ts";
 import { getRouteApi } from "@tanstack/react-router";
 import {
   Authenticated,

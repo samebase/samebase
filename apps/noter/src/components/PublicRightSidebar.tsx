@@ -1,9 +1,9 @@
-import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
-import { PublicLandingAuthControls } from "@/components/PublicLandingAuthControls";
-import { RouteUrlDisplay } from "@/components/RouteUrlDisplay";
-import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
-import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
-import { useRootRouteSearch } from "@/lib/rootRouteSearch";
+import { AppSidebarMetaSection } from "#src/components/AppSidebarMetaSection.tsx";
+import { PublicLandingAuthControls } from "#src/components/PublicLandingAuthControls.tsx";
+import { RouteUrlDisplay } from "#src/components/RouteUrlDisplay.tsx";
+import { type WorkspaceLayoutV2PaneFrameProps } from "#src/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame.tsx";
+import { isLandingDevModeEnabled } from "#src/lib/landingDevMode.ts";
+import { useRootRouteSearch } from "#src/lib/rootRouteSearch.ts";
 import { useLocation } from "@tanstack/react-router";
 
 export const PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID =

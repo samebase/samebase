@@ -5,7 +5,7 @@ import {
   getFuzzyMatchIndices,
   repositoryMatchesSearch,
   splitRepositoryFullNameMatch,
-} from "@/lib/repositorySearch";
+} from "#src/lib/repositorySearch.ts";
 
 describe("getFuzzyMatchIndices", () => {
   it("returns indices for a fuzzy match", () => {

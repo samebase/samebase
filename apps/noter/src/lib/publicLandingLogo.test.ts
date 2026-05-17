@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { shouldRevealPublicLandingLogoLink } from "@/lib/publicLandingLogo";
+import { shouldRevealPublicLandingLogoLink } from "#src/lib/publicLandingLogo.ts";
 
 describe("shouldRevealPublicLandingLogoLink", () => {
   it("reveals for the darker orthographic face and its opposite", () => {

@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useRef, type RefObject } from "react";
-import { clampNumber } from "@/lib/clampNumber";
+import { clampNumber } from "#src/lib/clampNumber.ts";
 import {
   MOBILE_PANE_SETTLED_TOLERANCE_PX,
   WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX,

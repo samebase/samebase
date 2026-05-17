@@ -4,7 +4,7 @@ import {
   createFilledVoxelSet,
   serializeVoxelState,
   type VoxelCoordinate,
-} from "@/components/logoVoxelState";
+} from "#src/components/logoVoxelState.ts";
 
 export const CUSTOM_LOGO_PRESET_ID = "custom";
 export const DEFAULT_LOGO_PRESET_ID = "checker-lattice";

@@ -17,9 +17,6 @@
     "noUncheckedIndexedAccess": false,
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
-    "paths": {
-      "@/*": ["./src/*"]
-    },
     "sourceMap": true,
     "inlineSources": true
   },

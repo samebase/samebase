@@ -10,20 +10,20 @@ import {
   it,
   vi,
 } from "vite-plus/test";
-import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
-import { PublicLandingLogo } from "@/components/PublicLandingLogo";
-import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
-import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
+import { AppSidebarMetaSection } from "#src/components/AppSidebarMetaSection.tsx";
+import { PublicLandingLogo } from "#src/components/PublicLandingLogo.tsx";
+import { createStaticLogoSvgDataUrl } from "#src/components/logoStaticSvgAsset.ts";
+import { PublicLandingLogoLinkProvider } from "#src/contexts/PublicLandingLogoLinkContext.tsx";
 import {
   resolveAppThemeColorState,
   syncDocumentThemeColorSearch,
-} from "@/lib/appThemeColorSearch";
-import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
+} from "#src/lib/appThemeColorSearch.ts";
+import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "#src/lib/rotatedLogoViewState.ts";
 import {
   PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES,
   PUBLIC_LANDING_LOGO_TEST_ID,
-} from "@/lib/publicLandingLogo";
-import { TestRouterProvider } from "@/test/TestRouterProvider";
+} from "#src/lib/publicLandingLogo.ts";
+import { TestRouterProvider } from "#src/test/TestRouterProvider.tsx";
 
 const { act } = React;
 Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);

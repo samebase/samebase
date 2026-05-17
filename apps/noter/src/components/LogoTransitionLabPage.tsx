@@ -1,5 +1,5 @@
-import { Button } from "@/components/ui/button";
-import { DEFAULT_STATIC_LOGO_SVG_URL } from "@/components/logoStaticSvgContract";
+import { Button } from "#src/components/ui/button.tsx";
+import { DEFAULT_STATIC_LOGO_SVG_URL } from "#src/components/logoStaticSvgContract.ts";
 import { Link } from "@tanstack/react-router";
 import {
   addOffset,
@@ -8,8 +8,8 @@ import {
   mixOffset,
   type DragSession,
   type Point,
-} from "@/components/logoTransitionLabUtils";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from "#src/components/logoTransitionLabUtils.ts";
+import { Tabs, TabsList, TabsTrigger } from "#src/components/ui/tabs.tsx";
 import { useEffect, useRef, useState } from "react";
 
 type ViewBox = {

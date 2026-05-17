@@ -2,8 +2,8 @@ import * as React from "react";
 import { Toast as ToastPrimitives } from "@base-ui/react/toast";
 import { cva, type VariantProps } from "class-variance-authority";
 
-import { Cross2Icon } from "@/lib/radixIcons";
-import { cn } from "@/lib/utils";
+import { Cross2Icon } from "#src/lib/radixIcons.tsx";
+import { cn } from "#src/lib/utils.ts";
 
 const toastVariants = cva(
   "group pointer-events-auto relative flex w-full items-center justify-between space-x-2 overflow-hidden rounded-md border p-4 pr-6 shadow-lg transition-all data-starting-style:opacity-0 data-starting-style:translate-y-2 data-ending-style:opacity-0 data-ending-style:translate-x-4",

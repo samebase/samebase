@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
-import { findRepositorySearchMatch } from "@/lib/repositorySearch";
-import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { findRepositorySearchMatch } from "#src/lib/repositorySearch.ts";
+import { TestRouterProvider } from "#src/test/TestRouterProvider.tsx";
 import {
   AddRepositoryPageContent,
   type AddRepositoryRepository,

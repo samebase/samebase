@@ -1,18 +1,23 @@
-import { Badge } from "@/components/ui/badge";
-import { ConnectedMachineHeartbeatLogSection } from "@/components/ConnectedMachineHeartbeatLog";
+import { Badge } from "#src/components/ui/badge.tsx";
+import { ConnectedMachineHeartbeatLogSection } from "#src/components/ConnectedMachineHeartbeatLog.tsx";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/card";
-import { CodexAppServerThreadHistoryItemCard } from "@/components/CodexAppServerThreadHistoryItemCard";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
+} from "#src/components/card.tsx";
+import { CodexAppServerThreadHistoryItemCard } from "#src/components/CodexAppServerThreadHistoryItemCard.tsx";
+import { Button } from "#src/components/ui/button.tsx";
+import { Checkbox } from "#src/components/ui/checkbox.tsx";
+import { Input } from "#src/components/ui/input.tsx";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "#src/components/ui/tabs.tsx";
+import { Textarea } from "#src/components/ui/textarea.tsx";
 import {
   CODEX_APP_SERVER_RESEARCH_API_BASE,
   CODEX_APP_SERVER_RESEARCH_ROUTE,
@@ -29,10 +34,10 @@ import {
   type CodexAppServerThreadListSortKey,
   type CodexAppServerThreadsResponse,
   type CodexAppServerResearchEvent,
-} from "@/lib/codexAppServerResearch";
-import { buildCodexResearchRouteSearch } from "@/lib/codexResearchRouteSearch";
-import { useConnectedMachineHeartbeatLog } from "@/lib/connectedMachineHeartbeatLog";
-import { useNow } from "@/hooks/useNow";
+} from "#src/lib/codexAppServerResearch.ts";
+import { buildCodexResearchRouteSearch } from "#src/lib/codexResearchRouteSearch.ts";
+import { useConnectedMachineHeartbeatLog } from "#src/lib/connectedMachineHeartbeatLog.ts";
+import { useNow } from "#src/hooks/useNow.ts";
 import { getRouteApi, linkOptions, useRouter } from "@tanstack/react-router";
 import { clsx } from "clsx";
 import { useQuery } from "convex/react";

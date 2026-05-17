@@ -2,16 +2,16 @@ import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { Outlet } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect } from "react";
 import "@xyflow/react/dist/style.css";
-import { RouterGestureDebugOverlay } from "@/components/RouterGestureDebugOverlay";
-import { syncDocumentThemeColorSearch } from "@/lib/appThemeColorSearch";
-import { client } from "@/lib/convexClient";
-import { QueryProvider } from "@/lib/providers/query-provider";
-import { useRootRouteSearch } from "@/lib/rootRouteSearch";
+import { RouterGestureDebugOverlay } from "#src/components/RouterGestureDebugOverlay.tsx";
+import { syncDocumentThemeColorSearch } from "#src/lib/appThemeColorSearch.ts";
+import { client } from "#src/lib/convexClient.ts";
+import { QueryProvider } from "#src/lib/providers/query-provider.tsx";
+import { useRootRouteSearch } from "#src/lib/rootRouteSearch.ts";
 import {
   readRootThemeMode,
   syncDocumentRootThemeMode,
-} from "@/lib/rootThemeModeSearch";
-import { OptionalThemeProvider } from "@/lib/themeStorageFallback";
+} from "#src/lib/rootThemeModeSearch.ts";
+import { OptionalThemeProvider } from "#src/lib/themeStorageFallback.tsx";
 
 const posthogApiHost =
   import.meta.env.VITE_PUBLIC_POSTHOG_HOST || "https://eu.i.posthog.com";

@@ -1,7 +1,7 @@
-import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
-import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
-import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
-import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
+import { CodeMirrorFileSurface } from "#src/components/CodeMirrorFileSurface.tsx";
+import { MonacoEditorSurface } from "#src/components/MonacoEditorSurface.tsx";
+import { ProsemarkReadOnly } from "#src/components/ProsemarkReadOnly.tsx";
+import { WorkspaceLayoutV2FixtureFrame } from "#src/components/WorkspaceLayoutV2FixtureFrame.tsx";
 import mobileSidebarSpecRaw from "../../../../specs/072_MOBILE_SIDEBAR_INTERACTIVE_DRAG_SPEC.md?raw";
 export type WorkspaceLayoutV2VisualMode = "workspace-layout-v2-status-bar";
 

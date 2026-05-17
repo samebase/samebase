@@ -7,11 +7,11 @@ import {
   readLogoThemeColors,
   resolveAppThemeColorState,
   syncDocumentThemeColorSearch,
-} from "@/lib/appThemeColorSearch";
+} from "#src/lib/appThemeColorSearch.ts";
 import {
   DEFAULT_APP_THEME_COLORS,
   DEFAULT_LOGO_THEME_COLORS,
-} from "@/components/logoTailwindColors";
+} from "#src/components/logoTailwindColors.ts";
 
 describe("appThemeColorSearch", () => {
   afterEach(() => {

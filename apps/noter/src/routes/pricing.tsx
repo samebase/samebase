@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
-import { PricingPage } from "@/components/PricingPage";
-import { validatePricingRouteSearch } from "@/lib/authenticatedRouteSearch";
+import { AuthenticatedAppRoutePage } from "#src/components/AuthenticatedAppRoutePage.tsx";
+import { PricingPage } from "#src/components/PricingPage.tsx";
+import { validatePricingRouteSearch } from "#src/lib/authenticatedRouteSearch.ts";
 
 function PricingRouteComponent() {
   return (

@@ -1,8 +1,8 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { buildGoogleRedirectSearch } from "@/lib/googleAuthRedirect";
-import { type RootRouteSearch } from "@/lib/rootRouteSearch";
+import { buildGoogleRedirectSearch } from "#src/lib/googleAuthRedirect.ts";
+import { type RootRouteSearch } from "#src/lib/rootRouteSearch.ts";
 
 const AUTH_FLAG_KEY = "noter_was_authenticated";
 const AUTH_PROVIDER_KEY = "noter_auth_provider";

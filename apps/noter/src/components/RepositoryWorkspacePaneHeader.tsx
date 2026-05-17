@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
-import { MagnifyingGlassIcon } from "@/lib/radixIcons";
-import { Button } from "@/components/ui/button";
+import { MagnifyingGlassIcon } from "#src/lib/radixIcons.tsx";
+import { Button } from "#src/components/ui/button.tsx";
 
 /**
  * Keep repository-style route headers on the shared compact v2 pane row so

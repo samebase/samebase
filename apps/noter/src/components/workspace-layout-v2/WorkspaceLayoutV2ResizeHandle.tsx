@@ -6,8 +6,8 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from "react";
-import { clampNumber } from "@/lib/clampNumber";
-import { cn } from "@/lib/utils";
+import { clampNumber } from "#src/lib/clampNumber.ts";
+import { cn } from "#src/lib/utils.ts";
 
 const KEYBOARD_RESIZE_TIMEOUT_MS = 120;
 

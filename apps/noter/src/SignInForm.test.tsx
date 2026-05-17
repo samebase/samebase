@@ -16,7 +16,7 @@ const {
   signInWithGoogleMock: vi.fn(),
 }));
 
-vi.mock("@/authClient", () => ({
+vi.mock("#src/authClient.ts", () => ({
   isInIframe: isInIframeMock,
   openAuthPopup: openAuthPopupMock,
   useNoterSignInActions: () => ({

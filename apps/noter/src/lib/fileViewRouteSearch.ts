@@ -3,8 +3,8 @@ import {
   applySearchPatch,
   normalizeRouteSearchPresenceFlags,
   type SearchPatch,
-} from "@/lib/routeSearchFlags";
-import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
+} from "#src/lib/routeSearchFlags.ts";
+import { buildPathWithTanStackSearch } from "#src/lib/tanstackSearchParams.ts";
 import { z } from "zod";
 
 const FILE_VIEW_PRESENCE_SEARCH_KEYS = ["compare", "diff", "review"] as const;

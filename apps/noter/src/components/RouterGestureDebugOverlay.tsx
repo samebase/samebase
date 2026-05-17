@@ -1,6 +1,6 @@
-import { GlobalGestureDebugOverlay } from "@/components/GlobalGestureDebugOverlay";
+import { GlobalGestureDebugOverlay } from "#src/components/GlobalGestureDebugOverlay.tsx";
 import { useLocation } from "@tanstack/react-router";
-import { isMobileSidebarDebugEnabled } from "@/lib/mobileSidebarGestureDebug";
+import { isMobileSidebarDebugEnabled } from "#src/lib/mobileSidebarGestureDebug.ts";
 
 export function RouterGestureDebugOverlay() {
   const search = useLocation({

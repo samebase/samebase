@@ -1,20 +1,20 @@
 import { useEffect, useMemo, type ComponentProps, type ReactNode } from "react";
-import { usePublicRightSidebarPane } from "@/components/PublicRightSidebar";
-import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
-import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
-import { WorkspacePaneRuntimeProvider } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
+import { usePublicRightSidebarPane } from "#src/components/PublicRightSidebar.tsx";
+import { PublicLandingLogoLinkProvider } from "#src/contexts/PublicLandingLogoLinkContext.tsx";
+import { WorkspaceLayoutV2FullPage } from "#src/components/workspace-layout-v2/WorkspaceLayoutV2FullPage.tsx";
+import { WorkspacePaneRuntimeProvider } from "#src/components/workspace-layout-v2/WorkspacePaneRuntime.tsx";
 import {
   WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
   WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX,
-} from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
-import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
-import { useLocalStorageWorkspaceSidebarState } from "@/hooks/useLocalStorageWorkspaceSidebarState";
+} from "#src/components/workspace-layout-v2/WorkspaceLayoutV2Geometry.ts";
+import { type WorkspaceLayoutV2PaneFrameProps } from "#src/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame.tsx";
+import { useLocalStorageWorkspaceSidebarState } from "#src/hooks/useLocalStorageWorkspaceSidebarState.ts";
 import {
   PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY,
   isPublicLayoutSidebarResetRequested,
-} from "@/lib/publicLayoutSidebarPreferences";
-import { sanitizePublicLayoutSidebarState } from "@/lib/publicLayoutSidebarState";
-import { readRootRouteSearch } from "@/lib/rootRouteSearch";
+} from "#src/lib/publicLayoutSidebarPreferences.ts";
+import { sanitizePublicLayoutSidebarState } from "#src/lib/publicLayoutSidebarState.ts";
+import { readRootRouteSearch } from "#src/lib/rootRouteSearch.ts";
 import { useLocation } from "@tanstack/react-router";
 import type {
   WorkspaceMobileSidebarPane,

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import {
   readUploadStorageId,
   uploadMediaWithCleanup,
-} from "@/lib/mediaUploadWorkflow";
+} from "#src/lib/mediaUploadWorkflow.ts";
 
 describe("readUploadStorageId", () => {
   it("reads the storage id from a valid upload response", () => {

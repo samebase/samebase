@@ -1,6 +1,6 @@
 import { Suspense, useMemo, type ReactNode } from "react";
-import { resolvePageMetadata } from "@/lib/pageMetadata";
-import { usePageMetadata } from "@/lib/usePageMetadata";
+import { resolvePageMetadata } from "#src/lib/pageMetadata.ts";
+import { usePageMetadata } from "#src/lib/usePageMetadata.ts";
 
 /**
  * Shared route wrapper for public metadata and lazy child boundaries.

@@ -1,4 +1,4 @@
-import appCss from "@/index.css?url";
+import appCss from "#src/index.css?url";
 
 const appTitle = "noter | GitHub-backed markdown notes and AI workspace";
 const appDescription =

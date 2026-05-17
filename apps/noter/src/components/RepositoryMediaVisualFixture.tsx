@@ -1,11 +1,11 @@
-import { FileTree } from "@/components/FileTree";
-import { GitHubLogoIcon } from "@/lib/radixIcons";
-import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
+import { FileTree } from "#src/components/FileTree.tsx";
+import { GitHubLogoIcon } from "#src/lib/radixIcons.tsx";
+import { RepositoryWorkspacePaneHeader } from "#src/components/RepositoryWorkspacePaneHeader.tsx";
 import {
   RepositoryMediaPreviewPanel,
   type RepositoryMediaAsset,
-} from "@/components/RepositoryMediaViewer";
-import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
+} from "#src/components/RepositoryMediaViewer.tsx";
+import { WorkspaceLayoutV2FixtureFrame } from "#src/components/WorkspaceLayoutV2FixtureFrame.tsx";
 
 export type RepositoryMediaVisualMode = "media-png" | "media-svg" | "media-vox";
 

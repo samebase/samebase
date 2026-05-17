@@ -1,4 +1,4 @@
-import { setAuthFlag } from "@/authClient";
+import { setAuthFlag } from "#src/authClient.ts";
 import { useConvexAuth } from "convex/react";
 import { useEffect } from "react";
 

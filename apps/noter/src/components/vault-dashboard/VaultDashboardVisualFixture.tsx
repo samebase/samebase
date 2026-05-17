@@ -1,20 +1,20 @@
 import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/input";
+import { Button } from "#src/components/ui/button.tsx";
+import { Input } from "#src/components/input.tsx";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { TestRouterProvider } from "@/test/TestRouterProvider";
-import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
-import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
-import { GitHubLogoIcon } from "@/lib/radixIcons";
-import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
+} from "#src/components/ui/select.tsx";
+import { TestRouterProvider } from "#src/test/TestRouterProvider.tsx";
+import { VaultLastUpdatedStatus } from "#src/components/vault-dashboard/VaultLastUpdatedStatus.tsx";
+import { VaultBranchFiltersControl } from "#src/components/vault-dashboard/VaultBranchFilters.tsx";
+import { GitHubLogoIcon } from "#src/lib/radixIcons.tsx";
+import { AppSidebarMetaSection } from "#src/components/AppSidebarMetaSection.tsx";
 import { type WorkspaceMobileSidebarPane } from "../../../convex/workspaceSidebarStateModel";
 import {
   VaultDashboardAccountSection,
@@ -24,8 +24,8 @@ import {
   VaultDashboardRepositoryList,
   VaultDashboardScrollTargetEndPadding,
   VaultDashboardSidebarContent,
-} from "@/components/vault-dashboard/VaultDashboardChrome";
-import { buildVaultBranchSectionState } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
+} from "#src/components/vault-dashboard/VaultDashboardChrome.tsx";
+import { buildVaultBranchSectionState } from "#src/components/vault-dashboard/VaultDashboardBranchSectionState.ts";
 import {
   VaultBranchHeaderControls,
   VaultBranchLinkRow,
@@ -35,10 +35,10 @@ import {
   VaultDashboardRepositoryExternalLinks,
   type VaultDeleteDialogTarget,
   VaultSetupProgressSection,
-} from "@/components/vault-dashboard/VaultDashboard";
-import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
-import { formatProvisioningLogText } from "@/lib/provisioningLog";
-import { type VaultBranchFilters } from "@/components/vault-dashboard/vaultDashboardBranchFilters";
+} from "#src/components/vault-dashboard/VaultDashboard.tsx";
+import { WorkspaceLayoutV2FixtureFrame } from "#src/components/WorkspaceLayoutV2FixtureFrame.tsx";
+import { formatProvisioningLogText } from "#src/lib/provisioningLog.ts";
+import { type VaultBranchFilters } from "#src/components/vault-dashboard/vaultDashboardBranchFilters.ts";
 
 export type VaultDashboardVisualMode =
   | "vault-create-control"

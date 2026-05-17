@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { renderToStaticMarkup } from "react-dom/server";
 
-vi.mock("@/components/ui/button", () => ({
+vi.mock("#src/components/ui/button.tsx", () => ({
   Button: ({
     children,
     className,
@@ -20,7 +20,7 @@ vi.mock("@/components/ui/button", () => ({
   ),
 }));
 
-import { AppBootFailureState } from "@/components/AppBootFailureState";
+import { AppBootFailureState } from "#src/components/AppBootFailureState.tsx";
 
 describe("AppBootFailureState", () => {
   it("renders the stale-asset recovery copy", () => {

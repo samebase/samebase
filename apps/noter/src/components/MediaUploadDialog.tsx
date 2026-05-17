@@ -1,21 +1,21 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "#src/components/ui/button.tsx";
 import {
   Dialog,
   DialogContent as DialogContentUI,
   DialogHeader,
   DialogTitle,
-} from "@/components/dialog";
-import { Input } from "@/components/input";
+} from "#src/components/dialog.tsx";
+import { Input } from "#src/components/input.tsx";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
-} from "@/components/sheet";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { cn } from "@/lib/utils";
-import { fuzzyMatch, highlightMatches } from "@/lib/fuzzySearch.tsx";
+} from "#src/components/sheet.tsx";
+import { useIsMobile } from "#src/hooks/use-mobile.tsx";
+import { cn } from "#src/lib/utils.ts";
+import { fuzzyMatch, highlightMatches } from "#src/lib/fuzzySearch.tsx";
 
 type FolderItem = {
   path: string;

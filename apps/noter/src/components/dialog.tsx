@@ -9,4 +9,4 @@ export {
   DialogPortal,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from "#src/components/ui/dialog.tsx";

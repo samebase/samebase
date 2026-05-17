@@ -1,11 +1,11 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "#src/components/ui/button.tsx";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/dialog";
+} from "#src/components/dialog.tsx";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,13 +14,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/dropdown-menu";
-import { PersonIcon } from "@/lib/radixIcons";
-import { formatAuthProviderLabel } from "@/lib/authProviderLabel";
+} from "#src/components/dropdown-menu.tsx";
+import { PersonIcon } from "#src/lib/radixIcons.tsx";
+import { formatAuthProviderLabel } from "#src/lib/authProviderLabel.ts";
 import { api } from "../../convex/_generated/api";
 import { useQuery } from "convex/react";
 import { ReactNode, useMemo, useState } from "react";
-import { useNoterAuthActions } from "@/authClient";
+import { useNoterAuthActions } from "#src/authClient.ts";
 
 export function UserMenu({
   children,

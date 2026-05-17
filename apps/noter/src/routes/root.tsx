@@ -7,20 +7,20 @@ import {
   redirect,
 } from "@tanstack/react-router";
 import { pick } from "@noter-md/dependent/object";
-import { AppBootErrorBoundary } from "@/components/AppBootErrorBoundary";
-import { LOGO_THEME_COLOR_SEARCH_KEYS } from "@/lib/appThemeColorSearch";
-import { applySearchPatch } from "@/lib/routeSearchFlags";
+import { AppBootErrorBoundary } from "#src/components/AppBootErrorBoundary.tsx";
+import { LOGO_THEME_COLOR_SEARCH_KEYS } from "#src/lib/appThemeColorSearch.ts";
+import { applySearchPatch } from "#src/lib/routeSearchFlags.ts";
 import {
   type RootRouteSearch,
   validateRootRouteSearch,
-} from "@/lib/rootRouteSearch";
-import { ROOT_THEME_MODE_SEARCH_KEYS } from "@/lib/rootThemeModeSearch";
-import { buildRootHead } from "@/lib/rootHead";
-import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
+} from "#src/lib/rootRouteSearch.ts";
+import { ROOT_THEME_MODE_SEARCH_KEYS } from "#src/lib/rootThemeModeSearch.ts";
+import { buildRootHead } from "#src/lib/rootHead.ts";
+import { buildPathWithTanStackSearch } from "#src/lib/tanstackSearchParams.ts";
 import { Suspense, lazy, type ReactNode } from "react";
 
 const LazyAppRootClient = lazy(() =>
-  import("@/components/AppRootClient").then((module) => ({
+  import("#src/components/AppRootClient.tsx").then((module) => ({
     default: module.AppRootClient,
   })),
 );
@@ -117,7 +117,7 @@ export const Route = createRootRoute({
   component: RootComponent,
   head: buildRootHead,
   notFoundComponent: lazyRouteComponent(
-    () => import("@/components/NotFoundRoutePage"),
+    () => import("#src/components/NotFoundRoutePage.tsx"),
     "NotFoundRoutePage",
   ),
   search: {

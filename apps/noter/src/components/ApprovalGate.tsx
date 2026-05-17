@@ -1,5 +1,5 @@
-import { useNoterAuthActions } from "@/authClient";
-import { Button } from "@/components/ui/button";
+import { useNoterAuthActions } from "#src/authClient.ts";
+import { Button } from "#src/components/ui/button.tsx";
 import { useQuery } from "convex/react";
 import type { ReactNode } from "react";
 import { api } from "../../convex/_generated/api";

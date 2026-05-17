@@ -1,6 +1,6 @@
-import { useNoterSignInActions } from "@/authClient";
-import { Input } from "@/components/input";
-import { Button } from "@/components/ui/button";
+import { useNoterSignInActions } from "#src/authClient.ts";
+import { Input } from "#src/components/input.tsx";
+import { Button } from "#src/components/ui/button.tsx";
 import {
   getVisiblePasswordAuthSurface,
   rememberPublicLandingPasswordAuthMode,
@@ -9,16 +9,16 @@ import {
   shouldRenderPublicLandingWithoutAuthGate,
   shouldShowGoogleAuthForPathname,
   type PasswordAuthSurface,
-} from "@/lib/publicLandingAuthState";
+} from "#src/lib/publicLandingAuthState.ts";
 import {
   buildPathWithoutProdUiQuery,
   isBrowserProductionPublicOrigin,
   isProdUiModeActive,
   isProdUiModeEnabled,
   shouldStripVisibleProdUiQuery,
-} from "@/lib/prodUiMode";
-import { useRootRouteSearch } from "@/lib/rootRouteSearch";
-import { SignInWithGoogle } from "@/SignInWithGoogle";
+} from "#src/lib/prodUiMode.ts";
+import { useRootRouteSearch } from "#src/lib/rootRouteSearch.ts";
+import { SignInWithGoogle } from "#src/SignInWithGoogle.tsx";
 import { useLocation } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { useEffect, useState } from "react";

@@ -1,9 +1,9 @@
-import { landingPageMarkdown } from "@/lib/landingCopy";
-import { cn } from "@/lib/utils";
+import { landingPageMarkdown } from "#src/lib/landingCopy.ts";
+import { cn } from "#src/lib/utils.ts";
 import { lazy, Suspense } from "react";
 
 const EditableLandingCopy = lazy(async () => {
-  const module = await import("@/components/ProsemarkReadOnly");
+  const module = await import("#src/components/ProsemarkReadOnly.tsx");
   return { default: module.ProsemarkReadOnly };
 });
 

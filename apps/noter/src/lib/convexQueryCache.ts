@@ -5,7 +5,7 @@ import { useQuery, OptionalRestArgsOrSkip } from "convex/react";
 import {
   CONVEX_QUERY_CACHE_DB_NAME,
   readConvexQueryCacheNamespace,
-} from "@/lib/convexQueryCacheStorage";
+} from "#src/lib/convexQueryCacheStorage.ts";
 
 // ---------- tiny stable stringify + hash ----------
 

@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { TestRouterProvider } from "#src/test/TestRouterProvider.tsx";
 import { describe, expect, it } from "vite-plus/test";
 import { MachineConnectPageContent } from "./MachineConnectPage";
 

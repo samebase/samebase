@@ -1,5 +1,5 @@
-import { TestRouterProvider } from "@/test/TestRouterProvider";
-import { VaultBranchLinkRow } from "@/components/vault-dashboard/VaultDashboard";
+import { TestRouterProvider } from "#src/test/TestRouterProvider.tsx";
+import { VaultBranchLinkRow } from "#src/components/vault-dashboard/VaultDashboard.tsx";
 import { parseCloudflarePreviewComment } from "../../../convex/cloudflarePreviewComment";
 
 const CLOUDFLARE_COMMENT_BODY = `## Deploying noter with &nbsp;<a href="https://pages.dev"><img alt="Cloudflare Pages" src="https://user-images.githubusercontent.com/23264/106598434-9e719e00-654f-11eb-9e59-6167043cfa01.png" width="16"></a> &nbsp;Cloudflare Pages

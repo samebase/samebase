@@ -22,7 +22,7 @@ import {
 } from "@codemirror/view";
 import { prosemarkBaseThemeSetup, prosemarkBasicSetup } from "@prosemark/core";
 import { useTheme } from "next-themes";
-import { cn } from "@/lib/utils";
+import { cn } from "#src/lib/utils.ts";
 import {
   blurOnOutsidePointerDownExtension,
   collapseSelectionOnBlurExtension,
@@ -30,14 +30,14 @@ import {
   getProsemarkFileThemeExtensions,
   prosemarkHiddenCursorTheme,
   prosemarkSurfaceTheme,
-} from "@/components/prosemarkSurface";
-import { useWorkspaceLayoutV2DragSurface } from "@/components/workspace-layout-v2/useWorkspaceLayoutV2DragSurface";
+} from "#src/components/prosemarkSurface.ts";
+import { useWorkspaceLayoutV2DragSurface } from "#src/components/workspace-layout-v2/useWorkspaceLayoutV2DragSurface.ts";
 import {
   getCodeMirrorFileLanguageKind,
   getInitialCodeMirrorLanguageExtension,
   loadCodeMirrorLanguageExtension,
   type CodeMirrorFileLanguageKind,
-} from "@/lib/codemirrorLanguage";
+} from "#src/lib/codemirrorLanguage.ts";
 
 type ProsemarkReadOnlyProps = {
   value: string;

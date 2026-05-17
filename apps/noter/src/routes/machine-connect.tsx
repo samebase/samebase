@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
-import { MachineConnectPage } from "@/components/MachineConnectPage";
-import { validateMachineConnectRouteSearch } from "@/lib/authenticatedRouteSearch";
+import { AuthenticatedAppRoutePage } from "#src/components/AuthenticatedAppRoutePage.tsx";
+import { MachineConnectPage } from "#src/components/MachineConnectPage.tsx";
+import { validateMachineConnectRouteSearch } from "#src/lib/authenticatedRouteSearch.ts";
 
 /**
  * Preserve the authenticated route shell while this page stays route-owned.

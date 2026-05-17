@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   resolveLandingMarkdownPreviewLanguage,
   validateLandingMarkdownPreviewRouteSearch,
-} from "@/lib/landingMarkdownPreview";
+} from "#src/lib/landingMarkdownPreview.ts";
 
 describe("landingMarkdownPreview", () => {
   it("defaults to English without a language query", () => {

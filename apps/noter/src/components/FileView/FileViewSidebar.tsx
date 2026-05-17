@@ -1,9 +1,16 @@
 import { type ComponentProps, type DragEventHandler } from "react";
-import { FilePlusIcon, GitHubLogoIcon, PlusIcon } from "@/lib/radixIcons";
-import { FileTree } from "@/components/FileTree";
-import { Button } from "@/components/ui/button";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { linkStyle } from "@/components/styles";
+import {
+  FilePlusIcon,
+  GitHubLogoIcon,
+  PlusIcon,
+} from "#src/lib/radixIcons.tsx";
+import { FileTree } from "#src/components/FileTree.tsx";
+import { Button } from "#src/components/ui/button.tsx";
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "#src/components/ui/toggle-group.tsx";
+import { linkStyle } from "#src/components/styles.tsx";
 import type { EffectiveSidebarMode } from "./fileViewShared";
 
 type FileTreeProps = ComponentProps<typeof FileTree>;

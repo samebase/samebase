@@ -8,7 +8,7 @@ import {
   MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX,
   MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX,
   resolveWorkspaceDesktopSidebarWidths,
-} from "@/lib/workspacePaneSizes";
+} from "#src/lib/workspacePaneSizes.ts";
 
 describe("resolveWorkspaceDesktopSidebarWidths", () => {
   it("keeps the preferred widths when the shell has enough room", () => {

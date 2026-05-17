@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
 import type { OnMount } from "@monaco-editor/react";
 import { useTheme } from "next-themes";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { buildMonacoFileUri } from "@/lib/monacoFileUri";
-import { useWorkspaceLayoutV2DragSurface } from "@/components/workspace-layout-v2/useWorkspaceLayoutV2DragSurface";
+import { useIsMobile } from "#src/hooks/use-mobile.tsx";
+import { buildMonacoFileUri } from "#src/lib/monacoFileUri.ts";
+import { useWorkspaceLayoutV2DragSurface } from "#src/components/workspace-layout-v2/useWorkspaceLayoutV2DragSurface.ts";
 import {
   CODE_SURFACE_FONT_FAMILY,
   CODE_SURFACE_FONT_SIZE_PX,
   CODE_SURFACE_LINE_HEIGHT_PX,
-} from "@/lib/codeSurfaceTypography";
+} from "#src/lib/codeSurfaceTypography.ts";
 
 export interface MonacoEditorSurfaceProps {
   branch: string;

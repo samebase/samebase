@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { renderToStaticMarkup } from "react-dom/server";
 
-vi.mock("@/components/ui/button", () => ({
+vi.mock("#src/components/ui/button.tsx", () => ({
   Button: ({
     children,
     className,
@@ -27,7 +27,7 @@ vi.mock("@/components/ui/button", () => ({
   ),
 }));
 
-vi.mock("@/components/PullRequestLink", () => ({
+vi.mock("#src/components/PullRequestLink.tsx", () => ({
   PullRequestLink: ({
     pullRequestNumber,
     pullRequestUrl,

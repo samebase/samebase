@@ -1,5 +1,5 @@
-import { MachineConnectPageContent } from "@/components/MachineConnectPage";
-import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { MachineConnectPageContent } from "#src/components/MachineConnectPage.tsx";
+import { TestRouterProvider } from "#src/test/TestRouterProvider.tsx";
 
 const MACHINE_CONNECT_VISUAL_FIXTURE_FONT_RULES = `
   [data-machine-connect-visual-fixture-font],

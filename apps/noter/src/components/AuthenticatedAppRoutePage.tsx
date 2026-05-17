@@ -1,11 +1,11 @@
-import { Layout, PublicLayoutShell } from "@/Layout";
-import { SignInForm } from "@/SignInForm";
-import { ApprovalGate } from "@/components/ApprovalGate";
+import { Layout, PublicLayoutShell } from "#src/Layout.tsx";
+import { SignInForm } from "#src/SignInForm.tsx";
+import { ApprovalGate } from "#src/components/ApprovalGate.tsx";
 import { useLocation } from "@tanstack/react-router";
-import { resolvePageMetadata } from "@/lib/pageMetadata";
-import { usePageMetadata } from "@/lib/usePageMetadata";
-import { useRootRouteSearch } from "@/lib/rootRouteSearch";
-import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
+import { resolvePageMetadata } from "#src/lib/pageMetadata.ts";
+import { usePageMetadata } from "#src/lib/usePageMetadata.ts";
+import { useRootRouteSearch } from "#src/lib/rootRouteSearch.ts";
+import { useAppAuthRuntimeEffects } from "#src/lib/useAppAuthRuntimeEffects.ts";
 import { Authenticated, Unauthenticated, useConvexAuth } from "convex/react";
 import { Suspense, useMemo, type ReactNode } from "react";
 

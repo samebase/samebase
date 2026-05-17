@@ -1,7 +1,7 @@
-import { useNow } from "@/hooks/useNow";
-import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
-import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
-import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
+import { useNow } from "#src/hooks/useNow.ts";
+import { AppSidebarMetaSection } from "#src/components/AppSidebarMetaSection.tsx";
+import { PersistedSidebarProvider } from "#src/components/PersistedSidebarProvider.tsx";
+import { SidebarHomeAccountHeader } from "#src/components/SidebarHomeAccountHeader.tsx";
 import {
   CodexAppServerRequestError,
   requestCodexAppServerJson,
@@ -10,27 +10,27 @@ import {
   type CodexAppServerThread,
   type CodexAppServerThreadDetailResponse,
   type CodexAppServerThreadsResponse,
-} from "@/lib/codexAppServerResearch";
+} from "#src/lib/codexAppServerResearch.ts";
 import {
   startedDraftConversationThreadMatches,
   type MachinesWorkspaceProjectConversationSelection,
-} from "@/lib/machinesWorkspaceConversation";
+} from "#src/lib/machinesWorkspaceConversation.ts";
 import {
   MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
   MachinesWorkspaceView,
-} from "@/components/MachinesWorkspaceView";
-import type { MachinesWorkspaceSidebarInventory } from "@/lib/machinesWorkspaceSidebar";
-import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
+} from "#src/components/MachinesWorkspaceView.tsx";
+import type { MachinesWorkspaceSidebarInventory } from "#src/lib/machinesWorkspaceSidebar.ts";
+import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "#src/lib/workspacePaneSizes.ts";
 import { useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { buildMachinesRouteSearch } from "@/lib/authenticatedRouteSearch";
+import { buildMachinesRouteSearch } from "#src/lib/authenticatedRouteSearch.ts";
 import { getRouteApi } from "@tanstack/react-router";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 import { resolveConnectedMachineStatus } from "../../shared/connectedMachinePresence";
 import type { ConnectedMachineView } from "../../convex/connectedMachineModel";
 import { api } from "../../convex/_generated/api";
-import { MACHINES_ROUTE } from "@/lib/noterSync";
-import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
+import { MACHINES_ROUTE } from "#src/lib/noterSync.ts";
+import { usePageLeaveGuard } from "#src/lib/pageLeaveGuard.ts";
 
 const THREAD_LIST_LIMIT = 100;
 const THREAD_REFRESH_INTERVAL_MS = 1_500;

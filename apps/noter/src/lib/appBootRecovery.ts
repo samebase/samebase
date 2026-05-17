@@ -1,5 +1,5 @@
-import { CONVEX_QUERY_CACHE_DB_NAME } from "@/lib/convexQueryCacheStorage";
-import { ensureWindowStorageAccess } from "@/lib/storageAccess";
+import { CONVEX_QUERY_CACHE_DB_NAME } from "#src/lib/convexQueryCacheStorage.ts";
+import { ensureWindowStorageAccess } from "#src/lib/storageAccess.ts";
 
 const RECOVERY_QUERY_PARAM = "__noter-reload";
 const STALE_ASSET_PATTERNS = [

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStateController";
+import type { WorkspaceSidebarStateController } from "#src/lib/workspaceSidebarStateController.ts";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 
 /**

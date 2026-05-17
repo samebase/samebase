@@ -1,12 +1,12 @@
 import * as React from "react";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
-import { WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX } from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
-import { notifyBrowserLocalStorageChanged } from "@/lib/localStorageSnapshot";
+import { WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX } from "#src/components/workspace-layout-v2/WorkspaceLayoutV2Geometry.ts";
+import { notifyBrowserLocalStorageChanged } from "#src/lib/localStorageSnapshot.ts";
 import type {
   WorkspaceSidebarStateController,
   WorkspaceSidebarStatePersistenceMode,
   WorkspaceSidebarStateUpdate,
-} from "@/lib/workspaceSidebarStateController";
+} from "#src/lib/workspaceSidebarStateController.ts";
 
 const SIDEBAR_WIDTH_PERSIST_DELAY_MS = 160;
 const STORED_WORKSPACE_SIDEBAR_STATE_VERSION = 2;

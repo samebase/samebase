@@ -1,4 +1,4 @@
-import { readAppBuildCommit } from "@/lib/appBuildMetadata";
+import { readAppBuildCommit } from "#src/lib/appBuildMetadata.ts";
 
 export const CONVEX_QUERY_CACHE_DB_NAME = "convexQueryCache";
 

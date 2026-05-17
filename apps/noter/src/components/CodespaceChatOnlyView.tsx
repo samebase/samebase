@@ -6,8 +6,8 @@ import { api } from "../../convex/_generated/api";
 import { CodespaceIframe } from "./CodespaceIframe";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { useCacheQuery as useVaultQuery } from "@/lib/convexQueryCache";
-import { parseVaultPathContext } from "@/lib/vaultRoutes";
+import { useCacheQuery as useVaultQuery } from "#src/lib/convexQueryCache.ts";
+import { parseVaultPathContext } from "#src/lib/vaultRoutes.ts";
 
 const CODESPACE_STATES_REQUIRING_ENSURE = new Set([
   "stopped",

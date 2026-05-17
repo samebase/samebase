@@ -69,11 +69,11 @@ local build/dry-run validation. Because `wrangler@4.90.0` bundles a local
 runtime that supports compatibility dates through 2026-05-14, `wrangler.jsonc`
 uses `2026-05-14` until the pinned Wrangler version can be advanced.
 
-Keep the app's current `@/*` import alias for this migration. TanStack Start has
-no required alias convention, and shadcn is configured through
-`apps/noter/components.json` with `@/components`, `@/lib/utils`, and `@/hooks`.
-Changing to package imports or another alias can be evaluated as a separate
-repo-wide cleanup, but it is not part of the hosting cutover.
+The original hosting cutover kept the app's then-current `@/*` import alias to
+avoid coupling deployment changes to a source-import cleanup. That separate
+repo-wide cleanup is now accepted: app source imports use package imports from
+the owning package's `package.json#imports`, and `apps/noter/components.json`
+uses `#src/components`, `#src/lib/utils`, and `#src/hooks`.
 
 Workers Builds injects `WORKERS_CI`, `WORKERS_CI_COMMIT_SHA`, and
 `WORKERS_CI_BRANCH`. The app build script uses `WORKERS_CI_BRANCH` to choose

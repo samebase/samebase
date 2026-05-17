@@ -7,7 +7,7 @@ import {
   getTailwindColorTokenForSelection,
   isLogoColorToken,
   isTailwindColorToken,
-} from "@/components/logoTailwindColors";
+} from "#src/components/logoTailwindColors.ts";
 
 describe("logoTailwindColors", () => {
   it("converts Tailwind OKLCH palette colors to renderer-safe hex", () => {

@@ -1,4 +1,7 @@
-import { parseLandingSlogans, selectLandingSlogan } from "@/lib/landingSlogans";
+import {
+  parseLandingSlogans,
+  selectLandingSlogan,
+} from "#src/lib/landingSlogans.ts";
 import slogansRaw from "../../../../slogans.md?raw";
 
 export const landingPageBullets = [

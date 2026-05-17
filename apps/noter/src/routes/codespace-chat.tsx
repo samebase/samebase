@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
-import { CodespaceChatOnlyView } from "@/components/CodespaceChatOnlyView";
+import { AuthenticatedAppRoutePage } from "#src/components/AuthenticatedAppRoutePage.tsx";
+import { CodespaceChatOnlyView } from "#src/components/CodespaceChatOnlyView.tsx";
 import { CHAT_ENABLED, CODESPACES_ENABLED } from "../../shared/featureFlags";
-import { buildVaultFileRoute } from "@/lib/vaultRoutes";
+import { buildVaultFileRoute } from "#src/lib/vaultRoutes.ts";
 
 function DisabledCodespaceChatRedirect() {
   const navigate = Route.useNavigate();

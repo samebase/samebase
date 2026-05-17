@@ -1,4 +1,4 @@
-import { clampNumber } from "@/lib/clampNumber";
+import { clampNumber } from "#src/lib/clampNumber.ts";
 
 export const WORKSPACE_LAYOUT_V2_PANEL_MIN_HEIGHT_PX = 3 * 16;
 export const WORKSPACE_LAYOUT_V2_PANEL_DEFAULT_HEIGHT_PX = 18 * 16;

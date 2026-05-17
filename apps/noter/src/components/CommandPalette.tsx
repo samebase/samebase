@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Dialog, DialogContent } from "@/components/dialog";
-import { Input } from "@/components/input";
-import { FileIcon, ChevronRightIcon } from "@/lib/radixIcons";
-import { cn } from "@/lib/utils";
-import { fuzzyMatch } from "@/lib/fuzzySearch.tsx";
-import { type CommitReviewFileStatus } from "@/lib/commitReviewStatus";
+import { Dialog, DialogContent } from "#src/components/dialog.tsx";
+import { Input } from "#src/components/input.tsx";
+import { FileIcon, ChevronRightIcon } from "#src/lib/radixIcons.tsx";
+import { cn } from "#src/lib/utils.ts";
+import { fuzzyMatch } from "#src/lib/fuzzySearch.tsx";
+import { type CommitReviewFileStatus } from "#src/lib/commitReviewStatus.ts";
 
 interface FileItem {
   path: string;

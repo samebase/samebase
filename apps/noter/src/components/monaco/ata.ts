@@ -66,7 +66,7 @@ const notFoundCache = new Set<string>();
  *  - /npm/react@latest           → "react"
  *  - /npm/@types/react@latest    → "@types/react"
  *  - /npm/@components@latest     → "@components"  (malformed, but captured)
- *  - /npm/@/Layout@latest        → "@/Layout"     (path alias, captured)
+ *  - /npm/#src/Layout.tsx@latest → "#src/Layout.tsx" (path import, captured)
  */
 function extractPackageName(url: string): string | null {
   const npmIdx = url.indexOf("/npm/");
@@ -93,8 +93,8 @@ function isBlockedUrl(url: string): boolean {
   // Explicit blocklist or previously failed
   if (BLOCKED_PACKAGES.has(pkg) || notFoundCache.has(pkg)) return true;
 
-  // Path aliases like "@/components", "@/lib/utils" – not real npm packages
-  if (pkg.startsWith("@/")) return true;
+  // Package imports like "#src/lib/utils.ts" are not real npm packages.
+  if (pkg.startsWith("#")) return true;
 
   // Bare scoped names without a slash (e.g. "@components") are invalid npm
   // package names – they're path aliases or bundler aliases, not packages.

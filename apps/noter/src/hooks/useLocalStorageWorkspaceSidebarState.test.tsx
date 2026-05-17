@@ -11,7 +11,7 @@ import {
   vi,
 } from "vite-plus/test";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
-import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStateController";
+import type { WorkspaceSidebarStateController } from "#src/lib/workspaceSidebarStateController.ts";
 import { useLocalStorageWorkspaceSidebarState } from "./useLocalStorageWorkspaceSidebarState";
 
 const { act } = React;

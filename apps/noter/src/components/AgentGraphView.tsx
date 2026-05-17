@@ -22,11 +22,11 @@ import {
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { ChatInput } from "@/components/ChatInput";
-import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
+import { ChatInput } from "#src/components/ChatInput.tsx";
+import { ProsemarkReadOnly } from "#src/components/ProsemarkReadOnly.tsx";
 import { useUIMessages } from "@convex-dev/agent/react";
-import { Kbd, KbdGroup } from "@/components/ui-custom/kbd";
-import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
+import { Kbd, KbdGroup } from "#src/components/ui-custom/kbd.tsx";
+import { usePageLeaveGuard } from "#src/lib/pageLeaveGuard.ts";
 
 export type AgentGraphNodeData = {
   label: string;

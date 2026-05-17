@@ -1,7 +1,10 @@
 import * as React from "react";
 import { Toast as ToastPrimitive } from "@base-ui/react/toast";
 
-import type { ToastActionElement, ToastProps } from "@/components/ui/toast";
+import type {
+  ToastActionElement,
+  ToastProps,
+} from "#src/components/ui/toast.tsx";
 
 type ToastData = {
   action?: ToastActionElement;

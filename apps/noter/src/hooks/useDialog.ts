@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import { DialogContext } from "@/contexts/dialog-context-state";
+import { DialogContext } from "#src/contexts/dialog-context-state.ts";
 
 export function useDialog() {
   const context = useContext(DialogContext);

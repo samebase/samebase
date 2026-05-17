@@ -1,5 +1,9 @@
-import { isInIframe, openAuthPopup, useNoterSignInActions } from "@/authClient";
-import { Button } from "@/components/ui/button";
+import {
+  isInIframe,
+  openAuthPopup,
+  useNoterSignInActions,
+} from "#src/authClient.ts";
+import { Button } from "#src/components/ui/button.tsx";
 import { Chrome } from "lucide-react";
 import { useRouter } from "@tanstack/react-router";
 import {

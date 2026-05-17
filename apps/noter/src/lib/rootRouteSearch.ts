@@ -2,15 +2,15 @@ import { getRouteApi } from "@tanstack/react-router";
 import {
   appThemeColorSearchFieldSchema,
   readLogoThemeColorSearch,
-} from "@/lib/appThemeColorSearch";
-import { PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM } from "@/lib/publicLayoutSidebarPreferences";
-import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
+} from "#src/lib/appThemeColorSearch.ts";
+import { PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM } from "#src/lib/publicLayoutSidebarPreferences.ts";
+import { normalizeRouteSearchPresenceFlags } from "#src/lib/routeSearchFlags.ts";
 import {
   ROOT_THEME_MODE_SEARCH_KEYS,
   rootThemeModeSearchFieldSchema,
-} from "@/lib/rootThemeModeSearch";
-import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
-import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
+} from "#src/lib/rootThemeModeSearch.ts";
+import { SEARCH_RESET_QUERY_PARAM } from "#src/lib/searchReset.ts";
+import { parseTanStackSearch } from "#src/lib/tanstackSearchParams.ts";
 import { z } from "zod";
 
 // TanStack Router's root route id is the stable "__root__" literal, and using

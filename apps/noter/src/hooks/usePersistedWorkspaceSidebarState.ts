@@ -5,7 +5,7 @@ import type {
   WorkspaceSidebarStateController,
   WorkspaceSidebarStatePersistenceMode,
   WorkspaceSidebarStateUpdate,
-} from "@/lib/workspaceSidebarStateController";
+} from "#src/lib/workspaceSidebarStateController.ts";
 import type {
   WorkspaceSidebarState,
   WorkspaceSidebarStateKey,

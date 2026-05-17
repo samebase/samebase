@@ -1,13 +1,13 @@
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 
-import { cn } from "@/lib/utils";
+import { cn } from "#src/lib/utils.ts";
 
 export {
   Popover,
   PopoverAnchor,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
+} from "#src/components/ui/popover.tsx";
 
 function AnchoredPopoverContent({
   className,

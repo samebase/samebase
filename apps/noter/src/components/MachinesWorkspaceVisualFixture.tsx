@@ -1,18 +1,18 @@
 import { useMemo, useRef, useState } from "react";
-import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { TestRouterProvider } from "#src/test/TestRouterProvider.tsx";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 import {
   MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
   MachinesWorkspaceView,
-} from "@/components/MachinesWorkspaceView";
-import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
-import { WorkspaceLayoutV2MemorySidebarProvider } from "@/components/workspace-layout-v2/WorkspaceLayoutV2MemorySidebarProvider";
+} from "#src/components/MachinesWorkspaceView.tsx";
+import { SidebarHomeAccountHeader } from "#src/components/SidebarHomeAccountHeader.tsx";
+import { WorkspaceLayoutV2MemorySidebarProvider } from "#src/components/workspace-layout-v2/WorkspaceLayoutV2MemorySidebarProvider.tsx";
 import {
   type CodexAppServerThread,
   type CodexAppServerThreadTurn,
-} from "@/lib/codexAppServerResearch";
-import type { MachinesWorkspaceProjectConversationSelection } from "@/lib/machinesWorkspaceConversation";
-import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
+} from "#src/lib/codexAppServerResearch.ts";
+import type { MachinesWorkspaceProjectConversationSelection } from "#src/lib/machinesWorkspaceConversation.ts";
+import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "#src/lib/workspacePaneSizes.ts";
 
 const FIXTURE_RELATIVE_TIME_REFERENCE_MS = 1_775_541_762_000;
 const FIXTURE_WORKTREE_CWD = "/Users/fixture/.codex/worktrees/demo/noter";

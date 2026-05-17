@@ -9,4 +9,4 @@ export {
   SheetPortal,
   SheetTitle,
   SheetTrigger,
-} from "@/components/ui/sheet";
+} from "#src/components/ui/sheet.tsx";

@@ -242,6 +242,10 @@ Key domain entities:
   delete these wrappers when you find them. They pollute the tree and break
   editor cmd-click/navigation when tracing real implementations and usages.
 - Keep config surfaces minimal and current.
+- For app-internal source imports, use package imports from the owning package's
+  `package.json#imports`, such as `#src/...`, with explicit source file
+  extensions. Do not reintroduce `@/*`, TypeScript `paths`, or Vite
+  `resolve.alias` for app source.
 - `URLSearchParams` is globally warned by lint so app search defaults to typed
   route objects and route-specific helpers. Intentional protocol boundaries such
   as OAuth, external URLs, parser/serializer helpers, fixtures, and tests can

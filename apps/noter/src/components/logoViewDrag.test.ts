@@ -3,8 +3,8 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   resolveDraggedAngleDegrees,
   resolveLogoViewState,
-} from "@/components/logoViewDrag";
-import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
+} from "#src/components/logoViewDrag.ts";
+import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "#src/lib/publicLandingLogo.ts";
 
 const EXACT_ISOMETRIC_ELEVATION_DEGREES = 35.26438968;
 

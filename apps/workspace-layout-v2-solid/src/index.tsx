@@ -9,7 +9,7 @@ import {
 import { TanStackRouterDevtools } from "@tanstack/solid-router-devtools";
 import { render } from "solid-js/web";
 import "./index.css";
-import { WorkspaceLayoutPage } from "@/routes/workspace-layout-page";
+import { WorkspaceLayoutPage } from "#src/routes/workspace-layout-page.tsx";
 
 const root = document.getElementById("root");
 

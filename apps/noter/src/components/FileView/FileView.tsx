@@ -1,46 +1,46 @@
 import { useLocation, useRouter } from "@tanstack/react-router";
 import { useAction, useMutation, useQuery as useLiveQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
-import { CodeEditorWrapper } from "@/components/CodeEditor";
+import { useCacheQuery as useQuery } from "#src/lib/convexQueryCache.ts";
+import { CodeEditorWrapper } from "#src/components/CodeEditor.tsx";
 import {
   AgentGraphView,
   type AgentGraphEdge,
   type AgentGraphNode,
-} from "@/components/AgentGraphView";
-import { Button } from "@/components/ui/button";
-import { FileViewPushActions } from "@/components/FileViewPushActions";
+} from "#src/components/AgentGraphView.tsx";
+import { Button } from "#src/components/ui/button.tsx";
+import { FileViewPushActions } from "#src/components/FileViewPushActions.tsx";
 import {
   FileViewInlinePreviewControls,
   FileViewPatchPreview,
   FileViewPatchText,
   FileViewSplitPreview,
-} from "@/components/FileView/FileViewPreviewParts";
-import { ChangedFilesLoadingState } from "@/components/ChangedFilesLoadingState";
+} from "#src/components/FileView/FileViewPreviewParts.tsx";
+import { ChangedFilesLoadingState } from "#src/components/ChangedFilesLoadingState.tsx";
 import {
   FileViewDeveloperTools,
   type FileViewEditorOverride,
-} from "@/components/FileViewDeveloperTools";
-import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
-import { CommandPalette } from "@/components/CommandPalette";
-import { EditorChatPanel } from "@/components/EditorChatPanel";
+} from "#src/components/FileViewDeveloperTools.tsx";
+import { PersistedSidebarProvider } from "#src/components/PersistedSidebarProvider.tsx";
+import { CommandPalette } from "#src/components/CommandPalette.tsx";
+import { EditorChatPanel } from "#src/components/EditorChatPanel.tsx";
 import {
   FileViewSidebarContent,
   FileViewSidebarFooter,
-} from "@/components/FileView/FileViewSidebar";
-import { FileViewMainHeader } from "@/components/FileView/FileViewMainHeader";
-import { useFileViewInlinePreview } from "@/components/FileView/useFileViewInlinePreview";
-import { useFileViewMediaUpload } from "@/components/FileView/useFileViewMediaUpload";
+} from "#src/components/FileView/FileViewSidebar.tsx";
+import { FileViewMainHeader } from "#src/components/FileView/FileViewMainHeader.tsx";
+import { useFileViewInlinePreview } from "#src/components/FileView/useFileViewInlinePreview.ts";
+import { useFileViewMediaUpload } from "#src/components/FileView/useFileViewMediaUpload.ts";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useWorkspacePaneActions } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
-import { linkStyle } from "@/components/styles";
-import { useConvexAction, useConvexMutation } from "@/lib/convexUtils";
-import { DialogProvider } from "@/contexts/DialogContext";
-import { useDialog } from "@/hooks/useDialog";
-import { FileCreationDialog } from "@/components/FileCreationDialog";
-import { FolderCreationDialog } from "@/components/FolderCreationDialog";
-import { ProsemarkMergeEditor } from "@/components/ProsemarkMergeEditor";
-import { nonNullable } from "@/lib/utils";
+import { useWorkspacePaneActions } from "#src/components/workspace-layout-v2/WorkspacePaneRuntime.tsx";
+import { linkStyle } from "#src/components/styles.tsx";
+import { useConvexAction, useConvexMutation } from "#src/lib/convexUtils.tsx";
+import { DialogProvider } from "#src/contexts/DialogContext.tsx";
+import { useDialog } from "#src/hooks/useDialog.ts";
+import { FileCreationDialog } from "#src/components/FileCreationDialog.tsx";
+import { FolderCreationDialog } from "#src/components/FolderCreationDialog.tsx";
+import { ProsemarkMergeEditor } from "#src/components/ProsemarkMergeEditor.tsx";
+import { nonNullable } from "#src/lib/utils.ts";
 import {
   filterSimpleViewTreeItems,
   getSimpleViewPreferenceStorageKey,
@@ -50,50 +50,53 @@ import {
   parseSimpleViewConfig,
   SIMPLE_VIEW_CONFIG_PATH,
   shouldLoadRepositorySimpleViewConfig,
-} from "@/lib/simpleView";
-import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "@/lib/commitReviewStatus";
-import { claimRefreshDebounce } from "@/lib/refreshDebounce";
-import { getAncestorFolderPaths } from "@/lib/fileTreeState";
-import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
+} from "#src/lib/simpleView.ts";
+import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "#src/lib/commitReviewStatus.ts";
+import { claimRefreshDebounce } from "#src/lib/refreshDebounce.ts";
+import { getAncestorFolderPaths } from "#src/lib/fileTreeState.ts";
+import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "#src/lib/fileViewSidebarLayout.ts";
 import { type GithubTree } from "../../../convex/schema";
-import { formatStopwatchDuration } from "@/lib/stopwatch";
-import { DraftPullRequestFeedbackBanner } from "@/components/DraftPullRequestFeedbackBanner";
-import { VaultSyncStatus } from "@/components/VaultSyncStatus";
-import { RepositoryMediaViewer } from "@/components/RepositoryMediaViewer";
-import { RepositoryRouteConnectState } from "@/components/RepositoryRouteConnectState";
-import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
-import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
-import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
-import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
-import { MediaUploadDialog } from "@/components/MediaUploadDialog";
+import { formatStopwatchDuration } from "#src/lib/stopwatch.ts";
+import { DraftPullRequestFeedbackBanner } from "#src/components/DraftPullRequestFeedbackBanner.tsx";
+import { VaultSyncStatus } from "#src/components/VaultSyncStatus.tsx";
+import { RepositoryMediaViewer } from "#src/components/RepositoryMediaViewer.tsx";
+import { RepositoryRouteConnectState } from "#src/components/RepositoryRouteConnectState.tsx";
+import { AppSidebarMetaSection } from "#src/components/AppSidebarMetaSection.tsx";
+import { RepositoryWorkspacePaneHeader } from "#src/components/RepositoryWorkspacePaneHeader.tsx";
+import { WorkspaceLayoutV2FullPage } from "#src/components/workspace-layout-v2/WorkspaceLayoutV2FullPage.tsx";
+import { SidebarHomeAccountHeader } from "#src/components/SidebarHomeAccountHeader.tsx";
+import { MediaUploadDialog } from "#src/components/MediaUploadDialog.tsx";
 import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
 import { CHAT_ENABLED } from "../../../shared/featureFlags";
-import { buildVaultFileRoute, parseVaultPathContext } from "@/lib/vaultRoutes";
-import { isInIframe } from "@/authClient";
+import {
+  buildVaultFileRoute,
+  parseVaultPathContext,
+} from "#src/lib/vaultRoutes.ts";
+import { isInIframe } from "#src/authClient.ts";
 import {
   resolveFilePathForResolvedBranch,
   resolveLegacyBranchlessFilePath,
-} from "@/lib/legacyBranchlessRoute";
-import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
-import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
-import { queueExistingRepositoryAndNavigateToDashboard } from "@/lib/existingRepositoryConnectHandoff";
+} from "#src/lib/legacyBranchlessRoute.ts";
+import { openGithubOAuthPopup } from "#src/lib/githubOAuthFlow.ts";
+import { buildPathWithTanStackSearch } from "#src/lib/tanstackSearchParams.ts";
+import { queueExistingRepositoryAndNavigateToDashboard } from "#src/lib/existingRepositoryConnectHandoff.ts";
 import {
   buildStagingPreviewRefreshKey,
   getBranchComparePreviewReloadMode,
   getPreviewBaseFilePath,
-} from "@/lib/fileViewCompare";
+} from "#src/lib/fileViewCompare.ts";
 import {
   shouldClearCompareOnReviewExit,
   shouldShowCompareBackToEditor,
-} from "@/lib/fileViewReview";
+} from "#src/lib/fileViewReview.ts";
 import {
   buildFileViewSearchHref,
   buildFileViewRouteSearch,
   mergeFileViewRouteSearch,
   type FileViewRouteSearchPatch,
   useFileViewRouteSearch,
-} from "@/lib/fileViewRouteSearch";
-import { encodeGitHubPath } from "@/lib/githubUrls";
+} from "#src/lib/fileViewRouteSearch.ts";
+import { encodeGitHubPath } from "#src/lib/githubUrls.ts";
 import {
   type BranchComparePreview,
   BRANCH_COMPARE_PREVIEW_STAGING_DEBOUNCE_MS,

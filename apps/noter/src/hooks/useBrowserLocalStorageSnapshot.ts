@@ -3,7 +3,7 @@ import {
   readBrowserLocalStorageSnapshot,
   subscribeBrowserLocalStorageSnapshot,
   type LocalStorageSnapshot,
-} from "@/lib/localStorageSnapshot";
+} from "#src/lib/localStorageSnapshot.ts";
 
 const serverSnapshot = {
   kind: "unavailable",

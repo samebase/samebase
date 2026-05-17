@@ -1,6 +1,6 @@
-import { Button } from "@/components/ui/button";
-import { PullRequestLink } from "@/components/PullRequestLink";
-import { cn } from "@/lib/utils";
+import { Button } from "#src/components/ui/button.tsx";
+import { PullRequestLink } from "#src/components/PullRequestLink.tsx";
+import { cn } from "#src/lib/utils.ts";
 
 type FileViewPushActionsProps = {
   canCreateDraftPullRequest: boolean;

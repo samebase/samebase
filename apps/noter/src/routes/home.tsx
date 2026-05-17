@@ -1,4 +1,4 @@
-import { useRootRouteSearch } from "@/lib/rootRouteSearch";
+import { useRootRouteSearch } from "#src/lib/rootRouteSearch.ts";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
 

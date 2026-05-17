@@ -4,11 +4,11 @@ import {
   buildFileViewRouteSearch,
   mergeFileViewRouteSearch,
   validateFileViewRouteSearch,
-} from "@/lib/fileViewRouteSearch";
+} from "#src/lib/fileViewRouteSearch.ts";
 import {
   parseTanStackSearch,
   stringifyTanStackSearch,
-} from "@/lib/tanstackSearchParams";
+} from "#src/lib/tanstackSearchParams.ts";
 
 describe("fileViewRouteSearch", () => {
   it("accepts routed file-view flags and mobile line numbers", () => {

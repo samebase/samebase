@@ -8,7 +8,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import { createAppRouter } from "@/router";
+import { createAppRouter } from "#src/router.tsx";
 
 type TestRouterProviderProps = {
   children?: ReactNode;

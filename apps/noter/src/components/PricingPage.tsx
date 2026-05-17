@@ -7,17 +7,25 @@ import {
 import {
   buildPricingRouteSearch,
   type PricingRouteSearch,
-} from "@/lib/authenticatedRouteSearch";
+} from "#src/lib/authenticatedRouteSearch.ts";
 import { useEffect, useMemo, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { BillingCycle } from "../../convex/dashboardSettings";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { PLAN_DISPLAY_PRICE, PLAN_FEATURES } from "@/lib/pricingContent";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/card";
+import { Button } from "#src/components/ui/button.tsx";
+import { Badge } from "#src/components/ui/badge.tsx";
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "#src/components/ui/toggle-group.tsx";
+import { PLAN_DISPLAY_PRICE, PLAN_FEATURES } from "#src/lib/pricingContent.ts";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+} from "#src/components/card.tsx";
 
 const pricingRouteApi = getRouteApi("/pricing");
 

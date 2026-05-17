@@ -1,33 +1,33 @@
-import { ChevronDownIcon, ChevronRightIcon } from "@/lib/radixIcons";
+import { ChevronDownIcon, ChevronRightIcon } from "#src/lib/radixIcons.tsx";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/collapsible";
-import { useWorkspacePaneState } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
-import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
+} from "#src/components/collapsible.tsx";
+import { useWorkspacePaneState } from "#src/components/workspace-layout-v2/WorkspacePaneRuntime.tsx";
+import { WorkspaceLayoutV2FullPage } from "#src/components/workspace-layout-v2/WorkspaceLayoutV2FullPage.tsx";
 import {
   type CodexThreadSidebarProject,
   type CodexThreadSidebarThread,
-} from "@/lib/codexThreadSidebar";
+} from "#src/lib/codexThreadSidebar.ts";
 import {
   readMachinesWorkspaceConversationEnvLabel,
   type MachinesWorkspaceConversationEnvMode,
   type MachinesWorkspaceProjectConversationSelection,
-} from "@/lib/machinesWorkspaceConversation";
+} from "#src/lib/machinesWorkspaceConversation.ts";
 import {
   buildMachinesWorkspaceSidebarSections,
   type MachinesWorkspaceSidebarInventory,
   type MachinesWorkspaceSidebarSection,
-} from "@/lib/machinesWorkspaceSidebar";
-import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
-import { cn } from "@/lib/utils";
+} from "#src/lib/machinesWorkspaceSidebar.ts";
+import type { CodexAppServerThread } from "#src/lib/codexAppServerResearch.ts";
+import { cn } from "#src/lib/utils.ts";
 import {
   MachinesWorkspaceThreadHeader,
   MachinesWorkspaceThreadPane,
-} from "@/components/MachinesWorkspaceThreadPane";
+} from "#src/components/MachinesWorkspaceThreadPane.tsx";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,7 +35,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from "@/components/dropdown-menu";
+} from "#src/components/dropdown-menu.tsx";
 import {
   ArrowUpRight,
   Folder,

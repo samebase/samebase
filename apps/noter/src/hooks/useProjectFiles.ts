@@ -3,12 +3,12 @@ import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { type GithubTree } from "../../convex/schema";
-import { buildProjectFilesCacheKey } from "@/lib/editorCacheKeys";
+import { buildProjectFilesCacheKey } from "#src/lib/editorCacheKeys.ts";
 import {
   getCachedProjectFiles,
   loadProjectFilesWithSharedPromise,
   type ProjectFile,
-} from "@/lib/projectFilesCache";
+} from "#src/lib/projectFilesCache.ts";
 
 // ---------------------------------------------------------------------------
 // File extensions to load into Monaco models for import resolution

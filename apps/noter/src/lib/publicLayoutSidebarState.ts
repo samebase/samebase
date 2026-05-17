@@ -1,5 +1,5 @@
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
-import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStateController";
+import type { WorkspaceSidebarStateController } from "#src/lib/workspaceSidebarStateController.ts";
 
 /**
  * Public routes share one anonymous pane preference record even though their

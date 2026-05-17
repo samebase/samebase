@@ -1,13 +1,13 @@
-import { NLogoScene } from "@/components/NLogoScene";
+import { NLogoScene } from "#src/components/NLogoScene.tsx";
 import {
   DEFAULT_FACE_COLORS,
   getTailwindColorHex,
-} from "@/components/logoTailwindColors";
-import { STATIC_LOGO_VOXEL_STATE } from "@/components/logoStaticSvgContract";
+} from "#src/components/logoTailwindColors.ts";
+import { STATIC_LOGO_VOXEL_STATE } from "#src/components/logoStaticSvgContract.ts";
 import {
   PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ELEVATION_SNAP_DEGREES,
   PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ROTATION_SNAP_DEGREES,
-} from "@/lib/publicLandingLogo";
+} from "#src/lib/publicLandingLogo.ts";
 import { useState } from "react";
 
 export type LogoSnapAnglesVisualMode = "logo-snap-angles";

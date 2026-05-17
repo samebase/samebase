@@ -1,5 +1,5 @@
 import { type ReactElement, type RefObject } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "#src/lib/utils.ts";
 import {
   type MobilePane,
   type WorkspaceLayoutV2ActiveResizeSide,

@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { AppBootFailureState } from "@/components/AppBootFailureState";
+import { AppBootFailureState } from "#src/components/AppBootFailureState.tsx";
 
 type AppBootErrorBoundaryProps = {
   children: ReactNode;

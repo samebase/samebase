@@ -7,7 +7,7 @@ import {
   useRef,
 } from "react";
 import { Send } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "#src/lib/utils.ts";
 import { Annotation, EditorState, Prec, Compartment } from "@codemirror/state";
 import { EditorView, keymap, placeholder } from "@codemirror/view";
 import { insertNewlineAndIndent } from "@codemirror/commands";
@@ -20,7 +20,7 @@ import {
   prosemarkMarkdownSyntaxExtensions,
 } from "@prosemark/core";
 import { useTheme } from "next-themes";
-import { prosemarkDarkTheme } from "@/components/prosemarkSurface";
+import { prosemarkDarkTheme } from "#src/components/prosemarkSurface.ts";
 
 type ChatInputMode = "simple" | "prosemark";
 

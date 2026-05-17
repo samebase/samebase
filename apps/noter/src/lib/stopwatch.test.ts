@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { formatStopwatchDuration } from "@/lib/stopwatch";
+import { formatStopwatchDuration } from "#src/lib/stopwatch.ts";
 
 describe("formatStopwatchDuration", () => {
   it("formats sub-minute durations with tenths", () => {

@@ -1,12 +1,15 @@
-import { GitHubLogoIcon } from "@/lib/radixIcons";
-import { Button } from "@/components/ui/button";
-import { ChangedFilesLoadingState } from "@/components/ChangedFilesLoadingState";
-import { FileTree } from "@/components/FileTree";
-import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { getReviewSplitDiffHighlights } from "@/lib/reviewSplitDiff";
+import { GitHubLogoIcon } from "#src/lib/radixIcons.tsx";
+import { Button } from "#src/components/ui/button.tsx";
+import { ChangedFilesLoadingState } from "#src/components/ChangedFilesLoadingState.tsx";
+import { FileTree } from "#src/components/FileTree.tsx";
+import { ProsemarkReadOnly } from "#src/components/ProsemarkReadOnly.tsx";
+import { Checkbox } from "#src/components/ui/checkbox.tsx";
+import { Label } from "#src/components/ui/label.tsx";
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "#src/components/ui/toggle-group.tsx";
+import { getReviewSplitDiffHighlights } from "#src/lib/reviewSplitDiff.ts";
 
 export type FileViewCompareVisualMode =
   | "file-view-compare-sidebar"

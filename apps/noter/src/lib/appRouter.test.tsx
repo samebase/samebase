@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import * as React from "react";
-import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
+import { type WorkspaceLayoutV2PaneFrameProps } from "#src/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame.tsx";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { createRoot, type Root } from "react-dom/client";
 import {
@@ -20,19 +20,19 @@ const { publicLayoutMountMock, publicLayoutUnmountMock, useConvexAuthMock } =
     useConvexAuthMock: vi.fn(),
   }));
 
-vi.mock("@/components/RootIndexRoutePage", () => ({
+vi.mock("#src/components/RootIndexRoutePage.tsx", () => ({
   RootIndexRoutePage: () => (
     <div data-testid="root-index-route">Root index route</div>
   ),
 }));
 
-vi.mock("@/components/NotFoundRoutePage", () => ({
+vi.mock("#src/components/NotFoundRoutePage.tsx", () => ({
   NotFoundRoutePage: () => (
     <div data-testid="not-found-route">Not found route</div>
   ),
 }));
 
-vi.mock("@/Layout", async () => {
+vi.mock("#src/Layout.tsx", async () => {
   const ReactModule = await import("react");
   type MockPaneProps = Pick<
     WorkspaceLayoutV2PaneFrameProps,
@@ -82,71 +82,71 @@ vi.mock("convex/react", async (importOriginal) => {
   };
 });
 
-vi.mock("@/lib/usePageMetadata", () => ({
+vi.mock("#src/lib/usePageMetadata.ts", () => ({
   usePageMetadata: vi.fn(),
 }));
 
-vi.mock("@/components/TermsOfServicePage", () => ({
+vi.mock("#src/components/TermsOfServicePage.tsx", () => ({
   TermsOfServicePage: () => <div data-testid="terms-page">Terms page</div>,
 }));
 
-vi.mock("@/components/PrivacyPolicyPage", () => ({
+vi.mock("#src/components/PrivacyPolicyPage.tsx", () => ({
   PrivacyPolicyPage: () => (
     <div data-testid="privacy-page">Privacy policy page</div>
   ),
 }));
 
-vi.mock("@/components/AuthenticatedAppRoutePage", () => ({
+vi.mock("#src/components/AuthenticatedAppRoutePage.tsx", () => ({
   AuthenticatedAppRoutePage: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
 }));
 
-vi.mock("@/components/LogoPreviewPage", () => ({
+vi.mock("#src/components/LogoPreviewPage.tsx", () => ({
   LogoPreviewPage: ({ renderMode }: { renderMode: string }) => (
     <div data-testid="logo-page">{renderMode}</div>
   ),
 }));
 
-vi.mock("@/components/LogoStaticSvgPage", () => ({
+vi.mock("#src/components/LogoStaticSvgPage.tsx", () => ({
   LogoStaticSvgPage: () => <div data-testid="logo-svg-page">Logo SVG page</div>,
 }));
 
-vi.mock("@/components/LogoSingleCubeStudyPage", () => ({
+vi.mock("#src/components/LogoSingleCubeStudyPage.tsx", () => ({
   LogoSingleCubeStudyPage: () => (
     <div data-testid="logo-iso-study-page">Logo iso study page</div>
   ),
 }));
 
-vi.mock("@/components/McpConsentRoutePage", () => ({
+vi.mock("#src/components/McpConsentRoutePage.tsx", () => ({
   McpConsentRoutePage: () => (
     <div data-testid="mcp-consent-page">MCP consent page</div>
   ),
 }));
 
-vi.mock("@/components/PricingPage", () => ({
+vi.mock("#src/components/PricingPage.tsx", () => ({
   PricingPage: () => <div data-testid="pricing-page">Pricing page</div>,
 }));
 
-vi.mock("@/components/AddRepository", () => ({
+vi.mock("#src/components/AddRepository.tsx", () => ({
   AddRepository: () => (
     <div data-testid="add-repository-page">Add repository page</div>
   ),
 }));
 
-vi.mock("@/components/MachinesWorkspacePage", () => ({
+vi.mock("#src/components/MachinesWorkspacePage.tsx", () => ({
   MachinesWorkspacePage: () => (
     <div data-testid="machines-page">Machines page</div>
   ),
 }));
 
-vi.mock("@/components/MachineConnectPage", () => ({
+vi.mock("#src/components/MachineConnectPage.tsx", () => ({
   MachineConnectPage: () => (
     <div data-testid="machine-connect-page">Machine connect page</div>
   ),
 }));
 
-vi.mock("@/components/LandingMarkdownPreviewPage", () => ({
+vi.mock("#src/components/LandingMarkdownPreviewPage.tsx", () => ({
   LandingMarkdownPreviewPage: () => (
     <div data-testid="landing-markdown-preview-page">
       Landing markdown preview page
@@ -154,29 +154,29 @@ vi.mock("@/components/LandingMarkdownPreviewPage", () => ({
   ),
 }));
 
-vi.mock("@/components/CodespaceChatOnlyView", () => ({
+vi.mock("#src/components/CodespaceChatOnlyView.tsx", () => ({
   CodespaceChatOnlyView: () => (
     <div data-testid="codespace-chat-page">Codespace chat page</div>
   ),
 }));
 
-vi.mock("@/components/FileView/FileView", () => ({
+vi.mock("#src/components/FileView/FileView.tsx", () => ({
   FileView: () => <div data-testid="file-view-page">File view page</div>,
 }));
 
-vi.mock("@/components/PitchDeckPage", () => ({
+vi.mock("#src/components/PitchDeckPage.tsx", () => ({
   PitchDeckPage: ({ mode }: { mode: string }) => (
     <div data-testid="pitch-deck-page">{mode}</div>
   ),
 }));
 
-vi.mock("@/components/LogoTransitionLabPage", () => ({
+vi.mock("#src/components/LogoTransitionLabPage.tsx", () => ({
   LogoTransitionLabPage: () => (
     <div data-testid="logo-transition-lab-page">Logo transition lab page</div>
   ),
 }));
 
-vi.mock("@/components/LogoTransitionTransformsLabPage", () => ({
+vi.mock("#src/components/LogoTransitionTransformsLabPage.tsx", () => ({
   LogoTransitionTransformsLabPage: () => (
     <div data-testid="logo-transition-transforms-lab-page">
       Logo transition transforms lab page
@@ -184,19 +184,19 @@ vi.mock("@/components/LogoTransitionTransformsLabPage", () => ({
   ),
 }));
 
-vi.mock("@/components/CodexAppServerResearchPage", () => ({
+vi.mock("#src/components/CodexAppServerResearchPage.tsx", () => ({
   CodexAppServerResearchPage: () => (
     <div data-testid="codex-research-page">Codex research page</div>
   ),
 }));
 
-vi.mock("@/components/CodexAppServerThreadBrowserResearchPage", () => ({
+vi.mock("#src/components/CodexAppServerThreadBrowserResearchPage.tsx", () => ({
   CodexAppServerThreadBrowserResearchPage: () => (
     <div data-testid="codex-thread-browser-page">Codex thread browser page</div>
   ),
 }));
 
-vi.mock("@/components/AppRootClient", async () => {
+vi.mock("#src/components/AppRootClient.tsx", async () => {
   const { Outlet } = await import("@tanstack/react-router");
 
   return {
@@ -204,7 +204,7 @@ vi.mock("@/components/AppRootClient", async () => {
   };
 });
 
-vi.mock("@/lib/rootHead", () => ({
+vi.mock("#src/lib/rootHead.ts", () => ({
   buildRootHead: () => ({
     links: [],
     meta: [],

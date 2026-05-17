@@ -1,9 +1,9 @@
-import { Layout, PublicLayoutShell } from "@/Layout";
-import { shouldRenderPublicLandingWithoutAuthGate } from "@/lib/publicLandingAuthState";
+import { Layout, PublicLayoutShell } from "#src/Layout.tsx";
+import { shouldRenderPublicLandingWithoutAuthGate } from "#src/lib/publicLandingAuthState.ts";
 import {
   type RootRouteSearch,
   useRootRouteSearch,
-} from "@/lib/rootRouteSearch";
+} from "#src/lib/rootRouteSearch.ts";
 import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
 import { useConvexAuth } from "convex/react";
 

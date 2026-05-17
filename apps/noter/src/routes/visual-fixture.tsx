@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { VisualFixturePage } from "@/visualFixture";
+import { VisualFixturePage } from "#src/visualFixture.tsx";
 
 type VisualFixtureRouteSearch = {
   mode?: string;

@@ -1,17 +1,18 @@
-import { Layout } from "@/Layout";
-import { SignInForm } from "@/SignInForm";
-import { ApprovalGate } from "@/components/ApprovalGate";
+import { Layout } from "#src/Layout.tsx";
+import { SignInForm } from "#src/SignInForm.tsx";
+import { ApprovalGate } from "#src/components/ApprovalGate.tsx";
 import { useLocation } from "@tanstack/react-router";
-import { resolvePageMetadata } from "@/lib/pageMetadata";
-import { shouldRenderPublicLandingWithoutAuthGate } from "@/lib/publicLandingAuthState";
-import { usePageMetadata } from "@/lib/usePageMetadata";
-import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
-import { useRootRouteSearch } from "@/lib/rootRouteSearch";
+import { resolvePageMetadata } from "#src/lib/pageMetadata.ts";
+import { shouldRenderPublicLandingWithoutAuthGate } from "#src/lib/publicLandingAuthState.ts";
+import { usePageMetadata } from "#src/lib/usePageMetadata.ts";
+import { useAppAuthRuntimeEffects } from "#src/lib/useAppAuthRuntimeEffects.ts";
+import { useRootRouteSearch } from "#src/lib/rootRouteSearch.ts";
 import { useConvexAuth, Authenticated } from "convex/react";
 import { lazy, Suspense, useMemo } from "react";
 
 const VaultDashboard = lazy(async () => {
-  const module = await import("@/components/vault-dashboard/VaultDashboard");
+  const module =
+    await import("#src/components/vault-dashboard/VaultDashboard.tsx");
   return { default: module.VaultDashboard };
 });
 

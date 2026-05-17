@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { LogoPreviewPage } from "@/components/LogoPreviewPage";
-import { validateLogoRouteSearch } from "@/lib/logoRouteSearch";
+import { LogoPreviewPage } from "#src/components/LogoPreviewPage.tsx";
+import { validateLogoRouteSearch } from "#src/lib/logoRouteSearch.ts";
 import { RoutedPage } from "./-publicRouteComponents";
 
 const pathname = "/logo/iso";

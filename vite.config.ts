@@ -1,8 +1,4 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite-plus";
-
-const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   fmt: {
@@ -141,11 +137,6 @@ export default defineConfig({
         },
       },
     ],
-  },
-  resolve: {
-    alias: {
-      "@": path.resolve(rootDir, "./apps/noter/src"),
-    },
   },
   staged: {
     "*.{cjs,css,cts,html,js,json,jsonc,jsonl,jsx,md,mjs,mts,ts,toml,tsx,yaml,yml}":

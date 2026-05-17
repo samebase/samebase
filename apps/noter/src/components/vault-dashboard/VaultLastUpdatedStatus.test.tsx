@@ -3,7 +3,7 @@
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
+import { VaultLastUpdatedStatus } from "#src/components/vault-dashboard/VaultLastUpdatedStatus.tsx";
 
 const { act } = React;
 Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);

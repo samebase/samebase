@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { readAppBuildCommit } from "@/lib/appBuildMetadata";
+import { readAppBuildCommit } from "#src/lib/appBuildMetadata.ts";
 
 afterEach(() => {
   vi.unstubAllGlobals();

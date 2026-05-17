@@ -2,8 +2,8 @@
 
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
 
-import { resolveBaseUiAsChild } from "@/lib/baseUiAsChild";
-import { cn } from "@/lib/utils";
+import { resolveBaseUiAsChild } from "#src/lib/baseUiAsChild.tsx";
+import { cn } from "#src/lib/utils.ts";
 
 function TooltipProvider({
   delayDuration,

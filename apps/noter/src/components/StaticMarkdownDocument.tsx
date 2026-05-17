@@ -1,9 +1,9 @@
 import { Fragment, type ReactNode } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "#src/lib/utils.ts";
 import {
   parseStaticMarkdown,
   type StaticMarkdownInlineSegment,
-} from "@/lib/staticMarkdown";
+} from "#src/lib/staticMarkdown.ts";
 
 type StaticMarkdownDocumentProps = {
   value: string;

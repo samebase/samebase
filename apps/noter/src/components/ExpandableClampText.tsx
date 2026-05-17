@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "#src/components/ui/button.tsx";
 import { clsx } from "clsx";
 import { ChevronDown } from "lucide-react";
 import { type KeyboardEvent, type MouseEvent } from "react";

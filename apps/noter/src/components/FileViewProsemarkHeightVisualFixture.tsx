@@ -4,21 +4,24 @@ import {
   GitHubLogoIcon,
   PersonIcon,
   PlusIcon,
-} from "@/lib/radixIcons";
-import { SidebarAccountSection } from "@/components/SidebarAccountSection";
-import { FileTree } from "@/components/FileTree";
-import { FileViewDeveloperTools } from "@/components/FileViewDeveloperTools";
-import { FileViewPushActions } from "@/components/FileViewPushActions";
-import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
-import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
-import { Button } from "@/components/ui/button";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { VaultSyncStatusContent } from "@/components/VaultSyncStatus";
-import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
-import { linkStyle } from "@/components/styles";
-import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
-import type { WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
-import type { FolderExpansionState } from "@/lib/fileTreeState";
+} from "#src/lib/radixIcons.tsx";
+import { SidebarAccountSection } from "#src/components/SidebarAccountSection.tsx";
+import { FileTree } from "#src/components/FileTree.tsx";
+import { FileViewDeveloperTools } from "#src/components/FileViewDeveloperTools.tsx";
+import { FileViewPushActions } from "#src/components/FileViewPushActions.tsx";
+import { RepositoryWorkspacePaneHeader } from "#src/components/RepositoryWorkspacePaneHeader.tsx";
+import { WorkspaceLayoutV2FixtureFrame } from "#src/components/WorkspaceLayoutV2FixtureFrame.tsx";
+import { Button } from "#src/components/ui/button.tsx";
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "#src/components/ui/toggle-group.tsx";
+import { VaultSyncStatusContent } from "#src/components/VaultSyncStatus.tsx";
+import { CodeMirrorFileSurface } from "#src/components/CodeMirrorFileSurface.tsx";
+import { linkStyle } from "#src/components/styles.tsx";
+import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "#src/lib/fileViewSidebarLayout.ts";
+import type { WorkspaceLayoutV2PaneFrameProps } from "#src/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame.tsx";
+import type { FolderExpansionState } from "#src/lib/fileTreeState.ts";
 
 export type FileViewProsemarkHeightVisualMode =
   "fileview-prosemark-flex-height";

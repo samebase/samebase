@@ -1,6 +1,6 @@
 import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { useEffect, useRef } from "react";
-import { formatRelativeTimeAgoWithSeconds } from "@/lib/formatRelativeTime";
+import { formatRelativeTimeAgoWithSeconds } from "#src/lib/formatRelativeTime.ts";
 
 const hasActiveTextSelection = () => {
   if (typeof window === "undefined") {

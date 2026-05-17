@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   getCodeMirrorFileLanguageKind,
   loadCodeMirrorLanguageExtension,
-} from "@/lib/codemirrorLanguage";
+} from "#src/lib/codemirrorLanguage.ts";
 
 describe("codemirrorLanguage", () => {
   it("keeps markdown files on the markdown parser path", () => {

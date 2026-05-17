@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { buildRootHead } from "@/lib/rootHead";
+import { buildRootHead } from "#src/lib/rootHead.ts";
 
 import {
   APP_PAGE_METADATA,

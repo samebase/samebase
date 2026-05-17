@@ -1,21 +1,21 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Input } from "@/components/input";
-import { Button } from "@/components/ui/button";
+import { Input } from "#src/components/input.tsx";
+import { Button } from "#src/components/ui/button.tsx";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
-} from "@/components/sheet";
+} from "#src/components/sheet.tsx";
 import {
   Dialog,
   DialogContent as DialogContentUI,
   DialogHeader,
   DialogTitle,
-} from "@/components/dialog";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { cn } from "@/lib/utils";
-import { fuzzyMatch, highlightMatches } from "@/lib/fuzzySearch.tsx";
+} from "#src/components/dialog.tsx";
+import { useIsMobile } from "#src/hooks/use-mobile.tsx";
+import { cn } from "#src/lib/utils.ts";
+import { fuzzyMatch, highlightMatches } from "#src/lib/fuzzySearch.tsx";
 
 interface FileTreeItem {
   path: string;

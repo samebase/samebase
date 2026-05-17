@@ -1,25 +1,25 @@
-import { PublicLayoutShell } from "@/Layout";
-import { FileTree, type FileTreeItem } from "@/components/FileTree";
-import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
+import { PublicLayoutShell } from "#src/Layout.tsx";
+import { FileTree, type FileTreeItem } from "#src/components/FileTree.tsx";
+import { MarkdownLandingDocument } from "#src/components/MarkdownLandingDocument.tsx";
 import {
   useWorkspacePaneState,
   type WorkspaceMobilePane,
-} from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
-import type { FolderExpansionState } from "@/lib/fileTreeState";
+} from "#src/components/workspace-layout-v2/WorkspacePaneRuntime.tsx";
+import type { FolderExpansionState } from "#src/lib/fileTreeState.ts";
 import {
   getLandingMarkdownHeadings,
   type LandingMarkdownHeading,
-} from "@/lib/landingMarkdownHeadings";
+} from "#src/lib/landingMarkdownHeadings.ts";
 import {
   LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID,
   LANDING_MARKDOWN_PREVIEW_DEFAULT_LANGUAGE,
   LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID,
   LANDING_MARKDOWN_PREVIEW_TEST_ID,
   type LandingMarkdownPreviewLanguage,
-} from "@/lib/landingMarkdownPreview";
-import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
-import landingPreviewMarkdown from "@/content/landing-preview.md?raw";
-import landingPreviewRomanianMarkdown from "@/content/landing-preview.ro.md?raw";
+} from "#src/lib/landingMarkdownPreview.ts";
+import { buildPathWithTanStackSearch } from "#src/lib/tanstackSearchParams.ts";
+import landingPreviewMarkdown from "#src/content/landing-preview.md?raw";
+import landingPreviewRomanianMarkdown from "#src/content/landing-preview.ro.md?raw";
 import {
   useEffect,
   useMemo,

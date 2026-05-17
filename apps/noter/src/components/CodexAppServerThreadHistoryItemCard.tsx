@@ -1,7 +1,7 @@
-import { Badge } from "@/components/ui/badge";
-import { ExpandableClampToggleButton } from "@/components/ExpandableClampText";
-import { useExpandableClampText } from "@/hooks/useExpandableClampText";
-import { type CodexAppServerThreadItem } from "@/lib/codexAppServerResearch";
+import { Badge } from "#src/components/ui/badge.tsx";
+import { ExpandableClampToggleButton } from "#src/components/ExpandableClampText.tsx";
+import { useExpandableClampText } from "#src/hooks/useExpandableClampText.ts";
+import { type CodexAppServerThreadItem } from "#src/lib/codexAppServerResearch.ts";
 import { clsx } from "clsx";
 
 type CodexAppServerThreadHistoryItemCardProps = {

@@ -1,10 +1,10 @@
-import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
+import { createStaticLogoSvgDataUrl } from "#src/components/logoStaticSvgAsset.ts";
 import {
   STATIC_LOGO_ELEVATION_DEGREES,
   STATIC_LOGO_ROTATION_DEGREES,
   STATIC_LOGO_VOXEL_STATE,
-} from "@/components/logoStaticSvgContract";
-import { normalizeRotationDegrees } from "@/components/logoVoxelState";
+} from "#src/components/logoStaticSvgContract.ts";
+import { normalizeRotationDegrees } from "#src/components/logoVoxelState.ts";
 import {
   PUBLIC_LANDING_LOGO_ALT,
   PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME,
@@ -17,7 +17,7 @@ import {
   PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
   PUBLIC_LANDING_LOGO_WIDTH,
   shouldRevealPublicLandingLogoLink,
-} from "@/lib/publicLandingLogo";
+} from "#src/lib/publicLandingLogo.ts";
 import {
   cacheRotatedLogoViewState,
   persistRotatedLogoViewState,
@@ -26,16 +26,16 @@ import {
   type RotatedLogoViewState,
   type RotatedLogoViewStateKey,
   type RotatedLogoViewStatePersistence,
-} from "@/lib/rotatedLogoViewState";
+} from "#src/lib/rotatedLogoViewState.ts";
 import {
   useResolvedAppThemeColorState,
   type LogoThemeColorSearchInput,
-} from "@/lib/appThemeColorSearch";
-import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
+} from "#src/lib/appThemeColorSearch.ts";
+import { useOptionalPublicLandingLogoLink } from "#src/hooks/useOptionalPublicLandingLogoLink.ts";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type LandingLogoSceneComponent =
-  typeof import("@/components/NLogoScene").NLogoScene;
+  typeof import("#src/components/NLogoScene.tsx").NLogoScene;
 
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 const AUTO_ROTATE_RESUME_DURATION_MS = 220;
@@ -132,7 +132,7 @@ export function PublicLandingLogo({
     let frameId2 = 0;
 
     const loadScene = () => {
-      void import("@/components/NLogoScene")
+      void import("#src/components/NLogoScene.tsx")
         .then((module) => {
           if (cancelled) {
             return;

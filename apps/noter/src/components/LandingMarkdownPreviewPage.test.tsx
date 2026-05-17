@@ -1,16 +1,16 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vite-plus/test";
-import { LandingMarkdownPreviewPage } from "@/components/LandingMarkdownPreviewPage";
-import { LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL } from "@/lib/landingMarkdownPreview";
+import { LandingMarkdownPreviewPage } from "#src/components/LandingMarkdownPreviewPage.tsx";
+import { LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL } from "#src/lib/landingMarkdownPreview.ts";
 
-vi.mock("@/Layout", () => ({
+vi.mock("#src/Layout.tsx", () => ({
   PublicLayoutShell: ({ children }: { children: ReactNode }) => (
     <div>{children}</div>
   ),
 }));
 
-vi.mock("@/components/MarkdownLandingDocument", () => ({
+vi.mock("#src/components/MarkdownLandingDocument.tsx", () => ({
   MarkdownLandingDocument: ({ markdown }: { markdown: string }) => (
     <article>{markdown}</article>
   ),

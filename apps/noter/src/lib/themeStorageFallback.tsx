@@ -1,6 +1,6 @@
 import { ThemeProvider } from "next-themes";
 import type { ReactNode } from "react";
-import type { RootThemeMode } from "@/lib/rootThemeModeSearch";
+import type { RootThemeMode } from "#src/lib/rootThemeModeSearch.ts";
 
 function canUseThemeStorage(): boolean {
   if (typeof window === "undefined") {

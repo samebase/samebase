@@ -1,13 +1,16 @@
 import { type ReactNode } from "react";
-import { ChevronDownIcon } from "@/lib/radixIcons";
-import { Button } from "@/components/ui/button";
+import { ChevronDownIcon } from "#src/lib/radixIcons.tsx";
+import { Button } from "#src/components/ui/button.tsx";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/collapsible";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+} from "#src/components/collapsible.tsx";
+import { Tabs, TabsList, TabsTrigger } from "#src/components/ui/tabs.tsx";
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "#src/components/ui/toggle-group.tsx";
 
 export type FileViewMode = "editor" | "graph";
 export type FileViewEditorOverride = "default" | "codemirror";

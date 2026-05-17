@@ -3,7 +3,7 @@ import {
   LANDING_DEV_MODE_DISABLE_LINK_LABEL,
   LANDING_DEV_MODE_LINK_LABEL,
   isLandingDevModeEnabled,
-} from "@/lib/landingDevMode";
+} from "#src/lib/landingDevMode.ts";
 
 describe("landingDevMode", () => {
   it("uses search-param-only labels for the dev shortcuts", () => {

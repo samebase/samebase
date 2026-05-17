@@ -3,7 +3,7 @@ import {
   type CodexThreadBrowserDetailState,
   type CodexThreadBrowserGroup,
   type CodexThreadBrowserMode,
-} from "@/components/CodexThreadBrowserView";
+} from "#src/components/CodexThreadBrowserView.tsx";
 import {
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
@@ -15,10 +15,10 @@ import {
   type CodexAppServerThread,
   type CodexAppServerThreadDetailResponse,
   type CodexAppServerThreadsResponse,
-} from "@/lib/codexAppServerResearch";
-import { buildCodexResearchRouteSearch } from "@/lib/codexResearchRouteSearch";
-import { dedupeCodexThreadsById } from "@/lib/codexThreadSidebar";
-import { useCodexThreadSidebarViewModel } from "@/hooks/useCodexThreadSidebarViewModel";
+} from "#src/lib/codexAppServerResearch.ts";
+import { buildCodexResearchRouteSearch } from "#src/lib/codexResearchRouteSearch.ts";
+import { dedupeCodexThreadsById } from "#src/lib/codexThreadSidebar.ts";
+import { useCodexThreadSidebarViewModel } from "#src/hooks/useCodexThreadSidebarViewModel.ts";
 import { getRouteApi, linkOptions, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 

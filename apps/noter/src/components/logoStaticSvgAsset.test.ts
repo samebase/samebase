@@ -4,13 +4,13 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   createLogoIdentityViewSvgMarkup,
   createStaticLogoSvgMarkup,
-} from "@/components/logoStaticSvgAsset";
+} from "#src/components/logoStaticSvgAsset.ts";
 import {
   LOGO_IDENTITY_EDIT_MARK_SVG_URL,
   LOGO_IDENTITY_VIEW_CONTRACTS,
   STATIC_LOGO_ELEVATION_DEGREES,
   type LogoIdentityViewId,
-} from "@/components/logoStaticSvgContract";
+} from "#src/components/logoStaticSvgContract.ts";
 
 function readPublicAsset(assetPath: string) {
   return readFileSync(

@@ -1,10 +1,10 @@
-import { Layout, PublicLayoutShell } from "@/Layout";
-import { ApprovalGate } from "@/components/ApprovalGate";
-import { buttonVariants } from "@/components/ui/button";
-import { resolveNotFoundPageMetadata } from "@/lib/pageMetadata";
-import { usePageMetadata } from "@/lib/usePageMetadata";
-import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
-import { useRootRouteSearch } from "@/lib/rootRouteSearch";
+import { Layout, PublicLayoutShell } from "#src/Layout.tsx";
+import { ApprovalGate } from "#src/components/ApprovalGate.tsx";
+import { buttonVariants } from "#src/components/ui/button.tsx";
+import { resolveNotFoundPageMetadata } from "#src/lib/pageMetadata.ts";
+import { usePageMetadata } from "#src/lib/usePageMetadata.ts";
+import { useAppAuthRuntimeEffects } from "#src/lib/useAppAuthRuntimeEffects.ts";
+import { useRootRouteSearch } from "#src/lib/rootRouteSearch.ts";
 import { Authenticated, Unauthenticated } from "convex/react";
 import { Link, useLocation } from "@tanstack/react-router";
 

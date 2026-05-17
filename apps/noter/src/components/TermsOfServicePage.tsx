@@ -1,4 +1,4 @@
-import { StaticMarkdownDocument } from "@/components/StaticMarkdownDocument";
+import { StaticMarkdownDocument } from "#src/components/StaticMarkdownDocument.tsx";
 import termsOfServiceMarkdown from "../content/terms-of-service.md?raw";
 
 export function TermsOfServicePage() {

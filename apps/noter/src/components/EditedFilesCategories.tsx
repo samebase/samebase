@@ -1,17 +1,22 @@
-import { Pencil1Icon, PlusIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
+import {
+  Pencil1Icon,
+  PlusIcon,
+  TrashIcon,
+  UpdateIcon,
+} from "#src/lib/radixIcons.tsx";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { api } from "../../convex/_generated/api";
 import { useCallback, useMemo, useState } from "react";
 import { linkStyle } from "./styles";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
+import { useCacheQuery as useQuery } from "#src/lib/convexQueryCache.ts";
 import {
   buildFileViewRouteSearch,
   mergeFileViewRouteSearch,
   validateFileViewRouteSearch,
-} from "@/lib/fileViewRouteSearch";
-import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
-import { buildVaultFileRoute } from "@/lib/vaultRoutes";
+} from "#src/lib/fileViewRouteSearch.ts";
+import { buildPathWithTanStackSearch } from "#src/lib/tanstackSearchParams.ts";
+import { buildVaultFileRoute } from "#src/lib/vaultRoutes.ts";
 import type { Id } from "../../convex/_generated/dataModel";
 
 type StagedFile = NonNullable<

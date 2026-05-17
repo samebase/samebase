@@ -1,4 +1,4 @@
-import { StaticMarkdownDocument } from "@/components/StaticMarkdownDocument";
+import { StaticMarkdownDocument } from "#src/components/StaticMarkdownDocument.tsx";
 import privacyPolicyMarkdown from "../content/privacy-policy.md?raw";
 
 export function PrivacyPolicyPage() {

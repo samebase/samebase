@@ -6,9 +6,9 @@ import {
   useRef,
   useState,
 } from "react";
-import type { ProsemarkMergeEditorOptions } from "@/components/ProsemarkMergeEditor";
-import { getReviewSplitDiffHighlights } from "@/lib/reviewSplitDiff";
-import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
+import type { ProsemarkMergeEditorOptions } from "#src/components/ProsemarkMergeEditor.tsx";
+import { getReviewSplitDiffHighlights } from "#src/lib/reviewSplitDiff.ts";
+import { usePageLeaveGuard } from "#src/lib/pageLeaveGuard.ts";
 import { isStaleBaseVersionError } from "../../../shared/stagingErrors";
 import {
   buildInlinePreviewAutosaveContextKey,

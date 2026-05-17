@@ -4,13 +4,13 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { PasswordAuthForm } from "@/components/PublicLandingAuthControls";
+import { PasswordAuthForm } from "#src/components/PublicLandingAuthControls.tsx";
 
 const { signInWithPasswordMock } = vi.hoisted(() => ({
   signInWithPasswordMock: vi.fn(),
 }));
 
-vi.mock("@/authClient", () => ({
+vi.mock("#src/authClient.ts", () => ({
   useNoterSignInActions: () => ({
     signInWithPassword: signInWithPasswordMock,
   }),

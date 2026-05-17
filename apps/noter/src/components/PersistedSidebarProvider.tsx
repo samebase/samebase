@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
-import { WorkspacePaneRuntimeProvider } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
-import { usePersistedWorkspaceSidebarState } from "@/hooks/usePersistedWorkspaceSidebarState";
+import { WorkspacePaneRuntimeProvider } from "#src/components/workspace-layout-v2/WorkspacePaneRuntime.tsx";
+import { usePersistedWorkspaceSidebarState } from "#src/hooks/usePersistedWorkspaceSidebarState.ts";
 import type {
   WorkspaceSidebarState,
   WorkspaceSidebarStateKey,

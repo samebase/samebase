@@ -7,8 +7,8 @@ import {
   isLikelyStaleAssetError,
   resetLocalAppData,
   stripRecoveryReloadParam,
-} from "@/lib/appBootRecovery";
-import { CONVEX_QUERY_CACHE_DB_NAME } from "@/lib/convexQueryCacheStorage";
+} from "#src/lib/appBootRecovery.ts";
+import { CONVEX_QUERY_CACHE_DB_NAME } from "#src/lib/convexQueryCacheStorage.ts";
 
 const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
   window,

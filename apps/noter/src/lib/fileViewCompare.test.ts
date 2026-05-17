@@ -4,7 +4,7 @@ import {
   buildStagingPreviewRefreshKey,
   getBranchComparePreviewReloadMode,
   getPreviewBaseFilePath,
-} from "@/lib/fileViewCompare";
+} from "#src/lib/fileViewCompare.ts";
 
 describe("getBranchComparePreviewReloadMode", () => {
   it("reloads immediately when compare mode mounts for a target", () => {

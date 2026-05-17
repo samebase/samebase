@@ -1,6 +1,6 @@
-import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
+import { ProsemarkReadOnly } from "#src/components/ProsemarkReadOnly.tsx";
+import { Checkbox } from "#src/components/ui/checkbox.tsx";
+import { Label } from "#src/components/ui/label.tsx";
 import type { CommitPreviewFile } from "./fileViewShared";
 import { getPatchLineClassName } from "./fileViewShared";
 

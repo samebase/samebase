@@ -1,14 +1,19 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
-import { Input } from "@/components/input";
-import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "#src/components/card.tsx";
+import { Input } from "#src/components/input.tsx";
+import { Button } from "#src/components/ui/button.tsx";
 import {
   DEFAULT_CORNER_NOTCH_TYPE,
   CORNER_NOTCH_TYPES,
   EMPHASIZED_BORDER_CLASS,
   getCornerNotchClass,
   type CornerNotchType,
-} from "@/lib/cornerNotch";
-import { cn } from "@/lib/utils";
+} from "#src/lib/cornerNotch.ts";
+import { cn } from "#src/lib/utils.ts";
 
 function FixtureBar({ className }: { className?: string }) {
   return (

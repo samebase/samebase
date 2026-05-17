@@ -1,12 +1,12 @@
-import { Button } from "@/components/ui/button";
-import { ConnectedMachineHeartbeatLogSection } from "@/components/ConnectedMachineHeartbeatLog";
-import { AppPageScrollShell } from "@/components/AppPageScrollShell";
+import { Button } from "#src/components/ui/button.tsx";
+import { ConnectedMachineHeartbeatLogSection } from "#src/components/ConnectedMachineHeartbeatLog.tsx";
+import { AppPageScrollShell } from "#src/components/AppPageScrollShell.tsx";
 import { Link, getRouteApi } from "@tanstack/react-router";
-import { useNow } from "@/hooks/useNow";
+import { useNow } from "#src/hooks/useNow.ts";
 import {
   formatConnectedMachineHeartbeatTimestamp,
   useConnectedMachineHeartbeatLog,
-} from "@/lib/connectedMachineHeartbeatLog";
+} from "#src/lib/connectedMachineHeartbeatLog.ts";
 import {
   buildMachinesWorkspaceLinkOptions,
   buildDirectNoterSyncConnectCommand,
@@ -14,8 +14,8 @@ import {
   buildNoterSyncScriptUrl,
   buildPublishedNoterSyncConnectCommand,
   buildPublishedNoterSyncRunCommand,
-} from "@/lib/noterSync";
-import { type MachineConnectRouteSearch } from "@/lib/authenticatedRouteSearch";
+} from "#src/lib/noterSync.ts";
+import { type MachineConnectRouteSearch } from "#src/lib/authenticatedRouteSearch.ts";
 import {
   resolveAuthoritativeNow,
   resolveConnectedMachineStatus,
@@ -26,7 +26,7 @@ import { Check, Copy, ExternalLink, Loader2 } from "lucide-react";
 import { useEffect, useState, type ReactElement } from "react";
 import type { ConnectedMachineView } from "../../convex/connectedMachineModel";
 import { api } from "../../convex/_generated/api";
-import { MACHINE_CONNECT_ROUTE } from "@/lib/noterSync";
+import { MACHINE_CONNECT_ROUTE } from "#src/lib/noterSync.ts";
 
 type CopyableCommandBlockProps = {
   command: string;

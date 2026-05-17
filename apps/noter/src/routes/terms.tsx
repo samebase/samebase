@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { TermsOfServicePage } from "@/components/TermsOfServicePage";
+import { TermsOfServicePage } from "#src/components/TermsOfServicePage.tsx";
 import { RoutedPage } from "./-publicRouteComponents";
 
 function TermsRouteComponent() {

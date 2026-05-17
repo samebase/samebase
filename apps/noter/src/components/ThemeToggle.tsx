@@ -1,7 +1,10 @@
 "use client";
 
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { DesktopIcon, MoonIcon, SunIcon } from "@/lib/radixIcons";
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "#src/components/ui/toggle-group.tsx";
+import { DesktopIcon, MoonIcon, SunIcon } from "#src/lib/radixIcons.tsx";
 import { useTheme } from "next-themes";
 
 export function ThemeToggle() {

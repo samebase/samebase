@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   prosemarkMergeViewConfigsEqual,
   resolveProsemarkMergeViewConfig,
-} from "@/lib/prosemarkMergeViewConfig";
+} from "#src/lib/prosemarkMergeViewConfig.ts";
 
 const NO_INLINE_DIFFS = false;
 const SYNTAX_HIGHLIGHT_DELETIONS = true;

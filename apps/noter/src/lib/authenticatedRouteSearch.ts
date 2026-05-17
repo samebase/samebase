@@ -1,4 +1,4 @@
-import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
+import { normalizeRouteSearchPresenceFlags } from "#src/lib/routeSearchFlags.ts";
 import { z } from "zod";
 
 function readOptionalString(value: unknown): string | undefined {

@@ -1,7 +1,12 @@
-import { ConvexLogo } from "@/GetStarted/ConvexLogo";
-import { Code } from "@/components/Code";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
+import { ConvexLogo } from "#src/GetStarted/ConvexLogo.tsx";
+import { Code } from "#src/components/Code.tsx";
+import { Button } from "#src/components/ui/button.tsx";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "#src/components/card.tsx";
 import {
   Dialog,
   DialogClose,
@@ -10,14 +15,14 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/dialog";
+} from "#src/components/dialog.tsx";
 import {
   CodeIcon,
   ExternalLinkIcon,
   MagicWandIcon,
   PlayIcon,
   StackIcon,
-} from "@/lib/radixIcons";
+} from "#src/lib/radixIcons.tsx";
 import { ReactNode } from "react";
 
 export function GetStartedDialog({ children }: { children: ReactNode }) {

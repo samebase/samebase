@@ -1,10 +1,10 @@
 import { api } from "../../../convex/_generated/api";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import type { GithubTree } from "../../../convex/schema";
-import type { ProsemarkMergeEditorOptions } from "@/components/ProsemarkMergeEditor";
-import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "@/lib/commitReviewStatus";
-import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
-import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
+import type { ProsemarkMergeEditorOptions } from "#src/components/ProsemarkMergeEditor.tsx";
+import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "#src/lib/commitReviewStatus.ts";
+import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "#src/lib/fileViewSidebarLayout.ts";
+import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "#src/lib/workspacePaneSizes.ts";
 import { getStagedFileStatus as getSharedStagedFileStatus } from "../../../shared/stagedFiles";
 
 /**

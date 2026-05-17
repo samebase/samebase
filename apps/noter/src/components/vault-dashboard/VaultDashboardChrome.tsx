@@ -1,14 +1,14 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { PublicLandingLogo } from "@/components/PublicLandingLogo";
-import { type LogoThemeColorSearchInput } from "@/lib/appThemeColorSearch";
-import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
-import { Button } from "@/components/ui/button";
+import { PublicLandingLogo } from "#src/components/PublicLandingLogo.tsx";
+import { type LogoThemeColorSearchInput } from "#src/lib/appThemeColorSearch.ts";
+import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "#src/lib/rotatedLogoViewState.ts";
+import { Button } from "#src/components/ui/button.tsx";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/collapsible";
-import { ChevronDownIcon, PersonIcon } from "@/lib/radixIcons";
+} from "#src/components/collapsible.tsx";
+import { ChevronDownIcon, PersonIcon } from "#src/lib/radixIcons.tsx";
 import { Loader2 } from "lucide-react";
 import { clsx } from "clsx";
 

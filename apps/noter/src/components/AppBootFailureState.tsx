@@ -4,8 +4,8 @@ import {
   readBootFailureMessage,
   reloadApp,
   resetLocalAppData,
-} from "@/lib/appBootRecovery";
-import { readAppBuildCommit } from "@/lib/appBuildMetadata";
+} from "#src/lib/appBootRecovery.ts";
+import { readAppBuildCommit } from "#src/lib/appBuildMetadata.ts";
 
 type AppBootFailureStateProps = {
   error: unknown;

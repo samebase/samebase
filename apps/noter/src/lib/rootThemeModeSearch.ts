@@ -1,7 +1,7 @@
 import {
   normalizeRouteSearchPresenceFlags,
   type SearchPatch,
-} from "@/lib/routeSearchFlags";
+} from "#src/lib/routeSearchFlags.ts";
 import { z } from "zod";
 
 export const ROOT_THEME_MODE_SEARCH_KEYS = ["light", "dark"] as const;

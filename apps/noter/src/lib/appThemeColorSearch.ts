@@ -16,11 +16,11 @@ import {
   type LogoColorThemeMode,
   type LogoThemeColorKey,
   type LogoThemeColors,
-} from "@/components/logoTailwindColors";
+} from "#src/components/logoTailwindColors.ts";
 import {
   useDocumentThemeMode,
   type DocumentThemeMode,
-} from "@/hooks/useDocumentThemeMode";
+} from "#src/hooks/useDocumentThemeMode.ts";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 

@@ -4,10 +4,10 @@ import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useLocation } from "@tanstack/react-router";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
-import { isMarkdownVideoUrl } from "@/lib/landingMarkdownMedia";
-import { LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL } from "@/lib/landingMarkdownPreview";
-import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { MarkdownLandingDocument } from "#src/components/MarkdownLandingDocument.tsx";
+import { isMarkdownVideoUrl } from "#src/lib/landingMarkdownMedia.ts";
+import { LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL } from "#src/lib/landingMarkdownPreview.ts";
+import { TestRouterProvider } from "#src/test/TestRouterProvider.tsx";
 
 const { act } = React;
 Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);

@@ -2,18 +2,18 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
-} from "@/components/logoIsometricRenderer";
-import { DEFAULT_LOGO_THEME_COLORS } from "@/components/logoTailwindColors";
+} from "#src/components/logoIsometricRenderer.ts";
+import { DEFAULT_LOGO_THEME_COLORS } from "#src/components/logoTailwindColors.ts";
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_ROTATION_DEGREES,
   DEFAULT_VOXEL_STATE,
-} from "@/components/logoVoxelState";
+} from "#src/components/logoVoxelState.ts";
 import {
   buildLogoRouteSearch,
   preserveLogoRouteDevModeSearch,
   validateLogoRouteSearch,
-} from "@/lib/logoRouteSearch";
+} from "#src/lib/logoRouteSearch.ts";
 
 describe("logoRouteSearch", () => {
   it("normalizes logo route search into typed values", () => {

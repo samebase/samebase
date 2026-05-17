@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Layout } from "@/Layout";
-import { LocalStorageWorkspacePage } from "@/components/LocalStorageWorkspacePage";
+import { Layout } from "#src/Layout.tsx";
+import { LocalStorageWorkspacePage } from "#src/components/LocalStorageWorkspacePage.tsx";
 import { RoutedPage } from "./-publicRouteComponents";
 
 function LocalStorageRouteComponent() {

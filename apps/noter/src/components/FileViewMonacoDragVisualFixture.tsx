@@ -1,9 +1,9 @@
-import { PersonIcon } from "@/lib/radixIcons";
-import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
-import { SidebarAccountSection } from "@/components/SidebarAccountSection";
-import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
-import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
-import { Button } from "@/components/ui/button";
+import { PersonIcon } from "#src/lib/radixIcons.tsx";
+import { RepositoryWorkspacePaneHeader } from "#src/components/RepositoryWorkspacePaneHeader.tsx";
+import { SidebarAccountSection } from "#src/components/SidebarAccountSection.tsx";
+import { MonacoEditorSurface } from "#src/components/MonacoEditorSurface.tsx";
+import { WorkspaceLayoutV2FixtureFrame } from "#src/components/WorkspaceLayoutV2FixtureFrame.tsx";
+import { Button } from "#src/components/ui/button.tsx";
 
 export type FileViewMonacoDragVisualMode =
   | "fileview-monaco-drag"

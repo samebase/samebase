@@ -1,7 +1,7 @@
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { formatProvisioningLogText } from "@/lib/provisioningLog";
+import { formatProvisioningLogText } from "#src/lib/provisioningLog.ts";
 
 export function VaultProvisioningLogTextarea(props: {
   repositoryFullName: string;

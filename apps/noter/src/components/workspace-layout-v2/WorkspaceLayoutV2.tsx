@@ -1,5 +1,5 @@
 import { useRef, type ReactElement } from "react";
-import { useElementSize } from "@/hooks/useElementSize";
+import { useElementSize } from "#src/hooks/useElementSize.ts";
 import {
   useWorkspaceLayoutV2Actions,
   useWorkspaceLayoutV2Selector,
@@ -7,8 +7,8 @@ import {
   useWorkspacePaneState,
   type WorkspacePaneState,
 } from "./WorkspacePaneRuntime";
-import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
-import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
+import { isLandingDevModeEnabled } from "#src/lib/landingDevMode.ts";
+import { parseTanStackSearch } from "#src/lib/tanstackSearchParams.ts";
 import {
   type WorkspaceLayoutV2BottomPanelProps,
   WorkspaceLayoutV2MainViewportWithPanel,

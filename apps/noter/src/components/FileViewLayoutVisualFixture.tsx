@@ -1,12 +1,12 @@
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { FileViewMainHeader } from "@/components/FileView/FileViewMainHeader";
-import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
-import { Button } from "@/components/ui/button";
-import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
-import type { WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
-import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
-import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { FileViewMainHeader } from "#src/components/FileView/FileViewMainHeader.tsx";
+import { SidebarHomeAccountHeader } from "#src/components/SidebarHomeAccountHeader.tsx";
+import { Button } from "#src/components/ui/button.tsx";
+import { WorkspaceLayoutV2FixtureFrame } from "#src/components/WorkspaceLayoutV2FixtureFrame.tsx";
+import type { WorkspaceLayoutV2PaneFrameProps } from "#src/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame.tsx";
+import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "#src/lib/fileViewSidebarLayout.ts";
+import { TestRouterProvider } from "#src/test/TestRouterProvider.tsx";
 
 export type FileViewLayoutVisualMode =
   | "fileview-layout"

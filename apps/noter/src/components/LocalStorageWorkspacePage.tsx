@@ -1,8 +1,8 @@
 import { FileText } from "lucide-react";
-import { PublicLayoutShell } from "@/Layout";
-import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
-import { useBrowserLocalStorageSnapshot } from "@/hooks/useBrowserLocalStorageSnapshot";
-import { type LocalStorageSnapshot } from "@/lib/localStorageSnapshot";
+import { PublicLayoutShell } from "#src/Layout.tsx";
+import { RepositoryWorkspacePaneHeader } from "#src/components/RepositoryWorkspacePaneHeader.tsx";
+import { useBrowserLocalStorageSnapshot } from "#src/hooks/useBrowserLocalStorageSnapshot.ts";
+import { type LocalStorageSnapshot } from "#src/lib/localStorageSnapshot.ts";
 
 function LocalStorageSidebarContent() {
   return (

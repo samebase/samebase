@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Layout } from "@/Layout";
-import { LandingMarkdownPreviewPage } from "@/components/LandingMarkdownPreviewPage";
+import { Layout } from "#src/Layout.tsx";
+import { LandingMarkdownPreviewPage } from "#src/components/LandingMarkdownPreviewPage.tsx";
 import {
   resolveLandingMarkdownPreviewLanguage,
   validateLandingMarkdownPreviewRouteSearch,
-} from "@/lib/landingMarkdownPreview";
-import { LANDING_MARKDOWN_PREVIEW_PAGE_METADATA } from "@/lib/pageMetadata";
-import { usePageMetadata } from "@/lib/usePageMetadata";
+} from "#src/lib/landingMarkdownPreview.ts";
+import { LANDING_MARKDOWN_PREVIEW_PAGE_METADATA } from "#src/lib/pageMetadata.ts";
+import { usePageMetadata } from "#src/lib/usePageMetadata.ts";
 
 function LandingPreviewRouteComponent() {
   usePageMetadata(LANDING_MARKDOWN_PREVIEW_PAGE_METADATA);

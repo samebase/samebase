@@ -1,10 +1,10 @@
-import { DialogProvider } from "@/contexts/DialogContext";
+import { DialogProvider } from "#src/contexts/DialogContext.tsx";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
-import { RepositoryRouteConnectState } from "@/components/RepositoryRouteConnectState";
-import { WorkspaceLayoutV2MemorySidebarProvider } from "@/components/workspace-layout-v2/WorkspaceLayoutV2MemorySidebarProvider";
-import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
-import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
-import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { RepositoryRouteConnectState } from "#src/components/RepositoryRouteConnectState.tsx";
+import { WorkspaceLayoutV2MemorySidebarProvider } from "#src/components/workspace-layout-v2/WorkspaceLayoutV2MemorySidebarProvider.tsx";
+import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "#src/lib/fileViewSidebarLayout.ts";
+import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "#src/lib/workspacePaneSizes.ts";
+import { TestRouterProvider } from "#src/test/TestRouterProvider.tsx";
 
 export type RepositoryRouteConnectStateVisualMode =
   | "file-view-connect-repository"

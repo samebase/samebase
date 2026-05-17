@@ -7,7 +7,7 @@ import {
   buildNoterSyncScriptUrl,
   buildPublishedNoterSyncConnectCommand,
   buildPublishedNoterSyncRunCommand,
-} from "@/lib/noterSync";
+} from "#src/lib/noterSync.ts";
 
 describe("noterSync", () => {
   it("builds the deploy-scoped noter sync script URL", () => {

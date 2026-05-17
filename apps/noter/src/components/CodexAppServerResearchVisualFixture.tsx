@@ -1,9 +1,9 @@
-import { ConnectedMachineHeartbeatLogSection } from "@/components/ConnectedMachineHeartbeatLog";
-import { CodexAppServerSelectedThreadCard } from "@/components/CodexAppServerResearchPage";
+import { ConnectedMachineHeartbeatLogSection } from "#src/components/ConnectedMachineHeartbeatLog.tsx";
+import { CodexAppServerSelectedThreadCard } from "#src/components/CodexAppServerResearchPage.tsx";
 import {
   type CodexAppServerThread,
   type CodexAppServerThreadTurn,
-} from "@/lib/codexAppServerResearch";
+} from "#src/lib/codexAppServerResearch.ts";
 
 export type CodexAppServerResearchVisualMode = "codex-app-server-research";
 

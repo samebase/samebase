@@ -1,5 +1,5 @@
 import { forwardRef, type ComponentPropsWithoutRef } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "#src/lib/utils.ts";
 
 type AppPageScrollShellProps = ComponentPropsWithoutRef<"div">;
 

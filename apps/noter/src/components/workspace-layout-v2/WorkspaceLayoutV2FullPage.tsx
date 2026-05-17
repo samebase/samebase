@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
-import { Button } from "@/components/ui/button";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { Button } from "#src/components/ui/button.tsx";
+import { useIsMobile } from "#src/hooks/use-mobile.tsx";
 import { PanelLeft, PanelRight } from "lucide-react";
 import {
   WorkspaceLayoutV2PaneFrame,

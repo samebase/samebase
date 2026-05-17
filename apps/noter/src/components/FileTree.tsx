@@ -15,28 +15,28 @@ import {
   FilePlusIcon,
   TrashIcon,
   UpdateIcon,
-} from "@/lib/radixIcons";
-import { cn } from "@/lib/utils";
+} from "#src/lib/radixIcons.tsx";
+import { cn } from "#src/lib/utils.ts";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/tooltip";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { DialogContext } from "@/contexts/dialog-context-state";
+} from "#src/components/tooltip.tsx";
+import { useIsMobile } from "#src/hooks/use-mobile.tsx";
+import { DialogContext } from "#src/contexts/dialog-context-state.ts";
 import {
   getCommitStatusTextClassName,
   type CommitReviewFileStatus,
-} from "@/lib/commitReviewStatus";
+} from "#src/lib/commitReviewStatus.ts";
 import {
   buildEffectiveFolderExpansionStates,
   type FolderExpansionState,
-} from "@/lib/fileTreeState";
+} from "#src/lib/fileTreeState.ts";
 import {
   getFileTreeTooltipText,
   getRestoreDeletionLabel,
-} from "@/lib/fileTreeLabels";
+} from "#src/lib/fileTreeLabels.ts";
 
 const FILE_TREE_BASE_PADDING_PX = 4;
 const FILE_TREE_LEVEL_INDENT_PX = 6;

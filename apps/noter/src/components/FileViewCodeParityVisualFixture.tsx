@@ -1,23 +1,23 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { PersonIcon } from "@/lib/radixIcons";
+import { PersonIcon } from "#src/lib/radixIcons.tsx";
 import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { toCanvas } from "html-to-image";
 import { prosemarkBaseThemeSetup, prosemarkBasicSetup } from "@prosemark/core";
 import { useTheme } from "next-themes";
-import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
-import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
-import { SidebarAccountSection } from "@/components/SidebarAccountSection";
-import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/input";
-import { getProsemarkFileThemeExtensions } from "@/components/prosemarkSurface";
+import { MonacoEditorSurface } from "#src/components/MonacoEditorSurface.tsx";
+import { RepositoryWorkspacePaneHeader } from "#src/components/RepositoryWorkspacePaneHeader.tsx";
+import { SidebarAccountSection } from "#src/components/SidebarAccountSection.tsx";
+import { WorkspaceLayoutV2FixtureFrame } from "#src/components/WorkspaceLayoutV2FixtureFrame.tsx";
+import { Button } from "#src/components/ui/button.tsx";
+import { Input } from "#src/components/input.tsx";
+import { getProsemarkFileThemeExtensions } from "#src/components/prosemarkSurface.ts";
 import {
   getCodeMirrorFileLanguageKind,
   getInitialCodeMirrorLanguageExtension,
   loadCodeMirrorLanguageExtension,
-} from "@/lib/codemirrorLanguage";
-import { fileCodeMirrorBaseExtensions } from "@/lib/fileCodeMirrorBaseExtensions";
+} from "#src/lib/codemirrorLanguage.ts";
+import { fileCodeMirrorBaseExtensions } from "#src/lib/fileCodeMirrorBaseExtensions.ts";
 
 export type FileViewCodeParityVisualMode = "file-view-code-parity";
 

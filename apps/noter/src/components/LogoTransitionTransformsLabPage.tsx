@@ -1,14 +1,14 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "#src/components/ui/button.tsx";
 import { Link } from "@tanstack/react-router";
 import {
   STATIC_LOGO_ELEVATION_DEGREES,
   STATIC_LOGO_ROTATION_DEGREES,
-} from "@/components/logoStaticSvgContract";
+} from "#src/components/logoStaticSvgContract.ts";
 import {
   TRANSFORM_LAB_VIEW_BOX,
   createTransformLabScene,
-} from "@/components/logoTransitionTransformFaces";
-import { normalizeRotationDegrees } from "@/components/logoVoxelState";
+} from "#src/components/logoTransitionTransformFaces.ts";
+import { normalizeRotationDegrees } from "#src/components/logoVoxelState.ts";
 import { useEffect, useMemo, useState } from "react";
 
 const ROTATION_PRESETS = [0, 45, 90, 135, 180, 225, 270, 315] as const;

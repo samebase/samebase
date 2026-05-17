@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
-import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
+import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "#src/lib/workspacePaneSizes.ts";
 import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2FullPage";
 import { WorkspaceLayoutV2MemorySidebarProvider } from "./WorkspaceLayoutV2MemorySidebarProvider";
 import { WorkspaceLayoutV2PaneFrame } from "./WorkspaceLayoutV2PaneFrame";

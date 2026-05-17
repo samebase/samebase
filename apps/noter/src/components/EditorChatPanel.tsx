@@ -14,10 +14,10 @@ import {
   ChevronRight,
   Plus,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { ChatInput, type ChatInputHandle } from "@/components/ChatInput";
-import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
-import { EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME } from "@/components/editorChatLayout";
+import { cn } from "#src/lib/utils.ts";
+import { ChatInput, type ChatInputHandle } from "#src/components/ChatInput.tsx";
+import { ProsemarkReadOnly } from "#src/components/ProsemarkReadOnly.tsx";
+import { EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME } from "#src/components/editorChatLayout.ts";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
@@ -29,7 +29,7 @@ import {
   type MessageMetadata,
   type ProdReadProposalPayload as ProdReadProposal,
 } from "../../shared/chatMetadata";
-import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
+import { usePageLeaveGuard } from "#src/lib/pageLeaveGuard.ts";
 
 // --- Metadata parsing ---
 

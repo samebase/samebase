@@ -1,8 +1,8 @@
-import { GitHubLogoIcon } from "@/lib/radixIcons";
-import { FileTree } from "@/components/FileTree";
-import { MediaUploadDialog } from "@/components/MediaUploadDialog";
-import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
-import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
+import { GitHubLogoIcon } from "#src/lib/radixIcons.tsx";
+import { FileTree } from "#src/components/FileTree.tsx";
+import { MediaUploadDialog } from "#src/components/MediaUploadDialog.tsx";
+import { RepositoryWorkspacePaneHeader } from "#src/components/RepositoryWorkspacePaneHeader.tsx";
+import { WorkspaceLayoutV2FixtureFrame } from "#src/components/WorkspaceLayoutV2FixtureFrame.tsx";
 
 const SIDEBAR_MEDIA_UPLOAD_VISUAL_FIXTURE_FONT_RULES = `
   [data-sidebar-media-upload-visual-fixture-font],

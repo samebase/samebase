@@ -1,6 +1,6 @@
-import { useAutoSignIn } from "@/authClient";
-import { useCloseOAuthPopup } from "@/lib/useCloseOAuthPopup";
-import { type RootRouteSearch } from "@/lib/rootRouteSearch";
+import { useAutoSignIn } from "#src/authClient.ts";
+import { useCloseOAuthPopup } from "#src/lib/useCloseOAuthPopup.ts";
+import { type RootRouteSearch } from "#src/lib/rootRouteSearch.ts";
 import { useRouter } from "@tanstack/react-router";
 import { useConvexAuth } from "convex/react";
 import { useEffect } from "react";

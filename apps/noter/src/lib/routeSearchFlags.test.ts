@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   applySearchPatch,
   normalizeRouteSearchPresenceFlags,
-} from "@/lib/routeSearchFlags";
+} from "#src/lib/routeSearchFlags.ts";
 
 describe("routeSearchFlags", () => {
   it("normalizes URLSearchParams flags by key presence", () => {

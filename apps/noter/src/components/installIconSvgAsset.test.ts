@@ -4,7 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   createInstallIconSvgMarkup,
   INSTALL_ICON_BACKGROUND_COLOR,
-} from "@/components/installIconSvgAsset";
+} from "#src/components/installIconSvgAsset.ts";
 
 describe("installIconSvgAsset", () => {
   it("keeps the committed install icon svg in sync with the generated markup", () => {

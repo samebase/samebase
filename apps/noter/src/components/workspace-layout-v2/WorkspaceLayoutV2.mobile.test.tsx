@@ -11,7 +11,7 @@ import {
   it,
   vi,
 } from "vite-plus/test";
-import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
+import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "#src/lib/workspacePaneSizes.ts";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2FullPage";
 import { type WorkspaceLayoutV2MobileMinResizeBehavior } from "./WorkspaceLayoutV2Geometry";

@@ -1,6 +1,6 @@
-import { ClockIcon } from "@/lib/radixIcons";
+import { ClockIcon } from "#src/lib/radixIcons.tsx";
 import { Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "#src/lib/utils.ts";
 
 export function ChangedFilesLoadingState({
   elapsedLabel,

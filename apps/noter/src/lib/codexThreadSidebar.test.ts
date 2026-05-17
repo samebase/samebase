@@ -1,8 +1,8 @@
 import {
   buildCodexThreadSidebarViewModel,
   dedupeCodexThreadsById,
-} from "@/lib/codexThreadSidebar";
-import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
+} from "#src/lib/codexThreadSidebar.ts";
+import type { CodexAppServerThread } from "#src/lib/codexAppServerResearch.ts";
 import { describe, expect, it } from "vite-plus/test";
 
 const PROJECT_ROOT = "/Users/fixture/dev/noter";

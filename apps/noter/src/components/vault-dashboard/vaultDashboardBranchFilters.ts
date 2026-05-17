@@ -1,7 +1,7 @@
 import {
   normalizePullRequestLabels,
   type PullRequestLabelInput,
-} from "@/lib/pullRequestLabels";
+} from "#src/lib/pullRequestLabels.ts";
 
 export type VaultBranchFilters = {
   hiddenLabels: string[];

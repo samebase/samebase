@@ -16,9 +16,9 @@ import rehypeSanitize, {
   type Options as RehypeSanitizeOptions,
 } from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
-import { getLandingMarkdownHeadings } from "@/lib/landingMarkdownHeadings";
-import { isMarkdownVideoUrl } from "@/lib/landingMarkdownMedia";
-import { cn } from "@/lib/utils";
+import { getLandingMarkdownHeadings } from "#src/lib/landingMarkdownHeadings.ts";
+import { isMarkdownVideoUrl } from "#src/lib/landingMarkdownMedia.ts";
+import { cn } from "#src/lib/utils.ts";
 
 const SANITIZED_VIDEO_ATTRIBUTES: string[] = [
   "ariaLabel",

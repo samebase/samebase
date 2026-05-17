@@ -3,12 +3,12 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   STATIC_LOGO_ELEVATION_DEGREES,
   STATIC_LOGO_ROTATION_DEGREES,
-} from "@/components/logoStaticSvgContract";
+} from "#src/components/logoStaticSvgContract.ts";
 import {
   TRANSFORM_LAB_VIEW_BOX,
   createTransformLabScene,
   createTransformLabSvgMarkup,
-} from "@/components/logoTransitionTransformFaces";
+} from "#src/components/logoTransitionTransformFaces.ts";
 
 describe("logoTransitionTransformFaces", () => {
   it("builds a six-face single cube scene from transform matrices", () => {

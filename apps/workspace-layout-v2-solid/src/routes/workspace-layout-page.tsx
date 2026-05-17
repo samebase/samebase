@@ -1,6 +1,6 @@
 import { onCleanup, onMount, type JSX } from "solid-js";
-import { MonacoSurface } from "@/components/MonacoSurface";
-import { ProsemarkSurface } from "@/components/ProsemarkSurface";
+import { MonacoSurface } from "#src/components/MonacoSurface.tsx";
+import { ProsemarkSurface } from "#src/components/ProsemarkSurface.tsx";
 import solidLabGuideRaw from "../../../../AGENTS.md?raw";
 import workspaceLayoutSourceRaw from "../../../noter/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx?raw";
 
