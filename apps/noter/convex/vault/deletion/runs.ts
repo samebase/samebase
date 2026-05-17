@@ -17,6 +17,7 @@ import {
 import { readVaultDeletionEligibility } from "./eligibility";
 import { isConnectedVault, isNoterManagedVault } from "../state";
 import { readVaultDeletionState } from "./state";
+import { CODESPACES_ENABLED } from "../../../shared/featureFlags";
 
 const { boolean, id, literal, object, string, union } = v;
 
@@ -113,6 +114,13 @@ async function buildCodespacesPlan(
     return {
       action: "skip",
       reason: "not_requested",
+    };
+  }
+
+  if (!CODESPACES_ENABLED) {
+    return {
+      action: "skip",
+      reason: "feature_disabled",
     };
   }
 

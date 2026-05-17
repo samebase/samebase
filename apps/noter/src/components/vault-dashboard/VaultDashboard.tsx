@@ -121,7 +121,7 @@ import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider"
 import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
 import { WorkspaceLayoutV2FullPage } from "../workspace-layout-v2/WorkspaceLayoutV2FullPage";
 import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
-import { CHAT_ENABLED } from "@/lib/featureFlags";
+import { CHAT_ENABLED, CODESPACES_ENABLED } from "../../../shared/featureFlags";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import {
   CloudflareProviderLogo,
@@ -325,7 +325,7 @@ function useVaultDashboardLocalStore() {
           commitError: null,
           deleteError: null,
           didAttemptCommit: false,
-          removeCodespaces: true,
+          removeCodespaces: CODESPACES_ENABLED,
           removeConvexProvision:
             target.isNoterManaged && target.hasConvexProvision,
           removeGithubRepo: target.canRemoveGithubRepo,
@@ -590,6 +590,12 @@ export function VaultDashboardDeleteDialog({
   const hasStagedChanges = stagedChangesCount > 0;
   const removeCloudflareCheckboxId = "remove-cloudflare-provision";
   const removeCloudflareLabel = "Also remove Cloudflare Worker";
+  const showCodespacesCleanup =
+    CODESPACES_ENABLED &&
+    connectedCodespacesCount !== undefined &&
+    connectedCodespacesCount > 0;
+  const isCodespacesCleanupPending =
+    CODESPACES_ENABLED && connectedCodespacesCount === undefined;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -634,30 +640,26 @@ export function VaultDashboardDeleteDialog({
                 ) : null}
               </label>
             </div>
-            <div className="flex items-start gap-2">
-              <Checkbox
-                id="remove-codespaces"
-                checked={
-                  connectedCodespacesCount === 0 ? true : removeCodespaces
-                }
-                onCheckedChange={(checked) =>
-                  onDeleteOptionChange("removeCodespaces", checked === true)
-                }
-                disabled={
-                  connectedCodespacesCount === 0 || isDeleting || isCommitting
-                }
-                className="mt-0.5"
-              />
-              <label
-                htmlFor="remove-codespaces"
-                className="text-sm text-muted-foreground"
-              >
-                Also remove all Codespaces
-                {connectedCodespacesCount === undefined
-                  ? null
-                  : ` (${connectedCodespacesCount} connected)`}
-              </label>
-            </div>
+            {showCodespacesCleanup ? (
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="remove-codespaces"
+                  checked={removeCodespaces}
+                  onCheckedChange={(checked) =>
+                    onDeleteOptionChange("removeCodespaces", checked === true)
+                  }
+                  disabled={isDeleting || isCommitting}
+                  className="mt-0.5"
+                />
+                <label
+                  htmlFor="remove-codespaces"
+                  className="text-sm text-muted-foreground"
+                >
+                  Also remove all Codespaces ({connectedCodespacesCount}{" "}
+                  connected)
+                </label>
+              </div>
+            ) : null}
             {vaultToDelete.hasConvexProvision ? (
               <div className="flex items-start gap-2">
                 <Checkbox
@@ -759,7 +761,12 @@ export function VaultDashboardDeleteDialog({
           <Button
             variant="destructive"
             onClick={onRemoveVault}
-            disabled={!vaultToDelete || isDeleting || isCommitting}
+            disabled={
+              !vaultToDelete ||
+              isDeleting ||
+              isCommitting ||
+              isCodespacesCleanupPending
+            }
           >
             {isDeleting ? (
               <>
@@ -2282,10 +2289,12 @@ function VaultDashboardBody({
                       },
                       content: (
                         <>
-                          <CodespaceStatus
-                            vaultId={vault._id}
-                            repositoryFullName={vault.repositoryFullName}
-                          />
+                          {CODESPACES_ENABLED ? (
+                            <CodespaceStatus
+                              vaultId={vault._id}
+                              repositoryFullName={vault.repositoryFullName}
+                            />
+                          ) : null}
                           {vault.isNoterManaged && (
                             <div className="space-y-2">
                               <div className="text-xs text-muted-foreground">
@@ -2316,6 +2325,7 @@ function VaultDashboardBody({
               }
               footerActions={
                 CHAT_ENABLED &&
+                CODESPACES_ENABLED &&
                 developerToolsVisible &&
                 developerToolsOpen &&
                 chatRoute ? (
@@ -2606,7 +2616,9 @@ export function VaultDashboard() {
   const stagedChangesCount = deleteDialogVault?.fileCount ?? 0;
   const connectedCodespacesCount = useConvexQuery(
     api.codespaces.mutations.getConnectedCodespacesCount,
-    vaultToDelete ? { vaultId: vaultToDelete.id } : "skip",
+    CODESPACES_ENABLED && vaultToDelete
+      ? { vaultId: vaultToDelete.id }
+      : "skip",
   );
 
   const clearDeleteSearchParam = useCallback(
@@ -2761,7 +2773,14 @@ export function VaultDashboard() {
   };
 
   const handleRemoveVault = async () => {
-    if (!vaultToDelete || isDeleting || isCommitting) return;
+    if (
+      !vaultToDelete ||
+      isDeleting ||
+      isCommitting ||
+      (CODESPACES_ENABLED && connectedCodespacesCount === undefined)
+    ) {
+      return;
+    }
     setDeleteError(null);
 
     try {
@@ -2769,7 +2788,10 @@ export function VaultDashboard() {
       await deleteVault({
         vaultId: vaultToDelete.id,
         removeCodespaces:
-          connectedCodespacesCount === 0 ? true : removeCodespaces,
+          CODESPACES_ENABLED &&
+          connectedCodespacesCount !== undefined &&
+          connectedCodespacesCount > 0 &&
+          removeCodespaces,
         removeGithubRepo: vaultToDelete.isNoterManaged
           ? vaultToDelete.canRemoveGithubRepo && removeGithubRepo
           : false,

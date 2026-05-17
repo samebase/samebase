@@ -9,11 +9,19 @@ import {
   GITHUB_OAUTH_POPUP_NAME,
   isSafeGithubOAuthReturnToPath,
 } from "../shared/githubOAuth";
+import { CODESPACES_ENABLED } from "../shared/featureFlags";
 
 const GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
 const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
 const GITHUB_API_URL = "https://api.github.com/user";
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
+const BASE_GITHUB_OAUTH_SCOPES = [
+  "repo",
+  "delete_repo",
+  "user",
+  "user:email",
+  "read:packages",
+];
 
 type OAuthContext = ActionCtx | MutationCtx;
 
@@ -65,7 +73,10 @@ async function buildGithubOAuthUrl(
   authorizeUrl.searchParams.set("redirect_uri", redirectUri);
   authorizeUrl.searchParams.set(
     "scope",
-    "repo delete_repo user user:email codespace read:packages",
+    [
+      ...BASE_GITHUB_OAUTH_SCOPES,
+      ...(CODESPACES_ENABLED ? ["codespace"] : []),
+    ].join(" "),
   );
   authorizeUrl.searchParams.set("state", state);
   return authorizeUrl.toString();

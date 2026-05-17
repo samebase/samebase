@@ -6,6 +6,7 @@ import { internal } from "../_generated/api";
 import { getUserId } from "../common";
 import type { Id } from "../_generated/dataModel";
 import { isObjectRecord as isRecord, readString } from "../jsonUtils";
+import { assertCodespacesEnabled } from "../../shared/featureFlags";
 
 type PortVisibility = "public" | "private";
 
@@ -459,6 +460,7 @@ export const ensureCodespacePortsVisibility = action({
     ctx,
     args,
   ): Promise<Infer<typeof ensureCodespacePortsVisibilityResult>> => {
+    assertCodespacesEnabled();
     const ensuredAt = Date.now();
     let userId: Id<"users">;
 

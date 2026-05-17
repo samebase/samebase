@@ -9,6 +9,7 @@ import { getUserId } from "../common";
 import { Id } from "../_generated/dataModel";
 import { resolveDeploymentProfile } from "../deploymentProfile";
 import { assertConnectedVault } from "../vault/state";
+import { assertCodespacesEnabled } from "../../shared/featureFlags";
 
 const CODESPACE_CLEANUP_DELETE_TIMEOUT_MS = 60_000;
 const CODESPACE_CLEANUP_DELETE_RETRY_MS = 2_000;
@@ -67,6 +68,7 @@ export const createCodespace = action({
     ctx,
     args,
   ): Promise<{ codespaceId: Id<"codespaces">; ghCodespaceId: string }> => {
+    assertCodespacesEnabled();
     console.log("codespaces:createCodespace:start", {
       vaultId: args.vaultId,
       branch: args.branch,
@@ -268,6 +270,7 @@ export const getCodespaceConnection = action({
     ctx,
     args,
   ): Promise<Infer<typeof getCodespaceConnectionResult>> => {
+    assertCodespacesEnabled();
     const userId = await getUserId(ctx);
     const codespace = await ctx.runQuery(
       internal.codespaces.mutations.getCodespace,
@@ -304,6 +307,7 @@ export const startCodespace = action({
   args: { codespaceId: v.id("codespaces") },
   returns: v.null(),
   handler: async (ctx, args) => {
+    assertCodespacesEnabled();
     const userId = await getUserId(ctx);
 
     const codespace = await ctx.runQuery(
@@ -377,6 +381,7 @@ export const stopCodespace = action({
   args: { codespaceId: v.id("codespaces") },
   returns: v.null(),
   handler: async (ctx, args) => {
+    assertCodespacesEnabled();
     const userId = await getUserId(ctx);
 
     const codespace = await ctx.runQuery(
@@ -423,6 +428,7 @@ export const deleteCodespace = action({
   args: { codespaceId: v.id("codespaces") },
   returns: v.null(),
   handler: async (ctx, args) => {
+    assertCodespacesEnabled();
     const userId = await getUserId(ctx);
 
     const codespace = await ctx.runQuery(

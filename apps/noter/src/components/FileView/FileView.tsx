@@ -67,7 +67,7 @@ import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/Work
 import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import { MediaUploadDialog } from "@/components/MediaUploadDialog";
 import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
-import { CHAT_ENABLED } from "@/lib/featureFlags";
+import { CHAT_ENABLED } from "../../../shared/featureFlags";
 import { buildVaultFileRoute, parseVaultPathContext } from "@/lib/vaultRoutes";
 import { isInIframe } from "@/authClient";
 import {

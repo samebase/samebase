@@ -8,6 +8,7 @@ import { getUserId } from "../common";
 import type { Id } from "../_generated/dataModel";
 import { assertConnectedVault } from "../vault/state";
 import { toErrorMessage } from "../jsonUtils";
+import { assertCodespacesEnabled } from "../../shared/featureFlags";
 
 async function getGithubAccessToken(
   ctx: ActionCtx,
@@ -44,6 +45,7 @@ export const createVaultWithCodespace = action({
     ctx,
     args,
   ): Promise<Infer<typeof createVaultWithCodespaceResult>> => {
+    assertCodespacesEnabled();
     const userId = await getUserId(ctx);
     const { vaultId, runId } = await ctx.runMutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
@@ -221,6 +223,7 @@ export const rebuildCodespaceIfStale = action({
     ctx,
     args,
   ): Promise<Infer<typeof rebuildCodespaceIfStaleResult>> => {
+    assertCodespacesEnabled();
     const userId = await getUserId(ctx);
 
     // Get vault and active codespace
@@ -306,6 +309,7 @@ export const ensureCodespaceReady = action({
     ctx,
     args,
   ): Promise<Infer<typeof ensureCodespaceReadyResult>> => {
+    assertCodespacesEnabled();
     const userId = await getUserId(ctx);
     const vault = await ctx.runQuery(internal.codespaces.mutations.getVault, {
       vaultId: args.vaultId,

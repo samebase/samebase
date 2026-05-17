@@ -3,6 +3,7 @@ import { internalMutation, internalQuery, query } from "../_generated/server";
 import { vCodespaceState } from "./model";
 import { getUserId } from "../common";
 import { assertConnectedVault, isLiveConnectedVault } from "../vault/state";
+import { CODESPACES_ENABLED } from "../../shared/featureFlags";
 
 /**
  * Internal: Get Codespace by ID
@@ -228,6 +229,10 @@ export const getActiveCodespace = query({
     v.null(),
   ),
   handler: async (ctx, args) => {
+    if (!CODESPACES_ENABLED) {
+      return null;
+    }
+
     const userId = await getUserId(ctx);
     const vault = await ctx.db.get(args.vaultId);
 
@@ -305,6 +310,10 @@ export const getConnectedCodespacesCount = query({
   args: { vaultId: v.id("vaults") },
   returns: v.number(),
   handler: async (ctx, args) => {
+    if (!CODESPACES_ENABLED) {
+      return 0;
+    }
+
     const userId = await getUserId(ctx);
     const vault = await ctx.db.get(args.vaultId);
     if (!vault || vault.userId !== userId) {
