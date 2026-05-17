@@ -594,6 +594,8 @@ export function VaultDashboardDeleteDialog({
     CODESPACES_ENABLED &&
     connectedCodespacesCount !== undefined &&
     connectedCodespacesCount > 0;
+  const isCodespacesCleanupPending =
+    CODESPACES_ENABLED && connectedCodespacesCount === undefined;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -759,7 +761,12 @@ export function VaultDashboardDeleteDialog({
           <Button
             variant="destructive"
             onClick={onRemoveVault}
-            disabled={!vaultToDelete || isDeleting || isCommitting}
+            disabled={
+              !vaultToDelete ||
+              isDeleting ||
+              isCommitting ||
+              isCodespacesCleanupPending
+            }
           >
             {isDeleting ? (
               <>
@@ -2766,7 +2773,14 @@ export function VaultDashboard() {
   };
 
   const handleRemoveVault = async () => {
-    if (!vaultToDelete || isDeleting || isCommitting) return;
+    if (
+      !vaultToDelete ||
+      isDeleting ||
+      isCommitting ||
+      (CODESPACES_ENABLED && connectedCodespacesCount === undefined)
+    ) {
+      return;
+    }
     setDeleteError(null);
 
     try {
