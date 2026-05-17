@@ -115,17 +115,45 @@ clearance; use a trademark attorney before treating the name as cleared.
   this pass. If this becomes the leading brand, buy the `.com`, file the mark,
   and claim reachable handles immediately.
 
+### Independent second-pass recommendation
+
+Checked again on 2026-05-17 after reframing the budget as flexible and the MVP
+as "an app creates apps from the same template/stack as itself". I tried to
+discount prior preference and compare the strongest names as company assets.
+
+| Name        | Score | Decision               | Why                                                                                                                                                                                    |
+| ----------- | ----- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `samebase`  | 8.6   | Best candidate         | Clear MVP fit, easy to say, exact USPTO query returned `0` hits, package/developer handles look open, exact web results are mostly the domain listing and generic phrase uses.         |
+| `samecore`  | 6.8   | Usable but not better  | Easy to pronounce, but noisier: occupied GitHub user, occupied Instagram/YouTube handles, "Samecore Solution" on LinkedIn, a cancelled Singapore business, and generic technical uses. |
+| `samestack` | 5.2   | Do not buy at `$3,285` | Strong concept fit, but the fresh pass found an active Red Hat/Fedora-oriented SameStack framework/package trail from 2025-2026. It also sounds more infrastructure-jargon than brand. |
+| `recursr`   | 5.0   | Keep as fallback only  | You already got the domain, but the dropped vowel is voice-hostile and an R package uses the exact spelling.                                                                           |
+
+Reasoning: if the name has to carry a company, `samebase` is better than
+`samecore` even though both pronounce well. `samecore` has a clean sound, but it
+is more generic in technical language and visibly more occupied on public
+profiles. `samebase` also maps to the product better: users create something
+from the same base/template, not necessarily from the same kernel/core.
+
+Financial recommendation: because `$2k` is still a meaningful amount, do not buy
+`samebase.com` as a speculative "maybe". If the product direction is stable
+enough that this could be the company name, it is a rational purchase at
+`$1,995`, subject to a real trademark attorney clearance before public launch.
+If an attorney finds no hidden conflict, I would rather pay `$1,995` for
+`samebase.com` than `$3,495` for `samecore.com` or `$3,285` for `samestack.com`.
+
 2. `samestack.com`
    - Status: registered and listed for sale.
    - Visible price:
      [`$3,285` on BrandBucket](https://www.brandbucket.com/names/samestack).
    - Why it works: extremely direct for "the app builds apps on the same stack",
      and BrandBucket positions it for technology / app / cloud use.
-   - Collision notes: no major exact-name product surfaced in the original pass,
-     but it should get the same trademark/social/package pass as `samebase.com`
-     before purchase.
+   - Collision notes: fresh search found an active Red Hat/Fedora-oriented
+     SameStack framework/package trail in 2025-2026. Exact USPTO query returned
+     `0` hits and core package registries checked here were open, but the public
+     software collision is too close for comfort.
    - Risk: plainer and more developer-jargon than `samebase.com`; "stack" can
-     sound infrastructural rather than magical.
+     sound infrastructural rather than magical. Do not pay `$3,285` unless the
+     Red Hat/Fedora SameStack trail is proven irrelevant.
 
 3. `samecore.com`
    - Status: registered and listed for sale.
@@ -133,10 +161,12 @@ clearance; use a trademark attorney before treating the name as cleared.
      [`$3,495` on HugeDomains](https://www.hugedomains.com/domain_profile.cfm?d=samecore.com).
    - Why it works: points at a shared kernel/core that generates descendants;
      short enough and easy to say.
-   - Collision notes: no major exact-name product surfaced in the original pass,
-     but it needs the same deeper clearance pass before purchase.
+   - Collision notes: exact USPTO query returned `0` hits and npm/PyPI/crates.io
+     were open, but the name is already visibly occupied by a GitHub user, an
+     Instagram profile, a YouTube channel, "Samecore Solution" on LinkedIn, and
+     a cancelled Singapore business listing.
    - Risk: less specific to the template/app-generating-app story than
-     `samebase.com` or `samestack.com`.
+     `samebase.com`, and noisier on the open web.
 
 4. `corevoid.com`
    - Status: registered and listed for sale.
@@ -185,7 +215,7 @@ set.
 | Domain         | Status              | Price / reason                                                                                                                                                                                                                                       |
 | -------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sierp.com`    | for sale            | [`$7,996` on GoDaddy/Afternic](https://www.godaddy.com/forsale/sierp.com). Excellent and short, but pronunciation/meaning are still hard; only worth pursuing if the brand intentionally leads with Sierpinski/math.                                 |
-| `ninegrid.com` | for sale            | [`$8,495` on HugeDomains](https://www.hugedomains.com/domain_profile.cfm?d=ninegrid.com). Strong logo name, but too literal to justify the price over `samebase.com` or `samestack.com`.                                                             |
+| `ninegrid.com` | for sale            | [`$8,495` on HugeDomains](https://www.hugedomains.com/domain_profile.cfm?d=ninegrid.com). Strong logo name, but too literal to justify the price over `samebase.com`.                                                                                |
 | `ramura.com`   | for sale / parked   | Current static lander is an Afternic/GoDaddy-style for-sale page with no visible buy-now price in the fetched HTML. Good taste benchmark: short, natural, vowel-rich, and organic, but less directly tied to the current app-generating-app concept. |
 | `fracta.com`   | for sale            | [`$1,000` on GoDaddy/Afternic](https://www.godaddy.com/forsale/fracta.com), but rejected: the name is already heavily used by active software/AI/infrastructure companies including [`fracta.ai`](https://fracta.ai/), Fracta LLC, and Fracta Japan. |
 | `replio.com`   | for sale            | Cheap listing surfaced, but rejected: "Replio" is already used by multiple AI/software products across `.co`, `.org`, `.eu`, `.xyz`, and other domains.                                                                                              |
@@ -211,12 +241,11 @@ If spending real money:
 
 1. `samebase.com` is still the cleanest paid candidate because it is
    pronounceable, on-concept, and surprisingly uncrowded.
-2. `samestack.com` becomes genuinely worth considering if spending above `$2k`
-   is acceptable. It is more literal/developer-coded than `samebase.com`, but it
-   maps directly to the MVP.
-3. `samecore.com` is viable, but I would put it behind `samebase.com` and
-   `samestack.com` because the product story is base/template/stack more than
-   "core".
+2. `samecore.com` is viable, but I would put it behind `samebase.com` because
+   the product story is base/template more than "core", and because the open web
+   is noisier.
+3. Avoid `samestack.com` at `$3,285` unless a deeper clearance pass proves the
+   Red Hat/Fedora SameStack framework/package trail is harmless.
 4. `corevoid.com` is viable, but I would only buy it if the product identity is
    intentionally more void/logo-led.
 5. Avoid `fracta.com` despite the attractive `$1,000` price because the name is
