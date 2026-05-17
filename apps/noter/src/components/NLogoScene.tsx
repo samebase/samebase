@@ -15,6 +15,7 @@ import {
   getLogoSurfaceFitRadius,
   type LogoSurfaceQuad,
 } from "@/components/logoSurfaceModel";
+import { resolveLogoSceneCameraDepthBounds } from "@/components/logoSceneCameraDepth";
 import {
   DRAG_ELEVATION_DEGREES_PER_PIXEL,
   DRAG_ROTATION_DEGREES_PER_PIXEL,
@@ -42,7 +43,6 @@ import {
 } from "react";
 import * as THREE from "three";
 
-const ISOMETRIC_CAMERA_DISTANCE = 11;
 const DRAG_THRESHOLD_PX = 4;
 const RAYCAST_OFFSET = 0.001;
 const CAMERA_FRUSTUM_PADDING = 1.12;
@@ -811,11 +811,14 @@ export function NLogoScene({
     );
     const rotationAxisVector = new THREE.Vector3();
 
-    const getFrustumHalfSpan = () => {
-      const radius =
-        sceneStateRef.current?.cameraFitRadius ?? initialCameraFitRadius;
-      return radius * CAMERA_FRUSTUM_PADDING;
-    };
+    const getCameraFitRadius = () =>
+      sceneStateRef.current?.cameraFitRadius ?? initialCameraFitRadius;
+
+    const getFrustumHalfSpan = () =>
+      getCameraFitRadius() * CAMERA_FRUSTUM_PADDING;
+
+    const getCameraDistance = () =>
+      resolveLogoSceneCameraDepthBounds(getCameraFitRadius()).distance;
 
     const updateCameraPosition = () => {
       const [cameraX, cameraY, cameraZ] = getWorldCameraVector(
@@ -823,7 +826,7 @@ export function NLogoScene({
       );
       camera.position
         .set(cameraX, cameraY, cameraZ)
-        .setLength(ISOMETRIC_CAMERA_DISTANCE);
+        .setLength(getCameraDistance());
       const [upX, upY, upZ] = getWorldScreenVerticalAxis(
         elevationDegreesRef.current,
       );
@@ -849,6 +852,9 @@ export function NLogoScene({
       const width = container.clientWidth || 640;
       const height = container.clientHeight || 768;
       const aspect = width / height;
+      const cameraFitRadius = getCameraFitRadius();
+      const cameraDepthBounds =
+        resolveLogoSceneCameraDepthBounds(cameraFitRadius);
       const frustumHalfSpan = getFrustumHalfSpan();
       const frustumHalfHeight = Math.max(
         frustumHalfSpan,
@@ -859,6 +865,10 @@ export function NLogoScene({
       camera.right = frustumHalfHeight * aspect;
       camera.top = frustumHalfHeight;
       camera.bottom = -frustumHalfHeight;
+      // Recursive depth can be wider than the old fixed camera distance; keep
+      // the orthographic depth range outside the fitted mesh so rotations do
+      // not clip front-facing corners.
+      camera.far = cameraDepthBounds.far;
       updateCameraPosition();
       applyLogoRotation();
       camera.updateProjectionMatrix();
