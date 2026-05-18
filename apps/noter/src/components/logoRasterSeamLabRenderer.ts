@@ -143,7 +143,7 @@ export const RASTER_SEAM_LAB_MERGE_MODES = [
     value: "crisp-source-over",
   },
   {
-    label: "Inflate 1%",
+    label: "Inflate",
     value: "inflated-source-over",
   },
   {
@@ -171,6 +171,10 @@ export const RASTER_SEAM_LAB_DEFAULT_MERGE_MODE: RasterSeamLabMergeMode =
   "source-over";
 export const RASTER_SEAM_LAB_DEFAULT_ROTATION_DEGREES = 22;
 export const RASTER_SEAM_LAB_DEFAULT_SOURCE_SIZE_PX = 24;
+export const RASTER_SEAM_LAB_DEFAULT_INFLATION_SCALE = 1.01;
+export const RASTER_SEAM_LAB_MIN_INFLATION_SCALE = 1;
+export const RASTER_SEAM_LAB_MAX_INFLATION_SCALE = 1.05;
+export const RASTER_SEAM_LAB_INFLATION_SCALE_STEP = 0.001;
 
 export const RASTER_SEAM_LAB_EMPTY_STATS = {
   baseGridSize: RASTER_SEAM_LAB_DEFAULT_GRID_SIZE,
@@ -187,7 +191,6 @@ const SEAM_COLOR_DISTANCE_THRESHOLD = 70;
 const SEAM_MASK_COLOR = [255, 0, 255, 255] as const;
 const LAB_BACKGROUND_COLOR = "#ffffff";
 const FACE_EDGE_STROKE_SCALE = 512;
-const INFLATED_TILE_SCALE = 1.01;
 
 const FACE_COLORS = {
   x: "#ff0000",
@@ -205,6 +208,19 @@ export function normalizeRasterSeamLabGridSize(
   value: number | null | undefined,
 ): RasterSeamLabGridSize {
   return value === 3 ? 3 : RASTER_SEAM_LAB_DEFAULT_GRID_SIZE;
+}
+
+export function normalizeRasterSeamLabInflationScale(
+  value: number | null | undefined,
+) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return RASTER_SEAM_LAB_DEFAULT_INFLATION_SCALE;
+  }
+
+  return Math.min(
+    RASTER_SEAM_LAB_MAX_INFLATION_SCALE,
+    Math.max(RASTER_SEAM_LAB_MIN_INFLATION_SCALE, value),
+  );
 }
 
 const MERGED_FACE_DEFINITIONS = [
@@ -1132,11 +1148,13 @@ function renderInflatedComposedImage({
   childCanvas,
   gridSize,
   halfSize,
+  inflationScale,
   projection,
 }: {
   childCanvas: HTMLCanvasElement;
   gridSize: number;
   halfSize: number;
+  inflationScale: number;
   projection: RasterSeamLabProjection;
 }) {
   const canvas = createLabCanvas(projection.sizePx);
@@ -1145,7 +1163,7 @@ function renderInflatedComposedImage({
     return canvas;
   }
 
-  const inflatedSize = childCanvas.width * INFLATED_TILE_SCALE;
+  const inflatedSize = childCanvas.width * inflationScale;
   const inflatedOffset = (inflatedSize - childCanvas.width) / 2;
 
   context.imageSmoothingEnabled = true;
@@ -1399,11 +1417,13 @@ function renderRecursiveInflatedComposedImage({
   depth,
   gridSize,
   halfSize,
+  inflationScale,
   projection,
 }: {
   depth: number;
   gridSize: number;
   halfSize: number;
+  inflationScale: number;
   projection: RasterSeamLabProjection;
 }): HTMLCanvasElement {
   if (depth <= 0) {
@@ -1414,12 +1434,14 @@ function renderRecursiveInflatedComposedImage({
     depth: depth - 1,
     gridSize,
     halfSize: halfSize / gridSize,
+    inflationScale,
     projection,
   });
   return renderInflatedComposedImage({
     childCanvas,
     gridSize,
     halfSize,
+    inflationScale,
     projection,
   });
 }
@@ -1564,11 +1586,13 @@ export function getLogoRasterSeamLabStats({
 function renderMergedImage({
   depth,
   gridSize,
+  inflationScale,
   mergeMode,
   projection,
 }: {
   depth: RasterSeamLabDepth;
   gridSize: RasterSeamLabGridSize;
+  inflationScale: number;
   mergeMode: RasterSeamLabMergeMode;
   projection: RasterSeamLabProjection;
 }): HTMLCanvasElement {
@@ -1592,6 +1616,7 @@ function renderMergedImage({
         depth,
         gridSize,
         halfSize: 0.5,
+        inflationScale,
         projection,
       });
     case "source-atop-single":
@@ -1826,6 +1851,7 @@ export function drawLogoRasterSeamLabImage(
     elevationDegrees,
     gridSize,
     imageKind,
+    inflationScale,
     mergeMode,
     rotationDegrees,
     sourceSizePx,
@@ -1834,6 +1860,7 @@ export function drawLogoRasterSeamLabImage(
     elevationDegrees: number;
     gridSize: RasterSeamLabGridSize;
     imageKind: RasterSeamLabImageKind;
+    inflationScale: number;
     mergeMode: RasterSeamLabMergeMode;
     rotationDegrees: number;
     sourceSizePx: number;
@@ -1847,6 +1874,7 @@ export function drawLogoRasterSeamLabImage(
   const composedCanvas = renderMergedImage({
     depth,
     gridSize,
+    inflationScale: normalizeRasterSeamLabInflationScale(inflationScale),
     mergeMode,
     projection,
   });

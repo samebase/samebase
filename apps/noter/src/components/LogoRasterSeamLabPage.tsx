@@ -3,19 +3,24 @@ import {
   RASTER_SEAM_LAB_DEFAULT_DEPTH,
   RASTER_SEAM_LAB_DEFAULT_ELEVATION_DEGREES,
   RASTER_SEAM_LAB_DEFAULT_GRID_SIZE,
+  RASTER_SEAM_LAB_DEFAULT_INFLATION_SCALE,
   RASTER_SEAM_LAB_DEFAULT_MERGE_MODE,
   RASTER_SEAM_LAB_DEFAULT_ROTATION_DEGREES,
   RASTER_SEAM_LAB_DEPTHS,
   RASTER_SEAM_LAB_EMPTY_STATS,
   RASTER_SEAM_LAB_GRID_SIZES,
   RASTER_SEAM_LAB_DEFAULT_SOURCE_SIZE_PX,
+  RASTER_SEAM_LAB_INFLATION_SCALE_STEP,
+  RASTER_SEAM_LAB_MAX_INFLATION_SCALE,
   RASTER_SEAM_LAB_MERGE_MODES,
+  RASTER_SEAM_LAB_MIN_INFLATION_SCALE,
   RASTER_SEAM_LAB_SAMPLE_ROTATIONS,
   RASTER_SEAM_LAB_SOURCE_SIZES,
   drawLogoRasterSeamLabImage,
   getLogoRasterSeamLabStats,
   normalizeRasterSeamLabDepth,
   normalizeRasterSeamLabGridSize,
+  normalizeRasterSeamLabInflationScale,
   type RasterSeamLabDepth,
   type RasterSeamLabGridSize,
   type RasterSeamLabImageKind,
@@ -62,6 +67,7 @@ function SeamLabCanvas({
   elevationDegrees,
   gridSize,
   imageKind,
+  inflationScale,
   mergeMode,
   rotationDegrees,
   sourceSizePx,
@@ -71,6 +77,7 @@ function SeamLabCanvas({
   elevationDegrees: number;
   gridSize: RasterSeamLabGridSize;
   imageKind: RasterSeamLabImageKind;
+  inflationScale: number;
   mergeMode: RasterSeamLabMergeMode;
   rotationDegrees: number;
   sourceSizePx: number;
@@ -98,6 +105,7 @@ function SeamLabCanvas({
         elevationDegrees,
         gridSize,
         imageKind,
+        inflationScale,
         mergeMode,
         rotationDegrees,
         sourceSizePx,
@@ -108,6 +116,7 @@ function SeamLabCanvas({
     elevationDegrees,
     gridSize,
     imageKind,
+    inflationScale,
     mergeMode,
     rotationDegrees,
     sourceSizePx,
@@ -146,6 +155,7 @@ function AngleSweepCanvas({
   depth,
   elevationDegrees,
   gridSize,
+  inflationScale,
   mergeMode,
   rotationDegrees,
   sourceSizePx,
@@ -153,6 +163,7 @@ function AngleSweepCanvas({
   depth: RasterSeamLabDepth;
   elevationDegrees: number;
   gridSize: RasterSeamLabGridSize;
+  inflationScale: number;
   mergeMode: RasterSeamLabMergeMode;
   rotationDegrees: number;
   sourceSizePx: number;
@@ -172,6 +183,7 @@ function AngleSweepCanvas({
         elevationDegrees={elevationDegrees}
         gridSize={gridSize}
         imageKind="mask"
+        inflationScale={inflationScale}
         mergeMode={mergeMode}
         rotationDegrees={rotationDegrees}
         sourceSizePx={sourceSizePx}
@@ -185,6 +197,7 @@ function MergeModeSweepCanvas({
   depth,
   elevationDegrees,
   gridSize,
+  inflationScale,
   mergeMode,
   rotationDegrees,
   sourceSizePx,
@@ -192,6 +205,7 @@ function MergeModeSweepCanvas({
   depth: RasterSeamLabDepth;
   elevationDegrees: number;
   gridSize: RasterSeamLabGridSize;
+  inflationScale: number;
   mergeMode: RasterSeamLabMergeMode;
   rotationDegrees: number;
   sourceSizePx: number;
@@ -211,6 +225,7 @@ function MergeModeSweepCanvas({
         elevationDegrees={elevationDegrees}
         gridSize={gridSize}
         imageKind="mask"
+        inflationScale={inflationScale}
         mergeMode={mergeMode}
         rotationDegrees={rotationDegrees}
         sourceSizePx={sourceSizePx}
@@ -249,6 +264,9 @@ export function LogoRasterSeamLabPage({
   const [mergeMode, setMergeMode] = useState<RasterSeamLabMergeMode>(
     RASTER_SEAM_LAB_DEFAULT_MERGE_MODE,
   );
+  const [inflationScale, setInflationScale] = useState(
+    RASTER_SEAM_LAB_DEFAULT_INFLATION_SCALE,
+  );
   const labStats = getLogoRasterSeamLabStats({
     depth: recursiveDepth,
     elevationDegrees,
@@ -256,6 +274,7 @@ export function LogoRasterSeamLabPage({
     rotationDegrees,
     sourceSizePx,
   });
+  const inflationScaleLabel = `${inflationScale.toFixed(3)}x`;
 
   return (
     <div className="min-h-screen bg-[#f5f4ef] text-black">
@@ -391,6 +410,44 @@ export function LogoRasterSeamLabPage({
 
             <div className="grid gap-2">
               <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                <span>Inflate</span>
+                <span>{inflationScaleLabel}</span>
+              </div>
+              <input
+                type="range"
+                min={RASTER_SEAM_LAB_MIN_INFLATION_SCALE}
+                max={RASTER_SEAM_LAB_MAX_INFLATION_SCALE}
+                step={RASTER_SEAM_LAB_INFLATION_SCALE_STEP}
+                value={inflationScale}
+                onChange={(event) => {
+                  setInflationScale(
+                    normalizeRasterSeamLabInflationScale(
+                      Number(event.target.value),
+                    ),
+                  );
+                }}
+                className="h-2 w-full cursor-pointer accent-black"
+              />
+              <input
+                type="number"
+                min={RASTER_SEAM_LAB_MIN_INFLATION_SCALE}
+                max={RASTER_SEAM_LAB_MAX_INFLATION_SCALE}
+                step={RASTER_SEAM_LAB_INFLATION_SCALE_STEP}
+                value={inflationScale.toFixed(3)}
+                onChange={(event) => {
+                  setInflationScale(
+                    normalizeRasterSeamLabInflationScale(
+                      Number(event.target.value),
+                    ),
+                  );
+                }}
+                className="h-9 w-full border border-black/15 bg-white px-2 font-mono text-sm text-black"
+                aria-label="Inflation scale"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                 <span>Rotation</span>
                 <span>{rotationDegrees.toFixed(0)}°</span>
               </div>
@@ -443,7 +500,8 @@ export function LogoRasterSeamLabPage({
                     {labStats.effectiveGridSize}, {sourceSizePx}px source,{" "}
                     {getMergeModeLabel(mergeMode)}, rotation{" "}
                     {rotationDegrees.toFixed(0)}°, elevation{" "}
-                    {elevationDegrees.toFixed(0)}°
+                    {elevationDegrees.toFixed(0)}°, inflate{" "}
+                    {inflationScaleLabel}
                   </div>
                   <div className="mt-1 font-mono text-[11px] text-black/45">
                     {labStats.occupiedCells} cells{" | "}
@@ -464,6 +522,7 @@ export function LogoRasterSeamLabPage({
                   elevationDegrees={elevationDegrees}
                   gridSize={baseGridSize}
                   imageKind="composed"
+                  inflationScale={inflationScale}
                   mergeMode={mergeMode}
                   rotationDegrees={rotationDegrees}
                   sourceSizePx={sourceSizePx}
@@ -474,6 +533,7 @@ export function LogoRasterSeamLabPage({
                   elevationDegrees={elevationDegrees}
                   gridSize={baseGridSize}
                   imageKind="reference"
+                  inflationScale={inflationScale}
                   mergeMode={mergeMode}
                   rotationDegrees={rotationDegrees}
                   sourceSizePx={sourceSizePx}
@@ -484,6 +544,7 @@ export function LogoRasterSeamLabPage({
                   elevationDegrees={elevationDegrees}
                   gridSize={baseGridSize}
                   imageKind="mask"
+                  inflationScale={inflationScale}
                   mergeMode={mergeMode}
                   rotationDegrees={rotationDegrees}
                   sourceSizePx={sourceSizePx}
@@ -517,6 +578,7 @@ export function LogoRasterSeamLabPage({
                       depth={recursiveDepth}
                       elevationDegrees={elevationDegrees}
                       gridSize={baseGridSize}
+                      inflationScale={inflationScale}
                       mergeMode={mode.value}
                       rotationDegrees={rotationDegrees}
                       sourceSizePx={sourceSizePx}
@@ -550,6 +612,7 @@ export function LogoRasterSeamLabPage({
                       depth={recursiveDepth}
                       elevationDegrees={elevationDegrees}
                       gridSize={baseGridSize}
+                      inflationScale={inflationScale}
                       mergeMode={mergeMode}
                       rotationDegrees={sampleRotation}
                       sourceSizePx={sourceSizePx}
@@ -584,6 +647,7 @@ export function LogoRasterSeamLabPage({
                       depth={recursiveDepth}
                       elevationDegrees={elevationDegrees}
                       gridSize={baseGridSize}
+                      inflationScale={inflationScale}
                       mergeMode={mergeMode}
                       rotationDegrees={rotationDegrees}
                       sourceSizePx={sampleSourceSizePx}
