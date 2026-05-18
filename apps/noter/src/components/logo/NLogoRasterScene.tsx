@@ -3,7 +3,10 @@ import {
   type FaceColors,
 } from "@/components/logo/logoTailwindColors";
 import {
+  addVectors,
+  dotProduct,
   type LogoRotationAxisMode,
+  scaleVector,
   type Vector3,
 } from "@/components/logo/logoRotationMath";
 import {
@@ -314,18 +317,6 @@ const RASTER_FACE_DEFINITIONS = [
   },
 ] as const satisfies readonly RasterFaceDefinition[];
 
-function addVectors(left: Vector3, right: Vector3): Vector3 {
-  return [left[0] + right[0], left[1] + right[1], left[2] + right[2]];
-}
-
-function scaleVector(vector: Vector3, scale: number): Vector3 {
-  return [vector[0] * scale, vector[1] * scale, vector[2] * scale];
-}
-
-function dotVectors(left: Vector3, right: Vector3): number {
-  return left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
-}
-
 function getCanvasBackingSize(canvas: HTMLCanvasElement): number {
   const rect = canvas.getBoundingClientRect();
   const cssSize = Math.max(1, Math.min(rect.width || 640, rect.height || 640));
@@ -386,13 +377,13 @@ function renderCubeUnitCanvas({
 
   const faces = CUBE_FACES.map((face) => {
     const rotatedNormal = projection.rotatePoint(face.normal);
-    if (dotVectors(rotatedNormal, projection.cameraDirection) <= 0) {
+    if (dotProduct(rotatedNormal, projection.cameraDirection) <= 0) {
       return null;
     }
 
     return {
       color: getTailwindColorHex(faceColors[face.colorKey]),
-      depth: dotVectors(
+      depth: dotProduct(
         projection.rotatePoint(getFaceCenter(face)),
         projection.cameraDirection,
       ),
@@ -461,7 +452,7 @@ function getFaceOnState({
   let visibleFaceDot = -1;
 
   for (const face of CUBE_FACES) {
-    const dot = dotVectors(
+    const dot = dotProduct(
       projection.rotatePoint(face.normal),
       projection.cameraDirection,
     );
@@ -908,7 +899,7 @@ function buildRasterMergedSurfaces({
     }
 
     const rotatedNormal = projection.rotatePoint(cell.normal);
-    if (dotVectors(rotatedNormal, projection.cameraDirection) <= 0) {
+    if (dotProduct(rotatedNormal, projection.cameraDirection) <= 0) {
       remainingCells.delete(getRasterFaceCellKey(cell));
       continue;
     }
@@ -918,7 +909,7 @@ function buildRasterMergedSurfaces({
       component.reduce((totalDepth, componentCell) => {
         return (
           totalDepth +
-          dotVectors(
+          dotProduct(
             projection.rotatePoint(getRasterFaceCellCenter(componentCell)),
             projection.cameraDirection,
           )
@@ -1010,7 +1001,7 @@ function collectDistanceScaledRasterFaces({
   for (const item of drawItems) {
     for (const face of CUBE_FACES) {
       const rotatedNormal = projection.rotatePoint(face.normal);
-      if (dotVectors(rotatedNormal, projection.cameraDirection) <= 0) {
+      if (dotProduct(rotatedNormal, projection.cameraDirection) <= 0) {
         continue;
       }
 
@@ -1020,7 +1011,7 @@ function collectDistanceScaledRasterFaces({
       );
       faces.push({
         colorKey: face.colorKey,
-        depth: dotVectors(
+        depth: dotProduct(
           projection.rotatePoint(faceCenter),
           projection.cameraDirection,
         ),
@@ -1195,7 +1186,7 @@ function getMotifDrawItems({
     );
     drawItems.push({
       center,
-      depth: dotVectors(
+      depth: dotProduct(
         projection.rotatePoint(center),
         projection.cameraDirection,
       ),
@@ -1229,7 +1220,7 @@ function getMotifDrawItems({
 
     drawItems.push({
       center,
-      depth: dotVectors(
+      depth: dotProduct(
         projection.rotatePoint(center),
         projection.cameraDirection,
       ),

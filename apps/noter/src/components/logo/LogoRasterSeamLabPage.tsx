@@ -1,6 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { LogoNumberInput } from "@/components/logo/LogoNumberInput";
 import {
+  drawLogoRasterSeamLabImage,
+  getLogoRasterSeamLabStats,
+} from "@/components/logo/logoRasterSeamLabRenderer";
+import {
   RASTER_SEAM_LAB_DEFAULT_DEPTH,
   RASTER_SEAM_LAB_DEFAULT_ELEVATION_DEGREES,
   RASTER_SEAM_LAB_DEFAULT_GRID_SIZE,
@@ -23,8 +27,6 @@ import {
   RASTER_SEAM_LAB_SOURCE_SIZES,
   RASTER_SEAM_LAB_SOURCE_SIZE_STEP,
   RASTER_SEAM_LAB_SPACING_SCALE_STEP,
-  drawLogoRasterSeamLabImage,
-  getLogoRasterSeamLabStats,
   normalizeRasterSeamLabDepth,
   normalizeRasterSeamLabGridSize,
   normalizeRasterSeamLabInflationScale,
@@ -35,7 +37,7 @@ import {
   type RasterSeamLabImageKind,
   type RasterSeamLabMergeMode,
   type RasterSeamLabResult,
-} from "@/components/logo/logoRasterSeamLabRenderer";
+} from "@/components/logo/logoRasterSeamLabModel";
 import {
   normalizeElevationDegrees,
   normalizeRotationDegrees,
@@ -45,6 +47,17 @@ import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
 type SeamLabZoom = "large" | "small";
+
+type SeamLabRenderConfig = {
+  depth: RasterSeamLabDepth;
+  elevationDegrees: number;
+  gridSize: RasterSeamLabGridSize;
+  inflationScale: number;
+  mergeMode: RasterSeamLabMergeMode;
+  rotationDegrees: number;
+  spacingScale: number;
+  sourceSizePx: number;
+};
 
 const EMPTY_SEAM_RESULT = {
   coveredPixels: 0,
@@ -64,6 +77,13 @@ const IMAGE_KIND_LABELS = {
   reference: "Reference",
   source: "Source tile",
 } as const satisfies Record<RasterSeamLabImageKind, string>;
+
+const CURRENT_CASE_IMAGE_KINDS = [
+  "source",
+  "composed",
+  "reference",
+  "mask",
+] as const satisfies readonly RasterSeamLabImageKind[];
 
 function getMergeModeLabel(mergeMode: RasterSeamLabMergeMode) {
   return (
@@ -88,31 +108,81 @@ function formatAngleInput(value: number) {
   return formatAngleDegrees(value);
 }
 
+function SeamLabRangeNumberControl({
+  ariaLabel,
+  displayValue,
+  formatValue,
+  label,
+  min,
+  normalizeValue,
+  onValueChange,
+  sliderMax,
+  step,
+  value,
+}: {
+  ariaLabel: string;
+  displayValue: string;
+  formatValue: (value: number) => string;
+  label: string;
+  min: number;
+  normalizeValue: (value: number) => number;
+  onValueChange: (value: number) => void;
+  sliderMax: number;
+  step: number | string;
+  value: number;
+}) {
+  return (
+    <div className="grid gap-2">
+      <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+        <span>{label}</span>
+        <span>{displayValue}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={sliderMax}
+        step={step}
+        value={Math.min(value, sliderMax)}
+        onChange={(event) => {
+          onValueChange(Number(event.target.value));
+        }}
+        className="h-2 w-full cursor-pointer accent-black"
+      />
+      <LogoNumberInput
+        ariaLabel={ariaLabel}
+        formatValue={formatValue}
+        min={min}
+        normalizeValue={normalizeValue}
+        onValueChange={onValueChange}
+        step={step}
+        value={value}
+        variant="seamLab"
+      />
+    </div>
+  );
+}
+
 function SeamLabCanvas({
-  depth,
-  elevationDegrees,
-  gridSize,
+  config,
   imageKind,
-  inflationScale,
-  mergeMode,
-  rotationDegrees,
-  spacingScale,
-  sourceSizePx,
   zoom,
 }: {
-  depth: RasterSeamLabDepth;
-  elevationDegrees: number;
-  gridSize: RasterSeamLabGridSize;
+  config: SeamLabRenderConfig;
   imageKind: RasterSeamLabImageKind;
-  inflationScale: number;
-  mergeMode: RasterSeamLabMergeMode;
-  rotationDegrees: number;
-  spacingScale: number;
-  sourceSizePx: number;
   zoom: SeamLabZoom;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [result, setResult] = useState<RasterSeamLabResult>(EMPTY_SEAM_RESULT);
+  const {
+    depth,
+    elevationDegrees,
+    gridSize,
+    inflationScale,
+    mergeMode,
+    rotationDegrees,
+    spacingScale,
+    sourceSizePx,
+  } = config;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -181,92 +251,34 @@ function SeamLabCanvas({
   );
 }
 
-function AngleSweepCanvas({
-  depth,
-  elevationDegrees,
-  gridSize,
-  inflationScale,
-  mergeMode,
-  rotationDegrees,
-  spacingScale,
-  sourceSizePx,
-}: {
-  depth: RasterSeamLabDepth;
-  elevationDegrees: number;
-  gridSize: RasterSeamLabGridSize;
-  inflationScale: number;
-  mergeMode: RasterSeamLabMergeMode;
-  rotationDegrees: number;
-  spacingScale: number;
-  sourceSizePx: number;
-}) {
+function AngleSweepCanvas({ config }: { config: SeamLabRenderConfig }) {
   return (
     <div className="grid gap-2 border border-black/10 bg-white p-2">
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm font-medium text-black/80">
-          {rotationDegrees}°
+          {formatAngleDegrees(config.rotationDegrees)}°
         </span>
         <span className="font-mono text-[10px] text-black/45">
-          {sourceSizePx}px
+          {config.sourceSizePx}px
         </span>
       </div>
-      <SeamLabCanvas
-        depth={depth}
-        elevationDegrees={elevationDegrees}
-        gridSize={gridSize}
-        imageKind="mask"
-        inflationScale={inflationScale}
-        mergeMode={mergeMode}
-        rotationDegrees={rotationDegrees}
-        spacingScale={spacingScale}
-        sourceSizePx={sourceSizePx}
-        zoom="small"
-      />
+      <SeamLabCanvas config={config} imageKind="mask" zoom="small" />
     </div>
   );
 }
 
-function MergeModeSweepCanvas({
-  depth,
-  elevationDegrees,
-  gridSize,
-  inflationScale,
-  mergeMode,
-  rotationDegrees,
-  spacingScale,
-  sourceSizePx,
-}: {
-  depth: RasterSeamLabDepth;
-  elevationDegrees: number;
-  gridSize: RasterSeamLabGridSize;
-  inflationScale: number;
-  mergeMode: RasterSeamLabMergeMode;
-  rotationDegrees: number;
-  spacingScale: number;
-  sourceSizePx: number;
-}) {
+function MergeModeSweepCanvas({ config }: { config: SeamLabRenderConfig }) {
   return (
     <div className="grid gap-2 border border-black/10 bg-white p-2">
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm font-medium text-black/80">
-          {getMergeModeLabel(mergeMode)}
+          {getMergeModeLabel(config.mergeMode)}
         </span>
         <span className="font-mono text-[10px] text-black/45">
-          {sourceSizePx}px
+          {config.sourceSizePx}px
         </span>
       </div>
-      <SeamLabCanvas
-        depth={depth}
-        elevationDegrees={elevationDegrees}
-        gridSize={gridSize}
-        imageKind="mask"
-        inflationScale={inflationScale}
-        mergeMode={mergeMode}
-        rotationDegrees={rotationDegrees}
-        spacingScale={spacingScale}
-        sourceSizePx={sourceSizePx}
-        zoom="small"
-      />
+      <SeamLabCanvas config={config} imageKind="mask" zoom="small" />
     </div>
   );
 }
@@ -330,6 +342,16 @@ export function LogoRasterSeamLabPage({
     rotationDegrees,
     sourceSizePx,
   });
+  const seamLabConfig = {
+    depth: recursiveDepth,
+    elevationDegrees,
+    gridSize: baseGridSize,
+    inflationScale,
+    mergeMode,
+    rotationDegrees,
+    spacingScale,
+    sourceSizePx,
+  } satisfies SeamLabRenderConfig;
   const inflationScaleLabel = `${inflationScale.toFixed(3)}x`;
   const spacingScaleLabel = `${spacingScale.toFixed(3)}x`;
 
@@ -476,121 +498,57 @@ export function LogoRasterSeamLabPage({
               </div>
             </div>
 
-            <div className="grid gap-2">
-              <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                <span>Spacing</span>
-                <span>{spacingScaleLabel}</span>
-              </div>
-              <input
-                type="range"
-                min={RASTER_SEAM_LAB_MIN_SPACING_SCALE}
-                max={RASTER_SEAM_LAB_SLIDER_MAX_SPACING_SCALE}
-                step={RASTER_SEAM_LAB_SPACING_SCALE_STEP}
-                value={Math.min(
-                  spacingScale,
-                  RASTER_SEAM_LAB_SLIDER_MAX_SPACING_SCALE,
-                )}
-                onChange={(event) => {
-                  setCommittedSpacingScale(Number(event.target.value));
-                }}
-                className="h-2 w-full cursor-pointer accent-black"
-              />
-              <LogoNumberInput
-                ariaLabel="Spacing scale"
-                formatValue={formatScaleInput}
-                min={RASTER_SEAM_LAB_MIN_SPACING_SCALE}
-                normalizeValue={normalizeRasterSeamLabSpacingScale}
-                onValueChange={setCommittedSpacingScale}
-                step={RASTER_SEAM_LAB_SPACING_SCALE_STEP}
-                value={spacingScale}
-                variant="seamLab"
-              />
-            </div>
+            <SeamLabRangeNumberControl
+              ariaLabel="Spacing scale"
+              displayValue={spacingScaleLabel}
+              formatValue={formatScaleInput}
+              label="Spacing"
+              min={RASTER_SEAM_LAB_MIN_SPACING_SCALE}
+              normalizeValue={normalizeRasterSeamLabSpacingScale}
+              onValueChange={setCommittedSpacingScale}
+              sliderMax={RASTER_SEAM_LAB_SLIDER_MAX_SPACING_SCALE}
+              step={RASTER_SEAM_LAB_SPACING_SCALE_STEP}
+              value={spacingScale}
+            />
 
-            <div className="grid gap-2">
-              <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                <span>Inflate</span>
-                <span>{inflationScaleLabel}</span>
-              </div>
-              <input
-                type="range"
-                min={RASTER_SEAM_LAB_MIN_INFLATION_SCALE}
-                max={RASTER_SEAM_LAB_SLIDER_MAX_INFLATION_SCALE}
-                step={RASTER_SEAM_LAB_INFLATION_SCALE_STEP}
-                value={Math.min(
-                  inflationScale,
-                  RASTER_SEAM_LAB_SLIDER_MAX_INFLATION_SCALE,
-                )}
-                onChange={(event) => {
-                  setCommittedInflationScale(Number(event.target.value));
-                }}
-                className="h-2 w-full cursor-pointer accent-black"
-              />
-              <LogoNumberInput
-                ariaLabel="Inflation scale"
-                formatValue={formatScaleInput}
-                min={RASTER_SEAM_LAB_MIN_INFLATION_SCALE}
-                normalizeValue={normalizeRasterSeamLabInflationScale}
-                onValueChange={setCommittedInflationScale}
-                step={RASTER_SEAM_LAB_INFLATION_SCALE_STEP}
-                value={inflationScale}
-                variant="seamLab"
-              />
-            </div>
+            <SeamLabRangeNumberControl
+              ariaLabel="Inflation scale"
+              displayValue={inflationScaleLabel}
+              formatValue={formatScaleInput}
+              label="Inflate"
+              min={RASTER_SEAM_LAB_MIN_INFLATION_SCALE}
+              normalizeValue={normalizeRasterSeamLabInflationScale}
+              onValueChange={setCommittedInflationScale}
+              sliderMax={RASTER_SEAM_LAB_SLIDER_MAX_INFLATION_SCALE}
+              step={RASTER_SEAM_LAB_INFLATION_SCALE_STEP}
+              value={inflationScale}
+            />
 
-            <div className="grid gap-2">
-              <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                <span>Rotation</span>
-                <span>{formatAngleDegrees(rotationDegrees)}°</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="90"
-                step="0.1"
-                value={Math.min(rotationDegrees, 90)}
-                onChange={(event) => {
-                  setCommittedRotationDegrees(Number(event.target.value));
-                }}
-                className="h-2 w-full cursor-pointer accent-black"
-              />
-              <LogoNumberInput
-                ariaLabel="Rotation degrees"
-                formatValue={formatAngleInput}
-                normalizeValue={normalizeRotationDegrees}
-                onValueChange={setCommittedRotationDegrees}
-                step="0.1"
-                value={rotationDegrees}
-                variant="seamLab"
-              />
-            </div>
+            <SeamLabRangeNumberControl
+              ariaLabel="Rotation degrees"
+              displayValue={`${formatAngleDegrees(rotationDegrees)}°`}
+              formatValue={formatAngleInput}
+              label="Rotation"
+              min={0}
+              normalizeValue={normalizeRotationDegrees}
+              onValueChange={setCommittedRotationDegrees}
+              sliderMax={90}
+              step="0.1"
+              value={rotationDegrees}
+            />
 
-            <div className="grid gap-2">
-              <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                <span>Elevation</span>
-                <span>{formatAngleDegrees(elevationDegrees)}°</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="70"
-                step="0.1"
-                value={Math.min(elevationDegrees, 70)}
-                onChange={(event) => {
-                  setCommittedElevationDegrees(Number(event.target.value));
-                }}
-                className="h-2 w-full cursor-pointer accent-black"
-              />
-              <LogoNumberInput
-                ariaLabel="Elevation degrees"
-                formatValue={formatAngleInput}
-                normalizeValue={normalizeElevationDegrees}
-                onValueChange={setCommittedElevationDegrees}
-                step="0.1"
-                value={elevationDegrees}
-                variant="seamLab"
-              />
-            </div>
+            <SeamLabRangeNumberControl
+              ariaLabel="Elevation degrees"
+              displayValue={`${formatAngleDegrees(elevationDegrees)}°`}
+              formatValue={formatAngleInput}
+              label="Elevation"
+              min={0}
+              normalizeValue={normalizeElevationDegrees}
+              onValueChange={setCommittedElevationDegrees}
+              sliderMax={70}
+              step="0.1"
+              value={elevationDegrees}
+            />
           </div>
 
           <div className="grid gap-6">
@@ -627,54 +585,14 @@ export function LogoRasterSeamLabPage({
                 </div>
               </div>
               <div className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-4">
-                <SeamLabCanvas
-                  depth={recursiveDepth}
-                  elevationDegrees={elevationDegrees}
-                  gridSize={baseGridSize}
-                  imageKind="source"
-                  inflationScale={inflationScale}
-                  mergeMode={mergeMode}
-                  rotationDegrees={rotationDegrees}
-                  spacingScale={spacingScale}
-                  sourceSizePx={sourceSizePx}
-                  zoom="large"
-                />
-                <SeamLabCanvas
-                  depth={recursiveDepth}
-                  elevationDegrees={elevationDegrees}
-                  gridSize={baseGridSize}
-                  imageKind="composed"
-                  inflationScale={inflationScale}
-                  mergeMode={mergeMode}
-                  rotationDegrees={rotationDegrees}
-                  spacingScale={spacingScale}
-                  sourceSizePx={sourceSizePx}
-                  zoom="large"
-                />
-                <SeamLabCanvas
-                  depth={recursiveDepth}
-                  elevationDegrees={elevationDegrees}
-                  gridSize={baseGridSize}
-                  imageKind="reference"
-                  inflationScale={inflationScale}
-                  mergeMode={mergeMode}
-                  rotationDegrees={rotationDegrees}
-                  spacingScale={spacingScale}
-                  sourceSizePx={sourceSizePx}
-                  zoom="large"
-                />
-                <SeamLabCanvas
-                  depth={recursiveDepth}
-                  elevationDegrees={elevationDegrees}
-                  gridSize={baseGridSize}
-                  imageKind="mask"
-                  inflationScale={inflationScale}
-                  mergeMode={mergeMode}
-                  rotationDegrees={rotationDegrees}
-                  spacingScale={spacingScale}
-                  sourceSizePx={sourceSizePx}
-                  zoom="large"
-                />
+                {CURRENT_CASE_IMAGE_KINDS.map((imageKind) => (
+                  <SeamLabCanvas
+                    key={imageKind}
+                    config={seamLabConfig}
+                    imageKind={imageKind}
+                    zoom="large"
+                  />
+                ))}
               </div>
             </div>
 
@@ -703,14 +621,7 @@ export function LogoRasterSeamLabPage({
                     }}
                   >
                     <MergeModeSweepCanvas
-                      depth={recursiveDepth}
-                      elevationDegrees={elevationDegrees}
-                      gridSize={baseGridSize}
-                      inflationScale={inflationScale}
-                      mergeMode={mode.value}
-                      rotationDegrees={rotationDegrees}
-                      spacingScale={spacingScale}
-                      sourceSizePx={sourceSizePx}
+                      config={{ ...seamLabConfig, mergeMode: mode.value }}
                     />
                   </button>
                 ))}
@@ -738,14 +649,10 @@ export function LogoRasterSeamLabPage({
                     }}
                   >
                     <AngleSweepCanvas
-                      depth={recursiveDepth}
-                      elevationDegrees={elevationDegrees}
-                      gridSize={baseGridSize}
-                      inflationScale={inflationScale}
-                      mergeMode={mergeMode}
-                      rotationDegrees={sampleRotation}
-                      spacingScale={spacingScale}
-                      sourceSizePx={sourceSizePx}
+                      config={{
+                        ...seamLabConfig,
+                        rotationDegrees: sampleRotation,
+                      }}
                     />
                   </button>
                 ))}
@@ -774,14 +681,10 @@ export function LogoRasterSeamLabPage({
                     }}
                   >
                     <AngleSweepCanvas
-                      depth={recursiveDepth}
-                      elevationDegrees={elevationDegrees}
-                      gridSize={baseGridSize}
-                      inflationScale={inflationScale}
-                      mergeMode={mergeMode}
-                      rotationDegrees={rotationDegrees}
-                      spacingScale={spacingScale}
-                      sourceSizePx={sampleSourceSizePx}
+                      config={{
+                        ...seamLabConfig,
+                        sourceSizePx: sampleSourceSizePx,
+                      }}
                     />
                   </button>
                 ))}

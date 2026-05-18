@@ -35,6 +35,10 @@ export function normalizeVector([x, y, z]: Vector3): Vector3 {
   return [x / length, y / length, z / length];
 }
 
+export function addVectors(left: Vector3, right: Vector3): Vector3 {
+  return [left[0] + right[0], left[1] + right[1], left[2] + right[2]];
+}
+
 export function scaleVector([x, y, z]: Vector3, scalar: number): Vector3 {
   return [x * scalar, y * scalar, z * scalar];
 }
