@@ -12,7 +12,6 @@ import {
   toErrorMessage,
   type JsonRecord,
 } from "./jsonUtils";
-import { sanitizeSlug, vaultSuffix } from "./slugUtils";
 
 type CloudflareProvisionConvexState = {
   production: {
@@ -335,6 +334,16 @@ async function readWorker(args: {
   }
 }
 
+export async function isCloudflareWorkerNameAvailable(args: {
+  token: string;
+  serverUrl?: string;
+  accountId: string;
+  workerName: string;
+}): Promise<boolean> {
+  const worker = await readWorker(args);
+  return !worker;
+}
+
 export function readCloudflareWorkerTag(
   worker: JsonRecord,
   workerName: string,
@@ -359,6 +368,7 @@ async function ensureWorker(args: {
   serverUrl?: string;
   accountId: string;
   fallbackWorkerName: string;
+  existingWorkerTag?: string;
 }): Promise<CloudflareWorkerIdentity> {
   const accountSubdomain = await readAccountSubdomain(args);
   const existing = await readWorker({
@@ -370,6 +380,11 @@ async function ensureWorker(args: {
   if (existing) {
     const workerName = readString(existing, "name") ?? args.fallbackWorkerName;
     const workerTag = readCloudflareWorkerTag(existing, workerName);
+    if (args.existingWorkerTag !== workerTag) {
+      throw new Error(
+        `Cloudflare Worker name ${args.fallbackWorkerName} already exists. Choose another Worker name and try again.`,
+      );
+    }
     return {
       workerName,
       workerTag,
@@ -850,11 +865,13 @@ type EnsureCloudflareResourcesArgs = {
   ghRepoOwnerId?: string;
   defaultBranch: string;
   vaultId: string;
+  workerName: string;
   cloudflareToken: string;
   cloudflareServerUrl?: string;
   cloudflareAuthMethod: CloudflareAuthMethod;
   accountId: string;
   buildConfig: CloudflareBuildConfig;
+  existingWorkerTag?: string;
   convex: CloudflareProvisionConvexState;
 };
 
@@ -863,12 +880,8 @@ type CloudflareAuthMethod = "api_key" | "mcp_oauth";
 export async function ensureCloudflareResources(
   args: EnsureCloudflareResourcesArgs,
 ): Promise<ProvisionedCloudflareResources> {
-  const suffix = vaultSuffix(args.vaultId);
-  const fallbackWorkerName = sanitizeSlug(
-    `${args.owner}-${args.repo}-${suffix}`,
-    58,
-  );
-  let workerName = fallbackWorkerName;
+  const fallbackWorkerName = args.workerName;
+  let workerName = args.workerName;
 
   console.log("infra:cloudflare:provision:start", {
     vaultId: args.vaultId,
@@ -885,6 +898,7 @@ export async function ensureCloudflareResources(
       serverUrl: args.cloudflareServerUrl,
       accountId: args.accountId,
       fallbackWorkerName,
+      existingWorkerTag: args.existingWorkerTag,
     });
     workerName = worker.workerName;
 

@@ -198,9 +198,7 @@ type ConvexDeployKeyResult = {
 async function ensureConvexResources(args: {
   teamId: string;
   convexProvider: ConvexManagementProvider;
-  owner: string;
-  repo: string;
-  vaultId: string;
+  projectName: string;
   existing: {
     projectId?: string;
     projectSlug?: string;
@@ -209,8 +207,7 @@ async function ensureConvexResources(args: {
     siteUrl?: string;
   };
 }): Promise<ConvexProvisionResult> {
-  const suffix = vaultSuffix(args.vaultId);
-  const projectName = sanitizeSlug(`${args.owner}-${args.repo}-${suffix}`, 40);
+  const projectName = args.projectName;
 
   let projectId = args.existing.projectId;
   let projectSlug = args.existing.projectSlug;
@@ -219,16 +216,20 @@ async function ensureConvexResources(args: {
     `/teams/${encodeURIComponent(args.teamId)}/list_projects`,
     "GET",
   );
-  const projects = Array.isArray(projectsRaw) ? projectsRaw : [];
+  if (!Array.isArray(projectsRaw)) {
+    throw new Error("Could not list Convex projects before provisioning.");
+  }
+  const projects = projectsRaw;
 
   if (!projectId) {
     for (const project of projects) {
       const projectRecord = asRecord(project);
       const name = readString(projectRecord, "name");
-      if (name === projectName) {
-        projectId = readStringOrNumber(projectRecord, "id");
-        projectSlug = readString(projectRecord, "slug");
-        break;
+      const slug = readString(projectRecord, "slug");
+      if (name === projectName || slug === projectName) {
+        throw new Error(
+          `Convex project name ${projectName} already exists. Choose another project name and try again.`,
+        );
       }
     }
   }
@@ -708,8 +709,8 @@ export function resolveConnectionFailureProvider(
   return null;
 }
 
-async function resolveConvexProvisioningConnection(
-  ctx: ActionCtx,
+export async function resolveConvexProvisioningConnection(
+  ctx: Pick<ActionCtx, "runQuery">,
   userId: Id<"users">,
 ): Promise<{ convexToken: string; convexTeamId: string }> {
   const convexConnection = await ctx.runQuery(
@@ -754,7 +755,7 @@ async function resolveGitHubProvisioningConnection(
   return { githubAccessToken: githubConnection.auth.credential };
 }
 
-async function resolveCloudflareProvisioningConnection(
+export async function resolveCloudflareProvisioningConnection(
   ctx: ActionCtx,
   userId: Id<"users">,
 ): Promise<{
@@ -841,6 +842,18 @@ export const getInfrastructureByVault = internalQuery({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("vaultInfrastructure")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .first();
+  },
+});
+
+export const getInfrastructureTargetByVault = internalQuery({
+  args: {
+    vaultId: v.id("vaults"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("vaultInfrastructureTargets")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .first();
   },
@@ -1271,17 +1284,27 @@ export const ensureConvexInfrastructure = internalAction({
         vaultId: args.vaultId,
       },
     );
+    const target = await ctx.runQuery(
+      internal.infraProvisioning.getInfrastructureTargetByVault,
+      {
+        vaultId: args.vaultId,
+      },
+    );
     const { convexToken, convexTeamId } =
       await resolveConvexProvisioningConnection(ctx, vault.userId);
     const providers = createInfraProviders({
       convexToken,
     });
+    const targetConvexProjectName = target?.convexProjectName.trim();
     const convex = await ensureConvexResources({
       teamId: convexTeamId,
       convexProvider: providers.convex,
-      owner: vault.owner,
-      repo: vault.name,
-      vaultId: args.vaultId,
+      projectName:
+        targetConvexProjectName ||
+        sanitizeSlug(
+          `${vault.owner}-${vault.name}-${vaultSuffix(args.vaultId)}`,
+          40,
+        ),
       existing: {
         projectId: existing?.convexProjectId,
         projectSlug: existing?.convexProjectSlug,
@@ -1481,6 +1504,10 @@ export const ensureCloudflareInfrastructure = internalAction({
       branchTreeData: defaultBranchTree?.treeData ?? null,
     });
     const defaultBranch = vault.defaultBranch;
+    const existingCloudflareWorkerTag =
+      vault.cloudflare.state === "connected"
+        ? vault.cloudflare.workerTag
+        : undefined;
     const { githubAccessToken } = await resolveGitHubProvisioningConnection(
       ctx,
       vault.userId,
@@ -1498,6 +1525,12 @@ export const ensureCloudflareInfrastructure = internalAction({
     const providers = createInfraProviders({
       convexToken,
     });
+    const target = await ctx.runQuery(
+      internal.infraProvisioning.getInfrastructureTargetByVault,
+      {
+        vaultId: args.vaultId,
+      },
+    );
     const previewConvex = await ensureConvexPreviewResources({
       convexProvider: providers.convex,
       projectId: existing.convexProjectId,
@@ -1518,6 +1551,7 @@ export const ensureCloudflareInfrastructure = internalAction({
       owner: vault.owner,
       repo: vault.name,
     });
+    const targetCloudflareWorkerName = target?.cloudflareWorkerName.trim();
     const provisionedCloudflare = await ensureCloudflareResources({
       owner: vault.owner,
       repo: vault.name,
@@ -1525,6 +1559,12 @@ export const ensureCloudflareInfrastructure = internalAction({
       ghRepoOwnerId: repoIdentity.ownerId,
       defaultBranch,
       vaultId: args.vaultId,
+      workerName:
+        targetCloudflareWorkerName ||
+        sanitizeSlug(
+          `${vault.owner}-${vault.name}-${vaultSuffix(args.vaultId)}`,
+          58,
+        ),
       cloudflareToken,
       cloudflareServerUrl,
       cloudflareAuthMethod,
@@ -1532,6 +1572,7 @@ export const ensureCloudflareInfrastructure = internalAction({
       buildConfig: resolveCloudflareBuildConfig({
         treeData: buildConfigTreeData,
       }),
+      existingWorkerTag: existingCloudflareWorkerTag,
       convex: {
         production: {
           cloudUrl: existing.convexCloudUrl,

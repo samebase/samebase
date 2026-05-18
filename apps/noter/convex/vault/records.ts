@@ -264,6 +264,8 @@ export const createInitializingNoterManagedVaultForUser = internalMutation({
     ghRepoOwner: string(),
     ghRepoName: string(),
     visibility: vGitHubRepositoryVisibility,
+    convexProjectName: string(),
+    cloudflareWorkerName: string(),
   },
   returns: object({
     vaultId: id("vaults"),
@@ -329,6 +331,13 @@ export const createInitializingNoterManagedVaultForUser = internalMutation({
       level: "info",
       message: "Created the initializing Noter vault.",
       createdAt: now,
+    });
+    await ctx.db.insert("vaultInfrastructureTargets", {
+      vaultId,
+      convexProjectName: args.convexProjectName,
+      cloudflareWorkerName: args.cloudflareWorkerName,
+      createdAt: now,
+      updatedAt: now,
     });
 
     return { vaultId, runId };

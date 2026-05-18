@@ -474,6 +474,18 @@ export default defineSchema({
   }).index("by_vault", ["vaultId"]),
 
   /**
+   * User-selected provider names for Noter-managed infrastructure. These are
+   * recorded before provider side effects so retries use the original names.
+   */
+  vaultInfrastructureTargets: defineTable({
+    vaultId: id("vaults"),
+    convexProjectName: string(),
+    cloudflareWorkerName: string(),
+    createdAt: number(),
+    updatedAt: number(),
+  }).index("by_vault", ["vaultId"]),
+
+  /**
    * Latest Workflow run allowed to write provider state for a vault.
    * Keeping the last owner after completion makes older in-flight workflows
    * fail closed instead of regaining ownership after a newer run finishes.

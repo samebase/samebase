@@ -309,6 +309,9 @@ Key domain entities:
   Never accept native macOS/browser screenshots as baselines.
 - For bugs involving scroll, touch, drag, focus, selection, pane layout, auth
   wiring, or route shell behavior, reproduce and test the real app route first.
+- Do not create fake visual fixtures just to show or approve a product behavior
+  screenshot. If the user needs to review behavior, use the real app route or an
+  editable production-component harness that exercises the actual code path.
 - If a fixture is still needed, it must mount the exact production component
   tree without invented headers, wrappers, spacing, or fake chrome.
 - For production interaction regressions, add a failing route-level or honest

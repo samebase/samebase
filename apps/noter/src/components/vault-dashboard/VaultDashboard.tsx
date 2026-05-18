@@ -13,7 +13,12 @@ import { Input } from "@/components/input";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultProvisioningLogTextarea } from "@/components/vault-dashboard/VaultProvisioningLogTextarea";
 import { ChevronDownIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
-import { GitBranch, GitCommitHorizontal, Loader2 } from "lucide-react";
+import {
+  CheckIcon,
+  GitBranch,
+  GitCommitHorizontal,
+  Loader2,
+} from "lucide-react";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
 import {
   Link,
@@ -51,6 +56,8 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useState,
+  type KeyboardEvent,
   type MutableRefObject,
   type ReactElement,
   type ReactNode,
@@ -122,6 +129,10 @@ import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkC
 import { WorkspaceLayoutV2FullPage } from "../workspace-layout-v2/WorkspaceLayoutV2FullPage";
 import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import { CHAT_ENABLED, CODESPACES_ENABLED } from "../../../shared/featureFlags";
+import {
+  buildDefaultAppResourceName,
+  validateAppResourceName,
+} from "../../../shared/appResourceNames";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import {
   CloudflareProviderLogo,
@@ -243,9 +254,21 @@ export type VaultDeleteOptionKey =
   | "removeConvexProvision"
   | "removeGithubRepo"
   | "removeCloudflareProvision";
+type CreateResourceNameMode = "auto" | "manual";
+type CreateResourceNameCheckResult =
+  (typeof api.vault.actions.checkCreateRepositoryResourceNames)["_returnType"];
+type CreateResourceNameCheckState = {
+  key: string;
+  result: CreateResourceNameCheckResult;
+};
+type CreateResourceNameAvailability = CreateResourceNameCheckResult["convex"];
 type VaultDashboardLocalState = {
   cloudflarePollingPaused: boolean;
+  cloudflareWorkerName: string;
+  cloudflareWorkerNameMode: CreateResourceNameMode;
   commitError: string | null;
+  convexProjectName: string;
+  convexProjectNameMode: CreateResourceNameMode;
   createError: string | null;
   dashboardMountedAt: number;
   deleteError: string | null;
@@ -278,7 +301,11 @@ function readVaultDashboardInitialLocalState(): VaultDashboardLocalState {
       typeof document !== "undefined"
         ? document.visibilityState !== "visible"
         : false,
+    cloudflareWorkerName: "",
+    cloudflareWorkerNameMode: "auto",
     commitError: null,
+    convexProjectName: "",
+    convexProjectNameMode: "auto",
     createError: null,
     dashboardMountedAt: Date.now(),
     deleteError: null,
@@ -337,7 +364,14 @@ function useVaultDashboardLocalStore() {
         setState((state) => ({ ...state, didAttemptCommit: true }));
       },
       resetCreateRepositoryName: () => {
-        setState((state) => ({ ...state, newRepositoryName: "" }));
+        setState((state) => ({
+          ...state,
+          cloudflareWorkerName: "",
+          cloudflareWorkerNameMode: "auto",
+          convexProjectName: "",
+          convexProjectNameMode: "auto",
+          newRepositoryName: "",
+        }));
       },
       resetDeleteDialogState: () => {
         setState((state) => ({
@@ -354,8 +388,30 @@ function useVaultDashboardLocalStore() {
       setCloudflarePollingPaused: (cloudflarePollingPaused: boolean) => {
         setState((state) => ({ ...state, cloudflarePollingPaused }));
       },
+      setCloudflareWorkerName: (
+        cloudflareWorkerName: string,
+        mode: CreateResourceNameMode,
+      ) => {
+        setState((state) => ({
+          ...state,
+          cloudflareWorkerName,
+          cloudflareWorkerNameMode: mode,
+          createError: null,
+        }));
+      },
       setCommitError: (commitError: string | null) => {
         setState((state) => ({ ...state, commitError }));
+      },
+      setConvexProjectName: (
+        convexProjectName: string,
+        mode: CreateResourceNameMode,
+      ) => {
+        setState((state) => ({
+          ...state,
+          convexProjectName,
+          convexProjectNameMode: mode,
+          createError: null,
+        }));
       },
       setCreateError: (createError: string | null) => {
         setState((state) => ({ ...state, createError }));
@@ -2345,6 +2401,308 @@ function VaultDashboardBody({
   );
 }
 
+function resolveCreateResourceNameCheckValue(args: {
+  mode: CreateResourceNameMode;
+  autoName: string;
+  manualName: string;
+}): string {
+  if (args.mode === "manual") {
+    return args.manualName;
+  }
+  return args.autoName;
+}
+
+function resolveCreateResourceName(args: {
+  mode: CreateResourceNameMode;
+  autoName: string;
+  manualName: string;
+  availability: CreateResourceNameAvailability | null;
+}): string {
+  if (args.mode === "manual") {
+    return args.manualName;
+  }
+  if (args.availability?.status === "taken" && args.availability.suggestion) {
+    return args.availability.suggestion;
+  }
+  return args.autoName;
+}
+
+function isCreateResourceNameAvailabilityBlocking(
+  mode: CreateResourceNameMode,
+  availability: CreateResourceNameAvailability | null,
+): boolean {
+  if (!availability || availability.status === "available") {
+    return false;
+  }
+  return !(
+    mode === "auto" &&
+    availability.status === "taken" &&
+    availability.suggestion
+  );
+}
+
+function isGitHubRepositoryNameAvailabilityBlocking(
+  availability: CreateResourceNameAvailability | null,
+): boolean {
+  return Boolean(availability && availability.status !== "available");
+}
+
+function buildCreateResourceNameCheckKey(args: {
+  githubRepositoryOwner: string;
+  githubRepositoryName: string;
+  convexProjectName: string;
+  cloudflareWorkerName: string;
+}): string {
+  return `${args.githubRepositoryOwner}\n${args.githubRepositoryName}\n${args.convexProjectName}\n${args.cloudflareWorkerName}`;
+}
+
+/**
+ * Debounces provider-name availability reads while the create form changes.
+ * Submit still revalidates on the server, so this hook only owns early feedback.
+ */
+function useCreateResourceNameAvailability(args: {
+  enabled: boolean;
+  githubRepositoryOwner: string;
+  githubRepositoryName: string;
+  convexProjectName: string;
+  cloudflareWorkerName: string;
+  checkCreateRepositoryResourceNames: (input: {
+    githubRepositoryOwner: string;
+    githubRepositoryName: string;
+    convexProjectName: string;
+    cloudflareWorkerName: string;
+  }) => Promise<CreateResourceNameCheckResult>;
+}): {
+  checkState: CreateResourceNameCheckState | null;
+  checkError: string | null;
+  isChecking: boolean;
+} {
+  const {
+    enabled,
+    githubRepositoryOwner,
+    githubRepositoryName,
+    convexProjectName,
+    cloudflareWorkerName,
+    checkCreateRepositoryResourceNames,
+  } = args;
+  const [checkState, setCheckState] =
+    useState<CreateResourceNameCheckState | null>(null);
+  const [checkError, setCheckError] = useState<string | null>(null);
+  const [isChecking, setIsChecking] = useState(false);
+  const checkKey = buildCreateResourceNameCheckKey({
+    githubRepositoryOwner,
+    githubRepositoryName,
+    convexProjectName,
+    cloudflareWorkerName,
+  });
+
+  useEffect(() => {
+    if (!enabled) {
+      setCheckError(null);
+      setCheckState(null);
+      setIsChecking(false);
+      return;
+    }
+
+    let canceled = false;
+    setCheckError(null);
+    setIsChecking(true);
+
+    const timeoutId = window.setTimeout(() => {
+      void checkCreateRepositoryResourceNames({
+        githubRepositoryOwner,
+        githubRepositoryName,
+        convexProjectName,
+        cloudflareWorkerName,
+      })
+        .then((result) => {
+          if (canceled) {
+            return;
+          }
+          setCheckState({ key: checkKey, result });
+          setIsChecking(false);
+        })
+        .catch((error) => {
+          if (canceled) {
+            return;
+          }
+          setCheckError(
+            error instanceof Error
+              ? error.message
+              : "Could not check provider names.",
+          );
+          setCheckState(null);
+          setIsChecking(false);
+        });
+    }, 350);
+
+    return () => {
+      canceled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    enabled,
+    githubRepositoryOwner,
+    githubRepositoryName,
+    convexProjectName,
+    cloudflareWorkerName,
+    checkCreateRepositoryResourceNames,
+    checkKey,
+  ]);
+
+  return { checkState, checkError, isChecking };
+}
+
+function CreateResourceNameFeedback({
+  children,
+  message,
+  suggestion,
+  onUseSuggestion,
+}: {
+  children?: ReactNode;
+  message: string;
+  suggestion: string | null;
+  onUseSuggestion: (suggestion: string) => void;
+}) {
+  return (
+    <div className="text-xs text-red-600">
+      <span>{message}</span>
+      {suggestion && (
+        <button
+          type="button"
+          className={clsx(
+            "ml-1 text-left text-blue-600 underline underline-offset-2",
+            linkStyle,
+          )}
+          onClick={() => {
+            onUseSuggestion(suggestion);
+          }}
+        >
+          Use {suggestion}
+        </button>
+      )}
+      {children}
+    </div>
+  );
+}
+
+function CreateResourceNameStatus({
+  children,
+  kind,
+}: {
+  children: ReactNode;
+  kind: "available" | "checking";
+}) {
+  return (
+    <div
+      className={clsx(
+        "flex min-w-0 items-start gap-1.5 text-xs",
+        kind === "available" && "text-green-600",
+        kind === "checking" && "text-muted-foreground",
+      )}
+      role="status"
+    >
+      {kind === "available" ? (
+        <CheckIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      ) : (
+        <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin" />
+      )}
+      <span className="min-w-0">{children}</span>
+    </div>
+  );
+}
+
+function CreateResourceNameHelp({ children }: { children: ReactNode }) {
+  return <div className="text-xs text-muted-foreground">{children}</div>;
+}
+
+function CreateResourceNameInlineAction({
+  children,
+  onClick,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={clsx("text-left", linkStyle)}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
+function CreateControlMessageSlot({
+  children,
+  size = "compact",
+}: {
+  children: ReactNode;
+  size?: "compact" | "comfortable";
+}) {
+  const isEmpty =
+    children === null ||
+    children === undefined ||
+    typeof children === "boolean" ||
+    children === "";
+  const sizeClassName = size === "comfortable" ? "min-h-5" : "min-h-4";
+
+  return (
+    <div
+      className={clsx(
+        "min-w-0",
+        sizeClassName,
+        isEmpty && "invisible pointer-events-none",
+      )}
+      aria-hidden={isEmpty ? true : undefined}
+    >
+      {children}
+    </div>
+  );
+}
+
+function CreateProviderNameInput({
+  disabled,
+  icon,
+  onChange,
+  onBlur,
+  onKeyDown,
+  placeholder,
+  value,
+}: {
+  disabled: boolean;
+  icon: ReactNode;
+  onChange: (value: string) => void;
+  onBlur?: () => void;
+  onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
+  placeholder: string;
+  value: string;
+}) {
+  return (
+    <div className="relative w-full">
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 left-2.5 flex w-5 items-center justify-center text-muted-foreground"
+      >
+        {icon}
+      </span>
+      <Input
+        placeholder={placeholder}
+        value={value}
+        onChange={(event) => {
+          onChange(event.target.value);
+        }}
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
+        className="w-full pl-9"
+        disabled={disabled}
+        aria-label={placeholder}
+      />
+    </div>
+  );
+}
+
 export function VaultDashboard() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -2357,6 +2715,9 @@ export function VaultDashboard() {
   const deleteVault = useAction(api.vault.actions.deleteVault);
   const retryDeleteVault = useAction(api.vault.actions.retryDeleteVault);
   const createRepository = useAction(api.vault.actions.createRepository);
+  const checkCreateRepositoryResourceNames = useAction(
+    api.vault.actions.checkCreateRepositoryResourceNames,
+  );
   const listGithubRepositoryOwners = useAction(
     api.vault.actions.listRepositoryOwners,
   );
@@ -2525,7 +2886,11 @@ export function VaultDashboard() {
   const dashboardLocalStore = useVaultDashboardLocalStore();
   const {
     cloudflarePollingPaused,
+    cloudflareWorkerName,
+    cloudflareWorkerNameMode,
     commitError,
+    convexProjectName,
+    convexProjectNameMode,
     createError,
     dashboardMountedAt,
     deleteError,
@@ -2558,7 +2923,9 @@ export function VaultDashboard() {
     resetCreateRepositoryName,
     resetDeleteDialogState,
     setCloudflarePollingPaused,
+    setCloudflareWorkerName,
     setCommitError,
+    setConvexProjectName,
     setCreateError,
     setDeleteError,
     setDeleteOption,
@@ -2870,6 +3237,43 @@ export function VaultDashboard() {
       setCreateError("Choose a GitHub owner before creating an app.");
       return;
     }
+    if (!convexProjectNameValidation.valid) {
+      setCreateError(convexProjectNameValidation.message);
+      return;
+    }
+    if (!cloudflareWorkerNameValidation.valid) {
+      setCreateError(cloudflareWorkerNameValidation.message);
+      return;
+    }
+    if (createResourceNameCheckError) {
+      setCreateError(createResourceNameCheckError);
+      return;
+    }
+    if (isCreateResourceNameCheckPending) {
+      setCreateError("Checking provider names.");
+      return;
+    }
+    if (isGitHubRepositoryNameBlocking) {
+      setCreateError(
+        githubRepositoryNameAvailability?.message ??
+          "GitHub repository name is not available.",
+      );
+      return;
+    }
+    if (isConvexProjectNameAvailabilityBlocking) {
+      setCreateError(
+        convexProjectNameAvailability?.message ??
+          "Convex project name is not available.",
+      );
+      return;
+    }
+    if (isCloudflareWorkerNameAvailabilityBlocking) {
+      setCreateError(
+        cloudflareWorkerNameAvailability?.message ??
+          "Cloudflare Worker name is not available.",
+      );
+      return;
+    }
 
     setIsCreating(true);
     setCreateError(null);
@@ -2878,6 +3282,8 @@ export function VaultDashboard() {
       await createRepository({
         name: repoName,
         owner,
+        convexProjectName: convexProjectNameValidation.value,
+        cloudflareWorkerName: cloudflareWorkerNameValidation.value,
         private: true,
       });
       resetCreateRepositoryName();
@@ -2887,6 +3293,14 @@ export function VaultDashboard() {
       );
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleCreateRepositoryKeyDown = (
+    event: KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (event.key === "Enter") {
+      void handleCreateRepository();
     }
   };
 
@@ -2924,6 +3338,108 @@ export function VaultDashboard() {
   );
   const canCreateRepo = Boolean(
     hasRequiredCreateConnections && selectedGithubRepositoryOwner.trim(),
+  );
+  const createRepositoryName = newRepositoryName.trim();
+  const defaultConvexProjectName = buildDefaultAppResourceName({
+    repositoryName: newRepositoryName,
+    provider: "convex",
+  });
+  const defaultCloudflareWorkerName = buildDefaultAppResourceName({
+    repositoryName: newRepositoryName,
+    provider: "cloudflare",
+  });
+  const checkedConvexProjectName = resolveCreateResourceNameCheckValue({
+    mode: convexProjectNameMode,
+    autoName: defaultConvexProjectName,
+    manualName: convexProjectName,
+  });
+  const checkedCloudflareWorkerName = resolveCreateResourceNameCheckValue({
+    mode: cloudflareWorkerNameMode,
+    autoName: defaultCloudflareWorkerName,
+    manualName: cloudflareWorkerName,
+  });
+  const selectedGithubRepositoryOwnerName =
+    selectedGithubRepositoryOwner.trim();
+  const shouldCheckResourceNames = Boolean(
+    hasRequiredCreateConnections &&
+    selectedGithubRepositoryOwnerName &&
+    createRepositoryName,
+  );
+  const resourceNameCheckKey = buildCreateResourceNameCheckKey({
+    githubRepositoryOwner: selectedGithubRepositoryOwnerName,
+    githubRepositoryName: createRepositoryName,
+    convexProjectName: checkedConvexProjectName,
+    cloudflareWorkerName: checkedCloudflareWorkerName,
+  });
+  const {
+    checkState: createResourceNameCheck,
+    checkError: createResourceNameCheckError,
+    isChecking: isCheckingCreateResourceNames,
+  } = useCreateResourceNameAvailability({
+    enabled: shouldCheckResourceNames,
+    githubRepositoryOwner: selectedGithubRepositoryOwnerName,
+    githubRepositoryName: createRepositoryName,
+    convexProjectName: checkedConvexProjectName,
+    cloudflareWorkerName: checkedCloudflareWorkerName,
+    checkCreateRepositoryResourceNames,
+  });
+  const currentResourceNameCheck =
+    createResourceNameCheck?.key === resourceNameCheckKey
+      ? createResourceNameCheck.result
+      : null;
+  const githubRepositoryNameAvailability =
+    currentResourceNameCheck?.github ?? null;
+  const convexProjectNameAvailability =
+    currentResourceNameCheck?.convex ?? null;
+  const cloudflareWorkerNameAvailability =
+    currentResourceNameCheck?.cloudflare ?? null;
+  const resolvedConvexProjectName = resolveCreateResourceName({
+    mode: convexProjectNameMode,
+    autoName: defaultConvexProjectName,
+    manualName: convexProjectName,
+    availability: convexProjectNameAvailability,
+  });
+  const resolvedCloudflareWorkerName = resolveCreateResourceName({
+    mode: cloudflareWorkerNameMode,
+    autoName: defaultCloudflareWorkerName,
+    manualName: cloudflareWorkerName,
+    availability: cloudflareWorkerNameAvailability,
+  });
+  const convexProjectNameValidation = validateAppResourceName(
+    resolvedConvexProjectName,
+    "convex",
+  );
+  const cloudflareWorkerNameValidation = validateAppResourceName(
+    resolvedCloudflareWorkerName,
+    "cloudflare",
+  );
+  const isConvexProjectNameAvailabilityBlocking =
+    isCreateResourceNameAvailabilityBlocking(
+      convexProjectNameMode,
+      convexProjectNameAvailability,
+    );
+  const isCloudflareWorkerNameAvailabilityBlocking =
+    isCreateResourceNameAvailabilityBlocking(
+      cloudflareWorkerNameMode,
+      cloudflareWorkerNameAvailability,
+    );
+  const isGitHubRepositoryNameBlocking =
+    isGitHubRepositoryNameAvailabilityBlocking(
+      githubRepositoryNameAvailability,
+    );
+  const isCreateResourceNameCheckPending = Boolean(
+    shouldCheckResourceNames &&
+    (isCheckingCreateResourceNames || !currentResourceNameCheck),
+  );
+  const hasBlockingCreateResourceName = Boolean(
+    createRepositoryName &&
+    (isGitHubRepositoryNameBlocking ||
+      !convexProjectNameValidation.valid ||
+      !cloudflareWorkerNameValidation.valid ||
+      createResourceNameCheckError ||
+      isCreateResourceNameCheckPending ||
+      isConvexProjectNameAvailabilityBlocking ||
+      isCloudflareWorkerNameAvailabilityBlocking),
   );
   useGithubRepositoryOwnerOptions({
     githubConnected,
@@ -3020,31 +3536,208 @@ export function VaultDashboard() {
   const accountProviderLabel = authProviders?.primaryProvider
     ? formatAuthProviderLabel(authProviders.primaryProvider)
     : null;
-  const createPlaceholder = "New App name";
+  const renderCreateResourceNameSupport = ({
+    availability,
+    checkedName,
+    label,
+    mode,
+    onUseGeneratedName,
+    validation,
+    onUseSuggestion,
+  }: {
+    availability: CreateResourceNameAvailability | null;
+    checkedName: string;
+    label: string;
+    mode: CreateResourceNameMode;
+    onUseGeneratedName: () => void;
+    validation: ReturnType<typeof validateAppResourceName>;
+    onUseSuggestion: (suggestion: string) => void;
+  }) => {
+    const manualResetContent = mode === "manual" && (
+      <>
+        Custom name.{" "}
+        <CreateResourceNameInlineAction onClick={onUseGeneratedName}>
+          Use generated name
+        </CreateResourceNameInlineAction>
+      </>
+    );
+    const manualReset = manualResetContent && (
+      <CreateResourceNameHelp>{manualResetContent}</CreateResourceNameHelp>
+    );
+
+    if (createRepositoryName && !validation.valid) {
+      return (
+        <CreateResourceNameFeedback
+          message={validation.message}
+          suggestion={validation.suggestion}
+          onUseSuggestion={onUseSuggestion}
+        >
+          {manualResetContent && (
+            <span className="ml-1 text-muted-foreground">
+              {manualResetContent}
+            </span>
+          )}
+        </CreateResourceNameFeedback>
+      );
+    }
+
+    if (createResourceNameCheckError) {
+      return (
+        <CreateResourceNameFeedback
+          message={createResourceNameCheckError}
+          suggestion={null}
+          onUseSuggestion={onUseSuggestion}
+        >
+          {manualResetContent && (
+            <span className="ml-1 text-muted-foreground">
+              {manualResetContent}
+            </span>
+          )}
+        </CreateResourceNameFeedback>
+      );
+    }
+
+    if (isCreateResourceNameCheckPending) {
+      return (
+        <CreateResourceNameStatus kind="checking">
+          Checking {label}...
+        </CreateResourceNameStatus>
+      );
+    }
+
+    if (!availability) {
+      return manualReset;
+    }
+
+    if (availability.status === "available") {
+      return (
+        <CreateResourceNameStatus kind="available">
+          {label} is available.
+          {manualResetContent && (
+            <span className="ml-1 text-muted-foreground">
+              {manualResetContent}
+            </span>
+          )}
+        </CreateResourceNameStatus>
+      );
+    }
+
+    if (
+      mode === "auto" &&
+      availability.status === "taken" &&
+      availability.suggestion
+    ) {
+      return (
+        <CreateResourceNameStatus kind="available">
+          {checkedName} already exists; using {availability.suggestion}.
+        </CreateResourceNameStatus>
+      );
+    }
+
+    return (
+      <CreateResourceNameFeedback
+        message={availability.message ?? "Name is not available."}
+        suggestion={availability.suggestion}
+        onUseSuggestion={onUseSuggestion}
+      >
+        {manualResetContent && (
+          <span className="ml-1 text-muted-foreground">
+            {manualResetContent}
+          </span>
+        )}
+      </CreateResourceNameFeedback>
+    );
+  };
+  const renderGitHubRepositoryNameSupport = () => {
+    if (!createRepositoryName) {
+      return null;
+    }
+
+    if (createResourceNameCheckError) {
+      return (
+        <CreateResourceNameFeedback
+          message={createResourceNameCheckError}
+          suggestion={null}
+          onUseSuggestion={setNewRepositoryName}
+        />
+      );
+    }
+
+    if (isCreateResourceNameCheckPending) {
+      return (
+        <CreateResourceNameStatus kind="checking">
+          Checking GitHub repository...
+        </CreateResourceNameStatus>
+      );
+    }
+
+    if (!githubRepositoryNameAvailability) {
+      return null;
+    }
+
+    if (githubRepositoryNameAvailability.status === "available") {
+      return (
+        <CreateResourceNameStatus kind="available">
+          GitHub repository name is available.
+        </CreateResourceNameStatus>
+      );
+    }
+
+    return (
+      <CreateResourceNameFeedback
+        message={
+          githubRepositoryNameAvailability.message ??
+          "GitHub repository name is not available."
+        }
+        suggestion={githubRepositoryNameAvailability.suggestion}
+        onUseSuggestion={setNewRepositoryName}
+      />
+    );
+  };
+  const createPlaceholder = "GitHub repo name";
   const createButtonLabel = isCreating ? "Creating app..." : "New App";
+  const canEditProviderResourceNames = createRepositoryName.length > 0;
+  const providerResourceNameInputDisabled =
+    !hasRequiredCreateConnections ||
+    isCreating ||
+    !canEditProviderResourceNames;
   const ownerSelectPlaceholder = isLoadingGithubRepositoryOwners
     ? "Loading GitHub owners..."
     : "GitHub owner";
+  const createControlFooterMessages =
+    createError ||
+    !canCreateRepo ||
+    githubRepositoryOwnerLoadError ||
+    showCloudflareCreateWarning ? (
+      <div className="flex flex-col gap-2">
+        {createError && (
+          <div className="text-sm text-red-600">{createError}</div>
+        )}
+        {!canCreateRepo && (
+          <div className="text-xs text-muted-foreground">
+            {hasRequiredCreateConnections
+              ? "Choose a GitHub owner to create an app."
+              : `Connect GitHub, Convex, and ${requiredCloudflareConnectionLabel} to create an app.`}
+          </div>
+        )}
+        {githubRepositoryOwnerLoadError && (
+          <div className="text-xs text-red-600">
+            {githubRepositoryOwnerLoadError}
+          </div>
+        )}
+        {showCloudflareCreateWarning && (
+          <div className="text-xs text-amber-700">
+            Cloudflare token is invalid or expired. Reconnect Cloudflare.
+          </div>
+        )}
+      </div>
+    ) : null;
   const { openApiKeyDialog, apiKeyDialog } = useApiKeyConnectDialog({
     connectGithubWithApiKey,
     connectConvexWithApiKey,
   });
   const createControl = (
     <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">
-      <Input
-        placeholder={createPlaceholder}
-        value={newRepositoryName}
-        onChange={(e) => {
-          setNewRepositoryName(e.target.value);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            void handleCreateRepository();
-          }
-        }}
-        className="w-full"
-        disabled={!hasRequiredCreateConnections || isCreating}
-      />
       {githubConnected && (
         <Select
           value={selectedGithubRepositoryOwner}
@@ -3068,13 +3761,101 @@ export function VaultDashboard() {
           </SelectContent>
         </Select>
       )}
+      <CreateProviderNameInput
+        placeholder={createPlaceholder}
+        value={newRepositoryName}
+        onChange={setNewRepositoryName}
+        onKeyDown={handleCreateRepositoryKeyDown}
+        icon={<GitHubProviderLogo />}
+        disabled={!hasRequiredCreateConnections || isCreating}
+      />
+      <CreateControlMessageSlot>
+        {renderGitHubRepositoryNameSupport()}
+      </CreateControlMessageSlot>
+      <div
+        className={clsx(
+          "flex w-full flex-col items-stretch gap-2",
+          !canEditProviderResourceNames && "invisible pointer-events-none",
+        )}
+        aria-hidden={canEditProviderResourceNames ? undefined : true}
+      >
+        <CreateProviderNameInput
+          placeholder="Convex project name"
+          value={resolvedConvexProjectName}
+          onChange={(value) => {
+            setConvexProjectName(value, "manual");
+          }}
+          onBlur={() => {
+            if (
+              convexProjectNameMode === "manual" &&
+              !convexProjectName.trim()
+            ) {
+              setConvexProjectName("", "auto");
+            }
+          }}
+          icon={<ConvexProviderLogo />}
+          disabled={providerResourceNameInputDisabled}
+          onKeyDown={handleCreateRepositoryKeyDown}
+        />
+        <CreateControlMessageSlot>
+          {renderCreateResourceNameSupport({
+            availability: convexProjectNameAvailability,
+            checkedName: checkedConvexProjectName,
+            label: "Convex project name",
+            mode: convexProjectNameMode,
+            validation: convexProjectNameValidation,
+            onUseGeneratedName: () => {
+              setConvexProjectName("", "auto");
+            },
+            onUseSuggestion: (suggestion) => {
+              setConvexProjectName(suggestion, "manual");
+            },
+          })}
+        </CreateControlMessageSlot>
+        <CreateProviderNameInput
+          placeholder="Cloudflare Worker name"
+          value={resolvedCloudflareWorkerName}
+          onChange={(value) => {
+            setCloudflareWorkerName(value, "manual");
+          }}
+          onBlur={() => {
+            if (
+              cloudflareWorkerNameMode === "manual" &&
+              !cloudflareWorkerName.trim()
+            ) {
+              setCloudflareWorkerName("", "auto");
+            }
+          }}
+          icon={<CloudflareProviderLogo />}
+          disabled={providerResourceNameInputDisabled}
+          onKeyDown={handleCreateRepositoryKeyDown}
+        />
+        <CreateControlMessageSlot>
+          {renderCreateResourceNameSupport({
+            availability: cloudflareWorkerNameAvailability,
+            checkedName: checkedCloudflareWorkerName,
+            label: "Cloudflare Worker name",
+            mode: cloudflareWorkerNameMode,
+            validation: cloudflareWorkerNameValidation,
+            onUseGeneratedName: () => {
+              setCloudflareWorkerName("", "auto");
+            },
+            onUseSuggestion: (suggestion) => {
+              setCloudflareWorkerName(suggestion, "manual");
+            },
+          })}
+        </CreateControlMessageSlot>
+      </div>
       <Button
         className="w-full"
         onClick={() => {
           void handleCreateRepository();
         }}
         disabled={
-          isCreating || newRepositoryName.trim().length === 0 || !canCreateRepo
+          isCreating ||
+          newRepositoryName.trim().length === 0 ||
+          !canCreateRepo ||
+          hasBlockingCreateResourceName
         }
       >
         {createButtonLabel}
@@ -3102,24 +3883,9 @@ export function VaultDashboard() {
           </span>
         </Button>
       )}
-      {createError && <div className="text-sm text-red-600">{createError}</div>}
-      {!canCreateRepo && (
-        <div className="text-xs text-muted-foreground">
-          {hasRequiredCreateConnections
-            ? "Choose a GitHub owner to create an app."
-            : `Connect GitHub, Convex, and ${requiredCloudflareConnectionLabel} to create an app.`}
-        </div>
-      )}
-      {githubRepositoryOwnerLoadError && (
-        <div className="text-xs text-red-600">
-          {githubRepositoryOwnerLoadError}
-        </div>
-      )}
-      {showCloudflareCreateWarning && (
-        <div className="text-xs text-amber-700">
-          Cloudflare token is invalid or expired. Reconnect Cloudflare.
-        </div>
-      )}
+      <CreateControlMessageSlot size="comfortable">
+        {createControlFooterMessages}
+      </CreateControlMessageSlot>
     </div>
   );
 

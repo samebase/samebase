@@ -25,6 +25,11 @@ import {
   VaultDashboardScrollTargetEndPadding,
   VaultDashboardSidebarContent,
 } from "@/components/vault-dashboard/VaultDashboardChrome";
+import {
+  CloudflareProviderLogo,
+  ConvexProviderLogo,
+  GitHubProviderLogo,
+} from "@/components/vault-dashboard/VaultDashboardLogos";
 import { buildVaultBranchSectionState } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import {
   VaultBranchHeaderControls,
@@ -874,6 +879,33 @@ function FixtureDashboardSidebarAccountClamp({
   );
 }
 
+function FixtureProviderNameInput({
+  icon,
+  placeholder,
+  value,
+}: {
+  icon: ReactNode;
+  placeholder: string;
+  value: string;
+}) {
+  return (
+    <div className="relative w-full">
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 left-2.5 flex w-5 items-center justify-center text-muted-foreground"
+      >
+        {icon}
+      </span>
+      <Input
+        className="w-full pl-9"
+        placeholder={placeholder}
+        value={value}
+        onChange={() => {}}
+      />
+    </div>
+  );
+}
+
 function FixtureDashboardCreateControl() {
   return (
     <FixtureDashboardShell
@@ -894,12 +926,6 @@ function FixtureDashboardCreateControl() {
             providerRows={[]}
           />
           <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">
-            <Input
-              className="w-full"
-              placeholder="New App name"
-              value=""
-              onChange={() => {}}
-            />
             <Select value="nicu-chiciuc" onValueChange={() => {}}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="GitHub owner" />
@@ -909,6 +935,21 @@ function FixtureDashboardCreateControl() {
                 <SelectItem value="noter-md">noter-md</SelectItem>
               </SelectContent>
             </Select>
+            <FixtureProviderNameInput
+              icon={<GitHubProviderLogo />}
+              placeholder="GitHub repo name"
+              value="field-notes"
+            />
+            <FixtureProviderNameInput
+              icon={<ConvexProviderLogo />}
+              placeholder="Convex project name"
+              value="field-notes"
+            />
+            <FixtureProviderNameInput
+              icon={<CloudflareProviderLogo />}
+              placeholder="Cloudflare Worker name"
+              value="field-notes"
+            />
             <Button className="w-full">New App</Button>
             <Button
               variant="outline"
