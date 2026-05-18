@@ -91,6 +91,35 @@ overlapping image tiles, but a clean recursive logo probably still needs
 face-level merging or a direct exposed-face mask before rasterization for
 coplanar joins.
 
+Web search update, 2026-05-18: this is a known graphics problem under several
+names: adjacent antialiased polygon seams, double compositing, sprite/tile
+seams, texture bleeding, alpha halos, and transparent-edge dilation. The common
+root is that the renderer stores a partially covered edge pixel as a blended
+RGBA value. When another adjacent shape or image is drawn later, the renderer no
+longer knows which subpixel area was covered, so it blends again and
+background/transparent edge color leaks through. Raising only the cached source
+raster size to 1000px or 2000px does not remove the class of bug because the
+final recursive composition still resamples transparent antialiased image edges
+at tile boundaries.
+
+Useful external findings:
+
+- Skia discussion: ordinary per-shape antialiasing draws each shape
+  independently; the Skia answer says MSAA is the AA mode that can make adjacent
+  shapes seam correctly because individual samples belong to one side of a
+  shared edge.
+- Canvas/SVG discussions list the same practical mitigations: overlap/expand
+  shapes, overdraw the shared edge, use a large final offscreen canvas and
+  downsample once, or write a deterministic rasterizer.
+- Texture-atlas and sprite pipelines usually add gutters/extruded edge pixels so
+  linear filtering samples repeated edge color instead of transparent or
+  unrelated neighbor pixels. That can reduce cached-image halos, but it does not
+  fix a seam already baked into a child image.
+- WebGL alpha guidance calls out premultiplied-alpha behavior for canvas/image
+  transfers. For any future WebGL version, premultiplied upload/blending and
+  transparent-edge dilation need to be treated as one pipeline, not as a late
+  CSS/canvas tweak.
+
 Deep-dive options after checking browser/graphics references:
 
 - Merge geometry before rasterization. Build one path or mask per visible
