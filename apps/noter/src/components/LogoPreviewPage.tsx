@@ -20,6 +20,7 @@ import {
 import {
   DEFAULT_LOGO_THEME_COLORS,
   LOGO_THEME_COLOR_KEYS,
+  RGB_LOGO_THEME_COLORS,
   TAILWIND_COLOR_FAMILIES,
   getTailwindColorHex,
   getTailwindColorFamily,
@@ -137,13 +138,6 @@ const THEME_COLOR_LABELS: Record<LogoThemeColorKey, string> = {
   primary: "Primary",
   secondary: "Secondary",
   top: "Top",
-};
-const RGB_THEME_COLORS: LogoThemeColors = {
-  ...DEFAULT_LOGO_THEME_COLORS,
-  background: "blue-500",
-  primary: "green-500",
-  secondary: "red-500",
-  top: "blue-500",
 };
 const COLOR_SWATCH_SIZE_CLASS_NAMES = {
   default: "h-4 w-4",
@@ -1334,7 +1328,7 @@ export function LogoPreviewPage({
             variant="outline"
             className="w-full rounded-none"
             onClick={() => {
-              controls.setThemeColors(RGB_THEME_COLORS);
+              controls.setThemeColors(RGB_LOGO_THEME_COLORS);
             }}
           >
             RGB colors

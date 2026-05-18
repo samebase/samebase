@@ -545,6 +545,13 @@ export const DEFAULT_LOGO_THEME_COLORS: LogoThemeColors = {
   ...DEFAULT_APP_THEME_COLORS,
   top: DEFAULT_APP_THEME_COLORS.background,
 };
+// RGB colors only the logo faces; the page background stays app-theme backed.
+export const RGB_LOGO_THEME_COLORS: LogoThemeColors = {
+  ...DEFAULT_LOGO_THEME_COLORS,
+  primary: "green-500",
+  secondary: "red-500",
+  top: "blue-500",
+};
 
 export const TAILWIND_COLOR_FAMILIES = tailwindColorFamilies.map(
   ({ label }) => label,

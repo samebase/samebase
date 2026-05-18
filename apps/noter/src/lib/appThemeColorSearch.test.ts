@@ -11,6 +11,7 @@ import {
 import {
   DEFAULT_APP_THEME_COLORS,
   DEFAULT_LOGO_THEME_COLORS,
+  RGB_LOGO_THEME_COLORS,
 } from "@/components/logoTailwindColors";
 
 describe("appThemeColorSearch", () => {
@@ -49,6 +50,14 @@ describe("appThemeColorSearch", () => {
         top: "sky-950",
       }).top,
     ).toBe("sky-950");
+
+    expect(buildLogoThemeColorSearch(RGB_LOGO_THEME_COLORS)).toEqual({
+      background: undefined,
+      border: undefined,
+      primary: "green-500",
+      secondary: "red-500",
+      top: "blue-500",
+    });
   });
 
   it("reads route search into semantic app theme colors", () => {

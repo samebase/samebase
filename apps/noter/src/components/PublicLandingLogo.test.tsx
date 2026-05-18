@@ -266,7 +266,6 @@ describe("PublicLandingLogo", () => {
 
   it("refreshes default static fallback colors after reset clears stale document overrides", async () => {
     syncDocumentThemeColorSearch({
-      background: "blue-500",
       primary: "green-500",
       secondary: "red-500",
     });
@@ -281,9 +280,9 @@ describe("PublicLandingLogo", () => {
         <PublicLandingLogo
           loadInteractiveScene={false}
           themeColorSearch={{
-            background: "blue-500",
             primary: "green-500",
             secondary: "red-500",
+            top: "blue-500",
           }}
         />,
       );
