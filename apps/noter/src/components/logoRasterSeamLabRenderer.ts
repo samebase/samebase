@@ -175,6 +175,10 @@ export const RASTER_SEAM_LAB_DEFAULT_INFLATION_SCALE = 1.01;
 export const RASTER_SEAM_LAB_MIN_INFLATION_SCALE = 1;
 export const RASTER_SEAM_LAB_SLIDER_MAX_INFLATION_SCALE = 1.05;
 export const RASTER_SEAM_LAB_INFLATION_SCALE_STEP = 0.001;
+export const RASTER_SEAM_LAB_DEFAULT_SPACING_SCALE = 1;
+export const RASTER_SEAM_LAB_MIN_SPACING_SCALE = 0;
+export const RASTER_SEAM_LAB_SLIDER_MAX_SPACING_SCALE = 1;
+export const RASTER_SEAM_LAB_SPACING_SCALE_STEP = 0.001;
 
 export const RASTER_SEAM_LAB_EMPTY_STATS = {
   baseGridSize: RASTER_SEAM_LAB_DEFAULT_GRID_SIZE,
@@ -218,6 +222,16 @@ export function normalizeRasterSeamLabInflationScale(
   }
 
   return Math.max(RASTER_SEAM_LAB_MIN_INFLATION_SCALE, value);
+}
+
+export function normalizeRasterSeamLabSpacingScale(
+  value: number | null | undefined,
+) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return RASTER_SEAM_LAB_DEFAULT_SPACING_SCALE;
+  }
+
+  return Math.max(RASTER_SEAM_LAB_MIN_SPACING_SCALE, value);
 }
 
 const MERGED_FACE_DEFINITIONS = [
@@ -969,38 +983,46 @@ function drawMergedFaceGroup({
   context,
   gridSize,
   group,
+  halfSize,
   projection,
 }: {
   context: CanvasRenderingContext2D;
   gridSize: number;
   group: RasterSeamLabMergedFaceGroup;
+  halfSize: number;
   projection: RasterSeamLabProjection;
 }) {
   context.beginPath();
   for (const loop of group.loops) {
     const [firstPoint, ...remainingPoints] = loop;
     const projectedFirstPoint = projection.projectPoint(
-      createWorldGridPoint({
-        gridSize,
-        planeAxis: group.planeAxis,
-        planeIndex: group.planeIndex,
-        point: firstPoint,
-        uAxis: group.uAxis,
-        vAxis: group.vAxis,
-      }),
+      scaleVector(
+        createWorldGridPoint({
+          gridSize,
+          planeAxis: group.planeAxis,
+          planeIndex: group.planeIndex,
+          point: firstPoint,
+          uAxis: group.uAxis,
+          vAxis: group.vAxis,
+        }),
+        halfSize * 2,
+      ),
     );
     context.moveTo(projectedFirstPoint.x, projectedFirstPoint.y);
 
     for (const point of remainingPoints) {
       const projectedPoint = projection.projectPoint(
-        createWorldGridPoint({
-          gridSize,
-          planeAxis: group.planeAxis,
-          planeIndex: group.planeIndex,
-          point,
-          uAxis: group.uAxis,
-          vAxis: group.vAxis,
-        }),
+        scaleVector(
+          createWorldGridPoint({
+            gridSize,
+            planeAxis: group.planeAxis,
+            planeIndex: group.planeIndex,
+            point,
+            uAxis: group.uAxis,
+            vAxis: group.vAxis,
+          }),
+          halfSize * 2,
+        ),
       );
       context.lineTo(projectedPoint.x, projectedPoint.y);
     }
@@ -1012,9 +1034,11 @@ function drawMergedFaceGroup({
 
 function renderMergedFacesImage({
   gridSize,
+  halfSize,
   projection,
 }: {
   gridSize: number;
+  halfSize: number;
   projection: RasterSeamLabProjection;
 }) {
   const canvas = createLabCanvas(projection.sizePx);
@@ -1025,7 +1049,7 @@ function renderMergedFacesImage({
 
   for (const group of getMergedFaceGroups({ gridSize, projection })) {
     context.fillStyle = group.color;
-    drawMergedFaceGroup({ context, gridSize, group, projection });
+    drawMergedFaceGroup({ context, gridSize, group, halfSize, projection });
   }
 
   return canvas;
@@ -1052,21 +1076,44 @@ function getCellCenter({
   ];
 }
 
+function getSpacedGridHalfSize({
+  gridSize,
+  halfSize,
+  spacingScale,
+}: {
+  gridSize: number;
+  halfSize: number;
+  spacingScale: number;
+}) {
+  const cellHalfSize = halfSize / gridSize;
+  return (
+    cellHalfSize +
+    (halfSize - cellHalfSize) * normalizeRasterSeamLabSpacingScale(spacingScale)
+  );
+}
+
 function getDrawItems({
   gridSize,
   halfSize,
   projection,
+  spacingScale,
 }: {
   gridSize: number;
   halfSize: number;
   projection: RasterSeamLabProjection;
+  spacingScale: number;
 }): RasterSeamLabDrawItem[] {
   const drawItems: RasterSeamLabDrawItem[] = [];
+  const normalizedSpacingScale =
+    normalizeRasterSeamLabSpacingScale(spacingScale);
 
   for (let x = 0; x < gridSize; x += 1) {
     for (let y = 0; y < gridSize; y += 1) {
       for (let z = 0; z < gridSize; z += 1) {
-        const center = getCellCenter({ gridSize, halfSize, x, y, z });
+        const center = scaleVector(
+          getCellCenter({ gridSize, halfSize, x, y, z }),
+          normalizedSpacingScale,
+        );
         drawItems.push({
           center,
           depth: dotVectors(
@@ -1093,11 +1140,13 @@ function renderComposedImage({
   gridSize,
   halfSize,
   projection,
+  spacingScale,
 }: {
   childCanvas: HTMLCanvasElement;
   gridSize: number;
   halfSize: number;
   projection: RasterSeamLabProjection;
+  spacingScale: number;
 }) {
   const canvas = createLabCanvas(projection.sizePx);
   const context = canvas.getContext("2d");
@@ -1107,7 +1156,12 @@ function renderComposedImage({
 
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
-  for (const item of getDrawItems({ gridSize, halfSize, projection })) {
+  for (const item of getDrawItems({
+    gridSize,
+    halfSize,
+    projection,
+    spacingScale,
+  })) {
     const offset = projection.projectVector(item.center);
     context.drawImage(childCanvas, offset.x, offset.y);
   }
@@ -1120,11 +1174,13 @@ function renderCrispComposedImage({
   gridSize,
   halfSize,
   projection,
+  spacingScale,
 }: {
   childCanvas: HTMLCanvasElement;
   gridSize: number;
   halfSize: number;
   projection: RasterSeamLabProjection;
+  spacingScale: number;
 }) {
   const canvas = createLabCanvas(projection.sizePx);
   const context = canvas.getContext("2d");
@@ -1133,7 +1189,12 @@ function renderCrispComposedImage({
   }
 
   context.imageSmoothingEnabled = false;
-  for (const item of getDrawItems({ gridSize, halfSize, projection })) {
+  for (const item of getDrawItems({
+    gridSize,
+    halfSize,
+    projection,
+    spacingScale,
+  })) {
     const offset = projection.projectVector(item.center);
     context.drawImage(childCanvas, Math.round(offset.x), Math.round(offset.y));
   }
@@ -1147,12 +1208,14 @@ function renderInflatedComposedImage({
   halfSize,
   inflationScale,
   projection,
+  spacingScale,
 }: {
   childCanvas: HTMLCanvasElement;
   gridSize: number;
   halfSize: number;
   inflationScale: number;
   projection: RasterSeamLabProjection;
+  spacingScale: number;
 }) {
   const canvas = createLabCanvas(projection.sizePx);
   const context = canvas.getContext("2d");
@@ -1165,21 +1228,23 @@ function renderInflatedComposedImage({
 
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
-  getDrawItems({ gridSize, halfSize, projection }).forEach((item, index) => {
-    const offset = projection.projectVector(item.center);
-    if (index === 0) {
-      context.drawImage(childCanvas, offset.x, offset.y);
-      return;
-    }
+  getDrawItems({ gridSize, halfSize, projection, spacingScale }).forEach(
+    (item, index) => {
+      const offset = projection.projectVector(item.center);
+      if (index === 0) {
+        context.drawImage(childCanvas, offset.x, offset.y);
+        return;
+      }
 
-    context.drawImage(
-      childCanvas,
-      offset.x - inflatedOffset,
-      offset.y - inflatedOffset,
-      inflatedSize,
-      inflatedSize,
-    );
-  });
+      context.drawImage(
+        childCanvas,
+        offset.x - inflatedOffset,
+        offset.y - inflatedOffset,
+        inflatedSize,
+        inflatedSize,
+      );
+    },
+  );
 
   return canvas;
 }
@@ -1235,12 +1300,14 @@ function renderSingleCompositeImage({
   gridSize,
   halfSize,
   projection,
+  spacingScale,
 }: {
   canvasOperation: GlobalCompositeOperation;
   childCanvas: HTMLCanvasElement;
   gridSize: number;
   halfSize: number;
   projection: RasterSeamLabProjection;
+  spacingScale: number;
 }) {
   const canvas = createLabCanvas(projection.sizePx);
   const context = canvas.getContext("2d");
@@ -1248,7 +1315,7 @@ function renderSingleCompositeImage({
     return canvas;
   }
 
-  const items = getDrawItems({ gridSize, halfSize, projection });
+  const items = getDrawItems({ gridSize, halfSize, projection, spacingScale });
   const offsets = items.map((item) => getDrawImageOffset(projection, item));
   const magicCanvas = createLabCanvas(projection.sizePx);
   const magicContext = magicCanvas.getContext("2d");
@@ -1291,12 +1358,14 @@ function renderFullCompositeImage({
   gridSize,
   halfSize,
   projection,
+  spacingScale,
 }: {
   canvasOperation: GlobalCompositeOperation;
   childCanvas: HTMLCanvasElement;
   gridSize: number;
   halfSize: number;
   projection: RasterSeamLabProjection;
+  spacingScale: number;
 }) {
   const canvas = createLabCanvas(projection.sizePx);
   const context = canvas.getContext("2d");
@@ -1304,7 +1373,7 @@ function renderFullCompositeImage({
     return canvas;
   }
 
-  const items = getDrawItems({ gridSize, halfSize, projection });
+  const items = getDrawItems({ gridSize, halfSize, projection, spacingScale });
   const offsets = items.map((item) => getDrawImageOffset(projection, item));
   const stagePaddingPx = projection.sizePx;
   const stageSizePx = projection.sizePx + stagePaddingPx * 2;
@@ -1362,11 +1431,13 @@ function renderRecursiveComposedImage({
   gridSize,
   halfSize,
   projection,
+  spacingScale,
 }: {
   depth: number;
   gridSize: number;
   halfSize: number;
   projection: RasterSeamLabProjection;
+  spacingScale: number;
 }): HTMLCanvasElement {
   if (depth <= 0) {
     return createUnitCubeCanvas(projection, halfSize);
@@ -1377,8 +1448,15 @@ function renderRecursiveComposedImage({
     gridSize,
     halfSize: halfSize / gridSize,
     projection,
+    spacingScale,
   });
-  return renderComposedImage({ childCanvas, gridSize, halfSize, projection });
+  return renderComposedImage({
+    childCanvas,
+    gridSize,
+    halfSize,
+    projection,
+    spacingScale,
+  });
 }
 
 function renderRecursiveCrispComposedImage({
@@ -1386,11 +1464,13 @@ function renderRecursiveCrispComposedImage({
   gridSize,
   halfSize,
   projection,
+  spacingScale,
 }: {
   depth: number;
   gridSize: number;
   halfSize: number;
   projection: RasterSeamLabProjection;
+  spacingScale: number;
 }): HTMLCanvasElement {
   if (depth <= 0) {
     return createCrispUnitCubeCanvas(projection, halfSize);
@@ -1401,12 +1481,14 @@ function renderRecursiveCrispComposedImage({
     gridSize,
     halfSize: halfSize / gridSize,
     projection,
+    spacingScale,
   });
   return renderCrispComposedImage({
     childCanvas,
     gridSize,
     halfSize,
     projection,
+    spacingScale,
   });
 }
 
@@ -1416,12 +1498,14 @@ function renderRecursiveInflatedComposedImage({
   halfSize,
   inflationScale,
   projection,
+  spacingScale,
 }: {
   depth: number;
   gridSize: number;
   halfSize: number;
   inflationScale: number;
   projection: RasterSeamLabProjection;
+  spacingScale: number;
 }): HTMLCanvasElement {
   if (depth <= 0) {
     return createUnitCubeCanvas(projection, halfSize);
@@ -1433,6 +1517,7 @@ function renderRecursiveInflatedComposedImage({
     halfSize: halfSize / gridSize,
     inflationScale,
     projection,
+    spacingScale,
   });
   return renderInflatedComposedImage({
     childCanvas,
@@ -1440,6 +1525,7 @@ function renderRecursiveInflatedComposedImage({
     halfSize,
     inflationScale,
     projection,
+    spacingScale,
   });
 }
 
@@ -1449,12 +1535,14 @@ function renderRecursiveSingleCompositeImage({
   gridSize,
   halfSize,
   projection,
+  spacingScale,
 }: {
   canvasOperation: GlobalCompositeOperation;
   depth: number;
   gridSize: number;
   halfSize: number;
   projection: RasterSeamLabProjection;
+  spacingScale: number;
 }): HTMLCanvasElement {
   if (depth <= 0) {
     return createUnitCubeCanvas(projection, halfSize);
@@ -1466,6 +1554,7 @@ function renderRecursiveSingleCompositeImage({
     gridSize,
     halfSize: halfSize / gridSize,
     projection,
+    spacingScale,
   });
   return renderSingleCompositeImage({
     canvasOperation,
@@ -1473,6 +1562,7 @@ function renderRecursiveSingleCompositeImage({
     gridSize,
     halfSize,
     projection,
+    spacingScale,
   });
 }
 
@@ -1482,12 +1572,14 @@ function renderRecursiveFullCompositeImage({
   gridSize,
   halfSize,
   projection,
+  spacingScale,
 }: {
   canvasOperation: GlobalCompositeOperation;
   depth: number;
   gridSize: number;
   halfSize: number;
   projection: RasterSeamLabProjection;
+  spacingScale: number;
 }): HTMLCanvasElement {
   if (depth <= 0) {
     return createUnitCubeCanvas(projection, halfSize);
@@ -1499,6 +1591,7 @@ function renderRecursiveFullCompositeImage({
     gridSize,
     halfSize: halfSize / gridSize,
     projection,
+    spacingScale,
   });
   return renderFullCompositeImage({
     canvasOperation,
@@ -1506,6 +1599,7 @@ function renderRecursiveFullCompositeImage({
     gridSize,
     halfSize,
     projection,
+    spacingScale,
   });
 }
 
@@ -1586,12 +1680,14 @@ function renderMergedImage({
   inflationScale,
   mergeMode,
   projection,
+  spacingScale,
 }: {
   depth: RasterSeamLabDepth;
   gridSize: RasterSeamLabGridSize;
   inflationScale: number;
   mergeMode: RasterSeamLabMergeMode;
   projection: RasterSeamLabProjection;
+  spacingScale: number;
 }): HTMLCanvasElement {
   switch (mergeMode) {
     case "source-over":
@@ -1600,6 +1696,7 @@ function renderMergedImage({
         gridSize,
         halfSize: 0.5,
         projection,
+        spacingScale,
       });
     case "crisp-source-over":
       return renderRecursiveCrispComposedImage({
@@ -1607,6 +1704,7 @@ function renderMergedImage({
         gridSize,
         halfSize: 0.5,
         projection,
+        spacingScale,
       });
     case "inflated-source-over":
       return renderRecursiveInflatedComposedImage({
@@ -1615,6 +1713,7 @@ function renderMergedImage({
         halfSize: 0.5,
         inflationScale,
         projection,
+        spacingScale,
       });
     case "source-atop-single":
       return renderRecursiveSingleCompositeImage({
@@ -1623,6 +1722,7 @@ function renderMergedImage({
         gridSize,
         halfSize: 0.5,
         projection,
+        spacingScale,
       });
     case "source-atop-full":
       return renderRecursiveFullCompositeImage({
@@ -1631,6 +1731,7 @@ function renderMergedImage({
         gridSize,
         halfSize: 0.5,
         projection,
+        spacingScale,
       });
     case "destination-out-full":
       return renderRecursiveFullCompositeImage({
@@ -1639,12 +1740,20 @@ function renderMergedImage({
         gridSize,
         halfSize: 0.5,
         projection,
+        spacingScale,
       });
-    case "merged-faces":
+    case "merged-faces": {
+      const effectiveGridSize = getEffectiveGridSize({ depth, gridSize });
       return renderMergedFacesImage({
-        gridSize: getEffectiveGridSize({ depth, gridSize }),
+        gridSize: effectiveGridSize,
+        halfSize: getSpacedGridHalfSize({
+          gridSize: effectiveGridSize,
+          halfSize: 0.5,
+          spacingScale,
+        }),
         projection,
       });
+    }
     default:
       mergeMode satisfies never;
       throw new Error("Unsupported raster seam lab merge mode.");
@@ -1652,11 +1761,17 @@ function renderMergedImage({
 }
 
 function renderReferenceImage({
+  depth,
+  gridSize,
   mergeMode,
   projection,
+  spacingScale,
 }: {
+  depth: RasterSeamLabDepth;
+  gridSize: RasterSeamLabGridSize;
   mergeMode: RasterSeamLabMergeMode;
   projection: RasterSeamLabProjection;
+  spacingScale: number;
 }) {
   const canvas = createLabCanvas(projection.sizePx);
   const context = canvas.getContext("2d");
@@ -1664,12 +1779,18 @@ function renderReferenceImage({
     return canvas;
   }
 
+  const halfSize = getSpacedGridHalfSize({
+    gridSize: getEffectiveGridSize({ depth, gridSize }),
+    halfSize: 0.5,
+    spacingScale,
+  });
+
   if (mergeMode === "crisp-source-over") {
     drawProjectedFacesCrisp({
       context,
       faces: getCubeFaces({
         center: [0, 0, 0],
-        halfSize: 0.5,
+        halfSize,
       }),
       projection,
     });
@@ -1677,14 +1798,14 @@ function renderReferenceImage({
   }
 
   if (mergeMode === "merged-faces") {
-    return renderMergedFacesImage({ gridSize: 1, projection });
+    return renderMergedFacesImage({ gridSize: 1, halfSize, projection });
   }
 
   drawProjectedFaces({
     context,
     faces: getCubeFaces({
       center: [0, 0, 0],
-      halfSize: 0.5,
+      halfSize,
     }),
     projection,
   });
@@ -1851,6 +1972,7 @@ export function drawLogoRasterSeamLabImage(
     inflationScale,
     mergeMode,
     rotationDegrees,
+    spacingScale,
     sourceSizePx,
   }: {
     depth: RasterSeamLabDepth;
@@ -1860,6 +1982,7 @@ export function drawLogoRasterSeamLabImage(
     inflationScale: number;
     mergeMode: RasterSeamLabMergeMode;
     rotationDegrees: number;
+    spacingScale: number;
     sourceSizePx: number;
   },
 ): RasterSeamLabResult {
@@ -1874,8 +1997,15 @@ export function drawLogoRasterSeamLabImage(
     inflationScale: normalizeRasterSeamLabInflationScale(inflationScale),
     mergeMode,
     projection,
+    spacingScale: normalizeRasterSeamLabSpacingScale(spacingScale),
   });
-  const referenceCanvas = renderReferenceImage({ mergeMode, projection });
+  const referenceCanvas = renderReferenceImage({
+    depth,
+    gridSize,
+    mergeMode,
+    projection,
+    spacingScale: normalizeRasterSeamLabSpacingScale(spacingScale),
+  });
   const seamResult = {
     ...measureSeams({ composedCanvas, referenceCanvas }),
     stats: getRasterSeamLabStats({ depth, gridSize, projection }),

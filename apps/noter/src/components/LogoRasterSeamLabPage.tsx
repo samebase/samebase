@@ -6,6 +6,7 @@ import {
   RASTER_SEAM_LAB_DEFAULT_INFLATION_SCALE,
   RASTER_SEAM_LAB_DEFAULT_MERGE_MODE,
   RASTER_SEAM_LAB_DEFAULT_ROTATION_DEGREES,
+  RASTER_SEAM_LAB_DEFAULT_SPACING_SCALE,
   RASTER_SEAM_LAB_DEPTHS,
   RASTER_SEAM_LAB_EMPTY_STATS,
   RASTER_SEAM_LAB_GRID_SIZES,
@@ -13,14 +14,18 @@ import {
   RASTER_SEAM_LAB_INFLATION_SCALE_STEP,
   RASTER_SEAM_LAB_MERGE_MODES,
   RASTER_SEAM_LAB_MIN_INFLATION_SCALE,
+  RASTER_SEAM_LAB_MIN_SPACING_SCALE,
   RASTER_SEAM_LAB_SAMPLE_ROTATIONS,
   RASTER_SEAM_LAB_SLIDER_MAX_INFLATION_SCALE,
+  RASTER_SEAM_LAB_SLIDER_MAX_SPACING_SCALE,
   RASTER_SEAM_LAB_SOURCE_SIZES,
+  RASTER_SEAM_LAB_SPACING_SCALE_STEP,
   drawLogoRasterSeamLabImage,
   getLogoRasterSeamLabStats,
   normalizeRasterSeamLabDepth,
   normalizeRasterSeamLabGridSize,
   normalizeRasterSeamLabInflationScale,
+  normalizeRasterSeamLabSpacingScale,
   type RasterSeamLabDepth,
   type RasterSeamLabGridSize,
   type RasterSeamLabImageKind,
@@ -62,11 +67,11 @@ function getMergeModeLabel(mergeMode: RasterSeamLabMergeMode) {
   );
 }
 
-function formatInflationScaleInput(value: number) {
+function formatScaleInput(value: number) {
   return value.toFixed(3);
 }
 
-function parseInflationScaleInput(value: string) {
+function parseScaleInput(value: string) {
   const trimmedValue = value.trim();
   if (!trimmedValue) {
     return null;
@@ -85,6 +90,7 @@ function SeamLabCanvas({
   inflationScale,
   mergeMode,
   rotationDegrees,
+  spacingScale,
   sourceSizePx,
   zoom,
 }: {
@@ -95,6 +101,7 @@ function SeamLabCanvas({
   inflationScale: number;
   mergeMode: RasterSeamLabMergeMode;
   rotationDegrees: number;
+  spacingScale: number;
   sourceSizePx: number;
   zoom: SeamLabZoom;
 }) {
@@ -123,6 +130,7 @@ function SeamLabCanvas({
         inflationScale,
         mergeMode,
         rotationDegrees,
+        spacingScale,
         sourceSizePx,
       }),
     );
@@ -134,6 +142,7 @@ function SeamLabCanvas({
     inflationScale,
     mergeMode,
     rotationDegrees,
+    spacingScale,
     sourceSizePx,
   ]);
 
@@ -173,6 +182,7 @@ function AngleSweepCanvas({
   inflationScale,
   mergeMode,
   rotationDegrees,
+  spacingScale,
   sourceSizePx,
 }: {
   depth: RasterSeamLabDepth;
@@ -181,6 +191,7 @@ function AngleSweepCanvas({
   inflationScale: number;
   mergeMode: RasterSeamLabMergeMode;
   rotationDegrees: number;
+  spacingScale: number;
   sourceSizePx: number;
 }) {
   return (
@@ -201,6 +212,7 @@ function AngleSweepCanvas({
         inflationScale={inflationScale}
         mergeMode={mergeMode}
         rotationDegrees={rotationDegrees}
+        spacingScale={spacingScale}
         sourceSizePx={sourceSizePx}
         zoom="small"
       />
@@ -215,6 +227,7 @@ function MergeModeSweepCanvas({
   inflationScale,
   mergeMode,
   rotationDegrees,
+  spacingScale,
   sourceSizePx,
 }: {
   depth: RasterSeamLabDepth;
@@ -223,6 +236,7 @@ function MergeModeSweepCanvas({
   inflationScale: number;
   mergeMode: RasterSeamLabMergeMode;
   rotationDegrees: number;
+  spacingScale: number;
   sourceSizePx: number;
 }) {
   return (
@@ -243,6 +257,7 @@ function MergeModeSweepCanvas({
         inflationScale={inflationScale}
         mergeMode={mergeMode}
         rotationDegrees={rotationDegrees}
+        spacingScale={spacingScale}
         sourceSizePx={sourceSizePx}
         zoom="small"
       />
@@ -279,26 +294,47 @@ export function LogoRasterSeamLabPage({
   const [mergeMode, setMergeMode] = useState<RasterSeamLabMergeMode>(
     RASTER_SEAM_LAB_DEFAULT_MERGE_MODE,
   );
+  const [spacingScale, setSpacingScale] = useState(
+    RASTER_SEAM_LAB_DEFAULT_SPACING_SCALE,
+  );
+  const [spacingScaleInputValue, setSpacingScaleInputValue] = useState(
+    formatScaleInput(RASTER_SEAM_LAB_DEFAULT_SPACING_SCALE),
+  );
   const [inflationScale, setInflationScale] = useState(
     RASTER_SEAM_LAB_DEFAULT_INFLATION_SCALE,
   );
   const [inflationScaleInputValue, setInflationScaleInputValue] = useState(
-    formatInflationScaleInput(RASTER_SEAM_LAB_DEFAULT_INFLATION_SCALE),
+    formatScaleInput(RASTER_SEAM_LAB_DEFAULT_INFLATION_SCALE),
   );
+  const setCommittedSpacingScale = (value: number) => {
+    const nextSpacingScale = normalizeRasterSeamLabSpacingScale(value);
+    setSpacingScale(nextSpacingScale);
+    setSpacingScaleInputValue(formatScaleInput(nextSpacingScale));
+  };
+  const commitSpacingScaleInput = () => {
+    const parsedValue = parseScaleInput(spacingScaleInputValue);
+    const nextSpacingScale =
+      parsedValue === null
+        ? spacingScale
+        : normalizeRasterSeamLabSpacingScale(parsedValue);
+
+    setSpacingScale(nextSpacingScale);
+    setSpacingScaleInputValue(formatScaleInput(nextSpacingScale));
+  };
   const setCommittedInflationScale = (value: number) => {
     const nextInflationScale = normalizeRasterSeamLabInflationScale(value);
     setInflationScale(nextInflationScale);
-    setInflationScaleInputValue(formatInflationScaleInput(nextInflationScale));
+    setInflationScaleInputValue(formatScaleInput(nextInflationScale));
   };
   const commitInflationScaleInput = () => {
-    const parsedValue = parseInflationScaleInput(inflationScaleInputValue);
+    const parsedValue = parseScaleInput(inflationScaleInputValue);
     const nextInflationScale =
       parsedValue === null
         ? inflationScale
         : normalizeRasterSeamLabInflationScale(parsedValue);
 
     setInflationScale(nextInflationScale);
-    setInflationScaleInputValue(formatInflationScaleInput(nextInflationScale));
+    setInflationScaleInputValue(formatScaleInput(nextInflationScale));
   };
   const labStats = getLogoRasterSeamLabStats({
     depth: recursiveDepth,
@@ -308,6 +344,7 @@ export function LogoRasterSeamLabPage({
     sourceSizePx,
   });
   const inflationScaleLabel = `${inflationScale.toFixed(3)}x`;
+  const spacingScaleLabel = `${spacingScale.toFixed(3)}x`;
 
   return (
     <div className="min-h-screen bg-[#f5f4ef] text-black">
@@ -443,6 +480,51 @@ export function LogoRasterSeamLabPage({
 
             <div className="grid gap-2">
               <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                <span>Spacing</span>
+                <span>{spacingScaleLabel}</span>
+              </div>
+              <input
+                type="range"
+                min={RASTER_SEAM_LAB_MIN_SPACING_SCALE}
+                max={RASTER_SEAM_LAB_SLIDER_MAX_SPACING_SCALE}
+                step={RASTER_SEAM_LAB_SPACING_SCALE_STEP}
+                value={Math.min(
+                  spacingScale,
+                  RASTER_SEAM_LAB_SLIDER_MAX_SPACING_SCALE,
+                )}
+                onChange={(event) => {
+                  setCommittedSpacingScale(Number(event.target.value));
+                }}
+                className="h-2 w-full cursor-pointer accent-black"
+              />
+              <input
+                type="text"
+                inputMode="decimal"
+                value={spacingScaleInputValue}
+                onChange={(event) => {
+                  const nextInputValue = event.target.value;
+                  const parsedValue = parseScaleInput(nextInputValue);
+
+                  setSpacingScaleInputValue(nextInputValue);
+                  if (parsedValue !== null) {
+                    setSpacingScale(
+                      normalizeRasterSeamLabSpacingScale(parsedValue),
+                    );
+                  }
+                }}
+                onBlur={commitSpacingScaleInput}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
+                className="h-9 w-full border border-black/15 bg-white px-2 font-mono text-sm text-black"
+                aria-label="Spacing scale"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                 <span>Inflate</span>
                 <span>{inflationScaleLabel}</span>
               </div>
@@ -466,7 +548,7 @@ export function LogoRasterSeamLabPage({
                 value={inflationScaleInputValue}
                 onChange={(event) => {
                   const nextInputValue = event.target.value;
-                  const parsedValue = parseInflationScaleInput(nextInputValue);
+                  const parsedValue = parseScaleInput(nextInputValue);
 
                   setInflationScaleInputValue(nextInputValue);
                   if (parsedValue !== null) {
@@ -565,6 +647,7 @@ export function LogoRasterSeamLabPage({
                   inflationScale={inflationScale}
                   mergeMode={mergeMode}
                   rotationDegrees={rotationDegrees}
+                  spacingScale={spacingScale}
                   sourceSizePx={sourceSizePx}
                   zoom="large"
                 />
@@ -576,6 +659,7 @@ export function LogoRasterSeamLabPage({
                   inflationScale={inflationScale}
                   mergeMode={mergeMode}
                   rotationDegrees={rotationDegrees}
+                  spacingScale={spacingScale}
                   sourceSizePx={sourceSizePx}
                   zoom="large"
                 />
@@ -587,6 +671,7 @@ export function LogoRasterSeamLabPage({
                   inflationScale={inflationScale}
                   mergeMode={mergeMode}
                   rotationDegrees={rotationDegrees}
+                  spacingScale={spacingScale}
                   sourceSizePx={sourceSizePx}
                   zoom="large"
                 />
@@ -624,6 +709,7 @@ export function LogoRasterSeamLabPage({
                       inflationScale={inflationScale}
                       mergeMode={mode.value}
                       rotationDegrees={rotationDegrees}
+                      spacingScale={spacingScale}
                       sourceSizePx={sourceSizePx}
                     />
                   </button>
@@ -658,6 +744,7 @@ export function LogoRasterSeamLabPage({
                       inflationScale={inflationScale}
                       mergeMode={mergeMode}
                       rotationDegrees={sampleRotation}
+                      spacingScale={spacingScale}
                       sourceSizePx={sourceSizePx}
                     />
                   </button>
@@ -693,6 +780,7 @@ export function LogoRasterSeamLabPage({
                       inflationScale={inflationScale}
                       mergeMode={mergeMode}
                       rotationDegrees={rotationDegrees}
+                      spacingScale={spacingScale}
                       sourceSizePx={sampleSourceSizePx}
                     />
                   </button>

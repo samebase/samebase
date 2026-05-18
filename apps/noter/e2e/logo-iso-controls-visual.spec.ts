@@ -499,6 +499,46 @@ test("logo raster seam lab inflation input allows partial edits", async ({
   await expect(inflationInput).toHaveValue("1.500");
 });
 
+test("logo raster seam lab spacing scale moves the fake 3d centers", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo/raster-seams?depth=2&elev=22&rot=22", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const currentCase = page.getByTestId("logo-raster-seam-lab-current-case");
+  const composedCanvas = currentCase.locator(
+    'canvas[data-logo-raster-seam-lab="composed"]',
+  );
+  const spacingInput = page.getByLabel("Spacing scale");
+
+  await expect(spacingInput).toHaveValue("1.000");
+  await waitForPaint(page);
+  const defaultImage = await composedCanvas.evaluate((element) => {
+    if (!(element instanceof HTMLCanvasElement)) {
+      return "";
+    }
+
+    return element.toDataURL();
+  });
+
+  await spacingInput.fill("0.99");
+  await expect(spacingInput).toHaveValue("0.99");
+  await waitForPaint(page);
+  const tightenedImage = await composedCanvas.evaluate((element) => {
+    if (!(element instanceof HTMLCanvasElement)) {
+      return "";
+    }
+
+    return element.toDataURL();
+  });
+
+  expect(tightenedImage).not.toBe(defaultImage);
+  await spacingInput.press("Enter");
+  await expect(spacingInput).toHaveValue("0.990");
+});
+
 test("logo shape presets include the Sierpinski carpet model", async ({
   page,
 }) => {
