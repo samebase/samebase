@@ -79,6 +79,10 @@ function formatSourceSizeInput(value: number) {
   return value.toString();
 }
 
+function formatAngleDegrees(value: number) {
+  return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
+}
+
 function parseScaleInput(value: string) {
   const trimmedValue = value.trim();
   if (!trimmedValue) {
@@ -622,13 +626,13 @@ export function LogoRasterSeamLabPage({
             <div className="grid gap-2">
               <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                 <span>Rotation</span>
-                <span>{rotationDegrees.toFixed(0)}°</span>
+                <span>{formatAngleDegrees(rotationDegrees)}°</span>
               </div>
               <input
                 type="range"
                 min="0"
                 max="90"
-                step="1"
+                step="0.1"
                 value={rotationDegrees}
                 onChange={(event) => {
                   setRotationDegrees(Number(event.target.value));
@@ -640,13 +644,13 @@ export function LogoRasterSeamLabPage({
             <div className="grid gap-2">
               <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                 <span>Elevation</span>
-                <span>{elevationDegrees.toFixed(0)}°</span>
+                <span>{formatAngleDegrees(elevationDegrees)}°</span>
               </div>
               <input
                 type="range"
                 min="0"
                 max="70"
-                step="1"
+                step="0.1"
                 value={elevationDegrees}
                 onChange={(event) => {
                   setElevationDegrees(Number(event.target.value));
@@ -672,8 +676,8 @@ export function LogoRasterSeamLabPage({
                     {labStats.effectiveGridSize}x{labStats.effectiveGridSize}x
                     {labStats.effectiveGridSize}, {sourceSizePx}px source,{" "}
                     {getMergeModeLabel(mergeMode)}, rotation{" "}
-                    {rotationDegrees.toFixed(0)}°, elevation{" "}
-                    {elevationDegrees.toFixed(0)}°, inflate{" "}
+                    {formatAngleDegrees(rotationDegrees)}°, elevation{" "}
+                    {formatAngleDegrees(elevationDegrees)}°, inflate{" "}
                     {inflationScaleLabel}
                   </div>
                   <div className="mt-1 font-mono text-[11px] text-black/45">

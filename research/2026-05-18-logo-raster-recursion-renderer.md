@@ -339,6 +339,12 @@ painter order. That removes browser resampling and normal source-over edge
 blending from the composition step, leaving only the question of whether integer
 placement is visually acceptable for the projected geometry.
 
+Angle-step note: a 1-degree change can still be visually obvious at a 144px
+source because the projected edge can move about a source pixel, and the current
+case view magnifies those pixels. The seam lab rotation/elevation sliders use
+0.1-degree steps so 54 -> 55 can be inspected as continuous coverage changes
+instead of one coarse jump.
+
 ## Interaction Contract
 
 - This raster path is an experiment route first, not the default `/logo` route.
