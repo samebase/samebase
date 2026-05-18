@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { LogoTransitionLabPage } from "@/components/LogoTransitionLabPage";
+import { LogoTransitionLabPage } from "@/components/logo/LogoTransitionLabPage";
 import { RoutedPage } from "./-publicRouteComponents";
 
 function LogoTransitionLabRouteComponent() {

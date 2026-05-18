@@ -1,4 +1,6 @@
 import { getRouteApi } from "@tanstack/react-router";
+import { normalizeLogoDistanceScale } from "@/components/logo/logoDistanceScale";
+import { normalizeLogoFractalDepth } from "@/components/logo/logoVoxelState";
 import {
   appThemeColorSearchFieldSchema,
   readLogoThemeColorSearch,
@@ -37,6 +39,31 @@ function readOptionalGoogleSignupReturn(value: unknown): "google" | undefined {
   return value === "google" ? "google" : undefined;
 }
 
+function readOptionalNumber(value: unknown): number | undefined {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : undefined;
+  }
+
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmedValue = value.trim();
+  if (trimmedValue.length === 0) {
+    return undefined;
+  }
+
+  const parsedValue = Number(trimmedValue);
+  return Number.isFinite(parsedValue) ? parsedValue : undefined;
+}
+
+function readOptionalLogoFractalDepth(value: unknown): number | undefined {
+  const numericValue = readOptionalNumber(value);
+  return typeof numericValue === "number"
+    ? normalizeLogoFractalDepth(numericValue)
+    : undefined;
+}
+
 // Keep the delete route scoped to one trimmed owner/repo pair; invalid shapes
 // fail closed so extra slashes or empty segments cannot retarget the surface.
 function readOptionalDeleteRepository(value: unknown): string | undefined {
@@ -62,6 +89,16 @@ const rootRouteSearchSchema = z
     dev: z.literal(true).optional(),
     devtools: z.literal(true).optional(),
     delete: z.preprocess(readOptionalDeleteRepository, z.string().optional()),
+    depth: z.preprocess(
+      readOptionalLogoFractalDepth,
+      z.number().finite().optional(),
+    ),
+    dist: z.preprocess((value) => {
+      const numericValue = readOptionalNumber(value);
+      return typeof numericValue === "number"
+        ? normalizeLogoDistanceScale(numericValue)
+        : undefined;
+    }, z.number().finite().optional()),
     "prod-ui": z.literal(true).optional(),
     [SEARCH_RESET_QUERY_PARAM]: z.literal(true).optional(),
     [PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM]: z.preprocess(

@@ -20,12 +20,12 @@ import { CornerNotchVisualFixture } from "@/components/CornerNotchVisualFixture"
 import {
   LogoThreeVisualFixture,
   type LogoThreeVisualMode,
-} from "@/components/LogoThreeVisualFixture";
+} from "@/components/logo/LogoThreeVisualFixture";
 import { CornerNotchDetailVisualFixture } from "@/components/CornerNotchDetailVisualFixture";
 import {
   LogoSnapAnglesVisualFixture,
   type LogoSnapAnglesVisualMode,
-} from "@/components/LogoSnapAnglesVisualFixture";
+} from "@/components/logo/LogoSnapAnglesVisualFixture";
 import { FileViewPushActionsVisualFixture } from "@/components/FileViewPushActionsVisualFixture";
 import {
   FileViewCompareVisualFixture,

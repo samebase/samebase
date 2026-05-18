@@ -13,7 +13,8 @@
   `apps/noter/public/noter-x-profile-banner.png`,
   `apps/noter/public/noter-social-card.svg`,
   `specs/060_LOGO_PREVIEW_PLAYGROUND_SPEC.md`,
-  `specs/061_USER_LOGO_STATIC_SVG_DELIVERY_SPEC.md`
+  `specs/061_USER_LOGO_STATIC_SVG_DELIVERY_SPEC.md`,
+  `specs/090_LOGO_RENDERING_MODEL_SIMPLIFICATION_SPEC.md`
 
 ## Summary
 
@@ -32,6 +33,9 @@ camera states:
 The X profile banner already uses this sequence as the brand explanation. This
 spec makes that sequence a code and asset invariant rather than an implied
 memory.
+
+Recursive `/logo?depth=...` previews are playground render states derived from
+the same mark. They do not change the canonical identity asset contract.
 
 ## Source Of Truth
 

@@ -1,4 +1,4 @@
-import { createStaticLogoSvgMarkup } from "./logoStaticSvgAsset";
+import { createStaticLogoSvgMarkup } from "./logo/logoStaticSvgAsset";
 
 export const INSTALL_ICON_BACKGROUND_COLOR = "#ffffff";
 

@@ -11,7 +11,8 @@
   `apps/noter/src/components/logoVoxelState.ts`,
   `apps/noter/src/components/logoPresets.ts`,
   `apps/noter/src/components/logoShuffleRules.ts`,
-  `apps/noter/src/components/logoTailwindColors.ts`
+  `apps/noter/src/components/logoTailwindColors.ts`,
+  `specs/090_LOGO_RENDERING_MODEL_SIMPLIFICATION_SPEC.md`
 
 ## Conclusion
 
@@ -21,7 +22,8 @@ the logo large, easy to manipulate, easy to recolor, easy to reshape, and easy
 to share through the URL.
 
 The scene is not a generic 3D editor. It is a focused playground for one `3x3x3`
-voxel mark with a small, opinionated control surface.
+voxel mark with a small, opinionated control surface, plus static recursive
+depth previews of that mark.
 
 ## Goals
 
@@ -39,7 +41,8 @@ voxel mark with a small, opinionated control surface.
 - Persistent storage of logo edits in Convex.
 - A production branding system for the entire app theme.
 - Perfect physically simulated motion.
-- Support for arbitrary grid sizes larger than `3x3x3`.
+- Making arbitrary large recursive depths fast or polished beyond the
+  comfortable slider range.
 
 ## Route and Layout
 
@@ -91,6 +94,36 @@ Example:
 - Right click removes the clicked visible voxel.
 - Editing only needs to work for exposed voxels.
 - Hidden/internal voxels do not need separate direct manipulation affordances.
+- Direct editing is a depth-1 behavior. Recursive depths render the repeated
+  settled motif but do not allow tiny recursive cubes to be edited directly.
+
+### 5. Recursive depth
+
+- The `depth` query param controls recursive rendering.
+- Depth `1` is the normal editable logo and is the default.
+- Depths above `1` repeat the depth-1 motif recursively.
+- The playground depth slider stops at `5`; direct number input and URL state
+  may use higher normalized integer depths deliberately.
+- Recursive depth keeps corners empty according to the Noter motif; it is not a
+  standard Menger sponge.
+- The Three preview uses a tiled recursive render path for recursive depths so
+  changing depth does not build every tiny surface synchronously.
+- `/logo/raster` is an experimental canvas route for high recursive depths. It
+  renders one projected merged motif unit for the current view, composites that
+  unit through the recursive motif, reuses the same far-to-near motif order at
+  every level, and must avoid exact recursive voxel-grid expansion.
+- `/logo/raster` renders exact snapped face views as a recursive 2D mask when no
+  shuffle move is active, so same-color joined cells do not inherit seams from
+  transparent image edges.
+- `/logo/raster` uses a stable projection scale for the current elevation and
+  rotation-axis mode, so rotating does not zoom the shape in and out.
+- `/logo/iso` composes recursive depth from reusable isometric motif images. It
+  must not build the exact leaf-voxel grid for depth above `1`.
+- `/logo/svg` emits bounded nested reusable SVG groups for recursive depth. It
+  must not serialize every recursive leaf face as a separate polygon.
+- Public landing logos use the same tiled Three render path for recursive
+  depths; their initial static SVG fallback stays bounded so a high `depth`
+  query param cannot block the page before the canvas is ready.
 
 ## Shape Presets
 
@@ -100,14 +133,21 @@ The playground should expose at least these presets:
 
 - `Open Cross`
 - `N Logo`
+- `Sierpinski Carpet`
 - `Cornerless Cube`
 
-### 2. Cornerless Cube definition
+### 2. Sierpinski Carpet definition
+
+- `Sierpinski Carpet` means the `3x3x3` level-1 face-carpet model: all corners
+  and edge-center voxels are filled, while the true center and six face-center
+  voxels are empty.
+
+### 3. Cornerless Cube definition
 
 - `Cornerless Cube` means the full `3x3x3` cube with all eight corner voxels
   removed.
 
-### 3. Reset behavior
+### 4. Reset behavior
 
 - Selecting a preset applies it immediately.
 - `Reset shape` should reset to the currently selected preset.
@@ -177,13 +217,13 @@ The playground should expose at least these presets:
 
 - A moving voxel can only slide to a face-adjacent empty cell.
 - No jump moves.
-- No moving outside the `3x3x3` grid.
+- No moving outside the current voxel grid.
 - Motion should be rendered as a direct slide between adjacent cells, not as a
   lifted arc through empty space.
 
 ### 3. Parallel motion
 
-- The shuffle control supports `1`, `2`, or `3` parallel moving cubes.
+- The shuffle control supports `1`, `2`, or `3` parallel moving units.
 - The default should be `3`.
 
 ### 4. Staggering
@@ -195,12 +235,17 @@ The playground should expose at least these presets:
 ### 5. Origin constraints
 
 - The same cube should not be chosen twice in a row when avoidable.
-- The true center cube `[1,1,1]` must never be selected as a shuffle origin.
+- The true center unit for the current grid must never be selected as a shuffle
+  origin.
 - Shuffle origins should be limited to cubes that currently have at least one
   exposed face visible to the current camera view.
 - A cube only needs to satisfy the visibility rule when selected; it does not
   need to remain visible for the full duration of the move while the logo
   rotates.
+- Shuffle may run at recursive depths and moves cubes in the current rendered
+  voxel grid.
+- In recursive Three previews, shuffle moves the rendered recursive tile units
+  rather than the smallest leaf cubes.
 
 ## Rendering Rules
 
@@ -209,6 +254,8 @@ The playground should expose at least these presets:
 - Connected voxels should render as continuous surfaces without visible seams
   between joined cubes.
 - The scene should not show fake panel gaps where cubes meet.
+- Raster recursion must not introduce face-on seams by repeatedly resampling
+  transparent cached-image edges.
 
 ### 2. Preset silhouettes
 

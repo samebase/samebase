@@ -210,6 +210,523 @@ test("logo public query links cancel conflicting root theme modes", async ({
   ).toBeVisible();
 });
 
+test("logo recursive depth renders a rotatable shuffleable Three scene", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo?depth=3&rot=45", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  const canvas = page.locator("canvas").first();
+
+  await expect(canvas).toBeVisible();
+  await expect(controlsSidebar.getByLabel("Depth value")).toHaveValue("3");
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Add" }),
+  ).toHaveCount(0);
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Start shuffle" }),
+  ).toBeVisible();
+  await expect(controlsSidebar).toContainText("Parallel cubes");
+  await controlsSidebar.getByRole("button", { name: "Start shuffle" }).click();
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Stop shuffle" }),
+  ).toBeVisible();
+  await controlsSidebar.getByRole("button", { name: "Stop shuffle" }).click();
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Start shuffle" }),
+  ).toBeVisible();
+  await controlsSidebar.getByRole("button", { name: "SVG" }).click();
+  await expect
+    .poll(() => {
+      const url = new URL(page.url());
+      return `${url.pathname}:${url.searchParams.get("depth")}`;
+    })
+    .toBe("/logo/svg:3");
+  await page.goBack({ waitUntil: "domcontentloaded" });
+
+  await controlsSidebar.getByLabel("Yaw value").fill("90");
+  await expect
+    .poll(() => {
+      const url = new URL(page.url());
+      return `${url.pathname}:${url.searchParams.get("depth")}:${url.searchParams.get("rot")}`;
+    })
+    .toBe("/logo:3:90");
+  await waitForPaint(page);
+
+  await expect(canvas).toHaveScreenshot("logo-depth-3-three-scene.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
+  });
+});
+
+test("logo depth 5 keeps the tiled Three preview responsive", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo?depth=5&rot=45", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+
+  await expect(page.locator("canvas").first()).toBeVisible();
+  await expect(controlsSidebar.getByLabel("Depth value")).toHaveValue("5");
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Add" }),
+  ).toHaveCount(0);
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Start shuffle" }),
+  ).toBeVisible();
+  await controlsSidebar.getByRole("button", { name: "Start shuffle" }).click();
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Stop shuffle" }),
+  ).toBeVisible();
+
+  await controlsSidebar.getByLabel("Yaw value").fill("90");
+  await expect
+    .poll(() => {
+      const url = new URL(page.url());
+      return `${url.searchParams.get("depth")}:${url.searchParams.get("rot")}`;
+    })
+    .toBe("5:90");
+});
+
+test("logo iso depth 5 keeps recursive preview responsive", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo/iso?depth=5&vox=xxx_xox_xxx-xox_ooo_xox-xxx_xox_xxx", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  const canvas = page.locator('canvas[data-logo-renderer="iso"]').first();
+
+  await expect(canvas).toBeVisible();
+  await expect(controlsSidebar.getByLabel("Depth value")).toHaveValue("5");
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Add" }),
+  ).toHaveCount(0);
+  await waitForPaint(page);
+  await expect(canvas).toHaveScreenshot("logo-iso-depth-5-scene.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
+  });
+
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Start shuffle" }),
+  ).toBeVisible();
+  await controlsSidebar.getByRole("button", { name: "Start shuffle" }).click();
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Stop shuffle" }),
+  ).toBeVisible();
+});
+
+test("logo raster depth 6 keeps recursive preview responsive", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo/raster?depth=6&top=red-500&elev=359.9&freeView", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  const canvas = page.locator('canvas[data-logo-renderer="raster"]').first();
+
+  await expect(canvas).toBeVisible();
+  await expect(controlsSidebar.getByLabel("Depth value")).toHaveValue("6");
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Add" }),
+  ).toHaveCount(0);
+  await waitForPaint(page);
+  await expect(canvas).toHaveScreenshot("logo-raster-depth-6-scene.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
+  });
+
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Start shuffle" }),
+  ).toBeVisible();
+  await controlsSidebar.getByRole("button", { name: "Start shuffle" }).click();
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Stop shuffle" }),
+  ).toBeVisible();
+
+  await controlsSidebar.getByLabel("Yaw value").fill("90");
+  await expect
+    .poll(() => {
+      const url = new URL(page.url());
+      return `${url.pathname}:${url.searchParams.get("depth")}:${url.searchParams.get("rot")}`;
+    })
+    .toBe("/logo/raster:6:90");
+});
+
+test("logo raster face-on recursion renders without tile seams", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(
+    "/logo/raster?depth=2&top=red-500&elev=0&rot=180&vox=xxx_oox_xxo-xoo_ooo_xox-oxx_xox_xox",
+    {
+      waitUntil: "domcontentloaded",
+    },
+  );
+
+  const canvas = page.locator('canvas[data-logo-renderer="raster"]').first();
+
+  await expect(canvas).toBeVisible();
+  await waitForPaint(page);
+  await expect(canvas).toHaveScreenshot(
+    "logo-raster-face-on-depth-2-scene.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.01,
+      scale: "css",
+    },
+  );
+});
+
+test("logo raster seam lab shows the tiny 2x2 image-composition diagnostic", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo/raster-seams?elev=22&rot=22", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const currentCase = page.getByTestId("logo-raster-seam-lab-current-case");
+  const sourceCanvas = currentCase.locator(
+    'canvas[data-logo-raster-seam-lab="source"]',
+  );
+  const maskCanvas = currentCase.locator(
+    'canvas[data-logo-raster-seam-lab="mask"]',
+  );
+
+  await expect(currentCase).toBeVisible();
+  await expect(sourceCanvas).toHaveCount(1);
+  await expect(sourceCanvas).toHaveAttribute("width", "24");
+  await expect(sourceCanvas).toHaveAttribute("height", "24");
+  await expect(maskCanvas).toHaveCount(1);
+  await expect(maskCanvas).toHaveAttribute("width", "24");
+  await expect(maskCanvas).toHaveAttribute("height", "24");
+  await waitForPaint(page);
+  await expect(currentCase).toHaveScreenshot("logo-raster-seam-lab.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
+  });
+
+  const mergeSweep = page.getByTestId("logo-raster-seam-lab-merge-sweep");
+  const mergeSweepRowCount = await mergeSweep
+    .locator("button")
+    .evaluateAll(
+      (buttons) =>
+        new Set(
+          buttons.map((button) =>
+            Math.round(button.getBoundingClientRect().top),
+          ),
+        ).size,
+    );
+
+  await expect(mergeSweep).toBeVisible();
+  expect(mergeSweepRowCount).toBeGreaterThan(1);
+  await expect(mergeSweep).toHaveScreenshot(
+    "logo-raster-seam-lab-merge-sweep.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.01,
+      scale: "css",
+    },
+  );
+
+  await page.getByRole("button", { exact: true, name: "2" }).click();
+  await expect(currentCase).toContainText("depth 2");
+  await expect(currentCase).toHaveScreenshot(
+    "logo-raster-seam-lab-depth-2.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.01,
+      scale: "css",
+    },
+  );
+
+  await page.getByRole("button", { exact: true, name: "3x3" }).click();
+  await expect(currentCase).toContainText("3x3 base, depth 2 -> 9x9x9");
+  await expect(currentCase).toHaveScreenshot(
+    "logo-raster-seam-lab-3x3-depth-2.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.01,
+      scale: "css",
+    },
+  );
+
+  await page.getByRole("button", { name: "Merged faces" }).first().click();
+  await expect(currentCase).toContainText("Merged faces");
+  await expect(currentCase.getByText(/0 \/ \d+ \(0\.0%\)/)).toHaveCount(4);
+});
+
+test("logo raster seam lab inflation input allows partial edits", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo/raster-seams?elev=22&rot=22", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const currentCase = page.getByTestId("logo-raster-seam-lab-current-case");
+  const inflationInput = page.getByLabel("Inflation scale");
+
+  await expect(inflationInput).toHaveAttribute("type", "number");
+  await expect(inflationInput).toHaveValue("1.010");
+  await inflationInput.click();
+  await inflationInput.press("End");
+  await inflationInput.press("Backspace");
+  await expect(inflationInput).toHaveValue("1.01");
+
+  await inflationInput.fill("1.5");
+  await expect(inflationInput).toHaveValue("1.5");
+  await expect(currentCase).toContainText("inflate 1.500x");
+
+  await inflationInput.press("Enter");
+  await expect(inflationInput).toHaveValue("1.500");
+});
+
+test("logo raster seam lab spacing scale moves the fake 3d centers", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo/raster-seams?depth=2&elev=22&rot=22", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const currentCase = page.getByTestId("logo-raster-seam-lab-current-case");
+  const composedCanvas = currentCase.locator(
+    'canvas[data-logo-raster-seam-lab="composed"]',
+  );
+  const spacingInput = page.getByLabel("Spacing scale");
+
+  await expect(spacingInput).toHaveValue("1.000");
+  await expect(spacingInput).toHaveAttribute("type", "number");
+  await expect(page.locator('input[type="range"]').first()).toHaveAttribute(
+    "max",
+    "2",
+  );
+  await waitForPaint(page);
+  const defaultImage = await composedCanvas.evaluate((element) => {
+    if (!(element instanceof HTMLCanvasElement)) {
+      return "";
+    }
+
+    return element.toDataURL();
+  });
+
+  await spacingInput.fill("0.99");
+  await expect(spacingInput).toHaveValue("0.99");
+  await waitForPaint(page);
+  const tightenedImage = await composedCanvas.evaluate((element) => {
+    if (!(element instanceof HTMLCanvasElement)) {
+      return "";
+    }
+
+    return element.toDataURL();
+  });
+
+  expect(tightenedImage).not.toBe(defaultImage);
+  await spacingInput.press("Enter");
+  await expect(spacingInput).toHaveValue("0.990");
+});
+
+test("logo raster seam lab source size input allows larger custom rasters", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo/raster-seams?elev=22&rot=22", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const currentCase = page.getByTestId("logo-raster-seam-lab-current-case");
+  const maskCanvas = currentCase.locator(
+    'canvas[data-logo-raster-seam-lab="mask"]',
+  );
+  const sourceInput = page.getByLabel("Source size");
+  const rotationInput = page.getByLabel("Rotation degrees");
+  const elevationInput = page.getByLabel("Elevation degrees");
+
+  await expect(sourceInput).toHaveValue("24");
+  await expect(sourceInput).toHaveAttribute("type", "number");
+  await sourceInput.fill("288");
+  await expect(sourceInput).toHaveValue("288");
+  await expect(currentCase).toContainText("288px source");
+  await expect(maskCanvas).toHaveAttribute("width", "288");
+  await expect(maskCanvas).toHaveAttribute("height", "288");
+
+  await sourceInput.press("Enter");
+  await expect(sourceInput).toHaveValue("288");
+
+  await expect(rotationInput).toHaveAttribute("step", "0.1");
+  await expect(elevationInput).toHaveAttribute("step", "0.1");
+  await expect(rotationInput).toHaveAttribute("type", "number");
+  await expect(elevationInput).toHaveAttribute("type", "number");
+  await rotationInput.fill("54.5");
+  await expect(rotationInput).toHaveValue("54.5");
+  await expect(currentCase).toContainText("rotation 54.5°");
+
+  await elevationInput.fill("22.4");
+  await expect(elevationInput).toHaveValue("22.4");
+  await expect(currentCase).toContainText("elevation 22.4°");
+});
+
+test("logo shape presets include seam stress models", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo/raster?top=red-500", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  const shapeSelect = controlsSidebar
+    .getByRole("combobox")
+    .filter({ hasText: "Checker Lattice" });
+
+  await expect(shapeSelect).toBeVisible();
+  await shapeSelect.click();
+  await expect(
+    page.getByText("Sierpinski Carpet", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("Full Cube", { exact: true })).toBeVisible();
+  await page.getByText("Sierpinski Carpet", { exact: true }).click();
+
+  await expect(
+    controlsSidebar
+      .getByRole("combobox")
+      .filter({ hasText: "Sierpinski Carpet" }),
+  ).toBeVisible();
+  await expect(controlsSidebar).toContainText(
+    "xxx_xox_xxx-xox_ooo_xox-xxx_xox_xxx",
+  );
+
+  await controlsSidebar
+    .getByRole("combobox")
+    .filter({ hasText: "Sierpinski Carpet" })
+    .click();
+  await page.getByText("Full Cube", { exact: true }).click();
+
+  await expect(
+    controlsSidebar.getByRole("combobox").filter({ hasText: "Full Cube" }),
+  ).toBeVisible();
+  await expect(controlsSidebar).toContainText(
+    "xxx_xxx_xxx-xxx_xxx_xxx-xxx_xxx_xxx",
+  );
+});
+
+test("logo depth slider clears default depth from the URL", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo?depth=3&rot=45", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  const depthSlider = controlsSidebar.getByLabel("Depth slider");
+  const depthValue = controlsSidebar.getByLabel("Depth value");
+
+  await expect(depthSlider).toHaveAttribute("max", "5");
+  await expect(depthValue).not.toHaveAttribute("max");
+  await expect(depthValue).toHaveValue("3");
+  await depthSlider.fill("1");
+  await expect(depthValue).toHaveValue("1");
+  await expect
+    .poll(() => {
+      const url = new URL(page.url());
+      return url.searchParams.has("depth");
+    })
+    .toBe(false);
+});
+
+test("logo distance scale controls Three and raster previews", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo?dist=1.25&rot=45", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  const distanceSlider = controlsSidebar.getByLabel("Distance slider");
+  const distanceInput = controlsSidebar.getByLabel("Distance scale");
+
+  await expect(page.locator("canvas").first()).toBeVisible();
+  await expect(distanceSlider).toHaveAttribute("max", "2");
+  await expect(distanceInput).toHaveAttribute("type", "number");
+  await expect(distanceInput).toHaveAttribute("step", "0.001");
+  await expect(distanceInput).not.toHaveAttribute("max");
+  await expect(distanceInput).toHaveValue("1.250");
+
+  await distanceInput.fill("2.5");
+  await expect(distanceInput).toHaveValue("2.5");
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("dist"))
+    .toBe("2.5");
+  await distanceInput.press("Enter");
+  await expect(distanceInput).toHaveValue("2.500");
+
+  await distanceInput.fill("1");
+  await distanceInput.press("Enter");
+  await expect
+    .poll(() => new URL(page.url()).searchParams.has("dist"))
+    .toBe(false);
+
+  await page.goto("/logo/raster?dist=0.5&rot=45", {
+    waitUntil: "domcontentloaded",
+  });
+  await expect(
+    page.locator('canvas[data-logo-renderer="raster"]').first(),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByTestId("workspace-layout-v2-pane-left")
+      .getByLabel("Distance scale"),
+  ).toHaveValue("0.500");
+});
+
+test("logo raster distance scale keeps depth 3 on the geometric base path", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo/raster?depth=3&dist=1.5&top=red-500&elev=22&rot=45", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const canvas = page.locator('canvas[data-logo-renderer="raster"]').first();
+
+  await expect(canvas).toBeVisible();
+  await waitForPaint(page);
+  await expect(canvas).toHaveScreenshot(
+    "logo-raster-distance-depth-3-scene.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.01,
+      scale: "css",
+    },
+  );
+});
+
 test("logo iso controls mobile boot", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/logo/iso?isoSide=6", {

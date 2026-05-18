@@ -102,17 +102,17 @@ vi.mock("@/components/AuthenticatedAppRoutePage", () => ({
   ),
 }));
 
-vi.mock("@/components/LogoPreviewPage", () => ({
+vi.mock("@/components/logo/LogoPreviewPage", () => ({
   LogoPreviewPage: ({ renderMode }: { renderMode: string }) => (
     <div data-testid="logo-page">{renderMode}</div>
   ),
 }));
 
-vi.mock("@/components/LogoStaticSvgPage", () => ({
+vi.mock("@/components/logo/LogoStaticSvgPage", () => ({
   LogoStaticSvgPage: () => <div data-testid="logo-svg-page">Logo SVG page</div>,
 }));
 
-vi.mock("@/components/LogoSingleCubeStudyPage", () => ({
+vi.mock("@/components/logo/LogoSingleCubeStudyPage", () => ({
   LogoSingleCubeStudyPage: () => (
     <div data-testid="logo-iso-study-page">Logo iso study page</div>
   ),
@@ -170,13 +170,13 @@ vi.mock("@/components/PitchDeckPage", () => ({
   ),
 }));
 
-vi.mock("@/components/LogoTransitionLabPage", () => ({
+vi.mock("@/components/logo/LogoTransitionLabPage", () => ({
   LogoTransitionLabPage: () => (
     <div data-testid="logo-transition-lab-page">Logo transition lab page</div>
   ),
 }));
 
-vi.mock("@/components/LogoTransitionTransformsLabPage", () => ({
+vi.mock("@/components/logo/LogoTransitionTransformsLabPage", () => ({
   LogoTransitionTransformsLabPage: () => (
     <div data-testid="logo-transition-transforms-lab-page">
       Logo transition transforms lab page

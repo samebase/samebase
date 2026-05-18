@@ -1,0 +1,1999 @@
+import {
+  getTailwindColorHex,
+  type FaceColors,
+} from "@/components/logo/logoTailwindColors";
+import {
+  getLogoRotationAxis,
+  getWorldCameraVector,
+  getWorldScreenVerticalAxis,
+  toRenderedRotationDegrees,
+  type LogoRotationAxisMode,
+} from "@/components/logo/logoRotationMath";
+import { getShuffleOriginCandidates } from "@/components/logo/logoShuffleRules";
+import {
+  DEFAULT_LOGO_DISTANCE_SCALE,
+  normalizeLogoDistanceScale,
+} from "@/components/logo/logoDistanceScale";
+import {
+  buildLogoSurfaceQuads,
+  getLogoSurfaceFitRadius,
+  type LogoSurfaceQuad,
+} from "@/components/logo/logoSurfaceModel";
+import { resolveLogoSceneCameraDepthBounds } from "@/components/logo/logoSceneCameraDepth";
+import {
+  DRAG_ELEVATION_DEGREES_PER_PIXEL,
+  DRAG_ROTATION_DEGREES_PER_PIXEL,
+} from "@/components/logo/logoViewDragConstants";
+import {
+  DEFAULT_LOGO_FRACTAL_DEPTH,
+  GRID_SIZE,
+  createDefaultFilledVoxelSet,
+  createLogoFractalVoxelGrid,
+  getLogoFractalGridSize,
+  isWithinVoxelGrid,
+  type LogoVoxelGrid,
+  normalizeLogoFractalDepth,
+  parseVoxelKey,
+  parseVoxelState,
+  type VoxelCoordinate,
+  type VoxelEdit,
+  voxelKey,
+} from "@/components/logo/logoVoxelState";
+import {
+  resolveLogoViewState,
+  type LogoViewDragConfig,
+} from "@/components/logo/logoViewDrag";
+import {
+  useEffect,
+  useRef,
+  type MouseEvent,
+  type MutableRefObject,
+  type PointerEvent,
+} from "react";
+import * as THREE from "three";
+
+const DRAG_THRESHOLD_PX = 4;
+const RAYCAST_OFFSET = 0.001;
+const CAMERA_FRUSTUM_PADDING = 1.12;
+const SHUFFLE_MOVE_DURATION_MS = 1800;
+const SHUFFLE_MOVE_STAGGER_MS = 520;
+const FACE_COLOR_ANIMATION_DEGREES_PER_SECOND = 15;
+const FACE_COLOR_ANIMATION_MIN_LIGHTNESS = 0.38;
+const FACE_COLOR_ANIMATION_MAX_LIGHTNESS = 0.76;
+const FACE_COLOR_ANIMATION_MIN_SATURATION = 0.5;
+const SURFACE_MATERIAL_INDICES = [0, 1, 2, 3, 4, 5] as const;
+const THREE_RECURSIVE_TILE_DEPTH = 3;
+
+export const LOGO_SHUFFLE_PARALLEL_OPTIONS = [1, 2, 3] as const;
+export type LogoShuffleParallelMoves =
+  (typeof LOGO_SHUFFLE_PARALLEL_OPTIONS)[number];
+export type LogoShuffleAnimationConfig = {
+  enabled: boolean;
+  parallelMoves: LogoShuffleParallelMoves;
+};
+
+type LogoSurfacePart = {
+  geometry: THREE.BufferGeometry;
+  materialIndex: number;
+};
+
+type LogoSceneMesh =
+  | THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
+  | THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
+
+type ResolvedSceneVoxelGrid = {
+  baseFilledVoxels: Set<string>;
+  filledVoxels: Set<string>;
+  gridSize: number;
+  recursiveRenderDepth: number | null;
+};
+
+type LogoGeometryRenderState = {
+  cameraFitRadius: number;
+  meshes: LogoSceneMesh[];
+  recursiveTileState: RecursiveTileSceneState | null;
+};
+
+type SceneInteraction = {
+  button: 0 | null;
+  pointerId: number | null;
+  startElevationDegrees: number;
+  startRotationDegrees: number;
+  startX: number;
+  startY: number;
+  status: "idle" | "pending" | "dragging";
+};
+
+type ActiveCubeMove = {
+  durationMs: number;
+  from: VoxelCoordinate;
+  fromKey: string;
+  hasDeparted: boolean;
+  mesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial[]>;
+  startTimeMs: number;
+  to: VoxelCoordinate;
+  toKey: string;
+};
+
+type ActiveTileMove = {
+  durationMs: number;
+  from: VoxelCoordinate;
+  fromKey: string;
+  group: THREE.Group;
+  hasDeparted: boolean;
+  instanceIndex: number;
+  startTimeMs: number;
+  to: VoxelCoordinate;
+  toKey: string;
+};
+
+type RecursiveTileSceneState = {
+  currentFilledTiles: Set<string>;
+  distanceScale: number;
+  fullGridSize: number;
+  homeFilledTiles: Set<string>;
+  keyToIndex: Map<string, number>;
+  meshes: THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>[];
+  repeatGridSize: number;
+  tileGridSize: number;
+};
+
+type SceneState = {
+  camera: THREE.OrthographicCamera;
+  cameraFitRadius: number;
+  cubeGeometry: THREE.BoxGeometry;
+  cubeMaterials: THREE.MeshBasicMaterial[];
+  distanceScale: number;
+  gridSize: number;
+  currentFilledVoxels: Set<string>;
+  activeCubeMoves: ActiveCubeMove[];
+  activeTileMoves: ActiveTileMove[];
+  baseFilledVoxels: Set<string>;
+  homeFilledVoxels: Set<string>;
+  logoGroup: THREE.Group;
+  logoMeshes: LogoSceneMesh[];
+  raycaster: THREE.Raycaster;
+  recursiveRenderDepth: number | null;
+  recursiveTileState: RecursiveTileSceneState | null;
+  renderer: THREE.WebGLRenderer;
+  resizeScene: () => void;
+  scene: THREE.Scene;
+};
+
+type ResolvedFaceColors = {
+  left: THREE.Color;
+  right: THREE.Color;
+  top: THREE.Color;
+};
+
+type NLogoSceneProps = {
+  backgroundColor: string;
+  className?: string;
+  distanceScale?: number;
+  editMode: VoxelEdit["kind"];
+  elevationDegrees: number;
+  faceColors: FaceColors;
+  opacity: number;
+  onInteractionStart?: () => void;
+  onInteractionEnd?: () => void;
+  onRenderReady?: () => void;
+  onRenderUnavailable?: () => void;
+  onViewChange: (nextView: {
+    elevationDegrees: number;
+    rotationDegrees: number;
+  }) => void;
+  onVoxelEdit: (edit: VoxelEdit) => void;
+  rotationAxisMode?: LogoRotationAxisMode;
+  rotationDegrees: number;
+  shuffleAnimation: LogoShuffleAnimationConfig;
+  animateFaceColors: boolean;
+  fractalDepth?: number;
+  voxelGrid?: LogoVoxelGrid;
+  voxelEditingEnabled?: boolean;
+  viewDragConfig?: LogoViewDragConfig;
+  voxelState: string;
+};
+
+function getVoxelWorldCenter(
+  coordinate: VoxelCoordinate,
+  gridSize: number,
+  distanceScale = DEFAULT_LOGO_DISTANCE_SCALE,
+): readonly [number, number, number] {
+  const worldCenterOffset = (gridSize - 1) / 2;
+  const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
+  return [
+    (coordinate[0] - worldCenterOffset) * normalizedDistanceScale,
+    (coordinate[1] - worldCenterOffset) * normalizedDistanceScale,
+    (coordinate[2] - worldCenterOffset) * normalizedDistanceScale,
+  ];
+}
+
+function setCubeMeshPosition(
+  mesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial[]>,
+  coordinate: VoxelCoordinate,
+  gridSize: number,
+  distanceScale: number,
+) {
+  const [x, y, z] = getVoxelWorldCenter(coordinate, gridSize, distanceScale);
+  mesh.position.set(x, y, z);
+}
+
+function easeInOutCubic(value: number): number {
+  if (value < 0.5) {
+    return 4 * value * value * value;
+  }
+
+  return 1 - Math.pow(-2 * value + 2, 3) / 2;
+}
+
+function getCubeMovePosition(
+  move: ActiveCubeMove,
+  progress: number,
+  gridSize: number,
+  distanceScale: number,
+): readonly [number, number, number] {
+  const [startX, startY, startZ] = getVoxelWorldCenter(
+    move.from,
+    gridSize,
+    distanceScale,
+  );
+  const [endX, endY, endZ] = getVoxelWorldCenter(
+    move.to,
+    gridSize,
+    distanceScale,
+  );
+  const travelProgress = easeInOutCubic(progress);
+  return [
+    startX + (endX - startX) * travelProgress,
+    startY + (endY - startY) * travelProgress,
+    startZ + (endZ - startZ) * travelProgress,
+  ];
+}
+
+function randomValueFrom<T>(values: readonly T[]): T | null {
+  if (values.length === 0) {
+    return null;
+  }
+
+  return values[Math.floor(Math.random() * values.length)] ?? null;
+}
+
+function resolveSceneVoxelGrid({
+  fractalDepth,
+  voxelGrid,
+  voxelState,
+}: {
+  fractalDepth: number | undefined;
+  voxelGrid: LogoVoxelGrid | undefined;
+  voxelState: string;
+}): ResolvedSceneVoxelGrid {
+  const baseFilledVoxels =
+    parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet();
+  const normalizedFractalDepth = normalizeLogoFractalDepth(
+    fractalDepth ?? DEFAULT_LOGO_FRACTAL_DEPTH,
+  );
+
+  if (voxelGrid) {
+    return {
+      baseFilledVoxels,
+      filledVoxels: new Set(voxelGrid.filledVoxels),
+      gridSize: voxelGrid.gridSize,
+      recursiveRenderDepth: null,
+    };
+  }
+
+  if (normalizedFractalDepth > DEFAULT_LOGO_FRACTAL_DEPTH) {
+    return {
+      baseFilledVoxels,
+      filledVoxels: new Set(baseFilledVoxels),
+      gridSize: getLogoFractalGridSize(normalizedFractalDepth),
+      recursiveRenderDepth: normalizedFractalDepth,
+    };
+  }
+
+  return {
+    baseFilledVoxels,
+    filledVoxels: new Set(baseFilledVoxels),
+    gridSize: GRID_SIZE,
+    recursiveRenderDepth: null,
+  };
+}
+
+function buildQuadGeometry(
+  vertices: ReadonlyArray<readonly [number, number, number]>,
+  normal: readonly [number, number, number],
+): THREE.BufferGeometry {
+  const geometry = new THREE.BufferGeometry();
+  const positions = vertices.flatMap(([x, y, z]) => [x, y, z]);
+  const normals = vertices.flatMap(() => [normal[0], normal[1], normal[2]]);
+
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(positions, 3),
+  );
+  geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
+  geometry.setIndex([0, 1, 2, 0, 2, 3]);
+  geometry.computeBoundingSphere();
+
+  return geometry;
+}
+
+function buildMergedQuadGeometry(
+  surfaceQuads: readonly LogoSurfaceQuad[],
+): THREE.BufferGeometry {
+  const geometry = new THREE.BufferGeometry();
+  const vertexCount = surfaceQuads.length * 4;
+  const positions = new Float32Array(vertexCount * 3);
+  const normals = new Float32Array(vertexCount * 3);
+  const indices = new Uint32Array(surfaceQuads.length * 6);
+  let indexOffset = 0;
+  let vertexOffset = 0;
+  let vectorOffset = 0;
+
+  for (const surfaceQuad of surfaceQuads) {
+    for (const [x, y, z] of surfaceQuad.vertices) {
+      positions[vectorOffset] = x;
+      positions[vectorOffset + 1] = y;
+      positions[vectorOffset + 2] = z;
+      normals[vectorOffset] = surfaceQuad.normal[0];
+      normals[vectorOffset + 1] = surfaceQuad.normal[1];
+      normals[vectorOffset + 2] = surfaceQuad.normal[2];
+      vectorOffset += 3;
+    }
+    indices[indexOffset] = vertexOffset;
+    indices[indexOffset + 1] = vertexOffset + 1;
+    indices[indexOffset + 2] = vertexOffset + 2;
+    indices[indexOffset + 3] = vertexOffset;
+    indices[indexOffset + 4] = vertexOffset + 2;
+    indices[indexOffset + 5] = vertexOffset + 3;
+    indexOffset += 6;
+    vertexOffset += 4;
+  }
+
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
+  geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+  geometry.computeBoundingSphere();
+
+  return geometry;
+}
+
+function buildLogoSurfacePart(surfaceQuad: LogoSurfaceQuad): LogoSurfacePart {
+  return {
+    geometry: buildQuadGeometry(surfaceQuad.vertices, surfaceQuad.normal),
+    materialIndex: surfaceQuad.materialIndex,
+  };
+}
+
+type SpacedLogoCubeFaceSpec = {
+  colorKey: LogoSurfaceQuad["colorKey"];
+  key: string;
+  materialIndex: number;
+  normal: LogoSurfaceQuad["normal"];
+  vertices: LogoSurfaceQuad["vertices"];
+};
+
+const SPACED_LOGO_CUBE_FACE_SPECS = [
+  {
+    colorKey: "right",
+    key: "positive-x",
+    materialIndex: 0,
+    normal: [1, 0, 0],
+    vertices: [
+      [0.5, -0.5, -0.5],
+      [0.5, 0.5, -0.5],
+      [0.5, 0.5, 0.5],
+      [0.5, -0.5, 0.5],
+    ],
+  },
+  {
+    colorKey: "right",
+    key: "negative-x",
+    materialIndex: 1,
+    normal: [-1, 0, 0],
+    vertices: [
+      [-0.5, -0.5, 0.5],
+      [-0.5, 0.5, 0.5],
+      [-0.5, 0.5, -0.5],
+      [-0.5, -0.5, -0.5],
+    ],
+  },
+  {
+    colorKey: "top",
+    key: "positive-y",
+    materialIndex: 2,
+    normal: [0, 1, 0],
+    vertices: [
+      [-0.5, 0.5, 0.5],
+      [0.5, 0.5, 0.5],
+      [0.5, 0.5, -0.5],
+      [-0.5, 0.5, -0.5],
+    ],
+  },
+  {
+    colorKey: "top",
+    key: "negative-y",
+    materialIndex: 3,
+    normal: [0, -1, 0],
+    vertices: [
+      [-0.5, -0.5, -0.5],
+      [0.5, -0.5, -0.5],
+      [0.5, -0.5, 0.5],
+      [-0.5, -0.5, 0.5],
+    ],
+  },
+  {
+    colorKey: "left",
+    key: "positive-z",
+    materialIndex: 4,
+    normal: [0, 0, 1],
+    vertices: [
+      [-0.5, -0.5, 0.5],
+      [0.5, -0.5, 0.5],
+      [0.5, 0.5, 0.5],
+      [-0.5, 0.5, 0.5],
+    ],
+  },
+  {
+    colorKey: "left",
+    key: "negative-z",
+    materialIndex: 5,
+    normal: [0, 0, -1],
+    vertices: [
+      [-0.5, 0.5, -0.5],
+      [0.5, 0.5, -0.5],
+      [0.5, -0.5, -0.5],
+      [-0.5, -0.5, -0.5],
+    ],
+  },
+] satisfies readonly SpacedLogoCubeFaceSpec[];
+
+function translateLogoSurfaceVertices(
+  vertices: LogoSurfaceQuad["vertices"],
+  center: readonly [number, number, number],
+): LogoSurfaceQuad["vertices"] {
+  return [
+    [
+      vertices[0][0] + center[0],
+      vertices[0][1] + center[1],
+      vertices[0][2] + center[2],
+    ],
+    [
+      vertices[1][0] + center[0],
+      vertices[1][1] + center[1],
+      vertices[1][2] + center[2],
+    ],
+    [
+      vertices[2][0] + center[0],
+      vertices[2][1] + center[1],
+      vertices[2][2] + center[2],
+    ],
+    [
+      vertices[3][0] + center[0],
+      vertices[3][1] + center[1],
+      vertices[3][2] + center[2],
+    ],
+  ];
+}
+
+function buildDistanceScaledLogoSurfaceQuads(
+  filledVoxels: ReadonlySet<string>,
+  gridSize: number,
+  distanceScale: number,
+): LogoSurfaceQuad[] {
+  const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
+  if (normalizedDistanceScale === DEFAULT_LOGO_DISTANCE_SCALE) {
+    return buildLogoSurfaceQuads(filledVoxels, gridSize);
+  }
+
+  const quads: LogoSurfaceQuad[] = [];
+  for (const key of [...filledVoxels].sort()) {
+    const coordinate = parseVoxelKey(key);
+    if (!coordinate || !isWithinVoxelGrid(gridSize, ...coordinate)) {
+      continue;
+    }
+
+    const center = getVoxelWorldCenter(
+      coordinate,
+      gridSize,
+      normalizedDistanceScale,
+    );
+    for (const face of SPACED_LOGO_CUBE_FACE_SPECS) {
+      quads.push({
+        colorKey: face.colorKey,
+        key: `distance:${key}:${face.key}`,
+        materialIndex: face.materialIndex,
+        normal: face.normal,
+        vertices: translateLogoSurfaceVertices(face.vertices, center),
+      });
+    }
+  }
+
+  return quads;
+}
+
+function getDistanceScaledGridFitRadius(
+  gridSize: number,
+  distanceScale: number,
+): number {
+  const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
+  return (((gridSize - 1) / 2) * normalizedDistanceScale + 0.5) * Math.sqrt(3);
+}
+
+function buildLogoSurfaceParts(
+  surfaceQuads: readonly LogoSurfaceQuad[],
+  mergeByMaterial: boolean,
+): LogoSurfacePart[] {
+  if (!mergeByMaterial) {
+    return surfaceQuads.map(buildLogoSurfacePart);
+  }
+
+  return SURFACE_MATERIAL_INDICES.flatMap((materialIndex) => {
+    const materialQuads = surfaceQuads.filter(
+      (surfaceQuad) => surfaceQuad.materialIndex === materialIndex,
+    );
+    if (materialQuads.length === 0) {
+      return [];
+    }
+
+    return [
+      {
+        geometry: buildMergedQuadGeometry(materialQuads),
+        materialIndex,
+      },
+    ];
+  });
+}
+
+function createLogoMeshesFromParts(
+  logoParts: readonly LogoSurfacePart[],
+  materials: THREE.MeshBasicMaterial[],
+): LogoSceneMesh[] {
+  return logoParts.map(
+    ({ geometry, materialIndex }) =>
+      new THREE.Mesh(geometry, materials[materialIndex]),
+  );
+}
+
+function getRecursiveTileDepth(recursiveRenderDepth: number): number {
+  return Math.min(THREE_RECURSIVE_TILE_DEPTH, recursiveRenderDepth - 1);
+}
+
+function getTileWorldCenter({
+  coordinate,
+  distanceScale,
+  fullGridSize,
+  tileGridSize,
+}: {
+  coordinate: VoxelCoordinate;
+  distanceScale: number;
+  fullGridSize: number;
+  tileGridSize: number;
+}): readonly [number, number, number] {
+  const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
+  return [
+    (coordinate[0] * tileGridSize + tileGridSize / 2 - fullGridSize / 2) *
+      normalizedDistanceScale,
+    (coordinate[1] * tileGridSize + tileGridSize / 2 - fullGridSize / 2) *
+      normalizedDistanceScale,
+    (coordinate[2] * tileGridSize + tileGridSize / 2 - fullGridSize / 2) *
+      normalizedDistanceScale,
+  ];
+}
+
+function getTileMovePosition(
+  move: ActiveTileMove,
+  progress: number,
+  tileState: RecursiveTileSceneState,
+): readonly [number, number, number] {
+  const [startX, startY, startZ] = getTileWorldCenter({
+    coordinate: move.from,
+    distanceScale: tileState.distanceScale,
+    fullGridSize: tileState.fullGridSize,
+    tileGridSize: tileState.tileGridSize,
+  });
+  const [endX, endY, endZ] = getTileWorldCenter({
+    coordinate: move.to,
+    distanceScale: tileState.distanceScale,
+    fullGridSize: tileState.fullGridSize,
+    tileGridSize: tileState.tileGridSize,
+  });
+  const travelProgress = easeInOutCubic(progress);
+  return [
+    startX + (endX - startX) * travelProgress,
+    startY + (endY - startY) * travelProgress,
+    startZ + (endZ - startZ) * travelProgress,
+  ];
+}
+
+function createRecursiveInstanceMatrices({
+  baseFilledVoxels,
+  distanceScale,
+  fullGridSize,
+  recursiveRenderDepth,
+  tileGridSize,
+}: {
+  baseFilledVoxels: ReadonlySet<string>;
+  distanceScale: number;
+  fullGridSize: number;
+  recursiveRenderDepth: number;
+  tileGridSize: number;
+}): {
+  filledTiles: Set<string>;
+  keyToIndex: Map<string, number>;
+  matrices: THREE.Matrix4[];
+  repeatGridSize: number;
+} {
+  const tileDepth = getRecursiveTileDepth(recursiveRenderDepth);
+  const repeatDepth = recursiveRenderDepth - tileDepth;
+  const repeatVoxelGrid = createLogoFractalVoxelGrid({
+    depth: repeatDepth,
+    filledVoxels: baseFilledVoxels,
+  });
+  const filledTiles = new Set<string>();
+  const keyToIndex = new Map<string, number>();
+  const matrices: THREE.Matrix4[] = [];
+
+  for (const key of repeatVoxelGrid.filledVoxels) {
+    const coordinate = parseVoxelKey(key);
+    if (!coordinate) {
+      continue;
+    }
+
+    const [x, y, z] = coordinate;
+    const matrix = new THREE.Matrix4();
+    const [centerX, centerY, centerZ] = getTileWorldCenter({
+      coordinate: [x, y, z],
+      distanceScale,
+      fullGridSize,
+      tileGridSize,
+    });
+    matrix.makeTranslation(centerX, centerY, centerZ);
+    keyToIndex.set(key, matrices.length);
+    filledTiles.add(key);
+    matrices.push(matrix);
+  }
+
+  return {
+    filledTiles,
+    keyToIndex,
+    matrices,
+    repeatGridSize: repeatVoxelGrid.gridSize,
+  };
+}
+
+function createRecursiveLogoMeshes({
+  baseFilledVoxels,
+  distanceScale,
+  fullGridSize,
+  materials,
+  recursiveRenderDepth,
+}: {
+  baseFilledVoxels: ReadonlySet<string>;
+  distanceScale: number;
+  fullGridSize: number;
+  materials: THREE.MeshBasicMaterial[];
+  recursiveRenderDepth: number;
+}): LogoGeometryRenderState {
+  const tileDepth = getRecursiveTileDepth(recursiveRenderDepth);
+  const tileVoxelGrid = createLogoFractalVoxelGrid({
+    depth: tileDepth,
+    filledVoxels: baseFilledVoxels,
+  });
+  const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
+  const tileSurfaceQuads = buildDistanceScaledLogoSurfaceQuads(
+    tileVoxelGrid.filledVoxels,
+    tileVoxelGrid.gridSize,
+    normalizedDistanceScale,
+  );
+  const tileParts = buildLogoSurfaceParts(tileSurfaceQuads, true);
+  const instanceState = createRecursiveInstanceMatrices({
+    baseFilledVoxels,
+    distanceScale: normalizedDistanceScale,
+    fullGridSize,
+    recursiveRenderDepth,
+    tileGridSize: tileVoxelGrid.gridSize,
+  });
+  const meshes = tileParts.map(({ geometry, materialIndex }) => {
+    const mesh = new THREE.InstancedMesh(
+      geometry,
+      materials[materialIndex],
+      instanceState.matrices.length,
+    );
+
+    instanceState.matrices.forEach((matrix, index) => {
+      mesh.setMatrixAt(index, matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere();
+    return mesh;
+  });
+
+  return {
+    cameraFitRadius: getDistanceScaledGridFitRadius(
+      fullGridSize,
+      normalizedDistanceScale,
+    ),
+    meshes,
+    recursiveTileState: {
+      currentFilledTiles: new Set(instanceState.filledTiles),
+      distanceScale: normalizedDistanceScale,
+      fullGridSize,
+      homeFilledTiles: new Set(instanceState.filledTiles),
+      keyToIndex: new Map(instanceState.keyToIndex),
+      meshes,
+      repeatGridSize: instanceState.repeatGridSize,
+      tileGridSize: tileVoxelGrid.gridSize,
+    },
+  };
+}
+
+function createLogoGeometryRenderState({
+  baseFilledVoxels,
+  distanceScale,
+  filledVoxels,
+  gridSize,
+  materials,
+  recursiveRenderDepth,
+}: {
+  baseFilledVoxels: ReadonlySet<string>;
+  distanceScale: number;
+  filledVoxels: ReadonlySet<string>;
+  gridSize: number;
+  materials: THREE.MeshBasicMaterial[];
+  recursiveRenderDepth: number | null;
+}): LogoGeometryRenderState {
+  if (recursiveRenderDepth) {
+    return createRecursiveLogoMeshes({
+      baseFilledVoxels,
+      distanceScale,
+      fullGridSize: gridSize,
+      materials,
+      recursiveRenderDepth,
+    });
+  }
+
+  const surfaceQuads = buildDistanceScaledLogoSurfaceQuads(
+    filledVoxels,
+    gridSize,
+    distanceScale,
+  );
+  const cameraFitRadius =
+    surfaceQuads.length > 0
+      ? getLogoSurfaceFitRadius(surfaceQuads, gridSize)
+      : getDistanceScaledGridFitRadius(gridSize, distanceScale);
+  return {
+    cameraFitRadius,
+    meshes: createLogoMeshesFromParts(
+      buildLogoSurfaceParts(surfaceQuads, gridSize > GRID_SIZE),
+      materials,
+    ),
+    recursiveTileState: null,
+  };
+}
+
+function pointToVoxelCoordinate(
+  point: THREE.Vector3,
+  gridSize: number,
+  distanceScale: number,
+): VoxelCoordinate | null {
+  const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
+  const readAxis = (value: number): number | null => {
+    if (normalizedDistanceScale === DEFAULT_LOGO_DISTANCE_SCALE) {
+      return Math.floor(value + gridSize / 2);
+    }
+
+    for (let index = 0; index < gridSize; index += 1) {
+      const center = (index - (gridSize - 1) / 2) * normalizedDistanceScale;
+      if (value >= center - 0.5 && value <= center + 0.5) {
+        return index;
+      }
+    }
+
+    return null;
+  };
+  const x = readAxis(point.x);
+  const y = readAxis(point.y);
+  const z = readAxis(point.z);
+  if (x === null || y === null || z === null) {
+    return null;
+  }
+
+  if (!isWithinVoxelGrid(gridSize, x, y, z)) {
+    return null;
+  }
+
+  return [x, y, z];
+}
+
+function applyFaceColors(
+  materials: THREE.MeshBasicMaterial[],
+  faceColors: FaceColors,
+) {
+  applyResolvedFaceColors(materials, resolveFaceColors(faceColors));
+}
+
+function resolveFaceColors(faceColors: FaceColors): ResolvedFaceColors {
+  return {
+    left: new THREE.Color(getTailwindColorHex(faceColors.left)),
+    right: new THREE.Color(getTailwindColorHex(faceColors.right)),
+    top: new THREE.Color(getTailwindColorHex(faceColors.top)),
+  };
+}
+
+function applyResolvedFaceColors(
+  materials: THREE.MeshBasicMaterial[],
+  faceColors: ResolvedFaceColors,
+) {
+  materials[0].color.copy(faceColors.right);
+  materials[1].color.copy(faceColors.right);
+  materials[2].color.copy(faceColors.top);
+  materials[3].color.copy(faceColors.top);
+  materials[4].color.copy(faceColors.left);
+  materials[5].color.copy(faceColors.left);
+}
+
+function getAnimatedColor(
+  color: THREE.Color,
+  elapsedSeconds: number,
+): THREE.Color {
+  const hsl = { h: 0, l: 0, s: 0 };
+  color.getHSL(hsl);
+
+  return new THREE.Color().setHSL(
+    (hsl.h + (elapsedSeconds * FACE_COLOR_ANIMATION_DEGREES_PER_SECOND) / 360) %
+      1,
+    Math.max(hsl.s, FACE_COLOR_ANIMATION_MIN_SATURATION),
+    THREE.MathUtils.clamp(
+      hsl.l,
+      FACE_COLOR_ANIMATION_MIN_LIGHTNESS,
+      FACE_COLOR_ANIMATION_MAX_LIGHTNESS,
+    ),
+  );
+}
+
+function getAnimatedFaceColors(
+  faceColors: FaceColors,
+  elapsedSeconds: number,
+): ResolvedFaceColors {
+  const resolvedFaceColors = resolveFaceColors(faceColors);
+  return {
+    left: getAnimatedColor(resolvedFaceColors.left, elapsedSeconds),
+    right: getAnimatedColor(resolvedFaceColors.right, elapsedSeconds),
+    top: getAnimatedColor(resolvedFaceColors.top, elapsedSeconds),
+  };
+}
+
+function applyMaterialOpacity(
+  materials: THREE.MeshBasicMaterial[],
+  opacity: number,
+) {
+  const normalizedOpacity = THREE.MathUtils.clamp(opacity, 0, 1);
+  const isTransparent = normalizedOpacity < 1;
+  const nextSide = isTransparent ? THREE.DoubleSide : THREE.FrontSide;
+
+  for (const material of materials) {
+    material.opacity = normalizedOpacity;
+    // Avoid transparent draws writing depth while alpha blending the logo study.
+    material.depthWrite = !isTransparent;
+    let needsUpdate = false;
+    if (material.side !== nextSide) {
+      material.side = nextSide;
+      needsUpdate = true;
+    }
+    if (material.transparent !== isTransparent) {
+      material.transparent = isTransparent;
+      needsUpdate = true;
+    }
+    if (needsUpdate) {
+      material.needsUpdate = true;
+    }
+  }
+}
+
+function replaceLogoGeometry(
+  sceneState: SceneState,
+  nextFilledVoxels: Set<string>,
+  nextGridSize: number,
+  syncCameraFitRadius: boolean,
+) {
+  const nextGeometry = createLogoGeometryRenderState({
+    baseFilledVoxels: sceneState.baseFilledVoxels,
+    distanceScale: sceneState.distanceScale,
+    filledVoxels: nextFilledVoxels,
+    gridSize: nextGridSize,
+    materials: sceneState.cubeMaterials,
+    recursiveRenderDepth: sceneState.recursiveRenderDepth,
+  });
+  const previousLogoMeshes = sceneState.logoMeshes;
+  for (const logoMesh of previousLogoMeshes) {
+    sceneState.logoGroup.remove(logoMesh);
+    logoMesh.geometry.dispose();
+  }
+  sceneState.logoMeshes = nextGeometry.meshes;
+  for (const logoMesh of sceneState.logoMeshes) {
+    sceneState.logoGroup.add(logoMesh);
+  }
+  sceneState.recursiveTileState = nextGeometry.recursiveTileState;
+  sceneState.currentFilledVoxels = new Set(nextFilledVoxels);
+  sceneState.gridSize = nextGridSize;
+  if (syncCameraFitRadius) {
+    sceneState.cameraFitRadius = nextGeometry.cameraFitRadius;
+  }
+  sceneState.resizeScene();
+}
+
+function syncTransparentFaceRenderOrder(sceneState: SceneState) {
+  sceneState.camera.updateMatrixWorld();
+  sceneState.logoGroup.updateMatrixWorld(true);
+
+  const meshes = [
+    ...sceneState.logoMeshes,
+    ...sceneState.activeCubeMoves
+      .filter((move) => move.mesh.visible)
+      .map((move) => move.mesh),
+    ...sceneState.activeTileMoves.flatMap((move) =>
+      move.group.visible
+        ? move.group.children.filter(
+            (
+              child,
+            ): child is THREE.Mesh<
+              THREE.BufferGeometry,
+              THREE.MeshBasicMaterial
+            > => child instanceof THREE.Mesh,
+          )
+        : [],
+    ),
+  ];
+  const meshDepths = meshes.map((mesh) => {
+    const cameraSpaceCenter = (
+      mesh.geometry.boundingSphere?.center.clone() ?? new THREE.Vector3()
+    ).applyMatrix4(mesh.matrixWorld);
+    cameraSpaceCenter.applyMatrix4(sceneState.camera.matrixWorldInverse);
+    return { depth: cameraSpaceCenter.z, mesh };
+  });
+
+  meshDepths
+    .sort((left, right) => left.depth - right.depth)
+    .forEach(({ mesh }, index) => {
+      mesh.renderOrder = index;
+    });
+}
+
+function clearActiveCubeMoves(sceneState: SceneState) {
+  for (const move of sceneState.activeCubeMoves) {
+    sceneState.logoGroup.remove(move.mesh);
+  }
+  sceneState.activeCubeMoves = [];
+}
+
+function clearActiveTileMoves(sceneState: SceneState) {
+  for (const move of sceneState.activeTileMoves) {
+    sceneState.logoGroup.remove(move.group);
+  }
+  sceneState.activeTileMoves = [];
+}
+
+function setTileInstanceMatrix({
+  coordinate,
+  index,
+  tileState,
+}: {
+  coordinate: VoxelCoordinate | null;
+  index: number;
+  tileState: RecursiveTileSceneState;
+}) {
+  const matrix = new THREE.Matrix4();
+  if (coordinate) {
+    const [x, y, z] = getTileWorldCenter({
+      coordinate,
+      distanceScale: tileState.distanceScale,
+      fullGridSize: tileState.fullGridSize,
+      tileGridSize: tileState.tileGridSize,
+    });
+    matrix.makeTranslation(x, y, z);
+  } else {
+    matrix.makeScale(0, 0, 0);
+  }
+
+  for (const mesh of tileState.meshes) {
+    mesh.setMatrixAt(index, matrix);
+    mesh.instanceMatrix.needsUpdate = true;
+  }
+}
+
+function createTileMoveGroup(tileState: RecursiveTileSceneState): THREE.Group {
+  const group = new THREE.Group();
+
+  for (const mesh of tileState.meshes) {
+    const tilePart = new THREE.Mesh(mesh.geometry, mesh.material);
+    group.add(tilePart);
+  }
+
+  return group;
+}
+
+function resetShuffleAnimation(
+  sceneState: SceneState,
+  lastMovedCubeKeyRef: MutableRefObject<string | null>,
+  syncCameraFitRadius: boolean,
+) {
+  clearActiveCubeMoves(sceneState);
+  clearActiveTileMoves(sceneState);
+  replaceLogoGeometry(
+    sceneState,
+    new Set(sceneState.homeFilledVoxels),
+    sceneState.gridSize,
+    syncCameraFitRadius,
+  );
+  lastMovedCubeKeyRef.current = null;
+}
+
+function scheduleNextCubeMove(
+  sceneState: SceneState,
+  elevationDegrees: number,
+  lastMovedCubeKeyRef: MutableRefObject<string | null>,
+  rotationAxisMode: LogoRotationAxisMode,
+  rotationDegrees: number,
+  startTimeMs: number,
+): boolean {
+  const blockedKeys = new Set<string>();
+  for (const move of sceneState.activeCubeMoves) {
+    blockedKeys.add(move.fromKey);
+    blockedKeys.add(move.toKey);
+  }
+
+  const originCandidates = getShuffleOriginCandidates({
+    blockedKeys,
+    elevationDegrees,
+    filledVoxels: sceneState.currentFilledVoxels,
+    gridSize: sceneState.gridSize,
+    lastMovedCubeKey: lastMovedCubeKeyRef.current,
+    rotationAxisMode,
+    rotationDegrees,
+  });
+
+  const nextMove = randomValueFrom(originCandidates);
+  if (!nextMove) {
+    return false;
+  }
+
+  const toCoordinate = randomValueFrom(nextMove.destinations);
+  if (!toCoordinate) {
+    return false;
+  }
+
+  const toKey = voxelKey(toCoordinate[0], toCoordinate[1], toCoordinate[2]);
+  const moveMesh = new THREE.Mesh(
+    sceneState.cubeGeometry,
+    sceneState.cubeMaterials,
+  );
+  moveMesh.visible = false;
+  setCubeMeshPosition(
+    moveMesh,
+    nextMove.from,
+    sceneState.gridSize,
+    sceneState.distanceScale,
+  );
+  sceneState.logoGroup.add(moveMesh);
+  sceneState.activeCubeMoves.push({
+    durationMs: SHUFFLE_MOVE_DURATION_MS,
+    from: nextMove.from,
+    fromKey: nextMove.fromKey,
+    hasDeparted: false,
+    mesh: moveMesh,
+    startTimeMs,
+    to: toCoordinate,
+    toKey,
+  });
+  return true;
+}
+
+function scheduleNextTileMove(
+  sceneState: SceneState,
+  elevationDegrees: number,
+  lastMovedCubeKeyRef: MutableRefObject<string | null>,
+  rotationAxisMode: LogoRotationAxisMode,
+  rotationDegrees: number,
+  startTimeMs: number,
+): boolean {
+  const tileState = sceneState.recursiveTileState;
+  if (!tileState) {
+    return false;
+  }
+
+  const blockedKeys = new Set<string>();
+  for (const move of sceneState.activeTileMoves) {
+    blockedKeys.add(move.fromKey);
+    blockedKeys.add(move.toKey);
+  }
+
+  const originCandidates = getShuffleOriginCandidates({
+    blockedKeys,
+    elevationDegrees,
+    filledVoxels: tileState.currentFilledTiles,
+    gridSize: tileState.repeatGridSize,
+    lastMovedCubeKey: lastMovedCubeKeyRef.current,
+    rotationAxisMode,
+    rotationDegrees,
+  });
+
+  const nextMove = randomValueFrom(originCandidates);
+  if (!nextMove) {
+    return false;
+  }
+
+  const toCoordinate = randomValueFrom(nextMove.destinations);
+  if (!toCoordinate) {
+    return false;
+  }
+
+  const instanceIndex = tileState.keyToIndex.get(nextMove.fromKey);
+  if (instanceIndex === undefined) {
+    return false;
+  }
+
+  const toKey = voxelKey(toCoordinate[0], toCoordinate[1], toCoordinate[2]);
+  const group = createTileMoveGroup(tileState);
+  group.visible = false;
+  const [x, y, z] = getTileWorldCenter({
+    coordinate: nextMove.from,
+    distanceScale: tileState.distanceScale,
+    fullGridSize: tileState.fullGridSize,
+    tileGridSize: tileState.tileGridSize,
+  });
+  group.position.set(x, y, z);
+  sceneState.logoGroup.add(group);
+  sceneState.activeTileMoves.push({
+    durationMs: SHUFFLE_MOVE_DURATION_MS,
+    from: nextMove.from,
+    fromKey: nextMove.fromKey,
+    group,
+    hasDeparted: false,
+    instanceIndex,
+    startTimeMs,
+    to: toCoordinate,
+    toKey,
+  });
+  return true;
+}
+
+function syncTileShuffleAnimation(
+  sceneState: SceneState,
+  elevationDegrees: number,
+  lastMovedCubeKeyRef: MutableRefObject<string | null>,
+  parallelMoves: LogoShuffleParallelMoves,
+  rotationAxisMode: LogoRotationAxisMode,
+  rotationDegrees: number,
+  timestampMs: number,
+) {
+  const tileState = sceneState.recursiveTileState;
+  if (!tileState) {
+    return;
+  }
+
+  const completedMoves: ActiveTileMove[] = [];
+
+  for (const move of sceneState.activeTileMoves) {
+    if (!move.hasDeparted && timestampMs >= move.startTimeMs) {
+      move.hasDeparted = true;
+      move.group.visible = true;
+      setTileInstanceMatrix({
+        coordinate: null,
+        index: move.instanceIndex,
+        tileState,
+      });
+      tileState.currentFilledTiles.delete(move.fromKey);
+      tileState.keyToIndex.delete(move.fromKey);
+    }
+
+    if (!move.hasDeparted) {
+      continue;
+    }
+
+    const progress = Math.min(
+      Math.max((timestampMs - move.startTimeMs) / move.durationMs, 0),
+      1,
+    );
+    const [x, y, z] = getTileMovePosition(move, progress, tileState);
+    move.group.position.set(x, y, z);
+
+    if (progress >= 1) {
+      completedMoves.push(move);
+    }
+  }
+
+  if (completedMoves.length > 0) {
+    const completedMoveSet = new Set(completedMoves);
+    sceneState.activeTileMoves = sceneState.activeTileMoves.filter(
+      (move) => !completedMoveSet.has(move),
+    );
+
+    for (const move of completedMoves) {
+      setTileInstanceMatrix({
+        coordinate: move.to,
+        index: move.instanceIndex,
+        tileState,
+      });
+      tileState.currentFilledTiles.add(move.toKey);
+      tileState.keyToIndex.set(move.toKey, move.instanceIndex);
+      sceneState.logoGroup.remove(move.group);
+      lastMovedCubeKeyRef.current = move.toKey;
+    }
+  }
+
+  while (sceneState.activeTileMoves.length < parallelMoves) {
+    const didScheduleMove = scheduleNextTileMove(
+      sceneState,
+      elevationDegrees,
+      lastMovedCubeKeyRef,
+      rotationAxisMode,
+      rotationDegrees,
+      timestampMs + sceneState.activeTileMoves.length * SHUFFLE_MOVE_STAGGER_MS,
+    );
+    if (!didScheduleMove) {
+      break;
+    }
+  }
+}
+
+function syncCubeShuffleAnimation(
+  sceneState: SceneState,
+  elevationDegrees: number,
+  lastMovedCubeKeyRef: MutableRefObject<string | null>,
+  parallelMoves: LogoShuffleParallelMoves,
+  rotationAxisMode: LogoRotationAxisMode,
+  rotationDegrees: number,
+  timestampMs: number,
+) {
+  if (sceneState.recursiveTileState) {
+    syncTileShuffleAnimation(
+      sceneState,
+      elevationDegrees,
+      lastMovedCubeKeyRef,
+      parallelMoves,
+      rotationAxisMode,
+      rotationDegrees,
+      timestampMs,
+    );
+    return;
+  }
+
+  const completedMoves: ActiveCubeMove[] = [];
+  let didChangeOccupancy = false;
+
+  for (const move of sceneState.activeCubeMoves) {
+    if (!move.hasDeparted && timestampMs >= move.startTimeMs) {
+      move.hasDeparted = true;
+      move.mesh.visible = true;
+      sceneState.currentFilledVoxels.delete(move.fromKey);
+      didChangeOccupancy = true;
+    }
+
+    if (!move.hasDeparted) {
+      continue;
+    }
+
+    const progress = Math.min(
+      Math.max((timestampMs - move.startTimeMs) / move.durationMs, 0),
+      1,
+    );
+    const [x, y, z] = getCubeMovePosition(
+      move,
+      progress,
+      sceneState.gridSize,
+      sceneState.distanceScale,
+    );
+    move.mesh.position.set(x, y, z);
+
+    if (progress >= 1) {
+      completedMoves.push(move);
+    }
+  }
+
+  if (completedMoves.length > 0) {
+    const completedMoveSet = new Set(completedMoves);
+    sceneState.activeCubeMoves = sceneState.activeCubeMoves.filter(
+      (move) => !completedMoveSet.has(move),
+    );
+    for (const move of completedMoves) {
+      sceneState.currentFilledVoxels.add(move.toKey);
+      sceneState.logoGroup.remove(move.mesh);
+      lastMovedCubeKeyRef.current = move.toKey;
+      didChangeOccupancy = true;
+    }
+  }
+
+  if (didChangeOccupancy) {
+    replaceLogoGeometry(
+      sceneState,
+      sceneState.currentFilledVoxels,
+      sceneState.gridSize,
+      false,
+    );
+  }
+
+  while (sceneState.activeCubeMoves.length < parallelMoves) {
+    const didScheduleMove = scheduleNextCubeMove(
+      sceneState,
+      elevationDegrees,
+      lastMovedCubeKeyRef,
+      rotationAxisMode,
+      rotationDegrees,
+      timestampMs + sceneState.activeCubeMoves.length * SHUFFLE_MOVE_STAGGER_MS,
+    );
+    if (!didScheduleMove) {
+      break;
+    }
+  }
+}
+
+export function NLogoScene({
+  backgroundColor,
+  className,
+  distanceScale = DEFAULT_LOGO_DISTANCE_SCALE,
+  editMode,
+  elevationDegrees,
+  faceColors,
+  fractalDepth,
+  opacity,
+  onInteractionStart,
+  onInteractionEnd,
+  onRenderReady,
+  onRenderUnavailable,
+  onViewChange,
+  onVoxelEdit,
+  rotationAxisMode = "cube-y",
+  rotationDegrees,
+  shuffleAnimation,
+  animateFaceColors,
+  voxelEditingEnabled = true,
+  voxelGrid,
+  viewDragConfig,
+  voxelState,
+}: NLogoSceneProps) {
+  const mountRef = useRef<HTMLDivElement | null>(null);
+  const sceneStateRef = useRef<SceneState | null>(null);
+  const backgroundColorRef = useRef(backgroundColor);
+  const editModeRef = useRef(editMode);
+  const rotationDegreesRef = useRef(rotationDegrees);
+  const elevationDegreesRef = useRef(elevationDegrees);
+  const rotationAxisModeRef = useRef(rotationAxisMode);
+  const voxelGridRef = useRef(voxelGrid);
+  const voxelEditingEnabledRef = useRef(voxelEditingEnabled);
+  const voxelStateRef = useRef(voxelState);
+  const fractalDepthRef = useRef(fractalDepth);
+  const faceColorsRef = useRef(faceColors);
+  const opacityRef = useRef(opacity);
+  const distanceScaleRef = useRef(normalizeLogoDistanceScale(distanceScale));
+  const animateFaceColorsRef = useRef(animateFaceColors);
+  const faceColorAnimationStartedAtRef = useRef<number | null>(null);
+  const shuffleAnimationRef = useRef(shuffleAnimation);
+  const onInteractionStartRef = useRef(onInteractionStart);
+  const onInteractionEndRef = useRef(onInteractionEnd);
+  const onRenderReadyRef = useRef(onRenderReady);
+  const onRenderUnavailableRef = useRef(onRenderUnavailable);
+  const onViewChangeRef = useRef(onViewChange);
+  const onVoxelEditRef = useRef(onVoxelEdit);
+  const renderSceneRef = useRef<(timestampMs: number) => void>(() => {});
+  const syncAnimationLoopRef = useRef<() => void>(() => {});
+  const lastMovedCubeKeyRef = useRef<string | null>(null);
+  const interactionRef = useRef<SceneInteraction>({
+    button: null,
+    pointerId: null,
+    startElevationDegrees: elevationDegrees,
+    startRotationDegrees: rotationDegrees,
+    startX: 0,
+    startY: 0,
+    status: "idle",
+  });
+
+  useEffect(() => {
+    backgroundColorRef.current = backgroundColor;
+    const sceneState = sceneStateRef.current;
+    if (!sceneState) {
+      return;
+    }
+
+    sceneState.scene.background = new THREE.Color(backgroundColor);
+    renderSceneRef.current(performance.now());
+  }, [backgroundColor]);
+
+  useEffect(() => {
+    editModeRef.current = editMode;
+  }, [editMode]);
+
+  useEffect(() => {
+    voxelEditingEnabledRef.current = voxelEditingEnabled;
+  }, [voxelEditingEnabled]);
+
+  useEffect(() => {
+    rotationDegreesRef.current = rotationDegrees;
+    renderSceneRef.current(performance.now());
+  }, [rotationDegrees]);
+
+  useEffect(() => {
+    elevationDegreesRef.current = elevationDegrees;
+    renderSceneRef.current(performance.now());
+  }, [elevationDegrees]);
+
+  useEffect(() => {
+    rotationAxisModeRef.current = rotationAxisMode;
+    renderSceneRef.current(performance.now());
+  }, [rotationAxisMode]);
+
+  useEffect(() => {
+    const nextDistanceScale = normalizeLogoDistanceScale(distanceScale);
+    distanceScaleRef.current = nextDistanceScale;
+    const sceneState = sceneStateRef.current;
+    if (!sceneState || sceneState.distanceScale === nextDistanceScale) {
+      return;
+    }
+
+    sceneState.distanceScale = nextDistanceScale;
+    resetShuffleAnimation(sceneState, lastMovedCubeKeyRef, true);
+    renderSceneRef.current(performance.now());
+  }, [distanceScale]);
+
+  useEffect(() => {
+    onInteractionStartRef.current = onInteractionStart;
+  }, [onInteractionStart]);
+
+  useEffect(() => {
+    onInteractionEndRef.current = onInteractionEnd;
+  }, [onInteractionEnd]);
+
+  useEffect(() => {
+    opacityRef.current = opacity;
+  }, [opacity]);
+
+  useEffect(() => {
+    onRenderReadyRef.current = onRenderReady;
+  }, [onRenderReady]);
+
+  useEffect(() => {
+    onRenderUnavailableRef.current = onRenderUnavailable;
+  }, [onRenderUnavailable]);
+
+  useEffect(() => {
+    onViewChangeRef.current = onViewChange;
+  }, [onViewChange]);
+
+  useEffect(() => {
+    onVoxelEditRef.current = onVoxelEdit;
+  }, [onVoxelEdit]);
+
+  useEffect(() => {
+    const wasEnabled = shuffleAnimationRef.current.enabled;
+    shuffleAnimationRef.current = shuffleAnimation;
+
+    const sceneState = sceneStateRef.current;
+    if (!sceneState) {
+      return;
+    }
+
+    if (shuffleAnimation.enabled !== wasEnabled) {
+      resetShuffleAnimation(sceneState, lastMovedCubeKeyRef, false);
+    }
+
+    syncAnimationLoopRef.current();
+    renderSceneRef.current(performance.now());
+  }, [shuffleAnimation]);
+
+  useEffect(() => {
+    const container = mountRef.current;
+    if (!container) {
+      return;
+    }
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(backgroundColorRef.current);
+
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    } catch (error) {
+      console.error("Failed to initialize logo scene renderer", error);
+      onRenderUnavailableRef.current?.();
+      return;
+    }
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.domElement.style.display = "block";
+    renderer.domElement.style.height = "100%";
+    renderer.domElement.style.width = "100%";
+    container.replaceChildren(renderer.domElement);
+
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+    const materials = [
+      new THREE.MeshBasicMaterial(),
+      new THREE.MeshBasicMaterial(),
+      new THREE.MeshBasicMaterial(),
+      new THREE.MeshBasicMaterial(),
+      new THREE.MeshBasicMaterial(),
+      new THREE.MeshBasicMaterial(),
+    ];
+    applyFaceColors(materials, faceColorsRef.current);
+    applyMaterialOpacity(materials, opacityRef.current);
+    const initialVoxelGrid = resolveSceneVoxelGrid({
+      fractalDepth: fractalDepthRef.current,
+      voxelGrid: voxelGridRef.current,
+      voxelState: voxelStateRef.current,
+    });
+    const initialGeometry = createLogoGeometryRenderState({
+      baseFilledVoxels: initialVoxelGrid.baseFilledVoxels,
+      distanceScale: distanceScaleRef.current,
+      filledVoxels: initialVoxelGrid.filledVoxels,
+      gridSize: initialVoxelGrid.gridSize,
+      materials,
+      recursiveRenderDepth: initialVoxelGrid.recursiveRenderDepth,
+    });
+    const logoMeshes = initialGeometry.meshes;
+    const logoGroup = new THREE.Group();
+    for (const logoMesh of logoMeshes) {
+      logoGroup.add(logoMesh);
+    }
+    scene.add(logoGroup);
+    const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+    const initialCameraFitRadius = initialGeometry.cameraFitRadius;
+    const rotationAxisVector = new THREE.Vector3();
+
+    const getCameraFitRadius = () =>
+      sceneStateRef.current?.cameraFitRadius ?? initialCameraFitRadius;
+
+    const getFrustumHalfSpan = () =>
+      getCameraFitRadius() * CAMERA_FRUSTUM_PADDING;
+
+    const getCameraDistance = () =>
+      resolveLogoSceneCameraDepthBounds(getCameraFitRadius()).distance;
+
+    const updateCameraPosition = () => {
+      const [cameraX, cameraY, cameraZ] = getWorldCameraVector(
+        elevationDegreesRef.current,
+      );
+      camera.position
+        .set(cameraX, cameraY, cameraZ)
+        .setLength(getCameraDistance());
+      const [upX, upY, upZ] = getWorldScreenVerticalAxis(
+        elevationDegreesRef.current,
+      );
+      camera.up.set(upX, upY, upZ);
+      camera.lookAt(0, 0, 0);
+    };
+
+    const applyLogoRotation = () => {
+      const [axisX, axisY, axisZ] = getLogoRotationAxis({
+        elevationDegrees: elevationDegreesRef.current,
+        mode: rotationAxisModeRef.current,
+      });
+      rotationAxisVector.set(axisX, axisY, axisZ);
+      logoGroup.quaternion.setFromAxisAngle(
+        rotationAxisVector,
+        THREE.MathUtils.degToRad(
+          toRenderedRotationDegrees(rotationDegreesRef.current),
+        ),
+      );
+    };
+
+    const resizeScene = () => {
+      const width = container.clientWidth || 640;
+      const height = container.clientHeight || 768;
+      const aspect = width / height;
+      const cameraFitRadius = getCameraFitRadius();
+      const cameraDepthBounds =
+        resolveLogoSceneCameraDepthBounds(cameraFitRadius);
+      const frustumHalfSpan = getFrustumHalfSpan();
+      const frustumHalfHeight = Math.max(
+        frustumHalfSpan,
+        frustumHalfSpan / Math.max(aspect, 0.0001),
+      );
+      renderer.setSize(width, height, false);
+      camera.left = -frustumHalfHeight * aspect;
+      camera.right = frustumHalfHeight * aspect;
+      camera.top = frustumHalfHeight;
+      camera.bottom = -frustumHalfHeight;
+      // Recursive depth can be wider than the old fixed camera distance; keep
+      // the orthographic depth range outside the fitted mesh so rotations do
+      // not clip front-facing corners.
+      camera.far = cameraDepthBounds.far;
+      updateCameraPosition();
+      applyLogoRotation();
+      camera.updateProjectionMatrix();
+      renderer.render(scene, camera);
+    };
+
+    sceneStateRef.current = {
+      camera,
+      cameraFitRadius: initialCameraFitRadius,
+      cubeGeometry,
+      cubeMaterials: materials,
+      distanceScale: distanceScaleRef.current,
+      gridSize: initialVoxelGrid.gridSize,
+      currentFilledVoxels: new Set(initialVoxelGrid.filledVoxels),
+      activeCubeMoves: [],
+      activeTileMoves: [],
+      baseFilledVoxels: new Set(initialVoxelGrid.baseFilledVoxels),
+      homeFilledVoxels: new Set(initialVoxelGrid.filledVoxels),
+      logoGroup,
+      logoMeshes,
+      raycaster: new THREE.Raycaster(),
+      recursiveRenderDepth: initialVoxelGrid.recursiveRenderDepth,
+      recursiveTileState: initialGeometry.recursiveTileState,
+      renderer,
+      resizeScene,
+      scene,
+    };
+
+    resizeScene();
+
+    const resizeObserver = new ResizeObserver(() => {
+      resizeScene();
+    });
+    resizeObserver.observe(container);
+
+    const timer = new THREE.Timer();
+    timer.connect(document);
+    let animationFrameId: number | null = null;
+    let readyFrameId = 0;
+    let readyFrameId2 = 0;
+
+    const stopAnimation = () => {
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+    };
+
+    const hasActiveAnimation = () =>
+      shuffleAnimationRef.current.enabled || animateFaceColorsRef.current;
+
+    const renderScene = (timestampMs: number) => {
+      timer.update(timestampMs);
+      const sceneState = sceneStateRef.current;
+      if (sceneState && shuffleAnimationRef.current.enabled) {
+        syncCubeShuffleAnimation(
+          sceneState,
+          elevationDegreesRef.current,
+          lastMovedCubeKeyRef,
+          shuffleAnimationRef.current.parallelMoves,
+          rotationAxisModeRef.current,
+          rotationDegreesRef.current,
+          timestampMs,
+        );
+      }
+      if (sceneState && animateFaceColorsRef.current) {
+        const animationStartedAt =
+          faceColorAnimationStartedAtRef.current ?? timestampMs;
+        faceColorAnimationStartedAtRef.current = animationStartedAt;
+        applyResolvedFaceColors(
+          sceneState.cubeMaterials,
+          getAnimatedFaceColors(
+            faceColorsRef.current,
+            (timestampMs - animationStartedAt) / 1000,
+          ),
+        );
+      }
+      updateCameraPosition();
+      applyLogoRotation();
+      if (sceneState) {
+        syncTransparentFaceRenderOrder(sceneState);
+      }
+      renderer.render(scene, camera);
+    };
+
+    const animate = (timestamp?: number) => {
+      renderScene(timestamp ?? performance.now());
+      if (hasActiveAnimation()) {
+        animationFrameId = window.requestAnimationFrame(animate);
+        return;
+      }
+
+      animationFrameId = null;
+    };
+
+    renderSceneRef.current = renderScene;
+    syncAnimationLoopRef.current = () => {
+      if (hasActiveAnimation()) {
+        if (animationFrameId === null) {
+          animationFrameId = window.requestAnimationFrame(animate);
+        }
+        return;
+      }
+
+      stopAnimation();
+    };
+
+    renderScene(performance.now());
+    readyFrameId = window.requestAnimationFrame(() => {
+      readyFrameId2 = window.requestAnimationFrame(() => {
+        onRenderReadyRef.current?.();
+        syncAnimationLoopRef.current();
+      });
+    });
+
+    return () => {
+      stopAnimation();
+      window.cancelAnimationFrame(readyFrameId);
+      window.cancelAnimationFrame(readyFrameId2);
+      resizeObserver.disconnect();
+      timer.dispose();
+      const activeSceneState = sceneStateRef.current;
+      if (activeSceneState) {
+        clearActiveCubeMoves(activeSceneState);
+        clearActiveTileMoves(activeSceneState);
+        for (const logoMesh of activeSceneState.logoMeshes) {
+          logoMesh.geometry.dispose();
+        }
+      } else {
+        for (const logoMesh of logoMeshes) {
+          logoMesh.geometry.dispose();
+        }
+      }
+      cubeGeometry.dispose();
+      for (const material of materials) {
+        material.dispose();
+      }
+      scene.clear();
+      sceneStateRef.current = null;
+      renderSceneRef.current = () => {};
+      syncAnimationLoopRef.current = () => {};
+      faceColorAnimationStartedAtRef.current = null;
+      renderer.dispose();
+      container.replaceChildren();
+    };
+  }, []);
+
+  useEffect(() => {
+    fractalDepthRef.current = fractalDepth;
+    voxelGridRef.current = voxelGrid;
+    voxelStateRef.current = voxelState;
+
+    const sceneState = sceneStateRef.current;
+    if (!sceneState) {
+      return;
+    }
+
+    const nextVoxelGrid = resolveSceneVoxelGrid({
+      fractalDepth,
+      voxelGrid,
+      voxelState,
+    });
+    sceneState.baseFilledVoxels = new Set(nextVoxelGrid.baseFilledVoxels);
+    sceneState.homeFilledVoxels = new Set(nextVoxelGrid.filledVoxels);
+    sceneState.gridSize = nextVoxelGrid.gridSize;
+    sceneState.recursiveRenderDepth = nextVoxelGrid.recursiveRenderDepth;
+    resetShuffleAnimation(sceneState, lastMovedCubeKeyRef, true);
+    renderSceneRef.current(performance.now());
+  }, [fractalDepth, voxelGrid, voxelState]);
+
+  useEffect(() => {
+    animateFaceColorsRef.current = animateFaceColors;
+    faceColorsRef.current = faceColors;
+
+    const sceneState = sceneStateRef.current;
+    if (!sceneState) {
+      return;
+    }
+
+    if (animateFaceColors) {
+      faceColorAnimationStartedAtRef.current = performance.now();
+      syncAnimationLoopRef.current();
+      renderSceneRef.current(performance.now());
+      return;
+    }
+
+    applyResolvedFaceColors(
+      sceneState.cubeMaterials,
+      resolveFaceColors(faceColors),
+    );
+    syncAnimationLoopRef.current();
+    renderSceneRef.current(performance.now());
+  }, [animateFaceColors, faceColors]);
+
+  useEffect(() => {
+    opacityRef.current = opacity;
+
+    const sceneState = sceneStateRef.current;
+    if (!sceneState) {
+      return;
+    }
+
+    applyMaterialOpacity(sceneState.cubeMaterials, opacity);
+    renderSceneRef.current(performance.now());
+  }, [opacity]);
+  const pickVoxelEdit = (
+    clientX: number,
+    clientY: number,
+    kind: VoxelEdit["kind"],
+  ): VoxelEdit | null => {
+    const sceneState = sceneStateRef.current;
+    if (
+      !sceneState ||
+      !voxelEditingEnabledRef.current ||
+      shuffleAnimationRef.current.enabled
+    ) {
+      return null;
+    }
+
+    const canvasRect = sceneState.renderer.domElement.getBoundingClientRect();
+    if (
+      clientX < canvasRect.left ||
+      clientX > canvasRect.right ||
+      clientY < canvasRect.top ||
+      clientY > canvasRect.bottom
+    ) {
+      return null;
+    }
+
+    const x = ((clientX - canvasRect.left) / canvasRect.width) * 2 - 1;
+    const y = -((clientY - canvasRect.top) / canvasRect.height) * 2 + 1;
+    sceneState.raycaster.setFromCamera(
+      new THREE.Vector2(x, y),
+      sceneState.camera,
+    );
+    const intersections = sceneState.raycaster.intersectObjects(
+      sceneState.logoMeshes,
+      false,
+    );
+    if (intersections.length === 0) {
+      return null;
+    }
+    const intersection = intersections[0];
+
+    const localPoint = sceneState.logoGroup.worldToLocal(
+      intersection.point.clone(),
+    );
+    const intersectionNormal = intersection.normal ?? intersection.face?.normal;
+    if (!intersectionNormal) {
+      return null;
+    }
+    const localNormal = intersectionNormal.clone();
+    localPoint.addScaledVector(
+      localNormal,
+      kind === "add" ? RAYCAST_OFFSET : -RAYCAST_OFFSET,
+    );
+
+    const coordinate = pointToVoxelCoordinate(
+      localPoint,
+      sceneState.gridSize,
+      sceneState.distanceScale,
+    );
+    if (!coordinate) {
+      return null;
+    }
+
+    const key = voxelKey(coordinate[0], coordinate[1], coordinate[2]);
+    if (kind === "add" && sceneState.currentFilledVoxels.has(key)) {
+      return null;
+    }
+    if (kind === "remove" && !sceneState.currentFilledVoxels.has(key)) {
+      return null;
+    }
+
+    return { coordinate, kind };
+  };
+
+  const resetInteraction = (target: HTMLDivElement, pointerId: number) => {
+    const wasDragging = interactionRef.current.status === "dragging";
+    if (target.hasPointerCapture(pointerId)) {
+      target.releasePointerCapture(pointerId);
+    }
+    if (wasDragging) {
+      onInteractionEndRef.current?.();
+    }
+
+    interactionRef.current = {
+      button: null,
+      pointerId: null,
+      startElevationDegrees: elevationDegreesRef.current,
+      startRotationDegrees: rotationDegreesRef.current,
+      startX: 0,
+      startY: 0,
+      status: "idle",
+    };
+  };
+
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) {
+      return;
+    }
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    interactionRef.current = {
+      button: event.button,
+      pointerId: event.pointerId,
+      startElevationDegrees: elevationDegreesRef.current,
+      startRotationDegrees: rotationDegreesRef.current,
+      startX: event.clientX,
+      startY: event.clientY,
+      status: "pending",
+    };
+  };
+
+  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const interaction = interactionRef.current;
+    if (interaction.pointerId !== event.pointerId || interaction.button !== 0) {
+      return;
+    }
+
+    const deltaX = event.clientX - interaction.startX;
+    const deltaY = event.clientY - interaction.startY;
+
+    if (
+      interaction.status === "pending" &&
+      Math.hypot(deltaX, deltaY) >= DRAG_THRESHOLD_PX
+    ) {
+      interactionRef.current.status = "dragging";
+      onInteractionStartRef.current?.();
+    }
+
+    if (interactionRef.current.status !== "dragging") {
+      return;
+    }
+
+    const disableSnap = event.altKey || event.shiftKey;
+    onViewChangeRef.current(
+      resolveLogoViewState({
+        config: viewDragConfig,
+        disableSnap,
+        view: {
+          elevationDegrees:
+            interaction.startElevationDegrees +
+            deltaY * DRAG_ELEVATION_DEGREES_PER_PIXEL,
+          rotationDegrees:
+            interaction.startRotationDegrees +
+            deltaX * DRAG_ROTATION_DEGREES_PER_PIXEL,
+        },
+      }),
+    );
+  };
+
+  const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
+    const interaction = interactionRef.current;
+    if (
+      interaction.pointerId !== event.pointerId ||
+      interaction.button === null
+    ) {
+      return;
+    }
+
+    if (interaction.status !== "dragging") {
+      const edit = pickVoxelEdit(
+        event.clientX,
+        event.clientY,
+        editModeRef.current,
+      );
+      if (edit) {
+        onVoxelEditRef.current(edit);
+      }
+    }
+
+    resetInteraction(event.currentTarget, event.pointerId);
+  };
+
+  const handlePointerCancel = (event: PointerEvent<HTMLDivElement>) => {
+    if (interactionRef.current.pointerId !== event.pointerId) {
+      return;
+    }
+
+    resetInteraction(event.currentTarget, event.pointerId);
+  };
+
+  const handleContextMenu = (event: MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+  };
+
+  return (
+    <div
+      ref={mountRef}
+      className={className}
+      data-logo-elevation-degrees={elevationDegrees}
+      data-logo-rotation-degrees={rotationDegrees}
+      onContextMenu={handleContextMenu}
+      onPointerCancel={handlePointerCancel}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+    />
+  );
+}

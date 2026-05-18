@@ -1,6 +1,6 @@
 import { LandingCopy } from "@/components/LandingCopy";
 import { PublicLandingAuthControls } from "@/components/PublicLandingAuthControls";
-import { PublicLandingLogo } from "@/components/PublicLandingLogo";
+import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { landingPageMarkdown } from "@/lib/landingCopy";
 import {

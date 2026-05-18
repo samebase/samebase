@@ -1,12 +1,16 @@
-import { type LogoRotationAxisMode } from "@/components/logoRotationMath";
+import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
 import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
   isLogoIsometricStyleId,
   normalizeLogoIsometricCubeSidePixels,
   type LogoIsometricStyleId,
-} from "@/components/logoIsometricRenderer";
-import { type LogoThemeColors } from "@/components/logoTailwindColors";
+} from "@/components/logo/logoIsometricRenderer";
+import { type LogoThemeColors } from "@/components/logo/logoTailwindColors";
+import {
+  DEFAULT_LOGO_DISTANCE_SCALE,
+  normalizeLogoDistanceScale,
+} from "@/components/logo/logoDistanceScale";
 import {
   appThemeColorSearchFieldSchema,
   buildLogoThemeColorSearch,
@@ -20,13 +24,15 @@ import {
 } from "@/lib/rootThemeModeSearch";
 import {
   DEFAULT_ELEVATION_DEGREES,
+  DEFAULT_LOGO_FRACTAL_DEPTH,
   DEFAULT_ROTATION_DEGREES,
   DEFAULT_VOXEL_STATE,
+  normalizeLogoFractalDepth,
   normalizeElevationDegrees,
   normalizeRotationDegrees,
   parseVoxelState,
   serializeVoxelState,
-} from "@/components/logoVoxelState";
+} from "@/components/logo/logoVoxelState";
 import { LANDING_DEV_MODE_QUERY_PARAM } from "@/lib/landingDevMode";
 import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
 import { z } from "zod";
@@ -119,6 +125,8 @@ const logoRouteSearchFieldSchema = z
       z.enum(LOGO_ROTATION_AXIS_MODE_VALUES).optional(),
     ),
     [LANDING_DEV_MODE_QUERY_PARAM]: z.literal(true).optional(),
+    depth: z.preprocess(readOptionalNumber, z.number().finite().optional()),
+    dist: z.preprocess(readOptionalNumber, z.number().finite().optional()),
     elev: z.preprocess(readOptionalNumber, z.number().finite().optional()),
     freeView: z.literal(true).optional(),
     isoSide: z.preprocess(readOptionalNumber, z.number().finite().optional()),
@@ -141,6 +149,12 @@ export const logoRouteSearchSchema = logoRouteSearchFieldSchema.transform(
       ...readLogoThemeColorSearch(search),
       ...(typeof search.axis === "string" ? { axis: search.axis } : {}),
       ...(search.dev ? { dev: true as const } : {}),
+      ...(typeof search.depth === "number"
+        ? { depth: normalizeLogoFractalDepth(search.depth) }
+        : {}),
+      ...(typeof search.dist === "number"
+        ? { dist: normalizeLogoDistanceScale(search.dist) }
+        : {}),
       ...(typeof search.elev === "number"
         ? { elev: normalizeElevationDegrees(search.elev) }
         : {}),
@@ -170,7 +184,9 @@ export function validateLogoRouteSearch(
 }
 
 export function buildLogoRouteSearch(args: {
+  distanceScale: number;
   elevationDegrees: number;
+  fractalDepth: number;
   isoCubeSidePixels: number;
   isoStyleId: LogoIsometricStyleId;
   rotationAxisMode: LogoRotationAxisMode;
@@ -180,6 +196,9 @@ export function buildLogoRouteSearch(args: {
   viewSnapEnabled: boolean;
   voxelState: string;
 }): LogoRouteSearch {
+  const fractalDepth = normalizeLogoFractalDepth(args.fractalDepth);
+  const distanceScale = normalizeLogoDistanceScale(args.distanceScale);
+
   return {
     ...readRootThemeModeSearch(args.themeModeSearch ?? {}),
     ...buildLogoThemeColorSearch(args.themeColors),
@@ -189,6 +208,14 @@ export function buildLogoRouteSearch(args: {
     ...(args.elevationDegrees !== DEFAULT_ELEVATION_DEGREES
       ? { elev: Number(args.elevationDegrees.toFixed(1)) }
       : {}),
+    // `depth` is retained by the root route, so default depth needs an own
+    // undefined tombstone to clear a previous recursive preview value.
+    depth:
+      fractalDepth !== DEFAULT_LOGO_FRACTAL_DEPTH ? fractalDepth : undefined,
+    dist:
+      distanceScale !== DEFAULT_LOGO_DISTANCE_SCALE
+        ? Number(distanceScale.toFixed(3))
+        : undefined,
     ...(args.viewSnapEnabled ? {} : { freeView: true }),
     ...(args.isoCubeSidePixels !== DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX
       ? { isoSide: args.isoCubeSidePixels }

@@ -1,4 +1,4 @@
-import { normalizeRotationDegrees } from "@/components/logoVoxelState";
+import { normalizeRotationDegrees } from "@/components/logo/logoVoxelState";
 
 export const PUBLIC_LANDING_LOGO_VIEW_STATE_KEY = "public-landing";
 export const DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY = "dashboard-empty";

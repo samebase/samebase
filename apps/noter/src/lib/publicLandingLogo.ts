@@ -1,5 +1,5 @@
-import { STATIC_LOGO_ELEVATION_DEGREES } from "@/components/logoStaticSvgContract";
-import { type LogoViewDragConfig } from "@/components/logoViewDrag";
+import { STATIC_LOGO_ELEVATION_DEGREES } from "@/components/logo/logoStaticSvgContract";
+import { type LogoViewDragConfig } from "@/components/logo/logoViewDrag";
 
 export const PUBLIC_LANDING_LOGO_ALT = "Noter logo";
 export const PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME =

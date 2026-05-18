@@ -25,6 +25,8 @@ import { Route as machineConnectRouteImport } from "./routes/machine-connect";
 import { Route as logoTransitionLabRouteImport } from "./routes/logo-transition-lab";
 import { Route as logoSvgRouteImport } from "./routes/logo-svg";
 import { Route as logoIsoStudyRouteImport } from "./routes/logo-iso-study";
+import { Route as logoRasterSeamsRouteImport } from "./routes/logo-raster-seams";
+import { Route as logoRasterRouteImport } from "./routes/logo-raster";
 import { Route as logoIsoRouteImport } from "./routes/logo-iso";
 import { Route as termsRouteImport } from "./routes/terms";
 import { Route as privacyRouteImport } from "./routes/privacy";
@@ -116,6 +118,16 @@ const logoIsoStudyRoute = logoIsoStudyRouteImport.update({
   path: "/logo/single-cube",
   getParentRoute: () => rootRouteImport,
 } as any);
+const logoRasterSeamsRoute = logoRasterSeamsRouteImport.update({
+  id: "/logo/raster-seams",
+  path: "/logo/raster-seams",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const logoRasterRoute = logoRasterRouteImport.update({
+  id: "/logo/raster",
+  path: "/logo/raster",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const logoIsoRoute = logoIsoRouteImport.update({
   id: "/logo/iso",
   path: "/logo/iso",
@@ -189,6 +201,8 @@ export interface FileRoutesByFullPath {
   "/privacy": typeof privacyRoute;
   "/terms": typeof termsRoute;
   "/logo/iso": typeof logoIsoRoute;
+  "/logo/raster": typeof logoRasterRoute;
+  "/logo/raster-seams": typeof logoRasterSeamsRoute;
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
   "/logo/transition": typeof logoTransitionLabRoute;
@@ -217,6 +231,8 @@ export interface FileRoutesByTo {
   "/privacy": typeof privacyRoute;
   "/terms": typeof termsRoute;
   "/logo/iso": typeof logoIsoRoute;
+  "/logo/raster": typeof logoRasterRoute;
+  "/logo/raster-seams": typeof logoRasterSeamsRoute;
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
   "/logo/transition": typeof logoTransitionLabRoute;
@@ -247,6 +263,8 @@ export interface FileRoutesById {
   "/_public/privacy": typeof privacyRoute;
   "/_public/terms": typeof termsRoute;
   "/logo/iso": typeof logoIsoRoute;
+  "/logo/raster": typeof logoRasterRoute;
+  "/logo/raster-seams": typeof logoRasterSeamsRoute;
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
   "/logo/transition": typeof logoTransitionLabRoute;
@@ -277,6 +295,8 @@ export interface FileRouteTypes {
     | "/privacy"
     | "/terms"
     | "/logo/iso"
+    | "/logo/raster"
+    | "/logo/raster-seams"
     | "/logo/single-cube"
     | "/logo/svg"
     | "/logo/transition"
@@ -305,6 +325,8 @@ export interface FileRouteTypes {
     | "/privacy"
     | "/terms"
     | "/logo/iso"
+    | "/logo/raster"
+    | "/logo/raster-seams"
     | "/logo/single-cube"
     | "/logo/svg"
     | "/logo/transition"
@@ -334,6 +356,8 @@ export interface FileRouteTypes {
     | "/_public/privacy"
     | "/_public/terms"
     | "/logo/iso"
+    | "/logo/raster"
+    | "/logo/raster-seams"
     | "/logo/single-cube"
     | "/logo/svg"
     | "/logo/transition"
@@ -359,6 +383,8 @@ export interface RootRouteChildren {
   testRoute: typeof testRoute;
   visualFixtureRoute: typeof visualFixtureRoute;
   logoIsoRoute: typeof logoIsoRoute;
+  logoRasterRoute: typeof logoRasterRoute;
+  logoRasterSeamsRoute: typeof logoRasterSeamsRoute;
   logoIsoStudyRoute: typeof logoIsoStudyRoute;
   logoSvgRoute: typeof logoSvgRoute;
   logoTransitionLabRoute: typeof logoTransitionLabRoute;
@@ -487,6 +513,20 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof logoIsoStudyRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/logo/raster-seams": {
+      id: "/logo/raster-seams";
+      path: "/logo/raster-seams";
+      fullPath: "/logo/raster-seams";
+      preLoaderRoute: typeof logoRasterSeamsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/logo/raster": {
+      id: "/logo/raster";
+      path: "/logo/raster";
+      fullPath: "/logo/raster";
+      preLoaderRoute: typeof logoRasterRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/logo/iso": {
       id: "/logo/iso";
       path: "/logo/iso";
@@ -598,6 +638,8 @@ const rootRouteChildren: RootRouteChildren = {
   testRoute: testRoute,
   visualFixtureRoute: visualFixtureRoute,
   logoIsoRoute: logoIsoRoute,
+  logoRasterRoute: logoRasterRoute,
+  logoRasterSeamsRoute: logoRasterSeamsRoute,
   logoIsoStudyRoute: logoIsoStudyRoute,
   logoSvgRoute: logoSvgRoute,
   logoTransitionLabRoute: logoTransitionLabRoute,
