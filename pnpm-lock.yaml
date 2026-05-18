@@ -21,6 +21,7 @@ overrides:
   picomatch@4.0.3: 4.0.4
   postcss: 8.5.10
   protobufjs: 7.5.6
+  ws: 8.20.1
 
 importers:
 
@@ -6056,20 +6057,8 @@ packages:
   wrappy@1.0.2:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
 
-  ws@8.18.0:
-    resolution: {integrity: sha512-8VbfWfHLbbwu3+N6OKsOMpBdT4kXPDDB9cJk2bJ6mh9ucxdlnNvH1e+roYkKmN9Nxw2yjz7VzeO9oOz2zJ04Pw==}
-    engines: {node: '>=10.0.0'}
-    peerDependencies:
-      bufferutil: ^4.0.1
-      utf-8-validate: '>=5.0.2'
-    peerDependenciesMeta:
-      bufferutil:
-        optional: true
-      utf-8-validate:
-        optional: true
-
-  ws@8.19.0:
-    resolution: {integrity: sha512-blAT2mjOEIi0ZzruJfIhb3nps74PRWTCz1IjglWEEpQl5XS/UNama6u2/rjFkDDouqr4L67ry+1aGIALViWjDg==}
+  ws@8.20.1:
+    resolution: {integrity: sha512-It4dO0K5v//JtTXuPkfEOaI3uUN87iYPnqo/ZzqCoG3g8uhA66QUMs/SrM0YK7/NAu+r4LMh/9dq2A7k+rHs+w==}
     engines: {node: '>=10.0.0'}
     peerDependencies:
       bufferutil: ^4.0.1
@@ -8561,7 +8550,7 @@ snapshots:
       tinyexec: 1.1.1
       tinyglobby: 0.2.15
       vite: 8.0.8(@types/node@20.19.32)(esbuild@0.27.3)(jiti@2.7.0)(yaml@2.8.3)
-      ws: 8.19.0
+      ws: 8.20.1
     optionalDependencies:
       '@edge-runtime/vm': 5.0.0
       '@opentelemetry/api': 1.9.0
@@ -8980,7 +8969,7 @@ snapshots:
     dependencies:
       esbuild: 0.27.0
       prettier: 3.8.1
-      ws: 8.18.0
+      ws: 8.20.1
     optionalDependencies:
       react: 19.2.4
     transitivePeerDependencies:
@@ -10769,7 +10758,7 @@ snapshots:
       sharp: 0.34.5
       undici: 7.24.8
       workerd: 1.20260507.1
-      ws: 8.18.0
+      ws: 8.20.1
       youch: 4.1.0-beta.10
     transitivePeerDependencies:
       - bufferutil
@@ -12285,9 +12274,7 @@ snapshots:
 
   wrappy@1.0.2: {}
 
-  ws@8.18.0: {}
-
-  ws@8.19.0: {}
+  ws@8.20.1: {}
 
   wsl-utils@0.3.1:
     dependencies:

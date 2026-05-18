@@ -21,6 +21,8 @@ describe("vault records Convex contract", () => {
         ghRepoOwner: "Ada",
         ghRepoName: "Example-App",
         visibility: "private",
+        convexProjectName: "example-app",
+        cloudflareWorkerName: "example-app",
       },
     );
 
@@ -32,6 +34,8 @@ describe("vault records Convex contract", () => {
           ghRepoOwner: " ada ",
           ghRepoName: " example-app ",
           visibility: "private",
+          convexProjectName: "example-app-2",
+          cloudflareWorkerName: "example-app-2",
         },
       ),
     ).rejects.toThrow("Vault already exists for this repository.");

@@ -309,6 +309,9 @@ Key domain entities:
   Never accept native macOS/browser screenshots as baselines.
 - For bugs involving scroll, touch, drag, focus, selection, pane layout, auth
   wiring, or route shell behavior, reproduce and test the real app route first.
+- Do not create fake visual fixtures just to show or approve a product behavior
+  screenshot. If the user needs to review behavior, use the real app route or an
+  editable production-component harness that exercises the actual code path.
 - If a fixture is still needed, it must mount the exact production component
   tree without invented headers, wrappers, spacing, or fake chrome.
 - For production interaction regressions, add a failing route-level or honest
@@ -436,6 +439,11 @@ Detailed flow rules live in `docs/agent-workflows.md`.
   asking for clarification.
 - Commit meaningful checkpoints instead of letting large local diffs accumulate,
   and push after commits so work is not stranded only in the local worktree.
+- Preserve the meaningful sequence of work in branch history during active
+  review. Do not repeatedly amend the same feature commit after work has been
+  shown, pushed, or reviewed; create a new commit for each meaningful follow-up
+  step unless the user explicitly asks to squash or amend. Tiny fixups before
+  the next handoff can still be folded into the current commit.
 - When a change touches many files or multiple concerns, consider splitting it
   into two or three reviewable commits, such as backend model cleanup, UI
   wiring, and spec/test updates. This is a reviewability preference, not a hard

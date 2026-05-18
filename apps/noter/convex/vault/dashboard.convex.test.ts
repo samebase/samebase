@@ -333,6 +333,8 @@ describe("vault dashboard Convex contract", () => {
         ghRepoOwner: "ada",
         ghRepoName: "early-vault",
         visibility: "private",
+        convexProjectName: "early-vault",
+        cloudflareWorkerName: "early-vault",
       },
     );
     const result = await t.run(async (ctx) => {

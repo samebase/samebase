@@ -2,7 +2,6 @@ import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/input";
 import {
   Select,
   SelectContent,
@@ -25,8 +24,14 @@ import {
   VaultDashboardScrollTargetEndPadding,
   VaultDashboardSidebarContent,
 } from "@/components/vault-dashboard/VaultDashboardChrome";
+import {
+  CloudflareProviderLogo,
+  ConvexProviderLogo,
+  GitHubProviderLogo,
+} from "@/components/vault-dashboard/VaultDashboardLogos";
 import { buildVaultBranchSectionState } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import {
+  CreateProviderNameInput,
   VaultBranchHeaderControls,
   VaultBranchLinkRow,
   VaultBranchListExpansionControl,
@@ -894,12 +899,6 @@ function FixtureDashboardCreateControl() {
             providerRows={[]}
           />
           <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">
-            <Input
-              className="w-full"
-              placeholder="New App name"
-              value=""
-              onChange={() => {}}
-            />
             <Select value="nicu-chiciuc" onValueChange={() => {}}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="GitHub owner" />
@@ -909,6 +908,27 @@ function FixtureDashboardCreateControl() {
                 <SelectItem value="noter-md">noter-md</SelectItem>
               </SelectContent>
             </Select>
+            <CreateProviderNameInput
+              disabled={false}
+              icon={<GitHubProviderLogo />}
+              onChange={() => {}}
+              placeholder="GitHub repo name"
+              value="field-notes"
+            />
+            <CreateProviderNameInput
+              disabled={false}
+              icon={<ConvexProviderLogo />}
+              onChange={() => {}}
+              placeholder="Convex project name"
+              value="field-notes"
+            />
+            <CreateProviderNameInput
+              disabled={false}
+              icon={<CloudflareProviderLogo />}
+              onChange={() => {}}
+              placeholder="Cloudflare Worker name"
+              value="field-notes"
+            />
             <Button className="w-full">New App</Button>
             <Button
               variant="outline"

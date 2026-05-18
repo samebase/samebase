@@ -1,17 +1,29 @@
 "use node";
 
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 import { action, type ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { Octokit } from "@octokit/rest";
+import { RequestError } from "@octokit/request-error";
 import { getUserId } from "../common";
-import { toErrorMessage } from "../jsonUtils";
+import { asRecord, readString, toErrorMessage } from "../jsonUtils";
 import { parseRepositoryFullName } from "./model";
 import { isLiveConnectedVault, isNoterManagedVault } from "./state";
 import { toSafeRepoName } from "../repoName";
+import { createInfraProviders } from "../infraProviders";
+import {
+  resolveCloudflareProvisioningConnection,
+  resolveConvexProvisioningConnection,
+} from "../infraProvisioning";
+import { isCloudflareWorkerNameAvailable } from "../cloudflareResources";
+import {
+  buildNumberedAppResourceNameSuggestion,
+  validateAppResourceName,
+  type AppResourceNameProvider,
+} from "../../shared/appResourceNames";
 
-const { array, literal, object, optional, string, union } = v;
+const { array, literal, null: nullValue, object, optional, string, union } = v;
 const githubRepositoryOwnerKind = union(
   literal("user"),
   literal("organization"),
@@ -20,6 +32,146 @@ const githubRepositoryOwnerOption = object({
   login: string(),
   kind: githubRepositoryOwnerKind,
 });
+const appResourceNameAvailability = object({
+  status: union(
+    literal("available"),
+    literal("taken"),
+    literal("invalid"),
+    literal("unknown"),
+  ),
+  message: union(string(), nullValue()),
+  suggestion: union(string(), nullValue()),
+});
+
+type AppResourceNameAvailability = Infer<typeof appResourceNameAvailability>;
+
+function buildAvailableResult(): AppResourceNameAvailability {
+  return {
+    status: "available",
+    message: null,
+    suggestion: null,
+  };
+}
+
+function buildInvalidResult(args: {
+  message: string;
+  suggestion: string | null;
+}): AppResourceNameAvailability {
+  return {
+    status: "invalid",
+    message: args.message,
+    suggestion: args.suggestion,
+  };
+}
+
+function buildTakenResult(args: {
+  providerLabel: string;
+  suggestion: string | null;
+}): AppResourceNameAvailability {
+  return {
+    status: "taken",
+    message: `${args.providerLabel} already exists.`,
+    suggestion: args.suggestion,
+  };
+}
+
+function buildUnknownResult(message: string): AppResourceNameAvailability {
+  return {
+    status: "unknown",
+    message,
+    suggestion: null,
+  };
+}
+
+function assertResourceNameAvailable(
+  providerLabel: string,
+  availability: AppResourceNameAvailability,
+): void {
+  if (availability.status === "available") {
+    return;
+  }
+  if (availability.message) {
+    throw new Error(availability.message);
+  }
+  throw new Error(`Could not verify ${providerLabel}.`);
+}
+
+function validateCreateResourceName(
+  provider: AppResourceNameProvider,
+  name: string,
+):
+  | { valid: true; value: string }
+  | { valid: false; availability: AppResourceNameAvailability } {
+  const validation = validateAppResourceName(name, provider);
+  if (validation.valid) {
+    return validation;
+  }
+  return {
+    valid: false,
+    availability: buildInvalidResult({
+      message: validation.message,
+      suggestion: validation.suggestion,
+    }),
+  };
+}
+
+function buildNumberedSuggestionFromUnavailableNames(args: {
+  provider: AppResourceNameProvider;
+  baseName: string;
+  unavailableNames: ReadonlySet<string>;
+}): string | null {
+  for (let number = 2; number <= 20; number += 1) {
+    const candidate = buildNumberedAppResourceNameSuggestion({
+      provider: args.provider,
+      baseName: args.baseName,
+      number,
+    });
+    if (!args.unavailableNames.has(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+async function isGitHubRepositoryNameAvailable(args: {
+  octokit: Octokit;
+  owner: string;
+  repositoryName: string;
+}): Promise<boolean> {
+  try {
+    await args.octokit.rest.repos.get({
+      owner: args.owner,
+      repo: args.repositoryName,
+    });
+    return false;
+  } catch (error) {
+    if (error instanceof RequestError && error.status === 404) {
+      return true;
+    }
+    throw error;
+  }
+}
+
+async function buildAvailableGitHubRepositoryNameSuggestion(args: {
+  octokit: Octokit;
+  owner: string;
+  baseName: string;
+}): Promise<string | null> {
+  for (let number = 2; number <= 20; number += 1) {
+    const candidate = toSafeRepoName(`${args.baseName}-${number}`);
+    if (
+      candidate &&
+      (await isGitHubRepositoryNameAvailable({
+        octokit: args.octokit,
+        owner: args.owner,
+        repositoryName: candidate,
+      }))
+    ) {
+      return candidate;
+    }
+  }
+  return null;
+}
 
 async function markProvisioningStartupFailed(
   ctx: Pick<ActionCtx, "runMutation">,
@@ -176,6 +328,233 @@ async function startConnectExistingRepositoryProvisioningOrFail(
   }
 }
 
+async function checkGitHubRepositoryNameAvailability(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: {
+    userId: Id<"users">;
+    owner: string;
+    repositoryName: string;
+  },
+): Promise<AppResourceNameAvailability> {
+  const repositoryName = toSafeRepoName(args.repositoryName);
+  if (!repositoryName) {
+    return buildInvalidResult({
+      message: "GitHub repository name is required.",
+      suggestion: null,
+    });
+  }
+  const owner = args.owner.trim();
+  if (!owner) {
+    return buildInvalidResult({
+      message: "Choose a GitHub owner before checking repository names.",
+      suggestion: null,
+    });
+  }
+
+  try {
+    const githubConnection = await ctx.runQuery(
+      internal.providerConnections.getByUserAndKind,
+      {
+        userId: args.userId,
+        kind: "github",
+      },
+    );
+    if (githubConnection?.kind !== "github") {
+      return buildUnknownResult("Could not check GitHub repository name.");
+    }
+
+    const octokit = new Octokit({
+      auth: githubConnection.auth.credential,
+    });
+    if (
+      await isGitHubRepositoryNameAvailable({
+        octokit,
+        owner,
+        repositoryName,
+      })
+    ) {
+      return buildAvailableResult();
+    }
+
+    return buildTakenResult({
+      providerLabel: "GitHub repository",
+      suggestion: await buildAvailableGitHubRepositoryNameSuggestion({
+        octokit,
+        owner,
+        baseName: repositoryName,
+      }),
+    });
+  } catch (error) {
+    console.warn("vault:create:github_repo_name_check_failed", {
+      message: toErrorMessage(error),
+    });
+    return buildUnknownResult("Could not check GitHub repository name.");
+  }
+}
+
+async function checkConvexProjectNameAvailability(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: {
+    userId: Id<"users">;
+    projectName: string;
+  },
+): Promise<AppResourceNameAvailability> {
+  const validation = validateCreateResourceName("convex", args.projectName);
+  if (!validation.valid) {
+    return validation.availability;
+  }
+  const projectName = validation.value;
+
+  try {
+    const { convexToken, convexTeamId } =
+      await resolveConvexProvisioningConnection(ctx, args.userId);
+    const providers = createInfraProviders({ convexToken });
+    const projectsRaw = await providers.convex.request(
+      `/teams/${encodeURIComponent(convexTeamId)}/list_projects`,
+      "GET",
+    );
+    if (!Array.isArray(projectsRaw)) {
+      console.warn("vault:create:convex_name_check_invalid_payload");
+      return buildUnknownResult("Could not check Convex project name.");
+    }
+    const projects = projectsRaw;
+    const unavailableNames = new Set<string>();
+    for (const project of projects) {
+      const projectRecord = asRecord(project);
+      const name = readString(projectRecord, "name");
+      const slug = readString(projectRecord, "slug");
+      if (name) {
+        unavailableNames.add(name);
+      }
+      if (slug) {
+        unavailableNames.add(slug);
+      }
+    }
+
+    if (!unavailableNames.has(projectName)) {
+      return buildAvailableResult();
+    }
+
+    return buildTakenResult({
+      providerLabel: "Convex project",
+      suggestion: buildNumberedSuggestionFromUnavailableNames({
+        provider: "convex",
+        baseName: projectName,
+        unavailableNames,
+      }),
+    });
+  } catch (error) {
+    console.warn("vault:create:convex_name_check_failed", {
+      message: toErrorMessage(error),
+    });
+    return buildUnknownResult("Could not check Convex project name.");
+  }
+}
+
+async function buildAvailableCloudflareWorkerNameSuggestion(args: {
+  token: string;
+  serverUrl: string;
+  accountId: string;
+  baseName: string;
+}): Promise<string | null> {
+  for (let number = 2; number <= 20; number += 1) {
+    const candidate = buildNumberedAppResourceNameSuggestion({
+      provider: "cloudflare",
+      baseName: args.baseName,
+      number,
+    });
+    if (
+      await isCloudflareWorkerNameAvailable({
+        token: args.token,
+        serverUrl: args.serverUrl,
+        accountId: args.accountId,
+        workerName: candidate,
+      })
+    ) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+async function checkCloudflareWorkerNameAvailability(
+  ctx: ActionCtx,
+  args: {
+    userId: Id<"users">;
+    workerName: string;
+  },
+): Promise<AppResourceNameAvailability> {
+  const validation = validateCreateResourceName("cloudflare", args.workerName);
+  if (!validation.valid) {
+    return validation.availability;
+  }
+  const workerName = validation.value;
+
+  try {
+    const connection = await resolveCloudflareProvisioningConnection(
+      ctx,
+      args.userId,
+    );
+    const available = await isCloudflareWorkerNameAvailable({
+      token: connection.cloudflareToken,
+      serverUrl: connection.cloudflareServerUrl,
+      accountId: connection.cloudflareAccountId,
+      workerName,
+    });
+    if (available) {
+      return buildAvailableResult();
+    }
+
+    return buildTakenResult({
+      providerLabel: "Cloudflare Worker",
+      suggestion: await buildAvailableCloudflareWorkerNameSuggestion({
+        token: connection.cloudflareToken,
+        serverUrl: connection.cloudflareServerUrl,
+        accountId: connection.cloudflareAccountId,
+        baseName: workerName,
+      }),
+    });
+  } catch (error) {
+    console.warn("vault:create:cloudflare_name_check_failed", {
+      message: toErrorMessage(error),
+    });
+    return buildUnknownResult("Could not check Cloudflare Worker name.");
+  }
+}
+
+async function checkCreateResourceNameAvailabilityForUser(
+  ctx: ActionCtx,
+  args: {
+    userId: Id<"users">;
+    githubRepositoryOwner: string;
+    githubRepositoryName: string;
+    convexProjectName: string;
+    cloudflareWorkerName: string;
+  },
+): Promise<{
+  github: AppResourceNameAvailability;
+  convex: AppResourceNameAvailability;
+  cloudflare: AppResourceNameAvailability;
+}> {
+  const [github, convex, cloudflare] = await Promise.all([
+    checkGitHubRepositoryNameAvailability(ctx, {
+      userId: args.userId,
+      owner: args.githubRepositoryOwner,
+      repositoryName: args.githubRepositoryName,
+    }),
+    checkConvexProjectNameAvailability(ctx, {
+      userId: args.userId,
+      projectName: args.convexProjectName,
+    }),
+    checkCloudflareWorkerNameAvailability(ctx, {
+      userId: args.userId,
+      workerName: args.cloudflareWorkerName,
+    }),
+  ]);
+
+  return { github, convex, cloudflare };
+}
+
 async function resolveGithubConnectionUsername(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
@@ -298,6 +677,8 @@ export const createRepository = action({
   args: {
     name: v.string(),
     owner: string(),
+    convexProjectName: string(),
+    cloudflareWorkerName: string(),
     description: optional(v.string()),
     private: optional(v.boolean()),
   },
@@ -330,6 +711,48 @@ export const createRepository = action({
       throw new Error("GitHub is not connected.");
     }
 
+    const convexNameValidation = validateCreateResourceName(
+      "convex",
+      args.convexProjectName,
+    );
+    if (!convexNameValidation.valid) {
+      throw new Error(
+        convexNameValidation.availability.message ??
+          "Invalid Convex project name.",
+      );
+    }
+    const cloudflareNameValidation = validateCreateResourceName(
+      "cloudflare",
+      args.cloudflareWorkerName,
+    );
+    if (!cloudflareNameValidation.valid) {
+      throw new Error(
+        cloudflareNameValidation.availability.message ??
+          "Invalid Cloudflare Worker name.",
+      );
+    }
+
+    const resourceNameAvailability =
+      await checkCreateResourceNameAvailabilityForUser(ctx, {
+        userId,
+        githubRepositoryOwner: ghRepoOwner,
+        githubRepositoryName: repoName,
+        convexProjectName: convexNameValidation.value,
+        cloudflareWorkerName: cloudflareNameValidation.value,
+      });
+    assertResourceNameAvailable(
+      "GitHub repository name",
+      resourceNameAvailability.github,
+    );
+    assertResourceNameAvailable(
+      "Convex project name",
+      resourceNameAvailability.convex,
+    );
+    assertResourceNameAvailable(
+      "Cloudflare Worker name",
+      resourceNameAvailability.cloudflare,
+    );
+
     const visibility = args.private === false ? "public" : "private";
     const { vaultId, runId } = await ctx.runMutation(
       internal.vault.records.createInitializingNoterManagedVaultForUser,
@@ -338,6 +761,8 @@ export const createRepository = action({
         ghRepoOwner,
         ghRepoName: repoName,
         visibility,
+        convexProjectName: convexNameValidation.value,
+        cloudflareWorkerName: cloudflareNameValidation.value,
       },
     );
     await startCreateAppProvisioningOrFail(ctx, {
@@ -351,6 +776,30 @@ export const createRepository = action({
     });
 
     return { vaultId, runId };
+  },
+});
+
+export const checkCreateRepositoryResourceNames = action({
+  args: {
+    githubRepositoryOwner: string(),
+    githubRepositoryName: string(),
+    convexProjectName: string(),
+    cloudflareWorkerName: string(),
+  },
+  returns: object({
+    github: appResourceNameAvailability,
+    convex: appResourceNameAvailability,
+    cloudflare: appResourceNameAvailability,
+  }),
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+    return await checkCreateResourceNameAvailabilityForUser(ctx, {
+      userId,
+      githubRepositoryOwner: args.githubRepositoryOwner,
+      githubRepositoryName: args.githubRepositoryName,
+      convexProjectName: args.convexProjectName,
+      cloudflareWorkerName: args.cloudflareWorkerName,
+    });
   },
 });
 

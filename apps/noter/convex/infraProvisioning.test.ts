@@ -4,8 +4,10 @@ import { internal } from "./_generated/api";
 import {
   resolveConnectionFailureProvider,
   selectCloudflareBuildConfigTreeData,
+  selectExistingCloudflareWorkerTag,
 } from "./infraProvisioning";
 import type { GithubTreeData } from "./schema";
+import { sanitizeSlug, vaultSuffix } from "./slugUtils";
 import { makeConvexTest } from "./test.setup";
 
 const branchTreeData = {
@@ -38,6 +40,54 @@ describe("selectCloudflareBuildConfigTreeData", () => {
   });
 });
 
+describe("selectExistingCloudflareWorkerTag", () => {
+  it("prefers the fully connected Worker tag", () => {
+    expect(
+      selectExistingCloudflareWorkerTag({
+        cloudflare: {
+          state: "connected",
+          accountId: "account-1",
+          workerName: "noter",
+          workerTag: "connected-worker-tag",
+          productionUrl: "https://noter.example.workers.dev",
+          connectedAt: 20,
+        },
+        target: {
+          cloudflareAccountId: "account-1",
+          cloudflareWorkerTag: "target-worker-tag",
+        },
+        accountId: "account-1",
+      }),
+    ).toBe("connected-worker-tag");
+  });
+
+  it("trusts a recorded target Worker tag for the same account", () => {
+    expect(
+      selectExistingCloudflareWorkerTag({
+        cloudflare: { state: "not_configured" },
+        target: {
+          cloudflareAccountId: "account-1",
+          cloudflareWorkerTag: " target-worker-tag ",
+        },
+        accountId: "account-1",
+      }),
+    ).toBe("target-worker-tag");
+  });
+
+  it("ignores a recorded target Worker tag for another account", () => {
+    expect(
+      selectExistingCloudflareWorkerTag({
+        cloudflare: { state: "not_configured" },
+        target: {
+          cloudflareAccountId: "account-1",
+          cloudflareWorkerTag: "target-worker-tag",
+        },
+        accountId: "account-2",
+      }),
+    ).toBe(undefined);
+  });
+});
+
 describe("resolveConnectionFailureProvider", () => {
   it("detects Cloudflare connection failures", () => {
     expect(
@@ -65,6 +115,257 @@ describe("resolveConnectionFailureProvider", () => {
 });
 
 describe("infrastructure provisioning ownership", () => {
+  it("creates a target row before provider side effects for older vaults", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/older-retry",
+        trigger: "retry",
+        state: "running",
+        currentStep: "claim_infra",
+        createdAt: 10,
+        updatedAt: 10,
+      });
+
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "older-retry",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+        convex: { state: "not_configured" },
+        cloudflare: { state: "not_configured" },
+      });
+
+      return { runId, vaultId };
+    });
+
+    const result = await t.mutation(
+      internal.infraProvisioning.claimWorkflowProvisioning,
+      {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+        force: true,
+      },
+    );
+    const target = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("vaultInfrastructureTargets")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .first();
+    });
+    const record = await t.mutation(
+      internal.infraProvisioning.recordConvexProjectIdentity,
+      {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+        projectId: "convex-project-id",
+      },
+    );
+
+    const suffix = vaultSuffix(ids.vaultId);
+    expect(result).toEqual({ claimed: true });
+    expect(target).toMatchObject({
+      convexProjectName: sanitizeSlug(`ada-older-retry-${suffix}`, 40),
+      cloudflareWorkerName: sanitizeSlug(`ada-older-retry-${suffix}`, 58),
+    });
+    expect(record).toEqual({ applied: true });
+  });
+
+  it("records provisional Convex project identity for retries", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/provider-retry",
+        trigger: "create",
+        state: "running",
+        currentStep: "ensure_convex",
+        createdAt: 10,
+        updatedAt: 10,
+      });
+
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "provider-retry",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+        convex: {
+          state: "provisioning",
+          runId,
+          startedAt: 25,
+        },
+        cloudflare: { state: "not_configured" },
+      });
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId,
+        runId,
+        provisioningVersion: 1,
+        state: "active",
+        updatedAt: 30,
+      });
+      await ctx.db.insert("vaultInfrastructureTargets", {
+        vaultId,
+        convexProjectName: "provider-retry",
+        cloudflareWorkerName: "provider-retry",
+        createdAt: 31,
+        updatedAt: 31,
+      });
+
+      return { runId, vaultId };
+    });
+
+    const result = await t.mutation(
+      internal.infraProvisioning.recordConvexProjectIdentity,
+      {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+        projectId: "convex-project-id",
+      },
+    );
+    const target = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("vaultInfrastructureTargets")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .first();
+    });
+
+    expect(result).toEqual({ applied: true });
+    expect(target).toMatchObject({
+      convexProjectId: "convex-project-id",
+    });
+  });
+
+  it("records provisional Cloudflare Worker identity for retries", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/provider-retry",
+        trigger: "create",
+        state: "running",
+        currentStep: "ensure_cloudflare",
+        createdAt: 10,
+        updatedAt: 10,
+      });
+
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "provider-retry",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+        convex: {
+          state: "connected",
+          projectId: "convex-project-id",
+          projectSlug: "provider-retry",
+          deploymentName: "provider-retry-prod",
+          connectedAt: 25,
+        },
+        cloudflare: {
+          state: "provisioning",
+          runId,
+          startedAt: 26,
+        },
+      });
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId,
+        runId,
+        provisioningVersion: 1,
+        state: "active",
+        updatedAt: 30,
+      });
+      await ctx.db.insert("vaultInfrastructureTargets", {
+        vaultId,
+        convexProjectName: "provider-retry",
+        cloudflareWorkerName: "provider-retry",
+        createdAt: 31,
+        updatedAt: 31,
+      });
+
+      return { runId, vaultId };
+    });
+
+    const result = await t.mutation(
+      internal.infraProvisioning.recordCloudflareWorkerIdentity,
+      {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+        accountId: "cloudflare-account-id",
+        workerName: "provider-retry",
+        workerTag: "cloudflare-worker-tag",
+        productionUrl: "https://provider-retry.example.workers.dev",
+      },
+    );
+    const target = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("vaultInfrastructureTargets")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .first();
+    });
+
+    expect(result).toEqual({ applied: true });
+    expect(target).toMatchObject({
+      cloudflareAccountId: "cloudflare-account-id",
+      cloudflareWorkerName: "provider-retry",
+      cloudflareWorkerTag: "cloudflare-worker-tag",
+      cloudflareProductionUrl: "https://provider-retry.example.workers.dev",
+    });
+  });
+
   it("keeps active ownership fresh between provider state transitions", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
