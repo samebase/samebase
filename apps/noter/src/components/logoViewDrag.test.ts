@@ -87,7 +87,22 @@ describe("resolveLogoViewState", () => {
       }),
     ).toEqual({
       elevationDegrees: 0,
-      rotationDegrees: 14,
+      rotationDegrees: 14.3,
+    });
+  });
+
+  it("keeps free rotation between shared landing snap targets", () => {
+    expect(
+      resolveLogoViewState({
+        config: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
+        view: {
+          elevationDegrees: 22.4,
+          rotationDegrees: 14.3,
+        },
+      }),
+    ).toEqual({
+      elevationDegrees: 22.4,
+      rotationDegrees: 14.3,
     });
   });
 
@@ -131,8 +146,24 @@ describe("resolveLogoViewState", () => {
         },
       }),
     ).toEqual({
-      elevationDegrees: 36,
+      elevationDegrees: 35.6,
       rotationDegrees: 0,
+    });
+  });
+
+  it("lets modifier keys bypass shared landing snaps without adding whole-degree movement", () => {
+    expect(
+      resolveLogoViewState({
+        config: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
+        disableSnap: true,
+        view: {
+          elevationDegrees: 359.1,
+          rotationDegrees: 43.6,
+        },
+      }),
+    ).toEqual({
+      elevationDegrees: 359.1,
+      rotationDegrees: 43.6,
     });
   });
 

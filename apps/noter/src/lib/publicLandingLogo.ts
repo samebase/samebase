@@ -11,7 +11,6 @@ export const PUBLIC_LANDING_LOGO_STAGE_CLASS_NAME = "relative w-full";
 export const PUBLIC_LANDING_LOGO_STAGE_TEST_ID = "public-landing-logo-stage";
 export const PUBLIC_LANDING_LOGO_TEST_ID = "public-landing-logo";
 export const PUBLIC_LANDING_LOGO_WIDTH = 360;
-export const PUBLIC_LANDING_LOGO_VIEW_STEP_DEGREES = 1;
 export const PUBLIC_LANDING_LOGO_VIEW_SNAP_THRESHOLD_DEGREES = 4;
 export const PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ROTATION_SNAP_DEGREES = [
   0, 90, 180, 270,
@@ -70,8 +69,6 @@ export function shouldRevealPublicLandingLogoLink(
 }
 
 export const PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG: LogoViewDragConfig = {
-  elevationStepDegrees: PUBLIC_LANDING_LOGO_VIEW_STEP_DEGREES,
-  rotationStepDegrees: PUBLIC_LANDING_LOGO_VIEW_STEP_DEGREES,
   snapAngles: {
     elevationDegrees: PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ELEVATION_SNAP_DEGREES,
     elevationSnapGroups: [
