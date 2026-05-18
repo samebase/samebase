@@ -166,6 +166,14 @@ reports `42 / 442`, `source-atop-full` reports `43 / 442`, and `Merged faces`
 remains `0 / 388`. Crisp rendering may be an acceptable style choice, but it is
 not the primitive seam fix.
 
+Distance-scale follow-up: the first `/logo/raster` implementation accidentally
+made non-default `dist` more seam-prone by rendering one small transparent cube
+canvas and drawing that image into each base-motif position. That created
+alpha-edge seams before recursion, so depth 3 multiplied them. The corrected
+rule is to keep the base motif geometric for `dist != 1`: scale motif centers,
+project each cube face directly into the level-1 cache, and only then compose
+the cached motif upward.
+
 Recursive lab follow-up: `/logo/raster-seams` now has a depth toggle for the 2x2
 test. Depth 1 is the original 2x2x2 image-composition case. Depth 2 recursively
 composes that cached 2x2 block into another 2x2 block, giving a 4x4x4 cube

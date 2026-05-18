@@ -103,6 +103,13 @@ type RasterMergedSurface = {
   vAxis: RasterAxisIndex;
 };
 
+type RasterProjectedFace = {
+  colorKey: keyof FaceColors;
+  depth: number;
+  key: string;
+  points: readonly Point2D[];
+};
+
 type RasterFaceDefinition = {
   colorKey: keyof FaceColors;
   key: string;
@@ -987,6 +994,82 @@ function drawRasterMergedSurface({
   context.fill();
 }
 
+function scaleRasterCubeLocalPoint(point: Vector3): Vector3 {
+  return scaleVector(point, 1 / GRID_SIZE);
+}
+
+function collectDistanceScaledRasterFaces({
+  drawItems,
+  projection,
+}: {
+  drawItems: readonly RasterMotifDrawItem[];
+  projection: RasterProjection;
+}): RasterProjectedFace[] {
+  const faces: RasterProjectedFace[] = [];
+
+  for (const item of drawItems) {
+    for (const face of CUBE_FACES) {
+      const rotatedNormal = projection.rotatePoint(face.normal);
+      if (dotVectors(rotatedNormal, projection.cameraDirection) <= 0) {
+        continue;
+      }
+
+      const faceCenter = addVectors(
+        item.center,
+        scaleRasterCubeLocalPoint(getFaceCenter(face)),
+      );
+      faces.push({
+        colorKey: face.colorKey,
+        depth: dotVectors(
+          projection.rotatePoint(faceCenter),
+          projection.cameraDirection,
+        ),
+        key: `${item.key}:${face.colorKey}:${face.normal.join(",")}`,
+        points: face.vertices.map((vertex) =>
+          projection.projectPoint(
+            addVectors(item.center, scaleRasterCubeLocalPoint(vertex)),
+          ),
+        ),
+      });
+    }
+  }
+
+  return faces.sort((left, right) => {
+    if (left.depth !== right.depth) {
+      return left.depth - right.depth;
+    }
+
+    return left.key.localeCompare(right.key);
+  });
+}
+
+function drawDistanceScaledRasterFaces({
+  context,
+  faceColors,
+  faces,
+  opacity,
+  projection,
+}: {
+  context: CanvasRenderingContext2D;
+  faceColors: FaceColors;
+  faces: readonly RasterProjectedFace[];
+  opacity: number;
+  projection: RasterProjection;
+}) {
+  context.lineJoin = "round";
+  context.lineWidth = Math.max(1, projection.sizePx / 512);
+  context.globalAlpha = Math.max(0, Math.min(opacity, 1));
+
+  for (const face of faces) {
+    const color = getTailwindColorHex(faceColors[face.colorKey]);
+    context.fillStyle = color;
+    context.strokeStyle = color;
+    drawPolygon(context, face.points);
+  }
+
+  context.globalAlpha = 1;
+}
+
 function renderSurfaceMotifCanvas({
   activeMoves,
   distanceScale,
@@ -1015,37 +1098,19 @@ function renderSurfaceMotifCanvas({
   }
 
   if (!isDefaultRasterDistanceScale(distanceScale)) {
-    const childSize = projection.sizePx / GRID_SIZE;
-    const cubeCanvas = renderCubeUnitCanvas({
-      faceColors,
-      opacity,
-      projection: getRasterProjection({
-        elevationDegrees,
-        frustumPadding: RASTER_RECURSIVE_FRUSTUM_PADDING,
-        rotationAxisMode,
-        rotationDegrees,
-        sizePx: Math.max(1, Math.round(childSize)),
-      }),
-    });
     const drawItems = getMotifDrawItems({
       activeMoves,
       distanceScale,
       filledVoxels,
       projection,
     });
-
-    context.imageSmoothingEnabled = true;
-    context.imageSmoothingQuality = "high";
-    for (const item of drawItems) {
-      const offset = projection.projectVector(item.center);
-      context.drawImage(
-        cubeCanvas,
-        projection.centerPx + offset.x - childSize / 2,
-        projection.centerPx + offset.y - childSize / 2,
-        childSize,
-        childSize,
-      );
-    }
+    drawDistanceScaledRasterFaces({
+      context,
+      faceColors,
+      faces: collectDistanceScaledRasterFaces({ drawItems, projection }),
+      opacity,
+      projection,
+    });
 
     return canvas;
   }

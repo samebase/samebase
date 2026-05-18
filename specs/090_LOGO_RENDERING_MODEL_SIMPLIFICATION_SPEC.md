@@ -203,6 +203,11 @@ expanding every leaf cube. Three may rebuild its bounded surface/instance
 geometry for the new spacing, while raster should change projection and cached
 tile placement without entering the exact recursive voxel path.
 
+Raster distance changes must not swap the base motif to repeated transparent
+cube-image composition. The base motif should stay geometric: project the
+distance-scaled cube faces directly into the cached motif, then reuse that
+cached motif through the recursive levels.
+
 ## Validation
 
 - Unit tests must cover the shared surface model independently from renderers.

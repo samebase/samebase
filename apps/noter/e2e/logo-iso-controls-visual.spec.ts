@@ -641,6 +641,29 @@ test("logo distance scale controls Three and raster previews", async ({
   ).toHaveValue("0.500");
 });
 
+test("logo raster distance scale keeps depth 3 on the geometric base path", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo/raster?depth=3&dist=1.5&top=red-500&elev=22&rot=45", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const canvas = page.locator('canvas[data-logo-renderer="raster"]').first();
+
+  await expect(canvas).toBeVisible();
+  await waitForPaint(page);
+  await expect(canvas).toHaveScreenshot(
+    "logo-raster-distance-depth-3-scene.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.01,
+      scale: "css",
+    },
+  );
+});
+
 test("logo iso controls mobile boot", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/logo/iso?isoSide=6", {
