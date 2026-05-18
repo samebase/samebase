@@ -88,7 +88,6 @@ apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-provisio
 apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-sticky-header.png
 apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-sidebar-account-clamp.png
 apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-sidebar-account-mobile-min.png
-apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-sidebar-machine-links.png
 apps/noter/e2e/vault-last-updated-status.spec.ts-snapshots/vault-last-updated-status.png
 apps/noter/e2e/vault-sync-status-visual.spec.ts-snapshots/vault-sync-status-states.png
 apps/noter/e2e/workspace-layout-v2-status-bar.spec.ts-snapshots/workspace-layout-v2-status-bar-mobile.png

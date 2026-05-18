@@ -55,8 +55,7 @@ export type VaultDashboardVisualMode =
   | "vault-branch-pr-labels"
   | "vault-branch-mobile-alignment"
   | "vault-sidebar-account-clamp"
-  | "vault-sidebar-account-mobile-min"
-  | "vault-sidebar-machine-links";
+  | "vault-sidebar-account-mobile-min";
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
 
@@ -734,11 +733,7 @@ function VaultDashboardStickyHeaderFixture() {
       rightContent={
         <VaultDashboardSidebarContent>
           <div className="mt-auto">
-            <AppSidebarMetaSection
-              showLandingPreviewLink
-              showMachineLinks
-              side="right"
-            />
+            <AppSidebarMetaSection showLandingPreviewLink side="right" />
           </div>
         </VaultDashboardSidebarContent>
       }
@@ -870,11 +865,7 @@ function FixtureDashboardSidebarAccountClamp({
             ]}
           />
           <div className="mt-auto">
-            <AppSidebarMetaSection
-              showLandingPreviewLink
-              showMachineLinks
-              side="right"
-            />
+            <AppSidebarMetaSection showLandingPreviewLink side="right" />
           </div>
         </VaultDashboardSidebarContent>
       }
@@ -932,11 +923,7 @@ function FixtureDashboardCreateControl() {
             </Button>
           </div>
           <div className="mt-auto">
-            <AppSidebarMetaSection
-              showLandingPreviewLink
-              showMachineLinks
-              side="right"
-            />
+            <AppSidebarMetaSection showLandingPreviewLink side="right" />
           </div>
         </VaultDashboardSidebarContent>
       }
@@ -1003,24 +990,6 @@ export function VaultDashboardVisualFixture({
       <FixtureDashboardSidebarAccountClamp
         mobilePane="right"
         rightMobileWidthPx={1}
-      />
-    );
-  }
-
-  if (mode === "vault-sidebar-machine-links") {
-    return (
-      <FixtureDashboardShell
-        rightContent={
-          <VaultDashboardSidebarContent>
-            <div className="mt-auto">
-              <AppSidebarMetaSection
-                showLandingPreviewLink
-                showMachineLinks
-                side="right"
-              />
-            </div>
-          </VaultDashboardSidebarContent>
-        }
       />
     );
   }
