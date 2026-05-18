@@ -396,6 +396,32 @@ test("logo raster face-on recursion renders without tile seams", async ({
   );
 });
 
+test("logo raster seam lab shows the tiny 2x2 image-composition diagnostic", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo/raster-seams?elev=22&rot=22", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const currentCase = page.getByTestId("logo-raster-seam-lab-current-case");
+  const maskCanvas = currentCase.locator(
+    'canvas[data-logo-raster-seam-lab="mask"]',
+  );
+
+  await expect(currentCase).toBeVisible();
+  await expect(maskCanvas).toHaveCount(1);
+  await expect(maskCanvas).toHaveAttribute("width", "24");
+  await expect(maskCanvas).toHaveAttribute("height", "24");
+  await waitForPaint(page);
+  await expect(currentCase).toHaveScreenshot("logo-raster-seam-lab.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
+  });
+});
+
 test("logo shape presets include the Sierpinski carpet model", async ({
   page,
 }) => {

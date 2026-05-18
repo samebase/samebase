@@ -1,0 +1,356 @@
+import { Button } from "@/components/ui/button";
+import {
+  RASTER_SEAM_LAB_DEFAULT_ELEVATION_DEGREES,
+  RASTER_SEAM_LAB_DEFAULT_ROTATION_DEGREES,
+  RASTER_SEAM_LAB_DEFAULT_SOURCE_SIZE_PX,
+  RASTER_SEAM_LAB_SAMPLE_ROTATIONS,
+  RASTER_SEAM_LAB_SOURCE_SIZES,
+  drawLogoRasterSeamLabImage,
+  type RasterSeamLabImageKind,
+  type RasterSeamLabResult,
+} from "@/components/logoRasterSeamLabRenderer";
+import {
+  normalizeElevationDegrees,
+  normalizeRotationDegrees,
+} from "@/components/logoVoxelState";
+import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
+import { Link } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
+
+type SeamLabZoom = "large" | "small";
+
+const EMPTY_SEAM_RESULT = {
+  coveredPixels: 0,
+  seamPixels: 0,
+} satisfies RasterSeamLabResult;
+
+const ZOOM_CLASS_NAMES = {
+  large: "h-[28rem] w-[28rem] max-w-full",
+  small: "h-32 w-32",
+} as const satisfies Record<SeamLabZoom, string>;
+
+const IMAGE_KIND_LABELS = {
+  composed: "Composed",
+  mask: "Mask",
+  reference: "Reference",
+} as const satisfies Record<RasterSeamLabImageKind, string>;
+
+function SeamLabCanvas({
+  elevationDegrees,
+  imageKind,
+  rotationDegrees,
+  sourceSizePx,
+  zoom,
+}: {
+  elevationDegrees: number;
+  imageKind: RasterSeamLabImageKind;
+  rotationDegrees: number;
+  sourceSizePx: number;
+  zoom: SeamLabZoom;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [result, setResult] = useState<RasterSeamLabResult>(EMPTY_SEAM_RESULT);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    const context = canvas.getContext("2d", {
+      willReadFrequently: true,
+    });
+    if (!context) {
+      return;
+    }
+
+    setResult(
+      drawLogoRasterSeamLabImage(context, {
+        elevationDegrees,
+        imageKind,
+        rotationDegrees,
+        sourceSizePx,
+      }),
+    );
+  }, [elevationDegrees, imageKind, rotationDegrees, sourceSizePx]);
+
+  const seamRatio =
+    result.coveredPixels > 0 ? result.seamPixels / result.coveredPixels : 0;
+
+  return (
+    <div className="grid gap-2">
+      <div className="flex items-center justify-between gap-3 text-xs">
+        <span className="font-medium text-black/80">
+          {IMAGE_KIND_LABELS[imageKind]}
+        </span>
+        <span className="font-mono text-black/50">
+          {result.seamPixels} / {result.coveredPixels} (
+          {(seamRatio * 100).toFixed(1)}%)
+        </span>
+      </div>
+      <div className="flex items-center justify-center border border-black/10 bg-white p-0">
+        <canvas
+          ref={canvasRef}
+          className={ZOOM_CLASS_NAMES[zoom]}
+          data-logo-raster-seam-lab={imageKind}
+          height={sourceSizePx}
+          style={{ imageRendering: "pixelated" }}
+          width={sourceSizePx}
+        />
+      </div>
+    </div>
+  );
+}
+
+function AngleSweepCanvas({
+  elevationDegrees,
+  rotationDegrees,
+  sourceSizePx,
+}: {
+  elevationDegrees: number;
+  rotationDegrees: number;
+  sourceSizePx: number;
+}) {
+  return (
+    <div className="grid gap-2 border border-black/10 bg-white p-2">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-medium text-black/80">
+          {rotationDegrees}°
+        </span>
+        <span className="font-mono text-[10px] text-black/45">
+          {sourceSizePx}px
+        </span>
+      </div>
+      <SeamLabCanvas
+        elevationDegrees={elevationDegrees}
+        imageKind="mask"
+        rotationDegrees={rotationDegrees}
+        sourceSizePx={sourceSizePx}
+        zoom="small"
+      />
+    </div>
+  );
+}
+
+export function LogoRasterSeamLabPage({
+  routeSearch,
+}: {
+  routeSearch: LogoRouteSearch;
+}) {
+  const [sourceSizePx, setSourceSizePx] = useState(
+    RASTER_SEAM_LAB_DEFAULT_SOURCE_SIZE_PX,
+  );
+  const [rotationDegrees, setRotationDegrees] = useState(
+    normalizeRotationDegrees(
+      routeSearch.rot ?? RASTER_SEAM_LAB_DEFAULT_ROTATION_DEGREES,
+    ),
+  );
+  const [elevationDegrees, setElevationDegrees] = useState(
+    normalizeElevationDegrees(
+      routeSearch.elev ?? RASTER_SEAM_LAB_DEFAULT_ELEVATION_DEGREES,
+    ),
+  );
+
+  return (
+    <div className="min-h-screen bg-[#f5f4ef] text-black">
+      <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-4 py-4 sm:px-6">
+        <div className="flex flex-wrap items-center gap-2 border border-black/10 bg-white/88 p-2 backdrop-blur-sm">
+          <Button asChild size="sm" variant="outline" className="rounded-none">
+            <Link search={routeSearch} to="/logo/raster">
+              Raster
+            </Link>
+          </Button>
+          <Button asChild size="sm" variant="outline" className="rounded-none">
+            <Link search={routeSearch} to="/logo/single-cube">
+              Single Cube
+            </Link>
+          </Button>
+          <Button size="sm" className="rounded-none">
+            Raster Seams
+          </Button>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
+          <div className="grid content-start gap-4 border border-black/10 bg-white/88 p-4">
+            <div>
+              <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                2x2 Image Tile
+              </div>
+              <h1 className="mt-2 text-2xl font-semibold tracking-tight">
+                Raster Seam Lab
+              </h1>
+            </div>
+
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                <span>Source</span>
+                <span>{sourceSizePx}px</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {RASTER_SEAM_LAB_SOURCE_SIZES.map((nextSourceSizePx) => (
+                  <Button
+                    key={nextSourceSizePx}
+                    type="button"
+                    size="sm"
+                    variant={
+                      sourceSizePx === nextSourceSizePx ? "default" : "outline"
+                    }
+                    className="rounded-none"
+                    onClick={() => {
+                      setSourceSizePx(nextSourceSizePx);
+                    }}
+                  >
+                    {nextSourceSizePx}px
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                <span>Rotation</span>
+                <span>{rotationDegrees.toFixed(0)}°</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="90"
+                step="1"
+                value={rotationDegrees}
+                onChange={(event) => {
+                  setRotationDegrees(Number(event.target.value));
+                }}
+                className="h-2 w-full cursor-pointer accent-black"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                <span>Elevation</span>
+                <span>{elevationDegrees.toFixed(0)}°</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="70"
+                step="1"
+                value={elevationDegrees}
+                onChange={(event) => {
+                  setElevationDegrees(Number(event.target.value));
+                }}
+                className="h-2 w-full cursor-pointer accent-black"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-6">
+            <div
+              className="grid gap-3 border border-black/10 bg-white/88 p-3"
+              data-testid="logo-raster-seam-lab-current-case"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                    Current Case
+                  </div>
+                  <div className="mt-1 text-sm text-black/60">
+                    {sourceSizePx}px source, rotation{" "}
+                    {rotationDegrees.toFixed(0)}°, elevation{" "}
+                    {elevationDegrees.toFixed(0)}°
+                  </div>
+                </div>
+                <div className="font-mono text-[11px] text-black/45">
+                  magenta = mismatch
+                </div>
+              </div>
+              <div className="grid gap-3 xl:grid-cols-3">
+                <SeamLabCanvas
+                  elevationDegrees={elevationDegrees}
+                  imageKind="composed"
+                  rotationDegrees={rotationDegrees}
+                  sourceSizePx={sourceSizePx}
+                  zoom="large"
+                />
+                <SeamLabCanvas
+                  elevationDegrees={elevationDegrees}
+                  imageKind="reference"
+                  rotationDegrees={rotationDegrees}
+                  sourceSizePx={sourceSizePx}
+                  zoom="large"
+                />
+                <SeamLabCanvas
+                  elevationDegrees={elevationDegrees}
+                  imageKind="mask"
+                  rotationDegrees={rotationDegrees}
+                  sourceSizePx={sourceSizePx}
+                  zoom="large"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-3 border border-black/10 bg-white/88 p-3">
+              <div>
+                <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                  Angle Sweep
+                </div>
+                <div className="mt-1 text-sm text-black/60">
+                  Same tiny source, different awkward rotations.
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {RASTER_SEAM_LAB_SAMPLE_ROTATIONS.map((sampleRotation) => (
+                  <button
+                    key={sampleRotation}
+                    type="button"
+                    aria-pressed={rotationDegrees === sampleRotation}
+                    className="text-left aria-pressed:outline aria-pressed:outline-2 aria-pressed:outline-black"
+                    onClick={() => {
+                      setRotationDegrees(sampleRotation);
+                    }}
+                  >
+                    <AngleSweepCanvas
+                      elevationDegrees={elevationDegrees}
+                      rotationDegrees={sampleRotation}
+                      sourceSizePx={sourceSizePx}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-3 border border-black/10 bg-white/88 p-3">
+              <div>
+                <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                  Source Sweep
+                </div>
+                <div className="mt-1 text-sm text-black/60">
+                  Same angle, smaller source rasters make seam pixels easier to
+                  catch.
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {RASTER_SEAM_LAB_SOURCE_SIZES.map((sampleSourceSizePx) => (
+                  <button
+                    key={sampleSourceSizePx}
+                    type="button"
+                    aria-pressed={sourceSizePx === sampleSourceSizePx}
+                    className="text-left aria-pressed:outline aria-pressed:outline-2 aria-pressed:outline-black"
+                    onClick={() => {
+                      setSourceSizePx(sampleSourceSizePx);
+                    }}
+                  >
+                    <AngleSweepCanvas
+                      elevationDegrees={elevationDegrees}
+                      rotationDegrees={rotationDegrees}
+                      sourceSizePx={sampleSourceSizePx}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

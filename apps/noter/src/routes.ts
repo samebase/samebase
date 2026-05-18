@@ -25,6 +25,7 @@ export const routes = rootRoute("root.tsx", [
   route("/logo", "logo.tsx"),
   route("/logo/iso", "logo-iso.tsx"),
   route("/logo/raster", "logo-raster.tsx"),
+  route("/logo/raster-seams", "logo-raster-seams.tsx"),
   route("/logo/svg", "logo-svg.tsx"),
   route("/logo/single-cube", "logo-iso-study.tsx"),
   route("/logo/transition", "logo-transition-lab.tsx"),

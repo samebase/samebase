@@ -1308,6 +1308,16 @@ export function LogoPreviewPage({
               Study
             </Link>
           </Button>
+          <Button
+            asChild
+            size="sm"
+            variant="outline"
+            className={LOGO_CONTROL_BUTTON_CLASS_NAME}
+          >
+            <Link search={modeSearch} to="/logo/raster-seams">
+              Seams
+            </Link>
+          </Button>
         </div>
       </LogoPreviewSection>
 

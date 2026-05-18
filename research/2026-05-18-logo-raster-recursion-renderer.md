@@ -58,6 +58,20 @@ same-color cells, and recursion multiplies those lines. The raster route should
 draw a recursive 2D face mask directly when no shuffle move is active, then fall
 back to image composition for angled or moving views.
 
+Diagnostic note: before changing the full 3x3 recursive renderer again, isolate
+the primitive raster seam problem in a tiny 2x2x2 image-composition lab. Render
+a single small raster cube source at intentionally low backing sizes, place that
+source image once into the eight positions of a 2x2x2 block, then zoom the small
+result for human inspection. The zoom is only an inspection aid; the source
+image must stay small so seam pixels become easier to see. A clean 2x2 primitive
+is the evidence needed before applying the same method to the 3x3 recursive
+motif.
+
+The diagnostic route is `/logo/raster-seams`. Its current purpose is to make the
+primitive failure obvious: any magenta pixel in that 2x2 lab comes from drawing
+one small raster cube image into neighboring positions, not from recursive depth
+or the 3x3 logo model.
+
 Implementation note: raster projection scale should not be recomputed from the
 current yaw's bounding box. Fit against the maximum projected cube span for the
 current elevation and rotation-axis mode so dragging rotates the shape without
