@@ -181,6 +181,7 @@ const SEAM_ALPHA_THRESHOLD = 230;
 const SEAM_COLOR_DISTANCE_THRESHOLD = 70;
 const SEAM_MASK_COLOR = [255, 0, 255, 255] as const;
 const LAB_BACKGROUND_COLOR = "#ffffff";
+const FACE_EDGE_STROKE_SCALE = 512;
 
 const FACE_COLORS = {
   x: "#ff0000",
@@ -466,8 +467,8 @@ function drawProjectedFaces({
     })
     .filter((face) => face !== null);
 
-  context.lineJoin = "miter";
-  context.lineWidth = Math.max(1, projection.sizePx / 32);
+  context.lineJoin = "round";
+  context.lineWidth = Math.max(1, projection.sizePx / FACE_EDGE_STROKE_SCALE);
   projectedFaces
     .sort((left, right) => {
       if (left.depth !== right.depth) {
@@ -988,7 +989,6 @@ function drawMergedFaceGroup({
     context.closePath();
   }
   context.fill();
-  context.stroke();
 }
 
 function renderMergedFacesImage({
@@ -1004,11 +1004,8 @@ function renderMergedFacesImage({
     return canvas;
   }
 
-  context.lineJoin = "miter";
-  context.lineWidth = Math.max(1, projection.sizePx / 32);
   for (const group of getMergedFaceGroups({ gridSize, projection })) {
     context.fillStyle = group.color;
-    context.strokeStyle = group.color;
     drawMergedFaceGroup({ context, gridSize, group, projection });
   }
 

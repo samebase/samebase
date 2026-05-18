@@ -83,9 +83,9 @@ default interesting mode.
 
 Lab result: adding those ideas to `/logo/raster-seams` shows that `source-atop`
 helps but does not solve the primitive seam. At 24px source, 22deg rotation, and
-22deg elevation, plain `source-over` reports `45 / 443` mismatches,
-`source-atop-single` reports `39 / 443`, `source-atop-full` reports `41 / 443`,
-while `destination-out` full gets much worse at `137 / 443`. Current
+22deg elevation, plain `source-over` reports `47 / 442` mismatches,
+`source-atop-single` reports `42 / 442`, `source-atop-full` reports `43 / 442`,
+while `destination-out` full gets much worse at `138 / 442`. Current
 interpretation: composite modes can reduce overdraw/halo seams around
 overlapping image tiles, but a clean recursive logo probably still needs
 face-level merging or a direct exposed-face mask before rasterization for
@@ -128,7 +128,7 @@ Deep-dive options after checking browser/graphics references:
 2x2 proof result: `/logo/raster-seams` now has a `Merged faces` mode. It derives
 the exposed 2x2 cell faces, cancels shared grid edges inside each plane/color
 group, and draws only the remaining outer loops. At the 24px source, 22deg
-rotation, and 22deg elevation case, the diagnostic reports `0 / 443` mismatches.
+rotation, and 22deg elevation case, the diagnostic reports `0 / 388` mismatches.
 This proves the seam can be removed at the primitive level without using a
 transparent image-composition trick.
 
@@ -161,9 +161,9 @@ Crisp verdict: not enough. The stricter software-pixel version avoids Canvas
 polygon antialiasing by filling projected polygons from pixel centers, then
 placing the tiny source on rounded pixel offsets. At the 24px source, 22deg
 rotation, and 22deg elevation case, it reports `59 / 438` mismatches with `6.0%`
-error. In the same case, `source-over` reports `45 / 443`, `source-atop-single`
-reports `39 / 443`, `source-atop-full` reports `41 / 443`, and `Merged faces`
-remains `0 / 443`. Crisp rendering may be an acceptable style choice, but it is
+error. In the same case, `source-over` reports `47 / 442`, `source-atop-single`
+reports `42 / 442`, `source-atop-full` reports `43 / 442`, and `Merged faces`
+remains `0 / 388`. Crisp rendering may be an acceptable style choice, but it is
 not the primitive seam fix.
 
 Recursive lab follow-up: `/logo/raster-seams` now has a depth toggle for the 2x2
@@ -173,25 +173,25 @@ without jumping to the production 3x3-to-9x9 case. At the 24px source, 22deg
 rotation, and 22deg elevation case, depth 2 makes the problem obvious. The lab
 now reports both mismatch count and a normalized squared-error score, so a small
 antialias mismatch is not treated the same as a fully wrong pixel. In that case,
-`source-over` reports `78 / 443` mismatches with `1.2%` error,
-`source-atop-single` reports `49 / 443` with `0.6%`, `source-atop-full` reports
-`49 / 443` with `0.7%`, `Crisp` reports `43 / 438` with `4.4%`, and
-`Merged faces` remains `0 / 443` with `0.0%`.
+`source-over` reports `66 / 442` mismatches with `1.1%` error,
+`source-atop-single` reports `54 / 442` with `0.5%`, `source-atop-full` reports
+`55 / 442` with `0.6%`, `Crisp` reports `43 / 438` with `4.4%`, and
+`Merged faces` remains `0 / 388` with `0.0%`.
 
 3x3 follow-up: the same lab now has a fixed base-grid toggle. The 3x3 depth-2
 case produces a 9x9x9 full cube without allowing individual cube edits, so it
 tests the real 3-based scaling shape while keeping the mental model simpler than
 `/logo/raster`. In the Linux ARM64 24px source, 22deg rotation, and 22deg
-elevation snapshot, `Plain` reports `112 / 443` mismatches with `1.9%` error,
-`source-atop-single` reports `35 / 443` with `1.4%`, `source-atop-full` reports
-`38 / 443` with `1.5%`, `Crisp` reports `198 / 438` with `20.8%`, and
+elevation snapshot, `Plain` reports `16 / 442` mismatches with `1.1%` error,
+`source-atop-single` reports `10 / 442` with `0.4%`, `source-atop-full` reports
+`10 / 442` with `0.5%`, `Crisp` reports `198 / 438` with `20.8%`, and
 `Merged faces` remains `0.0%` after simplifying colinear boundary points before
 painting. The scale counters for that case are `729` occupied cells, `54` cached
 image placements, and `243` visible face rects merged into `3` loops / `12`
 points. The source sweep includes 96px and 144px cases because the intentionally
 tiny 18px/24px sources exaggerate seam visibility; for the same 3x3 depth-2
-plain case, 96px reports `695 / 7226` with `1.0%` error and 144px reports
-`1466 / 16322` with `1.1%` error.
+plain case, 96px reports `216 / 6906` with `0.5%` error and 144px reports
+`179 / 15420` with `0.3%` error.
 
 Projection correction: the seam lab must use the same raster projection helper
 as `/logo/raster`. A separate lab-only projection accidentally rotated only
@@ -200,6 +200,13 @@ production stable max projected span. That made the cube corners diverge from
 the production renderer at some angles. The shared helper now owns camera
 direction, screen axes, selected rotation axis, rendered rotation offset, stable
 span fitting, and recursive frustum padding.
+
+Paint correction: the seam lab must also match `/logo/raster` face painting. The
+first lab version used a large same-color stroke, `sourceSize / 32`, to hide
+tiny seams. At 144px that widened to about 4.5px and made face corners visibly
+extend outside the cube. The lab now uses the production unit-face stroke scale,
+`sourceSize / 512` with a 1px minimum, and merged faces are fill-only like the
+production merged-surface path.
 
 References checked:
 
