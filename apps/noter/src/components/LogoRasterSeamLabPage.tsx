@@ -1,12 +1,15 @@
 import { Button } from "@/components/ui/button";
 import {
   RASTER_SEAM_LAB_DEFAULT_ELEVATION_DEGREES,
+  RASTER_SEAM_LAB_DEFAULT_MERGE_MODE,
   RASTER_SEAM_LAB_DEFAULT_ROTATION_DEGREES,
   RASTER_SEAM_LAB_DEFAULT_SOURCE_SIZE_PX,
+  RASTER_SEAM_LAB_MERGE_MODES,
   RASTER_SEAM_LAB_SAMPLE_ROTATIONS,
   RASTER_SEAM_LAB_SOURCE_SIZES,
   drawLogoRasterSeamLabImage,
   type RasterSeamLabImageKind,
+  type RasterSeamLabMergeMode,
   type RasterSeamLabResult,
 } from "@/components/logoRasterSeamLabRenderer";
 import {
@@ -35,15 +38,24 @@ const IMAGE_KIND_LABELS = {
   reference: "Reference",
 } as const satisfies Record<RasterSeamLabImageKind, string>;
 
+function getMergeModeLabel(mergeMode: RasterSeamLabMergeMode) {
+  return (
+    RASTER_SEAM_LAB_MERGE_MODES.find((mode) => mode.value === mergeMode)
+      ?.label ?? mergeMode
+  );
+}
+
 function SeamLabCanvas({
   elevationDegrees,
   imageKind,
+  mergeMode,
   rotationDegrees,
   sourceSizePx,
   zoom,
 }: {
   elevationDegrees: number;
   imageKind: RasterSeamLabImageKind;
+  mergeMode: RasterSeamLabMergeMode;
   rotationDegrees: number;
   sourceSizePx: number;
   zoom: SeamLabZoom;
@@ -68,11 +80,12 @@ function SeamLabCanvas({
       drawLogoRasterSeamLabImage(context, {
         elevationDegrees,
         imageKind,
+        mergeMode,
         rotationDegrees,
         sourceSizePx,
       }),
     );
-  }, [elevationDegrees, imageKind, rotationDegrees, sourceSizePx]);
+  }, [elevationDegrees, imageKind, mergeMode, rotationDegrees, sourceSizePx]);
 
   const seamRatio =
     result.coveredPixels > 0 ? result.seamPixels / result.coveredPixels : 0;
@@ -104,10 +117,12 @@ function SeamLabCanvas({
 
 function AngleSweepCanvas({
   elevationDegrees,
+  mergeMode,
   rotationDegrees,
   sourceSizePx,
 }: {
   elevationDegrees: number;
+  mergeMode: RasterSeamLabMergeMode;
   rotationDegrees: number;
   sourceSizePx: number;
 }) {
@@ -124,6 +139,40 @@ function AngleSweepCanvas({
       <SeamLabCanvas
         elevationDegrees={elevationDegrees}
         imageKind="mask"
+        mergeMode={mergeMode}
+        rotationDegrees={rotationDegrees}
+        sourceSizePx={sourceSizePx}
+        zoom="small"
+      />
+    </div>
+  );
+}
+
+function MergeModeSweepCanvas({
+  elevationDegrees,
+  mergeMode,
+  rotationDegrees,
+  sourceSizePx,
+}: {
+  elevationDegrees: number;
+  mergeMode: RasterSeamLabMergeMode;
+  rotationDegrees: number;
+  sourceSizePx: number;
+}) {
+  return (
+    <div className="grid gap-2 border border-black/10 bg-white p-2">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-medium text-black/80">
+          {getMergeModeLabel(mergeMode)}
+        </span>
+        <span className="font-mono text-[10px] text-black/45">
+          {sourceSizePx}px
+        </span>
+      </div>
+      <SeamLabCanvas
+        elevationDegrees={elevationDegrees}
+        imageKind="mask"
+        mergeMode={mergeMode}
         rotationDegrees={rotationDegrees}
         sourceSizePx={sourceSizePx}
         zoom="small"
@@ -149,6 +198,9 @@ export function LogoRasterSeamLabPage({
     normalizeElevationDegrees(
       routeSearch.elev ?? RASTER_SEAM_LAB_DEFAULT_ELEVATION_DEGREES,
     ),
+  );
+  const [mergeMode, setMergeMode] = useState<RasterSeamLabMergeMode>(
+    RASTER_SEAM_LAB_DEFAULT_MERGE_MODE,
   );
 
   return (
@@ -208,6 +260,29 @@ export function LogoRasterSeamLabPage({
 
             <div className="grid gap-2">
               <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                <span>Merge</span>
+                <span>{getMergeModeLabel(mergeMode)}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {RASTER_SEAM_LAB_MERGE_MODES.map((mode) => (
+                  <Button
+                    key={mode.value}
+                    type="button"
+                    size="sm"
+                    variant={mergeMode === mode.value ? "default" : "outline"}
+                    className="rounded-none"
+                    onClick={() => {
+                      setMergeMode(mode.value);
+                    }}
+                  >
+                    {mode.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                 <span>Rotation</span>
                 <span>{rotationDegrees.toFixed(0)}°</span>
               </div>
@@ -254,8 +329,8 @@ export function LogoRasterSeamLabPage({
                     Current Case
                   </div>
                   <div className="mt-1 text-sm text-black/60">
-                    {sourceSizePx}px source, rotation{" "}
-                    {rotationDegrees.toFixed(0)}°, elevation{" "}
+                    {sourceSizePx}px source, {getMergeModeLabel(mergeMode)},
+                    rotation {rotationDegrees.toFixed(0)}°, elevation{" "}
                     {elevationDegrees.toFixed(0)}°
                   </div>
                 </div>
@@ -267,6 +342,7 @@ export function LogoRasterSeamLabPage({
                 <SeamLabCanvas
                   elevationDegrees={elevationDegrees}
                   imageKind="composed"
+                  mergeMode={mergeMode}
                   rotationDegrees={rotationDegrees}
                   sourceSizePx={sourceSizePx}
                   zoom="large"
@@ -274,6 +350,7 @@ export function LogoRasterSeamLabPage({
                 <SeamLabCanvas
                   elevationDegrees={elevationDegrees}
                   imageKind="reference"
+                  mergeMode={mergeMode}
                   rotationDegrees={rotationDegrees}
                   sourceSizePx={sourceSizePx}
                   zoom="large"
@@ -281,10 +358,42 @@ export function LogoRasterSeamLabPage({
                 <SeamLabCanvas
                   elevationDegrees={elevationDegrees}
                   imageKind="mask"
+                  mergeMode={mergeMode}
                   rotationDegrees={rotationDegrees}
                   sourceSizePx={sourceSizePx}
                   zoom="large"
                 />
+              </div>
+            </div>
+
+            <div className="grid gap-3 border border-black/10 bg-white/88 p-3">
+              <div>
+                <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                  Merge Sweep
+                </div>
+                <div className="mt-1 text-sm text-black/60">
+                  Same angle and source, different canvas compositing passes.
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {RASTER_SEAM_LAB_MERGE_MODES.map((mode) => (
+                  <button
+                    key={mode.value}
+                    type="button"
+                    aria-pressed={mergeMode === mode.value}
+                    className="text-left aria-pressed:outline aria-pressed:outline-2 aria-pressed:outline-black"
+                    onClick={() => {
+                      setMergeMode(mode.value);
+                    }}
+                  >
+                    <MergeModeSweepCanvas
+                      elevationDegrees={elevationDegrees}
+                      mergeMode={mode.value}
+                      rotationDegrees={rotationDegrees}
+                      sourceSizePx={sourceSizePx}
+                    />
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -310,6 +419,7 @@ export function LogoRasterSeamLabPage({
                   >
                     <AngleSweepCanvas
                       elevationDegrees={elevationDegrees}
+                      mergeMode={mergeMode}
                       rotationDegrees={sampleRotation}
                       sourceSizePx={sourceSizePx}
                     />
@@ -341,6 +451,7 @@ export function LogoRasterSeamLabPage({
                   >
                     <AngleSweepCanvas
                       elevationDegrees={elevationDegrees}
+                      mergeMode={mergeMode}
                       rotationDegrees={rotationDegrees}
                       sourceSizePx={sampleSourceSizePx}
                     />

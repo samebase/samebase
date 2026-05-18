@@ -72,6 +72,24 @@ primitive failure obvious: any magenta pixel in that 2x2 lab comes from drawing
 one small raster cube image into neighboring positions, not from recursive depth
 or the 3x3 logo model.
 
+Reference note from `/Users/nicu/dev/my/impossible-object`: that experiment has
+two render methods for cube image composition. `single` draws a small source
+cube canvas at relative offsets and can create sub-pixel artifacts. `full` draws
+into a full-size intermediate canvas and crops the current cube region back out;
+it uses more backing pixels but gave a better visual result there. Its useful
+composite modes are the first three Canvas operations exposed by the UI:
+`source-over`, `source-atop`, and `destination-out`, with `source-atop` as the
+default interesting mode.
+
+Lab result: adding those ideas to `/logo/raster-seams` shows that `source-atop`
+helps but does not solve the primitive seam. At 24px source, 22deg rotation, and
+22deg elevation, plain `source-over` reports `34 / 387` mismatches,
+`source-atop` single/full reports about `20 / 387` and `21 / 387`, while
+`destination-out` full gets much worse. Current interpretation: composite modes
+can reduce overdraw/halo seams around overlapping image tiles, but a clean
+recursive logo probably still needs face-level merging or a direct exposed-face
+mask before rasterization for coplanar joins.
+
 Implementation note: raster projection scale should not be recomputed from the
 current yaw's bounding box. Fit against the maximum projected cube span for the
 current elevation and rotation-axis mode so dragging rotates the shape without

@@ -39,6 +39,17 @@ type RasterSeamLabDrawItem = {
 
 export type RasterSeamLabImageKind = "composed" | "mask" | "reference";
 
+export type RasterSeamLabMergeMode =
+  | "destination-out-full"
+  | "source-atop-full"
+  | "source-atop-single"
+  | "source-over";
+
+type RasterSeamLabMergeModeOption = {
+  label: string;
+  value: RasterSeamLabMergeMode;
+};
+
 export type RasterSeamLabResult = {
   coveredPixels: number;
   seamPixels: number;
@@ -52,7 +63,28 @@ export const RASTER_SEAM_LAB_SAMPLE_ROTATIONS = [
   0, 13, 22, 37, 45, 61,
 ] as const satisfies readonly number[];
 
+export const RASTER_SEAM_LAB_MERGE_MODES = [
+  {
+    label: "Plain",
+    value: "source-over",
+  },
+  {
+    label: "Atop single",
+    value: "source-atop-single",
+  },
+  {
+    label: "Atop full",
+    value: "source-atop-full",
+  },
+  {
+    label: "Cut full",
+    value: "destination-out-full",
+  },
+] as const satisfies readonly RasterSeamLabMergeModeOption[];
+
 export const RASTER_SEAM_LAB_DEFAULT_ELEVATION_DEGREES = 22;
+export const RASTER_SEAM_LAB_DEFAULT_MERGE_MODE: RasterSeamLabMergeMode =
+  "source-over";
 export const RASTER_SEAM_LAB_DEFAULT_ROTATION_DEGREES = 22;
 export const RASTER_SEAM_LAB_DEFAULT_SOURCE_SIZE_PX = 24;
 
@@ -432,6 +464,200 @@ function renderComposedImage(projection: RasterSeamLabProjection) {
   return canvas;
 }
 
+function getDrawImageOffset(
+  projection: RasterSeamLabProjection,
+  item: RasterSeamLabDrawItem,
+): Point2D {
+  return projection.projectVector(item.center);
+}
+
+function hasCanvasOverlap({
+  left,
+  right,
+  sizePx,
+}: {
+  left: Point2D;
+  right: Point2D;
+  sizePx: number;
+}) {
+  return (
+    left.x < right.x + sizePx &&
+    left.x + sizePx > right.x &&
+    left.y < right.y + sizePx &&
+    left.y + sizePx > right.y
+  );
+}
+
+function getNearerOverlappingItems({
+  currentIndex,
+  items,
+  offsets,
+  sizePx,
+}: {
+  currentIndex: number;
+  items: readonly RasterSeamLabDrawItem[];
+  offsets: readonly Point2D[];
+  sizePx: number;
+}) {
+  const currentOffset = offsets[currentIndex];
+  return items.slice(currentIndex + 1).filter((_, parentIndex) =>
+    hasCanvasOverlap({
+      left: currentOffset,
+      right: offsets[currentIndex + parentIndex + 1],
+      sizePx,
+    }),
+  );
+}
+
+function renderSingleCompositeImage({
+  canvasOperation,
+  projection,
+}: {
+  canvasOperation: GlobalCompositeOperation;
+  projection: RasterSeamLabProjection;
+}) {
+  const canvas = createLabCanvas(projection.sizePx);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return canvas;
+  }
+
+  const unitCanvas = createUnitCubeCanvas(projection);
+  const items = getDrawItems(projection);
+  const offsets = items.map((item) => getDrawImageOffset(projection, item));
+  const magicCanvas = createLabCanvas(projection.sizePx);
+  const magicContext = magicCanvas.getContext("2d");
+  if (!magicContext) {
+    return canvas;
+  }
+
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  for (const [itemIndex] of items.entries()) {
+    const offset = offsets[itemIndex];
+    magicContext.clearRect(0, 0, magicCanvas.width, magicCanvas.height);
+    magicContext.globalCompositeOperation = "source-over";
+    magicContext.drawImage(unitCanvas, 0, 0);
+    magicContext.globalCompositeOperation = canvasOperation;
+
+    for (const parentItem of getNearerOverlappingItems({
+      currentIndex: itemIndex,
+      items,
+      offsets,
+      sizePx: projection.sizePx,
+    })) {
+      const parentOffset = getDrawImageOffset(projection, parentItem);
+      magicContext.drawImage(
+        unitCanvas,
+        parentOffset.x - offset.x,
+        parentOffset.y - offset.y,
+      );
+    }
+
+    context.drawImage(magicCanvas, offset.x, offset.y);
+  }
+
+  return canvas;
+}
+
+function renderFullCompositeImage({
+  canvasOperation,
+  projection,
+}: {
+  canvasOperation: GlobalCompositeOperation;
+  projection: RasterSeamLabProjection;
+}) {
+  const canvas = createLabCanvas(projection.sizePx);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return canvas;
+  }
+
+  const unitCanvas = createUnitCubeCanvas(projection);
+  const items = getDrawItems(projection);
+  const offsets = items.map((item) => getDrawImageOffset(projection, item));
+  const stagePaddingPx = projection.sizePx;
+  const stageSizePx = projection.sizePx + stagePaddingPx * 2;
+  const magicCanvas = createLabCanvas(stageSizePx);
+  const magicContext = magicCanvas.getContext("2d");
+  if (!magicContext) {
+    return canvas;
+  }
+
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  for (const [itemIndex] of items.entries()) {
+    const offset = offsets[itemIndex];
+    const stageOffset = {
+      x: offset.x + stagePaddingPx,
+      y: offset.y + stagePaddingPx,
+    };
+    magicContext.clearRect(0, 0, magicCanvas.width, magicCanvas.height);
+    magicContext.globalCompositeOperation = "source-over";
+    magicContext.drawImage(unitCanvas, stageOffset.x, stageOffset.y);
+    magicContext.globalCompositeOperation = canvasOperation;
+
+    for (const parentItem of getNearerOverlappingItems({
+      currentIndex: itemIndex,
+      items,
+      offsets,
+      sizePx: projection.sizePx,
+    })) {
+      const parentOffset = getDrawImageOffset(projection, parentItem);
+      magicContext.drawImage(
+        unitCanvas,
+        parentOffset.x + stagePaddingPx,
+        parentOffset.y + stagePaddingPx,
+      );
+    }
+
+    context.drawImage(
+      magicCanvas,
+      stageOffset.x,
+      stageOffset.y,
+      projection.sizePx,
+      projection.sizePx,
+      offset.x,
+      offset.y,
+      projection.sizePx,
+      projection.sizePx,
+    );
+  }
+
+  return canvas;
+}
+
+function renderMergedImage({
+  mergeMode,
+  projection,
+}: {
+  mergeMode: RasterSeamLabMergeMode;
+  projection: RasterSeamLabProjection;
+}): HTMLCanvasElement {
+  switch (mergeMode) {
+    case "source-over":
+      return renderComposedImage(projection);
+    case "source-atop-single":
+      return renderSingleCompositeImage({
+        canvasOperation: "source-atop",
+        projection,
+      });
+    case "source-atop-full":
+      return renderFullCompositeImage({
+        canvasOperation: "source-atop",
+        projection,
+      });
+    case "destination-out-full":
+      return renderFullCompositeImage({
+        canvasOperation: "destination-out",
+        projection,
+      });
+    default:
+      mergeMode satisfies never;
+      throw new Error("Unsupported raster seam lab merge mode.");
+  }
+}
+
 function renderReferenceImage(projection: RasterSeamLabProjection) {
   const canvas = createLabCanvas(projection.sizePx);
   const context = canvas.getContext("2d");
@@ -579,11 +805,13 @@ export function drawLogoRasterSeamLabImage(
   {
     elevationDegrees,
     imageKind,
+    mergeMode,
     rotationDegrees,
     sourceSizePx,
   }: {
     elevationDegrees: number;
     imageKind: RasterSeamLabImageKind;
+    mergeMode: RasterSeamLabMergeMode;
     rotationDegrees: number;
     sourceSizePx: number;
   },
@@ -593,7 +821,7 @@ export function drawLogoRasterSeamLabImage(
     rotationDegrees,
     sizePx: sourceSizePx,
   });
-  const composedCanvas = renderComposedImage(projection);
+  const composedCanvas = renderMergedImage({ mergeMode, projection });
   const referenceCanvas = renderReferenceImage(projection);
   const seamResult = measureSeams({ composedCanvas, referenceCanvas });
 
