@@ -67,6 +67,16 @@ async function readVaultInfrastructure(
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .first();
 }
+
+async function readVaultInfrastructureTarget(
+  ctx: Pick<MutationCtx, "db">,
+  vaultId: Id<"vaults">,
+): Promise<Doc<"vaultInfrastructureTargets"> | null> {
+  return await ctx.db
+    .query("vaultInfrastructureTargets")
+    .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+    .first();
+}
 async function readResponseTextSafe(response: Response): Promise<string> {
   try {
     return await response.text();
@@ -206,6 +216,7 @@ async function ensureConvexResources(args: {
     cloudUrl?: string;
     siteUrl?: string;
   };
+  onProjectCreated?: (identity: { projectId: string }) => Promise<void>;
 }): Promise<ConvexProvisionResult> {
   const projectName = args.projectName;
 
@@ -260,6 +271,13 @@ async function ensureConvexResources(args: {
     projectId = readStringOrNumber(createResponse, "projectId");
     deploymentName = readString(createResponse, "deploymentName");
     deploymentUrl = readString(createResponse, "deploymentUrl");
+    if (!projectId) {
+      throw new Error("Failed to resolve Convex project ID");
+    }
+
+    // Record the provider identity before later deployment lookups can fail so
+    // retries can recognize the project that this run already created.
+    await args.onProjectCreated?.({ projectId });
 
     const refreshedProjectsRaw = await args.convexProvider.request(
       `/teams/${encodeURIComponent(args.teamId)}/list_projects`,
@@ -459,6 +477,24 @@ export function selectCloudflareBuildConfigTreeData(args: {
     return args.branchTreeData;
   }
   throw new Error("Default branch tree is not synced yet.");
+}
+
+export function selectExistingCloudflareWorkerTag(args: {
+  cloudflare: NoterManagedConnectedVault["cloudflare"];
+  target: Pick<
+    Doc<"vaultInfrastructureTargets">,
+    "cloudflareAccountId" | "cloudflareWorkerTag"
+  > | null;
+  accountId: string;
+}): string | undefined {
+  if (args.cloudflare.state === "connected") {
+    return args.cloudflare.workerTag;
+  }
+  if (!args.target || args.target.cloudflareAccountId !== args.accountId) {
+    return undefined;
+  }
+  const workerTag = args.target.cloudflareWorkerTag?.trim();
+  return workerTag || undefined;
 }
 
 type ProvisioningEventCtx = Pick<ActionCtx, "runMutation"> &
@@ -905,6 +941,33 @@ export const recordConvexInfrastructure = internalMutation({
   },
 });
 
+export const recordConvexProjectIdentity = internalMutation({
+  args: {
+    vaultId: v.id("vaults"),
+    runId: v.id("appProvisioningRuns"),
+    projectId: v.string(),
+  },
+  returns: infrastructurePatchResult,
+  handler: async (ctx, args) => {
+    const vault = await requireActiveProvisioningVault(ctx, args);
+    if (!vault) {
+      return { applied: false };
+    }
+
+    const target = await readVaultInfrastructureTarget(ctx, args.vaultId);
+    if (!target) {
+      return { applied: false };
+    }
+
+    await ctx.db.patch(target._id, {
+      convexProjectId: args.projectId,
+      updatedAt: Date.now(),
+    });
+
+    return { applied: true };
+  },
+});
+
 export const recordConvexDeployKey = internalMutation({
   args: {
     vaultId: v.id("vaults"),
@@ -925,6 +988,39 @@ export const recordConvexDeployKey = internalMutation({
 
     await ctx.db.patch(existing._id, {
       convexDeployKeyId: args.convexDeployKeyId,
+    });
+
+    return { applied: true };
+  },
+});
+
+export const recordCloudflareWorkerIdentity = internalMutation({
+  args: {
+    vaultId: v.id("vaults"),
+    runId: v.id("appProvisioningRuns"),
+    accountId: v.string(),
+    workerName: v.string(),
+    workerTag: v.string(),
+    productionUrl: v.string(),
+  },
+  returns: infrastructurePatchResult,
+  handler: async (ctx, args) => {
+    const vault = await requireActiveProvisioningVault(ctx, args);
+    if (!vault) {
+      return { applied: false };
+    }
+
+    const target = await readVaultInfrastructureTarget(ctx, args.vaultId);
+    if (!target) {
+      return { applied: false };
+    }
+
+    await ctx.db.patch(target._id, {
+      cloudflareAccountId: args.accountId,
+      cloudflareWorkerName: args.workerName,
+      cloudflareWorkerTag: args.workerTag,
+      cloudflareProductionUrl: args.productionUrl,
+      updatedAt: Date.now(),
     });
 
     return { applied: true };
@@ -1296,6 +1392,7 @@ export const ensureConvexInfrastructure = internalAction({
       convexToken,
     });
     const targetConvexProjectName = target?.convexProjectName.trim();
+    const targetConvexProjectId = target?.convexProjectId?.trim();
     const convex = await ensureConvexResources({
       teamId: convexTeamId,
       convexProvider: providers.convex,
@@ -1306,11 +1403,26 @@ export const ensureConvexInfrastructure = internalAction({
           40,
         ),
       existing: {
-        projectId: existing?.convexProjectId,
+        projectId: existing?.convexProjectId ?? targetConvexProjectId,
         projectSlug: existing?.convexProjectSlug,
         deploymentName: existing?.convexDeploymentName,
         cloudUrl: existing?.convexCloudUrl,
         siteUrl: existing?.convexSiteUrl,
+      },
+      onProjectCreated: async ({ projectId }) => {
+        const record = await ctx.runMutation(
+          internal.infraProvisioning.recordConvexProjectIdentity,
+          {
+            vaultId: args.vaultId,
+            runId: args.runId,
+            projectId,
+          },
+        );
+        if (!record.applied) {
+          throw new Error(
+            "Could not record Convex project ownership for retry.",
+          );
+        }
       },
     });
 
@@ -1504,10 +1616,6 @@ export const ensureCloudflareInfrastructure = internalAction({
       branchTreeData: defaultBranchTree?.treeData ?? null,
     });
     const defaultBranch = vault.defaultBranch;
-    const existingCloudflareWorkerTag =
-      vault.cloudflare.state === "connected"
-        ? vault.cloudflare.workerTag
-        : undefined;
     const { githubAccessToken } = await resolveGitHubProvisioningConnection(
       ctx,
       vault.userId,
@@ -1552,6 +1660,11 @@ export const ensureCloudflareInfrastructure = internalAction({
       repo: vault.name,
     });
     const targetCloudflareWorkerName = target?.cloudflareWorkerName.trim();
+    const existingCloudflareWorkerTag = selectExistingCloudflareWorkerTag({
+      cloudflare: vault.cloudflare,
+      target,
+      accountId: cloudflareAccountId,
+    });
     const provisionedCloudflare = await ensureCloudflareResources({
       owner: vault.owner,
       repo: vault.name,
@@ -1573,6 +1686,24 @@ export const ensureCloudflareInfrastructure = internalAction({
         treeData: buildConfigTreeData,
       }),
       existingWorkerTag: existingCloudflareWorkerTag,
+      onWorkerResolved: async (worker) => {
+        const record = await ctx.runMutation(
+          internal.infraProvisioning.recordCloudflareWorkerIdentity,
+          {
+            vaultId: args.vaultId,
+            runId: args.runId,
+            accountId: cloudflareAccountId,
+            workerName: worker.workerName,
+            workerTag: worker.workerTag,
+            productionUrl: worker.productionUrl,
+          },
+        );
+        if (!record.applied) {
+          throw new Error(
+            "Could not record Cloudflare Worker ownership for retry.",
+          );
+        }
+      },
       convex: {
         production: {
           cloudUrl: existing.convexCloudUrl,

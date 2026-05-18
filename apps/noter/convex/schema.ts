@@ -474,13 +474,18 @@ export default defineSchema({
   }).index("by_vault", ["vaultId"]),
 
   /**
-   * User-selected provider names for Noter-managed infrastructure. These are
-   * recorded before provider side effects so retries use the original names.
+   * User-selected provider names and early provider identities for
+   * Noter-managed infrastructure. These are recorded before later provider
+   * side effects so retries use the original resources.
    */
   vaultInfrastructureTargets: defineTable({
     vaultId: id("vaults"),
     convexProjectName: string(),
+    convexProjectId: optional(string()),
     cloudflareWorkerName: string(),
+    cloudflareAccountId: optional(string()),
+    cloudflareWorkerTag: optional(string()),
+    cloudflareProductionUrl: optional(string()),
     createdAt: number(),
     updatedAt: number(),
   }).index("by_vault", ["vaultId"]),

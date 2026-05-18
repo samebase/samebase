@@ -1,6 +1,6 @@
 "use node";
 
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 import { action, type ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -43,11 +43,7 @@ const appResourceNameAvailability = object({
   suggestion: union(string(), nullValue()),
 });
 
-type AppResourceNameAvailability = {
-  status: "available" | "taken" | "invalid" | "unknown";
-  message: string | null;
-  suggestion: string | null;
-};
+type AppResourceNameAvailability = Infer<typeof appResourceNameAvailability>;
 
 function buildAvailableResult(): AppResourceNameAvailability {
   return {

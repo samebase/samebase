@@ -873,6 +873,7 @@ type EnsureCloudflareResourcesArgs = {
   buildConfig: CloudflareBuildConfig;
   existingWorkerTag?: string;
   convex: CloudflareProvisionConvexState;
+  onWorkerResolved?: (worker: CloudflareWorkerIdentity) => Promise<void>;
 };
 
 type CloudflareAuthMethod = "api_key" | "mcp_oauth";
@@ -901,6 +902,9 @@ export async function ensureCloudflareResources(
       existingWorkerTag: args.existingWorkerTag,
     });
     workerName = worker.workerName;
+
+    step = "record_worker_identity";
+    await args.onWorkerResolved?.(worker);
 
     step = "connect_repository";
     const repoConnectionUuid = await ensureRepositoryConnection({
