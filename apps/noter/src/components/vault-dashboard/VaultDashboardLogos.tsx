@@ -1,6 +1,6 @@
 import { GitHubLogoIcon } from "@/lib/radixIcons";
 import { GitPullRequestCreateArrow, GitPullRequestDraft } from "lucide-react";
-import { LOGO_IDENTITY_EDIT_MARK_SVG_URL } from "@/components/logoStaticSvgContract";
+import { LOGO_IDENTITY_EDIT_MARK_SVG_URL } from "@/components/logo/logoStaticSvgContract";
 
 const NOTER_LOGO_ICON_SRC = LOGO_IDENTITY_EDIT_MARK_SVG_URL;
 

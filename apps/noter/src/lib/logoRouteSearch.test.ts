@@ -2,18 +2,18 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
-} from "@/components/logoIsometricRenderer";
-import { DEFAULT_LOGO_THEME_COLORS } from "@/components/logoTailwindColors";
+} from "@/components/logo/logoIsometricRenderer";
+import { DEFAULT_LOGO_THEME_COLORS } from "@/components/logo/logoTailwindColors";
 import {
   DEFAULT_LOGO_DISTANCE_SCALE,
   LOGO_DISTANCE_SCALE_SLIDER_MAX,
-} from "@/components/logoDistanceScale";
+} from "@/components/logo/logoDistanceScale";
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_LOGO_FRACTAL_DEPTH,
   DEFAULT_ROTATION_DEGREES,
   DEFAULT_VOXEL_STATE,
-} from "@/components/logoVoxelState";
+} from "@/components/logo/logoVoxelState";
 import {
   buildLogoRouteSearch,
   preserveLogoRouteDevModeSearch,

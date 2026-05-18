@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { createLogoRasterProjection } from "@/components/logoRasterProjection";
+import { createLogoRasterProjection } from "@/components/logo/logoRasterProjection";
 
 describe("createLogoRasterProjection", () => {
   it("keeps raster scale stable across yaw and elevation", () => {

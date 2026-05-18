@@ -1,16 +1,16 @@
-import { type LogoRotationAxisMode } from "@/components/logoRotationMath";
+import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
 import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
   isLogoIsometricStyleId,
   normalizeLogoIsometricCubeSidePixels,
   type LogoIsometricStyleId,
-} from "@/components/logoIsometricRenderer";
-import { type LogoThemeColors } from "@/components/logoTailwindColors";
+} from "@/components/logo/logoIsometricRenderer";
+import { type LogoThemeColors } from "@/components/logo/logoTailwindColors";
 import {
   DEFAULT_LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
-} from "@/components/logoDistanceScale";
+} from "@/components/logo/logoDistanceScale";
 import {
   appThemeColorSearchFieldSchema,
   buildLogoThemeColorSearch,
@@ -32,7 +32,7 @@ import {
   normalizeRotationDegrees,
   parseVoxelState,
   serializeVoxelState,
-} from "@/components/logoVoxelState";
+} from "@/components/logo/logoVoxelState";
 import { LANDING_DEV_MODE_QUERY_PARAM } from "@/lib/landingDevMode";
 import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
 import { z } from "zod";

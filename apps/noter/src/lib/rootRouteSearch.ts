@@ -1,6 +1,6 @@
 import { getRouteApi } from "@tanstack/react-router";
-import { normalizeLogoDistanceScale } from "@/components/logoDistanceScale";
-import { normalizeLogoFractalDepth } from "@/components/logoVoxelState";
+import { normalizeLogoDistanceScale } from "@/components/logo/logoDistanceScale";
+import { normalizeLogoFractalDepth } from "@/components/logo/logoVoxelState";
 import {
   appThemeColorSearchFieldSchema,
   readLogoThemeColorSearch,

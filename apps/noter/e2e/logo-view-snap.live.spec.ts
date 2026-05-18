@@ -2,8 +2,8 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
 import {
   DRAG_ELEVATION_DEGREES_PER_PIXEL,
   DRAG_ROTATION_DEGREES_PER_PIXEL,
-} from "../src/components/logoViewDragConstants";
-import { resolveLogoViewState } from "../src/components/logoViewDrag";
+} from "../src/components/logo/logoViewDragConstants";
+import { resolveLogoViewState } from "../src/components/logo/logoViewDrag";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "../src/lib/publicLandingLogo";
 
 test.use({

@@ -1,4 +1,4 @@
-import { LogoRasterSeamLabPage } from "@/components/LogoRasterSeamLabPage";
+import { LogoRasterSeamLabPage } from "@/components/logo/LogoRasterSeamLabPage";
 import { validateLogoRouteSearch } from "@/lib/logoRouteSearch";
 import { createFileRoute } from "@tanstack/react-router";
 import { RoutedPage } from "./-publicRouteComponents";

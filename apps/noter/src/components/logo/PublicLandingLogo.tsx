@@ -1,19 +1,19 @@
-import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
+import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
 import {
   DEFAULT_LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
-} from "@/components/logoDistanceScale";
+} from "@/components/logo/logoDistanceScale";
 import {
   STATIC_LOGO_ELEVATION_DEGREES,
   STATIC_LOGO_ROTATION_DEGREES,
   STATIC_LOGO_VOXEL_STATE,
-} from "@/components/logoStaticSvgContract";
+} from "@/components/logo/logoStaticSvgContract";
 import {
   createLogoFractalVoxelGrid,
   DEFAULT_LOGO_FRACTAL_DEPTH,
   normalizeLogoFractalDepth,
   normalizeRotationDegrees,
-} from "@/components/logoVoxelState";
+} from "@/components/logo/logoVoxelState";
 import {
   PUBLIC_LANDING_LOGO_ALT,
   PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME,
@@ -44,7 +44,7 @@ import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandi
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type LandingLogoSceneComponent =
-  typeof import("@/components/NLogoScene").NLogoScene;
+  typeof import("@/components/logo/NLogoScene").NLogoScene;
 
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 const AUTO_ROTATE_RESUME_DURATION_MS = 220;
@@ -166,7 +166,7 @@ export function PublicLandingLogo({
     let frameId2 = 0;
 
     const loadScene = () => {
-      void import("@/components/NLogoScene")
+      void import("@/components/logo/NLogoScene")
         .then((module) => {
           if (cancelled) {
             return;

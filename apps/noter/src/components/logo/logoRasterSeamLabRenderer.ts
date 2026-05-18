@@ -3,8 +3,8 @@ import {
   LOGO_RASTER_RECURSIVE_FRUSTUM_PADDING,
   type LogoRasterPoint2D as Point2D,
   type LogoRasterProjection as RasterSeamLabProjection,
-} from "@/components/logoRasterProjection";
-import { type Vector3 } from "@/components/logoRotationMath";
+} from "@/components/logo/logoRasterProjection";
+import { type Vector3 } from "@/components/logo/logoRotationMath";
 
 type RasterSeamLabFace = {
   color: string;

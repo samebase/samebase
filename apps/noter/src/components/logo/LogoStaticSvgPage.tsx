@@ -1,14 +1,14 @@
 import {
   DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE,
   STATIC_LOGO_VOXEL_COORDINATES,
-} from "@/components/logoStaticSvgContract";
-import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
+} from "@/components/logo/logoStaticSvgContract";
+import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
 import {
   createFilledVoxelSet,
   DEFAULT_LOGO_FRACTAL_DEPTH,
   normalizeLogoFractalDepth,
   parseVoxelState,
-} from "@/components/logoVoxelState";
+} from "@/components/logo/logoVoxelState";
 import { Button } from "@/components/ui/button";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
 import { type LogoRouteSearch } from "@/lib/logoRouteSearch";

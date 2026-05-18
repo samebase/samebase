@@ -1,4 +1,4 @@
-import { getShuffleOriginCandidates } from "@/components/logoShuffleRules";
+import { getShuffleOriginCandidates } from "@/components/logo/logoShuffleRules";
 import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
@@ -12,8 +12,8 @@ import {
   isPointInsideRowSpans,
   type IsometricVisibleFace,
   type LogoIsometricStyleId,
-} from "@/components/logoIsometricRenderer";
-import { type FaceColors } from "@/components/logoTailwindColors";
+} from "@/components/logo/logoIsometricRenderer";
+import { type FaceColors } from "@/components/logo/logoTailwindColors";
 import {
   createDefaultFilledVoxelSet,
   DEFAULT_LOGO_FRACTAL_DEPTH,
@@ -25,7 +25,7 @@ import {
   type VoxelCoordinate,
   type VoxelEdit,
   voxelKey,
-} from "@/components/logoVoxelState";
+} from "@/components/logo/logoVoxelState";
 import {
   useEffect,
   useRef,

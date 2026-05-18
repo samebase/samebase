@@ -2,10 +2,13 @@ import {
   LOGO_SHUFFLE_PARALLEL_OPTIONS,
   NLogoScene,
   type LogoShuffleParallelMoves,
-} from "@/components/NLogoScene";
-import { NLogoRasterScene } from "@/components/NLogoRasterScene";
-import { type LogoRotationAxisMode } from "@/components/logoRotationMath";
-import { LogoIsoThumbnail, NLogoIsoScene } from "@/components/NLogoIsoScene";
+} from "@/components/logo/NLogoScene";
+import { NLogoRasterScene } from "@/components/logo/NLogoRasterScene";
+import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
+import {
+  LogoIsoThumbnail,
+  NLogoIsoScene,
+} from "@/components/logo/NLogoIsoScene";
 import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
@@ -17,14 +20,14 @@ import {
   isLogoIsometricStyleId,
   normalizeLogoIsometricCubeSidePixels,
   type LogoIsometricStyleId,
-} from "@/components/logoIsometricRenderer";
+} from "@/components/logo/logoIsometricRenderer";
 import {
   DEFAULT_LOGO_DISTANCE_SCALE,
   LOGO_DISTANCE_SCALE_SLIDER_MAX,
   LOGO_DISTANCE_SCALE_STEP,
   MIN_LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
-} from "@/components/logoDistanceScale";
+} from "@/components/logo/logoDistanceScale";
 import {
   DEFAULT_LOGO_THEME_COLORS,
   LOGO_THEME_COLOR_KEYS,
@@ -41,7 +44,7 @@ import {
   type LogoColorToken,
   type LogoThemeColorKey,
   type LogoThemeColors,
-} from "@/components/logoTailwindColors";
+} from "@/components/logo/logoTailwindColors";
 import {
   CUSTOM_LOGO_PRESET_ID,
   DEFAULT_LOGO_PRESET_ID,
@@ -50,11 +53,11 @@ import {
   getLogoPresetSelection,
   type LogoPresetId,
   type LogoPresetSelection,
-} from "@/components/logoPresets";
+} from "@/components/logo/logoPresets";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { LogoNumberInput } from "@/components/LogoNumberInput";
+import { LogoNumberInput } from "@/components/logo/LogoNumberInput";
 import { Label } from "@/components/ui/label";
 import {
   Popover,
@@ -83,11 +86,11 @@ import {
   parseVoxelState,
   serializeVoxelState,
   type VoxelEdit,
-} from "@/components/logoVoxelState";
+} from "@/components/logo/logoVoxelState";
 import {
   resolveLogoViewState,
   type LogoViewState,
-} from "@/components/logoViewDrag";
+} from "@/components/logo/logoViewDrag";
 import {
   readLogoThemeColors,
   useResolvedAppThemeColorState,

@@ -1,26 +1,26 @@
 import {
   getTailwindColorHex,
   type FaceColors,
-} from "@/components/logoTailwindColors";
+} from "@/components/logo/logoTailwindColors";
 import {
   type LogoRotationAxisMode,
   type Vector3,
-} from "@/components/logoRotationMath";
+} from "@/components/logo/logoRotationMath";
 import {
   createLogoRasterProjection as getRasterProjection,
   LOGO_RASTER_RECURSIVE_FRUSTUM_PADDING,
   type LogoRasterPoint2D as Point2D,
   type LogoRasterProjection as RasterProjection,
-} from "@/components/logoRasterProjection";
+} from "@/components/logo/logoRasterProjection";
 import {
   DEFAULT_LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
-} from "@/components/logoDistanceScale";
-import { getShuffleOriginCandidates } from "@/components/logoShuffleRules";
+} from "@/components/logo/logoDistanceScale";
+import { getShuffleOriginCandidates } from "@/components/logo/logoShuffleRules";
 import {
   DRAG_ELEVATION_DEGREES_PER_PIXEL,
   DRAG_ROTATION_DEGREES_PER_PIXEL,
-} from "@/components/logoViewDragConstants";
+} from "@/components/logo/logoViewDragConstants";
 import {
   GRID_SIZE,
   createDefaultFilledVoxelSet,
@@ -29,11 +29,11 @@ import {
   parseVoxelState,
   voxelKey,
   type VoxelCoordinate,
-} from "@/components/logoVoxelState";
+} from "@/components/logo/logoVoxelState";
 import {
   resolveLogoViewState,
   type LogoViewDragConfig,
-} from "@/components/logoViewDrag";
+} from "@/components/logo/logoViewDrag";
 import {
   useCallback,
   useEffect,
@@ -41,7 +41,7 @@ import {
   type MouseEvent,
   type PointerEvent,
 } from "react";
-import { type LogoShuffleAnimationConfig } from "@/components/NLogoScene";
+import { type LogoShuffleAnimationConfig } from "@/components/logo/NLogoScene";
 
 const DRAG_THRESHOLD_PX = 4;
 const RASTER_BACKING_MIN_SIZE = 256;

@@ -8,11 +8,11 @@ import {
   parseVoxelKey,
   type VoxelCoordinate,
   voxelKey,
-} from "@/components/logoVoxelState";
+} from "@/components/logo/logoVoxelState";
 import {
   getTailwindColorHex,
   type FaceColors,
-} from "@/components/logoTailwindColors";
+} from "@/components/logo/logoTailwindColors";
 
 const FRAME_PADDING = 4;
 export const DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX = 16;

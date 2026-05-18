@@ -9,7 +9,7 @@ import { PNG } from "pngjs";
 import {
   DRAG_ELEVATION_DEGREES_PER_PIXEL,
   DRAG_ROTATION_DEGREES_PER_PIXEL,
-} from "../src/components/logoViewDragConstants";
+} from "../src/components/logo/logoViewDragConstants";
 import {
   APP_BUILD_COMMIT_LINK_TEST_ID,
   APP_BUILD_STATUS_BAR_TEST_ID,

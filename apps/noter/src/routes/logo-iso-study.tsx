@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { LogoSingleCubeStudyPage } from "@/components/LogoSingleCubeStudyPage";
+import { LogoSingleCubeStudyPage } from "@/components/logo/LogoSingleCubeStudyPage";
 import { validateLogoRouteSearch } from "@/lib/logoRouteSearch";
 import { RoutedPage } from "./-publicRouteComponents";
 

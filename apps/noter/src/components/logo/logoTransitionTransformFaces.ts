@@ -2,17 +2,17 @@ import {
   LOGO_THREE_SVG_VIEWBOX_SIZE,
   STATIC_LOGO_ELEVATION_DEGREES,
   STATIC_LOGO_ROTATION_DEGREES,
-} from "@/components/logoStaticSvgContract";
+} from "@/components/logo/logoStaticSvgContract";
 import {
   DEFAULT_FACE_COLORS,
   getTailwindColorHex,
   type FaceColorKey,
-} from "@/components/logoTailwindColors";
+} from "@/components/logo/logoTailwindColors";
 import {
   createLogoProjector,
   type LogoProjectedPoint,
   type LogoWorldPoint,
-} from "@/components/logoThreeSvgRenderer";
+} from "@/components/logo/logoThreeSvgRenderer";
 
 type CubeFaceDefinition = {
   color: string;

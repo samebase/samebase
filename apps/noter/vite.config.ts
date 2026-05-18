@@ -12,7 +12,7 @@ import { createInstallIconSvgMarkup } from "./src/components/installIconSvgAsset
 import {
   createLogoIdentitySvgAssets,
   createStaticLogoSvgMarkup,
-} from "./src/components/logoStaticSvgAsset";
+} from "./src/components/logo/logoStaticSvgAsset";
 import { buildNoterSyncPublicScript } from "./noterSyncPublicScript";
 import {
   readEnvFileValue,

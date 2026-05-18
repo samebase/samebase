@@ -5,7 +5,7 @@ import {
   createLogoFractalVoxelGrid,
   normalizeLogoFractalDepth,
   voxelKey,
-} from "@/components/logoVoxelState";
+} from "@/components/logo/logoVoxelState";
 
 describe("logoVoxelState", () => {
   it("creates the first cornerless carpet iteration as the current mark", () => {

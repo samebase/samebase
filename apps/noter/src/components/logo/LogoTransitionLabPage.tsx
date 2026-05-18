@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { DEFAULT_STATIC_LOGO_SVG_URL } from "@/components/logoStaticSvgContract";
+import { DEFAULT_STATIC_LOGO_SVG_URL } from "@/components/logo/logoStaticSvgContract";
 import { Link } from "@tanstack/react-router";
 import {
   addOffset,
@@ -8,7 +8,7 @@ import {
   mixOffset,
   type DragSession,
   type Point,
-} from "@/components/logoTransitionLabUtils";
+} from "@/components/logo/logoTransitionLabUtils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEffect, useRef, useState } from "react";
 

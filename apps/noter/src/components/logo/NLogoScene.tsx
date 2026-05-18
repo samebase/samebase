@@ -1,29 +1,29 @@
 import {
   getTailwindColorHex,
   type FaceColors,
-} from "@/components/logoTailwindColors";
+} from "@/components/logo/logoTailwindColors";
 import {
   getLogoRotationAxis,
   getWorldCameraVector,
   getWorldScreenVerticalAxis,
   toRenderedRotationDegrees,
   type LogoRotationAxisMode,
-} from "@/components/logoRotationMath";
-import { getShuffleOriginCandidates } from "@/components/logoShuffleRules";
+} from "@/components/logo/logoRotationMath";
+import { getShuffleOriginCandidates } from "@/components/logo/logoShuffleRules";
 import {
   DEFAULT_LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
-} from "@/components/logoDistanceScale";
+} from "@/components/logo/logoDistanceScale";
 import {
   buildLogoSurfaceQuads,
   getLogoSurfaceFitRadius,
   type LogoSurfaceQuad,
-} from "@/components/logoSurfaceModel";
-import { resolveLogoSceneCameraDepthBounds } from "@/components/logoSceneCameraDepth";
+} from "@/components/logo/logoSurfaceModel";
+import { resolveLogoSceneCameraDepthBounds } from "@/components/logo/logoSceneCameraDepth";
 import {
   DRAG_ELEVATION_DEGREES_PER_PIXEL,
   DRAG_ROTATION_DEGREES_PER_PIXEL,
-} from "@/components/logoViewDragConstants";
+} from "@/components/logo/logoViewDragConstants";
 import {
   DEFAULT_LOGO_FRACTAL_DEPTH,
   GRID_SIZE,
@@ -38,11 +38,11 @@ import {
   type VoxelCoordinate,
   type VoxelEdit,
   voxelKey,
-} from "@/components/logoVoxelState";
+} from "@/components/logo/logoVoxelState";
 import {
   resolveLogoViewState,
   type LogoViewDragConfig,
-} from "@/components/logoViewDrag";
+} from "@/components/logo/logoViewDrag";
 import {
   useEffect,
   useRef,

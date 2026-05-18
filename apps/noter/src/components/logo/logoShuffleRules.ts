@@ -3,13 +3,13 @@ import {
   isWithinVoxelGrid,
   type VoxelCoordinate,
   voxelKey,
-} from "@/components/logoVoxelState";
+} from "@/components/logo/logoVoxelState";
 import {
   dotProduct,
   getCameraLocalVector,
   type Vector3,
   type LogoRotationAxisMode,
-} from "@/components/logoRotationMath";
+} from "@/components/logo/logoRotationMath";
 
 const CENTER_INDEX = (GRID_SIZE - 1) / 2;
 const CENTER_VOXEL_KEY = voxelKey(CENTER_INDEX, CENTER_INDEX, CENTER_INDEX);

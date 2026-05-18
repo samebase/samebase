@@ -4,7 +4,7 @@ import {
   SINGLE_CUBE_STUDY_CANVAS_SIZE,
   SINGLE_CUBE_STUDY_SAMPLE_ANGLES,
   drawSingleCubeStudy,
-} from "@/components/logoSingleCubeStudyRenderer";
+} from "@/components/logo/logoSingleCubeStudyRenderer";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";

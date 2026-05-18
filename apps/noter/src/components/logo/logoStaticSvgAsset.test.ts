@@ -4,17 +4,17 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   createLogoIdentityViewSvgMarkup,
   createStaticLogoSvgMarkup,
-} from "@/components/logoStaticSvgAsset";
+} from "@/components/logo/logoStaticSvgAsset";
 import {
   LOGO_IDENTITY_EDIT_MARK_SVG_URL,
   LOGO_IDENTITY_VIEW_CONTRACTS,
   STATIC_LOGO_ELEVATION_DEGREES,
   type LogoIdentityViewId,
-} from "@/components/logoStaticSvgContract";
+} from "@/components/logo/logoStaticSvgContract";
 
 function readPublicAsset(assetPath: string) {
   return readFileSync(
-    new URL(`../../public/${assetPath.replace(/^\//, "")}`, import.meta.url),
+    new URL(`../../../public/${assetPath.replace(/^\//, "")}`, import.meta.url),
     "utf8",
   )
     .replace(/\r\n/g, "\n")

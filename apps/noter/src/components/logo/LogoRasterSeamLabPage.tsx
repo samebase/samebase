@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { LogoNumberInput } from "@/components/LogoNumberInput";
+import { LogoNumberInput } from "@/components/logo/LogoNumberInput";
 import {
   RASTER_SEAM_LAB_DEFAULT_DEPTH,
   RASTER_SEAM_LAB_DEFAULT_ELEVATION_DEGREES,
@@ -35,11 +35,11 @@ import {
   type RasterSeamLabImageKind,
   type RasterSeamLabMergeMode,
   type RasterSeamLabResult,
-} from "@/components/logoRasterSeamLabRenderer";
+} from "@/components/logo/logoRasterSeamLabRenderer";
 import {
   normalizeElevationDegrees,
   normalizeRotationDegrees,
-} from "@/components/logoVoxelState";
+} from "@/components/logo/logoVoxelState";
 import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";

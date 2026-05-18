@@ -16,7 +16,7 @@ import {
   type LogoColorThemeMode,
   type LogoThemeColorKey,
   type LogoThemeColors,
-} from "@/components/logoTailwindColors";
+} from "@/components/logo/logoTailwindColors";
 import {
   useDocumentThemeMode,
   type DocumentThemeMode,

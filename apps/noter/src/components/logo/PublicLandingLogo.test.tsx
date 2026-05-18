@@ -11,9 +11,9 @@ import {
   vi,
 } from "vite-plus/test";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
-import { PublicLandingLogo } from "@/components/PublicLandingLogo";
-import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
-import { createLogoFractalVoxelGrid } from "@/components/logoVoxelState";
+import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
+import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
+import { createLogoFractalVoxelGrid } from "@/components/logo/logoVoxelState";
 import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
 import {
   resolveAppThemeColorState,

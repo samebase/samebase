@@ -3,8 +3,8 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   getLogoPreset,
   getLogoPresetSelection,
-} from "@/components/logoPresets";
-import { parseVoxelState, voxelKey } from "@/components/logoVoxelState";
+} from "@/components/logo/logoPresets";
+import { parseVoxelState, voxelKey } from "@/components/logo/logoVoxelState";
 
 describe("logoPresets", () => {
   it("defines the Sierpinski carpet as a level-1 3x3x3 face-carpet model", () => {
