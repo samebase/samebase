@@ -420,6 +420,10 @@ test("logo raster seam lab shows the tiny 2x2 image-composition diagnostic", asy
     maxDiffPixelRatio: 0.01,
     scale: "css",
   });
+
+  await page.getByRole("button", { name: "Merged faces" }).first().click();
+  await expect(currentCase).toContainText("Merged faces");
+  await expect(currentCase.getByText(/0 \/ \d+ \(0\.0%\)/)).toHaveCount(3);
 });
 
 test("logo shape presets include the Sierpinski carpet model", async ({

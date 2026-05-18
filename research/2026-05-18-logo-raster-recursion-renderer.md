@@ -124,12 +124,18 @@ Deep-dive options after checking browser/graphics references:
   it can hide seams by making the whole shape jagged, which is not the desired
   logo look.
 
-Recommended next experiment: add one `merged faces` mode to `/logo/raster-seams`
-that draws the 2x2 primitive as one path per visible face/color, with no
-internal edges. If the mismatch counter drops to zero or near-zero across the
-current angle sweep, port that idea to the recursive 3x3 renderer as cached
-merged-face motifs. Keep `source-atop-full` around for movement experiments
-where pieces intentionally overlap while shuffling.
+2x2 proof result: `/logo/raster-seams` now has a `Merged faces` mode. It derives
+the exposed 2x2 cell faces, cancels shared grid edges inside each plane/color
+group, and draws only the remaining outer loops. At the 24px source, 22deg
+rotation, and 22deg elevation case, the diagnostic reports `0 / 387` mismatches.
+This proves the seam can be removed at the primitive level without using a
+transparent image-composition trick.
+
+Recommended next experiment: port that idea to one 3x3 composition step without
+expanding recursive leaf geometry. The important constraint is still bounded
+work per level: merge the exposed faces for the reusable motif/layer being
+cached, then compose the cached result upward. Keep `source-atop-full` around
+for movement experiments where pieces intentionally overlap while shuffling.
 
 References checked:
 

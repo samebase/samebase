@@ -372,10 +372,11 @@ export function LogoRasterSeamLabPage({
                   Merge Sweep
                 </div>
                 <div className="mt-1 text-sm text-black/60">
-                  Same angle and source, different canvas compositing passes.
+                  Same angle and source, different composition and geometry
+                  strategies.
                 </div>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 {RASTER_SEAM_LAB_MERGE_MODES.map((mode) => (
                   <button
                     key={mode.value}

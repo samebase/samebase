@@ -37,10 +37,71 @@ type RasterSeamLabDrawItem = {
   key: string;
 };
 
+type AxisIndex = 0 | 1 | 2;
+
+type GridCell = {
+  x: number;
+  y: number;
+  z: number;
+};
+
+type GridPoint2D = {
+  u: number;
+  v: number;
+};
+
+type GridRect = {
+  u0: number;
+  u1: number;
+  v0: number;
+  v1: number;
+};
+
+type GridEdge = {
+  from: GridPoint2D;
+  to: GridPoint2D;
+};
+
+type RasterSeamLabFaceDefinition = {
+  color: string;
+  key: string;
+  neighborOffset: Vector3;
+  normal: Vector3;
+  planeAxis: AxisIndex;
+  getPlaneIndex: (cell: GridCell) => number;
+  getRect: (cell: GridCell) => GridRect;
+  uAxis: AxisIndex;
+  vAxis: AxisIndex;
+};
+
+type RasterSeamLabFaceAccumulator = {
+  color: string;
+  key: string;
+  normal: Vector3;
+  planeAxis: AxisIndex;
+  planeIndex: number;
+  rects: GridRect[];
+  uAxis: AxisIndex;
+  vAxis: AxisIndex;
+};
+
+type RasterSeamLabMergedFaceGroup = {
+  color: string;
+  depth: number;
+  key: string;
+  loops: readonly (readonly GridPoint2D[])[];
+  normal: Vector3;
+  planeAxis: AxisIndex;
+  planeIndex: number;
+  uAxis: AxisIndex;
+  vAxis: AxisIndex;
+};
+
 export type RasterSeamLabImageKind = "composed" | "mask" | "reference";
 
 export type RasterSeamLabMergeMode =
   | "destination-out-full"
+  | "merged-faces"
   | "source-atop-full"
   | "source-atop-single"
   | "source-over";
@@ -80,6 +141,10 @@ export const RASTER_SEAM_LAB_MERGE_MODES = [
     label: "Cut full",
     value: "destination-out-full",
   },
+  {
+    label: "Merged faces",
+    value: "merged-faces",
+  },
 ] as const satisfies readonly RasterSeamLabMergeModeOption[];
 
 export const RASTER_SEAM_LAB_DEFAULT_ELEVATION_DEGREES = 22;
@@ -102,6 +167,105 @@ const FACE_COLORS = {
   y: "#0000ff",
   z: "#00cc00",
 } as const;
+
+const MERGED_FACE_DEFINITIONS = [
+  {
+    color: FACE_COLORS.x,
+    getPlaneIndex: (cell) => cell.x + 1,
+    getRect: (cell) => ({
+      u0: cell.z,
+      u1: cell.z + 1,
+      v0: cell.y,
+      v1: cell.y + 1,
+    }),
+    key: "positive-x",
+    neighborOffset: [1, 0, 0],
+    normal: [1, 0, 0],
+    planeAxis: 0,
+    uAxis: 2,
+    vAxis: 1,
+  },
+  {
+    color: FACE_COLORS.x,
+    getPlaneIndex: (cell) => cell.x,
+    getRect: (cell) => ({
+      u0: cell.z,
+      u1: cell.z + 1,
+      v0: cell.y,
+      v1: cell.y + 1,
+    }),
+    key: "negative-x",
+    neighborOffset: [-1, 0, 0],
+    normal: [-1, 0, 0],
+    planeAxis: 0,
+    uAxis: 2,
+    vAxis: 1,
+  },
+  {
+    color: FACE_COLORS.y,
+    getPlaneIndex: (cell) => cell.y + 1,
+    getRect: (cell) => ({
+      u0: cell.x,
+      u1: cell.x + 1,
+      v0: cell.z,
+      v1: cell.z + 1,
+    }),
+    key: "positive-y",
+    neighborOffset: [0, 1, 0],
+    normal: [0, 1, 0],
+    planeAxis: 1,
+    uAxis: 0,
+    vAxis: 2,
+  },
+  {
+    color: FACE_COLORS.y,
+    getPlaneIndex: (cell) => cell.y,
+    getRect: (cell) => ({
+      u0: cell.x,
+      u1: cell.x + 1,
+      v0: cell.z,
+      v1: cell.z + 1,
+    }),
+    key: "negative-y",
+    neighborOffset: [0, -1, 0],
+    normal: [0, -1, 0],
+    planeAxis: 1,
+    uAxis: 0,
+    vAxis: 2,
+  },
+  {
+    color: FACE_COLORS.z,
+    getPlaneIndex: (cell) => cell.z + 1,
+    getRect: (cell) => ({
+      u0: cell.x,
+      u1: cell.x + 1,
+      v0: cell.y,
+      v1: cell.y + 1,
+    }),
+    key: "positive-z",
+    neighborOffset: [0, 0, 1],
+    normal: [0, 0, 1],
+    planeAxis: 2,
+    uAxis: 0,
+    vAxis: 1,
+  },
+  {
+    color: FACE_COLORS.z,
+    getPlaneIndex: (cell) => cell.z,
+    getRect: (cell) => ({
+      u0: cell.x,
+      u1: cell.x + 1,
+      v0: cell.y,
+      v1: cell.y + 1,
+    }),
+    key: "negative-z",
+    neighborOffset: [0, 0, -1],
+    normal: [0, 0, -1],
+    planeAxis: 2,
+    uAxis: 0,
+    vAxis: 1,
+  },
+] as const satisfies readonly RasterSeamLabFaceDefinition[];
 
 const BLOCK_CORNERS = [
   [-0.5, -0.5, -0.5],
@@ -408,6 +572,320 @@ function createUnitCubeCanvas(projection: RasterSeamLabProjection) {
   return canvas;
 }
 
+function getGridCoordinate(index: number): number {
+  return index / GRID_SIZE - 0.5;
+}
+
+function getGridPointKey(point: GridPoint2D) {
+  return `${point.u},${point.v}`;
+}
+
+function getGridEdgeKey(from: GridPoint2D, to: GridPoint2D) {
+  return `${getGridPointKey(from)}:${getGridPointKey(to)}`;
+}
+
+function areGridPointsEqual(left: GridPoint2D, right: GridPoint2D) {
+  return left.u === right.u && left.v === right.v;
+}
+
+function getGridCellKey(cell: GridCell) {
+  return `${cell.x},${cell.y},${cell.z}`;
+}
+
+function getGridCells(): GridCell[] {
+  const cells: GridCell[] = [];
+
+  for (let x = 0; x < GRID_SIZE; x += 1) {
+    for (let y = 0; y < GRID_SIZE; y += 1) {
+      for (let z = 0; z < GRID_SIZE; z += 1) {
+        cells.push({ x, y, z });
+      }
+    }
+  }
+
+  return cells;
+}
+
+function addBoundaryEdge(
+  edges: Map<string, GridEdge>,
+  from: GridPoint2D,
+  to: GridPoint2D,
+) {
+  // Adjacent cells add the same edge in opposite directions; deleting that pair
+  // leaves only the outer loop that should be rasterized.
+  const reverseKey = getGridEdgeKey(to, from);
+  if (edges.has(reverseKey)) {
+    edges.delete(reverseKey);
+    return;
+  }
+
+  edges.set(getGridEdgeKey(from, to), { from, to });
+}
+
+function takeNextBoundaryEdge(
+  edges: Map<string, GridEdge>,
+  point: GridPoint2D,
+): GridEdge | null {
+  const pointKey = getGridPointKey(point);
+  for (const edge of edges.values()) {
+    if (getGridPointKey(edge.from) !== pointKey) {
+      continue;
+    }
+
+    edges.delete(getGridEdgeKey(edge.from, edge.to));
+    return edge;
+  }
+
+  return null;
+}
+
+function getMergedRectLoops(rects: readonly GridRect[]) {
+  const edges = new Map<string, GridEdge>();
+  for (const rect of rects) {
+    const bottomLeft = { u: rect.u0, v: rect.v0 };
+    const bottomRight = { u: rect.u1, v: rect.v0 };
+    const topRight = { u: rect.u1, v: rect.v1 };
+    const topLeft = { u: rect.u0, v: rect.v1 };
+
+    addBoundaryEdge(edges, bottomLeft, bottomRight);
+    addBoundaryEdge(edges, bottomRight, topRight);
+    addBoundaryEdge(edges, topRight, topLeft);
+    addBoundaryEdge(edges, topLeft, bottomLeft);
+  }
+
+  const loops: GridPoint2D[][] = [];
+  while (edges.size > 0) {
+    const firstEdge = edges.values().next().value;
+    if (!firstEdge) {
+      break;
+    }
+
+    edges.delete(getGridEdgeKey(firstEdge.from, firstEdge.to));
+    const loop = [firstEdge.from];
+    let currentPoint = firstEdge.to;
+
+    while (!areGridPointsEqual(currentPoint, firstEdge.from)) {
+      loop.push(currentPoint);
+      const nextEdge = takeNextBoundaryEdge(edges, currentPoint);
+      if (!nextEdge) {
+        break;
+      }
+
+      currentPoint = nextEdge.to;
+    }
+
+    if (loop.length >= 3) {
+      loops.push(loop);
+    }
+  }
+
+  return loops;
+}
+
+function createWorldGridPoint({
+  planeAxis,
+  planeIndex,
+  point,
+  uAxis,
+  vAxis,
+}: {
+  planeAxis: AxisIndex;
+  planeIndex: number;
+  point: GridPoint2D;
+  uAxis: AxisIndex;
+  vAxis: AxisIndex;
+}): Vector3 {
+  const planeCoordinate = getGridCoordinate(planeIndex);
+  const uCoordinate = getGridCoordinate(point.u);
+  const vCoordinate = getGridCoordinate(point.v);
+  const getCoordinate = (axis: AxisIndex) => {
+    if (axis === planeAxis) {
+      return planeCoordinate;
+    }
+    if (axis === uAxis) {
+      return uCoordinate;
+    }
+    if (axis === vAxis) {
+      return vCoordinate;
+    }
+
+    return 0;
+  };
+
+  return [getCoordinate(0), getCoordinate(1), getCoordinate(2)];
+}
+
+function getRectCenter({
+  planeAxis,
+  planeIndex,
+  rect,
+  uAxis,
+  vAxis,
+}: {
+  planeAxis: AxisIndex;
+  planeIndex: number;
+  rect: GridRect;
+  uAxis: AxisIndex;
+  vAxis: AxisIndex;
+}): Vector3 {
+  return createWorldGridPoint({
+    planeAxis,
+    planeIndex,
+    point: {
+      u: (rect.u0 + rect.u1) / 2,
+      v: (rect.v0 + rect.v1) / 2,
+    },
+    uAxis,
+    vAxis,
+  });
+}
+
+function getMergedFaceGroups(
+  projection: RasterSeamLabProjection,
+): RasterSeamLabMergedFaceGroup[] {
+  const cells = getGridCells();
+  const occupiedCellKeys = new Set(cells.map((cell) => getGridCellKey(cell)));
+  const groups = new Map<string, RasterSeamLabFaceAccumulator>();
+
+  for (const cell of cells) {
+    for (const faceDefinition of MERGED_FACE_DEFINITIONS) {
+      const neighbor = {
+        x: cell.x + faceDefinition.neighborOffset[0],
+        y: cell.y + faceDefinition.neighborOffset[1],
+        z: cell.z + faceDefinition.neighborOffset[2],
+      };
+      if (occupiedCellKeys.has(getGridCellKey(neighbor))) {
+        continue;
+      }
+
+      const planeIndex = faceDefinition.getPlaneIndex(cell);
+      const groupKey = `${faceDefinition.key}:${planeIndex}`;
+      const existingGroup = groups.get(groupKey);
+      if (existingGroup) {
+        existingGroup.rects.push(faceDefinition.getRect(cell));
+        continue;
+      }
+
+      groups.set(groupKey, {
+        color: faceDefinition.color,
+        key: groupKey,
+        normal: faceDefinition.normal,
+        planeAxis: faceDefinition.planeAxis,
+        planeIndex,
+        rects: [faceDefinition.getRect(cell)],
+        uAxis: faceDefinition.uAxis,
+        vAxis: faceDefinition.vAxis,
+      });
+    }
+  }
+
+  return Array.from(groups.values())
+    .map((group) => {
+      const rotatedNormal = projection.rotatePoint(group.normal);
+      if (dotVectors(rotatedNormal, projection.cameraDirection) <= 0) {
+        return null;
+      }
+
+      const depth =
+        group.rects.reduce((totalDepth, rect) => {
+          const rectCenter = getRectCenter({
+            planeAxis: group.planeAxis,
+            planeIndex: group.planeIndex,
+            rect,
+            uAxis: group.uAxis,
+            vAxis: group.vAxis,
+          });
+          return (
+            totalDepth +
+            dotVectors(
+              projection.rotatePoint(rectCenter),
+              projection.cameraDirection,
+            )
+          );
+        }, 0) / group.rects.length;
+
+      return {
+        color: group.color,
+        depth,
+        key: group.key,
+        loops: getMergedRectLoops(group.rects),
+        normal: group.normal,
+        planeAxis: group.planeAxis,
+        planeIndex: group.planeIndex,
+        uAxis: group.uAxis,
+        vAxis: group.vAxis,
+      };
+    })
+    .filter((group) => group !== null)
+    .sort((left, right) => {
+      if (left.depth !== right.depth) {
+        return left.depth - right.depth;
+      }
+
+      return left.key.localeCompare(right.key);
+    });
+}
+
+function drawMergedFaceGroup({
+  context,
+  group,
+  projection,
+}: {
+  context: CanvasRenderingContext2D;
+  group: RasterSeamLabMergedFaceGroup;
+  projection: RasterSeamLabProjection;
+}) {
+  context.beginPath();
+  for (const loop of group.loops) {
+    const [firstPoint, ...remainingPoints] = loop;
+    const projectedFirstPoint = projection.projectPoint(
+      createWorldGridPoint({
+        planeAxis: group.planeAxis,
+        planeIndex: group.planeIndex,
+        point: firstPoint,
+        uAxis: group.uAxis,
+        vAxis: group.vAxis,
+      }),
+    );
+    context.moveTo(projectedFirstPoint.x, projectedFirstPoint.y);
+
+    for (const point of remainingPoints) {
+      const projectedPoint = projection.projectPoint(
+        createWorldGridPoint({
+          planeAxis: group.planeAxis,
+          planeIndex: group.planeIndex,
+          point,
+          uAxis: group.uAxis,
+          vAxis: group.vAxis,
+        }),
+      );
+      context.lineTo(projectedPoint.x, projectedPoint.y);
+    }
+
+    context.closePath();
+  }
+  context.fill();
+  context.stroke();
+}
+
+function renderMergedFacesImage(projection: RasterSeamLabProjection) {
+  const canvas = createLabCanvas(projection.sizePx);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return canvas;
+  }
+
+  context.lineJoin = "miter";
+  context.lineWidth = Math.max(1, projection.sizePx / 32);
+  for (const group of getMergedFaceGroups(projection)) {
+    context.fillStyle = group.color;
+    context.strokeStyle = group.color;
+    drawMergedFaceGroup({ context, group, projection });
+  }
+
+  return canvas;
+}
+
 function getCellCenter(x: number, y: number, z: number): Vector3 {
   return [
     (x + 0.5) / GRID_SIZE - 0.5,
@@ -652,6 +1130,8 @@ function renderMergedImage({
         canvasOperation: "destination-out",
         projection,
       });
+    case "merged-faces":
+      return renderMergedFacesImage(projection);
     default:
       mergeMode satisfies never;
       throw new Error("Unsupported raster seam lab merge mode.");
