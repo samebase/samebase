@@ -2662,7 +2662,7 @@ function CreateControlMessageSlot({
   );
 }
 
-function CreateProviderNameInput({
+export function CreateProviderNameInput({
   disabled,
   icon,
   onChange,

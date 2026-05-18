@@ -77,6 +77,33 @@ async function readVaultInfrastructureTarget(
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .first();
 }
+
+async function ensureVaultInfrastructureTarget(
+  ctx: Pick<MutationCtx, "db">,
+  vault: NoterManagedConnectedVault,
+  now: number,
+): Promise<void> {
+  const existing = await readVaultInfrastructureTarget(ctx, vault._id);
+  if (existing) {
+    return;
+  }
+
+  const suffix = vaultSuffix(vault._id);
+  await ctx.db.insert("vaultInfrastructureTargets", {
+    vaultId: vault._id,
+    convexProjectName: sanitizeSlug(
+      `${vault.owner}-${vault.name}-${suffix}`,
+      40,
+    ),
+    cloudflareWorkerName: sanitizeSlug(
+      `${vault.owner}-${vault.name}-${suffix}`,
+      58,
+    ),
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
 async function readResponseTextSafe(response: Response): Promise<string> {
   try {
     return await response.text();
@@ -1240,6 +1267,8 @@ export const claimWorkflowProvisioning = internalMutation({
         return { claimed: false };
       }
     }
+
+    await ensureVaultInfrastructureTarget(ctx, vault, now);
 
     const cloudflare = vault.cloudflare;
     const claimedCloudflare =

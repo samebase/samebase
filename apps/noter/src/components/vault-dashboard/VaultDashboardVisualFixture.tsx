@@ -2,7 +2,6 @@ import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/input";
 import {
   Select,
   SelectContent,
@@ -32,6 +31,7 @@ import {
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { buildVaultBranchSectionState } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import {
+  CreateProviderNameInput,
   VaultBranchHeaderControls,
   VaultBranchLinkRow,
   VaultBranchListExpansionControl,
@@ -879,33 +879,6 @@ function FixtureDashboardSidebarAccountClamp({
   );
 }
 
-function FixtureProviderNameInput({
-  icon,
-  placeholder,
-  value,
-}: {
-  icon: ReactNode;
-  placeholder: string;
-  value: string;
-}) {
-  return (
-    <div className="relative w-full">
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-y-0 left-2.5 flex w-5 items-center justify-center text-muted-foreground"
-      >
-        {icon}
-      </span>
-      <Input
-        className="w-full pl-9"
-        placeholder={placeholder}
-        value={value}
-        onChange={() => {}}
-      />
-    </div>
-  );
-}
-
 function FixtureDashboardCreateControl() {
   return (
     <FixtureDashboardShell
@@ -935,18 +908,24 @@ function FixtureDashboardCreateControl() {
                 <SelectItem value="noter-md">noter-md</SelectItem>
               </SelectContent>
             </Select>
-            <FixtureProviderNameInput
+            <CreateProviderNameInput
+              disabled={false}
               icon={<GitHubProviderLogo />}
+              onChange={() => {}}
               placeholder="GitHub repo name"
               value="field-notes"
             />
-            <FixtureProviderNameInput
+            <CreateProviderNameInput
+              disabled={false}
               icon={<ConvexProviderLogo />}
+              onChange={() => {}}
               placeholder="Convex project name"
               value="field-notes"
             />
-            <FixtureProviderNameInput
+            <CreateProviderNameInput
+              disabled={false}
               icon={<CloudflareProviderLogo />}
+              onChange={() => {}}
               placeholder="Cloudflare Worker name"
               value="field-notes"
             />

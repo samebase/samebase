@@ -7,6 +7,7 @@ import {
   selectExistingCloudflareWorkerTag,
 } from "./infraProvisioning";
 import type { GithubTreeData } from "./schema";
+import { sanitizeSlug, vaultSuffix } from "./slugUtils";
 import { makeConvexTest } from "./test.setup";
 
 const branchTreeData = {
@@ -114,6 +115,81 @@ describe("resolveConnectionFailureProvider", () => {
 });
 
 describe("infrastructure provisioning ownership", () => {
+  it("creates a target row before provider side effects for older vaults", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/older-retry",
+        trigger: "retry",
+        state: "running",
+        currentStep: "claim_infra",
+        createdAt: 10,
+        updatedAt: 10,
+      });
+
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "older-retry",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+        convex: { state: "not_configured" },
+        cloudflare: { state: "not_configured" },
+      });
+
+      return { runId, vaultId };
+    });
+
+    const result = await t.mutation(
+      internal.infraProvisioning.claimWorkflowProvisioning,
+      {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+        force: true,
+      },
+    );
+    const target = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("vaultInfrastructureTargets")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .first();
+    });
+    const record = await t.mutation(
+      internal.infraProvisioning.recordConvexProjectIdentity,
+      {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+        projectId: "convex-project-id",
+      },
+    );
+
+    const suffix = vaultSuffix(ids.vaultId);
+    expect(result).toEqual({ claimed: true });
+    expect(target).toMatchObject({
+      convexProjectName: sanitizeSlug(`ada-older-retry-${suffix}`, 40),
+      cloudflareWorkerName: sanitizeSlug(`ada-older-retry-${suffix}`, 58),
+    });
+    expect(record).toEqual({ applied: true });
+  });
+
   it("records provisional Convex project identity for retries", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
