@@ -208,6 +208,16 @@ extend outside the cube. The lab now uses the production unit-face stroke scale,
 `sourceSize / 512` with a 1px minimum, and merged faces are fill-only like the
 production merged-surface path.
 
+Inflated-tile experiment: `/logo/raster-seams` has an `Inflate 1%` mode that
+draws the farthest tile normally, then draws later near tiles at `101%` size
+around their projected center. This is the image-composition version of a
+same-color overlap/stroke trick. It reduces some alpha gaps, but it is not
+stable enough to be the default. In the 2x2 depth-2 case, 24px improves from
+`66 / 442` to `35 / 442`, and 144px improves from `142 / 15420` to `47 / 15420`.
+In the 3x3 depth-2 case, 144px improves from `179 / 15420` to `44 / 15420`, but
+the intentionally tiny 24px stress case gets worse from `16 / 442` to
+`21 / 442`. Keep it as a measured fallback candidate, not as the core seam fix.
+
 References checked:
 
 - [WHATWG Canvas 2D](https://html.spec.whatwg.org/multipage/canvas.html):

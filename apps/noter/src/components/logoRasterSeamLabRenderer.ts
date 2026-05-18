@@ -89,6 +89,7 @@ export type RasterSeamLabGridSize = 2 | 3;
 export type RasterSeamLabMergeMode =
   | "crisp-source-over"
   | "destination-out-full"
+  | "inflated-source-over"
   | "merged-faces"
   | "source-atop-full"
   | "source-atop-single"
@@ -142,6 +143,10 @@ export const RASTER_SEAM_LAB_MERGE_MODES = [
     value: "crisp-source-over",
   },
   {
+    label: "Inflate 1%",
+    value: "inflated-source-over",
+  },
+  {
     label: "Atop single",
     value: "source-atop-single",
   },
@@ -182,6 +187,7 @@ const SEAM_COLOR_DISTANCE_THRESHOLD = 70;
 const SEAM_MASK_COLOR = [255, 0, 255, 255] as const;
 const LAB_BACKGROUND_COLOR = "#ffffff";
 const FACE_EDGE_STROKE_SCALE = 512;
+const INFLATED_TILE_SCALE = 1.01;
 
 const FACE_COLORS = {
   x: "#ff0000",
@@ -1122,6 +1128,47 @@ function renderCrispComposedImage({
   return canvas;
 }
 
+function renderInflatedComposedImage({
+  childCanvas,
+  gridSize,
+  halfSize,
+  projection,
+}: {
+  childCanvas: HTMLCanvasElement;
+  gridSize: number;
+  halfSize: number;
+  projection: RasterSeamLabProjection;
+}) {
+  const canvas = createLabCanvas(projection.sizePx);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return canvas;
+  }
+
+  const inflatedSize = childCanvas.width * INFLATED_TILE_SCALE;
+  const inflatedOffset = (inflatedSize - childCanvas.width) / 2;
+
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  getDrawItems({ gridSize, halfSize, projection }).forEach((item, index) => {
+    const offset = projection.projectVector(item.center);
+    if (index === 0) {
+      context.drawImage(childCanvas, offset.x, offset.y);
+      return;
+    }
+
+    context.drawImage(
+      childCanvas,
+      offset.x - inflatedOffset,
+      offset.y - inflatedOffset,
+      inflatedSize,
+      inflatedSize,
+    );
+  });
+
+  return canvas;
+}
+
 function getDrawImageOffset(
   projection: RasterSeamLabProjection,
   item: RasterSeamLabDrawItem,
@@ -1348,6 +1395,35 @@ function renderRecursiveCrispComposedImage({
   });
 }
 
+function renderRecursiveInflatedComposedImage({
+  depth,
+  gridSize,
+  halfSize,
+  projection,
+}: {
+  depth: number;
+  gridSize: number;
+  halfSize: number;
+  projection: RasterSeamLabProjection;
+}): HTMLCanvasElement {
+  if (depth <= 0) {
+    return createUnitCubeCanvas(projection, halfSize);
+  }
+
+  const childCanvas = renderRecursiveInflatedComposedImage({
+    depth: depth - 1,
+    gridSize,
+    halfSize: halfSize / gridSize,
+    projection,
+  });
+  return renderInflatedComposedImage({
+    childCanvas,
+    gridSize,
+    halfSize,
+    projection,
+  });
+}
+
 function renderRecursiveSingleCompositeImage({
   canvasOperation,
   depth,
@@ -1506,6 +1582,13 @@ function renderMergedImage({
       });
     case "crisp-source-over":
       return renderRecursiveCrispComposedImage({
+        depth,
+        gridSize,
+        halfSize: 0.5,
+        projection,
+      });
+    case "inflated-source-over":
+      return renderRecursiveInflatedComposedImage({
         depth,
         gridSize,
         halfSize: 0.5,
