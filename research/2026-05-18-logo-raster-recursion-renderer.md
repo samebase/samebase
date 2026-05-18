@@ -137,6 +137,15 @@ work per level: merge the exposed faces for the reusable motif/layer being
 cached, then compose the cached result upward. Keep `source-atop-full` around
 for movement experiments where pieces intentionally overlap while shuffling.
 
+3x3 experiment result: the raster scene now draws the base 3x3 motif as merged
+exposed face components. It collects only the current 3x3 cells, cancels shared
+grid edges inside each coplanar face/color component, and fills the remaining
+outer loops once. This is workable for the bounded motif and avoids the
+exponential leaf-geometry path. It is not the full recursive seam fix yet:
+higher levels still compose cached images, so any future inter-level seam work
+should apply the same merged-surface idea to each cached level or layer instead
+of expanding all recursive voxels.
+
 References checked:
 
 - [WHATWG Canvas 2D](https://html.spec.whatwg.org/multipage/canvas.html):

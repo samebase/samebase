@@ -12,11 +12,6 @@ import {
 } from "@/components/logoRotationMath";
 import { getShuffleOriginCandidates } from "@/components/logoShuffleRules";
 import {
-  buildLogoSurfaceQuads,
-  type LogoSurfaceQuad,
-  type LogoSurfaceVertex,
-} from "@/components/logoSurfaceModel";
-import {
   DRAG_ELEVATION_DEGREES_PER_PIXEL,
   DRAG_ROTATION_DEGREES_PER_PIXEL,
 } from "@/components/logoViewDragConstants";
@@ -83,6 +78,55 @@ type RasterFace = {
   colorKey: keyof FaceColors;
   normal: Vector3;
   vertices: readonly [Vector3, Vector3, Vector3, Vector3];
+};
+
+type RasterAxisIndex = 0 | 1 | 2;
+
+type RasterFaceCell = {
+  colorKey: keyof FaceColors;
+  key: string;
+  normal: Vector3;
+  planeAxis: RasterAxisIndex;
+  planeIndex: number;
+  u: number;
+  uAxis: RasterAxisIndex;
+  v: number;
+  vAxis: RasterAxisIndex;
+};
+
+type RasterGridPoint = {
+  u: number;
+  v: number;
+};
+
+type RasterGridEdge = {
+  from: RasterGridPoint;
+  to: RasterGridPoint;
+};
+
+type RasterMergedSurface = {
+  cells: readonly RasterFaceCell[];
+  colorKey: keyof FaceColors;
+  depth: number;
+  key: string;
+  normal: Vector3;
+  planeAxis: RasterAxisIndex;
+  planeIndex: number;
+  uAxis: RasterAxisIndex;
+  vAxis: RasterAxisIndex;
+};
+
+type RasterFaceDefinition = {
+  colorKey: keyof FaceColors;
+  key: string;
+  neighborOffset: VoxelCoordinate;
+  normal: Vector3;
+  planeAxis: RasterAxisIndex;
+  getPlaneIndex: (coordinate: VoxelCoordinate) => number;
+  getU: (coordinate: VoxelCoordinate) => number;
+  getV: (coordinate: VoxelCoordinate) => number;
+  uAxis: RasterAxisIndex;
+  vAxis: RasterAxisIndex;
 };
 
 type RasterFaceOnState = {
@@ -210,6 +254,81 @@ const CUBE_FACES = [
     ],
   },
 ] as const satisfies readonly RasterFace[];
+
+const RASTER_FACE_DEFINITIONS = [
+  {
+    colorKey: "right",
+    getPlaneIndex: ([x]) => x + 1,
+    getU: ([, y]) => y,
+    getV: ([, , z]) => z,
+    key: "positive-x",
+    neighborOffset: [1, 0, 0],
+    normal: [1, 0, 0],
+    planeAxis: 0,
+    uAxis: 1,
+    vAxis: 2,
+  },
+  {
+    colorKey: "right",
+    getPlaneIndex: ([x]) => x,
+    getU: ([, y]) => y,
+    getV: ([, , z]) => z,
+    key: "negative-x",
+    neighborOffset: [-1, 0, 0],
+    normal: [-1, 0, 0],
+    planeAxis: 0,
+    uAxis: 1,
+    vAxis: 2,
+  },
+  {
+    colorKey: "top",
+    getPlaneIndex: ([, y]) => y + 1,
+    getU: ([x]) => x,
+    getV: ([, , z]) => z,
+    key: "positive-y",
+    neighborOffset: [0, 1, 0],
+    normal: [0, 1, 0],
+    planeAxis: 1,
+    uAxis: 0,
+    vAxis: 2,
+  },
+  {
+    colorKey: "top",
+    getPlaneIndex: ([, y]) => y,
+    getU: ([x]) => x,
+    getV: ([, , z]) => z,
+    key: "negative-y",
+    neighborOffset: [0, -1, 0],
+    normal: [0, -1, 0],
+    planeAxis: 1,
+    uAxis: 0,
+    vAxis: 2,
+  },
+  {
+    colorKey: "left",
+    getPlaneIndex: ([, , z]) => z + 1,
+    getU: ([x]) => x,
+    getV: ([, y]) => y,
+    key: "positive-z",
+    neighborOffset: [0, 0, 1],
+    normal: [0, 0, 1],
+    planeAxis: 2,
+    uAxis: 0,
+    vAxis: 1,
+  },
+  {
+    colorKey: "left",
+    getPlaneIndex: ([, , z]) => z,
+    getU: ([x]) => x,
+    getV: ([, y]) => y,
+    key: "negative-z",
+    neighborOffset: [0, 0, -1],
+    normal: [0, 0, -1],
+    planeAxis: 2,
+    uAxis: 0,
+    vAxis: 1,
+  },
+] as const satisfies readonly RasterFaceDefinition[];
 
 function addVectors(left: Vector3, right: Vector3): Vector3 {
   return [left[0] + right[0], left[1] + right[1], left[2] + right[2]];
@@ -396,20 +515,6 @@ function getFaceCenter(face: RasterFace): Vector3 {
     ),
     1 / face.vertices.length,
   );
-}
-
-function getSurfaceQuadCenter(surfaceQuad: LogoSurfaceQuad): Vector3 {
-  return scaleVector(
-    surfaceQuad.vertices.reduce<Vector3>(
-      (sum, vertex) => addVectors(sum, toRasterSurfaceVertex(vertex)),
-      [0, 0, 0],
-    ),
-    1 / surfaceQuad.vertices.length,
-  );
-}
-
-function toRasterSurfaceVertex([x, y, z]: LogoSurfaceVertex): Vector3 {
-  return [x / GRID_SIZE, y / GRID_SIZE, z / GRID_SIZE];
 }
 
 function drawPolygon(
@@ -677,6 +782,368 @@ function renderFaceOnRecursiveImage({
   return unitCanvas;
 }
 
+function isWithinRasterGrid([x, y, z]: VoxelCoordinate): boolean {
+  return (
+    x >= 0 &&
+    x < GRID_SIZE &&
+    y >= 0 &&
+    y < GRID_SIZE &&
+    z >= 0 &&
+    z < GRID_SIZE
+  );
+}
+
+function offsetRasterCoordinate(
+  coordinate: VoxelCoordinate,
+  offset: VoxelCoordinate,
+): VoxelCoordinate {
+  return [
+    coordinate[0] + offset[0],
+    coordinate[1] + offset[1],
+    coordinate[2] + offset[2],
+  ];
+}
+
+function getRasterGridCoordinate(index: number): number {
+  return index / GRID_SIZE - 0.5;
+}
+
+function createRasterGridPoint({
+  planeAxis,
+  planeIndex,
+  u,
+  uAxis,
+  v,
+  vAxis,
+}: {
+  planeAxis: RasterAxisIndex;
+  planeIndex: number;
+  u: number;
+  uAxis: RasterAxisIndex;
+  v: number;
+  vAxis: RasterAxisIndex;
+}): Vector3 {
+  const planeCoordinate = getRasterGridCoordinate(planeIndex);
+  const uCoordinate = getRasterGridCoordinate(u);
+  const vCoordinate = getRasterGridCoordinate(v);
+  const getCoordinate = (axis: RasterAxisIndex) => {
+    if (axis === planeAxis) {
+      return planeCoordinate;
+    }
+    if (axis === uAxis) {
+      return uCoordinate;
+    }
+    if (axis === vAxis) {
+      return vCoordinate;
+    }
+
+    return 0;
+  };
+
+  return [getCoordinate(0), getCoordinate(1), getCoordinate(2)];
+}
+
+function getRasterFaceCellCenter(cell: RasterFaceCell): Vector3 {
+  return createRasterGridPoint({
+    planeAxis: cell.planeAxis,
+    planeIndex: cell.planeIndex,
+    u: cell.u + 0.5,
+    uAxis: cell.uAxis,
+    v: cell.v + 0.5,
+    vAxis: cell.vAxis,
+  });
+}
+
+function getRasterFaceCellGroupKey(cell: RasterFaceCell) {
+  return `${cell.key}:${cell.planeIndex}`;
+}
+
+function getRasterFaceCellKey(cell: RasterFaceCell) {
+  return `${getRasterFaceCellGroupKey(cell)}:${cell.u}:${cell.v}`;
+}
+
+function getRasterGridPointKey(point: RasterGridPoint) {
+  return `${point.u},${point.v}`;
+}
+
+function getRasterGridEdgeKey(from: RasterGridPoint, to: RasterGridPoint) {
+  return `${getRasterGridPointKey(from)}:${getRasterGridPointKey(to)}`;
+}
+
+function areRasterGridPointsEqual(
+  left: RasterGridPoint,
+  right: RasterGridPoint,
+) {
+  return left.u === right.u && left.v === right.v;
+}
+
+function areRasterFaceCellsAdjacent(
+  left: RasterFaceCell,
+  right: RasterFaceCell,
+): boolean {
+  return (
+    (left.u === right.u && Math.abs(left.v - right.v) === 1) ||
+    (left.v === right.v && Math.abs(left.u - right.u) === 1)
+  );
+}
+
+function collectRasterFaceCells(
+  filledVoxels: ReadonlySet<string>,
+): RasterFaceCell[] {
+  const cells: RasterFaceCell[] = [];
+
+  for (const key of filledVoxels) {
+    const coordinate = parseVoxelKey(key);
+    if (!coordinate || !isWithinRasterGrid(coordinate)) {
+      continue;
+    }
+
+    for (const faceDefinition of RASTER_FACE_DEFINITIONS) {
+      const neighbor = offsetRasterCoordinate(
+        coordinate,
+        faceDefinition.neighborOffset,
+      );
+      if (filledVoxels.has(voxelKey(neighbor[0], neighbor[1], neighbor[2]))) {
+        continue;
+      }
+
+      const planeIndex = faceDefinition.getPlaneIndex(coordinate);
+      const u = faceDefinition.getU(coordinate);
+      const v = faceDefinition.getV(coordinate);
+      cells.push({
+        colorKey: faceDefinition.colorKey,
+        key: faceDefinition.key,
+        normal: faceDefinition.normal,
+        planeAxis: faceDefinition.planeAxis,
+        planeIndex,
+        u,
+        uAxis: faceDefinition.uAxis,
+        v,
+        vAxis: faceDefinition.vAxis,
+      });
+    }
+  }
+
+  return cells;
+}
+
+function addRasterBoundaryEdge(
+  edges: Map<string, RasterGridEdge>,
+  from: RasterGridPoint,
+  to: RasterGridPoint,
+) {
+  // Shared cell edges arrive in opposite directions. Removing those pairs makes
+  // the raster path describe only the visible component outline.
+  const reverseKey = getRasterGridEdgeKey(to, from);
+  if (edges.has(reverseKey)) {
+    edges.delete(reverseKey);
+    return;
+  }
+
+  edges.set(getRasterGridEdgeKey(from, to), { from, to });
+}
+
+function takeNextRasterBoundaryEdge(
+  edges: Map<string, RasterGridEdge>,
+  point: RasterGridPoint,
+): RasterGridEdge | null {
+  const pointKey = getRasterGridPointKey(point);
+  for (const edge of edges.values()) {
+    if (getRasterGridPointKey(edge.from) !== pointKey) {
+      continue;
+    }
+
+    edges.delete(getRasterGridEdgeKey(edge.from, edge.to));
+    return edge;
+  }
+
+  return null;
+}
+
+function getRasterMergedSurfaceLoops(
+  cells: readonly RasterFaceCell[],
+): RasterGridPoint[][] {
+  const edges = new Map<string, RasterGridEdge>();
+  for (const cell of cells) {
+    const bottomLeft = { u: cell.u, v: cell.v };
+    const bottomRight = { u: cell.u + 1, v: cell.v };
+    const topRight = { u: cell.u + 1, v: cell.v + 1 };
+    const topLeft = { u: cell.u, v: cell.v + 1 };
+
+    addRasterBoundaryEdge(edges, bottomLeft, bottomRight);
+    addRasterBoundaryEdge(edges, bottomRight, topRight);
+    addRasterBoundaryEdge(edges, topRight, topLeft);
+    addRasterBoundaryEdge(edges, topLeft, bottomLeft);
+  }
+
+  const loops: RasterGridPoint[][] = [];
+  while (edges.size > 0) {
+    const firstEdge = edges.values().next().value;
+    if (!firstEdge) {
+      break;
+    }
+
+    edges.delete(getRasterGridEdgeKey(firstEdge.from, firstEdge.to));
+    const loop = [firstEdge.from];
+    let currentPoint = firstEdge.to;
+
+    while (!areRasterGridPointsEqual(currentPoint, firstEdge.from)) {
+      loop.push(currentPoint);
+      const nextEdge = takeNextRasterBoundaryEdge(edges, currentPoint);
+      if (!nextEdge) {
+        break;
+      }
+
+      currentPoint = nextEdge.to;
+    }
+
+    if (loop.length >= 3) {
+      loops.push(loop);
+    }
+  }
+
+  return loops;
+}
+
+function takeRasterConnectedSurface(
+  cells: Map<string, RasterFaceCell>,
+  startCell: RasterFaceCell,
+): RasterFaceCell[] {
+  const component: RasterFaceCell[] = [];
+  const pendingCells = [startCell];
+  cells.delete(getRasterFaceCellKey(startCell));
+
+  while (pendingCells.length > 0) {
+    const currentCell = pendingCells.pop();
+    if (!currentCell) {
+      continue;
+    }
+
+    component.push(currentCell);
+    for (const candidate of cells.values()) {
+      if (
+        getRasterFaceCellGroupKey(candidate) !==
+          getRasterFaceCellGroupKey(currentCell) ||
+        !areRasterFaceCellsAdjacent(currentCell, candidate)
+      ) {
+        continue;
+      }
+
+      cells.delete(getRasterFaceCellKey(candidate));
+      pendingCells.push(candidate);
+    }
+  }
+
+  return component;
+}
+
+function buildRasterMergedSurfaces({
+  filledVoxels,
+  projection,
+}: {
+  filledVoxels: ReadonlySet<string>;
+  projection: RasterProjection;
+}): RasterMergedSurface[] {
+  const remainingCells = new Map(
+    collectRasterFaceCells(filledVoxels).map((cell) => [
+      getRasterFaceCellKey(cell),
+      cell,
+    ]),
+  );
+  const mergedSurfaces: RasterMergedSurface[] = [];
+
+  for (const cell of remainingCells.values()) {
+    if (!remainingCells.has(getRasterFaceCellKey(cell))) {
+      continue;
+    }
+
+    const rotatedNormal = projection.rotatePoint(cell.normal);
+    if (dotVectors(rotatedNormal, projection.cameraDirection) <= 0) {
+      remainingCells.delete(getRasterFaceCellKey(cell));
+      continue;
+    }
+
+    const component = takeRasterConnectedSurface(remainingCells, cell);
+    const depth =
+      component.reduce((totalDepth, componentCell) => {
+        return (
+          totalDepth +
+          dotVectors(
+            projection.rotatePoint(getRasterFaceCellCenter(componentCell)),
+            projection.cameraDirection,
+          )
+        );
+      }, 0) / component.length;
+
+    mergedSurfaces.push({
+      cells: component,
+      colorKey: cell.colorKey,
+      depth,
+      key: `${getRasterFaceCellGroupKey(cell)}:${component
+        .map((componentCell) => `${componentCell.u},${componentCell.v}`)
+        .sort()
+        .join("|")}`,
+      normal: cell.normal,
+      planeAxis: cell.planeAxis,
+      planeIndex: cell.planeIndex,
+      uAxis: cell.uAxis,
+      vAxis: cell.vAxis,
+    });
+  }
+
+  return mergedSurfaces.sort((left, right) => {
+    if (left.depth !== right.depth) {
+      return left.depth - right.depth;
+    }
+
+    return left.key.localeCompare(right.key);
+  });
+}
+
+function drawRasterMergedSurface({
+  context,
+  projection,
+  surface,
+}: {
+  context: CanvasRenderingContext2D;
+  projection: RasterProjection;
+  surface: RasterMergedSurface;
+}) {
+  context.beginPath();
+  for (const loop of getRasterMergedSurfaceLoops(surface.cells)) {
+    const [firstPoint, ...remainingPoints] = loop;
+    const projectedFirstPoint = projection.projectPoint(
+      createRasterGridPoint({
+        planeAxis: surface.planeAxis,
+        planeIndex: surface.planeIndex,
+        u: firstPoint.u,
+        uAxis: surface.uAxis,
+        v: firstPoint.v,
+        vAxis: surface.vAxis,
+      }),
+    );
+    context.moveTo(projectedFirstPoint.x, projectedFirstPoint.y);
+
+    for (const point of remainingPoints) {
+      const projectedPoint = projection.projectPoint(
+        createRasterGridPoint({
+          planeAxis: surface.planeAxis,
+          planeIndex: surface.planeIndex,
+          u: point.u,
+          uAxis: surface.uAxis,
+          v: point.v,
+          vAxis: surface.vAxis,
+        }),
+      );
+      context.lineTo(projectedPoint.x, projectedPoint.y);
+    }
+
+    context.closePath();
+  }
+
+  context.fill();
+}
+
 function renderSurfaceMotifCanvas({
   activeMoves,
   elevationDegrees,
@@ -702,44 +1169,12 @@ function renderSurfaceMotifCanvas({
     return canvas;
   }
 
-  const surfaces = buildLogoSurfaceQuads(filledVoxels)
-    .map((surfaceQuad) => {
-      const rotatedNormal = projection.rotatePoint(surfaceQuad.normal);
-      if (dotVectors(rotatedNormal, projection.cameraDirection) <= 0) {
-        return null;
-      }
-
-      return {
-        color: getTailwindColorHex(faceColors[surfaceQuad.colorKey]),
-        depth: dotVectors(
-          projection.rotatePoint(getSurfaceQuadCenter(surfaceQuad)),
-          projection.cameraDirection,
-        ),
-        key: surfaceQuad.key,
-        points: surfaceQuad.vertices.map((vertex) =>
-          projection.projectPoint(toRasterSurfaceVertex(vertex)),
-        ),
-      };
-    })
-    .filter((surface) => surface !== null);
-
-  context.lineJoin = "miter";
-  context.lineWidth = Math.max(1, projection.sizePx / 512);
   context.globalAlpha = Math.max(0, Math.min(opacity, 1));
 
-  surfaces
-    .sort((left, right) => {
-      if (left.depth !== right.depth) {
-        return left.depth - right.depth;
-      }
-
-      return left.key.localeCompare(right.key);
-    })
-    .forEach((surface) => {
-      context.fillStyle = surface.color;
-      context.strokeStyle = surface.color;
-      drawPolygon(context, surface.points);
-    });
+  buildRasterMergedSurfaces({ filledVoxels, projection }).forEach((surface) => {
+    context.fillStyle = getTailwindColorHex(faceColors[surface.colorKey]);
+    drawRasterMergedSurface({ context, projection, surface });
+  });
 
   context.globalAlpha = 1;
 
