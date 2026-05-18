@@ -176,6 +176,20 @@ antialias mismatch is not treated the same as a fully wrong pixel. In that case,
 `31 / 387` with `0.9%`, `Crisp` reports `46 / 382` with `5.5%`, and
 `Merged faces` remains `0 / 387` with `0.0%`.
 
+3x3 follow-up: the same lab now has a fixed base-grid toggle. The 3x3 depth-2
+case produces a 9x9x9 full cube without allowing individual cube edits, so it
+tests the real 3-based scaling shape while keeping the mental model simpler than
+`/logo/raster`. In the Linux ARM64 24px source, 22deg rotation, and 22deg
+elevation snapshot, `Plain` reports `110 / 385` mismatches with `2.0%` error,
+`source-atop-single` reports `59 / 385` with `1.6%`, `source-atop-full` reports
+`62 / 385` with `1.7%`, `Crisp` reports `161 / 382` with `19.1%`, and
+`Merged faces` remains `0.0%` after simplifying colinear boundary points before
+painting. The scale counters for that case are `729` occupied cells, `54` cached
+image placements, and `243` visible face rects merged into `3` loops / `12`
+points. The source sweep includes 96px and 144px cases because the intentionally
+tiny 18px/24px sources exaggerate seam visibility; normal-sized source rasters
+still show the same ordering but with lower mismatch ratios.
+
 References checked:
 
 - [WHATWG Canvas 2D](https://html.spec.whatwg.org/multipage/canvas.html):

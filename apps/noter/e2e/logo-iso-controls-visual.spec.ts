@@ -433,6 +433,18 @@ test("logo raster seam lab shows the tiny 2x2 image-composition diagnostic", asy
     },
   );
 
+  await page.getByRole("button", { exact: true, name: "3x3" }).click();
+  await expect(currentCase).toContainText("3x3 base, depth 2 -> 9x9x9");
+  await expect(currentCase).toHaveScreenshot(
+    "logo-raster-seam-lab-3x3-depth-2.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.01,
+      scale: "css",
+    },
+  );
+
   await page.getByRole("button", { name: "Merged faces" }).first().click();
   await expect(currentCase).toContainText("Merged faces");
   await expect(currentCase.getByText(/0 \/ \d+ \(0\.0%\)/)).toHaveCount(3);

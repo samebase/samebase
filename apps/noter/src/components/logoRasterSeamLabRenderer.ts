@@ -93,6 +93,7 @@ type RasterSeamLabMergedFaceGroup = {
   normal: Vector3;
   planeAxis: AxisIndex;
   planeIndex: number;
+  rectCount: number;
   uAxis: AxisIndex;
   vAxis: AxisIndex;
 };
@@ -100,6 +101,8 @@ type RasterSeamLabMergedFaceGroup = {
 export type RasterSeamLabImageKind = "composed" | "mask" | "reference";
 
 export type RasterSeamLabDepth = 1 | 2;
+
+export type RasterSeamLabGridSize = 2 | 3;
 
 export type RasterSeamLabMergeMode =
   | "crisp-source-over"
@@ -118,14 +121,29 @@ export type RasterSeamLabResult = {
   coveredPixels: number;
   meanSquaredError: number;
   seamPixels: number;
+  stats: RasterSeamLabStats;
+};
+
+export type RasterSeamLabStats = {
+  baseGridSize: RasterSeamLabGridSize;
+  effectiveGridSize: number;
+  mergedFaceLoops: number;
+  mergedFacePoints: number;
+  mergedFaceRects: number;
+  occupiedCells: number;
+  recursiveTileDraws: number;
 };
 
 export const RASTER_SEAM_LAB_DEPTHS = [
   1, 2,
 ] as const satisfies readonly RasterSeamLabDepth[];
 
+export const RASTER_SEAM_LAB_GRID_SIZES = [
+  2, 3,
+] as const satisfies readonly RasterSeamLabGridSize[];
+
 export const RASTER_SEAM_LAB_SOURCE_SIZES = [
-  18, 24, 32, 48,
+  18, 24, 32, 48, 96, 144,
 ] as const satisfies readonly number[];
 
 export const RASTER_SEAM_LAB_SAMPLE_ROTATIONS = [
@@ -161,12 +179,22 @@ export const RASTER_SEAM_LAB_MERGE_MODES = [
 
 export const RASTER_SEAM_LAB_DEFAULT_ELEVATION_DEGREES = 22;
 export const RASTER_SEAM_LAB_DEFAULT_DEPTH: RasterSeamLabDepth = 1;
+export const RASTER_SEAM_LAB_DEFAULT_GRID_SIZE: RasterSeamLabGridSize = 2;
 export const RASTER_SEAM_LAB_DEFAULT_MERGE_MODE: RasterSeamLabMergeMode =
   "source-over";
 export const RASTER_SEAM_LAB_DEFAULT_ROTATION_DEGREES = 22;
 export const RASTER_SEAM_LAB_DEFAULT_SOURCE_SIZE_PX = 24;
 
-const GRID_SIZE = 2;
+export const RASTER_SEAM_LAB_EMPTY_STATS = {
+  baseGridSize: RASTER_SEAM_LAB_DEFAULT_GRID_SIZE,
+  effectiveGridSize: RASTER_SEAM_LAB_DEFAULT_GRID_SIZE,
+  mergedFaceLoops: 0,
+  mergedFacePoints: 0,
+  mergedFaceRects: 0,
+  occupiedCells: 0,
+  recursiveTileDraws: 0,
+} satisfies RasterSeamLabStats;
+
 const FRUSTUM_PADDING = 1.08;
 const SEAM_ALPHA_THRESHOLD = 230;
 const SEAM_COLOR_DISTANCE_THRESHOLD = 70;
@@ -183,6 +211,12 @@ export function normalizeRasterSeamLabDepth(
   value: number | null | undefined,
 ): RasterSeamLabDepth {
   return value === 2 ? 2 : RASTER_SEAM_LAB_DEFAULT_DEPTH;
+}
+
+export function normalizeRasterSeamLabGridSize(
+  value: number | null | undefined,
+): RasterSeamLabGridSize {
+  return value === 3 ? 3 : RASTER_SEAM_LAB_DEFAULT_GRID_SIZE;
 }
 
 const MERGED_FACE_DEFINITIONS = [
@@ -731,8 +765,14 @@ function createCrispUnitCubeCanvas(
   return canvas;
 }
 
-function getGridCoordinate(index: number): number {
-  return index / GRID_SIZE - 0.5;
+function getGridCoordinate({
+  gridSize,
+  index,
+}: {
+  gridSize: number;
+  index: number;
+}): number {
+  return index / gridSize - 0.5;
 }
 
 function getGridPointKey(point: GridPoint2D) {
@@ -751,12 +791,12 @@ function getGridCellKey(cell: GridCell) {
   return `${cell.x},${cell.y},${cell.z}`;
 }
 
-function getGridCells(): GridCell[] {
+function getGridCells(gridSize: number): GridCell[] {
   const cells: GridCell[] = [];
 
-  for (let x = 0; x < GRID_SIZE; x += 1) {
-    for (let y = 0; y < GRID_SIZE; y += 1) {
-      for (let z = 0; z < GRID_SIZE; z += 1) {
+  for (let x = 0; x < gridSize; x += 1) {
+    for (let y = 0; y < gridSize; y += 1) {
+      for (let z = 0; z < gridSize; z += 1) {
         cells.push({ x, y, z });
       }
     }
@@ -798,6 +838,29 @@ function takeNextBoundaryEdge(
   return null;
 }
 
+function areGridPointsColinear(
+  previous: GridPoint2D,
+  current: GridPoint2D,
+  next: GridPoint2D,
+) {
+  return (
+    (previous.u === current.u && current.u === next.u) ||
+    (previous.v === current.v && current.v === next.v)
+  );
+}
+
+function simplifyGridLoop(loop: readonly GridPoint2D[]) {
+  if (loop.length <= 3) {
+    return [...loop];
+  }
+
+  return loop.filter((point, index) => {
+    const previous = loop[(index + loop.length - 1) % loop.length];
+    const next = loop[(index + 1) % loop.length];
+    return !areGridPointsColinear(previous, point, next);
+  });
+}
+
 function getMergedRectLoops(rects: readonly GridRect[]) {
   const edges = new Map<string, GridEdge>();
   for (const rect of rects) {
@@ -833,8 +896,9 @@ function getMergedRectLoops(rects: readonly GridRect[]) {
       currentPoint = nextEdge.to;
     }
 
-    if (loop.length >= 3) {
-      loops.push(loop);
+    const simplifiedLoop = simplifyGridLoop(loop);
+    if (simplifiedLoop.length >= 3) {
+      loops.push(simplifiedLoop);
     }
   }
 
@@ -842,21 +906,23 @@ function getMergedRectLoops(rects: readonly GridRect[]) {
 }
 
 function createWorldGridPoint({
+  gridSize,
   planeAxis,
   planeIndex,
   point,
   uAxis,
   vAxis,
 }: {
+  gridSize: number;
   planeAxis: AxisIndex;
   planeIndex: number;
   point: GridPoint2D;
   uAxis: AxisIndex;
   vAxis: AxisIndex;
 }): Vector3 {
-  const planeCoordinate = getGridCoordinate(planeIndex);
-  const uCoordinate = getGridCoordinate(point.u);
-  const vCoordinate = getGridCoordinate(point.v);
+  const planeCoordinate = getGridCoordinate({ gridSize, index: planeIndex });
+  const uCoordinate = getGridCoordinate({ gridSize, index: point.u });
+  const vCoordinate = getGridCoordinate({ gridSize, index: point.v });
   const getCoordinate = (axis: AxisIndex) => {
     if (axis === planeAxis) {
       return planeCoordinate;
@@ -875,12 +941,14 @@ function createWorldGridPoint({
 }
 
 function getRectCenter({
+  gridSize,
   planeAxis,
   planeIndex,
   rect,
   uAxis,
   vAxis,
 }: {
+  gridSize: number;
   planeAxis: AxisIndex;
   planeIndex: number;
   rect: GridRect;
@@ -888,6 +956,7 @@ function getRectCenter({
   vAxis: AxisIndex;
 }): Vector3 {
   return createWorldGridPoint({
+    gridSize,
     planeAxis,
     planeIndex,
     point: {
@@ -899,10 +968,14 @@ function getRectCenter({
   });
 }
 
-function getMergedFaceGroups(
-  projection: RasterSeamLabProjection,
-): RasterSeamLabMergedFaceGroup[] {
-  const cells = getGridCells();
+function getMergedFaceGroups({
+  gridSize,
+  projection,
+}: {
+  gridSize: number;
+  projection: RasterSeamLabProjection;
+}): RasterSeamLabMergedFaceGroup[] {
+  const cells = getGridCells(gridSize);
   const occupiedCellKeys = new Set(cells.map((cell) => getGridCellKey(cell)));
   const groups = new Map<string, RasterSeamLabFaceAccumulator>();
 
@@ -948,6 +1021,7 @@ function getMergedFaceGroups(
       const depth =
         group.rects.reduce((totalDepth, rect) => {
           const rectCenter = getRectCenter({
+            gridSize,
             planeAxis: group.planeAxis,
             planeIndex: group.planeIndex,
             rect,
@@ -971,6 +1045,7 @@ function getMergedFaceGroups(
         normal: group.normal,
         planeAxis: group.planeAxis,
         planeIndex: group.planeIndex,
+        rectCount: group.rects.length,
         uAxis: group.uAxis,
         vAxis: group.vAxis,
       };
@@ -987,10 +1062,12 @@ function getMergedFaceGroups(
 
 function drawMergedFaceGroup({
   context,
+  gridSize,
   group,
   projection,
 }: {
   context: CanvasRenderingContext2D;
+  gridSize: number;
   group: RasterSeamLabMergedFaceGroup;
   projection: RasterSeamLabProjection;
 }) {
@@ -999,6 +1076,7 @@ function drawMergedFaceGroup({
     const [firstPoint, ...remainingPoints] = loop;
     const projectedFirstPoint = projection.projectPoint(
       createWorldGridPoint({
+        gridSize,
         planeAxis: group.planeAxis,
         planeIndex: group.planeIndex,
         point: firstPoint,
@@ -1011,6 +1089,7 @@ function drawMergedFaceGroup({
     for (const point of remainingPoints) {
       const projectedPoint = projection.projectPoint(
         createWorldGridPoint({
+          gridSize,
           planeAxis: group.planeAxis,
           planeIndex: group.planeIndex,
           point,
@@ -1027,7 +1106,13 @@ function drawMergedFaceGroup({
   context.stroke();
 }
 
-function renderMergedFacesImage(projection: RasterSeamLabProjection) {
+function renderMergedFacesImage({
+  gridSize,
+  projection,
+}: {
+  gridSize: number;
+  projection: RasterSeamLabProjection;
+}) {
   const canvas = createLabCanvas(projection.sizePx);
   const context = canvas.getContext("2d");
   if (!context) {
@@ -1036,21 +1121,23 @@ function renderMergedFacesImage(projection: RasterSeamLabProjection) {
 
   context.lineJoin = "miter";
   context.lineWidth = Math.max(1, projection.sizePx / 32);
-  for (const group of getMergedFaceGroups(projection)) {
+  for (const group of getMergedFaceGroups({ gridSize, projection })) {
     context.fillStyle = group.color;
     context.strokeStyle = group.color;
-    drawMergedFaceGroup({ context, group, projection });
+    drawMergedFaceGroup({ context, gridSize, group, projection });
   }
 
   return canvas;
 }
 
 function getCellCenter({
+  gridSize,
   halfSize,
   x,
   y,
   z,
 }: {
+  gridSize: number;
   halfSize: number;
   x: number;
   y: number;
@@ -1058,25 +1145,27 @@ function getCellCenter({
 }): Vector3 {
   const size = halfSize * 2;
   return [
-    ((x + 0.5) / GRID_SIZE) * size - halfSize,
-    ((y + 0.5) / GRID_SIZE) * size - halfSize,
-    ((z + 0.5) / GRID_SIZE) * size - halfSize,
+    ((x + 0.5) / gridSize) * size - halfSize,
+    ((y + 0.5) / gridSize) * size - halfSize,
+    ((z + 0.5) / gridSize) * size - halfSize,
   ];
 }
 
 function getDrawItems({
+  gridSize,
   halfSize,
   projection,
 }: {
+  gridSize: number;
   halfSize: number;
   projection: RasterSeamLabProjection;
 }): RasterSeamLabDrawItem[] {
   const drawItems: RasterSeamLabDrawItem[] = [];
 
-  for (let x = 0; x < GRID_SIZE; x += 1) {
-    for (let y = 0; y < GRID_SIZE; y += 1) {
-      for (let z = 0; z < GRID_SIZE; z += 1) {
-        const center = getCellCenter({ halfSize, x, y, z });
+  for (let x = 0; x < gridSize; x += 1) {
+    for (let y = 0; y < gridSize; y += 1) {
+      for (let z = 0; z < gridSize; z += 1) {
+        const center = getCellCenter({ gridSize, halfSize, x, y, z });
         drawItems.push({
           center,
           depth: dotVectors(
@@ -1100,10 +1189,12 @@ function getDrawItems({
 
 function renderComposedImage({
   childCanvas,
+  gridSize,
   halfSize,
   projection,
 }: {
   childCanvas: HTMLCanvasElement;
+  gridSize: number;
   halfSize: number;
   projection: RasterSeamLabProjection;
 }) {
@@ -1115,7 +1206,7 @@ function renderComposedImage({
 
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
-  for (const item of getDrawItems({ halfSize, projection })) {
+  for (const item of getDrawItems({ gridSize, halfSize, projection })) {
     const offset = projection.projectVector(item.center);
     context.drawImage(childCanvas, offset.x, offset.y);
   }
@@ -1125,10 +1216,12 @@ function renderComposedImage({
 
 function renderCrispComposedImage({
   childCanvas,
+  gridSize,
   halfSize,
   projection,
 }: {
   childCanvas: HTMLCanvasElement;
+  gridSize: number;
   halfSize: number;
   projection: RasterSeamLabProjection;
 }) {
@@ -1139,7 +1232,7 @@ function renderCrispComposedImage({
   }
 
   context.imageSmoothingEnabled = false;
-  for (const item of getDrawItems({ halfSize, projection })) {
+  for (const item of getDrawItems({ gridSize, halfSize, projection })) {
     const offset = projection.projectVector(item.center);
     context.drawImage(childCanvas, Math.round(offset.x), Math.round(offset.y));
   }
@@ -1195,11 +1288,13 @@ function getNearerOverlappingItems({
 function renderSingleCompositeImage({
   canvasOperation,
   childCanvas,
+  gridSize,
   halfSize,
   projection,
 }: {
   canvasOperation: GlobalCompositeOperation;
   childCanvas: HTMLCanvasElement;
+  gridSize: number;
   halfSize: number;
   projection: RasterSeamLabProjection;
 }) {
@@ -1209,7 +1304,7 @@ function renderSingleCompositeImage({
     return canvas;
   }
 
-  const items = getDrawItems({ halfSize, projection });
+  const items = getDrawItems({ gridSize, halfSize, projection });
   const offsets = items.map((item) => getDrawImageOffset(projection, item));
   const magicCanvas = createLabCanvas(projection.sizePx);
   const magicContext = magicCanvas.getContext("2d");
@@ -1249,11 +1344,13 @@ function renderSingleCompositeImage({
 function renderFullCompositeImage({
   canvasOperation,
   childCanvas,
+  gridSize,
   halfSize,
   projection,
 }: {
   canvasOperation: GlobalCompositeOperation;
   childCanvas: HTMLCanvasElement;
+  gridSize: number;
   halfSize: number;
   projection: RasterSeamLabProjection;
 }) {
@@ -1263,7 +1360,7 @@ function renderFullCompositeImage({
     return canvas;
   }
 
-  const items = getDrawItems({ halfSize, projection });
+  const items = getDrawItems({ gridSize, halfSize, projection });
   const offsets = items.map((item) => getDrawImageOffset(projection, item));
   const stagePaddingPx = projection.sizePx;
   const stageSizePx = projection.sizePx + stagePaddingPx * 2;
@@ -1318,10 +1415,12 @@ function renderFullCompositeImage({
 
 function renderRecursiveComposedImage({
   depth,
+  gridSize,
   halfSize,
   projection,
 }: {
   depth: number;
+  gridSize: number;
   halfSize: number;
   projection: RasterSeamLabProjection;
 }): HTMLCanvasElement {
@@ -1331,18 +1430,21 @@ function renderRecursiveComposedImage({
 
   const childCanvas = renderRecursiveComposedImage({
     depth: depth - 1,
-    halfSize: halfSize / GRID_SIZE,
+    gridSize,
+    halfSize: halfSize / gridSize,
     projection,
   });
-  return renderComposedImage({ childCanvas, halfSize, projection });
+  return renderComposedImage({ childCanvas, gridSize, halfSize, projection });
 }
 
 function renderRecursiveCrispComposedImage({
   depth,
+  gridSize,
   halfSize,
   projection,
 }: {
   depth: number;
+  gridSize: number;
   halfSize: number;
   projection: RasterSeamLabProjection;
 }): HTMLCanvasElement {
@@ -1352,20 +1454,28 @@ function renderRecursiveCrispComposedImage({
 
   const childCanvas = renderRecursiveCrispComposedImage({
     depth: depth - 1,
-    halfSize: halfSize / GRID_SIZE,
+    gridSize,
+    halfSize: halfSize / gridSize,
     projection,
   });
-  return renderCrispComposedImage({ childCanvas, halfSize, projection });
+  return renderCrispComposedImage({
+    childCanvas,
+    gridSize,
+    halfSize,
+    projection,
+  });
 }
 
 function renderRecursiveSingleCompositeImage({
   canvasOperation,
   depth,
+  gridSize,
   halfSize,
   projection,
 }: {
   canvasOperation: GlobalCompositeOperation;
   depth: number;
+  gridSize: number;
   halfSize: number;
   projection: RasterSeamLabProjection;
 }): HTMLCanvasElement {
@@ -1376,12 +1486,14 @@ function renderRecursiveSingleCompositeImage({
   const childCanvas = renderRecursiveSingleCompositeImage({
     canvasOperation,
     depth: depth - 1,
-    halfSize: halfSize / GRID_SIZE,
+    gridSize,
+    halfSize: halfSize / gridSize,
     projection,
   });
   return renderSingleCompositeImage({
     canvasOperation,
     childCanvas,
+    gridSize,
     halfSize,
     projection,
   });
@@ -1390,11 +1502,13 @@ function renderRecursiveSingleCompositeImage({
 function renderRecursiveFullCompositeImage({
   canvasOperation,
   depth,
+  gridSize,
   halfSize,
   projection,
 }: {
   canvasOperation: GlobalCompositeOperation;
   depth: number;
+  gridSize: number;
   halfSize: number;
   projection: RasterSeamLabProjection;
 }): HTMLCanvasElement {
@@ -1405,23 +1519,98 @@ function renderRecursiveFullCompositeImage({
   const childCanvas = renderRecursiveFullCompositeImage({
     canvasOperation,
     depth: depth - 1,
-    halfSize: halfSize / GRID_SIZE,
+    gridSize,
+    halfSize: halfSize / gridSize,
     projection,
   });
   return renderFullCompositeImage({
     canvasOperation,
     childCanvas,
+    gridSize,
     halfSize,
     projection,
   });
 }
 
+function getEffectiveGridSize({
+  depth,
+  gridSize,
+}: {
+  depth: RasterSeamLabDepth;
+  gridSize: RasterSeamLabGridSize;
+}) {
+  return gridSize ** depth;
+}
+
+function getRasterSeamLabStats({
+  depth,
+  gridSize,
+  projection,
+}: {
+  depth: RasterSeamLabDepth;
+  gridSize: RasterSeamLabGridSize;
+  projection: RasterSeamLabProjection;
+}): RasterSeamLabStats {
+  const effectiveGridSize = getEffectiveGridSize({ depth, gridSize });
+  const visibleMergedFaceGroups = getMergedFaceGroups({
+    gridSize: effectiveGridSize,
+    projection,
+  });
+
+  return {
+    baseGridSize: gridSize,
+    effectiveGridSize,
+    mergedFaceLoops: visibleMergedFaceGroups.reduce(
+      (totalLoops, group) => totalLoops + group.loops.length,
+      0,
+    ),
+    mergedFacePoints: visibleMergedFaceGroups.reduce(
+      (totalPoints, group) =>
+        totalPoints +
+        group.loops.reduce((groupPoints, loop) => groupPoints + loop.length, 0),
+      0,
+    ),
+    mergedFaceRects: visibleMergedFaceGroups.reduce(
+      (totalRects, group) => totalRects + group.rectCount,
+      0,
+    ),
+    occupiedCells: effectiveGridSize ** 3,
+    recursiveTileDraws: depth * gridSize ** 3,
+  };
+}
+
+export function getLogoRasterSeamLabStats({
+  depth,
+  elevationDegrees,
+  gridSize,
+  rotationDegrees,
+  sourceSizePx,
+}: {
+  depth: RasterSeamLabDepth;
+  elevationDegrees: number;
+  gridSize: RasterSeamLabGridSize;
+  rotationDegrees: number;
+  sourceSizePx: number;
+}): RasterSeamLabStats {
+  return getRasterSeamLabStats({
+    depth,
+    gridSize,
+    projection: createProjection({
+      elevationDegrees,
+      rotationDegrees,
+      sizePx: sourceSizePx,
+    }),
+  });
+}
+
 function renderMergedImage({
   depth,
+  gridSize,
   mergeMode,
   projection,
 }: {
   depth: RasterSeamLabDepth;
+  gridSize: RasterSeamLabGridSize;
   mergeMode: RasterSeamLabMergeMode;
   projection: RasterSeamLabProjection;
 }): HTMLCanvasElement {
@@ -1429,12 +1618,14 @@ function renderMergedImage({
     case "source-over":
       return renderRecursiveComposedImage({
         depth,
+        gridSize,
         halfSize: 0.5,
         projection,
       });
     case "crisp-source-over":
       return renderRecursiveCrispComposedImage({
         depth,
+        gridSize,
         halfSize: 0.5,
         projection,
       });
@@ -1442,6 +1633,7 @@ function renderMergedImage({
       return renderRecursiveSingleCompositeImage({
         canvasOperation: "source-atop",
         depth,
+        gridSize,
         halfSize: 0.5,
         projection,
       });
@@ -1449,6 +1641,7 @@ function renderMergedImage({
       return renderRecursiveFullCompositeImage({
         canvasOperation: "source-atop",
         depth,
+        gridSize,
         halfSize: 0.5,
         projection,
       });
@@ -1456,11 +1649,15 @@ function renderMergedImage({
       return renderRecursiveFullCompositeImage({
         canvasOperation: "destination-out",
         depth,
+        gridSize,
         halfSize: 0.5,
         projection,
       });
     case "merged-faces":
-      return renderMergedFacesImage(projection);
+      return renderMergedFacesImage({
+        gridSize: getEffectiveGridSize({ depth, gridSize }),
+        projection,
+      });
     default:
       mergeMode satisfies never;
       throw new Error("Unsupported raster seam lab merge mode.");
@@ -1490,6 +1687,10 @@ function renderReferenceImage({
       projection,
     });
     return canvas;
+  }
+
+  if (mergeMode === "merged-faces") {
+    return renderMergedFacesImage({ gridSize: 1, projection });
   }
 
   drawProjectedFaces({
@@ -1537,7 +1738,12 @@ function measureSeams({
   const composedImageData = getImageData(composedCanvas);
   const referenceImageData = getImageData(referenceCanvas);
   if (!composedImageData || !referenceImageData) {
-    return { coveredPixels: 0, meanSquaredError: 0, seamPixels: 0 };
+    return {
+      coveredPixels: 0,
+      meanSquaredError: 0,
+      seamPixels: 0,
+      stats: RASTER_SEAM_LAB_EMPTY_STATS,
+    };
   }
 
   let coveredPixels = 0;
@@ -1582,6 +1788,7 @@ function measureSeams({
     coveredPixels,
     meanSquaredError: maxSquaredError > 0 ? squaredError / maxSquaredError : 0,
     seamPixels,
+    stats: RASTER_SEAM_LAB_EMPTY_STATS,
   };
 }
 
@@ -1652,6 +1859,7 @@ export function drawLogoRasterSeamLabImage(
   {
     depth,
     elevationDegrees,
+    gridSize,
     imageKind,
     mergeMode,
     rotationDegrees,
@@ -1659,6 +1867,7 @@ export function drawLogoRasterSeamLabImage(
   }: {
     depth: RasterSeamLabDepth;
     elevationDegrees: number;
+    gridSize: RasterSeamLabGridSize;
     imageKind: RasterSeamLabImageKind;
     mergeMode: RasterSeamLabMergeMode;
     rotationDegrees: number;
@@ -1670,9 +1879,17 @@ export function drawLogoRasterSeamLabImage(
     rotationDegrees,
     sizePx: sourceSizePx,
   });
-  const composedCanvas = renderMergedImage({ depth, mergeMode, projection });
+  const composedCanvas = renderMergedImage({
+    depth,
+    gridSize,
+    mergeMode,
+    projection,
+  });
   const referenceCanvas = renderReferenceImage({ mergeMode, projection });
-  const seamResult = measureSeams({ composedCanvas, referenceCanvas });
+  const seamResult = {
+    ...measureSeams({ composedCanvas, referenceCanvas }),
+    stats: getRasterSeamLabStats({ depth, gridSize, projection }),
+  };
 
   if (context.canvas.width !== sourceSizePx) {
     context.canvas.width = sourceSizePx;
