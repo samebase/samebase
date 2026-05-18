@@ -491,6 +491,9 @@ Detailed flow rules live in `docs/agent-workflows.md`.
 - Prefer key-only boolean query params such as `?diff`.
 - Preserve unrelated query params when changing app URLs. Use the shared query
   param helpers instead of hand-building URLs.
+- For advanced numeric controls, a slider can have a sensible drag range, but
+  typed inputs and search params should not clamp above that range unless a real
+  product invariant requires a hard maximum.
 - For Playwright or browser automation, never steal OS focus and never kill all
   Chrome processes. Use isolated Playwright-owned sessions only.
 - For this repo, prefer `node ./scripts/playwright-branch-browser.ts` or

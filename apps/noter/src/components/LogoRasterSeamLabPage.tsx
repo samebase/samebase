@@ -11,10 +11,10 @@ import {
   RASTER_SEAM_LAB_GRID_SIZES,
   RASTER_SEAM_LAB_DEFAULT_SOURCE_SIZE_PX,
   RASTER_SEAM_LAB_INFLATION_SCALE_STEP,
-  RASTER_SEAM_LAB_MAX_INFLATION_SCALE,
   RASTER_SEAM_LAB_MERGE_MODES,
   RASTER_SEAM_LAB_MIN_INFLATION_SCALE,
   RASTER_SEAM_LAB_SAMPLE_ROTATIONS,
+  RASTER_SEAM_LAB_SLIDER_MAX_INFLATION_SCALE,
   RASTER_SEAM_LAB_SOURCE_SIZES,
   drawLogoRasterSeamLabImage,
   getLogoRasterSeamLabStats,
@@ -416,9 +416,12 @@ export function LogoRasterSeamLabPage({
               <input
                 type="range"
                 min={RASTER_SEAM_LAB_MIN_INFLATION_SCALE}
-                max={RASTER_SEAM_LAB_MAX_INFLATION_SCALE}
+                max={RASTER_SEAM_LAB_SLIDER_MAX_INFLATION_SCALE}
                 step={RASTER_SEAM_LAB_INFLATION_SCALE_STEP}
-                value={inflationScale}
+                value={Math.min(
+                  inflationScale,
+                  RASTER_SEAM_LAB_SLIDER_MAX_INFLATION_SCALE,
+                )}
                 onChange={(event) => {
                   setInflationScale(
                     normalizeRasterSeamLabInflationScale(
@@ -431,7 +434,6 @@ export function LogoRasterSeamLabPage({
               <input
                 type="number"
                 min={RASTER_SEAM_LAB_MIN_INFLATION_SCALE}
-                max={RASTER_SEAM_LAB_MAX_INFLATION_SCALE}
                 step={RASTER_SEAM_LAB_INFLATION_SCALE_STEP}
                 value={inflationScale.toFixed(3)}
                 onChange={(event) => {
