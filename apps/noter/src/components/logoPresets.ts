@@ -12,6 +12,7 @@ export const DEFAULT_LOGO_PRESET_ID = "checker-lattice";
 export type LogoPresetId =
   | "checker-lattice"
   | "cornerless-cube"
+  | "full-cube"
   | "n-logo"
   | "sierpinski-carpet";
 export type LogoPresetSelection = LogoPresetId | typeof CUSTOM_LOGO_PRESET_ID;
@@ -67,6 +68,20 @@ function createCornerlessCubeVoxelState(): string {
   return serializeVoxelState(createFilledVoxelSet(coordinates));
 }
 
+function createFullCubeVoxelState(): string {
+  const coordinates: VoxelCoordinate[] = [];
+
+  for (let x = 0; x < GRID_SIZE; x += 1) {
+    for (let y = 0; y < GRID_SIZE; y += 1) {
+      for (let z = 0; z < GRID_SIZE; z += 1) {
+        coordinates.push([x, y, z] as const);
+      }
+    }
+  }
+
+  return serializeVoxelState(createFilledVoxelSet(coordinates));
+}
+
 function createSierpinskiCarpetVoxelState(): string {
   const coordinates: VoxelCoordinate[] = [];
   const centerIndex = Math.floor(GRID_SIZE / 2);
@@ -109,6 +124,13 @@ export const LOGO_PRESETS = [
     id: "sierpinski-carpet",
     label: "Sierpinski Carpet",
     voxelState: createSierpinskiCarpetVoxelState(),
+  },
+  {
+    description:
+      "Solid 3x3x3 block for spotting raster seams across full faces",
+    id: "full-cube",
+    label: "Full Cube",
+    voxelState: createFullCubeVoxelState(),
   },
   {
     description: "3x3x3 cube with all 8 corner cubes removed",

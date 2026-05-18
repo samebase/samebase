@@ -543,9 +543,7 @@ test("logo raster seam lab spacing scale moves the fake 3d centers", async ({
   await expect(spacingInput).toHaveValue("0.990");
 });
 
-test("logo shape presets include the Sierpinski carpet model", async ({
-  page,
-}) => {
+test("logo shape presets include seam stress models", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo/raster?top=red-500", {
     waitUntil: "domcontentloaded",
@@ -561,6 +559,7 @@ test("logo shape presets include the Sierpinski carpet model", async ({
   await expect(
     page.getByText("Sierpinski Carpet", { exact: true }),
   ).toBeVisible();
+  await expect(page.getByText("Full Cube", { exact: true })).toBeVisible();
   await page.getByText("Sierpinski Carpet", { exact: true }).click();
 
   await expect(
@@ -570,6 +569,19 @@ test("logo shape presets include the Sierpinski carpet model", async ({
   ).toBeVisible();
   await expect(controlsSidebar).toContainText(
     "xxx_xox_xxx-xox_ooo_xox-xxx_xox_xxx",
+  );
+
+  await controlsSidebar
+    .getByRole("combobox")
+    .filter({ hasText: "Sierpinski Carpet" })
+    .click();
+  await page.getByText("Full Cube", { exact: true }).click();
+
+  await expect(
+    controlsSidebar.getByRole("combobox").filter({ hasText: "Full Cube" }),
+  ).toBeVisible();
+  await expect(controlsSidebar).toContainText(
+    "xxx_xxx_xxx-xxx_xxx_xxx-xxx_xxx_xxx",
   );
 });
 
