@@ -562,6 +562,8 @@ test("logo raster seam lab source size input allows larger custom rasters", asyn
     'canvas[data-logo-raster-seam-lab="mask"]',
   );
   const sourceInput = page.getByLabel("Source size");
+  const rotationInput = page.getByLabel("Rotation degrees");
+  const elevationInput = page.getByLabel("Elevation degrees");
 
   await expect(sourceInput).toHaveValue("24");
   await sourceInput.fill("288");
@@ -572,6 +574,16 @@ test("logo raster seam lab source size input allows larger custom rasters", asyn
 
   await sourceInput.press("Enter");
   await expect(sourceInput).toHaveValue("288");
+
+  await expect(rotationInput).toHaveAttribute("step", "0.1");
+  await expect(elevationInput).toHaveAttribute("step", "0.1");
+  await rotationInput.fill("54.5");
+  await expect(rotationInput).toHaveValue("54.5");
+  await expect(currentCase).toContainText("rotation 54.5°");
+
+  await elevationInput.fill("22.4");
+  await expect(elevationInput).toHaveValue("22.4");
+  await expect(currentCase).toContainText("elevation 22.4°");
 });
 
 test("logo shape presets include seam stress models", async ({ page }) => {

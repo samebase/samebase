@@ -83,6 +83,10 @@ function formatAngleDegrees(value: number) {
   return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
 }
 
+function formatAngleInput(value: number) {
+  return formatAngleDegrees(value);
+}
+
 function parseScaleInput(value: string) {
   const trimmedValue = value.trim();
   if (!trimmedValue) {
@@ -282,6 +286,12 @@ export function LogoRasterSeamLabPage({
 }: {
   routeSearch: LogoRouteSearch;
 }) {
+  const initialRotationDegrees = normalizeRotationDegrees(
+    routeSearch.rot ?? RASTER_SEAM_LAB_DEFAULT_ROTATION_DEGREES,
+  );
+  const initialElevationDegrees = normalizeElevationDegrees(
+    routeSearch.elev ?? RASTER_SEAM_LAB_DEFAULT_ELEVATION_DEGREES,
+  );
   const [baseGridSize, setBaseGridSize] = useState(
     normalizeRasterSeamLabGridSize(RASTER_SEAM_LAB_DEFAULT_GRID_SIZE),
   );
@@ -297,14 +307,16 @@ export function LogoRasterSeamLabPage({
     ),
   );
   const [rotationDegrees, setRotationDegrees] = useState(
-    normalizeRotationDegrees(
-      routeSearch.rot ?? RASTER_SEAM_LAB_DEFAULT_ROTATION_DEGREES,
-    ),
+    initialRotationDegrees,
+  );
+  const [rotationInputValue, setRotationInputValue] = useState(
+    formatAngleInput(initialRotationDegrees),
   );
   const [elevationDegrees, setElevationDegrees] = useState(
-    normalizeElevationDegrees(
-      routeSearch.elev ?? RASTER_SEAM_LAB_DEFAULT_ELEVATION_DEGREES,
-    ),
+    initialElevationDegrees,
+  );
+  const [elevationInputValue, setElevationInputValue] = useState(
+    formatAngleInput(initialElevationDegrees),
   );
   const [mergeMode, setMergeMode] = useState<RasterSeamLabMergeMode>(
     RASTER_SEAM_LAB_DEFAULT_MERGE_MODE,
@@ -365,6 +377,36 @@ export function LogoRasterSeamLabPage({
 
     setInflationScale(nextInflationScale);
     setInflationScaleInputValue(formatScaleInput(nextInflationScale));
+  };
+  const setCommittedRotationDegrees = (value: number) => {
+    const nextRotationDegrees = normalizeRotationDegrees(value);
+    setRotationDegrees(nextRotationDegrees);
+    setRotationInputValue(formatAngleInput(nextRotationDegrees));
+  };
+  const commitRotationInput = () => {
+    const parsedValue = parseScaleInput(rotationInputValue);
+    const nextRotationDegrees =
+      parsedValue === null
+        ? rotationDegrees
+        : normalizeRotationDegrees(parsedValue);
+
+    setRotationDegrees(nextRotationDegrees);
+    setRotationInputValue(formatAngleInput(nextRotationDegrees));
+  };
+  const setCommittedElevationDegrees = (value: number) => {
+    const nextElevationDegrees = normalizeElevationDegrees(value);
+    setElevationDegrees(nextElevationDegrees);
+    setElevationInputValue(formatAngleInput(nextElevationDegrees));
+  };
+  const commitElevationInput = () => {
+    const parsedValue = parseScaleInput(elevationInputValue);
+    const nextElevationDegrees =
+      parsedValue === null
+        ? elevationDegrees
+        : normalizeElevationDegrees(parsedValue);
+
+    setElevationDegrees(nextElevationDegrees);
+    setElevationInputValue(formatAngleInput(nextElevationDegrees));
   };
   const labStats = getLogoRasterSeamLabStats({
     depth: recursiveDepth,
@@ -633,11 +675,33 @@ export function LogoRasterSeamLabPage({
                 min="0"
                 max="90"
                 step="0.1"
-                value={rotationDegrees}
+                value={Math.min(rotationDegrees, 90)}
                 onChange={(event) => {
-                  setRotationDegrees(Number(event.target.value));
+                  setCommittedRotationDegrees(Number(event.target.value));
                 }}
                 className="h-2 w-full cursor-pointer accent-black"
+              />
+              <input
+                type="number"
+                step="0.1"
+                value={rotationInputValue}
+                onChange={(event) => {
+                  const nextInputValue = event.target.value;
+                  const parsedValue = parseScaleInput(nextInputValue);
+
+                  setRotationInputValue(nextInputValue);
+                  if (parsedValue !== null) {
+                    setRotationDegrees(normalizeRotationDegrees(parsedValue));
+                  }
+                }}
+                onBlur={commitRotationInput}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
+                className="h-9 w-full border border-black/15 bg-white px-2 font-mono text-sm text-black"
+                aria-label="Rotation degrees"
               />
             </div>
 
@@ -651,11 +715,33 @@ export function LogoRasterSeamLabPage({
                 min="0"
                 max="70"
                 step="0.1"
-                value={elevationDegrees}
+                value={Math.min(elevationDegrees, 70)}
                 onChange={(event) => {
-                  setElevationDegrees(Number(event.target.value));
+                  setCommittedElevationDegrees(Number(event.target.value));
                 }}
                 className="h-2 w-full cursor-pointer accent-black"
+              />
+              <input
+                type="number"
+                step="0.1"
+                value={elevationInputValue}
+                onChange={(event) => {
+                  const nextInputValue = event.target.value;
+                  const parsedValue = parseScaleInput(nextInputValue);
+
+                  setElevationInputValue(nextInputValue);
+                  if (parsedValue !== null) {
+                    setElevationDegrees(normalizeElevationDegrees(parsedValue));
+                  }
+                }}
+                onBlur={commitElevationInput}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
+                className="h-9 w-full border border-black/15 bg-white px-2 font-mono text-sm text-black"
+                aria-label="Elevation degrees"
               />
             </div>
           </div>
