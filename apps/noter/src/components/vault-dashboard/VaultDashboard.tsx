@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/input";
+import { Input } from "@/components/ui/input";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultProvisioningLogTextarea } from "@/components/vault-dashboard/VaultProvisioningLogTextarea";
 import { ChevronDownIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
@@ -72,7 +72,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/dialog";
+} from "@/components/ui/dialog";
 import { CodespaceStatus } from "@/components/CodespaceStatus";
 import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
 import { EditedFilesCategoriesPopover } from "@/components/EditedFilesCategories";

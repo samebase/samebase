@@ -10,7 +10,7 @@ import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspaceP
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/input";
+import { Input } from "@/components/ui/input";
 import { getProsemarkFileThemeExtensions } from "@/components/prosemarkSurface";
 import {
   getCodeMirrorFileLanguageKind,

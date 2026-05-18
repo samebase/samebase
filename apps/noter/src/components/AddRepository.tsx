@@ -1,6 +1,6 @@
 import { GitHubLogoIcon, ClockIcon } from "@/lib/radixIcons";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/input";
+import { Input } from "@/components/ui/input";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import {

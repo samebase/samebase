@@ -8,7 +8,7 @@ vi.mock("@/hooks/use-mobile", () => ({
 }));
 
 // Replace portal-backed dialog primitives with passthrough shells for SSR assertions.
-vi.mock("@/components/dialog", () => ({
+vi.mock("@/components/ui/dialog", () => ({
   Dialog: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   DialogContent: ({ children }: { children?: ReactNode }) => (
     <div>{children}</div>
@@ -22,7 +22,7 @@ vi.mock("@/components/dialog", () => ({
 }));
 
 // Mirror the sheet API with inert wrappers so mobile-only structure stays simple here.
-vi.mock("@/components/sheet", () => ({
+vi.mock("@/components/ui/sheet", () => ({
   Sheet: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   SheetContent: ({ children }: { children?: ReactNode }) => (
     <div>{children}</div>
@@ -45,7 +45,7 @@ vi.mock("@/components/ui/button", () => ({
 }));
 
 // Keep input markup inspectable without pulling in interactive wrapper behavior.
-vi.mock("@/components/input", () => ({
+vi.mock("@/components/ui/input", () => ({
   Input: ({
     id,
     value,
