@@ -296,6 +296,39 @@ test("logo depth 5 keeps the tiled Three preview responsive", async ({
     .toBe("5:90");
 });
 
+test("logo iso depth 5 keeps recursive preview responsive", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo/iso?depth=5&vox=xxx_xox_xxx-xox_ooo_xox-xxx_xox_xxx", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  const canvas = page.locator('canvas[data-logo-renderer="iso"]').first();
+
+  await expect(canvas).toBeVisible();
+  await expect(controlsSidebar.getByLabel("Depth value")).toHaveValue("5");
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Add" }),
+  ).toHaveCount(0);
+  await waitForPaint(page);
+  await expect(canvas).toHaveScreenshot("logo-iso-depth-5-scene.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
+  });
+
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Start shuffle" }),
+  ).toBeVisible();
+  await controlsSidebar.getByRole("button", { name: "Start shuffle" }).click();
+  await expect(
+    controlsSidebar.getByRole("button", { name: "Stop shuffle" }),
+  ).toBeVisible();
+});
+
 test("logo raster depth 6 keeps recursive preview responsive", async ({
   page,
 }) => {

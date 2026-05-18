@@ -63,6 +63,12 @@ current yaw's bounding box. Fit against the maximum projected cube span for the
 current elevation and rotation-axis mode so dragging rotates the shape without
 zooming it in and out.
 
+Follow-up implementation note: the same fake-recursive boundary applies to the
+isometric and smooth SVG renderers. Iso should compose reusable transparent
+motif canvases at projected isometric offsets. SVG should define nested motif
+groups and place them with projected translations. Neither route should call
+`createLogoFractalVoxelGrid` for depth above 1 during normal preview/export.
+
 The cache must rebuild when these inputs change:
 
 - yaw / rotation

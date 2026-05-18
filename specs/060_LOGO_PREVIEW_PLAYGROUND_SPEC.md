@@ -117,6 +117,10 @@ Example:
   transparent image edges.
 - `/logo/raster` uses a stable projection scale for the current elevation and
   rotation-axis mode, so rotating does not zoom the shape in and out.
+- `/logo/iso` composes recursive depth from reusable isometric motif images. It
+  must not build the exact leaf-voxel grid for depth above `1`.
+- `/logo/svg` emits bounded nested reusable SVG groups for recursive depth. It
+  must not serialize every recursive leaf face as a separate polygon.
 - Public landing logos use the same tiled Three render path for recursive
   depths; their initial static SVG fallback stays bounded so a high `depth`
   query param cannot block the page before the canvas is ready.

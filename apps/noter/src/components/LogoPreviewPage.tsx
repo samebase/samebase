@@ -69,8 +69,6 @@ import {
   MIN_LOGO_FRACTAL_DEPTH,
   MIN_ELEVATION_DEGREES,
   applyVoxelEdit,
-  createDefaultFilledVoxelSet,
-  createLogoFractalVoxelGrid,
   normalizeElevationDegrees,
   normalizeLogoFractalDepth,
   normalizeRotationDegrees,
@@ -1150,21 +1148,7 @@ export function LogoPreviewPage({
   const selectedIsoStyle = getLogoIsometricStyle(state.isoStyleId);
   const rotationAngleControlLabel =
     ROTATION_ANGLE_CONTROL_LABELS[state.rotationAxisMode];
-  const baseFilledVoxels = useMemo(
-    () => parseVoxelState(state.voxelState) ?? createDefaultFilledVoxelSet(),
-    [state.voxelState],
-  );
   const isRecursiveDepth = state.fractalDepth > DEFAULT_LOGO_FRACTAL_DEPTH;
-  const logoVoxelGrid = useMemo(
-    () =>
-      renderMode === "iso" && isRecursiveDepth
-        ? createLogoFractalVoxelGrid({
-            depth: state.fractalDepth,
-            filledVoxels: baseFilledVoxels,
-          })
-        : undefined,
-    [baseFilledVoxels, isRecursiveDepth, renderMode, state.fractalDepth],
-  );
   const shuffleAnimation = {
     enabled: state.isShuffleEnabled,
     parallelMoves: state.shuffleParallelMoves,
@@ -1194,11 +1178,11 @@ export function LogoPreviewPage({
         cubeSidePixels={state.isoCubeSidePixels}
         editMode={state.editMode}
         faceColors={faceColors}
+        fractalDepth={state.fractalDepth}
         onVoxelEdit={controls.editVoxel}
         shuffleAnimation={shuffleAnimation}
         styleId={state.isoStyleId}
         voxelEditingEnabled={!isRecursiveDepth}
-        voxelGrid={logoVoxelGrid}
         voxelState={state.voxelState}
       />
     ) : renderMode === "raster" ? (
@@ -1246,7 +1230,6 @@ export function LogoPreviewPage({
         animateFaceColors={state.isFaceColorAnimationEnabled}
         fractalDepth={state.fractalDepth}
         voxelEditingEnabled={!isRecursiveDepth}
-        voxelGrid={logoVoxelGrid}
         viewDragConfig={
           state.isViewSnapEnabled
             ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG
@@ -1525,9 +1508,9 @@ export function LogoPreviewPage({
                     backgroundColor={backgroundColor}
                     cubeSidePixels={state.isoCubeSidePixels}
                     faceColors={faceColors}
+                    fractalDepth={state.fractalDepth}
                     size={size}
                     styleId={state.isoStyleId}
-                    voxelGrid={logoVoxelGrid}
                     voxelState={state.voxelState}
                   />
                 </div>

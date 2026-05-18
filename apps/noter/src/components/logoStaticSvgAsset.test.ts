@@ -46,6 +46,18 @@ describe("logoStaticSvgAsset", () => {
     expect(generatedStaticLogoSvgMarkup).not.toContain(' height="1" ');
   });
 
+  it("keeps recursive static SVG output bounded with nested reuse", () => {
+    const generatedStaticLogoSvgMarkup = createStaticLogoSvgMarkup({
+      depth: 5,
+    });
+
+    expect(generatedStaticLogoSvgMarkup).toContain("<polygon ");
+    expect(generatedStaticLogoSvgMarkup).toContain(
+      '<use href="#logo-recursive-level-5"',
+    );
+    expect(generatedStaticLogoSvgMarkup.match(/<use /g) ?? []).toHaveLength(49);
+  });
+
   it("defines the three logo identity views as stable generated assets", () => {
     const sidePrimary = getLogoIdentityView("side-primary");
     const sideDiagonal = getLogoIdentityView("side-diagonal");

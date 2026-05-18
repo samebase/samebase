@@ -5,7 +5,6 @@ import {
 import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
 import {
   createFilledVoxelSet,
-  createLogoFractalVoxelGrid,
   DEFAULT_LOGO_FRACTAL_DEPTH,
   normalizeLogoFractalDepth,
   parseVoxelState,
@@ -27,14 +26,10 @@ export function LogoStaticSvgPage({
   const fractalDepth = normalizeLogoFractalDepth(
     routeSearch.depth ?? DEFAULT_LOGO_FRACTAL_DEPTH,
   );
-  const logoVoxelGrid = createLogoFractalVoxelGrid({
-    depth: fractalDepth,
-    filledVoxels: baseFilledVoxels,
-  });
   const staticSvgSrc = `${createStaticLogoSvgDataUrl({
+    depth: fractalDepth,
     faceColors: logoTheme.faceColors,
-    filledVoxels: logoVoxelGrid.filledVoxels,
-    gridSize: logoVoxelGrid.gridSize,
+    filledVoxels: baseFilledVoxels,
   })}#${logoTheme.cacheKey}:${fractalDepth}`;
 
   return (

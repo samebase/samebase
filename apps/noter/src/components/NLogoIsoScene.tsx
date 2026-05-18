@@ -2,9 +2,11 @@ import { getShuffleOriginCandidates } from "@/components/logoShuffleRules";
 import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+  LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX,
   LOGO_ISOMETRIC_ELEVATION_DEGREES,
   LOGO_ISOMETRIC_ROTATION_DEGREES,
   drawLogoIsometricFrame,
+  drawLogoIsometricRecursiveFrame,
   getLogoIsometricFrameMetrics,
   getIsometricAddCoordinate,
   isPointInsideRowSpans,
@@ -14,8 +16,11 @@ import {
 import { type FaceColors } from "@/components/logoTailwindColors";
 import {
   createDefaultFilledVoxelSet,
+  DEFAULT_LOGO_FRACTAL_DEPTH,
   GRID_SIZE,
+  getLogoFractalGridSize,
   type LogoVoxelGrid,
+  normalizeLogoFractalDepth,
   parseVoxelState,
   type VoxelCoordinate,
   type VoxelEdit,
@@ -30,6 +35,7 @@ import {
 } from "react";
 
 const CLICK_THRESHOLD_PX = 4;
+const MIN_RECURSIVE_ISO_CUBE_SIDE_PX = 1;
 const SHUFFLE_MOVE_DURATION_MS = 1800;
 const SHUFFLE_MOVE_STAGGER_MS = 520;
 
@@ -55,6 +61,7 @@ type SceneState = {
   currentFilledVoxels: Set<string>;
   gridSize: number;
   homeFilledVoxels: Set<string>;
+  recursiveRenderDepth: number | null;
 };
 
 type SceneInteraction = {
@@ -77,6 +84,7 @@ type NLogoIsoSceneProps = {
   cubeSidePixels?: number;
   editMode: VoxelEdit["kind"];
   faceColors: FaceColors;
+  fractalDepth?: number;
   onVoxelEdit: (edit: VoxelEdit) => void;
   shuffleAnimation: LogoShuffleAnimationConfig;
   styleId?: LogoIsometricStyleId;
@@ -114,23 +122,109 @@ function randomValueFrom<T>(values: readonly T[]): T | null {
 }
 
 function resolveSceneVoxelGrid({
+  fractalDepth,
   voxelGrid,
   voxelState,
 }: {
+  fractalDepth: number | undefined;
   voxelGrid: LogoVoxelGrid | undefined;
   voxelState: string;
-}): { filledVoxels: Set<string>; gridSize: number } {
+}): {
+  filledVoxels: Set<string>;
+  gridSize: number;
+  recursiveRenderDepth: number | null;
+} {
+  const normalizedFractalDepth = normalizeLogoFractalDepth(
+    fractalDepth ?? DEFAULT_LOGO_FRACTAL_DEPTH,
+  );
+
   if (voxelGrid) {
     return {
       filledVoxels: new Set(voxelGrid.filledVoxels),
       gridSize: voxelGrid.gridSize,
+      recursiveRenderDepth: null,
+    };
+  }
+
+  const filledVoxels =
+    parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet();
+  if (normalizedFractalDepth > DEFAULT_LOGO_FRACTAL_DEPTH) {
+    return {
+      filledVoxels,
+      gridSize: GRID_SIZE,
+      recursiveRenderDepth: normalizedFractalDepth,
     };
   }
 
   return {
-    filledVoxels: parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet(),
+    filledVoxels,
     gridSize: GRID_SIZE,
+    recursiveRenderDepth: null,
   };
+}
+
+function getSceneRenderGridSize(sceneState: SceneState): number {
+  if (!sceneState.recursiveRenderDepth) {
+    return sceneState.gridSize;
+  }
+
+  return getLogoFractalGridSize(sceneState.recursiveRenderDepth);
+}
+
+function getBoundedRecursiveCubeSidePixels({
+  containerHeight,
+  containerWidth,
+  cubeSidePixels,
+  recursiveRenderDepth,
+}: {
+  containerHeight: number;
+  containerWidth: number;
+  cubeSidePixels: number;
+  recursiveRenderDepth: number | null;
+}): number {
+  if (!recursiveRenderDepth) {
+    return cubeSidePixels;
+  }
+
+  const renderGridSize = getLogoFractalGridSize(recursiveRenderDepth);
+  let nextCubeSidePixels = cubeSidePixels;
+  while (nextCubeSidePixels > MIN_RECURSIVE_ISO_CUBE_SIDE_PX) {
+    const frameMetrics = getLogoIsometricFrameMetrics(
+      nextCubeSidePixels,
+      renderGridSize,
+    );
+    if (
+      frameMetrics.canvasWidth <= containerWidth &&
+      frameMetrics.canvasHeight <= containerHeight
+    ) {
+      return nextCubeSidePixels;
+    }
+
+    nextCubeSidePixels -= LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX;
+  }
+
+  return MIN_RECURSIVE_ISO_CUBE_SIDE_PX;
+}
+
+function getIsoFramePixelScale({
+  containerHeight,
+  containerWidth,
+  frameMetrics,
+}: {
+  containerHeight: number;
+  containerWidth: number;
+  frameMetrics: { canvasHeight: number; canvasWidth: number };
+}): number {
+  const rawScale = Math.min(
+    containerWidth / frameMetrics.canvasWidth,
+    containerHeight / frameMetrics.canvasHeight,
+  );
+
+  if (rawScale < 1) {
+    return rawScale;
+  }
+
+  return Math.max(1, Math.floor(rawScale));
 }
 
 function resetShuffleAnimation(
@@ -246,6 +340,7 @@ export function LogoIsoThumbnail({
   cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   dataTestId,
   faceColors,
+  fractalDepth,
   size,
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
   voxelGrid,
@@ -256,6 +351,7 @@ export function LogoIsoThumbnail({
   cubeSidePixels?: number;
   dataTestId?: string;
   faceColors: FaceColors;
+  fractalDepth?: number;
   size: number;
   styleId?: LogoIsometricStyleId;
   voxelGrid?: LogoVoxelGrid;
@@ -276,10 +372,19 @@ export function LogoIsoThumbnail({
       return;
     }
 
-    const resolvedVoxelGrid = resolveSceneVoxelGrid({ voxelGrid, voxelState });
+    const resolvedVoxelGrid = resolveSceneVoxelGrid({
+      fractalDepth,
+      voxelGrid,
+      voxelState,
+    });
+    const renderCubeSidePixels = resolvedVoxelGrid.recursiveRenderDepth
+      ? Math.min(cubeSidePixels, MIN_RECURSIVE_ISO_CUBE_SIDE_PX)
+      : cubeSidePixels;
     const frameMetrics = getLogoIsometricFrameMetrics(
-      cubeSidePixels,
-      resolvedVoxelGrid.gridSize,
+      renderCubeSidePixels,
+      resolvedVoxelGrid.recursiveRenderDepth
+        ? getLogoFractalGridSize(resolvedVoxelGrid.recursiveRenderDepth)
+        : resolvedVoxelGrid.gridSize,
     );
     const rasterCanvas = document.createElement("canvas");
     rasterCanvas.width = frameMetrics.canvasWidth;
@@ -291,15 +396,27 @@ export function LogoIsoThumbnail({
       return;
     }
 
-    drawLogoIsometricFrame({
-      backgroundColor,
-      cubeSidePixels,
-      context: rasterContext,
-      faceColors,
-      filledVoxels: resolvedVoxelGrid.filledVoxels,
-      gridSize: resolvedVoxelGrid.gridSize,
-      styleId,
-    });
+    if (resolvedVoxelGrid.recursiveRenderDepth) {
+      drawLogoIsometricRecursiveFrame({
+        backgroundColor,
+        cubeSidePixels: renderCubeSidePixels,
+        context: rasterContext,
+        depth: resolvedVoxelGrid.recursiveRenderDepth,
+        faceColors,
+        filledVoxels: resolvedVoxelGrid.filledVoxels,
+        styleId,
+      });
+    } else {
+      drawLogoIsometricFrame({
+        backgroundColor,
+        cubeSidePixels: renderCubeSidePixels,
+        context: rasterContext,
+        faceColors,
+        filledVoxels: resolvedVoxelGrid.filledVoxels,
+        gridSize: resolvedVoxelGrid.gridSize,
+        styleId,
+      });
+    }
     context.clearRect(0, 0, size, size);
     context.imageSmoothingEnabled = false;
     context.drawImage(rasterCanvas, 0, 0, size, size);
@@ -307,6 +424,7 @@ export function LogoIsoThumbnail({
     backgroundColor,
     cubeSidePixels,
     faceColors,
+    fractalDepth,
     size,
     styleId,
     voxelGrid,
@@ -335,6 +453,7 @@ export function NLogoIsoScene({
   cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   editMode,
   faceColors,
+  fractalDepth,
   onVoxelEdit,
   shuffleAnimation,
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
@@ -348,6 +467,7 @@ export function NLogoIsoScene({
   const backgroundColorRef = useRef(backgroundColor);
   const faceColorsRef = useRef(faceColors);
   const voxelEditingEnabledRef = useRef(voxelEditingEnabled);
+  const fractalDepthRef = useRef(fractalDepth);
   const voxelGridRef = useRef(voxelGrid);
   const voxelStateRef = useRef(voxelState);
   const shuffleAnimationRef = useRef(shuffleAnimation);
@@ -402,18 +522,24 @@ export function NLogoIsoScene({
   useEffect(() => {
     voxelGridRef.current = voxelGrid;
     voxelStateRef.current = voxelState;
+    fractalDepthRef.current = fractalDepth;
 
     const sceneState = sceneStateRef.current;
     if (!sceneState) {
       return;
     }
 
-    const nextVoxelGrid = resolveSceneVoxelGrid({ voxelGrid, voxelState });
+    const nextVoxelGrid = resolveSceneVoxelGrid({
+      fractalDepth,
+      voxelGrid,
+      voxelState,
+    });
     sceneState.homeFilledVoxels = new Set(nextVoxelGrid.filledVoxels);
     sceneState.gridSize = nextVoxelGrid.gridSize;
+    sceneState.recursiveRenderDepth = nextVoxelGrid.recursiveRenderDepth;
     resetShuffleAnimation(sceneState, lastMovedCubeKeyRef);
     renderSceneRef.current(performance.now());
-  }, [voxelGrid, voxelState]);
+  }, [fractalDepth, voxelGrid, voxelState]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -428,21 +554,16 @@ export function NLogoIsoScene({
     }
 
     const initialVoxelGrid = resolveSceneVoxelGrid({
+      fractalDepth: fractalDepthRef.current,
       voxelGrid: voxelGridRef.current,
       voxelState: voxelStateRef.current,
     });
-    const frameMetrics = getLogoIsometricFrameMetrics(
-      cubeSidePixels,
-      initialVoxelGrid.gridSize,
-    );
 
     if (!offscreenCanvasRef.current) {
       offscreenCanvasRef.current = document.createElement("canvas");
     }
 
     const offscreenCanvas = offscreenCanvasRef.current;
-    offscreenCanvas.width = frameMetrics.canvasWidth;
-    offscreenCanvas.height = frameMetrics.canvasHeight;
     const offscreenContext = offscreenCanvas.getContext("2d", {
       willReadFrequently: true,
     });
@@ -455,6 +576,7 @@ export function NLogoIsoScene({
       currentFilledVoxels: new Set(initialVoxelGrid.filledVoxels),
       gridSize: initialVoxelGrid.gridSize,
       homeFilledVoxels: new Set(initialVoxelGrid.filledVoxels),
+      recursiveRenderDepth: initialVoxelGrid.recursiveRenderDepth,
     };
 
     const renderScene = (timestampMs: number) => {
@@ -477,28 +599,52 @@ export function NLogoIsoScene({
           };
         });
 
-      const visibleFaces = drawLogoIsometricFrame({
-        backgroundColor: backgroundColorRef.current,
-        cubeSidePixels,
-        context: offscreenContext,
-        faceColors: faceColorsRef.current,
-        filledVoxels: sceneState.currentFilledVoxels,
-        gridSize: sceneState.gridSize,
-        movingVoxels,
-        styleId,
-      });
-
       const containerWidth = container.clientWidth || 640;
       const containerHeight = container.clientHeight || 768;
-      const pixelScale = Math.max(
-        1,
-        Math.floor(
-          Math.min(
-            containerWidth / frameMetrics.canvasWidth,
-            containerHeight / frameMetrics.canvasHeight,
-          ),
-        ),
+      const renderCubeSidePixels = getBoundedRecursiveCubeSidePixels({
+        containerHeight,
+        containerWidth,
+        cubeSidePixels,
+        recursiveRenderDepth: sceneState.recursiveRenderDepth,
+      });
+      const frameMetrics = getLogoIsometricFrameMetrics(
+        renderCubeSidePixels,
+        getSceneRenderGridSize(sceneState),
       );
+      if (offscreenCanvas.width !== frameMetrics.canvasWidth) {
+        offscreenCanvas.width = frameMetrics.canvasWidth;
+      }
+      if (offscreenCanvas.height !== frameMetrics.canvasHeight) {
+        offscreenCanvas.height = frameMetrics.canvasHeight;
+      }
+
+      const visibleFaces = sceneState.recursiveRenderDepth
+        ? drawLogoIsometricRecursiveFrame({
+            backgroundColor: backgroundColorRef.current,
+            cubeSidePixels: renderCubeSidePixels,
+            context: offscreenContext,
+            depth: sceneState.recursiveRenderDepth,
+            faceColors: faceColorsRef.current,
+            filledVoxels: sceneState.currentFilledVoxels,
+            movingVoxels,
+            styleId,
+          })
+        : drawLogoIsometricFrame({
+            backgroundColor: backgroundColorRef.current,
+            cubeSidePixels: renderCubeSidePixels,
+            context: offscreenContext,
+            faceColors: faceColorsRef.current,
+            filledVoxels: sceneState.currentFilledVoxels,
+            gridSize: sceneState.gridSize,
+            movingVoxels,
+            styleId,
+          });
+
+      const pixelScale = getIsoFramePixelScale({
+        containerHeight,
+        containerWidth,
+        frameMetrics,
+      });
       const drawWidth = frameMetrics.canvasWidth * pixelScale;
       const drawHeight = frameMetrics.canvasHeight * pixelScale;
       const offsetX = Math.floor((containerWidth - drawWidth) / 2);
@@ -593,7 +739,7 @@ export function NLogoIsoScene({
       renderSceneRef.current = () => {};
       syncAnimationLoopRef.current = () => {};
     };
-  }, [cubeSidePixels, styleId, voxelGrid]);
+  }, [cubeSidePixels, styleId]);
 
   const resetInteraction = (target: HTMLDivElement, pointerId: number) => {
     if (target.hasPointerCapture(pointerId)) {
@@ -720,7 +866,11 @@ export function NLogoIsoScene({
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
     >
-      <canvas ref={canvasRef} className="block h-full w-full" />
+      <canvas
+        ref={canvasRef}
+        className="block h-full w-full"
+        data-logo-renderer="iso"
+      />
     </div>
   );
 }

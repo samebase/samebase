@@ -1,7 +1,11 @@
 import {
+  DEFAULT_LOGO_FRACTAL_DEPTH,
   FAVICON_ROTATION_DEGREES,
   GRID_SIZE,
+  getLogoFractalGridSize,
   isWithinVoxelGrid,
+  normalizeLogoFractalDepth,
+  parseVoxelKey,
   type VoxelCoordinate,
   voxelKey,
 } from "@/components/logoVoxelState";
@@ -52,6 +56,11 @@ export type IsometricVisibleFace = {
 
 export type IsometricMovingVoxel = {
   coordinate: VoxelCoordinate;
+  position: CubePosition;
+};
+
+type IsometricRecursiveDrawItem = {
+  key: string;
   position: CubePosition;
 };
 
@@ -161,6 +170,17 @@ export function normalizeLogoIsometricCubeSidePixels(value: number): number {
   );
 }
 
+function normalizeLogoIsometricFrameCubeSidePixels(value: number): number {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX;
+  }
+
+  return Math.min(
+    Math.max(Math.round(value), 1),
+    MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+  );
+}
+
 function projectPoint(
   position: CubePosition,
   frameMetrics: LogoIsometricFrameMetrics,
@@ -171,6 +191,19 @@ function projectPoint(
       (position[0] + position[2]) * frameMetrics.tileHalfHeight -
       position[1] * frameMetrics.voxelScreenHeight,
   };
+}
+
+function getGridBoundaryPoints(gridSize: number): readonly CubePosition[] {
+  return [
+    [0, 0, 0],
+    [0, 0, gridSize],
+    [0, gridSize, 0],
+    [0, gridSize, gridSize],
+    [gridSize, 0, 0],
+    [gridSize, 0, gridSize],
+    [gridSize, gridSize, 0],
+    [gridSize, gridSize, gridSize],
+  ];
 }
 
 function getCubeFacePolygon(
@@ -209,7 +242,7 @@ function createLogoIsometricFrameMetrics(
   gridSize: number,
 ): LogoIsometricFrameMetrics {
   const normalizedCubeSidePixels =
-    normalizeLogoIsometricCubeSidePixels(cubeSidePixels);
+    normalizeLogoIsometricFrameCubeSidePixels(cubeSidePixels);
   const tileHalfWidth = normalizedCubeSidePixels;
   const tileHalfHeight = normalizedCubeSidePixels / 2;
   const voxelScreenHeight = normalizedCubeSidePixels;
@@ -228,16 +261,12 @@ function createLogoIsometricFrameMetrics(
     voxelScreenHeight,
   } satisfies LogoIsometricFrameMetrics;
 
-  for (let x = 0; x <= gridSize; x += 1) {
-    for (let y = 0; y <= gridSize; y += 1) {
-      for (let z = 0; z <= gridSize; z += 1) {
-        const point = projectPoint([x, y, z], provisionalMetrics);
-        minX = Math.min(minX, point.x);
-        minY = Math.min(minY, point.y);
-        maxX = Math.max(maxX, point.x);
-        maxY = Math.max(maxY, point.y);
-      }
-    }
+  for (const boundaryPoint of getGridBoundaryPoints(gridSize)) {
+    const point = projectPoint(boundaryPoint, provisionalMetrics);
+    minX = Math.min(minX, point.x);
+    minY = Math.min(minY, point.y);
+    maxX = Math.max(maxX, point.x);
+    maxY = Math.max(maxY, point.y);
   }
 
   return {
@@ -252,8 +281,8 @@ function createLogoIsometricFrameMetrics(
   };
 }
 
-// normalizeLogoIsometricCubeSidePixels and capped fractal depth keep this cache
-// bounded to the supported cube-side and grid-size variants.
+// Cube-side normalization and route depth keep this cache bounded to the frame
+// variants we actually render while still allowing fitted recursive previews.
 const isometricFrameMetricsCache = new Map<string, LogoIsometricFrameMetrics>();
 
 export function getLogoIsometricFrameMetrics(
@@ -261,7 +290,7 @@ export function getLogoIsometricFrameMetrics(
   gridSize = GRID_SIZE,
 ): LogoIsometricFrameMetrics {
   const normalizedCubeSidePixels =
-    normalizeLogoIsometricCubeSidePixels(cubeSidePixels);
+    normalizeLogoIsometricFrameCubeSidePixels(cubeSidePixels);
   const cacheKey = `${normalizedCubeSidePixels}:${gridSize}`;
   const cachedFrameMetrics = isometricFrameMetricsCache.get(cacheKey);
 
@@ -292,6 +321,17 @@ function translatePolygon(
     x: point.x + frameMetrics.offsetX,
     y: point.y + frameMetrics.offsetY,
   }));
+}
+
+function translatePoint(
+  position: CubePosition,
+  frameMetrics: LogoIsometricFrameMetrics,
+): Point {
+  const point = projectPoint(position, frameMetrics);
+  return {
+    x: point.x + frameMetrics.offsetX,
+    y: point.y + frameMetrics.offsetY,
+  };
 }
 
 function isVoxelFilled(
@@ -742,6 +782,185 @@ function compareRenderFaces(left: RenderFace, right: RenderFace): number {
   );
 }
 
+function compareRecursiveDrawItems(
+  left: IsometricRecursiveDrawItem,
+  right: IsometricRecursiveDrawItem,
+): number {
+  const leftDepth = left.position[0] + left.position[1] + left.position[2];
+  const rightDepth = right.position[0] + right.position[1] + right.position[2];
+
+  if (leftDepth !== rightDepth) {
+    return leftDepth - rightDepth;
+  }
+
+  if (left.position[1] !== right.position[1]) {
+    return left.position[1] - right.position[1];
+  }
+
+  if (left.position[0] !== right.position[0]) {
+    return left.position[0] - right.position[0];
+  }
+
+  if (left.position[2] !== right.position[2]) {
+    return left.position[2] - right.position[2];
+  }
+
+  return left.key.localeCompare(right.key);
+}
+
+function getRecursiveDrawItems({
+  filledVoxels,
+  movingVoxels,
+}: {
+  filledVoxels: ReadonlySet<string>;
+  movingVoxels: readonly IsometricMovingVoxel[];
+}): readonly IsometricRecursiveDrawItem[] {
+  const drawItems: IsometricRecursiveDrawItem[] = [];
+
+  for (const key of filledVoxels) {
+    const coordinate = parseVoxelKey(key);
+    if (
+      !coordinate ||
+      !isWithinVoxelGrid(GRID_SIZE, coordinate[0], coordinate[1], coordinate[2])
+    ) {
+      continue;
+    }
+
+    drawItems.push({
+      key,
+      position: coordinate,
+    });
+  }
+
+  for (const movingVoxel of movingVoxels) {
+    drawItems.push({
+      key: `moving:${voxelKey(...movingVoxel.coordinate)}`,
+      position: movingVoxel.position,
+    });
+  }
+
+  return drawItems.sort(compareRecursiveDrawItems);
+}
+
+function createIsometricCanvas(
+  frameMetrics: LogoIsometricFrameMetrics,
+): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = frameMetrics.canvasWidth;
+  canvas.height = frameMetrics.canvasHeight;
+  return canvas;
+}
+
+function drawRecursiveChildImage({
+  childCanvas,
+  childFrameMetrics,
+  childGridSize,
+  context,
+  drawItem,
+  frameMetrics,
+}: {
+  childCanvas: HTMLCanvasElement;
+  childFrameMetrics: LogoIsometricFrameMetrics;
+  childGridSize: number;
+  context: CanvasRenderingContext2D;
+  drawItem: IsometricRecursiveDrawItem;
+  frameMetrics: LogoIsometricFrameMetrics;
+}) {
+  const origin = translatePoint(
+    [
+      drawItem.position[0] * childGridSize,
+      drawItem.position[1] * childGridSize,
+      drawItem.position[2] * childGridSize,
+    ],
+    frameMetrics,
+  );
+
+  context.drawImage(
+    childCanvas,
+    origin.x - childFrameMetrics.offsetX,
+    origin.y - childFrameMetrics.offsetY,
+  );
+}
+
+export function createLogoIsometricRecursiveCanvas({
+  cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+  depth,
+  faceColors,
+  filledVoxels,
+  movingVoxels = [],
+  styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+}: {
+  cubeSidePixels?: number;
+  depth: number;
+  faceColors: FaceColors;
+  filledVoxels: ReadonlySet<string>;
+  movingVoxels?: readonly IsometricMovingVoxel[];
+  styleId?: LogoIsometricStyleId;
+}): {
+  canvas: HTMLCanvasElement;
+  frameMetrics: LogoIsometricFrameMetrics;
+} {
+  const normalizedDepth = normalizeLogoFractalDepth(depth);
+  let frameMetrics = getLogoIsometricFrameMetrics(cubeSidePixels, GRID_SIZE);
+  let canvas = createIsometricCanvas(frameMetrics);
+  const context = canvas.getContext("2d", {
+    willReadFrequently: true,
+  });
+
+  if (!context) {
+    return { canvas, frameMetrics };
+  }
+
+  drawLogoIsometricFrame({
+    backgroundColor: "transparent",
+    cubeSidePixels,
+    context,
+    faceColors,
+    filledVoxels,
+    gridSize: GRID_SIZE,
+    movingVoxels,
+    paintBackground: false,
+    styleId,
+  });
+
+  if (normalizedDepth <= DEFAULT_LOGO_FRACTAL_DEPTH) {
+    return { canvas, frameMetrics };
+  }
+
+  const drawItems = getRecursiveDrawItems({ filledVoxels, movingVoxels });
+
+  for (let level = 2; level <= normalizedDepth; level += 1) {
+    const childCanvas = canvas;
+    const childFrameMetrics = frameMetrics;
+    const childGridSize = getLogoFractalGridSize(level - 1);
+    frameMetrics = getLogoIsometricFrameMetrics(
+      cubeSidePixels,
+      getLogoFractalGridSize(level),
+    );
+    canvas = createIsometricCanvas(frameMetrics);
+    const nextContext = canvas.getContext("2d", {
+      willReadFrequently: true,
+    });
+    if (!nextContext) {
+      return { canvas, frameMetrics };
+    }
+
+    nextContext.imageSmoothingEnabled = false;
+    for (const drawItem of drawItems) {
+      drawRecursiveChildImage({
+        childCanvas,
+        childFrameMetrics,
+        childGridSize,
+        context: nextContext,
+        drawItem,
+        frameMetrics,
+      });
+    }
+  }
+
+  return { canvas, frameMetrics };
+}
+
 export function drawLogoIsometricFrame({
   backgroundColor,
   cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
@@ -750,6 +969,7 @@ export function drawLogoIsometricFrame({
   filledVoxels,
   gridSize = GRID_SIZE,
   movingVoxels = [],
+  paintBackground = true,
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
 }: {
   backgroundColor: string;
@@ -759,6 +979,7 @@ export function drawLogoIsometricFrame({
   filledVoxels: ReadonlySet<string>;
   gridSize?: number;
   movingVoxels?: readonly IsometricMovingVoxel[];
+  paintBackground?: boolean;
   styleId?: LogoIsometricStyleId;
 }): readonly IsometricVisibleFace[] {
   const style = getLogoIsometricStyle(styleId);
@@ -790,11 +1011,13 @@ export function drawLogoIsometricFrame({
     applyShadedEdges(context, frameMetrics);
   }
 
-  context.save();
-  context.globalCompositeOperation = "destination-over";
-  context.fillStyle = backgroundColor;
-  context.fillRect(0, 0, frameMetrics.canvasWidth, frameMetrics.canvasHeight);
-  context.restore();
+  if (paintBackground) {
+    context.save();
+    context.globalCompositeOperation = "destination-over";
+    context.fillStyle = backgroundColor;
+    context.fillRect(0, 0, frameMetrics.canvasWidth, frameMetrics.canvasHeight);
+    context.restore();
+  }
 
   return renderFaces.map(({ coordinate, direction, normal, polygon }) => ({
     coordinate,
@@ -803,6 +1026,57 @@ export function drawLogoIsometricFrame({
     normal,
     polygon,
   }));
+}
+
+export function drawLogoIsometricRecursiveFrame({
+  backgroundColor,
+  context,
+  depth,
+  faceColors,
+  filledVoxels,
+  movingVoxels = [],
+  styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+  cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+}: {
+  backgroundColor: string;
+  context: CanvasRenderingContext2D;
+  depth: number;
+  faceColors: FaceColors;
+  filledVoxels: ReadonlySet<string>;
+  movingVoxels?: readonly IsometricMovingVoxel[];
+  styleId?: LogoIsometricStyleId;
+  cubeSidePixels?: number;
+}): readonly IsometricVisibleFace[] {
+  const normalizedDepth = normalizeLogoFractalDepth(depth);
+
+  if (normalizedDepth <= DEFAULT_LOGO_FRACTAL_DEPTH) {
+    return drawLogoIsometricFrame({
+      backgroundColor,
+      context,
+      cubeSidePixels,
+      faceColors,
+      filledVoxels,
+      movingVoxels,
+      styleId,
+    });
+  }
+
+  const { canvas, frameMetrics } = createLogoIsometricRecursiveCanvas({
+    cubeSidePixels,
+    depth: normalizedDepth,
+    faceColors,
+    filledVoxels,
+    movingVoxels,
+    styleId,
+  });
+
+  context.clearRect(0, 0, frameMetrics.canvasWidth, frameMetrics.canvasHeight);
+  context.fillStyle = backgroundColor;
+  context.fillRect(0, 0, frameMetrics.canvasWidth, frameMetrics.canvasHeight);
+  context.imageSmoothingEnabled = false;
+  context.drawImage(canvas, 0, 0);
+
+  return [];
 }
 
 export function createLogoIsometricSvgMarkup({

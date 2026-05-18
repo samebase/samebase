@@ -11,6 +11,7 @@ import { createLogoThreeSvgMarkup } from "./logoThreeSvgRenderer";
 import { GRID_SIZE, createFilledVoxelSet } from "./logoVoxelState";
 
 type StaticLogoSvgOptions = {
+  depth?: number;
   faceColors?: FaceColors;
   filledVoxels?: ReadonlySet<string>;
   gridSize?: number;
@@ -30,6 +31,7 @@ export function createStaticLogoSvgMarkup(options: StaticLogoSvgOptions = {}) {
 
   return createLogoThreeSvgMarkup({
     backgroundColor: STATIC_LOGO_BACKGROUND_COLOR,
+    depth: options.depth,
     elevationDegrees: view.elevationDegrees,
     faceColors: options.faceColors ?? DEFAULT_FACE_COLORS,
     filledVoxels,
@@ -48,6 +50,7 @@ export function createLogoIdentityViewSvgMarkup(
 
   return createLogoThreeSvgMarkup({
     backgroundColor: STATIC_LOGO_BACKGROUND_COLOR,
+    depth: options.depth,
     elevationDegrees: view.elevationDegrees,
     faceColors: options.faceColors ?? DEFAULT_FACE_COLORS,
     filledVoxels,

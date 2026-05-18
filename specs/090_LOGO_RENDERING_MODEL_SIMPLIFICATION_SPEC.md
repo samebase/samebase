@@ -156,6 +156,16 @@ Recursive depths may render by instancing a smaller recursive tile into the
 higher-level motif positions. That tiled path keeps rotation, dragging, and
 shuffle responsive without entering the exact tiny-cube mutation path.
 
+The isometric preview must follow the same fake-recursive rule. For depth above
+1, it should render the 3x3 motif once and compose that image through recursive
+motif positions instead of materializing every leaf voxel. Shuffle remains a
+tile-level motion repeated through the recursive image.
+
+The smooth SVG route must also avoid exact recursive voxel expansion. Recursive
+SVG output should stay bounded by defining nested reusable motif groups and
+placing them with projected translations, rather than serializing all leaf faces
+as independent polygons.
+
 ### Phase 6: Raster Recursive Experiment
 
 Add `/logo/raster` as an experimental canvas preview for recursive depths. The
