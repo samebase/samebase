@@ -543,6 +543,31 @@ test("logo raster seam lab spacing scale moves the fake 3d centers", async ({
   await expect(spacingInput).toHaveValue("0.990");
 });
 
+test("logo raster seam lab source size input allows larger custom rasters", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo/raster-seams?elev=22&rot=22", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const currentCase = page.getByTestId("logo-raster-seam-lab-current-case");
+  const maskCanvas = currentCase.locator(
+    'canvas[data-logo-raster-seam-lab="mask"]',
+  );
+  const sourceInput = page.getByLabel("Source size");
+
+  await expect(sourceInput).toHaveValue("24");
+  await sourceInput.fill("288");
+  await expect(sourceInput).toHaveValue("288");
+  await expect(currentCase).toContainText("288px source");
+  await expect(maskCanvas).toHaveAttribute("width", "288");
+  await expect(maskCanvas).toHaveAttribute("height", "288");
+
+  await sourceInput.press("Enter");
+  await expect(sourceInput).toHaveValue("288");
+});
+
 test("logo shape presets include seam stress models", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo/raster?top=red-500", {

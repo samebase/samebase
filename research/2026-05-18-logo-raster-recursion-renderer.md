@@ -287,6 +287,13 @@ For drag interaction this rebuild should still be substantially cheaper than
 redrawing recursive geometry. If needed, a later refinement can render a lower
 internal scale while dragging and refresh a sharper cache on release.
 
+Seam-lab experiment note: `/logo/raster-seams` now allows a custom source raster
+size beyond the quick-pick buttons. This tests whether starting from a larger
+backing image reduces the alpha-edge seam score before the idea is promoted to
+`/logo/raster`. The input intentionally has no upper clamp, though very large
+values can still hit browser canvas limits because this is a manual diagnostic
+control.
+
 ## Interaction Contract
 
 - This raster path is an experiment route first, not the default `/logo` route.

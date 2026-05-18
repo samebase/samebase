@@ -15,10 +15,12 @@ import {
   RASTER_SEAM_LAB_MERGE_MODES,
   RASTER_SEAM_LAB_MIN_INFLATION_SCALE,
   RASTER_SEAM_LAB_MIN_SPACING_SCALE,
+  RASTER_SEAM_LAB_MIN_SOURCE_SIZE_PX,
   RASTER_SEAM_LAB_SAMPLE_ROTATIONS,
   RASTER_SEAM_LAB_SLIDER_MAX_INFLATION_SCALE,
   RASTER_SEAM_LAB_SLIDER_MAX_SPACING_SCALE,
   RASTER_SEAM_LAB_SOURCE_SIZES,
+  RASTER_SEAM_LAB_SOURCE_SIZE_STEP,
   RASTER_SEAM_LAB_SPACING_SCALE_STEP,
   drawLogoRasterSeamLabImage,
   getLogoRasterSeamLabStats,
@@ -26,6 +28,7 @@ import {
   normalizeRasterSeamLabGridSize,
   normalizeRasterSeamLabInflationScale,
   normalizeRasterSeamLabSpacingScale,
+  normalizeRasterSeamLabSourceSizePx,
   type RasterSeamLabDepth,
   type RasterSeamLabGridSize,
   type RasterSeamLabImageKind,
@@ -69,6 +72,10 @@ function getMergeModeLabel(mergeMode: RasterSeamLabMergeMode) {
 
 function formatScaleInput(value: number) {
   return value.toFixed(3);
+}
+
+function formatSourceSizeInput(value: number) {
+  return value.toString();
 }
 
 function parseScaleInput(value: string) {
@@ -274,7 +281,10 @@ export function LogoRasterSeamLabPage({
     normalizeRasterSeamLabGridSize(RASTER_SEAM_LAB_DEFAULT_GRID_SIZE),
   );
   const [sourceSizePx, setSourceSizePx] = useState(
-    RASTER_SEAM_LAB_DEFAULT_SOURCE_SIZE_PX,
+    normalizeRasterSeamLabSourceSizePx(RASTER_SEAM_LAB_DEFAULT_SOURCE_SIZE_PX),
+  );
+  const [sourceSizeInputValue, setSourceSizeInputValue] = useState(
+    formatSourceSizeInput(RASTER_SEAM_LAB_DEFAULT_SOURCE_SIZE_PX),
   );
   const [recursiveDepth, setRecursiveDepth] = useState(
     normalizeRasterSeamLabDepth(
@@ -306,6 +316,21 @@ export function LogoRasterSeamLabPage({
   const [inflationScaleInputValue, setInflationScaleInputValue] = useState(
     formatScaleInput(RASTER_SEAM_LAB_DEFAULT_INFLATION_SCALE),
   );
+  const setCommittedSourceSizePx = (value: number) => {
+    const nextSourceSizePx = normalizeRasterSeamLabSourceSizePx(value);
+    setSourceSizePx(nextSourceSizePx);
+    setSourceSizeInputValue(formatSourceSizeInput(nextSourceSizePx));
+  };
+  const commitSourceSizeInput = () => {
+    const parsedValue = parseScaleInput(sourceSizeInputValue);
+    const nextSourceSizePx =
+      parsedValue === null
+        ? sourceSizePx
+        : normalizeRasterSeamLabSourceSizePx(parsedValue);
+
+    setSourceSizePx(nextSourceSizePx);
+    setSourceSizeInputValue(formatSourceSizeInput(nextSourceSizePx));
+  };
   const setCommittedSpacingScale = (value: number) => {
     const nextSpacingScale = normalizeRasterSeamLabSpacingScale(value);
     setSpacingScale(nextSpacingScale);
@@ -419,13 +444,38 @@ export function LogoRasterSeamLabPage({
                     }
                     className="rounded-none"
                     onClick={() => {
-                      setSourceSizePx(nextSourceSizePx);
+                      setCommittedSourceSizePx(nextSourceSizePx);
                     }}
                   >
                     {nextSourceSizePx}px
                   </Button>
                 ))}
               </div>
+              <input
+                type="number"
+                min={RASTER_SEAM_LAB_MIN_SOURCE_SIZE_PX}
+                step={RASTER_SEAM_LAB_SOURCE_SIZE_STEP}
+                value={sourceSizeInputValue}
+                onChange={(event) => {
+                  const nextInputValue = event.target.value;
+                  const parsedValue = parseScaleInput(nextInputValue);
+
+                  setSourceSizeInputValue(nextInputValue);
+                  if (parsedValue !== null) {
+                    setSourceSizePx(
+                      normalizeRasterSeamLabSourceSizePx(parsedValue),
+                    );
+                  }
+                }}
+                onBlur={commitSourceSizeInput}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
+                className="h-9 w-full border border-black/15 bg-white px-2 font-mono text-sm text-black"
+                aria-label="Source size"
+              />
             </div>
 
             <div className="grid gap-2">

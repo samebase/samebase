@@ -171,6 +171,8 @@ export const RASTER_SEAM_LAB_DEFAULT_MERGE_MODE: RasterSeamLabMergeMode =
   "source-over";
 export const RASTER_SEAM_LAB_DEFAULT_ROTATION_DEGREES = 22;
 export const RASTER_SEAM_LAB_DEFAULT_SOURCE_SIZE_PX = 24;
+export const RASTER_SEAM_LAB_MIN_SOURCE_SIZE_PX = 1;
+export const RASTER_SEAM_LAB_SOURCE_SIZE_STEP = 1;
 export const RASTER_SEAM_LAB_DEFAULT_INFLATION_SCALE = 1.01;
 export const RASTER_SEAM_LAB_MIN_INFLATION_SCALE = 1;
 export const RASTER_SEAM_LAB_SLIDER_MAX_INFLATION_SCALE = 1.05;
@@ -212,6 +214,16 @@ export function normalizeRasterSeamLabGridSize(
   value: number | null | undefined,
 ): RasterSeamLabGridSize {
   return value === 3 ? 3 : RASTER_SEAM_LAB_DEFAULT_GRID_SIZE;
+}
+
+export function normalizeRasterSeamLabSourceSizePx(
+  value: number | null | undefined,
+) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return RASTER_SEAM_LAB_DEFAULT_SOURCE_SIZE_PX;
+  }
+
+  return Math.max(RASTER_SEAM_LAB_MIN_SOURCE_SIZE_PX, Math.round(value));
 }
 
 export function normalizeRasterSeamLabInflationScale(
@@ -1672,7 +1684,7 @@ export function getLogoRasterSeamLabStats({
     projection: createProjection({
       elevationDegrees,
       rotationDegrees,
-      sizePx: sourceSizePx,
+      sizePx: normalizeRasterSeamLabSourceSizePx(sourceSizePx),
     }),
   });
 }
@@ -1989,6 +2001,8 @@ export function drawLogoRasterSeamLabImage(
     sourceSizePx: number;
   },
 ): RasterSeamLabResult {
+  const normalizedSourceSizePx =
+    normalizeRasterSeamLabSourceSizePx(sourceSizePx);
   const normalizedSpacingScale =
     normalizeRasterSeamLabSpacingScale(spacingScale);
   const worldHalfSize = getSpacedGridHalfSize({
@@ -1999,7 +2013,7 @@ export function drawLogoRasterSeamLabImage(
   const projection = createProjection({
     elevationDegrees,
     rotationDegrees,
-    sizePx: sourceSizePx,
+    sizePx: normalizedSourceSizePx,
     worldHalfSize,
   });
   const composedCanvas = renderMergedImage({
@@ -2022,11 +2036,11 @@ export function drawLogoRasterSeamLabImage(
     stats: getRasterSeamLabStats({ depth, gridSize, projection }),
   };
 
-  if (context.canvas.width !== sourceSizePx) {
-    context.canvas.width = sourceSizePx;
+  if (context.canvas.width !== normalizedSourceSizePx) {
+    context.canvas.width = normalizedSourceSizePx;
   }
-  if (context.canvas.height !== sourceSizePx) {
-    context.canvas.height = sourceSizePx;
+  if (context.canvas.height !== normalizedSourceSizePx) {
+    context.canvas.height = normalizedSourceSizePx;
   }
   context.imageSmoothingEnabled = false;
 
