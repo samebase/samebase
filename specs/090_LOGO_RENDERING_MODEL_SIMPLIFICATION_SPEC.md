@@ -175,6 +175,10 @@ should render a direct recursive 2D face mask. Those views have no perspective
 ordering inside the visible face, so resampling transparent cached-image edges
 would create seams that are not part of the geometry.
 
+The raster projection should use a stable fit for the current elevation and
+rotation-axis mode. Rotation must not refit the canvas zoom from the current
+projected bounding box.
+
 ## Validation
 
 - Unit tests must cover the shared surface model independently from renderers.

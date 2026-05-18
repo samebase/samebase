@@ -219,6 +219,10 @@ function scaleVector(vector: Vector3, scale: number): Vector3 {
   return [vector[0] * scale, vector[1] * scale, vector[2] * scale];
 }
 
+function subtractVectors(left: Vector3, right: Vector3): Vector3 {
+  return [left[0] - right[0], left[1] - right[1], left[2] - right[2]];
+}
+
 function dotVectors(left: Vector3, right: Vector3): number {
   return left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
 }
@@ -282,6 +286,43 @@ function createRasterCanvas(sizePx: number): HTMLCanvasElement {
   return canvas;
 }
 
+/**
+ * Keep raster zoom stable while rotating by fitting the worst projected cube
+ * span for the current elevation and rotation axis, instead of the current yaw.
+ */
+function getMaxRotatedCubeProjectionSpan({
+  projectionAxis,
+  rotationAxis,
+}: {
+  projectionAxis: Vector3;
+  rotationAxis: Vector3;
+}): number {
+  const normalizedRotationAxis = normalizeVector(rotationAxis);
+  let maxSpan = 0;
+
+  for (const firstVertex of CUBE_VERTICES) {
+    for (const secondVertex of CUBE_VERTICES) {
+      const delta = subtractVectors(firstVertex, secondVertex);
+      const axisDelta = scaleVector(
+        normalizedRotationAxis,
+        dotVectors(normalizedRotationAxis, delta),
+      );
+      const radialDelta = subtractVectors(delta, axisDelta);
+      const sineDelta = crossVectors(normalizedRotationAxis, delta);
+      const cosineCoefficient = dotVectors(radialDelta, projectionAxis);
+      const sineCoefficient = dotVectors(sineDelta, projectionAxis);
+      const axisCoefficient = dotVectors(axisDelta, projectionAxis);
+
+      maxSpan = Math.max(
+        maxSpan,
+        axisCoefficient + Math.hypot(cosineCoefficient, sineCoefficient),
+      );
+    }
+  }
+
+  return maxSpan;
+}
+
 function getRasterProjection({
   elevationDegrees,
   frustumPadding,
@@ -307,18 +348,17 @@ function getRasterProjection({
   const renderedRotationDegrees = toRenderedRotationDegrees(rotationDegrees);
   const rotatePoint = (point: Vector3) =>
     rotateVectorAroundAxis(point, rotationAxis, renderedRotationDegrees);
-  const projectedVertices = CUBE_VERTICES.map((point) => {
-    const rotatedPoint = rotatePoint(point);
-    return {
-      x: dotVectors(rotatedPoint, right),
-      y: -dotVectors(rotatedPoint, up),
-    };
-  });
-  const minX = Math.min(...projectedVertices.map((point) => point.x));
-  const maxX = Math.max(...projectedVertices.map((point) => point.x));
-  const minY = Math.min(...projectedVertices.map((point) => point.y));
-  const maxY = Math.max(...projectedVertices.map((point) => point.y));
-  const span = Math.max(maxX - minX, maxY - minY, 0.001);
+  const span = Math.max(
+    getMaxRotatedCubeProjectionSpan({
+      projectionAxis: right,
+      rotationAxis,
+    }),
+    getMaxRotatedCubeProjectionSpan({
+      projectionAxis: up,
+      rotationAxis,
+    }),
+    0.001,
+  );
   const scalePx = sizePx / (span * frustumPadding);
   const centerPx = sizePx / 2;
 

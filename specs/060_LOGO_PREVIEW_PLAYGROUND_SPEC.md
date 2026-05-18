@@ -115,6 +115,8 @@ Example:
 - `/logo/raster` renders exact snapped face views as a recursive 2D mask when no
   shuffle move is active, so same-color joined cells do not inherit seams from
   transparent image edges.
+- `/logo/raster` uses a stable projection scale for the current elevation and
+  rotation-axis mode, so rotating does not zoom the shape in and out.
 - Public landing logos use the same tiled Three render path for recursive
   depths; their initial static SVG fallback stays bounded so a high `depth`
   query param cannot block the page before the canvas is ready.

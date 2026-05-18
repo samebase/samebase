@@ -58,6 +58,11 @@ same-color cells, and recursion multiplies those lines. The raster route should
 draw a recursive 2D face mask directly when no shuffle move is active, then fall
 back to image composition for angled or moving views.
 
+Implementation note: raster projection scale should not be recomputed from the
+current yaw's bounding box. Fit against the maximum projected cube span for the
+current elevation and rotation-axis mode so dragging rotates the shape without
+zooming it in and out.
+
 The cache must rebuild when these inputs change:
 
 - yaw / rotation
