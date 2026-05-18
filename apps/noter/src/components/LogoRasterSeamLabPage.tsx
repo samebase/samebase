@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { LogoNumberInput } from "@/components/LogoNumberInput";
 import {
   RASTER_SEAM_LAB_DEFAULT_DEPTH,
   RASTER_SEAM_LAB_DEFAULT_ELEVATION_DEGREES,
@@ -85,17 +86,6 @@ function formatAngleDegrees(value: number) {
 
 function formatAngleInput(value: number) {
   return formatAngleDegrees(value);
-}
-
-function parseScaleInput(value: string) {
-  const trimmedValue = value.trim();
-  if (!trimmedValue) {
-    return null;
-  }
-
-  const parsedValue = Number(trimmedValue.replace(",", "."));
-
-  return Number.isFinite(parsedValue) ? parsedValue : null;
 }
 
 function SeamLabCanvas({
@@ -298,9 +288,6 @@ export function LogoRasterSeamLabPage({
   const [sourceSizePx, setSourceSizePx] = useState(
     normalizeRasterSeamLabSourceSizePx(RASTER_SEAM_LAB_DEFAULT_SOURCE_SIZE_PX),
   );
-  const [sourceSizeInputValue, setSourceSizeInputValue] = useState(
-    formatSourceSizeInput(RASTER_SEAM_LAB_DEFAULT_SOURCE_SIZE_PX),
-  );
   const [recursiveDepth, setRecursiveDepth] = useState(
     normalizeRasterSeamLabDepth(
       routeSearch.depth ?? RASTER_SEAM_LAB_DEFAULT_DEPTH,
@@ -309,14 +296,8 @@ export function LogoRasterSeamLabPage({
   const [rotationDegrees, setRotationDegrees] = useState(
     initialRotationDegrees,
   );
-  const [rotationInputValue, setRotationInputValue] = useState(
-    formatAngleInput(initialRotationDegrees),
-  );
   const [elevationDegrees, setElevationDegrees] = useState(
     initialElevationDegrees,
-  );
-  const [elevationInputValue, setElevationInputValue] = useState(
-    formatAngleInput(initialElevationDegrees),
   );
   const [mergeMode, setMergeMode] = useState<RasterSeamLabMergeMode>(
     RASTER_SEAM_LAB_DEFAULT_MERGE_MODE,
@@ -324,89 +305,23 @@ export function LogoRasterSeamLabPage({
   const [spacingScale, setSpacingScale] = useState(
     RASTER_SEAM_LAB_DEFAULT_SPACING_SCALE,
   );
-  const [spacingScaleInputValue, setSpacingScaleInputValue] = useState(
-    formatScaleInput(RASTER_SEAM_LAB_DEFAULT_SPACING_SCALE),
-  );
   const [inflationScale, setInflationScale] = useState(
     RASTER_SEAM_LAB_DEFAULT_INFLATION_SCALE,
   );
-  const [inflationScaleInputValue, setInflationScaleInputValue] = useState(
-    formatScaleInput(RASTER_SEAM_LAB_DEFAULT_INFLATION_SCALE),
-  );
   const setCommittedSourceSizePx = (value: number) => {
-    const nextSourceSizePx = normalizeRasterSeamLabSourceSizePx(value);
-    setSourceSizePx(nextSourceSizePx);
-    setSourceSizeInputValue(formatSourceSizeInput(nextSourceSizePx));
-  };
-  const commitSourceSizeInput = () => {
-    const parsedValue = parseScaleInput(sourceSizeInputValue);
-    const nextSourceSizePx =
-      parsedValue === null
-        ? sourceSizePx
-        : normalizeRasterSeamLabSourceSizePx(parsedValue);
-
-    setSourceSizePx(nextSourceSizePx);
-    setSourceSizeInputValue(formatSourceSizeInput(nextSourceSizePx));
+    setSourceSizePx(normalizeRasterSeamLabSourceSizePx(value));
   };
   const setCommittedSpacingScale = (value: number) => {
-    const nextSpacingScale = normalizeRasterSeamLabSpacingScale(value);
-    setSpacingScale(nextSpacingScale);
-    setSpacingScaleInputValue(formatScaleInput(nextSpacingScale));
-  };
-  const commitSpacingScaleInput = () => {
-    const parsedValue = parseScaleInput(spacingScaleInputValue);
-    const nextSpacingScale =
-      parsedValue === null
-        ? spacingScale
-        : normalizeRasterSeamLabSpacingScale(parsedValue);
-
-    setSpacingScale(nextSpacingScale);
-    setSpacingScaleInputValue(formatScaleInput(nextSpacingScale));
+    setSpacingScale(normalizeRasterSeamLabSpacingScale(value));
   };
   const setCommittedInflationScale = (value: number) => {
-    const nextInflationScale = normalizeRasterSeamLabInflationScale(value);
-    setInflationScale(nextInflationScale);
-    setInflationScaleInputValue(formatScaleInput(nextInflationScale));
-  };
-  const commitInflationScaleInput = () => {
-    const parsedValue = parseScaleInput(inflationScaleInputValue);
-    const nextInflationScale =
-      parsedValue === null
-        ? inflationScale
-        : normalizeRasterSeamLabInflationScale(parsedValue);
-
-    setInflationScale(nextInflationScale);
-    setInflationScaleInputValue(formatScaleInput(nextInflationScale));
+    setInflationScale(normalizeRasterSeamLabInflationScale(value));
   };
   const setCommittedRotationDegrees = (value: number) => {
-    const nextRotationDegrees = normalizeRotationDegrees(value);
-    setRotationDegrees(nextRotationDegrees);
-    setRotationInputValue(formatAngleInput(nextRotationDegrees));
-  };
-  const commitRotationInput = () => {
-    const parsedValue = parseScaleInput(rotationInputValue);
-    const nextRotationDegrees =
-      parsedValue === null
-        ? rotationDegrees
-        : normalizeRotationDegrees(parsedValue);
-
-    setRotationDegrees(nextRotationDegrees);
-    setRotationInputValue(formatAngleInput(nextRotationDegrees));
+    setRotationDegrees(normalizeRotationDegrees(value));
   };
   const setCommittedElevationDegrees = (value: number) => {
-    const nextElevationDegrees = normalizeElevationDegrees(value);
-    setElevationDegrees(nextElevationDegrees);
-    setElevationInputValue(formatAngleInput(nextElevationDegrees));
-  };
-  const commitElevationInput = () => {
-    const parsedValue = parseScaleInput(elevationInputValue);
-    const nextElevationDegrees =
-      parsedValue === null
-        ? elevationDegrees
-        : normalizeElevationDegrees(parsedValue);
-
-    setElevationDegrees(nextElevationDegrees);
-    setElevationInputValue(formatAngleInput(nextElevationDegrees));
+    setElevationDegrees(normalizeElevationDegrees(value));
   };
   const labStats = getLogoRasterSeamLabStats({
     depth: recursiveDepth,
@@ -498,30 +413,16 @@ export function LogoRasterSeamLabPage({
                   </Button>
                 ))}
               </div>
-              <input
-                type="number"
+              <LogoNumberInput
+                ariaLabel="Source size"
+                formatValue={formatSourceSizeInput}
+                inputMode="numeric"
                 min={RASTER_SEAM_LAB_MIN_SOURCE_SIZE_PX}
+                normalizeValue={normalizeRasterSeamLabSourceSizePx}
+                onValueChange={setCommittedSourceSizePx}
                 step={RASTER_SEAM_LAB_SOURCE_SIZE_STEP}
-                value={sourceSizeInputValue}
-                onChange={(event) => {
-                  const nextInputValue = event.target.value;
-                  const parsedValue = parseScaleInput(nextInputValue);
-
-                  setSourceSizeInputValue(nextInputValue);
-                  if (parsedValue !== null) {
-                    setSourceSizePx(
-                      normalizeRasterSeamLabSourceSizePx(parsedValue),
-                    );
-                  }
-                }}
-                onBlur={commitSourceSizeInput}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.currentTarget.blur();
-                  }
-                }}
-                className="h-9 w-full border border-black/15 bg-white px-2 font-mono text-sm text-black"
-                aria-label="Source size"
+                value={sourceSizePx}
+                variant="seamLab"
               />
             </div>
 
@@ -594,29 +495,15 @@ export function LogoRasterSeamLabPage({
                 }}
                 className="h-2 w-full cursor-pointer accent-black"
               />
-              <input
-                type="text"
-                inputMode="decimal"
-                value={spacingScaleInputValue}
-                onChange={(event) => {
-                  const nextInputValue = event.target.value;
-                  const parsedValue = parseScaleInput(nextInputValue);
-
-                  setSpacingScaleInputValue(nextInputValue);
-                  if (parsedValue !== null) {
-                    setSpacingScale(
-                      normalizeRasterSeamLabSpacingScale(parsedValue),
-                    );
-                  }
-                }}
-                onBlur={commitSpacingScaleInput}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.currentTarget.blur();
-                  }
-                }}
-                className="h-9 w-full border border-black/15 bg-white px-2 font-mono text-sm text-black"
-                aria-label="Spacing scale"
+              <LogoNumberInput
+                ariaLabel="Spacing scale"
+                formatValue={formatScaleInput}
+                min={RASTER_SEAM_LAB_MIN_SPACING_SCALE}
+                normalizeValue={normalizeRasterSeamLabSpacingScale}
+                onValueChange={setCommittedSpacingScale}
+                step={RASTER_SEAM_LAB_SPACING_SCALE_STEP}
+                value={spacingScale}
+                variant="seamLab"
               />
             </div>
 
@@ -639,29 +526,15 @@ export function LogoRasterSeamLabPage({
                 }}
                 className="h-2 w-full cursor-pointer accent-black"
               />
-              <input
-                type="text"
-                inputMode="decimal"
-                value={inflationScaleInputValue}
-                onChange={(event) => {
-                  const nextInputValue = event.target.value;
-                  const parsedValue = parseScaleInput(nextInputValue);
-
-                  setInflationScaleInputValue(nextInputValue);
-                  if (parsedValue !== null) {
-                    setInflationScale(
-                      normalizeRasterSeamLabInflationScale(parsedValue),
-                    );
-                  }
-                }}
-                onBlur={commitInflationScaleInput}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.currentTarget.blur();
-                  }
-                }}
-                className="h-9 w-full border border-black/15 bg-white px-2 font-mono text-sm text-black"
-                aria-label="Inflation scale"
+              <LogoNumberInput
+                ariaLabel="Inflation scale"
+                formatValue={formatScaleInput}
+                min={RASTER_SEAM_LAB_MIN_INFLATION_SCALE}
+                normalizeValue={normalizeRasterSeamLabInflationScale}
+                onValueChange={setCommittedInflationScale}
+                step={RASTER_SEAM_LAB_INFLATION_SCALE_STEP}
+                value={inflationScale}
+                variant="seamLab"
               />
             </div>
 
@@ -681,27 +554,14 @@ export function LogoRasterSeamLabPage({
                 }}
                 className="h-2 w-full cursor-pointer accent-black"
               />
-              <input
-                type="number"
+              <LogoNumberInput
+                ariaLabel="Rotation degrees"
+                formatValue={formatAngleInput}
+                normalizeValue={normalizeRotationDegrees}
+                onValueChange={setCommittedRotationDegrees}
                 step="0.1"
-                value={rotationInputValue}
-                onChange={(event) => {
-                  const nextInputValue = event.target.value;
-                  const parsedValue = parseScaleInput(nextInputValue);
-
-                  setRotationInputValue(nextInputValue);
-                  if (parsedValue !== null) {
-                    setRotationDegrees(normalizeRotationDegrees(parsedValue));
-                  }
-                }}
-                onBlur={commitRotationInput}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.currentTarget.blur();
-                  }
-                }}
-                className="h-9 w-full border border-black/15 bg-white px-2 font-mono text-sm text-black"
-                aria-label="Rotation degrees"
+                value={rotationDegrees}
+                variant="seamLab"
               />
             </div>
 
@@ -721,27 +581,14 @@ export function LogoRasterSeamLabPage({
                 }}
                 className="h-2 w-full cursor-pointer accent-black"
               />
-              <input
-                type="number"
+              <LogoNumberInput
+                ariaLabel="Elevation degrees"
+                formatValue={formatAngleInput}
+                normalizeValue={normalizeElevationDegrees}
+                onValueChange={setCommittedElevationDegrees}
                 step="0.1"
-                value={elevationInputValue}
-                onChange={(event) => {
-                  const nextInputValue = event.target.value;
-                  const parsedValue = parseScaleInput(nextInputValue);
-
-                  setElevationInputValue(nextInputValue);
-                  if (parsedValue !== null) {
-                    setElevationDegrees(normalizeElevationDegrees(parsedValue));
-                  }
-                }}
-                onBlur={commitElevationInput}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.currentTarget.blur();
-                  }
-                }}
-                className="h-9 w-full border border-black/15 bg-white px-2 font-mono text-sm text-black"
-                aria-label="Elevation degrees"
+                value={elevationDegrees}
+                variant="seamLab"
               />
             </div>
           </div>

@@ -491,14 +491,15 @@ test("logo raster seam lab inflation input allows partial edits", async ({
   const currentCase = page.getByTestId("logo-raster-seam-lab-current-case");
   const inflationInput = page.getByLabel("Inflation scale");
 
+  await expect(inflationInput).toHaveAttribute("type", "number");
   await expect(inflationInput).toHaveValue("1.010");
   await inflationInput.click();
   await inflationInput.press("End");
   await inflationInput.press("Backspace");
   await expect(inflationInput).toHaveValue("1.01");
 
-  await inflationInput.fill("1,5");
-  await expect(inflationInput).toHaveValue("1,5");
+  await inflationInput.fill("1.5");
+  await expect(inflationInput).toHaveValue("1.5");
   await expect(currentCase).toContainText("inflate 1.500x");
 
   await inflationInput.press("Enter");
@@ -520,6 +521,7 @@ test("logo raster seam lab spacing scale moves the fake 3d centers", async ({
   const spacingInput = page.getByLabel("Spacing scale");
 
   await expect(spacingInput).toHaveValue("1.000");
+  await expect(spacingInput).toHaveAttribute("type", "number");
   await expect(page.locator('input[type="range"]').first()).toHaveAttribute(
     "max",
     "2",
@@ -566,6 +568,7 @@ test("logo raster seam lab source size input allows larger custom rasters", asyn
   const elevationInput = page.getByLabel("Elevation degrees");
 
   await expect(sourceInput).toHaveValue("24");
+  await expect(sourceInput).toHaveAttribute("type", "number");
   await sourceInput.fill("288");
   await expect(sourceInput).toHaveValue("288");
   await expect(currentCase).toContainText("288px source");
@@ -577,6 +580,8 @@ test("logo raster seam lab source size input allows larger custom rasters", asyn
 
   await expect(rotationInput).toHaveAttribute("step", "0.1");
   await expect(elevationInput).toHaveAttribute("step", "0.1");
+  await expect(rotationInput).toHaveAttribute("type", "number");
+  await expect(elevationInput).toHaveAttribute("type", "number");
   await rotationInput.fill("54.5");
   await expect(rotationInput).toHaveValue("54.5");
   await expect(currentCase).toContainText("rotation 54.5°");

@@ -54,6 +54,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LogoNumberInput } from "@/components/LogoNumberInput";
 import { Label } from "@/components/ui/label";
 import {
   Popover,
@@ -105,10 +106,8 @@ import { Link } from "@tanstack/react-router";
 import { PaletteIcon } from "lucide-react";
 import {
   useId,
-  useEffect,
   useMemo,
   useRef,
-  useState,
   type ChangeEvent,
   type ReactNode,
 } from "react";
@@ -137,9 +136,6 @@ const ROTATION_AXIS_MODE_OPTIONS = [
 const LOGO_CONTROL_STACK_CLASS_NAME = "flex flex-col gap-2";
 const LOGO_CONTROL_BUTTON_CLASS_NAME = "min-w-0 flex-[1_0_10rem] rounded-none";
 const LOGO_CONTROL_BUTTON_ROW_CLASS_NAME = "flex flex-wrap gap-2";
-const LOGO_CONTROL_NUMBER_INPUT_CLASS_NAME =
-  "h-9 w-full max-w-32 rounded-none border-border bg-background px-2 font-mono text-sm";
-
 type LogoPreviewRenderMode = "three" | "iso" | "raster";
 type LogoPreviewPageProps = {
   renderMode?: LogoPreviewRenderMode;
@@ -170,14 +166,8 @@ function formatLogoDistanceInput(value: number): string {
   );
 }
 
-function parseLogoDistanceInput(value: string): number | null {
-  const trimmedValue = value.trim();
-  if (trimmedValue.length === 0) {
-    return null;
-  }
-
-  const parsedValue = Number(trimmedValue.replace(",", "."));
-  return Number.isFinite(parsedValue) ? parsedValue : null;
+function preserveLogoNumberInputValue(value: number) {
+  return value;
 }
 
 function parseShuffleParallelMoves(value: string): LogoShuffleParallelMoves {
@@ -1085,34 +1075,43 @@ function LogoPreviewSection({
 }
 
 function LogoRangeControl({
-  allowValueAboveMax = false,
+  formatValue,
   label,
   max,
   min,
+  normalizeValue = preserveLogoNumberInputValue,
   onSliderChange,
   onValueChange,
   sliderAriaLabel,
   step,
   value,
   valueAriaLabel,
+  valueInputMax,
   valueInputMode = "decimal",
-  valueLabel,
   valueText,
 }: {
-  allowValueAboveMax?: boolean;
+  formatValue: (value: number) => string;
   label: string;
   max: number | string;
   min: number | string;
+  normalizeValue?: (value: number) => number;
   onSliderChange: (value: number) => void;
   onValueChange: (value: number) => void;
   sliderAriaLabel: string;
   step: number | string;
-  value: number | string;
+  value: number;
   valueAriaLabel: string;
+  valueInputMax?: number | string;
   valueInputMode?: "decimal" | "numeric";
-  valueLabel: string | number;
   valueText: string;
 }) {
+  const normalizedValue = normalizeValue(value);
+  const rangeMin = Number(min);
+  const rangeMax = Number(max);
+  const sliderValue =
+    Number.isFinite(rangeMin) && Number.isFinite(rangeMax)
+      ? Math.min(Math.max(normalizedValue, rangeMin), rangeMax)
+      : normalizedValue;
   const handleSliderChange = (event: ChangeEvent<HTMLInputElement>) => {
     const nextValue = Number(event.target.value);
     if (Number.isNaN(nextValue)) {
@@ -1120,15 +1119,6 @@ function LogoRangeControl({
     }
 
     onSliderChange(nextValue);
-  };
-
-  const handleValueChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const nextValue = Number(event.target.value);
-    if (Number.isNaN(nextValue)) {
-      return;
-    }
-
-    onValueChange(nextValue);
   };
 
   return (
@@ -1144,21 +1134,22 @@ function LogoRangeControl({
           min={min}
           max={max}
           step={step}
-          value={value}
+          value={sliderValue}
           onChange={handleSliderChange}
           className="h-2 min-w-40 flex-[999_1_10rem] cursor-pointer accent-[#8a88ac]"
         />
         <div className="ml-auto flex min-w-28 flex-[1_0_7rem] justify-end">
-          <Input
-            aria-label={valueAriaLabel}
-            type="number"
+          <LogoNumberInput
+            ariaLabel={valueAriaLabel}
+            formatValue={formatValue}
             inputMode={valueInputMode}
             min={min}
-            max={allowValueAboveMax ? undefined : max}
+            max={valueInputMax}
+            normalizeValue={normalizeValue}
+            onValueChange={onValueChange}
             step={step}
-            value={valueLabel}
-            onChange={handleValueChange}
-            className={LOGO_CONTROL_NUMBER_INPUT_CLASS_NAME}
+            value={normalizedValue}
+            variant="preview"
           />
         </div>
       </div>
@@ -1174,29 +1165,6 @@ function LogoDistanceScaleControl({
   value: number;
 }) {
   const normalizedValue = normalizeLogoDistanceScale(value);
-  const [inputValue, setInputValue] = useState(() =>
-    formatLogoDistanceInput(normalizedValue),
-  );
-  const isEditingRef = useRef(false);
-
-  useEffect(() => {
-    if (isEditingRef.current) {
-      return;
-    }
-
-    setInputValue(formatLogoDistanceInput(normalizedValue));
-  }, [normalizedValue]);
-
-  const commitInputValue = () => {
-    isEditingRef.current = false;
-    const parsedValue = parseLogoDistanceInput(inputValue);
-    const nextValue =
-      parsedValue === null
-        ? normalizedValue
-        : normalizeLogoDistanceScale(parsedValue);
-    onValueChange(nextValue);
-    setInputValue(formatLogoDistanceInput(nextValue));
-  };
 
   return (
     <div className={LOGO_CONTROL_STACK_CLASS_NAME}>
@@ -1216,39 +1184,20 @@ function LogoDistanceScaleControl({
             const nextValue = Number(event.target.value);
             if (Number.isFinite(nextValue)) {
               onValueChange(nextValue);
-              setInputValue(formatLogoDistanceInput(nextValue));
             }
           }}
           className="h-2 min-w-40 flex-[999_1_10rem] cursor-pointer accent-[#8a88ac]"
         />
         <div className="ml-auto flex min-w-28 flex-[1_0_7rem] justify-end">
-          <Input
-            aria-label="Distance scale"
-            type="number"
-            inputMode="decimal"
+          <LogoNumberInput
+            ariaLabel="Distance scale"
+            formatValue={formatLogoDistanceInput}
             min={MIN_LOGO_DISTANCE_SCALE}
+            normalizeValue={normalizeLogoDistanceScale}
+            onValueChange={onValueChange}
             step={LOGO_DISTANCE_SCALE_STEP}
-            value={inputValue}
-            onFocus={() => {
-              isEditingRef.current = true;
-            }}
-            onChange={(event) => {
-              const nextInputValue = event.target.value;
-              const parsedValue = parseLogoDistanceInput(nextInputValue);
-
-              isEditingRef.current = true;
-              setInputValue(nextInputValue);
-              if (parsedValue !== null) {
-                onValueChange(normalizeLogoDistanceScale(parsedValue));
-              }
-            }}
-            onBlur={commitInputValue}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.currentTarget.blur();
-              }
-            }}
-            className={LOGO_CONTROL_NUMBER_INPUT_CLASS_NAME}
+            value={normalizedValue}
+            variant="preview"
           />
         </div>
       </div>
@@ -1463,10 +1412,11 @@ export function LogoPreviewPage({
 
       <LogoPreviewSection title="Shape">
         <LogoRangeControl
-          allowValueAboveMax
+          formatValue={(value) => Math.round(value).toString()}
           label="Depth"
           max={LOGO_FRACTAL_DEPTH_SLIDER_MAX}
           min={MIN_LOGO_FRACTAL_DEPTH}
+          normalizeValue={normalizeLogoFractalDepth}
           onSliderChange={controls.setFractalDepth}
           onValueChange={controls.setFractalDepth}
           sliderAriaLabel="Depth slider"
@@ -1474,7 +1424,6 @@ export function LogoPreviewPage({
           value={state.fractalDepth}
           valueAriaLabel="Depth value"
           valueInputMode="numeric"
-          valueLabel={state.fractalDepth}
           valueText={`${state.fractalDepth}`}
         />
 
@@ -1583,17 +1532,19 @@ export function LogoPreviewPage({
         <LogoPreviewSection title="Isometric">
           <div className={LOGO_CONTROL_STACK_CLASS_NAME}>
             <LogoRangeControl
+              formatValue={(value) => Math.round(value).toString()}
               label="Cube side"
               max={MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX}
               min={MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX}
+              normalizeValue={normalizeLogoIsometricCubeSidePixels}
               onSliderChange={controls.setIsoCubeSidePixels}
               onValueChange={controls.setIsoCubeSidePixels}
               sliderAriaLabel="Cube side"
               step={LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX}
               value={state.isoCubeSidePixels}
               valueAriaLabel="Cube side pixels"
+              valueInputMax={MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX}
               valueInputMode="numeric"
-              valueLabel={state.isoCubeSidePixels}
               valueText={`${state.isoCubeSidePixels}px`}
             />
             <div className="text-xs text-muted-foreground">
@@ -1728,30 +1679,32 @@ export function LogoPreviewPage({
           </div>
 
           <LogoRangeControl
+            formatValue={(value) => value.toFixed(1)}
             label={rotationAngleControlLabel}
             max="360"
             min="0"
+            normalizeValue={normalizeRotationDegrees}
             onSliderChange={controls.setRotationDegrees}
             onValueChange={controls.setRotationDegrees}
             sliderAriaLabel={`${rotationAngleControlLabel} slider`}
             step="0.1"
             value={state.rotationDegrees}
             valueAriaLabel={`${rotationAngleControlLabel} value`}
-            valueLabel={state.rotationDegrees.toFixed(1)}
             valueText={`${state.rotationDegrees.toFixed(1)}°`}
           />
 
           <LogoRangeControl
+            formatValue={(value) => value.toFixed(1)}
             label="Elevation"
             max={MAX_ELEVATION_DEGREES}
             min={MIN_ELEVATION_DEGREES}
+            normalizeValue={normalizeElevationDegrees}
             onSliderChange={controls.setElevationDegrees}
             onValueChange={controls.setElevationDegrees}
             sliderAriaLabel="Elevation slider"
             step="0.1"
             value={state.elevationDegrees}
             valueAriaLabel="Elevation value"
-            valueLabel={state.elevationDegrees.toFixed(1)}
             valueText={`${state.elevationDegrees.toFixed(1)}°`}
           />
 
@@ -1761,16 +1714,18 @@ export function LogoPreviewPage({
           />
 
           <LogoRangeControl
+            formatValue={(value) => value.toFixed(2)}
             label="Opacity"
             max={MAX_LOGO_OPACITY}
             min={MIN_LOGO_OPACITY}
+            normalizeValue={clampLogoOpacity}
             onSliderChange={controls.setLogoOpacity}
             onValueChange={controls.setLogoOpacity}
             sliderAriaLabel="Opacity slider"
             step={LOGO_OPACITY_STEP}
             value={state.logoOpacity}
             valueAriaLabel="Opacity value"
-            valueLabel={state.logoOpacity.toFixed(2)}
+            valueInputMax={MAX_LOGO_OPACITY}
             valueText={state.logoOpacity.toFixed(2)}
           />
 
