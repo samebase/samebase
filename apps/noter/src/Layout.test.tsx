@@ -28,7 +28,6 @@ import {
   ROOT_THEME_LIGHT_MODE_LINK_LABEL,
 } from "@/lib/rootThemeModeSearch";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
-import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "@/lib/noterSync";
 import type { WorkspaceSidebarState } from "../convex/workspaceSidebarStateModel";
 import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStateController";
 import { sanitizePublicLayoutSidebarState } from "@/lib/publicLayoutSidebarState";
@@ -767,7 +766,7 @@ describe("Layout", () => {
     expect(markup).toContain('tabindex="-1"');
   });
 
-  it("lets dashboard opt into app-only route links in the plain path list", () => {
+  it("keeps low-use machine routes out of the plain path list", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
@@ -783,25 +782,22 @@ describe("Layout", () => {
     );
     const dashboardMarkup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/"]}>
-        <AppSidebarMetaSection showLandingPreviewLink showMachineLinks />
+        <AppSidebarMetaSection showLandingPreviewLink />
       </TestRouterProvider>,
     );
     const homeHref = 'href="/"';
-    const machinesHref = `href="${MACHINES_ROUTE}"`;
-    const machineConnectHref = `href="${MACHINE_CONNECT_ROUTE}"`;
+    const machinesHref = 'href="/machines"';
+    const machineConnectHref = 'href="/machines/connect"';
     const landingPreviewHref = `href="${LANDING_MARKDOWN_PREVIEW_ROUTE}"`;
     const termsHref = 'href="/terms"';
 
     expect(defaultMarkup).not.toContain(machinesHref);
     expect(defaultMarkup).not.toContain(machineConnectHref);
     expect(defaultMarkup).not.toContain(landingPreviewHref);
-    expect(dashboardMarkup).toContain(machinesHref);
-    expect(dashboardMarkup).toContain(machineConnectHref);
+    expect(dashboardMarkup).not.toContain(machinesHref);
+    expect(dashboardMarkup).not.toContain(machineConnectHref);
     expect(dashboardMarkup).toContain(landingPreviewHref);
     expect(dashboardMarkup.indexOf(homeHref)).toBeLessThan(
-      dashboardMarkup.indexOf(machinesHref),
-    );
-    expect(dashboardMarkup.indexOf(machineConnectHref)).toBeLessThan(
       dashboardMarkup.indexOf(landingPreviewHref),
     );
     expect(dashboardMarkup.indexOf(landingPreviewHref)).toBeLessThan(

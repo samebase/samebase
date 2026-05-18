@@ -39,7 +39,6 @@ import {
 import { applySearchPatch } from "@/lib/routeSearchFlags";
 import { readRootRouteSearch } from "@/lib/rootRouteSearch";
 import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
-import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "@/lib/noterSync";
 import { Link, useLocation } from "@tanstack/react-router";
 
 function normalizeRepoUrl(repoUrl: string): string {
@@ -68,11 +67,9 @@ const HIDDEN_PUBLIC_LINK_PLACEHOLDER_CLASS_NAME =
  */
 export function AppSidebarMetaSection({
   showLandingPreviewLink = false,
-  showMachineLinks = false,
   side = "left",
 }: {
   showLandingPreviewLink?: boolean;
-  showMachineLinks?: boolean;
   side?: AppSidebarMetaSectionSide;
 }) {
   const appCommit = __APP_COMMIT__ || "unknown";
@@ -230,12 +227,6 @@ export function AppSidebarMetaSection({
         >
           {LOCAL_STORAGE_ROUTE}
         </Link>
-      ) : null}
-      {showMachineLinks ? (
-        <>
-          <Link to={MACHINES_ROUTE}>{MACHINES_ROUTE}</Link>
-          <Link to={MACHINE_CONNECT_ROUTE}>{MACHINE_CONNECT_ROUTE}</Link>
-        </>
       ) : null}
       {showLandingPreviewLink ? (
         <Link to={LANDING_MARKDOWN_PREVIEW_ROUTE}>
