@@ -48,14 +48,14 @@ describe("getLogoIsometricFrameMetrics", () => {
     });
   });
 
-  it("scales raster dimensions with the normalized cube side length", () => {
+  it("scales raster dimensions with the exact frame cube side length", () => {
     expect(getLogoIsometricFrameMetrics(17)).toMatchObject({
-      canvasHeight: 117,
-      canvasWidth: 117,
-      cubeSidePixels: 18,
-      tileHalfHeight: 9,
-      tileHalfWidth: 18,
-      voxelScreenHeight: 18,
+      canvasHeight: 111,
+      canvasWidth: 111,
+      cubeSidePixels: 17,
+      tileHalfHeight: 8.5,
+      tileHalfWidth: 17,
+      voxelScreenHeight: 17,
     });
   });
 
