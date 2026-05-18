@@ -439,6 +439,11 @@ Detailed flow rules live in `docs/agent-workflows.md`.
   asking for clarification.
 - Commit meaningful checkpoints instead of letting large local diffs accumulate,
   and push after commits so work is not stranded only in the local worktree.
+- Preserve the meaningful sequence of work in branch history during active
+  review. Do not repeatedly amend the same feature commit after work has been
+  shown, pushed, or reviewed; create a new commit for each meaningful follow-up
+  step unless the user explicitly asks to squash or amend. Tiny fixups before
+  the next handoff can still be folded into the current commit.
 - When a change touches many files or multiple concerns, consider splitting it
   into two or three reviewable commits, such as backend model cleanup, UI
   wiring, and spec/test updates. This is a reviewability preference, not a hard
