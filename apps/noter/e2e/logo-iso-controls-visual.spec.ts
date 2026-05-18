@@ -421,6 +421,30 @@ test("logo raster seam lab shows the tiny 2x2 image-composition diagnostic", asy
     scale: "css",
   });
 
+  const mergeSweep = page.getByTestId("logo-raster-seam-lab-merge-sweep");
+  const mergeSweepRowCount = await mergeSweep
+    .locator("button")
+    .evaluateAll(
+      (buttons) =>
+        new Set(
+          buttons.map((button) =>
+            Math.round(button.getBoundingClientRect().top),
+          ),
+        ).size,
+    );
+
+  await expect(mergeSweep).toBeVisible();
+  expect(mergeSweepRowCount).toBeGreaterThan(1);
+  await expect(mergeSweep).toHaveScreenshot(
+    "logo-raster-seam-lab-merge-sweep.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.01,
+      scale: "css",
+    },
+  );
+
   await page.getByRole("button", { exact: true, name: "2" }).click();
   await expect(currentCase).toContainText("depth 2");
   await expect(currentCase).toHaveScreenshot(

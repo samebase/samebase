@@ -555,7 +555,10 @@ export function LogoRasterSeamLabPage({
               </div>
             </div>
 
-            <div className="grid gap-3 border border-black/10 bg-white/88 p-3">
+            <div
+              className="grid gap-3 border border-black/10 bg-white/88 p-3"
+              data-testid="logo-raster-seam-lab-merge-sweep"
+            >
               <div>
                 <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                   Merge Sweep
@@ -565,13 +568,13 @@ export function LogoRasterSeamLabPage({
                   strategies.
                 </div>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
+              <div className="flex flex-wrap gap-3">
                 {RASTER_SEAM_LAB_MERGE_MODES.map((mode) => (
                   <button
                     key={mode.value}
                     type="button"
                     aria-pressed={mergeMode === mode.value}
-                    className="text-left aria-pressed:outline aria-pressed:outline-2 aria-pressed:outline-black"
+                    className="min-w-48 flex-1 text-left aria-pressed:outline aria-pressed:outline-2 aria-pressed:outline-black"
                     onClick={() => {
                       setMergeMode(mode.value);
                     }}
