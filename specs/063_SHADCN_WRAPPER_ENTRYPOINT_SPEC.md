@@ -4,10 +4,8 @@
 
 - Status: Proposed
 - Owner: Noter frontend/design system
-- Last updated: 2026-03-25
-- Related files: `AGENTS.md`, `apps/noter/src/lib/cornerNotch.ts`,
-  `apps/noter/src/components/input.tsx`, `apps/noter/src/components/card.tsx`,
-  `apps/noter/src/components/ui/button.tsx`
+- Last updated: 2026-05-19
+- Related files: `AGENTS.md`, `apps/noter/src/components/ui/button.tsx`
 
 ## Conclusion
 
@@ -24,18 +22,9 @@ The canonical app-facing import for a wrapped primitive is
 styling, app code should import the generated primitive directly instead of
 keeping an empty pass-through wrapper.
 
-Current rollout includes:
-
-- `@/components/card`
-- `@/components/collapsible`
-- `@/components/dialog`
-- `@/components/dropdown-menu`
-- `@/components/input`
-- `@/components/popover`
-- `@/components/select`
-- `@/components/sheet`
-- `@/components/sidebar`
-- `@/components/tooltip`
+Current code does not keep any top-level pass-through wrappers. Add
+`@/components/<name>` only when that module has product-owned behavior or
+styling to own.
 
 ## Goals
 
@@ -121,8 +110,8 @@ Current rollout includes:
 ## Acceptance Criteria
 
 - App-owned product code imports wrapped shadcn primitives from
-  `@/components/<name>` when a wrapper exists, with `Button` importing from
-  `@/components/ui/button`.
+  `@/components/<name>` only when a wrapper exists and adds product-owned
+  behavior or styling, with `Button` importing from `@/components/ui/button`.
 - Generated shadcn files under `apps/noter/src/components/ui/*` remain unchanged
   by default unless the repo explicitly documents an exception such as `Button`.
 - Wrapper modules preserve the generated public API closely enough that call
@@ -133,7 +122,7 @@ Current rollout includes:
 
 ## Summary
 
-Noter should keep using shadcn as the primitive source while moving app-facing
-imports to repo-owned wrapper entrypoints. This preserves clean product code,
-keeps generated files internal, and creates stable places to own future styling
-decisions without editing generated shadcn files by default.
+Noter should keep using shadcn as the primitive source while creating repo-owned
+wrapper entrypoints only when Noter has real behavior or styling to own. This
+keeps generated files internal when a wrapper earns its place without preserving
+empty modules as navigation noise.

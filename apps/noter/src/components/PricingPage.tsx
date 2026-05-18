@@ -17,7 +17,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { PLAN_DISPLAY_PRICE, PLAN_FEATURES } from "@/lib/pricingContent";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/card";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+} from "@/components/ui/card";
 
 const pricingRouteApi = getRouteApi("/pricing");
 
