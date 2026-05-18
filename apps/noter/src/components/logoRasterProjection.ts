@@ -13,6 +13,7 @@ import {
 } from "@/components/logoRotationMath";
 
 export const LOGO_RASTER_RECURSIVE_FRUSTUM_PADDING = 1;
+const LOGO_RASTER_BOUNDING_CUBE_DIAMETER = Math.sqrt(3);
 
 export type LogoRasterPoint2D = {
   x: number;
@@ -32,58 +33,6 @@ export type LogoRasterProjection = {
   scalePx: number;
   sizePx: number;
 };
-
-const LOGO_RASTER_CUBE_VERTICES = [
-  [-0.5, -0.5, -0.5],
-  [0.5, -0.5, -0.5],
-  [0.5, 0.5, -0.5],
-  [-0.5, 0.5, -0.5],
-  [-0.5, -0.5, 0.5],
-  [0.5, -0.5, 0.5],
-  [0.5, 0.5, 0.5],
-  [-0.5, 0.5, 0.5],
-] as const satisfies readonly Vector3[];
-
-function subtractVectors(left: Vector3, right: Vector3): Vector3 {
-  return [left[0] - right[0], left[1] - right[1], left[2] - right[2]];
-}
-
-/**
- * Keep raster zoom stable while rotating by fitting the worst projected cube
- * span for the current elevation and rotation axis, instead of the current yaw.
- */
-function getMaxRotatedCubeProjectionSpan({
-  projectionAxis,
-  rotationAxis,
-}: {
-  projectionAxis: Vector3;
-  rotationAxis: Vector3;
-}): number {
-  const normalizedRotationAxis = normalizeVector(rotationAxis);
-  let maxSpan = 0;
-
-  for (const firstVertex of LOGO_RASTER_CUBE_VERTICES) {
-    for (const secondVertex of LOGO_RASTER_CUBE_VERTICES) {
-      const delta = subtractVectors(firstVertex, secondVertex);
-      const axisDelta = scaleVector(
-        normalizedRotationAxis,
-        dotProduct(normalizedRotationAxis, delta),
-      );
-      const radialDelta = subtractVectors(delta, axisDelta);
-      const sineDelta = crossProduct(normalizedRotationAxis, delta);
-      const cosineCoefficient = dotProduct(radialDelta, projectionAxis);
-      const sineCoefficient = dotProduct(sineDelta, projectionAxis);
-      const axisCoefficient = dotProduct(axisDelta, projectionAxis);
-
-      maxSpan = Math.max(
-        maxSpan,
-        axisCoefficient + Math.hypot(cosineCoefficient, sineCoefficient),
-      );
-    }
-  }
-
-  return maxSpan;
-}
 
 export function createLogoRasterProjection({
   elevationDegrees,
@@ -113,19 +62,9 @@ export function createLogoRasterProjection({
   const rotatePoint = (point: Vector3) =>
     rotateVectorAroundAxis(point, rotationAxis, renderedRotationDegrees);
   const normalizedWorldHalfSize = Math.max(0.0001, worldHalfSize ?? 0.5);
-  const worldScale = normalizedWorldHalfSize * 2;
-  const span =
-    Math.max(
-      getMaxRotatedCubeProjectionSpan({
-        projectionAxis: right,
-        rotationAxis,
-      }),
-      getMaxRotatedCubeProjectionSpan({
-        projectionAxis: up,
-        rotationAxis,
-      }),
-      0.001,
-    ) * worldScale;
+  // Match the Three renderer's camera-fit rule: fit the bounding sphere of the
+  // cube, so yaw and elevation changes do not re-zoom the raster scene.
+  const span = normalizedWorldHalfSize * 2 * LOGO_RASTER_BOUNDING_CUBE_DIAMETER;
   const scalePx = sizePx / (span * frustumPadding);
   const centerPx = sizePx / 2;
 
