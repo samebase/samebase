@@ -146,6 +146,24 @@ higher levels still compose cached images, so any future inter-level seam work
 should apply the same merged-surface idea to each cached level or layer instead
 of expanding all recursive voxels.
 
+Depth-2 follow-up: whole-motif image recursion reproduces the same alpha-edge
+problem one level higher, even after the base 3x3 motif is merged. Do not keep
+expanding exact recursive leaf geometry as the default answer. The next
+experiments should stay in `/logo/raster-seams` until a different primitive is
+proven. One current experiment is `Crisp`, which software-fills projected
+polygons from pixel centers, disables image smoothing, rounds tile placement to
+exact pixels, and compares against a similarly crisp one-piece reference so the
+tradeoff is visible in the tiny 2x2 lab before it affects the production
+renderer.
+
+Crisp verdict: not enough. The stricter software-pixel version avoids Canvas
+polygon antialiasing by filling projected polygons from pixel centers, then
+placing the tiny source on rounded pixel offsets. At the 24px source, 22deg
+rotation, and 22deg elevation case, it reports `23 / 382` mismatches. In the
+same case, `source-over` reports `13 / 385`, `source-atop` reports `11 / 385`,
+and `Merged faces` remains `0 / 385`. Crisp rendering may be an acceptable style
+choice, but it is not the primitive seam fix.
+
 References checked:
 
 - [WHATWG Canvas 2D](https://html.spec.whatwg.org/multipage/canvas.html):

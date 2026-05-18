@@ -100,6 +100,7 @@ type RasterSeamLabMergedFaceGroup = {
 export type RasterSeamLabImageKind = "composed" | "mask" | "reference";
 
 export type RasterSeamLabMergeMode =
+  | "crisp-source-over"
   | "destination-out-full"
   | "merged-faces"
   | "source-atop-full"
@@ -128,6 +129,10 @@ export const RASTER_SEAM_LAB_MERGE_MODES = [
   {
     label: "Plain",
     value: "source-over",
+  },
+  {
+    label: "Crisp",
+    value: "crisp-source-over",
   },
   {
     label: "Atop single",
@@ -547,6 +552,124 @@ function drawProjectedFaces({
     });
 }
 
+function getFaceColorChannels(
+  color: string,
+): readonly [number, number, number] {
+  if (color === FACE_COLORS.x) {
+    return [255, 0, 0];
+  }
+  if (color === FACE_COLORS.y) {
+    return [0, 0, 255];
+  }
+  if (color === FACE_COLORS.z) {
+    return [0, 204, 0];
+  }
+
+  return [0, 0, 0];
+}
+
+function isPointInsidePolygon(point: Point2D, polygon: readonly Point2D[]) {
+  let inside = false;
+  for (
+    let index = 0, previousIndex = polygon.length - 1;
+    index < polygon.length;
+    previousIndex = index, index += 1
+  ) {
+    const current = polygon[index];
+    const previous = polygon[previousIndex];
+    if (
+      current.y > point.y === previous.y > point.y ||
+      point.x >=
+        ((previous.x - current.x) * (point.y - current.y)) /
+          (previous.y - current.y) +
+          current.x
+    ) {
+      continue;
+    }
+
+    inside = !inside;
+  }
+
+  return inside;
+}
+
+function drawProjectedFacesCrisp({
+  context,
+  faces,
+  projection,
+}: {
+  context: CanvasRenderingContext2D;
+  faces: readonly RasterSeamLabFace[];
+  projection: RasterSeamLabProjection;
+}) {
+  const projectedFaces = faces
+    .map((face) => {
+      const rotatedNormal = projection.rotatePoint(face.normal);
+      if (dotVectors(rotatedNormal, projection.cameraDirection) <= 0) {
+        return null;
+      }
+
+      return {
+        color: face.color,
+        depth: dotVectors(
+          projection.rotatePoint(getFaceCenter(face)),
+          projection.cameraDirection,
+        ),
+        key: face.key,
+        points: face.vertices.map((vertex) => projection.projectPoint(vertex)),
+      };
+    })
+    .filter((face) => face !== null)
+    .sort((left, right) => {
+      if (left.depth !== right.depth) {
+        return left.depth - right.depth;
+      }
+
+      return left.key.localeCompare(right.key);
+    });
+
+  const imageData = context.createImageData(
+    projection.sizePx,
+    projection.sizePx,
+  );
+
+  for (const face of projectedFaces) {
+    const redGreenBlue = getFaceColorChannels(face.color);
+    const minX = Math.max(
+      0,
+      Math.floor(Math.min(...face.points.map((point) => point.x))),
+    );
+    const maxX = Math.min(
+      projection.sizePx - 1,
+      Math.ceil(Math.max(...face.points.map((point) => point.x))),
+    );
+    const minY = Math.max(
+      0,
+      Math.floor(Math.min(...face.points.map((point) => point.y))),
+    );
+    const maxY = Math.min(
+      projection.sizePx - 1,
+      Math.ceil(Math.max(...face.points.map((point) => point.y))),
+    );
+
+    for (let y = minY; y <= maxY; y += 1) {
+      for (let x = minX; x <= maxX; x += 1) {
+        if (!isPointInsidePolygon({ x: x + 0.5, y: y + 0.5 }, face.points)) {
+          continue;
+        }
+
+        const index = (y * projection.sizePx + x) * 4;
+        imageData.data[index] = redGreenBlue[0];
+        imageData.data[index + 1] = redGreenBlue[1];
+        imageData.data[index + 2] = redGreenBlue[2];
+        imageData.data[index + 3] = 255;
+      }
+    }
+  }
+
+  context.putImageData(imageData, 0, 0);
+}
+
 function createLabCanvas(sizePx: number): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
   canvas.width = sizePx;
@@ -562,6 +685,24 @@ function createUnitCubeCanvas(projection: RasterSeamLabProjection) {
   }
 
   drawProjectedFaces({
+    context,
+    faces: getCubeFaces({
+      center: [0, 0, 0],
+      halfSize: CELL_HALF_SIZE,
+    }),
+    projection,
+  });
+  return canvas;
+}
+
+function createCrispUnitCubeCanvas(projection: RasterSeamLabProjection) {
+  const canvas = createLabCanvas(projection.sizePx);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return canvas;
+  }
+
+  drawProjectedFacesCrisp({
     context,
     faces: getCubeFaces({
       center: [0, 0, 0],
@@ -942,6 +1083,23 @@ function renderComposedImage(projection: RasterSeamLabProjection) {
   return canvas;
 }
 
+function renderCrispComposedImage(projection: RasterSeamLabProjection) {
+  const canvas = createLabCanvas(projection.sizePx);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return canvas;
+  }
+
+  const unitCanvas = createCrispUnitCubeCanvas(projection);
+  context.imageSmoothingEnabled = false;
+  for (const item of getDrawItems(projection)) {
+    const offset = projection.projectVector(item.center);
+    context.drawImage(unitCanvas, Math.round(offset.x), Math.round(offset.y));
+  }
+
+  return canvas;
+}
+
 function getDrawImageOffset(
   projection: RasterSeamLabProjection,
   item: RasterSeamLabDrawItem,
@@ -1115,6 +1273,8 @@ function renderMergedImage({
   switch (mergeMode) {
     case "source-over":
       return renderComposedImage(projection);
+    case "crisp-source-over":
+      return renderCrispComposedImage(projection);
     case "source-atop-single":
       return renderSingleCompositeImage({
         canvasOperation: "source-atop",
@@ -1138,10 +1298,28 @@ function renderMergedImage({
   }
 }
 
-function renderReferenceImage(projection: RasterSeamLabProjection) {
+function renderReferenceImage({
+  mergeMode,
+  projection,
+}: {
+  mergeMode: RasterSeamLabMergeMode;
+  projection: RasterSeamLabProjection;
+}) {
   const canvas = createLabCanvas(projection.sizePx);
   const context = canvas.getContext("2d");
   if (!context) {
+    return canvas;
+  }
+
+  if (mergeMode === "crisp-source-over") {
+    drawProjectedFacesCrisp({
+      context,
+      faces: getCubeFaces({
+        center: [0, 0, 0],
+        halfSize: 0.5,
+      }),
+      projection,
+    });
     return canvas;
   }
 
@@ -1302,7 +1480,7 @@ export function drawLogoRasterSeamLabImage(
     sizePx: sourceSizePx,
   });
   const composedCanvas = renderMergedImage({ mergeMode, projection });
-  const referenceCanvas = renderReferenceImage(projection);
+  const referenceCanvas = renderReferenceImage({ mergeMode, projection });
   const seamResult = measureSeams({ composedCanvas, referenceCanvas });
 
   if (context.canvas.width !== sourceSizePx) {
