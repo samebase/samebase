@@ -1,28 +1,10 @@
 import {
-  getWorldCameraVector,
-  getWorldScreenVerticalAxis,
-  toRenderedRotationDegrees,
-  type Vector3,
-} from "@/components/logoRotationMath";
-
-type Point2D = {
-  x: number;
-  y: number;
-};
-
-type ProjectedPoint = Point2D & {
-  depth: number;
-};
-
-type RasterSeamLabProjection = {
-  cameraDirection: Vector3;
-  centerPx: number;
-  projectPoint: (point: Vector3) => ProjectedPoint;
-  projectVector: (point: Vector3) => Point2D;
-  rotatePoint: (point: Vector3) => Vector3;
-  scalePx: number;
-  sizePx: number;
-};
+  createLogoRasterProjection,
+  LOGO_RASTER_RECURSIVE_FRUSTUM_PADDING,
+  type LogoRasterPoint2D as Point2D,
+  type LogoRasterProjection as RasterSeamLabProjection,
+} from "@/components/logoRasterProjection";
+import { type Vector3 } from "@/components/logoRotationMath";
 
 type RasterSeamLabFace = {
   color: string;
@@ -195,7 +177,6 @@ export const RASTER_SEAM_LAB_EMPTY_STATS = {
   recursiveTileDraws: 0,
 } satisfies RasterSeamLabStats;
 
-const FRUSTUM_PADDING = 1.08;
 const SEAM_ALPHA_THRESHOLD = 230;
 const SEAM_COLOR_DISTANCE_THRESHOLD = 70;
 const SEAM_MASK_COLOR = [255, 0, 255, 255] as const;
@@ -318,17 +299,6 @@ const MERGED_FACE_DEFINITIONS = [
   },
 ] as const satisfies readonly RasterSeamLabFaceDefinition[];
 
-const BLOCK_CORNERS = [
-  [-0.5, -0.5, -0.5],
-  [-0.5, -0.5, 0.5],
-  [-0.5, 0.5, -0.5],
-  [-0.5, 0.5, 0.5],
-  [0.5, -0.5, -0.5],
-  [0.5, -0.5, 0.5],
-  [0.5, 0.5, -0.5],
-  [0.5, 0.5, 0.5],
-] as const satisfies readonly Vector3[];
-
 function addVectors(left: Vector3, right: Vector3): Vector3 {
   return [left[0] + right[0], left[1] + right[1], left[2] + right[2]];
 }
@@ -341,54 +311,6 @@ function dotVectors(left: Vector3, right: Vector3): number {
   return left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
 }
 
-function crossVectors(left: Vector3, right: Vector3): Vector3 {
-  return [
-    left[1] * right[2] - left[2] * right[1],
-    left[2] * right[0] - left[0] * right[2],
-    left[0] * right[1] - left[1] * right[0],
-  ];
-}
-
-function normalizeVector(vector: Vector3): Vector3 {
-  const length = Math.hypot(vector[0], vector[1], vector[2]);
-  if (length === 0) {
-    return [0, 0, 0];
-  }
-
-  return [vector[0] / length, vector[1] / length, vector[2] / length];
-}
-
-function rotateVectorY(vector: Vector3, rotationDegrees: number): Vector3 {
-  const radians = (rotationDegrees * Math.PI) / 180;
-  const cosine = Math.cos(radians);
-  const sine = Math.sin(radians);
-  return [
-    vector[0] * cosine + vector[2] * sine,
-    vector[1],
-    -vector[0] * sine + vector[2] * cosine,
-  ];
-}
-
-function getProjectionSpan({
-  projectionAxis,
-  rotationDegrees,
-}: {
-  projectionAxis: Vector3;
-  rotationDegrees: number;
-}): number {
-  let minValue = Number.POSITIVE_INFINITY;
-  let maxValue = Number.NEGATIVE_INFINITY;
-
-  for (const corner of BLOCK_CORNERS) {
-    const rotatedCorner = rotateVectorY(corner, rotationDegrees);
-    const projectedValue = dotVectors(rotatedCorner, projectionAxis);
-    minValue = Math.min(minValue, projectedValue);
-    maxValue = Math.max(maxValue, projectedValue);
-  }
-
-  return Math.max(maxValue - minValue, 0.001);
-}
-
 function createProjection({
   elevationDegrees,
   rotationDegrees,
@@ -398,50 +320,13 @@ function createProjection({
   rotationDegrees: number;
   sizePx: number;
 }): RasterSeamLabProjection {
-  const renderedRotationDegrees = toRenderedRotationDegrees(rotationDegrees);
-  const cameraDirection = getWorldCameraVector(elevationDegrees);
-  const up = getWorldScreenVerticalAxis(elevationDegrees);
-  const right = normalizeVector(
-    crossVectors(scaleVector(cameraDirection, -1), up),
-  );
-  const span = Math.max(
-    getProjectionSpan({
-      projectionAxis: right,
-      rotationDegrees: renderedRotationDegrees,
-    }),
-    getProjectionSpan({
-      projectionAxis: up,
-      rotationDegrees: renderedRotationDegrees,
-    }),
-  );
-  const scalePx = sizePx / (span * FRUSTUM_PADDING);
-  const centerPx = sizePx / 2;
-  const rotatePoint = (point: Vector3) =>
-    rotateVectorY(point, renderedRotationDegrees);
-  const projectVector = (point: Vector3) => {
-    const rotatedPoint = rotatePoint(point);
-    return {
-      x: dotVectors(rotatedPoint, right) * scalePx,
-      y: -dotVectors(rotatedPoint, up) * scalePx,
-    };
-  };
-
-  return {
-    cameraDirection,
-    centerPx,
-    projectPoint: (point) => {
-      const rotatedPoint = rotatePoint(point);
-      return {
-        depth: dotVectors(rotatedPoint, cameraDirection),
-        x: centerPx + dotVectors(rotatedPoint, right) * scalePx,
-        y: centerPx - dotVectors(rotatedPoint, up) * scalePx,
-      };
-    },
-    projectVector,
-    rotatePoint,
-    scalePx,
+  return createLogoRasterProjection({
+    elevationDegrees,
+    frustumPadding: LOGO_RASTER_RECURSIVE_FRUSTUM_PADDING,
+    rotationAxisMode: "cube-y",
+    rotationDegrees,
     sizePx,
-  };
+  });
 }
 
 function getCubeFaces({

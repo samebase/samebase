@@ -18,7 +18,7 @@ export function dotProduct(left: Vector3, right: Vector3): number {
   return left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
 }
 
-function crossProduct(left: Vector3, right: Vector3): Vector3 {
+export function crossProduct(left: Vector3, right: Vector3): Vector3 {
   return [
     left[1] * right[2] - left[2] * right[1],
     left[2] * right[0] - left[0] * right[2],
@@ -26,7 +26,7 @@ function crossProduct(left: Vector3, right: Vector3): Vector3 {
   ];
 }
 
-function normalizeVector([x, y, z]: Vector3): Vector3 {
+export function normalizeVector([x, y, z]: Vector3): Vector3 {
   const length = Math.hypot(x, y, z);
   if (length === 0) {
     return WORLD_UP_AXIS;
@@ -35,11 +35,11 @@ function normalizeVector([x, y, z]: Vector3): Vector3 {
   return [x / length, y / length, z / length];
 }
 
-function scaleVector([x, y, z]: Vector3, scalar: number): Vector3 {
+export function scaleVector([x, y, z]: Vector3, scalar: number): Vector3 {
   return [x * scalar, y * scalar, z * scalar];
 }
 
-function rotateVectorAroundAxis(
+export function rotateVectorAroundAxis(
   vector: Vector3,
   axis: Vector3,
   rotationDegrees: number,

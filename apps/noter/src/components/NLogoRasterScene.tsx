@@ -3,13 +3,15 @@ import {
   type FaceColors,
 } from "@/components/logoTailwindColors";
 import {
-  getLogoRotationAxis,
-  getWorldCameraVector,
-  getWorldScreenVerticalAxis,
-  toRenderedRotationDegrees,
   type LogoRotationAxisMode,
   type Vector3,
 } from "@/components/logoRotationMath";
+import {
+  createLogoRasterProjection as getRasterProjection,
+  LOGO_RASTER_RECURSIVE_FRUSTUM_PADDING,
+  type LogoRasterPoint2D as Point2D,
+  type LogoRasterProjection as RasterProjection,
+} from "@/components/logoRasterProjection";
 import { getShuffleOriginCandidates } from "@/components/logoShuffleRules";
 import {
   DRAG_ELEVATION_DEGREES_PER_PIXEL,
@@ -44,29 +46,10 @@ const RASTER_BACKING_MAX_SIZE = 1536;
 // edges into internal seams while the intermediate canvases stay bounded.
 const RASTER_EXACT_TILE_MAX_SIZE = RASTER_BACKING_MAX_SIZE * 2;
 const RASTER_FRUSTUM_PADDING = 1.18;
-const RASTER_RECURSIVE_FRUSTUM_PADDING = 1;
+const RASTER_RECURSIVE_FRUSTUM_PADDING = LOGO_RASTER_RECURSIVE_FRUSTUM_PADDING;
 const FACE_ON_DOT_THRESHOLD = 1 - 1e-6;
 const SHUFFLE_MOVE_DURATION_MS = 1800;
 const SHUFFLE_MOVE_STAGGER_MS = 520;
-
-type Point2D = {
-  x: number;
-  y: number;
-};
-
-type ProjectedPoint = Point2D & {
-  depth: number;
-};
-
-type RasterProjection = {
-  cameraDirection: Vector3;
-  centerPx: number;
-  projectPoint: (point: Vector3) => ProjectedPoint;
-  projectVector: (point: Vector3) => Point2D;
-  rotatePoint: (point: Vector3) => Vector3;
-  scalePx: number;
-  sizePx: number;
-};
 
 type RasterMotifDrawItem = {
   center: Vector3;
@@ -180,17 +163,6 @@ type NLogoRasterSceneProps = {
   viewDragConfig?: LogoViewDragConfig;
   voxelState: string;
 };
-
-const CUBE_VERTICES = [
-  [-0.5, -0.5, -0.5],
-  [0.5, -0.5, -0.5],
-  [0.5, 0.5, -0.5],
-  [-0.5, 0.5, -0.5],
-  [-0.5, -0.5, 0.5],
-  [0.5, -0.5, 0.5],
-  [0.5, 0.5, 0.5],
-  [-0.5, 0.5, 0.5],
-] as const satisfies readonly Vector3[];
 
 const CUBE_FACES = [
   {
@@ -338,54 +310,8 @@ function scaleVector(vector: Vector3, scale: number): Vector3 {
   return [vector[0] * scale, vector[1] * scale, vector[2] * scale];
 }
 
-function subtractVectors(left: Vector3, right: Vector3): Vector3 {
-  return [left[0] - right[0], left[1] - right[1], left[2] - right[2]];
-}
-
 function dotVectors(left: Vector3, right: Vector3): number {
   return left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
-}
-
-function crossVectors(left: Vector3, right: Vector3): Vector3 {
-  return [
-    left[1] * right[2] - left[2] * right[1],
-    left[2] * right[0] - left[0] * right[2],
-    left[0] * right[1] - left[1] * right[0],
-  ];
-}
-
-function normalizeVector(vector: Vector3): Vector3 {
-  const length = Math.hypot(vector[0], vector[1], vector[2]);
-  if (length === 0) {
-    return [0, 1, 0];
-  }
-
-  return [vector[0] / length, vector[1] / length, vector[2] / length];
-}
-
-function rotateVectorAroundAxis(
-  vector: Vector3,
-  axis: Vector3,
-  rotationDegrees: number,
-): Vector3 {
-  const radians = (rotationDegrees * Math.PI) / 180;
-  const cosine = Math.cos(radians);
-  const sine = Math.sin(radians);
-  const normalizedAxis = normalizeVector(axis);
-  const cross = crossVectors(normalizedAxis, vector);
-  const dot = dotVectors(normalizedAxis, vector);
-
-  return [
-    vector[0] * cosine +
-      cross[0] * sine +
-      normalizedAxis[0] * dot * (1 - cosine),
-    vector[1] * cosine +
-      cross[1] * sine +
-      normalizedAxis[1] * dot * (1 - cosine),
-    vector[2] * cosine +
-      cross[2] * sine +
-      normalizedAxis[2] * dot * (1 - cosine),
-  ];
 }
 
 function getCanvasBackingSize(canvas: HTMLCanvasElement): number {
@@ -403,108 +329,6 @@ function createRasterCanvas(sizePx: number): HTMLCanvasElement {
   canvas.width = sizePx;
   canvas.height = sizePx;
   return canvas;
-}
-
-/**
- * Keep raster zoom stable while rotating by fitting the worst projected cube
- * span for the current elevation and rotation axis, instead of the current yaw.
- */
-function getMaxRotatedCubeProjectionSpan({
-  projectionAxis,
-  rotationAxis,
-}: {
-  projectionAxis: Vector3;
-  rotationAxis: Vector3;
-}): number {
-  const normalizedRotationAxis = normalizeVector(rotationAxis);
-  let maxSpan = 0;
-
-  for (const firstVertex of CUBE_VERTICES) {
-    for (const secondVertex of CUBE_VERTICES) {
-      const delta = subtractVectors(firstVertex, secondVertex);
-      const axisDelta = scaleVector(
-        normalizedRotationAxis,
-        dotVectors(normalizedRotationAxis, delta),
-      );
-      const radialDelta = subtractVectors(delta, axisDelta);
-      const sineDelta = crossVectors(normalizedRotationAxis, delta);
-      const cosineCoefficient = dotVectors(radialDelta, projectionAxis);
-      const sineCoefficient = dotVectors(sineDelta, projectionAxis);
-      const axisCoefficient = dotVectors(axisDelta, projectionAxis);
-
-      maxSpan = Math.max(
-        maxSpan,
-        axisCoefficient + Math.hypot(cosineCoefficient, sineCoefficient),
-      );
-    }
-  }
-
-  return maxSpan;
-}
-
-function getRasterProjection({
-  elevationDegrees,
-  frustumPadding,
-  rotationAxisMode,
-  rotationDegrees,
-  sizePx,
-}: {
-  elevationDegrees: number;
-  frustumPadding: number;
-  rotationAxisMode: LogoRotationAxisMode;
-  rotationDegrees: number;
-  sizePx: number;
-}): RasterProjection {
-  const cameraDirection = getWorldCameraVector(elevationDegrees);
-  const up = getWorldScreenVerticalAxis(elevationDegrees);
-  const right = normalizeVector(
-    crossVectors(scaleVector(cameraDirection, -1), up),
-  );
-  const rotationAxis = getLogoRotationAxis({
-    elevationDegrees,
-    mode: rotationAxisMode,
-  });
-  const renderedRotationDegrees = toRenderedRotationDegrees(rotationDegrees);
-  const rotatePoint = (point: Vector3) =>
-    rotateVectorAroundAxis(point, rotationAxis, renderedRotationDegrees);
-  const span = Math.max(
-    getMaxRotatedCubeProjectionSpan({
-      projectionAxis: right,
-      rotationAxis,
-    }),
-    getMaxRotatedCubeProjectionSpan({
-      projectionAxis: up,
-      rotationAxis,
-    }),
-    0.001,
-  );
-  const scalePx = sizePx / (span * frustumPadding);
-  const centerPx = sizePx / 2;
-
-  const projectVector = (point: Vector3) => {
-    const rotatedPoint = rotatePoint(point);
-    return {
-      x: dotVectors(rotatedPoint, right) * scalePx,
-      y: -dotVectors(rotatedPoint, up) * scalePx,
-    };
-  };
-
-  return {
-    cameraDirection,
-    centerPx,
-    projectPoint: (point) => {
-      const rotatedPoint = rotatePoint(point);
-      return {
-        depth: dotVectors(rotatedPoint, cameraDirection),
-        x: centerPx + dotVectors(rotatedPoint, right) * scalePx,
-        y: centerPx - dotVectors(rotatedPoint, up) * scalePx,
-      };
-    },
-    projectVector,
-    rotatePoint,
-    scalePx,
-    sizePx,
-  };
 }
 
 function getFaceCenter(face: RasterFace): Vector3 {
