@@ -90,6 +90,70 @@ can reduce overdraw/halo seams around overlapping image tiles, but a clean
 recursive logo probably still needs face-level merging or a direct exposed-face
 mask before rasterization for coplanar joins.
 
+Deep-dive options after checking browser/graphics references:
+
+- Merge geometry before rasterization. Build one path or mask per visible
+  coplanar face/color, remove internal shared edges, then rasterize the merged
+  area once. Canvas `fill(path, fillRule)` supports winding-rule fills, and SVG
+  can also represent combined paths. If boolean path merging gets annoying,
+  Clipper2 is a plausible helper because it supports robust polygon union and
+  fill rules. This is the most promising path for static or whole-tile recursive
+  views because there is no alpha image boundary between neighboring cells.
+- Use a software rasterizer with a deterministic shared-edge rule. Direct3D's
+  top-left convention exists specifically so adjacent triangles do not both miss
+  the sample on a shared edge. A small fixed-point rasterizer for our projected
+  quads would give full control over pixel coverage and depth, but it is more
+  code than merged paths.
+- Render real geometry to an offscreen GPU target, then reuse that result only
+  after the geometry has been resolved. GPU rasterizers have explicit sample
+  coverage rules and can use MSAA, but recursively reusing the result as a
+  transparent texture reintroduces texture-edge filtering/premultiplied-alpha
+  issues.
+- Add gutters / edge-color dilation / premultiplied-alpha discipline around
+  cached transparent images. WebGL's spec calls out premultiplied-alpha
+  conversions as lossy in some canvas/image transfers, and WebGL texture docs
+  expose `CLAMP_TO_EDGE`, `NEAREST`, and `LINEAR` as relevant sampling controls.
+  This can reduce halos at the outside of cached images, but it cannot remove
+  internal seams created before the image was cached.
+- Supersample vector geometry and downsample once. This can make edge coverage
+  smoother and more stable, but if the supersampled image is built by
+  compositing many transparent tiles independently, the same category of seam is
+  still present at higher resolution.
+- Use `shape-rendering="crispEdges"` / no smoothing only as a diagnostic. SVG
+  defines this as a renderer hint that may disable antialiasing or snap edges;
+  it can hide seams by making the whole shape jagged, which is not the desired
+  logo look.
+
+Recommended next experiment: add one `merged faces` mode to `/logo/raster-seams`
+that draws the 2x2 primitive as one path per visible face/color, with no
+internal edges. If the mismatch counter drops to zero or near-zero across the
+current angle sweep, port that idea to the recursive 3x3 renderer as cached
+merged-face motifs. Keep `source-atop-full` around for movement experiments
+where pieces intentionally overlap while shuffling.
+
+References checked:
+
+- [WHATWG Canvas 2D](https://html.spec.whatwg.org/multipage/canvas.html):
+  `globalCompositeOperation`, `imageSmoothingEnabled`, `drawImage()`, and the
+  premultiplied-alpha section.
+- [MDN Canvas `globalCompositeOperation`](https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/globalCompositeOperation)
+  and
+  [MDN Canvas `fill()`](https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/fill)
+  for composite modes and `fill(path, fillRule)`.
+- [W3C Compositing and Blending](https://www.w3.org/TR/compositing-1/) for the
+  Porter-Duff source/destination modes.
+- [Microsoft Direct3D rasterization rules](https://learn.microsoft.com/en-us/windows/uwp/graphics-concepts/rasterization-rules)
+  for the top-left shared-edge convention.
+- [MDN WebGL `pixelStorei()`](https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/pixelStorei)
+  and
+  [MDN WebGL texture parameters](https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/texParameter)
+  for premultiplied-alpha upload controls and texture sampling/wrapping.
+- [MDN SVG `shape-rendering`](https://developer.mozilla.org/en-US/docs/Web/SVG/Reference/Attribute/shape-rendering)
+  for the `crispEdges` diagnostic.
+- [Clipper2 overview](https://angusj.com/clipper2/Docs/Overview.htm) and
+  [Clipper2 `Union`](https://angusj.com/clipper2/Docs/Units/Clipper/Functions/Union.htm)
+  for robust polygon union/fill-rule behavior.
+
 Implementation note: raster projection scale should not be recomputed from the
 current yaw's bounding box. Fit against the maximum projected cube span for the
 current elevation and rotation-axis mode so dragging rotates the shape without
