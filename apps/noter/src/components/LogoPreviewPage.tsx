@@ -19,6 +19,13 @@ import {
   type LogoIsometricStyleId,
 } from "@/components/logoIsometricRenderer";
 import {
+  DEFAULT_LOGO_DISTANCE_SCALE,
+  LOGO_DISTANCE_SCALE_SLIDER_MAX,
+  LOGO_DISTANCE_SCALE_STEP,
+  MIN_LOGO_DISTANCE_SCALE,
+  normalizeLogoDistanceScale,
+} from "@/components/logoDistanceScale";
+import {
   DEFAULT_LOGO_THEME_COLORS,
   LOGO_THEME_COLOR_KEYS,
   RGB_LOGO_THEME_COLORS,
@@ -98,8 +105,10 @@ import { Link } from "@tanstack/react-router";
 import { PaletteIcon } from "lucide-react";
 import {
   useId,
+  useEffect,
   useMemo,
   useRef,
+  useState,
   type ChangeEvent,
   type ReactNode,
 } from "react";
@@ -112,6 +121,7 @@ const MIN_LOGO_OPACITY = 0;
 const MAX_LOGO_OPACITY = 1;
 const LOGO_OPACITY_STEP = 0.01;
 const LOGO_FRACTAL_DEPTH_SLIDER_MAX = 5;
+const LOGO_DISTANCE_INPUT_DECIMALS = 3;
 const ROTATION_AXIS_MODE_LABELS: Record<LogoRotationAxisMode, string> = {
   "cube-y": "Cube axis",
   "screen-vertical": "Vertical",
@@ -152,6 +162,22 @@ type ColorSwatchSize = keyof typeof COLOR_SWATCH_SIZE_CLASS_NAMES;
 
 function clampLogoOpacity(value: number): number {
   return Math.min(Math.max(value, MIN_LOGO_OPACITY), MAX_LOGO_OPACITY);
+}
+
+function formatLogoDistanceInput(value: number): string {
+  return normalizeLogoDistanceScale(value).toFixed(
+    LOGO_DISTANCE_INPUT_DECIMALS,
+  );
+}
+
+function parseLogoDistanceInput(value: string): number | null {
+  const trimmedValue = value.trim();
+  if (trimmedValue.length === 0) {
+    return null;
+  }
+
+  const parsedValue = Number(trimmedValue.replace(",", "."));
+  return Number.isFinite(parsedValue) ? parsedValue : null;
 }
 
 function parseShuffleParallelMoves(value: string): LogoShuffleParallelMoves {
@@ -465,6 +491,14 @@ function readElevationDegrees(routeSearch: LogoRouteSearch): number {
   return normalizeElevationDegrees(routeSearch.elev);
 }
 
+function readLogoDistanceScale(routeSearch: LogoRouteSearch): number {
+  if (typeof routeSearch.dist !== "number") {
+    return DEFAULT_LOGO_DISTANCE_SCALE;
+  }
+
+  return normalizeLogoDistanceScale(routeSearch.dist);
+}
+
 function readLogoFractalDepth(routeSearch: LogoRouteSearch): number {
   if (typeof routeSearch.depth !== "number") {
     return DEFAULT_LOGO_FRACTAL_DEPTH;
@@ -474,6 +508,7 @@ function readLogoFractalDepth(routeSearch: LogoRouteSearch): number {
 }
 
 type LogoPreviewRouteState = {
+  distanceScale: number;
   elevationDegrees: number;
   fractalDepth: number;
   isViewSnapEnabled: boolean;
@@ -504,6 +539,7 @@ function readLogoPreviewRouteState(
   const view = readLogoPreviewView(routeSearch);
 
   return {
+    distanceScale: readLogoDistanceScale(routeSearch),
     elevationDegrees: view.elevationDegrees,
     fractalDepth: readLogoFractalDepth(routeSearch),
     isViewSnapEnabled: view.viewSnapEnabled,
@@ -535,6 +571,7 @@ function areLogoPreviewRouteStatesEqual(
 ): boolean {
   return (
     left.elevationDegrees === right.elevationDegrees &&
+    left.distanceScale === right.distanceScale &&
     left.fractalDepth === right.fractalDepth &&
     left.isViewSnapEnabled === right.isViewSnapEnabled &&
     left.isoCubeSidePixels === right.isoCubeSidePixels &&
@@ -561,6 +598,7 @@ function buildLogoPreviewRouteSearch(
 
   return preserveLogoRouteDevModeSearch(
     buildLogoRouteSearch({
+      distanceScale: routeState.distanceScale,
       elevationDegrees: resolvedView.elevationDegrees,
       fractalDepth: routeState.fractalDepth,
       isoCubeSidePixels: routeState.isoCubeSidePixels,
@@ -776,6 +814,7 @@ function useLogoPreviewController({
             elevationDegrees: DEFAULT_ELEVATION_DEGREES,
             rotationDegrees: DEFAULT_ROTATION_DEGREES,
           }),
+          distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
           rotationAxisMode: DEFAULT_ROTATION_AXIS_MODE,
         }));
       },
@@ -826,6 +865,12 @@ function useLogoPreviewController({
         );
       },
       setFaceColorAnimationEnabled: store.actions.setFaceColorAnimationEnabled,
+      setDistanceScale: (distanceScale: number) => {
+        debounceRouteState((currentState) => ({
+          ...currentState,
+          distanceScale: normalizeLogoDistanceScale(distanceScale),
+        }));
+      },
       setFractalDepth: (fractalDepth: number) => {
         const nextFractalDepth = normalizeLogoFractalDepth(fractalDepth);
         commitRouteState((currentState) => ({
@@ -966,6 +1011,7 @@ function readCanonicalLogoRouteSearch(
 ): LogoRouteSearch {
   return preserveLogoRouteDevModeSearch(
     buildLogoRouteSearch({
+      distanceScale: readLogoDistanceScale(routeSearch),
       elevationDegrees: readElevationDegrees(routeSearch),
       fractalDepth: readLogoFractalDepth(routeSearch),
       isoCubeSidePixels: readIsoCubeSidePixels(routeSearch),
@@ -986,6 +1032,7 @@ const LOGO_ROUTE_SEARCH_KEYS = [
   ...LOGO_THEME_COLOR_KEYS,
   "dev",
   "depth",
+  "dist",
   "elev",
   "freeView",
   "isoSide",
@@ -1119,6 +1166,94 @@ function LogoRangeControl({
   );
 }
 
+function LogoDistanceScaleControl({
+  onValueChange,
+  value,
+}: {
+  onValueChange: (value: number) => void;
+  value: number;
+}) {
+  const normalizedValue = normalizeLogoDistanceScale(value);
+  const [inputValue, setInputValue] = useState(() =>
+    formatLogoDistanceInput(normalizedValue),
+  );
+  const isEditingRef = useRef(false);
+
+  useEffect(() => {
+    if (isEditingRef.current) {
+      return;
+    }
+
+    setInputValue(formatLogoDistanceInput(normalizedValue));
+  }, [normalizedValue]);
+
+  const commitInputValue = () => {
+    isEditingRef.current = false;
+    const parsedValue = parseLogoDistanceInput(inputValue);
+    const nextValue =
+      parsedValue === null
+        ? normalizedValue
+        : normalizeLogoDistanceScale(parsedValue);
+    onValueChange(nextValue);
+    setInputValue(formatLogoDistanceInput(nextValue));
+  };
+
+  return (
+    <div className={LOGO_CONTROL_STACK_CLASS_NAME}>
+      <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+        <span>Distance</span>
+        <span>{formatLogoDistanceInput(normalizedValue)}x</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          aria-label="Distance slider"
+          type="range"
+          min={MIN_LOGO_DISTANCE_SCALE}
+          max={LOGO_DISTANCE_SCALE_SLIDER_MAX}
+          step={LOGO_DISTANCE_SCALE_STEP}
+          value={Math.min(normalizedValue, LOGO_DISTANCE_SCALE_SLIDER_MAX)}
+          onChange={(event) => {
+            const nextValue = Number(event.target.value);
+            if (Number.isFinite(nextValue)) {
+              onValueChange(nextValue);
+              setInputValue(formatLogoDistanceInput(nextValue));
+            }
+          }}
+          className="h-2 min-w-40 flex-[999_1_10rem] cursor-pointer accent-[#8a88ac]"
+        />
+        <div className="ml-auto flex min-w-28 flex-[1_0_7rem] justify-end">
+          <Input
+            aria-label="Distance scale"
+            type="text"
+            inputMode="decimal"
+            value={inputValue}
+            onFocus={() => {
+              isEditingRef.current = true;
+            }}
+            onChange={(event) => {
+              const nextInputValue = event.target.value;
+              const parsedValue = parseLogoDistanceInput(nextInputValue);
+
+              isEditingRef.current = true;
+              setInputValue(nextInputValue);
+              if (parsedValue !== null) {
+                onValueChange(normalizeLogoDistanceScale(parsedValue));
+              }
+            }}
+            onBlur={commitInputValue}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur();
+              }
+            }}
+            className={LOGO_CONTROL_NUMBER_INPUT_CLASS_NAME}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function LogoPreviewPage({
   renderMode = "three",
   replaceRouteSearch,
@@ -1156,6 +1291,7 @@ export function LogoPreviewPage({
 
   const modeSearch = preserveLogoRouteDevModeSearch(
     buildLogoRouteSearch({
+      distanceScale: state.distanceScale,
       elevationDegrees: state.elevationDegrees,
       fractalDepth: state.fractalDepth,
       isoCubeSidePixels: state.isoCubeSidePixels,
@@ -1192,6 +1328,7 @@ export function LogoPreviewPage({
           "absolute inset-0 h-full w-full touch-none select-none",
           state.isSceneInteracting ? "cursor-grabbing" : "cursor-grab",
         )}
+        distanceScale={state.distanceScale}
         elevationDegrees={state.elevationDegrees}
         faceColors={faceColors}
         fractalDepth={state.fractalDepth}
@@ -1216,6 +1353,7 @@ export function LogoPreviewPage({
           "absolute inset-0 h-full w-full touch-none select-none",
           state.isSceneInteracting ? "cursor-grabbing" : "cursor-grab",
         )}
+        distanceScale={state.distanceScale}
         editMode={state.editMode}
         elevationDegrees={state.elevationDegrees}
         faceColors={faceColors}
@@ -1613,6 +1751,11 @@ export function LogoPreviewPage({
             valueAriaLabel="Elevation value"
             valueLabel={state.elevationDegrees.toFixed(1)}
             valueText={`${state.elevationDegrees.toFixed(1)}°`}
+          />
+
+          <LogoDistanceScaleControl
+            value={state.distanceScale}
+            onValueChange={controls.setDistanceScale}
           />
 
           <LogoRangeControl

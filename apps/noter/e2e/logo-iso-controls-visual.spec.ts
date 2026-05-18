@@ -514,6 +514,10 @@ test("logo raster seam lab spacing scale moves the fake 3d centers", async ({
   const spacingInput = page.getByLabel("Spacing scale");
 
   await expect(spacingInput).toHaveValue("1.000");
+  await expect(page.locator('input[type="range"]').first()).toHaveAttribute(
+    "max",
+    "2",
+  );
   await waitForPaint(page);
   const defaultImage = await composedCanvas.evaluate((element) => {
     if (!(element instanceof HTMLCanvasElement)) {
@@ -592,6 +596,49 @@ test("logo depth slider clears default depth from the URL", async ({
       return url.searchParams.has("depth");
     })
     .toBe(false);
+});
+
+test("logo distance scale controls Three and raster previews", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo?dist=1.25&rot=45", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  const distanceSlider = controlsSidebar.getByLabel("Distance slider");
+  const distanceInput = controlsSidebar.getByLabel("Distance scale");
+
+  await expect(page.locator("canvas").first()).toBeVisible();
+  await expect(distanceSlider).toHaveAttribute("max", "2");
+  await expect(distanceInput).toHaveValue("1.250");
+
+  await distanceInput.fill("2.5");
+  await expect(distanceInput).toHaveValue("2.5");
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("dist"))
+    .toBe("2.5");
+  await distanceInput.press("Enter");
+  await expect(distanceInput).toHaveValue("2.500");
+
+  await distanceInput.fill("1");
+  await distanceInput.press("Enter");
+  await expect
+    .poll(() => new URL(page.url()).searchParams.has("dist"))
+    .toBe(false);
+
+  await page.goto("/logo/raster?dist=0.5&rot=45", {
+    waitUntil: "domcontentloaded",
+  });
+  await expect(
+    page.locator('canvas[data-logo-renderer="raster"]').first(),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByTestId("workspace-layout-v2-pane-left")
+      .getByLabel("Distance scale"),
+  ).toHaveValue("0.500");
 });
 
 test("logo iso controls mobile boot", async ({ page }) => {

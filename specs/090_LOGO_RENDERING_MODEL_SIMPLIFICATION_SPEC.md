@@ -189,6 +189,20 @@ The raster projection should use a stable fit for the current elevation and
 rotation-axis mode. Rotation must not refit the canvas zoom from the current
 projected bounding box.
 
+### Phase 7: Distance Scale Exploration
+
+Add a `dist` route/search option for `/logo` and `/logo/raster` that changes the
+fake 3D spacing between repeated cube centers. `dist=1` is the current logo
+spacing and the default omitted URL value. `dist=0` places all centers at the
+same point. The playground slider should cover `0..2` as the comfortable range,
+while typed inputs and URL state may use larger values deliberately.
+
+The control must preserve the same recursive mental model as depth rendering:
+distance applies to the reusable motif centers at each cached level, not by
+expanding every leaf cube. Three may rebuild its bounded surface/instance
+geometry for the new spacing, while raster should change projection and cached
+tile placement without entering the exact recursive voxel path.
+
 ## Validation
 
 - Unit tests must cover the shared surface model independently from renderers.

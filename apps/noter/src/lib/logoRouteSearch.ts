@@ -8,6 +8,10 @@ import {
 } from "@/components/logoIsometricRenderer";
 import { type LogoThemeColors } from "@/components/logoTailwindColors";
 import {
+  DEFAULT_LOGO_DISTANCE_SCALE,
+  normalizeLogoDistanceScale,
+} from "@/components/logoDistanceScale";
+import {
   appThemeColorSearchFieldSchema,
   buildLogoThemeColorSearch,
   readLogoThemeColorSearch,
@@ -122,6 +126,7 @@ const logoRouteSearchFieldSchema = z
     ),
     [LANDING_DEV_MODE_QUERY_PARAM]: z.literal(true).optional(),
     depth: z.preprocess(readOptionalNumber, z.number().finite().optional()),
+    dist: z.preprocess(readOptionalNumber, z.number().finite().optional()),
     elev: z.preprocess(readOptionalNumber, z.number().finite().optional()),
     freeView: z.literal(true).optional(),
     isoSide: z.preprocess(readOptionalNumber, z.number().finite().optional()),
@@ -146,6 +151,9 @@ export const logoRouteSearchSchema = logoRouteSearchFieldSchema.transform(
       ...(search.dev ? { dev: true as const } : {}),
       ...(typeof search.depth === "number"
         ? { depth: normalizeLogoFractalDepth(search.depth) }
+        : {}),
+      ...(typeof search.dist === "number"
+        ? { dist: normalizeLogoDistanceScale(search.dist) }
         : {}),
       ...(typeof search.elev === "number"
         ? { elev: normalizeElevationDegrees(search.elev) }
@@ -176,6 +184,7 @@ export function validateLogoRouteSearch(
 }
 
 export function buildLogoRouteSearch(args: {
+  distanceScale: number;
   elevationDegrees: number;
   fractalDepth: number;
   isoCubeSidePixels: number;
@@ -188,6 +197,7 @@ export function buildLogoRouteSearch(args: {
   voxelState: string;
 }): LogoRouteSearch {
   const fractalDepth = normalizeLogoFractalDepth(args.fractalDepth);
+  const distanceScale = normalizeLogoDistanceScale(args.distanceScale);
 
   return {
     ...readRootThemeModeSearch(args.themeModeSearch ?? {}),
@@ -202,6 +212,10 @@ export function buildLogoRouteSearch(args: {
     // undefined tombstone to clear a previous recursive preview value.
     depth:
       fractalDepth !== DEFAULT_LOGO_FRACTAL_DEPTH ? fractalDepth : undefined,
+    dist:
+      distanceScale !== DEFAULT_LOGO_DISTANCE_SCALE
+        ? Number(distanceScale.toFixed(3))
+        : undefined,
     ...(args.viewSnapEnabled ? {} : { freeView: true }),
     ...(args.isoCubeSidePixels !== DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX
       ? { isoSide: args.isoCubeSidePixels }

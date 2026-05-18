@@ -207,12 +207,12 @@ describe("PublicLandingLogo", () => {
         filledVoxels: defaultVoxelGrid.filledVoxels,
         gridSize: defaultVoxelGrid.gridSize,
         view: persistedView,
-      })}#${defaultLogoTheme.cacheKey}:1`,
+      })}#${defaultLogoTheme.cacheKey}:1:1`,
     );
     expect(logoImage.getAttribute("src")).not.toBe(
       `${createStaticLogoSvgDataUrl({
         faceColors: defaultLogoTheme.faceColors,
-      })}#${defaultLogoTheme.cacheKey}:1`,
+      })}#${defaultLogoTheme.cacheKey}:1:1`,
     );
   });
 
@@ -243,7 +243,7 @@ describe("PublicLandingLogo", () => {
           faceColors: defaultLogoTheme.faceColors,
           filledVoxels: expectedVoxelGrid.filledVoxels,
           gridSize: expectedVoxelGrid.gridSize,
-        })}#${defaultLogoTheme.cacheKey}:2`,
+        })}#${defaultLogoTheme.cacheKey}:2:1`,
       ),
     );
   });
@@ -275,7 +275,7 @@ describe("PublicLandingLogo", () => {
           faceColors: defaultLogoTheme.faceColors,
           filledVoxels: fallbackVoxelGrid.filledVoxels,
           gridSize: fallbackVoxelGrid.gridSize,
-        })}#${defaultLogoTheme.cacheKey}:6`,
+        })}#${defaultLogoTheme.cacheKey}:6:1`,
       ),
     );
   });

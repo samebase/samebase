@@ -11,6 +11,10 @@ import {
 } from "@/components/logoRotationMath";
 import { getShuffleOriginCandidates } from "@/components/logoShuffleRules";
 import {
+  DEFAULT_LOGO_DISTANCE_SCALE,
+  normalizeLogoDistanceScale,
+} from "@/components/logoDistanceScale";
+import {
   buildLogoSurfaceQuads,
   getLogoSurfaceFitRadius,
   type LogoSurfaceQuad,
@@ -125,6 +129,7 @@ type ActiveTileMove = {
 
 type RecursiveTileSceneState = {
   currentFilledTiles: Set<string>;
+  distanceScale: number;
   fullGridSize: number;
   homeFilledTiles: Set<string>;
   keyToIndex: Map<string, number>;
@@ -138,6 +143,7 @@ type SceneState = {
   cameraFitRadius: number;
   cubeGeometry: THREE.BoxGeometry;
   cubeMaterials: THREE.MeshBasicMaterial[];
+  distanceScale: number;
   gridSize: number;
   currentFilledVoxels: Set<string>;
   activeCubeMoves: ActiveCubeMove[];
@@ -163,6 +169,7 @@ type ResolvedFaceColors = {
 type NLogoSceneProps = {
   backgroundColor: string;
   className?: string;
+  distanceScale?: number;
   editMode: VoxelEdit["kind"];
   elevationDegrees: number;
   faceColors: FaceColors;
@@ -190,12 +197,14 @@ type NLogoSceneProps = {
 function getVoxelWorldCenter(
   coordinate: VoxelCoordinate,
   gridSize: number,
+  distanceScale = DEFAULT_LOGO_DISTANCE_SCALE,
 ): readonly [number, number, number] {
   const worldCenterOffset = (gridSize - 1) / 2;
+  const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
   return [
-    coordinate[0] - worldCenterOffset,
-    coordinate[1] - worldCenterOffset,
-    coordinate[2] - worldCenterOffset,
+    (coordinate[0] - worldCenterOffset) * normalizedDistanceScale,
+    (coordinate[1] - worldCenterOffset) * normalizedDistanceScale,
+    (coordinate[2] - worldCenterOffset) * normalizedDistanceScale,
   ];
 }
 
@@ -203,8 +212,9 @@ function setCubeMeshPosition(
   mesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial[]>,
   coordinate: VoxelCoordinate,
   gridSize: number,
+  distanceScale: number,
 ) {
-  const [x, y, z] = getVoxelWorldCenter(coordinate, gridSize);
+  const [x, y, z] = getVoxelWorldCenter(coordinate, gridSize, distanceScale);
   mesh.position.set(x, y, z);
 }
 
@@ -220,9 +230,18 @@ function getCubeMovePosition(
   move: ActiveCubeMove,
   progress: number,
   gridSize: number,
+  distanceScale: number,
 ): readonly [number, number, number] {
-  const [startX, startY, startZ] = getVoxelWorldCenter(move.from, gridSize);
-  const [endX, endY, endZ] = getVoxelWorldCenter(move.to, gridSize);
+  const [startX, startY, startZ] = getVoxelWorldCenter(
+    move.from,
+    gridSize,
+    distanceScale,
+  );
+  const [endX, endY, endZ] = getVoxelWorldCenter(
+    move.to,
+    gridSize,
+    distanceScale,
+  );
   const travelProgress = easeInOutCubic(progress);
   return [
     startX + (endX - startX) * travelProgress,
@@ -346,6 +365,161 @@ function buildLogoSurfacePart(surfaceQuad: LogoSurfaceQuad): LogoSurfacePart {
   };
 }
 
+type SpacedLogoCubeFaceSpec = {
+  colorKey: LogoSurfaceQuad["colorKey"];
+  key: string;
+  materialIndex: number;
+  normal: LogoSurfaceQuad["normal"];
+  vertices: LogoSurfaceQuad["vertices"];
+};
+
+const SPACED_LOGO_CUBE_FACE_SPECS = [
+  {
+    colorKey: "right",
+    key: "positive-x",
+    materialIndex: 0,
+    normal: [1, 0, 0],
+    vertices: [
+      [0.5, -0.5, -0.5],
+      [0.5, 0.5, -0.5],
+      [0.5, 0.5, 0.5],
+      [0.5, -0.5, 0.5],
+    ],
+  },
+  {
+    colorKey: "right",
+    key: "negative-x",
+    materialIndex: 1,
+    normal: [-1, 0, 0],
+    vertices: [
+      [-0.5, -0.5, 0.5],
+      [-0.5, 0.5, 0.5],
+      [-0.5, 0.5, -0.5],
+      [-0.5, -0.5, -0.5],
+    ],
+  },
+  {
+    colorKey: "top",
+    key: "positive-y",
+    materialIndex: 2,
+    normal: [0, 1, 0],
+    vertices: [
+      [-0.5, 0.5, 0.5],
+      [0.5, 0.5, 0.5],
+      [0.5, 0.5, -0.5],
+      [-0.5, 0.5, -0.5],
+    ],
+  },
+  {
+    colorKey: "top",
+    key: "negative-y",
+    materialIndex: 3,
+    normal: [0, -1, 0],
+    vertices: [
+      [-0.5, -0.5, -0.5],
+      [0.5, -0.5, -0.5],
+      [0.5, -0.5, 0.5],
+      [-0.5, -0.5, 0.5],
+    ],
+  },
+  {
+    colorKey: "left",
+    key: "positive-z",
+    materialIndex: 4,
+    normal: [0, 0, 1],
+    vertices: [
+      [-0.5, -0.5, 0.5],
+      [0.5, -0.5, 0.5],
+      [0.5, 0.5, 0.5],
+      [-0.5, 0.5, 0.5],
+    ],
+  },
+  {
+    colorKey: "left",
+    key: "negative-z",
+    materialIndex: 5,
+    normal: [0, 0, -1],
+    vertices: [
+      [-0.5, 0.5, -0.5],
+      [0.5, 0.5, -0.5],
+      [0.5, -0.5, -0.5],
+      [-0.5, -0.5, -0.5],
+    ],
+  },
+] satisfies readonly SpacedLogoCubeFaceSpec[];
+
+function translateLogoSurfaceVertices(
+  vertices: LogoSurfaceQuad["vertices"],
+  center: readonly [number, number, number],
+): LogoSurfaceQuad["vertices"] {
+  return [
+    [
+      vertices[0][0] + center[0],
+      vertices[0][1] + center[1],
+      vertices[0][2] + center[2],
+    ],
+    [
+      vertices[1][0] + center[0],
+      vertices[1][1] + center[1],
+      vertices[1][2] + center[2],
+    ],
+    [
+      vertices[2][0] + center[0],
+      vertices[2][1] + center[1],
+      vertices[2][2] + center[2],
+    ],
+    [
+      vertices[3][0] + center[0],
+      vertices[3][1] + center[1],
+      vertices[3][2] + center[2],
+    ],
+  ];
+}
+
+function buildDistanceScaledLogoSurfaceQuads(
+  filledVoxels: ReadonlySet<string>,
+  gridSize: number,
+  distanceScale: number,
+): LogoSurfaceQuad[] {
+  const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
+  if (normalizedDistanceScale === DEFAULT_LOGO_DISTANCE_SCALE) {
+    return buildLogoSurfaceQuads(filledVoxels, gridSize);
+  }
+
+  const quads: LogoSurfaceQuad[] = [];
+  for (const key of [...filledVoxels].sort()) {
+    const coordinate = parseVoxelKey(key);
+    if (!coordinate || !isWithinVoxelGrid(gridSize, ...coordinate)) {
+      continue;
+    }
+
+    const center = getVoxelWorldCenter(
+      coordinate,
+      gridSize,
+      normalizedDistanceScale,
+    );
+    for (const face of SPACED_LOGO_CUBE_FACE_SPECS) {
+      quads.push({
+        colorKey: face.colorKey,
+        key: `distance:${key}:${face.key}`,
+        materialIndex: face.materialIndex,
+        normal: face.normal,
+        vertices: translateLogoSurfaceVertices(face.vertices, center),
+      });
+    }
+  }
+
+  return quads;
+}
+
+function getDistanceScaledGridFitRadius(
+  gridSize: number,
+  distanceScale: number,
+): number {
+  const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
+  return (((gridSize - 1) / 2) * normalizedDistanceScale + 0.5) * Math.sqrt(3);
+}
+
 function buildLogoSurfaceParts(
   surfaceQuads: readonly LogoSurfaceQuad[],
   mergeByMaterial: boolean,
@@ -387,17 +561,23 @@ function getRecursiveTileDepth(recursiveRenderDepth: number): number {
 
 function getTileWorldCenter({
   coordinate,
+  distanceScale,
   fullGridSize,
   tileGridSize,
 }: {
   coordinate: VoxelCoordinate;
+  distanceScale: number;
   fullGridSize: number;
   tileGridSize: number;
 }): readonly [number, number, number] {
+  const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
   return [
-    coordinate[0] * tileGridSize + tileGridSize / 2 - fullGridSize / 2,
-    coordinate[1] * tileGridSize + tileGridSize / 2 - fullGridSize / 2,
-    coordinate[2] * tileGridSize + tileGridSize / 2 - fullGridSize / 2,
+    (coordinate[0] * tileGridSize + tileGridSize / 2 - fullGridSize / 2) *
+      normalizedDistanceScale,
+    (coordinate[1] * tileGridSize + tileGridSize / 2 - fullGridSize / 2) *
+      normalizedDistanceScale,
+    (coordinate[2] * tileGridSize + tileGridSize / 2 - fullGridSize / 2) *
+      normalizedDistanceScale,
   ];
 }
 
@@ -408,11 +588,13 @@ function getTileMovePosition(
 ): readonly [number, number, number] {
   const [startX, startY, startZ] = getTileWorldCenter({
     coordinate: move.from,
+    distanceScale: tileState.distanceScale,
     fullGridSize: tileState.fullGridSize,
     tileGridSize: tileState.tileGridSize,
   });
   const [endX, endY, endZ] = getTileWorldCenter({
     coordinate: move.to,
+    distanceScale: tileState.distanceScale,
     fullGridSize: tileState.fullGridSize,
     tileGridSize: tileState.tileGridSize,
   });
@@ -426,11 +608,13 @@ function getTileMovePosition(
 
 function createRecursiveInstanceMatrices({
   baseFilledVoxels,
+  distanceScale,
   fullGridSize,
   recursiveRenderDepth,
   tileGridSize,
 }: {
   baseFilledVoxels: ReadonlySet<string>;
+  distanceScale: number;
   fullGridSize: number;
   recursiveRenderDepth: number;
   tileGridSize: number;
@@ -458,11 +642,13 @@ function createRecursiveInstanceMatrices({
 
     const [x, y, z] = coordinate;
     const matrix = new THREE.Matrix4();
-    matrix.makeTranslation(
-      x * tileGridSize + tileGridSize / 2 - fullGridSize / 2,
-      y * tileGridSize + tileGridSize / 2 - fullGridSize / 2,
-      z * tileGridSize + tileGridSize / 2 - fullGridSize / 2,
-    );
+    const [centerX, centerY, centerZ] = getTileWorldCenter({
+      coordinate: [x, y, z],
+      distanceScale,
+      fullGridSize,
+      tileGridSize,
+    });
+    matrix.makeTranslation(centerX, centerY, centerZ);
     keyToIndex.set(key, matrices.length);
     filledTiles.add(key);
     matrices.push(matrix);
@@ -478,11 +664,13 @@ function createRecursiveInstanceMatrices({
 
 function createRecursiveLogoMeshes({
   baseFilledVoxels,
+  distanceScale,
   fullGridSize,
   materials,
   recursiveRenderDepth,
 }: {
   baseFilledVoxels: ReadonlySet<string>;
+  distanceScale: number;
   fullGridSize: number;
   materials: THREE.MeshBasicMaterial[];
   recursiveRenderDepth: number;
@@ -492,13 +680,16 @@ function createRecursiveLogoMeshes({
     depth: tileDepth,
     filledVoxels: baseFilledVoxels,
   });
-  const tileSurfaceQuads = buildLogoSurfaceQuads(
+  const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
+  const tileSurfaceQuads = buildDistanceScaledLogoSurfaceQuads(
     tileVoxelGrid.filledVoxels,
     tileVoxelGrid.gridSize,
+    normalizedDistanceScale,
   );
   const tileParts = buildLogoSurfaceParts(tileSurfaceQuads, true);
   const instanceState = createRecursiveInstanceMatrices({
     baseFilledVoxels,
+    distanceScale: normalizedDistanceScale,
     fullGridSize,
     recursiveRenderDepth,
     tileGridSize: tileVoxelGrid.gridSize,
@@ -519,10 +710,14 @@ function createRecursiveLogoMeshes({
   });
 
   return {
-    cameraFitRadius: (fullGridSize / 2) * Math.sqrt(3),
+    cameraFitRadius: getDistanceScaledGridFitRadius(
+      fullGridSize,
+      normalizedDistanceScale,
+    ),
     meshes,
     recursiveTileState: {
       currentFilledTiles: new Set(instanceState.filledTiles),
+      distanceScale: normalizedDistanceScale,
       fullGridSize,
       homeFilledTiles: new Set(instanceState.filledTiles),
       keyToIndex: new Map(instanceState.keyToIndex),
@@ -535,12 +730,14 @@ function createRecursiveLogoMeshes({
 
 function createLogoGeometryRenderState({
   baseFilledVoxels,
+  distanceScale,
   filledVoxels,
   gridSize,
   materials,
   recursiveRenderDepth,
 }: {
   baseFilledVoxels: ReadonlySet<string>;
+  distanceScale: number;
   filledVoxels: ReadonlySet<string>;
   gridSize: number;
   materials: THREE.MeshBasicMaterial[];
@@ -549,15 +746,24 @@ function createLogoGeometryRenderState({
   if (recursiveRenderDepth) {
     return createRecursiveLogoMeshes({
       baseFilledVoxels,
+      distanceScale,
       fullGridSize: gridSize,
       materials,
       recursiveRenderDepth,
     });
   }
 
-  const surfaceQuads = buildLogoSurfaceQuads(filledVoxels, gridSize);
+  const surfaceQuads = buildDistanceScaledLogoSurfaceQuads(
+    filledVoxels,
+    gridSize,
+    distanceScale,
+  );
+  const cameraFitRadius =
+    surfaceQuads.length > 0
+      ? getLogoSurfaceFitRadius(surfaceQuads, gridSize)
+      : getDistanceScaledGridFitRadius(gridSize, distanceScale);
   return {
-    cameraFitRadius: getLogoSurfaceFitRadius(surfaceQuads, gridSize),
+    cameraFitRadius,
     meshes: createLogoMeshesFromParts(
       buildLogoSurfaceParts(surfaceQuads, gridSize > GRID_SIZE),
       materials,
@@ -569,11 +775,29 @@ function createLogoGeometryRenderState({
 function pointToVoxelCoordinate(
   point: THREE.Vector3,
   gridSize: number,
+  distanceScale: number,
 ): VoxelCoordinate | null {
-  const halfGrid = gridSize / 2;
-  const x = Math.floor(point.x + halfGrid);
-  const y = Math.floor(point.y + halfGrid);
-  const z = Math.floor(point.z + halfGrid);
+  const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
+  const readAxis = (value: number): number | null => {
+    if (normalizedDistanceScale === DEFAULT_LOGO_DISTANCE_SCALE) {
+      return Math.floor(value + gridSize / 2);
+    }
+
+    for (let index = 0; index < gridSize; index += 1) {
+      const center = (index - (gridSize - 1) / 2) * normalizedDistanceScale;
+      if (value >= center - 0.5 && value <= center + 0.5) {
+        return index;
+      }
+    }
+
+    return null;
+  };
+  const x = readAxis(point.x);
+  const y = readAxis(point.y);
+  const z = readAxis(point.z);
+  if (x === null || y === null || z === null) {
+    return null;
+  }
 
   if (!isWithinVoxelGrid(gridSize, x, y, z)) {
     return null;
@@ -675,6 +899,7 @@ function replaceLogoGeometry(
 ) {
   const nextGeometry = createLogoGeometryRenderState({
     baseFilledVoxels: sceneState.baseFilledVoxels,
+    distanceScale: sceneState.distanceScale,
     filledVoxels: nextFilledVoxels,
     gridSize: nextGridSize,
     materials: sceneState.cubeMaterials,
@@ -762,6 +987,7 @@ function setTileInstanceMatrix({
   if (coordinate) {
     const [x, y, z] = getTileWorldCenter({
       coordinate,
+      distanceScale: tileState.distanceScale,
       fullGridSize: tileState.fullGridSize,
       tileGridSize: tileState.tileGridSize,
     });
@@ -843,7 +1069,12 @@ function scheduleNextCubeMove(
     sceneState.cubeMaterials,
   );
   moveMesh.visible = false;
-  setCubeMeshPosition(moveMesh, nextMove.from, sceneState.gridSize);
+  setCubeMeshPosition(
+    moveMesh,
+    nextMove.from,
+    sceneState.gridSize,
+    sceneState.distanceScale,
+  );
   sceneState.logoGroup.add(moveMesh);
   sceneState.activeCubeMoves.push({
     durationMs: SHUFFLE_MOVE_DURATION_MS,
@@ -907,6 +1138,7 @@ function scheduleNextTileMove(
   group.visible = false;
   const [x, y, z] = getTileWorldCenter({
     coordinate: nextMove.from,
+    distanceScale: tileState.distanceScale,
     fullGridSize: tileState.fullGridSize,
     tileGridSize: tileState.tileGridSize,
   });
@@ -1046,7 +1278,12 @@ function syncCubeShuffleAnimation(
       Math.max((timestampMs - move.startTimeMs) / move.durationMs, 0),
       1,
     );
-    const [x, y, z] = getCubeMovePosition(move, progress, sceneState.gridSize);
+    const [x, y, z] = getCubeMovePosition(
+      move,
+      progress,
+      sceneState.gridSize,
+      sceneState.distanceScale,
+    );
     move.mesh.position.set(x, y, z);
 
     if (progress >= 1) {
@@ -1094,6 +1331,7 @@ function syncCubeShuffleAnimation(
 export function NLogoScene({
   backgroundColor,
   className,
+  distanceScale = DEFAULT_LOGO_DISTANCE_SCALE,
   editMode,
   elevationDegrees,
   faceColors,
@@ -1127,6 +1365,7 @@ export function NLogoScene({
   const fractalDepthRef = useRef(fractalDepth);
   const faceColorsRef = useRef(faceColors);
   const opacityRef = useRef(opacity);
+  const distanceScaleRef = useRef(normalizeLogoDistanceScale(distanceScale));
   const animateFaceColorsRef = useRef(animateFaceColors);
   const faceColorAnimationStartedAtRef = useRef<number | null>(null);
   const shuffleAnimationRef = useRef(shuffleAnimation);
@@ -1182,6 +1421,19 @@ export function NLogoScene({
     rotationAxisModeRef.current = rotationAxisMode;
     renderSceneRef.current(performance.now());
   }, [rotationAxisMode]);
+
+  useEffect(() => {
+    const nextDistanceScale = normalizeLogoDistanceScale(distanceScale);
+    distanceScaleRef.current = nextDistanceScale;
+    const sceneState = sceneStateRef.current;
+    if (!sceneState || sceneState.distanceScale === nextDistanceScale) {
+      return;
+    }
+
+    sceneState.distanceScale = nextDistanceScale;
+    resetShuffleAnimation(sceneState, lastMovedCubeKeyRef, true);
+    renderSceneRef.current(performance.now());
+  }, [distanceScale]);
 
   useEffect(() => {
     onInteractionStartRef.current = onInteractionStart;
@@ -1270,6 +1522,7 @@ export function NLogoScene({
     });
     const initialGeometry = createLogoGeometryRenderState({
       baseFilledVoxels: initialVoxelGrid.baseFilledVoxels,
+      distanceScale: distanceScaleRef.current,
       filledVoxels: initialVoxelGrid.filledVoxels,
       gridSize: initialVoxelGrid.gridSize,
       materials,
@@ -1354,6 +1607,7 @@ export function NLogoScene({
       cameraFitRadius: initialCameraFitRadius,
       cubeGeometry,
       cubeMaterials: materials,
+      distanceScale: distanceScaleRef.current,
       gridSize: initialVoxelGrid.gridSize,
       currentFilledVoxels: new Set(initialVoxelGrid.filledVoxels),
       activeCubeMoves: [],
@@ -1599,7 +1853,11 @@ export function NLogoScene({
       kind === "add" ? RAYCAST_OFFSET : -RAYCAST_OFFSET,
     );
 
-    const coordinate = pointToVoxelCoordinate(localPoint, sceneState.gridSize);
+    const coordinate = pointToVoxelCoordinate(
+      localPoint,
+      sceneState.gridSize,
+      sceneState.distanceScale,
+    );
     if (!coordinate) {
       return null;
     }

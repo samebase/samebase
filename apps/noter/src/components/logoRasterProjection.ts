@@ -91,12 +91,14 @@ export function createLogoRasterProjection({
   rotationAxisMode,
   rotationDegrees,
   sizePx,
+  worldHalfSize,
 }: {
   elevationDegrees: number;
   frustumPadding: number;
   rotationAxisMode: LogoRotationAxisMode;
   rotationDegrees: number;
   sizePx: number;
+  worldHalfSize?: number;
 }): LogoRasterProjection {
   const cameraDirection = getWorldCameraVector(elevationDegrees);
   const up = getWorldScreenVerticalAxis(elevationDegrees);
@@ -110,17 +112,20 @@ export function createLogoRasterProjection({
   const renderedRotationDegrees = toRenderedRotationDegrees(rotationDegrees);
   const rotatePoint = (point: Vector3) =>
     rotateVectorAroundAxis(point, rotationAxis, renderedRotationDegrees);
-  const span = Math.max(
-    getMaxRotatedCubeProjectionSpan({
-      projectionAxis: right,
-      rotationAxis,
-    }),
-    getMaxRotatedCubeProjectionSpan({
-      projectionAxis: up,
-      rotationAxis,
-    }),
-    0.001,
-  );
+  const normalizedWorldHalfSize = Math.max(0.0001, worldHalfSize ?? 0.5);
+  const worldScale = normalizedWorldHalfSize * 2;
+  const span =
+    Math.max(
+      getMaxRotatedCubeProjectionSpan({
+        projectionAxis: right,
+        rotationAxis,
+      }),
+      getMaxRotatedCubeProjectionSpan({
+        projectionAxis: up,
+        rotationAxis,
+      }),
+      0.001,
+    ) * worldScale;
   const scalePx = sizePx / (span * frustumPadding);
   const centerPx = sizePx / 2;
 

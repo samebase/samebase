@@ -1,4 +1,5 @@
 import { getRouteApi } from "@tanstack/react-router";
+import { normalizeLogoDistanceScale } from "@/components/logoDistanceScale";
 import { normalizeLogoFractalDepth } from "@/components/logoVoxelState";
 import {
   appThemeColorSearchFieldSchema,
@@ -92,6 +93,12 @@ const rootRouteSearchSchema = z
       readOptionalLogoFractalDepth,
       z.number().finite().optional(),
     ),
+    dist: z.preprocess((value) => {
+      const numericValue = readOptionalNumber(value);
+      return typeof numericValue === "number"
+        ? normalizeLogoDistanceScale(numericValue)
+        : undefined;
+    }, z.number().finite().optional()),
     "prod-ui": z.literal(true).optional(),
     [SEARCH_RESET_QUERY_PARAM]: z.literal(true).optional(),
     [PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM]: z.preprocess(

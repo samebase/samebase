@@ -32,6 +32,7 @@ const RETAINED_ROOT_SEARCH_KEYS = [
   "dev",
   "devtools",
   "depth",
+  "dist",
   ...ROOT_THEME_MODE_SEARCH_KEYS,
   ...LOGO_THEME_COLOR_SEARCH_KEYS,
 ] as const satisfies readonly (keyof RootRouteSearch)[];

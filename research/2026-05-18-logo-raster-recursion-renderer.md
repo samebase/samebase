@@ -221,6 +221,15 @@ improves from `179 / 15420` to `44 / 15420`, but the intentionally tiny 24px
 stress case gets worse from `16 / 442` to `21 / 442`. Keep it as a measured
 fallback candidate, not as the core seam fix.
 
+Spacing-scale experiment: `/logo/raster-seams` also has a `Spacing` control.
+`1.000x` is the current fake 3D distance between cube centers, `0.000x` stacks
+all centers together, and the slider now reaches `2.000x` for useful manual
+stress testing. The typed input intentionally stays open-ended. When this model
+is promoted to `/logo` and `/logo/raster` as `dist`, the same value should be
+applied at every reusable recursive level: move the centers of the current
+cached motif, then move the centers of the higher-level cached motif, without
+materializing every leaf voxel.
+
 References checked:
 
 - [WHATWG Canvas 2D](https://html.spec.whatwg.org/multipage/canvas.html):

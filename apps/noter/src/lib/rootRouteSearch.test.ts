@@ -13,6 +13,7 @@ describe("rootRouteSearch", () => {
         border: "stone-300",
         delete: "noter-md/noter",
         depth: "2",
+        dist: "1.25",
         dark: "",
         dev: "",
         devtools: "true",
@@ -29,6 +30,7 @@ describe("rootRouteSearch", () => {
       border: "stone-300",
       delete: "noter-md/noter",
       depth: 2,
+      dist: 1.25,
       dark: true,
       dev: true,
       devtools: true,
@@ -49,6 +51,7 @@ describe("rootRouteSearch", () => {
         border: "nope-500",
         delete: "missing-repo-separator",
         depth: "nope",
+        dist: "nope",
         primary: "nope-500",
         secondary: 3,
         "sidebar-reset": "false",
@@ -94,6 +97,15 @@ describe("rootRouteSearch", () => {
   it("normalizes root logo depth without capping deliberate values", () => {
     expect(readRootRouteSearch("?depth=99")).toEqual({
       depth: 99,
+    });
+  });
+
+  it("normalizes root logo distance without capping deliberate values", () => {
+    expect(readRootRouteSearch("?dist=3")).toEqual({
+      dist: 3,
+    });
+    expect(readRootRouteSearch("?dist=-1")).toEqual({
+      dist: 0,
     });
   });
 

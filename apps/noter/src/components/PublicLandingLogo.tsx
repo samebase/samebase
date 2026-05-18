@@ -1,5 +1,9 @@
 import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
 import {
+  DEFAULT_LOGO_DISTANCE_SCALE,
+  normalizeLogoDistanceScale,
+} from "@/components/logoDistanceScale";
+import {
   STATIC_LOGO_ELEVATION_DEGREES,
   STATIC_LOGO_ROTATION_DEGREES,
   STATIC_LOGO_VOXEL_STATE,
@@ -56,6 +60,7 @@ const DEFAULT_LANDING_LOGO_VIEW: RotatedLogoViewState = {
 
 type PublicLandingLogoSearchInput = LogoThemeColorSearchInput & {
   depth?: number;
+  dist?: number;
 };
 
 let cachedLandingLogoScene: LandingLogoSceneComponent | null = null;
@@ -100,6 +105,9 @@ export function PublicLandingLogo({
   const fractalDepth = normalizeLogoFractalDepth(
     themeColorSearch.depth ?? DEFAULT_LOGO_FRACTAL_DEPTH,
   );
+  const distanceScale = normalizeLogoDistanceScale(
+    themeColorSearch.dist ?? DEFAULT_LOGO_DISTANCE_SCALE,
+  );
   const isRecursiveDepth = fractalDepth > DEFAULT_LOGO_FRACTAL_DEPTH;
   const staticFallbackDepth = Math.min(
     fractalDepth,
@@ -114,7 +122,7 @@ export function PublicLandingLogo({
     filledVoxels: staticLogoVoxelGrid.filledVoxels,
     gridSize: staticLogoVoxelGrid.gridSize,
     view: initialView,
-  })}#${logoTheme.cacheKey}:${fractalDepth}`;
+  })}#${logoTheme.cacheKey}:${fractalDepth}:${distanceScale}`;
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [isSvgVisible, setIsSvgVisible] = useState(true);
   const [isAutoRotating, setIsAutoRotating] = useState(autoRotate);
@@ -334,6 +342,7 @@ export function PublicLandingLogo({
             <LogoScene
               className={`h-full w-full ${isSceneInteractive ? "cursor-grab active:cursor-grabbing" : ""}`}
               backgroundColor={backgroundColor}
+              distanceScale={distanceScale}
               editMode="add"
               elevationDegrees={view.elevationDegrees}
               faceColors={faceColors}

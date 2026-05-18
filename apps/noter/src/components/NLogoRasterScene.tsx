@@ -12,6 +12,10 @@ import {
   type LogoRasterPoint2D as Point2D,
   type LogoRasterProjection as RasterProjection,
 } from "@/components/logoRasterProjection";
+import {
+  DEFAULT_LOGO_DISTANCE_SCALE,
+  normalizeLogoDistanceScale,
+} from "@/components/logoDistanceScale";
 import { getShuffleOriginCandidates } from "@/components/logoShuffleRules";
 import {
   DRAG_ELEVATION_DEGREES_PER_PIXEL,
@@ -147,6 +151,7 @@ type RasterInteraction = {
 type NLogoRasterSceneProps = {
   backgroundColor: string;
   className?: string;
+  distanceScale: number;
   elevationDegrees: number;
   faceColors: FaceColors;
   fractalDepth: number;
@@ -632,6 +637,20 @@ function getRasterGridCoordinate(index: number): number {
   return index / GRID_SIZE - 0.5;
 }
 
+function getRasterDistanceProjectionHalfSize(distanceScale: number): number {
+  const cellHalfSize = 0.5 / GRID_SIZE;
+  return (
+    cellHalfSize +
+    (0.5 - cellHalfSize) * normalizeLogoDistanceScale(distanceScale)
+  );
+}
+
+function isDefaultRasterDistanceScale(distanceScale: number): boolean {
+  return (
+    normalizeLogoDistanceScale(distanceScale) === DEFAULT_LOGO_DISTANCE_SCALE
+  );
+}
+
 function createRasterGridPoint({
   planeAxis,
   planeIndex,
@@ -970,6 +989,7 @@ function drawRasterMergedSurface({
 
 function renderSurfaceMotifCanvas({
   activeMoves,
+  distanceScale,
   elevationDegrees,
   faceColors,
   filledVoxels,
@@ -979,6 +999,7 @@ function renderSurfaceMotifCanvas({
   rotationDegrees,
 }: {
   activeMoves: readonly RasterActiveMove[];
+  distanceScale: number;
   elevationDegrees: number;
   faceColors: FaceColors;
   filledVoxels: ReadonlySet<string>;
@@ -990,6 +1011,42 @@ function renderSurfaceMotifCanvas({
   const canvas = createRasterCanvas(projection.sizePx);
   const context = canvas.getContext("2d");
   if (!context) {
+    return canvas;
+  }
+
+  if (!isDefaultRasterDistanceScale(distanceScale)) {
+    const childSize = projection.sizePx / GRID_SIZE;
+    const cubeCanvas = renderCubeUnitCanvas({
+      faceColors,
+      opacity,
+      projection: getRasterProjection({
+        elevationDegrees,
+        frustumPadding: RASTER_RECURSIVE_FRUSTUM_PADDING,
+        rotationAxisMode,
+        rotationDegrees,
+        sizePx: Math.max(1, Math.round(childSize)),
+      }),
+    });
+    const drawItems = getMotifDrawItems({
+      activeMoves,
+      distanceScale,
+      filledVoxels,
+      projection,
+    });
+
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    for (const item of drawItems) {
+      const offset = projection.projectVector(item.center);
+      context.drawImage(
+        cubeCanvas,
+        projection.centerPx + offset.x - childSize / 2,
+        projection.centerPx + offset.y - childSize / 2,
+        childSize,
+        childSize,
+      );
+    }
+
     return canvas;
   }
 
@@ -1017,6 +1074,7 @@ function renderSurfaceMotifCanvas({
     });
     const movingItems = getMotifDrawItems({
       activeMoves,
+      distanceScale,
       filledVoxels: new Set(),
       projection,
     });
@@ -1048,14 +1106,17 @@ function getMotifCenter([x, y, z]: VoxelCoordinate): Vector3 {
 
 function getMotifDrawItems({
   activeMoves,
+  distanceScale,
   filledVoxels,
   projection,
 }: {
   activeMoves: readonly RasterActiveMove[];
+  distanceScale: number;
   filledVoxels: ReadonlySet<string>;
   projection: RasterProjection;
 }): RasterMotifDrawItem[] {
   const drawItems: RasterMotifDrawItem[] = [];
+  const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
 
   for (const key of filledVoxels) {
     const coordinate = parseVoxelKey(key);
@@ -1063,7 +1124,10 @@ function getMotifDrawItems({
       continue;
     }
 
-    const center = getMotifCenter(coordinate);
+    const center = scaleVector(
+      getMotifCenter(coordinate),
+      normalizedDistanceScale,
+    );
     drawItems.push({
       center,
       depth: dotVectors(
@@ -1083,8 +1147,14 @@ function getMotifDrawItems({
       Math.max((performance.now() - move.startTimeMs) / move.durationMs, 0),
       1,
     );
-    const startCenter = getMotifCenter(move.from);
-    const endCenter = getMotifCenter(move.to);
+    const startCenter = scaleVector(
+      getMotifCenter(move.from),
+      normalizedDistanceScale,
+    );
+    const endCenter = scaleVector(
+      getMotifCenter(move.to),
+      normalizedDistanceScale,
+    );
     const travelProgress = easeInOutCubic(progress);
     const center: Vector3 = [
       startCenter[0] + (endCenter[0] - startCenter[0]) * travelProgress,
@@ -1196,6 +1266,7 @@ function easeInOutCubic(value: number): number {
 function renderRasterRecursiveImage({
   activeMoves,
   depth,
+  distanceScale,
   drawItems,
   elevationDegrees,
   faceColors,
@@ -1207,6 +1278,7 @@ function renderRasterRecursiveImage({
 }: {
   activeMoves: readonly RasterActiveMove[];
   depth: number;
+  distanceScale: number;
   drawItems: readonly RasterMotifDrawItem[];
   elevationDegrees: number;
   faceColors: FaceColors;
@@ -1216,6 +1288,10 @@ function renderRasterRecursiveImage({
   rotationAxisMode: LogoRotationAxisMode;
   rotationDegrees: number;
 }): HTMLCanvasElement {
+  const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
+  const worldHalfSize = getRasterDistanceProjectionHalfSize(
+    normalizedDistanceScale,
+  );
   const exactCellSize = getRasterExactCellSize({
     depth,
     outputSizePx,
@@ -1231,9 +1307,12 @@ function renderRasterRecursiveImage({
       level: Math.min(depth, 1),
       outputSizePx,
     }),
+    worldHalfSize,
   });
   const faceOnState =
-    activeMoves.length === 0 && exactCellSize > 0
+    activeMoves.length === 0 &&
+    exactCellSize > 0 &&
+    normalizedDistanceScale === DEFAULT_LOGO_DISTANCE_SCALE
       ? getFaceOnState({
           filledVoxels,
           projection: faceOnProjection,
@@ -1253,6 +1332,7 @@ function renderRasterRecursiveImage({
 
   let unitCanvas = renderSurfaceMotifCanvas({
     activeMoves,
+    distanceScale: normalizedDistanceScale,
     elevationDegrees,
     faceColors,
     filledVoxels,
@@ -1268,6 +1348,7 @@ function renderRasterRecursiveImage({
         level: 1,
         outputSizePx,
       }),
+      worldHalfSize,
     }),
     rotationAxisMode,
     rotationDegrees,
@@ -1289,6 +1370,7 @@ function renderRasterRecursiveImage({
         rotationAxisMode,
         rotationDegrees,
         sizePx: levelSizePx,
+        worldHalfSize,
       }),
     });
   }
@@ -1299,6 +1381,7 @@ function renderRasterRecursiveImage({
 function renderRasterScene({
   backgroundColor,
   canvas,
+  distanceScale,
   elevationDegrees,
   faceColors,
   fractalDepth,
@@ -1309,6 +1392,7 @@ function renderRasterScene({
 }: {
   backgroundColor: string;
   canvas: HTMLCanvasElement;
+  distanceScale: number;
   elevationDegrees: number;
   faceColors: FaceColors;
   fractalDepth: number;
@@ -1317,6 +1401,10 @@ function renderRasterScene({
   rotationAxisMode: LogoRotationAxisMode;
   rotationDegrees: number;
 }) {
+  const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
+  const worldHalfSize = getRasterDistanceProjectionHalfSize(
+    normalizedDistanceScale,
+  );
   const sizePx = getCanvasBackingSize(canvas);
   if (canvas.width !== sizePx) {
     canvas.width = sizePx;
@@ -1336,15 +1424,18 @@ function renderRasterScene({
     rotationAxisMode,
     rotationDegrees,
     sizePx,
+    worldHalfSize,
   });
   const drawItems = getMotifDrawItems({
     activeMoves: motion.activeMoves,
+    distanceScale: normalizedDistanceScale,
     filledVoxels: motion.currentFilledVoxels,
     projection,
   });
   const image = renderRasterRecursiveImage({
     activeMoves: motion.activeMoves,
     depth: normalizeLogoFractalDepth(fractalDepth),
+    distanceScale: normalizedDistanceScale,
     drawItems,
     elevationDegrees,
     faceColors,
@@ -1500,6 +1591,7 @@ function syncRasterMotion({
 export function NLogoRasterScene({
   backgroundColor,
   className,
+  distanceScale,
   elevationDegrees,
   faceColors,
   fractalDepth,
@@ -1534,6 +1626,7 @@ export function NLogoRasterScene({
     renderRasterScene({
       backgroundColor,
       canvas,
+      distanceScale,
       elevationDegrees,
       faceColors,
       fractalDepth,
@@ -1544,6 +1637,7 @@ export function NLogoRasterScene({
     });
   }, [
     backgroundColor,
+    distanceScale,
     elevationDegrees,
     faceColors,
     fractalDepth,

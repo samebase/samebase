@@ -177,7 +177,7 @@ export const RASTER_SEAM_LAB_SLIDER_MAX_INFLATION_SCALE = 1.05;
 export const RASTER_SEAM_LAB_INFLATION_SCALE_STEP = 0.001;
 export const RASTER_SEAM_LAB_DEFAULT_SPACING_SCALE = 1;
 export const RASTER_SEAM_LAB_MIN_SPACING_SCALE = 0;
-export const RASTER_SEAM_LAB_SLIDER_MAX_SPACING_SCALE = 1;
+export const RASTER_SEAM_LAB_SLIDER_MAX_SPACING_SCALE = 2;
 export const RASTER_SEAM_LAB_SPACING_SCALE_STEP = 0.001;
 
 export const RASTER_SEAM_LAB_EMPTY_STATS = {
@@ -349,10 +349,12 @@ function createProjection({
   elevationDegrees,
   rotationDegrees,
   sizePx,
+  worldHalfSize,
 }: {
   elevationDegrees: number;
   rotationDegrees: number;
   sizePx: number;
+  worldHalfSize?: number;
 }): RasterSeamLabProjection {
   return createLogoRasterProjection({
     elevationDegrees,
@@ -360,6 +362,7 @@ function createProjection({
     rotationAxisMode: "cube-y",
     rotationDegrees,
     sizePx,
+    worldHalfSize,
   });
 }
 
@@ -1986,10 +1989,18 @@ export function drawLogoRasterSeamLabImage(
     sourceSizePx: number;
   },
 ): RasterSeamLabResult {
+  const normalizedSpacingScale =
+    normalizeRasterSeamLabSpacingScale(spacingScale);
+  const worldHalfSize = getSpacedGridHalfSize({
+    gridSize: getEffectiveGridSize({ depth, gridSize }),
+    halfSize: 0.5,
+    spacingScale: normalizedSpacingScale,
+  });
   const projection = createProjection({
     elevationDegrees,
     rotationDegrees,
     sizePx: sourceSizePx,
+    worldHalfSize,
   });
   const composedCanvas = renderMergedImage({
     depth,
@@ -1997,14 +2008,14 @@ export function drawLogoRasterSeamLabImage(
     inflationScale: normalizeRasterSeamLabInflationScale(inflationScale),
     mergeMode,
     projection,
-    spacingScale: normalizeRasterSeamLabSpacingScale(spacingScale),
+    spacingScale: normalizedSpacingScale,
   });
   const referenceCanvas = renderReferenceImage({
     depth,
     gridSize,
     mergeMode,
     projection,
-    spacingScale: normalizeRasterSeamLabSpacingScale(spacingScale),
+    spacingScale: normalizedSpacingScale,
   });
   const seamResult = {
     ...measureSeams({ composedCanvas, referenceCanvas }),
