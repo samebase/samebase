@@ -332,6 +332,13 @@ identical. Avoiding that requires integer placement on a shared high-resolution
 lattice, per-phase cached tiles, or drawing final coverage/merged faces instead
 of moving already-antialiased pixels.
 
+The `Pixel copy` lab mode tests the strictest cached-image version of this idea.
+It rounds the projected tile offset, reads the cached source tile pixels once,
+and writes every non-transparent source pixel directly into the parent image in
+painter order. That removes browser resampling and normal source-over edge
+blending from the composition step, leaving only the question of whether integer
+placement is visually acceptable for the projected geometry.
+
 ## Interaction Contract
 
 - This raster path is an experiment route first, not the default `/logo` route.

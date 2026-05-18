@@ -95,6 +95,7 @@ export type RasterSeamLabMergeMode =
   | "destination-out-full"
   | "inflated-source-over"
   | "merged-faces"
+  | "pixel-copy"
   | "source-atop-full"
   | "source-atop-single"
   | "source-over";
@@ -145,6 +146,10 @@ export const RASTER_SEAM_LAB_MERGE_MODES = [
   {
     label: "Crisp",
     value: "crisp-source-over",
+  },
+  {
+    label: "Pixel copy",
+    value: "pixel-copy",
   },
   {
     label: "Inflate",
@@ -1221,6 +1226,83 @@ function renderCrispComposedImage({
   return canvas;
 }
 
+function copyVisiblePixels({
+  offsetX,
+  offsetY,
+  source,
+  target,
+}: {
+  offsetX: number;
+  offsetY: number;
+  source: ImageData;
+  target: ImageData;
+}) {
+  for (let sourceY = 0; sourceY < source.height; sourceY += 1) {
+    const targetY = sourceY + offsetY;
+    if (targetY < 0 || targetY >= target.height) {
+      continue;
+    }
+
+    for (let sourceX = 0; sourceX < source.width; sourceX += 1) {
+      const targetX = sourceX + offsetX;
+      if (targetX < 0 || targetX >= target.width) {
+        continue;
+      }
+
+      const sourceIndex = (sourceY * source.width + sourceX) * 4;
+      if (source.data[sourceIndex + 3] === 0) {
+        continue;
+      }
+
+      const targetIndex = (targetY * target.width + targetX) * 4;
+      target.data[targetIndex] = source.data[sourceIndex];
+      target.data[targetIndex + 1] = source.data[sourceIndex + 1];
+      target.data[targetIndex + 2] = source.data[sourceIndex + 2];
+      target.data[targetIndex + 3] = source.data[sourceIndex + 3];
+    }
+  }
+}
+
+function renderPixelCopyComposedImage({
+  childCanvas,
+  gridSize,
+  halfSize,
+  projection,
+  spacingScale,
+}: {
+  childCanvas: HTMLCanvasElement;
+  gridSize: number;
+  halfSize: number;
+  projection: RasterSeamLabProjection;
+  spacingScale: number;
+}) {
+  const canvas = createLabCanvas(projection.sizePx);
+  const context = canvas.getContext("2d");
+  const childImageData = getImageData(childCanvas);
+  if (!context || !childImageData) {
+    return canvas;
+  }
+
+  const targetImageData = context.createImageData(canvas.width, canvas.height);
+  for (const item of getDrawItems({
+    gridSize,
+    halfSize,
+    projection,
+    spacingScale,
+  })) {
+    const offset = projection.projectVector(item.center);
+    copyVisiblePixels({
+      offsetX: Math.round(offset.x),
+      offsetY: Math.round(offset.y),
+      source: childImageData,
+      target: targetImageData,
+    });
+  }
+
+  context.putImageData(targetImageData, 0, 0);
+  return canvas;
+}
+
 function renderInflatedComposedImage({
   childCanvas,
   gridSize,
@@ -1511,6 +1593,39 @@ function renderRecursiveCrispComposedImage({
   });
 }
 
+function renderRecursivePixelCopyComposedImage({
+  depth,
+  gridSize,
+  halfSize,
+  projection,
+  spacingScale,
+}: {
+  depth: number;
+  gridSize: number;
+  halfSize: number;
+  projection: RasterSeamLabProjection;
+  spacingScale: number;
+}): HTMLCanvasElement {
+  if (depth <= 0) {
+    return createUnitCubeCanvas(projection, halfSize);
+  }
+
+  const childCanvas = renderRecursivePixelCopyComposedImage({
+    depth: depth - 1,
+    gridSize,
+    halfSize: halfSize / gridSize,
+    projection,
+    spacingScale,
+  });
+  return renderPixelCopyComposedImage({
+    childCanvas,
+    gridSize,
+    halfSize,
+    projection,
+    spacingScale,
+  });
+}
+
 function renderRecursiveInflatedComposedImage({
   depth,
   gridSize,
@@ -1725,6 +1840,14 @@ function renderMergedImage({
         projection,
         spacingScale,
       });
+    case "pixel-copy":
+      return renderRecursivePixelCopyComposedImage({
+        depth,
+        gridSize,
+        halfSize: 0.5,
+        projection,
+        spacingScale,
+      });
     case "inflated-source-over":
       return renderRecursiveInflatedComposedImage({
         depth,
@@ -1808,6 +1931,14 @@ function renderSourceTileImage({
       });
     case "crisp-source-over":
       return renderRecursiveCrispComposedImage({
+        depth: sourceDepth,
+        gridSize,
+        halfSize: sourceHalfSize,
+        projection,
+        spacingScale,
+      });
+    case "pixel-copy":
+      return renderRecursivePixelCopyComposedImage({
         depth: sourceDepth,
         gridSize,
         halfSize: sourceHalfSize,
