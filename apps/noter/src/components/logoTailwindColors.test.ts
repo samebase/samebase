@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  DEFAULT_LOGO_THEME_COLORS,
+  RGB_LOGO_THEME_COLORS,
   getLogoColorCssHsl,
   getLogoColorForegroundCssHsl,
   getTailwindColorHex,
@@ -32,6 +34,15 @@ describe("logoTailwindColors", () => {
     expect(
       getTailwindColorTokenForSelection("Red", "base", "secondary-base"),
     ).toBe("red-500");
+  });
+
+  it("keeps the RGB preset on logo faces instead of repainting the background", () => {
+    expect(RGB_LOGO_THEME_COLORS).toEqual({
+      ...DEFAULT_LOGO_THEME_COLORS,
+      primary: "green-500",
+      secondary: "red-500",
+      top: "blue-500",
+    });
   });
 
   it("converts logo colors to CSS variable HSL triplets", () => {
