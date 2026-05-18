@@ -1224,8 +1224,10 @@ function LogoDistanceScaleControl({
         <div className="ml-auto flex min-w-28 flex-[1_0_7rem] justify-end">
           <Input
             aria-label="Distance scale"
-            type="text"
+            type="number"
             inputMode="decimal"
+            min={MIN_LOGO_DISTANCE_SCALE}
+            step={LOGO_DISTANCE_SCALE_STEP}
             value={inputValue}
             onFocus={() => {
               isEditingRef.current = true;

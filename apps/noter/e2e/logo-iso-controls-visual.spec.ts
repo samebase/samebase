@@ -612,6 +612,9 @@ test("logo distance scale controls Three and raster previews", async ({
 
   await expect(page.locator("canvas").first()).toBeVisible();
   await expect(distanceSlider).toHaveAttribute("max", "2");
+  await expect(distanceInput).toHaveAttribute("type", "number");
+  await expect(distanceInput).toHaveAttribute("step", "0.001");
+  await expect(distanceInput).not.toHaveAttribute("max");
   await expect(distanceInput).toHaveValue("1.250");
 
   await distanceInput.fill("2.5");
