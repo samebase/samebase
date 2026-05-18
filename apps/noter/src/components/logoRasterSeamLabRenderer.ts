@@ -80,7 +80,11 @@ type RasterSeamLabMergedFaceGroup = {
   vAxis: AxisIndex;
 };
 
-export type RasterSeamLabImageKind = "composed" | "mask" | "reference";
+export type RasterSeamLabImageKind =
+  | "composed"
+  | "mask"
+  | "reference"
+  | "source";
 
 export type RasterSeamLabDepth = 1 | 2;
 
@@ -1775,6 +1779,95 @@ function renderMergedImage({
   }
 }
 
+function renderSourceTileImage({
+  depth,
+  gridSize,
+  inflationScale,
+  mergeMode,
+  projection,
+  spacingScale,
+}: {
+  depth: RasterSeamLabDepth;
+  gridSize: RasterSeamLabGridSize;
+  inflationScale: number;
+  mergeMode: RasterSeamLabMergeMode;
+  projection: RasterSeamLabProjection;
+  spacingScale: number;
+}) {
+  const sourceDepth = Math.max(0, depth - 1);
+  const sourceHalfSize = 0.5 / gridSize;
+
+  switch (mergeMode) {
+    case "source-over":
+      return renderRecursiveComposedImage({
+        depth: sourceDepth,
+        gridSize,
+        halfSize: sourceHalfSize,
+        projection,
+        spacingScale,
+      });
+    case "crisp-source-over":
+      return renderRecursiveCrispComposedImage({
+        depth: sourceDepth,
+        gridSize,
+        halfSize: sourceHalfSize,
+        projection,
+        spacingScale,
+      });
+    case "inflated-source-over":
+      return renderRecursiveInflatedComposedImage({
+        depth: sourceDepth,
+        gridSize,
+        halfSize: sourceHalfSize,
+        inflationScale,
+        projection,
+        spacingScale,
+      });
+    case "source-atop-single":
+      return renderRecursiveSingleCompositeImage({
+        canvasOperation: "source-atop",
+        depth: sourceDepth,
+        gridSize,
+        halfSize: sourceHalfSize,
+        projection,
+        spacingScale,
+      });
+    case "source-atop-full":
+      return renderRecursiveFullCompositeImage({
+        canvasOperation: "source-atop",
+        depth: sourceDepth,
+        gridSize,
+        halfSize: sourceHalfSize,
+        projection,
+        spacingScale,
+      });
+    case "destination-out-full":
+      return renderRecursiveFullCompositeImage({
+        canvasOperation: "destination-out",
+        depth: sourceDepth,
+        gridSize,
+        halfSize: sourceHalfSize,
+        projection,
+        spacingScale,
+      });
+    case "merged-faces": {
+      const sourceGridSize = gridSize ** sourceDepth;
+      return renderMergedFacesImage({
+        gridSize: Math.max(1, sourceGridSize),
+        halfSize: getSpacedGridHalfSize({
+          gridSize: Math.max(1, sourceGridSize),
+          halfSize: sourceHalfSize,
+          spacingScale,
+        }),
+        projection,
+      });
+    }
+    default:
+      mergeMode satisfies never;
+      throw new Error("Unsupported raster seam lab merge mode.");
+  }
+}
+
 function renderReferenceImage({
   depth,
   gridSize,
@@ -2005,6 +2098,8 @@ export function drawLogoRasterSeamLabImage(
     normalizeRasterSeamLabSourceSizePx(sourceSizePx);
   const normalizedSpacingScale =
     normalizeRasterSeamLabSpacingScale(spacingScale);
+  const normalizedInflationScale =
+    normalizeRasterSeamLabInflationScale(inflationScale);
   const worldHalfSize = getSpacedGridHalfSize({
     gridSize: getEffectiveGridSize({ depth, gridSize }),
     halfSize: 0.5,
@@ -2019,7 +2114,7 @@ export function drawLogoRasterSeamLabImage(
   const composedCanvas = renderMergedImage({
     depth,
     gridSize,
-    inflationScale: normalizeRasterSeamLabInflationScale(inflationScale),
+    inflationScale: normalizedInflationScale,
     mergeMode,
     projection,
     spacingScale: normalizedSpacingScale,
@@ -2051,6 +2146,21 @@ export function drawLogoRasterSeamLabImage(
 
   if (imageKind === "mask") {
     drawSeamMask({ composedCanvas, context, referenceCanvas });
+    return seamResult;
+  }
+
+  if (imageKind === "source") {
+    drawCanvasOnWhite({
+      context,
+      image: renderSourceTileImage({
+        depth,
+        gridSize,
+        inflationScale: normalizedInflationScale,
+        mergeMode,
+        projection,
+        spacingScale: normalizedSpacingScale,
+      }),
+    });
     return seamResult;
   }
 

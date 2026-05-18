@@ -61,6 +61,7 @@ const IMAGE_KIND_LABELS = {
   composed: "Composed",
   mask: "Mask",
   reference: "Reference",
+  source: "Source tile",
 } as const satisfies Record<RasterSeamLabImageKind, string>;
 
 function getMergeModeLabel(mergeMode: RasterSeamLabMergeMode) {
@@ -688,7 +689,19 @@ export function LogoRasterSeamLabPage({
                   magenta = mismatch
                 </div>
               </div>
-              <div className="grid gap-3 xl:grid-cols-3">
+              <div className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-4">
+                <SeamLabCanvas
+                  depth={recursiveDepth}
+                  elevationDegrees={elevationDegrees}
+                  gridSize={baseGridSize}
+                  imageKind="source"
+                  inflationScale={inflationScale}
+                  mergeMode={mergeMode}
+                  rotationDegrees={rotationDegrees}
+                  spacingScale={spacingScale}
+                  sourceSizePx={sourceSizePx}
+                  zoom="large"
+                />
                 <SeamLabCanvas
                   depth={recursiveDepth}
                   elevationDegrees={elevationDegrees}

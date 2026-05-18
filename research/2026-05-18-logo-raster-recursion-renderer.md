@@ -323,6 +323,15 @@ backing image reduces the alpha-edge seam score before the idea is promoted to
 values can still hit browser canvas limits because this is a manual diagnostic
 control.
 
+Pixel-phase note: the seam lab shows the hidden `Source tile` canvas used by the
+current composition mode. A cached cube image is exact only for the pixel phase
+where it was rasterized. Copies placed at fractional projected offsets are
+resampled by `drawImage`, so internal face-edge antialiasing can differ from the
+direct `Reference` image even when the continuous 3D cube orientation is
+identical. Avoiding that requires integer placement on a shared high-resolution
+lattice, per-phase cached tiles, or drawing final coverage/merged faces instead
+of moving already-antialiased pixels.
+
 ## Interaction Contract
 
 - This raster path is an experiment route first, not the default `/logo` route.

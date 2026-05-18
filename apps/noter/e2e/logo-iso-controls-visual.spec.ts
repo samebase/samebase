@@ -405,11 +405,17 @@ test("logo raster seam lab shows the tiny 2x2 image-composition diagnostic", asy
   });
 
   const currentCase = page.getByTestId("logo-raster-seam-lab-current-case");
+  const sourceCanvas = currentCase.locator(
+    'canvas[data-logo-raster-seam-lab="source"]',
+  );
   const maskCanvas = currentCase.locator(
     'canvas[data-logo-raster-seam-lab="mask"]',
   );
 
   await expect(currentCase).toBeVisible();
+  await expect(sourceCanvas).toHaveCount(1);
+  await expect(sourceCanvas).toHaveAttribute("width", "24");
+  await expect(sourceCanvas).toHaveAttribute("height", "24");
   await expect(maskCanvas).toHaveCount(1);
   await expect(maskCanvas).toHaveAttribute("width", "24");
   await expect(maskCanvas).toHaveAttribute("height", "24");
@@ -471,7 +477,7 @@ test("logo raster seam lab shows the tiny 2x2 image-composition diagnostic", asy
 
   await page.getByRole("button", { name: "Merged faces" }).first().click();
   await expect(currentCase).toContainText("Merged faces");
-  await expect(currentCase.getByText(/0 \/ \d+ \(0\.0%\)/)).toHaveCount(3);
+  await expect(currentCase.getByText(/0 \/ \d+ \(0\.0%\)/)).toHaveCount(4);
 });
 
 test("logo raster seam lab inflation input allows partial edits", async ({
