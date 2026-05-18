@@ -164,6 +164,18 @@ same case, `source-over` reports `13 / 385`, `source-atop` reports `11 / 385`,
 and `Merged faces` remains `0 / 385`. Crisp rendering may be an acceptable style
 choice, but it is not the primitive seam fix.
 
+Recursive lab follow-up: `/logo/raster-seams` now has a depth toggle for the 2x2
+test. Depth 1 is the original 2x2x2 image-composition case. Depth 2 recursively
+composes that cached 2x2 block into another 2x2 block, giving a 4x4x4 cube
+without jumping to the production 3x3-to-9x9 case. At the 24px source, 22deg
+rotation, and 22deg elevation case, depth 2 makes the problem obvious. The lab
+now reports both mismatch count and a normalized squared-error score, so a small
+antialias mismatch is not treated the same as a fully wrong pixel. In that case,
+`source-over` reports `56 / 387` mismatches with `1.2%` error,
+`source-atop-single` reports `23 / 387` with `0.6%`, `source-atop-full` reports
+`31 / 387` with `0.9%`, `Crisp` reports `46 / 382` with `5.5%`, and
+`Merged faces` remains `0 / 387` with `0.0%`.
+
 References checked:
 
 - [WHATWG Canvas 2D](https://html.spec.whatwg.org/multipage/canvas.html):

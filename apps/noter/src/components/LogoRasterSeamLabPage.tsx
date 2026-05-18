@@ -1,13 +1,17 @@
 import { Button } from "@/components/ui/button";
 import {
+  RASTER_SEAM_LAB_DEFAULT_DEPTH,
   RASTER_SEAM_LAB_DEFAULT_ELEVATION_DEGREES,
   RASTER_SEAM_LAB_DEFAULT_MERGE_MODE,
   RASTER_SEAM_LAB_DEFAULT_ROTATION_DEGREES,
+  RASTER_SEAM_LAB_DEPTHS,
   RASTER_SEAM_LAB_DEFAULT_SOURCE_SIZE_PX,
   RASTER_SEAM_LAB_MERGE_MODES,
   RASTER_SEAM_LAB_SAMPLE_ROTATIONS,
   RASTER_SEAM_LAB_SOURCE_SIZES,
   drawLogoRasterSeamLabImage,
+  normalizeRasterSeamLabDepth,
+  type RasterSeamLabDepth,
   type RasterSeamLabImageKind,
   type RasterSeamLabMergeMode,
   type RasterSeamLabResult,
@@ -24,6 +28,7 @@ type SeamLabZoom = "large" | "small";
 
 const EMPTY_SEAM_RESULT = {
   coveredPixels: 0,
+  meanSquaredError: 0,
   seamPixels: 0,
 } satisfies RasterSeamLabResult;
 
@@ -46,6 +51,7 @@ function getMergeModeLabel(mergeMode: RasterSeamLabMergeMode) {
 }
 
 function SeamLabCanvas({
+  depth,
   elevationDegrees,
   imageKind,
   mergeMode,
@@ -53,6 +59,7 @@ function SeamLabCanvas({
   sourceSizePx,
   zoom,
 }: {
+  depth: RasterSeamLabDepth;
   elevationDegrees: number;
   imageKind: RasterSeamLabImageKind;
   mergeMode: RasterSeamLabMergeMode;
@@ -78,6 +85,7 @@ function SeamLabCanvas({
 
     setResult(
       drawLogoRasterSeamLabImage(context, {
+        depth,
         elevationDegrees,
         imageKind,
         mergeMode,
@@ -85,7 +93,14 @@ function SeamLabCanvas({
         sourceSizePx,
       }),
     );
-  }, [elevationDegrees, imageKind, mergeMode, rotationDegrees, sourceSizePx]);
+  }, [
+    depth,
+    elevationDegrees,
+    imageKind,
+    mergeMode,
+    rotationDegrees,
+    sourceSizePx,
+  ]);
 
   const seamRatio =
     result.coveredPixels > 0 ? result.seamPixels / result.coveredPixels : 0;
@@ -98,7 +113,8 @@ function SeamLabCanvas({
         </span>
         <span className="font-mono text-black/50">
           {result.seamPixels} / {result.coveredPixels} (
-          {(seamRatio * 100).toFixed(1)}%)
+          {(seamRatio * 100).toFixed(1)}%) err{" "}
+          {(result.meanSquaredError * 100).toFixed(1)}%
         </span>
       </div>
       <div className="flex items-center justify-center border border-black/10 bg-white p-0">
@@ -116,11 +132,13 @@ function SeamLabCanvas({
 }
 
 function AngleSweepCanvas({
+  depth,
   elevationDegrees,
   mergeMode,
   rotationDegrees,
   sourceSizePx,
 }: {
+  depth: RasterSeamLabDepth;
   elevationDegrees: number;
   mergeMode: RasterSeamLabMergeMode;
   rotationDegrees: number;
@@ -137,6 +155,7 @@ function AngleSweepCanvas({
         </span>
       </div>
       <SeamLabCanvas
+        depth={depth}
         elevationDegrees={elevationDegrees}
         imageKind="mask"
         mergeMode={mergeMode}
@@ -149,11 +168,13 @@ function AngleSweepCanvas({
 }
 
 function MergeModeSweepCanvas({
+  depth,
   elevationDegrees,
   mergeMode,
   rotationDegrees,
   sourceSizePx,
 }: {
+  depth: RasterSeamLabDepth;
   elevationDegrees: number;
   mergeMode: RasterSeamLabMergeMode;
   rotationDegrees: number;
@@ -170,6 +191,7 @@ function MergeModeSweepCanvas({
         </span>
       </div>
       <SeamLabCanvas
+        depth={depth}
         elevationDegrees={elevationDegrees}
         imageKind="mask"
         mergeMode={mergeMode}
@@ -188,6 +210,11 @@ export function LogoRasterSeamLabPage({
 }) {
   const [sourceSizePx, setSourceSizePx] = useState(
     RASTER_SEAM_LAB_DEFAULT_SOURCE_SIZE_PX,
+  );
+  const [recursiveDepth, setRecursiveDepth] = useState(
+    normalizeRasterSeamLabDepth(
+      routeSearch.depth ?? RASTER_SEAM_LAB_DEFAULT_DEPTH,
+    ),
   );
   const [rotationDegrees, setRotationDegrees] = useState(
     normalizeRotationDegrees(
@@ -253,6 +280,31 @@ export function LogoRasterSeamLabPage({
                     }}
                   >
                     {nextSourceSizePx}px
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                <span>Depth</span>
+                <span>{recursiveDepth}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {RASTER_SEAM_LAB_DEPTHS.map((nextDepth) => (
+                  <Button
+                    key={nextDepth}
+                    type="button"
+                    size="sm"
+                    variant={
+                      recursiveDepth === nextDepth ? "default" : "outline"
+                    }
+                    className="rounded-none"
+                    onClick={() => {
+                      setRecursiveDepth(nextDepth);
+                    }}
+                  >
+                    {nextDepth}
                   </Button>
                 ))}
               </div>
@@ -329,8 +381,9 @@ export function LogoRasterSeamLabPage({
                     Current Case
                   </div>
                   <div className="mt-1 text-sm text-black/60">
-                    {sourceSizePx}px source, {getMergeModeLabel(mergeMode)},
-                    rotation {rotationDegrees.toFixed(0)}°, elevation{" "}
+                    depth {recursiveDepth}, {sourceSizePx}px source,{" "}
+                    {getMergeModeLabel(mergeMode)}, rotation{" "}
+                    {rotationDegrees.toFixed(0)}°, elevation{" "}
                     {elevationDegrees.toFixed(0)}°
                   </div>
                 </div>
@@ -340,6 +393,7 @@ export function LogoRasterSeamLabPage({
               </div>
               <div className="grid gap-3 xl:grid-cols-3">
                 <SeamLabCanvas
+                  depth={recursiveDepth}
                   elevationDegrees={elevationDegrees}
                   imageKind="composed"
                   mergeMode={mergeMode}
@@ -348,6 +402,7 @@ export function LogoRasterSeamLabPage({
                   zoom="large"
                 />
                 <SeamLabCanvas
+                  depth={recursiveDepth}
                   elevationDegrees={elevationDegrees}
                   imageKind="reference"
                   mergeMode={mergeMode}
@@ -356,6 +411,7 @@ export function LogoRasterSeamLabPage({
                   zoom="large"
                 />
                 <SeamLabCanvas
+                  depth={recursiveDepth}
                   elevationDegrees={elevationDegrees}
                   imageKind="mask"
                   mergeMode={mergeMode}
@@ -388,6 +444,7 @@ export function LogoRasterSeamLabPage({
                     }}
                   >
                     <MergeModeSweepCanvas
+                      depth={recursiveDepth}
                       elevationDegrees={elevationDegrees}
                       mergeMode={mode.value}
                       rotationDegrees={rotationDegrees}
@@ -419,6 +476,7 @@ export function LogoRasterSeamLabPage({
                     }}
                   >
                     <AngleSweepCanvas
+                      depth={recursiveDepth}
                       elevationDegrees={elevationDegrees}
                       mergeMode={mergeMode}
                       rotationDegrees={sampleRotation}
@@ -451,6 +509,7 @@ export function LogoRasterSeamLabPage({
                     }}
                   >
                     <AngleSweepCanvas
+                      depth={recursiveDepth}
                       elevationDegrees={elevationDegrees}
                       mergeMode={mergeMode}
                       rotationDegrees={rotationDegrees}
