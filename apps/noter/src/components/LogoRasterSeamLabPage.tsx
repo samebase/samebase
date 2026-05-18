@@ -62,6 +62,21 @@ function getMergeModeLabel(mergeMode: RasterSeamLabMergeMode) {
   );
 }
 
+function formatInflationScaleInput(value: number) {
+  return value.toFixed(3);
+}
+
+function parseInflationScaleInput(value: string) {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return null;
+  }
+
+  const parsedValue = Number(trimmedValue.replace(",", "."));
+
+  return Number.isFinite(parsedValue) ? parsedValue : null;
+}
+
 function SeamLabCanvas({
   depth,
   elevationDegrees,
@@ -267,6 +282,24 @@ export function LogoRasterSeamLabPage({
   const [inflationScale, setInflationScale] = useState(
     RASTER_SEAM_LAB_DEFAULT_INFLATION_SCALE,
   );
+  const [inflationScaleInputValue, setInflationScaleInputValue] = useState(
+    formatInflationScaleInput(RASTER_SEAM_LAB_DEFAULT_INFLATION_SCALE),
+  );
+  const setCommittedInflationScale = (value: number) => {
+    const nextInflationScale = normalizeRasterSeamLabInflationScale(value);
+    setInflationScale(nextInflationScale);
+    setInflationScaleInputValue(formatInflationScaleInput(nextInflationScale));
+  };
+  const commitInflationScaleInput = () => {
+    const parsedValue = parseInflationScaleInput(inflationScaleInputValue);
+    const nextInflationScale =
+      parsedValue === null
+        ? inflationScale
+        : normalizeRasterSeamLabInflationScale(parsedValue);
+
+    setInflationScale(nextInflationScale);
+    setInflationScaleInputValue(formatInflationScaleInput(nextInflationScale));
+  };
   const labStats = getLogoRasterSeamLabStats({
     depth: recursiveDepth,
     elevationDegrees,
@@ -423,25 +456,30 @@ export function LogoRasterSeamLabPage({
                   RASTER_SEAM_LAB_SLIDER_MAX_INFLATION_SCALE,
                 )}
                 onChange={(event) => {
-                  setInflationScale(
-                    normalizeRasterSeamLabInflationScale(
-                      Number(event.target.value),
-                    ),
-                  );
+                  setCommittedInflationScale(Number(event.target.value));
                 }}
                 className="h-2 w-full cursor-pointer accent-black"
               />
               <input
-                type="number"
-                min={RASTER_SEAM_LAB_MIN_INFLATION_SCALE}
-                step={RASTER_SEAM_LAB_INFLATION_SCALE_STEP}
-                value={inflationScale.toFixed(3)}
+                type="text"
+                inputMode="decimal"
+                value={inflationScaleInputValue}
                 onChange={(event) => {
-                  setInflationScale(
-                    normalizeRasterSeamLabInflationScale(
-                      Number(event.target.value),
-                    ),
-                  );
+                  const nextInputValue = event.target.value;
+                  const parsedValue = parseInflationScaleInput(nextInputValue);
+
+                  setInflationScaleInputValue(nextInputValue);
+                  if (parsedValue !== null) {
+                    setInflationScale(
+                      normalizeRasterSeamLabInflationScale(parsedValue),
+                    );
+                  }
+                }}
+                onBlur={commitInflationScaleInput}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
                 }}
                 className="h-9 w-full border border-black/15 bg-white px-2 font-mono text-sm text-black"
                 aria-label="Inflation scale"

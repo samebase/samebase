@@ -474,6 +474,31 @@ test("logo raster seam lab shows the tiny 2x2 image-composition diagnostic", asy
   await expect(currentCase.getByText(/0 \/ \d+ \(0\.0%\)/)).toHaveCount(3);
 });
 
+test("logo raster seam lab inflation input allows partial edits", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo/raster-seams?elev=22&rot=22", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const currentCase = page.getByTestId("logo-raster-seam-lab-current-case");
+  const inflationInput = page.getByLabel("Inflation scale");
+
+  await expect(inflationInput).toHaveValue("1.010");
+  await inflationInput.click();
+  await inflationInput.press("End");
+  await inflationInput.press("Backspace");
+  await expect(inflationInput).toHaveValue("1.01");
+
+  await inflationInput.fill("1,5");
+  await expect(inflationInput).toHaveValue("1,5");
+  await expect(currentCase).toContainText("inflate 1.500x");
+
+  await inflationInput.press("Enter");
+  await expect(inflationInput).toHaveValue("1.500");
+});
+
 test("logo shape presets include the Sierpinski carpet model", async ({
   page,
 }) => {
