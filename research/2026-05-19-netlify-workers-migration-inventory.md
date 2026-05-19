@@ -185,3 +185,217 @@ For each repository, document:
 After one migration is completed, extract the repeatable parts into a
 `migration-to-noter` skill rather than leaving the process only in this research
 document.
+
+## `weight.tsx.md` Source Inspection
+
+Inspected 2026-05-19 from a fresh checkout of
+`github.com/nicu-chiciuc/weight_tsx` at `main@e26a383`.
+
+### Source Facts
+
+- App shape: root-level Vite React SPA with Convex Auth and Tailwind.
+- Package manager shape: npm project, no tracked lockfile. `.gitignore`
+  explicitly ignores `package-lock.json`.
+- Current build: `npm run build` runs `tsc -b && vite build` and emits `dist`.
+- Current Netlify build command: `npx convex deploy --cmd 'npm run build'`.
+- Current Netlify env names: `CONVEX_DEPLOY_KEY`, `VITE_CONVEX_URL`.
+- Current custom domain: `weight.tsx.md`.
+- Current Netlify subdomain: `weight-tsx.netlify.app`.
+- No `wrangler.jsonc`, Cloudflare config, `netlify.toml`, `_redirects`, or
+  `_headers` files exist in the repository.
+- `vercel.json` still exists only to rewrite all routes to `/index.html`.
+- No `AGENTS.md` or app-specific reusable memory exists in the repository.
+
+Baseline commands from the inspection checkout:
+
+```sh
+npm install
+npm run build
+```
+
+`npm run build` passed. The production build emitted:
+
+- `dist/index.html`
+- `dist/assets/index-*.css`
+- `dist/assets/index-*.js`
+- copied public assets including `manifest.json`, `favicon.png`, `sw.js`
+
+`npm run lint` failed before any migration changes:
+
+- `convex/auth.config.ts` is outside the ESLint parser project list.
+- `src/App.tsx` has an unnecessary `FormData` assertion.
+- `src/App.tsx` has an existing React hook dependency warning for the fallback
+  `entries` array.
+
+These are existing quality issues, not Workers migration blockers.
+
+### Migration Risks
+
+The app is a good first Workers migration target because it is already a static
+Vite build backed by Convex. There is no visible server runtime to port.
+
+The main migration-specific risk is the PWA layer:
+
+- `public/sw.js` caches source paths such as `/src/main.tsx`, `/src/App.tsx`,
+  and `/src/index.css`.
+- Those paths are not stable production assets after Vite builds into `dist`.
+- `public/manifest.json` and `index.html` reference `/icon.png`, but the repo
+  only has `public/favicon.png` and `public/convex.svg`.
+
+The safest first migration should either remove the service worker registration
+and stale `public/sw.js`, or replace it with a minimal runtime-safe service
+worker that does not precache source files. PWA polish can come after the
+provider migration is verified.
+
+### Recommended Code Patch
+
+Keep this as a minimal platform migration, not a full app rewrite.
+
+1. Add `wrangler` as a dev dependency.
+2. Stop ignoring `package-lock.json` and commit the lockfile, unless the
+   migration intentionally converts the repo to pnpm.
+3. Add `wrangler.jsonc` with Workers Static Assets:
+
+   ```jsonc
+   {
+     "$schema": "./node_modules/wrangler/config-schema.json",
+     "compatibility_date": "2026-05-19",
+     "preview_urls": true,
+     "assets": {
+       "directory": "./dist",
+       "not_found_handling": "single-page-application",
+     },
+   }
+   ```
+
+   Do not hard-code `name` in `wrangler.jsonc`; the Worker name should come from
+   Cloudflare Workers Builds or the local deploy wrapper.
+
+4. Split `package.json` scripts:
+
+   ```json
+   {
+     "build": "node ./scripts/build-cloudflare.mjs",
+     "build:app": "tsc -b && vite build",
+     "deploy": "node ./scripts/deploy-cloudflare.mjs deploy",
+     "deploy:dry-run": "node ./scripts/deploy-cloudflare.mjs deploy --dry-run",
+     "deploy:preview": "node ./scripts/deploy-cloudflare.mjs preview",
+     "deploy:preview:dry-run": "node ./scripts/deploy-cloudflare.mjs preview --dry-run"
+   }
+   ```
+
+5. Add `scripts/build-cloudflare.mjs`:
+   - fail if a generic `CONVEX_DEPLOY_KEY` is present in Workers build env
+   - read `WORKERS_CI_BRANCH`
+   - use `PROD_CONVEX_DEPLOY_KEY` for `main`
+   - use `PREVIEW_CONVEX_DEPLOY_KEY` for non-production branches
+   - run `npx convex deploy --cmd 'npm run build:app'` with the selected key
+   - for local builds with no deploy keys, run `npm run build:app`
+
+6. Add `scripts/deploy-cloudflare.mjs`:
+   - read `WRANGLER_CI_OVERRIDE_NAME` in Workers Builds
+   - read `CLOUDFLARE_WORKER_NAME` for local deploy checks
+   - reject manually passed Wrangler `--name` flags
+   - run `npx wrangler deploy --name <worker>` for production
+   - run `npx wrangler versions upload --name <worker>` for previews
+   - run the Cloudflare build path locally before Wrangler, but skip that extra
+     build inside Workers Builds because the dashboard build command already ran
+
+7. Remove `vercel.json`; Workers Static Assets SPA fallback replaces it.
+8. Remove or repair the service worker and `/icon.png` references before the
+   first Workers smoke test.
+9. Add a short `AGENTS.md` to the `weight_tsx` repo with the app contract: Vite
+   React SPA, Convex Auth backend, deploys through Cloudflare Workers Static
+   Assets, production domain `weight.tsx.md`, and the split Convex deploy-key
+   build contract.
+
+### Cloudflare Workers Build Settings
+
+Use these values for the first Workers project:
+
+- Worker name: `weight-tsx`
+- Git repository: `github.com/nicu-chiciuc/weight_tsx`
+- Production branch: `main`
+- Root directory: `/`
+- Build command: `npm run build`
+- Deploy command: `npm run deploy`
+- Non-production branch deploy command: `npm run deploy:preview`
+- Build secret: `PROD_CONVEX_DEPLOY_KEY`
+- Build secret: `PREVIEW_CONVEX_DEPLOY_KEY`
+
+For the first production migration, preserve the existing Convex production
+deployment so existing weight data stays intact. Copy the current production
+Netlify `CONVEX_DEPLOY_KEY` value into Cloudflare as `PROD_CONVEX_DEPLOY_KEY`.
+Create or choose a separate Convex preview deploy key before enabling
+non-production branch builds; otherwise keep non-production Workers builds
+disabled until the preview key exists.
+
+Do not add `VITE_CONVEX_URL` manually unless a build proves Convex is not
+injecting the correct URL through `convex deploy --cmd`. The current Netlify
+build command already relies on `convex deploy --cmd`, and the Workers build
+script should preserve that shape.
+
+### Validation Plan
+
+Before changing DNS:
+
+```sh
+npm install
+npm run build
+CLOUDFLARE_WORKER_NAME=weight-tsx npm run deploy:dry-run
+CLOUDFLARE_WORKER_NAME=weight-tsx npm run deploy:preview:dry-run
+```
+
+After the first Cloudflare production deploy:
+
+- open the `workers.dev` URL
+- confirm SPA fallback by refreshing a non-root route, if any route exists
+- confirm sign-in/sign-up still works
+- add a test weight entry
+- confirm the entry appears after reload
+- confirm browser console has no service worker install errors
+- confirm the app does not point at the wrong Convex deployment
+
+Only after that smoke test should `weight.tsx.md` move from Netlify to
+Cloudflare. Keep the Netlify project enabled until the Cloudflare domain is live
+and verified.
+
+### External References Checked
+
+- Cloudflare Workers Builds runs a build command followed by a deploy command;
+  preview builds use the non-production branch deploy command:
+  <https://developers.cloudflare.com/workers/ci-cd/builds/configuration/>
+- Workers Builds injects `WORKERS_CI` and `WORKERS_CI_BRANCH` by default:
+  <https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#default-variables>
+- Workers Static Assets supports SPA fallback through
+  `assets.not_found_handling: "single-page-application"`:
+  <https://developers.cloudflare.com/workers/static-assets/routing/single-page-application/>
+
+### Cutover Order
+
+1. Land the repository patch on a migration branch.
+2. Create the Cloudflare Worker connected to the GitHub repo.
+3. Add Cloudflare build secrets.
+4. Trigger a production Workers build for `main`.
+5. Smoke test the Workers URL.
+6. Attach or route `weight.tsx.md` to the Worker.
+7. Smoke test `https://weight.tsx.md`.
+8. Leave Netlify in place as rollback until the domain has been stable.
+9. Record final Worker name, Convex deployment, and domain state in Noter.
+
+### Noter Product Notes
+
+This migration should become a reusable Noter workflow step:
+
+- classify existing Netlify app
+- inspect source repo
+- generate the Workers config/build wrapper patch
+- preserve or create Convex deployment keys
+- create Cloudflare Worker
+- move domain only after Worker smoke test passes
+- store provider identities in the dashboard
+
+`weight.tsx.md` also reinforces the need for Noter to show provider identity
+plainly. During and after this migration, the dashboard should surface at least
+the GitHub repo, Convex project/deployment, Cloudflare Worker name, production
+URL, and custom domain.
