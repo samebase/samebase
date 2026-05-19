@@ -77,7 +77,7 @@ const RESOURCE_RAIL_FIXTURE_SCENARIOS = [
       convex: {
         state: "selected",
         origin: "connected_existing",
-        resourceName: "notes-app / production",
+        resourceName: "notes-app/production",
         detail: "Existing production deployment selected.",
       },
       cloudflare: {
@@ -102,7 +102,7 @@ const RESOURCE_RAIL_FIXTURE_SCENARIOS = [
       convex: {
         state: "connected",
         origin: "created_by_noter",
-        resourceName: "dashboard / production",
+        resourceName: "dashboard/production",
         href: "https://dashboard.convex.dev/",
       },
       cloudflare: {

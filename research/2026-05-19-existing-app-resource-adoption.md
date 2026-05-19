@@ -794,7 +794,7 @@ Add a compact resource rail to each ready vault card/header:
 
 ```text
 [green] GitHub       nicu-chiciuc/weight_tsx       Connected existing
-[green] Convex       weight-tsx / production       Connected existing
+[green] Convex       weight-tsx/production         Connected existing
 [green] Cloudflare   weight-tsx                    Noter-created
 ```
 
