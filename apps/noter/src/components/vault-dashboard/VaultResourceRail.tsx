@@ -110,8 +110,8 @@ const STATUS_ICON_CLASS_NAMES = {
 } satisfies Record<VaultResourceRailVisualStatus, string>;
 
 const STATUS_TEXT_CLASS_NAMES = {
-  failed: "col-start-2 text-xs text-destructive",
-  running: "col-start-2 text-xs text-muted-foreground",
+  failed: "col-span-2 text-xs text-destructive",
+  running: "col-span-2 text-xs text-muted-foreground",
 } satisfies Record<"failed" | "running", string>;
 
 function getStatusIcon(status: VaultResourceRailVisualStatus): LucideIcon {
@@ -223,27 +223,25 @@ function VaultResourceRailRow({ row }: { row: VaultResourceRailRowState }) {
   return (
     <div
       data-provider={row.provider}
-      className="grid min-h-8 grid-cols-[1rem_minmax(0,1fr)] gap-x-2"
+      className="grid min-h-8 grid-cols-[1rem_minmax(0,1fr)] gap-x-2 gap-y-0.5"
     >
       <div className="flex h-8 items-center justify-center">
         <StatusIcon className={STATUS_ICON_CLASS_NAMES[row.status]} />
       </div>
-      <div className="grid min-w-0 grid-cols-[5rem_minmax(0,1fr)] items-center gap-x-2 gap-y-0.5">
-        <div className="text-sm font-medium">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+        <div className="w-20 shrink-0 text-sm font-medium">
           {PROVIDER_LABELS[row.provider]}
         </div>
-        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-          {value ? (
-            <div className="min-w-0 w-fit max-w-full shrink">
-              <div className="truncate text-sm">{value}</div>
-            </div>
-          ) : null}
-          {actions ? <VaultResourceRailActions actions={actions} /> : null}
-        </div>
-        {statusText ? (
-          <div className={statusText.className}>{statusText.text}</div>
+        {value ? (
+          <div className="min-w-0 w-fit max-w-full shrink">
+            <div className="truncate text-sm">{value}</div>
+          </div>
         ) : null}
+        {actions ? <VaultResourceRailActions actions={actions} /> : null}
       </div>
+      {statusText ? (
+        <div className={statusText.className}>{statusText.text}</div>
+      ) : null}
     </div>
   );
 }
