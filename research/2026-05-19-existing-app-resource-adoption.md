@@ -804,6 +804,95 @@ should exist even when the external dashboard link is unavailable. Production
 domain and preview status should become their own compact rows or status
 surfaces once they are first-class independent resources.
 
+### Header Density Reconsideration
+
+The row model is useful, but a full three-row resource rail with reserved
+per-row status text is too tall for the sticky vault header. The header needs to
+answer one question quickly: "is this vault connected and is anything blocking
+me?" It does not need to show every current provider sentence all the time.
+
+Good compact options:
+
+1. **Resource strip**
+
+   Show one inline strip after the vault title:
+
+   ```text
+   GitHub ok    Convex working    Cloudflare waiting
+   ```
+
+   Each segment has the provider mark, status dot, and provider resource name
+   when known. Running/error text is inline only for the active or failed
+   segment, such as `Convex tmp-my-new-app · Creating project`. Ready segments
+   stay quiet. This keeps all three providers visible without adding a second
+   text line per row.
+
+   Best use: always-visible header state for normal ready/provisioning vaults.
+
+2. **Resource summary plus popover**
+
+   Show only three status marks and a short summary in the header:
+
+   ```text
+   GitHub ok · Convex action needed · Cloudflare not set up
+   ```
+
+   Clicking the summary opens the full three-row detail view with provider
+   names, resource names, actions, current loading text, and exact error text.
+   This is closest to the current rail state model while keeping the sticky
+   header small.
+
+   Best use: existing repo adoption, where Connect/Create choices can grow wider
+   than the header.
+
+3. **Attention row below the header**
+
+   Keep the header compact and render one extra row only when there is an active
+   operation, action required, or error:
+
+   ```text
+   Convex: Creating project.
+   Cloudflare: Multiple Cloudflare accounts are available. Select an account.
+   ```
+
+   The normal ready state does not reserve this space. Layout movement is
+   acceptable here because the extra row appears only for a real blocking or
+   transient state, not as part of every steady header.
+
+   Best use: transparent loading and errors without making every vault card
+   permanently taller.
+
+4. **Single resource action**
+
+   For missing resources, avoid per-provider buttons in the header. Show one
+   action such as `Set up resources` or `Finish setup`, then open the detailed
+   resource selector. The detailed panel can still expose `Connect Convex`,
+   `Create Convex`, `Connect Worker`, and `Create Worker`.
+
+   Best use: narrow headers and mobile, where multiple Connect/Create buttons
+   quickly dominate the title area.
+
+5. **Details as setup section, not repository links**
+
+   Keep the three-row component as the setup/details surface under the header,
+   not as the always-visible header link area. In the header, show only a
+   compact status strip or one setup action. In the body/setup section, show the
+   row-level status text and exact provider actions.
+
+   Best use: preserves the useful row state model while avoiding a tall sticky
+   header.
+
+Recommended direction: split the visual component into two projections of the
+same resource state.
+
+- Header projection: compact strip, one line preferred, provider status/name
+  only, one setup/details trigger.
+- Detail projection: current three-row rail, with status/error text and
+  provider-specific actions.
+
+This keeps the state model congruent while making the header behave like a
+dashboard header rather than an activity log.
+
 ### Provider Setup CTA
 
 For existing repo vaults:
