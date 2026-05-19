@@ -191,6 +191,8 @@ export function normalizeLogoLeftFaceStyle(
       style.stripeAngleDegrees,
     ),
     stripeBasis: style.stripeBasis,
+    // When stripeGapLinked is true, stripeGap must track stripeWidth; otherwise
+    // normalizeLogoLeftFaceStripeGap handles the independent gap value.
     stripeGap: style.stripeGapLinked
       ? stripeWidth
       : normalizeLogoLeftFaceStripeGap(style.stripeGap),
@@ -214,6 +216,8 @@ export function readLogoLeftFaceStyle(search: {
   }
 
   const stripeGapLinked = search.stripeLink === true;
+  // Prefer search.stripeW; when stripeGapLinked and search.stripeW is absent,
+  // reuse search.stripeG before DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH.
   const stripeWidth =
     search.stripeW ??
     (stripeGapLinked ? search.stripeG : undefined) ??

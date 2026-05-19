@@ -958,6 +958,7 @@ test("logo view exposes striped left-face controls", async ({ page }) => {
     .getByRole("spinbutton", { name: "Stripe gap" })
     .fill("0");
   await expect(page).toHaveURL(/stripeW=0/);
+  await expect(page).toHaveURL(/stripeG=0/);
   await expect(page).toHaveURL(/stripeLink/);
 });
 

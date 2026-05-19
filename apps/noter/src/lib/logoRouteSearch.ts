@@ -355,7 +355,6 @@ function buildLogoLeftFaceStyleSearch(leftFaceStyle: LogoLeftFaceStyle): {
         ? leftFaceStyle.stripeBasis
         : undefined,
     stripeG:
-      !leftFaceStyle.stripeGapLinked &&
       leftFaceStyle.stripeGap !== DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP
         ? Number(leftFaceStyle.stripeGap.toFixed(2))
         : undefined,
