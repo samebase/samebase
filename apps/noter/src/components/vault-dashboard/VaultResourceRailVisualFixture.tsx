@@ -21,13 +21,13 @@ const noop = () => {};
 
 const ADD_VAULT_VALUES = {
   cloudflare: "tmp-my-new-app",
-  convex: "tmp-my-new-app/production",
+  convex: "tmp-my-new-app",
   github: "nicu-chiciuc/tmp-my-new-app",
 } as const;
 
 const ADD_VAULT_READY_VALUES = {
-  cloudflare: "tmp-my-new-app.nicuchiciuc.workers.dev",
-  convex: "greedy-gnu-5",
+  cloudflare: "tmp-my-new-app",
+  convex: "tmp-my-new-app",
   github: "nicu-chiciuc/tmp-my-new-app",
 } as const;
 
@@ -127,7 +127,6 @@ const ADD_VAULT_FLOW_SCENARIOS = [
           provider: "cloudflare",
           status: "ready",
           value: ADD_VAULT_READY_VALUES.cloudflare,
-          href: "https://tmp-my-new-app.nicuchiciuc.workers.dev",
         },
       ],
     },
