@@ -887,7 +887,9 @@ complex than it needs to be. Prefer one resource-links component with one
 contract:
 
 - always exactly three provider items in GitHub, Convex, Cloudflare order
-- ready items are just provider-logo links to the concrete provider resource
+- render those provider items as three vertical lines, not one horizontal strip
+- ready items are just provider-logo links to the concrete provider resource; do
+  not repeat visible provider names in the steady row
 - non-ready items keep the same provider logo and replace the link with the
   relevant action or in-progress value
 - loading/error detail appears as a single compact message area for the whole

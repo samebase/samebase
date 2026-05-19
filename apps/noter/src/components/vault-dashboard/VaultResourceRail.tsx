@@ -122,13 +122,17 @@ const STATUS_MESSAGE_CLASS_NAMES = {
   failed: "min-w-0 text-xs leading-4 text-destructive",
   running: "min-w-0 text-xs leading-4 text-muted-foreground",
 } satisfies Record<"failed" | "running", string>;
-const RESOURCE_LINK_CLASS_NAME =
-  "-mx-1.5 -my-1 inline-flex min-h-8 max-w-full items-center gap-1.5 px-1.5 py-1 text-sm leading-6 text-foreground underline decoration-muted-foreground/40 underline-offset-4 touch-manipulation hover:decoration-current";
-const RESOURCE_ITEM_CLASS_NAME =
-  "inline-flex min-h-8 max-w-full flex-wrap items-center gap-1.5 text-sm leading-6 text-foreground";
+const RESOURCE_LINK_ROW_CLASS_NAME =
+  "group -mx-1.5 -my-1 grid min-h-8 max-w-full grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-x-2 px-1.5 py-1 text-sm leading-6 text-foreground no-underline touch-manipulation";
+const RESOURCE_ROW_CLASS_NAME =
+  "grid min-h-8 max-w-full grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-x-2 text-sm leading-6 text-foreground";
 const RESOURCE_LOGO_SLOT_CLASS_NAME =
   "flex h-5 w-5 shrink-0 items-center justify-center";
+const RESOURCE_CONTENT_CLASS_NAME =
+  "flex min-w-0 flex-wrap items-center gap-1.5";
 const RESOURCE_VALUE_CLASS_NAME = "min-w-0 max-w-64 truncate";
+const RESOURCE_LINK_VALUE_CLASS_NAME =
+  "min-w-0 max-w-64 truncate underline decoration-muted-foreground/40 underline-offset-4 group-hover:decoration-current";
 
 function getStatusIcon(status: VaultResourceRailIconStatus): LucideIcon {
   switch (status) {
@@ -266,10 +270,7 @@ function VaultResourceRailItem({ row }: { row: VaultResourceRailRowState }) {
   const value = getRowValue(row);
   const providerLabel = PROVIDER_LABELS[row.provider];
   const content = (
-    <>
-      <span className={RESOURCE_LOGO_SLOT_CLASS_NAME}>
-        <ProviderLogo />
-      </span>
+    <div className={RESOURCE_CONTENT_CLASS_NAME}>
       {iconStatus ? <VaultResourceRailStatusIcon status={iconStatus} /> : null}
       {value ? (
         <span className={RESOURCE_VALUE_CLASS_NAME}>{value}</span>
@@ -277,20 +278,24 @@ function VaultResourceRailItem({ row }: { row: VaultResourceRailRowState }) {
       {actions ? (
         <VaultResourceRailActions actions={actions} provider={row.provider} />
       ) : null}
-    </>
+    </div>
   );
 
   if (row.status === "ready" && row.href) {
     return (
       <a
+        data-provider={row.provider}
         href={row.href}
         target="_blank"
         rel="noopener noreferrer"
-        className={RESOURCE_LINK_CLASS_NAME}
+        className={RESOURCE_LINK_ROW_CLASS_NAME}
         title={`Open ${providerLabel}`}
         aria-label={`Open ${providerLabel}: ${row.value}`}
       >
-        {content}
+        <span className={RESOURCE_LOGO_SLOT_CLASS_NAME}>
+          <ProviderLogo />
+        </span>
+        <span className={RESOURCE_LINK_VALUE_CLASS_NAME}>{row.value}</span>
       </a>
     );
   }
@@ -298,9 +303,12 @@ function VaultResourceRailItem({ row }: { row: VaultResourceRailRowState }) {
   return (
     <div
       data-provider={row.provider}
-      className={RESOURCE_ITEM_CLASS_NAME}
+      className={RESOURCE_ROW_CLASS_NAME}
       title={providerLabel}
     >
+      <span className={RESOURCE_LOGO_SLOT_CLASS_NAME}>
+        <ProviderLogo />
+      </span>
       {content}
     </div>
   );
@@ -317,7 +325,7 @@ export function VaultResourceRail({
 
   return (
     <div data-testid="vault-resource-rail" className="mt-1 grid w-full gap-1">
-      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+      <div className="grid min-w-0 gap-0.5">
         {state.rows.map((row) => (
           <VaultResourceRailItem key={row.provider} row={row} />
         ))}
