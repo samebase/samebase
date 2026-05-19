@@ -17,7 +17,6 @@ describe("VaultResourceRail", () => {
       },
       convex: {
         state: "not_configured",
-        detail: "Select an existing deployment or create a new project.",
         actions: [
           {
             kind: "connect_existing",
@@ -31,7 +30,6 @@ describe("VaultResourceRail", () => {
       },
       cloudflare: {
         state: "not_configured",
-        detail: "Create a Worker or connect one from the selected account.",
         actions: [
           {
             kind: "connect_existing",

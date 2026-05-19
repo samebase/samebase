@@ -33,7 +33,6 @@ const RESOURCE_RAIL_FIXTURE_SCENARIOS = [
       },
       convex: {
         state: "not_configured",
-        detail: "Select an existing deployment or create a new project.",
         actions: [
           {
             kind: "connect_existing",
@@ -49,7 +48,6 @@ const RESOURCE_RAIL_FIXTURE_SCENARIOS = [
       },
       cloudflare: {
         state: "not_configured",
-        detail: "Create a Worker or connect one from the selected account.",
         actions: [
           {
             kind: "connect_existing",

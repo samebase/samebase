@@ -50,7 +50,6 @@ export type VaultResourceRailGitHubState =
 export type VaultResourceRailProviderState =
   | {
       state: "not_configured";
-      detail: string;
       actions: VaultResourceRailActionList;
     }
   | {
@@ -99,7 +98,7 @@ type VaultResourceRailVisualStatus =
 
 type VaultResourceRailRowViewModel = {
   actions?: VaultResourceRailActionList;
-  detail: string;
+  detail?: string;
   href?: string;
   label: string;
   providerLabel: "GitHub" | "Convex" | "Cloudflare";
@@ -194,7 +193,6 @@ function mapProviderRow({
         label: providerLabel,
         status: "not_configured",
         value: "Not connected",
-        detail: provider.detail,
         actions: provider.actions,
       };
     case "selected":
@@ -324,9 +322,11 @@ function VaultResourceRailRow({ row }: { row: VaultResourceRailRowViewModel }) {
         <div className="w-20 shrink-0 text-sm font-medium">{row.label}</div>
         <div className="min-w-0 grow basis-48">
           <div className="truncate text-sm">{value}</div>
-          <div className="truncate text-xs text-muted-foreground">
-            {row.detail}
-          </div>
+          {row.detail ? (
+            <div className="truncate text-xs text-muted-foreground">
+              {row.detail}
+            </div>
+          ) : null}
         </div>
         {row.actions ? (
           <VaultResourceRailActions actions={row.actions} />
