@@ -38,7 +38,7 @@ export function PublicLayoutShell({
   left,
   leftToggleVisibility = "hidden",
   main,
-  rightToggleVisibility = "hidden",
+  rightToggleVisibility = "desktop",
 }: {
   children?: ReactNode;
   dataTestId?: WorkspaceLayoutV2FullPageProps["dataTestId"];

@@ -125,10 +125,10 @@ describe("Layout", () => {
     expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
     expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-left"');
     expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
-    expect(markup).not.toContain('aria-label="Toggle Right Sidebar"');
+    expect(markup).toContain('aria-label="Toggle Right Sidebar"');
   });
 
-  it("keeps the public shell sidebar toggle hidden", () => {
+  it("shows the public shell right sidebar toggle", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
@@ -143,6 +143,7 @@ describe("Layout", () => {
       </TestRouterProvider>,
     );
 
+    expect(markup).toContain('aria-label="Toggle Right Sidebar"');
     expect(markup).not.toContain('aria-label="Toggle sidebar"');
   });
 
