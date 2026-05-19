@@ -52,6 +52,11 @@ const RESOURCE_RAIL_FIXTURE_SCENARIOS = [
         detail: "Create a Worker or connect one from the selected account.",
         actions: [
           {
+            kind: "connect_existing",
+            label: "Connect",
+            onClick: noop,
+          },
+          {
             kind: "create_new",
             label: "Create Worker",
             onClick: noop,

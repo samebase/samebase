@@ -30,13 +30,16 @@ describe("VaultResourceRail", () => {
         ],
       },
       cloudflare: {
-        state: "failed",
-        resourceName: "weight-tsx",
-        message: "Worker build trigger could not be created.",
+        state: "not_configured",
+        detail: "Create a Worker or connect one from the selected account.",
         actions: [
           {
-            kind: "retry",
-            label: "Retry",
+            kind: "connect_existing",
+            label: "Connect Worker",
+          },
+          {
+            kind: "create_new",
+            label: "Create Worker",
           },
         ],
       },
@@ -48,7 +51,7 @@ describe("VaultResourceRail", () => {
     expect(markup).toContain("Not connected");
     expect(markup).toContain("Connect");
     expect(markup).toContain("Create");
-    expect(markup).toContain("weight-tsx");
-    expect(markup).toContain("Retry");
+    expect(markup).toContain("Connect Worker");
+    expect(markup).toContain("Create Worker");
   });
 });

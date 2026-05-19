@@ -337,7 +337,7 @@ The core V1 rail can stay to three provider rows:
 ```text
 [green] GitHub       nicu-chiciuc/weight_tsx
 [plus]  Convex       Connect
-[empty] Cloudflare   Create Worker
+[empty] Cloudflare   Connect / Create Worker
 ```
 
 The dot is the status surface:
@@ -364,7 +364,7 @@ or developer surface.
 For the first implementation, keep the actions narrow:
 
 - existing repo + no Convex: `Connect Convex`
-- existing repo + no Cloudflare: `Create Worker` and later `Connect Worker`
+- existing repo + no Cloudflare: `Connect Worker` or `Create Worker`
 - connected provider rows: display only
 - failed provider rows: retry with the same selected target
 
