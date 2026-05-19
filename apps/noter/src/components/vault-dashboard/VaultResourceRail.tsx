@@ -37,6 +37,7 @@ type VaultResourceRailRunningRow<TProvider extends VaultResourceRailProvider> =
   {
     provider: TProvider;
     status: "running";
+    statusText: string;
     value: string;
   };
 
@@ -59,6 +60,7 @@ type VaultResourceRailFailedRow<TProvider extends VaultResourceRailProvider> = {
   actions: VaultResourceRailActionList;
   provider: TProvider;
   status: "failed";
+  statusText: string;
   value: string;
 };
 
@@ -107,6 +109,11 @@ const STATUS_ICON_CLASS_NAMES = {
   running: "h-4 w-4 animate-spin text-muted-foreground",
 } satisfies Record<VaultResourceRailVisualStatus, string>;
 
+const STATUS_TEXT_CLASS_NAMES = {
+  failed: "col-start-2 text-xs text-destructive",
+  running: "col-start-2 text-xs text-muted-foreground",
+} satisfies Record<"failed" | "running", string>;
+
 function getStatusIcon(status: VaultResourceRailVisualStatus): LucideIcon {
   switch (status) {
     case "action_required":
@@ -122,6 +129,32 @@ function getStatusIcon(status: VaultResourceRailVisualStatus): LucideIcon {
   }
   status satisfies never;
   return Circle;
+}
+
+function getRowStatusText(row: VaultResourceRailRowState):
+  | {
+      className: string;
+      text: string;
+    }
+  | undefined {
+  switch (row.status) {
+    case "failed":
+      return {
+        className: STATUS_TEXT_CLASS_NAMES.failed,
+        text: row.statusText,
+      };
+    case "running":
+      return {
+        className: STATUS_TEXT_CLASS_NAMES.running,
+        text: row.statusText,
+      };
+    case "action_required":
+    case "pending":
+    case "ready":
+      return undefined;
+  }
+  row satisfies never;
+  return undefined;
 }
 
 function getRowActions(
@@ -171,6 +204,7 @@ function VaultResourceRailActions({
 function VaultResourceRailRow({ row }: { row: VaultResourceRailRowState }) {
   const StatusIcon = getStatusIcon(row.status);
   const actions = getRowActions(row);
+  const statusText = getRowStatusText(row);
   const value =
     row.status === "action_required" ? null : row.status === "ready" &&
       row.href ? (
@@ -194,16 +228,21 @@ function VaultResourceRailRow({ row }: { row: VaultResourceRailRowState }) {
       <div className="flex h-8 items-center justify-center">
         <StatusIcon className={STATUS_ICON_CLASS_NAMES[row.status]} />
       </div>
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-        <div className="w-20 shrink-0 text-sm font-medium">
+      <div className="grid min-w-0 grid-cols-[5rem_minmax(0,1fr)] items-center gap-x-2 gap-y-0.5">
+        <div className="text-sm font-medium">
           {PROVIDER_LABELS[row.provider]}
         </div>
-        {value ? (
-          <div className="min-w-0 w-fit max-w-full shrink">
-            <div className="truncate text-sm">{value}</div>
-          </div>
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          {value ? (
+            <div className="min-w-0 w-fit max-w-full shrink">
+              <div className="truncate text-sm">{value}</div>
+            </div>
+          ) : null}
+          {actions ? <VaultResourceRailActions actions={actions} /> : null}
+        </div>
+        {statusText ? (
+          <div className={statusText.className}>{statusText.text}</div>
         ) : null}
-        {actions ? <VaultResourceRailActions actions={actions} /> : null}
       </div>
     </div>
   );

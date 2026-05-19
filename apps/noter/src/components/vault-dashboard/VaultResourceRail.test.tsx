@@ -57,4 +57,41 @@ describe("VaultResourceRail", () => {
     expect(markup).toContain("Create Worker");
     expect(markup).not.toContain("Connected existing");
   });
+
+  it("renders current status and failure context below provider rows", () => {
+    const state = {
+      rows: [
+        {
+          provider: "github",
+          status: "ready",
+          value: "nicu-chiciuc/weight_tsx",
+          href: "https://github.com/nicu-chiciuc/weight_tsx",
+        },
+        {
+          provider: "convex",
+          status: "running",
+          statusText: "Creating Convex project.",
+          value: "weight-tsx",
+        },
+        {
+          provider: "cloudflare",
+          status: "failed",
+          statusText: "Cloudflare account selection is required.",
+          value: "weight-tsx",
+          actions: [
+            {
+              kind: "retry",
+              label: "Retry",
+            },
+          ],
+        },
+      ],
+    } satisfies VaultResourceRailState;
+
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+
+    expect(markup).toContain("Creating Convex project.");
+    expect(markup).toContain("Cloudflare account selection is required.");
+    expect(markup).toContain("Retry");
+  });
 });

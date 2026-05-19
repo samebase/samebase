@@ -354,11 +354,13 @@ Each row should show only what helps the user decide or act:
 - stable provider name/id when known
 - URL when known
 - action: connect existing, create new, retry, open provider
+- current status/error text only for running or failed rows
 
 Avoid rendering every durable workflow event as a first-class row. The visible
 rail should group the workflow by durable resource: GitHub, Convex, Cloudflare.
-Detailed workflow events and logs can remain available in the expanded details
-or developer surface.
+The row can show the current provider operation or known failure reason below
+the main line; detailed workflow events and logs can remain available in the
+expanded details or developer surface.
 
 For the first implementation, keep the actions narrow:
 
