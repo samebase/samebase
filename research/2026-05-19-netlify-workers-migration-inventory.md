@@ -247,13 +247,19 @@ and stale `public/sw.js`, or replace it with a minimal runtime-safe service
 worker that does not precache source files. PWA polish can come after the
 provider migration is verified.
 
+After reviewing the minimal plan, the operator chose a fuller Noter-stack
+standardization for this first migration. The implementation should therefore
+move `weight_tsx` to TanStack Start SPA mode, pnpm, `vite-plus`, and the Noter
+Workers build/deploy contract instead of preserving the current Vite-only app
+shape.
+
 ### Recommended Code Patch
 
-Keep this as a minimal platform migration, not a full app rewrite.
+Use this as the first Noter-stack app migration shape. It keeps the product
+surface intact while standardizing the app shell and deployment contract.
 
-1. Add `wrangler` as a dev dependency.
-2. Stop ignoring `package-lock.json` and commit the lockfile, unless the
-   migration intentionally converts the repo to pnpm.
+1. Convert package management to pnpm and commit `pnpm-lock.yaml`.
+2. Add TanStack Start SPA mode, `vite-plus`, and `wrangler` dependencies.
 3. Add `wrangler.jsonc` with Workers Static Assets:
 
    ```jsonc
@@ -262,7 +268,7 @@ Keep this as a minimal platform migration, not a full app rewrite.
      "compatibility_date": "2026-05-19",
      "preview_urls": true,
      "assets": {
-       "directory": "./dist",
+       "directory": "./dist/client",
        "not_found_handling": "single-page-application",
      },
    }
@@ -275,8 +281,9 @@ Keep this as a minimal platform migration, not a full app rewrite.
 
    ```json
    {
-     "build": "node ./scripts/build-cloudflare.mjs",
-     "build:app": "tsc -b && vite build",
+     "build": "vp run build:cloudflare",
+     "build:app": "vp build && tsc -b",
+     "build:cloudflare": "node ./scripts/build-cloudflare.mjs",
      "deploy": "node ./scripts/deploy-cloudflare.mjs deploy",
      "deploy:dry-run": "node ./scripts/deploy-cloudflare.mjs deploy --dry-run",
      "deploy:preview": "node ./scripts/deploy-cloudflare.mjs preview",
@@ -289,15 +296,16 @@ Keep this as a minimal platform migration, not a full app rewrite.
    - read `WORKERS_CI_BRANCH`
    - use `PROD_CONVEX_DEPLOY_KEY` for `main`
    - use `PREVIEW_CONVEX_DEPLOY_KEY` for non-production branches
-   - run `npx convex deploy --cmd 'npm run build:app'` with the selected key
-   - for local builds with no deploy keys, run `npm run build:app`
+   - run `pnpm exec convex deploy --cmd 'pnpm run build:app'` with the selected
+     key
+   - for local builds with no deploy keys, run `pnpm run build:app`
 
 6. Add `scripts/deploy-cloudflare.mjs`:
    - read `WRANGLER_CI_OVERRIDE_NAME` in Workers Builds
    - read `CLOUDFLARE_WORKER_NAME` for local deploy checks
    - reject manually passed Wrangler `--name` flags
-   - run `npx wrangler deploy --name <worker>` for production
-   - run `npx wrangler versions upload --name <worker>` for previews
+   - run `pnpm exec wrangler deploy --name <worker>` for production
+   - run `pnpm exec wrangler versions upload --name <worker>` for previews
    - run the Cloudflare build path locally before Wrangler, but skip that extra
      build inside Workers Builds because the dashboard build command already ran
 
@@ -317,9 +325,9 @@ Use these values for the first Workers project:
 - Git repository: `github.com/nicu-chiciuc/weight_tsx`
 - Production branch: `main`
 - Root directory: `/`
-- Build command: `npm run build`
-- Deploy command: `npm run deploy`
-- Non-production branch deploy command: `npm run deploy:preview`
+- Build command: `pnpm run build`
+- Deploy command: `pnpm run deploy`
+- Non-production branch deploy command: `pnpm run deploy:preview`
 - Build secret: `PROD_CONVEX_DEPLOY_KEY`
 - Build secret: `PREVIEW_CONVEX_DEPLOY_KEY`
 
@@ -340,10 +348,11 @@ script should preserve that shape.
 Before changing DNS:
 
 ```sh
-npm install
-npm run build
-CLOUDFLARE_WORKER_NAME=weight-tsx npm run deploy:dry-run
-CLOUDFLARE_WORKER_NAME=weight-tsx npm run deploy:preview:dry-run
+pnpm install
+pnpm run check
+pnpm run build
+CLOUDFLARE_WORKER_NAME=weight-tsx pnpm run deploy:dry-run
+CLOUDFLARE_WORKER_NAME=weight-tsx pnpm run deploy:preview:dry-run
 ```
 
 After the first Cloudflare production deploy:
@@ -355,6 +364,52 @@ After the first Cloudflare production deploy:
 - confirm the entry appears after reload
 - confirm browser console has no service worker install errors
 - confirm the app does not point at the wrong Convex deployment
+
+### Implementation Notes
+
+Started implementation on branch `codex/standardize-weight-workers` in
+`github.com/nicu-chiciuc/weight_tsx`. The ready PR is
+`https://github.com/nicu-chiciuc/weight_tsx/pull/1`.
+
+Actual migration shape:
+
+- converted package management to pnpm with `packageManager: pnpm@11.1.1`
+- added `pnpm-workspace.yaml` with approved build scripts for `esbuild`,
+  `sharp`, and `workerd`
+- added `node-addon-api` and `node-gyp`, matching the TSX-MD migration, so the
+  approved `sharp` install can complete locally
+- moved from Vite `index.html` to TanStack Start SPA mode with:
+  - `src/client.tsx`
+  - `src/router.tsx`
+  - `src/routes.ts`
+  - `src/routes/root.tsx`
+  - `src/routes/index.tsx`
+- kept the existing `App.tsx` product UI and Convex functions intact
+- removed the stale service worker and Vercel rewrite config
+- updated manifest icons from missing `/icon.png` to existing `/favicon.png`
+- added `wrangler.jsonc`, Cloudflare build/deploy wrappers, `AGENTS.md`, and a
+  repo-specific README
+
+Validation completed before provider changes:
+
+```sh
+pnpm install
+pnpm run check
+pnpm run build
+CLOUDFLARE_WORKER_NAME=weight-tsx pnpm run deploy:dry-run
+CLOUDFLARE_WORKER_NAME=weight-tsx pnpm run deploy:preview:dry-run
+pnpm run preview
+```
+
+Browser smoke against `http://127.0.0.1:3021/` rendered the new Start shell and
+showed the intentional `VITE_CONVEX_URL` missing state. Browser smoke against
+`/not-a-real-route` rendered the app-level 404 through the SPA fallback. Both
+checks had no browser console errors.
+
+Authenticated Convex flows were not tested locally because the production Convex
+deploy key and production `VITE_CONVEX_URL` were not copied into the inspection
+checkout. That should be tested only after the Cloudflare build uses the
+preserved production Convex deploy key.
 
 Only after that smoke test should `weight.tsx.md` move from Netlify to
 Cloudflare. Keep the Netlify project enabled until the Cloudflare domain is live
