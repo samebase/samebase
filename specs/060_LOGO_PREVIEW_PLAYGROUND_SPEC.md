@@ -213,6 +213,8 @@ The playground should expose at least these presets:
   left-face color relationship.
 - `striped` is a shareable exploration state with controls for stripe width,
   gap, angle, and offset.
+- Stripe width and gap may be `0`, and the playground should expose a shareable
+  linked-width/gap option for checking equal-period patterns quickly.
 - Stripes must be rendered in the left face's local 3D surface space, not as a
   screen-space overlay, so dragging the logo keeps the pattern attached to the
   face geometry.

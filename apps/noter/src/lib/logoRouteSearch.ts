@@ -95,6 +95,7 @@ function readOptionalNumber(value: unknown): number | undefined {
 const LOGO_ROUTE_PRESENCE_SEARCH_KEYS = [
   LANDING_DEV_MODE_QUERY_PARAM,
   "freeView",
+  "stripeLink",
   ...ROOT_THEME_MODE_SEARCH_KEYS,
 ] as const;
 
@@ -166,6 +167,7 @@ const logoRouteSearchFieldSchema = z
     rot: z.preprocess(readOptionalNumber, z.number().finite().optional()),
     stripeA: z.preprocess(readOptionalNumber, z.number().finite().optional()),
     stripeG: z.preprocess(readOptionalNumber, z.number().finite().optional()),
+    stripeLink: z.literal(true).optional(),
     stripeO: z.preprocess(readOptionalNumber, z.number().finite().optional()),
     stripeW: z.preprocess(readOptionalNumber, z.number().finite().optional()),
     vox: z.preprocess(readCanonicalVoxelState, z.string().optional()),
@@ -307,6 +309,7 @@ function buildLogoLeftFaceStyleSearch(leftFaceStyle: LogoLeftFaceStyle): {
   leftFace?: LogoLeftFaceStyleKind;
   stripeA?: number;
   stripeG?: number;
+  stripeLink?: true;
   stripeO?: number;
   stripeW?: number;
 } {
@@ -315,6 +318,7 @@ function buildLogoLeftFaceStyleSearch(leftFaceStyle: LogoLeftFaceStyle): {
       leftFace: undefined,
       stripeA: undefined,
       stripeG: undefined,
+      stripeLink: undefined,
       stripeO: undefined,
       stripeW: undefined,
     };
@@ -328,9 +332,11 @@ function buildLogoLeftFaceStyleSearch(leftFaceStyle: LogoLeftFaceStyle): {
         ? Number(leftFaceStyle.stripeAngleDegrees.toFixed(1))
         : undefined,
     stripeG:
+      !leftFaceStyle.stripeGapLinked &&
       leftFaceStyle.stripeGap !== DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP
         ? Number(leftFaceStyle.stripeGap.toFixed(2))
         : undefined,
+    stripeLink: leftFaceStyle.stripeGapLinked ? true : undefined,
     stripeO:
       leftFaceStyle.stripeOffset !== DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET
         ? Number(leftFaceStyle.stripeOffset.toFixed(2))

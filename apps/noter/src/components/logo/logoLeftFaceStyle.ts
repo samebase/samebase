@@ -10,6 +10,7 @@ export type LogoStripedLeftFaceStyle = {
   kind: "striped";
   stripeAngleDegrees: number;
   stripeGap: number;
+  stripeGapLinked: boolean;
   stripeOffset: number;
   stripeWidth: number;
 };
@@ -24,6 +25,7 @@ export const DEFAULT_LOGO_LEFT_FACE_STYLE: LogoSecondaryLeftFaceStyle = {
 
 export const DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES = 45;
 export const DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP = 0.2;
+export const DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP_LINKED = false;
 export const DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET = 0;
 export const DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH = 0.16;
 export const LOGO_LEFT_FACE_STRIPE_ANGLE_STEP = 1;
@@ -35,9 +37,9 @@ export const MAX_LOGO_LEFT_FACE_STRIPE_GAP = 1;
 export const MAX_LOGO_LEFT_FACE_STRIPE_OFFSET = 1;
 export const MAX_LOGO_LEFT_FACE_STRIPE_WIDTH = 1;
 export const MIN_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES = -90;
-export const MIN_LOGO_LEFT_FACE_STRIPE_GAP = 0.02;
+export const MIN_LOGO_LEFT_FACE_STRIPE_GAP = 0;
 export const MIN_LOGO_LEFT_FACE_STRIPE_OFFSET = 0;
-export const MIN_LOGO_LEFT_FACE_STRIPE_WIDTH = 0.02;
+export const MIN_LOGO_LEFT_FACE_STRIPE_WIDTH = 0;
 
 function clampFiniteNumber({
   fallback,
@@ -106,14 +108,19 @@ export function normalizeLogoLeftFaceStyle(
     return DEFAULT_LOGO_LEFT_FACE_STYLE;
   }
 
+  const stripeWidth = normalizeLogoLeftFaceStripeWidth(style.stripeWidth);
+
   return {
     kind: "striped",
     stripeAngleDegrees: normalizeLogoLeftFaceStripeAngleDegrees(
       style.stripeAngleDegrees,
     ),
-    stripeGap: normalizeLogoLeftFaceStripeGap(style.stripeGap),
+    stripeGap: style.stripeGapLinked
+      ? stripeWidth
+      : normalizeLogoLeftFaceStripeGap(style.stripeGap),
+    stripeGapLinked: style.stripeGapLinked,
     stripeOffset: normalizeLogoLeftFaceStripeOffset(style.stripeOffset),
-    stripeWidth: normalizeLogoLeftFaceStripeWidth(style.stripeWidth),
+    stripeWidth,
   };
 }
 
@@ -121,6 +128,7 @@ export function readLogoLeftFaceStyle(search: {
   leftFace?: LogoLeftFaceStyleKind;
   stripeA?: number;
   stripeG?: number;
+  stripeLink?: true;
   stripeO?: number;
   stripeW?: number;
 }): LogoLeftFaceStyle {
@@ -128,13 +136,20 @@ export function readLogoLeftFaceStyle(search: {
     return DEFAULT_LOGO_LEFT_FACE_STYLE;
   }
 
+  const stripeGapLinked = search.stripeLink === true;
+  const stripeWidth =
+    search.stripeW ??
+    (stripeGapLinked ? search.stripeG : undefined) ??
+    DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH;
+
   return normalizeLogoLeftFaceStyle({
     kind: "striped",
     stripeAngleDegrees:
       search.stripeA ?? DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
     stripeGap: search.stripeG ?? DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
+    stripeGapLinked,
     stripeOffset: search.stripeO ?? DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
-    stripeWidth: search.stripeW ?? DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
+    stripeWidth,
   });
 }
 
@@ -154,6 +169,7 @@ export function areLogoLeftFaceStylesEqual(
     return (
       left.stripeAngleDegrees === right.stripeAngleDegrees &&
       left.stripeGap === right.stripeGap &&
+      left.stripeGapLinked === right.stripeGapLinked &&
       left.stripeOffset === right.stripeOffset &&
       left.stripeWidth === right.stripeWidth
     );

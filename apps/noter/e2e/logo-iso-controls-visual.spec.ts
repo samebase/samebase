@@ -917,6 +917,10 @@ test("logo view exposes striped left-face controls", async ({ page }) => {
   await expect(leftFaceSection).toContainText("0.22");
   await expect(leftFaceSection).toContainText("Gap");
   await expect(leftFaceSection).toContainText("0.18");
+  const linkedWidthGapCheckbox = leftFaceSection.getByRole("checkbox", {
+    name: "Link width/gap",
+  });
+  await expect(linkedWidthGapCheckbox).not.toBeChecked();
 
   await expect(leftFaceSection).toHaveScreenshot(
     "logo-left-face-stripe-controls.png",
@@ -936,6 +940,16 @@ test("logo view exposes striped left-face controls", async ({ page }) => {
     maxDiffPixelRatio: 0.01,
     scale: "css",
   });
+
+  await linkedWidthGapCheckbox.check();
+  await expect(linkedWidthGapCheckbox).toBeChecked();
+  await expect(page).toHaveURL(/stripeLink/);
+
+  await leftFaceSection
+    .getByRole("spinbutton", { name: "Stripe gap" })
+    .fill("0");
+  await expect(page).toHaveURL(/stripeW=0/);
+  await expect(page).toHaveURL(/stripeLink/);
 });
 
 test("logo view color selection applies Tailwind colors to the Three scene", async ({

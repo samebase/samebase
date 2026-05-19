@@ -31,6 +31,7 @@ import {
 import {
   DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
   DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP_LINKED,
   DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
   DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
   LOGO_LEFT_FACE_STRIPE_ANGLE_STEP,
@@ -46,6 +47,7 @@ import {
   MIN_LOGO_LEFT_FACE_STRIPE_OFFSET,
   MIN_LOGO_LEFT_FACE_STRIPE_WIDTH,
   areLogoLeftFaceStylesEqual,
+  normalizeLogoLeftFaceStyle,
   normalizeLogoLeftFaceStripeAngleDegrees,
   normalizeLogoLeftFaceStripeGap,
   normalizeLogoLeftFaceStripeOffset,
@@ -53,6 +55,7 @@ import {
   readLogoLeftFaceStyle,
   type LogoLeftFaceStyle,
   type LogoLeftFaceStyleKind,
+  type LogoStripedLeftFaceStyle,
 } from "@/components/logo/logoLeftFaceStyle";
 import {
   clampLogoFractalDepthForRenderer,
@@ -209,6 +212,37 @@ function formatLogoDistanceInput(value: number): string {
 
 function preserveLogoNumberInputValue(value: number) {
   return value;
+}
+
+function readDefaultStripedLeftFaceStyle(): LogoStripedLeftFaceStyle {
+  return {
+    kind: "striped",
+    stripeAngleDegrees: DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+    stripeGap: DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
+    stripeGapLinked: DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP_LINKED,
+    stripeOffset: DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
+    stripeWidth: DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
+  };
+}
+
+function readStripedLeftFaceStyle(
+  leftFaceStyle: LogoLeftFaceStyle,
+): LogoStripedLeftFaceStyle {
+  return leftFaceStyle.kind === "striped"
+    ? leftFaceStyle
+    : readDefaultStripedLeftFaceStyle();
+}
+
+function updateStripedLeftFaceStyle(
+  state: LogoPreviewRouteState,
+  update: (style: LogoStripedLeftFaceStyle) => LogoStripedLeftFaceStyle,
+): LogoPreviewRouteState {
+  return {
+    ...state,
+    leftFaceStyle: normalizeLogoLeftFaceStyle(
+      update(readStripedLeftFaceStyle(state.leftFaceStyle)),
+    ),
+  };
 }
 
 function parseShuffleParallelMoves(value: string): LogoShuffleParallelMoves {
@@ -963,101 +997,66 @@ function useLogoPreviewController({
             leftFaceStyle:
               currentState.leftFaceStyle.kind === "striped"
                 ? currentState.leftFaceStyle
-                : {
-                    kind: "striped",
-                    stripeAngleDegrees:
-                      DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
-                    stripeGap: DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
-                    stripeOffset: DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
-                    stripeWidth: DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
-                  },
+                : readDefaultStripedLeftFaceStyle(),
           };
         });
       },
       setLeftFaceStripeAngleDegrees: (stripeAngleDegrees: number) => {
-        debounceRouteState((currentState) => ({
-          ...currentState,
-          leftFaceStyle: {
-            kind: "striped",
+        debounceRouteState((currentState) =>
+          updateStripedLeftFaceStyle(currentState, (style) => ({
+            ...style,
             stripeAngleDegrees:
               normalizeLogoLeftFaceStripeAngleDegrees(stripeAngleDegrees),
-            stripeGap:
-              currentState.leftFaceStyle.kind === "striped"
-                ? currentState.leftFaceStyle.stripeGap
-                : DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
-            stripeOffset:
-              currentState.leftFaceStyle.kind === "striped"
-                ? currentState.leftFaceStyle.stripeOffset
-                : DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
-            stripeWidth:
-              currentState.leftFaceStyle.kind === "striped"
-                ? currentState.leftFaceStyle.stripeWidth
-                : DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
-          },
-        }));
+          })),
+        );
       },
       setLeftFaceStripeGap: (stripeGap: number) => {
-        debounceRouteState((currentState) => ({
-          ...currentState,
-          leftFaceStyle: {
-            kind: "striped",
-            stripeAngleDegrees:
-              currentState.leftFaceStyle.kind === "striped"
-                ? currentState.leftFaceStyle.stripeAngleDegrees
-                : DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
-            stripeGap: normalizeLogoLeftFaceStripeGap(stripeGap),
-            stripeOffset:
-              currentState.leftFaceStyle.kind === "striped"
-                ? currentState.leftFaceStyle.stripeOffset
-                : DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
-            stripeWidth:
-              currentState.leftFaceStyle.kind === "striped"
-                ? currentState.leftFaceStyle.stripeWidth
-                : DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
-          },
-        }));
+        debounceRouteState((currentState) =>
+          updateStripedLeftFaceStyle(currentState, (style) => {
+            const normalizedGap = normalizeLogoLeftFaceStripeGap(stripeGap);
+
+            return {
+              ...style,
+              stripeGap: normalizedGap,
+              stripeWidth: style.stripeGapLinked
+                ? normalizedGap
+                : style.stripeWidth,
+            };
+          }),
+        );
+      },
+      setLeftFaceStripeGapLinked: (stripeGapLinked: boolean) => {
+        commitRouteState((currentState) =>
+          updateStripedLeftFaceStyle(currentState, (style) => ({
+            ...style,
+            stripeGap: stripeGapLinked ? style.stripeWidth : style.stripeGap,
+            stripeGapLinked,
+          })),
+        );
       },
       setLeftFaceStripeOffset: (stripeOffset: number) => {
-        debounceRouteState((currentState) => ({
-          ...currentState,
-          leftFaceStyle: {
-            kind: "striped",
-            stripeAngleDegrees:
-              currentState.leftFaceStyle.kind === "striped"
-                ? currentState.leftFaceStyle.stripeAngleDegrees
-                : DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
-            stripeGap:
-              currentState.leftFaceStyle.kind === "striped"
-                ? currentState.leftFaceStyle.stripeGap
-                : DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
+        debounceRouteState((currentState) =>
+          updateStripedLeftFaceStyle(currentState, (style) => ({
+            ...style,
             stripeOffset: normalizeLogoLeftFaceStripeOffset(stripeOffset),
-            stripeWidth:
-              currentState.leftFaceStyle.kind === "striped"
-                ? currentState.leftFaceStyle.stripeWidth
-                : DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
-          },
-        }));
+          })),
+        );
       },
       setLeftFaceStripeWidth: (stripeWidth: number) => {
-        debounceRouteState((currentState) => ({
-          ...currentState,
-          leftFaceStyle: {
-            kind: "striped",
-            stripeAngleDegrees:
-              currentState.leftFaceStyle.kind === "striped"
-                ? currentState.leftFaceStyle.stripeAngleDegrees
-                : DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
-            stripeGap:
-              currentState.leftFaceStyle.kind === "striped"
-                ? currentState.leftFaceStyle.stripeGap
-                : DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
-            stripeOffset:
-              currentState.leftFaceStyle.kind === "striped"
-                ? currentState.leftFaceStyle.stripeOffset
-                : DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
-            stripeWidth: normalizeLogoLeftFaceStripeWidth(stripeWidth),
-          },
-        }));
+        debounceRouteState((currentState) =>
+          updateStripedLeftFaceStyle(currentState, (style) => {
+            const normalizedWidth =
+              normalizeLogoLeftFaceStripeWidth(stripeWidth);
+
+            return {
+              ...style,
+              stripeGap: style.stripeGapLinked
+                ? normalizedWidth
+                : style.stripeGap,
+              stripeWidth: normalizedWidth,
+            };
+          }),
+        );
       },
       setLogoOpacity: store.actions.setLogoOpacity,
       setPresetToCustom: () => {
@@ -1213,6 +1212,7 @@ const LOGO_ROUTE_SEARCH_KEYS = [
   "rot",
   "stripeA",
   "stripeG",
+  "stripeLink",
   "stripeO",
   "stripeW",
   "vox",
@@ -1405,6 +1405,7 @@ export function LogoPreviewPage({
   );
   const viewSnapCheckboxId = useId();
   const faceColorAnimationCheckboxId = useId();
+  const stripeGapLinkedCheckboxId = useId();
 
   useAnimationFrameLoop({
     isRunning: state.isAutoRotating && renderMode === "three",
@@ -2086,6 +2087,23 @@ export function LogoPreviewPage({
                 valueAriaLabel="Stripe gap"
                 valueText={stripedLeftFaceStyle.stripeGap.toFixed(2)}
               />
+
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id={stripeGapLinkedCheckboxId}
+                  checked={stripedLeftFaceStyle.stripeGapLinked}
+                  onCheckedChange={(checked) => {
+                    controls.setLeftFaceStripeGapLinked(checked === true);
+                  }}
+                  className="border-border"
+                />
+                <label
+                  htmlFor={stripeGapLinkedCheckboxId}
+                  className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                >
+                  Link width/gap
+                </label>
+              </div>
 
               <LogoRangeControl
                 formatValue={(value) => value.toFixed(1)}

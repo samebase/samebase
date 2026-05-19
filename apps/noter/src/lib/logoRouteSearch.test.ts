@@ -13,6 +13,7 @@ import {
   DEFAULT_LOGO_LEFT_FACE_STYLE,
   DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
   DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP_LINKED,
   DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
   DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
 } from "@/components/logo/logoLeftFaceStyle";
@@ -255,6 +256,7 @@ describe("logoRouteSearch", () => {
           kind: "striped",
           stripeAngleDegrees: DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
           stripeGap: DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
+          stripeGapLinked: DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP_LINKED,
           stripeOffset: DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
           stripeWidth: DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
         },
@@ -285,6 +287,7 @@ describe("logoRouteSearch", () => {
           kind: "striped",
           stripeAngleDegrees: 22,
           stripeGap: 0.32,
+          stripeGapLinked: false,
           stripeOffset: 0.4,
           stripeWidth: 0.11,
         },
@@ -302,6 +305,70 @@ describe("logoRouteSearch", () => {
       stripeG: 0.32,
       stripeO: 0.4,
       stripeW: 0.11,
+    });
+  });
+
+  it("preserves linked striped left-face route state", () => {
+    expect(
+      validateLogoRouteSearch({
+        leftFace: "striped",
+        stripeG: "0",
+        stripeW: "0",
+      }),
+    ).toEqual({
+      leftFace: "striped",
+      stripeA: undefined,
+      stripeG: 0,
+      stripeLink: undefined,
+      stripeO: undefined,
+      stripeW: 0,
+    });
+
+    expect(
+      validateLogoRouteSearch({
+        leftFace: "striped",
+        stripeG: "0.4",
+        stripeLink: "",
+      }),
+    ).toEqual({
+      leftFace: "striped",
+      stripeA: undefined,
+      stripeG: undefined,
+      stripeLink: true,
+      stripeO: undefined,
+      stripeW: 0.4,
+    });
+
+    expect(
+      buildLogoRouteSearch({
+        distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+        fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
+        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+        leftFaceStyle: {
+          kind: "striped",
+          stripeAngleDegrees: DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+          stripeGap: 0.4,
+          stripeGapLinked: true,
+          stripeOffset: DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
+          stripeWidth: 0.4,
+        },
+        rotationAxisMode: "cube-y",
+        rotationDegrees: DEFAULT_ROTATION_DEGREES,
+        themeColors: DEFAULT_LOGO_THEME_COLORS,
+        viewSnapEnabled: true,
+        voxelState: DEFAULT_VOXEL_STATE,
+      }),
+    ).toEqual({
+      depth: undefined,
+      dist: undefined,
+      leftFace: "striped",
+      stripeA: undefined,
+      stripeG: undefined,
+      stripeLink: true,
+      stripeO: undefined,
+      stripeW: 0.4,
     });
   });
 });
