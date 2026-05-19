@@ -1,10 +1,33 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
+  LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE,
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS,
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
   getLogoLeftFaceStripeBasisScale,
   normalizeLogoLeftFaceStyle,
 } from "@/components/logo/logoLeftFaceStyle";
 
 describe("logoLeftFaceStyle", () => {
+  it("defines the canonical single-color stripe treatment as the striped default", () => {
+    expect(LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE).toEqual({
+      kind: "striped",
+      stripeAngleDegrees: -45,
+      stripeBasis: "vertical",
+      stripeGap: 0.25,
+      stripeGapLinked: false,
+      stripeOffset: 0,
+      stripeWidth: 0.25,
+    });
+    expect(DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES).toBe(-45);
+    expect(DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS).toBe("vertical");
+    expect(DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP).toBe(0.25);
+    expect(DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET).toBe(0);
+    expect(DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH).toBe(0.25);
+  });
+
   it("converts cross-section stripe measures to perpendicular shader scale", () => {
     expect(
       getLogoLeftFaceStripeBasisScale({

@@ -6,12 +6,14 @@
 - Owner: Noter frontend
 - Last updated: 2026-05-19
 - Related files: `apps/noter/src/App.tsx`,
-  `apps/noter/src/components/LogoPreviewPage.tsx`,
-  `apps/noter/src/components/NLogoScene.tsx`,
-  `apps/noter/src/components/logoVoxelState.ts`,
-  `apps/noter/src/components/logoPresets.ts`,
-  `apps/noter/src/components/logoShuffleRules.ts`,
-  `apps/noter/src/components/logoTailwindColors.ts`,
+  `apps/noter/src/components/logo/LogoPreviewPage.tsx`,
+  `apps/noter/src/components/logo/NLogoScene.tsx`,
+  `apps/noter/src/components/logo/logoLeftFaceStyle.ts`,
+  `apps/noter/src/components/logo/logoVoxelState.ts`,
+  `apps/noter/src/components/logo/logoPresets.ts`,
+  `apps/noter/src/components/logo/logoShuffleRules.ts`,
+  `apps/noter/src/components/logo/logoTailwindColors.ts`,
+  `specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md`,
   `specs/090_LOGO_RENDERING_MODEL_SIMPLIFICATION_SPEC.md`
 
 ## Conclusion
@@ -212,7 +214,9 @@ The playground should expose at least these presets:
 - `secondary` is the default so existing identity assets keep their current
   left-face color relationship.
 - `striped` is a shareable exploration state with controls for stripe width,
-  gap, angle, and offset.
+  gap, angle, and offset. Its default state is the canonical single-color
+  treatment from `specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md`: `-45deg`,
+  vertical basis, `1/4` width, `1/4` gap, and `0` offset.
 - Stripe width and gap may be `0`, and the playground should expose a shareable
   linked-width/gap option for checking equal-period patterns quickly.
 - Stripe width and gap are stored as user-facing measures. The Three shader
@@ -231,9 +235,10 @@ The playground should expose at least these presets:
 - Stripes must be rendered in the left face's local 3D surface space, not as a
   screen-space overlay, so dragging the logo keeps the pattern attached to the
   face geometry.
-- The striped mode is an exploration path for constrained-color marks; it does
-  not change the canonical identity SVG assets until that variant is explicitly
-  accepted.
+- The striped controls remain an exploration path for constrained-color marks.
+  The default stripe recipe is accepted as the canonical single-color treatment,
+  while committed multi-color identity SVG assets keep their current colors
+  until a single-color asset export is explicitly added.
 
 ## Shuffle Animation
 

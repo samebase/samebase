@@ -28,17 +28,32 @@ export type LogoLeftFaceStyle =
   | LogoSecondaryLeftFaceStyle
   | LogoStripedLeftFaceStyle;
 
+export const LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE = {
+  kind: "striped",
+  stripeAngleDegrees: -45,
+  stripeBasis: "vertical",
+  stripeGap: 0.25,
+  stripeGapLinked: false,
+  stripeOffset: 0,
+  stripeWidth: 0.25,
+} satisfies LogoStripedLeftFaceStyle;
+
 export const DEFAULT_LOGO_LEFT_FACE_STYLE: LogoSecondaryLeftFaceStyle = {
   kind: "secondary",
 };
 
-export const DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES = 45;
+export const DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES =
+  LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE.stripeAngleDegrees;
 export const DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS: LogoLeftFaceStripeBasis =
-  "auto";
-export const DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP = 0.2;
-export const DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP_LINKED = false;
-export const DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET = 0;
-export const DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH = 0.16;
+  LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE.stripeBasis;
+export const DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP =
+  LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE.stripeGap;
+export const DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP_LINKED =
+  LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE.stripeGapLinked;
+export const DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET =
+  LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE.stripeOffset;
+export const DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH =
+  LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE.stripeWidth;
 export const LOGO_LEFT_FACE_STRIPE_ANGLE_STEP = 1;
 export const LOGO_LEFT_FACE_STRIPE_GAP_STEP = 0.01;
 export const LOGO_LEFT_FACE_STRIPE_OFFSET_STEP = 0.01;

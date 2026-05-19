@@ -251,6 +251,24 @@ describe("logoRouteSearch", () => {
 
   it("preserves striped left-face route state", () => {
     expect(
+      validateLogoRouteSearch({
+        leftFace: "striped",
+        stripeA: "-45",
+        stripeBasis: "vertical",
+        stripeG: "0.25",
+        stripeW: "0.25",
+      }),
+    ).toEqual({
+      leftFace: "striped",
+      stripeA: undefined,
+      stripeBasis: undefined,
+      stripeG: undefined,
+      stripeLink: undefined,
+      stripeO: undefined,
+      stripeW: undefined,
+    });
+
+    expect(
       buildLogoRouteSearch({
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
