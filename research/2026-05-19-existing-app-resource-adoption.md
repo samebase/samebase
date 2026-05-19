@@ -346,7 +346,6 @@ The dot is the status surface:
 - green: connected or created successfully
 - gray with plus/action: not configured
 - red: failed and retryable
-- muted: intentionally skipped or not selected for this vault
 
 Each row should show only what helps the user decide or act:
 
@@ -867,7 +866,7 @@ For new apps:
 1. Update deletion plan to use resource origins.
 2. Default skip connected-existing Convex and Cloudflare resources.
 3. Allow deleting only resources with `origin: "created_by_noter"`.
-4. Preserve audit events for skipped adopted resources.
+4. Preserve audit events for adopted resources left untouched.
 
 ## Open Questions
 

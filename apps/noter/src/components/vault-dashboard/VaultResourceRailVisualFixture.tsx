@@ -19,123 +19,198 @@ type VaultResourceRailFixtureScenario = {
 
 const noop = () => {};
 
-const RESOURCE_RAIL_FIXTURE_SCENARIOS = [
+const ADD_VAULT_VALUES = {
+  cloudflare: "tmp-my-new-app",
+  convex: "tmp-my-new-app/production",
+  github: "nicu-chiciuc/tmp-my-new-app",
+} as const;
+
+const ADD_VAULT_READY_VALUES = {
+  cloudflare: "tmp-my-new-app.nicuchiciuc.workers.dev",
+  convex: "greedy-gnu-5",
+  github: "nicu-chiciuc/tmp-my-new-app",
+} as const;
+
+const ADD_VAULT_FLOW_SCENARIOS = [
   {
-    title: "Existing repo, no resources",
+    title: "Creating repository",
+    repositoryOwner: "nicu-chiciuc",
+    repositoryName: "tmp-my-new-app",
+    state: {
+      rows: [
+        {
+          provider: "github",
+          status: "running",
+          value: ADD_VAULT_VALUES.github,
+        },
+        {
+          provider: "convex",
+          status: "pending",
+          value: ADD_VAULT_VALUES.convex,
+        },
+        {
+          provider: "cloudflare",
+          status: "pending",
+          value: ADD_VAULT_VALUES.cloudflare,
+        },
+      ],
+    },
+  },
+  {
+    title: "Provisioning Convex",
+    repositoryOwner: "nicu-chiciuc",
+    repositoryName: "tmp-my-new-app",
+    state: {
+      rows: [
+        {
+          provider: "github",
+          status: "ready",
+          value: ADD_VAULT_READY_VALUES.github,
+          href: "https://github.com/nicu-chiciuc/tmp-my-new-app",
+        },
+        {
+          provider: "convex",
+          status: "running",
+          value: ADD_VAULT_VALUES.convex,
+        },
+        {
+          provider: "cloudflare",
+          status: "pending",
+          value: ADD_VAULT_VALUES.cloudflare,
+        },
+      ],
+    },
+  },
+  {
+    title: "Provisioning Cloudflare",
+    repositoryOwner: "nicu-chiciuc",
+    repositoryName: "tmp-my-new-app",
+    state: {
+      rows: [
+        {
+          provider: "github",
+          status: "ready",
+          value: ADD_VAULT_READY_VALUES.github,
+          href: "https://github.com/nicu-chiciuc/tmp-my-new-app",
+        },
+        {
+          provider: "convex",
+          status: "ready",
+          value: ADD_VAULT_READY_VALUES.convex,
+        },
+        {
+          provider: "cloudflare",
+          status: "running",
+          value: ADD_VAULT_VALUES.cloudflare,
+        },
+      ],
+    },
+  },
+  {
+    title: "Ready",
+    repositoryOwner: "nicu-chiciuc",
+    repositoryName: "tmp-my-new-app",
+    state: {
+      rows: [
+        {
+          provider: "github",
+          status: "ready",
+          value: ADD_VAULT_READY_VALUES.github,
+          href: "https://github.com/nicu-chiciuc/tmp-my-new-app",
+        },
+        {
+          provider: "convex",
+          status: "ready",
+          value: ADD_VAULT_READY_VALUES.convex,
+        },
+        {
+          provider: "cloudflare",
+          status: "ready",
+          value: ADD_VAULT_READY_VALUES.cloudflare,
+          href: "https://tmp-my-new-app.nicuchiciuc.workers.dev",
+        },
+      ],
+    },
+  },
+  {
+    title: "Existing repository",
     repositoryOwner: "nicu-chiciuc",
     repositoryName: "weight_tsx",
     state: {
-      github: {
-        state: "connected",
-        origin: "connected_existing",
-        repositoryFullName: "nicu-chiciuc/weight_tsx",
-        href: "https://github.com/nicu-chiciuc/weight_tsx",
-      },
-      convex: {
-        state: "not_configured",
-        actions: [
-          {
-            kind: "connect_existing",
-            label: "Connect",
-            onClick: noop,
-          },
-          {
-            kind: "create_new",
-            label: "Create",
-            onClick: noop,
-          },
-        ],
-      },
-      cloudflare: {
-        state: "not_configured",
-        actions: [
-          {
-            kind: "connect_existing",
-            label: "Connect",
-            onClick: noop,
-          },
-          {
-            kind: "create_new",
-            label: "Create Worker",
-            onClick: noop,
-          },
-        ],
-      },
-    },
-  },
-  {
-    title: "Convex selected, Cloudflare provisioning",
-    repositoryOwner: "noter-md",
-    repositoryName: "notes-app",
-    state: {
-      github: {
-        state: "connected",
-        origin: "created_by_noter",
-        repositoryFullName: "noter-md/notes-app",
-        href: "https://github.com/noter-md/notes-app",
-      },
-      convex: {
-        state: "selected",
-        origin: "connected_existing",
-        resourceName: "notes-app/production",
-      },
-      cloudflare: {
-        state: "provisioning",
-        origin: "created_by_noter",
-        resourceName: "notes-app",
-      },
-    },
-  },
-  {
-    title: "All resources connected",
-    repositoryOwner: "noter-md",
-    repositoryName: "dashboard",
-    state: {
-      github: {
-        state: "connected",
-        origin: "created_by_noter",
-        repositoryFullName: "noter-md/dashboard",
-        href: "https://github.com/noter-md/dashboard",
-      },
-      convex: {
-        state: "connected",
-        origin: "created_by_noter",
-        resourceName: "dashboard/production",
-        href: "https://dashboard.convex.dev/",
-      },
-      cloudflare: {
-        state: "connected",
-        origin: "created_by_noter",
-        resourceName: "dashboard",
-        href: "https://dash.cloudflare.com/",
-      },
+      rows: [
+        {
+          provider: "github",
+          status: "ready",
+          value: "nicu-chiciuc/weight_tsx",
+          href: "https://github.com/nicu-chiciuc/weight_tsx",
+        },
+        {
+          provider: "convex",
+          status: "action_required",
+          value: "Not connected",
+          actions: [
+            {
+              kind: "connect_existing",
+              label: "Connect",
+              onClick: noop,
+            },
+            {
+              kind: "create_new",
+              label: "Create",
+              onClick: noop,
+            },
+          ],
+        },
+        {
+          provider: "cloudflare",
+          status: "action_required",
+          value: "Not connected",
+          actions: [
+            {
+              kind: "connect_existing",
+              label: "Connect",
+              onClick: noop,
+            },
+            {
+              kind: "create_new",
+              label: "Create Worker",
+              onClick: noop,
+            },
+          ],
+        },
+      ],
     },
   },
   {
     title: "Cloudflare failed",
-    repositoryOwner: "nicuchiciuc",
-    repositoryName: "portfolio",
+    repositoryOwner: "nicu-chiciuc",
+    repositoryName: "tmp-my-new-app",
     state: {
-      github: {
-        state: "connected",
-        origin: "connected_existing",
-        repositoryFullName: "nicuchiciuc/portfolio",
-        href: "https://github.com/nicuchiciuc/portfolio",
-      },
-      convex: {
-        state: "skipped",
-      },
-      cloudflare: {
-        state: "failed",
-        resourceName: "portfolio",
-        actions: [
-          {
-            kind: "retry",
-            label: "Retry",
-            onClick: noop,
-          },
-        ],
-      },
+      rows: [
+        {
+          provider: "github",
+          status: "ready",
+          value: ADD_VAULT_READY_VALUES.github,
+          href: "https://github.com/nicu-chiciuc/tmp-my-new-app",
+        },
+        {
+          provider: "convex",
+          status: "ready",
+          value: ADD_VAULT_READY_VALUES.convex,
+        },
+        {
+          provider: "cloudflare",
+          status: "failed",
+          value: ADD_VAULT_VALUES.cloudflare,
+          actions: [
+            {
+              kind: "retry",
+              label: "Retry",
+              onClick: noop,
+            },
+          ],
+        },
+      ],
     },
   },
 ] satisfies readonly VaultResourceRailFixtureScenario[];
@@ -164,9 +239,9 @@ export function VaultResourceRailVisualFixture() {
       main={{
         content: (
           <VaultDashboardRepositoryList>
-            {RESOURCE_RAIL_FIXTURE_SCENARIOS.map((scenario) => (
+            {ADD_VAULT_FLOW_SCENARIOS.map((scenario, index) => (
               <VaultResourceRailFixtureCard
-                key={`${scenario.repositoryOwner}/${scenario.repositoryName}`}
+                key={`${scenario.title}:${index}`}
                 scenario={scenario}
               />
             ))}

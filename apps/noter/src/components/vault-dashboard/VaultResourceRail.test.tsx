@@ -9,38 +9,44 @@ import {
 describe("VaultResourceRail", () => {
   it("renders explicit provider resource states and actions", () => {
     const state = {
-      github: {
-        state: "connected",
-        origin: "connected_existing",
-        repositoryFullName: "nicu-chiciuc/weight_tsx",
-        href: "https://github.com/nicu-chiciuc/weight_tsx",
-      },
-      convex: {
-        state: "not_configured",
-        actions: [
-          {
-            kind: "connect_existing",
-            label: "Connect",
-          },
-          {
-            kind: "create_new",
-            label: "Create",
-          },
-        ],
-      },
-      cloudflare: {
-        state: "not_configured",
-        actions: [
-          {
-            kind: "connect_existing",
-            label: "Connect Worker",
-          },
-          {
-            kind: "create_new",
-            label: "Create Worker",
-          },
-        ],
-      },
+      rows: [
+        {
+          provider: "github",
+          status: "ready",
+          value: "nicu-chiciuc/weight_tsx",
+          href: "https://github.com/nicu-chiciuc/weight_tsx",
+        },
+        {
+          provider: "convex",
+          status: "action_required",
+          value: "Not connected",
+          actions: [
+            {
+              kind: "connect_existing",
+              label: "Connect",
+            },
+            {
+              kind: "create_new",
+              label: "Create",
+            },
+          ],
+        },
+        {
+          provider: "cloudflare",
+          status: "action_required",
+          value: "Not connected",
+          actions: [
+            {
+              kind: "connect_existing",
+              label: "Connect Worker",
+            },
+            {
+              kind: "create_new",
+              label: "Create Worker",
+            },
+          ],
+        },
+      ],
     } satisfies VaultResourceRailState;
 
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);

@@ -2,7 +2,6 @@ import { Button } from "@/components/ui/button";
 import {
   CheckCircle2,
   Circle,
-  CircleSlash2,
   Link2,
   Loader2,
   Plus,
@@ -10,8 +9,6 @@ import {
   XCircle,
   type LucideIcon,
 } from "lucide-react";
-
-export type VaultResourceRailOrigin = "created_by_noter" | "connected_existing";
 
 type VaultResourceRailActionKind = "connect_existing" | "create_new" | "retry";
 
@@ -27,75 +24,69 @@ type VaultResourceRailActionList = readonly [
   ...VaultResourceRailAction[],
 ];
 
-export type VaultResourceRailGitHubState =
-  | {
-      state: "provisioning";
-      repositoryFullName: string;
-    }
-  | {
-      state: "connected";
-      origin: VaultResourceRailOrigin;
-      repositoryFullName: string;
-      href: string;
-    }
-  | {
-      state: "failed";
-      repositoryFullName: string;
-      actions: VaultResourceRailActionList;
-    };
+export type VaultResourceRailProvider = "cloudflare" | "convex" | "github";
 
-export type VaultResourceRailProviderState =
-  | {
-      state: "not_configured";
-      actions: VaultResourceRailActionList;
-    }
-  | {
-      state: "selected";
-      origin: VaultResourceRailOrigin;
-      resourceName: string;
-    }
-  | {
-      state: "provisioning";
-      origin: VaultResourceRailOrigin;
-      resourceName: string;
-    }
-  | {
-      state: "connected";
-      origin: VaultResourceRailOrigin;
-      resourceName: string;
-      href?: string;
-    }
-  | {
-      state: "failed";
-      resourceName: string;
-      actions: VaultResourceRailActionList;
-    }
-  | {
-      state: "skipped";
-    };
+type VaultResourceRailPendingRow<TProvider extends VaultResourceRailProvider> =
+  {
+    provider: TProvider;
+    status: "pending";
+    value: string;
+  };
 
-export type VaultResourceRailState = {
-  github: VaultResourceRailGitHubState;
-  convex: VaultResourceRailProviderState;
-  cloudflare: VaultResourceRailProviderState;
-};
+type VaultResourceRailRunningRow<TProvider extends VaultResourceRailProvider> =
+  {
+    provider: TProvider;
+    status: "running";
+    value: string;
+  };
 
-type VaultResourceRailVisualStatus =
-  | "connected"
-  | "failed"
-  | "not_configured"
-  | "provisioning"
-  | "selected"
-  | "skipped";
-
-type VaultResourceRailRowViewModel = {
-  actions?: VaultResourceRailActionList;
+type VaultResourceRailReadyRow<TProvider extends VaultResourceRailProvider> = {
   href?: string;
-  label: string;
-  providerLabel: "GitHub" | "Convex" | "Cloudflare";
-  status: VaultResourceRailVisualStatus;
+  provider: TProvider;
+  status: "ready";
   value: string;
 };
+
+type VaultResourceRailActionRequiredRow<
+  TProvider extends VaultResourceRailProvider,
+> = {
+  actions: VaultResourceRailActionList;
+  provider: TProvider;
+  status: "action_required";
+  value: string;
+};
+
+type VaultResourceRailFailedRow<TProvider extends VaultResourceRailProvider> = {
+  actions: VaultResourceRailActionList;
+  provider: TProvider;
+  status: "failed";
+  value: string;
+};
+
+export type VaultResourceRailRowState<
+  TProvider extends VaultResourceRailProvider = VaultResourceRailProvider,
+> =
+  | VaultResourceRailActionRequiredRow<TProvider>
+  | VaultResourceRailFailedRow<TProvider>
+  | VaultResourceRailPendingRow<TProvider>
+  | VaultResourceRailReadyRow<TProvider>
+  | VaultResourceRailRunningRow<TProvider>;
+
+export type VaultResourceRailState = {
+  rows: readonly [
+    VaultResourceRailRowState<"github">,
+    VaultResourceRailRowState<"convex">,
+    VaultResourceRailRowState<"cloudflare">,
+  ];
+};
+
+type VaultResourceRailVisualStatus = VaultResourceRailRowState["status"];
+
+const PROVIDER_LABELS = {
+  cloudflare: "Cloudflare",
+  convex: "Convex",
+  github: "GitHub",
+} satisfies Record<VaultResourceRailProvider, string>;
 
 const ACTION_ICONS = {
   connect_existing: Link2,
@@ -110,131 +101,44 @@ const ACTION_VARIANTS = {
 } as const satisfies Record<VaultResourceRailActionKind, "default" | "outline">;
 
 const STATUS_ICON_CLASS_NAMES = {
-  connected: "h-4 w-4 text-emerald-600",
+  action_required: "h-4 w-4 text-muted-foreground",
   failed: "h-4 w-4 text-destructive",
-  not_configured: "h-4 w-4 text-muted-foreground",
-  provisioning: "h-4 w-4 animate-spin text-muted-foreground",
-  selected: "h-4 w-4 text-muted-foreground",
-  skipped: "h-4 w-4 text-muted-foreground",
+  pending: "h-4 w-4 text-muted-foreground",
+  ready: "h-4 w-4 text-emerald-600",
+  running: "h-4 w-4 animate-spin text-muted-foreground",
 } satisfies Record<VaultResourceRailVisualStatus, string>;
-
-function mapGitHubRow(
-  github: VaultResourceRailGitHubState,
-): VaultResourceRailRowViewModel {
-  switch (github.state) {
-    case "provisioning":
-      return {
-        providerLabel: "GitHub",
-        label: "GitHub",
-        status: "provisioning",
-        value: github.repositoryFullName,
-      };
-    case "connected":
-      return {
-        providerLabel: "GitHub",
-        label: "GitHub",
-        status: "connected",
-        value: github.repositoryFullName,
-        href: github.href,
-      };
-    case "failed":
-      return {
-        providerLabel: "GitHub",
-        label: "GitHub",
-        status: "failed",
-        value: github.repositoryFullName,
-        actions: github.actions,
-      };
-  }
-  github satisfies never;
-  return {
-    providerLabel: "GitHub",
-    label: "GitHub",
-    status: "failed",
-    value: "GitHub",
-  };
-}
-
-function mapProviderRow({
-  providerLabel,
-  provider,
-}: {
-  providerLabel: "Convex" | "Cloudflare";
-  provider: VaultResourceRailProviderState;
-}): VaultResourceRailRowViewModel {
-  switch (provider.state) {
-    case "not_configured":
-      return {
-        providerLabel,
-        label: providerLabel,
-        status: "not_configured",
-        value: "Not connected",
-        actions: provider.actions,
-      };
-    case "selected":
-      return {
-        providerLabel,
-        label: providerLabel,
-        status: "selected",
-        value: provider.resourceName,
-      };
-    case "provisioning":
-      return {
-        providerLabel,
-        label: providerLabel,
-        status: "provisioning",
-        value: provider.resourceName,
-      };
-    case "connected":
-      return {
-        providerLabel,
-        label: providerLabel,
-        status: "connected",
-        value: provider.resourceName,
-        href: provider.href,
-      };
-    case "failed":
-      return {
-        providerLabel,
-        label: providerLabel,
-        status: "failed",
-        value: provider.resourceName,
-        actions: provider.actions,
-      };
-    case "skipped":
-      return {
-        providerLabel,
-        label: providerLabel,
-        status: "skipped",
-        value: "Skipped",
-      };
-  }
-  provider satisfies never;
-  return {
-    providerLabel,
-    label: providerLabel,
-    status: "failed",
-    value: providerLabel,
-  };
-}
 
 function getStatusIcon(status: VaultResourceRailVisualStatus): LucideIcon {
   switch (status) {
-    case "connected":
-      return CheckCircle2;
+    case "action_required":
+      return Plus;
     case "failed":
       return XCircle;
-    case "not_configured":
-      return Plus;
-    case "provisioning":
-      return Loader2;
-    case "selected":
+    case "pending":
       return Circle;
-    case "skipped":
-      return CircleSlash2;
+    case "ready":
+      return CheckCircle2;
+    case "running":
+      return Loader2;
   }
   status satisfies never;
   return Circle;
+}
+
+function getRowActions(
+  row: VaultResourceRailRowState,
+): VaultResourceRailActionList | undefined {
+  switch (row.status) {
+    case "action_required":
+    case "failed":
+      return row.actions;
+    case "pending":
+    case "ready":
+    case "running":
+      return undefined;
+  }
+  row satisfies never;
+  return undefined;
 }
 
 function VaultResourceRailActions({
@@ -265,37 +169,39 @@ function VaultResourceRailActions({
   );
 }
 
-function VaultResourceRailRow({ row }: { row: VaultResourceRailRowViewModel }) {
+function VaultResourceRailRow({ row }: { row: VaultResourceRailRowState }) {
   const StatusIcon = getStatusIcon(row.status);
-  const value = row.href ? (
-    <a
-      href={row.href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="underline decoration-muted-foreground/40 underline-offset-4 hover:decoration-current"
-    >
-      {row.value}
-    </a>
-  ) : (
-    row.value
-  );
+  const actions = getRowActions(row);
+  const value =
+    row.status === "ready" && row.href ? (
+      <a
+        href={row.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline decoration-muted-foreground/40 underline-offset-4 hover:decoration-current"
+      >
+        {row.value}
+      </a>
+    ) : (
+      row.value
+    );
 
   return (
     <div
-      data-provider={row.providerLabel.toLowerCase()}
+      data-provider={row.provider}
       className="grid min-h-8 grid-cols-[1rem_minmax(0,1fr)] gap-x-2"
     >
       <div className="flex h-8 items-center justify-center">
         <StatusIcon className={STATUS_ICON_CLASS_NAMES[row.status]} />
       </div>
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-        <div className="w-20 shrink-0 text-sm font-medium">{row.label}</div>
+        <div className="w-20 shrink-0 text-sm font-medium">
+          {PROVIDER_LABELS[row.provider]}
+        </div>
         <div className="min-w-0 w-fit max-w-full shrink">
           <div className="truncate text-sm">{value}</div>
         </div>
-        {row.actions ? (
-          <VaultResourceRailActions actions={row.actions} />
-        ) : null}
+        {actions ? <VaultResourceRailActions actions={actions} /> : null}
       </div>
     </div>
   );
@@ -306,19 +212,10 @@ export function VaultResourceRail({
 }: {
   state: VaultResourceRailState;
 }) {
-  const rows = [
-    mapGitHubRow(state.github),
-    mapProviderRow({ providerLabel: "Convex", provider: state.convex }),
-    mapProviderRow({
-      providerLabel: "Cloudflare",
-      provider: state.cloudflare,
-    }),
-  ] satisfies readonly VaultResourceRailRowViewModel[];
-
   return (
     <div data-testid="vault-resource-rail" className="mt-2 grid w-full gap-1">
-      {rows.map((row) => (
-        <VaultResourceRailRow key={row.providerLabel} row={row} />
+      {state.rows.map((row) => (
+        <VaultResourceRailRow key={row.provider} row={row} />
       ))}
     </div>
   );
