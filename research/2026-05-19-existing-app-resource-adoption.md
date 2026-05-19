@@ -42,6 +42,13 @@ provider resource with a per-resource origin:
 Deletion, DNS changes, and data migration should be driven by that origin per
 resource, not by the GitHub source mode.
 
+Resource discovery should stay simple and inspectable. When Noter thinks two
+resources are connected, the dashboard should be able to show the evidence in
+plain terms, such as "this Worker is connected to this GitHub repo by a
+Cloudflare Builds trigger" or "this deployed app bundle references this public
+Convex URL." Avoid hidden heuristic chains that force operators to dig through
+logs or trust a fuzzy match.
+
 ## Current Runtime Model
 
 ### Provider Credentials
@@ -504,6 +511,36 @@ Unsafe repo-derived signals:
 - actual Cloudflare Worker identity if no Worker config exists
 - DNS readiness
 
+### Inspectable Discovery Principle
+
+Prefer evidence that a user can verify without understanding Noter internals:
+
+1. committed config files
+2. provider resource names and trigger metadata
+3. non-secret environment variable names and values
+4. deployed app URLs and public runtime asset references
+5. provider inventory confirmation
+
+Avoid relying on opaque or hard-to-debug evidence:
+
+- encrypted secret values
+- deploy-key decoding that requires reading a hidden secret
+- build logs as the primary proof path
+- fuzzy name matching as an automatic adoption decision
+
+The ideal adoption UI should show a short proof chain before asking for
+approval. For example:
+
+```text
+GitHub repo nicu-chiciuc/weight_tsx
+  -> Cloudflare Builds trigger for Worker weight-tsx
+  -> deployed app bundle references https://...convex.cloud
+  -> Convex inventory confirms deployment ...
+```
+
+This keeps failures understandable. If a link is missing, the user can inspect
+the same few visible facts that Noter uses.
+
 ### Convex Inventory Matching
 
 With Convex connected, Noter can list projects and deployments. Suggested
@@ -531,6 +568,28 @@ matching order:
 Cloudflare adoption can be safer than Convex data adoption because a Worker is
 mostly deployment/config state, but Noter still should not patch build triggers,
 secrets, or domains until the user approves.
+
+### Cloudflare-To-Convex Discovery
+
+For migrated apps, Cloudflare may be the best bridge from GitHub to Convex:
+
+1. GitHub connects to Cloudflare through a Cloudflare Builds repo connection.
+2. Cloudflare build trigger metadata identifies the Worker, branch, root
+   directory, build command, deploy command, and environment variable names.
+3. Build-time variables can prove the app is Convex-deployed when names such as
+   `CONVEX_DEPLOY_KEY`, `PROD_CONVEX_DEPLOY_KEY`, `PREVIEW_CONVEX_DEPLOY_KEY`,
+   `CONVEX_DEPLOYMENT`, or `VITE_CONVEX_URL` are present.
+4. Secret values should not be used as evidence because Cloudflare hides them
+   after creation. For Workers Builds, secret variable values are returned as
+   `null`.
+5. The deployed app bundle is often the simplest public proof. Vite/React apps
+   commonly embed the public Convex URL, so Noter can fetch the Worker URL,
+   inspect JavaScript assets or observed requests, find a `*.convex.cloud` URL,
+   then match that URL against Convex inventory when Convex is connected.
+
+This should be a "found likely connection" flow, not a silent adoption flow. If
+Noter discovers the public Convex URL through the deployed app, it can show that
+URL and ask the user to approve adopting the matching Convex deployment.
 
 ### Domain/DNS Detection
 
