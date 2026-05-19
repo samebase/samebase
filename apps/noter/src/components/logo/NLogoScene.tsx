@@ -113,6 +113,64 @@ void main() {
   gl_Position = projectionMatrix * modelViewMatrix * transformedPosition;
 }
 `;
+// Recursive opacity has to blend face colors in depth order. A single shader
+// keeps right/top/left faces in one transparent draw path instead of batching
+// whole color families ahead of nearer faces.
+const RECURSIVE_SURFACE_FRAGMENT_SHADER = `
+uniform vec3 backgroundColor;
+uniform vec3 leftColor;
+uniform float opacity;
+uniform vec3 rightColor;
+uniform vec3 topColor;
+uniform float stripeAngleRadians;
+uniform float stripeGap;
+uniform float stripeOffset;
+uniform float stripeWidth;
+uniform float stripedEnabled;
+varying float vLogoFaceKind;
+varying vec2 vUv;
+
+void main() {
+  vec3 faceColor = rightColor;
+
+  if (vLogoFaceKind > 1.5) {
+    faceColor = leftColor;
+
+    if (stripedEnabled > 0.5) {
+      float period = max(stripeWidth + stripeGap, 0.0001);
+      vec2 stripeNormal = vec2(
+        cos(stripeAngleRadians + 1.57079632679),
+        sin(stripeAngleRadians + 1.57079632679)
+      );
+      float stripePhase = mod(dot(vUv, stripeNormal) + stripeOffset * period, period);
+      faceColor = stripePhase < stripeWidth ? rightColor : backgroundColor;
+    }
+  } else if (vLogoFaceKind > 0.5) {
+    faceColor = topColor;
+  }
+
+  gl_FragColor = vec4(faceColor, opacity);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+}
+`;
+const RECURSIVE_SURFACE_VERTEX_SHADER = `
+attribute float logoFaceKind;
+varying float vLogoFaceKind;
+varying vec2 vUv;
+
+void main() {
+  vLogoFaceKind = logoFaceKind;
+  vUv = uv;
+  vec4 transformedPosition = vec4(position, 1.0);
+
+  #ifdef USE_INSTANCING
+    transformedPosition = instanceMatrix * transformedPosition;
+  #endif
+
+  gl_Position = projectionMatrix * modelViewMatrix * transformedPosition;
+}
+`;
 
 export const LOGO_SHUFFLE_PARALLEL_OPTIONS = [1, 2, 3] as const;
 export type LogoShuffleParallelMoves =
@@ -180,7 +238,6 @@ type ActiveTileMove = {
   fromKey: string;
   group: THREE.Group;
   hasDeparted: boolean;
-  instanceIndex: number;
   startTimeMs: number;
   to: VoxelCoordinate;
   toKey: string;
@@ -191,9 +248,13 @@ type RecursiveTileSceneState = {
   distanceScale: number;
   fullGridSize: number;
   homeFilledTiles: Set<string>;
+  instanceCapacity: number;
   keyToIndex: Map<string, number>;
+  materialState: RecursiveSurfaceMaterialState;
+  mesh: THREE.InstancedMesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
   meshes: THREE.InstancedMesh<THREE.BufferGeometry, LogoSceneMaterial>[];
   repeatGridSize: number;
+  surfaceGeometry: RecursiveSurfaceGeometryState;
   tileGridSize: number;
 };
 
@@ -213,6 +274,7 @@ type SceneState = {
   leftFaceStyle: LogoLeftFaceStyle;
   logoGroup: THREE.Group;
   logoMeshes: LogoSceneMesh[];
+  opacity: number;
   raycaster: THREE.Raycaster;
   recursiveRenderDepth: number | null;
   recursiveTileState: RecursiveTileSceneState | null;
@@ -242,6 +304,36 @@ type LeftFaceUniforms = {
 type LeftFaceMaterialState = {
   materials: [THREE.ShaderMaterial, THREE.ShaderMaterial];
   uniforms: [LeftFaceUniforms, LeftFaceUniforms];
+};
+
+type RecursiveSurfaceUniforms = {
+  backgroundColor: THREE.IUniform<THREE.Color>;
+  leftColor: THREE.IUniform<THREE.Color>;
+  opacity: THREE.IUniform<number>;
+  rightColor: THREE.IUniform<THREE.Color>;
+  topColor: THREE.IUniform<THREE.Color>;
+  stripeAngleRadians: THREE.IUniform<number>;
+  stripeGap: THREE.IUniform<number>;
+  stripeOffset: THREE.IUniform<number>;
+  stripeWidth: THREE.IUniform<number>;
+  stripedEnabled: THREE.IUniform<number>;
+};
+
+type RecursiveSurfaceMaterialState = {
+  material: THREE.ShaderMaterial;
+  uniforms: RecursiveSurfaceUniforms;
+};
+
+type RecursiveSurfaceDrawFace = {
+  center: THREE.Vector3;
+  key: string;
+  vertexOffset: number;
+};
+
+type RecursiveSurfaceGeometryState = {
+  drawFaces: RecursiveSurfaceDrawFace[];
+  geometry: THREE.BufferGeometry;
+  indices: Uint32Array;
 };
 
 type NLogoSceneProps = {
@@ -467,6 +559,102 @@ function buildMergedQuadGeometry(
   geometry.computeBoundingSphere();
 
   return geometry;
+}
+
+function getRecursiveSurfaceFaceKind(
+  colorKey: LogoSurfaceQuad["colorKey"],
+): number {
+  switch (colorKey) {
+    case "right":
+      return 0;
+    case "top":
+      return 1;
+    case "left":
+      return 2;
+    default: {
+      const unreachable = colorKey satisfies never;
+      return unreachable;
+    }
+  }
+}
+
+function getSurfaceQuadCenter(surfaceQuad: LogoSurfaceQuad): THREE.Vector3 {
+  const center = new THREE.Vector3();
+  for (const [x, y, z] of surfaceQuad.vertices) {
+    center.x += x;
+    center.y += y;
+    center.z += z;
+  }
+  center.multiplyScalar(1 / surfaceQuad.vertices.length);
+  return center;
+}
+
+function writeQuadIndices(
+  indices: Uint32Array,
+  indexOffset: number,
+  vertexOffset: number,
+) {
+  indices[indexOffset] = vertexOffset;
+  indices[indexOffset + 1] = vertexOffset + 1;
+  indices[indexOffset + 2] = vertexOffset + 2;
+  indices[indexOffset + 3] = vertexOffset;
+  indices[indexOffset + 4] = vertexOffset + 2;
+  indices[indexOffset + 5] = vertexOffset + 3;
+}
+
+function buildRecursiveSurfaceGeometry(
+  surfaceQuads: readonly LogoSurfaceQuad[],
+): RecursiveSurfaceGeometryState {
+  const geometry = new THREE.BufferGeometry();
+  const vertexCount = surfaceQuads.length * 4;
+  const positions = new Float32Array(vertexCount * 3);
+  const uvs = new Float32Array(vertexCount * 2);
+  const faceKinds = new Float32Array(vertexCount);
+  const indices = new Uint32Array(surfaceQuads.length * 6);
+  const drawFaces: RecursiveSurfaceDrawFace[] = [];
+  let indexOffset = 0;
+  let uvOffset = 0;
+  let vertexOffset = 0;
+  let vectorOffset = 0;
+
+  for (const surfaceQuad of surfaceQuads) {
+    const faceKind = getRecursiveSurfaceFaceKind(surfaceQuad.colorKey);
+    drawFaces.push({
+      center: getSurfaceQuadCenter(surfaceQuad),
+      key: surfaceQuad.key,
+      vertexOffset,
+    });
+
+    for (const vertex of surfaceQuad.vertices) {
+      const [x, y, z] = vertex;
+      const [u, v] = getSurfaceVertexUv(surfaceQuad, vertex);
+      positions[vectorOffset] = x;
+      positions[vectorOffset + 1] = y;
+      positions[vectorOffset + 2] = z;
+      uvs[uvOffset] = u;
+      uvs[uvOffset + 1] = v;
+      faceKinds[vertexOffset] = faceKind;
+      uvOffset += 2;
+      vectorOffset += 3;
+      vertexOffset += 1;
+    }
+
+    writeQuadIndices(indices, indexOffset, vertexOffset - 4);
+    indexOffset += 6;
+  }
+
+  const indexAttribute = new THREE.BufferAttribute(indices, 1);
+  indexAttribute.setUsage(THREE.DynamicDrawUsage);
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+  geometry.setAttribute(
+    "logoFaceKind",
+    new THREE.BufferAttribute(faceKinds, 1),
+  );
+  geometry.setIndex(indexAttribute);
+  geometry.computeBoundingSphere();
+
+  return { drawFaces, geometry, indices };
 }
 
 function buildLogoSurfacePart(surfaceQuad: LogoSurfaceQuad): LogoSurfacePart {
@@ -777,13 +965,11 @@ function createRecursiveLogoMeshes({
   baseFilledVoxels,
   distanceScale,
   fullGridSize,
-  materials,
   recursiveRenderDepth,
 }: {
   baseFilledVoxels: ReadonlySet<string>;
   distanceScale: number;
   fullGridSize: number;
-  materials: LogoSceneMaterials;
   recursiveRenderDepth: number;
 }): LogoGeometryRenderState {
   const tileDepth = getRecursiveTileDepth(recursiveRenderDepth);
@@ -797,7 +983,8 @@ function createRecursiveLogoMeshes({
     tileVoxelGrid.gridSize,
     normalizedDistanceScale,
   );
-  const tileParts = buildLogoSurfaceParts(tileSurfaceQuads, true);
+  const surfaceGeometry = buildRecursiveSurfaceGeometry(tileSurfaceQuads);
+  const materialState = createRecursiveSurfaceMaterialState();
   const instanceState = createRecursiveInstanceMatrices({
     baseFilledVoxels,
     distanceScale: normalizedDistanceScale,
@@ -805,20 +992,18 @@ function createRecursiveLogoMeshes({
     recursiveRenderDepth,
     tileGridSize: tileVoxelGrid.gridSize,
   });
-  const meshes = tileParts.map(({ geometry, materialIndex }) => {
-    const mesh = new THREE.InstancedMesh(
-      geometry,
-      materials[materialIndex],
-      instanceState.matrices.length,
-    );
+  const mesh = new THREE.InstancedMesh(
+    surfaceGeometry.geometry,
+    materialState.material,
+    instanceState.matrices.length,
+  );
 
-    instanceState.matrices.forEach((matrix, index) => {
-      mesh.setMatrixAt(index, matrix);
-    });
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.computeBoundingSphere();
-    return mesh;
+  instanceState.matrices.forEach((matrix, index) => {
+    mesh.setMatrixAt(index, matrix);
   });
+  mesh.instanceMatrix.needsUpdate = true;
+  mesh.computeBoundingSphere();
+  const meshes = [mesh];
 
   return {
     cameraFitRadius: getDistanceScaledGridFitRadius(
@@ -831,9 +1016,13 @@ function createRecursiveLogoMeshes({
       distanceScale: normalizedDistanceScale,
       fullGridSize,
       homeFilledTiles: new Set(instanceState.filledTiles),
+      instanceCapacity: instanceState.matrices.length,
       keyToIndex: new Map(instanceState.keyToIndex),
+      materialState,
+      mesh,
       meshes,
       repeatGridSize: instanceState.repeatGridSize,
+      surfaceGeometry,
       tileGridSize: tileVoxelGrid.gridSize,
     },
   };
@@ -859,7 +1048,6 @@ function createLogoGeometryRenderState({
       baseFilledVoxels,
       distanceScale,
       fullGridSize: gridSize,
-      materials,
       recursiveRenderDepth,
     });
   }
@@ -934,12 +1122,15 @@ function createLeftFaceUniforms(): LeftFaceUniforms {
 function createLeftFaceMaterialState(): LeftFaceMaterialState {
   const leftPositiveUniforms = createLeftFaceUniforms();
   const leftNegativeUniforms = createLeftFaceUniforms();
-  const createMaterial = (uniforms: LeftFaceUniforms) =>
-    new THREE.ShaderMaterial({
+  const createMaterial = (uniforms: LeftFaceUniforms) => {
+    const material = new THREE.ShaderMaterial({
       fragmentShader: LEFT_FACE_PATTERN_FRAGMENT_SHADER,
       uniforms,
       vertexShader: LEFT_FACE_PATTERN_VERTEX_SHADER,
     });
+    material.forceSinglePass = false;
+    return material;
+  };
 
   return {
     materials: [
@@ -948,6 +1139,33 @@ function createLeftFaceMaterialState(): LeftFaceMaterialState {
     ],
     uniforms: [leftPositiveUniforms, leftNegativeUniforms],
   };
+}
+
+function createRecursiveSurfaceUniforms(): RecursiveSurfaceUniforms {
+  return {
+    backgroundColor: { value: new THREE.Color() },
+    leftColor: { value: new THREE.Color() },
+    opacity: { value: 1 },
+    rightColor: { value: new THREE.Color() },
+    topColor: { value: new THREE.Color() },
+    stripeAngleRadians: { value: 0 },
+    stripeGap: { value: 0 },
+    stripeOffset: { value: 0 },
+    stripeWidth: { value: 0 },
+    stripedEnabled: { value: 0 },
+  };
+}
+
+function createRecursiveSurfaceMaterialState(): RecursiveSurfaceMaterialState {
+  const uniforms = createRecursiveSurfaceUniforms();
+  const material = new THREE.ShaderMaterial({
+    fragmentShader: RECURSIVE_SURFACE_FRAGMENT_SHADER,
+    uniforms,
+    vertexShader: RECURSIVE_SURFACE_VERTEX_SHADER,
+  });
+  material.forceSinglePass = false;
+
+  return { material, uniforms };
 }
 
 function createLogoSceneMaterials(): {
@@ -1073,6 +1291,78 @@ function applyLeftFaceMaterialState({
   }
 }
 
+function applyRecursiveSurfaceMaterialState({
+  backgroundColor,
+  faceColors,
+  leftFaceStyle,
+  materialState,
+  opacity,
+}: {
+  backgroundColor: string;
+  faceColors: ResolvedFaceColors;
+  leftFaceStyle: LogoLeftFaceStyle;
+  materialState: RecursiveSurfaceMaterialState;
+  opacity: number;
+}) {
+  const normalizedStyle = normalizeLogoLeftFaceStyle(leftFaceStyle);
+  const background = new THREE.Color(backgroundColor);
+  const normalizedOpacity = THREE.MathUtils.clamp(opacity, 0, 1);
+  const { uniforms } = materialState;
+
+  uniforms.backgroundColor.value.copy(background);
+  uniforms.leftColor.value.copy(faceColors.left);
+  uniforms.opacity.value = normalizedOpacity;
+  uniforms.rightColor.value.copy(faceColors.right);
+  uniforms.topColor.value.copy(faceColors.top);
+  uniforms.stripedEnabled.value = normalizedStyle.kind === "striped" ? 1 : 0;
+
+  if (normalizedStyle.kind === "striped") {
+    const stripeBasisScale = getLogoLeftFaceStripeBasisScale(normalizedStyle);
+
+    uniforms.stripeAngleRadians.value = THREE.MathUtils.degToRad(
+      normalizedStyle.stripeAngleDegrees,
+    );
+    uniforms.stripeGap.value = normalizedStyle.stripeGap * stripeBasisScale;
+    uniforms.stripeOffset.value = normalizedStyle.stripeOffset;
+    uniforms.stripeWidth.value = normalizedStyle.stripeWidth * stripeBasisScale;
+    return;
+  }
+
+  uniforms.stripeAngleRadians.value = 0;
+  uniforms.stripeGap.value = 0;
+  uniforms.stripeOffset.value = 0;
+  uniforms.stripeWidth.value = 0;
+}
+
+function applySceneResolvedFaceColors({
+  backgroundColor,
+  faceColors,
+  sceneState,
+}: {
+  backgroundColor: string;
+  faceColors: ResolvedFaceColors;
+  sceneState: SceneState;
+}) {
+  applyResolvedFaceColors({
+    backgroundColor,
+    faceColors,
+    leftFaceMaterialState: sceneState.leftFaceMaterialState,
+    leftFaceStyle: sceneState.leftFaceStyle,
+    materials: sceneState.cubeMaterials,
+    opacity: sceneState.opacity,
+  });
+
+  if (sceneState.recursiveTileState) {
+    applyRecursiveSurfaceMaterialState({
+      backgroundColor,
+      faceColors,
+      leftFaceStyle: sceneState.leftFaceStyle,
+      materialState: sceneState.recursiveTileState.materialState,
+      opacity: sceneState.opacity,
+    });
+  }
+}
+
 function getAnimatedColor(
   color: THREE.Color,
   elapsedSeconds: number,
@@ -1104,7 +1394,10 @@ function getAnimatedFaceColors(
   };
 }
 
-function applyMaterialOpacity(materials: LogoSceneMaterials, opacity: number) {
+function applyMaterialOpacity(
+  materials: LogoSceneMaterials,
+  opacity: number,
+): number {
   const normalizedOpacity = THREE.MathUtils.clamp(opacity, 0, 1);
   const isTransparent = normalizedOpacity < 1;
   const nextSide = isTransparent ? THREE.DoubleSide : THREE.FrontSide;
@@ -1126,6 +1419,52 @@ function applyMaterialOpacity(materials: LogoSceneMaterials, opacity: number) {
       material.needsUpdate = true;
     }
   }
+
+  return normalizedOpacity;
+}
+
+function applyRecursiveSurfaceOpacity(
+  materialState: RecursiveSurfaceMaterialState,
+  opacity: number,
+): number {
+  const normalizedOpacity = THREE.MathUtils.clamp(opacity, 0, 1);
+  const isTransparent = normalizedOpacity < 1;
+  const nextSide = isTransparent ? THREE.DoubleSide : THREE.FrontSide;
+  const { material, uniforms } = materialState;
+
+  uniforms.opacity.value = normalizedOpacity;
+  material.opacity = normalizedOpacity;
+  material.depthWrite = !isTransparent;
+  let needsUpdate = false;
+  if (material.side !== nextSide) {
+    material.side = nextSide;
+    needsUpdate = true;
+  }
+  if (material.transparent !== isTransparent) {
+    material.transparent = isTransparent;
+    needsUpdate = true;
+  }
+  if (needsUpdate) {
+    material.needsUpdate = true;
+  }
+
+  return normalizedOpacity;
+}
+
+function applySceneOpacity(sceneState: SceneState, opacity: number): number {
+  const normalizedOpacity = applyMaterialOpacity(
+    sceneState.cubeMaterials,
+    opacity,
+  );
+  sceneState.opacity = normalizedOpacity;
+  sceneState.renderer.domElement.style.opacity = "1";
+  if (sceneState.recursiveTileState) {
+    applyRecursiveSurfaceOpacity(
+      sceneState.recursiveTileState.materialState,
+      normalizedOpacity,
+    );
+  }
+  return normalizedOpacity;
 }
 
 function replaceLogoGeometry(
@@ -1143,10 +1482,13 @@ function replaceLogoGeometry(
     recursiveRenderDepth: sceneState.recursiveRenderDepth,
   });
   const previousLogoMeshes = sceneState.logoMeshes;
+  const previousRecursiveMaterial =
+    sceneState.recursiveTileState?.materialState.material ?? null;
   for (const logoMesh of previousLogoMeshes) {
     sceneState.logoGroup.remove(logoMesh);
     logoMesh.geometry.dispose();
   }
+  previousRecursiveMaterial?.dispose();
   sceneState.logoMeshes = nextGeometry.meshes;
   for (const logoMesh of sceneState.logoMeshes) {
     sceneState.logoGroup.add(logoMesh);
@@ -1154,15 +1496,146 @@ function replaceLogoGeometry(
   sceneState.recursiveTileState = nextGeometry.recursiveTileState;
   sceneState.currentFilledVoxels = new Set(nextFilledVoxels);
   sceneState.gridSize = nextGridSize;
+  applySceneOpacity(sceneState, sceneState.opacity);
   if (syncCameraFitRadius) {
     sceneState.cameraFitRadius = nextGeometry.cameraFitRadius;
   }
   sceneState.resizeScene();
 }
 
+function getCameraSpaceDepth(
+  point: THREE.Vector3,
+  matrixWorld: THREE.Matrix4,
+  camera: THREE.Camera,
+): number {
+  return point.applyMatrix4(matrixWorld).applyMatrix4(camera.matrixWorldInverse)
+    .z;
+}
+
+function syncRecursiveSurfaceDrawOrder(sceneState: SceneState) {
+  const tileState = sceneState.recursiveTileState;
+  if (!tileState || sceneState.opacity >= 1) {
+    return;
+  }
+
+  // Transparent recursive tiles share one geometry, so the index buffer carries
+  // the per-face painter order for the current view.
+  const depthVector = new THREE.Vector3();
+  const sortedFaces = tileState.surfaceGeometry.drawFaces.map((face) => {
+    depthVector.copy(face.center);
+    return {
+      depth: getCameraSpaceDepth(
+        depthVector,
+        tileState.mesh.matrixWorld,
+        sceneState.camera,
+      ),
+      face,
+    };
+  });
+
+  sortedFaces.sort((left, right) => {
+    if (left.depth !== right.depth) {
+      return left.depth - right.depth;
+    }
+
+    return left.face.key.localeCompare(right.face.key);
+  });
+
+  let indexOffset = 0;
+  for (const { face } of sortedFaces) {
+    writeQuadIndices(
+      tileState.surfaceGeometry.indices,
+      indexOffset,
+      face.vertexOffset,
+    );
+    indexOffset += 6;
+  }
+
+  const indexAttribute = tileState.surfaceGeometry.geometry.getIndex();
+  if (indexAttribute) {
+    indexAttribute.needsUpdate = true;
+  }
+}
+
+function getTileCameraDepth(
+  key: string,
+  sceneState: SceneState,
+  tileState: RecursiveTileSceneState,
+): number {
+  const coordinate = parseVoxelKey(key);
+  if (!coordinate) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const [x, y, z] = getTileWorldCenter({
+    coordinate,
+    distanceScale: tileState.distanceScale,
+    fullGridSize: tileState.fullGridSize,
+    tileGridSize: tileState.tileGridSize,
+  });
+  return getCameraSpaceDepth(
+    new THREE.Vector3(x, y, z),
+    sceneState.logoGroup.matrixWorld,
+    sceneState.camera,
+  );
+}
+
+function syncRecursiveTileInstanceOrder(sceneState: SceneState) {
+  const tileState = sceneState.recursiveTileState;
+  if (!tileState) {
+    return;
+  }
+
+  // Shuffle mutates the settled tile set, and transparency needs those settled
+  // instances packed from back to front before the draw call.
+  const visibleTileKeys = [...tileState.currentFilledTiles].sort(
+    (left, right) => {
+      const depthDifference =
+        getTileCameraDepth(left, sceneState, tileState) -
+        getTileCameraDepth(right, sceneState, tileState);
+      if (depthDifference !== 0) {
+        return depthDifference;
+      }
+
+      return left.localeCompare(right);
+    },
+  );
+  const hiddenMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
+  const tileMatrix = new THREE.Matrix4();
+
+  tileState.keyToIndex.clear();
+  visibleTileKeys.forEach((key, index) => {
+    const coordinate = parseVoxelKey(key);
+    if (!coordinate) {
+      return;
+    }
+
+    const [x, y, z] = getTileWorldCenter({
+      coordinate,
+      distanceScale: tileState.distanceScale,
+      fullGridSize: tileState.fullGridSize,
+      tileGridSize: tileState.tileGridSize,
+    });
+    tileMatrix.makeTranslation(x, y, z);
+    tileState.mesh.setMatrixAt(index, tileMatrix);
+    tileState.keyToIndex.set(key, index);
+  });
+
+  for (
+    let index = visibleTileKeys.length;
+    index < tileState.instanceCapacity;
+    index += 1
+  ) {
+    tileState.mesh.setMatrixAt(index, hiddenMatrix);
+  }
+  tileState.mesh.instanceMatrix.needsUpdate = true;
+}
+
 function syncTransparentFaceRenderOrder(sceneState: SceneState) {
   sceneState.camera.updateMatrixWorld();
   sceneState.logoGroup.updateMatrixWorld(true);
+  syncRecursiveSurfaceDrawOrder(sceneState);
+  syncRecursiveTileInstanceOrder(sceneState);
 
   const meshes = [
     ...sceneState.logoMeshes,
@@ -1207,34 +1680,6 @@ function clearActiveTileMoves(sceneState: SceneState) {
     sceneState.logoGroup.remove(move.group);
   }
   sceneState.activeTileMoves = [];
-}
-
-function setTileInstanceMatrix({
-  coordinate,
-  index,
-  tileState,
-}: {
-  coordinate: VoxelCoordinate | null;
-  index: number;
-  tileState: RecursiveTileSceneState;
-}) {
-  const matrix = new THREE.Matrix4();
-  if (coordinate) {
-    const [x, y, z] = getTileWorldCenter({
-      coordinate,
-      distanceScale: tileState.distanceScale,
-      fullGridSize: tileState.fullGridSize,
-      tileGridSize: tileState.tileGridSize,
-    });
-    matrix.makeTranslation(x, y, z);
-  } else {
-    matrix.makeScale(0, 0, 0);
-  }
-
-  for (const mesh of tileState.meshes) {
-    mesh.setMatrixAt(index, matrix);
-    mesh.instanceMatrix.needsUpdate = true;
-  }
 }
 
 function createTileMoveGroup(tileState: RecursiveTileSceneState): THREE.Group {
@@ -1363,8 +1808,7 @@ function scheduleNextTileMove(
     return false;
   }
 
-  const instanceIndex = tileState.keyToIndex.get(nextMove.fromKey);
-  if (instanceIndex === undefined) {
+  if (!tileState.currentFilledTiles.has(nextMove.fromKey)) {
     return false;
   }
 
@@ -1385,7 +1829,6 @@ function scheduleNextTileMove(
     fromKey: nextMove.fromKey,
     group,
     hasDeparted: false,
-    instanceIndex,
     startTimeMs,
     to: toCoordinate,
     toKey,
@@ -1413,11 +1856,6 @@ function syncTileShuffleAnimation(
     if (!move.hasDeparted && timestampMs >= move.startTimeMs) {
       move.hasDeparted = true;
       move.group.visible = true;
-      setTileInstanceMatrix({
-        coordinate: null,
-        index: move.instanceIndex,
-        tileState,
-      });
       tileState.currentFilledTiles.delete(move.fromKey);
       tileState.keyToIndex.delete(move.fromKey);
     }
@@ -1445,13 +1883,7 @@ function syncTileShuffleAnimation(
     );
 
     for (const move of completedMoves) {
-      setTileInstanceMatrix({
-        coordinate: move.to,
-        index: move.instanceIndex,
-        tileState,
-      });
       tileState.currentFilledTiles.add(move.toKey);
-      tileState.keyToIndex.set(move.toKey, move.instanceIndex);
       sceneState.logoGroup.remove(move.group);
       lastMovedCubeKeyRef.current = move.toKey;
     }
@@ -1633,13 +2065,10 @@ export function NLogoScene({
     }
 
     sceneState.scene.background = new THREE.Color(backgroundColor);
-    applyResolvedFaceColors({
+    applySceneResolvedFaceColors({
       backgroundColor,
       faceColors: resolveFaceColors(faceColorsRef.current),
-      leftFaceMaterialState: sceneState.leftFaceMaterialState,
-      leftFaceStyle: sceneState.leftFaceStyle,
-      materials: sceneState.cubeMaterials,
-      opacity: opacityRef.current,
+      sceneState,
     });
     renderSceneRef.current(performance.now());
   }, [backgroundColor]);
@@ -1677,6 +2106,11 @@ export function NLogoScene({
 
     sceneState.distanceScale = nextDistanceScale;
     resetShuffleAnimation(sceneState, lastMovedCubeKeyRef, true);
+    applySceneResolvedFaceColors({
+      backgroundColor: backgroundColorRef.current,
+      faceColors: resolveFaceColors(faceColorsRef.current),
+      sceneState,
+    });
     renderSceneRef.current(performance.now());
   }, [distanceScale]);
 
@@ -1719,6 +2153,11 @@ export function NLogoScene({
 
     if (shuffleAnimation.enabled !== wasEnabled) {
       resetShuffleAnimation(sceneState, lastMovedCubeKeyRef, false);
+      applySceneResolvedFaceColors({
+        backgroundColor: backgroundColorRef.current,
+        faceColors: resolveFaceColors(faceColorsRef.current),
+        sceneState,
+      });
     }
 
     syncAnimationLoopRef.current();
@@ -1751,15 +2190,6 @@ export function NLogoScene({
 
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
     const { leftFaceMaterialState, materials } = createLogoSceneMaterials();
-    applyFaceColors({
-      backgroundColor: backgroundColorRef.current,
-      faceColors: faceColorsRef.current,
-      leftFaceMaterialState,
-      leftFaceStyle: leftFaceStyleRef.current,
-      materials,
-      opacity: opacityRef.current,
-    });
-    applyMaterialOpacity(materials, opacityRef.current);
     const initialVoxelGrid = resolveSceneVoxelGrid({
       fractalDepth: fractalDepthRef.current,
       voxelGrid: voxelGridRef.current,
@@ -1773,6 +2203,30 @@ export function NLogoScene({
       materials,
       recursiveRenderDepth: initialVoxelGrid.recursiveRenderDepth,
     });
+    const initialOpacity = applyMaterialOpacity(materials, opacityRef.current);
+    const initialFaceColors = resolveFaceColors(faceColorsRef.current);
+    renderer.domElement.style.opacity = "1";
+    applyFaceColors({
+      backgroundColor: backgroundColorRef.current,
+      faceColors: faceColorsRef.current,
+      leftFaceMaterialState,
+      leftFaceStyle: leftFaceStyleRef.current,
+      materials,
+      opacity: initialOpacity,
+    });
+    if (initialGeometry.recursiveTileState) {
+      applyRecursiveSurfaceOpacity(
+        initialGeometry.recursiveTileState.materialState,
+        initialOpacity,
+      );
+      applyRecursiveSurfaceMaterialState({
+        backgroundColor: backgroundColorRef.current,
+        faceColors: initialFaceColors,
+        leftFaceStyle: leftFaceStyleRef.current,
+        materialState: initialGeometry.recursiveTileState.materialState,
+        opacity: initialOpacity,
+      });
+    }
     const logoMeshes = initialGeometry.meshes;
     const logoGroup = new THREE.Group();
     for (const logoMesh of logoMeshes) {
@@ -1863,6 +2317,7 @@ export function NLogoScene({
       leftFaceStyle: leftFaceStyleRef.current,
       logoGroup,
       logoMeshes,
+      opacity: initialOpacity,
       raycaster: new THREE.Raycaster(),
       recursiveRenderDepth: initialVoxelGrid.recursiveRenderDepth,
       recursiveTileState: initialGeometry.recursiveTileState,
@@ -1912,16 +2367,13 @@ export function NLogoScene({
         const animationStartedAt =
           faceColorAnimationStartedAtRef.current ?? timestampMs;
         faceColorAnimationStartedAtRef.current = animationStartedAt;
-        applyResolvedFaceColors({
+        applySceneResolvedFaceColors({
           backgroundColor: backgroundColorRef.current,
           faceColors: getAnimatedFaceColors(
             faceColorsRef.current,
             (timestampMs - animationStartedAt) / 1000,
           ),
-          leftFaceMaterialState: sceneState.leftFaceMaterialState,
-          leftFaceStyle: sceneState.leftFaceStyle,
-          materials: sceneState.cubeMaterials,
-          opacity: opacityRef.current,
+          sceneState,
         });
       }
       updateCameraPosition();
@@ -1975,10 +2427,12 @@ export function NLogoScene({
         for (const logoMesh of activeSceneState.logoMeshes) {
           logoMesh.geometry.dispose();
         }
+        activeSceneState.recursiveTileState?.materialState.material.dispose();
       } else {
         for (const logoMesh of logoMeshes) {
           logoMesh.geometry.dispose();
         }
+        initialGeometry.recursiveTileState?.materialState.material.dispose();
       }
       cubeGeometry.dispose();
       for (const material of materials) {
@@ -2014,6 +2468,11 @@ export function NLogoScene({
     sceneState.gridSize = nextVoxelGrid.gridSize;
     sceneState.recursiveRenderDepth = nextVoxelGrid.recursiveRenderDepth;
     resetShuffleAnimation(sceneState, lastMovedCubeKeyRef, true);
+    applySceneResolvedFaceColors({
+      backgroundColor: backgroundColorRef.current,
+      faceColors: resolveFaceColors(faceColorsRef.current),
+      sceneState,
+    });
     renderSceneRef.current(performance.now());
   }, [fractalDepth, voxelGrid, voxelState]);
 
@@ -2033,13 +2492,10 @@ export function NLogoScene({
       return;
     }
 
-    applyResolvedFaceColors({
+    applySceneResolvedFaceColors({
       backgroundColor: backgroundColorRef.current,
       faceColors: resolveFaceColors(faceColors),
-      leftFaceMaterialState: sceneState.leftFaceMaterialState,
-      leftFaceStyle: sceneState.leftFaceStyle,
-      materials: sceneState.cubeMaterials,
-      opacity: opacityRef.current,
+      sceneState,
     });
     syncAnimationLoopRef.current();
     renderSceneRef.current(performance.now());
@@ -2055,13 +2511,10 @@ export function NLogoScene({
     }
 
     sceneState.leftFaceStyle = normalizedStyle;
-    applyResolvedFaceColors({
+    applySceneResolvedFaceColors({
       backgroundColor: backgroundColorRef.current,
       faceColors: resolveFaceColors(faceColorsRef.current),
-      leftFaceMaterialState: sceneState.leftFaceMaterialState,
-      leftFaceStyle: normalizedStyle,
-      materials: sceneState.cubeMaterials,
-      opacity: opacityRef.current,
+      sceneState,
     });
     renderSceneRef.current(performance.now());
   }, [leftFaceStyle]);
@@ -2074,14 +2527,11 @@ export function NLogoScene({
       return;
     }
 
-    applyMaterialOpacity(sceneState.cubeMaterials, opacity);
-    applyResolvedFaceColors({
+    applySceneOpacity(sceneState, opacity);
+    applySceneResolvedFaceColors({
       backgroundColor: backgroundColorRef.current,
       faceColors: resolveFaceColors(faceColorsRef.current),
-      leftFaceMaterialState: sceneState.leftFaceMaterialState,
-      leftFaceStyle: sceneState.leftFaceStyle,
-      materials: sceneState.cubeMaterials,
-      opacity,
+      sceneState,
     });
     renderSceneRef.current(performance.now());
   }, [opacity]);
