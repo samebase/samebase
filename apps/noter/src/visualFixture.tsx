@@ -84,6 +84,10 @@ import {
   type VaultBranchPreviewVisualMode,
 } from "@/components/vault-dashboard/VaultBranchPreviewVisualFixture";
 import {
+  VaultResourceRailVisualFixture,
+  type VaultResourceRailVisualMode,
+} from "@/components/vault-dashboard/VaultResourceRailVisualFixture";
+import {
   VaultSyncStatusVisualFixture,
   type VaultSyncStatusVisualMode,
 } from "@/components/VaultSyncStatusVisualFixture";
@@ -113,6 +117,7 @@ type VisualFixtureMode =
   | SidebarMediaUploadVisualMode
   | VaultDashboardVisualMode
   | VaultBranchPreviewVisualMode
+  | VaultResourceRailVisualMode
   | VaultSyncStatusVisualMode
   | WorkspaceLayoutV2VisualMode
   | CodexAppServerResearchVisualMode
@@ -196,6 +201,10 @@ const VAULT_BRANCH_PREVIEW_VISUAL_MODES = [
   "vault-branch-preview-failed",
   "vault-branch-preview-missing",
 ] as const satisfies readonly VaultBranchPreviewVisualMode[];
+
+const VAULT_RESOURCE_RAIL_VISUAL_MODES = [
+  "vault-resource-rail",
+] as const satisfies readonly VaultResourceRailVisualMode[];
 
 const VAULT_SYNC_STATUS_VISUAL_MODES = [
   "vault-sync-status-states",
@@ -288,6 +297,10 @@ const VISUAL_FIXTURE_GROUPS = [
   {
     label: "Vault Branch Preview",
     modes: VAULT_BRANCH_PREVIEW_VISUAL_MODES,
+  },
+  {
+    label: "Vault Resource Rail",
+    modes: VAULT_RESOURCE_RAIL_VISUAL_MODES,
   },
   {
     label: "Vault Sync Status",
@@ -391,6 +404,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "vault-branch-preview-missing"
   ) {
     return <VaultBranchPreviewVisualFixture mode={mode} />;
+  }
+
+  if (mode === "vault-resource-rail") {
+    return <VaultResourceRailVisualFixture />;
   }
 
   if (mode === "vault-sync-status-states") {
