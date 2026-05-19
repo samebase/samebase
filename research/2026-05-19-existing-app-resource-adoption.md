@@ -361,6 +361,25 @@ For `weight_tsx`, the default proposal should be:
 2. create Cloudflare Worker `weight-tsx`
 3. leave DNS/domain untouched until Worker deploy is verified
 
+### Version 1: Explicit Selection
+
+The first adoption version should not require automatic discovery to be smart.
+It can list provider inventory and let the user choose any resource they are
+allowed to see:
+
+- any Convex production deployment from the connected Convex account/team
+- any Cloudflare Worker from the connected Cloudflare account
+
+Noter should still show simple hints when it has them, such as "repo has
+`convex/`", "Worker name matches repo name", or "deployed app references this
+Convex URL", but those hints should not block selection. The user's explicit
+choice is the source of truth for V1.
+
+This keeps the first version debuggable and avoids over-investing in discovery
+before the core adoption data model exists. Smarter Cloudflare-to-Convex proof
+chains can come later as recommendations layered on top of the same manual
+selector.
+
 ## Data Model Proposal
 
 ### Replace The Overloaded Managed Predicate
@@ -734,6 +753,8 @@ For new apps:
    - create Worker
    - connect existing Worker
 4. Record target origin before provider side effects.
+5. For V1, allow explicit selection from all visible provider resources instead
+   of requiring automatic matching.
 
 ### Slice 4: Add Resource Configuration Action
 
@@ -775,7 +796,8 @@ Convex and Cloudflare ownership.
 For `weight_tsx`, the first useful shipped path is:
 
 1. connect GitHub repo
-2. connect existing Convex production deployment by explicit selection
+2. connect existing Convex production deployment by explicit selection from all
+   visible Convex deployments
 3. create a new Cloudflare Worker named `weight-tsx`
 4. configure Workers Builds and Convex deploy keys
 5. display all linked resources
