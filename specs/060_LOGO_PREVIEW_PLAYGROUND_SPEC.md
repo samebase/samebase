@@ -4,7 +4,7 @@
 
 - Status: Proposed
 - Owner: Noter frontend
-- Last updated: 2026-03-18
+- Last updated: 2026-05-19
 - Related files: `apps/noter/src/App.tsx`,
   `apps/noter/src/components/LogoPreviewPage.tsx`,
   `apps/noter/src/components/NLogoScene.tsx`,
@@ -204,6 +204,21 @@ The playground should expose at least these presets:
 - Only voxel shape is persisted in query params today.
 - Camera and face-color state should not be written to the URL if doing so makes
   dragging or interaction feel stuttery.
+
+### 5. Left face style
+
+- The `/logo` Three renderer may distinguish the left face with either the
+  secondary color or a striped primary/background pattern.
+- `secondary` is the default so existing identity assets keep their current
+  left-face color relationship.
+- `striped` is a shareable exploration state with controls for stripe width,
+  gap, angle, and offset.
+- Stripes must be rendered in the left face's local 3D surface space, not as a
+  screen-space overlay, so dragging the logo keeps the pattern attached to the
+  face geometry.
+- The striped mode is an exploration path for constrained-color marks; it does
+  not change the canonical identity SVG assets until that variant is explicitly
+  accepted.
 
 ## Shuffle Animation
 

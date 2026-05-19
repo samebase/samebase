@@ -29,6 +29,32 @@ import {
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
 import {
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
+  LOGO_LEFT_FACE_STRIPE_ANGLE_STEP,
+  LOGO_LEFT_FACE_STRIPE_GAP_STEP,
+  LOGO_LEFT_FACE_STRIPE_OFFSET_STEP,
+  LOGO_LEFT_FACE_STRIPE_WIDTH_STEP,
+  MAX_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+  MAX_LOGO_LEFT_FACE_STRIPE_GAP,
+  MAX_LOGO_LEFT_FACE_STRIPE_OFFSET,
+  MAX_LOGO_LEFT_FACE_STRIPE_WIDTH,
+  MIN_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+  MIN_LOGO_LEFT_FACE_STRIPE_GAP,
+  MIN_LOGO_LEFT_FACE_STRIPE_OFFSET,
+  MIN_LOGO_LEFT_FACE_STRIPE_WIDTH,
+  areLogoLeftFaceStylesEqual,
+  normalizeLogoLeftFaceStripeAngleDegrees,
+  normalizeLogoLeftFaceStripeGap,
+  normalizeLogoLeftFaceStripeOffset,
+  normalizeLogoLeftFaceStripeWidth,
+  readLogoLeftFaceStyle,
+  type LogoLeftFaceStyle,
+  type LogoLeftFaceStyleKind,
+} from "@/components/logo/logoLeftFaceStyle";
+import {
   clampLogoFractalDepthForRenderer,
   getLogoRendererFractalDepthHardMax,
   getLogoRendererFractalDepthSliderMax,
@@ -143,6 +169,14 @@ const ROTATION_AXIS_MODE_OPTIONS = [
 const LOGO_CONTROL_STACK_CLASS_NAME = "flex flex-col gap-2";
 const LOGO_CONTROL_BUTTON_CLASS_NAME = "min-w-0 flex-[1_0_10rem] rounded-none";
 const LOGO_CONTROL_BUTTON_ROW_CLASS_NAME = "flex flex-wrap gap-2";
+const LEFT_FACE_STYLE_LABELS: Record<LogoLeftFaceStyleKind, string> = {
+  secondary: "Secondary",
+  striped: "Stripes",
+};
+const LEFT_FACE_STYLE_OPTIONS = [
+  "secondary",
+  "striped",
+] as const satisfies readonly LogoLeftFaceStyleKind[];
 type LogoPreviewRenderMode = Exclude<LogoDepthRenderer, "svg">;
 type LogoPreviewPageProps = {
   renderMode?: LogoPreviewRenderMode;
@@ -514,6 +548,7 @@ type LogoPreviewRouteState = {
   isViewSnapEnabled: boolean;
   isoCubeSidePixels: number;
   isoStyleId: LogoIsometricStyleId;
+  leftFaceStyle: LogoLeftFaceStyle;
   rotationAxisMode: LogoRotationAxisMode;
   rotationDegrees: number;
   selectedPresetId: LogoPresetSelection;
@@ -546,6 +581,7 @@ function readLogoPreviewRouteState(
     isViewSnapEnabled: view.viewSnapEnabled,
     isoCubeSidePixels: readIsoCubeSidePixels(routeSearch),
     isoStyleId: readIsoStyleId(routeSearch),
+    leftFaceStyle: readLogoLeftFaceStyle(routeSearch),
     rotationAxisMode: readRotationAxisMode(routeSearch),
     rotationDegrees: view.rotationDegrees,
     selectedPresetId: readLogoPresetSelection(routeSearch),
@@ -577,6 +613,7 @@ function areLogoPreviewRouteStatesEqual(
     left.isViewSnapEnabled === right.isViewSnapEnabled &&
     left.isoCubeSidePixels === right.isoCubeSidePixels &&
     left.isoStyleId === right.isoStyleId &&
+    areLogoLeftFaceStylesEqual(left.leftFaceStyle, right.leftFaceStyle) &&
     left.rotationAxisMode === right.rotationAxisMode &&
     left.rotationDegrees === right.rotationDegrees &&
     left.selectedPresetId === right.selectedPresetId &&
@@ -608,6 +645,7 @@ function buildLogoPreviewRouteSearch(
       ),
       isoCubeSidePixels: routeState.isoCubeSidePixels,
       isoStyleId: routeState.isoStyleId,
+      leftFaceStyle: routeState.leftFaceStyle,
       rotationAxisMode: routeState.rotationAxisMode,
       rotationDegrees: resolvedView.rotationDegrees,
       themeModeSearch: routeSearch,
@@ -911,6 +949,116 @@ function useLogoPreviewController({
           isoStyleId,
         }));
       },
+      setLeftFaceStyleKind: (kind: LogoLeftFaceStyleKind) => {
+        commitRouteState((currentState) => {
+          if (kind === "secondary") {
+            return {
+              ...currentState,
+              leftFaceStyle: { kind: "secondary" },
+            };
+          }
+
+          return {
+            ...currentState,
+            leftFaceStyle:
+              currentState.leftFaceStyle.kind === "striped"
+                ? currentState.leftFaceStyle
+                : {
+                    kind: "striped",
+                    stripeAngleDegrees:
+                      DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+                    stripeGap: DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
+                    stripeOffset: DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
+                    stripeWidth: DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
+                  },
+          };
+        });
+      },
+      setLeftFaceStripeAngleDegrees: (stripeAngleDegrees: number) => {
+        debounceRouteState((currentState) => ({
+          ...currentState,
+          leftFaceStyle: {
+            kind: "striped",
+            stripeAngleDegrees:
+              normalizeLogoLeftFaceStripeAngleDegrees(stripeAngleDegrees),
+            stripeGap:
+              currentState.leftFaceStyle.kind === "striped"
+                ? currentState.leftFaceStyle.stripeGap
+                : DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
+            stripeOffset:
+              currentState.leftFaceStyle.kind === "striped"
+                ? currentState.leftFaceStyle.stripeOffset
+                : DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
+            stripeWidth:
+              currentState.leftFaceStyle.kind === "striped"
+                ? currentState.leftFaceStyle.stripeWidth
+                : DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
+          },
+        }));
+      },
+      setLeftFaceStripeGap: (stripeGap: number) => {
+        debounceRouteState((currentState) => ({
+          ...currentState,
+          leftFaceStyle: {
+            kind: "striped",
+            stripeAngleDegrees:
+              currentState.leftFaceStyle.kind === "striped"
+                ? currentState.leftFaceStyle.stripeAngleDegrees
+                : DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+            stripeGap: normalizeLogoLeftFaceStripeGap(stripeGap),
+            stripeOffset:
+              currentState.leftFaceStyle.kind === "striped"
+                ? currentState.leftFaceStyle.stripeOffset
+                : DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
+            stripeWidth:
+              currentState.leftFaceStyle.kind === "striped"
+                ? currentState.leftFaceStyle.stripeWidth
+                : DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
+          },
+        }));
+      },
+      setLeftFaceStripeOffset: (stripeOffset: number) => {
+        debounceRouteState((currentState) => ({
+          ...currentState,
+          leftFaceStyle: {
+            kind: "striped",
+            stripeAngleDegrees:
+              currentState.leftFaceStyle.kind === "striped"
+                ? currentState.leftFaceStyle.stripeAngleDegrees
+                : DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+            stripeGap:
+              currentState.leftFaceStyle.kind === "striped"
+                ? currentState.leftFaceStyle.stripeGap
+                : DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
+            stripeOffset: normalizeLogoLeftFaceStripeOffset(stripeOffset),
+            stripeWidth:
+              currentState.leftFaceStyle.kind === "striped"
+                ? currentState.leftFaceStyle.stripeWidth
+                : DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
+          },
+        }));
+      },
+      setLeftFaceStripeWidth: (stripeWidth: number) => {
+        debounceRouteState((currentState) => ({
+          ...currentState,
+          leftFaceStyle: {
+            kind: "striped",
+            stripeAngleDegrees:
+              currentState.leftFaceStyle.kind === "striped"
+                ? currentState.leftFaceStyle.stripeAngleDegrees
+                : DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+            stripeGap:
+              currentState.leftFaceStyle.kind === "striped"
+                ? currentState.leftFaceStyle.stripeGap
+                : DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
+            stripeOffset:
+              currentState.leftFaceStyle.kind === "striped"
+                ? currentState.leftFaceStyle.stripeOffset
+                : DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
+            stripeWidth: normalizeLogoLeftFaceStripeWidth(stripeWidth),
+          },
+        }));
+      },
       setLogoOpacity: store.actions.setLogoOpacity,
       setPresetToCustom: () => {
         setRouteStateDraft((currentState) => ({
@@ -1037,6 +1185,7 @@ function readCanonicalLogoRouteSearch(
       fractalDepth: readLogoFractalDepth(routeSearch, renderMode),
       isoCubeSidePixels: readIsoCubeSidePixels(routeSearch),
       isoStyleId: readIsoStyleId(routeSearch),
+      leftFaceStyle: readLogoLeftFaceStyle(routeSearch),
       rotationAxisMode: readRotationAxisMode(routeSearch),
       rotationDegrees: readRotationDegrees(routeSearch),
       themeModeSearch: routeSearch,
@@ -1058,9 +1207,14 @@ const LOGO_ROUTE_SEARCH_KEYS = [
   "freeView",
   "isoSide",
   "isoStyle",
+  "leftFace",
   "dark",
   "light",
   "rot",
+  "stripeA",
+  "stripeG",
+  "stripeO",
+  "stripeW",
   "vox",
 ] as const satisfies readonly (keyof LogoRouteSearch)[];
 
@@ -1274,6 +1428,8 @@ export function LogoPreviewPage({
     enabled: state.isShuffleEnabled,
     parallelMoves: state.shuffleParallelMoves,
   };
+  const stripedLeftFaceStyle =
+    state.leftFaceStyle.kind === "striped" ? state.leftFaceStyle : null;
 
   const modeSearch = preserveLogoRouteDevModeSearch(
     buildLogoRouteSearch({
@@ -1282,6 +1438,7 @@ export function LogoPreviewPage({
       fractalDepth: state.fractalDepth,
       isoCubeSidePixels: state.isoCubeSidePixels,
       isoStyleId: state.isoStyleId,
+      leftFaceStyle: state.leftFaceStyle,
       rotationAxisMode: state.rotationAxisMode,
       rotationDegrees: state.rotationDegrees,
       themeModeSearch: routeSearch,
@@ -1343,6 +1500,7 @@ export function LogoPreviewPage({
         editMode={state.editMode}
         elevationDegrees={state.elevationDegrees}
         faceColors={faceColors}
+        leftFaceStyle={state.leftFaceStyle}
         opacity={state.logoOpacity}
         onInteractionStart={controls.startSceneInteraction}
         onInteractionEnd={controls.endSceneInteraction}
@@ -1872,6 +2030,96 @@ export function LogoPreviewPage({
           </div>
         ) : null}
       </LogoPreviewSection>
+
+      {renderMode === "three" ? (
+        <LogoPreviewSection
+          title="Left Face"
+          testId="logo-preview-left-face-section"
+        >
+          <div className={LOGO_CONTROL_BUTTON_ROW_CLASS_NAME}>
+            {LEFT_FACE_STYLE_OPTIONS.map((kind) => (
+              <Button
+                key={kind}
+                type="button"
+                size="sm"
+                variant={
+                  state.leftFaceStyle.kind === kind ? "default" : "outline"
+                }
+                className={LOGO_CONTROL_BUTTON_CLASS_NAME}
+                onClick={() => {
+                  controls.setLeftFaceStyleKind(kind);
+                }}
+              >
+                {LEFT_FACE_STYLE_LABELS[kind]}
+              </Button>
+            ))}
+          </div>
+
+          {stripedLeftFaceStyle ? (
+            <>
+              <LogoRangeControl
+                formatValue={(value) => value.toFixed(2)}
+                label="Width"
+                max={MAX_LOGO_LEFT_FACE_STRIPE_WIDTH}
+                min={MIN_LOGO_LEFT_FACE_STRIPE_WIDTH}
+                normalizeValue={normalizeLogoLeftFaceStripeWidth}
+                onSliderChange={controls.setLeftFaceStripeWidth}
+                onValueChange={controls.setLeftFaceStripeWidth}
+                sliderAriaLabel="Stripe width slider"
+                step={LOGO_LEFT_FACE_STRIPE_WIDTH_STEP}
+                value={stripedLeftFaceStyle.stripeWidth}
+                valueAriaLabel="Stripe width"
+                valueText={stripedLeftFaceStyle.stripeWidth.toFixed(2)}
+              />
+
+              <LogoRangeControl
+                formatValue={(value) => value.toFixed(2)}
+                label="Gap"
+                max={MAX_LOGO_LEFT_FACE_STRIPE_GAP}
+                min={MIN_LOGO_LEFT_FACE_STRIPE_GAP}
+                normalizeValue={normalizeLogoLeftFaceStripeGap}
+                onSliderChange={controls.setLeftFaceStripeGap}
+                onValueChange={controls.setLeftFaceStripeGap}
+                sliderAriaLabel="Stripe gap slider"
+                step={LOGO_LEFT_FACE_STRIPE_GAP_STEP}
+                value={stripedLeftFaceStyle.stripeGap}
+                valueAriaLabel="Stripe gap"
+                valueText={stripedLeftFaceStyle.stripeGap.toFixed(2)}
+              />
+
+              <LogoRangeControl
+                formatValue={(value) => value.toFixed(1)}
+                label="Angle"
+                max={MAX_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES}
+                min={MIN_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES}
+                normalizeValue={normalizeLogoLeftFaceStripeAngleDegrees}
+                onSliderChange={controls.setLeftFaceStripeAngleDegrees}
+                onValueChange={controls.setLeftFaceStripeAngleDegrees}
+                sliderAriaLabel="Stripe angle slider"
+                step={LOGO_LEFT_FACE_STRIPE_ANGLE_STEP}
+                value={stripedLeftFaceStyle.stripeAngleDegrees}
+                valueAriaLabel="Stripe angle"
+                valueText={`${stripedLeftFaceStyle.stripeAngleDegrees.toFixed(1)}°`}
+              />
+
+              <LogoRangeControl
+                formatValue={(value) => value.toFixed(2)}
+                label="Offset"
+                max={MAX_LOGO_LEFT_FACE_STRIPE_OFFSET}
+                min={MIN_LOGO_LEFT_FACE_STRIPE_OFFSET}
+                normalizeValue={normalizeLogoLeftFaceStripeOffset}
+                onSliderChange={controls.setLeftFaceStripeOffset}
+                onValueChange={controls.setLeftFaceStripeOffset}
+                sliderAriaLabel="Stripe offset slider"
+                step={LOGO_LEFT_FACE_STRIPE_OFFSET_STEP}
+                value={stripedLeftFaceStyle.stripeOffset}
+                valueAriaLabel="Stripe offset"
+                valueText={stripedLeftFaceStyle.stripeOffset.toFixed(2)}
+              />
+            </>
+          ) : null}
+        </LogoPreviewSection>
+      ) : null}
 
       <LogoPreviewSection title="Colors" testId="logo-preview-colors-section">
         <div className="flex items-center gap-1">
