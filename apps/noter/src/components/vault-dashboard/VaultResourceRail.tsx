@@ -110,9 +110,11 @@ const STATUS_ICON_CLASS_NAMES = {
 } satisfies Record<VaultResourceRailVisualStatus, string>;
 
 const STATUS_TEXT_CLASS_NAMES = {
-  failed: "col-span-2 text-xs text-destructive",
-  running: "col-span-2 text-xs text-muted-foreground",
+  failed: "col-span-2 -mt-1 min-h-4 text-xs leading-4 text-destructive",
+  running: "col-span-2 -mt-1 min-h-4 text-xs leading-4 text-muted-foreground",
 } satisfies Record<"failed" | "running", string>;
+const EMPTY_STATUS_TEXT_CLASS_NAME =
+  "col-span-2 -mt-1 min-h-4 text-xs leading-4";
 
 function getStatusIcon(status: VaultResourceRailVisualStatus): LucideIcon {
   switch (status) {
@@ -223,12 +225,12 @@ function VaultResourceRailRow({ row }: { row: VaultResourceRailRowState }) {
   return (
     <div
       data-provider={row.provider}
-      className="grid min-h-8 grid-cols-[1rem_minmax(0,1fr)] gap-x-2 gap-y-0.5"
+      className="grid grid-cols-[1rem_minmax(0,1fr)] gap-x-2"
     >
-      <div className="flex h-8 items-center justify-center">
+      <div className="flex h-7 items-center justify-center">
         <StatusIcon className={STATUS_ICON_CLASS_NAMES[row.status]} />
       </div>
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+      <div className="flex min-h-7 min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
         <div className="w-20 shrink-0 text-sm font-medium">
           {PROVIDER_LABELS[row.provider]}
         </div>
@@ -241,7 +243,9 @@ function VaultResourceRailRow({ row }: { row: VaultResourceRailRowState }) {
       </div>
       {statusText ? (
         <div className={statusText.className}>{statusText.text}</div>
-      ) : null}
+      ) : (
+        <div aria-hidden="true" className={EMPTY_STATUS_TEXT_CLASS_NAME} />
+      )}
     </div>
   );
 }
