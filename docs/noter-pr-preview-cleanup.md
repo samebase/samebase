@@ -21,8 +21,34 @@ or touch temporary Noter-managed vault infrastructure as part of this workflow.
    itself.
 4. Delete no Convex deployment unless it is a `preview` deployment for the exact
    branch.
-5. If metadata is missing, ambiguous, or credentials are unavailable, skip that
-   provider and report the skip.
+5. Load cleanup credentials from the repo seed env before deciding credentials
+   are unavailable. Missing values in the inherited shell environment alone are
+   not a reason to skip.
+6. If metadata is missing, ambiguous, or credentials are unavailable after the
+   seed env preflight, skip that provider and report the skip.
+
+## 0. Load Cleanup Credentials
+
+Run cleanup commands from the repo root. The cleanup credentials normally live
+in `apps/noter/.env.anon-seed.local`, not in the inherited shell environment.
+Load that file before checking Cloudflare or Convex, and do not print the
+values:
+
+```bash
+test -f apps/noter/.env.anon-seed.local
+set -a
+. apps/noter/.env.anon-seed.local
+set +a
+export CLOUDFLARE_WORKER_NAME="${CLOUDFLARE_WORKER_NAME:-noter-worker}"
+
+: "${DEV_SEED_CLOUDFLARE_ACCOUNT_ID:?missing DEV_SEED_CLOUDFLARE_ACCOUNT_ID}"
+: "${DEV_SEED_CLOUDFLARE_API_KEY:?missing DEV_SEED_CLOUDFLARE_API_KEY}"
+: "${DEV_SEED_CONVEX_MANAGEMENT_API_KEY:?missing DEV_SEED_CONVEX_MANAGEMENT_API_KEY}"
+: "${DEV_SEED_CONVEX_TEAM_ID:?missing DEV_SEED_CONVEX_TEAM_ID}"
+```
+
+Skip a provider for missing credentials only when the required value is still
+missing after this preflight.
 
 ## 1. Confirm The Merged PR
 
@@ -75,16 +101,17 @@ version:
    to the merged PR, branch, or head SHA
 3. the version ID is not present in the active deployments output
 
-If Wrangler output is not enough, inspect the Worker versions API before
-deciding:
+If Wrangler output is not enough, or the matching branch is absent from the
+Wrangler list, inspect the paginated Worker versions API before deciding there
+is no Cloudflare match:
 
 ```bash
 curl --fail-with-body --request GET \
-  --url "https://api.cloudflare.com/client/v4/accounts/$DEV_SEED_CLOUDFLARE_ACCOUNT_ID/workers/workers/$CLOUDFLARE_WORKER_NAME/versions" \
+  --url "https://api.cloudflare.com/client/v4/accounts/$DEV_SEED_CLOUDFLARE_ACCOUNT_ID/workers/workers/$CLOUDFLARE_WORKER_NAME/versions?per_page=100" \
   --header "Authorization: Bearer $DEV_SEED_CLOUDFLARE_API_KEY"
 ```
 
-Follow pagination if the response is paginated.
+Follow pagination until every Worker version has been inspected.
 
 Delete only proven inactive versions:
 
