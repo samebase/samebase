@@ -146,7 +146,6 @@ const ADD_VAULT_FLOW_SCENARIOS = [
         {
           provider: "convex",
           status: "action_required",
-          value: "Not connected",
           actions: [
             {
               kind: "connect_existing",
@@ -163,7 +162,6 @@ const ADD_VAULT_FLOW_SCENARIOS = [
         {
           provider: "cloudflare",
           status: "action_required",
-          value: "Not connected",
           actions: [
             {
               kind: "connect_existing",

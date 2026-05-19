@@ -19,7 +19,6 @@ describe("VaultResourceRail", () => {
         {
           provider: "convex",
           status: "action_required",
-          value: "Not connected",
           actions: [
             {
               kind: "connect_existing",
@@ -34,7 +33,6 @@ describe("VaultResourceRail", () => {
         {
           provider: "cloudflare",
           status: "action_required",
-          value: "Not connected",
           actions: [
             {
               kind: "connect_existing",
@@ -52,7 +50,7 @@ describe("VaultResourceRail", () => {
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
 
     expect(markup).toContain("nicu-chiciuc/weight_tsx");
-    expect(markup).toContain("Not connected");
+    expect(markup).not.toContain("Not connected");
     expect(markup).toContain("Connect");
     expect(markup).toContain("Create");
     expect(markup).toContain("Connect Worker");

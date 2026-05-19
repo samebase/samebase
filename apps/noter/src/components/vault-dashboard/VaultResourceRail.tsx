@@ -53,7 +53,6 @@ type VaultResourceRailActionRequiredRow<
   actions: VaultResourceRailActionList;
   provider: TProvider;
   status: "action_required";
-  value: string;
 };
 
 type VaultResourceRailFailedRow<TProvider extends VaultResourceRailProvider> = {
@@ -111,7 +110,7 @@ const STATUS_ICON_CLASS_NAMES = {
 function getStatusIcon(status: VaultResourceRailVisualStatus): LucideIcon {
   switch (status) {
     case "action_required":
-      return Plus;
+      return Circle;
     case "failed":
       return XCircle;
     case "pending":
@@ -173,7 +172,8 @@ function VaultResourceRailRow({ row }: { row: VaultResourceRailRowState }) {
   const StatusIcon = getStatusIcon(row.status);
   const actions = getRowActions(row);
   const value =
-    row.status === "ready" && row.href ? (
+    row.status === "action_required" ? null : row.status === "ready" &&
+      row.href ? (
       <a
         href={row.href}
         target="_blank"
@@ -198,9 +198,11 @@ function VaultResourceRailRow({ row }: { row: VaultResourceRailRowState }) {
         <div className="w-20 shrink-0 text-sm font-medium">
           {PROVIDER_LABELS[row.provider]}
         </div>
-        <div className="min-w-0 w-fit max-w-full shrink">
-          <div className="truncate text-sm">{value}</div>
-        </div>
+        {value ? (
+          <div className="min-w-0 w-fit max-w-full shrink">
+            <div className="truncate text-sm">{value}</div>
+          </div>
+        ) : null}
         {actions ? <VaultResourceRailActions actions={actions} /> : null}
       </div>
     </div>
