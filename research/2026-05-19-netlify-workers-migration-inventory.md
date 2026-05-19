@@ -389,6 +389,9 @@ Actual migration shape:
 - updated manifest icons from missing `/icon.png` to existing `/favicon.png`
 - added `wrangler.jsonc`, Cloudflare build/deploy wrappers, `AGENTS.md`, and a
   repo-specific README
+- kept the existing Netlify outer Convex deploy command working until cutover by
+  allowing Netlify to build app assets inside its nested `convex deploy --cmd`
+  step, while still rejecting generic `CONVEX_DEPLOY_KEY` in Workers builds
 
 Validation completed before provider changes:
 
@@ -396,6 +399,7 @@ Validation completed before provider changes:
 pnpm install
 pnpm run check
 pnpm run build
+NETLIFY=true CONVEX_DEPLOY_KEY=placeholder pnpm run build:cloudflare
 CLOUDFLARE_WORKER_NAME=weight-tsx pnpm run deploy:dry-run
 CLOUDFLARE_WORKER_NAME=weight-tsx pnpm run deploy:preview:dry-run
 pnpm run preview
