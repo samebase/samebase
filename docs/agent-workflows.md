@@ -254,18 +254,11 @@ Rules:
 - `archive` removes only the current non-`main` worktree and the local branch.
   It leaves the remote branch and PR intact.
 - `clean` is only for shipped or merged work. Run `clean vaults` first.
-- Before deleting the remote branch, run the noter.md PR preview cleanup for the
-  current branch. Dry-run first, then apply after checking the candidates:
-
-```bash
-pnpm clean:pr-preview -- --branch <branch>
-pnpm clean:pr-preview -- --branch <branch> --apply
-```
-
-- Noter PR preview cleanup targets the Cloudflare Worker version and Convex
-  preview deployment created by the branch build for noter.md itself. It is
-  separate from temporary vault cleanup and must not delete user/vault
-  infrastructure.
+- Before deleting the remote branch, follow `docs/noter-pr-preview-cleanup.md`
+  for the current branch. Noter PR preview cleanup targets the Cloudflare Worker
+  version and Convex preview deployment created by the branch build for noter.md
+  itself. It is separate from temporary vault cleanup and must not delete
+  user/vault infrastructure.
 - If the current checkout has a linked machine install, stop that exact
   checkout-local `noter-sync run` process before deleting its state dir.
 - `clean` should remove only the current checkout's isolated

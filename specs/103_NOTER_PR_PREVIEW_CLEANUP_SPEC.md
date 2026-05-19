@@ -21,21 +21,30 @@ branches, but it does not remove the remote preview resources created for
 These resources are not temporary Noter-managed vault infrastructure and must
 not be handled by vault deletion.
 
+## Decision
+
+This workflow stays as a Codex/operator runbook for now, not a standalone
+destructive script. The risky part is selecting the exact remote resources, so
+the `clean` workflow should let Codex inspect the live Cloudflare and Convex
+state before deleting anything.
+
+The durable automation is limited to identifying future Cloudflare preview
+uploads with branch-scoped metadata. Cleanup steps live in
+`docs/noter-pr-preview-cleanup.md`.
+
 ## Behavior
 
 The `clean` workflow includes a Noter PR preview cleanup step before deleting
 the remote branch.
 
-The preview cleanup command is:
+Codex must:
 
-```bash
-pnpm clean:pr-preview -- --branch <branch>
-pnpm clean:pr-preview -- --branch <branch> --apply
-```
-
-The command is dry-run by default. It must confirm the GitHub PR for the branch
-is merged before deleting anything. `--allow-unmerged` exists only for explicit
-operator cleanup when GitHub metadata is unavailable.
+1. confirm the branch's GitHub PR is merged
+2. compute the branch's Noter PR preview metadata
+3. enumerate Cloudflare Worker versions and active deployments
+4. enumerate Convex project deployments
+5. delete only resources that exactly match the merged branch
+6. stop without deleting anything when a candidate is ambiguous
 
 ## Cloudflare Cleanup
 
@@ -47,9 +56,9 @@ Future Workers preview uploads must attach branch-scoped metadata:
    Cloudflare's DNS label limit
 
 Cleanup lists Worker versions for `CLOUDFLARE_WORKER_NAME`, selects only
-versions whose `workers/tag` matches the branch tag, refuses active deployed
-versions, and deletes selected versions through the Cloudflare Worker Versions
-API.
+versions whose `workers/tag` matches the branch tag, refuses versions that
+appear in active Worker deployments, and deletes selected versions through the
+Cloudflare Worker Versions API.
 
 Cloudflare cleanup requires:
 
@@ -60,9 +69,9 @@ Cloudflare cleanup requires:
 ## Convex Cleanup
 
 Cleanup resolves the `noter` Convex project under `DEV_SEED_CONVEX_TEAM_ID`,
-lists project deployments, selects preview deployments whose metadata refers to
-the branch or `preview/<branch>`, and deletes selected deployments through the
-Convex Management API.
+lists project deployments, selects preview deployments whose reference or
+metadata refers to the branch or `preview/<branch>`, and deletes selected
+deployments through the Convex Management API.
 
 Convex cleanup requires:
 
@@ -76,5 +85,5 @@ Convex cleanup requires:
 3. Never delete untagged Cloudflare Worker versions by guessing from URL shape.
 4. Never delete Convex deployments unless the deployment is reported as
    `preview` and branch metadata matches the target branch.
-5. Missing provider credentials fail `--apply`, but only report skipped
-   providers in dry-run mode.
+5. Missing provider credentials skip that provider with a note; they are not a
+   reason to guess from another source.

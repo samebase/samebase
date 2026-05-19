@@ -51,7 +51,6 @@
     "build:noter": "vp run --filter noter build",
     "check:noter": "vp run --filter noter check",
     "lint:noter": "pnpm run check:noter",
-    "clean:pr-preview": "node ./scripts/clean-pr-preview.ts",
     "template:export": "node scripts/export-notermd-app-manifest.ts",
     "prepare": "vp config --hooks-dir .vite-hooks",
     "fixtures:update": "node ./scripts/update-simple-view-fixtures.ts",
