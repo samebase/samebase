@@ -29,6 +29,12 @@ import {
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
 import {
+  clampLogoFractalDepthForRenderer,
+  getLogoRendererFractalDepthHardMax,
+  getLogoRendererFractalDepthSliderMax,
+  type LogoDepthRenderer,
+} from "@/components/logo/logoDepthLimits";
+import {
   DEFAULT_LOGO_THEME_COLORS,
   LOGO_THEME_COLOR_KEYS,
   RGB_LOGO_THEME_COLORS,
@@ -81,7 +87,6 @@ import {
   MIN_ELEVATION_DEGREES,
   applyVoxelEdit,
   normalizeElevationDegrees,
-  normalizeLogoFractalDepth,
   normalizeRotationDegrees,
   parseVoxelState,
   serializeVoxelState,
@@ -122,7 +127,6 @@ const LOGO_PREVIEW_ROUTE_COMMIT_DEBOUNCE_MS = 150;
 const MIN_LOGO_OPACITY = 0;
 const MAX_LOGO_OPACITY = 1;
 const LOGO_OPACITY_STEP = 0.01;
-const LOGO_FRACTAL_DEPTH_SLIDER_MAX = 5;
 const LOGO_DISTANCE_INPUT_DECIMALS = 3;
 const ROTATION_AXIS_MODE_LABELS: Record<LogoRotationAxisMode, string> = {
   "cube-y": "Cube axis",
@@ -139,7 +143,7 @@ const ROTATION_AXIS_MODE_OPTIONS = [
 const LOGO_CONTROL_STACK_CLASS_NAME = "flex flex-col gap-2";
 const LOGO_CONTROL_BUTTON_CLASS_NAME = "min-w-0 flex-[1_0_10rem] rounded-none";
 const LOGO_CONTROL_BUTTON_ROW_CLASS_NAME = "flex flex-wrap gap-2";
-type LogoPreviewRenderMode = "three" | "iso" | "raster";
+type LogoPreviewRenderMode = Exclude<LogoDepthRenderer, "svg">;
 type LogoPreviewPageProps = {
   renderMode?: LogoPreviewRenderMode;
   replaceRouteSearch: (nextSearch: LogoRouteSearch) => void;
@@ -492,12 +496,15 @@ function readLogoDistanceScale(routeSearch: LogoRouteSearch): number {
   return normalizeLogoDistanceScale(routeSearch.dist);
 }
 
-function readLogoFractalDepth(routeSearch: LogoRouteSearch): number {
+function readLogoFractalDepth(
+  routeSearch: LogoRouteSearch,
+  renderMode: LogoPreviewRenderMode,
+): number {
   if (typeof routeSearch.depth !== "number") {
     return DEFAULT_LOGO_FRACTAL_DEPTH;
   }
 
-  return normalizeLogoFractalDepth(routeSearch.depth);
+  return clampLogoFractalDepthForRenderer(routeSearch.depth, renderMode);
 }
 
 type LogoPreviewRouteState = {
@@ -528,13 +535,14 @@ type LogoPreviewState = LogoPreviewRouteState & LogoPreviewLocalStoreState;
 
 function readLogoPreviewRouteState(
   routeSearch: LogoRouteSearch,
+  renderMode: LogoPreviewRenderMode,
 ): LogoPreviewRouteState {
   const view = readLogoPreviewView(routeSearch);
 
   return {
     distanceScale: readLogoDistanceScale(routeSearch),
     elevationDegrees: view.elevationDegrees,
-    fractalDepth: readLogoFractalDepth(routeSearch),
+    fractalDepth: readLogoFractalDepth(routeSearch, renderMode),
     isViewSnapEnabled: view.viewSnapEnabled,
     isoCubeSidePixels: readIsoCubeSidePixels(routeSearch),
     isoStyleId: readIsoStyleId(routeSearch),
@@ -580,6 +588,7 @@ function areLogoPreviewRouteStatesEqual(
 function buildLogoPreviewRouteSearch(
   routeState: LogoPreviewRouteState,
   routeSearch: LogoRouteSearch,
+  renderMode: LogoPreviewRenderMode,
 ): LogoRouteSearch {
   const resolvedView = resolveLogoPreviewViewState(
     {
@@ -593,7 +602,10 @@ function buildLogoPreviewRouteSearch(
     buildLogoRouteSearch({
       distanceScale: routeState.distanceScale,
       elevationDegrees: resolvedView.elevationDegrees,
-      fractalDepth: routeState.fractalDepth,
+      fractalDepth: clampLogoFractalDepthForRenderer(
+        routeState.fractalDepth,
+        renderMode,
+      ),
       isoCubeSidePixels: routeState.isoCubeSidePixels,
       isoStyleId: routeState.isoStyleId,
       rotationAxisMode: routeState.rotationAxisMode,
@@ -611,17 +623,23 @@ function replaceLogoPreviewRouteSearch({
   replaceRouteSearch,
   routeSearch,
   routeState,
+  renderMode,
 }: {
   replaceRouteSearch: LogoPreviewPageProps["replaceRouteSearch"];
   routeSearch: LogoRouteSearch;
   routeState: LogoPreviewRouteState;
+  renderMode: LogoPreviewRenderMode;
 }) {
-  const nextSearch = buildLogoPreviewRouteSearch(routeState, routeSearch);
+  const nextSearch = buildLogoPreviewRouteSearch(
+    routeState,
+    routeSearch,
+    renderMode,
+  );
 
   if (
     !areLogoRouteSearchesEqual(
       nextSearch,
-      readCanonicalLogoRouteSearch(routeSearch),
+      readCanonicalLogoRouteSearch(routeSearch, renderMode),
     )
   ) {
     replaceRouteSearch(nextSearch);
@@ -709,13 +727,18 @@ function useLogoPreviewStore() {
  */
 function useLogoPreviewController({
   replaceRouteSearch,
+  renderMode,
   routeSearch,
-}: Pick<LogoPreviewPageProps, "replaceRouteSearch" | "routeSearch">) {
+}: {
+  replaceRouteSearch: LogoPreviewPageProps["replaceRouteSearch"];
+  renderMode: LogoPreviewRenderMode;
+  routeSearch: LogoRouteSearch;
+}) {
   const store = useLogoPreviewStore();
   const localState = useSelector(store);
   const routeState = useMemo(
-    () => readLogoPreviewRouteState(routeSearch),
-    [routeSearch],
+    () => readLogoPreviewRouteState(routeSearch, renderMode),
+    [renderMode, routeSearch],
   );
   const routeSearchRef = useRef(routeSearch);
   routeSearchRef.current = routeSearch;
@@ -725,6 +748,7 @@ function useLogoPreviewController({
       const latestRouteSearch = routeSearchRef.current;
       replaceLogoPreviewRouteSearch({
         replaceRouteSearch,
+        renderMode,
         routeSearch: latestRouteSearch,
         routeState: nextRouteState,
       });
@@ -865,7 +889,10 @@ function useLogoPreviewController({
         }));
       },
       setFractalDepth: (fractalDepth: number) => {
-        const nextFractalDepth = normalizeLogoFractalDepth(fractalDepth);
+        const nextFractalDepth = clampLogoFractalDepthForRenderer(
+          fractalDepth,
+          renderMode,
+        );
         commitRouteState((currentState) => ({
           ...currentState,
           fractalDepth: nextFractalDepth,
@@ -1001,12 +1028,13 @@ function isLogoPresetId(value: string): value is LogoPresetId {
 
 function readCanonicalLogoRouteSearch(
   routeSearch: LogoRouteSearch,
+  renderMode: LogoPreviewRenderMode,
 ): LogoRouteSearch {
   return preserveLogoRouteDevModeSearch(
     buildLogoRouteSearch({
       distanceScale: readLogoDistanceScale(routeSearch),
       elevationDegrees: readElevationDegrees(routeSearch),
-      fractalDepth: readLogoFractalDepth(routeSearch),
+      fractalDepth: readLogoFractalDepth(routeSearch, renderMode),
       isoCubeSidePixels: readIsoCubeSidePixels(routeSearch),
       isoStyleId: readIsoStyleId(routeSearch),
       rotationAxisMode: readRotationAxisMode(routeSearch),
@@ -1215,6 +1243,7 @@ export function LogoPreviewPage({
 }: LogoPreviewPageProps) {
   const { controls, state } = useLogoPreviewController({
     replaceRouteSearch,
+    renderMode,
     routeSearch,
   });
   const { backgroundColor, faceColors } = useResolvedAppThemeColorState(
@@ -1235,6 +1264,9 @@ export function LogoPreviewPage({
       ? null
       : getLogoPreset(state.selectedPresetId);
   const selectedIsoStyle = getLogoIsometricStyle(state.isoStyleId);
+  const fractalDepthHardMax = getLogoRendererFractalDepthHardMax(renderMode);
+  const fractalDepthSliderMax =
+    getLogoRendererFractalDepthSliderMax(renderMode);
   const rotationAngleControlLabel =
     ROTATION_ANGLE_CONTROL_LABELS[state.rotationAxisMode];
   const isRecursiveDepth = state.fractalDepth > DEFAULT_LOGO_FRACTAL_DEPTH;
@@ -1417,15 +1449,18 @@ export function LogoPreviewPage({
         <LogoRangeControl
           formatValue={(value) => Math.round(value).toString()}
           label="Depth"
-          max={LOGO_FRACTAL_DEPTH_SLIDER_MAX}
+          max={fractalDepthSliderMax}
           min={MIN_LOGO_FRACTAL_DEPTH}
-          normalizeValue={normalizeLogoFractalDepth}
+          normalizeValue={(value) =>
+            clampLogoFractalDepthForRenderer(value, renderMode)
+          }
           onSliderChange={controls.setFractalDepth}
           onValueChange={controls.setFractalDepth}
           sliderAriaLabel="Depth slider"
           step="1"
           value={state.fractalDepth}
           valueAriaLabel="Depth value"
+          valueInputMax={fractalDepthHardMax}
           valueInputMode="numeric"
           valueText={`${state.fractalDepth}`}
         />

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LogoPreviewPage } from "@/components/logo/LogoPreviewPage";
-import { validateLogoRouteSearch } from "@/lib/logoRouteSearch";
+import { validateLogoRouteSearchForRenderer } from "@/lib/logoRouteSearch";
 import { RoutedPage } from "./-publicRouteComponents";
 
 const pathname = "/logo";
@@ -27,5 +27,5 @@ function LogoThreeRouteComponent() {
 
 export const Route = createFileRoute("/logo")({
   component: LogoThreeRouteComponent,
-  validateSearch: validateLogoRouteSearch,
+  validateSearch: validateLogoRouteSearchForRenderer("three"),
 });

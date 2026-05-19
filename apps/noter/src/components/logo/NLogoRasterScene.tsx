@@ -19,6 +19,7 @@ import {
   DEFAULT_LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
+import { clampLogoFractalDepthForRenderer } from "@/components/logo/logoDepthLimits";
 import { getShuffleOriginCandidates } from "@/components/logo/logoShuffleRules";
 import {
   DRAG_ELEVATION_DEGREES_PER_PIXEL,
@@ -27,7 +28,6 @@ import {
 import {
   GRID_SIZE,
   createDefaultFilledVoxelSet,
-  normalizeLogoFractalDepth,
   parseVoxelKey,
   parseVoxelState,
   voxelKey,
@@ -1490,7 +1490,7 @@ function renderRasterScene({
   });
   const image = renderRasterRecursiveImage({
     activeMoves: motion.activeMoves,
-    depth: normalizeLogoFractalDepth(fractalDepth),
+    depth: clampLogoFractalDepthForRenderer(fractalDepth, "raster"),
     distanceScale: normalizedDistanceScale,
     drawItems,
     elevationDegrees,

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { PNG } from "pngjs";
 import { PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID } from "../src/components/PublicRightSidebar";
+import { getLogoRendererFractalDepthHardMax } from "../src/components/logo/logoDepthLimits";
 import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
 import { LOCAL_STORAGE_ROUTE } from "../src/lib/localStorageRoute";
 
@@ -646,7 +647,10 @@ test("logo depth slider clears default depth from the URL", async ({
   const depthValue = controlsSidebar.getByLabel("Depth value");
 
   await expect(depthSlider).toHaveAttribute("max", "5");
-  await expect(depthValue).not.toHaveAttribute("max");
+  await expect(depthValue).toHaveAttribute(
+    "max",
+    `${getLogoRendererFractalDepthHardMax("three")}`,
+  );
   await expect(depthValue).toHaveValue("3");
   await depthSlider.fill("1");
   await expect(depthValue).toHaveValue("1");
@@ -656,6 +660,53 @@ test("logo depth slider clears default depth from the URL", async ({
       return url.searchParams.has("depth");
     })
     .toBe(false);
+});
+
+test("logo pages cap URL-edited recursive depth before rendering", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo?depth=99&rot=45", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  await expect(controlsSidebar.getByLabel("Depth value")).toHaveValue(
+    `${getLogoRendererFractalDepthHardMax("three")}`,
+  );
+
+  await page.goto(
+    "/logo/svg?depth=99&vox=xxx_xxx_xxx-xxx_xxx_xxx-xxx_xxx_xxx",
+    {
+      waitUntil: "domcontentloaded",
+    },
+  );
+
+  const staticLogo = page.getByTestId("logo-static-svg-image");
+  await expect(staticLogo).toBeVisible();
+  await expect
+    .poll(async () => {
+      const src = await staticLogo.getAttribute("src");
+      const hash = src?.split("#")[1] ?? "";
+      return decodeURIComponent(hash).endsWith(
+        `:${getLogoRendererFractalDepthHardMax("svg")}`,
+      );
+    })
+    .toBe(true);
+
+  await page.goto("/logo/iso?depth=99", {
+    waitUntil: "domcontentloaded",
+  });
+  await expect(
+    page.getByTestId("workspace-layout-v2-pane-left").getByLabel("Depth value"),
+  ).toHaveValue(`${getLogoRendererFractalDepthHardMax("iso")}`);
+
+  await page.goto("/logo/raster?depth=99", {
+    waitUntil: "domcontentloaded",
+  });
+  await expect(
+    page.getByTestId("workspace-layout-v2-pane-left").getByLabel("Depth value"),
+  ).toHaveValue(`${getLogoRendererFractalDepthHardMax("raster")}`);
 });
 
 test("logo distance scale controls Three and raster previews", async ({

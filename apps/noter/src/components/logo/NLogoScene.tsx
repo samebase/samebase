@@ -14,6 +14,7 @@ import {
   DEFAULT_LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
+import { clampLogoFractalDepthForRenderer } from "@/components/logo/logoDepthLimits";
 import {
   buildLogoSurfaceQuads,
   getLogoSurfaceFitRadius,
@@ -32,7 +33,6 @@ import {
   getLogoFractalGridSize,
   isWithinVoxelGrid,
   type LogoVoxelGrid,
-  normalizeLogoFractalDepth,
   parseVoxelKey,
   parseVoxelState,
   type VoxelCoordinate,
@@ -269,8 +269,9 @@ function resolveSceneVoxelGrid({
 }): ResolvedSceneVoxelGrid {
   const baseFilledVoxels =
     parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet();
-  const normalizedFractalDepth = normalizeLogoFractalDepth(
+  const normalizedFractalDepth = clampLogoFractalDepthForRenderer(
     fractalDepth ?? DEFAULT_LOGO_FRACTAL_DEPTH,
+    "three",
   );
 
   if (voxelGrid) {

@@ -6,6 +6,10 @@ import {
   normalizeLogoIsometricCubeSidePixels,
   type LogoIsometricStyleId,
 } from "@/components/logo/logoIsometricRenderer";
+import {
+  clampLogoFractalDepthForRenderer,
+  type LogoDepthRenderer,
+} from "@/components/logo/logoDepthLimits";
 import { type LogoThemeColors } from "@/components/logo/logoTailwindColors";
 import {
   DEFAULT_LOGO_DISTANCE_SCALE,
@@ -181,6 +185,32 @@ export function validateLogoRouteSearch(
   return logoRouteSearchSchema.parse(
     normalizeRouteSearchPresenceFlags(search, LOGO_ROUTE_PRESENCE_SEARCH_KEYS),
   );
+}
+
+export function clampLogoRouteSearchForRenderer(
+  search: LogoRouteSearch,
+  renderer: LogoDepthRenderer,
+): LogoRouteSearch {
+  if (typeof search.depth !== "number") {
+    return search;
+  }
+
+  const depth = clampLogoFractalDepthForRenderer(search.depth, renderer);
+  if (depth === search.depth) {
+    return search;
+  }
+
+  return {
+    ...search,
+    depth,
+  };
+}
+
+export function validateLogoRouteSearchForRenderer(
+  renderer: LogoDepthRenderer,
+): (search: Record<string, unknown>) => LogoRouteSearch {
+  return (search) =>
+    clampLogoRouteSearchForRenderer(validateLogoRouteSearch(search), renderer);
 }
 
 export function buildLogoRouteSearch(args: {
