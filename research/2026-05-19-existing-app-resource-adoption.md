@@ -380,6 +380,31 @@ before the core adoption data model exists. Smarter Cloudflare-to-Convex proof
 chains can come later as recommendations layered on top of the same manual
 selector.
 
+### Version 1: Scope Pickers
+
+GitHub already needs an owner picker because repositories can live under the
+viewer account or organizations. Provider adoption needs the same idea, but the
+provider hierarchies are different.
+
+Convex resources are organized by team, then project, then deployment. The
+current Noter Convex connection stores one `teamId` and optional `teamSlug`, and
+the Management API project list is team-scoped. For V1, treat the connected
+Convex team as the current scope and list production deployments inside it. Show
+the team name/slug near the picker. If the user needs a different team, the V1
+action can be "Reconnect or switch Convex team" rather than building a
+multi-team picker up front.
+
+Cloudflare Workers are account-scoped. The current Noter connection stores an
+optional `accountId`, and Noter already has an account inventory read. For V1,
+show a Cloudflare account picker when the connected token can see multiple
+accounts, then list Workers for the selected account. Auto-select the account
+only when exactly one account is visible.
+
+Store the chosen provider scope with the resource target. A global
+`providerConnections.cloudflare.accountId` is useful as a default, but the vault
+resource target should still carry its own `accountId` because different vaults
+can reasonably adopt Workers from different Cloudflare accounts.
+
 ## Data Model Proposal
 
 ### Replace The Overloaded Managed Predicate
@@ -482,10 +507,12 @@ Extend the target concept to support adoption:
 type ConvexTarget =
   | {
       mode: "create_project";
+      teamId: string;
       projectName: string;
     }
   | {
       mode: "connect_existing_deployment";
+      teamId: string;
       projectId: string;
       projectSlug: string;
       deploymentName: string;
@@ -752,8 +779,11 @@ For new apps:
 3. Support Cloudflare target modes:
    - create Worker
    - connect existing Worker
-4. Record target origin before provider side effects.
-5. For V1, allow explicit selection from all visible provider resources instead
+4. Include provider scope in targets:
+   - Convex `teamId`
+   - Cloudflare `accountId`
+5. Record target origin before provider side effects.
+6. For V1, allow explicit selection from all visible provider resources instead
    of requiring automatic matching.
 
 ### Slice 4: Add Resource Configuration Action
