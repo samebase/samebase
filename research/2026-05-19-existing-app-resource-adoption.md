@@ -322,7 +322,9 @@ answers "which production infrastructure should this vault use?"
 
 ### Dashboard Card
 
-Every connected vault should have a compact resource area:
+Every connected vault should have a compact resource rail in the header. This
+rail should replace the current scattered provider links as the first thing that
+explains what the vault is connected to.
 
 - GitHub repository
 - Convex production deployment
@@ -330,13 +332,34 @@ Every connected vault should have a compact resource area:
 - production domain
 - preview/deploy status
 
-Each row should show:
+The core V1 rail can stay to three provider rows:
+
+```text
+[green] GitHub       nicu-chiciuc/weight_tsx
+[plus]  Convex       Connect
+[empty] Cloudflare   Create Worker
+```
+
+The dot is the status surface:
+
+- spinning/current: provisioning this resource
+- green: connected or created successfully
+- gray with plus/action: not configured
+- red: failed and retryable
+- muted: intentionally skipped or not selected for this vault
+
+Each row should show only what helps the user decide or act:
 
 - state: missing, selected, connected, provisioning, failed
 - origin: Noter-created or connected existing
 - stable provider name/id when known
 - URL when known
 - action: connect existing, create new, retry, open provider
+
+Avoid rendering every durable workflow event as a first-class row. The visible
+rail should group the workflow by durable resource: GitHub, Convex, Cloudflare.
+Detailed workflow events and logs can remain available in the expanded details
+or developer surface.
 
 For the first implementation, keep the actions narrow:
 
@@ -767,18 +790,18 @@ resource ledger.
 
 ### Proposed Resource Area
 
-Add a compact resource area to each ready vault card:
+Add a compact resource rail to each ready vault card/header:
 
 ```text
-GitHub        nicu-chiciuc/weight_tsx        Connected existing
-Convex        weight-tsx / production        Connected existing
-Cloudflare    weight-tsx                     Noter-created
-Production    https://weight-tsx...          Workers default
-Preview       Ready / latest build status
+[green] GitHub       nicu-chiciuc/weight_tsx       Connected existing
+[green] Convex       weight-tsx / production       Connected existing
+[green] Cloudflare   weight-tsx                    Noter-created
 ```
 
-Keep copy minimal and use provider icons. The row should exist even when the
-external dashboard link is unavailable.
+Keep copy minimal and use provider icons when they reduce ambiguity. The row
+should exist even when the external dashboard link is unavailable. Production
+domain and preview status can live as secondary metadata under the Cloudflare
+row or in expanded details until they become first-class independent resources.
 
 ### Provider Setup CTA
 
