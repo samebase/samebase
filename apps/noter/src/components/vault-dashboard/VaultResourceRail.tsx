@@ -273,7 +273,7 @@ function VaultResourceRailActions({
   actions: VaultResourceRailActionList;
 }) {
   return (
-    <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-1">
+    <div className="flex min-w-0 flex-wrap gap-1">
       {actions.map((action) => {
         const Icon = ACTION_ICONS[action.kind];
         return (
@@ -320,7 +320,7 @@ function VaultResourceRailRow({ row }: { row: VaultResourceRailRowViewModel }) {
       </div>
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
         <div className="w-20 shrink-0 text-sm font-medium">{row.label}</div>
-        <div className="min-w-0 grow basis-48">
+        <div className="min-w-0 w-fit max-w-full shrink">
           <div className="truncate text-sm">{value}</div>
           {row.detail ? (
             <div className="truncate text-xs text-muted-foreground">
