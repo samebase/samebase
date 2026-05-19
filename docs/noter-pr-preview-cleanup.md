@@ -6,7 +6,7 @@ script.
 
 The scope is only preview resources created for the `noter.md` app build:
 
-- the Cloudflare Worker preview version, when it can be proven
+- Cloudflare Worker preview versions, when they can be proven
 - the Convex preview deployment for the merged branch
 
 Do not change Cloudflare deploy behavior, add preview tags, add cleanup scripts,
@@ -15,8 +15,8 @@ or touch temporary Noter-managed vault infrastructure as part of this workflow.
 ## Safety Rules
 
 1. Continue only after the branch's GitHub PR is merged.
-2. Delete nothing from Cloudflare unless the exact Worker version is tied to the
-   merged branch or PR by provider or GitHub metadata.
+2. Delete nothing from Cloudflare unless each exact Worker version is tied to
+   the merged branch or PR by provider or GitHub metadata.
 3. Delete no active Cloudflare Worker version and never delete the Worker
    itself.
 4. Delete no Convex deployment unless it is a `preview` deployment for the exact
@@ -29,6 +29,15 @@ or touch temporary Noter-managed vault infrastructure as part of this workflow.
 ```bash
 branch="$(git rev-parse --abbrev-ref HEAD)"
 gh pr view --head "$branch" --json number,url,state,mergedAt,headRefName,headRefOid
+```
+
+If the local branch is already gone and the cleanup is being run by PR number,
+start from the PR instead:
+
+```bash
+pr_number="<merged-pr-number>"
+gh pr view "$pr_number" --json number,url,state,mergedAt,headRefName,headRefOid
+branch="<headRefName from the PR JSON>"
 ```
 
 Continue only when `headRefName` equals `$branch` and `mergedAt` is not `null`.
@@ -52,10 +61,18 @@ gh pr checks "$pr_number"
 gh pr view "$pr_number" --json comments,statusCheckRollup
 ```
 
-Delete a Cloudflare Worker version only when all of these are true:
+Cloudflare may create multiple preview Worker versions for the same branch.
+Treat each matching inactive version as its own candidate. In current Workers
+preview metadata, branch previews can appear as `workers/alias` with slashes
+replaced by dashes, such as `codex-logo-striped-face` for
+`codex/logo-striped-face`.
+
+Delete Cloudflare Worker versions only when all of these are true for each
+version:
 
 1. the exact version ID is known
-2. the version or preview URL is tied to the merged PR, branch, or head SHA
+2. the version alias, version metadata, preview URL, or GitHub metadata is tied
+   to the merged PR, branch, or head SHA
 3. the version ID is not present in the active deployments output
 
 If Wrangler output is not enough, inspect the Worker versions API before
@@ -69,7 +86,7 @@ curl --fail-with-body --request GET \
 
 Follow pagination if the response is paginated.
 
-Delete only the proven inactive version:
+Delete only proven inactive versions:
 
 ```bash
 version_id="<matching-worker-version-id>"
@@ -123,6 +140,6 @@ cleanup.
 In the final `clean` response, include:
 
 - the merged PR URL
-- any Cloudflare Worker version ID deleted, or why Cloudflare was skipped
+- any Cloudflare Worker version IDs deleted, or why Cloudflare was skipped
 - any Convex deployment name deleted, or why Convex was skipped
 - the remaining local cleanup actions
