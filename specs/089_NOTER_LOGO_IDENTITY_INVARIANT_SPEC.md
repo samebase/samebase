@@ -61,7 +61,7 @@ Use this treatment whenever the Noter mark must work with one foreground color:
 - Right face: fill solid foreground color.
 - Top face: leave as background/knockout.
 - Left face: fill with foreground stripes over background.
-- Stripe angle: `45deg` in the left face's local square.
+- Stripe angle: `-45deg` in the left face's local square.
 - Stripe basis: `vertical`.
 - Stripe width: `1/4` face unit.
 - Stripe gap: `1/4` face unit.
