@@ -1057,7 +1057,7 @@ function applyLeftFaceMaterialState({
       const stripeBasisScale = getLogoLeftFaceStripeBasisScale(normalizedStyle);
 
       uniforms.stripeAngleRadians.value = THREE.MathUtils.degToRad(
-        -normalizedStyle.stripeAngleDegrees,
+        normalizedStyle.stripeAngleDegrees,
       );
       uniforms.stripeGap.value = normalizedStyle.stripeGap * stripeBasisScale;
       uniforms.stripeOffset.value = normalizedStyle.stripeOffset;

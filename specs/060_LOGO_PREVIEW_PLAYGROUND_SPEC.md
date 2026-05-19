@@ -215,7 +215,7 @@ The playground should expose at least these presets:
   left-face color relationship.
 - `striped` is a shareable exploration state with controls for stripe width,
   gap, angle, and offset. Its default state is the canonical single-color
-  treatment from `specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md`: `-45deg`,
+  treatment from `specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md`: `45deg`,
   vertical basis, `1/4` width, `1/4` gap, and `0` offset.
 - Stripe width and gap may be `0`, and the playground should expose a shareable
   linked-width/gap option for checking equal-period patterns quickly.
@@ -232,9 +232,6 @@ The playground should expose at least these presets:
   cross-section. The auto basis uses the larger axis projection so cardinal
   stripe angles do not collapse to zero while the internal math still uses
   JavaScript double precision rather than UI-rounded approximations.
-- In the Three renderer, the URL angle is mirrored when passed to the shader so
-  the canonical `stripeA=-45` treatment draws the accepted visible diagonal on
-  projected left faces.
 - Stripes must be rendered in the left face's local 3D surface space, not as a
   screen-space overlay, so dragging the logo keeps the pattern attached to the
   face geometry.

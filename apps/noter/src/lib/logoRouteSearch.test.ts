@@ -253,7 +253,7 @@ describe("logoRouteSearch", () => {
     expect(
       validateLogoRouteSearch({
         leftFace: "striped",
-        stripeA: "-45",
+        stripeA: "45",
         stripeBasis: "vertical",
         stripeG: "0.25",
         stripeW: "0.25",
