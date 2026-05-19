@@ -1,9 +1,16 @@
 import { expect, test, type Page } from "@playwright/test";
 import { PNG } from "pngjs";
 import { PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID } from "../src/components/PublicRightSidebar";
-import { getLogoRendererFractalDepthHardMax } from "../src/components/logo/logoDepthLimits";
 import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
 import { LOCAL_STORAGE_ROUTE } from "../src/lib/localStorageRoute";
+
+// Keep this route-level guard independent from the production cap helper.
+const EXPECTED_LOGO_DEPTH_HARD_MAX = {
+  iso: 10,
+  raster: 10,
+  svg: 3,
+  three: 5,
+} as const;
 
 async function waitForPaint(page: Page) {
   await page.evaluate(async () => {
@@ -649,7 +656,7 @@ test("logo depth slider clears default depth from the URL", async ({
   await expect(depthSlider).toHaveAttribute("max", "5");
   await expect(depthValue).toHaveAttribute(
     "max",
-    `${getLogoRendererFractalDepthHardMax("three")}`,
+    `${EXPECTED_LOGO_DEPTH_HARD_MAX.three}`,
   );
   await expect(depthValue).toHaveValue("3");
   await depthSlider.fill("1");
@@ -672,7 +679,7 @@ test("logo pages cap URL-edited recursive depth before rendering", async ({
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
   await expect(controlsSidebar.getByLabel("Depth value")).toHaveValue(
-    `${getLogoRendererFractalDepthHardMax("three")}`,
+    `${EXPECTED_LOGO_DEPTH_HARD_MAX.three}`,
   );
 
   await page.goto(
@@ -689,7 +696,7 @@ test("logo pages cap URL-edited recursive depth before rendering", async ({
       const src = await staticLogo.getAttribute("src");
       const hash = src?.split("#")[1] ?? "";
       return decodeURIComponent(hash).endsWith(
-        `:${getLogoRendererFractalDepthHardMax("svg")}`,
+        `:${EXPECTED_LOGO_DEPTH_HARD_MAX.svg}`,
       );
     })
     .toBe(true);
@@ -699,14 +706,14 @@ test("logo pages cap URL-edited recursive depth before rendering", async ({
   });
   await expect(
     page.getByTestId("workspace-layout-v2-pane-left").getByLabel("Depth value"),
-  ).toHaveValue(`${getLogoRendererFractalDepthHardMax("iso")}`);
+  ).toHaveValue(`${EXPECTED_LOGO_DEPTH_HARD_MAX.iso}`);
 
   await page.goto("/logo/raster?depth=99", {
     waitUntil: "domcontentloaded",
   });
   await expect(
     page.getByTestId("workspace-layout-v2-pane-left").getByLabel("Depth value"),
-  ).toHaveValue(`${getLogoRendererFractalDepthHardMax("raster")}`);
+  ).toHaveValue(`${EXPECTED_LOGO_DEPTH_HARD_MAX.raster}`);
 });
 
 test("logo distance scale controls Three and raster previews", async ({

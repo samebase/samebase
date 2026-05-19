@@ -187,6 +187,10 @@ export function validateLogoRouteSearch(
   );
 }
 
+/**
+ * Enforces the destination renderer's recovery cap on parsed route state.
+ * Only `depth` changes; already-safe searches keep object identity.
+ */
 export function clampLogoRouteSearchForRenderer(
   search: LogoRouteSearch,
   renderer: LogoDepthRenderer,
@@ -206,6 +210,10 @@ export function clampLogoRouteSearchForRenderer(
   };
 }
 
+/**
+ * Route validators use the shared logo parser first, then clamp depth for the
+ * page renderer so URL-edited depth never exceeds that renderer's hard cap.
+ */
 export function validateLogoRouteSearchForRenderer(
   renderer: LogoDepthRenderer,
 ): (search: Record<string, unknown>) => LogoRouteSearch {
