@@ -272,6 +272,34 @@ test("logo recursive depth renders a rotatable shuffleable Three scene", async (
   });
 });
 
+test("logo recursive depth keeps opacity visually ordered", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo?depth=2&rot=45", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  const canvas = page.locator("canvas").first();
+
+  await expect(canvas).toBeVisible();
+  await expect(controlsSidebar.getByLabel("Depth value")).toHaveValue("2");
+  await controlsSidebar.getByLabel("Opacity value").fill("0.40");
+  await expect(controlsSidebar.getByLabel("Opacity value")).toHaveValue("0.40");
+  await waitForPaint(page);
+
+  await expect(canvas).toHaveScreenshot(
+    "logo-depth-2-opacity-three-scene.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.01,
+      scale: "css",
+    },
+  );
+});
+
 test("logo depth 5 keeps the tiled Three preview responsive", async ({
   page,
 }) => {

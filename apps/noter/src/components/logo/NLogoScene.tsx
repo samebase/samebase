@@ -213,6 +213,7 @@ type SceneState = {
   leftFaceStyle: LogoLeftFaceStyle;
   logoGroup: THREE.Group;
   logoMeshes: LogoSceneMesh[];
+  opacity: number;
   raycaster: THREE.Raycaster;
   recursiveRenderDepth: number | null;
   recursiveTileState: RecursiveTileSceneState | null;
@@ -1128,6 +1129,27 @@ function applyMaterialOpacity(materials: LogoSceneMaterials, opacity: number) {
   }
 }
 
+function getSceneMaterialOpacity(sceneState: SceneState, opacity: number) {
+  return sceneState.recursiveTileState ? 1 : opacity;
+}
+
+function applySceneCanvasOpacity(sceneState: SceneState, opacity: number) {
+  const normalizedOpacity = THREE.MathUtils.clamp(opacity, 0, 1);
+  // Recursive depths are merged into instanced tile meshes; fading the finished
+  // canvas keeps opacity independent from transparent per-face sort order.
+  sceneState.renderer.domElement.style.opacity = sceneState.recursiveTileState
+    ? normalizedOpacity.toString()
+    : "1";
+}
+
+function applySceneOpacity(sceneState: SceneState, opacity: number): number {
+  sceneState.opacity = opacity;
+  const materialOpacity = getSceneMaterialOpacity(sceneState, opacity);
+  applyMaterialOpacity(sceneState.cubeMaterials, materialOpacity);
+  applySceneCanvasOpacity(sceneState, opacity);
+  return materialOpacity;
+}
+
 function replaceLogoGeometry(
   sceneState: SceneState,
   nextFilledVoxels: Set<string>,
@@ -1154,6 +1176,7 @@ function replaceLogoGeometry(
   sceneState.recursiveTileState = nextGeometry.recursiveTileState;
   sceneState.currentFilledVoxels = new Set(nextFilledVoxels);
   sceneState.gridSize = nextGridSize;
+  applySceneOpacity(sceneState, sceneState.opacity);
   if (syncCameraFitRadius) {
     sceneState.cameraFitRadius = nextGeometry.cameraFitRadius;
   }
@@ -1639,7 +1662,7 @@ export function NLogoScene({
       leftFaceMaterialState: sceneState.leftFaceMaterialState,
       leftFaceStyle: sceneState.leftFaceStyle,
       materials: sceneState.cubeMaterials,
-      opacity: opacityRef.current,
+      opacity: getSceneMaterialOpacity(sceneState, opacityRef.current),
     });
     renderSceneRef.current(performance.now());
   }, [backgroundColor]);
@@ -1751,15 +1774,6 @@ export function NLogoScene({
 
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
     const { leftFaceMaterialState, materials } = createLogoSceneMaterials();
-    applyFaceColors({
-      backgroundColor: backgroundColorRef.current,
-      faceColors: faceColorsRef.current,
-      leftFaceMaterialState,
-      leftFaceStyle: leftFaceStyleRef.current,
-      materials,
-      opacity: opacityRef.current,
-    });
-    applyMaterialOpacity(materials, opacityRef.current);
     const initialVoxelGrid = resolveSceneVoxelGrid({
       fractalDepth: fractalDepthRef.current,
       voxelGrid: voxelGridRef.current,
@@ -1773,6 +1787,21 @@ export function NLogoScene({
       materials,
       recursiveRenderDepth: initialVoxelGrid.recursiveRenderDepth,
     });
+    const initialMaterialOpacity = initialGeometry.recursiveTileState
+      ? 1
+      : opacityRef.current;
+    renderer.domElement.style.opacity = initialGeometry.recursiveTileState
+      ? THREE.MathUtils.clamp(opacityRef.current, 0, 1).toString()
+      : "1";
+    applyFaceColors({
+      backgroundColor: backgroundColorRef.current,
+      faceColors: faceColorsRef.current,
+      leftFaceMaterialState,
+      leftFaceStyle: leftFaceStyleRef.current,
+      materials,
+      opacity: initialMaterialOpacity,
+    });
+    applyMaterialOpacity(materials, initialMaterialOpacity);
     const logoMeshes = initialGeometry.meshes;
     const logoGroup = new THREE.Group();
     for (const logoMesh of logoMeshes) {
@@ -1863,6 +1892,7 @@ export function NLogoScene({
       leftFaceStyle: leftFaceStyleRef.current,
       logoGroup,
       logoMeshes,
+      opacity: opacityRef.current,
       raycaster: new THREE.Raycaster(),
       recursiveRenderDepth: initialVoxelGrid.recursiveRenderDepth,
       recursiveTileState: initialGeometry.recursiveTileState,
@@ -1921,7 +1951,7 @@ export function NLogoScene({
           leftFaceMaterialState: sceneState.leftFaceMaterialState,
           leftFaceStyle: sceneState.leftFaceStyle,
           materials: sceneState.cubeMaterials,
-          opacity: opacityRef.current,
+          opacity: getSceneMaterialOpacity(sceneState, opacityRef.current),
         });
       }
       updateCameraPosition();
@@ -2014,6 +2044,14 @@ export function NLogoScene({
     sceneState.gridSize = nextVoxelGrid.gridSize;
     sceneState.recursiveRenderDepth = nextVoxelGrid.recursiveRenderDepth;
     resetShuffleAnimation(sceneState, lastMovedCubeKeyRef, true);
+    applyResolvedFaceColors({
+      backgroundColor: backgroundColorRef.current,
+      faceColors: resolveFaceColors(faceColorsRef.current),
+      leftFaceMaterialState: sceneState.leftFaceMaterialState,
+      leftFaceStyle: sceneState.leftFaceStyle,
+      materials: sceneState.cubeMaterials,
+      opacity: getSceneMaterialOpacity(sceneState, opacityRef.current),
+    });
     renderSceneRef.current(performance.now());
   }, [fractalDepth, voxelGrid, voxelState]);
 
@@ -2039,7 +2077,7 @@ export function NLogoScene({
       leftFaceMaterialState: sceneState.leftFaceMaterialState,
       leftFaceStyle: sceneState.leftFaceStyle,
       materials: sceneState.cubeMaterials,
-      opacity: opacityRef.current,
+      opacity: getSceneMaterialOpacity(sceneState, opacityRef.current),
     });
     syncAnimationLoopRef.current();
     renderSceneRef.current(performance.now());
@@ -2061,7 +2099,7 @@ export function NLogoScene({
       leftFaceMaterialState: sceneState.leftFaceMaterialState,
       leftFaceStyle: normalizedStyle,
       materials: sceneState.cubeMaterials,
-      opacity: opacityRef.current,
+      opacity: getSceneMaterialOpacity(sceneState, opacityRef.current),
     });
     renderSceneRef.current(performance.now());
   }, [leftFaceStyle]);
@@ -2074,14 +2112,14 @@ export function NLogoScene({
       return;
     }
 
-    applyMaterialOpacity(sceneState.cubeMaterials, opacity);
+    const materialOpacity = applySceneOpacity(sceneState, opacity);
     applyResolvedFaceColors({
       backgroundColor: backgroundColorRef.current,
       faceColors: resolveFaceColors(faceColorsRef.current),
       leftFaceMaterialState: sceneState.leftFaceMaterialState,
       leftFaceStyle: sceneState.leftFaceStyle,
       materials: sceneState.cubeMaterials,
-      opacity,
+      opacity: materialOpacity,
     });
     renderSceneRef.current(performance.now());
   }, [opacity]);
