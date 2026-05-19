@@ -232,6 +232,9 @@ The playground should expose at least these presets:
   cross-section. The auto basis uses the larger axis projection so cardinal
   stripe angles do not collapse to zero while the internal math still uses
   JavaScript double precision rather than UI-rounded approximations.
+- In the Three renderer, the URL angle is mirrored when passed to the shader so
+  the canonical `stripeA=-45` treatment draws the accepted visible diagonal on
+  projected left faces.
 - Stripes must be rendered in the left face's local 3D surface space, not as a
   screen-space overlay, so dragging the logo keeps the pattern attached to the
   face geometry.

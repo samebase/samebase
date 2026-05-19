@@ -72,13 +72,13 @@ projection. Let `x` run left-to-right from `0` to `1`, and let `y` run
 bottom-to-top from `0` to `1`. Draw stripe boundary lines at:
 
 ```text
-x + y = n / 4
+y - x = n / 4
 ```
 
 for each integer `n` where the line crosses the square. Fill the bands where:
 
 ```text
-(x + y) mod (1 / 2) < 1 / 4
+(y - x) mod (1 / 2) < 1 / 4
 ```
 
 and leave the alternating bands as background. This means the lower-left corner
