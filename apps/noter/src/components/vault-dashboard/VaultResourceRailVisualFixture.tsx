@@ -202,7 +202,7 @@ const ADD_VAULT_FLOW_SCENARIOS = [
           provider: "cloudflare",
           status: "failed",
           statusText:
-            "Cloudflare account selection is required before provisioning can continue.",
+            "Multiple Cloudflare accounts are available. Select an account before provisioning can continue.",
           value: ADD_VAULT_VALUES.cloudflare,
           actions: [
             {

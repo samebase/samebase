@@ -76,7 +76,8 @@ describe("VaultResourceRail", () => {
         {
           provider: "cloudflare",
           status: "failed",
-          statusText: "Cloudflare account selection is required.",
+          statusText:
+            "Multiple Cloudflare accounts are available. Select an account before provisioning can continue.",
           value: "weight-tsx",
           actions: [
             {
@@ -91,7 +92,7 @@ describe("VaultResourceRail", () => {
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
 
     expect(markup).toContain("Creating Convex project.");
-    expect(markup).toContain("Cloudflare account selection is required.");
+    expect(markup).toContain("Multiple Cloudflare accounts are available.");
     expect(markup).toContain("Retry");
   });
 });
