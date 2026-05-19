@@ -32,29 +32,21 @@ gh pr view --head "$branch" --json number,url,state,mergedAt,headRefName
 Continue only when `headRefName` exactly equals `$branch` and `mergedAt` is not
 null.
 
-## 2. Compute The Preview Metadata
+## 2. Compute The Expected Preview Tag
 
-The Cloudflare preview upload attaches a deterministic branch tag. Compute it
-from the same helper used by the deploy wrapper:
+The Cloudflare preview upload attaches a deterministic branch tag. Compute the
+expected tag directly from the branch name:
 
 ```bash
-BRANCH="$branch" CLOUDFLARE_WORKER_NAME="$CLOUDFLARE_WORKER_NAME" node --input-type=module <<'NODE'
-import { buildPrPreviewMetadata } from "./apps/noter/scripts/pr-preview-metadata.ts";
-
-const branch = process.env.BRANCH;
-const workerName = process.env.CLOUDFLARE_WORKER_NAME;
-if (!branch || !workerName) {
-  throw new Error("BRANCH and CLOUDFLARE_WORKER_NAME are required.");
-}
-
-console.log(
-  JSON.stringify(buildPrPreviewMetadata({ branch, workerName }), null, 2),
-);
-NODE
+preview_hash="$(printf '%s' "$branch" | shasum -a 256 | awk '{ print substr($1, 1, 12) }')"
+preview_tag="noter-pr-preview:$preview_hash"
+preview_message="noter.md PR preview for $branch"
+printf 'tag=%s\nmessage=%s\n' "$preview_tag" "$preview_message"
 ```
 
-Keep the printed `tag`, `message`, and `previewAlias` visible while inspecting
-Cloudflare.
+Keep the printed `tag` and `message` visible while inspecting Cloudflare. The
+preview alias also ends with the same hash, unless the Worker name leaves no
+safe DNS room for an alias.
 
 ## 3. Inspect Cloudflare Before Deleting
 

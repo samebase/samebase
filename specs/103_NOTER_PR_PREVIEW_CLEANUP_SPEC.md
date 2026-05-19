@@ -55,6 +55,10 @@ Future Workers preview uploads must attach branch-scoped metadata:
 3. `--preview-alias <sanitized-branch>-<branch-hash>` when the alias fits
    Cloudflare's DNS label limit
 
+`<branch-hash>` is the first 12 hex characters of the branch name's SHA-256
+hash. This is small enough for humans to compute during cleanup and stable
+enough to avoid putting full branch names in the tag.
+
 Cleanup lists Worker versions for `CLOUDFLARE_WORKER_NAME`, selects only
 versions whose `workers/tag` matches the branch tag, refuses versions that
 appear in active Worker deployments, and deletes selected versions through the

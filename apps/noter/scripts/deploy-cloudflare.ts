@@ -1,8 +1,7 @@
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
-
-import { buildPrPreviewMetadata } from "./pr-preview-metadata.ts";
 
 const modes = {
   deploy: ["deploy"],
@@ -10,6 +9,10 @@ const modes = {
 } as const;
 
 type Mode = keyof typeof modes;
+
+const PR_PREVIEW_TAG_PREFIX = "noter-pr-preview";
+const PR_PREVIEW_HASH_LENGTH = 12;
+const MAX_DNS_LABEL_LENGTH = 63;
 
 function isMode(value: string | undefined): value is Mode {
   return value === "deploy" || value === "preview";
@@ -21,6 +24,55 @@ function isReservedWranglerFlag(value: string) {
 
 function hasWranglerFlag(args: readonly string[], flag: string) {
   return args.some((value) => value === flag || value.startsWith(`${flag}=`));
+}
+
+function hashBranch(branch: string): string {
+  return createHash("sha256")
+    .update(branch)
+    .digest("hex")
+    .slice(0, PR_PREVIEW_HASH_LENGTH);
+}
+
+function sanitizeBranchForAlias(branch: string): string {
+  const sanitized = branch
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  if (!sanitized) {
+    return "pr";
+  }
+
+  return /^[a-z]/.test(sanitized) ? sanitized : `pr-${sanitized}`;
+}
+
+function trimAliasPrefix(prefix: string, maxLength: number): string {
+  const trimmed = prefix.slice(0, maxLength).replace(/-+$/g, "");
+  if (!trimmed) {
+    return "pr";
+  }
+
+  return /^[a-z]/.test(trimmed) ? trimmed : `pr-${trimmed}`;
+}
+
+function buildPrPreviewAlias(args: {
+  branch: string;
+  hash: string;
+  workerName: string;
+}): string | null {
+  const maxAliasLength = MAX_DNS_LABEL_LENGTH - args.workerName.length - 1;
+  if (maxAliasLength < PR_PREVIEW_HASH_LENGTH + 3) {
+    return null;
+  }
+
+  const suffix = `-${args.hash}`;
+  const rawAlias = `${sanitizeBranchForAlias(args.branch)}${suffix}`;
+  if (rawAlias.length <= maxAliasLength) {
+    return rawAlias;
+  }
+
+  const prefixLength = maxAliasLength - suffix.length;
+  return `${trimAliasPrefix(rawAlias, prefixLength)}${suffix}`;
 }
 
 function readWorkerName(env: NodeJS.ProcessEnv) {
@@ -80,22 +132,28 @@ export function buildWranglerArgs(args: {
     return [...wranglerArgs, ...args.extraArgs];
   }
 
-  const metadata = buildPrPreviewMetadata({
-    branch,
+  const cleanBranch = branch.trim();
+  if (!cleanBranch) {
+    return [...wranglerArgs, ...args.extraArgs];
+  }
+
+  const hash = hashBranch(cleanBranch);
+  const tag = `${PR_PREVIEW_TAG_PREFIX}:${hash}`;
+  const message = `noter.md PR preview for ${cleanBranch}`;
+  const previewAlias = buildPrPreviewAlias({
+    branch: cleanBranch,
+    hash,
     workerName: args.workerName,
   });
 
   if (!hasWranglerFlag(args.extraArgs, "--tag")) {
-    wranglerArgs.push("--tag", metadata.tag);
+    wranglerArgs.push("--tag", tag);
   }
   if (!hasWranglerFlag(args.extraArgs, "--message")) {
-    wranglerArgs.push("--message", metadata.message);
+    wranglerArgs.push("--message", message);
   }
-  if (
-    metadata.previewAlias &&
-    !hasWranglerFlag(args.extraArgs, "--preview-alias")
-  ) {
-    wranglerArgs.push("--preview-alias", metadata.previewAlias);
+  if (previewAlias && !hasWranglerFlag(args.extraArgs, "--preview-alias")) {
+    wranglerArgs.push("--preview-alias", previewAlias);
   }
 
   return [...wranglerArgs, ...args.extraArgs];
