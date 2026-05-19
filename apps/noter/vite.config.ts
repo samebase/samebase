@@ -11,6 +11,7 @@ import { formatWithVpFmt } from "../../scripts/format-with-vp-fmt.ts";
 import { createInstallIconSvgMarkup } from "./src/components/installIconSvgAsset";
 import {
   createLogoIdentitySvgAssets,
+  createInteractiveLogoSvgAsset,
   createStaticLogoSvgMarkup,
 } from "./src/components/logo/logoStaticSvgAsset";
 import { buildNoterSyncPublicScript } from "./noterSyncPublicScript";
@@ -198,7 +199,11 @@ function syncStaticLogoSvgAsset() {
 
 function syncLogoIdentitySvgAssets() {
   const publicRoot = path.resolve(currentDir, "public");
-  for (const asset of createLogoIdentitySvgAssets()) {
+  const logoSvgAssets = [
+    ...createLogoIdentitySvgAssets(),
+    createInteractiveLogoSvgAsset(),
+  ];
+  for (const asset of logoSvgAssets) {
     // Fail closed: logo asset paths must be URL-rooted and resolve within public/.
     if (!asset.assetPath.startsWith("/")) {
       throw new Error(

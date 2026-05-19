@@ -26,6 +26,7 @@ export const STATIC_LOGO_BACKGROUND_COLOR = "transparent";
 export const STATIC_LOGO_ELEVATION_DEGREES = 35.26438968;
 export const STATIC_LOGO_ROTATION_DEGREES = FAVICON_ROTATION_DEGREES;
 export const DEFAULT_STATIC_LOGO_SVG_URL = "/logo-static.svg";
+export const INTERACTIVE_LOGO_SVG_URL = "/logo-interactive.svg";
 export const LOGO_IDENTITY_VIEW_CONTRACTS = [
   {
     assetPath: "/logo-v1-side-primary.svg",
