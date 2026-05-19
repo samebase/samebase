@@ -32,23 +32,7 @@ gh pr view --head "$branch" --json number,url,state,mergedAt,headRefName
 Continue only when `headRefName` exactly equals `$branch` and `mergedAt` is not
 null.
 
-## 2. Compute The Expected Preview Tag
-
-The Cloudflare preview upload attaches a deterministic branch tag. Compute the
-expected tag directly from the branch name:
-
-```bash
-preview_hash="$(printf '%s' "$branch" | shasum -a 256 | awk '{ print substr($1, 1, 12) }')"
-preview_tag="noter-pr-preview:$preview_hash"
-preview_message="noter.md PR preview for $branch"
-printf 'tag=%s\nmessage=%s\n' "$preview_tag" "$preview_message"
-```
-
-Keep the printed `tag` and `message` visible while inspecting Cloudflare. The
-preview alias also ends with the same hash, unless the Worker name leaves no
-safe DNS room for an alias.
-
-## 3. Inspect Cloudflare Before Deleting
+## 2. Inspect Cloudflare Before Deleting
 
 List Worker versions and active deployments with the same account token that
 owns the Noter Worker:
@@ -60,12 +44,11 @@ CLOUDFLARE_API_TOKEN="$DEV_SEED_CLOUDFLARE_API_KEY" pnpm --dir apps/noter exec w
 
 The Cloudflare deletion candidate must satisfy all of these checks:
 
-1. its version `Tag` or `workers/tag` exactly equals the computed
-   `noter-pr-preview:<hash>` tag
-2. its message, preview URL, or alias points back to the same branch
+1. it is a preview Worker version, not the Worker itself
+2. provider, Wrangler, or GitHub PR metadata ties it to the exact branch or PR
 3. its version ID does not appear in the active deployments output
 
-If Wrangler does not show the tagged version, list versions through the API and
+If Wrangler does not show enough metadata, list versions through the API and
 inspect the JSON response:
 
 ```bash
@@ -75,6 +58,10 @@ curl --fail-with-body --request GET \
 ```
 
 Follow `result_info` pagination if Cloudflare returns more pages.
+
+If the Cloudflare output does not prove which version belongs to the branch,
+skip Cloudflare cleanup and report why. Do not delete an untagged or
+unattributed Worker version by age, URL shape, or guesswork.
 
 Delete only the matching inactive version ID:
 
@@ -87,7 +74,7 @@ curl --fail-with-body --request DELETE \
 
 Never delete the Worker itself.
 
-## 4. Inspect Convex Before Deleting
+## 3. Inspect Convex Before Deleting
 
 Resolve the Noter project under the production team:
 
@@ -125,7 +112,7 @@ curl --fail-with-body --request POST \
 Never delete `prod`, `dev`, or local Convex deployments during PR preview
 cleanup.
 
-## 5. Report The Result
+## 4. Report The Result
 
 In the final `clean` response, include:
 

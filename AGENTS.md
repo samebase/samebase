@@ -383,8 +383,7 @@ Detailed flow rules live in `docs/agent-workflows.md`.
   through the dashboard delete flow.
 - `clean` must follow `docs/noter-pr-preview-cleanup.md` before deleting the
   remote branch. Inspect candidates and delete only noter.md PR preview
-  resources: tagged Cloudflare Worker versions and matching Convex preview
-  deployments for the merged branch.
+  resources that provider or GitHub metadata ties to the merged branch.
 - `clean` must fail closed and only remove the current checkout's isolated
   machine state directory under `~/.noter/checkouts/<checkout-id>`. Never delete
   the default `~/.noter` install as part of local cleanup.

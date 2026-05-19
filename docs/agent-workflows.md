@@ -258,7 +258,8 @@ Rules:
   for the current branch. Noter PR preview cleanup targets the Cloudflare Worker
   version and Convex preview deployment created by the branch build for noter.md
   itself. It is separate from temporary vault cleanup and must not delete
-  user/vault infrastructure.
+  user/vault infrastructure. Skip a provider when the available metadata does
+  not prove the exact preview resource.
 - If the current checkout has a linked machine install, stop that exact
   checkout-local `noter-sync run` process before deleting its state dir.
 - `clean` should remove only the current checkout's isolated
