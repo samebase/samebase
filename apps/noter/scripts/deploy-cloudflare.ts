@@ -1,5 +1,8 @@
 import { spawn } from "node:child_process";
 import process from "node:process";
+import { pathToFileURL } from "node:url";
+
+import { buildPrPreviewMetadata } from "./pr-preview-metadata.ts";
 
 const modes = {
   deploy: ["deploy"],
@@ -16,9 +19,13 @@ function isReservedWranglerFlag(value: string) {
   return value === "--name" || value.startsWith("--name=") || value === "-n";
 }
 
-function readWorkerName() {
+function hasWranglerFlag(args: readonly string[], flag: string) {
+  return args.some((value) => value === flag || value.startsWith(`${flag}=`));
+}
+
+function readWorkerName(env: NodeJS.ProcessEnv) {
   const workerName =
-    process.env.WRANGLER_CI_OVERRIDE_NAME ?? process.env.CLOUDFLARE_WORKER_NAME;
+    env.WRANGLER_CI_OVERRIDE_NAME ?? env.CLOUDFLARE_WORKER_NAME;
 
   if (!workerName) {
     throw new Error(`Set CLOUDFLARE_WORKER_NAME for local deploys.
@@ -57,26 +64,77 @@ function run(command: string, args: readonly string[]) {
   });
 }
 
-const [modeArg, ...extraArgs] = process.argv.slice(2);
-if (!isMode(modeArg)) {
-  throw new Error(
-    "Usage: pnpm run deploy[:preview][:dry-run] -- [wrangler flags]",
+export function buildWranglerArgs(args: {
+  mode: Mode;
+  workerName: string;
+  extraArgs: readonly string[];
+  env: NodeJS.ProcessEnv;
+}): readonly string[] {
+  const wranglerArgs = [...modes[args.mode], "--name", args.workerName];
+  if (args.mode !== "preview") {
+    return [...wranglerArgs, ...args.extraArgs];
+  }
+
+  const branch = args.env.WORKERS_CI_BRANCH;
+  if (!branch) {
+    return [...wranglerArgs, ...args.extraArgs];
+  }
+
+  const metadata = buildPrPreviewMetadata({
+    branch,
+    workerName: args.workerName,
+  });
+
+  if (!hasWranglerFlag(args.extraArgs, "--tag")) {
+    wranglerArgs.push("--tag", metadata.tag);
+  }
+  if (!hasWranglerFlag(args.extraArgs, "--message")) {
+    wranglerArgs.push("--message", metadata.message);
+  }
+  if (
+    metadata.previewAlias &&
+    !hasWranglerFlag(args.extraArgs, "--preview-alias")
+  ) {
+    wranglerArgs.push("--preview-alias", metadata.previewAlias);
+  }
+
+  return [...wranglerArgs, ...args.extraArgs];
+}
+
+export async function main(env: NodeJS.ProcessEnv = process.env) {
+  const [modeArg, ...extraArgs] = process.argv.slice(2);
+  if (!isMode(modeArg)) {
+    throw new Error(
+      "Usage: pnpm run deploy[:preview][:dry-run] -- [wrangler flags]",
+    );
+  }
+
+  if (extraArgs.some(isReservedWranglerFlag)) {
+    throw new Error(
+      "Do not pass Wrangler --name/-n manually; set CLOUDFLARE_WORKER_NAME or let Workers Builds provide WRANGLER_CI_OVERRIDE_NAME.",
+    );
+  }
+
+  const workerName = readWorkerName(env);
+  const isWorkersBuild = env.WORKERS_CI === "1" || env.WORKERS_CI === "true";
+  const isDryRun = extraArgs.includes("--dry-run");
+
+  if (!isWorkersBuild) {
+    await run("pnpm", ["run", isDryRun ? "build:app" : "build:cloudflare"]);
+  }
+
+  await run(
+    "wrangler",
+    buildWranglerArgs({
+      mode: modeArg,
+      workerName,
+      extraArgs,
+      env,
+    }),
   );
 }
 
-if (extraArgs.some(isReservedWranglerFlag)) {
-  throw new Error(
-    "Do not pass Wrangler --name/-n manually; set CLOUDFLARE_WORKER_NAME or let Workers Builds provide WRANGLER_CI_OVERRIDE_NAME.",
-  );
+const entrypoint = process.argv[1];
+if (entrypoint && import.meta.url === pathToFileURL(entrypoint).href) {
+  await main();
 }
-
-const workerName = readWorkerName();
-const isWorkersBuild =
-  process.env.WORKERS_CI === "1" || process.env.WORKERS_CI === "true";
-const isDryRun = extraArgs.includes("--dry-run");
-
-if (!isWorkersBuild) {
-  await run("pnpm", ["run", isDryRun ? "build:app" : "build:cloudflare"]);
-}
-
-await run("wrangler", [...modes[modeArg], "--name", workerName, ...extraArgs]);

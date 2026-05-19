@@ -58,21 +58,21 @@ each time.
 
 These are the intended meanings for the repo shorthand commands:
 
-| Command        | Meaning                                                                                                           |
-| -------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `commit`       | Stage and create a concise commit on the current branch                                                           |
-| `push`         | Commit if needed, then push                                                                                       |
-| `create pr`    | Push if needed, then create or update a ready PR                                                                  |
-| `create draft` | Push if needed, then create or update a draft PR                                                                  |
-| `ready`        | Mark the current PR ready                                                                                         |
-| `wait`         | Watch CI and report status                                                                                        |
-| `ship`         | Commit, push, ensure a ready PR exists, clear actionable review feedback, and wait for CI                         |
-| `squash`       | Squash-merge the current PR                                                                                       |
-| `archive`      | Remove the current worktree/local branch after confirming a PR exists                                             |
-| `link machine` | Run the current checkout's `noter.ts` machine-link flow with worktree isolation when needed                       |
-| `clean vaults` | Delete matching temporary Noter-managed vaults safely                                                             |
-| `clean`        | Run `clean vaults`, remove the current worktree's local machine link, then remove the shipped worktree and branch |
-| `status`       | Report branch, local changes, and PR state                                                                        |
+| Command        | Meaning                                                                                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `commit`       | Stage and create a concise commit on the current branch                                                                                                |
+| `push`         | Commit if needed, then push                                                                                                                            |
+| `create pr`    | Push if needed, then create or update a ready PR                                                                                                       |
+| `create draft` | Push if needed, then create or update a draft PR                                                                                                       |
+| `ready`        | Mark the current PR ready                                                                                                                              |
+| `wait`         | Watch CI and report status                                                                                                                             |
+| `ship`         | Commit, push, ensure a ready PR exists, clear actionable review feedback, and wait for CI                                                              |
+| `squash`       | Squash-merge the current PR                                                                                                                            |
+| `archive`      | Remove the current worktree/local branch after confirming a PR exists                                                                                  |
+| `link machine` | Run the current checkout's `noter.ts` machine-link flow with worktree isolation when needed                                                            |
+| `clean vaults` | Delete matching temporary Noter-managed vaults safely                                                                                                  |
+| `clean`        | Run `clean vaults`, clean noter.md PR preview resources, remove the current worktree's local machine link, then remove the shipped worktree and branch |
+| `status`       | Report branch, local changes, and PR state                                                                                                             |
 
 ## PR Body Standard
 
@@ -254,6 +254,18 @@ Rules:
 - `archive` removes only the current non-`main` worktree and the local branch.
   It leaves the remote branch and PR intact.
 - `clean` is only for shipped or merged work. Run `clean vaults` first.
+- Before deleting the remote branch, run the noter.md PR preview cleanup for the
+  current branch. Dry-run first, then apply after checking the candidates:
+
+```bash
+pnpm clean:pr-preview -- --branch <branch>
+pnpm clean:pr-preview -- --branch <branch> --apply
+```
+
+- Noter PR preview cleanup targets the Cloudflare Worker version and Convex
+  preview deployment created by the branch build for noter.md itself. It is
+  separate from temporary vault cleanup and must not delete user/vault
+  infrastructure.
 - If the current checkout has a linked machine install, stop that exact
   checkout-local `noter-sync run` process before deleting its state dir.
 - `clean` should remove only the current checkout's isolated
