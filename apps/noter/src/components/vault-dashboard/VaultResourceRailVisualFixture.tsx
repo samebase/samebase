@@ -78,13 +78,11 @@ const RESOURCE_RAIL_FIXTURE_SCENARIOS = [
         state: "selected",
         origin: "connected_existing",
         resourceName: "notes-app/production",
-        detail: "Existing production deployment selected.",
       },
       cloudflare: {
         state: "provisioning",
         origin: "created_by_noter",
         resourceName: "notes-app",
-        detail: "Creating Worker and build trigger.",
       },
     },
   },
@@ -126,12 +124,10 @@ const RESOURCE_RAIL_FIXTURE_SCENARIOS = [
       },
       convex: {
         state: "skipped",
-        detail: "This repo has no Convex app yet.",
       },
       cloudflare: {
         state: "failed",
         resourceName: "portfolio",
-        message: "Worker build trigger could not be created.",
         actions: [
           {
             kind: "retry",

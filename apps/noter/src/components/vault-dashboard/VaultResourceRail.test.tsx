@@ -51,5 +51,6 @@ describe("VaultResourceRail", () => {
     expect(markup).toContain("Create");
     expect(markup).toContain("Connect Worker");
     expect(markup).toContain("Create Worker");
+    expect(markup).not.toContain("Connected existing");
   });
 });

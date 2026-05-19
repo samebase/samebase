@@ -31,19 +31,16 @@ export type VaultResourceRailGitHubState =
   | {
       state: "provisioning";
       repositoryFullName: string;
-      detail: string;
     }
   | {
       state: "connected";
       origin: VaultResourceRailOrigin;
       repositoryFullName: string;
       href: string;
-      detail?: string;
     }
   | {
       state: "failed";
       repositoryFullName: string;
-      message: string;
       actions: VaultResourceRailActionList;
     };
 
@@ -56,30 +53,25 @@ export type VaultResourceRailProviderState =
       state: "selected";
       origin: VaultResourceRailOrigin;
       resourceName: string;
-      detail: string;
     }
   | {
       state: "provisioning";
       origin: VaultResourceRailOrigin;
       resourceName: string;
-      detail: string;
     }
   | {
       state: "connected";
       origin: VaultResourceRailOrigin;
       resourceName: string;
       href?: string;
-      detail?: string;
     }
   | {
       state: "failed";
       resourceName: string;
-      message: string;
       actions: VaultResourceRailActionList;
     }
   | {
       state: "skipped";
-      detail: string;
     };
 
 export type VaultResourceRailState = {
@@ -98,7 +90,6 @@ type VaultResourceRailVisualStatus =
 
 type VaultResourceRailRowViewModel = {
   actions?: VaultResourceRailActionList;
-  detail?: string;
   href?: string;
   label: string;
   providerLabel: "GitHub" | "Convex" | "Cloudflare";
@@ -127,17 +118,6 @@ const STATUS_ICON_CLASS_NAMES = {
   skipped: "h-4 w-4 text-muted-foreground",
 } satisfies Record<VaultResourceRailVisualStatus, string>;
 
-function formatOrigin(origin: VaultResourceRailOrigin): string {
-  switch (origin) {
-    case "created_by_noter":
-      return "Noter-created";
-    case "connected_existing":
-      return "Connected existing";
-  }
-  origin satisfies never;
-  return "Connected";
-}
-
 function mapGitHubRow(
   github: VaultResourceRailGitHubState,
 ): VaultResourceRailRowViewModel {
@@ -148,7 +128,6 @@ function mapGitHubRow(
         label: "GitHub",
         status: "provisioning",
         value: github.repositoryFullName,
-        detail: github.detail,
       };
     case "connected":
       return {
@@ -157,7 +136,6 @@ function mapGitHubRow(
         status: "connected",
         value: github.repositoryFullName,
         href: github.href,
-        detail: github.detail ?? formatOrigin(github.origin),
       };
     case "failed":
       return {
@@ -165,7 +143,6 @@ function mapGitHubRow(
         label: "GitHub",
         status: "failed",
         value: github.repositoryFullName,
-        detail: github.message,
         actions: github.actions,
       };
   }
@@ -175,7 +152,6 @@ function mapGitHubRow(
     label: "GitHub",
     status: "failed",
     value: "GitHub",
-    detail: "Unknown GitHub state.",
   };
 }
 
@@ -201,7 +177,6 @@ function mapProviderRow({
         label: providerLabel,
         status: "selected",
         value: provider.resourceName,
-        detail: provider.detail,
       };
     case "provisioning":
       return {
@@ -209,7 +184,6 @@ function mapProviderRow({
         label: providerLabel,
         status: "provisioning",
         value: provider.resourceName,
-        detail: provider.detail,
       };
     case "connected":
       return {
@@ -218,7 +192,6 @@ function mapProviderRow({
         status: "connected",
         value: provider.resourceName,
         href: provider.href,
-        detail: provider.detail ?? formatOrigin(provider.origin),
       };
     case "failed":
       return {
@@ -226,7 +199,6 @@ function mapProviderRow({
         label: providerLabel,
         status: "failed",
         value: provider.resourceName,
-        detail: provider.message,
         actions: provider.actions,
       };
     case "skipped":
@@ -235,7 +207,6 @@ function mapProviderRow({
         label: providerLabel,
         status: "skipped",
         value: "Skipped",
-        detail: provider.detail,
       };
   }
   provider satisfies never;
@@ -244,7 +215,6 @@ function mapProviderRow({
     label: providerLabel,
     status: "failed",
     value: providerLabel,
-    detail: "Unknown resource state.",
   };
 }
 
@@ -322,11 +292,6 @@ function VaultResourceRailRow({ row }: { row: VaultResourceRailRowViewModel }) {
         <div className="w-20 shrink-0 text-sm font-medium">{row.label}</div>
         <div className="min-w-0 w-fit max-w-full shrink">
           <div className="truncate text-sm">{value}</div>
-          {row.detail ? (
-            <div className="truncate text-xs text-muted-foreground">
-              {row.detail}
-            </div>
-          ) : null}
         </div>
         {row.actions ? (
           <VaultResourceRailActions actions={row.actions} />

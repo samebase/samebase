@@ -793,15 +793,15 @@ resource ledger.
 Add a compact resource rail to each ready vault card/header:
 
 ```text
-[green] GitHub       nicu-chiciuc/weight_tsx       Connected existing
-[green] Convex       weight-tsx/production         Connected existing
-[green] Cloudflare   weight-tsx                    Noter-created
+[green] GitHub       nicu-chiciuc/weight_tsx
+[green] Convex       weight-tsx/production
+[green] Cloudflare   weight-tsx
 ```
 
 Keep copy minimal and use provider icons when they reduce ambiguity. The row
 should exist even when the external dashboard link is unavailable. Production
-domain and preview status can live as secondary metadata under the Cloudflare
-row or in expanded details until they become first-class independent resources.
+domain and preview status should become their own compact rows or status
+surfaces once they are first-class independent resources.
 
 ### Provider Setup CTA
 
