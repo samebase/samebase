@@ -4,14 +4,16 @@
 
 - Status: Proposed
 - Owner: Noter frontend
-- Last updated: 2026-03-18
+- Last updated: 2026-05-19
 - Related files: `apps/noter/src/App.tsx`,
-  `apps/noter/src/components/LogoPreviewPage.tsx`,
-  `apps/noter/src/components/NLogoScene.tsx`,
-  `apps/noter/src/components/logoVoxelState.ts`,
-  `apps/noter/src/components/logoPresets.ts`,
-  `apps/noter/src/components/logoShuffleRules.ts`,
-  `apps/noter/src/components/logoTailwindColors.ts`,
+  `apps/noter/src/components/logo/LogoPreviewPage.tsx`,
+  `apps/noter/src/components/logo/NLogoScene.tsx`,
+  `apps/noter/src/components/logo/logoLeftFaceStyle.ts`,
+  `apps/noter/src/components/logo/logoVoxelState.ts`,
+  `apps/noter/src/components/logo/logoPresets.ts`,
+  `apps/noter/src/components/logo/logoShuffleRules.ts`,
+  `apps/noter/src/components/logo/logoTailwindColors.ts`,
+  `specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md`,
   `specs/090_LOGO_RENDERING_MODEL_SIMPLIFICATION_SPEC.md`
 
 ## Conclusion
@@ -204,6 +206,42 @@ The playground should expose at least these presets:
 - Only voxel shape is persisted in query params today.
 - Camera and face-color state should not be written to the URL if doing so makes
   dragging or interaction feel stuttery.
+
+### 5. Left face style
+
+- The `/logo` Three renderer may distinguish the left face with either the
+  secondary color or a striped primary/background pattern.
+- `secondary` is the default so existing identity assets keep their current
+  left-face color relationship.
+- `striped` is a shareable exploration state with controls for stripe width,
+  gap, angle, and offset. Its default state is the canonical single-color
+  treatment from `specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md`: `-45deg`,
+  vertical basis, `1/4` width, `1/4` gap, and `0` offset.
+- Stripe width and gap may be `0`, and the playground should expose a shareable
+  linked-width/gap option for checking equal-period patterns quickly.
+- Stripe width and gap are stored as user-facing measures. The Three shader
+  receives perpendicular face-space distances after applying the selected width
+  basis:
+  - `auto`: multiply by `max(abs(sin(theta)), abs(cos(theta)))`.
+  - `horizontal`: multiply by `abs(sin(theta))`.
+  - `vertical`: multiply by `abs(cos(theta))`.
+  - `raw`: multiply by `1`, preserving direct perpendicular shader thickness.
+- `theta` is the stripe direction angle in the left face's local UV plane. The
+  horizontal basis means the entered width/gap is the interval measured by a
+  horizontal cross-section; the vertical basis means the same for a vertical
+  cross-section. The auto basis uses the larger axis projection so cardinal
+  stripe angles do not collapse to zero while the internal math still uses
+  JavaScript double precision rather than UI-rounded approximations.
+- The Three renderer passes the stripe angle directly to the shader so the
+  canonical `stripeA=-45` treatment draws the accepted visible diagonal on
+  projected left faces.
+- Stripes must be rendered in the left face's local 3D surface space, not as a
+  screen-space overlay, so dragging the logo keeps the pattern attached to the
+  face geometry.
+- The striped controls remain an exploration path for constrained-color marks.
+  The default stripe recipe is accepted as the canonical single-color treatment,
+  while committed multi-color identity SVG assets keep their current colors
+  until a single-color asset export is explicitly added.
 
 ## Shuffle Animation
 

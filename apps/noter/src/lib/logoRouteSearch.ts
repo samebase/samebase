@@ -16,6 +16,22 @@ import {
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
 import {
+  LOGO_LEFT_FACE_STYLE_KINDS,
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS,
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
+  LOGO_LEFT_FACE_STRIPE_BASIS_VALUES,
+  normalizeLogoLeftFaceStyle,
+  readLogoLeftFaceStyle,
+  isLogoLeftFaceStripeBasis,
+  isLogoLeftFaceStyleKind,
+  type LogoLeftFaceStyle,
+  type LogoLeftFaceStyleKind,
+  type LogoLeftFaceStripeBasis,
+} from "@/components/logo/logoLeftFaceStyle";
+import {
   appThemeColorSearchFieldSchema,
   buildLogoThemeColorSearch,
   readLogoThemeColorSearch,
@@ -83,6 +99,7 @@ function readOptionalNumber(value: unknown): number | undefined {
 const LOGO_ROUTE_PRESENCE_SEARCH_KEYS = [
   LANDING_DEV_MODE_QUERY_PARAM,
   "freeView",
+  "stripeLink",
   ...ROOT_THEME_MODE_SEARCH_KEYS,
 ] as const;
 
@@ -107,6 +124,24 @@ function readOptionalIsoStyleId(
   const isoStyleId = readOptionalString(value);
   return typeof isoStyleId === "string" && isLogoIsometricStyleId(isoStyleId)
     ? isoStyleId
+    : undefined;
+}
+
+function readOptionalLeftFaceStyleKind(
+  value: unknown,
+): LogoLeftFaceStyleKind | undefined {
+  const leftFaceStyleKind = readOptionalString(value);
+  return isLogoLeftFaceStyleKind(leftFaceStyleKind)
+    ? leftFaceStyleKind
+    : undefined;
+}
+
+function readOptionalLeftFaceStripeBasis(
+  value: unknown,
+): LogoLeftFaceStripeBasis | undefined {
+  const leftFaceStripeBasis = readOptionalString(value);
+  return isLogoLeftFaceStripeBasis(leftFaceStripeBasis)
+    ? leftFaceStripeBasis
     : undefined;
 }
 
@@ -138,7 +173,20 @@ const logoRouteSearchFieldSchema = z
       readOptionalIsoStyleId,
       z.enum(LOGO_ISOMETRIC_STYLE_VALUES).optional(),
     ),
+    leftFace: z.preprocess(
+      readOptionalLeftFaceStyleKind,
+      z.enum(LOGO_LEFT_FACE_STYLE_KINDS).optional(),
+    ),
     rot: z.preprocess(readOptionalNumber, z.number().finite().optional()),
+    stripeA: z.preprocess(readOptionalNumber, z.number().finite().optional()),
+    stripeBasis: z.preprocess(
+      readOptionalLeftFaceStripeBasis,
+      z.enum(LOGO_LEFT_FACE_STRIPE_BASIS_VALUES).optional(),
+    ),
+    stripeG: z.preprocess(readOptionalNumber, z.number().finite().optional()),
+    stripeLink: z.literal(true).optional(),
+    stripeO: z.preprocess(readOptionalNumber, z.number().finite().optional()),
+    stripeW: z.preprocess(readOptionalNumber, z.number().finite().optional()),
     vox: z.preprocess(readCanonicalVoxelState, z.string().optional()),
   })
   .merge(appThemeColorSearchFieldSchema)
@@ -169,6 +217,7 @@ export const logoRouteSearchSchema = logoRouteSearchFieldSchema.transform(
       ...(typeof search.isoStyle === "string"
         ? { isoStyle: search.isoStyle }
         : {}),
+      ...buildLogoLeftFaceStyleSearch(readLogoLeftFaceStyle(search)),
       ...(typeof search.rot === "number"
         ? { rot: normalizeRotationDegrees(search.rot) }
         : {}),
@@ -227,6 +276,7 @@ export function buildLogoRouteSearch(args: {
   fractalDepth: number;
   isoCubeSidePixels: number;
   isoStyleId: LogoIsometricStyleId;
+  leftFaceStyle: LogoLeftFaceStyle;
   rotationAxisMode: LogoRotationAxisMode;
   rotationDegrees: number;
   themeModeSearch?: RootThemeModeSearch;
@@ -236,6 +286,7 @@ export function buildLogoRouteSearch(args: {
 }): LogoRouteSearch {
   const fractalDepth = normalizeLogoFractalDepth(args.fractalDepth);
   const distanceScale = normalizeLogoDistanceScale(args.distanceScale);
+  const leftFaceStyle = normalizeLogoLeftFaceStyle(args.leftFaceStyle);
 
   return {
     ...readRootThemeModeSearch(args.themeModeSearch ?? {}),
@@ -261,12 +312,61 @@ export function buildLogoRouteSearch(args: {
     ...(args.isoStyleId !== DEFAULT_LOGO_ISOMETRIC_STYLE_ID
       ? { isoStyle: args.isoStyleId }
       : {}),
+    ...buildLogoLeftFaceStyleSearch(leftFaceStyle),
     ...(args.rotationDegrees !== DEFAULT_ROTATION_DEGREES
       ? { rot: Number(args.rotationDegrees.toFixed(1)) }
       : {}),
     ...(args.voxelState !== DEFAULT_VOXEL_STATE
       ? { vox: args.voxelState }
       : {}),
+  };
+}
+
+function buildLogoLeftFaceStyleSearch(leftFaceStyle: LogoLeftFaceStyle): {
+  leftFace?: LogoLeftFaceStyleKind;
+  stripeA?: number;
+  stripeBasis?: LogoLeftFaceStripeBasis;
+  stripeG?: number;
+  stripeLink?: true;
+  stripeO?: number;
+  stripeW?: number;
+} {
+  if (leftFaceStyle.kind === "secondary") {
+    return {
+      leftFace: undefined,
+      stripeA: undefined,
+      stripeBasis: undefined,
+      stripeG: undefined,
+      stripeLink: undefined,
+      stripeO: undefined,
+      stripeW: undefined,
+    };
+  }
+
+  return {
+    leftFace: "striped",
+    stripeA:
+      leftFaceStyle.stripeAngleDegrees !==
+      DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES
+        ? Number(leftFaceStyle.stripeAngleDegrees.toFixed(1))
+        : undefined,
+    stripeBasis:
+      leftFaceStyle.stripeBasis !== DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS
+        ? leftFaceStyle.stripeBasis
+        : undefined,
+    stripeG:
+      leftFaceStyle.stripeGap !== DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP
+        ? Number(leftFaceStyle.stripeGap.toFixed(2))
+        : undefined,
+    stripeLink: leftFaceStyle.stripeGapLinked ? true : undefined,
+    stripeO:
+      leftFaceStyle.stripeOffset !== DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET
+        ? Number(leftFaceStyle.stripeOffset.toFixed(2))
+        : undefined,
+    stripeW:
+      leftFaceStyle.stripeWidth !== DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH
+        ? Number(leftFaceStyle.stripeWidth.toFixed(2))
+        : undefined,
   };
 }
 

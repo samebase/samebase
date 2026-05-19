@@ -4,9 +4,10 @@
 
 - Status: Accepted
 - Owner: Noter frontend
-- Last updated: 2026-05-01
-- Related files: `apps/noter/src/components/logoStaticSvgContract.ts`,
-  `apps/noter/src/components/logoStaticSvgAsset.ts`,
+- Last updated: 2026-05-19
+- Related files: `apps/noter/src/components/logo/logoStaticSvgContract.ts`,
+  `apps/noter/src/components/logo/logoStaticSvgAsset.ts`,
+  `apps/noter/src/components/logo/logoLeftFaceStyle.ts`,
   `apps/noter/public/logo-v1-side-primary.svg`,
   `apps/noter/public/logo-v2-side-diagonal.svg`,
   `apps/noter/public/logo-static.svg`,
@@ -37,14 +38,55 @@ memory.
 Recursive `/logo?depth=...` previews are playground render states derived from
 the same mark. They do not change the canonical identity asset contract.
 
+When a surface can only use one foreground color plus its background, use the
+canonical single-color stripe treatment. The shape and camera stay the same as
+the relevant identity view; only the left face changes from secondary color to a
+primary/background stripe pattern.
+
 ## Source Of Truth
 
 - The canonical shape is `STATIC_LOGO_VOXEL_COORDINATES`.
 - The canonical default colors are `DEFAULT_FACE_COLORS`: primary on the right
   face, secondary on the left face, and background on the top face.
+- The canonical single-color stripe treatment is
+  `LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE`.
 - The canonical identity views live in `LOGO_IDENTITY_VIEW_CONTRACTS`.
 - Public SVG assets must be generated from `createLogoIdentityViewSvgMarkup`;
   product code must not hand-draw approximations of these marks.
+
+## Single-Color Stripe Treatment
+
+Use this treatment whenever the Noter mark must work with one foreground color:
+
+- Right face: fill solid foreground color.
+- Top face: leave as background/knockout.
+- Left face: fill with foreground stripes over background.
+- Stripe angle: `-45deg` in the left face's local square.
+- Stripe basis: `vertical`.
+- Stripe width: `1/4` face unit.
+- Stripe gap: `1/4` face unit.
+- Stripe offset: `0`.
+
+For ruler drawing, treat each exposed left face as a unit square before
+projection. Let `x` run left-to-right from `0` to `1`, and let `y` run
+bottom-to-top from `0` to `1`. Draw stripe boundary lines at:
+
+```text
+x + y = n / 4
+```
+
+for each integer `n` where the line crosses the square. Fill the bands where:
+
+```text
+(x + y) mod (1 / 2) < 1 / 4
+```
+
+and leave the alternating bands as background. This means the lower-left corner
+of every exposed left face starts as foreground, each foreground band and gap is
+one quarter of a face unit along a vertical or horizontal cross-section, and the
+full foreground-plus-gap period is one half of a face unit. Because each cube
+face is one unit wide and the period divides one unit exactly, every cube gets
+the same stripe phase.
 
 ## Asset Contract
 
@@ -67,6 +109,9 @@ view that matches the product meaning:
   the full spatial object should carry the brand.
 - Use version 1 only when the surface intentionally needs the straight-on
   primary side.
+- When any of the three identity views needs a single-color treatment, preserve
+  that view's camera and shape, then apply the canonical single-color stripe
+  treatment above.
 
 ## Validation
 

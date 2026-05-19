@@ -14,6 +14,12 @@ import {
   DEFAULT_LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
+import {
+  DEFAULT_LOGO_LEFT_FACE_STYLE,
+  getLogoLeftFaceStripeBasisScale,
+  normalizeLogoLeftFaceStyle,
+  type LogoLeftFaceStyle,
+} from "@/components/logo/logoLeftFaceStyle";
 import { clampLogoFractalDepthForRenderer } from "@/components/logo/logoDepthLimits";
 import {
   buildLogoSurfaceQuads,
@@ -63,6 +69,50 @@ const FACE_COLOR_ANIMATION_MAX_LIGHTNESS = 0.76;
 const FACE_COLOR_ANIMATION_MIN_SATURATION = 0.5;
 const SURFACE_MATERIAL_INDICES = [0, 1, 2, 3, 4, 5] as const;
 const THREE_RECURSIVE_TILE_DEPTH = 3;
+const LEFT_FACE_PATTERN_FRAGMENT_SHADER = `
+uniform vec3 backgroundColor;
+uniform float opacity;
+uniform vec3 primaryColor;
+uniform vec3 secondaryColor;
+uniform float stripeAngleRadians;
+uniform float stripeGap;
+uniform float stripeOffset;
+uniform float stripeWidth;
+uniform float stripedEnabled;
+varying vec2 vUv;
+
+void main() {
+  vec3 faceColor = secondaryColor;
+
+  if (stripedEnabled > 0.5) {
+    float period = max(stripeWidth + stripeGap, 0.0001);
+    vec2 stripeNormal = vec2(
+      cos(stripeAngleRadians + 1.57079632679),
+      sin(stripeAngleRadians + 1.57079632679)
+    );
+    float stripePhase = mod(dot(vUv, stripeNormal) + stripeOffset * period, period);
+    faceColor = stripePhase < stripeWidth ? primaryColor : backgroundColor;
+  }
+
+  gl_FragColor = vec4(faceColor, opacity);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+}
+`;
+const LEFT_FACE_PATTERN_VERTEX_SHADER = `
+varying vec2 vUv;
+
+void main() {
+  vUv = uv;
+  vec4 transformedPosition = vec4(position, 1.0);
+
+  #ifdef USE_INSTANCING
+    transformedPosition = instanceMatrix * transformedPosition;
+  #endif
+
+  gl_Position = projectionMatrix * modelViewMatrix * transformedPosition;
+}
+`;
 
 export const LOGO_SHUFFLE_PARALLEL_OPTIONS = [1, 2, 3] as const;
 export type LogoShuffleParallelMoves =
@@ -77,9 +127,18 @@ type LogoSurfacePart = {
   materialIndex: number;
 };
 
+type LogoSceneMaterial = THREE.MeshBasicMaterial | THREE.ShaderMaterial;
+type LogoSceneMaterials = [
+  THREE.MeshBasicMaterial,
+  THREE.MeshBasicMaterial,
+  THREE.MeshBasicMaterial,
+  THREE.MeshBasicMaterial,
+  THREE.ShaderMaterial,
+  THREE.ShaderMaterial,
+];
 type LogoSceneMesh =
-  | THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
-  | THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
+  | THREE.Mesh<THREE.BufferGeometry, LogoSceneMaterial>
+  | THREE.InstancedMesh<THREE.BufferGeometry, LogoSceneMaterial>;
 
 type ResolvedSceneVoxelGrid = {
   baseFilledVoxels: Set<string>;
@@ -109,7 +168,7 @@ type ActiveCubeMove = {
   from: VoxelCoordinate;
   fromKey: string;
   hasDeparted: boolean;
-  mesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial[]>;
+  mesh: THREE.Mesh<THREE.BoxGeometry, LogoSceneMaterials>;
   startTimeMs: number;
   to: VoxelCoordinate;
   toKey: string;
@@ -133,7 +192,7 @@ type RecursiveTileSceneState = {
   fullGridSize: number;
   homeFilledTiles: Set<string>;
   keyToIndex: Map<string, number>;
-  meshes: THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>[];
+  meshes: THREE.InstancedMesh<THREE.BufferGeometry, LogoSceneMaterial>[];
   repeatGridSize: number;
   tileGridSize: number;
 };
@@ -142,7 +201,7 @@ type SceneState = {
   camera: THREE.OrthographicCamera;
   cameraFitRadius: number;
   cubeGeometry: THREE.BoxGeometry;
-  cubeMaterials: THREE.MeshBasicMaterial[];
+  cubeMaterials: LogoSceneMaterials;
   distanceScale: number;
   gridSize: number;
   currentFilledVoxels: Set<string>;
@@ -150,6 +209,8 @@ type SceneState = {
   activeTileMoves: ActiveTileMove[];
   baseFilledVoxels: Set<string>;
   homeFilledVoxels: Set<string>;
+  leftFaceMaterialState: LeftFaceMaterialState;
+  leftFaceStyle: LogoLeftFaceStyle;
   logoGroup: THREE.Group;
   logoMeshes: LogoSceneMesh[];
   raycaster: THREE.Raycaster;
@@ -166,6 +227,23 @@ type ResolvedFaceColors = {
   top: THREE.Color;
 };
 
+type LeftFaceUniforms = {
+  backgroundColor: THREE.IUniform<THREE.Color>;
+  opacity: THREE.IUniform<number>;
+  primaryColor: THREE.IUniform<THREE.Color>;
+  secondaryColor: THREE.IUniform<THREE.Color>;
+  stripeAngleRadians: THREE.IUniform<number>;
+  stripeGap: THREE.IUniform<number>;
+  stripeOffset: THREE.IUniform<number>;
+  stripeWidth: THREE.IUniform<number>;
+  stripedEnabled: THREE.IUniform<number>;
+};
+
+type LeftFaceMaterialState = {
+  materials: [THREE.ShaderMaterial, THREE.ShaderMaterial];
+  uniforms: [LeftFaceUniforms, LeftFaceUniforms];
+};
+
 type NLogoSceneProps = {
   backgroundColor: string;
   className?: string;
@@ -173,6 +251,7 @@ type NLogoSceneProps = {
   editMode: VoxelEdit["kind"];
   elevationDegrees: number;
   faceColors: FaceColors;
+  leftFaceStyle?: LogoLeftFaceStyle;
   opacity: number;
   onInteractionStart?: () => void;
   onInteractionEnd?: () => void;
@@ -209,7 +288,7 @@ function getVoxelWorldCenter(
 }
 
 function setCubeMeshPosition(
-  mesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial[]>,
+  mesh: THREE.Mesh<THREE.BoxGeometry, LogoSceneMaterials>,
   coordinate: VoxelCoordinate,
   gridSize: number,
   distanceScale: number,
@@ -248,6 +327,24 @@ function getCubeMovePosition(
     startY + (endY - startY) * travelProgress,
     startZ + (endZ - startZ) * travelProgress,
   ];
+}
+
+function getSurfaceVertexUv(
+  surfaceQuad: LogoSurfaceQuad,
+  vertex: readonly [number, number, number],
+): readonly [number, number] {
+  switch (surfaceQuad.colorKey) {
+    case "left":
+      return [vertex[0], vertex[1]];
+    case "right":
+      return [vertex[2], vertex[1]];
+    case "top":
+      return [vertex[0], vertex[2]];
+    default: {
+      const unreachable = surfaceQuad.colorKey satisfies never;
+      return unreachable;
+    }
+  }
 }
 
 function randomValueFrom<T>(values: readonly T[]): T | null {
@@ -300,19 +397,24 @@ function resolveSceneVoxelGrid({
   };
 }
 
-function buildQuadGeometry(
-  vertices: ReadonlyArray<readonly [number, number, number]>,
-  normal: readonly [number, number, number],
-): THREE.BufferGeometry {
+function buildQuadGeometry(surfaceQuad: LogoSurfaceQuad): THREE.BufferGeometry {
   const geometry = new THREE.BufferGeometry();
-  const positions = vertices.flatMap(([x, y, z]) => [x, y, z]);
-  const normals = vertices.flatMap(() => [normal[0], normal[1], normal[2]]);
+  const positions = surfaceQuad.vertices.flatMap(([x, y, z]) => [x, y, z]);
+  const normals = surfaceQuad.vertices.flatMap(() => [
+    surfaceQuad.normal[0],
+    surfaceQuad.normal[1],
+    surfaceQuad.normal[2],
+  ]);
+  const uvs = surfaceQuad.vertices.flatMap((vertex) =>
+    getSurfaceVertexUv(surfaceQuad, vertex),
+  );
 
   geometry.setAttribute(
     "position",
     new THREE.Float32BufferAttribute(positions, 3),
   );
   geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
+  geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
   geometry.setIndex([0, 1, 2, 0, 2, 3]);
   geometry.computeBoundingSphere();
 
@@ -326,19 +428,26 @@ function buildMergedQuadGeometry(
   const vertexCount = surfaceQuads.length * 4;
   const positions = new Float32Array(vertexCount * 3);
   const normals = new Float32Array(vertexCount * 3);
+  const uvs = new Float32Array(vertexCount * 2);
   const indices = new Uint32Array(surfaceQuads.length * 6);
   let indexOffset = 0;
+  let uvOffset = 0;
   let vertexOffset = 0;
   let vectorOffset = 0;
 
   for (const surfaceQuad of surfaceQuads) {
-    for (const [x, y, z] of surfaceQuad.vertices) {
+    for (const vertex of surfaceQuad.vertices) {
+      const [x, y, z] = vertex;
+      const [u, v] = getSurfaceVertexUv(surfaceQuad, vertex);
       positions[vectorOffset] = x;
       positions[vectorOffset + 1] = y;
       positions[vectorOffset + 2] = z;
       normals[vectorOffset] = surfaceQuad.normal[0];
       normals[vectorOffset + 1] = surfaceQuad.normal[1];
       normals[vectorOffset + 2] = surfaceQuad.normal[2];
+      uvs[uvOffset] = u;
+      uvs[uvOffset + 1] = v;
+      uvOffset += 2;
       vectorOffset += 3;
     }
     indices[indexOffset] = vertexOffset;
@@ -353,6 +462,7 @@ function buildMergedQuadGeometry(
 
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
+  geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
   geometry.setIndex(new THREE.BufferAttribute(indices, 1));
   geometry.computeBoundingSphere();
 
@@ -361,7 +471,7 @@ function buildMergedQuadGeometry(
 
 function buildLogoSurfacePart(surfaceQuad: LogoSurfaceQuad): LogoSurfacePart {
   return {
-    geometry: buildQuadGeometry(surfaceQuad.vertices, surfaceQuad.normal),
+    geometry: buildQuadGeometry(surfaceQuad),
     materialIndex: surfaceQuad.materialIndex,
   };
 }
@@ -548,7 +658,7 @@ function buildLogoSurfaceParts(
 
 function createLogoMeshesFromParts(
   logoParts: readonly LogoSurfacePart[],
-  materials: THREE.MeshBasicMaterial[],
+  materials: LogoSceneMaterials,
 ): LogoSceneMesh[] {
   return logoParts.map(
     ({ geometry, materialIndex }) =>
@@ -673,7 +783,7 @@ function createRecursiveLogoMeshes({
   baseFilledVoxels: ReadonlySet<string>;
   distanceScale: number;
   fullGridSize: number;
-  materials: THREE.MeshBasicMaterial[];
+  materials: LogoSceneMaterials;
   recursiveRenderDepth: number;
 }): LogoGeometryRenderState {
   const tileDepth = getRecursiveTileDepth(recursiveRenderDepth);
@@ -741,7 +851,7 @@ function createLogoGeometryRenderState({
   distanceScale: number;
   filledVoxels: ReadonlySet<string>;
   gridSize: number;
-  materials: THREE.MeshBasicMaterial[];
+  materials: LogoSceneMaterials;
   recursiveRenderDepth: number | null;
 }): LogoGeometryRenderState {
   if (recursiveRenderDepth) {
@@ -807,11 +917,80 @@ function pointToVoxelCoordinate(
   return [x, y, z];
 }
 
-function applyFaceColors(
-  materials: THREE.MeshBasicMaterial[],
-  faceColors: FaceColors,
-) {
-  applyResolvedFaceColors(materials, resolveFaceColors(faceColors));
+function createLeftFaceUniforms(): LeftFaceUniforms {
+  return {
+    backgroundColor: { value: new THREE.Color() },
+    opacity: { value: 1 },
+    primaryColor: { value: new THREE.Color() },
+    secondaryColor: { value: new THREE.Color() },
+    stripeAngleRadians: { value: 0 },
+    stripeGap: { value: 0 },
+    stripeOffset: { value: 0 },
+    stripeWidth: { value: 0 },
+    stripedEnabled: { value: 0 },
+  };
+}
+
+function createLeftFaceMaterialState(): LeftFaceMaterialState {
+  const leftPositiveUniforms = createLeftFaceUniforms();
+  const leftNegativeUniforms = createLeftFaceUniforms();
+  const createMaterial = (uniforms: LeftFaceUniforms) =>
+    new THREE.ShaderMaterial({
+      fragmentShader: LEFT_FACE_PATTERN_FRAGMENT_SHADER,
+      uniforms,
+      vertexShader: LEFT_FACE_PATTERN_VERTEX_SHADER,
+    });
+
+  return {
+    materials: [
+      createMaterial(leftPositiveUniforms),
+      createMaterial(leftNegativeUniforms),
+    ],
+    uniforms: [leftPositiveUniforms, leftNegativeUniforms],
+  };
+}
+
+function createLogoSceneMaterials(): {
+  leftFaceMaterialState: LeftFaceMaterialState;
+  materials: LogoSceneMaterials;
+} {
+  const leftFaceMaterialState = createLeftFaceMaterialState();
+  return {
+    leftFaceMaterialState,
+    materials: [
+      new THREE.MeshBasicMaterial(),
+      new THREE.MeshBasicMaterial(),
+      new THREE.MeshBasicMaterial(),
+      new THREE.MeshBasicMaterial(),
+      leftFaceMaterialState.materials[0],
+      leftFaceMaterialState.materials[1],
+    ],
+  };
+}
+
+function applyFaceColors({
+  backgroundColor,
+  faceColors,
+  leftFaceMaterialState,
+  leftFaceStyle,
+  materials,
+  opacity,
+}: {
+  backgroundColor: string;
+  faceColors: FaceColors;
+  leftFaceMaterialState: LeftFaceMaterialState;
+  leftFaceStyle: LogoLeftFaceStyle;
+  materials: LogoSceneMaterials;
+  opacity: number;
+}) {
+  applyResolvedFaceColors({
+    backgroundColor,
+    faceColors: resolveFaceColors(faceColors),
+    leftFaceMaterialState,
+    leftFaceStyle,
+    materials,
+    opacity,
+  });
 }
 
 function resolveFaceColors(faceColors: FaceColors): ResolvedFaceColors {
@@ -822,16 +1001,76 @@ function resolveFaceColors(faceColors: FaceColors): ResolvedFaceColors {
   };
 }
 
-function applyResolvedFaceColors(
-  materials: THREE.MeshBasicMaterial[],
-  faceColors: ResolvedFaceColors,
-) {
+function applyResolvedFaceColors({
+  backgroundColor,
+  faceColors,
+  leftFaceMaterialState,
+  leftFaceStyle,
+  materials,
+  opacity,
+}: {
+  backgroundColor: string;
+  faceColors: ResolvedFaceColors;
+  leftFaceMaterialState: LeftFaceMaterialState;
+  leftFaceStyle: LogoLeftFaceStyle;
+  materials: LogoSceneMaterials;
+  opacity: number;
+}) {
   materials[0].color.copy(faceColors.right);
   materials[1].color.copy(faceColors.right);
   materials[2].color.copy(faceColors.top);
   materials[3].color.copy(faceColors.top);
-  materials[4].color.copy(faceColors.left);
-  materials[5].color.copy(faceColors.left);
+  applyLeftFaceMaterialState({
+    backgroundColor,
+    faceColors,
+    leftFaceMaterialState,
+    leftFaceStyle,
+    opacity,
+  });
+}
+
+function applyLeftFaceMaterialState({
+  backgroundColor,
+  faceColors,
+  leftFaceMaterialState,
+  leftFaceStyle,
+  opacity,
+}: {
+  backgroundColor: string;
+  faceColors: ResolvedFaceColors;
+  leftFaceMaterialState: LeftFaceMaterialState;
+  leftFaceStyle: LogoLeftFaceStyle;
+  opacity: number;
+}) {
+  const normalizedStyle = normalizeLogoLeftFaceStyle(leftFaceStyle);
+  const background = new THREE.Color(backgroundColor);
+  const normalizedOpacity = THREE.MathUtils.clamp(opacity, 0, 1);
+
+  for (const uniforms of leftFaceMaterialState.uniforms) {
+    uniforms.backgroundColor.value.copy(background);
+    uniforms.opacity.value = normalizedOpacity;
+    uniforms.primaryColor.value.copy(faceColors.right);
+    uniforms.secondaryColor.value.copy(faceColors.left);
+    uniforms.stripedEnabled.value = normalizedStyle.kind === "striped" ? 1 : 0;
+
+    if (normalizedStyle.kind === "striped") {
+      const stripeBasisScale = getLogoLeftFaceStripeBasisScale(normalizedStyle);
+
+      uniforms.stripeAngleRadians.value = THREE.MathUtils.degToRad(
+        normalizedStyle.stripeAngleDegrees,
+      );
+      uniforms.stripeGap.value = normalizedStyle.stripeGap * stripeBasisScale;
+      uniforms.stripeOffset.value = normalizedStyle.stripeOffset;
+      uniforms.stripeWidth.value =
+        normalizedStyle.stripeWidth * stripeBasisScale;
+      continue;
+    }
+
+    uniforms.stripeAngleRadians.value = 0;
+    uniforms.stripeGap.value = 0;
+    uniforms.stripeOffset.value = 0;
+    uniforms.stripeWidth.value = 0;
+  }
 }
 
 function getAnimatedColor(
@@ -865,10 +1104,7 @@ function getAnimatedFaceColors(
   };
 }
 
-function applyMaterialOpacity(
-  materials: THREE.MeshBasicMaterial[],
-  opacity: number,
-) {
+function applyMaterialOpacity(materials: LogoSceneMaterials, opacity: number) {
   const normalizedOpacity = THREE.MathUtils.clamp(opacity, 0, 1);
   const isTransparent = normalizedOpacity < 1;
   const nextSide = isTransparent ? THREE.DoubleSide : THREE.FrontSide;
@@ -938,10 +1174,8 @@ function syncTransparentFaceRenderOrder(sceneState: SceneState) {
         ? move.group.children.filter(
             (
               child,
-            ): child is THREE.Mesh<
-              THREE.BufferGeometry,
-              THREE.MeshBasicMaterial
-            > => child instanceof THREE.Mesh,
+            ): child is THREE.Mesh<THREE.BufferGeometry, LogoSceneMaterial> =>
+              child instanceof THREE.Mesh,
           )
         : [],
     ),
@@ -1337,6 +1571,7 @@ export function NLogoScene({
   elevationDegrees,
   faceColors,
   fractalDepth,
+  leftFaceStyle = DEFAULT_LOGO_LEFT_FACE_STYLE,
   opacity,
   onInteractionStart,
   onInteractionEnd,
@@ -1365,6 +1600,7 @@ export function NLogoScene({
   const voxelStateRef = useRef(voxelState);
   const fractalDepthRef = useRef(fractalDepth);
   const faceColorsRef = useRef(faceColors);
+  const leftFaceStyleRef = useRef(normalizeLogoLeftFaceStyle(leftFaceStyle));
   const opacityRef = useRef(opacity);
   const distanceScaleRef = useRef(normalizeLogoDistanceScale(distanceScale));
   const animateFaceColorsRef = useRef(animateFaceColors);
@@ -1397,6 +1633,14 @@ export function NLogoScene({
     }
 
     sceneState.scene.background = new THREE.Color(backgroundColor);
+    applyResolvedFaceColors({
+      backgroundColor,
+      faceColors: resolveFaceColors(faceColorsRef.current),
+      leftFaceMaterialState: sceneState.leftFaceMaterialState,
+      leftFaceStyle: sceneState.leftFaceStyle,
+      materials: sceneState.cubeMaterials,
+      opacity: opacityRef.current,
+    });
     renderSceneRef.current(performance.now());
   }, [backgroundColor]);
 
@@ -1506,15 +1750,15 @@ export function NLogoScene({
     container.replaceChildren(renderer.domElement);
 
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
-    const materials = [
-      new THREE.MeshBasicMaterial(),
-      new THREE.MeshBasicMaterial(),
-      new THREE.MeshBasicMaterial(),
-      new THREE.MeshBasicMaterial(),
-      new THREE.MeshBasicMaterial(),
-      new THREE.MeshBasicMaterial(),
-    ];
-    applyFaceColors(materials, faceColorsRef.current);
+    const { leftFaceMaterialState, materials } = createLogoSceneMaterials();
+    applyFaceColors({
+      backgroundColor: backgroundColorRef.current,
+      faceColors: faceColorsRef.current,
+      leftFaceMaterialState,
+      leftFaceStyle: leftFaceStyleRef.current,
+      materials,
+      opacity: opacityRef.current,
+    });
     applyMaterialOpacity(materials, opacityRef.current);
     const initialVoxelGrid = resolveSceneVoxelGrid({
       fractalDepth: fractalDepthRef.current,
@@ -1615,6 +1859,8 @@ export function NLogoScene({
       activeTileMoves: [],
       baseFilledVoxels: new Set(initialVoxelGrid.baseFilledVoxels),
       homeFilledVoxels: new Set(initialVoxelGrid.filledVoxels),
+      leftFaceMaterialState,
+      leftFaceStyle: leftFaceStyleRef.current,
       logoGroup,
       logoMeshes,
       raycaster: new THREE.Raycaster(),
@@ -1666,13 +1912,17 @@ export function NLogoScene({
         const animationStartedAt =
           faceColorAnimationStartedAtRef.current ?? timestampMs;
         faceColorAnimationStartedAtRef.current = animationStartedAt;
-        applyResolvedFaceColors(
-          sceneState.cubeMaterials,
-          getAnimatedFaceColors(
+        applyResolvedFaceColors({
+          backgroundColor: backgroundColorRef.current,
+          faceColors: getAnimatedFaceColors(
             faceColorsRef.current,
             (timestampMs - animationStartedAt) / 1000,
           ),
-        );
+          leftFaceMaterialState: sceneState.leftFaceMaterialState,
+          leftFaceStyle: sceneState.leftFaceStyle,
+          materials: sceneState.cubeMaterials,
+          opacity: opacityRef.current,
+        });
       }
       updateCameraPosition();
       applyLogoRotation();
@@ -1783,13 +2033,38 @@ export function NLogoScene({
       return;
     }
 
-    applyResolvedFaceColors(
-      sceneState.cubeMaterials,
-      resolveFaceColors(faceColors),
-    );
+    applyResolvedFaceColors({
+      backgroundColor: backgroundColorRef.current,
+      faceColors: resolveFaceColors(faceColors),
+      leftFaceMaterialState: sceneState.leftFaceMaterialState,
+      leftFaceStyle: sceneState.leftFaceStyle,
+      materials: sceneState.cubeMaterials,
+      opacity: opacityRef.current,
+    });
     syncAnimationLoopRef.current();
     renderSceneRef.current(performance.now());
   }, [animateFaceColors, faceColors]);
+
+  useEffect(() => {
+    const normalizedStyle = normalizeLogoLeftFaceStyle(leftFaceStyle);
+    leftFaceStyleRef.current = normalizedStyle;
+
+    const sceneState = sceneStateRef.current;
+    if (!sceneState) {
+      return;
+    }
+
+    sceneState.leftFaceStyle = normalizedStyle;
+    applyResolvedFaceColors({
+      backgroundColor: backgroundColorRef.current,
+      faceColors: resolveFaceColors(faceColorsRef.current),
+      leftFaceMaterialState: sceneState.leftFaceMaterialState,
+      leftFaceStyle: normalizedStyle,
+      materials: sceneState.cubeMaterials,
+      opacity: opacityRef.current,
+    });
+    renderSceneRef.current(performance.now());
+  }, [leftFaceStyle]);
 
   useEffect(() => {
     opacityRef.current = opacity;
@@ -1800,6 +2075,14 @@ export function NLogoScene({
     }
 
     applyMaterialOpacity(sceneState.cubeMaterials, opacity);
+    applyResolvedFaceColors({
+      backgroundColor: backgroundColorRef.current,
+      faceColors: resolveFaceColors(faceColorsRef.current),
+      leftFaceMaterialState: sceneState.leftFaceMaterialState,
+      leftFaceStyle: sceneState.leftFaceStyle,
+      materials: sceneState.cubeMaterials,
+      opacity,
+    });
     renderSceneRef.current(performance.now());
   }, [opacity]);
   const pickVoxelEdit = (

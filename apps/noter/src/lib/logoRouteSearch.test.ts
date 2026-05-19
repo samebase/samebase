@@ -10,6 +10,15 @@ import {
   LOGO_DISTANCE_SCALE_SLIDER_MAX,
 } from "@/components/logo/logoDistanceScale";
 import {
+  DEFAULT_LOGO_LEFT_FACE_STYLE,
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS,
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP_LINKED,
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
+} from "@/components/logo/logoLeftFaceStyle";
+import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_LOGO_FRACTAL_DEPTH,
   DEFAULT_ROTATION_DEGREES,
@@ -37,9 +46,15 @@ describe("logoRouteSearch", () => {
         base: "sky-500",
         border: "stone-300",
         dark: "",
+        leftFace: "striped",
         primary: "emerald-500",
         rot: "721",
         secondary: "amber-500",
+        stripeA: "30",
+        stripeBasis: "horizontal",
+        stripeG: "0.24",
+        stripeO: "0.5",
+        stripeW: "0.12",
         top: "white-base",
         vox: DEFAULT_VOXEL_STATE,
       }),
@@ -55,9 +70,15 @@ describe("logoRouteSearch", () => {
       freeView: true,
       isoSide: 40,
       isoStyle: "flat",
+      leftFace: "striped",
       primary: "emerald-500",
       rot: 1,
       secondary: "amber-500",
+      stripeA: 30,
+      stripeBasis: "horizontal",
+      stripeG: 0.24,
+      stripeO: 0.5,
+      stripeW: 0.12,
       top: "white-base",
       vox: DEFAULT_VOXEL_STATE,
     });
@@ -70,6 +91,7 @@ describe("logoRouteSearch", () => {
       fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
       isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
       isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+      leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
       rotationAxisMode: "cube-y",
       rotationDegrees: DEFAULT_ROTATION_DEGREES,
       themeColors: DEFAULT_LOGO_THEME_COLORS,
@@ -82,6 +104,8 @@ describe("logoRouteSearch", () => {
     expect(search.depth).toBeUndefined();
     expect("dist" in search).toBe(true);
     expect(search.dist).toBeUndefined();
+    expect("leftFace" in search).toBe(true);
+    expect(search.leftFace).toBeUndefined();
   });
 
   it("preserves canonical theme mode flags when building route search", () => {
@@ -92,6 +116,7 @@ describe("logoRouteSearch", () => {
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+        leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
         rotationAxisMode: "cube-y",
         rotationDegrees: DEFAULT_ROTATION_DEGREES,
         themeColors: DEFAULT_LOGO_THEME_COLORS,
@@ -108,6 +133,7 @@ describe("logoRouteSearch", () => {
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+        leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
         rotationAxisMode: "cube-y",
         rotationDegrees: DEFAULT_ROTATION_DEGREES,
         themeColors: DEFAULT_LOGO_THEME_COLORS,
@@ -141,11 +167,17 @@ describe("logoRouteSearch", () => {
         freeView: "false",
         isoSide: Number.NaN,
         isoStyle: "wireframe",
+        leftFace: "dots",
         base: null,
         border: 2,
         primary: "not-a-color",
         rot: "not-a-number",
         secondary: 4,
+        stripeA: "not-a-number",
+        stripeBasis: "diagonal",
+        stripeG: {},
+        stripeO: null,
+        stripeW: Number.NaN,
         vox: "bad-voxel-state",
       }),
     ).toEqual({
@@ -161,6 +193,7 @@ describe("logoRouteSearch", () => {
         fractalDepth: 6,
         isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+        leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
         rotationAxisMode: "cube-y",
         rotationDegrees: DEFAULT_ROTATION_DEGREES,
         themeColors: DEFAULT_LOGO_THEME_COLORS,
@@ -197,6 +230,7 @@ describe("logoRouteSearch", () => {
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+        leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
         rotationAxisMode: "cube-y",
         rotationDegrees: DEFAULT_ROTATION_DEGREES,
         themeColors: DEFAULT_LOGO_THEME_COLORS,
@@ -206,6 +240,166 @@ describe("logoRouteSearch", () => {
     ).toEqual({
       depth: undefined,
       dist: 3,
+      leftFace: undefined,
+      stripeA: undefined,
+      stripeBasis: undefined,
+      stripeG: undefined,
+      stripeO: undefined,
+      stripeW: undefined,
+    });
+  });
+
+  it("preserves striped left-face route state", () => {
+    expect(
+      validateLogoRouteSearch({
+        leftFace: "striped",
+        stripeA: "-45",
+        stripeBasis: "vertical",
+        stripeG: "0.25",
+        stripeW: "0.25",
+      }),
+    ).toEqual({
+      leftFace: "striped",
+      stripeA: undefined,
+      stripeBasis: undefined,
+      stripeG: undefined,
+      stripeLink: undefined,
+      stripeO: undefined,
+      stripeW: undefined,
+    });
+
+    expect(
+      buildLogoRouteSearch({
+        distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+        fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
+        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+        leftFaceStyle: {
+          kind: "striped",
+          stripeAngleDegrees: DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+          stripeBasis: DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS,
+          stripeGap: DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
+          stripeGapLinked: DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP_LINKED,
+          stripeOffset: DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
+          stripeWidth: DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
+        },
+        rotationAxisMode: "cube-y",
+        rotationDegrees: DEFAULT_ROTATION_DEGREES,
+        themeColors: DEFAULT_LOGO_THEME_COLORS,
+        viewSnapEnabled: true,
+        voxelState: DEFAULT_VOXEL_STATE,
+      }),
+    ).toEqual({
+      depth: undefined,
+      dist: undefined,
+      leftFace: "striped",
+      stripeA: undefined,
+      stripeBasis: undefined,
+      stripeG: undefined,
+      stripeO: undefined,
+      stripeW: undefined,
+    });
+
+    expect(
+      buildLogoRouteSearch({
+        distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+        fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
+        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+        leftFaceStyle: {
+          kind: "striped",
+          stripeAngleDegrees: 22,
+          stripeBasis: "horizontal",
+          stripeGap: 0.32,
+          stripeGapLinked: false,
+          stripeOffset: 0.4,
+          stripeWidth: 0.11,
+        },
+        rotationAxisMode: "cube-y",
+        rotationDegrees: DEFAULT_ROTATION_DEGREES,
+        themeColors: DEFAULT_LOGO_THEME_COLORS,
+        viewSnapEnabled: true,
+        voxelState: DEFAULT_VOXEL_STATE,
+      }),
+    ).toEqual({
+      depth: undefined,
+      dist: undefined,
+      leftFace: "striped",
+      stripeA: 22,
+      stripeBasis: "horizontal",
+      stripeG: 0.32,
+      stripeO: 0.4,
+      stripeW: 0.11,
+    });
+  });
+
+  it("preserves linked striped left-face route state", () => {
+    expect(
+      validateLogoRouteSearch({
+        leftFace: "striped",
+        stripeG: "0",
+        stripeW: "0",
+      }),
+    ).toEqual({
+      leftFace: "striped",
+      stripeA: undefined,
+      stripeBasis: undefined,
+      stripeG: 0,
+      stripeLink: undefined,
+      stripeO: undefined,
+      stripeW: 0,
+    });
+
+    expect(
+      validateLogoRouteSearch({
+        leftFace: "striped",
+        stripeG: "0.4",
+        stripeLink: "",
+      }),
+    ).toEqual({
+      leftFace: "striped",
+      stripeA: undefined,
+      stripeBasis: undefined,
+      stripeG: 0.4,
+      stripeLink: true,
+      stripeO: undefined,
+      stripeW: 0.4,
+    });
+
+    expect(
+      buildLogoRouteSearch({
+        distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+        fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
+        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+        leftFaceStyle: {
+          kind: "striped",
+          stripeAngleDegrees: DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+          stripeBasis: DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS,
+          stripeGap: 0.4,
+          stripeGapLinked: true,
+          stripeOffset: DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
+          stripeWidth: 0.4,
+        },
+        rotationAxisMode: "cube-y",
+        rotationDegrees: DEFAULT_ROTATION_DEGREES,
+        themeColors: DEFAULT_LOGO_THEME_COLORS,
+        viewSnapEnabled: true,
+        voxelState: DEFAULT_VOXEL_STATE,
+      }),
+    ).toEqual({
+      depth: undefined,
+      dist: undefined,
+      leftFace: "striped",
+      stripeA: undefined,
+      stripeBasis: undefined,
+      stripeG: 0.4,
+      stripeLink: true,
+      stripeO: undefined,
+      stripeW: 0.4,
     });
   });
 });

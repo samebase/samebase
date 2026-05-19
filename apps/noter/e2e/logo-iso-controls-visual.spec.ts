@@ -906,6 +906,62 @@ test("logo view button groups wrap to one per row in the default rail", async ({
   expect(verticalBox.y).toBeGreaterThan(cubeAxisBox.y);
 });
 
+test("logo view exposes striped left-face controls", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo?leftFace=striped&stripeW=0.22&stripeG=0.18", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const leftFaceSection = page.getByTestId("logo-preview-left-face-section");
+  await expect(leftFaceSection).toContainText("Width");
+  await expect(leftFaceSection).toContainText("0.22");
+  await expect(leftFaceSection).toContainText("Gap");
+  await expect(leftFaceSection).toContainText("0.18");
+  await expect(leftFaceSection).toContainText("Width basis");
+  const linkedWidthGapCheckbox = leftFaceSection.getByRole("checkbox", {
+    name: "Link width/gap",
+  });
+  await expect(linkedWidthGapCheckbox).not.toBeChecked();
+
+  await expect(leftFaceSection).toHaveScreenshot(
+    "logo-left-face-stripe-controls.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.01,
+      scale: "css",
+    },
+  );
+
+  const canvas = page.locator("canvas").first();
+  await waitForPaint(page);
+  await expect(canvas).toHaveScreenshot("logo-striped-left-face-scene.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
+  });
+
+  const horizontalBasisButton = leftFaceSection.getByRole("button", {
+    name: "Horizontal",
+    exact: true,
+  });
+  await expect(horizontalBasisButton).toBeVisible();
+  await horizontalBasisButton.click();
+  await expect(page).toHaveURL(/stripeBasis=horizontal/);
+
+  await linkedWidthGapCheckbox.check();
+  await expect(linkedWidthGapCheckbox).toBeChecked();
+  await expect(page).toHaveURL(/stripeLink/);
+
+  await leftFaceSection
+    .getByRole("spinbutton", { name: "Stripe gap" })
+    .fill("0");
+  await expect(page).toHaveURL(/stripeW=0/);
+  await expect(page).toHaveURL(/stripeG=0/);
+  await expect(page).toHaveURL(/stripeLink/);
+});
+
 test("logo view color selection applies Tailwind colors to the Three scene", async ({
   page,
 }) => {
