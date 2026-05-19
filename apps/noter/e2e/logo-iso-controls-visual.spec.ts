@@ -917,6 +917,7 @@ test("logo view exposes striped left-face controls", async ({ page }) => {
   await expect(leftFaceSection).toContainText("0.22");
   await expect(leftFaceSection).toContainText("Gap");
   await expect(leftFaceSection).toContainText("0.18");
+  await expect(leftFaceSection).toContainText("Width basis");
   const linkedWidthGapCheckbox = leftFaceSection.getByRole("checkbox", {
     name: "Link width/gap",
   });
@@ -940,6 +941,14 @@ test("logo view exposes striped left-face controls", async ({ page }) => {
     maxDiffPixelRatio: 0.01,
     scale: "css",
   });
+
+  const horizontalBasisButton = leftFaceSection.getByRole("button", {
+    name: "Horizontal",
+    exact: true,
+  });
+  await expect(horizontalBasisButton).toBeVisible();
+  await horizontalBasisButton.click();
+  await expect(page).toHaveURL(/stripeBasis=horizontal/);
 
   await linkedWidthGapCheckbox.check();
   await expect(linkedWidthGapCheckbox).toBeChecked();

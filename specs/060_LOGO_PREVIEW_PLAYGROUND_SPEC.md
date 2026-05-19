@@ -215,6 +215,19 @@ The playground should expose at least these presets:
   gap, angle, and offset.
 - Stripe width and gap may be `0`, and the playground should expose a shareable
   linked-width/gap option for checking equal-period patterns quickly.
+- Stripe width and gap are stored as user-facing measures. The Three shader
+  receives perpendicular face-space distances after applying the selected width
+  basis:
+  - `auto`: multiply by `max(abs(sin(theta)), abs(cos(theta)))`.
+  - `horizontal`: multiply by `abs(sin(theta))`.
+  - `vertical`: multiply by `abs(cos(theta))`.
+  - `raw`: multiply by `1`, preserving direct perpendicular shader thickness.
+- `theta` is the stripe direction angle in the left face's local UV plane. The
+  horizontal basis means the entered width/gap is the interval measured by a
+  horizontal cross-section; the vertical basis means the same for a vertical
+  cross-section. The auto basis uses the larger axis projection so cardinal
+  stripe angles do not collapse to zero while the internal math still uses
+  JavaScript double precision rather than UI-rounded approximations.
 - Stripes must be rendered in the left face's local 3D surface space, not as a
   screen-space overlay, so dragging the logo keeps the pattern attached to the
   face geometry.

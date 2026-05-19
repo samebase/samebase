@@ -16,6 +16,7 @@ import {
 } from "@/components/logo/logoDistanceScale";
 import {
   DEFAULT_LOGO_LEFT_FACE_STYLE,
+  getLogoLeftFaceStripeBasisScale,
   normalizeLogoLeftFaceStyle,
   type LogoLeftFaceStyle,
 } from "@/components/logo/logoLeftFaceStyle";
@@ -1053,12 +1054,15 @@ function applyLeftFaceMaterialState({
     uniforms.stripedEnabled.value = normalizedStyle.kind === "striped" ? 1 : 0;
 
     if (normalizedStyle.kind === "striped") {
+      const stripeBasisScale = getLogoLeftFaceStripeBasisScale(normalizedStyle);
+
       uniforms.stripeAngleRadians.value = THREE.MathUtils.degToRad(
         normalizedStyle.stripeAngleDegrees,
       );
-      uniforms.stripeGap.value = normalizedStyle.stripeGap;
+      uniforms.stripeGap.value = normalizedStyle.stripeGap * stripeBasisScale;
       uniforms.stripeOffset.value = normalizedStyle.stripeOffset;
-      uniforms.stripeWidth.value = normalizedStyle.stripeWidth;
+      uniforms.stripeWidth.value =
+        normalizedStyle.stripeWidth * stripeBasisScale;
       continue;
     }
 

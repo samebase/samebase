@@ -18,14 +18,18 @@ import {
 import {
   LOGO_LEFT_FACE_STYLE_KINDS,
   DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS,
   DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
   DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
   DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
+  LOGO_LEFT_FACE_STRIPE_BASIS_VALUES,
   normalizeLogoLeftFaceStyle,
   readLogoLeftFaceStyle,
+  isLogoLeftFaceStripeBasis,
   isLogoLeftFaceStyleKind,
   type LogoLeftFaceStyle,
   type LogoLeftFaceStyleKind,
+  type LogoLeftFaceStripeBasis,
 } from "@/components/logo/logoLeftFaceStyle";
 import {
   appThemeColorSearchFieldSchema,
@@ -132,6 +136,15 @@ function readOptionalLeftFaceStyleKind(
     : undefined;
 }
 
+function readOptionalLeftFaceStripeBasis(
+  value: unknown,
+): LogoLeftFaceStripeBasis | undefined {
+  const leftFaceStripeBasis = readOptionalString(value);
+  return isLogoLeftFaceStripeBasis(leftFaceStripeBasis)
+    ? leftFaceStripeBasis
+    : undefined;
+}
+
 function readCanonicalVoxelState(value: unknown): string | undefined {
   const voxelState = readOptionalString(value);
   if (typeof voxelState !== "string") {
@@ -166,6 +179,10 @@ const logoRouteSearchFieldSchema = z
     ),
     rot: z.preprocess(readOptionalNumber, z.number().finite().optional()),
     stripeA: z.preprocess(readOptionalNumber, z.number().finite().optional()),
+    stripeBasis: z.preprocess(
+      readOptionalLeftFaceStripeBasis,
+      z.enum(LOGO_LEFT_FACE_STRIPE_BASIS_VALUES).optional(),
+    ),
     stripeG: z.preprocess(readOptionalNumber, z.number().finite().optional()),
     stripeLink: z.literal(true).optional(),
     stripeO: z.preprocess(readOptionalNumber, z.number().finite().optional()),
@@ -308,6 +325,7 @@ export function buildLogoRouteSearch(args: {
 function buildLogoLeftFaceStyleSearch(leftFaceStyle: LogoLeftFaceStyle): {
   leftFace?: LogoLeftFaceStyleKind;
   stripeA?: number;
+  stripeBasis?: LogoLeftFaceStripeBasis;
   stripeG?: number;
   stripeLink?: true;
   stripeO?: number;
@@ -317,6 +335,7 @@ function buildLogoLeftFaceStyleSearch(leftFaceStyle: LogoLeftFaceStyle): {
     return {
       leftFace: undefined,
       stripeA: undefined,
+      stripeBasis: undefined,
       stripeG: undefined,
       stripeLink: undefined,
       stripeO: undefined,
@@ -330,6 +349,10 @@ function buildLogoLeftFaceStyleSearch(leftFaceStyle: LogoLeftFaceStyle): {
       leftFaceStyle.stripeAngleDegrees !==
       DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES
         ? Number(leftFaceStyle.stripeAngleDegrees.toFixed(1))
+        : undefined,
+    stripeBasis:
+      leftFaceStyle.stripeBasis !== DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS
+        ? leftFaceStyle.stripeBasis
         : undefined,
     stripeG:
       !leftFaceStyle.stripeGapLinked &&

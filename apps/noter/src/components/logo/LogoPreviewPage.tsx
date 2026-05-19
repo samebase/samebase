@@ -30,10 +30,12 @@ import {
 } from "@/components/logo/logoDistanceScale";
 import {
   DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+  DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS,
   DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
   DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP_LINKED,
   DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
   DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
+  LOGO_LEFT_FACE_STRIPE_BASIS_VALUES,
   LOGO_LEFT_FACE_STRIPE_ANGLE_STEP,
   LOGO_LEFT_FACE_STRIPE_GAP_STEP,
   LOGO_LEFT_FACE_STRIPE_OFFSET_STEP,
@@ -55,6 +57,7 @@ import {
   readLogoLeftFaceStyle,
   type LogoLeftFaceStyle,
   type LogoLeftFaceStyleKind,
+  type LogoLeftFaceStripeBasis,
   type LogoStripedLeftFaceStyle,
 } from "@/components/logo/logoLeftFaceStyle";
 import {
@@ -180,6 +183,12 @@ const LEFT_FACE_STYLE_OPTIONS = [
   "secondary",
   "striped",
 ] as const satisfies readonly LogoLeftFaceStyleKind[];
+const LEFT_FACE_STRIPE_BASIS_LABELS: Record<LogoLeftFaceStripeBasis, string> = {
+  auto: "Auto",
+  horizontal: "Horizontal",
+  vertical: "Vertical",
+  raw: "Perpendicular",
+};
 type LogoPreviewRenderMode = Exclude<LogoDepthRenderer, "svg">;
 type LogoPreviewPageProps = {
   renderMode?: LogoPreviewRenderMode;
@@ -218,6 +227,7 @@ function readDefaultStripedLeftFaceStyle(): LogoStripedLeftFaceStyle {
   return {
     kind: "striped",
     stripeAngleDegrees: DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+    stripeBasis: DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS,
     stripeGap: DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
     stripeGapLinked: DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP_LINKED,
     stripeOffset: DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
@@ -1010,6 +1020,14 @@ function useLogoPreviewController({
           })),
         );
       },
+      setLeftFaceStripeBasis: (stripeBasis: LogoLeftFaceStripeBasis) => {
+        commitRouteState((currentState) =>
+          updateStripedLeftFaceStyle(currentState, (style) => ({
+            ...style,
+            stripeBasis,
+          })),
+        );
+      },
       setLeftFaceStripeGap: (stripeGap: number) => {
         debounceRouteState((currentState) =>
           updateStripedLeftFaceStyle(currentState, (style) => {
@@ -1211,6 +1229,7 @@ const LOGO_ROUTE_SEARCH_KEYS = [
   "light",
   "rot",
   "stripeA",
+  "stripeBasis",
   "stripeG",
   "stripeLink",
   "stripeO",
@@ -2103,6 +2122,32 @@ export function LogoPreviewPage({
                 >
                   Link width/gap
                 </label>
+              </div>
+
+              <div className={LOGO_CONTROL_STACK_CLASS_NAME}>
+                <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                  Width basis
+                </div>
+                <div className={LOGO_CONTROL_BUTTON_ROW_CLASS_NAME}>
+                  {LOGO_LEFT_FACE_STRIPE_BASIS_VALUES.map((stripeBasis) => (
+                    <Button
+                      key={stripeBasis}
+                      type="button"
+                      size="sm"
+                      variant={
+                        stripedLeftFaceStyle.stripeBasis === stripeBasis
+                          ? "default"
+                          : "outline"
+                      }
+                      className={LOGO_CONTROL_BUTTON_CLASS_NAME}
+                      onClick={() => {
+                        controls.setLeftFaceStripeBasis(stripeBasis);
+                      }}
+                    >
+                      {LEFT_FACE_STRIPE_BASIS_LABELS[stripeBasis]}
+                    </Button>
+                  ))}
+                </div>
               </div>
 
               <LogoRangeControl
