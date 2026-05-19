@@ -1,4 +1,5 @@
 import { getShuffleOriginCandidates } from "@/components/logo/logoShuffleRules";
+import { clampLogoFractalDepthForRenderer } from "@/components/logo/logoDepthLimits";
 import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
@@ -20,7 +21,6 @@ import {
   GRID_SIZE,
   getLogoFractalGridSize,
   type LogoVoxelGrid,
-  normalizeLogoFractalDepth,
   parseVoxelState,
   type VoxelCoordinate,
   type VoxelEdit,
@@ -134,8 +134,9 @@ function resolveSceneVoxelGrid({
   gridSize: number;
   recursiveRenderDepth: number | null;
 } {
-  const normalizedFractalDepth = normalizeLogoFractalDepth(
+  const normalizedFractalDepth = clampLogoFractalDepthForRenderer(
     fractalDepth ?? DEFAULT_LOGO_FRACTAL_DEPTH,
+    "iso",
   );
 
   if (voxelGrid) {

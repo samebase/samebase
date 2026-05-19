@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LogoStaticSvgPage } from "@/components/logo/LogoStaticSvgPage";
-import { validateLogoRouteSearch } from "@/lib/logoRouteSearch";
+import { validateLogoRouteSearchForRenderer } from "@/lib/logoRouteSearch";
 import { RoutedPage } from "./-publicRouteComponents";
 
 const pathname = "/logo/svg";
@@ -17,5 +17,5 @@ function LogoSvgRouteComponent() {
 
 export const Route = createFileRoute("/logo/svg")({
   component: LogoSvgRouteComponent,
-  validateSearch: validateLogoRouteSearch,
+  validateSearch: validateLogoRouteSearchForRenderer("svg"),
 });

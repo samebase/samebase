@@ -2,11 +2,11 @@ import {
   DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE,
   STATIC_LOGO_VOXEL_COORDINATES,
 } from "@/components/logo/logoStaticSvgContract";
+import { clampLogoFractalDepthForRenderer } from "@/components/logo/logoDepthLimits";
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
 import {
   createFilledVoxelSet,
   DEFAULT_LOGO_FRACTAL_DEPTH,
-  normalizeLogoFractalDepth,
   parseVoxelState,
 } from "@/components/logo/logoVoxelState";
 import { Button } from "@/components/ui/button";
@@ -23,8 +23,9 @@ export function LogoStaticSvgPage({
   const baseFilledVoxels =
     parseVoxelState(routeSearch.vox ?? null) ??
     createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES);
-  const fractalDepth = normalizeLogoFractalDepth(
+  const fractalDepth = clampLogoFractalDepthForRenderer(
     routeSearch.depth ?? DEFAULT_LOGO_FRACTAL_DEPTH,
+    "svg",
   );
   const staticSvgSrc = `${createStaticLogoSvgDataUrl({
     depth: fractalDepth,

@@ -3,6 +3,7 @@ import {
   DEFAULT_LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
+import { clampLogoFractalDepthForRenderer } from "@/components/logo/logoDepthLimits";
 import {
   STATIC_LOGO_ELEVATION_DEGREES,
   STATIC_LOGO_ROTATION_DEGREES,
@@ -11,7 +12,6 @@ import {
 import {
   createLogoFractalVoxelGrid,
   DEFAULT_LOGO_FRACTAL_DEPTH,
-  normalizeLogoFractalDepth,
   normalizeRotationDegrees,
 } from "@/components/logo/logoVoxelState";
 import {
@@ -102,8 +102,9 @@ export function PublicLandingLogo({
   );
   const logoTheme = useResolvedAppThemeColorState(themeColorSearch);
   const { backgroundColor, faceColors } = logoTheme;
-  const fractalDepth = normalizeLogoFractalDepth(
+  const fractalDepth = clampLogoFractalDepthForRenderer(
     themeColorSearch.depth ?? DEFAULT_LOGO_FRACTAL_DEPTH,
+    "three",
   );
   const distanceScale = normalizeLogoDistanceScale(
     themeColorSearch.dist ?? DEFAULT_LOGO_DISTANCE_SCALE,

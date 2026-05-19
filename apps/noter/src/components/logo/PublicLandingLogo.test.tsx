@@ -12,6 +12,7 @@ import {
 } from "vite-plus/test";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
+import { getLogoRendererFractalDepthHardMax } from "@/components/logo/logoDepthLimits";
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
 import { createLogoFractalVoxelGrid } from "@/components/logo/logoVoxelState";
 import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
@@ -248,7 +249,7 @@ describe("PublicLandingLogo", () => {
     );
   });
 
-  it("bounds the high-depth static fallback while preserving the requested depth", async () => {
+  it("bounds high-depth public landing logo rendering", async () => {
     const rootElement = document.createElement("div");
     document.body.append(rootElement);
     const localRoot = createRoot(rootElement);
@@ -258,7 +259,7 @@ describe("PublicLandingLogo", () => {
       localRoot.render(
         <PublicLandingLogo
           loadInteractiveScene={false}
-          themeColorSearch={{ depth: 6 }}
+          themeColorSearch={{ depth: 99 }}
         />,
       );
     });
@@ -275,7 +276,7 @@ describe("PublicLandingLogo", () => {
           faceColors: defaultLogoTheme.faceColors,
           filledVoxels: fallbackVoxelGrid.filledVoxels,
           gridSize: fallbackVoxelGrid.gridSize,
-        })}#${defaultLogoTheme.cacheKey}:6:1`,
+        })}#${defaultLogoTheme.cacheKey}:${getLogoRendererFractalDepthHardMax("three")}:1`,
       ),
     );
   });

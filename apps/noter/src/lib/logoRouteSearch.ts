@@ -6,6 +6,10 @@ import {
   normalizeLogoIsometricCubeSidePixels,
   type LogoIsometricStyleId,
 } from "@/components/logo/logoIsometricRenderer";
+import {
+  clampLogoFractalDepthForRenderer,
+  type LogoDepthRenderer,
+} from "@/components/logo/logoDepthLimits";
 import { type LogoThemeColors } from "@/components/logo/logoTailwindColors";
 import {
   DEFAULT_LOGO_DISTANCE_SCALE,
@@ -181,6 +185,40 @@ export function validateLogoRouteSearch(
   return logoRouteSearchSchema.parse(
     normalizeRouteSearchPresenceFlags(search, LOGO_ROUTE_PRESENCE_SEARCH_KEYS),
   );
+}
+
+/**
+ * Enforces the destination renderer's recovery cap on parsed route state.
+ * Only `depth` changes; already-safe searches keep object identity.
+ */
+export function clampLogoRouteSearchForRenderer(
+  search: LogoRouteSearch,
+  renderer: LogoDepthRenderer,
+): LogoRouteSearch {
+  if (typeof search.depth !== "number") {
+    return search;
+  }
+
+  const depth = clampLogoFractalDepthForRenderer(search.depth, renderer);
+  if (depth === search.depth) {
+    return search;
+  }
+
+  return {
+    ...search,
+    depth,
+  };
+}
+
+/**
+ * Route validators use the shared logo parser first, then clamp depth for the
+ * page renderer so URL-edited depth never exceeds that renderer's hard cap.
+ */
+export function validateLogoRouteSearchForRenderer(
+  renderer: LogoDepthRenderer,
+): (search: Record<string, unknown>) => LogoRouteSearch {
+  return (search) =>
+    clampLogoRouteSearchForRenderer(validateLogoRouteSearch(search), renderer);
 }
 
 export function buildLogoRouteSearch(args: {
