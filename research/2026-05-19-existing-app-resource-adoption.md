@@ -892,6 +892,9 @@ contract:
   relevant action or in-progress value
 - loading/error detail appears as a single compact message area for the whole
   component, not as reserved text below every provider item
+- queued/waiting uses a clock, running uses a spinner, failed uses a red error
+  icon, and action-required uses no extra state glyph because the action buttons
+  already explain the missing resource
 
 This gives one mental model: the vault owns three provider resource slots. A
 slot can be a link, an action, pending, running, or failed. The component can

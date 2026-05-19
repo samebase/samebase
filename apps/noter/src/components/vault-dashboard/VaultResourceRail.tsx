@@ -5,7 +5,7 @@ import {
   GitHubProviderLogo,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import {
-  Circle,
+  Clock,
   Link2,
   Loader2,
   Plus,
@@ -86,7 +86,7 @@ export type VaultResourceRailState = {
   ];
 };
 
-type VaultResourceRailVisualStatus = VaultResourceRailRowState["status"];
+type VaultResourceRailIconStatus = "failed" | "pending" | "running";
 
 const PROVIDER_LABELS = {
   cloudflare: "Cloudflare",
@@ -113,11 +113,10 @@ const ACTION_VARIANTS = {
 } as const satisfies Record<VaultResourceRailActionKind, "default" | "outline">;
 
 const STATUS_ICON_CLASS_NAMES = {
-  action_required: "h-3.5 w-3.5 text-muted-foreground",
   failed: "h-3.5 w-3.5 text-destructive",
   pending: "h-3.5 w-3.5 text-muted-foreground",
   running: "h-3.5 w-3.5 animate-spin text-muted-foreground",
-} satisfies Record<Exclude<VaultResourceRailVisualStatus, "ready">, string>;
+} satisfies Record<VaultResourceRailIconStatus, string>;
 
 const STATUS_MESSAGE_CLASS_NAMES = {
   failed: "min-w-0 text-xs leading-4 text-destructive",
@@ -131,21 +130,17 @@ const RESOURCE_LOGO_SLOT_CLASS_NAME =
   "flex h-5 w-5 shrink-0 items-center justify-center";
 const RESOURCE_VALUE_CLASS_NAME = "min-w-0 max-w-64 truncate";
 
-function getStatusIcon(
-  status: Exclude<VaultResourceRailVisualStatus, "ready">,
-): LucideIcon {
+function getStatusIcon(status: VaultResourceRailIconStatus): LucideIcon {
   switch (status) {
-    case "action_required":
-      return Circle;
     case "failed":
       return XCircle;
     case "pending":
-      return Circle;
+      return Clock;
     case "running":
       return Loader2;
   }
   status satisfies never;
-  return Circle;
+  return Clock;
 }
 
 function getRowStatusMessage(row: VaultResourceRailRowState):
@@ -187,6 +182,22 @@ function getRowActions(
     case "pending":
     case "ready":
     case "running":
+      return undefined;
+  }
+  row satisfies never;
+  return undefined;
+}
+
+function getRowIconStatus(
+  row: VaultResourceRailRowState,
+): VaultResourceRailIconStatus | undefined {
+  switch (row.status) {
+    case "failed":
+    case "pending":
+    case "running":
+      return row.status;
+    case "action_required":
+    case "ready":
       return undefined;
   }
   row satisfies never;
@@ -241,7 +252,7 @@ function getRowValue(row: VaultResourceRailRowState): string | undefined {
 function VaultResourceRailStatusIcon({
   status,
 }: {
-  status: Exclude<VaultResourceRailVisualStatus, "ready">;
+  status: VaultResourceRailIconStatus;
 }) {
   const StatusIcon = getStatusIcon(status);
 
@@ -251,6 +262,7 @@ function VaultResourceRailStatusIcon({
 function VaultResourceRailItem({ row }: { row: VaultResourceRailRowState }) {
   const ProviderLogo = PROVIDER_LOGOS[row.provider];
   const actions = getRowActions(row);
+  const iconStatus = getRowIconStatus(row);
   const value = getRowValue(row);
   const providerLabel = PROVIDER_LABELS[row.provider];
   const content = (
@@ -258,9 +270,7 @@ function VaultResourceRailItem({ row }: { row: VaultResourceRailRowState }) {
       <span className={RESOURCE_LOGO_SLOT_CLASS_NAME}>
         <ProviderLogo />
       </span>
-      {row.status === "ready" ? null : (
-        <VaultResourceRailStatusIcon status={row.status} />
-      )}
+      {iconStatus ? <VaultResourceRailStatusIcon status={iconStatus} /> : null}
       {value ? (
         <span className={RESOURCE_VALUE_CLASS_NAME}>{value}</span>
       ) : null}
