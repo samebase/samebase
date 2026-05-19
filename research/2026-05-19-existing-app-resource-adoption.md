@@ -49,6 +49,12 @@ Cloudflare Builds trigger" or "this deployed app bundle references this public
 Convex URL." Avoid hidden heuristic chains that force operators to dig through
 logs or trust a fuzzy match.
 
+Provider connection UX should be OAuth-first. When this note says "token", it
+means the internal credential Noter receives and stores after an OAuth or app
+installation flow. Users should not need to paste API keys for the standard
+path. API keys can remain a fallback while the integration is maturing, but the
+main adoption design should assume provider OAuth or provider app installation.
+
 ## Current Runtime Model
 
 ### Provider Credentials
@@ -61,6 +67,10 @@ Provider credentials are user-scoped in `providerConnections`:
 
 These rows answer "can this Noter user call the provider API?" They do not say
 which provider resources belong to a vault.
+
+Terminology note: `auth.credential` is an internal stored provider credential.
+It should usually come from OAuth. Avoid designing V1 language or UI around
+users pasting provider API keys.
 
 Current source files:
 
@@ -404,6 +414,42 @@ Store the chosen provider scope with the resource target. A global
 `providerConnections.cloudflare.accountId` is useful as a default, but the vault
 resource target should still carry its own `accountId` because different vaults
 can reasonably adopt Workers from different Cloudflare accounts.
+
+### Provider Auth Model Follow-Up
+
+The provider scope picker question is tied to the provider connection model, so
+it needs a separate implementation decision before Noter grows beyond V1.
+
+GitHub currently uses an OAuth App-style flow with broad scopes. That may be
+acceptable for early onboarding, but it should be compared with a GitHub App
+installation model before adoption is generalized. GitHub Apps are generally
+preferred by GitHub for integrations because they support fine-grained
+permissions, explicit repository installation, organization-level approval, and
+short-lived installation tokens. A likely long-term shape is GitHub App
+installation for repository access and automation, with OAuth/user identity only
+where Noter must act directly as the user.
+
+Convex already has an OAuth application flow. The team authorization endpoint
+lets the user pick a team during the provider-owned OAuth screen, and Convex
+also exposes a project authorization endpoint. That means the first "team
+picker" may not need to be a Noter-owned dropdown at all. V1 can keep a single
+connected Convex team in `providerConnections`; switching teams can re-run the
+Convex OAuth flow. A later version should investigate whether project-scoped
+Convex OAuth is safer for adopting an existing production project, and whether
+Noter should store multiple Convex team/project connections per user.
+
+Cloudflare is already closest to the desired model because MCP OAuth gives Noter
+a provider-owned OAuth flow and the Cloudflare API can list visible accounts for
+an account picker.
+
+Open investigation:
+
+1. Should GitHub move from OAuth App scopes to a GitHub App installation model?
+2. Should Convex adoption use team-scoped OAuth, project-scoped OAuth, or both?
+3. Should `providerConnections` stay one row per user/provider, or become one
+   row per provider scope such as GitHub installation, Convex team/project, and
+   Cloudflare account?
+4. Which API-key fallback buttons should remain visible once OAuth is stable?
 
 ## Data Model Proposal
 
