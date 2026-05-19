@@ -336,21 +336,21 @@ Key domain entities:
 
 When the user says one of these commands, execute it directly:
 
-| Command        | Action                                                                                                                                             |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `commit`       | Stage changes and create a concise commit                                                                                                          |
-| `push`         | Commit if needed, then push                                                                                                                        |
-| `create pr`    | Push if needed, then create or update a ready PR                                                                                                   |
-| `create draft` | Push if needed, then create or update a draft PR                                                                                                   |
-| `ready`        | Mark the current PR ready                                                                                                                          |
-| `wait`         | Watch CI and report status                                                                                                                         |
-| `ship`         | Commit, push, ensure a ready PR exists, clear actionable review feedback, wait                                                                     |
-| `squash`       | Squash-merge the current PR                                                                                                                        |
-| `archive`      | Remove the current worktree/local branch after confirming a PR exists                                                                              |
-| `link machine` | Run the current checkout's `noter.ts` machine-link flow with worktree isolation when needed                                                        |
-| `clean vaults` | Remove temporary Noter-managed vaults for the current worktree                                                                                     |
-| `clean`        | Run `clean vaults`, clean noter.md PR preview resources, remove the current worktree's local machine link, then remove the shipped worktree/branch |
-| `status`       | Report branch, local changes, and PR state                                                                                                         |
+| Command        | Action                                                                                                        |
+| -------------- | ------------------------------------------------------------------------------------------------------------- |
+| `commit`       | Stage changes and create a concise commit                                                                     |
+| `push`         | Commit if needed, then push                                                                                   |
+| `create pr`    | Push if needed, then create or update a ready PR                                                              |
+| `create draft` | Push if needed, then create or update a draft PR                                                              |
+| `ready`        | Mark the current PR ready                                                                                     |
+| `wait`         | Watch CI and report status                                                                                    |
+| `ship`         | Commit, push, ensure a ready PR exists, clear actionable review feedback, wait                                |
+| `squash`       | Squash-merge the current PR                                                                                   |
+| `archive`      | Remove the current worktree/local branch after confirming a PR exists                                         |
+| `link machine` | Run the current checkout's `noter.ts` machine-link flow with worktree isolation when needed                   |
+| `clean vaults` | Remove temporary Noter-managed vaults for the current worktree                                                |
+| `clean`        | Run `clean vaults`, remove the current worktree's local machine link, then remove the shipped worktree/branch |
+| `status`       | Report branch, local changes, and PR state                                                                    |
 
 Detailed flow rules live in `docs/agent-workflows.md`.
 
@@ -381,9 +381,6 @@ Detailed flow rules live in `docs/agent-workflows.md`.
   install as part of local dev linking.
 - `clean vaults` must fail closed and only remove matching Noter-managed vaults
   through the dashboard delete flow.
-- `clean` must follow `docs/noter-pr-preview-cleanup.md` before deleting the
-  remote branch. Inspect candidates and delete only noter.md PR preview
-  resources that provider or GitHub metadata ties to the merged branch.
 - `clean` must fail closed and only remove the current checkout's isolated
   machine state directory under `~/.noter/checkouts/<checkout-id>`. Never delete
   the default `~/.noter` install as part of local cleanup.
