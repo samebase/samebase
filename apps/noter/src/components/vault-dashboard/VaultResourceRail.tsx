@@ -1,6 +1,10 @@
 import { Button } from "@/components/ui/button";
 import {
-  CheckCircle2,
+  CloudflareProviderLogo,
+  ConvexProviderLogo,
+  GitHubProviderLogo,
+} from "@/components/vault-dashboard/VaultDashboardLogos";
+import {
   Circle,
   Link2,
   Loader2,
@@ -9,6 +13,7 @@ import {
   XCircle,
   type LucideIcon,
 } from "lucide-react";
+import { type ComponentType } from "react";
 
 type VaultResourceRailActionKind = "connect_existing" | "create_new" | "retry";
 
@@ -89,6 +94,12 @@ const PROVIDER_LABELS = {
   github: "GitHub",
 } satisfies Record<VaultResourceRailProvider, string>;
 
+const PROVIDER_LOGOS = {
+  cloudflare: CloudflareProviderLogo,
+  convex: ConvexProviderLogo,
+  github: GitHubProviderLogo,
+} satisfies Record<VaultResourceRailProvider, ComponentType>;
+
 const ACTION_ICONS = {
   connect_existing: Link2,
   create_new: Plus,
@@ -102,21 +113,27 @@ const ACTION_VARIANTS = {
 } as const satisfies Record<VaultResourceRailActionKind, "default" | "outline">;
 
 const STATUS_ICON_CLASS_NAMES = {
-  action_required: "h-4 w-4 text-muted-foreground",
-  failed: "h-4 w-4 text-destructive",
-  pending: "h-4 w-4 text-muted-foreground",
-  ready: "h-4 w-4 text-emerald-600",
-  running: "h-4 w-4 animate-spin text-muted-foreground",
-} satisfies Record<VaultResourceRailVisualStatus, string>;
+  action_required: "h-3.5 w-3.5 text-muted-foreground",
+  failed: "h-3.5 w-3.5 text-destructive",
+  pending: "h-3.5 w-3.5 text-muted-foreground",
+  running: "h-3.5 w-3.5 animate-spin text-muted-foreground",
+} satisfies Record<Exclude<VaultResourceRailVisualStatus, "ready">, string>;
 
-const STATUS_TEXT_CLASS_NAMES = {
-  failed: "col-span-2 -mt-1 min-h-4 text-xs leading-4 text-destructive",
-  running: "col-span-2 -mt-1 min-h-4 text-xs leading-4 text-muted-foreground",
+const STATUS_MESSAGE_CLASS_NAMES = {
+  failed: "min-w-0 text-xs leading-4 text-destructive",
+  running: "min-w-0 text-xs leading-4 text-muted-foreground",
 } satisfies Record<"failed" | "running", string>;
-const EMPTY_STATUS_TEXT_CLASS_NAME =
-  "col-span-2 -mt-1 min-h-4 text-xs leading-4";
+const RESOURCE_LINK_CLASS_NAME =
+  "-mx-1.5 -my-1 inline-flex min-h-8 max-w-full items-center gap-1.5 px-1.5 py-1 text-sm leading-6 text-foreground underline decoration-muted-foreground/40 underline-offset-4 touch-manipulation hover:decoration-current";
+const RESOURCE_ITEM_CLASS_NAME =
+  "inline-flex min-h-8 max-w-full flex-wrap items-center gap-1.5 text-sm leading-6 text-foreground";
+const RESOURCE_LOGO_SLOT_CLASS_NAME =
+  "flex h-5 w-5 shrink-0 items-center justify-center";
+const RESOURCE_VALUE_CLASS_NAME = "min-w-0 max-w-64 truncate";
 
-function getStatusIcon(status: VaultResourceRailVisualStatus): LucideIcon {
+function getStatusIcon(
+  status: Exclude<VaultResourceRailVisualStatus, "ready">,
+): LucideIcon {
   switch (status) {
     case "action_required":
       return Circle;
@@ -124,8 +141,6 @@ function getStatusIcon(status: VaultResourceRailVisualStatus): LucideIcon {
       return XCircle;
     case "pending":
       return Circle;
-    case "ready":
-      return CheckCircle2;
     case "running":
       return Loader2;
   }
@@ -133,8 +148,9 @@ function getStatusIcon(status: VaultResourceRailVisualStatus): LucideIcon {
   return Circle;
 }
 
-function getRowStatusText(row: VaultResourceRailRowState):
+function getRowStatusMessage(row: VaultResourceRailRowState):
   | {
+      provider: VaultResourceRailProvider;
       className: string;
       text: string;
     }
@@ -142,12 +158,14 @@ function getRowStatusText(row: VaultResourceRailRowState):
   switch (row.status) {
     case "failed":
       return {
-        className: STATUS_TEXT_CLASS_NAMES.failed,
+        provider: row.provider,
+        className: STATUS_MESSAGE_CLASS_NAMES.failed,
         text: row.statusText,
       };
     case "running":
       return {
-        className: STATUS_TEXT_CLASS_NAMES.running,
+        provider: row.provider,
+        className: STATUS_MESSAGE_CLASS_NAMES.running,
         text: row.statusText,
       };
     case "action_required":
@@ -177,8 +195,10 @@ function getRowActions(
 
 function VaultResourceRailActions({
   actions,
+  provider,
 }: {
   actions: VaultResourceRailActionList;
+  provider: VaultResourceRailProvider;
 }) {
   return (
     <div className="flex min-w-0 flex-wrap gap-1">
@@ -193,6 +213,7 @@ function VaultResourceRailActions({
             className="h-7 gap-1 px-2"
             onClick={action.onClick}
             disabled={action.disabled}
+            aria-label={`${action.label} ${PROVIDER_LABELS[provider]}`}
           >
             <Icon className="h-3.5 w-3.5" />
             {action.label}
@@ -203,49 +224,74 @@ function VaultResourceRailActions({
   );
 }
 
-function VaultResourceRailRow({ row }: { row: VaultResourceRailRowState }) {
-  const StatusIcon = getStatusIcon(row.status);
+function getRowValue(row: VaultResourceRailRowState): string | undefined {
+  switch (row.status) {
+    case "action_required":
+      return undefined;
+    case "failed":
+    case "pending":
+    case "ready":
+    case "running":
+      return row.value;
+  }
+  row satisfies never;
+  return undefined;
+}
+
+function VaultResourceRailStatusIcon({
+  status,
+}: {
+  status: Exclude<VaultResourceRailVisualStatus, "ready">;
+}) {
+  const StatusIcon = getStatusIcon(status);
+
+  return <StatusIcon className={STATUS_ICON_CLASS_NAMES[status]} />;
+}
+
+function VaultResourceRailItem({ row }: { row: VaultResourceRailRowState }) {
+  const ProviderLogo = PROVIDER_LOGOS[row.provider];
   const actions = getRowActions(row);
-  const statusText = getRowStatusText(row);
-  const value =
-    row.status === "action_required" ? null : row.status === "ready" &&
-      row.href ? (
+  const value = getRowValue(row);
+  const providerLabel = PROVIDER_LABELS[row.provider];
+  const content = (
+    <>
+      <span className={RESOURCE_LOGO_SLOT_CLASS_NAME}>
+        <ProviderLogo />
+      </span>
+      {row.status === "ready" ? null : (
+        <VaultResourceRailStatusIcon status={row.status} />
+      )}
+      {value ? (
+        <span className={RESOURCE_VALUE_CLASS_NAME}>{value}</span>
+      ) : null}
+      {actions ? (
+        <VaultResourceRailActions actions={actions} provider={row.provider} />
+      ) : null}
+    </>
+  );
+
+  if (row.status === "ready" && row.href) {
+    return (
       <a
         href={row.href}
         target="_blank"
         rel="noopener noreferrer"
-        className="underline decoration-muted-foreground/40 underline-offset-4 hover:decoration-current"
+        className={RESOURCE_LINK_CLASS_NAME}
+        title={`Open ${providerLabel}`}
+        aria-label={`Open ${providerLabel}: ${row.value}`}
       >
-        {row.value}
+        {content}
       </a>
-    ) : (
-      row.value
     );
+  }
 
   return (
     <div
       data-provider={row.provider}
-      className="grid grid-cols-[1rem_minmax(0,1fr)] gap-x-2"
+      className={RESOURCE_ITEM_CLASS_NAME}
+      title={providerLabel}
     >
-      <div className="flex h-7 items-center justify-center">
-        <StatusIcon className={STATUS_ICON_CLASS_NAMES[row.status]} />
-      </div>
-      <div className="flex min-h-7 min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-        <div className="w-20 shrink-0 text-sm font-medium">
-          {PROVIDER_LABELS[row.provider]}
-        </div>
-        {value ? (
-          <div className="min-w-0 w-fit max-w-full shrink">
-            <div className="truncate text-sm">{value}</div>
-          </div>
-        ) : null}
-        {actions ? <VaultResourceRailActions actions={actions} /> : null}
-      </div>
-      {statusText ? (
-        <div className={statusText.className}>{statusText.text}</div>
-      ) : (
-        <div aria-hidden="true" className={EMPTY_STATUS_TEXT_CLASS_NAME} />
-      )}
+      {content}
     </div>
   );
 }
@@ -255,11 +301,29 @@ export function VaultResourceRail({
 }: {
   state: VaultResourceRailState;
 }) {
+  const statusMessages = state.rows
+    .map((row) => getRowStatusMessage(row))
+    .filter((message) => message !== undefined);
+
   return (
-    <div data-testid="vault-resource-rail" className="mt-2 grid w-full gap-1">
-      {state.rows.map((row) => (
-        <VaultResourceRailRow key={row.provider} row={row} />
-      ))}
+    <div data-testid="vault-resource-rail" className="mt-1 grid w-full gap-1">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+        {state.rows.map((row) => (
+          <VaultResourceRailItem key={row.provider} row={row} />
+        ))}
+      </div>
+      {statusMessages.length > 0 ? (
+        <div className="grid min-w-0 gap-0.5">
+          {statusMessages.map((message) => (
+            <div key={message.provider} className={message.className}>
+              <span className="font-medium">
+                {PROVIDER_LABELS[message.provider]}
+              </span>
+              {`: ${message.text}`}
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

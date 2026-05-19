@@ -31,6 +31,13 @@ const ADD_VAULT_READY_VALUES = {
   github: "nicu-chiciuc/tmp-my-new-app",
 } as const;
 
+const ADD_VAULT_READY_URLS = {
+  cloudflare:
+    "https://dash.cloudflare.com/?to=/workers/services/view/tmp-my-new-app/production/overview",
+  convex: "https://dashboard.convex.dev/t/nicu/tmp-my-new-app/settings",
+  github: "https://github.com/nicu-chiciuc/tmp-my-new-app",
+} as const;
+
 const ADD_VAULT_FLOW_SCENARIOS = [
   {
     title: "Creating repository",
@@ -67,12 +74,12 @@ const ADD_VAULT_FLOW_SCENARIOS = [
           provider: "github",
           status: "ready",
           value: ADD_VAULT_READY_VALUES.github,
-          href: "https://github.com/nicu-chiciuc/tmp-my-new-app",
+          href: ADD_VAULT_READY_URLS.github,
         },
         {
           provider: "convex",
           status: "running",
-          statusText: "Creating Convex project.",
+          statusText: "Creating project.",
           value: ADD_VAULT_VALUES.convex,
         },
         {
@@ -93,12 +100,13 @@ const ADD_VAULT_FLOW_SCENARIOS = [
           provider: "github",
           status: "ready",
           value: ADD_VAULT_READY_VALUES.github,
-          href: "https://github.com/nicu-chiciuc/tmp-my-new-app",
+          href: ADD_VAULT_READY_URLS.github,
         },
         {
           provider: "convex",
           status: "ready",
           value: ADD_VAULT_READY_VALUES.convex,
+          href: ADD_VAULT_READY_URLS.convex,
         },
         {
           provider: "cloudflare",
@@ -119,17 +127,19 @@ const ADD_VAULT_FLOW_SCENARIOS = [
           provider: "github",
           status: "ready",
           value: ADD_VAULT_READY_VALUES.github,
-          href: "https://github.com/nicu-chiciuc/tmp-my-new-app",
+          href: ADD_VAULT_READY_URLS.github,
         },
         {
           provider: "convex",
           status: "ready",
           value: ADD_VAULT_READY_VALUES.convex,
+          href: ADD_VAULT_READY_URLS.convex,
         },
         {
           provider: "cloudflare",
           status: "ready",
           value: ADD_VAULT_READY_VALUES.cloudflare,
+          href: ADD_VAULT_READY_URLS.cloudflare,
         },
       ],
     },
@@ -191,12 +201,13 @@ const ADD_VAULT_FLOW_SCENARIOS = [
           provider: "github",
           status: "ready",
           value: ADD_VAULT_READY_VALUES.github,
-          href: "https://github.com/nicu-chiciuc/tmp-my-new-app",
+          href: ADD_VAULT_READY_URLS.github,
         },
         {
           provider: "convex",
           status: "ready",
           value: ADD_VAULT_READY_VALUES.convex,
+          href: ADD_VAULT_READY_URLS.convex,
         },
         {
           provider: "cloudflare",
@@ -227,8 +238,6 @@ function VaultResourceRailFixtureCard({
       isReady={true}
       repositoryOwner={scenario.repositoryOwner}
       repositoryName={scenario.repositoryName}
-      titleTitle={scenario.title}
-      titleHref={`https://github.com/${scenario.repositoryOwner}/${scenario.repositoryName}`}
       repositoryLinks={<VaultResourceRail state={scenario.state} />}
     />
   );

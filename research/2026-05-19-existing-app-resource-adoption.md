@@ -882,16 +882,21 @@ Good compact options:
    Best use: preserves the useful row state model while avoiding a tall sticky
    header.
 
-Recommended direction: split the visual component into two projections of the
-same resource state.
+Fixture follow-up: the split projection idea makes the mental model feel more
+complex than it needs to be. Prefer one resource-links component with one
+contract:
 
-- Header projection: compact strip, one line preferred, provider status/name
-  only, one setup/details trigger.
-- Detail projection: current three-row rail, with status/error text and
-  provider-specific actions.
+- always exactly three provider items in GitHub, Convex, Cloudflare order
+- ready items are just provider-logo links to the concrete provider resource
+- non-ready items keep the same provider logo and replace the link with the
+  relevant action or in-progress value
+- loading/error detail appears as a single compact message area for the whole
+  component, not as reserved text below every provider item
 
-This keeps the state model congruent while making the header behave like a
-dashboard header rather than an activity log.
+This gives one mental model: the vault owns three provider resource slots. A
+slot can be a link, an action, pending, running, or failed. The component can
+stay compact enough for the header without inventing a separate detail
+projection.
 
 ### Provider Setup CTA
 

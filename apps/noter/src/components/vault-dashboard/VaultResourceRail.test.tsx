@@ -58,7 +58,7 @@ describe("VaultResourceRail", () => {
     expect(markup).not.toContain("Connected existing");
   });
 
-  it("renders current status and failure context below provider rows", () => {
+  it("renders current status and failure context below resource links", () => {
     const state = {
       rows: [
         {
@@ -91,6 +91,7 @@ describe("VaultResourceRail", () => {
 
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
 
+    expect(markup).toContain("Open GitHub");
     expect(markup).toContain("Creating Convex project.");
     expect(markup).toContain("Multiple Cloudflare accounts are available.");
     expect(markup).toContain("Retry");
