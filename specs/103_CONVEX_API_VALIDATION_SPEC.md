@@ -42,6 +42,12 @@ Generator and validator checks:
   probe.
 - Higher-level client generators added more machinery than Noter needs or
   weakened some schema constraints.
+- `openapi-fetch` documents the desired client contract: callsites pass literal
+  OpenAPI path templates and grouped `params.path` / `params.query` values so
+  TypeScript can reject misspelled paths, wrong methods, missing path params,
+  and invalid request bodies before runtime. Noter follows that shape locally
+  from the generated `paths` type while keeping its existing fetch, error, and
+  AJV validation behavior.
 
 ## Decision
 
@@ -54,7 +60,12 @@ Noter pins Convex Management API validation to the published OpenAPI schema:
    validators, not AJV itself, because the Convex runtime disallows string-code
    generation.
 4. Expose a typed Convex Management client instead of a generic
-   `request(path, method, body): Promise<unknown>` escape hatch.
+   `request(path, method, body): Promise<unknown>` escape hatch. Internal
+   requests must use literal OpenAPI path templates such as
+   `/teams/{team_id}/list_projects`, an allowed method for that path, and typed
+   `params.path` / `params.query` objects derived from the generated `paths`
+   interface. The request layer is responsible for path/query serialization;
+   feature callsites must not build interpolated Management API URLs.
 5. Validate `/oauth/token` with a small local JSON Schema because it is outside
    the Management API spec. Its response contract is exactly the documented
    `{ access_token, token_type: "bearer" }` shape; extra fields are logged by
