@@ -2115,7 +2115,7 @@ function resolveActiveVaultDashboardCardHashId({
     }
 
     if (cardRect.top <= activeLineY && cardRect.bottom > activeLineY) {
-      return cardElement.id;
+      return hashId;
     }
 
     const distancePx = Math.abs(cardRect.top - activeLineY);
