@@ -312,6 +312,64 @@ Clean fix direction:
 3. source the resource summary from `vaults` + `vaultInfrastructure` +
    `vaultDomains`
 
+## New App Resource Rail Recording: 2026-05-20
+
+Recorded a real dashboard create flow for temporary vault
+`nicu-chiciuc/tmp-587a-rail-flow` from the local worktree app. The fixture was
+not used. The recording sampled the visible resource rail and the adjacent
+provisioning log while the workflow ran.
+
+Observed sequence:
+
+| Time | Log step                                  | Visible rail state                                                                      |
+| ---- | ----------------------------------------- | --------------------------------------------------------------------------------------- |
+| +7s  | run created                               | GitHub pending, Convex pending, Cloudflare pending                                      |
+| +8s  | create GitHub repo                        | all three rows still pending; status shows `GitHub: create GitHub repo`                 |
+| +11s | seed starter                              | GitHub becomes a ready link; Convex and Cloudflare stay pending                         |
+| +16s | sync tree                                 | GitHub ready; Convex and Cloudflare pending                                             |
+| +17s | claim infra / Convex provisioning         | GitHub ready; Convex pending; Cloudflare incorrectly showed `Connect` / `Create Worker` |
+| +20s | Convex production ready, preview starting | GitHub ready; Convex resource shown; Cloudflare pending with `Cloudflare: provisioning` |
+| +37s | Cloudflare ready                          | GitHub and Cloudflare ready links; Convex resource shown at vault level                 |
+
+Inconsistencies found:
+
+1. Cloudflare manual actions appeared during an active Convex provisioning run.
+   The vault was technically `ready` once the source tree synced, but provider
+   setup was still running, so missing future resources should remain passive.
+2. Provider setup status text duplicated the provider label in the rail, for
+   example `Convex: Convex: provisioning`.
+3. A follow-up verification run for `tmp-587a-rail-fix` showed no Cloudflare
+   action-button flash, but exposed a step/provider mismatch: after Convex
+   production connected, Cloudflare could show as the active row while the
+   workflow was still on `ensure Convex preview`.
+4. The final Convex row can show the stored project slug without becoming an
+   external dashboard link when the Convex provider connection does not have a
+   `teamSlug`. The vault-level resource value is still useful, but a dashboard
+   link needs a follow-up team-slug resolution/backfill.
+
+Fix direction applied in code:
+
+- allow `Connect` / `Create` actions only when source setup and provider setup
+  are both idle
+- while provider setup is active, keep non-current missing providers pending
+- use the concrete workflow step as rail detail, such as `Convex: ensure Convex`
+  or `Cloudflare: ensure Cloudflare`, instead of nesting provider labels
+- derive the active provider from the current workflow step, so
+  `ensure Convex preview` remains Convex even if Cloudflare setup is the next
+  provider state waiting in the same run
+
+Final verification run: `tmp-587a-rail-final` completed with no recorded
+violations. The rail sequence was:
+
+1. `GitHub: create GitHub repo`
+2. `GitHub: seed starter`
+3. GitHub ready, Convex and Cloudflare pending
+4. `Convex: validate connections`
+5. `Convex: ensure Convex`
+6. `Convex: ensure Convex preview`
+7. `Cloudflare: ensure Cloudflare`
+8. GitHub ready, Convex resource shown, Cloudflare ready
+
 ## Product Flow Proposal
 
 ### Principle

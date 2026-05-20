@@ -9,7 +9,12 @@ import {
   VaultProviderSetupSection,
 } from "./VaultDashboard";
 import { VaultDashboardRepositoryCard } from "./VaultDashboardChrome";
-import { resolveVaultProviderSetupStatus } from "./vaultProviderSetup";
+import { VaultResourceRail } from "./VaultResourceRail";
+import { buildVaultDashboardResourceRailState } from "./vaultResourceRailState";
+import {
+  resolveVaultProviderSetupStatus,
+  resolveVaultProviderSetupStepProvider,
+} from "./vaultProviderSetup";
 import { formatVaultSourceSetupStep } from "./vaultSourceSetup";
 
 const provisioningLogMock = vi.hoisted(
@@ -38,6 +43,36 @@ function fakeRunId(): Id<"appProvisioningRuns"> {
   // @ts-expect-error Convex ids are strings at runtime; this static render
   // test only needs a stable run id for component props.
   return "kx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+}
+
+type ResourceRailBuilderVault = Parameters<
+  typeof buildVaultDashboardResourceRailState
+>[0]["vault"];
+
+function makeResourceRailBuilderVault(
+  overrides: Partial<ResourceRailBuilderVault>,
+): ResourceRailBuilderVault {
+  const vault: ResourceRailBuilderVault = {
+    _id: fakeVaultId(),
+    _creationTime: 0,
+    ghRepoOwner: "ada",
+    ghRepoName: "demo",
+    repositoryFullName: "ada/demo",
+    fileCount: 0,
+    state: "ready",
+    sourceSetup: { status: "ready" },
+    providerSetup: { status: "not_applicable" },
+    deletion: {
+      state: "not_deleting",
+      deleteAction: { state: "available" },
+    },
+    isNoterManaged: true,
+    hasConnectedGitHubRepository: true,
+    hasConvexProvision: false,
+    hasCloudflareProvision: false,
+    remoteBranches: [],
+  };
+  return { ...vault, ...overrides };
 }
 
 describe("VaultBranchLinkContent", () => {
@@ -115,6 +150,22 @@ describe("resolveVaultProviderSetupStatus", () => {
     });
     expect(resolveVaultProviderSetupStatus({ status: "ready" })).toBeNull();
   });
+
+  it("uses the current workflow step to label the active provider", () => {
+    const providerSetup = {
+      status: "running",
+      provider: "cloudflare",
+      runId: fakeRunId(),
+      step: "ensure_convex_preview",
+      updatedAt: 0,
+    } satisfies ResourceRailBuilderVault["providerSetup"];
+
+    expect(resolveVaultProviderSetupStepProvider(providerSetup)).toBe("convex");
+    expect(resolveVaultProviderSetupStatus(providerSetup)).toEqual({
+      status: "running",
+      label: "Convex: provisioning",
+    });
+  });
 });
 
 describe("VaultProviderSetupSection", () => {
@@ -146,5 +197,83 @@ describe("VaultProviderSetupSection", () => {
     expect(markup).toContain("Ensuring Convex project");
     expect(markup).not.toContain("Provision infra");
     expect(markup).not.toContain("Retry infra");
+  });
+});
+
+describe("buildVaultDashboardResourceRailState", () => {
+  it("keeps future provider actions hidden while provisioning is running", () => {
+    const state = buildVaultDashboardResourceRailState({
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      vault: makeResourceRailBuilderVault({
+        providerSetup: {
+          status: "running",
+          provider: "convex",
+          runId: fakeRunId(),
+          step: "ensure_convex",
+          updatedAt: 30,
+        },
+      }),
+    });
+
+    expect(state.rows[1]).toMatchObject({
+      provider: "convex",
+      status: "running",
+      statusText: "ensure Convex",
+      value: "demo",
+    });
+    expect(state.rows[2]).toEqual({
+      provider: "cloudflare",
+      status: "pending",
+      value: "demo",
+    });
+
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+    expect(markup).toContain("ensure Convex");
+    expect(markup).not.toContain("Convex: Convex");
+    expect(markup).not.toContain("Create Worker");
+  });
+
+  it("shows missing provider actions after setup is idle", () => {
+    const state = buildVaultDashboardResourceRailState({
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      vault: makeResourceRailBuilderVault({}),
+    });
+
+    expect(state.rows[1]).toMatchObject({
+      provider: "convex",
+      status: "action_required",
+    });
+    expect(state.rows[2]).toMatchObject({
+      provider: "cloudflare",
+      status: "action_required",
+    });
+  });
+
+  it("keeps Convex preview progress on the Convex row", () => {
+    const state = buildVaultDashboardResourceRailState({
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      vault: makeResourceRailBuilderVault({
+        convexProjectSlug: "demo-project",
+        providerSetup: {
+          status: "running",
+          provider: "cloudflare",
+          runId: fakeRunId(),
+          step: "ensure_convex_preview",
+          updatedAt: 30,
+        },
+      }),
+    });
+
+    expect(state.rows[1]).toMatchObject({
+      provider: "convex",
+      status: "running",
+      statusText: "ensure Convex preview",
+      value: "demo-project",
+    });
+    expect(state.rows[2]).toEqual({
+      provider: "cloudflare",
+      status: "pending",
+      value: "demo",
+    });
   });
 });
