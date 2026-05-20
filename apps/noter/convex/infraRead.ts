@@ -11,6 +11,10 @@ import {
   readConvexManagementDecimalPathId,
   readConvexManagementPathSegment,
 } from "./convexManagementApi/client";
+import type {
+  PlatformDeploymentResponse,
+  PlatformProjectDetails,
+} from "./convexManagementApi/types.generated";
 import {
   readCloudflareBuildLogs,
   readCloudflareWorkerStatus,
@@ -118,6 +122,28 @@ function tryParseJson(text: string): unknown {
   }
 }
 
+function compareConvexDeploymentActivity(
+  left: PlatformDeploymentResponse,
+  right: PlatformDeploymentResponse,
+): number {
+  const timeDelta = right.createTime - left.createTime;
+  if (timeDelta !== 0) {
+    return timeDelta;
+  }
+  return left.name.localeCompare(right.name);
+}
+
+function compareConvexProjectInventoryRow(
+  left: PlatformProjectDetails,
+  right: PlatformProjectDetails,
+): number {
+  const nameDelta = left.name.localeCompare(right.name);
+  if (nameDelta !== 0) {
+    return nameDelta;
+  }
+  return left.id.localeCompare(right.id);
+}
+
 export const getConvexDeploymentStatus = internalAction({
   args: {
     vaultId: v.id("vaults"),
@@ -199,7 +225,9 @@ export const getConvexLogs = internalAction({
     const max = clamp(args.maxLines ?? 20, 1, 100);
 
     const lines: string[] = [];
-    for (const deployment of deployments.slice(0, max)) {
+    for (const deployment of [...deployments]
+      .sort(compareConvexDeploymentActivity)
+      .slice(0, max)) {
       const createdAtText = new Date(deployment.createTime).toISOString();
       lines.push(
         `[${createdAtText}] ${deployment.name} type=${deployment.deploymentType} kind=${deployment.kind}`,
@@ -311,7 +339,9 @@ export const getConvexProjectInventory = internalAction({
     });
     const projects = await client.listProjects({ teamId });
     const max = clamp(args.limit ?? 50, 1, 100);
-    const rows = projects.slice(0, max);
+    const rows = [...projects]
+      .sort(compareConvexProjectInventoryRow)
+      .slice(0, max);
 
     return {
       summary: `Convex project inventory for team ${teamId}`,

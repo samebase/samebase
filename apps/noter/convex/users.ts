@@ -11,6 +11,7 @@ import { Infer, v } from "convex/values";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import { isRecord, readString } from "./jsonUtils";
 import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
+import { ConvexManagementApiError } from "./convexManagementApi/errors";
 import {
   deriveMcpTokenStatusFromExpiry,
   vMcpTokenHealthStatus,
@@ -296,8 +297,14 @@ async function fetchConvexApiKeyTeamDetails(token: string): Promise<{
 }> {
   try {
     return await fetchConvexTeamTokenDetails(token);
-  } catch {
-    throw new Error("Invalid Convex API key");
+  } catch (error) {
+    if (
+      error instanceof ConvexManagementApiError &&
+      (error.status === 401 || error.status === 403)
+    ) {
+      throw new Error("Invalid Convex API key");
+    }
+    throw error;
   }
 }
 

@@ -32,6 +32,7 @@ import { ConvexApiValidationError, ConvexManagementApiError } from "./errors";
 import { validatePayload } from "./payloadValidation";
 
 const CONVEX_MANAGEMENT_BASE_URL = "https://api.convex.dev/v1";
+const CONVEX_MANAGEMENT_TIMEOUT_MS = 10_000;
 const CONVEX_MANAGEMENT_DECIMAL_ID_FIELDS: ReadonlySet<string> = new Set([
   "creator",
   "destinationProjectId",
@@ -139,7 +140,7 @@ export function formatConvexManagementApiEndpoint(args: {
 }
 
 export function createConvexManagementClient(args: {
-  token?: string;
+  token: string;
 }): ConvexManagementClient {
   const token = args.token;
   if (!token) {
@@ -151,6 +152,7 @@ export function createConvexManagementClient(args: {
     headers: {
       Authorization: `Bearer ${token}`,
     },
+    fetch: fetchConvexManagementApi,
     pathSerializer: serializeConvexManagementPath,
   });
 
@@ -342,6 +344,24 @@ export function createConvexManagementClient(args: {
       });
     },
   };
+}
+
+async function fetchConvexManagementApi(input: Request): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, CONVEX_MANAGEMENT_TIMEOUT_MS);
+
+  try {
+    return await fetch(input, { signal: controller.signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Convex Management API request timed out.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function validateConvexManagementJsonResult<T>(args: {
