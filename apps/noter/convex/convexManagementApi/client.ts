@@ -6,6 +6,7 @@ import createOpenApiFetchClient, {
   type ClientPathsWithMethod,
   type FetchOptions,
 } from "openapi-fetch";
+import { isLosslessNumber, isSafeNumber, parse } from "lossless-json";
 import type {
   paths,
   PlatformCreateDeployKeyArgs,
@@ -27,10 +28,20 @@ import {
   type AjvStandaloneValidateFunction,
 } from "./validators.generated";
 import { toErrorMessage } from "../jsonUtils";
-import { ConvexManagementApiError } from "./errors";
+import { ConvexApiValidationError, ConvexManagementApiError } from "./errors";
 import { validatePayload } from "./payloadValidation";
 
 const CONVEX_MANAGEMENT_BASE_URL = "https://api.convex.dev/v1";
+const CONVEX_MANAGEMENT_DECIMAL_ID_FIELDS: ReadonlySet<string> = new Set([
+  "creator",
+  "destinationProjectId",
+  "id",
+  "memberId",
+  "projectId",
+  "referredBy",
+  "ssoTeamId",
+  "teamId",
+]);
 
 type ConvexManagementOpenApiClient = Client<paths>;
 type ConvexManagementGetEndpointArgs<
@@ -96,7 +107,7 @@ export async function fetchConvexTeamTokenDetails(token: string): Promise<{
   if (details.type !== "teamToken") {
     throw new Error("Convex token is missing team access.");
   }
-  return { teamId: String(details.teamId) };
+  return { teamId: details.teamId };
 }
 
 export function formatConvexManagementApiEndpoint<
@@ -146,8 +157,8 @@ export function createConvexManagementClient(args: {
   return {
     async getTokenDetails() {
       const path = "/token_details";
-      const result = await client.GET(path);
-      return validateConvexManagementResult({
+      const result = await client.GET(path, { parseAs: "text" });
+      return validateConvexManagementJsonResult({
         result,
         endpoint: formatConvexManagementApiEndpoint({
           method: "GET",
@@ -162,11 +173,11 @@ export function createConvexManagementClient(args: {
       const path = "/teams/{team_id}/list_projects";
       const params = {
         path: {
-          team_id: parseConvexManagementNumericPathId(teamId, "Convex team ID"),
+          team_id: readConvexManagementDecimalPathId(teamId, "Convex team ID"),
         },
       };
-      const result = await client.GET(path, { params });
-      return validateConvexManagementResult({
+      const result = await client.GET(path, { params, parseAs: "text" });
+      return validateConvexManagementJsonResult({
         result,
         endpoint: formatConvexManagementApiEndpoint({
           method: "GET",
@@ -182,11 +193,11 @@ export function createConvexManagementClient(args: {
       const path = "/teams/{team_id}/create_project";
       const params = {
         path: {
-          team_id: parseConvexManagementNumericPathId(teamId, "Convex team ID"),
+          team_id: readConvexManagementDecimalPathId(teamId, "Convex team ID"),
         },
       };
-      const result = await client.POST(path, { params, body });
-      return validateConvexManagementResult({
+      const result = await client.POST(path, { params, body, parseAs: "text" });
+      return validateConvexManagementJsonResult({
         result,
         endpoint: formatConvexManagementApiEndpoint({
           method: "POST",
@@ -202,14 +213,14 @@ export function createConvexManagementClient(args: {
       const path = "/projects/{project_id}/list_deployments";
       const params = {
         path: {
-          project_id: parseConvexManagementNumericPathId(
+          project_id: readConvexManagementDecimalPathId(
             projectId,
             "Convex project ID",
           ),
         },
       };
-      const result = await client.GET(path, { params });
-      return validateConvexManagementResult({
+      const result = await client.GET(path, { params, parseAs: "text" });
+      return validateConvexManagementJsonResult({
         result,
         endpoint: formatConvexManagementApiEndpoint({
           method: "GET",
@@ -225,14 +236,14 @@ export function createConvexManagementClient(args: {
       const path = "/projects/{project_id}/create_deployment";
       const params = {
         path: {
-          project_id: parseConvexManagementNumericPathId(
+          project_id: readConvexManagementDecimalPathId(
             projectId,
             "Convex project ID",
           ),
         },
       };
-      const result = await client.POST(path, { params, body });
-      return validateConvexManagementResult({
+      const result = await client.POST(path, { params, body, parseAs: "text" });
+      return validateConvexManagementJsonResult({
         result,
         endpoint: formatConvexManagementApiEndpoint({
           method: "POST",
@@ -254,8 +265,8 @@ export function createConvexManagementClient(args: {
           ),
         },
       };
-      const result = await client.GET(path, { params });
-      return validateConvexManagementResult({
+      const result = await client.GET(path, { params, parseAs: "text" });
+      return validateConvexManagementJsonResult({
         result,
         endpoint: formatConvexManagementApiEndpoint({
           method: "GET",
@@ -277,8 +288,8 @@ export function createConvexManagementClient(args: {
           ),
         },
       };
-      const result = await client.POST(path, { params, body });
-      return validateConvexManagementResult({
+      const result = await client.POST(path, { params, body, parseAs: "text" });
+      return validateConvexManagementJsonResult({
         result,
         endpoint: formatConvexManagementApiEndpoint({
           method: "POST",
@@ -294,7 +305,7 @@ export function createConvexManagementClient(args: {
       const path = "/projects/{project_id}/delete";
       const params = {
         path: {
-          project_id: parseConvexManagementNumericPathId(
+          project_id: readConvexManagementDecimalPathId(
             projectId,
             "Convex project ID",
           ),
@@ -333,23 +344,78 @@ export function createConvexManagementClient(args: {
   };
 }
 
-function validateConvexManagementResult<T>(args: {
-  result: ConvexManagementOpenApiResult<T>;
+function validateConvexManagementJsonResult<T>(args: {
+  result: ConvexManagementOpenApiResult<string>;
   endpoint: string;
   method: "GET" | "POST";
   path: string;
   validator: AjvStandaloneValidateFunction<T>;
 }): T {
+  const schemaName = `${args.method} ${args.path} response`;
   assertConvexManagementResultOk({
     result: args.result,
     endpoint: args.endpoint,
   });
+  const payload = parseConvexManagementResponseJson({
+    endpoint: args.endpoint,
+    schemaName,
+    text: args.result.data,
+  });
   return validatePayload({
     path: args.endpoint,
-    schemaName: `${args.method} ${args.path} response`,
+    schemaName,
     validator: args.validator,
-    payload: args.result.data,
+    payload,
   });
+}
+
+function parseConvexManagementResponseJson(args: {
+  endpoint: string;
+  schemaName: string;
+  text?: string;
+}): unknown {
+  if (args.text === undefined) {
+    throw new ConvexApiValidationError({
+      path: args.endpoint,
+      schemaName: args.schemaName,
+      validationErrors: ["/ missing JSON response body"],
+    });
+  }
+
+  try {
+    return parse(args.text, reviveConvexManagementResponseValue);
+  } catch (error) {
+    throw new ConvexApiValidationError({
+      path: args.endpoint,
+      schemaName: args.schemaName,
+      validationErrors: [
+        `/ invalid JSON response: ${toErrorMessage(error, "parse failed")}`,
+      ],
+    });
+  }
+}
+
+function reviveConvexManagementResponseValue(
+  key: string,
+  value: unknown,
+): unknown {
+  if (!isLosslessNumber(value)) {
+    return value;
+  }
+
+  const serialized = value.toString();
+  if (CONVEX_MANAGEMENT_DECIMAL_ID_FIELDS.has(key)) {
+    return readConvexManagementDecimalValue(
+      serialized,
+      `Convex response field ${key}`,
+    );
+  }
+  if (!isSafeNumber(serialized, { approx: false })) {
+    throw new Error(
+      `${key || "Convex response number"} is outside JavaScript's safe numeric range.`,
+    );
+  }
+  return Number(serialized);
 }
 
 function assertConvexManagementResultOk(args: {
@@ -391,15 +457,14 @@ function serializeConvexManagementPath(
   return defaultPathSerializer(pathname, normalizedPathParams);
 }
 
-export function parseConvexManagementNumericPathId(
+export function readConvexManagementDecimalPathId(
   value: string,
   label: string,
-): number {
-  const normalized = value.trim();
-  if (!/^[0-9]+$/.test(normalized)) {
-    throw new Error(`${label} must be a numeric identifier.`);
-  }
-  return Number(normalized);
+): string {
+  return readConvexManagementDecimalValue(
+    readConvexManagementPathSegment(value, label),
+    label,
+  );
 }
 
 export function readConvexManagementPathSegment(
@@ -418,4 +483,14 @@ export function readConvexManagementPathSegment(
     throw new Error(`${label} is required.`);
   }
   return normalized;
+}
+
+function readConvexManagementDecimalValue(
+  value: string,
+  label: string,
+): string {
+  if (!/^[0-9]+$/.test(value)) {
+    throw new Error(`${label} must be a decimal identifier.`);
+  }
+  return value;
 }

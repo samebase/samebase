@@ -48,6 +48,12 @@ Generator and validator checks:
   and invalid request bodies before runtime. Noter uses it with the generated
   `paths` type while keeping Noter-owned error shaping and AJV runtime response
   validation.
+- The OpenAPI `int64` format can be represented as a JSON number or string, but
+  JavaScript cannot safely represent every `int64` as a `number`. Convex
+  provider IDs are opaque to Noter, so `ProjectId`, `TeamId`, `DeploymentId`,
+  and `MemberId` must be preserved as decimal strings at the app boundary.
+  Non-ID numeric fields, such as timestamps, remain numbers and must fail closed
+  if Convex returns a value outside JavaScript's safe numeric range.
 
 ## Decision
 
@@ -56,11 +62,17 @@ Noter pins Convex Management API validation to the published OpenAPI schema:
 1. Store the Convex Management API OpenAPI document as a generated JSON drift
    sentinel. App code must not import it at runtime.
 2. Store generated TypeScript declarations derived from that document.
-3. Generate standalone AJV validators from the fetched document for every Convex
-   Management API response Noter consumes. Convex imports the generated
+3. Generate TypeScript declarations with `openapi-typescript` transform hooks
+   that map the Convex ID schemas Noter consumes to decimal strings. The
+   checked-in OpenAPI document remains the upstream drift sentinel; generated
+   app types model Noter's lossless provider boundary.
+4. Generate standalone AJV validators from a Noter-normalized copy of the
+   fetched document for every Convex Management API response Noter consumes. The
+   normalization keeps the same upstream schema except for the Convex ID schemas
+   that Noter treats as decimal strings. Convex imports the generated
    validators, not AJV itself, because the Convex runtime disallows string-code
    generation.
-4. Expose a typed Convex Management client instead of a generic
+5. Expose a typed Convex Management client instead of a generic
    `request(path, method, body): Promise<unknown>` escape hatch. Internal
    requests must go through `openapi-fetch` with literal OpenAPI path templates
    such as `/teams/{team_id}/list_projects`, an allowed method for that path,
@@ -68,23 +80,28 @@ Noter pins Convex Management API validation to the published OpenAPI schema:
    `paths` interface. `openapi-fetch` is responsible for path/query
    serialization; feature callsites must not build interpolated Management API
    URLs.
-5. Validate `/oauth/token` with a small local JSON Schema because it is outside
+6. Parse successful Convex Management API JSON responses as text with a lossless
+   JSON parser before validation. ID-shaped fields are normalized to decimal
+   strings before AJV runs so feature code never receives truncated provider
+   IDs. Non-ID numeric fields are converted to JavaScript numbers only when the
+   conversion is safe.
+7. Validate `/oauth/token` with a small local JSON Schema because it is outside
    the Management API spec. Its response contract is exactly the documented
    `{ access_token, token_type: "bearer" }` shape; extra fields are logged by
    field name and ignored so schema drift is visible without leaking token
    values or failing an otherwise-valid OAuth exchange. Its request body, HTTP
    method, content type, URL, and response parser are modeled together as an
    explicit endpoint contract.
-6. Keep generated AJV validator exports prefixed with `ajv`, reserving the `v`
+8. Keep generated AJV validator exports prefixed with `ajv`, reserving the `v`
    prefix for Convex `convex/values` validators.
-7. Keep the Convex platform API boundary together under
+9. Keep the Convex platform API boundary together under
    `apps/noter/convex/convexManagementApi/`: the typed client, shared errors,
    OAuth token contract, generated OpenAPI JSON, generated TypeScript
    declarations, generated standalone validators, and focused tests.
-8. Use `pnpm --dir apps/noter run verify:convex-management-api` to regenerate
-   the pinned document, generated declarations, and standalone validators and
-   fail if Convex's published OpenAPI schema drifted from the checked-in
-   contract.
+10. Use `pnpm --dir apps/noter run verify:convex-management-api` to regenerate
+    the pinned document, generated declarations, and standalone validators and
+    fail if Convex's published OpenAPI schema drifted from the checked-in
+    contract.
 
 The typed client is the only app code that may parse Convex Management API
 response payloads. Feature code should consume typed results and fail closed

@@ -51,8 +51,9 @@ const schema2 = {
   ],
 };
 const schema3 = { type: "string" };
-const schema4 = { type: "integer", format: "int64", minimum: 0 };
-const schema6 = { type: "integer", format: "int64", minimum: 0 };
+const schema4 = { pattern: "^[0-9]+$", type: "string" };
+const schema6 = { pattern: "^[0-9]+$", type: "string" };
+const pattern0 = new RegExp("^[0-9]+$", "u");
 function validate2(
   data,
   {
@@ -174,37 +175,36 @@ function validate2(
     }
     if (data.teamId !== undefined) {
       let data2 = data.teamId;
-      if (!(typeof data2 == "number" && !(data2 % 1) && !isNaN(data2))) {
-        const err6 = {
-          instancePath: instancePath + "/teamId",
-          schemaPath: "#/components/schemas/TeamId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err6];
-        } else {
-          vErrors.push(err6);
-        }
-        errors++;
-      }
-      if (typeof data2 == "number") {
-        if (data2 < 0 || isNaN(data2)) {
-          const err7 = {
+      if (typeof data2 === "string") {
+        if (!pattern0.test(data2)) {
+          const err6 = {
             instancePath: instancePath + "/teamId",
-            schemaPath: "#/components/schemas/TeamId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/TeamId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err7];
+            vErrors = [err6];
           } else {
-            vErrors.push(err7);
+            vErrors.push(err6);
           }
           errors++;
         }
+      } else {
+        const err7 = {
+          instancePath: instancePath + "/teamId",
+          schemaPath: "#/components/schemas/TeamId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err7];
+        } else {
+          vErrors.push(err7);
+        }
+        errors++;
       }
     }
     if (data.type !== undefined) {
@@ -364,37 +364,36 @@ function validate2(
     }
     if (data.projectId !== undefined) {
       let data6 = data.projectId;
-      if (!(typeof data6 == "number" && !(data6 % 1) && !isNaN(data6))) {
-        const err17 = {
-          instancePath: instancePath + "/projectId",
-          schemaPath: "#/components/schemas/ProjectId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err17];
-        } else {
-          vErrors.push(err17);
-        }
-        errors++;
-      }
-      if (typeof data6 == "number") {
-        if (data6 < 0 || isNaN(data6)) {
-          const err18 = {
+      if (typeof data6 === "string") {
+        if (!pattern0.test(data6)) {
+          const err17 = {
             instancePath: instancePath + "/projectId",
-            schemaPath: "#/components/schemas/ProjectId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/ProjectId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err18];
+            vErrors = [err17];
           } else {
-            vErrors.push(err18);
+            vErrors.push(err17);
           }
           errors++;
         }
+      } else {
+        const err18 = {
+          instancePath: instancePath + "/projectId",
+          schemaPath: "#/components/schemas/ProjectId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err18];
+        } else {
+          vErrors.push(err18);
+        }
+        errors++;
       }
     }
     if (data.type !== undefined) {
@@ -696,37 +695,36 @@ function validate5(
     }
     if (data.id !== undefined) {
       let data1 = data.id;
-      if (!(typeof data1 == "number" && !(data1 % 1) && !isNaN(data1))) {
-        const err7 = {
-          instancePath: instancePath + "/id",
-          schemaPath: "#/components/schemas/ProjectId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err7];
-        } else {
-          vErrors.push(err7);
-        }
-        errors++;
-      }
-      if (typeof data1 == "number") {
-        if (data1 < 0 || isNaN(data1)) {
-          const err8 = {
+      if (typeof data1 === "string") {
+        if (!pattern0.test(data1)) {
+          const err7 = {
             instancePath: instancePath + "/id",
-            schemaPath: "#/components/schemas/ProjectId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/ProjectId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err8];
+            vErrors = [err7];
           } else {
-            vErrors.push(err8);
+            vErrors.push(err7);
           }
           errors++;
         }
+      } else {
+        const err8 = {
+          instancePath: instancePath + "/id",
+          schemaPath: "#/components/schemas/ProjectId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err8];
+        } else {
+          vErrors.push(err8);
+        }
+        errors++;
       }
     }
     if (data.name !== undefined) {
@@ -765,37 +763,36 @@ function validate5(
     }
     if (data.teamId !== undefined) {
       let data4 = data.teamId;
-      if (!(typeof data4 == "number" && !(data4 % 1) && !isNaN(data4))) {
-        const err11 = {
-          instancePath: instancePath + "/teamId",
-          schemaPath: "#/components/schemas/TeamId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err11];
-        } else {
-          vErrors.push(err11);
-        }
-        errors++;
-      }
-      if (typeof data4 == "number") {
-        if (data4 < 0 || isNaN(data4)) {
-          const err12 = {
+      if (typeof data4 === "string") {
+        if (!pattern0.test(data4)) {
+          const err11 = {
             instancePath: instancePath + "/teamId",
-            schemaPath: "#/components/schemas/TeamId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/TeamId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err12];
+            vErrors = [err11];
           } else {
-            vErrors.push(err12);
+            vErrors.push(err11);
           }
           errors++;
         }
+      } else {
+        const err12 = {
+          instancePath: instancePath + "/teamId",
+          schemaPath: "#/components/schemas/TeamId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err12];
+        } else {
+          vErrors.push(err12);
+        }
+        errors++;
       }
     }
     if (data.teamSlug !== undefined) {
@@ -1036,72 +1033,70 @@ function validate8(
     }
     if (data.id !== undefined) {
       let data2 = data.id;
-      if (!(typeof data2 == "number" && !(data2 % 1) && !isNaN(data2))) {
-        const err5 = {
-          instancePath: instancePath + "/id",
-          schemaPath: "#/components/schemas/ProjectId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err5];
-        } else {
-          vErrors.push(err5);
-        }
-        errors++;
-      }
-      if (typeof data2 == "number") {
-        if (data2 < 0 || isNaN(data2)) {
-          const err6 = {
+      if (typeof data2 === "string") {
+        if (!pattern0.test(data2)) {
+          const err5 = {
             instancePath: instancePath + "/id",
-            schemaPath: "#/components/schemas/ProjectId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/ProjectId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err6];
+            vErrors = [err5];
           } else {
-            vErrors.push(err6);
+            vErrors.push(err5);
           }
           errors++;
         }
+      } else {
+        const err6 = {
+          instancePath: instancePath + "/id",
+          schemaPath: "#/components/schemas/ProjectId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err6];
+        } else {
+          vErrors.push(err6);
+        }
+        errors++;
       }
     }
     if (data.projectId !== undefined) {
       let data3 = data.projectId;
-      if (!(typeof data3 == "number" && !(data3 % 1) && !isNaN(data3))) {
-        const err7 = {
-          instancePath: instancePath + "/projectId",
-          schemaPath: "#/components/schemas/ProjectId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err7];
-        } else {
-          vErrors.push(err7);
-        }
-        errors++;
-      }
-      if (typeof data3 == "number") {
-        if (data3 < 0 || isNaN(data3)) {
-          const err8 = {
+      if (typeof data3 === "string") {
+        if (!pattern0.test(data3)) {
+          const err7 = {
             instancePath: instancePath + "/projectId",
-            schemaPath: "#/components/schemas/ProjectId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/ProjectId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err8];
+            vErrors = [err7];
           } else {
-            vErrors.push(err8);
+            vErrors.push(err7);
           }
           errors++;
         }
+      } else {
+        const err8 = {
+          instancePath: instancePath + "/projectId",
+          schemaPath: "#/components/schemas/ProjectId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err8];
+        } else {
+          vErrors.push(err8);
+        }
+        errors++;
       }
     }
     if (data.slug !== undefined) {
@@ -1372,9 +1367,9 @@ const schema20 = {
     },
   ],
 };
-const schema21 = { type: "integer", format: "int64", minimum: 0 };
+const schema21 = { pattern: "^[0-9]+$", type: "string" };
 const schema22 = { type: "string", enum: ["dev", "prod", "preview", "custom"] };
-const schema23 = { type: "integer", format: "int64", minimum: 0 };
+const schema23 = { pattern: "^[0-9]+$", type: "string" };
 const schema24 = {
   type: "boolean",
   description:
@@ -1638,37 +1633,36 @@ function validate11(
         passing1 = 0;
       }
       const _errs11 = errors;
-      if (!(typeof data2 == "number" && !(data2 % 1) && !isNaN(data2))) {
-        const err14 = {
-          instancePath: instancePath + "/creator",
-          schemaPath: "#/components/schemas/MemberId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err14];
-        } else {
-          vErrors.push(err14);
-        }
-        errors++;
-      }
-      if (typeof data2 == "number") {
-        if (data2 < 0 || isNaN(data2)) {
-          const err15 = {
+      if (typeof data2 === "string") {
+        if (!pattern0.test(data2)) {
+          const err14 = {
             instancePath: instancePath + "/creator",
-            schemaPath: "#/components/schemas/MemberId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/MemberId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err15];
+            vErrors = [err14];
           } else {
-            vErrors.push(err15);
+            vErrors.push(err14);
           }
           errors++;
         }
+      } else {
+        const err15 = {
+          instancePath: instancePath + "/creator",
+          schemaPath: "#/components/schemas/MemberId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err15];
+        } else {
+          vErrors.push(err15);
+        }
+        errors++;
       }
       var _valid1 = _errs11 === errors;
       if (_valid1 && valid2) {
@@ -1805,37 +1799,36 @@ function validate11(
     }
     if (data.id !== undefined) {
       let data7 = data.id;
-      if (!(typeof data7 == "number" && !(data7 % 1) && !isNaN(data7))) {
-        const err22 = {
-          instancePath: instancePath + "/id",
-          schemaPath: "#/components/schemas/DeploymentId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err22];
-        } else {
-          vErrors.push(err22);
-        }
-        errors++;
-      }
-      if (typeof data7 == "number") {
-        if (data7 < 0 || isNaN(data7)) {
-          const err23 = {
+      if (typeof data7 === "string") {
+        if (!pattern0.test(data7)) {
+          const err22 = {
             instancePath: instancePath + "/id",
-            schemaPath: "#/components/schemas/DeploymentId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/DeploymentId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err23];
+            vErrors = [err22];
           } else {
-            vErrors.push(err23);
+            vErrors.push(err22);
           }
           errors++;
         }
+      } else {
+        const err23 = {
+          instancePath: instancePath + "/id",
+          schemaPath: "#/components/schemas/DeploymentId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err23];
+        } else {
+          vErrors.push(err23);
+        }
+        errors++;
       }
     }
     if (data.isDefault !== undefined) {
@@ -2005,37 +1998,36 @@ function validate11(
     }
     if (data.projectId !== undefined) {
       let data13 = data.projectId;
-      if (!(typeof data13 == "number" && !(data13 % 1) && !isNaN(data13))) {
-        const err32 = {
-          instancePath: instancePath + "/projectId",
-          schemaPath: "#/components/schemas/ProjectId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err32];
-        } else {
-          vErrors.push(err32);
-        }
-        errors++;
-      }
-      if (typeof data13 == "number") {
-        if (data13 < 0 || isNaN(data13)) {
-          const err33 = {
+      if (typeof data13 === "string") {
+        if (!pattern0.test(data13)) {
+          const err32 = {
             instancePath: instancePath + "/projectId",
-            schemaPath: "#/components/schemas/ProjectId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/ProjectId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err33];
+            vErrors = [err32];
           } else {
-            vErrors.push(err33);
+            vErrors.push(err32);
           }
           errors++;
         }
+      } else {
+        const err33 = {
+          instancePath: instancePath + "/projectId",
+          schemaPath: "#/components/schemas/ProjectId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err33];
+        } else {
+          vErrors.push(err33);
+        }
+        errors++;
       }
     }
     if (data.reference !== undefined) {
@@ -2301,37 +2293,36 @@ function validate11(
     }
     if (data.creator !== undefined) {
       let data18 = data.creator;
-      if (!(typeof data18 == "number" && !(data18 % 1) && !isNaN(data18))) {
-        const err49 = {
-          instancePath: instancePath + "/creator",
-          schemaPath: "#/components/schemas/MemberId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err49];
-        } else {
-          vErrors.push(err49);
-        }
-        errors++;
-      }
-      if (typeof data18 == "number") {
-        if (data18 < 0 || isNaN(data18)) {
-          const err50 = {
+      if (typeof data18 === "string") {
+        if (!pattern0.test(data18)) {
+          const err49 = {
             instancePath: instancePath + "/creator",
-            schemaPath: "#/components/schemas/MemberId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/MemberId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err50];
+            vErrors = [err49];
           } else {
-            vErrors.push(err50);
+            vErrors.push(err49);
           }
           errors++;
         }
+      } else {
+        const err50 = {
+          instancePath: instancePath + "/creator",
+          schemaPath: "#/components/schemas/MemberId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err50];
+        } else {
+          vErrors.push(err50);
+        }
+        errors++;
       }
     }
     if (data.deploymentType !== undefined) {
@@ -2572,37 +2563,36 @@ function validate11(
     }
     if (data.projectId !== undefined) {
       let data26 = data.projectId;
-      if (!(typeof data26 == "number" && !(data26 % 1) && !isNaN(data26))) {
-        const err63 = {
-          instancePath: instancePath + "/projectId",
-          schemaPath: "#/components/schemas/ProjectId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err63];
-        } else {
-          vErrors.push(err63);
-        }
-        errors++;
-      }
-      if (typeof data26 == "number") {
-        if (data26 < 0 || isNaN(data26)) {
-          const err64 = {
+      if (typeof data26 === "string") {
+        if (!pattern0.test(data26)) {
+          const err63 = {
             instancePath: instancePath + "/projectId",
-            schemaPath: "#/components/schemas/ProjectId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/ProjectId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err64];
+            vErrors = [err63];
           } else {
-            vErrors.push(err64);
+            vErrors.push(err63);
           }
           errors++;
         }
+      } else {
+        const err64 = {
+          instancePath: instancePath + "/projectId",
+          schemaPath: "#/components/schemas/ProjectId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err64];
+        } else {
+          vErrors.push(err64);
+        }
+        errors++;
       }
     }
   } else {
@@ -2969,37 +2959,36 @@ function validate14(
         passing1 = 0;
       }
       const _errs11 = errors;
-      if (!(typeof data2 == "number" && !(data2 % 1) && !isNaN(data2))) {
-        const err14 = {
-          instancePath: instancePath + "/creator",
-          schemaPath: "#/components/schemas/MemberId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err14];
-        } else {
-          vErrors.push(err14);
-        }
-        errors++;
-      }
-      if (typeof data2 == "number") {
-        if (data2 < 0 || isNaN(data2)) {
-          const err15 = {
+      if (typeof data2 === "string") {
+        if (!pattern0.test(data2)) {
+          const err14 = {
             instancePath: instancePath + "/creator",
-            schemaPath: "#/components/schemas/MemberId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/MemberId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err15];
+            vErrors = [err14];
           } else {
-            vErrors.push(err15);
+            vErrors.push(err14);
           }
           errors++;
         }
+      } else {
+        const err15 = {
+          instancePath: instancePath + "/creator",
+          schemaPath: "#/components/schemas/MemberId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err15];
+        } else {
+          vErrors.push(err15);
+        }
+        errors++;
       }
       var _valid1 = _errs11 === errors;
       if (_valid1 && valid2) {
@@ -3136,37 +3125,36 @@ function validate14(
     }
     if (data.id !== undefined) {
       let data7 = data.id;
-      if (!(typeof data7 == "number" && !(data7 % 1) && !isNaN(data7))) {
-        const err22 = {
-          instancePath: instancePath + "/id",
-          schemaPath: "#/components/schemas/DeploymentId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err22];
-        } else {
-          vErrors.push(err22);
-        }
-        errors++;
-      }
-      if (typeof data7 == "number") {
-        if (data7 < 0 || isNaN(data7)) {
-          const err23 = {
+      if (typeof data7 === "string") {
+        if (!pattern0.test(data7)) {
+          const err22 = {
             instancePath: instancePath + "/id",
-            schemaPath: "#/components/schemas/DeploymentId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/DeploymentId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err23];
+            vErrors = [err22];
           } else {
-            vErrors.push(err23);
+            vErrors.push(err22);
           }
           errors++;
         }
+      } else {
+        const err23 = {
+          instancePath: instancePath + "/id",
+          schemaPath: "#/components/schemas/DeploymentId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err23];
+        } else {
+          vErrors.push(err23);
+        }
+        errors++;
       }
     }
     if (data.isDefault !== undefined) {
@@ -3336,37 +3324,36 @@ function validate14(
     }
     if (data.projectId !== undefined) {
       let data13 = data.projectId;
-      if (!(typeof data13 == "number" && !(data13 % 1) && !isNaN(data13))) {
-        const err32 = {
-          instancePath: instancePath + "/projectId",
-          schemaPath: "#/components/schemas/ProjectId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err32];
-        } else {
-          vErrors.push(err32);
-        }
-        errors++;
-      }
-      if (typeof data13 == "number") {
-        if (data13 < 0 || isNaN(data13)) {
-          const err33 = {
+      if (typeof data13 === "string") {
+        if (!pattern0.test(data13)) {
+          const err32 = {
             instancePath: instancePath + "/projectId",
-            schemaPath: "#/components/schemas/ProjectId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/ProjectId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err33];
+            vErrors = [err32];
           } else {
-            vErrors.push(err33);
+            vErrors.push(err32);
           }
           errors++;
         }
+      } else {
+        const err33 = {
+          instancePath: instancePath + "/projectId",
+          schemaPath: "#/components/schemas/ProjectId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err33];
+        } else {
+          vErrors.push(err33);
+        }
+        errors++;
       }
     }
     if (data.reference !== undefined) {
@@ -3632,37 +3619,36 @@ function validate14(
     }
     if (data.creator !== undefined) {
       let data18 = data.creator;
-      if (!(typeof data18 == "number" && !(data18 % 1) && !isNaN(data18))) {
-        const err49 = {
-          instancePath: instancePath + "/creator",
-          schemaPath: "#/components/schemas/MemberId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err49];
-        } else {
-          vErrors.push(err49);
-        }
-        errors++;
-      }
-      if (typeof data18 == "number") {
-        if (data18 < 0 || isNaN(data18)) {
-          const err50 = {
+      if (typeof data18 === "string") {
+        if (!pattern0.test(data18)) {
+          const err49 = {
             instancePath: instancePath + "/creator",
-            schemaPath: "#/components/schemas/MemberId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/MemberId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err50];
+            vErrors = [err49];
           } else {
-            vErrors.push(err50);
+            vErrors.push(err49);
           }
           errors++;
         }
+      } else {
+        const err50 = {
+          instancePath: instancePath + "/creator",
+          schemaPath: "#/components/schemas/MemberId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err50];
+        } else {
+          vErrors.push(err50);
+        }
+        errors++;
       }
     }
     if (data.deploymentType !== undefined) {
@@ -3903,37 +3889,36 @@ function validate14(
     }
     if (data.projectId !== undefined) {
       let data26 = data.projectId;
-      if (!(typeof data26 == "number" && !(data26 % 1) && !isNaN(data26))) {
-        const err63 = {
-          instancePath: instancePath + "/projectId",
-          schemaPath: "#/components/schemas/ProjectId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err63];
-        } else {
-          vErrors.push(err63);
-        }
-        errors++;
-      }
-      if (typeof data26 == "number") {
-        if (data26 < 0 || isNaN(data26)) {
-          const err64 = {
+      if (typeof data26 === "string") {
+        if (!pattern0.test(data26)) {
+          const err63 = {
             instancePath: instancePath + "/projectId",
-            schemaPath: "#/components/schemas/ProjectId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/ProjectId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err64];
+            vErrors = [err63];
           } else {
-            vErrors.push(err64);
+            vErrors.push(err63);
           }
           errors++;
         }
+      } else {
+        const err64 = {
+          instancePath: instancePath + "/projectId",
+          schemaPath: "#/components/schemas/ProjectId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err64];
+        } else {
+          vErrors.push(err64);
+        }
+        errors++;
       }
     }
   } else {
@@ -4204,7 +4189,7 @@ const schema52 = {
     token_type: { const: "bearer" },
   },
 };
-const pattern0 = new RegExp("^.+$", "u");
+const pattern16 = new RegExp("^.+$", "u");
 function validate19(
   data,
   {
@@ -4258,7 +4243,7 @@ function validate19(
     if (data.access_token !== undefined) {
       let data0 = data.access_token;
       if (typeof data0 === "string") {
-        if (!pattern0.test(data0)) {
+        if (!pattern16.test(data0)) {
           const err2 = {
             instancePath: instancePath + "/access_token",
             schemaPath: "#/properties/access_token/pattern",

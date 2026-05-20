@@ -268,7 +268,7 @@ async function ensureConvexResources(args: {
   }
   if (projectId && !projectSlug) {
     for (const project of projects) {
-      if (String(project.id) === projectId) {
+      if (project.id === projectId) {
         projectSlug = project.slug;
         teamSlug = project.teamSlug;
         break;
@@ -291,7 +291,7 @@ async function ensureConvexResources(args: {
       },
     });
 
-    projectId = String(createResponse.projectId);
+    projectId = createResponse.projectId;
     projectSlug = createResponse.slug;
     deploymentName = createResponse.deploymentName ?? undefined;
     deploymentUrl = createResponse.deploymentUrl ?? undefined;
@@ -304,7 +304,7 @@ async function ensureConvexResources(args: {
       teamId: args.teamId,
     });
     for (const project of refreshedProjects) {
-      if (String(project.id) === projectId) {
+      if (project.id === projectId) {
         projectSlug = project.slug;
         teamSlug = project.teamSlug;
         break;

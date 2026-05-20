@@ -8,7 +8,7 @@ import { vAllowedInfraReadTable } from "./infraReadQueries";
 import {
   createConvexManagementClient,
   formatConvexManagementApiEndpoint,
-  parseConvexManagementNumericPathId,
+  readConvexManagementDecimalPathId,
   readConvexManagementPathSegment,
 } from "./convexManagementApi/client";
 import {
@@ -186,7 +186,7 @@ export const getConvexLogs = internalAction({
       method: "GET",
       params: {
         path: {
-          project_id: parseConvexManagementNumericPathId(
+          project_id: readConvexManagementDecimalPathId(
             infra.convexProjectId,
             "Convex project ID",
           ),
@@ -305,7 +305,7 @@ export const getConvexProjectInventory = internalAction({
       method: "GET",
       params: {
         path: {
-          team_id: parseConvexManagementNumericPathId(teamId, "Convex team ID"),
+          team_id: readConvexManagementDecimalPathId(teamId, "Convex team ID"),
         },
       },
     });

@@ -83,6 +83,7 @@
     "diff": "^8.0.4",
     "html-to-image": "^1.11.13",
     "isomorphic-git": "^1.33.0",
+    "lossless-json": "^4.3.0",
     "lucide-react": "^0.525.0",
     "minimatch": "^10.2.5",
     "next-themes": "^0.4.6",

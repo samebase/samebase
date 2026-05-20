@@ -976,7 +976,7 @@ export interface components {
       type: components["schemas"]["DeploymentClass"];
     };
     /** Format: int64 */
-    DeploymentId: number;
+    DeploymentId: string;
     /** @description An identifier that uniquely identifies this deployment within the project. */
     DeploymentReference: string;
     DeploymentRegionMetadata: {
@@ -1021,7 +1021,7 @@ export interface components {
           oauthApp: string;
         };
     /** Format: int64 */
-    MemberId: number;
+    MemberId: string;
     PaginatedDefaultEnvironmentVariablesResponse: {
       items: components["schemas"]["DefaultEnvironmentVariableResponse"][];
       pagination: components["schemas"]["PaginationMetadata"];
@@ -1433,7 +1433,7 @@ export interface components {
     };
     PreviewDeploymentIdentifier: string;
     /** Format: int64 */
-    ProjectId: number;
+    ProjectId: string;
     ProjectName: string;
     ProjectSlug: string;
     ProposedTeamName: string;
@@ -1564,7 +1564,7 @@ export interface components {
     /** @enum {string} */
     RoleStatementWildcardAction: "*";
     /** Format: int64 */
-    TeamId: number;
+    TeamId: string;
     TeamMember: {
       /**
        * @description The custom roles attached to this team member. Present iff

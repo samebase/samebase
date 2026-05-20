@@ -2,8 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
   createConvexManagementClient,
+  readConvexManagementDecimalPathId,
   readConvexManagementPathSegment,
 } from "./client";
+
+const LARGE_CONVEX_ID = "9223372036854775807";
+const LARGE_CONVEX_PARENT_ID = "9223372036854775806";
 
 describe("createConvexManagementClient", () => {
   afterEach(() => {
@@ -25,7 +29,7 @@ describe("createConvexManagementClient", () => {
     );
 
     await createConvexManagementClient({ token: "team-token" }).listProjects({
-      teamId: "38516",
+      teamId: LARGE_CONVEX_ID,
     });
 
     expect(requests.map(readRequest)).toEqual([
@@ -33,7 +37,97 @@ describe("createConvexManagementClient", () => {
         authorization: "Bearer team-token",
         contentType: null,
         method: "GET",
-        url: "https://api.convex.dev/v1/teams/38516/list_projects",
+        url: `https://api.convex.dev/v1/teams/${LARGE_CONVEX_ID}/list_projects`,
+      },
+    ]);
+  });
+
+  it("preserves Convex project IDs from responses as decimal strings", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return new Response(
+          `[
+            {
+              "createTime": 1710000000000,
+              "id": ${LARGE_CONVEX_ID},
+              "name": "Noter",
+              "slug": "noter",
+              "teamId": ${LARGE_CONVEX_PARENT_ID},
+              "teamSlug": "noter-team"
+            }
+          ]`,
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }),
+    );
+
+    await expect(
+      createConvexManagementClient({ token: "team-token" }).listProjects({
+        teamId: LARGE_CONVEX_PARENT_ID,
+      }),
+    ).resolves.toEqual([
+      {
+        createTime: 1710000000000,
+        id: LARGE_CONVEX_ID,
+        name: "Noter",
+        slug: "noter",
+        teamId: LARGE_CONVEX_PARENT_ID,
+        teamSlug: "noter-team",
+      },
+    ]);
+  });
+
+  it("preserves Convex deployment and member IDs from responses as decimal strings", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return new Response(
+          `[
+            {
+              "class": "s16",
+              "createTime": 1710000000000,
+              "creator": ${LARGE_CONVEX_PARENT_ID},
+              "deploymentType": "prod",
+              "deploymentUrl": "https://noter.convex.cloud",
+              "id": ${LARGE_CONVEX_ID},
+              "isDefault": true,
+              "kind": "cloud",
+              "name": "noter-prod",
+              "projectId": ${LARGE_CONVEX_PARENT_ID},
+              "reference": "prod",
+              "region": "aws-us-east-1"
+            }
+          ]`,
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }),
+    );
+
+    await expect(
+      createConvexManagementClient({ token: "team-token" }).listDeployments({
+        projectId: LARGE_CONVEX_PARENT_ID,
+      }),
+    ).resolves.toEqual([
+      {
+        class: "s16",
+        createTime: 1710000000000,
+        creator: LARGE_CONVEX_PARENT_ID,
+        deploymentType: "prod",
+        deploymentUrl: "https://noter.convex.cloud",
+        id: LARGE_CONVEX_ID,
+        isDefault: true,
+        kind: "cloud",
+        name: "noter-prod",
+        projectId: LARGE_CONVEX_PARENT_ID,
+        reference: "prod",
+        region: "aws-us-east-1",
       },
     ]);
   });
@@ -76,6 +170,23 @@ describe("createConvexManagementClient", () => {
       label: "Convex deployment name",
       originalLength: 14,
       normalizedLength: 12,
+    });
+  });
+
+  it("warns when decimal path IDs need trimming", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(
+      readConvexManagementDecimalPathId(
+        ` ${LARGE_CONVEX_ID} `,
+        "Convex project ID",
+      ),
+    ).toBe(LARGE_CONVEX_ID);
+
+    expect(warn).toHaveBeenCalledWith("convex:api:trimmed_path_parameter", {
+      label: "Convex project ID",
+      originalLength: LARGE_CONVEX_ID.length + 2,
+      normalizedLength: LARGE_CONVEX_ID.length,
     });
   });
 });
