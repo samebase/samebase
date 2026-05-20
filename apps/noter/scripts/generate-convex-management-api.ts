@@ -10,9 +10,9 @@ const sourceUrl = "https://api.convex.dev/v1/openapi.json";
 const convexManagementOpenApiSchemaId =
   "https://api.convex.dev/v1/openapi.json";
 const appRoot = fileURLToPath(new URL("../", import.meta.url));
-const openApiOutputPath = fileURLToPath(
+const openApiDocumentOutputPath = fileURLToPath(
   new URL(
-    "../convex/convexManagementApi/openApi.generated.ts",
+    "../convex/convexManagementApi/openApi.generated.json",
     import.meta.url,
   ),
 );
@@ -28,14 +28,17 @@ const validatorTypesOutputPath = fileURLToPath(
     import.meta.url,
   ),
 );
-const typesOutputPath = "convex/convexManagementApi/types.generated.ts";
+const typesOutputPath = "convex/convexManagementApi/types.generated.d.ts";
 const generatedFormatPaths = [
-  "convex/convexManagementApi/openApi.generated.ts",
+  "convex/convexManagementApi/openApi.generated.json",
   typesOutputPath,
   "convex/convexManagementApi/validators.generated.js",
   "convex/convexManagementApi/validators.generated.d.ts",
 ];
 
+// openapi-fetch gives callsites compile-time path/body/response types, but it
+// does not runtime-validate provider JSON. Convex cannot compile AJV schemas at
+// request time, so this script emits standalone validators during generation.
 const response = await fetch(sourceUrl);
 if (!response.ok) {
   throw new Error(`Failed to fetch ${sourceUrl}: ${response.status}`);
@@ -74,8 +77,8 @@ const validatorSchemaIds = {
 try {
   writeFileSync(tempOpenApiPath, `${JSON.stringify(documentJson, null, 2)}\n`);
   writeFileSync(
-    openApiOutputPath,
-    `// Generated from ${sourceUrl}. Do not edit by hand.\n\nexport const convexManagementOpenApiDocument: Record<string, unknown> = ${JSON.stringify(documentJson, null, 2)};\n`,
+    openApiDocumentOutputPath,
+    `${JSON.stringify(documentJson, null, 2)}\n`,
   );
 
   execFileSync(

@@ -53,9 +53,10 @@ Generator and validator checks:
 
 Noter pins Convex Management API validation to the published OpenAPI schema:
 
-1. Store the Convex Management API OpenAPI document in generated source.
-2. Store generated TypeScript types derived from that document.
-3. Generate standalone AJV validators from the pinned document for every Convex
+1. Store the Convex Management API OpenAPI document as a generated JSON drift
+   sentinel. App code must not import it at runtime.
+2. Store generated TypeScript declarations derived from that document.
+3. Generate standalone AJV validators from the fetched document for every Convex
    Management API response Noter consumes. Convex imports the generated
    validators, not AJV itself, because the Convex runtime disallows string-code
    generation.
@@ -78,11 +79,12 @@ Noter pins Convex Management API validation to the published OpenAPI schema:
    prefix for Convex `convex/values` validators.
 7. Keep the Convex platform API boundary together under
    `apps/noter/convex/convexManagementApi/`: the typed client, shared errors,
-   OAuth token contract, generated OpenAPI document, generated TypeScript types,
-   generated standalone validators, and focused tests.
+   OAuth token contract, generated OpenAPI JSON, generated TypeScript
+   declarations, generated standalone validators, and focused tests.
 8. Use `pnpm --dir apps/noter run verify:convex-management-api` to regenerate
-   the pinned document, generated types, and standalone validators and fail if
-   Convex's published OpenAPI schema drifted from the checked-in contract.
+   the pinned document, generated declarations, and standalone validators and
+   fail if Convex's published OpenAPI schema drifted from the checked-in
+   contract.
 
 The typed client is the only app code that may parse Convex Management API
 response payloads. Feature code should consume typed results and fail closed
