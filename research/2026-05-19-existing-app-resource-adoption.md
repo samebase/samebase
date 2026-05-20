@@ -1062,6 +1062,14 @@ scroll tracking:
 - The active vault is the card intersecting the top band of the dashboard
   scrollport; when no card intersects that band, use the card nearest the top.
 
+Vault-scoped actions:
+
+- Query params describe the action, and the hash describes the target vault.
+- Delete mode should use `?delete#tmp-flow`, not `?delete=owner/repo`.
+- `?delete` without a valid vault hash is invalid and should be cleared.
+- This keeps future vault-scoped actions on the same model: action in search,
+  current vault in hash.
+
 ## Recommendation
 
 Do the visibility fix first, because it is small and will make every later

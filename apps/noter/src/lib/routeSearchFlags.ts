@@ -3,6 +3,7 @@ import { keys } from "@noter-md/dependent/object";
 export const ROUTE_SEARCH_PRESENCE_FLAG_KEYS = [
   "compare",
   "dark",
+  "delete",
   "dev",
   "devtools",
   "diff",

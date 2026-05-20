@@ -575,10 +575,12 @@ export function VaultDashboardDeleteControl({
   deleteAction,
   isRemovingVault = false,
   repositoryFullName,
+  repositoryHashId,
 }: {
   deleteAction: VaultDashboardDeleteAction;
   isRemovingVault?: boolean;
   repositoryFullName: string;
+  repositoryHashId: string;
 }) {
   const deleteTriggerDisabled =
     isRemovingVault || deleteAction.state === "disabled";
@@ -589,9 +591,10 @@ export function VaultDashboardDeleteControl({
     <span className="absolute right-4 top-4">
       <Link
         to="/"
+        hash={repositoryHashId}
         search={(currentSearch) => ({
           ...currentSearch,
-          delete: repositoryFullName,
+          delete: true,
         })}
         aria-label={`Remove vault ${repositoryFullName}`}
         title={title}
@@ -2064,6 +2067,60 @@ function findVaultDashboardCardScrollport(
   return null;
 }
 
+function buildVaultDashboardRepositoryNameCounts(
+  vaults: VaultDashboardVault[],
+) {
+  const repositoryNameCounts = new Map<string, number>();
+  for (const vault of vaults) {
+    repositoryNameCounts.set(
+      vault.ghRepoName,
+      (repositoryNameCounts.get(vault.ghRepoName) ?? 0) + 1,
+    );
+  }
+
+  return repositoryNameCounts;
+}
+
+function buildVaultDashboardHashIdForVault({
+  repositoryNameCounts,
+  vault,
+}: {
+  repositoryNameCounts: ReadonlyMap<string, number>;
+  vault: VaultDashboardVault;
+}) {
+  return buildVaultDashboardRepositoryHashId({
+    hasDuplicateRepositoryName:
+      (repositoryNameCounts.get(vault.ghRepoName) ?? 0) > 1,
+    repositoryFullName: vault.repositoryFullName,
+    repositoryName: vault.ghRepoName,
+  });
+}
+
+function resolveVaultDashboardRepositoryFullNameForHash({
+  hash,
+  vaults,
+}: {
+  hash: string;
+  vaults: VaultDashboardVault[];
+}) {
+  const repositoryHash = normalizeVaultDashboardRepositoryHash(hash);
+  if (!repositoryHash) {
+    return undefined;
+  }
+
+  const repositoryNameCounts = buildVaultDashboardRepositoryNameCounts(vaults);
+  for (const vault of vaults) {
+    if (
+      buildVaultDashboardHashIdForVault({ repositoryNameCounts, vault }) ===
+      repositoryHash
+    ) {
+      return vault.repositoryFullName;
+    }
+  }
+
+  return undefined;
+}
+
 function scrollVaultDashboardCardIntoView(element: HTMLElement): boolean {
   const scrollport = findVaultDashboardCardScrollport(element);
   if (!scrollport) {
@@ -2291,8 +2348,8 @@ function VaultDashboardBody({
       return;
     }
 
-    // Direct ?delete= loads resolve after vault data arrives, so anchor the
-    // selected card once the target element exists.
+    // Direct ?delete#vault loads resolve after vault data arrives, so anchor
+    // the selected card once the target element exists.
     scrollVaultDashboardCardIntoView(deleteCardElement);
     lastScrolledDeleteRepositoryRef.current = deleteRepositoryFullName;
   }, [deleteRepositoryFullName, vaults]);
@@ -2321,13 +2378,7 @@ function VaultDashboardBody({
     return <VaultDashboardEmptyState themeColorSearch={themeColorSearch} />;
   }
 
-  const repositoryNameCounts = new Map<string, number>();
-  for (const vault of vaults) {
-    repositoryNameCounts.set(
-      vault.ghRepoName,
-      (repositoryNameCounts.get(vault.ghRepoName) ?? 0) + 1,
-    );
-  }
+  const repositoryNameCounts = buildVaultDashboardRepositoryNameCounts(vaults);
 
   return (
     <VaultDashboardRepositoryList>
@@ -2419,11 +2470,9 @@ function VaultDashboardBody({
           deleteBlockedSection ??
           sourceSetupSection ??
           providerSetupSection;
-        const repositoryHashId = buildVaultDashboardRepositoryHashId({
-          hasDuplicateRepositoryName:
-            (repositoryNameCounts.get(vault.ghRepoName) ?? 0) > 1,
-          repositoryFullName: vault.repositoryFullName,
-          repositoryName: vault.ghRepoName,
+        const repositoryHashId = buildVaultDashboardHashIdForVault({
+          repositoryNameCounts,
+          vault,
         });
 
         return (
@@ -2492,6 +2541,7 @@ function VaultDashboardBody({
                 deletion.state === "not_deleting" ? (
                   <VaultDashboardDeleteControl
                     repositoryFullName={vault.repositoryFullName}
+                    repositoryHashId={repositoryHashId}
                     deleteAction={deletion.deleteAction}
                     isRemovingVault={isRemovingVault}
                   />
@@ -3031,7 +3081,14 @@ export function VaultDashboard() {
   const dashboardAccountPanelOpen = dashboardSettings?.accountPanelOpen;
   const dashboardGlobalChatOpen = dashboardSettings?.globalChatOpen;
   const dashboardProvidersPanelOpen = dashboardSettings?.providersPanelOpen;
-  const deleteRepositoryFullName = rootRouteSearch.delete;
+  const deleteModeActive = rootRouteSearch.delete;
+  const deleteRepositoryFullName =
+    deleteModeActive && vaults
+      ? resolveVaultDashboardRepositoryFullNameForHash({
+          hash: location.hash,
+          vaults,
+        })
+      : undefined;
   const setVaultBranchFilters = useMutation(
     api.vault.dashboard.setVaultBranchFilters,
   ).withOptimisticUpdate((localStore, args) => {
@@ -3078,7 +3135,7 @@ export function VaultDashboard() {
   const preparedDeleteRepositoryRef = useRef<string | null>(null);
   // In-app delete icon clicks should close back to the dashboard entry that
   // existed before the modal; direct links should only replace the delete key.
-  const previousDeleteRepositoryFullNameRef = useRef(deleteRepositoryFullName);
+  const previousDeleteModeActiveRef = useRef(deleteModeActive);
   const shouldPopDeleteHistoryRef = useRef(false);
   const providerRuntimeConfig: Record<ProviderKey, ProviderRuntimeConfig> = {
     github: {
@@ -3209,7 +3266,7 @@ export function VaultDashboard() {
     ({ preferHistoryBack }: { preferHistoryBack: boolean }) => {
       const shouldPopDeleteRoute =
         preferHistoryBack &&
-        deleteRepositoryFullName &&
+        deleteModeActive &&
         shouldPopDeleteHistoryRef.current &&
         router.history.canGoBack();
       shouldPopDeleteHistoryRef.current = false;
@@ -3228,26 +3285,25 @@ export function VaultDashboard() {
         to: ".",
       });
     },
-    [deleteRepositoryFullName, navigate, router],
+    [deleteModeActive, navigate, router],
   );
 
   useEffect(() => {
-    const previousDeleteRepositoryFullName =
-      previousDeleteRepositoryFullNameRef.current;
-    if (!previousDeleteRepositoryFullName && deleteRepositoryFullName) {
+    const previousDeleteModeActive = previousDeleteModeActiveRef.current;
+    if (!previousDeleteModeActive && deleteModeActive) {
       shouldPopDeleteHistoryRef.current = true;
     }
-    if (!deleteRepositoryFullName) {
+    if (!deleteModeActive) {
       shouldPopDeleteHistoryRef.current = false;
     }
-    previousDeleteRepositoryFullNameRef.current = deleteRepositoryFullName;
+    previousDeleteModeActiveRef.current = deleteModeActive;
 
     if (!vaultToDelete) {
       if (preparedDeleteRepositoryRef.current) {
         preparedDeleteRepositoryRef.current = null;
         resetDeleteDialogState();
       }
-      if (deleteRepositoryFullName && vaults && !deleteDialogVault) {
+      if (deleteModeActive && vaults && !deleteDialogVault) {
         clearDeleteSearchParam({ preferHistoryBack: false });
       }
       return;
@@ -3265,6 +3321,7 @@ export function VaultDashboard() {
     preparedDeleteRepositoryRef.current = vaultToDelete.repositoryFullName;
   }, [
     clearDeleteSearchParam,
+    deleteModeActive,
     deleteRepositoryFullName,
     prepareDeleteDialog,
     resetDeleteDialogState,

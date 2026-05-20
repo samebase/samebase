@@ -1,6 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 
 const PREVIOUS_REPOSITORY_HASH = "noter";
+const TARGET_REPOSITORY_FULL_NAME = "nicu-chiciuc/tmp-flow";
 const TARGET_REPOSITORY_HASH = "tmp-flow";
 
 type VaultHashScrollMeasurement = {
@@ -282,5 +283,59 @@ test.describe("vault dashboard hash scrolling", () => {
     );
     expect(afterScroll.scrollTop).toBeLessThan(afterSmallScroll.scrollTop);
     expect(afterScroll.scrollTop).toBeGreaterThan(0);
+  });
+
+  test("uses the active vault hash as the delete target", async ({ page }) => {
+    test.slow();
+
+    await page.goto(`/#${TARGET_REPOSITORY_HASH}`, {
+      waitUntil: "domcontentloaded",
+    });
+    await signInWithAutofillWhenPresent(page);
+
+    const targetVault = vaultHashTarget(page, TARGET_REPOSITORY_HASH);
+    test.skip(
+      !(await waitForOptionalVisible(targetVault)),
+      `Vault hash ${TARGET_REPOSITORY_HASH} was not visible on dashboard`,
+    );
+
+    const deleteLink = page.getByRole("link", {
+      name: `Remove vault ${TARGET_REPOSITORY_FULL_NAME}`,
+    });
+
+    await expect(deleteLink).toHaveAttribute(
+      "href",
+      `/?delete#${TARGET_REPOSITORY_HASH}`,
+    );
+
+    await deleteLink.click();
+    await expect(page).toHaveURL(
+      new RegExp(`/\\?delete#${TARGET_REPOSITORY_HASH}$`),
+    );
+    await expect(
+      page.getByRole("heading", {
+        name: `Remove Vault ${TARGET_REPOSITORY_FULL_NAME}`,
+      }),
+    ).toBeVisible();
+  });
+
+  test("clears delete mode when the current hash does not target a vault", async ({
+    page,
+  }) => {
+    test.slow();
+
+    await page.goto("/?delete", { waitUntil: "domcontentloaded" });
+    await signInWithAutofillWhenPresent(page);
+
+    const targetVault = vaultHashTarget(page, TARGET_REPOSITORY_HASH);
+    test.skip(
+      !(await waitForOptionalVisible(targetVault)),
+      `Vault hash ${TARGET_REPOSITORY_HASH} was not visible on dashboard`,
+    );
+
+    await expect
+      .poll(() => new URL(page.url()).searchParams.has("delete"))
+      .toBe(false);
+    await expect(page.getByRole("dialog")).not.toBeVisible();
   });
 });

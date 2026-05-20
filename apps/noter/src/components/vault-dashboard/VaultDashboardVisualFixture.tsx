@@ -167,6 +167,7 @@ function FixtureDeleteControl() {
   return (
     <VaultDashboardDeleteControl
       repositoryFullName="noter-md/noter"
+      repositoryHashId="noter"
       deleteAction={{ state: "available" }}
     />
   );
