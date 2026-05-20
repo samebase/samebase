@@ -42,7 +42,6 @@ type VaultResourceRailRunningRow<TProvider extends VaultResourceRailProvider> =
   {
     provider: TProvider;
     status: "running";
-    statusText: string;
     value: string;
   };
 
@@ -65,7 +64,6 @@ type VaultResourceRailFailedRow<TProvider extends VaultResourceRailProvider> = {
   actions: VaultResourceRailActionList;
   provider: TProvider;
   status: "failed";
-  statusText: string;
   value: string;
 };
 
@@ -118,10 +116,6 @@ const STATUS_ICON_CLASS_NAMES = {
   running: "h-3.5 w-3.5 animate-spin text-muted-foreground",
 } satisfies Record<VaultResourceRailIconStatus, string>;
 
-const STATUS_MESSAGE_CLASS_NAMES = {
-  failed: "min-w-0 text-xs leading-4 text-destructive",
-  running: "min-w-0 text-xs leading-4 text-muted-foreground",
-} satisfies Record<"failed" | "running", string>;
 const RESOURCE_LINK_ROW_CLASS_NAME =
   "group -mx-1.5 -my-1 grid min-h-8 max-w-full grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-x-2 px-1.5 py-1 text-sm leading-6 text-foreground no-underline touch-manipulation";
 const RESOURCE_ROW_CLASS_NAME =
@@ -145,35 +139,6 @@ function getStatusIcon(status: VaultResourceRailIconStatus): LucideIcon {
   }
   status satisfies never;
   return Clock;
-}
-
-function getRowStatusMessage(row: VaultResourceRailRowState):
-  | {
-      provider: VaultResourceRailProvider;
-      className: string;
-      text: string;
-    }
-  | undefined {
-  switch (row.status) {
-    case "failed":
-      return {
-        provider: row.provider,
-        className: STATUS_MESSAGE_CLASS_NAMES.failed,
-        text: row.statusText,
-      };
-    case "running":
-      return {
-        provider: row.provider,
-        className: STATUS_MESSAGE_CLASS_NAMES.running,
-        text: row.statusText,
-      };
-    case "action_required":
-    case "pending":
-    case "ready":
-      return undefined;
-  }
-  row satisfies never;
-  return undefined;
 }
 
 function getRowActions(
@@ -319,10 +284,6 @@ export function VaultResourceRail({
 }: {
   state: VaultResourceRailState;
 }) {
-  const statusMessages = state.rows
-    .map((row) => getRowStatusMessage(row))
-    .filter((message) => message !== undefined);
-
   return (
     <div data-testid="vault-resource-rail" className="mt-1 grid w-full gap-1">
       <div className="grid min-w-0 gap-0.5">
@@ -330,18 +291,6 @@ export function VaultResourceRail({
           <VaultResourceRailItem key={row.provider} row={row} />
         ))}
       </div>
-      {statusMessages.length > 0 ? (
-        <div className="grid min-w-0 gap-0.5">
-          {statusMessages.map((message) => (
-            <div key={message.provider} className={message.className}>
-              <span className="font-medium">
-                {PROVIDER_LABELS[message.provider]}
-              </span>
-              {`: ${message.text}`}
-            </div>
-          ))}
-        </div>
-      ) : null}
     </div>
   );
 }

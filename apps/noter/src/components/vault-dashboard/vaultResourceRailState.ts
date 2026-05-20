@@ -3,10 +3,7 @@ import {
   type VaultResourceRailRowState,
   type VaultResourceRailState,
 } from "./VaultResourceRail";
-import {
-  formatVaultSourceSetupStep,
-  type VaultDashboardSourceSetup,
-} from "./vaultSourceSetup";
+import { type VaultDashboardSourceSetup } from "./vaultSourceSetup";
 import {
   resolveVaultProviderSetupStatus,
   resolveVaultProviderSetupStepProvider,
@@ -91,7 +88,6 @@ export function buildVaultDashboardResourceRailState({
       provider: "github",
       status: "failed",
       value: vault.repositoryFullName,
-      statusText: vault.sourceSetup.message,
       actions: [{ kind: "retry", label: "Retry" }],
     };
   } else if (
@@ -102,7 +98,6 @@ export function buildVaultDashboardResourceRailState({
       provider: "github",
       status: "running",
       value: vault.repositoryFullName,
-      statusText: formatVaultSourceSetupStep(vault.sourceSetup.step),
     };
   } else if (vault.hasConnectedGitHubRepository) {
     githubRow = {
@@ -128,7 +123,6 @@ export function buildVaultDashboardResourceRailState({
       provider: "convex",
       status: "failed",
       value: vault.ghRepoName,
-      statusText: vault.sourceSetup.message,
       actions: [{ kind: "retry", label: "Retry" }],
     };
   } else if (
@@ -139,7 +133,6 @@ export function buildVaultDashboardResourceRailState({
       provider: "convex",
       status: "running",
       value: vault.ghRepoName,
-      statusText: formatVaultSourceSetupStep(vault.sourceSetup.step),
     };
   } else if (
     vault.providerSetup.status === "failed" &&
@@ -150,7 +143,6 @@ export function buildVaultDashboardResourceRailState({
       provider: "convex",
       status: "failed",
       value: vault.convexProjectSlug ?? vault.ghRepoName,
-      statusText: providerSetup.message,
       actions: [{ kind: "retry", label: "Retry" }],
     };
   } else if (
@@ -162,7 +154,6 @@ export function buildVaultDashboardResourceRailState({
       provider: "convex",
       status: "running",
       value: vault.convexProjectSlug ?? vault.ghRepoName,
-      statusText: formatVaultSourceSetupStep(vault.providerSetup.step),
     };
   } else if (vault.convexProjectSlug) {
     convexRow = {
@@ -197,7 +188,6 @@ export function buildVaultDashboardResourceRailState({
       provider: "cloudflare",
       status: "failed",
       value: vault.ghRepoName,
-      statusText: vault.sourceSetup.message,
       actions: [{ kind: "retry", label: "Retry" }],
     };
   } else if (
@@ -208,7 +198,6 @@ export function buildVaultDashboardResourceRailState({
       provider: "cloudflare",
       status: "running",
       value: vault.ghRepoName,
-      statusText: formatVaultSourceSetupStep(vault.sourceSetup.step),
     };
   } else if (
     vault.providerSetup.status === "failed" &&
@@ -219,7 +208,6 @@ export function buildVaultDashboardResourceRailState({
       provider: "cloudflare",
       status: "failed",
       value: vault.cloudflareWorkerName ?? vault.ghRepoName,
-      statusText: providerSetup.message,
       actions: [{ kind: "retry", label: "Retry" }],
     };
   } else if (
@@ -231,7 +219,6 @@ export function buildVaultDashboardResourceRailState({
       provider: "cloudflare",
       status: "running",
       value: vault.cloudflareWorkerName ?? vault.ghRepoName,
-      statusText: formatVaultSourceSetupStep(vault.providerSetup.step),
     };
   } else if (vault.cloudflareWorkerName) {
     cloudflareRow = {

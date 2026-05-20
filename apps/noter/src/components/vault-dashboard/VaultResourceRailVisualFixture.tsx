@@ -48,7 +48,6 @@ const ADD_VAULT_FLOW_SCENARIOS = [
         {
           provider: "github",
           status: "running",
-          statusText: "Creating repository.",
           value: ADD_VAULT_VALUES.github,
         },
         {
@@ -79,7 +78,6 @@ const ADD_VAULT_FLOW_SCENARIOS = [
         {
           provider: "convex",
           status: "running",
-          statusText: "Creating project.",
           value: ADD_VAULT_VALUES.convex,
         },
         {
@@ -111,7 +109,6 @@ const ADD_VAULT_FLOW_SCENARIOS = [
         {
           provider: "cloudflare",
           status: "running",
-          statusText: "Creating Worker and deploy settings.",
           value: ADD_VAULT_VALUES.cloudflare,
         },
       ],
@@ -212,8 +209,6 @@ const ADD_VAULT_FLOW_SCENARIOS = [
         {
           provider: "cloudflare",
           status: "failed",
-          statusText:
-            "Multiple Cloudflare accounts are available. Select an account before provisioning can continue.",
           value: ADD_VAULT_VALUES.cloudflare,
           actions: [
             {

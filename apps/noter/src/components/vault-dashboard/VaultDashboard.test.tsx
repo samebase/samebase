@@ -196,7 +196,6 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(state.rows[1]).toMatchObject({
       provider: "convex",
       status: "running",
-      statusText: "ensure Convex",
       value: "demo",
     });
     expect(state.rows[2]).toEqual({
@@ -206,7 +205,7 @@ describe("buildVaultDashboardResourceRailState", () => {
     });
 
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
-    expect(markup).toContain("ensure Convex");
+    expect(markup).not.toContain("ensure Convex");
     expect(markup).not.toContain("Convex: Convex");
     expect(markup).not.toContain("Create Worker");
   });
@@ -245,7 +244,6 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(state.rows[1]).toMatchObject({
       provider: "convex",
       status: "running",
-      statusText: "ensure Convex preview",
       value: "demo-project",
     });
     expect(state.rows[2]).toEqual({

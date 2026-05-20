@@ -58,7 +58,7 @@ describe("VaultResourceRail", () => {
     expect(markup).not.toContain("Connected existing");
   });
 
-  it("renders current status and failure context below resource links", () => {
+  it("keeps setup status copy out of the resource rail", () => {
     const state = {
       rows: [
         {
@@ -70,14 +70,11 @@ describe("VaultResourceRail", () => {
         {
           provider: "convex",
           status: "running",
-          statusText: "Creating Convex project.",
           value: "weight-tsx",
         },
         {
           provider: "cloudflare",
           status: "failed",
-          statusText:
-            "Multiple Cloudflare accounts are available. Select an account before provisioning can continue.",
           value: "weight-tsx",
           actions: [
             {
@@ -92,8 +89,8 @@ describe("VaultResourceRail", () => {
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
 
     expect(markup).toContain("Open GitHub");
-    expect(markup).toContain("Creating Convex project.");
-    expect(markup).toContain("Multiple Cloudflare accounts are available.");
+    expect(markup).not.toContain("Creating Convex project.");
+    expect(markup).not.toContain("Multiple Cloudflare accounts are available.");
     expect(markup).toContain("Retry");
   });
 });
