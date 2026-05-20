@@ -1,6 +1,9 @@
 import { LandingCopy } from "@/components/LandingCopy";
 import { PublicLandingAuthControls } from "@/components/PublicLandingAuthControls";
-import { NoterLinkIcon } from "@/components/logo/NoterLinkIcon";
+import {
+  NoterLinkIcon,
+  type NoterLinkIconState,
+} from "@/components/logo/NoterLinkIcon";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { landingPageMarkdown } from "@/lib/landingCopy";
@@ -67,19 +70,59 @@ export function SignInForm({
               ) : null}
             </>
           )}
-          <div className="flex flex-col gap-2 pt-2">
-            <a
-              className="mx-auto inline-flex items-center gap-2 text-sm text-muted-foreground underline underline-offset-4"
-              href="https://x.com/notermd"
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              <NoterLinkIcon />
-              <span>https://x.com/notermd</span>
-            </a>
-          </div>
+          <PublicNoterLink />
         </div>
       </div>
+    </div>
+  );
+}
+
+function PublicNoterLink() {
+  const [iconState, setIconState] = useState<NoterLinkIconState>("idle");
+  const showHoverIcon = () => {
+    setIconState((currentState) =>
+      currentState === "active" ? currentState : "hover",
+    );
+  };
+
+  return (
+    <div className="flex flex-col gap-2 pt-2">
+      <a
+        className="mx-auto inline-flex items-center gap-2 text-sm text-muted-foreground underline underline-offset-4"
+        href="https://x.com/notermd"
+        rel="noopener noreferrer"
+        target="_blank"
+        onBlur={() => {
+          setIconState("idle");
+        }}
+        onFocus={showHoverIcon}
+        onMouseDown={() => {
+          setIconState("active");
+        }}
+        onMouseEnter={showHoverIcon}
+        onMouseLeave={() => {
+          setIconState("idle");
+        }}
+        onMouseUp={() => {
+          setIconState("hover");
+        }}
+        onPointerCancel={() => {
+          setIconState("idle");
+        }}
+        onPointerDown={() => {
+          setIconState("active");
+        }}
+        onPointerEnter={showHoverIcon}
+        onPointerLeave={() => {
+          setIconState("idle");
+        }}
+        onPointerUp={() => {
+          setIconState("hover");
+        }}
+      >
+        <NoterLinkIcon state={iconState} />
+        <span>https://x.com/notermd</span>
+      </a>
     </div>
   );
 }

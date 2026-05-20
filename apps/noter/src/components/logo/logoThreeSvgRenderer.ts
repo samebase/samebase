@@ -55,6 +55,10 @@ export type LogoProjectedQuad = {
   strokeWidth: number;
 };
 
+export type LogoProjectedSurfaceQuad = LogoProjectedQuad & {
+  isVisible: boolean;
+};
+
 const CAMERA_FRUSTUM_PADDING = 1.12;
 // Browsers can still show hairline cracks between adjacent projected polygons
 // even when the math is exact. A thin same-color stroke closes those seams
@@ -406,6 +410,70 @@ export function createLogoThreeProjectedQuads({
         depth: dotVectors(center, projector.cameraDirection),
         key: quad.key,
         materialOrder: quad.materialOrder,
+        points,
+        strokeWidth: FACE_STROKE_WIDTH,
+      };
+    })
+    .sort((left, rightQuad) => {
+      if (left.depth !== rightQuad.depth) {
+        return left.depth - rightQuad.depth;
+      }
+
+      return left.materialOrder - rightQuad.materialOrder;
+    });
+}
+
+export function createLogoThreeProjectedSurfaceQuads({
+  elevationDegrees = DEFAULT_ELEVATION_DEGREES,
+  faceColors,
+  filledVoxels,
+  gridSize = GRID_SIZE,
+  rotationDegrees = DEFAULT_ROTATION_DEGREES,
+  viewBoxSize = LOGO_THREE_SVG_VIEWBOX_SIZE,
+}: {
+  elevationDegrees?: number;
+  faceColors: FaceColors;
+  filledVoxels: ReadonlySet<string>;
+  gridSize?: number;
+  rotationDegrees?: number;
+  viewBoxSize?: number;
+}): LogoProjectedSurfaceQuad[] {
+  const surfaceQuads = buildLogoSurfaceQuads(filledVoxels, gridSize);
+  const projector = createLogoProjector({
+    elevationDegrees,
+    rotationDegrees,
+    scenePoints: surfaceQuads.flatMap((quad) =>
+      quad.vertices.map(toLogoWorldPoint),
+    ),
+    viewBoxSize,
+  });
+
+  return surfaceQuads
+    .map((quad) => {
+      const normal = projector.rotateWorldPoint(toLogoWorldPoint(quad.normal));
+      const vertices = quad.vertices.map((vertex) =>
+        projector.rotateWorldPoint(toLogoWorldPoint(vertex)),
+      );
+      const points = vertices.map((vertex) =>
+        projector.projectRotatedPoint(vertex),
+      );
+      const center = vertices.reduce(
+        (sum, vertex) => ({
+          x: sum.x + vertex.x / vertices.length,
+          y: sum.y + vertex.y / vertices.length,
+          z: sum.z + vertex.z / vertices.length,
+        }),
+        { x: 0, y: 0, z: 0 },
+      );
+      const visibility = dotVectors(normal, projector.cameraDirection);
+
+      return {
+        color: getSurfaceQuadColor(faceColors, quad),
+        colorKey: quad.colorKey,
+        depth: dotVectors(center, projector.cameraDirection),
+        isVisible: visibility > 0,
+        key: quad.key,
+        materialOrder: quad.materialIndex,
         points,
         strokeWidth: FACE_STROKE_WIDTH,
       };
