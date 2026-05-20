@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, test, type Locator } from "@playwright/test";
+import { APP_BUILD_VERSION_TEST_ID } from "../src/lib/appBuild";
 import { LANDING_DEV_MODE_QUERY_PARAM } from "../src/lib/landingDevMode";
 import { getLandingMarkdownHeadings } from "../src/lib/landingMarkdownHeadings";
 import {
@@ -161,6 +162,10 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
   await expect(page).toHaveScreenshot("landing-markdown-preview-desktop.png", {
     animations: "disabled",
     caret: "hide",
+    // The app build footer changes on every squash; keep this snapshot focused
+    // on the markdown preview layout and rendered content.
+    mask: [page.getByTestId(APP_BUILD_VERSION_TEST_ID).locator("xpath=..")],
+    maskColor: "#ffffff",
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });

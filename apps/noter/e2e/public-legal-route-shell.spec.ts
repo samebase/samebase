@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { APP_BUILD_VERSION_TEST_ID } from "../src/lib/appBuild";
 
 const legalShellScreenshotOptions = {
   animations: "disabled",
@@ -6,6 +7,16 @@ const legalShellScreenshotOptions = {
   scale: "css",
   maxDiffPixelRatio: 0.03,
 } as const;
+
+function getLegalShellScreenshotOptions(page: Page) {
+  return {
+    ...legalShellScreenshotOptions,
+    // The app build footer changes on every squash; this screenshot verifies
+    // the routed legal shell, not the current release label.
+    mask: [page.getByTestId(APP_BUILD_VERSION_TEST_ID).locator("xpath=..")],
+    maskColor: "#ffffff",
+  };
+}
 
 async function readTermsRouteState(page: Page) {
   await expect(
@@ -32,14 +43,14 @@ test("direct terms loads use the same routed app surface as client navigation", 
   const clientNavigationState = await readTermsRouteState(page);
   await expect(page.locator("main")).toHaveScreenshot(
     "terms-shell.png",
-    legalShellScreenshotOptions,
+    getLegalShellScreenshotOptions(page),
   );
 
   await page.goto("/terms", { waitUntil: "networkidle" });
   const directLoadState = await readTermsRouteState(page);
   await expect(page.locator("main")).toHaveScreenshot(
     "terms-shell.png",
-    legalShellScreenshotOptions,
+    getLegalShellScreenshotOptions(page),
   );
 
   expect(directLoadState).toEqual(clientNavigationState);
