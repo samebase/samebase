@@ -1390,7 +1390,9 @@ export function VaultBranchLinkContent({
                 <DashboardLinkIconSlot>
                   <CloudflareProviderLogo />
                 </DashboardLinkIconSlot>
-                <span>Production</span>
+                <span className="min-w-0 break-all">
+                  {cloudflareProductionUrl}
+                </span>
               </a>
             </div>
           ) : null}

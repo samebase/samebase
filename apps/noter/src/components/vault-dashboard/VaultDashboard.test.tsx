@@ -108,10 +108,10 @@ describe("VaultBranchLinkContent", () => {
 
     expect(markup).toContain('href="https://tmp-flow.nicuchiciuc.workers.dev"');
     expect(markup).toContain('title="Open production app"');
-    expect(markup).toContain("Production");
-    expect(markup.indexOf(">Production<")).toBeLessThan(
-      markup.indexOf(">main<"),
-    );
+    expect(markup).toContain(">https://tmp-flow.nicuchiciuc.workers.dev<");
+    expect(
+      markup.indexOf(">https://tmp-flow.nicuchiciuc.workers.dev<"),
+    ).toBeLessThan(markup.indexOf(">main<"));
   });
 });
 
