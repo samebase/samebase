@@ -9,24 +9,24 @@ import type {
 } from "./convexManagementApiTypes.generated";
 import type { ConvexOAuthTokenResponse } from "./convexManagementApi";
 
-export type StandaloneValidationError = {
+export type AjvStandaloneValidationError = {
   instancePath: string;
   message?: string;
 };
 
-export type StandaloneValidateFunction<T> = {
+export type AjvStandaloneValidateFunction<T> = {
   (payload: unknown): payload is T;
-  errors: StandaloneValidationError[] | null;
+  errors: AjvStandaloneValidationError[] | null;
 };
 
-export const vPlatformTokenDetailsResponse: StandaloneValidateFunction<PlatformTokenDetailsResponse>;
-export const vPlatformProjectDetailsList: StandaloneValidateFunction<
+export const ajvPlatformTokenDetailsResponse: AjvStandaloneValidateFunction<PlatformTokenDetailsResponse>;
+export const ajvPlatformProjectDetailsList: AjvStandaloneValidateFunction<
   PlatformProjectDetails[]
 >;
-export const vPlatformCreateProjectResponse: StandaloneValidateFunction<PlatformCreateProjectResponse>;
-export const vPlatformDeploymentResponse: StandaloneValidateFunction<PlatformDeploymentResponse>;
-export const vPlatformDeploymentResponseList: StandaloneValidateFunction<
+export const ajvPlatformCreateProjectResponse: AjvStandaloneValidateFunction<PlatformCreateProjectResponse>;
+export const ajvPlatformDeploymentResponse: AjvStandaloneValidateFunction<PlatformDeploymentResponse>;
+export const ajvPlatformDeploymentResponseList: AjvStandaloneValidateFunction<
   PlatformDeploymentResponse[]
 >;
-export const vPlatformCreateDeployKeyResponse: StandaloneValidateFunction<PlatformCreateDeployKeyResponse>;
-export const vConvexOAuthTokenResponse: StandaloneValidateFunction<ConvexOAuthTokenResponse>;
+export const ajvPlatformCreateDeployKeyResponse: AjvStandaloneValidateFunction<PlatformCreateDeployKeyResponse>;
+export const ajvConvexOAuthTokenResponse: AjvStandaloneValidateFunction<ConvexOAuthTokenResponse>;

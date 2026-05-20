@@ -26,6 +26,12 @@ const validatorTypesOutputPath = fileURLToPath(
   ),
 );
 const typesOutputPath = "convex/convexManagementApiTypes.generated.ts";
+const generatedFormatPaths = [
+  "convex/convexManagementOpenApi.generated.ts",
+  typesOutputPath,
+  "convex/convexManagementApiValidators.generated.js",
+  "convex/convexManagementApiValidators.generated.d.ts",
+];
 
 const response = await fetch(sourceUrl);
 if (!response.ok) {
@@ -46,19 +52,19 @@ ajv.addFormat("int32", true);
 ajv.addFormat("int64", true);
 
 const validatorSchemaIds = {
-  vPlatformTokenDetailsResponse:
+  ajvPlatformTokenDetailsResponse:
     "noter://convex-management-api/PlatformTokenDetailsResponse",
-  vPlatformProjectDetailsList:
+  ajvPlatformProjectDetailsList:
     "noter://convex-management-api/PlatformProjectDetailsList",
-  vPlatformCreateProjectResponse:
+  ajvPlatformCreateProjectResponse:
     "noter://convex-management-api/PlatformCreateProjectResponse",
-  vPlatformDeploymentResponse:
+  ajvPlatformDeploymentResponse:
     "noter://convex-management-api/PlatformDeploymentResponse",
-  vPlatformDeploymentResponseList:
+  ajvPlatformDeploymentResponseList:
     "noter://convex-management-api/PlatformDeploymentResponseList",
-  vPlatformCreateDeployKeyResponse:
+  ajvPlatformCreateDeployKeyResponse:
     "noter://convex-management-api/PlatformCreateDeployKeyResponse",
-  vConvexOAuthTokenResponse:
+  ajvConvexOAuthTokenResponse:
     "noter://convex-management-api/ConvexOAuthTokenResponse",
 };
 
@@ -88,7 +94,7 @@ try {
     {
       $ref: `${convexManagementOpenApiSchemaId}#/components/schemas/PlatformTokenDetailsResponse`,
     },
-    validatorSchemaIds.vPlatformTokenDetailsResponse,
+    validatorSchemaIds.ajvPlatformTokenDetailsResponse,
   );
   ajv.addSchema(
     {
@@ -97,19 +103,19 @@ try {
         $ref: `${convexManagementOpenApiSchemaId}#/components/schemas/PlatformProjectDetails`,
       },
     },
-    validatorSchemaIds.vPlatformProjectDetailsList,
+    validatorSchemaIds.ajvPlatformProjectDetailsList,
   );
   ajv.addSchema(
     {
       $ref: `${convexManagementOpenApiSchemaId}#/components/schemas/PlatformCreateProjectResponse`,
     },
-    validatorSchemaIds.vPlatformCreateProjectResponse,
+    validatorSchemaIds.ajvPlatformCreateProjectResponse,
   );
   ajv.addSchema(
     {
       $ref: `${convexManagementOpenApiSchemaId}#/components/schemas/PlatformDeploymentResponse`,
     },
-    validatorSchemaIds.vPlatformDeploymentResponse,
+    validatorSchemaIds.ajvPlatformDeploymentResponse,
   );
   ajv.addSchema(
     {
@@ -118,13 +124,13 @@ try {
         $ref: `${convexManagementOpenApiSchemaId}#/components/schemas/PlatformDeploymentResponse`,
       },
     },
-    validatorSchemaIds.vPlatformDeploymentResponseList,
+    validatorSchemaIds.ajvPlatformDeploymentResponseList,
   );
   ajv.addSchema(
     {
       $ref: `${convexManagementOpenApiSchemaId}#/components/schemas/PlatformCreateDeployKeyResponse`,
     },
-    validatorSchemaIds.vPlatformCreateDeployKeyResponse,
+    validatorSchemaIds.ajvPlatformCreateDeployKeyResponse,
   );
   ajv.addSchema(
     {
@@ -139,7 +145,7 @@ try {
         scope: { type: "string" },
       },
     },
-    validatorSchemaIds.vConvexOAuthTokenResponse,
+    validatorSchemaIds.ajvConvexOAuthTokenResponse,
   );
 
   writeFileSync(
@@ -148,8 +154,13 @@ try {
   );
   writeFileSync(
     validatorTypesOutputPath,
-    `// Generated from ${sourceUrl}. Do not edit by hand.\n\nimport type {\n  PlatformCreateDeployKeyResponse,\n  PlatformCreateProjectResponse,\n  PlatformDeploymentResponse,\n  PlatformProjectDetails,\n  PlatformTokenDetailsResponse,\n} from "./convexManagementApiTypes.generated";\nimport type { ConvexOAuthTokenResponse } from "./convexManagementApi";\n\nexport type StandaloneValidationError = {\n  instancePath: string;\n  message?: string;\n};\n\nexport type StandaloneValidateFunction<T> = {\n  (payload: unknown): payload is T;\n  errors: StandaloneValidationError[] | null;\n};\n\nexport const vPlatformTokenDetailsResponse: StandaloneValidateFunction<PlatformTokenDetailsResponse>;\nexport const vPlatformProjectDetailsList: StandaloneValidateFunction<PlatformProjectDetails[]>;\nexport const vPlatformCreateProjectResponse: StandaloneValidateFunction<PlatformCreateProjectResponse>;\nexport const vPlatformDeploymentResponse: StandaloneValidateFunction<PlatformDeploymentResponse>;\nexport const vPlatformDeploymentResponseList: StandaloneValidateFunction<PlatformDeploymentResponse[]>;\nexport const vPlatformCreateDeployKeyResponse: StandaloneValidateFunction<PlatformCreateDeployKeyResponse>;\nexport const vConvexOAuthTokenResponse: StandaloneValidateFunction<ConvexOAuthTokenResponse>;\n`,
+    `// Generated from ${sourceUrl}. Do not edit by hand.\n\nimport type {\n  PlatformCreateDeployKeyResponse,\n  PlatformCreateProjectResponse,\n  PlatformDeploymentResponse,\n  PlatformProjectDetails,\n  PlatformTokenDetailsResponse,\n} from "./convexManagementApiTypes.generated";\nimport type { ConvexOAuthTokenResponse } from "./convexManagementApi";\n\nexport type AjvStandaloneValidationError = {\n  instancePath: string;\n  message?: string;\n};\n\nexport type AjvStandaloneValidateFunction<T> = {\n  (payload: unknown): payload is T;\n  errors: AjvStandaloneValidationError[] | null;\n};\n\nexport const ajvPlatformTokenDetailsResponse: AjvStandaloneValidateFunction<PlatformTokenDetailsResponse>;\nexport const ajvPlatformProjectDetailsList: AjvStandaloneValidateFunction<PlatformProjectDetails[]>;\nexport const ajvPlatformCreateProjectResponse: AjvStandaloneValidateFunction<PlatformCreateProjectResponse>;\nexport const ajvPlatformDeploymentResponse: AjvStandaloneValidateFunction<PlatformDeploymentResponse>;\nexport const ajvPlatformDeploymentResponseList: AjvStandaloneValidateFunction<PlatformDeploymentResponse[]>;\nexport const ajvPlatformCreateDeployKeyResponse: AjvStandaloneValidateFunction<PlatformCreateDeployKeyResponse>;\nexport const ajvConvexOAuthTokenResponse: AjvStandaloneValidateFunction<ConvexOAuthTokenResponse>;\n`,
   );
+
+  execFileSync("pnpm", ["exec", "vp", "fmt", ...generatedFormatPaths], {
+    cwd: appRoot,
+    stdio: "inherit",
+  });
 } finally {
   rmSync(tempDir, { recursive: true, force: true });
 }

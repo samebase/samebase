@@ -9,15 +9,15 @@ import type {
   PlatformTokenDetailsResponse,
 } from "./convexManagementApiTypes.generated";
 import {
-  vConvexOAuthTokenResponse,
-  vPlatformCreateDeployKeyResponse,
-  vPlatformCreateProjectResponse,
-  vPlatformDeploymentResponse,
-  vPlatformDeploymentResponseList,
-  vPlatformProjectDetailsList,
-  vPlatformTokenDetailsResponse,
-  type StandaloneValidateFunction,
-  type StandaloneValidationError,
+  ajvConvexOAuthTokenResponse,
+  ajvPlatformCreateDeployKeyResponse,
+  ajvPlatformCreateProjectResponse,
+  ajvPlatformDeploymentResponse,
+  ajvPlatformDeploymentResponseList,
+  ajvPlatformProjectDetailsList,
+  ajvPlatformTokenDetailsResponse,
+  type AjvStandaloneValidateFunction,
+  type AjvStandaloneValidationError,
 } from "./convexManagementApiValidators.generated";
 import { toErrorMessage } from "./jsonUtils";
 
@@ -123,7 +123,7 @@ export function parseConvexOAuthTokenResponse(
   const tokenResponse = validatePayload({
     path: "/oauth/token",
     schemaName: "ConvexOAuthTokenResponse",
-    validator: vConvexOAuthTokenResponse,
+    validator: ajvConvexOAuthTokenResponse,
     payload,
   });
   if (tokenResponse.access_token.length === 0) {
@@ -174,7 +174,7 @@ export function createConvexManagementClient(args: {
       return validatePayload({
         path,
         schemaName: "PlatformTokenDetailsResponse",
-        validator: vPlatformTokenDetailsResponse,
+        validator: ajvPlatformTokenDetailsResponse,
         payload,
       });
     },
@@ -188,7 +188,7 @@ export function createConvexManagementClient(args: {
       return validatePayload({
         path,
         schemaName: "PlatformProjectDetails[]",
-        validator: vPlatformProjectDetailsList,
+        validator: ajvPlatformProjectDetailsList,
         payload,
       });
     },
@@ -203,7 +203,7 @@ export function createConvexManagementClient(args: {
       return validatePayload({
         path,
         schemaName: "PlatformCreateProjectResponse",
-        validator: vPlatformCreateProjectResponse,
+        validator: ajvPlatformCreateProjectResponse,
         payload,
       });
     },
@@ -217,7 +217,7 @@ export function createConvexManagementClient(args: {
       return validatePayload({
         path,
         schemaName: "PlatformDeploymentResponse[]",
-        validator: vPlatformDeploymentResponseList,
+        validator: ajvPlatformDeploymentResponseList,
         payload,
       });
     },
@@ -232,7 +232,7 @@ export function createConvexManagementClient(args: {
       return validatePayload({
         path,
         schemaName: "PlatformDeploymentResponse",
-        validator: vPlatformDeploymentResponse,
+        validator: ajvPlatformDeploymentResponse,
         payload,
       });
     },
@@ -246,7 +246,7 @@ export function createConvexManagementClient(args: {
       return validatePayload({
         path,
         schemaName: "PlatformDeploymentResponse",
-        validator: vPlatformDeploymentResponse,
+        validator: ajvPlatformDeploymentResponse,
         payload,
       });
     },
@@ -261,7 +261,7 @@ export function createConvexManagementClient(args: {
       return validatePayload({
         path,
         schemaName: "PlatformCreateDeployKeyResponse",
-        validator: vPlatformCreateDeployKeyResponse,
+        validator: ajvPlatformCreateDeployKeyResponse,
         payload,
       });
     },
@@ -337,7 +337,7 @@ async function parseResponseBody(response: Response): Promise<unknown> {
 function validatePayload<T>(args: {
   path: string;
   schemaName: string;
-  validator: StandaloneValidateFunction<T>;
+  validator: AjvStandaloneValidateFunction<T>;
   payload: unknown;
 }): T {
   if (args.validator(args.payload)) {
@@ -352,7 +352,7 @@ function validatePayload<T>(args: {
 }
 
 function formatValidationErrors(
-  errors: StandaloneValidationError[] | null | undefined,
+  errors: AjvStandaloneValidationError[] | null | undefined,
 ): string[] {
   if (!errors || errors.length === 0) {
     return ["unknown validation error"];

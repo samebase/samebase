@@ -13,14 +13,44 @@ import {
 import {
   fetchConvexTeamTokenDetails,
   parseConvexOAuthTokenResponse,
+  type ConvexOAuthTokenResponse,
 } from "./convexManagementApi";
 
 const CONVEX_AUTHORIZE_URL =
   "https://dashboard.convex.dev/oauth/authorize/team";
-const CONVEX_TOKEN_URL = "https://api.convex.dev/oauth/token";
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
 
 type OAuthContext = ActionCtx | MutationCtx;
+type ConvexOAuthTokenRequest = {
+  grant_type: "authorization_code";
+  client_id: string;
+  client_secret: string;
+  code: string;
+  code_verifier: string;
+  redirect_uri: string;
+};
+type ConvexOAuthTokenEndpoint = {
+  path: "/oauth/token";
+  url: string;
+  method: "POST";
+  requestContentType: "application/x-www-form-urlencoded";
+  encodeRequest(request: ConvexOAuthTokenRequest): string;
+  parseResponse(payload: unknown): ConvexOAuthTokenResponse;
+};
+type ConvexOAuthCodeExchangeResult = {
+  accessToken: string;
+  refreshToken?: string;
+  expiresIn?: number;
+};
+
+const CONVEX_OAUTH_TOKEN_ENDPOINT = {
+  path: "/oauth/token",
+  url: "https://api.convex.dev/oauth/token",
+  method: "POST",
+  requestContentType: "application/x-www-form-urlencoded",
+  encodeRequest: encodeConvexOAuthTokenRequest,
+  parseResponse: parseConvexOAuthTokenResponse,
+} satisfies ConvexOAuthTokenEndpoint;
 
 async function fetchWithTimeout(
   input: RequestInfo | URL,
@@ -79,41 +109,56 @@ async function exchangeConvexOAuthCode(args: {
   clientId: string;
   clientSecret: string;
   redirectUri: string;
-}): Promise<{
-  accessToken: string;
-  refreshToken?: string;
-  expiresIn?: number;
-}> {
-  const tokenRequestBody = new URLSearchParams({
+}): Promise<ConvexOAuthCodeExchangeResult> {
+  const tokenRequest: ConvexOAuthTokenRequest = {
     grant_type: "authorization_code",
     client_id: args.clientId,
     client_secret: args.clientSecret,
     code: args.code,
     code_verifier: args.codeVerifier,
     redirect_uri: args.redirectUri,
-  });
-
-  const response = await fetchWithTimeout(CONVEX_TOKEN_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: tokenRequestBody.toString(),
-  });
-
-  const tokenPayload = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new Error(
-      `Failed to exchange Convex OAuth code (${response.status}).`,
-    );
-  }
-  const data = parseConvexOAuthTokenResponse(tokenPayload);
+  };
+  const data = await requestConvexOAuthToken(tokenRequest);
 
   return {
     accessToken: data.access_token,
     refreshToken: data.refresh_token,
     expiresIn: data.expires_in,
   };
+}
+
+async function requestConvexOAuthToken(
+  request: ConvexOAuthTokenRequest,
+): Promise<ConvexOAuthTokenResponse> {
+  const endpoint = CONVEX_OAUTH_TOKEN_ENDPOINT;
+  const response = await fetchWithTimeout(endpoint.url, {
+    method: endpoint.method,
+    headers: {
+      "Content-Type": endpoint.requestContentType,
+    },
+    body: endpoint.encodeRequest(request),
+  });
+
+  const tokenPayload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(
+      `Failed to call Convex OAuth endpoint ${endpoint.path} (${response.status}).`,
+    );
+  }
+  return endpoint.parseResponse(tokenPayload);
+}
+
+function encodeConvexOAuthTokenRequest(
+  request: ConvexOAuthTokenRequest,
+): string {
+  const body = new URLSearchParams();
+  body.set("grant_type", request.grant_type);
+  body.set("client_id", request.client_id);
+  body.set("client_secret", request.client_secret);
+  body.set("code", request.code);
+  body.set("code_verifier", request.code_verifier);
+  body.set("redirect_uri", request.redirect_uri);
+  return body.toString();
 }
 
 export const storeConvexOauthTokens = internalMutation({

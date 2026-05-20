@@ -2,7 +2,7 @@
 /* eslint-disable */
 
 "use strict";
-export const vPlatformTokenDetailsResponse = validate0;
+export const ajvPlatformTokenDetailsResponse = validate0;
 const schema0 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/components/schemas/PlatformTokenDetailsResponse",
 };
@@ -530,7 +530,7 @@ function validate0(
   return errors === 0;
 }
 validate0.evaluated = { dynamicProps: true, dynamicItems: false };
-export const vPlatformProjectDetailsList = validate4;
+export const ajvPlatformProjectDetailsList = validate4;
 const schema7 = {
   type: "array",
   items: {
@@ -902,7 +902,7 @@ function validate4(
   return errors === 0;
 }
 validate4.evaluated = { items: true, dynamicProps: false, dynamicItems: false };
-export const vPlatformCreateProjectResponse = validate7;
+export const ajvPlatformCreateProjectResponse = validate7;
 const schema14 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/components/schemas/PlatformCreateProjectResponse",
 };
@@ -1196,7 +1196,7 @@ validate7.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-export const vPlatformDeploymentResponse = validate10;
+export const ajvPlatformDeploymentResponse = validate10;
 const schema19 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/components/schemas/PlatformDeploymentResponse",
 };
@@ -2711,7 +2711,7 @@ function validate10(
   return errors === 0;
 }
 validate10.evaluated = { dynamicProps: true, dynamicItems: false };
-export const vPlatformDeploymentResponseList = validate13;
+export const ajvPlatformDeploymentResponseList = validate13;
 const schema34 = {
   type: "array",
   items: {
@@ -4064,7 +4064,7 @@ validate13.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-export const vPlatformCreateDeployKeyResponse = validate16;
+export const ajvPlatformCreateDeployKeyResponse = validate16;
 const schema49 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/components/schemas/PlatformCreateDeployKeyResponse",
 };
@@ -4194,7 +4194,7 @@ validate16.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-export const vConvexOAuthTokenResponse = validate19;
+export const ajvConvexOAuthTokenResponse = validate19;
 const schema52 = {
   type: "object",
   additionalProperties: true,

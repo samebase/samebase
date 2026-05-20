@@ -9,6 +9,7 @@
     "dev:frontend": "node ./scripts/run-vite-dev.ts",
     "dev:backend": "node ./scripts/convex-dev.ts",
     "generate:convex-management-api": "node ./scripts/generate-convex-management-api.ts",
+    "verify:convex-management-api": "pnpm run generate:convex-management-api && git diff --exit-code -- convex/convexManagementOpenApi.generated.ts convex/convexManagementApiTypes.generated.ts convex/convexManagementApiValidators.generated.js convex/convexManagementApiValidators.generated.d.ts",
     "generate:install-icon-assets": "node ./scripts/generate-install-icon-assets.ts",
     "verify:install-icon-assets": "npm run generate:install-icon-assets && git diff --exit-code -- public/install-icon.svg public/apple-touch-icon.png public/icon-192.png public/icon-512.png public/icon-maskable-192.png public/icon-maskable-512.png",
     "predev": "node ./scripts/predev.ts",
