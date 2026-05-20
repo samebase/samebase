@@ -71,7 +71,7 @@ async function removeTemporaryVault(
 
   const removeDialog = page.getByRole("dialog");
   await expect(removeDialog).toBeVisible({ timeout: 15_000 });
-  await expect(page).toHaveURL(/(?:\?|&)delete=/);
+  await expect(page).toHaveURL(/(?:\?|&)delete(?:&|#|$)/);
 
   const cleanupCheckboxLabels = [
     "Also remove GitHub repository",
@@ -92,7 +92,7 @@ async function removeTemporaryVault(
   await removeDialog.getByRole("button", { name: "Remove Vault" }).click();
   await expect(removeDialog).not.toBeVisible({ timeout: 120_000 });
   await expect(page).toHaveURL(/(?:\?|&)dev(?:[=&]|&|#|$)/);
-  await expect(page).not.toHaveURL(/(?:\?|&)delete=/);
+  await expect(page).not.toHaveURL(/(?:\?|&)delete(?:&|#|$)/);
   await expect(removeControl).toHaveCount(0, { timeout: 120_000 });
 }
 

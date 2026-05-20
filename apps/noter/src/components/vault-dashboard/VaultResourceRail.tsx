@@ -189,6 +189,7 @@ function VaultResourceRailActions({
     <div className="flex min-w-0 flex-wrap gap-1">
       {actions.map((action) => {
         const Icon = ACTION_ICONS[action.kind];
+        const isDisabled = action.disabled || !action.onClick;
         return (
           <Button
             key={`${action.kind}:${action.label}`}
@@ -197,7 +198,7 @@ function VaultResourceRailActions({
             size="sm"
             className="h-7 gap-1 px-2"
             onClick={action.onClick}
-            disabled={action.disabled}
+            disabled={isDisabled}
             aria-label={`${action.label} ${PROVIDER_LABELS[provider]}`}
           >
             <Icon className="h-3.5 w-3.5" />

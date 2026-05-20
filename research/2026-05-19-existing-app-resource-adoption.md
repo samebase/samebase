@@ -243,10 +243,10 @@ Important constraints from the docs:
 
 Sources:
 
-- <https://developers.cloudflare.com/workers/ci-cd/builds/api-reference/>
-- <https://developers.cloudflare.com/workers/ci-cd/builds/configuration/>
-- <https://developers.cloudflare.com/workers/ci-cd/builds/build-branches/>
-- <https://developers.cloudflare.com/api/resources/workers_builds/>
+- [link https://developers.cloudflare.com/workers/ci-cd/builds/api-reference/](https://developers.cloudflare.com/workers/ci-cd/builds/api-reference/)
+- [link https://developers.cloudflare.com/workers/ci-cd/builds/configuration/](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)
+- [link https://developers.cloudflare.com/workers/ci-cd/builds/build-branches/](https://developers.cloudflare.com/workers/ci-cd/builds/build-branches/)
+- [link https://developers.cloudflare.com/api/resources/workers_builds/](https://developers.cloudflare.com/api/resources/workers_builds/)
 
 ### Convex Management And Deploy Keys
 
@@ -264,11 +264,11 @@ Current Convex docs describe:
 
 Sources:
 
-- <https://docs.convex.dev/management-api>
-- <https://docs.convex.dev/management-api/create-deploy-key>
-- <https://docs.convex.dev/cli/deploy-key-types>
-- <https://docs.convex.dev/production/hosting/preview-deployments>
-- <https://docs.convex.dev/dashboard/deployments/>
+- [link https://docs.convex.dev/management-api](https://docs.convex.dev/management-api)
+- [link https://docs.convex.dev/management-api/create-deploy-key](https://docs.convex.dev/management-api/create-deploy-key)
+- [link https://docs.convex.dev/cli/deploy-key-types](https://docs.convex.dev/cli/deploy-key-types)
+- [link https://docs.convex.dev/production/hosting/preview-deployments](https://docs.convex.dev/production/hosting/preview-deployments)
+- [link https://docs.convex.dev/dashboard/deployments/](https://docs.convex.dev/dashboard/deployments/)
 
 ## Likely Convex Deployment Visibility Bug
 

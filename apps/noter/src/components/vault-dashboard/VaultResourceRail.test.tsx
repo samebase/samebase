@@ -79,4 +79,45 @@ describe("VaultResourceRail", () => {
     expect(markup).not.toContain("Multiple Cloudflare accounts are available.");
     expect(markup).toContain("Retry");
   });
+
+  it("keeps unwired actions disabled", () => {
+    const state = {
+      rows: [
+        {
+          provider: "github",
+          status: "ready",
+          value: "nicu-chiciuc/weight_tsx",
+          href: "https://github.com/nicu-chiciuc/weight_tsx",
+        },
+        {
+          provider: "convex",
+          status: "action_required",
+          actions: [
+            {
+              kind: "connect_existing",
+              label: "Connect",
+            },
+            {
+              kind: "create_new",
+              label: "Create",
+            },
+          ],
+        },
+        {
+          provider: "cloudflare",
+          status: "pending",
+          value: "weight-tsx",
+        },
+      ],
+    } satisfies VaultResourceRailState;
+
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+
+    expect(markup).toMatch(
+      /disabled=""[^>]*aria-label="Connect Convex"|aria-label="Connect Convex"[^>]*disabled=""/,
+    );
+    expect(markup).toMatch(
+      /disabled=""[^>]*aria-label="Create Convex"|aria-label="Create Convex"[^>]*disabled=""/,
+    );
+  });
 });
