@@ -98,9 +98,10 @@ the same stripe phase.
   public static logo.
 - `/logo-interactive.svg` wraps those same generated views for inline HTML use:
   default shows version 1, hover shows version 2, and active pointer press shows
-  version 3. Version 1 uses a single clean front-face path to avoid internal
-  seams; the hover and active states animate the same face set through
-  collapsed, flat, and spatial transforms.
+  version 3. The face and stripe polygons carry version-specific point data so
+  pointer state changes interpolate the actual polygon vertices. A version 1
+  seam mask may sit above the moving polygons only to hide resting-state
+  anti-alias cracks in the flat 3x3 mark.
 - `/logo-interactive-monochrome.svg` uses the same interactive geometry with the
   canonical single-color stripe treatment.
 

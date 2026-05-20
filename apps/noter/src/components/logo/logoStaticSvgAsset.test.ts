@@ -111,19 +111,16 @@ describe("logoStaticSvgAsset", () => {
   it("animates the interactive logo from version 1 to version 2 on hover and version 3 while active", () => {
     const generatedSvg = createInteractiveLogoSvgMarkup();
 
-    expect(generatedSvg).toContain('data-logo-view="side-primary"');
-    expect(generatedSvg).toContain('data-logo-version="1"');
-    expect(generatedSvg).toContain("noter-logo-v1-clean");
+    expect(generatedSvg).toContain('data-logo-animation="points"');
     expect(generatedSvg).toContain("noter-logo-face");
-    expect(generatedSvg).toContain("--logo-transform-v1:matrix(0, 0, 0, 0");
-    expect(generatedSvg).toContain("--logo-transform-v2:matrix(");
-    expect(generatedSvg).toContain("--logo-transform-v3:matrix(");
-    expect(generatedSvg).toContain(
-      ".noter-logo-hitbox:hover ~ .noter-logo-faces .noter-logo-face",
-    );
-    expect(generatedSvg).toContain(
-      ".noter-logo-hitbox:active ~ .noter-logo-faces .noter-logo-face",
-    );
+    expect(generatedSvg).not.toContain("noter-logo-v1-clean");
+    expect(generatedSvg).not.toContain("--logo-transform");
+    expect(generatedSvg).toContain("data-logo-points-v1");
+    expect(generatedSvg).toContain("data-logo-points-v2");
+    expect(generatedSvg).toContain("data-logo-points-v3");
+    expect(generatedSvg).toContain("requestAnimationFrame");
+    expect(generatedSvg).toContain('setTargetState("v2")');
+    expect(generatedSvg).toContain('setTargetState("v3")');
   });
 
   it("renders the monochrome interactive logo with canonical local stripes", () => {
@@ -132,7 +129,7 @@ describe("logoStaticSvgAsset", () => {
     });
 
     expect(generatedSvg).toContain('data-logo-color-mode="monochrome"');
-    expect(generatedSvg).toContain('class="noter-logo-stripe"');
+    expect(generatedSvg).toContain("noter-logo-stripe");
     expect(generatedSvg).toContain('data-logo-color-key="left"');
   });
 });

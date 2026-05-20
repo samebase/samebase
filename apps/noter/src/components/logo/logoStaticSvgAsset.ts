@@ -51,6 +51,7 @@ type InteractiveLogoSvgOptions = {
 };
 
 type InteractiveLogoColorMode = "color" | "monochrome";
+type InteractiveLogoStateId = "v1" | "v2" | "v3";
 
 type LocalPoint = {
   x: number;
@@ -61,7 +62,6 @@ type ProjectedFaceState = {
   center: LogoProjectedPoint;
   depth: number;
   points: readonly LogoProjectedPoint[];
-  transform: string;
   visible: boolean;
 };
 
@@ -88,8 +88,25 @@ type InteractiveLogoFacePaint =
       stroke: string;
     };
 
-const INTERACTIVE_LOGO_FACE_STROKE_WIDTH = 0.14;
+type InteractiveLogoPolygonState = {
+  opacity: number;
+  points: readonly LogoProjectedPoint[];
+};
+
+type InteractiveLogoPolygon = {
+  className: string;
+  colorKey: FaceColorKey;
+  fill: string;
+  key: string;
+  states: Record<InteractiveLogoStateId, InteractiveLogoPolygonState>;
+  stroke: string | null;
+  strokeWidth: number;
+};
+
+const INTERACTIVE_LOGO_FACE_STROKE_WIDTH = 0.75;
 const INTERACTIVE_LOGO_TRANSITION_MS = 220;
+const INTERACTIVE_LOGO_VISIBILITY_EPSILON = 0.000001;
+const INTERACTIVE_LOGO_FACE_BLEED = 0.012;
 
 function escapeSvgAttribute(value: string): string {
   return value
@@ -107,52 +124,187 @@ function serializeLogoProjectedPoint(point: LogoProjectedPoint) {
   return `${formatSvgNumber(point.x)},${formatSvgNumber(point.y)}`;
 }
 
-function serializeLocalPoint(point: LocalPoint) {
-  return `${formatSvgNumber(point.x)},${formatSvgNumber(point.y)}`;
-}
-
-function serializeLocalPolygon(points: readonly LocalPoint[]) {
-  return points.map(serializeLocalPoint).join(" ");
-}
-
 function createInteractiveLogoStyleMarkup() {
   return `<style>
-.noter-logo-v1-clean,
-.noter-logo-face {
+.noter-logo-face-part {
   pointer-events: none;
-  transition: opacity ${INTERACTIVE_LOGO_TRANSITION_MS}ms ease-out, transform ${INTERACTIVE_LOGO_TRANSITION_MS}ms ease-out;
 }
-.noter-logo-face {
-  opacity: 0;
-  transform: var(--logo-transform-v1);
-  transform-box: view-box;
-  transform-origin: 0 0;
+.noter-logo-v1-seam-mask {
+  pointer-events: none;
 }
 .noter-logo-hitbox {
   cursor: pointer;
 }
-.noter-logo-interactive-svg:hover .noter-logo-v1-clean,
-.noter-logo-hitbox:hover ~ .noter-logo-v1-clean,
-.noter-logo-hitbox:active ~ .noter-logo-v1-clean {
-  opacity: 0;
-}
-.noter-logo-interactive-svg:hover .noter-logo-face,
-.noter-logo-hitbox:hover ~ .noter-logo-faces .noter-logo-face {
-  opacity: var(--logo-opacity-v2);
-  transform: var(--logo-transform-v2);
-}
-.noter-logo-interactive-svg:active .noter-logo-face,
-.noter-logo-hitbox:active ~ .noter-logo-faces .noter-logo-face {
-  opacity: var(--logo-opacity-v3);
-  transform: var(--logo-transform-v3);
+.noter-logo-interactive-svg {
+  overflow: visible;
 }
 @media (prefers-reduced-motion: reduce) {
-  .noter-logo-v1-clean,
-  .noter-logo-face {
+  .noter-logo-face-part {
     transition: none;
   }
 }
 </style>`;
+}
+
+function createInteractiveLogoScriptMarkup() {
+  return `<script><![CDATA[
+(() => {
+  const svg = document.currentScript && document.currentScript.ownerSVGElement;
+  if (!svg) {
+    return;
+  }
+
+  const stateIds = ["v1", "v2", "v3"];
+  const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const durationMs = reducedMotion ? 0 : ${INTERACTIVE_LOGO_TRANSITION_MS};
+  const parsePoints = (value) =>
+    value.trim().split(/\\s+/).map((pair) => {
+      const [x, y] = pair.split(",").map(Number);
+      return [x, y];
+    });
+  const formatPoints = (points) =>
+    points.map(([x, y]) => x.toFixed(6) + "," + y.toFixed(6)).join(" ");
+  const mix = (from, to, progress) => from + (to - from) * progress;
+  const ease = (progress) => 1 - Math.pow(1 - progress, 3);
+  const parts = [...svg.querySelectorAll("[data-logo-points-v1]")].map((element) => {
+    const states = {};
+    for (const stateId of stateIds) {
+      const datasetSuffix = stateId[0].toUpperCase() + stateId.slice(1);
+      states[stateId] = {
+        opacity: Number(element.dataset["logoOpacity" + datasetSuffix] || "1"),
+        points: parsePoints(element.dataset["logoPoints" + datasetSuffix] || ""),
+      };
+    }
+
+    element.setAttribute("points", formatPoints(states.v1.points));
+    element.style.opacity = String(states.v1.opacity);
+
+    return {
+      currentOpacity: states.v1.opacity,
+      currentPoints: states.v1.points,
+      element,
+      fromOpacity: states.v1.opacity,
+      fromPoints: states.v1.points,
+      states,
+      toOpacity: states.v1.opacity,
+      toPoints: states.v1.points,
+    };
+  });
+  const opacityOnlyParts = [...svg.querySelectorAll("[data-logo-opacity-only-v1]")].map((element) => {
+    const states = {};
+    for (const stateId of stateIds) {
+      const datasetSuffix = stateId[0].toUpperCase() + stateId.slice(1);
+      states[stateId] = {
+        opacity: Number(element.dataset["logoOpacityOnly" + datasetSuffix] || "1"),
+      };
+    }
+
+    element.style.opacity = String(states.v1.opacity);
+
+    return {
+      currentOpacity: states.v1.opacity,
+      element,
+      fromOpacity: states.v1.opacity,
+      states,
+      toOpacity: states.v1.opacity,
+    };
+  });
+  const opacityParts = [...parts, ...opacityOnlyParts];
+
+  let animationFrame = 0;
+  let animationStart = 0;
+  let hovering = false;
+  let pressing = false;
+  let targetState = "v1";
+
+  const applyProgress = (progress) => {
+    const easedProgress = ease(progress);
+    for (const part of parts) {
+      const nextPoints = part.fromPoints.map(([fromX, fromY], index) => {
+        const [toX, toY] = part.toPoints[index] || [fromX, fromY];
+        return [mix(fromX, toX, easedProgress), mix(fromY, toY, easedProgress)];
+      });
+
+      part.currentPoints = nextPoints;
+      part.element.setAttribute("points", formatPoints(nextPoints));
+    }
+
+    for (const part of opacityParts) {
+      const nextOpacity = mix(part.fromOpacity, part.toOpacity, easedProgress);
+
+      part.currentOpacity = nextOpacity;
+      part.element.style.opacity = String(nextOpacity);
+    }
+  };
+
+  const tick = (now) => {
+    if (durationMs === 0) {
+      applyProgress(1);
+      animationFrame = 0;
+      return;
+    }
+
+    const progress = Math.min(1, (now - animationStart) / durationMs);
+    applyProgress(progress);
+    if (progress < 1) {
+      animationFrame = requestAnimationFrame(tick);
+      return;
+    }
+
+    animationFrame = 0;
+  };
+
+  const setTargetState = (nextState) => {
+    if (targetState === nextState && animationFrame === 0) {
+      return;
+    }
+
+    targetState = nextState;
+    animationStart = performance.now();
+    for (const part of parts) {
+      part.fromPoints = part.currentPoints.map(([x, y]) => [x, y]);
+      part.toPoints = part.states[nextState].points;
+    }
+    for (const part of opacityParts) {
+      part.fromOpacity = part.currentOpacity;
+      part.toOpacity = part.states[nextState].opacity;
+    }
+
+    if (animationFrame !== 0) {
+      cancelAnimationFrame(animationFrame);
+    }
+    animationFrame = requestAnimationFrame(tick);
+  };
+
+  const interactionTarget = svg.closest && svg.closest("a") ? svg.closest("a") : svg;
+  interactionTarget.addEventListener("pointerenter", () => {
+    hovering = true;
+    if (!pressing) {
+      setTargetState("v2");
+    }
+  });
+  interactionTarget.addEventListener("pointerleave", () => {
+    hovering = false;
+    pressing = false;
+    setTargetState("v1");
+  });
+  interactionTarget.addEventListener("pointerdown", (event) => {
+    pressing = true;
+    if (svg.setPointerCapture && event.pointerId !== undefined) {
+      svg.setPointerCapture(event.pointerId);
+    }
+    setTargetState("v3");
+  });
+  interactionTarget.addEventListener("pointerup", () => {
+    pressing = false;
+    setTargetState(hovering ? "v2" : "v1");
+  });
+  interactionTarget.addEventListener("pointercancel", () => {
+    pressing = false;
+    setTargetState(hovering ? "v2" : "v1");
+  });
+})();
+]]></script>`;
 }
 
 function toLogoWorldPoint([x, y, z]: LogoSurfaceVertex): LogoWorldPoint {
@@ -207,18 +359,6 @@ function getLogoWorldPointCenter(
   };
 }
 
-function createProjectedFaceTransform(points: readonly LogoProjectedPoint[]) {
-  const origin = points[0] ?? { x: 0, y: 0 };
-  const uPoint = points[1] ?? origin;
-  const vPoint = points[3] ?? origin;
-
-  return `matrix(${formatSvgNumber(uPoint.x - origin.x)}, ${formatSvgNumber(uPoint.y - origin.y)}, ${formatSvgNumber(vPoint.x - origin.x)}, ${formatSvgNumber(vPoint.y - origin.y)}, ${formatSvgNumber(origin.x)}, ${formatSvgNumber(origin.y)})`;
-}
-
-function createCollapsedFaceTransform(center: LogoProjectedPoint) {
-  return `matrix(0, 0, 0, 0, ${formatSvgNumber(center.x)}, ${formatSvgNumber(center.y)})`;
-}
-
 function projectInteractiveLogoFaceState({
   projector,
   surfaceQuad,
@@ -229,7 +369,9 @@ function projectInteractiveLogoFaceState({
   const normal = projector.rotateWorldPoint(
     toLogoWorldPoint(surfaceQuad.normal),
   );
-  const visible = dotLogoWorldPoints(normal, projector.cameraDirection) > 0;
+  const visible =
+    dotLogoWorldPoints(normal, projector.cameraDirection) >
+    INTERACTIVE_LOGO_VISIBILITY_EPSILON;
   const rotatedVertices = surfaceQuad.vertices.map((vertex) =>
     projector.rotateWorldPoint(toLogoWorldPoint(vertex)),
   );
@@ -243,9 +385,6 @@ function projectInteractiveLogoFaceState({
     center,
     depth: dotLogoWorldPoints(rotatedCenter, projector.cameraDirection),
     points: projectedPoints,
-    transform: visible
-      ? createProjectedFaceTransform(projectedPoints)
-      : createCollapsedFaceTransform(center),
     visible,
   };
 }
@@ -301,23 +440,23 @@ function createInteractiveLogoFaces(
         projector: projectors.v3,
         surfaceQuad,
       });
-      const v1 = {
-        ...v1Projection,
-        transform: createCollapsedFaceTransform(v1Projection.center),
-        visible: false,
-      };
 
       return {
         colorKey: surfaceQuad.colorKey,
         key: surfaceQuad.key,
         states: {
-          v1,
+          v1: v1Projection,
           v2: v2Projection,
           v3: v3Projection,
         },
       };
     })
-    .filter((face) => face.states.v2.visible || face.states.v3.visible)
+    .filter(
+      (face) =>
+        face.states.v1.visible ||
+        face.states.v2.visible ||
+        face.states.v3.visible,
+    )
     .sort((left, right) => {
       const leftDepth = left.states.v3.visible
         ? left.states.v3.depth
@@ -337,50 +476,6 @@ function collectSortedUniqueCoordinates(values: readonly number[]) {
   }
 
   return [...coordinatesByKey.values()].sort((left, right) => left - right);
-}
-
-function createFallbackCleanV1Path(
-  projectedFaces: readonly ProjectedFaceState[],
-) {
-  return projectedFaces
-    .map((face) => {
-      return `M ${face.points.map(serializeLogoProjectedPoint).join(" L ")} Z`;
-    })
-    .join(" ");
-}
-
-function createCleanSidePrimaryPath({
-  fill,
-  surfaceQuads,
-}: {
-  fill: string;
-  surfaceQuads: readonly LogoSurfaceQuad[];
-}) {
-  const projectors = createInteractiveLogoViewProjectors(surfaceQuads);
-  const visibleRightFaces = surfaceQuads
-    .filter((surfaceQuad) => surfaceQuad.colorKey === "right")
-    .map((surfaceQuad) =>
-      projectInteractiveLogoFaceState({
-        projector: projectors.v1,
-        surfaceQuad,
-      }),
-    )
-    .filter((face) => face.visible);
-  const xCoordinates = collectSortedUniqueCoordinates(
-    visibleRightFaces.flatMap((face) => [face.center.x]),
-  );
-  const yCoordinates = collectSortedUniqueCoordinates(
-    visibleRightFaces.flatMap((face) => [face.center.y]),
-  );
-  const path =
-    xCoordinates.length === 3 && yCoordinates.length === 3
-      ? createSidePrimaryRingPathFromCenters({
-          xCoordinates,
-          yCoordinates,
-        })
-      : createFallbackCleanV1Path(visibleRightFaces);
-
-  return `<path class="noter-logo-v1-clean" data-logo-view="side-primary" data-logo-version="1" fill="${escapeSvgAttribute(fill)}" fill-rule="evenodd" d="${escapeSvgAttribute(path)}"/>`;
 }
 
 function createSidePrimaryRingPathFromCenters({
@@ -413,6 +508,37 @@ function createSidePrimaryRingPathFromCenters({
     `H ${formatSvgNumber(x1)}`,
     "Z",
   ].join(" ");
+}
+
+function createInteractiveLogoV1SeamMask({
+  fill,
+  surfaceQuads,
+}: {
+  fill: string;
+  surfaceQuads: readonly LogoSurfaceQuad[];
+}) {
+  const projectors = createInteractiveLogoViewProjectors(surfaceQuads);
+  const visibleRightFaces = surfaceQuads
+    .filter((surfaceQuad) => surfaceQuad.colorKey === "right")
+    .map((surfaceQuad) =>
+      projectInteractiveLogoFaceState({
+        projector: projectors.v1,
+        surfaceQuad,
+      }),
+    )
+    .filter((face) => face.visible);
+  const xCoordinates = collectSortedUniqueCoordinates(
+    visibleRightFaces.flatMap((face) => [face.center.x]),
+  );
+  const yCoordinates = collectSortedUniqueCoordinates(
+    visibleRightFaces.flatMap((face) => [face.center.y]),
+  );
+
+  if (xCoordinates.length !== 3 || yCoordinates.length !== 3) {
+    return "";
+  }
+
+  return `<path class="noter-logo-v1-seam-mask" fill="${escapeSvgAttribute(fill)}" fill-rule="evenodd" d="${escapeSvgAttribute(createSidePrimaryRingPathFromCenters({ xCoordinates, yCoordinates }))}" data-logo-opacity-only-v1="1" data-logo-opacity-only-v2="0" data-logo-opacity-only-v3="0" opacity="1"/>`;
 }
 
 function getInteractiveLogoFacePaint({
@@ -553,21 +679,15 @@ function createStripeBandPolygon({
   });
 }
 
-function createStripePolygonsMarkup({
-  fill,
-  style,
-}: {
-  fill: string;
-  style: LogoStripedLeftFaceStyle;
-}) {
+function createStripeBandPolygons(style: LogoStripedLeftFaceStyle) {
   const period = style.stripeWidth + style.stripeGap;
   if (period <= 0 || style.stripeWidth <= 0) {
-    return "";
+    return [];
   }
 
   const stripeStart = -period;
   const stripeEnd = 2 + period;
-  const polygons: string[] = [];
+  const polygons: LocalPoint[][] = [];
 
   for (let lower = stripeStart; lower < stripeEnd; lower += period) {
     const band = createStripeBandPolygon({
@@ -578,29 +698,102 @@ function createStripePolygonsMarkup({
       continue;
     }
 
-    polygons.push(
-      `<polygon class="noter-logo-stripe" points="${escapeSvgAttribute(serializeLocalPolygon(band))}" fill="${escapeSvgAttribute(fill)}"/>`,
-    );
+    polygons.push(band);
   }
 
-  return polygons.join("");
+  return polygons;
 }
 
-function createInteractiveLogoFaceShapeMarkup(paint: InteractiveLogoFacePaint) {
-  if (paint.kind === "striped") {
-    return [
-      `<rect x="0" y="0" width="1" height="1" fill="${escapeSvgAttribute(paint.background)}" stroke="${escapeSvgAttribute(paint.stroke)}" stroke-width="${INTERACTIVE_LOGO_FACE_STROKE_WIDTH}" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`,
-      createStripePolygonsMarkup({
-        fill: paint.foreground,
-        style: LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE,
+function projectLocalFacePoint({
+  localPoint,
+  state,
+}: {
+  localPoint: LocalPoint;
+  state: ProjectedFaceState;
+}): LogoProjectedPoint {
+  if (!state.visible) {
+    return state.center;
+  }
+
+  const origin = state.points[0] ?? state.center;
+  const uPoint = state.points[1] ?? origin;
+  const vPoint = state.points[3] ?? origin;
+
+  return {
+    x:
+      origin.x +
+      (uPoint.x - origin.x) * localPoint.x +
+      (vPoint.x - origin.x) * localPoint.y,
+    y:
+      origin.y +
+      (uPoint.y - origin.y) * localPoint.x +
+      (vPoint.y - origin.y) * localPoint.y,
+  };
+}
+
+function createInteractiveLogoPolygonState({
+  localPoints,
+  state,
+}: {
+  localPoints: readonly LocalPoint[];
+  state: ProjectedFaceState;
+}): InteractiveLogoPolygonState {
+  return {
+    opacity: state.visible ? 1 : 0,
+    points: localPoints.map((localPoint) =>
+      projectLocalFacePoint({ localPoint, state }),
+    ),
+  };
+}
+
+function serializeProjectedPolygon(points: readonly LogoProjectedPoint[]) {
+  return points.map(serializeLogoProjectedPoint).join(" ");
+}
+
+function createInteractiveLogoPolygon({
+  className,
+  colorKey,
+  face,
+  fill,
+  key,
+  localPoints,
+  stroke,
+  strokeWidth,
+}: {
+  className: string;
+  colorKey: FaceColorKey;
+  face: InteractiveLogoFace;
+  fill: string;
+  key: string;
+  localPoints: readonly LocalPoint[];
+  stroke: string | null;
+  strokeWidth: number;
+}): InteractiveLogoPolygon {
+  return {
+    className,
+    colorKey,
+    fill,
+    key,
+    states: {
+      v1: createInteractiveLogoPolygonState({
+        localPoints,
+        state: face.states.v1,
       }),
-    ].join("");
-  }
-
-  return `<rect x="0" y="0" width="1" height="1" fill="${escapeSvgAttribute(paint.fill)}" stroke="${escapeSvgAttribute(paint.stroke)}" stroke-width="${INTERACTIVE_LOGO_FACE_STROKE_WIDTH}" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`;
+      v2: createInteractiveLogoPolygonState({
+        localPoints,
+        state: face.states.v2,
+      }),
+      v3: createInteractiveLogoPolygonState({
+        localPoints,
+        state: face.states.v3,
+      }),
+    },
+    stroke,
+    strokeWidth,
+  };
 }
 
-function createInteractiveLogoFaceMarkup({
+function createInteractiveLogoPolygons({
   colorMode,
   face,
   faceColors,
@@ -608,21 +801,72 @@ function createInteractiveLogoFaceMarkup({
   colorMode: InteractiveLogoColorMode;
   face: InteractiveLogoFace;
   faceColors: FaceColors;
-}) {
-  const style = [
-    `--logo-transform-v1:${face.states.v1.transform}`,
-    `--logo-transform-v2:${face.states.v2.transform}`,
-    `--logo-transform-v3:${face.states.v3.transform}`,
-    `--logo-opacity-v2:${face.states.v2.visible ? "1" : "0"}`,
-    `--logo-opacity-v3:${face.states.v3.visible ? "1" : "0"}`,
-  ].join(";");
+}): InteractiveLogoPolygon[] {
   const paint = getInteractiveLogoFacePaint({
     colorKey: face.colorKey,
     colorMode,
     faceColors,
   });
+  const faceLocalPoints = [
+    { x: -INTERACTIVE_LOGO_FACE_BLEED, y: -INTERACTIVE_LOGO_FACE_BLEED },
+    { x: 1 + INTERACTIVE_LOGO_FACE_BLEED, y: -INTERACTIVE_LOGO_FACE_BLEED },
+    {
+      x: 1 + INTERACTIVE_LOGO_FACE_BLEED,
+      y: 1 + INTERACTIVE_LOGO_FACE_BLEED,
+    },
+    { x: -INTERACTIVE_LOGO_FACE_BLEED, y: 1 + INTERACTIVE_LOGO_FACE_BLEED },
+  ];
 
-  return `<g class="noter-logo-face" data-logo-face="${escapeSvgAttribute(face.key)}" data-logo-color-key="${face.colorKey}" style="${escapeSvgAttribute(style)}">${createInteractiveLogoFaceShapeMarkup(paint)}</g>`;
+  if (paint.kind === "striped") {
+    const background = createInteractiveLogoPolygon({
+      className: "noter-logo-face-part noter-logo-face",
+      colorKey: face.colorKey,
+      face,
+      fill: paint.background,
+      key: `${face.key}:background`,
+      localPoints: faceLocalPoints,
+      stroke: paint.stroke,
+      strokeWidth: INTERACTIVE_LOGO_FACE_STROKE_WIDTH,
+    });
+    const stripes = createStripeBandPolygons(
+      LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE,
+    ).map((localPoints, index) =>
+      createInteractiveLogoPolygon({
+        className: "noter-logo-face-part noter-logo-stripe",
+        colorKey: face.colorKey,
+        face,
+        fill: paint.foreground,
+        key: `${face.key}:stripe:${index}`,
+        localPoints,
+        stroke: null,
+        strokeWidth: 0,
+      }),
+    );
+
+    return [background, ...stripes];
+  }
+
+  return [
+    createInteractiveLogoPolygon({
+      className: "noter-logo-face-part noter-logo-face",
+      colorKey: face.colorKey,
+      face,
+      fill: paint.fill,
+      key: `${face.key}:face`,
+      localPoints: faceLocalPoints,
+      stroke: paint.stroke,
+      strokeWidth: INTERACTIVE_LOGO_FACE_STROKE_WIDTH,
+    }),
+  ];
+}
+
+function createInteractiveLogoPolygonMarkup(polygon: InteractiveLogoPolygon) {
+  const stroke =
+    polygon.stroke === null
+      ? ""
+      : ` stroke="${escapeSvgAttribute(polygon.stroke)}" stroke-width="${formatSvgNumber(polygon.strokeWidth)}" stroke-linejoin="round" paint-order="fill stroke"`;
+
+  return `<polygon class="${escapeSvgAttribute(polygon.className)}" data-logo-part="${escapeSvgAttribute(polygon.key)}" data-logo-color-key="${polygon.colorKey}" data-logo-points-v1="${escapeSvgAttribute(serializeProjectedPolygon(polygon.states.v1.points))}" data-logo-points-v2="${escapeSvgAttribute(serializeProjectedPolygon(polygon.states.v2.points))}" data-logo-points-v3="${escapeSvgAttribute(serializeProjectedPolygon(polygon.states.v3.points))}" data-logo-opacity-v1="${polygon.states.v1.opacity}" data-logo-opacity-v2="${polygon.states.v2.opacity}" data-logo-opacity-v3="${polygon.states.v3.opacity}" points="${escapeSvgAttribute(serializeProjectedPolygon(polygon.states.v1.points))}" fill="${escapeSvgAttribute(polygon.fill)}"${stroke} opacity="${polygon.states.v1.opacity}"/>`;
 }
 
 export function createStaticLogoSvgMarkup(options: StaticLogoSvgOptions = {}) {
@@ -690,14 +934,15 @@ export function createInteractiveLogoSvgMarkup(
     filledVoxels,
     options.gridSize ?? GRID_SIZE,
   );
-  const faceGroups = createInteractiveLogoFaces(surfaceQuads)
-    .map((face) =>
-      createInteractiveLogoFaceMarkup({
+  const polygons = createInteractiveLogoFaces(surfaceQuads)
+    .flatMap((face) =>
+      createInteractiveLogoPolygons({
         colorMode,
         face,
         faceColors,
       }),
     )
+    .map(createInteractiveLogoPolygonMarkup)
     .join("");
   const v1Paint = getInteractiveLogoFacePaint({
     colorKey: "right",
@@ -705,7 +950,7 @@ export function createInteractiveLogoSvgMarkup(
     faceColors,
   });
   const v1Fill = v1Paint.kind === "striped" ? v1Paint.foreground : v1Paint.fill;
-  const cleanV1Path = createCleanSidePrimaryPath({
+  const seamMask = createInteractiveLogoV1SeamMask({
     fill: v1Fill,
     surfaceQuads,
   });
@@ -713,7 +958,7 @@ export function createInteractiveLogoSvgMarkup(
   // version 1 center cutout as well as over painted logo faces.
   const hitbox = `<rect class="noter-logo-hitbox" x="0" y="0" width="${LOGO_THREE_SVG_VIEWBOX_SIZE}" height="${LOGO_THREE_SVG_VIEWBOX_SIZE}" fill="${escapeSvgAttribute(STATIC_LOGO_BACKGROUND_COLOR)}" pointer-events="all"/>`;
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${LOGO_THREE_SVG_VIEWBOX_SIZE} ${LOGO_THREE_SVG_VIEWBOX_SIZE}" width="${LOGO_THREE_SVG_VIEWBOX_SIZE}" height="${LOGO_THREE_SVG_VIEWBOX_SIZE}" class="noter-logo-interactive-svg" data-logo-color-mode="${colorMode}">${createInteractiveLogoStyleMarkup()}${hitbox}${cleanV1Path}<g class="noter-logo-faces">${faceGroups}</g></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${LOGO_THREE_SVG_VIEWBOX_SIZE} ${LOGO_THREE_SVG_VIEWBOX_SIZE}" width="${LOGO_THREE_SVG_VIEWBOX_SIZE}" height="${LOGO_THREE_SVG_VIEWBOX_SIZE}" class="noter-logo-interactive-svg" data-logo-color-mode="${colorMode}" data-logo-animation="points">${createInteractiveLogoStyleMarkup()}${hitbox}<g class="noter-logo-faces">${polygons}</g>${seamMask}${createInteractiveLogoScriptMarkup()}</svg>`;
 }
 
 export function createInteractiveLogoSvgAsset() {
