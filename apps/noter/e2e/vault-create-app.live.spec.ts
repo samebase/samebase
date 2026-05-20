@@ -73,11 +73,20 @@ async function removeTemporaryVault(
   await expect(removeDialog).toBeVisible({ timeout: 15_000 });
   await expect(page).toHaveURL(/(?:\?|&)delete=/);
 
-  const removeGithubRepositoryCheckbox = removeDialog.getByLabel(
+  const cleanupCheckboxLabels = [
     "Also remove GitHub repository",
-  );
-  if ((await removeGithubRepositoryCheckbox.count()) > 0) {
-    await expect(removeGithubRepositoryCheckbox).toBeChecked();
+    /^Also remove all Codespaces/,
+    "Also remove Convex project/deployment",
+    "Also remove Cloudflare Worker",
+  ];
+  for (const label of cleanupCheckboxLabels) {
+    const cleanupCheckbox = removeDialog.getByRole("checkbox", {
+      name: label,
+    });
+    if ((await cleanupCheckbox.count()) > 0) {
+      await expect(cleanupCheckbox).not.toBeChecked();
+      await cleanupCheckbox.click();
+    }
   }
 
   await removeDialog.getByRole("button", { name: "Remove Vault" }).click();

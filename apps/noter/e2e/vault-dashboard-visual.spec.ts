@@ -29,6 +29,13 @@ async function expectElementsDoNotOverlap(first: Locator, second: Locator) {
     .toBe(true);
 }
 
+async function expectOptionalCheckboxUnchecked(locator: Locator) {
+  if ((await locator.count()) === 0) {
+    return;
+  }
+  await expect(locator).not.toBeChecked();
+}
+
 /**
  * expectElementInsideContainer checks boundingBox containment with 1px of
  * tolerance for sub-pixel layout rounding; missing boxes fail closed.
@@ -303,12 +310,33 @@ test("vault dashboard fixture (delete dialog)", async ({ page }) => {
   });
   await page.waitForLoadState("networkidle");
 
-  await expect(
-    page.getByRole("dialog", { name: "Remove Vault noter-md/noter" }),
-  ).toBeVisible();
+  const deleteDialog = page.getByRole("dialog", {
+    name: "Remove Vault noter-md/noter",
+  });
+  await expect(deleteDialog).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Remove Vault" }),
   ).toBeVisible();
+  await expect(
+    deleteDialog.getByRole("checkbox", {
+      name: "Also remove GitHub repository",
+    }),
+  ).not.toBeChecked();
+  await expectOptionalCheckboxUnchecked(
+    deleteDialog.getByRole("checkbox", {
+      name: /^Also remove all Codespaces/,
+    }),
+  );
+  await expect(
+    deleteDialog.getByRole("checkbox", {
+      name: "Also remove Convex project/deployment",
+    }),
+  ).not.toBeChecked();
+  await expect(
+    deleteDialog.getByRole("checkbox", {
+      name: "Also remove Cloudflare Worker",
+    }),
+  ).not.toBeChecked();
   await expect(page).toHaveScreenshot("vault-dashboard-delete-dialog.png", {
     animations: "disabled",
     caret: "hide",
@@ -336,12 +364,33 @@ test("vault dashboard fixture (delete dialog mobile)", async ({
   });
   await page.waitForLoadState("networkidle");
 
-  await expect(
-    page.getByRole("dialog", { name: "Remove Vault noter-md/noter" }),
-  ).toBeVisible();
+  const deleteDialog = page.getByRole("dialog", {
+    name: "Remove Vault noter-md/noter",
+  });
+  await expect(deleteDialog).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Remove Vault" }),
   ).toBeVisible();
+  await expect(
+    deleteDialog.getByRole("checkbox", {
+      name: "Also remove GitHub repository",
+    }),
+  ).not.toBeChecked();
+  await expectOptionalCheckboxUnchecked(
+    deleteDialog.getByRole("checkbox", {
+      name: /^Also remove all Codespaces/,
+    }),
+  );
+  await expect(
+    deleteDialog.getByRole("checkbox", {
+      name: "Also remove Convex project/deployment",
+    }),
+  ).not.toBeChecked();
+  await expect(
+    deleteDialog.getByRole("checkbox", {
+      name: "Also remove Cloudflare Worker",
+    }),
+  ).not.toBeChecked();
   await expect(page).toHaveScreenshot(
     "vault-dashboard-delete-dialog-mobile.png",
     {

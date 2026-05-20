@@ -349,22 +349,16 @@ function useVaultDashboardLocalStore() {
           state.createError === null ? state : { ...state, createError: null },
         );
       },
-      prepareDeleteDialog: ({
-        target,
-      }: {
-        target: VaultDeleteDialogTarget;
-      }) => {
+      prepareDeleteDialog: () => {
         setState((state) => ({
           ...state,
           commitError: null,
           deleteError: null,
           didAttemptCommit: false,
-          removeCodespaces: CODESPACES_ENABLED,
-          removeConvexProvision:
-            target.isNoterManaged && target.hasConvexProvision,
-          removeGithubRepo: target.canRemoveGithubRepo,
-          removeCloudflareProvision:
-            target.isNoterManaged && target.hasCloudflareProvision,
+          removeCodespaces: false,
+          removeConvexProvision: false,
+          removeGithubRepo: false,
+          removeCloudflareProvision: false,
         }));
       },
       markCommitAttempted: () => {
@@ -3320,7 +3314,7 @@ export function VaultDashboard() {
 
     // The URL owns which vault is targeted; local state only seeds editable
     // cleanup options when that routed target changes.
-    prepareDeleteDialog({ target: vaultToDelete });
+    prepareDeleteDialog();
     preparedDeleteRepositoryRef.current = vaultToDelete.repositoryFullName;
   }, [
     clearDeleteSearchParam,

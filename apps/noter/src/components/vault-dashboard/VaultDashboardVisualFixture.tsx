@@ -501,10 +501,10 @@ function VaultDashboardDeleteOpenFixture() {
           onOpenChange={() => {}}
           onRemoveVault={() => {}}
           open={true}
-          removeCodespaces={true}
-          removeConvexProvision={true}
-          removeGithubRepo={true}
-          removeCloudflareProvision={true}
+          removeCodespaces={false}
+          removeConvexProvision={false}
+          removeGithubRepo={false}
+          removeCloudflareProvision={false}
           stagedChangesCount={3}
           vaultToDelete={fixtureDeleteDialogTarget}
         />
