@@ -9,9 +9,10 @@ import {
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
-  createInfraProviders,
-  type ConvexManagementProvider,
-} from "./infraProviders";
+  createConvexManagementClient,
+  isConvexCloudDeployment,
+  type ConvexManagementClient,
+} from "./convexManagementApi";
 import { ensureCloudflareResources } from "./cloudflareResources";
 import { asRecord, readString, readStringOrNumber } from "./jsonUtils";
 import type { AppProvisioningStep, GithubTreeData } from "./schema";
@@ -221,6 +222,7 @@ function parseCloudflareAccountInventory(
 type ConvexProvisionResult = {
   convexProjectId: string;
   convexProjectSlug: string;
+  convexTeamSlug?: string;
   convexDeploymentName: string;
   convexDeploymentType: "prod" | "dev";
   convexCloudUrl: string;
@@ -234,7 +236,7 @@ type ConvexDeployKeyResult = {
 
 async function ensureConvexResources(args: {
   teamId: string;
-  convexProvider: ConvexManagementProvider;
+  convexClient: ConvexManagementClient;
   projectName: string;
   existing: {
     projectId?: string;
@@ -249,22 +251,15 @@ async function ensureConvexResources(args: {
 
   let projectId = args.existing.projectId;
   let projectSlug = args.existing.projectSlug;
+  let teamSlug: string | undefined;
 
-  const projectsRaw = await args.convexProvider.request(
-    `/teams/${encodeURIComponent(args.teamId)}/list_projects`,
-    "GET",
-  );
-  if (!Array.isArray(projectsRaw)) {
-    throw new Error("Could not list Convex projects before provisioning.");
-  }
-  const projects = projectsRaw;
+  const projects = await args.convexClient.listProjects({
+    teamId: args.teamId,
+  });
 
   if (!projectId) {
     for (const project of projects) {
-      const projectRecord = asRecord(project);
-      const name = readString(projectRecord, "name");
-      const slug = readString(projectRecord, "slug");
-      if (name === projectName || slug === projectName) {
+      if (project.name === projectName || project.slug === projectName) {
         throw new Error(
           `Convex project name ${projectName} already exists. Choose another project name and try again.`,
         );
@@ -273,50 +268,45 @@ async function ensureConvexResources(args: {
   }
   if (projectId && !projectSlug) {
     for (const project of projects) {
-      const projectRecord = asRecord(project);
-      if (readStringOrNumber(projectRecord, "id") === projectId) {
-        projectSlug = readString(projectRecord, "slug");
+      if (String(project.id) === projectId) {
+        projectSlug = project.slug;
+        teamSlug = project.teamSlug;
         break;
       }
     }
+  }
+  if (!teamSlug) {
+    teamSlug = projects[0]?.teamSlug;
   }
 
   let deploymentName = args.existing.deploymentName;
   let deploymentUrl = args.existing.cloudUrl;
 
   if (!projectId) {
-    const createResponseRaw = await args.convexProvider.request(
-      `/teams/${encodeURIComponent(args.teamId)}/create_project`,
-      "POST",
-      {
+    const createResponse = await args.convexClient.createProject({
+      teamId: args.teamId,
+      body: {
         projectName,
         deploymentType: "prod",
       },
-    );
+    });
 
-    const createResponse = asRecord(createResponseRaw);
-    projectId = readStringOrNumber(createResponse, "projectId");
-    deploymentName = readString(createResponse, "deploymentName");
-    deploymentUrl = readString(createResponse, "deploymentUrl");
-    if (!projectId) {
-      throw new Error("Failed to resolve Convex project ID");
-    }
+    projectId = String(createResponse.projectId);
+    projectSlug = createResponse.slug;
+    deploymentName = createResponse.deploymentName ?? undefined;
+    deploymentUrl = createResponse.deploymentUrl ?? undefined;
 
     // Record the provider identity before later deployment lookups can fail so
     // retries can recognize the project that this run already created.
     await args.onProjectCreated?.({ projectId });
 
-    const refreshedProjectsRaw = await args.convexProvider.request(
-      `/teams/${encodeURIComponent(args.teamId)}/list_projects`,
-      "GET",
-    );
-    const refreshedProjects = Array.isArray(refreshedProjectsRaw)
-      ? refreshedProjectsRaw
-      : [];
+    const refreshedProjects = await args.convexClient.listProjects({
+      teamId: args.teamId,
+    });
     for (const project of refreshedProjects) {
-      const projectRecord = asRecord(project);
-      if (readStringOrNumber(projectRecord, "id") === projectId) {
-        projectSlug = readString(projectRecord, "slug");
+      if (String(project.id) === projectId) {
+        projectSlug = project.slug;
+        teamSlug = project.teamSlug;
         break;
       }
     }
@@ -327,34 +317,32 @@ async function ensureConvexResources(args: {
   }
 
   if (!deploymentName) {
-    const deploymentsRaw = await args.convexProvider.request(
-      `/projects/${encodeURIComponent(projectId)}/list_deployments`,
-      "GET",
-    );
-    const deployments = Array.isArray(deploymentsRaw) ? deploymentsRaw : [];
+    const deployments = await args.convexClient.listDeployments({ projectId });
 
     for (const deployment of deployments) {
-      const deploymentRecord = asRecord(deployment);
-      const deploymentType = readString(deploymentRecord, "deploymentType");
-      const deploymentKind = readString(deploymentRecord, "kind");
-      if (deploymentType === "prod" && deploymentKind === "cloud") {
-        deploymentName = readString(deploymentRecord, "name");
+      if (
+        isConvexCloudDeployment(deployment) &&
+        deployment.deploymentType === "prod"
+      ) {
+        deploymentName = deployment.name;
+        deploymentUrl = deployment.deploymentUrl;
         break;
       }
     }
   }
 
   if (!deploymentName) {
-    const createdDeploymentRaw = await args.convexProvider.request(
-      `/projects/${encodeURIComponent(projectId)}/create_deployment`,
-      "POST",
-      {
+    const createdDeployment = await args.convexClient.createDeployment({
+      projectId,
+      body: {
         type: "prod",
       },
-    );
-
-    const createdDeployment = asRecord(createdDeploymentRaw);
-    deploymentName = readString(createdDeployment, "name");
+    });
+    if (!isConvexCloudDeployment(createdDeployment)) {
+      throw new Error("Created Convex production deployment was not cloud.");
+    }
+    deploymentName = createdDeployment.name;
+    deploymentUrl = createdDeployment.deploymentUrl;
   }
 
   if (!deploymentName) {
@@ -377,6 +365,7 @@ async function ensureConvexResources(args: {
   return {
     convexProjectId: projectId,
     convexProjectSlug: projectSlug,
+    convexTeamSlug: teamSlug,
     convexDeploymentName: deploymentName,
     convexDeploymentType: "prod",
     convexCloudUrl: deploymentUrl,
@@ -390,44 +379,40 @@ type ConvexPreviewProvisionResult = {
 };
 
 async function ensureConvexPreviewResources(args: {
-  convexProvider: ConvexManagementProvider;
+  convexClient: ConvexManagementClient;
   projectId: string;
   vaultId: string;
 }): Promise<ConvexPreviewProvisionResult> {
-  const deploymentsRaw = await args.convexProvider.request(
-    `/projects/${encodeURIComponent(args.projectId)}/list_deployments`,
-    "GET",
-  );
-  const deployments = Array.isArray(deploymentsRaw) ? deploymentsRaw : [];
+  const deployments = await args.convexClient.listDeployments({
+    projectId: args.projectId,
+  });
 
   let deploymentName: string | undefined;
   let deploymentUrl: string | undefined;
 
   for (const deployment of deployments) {
-    const deploymentRecord = asRecord(deployment);
-    const deploymentType = readString(deploymentRecord, "deploymentType");
-    const kind = readString(deploymentRecord, "kind");
-    if (deploymentType === "dev" && kind === "cloud") {
-      deploymentName = readString(deploymentRecord, "name");
-      deploymentUrl =
-        readString(deploymentRecord, "deploymentUrl") ??
-        readString(deploymentRecord, "url");
+    if (
+      isConvexCloudDeployment(deployment) &&
+      deployment.deploymentType === "dev"
+    ) {
+      deploymentName = deployment.name;
+      deploymentUrl = deployment.deploymentUrl;
       break;
     }
   }
 
   if (!deploymentName) {
-    const createdRaw = await args.convexProvider.request(
-      `/projects/${encodeURIComponent(args.projectId)}/create_deployment`,
-      "POST",
-      {
+    const created = await args.convexClient.createDeployment({
+      projectId: args.projectId,
+      body: {
         type: "dev",
       },
-    );
-    const created = asRecord(createdRaw);
-    deploymentName = readString(created, "name");
-    deploymentUrl =
-      readString(created, "deploymentUrl") ?? readString(created, "url");
+    });
+    if (!isConvexCloudDeployment(created)) {
+      throw new Error("Created Convex preview deployment was not cloud.");
+    }
+    deploymentName = created.name;
+    deploymentUrl = created.deploymentUrl;
   }
 
   if (!deploymentName) {
@@ -445,24 +430,18 @@ async function ensureConvexPreviewResources(args: {
 }
 
 async function createConvexDeployKey(args: {
-  convexProvider: ConvexManagementProvider;
+  convexClient: ConvexManagementClient;
   deploymentName: string;
   name: string;
 }): Promise<ConvexDeployKeyResult> {
   // Create deploy-key secrets inside provider steps so Workflow journals only
   // safe app metadata, never key material.
-  const deployKeyRaw = await args.convexProvider.request(
-    `/deployments/${encodeURIComponent(args.deploymentName)}/create_deploy_key`,
-    "POST",
-    {
+  const { deployKey } = await args.convexClient.createDeployKey({
+    deploymentName: args.deploymentName,
+    body: {
       name: args.name,
     },
-  );
-  const deployKeyRecord = asRecord(deployKeyRaw);
-  const deployKey = readString(deployKeyRecord, "deployKey");
-  if (!deployKey) {
-    throw new Error("Failed to create Convex deploy key.");
-  }
+  });
 
   return {
     convexDeployKeyId: parseDeployKeyIdentifier(deployKey),
@@ -1417,14 +1396,14 @@ export const ensureConvexInfrastructure = internalAction({
     );
     const { convexToken, convexTeamId } =
       await resolveConvexProvisioningConnection(ctx, vault.userId);
-    const providers = createInfraProviders({
-      convexToken,
+    const convexClient = createConvexManagementClient({
+      token: convexToken,
     });
     const targetConvexProjectName = target?.convexProjectName.trim();
     const targetConvexProjectId = target?.convexProjectId?.trim();
     const convex = await ensureConvexResources({
       teamId: convexTeamId,
-      convexProvider: providers.convex,
+      convexClient,
       projectName:
         targetConvexProjectName ||
         sanitizeSlug(
@@ -1454,6 +1433,13 @@ export const ensureConvexInfrastructure = internalAction({
         }
       },
     });
+    if (convex.convexTeamSlug) {
+      await ctx.runMutation(internal.providerConnections.setConvexTeamSlug, {
+        userId: vault.userId,
+        teamId: convexTeamId,
+        teamSlug: convex.convexTeamSlug,
+      });
+    }
 
     const { applied } = await ctx.runMutation(
       internal.infraProvisioning.recordConvexInfrastructure,
@@ -1553,11 +1539,11 @@ export const ensureConvexPreviewInfrastructure = internalAction({
       ctx,
       vault.userId,
     );
-    const providers = createInfraProviders({
-      convexToken,
+    const convexClient = createConvexManagementClient({
+      token: convexToken,
     });
     await ensureConvexPreviewResources({
-      convexProvider: providers.convex,
+      convexClient,
       projectId: existing.convexProjectId,
       vaultId: args.vaultId,
     });
@@ -1659,8 +1645,8 @@ export const ensureCloudflareInfrastructure = internalAction({
       cloudflareAuthMethod,
       cloudflareAccountId,
     } = await resolveCloudflareProvisioningConnection(ctx, vault.userId);
-    const providers = createInfraProviders({
-      convexToken,
+    const convexClient = createConvexManagementClient({
+      token: convexToken,
     });
     const target = await ctx.runQuery(
       internal.infraProvisioning.getInfrastructureTargetByVault,
@@ -1669,17 +1655,17 @@ export const ensureCloudflareInfrastructure = internalAction({
       },
     );
     const previewConvex = await ensureConvexPreviewResources({
-      convexProvider: providers.convex,
+      convexClient,
       projectId: existing.convexProjectId,
       vaultId: args.vaultId,
     });
     const productionDeployKey = await createConvexDeployKey({
-      convexProvider: providers.convex,
+      convexClient,
       deploymentName: existing.convexDeploymentName,
       name: `noter-${vaultSuffix(args.vaultId)}`,
     });
     const previewDeployKey = await createConvexDeployKey({
-      convexProvider: providers.convex,
+      convexClient,
       deploymentName: previewConvex.previewDeploymentName,
       name: `noter-preview-${vaultSuffix(args.vaultId)}`,
     });

@@ -5,7 +5,7 @@ import { internalAction } from "./_generated/server";
 import type { ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { vAllowedInfraReadTable } from "./infraReadQueries";
-import { createInfraProviders } from "./infraProviders";
+import { createConvexManagementClient } from "./convexManagementApi";
 import {
   readCloudflareBuildLogs,
   readCloudflareWorkerStatus,
@@ -128,12 +128,14 @@ export const getConvexDeploymentStatus = internalAction({
       throw new Error(getVaultInfraError(args.vaultId));
     }
 
-    const providers = createInfraProviders({
-      convexToken: resolveConvexToken(convexConnection),
+    const client = createConvexManagementClient({
+      token: resolveConvexToken(convexConnection),
     });
     const endpoint = `/deployments/${encodeURIComponent(infra.convexDeploymentName)}`;
-    const payload = await providers.convex.request(endpoint, "GET");
-    const raw = JSON.stringify(payload, null, 2);
+    const deployment = await client.getDeployment({
+      deploymentName: infra.convexDeploymentName,
+    });
+    const raw = JSON.stringify(deployment, null, 2);
 
     return {
       summary: `Convex deployment status for ${infra.convexDeploymentName}`,
@@ -160,28 +162,20 @@ export const getConvexLogs = internalAction({
       throw new Error(getVaultInfraError(args.vaultId));
     }
 
-    const providers = createInfraProviders({
-      convexToken: resolveConvexToken(convexConnection),
+    const client = createConvexManagementClient({
+      token: resolveConvexToken(convexConnection),
     });
     const endpoint = `/projects/${encodeURIComponent(infra.convexProjectId)}/list_deployments`;
-    const payload = await providers.convex.request(endpoint, "GET");
-
-    const deployments = Array.isArray(payload) ? payload : [];
+    const deployments = await client.listDeployments({
+      projectId: infra.convexProjectId,
+    });
     const max = clamp(args.maxLines ?? 20, 1, 100);
 
     const lines: string[] = [];
     for (const deployment of deployments.slice(0, max)) {
-      const record = asRecord(deployment);
-      const name = readString(record, "name") ?? "unknown";
-      const deploymentType = readString(record, "deploymentType") ?? "unknown";
-      const kind = readString(record, "kind") ?? "unknown";
-      const createdAt = record["createTime"];
-      const createdAtText =
-        typeof createdAt === "number"
-          ? new Date(createdAt).toISOString()
-          : "unknown";
+      const createdAtText = new Date(deployment.createTime).toISOString();
       lines.push(
-        `[${createdAtText}] ${name} type=${deploymentType} kind=${kind}`,
+        `[${createdAtText}] ${deployment.name} type=${deployment.deploymentType} kind=${deployment.kind}`,
       );
     }
 
@@ -275,14 +269,12 @@ export const getConvexProjectInventory = internalAction({
       : null;
     const convexConnection =
       convexConnectionRaw?.kind === "convex" ? convexConnectionRaw : null;
-    const providers = createInfraProviders({
-      convexToken: resolveConvexToken(convexConnection),
+    const client = createConvexManagementClient({
+      token: resolveConvexToken(convexConnection),
     });
     const teamId = resolveConvexTeamId(convexConnection);
     const endpoint = `/teams/${encodeURIComponent(teamId)}/list_projects`;
-    const payload = await providers.convex.request(endpoint, "GET");
-
-    const projects = Array.isArray(payload) ? payload : [];
+    const projects = await client.listProjects({ teamId });
     const max = clamp(args.limit ?? 50, 1, 100);
     const rows = projects.slice(0, max);
 
