@@ -9,7 +9,6 @@
   `apps/noter/src/components/logo/logoStaticSvgAsset.ts`,
   `apps/noter/src/components/logo/logoLeftFaceStyle.ts`,
   `apps/noter/public/logo-interactive.svg`,
-  `apps/noter/public/logo-interactive-monochrome.svg`,
   `apps/noter/public/logo-v1-side-primary.svg`,
   `apps/noter/public/logo-v2-side-diagonal.svg`,
   `apps/noter/public/logo-static.svg`,
@@ -98,11 +97,7 @@ the same stripe phase.
   public static logo.
 - `/logo-interactive.svg` wraps those same generated views for inline HTML use:
   default shows version 1, hover shows version 2, and active pointer press shows
-  version 3. Version 1 uses a single clean front-face path to avoid internal
-  seams; the hover and active states animate the same face set through
-  collapsed, flat, and spatial transforms.
-- `/logo-interactive-monochrome.svg` uses the same interactive geometry with the
-  canonical single-color stripe treatment.
+  version 3.
 
 Small favicons remain browser-chrome assets. They are not the identity source
 for product UI icons unless the product explicitly wants the favicon treatment.

@@ -12,7 +12,6 @@ import { createInstallIconSvgMarkup } from "./src/components/installIconSvgAsset
 import {
   createLogoIdentitySvgAssets,
   createInteractiveLogoSvgAsset,
-  createMonochromeInteractiveLogoSvgAsset,
   createStaticLogoSvgMarkup,
 } from "./src/components/logo/logoStaticSvgAsset";
 import { buildNoterSyncPublicScript } from "./noterSyncPublicScript";
@@ -203,7 +202,6 @@ function syncLogoIdentitySvgAssets() {
   const logoSvgAssets = [
     ...createLogoIdentitySvgAssets(),
     createInteractiveLogoSvgAsset(),
-    createMonochromeInteractiveLogoSvgAsset(),
   ];
   for (const asset of logoSvgAssets) {
     // Fail closed: logo asset paths must be URL-rooted and resolve within public/.
