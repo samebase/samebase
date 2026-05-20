@@ -7,6 +7,8 @@ import {
 } from "./logoTailwindColors";
 import {
   buildLogoSurfaceQuads,
+  getLogoSurfaceVertexUv,
+  type LogoSurfaceUv,
   type LogoSurfaceQuad,
   type LogoSurfaceVertex,
 } from "./logoSurfaceModel";
@@ -57,6 +59,7 @@ export type LogoProjectedQuad = {
 
 export type LogoProjectedSurfaceQuad = LogoProjectedQuad & {
   isVisible: boolean;
+  uvs: readonly LogoSurfaceUv[];
 };
 
 const CAMERA_FRUSTUM_PADDING = 1.12;
@@ -476,6 +479,9 @@ export function createLogoThreeProjectedSurfaceQuads({
         materialOrder: quad.materialIndex,
         points,
         strokeWidth: FACE_STROKE_WIDTH,
+        uvs: quad.vertices.map((vertex) =>
+          getLogoSurfaceVertexUv(quad, vertex),
+        ),
       };
     })
     .sort((left, rightQuad) => {

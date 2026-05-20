@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   buildLogoSurfaceQuads,
   getLogoSurfaceFitRadius,
+  getLogoSurfaceVertexUv,
 } from "@/components/logo/logoSurfaceModel";
 import {
   createDefaultFilledVoxelSet,
@@ -68,6 +69,31 @@ describe("buildLogoSurfaceQuads", () => {
       ),
     ).toBe(true);
   });
+
+  it("maps face vertices to the canonical local stripe coordinates", () => {
+    const surfaceQuads = buildLogoSurfaceQuads(
+      createFilledVoxelSet([[0, 0, 0]]),
+    );
+    const rightQuad = findSurfaceQuad(surfaceQuads, "positive-x:0:0:0:1:1");
+    const topQuad = findSurfaceQuad(surfaceQuads, "positive-y:0:0:0:1:1");
+    const leftQuad = findSurfaceQuad(surfaceQuads, "positive-z:0:0:0:1:1");
+    const rightVertex = rightQuad.vertices[2];
+    const topVertex = topQuad.vertices[2];
+    const leftVertex = leftQuad.vertices[2];
+
+    expect(getLogoSurfaceVertexUv(rightQuad, rightVertex)).toEqual([
+      rightVertex[2],
+      rightVertex[1],
+    ]);
+    expect(getLogoSurfaceVertexUv(topQuad, topVertex)).toEqual([
+      topVertex[0],
+      topVertex[2],
+    ]);
+    expect(getLogoSurfaceVertexUv(leftQuad, leftVertex)).toEqual([
+      leftVertex[0],
+      leftVertex[1],
+    ]);
+  });
 });
 
 describe("getLogoSurfaceFitRadius", () => {
@@ -79,3 +105,15 @@ describe("getLogoSurfaceFitRadius", () => {
     ).toBeCloseTo(Math.sqrt(4.75));
   });
 });
+
+function findSurfaceQuad(
+  surfaceQuads: ReturnType<typeof buildLogoSurfaceQuads>,
+  key: string,
+) {
+  const surfaceQuad = surfaceQuads.find((candidate) => candidate.key === key);
+  if (!surfaceQuad) {
+    throw new Error(`Missing surface quad: ${key}`);
+  }
+
+  return surfaceQuad;
+}

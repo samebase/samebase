@@ -25,18 +25,6 @@ function readPolygonPoints(markup: string) {
   );
 }
 
-function readPolygonOpacityValues(markup: string) {
-  const rootElement = document.createElement("div");
-  rootElement.innerHTML = markup;
-
-  return Array.from(rootElement.querySelectorAll("polygon"))
-    .flatMap((polygon) => [
-      polygon.getAttribute("fill-opacity"),
-      polygon.getAttribute("stroke-opacity"),
-    ])
-    .filter((value) => value !== null);
-}
-
 describe("NoterLinkIcon", () => {
   let root: Root | null = null;
   let rootElement: HTMLDivElement | null = null;
@@ -72,15 +60,29 @@ describe("NoterLinkIcon", () => {
 
     const markup = rootElement.innerHTML;
     expect(markup).toContain("currentColor");
-    expect(markup).toContain("<pattern");
+    expect(markup).toContain("hsl(var(--background))");
     expect(markup).not.toContain("#ecfccb");
     expect(markup).not.toContain("#394447");
   });
 
-  it("keeps visible faces opaque instead of using transparent depth tints", () => {
-    const opacityValues = readPolygonOpacityValues(renderIconMarkup("active"));
+  it("uses the canonical single-color treatment without transparent face tints", () => {
+    const markup = renderIconMarkup("active");
+    const rootElement = document.createElement("div");
+    rootElement.innerHTML = markup;
+    const polygons = Array.from(rootElement.querySelectorAll("polygon"));
 
-    expect(new Set(opacityValues)).toEqual(new Set(["0.000", "1.000"]));
+    expect(
+      polygons.some(
+        (polygon) => polygon.getAttribute("fill") === "currentColor",
+      ),
+    ).toBe(true);
+    expect(
+      polygons.some(
+        (polygon) => polygon.getAttribute("fill") === "hsl(var(--background))",
+      ),
+    ).toBe(true);
+    expect(markup).not.toContain("fill-opacity");
+    expect(markup).not.toContain("stroke-opacity");
   });
 
   it("uses different projected face points for hover and pressed states", () => {

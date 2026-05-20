@@ -24,6 +24,7 @@ import { clampLogoFractalDepthForRenderer } from "@/components/logo/logoDepthLim
 import {
   buildLogoSurfaceQuads,
   getLogoSurfaceFitRadius,
+  getLogoSurfaceVertexUv,
   type LogoSurfaceQuad,
 } from "@/components/logo/logoSurfaceModel";
 import { resolveLogoSceneCameraDepthBounds } from "@/components/logo/logoSceneCameraDepth";
@@ -421,24 +422,6 @@ function getCubeMovePosition(
   ];
 }
 
-function getSurfaceVertexUv(
-  surfaceQuad: LogoSurfaceQuad,
-  vertex: readonly [number, number, number],
-): readonly [number, number] {
-  switch (surfaceQuad.colorKey) {
-    case "left":
-      return [vertex[0], vertex[1]];
-    case "right":
-      return [vertex[2], vertex[1]];
-    case "top":
-      return [vertex[0], vertex[2]];
-    default: {
-      const unreachable = surfaceQuad.colorKey satisfies never;
-      return unreachable;
-    }
-  }
-}
-
 function randomValueFrom<T>(values: readonly T[]): T | null {
   if (values.length === 0) {
     return null;
@@ -498,7 +481,7 @@ function buildQuadGeometry(surfaceQuad: LogoSurfaceQuad): THREE.BufferGeometry {
     surfaceQuad.normal[2],
   ]);
   const uvs = surfaceQuad.vertices.flatMap((vertex) =>
-    getSurfaceVertexUv(surfaceQuad, vertex),
+    getLogoSurfaceVertexUv(surfaceQuad, vertex),
   );
 
   geometry.setAttribute(
@@ -530,7 +513,7 @@ function buildMergedQuadGeometry(
   for (const surfaceQuad of surfaceQuads) {
     for (const vertex of surfaceQuad.vertices) {
       const [x, y, z] = vertex;
-      const [u, v] = getSurfaceVertexUv(surfaceQuad, vertex);
+      const [u, v] = getLogoSurfaceVertexUv(surfaceQuad, vertex);
       positions[vectorOffset] = x;
       positions[vectorOffset + 1] = y;
       positions[vectorOffset + 2] = z;
@@ -627,7 +610,7 @@ function buildRecursiveSurfaceGeometry(
 
     for (const vertex of surfaceQuad.vertices) {
       const [x, y, z] = vertex;
-      const [u, v] = getSurfaceVertexUv(surfaceQuad, vertex);
+      const [u, v] = getLogoSurfaceVertexUv(surfaceQuad, vertex);
       positions[vectorOffset] = x;
       positions[vectorOffset + 1] = y;
       positions[vectorOffset + 2] = z;

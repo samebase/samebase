@@ -8,27 +8,34 @@ import {
   createLogoThreeProjectedSurfaceQuads,
   type LogoProjectedPoint,
 } from "@/components/logo/logoThreeSvgRenderer";
+import { LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE } from "@/components/logo/logoLeftFaceStyle";
 import {
   type FaceColorKey,
   type FaceColors,
 } from "@/components/logo/logoTailwindColors";
+import { type LogoSurfaceUv } from "@/components/logo/logoSurfaceModel";
 import {
   GRID_SIZE,
   createFilledVoxelSet,
 } from "@/components/logo/logoVoxelState";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type NoterLinkIconState = "active" | "hover" | "idle";
 
 type NoterLinkIconFace = {
   colorKey: FaceColorKey;
   key: string;
-  opacity: number;
   points: readonly LogoProjectedPoint[];
+  uvs: readonly LogoSurfaceUv[];
 };
 
 type NoterLinkIconProps = {
   state?: NoterLinkIconState;
+};
+
+type NoterLinkIconStripePoint = LogoProjectedPoint & {
+  u: number;
+  v: number;
 };
 
 const NOTER_LINK_ICON_STATE_VIEWS = {
@@ -94,8 +101,8 @@ function createNoterLinkIconFrame(
     .map((face) => ({
       colorKey: face.colorKey,
       key: face.key,
-      opacity: face.isVisible ? 1 : 0,
       points: face.isVisible ? face.points : collapsePoints(face.points),
+      uvs: face.uvs,
     }))
     .sort((left, right) => left.key.localeCompare(right.key));
 }
@@ -137,8 +144,8 @@ function mixFrames(
     return {
       colorKey: face.colorKey,
       key: face.key,
-      opacity: mixNumber(face.opacity, endFace.opacity, progress),
       points: mixPoints(face.points, endFace.points, progress),
+      uvs: face.uvs,
     };
   });
 }
@@ -207,16 +214,129 @@ function serializePoints(points: readonly LogoProjectedPoint[]) {
     .join(" ");
 }
 
-function formatOpacity(value: number) {
-  return value.toFixed(3);
+function createStripePoints(
+  points: readonly LogoProjectedPoint[],
+  uvs: readonly LogoSurfaceUv[],
+): readonly NoterLinkIconStripePoint[] {
+  const stripePoints: NoterLinkIconStripePoint[] = [];
+
+  for (let index = 0; index < points.length; index += 1) {
+    const point = points[index];
+    const uv = uvs[index];
+    const [u, v] = uv;
+
+    stripePoints.push({
+      u,
+      v,
+      x: point.x,
+      y: point.y,
+    });
+  }
+
+  return stripePoints;
 }
 
-function sanitizeSvgId(id: string) {
-  return id.replace(/:/g, "");
+function mixStripePoint(
+  start: NoterLinkIconStripePoint,
+  end: NoterLinkIconStripePoint,
+  progress: number,
+): NoterLinkIconStripePoint {
+  return {
+    u: mixNumber(start.u, end.u, progress),
+    v: mixNumber(start.v, end.v, progress),
+    x: mixNumber(start.x, end.x, progress),
+    y: mixNumber(start.y, end.y, progress),
+  };
+}
+
+function readStripePosition(point: NoterLinkIconStripePoint) {
+  return point.u + point.v;
+}
+
+function clipStripePolygon(
+  polygon: readonly NoterLinkIconStripePoint[],
+  threshold: number,
+  keepGreater: boolean,
+) {
+  const clippedPolygon: NoterLinkIconStripePoint[] = [];
+
+  for (let index = 0; index < polygon.length; index += 1) {
+    const currentPoint = polygon[index];
+    const previousPoint =
+      polygon[(index + polygon.length - 1) % polygon.length];
+    const currentValue = readStripePosition(currentPoint);
+    const previousValue = readStripePosition(previousPoint);
+    const currentInside = keepGreater
+      ? currentValue >= threshold
+      : currentValue <= threshold;
+    const previousInside = keepGreater
+      ? previousValue >= threshold
+      : previousValue <= threshold;
+
+    if (currentInside !== previousInside) {
+      const denominator = currentValue - previousValue;
+      const progress =
+        denominator === 0 ? 0 : (threshold - previousValue) / denominator;
+      clippedPolygon.push(
+        mixStripePoint(previousPoint, currentPoint, progress),
+      );
+    }
+
+    if (currentInside) {
+      clippedPolygon.push(currentPoint);
+    }
+  }
+
+  return clippedPolygon;
+}
+
+function createLeftFaceStripePolygons(face: NoterLinkIconFace) {
+  const stripePoints = createStripePoints(face.points, face.uvs);
+  const stripePositions = stripePoints.map(readStripePosition);
+  const minStripePosition = Math.min(...stripePositions);
+  const maxStripePosition = Math.max(...stripePositions);
+  const stripeWidth = LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE.stripeWidth;
+  const stripePeriod =
+    stripeWidth + LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE.stripeGap;
+  const firstStripeIndex = Math.floor(minStripePosition / stripePeriod) - 1;
+  const lastStripeIndex = Math.ceil(maxStripePosition / stripePeriod) + 1;
+  const mutableStripePolygons: LogoProjectedPoint[][] = [];
+
+  for (
+    let stripeIndex = firstStripeIndex;
+    stripeIndex <= lastStripeIndex;
+    stripeIndex += 1
+  ) {
+    const start = stripeIndex * stripePeriod;
+    const end = start + stripeWidth;
+    const clippedToStart = clipStripePolygon(stripePoints, start, true);
+    const clippedToBand = clipStripePolygon(clippedToStart, end, false);
+
+    if (clippedToBand.length >= 3) {
+      mutableStripePolygons.push(
+        clippedToBand.map((point) => ({ x: point.x, y: point.y })),
+      );
+    }
+  }
+
+  return mutableStripePolygons;
+}
+
+function getFaceBaseFill(face: NoterLinkIconFace) {
+  switch (face.colorKey) {
+    case "right":
+      return "currentColor";
+    case "left":
+    case "top":
+      return "hsl(var(--background))";
+    default: {
+      const unreachable = face.colorKey satisfies never;
+      return unreachable;
+    }
+  }
 }
 
 export function NoterLinkIcon({ state = "idle" }: NoterLinkIconProps) {
-  const stripePatternId = `${sanitizeSvgId(useId())}-noter-link-icon-stripes`;
   const frame = useAnimatedNoterLinkIconFrame(state);
 
   return (
@@ -230,49 +350,29 @@ export function NoterLinkIcon({ state = "idle" }: NoterLinkIconProps) {
       viewBox={`0 0 ${LOGO_THREE_SVG_VIEWBOX_SIZE} ${LOGO_THREE_SVG_VIEWBOX_SIZE}`}
       width={20}
     >
-      <defs>
-        <pattern
-          height="18"
-          id={stripePatternId}
-          patternTransform="rotate(45)"
-          patternUnits="userSpaceOnUse"
-          width="18"
-        >
-          <line
-            stroke="hsl(var(--background))"
-            strokeLinecap="round"
-            strokeWidth="4"
-            x1="0"
-            x2="0"
-            y1="-4"
-            y2="22"
-          />
-        </pattern>
-      </defs>
       <g shapeRendering="geometricPrecision">
         {frame.map((face) => {
           const points = serializePoints(face.points);
-          const opacity = formatOpacity(face.opacity);
+          const stripePolygons =
+            face.colorKey === "left" ? createLeftFaceStripePolygons(face) : [];
 
           return (
             <g key={face.key}>
               <polygon
-                fill="currentColor"
-                fillOpacity={opacity}
+                fill={getFaceBaseFill(face)}
                 paintOrder="stroke fill"
                 points={points}
-                stroke="hsl(var(--background))"
+                stroke={getFaceBaseFill(face)}
                 strokeLinejoin="round"
-                strokeOpacity={opacity}
-                strokeWidth="2.2"
+                strokeWidth="0.7"
               />
-              {face.colorKey === "left" ? (
+              {stripePolygons.map((stripePolygon, stripeIndex) => (
                 <polygon
-                  fill={`url(#${stripePatternId})`}
-                  fillOpacity={opacity}
-                  points={points}
+                  fill="currentColor"
+                  key={`${face.key}-stripe-${stripeIndex}`}
+                  points={serializePoints(stripePolygon)}
                 />
-              ) : null}
+              ))}
             </g>
           );
         })}

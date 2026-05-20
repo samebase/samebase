@@ -25,6 +25,7 @@ type FilledVoxelCoordinates = {
 };
 
 export type LogoSurfaceVertex = readonly [number, number, number];
+export type LogoSurfaceUv = readonly [number, number];
 
 export type LogoSurfaceQuad = {
   colorKey: FaceColorKey;
@@ -38,6 +39,24 @@ export type LogoSurfaceQuad = {
     LogoSurfaceVertex,
   ];
 };
+
+export function getLogoSurfaceVertexUv(
+  surfaceQuad: LogoSurfaceQuad,
+  vertex: LogoSurfaceVertex,
+): LogoSurfaceUv {
+  switch (surfaceQuad.colorKey) {
+    case "left":
+      return [vertex[0], vertex[1]];
+    case "right":
+      return [vertex[2], vertex[1]];
+    case "top":
+      return [vertex[0], vertex[2]];
+    default: {
+      const unreachable = surfaceQuad.colorKey satisfies never;
+      return unreachable;
+    }
+  }
+}
 
 function collectSparseRectangles(
   cells: ReadonlySet<number> | undefined,
