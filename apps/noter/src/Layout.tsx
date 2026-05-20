@@ -1,8 +1,12 @@
 import { useEffect, useMemo, type ComponentProps, type ReactNode } from "react";
 import { usePublicRightSidebarPane } from "@/components/PublicRightSidebar";
+import { Button } from "@/components/ui/button";
 import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
-import { WorkspacePaneRuntimeProvider } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
+import {
+  useWorkspacePaneActions,
+  WorkspacePaneRuntimeProvider,
+} from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 import {
   WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
   WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX,
@@ -16,6 +20,7 @@ import {
 import { sanitizePublicLayoutSidebarState } from "@/lib/publicLayoutSidebarState";
 import { readRootRouteSearch } from "@/lib/rootRouteSearch";
 import { useLocation } from "@tanstack/react-router";
+import { PanelRight } from "lucide-react";
 import type {
   WorkspaceMobileSidebarPane,
   WorkspaceSidebarState,
@@ -29,6 +34,59 @@ const PUBLIC_LAYOUT_RIGHT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 type WorkspaceLayoutV2FullPageProps = ComponentProps<
   typeof WorkspaceLayoutV2FullPage
 >;
+type PublicLayoutRightToggleVisibility = NonNullable<
+  WorkspaceLayoutV2FullPageProps["rightToggleVisibility"]
+>;
+type VisiblePublicLayoutRightToggleVisibility = Exclude<
+  PublicLayoutRightToggleVisibility,
+  "hidden"
+>;
+
+const PUBLIC_LAYOUT_RIGHT_TOGGLE_BUTTON_CLASS_NAMES = {
+  all: "absolute right-0 top-0 z-20 h-8 w-8 rounded-none",
+  desktop:
+    "absolute right-0 top-0 z-20 hidden h-8 w-8 rounded-none md:inline-flex",
+} as const satisfies Record<VisiblePublicLayoutRightToggleVisibility, string>;
+
+function PublicLayoutRightSidebarOverlayToggle({
+  visibility,
+}: {
+  visibility: VisiblePublicLayoutRightToggleVisibility;
+}) {
+  const { toggleRightPane } = useWorkspacePaneActions();
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      aria-label="Toggle Right Sidebar"
+      className={PUBLIC_LAYOUT_RIGHT_TOGGLE_BUTTON_CLASS_NAMES[visibility]}
+      onClick={toggleRightPane}
+    >
+      <PanelRight className="h-4 w-4 rotate-180" />
+    </Button>
+  );
+}
+
+function PublicLayoutMainContent({
+  children,
+  rightToggleVisibility,
+}: {
+  children?: ReactNode;
+  rightToggleVisibility: PublicLayoutRightToggleVisibility;
+}) {
+  return (
+    <div className="relative flex h-full min-h-0 flex-col">
+      {rightToggleVisibility === "hidden" ? null : (
+        <PublicLayoutRightSidebarOverlayToggle
+          visibility={rightToggleVisibility}
+        />
+      )}
+      {children}
+    </div>
+  );
+}
 
 export function PublicLayoutShell({
   children,
@@ -105,11 +163,33 @@ export function PublicLayoutShell({
     sidebarState,
   });
   const publicRightSidebarPane = usePublicRightSidebarPane();
+  const hasMainHeader = Boolean(main?.header);
+  const layoutRightToggleVisibility = hasMainHeader
+    ? rightToggleVisibility
+    : "hidden";
   const mainPane =
-    main ??
-    ({
-      content: <div className="flex h-full min-h-0 flex-col">{children}</div>,
-    } satisfies WorkspaceLayoutV2PaneFrameProps);
+    main === undefined
+      ? ({
+          content: (
+            <PublicLayoutMainContent
+              rightToggleVisibility={rightToggleVisibility}
+            >
+              {children}
+            </PublicLayoutMainContent>
+          ),
+        } satisfies WorkspaceLayoutV2PaneFrameProps)
+      : hasMainHeader
+        ? main
+        : ({
+            ...main,
+            content: (
+              <PublicLayoutMainContent
+                rightToggleVisibility={rightToggleVisibility}
+              >
+                {main.content}
+              </PublicLayoutMainContent>
+            ),
+          } satisfies WorkspaceLayoutV2PaneFrameProps);
 
   return (
     <PublicLandingLogoLinkProvider>
@@ -123,7 +203,7 @@ export function PublicLayoutShell({
           main={mainPane}
           right={publicRightSidebarPane}
           leftToggleVisibility={leftToggleVisibility}
-          rightToggleVisibility={rightToggleVisibility}
+          rightToggleVisibility={layoutRightToggleVisibility}
         />
       </WorkspacePaneRuntimeProvider>
     </PublicLandingLogoLinkProvider>

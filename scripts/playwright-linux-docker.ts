@@ -33,6 +33,7 @@ tar \
   --exclude=.env.* \
   --exclude=apps/noter/.env \
   --exclude=apps/noter/.env.* \
+  --exclude=apps/noter/.convex/local \
   --exclude=node_modules \
   --exclude=apps/noter/node_modules \
   --exclude=apps/noter/dist \

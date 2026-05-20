@@ -144,6 +144,7 @@ describe("Layout", () => {
     );
 
     expect(markup).toContain('aria-label="Toggle Right Sidebar"');
+    expect(markup).toContain("absolute right-0 top-0");
     expect(markup).not.toContain('aria-label="Toggle sidebar"');
   });
 
