@@ -87,6 +87,32 @@ describe("VaultBranchLinkContent", () => {
     );
     expect(markup).toContain('title="Open branch on GitHub"');
   });
+
+  it("links the default branch to the production app URL", () => {
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider>
+        <VaultBranchLinkContent
+          repositoryFullName="noter-md/noter"
+          cloudflareProductionUrl="https://tmp-flow.nicuchiciuc.workers.dev"
+          branch={{
+            name: "main",
+            headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
+            isDefault: true,
+            isProtected: false,
+            lastSyncedAt: 0,
+            remoteState: "active",
+          }}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain('href="https://tmp-flow.nicuchiciuc.workers.dev"');
+    expect(markup).toContain('title="Open production app"');
+    expect(markup).toContain("Production");
+    expect(markup.indexOf(">Production<")).toBeLessThan(
+      markup.indexOf(">main<"),
+    );
+  });
 });
 
 describe("VaultDashboardRepositoryCard", () => {
