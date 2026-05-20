@@ -14,6 +14,10 @@ import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUp
 import { VaultProvisioningLogTextarea } from "@/components/vault-dashboard/VaultProvisioningLogTextarea";
 import { VaultResourceRail } from "@/components/vault-dashboard/VaultResourceRail";
 import { buildVaultDashboardResourceRailState } from "@/components/vault-dashboard/vaultResourceRailState";
+import {
+  buildVaultDashboardRepositoryHashId,
+  normalizeVaultDashboardRepositoryHash,
+} from "@/components/vault-dashboard/vaultDashboardRepositoryHash";
 import { ChevronDownIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
 import {
   CheckIcon,
@@ -2051,8 +2055,10 @@ function VaultDashboardBody({
   onRetryVaultDeletion,
   onSaveVaultBranchFilters,
 }: VaultDashboardBodyProps) {
-  const deleteCardElementsRef = useRef(new Map<string, HTMLDivElement>());
+  const location = useLocation();
+  const vaultCardElementsRef = useRef(new Map<string, HTMLDivElement>());
   const lastScrolledDeleteRepositoryRef = useRef<string | null>(null);
+  const lastScrolledRepositoryHashRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!deleteRepositoryFullName) {
@@ -2064,7 +2070,7 @@ function VaultDashboardBody({
       return;
     }
 
-    const deleteCardElement = deleteCardElementsRef.current.get(
+    const deleteCardElement = vaultCardElementsRef.current.get(
       deleteRepositoryFullName,
     );
     if (!deleteCardElement) {
@@ -2079,6 +2085,33 @@ function VaultDashboardBody({
     });
     lastScrolledDeleteRepositoryRef.current = deleteRepositoryFullName;
   }, [deleteRepositoryFullName, vaults]);
+
+  useEffect(() => {
+    const repositoryHash = normalizeVaultDashboardRepositoryHash(location.hash);
+    if (!repositoryHash) {
+      lastScrolledRepositoryHashRef.current = null;
+      return;
+    }
+
+    if (lastScrolledRepositoryHashRef.current === repositoryHash) {
+      return;
+    }
+
+    for (const vaultCardElement of vaultCardElementsRef.current.values()) {
+      if (vaultCardElement.id !== repositoryHash) {
+        continue;
+      }
+
+      // Direct hash loads resolve after vault data arrives, so anchor the
+      // selected card once the target element exists.
+      vaultCardElement.scrollIntoView({
+        block: "start",
+        inline: "nearest",
+      });
+      lastScrolledRepositoryHashRef.current = repositoryHash;
+      return;
+    }
+  }, [location.hash, vaults]);
 
   if (vaults.length === 0) {
     return <VaultDashboardEmptyState themeColorSearch={themeColorSearch} />;
@@ -2174,29 +2207,33 @@ function VaultDashboardBody({
           deleteBlockedSection ??
           sourceSetupSection ??
           providerSetupSection;
+        const repositoryHashId = buildVaultDashboardRepositoryHashId(
+          vault.repositoryFullName,
+        );
 
         return (
           <div
             key={vault._id}
+            id={repositoryHashId}
             ref={(element) => {
               if (element) {
-                deleteCardElementsRef.current.set(
+                vaultCardElementsRef.current.set(
                   vault.repositoryFullName,
                   element,
                 );
                 return;
               }
 
-              deleteCardElementsRef.current.delete(vault.repositoryFullName);
+              vaultCardElementsRef.current.delete(vault.repositoryFullName);
             }}
           >
             <VaultDashboardRepositoryCard
               isReady={isReady}
               repositoryOwner={vault.ghRepoOwner}
               repositoryName={vault.ghRepoName}
-              titleHref={undefined}
+              titleHref={`#${repositoryHashId}`}
               titleTarget={undefined}
-              titleTitle={undefined}
+              titleTitle="Link to vault"
               titleClassName={undefined}
               repositoryLinks={
                 isDeletingVault ? undefined : (

@@ -9,6 +9,7 @@ import {
 } from "./VaultDashboard";
 import { VaultDashboardRepositoryCard } from "./VaultDashboardChrome";
 import { VaultResourceRail } from "./VaultResourceRail";
+import { buildVaultDashboardRepositoryHashId } from "./vaultDashboardRepositoryHash";
 import { buildVaultDashboardResourceRailState } from "./vaultResourceRailState";
 import {
   resolveVaultProviderSetupStatus,
@@ -116,6 +117,12 @@ describe("VaultBranchLinkContent", () => {
 });
 
 describe("VaultDashboardRepositoryCard", () => {
+  it("builds readable repository hash ids", () => {
+    expect(buildVaultDashboardRepositoryHashId("nicu-chiciuc/tmp-flow")).toBe(
+      "vault-nicu-chiciuc~2Ftmp-flow",
+    );
+  });
+
   it("keeps the repository title passive when no title href is provided", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardRepositoryCard
