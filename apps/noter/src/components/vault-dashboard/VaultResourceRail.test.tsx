@@ -7,7 +7,7 @@ import {
 } from "./VaultResourceRail";
 
 describe("VaultResourceRail", () => {
-  it("renders explicit provider resource states and actions", () => {
+  it("renders explicit provider resource states and scoped links", () => {
     const state = {
       rows: [
         {
@@ -18,31 +18,17 @@ describe("VaultResourceRail", () => {
         },
         {
           provider: "convex",
-          status: "action_required",
-          actions: [
-            {
-              kind: "connect_existing",
-              label: "Connect",
-            },
-            {
-              kind: "create_new",
-              label: "Create",
-            },
-          ],
+          status: "ready",
+          scope: "nicu",
+          value: "weight-tsx",
+          href: "https://dashboard.convex.dev/t/nicu/weight-tsx/settings",
         },
         {
           provider: "cloudflare",
-          status: "action_required",
-          actions: [
-            {
-              kind: "connect_existing",
-              label: "Connect Worker",
-            },
-            {
-              kind: "create_new",
-              label: "Create Worker",
-            },
-          ],
+          status: "ready",
+          scope: "nicuchiciuc",
+          value: "weight-tsx",
+          href: "https://dash.cloudflare.com/?to=/account/workers/services/view/weight-tsx/production/deployments",
         },
       ],
     } satisfies VaultResourceRailState;
@@ -50,11 +36,11 @@ describe("VaultResourceRail", () => {
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
 
     expect(markup).toContain("nicu-chiciuc/weight_tsx");
+    expect(markup).toContain("nicu/");
+    expect(markup).toContain("nicuchiciuc/");
     expect(markup).not.toContain("Not connected");
-    expect(markup).toContain("Connect");
-    expect(markup).toContain("Create");
-    expect(markup).toContain("Connect Worker");
-    expect(markup).toContain("Create Worker");
+    expect(markup).toContain("Open Convex: nicu/weight-tsx");
+    expect(markup).toContain("Open Cloudflare: nicuchiciuc/weight-tsx");
     expect(markup).not.toContain("Connected existing");
   });
 

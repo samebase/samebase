@@ -31,6 +31,11 @@ const ADD_VAULT_READY_VALUES = {
   github: "nicu-chiciuc/tmp-my-new-app",
 } as const;
 
+const ADD_VAULT_READY_SCOPES = {
+  cloudflare: "nicuchiciuc",
+  convex: "nicu",
+} as const;
+
 const ADD_VAULT_READY_URLS = {
   cloudflare:
     "https://dash.cloudflare.com/?to=/workers/services/view/tmp-my-new-app/production/overview",
@@ -103,6 +108,7 @@ const ADD_VAULT_FLOW_SCENARIOS = [
         {
           provider: "convex",
           status: "ready",
+          scope: ADD_VAULT_READY_SCOPES.convex,
           value: ADD_VAULT_READY_VALUES.convex,
           href: ADD_VAULT_READY_URLS.convex,
         },
@@ -129,12 +135,14 @@ const ADD_VAULT_FLOW_SCENARIOS = [
         {
           provider: "convex",
           status: "ready",
+          scope: ADD_VAULT_READY_SCOPES.convex,
           value: ADD_VAULT_READY_VALUES.convex,
           href: ADD_VAULT_READY_URLS.convex,
         },
         {
           provider: "cloudflare",
           status: "ready",
+          scope: ADD_VAULT_READY_SCOPES.cloudflare,
           value: ADD_VAULT_READY_VALUES.cloudflare,
           href: ADD_VAULT_READY_URLS.cloudflare,
         },
@@ -203,6 +211,7 @@ const ADD_VAULT_FLOW_SCENARIOS = [
         {
           provider: "convex",
           status: "ready",
+          scope: ADD_VAULT_READY_SCOPES.convex,
           value: ADD_VAULT_READY_VALUES.convex,
           href: ADD_VAULT_READY_URLS.convex,
         },

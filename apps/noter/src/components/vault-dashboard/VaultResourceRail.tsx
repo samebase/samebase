@@ -34,6 +34,7 @@ export type VaultResourceRailProvider = "cloudflare" | "convex" | "github";
 type VaultResourceRailPendingRow<TProvider extends VaultResourceRailProvider> =
   {
     provider: TProvider;
+    scope?: string;
     status: "pending";
     value: string;
   };
@@ -41,6 +42,7 @@ type VaultResourceRailPendingRow<TProvider extends VaultResourceRailProvider> =
 type VaultResourceRailRunningRow<TProvider extends VaultResourceRailProvider> =
   {
     provider: TProvider;
+    scope?: string;
     status: "running";
     value: string;
   };
@@ -48,6 +50,7 @@ type VaultResourceRailRunningRow<TProvider extends VaultResourceRailProvider> =
 type VaultResourceRailReadyRow<TProvider extends VaultResourceRailProvider> = {
   href?: string;
   provider: TProvider;
+  scope?: string;
   status: "ready";
   value: string;
 };
@@ -63,6 +66,7 @@ type VaultResourceRailActionRequiredRow<
 type VaultResourceRailFailedRow<TProvider extends VaultResourceRailProvider> = {
   actions: VaultResourceRailActionList;
   provider: TProvider;
+  scope?: string;
   status: "failed";
   value: string;
 };
@@ -127,6 +131,7 @@ const RESOURCE_CONTENT_CLASS_NAME =
 const RESOURCE_VALUE_CLASS_NAME = "min-w-0 max-w-64 truncate";
 const RESOURCE_LINK_VALUE_CLASS_NAME =
   "min-w-0 max-w-64 truncate underline decoration-muted-foreground/40 underline-offset-4 group-hover:decoration-current";
+const RESOURCE_VALUE_SCOPE_CLASS_NAME = "font-normal text-muted-foreground";
 
 function getStatusIcon(status: VaultResourceRailIconStatus): LucideIcon {
   switch (status) {
@@ -218,6 +223,49 @@ function getRowValue(row: VaultResourceRailRowState): string | undefined {
   return undefined;
 }
 
+function getRowScope(row: VaultResourceRailRowState): string | undefined {
+  switch (row.status) {
+    case "action_required":
+      return undefined;
+    case "failed":
+    case "pending":
+    case "ready":
+    case "running":
+      return row.scope;
+  }
+  row satisfies never;
+  return undefined;
+}
+
+function formatResourceRailValue({
+  scope,
+  value,
+}: {
+  scope: string | undefined;
+  value: string;
+}) {
+  return scope ? `${scope}/${value}` : value;
+}
+
+function VaultResourceRailValue({
+  className,
+  scope,
+  value,
+}: {
+  className: string;
+  scope: string | undefined;
+  value: string;
+}) {
+  return (
+    <span className={className}>
+      {scope ? (
+        <span className={RESOURCE_VALUE_SCOPE_CLASS_NAME}>{scope}/</span>
+      ) : null}
+      {value}
+    </span>
+  );
+}
+
 function VaultResourceRailStatusIcon({
   status,
 }: {
@@ -233,12 +281,20 @@ function VaultResourceRailItem({ row }: { row: VaultResourceRailRowState }) {
   const actions = getRowActions(row);
   const iconStatus = getRowIconStatus(row);
   const value = getRowValue(row);
+  const scope = getRowScope(row);
   const providerLabel = PROVIDER_LABELS[row.provider];
+  const displayValue = value
+    ? formatResourceRailValue({ scope, value })
+    : undefined;
   const content = (
     <div className={RESOURCE_CONTENT_CLASS_NAME}>
       {iconStatus ? <VaultResourceRailStatusIcon status={iconStatus} /> : null}
       {value ? (
-        <span className={RESOURCE_VALUE_CLASS_NAME}>{value}</span>
+        <VaultResourceRailValue
+          className={RESOURCE_VALUE_CLASS_NAME}
+          scope={scope}
+          value={value}
+        />
       ) : null}
       {actions ? (
         <VaultResourceRailActions actions={actions} provider={row.provider} />
@@ -255,12 +311,16 @@ function VaultResourceRailItem({ row }: { row: VaultResourceRailRowState }) {
         rel="noopener noreferrer"
         className={RESOURCE_LINK_ROW_CLASS_NAME}
         title={`Open ${providerLabel}`}
-        aria-label={`Open ${providerLabel}: ${row.value}`}
+        aria-label={`Open ${providerLabel}: ${displayValue ?? row.value}`}
       >
         <span className={RESOURCE_LOGO_SLOT_CLASS_NAME}>
           <ProviderLogo />
         </span>
-        <span className={RESOURCE_LINK_VALUE_CLASS_NAME}>{row.value}</span>
+        <VaultResourceRailValue
+          className={RESOURCE_LINK_VALUE_CLASS_NAME}
+          scope={scope}
+          value={row.value}
+        />
       </a>
     );
   }

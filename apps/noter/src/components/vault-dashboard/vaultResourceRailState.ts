@@ -62,6 +62,44 @@ function isVaultResourceSetupBlockingManualActions(
   );
 }
 
+function normalizeResourceScope(value: string | undefined): string | undefined {
+  const trimmedValue = value?.trim();
+  return trimmedValue ? trimmedValue : undefined;
+}
+
+function resolveCloudflareWorkersSubdomain({
+  productionUrl,
+  workerName,
+}: {
+  productionUrl: string | undefined;
+  workerName: string | undefined;
+}): string | undefined {
+  const normalizedWorkerName = workerName?.trim();
+  if (!productionUrl || !normalizedWorkerName) {
+    return undefined;
+  }
+
+  let hostname: string;
+  try {
+    hostname = new URL(productionUrl).hostname;
+  } catch {
+    return undefined;
+  }
+
+  const suffix = ".workers.dev";
+  if (!hostname.endsWith(suffix)) {
+    return undefined;
+  }
+
+  const prefix = hostname.slice(0, -suffix.length);
+  const workerPrefix = `${normalizedWorkerName}.`;
+  if (!prefix.startsWith(workerPrefix)) {
+    return undefined;
+  }
+
+  return normalizeResourceScope(prefix.slice(workerPrefix.length));
+}
+
 export function buildVaultDashboardResourceRailState({
   githubRepositoryUrl,
   vault,
@@ -79,6 +117,11 @@ export function buildVaultDashboardResourceRailState({
   const sourceSetupProvider = resolveSourceSetupResourceProvider(
     vault.sourceSetup,
   );
+  const convexProjectScope = normalizeResourceScope(vault.convexTeamLabel);
+  const cloudflareWorkerScope = resolveCloudflareWorkersSubdomain({
+    productionUrl: vault.cloudflareProductionUrl,
+    workerName: vault.cloudflareWorkerName,
+  });
   let githubRow: VaultResourceRailRowState<"github">;
   if (
     vault.sourceSetup.status === "failed" &&
@@ -143,6 +186,7 @@ export function buildVaultDashboardResourceRailState({
       provider: "convex",
       status: "failed",
       value: vault.convexProjectSlug ?? vault.ghRepoName,
+      scope: vault.convexProjectSlug ? convexProjectScope : undefined,
       actions: [{ kind: "retry", label: "Retry" }],
     };
   } else if (
@@ -154,12 +198,14 @@ export function buildVaultDashboardResourceRailState({
       provider: "convex",
       status: "running",
       value: vault.convexProjectSlug ?? vault.ghRepoName,
+      scope: vault.convexProjectSlug ? convexProjectScope : undefined,
     };
   } else if (vault.convexProjectSlug) {
     convexRow = {
       provider: "convex",
       status: "ready",
       value: vault.convexProjectSlug,
+      scope: convexProjectScope,
       href: vault.convexProjectSettingsDashboardUrl,
     };
   } else if (!canConfigureMissingResources) {
@@ -225,6 +271,7 @@ export function buildVaultDashboardResourceRailState({
       provider: "cloudflare",
       status: "ready",
       value: vault.cloudflareWorkerName,
+      scope: cloudflareWorkerScope,
       href: vault.cloudflareProjectDashboardUrl,
     };
   } else if (!canConfigureMissingResources) {

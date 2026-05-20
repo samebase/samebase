@@ -337,4 +337,37 @@ describe("buildVaultDashboardResourceRailState", () => {
       value: "demo",
     });
   });
+
+  it("qualifies provider resource names when the provider exposes a scope", () => {
+    const state = buildVaultDashboardResourceRailState({
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      vault: makeResourceRailBuilderVault({
+        convexTeamLabel: "ada-team",
+        convexProjectSlug: "demo-project",
+        convexProjectSettingsDashboardUrl:
+          "https://dashboard.convex.dev/t/ada-team/demo-project/settings",
+        cloudflareWorkerName: "demo-worker",
+        cloudflareProductionUrl: "https://demo-worker.ada.workers.dev",
+        cloudflareProjectDashboardUrl:
+          "https://dash.cloudflare.com/?to=/account/workers/services/view/demo-worker/production/deployments",
+      }),
+    });
+
+    expect(state.rows[1]).toMatchObject({
+      provider: "convex",
+      status: "ready",
+      scope: "ada-team",
+      value: "demo-project",
+    });
+    expect(state.rows[2]).toMatchObject({
+      provider: "cloudflare",
+      status: "ready",
+      scope: "ada",
+      value: "demo-worker",
+    });
+
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+    expect(markup).toContain("Open Convex: ada-team/demo-project");
+    expect(markup).toContain("Open Cloudflare: ada/demo-worker");
+  });
 });
