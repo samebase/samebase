@@ -1,22 +1,23 @@
 # Noter PR Preview Cleanup
 
-Use this during `clean` for a shipped branch, after `clean vaults` and before
-deleting the remote branch. This is a Codex/operator workflow, not a repo
-script.
+Use this during `clean` for a branch whose PR is merged or closed, after
+`clean vaults` and before deleting the remote branch. This is a Codex/operator
+workflow, not a repo script.
 
 The scope is only preview resources created for the `noter.md` app build:
 
 - Cloudflare Worker preview versions, when they can be proven
-- the Convex preview deployment for the merged branch
+- the Convex preview deployment for the exact branch
 
 Do not change Cloudflare deploy behavior, add preview tags, add cleanup scripts,
 or touch temporary Noter-managed vault infrastructure as part of this workflow.
 
 ## Safety Rules
 
-1. Continue only after the branch's GitHub PR is merged.
+1. Continue only after the branch's GitHub PR is no longer open: `state` is
+   `MERGED` or `CLOSED`.
 2. Delete nothing from Cloudflare unless each exact Worker version is tied to
-   the merged branch or PR by provider or GitHub metadata.
+   the branch or PR by provider or GitHub metadata.
 3. Delete no active Cloudflare Worker version and never delete the Worker
    itself.
 4. Delete no Convex deployment unless it is a `preview` deployment for the exact
@@ -50,7 +51,7 @@ export CLOUDFLARE_WORKER_NAME="${CLOUDFLARE_WORKER_NAME:-noter-worker}"
 Skip a provider for missing credentials only when the required value is still
 missing after this preflight.
 
-## 1. Confirm The Merged PR
+## 1. Confirm The PR Is Terminal
 
 ```bash
 branch="$(git rev-parse --abbrev-ref HEAD)"
@@ -61,14 +62,14 @@ If the local branch is already gone and the cleanup is being run by PR number,
 start from the PR instead:
 
 ```bash
-pr_number="<merged-pr-number>"
+pr_number="<pr-number>"
 gh pr view "$pr_number" --json number,url,state,mergedAt,headRefName,headRefOid
 branch="<headRefName from the PR JSON>"
 ```
 
-Continue only when `headRefName` equals `$branch` and `mergedAt` is not `null`.
-Keep the PR number, URL, branch, and head SHA visible while inspecting provider
-resources.
+Continue only when `headRefName` equals `$branch` and `state` is `MERGED` or
+`CLOSED`. Keep the PR number, URL, state, branch, and head SHA visible while
+inspecting provider resources.
 
 ## 2. Inspect Cloudflare Worker Previews
 
@@ -82,7 +83,7 @@ CLOUDFLARE_API_TOKEN="$DEV_SEED_CLOUDFLARE_API_KEY" pnpm --dir apps/noter exec w
 Also inspect GitHub checks and PR comments for Cloudflare preview metadata:
 
 ```bash
-pr_number="<merged-pr-number>"
+pr_number="<pr-number>"
 gh pr checks "$pr_number"
 gh pr view "$pr_number" --json comments,statusCheckRollup
 ```
@@ -98,7 +99,7 @@ version:
 
 1. the exact version ID is known
 2. the version alias, version metadata, preview URL, or GitHub metadata is tied
-   to the merged PR, branch, or head SHA
+   to the PR, branch, or head SHA
 3. the version ID is not present in the active deployments output
 
 If Wrangler output is not enough, or the matching branch is absent from the
@@ -166,7 +167,7 @@ cleanup.
 
 In the final `clean` response, include:
 
-- the merged PR URL
+- the PR URL and terminal state
 - any Cloudflare Worker version IDs deleted, or why Cloudflare was skipped
 - any Convex deployment name deleted, or why Convex was skipped
 - the remaining local cleanup actions
