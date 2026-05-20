@@ -464,6 +464,13 @@ export function readConvexManagementPathSegment(
   label: string,
 ): string {
   const normalized = value.trim();
+  if (normalized !== value) {
+    console.warn("convex:api:trimmed_path_parameter", {
+      label,
+      originalLength: value.length,
+      normalizedLength: normalized.length,
+    });
+  }
   if (!normalized) {
     throw new Error(`${label} is required.`);
   }

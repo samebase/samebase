@@ -1,9 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { createConvexManagementClient } from "./client";
+import {
+  createConvexManagementClient,
+  readConvexManagementPathSegment,
+} from "./client";
 
 describe("createConvexManagementClient", () => {
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -64,5 +68,22 @@ describe("createConvexManagementClient", () => {
         },
       },
     ]);
+  });
+
+  it("warns when path segment values need trimming", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(
+      readConvexManagementPathSegment(
+        " team-project ",
+        "Convex deployment name",
+      ),
+    ).toBe("team-project");
+
+    expect(warn).toHaveBeenCalledWith("convex:api:trimmed_path_parameter", {
+      label: "Convex deployment name",
+      originalLength: 14,
+      normalizedLength: 12,
+    });
   });
 });
