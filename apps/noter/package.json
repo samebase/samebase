@@ -86,6 +86,7 @@
     "lucide-react": "^0.525.0",
     "minimatch": "^10.2.5",
     "next-themes": "^0.4.6",
+    "openapi-fetch": "^0.17.0",
     "posthog-js": "^1.373.4",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",

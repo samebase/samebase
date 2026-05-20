@@ -12,11 +12,11 @@ describe("createConvexManagementClient", () => {
   });
 
   it("materializes typed OpenAPI path parameters for GET requests", async () => {
-    const requests: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+    const requests: Request[] = [];
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-        requests.push({ input, init });
+      vi.fn(async (input: Request) => {
+        requests.push(input);
         return new Response("[]", {
           status: 200,
           headers: { "content-type": "application/json" },
@@ -28,26 +28,22 @@ describe("createConvexManagementClient", () => {
       teamId: "38516",
     });
 
-    expect(requests).toEqual([
+    expect(requests.map(readRequest)).toEqual([
       {
-        input: "https://api.convex.dev/v1/teams/38516/list_projects",
-        init: {
-          method: "GET",
-          headers: {
-            Authorization: "Bearer team-token",
-          },
-          body: undefined,
-        },
+        authorization: "Bearer team-token",
+        contentType: null,
+        method: "GET",
+        url: "https://api.convex.dev/v1/teams/38516/list_projects",
       },
     ]);
   });
 
   it("materializes typed OpenAPI path parameters for empty POST requests", async () => {
-    const requests: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+    const requests: Request[] = [];
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-        requests.push({ input, init });
+      vi.fn(async (input: Request) => {
+        requests.push(input);
         return new Response("", { status: 200 });
       }),
     );
@@ -56,16 +52,12 @@ describe("createConvexManagementClient", () => {
       projectId: "123",
     });
 
-    expect(requests).toEqual([
+    expect(requests.map(readRequest)).toEqual([
       {
-        input: "https://api.convex.dev/v1/projects/123/delete",
-        init: {
-          method: "POST",
-          headers: {
-            Authorization: "Bearer team-token",
-          },
-          body: undefined,
-        },
+        authorization: "Bearer team-token",
+        contentType: null,
+        method: "POST",
+        url: "https://api.convex.dev/v1/projects/123/delete",
       },
     ]);
   });
@@ -87,3 +79,17 @@ describe("createConvexManagementClient", () => {
     });
   });
 });
+
+function readRequest(request: Request): {
+  authorization: string | null;
+  contentType: string | null;
+  method: string;
+  url: string;
+} {
+  return {
+    authorization: request.headers.get("Authorization"),
+    contentType: request.headers.get("Content-Type"),
+    method: request.method,
+    url: request.url,
+  };
+}
