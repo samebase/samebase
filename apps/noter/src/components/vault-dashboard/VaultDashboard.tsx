@@ -2089,6 +2089,15 @@ function readVaultDashboardCardHashId(element: HTMLElement): string | null {
   return hashId && hashId.length > 0 ? hashId : null;
 }
 
+function findVaultDashboardCardHeader(
+  element: HTMLElement,
+): HTMLElement | null {
+  const header = element.querySelector(
+    "[data-vault-dashboard-repository-header]",
+  );
+  return header instanceof HTMLElement ? header : null;
+}
+
 function resolveActiveVaultDashboardCardHashId({
   cardElements,
   scrollport,
@@ -2097,8 +2106,7 @@ function resolveActiveVaultDashboardCardHashId({
   scrollport: HTMLElement;
 }): string | null {
   const scrollportRect = scrollport.getBoundingClientRect();
-  const activeLineY = scrollportRect.top + 16;
-  let closestCard: {
+  let closestVisibleHeader: {
     distancePx: number;
     hashId: string;
   } | null = null;
@@ -2109,25 +2117,33 @@ function resolveActiveVaultDashboardCardHashId({
       continue;
     }
 
-    const cardRect = cardElement.getBoundingClientRect();
-    if (cardRect.height <= 0) {
+    const headerElement = findVaultDashboardCardHeader(cardElement);
+    if (!headerElement) {
       continue;
     }
 
-    if (cardRect.top <= activeLineY && cardRect.bottom > activeLineY) {
-      return hashId;
+    const headerRect = headerElement.getBoundingClientRect();
+    if (headerRect.height <= 0) {
+      continue;
     }
 
-    const distancePx = Math.abs(cardRect.top - activeLineY);
-    if (!closestCard || distancePx < closestCard.distancePx) {
-      closestCard = {
+    const isHeaderFullyVisible =
+      headerRect.top >= scrollportRect.top &&
+      headerRect.bottom <= scrollportRect.bottom;
+    if (!isHeaderFullyVisible) {
+      continue;
+    }
+
+    const distancePx = Math.abs(headerRect.top - scrollportRect.top);
+    if (!closestVisibleHeader || distancePx < closestVisibleHeader.distancePx) {
+      closestVisibleHeader = {
         distancePx,
         hashId,
       };
     }
   }
 
-  return closestCard?.hashId ?? null;
+  return closestVisibleHeader?.hashId ?? null;
 }
 
 function VaultDashboardBody({

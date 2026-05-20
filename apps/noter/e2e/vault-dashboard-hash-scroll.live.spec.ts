@@ -7,6 +7,10 @@ type VaultHashScrollMeasurement = {
   hash: string;
   nativePreviousIdExists: boolean;
   nativeTargetIdExists: boolean;
+  previousHeaderBottom: number | null;
+  previousHeaderTop: number | null;
+  scrollportBottom: number | null;
+  scrollportTop: number | null;
   scrollTop: number | null;
   targetTop: number | null;
 };
@@ -59,6 +63,28 @@ async function measureVaultHashScroll(
         };
       }
 
+      function headerRect(hashId: string) {
+        const element = document.querySelector(
+          `[data-vault-dashboard-repository-hash-id="${CSS.escape(hashId)}"]`,
+        );
+        if (!(element instanceof HTMLElement)) {
+          return null;
+        }
+
+        const header = element.querySelector(
+          "[data-vault-dashboard-repository-header]",
+        );
+        if (!(header instanceof HTMLElement)) {
+          return null;
+        }
+
+        const rect = header.getBoundingClientRect();
+        return {
+          bottom: Math.round(rect.bottom),
+          top: Math.round(rect.top),
+        };
+      }
+
       function scrollportForTarget() {
         const element = document.querySelector(
           `[data-vault-dashboard-repository-hash-id="${CSS.escape(targetHash)}"]`,
@@ -84,12 +110,20 @@ async function measureVaultHashScroll(
       }
 
       const targetRect = cardRect(targetHash);
+      const previousHeaderRect = headerRect(previousHash);
       const scrollport = scrollportForTarget();
+      const scrollportRect = scrollport?.getBoundingClientRect();
 
       return {
         hash: window.location.hash,
         nativePreviousIdExists: Boolean(document.getElementById(previousHash)),
         nativeTargetIdExists: Boolean(document.getElementById(targetHash)),
+        previousHeaderBottom: previousHeaderRect?.bottom ?? null,
+        previousHeaderTop: previousHeaderRect?.top ?? null,
+        scrollportBottom: scrollportRect
+          ? Math.round(scrollportRect.bottom)
+          : null,
+        scrollportTop: scrollportRect ? Math.round(scrollportRect.top) : null,
         scrollTop: scrollport?.scrollTop ?? null,
         targetTop: targetRect?.top ?? null,
       };
@@ -128,6 +162,39 @@ async function alignTargetVaultToTop(page: Page): Promise<boolean> {
 
     return false;
   }, TARGET_REPOSITORY_HASH);
+}
+
+async function scrollVaultDashboardBy(
+  page: Page,
+  scrollTopDelta: number,
+): Promise<boolean> {
+  return page.evaluate(
+    ({ scrollTopDelta, targetHash }) => {
+      const element = document.querySelector(
+        `[data-vault-dashboard-repository-hash-id="${CSS.escape(targetHash)}"]`,
+      );
+      if (!(element instanceof HTMLElement)) {
+        return false;
+      }
+
+      let currentElement = element.parentElement;
+      while (currentElement) {
+        const overflowY = window.getComputedStyle(currentElement).overflowY;
+        if (
+          overflowY === "auto" ||
+          overflowY === "overlay" ||
+          overflowY === "scroll"
+        ) {
+          currentElement.scrollTop += scrollTopDelta;
+          return true;
+        }
+        currentElement = currentElement.parentElement;
+      }
+
+      return false;
+    },
+    { scrollTopDelta, targetHash: TARGET_REPOSITORY_HASH },
+  );
 }
 
 test.describe("vault dashboard hash scrolling", () => {
@@ -172,20 +239,48 @@ test.describe("vault dashboard hash scrolling", () => {
       );
     }
 
-    await page.mouse.move(300, 500);
-    await page.mouse.wheel(0, -40);
+    expect(await scrollVaultDashboardBy(page, -40)).toBe(true);
+
+    await expect
+      .poll(async () => (await measureVaultHashScroll(page)).hash)
+      .toBe(`#${TARGET_REPOSITORY_HASH}`);
+
+    const afterSmallScroll = await measureVaultHashScroll(page);
+    if (
+      afterSmallScroll.scrollTop === null ||
+      afterSmallScroll.targetTop === null
+    ) {
+      throw new Error("Could not measure small-scroll dashboard state.");
+    }
+
+    expect(afterSmallScroll.scrollTop).toBeLessThan(beforeScroll.scrollTop);
+    expect(afterSmallScroll.scrollTop).toBeGreaterThan(0);
+    expect(afterSmallScroll.targetTop).toBeGreaterThan(beforeScroll.targetTop);
+
+    expect(await scrollVaultDashboardBy(page, -220)).toBe(true);
 
     await expect
       .poll(async () => (await measureVaultHashScroll(page)).hash)
       .toBe(`#${PREVIOUS_REPOSITORY_HASH}`);
 
     const afterScroll = await measureVaultHashScroll(page);
-    if (afterScroll.scrollTop === null || afterScroll.targetTop === null) {
+    if (
+      afterScroll.previousHeaderBottom === null ||
+      afterScroll.previousHeaderTop === null ||
+      afterScroll.scrollportBottom === null ||
+      afterScroll.scrollportTop === null ||
+      afterScroll.scrollTop === null
+    ) {
       throw new Error("Could not measure final vault dashboard scroll state.");
     }
 
-    expect(afterScroll.scrollTop).toBeLessThan(beforeScroll.scrollTop);
+    expect(afterScroll.previousHeaderTop).toBeGreaterThanOrEqual(
+      afterScroll.scrollportTop,
+    );
+    expect(afterScroll.previousHeaderBottom).toBeLessThanOrEqual(
+      afterScroll.scrollportBottom,
+    );
+    expect(afterScroll.scrollTop).toBeLessThan(afterSmallScroll.scrollTop);
     expect(afterScroll.scrollTop).toBeGreaterThan(0);
-    expect(afterScroll.targetTop).toBeGreaterThan(beforeScroll.targetTop);
   });
 });
