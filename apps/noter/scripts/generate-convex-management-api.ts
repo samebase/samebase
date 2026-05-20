@@ -3,8 +3,8 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import Ajv2020 from "ajv/dist/2020.js";
-import standaloneCode from "ajv/dist/standalone/index.js";
+import { Ajv2020, type AnySchema } from "ajv/dist/2020.js";
+import { standaloneCode } from "ajv/dist/standalone/index.js";
 
 const sourceUrl = "https://api.convex.dev/v1/openapi.json";
 const convexManagementOpenApiSchemaId =
@@ -45,7 +45,7 @@ if (!response.ok) {
 }
 
 const documentText = await response.text();
-const documentJson: unknown = JSON.parse(documentText);
+const documentJson = parseJsonSchemaDocument(documentText);
 const tempDir = mkdtempSync(path.join(tmpdir(), "noter-convex-openapi-"));
 const tempOpenApiPath = path.join(tempDir, "openapi.json");
 const ajv = new Ajv2020({
@@ -73,6 +73,21 @@ const validatorSchemaIds = {
   ajvConvexOAuthTokenResponse:
     "noter://convex-management-api/ConvexOAuthTokenResponse",
 };
+
+function parseJsonSchemaDocument(documentText: string): AnySchema {
+  const payload: unknown = JSON.parse(documentText);
+  if (isJsonSchemaDocument(payload)) {
+    return payload;
+  }
+  throw new Error(`${sourceUrl} did not return a JSON Schema document.`);
+}
+
+function isJsonSchemaDocument(payload: unknown): payload is AnySchema {
+  return (
+    typeof payload === "boolean" ||
+    (!!payload && typeof payload === "object" && !Array.isArray(payload))
+  );
+}
 
 try {
   writeFileSync(tempOpenApiPath, `${JSON.stringify(documentJson, null, 2)}\n`);

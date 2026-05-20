@@ -23,6 +23,9 @@ overrides:
   protobufjs: 7.5.8
   ws: 8.20.1
 
+patchedDependencies:
+  ajv@8.18.0: 1520dfda3a91b505a18bc6c6f1af247d934fb0350173bef2ebc8cccf7354f529
+
 importers:
 
   .:
@@ -303,7 +306,7 @@ importers:
         version: 6.0.1(vite@8.0.8(@types/node@20.19.32)(esbuild@0.27.3)(jiti@2.7.0)(yaml@2.8.3))
       ajv:
         specifier: 8.18.0
-        version: 8.18.0
+        version: 8.18.0(patch_hash=1520dfda3a91b505a18bc6c6f1af247d934fb0350173bef2ebc8cccf7354f529)
       convex-test:
         specifier: ^0.0.51
         version: 0.0.51(convex@1.39.1(react@19.2.4))
@@ -7384,8 +7387,8 @@ snapshots:
   '@modelcontextprotocol/sdk@1.29.0(zod@3.25.76)':
     dependencies:
       '@hono/node-server': 1.19.14(hono@4.12.18)
-      ajv: 8.18.0
-      ajv-formats: 3.0.1(ajv@8.18.0)
+      ajv: 8.18.0(patch_hash=1520dfda3a91b505a18bc6c6f1af247d934fb0350173bef2ebc8cccf7354f529)
+      ajv-formats: 3.0.1(ajv@8.18.0(patch_hash=1520dfda3a91b505a18bc6c6f1af247d934fb0350173bef2ebc8cccf7354f529))
       content-type: 1.0.5
       cors: 2.8.6
       cross-spawn: 7.0.6
@@ -7820,7 +7823,7 @@ snapshots:
       '@lezer/highlight': 1.2.3
       '@lezer/markdown': 1.6.3
       '@lezer/yaml': 1.0.4
-      ajv: 8.18.0
+      ajv: 8.18.0(patch_hash=1520dfda3a91b505a18bc6c6f1af247d934fb0350173bef2ebc8cccf7354f529)
       node-emoji: 2.2.0
 
   '@protobufjs/aspromise@1.1.2': {}
@@ -8748,9 +8751,9 @@ snapshots:
       '@opentelemetry/api': 1.9.0
       zod: 4.3.6
 
-  ajv-formats@3.0.1(ajv@8.18.0):
+  ajv-formats@3.0.1(ajv@8.18.0(patch_hash=1520dfda3a91b505a18bc6c6f1af247d934fb0350173bef2ebc8cccf7354f529)):
     optionalDependencies:
-      ajv: 8.18.0
+      ajv: 8.18.0(patch_hash=1520dfda3a91b505a18bc6c6f1af247d934fb0350173bef2ebc8cccf7354f529)
 
   ajv@6.15.0:
     dependencies:
@@ -8759,7 +8762,7 @@ snapshots:
       json-schema-traverse: 0.4.1
       uri-js: 4.4.1
 
-  ajv@8.18.0:
+  ajv@8.18.0(patch_hash=1520dfda3a91b505a18bc6c6f1af247d934fb0350173bef2ebc8cccf7354f529):
     dependencies:
       fast-deep-equal: 3.1.3
       fast-uri: 3.1.2

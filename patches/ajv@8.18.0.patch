@@ -1,0 +1,45 @@
+diff --git a/dist/standalone/index.d.ts b/dist/standalone/index.d.ts
+index a9141c3d2e4428c5739dc18deaea350cf047e774..664a0f68f1b7157d64fc834b8277e5c8d0ba42c4 100644
+--- a/dist/standalone/index.d.ts
++++ b/dist/standalone/index.d.ts
+@@ -1,6 +1,6 @@
+ import type AjvCore from "../core";
+ import type { AnyValidateFunction } from "../types";
+-declare function standaloneCode(ajv: AjvCore, refsOrFunc?: {
++export declare function standaloneCode(ajv: AjvCore, refsOrFunc?: {
+     [K in string]?: string;
+ } | AnyValidateFunction): string;
+ export default standaloneCode;
+diff --git a/dist/standalone/index.js b/dist/standalone/index.js
+index b44bb5db5c25b72748e6304e15ac588d3e4562a5..dea74bedbe89bb13ec6458bf6a56d310da7a4ae8 100644
+--- a/dist/standalone/index.js
++++ b/dist/standalone/index.js
+@@ -85,6 +85,7 @@ function standaloneCode(ajv, refsOrFunc) {
+     }
+ }
+ module.exports = exports = standaloneCode;
++module.exports.standaloneCode = standaloneCode;
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.default = standaloneCode;
+ //# sourceMappingURL=index.js.map
+diff --git a/lib/standalone/index.ts b/lib/standalone/index.ts
+index b6129ce9e5ebab51fe4f53ffa86dbacd12878ed9..d93e96f01d3bbf440edf5c23d259738c549c9c75 100644
+--- a/lib/standalone/index.ts
++++ b/lib/standalone/index.ts
+@@ -4,7 +4,7 @@ import type {SchemaEnv} from "../compile"
+ import {UsedScopeValues, UsedValueState, ValueScopeName, varKinds} from "../compile/codegen/scope"
+ import {_, nil, _Code, Code, getProperty, getEsmExportName} from "../compile/codegen/code"
+ 
+-function standaloneCode(
++export function standaloneCode(
+   ajv: AjvCore,
+   refsOrFunc?: {[K in string]?: string} | AnyValidateFunction
+ ): string {
+@@ -95,6 +95,7 @@ function standaloneCode(
+ }
+ 
+ module.exports = exports = standaloneCode
++module.exports.standaloneCode = standaloneCode
+ Object.defineProperty(exports, "__esModule", {value: true})
+ 
+ export default standaloneCode
