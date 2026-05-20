@@ -1845,16 +1845,12 @@ function renderVaultDashboardRepositoryStatus({
 }
 
 export function VaultSourceSetupSection({
-  repositoryFullName,
   sourceSetup,
-  vaultId,
 }: {
-  repositoryFullName: string;
   sourceSetup: Extract<
     VaultDashboardSourceSetup,
     { status: "failed" | "running" }
   >;
-  vaultId: Id<"vaults">;
 }) {
   const stepLabel = formatVaultSourceSetupStep(sourceSetup.step);
 
@@ -1867,12 +1863,7 @@ export function VaultSourceSetupSection({
           ? `Setup failed during ${stepLabel}: ${sourceSetup.message}`
           : undefined
       }
-    >
-      <VaultProvisioningLogTextarea
-        repositoryFullName={repositoryFullName}
-        vaultId={vaultId}
-      />
-    </VaultSetupProgressSection>
+    />
   );
 }
 
@@ -1884,7 +1875,7 @@ export function VaultSetupProgressSection({
   message,
   status,
 }: {
-  children: ReactNode;
+  children?: ReactNode;
   label: string;
   message?: string;
   status: VaultSetupProgressSectionStatus;
@@ -1906,15 +1897,11 @@ export function VaultSetupProgressSection({
 
 export function VaultProviderSetupSection({
   providerSetup,
-  repositoryFullName,
-  vaultId,
 }: {
   providerSetup: Extract<
     VaultDashboardProviderSetup,
     { status: "failed" | "running" }
   >;
-  repositoryFullName: string;
-  vaultId: Id<"vaults">;
 }) {
   const setupStatus = resolveVaultProviderSetupStatus(providerSetup);
   if (!setupStatus) {
@@ -1931,12 +1918,7 @@ export function VaultProviderSetupSection({
       status={setupStatus.status}
       label={setupStatus.label}
       message={failureMessage}
-    >
-      <VaultProvisioningLogTextarea
-        repositoryFullName={repositoryFullName}
-        vaultId={vaultId}
-      />
-    </VaultSetupProgressSection>
+    />
   );
 }
 
@@ -2114,29 +2096,30 @@ function VaultDashboardBody({
           filters: vaultBranchFilters,
           remoteBranches,
         });
+        const activeSourceSetup =
+          vault.sourceSetup.status === "failed" ||
+          vault.sourceSetup.status === "running"
+            ? vault.sourceSetup
+            : null;
+        const activeProviderSetup =
+          vault.providerSetup.status === "failed" ||
+          vault.providerSetup.status === "running"
+            ? vault.providerSetup
+            : null;
+        const hasProvisioningLog =
+          Boolean(activeSourceSetup || activeProviderSetup) ||
+          vault.isNoterManaged;
         const sourceSetupSection =
-          !isReady &&
-          (vault.sourceSetup.status === "failed" ||
-            vault.sourceSetup.status === "running") ? (
-            <VaultSourceSetupSection
-              repositoryFullName={vault.repositoryFullName}
-              sourceSetup={vault.sourceSetup}
-              vaultId={vault._id}
-            />
+          !isReady && activeSourceSetup ? (
+            <VaultSourceSetupSection sourceSetup={activeSourceSetup} />
           ) : undefined;
         const providerSetupStatus =
           isReady && vault.isNoterManaged
             ? resolveVaultProviderSetupStatus(vault.providerSetup)
             : null;
         const providerSetupSection =
-          providerSetupStatus &&
-          (vault.providerSetup.status === "failed" ||
-            vault.providerSetup.status === "running") ? (
-            <VaultProviderSetupSection
-              providerSetup={vault.providerSetup}
-              repositoryFullName={vault.repositoryFullName}
-              vaultId={vault._id}
-            />
+          providerSetupStatus && activeProviderSetup ? (
+            <VaultProviderSetupSection providerSetup={activeProviderSetup} />
           ) : undefined;
         const deleteBlockedSection =
           !isDeletingVault &&
@@ -2289,7 +2272,7 @@ function VaultDashboardBody({
                 ) : undefined
               }
               developerToolsSection={
-                isReady
+                isReady || hasProvisioningLog
                   ? {
                       open: developerToolsOpen,
                       visible: developerToolsVisible,
@@ -2298,35 +2281,37 @@ function VaultDashboardBody({
                       },
                       content: (
                         <>
-                          {CODESPACES_ENABLED ? (
+                          {isReady && CODESPACES_ENABLED ? (
                             <CodespaceStatus
                               vaultId={vault._id}
                               repositoryFullName={vault.repositoryFullName}
                             />
                           ) : null}
-                          {vault.isNoterManaged && (
+                          {hasProvisioningLog ? (
                             <div className="space-y-2">
-                              <div className="text-xs text-muted-foreground">
-                                {formatProviderSetupDeveloperLabel(
-                                  vault.providerSetup,
-                                )}
-                                {vault.cloudflareProductionUrl && (
-                                  <a
-                                    href={vault.cloudflareProductionUrl}
-                                    target="_blank"
-                                    rel="noreferrer noopener"
-                                    className={`ml-2 font-mono break-all ${linkStyle}`}
-                                  >
-                                    {vault.cloudflareProductionUrl}
-                                  </a>
-                                )}
-                              </div>
+                              {vault.isNoterManaged ? (
+                                <div className="text-xs text-muted-foreground">
+                                  {formatProviderSetupDeveloperLabel(
+                                    vault.providerSetup,
+                                  )}
+                                  {vault.cloudflareProductionUrl && (
+                                    <a
+                                      href={vault.cloudflareProductionUrl}
+                                      target="_blank"
+                                      rel="noreferrer noopener"
+                                      className={`ml-2 font-mono break-all ${linkStyle}`}
+                                    >
+                                      {vault.cloudflareProductionUrl}
+                                    </a>
+                                  )}
+                                </div>
+                              ) : null}
                               <VaultProvisioningLogTextarea
                                 repositoryFullName={vault.repositoryFullName}
                                 vaultId={vault._id}
                               />
                             </div>
-                          )}
+                          ) : null}
                         </>
                       ),
                     }

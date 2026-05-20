@@ -1,9 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { Id } from "../../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import type { ProvisioningLogEvent } from "@/lib/provisioningLog";
 import {
   VaultBranchLinkContent,
   VaultProviderSetupSection,
@@ -17,21 +16,11 @@ import {
 } from "./vaultProviderSetup";
 import { formatVaultSourceSetupStep } from "./vaultSourceSetup";
 
-const provisioningLogMock = vi.hoisted(
-  (): { events: ProvisioningLogEvent[] } => ({
-    events: [],
-  }),
-);
-
 vi.mock("convex/react", () => ({
   useAction: vi.fn(),
   useMutation: vi.fn(),
-  useQuery: () => provisioningLogMock.events,
+  useQuery: vi.fn(),
 }));
-
-beforeEach(() => {
-  provisioningLogMock.events = [];
-});
 
 function fakeVaultId(): Id<"vaults"> {
   // @ts-expect-error Convex ids are strings at runtime; this static render
@@ -169,16 +158,7 @@ describe("resolveVaultProviderSetupStatus", () => {
 });
 
 describe("VaultProviderSetupSection", () => {
-  it("renders provider progress with the provisioning log", () => {
-    provisioningLogMock.events = [
-      {
-        createdAt: Date.parse("2026-05-08T09:15:00Z"),
-        level: "info",
-        message: "Ensuring Convex project and production deployment.",
-        step: "ensure_convex",
-      },
-    ];
-
+  it("renders provider progress without the provisioning log", () => {
     const markup = renderToStaticMarkup(
       <VaultProviderSetupSection
         providerSetup={{
@@ -188,13 +168,11 @@ describe("VaultProviderSetupSection", () => {
           step: "ensure_convex",
           updatedAt: 0,
         }}
-        repositoryFullName="noter-md/noter-app"
-        vaultId={fakeVaultId()}
       />,
     );
 
     expect(markup).toContain("Convex: provisioning");
-    expect(markup).toContain("Ensuring Convex project");
+    expect(markup).not.toContain("Provisioning log");
     expect(markup).not.toContain("Provision infra");
     expect(markup).not.toContain("Retry infra");
   });
