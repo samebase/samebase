@@ -133,8 +133,8 @@ A vault is quiescent for deletion when:
    workflow
 
 The dashboard should disable delete with a short reason while a vault is not
-quiescent. A direct `?delete=` URL for a non-quiescent vault should show the
-current setup state and the same reason instead of opening the destructive
+quiescent. A direct `?delete#<vault>` URL for a non-quiescent vault should show
+the current setup state and the same reason instead of opening the destructive
 dialog.
 
 The queueing action must also enforce this rule. If a vault becomes
@@ -775,7 +775,11 @@ provisioning run is active.
 
 ## Dashboard Behavior
 
-The delete dialog remains route-owned by `?delete=<owner>/<repo>`.
+The delete dialog remains route-owned by a key-only `?delete` search flag plus
+the target vault hash, for example `/?delete#tmp-flow`. The hash resolves to the
+repo name when unique and `owner/repo` only when duplicate repo names require
+disambiguation. A `?delete` URL without a valid vault hash target is invalid and
+should be cleared.
 
 When the target vault is not deleting:
 
@@ -868,7 +872,8 @@ Phase 2 implementation note:
 1. Return deletion summaries from dashboard vault queries.
 2. Render deleting and failed-deletion card states.
 3. Update the delete dialog to close after queue acceptance.
-4. Make direct `?delete=` links no-op into the status card for deleting vaults.
+4. Make direct `?delete#<vault>` links no-op into the status card for deleting
+   vaults.
 5. Disable delete with a reason while source or provider setup is running.
 6. Gate staging, collaborative updates, branch refresh, Codespaces,
    infrastructure provisioning, source setup completion writes, AI prod access,
@@ -886,9 +891,9 @@ Phase 3 implementation note:
   deletion eligibility helper. It does not add persisted UI state.
 - Repo-backed code uses the live-vault invariant: connected GitHub state is not
   enough once `vault.deletion` is `deleting` or `delete_failed`.
-- Direct `?delete=` targets for deleting, failed-deletion, or non-quiescent
-  vaults scroll to the card status instead of opening a second destructive
-  dialog.
+- Direct `?delete#<vault>` targets for deleting, failed-deletion, or
+  non-quiescent vaults scroll to the card status instead of opening a second
+  destructive dialog.
 
 ## Testing Plan
 

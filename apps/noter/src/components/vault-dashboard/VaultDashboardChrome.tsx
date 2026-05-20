@@ -472,6 +472,7 @@ export function VaultDashboardRepositoryCard({
   setupSection,
   titleClassName,
   titleHref,
+  titleRepositoryOwnerVisible = false,
   titleSuffix,
   titleTarget,
   titleTitle,
@@ -494,6 +495,7 @@ export function VaultDashboardRepositoryCard({
   setupSection?: ReactNode;
   titleClassName?: string;
   titleHref?: string;
+  titleRepositoryOwnerVisible?: boolean;
   titleSuffix?: ReactNode;
   titleTarget?: string;
   titleTitle?: string;
@@ -509,9 +511,12 @@ export function VaultDashboardRepositoryCard({
     <h3 className="min-w-0 font-semibold leading-6">
       <span className="flex min-w-0 items-start gap-2">
         <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
-          <span className="font-normal text-muted-foreground">
-            {repositoryOwner}/
-          </span>
+          <span className="font-normal text-muted-foreground">#</span>
+          {titleRepositoryOwnerVisible ? (
+            <span className="font-normal text-muted-foreground">
+              {repositoryOwner}/
+            </span>
+          ) : null}
           <span>{repositoryName}</span>
         </span>
         {titleSuffix}

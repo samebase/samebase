@@ -863,6 +863,92 @@ describe("vault dashboard Convex contract", () => {
     });
   });
 
+  it("does not use the Convex team id as a display scope", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      await ctx.db.insert("providerConnections", {
+        kind: "convex",
+        userId,
+        auth: {
+          method: "api_key",
+          credential: "convex-management-token",
+        },
+        teamId: "38516",
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/demo",
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 10,
+        updatedAt: 30,
+        completedAt: 30,
+      });
+
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "demo",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+        convex: {
+          state: "connected",
+          projectId: "project-1",
+          projectSlug: "demo-project",
+          deploymentName: "demo-production",
+          connectedAt: 25,
+        },
+        cloudflare: { state: "not_configured" },
+      });
+      await ctx.db.insert("vaultBranchTrees", {
+        vaultId,
+        branch: "main",
+        treeSHA: "tree",
+        commitSHA: "commit",
+        treeData: {
+          sha: "tree",
+          truncated: false,
+          tree: [],
+        },
+        lastTreeRefreshAt: 29,
+      });
+
+      return { userId, vaultId };
+    });
+
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+
+    expect(vaults[0]?.convexProjectSlug).toBe("demo-project");
+    expect(vaults[0]?.convexTeamSlug).toBeUndefined();
+    expect(vaults[0]?.convexProjectSettingsDashboardUrl).toBeUndefined();
+    expect(vaults[0]?.convexDeploymentDashboardUrl).toBeUndefined();
+  });
+
   it("returns infrastructure domains in a stable display order", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {

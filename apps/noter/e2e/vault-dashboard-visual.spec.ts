@@ -29,6 +29,13 @@ async function expectElementsDoNotOverlap(first: Locator, second: Locator) {
     .toBe(true);
 }
 
+async function expectOptionalCheckboxUnchecked(locator: Locator) {
+  if ((await locator.count()) === 0) {
+    return;
+  }
+  await expect(locator).not.toBeChecked();
+}
+
 /**
  * expectElementInsideContainer checks boundingBox containment with 1px of
  * tolerance for sub-pixel layout rounding; missing boxes fail closed.
@@ -303,12 +310,33 @@ test("vault dashboard fixture (delete dialog)", async ({ page }) => {
   });
   await page.waitForLoadState("networkidle");
 
-  await expect(
-    page.getByRole("dialog", { name: "Remove Vault noter-md/noter" }),
-  ).toBeVisible();
+  const deleteDialog = page.getByRole("dialog", {
+    name: "Remove Vault noter-md/noter",
+  });
+  await expect(deleteDialog).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Remove Vault" }),
   ).toBeVisible();
+  await expect(
+    deleteDialog.getByRole("checkbox", {
+      name: "Also remove GitHub repository",
+    }),
+  ).not.toBeChecked();
+  await expectOptionalCheckboxUnchecked(
+    deleteDialog.getByRole("checkbox", {
+      name: /^Also remove all Codespaces/,
+    }),
+  );
+  await expect(
+    deleteDialog.getByRole("checkbox", {
+      name: "Also remove Convex project/deployment",
+    }),
+  ).not.toBeChecked();
+  await expect(
+    deleteDialog.getByRole("checkbox", {
+      name: "Also remove Cloudflare Worker",
+    }),
+  ).not.toBeChecked();
   await expect(page).toHaveScreenshot("vault-dashboard-delete-dialog.png", {
     animations: "disabled",
     caret: "hide",
@@ -336,12 +364,33 @@ test("vault dashboard fixture (delete dialog mobile)", async ({
   });
   await page.waitForLoadState("networkidle");
 
-  await expect(
-    page.getByRole("dialog", { name: "Remove Vault noter-md/noter" }),
-  ).toBeVisible();
+  const deleteDialog = page.getByRole("dialog", {
+    name: "Remove Vault noter-md/noter",
+  });
+  await expect(deleteDialog).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Remove Vault" }),
   ).toBeVisible();
+  await expect(
+    deleteDialog.getByRole("checkbox", {
+      name: "Also remove GitHub repository",
+    }),
+  ).not.toBeChecked();
+  await expectOptionalCheckboxUnchecked(
+    deleteDialog.getByRole("checkbox", {
+      name: /^Also remove all Codespaces/,
+    }),
+  );
+  await expect(
+    deleteDialog.getByRole("checkbox", {
+      name: "Also remove Convex project/deployment",
+    }),
+  ).not.toBeChecked();
+  await expect(
+    deleteDialog.getByRole("checkbox", {
+      name: "Also remove Cloudflare Worker",
+    }),
+  ).not.toBeChecked();
   await expect(page).toHaveScreenshot(
     "vault-dashboard-delete-dialog-mobile.png",
     {
@@ -414,7 +463,7 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
     name: "Remove vault noter-md/noter",
   });
   await expect(deleteLink).toBeVisible();
-  await expect(deleteLink).toHaveAttribute("href", "/?delete=noter-md%2Fnoter");
+  await expect(deleteLink).toHaveAttribute("href", "/?delete#noter");
   await expect(
     fixture.getByRole("link", { name: "Project settings" }),
   ).toBeVisible();
@@ -460,7 +509,7 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
     name: "Remove vault noter-md/noter",
   });
   await expect(deleteLink).toBeVisible();
-  await expect(deleteLink).toHaveAttribute("href", "/?delete=noter-md%2Fnoter");
+  await expect(deleteLink).toHaveAttribute("href", "/?delete#noter");
   await expect(
     fixture.getByRole("link", { name: "Project settings" }),
   ).toBeVisible();
@@ -515,7 +564,7 @@ test("vault dashboard fixture (bottom target can align at top)", async ({
     "[data-vault-dashboard-repository-header]",
   );
   const targetRepositoryLink = page.getByRole("link", {
-    name: "noter-md/noter-bottom-target",
+    name: "#noter-bottom-target",
     exact: true,
   });
   const targetLastBranchLink = page.getByRole("link", {
@@ -652,7 +701,7 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
     })
     .toBeLessThanOrEqual(1);
   await expect(
-    page.getByRole("link", { name: "noter-md/noter", exact: true }),
+    page.getByRole("link", { name: "#noter", exact: true }),
   ).toBeVisible();
   const branchExpansionButton = header.getByRole("button", {
     name: "Show less branches",
@@ -765,7 +814,7 @@ test("vault dashboard fixture (mobile branch alignment)", async ({ page }) => {
     name: "Remove vault noter-md/noter",
   });
   await expect(deleteLink).toBeVisible();
-  await expect(deleteLink).toHaveAttribute("href", "/?delete=noter-md%2Fnoter");
+  await expect(deleteLink).toHaveAttribute("href", "/?delete#noter");
   await expect(fixture).toHaveScreenshot("vault-branch-mobile-alignment.png", {
     animations: "disabled",
     caret: "hide",

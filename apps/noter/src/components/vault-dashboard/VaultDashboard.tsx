@@ -12,6 +12,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultProvisioningLogTextarea } from "@/components/vault-dashboard/VaultProvisioningLogTextarea";
+import { VaultResourceRail } from "@/components/vault-dashboard/VaultResourceRail";
+import { buildVaultDashboardResourceRailState } from "@/components/vault-dashboard/vaultResourceRailState";
+import {
+  buildVaultDashboardRepositoryHashHref,
+  buildVaultDashboardRepositoryHashId,
+  normalizeVaultDashboardRepositoryHash,
+} from "@/components/vault-dashboard/vaultDashboardRepositoryHash";
 import { ChevronDownIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
 import {
   CheckIcon,
@@ -342,22 +349,16 @@ function useVaultDashboardLocalStore() {
           state.createError === null ? state : { ...state, createError: null },
         );
       },
-      prepareDeleteDialog: ({
-        target,
-      }: {
-        target: VaultDeleteDialogTarget;
-      }) => {
+      prepareDeleteDialog: () => {
         setState((state) => ({
           ...state,
           commitError: null,
           deleteError: null,
           didAttemptCommit: false,
-          removeCodespaces: CODESPACES_ENABLED,
-          removeConvexProvision:
-            target.isNoterManaged && target.hasConvexProvision,
-          removeGithubRepo: target.canRemoveGithubRepo,
-          removeCloudflareProvision:
-            target.isNoterManaged && target.hasCloudflareProvision,
+          removeCodespaces: false,
+          removeConvexProvision: false,
+          removeGithubRepo: false,
+          removeCloudflareProvision: false,
         }));
       },
       markCommitAttempted: () => {
@@ -568,10 +569,12 @@ export function VaultDashboardDeleteControl({
   deleteAction,
   isRemovingVault = false,
   repositoryFullName,
+  repositoryHashId,
 }: {
   deleteAction: VaultDashboardDeleteAction;
   isRemovingVault?: boolean;
   repositoryFullName: string;
+  repositoryHashId: string;
 }) {
   const deleteTriggerDisabled =
     isRemovingVault || deleteAction.state === "disabled";
@@ -582,9 +585,10 @@ export function VaultDashboardDeleteControl({
     <span className="absolute right-4 top-4">
       <Link
         to="/"
+        hash={repositoryHashId}
         search={(currentSearch) => ({
           ...currentSearch,
-          delete: repositoryFullName,
+          delete: true,
         })}
         aria-label={`Remove vault ${repositoryFullName}`}
         title={title}
@@ -865,6 +869,12 @@ const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
     apiKeyProvider: null,
   },
 };
+
+const VAULT_DASHBOARD_SCROLLABLE_OVERFLOW_VALUES = new Set([
+  "auto",
+  "overlay",
+  "scroll",
+]);
 
 /**
  * Bridges provider OAuth popup callbacks back into the dashboard shell. Remove
@@ -1154,6 +1164,7 @@ interface VaultBranchLinkRowProps {
   vaultId?: Id<"vaults">;
   repositoryFullName: string;
   branch: VaultRemoteBranchListItem;
+  cloudflareProductionUrl?: string;
   productionDeploymentDashboardUrl?: string;
   stagedSummary?: StagedSummary;
 }
@@ -1183,43 +1194,6 @@ const REPOSITORY_EXTERNAL_LINK_ICONS: Record<
   convexProjectSettings: ConvexProviderLogo,
   github: GitHubProviderLogo,
 };
-
-function buildVaultDashboardRepositoryExternalLinks(args: {
-  cloudflareProjectDashboardUrl?: string;
-  convexProjectSettingsDashboardUrl?: string;
-  githubRepositoryUrl: string;
-}): VaultDashboardRepositoryExternalLink[] {
-  const links: VaultDashboardRepositoryExternalLink[] = [
-    {
-      href: args.githubRepositoryUrl,
-      key: "github",
-      label: "GitHub",
-      title: "Open GitHub repository",
-    },
-  ];
-
-  if (typeof args.cloudflareProjectDashboardUrl === "string") {
-    links.push({
-      href: args.cloudflareProjectDashboardUrl,
-      key: "cloudflare",
-      label: "Cloudflare",
-      title: "Open Cloudflare Worker",
-    });
-  }
-
-  if (typeof args.convexProjectSettingsDashboardUrl === "string") {
-    links.push({
-      href: args.convexProjectSettingsDashboardUrl,
-      key: "convexProjectSettings",
-      label: "Project settings",
-      title: "Open Convex project settings",
-    });
-  }
-
-  // buildVaultDashboardRepositoryExternalLinks always includes GitHub, but the
-  // title already links there; render this row only for additional dashboards.
-  return links.length > 1 ? links : [];
-}
 
 function buildVaultDashboardBranchEditRoute(args: {
   repositoryFullName: string;
@@ -1289,10 +1263,12 @@ export function VaultDashboardRepositoryExternalLinks({
 export function VaultBranchLinkContent({
   repositoryFullName,
   branch,
+  cloudflareProductionUrl,
   productionDeploymentDashboardUrl,
 }: {
   repositoryFullName: string;
   branch: VaultRemoteBranchListItem;
+  cloudflareProductionUrl?: string;
   productionDeploymentDashboardUrl?: string;
 }) {
   const commitUrl = `https://github.com/${repositoryFullName}/commit/${branch.headCommitSha}`;
@@ -1354,6 +1330,8 @@ export function VaultBranchLinkContent({
       branch.cloudflarePreviewPullRequestNumber,
     cloudflarePreviewStatus: branch.cloudflarePreviewStatus,
   });
+  const hasProductionUrlLink =
+    branch.isDefault && typeof cloudflareProductionUrl === "string";
   const hasProductionDeploymentLink =
     branch.isDefault && typeof productionDeploymentDashboardUrl === "string";
   const hasPreviewDeploymentLink =
@@ -1407,6 +1385,24 @@ export function VaultBranchLinkContent({
                 </span>
               </div>
             )
+          ) : null}
+          {hasProductionUrlLink ? (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+              <a
+                href={cloudflareProductionUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                className={clsx(metadataLinkClassName, "gap-1.5")}
+                title="Open production app"
+              >
+                <DashboardLinkIconSlot>
+                  <CloudflareProviderLogo />
+                </DashboardLinkIconSlot>
+                <span className="min-w-0 break-all">
+                  {cloudflareProductionUrl}
+                </span>
+              </a>
+            </div>
           ) : null}
           <a
             href={branchGithubUrl}
@@ -1588,6 +1584,7 @@ export function VaultBranchLinkRow({
   vaultId,
   repositoryFullName,
   branch,
+  cloudflareProductionUrl,
   productionDeploymentDashboardUrl,
   stagedSummary,
 }: VaultBranchLinkRowProps) {
@@ -1604,6 +1601,7 @@ export function VaultBranchLinkRow({
       <VaultBranchLinkContent
         repositoryFullName={repositoryFullName}
         branch={branch}
+        cloudflareProductionUrl={cloudflareProductionUrl}
         productionDeploymentDashboardUrl={productionDeploymentDashboardUrl}
       />
       {showRowActions ? (
@@ -1628,6 +1626,7 @@ interface VaultBranchListProps {
   vaultId: Id<"vaults">;
   repositoryFullName: string;
   remoteBranches: VaultRemoteBranchListItem[];
+  cloudflareProductionUrl?: string;
   productionDeploymentDashboardUrl?: string;
   expansion?: VaultBranchListExpansionProps;
 }
@@ -1677,6 +1676,7 @@ function VaultBranchList({
   vaultId,
   repositoryFullName,
   remoteBranches,
+  cloudflareProductionUrl,
   productionDeploymentDashboardUrl,
   expansion,
 }: VaultBranchListProps) {
@@ -1699,6 +1699,9 @@ function VaultBranchList({
           vaultId={vaultId}
           repositoryFullName={repositoryFullName}
           stagedSummary={summaryByBranch.get(branch.name)}
+          cloudflareProductionUrl={
+            branch.isDefault ? cloudflareProductionUrl : undefined
+          }
           productionDeploymentDashboardUrl={
             branch.isDefault ? productionDeploymentDashboardUrl : undefined
           }
@@ -1746,12 +1749,14 @@ export function VaultBranchHeaderControls({
 }
 
 function VaultBranchSection({
+  cloudflareProductionUrl,
   filteredBranchCount,
   productionDeploymentDashboardUrl,
   repositoryFullName,
   vaultId,
   visibleRemoteBranches,
 }: {
+  cloudflareProductionUrl?: string;
   filteredBranchCount: number;
   productionDeploymentDashboardUrl?: string;
   repositoryFullName: string;
@@ -1765,6 +1770,7 @@ function VaultBranchSection({
           vaultId={vaultId}
           repositoryFullName={repositoryFullName}
           remoteBranches={visibleRemoteBranches}
+          cloudflareProductionUrl={cloudflareProductionUrl}
           productionDeploymentDashboardUrl={productionDeploymentDashboardUrl}
         />
       ) : null}
@@ -1880,16 +1886,12 @@ function renderVaultDashboardRepositoryStatus({
 }
 
 export function VaultSourceSetupSection({
-  repositoryFullName,
   sourceSetup,
-  vaultId,
 }: {
-  repositoryFullName: string;
   sourceSetup: Extract<
     VaultDashboardSourceSetup,
     { status: "failed" | "running" }
   >;
-  vaultId: Id<"vaults">;
 }) {
   const stepLabel = formatVaultSourceSetupStep(sourceSetup.step);
 
@@ -1902,12 +1904,7 @@ export function VaultSourceSetupSection({
           ? `Setup failed during ${stepLabel}: ${sourceSetup.message}`
           : undefined
       }
-    >
-      <VaultProvisioningLogTextarea
-        repositoryFullName={repositoryFullName}
-        vaultId={vaultId}
-      />
-    </VaultSetupProgressSection>
+    />
   );
 }
 
@@ -1919,7 +1916,7 @@ export function VaultSetupProgressSection({
   message,
   status,
 }: {
-  children: ReactNode;
+  children?: ReactNode;
   label: string;
   message?: string;
   status: VaultSetupProgressSectionStatus;
@@ -1941,15 +1938,11 @@ export function VaultSetupProgressSection({
 
 export function VaultProviderSetupSection({
   providerSetup,
-  repositoryFullName,
-  vaultId,
 }: {
   providerSetup: Extract<
     VaultDashboardProviderSetup,
     { status: "failed" | "running" }
   >;
-  repositoryFullName: string;
-  vaultId: Id<"vaults">;
 }) {
   const setupStatus = resolveVaultProviderSetupStatus(providerSetup);
   if (!setupStatus) {
@@ -1966,12 +1959,7 @@ export function VaultProviderSetupSection({
       status={setupStatus.status}
       label={setupStatus.label}
       message={failureMessage}
-    >
-      <VaultProvisioningLogTextarea
-        repositoryFullName={repositoryFullName}
-        vaultId={vaultId}
-      />
-    </VaultSetupProgressSection>
+    />
   );
 }
 
@@ -2056,6 +2044,159 @@ type VaultDashboardBodyProps = {
   ) => void;
 };
 
+function findVaultDashboardCardScrollport(
+  element: HTMLElement,
+): HTMLElement | null {
+  let currentElement = element.parentElement;
+  while (currentElement) {
+    if (
+      VAULT_DASHBOARD_SCROLLABLE_OVERFLOW_VALUES.has(
+        window.getComputedStyle(currentElement).overflowY,
+      )
+    ) {
+      return currentElement;
+    }
+    currentElement = currentElement.parentElement;
+  }
+  return null;
+}
+
+function buildVaultDashboardRepositoryNameCounts(
+  vaults: VaultDashboardVault[],
+) {
+  const repositoryNameCounts = new Map<string, number>();
+  for (const vault of vaults) {
+    repositoryNameCounts.set(
+      vault.ghRepoName,
+      (repositoryNameCounts.get(vault.ghRepoName) ?? 0) + 1,
+    );
+  }
+
+  return repositoryNameCounts;
+}
+
+function buildVaultDashboardHashIdForVault({
+  repositoryNameCounts,
+  vault,
+}: {
+  repositoryNameCounts: ReadonlyMap<string, number>;
+  vault: VaultDashboardVault;
+}) {
+  return buildVaultDashboardRepositoryHashId({
+    hasDuplicateRepositoryName:
+      (repositoryNameCounts.get(vault.ghRepoName) ?? 0) > 1,
+    repositoryFullName: vault.repositoryFullName,
+    repositoryName: vault.ghRepoName,
+  });
+}
+
+function resolveVaultDashboardRepositoryFullNameForHash({
+  hash,
+  vaults,
+}: {
+  hash: string;
+  vaults: VaultDashboardVault[];
+}) {
+  const repositoryHash = normalizeVaultDashboardRepositoryHash(hash);
+  if (!repositoryHash) {
+    return undefined;
+  }
+
+  const repositoryNameCounts = buildVaultDashboardRepositoryNameCounts(vaults);
+  for (const vault of vaults) {
+    if (
+      buildVaultDashboardHashIdForVault({ repositoryNameCounts, vault }) ===
+      repositoryHash
+    ) {
+      return vault.repositoryFullName;
+    }
+  }
+
+  return undefined;
+}
+
+function scrollVaultDashboardCardIntoView(element: HTMLElement): boolean {
+  const scrollport = findVaultDashboardCardScrollport(element);
+  if (!scrollport) {
+    element.scrollIntoView({
+      block: "start",
+      inline: "nearest",
+    });
+    return Math.abs(element.getBoundingClientRect().top) <= 2;
+  }
+
+  const elementRect = element.getBoundingClientRect();
+  const scrollportRect = scrollport.getBoundingClientRect();
+  scrollport.scrollTop += elementRect.top - scrollportRect.top;
+  return (
+    Math.abs(element.getBoundingClientRect().top - scrollportRect.top) <= 2
+  );
+}
+
+// Keep vault hashes app-owned instead of DOM ids, so scrollspy URL updates
+// cannot trigger native anchor scrolling.
+function readVaultDashboardCardHashId(element: HTMLElement): string | null {
+  const hashId = element.dataset.vaultDashboardRepositoryHashId;
+  return hashId && hashId.length > 0 ? hashId : null;
+}
+
+function findVaultDashboardCardHeader(
+  element: HTMLElement,
+): HTMLElement | null {
+  const header = element.querySelector(
+    "[data-vault-dashboard-repository-header]",
+  );
+  return header instanceof HTMLElement ? header : null;
+}
+
+function resolveActiveVaultDashboardCardHashId({
+  cardElements,
+  scrollport,
+}: {
+  cardElements: Iterable<HTMLElement>;
+  scrollport: HTMLElement;
+}): string | null {
+  const scrollportRect = scrollport.getBoundingClientRect();
+  let closestVisibleHeader: {
+    distancePx: number;
+    hashId: string;
+  } | null = null;
+
+  for (const cardElement of cardElements) {
+    const hashId = readVaultDashboardCardHashId(cardElement);
+    if (!hashId) {
+      continue;
+    }
+
+    const headerElement = findVaultDashboardCardHeader(cardElement);
+    if (!headerElement) {
+      continue;
+    }
+
+    const headerRect = headerElement.getBoundingClientRect();
+    if (headerRect.height <= 0) {
+      continue;
+    }
+
+    const isHeaderFullyVisible =
+      headerRect.top >= scrollportRect.top &&
+      headerRect.bottom <= scrollportRect.bottom;
+    if (!isHeaderFullyVisible) {
+      continue;
+    }
+
+    const distancePx = Math.abs(headerRect.top - scrollportRect.top);
+    if (!closestVisibleHeader || distancePx < closestVisibleHeader.distancePx) {
+      closestVisibleHeader = {
+        distancePx,
+        hashId,
+      };
+    }
+  }
+
+  return closestVisibleHeader?.hashId ?? null;
+}
+
 function VaultDashboardBody({
   developerToolsVisible,
   isRemovingVault,
@@ -2071,8 +2212,118 @@ function VaultDashboardBody({
   onRetryVaultDeletion,
   onSaveVaultBranchFilters,
 }: VaultDashboardBodyProps) {
-  const deleteCardElementsRef = useRef(new Map<string, HTMLDivElement>());
+  const [repositoryLocationHash, setRepositoryLocationHash] = useState(() =>
+    typeof window === "undefined" ? "" : window.location.hash,
+  );
+  const vaultCardElementsRef = useRef(new Map<string, HTMLDivElement>());
   const lastScrolledDeleteRepositoryRef = useRef<string | null>(null);
+  const lastExplicitRepositoryHashScrollRef = useRef<string | null>(null);
+  const replaceRepositoryLocationHash = useCallback((hashId: string) => {
+    const nextHash = buildVaultDashboardRepositoryHashHref(hashId);
+    if (window.location.hash === nextHash) {
+      return;
+    }
+
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${window.location.search}${nextHash}`,
+    );
+    // Scroll tracking is address-bar state only. Hashchange handles explicit
+    // navigation; updating repositoryLocationHash here would feed scrollspy
+    // changes back into the "scroll to hash" path.
+  }, []);
+
+  useEffect(() => {
+    const syncRepositoryLocationHash = () => {
+      setRepositoryLocationHash(window.location.hash);
+    };
+    syncRepositoryLocationHash();
+    window.addEventListener("hashchange", syncRepositoryLocationHash);
+
+    return () => {
+      window.removeEventListener("hashchange", syncRepositoryLocationHash);
+    };
+  }, []);
+
+  const syncActiveRepositoryHash = useCallback(
+    (scrollport: HTMLElement) => {
+      const activeHashId = resolveActiveVaultDashboardCardHashId({
+        cardElements: vaultCardElementsRef.current.values(),
+        scrollport,
+      });
+      if (!activeHashId) {
+        return;
+      }
+
+      replaceRepositoryLocationHash(activeHashId);
+    },
+    [replaceRepositoryLocationHash],
+  );
+
+  const scrollVaultCardElementForHash = useCallback(
+    (vaultCardElement: HTMLDivElement) => {
+      const repositoryHash = normalizeVaultDashboardRepositoryHash(
+        repositoryLocationHash,
+      );
+      if (!repositoryHash) {
+        return false;
+      }
+
+      if (lastExplicitRepositoryHashScrollRef.current === repositoryHash) {
+        return false;
+      }
+
+      if (readVaultDashboardCardHashId(vaultCardElement) !== repositoryHash) {
+        return false;
+      }
+
+      // Direct hash loads resolve after vault data arrives, so anchor the
+      // selected card once the target element exists.
+      if (scrollVaultDashboardCardIntoView(vaultCardElement)) {
+        lastExplicitRepositoryHashScrollRef.current = repositoryHash;
+      }
+      return true;
+    },
+    [repositoryLocationHash],
+  );
+
+  useEffect(() => {
+    // The dashboard scrollport can be replaced while vault data settles; bind
+    // after each render so scroll tracking follows the current element.
+    const firstVaultCardElement = vaultCardElementsRef.current
+      .values()
+      .next().value;
+    if (!firstVaultCardElement) {
+      return;
+    }
+
+    const scrollport = findVaultDashboardCardScrollport(firstVaultCardElement);
+    if (!scrollport) {
+      return;
+    }
+
+    let pendingAnimationFrameId: number | null = null;
+    const handleScroll = () => {
+      if (pendingAnimationFrameId) {
+        return;
+      }
+
+      pendingAnimationFrameId = window.requestAnimationFrame(() => {
+        pendingAnimationFrameId = null;
+        syncActiveRepositoryHash(scrollport);
+      });
+    };
+
+    scrollport.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      scrollport.removeEventListener("scroll", handleScroll);
+      if (pendingAnimationFrameId) {
+        window.cancelAnimationFrame(pendingAnimationFrameId);
+      }
+    };
+  });
 
   useEffect(() => {
     if (!deleteRepositoryFullName) {
@@ -2084,25 +2335,44 @@ function VaultDashboardBody({
       return;
     }
 
-    const deleteCardElement = deleteCardElementsRef.current.get(
+    const deleteCardElement = vaultCardElementsRef.current.get(
       deleteRepositoryFullName,
     );
     if (!deleteCardElement) {
       return;
     }
 
-    // Direct ?delete= loads resolve after vault data arrives, so anchor the
-    // selected card once the target element exists.
-    deleteCardElement.scrollIntoView({
-      block: "start",
-      inline: "nearest",
-    });
+    // Direct ?delete#vault loads resolve after vault data arrives, so anchor
+    // the selected card once the target element exists.
+    scrollVaultDashboardCardIntoView(deleteCardElement);
     lastScrolledDeleteRepositoryRef.current = deleteRepositoryFullName;
   }, [deleteRepositoryFullName, vaults]);
+
+  useEffect(() => {
+    const repositoryHash = normalizeVaultDashboardRepositoryHash(
+      repositoryLocationHash,
+    );
+    if (!repositoryHash) {
+      lastExplicitRepositoryHashScrollRef.current = null;
+      return;
+    }
+
+    if (lastExplicitRepositoryHashScrollRef.current === repositoryHash) {
+      return;
+    }
+
+    for (const vaultCardElement of vaultCardElementsRef.current.values()) {
+      if (scrollVaultCardElementForHash(vaultCardElement)) {
+        return;
+      }
+    }
+  }, [repositoryLocationHash, scrollVaultCardElementForHash, vaults]);
 
   if (vaults.length === 0) {
     return <VaultDashboardEmptyState themeColorSearch={themeColorSearch} />;
   }
+
+  const repositoryNameCounts = buildVaultDashboardRepositoryNameCounts(vaults);
 
   return (
     <VaultDashboardRepositoryList>
@@ -2132,15 +2402,10 @@ function VaultDashboardBody({
         const developerToolsOpen =
           developerToolsVisible &&
           (openDeveloperToolsByVaultId[vault._id] ?? false);
-        const repositoryExternalLinks = isDeletingVault
-          ? []
-          : buildVaultDashboardRepositoryExternalLinks({
-              cloudflareProjectDashboardUrl:
-                vault.cloudflareProjectDashboardUrl,
-              convexProjectSettingsDashboardUrl:
-                vault.convexProjectSettingsDashboardUrl,
-              githubRepositoryUrl,
-            });
+        const resourceRailState = buildVaultDashboardResourceRailState({
+          githubRepositoryUrl,
+          vault,
+        });
         const sharedLastSyncedAt = vault.lastTreeRefreshAt;
         const treeRefreshUiState = getTreeRefreshUiState({
           now,
@@ -2154,29 +2419,30 @@ function VaultDashboardBody({
           filters: vaultBranchFilters,
           remoteBranches,
         });
+        const activeSourceSetup =
+          vault.sourceSetup.status === "failed" ||
+          vault.sourceSetup.status === "running"
+            ? vault.sourceSetup
+            : null;
+        const activeProviderSetup =
+          vault.providerSetup.status === "failed" ||
+          vault.providerSetup.status === "running"
+            ? vault.providerSetup
+            : null;
+        const hasProvisioningLog =
+          Boolean(activeSourceSetup || activeProviderSetup) ||
+          vault.isNoterManaged;
         const sourceSetupSection =
-          !isReady &&
-          (vault.sourceSetup.status === "failed" ||
-            vault.sourceSetup.status === "running") ? (
-            <VaultSourceSetupSection
-              repositoryFullName={vault.repositoryFullName}
-              sourceSetup={vault.sourceSetup}
-              vaultId={vault._id}
-            />
+          !isReady && activeSourceSetup ? (
+            <VaultSourceSetupSection sourceSetup={activeSourceSetup} />
           ) : undefined;
         const providerSetupStatus =
           isReady && vault.isNoterManaged
             ? resolveVaultProviderSetupStatus(vault.providerSetup)
             : null;
         const providerSetupSection =
-          providerSetupStatus &&
-          (vault.providerSetup.status === "failed" ||
-            vault.providerSetup.status === "running") ? (
-            <VaultProviderSetupSection
-              providerSetup={vault.providerSetup}
-              repositoryFullName={vault.repositoryFullName}
-              vaultId={vault._id}
-            />
+          providerSetupStatus && activeProviderSetup ? (
+            <VaultProviderSetupSection providerSetup={activeProviderSetup} />
           ) : undefined;
         const deleteBlockedSection =
           !isDeletingVault &&
@@ -2198,41 +2464,45 @@ function VaultDashboardBody({
           deleteBlockedSection ??
           sourceSetupSection ??
           providerSetupSection;
+        const repositoryHashId = buildVaultDashboardHashIdForVault({
+          repositoryNameCounts,
+          vault,
+        });
+        const titleRepositoryOwnerVisible =
+          (repositoryNameCounts.get(vault.ghRepoName) ?? 0) > 1;
 
         return (
           <div
             key={vault._id}
+            data-vault-dashboard-repository-hash-id={repositoryHashId}
             ref={(element) => {
               if (element) {
-                deleteCardElementsRef.current.set(
+                vaultCardElementsRef.current.set(
                   vault.repositoryFullName,
                   element,
                 );
+                scrollVaultCardElementForHash(element);
                 return;
               }
 
-              deleteCardElementsRef.current.delete(vault.repositoryFullName);
+              vaultCardElementsRef.current.delete(vault.repositoryFullName);
             }}
           >
             <VaultDashboardRepositoryCard
               isReady={isReady}
               repositoryOwner={vault.ghRepoOwner}
               repositoryName={vault.ghRepoName}
-              titleHref={isDeletingVault ? undefined : githubRepositoryUrl}
-              titleTarget={isDeletingVault ? undefined : "_blank"}
-              titleTitle={
-                isDeletingVault
-                  ? undefined
-                  : `Open ${vault.repositoryFullName} on GitHub`
-              }
-              titleClassName={isDeletingVault ? undefined : linkStyle}
+              titleRepositoryOwnerVisible={titleRepositoryOwnerVisible}
+              titleHref={buildVaultDashboardRepositoryHashHref(
+                repositoryHashId,
+              )}
+              titleTarget={undefined}
+              titleTitle="Link to vault"
+              titleClassName={undefined}
               repositoryLinks={
-                repositoryExternalLinks.length > 0 ? (
-                  <VaultDashboardRepositoryExternalLinks
-                    links={repositoryExternalLinks}
-                    repositoryFullName={vault.repositoryFullName}
-                  />
-                ) : undefined
+                isDeletingVault ? undefined : (
+                  <VaultResourceRail state={resourceRailState} />
+                )
               }
               titleSuffix={
                 deletion.state === "deleting" ? (
@@ -2268,6 +2538,7 @@ function VaultDashboardBody({
                 deletion.state === "not_deleting" ? (
                   <VaultDashboardDeleteControl
                     repositoryFullName={vault.repositoryFullName}
+                    repositoryHashId={repositoryHashId}
                     deleteAction={deletion.deleteAction}
                     isRemovingVault={isRemovingVault}
                   />
@@ -2329,6 +2600,7 @@ function VaultDashboardBody({
                     visibleRemoteBranches={
                       branchSectionState.visibleRemoteBranches
                     }
+                    cloudflareProductionUrl={vault.cloudflareProductionUrl}
                     productionDeploymentDashboardUrl={
                       vault.convexDeploymentDashboardUrl
                     }
@@ -2336,7 +2608,7 @@ function VaultDashboardBody({
                 ) : undefined
               }
               developerToolsSection={
-                isReady
+                isReady || hasProvisioningLog
                   ? {
                       open: developerToolsOpen,
                       visible: developerToolsVisible,
@@ -2345,35 +2617,27 @@ function VaultDashboardBody({
                       },
                       content: (
                         <>
-                          {CODESPACES_ENABLED ? (
+                          {isReady && CODESPACES_ENABLED ? (
                             <CodespaceStatus
                               vaultId={vault._id}
                               repositoryFullName={vault.repositoryFullName}
                             />
                           ) : null}
-                          {vault.isNoterManaged && (
+                          {hasProvisioningLog ? (
                             <div className="space-y-2">
-                              <div className="text-xs text-muted-foreground">
-                                {formatProviderSetupDeveloperLabel(
-                                  vault.providerSetup,
-                                )}
-                                {vault.cloudflareProductionUrl && (
-                                  <a
-                                    href={vault.cloudflareProductionUrl}
-                                    target="_blank"
-                                    rel="noreferrer noopener"
-                                    className={`ml-2 font-mono break-all ${linkStyle}`}
-                                  >
-                                    {vault.cloudflareProductionUrl}
-                                  </a>
-                                )}
-                              </div>
+                              {vault.isNoterManaged ? (
+                                <div className="text-xs text-muted-foreground">
+                                  {formatProviderSetupDeveloperLabel(
+                                    vault.providerSetup,
+                                  )}
+                                </div>
+                              ) : null}
                               <VaultProvisioningLogTextarea
                                 repositoryFullName={vault.repositoryFullName}
                                 vaultId={vault._id}
                               />
                             </div>
-                          )}
+                          ) : null}
                         </>
                       ),
                     }
@@ -2814,7 +3078,14 @@ export function VaultDashboard() {
   const dashboardAccountPanelOpen = dashboardSettings?.accountPanelOpen;
   const dashboardGlobalChatOpen = dashboardSettings?.globalChatOpen;
   const dashboardProvidersPanelOpen = dashboardSettings?.providersPanelOpen;
-  const deleteRepositoryFullName = rootRouteSearch.delete;
+  const deleteModeActive = rootRouteSearch.delete;
+  const deleteRepositoryFullName =
+    deleteModeActive && vaults
+      ? resolveVaultDashboardRepositoryFullNameForHash({
+          hash: location.hash,
+          vaults,
+        })
+      : undefined;
   const setVaultBranchFilters = useMutation(
     api.vault.dashboard.setVaultBranchFilters,
   ).withOptimisticUpdate((localStore, args) => {
@@ -2861,7 +3132,7 @@ export function VaultDashboard() {
   const preparedDeleteRepositoryRef = useRef<string | null>(null);
   // In-app delete icon clicks should close back to the dashboard entry that
   // existed before the modal; direct links should only replace the delete key.
-  const previousDeleteRepositoryFullNameRef = useRef(deleteRepositoryFullName);
+  const previousDeleteModeActiveRef = useRef(deleteModeActive);
   const shouldPopDeleteHistoryRef = useRef(false);
   const providerRuntimeConfig: Record<ProviderKey, ProviderRuntimeConfig> = {
     github: {
@@ -2992,7 +3263,7 @@ export function VaultDashboard() {
     ({ preferHistoryBack }: { preferHistoryBack: boolean }) => {
       const shouldPopDeleteRoute =
         preferHistoryBack &&
-        deleteRepositoryFullName &&
+        deleteModeActive &&
         shouldPopDeleteHistoryRef.current &&
         router.history.canGoBack();
       shouldPopDeleteHistoryRef.current = false;
@@ -3011,26 +3282,25 @@ export function VaultDashboard() {
         to: ".",
       });
     },
-    [deleteRepositoryFullName, navigate, router],
+    [deleteModeActive, navigate, router],
   );
 
   useEffect(() => {
-    const previousDeleteRepositoryFullName =
-      previousDeleteRepositoryFullNameRef.current;
-    if (!previousDeleteRepositoryFullName && deleteRepositoryFullName) {
+    const previousDeleteModeActive = previousDeleteModeActiveRef.current;
+    if (!previousDeleteModeActive && deleteModeActive) {
       shouldPopDeleteHistoryRef.current = true;
     }
-    if (!deleteRepositoryFullName) {
+    if (!deleteModeActive) {
       shouldPopDeleteHistoryRef.current = false;
     }
-    previousDeleteRepositoryFullNameRef.current = deleteRepositoryFullName;
+    previousDeleteModeActiveRef.current = deleteModeActive;
 
     if (!vaultToDelete) {
       if (preparedDeleteRepositoryRef.current) {
         preparedDeleteRepositoryRef.current = null;
         resetDeleteDialogState();
       }
-      if (deleteRepositoryFullName && vaults && !deleteDialogVault) {
+      if (deleteModeActive && vaults && !deleteDialogVault) {
         clearDeleteSearchParam({ preferHistoryBack: false });
       }
       return;
@@ -3044,10 +3314,11 @@ export function VaultDashboard() {
 
     // The URL owns which vault is targeted; local state only seeds editable
     // cleanup options when that routed target changes.
-    prepareDeleteDialog({ target: vaultToDelete });
+    prepareDeleteDialog();
     preparedDeleteRepositoryRef.current = vaultToDelete.repositoryFullName;
   }, [
     clearDeleteSearchParam,
+    deleteModeActive,
     deleteRepositoryFullName,
     prepareDeleteDialog,
     resetDeleteDialogState,
@@ -3461,7 +3732,7 @@ export function VaultDashboard() {
     ? `Connected as ${githubConnection.username ?? "GitHub user"} (${formatAuthMethod(githubConnection.authMethod)})`
     : "Not connected";
   const convexStatus = convexConnected
-    ? `Connected to ${convexConnection.teamSlug ?? convexConnection.teamId ?? "Convex team"} (${formatAuthMethod(convexConnection.authMethod)})`
+    ? `Connected to ${convexConnection.teamSlug ?? "Convex"} (${formatAuthMethod(convexConnection.authMethod)})`
     : "Not connected";
   const cloudflareMcpTokenTimeStatus =
     cloudflareConnection?.authMethod === "mcp_oauth"

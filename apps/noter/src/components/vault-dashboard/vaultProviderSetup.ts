@@ -8,6 +8,10 @@ export type VaultDashboardProviderSetupProvider = Extract<
   VaultDashboardProviderSetup,
   { status: "failed" | "running" }
 >["provider"];
+export type VaultDashboardProviderSetupStep = Extract<
+  VaultDashboardProviderSetup,
+  { status: "failed" | "running" }
+>["step"];
 
 export type VaultProviderSetupStatus =
   | {
@@ -33,6 +37,38 @@ export function formatVaultProviderSetupProvider(
   return provider;
 }
 
+export function resolveVaultProviderSetupStepProvider(
+  providerSetup: VaultDashboardProviderSetup,
+): VaultDashboardProviderSetupProvider | null {
+  if (providerSetup.status !== "failed" && providerSetup.status !== "running") {
+    return null;
+  }
+
+  switch (providerSetup.step) {
+    case "validate_connections":
+    case "claim_infra":
+      return providerSetup.provider;
+    case "ensure_convex":
+    case "ensure_convex_preview":
+      return "convex";
+    case "ensure_cloudflare":
+    case "record_domains":
+      return "cloudflare";
+    case "run_created":
+    case "initialize_vault":
+    case "create_github_repo":
+    case "fetch_github_repo":
+    case "connect_github":
+    case "create_vault":
+    case "seed_starter":
+    case "sync_tree":
+    case "finish":
+      return null;
+  }
+  providerSetup.step satisfies never;
+  return null;
+}
+
 export function resolveVaultProviderSetupStatus(
   providerSetup: VaultDashboardProviderSetup,
 ): VaultProviderSetupStatus | null {
@@ -40,17 +76,25 @@ export function resolveVaultProviderSetupStatus(
     case "not_applicable":
     case "ready":
       return null;
-    case "running":
+    case "running": {
+      const provider =
+        resolveVaultProviderSetupStepProvider(providerSetup) ??
+        providerSetup.provider;
       return {
         status: "running",
-        label: `${formatVaultProviderSetupProvider(providerSetup.provider)}: provisioning`,
+        label: `${formatVaultProviderSetupProvider(provider)}: provisioning`,
       };
-    case "failed":
+    }
+    case "failed": {
+      const provider =
+        resolveVaultProviderSetupStepProvider(providerSetup) ??
+        providerSetup.provider;
       return {
         status: "failed",
-        label: `${formatVaultProviderSetupProvider(providerSetup.provider)}: failed`,
-        message: `${formatVaultProviderSetupProvider(providerSetup.provider)} setup failed.`,
+        label: `${formatVaultProviderSetupProvider(provider)}: failed`,
+        message: `${formatVaultProviderSetupProvider(provider)} setup failed.`,
       };
+    }
   }
 
   providerSetup satisfies never;

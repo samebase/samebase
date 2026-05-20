@@ -29,12 +29,13 @@ describe("tanstackSearchParams", () => {
   it("serializes known presence flags by key presence", () => {
     expect(
       stringifyTanStackSearch({
+        delete: "noter-md/noter",
         dev: false,
         diff: 0,
         freeView: "false",
         openedByCli: null,
       }),
-    ).toBe("?dev&diff&freeView");
+    ).toBe("?delete&dev&diff&freeView");
   });
 
   it("builds paths with normalized app search and hash strings", () => {

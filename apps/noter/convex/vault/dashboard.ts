@@ -670,7 +670,10 @@ const getUserVaultsResult = array(
       }),
     ),
     cloudflareProductionUrl: optional(string()),
+    cloudflareWorkerName: optional(string()),
     cloudflareProjectDashboardUrl: optional(string()),
+    convexTeamSlug: optional(string()),
+    convexProjectSlug: optional(string()),
     convexProjectSettingsDashboardUrl: optional(string()),
     convexDeploymentDashboardUrl: optional(string()),
   }),
@@ -738,7 +741,10 @@ export const getUserVaults = query({
         hasCloudflareProvision: false,
         remoteBranches: [],
         cloudflareProductionUrl: undefined,
+        cloudflareWorkerName: undefined,
         cloudflareProjectDashboardUrl: undefined,
+        convexTeamSlug: undefined,
+        convexProjectSlug: undefined,
         convexProjectSettingsDashboardUrl: undefined,
         convexDeploymentDashboardUrl: undefined,
       });
@@ -775,7 +781,10 @@ export const getUserVaults = query({
             hasCloudflareProvision: vault.cloudflare.state === "connected",
             remoteBranches: [],
             cloudflareProductionUrl: undefined,
+            cloudflareWorkerName: undefined,
             cloudflareProjectDashboardUrl: undefined,
+            convexTeamSlug: undefined,
+            convexProjectSlug: undefined,
             convexProjectSettingsDashboardUrl: undefined,
             convexDeploymentDashboardUrl: undefined,
           };
@@ -893,8 +902,11 @@ export const getUserVaults = query({
                   : undefined,
             })),
           cloudflareProductionUrl: connectedCloudflare?.productionUrl,
+          cloudflareWorkerName: connectedCloudflare?.workerName,
           cloudflareProjectDashboardUrl:
             buildCloudflareWorkerDashboardUrl(connectedCloudflare),
+          convexTeamSlug: convexTeamDashboardSlug,
+          convexProjectSlug,
           convexProjectSettingsDashboardUrl:
             buildConvexProjectSettingsDashboardUrl({
               projectSlug: convexProjectSlug,

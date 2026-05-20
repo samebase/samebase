@@ -23,16 +23,22 @@ function removeVaultControl(page: Page, repoName: string): Locator {
 }
 
 function vaultCard(page: Page, repoName: string): Locator {
-  return removeVaultControl(page, repoName).locator(
-    "xpath=ancestor::div[contains(@class, 'corner-notch-1')][1]",
-  );
+  return page
+    .getByRole("link", {
+      name: new RegExp(
+        `^#${escapeRegExp(repoName)}(?: \\(deleting\\.\\.\\.\\))?$`,
+      ),
+    })
+    .locator(
+      "xpath=ancestor::div[.//button[normalize-space(.)='Developer tools']][1]",
+    );
 }
 
 async function createAppIfAvailable(
   page: Page,
   repoName: string,
 ): Promise<void> {
-  const repositoryNameInput = page.getByPlaceholder("New App name");
+  const repositoryNameInput = page.getByPlaceholder("GitHub repo name");
   const createError = page.locator(".text-red-600").last();
   await expect(repositoryNameInput).toBeVisible({ timeout: 15_000 });
 
@@ -71,19 +77,28 @@ async function removeTemporaryVault(
 
   const removeDialog = page.getByRole("dialog");
   await expect(removeDialog).toBeVisible({ timeout: 15_000 });
-  await expect(page).toHaveURL(/(?:\?|&)delete=/);
+  await expect(page).toHaveURL(/(?:\?|&)delete(?:&|#|$)/);
 
-  const removeGithubRepositoryCheckbox = removeDialog.getByLabel(
+  const cleanupCheckboxLabels = [
     "Also remove GitHub repository",
-  );
-  if ((await removeGithubRepositoryCheckbox.count()) > 0) {
-    await expect(removeGithubRepositoryCheckbox).toBeChecked();
+    /^Also remove all Codespaces/,
+    "Also remove Convex project/deployment",
+    "Also remove Cloudflare Worker",
+  ];
+  for (const label of cleanupCheckboxLabels) {
+    const cleanupCheckbox = removeDialog.getByRole("checkbox", {
+      name: label,
+    });
+    if ((await cleanupCheckbox.count()) > 0) {
+      await expect(cleanupCheckbox).not.toBeChecked();
+      await cleanupCheckbox.click();
+    }
   }
 
   await removeDialog.getByRole("button", { name: "Remove Vault" }).click();
   await expect(removeDialog).not.toBeVisible({ timeout: 120_000 });
   await expect(page).toHaveURL(/(?:\?|&)dev(?:[=&]|&|#|$)/);
-  await expect(page).not.toHaveURL(/(?:\?|&)delete=/);
+  await expect(page).not.toHaveURL(/(?:\?|&)delete(?:&|#|$)/);
   await expect(removeControl).toHaveCount(0, { timeout: 120_000 });
 }
 
@@ -92,6 +107,7 @@ test.describe("vault create app live flow", () => {
     page,
   }, testInfo) => {
     test.slow();
+    test.setTimeout(240_000);
     test.skip(
       testInfo.project.name !== "chromium-desktop",
       "This live test mutates external state, so it runs once on the desktop project.",
