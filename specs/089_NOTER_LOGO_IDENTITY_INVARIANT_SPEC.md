@@ -8,7 +8,6 @@
 - Related files: `apps/noter/src/components/logo/logoStaticSvgContract.ts`,
   `apps/noter/src/components/logo/logoStaticSvgAsset.ts`,
   `apps/noter/src/components/logo/logoLeftFaceStyle.ts`,
-  `apps/noter/public/logo-interactive.svg`,
   `apps/noter/public/logo-v1-side-primary.svg`,
   `apps/noter/public/logo-v2-side-diagonal.svg`,
   `apps/noter/public/logo-static.svg`,
@@ -95,9 +94,6 @@ the same stripe phase.
 - `/logo-v2-side-diagonal.svg` is the version 2 side-diagonal mark.
 - `/logo-static.svg` is the version 3 spatial mark and remains the canonical
   public static logo.
-- `/logo-interactive.svg` wraps those same generated views for inline HTML use:
-  default shows version 1, hover shows version 2, and active pointer press shows
-  version 3.
 
 Small favicons remain browser-chrome assets. They are not the identity source
 for product UI icons unless the product explicitly wants the favicon treatment.

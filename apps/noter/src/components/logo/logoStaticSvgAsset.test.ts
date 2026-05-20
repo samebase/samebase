@@ -2,12 +2,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
-  createInteractiveLogoSvgMarkup,
   createLogoIdentityViewSvgMarkup,
   createStaticLogoSvgMarkup,
 } from "@/components/logo/logoStaticSvgAsset";
 import {
-  INTERACTIVE_LOGO_SVG_URL,
   LOGO_IDENTITY_EDIT_MARK_SVG_URL,
   LOGO_IDENTITY_VIEW_CONTRACTS,
   STATIC_LOGO_ELEVATION_DEGREES,
@@ -94,31 +92,5 @@ describe("logoStaticSvgAsset", () => {
 
       expect(committedSvg).toBe(generatedSvg);
     }
-  });
-
-  it("keeps the interactive logo svg in sync with the generated identity states", () => {
-    const committedSvg = readPublicAsset(INTERACTIVE_LOGO_SVG_URL);
-    const generatedSvg = createInteractiveLogoSvgMarkup()
-      .replace(/\r\n/g, "\n")
-      .trim();
-
-    expect(committedSvg).toBe(generatedSvg);
-  });
-
-  it("switches the interactive logo from version 1 to version 2 on hover and version 3 while active", () => {
-    const generatedSvg = createInteractiveLogoSvgMarkup();
-
-    expect(generatedSvg).toContain('data-logo-view="side-primary"');
-    expect(generatedSvg).toContain('data-logo-version="1"');
-    expect(generatedSvg).toContain('data-logo-view="side-diagonal"');
-    expect(generatedSvg).toContain('data-logo-version="2"');
-    expect(generatedSvg).toContain('data-logo-view="spatial"');
-    expect(generatedSvg).toContain('data-logo-version="3"');
-    expect(generatedSvg).toContain(
-      ".noter-logo-interactive-svg:hover .noter-logo-state-v2",
-    );
-    expect(generatedSvg).toContain(
-      ".noter-logo-interactive-svg:active .noter-logo-state-v3",
-    );
   });
 });
