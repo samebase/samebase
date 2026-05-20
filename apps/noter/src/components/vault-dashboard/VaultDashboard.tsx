@@ -872,6 +872,12 @@ const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
   },
 };
 
+const VAULT_DASHBOARD_SCROLLABLE_OVERFLOW_VALUES = new Set([
+  "auto",
+  "overlay",
+  "scroll",
+]);
+
 /**
  * Bridges provider OAuth popup callbacks back into the dashboard shell. Remove
  * this hook by replacing popup OAuth with redirect flow, or by routing callback
@@ -2040,6 +2046,40 @@ type VaultDashboardBodyProps = {
   ) => void;
 };
 
+function findVaultDashboardCardScrollport(
+  element: HTMLElement,
+): HTMLElement | null {
+  let currentElement = element.parentElement;
+  while (currentElement) {
+    if (
+      VAULT_DASHBOARD_SCROLLABLE_OVERFLOW_VALUES.has(
+        window.getComputedStyle(currentElement).overflowY,
+      )
+    ) {
+      return currentElement;
+    }
+    currentElement = currentElement.parentElement;
+  }
+  return null;
+}
+
+function scrollVaultDashboardCardIntoView(element: HTMLElement) {
+  window.requestAnimationFrame(() => {
+    const scrollport = findVaultDashboardCardScrollport(element);
+    if (!scrollport) {
+      element.scrollIntoView({
+        block: "start",
+        inline: "nearest",
+      });
+      return;
+    }
+
+    const elementRect = element.getBoundingClientRect();
+    const scrollportRect = scrollport.getBoundingClientRect();
+    scrollport.scrollTop += elementRect.top - scrollportRect.top;
+  });
+}
+
 function VaultDashboardBody({
   developerToolsVisible,
   isRemovingVault,
@@ -2055,10 +2095,50 @@ function VaultDashboardBody({
   onRetryVaultDeletion,
   onSaveVaultBranchFilters,
 }: VaultDashboardBodyProps) {
-  const location = useLocation();
+  const [repositoryLocationHash, setRepositoryLocationHash] = useState(() =>
+    typeof window === "undefined" ? "" : window.location.hash,
+  );
   const vaultCardElementsRef = useRef(new Map<string, HTMLDivElement>());
   const lastScrolledDeleteRepositoryRef = useRef<string | null>(null);
   const lastScrolledRepositoryHashRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const syncRepositoryLocationHash = () => {
+      setRepositoryLocationHash(window.location.hash);
+    };
+    syncRepositoryLocationHash();
+    window.addEventListener("hashchange", syncRepositoryLocationHash);
+
+    return () => {
+      window.removeEventListener("hashchange", syncRepositoryLocationHash);
+    };
+  }, []);
+
+  const scrollVaultCardElementForHash = useCallback(
+    (vaultCardElement: HTMLDivElement) => {
+      const repositoryHash = normalizeVaultDashboardRepositoryHash(
+        repositoryLocationHash,
+      );
+      if (!repositoryHash) {
+        return false;
+      }
+
+      if (lastScrolledRepositoryHashRef.current === repositoryHash) {
+        return false;
+      }
+
+      if (vaultCardElement.id !== repositoryHash) {
+        return false;
+      }
+
+      // Direct hash loads resolve after vault data arrives, so anchor the
+      // selected card once the target element exists.
+      scrollVaultDashboardCardIntoView(vaultCardElement);
+      lastScrolledRepositoryHashRef.current = repositoryHash;
+      return true;
+    },
+    [repositoryLocationHash],
+  );
 
   useEffect(() => {
     if (!deleteRepositoryFullName) {
@@ -2079,15 +2159,14 @@ function VaultDashboardBody({
 
     // Direct ?delete= loads resolve after vault data arrives, so anchor the
     // selected card once the target element exists.
-    deleteCardElement.scrollIntoView({
-      block: "start",
-      inline: "nearest",
-    });
+    scrollVaultDashboardCardIntoView(deleteCardElement);
     lastScrolledDeleteRepositoryRef.current = deleteRepositoryFullName;
   }, [deleteRepositoryFullName, vaults]);
 
   useEffect(() => {
-    const repositoryHash = normalizeVaultDashboardRepositoryHash(location.hash);
+    const repositoryHash = normalizeVaultDashboardRepositoryHash(
+      repositoryLocationHash,
+    );
     if (!repositoryHash) {
       lastScrolledRepositoryHashRef.current = null;
       return;
@@ -2098,23 +2177,22 @@ function VaultDashboardBody({
     }
 
     for (const vaultCardElement of vaultCardElementsRef.current.values()) {
-      if (vaultCardElement.id !== repositoryHash) {
-        continue;
+      if (scrollVaultCardElementForHash(vaultCardElement)) {
+        return;
       }
-
-      // Direct hash loads resolve after vault data arrives, so anchor the
-      // selected card once the target element exists.
-      vaultCardElement.scrollIntoView({
-        block: "start",
-        inline: "nearest",
-      });
-      lastScrolledRepositoryHashRef.current = repositoryHash;
-      return;
     }
-  }, [location.hash, vaults]);
+  }, [repositoryLocationHash, scrollVaultCardElementForHash, vaults]);
 
   if (vaults.length === 0) {
     return <VaultDashboardEmptyState themeColorSearch={themeColorSearch} />;
+  }
+
+  const repositoryNameCounts = new Map<string, number>();
+  for (const vault of vaults) {
+    repositoryNameCounts.set(
+      vault.ghRepoName,
+      (repositoryNameCounts.get(vault.ghRepoName) ?? 0) + 1,
+    );
   }
 
   return (
@@ -2207,9 +2285,12 @@ function VaultDashboardBody({
           deleteBlockedSection ??
           sourceSetupSection ??
           providerSetupSection;
-        const repositoryHashId = buildVaultDashboardRepositoryHashId(
-          vault.repositoryFullName,
-        );
+        const repositoryHashId = buildVaultDashboardRepositoryHashId({
+          hasDuplicateRepositoryName:
+            (repositoryNameCounts.get(vault.ghRepoName) ?? 0) > 1,
+          repositoryFullName: vault.repositoryFullName,
+          repositoryName: vault.ghRepoName,
+        });
 
         return (
           <div
@@ -2221,6 +2302,7 @@ function VaultDashboardBody({
                   vault.repositoryFullName,
                   element,
                 );
+                scrollVaultCardElementForHash(element);
                 return;
               }
 

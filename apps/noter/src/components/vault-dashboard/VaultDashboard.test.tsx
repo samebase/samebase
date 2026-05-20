@@ -117,10 +117,21 @@ describe("VaultBranchLinkContent", () => {
 });
 
 describe("VaultDashboardRepositoryCard", () => {
-  it("builds readable repository hash ids", () => {
-    expect(buildVaultDashboardRepositoryHashId("nicu-chiciuc/tmp-flow")).toBe(
-      "vault-nicu-chiciuc~2Ftmp-flow",
-    );
+  it("uses the repo name hash until the dashboard has duplicates", () => {
+    expect(
+      buildVaultDashboardRepositoryHashId({
+        hasDuplicateRepositoryName: false,
+        repositoryFullName: "nicu-chiciuc/tmp-flow",
+        repositoryName: "tmp-flow",
+      }),
+    ).toBe("tmp-flow");
+    expect(
+      buildVaultDashboardRepositoryHashId({
+        hasDuplicateRepositoryName: true,
+        repositoryFullName: "nicu-chiciuc/tmp-flow",
+        repositoryName: "tmp-flow",
+      }),
+    ).toBe("nicu-chiciuc/tmp-flow");
   });
 
   it("keeps the repository title passive when no title href is provided", () => {
