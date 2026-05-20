@@ -219,8 +219,8 @@ export function buildVaultDashboardResourceRailState({
       provider: "convex",
       status: "action_required",
       actions: [
-        { kind: "connect_existing", label: "Connect" },
-        { kind: "create_new", label: "Create" },
+        { kind: "connect_existing", label: "Connect", disabled: true },
+        { kind: "create_new", label: "Create", disabled: true },
       ],
     };
   }
@@ -285,8 +285,8 @@ export function buildVaultDashboardResourceRailState({
       provider: "cloudflare",
       status: "action_required",
       actions: [
-        { kind: "connect_existing", label: "Connect" },
-        { kind: "create_new", label: "Create Worker" },
+        { kind: "connect_existing", label: "Connect", disabled: true },
+        { kind: "create_new", label: "Create Worker", disabled: true },
       ],
     };
   }

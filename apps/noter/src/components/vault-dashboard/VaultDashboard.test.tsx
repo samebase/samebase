@@ -304,10 +304,18 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(state.rows[1]).toMatchObject({
       provider: "convex",
       status: "action_required",
+      actions: [
+        { kind: "connect_existing", disabled: true },
+        { kind: "create_new", disabled: true },
+      ],
     });
     expect(state.rows[2]).toMatchObject({
       provider: "cloudflare",
       status: "action_required",
+      actions: [
+        { kind: "connect_existing", disabled: true },
+        { kind: "create_new", disabled: true },
+      ],
     });
   });
 
