@@ -672,7 +672,7 @@ const getUserVaultsResult = array(
     cloudflareProductionUrl: optional(string()),
     cloudflareWorkerName: optional(string()),
     cloudflareProjectDashboardUrl: optional(string()),
-    convexTeamLabel: optional(string()),
+    convexTeamSlug: optional(string()),
     convexProjectSlug: optional(string()),
     convexProjectSettingsDashboardUrl: optional(string()),
     convexDeploymentDashboardUrl: optional(string()),
@@ -702,10 +702,6 @@ export const getUserVaults = query({
     const convexTeamDashboardSlug =
       convexConnection?.kind === "convex"
         ? convexConnection.teamSlug
-        : undefined;
-    const convexTeamLabel =
-      convexConnection?.kind === "convex"
-        ? (convexConnection.teamSlug ?? convexConnection.teamId)
         : undefined;
 
     // Pre-GitHub vaults render as non-ready cards; repo-backed controls stay
@@ -747,7 +743,7 @@ export const getUserVaults = query({
         cloudflareProductionUrl: undefined,
         cloudflareWorkerName: undefined,
         cloudflareProjectDashboardUrl: undefined,
-        convexTeamLabel: undefined,
+        convexTeamSlug: undefined,
         convexProjectSlug: undefined,
         convexProjectSettingsDashboardUrl: undefined,
         convexDeploymentDashboardUrl: undefined,
@@ -787,7 +783,7 @@ export const getUserVaults = query({
             cloudflareProductionUrl: undefined,
             cloudflareWorkerName: undefined,
             cloudflareProjectDashboardUrl: undefined,
-            convexTeamLabel: undefined,
+            convexTeamSlug: undefined,
             convexProjectSlug: undefined,
             convexProjectSettingsDashboardUrl: undefined,
             convexDeploymentDashboardUrl: undefined,
@@ -909,7 +905,7 @@ export const getUserVaults = query({
           cloudflareWorkerName: connectedCloudflare?.workerName,
           cloudflareProjectDashboardUrl:
             buildCloudflareWorkerDashboardUrl(connectedCloudflare),
-          convexTeamLabel,
+          convexTeamSlug: convexTeamDashboardSlug,
           convexProjectSlug,
           convexProjectSettingsDashboardUrl:
             buildConvexProjectSettingsDashboardUrl({

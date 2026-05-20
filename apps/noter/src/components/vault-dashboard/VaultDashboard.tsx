@@ -3738,7 +3738,7 @@ export function VaultDashboard() {
     ? `Connected as ${githubConnection.username ?? "GitHub user"} (${formatAuthMethod(githubConnection.authMethod)})`
     : "Not connected";
   const convexStatus = convexConnected
-    ? `Connected to ${convexConnection.teamSlug ?? convexConnection.teamId ?? "Convex team"} (${formatAuthMethod(convexConnection.authMethod)})`
+    ? `Connected to ${convexConnection.teamSlug ?? "Convex"} (${formatAuthMethod(convexConnection.authMethod)})`
     : "Not connected";
   const cloudflareMcpTokenTimeStatus =
     cloudflareConnection?.authMethod === "mcp_oauth"

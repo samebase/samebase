@@ -117,7 +117,7 @@ export function buildVaultDashboardResourceRailState({
   const sourceSetupProvider = resolveSourceSetupResourceProvider(
     vault.sourceSetup,
   );
-  const convexProjectScope = normalizeResourceScope(vault.convexTeamLabel);
+  const convexProjectScope = normalizeResourceScope(vault.convexTeamSlug);
   const cloudflareWorkerScope = resolveCloudflareWorkersSubdomain({
     productionUrl: vault.cloudflareProductionUrl,
     workerName: vault.cloudflareWorkerName,

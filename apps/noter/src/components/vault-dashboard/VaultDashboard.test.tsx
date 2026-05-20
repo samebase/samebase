@@ -342,7 +342,7 @@ describe("buildVaultDashboardResourceRailState", () => {
     const state = buildVaultDashboardResourceRailState({
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
-        convexTeamLabel: "ada-team",
+        convexTeamSlug: "ada-team",
         convexProjectSlug: "demo-project",
         convexProjectSettingsDashboardUrl:
           "https://dashboard.convex.dev/t/ada-team/demo-project/settings",
@@ -369,5 +369,26 @@ describe("buildVaultDashboardResourceRailState", () => {
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
     expect(markup).toContain("Open Convex: ada-team/demo-project");
     expect(markup).toContain("Open Cloudflare: ada/demo-worker");
+  });
+
+  it("keeps Convex unscoped when the team slug is unknown", () => {
+    const state = buildVaultDashboardResourceRailState({
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      vault: makeResourceRailBuilderVault({
+        convexProjectSlug: "demo-project",
+      }),
+    });
+
+    expect(state.rows[1]).toEqual({
+      provider: "convex",
+      status: "ready",
+      value: "demo-project",
+      href: undefined,
+      scope: undefined,
+    });
+
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+    expect(markup).toContain("demo-project");
+    expect(markup).not.toContain("38516/demo-project");
   });
 });
