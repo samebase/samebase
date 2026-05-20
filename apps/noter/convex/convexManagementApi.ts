@@ -22,6 +22,10 @@ import {
 import { toErrorMessage } from "./jsonUtils";
 
 const CONVEX_MANAGEMENT_BASE_URL = "https://api.convex.dev/v1";
+const CONVEX_OAUTH_TOKEN_RESPONSE_FIELDS: ReadonlySet<string> = new Set([
+  "access_token",
+  "token_type",
+]);
 
 type ConvexManagementRequestMethod = "GET" | "POST";
 
@@ -32,10 +36,7 @@ export type ConvexCloudDeployment = Extract<
 
 export type ConvexOAuthTokenResponse = {
   access_token: string;
-  token_type: string;
-  refresh_token?: string;
-  expires_in?: number;
-  scope?: string;
+  token_type: "bearer";
 };
 
 export interface ConvexManagementClient {
@@ -126,21 +127,11 @@ export function parseConvexOAuthTokenResponse(
     validator: ajvConvexOAuthTokenResponse,
     payload,
   });
-  if (tokenResponse.access_token.length === 0) {
-    throw new ConvexApiValidationError({
-      path: "/oauth/token",
-      schemaName: "ConvexOAuthTokenResponse",
-      validationErrors: ["/access_token must be non-empty"],
-    });
-  }
-  if (tokenResponse.token_type.length === 0) {
-    throw new ConvexApiValidationError({
-      path: "/oauth/token",
-      schemaName: "ConvexOAuthTokenResponse",
-      validationErrors: ["/token_type must be non-empty"],
-    });
-  }
-  return tokenResponse;
+  warnUnexpectedConvexOAuthTokenResponseFields(payload);
+  return {
+    access_token: tokenResponse.access_token,
+    token_type: tokenResponse.token_type,
+  };
 }
 
 export async function fetchConvexTeamTokenDetails(token: string): Promise<{
@@ -362,6 +353,33 @@ function formatValidationErrors(
     const message = error.message ?? "failed validation";
     return `${path} ${message}`;
   });
+}
+
+function warnUnexpectedConvexOAuthTokenResponseFields(payload: unknown): void {
+  const fields = collectUnexpectedConvexOAuthTokenResponseFields(payload);
+  if (fields.length === 0) {
+    return;
+  }
+
+  // TODO: Send this schema-drift event through server-side PostHog once the
+  // backend analytics client exists.
+  console.warn("convex:api:unexpected_response_fields", {
+    path: "/oauth/token",
+    schemaName: "ConvexOAuthTokenResponse",
+    fields,
+  });
+}
+
+function collectUnexpectedConvexOAuthTokenResponseFields(
+  payload: unknown,
+): string[] {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return [];
+  }
+
+  return Object.keys(payload)
+    .filter((field) => !CONVEX_OAUTH_TOKEN_RESPONSE_FIELDS.has(field))
+    .sort();
 }
 
 function encodeConvexNumericPathId(value: string, label: string): string {

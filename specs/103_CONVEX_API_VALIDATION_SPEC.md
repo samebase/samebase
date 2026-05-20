@@ -56,8 +56,12 @@ Noter pins Convex Management API validation to the published OpenAPI schema:
 4. Expose a typed Convex Management client instead of a generic
    `request(path, method, body): Promise<unknown>` escape hatch.
 5. Validate `/oauth/token` with a small local JSON Schema because it is outside
-   the Management API spec. Its request body, HTTP method, content type, URL,
-   and response parser are modeled together as an explicit endpoint contract.
+   the Management API spec. Its response contract is exactly the documented
+   `{ access_token, token_type: "bearer" }` shape; extra fields are logged by
+   field name and ignored so schema drift is visible without leaking token
+   values or failing an otherwise-valid OAuth exchange. Its request body, HTTP
+   method, content type, URL, and response parser are modeled together as an
+   explicit endpoint contract.
 6. Keep generated AJV validator exports prefixed with `ajv`, reserving the `v`
    prefix for Convex `convex/values` validators.
 7. Use `pnpm --dir apps/noter run verify:convex-management-api` to regenerate

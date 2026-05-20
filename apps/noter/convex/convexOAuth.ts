@@ -39,8 +39,6 @@ type ConvexOAuthTokenEndpoint = {
 };
 type ConvexOAuthCodeExchangeResult = {
   accessToken: string;
-  refreshToken?: string;
-  expiresIn?: number;
 };
 
 const CONVEX_OAUTH_TOKEN_ENDPOINT = {
@@ -122,8 +120,6 @@ async function exchangeConvexOAuthCode(args: {
 
   return {
     accessToken: data.access_token,
-    refreshToken: data.refresh_token,
-    expiresIn: data.expires_in,
   };
 }
 
@@ -165,8 +161,6 @@ export const storeConvexOauthTokens = internalMutation({
   args: {
     userId: v.id("users"),
     accessToken: v.string(),
-    refreshToken: v.optional(v.string()),
-    expiresAt: v.optional(v.number()),
     teamId: v.string(),
     oauthStateId: v.id("oauthStates"),
   },
@@ -177,8 +171,6 @@ export const storeConvexOauthTokens = internalMutation({
       auth: {
         method: "oauth",
         credential: args.accessToken,
-        refreshCredential: args.refreshToken,
-        credentialExpiresAt: args.expiresAt,
       },
       teamId: args.teamId,
     });
@@ -259,16 +251,10 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
     });
 
     const details = await fetchConvexTeamTokenDetails(token.accessToken);
-    const expiresAt =
-      typeof token.expiresIn === "number"
-        ? Date.now() + token.expiresIn * 1000
-        : undefined;
 
     await ctx.runMutation(internal.convexOAuth.storeConvexOauthTokens, {
       userId: oauthState.userId,
       accessToken: token.accessToken,
-      refreshToken: token.refreshToken,
-      expiresAt,
       teamId: details.teamId,
       oauthStateId: oauthState._id,
     });

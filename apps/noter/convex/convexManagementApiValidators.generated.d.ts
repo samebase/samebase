@@ -11,7 +11,9 @@ import type { ConvexOAuthTokenResponse } from "./convexManagementApi";
 
 export type AjvStandaloneValidationError = {
   instancePath: string;
+  keyword?: string;
   message?: string;
+  params?: unknown;
 };
 
 export type AjvStandaloneValidateFunction<T> = {

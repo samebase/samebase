@@ -4200,13 +4200,11 @@ const schema52 = {
   additionalProperties: true,
   required: ["access_token", "token_type"],
   properties: {
-    access_token: { type: "string" },
-    token_type: { type: "string" },
-    refresh_token: { type: "string" },
-    expires_in: { type: "integer", minimum: 0 },
-    scope: { type: "string" },
+    access_token: { type: "string", pattern: "^.+$" },
+    token_type: { const: "bearer" },
   },
 };
+const pattern0 = new RegExp("^.+$", "u");
 function validate19(
   data,
   {
@@ -4258,27 +4256,27 @@ function validate19(
       errors++;
     }
     if (data.access_token !== undefined) {
-      if (typeof data.access_token !== "string") {
-        const err2 = {
+      let data0 = data.access_token;
+      if (typeof data0 === "string") {
+        if (!pattern0.test(data0)) {
+          const err2 = {
+            instancePath: instancePath + "/access_token",
+            schemaPath: "#/properties/access_token/pattern",
+            keyword: "pattern",
+            params: { pattern: "^.+$" },
+            message: 'must match pattern "' + "^.+$" + '"',
+          };
+          if (vErrors === null) {
+            vErrors = [err2];
+          } else {
+            vErrors.push(err2);
+          }
+          errors++;
+        }
+      } else {
+        const err3 = {
           instancePath: instancePath + "/access_token",
           schemaPath: "#/properties/access_token/type",
-          keyword: "type",
-          params: { type: "string" },
-          message: "must be string",
-        };
-        if (vErrors === null) {
-          vErrors = [err2];
-        } else {
-          vErrors.push(err2);
-        }
-        errors++;
-      }
-    }
-    if (data.token_type !== undefined) {
-      if (typeof data.token_type !== "string") {
-        const err3 = {
-          instancePath: instancePath + "/token_type",
-          schemaPath: "#/properties/token_type/type",
           keyword: "type",
           params: { type: "string" },
           message: "must be string",
@@ -4291,14 +4289,14 @@ function validate19(
         errors++;
       }
     }
-    if (data.refresh_token !== undefined) {
-      if (typeof data.refresh_token !== "string") {
+    if (data.token_type !== undefined) {
+      if ("bearer" !== data.token_type) {
         const err4 = {
-          instancePath: instancePath + "/refresh_token",
-          schemaPath: "#/properties/refresh_token/type",
-          keyword: "type",
-          params: { type: "string" },
-          message: "must be string",
+          instancePath: instancePath + "/token_type",
+          schemaPath: "#/properties/token_type/const",
+          keyword: "const",
+          params: { allowedValue: "bearer" },
+          message: "must be equal to constant",
         };
         if (vErrors === null) {
           vErrors = [err4];
@@ -4308,60 +4306,8 @@ function validate19(
         errors++;
       }
     }
-    if (data.expires_in !== undefined) {
-      let data3 = data.expires_in;
-      if (!(typeof data3 == "number" && !(data3 % 1) && !isNaN(data3))) {
-        const err5 = {
-          instancePath: instancePath + "/expires_in",
-          schemaPath: "#/properties/expires_in/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err5];
-        } else {
-          vErrors.push(err5);
-        }
-        errors++;
-      }
-      if (typeof data3 == "number") {
-        if (data3 < 0 || isNaN(data3)) {
-          const err6 = {
-            instancePath: instancePath + "/expires_in",
-            schemaPath: "#/properties/expires_in/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
-          };
-          if (vErrors === null) {
-            vErrors = [err6];
-          } else {
-            vErrors.push(err6);
-          }
-          errors++;
-        }
-      }
-    }
-    if (data.scope !== undefined) {
-      if (typeof data.scope !== "string") {
-        const err7 = {
-          instancePath: instancePath + "/scope",
-          schemaPath: "#/properties/scope/type",
-          keyword: "type",
-          params: { type: "string" },
-          message: "must be string",
-        };
-        if (vErrors === null) {
-          vErrors = [err7];
-        } else {
-          vErrors.push(err7);
-        }
-        errors++;
-      }
-    }
   } else {
-    const err8 = {
+    const err5 = {
       instancePath,
       schemaPath: "#/type",
       keyword: "type",
@@ -4369,9 +4315,9 @@ function validate19(
       message: "must be object",
     };
     if (vErrors === null) {
-      vErrors = [err8];
+      vErrors = [err5];
     } else {
-      vErrors.push(err8);
+      vErrors.push(err5);
     }
     errors++;
   }
