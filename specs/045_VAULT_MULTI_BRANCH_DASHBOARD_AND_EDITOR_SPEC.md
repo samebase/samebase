@@ -56,20 +56,24 @@ Current workflow direction for Noter:
 
 ## Vault Dashboard Delete Surface
 
-Each dashboard vault card exposes a single remove-vault link that writes
-`?delete=<owner>/<repo>` through TanStack Router search state. The root search
-contract validates the value as a single GitHub repository full name so the same
-URL works for SPA navigation, direct page loads, and shared links.
+Each dashboard vault card exposes a single remove-vault link that writes a
+key-only `?delete` search flag plus the vault hash target, such as
+`/?delete#tmp-flow`. The root search contract treats `delete` as a presence
+flag. The dashboard resolves the hash against visible vaults, using the repo
+name when unique and `owner/repo` only when duplicate repo names make the hash
+ambiguous.
 
-The `delete` search value owns the confirmation modal directly. Clicking the
-card's remove-vault link writes `?delete=<owner>/<repo>` and immediately opens
-the existing confirmation dialog for that vault; there is no intermediate
-dropdown, popover, or sheet. Closing the dialog or completing deletion clears
-the `delete` search value through TanStack Router.
+The `delete` search flag owns the confirmation modal, and the hash owns the
+target vault. Clicking the card's remove-vault link writes `?delete#<vault>` and
+immediately opens the existing confirmation dialog for that vault; there is no
+intermediate dropdown, popover, or sheet. Closing the dialog or completing
+deletion clears the `delete` search flag through TanStack Router while leaving
+normal vault hash navigation intact.
 
-When the dashboard loads with a matching `delete` value, the matching vault card
-scrolls into view after vault data arrives, then the confirmation dialog opens
-for that vault. Destructive cleanup options stay centralized in the dialog.
+When the dashboard loads with `?delete` and a matching hash, the matching vault
+card scrolls into view after vault data arrives, then the confirmation dialog
+opens for that vault. If `?delete` has no valid vault hash target, the dashboard
+clears delete mode. Destructive cleanup options stay centralized in the dialog.
 
 ## Pre-Implementation Baseline (Historical)
 

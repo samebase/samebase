@@ -12,10 +12,10 @@
 
 ## Summary
 
-Noter route search uses key-only boolean query params for app-owned toggles such
-as `?dev`, `?prod-ui`, `?light`, `?dark`, `?diff`, and `?review`. These params
-are presence flags: a URL key being present means the flag is on. The value
-attached to that key is not meaningful.
+Noter route search uses key-only boolean query params for app-owned toggles and
+modes such as `?dev`, `?prod-ui`, `?light`, `?dark`, `?diff`, `?review`, and
+`?delete`. These params are presence flags: a URL key being present means the
+flag is on. The value attached to that key is not meaningful.
 
 ## Contract
 
@@ -41,6 +41,7 @@ contains:
 
 - `compare`
 - `dark`
+- `delete`
 - `dev`
 - `devtools`
 - `diff`
