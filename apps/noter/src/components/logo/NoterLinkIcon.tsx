@@ -45,21 +45,6 @@ const NOTER_LINK_ICON_FILLED_VOXELS = createFilledVoxelSet(
   STATIC_LOGO_VOXEL_COORDINATES,
 );
 const NOTER_LINK_ICON_ANIMATION_MS = 180;
-const NOTER_LINK_ICON_FACE_FILL_OPACITY = {
-  left: 0.12,
-  right: 0.72,
-  top: 0.24,
-} as const satisfies Record<FaceColorKey, number>;
-const NOTER_LINK_ICON_FACE_STROKE_OPACITY = {
-  left: 0.62,
-  right: 0.82,
-  top: 0.42,
-} as const satisfies Record<FaceColorKey, number>;
-const NOTER_LINK_ICON_FACE_STRIPE_OPACITY = {
-  left: 0.78,
-  right: 0,
-  top: 0,
-} as const satisfies Record<FaceColorKey, number>;
 const NOTER_LINK_ICON_FRAMES = {
   active: createNoterLinkIconFrame("active"),
   hover: createNoterLinkIconFrame("hover"),
@@ -237,7 +222,7 @@ export function NoterLinkIcon({ state = "idle" }: NoterLinkIconProps) {
   return (
     <svg
       aria-hidden="true"
-      className="h-5 w-5 shrink-0 overflow-visible"
+      className="h-5 w-5 shrink-0 overflow-visible text-foreground"
       data-logo-state={state}
       data-testid="noter-link-icon"
       focusable="false"
@@ -254,10 +239,9 @@ export function NoterLinkIcon({ state = "idle" }: NoterLinkIconProps) {
           width="18"
         >
           <line
-            opacity="0.84"
-            stroke="currentColor"
+            stroke="hsl(var(--background))"
             strokeLinecap="round"
-            strokeWidth="3"
+            strokeWidth="4"
             x1="0"
             x2="0"
             y1="-4"
@@ -268,29 +252,24 @@ export function NoterLinkIcon({ state = "idle" }: NoterLinkIconProps) {
       <g shapeRendering="geometricPrecision">
         {frame.map((face) => {
           const points = serializePoints(face.points);
-          const fillOpacity =
-            NOTER_LINK_ICON_FACE_FILL_OPACITY[face.colorKey] * face.opacity;
-          const strokeOpacity =
-            NOTER_LINK_ICON_FACE_STROKE_OPACITY[face.colorKey] * face.opacity;
-          const stripeOpacity =
-            NOTER_LINK_ICON_FACE_STRIPE_OPACITY[face.colorKey] * face.opacity;
+          const opacity = formatOpacity(face.opacity);
 
           return (
             <g key={face.key}>
               <polygon
                 fill="currentColor"
-                fillOpacity={formatOpacity(fillOpacity)}
+                fillOpacity={opacity}
                 paintOrder="stroke fill"
                 points={points}
-                stroke="currentColor"
+                stroke="hsl(var(--background))"
                 strokeLinejoin="round"
-                strokeOpacity={formatOpacity(strokeOpacity)}
+                strokeOpacity={opacity}
                 strokeWidth="2.2"
               />
               {face.colorKey === "left" ? (
                 <polygon
                   fill={`url(#${stripePatternId})`}
-                  fillOpacity={formatOpacity(stripeOpacity)}
+                  fillOpacity={opacity}
                   points={points}
                 />
               ) : null}

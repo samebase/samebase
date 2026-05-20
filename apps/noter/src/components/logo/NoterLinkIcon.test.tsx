@@ -25,6 +25,18 @@ function readPolygonPoints(markup: string) {
   );
 }
 
+function readPolygonOpacityValues(markup: string) {
+  const rootElement = document.createElement("div");
+  rootElement.innerHTML = markup;
+
+  return Array.from(rootElement.querySelectorAll("polygon"))
+    .flatMap((polygon) => [
+      polygon.getAttribute("fill-opacity"),
+      polygon.getAttribute("stroke-opacity"),
+    ])
+    .filter((value) => value !== null);
+}
+
 describe("NoterLinkIcon", () => {
   let root: Root | null = null;
   let rootElement: HTMLDivElement | null = null;
@@ -56,12 +68,19 @@ describe("NoterLinkIcon", () => {
     expect(svg?.getAttribute("aria-hidden")).toBe("true");
     expect(svg?.getAttribute("data-logo-state")).toBe("idle");
     expect(svg?.className.baseVal).toContain("h-5 w-5");
+    expect(svg?.className.baseVal).toContain("text-foreground");
 
     const markup = rootElement.innerHTML;
     expect(markup).toContain("currentColor");
     expect(markup).toContain("<pattern");
     expect(markup).not.toContain("#ecfccb");
     expect(markup).not.toContain("#394447");
+  });
+
+  it("keeps visible faces opaque instead of using transparent depth tints", () => {
+    const opacityValues = readPolygonOpacityValues(renderIconMarkup("active"));
+
+    expect(new Set(opacityValues)).toEqual(new Set(["0.000", "1.000"]));
   });
 
   it("uses different projected face points for hover and pressed states", () => {
