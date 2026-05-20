@@ -118,7 +118,6 @@ type ConvexManagementValidatedRequestArgs<
   Path extends ConvexManagementPath,
   Method extends ConvexManagementMethodForPath<Path>,
 > = ConvexManagementApiRequestArgs<Path, Method> & {
-  schemaName: string;
   validator: AjvStandaloneValidateFunction<
     ConvexManagementJsonResponse<ConvexManagementOperation<Path, Method>>
   >;
@@ -179,6 +178,13 @@ export function formatConvexManagementApiEndpoint<
   return buildConvexManagementApiPath(args.path, args.params);
 }
 
+function formatConvexManagementApiOperation<
+  const Path extends ConvexManagementPath,
+  const Method extends ConvexManagementMethodForPath<Path>,
+>(args: ConvexManagementApiEndpointArgs<Path, Method>): string {
+  return `${args.method} ${args.path} response`;
+}
+
 export function createConvexManagementClient(args: {
   token?: string;
 }): ConvexManagementClient {
@@ -193,7 +199,6 @@ export function createConvexManagementClient(args: {
         token,
         path: "/token_details",
         method: "GET",
-        schemaName: "PlatformTokenDetailsResponse",
         validator: ajvPlatformTokenDetailsResponse,
       });
     },
@@ -210,7 +215,6 @@ export function createConvexManagementClient(args: {
             ),
           },
         },
-        schemaName: "PlatformProjectDetails[]",
         validator: ajvPlatformProjectDetailsList,
       });
     },
@@ -228,7 +232,6 @@ export function createConvexManagementClient(args: {
           },
         },
         body,
-        schemaName: "PlatformCreateProjectResponse",
         validator: ajvPlatformCreateProjectResponse,
       });
     },
@@ -245,7 +248,6 @@ export function createConvexManagementClient(args: {
             ),
           },
         },
-        schemaName: "PlatformDeploymentResponse[]",
         validator: ajvPlatformDeploymentResponseList,
       });
     },
@@ -263,7 +265,6 @@ export function createConvexManagementClient(args: {
           },
         },
         body,
-        schemaName: "PlatformDeploymentResponse",
         validator: ajvPlatformDeploymentResponse,
       });
     },
@@ -280,7 +281,6 @@ export function createConvexManagementClient(args: {
             ),
           },
         },
-        schemaName: "PlatformDeploymentResponse",
         validator: ajvPlatformDeploymentResponse,
       });
     },
@@ -298,7 +298,6 @@ export function createConvexManagementClient(args: {
           },
         },
         body,
-        schemaName: "PlatformCreateDeployKeyResponse",
         validator: ajvPlatformCreateDeployKeyResponse,
       });
     },
@@ -345,8 +344,8 @@ async function requestValidatedConvexManagementApi<
 > {
   const payload = await requestConvexManagementApi(args);
   return validatePayload({
-    path: args.path,
-    schemaName: args.schemaName,
+    path: formatConvexManagementApiEndpoint(args),
+    schemaName: formatConvexManagementApiOperation(args),
     validator: args.validator,
     payload,
   });
