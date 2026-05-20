@@ -15,6 +15,7 @@ import { VaultProvisioningLogTextarea } from "@/components/vault-dashboard/Vault
 import { VaultResourceRail } from "@/components/vault-dashboard/VaultResourceRail";
 import { buildVaultDashboardResourceRailState } from "@/components/vault-dashboard/vaultResourceRailState";
 import {
+  buildVaultDashboardRepositoryHashHref,
   buildVaultDashboardRepositoryHashId,
   normalizeVaultDashboardRepositoryHash,
 } from "@/components/vault-dashboard/vaultDashboardRepositoryHash";
@@ -2080,6 +2081,46 @@ function scrollVaultDashboardCardIntoView(element: HTMLElement) {
   });
 }
 
+function resolveActiveVaultDashboardCardHashId({
+  cardElements,
+  scrollport,
+}: {
+  cardElements: Iterable<HTMLElement>;
+  scrollport: HTMLElement;
+}): string | null {
+  const scrollportRect = scrollport.getBoundingClientRect();
+  const activeLineY = scrollportRect.top + 16;
+  let closestCard: {
+    distancePx: number;
+    hashId: string;
+  } | null = null;
+
+  for (const cardElement of cardElements) {
+    if (cardElement.id.length === 0) {
+      continue;
+    }
+
+    const cardRect = cardElement.getBoundingClientRect();
+    if (cardRect.height <= 0) {
+      continue;
+    }
+
+    if (cardRect.top <= activeLineY && cardRect.bottom > activeLineY) {
+      return cardElement.id;
+    }
+
+    const distancePx = Math.abs(cardRect.top - activeLineY);
+    if (!closestCard || distancePx < closestCard.distancePx) {
+      closestCard = {
+        distancePx,
+        hashId: cardElement.id,
+      };
+    }
+  }
+
+  return closestCard?.hashId ?? null;
+}
+
 function VaultDashboardBody({
   developerToolsVisible,
   isRemovingVault,
@@ -2101,6 +2142,20 @@ function VaultDashboardBody({
   const vaultCardElementsRef = useRef(new Map<string, HTMLDivElement>());
   const lastScrolledDeleteRepositoryRef = useRef<string | null>(null);
   const lastScrolledRepositoryHashRef = useRef<string | null>(null);
+  const replaceRepositoryLocationHash = useCallback((hashId: string) => {
+    const nextHash = buildVaultDashboardRepositoryHashHref(hashId);
+    if (window.location.hash === nextHash) {
+      return;
+    }
+
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${window.location.search}${nextHash}`,
+    );
+    lastScrolledRepositoryHashRef.current = hashId;
+    setRepositoryLocationHash(nextHash);
+  }, []);
 
   useEffect(() => {
     const syncRepositoryLocationHash = () => {
@@ -2113,6 +2168,21 @@ function VaultDashboardBody({
       window.removeEventListener("hashchange", syncRepositoryLocationHash);
     };
   }, []);
+
+  const syncActiveRepositoryHash = useCallback(
+    (scrollport: HTMLElement) => {
+      const activeHashId = resolveActiveVaultDashboardCardHashId({
+        cardElements: vaultCardElementsRef.current.values(),
+        scrollport,
+      });
+      if (!activeHashId) {
+        return;
+      }
+
+      replaceRepositoryLocationHash(activeHashId);
+    },
+    [replaceRepositoryLocationHash],
+  );
 
   const scrollVaultCardElementForHash = useCallback(
     (vaultCardElement: HTMLDivElement) => {
@@ -2139,6 +2209,41 @@ function VaultDashboardBody({
     },
     [repositoryLocationHash],
   );
+
+  useEffect(() => {
+    const firstVaultCardElement = vaultCardElementsRef.current
+      .values()
+      .next().value;
+    if (!firstVaultCardElement) {
+      return;
+    }
+
+    const scrollport = findVaultDashboardCardScrollport(firstVaultCardElement);
+    if (!scrollport) {
+      return;
+    }
+
+    let pendingAnimationFrameId: number | null = null;
+    const handleScroll = () => {
+      if (pendingAnimationFrameId) {
+        return;
+      }
+
+      pendingAnimationFrameId = window.requestAnimationFrame(() => {
+        pendingAnimationFrameId = null;
+        syncActiveRepositoryHash(scrollport);
+      });
+    };
+
+    scrollport.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      scrollport.removeEventListener("scroll", handleScroll);
+      if (pendingAnimationFrameId) {
+        window.cancelAnimationFrame(pendingAnimationFrameId);
+      }
+    };
+  }, [syncActiveRepositoryHash, vaults]);
 
   useEffect(() => {
     if (!deleteRepositoryFullName) {
@@ -2313,7 +2418,9 @@ function VaultDashboardBody({
               isReady={isReady}
               repositoryOwner={vault.ghRepoOwner}
               repositoryName={vault.ghRepoName}
-              titleHref={`#${repositoryHashId}`}
+              titleHref={buildVaultDashboardRepositoryHashHref(
+                repositoryHashId,
+              )}
               titleTarget={undefined}
               titleTitle="Link to vault"
               titleClassName={undefined}

@@ -8,6 +8,10 @@ export function buildVaultDashboardRepositoryHashId(args: {
     : args.repositoryName;
 }
 
+export function buildVaultDashboardRepositoryHashHref(hashId: string): string {
+  return `#${encodeURI(hashId)}`;
+}
+
 export function normalizeVaultDashboardRepositoryHash(
   hash: string,
 ): string | null {

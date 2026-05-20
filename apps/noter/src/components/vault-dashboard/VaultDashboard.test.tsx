@@ -9,7 +9,11 @@ import {
 } from "./VaultDashboard";
 import { VaultDashboardRepositoryCard } from "./VaultDashboardChrome";
 import { VaultResourceRail } from "./VaultResourceRail";
-import { buildVaultDashboardRepositoryHashId } from "./vaultDashboardRepositoryHash";
+import {
+  buildVaultDashboardRepositoryHashHref,
+  buildVaultDashboardRepositoryHashId,
+  normalizeVaultDashboardRepositoryHash,
+} from "./vaultDashboardRepositoryHash";
 import { buildVaultDashboardResourceRailState } from "./vaultResourceRailState";
 import {
   resolveVaultProviderSetupStatus,
@@ -131,6 +135,15 @@ describe("VaultDashboardRepositoryCard", () => {
         repositoryFullName: "nicu-chiciuc/tmp-flow",
         repositoryName: "tmp-flow",
       }),
+    ).toBe("nicu-chiciuc/tmp-flow");
+  });
+
+  it("normalizes owner-qualified repository hashes", () => {
+    expect(buildVaultDashboardRepositoryHashHref("nicu-chiciuc/tmp-flow")).toBe(
+      "#nicu-chiciuc/tmp-flow",
+    );
+    expect(
+      normalizeVaultDashboardRepositoryHash("#nicu-chiciuc/tmp-flow"),
     ).toBe("nicu-chiciuc/tmp-flow");
   });
 

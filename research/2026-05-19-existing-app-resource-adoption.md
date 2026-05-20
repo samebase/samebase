@@ -1040,6 +1040,23 @@ For new apps:
 5. Should the resource registry land now, or should we do the smaller origin
    fields first?
 
+## Dashboard Vault Anchors
+
+Vault card anchors should behave like documentation section anchors with active
+scroll tracking:
+
+- The vault title is the permalink for that vault card.
+- Prefer a human-readable hash using the repo name, for example `#tmp-flow`.
+- If multiple visible vaults share the same repo name, fall back to
+  `#owner/repo-name` so the target is unambiguous.
+- Direct hash loads should wait for dashboard data and then scroll the matching
+  card to the top of the dashboard scrollport.
+- Manual scrolling should update the visible hash to the active vault card with
+  `history.replaceState`, not `pushState`, so the URL stays honest without
+  creating a back-button entry for every scroll position.
+- The active vault is the card intersecting the top band of the dashboard
+  scrollport; when no card intersects that band, use the card nearest the top.
+
 ## Recommendation
 
 Do the visibility fix first, because it is small and will make every later
