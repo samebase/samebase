@@ -118,6 +118,7 @@ apps/noter/public/landing-preview/step-4-create-convex-project.mp4
 apps/noter/public/landing-preview/step-5-create-cloudflare-pages-deploy.mp4
 apps/noter/public/logo_pick.svg
 apps/noter/public/logo-interactive.svg
+apps/noter/public/logo-interactive-monochrome.svg
 apps/noter/public/logo-static.svg
 apps/noter/public/logo-v1-side-primary.svg
 apps/noter/public/logo-v2-side-diagonal.svg
