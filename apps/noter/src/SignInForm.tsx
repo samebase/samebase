@@ -1,5 +1,6 @@
 import { LandingCopy } from "@/components/LandingCopy";
 import { PublicLandingAuthControls } from "@/components/PublicLandingAuthControls";
+import { NoterLinkIcon } from "@/components/logo/NoterLinkIcon";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { landingPageMarkdown } from "@/lib/landingCopy";
@@ -68,12 +69,13 @@ export function SignInForm({
           )}
           <div className="flex flex-col gap-2 pt-2">
             <a
-              className="text-center text-sm text-muted-foreground underline underline-offset-4"
+              className="mx-auto inline-flex items-center gap-2 text-sm text-muted-foreground underline underline-offset-4"
               href="https://x.com/notermd"
               rel="noopener noreferrer"
               target="_blank"
             >
-              https://x.com/notermd
+              <NoterLinkIcon />
+              <span>https://x.com/notermd</span>
             </a>
           </div>
         </div>
