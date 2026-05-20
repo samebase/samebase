@@ -23,16 +23,22 @@ function removeVaultControl(page: Page, repoName: string): Locator {
 }
 
 function vaultCard(page: Page, repoName: string): Locator {
-  return removeVaultControl(page, repoName).locator(
-    "xpath=ancestor::div[contains(@class, 'corner-notch-1')][1]",
-  );
+  return page
+    .getByRole("link", {
+      name: new RegExp(
+        `^#${escapeRegExp(repoName)}(?: \\(deleting\\.\\.\\.\\))?$`,
+      ),
+    })
+    .locator(
+      "xpath=ancestor::div[.//button[normalize-space(.)='Developer tools']][1]",
+    );
 }
 
 async function createAppIfAvailable(
   page: Page,
   repoName: string,
 ): Promise<void> {
-  const repositoryNameInput = page.getByPlaceholder("New App name");
+  const repositoryNameInput = page.getByPlaceholder("GitHub repo name");
   const createError = page.locator(".text-red-600").last();
   await expect(repositoryNameInput).toBeVisible({ timeout: 15_000 });
 
@@ -101,6 +107,7 @@ test.describe("vault create app live flow", () => {
     page,
   }, testInfo) => {
     test.slow();
+    test.setTimeout(240_000);
     test.skip(
       testInfo.project.name !== "chromium-desktop",
       "This live test mutates external state, so it runs once on the desktop project.",

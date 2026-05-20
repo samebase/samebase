@@ -5,6 +5,7 @@ export async function signInIfNeeded(page: Page): Promise<void> {
     name: "Autofill & sign in",
   });
   const vaultsLabel = page.getByText("Your Vaults", { exact: true }).first();
+  const providersButton = page.getByRole("button", { name: "Providers" });
   const emptyStateHeading = page.getByRole("heading", {
     name: "Create your first project",
   });
@@ -18,6 +19,7 @@ export async function signInIfNeeded(page: Page): Promise<void> {
 
   await Promise.any([
     vaultsLabel.waitFor({ state: "visible", timeout: 30_000 }),
+    providersButton.waitFor({ state: "visible", timeout: 30_000 }),
     emptyStateHeading.waitFor({ state: "visible", timeout: 30_000 }),
   ]);
 }
