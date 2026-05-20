@@ -132,7 +132,9 @@ export const getConvexDeploymentStatus = internalAction({
       convexToken: resolveConvexToken(convexConnection),
     });
     const endpoint = `/deployments/${encodeURIComponent(infra.convexDeploymentName)}`;
-    const payload = await providers.convex.request(endpoint, "GET");
+    const payload = await providers.convex.getDeployment({
+      deploymentName: infra.convexDeploymentName,
+    });
     const raw = JSON.stringify(payload, null, 2);
 
     return {
@@ -164,24 +166,16 @@ export const getConvexLogs = internalAction({
       convexToken: resolveConvexToken(convexConnection),
     });
     const endpoint = `/projects/${encodeURIComponent(infra.convexProjectId)}/list_deployments`;
-    const payload = await providers.convex.request(endpoint, "GET");
-
-    const deployments = Array.isArray(payload) ? payload : [];
+    const deployments = await providers.convex.listDeployments({
+      projectId: infra.convexProjectId,
+    });
     const max = clamp(args.maxLines ?? 20, 1, 100);
 
     const lines: string[] = [];
     for (const deployment of deployments.slice(0, max)) {
-      const record = asRecord(deployment);
-      const name = readString(record, "name") ?? "unknown";
-      const deploymentType = readString(record, "deploymentType") ?? "unknown";
-      const kind = readString(record, "kind") ?? "unknown";
-      const createdAt = record["createTime"];
-      const createdAtText =
-        typeof createdAt === "number"
-          ? new Date(createdAt).toISOString()
-          : "unknown";
+      const createdAtText = new Date(deployment.createTime).toISOString();
       lines.push(
-        `[${createdAtText}] ${name} type=${deploymentType} kind=${kind}`,
+        `[${createdAtText}] ${deployment.name} type=${deployment.deploymentType} kind=${deployment.kind}`,
       );
     }
 
@@ -280,9 +274,7 @@ export const getConvexProjectInventory = internalAction({
     });
     const teamId = resolveConvexTeamId(convexConnection);
     const endpoint = `/teams/${encodeURIComponent(teamId)}/list_projects`;
-    const payload = await providers.convex.request(endpoint, "GET");
-
-    const projects = Array.isArray(payload) ? payload : [];
+    const projects = await providers.convex.listProjects({ teamId });
     const max = clamp(args.limit ?? 50, 1, 100);
     const rows = projects.slice(0, max);
 

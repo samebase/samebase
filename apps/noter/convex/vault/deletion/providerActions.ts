@@ -253,15 +253,13 @@ export const deleteConvex = internalAction({
     });
     try {
       if (plan.convex.action === "delete_project") {
-        await providers.convex.request(
-          `/projects/${encodeURIComponent(plan.convex.projectId)}/delete`,
-          "POST",
-        );
+        await providers.convex.deleteProject({
+          projectId: plan.convex.projectId,
+        });
       } else {
-        await providers.convex.request(
-          `/deployments/${encodeURIComponent(plan.convex.deploymentName)}/delete`,
-          "POST",
-        );
+        await providers.convex.deleteDeployment({
+          deploymentName: plan.convex.deploymentName,
+        });
       }
     } catch (error) {
       if (!isConvexManagementNotFoundError(error)) {

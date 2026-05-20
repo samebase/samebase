@@ -7,7 +7,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { Octokit } from "@octokit/rest";
 import { RequestError } from "@octokit/request-error";
 import { getUserId } from "../common";
-import { asRecord, readString, toErrorMessage } from "../jsonUtils";
+import { toErrorMessage } from "../jsonUtils";
 import { parseRepositoryFullName } from "./model";
 import { isLiveConnectedVault, isNoterManagedVault } from "./state";
 import { toSafeRepoName } from "../repoName";
@@ -409,26 +409,13 @@ async function checkConvexProjectNameAvailability(
     const { convexToken, convexTeamId } =
       await resolveConvexProvisioningConnection(ctx, args.userId);
     const providers = createInfraProviders({ convexToken });
-    const projectsRaw = await providers.convex.request(
-      `/teams/${encodeURIComponent(convexTeamId)}/list_projects`,
-      "GET",
-    );
-    if (!Array.isArray(projectsRaw)) {
-      console.warn("vault:create:convex_name_check_invalid_payload");
-      return buildUnknownResult("Could not check Convex project name.");
-    }
-    const projects = projectsRaw;
+    const projects = await providers.convex.listProjects({
+      teamId: convexTeamId,
+    });
     const unavailableNames = new Set<string>();
     for (const project of projects) {
-      const projectRecord = asRecord(project);
-      const name = readString(projectRecord, "name");
-      const slug = readString(projectRecord, "slug");
-      if (name) {
-        unavailableNames.add(name);
-      }
-      if (slug) {
-        unavailableNames.add(slug);
-      }
+      unavailableNames.add(project.name);
+      unavailableNames.add(project.slug);
     }
 
     if (!unavailableNames.has(projectName)) {

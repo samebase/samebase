@@ -11,6 +11,10 @@ import { Infer, v } from "convex/values";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import { isRecord, readString } from "./jsonUtils";
 import {
+  createInfraProviders,
+  readConvexTeamTokenDetails,
+} from "./infraProviders";
+import {
   deriveMcpTokenStatusFromExpiry,
   vMcpTokenHealthStatus,
   type McpTokenHealth,
@@ -34,7 +38,6 @@ const ADMIN_EMAILS = new Set([
 ]);
 const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
 const GITHUB_API_BASE = "https://api.github.com";
-const CONVEX_TOKEN_DETAILS_URL = "https://api.convex.dev/v1/token_details";
 
 const authProviderSummaryValidator = object({
   providers: array(string()),
@@ -82,43 +85,6 @@ type CloudflareConnectionStatusInput = {
   tokenRefreshStartedAt?: number;
   lastTokenRefreshAt?: number;
 };
-
-type JsonRecord = Record<string, unknown>;
-
-function readNumberAsString(
-  record: JsonRecord,
-  key: string,
-): string | undefined {
-  const value = record[key];
-  if (typeof value === "string") return value;
-  if (typeof value === "number" && Number.isFinite(value)) return String(value);
-  return undefined;
-}
-
-function readNestedString(
-  record: JsonRecord,
-  key: string,
-  field: string,
-): string | undefined {
-  const nested = record[key];
-  if (!isRecord(nested)) return undefined;
-  return readNumberAsString(nested, field);
-}
-
-function resolveField(
-  record: JsonRecord,
-  keys: string[],
-  nested?: { key: string; field: string },
-): string | undefined {
-  for (const key of keys) {
-    const value = readNumberAsString(record, key);
-    if (value !== undefined) return value;
-  }
-  if (!nested) {
-    return undefined;
-  }
-  return readNestedString(record, nested.key, nested.field);
-}
 
 async function fetchWithTimeout(
   input: RequestInfo | URL,
@@ -332,31 +298,18 @@ async function fetchConvexTokenDetails(token: string): Promise<{
   teamId: string;
   teamSlug?: string;
 }> {
-  const response = await fetchWithTimeout(CONVEX_TOKEN_DETAILS_URL, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  const payload = await response.json().catch(() => null);
-  if (!response.ok || !isRecord(payload)) {
-    throw new Error("Invalid Convex API key");
-  }
-
-  const teamId = resolveField(payload, ["teamId", "team_id"], {
-    key: "team",
-    field: "id",
-  });
-  if (!teamId) {
+  const details = await createInfraProviders({
+    convexToken: token,
+  }).convex.getTokenDetails();
+  const teamDetails = readConvexTeamTokenDetails(details);
+  if (!teamDetails) {
     throw new Error("Convex API key is missing team access");
   }
 
-  const teamSlug = resolveField(payload, ["teamSlug", "team_slug"], {
-    key: "team",
-    field: "slug",
-  });
-  return { teamId, teamSlug };
+  return {
+    teamId: teamDetails.teamId,
+    teamSlug: teamDetails.teamSlug,
+  };
 }
 
 // Public
