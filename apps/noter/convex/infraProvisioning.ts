@@ -12,7 +12,7 @@ import {
   createConvexManagementClient,
   isConvexCloudDeployment,
   type ConvexManagementClient,
-} from "./convexManagementApi";
+} from "./convexManagementApi/client";
 import { ensureCloudflareResources } from "./cloudflareResources";
 import { asRecord, readString, readStringOrNumber } from "./jsonUtils";
 import type { AppProvisioningStep, GithubTreeData } from "./schema";

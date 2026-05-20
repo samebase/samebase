@@ -6,8 +6,8 @@ import type {
   PlatformDeploymentResponse,
   PlatformProjectDetails,
   PlatformTokenDetailsResponse,
-} from "./convexManagementApiTypes.generated";
-import type { ConvexOAuthTokenResponse } from "./convexManagementApi";
+} from "./types.generated";
+import type { ConvexOAuthTokenResponse } from "./oauthToken";
 
 export type AjvStandaloneValidationError = {
   instancePath: string;

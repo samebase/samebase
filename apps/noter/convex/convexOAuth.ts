@@ -10,11 +10,11 @@ import {
   randomToken,
   readRequiredEnv,
 } from "./oauthUtils";
+import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
 import {
-  fetchConvexTeamTokenDetails,
   parseConvexOAuthTokenResponse,
   type ConvexOAuthTokenResponse,
-} from "./convexManagementApi";
+} from "./convexManagementApi/oauthToken";
 
 const CONVEX_AUTHORIZE_URL =
   "https://dashboard.convex.dev/oauth/authorize/team";

@@ -10,7 +10,7 @@ import { internal } from "./_generated/api";
 import { Infer, v } from "convex/values";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import { isRecord, readString } from "./jsonUtils";
-import { fetchConvexTeamTokenDetails } from "./convexManagementApi";
+import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
 import {
   deriveMcpTokenStatusFromExpiry,
   vMcpTokenHealthStatus,

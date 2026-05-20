@@ -11,26 +11,29 @@ const convexManagementOpenApiSchemaId =
   "https://api.convex.dev/v1/openapi.json";
 const appRoot = fileURLToPath(new URL("../", import.meta.url));
 const openApiOutputPath = fileURLToPath(
-  new URL("../convex/convexManagementOpenApi.generated.ts", import.meta.url),
+  new URL(
+    "../convex/convexManagementApi/openApi.generated.ts",
+    import.meta.url,
+  ),
 );
 const validatorsOutputPath = fileURLToPath(
   new URL(
-    "../convex/convexManagementApiValidators.generated.js",
+    "../convex/convexManagementApi/validators.generated.js",
     import.meta.url,
   ),
 );
 const validatorTypesOutputPath = fileURLToPath(
   new URL(
-    "../convex/convexManagementApiValidators.generated.d.ts",
+    "../convex/convexManagementApi/validators.generated.d.ts",
     import.meta.url,
   ),
 );
-const typesOutputPath = "convex/convexManagementApiTypes.generated.ts";
+const typesOutputPath = "convex/convexManagementApi/types.generated.ts";
 const generatedFormatPaths = [
-  "convex/convexManagementOpenApi.generated.ts",
+  "convex/convexManagementApi/openApi.generated.ts",
   typesOutputPath,
-  "convex/convexManagementApiValidators.generated.js",
-  "convex/convexManagementApiValidators.generated.d.ts",
+  "convex/convexManagementApi/validators.generated.js",
+  "convex/convexManagementApi/validators.generated.d.ts",
 ];
 
 const response = await fetch(sourceUrl);
@@ -151,7 +154,7 @@ try {
   );
   writeFileSync(
     validatorTypesOutputPath,
-    `// Generated from ${sourceUrl}. Do not edit by hand.\n\nimport type {\n  PlatformCreateDeployKeyResponse,\n  PlatformCreateProjectResponse,\n  PlatformDeploymentResponse,\n  PlatformProjectDetails,\n  PlatformTokenDetailsResponse,\n} from "./convexManagementApiTypes.generated";\nimport type { ConvexOAuthTokenResponse } from "./convexManagementApi";\n\nexport type AjvStandaloneValidationError = {\n  instancePath: string;\n  keyword?: string;\n  message?: string;\n  params?: unknown;\n};\n\nexport type AjvStandaloneValidateFunction<T> = {\n  (payload: unknown): payload is T;\n  errors: AjvStandaloneValidationError[] | null;\n};\n\nexport const ajvPlatformTokenDetailsResponse: AjvStandaloneValidateFunction<PlatformTokenDetailsResponse>;\nexport const ajvPlatformProjectDetailsList: AjvStandaloneValidateFunction<PlatformProjectDetails[]>;\nexport const ajvPlatformCreateProjectResponse: AjvStandaloneValidateFunction<PlatformCreateProjectResponse>;\nexport const ajvPlatformDeploymentResponse: AjvStandaloneValidateFunction<PlatformDeploymentResponse>;\nexport const ajvPlatformDeploymentResponseList: AjvStandaloneValidateFunction<PlatformDeploymentResponse[]>;\nexport const ajvPlatformCreateDeployKeyResponse: AjvStandaloneValidateFunction<PlatformCreateDeployKeyResponse>;\nexport const ajvConvexOAuthTokenResponse: AjvStandaloneValidateFunction<ConvexOAuthTokenResponse>;\n`,
+    `// Generated from ${sourceUrl}. Do not edit by hand.\n\nimport type {\n  PlatformCreateDeployKeyResponse,\n  PlatformCreateProjectResponse,\n  PlatformDeploymentResponse,\n  PlatformProjectDetails,\n  PlatformTokenDetailsResponse,\n} from "./types.generated";\nimport type { ConvexOAuthTokenResponse } from "./oauthToken";\n\nexport type AjvStandaloneValidationError = {\n  instancePath: string;\n  keyword?: string;\n  message?: string;\n  params?: unknown;\n};\n\nexport type AjvStandaloneValidateFunction<T> = {\n  (payload: unknown): payload is T;\n  errors: AjvStandaloneValidationError[] | null;\n};\n\nexport const ajvPlatformTokenDetailsResponse: AjvStandaloneValidateFunction<PlatformTokenDetailsResponse>;\nexport const ajvPlatformProjectDetailsList: AjvStandaloneValidateFunction<PlatformProjectDetails[]>;\nexport const ajvPlatformCreateProjectResponse: AjvStandaloneValidateFunction<PlatformCreateProjectResponse>;\nexport const ajvPlatformDeploymentResponse: AjvStandaloneValidateFunction<PlatformDeploymentResponse>;\nexport const ajvPlatformDeploymentResponseList: AjvStandaloneValidateFunction<PlatformDeploymentResponse[]>;\nexport const ajvPlatformCreateDeployKeyResponse: AjvStandaloneValidateFunction<PlatformCreateDeployKeyResponse>;\nexport const ajvConvexOAuthTokenResponse: AjvStandaloneValidateFunction<ConvexOAuthTokenResponse>;\n`,
   );
 
   execFileSync("pnpm", ["exec", "vp", "fmt", ...generatedFormatPaths], {

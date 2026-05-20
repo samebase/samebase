@@ -7,7 +7,7 @@ import {
 import {
   ConvexManagementApiError,
   isConvexManagementNotFoundError,
-} from "./convexManagementApi";
+} from "./convexManagementApi/errors";
 
 describe("provider deletion errors", () => {
   it("recognizes Convex management not-found errors", () => {

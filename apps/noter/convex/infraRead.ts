@@ -5,7 +5,7 @@ import { internalAction } from "./_generated/server";
 import type { ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { vAllowedInfraReadTable } from "./infraReadQueries";
-import { createConvexManagementClient } from "./convexManagementApi";
+import { createConvexManagementClient } from "./convexManagementApi/client";
 import {
   readCloudflareBuildLogs,
   readCloudflareWorkerStatus,

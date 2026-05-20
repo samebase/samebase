@@ -1,9 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import {
-  ConvexApiValidationError,
-  parseConvexOAuthTokenResponse,
-} from "./convexManagementApi";
+import { ConvexApiValidationError } from "./errors";
+import { parseConvexOAuthTokenResponse } from "./oauthToken";
 
 describe("parseConvexOAuthTokenResponse", () => {
   afterEach(() => {

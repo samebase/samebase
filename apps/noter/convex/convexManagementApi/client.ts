@@ -7,25 +7,20 @@ import type {
   PlatformDeploymentResponse,
   PlatformProjectDetails,
   PlatformTokenDetailsResponse,
-} from "./convexManagementApiTypes.generated";
+} from "./types.generated";
 import {
-  ajvConvexOAuthTokenResponse,
   ajvPlatformCreateDeployKeyResponse,
   ajvPlatformCreateProjectResponse,
   ajvPlatformDeploymentResponse,
   ajvPlatformDeploymentResponseList,
   ajvPlatformProjectDetailsList,
   ajvPlatformTokenDetailsResponse,
-  type AjvStandaloneValidateFunction,
-  type AjvStandaloneValidationError,
-} from "./convexManagementApiValidators.generated";
-import { toErrorMessage } from "./jsonUtils";
+} from "./validators.generated";
+import { toErrorMessage } from "../jsonUtils";
+import { ConvexManagementApiError } from "./errors";
+import { validatePayload } from "./payloadValidation";
 
 const CONVEX_MANAGEMENT_BASE_URL = "https://api.convex.dev/v1";
-const CONVEX_OAUTH_TOKEN_RESPONSE_FIELDS: ReadonlySet<string> = new Set([
-  "access_token",
-  "token_type",
-]);
 
 type ConvexManagementRequestMethod = "GET" | "POST";
 
@@ -33,11 +28,6 @@ export type ConvexCloudDeployment = Extract<
   PlatformDeploymentResponse,
   { kind: "cloud" }
 >;
-
-export type ConvexOAuthTokenResponse = {
-  access_token: string;
-  token_type: "bearer";
-};
 
 export interface ConvexManagementClient {
   getTokenDetails(): Promise<PlatformTokenDetailsResponse>;
@@ -64,74 +54,10 @@ export interface ConvexManagementClient {
   deleteDeployment(args: { deploymentName: string }): Promise<void>;
 }
 
-export class ConvexManagementApiError extends Error {
-  readonly status: number;
-
-  readonly path: string;
-
-  readonly responseBodySummary: string;
-
-  constructor(args: {
-    status: number;
-    path: string;
-    responseBodySummary: string;
-  }) {
-    super(
-      `Convex API request failed (${args.status}) for ${args.path}: ${args.responseBodySummary}`,
-    );
-    this.name = "ConvexManagementApiError";
-    this.status = args.status;
-    this.path = args.path;
-    this.responseBodySummary = args.responseBodySummary;
-  }
-}
-
-export class ConvexApiValidationError extends Error {
-  readonly path: string;
-
-  readonly schemaName: string;
-
-  readonly validationErrors: readonly string[];
-
-  constructor(args: {
-    path: string;
-    schemaName: string;
-    validationErrors: readonly string[];
-  }) {
-    super(
-      `Convex API response for ${args.path} did not match ${args.schemaName}: ${args.validationErrors.join("; ")}`,
-    );
-    this.name = "ConvexApiValidationError";
-    this.path = args.path;
-    this.schemaName = args.schemaName;
-    this.validationErrors = args.validationErrors;
-  }
-}
-
-export function isConvexManagementNotFoundError(error: unknown): boolean {
-  return error instanceof ConvexManagementApiError && error.status === 404;
-}
-
 export function isConvexCloudDeployment(
   deployment: PlatformDeploymentResponse,
 ): deployment is ConvexCloudDeployment {
   return deployment.kind === "cloud";
-}
-
-export function parseConvexOAuthTokenResponse(
-  payload: unknown,
-): ConvexOAuthTokenResponse {
-  const tokenResponse = validatePayload({
-    path: "/oauth/token",
-    schemaName: "ConvexOAuthTokenResponse",
-    validator: ajvConvexOAuthTokenResponse,
-    payload,
-  });
-  warnUnexpectedConvexOAuthTokenResponseFields(payload);
-  return {
-    access_token: tokenResponse.access_token,
-    token_type: tokenResponse.token_type,
-  };
 }
 
 export async function fetchConvexTeamTokenDetails(token: string): Promise<{
@@ -323,63 +249,6 @@ async function parseResponseBody(response: Response): Promise<unknown> {
   } catch {
     return null;
   }
-}
-
-function validatePayload<T>(args: {
-  path: string;
-  schemaName: string;
-  validator: AjvStandaloneValidateFunction<T>;
-  payload: unknown;
-}): T {
-  if (args.validator(args.payload)) {
-    return args.payload;
-  }
-
-  throw new ConvexApiValidationError({
-    path: args.path,
-    schemaName: args.schemaName,
-    validationErrors: formatValidationErrors(args.validator.errors),
-  });
-}
-
-function formatValidationErrors(
-  errors: AjvStandaloneValidationError[] | null | undefined,
-): string[] {
-  if (!errors || errors.length === 0) {
-    return ["unknown validation error"];
-  }
-  return errors.map((error) => {
-    const path = error.instancePath.length > 0 ? error.instancePath : "/";
-    const message = error.message ?? "failed validation";
-    return `${path} ${message}`;
-  });
-}
-
-function warnUnexpectedConvexOAuthTokenResponseFields(payload: unknown): void {
-  const fields = collectUnexpectedConvexOAuthTokenResponseFields(payload);
-  if (fields.length === 0) {
-    return;
-  }
-
-  // TODO: Send this schema-drift event through server-side PostHog once the
-  // backend analytics client exists.
-  console.warn("convex:api:unexpected_response_fields", {
-    path: "/oauth/token",
-    schemaName: "ConvexOAuthTokenResponse",
-    fields,
-  });
-}
-
-function collectUnexpectedConvexOAuthTokenResponseFields(
-  payload: unknown,
-): string[] {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    return [];
-  }
-
-  return Object.keys(payload)
-    .filter((field) => !CONVEX_OAUTH_TOKEN_RESPONSE_FIELDS.has(field))
-    .sort();
 }
 
 function encodeConvexNumericPathId(value: string, label: string): string {

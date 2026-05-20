@@ -6,10 +6,8 @@ import { v } from "convex/values";
 import { internalAction, type ActionCtx } from "../../_generated/server";
 import { internal } from "../../_generated/api";
 import type { Doc, Id } from "../../_generated/dataModel";
-import {
-  createConvexManagementClient,
-  isConvexManagementNotFoundError,
-} from "../../convexManagementApi";
+import { createConvexManagementClient } from "../../convexManagementApi/client";
+import { isConvexManagementNotFoundError } from "../../convexManagementApi/errors";
 import {
   deleteCloudflareResources,
   isCloudflareWorkerNotFoundError,

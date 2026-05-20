@@ -11,7 +11,7 @@ import { toErrorMessage } from "../jsonUtils";
 import { parseRepositoryFullName } from "./model";
 import { isLiveConnectedVault, isNoterManagedVault } from "./state";
 import { toSafeRepoName } from "../repoName";
-import { createConvexManagementClient } from "../convexManagementApi";
+import { createConvexManagementClient } from "../convexManagementApi/client";
 import {
   resolveCloudflareProvisioningConnection,
   resolveConvexProvisioningConnection,
