@@ -1054,6 +1054,11 @@ scroll tracking:
 - Manual scrolling should update the visible hash to the active vault card with
   `history.replaceState`, not `pushState`, so the URL stays honest without
   creating a back-button entry for every scroll position.
+- Scroll-tracking hash updates are address-bar state only. They must not update
+  the explicit hash-navigation state or cause a second programmatic scroll.
+- Vault hashes should be stored as app-owned card metadata rather than DOM `id`
+  anchors, so changing the visible hash during scroll cannot trigger
+  browser-native anchor scrolling.
 - The active vault is the card intersecting the top band of the dashboard
   scrollport; when no card intersects that band, use the card nearest the top.
 

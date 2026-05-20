@@ -2064,21 +2064,29 @@ function findVaultDashboardCardScrollport(
   return null;
 }
 
-function scrollVaultDashboardCardIntoView(element: HTMLElement) {
-  window.requestAnimationFrame(() => {
-    const scrollport = findVaultDashboardCardScrollport(element);
-    if (!scrollport) {
-      element.scrollIntoView({
-        block: "start",
-        inline: "nearest",
-      });
-      return;
-    }
+function scrollVaultDashboardCardIntoView(element: HTMLElement): boolean {
+  const scrollport = findVaultDashboardCardScrollport(element);
+  if (!scrollport) {
+    element.scrollIntoView({
+      block: "start",
+      inline: "nearest",
+    });
+    return Math.abs(element.getBoundingClientRect().top) <= 2;
+  }
 
-    const elementRect = element.getBoundingClientRect();
-    const scrollportRect = scrollport.getBoundingClientRect();
-    scrollport.scrollTop += elementRect.top - scrollportRect.top;
-  });
+  const elementRect = element.getBoundingClientRect();
+  const scrollportRect = scrollport.getBoundingClientRect();
+  scrollport.scrollTop += elementRect.top - scrollportRect.top;
+  return (
+    Math.abs(element.getBoundingClientRect().top - scrollportRect.top) <= 2
+  );
+}
+
+// Keep vault hashes app-owned instead of DOM ids, so scrollspy URL updates
+// cannot trigger native anchor scrolling.
+function readVaultDashboardCardHashId(element: HTMLElement): string | null {
+  const hashId = element.dataset.vaultDashboardRepositoryHashId;
+  return hashId && hashId.length > 0 ? hashId : null;
 }
 
 function resolveActiveVaultDashboardCardHashId({
@@ -2096,7 +2104,8 @@ function resolveActiveVaultDashboardCardHashId({
   } | null = null;
 
   for (const cardElement of cardElements) {
-    if (cardElement.id.length === 0) {
+    const hashId = readVaultDashboardCardHashId(cardElement);
+    if (!hashId) {
       continue;
     }
 
@@ -2113,7 +2122,7 @@ function resolveActiveVaultDashboardCardHashId({
     if (!closestCard || distancePx < closestCard.distancePx) {
       closestCard = {
         distancePx,
-        hashId: cardElement.id,
+        hashId,
       };
     }
   }
@@ -2141,7 +2150,7 @@ function VaultDashboardBody({
   );
   const vaultCardElementsRef = useRef(new Map<string, HTMLDivElement>());
   const lastScrolledDeleteRepositoryRef = useRef<string | null>(null);
-  const lastScrolledRepositoryHashRef = useRef<string | null>(null);
+  const lastExplicitRepositoryHashScrollRef = useRef<string | null>(null);
   const replaceRepositoryLocationHash = useCallback((hashId: string) => {
     const nextHash = buildVaultDashboardRepositoryHashHref(hashId);
     if (window.location.hash === nextHash) {
@@ -2153,8 +2162,9 @@ function VaultDashboardBody({
       "",
       `${window.location.pathname}${window.location.search}${nextHash}`,
     );
-    lastScrolledRepositoryHashRef.current = hashId;
-    setRepositoryLocationHash(nextHash);
+    // Scroll tracking is address-bar state only. Hashchange handles explicit
+    // navigation; updating repositoryLocationHash here would feed scrollspy
+    // changes back into the "scroll to hash" path.
   }, []);
 
   useEffect(() => {
@@ -2193,24 +2203,27 @@ function VaultDashboardBody({
         return false;
       }
 
-      if (lastScrolledRepositoryHashRef.current === repositoryHash) {
+      if (lastExplicitRepositoryHashScrollRef.current === repositoryHash) {
         return false;
       }
 
-      if (vaultCardElement.id !== repositoryHash) {
+      if (readVaultDashboardCardHashId(vaultCardElement) !== repositoryHash) {
         return false;
       }
 
       // Direct hash loads resolve after vault data arrives, so anchor the
       // selected card once the target element exists.
-      scrollVaultDashboardCardIntoView(vaultCardElement);
-      lastScrolledRepositoryHashRef.current = repositoryHash;
+      if (scrollVaultDashboardCardIntoView(vaultCardElement)) {
+        lastExplicitRepositoryHashScrollRef.current = repositoryHash;
+      }
       return true;
     },
     [repositoryLocationHash],
   );
 
   useEffect(() => {
+    // The dashboard scrollport can be replaced while vault data settles; bind
+    // after each render so scroll tracking follows the current element.
     const firstVaultCardElement = vaultCardElementsRef.current
       .values()
       .next().value;
@@ -2243,7 +2256,7 @@ function VaultDashboardBody({
         window.cancelAnimationFrame(pendingAnimationFrameId);
       }
     };
-  }, [syncActiveRepositoryHash, vaults]);
+  });
 
   useEffect(() => {
     if (!deleteRepositoryFullName) {
@@ -2273,11 +2286,11 @@ function VaultDashboardBody({
       repositoryLocationHash,
     );
     if (!repositoryHash) {
-      lastScrolledRepositoryHashRef.current = null;
+      lastExplicitRepositoryHashScrollRef.current = null;
       return;
     }
 
-    if (lastScrolledRepositoryHashRef.current === repositoryHash) {
+    if (lastExplicitRepositoryHashScrollRef.current === repositoryHash) {
       return;
     }
 
@@ -2400,7 +2413,7 @@ function VaultDashboardBody({
         return (
           <div
             key={vault._id}
-            id={repositoryHashId}
+            data-vault-dashboard-repository-hash-id={repositoryHashId}
             ref={(element) => {
               if (element) {
                 vaultCardElementsRef.current.set(
