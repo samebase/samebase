@@ -161,10 +161,38 @@ describe("VaultDashboardRepositoryCard", () => {
       />,
     );
 
-    expect(markup).toContain("noter-md/");
+    expect(markup).toContain("#");
     expect(markup).toContain("noter");
+    expect(markup).not.toContain("noter-md/");
     expect(markup).toContain("(deleting...)");
     expect(markup).not.toContain("<a");
+  });
+
+  it("shows the owner in the title only when the repo name is ambiguous", () => {
+    const simpleMarkup = renderToStaticMarkup(
+      <VaultDashboardRepositoryCard
+        isReady={true}
+        repositoryOwner="nicu-chiciuc"
+        repositoryName="tmp-flow"
+        titleHref="#tmp-flow"
+      />,
+    );
+    const ownerQualifiedMarkup = renderToStaticMarkup(
+      <VaultDashboardRepositoryCard
+        isReady={true}
+        repositoryOwner="nicu-chiciuc"
+        repositoryName="tmp-flow"
+        titleHref="#nicu-chiciuc/tmp-flow"
+        titleRepositoryOwnerVisible
+      />,
+    );
+
+    expect(simpleMarkup).toContain("#");
+    expect(simpleMarkup).toContain("tmp-flow");
+    expect(simpleMarkup).not.toContain("nicu-chiciuc/");
+    expect(ownerQualifiedMarkup).toContain("#");
+    expect(ownerQualifiedMarkup).toContain("nicu-chiciuc/");
+    expect(ownerQualifiedMarkup).toContain("tmp-flow");
   });
 });
 

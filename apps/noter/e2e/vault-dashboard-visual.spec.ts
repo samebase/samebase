@@ -414,7 +414,7 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
     name: "Remove vault noter-md/noter",
   });
   await expect(deleteLink).toBeVisible();
-  await expect(deleteLink).toHaveAttribute("href", "/?delete=noter-md%2Fnoter");
+  await expect(deleteLink).toHaveAttribute("href", "/?delete#noter");
   await expect(
     fixture.getByRole("link", { name: "Project settings" }),
   ).toBeVisible();
@@ -460,7 +460,7 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
     name: "Remove vault noter-md/noter",
   });
   await expect(deleteLink).toBeVisible();
-  await expect(deleteLink).toHaveAttribute("href", "/?delete=noter-md%2Fnoter");
+  await expect(deleteLink).toHaveAttribute("href", "/?delete#noter");
   await expect(
     fixture.getByRole("link", { name: "Project settings" }),
   ).toBeVisible();
@@ -515,7 +515,7 @@ test("vault dashboard fixture (bottom target can align at top)", async ({
     "[data-vault-dashboard-repository-header]",
   );
   const targetRepositoryLink = page.getByRole("link", {
-    name: "noter-md/noter-bottom-target",
+    name: "#noter-bottom-target",
     exact: true,
   });
   const targetLastBranchLink = page.getByRole("link", {
@@ -652,7 +652,7 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
     })
     .toBeLessThanOrEqual(1);
   await expect(
-    page.getByRole("link", { name: "noter-md/noter", exact: true }),
+    page.getByRole("link", { name: "#noter", exact: true }),
   ).toBeVisible();
   const branchExpansionButton = header.getByRole("button", {
     name: "Show less branches",
@@ -765,7 +765,7 @@ test("vault dashboard fixture (mobile branch alignment)", async ({ page }) => {
     name: "Remove vault noter-md/noter",
   });
   await expect(deleteLink).toBeVisible();
-  await expect(deleteLink).toHaveAttribute("href", "/?delete=noter-md%2Fnoter");
+  await expect(deleteLink).toHaveAttribute("href", "/?delete#noter");
   await expect(fixture).toHaveScreenshot("vault-branch-mobile-alignment.png", {
     animations: "disabled",
     caret: "hide",

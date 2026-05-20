@@ -2474,6 +2474,8 @@ function VaultDashboardBody({
           repositoryNameCounts,
           vault,
         });
+        const titleRepositoryOwnerVisible =
+          (repositoryNameCounts.get(vault.ghRepoName) ?? 0) > 1;
 
         return (
           <div
@@ -2496,6 +2498,7 @@ function VaultDashboardBody({
               isReady={isReady}
               repositoryOwner={vault.ghRepoOwner}
               repositoryName={vault.ghRepoName}
+              titleRepositoryOwnerVisible={titleRepositoryOwnerVisible}
               titleHref={buildVaultDashboardRepositoryHashHref(
                 repositoryHashId,
               )}
