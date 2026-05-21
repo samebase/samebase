@@ -102,6 +102,10 @@ Noter pins Convex Management API validation to the published OpenAPI schema:
     the pinned document, generated declarations, and standalone validators and
     fail if Convex's published OpenAPI schema drifted from the checked-in
     contract.
+11. Keep compile-time tests alongside the client tests for the OpenAPI call
+    surface. They must prove that provider IDs are decimal strings, required
+    path params stay required, wrong methods are rejected, and the management
+    client cannot be constructed without a token.
 
 The typed client is the only app code that may parse Convex Management API
 response payloads. Feature code should consume typed results and fail closed
