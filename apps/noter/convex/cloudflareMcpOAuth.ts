@@ -16,7 +16,7 @@ import {
   randomToken,
   readRequiredEnv,
 } from "./oauthUtils";
-import { asRecord } from "./jsonUtils";
+import { isRecord } from "./jsonUtils";
 import {
   deriveMcpTokenStatusFromExpiry,
   vMcpTokenHealth,
@@ -60,22 +60,8 @@ const cloudflareMcpTokenResponseSchema = z.object({
   refresh_token: nonEmptyString,
   expires_in: z.number(),
 });
-const cloudflareOauthEndpointErrorMessageSchema = z.preprocess(
-  (value) => (typeof value === "string" ? value : undefined),
-  z.string().optional(),
-);
-const cloudflareOauthEndpointErrorSchema = z.object({
-  error: cloudflareOauthEndpointErrorMessageSchema,
-  error_description: cloudflareOauthEndpointErrorMessageSchema,
-  message: cloudflareOauthEndpointErrorMessageSchema,
-  detail: cloudflareOauthEndpointErrorMessageSchema,
-  statusText: cloudflareOauthEndpointErrorMessageSchema,
-});
 type CloudflareMcpTokenResponse = z.infer<
   typeof cloudflareMcpTokenResponseSchema
->;
-type CloudflareMcpClientRegistrationResponse = z.infer<
-  typeof cloudflareMcpClientRegistrationResponseSchema
 >;
 
 async function fetchWithTimeout(
@@ -114,12 +100,19 @@ function redactCloudflareOAuthErrorDetail(value: string): string {
  * redacted, long output is bounded, and empty records return no detail.
  */
 export function formatCloudflareOAuthEndpointError(
-  record: Record<string, unknown>,
+  payload: unknown,
 ): string | undefined {
-  const errorFields = cloudflareOauthEndpointErrorSchema.parse(record);
+  if (!isRecord(payload)) {
+    return undefined;
+  }
+
   const segments: string[] = [];
   for (const key of CLOUDFLARE_OAUTH_ERROR_MESSAGE_KEYS) {
-    const segment = errorFields[key]?.trim();
+    const value = payload[key];
+    if (typeof value !== "string") {
+      continue;
+    }
+    const segment = value.trim();
     if (segment && !segments.includes(segment)) {
       segments.push(segment);
     }
@@ -139,9 +132,9 @@ export function formatCloudflareOAuthEndpointError(
 function formatCloudflareOAuthRequestFailure(args: {
   operation: CloudflareOAuthTokenOperation;
   status: number;
-  record: Record<string, unknown>;
+  payload: unknown;
 }): Error {
-  const detail = formatCloudflareOAuthEndpointError(args.record);
+  const detail = formatCloudflareOAuthEndpointError(args.payload);
   const message = `Failed to ${args.operation} (${args.status})`;
   if (!detail) {
     return new Error(`${message}.`);
@@ -169,9 +162,7 @@ function parseCloudflareMcpTokenResponse(
   return result.data;
 }
 
-async function registerCloudflareMcpClient(args: {
-  redirectUri: string;
-}): Promise<CloudflareMcpClientRegistrationResponse> {
+async function registerCloudflareMcpClient(args: { redirectUri: string }) {
   const response = await fetchWithTimeout(CLOUDFLARE_MCP_REGISTRATION_URL, {
     method: "POST",
     headers: {
@@ -231,13 +222,12 @@ async function exchangeCloudflareMcpOAuthCode(args: {
   });
 
   const data = await response.json().catch(() => null);
-  const record = asRecord(data);
 
   if (!response.ok) {
     throw formatCloudflareOAuthRequestFailure({
       operation: "exchange Cloudflare OAuth code",
       status: response.status,
-      record,
+      payload: data,
     });
   }
 
@@ -305,13 +295,12 @@ async function refreshCloudflareMcpOAuthToken(args: {
   });
 
   const data = await response.json().catch(() => null);
-  const record = asRecord(data);
 
   if (!response.ok) {
     throw formatCloudflareOAuthRequestFailure({
       operation: "refresh Cloudflare OAuth token",
       status: response.status,
-      record,
+      payload: data,
     });
   }
 
@@ -398,7 +387,6 @@ export const storeCloudflareMcpOauthConnection = internalMutation({
       userId: args.userId,
       clientIdLength: args.clientId.length,
       expiresAt: args.expiresAt,
-      hasRefreshToken: typeof args.refreshToken === "string",
     });
     await ctx.db.delete(args.oauthStateId);
     return null;
@@ -747,7 +735,6 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
       expiresIn: token.expires_in,
       expiresAt,
       clientIdLength: clientId.length,
-      hasRefreshToken: typeof token.refresh_token === "string",
     });
   } catch (err) {
     await ctx.runMutation(internal.oauthState.deleteOauthState, {
