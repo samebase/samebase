@@ -9,9 +9,8 @@ import {
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
-  getConvexManagementApi,
   isConvexCloudDeployment,
-  postConvexManagementApi,
+  requestConvexManagementApi,
 } from "./convexManagementApi/client";
 import { ensureCloudflareResources } from "./cloudflareResources";
 import { asRecord, readString, readStringOrNumber } from "./jsonUtils";
@@ -253,8 +252,9 @@ async function ensureConvexResources(args: {
   let projectSlug = args.existing.projectSlug;
   let teamSlug: string | undefined;
 
-  const projects = await getConvexManagementApi(
+  const projects = await requestConvexManagementApi(
     args.convexToken,
+    "GET",
     "/teams/{team_id}/list_projects",
     { params: { path: { team_id: args.teamId } } },
   );
@@ -285,8 +285,9 @@ async function ensureConvexResources(args: {
   let deploymentUrl = args.existing.cloudUrl;
 
   if (!projectId) {
-    const createResponse = await postConvexManagementApi(
+    const createResponse = await requestConvexManagementApi(
       args.convexToken,
+      "POST",
       "/teams/{team_id}/create_project",
       {
         params: { path: { team_id: args.teamId } },
@@ -306,8 +307,9 @@ async function ensureConvexResources(args: {
     // retries can recognize the project that this run already created.
     await args.onProjectCreated?.({ projectId });
 
-    const refreshedProjects = await getConvexManagementApi(
+    const refreshedProjects = await requestConvexManagementApi(
       args.convexToken,
+      "GET",
       "/teams/{team_id}/list_projects",
       { params: { path: { team_id: args.teamId } } },
     );
@@ -325,8 +327,9 @@ async function ensureConvexResources(args: {
   }
 
   if (!deploymentName) {
-    const deployments = await getConvexManagementApi(
+    const deployments = await requestConvexManagementApi(
       args.convexToken,
+      "GET",
       "/projects/{project_id}/list_deployments",
       { params: { path: { project_id: projectId } } },
     );
@@ -344,8 +347,9 @@ async function ensureConvexResources(args: {
   }
 
   if (!deploymentName) {
-    const createdDeployment = await postConvexManagementApi(
+    const createdDeployment = await requestConvexManagementApi(
       args.convexToken,
+      "POST",
       "/projects/{project_id}/create_deployment",
       {
         params: { path: { project_id: projectId } },
@@ -399,8 +403,9 @@ async function ensureConvexPreviewResources(args: {
   projectId: string;
   vaultId: string;
 }): Promise<ConvexPreviewProvisionResult> {
-  const deployments = await getConvexManagementApi(
+  const deployments = await requestConvexManagementApi(
     args.convexToken,
+    "GET",
     "/projects/{project_id}/list_deployments",
     { params: { path: { project_id: args.projectId } } },
   );
@@ -420,8 +425,9 @@ async function ensureConvexPreviewResources(args: {
   }
 
   if (!deploymentName) {
-    const created = await postConvexManagementApi(
+    const created = await requestConvexManagementApi(
       args.convexToken,
+      "POST",
       "/projects/{project_id}/create_deployment",
       {
         params: { path: { project_id: args.projectId } },
@@ -458,8 +464,9 @@ async function createConvexDeployKey(args: {
 }): Promise<ConvexDeployKeyResult> {
   // Create deploy-key secrets inside provider steps so Workflow journals only
   // safe app metadata, never key material.
-  const { deployKey } = await postConvexManagementApi(
+  const { deployKey } = await requestConvexManagementApi(
     args.convexToken,
+    "POST",
     "/deployments/{deployment_name}/create_deploy_key",
     {
       params: { path: { deployment_name: args.deploymentName } },

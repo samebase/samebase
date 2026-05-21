@@ -7,7 +7,7 @@ import { internal } from "./_generated/api";
 import { vAllowedInfraReadTable } from "./infraReadQueries";
 import {
   formatConvexManagementApiEndpoint,
-  getConvexManagementApi,
+  requestConvexManagementApi,
 } from "./convexManagementApi/client";
 import type {
   PlatformDeploymentResponse,
@@ -167,8 +167,9 @@ export const getConvexDeploymentStatus = internalAction({
         },
       },
     });
-    const deployment = await getConvexManagementApi(
+    const deployment = await requestConvexManagementApi(
       convexToken,
+      "GET",
       "/deployments/{deployment_name}",
       { params: { path: { deployment_name: infra.convexDeploymentName } } },
     );
@@ -209,8 +210,9 @@ export const getConvexLogs = internalAction({
         },
       },
     });
-    const deployments = await getConvexManagementApi(
+    const deployments = await requestConvexManagementApi(
       convexToken,
+      "GET",
       "/projects/{project_id}/list_deployments",
       { params: { path: { project_id: infra.convexProjectId } } },
     );
@@ -327,8 +329,9 @@ export const getConvexProjectInventory = internalAction({
         },
       },
     });
-    const projects = await getConvexManagementApi(
+    const projects = await requestConvexManagementApi(
       convexToken,
+      "GET",
       "/teams/{team_id}/list_projects",
       { params: { path: { team_id: teamId } } },
     );

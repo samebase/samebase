@@ -116,7 +116,11 @@ export function isConvexCloudDeployment(
 export async function fetchConvexTeamTokenDetails(token: string): Promise<{
   teamId: string;
 }> {
-  const details = await getConvexManagementApi(token, "/token_details");
+  const details = await requestConvexManagementApi(
+    token,
+    "GET",
+    "/token_details",
+  );
   if (details.type !== "teamToken") {
     throw new Error("Convex token is missing team access.");
   }
@@ -149,68 +153,62 @@ function formatConvexManagementApiEndpointUnchecked(args: {
   });
 }
 
-export function getConvexManagementApi<
+export function requestConvexManagementApi<
   const Path extends ConvexManagementGetPath,
 >(
   token: string,
+  method: "GET",
   path: Path,
   ...init: ConvexManagementGetInitParam<Path>
 ): Promise<ConvexManagementGetResponse<Path>>;
-export async function getConvexManagementApi<
-  const Path extends ConvexManagementGetPath,
->(
-  token: string,
-  path: Path,
-  ...[options]: ConvexManagementGetInitParam<Path>
-): Promise<unknown> {
-  const params = readConvexManagementRequestParams(options);
-  const endpoint = formatConvexManagementApiEndpointUnchecked({
-    path,
-    params,
-  });
-  const result = await requestConvexManagementApi({
-    token,
-    method: "GET",
-    endpoint,
-  });
-  return validateConvexManagementResult({
-    result,
-    endpoint,
-    method: "GET",
-    path,
-    validator: convexManagementResponseValidators.GET[path],
-  });
-}
-
-export function postConvexManagementApi<
+export function requestConvexManagementApi<
   const Path extends ConvexManagementPostPath,
 >(
   token: string,
+  method: "POST",
   path: Path,
   ...init: ConvexManagementPostInitParam<Path>
 ): Promise<ConvexManagementPostResponse<Path>>;
-export async function postConvexManagementApi<
-  const Path extends ConvexManagementPostPath,
->(
+export async function requestConvexManagementApi(
   token: string,
-  path: Path,
-  ...[options]: ConvexManagementPostInitParam<Path>
+  ...request:
+    | [
+        method: "GET",
+        path: ConvexManagementGetPath,
+        options?: { params?: unknown; body?: unknown },
+      ]
+    | [
+        method: "POST",
+        path: ConvexManagementPostPath,
+        options?: { params?: unknown; body?: unknown },
+      ]
 ): Promise<unknown> {
+  const [method, path, options] = request;
   const params = readConvexManagementRequestParams(options);
   const endpoint = formatConvexManagementApiEndpointUnchecked({
     path,
     params,
   });
-  const result = await requestConvexManagementApi({
+  const result = await executeConvexManagementApiRequest({
     token,
-    method: "POST",
+    method,
     endpoint,
     body: readConvexManagementRequestBody(options),
   });
+  if (method === "GET") {
+    return validateConvexManagementResult({
+      result,
+      endpoint,
+      method,
+      path,
+      validator: convexManagementResponseValidators.GET[path],
+    });
+  }
+
   return validateConvexManagementResult({
     result,
     endpoint,
-    method: "POST",
+    method,
     path,
     validator: convexManagementResponseValidators.POST[path],
   });
@@ -258,7 +256,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
-async function requestConvexManagementApi(args: {
+async function executeConvexManagementApiRequest(args: {
   token: string;
   method: "GET" | "POST";
   endpoint: string;
