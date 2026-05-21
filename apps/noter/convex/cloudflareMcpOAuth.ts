@@ -7,6 +7,7 @@ import {
 } from "./_generated/server";
 import type { ActionCtx, MutationCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { z } from "zod";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
@@ -15,7 +16,7 @@ import {
   randomToken,
   readRequiredEnv,
 } from "./oauthUtils";
-import { asRecord, readNumber, readString } from "./jsonUtils";
+import { asRecord } from "./jsonUtils";
 import {
   deriveMcpTokenStatusFromExpiry,
   vMcpTokenHealth,
@@ -50,11 +51,39 @@ type OAuthContext = ActionCtx | MutationCtx;
 type CloudflareOAuthTokenOperation =
   | "exchange Cloudflare OAuth code"
   | "refresh Cloudflare OAuth token";
-type CloudflareMcpTokenResponse = {
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
-};
+const cloudflareMcpNonEmptyString = z.string().min(1);
+const cloudflareMcpClientRegistrationResponseSchema = z
+  .object({
+    client_id: cloudflareMcpNonEmptyString,
+  })
+  .transform((response) => ({
+    clientId: response.client_id,
+  }));
+const cloudflareMcpTokenResponseSchema = z
+  .object({
+    access_token: cloudflareMcpNonEmptyString,
+    refresh_token: cloudflareMcpNonEmptyString,
+    expires_in: z.number(),
+  })
+  .transform((response) => ({
+    accessToken: response.access_token,
+    refreshToken: response.refresh_token,
+    expiresIn: response.expires_in,
+  }));
+const cloudflareOauthEndpointErrorMessageSchema = z.preprocess(
+  (value) => (typeof value === "string" ? value : undefined),
+  z.string().optional(),
+);
+const cloudflareOauthEndpointErrorSchema = z.object({
+  error: cloudflareOauthEndpointErrorMessageSchema,
+  error_description: cloudflareOauthEndpointErrorMessageSchema,
+  message: cloudflareOauthEndpointErrorMessageSchema,
+  detail: cloudflareOauthEndpointErrorMessageSchema,
+  statusText: cloudflareOauthEndpointErrorMessageSchema,
+});
+type CloudflareMcpTokenResponse = z.infer<
+  typeof cloudflareMcpTokenResponseSchema
+>;
 
 async function fetchWithTimeout(
   input: RequestInfo | URL,
@@ -94,9 +123,10 @@ function redactCloudflareOAuthErrorDetail(value: string): string {
 export function formatCloudflareOAuthEndpointError(
   record: Record<string, unknown>,
 ): string | undefined {
+  const errorFields = cloudflareOauthEndpointErrorSchema.parse(record);
   const segments: string[] = [];
   for (const key of CLOUDFLARE_OAUTH_ERROR_MESSAGE_KEYS) {
-    const segment = readString(record, key)?.trim();
+    const segment = errorFields[key]?.trim();
     if (segment && !segments.includes(segment)) {
       segments.push(segment);
     }
@@ -126,36 +156,24 @@ function formatCloudflareOAuthRequestFailure(args: {
   return new Error(`${message}: ${detail}.`);
 }
 
-function readCloudflareMcpTokenResponse(
-  record: Record<string, unknown>,
+function formatCloudflareZodIssuePaths(error: z.ZodError): string {
+  const paths = new Set(
+    error.issues.map((issue) => issue.path.join(".") || "response"),
+  );
+  return Array.from(paths).join(", ");
+}
+
+function parseCloudflareMcpTokenResponse(
+  payload: unknown,
   operation: CloudflareOAuthTokenOperation,
 ): CloudflareMcpTokenResponse {
-  const accessToken = readString(record, "access_token");
-  if (!accessToken) {
+  const result = cloudflareMcpTokenResponseSchema.safeParse(payload);
+  if (!result.success) {
     throw new Error(
-      `Failed to ${operation}: Cloudflare token response did not include access_token.`,
+      `Failed to ${operation}: Cloudflare token response failed schema validation (${formatCloudflareZodIssuePaths(result.error)}).`,
     );
   }
-
-  const refreshToken = readString(record, "refresh_token");
-  if (!refreshToken) {
-    throw new Error(
-      `Failed to ${operation}: Cloudflare token response did not include refresh_token.`,
-    );
-  }
-
-  const expiresIn = readNumber(record, "expires_in");
-  if (typeof expiresIn !== "number") {
-    throw new Error(
-      `Failed to ${operation}: Cloudflare token response did not include expires_in.`,
-    );
-  }
-
-  return {
-    accessToken,
-    refreshToken,
-    expiresIn,
-  };
+  return result.data;
 }
 
 async function registerCloudflareMcpClient(args: {
@@ -176,21 +194,25 @@ async function registerCloudflareMcpClient(args: {
   });
 
   const payload = await response.json().catch(() => null);
-  const record = asRecord(payload);
-  const clientId = readString(record, "client_id");
-
-  if (!response.ok || !clientId) {
+  if (!response.ok) {
     throw new Error(
       `Failed to register Cloudflare OAuth client (${response.status}).`,
+    );
+  }
+  const registration =
+    cloudflareMcpClientRegistrationResponseSchema.safeParse(payload);
+  if (!registration.success) {
+    throw new Error(
+      `Failed to register Cloudflare OAuth client: response failed schema validation (${formatCloudflareZodIssuePaths(registration.error)}).`,
     );
   }
 
   logCloudflareMcpEvent("cloudflare:mcp_oauth:client_registered", {
     redirectUri: args.redirectUri,
-    clientIdLength: clientId.length,
+    clientIdLength: registration.data.clientId.length,
   });
 
-  return { clientId };
+  return registration.data;
 }
 
 async function exchangeCloudflareMcpOAuthCode(args: {
@@ -230,8 +252,8 @@ async function exchangeCloudflareMcpOAuthCode(args: {
     });
   }
 
-  return readCloudflareMcpTokenResponse(
-    record,
+  return parseCloudflareMcpTokenResponse(
+    data,
     "exchange Cloudflare OAuth code",
   );
 }
@@ -308,8 +330,8 @@ async function refreshCloudflareMcpOAuthToken(args: {
     });
   }
 
-  return readCloudflareMcpTokenResponse(
-    record,
+  return parseCloudflareMcpTokenResponse(
+    data,
     "refresh Cloudflare OAuth token",
   );
 }
