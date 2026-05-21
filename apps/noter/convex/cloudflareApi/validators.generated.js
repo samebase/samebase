@@ -847,6 +847,7 @@ const schema8 = {
             "Sets an abuse contact email to notify for abuse reports.",
           type: "string",
           "x-auditable": true,
+          nullable: true,
         },
         enforce_twofactor: {
           default: false,
@@ -1119,7 +1120,8 @@ function validate7(
       let data6 = data.settings;
       if (data6 && typeof data6 == "object" && !Array.isArray(data6)) {
         if (data6.abuse_contact_email !== undefined) {
-          if (typeof data6.abuse_contact_email !== "string") {
+          let data7 = data6.abuse_contact_email;
+          if (typeof data7 !== "string" && data7 !== null) {
             const err13 = {
               instancePath: instancePath + "/settings/abuse_contact_email",
               schemaPath:

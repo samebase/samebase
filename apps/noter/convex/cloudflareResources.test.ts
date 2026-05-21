@@ -8,6 +8,7 @@ import {
   selectCurrentBuildTokenUuid,
   selectReusableBuildTokenUuid,
 } from "./cloudflareResources";
+import { selectSingleCloudflareAccountId } from "./cloudflareAccountDiscovery";
 
 describe("cloudflare resources", () => {
   it("uses the split production Convex deploy key for production Workers builds", () => {
@@ -100,6 +101,21 @@ describe("cloudflare resources", () => {
         ),
       ),
     ).toBe(true);
+  });
+
+  it("selects the only Cloudflare account exposed to OAuth", () => {
+    expect(selectSingleCloudflareAccountId([{ id: " account-id " }])).toBe(
+      "account-id",
+    );
+  });
+
+  it("fails closed when Cloudflare OAuth exposes multiple accounts", () => {
+    expect(() =>
+      selectSingleCloudflareAccountId([
+        { id: "first-account-id" },
+        { id: "second-account-id" },
+      ]),
+    ).toThrow("multiple accounts");
   });
 
   it("selects the build token backed by the current Cloudflare token", () => {
