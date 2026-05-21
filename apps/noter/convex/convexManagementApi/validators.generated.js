@@ -11778,7 +11778,7 @@ const schema151 = {
     name: { type: "string" },
   },
 };
-const schema152 = { type: "integer", format: "int64", minimum: 0 };
+const schema152 = { pattern: "^[0-9]+$", type: "string" };
 function validate82(
   data,
   {
@@ -11831,37 +11831,36 @@ function validate82(
     }
     if (data.id !== undefined) {
       let data0 = data.id;
-      if (!(typeof data0 == "number" && !(data0 % 1) && !isNaN(data0))) {
-        const err2 = {
-          instancePath: instancePath + "/id",
-          schemaPath: "#/components/schemas/CustomRoleId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err2];
-        } else {
-          vErrors.push(err2);
-        }
-        errors++;
-      }
-      if (typeof data0 == "number") {
-        if (data0 < 0 || isNaN(data0)) {
-          const err3 = {
+      if (typeof data0 === "string") {
+        if (!pattern0.test(data0)) {
+          const err2 = {
             instancePath: instancePath + "/id",
-            schemaPath: "#/components/schemas/CustomRoleId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/CustomRoleId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err3];
+            vErrors = [err2];
           } else {
-            vErrors.push(err3);
+            vErrors.push(err2);
           }
           errors++;
         }
+      } else {
+        const err3 = {
+          instancePath: instancePath + "/id",
+          schemaPath: "#/components/schemas/CustomRoleId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err3];
+        } else {
+          vErrors.push(err3);
+        }
+        errors++;
       }
     }
     if (data.name !== undefined) {
@@ -14776,37 +14775,36 @@ function validate102(
     }
     if (data.id !== undefined) {
       let data3 = data.id;
-      if (!(typeof data3 == "number" && !(data3 % 1) && !isNaN(data3))) {
-        const err11 = {
-          instancePath: instancePath + "/id",
-          schemaPath: "#/components/schemas/CustomRoleId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err11];
-        } else {
-          vErrors.push(err11);
-        }
-        errors++;
-      }
-      if (typeof data3 == "number") {
-        if (data3 < 0 || isNaN(data3)) {
-          const err12 = {
+      if (typeof data3 === "string") {
+        if (!pattern0.test(data3)) {
+          const err11 = {
             instancePath: instancePath + "/id",
-            schemaPath: "#/components/schemas/CustomRoleId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/CustomRoleId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err12];
+            vErrors = [err11];
           } else {
-            vErrors.push(err12);
+            vErrors.push(err11);
           }
           errors++;
         }
+      } else {
+        const err12 = {
+          instancePath: instancePath + "/id",
+          schemaPath: "#/components/schemas/CustomRoleId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err12];
+        } else {
+          vErrors.push(err12);
+        }
+        errors++;
       }
     }
     if (data.name !== undefined) {
@@ -15219,37 +15217,36 @@ function validate110(
     }
     if (data.id !== undefined) {
       let data3 = data.id;
-      if (!(typeof data3 == "number" && !(data3 % 1) && !isNaN(data3))) {
-        const err11 = {
-          instancePath: instancePath + "/id",
-          schemaPath: "#/components/schemas/CustomRoleId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err11];
-        } else {
-          vErrors.push(err11);
-        }
-        errors++;
-      }
-      if (typeof data3 == "number") {
-        if (data3 < 0 || isNaN(data3)) {
-          const err12 = {
+      if (typeof data3 === "string") {
+        if (!pattern0.test(data3)) {
+          const err11 = {
             instancePath: instancePath + "/id",
-            schemaPath: "#/components/schemas/CustomRoleId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/CustomRoleId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err12];
+            vErrors = [err11];
           } else {
-            vErrors.push(err12);
+            vErrors.push(err11);
           }
           errors++;
         }
+      } else {
+        const err12 = {
+          instancePath: instancePath + "/id",
+          schemaPath: "#/components/schemas/CustomRoleId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err12];
+        } else {
+          vErrors.push(err12);
+        }
+        errors++;
       }
     }
     if (data.name !== undefined) {
@@ -15824,37 +15821,36 @@ function validate115(
     }
     if (data.id !== undefined) {
       let data3 = data.id;
-      if (!(typeof data3 == "number" && !(data3 % 1) && !isNaN(data3))) {
-        const err11 = {
-          instancePath: instancePath + "/id",
-          schemaPath: "#/components/schemas/CustomRoleId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err11];
-        } else {
-          vErrors.push(err11);
-        }
-        errors++;
-      }
-      if (typeof data3 == "number") {
-        if (data3 < 0 || isNaN(data3)) {
-          const err12 = {
+      if (typeof data3 === "string") {
+        if (!pattern0.test(data3)) {
+          const err11 = {
             instancePath: instancePath + "/id",
-            schemaPath: "#/components/schemas/CustomRoleId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/CustomRoleId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err12];
+            vErrors = [err11];
           } else {
-            vErrors.push(err12);
+            vErrors.push(err11);
           }
           errors++;
         }
+      } else {
+        const err12 = {
+          instancePath: instancePath + "/id",
+          schemaPath: "#/components/schemas/CustomRoleId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err12];
+        } else {
+          vErrors.push(err12);
+        }
+        errors++;
       }
     }
     if (data.name !== undefined) {

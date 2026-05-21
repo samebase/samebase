@@ -427,8 +427,7 @@ function serializeConvexManagementPath(
   const entries: [string, unknown][] = Object.entries(pathParams);
   for (const [name, value] of entries) {
     if (typeof value !== "string") {
-      normalizedPathParams[name] = value;
-      continue;
+      throw new Error(`Convex path parameter ${name} must be a string.`);
     }
 
     const label = `Convex path parameter ${name}`;

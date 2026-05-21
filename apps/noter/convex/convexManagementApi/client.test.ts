@@ -6,6 +6,7 @@ import {
   requestConvexManagementApi,
 } from "./client";
 import type {
+  CustomRoleResponse,
   operations,
   paths,
   PlatformDeploymentResponse,
@@ -73,6 +74,30 @@ function assertConvexManagementRequestTypes(): void {
     ),
     true,
   );
+  expectType<Promise<CustomRoleResponse>>()(
+    requestConvexManagementApi(
+      "team-token",
+      "POST",
+      "/teams/{team_id}/create_custom_role",
+      {
+        params: { path: { team_id: LARGE_CONVEX_PARENT_ID } },
+        body: {
+          name: "operator",
+          statements: [],
+        },
+      },
+    ),
+    true,
+  );
+
+  const customRoleResponse: CustomRoleResponse = {
+    createTime: 1710000000000,
+    id: LARGE_CONVEX_ID,
+    name: "operator",
+    statements: [],
+    teamId: LARGE_CONVEX_PARENT_ID,
+  };
+  expectType<string>()(customRoleResponse.id, true);
 
   expectType<string>()(
     formatConvexManagementApiEndpoint({
@@ -247,6 +272,48 @@ describe("Convex Management API request helpers", () => {
     ]);
   });
 
+  it("preserves Convex custom role IDs from responses as decimal strings", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return new Response(
+          `{
+            "createTime": 1710000000000,
+            "id": ${LARGE_CONVEX_ID},
+            "name": "operator",
+            "statements": [],
+            "teamId": ${LARGE_CONVEX_PARENT_ID}
+          }`,
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }),
+    );
+
+    await expect(
+      requestConvexManagementApi(
+        "team-token",
+        "POST",
+        "/teams/{team_id}/create_custom_role",
+        {
+          params: { path: { team_id: LARGE_CONVEX_PARENT_ID } },
+          body: {
+            name: "operator",
+            statements: [],
+          },
+        },
+      ),
+    ).resolves.toEqual({
+      createTime: 1710000000000,
+      id: LARGE_CONVEX_ID,
+      name: "operator",
+      statements: [],
+      teamId: LARGE_CONVEX_PARENT_ID,
+    });
+  });
+
   it("materializes typed OpenAPI path parameters for empty POST requests", async () => {
     const requests: Request[] = [];
     vi.stubGlobal(
@@ -340,6 +407,23 @@ describe("Convex Management API request helpers", () => {
       originalLength: LARGE_CONVEX_ID.length + 2,
       normalizedLength: LARGE_CONVEX_ID.length,
     });
+  });
+
+  it("rejects non-string path parameters at the request boundary", async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      requestConvexManagementApi(
+        "team-token",
+        // @ts-expect-error Runtime callers can still pass non-string path params.
+        "GET",
+        "/teams/{team_id}/list_projects",
+        { params: { path: { team_id: 123 } } },
+      ),
+    ).rejects.toThrow("Convex path parameter team_id must be a string.");
+
+    expect(fetch).not.toHaveBeenCalled();
   });
 });
 

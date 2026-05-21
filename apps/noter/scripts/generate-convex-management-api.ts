@@ -45,6 +45,7 @@ const generatedFormatPaths = [
   "convex/convexManagementApi/validators.generated.d.ts",
 ];
 const convexManagementDecimalIdSchemaNames = [
+  "CustomRoleId",
   "DeploymentId",
   "MemberId",
   "ProjectId",
