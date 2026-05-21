@@ -218,6 +218,13 @@ Dashboard external links:
 
 - Uses user-scoped provider connections for Convex and Cloudflare (no operator
   fallback).
+- Cloudflare provisioning requires the selected account id already stored on the
+  Cloudflare provider connection. It must not inventory accounts and choose one
+  during provisioning.
+- Workers Builds repository connection uses the connected vault's stored GitHub
+  repo id and a required owner id read from the GitHub repository response. The
+  response repo id must match the vault before Cloudflare receives the
+  connection request.
 - Provisioning is idempotent/resumable and does not auto-teardown resources on
   vault deletion unless explicitly requested.
 

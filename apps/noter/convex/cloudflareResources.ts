@@ -367,7 +367,7 @@ async function ensureWorker(args: {
   token: string;
   serverUrl?: string;
   accountId: string;
-  fallbackWorkerName: string;
+  workerName: string;
   existingWorkerTag?: string;
 }): Promise<CloudflareWorkerIdentity> {
   const accountSubdomain = await readAccountSubdomain(args);
@@ -375,20 +375,19 @@ async function ensureWorker(args: {
     token: args.token,
     serverUrl: args.serverUrl,
     accountId: args.accountId,
-    workerName: args.fallbackWorkerName,
+    workerName: args.workerName,
   });
   if (existing) {
-    const workerName = readString(existing, "name") ?? args.fallbackWorkerName;
-    const workerTag = readCloudflareWorkerTag(existing, workerName);
+    const workerTag = readCloudflareWorkerTag(existing, args.workerName);
     if (args.existingWorkerTag !== workerTag) {
       throw new Error(
-        `Cloudflare Worker name ${args.fallbackWorkerName} already exists. Choose another Worker name and try again.`,
+        `Cloudflare Worker name ${args.workerName} already exists. Choose another Worker name and try again.`,
       );
     }
     return {
-      workerName,
+      workerName: args.workerName,
       workerTag,
-      productionUrl: `https://${workerName}.${accountSubdomain}.workers.dev`,
+      productionUrl: `https://${args.workerName}.${accountSubdomain}.workers.dev`,
     };
   }
 
@@ -398,7 +397,7 @@ async function ensureWorker(args: {
     method: "POST",
     path: `/accounts/${encodeURIComponent(args.accountId)}/workers/workers`,
     body: {
-      name: args.fallbackWorkerName,
+      name: args.workerName,
       subdomain: {
         enabled: true,
         previews_enabled: true,
@@ -409,12 +408,11 @@ async function ensureWorker(args: {
     },
   });
   const created = asRecord(createdRaw);
-  const workerName = readString(created, "name") ?? args.fallbackWorkerName;
-  const workerTag = readCloudflareWorkerTag(created, workerName);
+  const workerTag = readCloudflareWorkerTag(created, args.workerName);
   return {
-    workerName,
+    workerName: args.workerName,
     workerTag,
-    productionUrl: `https://${workerName}.${accountSubdomain}.workers.dev`,
+    productionUrl: `https://${args.workerName}.${accountSubdomain}.workers.dev`,
   };
 }
 
@@ -423,16 +421,10 @@ async function ensureRepositoryConnection(args: {
   serverUrl?: string;
   accountId: string;
   ghRepoId: string;
-  ghRepoOwnerId?: string;
+  ghRepoOwnerId: string;
   owner: string;
   repo: string;
 }): Promise<string> {
-  if (!args.ghRepoOwnerId) {
-    throw new Error(
-      "GitHub owner id is required before Cloudflare Workers Builds can connect the repository.",
-    );
-  }
-
   const raw = await requestCloudflareApi({
     token: args.token,
     serverUrl: args.serverUrl,
@@ -862,7 +854,7 @@ type EnsureCloudflareResourcesArgs = {
   owner: string;
   repo: string;
   ghRepoId: string;
-  ghRepoOwnerId?: string;
+  ghRepoOwnerId: string;
   defaultBranch: string;
   vaultId: string;
   workerName: string;
@@ -873,7 +865,7 @@ type EnsureCloudflareResourcesArgs = {
   buildConfig: CloudflareBuildConfig;
   existingWorkerTag?: string;
   convex: CloudflareProvisionConvexState;
-  onWorkerResolved?: (worker: CloudflareWorkerIdentity) => Promise<void>;
+  onWorkerResolved: (worker: CloudflareWorkerIdentity) => Promise<void>;
 };
 
 type CloudflareAuthMethod = "api_key" | "mcp_oauth";
@@ -881,7 +873,6 @@ type CloudflareAuthMethod = "api_key" | "mcp_oauth";
 export async function ensureCloudflareResources(
   args: EnsureCloudflareResourcesArgs,
 ): Promise<ProvisionedCloudflareResources> {
-  const fallbackWorkerName = args.workerName;
   let workerName = args.workerName;
 
   console.log("infra:cloudflare:provision:start", {
@@ -898,13 +889,13 @@ export async function ensureCloudflareResources(
       token: args.cloudflareToken,
       serverUrl: args.cloudflareServerUrl,
       accountId: args.accountId,
-      fallbackWorkerName,
+      workerName: args.workerName,
       existingWorkerTag: args.existingWorkerTag,
     });
     workerName = worker.workerName;
 
     step = "record_worker_identity";
-    await args.onWorkerResolved?.(worker);
+    await args.onWorkerResolved(worker);
 
     step = "connect_repository";
     const repoConnectionUuid = await ensureRepositoryConnection({

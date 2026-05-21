@@ -16,7 +16,7 @@ import {
 import { isConvexManagementNotFoundError } from "./convexManagementApi/errors";
 import type { PlatformDeploymentResponse } from "./convexManagementApi/types.generated";
 import { ensureCloudflareResources } from "./cloudflareResources";
-import { asRecord, readString, readStringOrNumber } from "./jsonUtils";
+import { asRecord, readStringOrNumber } from "./jsonUtils";
 import type { AppProvisioningStep, GithubTreeData } from "./schema";
 import { sanitizeSlug, vaultSuffix } from "./slugUtils";
 import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
@@ -173,7 +173,8 @@ async function fetchGitHubRepoIdentity(args: {
   githubAccessToken: string;
   owner: string;
   repo: string;
-}): Promise<{ repoId?: string; ownerId?: string }> {
+  expectedRepoId: string;
+}): Promise<{ ownerId: string }> {
   const repoRaw = await requestGitHubRepoApi({
     githubAccessToken: args.githubAccessToken,
     owner: args.owner,
@@ -185,7 +186,16 @@ async function fetchGitHubRepoIdentity(args: {
   const repoId = readStringOrNumber(record, "id");
   const ownerRecord = asRecord(record["owner"]);
   const ownerId = readStringOrNumber(ownerRecord, "id");
-  return { repoId, ownerId };
+  if (!repoId) {
+    throw new Error("GitHub repository response did not include repo id.");
+  }
+  if (repoId !== args.expectedRepoId) {
+    throw new Error("GitHub repository response did not match the vault repo.");
+  }
+  if (!ownerId) {
+    throw new Error("GitHub repository response did not include owner id.");
+  }
+  return { ownerId };
 }
 
 function parseDeployKeyIdentifier(deployKey: string): string {
@@ -194,41 +204,6 @@ function parseDeployKeyIdentifier(deployKey: string): string {
     return deployKey.slice(0, 64);
   }
   return deployKey.slice(0, pipeIdx);
-}
-
-type CloudflareAccountSummary = {
-  id: string;
-  name?: string;
-  isDefault: boolean;
-};
-
-function parseCloudflareAccountInventory(
-  raw: string,
-): CloudflareAccountSummary[] {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return [];
-  }
-  if (!Array.isArray(parsed)) {
-    return [];
-  }
-  const accounts: CloudflareAccountSummary[] = [];
-  for (const entry of parsed) {
-    const record = asRecord(entry);
-    const id = readString(record, "id");
-    if (!id) {
-      continue;
-    }
-    const isDefaultRaw = record["isDefault"];
-    accounts.push({
-      id,
-      name: readString(record, "name"),
-      isDefault: isDefaultRaw === true,
-    });
-  }
-  return accounts;
 }
 
 type ConvexProvisionResult = {
@@ -374,7 +349,7 @@ async function ensureConvexResources(args: {
   convexToken: string;
   projectName: string;
   existing: ExistingConvexResources;
-  onProjectCreated?: (identity: { projectId: string }) => Promise<void>;
+  onProjectCreated: (identity: { projectId: string }) => Promise<void>;
 }): Promise<ConvexProvisionResult> {
   const projectName = args.projectName;
 
@@ -411,7 +386,7 @@ async function ensureConvexResources(args: {
 
     // Record the provider identity before later deployment lookups can fail so
     // retries can recognize the project that this run already created.
-    await args.onProjectCreated?.({ projectId });
+    await args.onProjectCreated({ projectId });
   } else {
     projectId = args.existing.projectId;
   }
@@ -897,45 +872,12 @@ export async function resolveCloudflareProvisioningConnection(
   const cloudflareServerUrl = resolveCloudflareMcpServerUrl(
     resolvedCloudflareConnection,
   );
-  let cloudflareAccountId = resolvedCloudflareConnection.accountId?.trim()
-    ? resolvedCloudflareConnection.accountId.trim()
-    : "";
+  const cloudflareAccountId = resolvedCloudflareConnection.accountId?.trim();
 
   if (!cloudflareToken) {
     throw new Error(
       "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
     );
-  }
-
-  if (!cloudflareAccountId) {
-    const accountInventory = await ctx.runAction(
-      internal.infraRead.getCloudflareAccountInventory,
-      {
-        userId,
-        limit: 50,
-      },
-    );
-    const accounts = parseCloudflareAccountInventory(accountInventory.raw);
-    if (accounts.length === 0) {
-      throw new Error(
-        "No Cloudflare account is available for provisioning. Reconnect Cloudflare and retry.",
-      );
-    }
-    if (accounts.length > 1) {
-      throw new Error(
-        "Multiple Cloudflare accounts are available. Select an account before provisioning can continue.",
-      );
-    }
-    cloudflareAccountId = accounts[0].id;
-    await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
-      userId,
-      auth: resolvedCloudflareConnection.auth,
-      accountId: cloudflareAccountId,
-    });
-    console.log("infra:cloudflare:account:auto_selected", {
-      accountId: cloudflareAccountId,
-      accountCount: accounts.length,
-    });
   }
 
   if (!cloudflareAccountId) {
@@ -1037,7 +979,9 @@ export const recordConvexProjectIdentity = internalMutation({
 
     const target = await readVaultInfrastructureTarget(ctx, args.vaultId);
     if (!target) {
-      return { applied: false };
+      throw new Error(
+        "Infrastructure target is required before recording Convex project identity.",
+      );
     }
 
     await ctx.db.patch(target._id, {
@@ -1068,7 +1012,9 @@ export const recordConvexDeployKey = internalMutation({
 
     const existing = await readVaultInfrastructure(ctx, args.vaultId);
     if (!existing) {
-      return { applied: false };
+      throw new Error(
+        "Convex infrastructure is required before recording deploy key identity.",
+      );
     }
 
     await ctx.db.patch(existing._id, {
@@ -1097,7 +1043,9 @@ export const recordCloudflareWorkerIdentity = internalMutation({
 
     const target = await readVaultInfrastructureTarget(ctx, args.vaultId);
     if (!target) {
-      return { applied: false };
+      throw new Error(
+        "Infrastructure target is required before recording Cloudflare Worker identity.",
+      );
     }
 
     await ctx.db.patch(target._id, {
@@ -1731,6 +1679,7 @@ export const ensureCloudflareInfrastructure = internalAction({
       githubAccessToken,
       owner: vault.owner,
       repo: vault.name,
+      expectedRepoId: vault.ghRepoId,
     });
     const existingCloudflareWorkerTag = selectExistingCloudflareWorkerTag({
       cloudflare: vault.cloudflare,
@@ -1740,7 +1689,7 @@ export const ensureCloudflareInfrastructure = internalAction({
     const provisionedCloudflare = await ensureCloudflareResources({
       owner: vault.owner,
       repo: vault.name,
-      ghRepoId: repoIdentity.repoId ?? vault.ghRepoId,
+      ghRepoId: vault.ghRepoId,
       ghRepoOwnerId: repoIdentity.ownerId,
       defaultBranch,
       vaultId: args.vaultId,
