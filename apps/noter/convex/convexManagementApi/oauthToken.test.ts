@@ -36,7 +36,12 @@ describe("parseConvexOAuthTokenResponse", () => {
     expect(warn).toHaveBeenCalledWith("convex:api:unexpected_response_fields", {
       path: "/oauth/token",
       schemaName: "ConvexOAuthTokenResponse",
-      fields: ["expires_in", "refresh_token"],
+      keys: [
+        expect.objectContaining({
+          code: "unrecognized_keys",
+          keys: ["expires_in", "refresh_token"],
+        }),
+      ],
     });
   });
 
