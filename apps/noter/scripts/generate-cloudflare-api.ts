@@ -8,6 +8,7 @@ import openapiTS, {
   COMMENT_HEADER,
   type OpenAPI3,
 } from "openapi-typescript";
+import { includes } from "@noter-md/dependent/main";
 
 const sourceUrl =
   "https://raw.githubusercontent.com/cloudflare/api-schemas/main/openapi.json";
@@ -63,6 +64,9 @@ const ajvIgnoredFormats = [
 ] as const;
 
 type JsonRecord = Record<string, unknown>;
+type OpenAPI3WithPaths = OpenAPI3 & {
+  paths: NonNullable<OpenAPI3["paths"]>;
+};
 type CloudflareApiOperationMethod =
   (typeof cloudflareApiOperationMethods)[number];
 type CloudflareApiResponseValidatorEntry = {
@@ -103,7 +107,7 @@ const validatorSchemaIds = buildCloudflareApiValidatorSchemaIds(
   responseValidatorEntries,
 );
 
-function parseJsonSchemaDocument(documentText: string): OpenAPI3 {
+function parseJsonSchemaDocument(documentText: string): OpenAPI3WithPaths {
   const payload: unknown = JSON.parse(documentText);
   if (isOpenApiDocument(payload)) {
     return payload;
@@ -118,7 +122,7 @@ function isJsonSchemaDocument(payload: unknown): payload is AnySchema {
   );
 }
 
-function isOpenApiDocument(payload: unknown): payload is OpenAPI3 {
+function isOpenApiDocument(payload: unknown): payload is OpenAPI3WithPaths {
   return (
     isRecord(payload) &&
     typeof payload.openapi === "string" &&
@@ -237,7 +241,9 @@ function normalizeOpenApiExclusiveLimit(args: {
   delete args.record[args.exclusiveKey];
 }
 
-function buildCloudflareApiSubsetDocument(document: OpenAPI3): OpenAPI3 {
+function buildCloudflareApiSubsetDocument(
+  document: OpenAPI3WithPaths,
+): OpenAPI3 {
   const selectedPaths = collectSelectedCloudflareApiPaths(document);
   ensureCloudflareApiOperationIds(selectedPaths);
   const info = readCloudflareApiSubsetInfo(document);
@@ -293,7 +299,9 @@ function ensureCloudflareApiOperationIds(paths: JsonRecord): void {
   }
 }
 
-function collectSelectedCloudflareApiPaths(document: OpenAPI3): JsonRecord {
+function collectSelectedCloudflareApiPaths(
+  document: OpenAPI3WithPaths,
+): JsonRecord {
   const selectedPaths: JsonRecord = {};
   const entries = Object.entries(document.paths).sort(([left], [right]) =>
     left.localeCompare(right),
@@ -315,7 +323,7 @@ function collectSelectedCloudflareApiPaths(document: OpenAPI3): JsonRecord {
 
 function isSelectedCloudflareApiPath(path: string): boolean {
   return (
-    cloudflareApiExactPaths.includes(path) ||
+    includes(cloudflareApiExactPaths, path) ||
     cloudflareApiFamilyPathPrefixes.some((prefix) => path.startsWith(prefix))
   );
 }
