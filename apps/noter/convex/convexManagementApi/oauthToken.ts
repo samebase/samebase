@@ -1,5 +1,4 @@
-import { z, type ZodIssue } from "zod";
-import { ConvexApiValidationError } from "./errors";
+import { z } from "zod";
 
 const convexOAuthTokenResponseFields = {
   access_token: z.string().min(1),
@@ -17,38 +16,17 @@ export type ConvexOAuthTokenResponse = z.infer<
 export function parseConvexOAuthTokenResponse(
   payload: unknown,
 ): ConvexOAuthTokenResponse {
-  const result = convexOAuthTokenResponseSchema.safeParse(payload);
-  if (!result.success) {
-    throw new ConvexApiValidationError({
-      path: "/oauth/token",
-      schemaName: "ConvexOAuthTokenResponse",
-      validationErrors: result.error.issues.map(formatZodIssue),
-    });
-  }
-
-  warnUnexpectedConvexOAuthTokenResponseFields(payload);
-  return result.data;
-}
-
-function formatZodIssue(issue: ZodIssue): string {
-  const path =
-    issue.path.length > 0
-      ? `/${issue.path.map((segment) => String(segment)).join("/")}`
-      : "/";
-  return `${path} ${issue.message}`;
-}
-
-function warnUnexpectedConvexOAuthTokenResponseFields(payload: unknown): void {
+  const tokenResponse = convexOAuthTokenResponseSchema.parse(payload);
   const strictResult = convexOAuthStrictTokenResponseSchema.safeParse(payload);
   if (strictResult.success) {
-    return;
+    return tokenResponse;
   }
 
   const fields = strictResult.error.issues
     .flatMap((issue) => (issue.code === "unrecognized_keys" ? issue.keys : []))
     .sort();
   if (fields.length === 0) {
-    return;
+    return tokenResponse;
   }
 
   // TODO: Send this schema-drift event through server-side PostHog once the
@@ -58,4 +36,5 @@ function warnUnexpectedConvexOAuthTokenResponseFields(payload: unknown): void {
     schemaName: "ConvexOAuthTokenResponse",
     fields,
   });
+  return tokenResponse;
 }

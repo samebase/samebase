@@ -47,7 +47,6 @@ import type * as connectedMachines from "../connectedMachines.js";
 import type * as convexManagementApi_client from "../convexManagementApi/client.js";
 import type * as convexManagementApi_errors from "../convexManagementApi/errors.js";
 import type * as convexManagementApi_oauthToken from "../convexManagementApi/oauthToken.js";
-import type * as convexManagementApi_payloadValidation from "../convexManagementApi/payloadValidation.js";
 import type * as convexOAuth from "../convexOAuth.js";
 import type * as dashboardSettings from "../dashboardSettings.js";
 import type * as deploymentProfile from "../deploymentProfile.js";
@@ -156,7 +155,6 @@ declare const fullApi: ApiFromModules<{
   "convexManagementApi/client": typeof convexManagementApi_client;
   "convexManagementApi/errors": typeof convexManagementApi_errors;
   "convexManagementApi/oauthToken": typeof convexManagementApi_oauthToken;
-  "convexManagementApi/payloadValidation": typeof convexManagementApi_payloadValidation;
   convexOAuth: typeof convexOAuth;
   dashboardSettings: typeof dashboardSettings;
   deploymentProfile: typeof deploymentProfile;

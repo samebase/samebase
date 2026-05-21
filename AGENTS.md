@@ -116,6 +116,17 @@ Key domain entities:
 - Prefer inference when it keeps the code clear.
 - When a schema exists, derive the TypeScript type from it instead of
   duplicating a manual type.
+- Before adding a helper, formatter, wrapper, class, or generated artifact, ask
+  whether the final design still needs it. Delete-first is the default. Keep the
+  native library value or error shape unless a production caller needs a
+  different shape; do not add branches or adapters whose outputs are equivalent
+  to the simpler expression.
+- Do not add custom Error subclasses unless production code catches that exact
+  class, branches on structured fields, or the error type is part of an existing
+  module contract. Tests should not be the reason an error class exists.
+- Generated files must only contain output derived from the named source of
+  truth. Do not put hand-authored schemas, local endpoint contracts, or
+  convenience types into generated output.
 - In Convex modules, define result validators before handlers, derive types via
   `Infer<typeof ...>`, and prefer destructuring validator builders once instead
   of repeated `v.<fn>()` call sites.

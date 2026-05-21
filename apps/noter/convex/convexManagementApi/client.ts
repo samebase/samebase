@@ -28,8 +28,7 @@ import {
   type AjvStandaloneValidateFunction,
 } from "./validators.generated";
 import { toErrorMessage } from "../jsonUtils";
-import { ConvexApiValidationError, ConvexManagementApiError } from "./errors";
-import { validatePayload } from "./payloadValidation";
+import { ConvexManagementApiError } from "./errors";
 
 const CONVEX_MANAGEMENT_BASE_URL = "https://api.convex.dev/v1";
 const CONVEX_MANAGEMENT_TIMEOUT_MS = 10_000;
@@ -381,12 +380,22 @@ function validateConvexManagementJsonResult<T>(args: {
     schemaName,
     text: args.result.data,
   });
-  return validatePayload({
-    path: args.endpoint,
-    schemaName,
-    validator: args.validator,
-    payload,
-  });
+  if (args.validator(payload)) {
+    return payload;
+  }
+
+  const validationErrors = args.validator.errors;
+  const formattedErrors =
+    validationErrors && validationErrors.length > 0
+      ? validationErrors.map((error) => {
+          const path = error.instancePath.length > 0 ? error.instancePath : "/";
+          const message = error.message ?? "failed validation";
+          return `${path} ${message}`;
+        })
+      : ["unknown validation error"];
+  throw new Error(
+    `Convex API response for ${args.endpoint} did not match ${schemaName}: ${formattedErrors.join("; ")}`,
+  );
 }
 
 function parseConvexManagementResponseJson(args: {
@@ -395,23 +404,17 @@ function parseConvexManagementResponseJson(args: {
   text?: string;
 }): unknown {
   if (args.text === undefined) {
-    throw new ConvexApiValidationError({
-      path: args.endpoint,
-      schemaName: args.schemaName,
-      validationErrors: ["/ missing JSON response body"],
-    });
+    throw new Error(
+      `Convex API response for ${args.endpoint} did not match ${args.schemaName}: / missing JSON response body`,
+    );
   }
 
   try {
     return parse(args.text, reviveConvexManagementResponseValue);
   } catch (error) {
-    throw new ConvexApiValidationError({
-      path: args.endpoint,
-      schemaName: args.schemaName,
-      validationErrors: [
-        `/ invalid JSON response: ${toErrorMessage(error, "parse failed")}`,
-      ],
-    });
+    throw new Error(
+      `Convex API response for ${args.endpoint} did not match ${args.schemaName}: / invalid JSON response: ${toErrorMessage(error, "parse failed")}`,
+    );
   }
 }
 

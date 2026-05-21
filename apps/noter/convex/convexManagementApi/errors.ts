@@ -20,28 +20,6 @@ export class ConvexManagementApiError extends Error {
   }
 }
 
-export class ConvexApiValidationError extends Error {
-  readonly path: string;
-
-  readonly schemaName: string;
-
-  readonly validationErrors: readonly string[];
-
-  constructor(args: {
-    path: string;
-    schemaName: string;
-    validationErrors: readonly string[];
-  }) {
-    super(
-      `Convex API response for ${args.path} did not match ${args.schemaName}: ${args.validationErrors.join("; ")}`,
-    );
-    this.name = "ConvexApiValidationError";
-    this.path = args.path;
-    this.schemaName = args.schemaName;
-    this.validationErrors = args.validationErrors;
-  }
-}
-
 export function isConvexManagementNotFoundError(error: unknown): boolean {
   return error instanceof ConvexManagementApiError && error.status === 404;
 }

@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { ConvexApiValidationError } from "./errors";
 import { parseConvexOAuthTokenResponse } from "./oauthToken";
 
 describe("parseConvexOAuthTokenResponse", () => {
@@ -47,6 +46,6 @@ describe("parseConvexOAuthTokenResponse", () => {
         access_token: "team:my-team|AAAAAA==",
         token_type: "mac",
       }),
-    ).toThrow(ConvexApiValidationError);
+    ).toThrow();
   });
 });
