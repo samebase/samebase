@@ -34,26 +34,26 @@ OpenAPI specs and confirms the same split: Management API types include
 
 Generator and validator checks:
 
-- `@hey-api/openapi-ts` generates typed SDK functions, request/response types,
-  path/query/body typing, and generated Zod response validators from the Convex
-  Management API document.
-- The SDK plugin can wire generated response validators into each generated
-  operation, so Noter does not need to maintain a separate method/path validator
-  map.
-- A parser schema patch can map the Convex ID schemas Noter consumes to decimal
-  strings before Hey API emits TypeScript and Zod output.
-- The generated fetch client parses successful JSON with `JSON.parse` before
-  running response validators. Because patched ID schemas require strings,
-  numeric provider IDs fail closed before feature code can use a corrupted ID.
-  Supporting numeric unsafe ID responses would require a custom lossless parse
-  path before validation; compatibility with numeric ID responses is not a
-  product invariant.
+- `openapi-typescript` produces strong TypeScript types from the Convex
+  Management API document without adding runtime dependencies.
+- AJV 2020 compiles validators directly against the Convex OpenAPI 3.1 schemas
+  and rejects missing required fields for the response schemas Noter uses.
+- Zod JSON-schema conversion did not reliably resolve OpenAPI `$ref`s in a quick
+  probe.
+- Higher-level client generators added more machinery than Noter needs or
+  weakened some schema constraints.
+- `openapi-fetch` provides the desired client contract: callsites pass literal
+  OpenAPI path templates and grouped `params.path` / `params.query` values so
+  TypeScript can reject misspelled paths, wrong methods, missing path params,
+  and invalid request bodies before runtime. Noter uses it with the generated
+  `paths` type while keeping Noter-owned error shaping and AJV runtime response
+  validation.
 - The OpenAPI `int64` format can be represented as a JSON number or string, but
   JavaScript cannot safely represent every `int64` as a `number`. Convex
   provider IDs are opaque to Noter, so `ProjectId`, `TeamId`, `DeploymentId`,
   and `MemberId` must be preserved as decimal strings at the app boundary.
-  Non-ID numeric fields, such as timestamps, remain numbers because current
-  product logic treats them as millisecond timestamps.
+  Non-ID numeric fields, such as timestamps, remain numbers and must fail closed
+  if Convex returns a value outside JavaScript's safe numeric range.
 
 ## Decision
 
@@ -61,22 +61,30 @@ Noter pins Convex Management API validation to the published OpenAPI schema:
 
 1. Store the Convex Management API OpenAPI document as a generated JSON drift
    sentinel. App code must not import it at runtime.
-2. Store generated Hey API output derived from that document for the Convex
-   operations Noter currently calls. The generated output includes TypeScript
-   types, SDK functions, fetch client support, and Zod response schemas.
-3. Generate with a Hey API parser patch that maps Convex ID schemas Noter
-   consumes to decimal-string schemas. The checked-in OpenAPI document remains
-   the upstream drift sentinel; generated app types model Noter's provider ID
-   boundary.
-4. Use the generated SDK functions through a small Noter-owned wrapper that
-   supplies authorization headers, request timeout behavior, endpoint formatting
-   for operator output, and Noter error shaping.
-5. Do not expose a generic `request(path, method, body): Promise<unknown>`
-   escape hatch. Feature code must call named Convex Management API operations.
-6. Treat numeric provider ID responses as invalid. This fails closed before
-   feature code can receive an ID that may already have been corrupted by normal
-   JSON parsing. If a future provider contract requires accepting numeric unsafe
-   IDs, add a custom lossless parse path before generated validation.
+2. Store generated TypeScript declarations derived from that document.
+3. Generate TypeScript declarations with `openapi-typescript` transform hooks
+   that map the Convex ID schemas Noter consumes to decimal strings. The
+   checked-in OpenAPI document remains the upstream drift sentinel; generated
+   app types model Noter's lossless provider boundary.
+4. Generate standalone AJV validators from a Noter-normalized copy of the
+   fetched document for every Convex Management API response Noter consumes. The
+   normalization keeps the same upstream schema except for the Convex ID schemas
+   that Noter treats as decimal strings. Convex imports the generated
+   validators, not AJV itself, because the Convex runtime disallows string-code
+   generation.
+5. Expose a typed Convex Management client instead of a generic
+   `request(path, method, body): Promise<unknown>` escape hatch. Internal
+   requests must go through `openapi-fetch` with literal OpenAPI path templates
+   such as `/teams/{team_id}/list_projects`, an allowed method for that path,
+   and typed `params.path` / `params.query` objects derived from the generated
+   `paths` interface. `openapi-fetch` is responsible for path/query
+   serialization; feature callsites must not build interpolated Management API
+   URLs.
+6. Parse successful Convex Management API JSON responses as text with a lossless
+   JSON parser before validation. ID-shaped fields are normalized to decimal
+   strings before AJV runs so feature code never receives truncated provider
+   IDs. Non-ID numeric fields are converted to JavaScript numbers only when the
+   conversion is safe.
 7. Validate `/oauth/token` with a small local Zod schema because it is outside
    the Management API spec and has no OpenAPI document in this integration. Its
    response contract is exactly the documented
@@ -85,16 +93,20 @@ Noter pins Convex Management API validation to the published OpenAPI schema:
    values or failing an otherwise-valid OAuth exchange. Its request body, HTTP
    method, content type, URL, and response parser are modeled together as an
    explicit endpoint contract.
-8. Keep the Convex platform API boundary together under
+8. Keep generated AJV validator exports prefixed with `ajv`, reserving the `v`
+   prefix for Convex `convex/values` validators.
+9. Keep the Convex platform API boundary together under
    `apps/noter/convex/convexManagementApi/`: the typed client, shared errors,
-   OAuth token contract, generated OpenAPI JSON, generated TypeScript SDK/schema
-   output, and focused tests.
-9. Use `pnpm --dir apps/noter run verify:convex-management-api` to regenerate
-   the pinned document and generated Hey API output and fail if Convex's
-   published OpenAPI schema drifted from the checked-in contract.
-10. Keep compile-time tests alongside the client tests for the call surface.
-    They must prove that required named-operation inputs stay required and that
-    current response validation rejects numeric provider IDs.
+   OAuth token contract, generated OpenAPI JSON, generated TypeScript
+   declarations, generated standalone validators, and focused tests.
+10. Use `pnpm --dir apps/noter run verify:convex-management-api` to regenerate
+    the pinned document, generated declarations, and standalone validators and
+    fail if Convex's published OpenAPI schema drifted from the checked-in
+    contract.
+11. Keep compile-time tests alongside the client tests for the OpenAPI call
+    surface. They must prove that provider IDs are decimal strings, required
+    path params stay required, wrong methods are rejected, and the management
+    client cannot be constructed without a token.
 
 The typed client is the only app code that may parse Convex Management API
 response payloads. Feature code should consume typed results and fail closed
@@ -120,4 +132,5 @@ project read has occurred.
   full provider payloads.
 - OAuth token exchange is validated explicitly and documented as separate from
   the Management API schema.
-- The obsolete generic Convex provider wrapper is removed.
+- The obsolete generic Convex provider wrapper is removed once callsites use the
+  typed client.

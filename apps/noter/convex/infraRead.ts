@@ -6,10 +6,13 @@ import type { ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { vAllowedInfraReadTable } from "./infraReadQueries";
 import {
-  createConvexManagementApi,
-  type PlatformDeploymentResponse,
-  type PlatformProjectDetails,
+  formatConvexManagementApiEndpoint,
+  requestConvexManagementApi,
 } from "./convexManagementApi/client";
+import type {
+  PlatformDeploymentResponse,
+  PlatformProjectDetails,
+} from "./convexManagementApi/types.generated";
 import {
   readCloudflareBuildLogs,
   readCloudflareWorkerStatus,
@@ -154,15 +157,22 @@ export const getConvexDeploymentStatus = internalAction({
       throw new Error(getVaultInfraError(args.vaultId));
     }
 
-    const convex = createConvexManagementApi(
-      resolveConvexToken(convexConnection),
+    const convexToken = resolveConvexToken(convexConnection);
+    const endpoint = formatConvexManagementApiEndpoint({
+      path: "/deployments/{deployment_name}",
+      method: "GET",
+      params: {
+        path: {
+          deployment_name: infra.convexDeploymentName,
+        },
+      },
+    });
+    const deployment = await requestConvexManagementApi(
+      convexToken,
+      "GET",
+      "/deployments/{deployment_name}",
+      { params: { path: { deployment_name: infra.convexDeploymentName } } },
     );
-    const endpoint = convex.endpoints.deployment({
-      deploymentName: infra.convexDeploymentName,
-    });
-    const deployment = await convex.getDeployment({
-      deploymentName: infra.convexDeploymentName,
-    });
     const raw = JSON.stringify(deployment, null, 2);
 
     return {
@@ -190,15 +200,22 @@ export const getConvexLogs = internalAction({
       throw new Error(getVaultInfraError(args.vaultId));
     }
 
-    const convex = createConvexManagementApi(
-      resolveConvexToken(convexConnection),
+    const convexToken = resolveConvexToken(convexConnection);
+    const endpoint = formatConvexManagementApiEndpoint({
+      path: "/projects/{project_id}/list_deployments",
+      method: "GET",
+      params: {
+        path: {
+          project_id: infra.convexProjectId,
+        },
+      },
+    });
+    const deployments = await requestConvexManagementApi(
+      convexToken,
+      "GET",
+      "/projects/{project_id}/list_deployments",
+      { params: { path: { project_id: infra.convexProjectId } } },
     );
-    const endpoint = convex.endpoints.listDeployments({
-      projectId: infra.convexProjectId,
-    });
-    const deployments = await convex.listDeployments({
-      projectId: infra.convexProjectId,
-    });
     const max = clamp(args.maxLines ?? 20, 1, 100);
 
     const lines: string[] = [];
@@ -301,12 +318,23 @@ export const getConvexProjectInventory = internalAction({
       : null;
     const convexConnection =
       convexConnectionRaw?.kind === "convex" ? convexConnectionRaw : null;
-    const convex = createConvexManagementApi(
-      resolveConvexToken(convexConnection),
-    );
+    const convexToken = resolveConvexToken(convexConnection);
     const teamId = resolveConvexTeamId(convexConnection);
-    const endpoint = convex.endpoints.listProjects({ teamId });
-    const projects = await convex.listProjects({ teamId });
+    const endpoint = formatConvexManagementApiEndpoint({
+      path: "/teams/{team_id}/list_projects",
+      method: "GET",
+      params: {
+        path: {
+          team_id: teamId,
+        },
+      },
+    });
+    const projects = await requestConvexManagementApi(
+      convexToken,
+      "GET",
+      "/teams/{team_id}/list_projects",
+      { params: { path: { team_id: teamId } } },
+    );
     const max = clamp(args.limit ?? 50, 1, 100);
     const rows = [...projects]
       .sort(compareConvexProjectInventoryRow)

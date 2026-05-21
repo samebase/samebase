@@ -11,7 +11,7 @@ import {
   randomToken,
   readRequiredEnv,
 } from "./oauthUtils";
-import { createConvexManagementApi } from "./convexManagementApi/client";
+import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
 import {
   parseConvexOAuthTokenResponse,
   type ConvexOAuthTokenResponse,
@@ -271,11 +271,7 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
       redirectUri,
     });
 
-    const convex = createConvexManagementApi(token.accessToken);
-    const details = await convex.getTokenDetails();
-    if (details.type !== "teamToken") {
-      throw new Error("Convex token is missing team access.");
-    }
+    const details = await fetchConvexTeamTokenDetails(token.accessToken);
 
     await ctx.runMutation(internal.convexOAuth.storeConvexOauthTokens, {
       userId: oauthState.userId,

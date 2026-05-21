@@ -46,8 +46,6 @@ import type * as connectedMachineModel from "../connectedMachineModel.js";
 import type * as connectedMachines from "../connectedMachines.js";
 import type * as convexManagementApi_client from "../convexManagementApi/client.js";
 import type * as convexManagementApi_errors from "../convexManagementApi/errors.js";
-import type * as convexManagementApi_generated_client_index from "../convexManagementApi/generated/client/index.js";
-import type * as convexManagementApi_generated_index from "../convexManagementApi/generated/index.js";
 import type * as convexManagementApi_oauthToken from "../convexManagementApi/oauthToken.js";
 import type * as convexOAuth from "../convexOAuth.js";
 import type * as dashboardSettings from "../dashboardSettings.js";
@@ -156,8 +154,6 @@ declare const fullApi: ApiFromModules<{
   connectedMachines: typeof connectedMachines;
   "convexManagementApi/client": typeof convexManagementApi_client;
   "convexManagementApi/errors": typeof convexManagementApi_errors;
-  "convexManagementApi/generated/client/index": typeof convexManagementApi_generated_client_index;
-  "convexManagementApi/generated/index": typeof convexManagementApi_generated_index;
   "convexManagementApi/oauthToken": typeof convexManagementApi_oauthToken;
   convexOAuth: typeof convexOAuth;
   dashboardSettings: typeof dashboardSettings;
