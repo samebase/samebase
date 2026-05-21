@@ -12,6 +12,7 @@ import { includes } from "@noter-md/dependent/main";
 
 const sourceUrl =
   "https://raw.githubusercontent.com/cloudflare/api-schemas/main/openapi.json";
+const sourceFetchTimeoutMs = 30_000;
 const cloudflareApiOpenApiSchemaId =
   "noter://cloudflare-api/openApi.generated.json";
 const appRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -81,7 +82,9 @@ type CloudflareApiResponseValidatorEntry = {
 // The full Cloudflare schema covers every product. Noter pins a generated
 // family subset so Workers/Builds additions drift visibly without pulling
 // unrelated Cloudflare products into this boundary.
-const response = await fetch(sourceUrl);
+const response = await fetch(sourceUrl, {
+  signal: AbortSignal.timeout(sourceFetchTimeoutMs),
+});
 if (!response.ok) {
   throw new Error(`Failed to fetch ${sourceUrl}: ${response.status}`);
 }
