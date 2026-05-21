@@ -536,14 +536,13 @@ export function selectCloudflareBuildConfigTreeData(args: {
 
 export function selectExistingCloudflareWorkerTag(args: {
   cloudflare: NoterManagedConnectedVault["cloudflare"];
-  target: Pick<Doc<"vaultInfrastructureTargets">, "cloudflare"> | null;
+  target: Pick<Doc<"vaultInfrastructureTargets">, "cloudflare">;
   accountId: string;
 }): string | undefined {
   if (args.cloudflare.state === "connected") {
     return args.cloudflare.workerTag;
   }
   if (
-    !args.target ||
     args.target.cloudflare.state !== "created" ||
     args.target.cloudflare.accountId !== args.accountId
   ) {
@@ -958,6 +957,7 @@ export const recordConvexInfrastructure = internalMutation({
     await ctx.db.insert("vaultInfrastructure", {
       vaultId: args.vaultId,
       ...args.convex,
+      convexDeployKey: { state: "not_created" },
     });
 
     return { applied: true };
@@ -1018,7 +1018,10 @@ export const recordConvexDeployKey = internalMutation({
     }
 
     await ctx.db.patch(existing._id, {
-      convexDeployKeyId: args.convexDeployKeyId,
+      convexDeployKey: {
+        state: "created",
+        id: args.convexDeployKeyId,
+      },
     });
 
     return { applied: true };

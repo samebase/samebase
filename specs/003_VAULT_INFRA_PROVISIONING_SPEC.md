@@ -68,7 +68,9 @@ state.
 - `vaultId`
 - Convex fields: `convexProjectId`, `convexTeamSlug`, `convexProjectSlug`,
   `convexDeploymentName`, `convexDeploymentType`, `convexCloudUrl`,
-  `convexSiteUrl`, `convexDeployKeyId`
+  `convexSiteUrl`
+- `convexDeployKey`: either `{ state: "not_created" }` or
+  `{ state: "created", id }`
 - No provider readiness, error, or hosting state. Product readiness lives on
   `vaults.convex` and `vaults.cloudflare`; active writer state lives on
   `vaultInfrastructureOwnership`; run errors live on `appProvisioningRuns` and

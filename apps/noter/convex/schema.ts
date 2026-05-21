@@ -471,7 +471,15 @@ export default defineSchema({
     convexDeploymentType: union(literal("prod"), literal("dev")),
     convexCloudUrl: string(),
     convexSiteUrl: string(),
-    convexDeployKeyId: optional(string()),
+    convexDeployKey: union(
+      object({
+        state: literal("not_created"),
+      }),
+      object({
+        state: literal("created"),
+        id: string(),
+      }),
+    ),
   }).index("by_vault", ["vaultId"]),
 
   /**
