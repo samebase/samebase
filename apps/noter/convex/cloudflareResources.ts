@@ -384,7 +384,10 @@ async function findCurrentBuildTokenUuid(args: {
         },
       },
     });
-    const tokensPage = rawTokens ?? [];
+    const tokensPage = requireCloudflareResult(
+      rawTokens,
+      `Cloudflare Workers Builds token list for account ${args.accountId} response did not include tokens.`,
+    );
     tokens.push(...parseBuildTokens(tokensPage));
     if (tokensPage.length < BUILD_TOKEN_PAGE_SIZE) {
       return selectCurrentBuildTokenUuid({
@@ -417,7 +420,10 @@ async function findReusableBuildTokenUuid(args: {
         },
       },
     });
-    const tokensPage = rawTokens ?? [];
+    const tokensPage = requireCloudflareResult(
+      rawTokens,
+      `Cloudflare Workers Builds token list for account ${args.accountId} response did not include tokens.`,
+    );
     tokens.push(...parseBuildTokens(tokensPage));
     if (tokensPage.length < BUILD_TOKEN_PAGE_SIZE) {
       return selectReusableBuildTokenUuid({
@@ -624,7 +630,10 @@ async function listBuildTriggers(args: {
       },
     },
   });
-  return raw ?? [];
+  return requireCloudflareResult(
+    raw,
+    `Cloudflare Workers Builds trigger list for account ${args.accountId} Worker ${args.workerTag} response did not include triggers.`,
+  );
 }
 
 async function upsertBuildTrigger(args: {
@@ -991,7 +1000,10 @@ export async function readCloudflareBuildLogs(
       },
     },
   });
-  const builds = buildsPayload ?? [];
+  const builds = requireCloudflareResult(
+    buildsPayload,
+    `Cloudflare Workers Builds build list for account ${args.accountId} Worker ${args.workerTag} response did not include builds.`,
+  );
   const selectedBuilds = builds.slice(0, maxEntries);
 
   const logsByBuild = await Promise.all(

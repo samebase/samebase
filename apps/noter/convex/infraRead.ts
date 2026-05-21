@@ -368,7 +368,12 @@ export const getCloudflareAccountInventory = internalAction({
       path: "/accounts",
       ...request,
     });
-    const rows = [...(accounts ?? [])]
+    if (!accounts) {
+      throw new Error(
+        "Cloudflare account inventory response did not include accounts.",
+      );
+    }
+    const rows = [...accounts]
       .sort(compareCloudflareInventoryRow)
       .map((account) => ({
         id: account.id,
@@ -425,7 +430,12 @@ export const getCloudflareWorkersInventory = internalAction({
       path: "/accounts/{account_id}/workers/scripts",
       ...request,
     });
-    const rows = [...(workers ?? [])]
+    if (!workers) {
+      throw new Error(
+        `Cloudflare Workers inventory for account ${accountId} response did not include Workers.`,
+      );
+    }
+    const rows = [...workers]
       .sort(compareCloudflareInventoryRow)
       .slice(0, perPage)
       .map((worker) => ({
