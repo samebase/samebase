@@ -247,8 +247,8 @@ export function unreachable(value: never): never {
   return value;
 }
 
-export function promiseTimeout(millis: number): Promise<undefined> {
-  return new Promise<undefined>((resolve, reject) => {
+export function promiseTimeout(millis: number): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
     try {
       setTimeout(resolve, millis);
     } catch (error) {

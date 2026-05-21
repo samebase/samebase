@@ -442,7 +442,6 @@ async function checkConvexProjectNameAvailability(
 
 async function buildAvailableCloudflareWorkerNameSuggestion(args: {
   token: string;
-  serverUrl: string;
   accountId: string;
   baseName: string;
 }): Promise<string | null> {
@@ -455,7 +454,6 @@ async function buildAvailableCloudflareWorkerNameSuggestion(args: {
     if (
       await isCloudflareWorkerNameAvailable({
         token: args.token,
-        serverUrl: args.serverUrl,
         accountId: args.accountId,
         workerName: candidate,
       })
@@ -486,7 +484,6 @@ async function checkCloudflareWorkerNameAvailability(
     );
     const available = await isCloudflareWorkerNameAvailable({
       token: connection.cloudflareToken,
-      serverUrl: connection.cloudflareServerUrl,
       accountId: connection.cloudflareAccountId,
       workerName,
     });
@@ -498,7 +495,6 @@ async function checkCloudflareWorkerNameAvailability(
       providerLabel: "Cloudflare Worker",
       suggestion: await buildAvailableCloudflareWorkerNameSuggestion({
         token: connection.cloudflareToken,
-        serverUrl: connection.cloudflareServerUrl,
         accountId: connection.cloudflareAccountId,
         baseName: workerName,
       }),

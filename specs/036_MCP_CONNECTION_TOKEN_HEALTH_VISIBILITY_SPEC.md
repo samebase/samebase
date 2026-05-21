@@ -88,7 +88,8 @@ tokenHealth?: {
 
 Notes:
 
-1. Keep this optional for back-compat; no blocking migration needed.
+1. Keep `tokenHealth` optional; it is a cached health snapshot, not the source
+   of truth for the persisted credential shape.
 2. `expiresAt` is copied from auth metadata when available.
 3. `errorMessage` must be short/sanitized for UI display.
 
@@ -99,7 +100,7 @@ Notes:
 Extend/standardize the existing internal Cloudflare resolver behavior:
 
 1. Read connection.
-2. Derive initial status from `credentialExpiresAt` if present.
+2. Derive initial status from required Cloudflare MCP `credentialExpiresAt`.
 3. If forced check or near expiry:
    - attempt refresh (or active probe if refresh not applicable),
    - persist new auth tokens when refresh succeeds,
@@ -129,9 +130,7 @@ Contract rules:
 
 1. MCP fields are returned only when `authMethod === "mcp_oauth"`.
 2. For non-MCP methods, MCP fields are omitted.
-3. If `tokenHealth` absent:
-   - derive from `credentialExpiresAt` when possible,
-   - otherwise return `unknown`.
+3. If `tokenHealth` absent, derive from `credentialExpiresAt`.
 
 ### 3) Manual Check Action
 
@@ -183,10 +182,9 @@ For Cloudflare hosting selection:
 
 ### Derivation Logic
 
-1. If `credentialExpiresAt` absent and no active result: `unknown`.
-2. If `credentialExpiresAt <= now`: `expired`.
-3. If `credentialExpiresAt <= now + window`: `expiring_soon`.
-4. Else: `valid`.
+1. If `credentialExpiresAt <= now`: `expired`.
+2. If `credentialExpiresAt <= now + window`: `expiring_soon`.
+3. Else: `valid`.
 
 ### Invalid Classification
 

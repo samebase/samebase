@@ -246,15 +246,13 @@ export const vOAuthAuth = object({
 export const vMcpOAuthAuth = object({
   method: literal("mcp_oauth"),
   credential: string(),
-  refreshCredential: optional(string()),
-  credentialExpiresAt: optional(number()),
-  clientId: optional(string()),
-  mcpServerUrl: string(),
+  refreshCredential: string(),
+  credentialExpiresAt: number(),
+  clientId: string(),
 });
 export const vApiKeyAuth = object({
   method: literal("api_key"),
   credential: string(),
-  credentialExpiresAt: optional(number()),
 });
 export const vStandardProviderAuth = union(vOAuthAuth, vApiKeyAuth);
 export type StandardProviderAuth = Infer<typeof vStandardProviderAuth>;

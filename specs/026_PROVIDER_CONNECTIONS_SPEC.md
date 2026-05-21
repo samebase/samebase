@@ -47,14 +47,12 @@ union and nested auth-method union.
 2. `mcpOauthAuth`:
    - `method: "mcp_oauth"`
    - `credential`
-   - `refreshCredential?`
-   - `credentialExpiresAt?`
-   - `clientId?`
-   - `mcpServerUrl`
+   - `refreshCredential`
+   - `credentialExpiresAt`
+   - `clientId`
 3. `apiKeyAuth`:
    - `method: "api_key"`
    - `credential`
-   - `credentialExpiresAt?`
 
 ### Provider documents
 

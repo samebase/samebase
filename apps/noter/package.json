@@ -8,6 +8,8 @@
     "dev": "npm-run-all --parallel dev:frontend dev:backend",
     "dev:frontend": "node ./scripts/run-vite-dev.ts",
     "dev:backend": "node ./scripts/convex-dev.ts",
+    "generate:cloudflare-api": "node ./scripts/generate-cloudflare-api.ts",
+    "verify:cloudflare-api": "pnpm run generate:cloudflare-api && git diff --exit-code -- convex/cloudflareApi/openApi.generated.json convex/cloudflareApi/types.generated.d.ts convex/cloudflareApi/validators.generated.js convex/cloudflareApi/validators.generated.d.ts",
     "generate:convex-management-api": "node ./scripts/generate-convex-management-api.ts",
     "verify:convex-management-api": "pnpm run generate:convex-management-api && git diff --exit-code -- convex/convexManagementApi/openApi.generated.json convex/convexManagementApi/types.generated.d.ts convex/convexManagementApi/validators.generated.js convex/convexManagementApi/validators.generated.d.ts",
     "generate:install-icon-assets": "node ./scripts/generate-install-icon-assets.ts",

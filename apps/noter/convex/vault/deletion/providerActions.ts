@@ -12,7 +12,6 @@ import {
   deleteCloudflareResources,
   isCloudflareWorkerNotFoundError,
 } from "../../cloudflareResources";
-import { resolveCloudflareMcpServerUrl } from "../../cloudflareMcp";
 import { readRetainedSnapshot } from "./runs";
 import {
   type VaultDeletionEventLevel,
@@ -204,8 +203,6 @@ export const deleteCloudflare = internalAction({
         workerName: plan.cloudflare.workerName,
         workerTag: plan.cloudflare.workerTag,
         cloudflareToken: cloudflareConnection.auth.credential,
-        cloudflareServerUrl:
-          resolveCloudflareMcpServerUrl(cloudflareConnection),
       });
     } catch (error) {
       if (!isCloudflareWorkerNotFoundError(error)) {

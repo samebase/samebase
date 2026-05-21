@@ -154,7 +154,6 @@ Add Cloudflare token refresh constants:
 5. `CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS = 60 * 1000`
 6. `CLOUDFLARE_TOKEN_REFRESH_RETRY_BASE_MS = 60 * 1000`
 7. `CLOUDFLARE_TOKEN_REFRESH_RETRY_MAX_MS = 5 * 60 * 1000`
-8. `CLOUDFLARE_TOKEN_REFRESH_UNKNOWN_EXPIRY_RECHECK_MS = 15 * 60 * 1000`
 
 Important clarification:
 
@@ -169,7 +168,7 @@ constants.
 
 Default policy:
 
-1. If `credentialExpiresAt` is known, automatic refresh starts at
+1. Automatic refresh starts at
    `expiresAt - CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS` (default 30 minutes
    before expiry).
 2. Before that window opens, scheduler ticks only update UI countdown and return
@@ -177,8 +176,8 @@ Default policy:
 3. Once in-window, automatic refresh attempts run using the lock/debounce flow.
 4. On transient failure in-window, retry with bounded backoff (`RETRY_BASE_MS`
    up to `RETRY_MAX_MS`) until success or hard invalid state.
-5. If `credentialExpiresAt` is missing, run conservative periodic recheck using
-   `UNKNOWN_EXPIRY_RECHECK_MS`.
+5. `credentialExpiresAt` is required for Cloudflare MCP OAuth rows. The OAuth
+   callback and refresh path fail closed if Cloudflare omits `expires_in`.
 
 ### 5) User-facing backend action for auto refresh
 
@@ -200,10 +199,7 @@ Behavior:
 1. Resolve authenticated user and Cloudflare connection.
 2. If disconnected or non-`mcp_oauth`, return current status payload unchanged.
 3. Compute scheduling state:
-   - `refreshWindowStartsAt = expiresAt - EARLY_WINDOW_MS` when `expiresAt`
-     exists
-   - if `expiresAt` is missing, use
-     `lastTokenRefreshAt + UNKNOWN_EXPIRY_RECHECK_MS`
+   - `refreshWindowStartsAt = expiresAt - EARLY_WINDOW_MS`
 4. For non-manual triggers, if current time is before due time, return early
    with `mcpTokenNextAutoCheckAt` and do not call token refresh endpoint.
 5. If refresh is due, attempt lock claim with trigger-sensitive debounce window.

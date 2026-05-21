@@ -26,7 +26,6 @@ import type {
   GithubTreeData,
 } from "./schema";
 import { sanitizeSlug, vaultSuffix } from "./slugUtils";
-import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
 import {
   isLiveConnectedVault,
   isNoterManagedVault,
@@ -876,7 +875,6 @@ export async function resolveCloudflareProvisioningConnection(
   userId: Id<"users">,
 ): Promise<{
   cloudflareToken: string;
-  cloudflareServerUrl: string;
   cloudflareAuthMethod: "api_key" | "mcp_oauth";
   cloudflareAccountId: string;
 }> {
@@ -893,9 +891,6 @@ export async function resolveCloudflareProvisioningConnection(
   }
 
   const cloudflareToken = resolvedCloudflareConnection.auth.credential.trim();
-  const cloudflareServerUrl = resolveCloudflareMcpServerUrl(
-    resolvedCloudflareConnection,
-  );
   const cloudflareAccountId = resolvedCloudflareConnection.accountId?.trim();
 
   if (!cloudflareToken) {
@@ -912,7 +907,6 @@ export async function resolveCloudflareProvisioningConnection(
 
   return {
     cloudflareToken,
-    cloudflareServerUrl,
     cloudflareAuthMethod: resolvedCloudflareConnection.auth.method,
     cloudflareAccountId,
   };
@@ -1687,12 +1681,8 @@ export const ensureCloudflareInfrastructure = internalAction({
     );
     const { convexToken, convexTeamId } =
       await resolveConvexProvisioningConnection(ctx, vault.userId);
-    const {
-      cloudflareToken,
-      cloudflareServerUrl,
-      cloudflareAuthMethod,
-      cloudflareAccountId,
-    } = await resolveCloudflareProvisioningConnection(ctx, vault.userId);
+    const { cloudflareToken, cloudflareAuthMethod, cloudflareAccountId } =
+      await resolveCloudflareProvisioningConnection(ctx, vault.userId);
     const target = await ctx.runQuery(
       internal.infraProvisioning.getInfrastructureTargetByVault,
       {
@@ -1767,7 +1757,6 @@ export const ensureCloudflareInfrastructure = internalAction({
       vaultId: args.vaultId,
       workerName: infrastructureTarget.cloudflare.workerName,
       cloudflareToken,
-      cloudflareServerUrl,
       cloudflareAuthMethod,
       accountId: cloudflareAccountId,
       buildConfig: resolveCloudflareBuildConfig({
