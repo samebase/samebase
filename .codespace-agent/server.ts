@@ -66,9 +66,7 @@ async function persistAgentToken(token) {
     });
     await fs.chmod(AGENT_TOKEN_FILE, 0o600);
   } catch (error) {
-    console.warn(
-      `[AGENT] Failed to persist token to ${AGENT_TOKEN_FILE}: ${String(error)}`,
-    );
+    console.warn(`[AGENT] Failed to persist token to ${AGENT_TOKEN_FILE}: ${String(error)}`);
   }
 }
 
@@ -100,13 +98,9 @@ console.log("=".repeat(60));
 console.log("Codespace Agent Starting");
 console.log("=".repeat(60));
 if (AGENT_TOKEN) {
-  console.log(
-    `Agent Token: ${AGENT_TOKEN.substring(0, 8)}... (${AGENT_TOKEN_SOURCE})`,
-  );
+  console.log(`Agent Token: ${AGENT_TOKEN.substring(0, 8)}... (${AGENT_TOKEN_SOURCE})`);
 } else {
-  console.log(
-    "Agent Token: <unset> (bootstrap allowed during initial startup window)",
-  );
+  console.log("Agent Token: <unset> (bootstrap allowed during initial startup window)");
 }
 console.log(`Workspace Dir: ${WORKSPACE_DIR}`);
 console.log("=".repeat(60));
@@ -125,9 +119,7 @@ function authenticateToken(req, res, next) {
 
   if (!AGENT_TOKEN) {
     if (!token) {
-      console.warn(
-        `Unauthorized request from ${req.ip} to ${req.path} (missing token)`,
-      );
+      console.warn(`Unauthorized request from ${req.ip} to ${req.path} (missing token)`);
       return res.status(401).json({ error: "Unauthorized" });
     }
 
@@ -135,9 +127,7 @@ function authenticateToken(req, res, next) {
       console.warn(
         `Rejected bootstrap request from ${req.ip} to ${req.path} after startup window expired`,
       );
-      return res
-        .status(503)
-        .json({ error: "Agent token bootstrap window expired" });
+      return res.status(503).json({ error: "Agent token bootstrap window expired" });
     }
 
     const bootstrapClientKey = getBootstrapClientKey(req);
@@ -219,9 +209,7 @@ function parseErrorMessage(error) {
 
 function isCodexRuntimeRunning() {
   return Boolean(
-    codexRuntime.process &&
-    !codexRuntime.process.killed &&
-    codexRuntime.process.exitCode === null,
+    codexRuntime.process && !codexRuntime.process.killed && codexRuntime.process.exitCode === null,
   );
 }
 
@@ -320,10 +308,7 @@ function upsertApprovalContext(itemId, patch) {
     ...patch,
   });
 
-  while (
-    codexRuntime.approvalContextByItemId.size >
-    CODEX_APPROVAL_CONTEXT_BUFFER_SIZE
-  ) {
+  while (codexRuntime.approvalContextByItemId.size > CODEX_APPROVAL_CONTEXT_BUFFER_SIZE) {
     const oldestKey = codexRuntime.approvalContextByItemId.keys().next().value;
     if (oldestKey === undefined) {
       break;
@@ -352,8 +337,7 @@ function rememberApprovalContext(method, params) {
 
     if (item.type === "commandExecution") {
       upsertApprovalContext(item.id, {
-        commandText:
-          typeof item.command === "string" ? item.command : undefined,
+        commandText: typeof item.command === "string" ? item.command : undefined,
         cwd: typeof item.cwd === "string" ? item.cwd : undefined,
         commandActions: cloneJsonValue(item.commandActions),
       });
@@ -382,10 +366,7 @@ function rememberApprovalContext(method, params) {
     return;
   }
 
-  if (
-    method === "codex/event/exec_command_begin" ||
-    method === "codex/event/exec_command_end"
-  ) {
+  if (method === "codex/event/exec_command_begin" || method === "codex/event/exec_command_end") {
     upsertApprovalContext(msg.call_id, {
       command: cloneJsonValue(msg.command),
       cwd: typeof msg.cwd === "string" ? msg.cwd : undefined,
@@ -403,9 +384,7 @@ function withApprovalContext(requestId, method, params) {
   if (method === "item/fileChange/requestApproval") {
     const itemId = enrichedParams.itemId;
     const context =
-      typeof itemId === "string"
-        ? codexRuntime.approvalContextByItemId.get(itemId)
-        : null;
+      typeof itemId === "string" ? codexRuntime.approvalContextByItemId.get(itemId) : null;
     if (isRecord(context)) {
       if (context.fileChanges !== undefined) {
         enrichedParams.fileChanges = cloneJsonValue(context.fileChanges);
@@ -419,9 +398,7 @@ function withApprovalContext(requestId, method, params) {
   if (method === "item/commandExecution/requestApproval") {
     const itemId = enrichedParams.itemId;
     const context =
-      typeof itemId === "string"
-        ? codexRuntime.approvalContextByItemId.get(itemId)
-        : null;
+      typeof itemId === "string" ? codexRuntime.approvalContextByItemId.get(itemId) : null;
     if (isRecord(context)) {
       if (context.command !== undefined) {
         enrichedParams.command = cloneJsonValue(context.command);
@@ -446,11 +423,7 @@ function withApprovalContext(requestId, method, params) {
 
 function normalizeTurnInput(body) {
   const rawInput =
-    body?.input !== undefined
-      ? body.input
-      : typeof body?.text === "string"
-        ? body.text
-        : undefined;
+    body?.input !== undefined ? body.input : typeof body?.text === "string" ? body.text : undefined;
 
   if (rawInput === undefined) {
     return undefined;
@@ -472,11 +445,7 @@ function normalizeTurnInput(body) {
 }
 
 function normalizeSandboxMode(value) {
-  if (
-    value === "read-only" ||
-    value === "workspace-write" ||
-    value === "danger-full-access"
-  ) {
+  if (value === "read-only" || value === "workspace-write" || value === "danger-full-access") {
     return value;
   }
 
@@ -670,11 +639,7 @@ function parseCodexMessageLine(line) {
   }
 
   if (hasId && hasMethod) {
-    const approvalParams = withApprovalContext(
-      message.id,
-      message.method,
-      message.params,
-    );
+    const approvalParams = withApprovalContext(message.id, message.method, message.params);
     codexRuntime.pendingApprovals.set(message.id, {
       id: message.id,
       method: message.method,
@@ -703,11 +668,7 @@ function writeCodexMessage(message) {
   codexRuntime.process.stdin.write(`${JSON.stringify(message)}\n`);
 }
 
-function sendCodexRequestNoEnsure(
-  method,
-  params = {},
-  timeoutMs = CODEX_RPC_TIMEOUT_MS,
-) {
+function sendCodexRequestNoEnsure(method, params = {}, timeoutMs = CODEX_RPC_TIMEOUT_MS) {
   if (!isCodexRuntimeRunning()) {
     return Promise.reject(new Error("Codex app-server is not running"));
   }
@@ -849,9 +810,7 @@ async function startCodexRuntime(forceRestart = false) {
           break;
         }
         const line = codexRuntime.stdoutBuffer.slice(0, newlineIndex);
-        codexRuntime.stdoutBuffer = codexRuntime.stdoutBuffer.slice(
-          newlineIndex + 1,
-        );
+        codexRuntime.stdoutBuffer = codexRuntime.stdoutBuffer.slice(newlineIndex + 1);
         parseCodexMessageLine(line);
       }
     });
@@ -872,9 +831,7 @@ async function startCodexRuntime(forceRestart = false) {
     });
 
     proc.on("exit", (code, signal) => {
-      console.warn(
-        `[CODEX] app-server exited with code=${code} signal=${signal}`,
-      );
+      console.warn(`[CODEX] app-server exited with code=${code} signal=${signal}`);
       codexRuntime.lastError = `Codex app-server exited (code=${code}, signal=${signal})`;
       resetCodexRuntimeState(code, signal);
       pushCodexEvent("codex/runtime_exit", {
@@ -915,11 +872,7 @@ async function startCodexRuntime(forceRestart = false) {
   }
 }
 
-async function sendCodexRequest(
-  method,
-  params = {},
-  timeoutMs = CODEX_RPC_TIMEOUT_MS,
-) {
+async function sendCodexRequest(method, params = {}, timeoutMs = CODEX_RPC_TIMEOUT_MS) {
   await startCodexRuntime(false);
   return await sendCodexRequestNoEnsure(method, params, timeoutMs);
 }
@@ -983,9 +936,7 @@ app.post("/codex/runtime/ensure", async (req, res) => {
 app.get("/codex/events", (req, res) => {
   const since = Number.parseInt(`${req.query.since ?? 0}`, 10);
   const safeSince = Number.isFinite(since) ? since : 0;
-  const events = codexRuntime.notifications.filter(
-    (event) => event.cursor > safeSince,
-  );
+  const events = codexRuntime.notifications.filter((event) => event.cursor > safeSince);
   res.json({
     events,
     nextCursor: codexRuntime.nextEventCursor - 1,
@@ -1005,9 +956,7 @@ app.post("/codex/approval/respond", async (req, res) => {
   const acceptSettings = req.body?.acceptSettings;
 
   if (typeof requestId !== "number" && typeof requestId !== "string") {
-    return res
-      .status(400)
-      .json({ error: "requestId (string or number) is required" });
+    return res.status(400).json({ error: "requestId (string or number) is required" });
   }
   if (
     decision !== "accept" &&
@@ -1101,9 +1050,7 @@ app.post("/codex/thread/resume", async (req, res) => {
 
 app.post("/codex/turn/start", async (req, res) => {
   const threadId =
-    typeof req.body?.threadId === "string"
-      ? req.body.threadId
-      : codexRuntime.currentThreadId;
+    typeof req.body?.threadId === "string" ? req.body.threadId : codexRuntime.currentThreadId;
   if (!threadId) {
     return res.status(400).json({ error: "threadId is required" });
   }
@@ -1131,8 +1078,7 @@ app.post("/codex/turn/start", async (req, res) => {
     applySettingsOverrides(params, req.body?.settings);
 
     const timeoutMs =
-      typeof req.body?.timeoutMs === "number" &&
-      Number.isFinite(req.body.timeoutMs)
+      typeof req.body?.timeoutMs === "number" && Number.isFinite(req.body.timeoutMs)
         ? req.body.timeoutMs
         : CODEX_RPC_TIMEOUT_MS;
 
@@ -1145,9 +1091,7 @@ app.post("/codex/turn/start", async (req, res) => {
 
 app.post("/codex/turn/interrupt", async (req, res) => {
   const threadId =
-    typeof req.body?.threadId === "string"
-      ? req.body.threadId
-      : codexRuntime.currentThreadId;
+    typeof req.body?.threadId === "string" ? req.body.threadId : codexRuntime.currentThreadId;
   const turnId = req.body?.turnId;
 
   if (!threadId || typeof threadId !== "string") {
@@ -1194,8 +1138,7 @@ app.post("/exec", (req, res) => {
       maxBuffer: 10 * 1024 * 1024, // 10MB
     },
     (error, stdout, stderr) => {
-      const exitCode =
-        typeof error?.code === "number" ? error.code : error ? 1 : 0;
+      const exitCode = typeof error?.code === "number" ? error.code : error ? 1 : 0;
 
       console.log(`[EXEC] Command completed with exit code: ${exitCode}`);
       if (stdout) console.log(`[EXEC] stdout: ${stdout.substring(0, 200)}...`);
@@ -1232,9 +1175,7 @@ app.post("/files/write", async (req, res) => {
   try {
     ({ safePath, fullPath } = resolveWorkspacePath(filePath));
   } catch {
-    return res
-      .status(403)
-      .json({ error: "Path outside workspace not allowed" });
+    return res.status(403).json({ error: "Path outside workspace not allowed" });
   }
 
   try {
@@ -1271,9 +1212,7 @@ app.get("/files/read", async (req, res) => {
   try {
     ({ safePath, fullPath } = resolveWorkspacePath(filePath));
   } catch {
-    return res
-      .status(403)
-      .json({ error: "Path outside workspace not allowed" });
+    return res.status(403).json({ error: "Path outside workspace not allowed" });
   }
 
   try {
@@ -1281,9 +1220,7 @@ app.get("/files/read", async (req, res) => {
 
     const content = await fs.readFile(fullPath, "utf8");
 
-    console.log(
-      `[READ] File read successfully: ${safePath} (${content.length} bytes)`,
-    );
+    console.log(`[READ] File read successfully: ${safePath} (${content.length} bytes)`);
 
     res.json({ content, filePath: safePath });
   } catch (error) {
@@ -1312,9 +1249,7 @@ app.get("/files/list", async (req, res) => {
       true,
     ));
   } catch {
-    return res
-      .status(403)
-      .json({ error: "Path outside workspace not allowed" });
+    return res.status(403).json({ error: "Path outside workspace not allowed" });
   }
 
   try {
@@ -1362,9 +1297,7 @@ app.delete("/files/delete", async (req, res) => {
   try {
     ({ safePath, fullPath } = resolveWorkspacePath(filePath));
   } catch {
-    return res
-      .status(403)
-      .json({ error: "Path outside workspace not allowed" });
+    return res.status(403).json({ error: "Path outside workspace not allowed" });
   }
 
   try {
@@ -1408,9 +1341,7 @@ app.get("/files/stat", async (req, res) => {
   try {
     ({ safePath, fullPath } = resolveWorkspacePath(filePath));
   } catch {
-    return res
-      .status(403)
-      .json({ error: "Path outside workspace not allowed" });
+    return res.status(403).json({ error: "Path outside workspace not allowed" });
   }
 
   try {

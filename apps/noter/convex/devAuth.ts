@@ -1,22 +1,12 @@
-import {
-  createAccount,
-  modifyAccountCredentials,
-} from "@convex-dev/auth/server";
+import { createAccount, modifyAccountCredentials } from "@convex-dev/auth/server";
 import { Infer, v } from "convex/values";
 import {
   LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
   LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
 } from "../../../runtime/localWorktreePasswordAuth";
 import { internal } from "./_generated/api";
-import {
-  resolveDeploymentProfile,
-  resolvePasswordAuthMode,
-} from "./deploymentProfile";
-import {
-  internalAction,
-  internalMutation,
-  type DatabaseWriter,
-} from "./_generated/server";
+import { resolveDeploymentProfile, resolvePasswordAuthMode } from "./deploymentProfile";
+import { internalAction, internalMutation, type DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import { readOptionalEnv } from "./oauthUtils";
@@ -30,8 +20,7 @@ function normalizeEmail(email: string): string {
 function isMissingPasswordAccountError(error: unknown): boolean {
   return (
     error instanceof Error &&
-    (error.message.includes("does not exist") ||
-      error.message.includes("not found"))
+    (error.message.includes("does not exist") || error.message.includes("not found"))
   );
 }
 
@@ -51,9 +40,7 @@ function readRequiredPreviewSeedPasswordAccountConfig(): {
   const previewEmail = readSeedValue("PREVIEW_SEED_AUTH_EMAIL");
   const previewPassword = readSeedValue("PREVIEW_SEED_AUTH_PASSWORD");
   if (previewEmail === undefined && previewPassword === undefined) {
-    throw new Error(
-      "PREVIEW_SEED_AUTH_EMAIL and PREVIEW_SEED_AUTH_PASSWORD are required",
-    );
+    throw new Error("PREVIEW_SEED_AUTH_EMAIL and PREVIEW_SEED_AUTH_PASSWORD are required");
   }
   if (previewEmail === undefined || previewPassword === undefined) {
     throw new Error(
@@ -86,9 +73,7 @@ function readSeedPasswordAccountConfig(): {
     case "preview_seed":
       return readRequiredPreviewSeedPasswordAccountConfig();
     case "off":
-      throw new Error(
-        "Password account seeding is disabled for this deployment profile",
-      );
+      throw new Error("Password account seeding is disabled for this deployment profile");
     default:
       passwordAuthMode satisfies never;
       throw new Error("Unsupported password auth mode");
@@ -226,11 +211,7 @@ export const seedProviderConnectionsForEmail = internalMutation({
       await upsertGithubApiKey(ctx.db, user._id, args.githubApiKey);
     }
 
-    if (
-      args.convexManagementApiKey ||
-      args.convexTeamId ||
-      args.convexTeamSlug
-    ) {
+    if (args.convexManagementApiKey || args.convexTeamId || args.convexTeamSlug) {
       if (!args.convexManagementApiKey || !args.convexTeamId) {
         throw new Error(
           "Both DEV_SEED_CONVEX_MANAGEMENT_API_KEY and DEV_SEED_CONVEX_TEAM_ID are required",
@@ -247,9 +228,7 @@ export const seedProviderConnectionsForEmail = internalMutation({
 
     if (args.cloudflareApiKey || args.cloudflareAccountId) {
       if (!args.cloudflareApiKey) {
-        throw new Error(
-          "Cloudflare API key must be provided when setting Cloudflare seed details",
-        );
+        throw new Error("Cloudflare API key must be provided when setting Cloudflare seed details");
       }
       await upsertCloudflareApiKey(
         ctx.db,
@@ -272,9 +251,7 @@ export const seedPasswordAccount = internalAction({
   handler: async (ctx) => {
     const { email, password } = readSeedPasswordAccountConfig();
     const githubApiKey = readSeedValue("DEV_SEED_GITHUB_API_KEY");
-    const convexManagementApiKey = readSeedValue(
-      "DEV_SEED_CONVEX_MANAGEMENT_API_KEY",
-    );
+    const convexManagementApiKey = readSeedValue("DEV_SEED_CONVEX_MANAGEMENT_API_KEY");
     const convexTeamId = readSeedValue("DEV_SEED_CONVEX_TEAM_ID");
     const convexTeamSlug = readSeedValue("DEV_SEED_CONVEX_TEAM_SLUG");
     const cloudflareApiKey = readSeedValue("DEV_SEED_CLOUDFLARE_API_KEY");
@@ -327,10 +304,7 @@ export const seedPasswordAccount = internalAction({
       created = true;
     }
 
-    await ctx.runMutation(
-      internal.devAuth.seedProviderConnectionsForEmail,
-      seedArgs,
-    );
+    await ctx.runMutation(internal.devAuth.seedProviderConnectionsForEmail, seedArgs);
 
     return { email, created };
   },

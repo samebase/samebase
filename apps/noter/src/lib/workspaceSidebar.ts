@@ -72,10 +72,8 @@ export function getMobilePaneScrollLeft(
   );
 
   return (
-    anchors.find((candidateAnchor) => candidateAnchor.pane === pane)
-      ?.scrollLeft ??
-    anchors.find((candidateAnchor) => candidateAnchor.pane === "main")
-      ?.scrollLeft ??
+    anchors.find((candidateAnchor) => candidateAnchor.pane === pane)?.scrollLeft ??
+    anchors.find((candidateAnchor) => candidateAnchor.pane === "main")?.scrollLeft ??
     0
   );
 }
@@ -135,8 +133,7 @@ export function getSettledMobilePane(
     return nearestPane;
   }
 
-  const currentPaneWidthPx =
-    currentPane === "left" ? leftSidebarWidthPx : rightSidebarWidthPx;
+  const currentPaneWidthPx = currentPane === "left" ? leftSidebarWidthPx : rightSidebarWidthPx;
   const currentPaneScrollLeft = getMobilePaneScrollLeft(
     currentPane,
     hasLeftSidebar,
@@ -144,8 +141,7 @@ export function getSettledMobilePane(
     hasRightSidebar,
     rightSidebarWidthPx,
   );
-  const returnRequiredTravelPx =
-    currentPaneWidthPx * MOBILE_SIDEBAR_RETURN_TRAVEL_THRESHOLD_RATIO;
+  const returnRequiredTravelPx = currentPaneWidthPx * MOBILE_SIDEBAR_RETURN_TRAVEL_THRESHOLD_RATIO;
   const returnTravelPx = Math.abs(scrollLeft - currentPaneScrollLeft);
 
   // Returning from a sidebar should feel lighter than crossing all the way to
@@ -185,8 +181,7 @@ export function getSettledMobilePane(
       : releaseGesture.releaseFingerVelocityXPxPerMs;
 
   return travelTowardOppositePx >= requiredTravelPx &&
-    releaseTowardOppositeVelocityPxPerMs >=
-      MOBILE_CROSS_SWIPE_VELOCITY_THRESHOLD_PX_PER_MS
+    releaseTowardOppositeVelocityPxPerMs >= MOBILE_CROSS_SWIPE_VELOCITY_THRESHOLD_PX_PER_MS
     ? oppositePane
     : nearestPane;
 }

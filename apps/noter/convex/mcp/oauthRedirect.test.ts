@@ -14,12 +14,8 @@ describe("applyMcpDenyErrorParamsToRedirectUrl", () => {
     expect(redirectUrl.searchParams.get("error_description")).toBe(
       MCP_OAUTH_DENY_ERROR_DESCRIPTION,
     );
-    expect(redirectUrl.toString()).toContain(
-      "error_description=authorization_denied_by_user",
-    );
-    expect(redirectUrl.toString()).not.toContain(
-      "error_description=authorization+denied+by+user",
-    );
+    expect(redirectUrl.toString()).toContain("error_description=authorization_denied_by_user");
+    expect(redirectUrl.toString()).not.toContain("error_description=authorization+denied+by+user");
     expect(redirectUrl.searchParams.get("state")).toBe("state_123");
   });
 

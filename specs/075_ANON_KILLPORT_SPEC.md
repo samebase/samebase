@@ -16,11 +16,11 @@ Replace the root `make kill-port` target with a single `make killport` target.
 `make killport` must support two operator flows:
 
 1. `make killport <port>` kills the explicitly provided listening port
-2. `make killport` reads the current worktree's stored anonymous local backend
-   port from `apps/noter/.env.local` and kills that port if it is listening
+2. `make killport` reads the current worktree's stored anonymous local backend port from
+   `apps/noter/.env.local` and kills that port if it is listening
 
-`make anon` and `make anon-once` must run `make killport` before starting the
-anonymous Convex bootstrap flow.
+`make anon` and `make anon-once` must run `make killport` before starting the anonymous Convex
+bootstrap flow.
 
 ## Goals
 
@@ -47,8 +47,8 @@ It must read the first local backend port from:
 - `VITE_CONVEX_URL`, or
 - `CONVEX_URL`
 
-If `apps/noter/.env.local` does not exist, or neither variable contains a local
-port, `make killport` must exit successfully without killing anything.
+If `apps/noter/.env.local` does not exist, or neither variable contains a local port,
+`make killport` must exit successfully without killing anything.
 
 ## Required Behavior
 
@@ -67,7 +67,6 @@ port, `make killport` must exit successfully without killing anything.
 
 ## Notes
 
-This design intentionally prefers a small, explicit operator primitive over a
-broader automation layer. The fix is "stop the previously known anon backend for
-this worktree before starting a new one," not "inspect Convex failures and retry
-startup generically."
+This design intentionally prefers a small, explicit operator primitive over a broader automation
+layer. The fix is "stop the previously known anon backend for this worktree before starting a new
+one," not "inspect Convex failures and retry startup generically."

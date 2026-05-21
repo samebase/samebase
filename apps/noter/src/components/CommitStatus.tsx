@@ -10,10 +10,7 @@ const RUNNING_STATUS_POLL_INTERVAL_MS = 30_000;
 const RATE_LIMIT_FALLBACK_RETRY_MS = 60_000;
 const MIN_FETCH_GAP_MS = 5_000;
 
-function getDelayForAttempt(
-  delaysMs: readonly number[],
-  attempt: number,
-): number {
+function getDelayForAttempt(delaysMs: readonly number[], attempt: number): number {
   if (delaysMs.length === 0) {
     return 0;
   }
@@ -227,9 +224,7 @@ function StatusBadge({
     >
       <span className={cn("h-2 w-2 rounded-ui", style.dot)} />
       <span className="font-medium">{label}</span>
-      <span className="tabular-nums text-[10px] text-muted-foreground">
-        {summary.total}
-      </span>
+      <span className="tabular-nums text-[10px] text-muted-foreground">{summary.total}</span>
     </a>
   );
 }
@@ -246,10 +241,7 @@ function InlineState({
   const accessibleText = title ?? label;
   return (
     <span
-      className={cn(
-        "inline-flex items-center text-[11px] leading-none",
-        className,
-      )}
+      className={cn("inline-flex items-center text-[11px] leading-none", className)}
       title={accessibleText}
       aria-label={accessibleText}
     >
@@ -258,21 +250,12 @@ function InlineState({
   );
 }
 
-export function CommitStatus({
-  owner,
-  repo,
-  commitSha,
-  className = "",
-}: CommitStatusProps) {
+export function CommitStatus({ owner, repo, commitSha, className = "" }: CommitStatusProps) {
   const [checkRuns, setCheckRuns] = useState<GitHubCheckRun[] | null>(null);
-  const [commitStatuses, setCommitStatuses] = useState<
-    GitHubCommitStatus[] | null
-  >(null);
+  const [commitStatuses, setCommitStatuses] = useState<GitHubCommitStatus[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [checksPaused, setChecksPaused] = useState<ChecksPausedState | null>(
-    null,
-  );
+  const [checksPaused, setChecksPaused] = useState<ChecksPausedState | null>(null);
 
   const getCommitStatus = useAction(api.githubChecks.getCommitStatus);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -361,18 +344,14 @@ export function CommitStatus({
           });
           setError(null);
 
-          scheduleFetch(
-            Math.max(result.cooldownUntilMs - Date.now(), MIN_FETCH_GAP_MS),
-          );
+          scheduleFetch(Math.max(result.cooldownUntilMs - Date.now(), MIN_FETCH_GAP_MS));
           return;
         }
 
         if (result.kind === "rate_limited") {
           const untilMs =
             result.resetAtMs ??
-            (result.retryAfterMs === null
-              ? null
-              : Date.now() + result.retryAfterMs);
+            (result.retryAfterMs === null ? null : Date.now() + result.retryAfterMs);
           setChecksPaused({
             message: result.message,
             untilMs,
@@ -404,10 +383,7 @@ export function CommitStatus({
         setCommitStatuses(result.statuses);
 
         if (result.check_runs.length === 0 && result.statuses.length === 0) {
-          const delayMs = getDelayForAttempt(
-            EMPTY_RESULT_RETRY_DELAYS_MS,
-            emptyAttemptRef.current,
-          );
+          const delayMs = getDelayForAttempt(EMPTY_RESULT_RETRY_DELAYS_MS, emptyAttemptRef.current);
           emptyAttemptRef.current += 1;
           scheduleFetch(delayMs);
           return;
@@ -427,9 +403,7 @@ export function CommitStatus({
 
         console.error("Failed to fetch CI status:", err);
         setChecksPaused(null);
-        setError(
-          err instanceof Error ? err.message || "Unknown error" : String(err),
-        );
+        setError(err instanceof Error ? err.message || "Unknown error" : String(err));
         setCheckRuns(null);
         setCommitStatuses(null);
       } finally {
@@ -456,20 +430,12 @@ export function CommitStatus({
   }, [commitSha, owner, repo, getCommitStatus]);
 
   if (!commitSha) {
-    return (
-      <InlineState
-        label="Missing commit SHA"
-        className={cn("text-red-600", className)}
-      />
-    );
+    return <InlineState label="Missing commit SHA" className={cn("text-red-600", className)} />;
   }
 
   if (loading) {
     return (
-      <InlineState
-        label="Loading checks..."
-        className={cn("text-muted-foreground", className)}
-      />
+      <InlineState label="Loading checks..." className={cn("text-muted-foreground", className)} />
     );
   }
 
@@ -495,12 +461,7 @@ export function CommitStatus({
   }
 
   const checkSummary = checkRuns
-    ? summarizeStatuses(
-        "Checks",
-        checkRuns,
-        classifyCheckRun,
-        (run) => run.name,
-      )
+    ? summarizeStatuses("Checks", checkRuns, classifyCheckRun, (run) => run.name)
     : null;
   const statusSummary = commitStatuses
     ? summarizeStatuses(
@@ -513,10 +474,7 @@ export function CommitStatus({
 
   if (!checkSummary && !statusSummary) {
     return (
-      <InlineState
-        label="No checks/statuses"
-        className={cn("text-muted-foreground", className)}
-      />
+      <InlineState label="No checks/statuses" className={cn("text-muted-foreground", className)} />
     );
   }
 
@@ -525,16 +483,8 @@ export function CommitStatus({
 
   return (
     <span className={cn("inline-flex items-center gap-2", className)}>
-      {checkSummary && (
-        <StatusBadge label="Checks" summary={checkSummary} href={checksUrl} />
-      )}
-      {statusSummary && (
-        <StatusBadge
-          label="Statuses"
-          summary={statusSummary}
-          href={checksUrl}
-        />
-      )}
+      {checkSummary && <StatusBadge label="Checks" summary={checkSummary} href={checksUrl} />}
+      {statusSummary && <StatusBadge label="Statuses" summary={statusSummary} href={checksUrl} />}
     </span>
   );
 }

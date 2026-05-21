@@ -44,9 +44,7 @@ export interface VaultCodespaceChatRouteArgs {
   branch: string;
 }
 
-export function buildVaultCodespaceChatRoute(
-  args: VaultCodespaceChatRouteArgs,
-): string {
+export function buildVaultCodespaceChatRoute(args: VaultCodespaceChatRouteArgs): string {
   return `/vault/${args.repositoryFullName}/codespace/${encodeVaultBranchSegment(args.branch)}/chat`;
 }
 
@@ -63,9 +61,7 @@ export interface ParsedVaultPathContext {
   isCodespaceChatRoute?: boolean;
 }
 
-export function parseVaultPathContext(
-  pathname: string,
-): ParsedVaultPathContext {
+export function parseVaultPathContext(pathname: string): ParsedVaultPathContext {
   const segments = pathname.split("/").filter((segment) => segment.length > 0);
   if (segments.length < 3 || segments[0] !== "vault") {
     return {};
@@ -84,11 +80,7 @@ export function parseVaultPathContext(
     return { owner, repositoryFullName, repoName };
   }
 
-  if (
-    routeKind === "codespace" &&
-    segments.length === 6 &&
-    segments[5] === "chat"
-  ) {
+  if (routeKind === "codespace" && segments.length === 6 && segments[5] === "chat") {
     const encodedBranch = segments[4];
     const branch =
       typeof encodedBranch === "string" && encodedBranch.length > 0

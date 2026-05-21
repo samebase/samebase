@@ -19,6 +19,6 @@ Current contract:
 - dashboard status clicks enqueue repository refresh demand through
   `api.repositoryRefresh.enqueueManualRepositoryRefresh`
 - React does not call GitHub refresh actions for dashboard freshness
-- React does not choose metadata depth, provider-link hydration, debounce,
-  batching, or vault fan-out
+- React does not choose metadata depth, provider-link hydration, debounce, batching, or vault
+  fan-out
 - text selection still suppresses accidental click refresh

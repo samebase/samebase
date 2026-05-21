@@ -127,9 +127,7 @@ const stateRoot = path.join(os.homedir(), ".codex", "noter-connect");
 const worktreesRoot = path.join(stateRoot, "worktrees");
 const runsRoot = path.join(stateRoot, "runs");
 const statePath = path.join(stateRoot, "state.json");
-const repositoryPathSegment = sanitizePathSegment(
-  repoFullName.replace("/", "-"),
-);
+const repositoryPathSegment = sanitizePathSegment(repoFullName.replace("/", "-"));
 
 let stopRequested: boolean = false;
 process.on("SIGINT", () => {
@@ -176,16 +174,12 @@ function resolveRepositoryFullName(root: string): string {
   const remoteUrl = runCommand("git", ["remote", "get-url", "origin"], {
     cwd: root,
   }).trim();
-  const sshMatch = remoteUrl.match(
-    /^git@github\.com:([^/]+)\/(.+?)(?:\.git)?$/,
-  );
+  const sshMatch = remoteUrl.match(/^git@github\.com:([^/]+)\/(.+?)(?:\.git)?$/);
   if (sshMatch) {
     return `${sshMatch[1]}/${sshMatch[2]}`;
   }
 
-  const httpsMatch = remoteUrl.match(
-    /^https:\/\/github\.com\/([^/]+)\/(.+?)(?:\.git)?$/,
-  );
+  const httpsMatch = remoteUrl.match(/^https:\/\/github\.com\/([^/]+)\/(.+?)(?:\.git)?$/);
   if (httpsMatch) {
     return `${httpsMatch[1]}/${httpsMatch[2]}`;
   }
@@ -277,9 +271,7 @@ function loadState(): ConnectState {
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
-    throw new Error(
-      `Could not parse state file ${statePath}: ${describeError(error)}`,
-    );
+    throw new Error(`Could not parse state file ${statePath}: ${describeError(error)}`);
   }
 
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -305,18 +297,12 @@ function loadState(): ConnectState {
 
   return {
     version: 1,
-    handledRuns: parsedRecord["handledRuns"] as Record<
-      string,
-      HandledRunRecord
-    >,
+    handledRuns: parsedRecord["handledRuns"] as Record<string, HandledRunRecord>,
     failedRuns:
       parsedRecord["failedRuns"] === undefined
         ? {}
         : (parsedRecord["failedRuns"] as Record<string, HandledRunRecord>),
-    invalidRuns: parsedRecord["invalidRuns"] as Record<
-      string,
-      InvalidRunRecord
-    >,
+    invalidRuns: parsedRecord["invalidRuns"] as Record<string, InvalidRunRecord>,
   };
 }
 
@@ -361,23 +347,16 @@ async function processCycle(state: ConnectState): Promise<void> {
         ? state.invalidRuns[runKey]
         : null;
       // Avoid posting the same "missing contract" comment every polling cycle.
-      if (
-        existingInvalid !== null &&
-        existingInvalid.reason === validation.reason
-      ) {
+      if (existingInvalid !== null && existingInvalid.reason === validation.reason) {
         continue;
       }
 
       if (options.dryRun) {
-        console.log(
-          `[connect] Would skip PR #${pullRequest.number}: ${validation.reason}`,
-        );
+        console.log(`[connect] Would skip PR #${pullRequest.number}: ${validation.reason}`);
         continue;
       }
 
-      console.log(
-        `[connect] Skipping PR #${pullRequest.number}: ${validation.reason}`,
-      );
+      console.log(`[connect] Skipping PR #${pullRequest.number}: ${validation.reason}`);
       tryPostPullRequestComment(
         pullRequest.number,
         buildInvalidContractComment(pullRequest, validation.reason),
@@ -437,9 +416,7 @@ function listOpenPullRequestPage(page: number): PullRequestSummary[] {
   try {
     parsed = JSON.parse(stdout);
   } catch (error) {
-    throw new Error(
-      `Could not parse gh api pulls output: ${describeError(error)}`,
-    );
+    throw new Error(`Could not parse gh api pulls output: ${describeError(error)}`);
   }
 
   if (!Array.isArray(parsed)) {
@@ -541,8 +518,7 @@ function normalizePullRequestRepository(value: unknown): {
   }
 
   const record = value as Record<string, unknown>;
-  const repositoryName =
-    typeof record["name"] === "string" ? record["name"] : null;
+  const repositoryName = typeof record["name"] === "string" ? record["name"] : null;
   const repositoryOwner = normalizePullRequestRepositoryOwner(record["owner"]);
   return {
     headRepository: repositoryName === null ? null : { name: repositoryName },
@@ -550,9 +526,7 @@ function normalizePullRequestRepository(value: unknown): {
   };
 }
 
-function normalizePullRequestRepositoryOwner(
-  value: unknown,
-): PullRequestRepositoryOwnerRef {
+function normalizePullRequestRepositoryOwner(value: unknown): PullRequestRepositoryOwnerRef {
   if (value === null) {
     return null;
   }
@@ -561,14 +535,10 @@ function normalizePullRequestRepositoryOwner(
   }
 
   const record = value as Record<string, unknown>;
-  return typeof record["login"] === "string"
-    ? { login: record["login"] }
-    : null;
+  return typeof record["login"] === "string" ? { login: record["login"] } : null;
 }
 
-function readHeadRepositoryFullName(
-  pullRequest: PullRequestSummary,
-): string | null {
+function readHeadRepositoryFullName(pullRequest: PullRequestSummary): string | null {
   const repositoryName = pullRequest.headRepository?.name;
   const repositoryOwner = pullRequest.headRepositoryOwner?.login;
   if (!repositoryName || !repositoryOwner) {
@@ -582,9 +552,7 @@ function buildRunKey(pullRequest: PullRequestSummary): string {
   return `${repoFullName}#${pullRequest.number}@${pullRequest.headRefOid}`;
 }
 
-function validateOriginMarker(
-  pullRequest: PullRequestSummary,
-): MarkerValidationResult {
+function validateOriginMarker(pullRequest: PullRequestSummary): MarkerValidationResult {
   // Treat the PR body marker as the cross-system contract. We do not infer this
   // from Noter chat state or branch naming.
   const extractedMarker = extractOriginMarkerJson(pullRequest.body);
@@ -623,10 +591,7 @@ function validateOriginMarker(
     "headRefName",
   ];
   for (const fieldName of requiredStringFields) {
-    if (
-      typeof marker[fieldName] !== "string" ||
-      marker[fieldName].trim().length === 0
-    ) {
+    if (typeof marker[fieldName] !== "string" || marker[fieldName].trim().length === 0) {
       return {
         ok: false,
         reason: `noter-origin marker is missing required string field "${fieldName}"`,
@@ -653,18 +618,14 @@ function validateOriginMarker(
   if (marker["source"] !== "noter_ui") {
     return {
       ok: false,
-      reason: `noter-origin source must be "noter_ui" (got "${String(
-        marker["source"],
-      )}")`,
+      reason: `noter-origin source must be "noter_ui" (got "${String(marker["source"])}")`,
     };
   }
 
   if (marker["mode"] !== "research") {
     return {
       ok: false,
-      reason: `noter-origin mode must be "research" (got "${String(
-        marker["mode"],
-      )}")`,
+      reason: `noter-origin mode must be "research" (got "${String(marker["mode"])}")`,
     };
   }
 
@@ -758,9 +719,7 @@ async function handleValidPullRequest(
     });
     handledRecord.finishedAt = new Date().toISOString();
     handledRecord.status = result.exitCode === 0 ? "succeeded" : "failed";
-    handledRecord.remoteHeadAfterRun = fetchPullRequestHeadOid(
-      pullRequest.number,
-    );
+    handledRecord.remoteHeadAfterRun = fetchPullRequestHeadOid(pullRequest.number);
     if (result.exitCode !== 0) {
       handledRecord.error = `codex exec exited with status ${result.exitCode}`;
     }
@@ -785,9 +744,7 @@ async function handleValidPullRequest(
     handledRecord.finishedAt = new Date().toISOString();
     handledRecord.status = "failed";
     handledRecord.error = describeError(error);
-    handledRecord.remoteHeadAfterRun = tryFetchPullRequestHeadOid(
-      pullRequest.number,
-    );
+    handledRecord.remoteHeadAfterRun = tryFetchPullRequestHeadOid(pullRequest.number);
     recordFailedRun(state, runKey, handledRecord);
     tryPostPullRequestComment(
       pullRequest.number,
@@ -796,9 +753,7 @@ async function handleValidPullRequest(
         runId,
       }),
     );
-    console.error(
-      `[connect] PR #${pullRequest.number} failed: ${handledRecord.error}`,
-    );
+    console.error(`[connect] PR #${pullRequest.number} failed: ${handledRecord.error}`);
   }
 }
 
@@ -826,10 +781,7 @@ function ensureWorktreeForPullRequest(pullRequest: PullRequestSummary): string {
   const existingWorktree = findWorktreeByBranch(branchRef);
   // Fail closed if the PR branch is already checked out somewhere else. The
   // watcher should not guess which worktree owns it.
-  if (
-    existingWorktree &&
-    path.resolve(existingWorktree) !== path.resolve(worktreeDir)
-  ) {
+  if (existingWorktree && path.resolve(existingWorktree) !== path.resolve(worktreeDir)) {
     throw new Error(
       `Branch ${pullRequest.headRefName} is already checked out at ${existingWorktree}`,
     );
@@ -844,13 +796,9 @@ function ensureWorktreeForPullRequest(pullRequest: PullRequestSummary): string {
   if (!fs.existsSync(worktreeDir)) {
     fs.mkdirSync(path.dirname(worktreeDir), { recursive: true });
     if (localBranchExists(pullRequest.headRefName)) {
-      runCommand(
-        "git",
-        ["worktree", "add", worktreeDir, pullRequest.headRefName],
-        {
-          cwd: repoRoot,
-        },
-      );
+      runCommand("git", ["worktree", "add", worktreeDir, pullRequest.headRefName], {
+        cwd: repoRoot,
+      });
     } else {
       runCommand(
         "git",
@@ -879,47 +827,31 @@ function ensureWorktreeForPullRequest(pullRequest: PullRequestSummary): string {
     );
   }
 
-  const dirtyStatus = runCommand(
-    "git",
-    ["-C", worktreeDir, "status", "--short"],
-    {
-      cwd: repoRoot,
-    },
-  );
+  const dirtyStatus = runCommand("git", ["-C", worktreeDir, "status", "--short"], {
+    cwd: repoRoot,
+  });
   if (dirtyStatus.trim().length > 0) {
-    throw new Error(
-      `Worktree ${worktreeDir} is dirty; refusing to reuse it automatically`,
-    );
+    throw new Error(`Worktree ${worktreeDir} is dirty; refusing to reuse it automatically`);
   }
 
   runCommand("git", ["-C", worktreeDir, "switch", pullRequest.headRefName], {
     cwd: repoRoot,
   });
-  runCommand(
-    "git",
-    ["-C", worktreeDir, "fetch", "origin", pullRequest.headRefName],
-    {
-      cwd: repoRoot,
-    },
-  );
-  runCommand(
-    "git",
-    ["-C", worktreeDir, "reset", "--hard", `origin/${pullRequest.headRefName}`],
-    { cwd: repoRoot },
-  );
+  runCommand("git", ["-C", worktreeDir, "fetch", "origin", pullRequest.headRefName], {
+    cwd: repoRoot,
+  });
+  runCommand("git", ["-C", worktreeDir, "reset", "--hard", `origin/${pullRequest.headRefName}`], {
+    cwd: repoRoot,
+  });
 
   return worktreeDir;
 }
 
 function localBranchExists(branchName: string): boolean {
-  const result = spawnSync(
-    "git",
-    ["show-ref", "--verify", "--quiet", `refs/heads/${branchName}`],
-    {
-      cwd: repoRoot,
-      stdio: "ignore",
-    },
-  );
+  const result = spawnSync("git", ["show-ref", "--verify", "--quiet", `refs/heads/${branchName}`], {
+    cwd: repoRoot,
+    stdio: "ignore",
+  });
   return result.status === 0;
 }
 
@@ -927,9 +859,7 @@ function findWorktreeByBranch(branchRef: string): string | null {
   const stdout = runCommand("git", ["worktree", "list", "--porcelain"], {
     cwd: repoRoot,
   });
-  const blocks = stdout
-    .split("\n\n")
-    .filter((block) => block.trim().length > 0);
+  const blocks = stdout.split("\n\n").filter((block) => block.trim().length > 0);
   for (const block of blocks) {
     const lines = block.split("\n");
     let worktreePath = null;
@@ -1046,15 +976,7 @@ function buildCodexPrompt(params: {
 function fetchPullRequestHeadOid(pullRequestNumber: number): string {
   const stdout = runCommand(
     "gh",
-    [
-      "pr",
-      "view",
-      String(pullRequestNumber),
-      "--repo",
-      repoFullName,
-      "--json",
-      "headRefOid",
-    ],
+    ["pr", "view", String(pullRequestNumber), "--repo", repoFullName, "--json", "headRefOid"],
     { cwd: repoRoot },
   );
 
@@ -1062,9 +984,7 @@ function fetchPullRequestHeadOid(pullRequestNumber: number): string {
   try {
     parsed = JSON.parse(stdout);
   } catch (error) {
-    throw new Error(
-      `Could not parse gh pr view output: ${describeError(error)}`,
-    );
+    throw new Error(`Could not parse gh pr view output: ${describeError(error)}`);
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error("gh pr view did not return a headRefOid string");
@@ -1081,15 +1001,7 @@ function fetchPullRequestHeadOid(pullRequestNumber: number): string {
 function postPullRequestComment(pullRequestNumber: number, body: string): void {
   runCommand(
     "gh",
-    [
-      "pr",
-      "comment",
-      String(pullRequestNumber),
-      "--repo",
-      repoFullName,
-      "--body-file",
-      "-",
-    ],
+    ["pr", "comment", String(pullRequestNumber), "--repo", repoFullName, "--body-file", "-"],
     {
       cwd: repoRoot,
       input: body,
@@ -1097,10 +1009,7 @@ function postPullRequestComment(pullRequestNumber: number, body: string): void {
   );
 }
 
-function tryPostPullRequestComment(
-  pullRequestNumber: number,
-  body: string,
-): void {
+function tryPostPullRequestComment(pullRequestNumber: number, body: string): void {
   try {
     postPullRequestComment(pullRequestNumber, body);
   } catch (error) {
@@ -1130,10 +1039,7 @@ function buildClaimComment(params: {
   ].join("\n");
 }
 
-function buildInvalidContractComment(
-  pullRequest: PullRequestSummary,
-  reason: string,
-): string {
+function buildInvalidContractComment(pullRequest: PullRequestSummary, reason: string): string {
   return [
     "Local `pnpm connect` skipped this PR because the automation contract is incomplete.",
     "",
@@ -1170,10 +1076,7 @@ function buildCompletionComment(params: {
   return lines.join("\n");
 }
 
-function buildFailureComment(params: {
-  pullRequest: PullRequestSummary;
-  runId: string;
-}): string {
+function buildFailureComment(params: { pullRequest: PullRequestSummary; runId: string }): string {
   return [
     "Local `pnpm connect` run failed before completion.",
     "",
@@ -1210,11 +1113,7 @@ function sanitizePathSegment(value: string): string {
  * successful local push does not cause the watcher to immediately claim the
  * same PR again on the next polling cycle.
  */
-function recordHandledRun(
-  state: ConnectState,
-  runKey: string,
-  record: HandledRunRecord,
-): void {
+function recordHandledRun(state: ConnectState, runKey: string, record: HandledRunRecord): void {
   state.handledRuns[runKey] = record;
   delete state.failedRuns[runKey];
   if (
@@ -1222,9 +1121,7 @@ function recordHandledRun(
     record.remoteHeadAfterRun.length > 0 &&
     record.remoteHeadAfterRun !== record.headRefOid
   ) {
-    state.handledRuns[
-      `${repoFullName}#${record.prNumber}@${record.remoteHeadAfterRun}`
-    ] = {
+    state.handledRuns[`${repoFullName}#${record.prNumber}@${record.remoteHeadAfterRun}`] = {
       ...record,
       headRefOid: record.remoteHeadAfterRun,
     };
@@ -1236,11 +1133,7 @@ function recordHandledRun(
  * without editing state by hand, while still keeping a cooldown window for the
  * long-running watcher.
  */
-function recordFailedRun(
-  state: ConnectState,
-  runKey: string,
-  record: HandledRunRecord,
-): void {
+function recordFailedRun(state: ConnectState, runKey: string, record: HandledRunRecord): void {
   state.failedRuns[runKey] = record;
 }
 
@@ -1332,17 +1225,13 @@ function extractOriginMarkerJson(
 
     return {
       ok: true,
-      json: trimmedLine.slice(
-        MARKER_PREFIX.length,
-        trimmedLine.length - MARKER_SUFFIX.length,
-      ),
+      json: trimmedLine.slice(MARKER_PREFIX.length, trimmedLine.length - MARKER_SUFFIX.length),
     };
   }
 
   return {
     ok: false,
-    reason:
-      "missing hidden `<!-- noter-origin:v1 {...} -->` marker in the PR body",
+    reason: "missing hidden `<!-- noter-origin:v1 {...} -->` marker in the PR body",
   };
 }
 
@@ -1352,9 +1241,7 @@ function shouldStop(): boolean {
   return stopRequested;
 }
 
-function tryFetchPullRequestHeadOid(
-  pullRequestNumber: number,
-): string | undefined {
+function tryFetchPullRequestHeadOid(pullRequestNumber: number): string | undefined {
   try {
     return fetchPullRequestHeadOid(pullRequestNumber);
   } catch (error) {

@@ -40,11 +40,7 @@ function splitDiffPartLines(value: string): string[] {
   return splitLogicalLines(value);
 }
 
-function findSequenceStart(
-  lines: string[],
-  sequence: string[],
-  startIndex: number,
-): number | null {
+function findSequenceStart(lines: string[], sequence: string[], startIndex: number): number | null {
   if (sequence.length === 0) {
     return startIndex <= lines.length ? startIndex : null;
   }
@@ -131,9 +127,7 @@ function mergeInsertionOnlyEdits(args: RebaseInput): string | null {
               previousContextLines,
               searchCursor,
             );
-            return previousMatch === null
-              ? null
-              : previousMatch + previousContextLines.length;
+            return previousMatch === null ? null : previousMatch + previousContextLines.length;
           })();
     if (insertionStart === null) {
       return null;
@@ -147,11 +141,7 @@ function mergeInsertionOnlyEdits(args: RebaseInput): string | null {
       return null;
     }
 
-    const existingInsertion = findSequenceStart(
-      mergedLines,
-      insertedLines,
-      insertionStart,
-    );
+    const existingInsertion = findSequenceStart(mergedLines, insertedLines, insertionStart);
     if (existingInsertion === insertionStart) {
       searchCursor = existingInsertion + insertedLines.length;
       continue;
@@ -177,12 +167,7 @@ export function rebaseStagedContent({
     return { content: upstreamContent, hasConflict: false };
   }
 
-  const patch = createTwoFilesPatch(
-    "base",
-    "staged",
-    baseContent,
-    stagedContent,
-  );
+  const patch = createTwoFilesPatch("base", "staged", baseContent, stagedContent);
 
   const rebased = applyPatch(upstreamContent, patch, { fuzzFactor: 1 });
   if (rebased === false) {

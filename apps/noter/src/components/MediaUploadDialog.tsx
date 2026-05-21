@@ -7,12 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { fuzzyMatch, highlightMatches } from "@/lib/fuzzySearch.tsx";
@@ -37,9 +32,7 @@ function normalizeFolderPath(folderPath: string): string {
 
 function buildTargetPath(folderPath: string, fileName: string): string {
   const normalizedFolderPath = normalizeFolderPath(folderPath);
-  return normalizedFolderPath.length > 0
-    ? `${normalizedFolderPath}/${fileName}`
-    : fileName;
+  return normalizedFolderPath.length > 0 ? `${normalizedFolderPath}/${fileName}` : fileName;
 }
 
 export function MediaUploadDialog({
@@ -61,11 +54,7 @@ export function MediaUploadDialog({
   existingFilePaths: string[];
   isSubmitting?: boolean;
   submitError?: string | null;
-  onSubmit: (args: {
-    folderPath: string;
-    replaceExisting: boolean;
-    targetPath: string;
-  }) => void;
+  onSubmit: (args: { folderPath: string; replaceExisting: boolean; targetPath: string }) => void;
 }) {
   const isMobile = useIsMobile();
   const locationInputId = useId();
@@ -152,9 +141,7 @@ export function MediaUploadDialog({
     setShowFolderDropdown(true);
   };
 
-  const handleFolderInputChange = (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleFolderInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setFolderInputValue(event.target.value);
     setShowFolderDropdown(true);
   };
@@ -188,9 +175,7 @@ export function MediaUploadDialog({
     switch (event.key) {
       case "ArrowDown":
         event.preventDefault();
-        setSelectedFolderIndex((current) =>
-          Math.min(current + 1, filteredFolders.length - 1),
-        );
+        setSelectedFolderIndex((current) => Math.min(current + 1, filteredFolders.length - 1));
         break;
       case "ArrowUp":
         event.preventDefault();
@@ -250,8 +235,7 @@ export function MediaUploadDialog({
                   key={`${folder.path || "/"}`}
                   className={cn(
                     "cursor-pointer px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground",
-                    index === selectedFolderIndex &&
-                      "bg-accent text-accent-foreground",
+                    index === selectedFolderIndex && "bg-accent text-accent-foreground",
                   )}
                   onClick={() => handleFolderSelect(folder.path)}
                 >
@@ -285,12 +269,7 @@ export function MediaUploadDialog({
       ) : null}
 
       <div className="flex justify-end gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onClose}
-          disabled={isSubmitting}
-        >
+        <Button variant="ghost" size="sm" onClick={onClose} disabled={isSubmitting}>
           Cancel
         </Button>
         <Button
@@ -304,11 +283,7 @@ export function MediaUploadDialog({
           }
           disabled={isSubmitting}
         >
-          {isSubmitting
-            ? "Uploading..."
-            : replaceExisting
-              ? "Replace"
-              : "Upload"}
+          {isSubmitting ? "Uploading..." : replaceExisting ? "Replace" : "Upload"}
         </Button>
       </div>
     </div>
@@ -329,10 +304,7 @@ export function MediaUploadDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContentUI
-        className="sm:max-w-md"
-        data-testid="media-upload-dialog-content"
-      >
+      <DialogContentUI className="sm:max-w-md" data-testid="media-upload-dialog-content">
         <DialogHeader>
           <DialogTitle>Upload Image</DialogTitle>
         </DialogHeader>

@@ -5,11 +5,7 @@ export class ConvexManagementApiError extends Error {
 
   readonly responseBodySummary: string;
 
-  constructor(args: {
-    status: number;
-    path: string;
-    responseBodySummary: string;
-  }) {
+  constructor(args: { status: number; path: string; responseBodySummary: string }) {
     super(
       `Convex API request failed (${args.status}) for ${args.path}: ${args.responseBodySummary}`,
     );

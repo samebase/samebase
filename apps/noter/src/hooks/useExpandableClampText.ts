@@ -43,9 +43,7 @@ export function useExpandableClampText(
 
     const updateIsExpandable = () => {
       const measuredHeight = measurementNode.getBoundingClientRect().height;
-      const lineHeight = Number.parseFloat(
-        window.getComputedStyle(measurementNode).lineHeight,
-      );
+      const lineHeight = Number.parseFloat(window.getComputedStyle(measurementNode).lineHeight);
 
       if (!Number.isFinite(lineHeight) || lineHeight <= 0) {
         setIsExpandable(false);

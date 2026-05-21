@@ -26,16 +26,12 @@ function hasJsonContentType(request: Request): boolean {
   return contentType?.includes("application/json") ?? false;
 }
 
-async function readJsonBody(
-  request: Request,
-): Promise<Record<string, unknown>> {
+async function readJsonBody(request: Request): Promise<Record<string, unknown>> {
   const payload = await request.json();
   return asRecord(payload);
 }
 
-function readConnectedMachineOs(
-  value: string | undefined,
-): "linux" | "macos" | "windows" | null {
+function readConnectedMachineOs(value: string | undefined): "linux" | "macos" | "windows" | null {
   if (value === "linux" || value === "macos" || value === "windows") {
     return value;
   }
@@ -73,10 +69,7 @@ function readConnectedMachineControlStatus(
 }
 
 function readStringArray(value: unknown): string[] | null {
-  if (
-    !Array.isArray(value) ||
-    value.some((entry) => typeof entry !== "string")
-  ) {
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
     return null;
   }
 
@@ -105,9 +98,7 @@ export function machineHeartbeatHasConsistentLiveControlState(args: {
   capabilities: Array<"presence" | "liveControl">;
   controlStatus: "ready" | "starting" | "unavailable" | undefined;
 }): boolean {
-  return (
-    args.controlStatus !== "ready" || args.capabilities.includes("liveControl")
-  );
+  return args.controlStatus !== "ready" || args.capabilities.includes("liveControl");
 }
 
 /**
@@ -125,73 +116,65 @@ function readBootstrapFingerprint(request: Request): string {
   return "connected-machine-bootstrap-global";
 }
 
-export const createMachineRegistrationRequest = httpAction(
-  async (ctx, request) => {
-    if (!hasJsonContentType(request)) {
-      return errorResponse(415, "content-type must be application/json");
-    }
+export const createMachineRegistrationRequest = httpAction(async (ctx, request) => {
+  if (!hasJsonContentType(request)) {
+    return errorResponse(415, "content-type must be application/json");
+  }
 
-    let body: Record<string, unknown>;
-    try {
-      body = await readJsonBody(request);
-    } catch {
-      return errorResponse(400, "invalid json body");
-    }
+  let body: Record<string, unknown>;
+  try {
+    body = await readJsonBody(request);
+  } catch {
+    return errorResponse(400, "invalid json body");
+  }
 
-    const requestId = readString(body, "requestId");
-    const credentialHash = readString(body, "credentialHash");
-    const machineId = readString(body, "machineId");
-    const displayName = readString(body, "displayName");
-    const hostname = readString(body, "hostname");
-    const os = readConnectedMachineOs(readString(body, "os"));
-    const connectorVersion = readString(body, "connectorVersion");
+  const requestId = readString(body, "requestId");
+  const credentialHash = readString(body, "credentialHash");
+  const machineId = readString(body, "machineId");
+  const displayName = readString(body, "displayName");
+  const hostname = readString(body, "hostname");
+  const os = readConnectedMachineOs(readString(body, "os"));
+  const connectorVersion = readString(body, "connectorVersion");
 
-    if (
-      !requestId ||
-      !credentialHash ||
-      !machineId ||
-      !displayName ||
-      !hostname ||
-      !os ||
-      !connectorVersion
-    ) {
-      return errorResponse(400, "missing machine registration fields");
-    }
+  if (
+    !requestId ||
+    !credentialHash ||
+    !machineId ||
+    !displayName ||
+    !hostname ||
+    !os ||
+    !connectorVersion
+  ) {
+    return errorResponse(400, "missing machine registration fields");
+  }
 
-    const now = Date.now();
-    const expiresAt = now + MACHINE_REGISTRATION_REQUEST_TTL_MS;
-    try {
-      await ctx.runMutation(
-        internal.connectedMachines.createMachineRegistrationRequest,
-        {
-          bootstrapFingerprint: readBootstrapFingerprint(request),
-          requestId,
-          credentialHash,
-          machineId,
-          displayName,
-          hostname,
-          os,
-          connectorVersion,
-          createdAt: now,
-          expiresAt,
-        },
-      );
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message === MACHINE_REGISTRATION_RATE_LIMIT_ERROR
-      ) {
-        return errorResponse(429, error.message);
-      }
-      throw error;
-    }
-
-    return jsonResponse({
-      expiresAt,
+  const now = Date.now();
+  const expiresAt = now + MACHINE_REGISTRATION_REQUEST_TTL_MS;
+  try {
+    await ctx.runMutation(internal.connectedMachines.createMachineRegistrationRequest, {
+      bootstrapFingerprint: readBootstrapFingerprint(request),
       requestId,
+      credentialHash,
+      machineId,
+      displayName,
+      hostname,
+      os,
+      connectorVersion,
+      createdAt: now,
+      expiresAt,
     });
-  },
-);
+  } catch (error) {
+    if (error instanceof Error && error.message === MACHINE_REGISTRATION_RATE_LIMIT_ERROR) {
+      return errorResponse(429, error.message);
+    }
+    throw error;
+  }
+
+  return jsonResponse({
+    expiresAt,
+    requestId,
+  });
+});
 
 export const publishMachineHeartbeat = httpAction(async (ctx, request) => {
   if (!hasJsonContentType(request)) {
@@ -222,9 +205,7 @@ export const publishMachineHeartbeat = httpAction(async (ctx, request) => {
       : statusValue === "online" || statusValue === "offline"
         ? statusValue
         : null;
-  const controlStatus = readConnectedMachineControlStatus(
-    readString(body, "controlStatus"),
-  );
+  const controlStatus = readConnectedMachineControlStatus(readString(body, "controlStatus"));
   const controlStatusDetail = readString(body, "controlStatusDetail");
   const controlUrl = readString(body, "controlUrl");
   const controlUrlUpdatedAt =
@@ -257,9 +238,7 @@ export const publishMachineHeartbeat = httpAction(async (ctx, request) => {
       capabilities,
       controlStatus,
     }) ||
-    (controlStatus !== undefined &&
-      controlStatus !== "ready" &&
-      controlUrl !== undefined)
+    (controlStatus !== undefined && controlStatus !== "ready" && controlUrl !== undefined)
   ) {
     return errorResponse(400, "missing machine heartbeat fields");
   }
@@ -291,47 +270,45 @@ export const publishMachineHeartbeat = httpAction(async (ctx, request) => {
   return jsonResponse({ ok: true });
 });
 
-export const introspectMachineControlToken = httpAction(
-  async (ctx, request) => {
-    if (!hasJsonContentType(request)) {
-      return errorResponse(415, "content-type must be application/json");
-    }
+export const introspectMachineControlToken = httpAction(async (ctx, request) => {
+  if (!hasJsonContentType(request)) {
+    return errorResponse(415, "content-type must be application/json");
+  }
 
-    let body: Record<string, unknown>;
-    try {
-      body = await readJsonBody(request);
-    } catch {
-      return errorResponse(400, "invalid json body");
-    }
+  let body: Record<string, unknown>;
+  try {
+    body = await readJsonBody(request);
+  } catch {
+    return errorResponse(400, "invalid json body");
+  }
 
-    const machineId = readString(body, "machineId");
-    const token = readString(body, "token");
-    if (!machineId || !token) {
-      return errorResponse(400, "missing machine control token fields");
-    }
+  const machineId = readString(body, "machineId");
+  const token = readString(body, "token");
+  if (!machineId || !token) {
+    return errorResponse(400, "missing machine control token fields");
+  }
 
-    const tokenHash = await sha256Hex(token);
-    const introspection = await ctx.runMutation(
-      internal.connectedMachineControl.introspectMachineControlToken,
-      {
-        machineId,
-        now: Date.now(),
-        tokenHash,
-      },
-    );
+  const tokenHash = await sha256Hex(token);
+  const introspection = await ctx.runMutation(
+    internal.connectedMachineControl.introspectMachineControlToken,
+    {
+      machineId,
+      now: Date.now(),
+      tokenHash,
+    },
+  );
 
-    if (!introspection.active) {
-      return jsonResponse({
-        active: false,
-      });
-    }
-
+  if (!introspection.active) {
     return jsonResponse({
-      active: true,
-      audience: introspection.audience,
-      expiresAt: introspection.expiresAt,
-      machineId: introspection.machineId,
-      userId: `${introspection.userId}`,
+      active: false,
     });
-  },
-);
+  }
+
+  return jsonResponse({
+    active: true,
+    audience: introspection.audience,
+    expiresAt: introspection.expiresAt,
+    machineId: introspection.machineId,
+    userId: `${introspection.userId}`,
+  });
+});

@@ -13,11 +13,7 @@ import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { type GithubTree } from "../../convex/schema";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
-import {
-  setupEditorATA,
-  parseTsConfig,
-  applyTsConfigToMonaco,
-} from "./monaco/setupEditor";
+import { setupEditorATA, parseTsConfig, applyTsConfigToMonaco } from "./monaco/setupEditor";
 import { useProjectFiles, type ProjectFile } from "@/hooks/useProjectFiles";
 import { buildMonacoAppliedCacheKey } from "@/lib/editorCacheKeys";
 import { buildMonacoFileUri } from "@/lib/monacoFileUri";
@@ -267,12 +263,10 @@ export function MonacoEditor({
   useEffect(() => {
     if (!remoteUpdates?.length || !editorRef.current) return;
 
-    const cmUpdates: Update[] = remoteUpdates.map(
-      (u: (typeof remoteUpdates)[number]) => ({
-        changes: ChangeSet.fromJSON(JSON.parse(u.changes)),
-        clientID: u.clientID,
-      }),
-    );
+    const cmUpdates: Update[] = remoteUpdates.map((u: (typeof remoteUpdates)[number]) => ({
+      changes: ChangeSet.fromJSON(JSON.parse(u.changes)),
+      clientID: u.clientID,
+    }));
 
     // Apply to headless CM (handles OT rebasing of any unconfirmed local edits)
     const spec = receiveUpdates(cmStateRef.current, cmUpdates);

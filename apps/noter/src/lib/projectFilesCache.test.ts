@@ -48,9 +48,7 @@ describe("loadProjectFilesWithSharedPromise", () => {
 
     expect(load).toHaveBeenCalledTimes(1);
 
-    const files: ProjectFile[] = [
-      { path: "src/index.ts", content: "export {}" },
-    ];
+    const files: ProjectFile[] = [{ path: "src/index.ts", content: "export {}" }];
     pending.resolve(files);
 
     await expect(firstPromise).resolves.toEqual(files);

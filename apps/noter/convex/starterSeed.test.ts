@@ -18,18 +18,13 @@ function makeGitClient(options?: {
   createTreeFailsWithEmptyRepoUntilBootstrap?: boolean;
   emptyRepositoryCreateBlobFailuresAfterBootstrap?: number;
 }) {
-  const createTreeCalls: Parameters<StarterSeedGitClient["createTree"]>[0][] =
-    [];
-  const createBlobCalls: Parameters<StarterSeedGitClient["createBlob"]>[0][] =
-    [];
-  const createCommitCalls: Parameters<
-    StarterSeedGitClient["createCommit"]
-  >[0][] = [];
+  const createTreeCalls: Parameters<StarterSeedGitClient["createTree"]>[0][] = [];
+  const createBlobCalls: Parameters<StarterSeedGitClient["createBlob"]>[0][] = [];
+  const createCommitCalls: Parameters<StarterSeedGitClient["createCommit"]>[0][] = [];
   const createRefCalls: Parameters<StarterSeedGitClient["createRef"]>[0][] = [];
   const updateRefCalls: Parameters<StarterSeedGitClient["updateRef"]>[0][] = [];
-  const createBootstrapCommitCalls: Parameters<
-    StarterSeedGitClient["createBootstrapCommit"]
-  >[0][] = [];
+  const createBootstrapCommitCalls: Parameters<StarterSeedGitClient["createBootstrapCommit"]>[0][] =
+    [];
 
   let treeCounter = 0;
   let blobCounter = 0;
@@ -44,20 +39,11 @@ function makeGitClient(options?: {
   const client: StarterSeedGitClient = {
     createTree: async (args) => {
       createTreeCalls.push(args);
-      if (
-        !didFailCreateTree &&
-        typeof options?.failFirstCreateTreeStatus === "number"
-      ) {
+      if (!didFailCreateTree && typeof options?.failFirstCreateTreeStatus === "number") {
         didFailCreateTree = true;
-        throw makeErrorWithStatus(
-          options.failFirstCreateTreeStatus,
-          "simulated createTree error",
-        );
+        throw makeErrorWithStatus(options.failFirstCreateTreeStatus, "simulated createTree error");
       }
-      if (
-        options?.createTreeFailsWithEmptyRepoUntilBootstrap === true &&
-        !didBootstrap
-      ) {
+      if (options?.createTreeFailsWithEmptyRepoUntilBootstrap === true && !didBootstrap) {
         throw makeErrorWithStatus(
           409,
           "Git Repository is empty. - https://docs.github.com/rest/git/trees#create-a-tree",

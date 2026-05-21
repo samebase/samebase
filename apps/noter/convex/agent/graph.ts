@@ -33,9 +33,7 @@ const PROD_READ_PROPOSAL_SCHEMA = z.object({
 type ProdReadProposal = z.infer<typeof PROD_READ_PROPOSAL_SCHEMA>;
 
 type AgentStreamTextArgs = Parameters<typeof Agent.prototype.streamText>[2];
-type StepSnapshot = Parameters<
-  NonNullable<AgentStreamTextArgs["onStepFinish"]>
->[0];
+type StepSnapshot = Parameters<NonNullable<AgentStreamTextArgs["onStepFinish"]>>[0];
 type ToolCallSnapshot = StepSnapshot["toolCalls"][number];
 
 function createModel(provider: string, model: string) {
@@ -88,13 +86,9 @@ function summarizeToolInput(input: unknown): unknown {
         }
         return {
           oldTextLength:
-            typeof replacement["oldText"] === "string"
-              ? replacement["oldText"].length
-              : undefined,
+            typeof replacement["oldText"] === "string" ? replacement["oldText"].length : undefined,
           newTextLength:
-            typeof replacement["newText"] === "string"
-              ? replacement["newText"].length
-              : undefined,
+            typeof replacement["newText"] === "string" ? replacement["newText"].length : undefined,
         };
       });
       continue;
@@ -107,14 +101,10 @@ function summarizeToolInput(input: unknown): unknown {
 function getMissingRequiredToolKeys(call: ToolCallSnapshot): string[] {
   const input = isRecord(call.input) ? call.input : null;
   const hasPath =
-    input !== null &&
-    typeof input["path"] === "string" &&
-    input["path"].trim().length > 0;
+    input !== null && typeof input["path"] === "string" && input["path"].trim().length > 0;
   const hasContent = input !== null && typeof input["content"] === "string";
   const hasReplacements =
-    input !== null &&
-    Array.isArray(input["replacements"]) &&
-    input["replacements"].length > 0;
+    input !== null && Array.isArray(input["replacements"]) && input["replacements"].length > 0;
 
   switch (call.toolName) {
     case "read_file":
@@ -225,12 +215,8 @@ export async function runAgentGraph(opts: {
   for (const step of steps) {
     for (const call of step.toolCalls) {
       const missingKeys = getMissingRequiredToolKeys(call);
-      const invalid =
-        "invalid" in call && typeof call.invalid === "boolean"
-          ? call.invalid
-          : false;
-      const error =
-        "error" in call ? formatToolCallError(call.error) : undefined;
+      const invalid = "invalid" in call && typeof call.invalid === "boolean" ? call.invalid : false;
+      const error = "error" in call ? formatToolCallError(call.error) : undefined;
 
       toolActivity.push({
         tool: call.toolName,
@@ -281,14 +267,8 @@ export async function runAgentGraph(opts: {
     }
   }
 
-  const totalToolCalls = steps.reduce(
-    (count, step) => count + step.toolCalls.length,
-    0,
-  );
-  const totalToolResults = steps.reduce(
-    (count, step) => count + step.toolResults.length,
-    0,
-  );
+  const totalToolCalls = steps.reduce((count, step) => count + step.toolCalls.length, 0);
+  const totalToolResults = steps.reduce((count, step) => count + step.toolResults.length, 0);
   if (tools && (totalToolCalls > 0 || totalToolResults > 0)) {
     console.log("agentGraph:runAgentGraph:stepSummary", {
       threadId,

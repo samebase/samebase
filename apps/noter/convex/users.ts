@@ -1,11 +1,5 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import {
-  action,
-  internalQuery,
-  mutation,
-  query,
-  type ActionCtx,
-} from "./_generated/server";
+import { action, internalQuery, mutation, query, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Infer, v } from "convex/values";
 import { getConnectionByUserAndKind } from "./providerConnections";
@@ -28,11 +22,7 @@ import {
 const { array, boolean, literal, number, object, optional, string, union } = v;
 
 const ADMIN_USERNAMES = ["nicu-chiciuc"];
-const ADMIN_EMAILS = new Set([
-  "nicu.dev@gmail.com",
-  "nicuchiciuc@gmail.com",
-  "nicu@noter.md",
-]);
+const ADMIN_EMAILS = new Set(["nicu.dev@gmail.com", "nicuchiciuc@gmail.com", "nicu@noter.md"]);
 const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
 const GITHUB_API_BASE = "https://api.github.com";
 
@@ -65,9 +55,7 @@ const cloudflareConnectionStatusValidator = object({
   mcpTokenLastRefreshAt: optional(number()),
   mcpTokenNextAutoCheckAt: optional(number()),
 });
-type CloudflareConnectionStatus = Infer<
-  typeof cloudflareConnectionStatusValidator
->;
+type CloudflareConnectionStatus = Infer<typeof cloudflareConnectionStatusValidator>;
 type CloudflareConnectionStatusInput = {
   accountId?: string;
   auth:
@@ -142,23 +130,15 @@ function computeCloudflareRefreshWindowStartAt(expiresAt: number): number {
   return expiresAt - CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS;
 }
 
-function computeCloudflareNextAutoCheckAt(args: {
-  expiresAt: number;
-  now: number;
-}): number {
-  const refreshWindowStartAt = computeCloudflareRefreshWindowStartAt(
-    args.expiresAt,
-  );
+function computeCloudflareNextAutoCheckAt(args: { expiresAt: number; now: number }): number {
+  const refreshWindowStartAt = computeCloudflareRefreshWindowStartAt(args.expiresAt);
   if (args.now < refreshWindowStartAt) {
     return refreshWindowStartAt;
   }
   return args.now + CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS;
 }
 
-function computeCloudflareRetryDelayMs(
-  previousCheckedAt: number | undefined,
-  now: number,
-): number {
+function computeCloudflareRetryDelayMs(previousCheckedAt: number | undefined, now: number): number {
   if (typeof previousCheckedAt !== "number") {
     return CLOUDFLARE_TOKEN_REFRESH_RETRY_BASE_MS;
   }
@@ -178,10 +158,7 @@ function computeCloudflareRetryDelayMs(
   return CLOUDFLARE_TOKEN_REFRESH_RETRY_MAX_MS;
 }
 
-function computeCloudflareRetryDueAt(
-  previousCheckedAt: number | undefined,
-  now: number,
-): number {
+function computeCloudflareRetryDueAt(previousCheckedAt: number | undefined, now: number): number {
   const retryDelayMs = computeCloudflareRetryDelayMs(previousCheckedAt, now);
   return (previousCheckedAt ?? now) + retryDelayMs;
 }
@@ -228,18 +205,14 @@ function buildCloudflareConnectionStatus(
           now,
         });
   const nextAutoCheckAt =
-    mcpTokenStatus === "invalid"
-      ? undefined
-      : (options?.nextAutoCheckAt ?? derivedNextAutoCheckAt);
+    mcpTokenStatus === "invalid" ? undefined : (options?.nextAutoCheckAt ?? derivedNextAutoCheckAt);
   return {
     ...baseStatus,
     mcpTokenStatus,
     mcpTokenExpiresAt: effectiveExpiresAt,
     mcpTokenCheckedAt: connection.tokenHealth?.checkedAt,
     mcpTokenError: connection.tokenHealth?.errorMessage,
-    ...(typeof nextAutoCheckAt === "number"
-      ? { mcpTokenNextAutoCheckAt: nextAutoCheckAt }
-      : {}),
+    ...(typeof nextAutoCheckAt === "number" ? { mcpTokenNextAutoCheckAt: nextAutoCheckAt } : {}),
   };
 }
 
@@ -317,8 +290,7 @@ export const viewer = query({
       getConnectionByUserAndKind(ctx.db, userId, "cloudflare"),
     ]);
 
-    const githubUsername =
-      github?.kind === "github" ? github.username : undefined;
+    const githubUsername = github?.kind === "github" ? github.username : undefined;
 
     return {
       _id: user._id,
@@ -392,15 +364,9 @@ export const isCurrentUserApproved = query({
     const user = await ctx.db.get(userId);
     if (!user) return false;
 
-    const githubConnection = await getConnectionByUserAndKind(
-      ctx.db,
-      userId,
-      "github",
-    );
+    const githubConnection = await getConnectionByUserAndKind(ctx.db, userId, "github");
     const githubUsername =
-      githubConnection?.kind === "github"
-        ? githubConnection.username
-        : undefined;
+      githubConnection?.kind === "github" ? githubConnection.username : undefined;
 
     return hasAppAccess({
       githubUsername,
@@ -422,11 +388,7 @@ export const getGithubConnectionStatus = query({
     if (userId === null) {
       return { connected: false };
     }
-    const connection = await getConnectionByUserAndKind(
-      ctx.db,
-      userId,
-      "github",
-    );
+    const connection = await getConnectionByUserAndKind(ctx.db, userId, "github");
     if (connection?.kind !== "github") {
       return { connected: false };
     }
@@ -448,11 +410,7 @@ export const disconnectGithub = mutation({
       throw new Error("User not authenticated");
     }
 
-    const connection = await getConnectionByUserAndKind(
-      ctx.db,
-      userId,
-      "github",
-    );
+    const connection = await getConnectionByUserAndKind(ctx.db, userId, "github");
     if (connection) {
       await ctx.db.delete(connection._id);
     }
@@ -473,11 +431,7 @@ export const getConvexConnectionStatus = query({
     if (userId === null) {
       return { connected: false };
     }
-    const connection = await getConnectionByUserAndKind(
-      ctx.db,
-      userId,
-      "convex",
-    );
+    const connection = await getConnectionByUserAndKind(ctx.db, userId, "convex");
     if (connection?.kind !== "convex") {
       return { connected: false };
     }
@@ -499,11 +453,7 @@ export const disconnectConvex = mutation({
     if (userId === null) {
       throw new Error("User not authenticated");
     }
-    const connection = await getConnectionByUserAndKind(
-      ctx.db,
-      userId,
-      "convex",
-    );
+    const connection = await getConnectionByUserAndKind(ctx.db, userId, "convex");
     if (connection) {
       await ctx.db.delete(connection._id);
     }
@@ -519,11 +469,7 @@ export const getCloudflareConnectionStatus = query({
     if (userId === null) {
       return { connected: false };
     }
-    const connection = await getConnectionByUserAndKind(
-      ctx.db,
-      userId,
-      "cloudflare",
-    );
+    const connection = await getConnectionByUserAndKind(ctx.db, userId, "cloudflare");
     if (connection?.kind !== "cloudflare") {
       return { connected: false };
     }
@@ -539,9 +485,7 @@ const cloudflareAutoRefreshTriggerValidator = union(
   literal("poll"),
   literal("manual"),
 );
-type CloudflareAutoRefreshTrigger = Infer<
-  typeof cloudflareAutoRefreshTriggerValidator
->;
+type CloudflareAutoRefreshTrigger = Infer<typeof cloudflareAutoRefreshTriggerValidator>;
 
 async function runCloudflareMcpTokenRefresh(args: {
   ctx: ActionCtx;
@@ -553,13 +497,10 @@ async function runCloudflareMcpTokenRefresh(args: {
     throw new Error("User not authenticated");
   }
 
-  const connection = await args.ctx.runQuery(
-    internal.providerConnections.getByUserAndKind,
-    {
-      userId,
-      kind: "cloudflare",
-    },
-  );
+  const connection = await args.ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+    userId,
+    kind: "cloudflare",
+  });
   if (connection?.kind !== "cloudflare") {
     return { connected: false };
   }
@@ -587,8 +528,7 @@ async function runCloudflareMcpTokenRefresh(args: {
       nextAutoCheckAt,
     });
   }
-  const refreshDueAt =
-    computeCloudflareRefreshWindowStartAt(effectiveExpiresAt);
+  const refreshDueAt = computeCloudflareRefreshWindowStartAt(effectiveExpiresAt);
 
   if (!forceRefresh && now < refreshDueAt) {
     return buildCloudflareConnectionStatus(connection, {
@@ -662,8 +602,7 @@ async function runCloudflareMcpTokenRefresh(args: {
       now: nowAfterRefresh,
       nextAutoCheckAt: computeCloudflareNextAutoCheckAt({
         expiresAt:
-          resolvedConnection.tokenHealth?.expiresAt ??
-          resolvedConnection.auth.credentialExpiresAt,
+          resolvedConnection.tokenHealth?.expiresAt ?? resolvedConnection.auth.credentialExpiresAt,
         now: nowAfterRefresh,
       }),
     });
@@ -707,13 +646,10 @@ async function runCloudflareMcpTokenRefresh(args: {
     }
     throw error;
   } finally {
-    await args.ctx.runMutation(
-      internal.providerConnections.releaseCloudflareTokenRefresh,
-      {
-        userId,
-        recordLastTokenRefreshAt: shouldRecordLastTokenRefreshAt,
-      },
-    );
+    await args.ctx.runMutation(internal.providerConnections.releaseCloudflareTokenRefresh, {
+      userId,
+      recordLastTokenRefreshAt: shouldRecordLastTokenRefreshAt,
+    });
   }
 }
 
@@ -752,11 +688,7 @@ export const disconnectCloudflare = mutation({
     if (userId === null) {
       throw new Error("User not authenticated");
     }
-    const connection = await getConnectionByUserAndKind(
-      ctx.db,
-      userId,
-      "cloudflare",
-    );
+    const connection = await getConnectionByUserAndKind(ctx.db, userId, "cloudflare");
     if (connection) {
       await ctx.db.delete(connection._id);
     }
@@ -767,16 +699,12 @@ export const disconnectCloudflare = mutation({
 const githubApiKeyConnectionResultValidator = v.object({
   username: v.string(),
 });
-type GithubApiKeyConnectionResult = Infer<
-  typeof githubApiKeyConnectionResultValidator
->;
+type GithubApiKeyConnectionResult = Infer<typeof githubApiKeyConnectionResultValidator>;
 
 const convexApiKeyConnectionResultValidator = v.object({
   teamId: v.string(),
 });
-type ConvexApiKeyConnectionResult = Infer<
-  typeof convexApiKeyConnectionResultValidator
->;
+type ConvexApiKeyConnectionResult = Infer<typeof convexApiKeyConnectionResultValidator>;
 
 export const connectGithubWithApiKey = action({
   args: {

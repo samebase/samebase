@@ -7,13 +7,7 @@ import { useCloseOAuthPopup } from "@/lib/useCloseOAuthPopup";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { getRouteApi } from "@tanstack/react-router";
-import {
-  Authenticated,
-  Unauthenticated,
-  useAction,
-  useConvexAuth,
-  useQuery,
-} from "convex/react";
+import { Authenticated, Unauthenticated, useAction, useConvexAuth, useQuery } from "convex/react";
 import { useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
@@ -21,19 +15,14 @@ import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 const mcpConsentRouteApi = getRouteApi(MCP_CONSENT_APP_PATH);
 
 function McpConsentView({ requestId }: { requestId: string }) {
-  const authorizationRequest = useQuery(
-    api.mcp.oauth.getAuthorizationRequestForCurrentUser,
-    { requestId },
-  );
+  const authorizationRequest = useQuery(api.mcp.oauth.getAuthorizationRequestForCurrentUser, {
+    requestId,
+  });
   const completeAuthorizationRequest = useAction(
     api.mcp.oauth.completeAuthorizationRequestForCurrentUser,
   );
-  const denyAuthorizationRequest = useAction(
-    api.mcp.oauth.denyAuthorizationRequestForCurrentUser,
-  );
-  const [pendingAction, setPendingAction] = useState<"approve" | "deny" | null>(
-    null,
-  );
+  const denyAuthorizationRequest = useAction(api.mcp.oauth.denyAuthorizationRequestForCurrentUser);
+  const [pendingAction, setPendingAction] = useState<"approve" | "deny" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const runAction = (action: "approve" | "deny") => {
@@ -86,9 +75,7 @@ function McpConsentView({ requestId }: { requestId: string }) {
     return (
       <div className="container my-auto">
         <div className="mx-auto flex max-w-[420px] flex-col items-center gap-3 py-16 text-center">
-          <h2 className="text-xl font-semibold tracking-tight">
-            Authorization request closed
-          </h2>
+          <h2 className="text-xl font-semibold tracking-tight">Authorization request closed</h2>
           <p className="text-sm text-muted-foreground">
             This request is {authorizationRequest.status}.
           </p>
@@ -97,16 +84,13 @@ function McpConsentView({ requestId }: { requestId: string }) {
     );
   }
 
-  const clientName =
-    authorizationRequest.clientName ?? authorizationRequest.clientId;
+  const clientName = authorizationRequest.clientName ?? authorizationRequest.clientId;
 
   return (
     <div className="container my-auto">
       <div className="mx-auto flex max-w-[420px] flex-col gap-4 py-16">
         <div className="text-center">
-          <h2 className="text-xl font-semibold tracking-tight">
-            Authorize MCP client
-          </h2>
+          <h2 className="text-xl font-semibold tracking-tight">Authorize MCP client</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             {clientName} is requesting access to your Noter account.
           </p>
@@ -119,9 +103,7 @@ function McpConsentView({ requestId }: { requestId: string }) {
           </div>
           <div>
             <div className="font-medium">Resource</div>
-            <div className="text-muted-foreground">
-              {authorizationRequest.resource}
-            </div>
+            <div className="text-muted-foreground">{authorizationRequest.resource}</div>
           </div>
           <div>
             <div className="font-medium">Requested scopes</div>
@@ -134,9 +116,7 @@ function McpConsentView({ requestId }: { requestId: string }) {
           <div>
             <div className="font-medium">Registration</div>
             <div className="text-muted-foreground">
-              {authorizationRequest.dynamicallyRegistered
-                ? "Dynamic client"
-                : "Known client"}
+              {authorizationRequest.dynamicallyRegistered ? "Dynamic client" : "Known client"}
             </div>
           </div>
         </div>

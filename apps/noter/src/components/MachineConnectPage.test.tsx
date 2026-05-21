@@ -13,8 +13,7 @@ describe("MachineConnectPageContent", () => {
           {
             command:
               "curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'",
-            description:
-              "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
+            description: "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
             label: "Direct hosted file connect (Unix/macOS)",
           },
           {
@@ -27,15 +26,12 @@ describe("MachineConnectPageContent", () => {
         ]}
         directRunCommands={[
           {
-            command:
-              "curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run",
-            description:
-              "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
+            command: "curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run",
+            description: "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
             label: "Direct hosted file run (Unix/macOS)",
           },
           {
-            command:
-              "curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run",
+            command: "curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run",
             description:
               "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
             label: "Direct hosted file run (Windows PowerShell)",
@@ -124,8 +120,7 @@ describe("MachineConnectPageContent", () => {
             {
               command:
                 "curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'",
-              description:
-                "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
+              description: "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
               label: "Direct hosted file connect (Unix/macOS)",
             },
             {
@@ -138,10 +133,8 @@ describe("MachineConnectPageContent", () => {
           ]}
           directRunCommands={[
             {
-              command:
-                "curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run",
-              description:
-                "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
+              command: "curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run",
+              description: "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
               label: "Direct hosted file run (Unix/macOS)",
             },
             {
@@ -182,8 +175,7 @@ describe("MachineConnectPageContent", () => {
           {
             command:
               "curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'",
-            description:
-              "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
+            description: "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
             label: "Direct hosted file connect (Unix/macOS)",
           },
           {
@@ -196,15 +188,12 @@ describe("MachineConnectPageContent", () => {
         ]}
         directRunCommands={[
           {
-            command:
-              "curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run",
-            description:
-              "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
+            command: "curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run",
+            description: "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
             label: "Direct hosted file run (Unix/macOS)",
           },
           {
-            command:
-              "curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run",
+            command: "curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run",
             description:
               "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
             label: "Direct hosted file run (Windows PowerShell)",

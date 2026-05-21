@@ -47,9 +47,7 @@ describe("buildConvexProjectSettingsDashboardUrl", () => {
         teamSlug: "nicu",
         projectSlug: "nicu-chiciuc-tmp-96e7-dashboard-links-85",
       }),
-    ).toBe(
-      "https://dashboard.convex.dev/t/nicu/nicu-chiciuc-tmp-96e7-dashboard-links-85/settings",
-    );
+    ).toBe("https://dashboard.convex.dev/t/nicu/nicu-chiciuc-tmp-96e7-dashboard-links-85/settings");
   });
 
   it("hides the link until the real project dashboard slugs are known", () => {
@@ -82,9 +80,7 @@ describe("buildConvexPreviewDeploymentDashboardUrl", () => {
         projectSlug: "noter",
         branchName: "feature/mobile links",
       }),
-    ).toBe(
-      "https://dashboard.convex.dev/t/nicu/noter/preview/feature/mobile%20links",
-    );
+    ).toBe("https://dashboard.convex.dev/t/nicu/noter/preview/feature/mobile%20links");
   });
 
   it("hides the link until the real project dashboard slugs are known", () => {

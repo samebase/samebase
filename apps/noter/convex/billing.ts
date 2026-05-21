@@ -7,17 +7,7 @@ import { resolveDeploymentProfile } from "./deploymentProfile";
 import { randomToken, readRequiredEnv } from "./oauthUtils";
 import { isRecord, readString, toErrorMessage } from "./jsonUtils";
 
-const {
-  literal,
-  object,
-  optional,
-  string,
-  union,
-  number,
-  id,
-  null: nullValue,
-  boolean,
-} = v;
+const { literal, object, optional, string, union, number, id, null: nullValue, boolean } = v;
 
 type PolarServer = "sandbox" | "production";
 type BillingCycle = "monthly" | "annual";
@@ -66,15 +56,11 @@ const vPolarApplyStateArgs = object({
 });
 
 function inferPolarServer(): PolarServer {
-  return resolveDeploymentProfile().kind === "production"
-    ? "production"
-    : "sandbox";
+  return resolveDeploymentProfile().kind === "production" ? "production" : "sandbox";
 }
 
 function getPolarApiBaseUrl(server: PolarServer): string {
-  return server === "production"
-    ? "https://api.polar.sh/v1"
-    : "https://sandbox-api.polar.sh/v1";
+  return server === "production" ? "https://api.polar.sh/v1" : "https://sandbox-api.polar.sh/v1";
 }
 
 const POLAR_PRODUCTS = {
@@ -99,10 +85,7 @@ function readOptionalProductId(id: string): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function getProProductId(
-  server: PolarServer,
-  cycle: BillingCycle,
-): string | null {
+function getProProductId(server: PolarServer, cycle: BillingCycle): string | null {
   return readOptionalProductId(POLAR_PRODUCTS[server].pro[cycle]);
 }
 
@@ -152,10 +135,7 @@ async function fetchPolarJson(args: {
   const url = `${baseUrl}${args.path}`;
 
   const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    POLAR_API_FETCH_TIMEOUT_MS,
-  );
+  const timeout = setTimeout(() => controller.abort(), POLAR_API_FETCH_TIMEOUT_MS);
 
   let response: Response;
   try {
@@ -305,10 +285,9 @@ export const createPolarCheckoutSession = action({
       throw new Error("Pro checkout is not configured yet.");
     }
 
-    const customer = await ctx.runMutation(
-      internal.billing.ensurePolarExternalCustomerId,
-      { userId },
-    );
+    const customer = await ctx.runMutation(internal.billing.ensurePolarExternalCustomerId, {
+      userId,
+    });
 
     const payload = await fetchPolarJson({
       server,
@@ -356,10 +335,9 @@ export const createPolarCustomerPortalSession = action({
       server,
     });
 
-    const customer = await ctx.runMutation(
-      internal.billing.ensurePolarExternalCustomerId,
-      { userId },
-    );
+    const customer = await ctx.runMutation(internal.billing.ensurePolarExternalCustomerId, {
+      userId,
+    });
 
     const payload = await fetchPolarJson({
       server,
@@ -403,21 +381,14 @@ export function deriveBillingFromCustomerState(args: {
   }
 
   const externalCustomerId =
-    readString(args.customerState, "external_id") ??
-    readString(customer, "external_id");
+    readString(args.customerState, "external_id") ?? readString(customer, "external_id");
   if (!externalCustomerId) {
     return null;
   }
 
-  const proMonthly = readOptionalProductId(
-    POLAR_PRODUCTS[args.server].pro.monthly,
-  );
-  const proAnnual = readOptionalProductId(
-    POLAR_PRODUCTS[args.server].pro.annual,
-  );
-  const proProductIds = [proMonthly, proAnnual].filter(
-    (id): id is string => id !== null,
-  );
+  const proMonthly = readOptionalProductId(POLAR_PRODUCTS[args.server].pro.monthly);
+  const proAnnual = readOptionalProductId(POLAR_PRODUCTS[args.server].pro.annual);
+  const proProductIds = [proMonthly, proAnnual].filter((id): id is string => id !== null);
 
   const activeSubscriptions = args.customerState.active_subscriptions;
   if (!Array.isArray(activeSubscriptions)) {
@@ -467,13 +438,11 @@ export const syncViewerBillingFromPolar = action({
     const userId = await getUserId(ctx);
     const server = inferPolarServer();
 
-    const customer = await ctx.runMutation(
-      internal.billing.ensurePolarExternalCustomerId,
-      { userId },
-    );
+    const customer = await ctx.runMutation(internal.billing.ensurePolarExternalCustomerId, {
+      userId,
+    });
 
-    const externalCustomerId =
-      args.externalCustomerId ?? customer.externalCustomerId;
+    const externalCustomerId = args.externalCustomerId ?? customer.externalCustomerId;
     const payload = await fetchPolarJson({
       server,
       path: `/customers/external/${encodeURIComponent(externalCustomerId)}/state`,

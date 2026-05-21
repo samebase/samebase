@@ -37,13 +37,13 @@ Each state directory acts as its own logical install:
 4. its own local control server process
 5. its own Cloudflare tunnel process
 
-This is smaller, more isolated, and better aligned with internal Noter
-development than a shared multi-connection config.
+This is smaller, more isolated, and better aligned with internal Noter development than a shared
+multi-connection config.
 
 ## Why This RFC Exists
 
-The current phone-only testing problem is real, but the earlier multi-connection
-proposal solved a bigger product problem than we actually have.
+The current phone-only testing problem is real, but the earlier multi-connection proposal solved a
+bigger product problem than we actually have.
 
 For internal Noter development, the more important constraint is isolation:
 
@@ -64,30 +64,28 @@ Today the connected-machine flow assumes one machine-scoped state directory:
 
 That works for normal users and for the current production setup.
 
-It is awkward for internal worktree testing because a worktree often needs its
-own:
+It is awkward for internal worktree testing because a worktree often needs its own:
 
 1. backend origin
 2. local credential
 3. `noter.ts` implementation under development
 4. long-running `run` process
 
-Overwriting the default `~/.noter/config.json` to test a worktree is possible,
-but it breaks the production-connected setup until the operator reconnects
-production.
+Overwriting the default `~/.noter/config.json` to test a worktree is possible, but it breaks the
+production-connected setup until the operator reconnects production.
 
 ## Current Code Facts
 
-The implementation currently lives in `packages/sync/noter.ts` and is mirrored
-to `apps/noter/public/noter.ts` for the browser-served installer.
+The implementation currently lives in `packages/sync/noter.ts` and is mirrored to
+`apps/noter/public/noter.ts` for the browser-served installer.
 
 The relevant current behavior is:
 
 1. config lives at `~/.noter/config.json`
 2. `connect` writes one machine-scoped config record
 3. `run` reads that one config record
-4. the local control server already binds with `LOCAL_CODEX_CONTROL_PORT = 0`,
-   so the OS chooses a free port automatically for each process
+4. the local control server already binds with `LOCAL_CODEX_CONTROL_PORT = 0`, so the OS chooses a
+   free port automatically for each process
 
 That last point matters:
 
@@ -111,8 +109,8 @@ Then add an operator-only escape hatch:
 
 1. `--state-dir <path>`
 
-When the operator passes `--state-dir`, `noter-sync` should treat that directory
-as the root of a separate logical install.
+When the operator passes `--state-dir`, `noter-sync` should treat that directory as the root of a
+separate logical install.
 
 Example:
 
@@ -159,17 +157,15 @@ Behavior:
 2. create the directory if it does not exist
 3. read and write `<state-dir>/config.json`
 4. if `<state-dir>/config.json` already exists, load it before registering
-5. if the existing config already has a `machineId`, preserve it for the next
-   successful registration
-6. if the existing config already points at the same `sourceUrl`, treat
-   reconnect as a refresh of that logical install and rewrite the completed
-   record in place
-7. if the existing config points at a different `sourceUrl`, treat reconnect as
-   rebinding that one state directory to a different backend; replace
-   `sourceUrl` and `machineCredential`, keep `machineId` when present, and use a
-   different state directory instead when concurrent installs must remain live
-8. if the existing config is partial, fill the missing fields and persist the
-   completed record
+5. if the existing config already has a `machineId`, preserve it for the next successful
+   registration
+6. if the existing config already points at the same `sourceUrl`, treat reconnect as a refresh of
+   that logical install and rewrite the completed record in place
+7. if the existing config points at a different `sourceUrl`, treat reconnect as rebinding that one
+   state directory to a different backend; replace `sourceUrl` and `machineCredential`, keep
+   `machineId` when present, and use a different state directory instead when concurrent installs
+   must remain live
+8. if the existing config is partial, fill the missing fields and persist the completed record
 9. keep the rest of the connect flow unchanged
 
 ### `noter-sync run`
@@ -185,8 +181,8 @@ Behavior:
 1. if `--state-dir` is omitted, use `~/.noter`
 2. read `<state-dir>/config.json`
 3. keep the rest of the run flow unchanged
-4. let the local control server keep using port `0` so each process gets its own
-   free local port automatically
+4. let the local control server keep using port `0` so each process gets its own free local port
+   automatically
 
 ## Proposed State Model
 
@@ -203,8 +199,8 @@ Minimum shape:
 }
 ```
 
-For a worktree install, the same shape would live under that worktree state
-directory instead of under `~/.noter`.
+For a worktree install, the same shape would live under that worktree state directory instead of
+under `~/.noter`.
 
 Important design choice:
 
@@ -212,8 +208,7 @@ Important design choice:
 2. do not try to share credentials across state directories
 3. treat each state directory as a separate logical machine install
 
-That is simpler and avoids hidden coupling between production and worktree
-testing.
+That is simpler and avoids hidden coupling between production and worktree testing.
 
 ### At-rest protections
 
@@ -222,20 +217,18 @@ The worktree state directory is operational state, not a general-purpose cache.
 Requirements:
 
 1. the worktree state directory itself should be owner-only, typically `0700`
-2. `<state-dir>/config.json` must be written with owner-only file permissions,
-   typically `0600`
-3. if a later slice splits `machineCredential` into its own credential file,
-   that file must also be created with owner-only permissions, typically `0600`
-4. logs, screenshots, exported JSON, fixtures, and PR text must redact
-   `machineCredential` rather than printing it verbatim
+2. `<state-dir>/config.json` must be written with owner-only file permissions, typically `0600`
+3. if a later slice splits `machineCredential` into its own credential file, that file must also be
+   created with owner-only permissions, typically `0600`
+4. logs, screenshots, exported JSON, fixtures, and PR text must redact `machineCredential` rather
+   than printing it verbatim
 
 ### Credential storage hardening
 
-The initial slice keeps `machineCredential` in `<state-dir>/config.json` so the
-change stays minimal and compatible with the current implementation.
+The initial slice keeps `machineCredential` in `<state-dir>/config.json` so the change stays minimal
+and compatible with the current implementation.
 
-Future hardening may allow the worktree state directory to store a keychain
-reference instead:
+Future hardening may allow the worktree state directory to store a keychain reference instead:
 
 ```json
 {
@@ -246,8 +239,8 @@ reference instead:
 }
 ```
 
-That future extension should replace plaintext `machineCredential` storage for
-that state directory rather than duplicating both secrets.
+That future extension should replace plaintext `machineCredential` storage for that state directory
+rather than duplicating both secrets.
 
 ### Rotation and revocation
 
@@ -255,14 +248,14 @@ Each worktree state directory is independent.
 
 Operational rules:
 
-1. rerunning `connect` in the same state directory rotates `machineCredential`
-   for that logical install and keeps `machineId` when it is already present
-2. revoking or replacing `machineCredential` in one state directory does not
-   affect any other state directory
-3. rotating `machineId` requires a fresh state directory or deleting that state
-   directory's existing config before reconnecting
-4. removing `machineCredential` from `<state-dir>/config.json` makes `run` fail
-   closed until `connect` mints and stores a replacement credential
+1. rerunning `connect` in the same state directory rotates `machineCredential` for that logical
+   install and keeps `machineId` when it is already present
+2. revoking or replacing `machineCredential` in one state directory does not affect any other state
+   directory
+3. rotating `machineId` requires a fresh state directory or deleting that state directory's existing
+   config before reconnecting
+4. removing `machineCredential` from `<state-dir>/config.json` makes `run` fail closed until
+   `connect` mints and stores a replacement credential
 
 ## Operator Workflow
 
@@ -296,8 +289,8 @@ It only needs:
 2. its own running connector
 3. its own tunnel metadata published into that worktree backend
 
-Once the worktree state dir has its own `connect` and `run`, the worktree's
-`/machines` route can operate normally from the phone.
+Once the worktree state dir has its own `connect` and `run`, the worktree's `/machines` route can
+operate normally from the phone.
 
 That is enough for internal validation.
 
@@ -313,13 +306,12 @@ That is enough for internal validation.
 ## Acceptance Criteria
 
 1. The default `~/.noter` flow behaves exactly as it does today.
-2. A worktree can connect and run using `--state-dir` without mutating the
-   default production config.
+2. A worktree can connect and run using `--state-dir` without mutating the default production
+   config.
 3. Production and worktree `run` processes can stay active at the same time.
-4. A worktree can use its own modified `noter.ts` implementation without
-   affecting production.
-5. The worktree's `/machines` route can be tested end-to-end from the phone
-   after its own `connect` and `run`.
+4. A worktree can use its own modified `noter.ts` implementation without affecting production.
+5. The worktree's `/machines` route can be tested end-to-end from the phone after its own `connect`
+   and `run`.
 
 ## Rollout
 
@@ -336,14 +328,13 @@ That is enough for internal validation.
 
 ### Slice 3
 
-1. optionally teach Playwright or repo scripts to launch worktree installs with
-   a deterministic state-dir naming convention
+1. optionally teach Playwright or repo scripts to launch worktree installs with a deterministic
+   state-dir naming convention
 2. keep that as internal tooling, not product surface
 
 ## Decision
 
-Replace the earlier multi-connection direction with a per-state-directory
-design.
+Replace the earlier multi-connection direction with a per-state-directory design.
 
 This is the smallest coherent change that:
 

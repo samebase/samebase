@@ -19,73 +19,62 @@
 
 ## Summary
 
-Remove Netlify from the Noter product surface and codebase. Cloudflare becomes
-the only supported frontend hosting path for noter-managed vault apps.
+Remove Netlify from the Noter product surface and codebase. Cloudflare becomes the only supported
+frontend hosting path for noter-managed vault apps.
 
-This is not a narrow string-removal pass. Netlify support currently shapes
-schema unions, provider connections, create/delete flows, infrastructure
-provisioning, AI production-read tools, starter-template assets, and active
-docs/specs. The removal should therefore also collapse the multi-provider
-abstractions that only exist to keep Netlify and Cloudflare side-by-side.
+This is not a narrow string-removal pass. Netlify support currently shapes schema unions, provider
+connections, create/delete flows, infrastructure provisioning, AI production-read tools,
+starter-template assets, and active docs/specs. The removal should therefore also collapse the
+multi-provider abstractions that only exist to keep Netlify and Cloudflare side-by-side.
 
 ## Why this spec exists
 
 As of 2026-03-19, Netlify remains deeply wired into current runtime behavior:
 
-- 578 Netlify references across active runtime/docs/tooling surfaces searched in
-  `apps/noter/src`, `apps/noter/convex`, `apps/noter-starter-template`,
-  `README.md`, `AGENTS.md`, `scripts`, and `manual-tests`.
-- 35 runtime files under `apps/noter/src` + `apps/noter/convex` still mention
-  Netlify.
+- 578 Netlify references across active runtime/docs/tooling surfaces searched in `apps/noter/src`,
+  `apps/noter/convex`, `apps/noter-starter-template`, `README.md`, `AGENTS.md`, `scripts`, and
+  `manual-tests`.
+- 35 runtime files under `apps/noter/src` + `apps/noter/convex` still mention Netlify.
 - 17 spec files still describe Netlify as current or planned behavior.
 
 Important current-state mismatches:
 
-1. Dashboard create UI already defaults to Cloudflare, but
-   `vaultActions.createRepository` still defaults to `"netlify"` when
-   `hostingProvider` is omitted.
-2. Cloudflare inventory reads exist, but Cloudflare does not yet have the
-   vault-scoped status/log prod-read tools that currently exist for Netlify.
-3. The starter template still ships `netlify.toml`, template docs describe a
-   Netlify production build, and generated manifest/tests assert that contract.
+1. Dashboard create UI already defaults to Cloudflare, but `vaultActions.createRepository` still
+   defaults to `"netlify"` when `hostingProvider` is omitted.
+2. Cloudflare inventory reads exist, but Cloudflare does not yet have the vault-scoped status/log
+   prod-read tools that currently exist for Netlify.
+3. The starter template still ships `netlify.toml`, template docs describe a Netlify production
+   build, and generated manifest/tests assert that contract.
 
 ## Product Decisions (Locked)
 
 1. Netlify support is removed completely.
-2. Cloudflare is the only supported frontend hosting provider for noter-managed
-   vault apps.
+2. Cloudflare is the only supported frontend hosting provider for noter-managed vault apps.
 3. Noter-managed create flow no longer exposes a hosting-provider selector.
-4. Netlify OAuth, API-key, dev-seed, and teardown paths are removed rather than
-   hidden behind flags.
-5. Cloudflare remains the supported hosting path; this spec does not redesign
-   Cloudflare auth beyond what Netlify removal requires.
-6. Multi-provider abstractions that only exist to support Netlify side-by-side
-   should be removed or collapsed.
-7. Existing Netlify-shaped data must be cleaned or normalized before schema
-   literals and runtime branches are removed.
+4. Netlify OAuth, API-key, dev-seed, and teardown paths are removed rather than hidden behind flags.
+5. Cloudflare remains the supported hosting path; this spec does not redesign Cloudflare auth beyond
+   what Netlify removal requires.
+6. Multi-provider abstractions that only exist to support Netlify side-by-side should be removed or
+   collapsed.
+7. Existing Netlify-shaped data must be cleaned or normalized before schema literals and runtime
+   branches are removed.
 
 ## Goals
 
 1. Remove Netlify from backend, frontend, starter-template, and active docs.
-2. Simplify hosting-related schema and runtime flows to a single Cloudflare
-   path.
-3. Replace Netlify prod-read tooling with Cloudflare-equivalent status/log reads
-   so hosted-app debugging capability is not lost.
+2. Simplify hosting-related schema and runtime flows to a single Cloudflare path.
+3. Replace Netlify prod-read tooling with Cloudflare-equivalent status/log reads so hosted-app
+   debugging capability is not lost.
 4. Define a safe cleanup and rollout order for existing Convex data.
-5. Leave a clear decision record that Netlify is no longer part of Noter’s
-   supported architecture.
+5. Leave a clear decision record that Netlify is no longer part of Noter’s supported architecture.
 
 ## Non-Goals
 
 1. Redesigning GitHub or Convex connection flows.
-2. Removing existing Cloudflare auth modes that are unrelated to Netlify
-   removal.
-3. Backfilling or rewriting historical chat metadata payloads just to remove old
-   Netlify labels.
-4. Expanding Cloudflare custom-domain automation beyond what is needed for
-   Netlify removal.
-5. Preserving dormant multi-hosting abstractions for hypothetical future
-   providers.
+2. Removing existing Cloudflare auth modes that are unrelated to Netlify removal.
+3. Backfilling or rewriting historical chat metadata payloads just to remove old Netlify labels.
+4. Expanding Cloudflare custom-domain automation beyond what is needed for Netlify removal.
+5. Preserving dormant multi-hosting abstractions for hypothetical future providers.
 
 ## Current Runtime Footprint
 
@@ -173,9 +162,8 @@ Netlify remains in:
 
 ### 1) Cloudflare becomes the only create/provision/delete path
 
-`createRepository` should stop accepting or defaulting a hosting-provider
-choice. The create flow should always provision Cloudflare hosting for
-noter-managed vaults.
+`createRepository` should stop accepting or defaulting a hosting-provider choice. The create flow
+should always provision Cloudflare hosting for noter-managed vaults.
 
 Implications:
 
@@ -186,8 +174,8 @@ Implications:
 
 ### 2) Keep `hosting` as the single source of truth, but Cloudflare-only
 
-`vaultInfrastructure.hosting` should remain the canonical hosted-app record, but
-it should no longer be a Netlify-or-Cloudflare union.
+`vaultInfrastructure.hosting` should remain the canonical hosted-app record, but it should no longer
+be a Netlify-or-Cloudflare union.
 
 Chosen direction:
 
@@ -198,16 +186,16 @@ Chosen direction:
   - `subdomain?`
   - `productionUrl?`
 - Remove the Netlify branch from `hostingStateValidator`.
-- Remove deprecated `netlifySiteId`, `netlifySiteName`, `netlifyTeamId`,
-  `netlifyDefaultUrl`, `netlifyProductionUrl`, and `netlifyBuildHookId`.
+- Remove deprecated `netlifySiteId`, `netlifySiteName`, `netlifyTeamId`, `netlifyDefaultUrl`,
+  `netlifyProductionUrl`, and `netlifyBuildHookId`.
 
-This preserves the existing Cloudflare document shape while removing the
-Netlify-only compatibility burden.
+This preserves the existing Cloudflare document shape while removing the Netlify-only compatibility
+burden.
 
 ### 3) Replace Netlify prod-read tools with Cloudflare prod-read parity
 
-Netlify cannot simply be removed from prod-read tooling because it currently
-provides the only hosted-app status/log flow.
+Netlify cannot simply be removed from prod-read tooling because it currently provides the only
+hosted-app status/log flow.
 
 Add Cloudflare vault-scoped reads that replace the Netlify tools:
 
@@ -252,14 +240,10 @@ Delete the dedicated Netlify provider connection path:
 
 - remove `kind: "netlify"` from schema/provider unions
 - delete `apps/noter/convex/netlifyOAuth.ts`
-- remove `/oauth/netlify/start` and `/oauth/netlify/callback` from
-  `apps/noter/convex/http.ts`
-- remove Netlify connect/disconnect/status/API-key actions from
-  `apps/noter/convex/users.ts`
-- remove Netlify seeding from `apps/noter/convex/auth.ts` and
-  `apps/noter/convex/devAuth.ts`
-- remove Netlify dev-seed env passthrough from
-  `scripts/worktree-env-allowlist.ts`
+- remove `/oauth/netlify/start` and `/oauth/netlify/callback` from `apps/noter/convex/http.ts`
+- remove Netlify connect/disconnect/status/API-key actions from `apps/noter/convex/users.ts`
+- remove Netlify seeding from `apps/noter/convex/auth.ts` and `apps/noter/convex/devAuth.ts`
+- remove Netlify dev-seed env passthrough from `scripts/worktree-env-allowlist.ts`
 
 ### 5) Remove Netlify from starter-template contract
 
@@ -268,24 +252,22 @@ The starter template should stop shipping Netlify deployment config.
 Required changes:
 
 - delete `apps/noter-starter-template/netlify.toml`
-- remove template README/AGENTS copy that describes Netlify as production build
-  wrapper
+- remove template README/AGENTS copy that describes Netlify as production build wrapper
 - remove `.netlify` ignore entries where they only exist for that template/app
 - regenerate `apps/noter/convex/starterSeedManifest.generated.ts`
 - update `apps/noter/convex/starterSeedManifest.test.ts`
 
 Cloudflare replacement note:
 
-- No direct replacement config file is required for current provisioning because
-  Cloudflare build settings already come from
-  `infraProvisioning.resolveCloudflareBuildConfig(...)`.
+- No direct replacement config file is required for current provisioning because Cloudflare build
+  settings already come from `infraProvisioning.resolveCloudflareBuildConfig(...)`.
 
 ## Data Cleanup Strategy
 
 ### Principle
 
-Run targeted cleanup in target deployments before removing Netlify schema
-literals and runtime branches.
+Run targeted cleanup in target deployments before removing Netlify schema literals and runtime
+branches.
 
 ### Manual cleanup required before schema removal
 
@@ -297,30 +279,26 @@ literals and runtime branches.
    - delete rows where `provider == "netlify"`
 4. `vaults`
    - if `hostingProvider` is being removed in this phase, unset it on all rows
-   - if rollout is split, normalize any remaining `"netlify"` values before the
-     field becomes Cloudflare-only or disappears
+   - if rollout is split, normalize any remaining `"netlify"` values before the field becomes
+     Cloudflare-only or disappears
 5. `vaultInfrastructure`
    - for rows with Netlify-shaped hosting:
-     - preferred: backfill the Cloudflare hosting state if the vault has already
-       been migrated
+     - preferred: backfill the Cloudflare hosting state if the vault has already been migrated
      - otherwise:
        - clear Netlify-only hosting data
        - set `status` to `"partial"`
        - set `lastError` to a clear reprovision message such as:
          `"Netlify hosting has been removed. Reprovision this vault with Cloudflare."`
-   - clear deprecated `netlify*` compatibility fields before those schema fields
-     are removed
+   - clear deprecated `netlify*` compatibility fields before those schema fields are removed
 6. `vaultDomains`
-   - delete or replace rows where `source` is `netlify_default` or
-     `netlify_custom`
-   - if a Cloudflare production URL already exists for the same vault/branch,
-     replace the row with a Cloudflare source instead of dropping it
+   - delete or replace rows where `source` is `netlify_default` or `netlify_custom`
+   - if a Cloudflare production URL already exists for the same vault/branch, replace the row with a
+     Cloudflare source instead of dropping it
 
 Notes:
 
 - `aiProdAccessAudit` does not store a provider enum and can remain.
-- `chatMessageMetadata.payloadJson` is opaque historical text; old Netlify
-  labels can remain.
+- `chatMessageMetadata.payloadJson` is opaque historical text; old Netlify labels can remain.
 
 ### Cleanup verification gate
 
@@ -344,8 +322,7 @@ Work:
 
 Exit criteria:
 
-- No deployment data remains that depends on Netlify literals or Netlify-only
-  runtime branches.
+- No deployment data remains that depends on Netlify literals or Netlify-only runtime branches.
 
 ### Phase 1: Cloudflare prod-read parity
 
@@ -411,52 +388,46 @@ Chosen approach:
    - `rfcs/016_FRONTEND_HOSTING_PROVIDER_SELECTION_SPEC.md`
    - `specs/026_PROVIDER_CONNECTIONS_SPEC.md`
    - `rfcs/032_CLOUDFLARE_HOSTING_PILOT_SPEC.md`
-3. Keep this RFC as the removal decision record until the runtime removal lands,
-   then promote or archive it based on the final state.
+3. Keep this RFC as the removal decision record until the runtime removal lands, then promote or
+   archive it based on the final state.
 
-Low-signal historical notes such as `TODO.md`, `VISION.md`, and
-`RECOVERED_IDEAS.md` are not merge-blocking sources of truth for this removal,
-but can be cleaned opportunistically after active runtime/docs are correct.
+Low-signal historical notes such as `TODO.md`, `VISION.md`, and `RECOVERED_IDEAS.md` are not
+merge-blocking sources of truth for this removal, but can be cleaned opportunistically after active
+runtime/docs are correct.
 
 ## Validation Checklist
 
 - [ ] Manual cleanup completed for all Netlify-shaped data.
-- [ ] Cloudflare status/log prod-read replacements exist before Netlify tools
-      are removed.
+- [ ] Cloudflare status/log prod-read replacements exist before Netlify tools are removed.
 - [ ] Noter-managed create flow no longer exposes a hosting-provider selector.
-- [ ] New noter-managed vault creation requires GitHub + Convex + Cloudflare
-      only.
+- [ ] New noter-managed vault creation requires GitHub + Convex + Cloudflare only.
 - [ ] Managed retry/delete flows work without Netlify branches.
 - [ ] Netlify OAuth callback route/component/module are removed.
 - [ ] Starter template no longer contains `netlify.toml`.
 - [ ] `apps/noter/convex/toolRuntime/catalog.test.ts` and
       `apps/noter/convex/starterSeedManifest.test.ts` reflect the new contract.
-- [ ] Active docs/specs no longer describe Netlify as supported runtime
-      behavior.
+- [ ] Active docs/specs no longer describe Netlify as supported runtime behavior.
 
 ## Rollback and Safety
 
-1. If cleanup reveals active Netlify-hosted vaults that have not been migrated,
-   stop before schema literal deletion.
-2. Ship Cloudflare prod-read parity before removing Netlify prod-read tools so
-   hosted-app debugging does not regress.
-3. Use normal git revert for code/spec rollback; do not keep dormant Netlify
-   branches in runtime code.
+1. If cleanup reveals active Netlify-hosted vaults that have not been migrated, stop before schema
+   literal deletion.
+2. Ship Cloudflare prod-read parity before removing Netlify prod-read tools so hosted-app debugging
+   does not regress.
+3. Use normal git revert for code/spec rollback; do not keep dormant Netlify branches in runtime
+   code.
 
 ## Acceptance Criteria
 
-1. Netlify is absent from supported backend, frontend, starter-template, and
-   active documentation surfaces.
+1. Netlify is absent from supported backend, frontend, starter-template, and active documentation
+   surfaces.
 2. Cloudflare is the only supported hosting path for noter-managed vault apps.
-3. Existing Netlify-shaped data is cleaned or normalized before schema literal
-   removal deploys.
-4. Hosted-app prod-read status/log capability continues to exist through
-   Cloudflare-based tools.
+3. Existing Netlify-shaped data is cleaned or normalized before schema literal removal deploys.
+4. Hosted-app prod-read status/log capability continues to exist through Cloudflare-based tools.
 
 ## References
 
-- Cloudflare Pages REST API overview:
-  https://developers.cloudflare.com/pages/configuration/api/
+- Cloudflare Pages REST API overview: https://developers.cloudflare.com/pages/configuration/api/
 - Cloudflare Pages project and deployment API:
   https://developers.cloudflare.com/api/resources/pages/subresources/projects/
 - Cloudflare Pages deployment logs API:

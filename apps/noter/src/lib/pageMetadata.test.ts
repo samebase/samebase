@@ -32,8 +32,7 @@ class FakeHead {
       const [, key, value] = metaMatch;
       return (
         this.elements.find(
-          (element) =>
-            element.tagName === "meta" && element.getAttribute(key) === value,
+          (element) => element.tagName === "meta" && element.getAttribute(key) === value,
         ) ?? null
       );
     }
@@ -43,8 +42,7 @@ class FakeHead {
       const [, value] = linkMatch;
       return (
         this.elements.find(
-          (element) =>
-            element.tagName === "link" && element.getAttribute("rel") === value,
+          (element) => element.tagName === "link" && element.getAttribute("rel") === value,
         ) ?? null
       );
     }
@@ -69,10 +67,7 @@ class FakeDocument {
 
 function withFakeDocument(run: (document: FakeDocument) => void) {
   const document = new FakeDocument();
-  const existingDocument = Object.getOwnPropertyDescriptor(
-    globalThis,
-    "document",
-  );
+  const existingDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
   const existingWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
 
   Object.defineProperty(globalThis, "document", {
@@ -101,11 +96,7 @@ function withFakeDocument(run: (document: FakeDocument) => void) {
   }
 }
 
-function getHeadAttribute(
-  document: FakeDocument,
-  selector: string,
-  attributeName: string,
-) {
+function getHeadAttribute(document: FakeDocument, selector: string, attributeName: string) {
   const element = document.head.querySelector(selector);
   return element?.getAttribute(attributeName) ?? null;
 }
@@ -123,18 +114,16 @@ describe("page metadata", () => {
       expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
         "https://noter.md/vault/acme/demo",
       );
-      expect(
-        getHeadAttribute(document, 'meta[property="og:url"]', "content"),
-      ).toBe("https://noter.md/vault/acme/demo");
-      expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe(
-        "noindex,nofollow",
+      expect(getHeadAttribute(document, 'meta[property="og:url"]', "content")).toBe(
+        "https://noter.md/vault/acme/demo",
       );
-      expect(
-        getHeadAttribute(document, 'meta[property="og:image"]', "content"),
-      ).toBe("https://noter.md/noter-social-card.png");
-      expect(
-        getHeadAttribute(document, 'meta[name="twitter:image"]', "content"),
-      ).toBe("https://noter.md/noter-social-card.png");
+      expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe("noindex,nofollow");
+      expect(getHeadAttribute(document, 'meta[property="og:image"]', "content")).toBe(
+        "https://noter.md/noter-social-card.png",
+      );
+      expect(getHeadAttribute(document, 'meta[name="twitter:image"]', "content")).toBe(
+        "https://noter.md/noter-social-card.png",
+      );
     });
   });
 
@@ -151,12 +140,10 @@ describe("page metadata", () => {
       expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
         "https://noter.md/privacy",
       );
-      expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe(
-        "index,follow",
+      expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe("index,follow");
+      expect(getHeadAttribute(document, 'meta[property="og:url"]', "content")).toBe(
+        "https://noter.md/privacy",
       );
-      expect(
-        getHeadAttribute(document, 'meta[property="og:url"]', "content"),
-      ).toBe("https://noter.md/privacy");
     });
   });
 
@@ -173,12 +160,10 @@ describe("page metadata", () => {
       expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
         "https://noter.md/terms",
       );
-      expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe(
-        "index,follow",
+      expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe("index,follow");
+      expect(getHeadAttribute(document, 'meta[property="og:url"]', "content")).toBe(
+        "https://noter.md/terms",
       );
-      expect(
-        getHeadAttribute(document, 'meta[property="og:url"]', "content"),
-      ).toBe("https://noter.md/terms");
     });
   });
 
@@ -211,23 +196,21 @@ describe("page metadata", () => {
         );
 
         expect(document.title).toBe(deckPath.title);
-        expect(
-          getHeadAttribute(document, 'link[rel="canonical"]', "href"),
-        ).toBe(deckPath.canonicalUrl);
-        expect(
-          getHeadAttribute(document, 'meta[name="robots"]', "content"),
-        ).toBe("noindex,nofollow");
-        expect(
-          getHeadAttribute(document, 'meta[property="og:url"]', "content"),
-        ).toBe(deckPath.canonicalUrl);
+        expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
+          deckPath.canonicalUrl,
+        );
+        expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe(
+          "noindex,nofollow",
+        );
+        expect(getHeadAttribute(document, 'meta[property="og:url"]', "content")).toBe(
+          deckPath.canonicalUrl,
+        );
       });
     }
   });
 
   it("returns a dedicated title for the machine connect route", () => {
-    expect(resolveAppPageTitle("/machines/connect")).toBe(
-      "Connect This Machine | noter",
-    );
+    expect(resolveAppPageTitle("/machines/connect")).toBe("Connect This Machine | noter");
   });
 
   it("returns a dedicated title for the machines route", () => {
@@ -247,9 +230,7 @@ describe("page metadata", () => {
       expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
         "https://noter.md/localStorage",
       );
-      expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe(
-        "noindex,nofollow",
-      );
+      expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe("noindex,nofollow");
     });
   });
 
@@ -303,15 +284,11 @@ describe("page metadata", () => {
     });
     expect(
       rootHead.scripts.some((script) =>
-        script.children.includes(
-          'window.addEventListener("beforeinstallprompt", (event) => {',
-        ),
+        script.children.includes('window.addEventListener("beforeinstallprompt", (event) => {'),
       ),
     ).toBe(true);
     expect(
-      rootHead.scripts.some((script) =>
-        script.children.includes("event.preventDefault();"),
-      ),
+      rootHead.scripts.some((script) => script.children.includes("event.preventDefault();")),
     ).toBe(true);
     expect(rootHead.links).toContainEqual({
       rel: "apple-touch-icon",

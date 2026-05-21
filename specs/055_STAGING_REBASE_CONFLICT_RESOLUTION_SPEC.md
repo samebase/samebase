@@ -8,10 +8,9 @@
 
 ## Summary
 
-Noter should stop treating commit-time rebase conflicts as a plain terminal
-error. The simplest path is to reuse the existing staging model, commit preview,
-and merge editor to materialize conflicts into a resolvable review state inside
-the app.
+Noter should stop treating commit-time rebase conflicts as a plain terminal error. The simplest path
+is to reuse the existing staging model, commit preview, and merge editor to materialize conflicts
+into a resolvable review state inside the app.
 
 Primary user goals:
 
@@ -30,8 +29,7 @@ This spec recommends a staged rollout:
 ## Problem Statement
 
 Current commit flow rebases staged files onto the latest GitHub branch head in
-`fileStagingActions.commitAllStaged`. If any file fails to apply cleanly, the
-action throws:
+`fileStagingActions.commitAllStaged`. If any file fails to apply cleanly, the action throws:
 
 - `Commit conflicts with upstream changes. Resolve and retry: <path>`
 
@@ -48,34 +46,30 @@ The result is a backend-correct but user-hostile workflow.
 
 ### What already exists
 
-- Commit preview exists and is loaded in review mode from
-  `fileStagingActions.getCommitPreview`.
+- Commit preview exists and is loaded in review mode from `fileStagingActions.getCommitPreview`.
 - Review mode already has:
   - unified patch output
   - markdown-rich preview
   - an editable CodeMirror merge surface via `ProsemarkMergeEditor`
-- The backend already has a rebase-on-pull flow in
-  `fileStagingActions.pullFromGitHubInternal` that:
+- The backend already has a rebase-on-pull flow in `fileStagingActions.pullFromGitHubInternal` that:
   - fetches latest upstream blobs
   - runs `rebaseStagedContent(...)`
   - writes rebased content back into staging
 
 ### What is misaligned today
 
-- The merge editor is rendered with `mergeControls: false`, so the built-in
-  merge affordances are intentionally hidden.
-- The editor’s `baseValue` comes from `selectedPreviewStagedFile.initialContent`
-  instead of the latest upstream preview content.
+- The merge editor is rendered with `mergeControls: false`, so the built-in merge affordances are
+  intentionally hidden.
+- The editor’s `baseValue` comes from `selectedPreviewStagedFile.initialContent` instead of the
+  latest upstream preview content.
 - Conflict state is not persisted as a first-class review/debug artifact.
-- `parentCommitSha` in staging is used like a blob SHA even though the schema
-  comment says "commit", which makes debugging and future GitHub linking more
-  confusing than it should be.
+- `parentCommitSha` in staging is used like a blob SHA even though the schema comment says "commit",
+  which makes debugging and future GitHub linking more confusing than it should be.
 
 ## Actual Failure Class We Observed
 
-On March 13-14, 2026, a real production failure on `TODO.md` showed that the
-system can report a conflict even when the staged edit is just an inserted line
-and upstream only inserted nearby lines.
+On March 13-14, 2026, a real production failure on `TODO.md` showed that the system can report a
+conflict even when the staged edit is just an inserted line and upstream only inserted nearby lines.
 
 Observed shape:
 
@@ -84,8 +78,7 @@ Observed shape:
 - result: patch application fails because context shifted
 - user-visible outcome: generic conflict error, no visible resolution path
 
-This is exactly the class of problem where the UI should help the user
-understand:
+This is exactly the class of problem where the UI should help the user understand:
 
 - "you added this"
 - "GitHub added these nearby lines"
@@ -95,8 +88,7 @@ understand:
 
 1. Treat conflict resolution as part of review UX, not only backend plumbing.
 2. Provide a manual path that works before any "smart agent resolver" exists.
-3. Reuse existing review/editor primitives instead of introducing a second diff
-   system.
+3. Reuse existing review/editor primitives instead of introducing a second diff system.
 4. Preserve a clean agent handoff path via a conflict bundle.
 5. Keep automatic rebase logic conservative and auditable.
 
@@ -111,9 +103,8 @@ understand:
 
 ### 1. CodeMirror merge view is already the right primitive
 
-Noter already uses CodeMirror’s `unifiedMergeView(...)` in
-`ProsemarkMergeEditor`, which is the right foundation for a single-editor manual
-conflict UI.
+Noter already uses CodeMirror’s `unifiedMergeView(...)` in `ProsemarkMergeEditor`, which is the
+right foundation for a single-editor manual conflict UI.
 
 Why this matters:
 
@@ -127,8 +118,8 @@ Reference:
 
 ### 2. GitHub is not the primary answer here
 
-GitHub’s web conflict editor only applies in narrower PR conflict cases and is
-not suitable as the default pre-commit conflict flow for Noter staging.
+GitHub’s web conflict editor only applies in narrower PR conflict cases and is not suitable as the
+default pre-commit conflict flow for Noter staging.
 
 Why this matters:
 
@@ -161,9 +152,9 @@ Reference:
 
 ### 4. Repeated conflict classes can be learned later
 
-If Noter eventually performs conflict resolution inside real git sandboxes,
-standard git facilities like `rerere` become relevant for repeated resolution
-reuse. That is not phase 1, but it is a strong future direction.
+If Noter eventually performs conflict resolution inside real git sandboxes, standard git facilities
+like `rerere` become relevant for repeated resolution reuse. That is not phase 1, but it is a strong
+future direction.
 
 Reference:
 
@@ -254,8 +245,7 @@ Add a single action that copies a compact JSON or markdown block containing:
 - `base -> ours` patch
 - `base -> upstream` patch
 
-This is the fastest manual/agent fallback and should exist even if no other
-conflict UI ships.
+This is the fastest manual/agent fallback and should exist even if no other conflict UI ships.
 
 ## Backend Design
 
@@ -271,13 +261,13 @@ Extend commit preview or add a sibling action that returns:
 - `hasConflict`
 - `conflictReason`
 
-This should be separate from generic commit preview fields where necessary so
-the UI does not infer conflict state from string parsing.
+This should be separate from generic commit preview fields where necessary so the UI does not infer
+conflict state from string parsing.
 
 ### B. Materialize conflict state instead of only throwing
 
-Current behavior in `commitAllStaged` is to throw once
-`rebaseStagedFilesOnLatestHead(...)` reports conflict paths.
+Current behavior in `commitAllStaged` is to throw once `rebaseStagedFilesOnLatestHead(...)` reports
+conflict paths.
 
 Replace that with:
 
@@ -336,8 +326,7 @@ Phase 1 should reuse that logic instead of duplicating merge rules.
 
 Concretely:
 
-- add a user-facing `Rebase onto latest GitHub` action wired to the existing
-  pull/rebase flow
+- add a user-facing `Rebase onto latest GitHub` action wired to the existing pull/rebase flow
 - when commit conflict occurs, surface that as the first recommended action
 
 ## Frontend Design
@@ -367,8 +356,8 @@ Conflict review must instead use:
 - `value = resolved draft / staged content`
 - `baseValue = upstream content`
 
-That is the minimum change that turns the merge editor into a rebase tool rather
-than a stale local diff.
+That is the minimum change that turns the merge editor into a rebase tool rather than a stale local
+diff.
 
 ### C. Re-enable merge controls selectively
 
@@ -387,15 +376,14 @@ This should be decided pragmatically after a small spike.
 
 ### D. Autosave behavior
 
-Conflict edits should continue to autosave into staging using the existing
-collaborative update path.
+Conflict edits should continue to autosave into staging using the existing collaborative update
+path.
 
 Important rule:
 
 - autosaving a resolved conflict must not implicitly advance upstream/base SHA
 
-Only a successful explicit rebase or successful commit should update the stored
-base metadata.
+Only a successful explicit rebase or successful commit should update the stored base metadata.
 
 ## Phased Implementation Plan
 
@@ -438,8 +426,8 @@ Acceptance:
 
 ### Phase 3: Agent/Git-native Resolution
 
-- In sandboxes/worktrees, optionally use git-native 3-way merge primitives
-  rather than only string patch application.
+- In sandboxes/worktrees, optionally use git-native 3-way merge primitives rather than only string
+  patch application.
 - Evaluate `git merge-file --diff3` for richer conflict materialization.
 - Evaluate `rerere` only after conflict resolution leaves Convex-only runtime.
 
@@ -451,26 +439,24 @@ Acceptance:
 ## Acceptance Criteria
 
 1. A commit conflict no longer appears only as an opaque error string.
-2. The first conflicting file opens directly in review mode with enough context
-   to understand the problem.
+2. The first conflicting file opens directly in review mode with enough context to understand the
+   problem.
 3. The user can copy a complete conflict bundle for agent assistance.
-4. Markdown conflicts can be manually resolved in Noter’s existing review
-   surface.
-5. The backend distinguishes between "auto-rebased", "conflict requiring user
-   action", and "hard failure".
-6. Nearby insertion-only upstream edits do not false-conflict in common Markdown
-   list cases.
+4. Markdown conflicts can be manually resolved in Noter’s existing review surface.
+5. The backend distinguishes between "auto-rebased", "conflict requiring user action", and "hard
+   failure".
+6. Nearby insertion-only upstream edits do not false-conflict in common Markdown list cases.
 
 ## Open Questions
 
-1. Should conflict metadata live in `fileStaging` rows, or in a separate
-   `stagingConflicts` table keyed by staging id?
-2. Should the first implementation persist diff3 markers in `content`, or keep
-   them separate and only render them in UI?
-3. For non-markdown files, should phase 1 use the same merge editor or a simpler
-   source-only resolution surface?
-4. Do we want a branch-level "Resolve conflicts" command in chat, or should chat
-   simply deep-link into conflict review mode at first?
+1. Should conflict metadata live in `fileStaging` rows, or in a separate `stagingConflicts` table
+   keyed by staging id?
+2. Should the first implementation persist diff3 markers in `content`, or keep them separate and
+   only render them in UI?
+3. For non-markdown files, should phase 1 use the same merge editor or a simpler source-only
+   resolution surface?
+4. Do we want a branch-level "Resolve conflicts" command in chat, or should chat simply deep-link
+   into conflict review mode at first?
 
 ## Recommended Source of Truth Files
 

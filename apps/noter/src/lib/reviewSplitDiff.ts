@@ -5,10 +5,7 @@ export type ReviewSplitDiffHighlights = {
   newLines: number[];
 };
 
-function getLineCountFromDiffPart(
-  value: string | undefined,
-  count: number | undefined,
-): number {
+function getLineCountFromDiffPart(value: string | undefined, count: number | undefined): number {
   if (typeof count === "number") {
     return count;
   }

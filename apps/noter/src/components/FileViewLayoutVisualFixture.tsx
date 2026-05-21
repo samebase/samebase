@@ -14,24 +14,15 @@ export type FileViewLayoutVisualMode =
   | "fileview-layout-persistence"
   | "fileview-layout-slide";
 
-export function FileViewLayoutVisualFixture({
-  mode,
-}: {
-  mode: FileViewLayoutVisualMode;
-}) {
+export function FileViewLayoutVisualFixture({ mode }: { mode: FileViewLayoutVisualMode }) {
   const [clickCount, setClickCount] = useState(0);
   const [bodyClickCount, setBodyClickCount] = useState(0);
   const scrollRows = Array.from({ length: 40 }, (_, index) => index + 1);
 
-  const sidebarHeader = (
-    <SidebarHomeAccountHeader userDisplayName="nicu@noter.md" />
-  );
+  const sidebarHeader = <SidebarHomeAccountHeader userDisplayName="nicu@noter.md" />;
   const sidebarContent =
     mode === "fileview-layout" ? (
-      <div
-        data-testid="fileview-layout-sidebar-body"
-        className="h-full min-h-0 bg-muted/10"
-      />
+      <div data-testid="fileview-layout-sidebar-body" className="h-full min-h-0 bg-muted/10" />
     ) : (
       <div className="flex h-full min-h-0 flex-col bg-muted/10">
         <div className="border-b border-border/50 p-3">
@@ -50,16 +41,10 @@ export function FileViewLayoutVisualFixture({
             {clickCount}
           </span>
         </div>
-        <div
-          data-testid="fileview-layout-sidebar-scroll"
-          className="min-h-0 flex-1 overflow-auto"
-        >
+        <div data-testid="fileview-layout-sidebar-scroll" className="min-h-0 flex-1 overflow-auto">
           <div className="grid gap-2 p-3">
             {scrollRows.map((row) => (
-              <div
-                key={row}
-                className="border border-border/50 bg-background px-3 py-2 text-sm"
-              >
+              <div key={row} className="border border-border/50 bg-background px-3 py-2 text-sm">
                 File {row}
               </div>
             ))}
@@ -105,10 +90,7 @@ export function FileViewLayoutVisualFixture({
             ? activeSidebar
             : {
                 content: (
-                  <div
-                    data-testid="fileview-layout-left-sidebar-links"
-                    className="flex flex-col"
-                  >
+                  <div data-testid="fileview-layout-left-sidebar-links" className="flex flex-col">
                     <Link to="/">Dashboard</Link>
                     <Link to="/machines">Machines</Link>
                     <Link to="/add">Connect repository</Link>
@@ -132,18 +114,13 @@ export function FileViewLayoutVisualFixture({
             </div>
           ),
           content: (
-            <div
-              data-testid="fileview-layout-body"
-              className="min-h-full bg-muted/10 p-3"
-            >
+            <div data-testid="fileview-layout-body" className="min-h-full bg-muted/10 p-3">
               <div className="flex flex-col items-start gap-3">
                 <Button
                   data-testid="fileview-layout-body-button"
                   variant="secondary"
                   size="sm"
-                  onClick={() =>
-                    setBodyClickCount((currentCount) => currentCount + 1)
-                  }
+                  onClick={() => setBodyClickCount((currentCount) => currentCount + 1)}
                 >
                   Main action
                 </Button>
@@ -157,11 +134,7 @@ export function FileViewLayoutVisualFixture({
             </div>
           ),
         }}
-        right={
-          FILE_VIEW_TREE_SIDEBAR_SIDE === "right"
-            ? activeSidebar
-            : inactiveSidebar
-        }
+        right={FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? activeSidebar : inactiveSidebar}
       />
     </TestRouterProvider>
   );

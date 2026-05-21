@@ -77,9 +77,7 @@ async function buildToolContext(
 
 function requireThreadBranch(branch: string | undefined): string {
   if (!branch) {
-    throw new Error(
-      "Thread branch is required for branch-sensitive agent work",
-    );
+    throw new Error("Thread branch is required for branch-sensitive agent work");
   }
   return branch;
 }
@@ -135,9 +133,7 @@ async function loadAgentPrompt(args: {
   }
 
   if (!githubAccessToken) {
-    throw new Error(
-      "Prompt not found in staging or repo; connect GitHub to fetch missing content",
-    );
+    throw new Error("Prompt not found in staging or repo; connect GitHub to fetch missing content");
   }
 
   const octokit = new Octokit({ auth: githubAccessToken });
@@ -185,36 +181,23 @@ export const sendAgentMessage = action({
     if (!user) {
       throw new Error("User not found");
     }
-    const githubConnection = await ctx.runQuery(
-      internal.providerConnections.getByUserAndKind,
-      {
-        userId,
-        kind: "github",
-      },
-    );
-    const githubAccessToken =
-      githubConnection?.kind === "github"
-        ? githubConnection.auth.credential
-        : undefined;
-    const resolvedThreadId = await resolveThreadId(
-      ctx,
+    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
       userId,
-      args.vaultId,
-      args.threadId,
-    );
-    const threadContext = await ctx.runQuery(
-      internal.chat.index.getThreadContextForAction,
-      { threadId: resolvedThreadId },
-    );
+      kind: "github",
+    });
+    const githubAccessToken =
+      githubConnection?.kind === "github" ? githubConnection.auth.credential : undefined;
+    const resolvedThreadId = await resolveThreadId(ctx, userId, args.vaultId, args.threadId);
+    const threadContext = await ctx.runQuery(internal.chat.index.getThreadContextForAction, {
+      threadId: resolvedThreadId,
+    });
     const fallbackBranch =
       threadContext?.branch ??
       (await resolveFallbackBranch({
         vault: connectedVault,
         githubAccessToken,
       }));
-    const threadBranch = requireThreadBranch(
-      threadContext?.branch ?? fallbackBranch,
-    );
+    const threadBranch = requireThreadBranch(threadContext?.branch ?? fallbackBranch);
     if (!threadContext?.branch) {
       await ctx.runMutation(internal.chat.index.setThreadBranchInternal, {
         threadId: resolvedThreadId,
@@ -223,16 +206,10 @@ export const sendAgentMessage = action({
     }
 
     const toolCtx = githubAccessToken
-      ? await buildToolContext(
-          ctx,
-          resolvedThreadId,
-          threadBranch,
-          connectedVault,
-          {
-            userId: user._id,
-            githubAccessToken,
-          },
-        )
+      ? await buildToolContext(ctx, resolvedThreadId, threadBranch, connectedVault, {
+          userId: user._id,
+          githubAccessToken,
+        })
       : undefined;
 
     let systemPrompt: string;
@@ -245,8 +222,7 @@ export const sendAgentMessage = action({
         branch: threadBranch,
       });
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to load agent prompt";
+      const message = error instanceof Error ? error.message : "Failed to load agent prompt";
       throw new Error(message);
     }
 

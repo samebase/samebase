@@ -6,11 +6,7 @@ import { GITHUB_OAUTH_POPUP_NAME } from "../../shared/githubOAuth";
  * page from navigating the parent tab.
  */
 export function openGithubOAuthPopup(oauthUrl: string) {
-  const popup = window.open(
-    "",
-    GITHUB_OAUTH_POPUP_NAME,
-    "width=600,height=700,popup=true",
-  );
+  const popup = window.open("", GITHUB_OAUTH_POPUP_NAME, "width=600,height=700,popup=true");
   if (!popup) {
     return null;
   }

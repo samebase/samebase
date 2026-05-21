@@ -1,19 +1,12 @@
 import { describe, expect, it } from "vite-plus/test";
-import {
-  applySearchPatch,
-  normalizeRouteSearchPresenceFlags,
-} from "@/lib/routeSearchFlags";
+import { applySearchPatch, normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
 
 describe("routeSearchFlags", () => {
   it("normalizes URLSearchParams flags by key presence", () => {
-    expect(
-      normalizeRouteSearchPresenceFlags(new URLSearchParams("?dev=false"), [
-        "dev",
-      ]),
-    ).toEqual({ dev: true });
-    expect(
-      normalizeRouteSearchPresenceFlags(new URLSearchParams(""), ["dev"]),
-    ).toEqual({});
+    expect(normalizeRouteSearchPresenceFlags(new URLSearchParams("?dev=false"), ["dev"])).toEqual({
+      dev: true,
+    });
+    expect(normalizeRouteSearchPresenceFlags(new URLSearchParams(""), ["dev"])).toEqual({});
   });
 
   it("treats undefined and null object values as absent", () => {

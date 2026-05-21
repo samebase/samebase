@@ -7,9 +7,7 @@ const SCENARIOS = FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES.map((mode) => ({
 }));
 
 for (const scenario of SCENARIOS) {
-  test(`file view push actions fixture (${scenario.mode})`, async ({
-    page,
-  }) => {
+  test(`file view push actions fixture (${scenario.mode})`, async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.goto(`/visual-fixture?mode=${scenario.mode}`, {
       waitUntil: "domcontentloaded",

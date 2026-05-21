@@ -260,9 +260,7 @@
     text-indent: -1rem;
   }
 
-  .cm-static-markdown
-    .cm-line.cm-static-markdown-list
-    + .cm-line.cm-static-markdown-list {
+  .cm-static-markdown .cm-line.cm-static-markdown-list + .cm-line.cm-static-markdown-list {
     padding-top: 0.5rem;
   }
 
@@ -278,8 +276,8 @@
     background-color: hsl(var(--accent));
     padding: 0.0625rem 0.25rem;
     font-family:
-      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-      "Courier New", monospace;
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+      monospace;
     font-size: 0.8125rem;
     line-height: 1.25rem;
   }
@@ -309,18 +307,10 @@
      * children can inherit it and render the wrong notch geometry.
      */
     --noter-corner-notch-bridge-size: 0px;
-    --noter-corner-notch-bridge-top-left-size: var(
-      --noter-corner-notch-bridge-size
-    );
-    --noter-corner-notch-bridge-top-right-size: var(
-      --noter-corner-notch-bridge-size
-    );
-    --noter-corner-notch-bridge-bottom-right-size: var(
-      --noter-corner-notch-bridge-size
-    );
-    --noter-corner-notch-bridge-bottom-left-size: var(
-      --noter-corner-notch-bridge-size
-    );
+    --noter-corner-notch-bridge-top-left-size: var(--noter-corner-notch-bridge-size);
+    --noter-corner-notch-bridge-top-right-size: var(--noter-corner-notch-bridge-size);
+    --noter-corner-notch-bridge-bottom-right-size: var(--noter-corner-notch-bridge-size);
+    --noter-corner-notch-bridge-bottom-left-size: var(--noter-corner-notch-bridge-size);
     --noter-corner-notch-stroke: 1px;
   }
 
@@ -440,17 +430,17 @@
     inset: 0;
     pointer-events: none;
     background:
-      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        0 0 / var(--noter-corner-notch-bridge-top-left-size, 0px)
+      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0) 0 0 /
+        var(--noter-corner-notch-bridge-top-left-size, 0px)
         var(--noter-corner-notch-bridge-top-left-size, 0px) no-repeat,
-      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        100% 0 / var(--noter-corner-notch-bridge-top-right-size, 0px)
+      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0) 100% 0 /
+        var(--noter-corner-notch-bridge-top-right-size, 0px)
         var(--noter-corner-notch-bridge-top-right-size, 0px) no-repeat,
-      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        100% 100% / var(--noter-corner-notch-bridge-bottom-right-size, 0px)
+      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0) 100% 100% /
+        var(--noter-corner-notch-bridge-bottom-right-size, 0px)
         var(--noter-corner-notch-bridge-bottom-right-size, 0px) no-repeat,
-      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        0 100% / var(--noter-corner-notch-bridge-bottom-left-size, 0px)
+      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0) 0 100% /
+        var(--noter-corner-notch-bridge-bottom-left-size, 0px)
         var(--noter-corner-notch-bridge-bottom-left-size, 0px) no-repeat;
   }
 
@@ -486,17 +476,17 @@
     pointer-events: none;
     /* Paint the inner bridge pixel that the clipped outer border cannot reach. */
     background:
-      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        0 0 / var(--noter-corner-notch-bridge-top-left-size, 0px)
+      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0) 0 0 /
+        var(--noter-corner-notch-bridge-top-left-size, 0px)
         var(--noter-corner-notch-bridge-top-left-size, 0px) no-repeat,
-      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        100% 0 / var(--noter-corner-notch-bridge-top-right-size, 0px)
+      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0) 100% 0 /
+        var(--noter-corner-notch-bridge-top-right-size, 0px)
         var(--noter-corner-notch-bridge-top-right-size, 0px) no-repeat,
-      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        100% 100% / var(--noter-corner-notch-bridge-bottom-right-size, 0px)
+      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0) 100% 100% /
+        var(--noter-corner-notch-bridge-bottom-right-size, 0px)
         var(--noter-corner-notch-bridge-bottom-right-size, 0px) no-repeat,
-      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        0 100% / var(--noter-corner-notch-bridge-bottom-left-size, 0px)
+      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0) 0 100% /
+        var(--noter-corner-notch-bridge-bottom-left-size, 0px)
         var(--noter-corner-notch-bridge-bottom-left-size, 0px) no-repeat;
   }
 
@@ -558,8 +548,8 @@
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans:
-    "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system,
-    "BlinkMacSystemFont", "Segoe UI", sans-serif;
+    "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "BlinkMacSystemFont", "Segoe UI",
+    sans-serif;
   --color-sidebar-ring: hsl(var(--sidebar-ring));
   --color-sidebar-border: hsl(var(--sidebar-border));
   --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));

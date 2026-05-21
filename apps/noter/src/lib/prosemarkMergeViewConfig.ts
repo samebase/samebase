@@ -53,8 +53,7 @@ export function prosemarkMergeViewConfigsEqual(
 ) {
   return (
     left.allowInlineDiffs === right.allowInlineDiffs &&
-    left.hideSyntheticTrailingNewlineDeletion ===
-      right.hideSyntheticTrailingNewlineDeletion &&
+    left.hideSyntheticTrailingNewlineDeletion === right.hideSyntheticTrailingNewlineDeletion &&
     left.original === right.original &&
     left.syntaxHighlightDeletions === right.syntaxHighlightDeletions
   );

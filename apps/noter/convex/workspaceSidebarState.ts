@@ -23,9 +23,7 @@ const setWorkspaceSidebarStateReturns = vNull();
 type GetWorkspaceSidebarStateArgs = Infer<typeof getWorkspaceSidebarStateArgs>;
 type SetWorkspaceSidebarStateArgs = Infer<typeof setWorkspaceSidebarStateArgs>;
 
-function readWorkspaceSidebarState(
-  storedState: WorkspaceSidebarState,
-): WorkspaceSidebarState {
+function readWorkspaceSidebarState(storedState: WorkspaceSidebarState): WorkspaceSidebarState {
   return {
     leftDesktopOpen: storedState.leftDesktopOpen,
     leftDesktopWidthPx: storedState.leftDesktopWidthPx,

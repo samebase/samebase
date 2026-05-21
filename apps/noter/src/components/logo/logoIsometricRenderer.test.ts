@@ -15,12 +15,8 @@ describe("normalizeLogoIsometricCubeSidePixels", () => {
   });
 
   it("clamps values to the supported cube side range", () => {
-    expect(normalizeLogoIsometricCubeSidePixels(1)).toBe(
-      MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX,
-    );
-    expect(normalizeLogoIsometricCubeSidePixels(999)).toBe(
-      MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX,
-    );
+    expect(normalizeLogoIsometricCubeSidePixels(1)).toBe(MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX);
+    expect(normalizeLogoIsometricCubeSidePixels(999)).toBe(MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX);
   });
 
   it("returns the default for non-finite input", () => {

@@ -3,8 +3,6 @@
  * verbatim into `public/noter.ts`. The hosted file and the package entrypoint
  * should stay byte-for-byte identical so users can audit one script shape.
  */
-export function buildNoterSyncPublicScript(args: {
-  packageScript: string;
-}): string {
+export function buildNoterSyncPublicScript(args: { packageScript: string }): string {
   return args.packageScript;
 }

@@ -14,11 +14,7 @@
 
   "customizations": {
     "vscode": {
-      "extensions": [
-        "oxc.oxc-vscode",
-        "bradlc.vscode-tailwindcss",
-        "letmaik.git-tree-compare"
-      ],
+      "extensions": ["oxc.oxc-vscode", "bradlc.vscode-tailwindcss", "letmaik.git-tree-compare"],
       "settings": {
         "npm.packageManager": "pnpm",
         "oxc.fmt.configPath": "./vite.config.ts",

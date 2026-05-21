@@ -17,9 +17,7 @@ const require = createRequire(import.meta.url);
  */
 function resolveViteCliEntrypoint() {
   const vitePackageJsonPath = require.resolve("vite/package.json");
-  return realpathSync(
-    path.join(path.dirname(vitePackageJsonPath), "bin", "vite.js"),
-  );
+  return realpathSync(path.join(path.dirname(vitePackageJsonPath), "bin", "vite.js"));
 }
 
 function splitVitePortArgs(args: string[]) {
@@ -59,9 +57,7 @@ const { passthroughArgs, port: cliPort } = splitVitePortArgs(cliArgs);
 // Trust an already-selected VITE_PORT so predev-selected SITE_URL and the later
 // Vite listener stay pinned to the same localhost origin.
 const vitePort =
-  cliPort ??
-  readConfiguredLocalDevPort(process.env) ??
-  resolveLocalDevPort(process.env);
+  cliPort ?? readConfiguredLocalDevPort(process.env) ?? resolveLocalDevPort(process.env);
 writeLocalDevOriginState(`http://localhost:${vitePort}`);
 const launchArgs = [
   resolveViteCliEntrypoint(),

@@ -55,10 +55,7 @@ export function buildSystemPrompt(context: {
     );
   }
 
-  lines.push(
-    "",
-    "Be concise and direct. When showing code, use markdown code blocks.",
-  );
+  lines.push("", "Be concise and direct. When showing code, use markdown code blocks.");
 
   if (context.owner && context.repo) {
     lines.push("", `## Current Context`);

@@ -52,9 +52,7 @@ type RepositoryRefreshRequest = {
   updatedAt: number;
 };
 
-type RepositoryRefreshDemand =
-  | RepositoryScopeRefreshDemand
-  | BranchScopeRefreshDemand;
+type RepositoryRefreshDemand = RepositoryScopeRefreshDemand | BranchScopeRefreshDemand;
 ```
 
 ### 2. Spec 099 Is Authoritative
@@ -143,19 +141,16 @@ The Workpool PR must decide these before implementation:
 - stale `running` recovery
   - Example: worker starts, process crashes, row remains `running`.
 - retry semantics
-  - Example: provider rate-limits; decide attempt count, backoff, and final
-    failure state.
+  - Example: provider rate-limits; decide attempt count, backoff, and final failure state.
 - terminal row retention
   - Example: keep recent success/failure rows for debugging, then prune.
 - result audit detail
   - Example: decide whether `result.refreshed` should include executed steps.
 - pool topology
-  - Example: one pool with priority/notBefore, or separate interactive and
-    background pools.
+  - Example: one pool with priority/notBefore, or separate interactive and background pools.
 
-Default for the next PR: start with the smallest Workpool shape that executes
-repository demand clearly. Split only when the implementation proves one pool is
-unclear or unfair.
+Default for the next PR: start with the smallest Workpool shape that executes repository demand
+clearly. Split only when the implementation proves one pool is unclear or unfair.
 
 ### 5. Future Pressure Stays Deferred
 
@@ -170,8 +165,8 @@ Deferred:
 - generic provider plugins
   - Provider parsing stays internal.
 - extra provider parsers
-  - Cloudflare Pages comments can be first; Netlify or CodeRabbit-style parsers
-    can be added later as internal handlers.
+  - Cloudflare Pages comments can be first; Netlify or CodeRabbit-style parsers can be added later
+    as internal handlers.
 - self-hosted/user Convex execution
   - This only pushes us toward narrow boundaries now.
 
@@ -217,8 +212,8 @@ Examples:
 
 - dashboard demand may run branch discovery
 - source-setup demand may run repository metadata sync
-- source-setup demand may hydrate Cloudflare preview links once after connect or
-  create, without adding provider/depth fields to request rows
+- source-setup demand may hydrate Cloudflare preview links once after connect or create, without
+  adding provider/depth fields to request rows
 - branch demand may run tree refresh
 - provider-link refresh may parse Cloudflare Pages comments
 
@@ -270,13 +265,11 @@ Deliberate limits:
 - one repository refresh Workpool
 - no Workpool retries yet
 - no retry counters on queued rows
-- expired running leases fail the stale owner; the next demand creates fresh
-  work
+- expired running leases fail the stale owner; the next demand creates fresh work
 - internal post-write refresh chooses an explicit repository/branch target
 - branch/file-view refresh stays on the existing direct path in this PR
 - provider-link enrichment stays out of request rows
-- passive dashboard refresh still avoids repo-wide preview-comment backfills for
-  large repos
+- passive dashboard refresh still avoids repo-wide preview-comment backfills for large repos
 
 ## Non-Goals
 

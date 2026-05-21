@@ -47,7 +47,5 @@ if (!subject) {
 
 const expectedPrefix = `v${commitNumber}:`;
 if (!subject.startsWith(expectedPrefix)) {
-  fail(
-    `Expected the HEAD commit subject to start with ${expectedPrefix} but got: ${subject}`,
-  );
+  fail(`Expected the HEAD commit subject to start with ${expectedPrefix} but got: ${subject}`);
 }

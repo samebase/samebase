@@ -19,10 +19,7 @@ type CodexAppServerThreadInventoryCardProps = {
  * @param event Keyboard interaction fired on the card container.
  * @param onSelect Selection callback for the owning thread row.
  */
-function handleSelectableCardKeyDown(
-  event: KeyboardEvent<HTMLDivElement>,
-  onSelect: () => void,
-) {
+function handleSelectableCardKeyDown(event: KeyboardEvent<HTMLDivElement>, onSelect: () => void) {
   if (event.key !== "Enter" && event.key !== " ") {
     return;
   }
@@ -49,13 +46,10 @@ function handleNestedToggleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
  * Render a selectable thread inventory row whose outer card owns selection
  * while the preview clamp toggle stays local to the preview text itself.
  */
-export function CodexAppServerThreadInventoryCard(
-  props: CodexAppServerThreadInventoryCardProps,
-) {
-  const { isExpandable, isExpanded, measurementRef, toggleExpanded } =
-    useExpandableClampText({
-      text: props.thread.preview,
-    });
+export function CodexAppServerThreadInventoryCard(props: CodexAppServerThreadInventoryCardProps) {
+  const { isExpandable, isExpanded, measurementRef, toggleExpanded } = useExpandableClampText({
+    text: props.thread.preview,
+  });
 
   const handleSelect = () => {
     props.onSelectThread?.(props.thread.id);

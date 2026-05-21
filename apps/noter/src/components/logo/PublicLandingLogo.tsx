@@ -43,8 +43,7 @@ import {
 import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-type LandingLogoSceneComponent =
-  typeof import("@/components/logo/NLogoScene").NLogoScene;
+type LandingLogoSceneComponent = typeof import("@/components/logo/NLogoScene").NLogoScene;
 
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 const AUTO_ROTATE_RESUME_DURATION_MS = 220;
@@ -87,12 +86,10 @@ export function PublicLandingLogo({
   viewStatePersistence?: RotatedLogoViewStatePersistence;
   viewStateKey?: RotatedLogoViewStateKey;
 }) {
-  const [LogoScene, setLogoScene] = useState<LandingLogoSceneComponent | null>(
-    () => (loadInteractiveScene ? cachedLandingLogoScene : null),
+  const [LogoScene, setLogoScene] = useState<LandingLogoSceneComponent | null>(() =>
+    loadInteractiveScene ? cachedLandingLogoScene : null,
   );
-  const [didSceneFail, setDidSceneFail] = useState(
-    () => didLandingLogoSceneRenderFail,
-  );
+  const [didSceneFail, setDidSceneFail] = useState(() => didLandingLogoSceneRenderFail);
   const [initialView] = useState<RotatedLogoViewState>(() =>
     readRotatedLogoViewState({
       defaultView: DEFAULT_LANDING_LOGO_VIEW,
@@ -110,10 +107,7 @@ export function PublicLandingLogo({
     themeColorSearch.dist ?? DEFAULT_LOGO_DISTANCE_SCALE,
   );
   const isRecursiveDepth = fractalDepth > DEFAULT_LOGO_FRACTAL_DEPTH;
-  const staticFallbackDepth = Math.min(
-    fractalDepth,
-    LANDING_STATIC_SVG_FALLBACK_DEPTH,
-  );
+  const staticFallbackDepth = Math.min(fractalDepth, LANDING_STATIC_SVG_FALLBACK_DEPTH);
   const staticLogoVoxelGrid = useMemo(
     () => createLogoFractalVoxelGrid({ depth: staticFallbackDepth }),
     [staticFallbackDepth],
@@ -198,10 +192,7 @@ export function PublicLandingLogo({
 
     return () => {
       cancelled = true;
-      if (
-        idleCallbackId !== null &&
-        typeof window.cancelIdleCallback === "function"
-      ) {
+      if (idleCallbackId !== null && typeof window.cancelIdleCallback === "function") {
         window.cancelIdleCallback(idleCallbackId);
       }
       window.cancelAnimationFrame(frameId);
@@ -248,9 +239,7 @@ export function PublicLandingLogo({
       return;
     }
 
-    publicLandingLogoLink.setIsLogoLinkVisible(
-      shouldRevealPublicLandingLogoLink(view),
-    );
+    publicLandingLogoLink.setIsLogoLinkVisible(shouldRevealPublicLandingLogoLink(view));
   }, [publicLandingLogoLink, view]);
 
   useEffect(() => {
@@ -284,8 +273,7 @@ export function PublicLandingLogo({
           );
           speedMultiplier =
             AUTO_ROTATE_RESUME_MIN_SPEED_MULTIPLIER +
-            (1 - AUTO_ROTATE_RESUME_MIN_SPEED_MULTIPLIER) *
-              easeOutCubic(progress);
+            (1 - AUTO_ROTATE_RESUME_MIN_SPEED_MULTIPLIER) * easeOutCubic(progress);
           if (progress >= 1) {
             autoRotateResumeStartedAtRef.current = null;
           }
@@ -379,11 +367,7 @@ export function PublicLandingLogo({
               fractalDepth={fractalDepth}
               voxelGrid={isRecursiveDepth ? undefined : staticLogoVoxelGrid}
               voxelEditingEnabled={false}
-              viewDragConfig={
-                enableViewSnapping
-                  ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG
-                  : undefined
-              }
+              viewDragConfig={enableViewSnapping ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined}
               voxelState={STATIC_LOGO_VOXEL_STATE}
             />
           </div>

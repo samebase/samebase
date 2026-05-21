@@ -27,19 +27,17 @@ Turn the Netlify-removal RFC into a working implementation tracker with:
 ## Current Working Notes
 
 1. Working branch: `codex/remove-netlify`
-2. The hard deployment gate is Phase 0. Do not remove Netlify schema literals or
-   runtime branches until deployment data is clean.
-3. The first code slice should be Phase 1 so hosted-app prod-read capability
-   still exists before Netlify tool removal.
+2. The hard deployment gate is Phase 0. Do not remove Netlify schema literals or runtime branches
+   until deployment data is clean.
+3. The first code slice should be Phase 1 so hosted-app prod-read capability still exists before
+   Netlify tool removal.
 
 ## Guardrails
 
-1. Do not delete Netlify schema literals or compatibility fields until
-   deployment cleanup is complete.
-2. Ship Cloudflare status/log prod-read parity before removing Netlify prod-read
-   tools.
-3. Keep `vaultInfrastructure.hosting` as the single source of truth for hosted
-   app state.
+1. Do not delete Netlify schema literals or compatibility fields until deployment cleanup is
+   complete.
+2. Ship Cloudflare status/log prod-read parity before removing Netlify prod-read tools.
+3. Keep `vaultInfrastructure.hosting` as the single source of truth for hosted app state.
 4. Use checkpoint commits at the end of each meaningful phase.
 5. Update this file whenever phase status or validation results change.
 
@@ -64,15 +62,13 @@ Turn the Netlify-removal RFC into a working implementation tracker with:
    - `oauthStates.provider == "netlify"`
    - `aiProdAccessRequests.provider == "netlify"`
    - `vaultDomains.source in {"netlify_default", "netlify_custom"}`
-2. Verify no deployment data still depends on Netlify-only compatibility fields
-   that runtime code will remove in Phase 2.
-3. Record any vaults that require manual Cloudflare reprovision before schema
-   removal.
+2. Verify no deployment data still depends on Netlify-only compatibility fields that runtime code
+   will remove in Phase 2.
+3. Record any vaults that require manual Cloudflare reprovision before schema removal.
 
 ### Exit Criteria
 
-1. Deployment data no longer depends on Netlify literals or Netlify-only runtime
-   branches.
+1. Deployment data no longer depends on Netlify literals or Netlify-only runtime branches.
 2. Phase 2 can remove schema literals without breaking deployed data.
 
 ### Tracking Checklist
@@ -98,10 +94,9 @@ Turn the Netlify-removal RFC into a working implementation tracker with:
 
 ### Validation
 
-1. Tool catalog tests expose Cloudflare status/log proposal tools and no longer
-   require Netlify status/log proposal tools.
-2. Manual chat smoke check still shows hosted-app approval cards for status/log
-   reads.
+1. Tool catalog tests expose Cloudflare status/log proposal tools and no longer require Netlify
+   status/log proposal tools.
+2. Manual chat smoke check still shows hosted-app approval cards for status/log reads.
 3. Netlify prod-read removal does not leave a gap in hosted-app diagnostics.
 
 ### Validation Commands
@@ -115,8 +110,7 @@ Manual smoke after `make anon`:
 
 1. open the app
 2. create or open a vault chat
-3. confirm hosted-app status/log approval proposals still exist with Cloudflare
-   naming
+3. confirm hosted-app status/log approval proposals still exist with Cloudflare naming
 
 ### Exit Criteria
 
@@ -137,18 +131,14 @@ Manual smoke after `make anon`:
 
 1. Remove Netlify schema/provider literals and compatibility fields.
 2. Delete Netlify OAuth, API-key, and dev-seed backend paths.
-3. Collapse provisioning, teardown, and infra-read branches to Cloudflare-only
-   hosting.
-4. Remove `vaults.hostingProvider` runtime branching if the field no longer has
-   a current consumer.
+3. Collapse provisioning, teardown, and infra-read branches to Cloudflare-only hosting.
+4. Remove `vaults.hostingProvider` runtime branching if the field no longer has a current consumer.
 
 ### Validation
 
 1. Convex codegen, typecheck, and eslint pass after schema/runtime removal.
-2. Backend grep gate shows no active Netlify runtime code remains under
-   `apps/noter/convex`.
-3. Managed create/retry/delete flows still typecheck against Cloudflare-only
-   hosting state.
+2. Backend grep gate shows no active Netlify runtime code remains under `apps/noter/convex`.
+3. Managed create/retry/delete flows still typecheck against Cloudflare-only hosting state.
 
 ### Validation Commands
 
@@ -230,8 +220,7 @@ Manual smoke after `make anon`:
 
 1. Active docs no longer describe Netlify as supported runtime behavior.
 2. Fixture coverage remains in sync with any doc-file additions or deletions.
-3. Repo grep gate shows Netlify references only where intentionally retained for
-   historical context.
+3. Repo grep gate shows Netlify references only where intentionally retained for historical context.
 
 ### Validation Commands
 
@@ -288,9 +277,7 @@ grep -Rni 'netlify' apps/noter/convex apps/noter/src apps/noter-starter-template
 
 ## Definition of Done
 
-1. Netlify is absent from active backend runtime, frontend runtime, and starter
-   template assets.
-2. Cloudflare fully owns managed hosted-app create/provision/delete/status/log
-   behavior.
+1. Netlify is absent from active backend runtime, frontend runtime, and starter template assets.
+2. Cloudflare fully owns managed hosted-app create/provision/delete/status/log behavior.
 3. Active docs describe Cloudflare-only reality.
 4. This plan file reflects completed phase status and remaining follow-ups.

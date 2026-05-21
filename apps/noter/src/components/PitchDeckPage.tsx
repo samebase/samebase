@@ -23,15 +23,13 @@ const featureCards = [
     eyebrow: "Route",
     title: "Responsive by default",
     body: "The public deck route behaves like normal app UI instead of a fixed slide viewport, so it can adapt naturally across desktop and mobile screens.",
-    printBody:
-      "The public deck behaves like normal app UI and adapts cleanly across screens.",
+    printBody: "The public deck behaves like normal app UI and adapts cleanly across screens.",
   },
   {
     eyebrow: "Print",
     title: "Deterministic export",
     body: "Dedicated print routes lock desktop and mobile dimensions so the PDF output stays stable and reviewable between builds.",
-    printBody:
-      "Dedicated print routes lock the page size so the PDF stays stable.",
+    printBody: "Dedicated print routes lock the page size so the PDF stays stable.",
   },
   {
     eyebrow: "Stack",
@@ -43,8 +41,7 @@ const featureCards = [
     eyebrow: "Scope",
     title: "Story comes next",
     body: "This first pass only proves layout, theming, screenshot coverage, and export readiness with one intentionally polished placeholder slide.",
-    printBody:
-      "This pass proves layout, theming, screenshots, and export readiness.",
+    printBody: "This pass proves layout, theming, screenshots, and export readiness.",
   },
 ] as const;
 
@@ -94,9 +91,7 @@ function FeatureCard({
           : "border border-border bg-background p-4"
       }
     >
-      <div className="text-primary text-[11px] uppercase tracking-[0.24em]">
-        {eyebrow}
-      </div>
+      <div className="text-primary text-[11px] uppercase tracking-[0.24em]">{eyebrow}</div>
       <div
         className={
           compact
@@ -122,12 +117,8 @@ function FeatureCard({
 function MetricBlock({ label, value }: { label: string; value: string }) {
   return (
     <div className="border border-border bg-secondary px-4 py-3 text-secondary-foreground">
-      <div className="text-[11px] uppercase tracking-[0.22em] opacity-70">
-        {label}
-      </div>
-      <div className="mt-2 text-[24px] leading-none tracking-[-0.05em] sm:text-[28px]">
-        {value}
-      </div>
+      <div className="text-[11px] uppercase tracking-[0.22em] opacity-70">{label}</div>
+      <div className="mt-2 text-[24px] leading-none tracking-[-0.05em] sm:text-[28px]">{value}</div>
     </div>
   );
 }
@@ -155,8 +146,8 @@ function PrintDesktopSurface() {
               One route. Two print presets. Zero slide framework.
             </h1>
             <p className="text-muted-foreground max-w-[42ch] text-[18px] leading-[1.45]">
-              The pitch deck renders as normal app UI, then exports from fixed
-              desktop and mobile print surfaces into direct PDF files.
+              The pitch deck renders as normal app UI, then exports from fixed desktop and mobile
+              print surfaces into direct PDF files.
             </p>
           </div>
         </div>
@@ -195,18 +186,14 @@ function PrintDesktopSurface() {
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="border border-border bg-primary p-3 text-primary-foreground">
-            <div className="text-[10px] uppercase tracking-[0.22em] opacity-70">
-              Layout
-            </div>
+            <div className="text-[10px] uppercase tracking-[0.22em] opacity-70">Layout</div>
             <div className="mt-2 text-[18px] leading-tight tracking-[-0.04em]">
               Fixed-size HTML matches the exported PDF page exactly.
             </div>
           </div>
 
           <div className="border border-border bg-secondary p-3 text-secondary-foreground">
-            <div className="text-[10px] uppercase tracking-[0.22em] opacity-70">
-              Next Move
-            </div>
+            <div className="text-[10px] uppercase tracking-[0.22em] opacity-70">Next Move</div>
             <div className="mt-2 text-[18px] leading-tight tracking-[-0.04em]">
               Replace the placeholder content with the real pitch story.
             </div>
@@ -249,8 +236,8 @@ function PrintMobileSurface() {
             One route. Two print presets. Zero slide framework.
           </h1>
           <p className="text-muted-foreground max-w-[34ch] text-[16px] leading-[1.45]">
-            The deck lives inside Noter as normal UI and exports direct desktop
-            and mobile PDFs from fixed print surfaces.
+            The deck lives inside Noter as normal UI and exports direct desktop and mobile PDFs from
+            fixed print surfaces.
           </p>
         </div>
       </section>
@@ -281,18 +268,14 @@ function PrintMobileSurface() {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="border border-border bg-primary p-3 text-primary-foreground">
-          <div className="text-[10px] uppercase tracking-[0.22em] opacity-70">
-            Layout
-          </div>
+          <div className="text-[10px] uppercase tracking-[0.22em] opacity-70">Layout</div>
           <div className="mt-2 text-[18px] leading-tight tracking-[-0.04em]">
             Fixed-size HTML matches the exported mobile PDF page.
           </div>
         </div>
 
         <div className="border border-border bg-secondary p-3 text-secondary-foreground">
-          <div className="text-[10px] uppercase tracking-[0.22em] opacity-70">
-            Next Move
-          </div>
+          <div className="text-[10px] uppercase tracking-[0.22em] opacity-70">Next Move</div>
           <div className="mt-2 text-[18px] leading-tight tracking-[-0.04em]">
             Replace the placeholder content with the real pitch story.
           </div>
@@ -340,8 +323,7 @@ function resolveHeaderClasses(mode: PitchDeckMode): {
 } {
   if (mode === "print") {
     return {
-      title:
-        "max-w-[11ch] font-sans text-[76px] font-medium leading-[0.9] tracking-[-0.07em]",
+      title: "max-w-[11ch] font-sans text-[76px] font-medium leading-[0.9] tracking-[-0.07em]",
       subtitle: "text-muted-foreground max-w-[56ch] text-[22px] leading-[1.5]",
       cards: "grid gap-4 md:grid-cols-2",
       metrics: "grid gap-3 sm:grid-cols-3",
@@ -351,8 +333,7 @@ function resolveHeaderClasses(mode: PitchDeckMode): {
 
   if (mode === "printMobile") {
     return {
-      title:
-        "max-w-[10ch] font-sans text-[64px] font-medium leading-[0.92] tracking-[-0.07em]",
+      title: "max-w-[10ch] font-sans text-[64px] font-medium leading-[0.92] tracking-[-0.07em]",
       subtitle: "text-muted-foreground max-w-[38ch] text-[22px] leading-[1.45]",
       cards: "grid gap-4",
       metrics: "grid gap-3",
@@ -363,8 +344,7 @@ function resolveHeaderClasses(mode: PitchDeckMode): {
   return {
     title:
       "max-w-[11ch] font-sans text-[clamp(3.3rem,7vw,5.5rem)] font-medium leading-[0.92] tracking-[-0.07em]",
-    subtitle:
-      "text-muted-foreground max-w-[58ch] text-lg leading-[1.55] sm:text-[21px]",
+    subtitle: "text-muted-foreground max-w-[58ch] text-lg leading-[1.55] sm:text-[21px]",
     cards: "grid gap-4 md:grid-cols-2",
     metrics: "grid gap-3 sm:grid-cols-3",
     aside: "grid gap-4",
@@ -376,10 +356,7 @@ function PitchDeckSurface({ mode }: { mode: PitchDeckMode }) {
   const showPdfDownloads = mode === "interactive";
 
   return (
-    <div
-      data-testid={PITCH_DECK_SURFACE_TEST_ID}
-      className={resolveSurfaceClasses(mode)}
-    >
+    <div data-testid={PITCH_DECK_SURFACE_TEST_ID} className={resolveSurfaceClasses(mode)}>
       <section className="flex flex-col justify-between gap-8">
         <div className="space-y-6">
           <div className="border-border flex items-center justify-between gap-4 border-b pb-4">
@@ -392,14 +369,11 @@ function PitchDeckSurface({ mode }: { mode: PitchDeckMode }) {
           </div>
 
           <div className="space-y-4">
-            <h1 className={classes.title}>
-              One route. Two print presets. Zero slide framework.
-            </h1>
+            <h1 className={classes.title}>One route. Two print presets. Zero slide framework.</h1>
             <p className={classes.subtitle}>
-              This placeholder slide proves the deck can live inside Noter as
-              normal UI, stay responsive on <code>/pitch</code>, and expose
-              direct desktop and mobile PDF downloads generated from the export
-              pipeline.
+              This placeholder slide proves the deck can live inside Noter as normal UI, stay
+              responsive on <code>/pitch</code>, and expose direct desktop and mobile PDF downloads
+              generated from the export pipeline.
             </p>
           </div>
 
@@ -447,18 +421,14 @@ function PitchDeckSurface({ mode }: { mode: PitchDeckMode }) {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="border border-border bg-primary p-4 text-primary-foreground">
-            <div className="text-[11px] uppercase tracking-[0.22em] opacity-70">
-              Layout
-            </div>
+            <div className="text-[11px] uppercase tracking-[0.22em] opacity-70">Layout</div>
             <div className="mt-3 text-2xl leading-tight tracking-[-0.05em]">
               Normal React composition, not a deck-specific viewport.
             </div>
           </div>
 
           <div className="border border-border bg-secondary p-4 text-secondary-foreground">
-            <div className="text-[11px] uppercase tracking-[0.22em] opacity-70">
-              Next Move
-            </div>
+            <div className="text-[11px] uppercase tracking-[0.22em] opacity-70">Next Move</div>
             <div className="mt-3 text-2xl leading-tight tracking-[-0.05em]">
               Replace the placeholder blocks with the real pitch story.
             </div>

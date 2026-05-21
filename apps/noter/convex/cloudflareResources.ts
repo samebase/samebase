@@ -1,7 +1,4 @@
-import {
-  requestCloudflareApi,
-  CloudflareApiError,
-} from "./cloudflareApi/client";
+import { requestCloudflareApi, CloudflareApiError } from "./cloudflareApi/client";
 import type { components, Readable } from "./cloudflareApi/types.generated";
 import { clamp, toErrorMessage } from "./jsonUtils";
 
@@ -36,14 +33,9 @@ type CloudflareWorkerTagSource = {
   tag?: string;
   name?: string;
 };
-type CloudflareBuildTokenRecord = Readable<
-  components["schemas"]["builds_ListTokensResponse"]
->;
-type CloudflareBuildTrigger = Readable<
-  components["schemas"]["builds_TriggerResponse"]
->;
-type CloudflareBuildEnvVars =
-  components["schemas"]["builds_EnvironmentVariablesRequest"];
+type CloudflareBuildTokenRecord = Readable<components["schemas"]["builds_ListTokensResponse"]>;
+type CloudflareBuildTrigger = Readable<components["schemas"]["builds_TriggerResponse"]>;
+type CloudflareBuildEnvVars = components["schemas"]["builds_EnvironmentVariablesRequest"];
 
 export type CloudflareBuildToken = {
   name: string;
@@ -95,10 +87,7 @@ function requireCloudflareResult<T>(value: T | undefined, message: string): T {
   throw new Error(message);
 }
 
-function requireCloudflareString(
-  value: string | null | undefined,
-  message: string,
-): string {
+function requireCloudflareString(value: string | null | undefined, message: string): string {
   if (value) {
     return value;
   }
@@ -132,10 +121,7 @@ export type ExistingCloudflareWorkerIdentity =
   | { state: "planned" }
   | { state: "created"; workerTag: string };
 
-async function readAccountSubdomain(args: {
-  token: string;
-  accountId: string;
-}): Promise<string> {
+async function readAccountSubdomain(args: { token: string; accountId: string }): Promise<string> {
   const raw = await requestCloudflareApi({
     token: args.token,
     method: "GET",
@@ -223,10 +209,7 @@ async function ensureWorker(args: {
   });
   if (existing) {
     const workerTag = readCloudflareWorkerTag(existing, args.workerName);
-    if (
-      args.existingWorker.state === "created" &&
-      args.existingWorker.workerTag !== workerTag
-    ) {
+    if (args.existingWorker.state === "created" && args.existingWorker.workerTag !== workerTag) {
       throw new Error(
         `Cloudflare Worker name ${args.workerName} already exists. Choose another Worker name and try again.`,
       );
@@ -452,18 +435,11 @@ function parseBuildTokens(
   return tokens.sort(compareBuildTokens);
 }
 
-function compareBuildTokens(
-  left: CloudflareBuildToken,
-  right: CloudflareBuildToken,
-): number {
-  return (
-    left.name.localeCompare(right.name) || left.uuid.localeCompare(right.uuid)
-  );
+function compareBuildTokens(left: CloudflareBuildToken, right: CloudflareBuildToken): number {
+  return left.name.localeCompare(right.name) || left.uuid.localeCompare(right.uuid);
 }
 
-function selectStableBuildTokenUuid(
-  tokens: readonly CloudflareBuildToken[],
-): string | undefined {
+function selectStableBuildTokenUuid(tokens: readonly CloudflareBuildToken[]): string | undefined {
   if (tokens.length === 0) {
     return undefined;
   }
@@ -479,17 +455,13 @@ export function selectReusableBuildTokenUuid(args: {
   }
 
   const preferredBuildTokenUuids = new Set(args.preferredBuildTokenUuids);
-  const preferredTokens = args.tokens.filter((token) =>
-    preferredBuildTokenUuids.has(token.uuid),
-  );
+  const preferredTokens = args.tokens.filter((token) => preferredBuildTokenUuids.has(token.uuid));
   const preferredTokenUuid = selectStableBuildTokenUuid(preferredTokens);
   if (preferredTokenUuid) {
     return preferredTokenUuid;
   }
 
-  const namedTokens = args.tokens.filter(
-    (token) => token.name === NOTER_WORKERS_BUILD_TOKEN_NAME,
-  );
+  const namedTokens = args.tokens.filter((token) => token.name === NOTER_WORKERS_BUILD_TOKEN_NAME);
   const namedTokenUuid = selectStableBuildTokenUuid(namedTokens);
   if (namedTokenUuid) {
     // Failed retries can leave duplicate Noter-named tokens. Cloudflare's list
@@ -551,9 +523,7 @@ function readTriggerBuildTokenUuids(
   return uuids;
 }
 
-async function resolveCurrentCloudflareTokenId(args: {
-  token: string;
-}): Promise<string> {
+async function resolveCurrentCloudflareTokenId(args: { token: string }): Promise<string> {
   const raw = await requestCloudflareApi({
     token: args.token,
     method: "GET",
@@ -608,9 +578,7 @@ function matchesTriggerKind(args: {
     );
   }
 
-  return (
-    branchIncludes.includes("*") && branchExcludes.includes(args.defaultBranch)
-  );
+  return branchIncludes.includes("*") && branchExcludes.includes(args.defaultBranch);
 }
 
 async function listBuildTriggers(args: {
@@ -653,8 +621,7 @@ async function upsertBuildTrigger(args: {
       defaultBranch: args.defaultBranch,
     }),
   );
-  const triggerName =
-    args.kind === "production" ? "Production Deploy" : "Preview Deploy";
+  const triggerName = args.kind === "production" ? "Production Deploy" : "Preview Deploy";
   const triggerConfig = {
     build_token_uuid: args.buildTokenUuid,
     trigger_name: triggerName,
@@ -705,10 +672,7 @@ async function upsertBuildTrigger(args: {
       ...triggerConfig,
     },
   });
-  return requireCloudflareString(
-    raw?.trigger_uuid,
-    `${triggerName} trigger did not return an id.`,
-  );
+  return requireCloudflareString(raw?.trigger_uuid, `${triggerName} trigger did not return an id.`);
 }
 
 async function setTriggerEnvironmentVariables(args: {
@@ -955,8 +919,7 @@ export async function readCloudflareWorkerStatus(
     worker,
     `Cloudflare Worker ${args.workerName} response did not include a Worker.`,
   );
-  const workerTag =
-    args.workerTag ?? readCloudflareWorkerTag(workerRecord, args.workerName);
+  const workerTag = args.workerTag ?? readCloudflareWorkerTag(workerRecord, args.workerName);
   const triggers = await listBuildTriggers({
     token: args.cloudflareToken,
     accountId: args.accountId,
@@ -1041,9 +1004,7 @@ export async function readCloudflareBuildLogs(
     summary: `Cloudflare build logs for Worker ${args.workerName}`,
     endpoint: `${buildsEndpoint} + build logs`,
     raw:
-      logsByBuild.length > 0
-        ? JSON.stringify(logsByBuild, null, 2)
-        : "No build entries returned.",
+      logsByBuild.length > 0 ? JSON.stringify(logsByBuild, null, 2) : "No build entries returned.",
     logLineCount: logsByBuild.length,
   };
 }

@@ -16,12 +16,14 @@ test("/pitch stays visually stable", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "One route. Two print presets. Zero slide framework.",
   );
-  await expect(
-    page.getByRole("link", { name: "Download Desktop PDF" }),
-  ).toHaveAttribute("href", "/pitch-deck.pdf");
-  await expect(
-    page.getByRole("link", { name: "Download Mobile PDF" }),
-  ).toHaveAttribute("href", "/pitch-deck-mobile.pdf");
+  await expect(page.getByRole("link", { name: "Download Desktop PDF" })).toHaveAttribute(
+    "href",
+    "/pitch-deck.pdf",
+  );
+  await expect(page.getByRole("link", { name: "Download Mobile PDF" })).toHaveAttribute(
+    "href",
+    "/pitch-deck-mobile.pdf",
+  );
 });
 
 const printRoutes = [

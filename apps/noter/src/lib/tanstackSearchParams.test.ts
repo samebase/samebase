@@ -7,13 +7,11 @@ import {
 
 describe("tanstackSearchParams", () => {
   it("parses plain query strings without JSON coercion", () => {
-    expect(parseTanStackSearch("?freeView&rot=10&threadId=thread_123")).toEqual(
-      {
-        freeView: "",
-        rot: "10",
-        threadId: "thread_123",
-      },
-    );
+    expect(parseTanStackSearch("?freeView&rot=10&threadId=thread_123")).toEqual({
+      freeView: "",
+      rot: "10",
+      threadId: "thread_123",
+    });
   });
 
   it("stringifies booleans and numbers using the app's plain query semantics", () => {

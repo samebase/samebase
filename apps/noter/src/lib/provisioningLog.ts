@@ -49,8 +49,6 @@ export function formatProvisioningLogLine(event: ProvisioningLogEvent): string {
   return `${formatProvisioningTimestamp(event.createdAt)} ${level} ${provisioningStepLabels[event.step]} - ${event.message}`;
 }
 
-export function formatProvisioningLogText(
-  events: ProvisioningLogEvent[],
-): string {
+export function formatProvisioningLogText(events: ProvisioningLogEvent[]): string {
   return events.map(formatProvisioningLogLine).join("\n");
 }

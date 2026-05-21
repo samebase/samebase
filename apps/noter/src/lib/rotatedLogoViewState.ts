@@ -39,9 +39,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function normalizeRotatedLogoViewState(
-  view: RotatedLogoViewState,
-): RotatedLogoViewState {
+function normalizeRotatedLogoViewState(view: RotatedLogoViewState): RotatedLogoViewState {
   return {
     elevationDegrees: normalizeRotationDegrees(view.elevationDegrees),
     rotationDegrees: normalizeRotationDegrees(view.rotationDegrees),
@@ -81,9 +79,7 @@ function readStoredRotatedLogoViewState(key: RotatedLogoViewStateKey) {
 
   try {
     return parseRotatedLogoViewState(
-      window.localStorage.getItem(
-        STORAGE_KEY_BY_ROTATED_LOGO_VIEW_STATE_KEY[key],
-      ),
+      window.localStorage.getItem(STORAGE_KEY_BY_ROTATED_LOGO_VIEW_STATE_KEY[key]),
     );
   } catch {
     return null;
@@ -97,9 +93,7 @@ export function cacheRotatedLogoViewState(
   cachedRotatedLogoViewStateByKey[key] = normalizeRotatedLogoViewState(view);
 }
 
-export function persistRotatedLogoViewState(
-  args: WriteRotatedLogoViewStateArgs,
-) {
+export function persistRotatedLogoViewState(args: WriteRotatedLogoViewStateArgs) {
   const normalizedView = normalizeRotatedLogoViewState(args.view);
   cachedRotatedLogoViewStateByKey[args.key] = normalizedView;
 
@@ -127,8 +121,7 @@ export function readRotatedLogoViewState({
     return { ...cachedView };
   }
 
-  const storedView =
-    persistence === "device" ? readStoredRotatedLogoViewState(key) : null;
+  const storedView = persistence === "device" ? readStoredRotatedLogoViewState(key) : null;
   if (storedView !== null) {
     cachedRotatedLogoViewStateByKey[key] = storedView;
     return { ...storedView };

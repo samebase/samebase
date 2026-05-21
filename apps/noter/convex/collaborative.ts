@@ -1,9 +1,4 @@
-import {
-  query,
-  mutation,
-  internalMutation,
-  type MutationCtx,
-} from "./_generated/server";
+import { query, mutation, internalMutation, type MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { getUserId } from "./common";
@@ -49,12 +44,7 @@ export const getDocument = query({
     console.log("getDocument:", args.filePath);
     const userId = await getAuthUserId(ctx);
     const vault = await ctx.db.get(args.vaultId);
-    if (
-      !userId ||
-      !vault ||
-      vault.userId !== userId ||
-      !isLiveConnectedVault(vault)
-    ) {
+    if (!userId || !vault || vault.userId !== userId || !isLiveConnectedVault(vault)) {
       return {
         version: 0,
         content: "",
@@ -66,10 +56,7 @@ export const getDocument = query({
     const staging = await ctx.db
       .query("fileStaging")
       .withIndex("by_vault_and_branch_and_path", (q) =>
-        q
-          .eq("vaultId", args.vaultId)
-          .eq("branch", args.branch)
-          .eq("filePath", args.filePath),
+        q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.filePath),
       )
       .first();
 
@@ -116,13 +103,10 @@ export const pullUpdates = query({
   > => {
     const userId = await getUserId(ctx);
 
-    const vault = await ctx.runQuery(
-      internal.vault.records.getByRepositoryFullName,
-      {
-        repositoryFullName: args.repositoryFullName,
-        userId,
-      },
-    );
+    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+    });
 
     if (!vault) {
       throw new Error("Vault not found");
@@ -169,19 +153,13 @@ export const pushUpdates = mutation({
     success: v.boolean(),
     newVersion: v.number(),
   }),
-  handler: async (
-    ctx,
-    args,
-  ): Promise<{ success: boolean; newVersion: number }> => {
+  handler: async (ctx, args): Promise<{ success: boolean; newVersion: number }> => {
     const userId = await getUserId(ctx);
 
-    const vault = await ctx.runQuery(
-      internal.vault.records.getByRepositoryFullName,
-      {
-        repositoryFullName: args.repositoryFullName,
-        userId,
-      },
-    );
+    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+    });
 
     if (!vault) {
       throw new Error("Vault not found");
@@ -191,10 +169,7 @@ export const pushUpdates = mutation({
     const staging = await ctx.db
       .query("fileStaging")
       .withIndex("by_vault_and_branch_and_path", (q) =>
-        q
-          .eq("vaultId", vault._id)
-          .eq("branch", args.branch)
-          .eq("filePath", args.filePath),
+        q.eq("vaultId", vault._id).eq("branch", args.branch).eq("filePath", args.filePath),
       )
       .first();
 
@@ -234,12 +209,7 @@ export const pushUpdates = mutation({
         timestamp,
       });
 
-      console.log(
-        "pushUpdates: inserted update",
-        inserted,
-        "for version",
-        currentVersion,
-      );
+      console.log("pushUpdates: inserted update", inserted, "for version", currentVersion);
 
       // Apply the changes to the document using CodeMirror's proper methods
       const changeSet = ChangeSet.fromJSON(JSON.parse(update.changes));
@@ -299,10 +269,7 @@ export const applyUpdatesToStaging = internalMutation({
     const staging = await ctx.db
       .query("fileStaging")
       .withIndex("by_vault_and_branch_and_path", (q) =>
-        q
-          .eq("vaultId", args.vaultId)
-          .eq("branch", args.branch)
-          .eq("filePath", args.filePath),
+        q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.filePath),
       )
       .first();
 
@@ -324,12 +291,7 @@ export const applyUpdatesToStaging = internalMutation({
         // Apply the changes to the document using CodeMirror's proper methods
         currentDoc = changeSet.apply(currentDoc);
       } catch (error) {
-        console.error(
-          "Error applying update in applyUpdatesToStaging:",
-          error,
-          "Update:",
-          update,
-        );
+        console.error("Error applying update in applyUpdatesToStaging:", error, "Update:", update);
         // Continue with other updates even if one fails
       }
     }
@@ -367,10 +329,7 @@ export const pushContentUpdate = internalMutation({
     const staging = await ctx.db
       .query("fileStaging")
       .withIndex("by_vault_and_branch_and_path", (q) =>
-        q
-          .eq("vaultId", args.vaultId)
-          .eq("branch", args.branch)
-          .eq("filePath", args.filePath),
+        q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.filePath),
       )
       .first();
 
@@ -459,17 +418,12 @@ export const pushSerializedChangeSetUpdate = internalMutation({
     const staging = await ctx.db
       .query("fileStaging")
       .withIndex("by_vault_and_branch_and_path", (q) =>
-        q
-          .eq("vaultId", args.vaultId)
-          .eq("branch", args.branch)
-          .eq("filePath", args.filePath),
+        q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.filePath),
       )
       .first();
 
     if (!staging) {
-      throw new Error(
-        "pushSerializedChangeSetUpdate failed: staging not found",
-      );
+      throw new Error("pushSerializedChangeSetUpdate failed: staging not found");
     }
 
     if (staging.version !== args.expectedVersion) {
@@ -486,15 +440,10 @@ export const pushSerializedChangeSetUpdate = internalMutation({
     const currentDoc = Text.of(staging.content.split("\n"));
     let updatedContent: string;
     try {
-      const changeSet = ChangeSet.fromJSON(
-        JSON.parse(args.serializedChangeSet),
-      );
+      const changeSet = ChangeSet.fromJSON(JSON.parse(args.serializedChangeSet));
       updatedContent = changeSet.apply(currentDoc).toString();
     } catch (error) {
-      console.error(
-        "pushSerializedChangeSetUpdate: invalid serializedChangeSet",
-        error,
-      );
+      console.error("pushSerializedChangeSetUpdate: invalid serializedChangeSet", error);
       throw new Error("Invalid serializedChangeSet");
     }
 
@@ -604,10 +553,7 @@ export const getActiveEditors = query({
     const recentUpdates = await ctx.db
       .query("collaborativeUpdates")
       .withIndex("by_vaultId_and_branch_and_filePath_and_timestamp", (q) =>
-        q
-          .eq("vaultId", args.vaultId)
-          .eq("branch", args.branch)
-          .eq("filePath", args.filePath),
+        q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.filePath),
       )
       .order("desc")
       .take(100);

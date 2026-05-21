@@ -2,8 +2,8 @@
 
 ## Goal
 
-Validate metadata discovery, dynamic client registration, and authorize request
-validation for the Convex-hosted MCP OAuth provider.
+Validate metadata discovery, dynamic client registration, and authorize request validation for the
+Convex-hosted MCP OAuth provider.
 
 ## Prerequisites
 

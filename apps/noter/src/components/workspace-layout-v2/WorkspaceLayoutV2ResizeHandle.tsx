@@ -59,16 +59,10 @@ function getPointerDeltaPx(args: {
     return args.startClientPx - args.event.clientY;
   }
 
-  return (
-    (args.event.clientX - args.startClientPx) *
-    (args.resizeFrom === "left" ? 1 : -1)
-  );
+  return (args.event.clientX - args.startClientPx) * (args.resizeFrom === "left" ? 1 : -1);
 }
 
-function getResizeHandleLabel(
-  resizeFrom: "left" | "right" | "top",
-  ariaLabel?: string,
-) {
+function getResizeHandleLabel(resizeFrom: "left" | "right" | "top", ariaLabel?: string) {
   if (ariaLabel !== undefined) {
     return ariaLabel;
   }
@@ -80,10 +74,7 @@ function getResizeHandleLabel(
   return `Resize ${resizeFrom} sidebar`;
 }
 
-function getResizeHandleValueText(
-  currentSizePx: number,
-  resizeFrom: "left" | "right" | "top",
-) {
+function getResizeHandleValueText(currentSizePx: number, resizeFrom: "left" | "right" | "top") {
   return resizeFrom === "top"
     ? `${Math.round(currentSizePx)} pixels high`
     : `${Math.round(currentSizePx)} pixels wide`;
@@ -146,10 +137,7 @@ export function WorkspaceLayoutV2ResizeHandle({
       return;
     }
 
-    document.body.style.setProperty(
-      "cursor",
-      getPointerResizeCursor(resizeFrom),
-    );
+    document.body.style.setProperty("cursor", getPointerResizeCursor(resizeFrom));
     document.body.style.setProperty("user-select", "none");
     return () => {
       document.body.style.removeProperty("cursor");
@@ -263,9 +251,7 @@ export function WorkspaceLayoutV2ResizeHandle({
   const handlePositionStyle = isHorizontalHandle
     ? { top: `${positionPx}px` }
     : { left: `${positionPx}px` };
-  const handleCursorClassName = isHorizontalHandle
-    ? "cursor-row-resize"
-    : "cursor-col-resize";
+  const handleCursorClassName = isHorizontalHandle ? "cursor-row-resize" : "cursor-col-resize";
   const gripTrackClassName = isHorizontalHandle
     ? "inset-x-0 h-8 -translate-y-1/2"
     : "inset-y-0 w-8 -translate-x-1/2";
@@ -280,9 +266,7 @@ export function WorkspaceLayoutV2ResizeHandle({
 
   const interactiveProps = {
     "aria-label": getResizeHandleLabel(resizeFrom, ariaLabel),
-    "aria-orientation": isHorizontalHandle
-      ? ("horizontal" as const)
-      : ("vertical" as const),
+    "aria-orientation": isHorizontalHandle ? ("horizontal" as const) : ("vertical" as const),
     "aria-valuemax": maxSizePx,
     "aria-valuemin": minSizePx,
     "aria-valuenow": Math.round(currentSizePx),
@@ -351,9 +335,7 @@ export function WorkspaceLayoutV2ResizeHandle({
       className={cn(
         "absolute z-30 flex touch-none items-center justify-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         handleCursorClassName,
-        isHorizontalHandle
-          ? "inset-x-0 h-4 -translate-y-1/2"
-          : "inset-y-0 w-4 -translate-x-1/2",
+        isHorizontalHandle ? "inset-x-0 h-4 -translate-y-1/2" : "inset-y-0 w-4 -translate-x-1/2",
       )}
       style={handlePositionStyle}
     />

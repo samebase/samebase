@@ -15,8 +15,7 @@ function isBlankLineText(text: string): boolean {
 function findFirstBlankLineAnchorInString(docText: string): number {
   let lineStart = 0;
   for (let index = 0; index <= docText.length; index += 1) {
-    const isLineEnd =
-      index === docText.length || docText.charCodeAt(index) === 10;
+    const isLineEnd = index === docText.length || docText.charCodeAt(index) === 10;
     if (!isLineEnd) continue;
 
     const lineText = docText.slice(lineStart, index);

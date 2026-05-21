@@ -33,16 +33,12 @@ export function findBestInitialFile(files: GithubTree[]) {
     return null;
   }
 
-  const readmeFile = fileList.find((file) =>
-    /^readme(\.(md|txt|rst|org))?$/i.test(file.path),
-  );
+  const readmeFile = fileList.find((file) => /^readme(\.(md|txt|rst|org))?$/i.test(file.path));
   if (readmeFile) {
     return readmeFile.path;
   }
 
-  const markdownFile = fileList.find((file) =>
-    /\.(md|markdown)$/i.test(file.path),
-  );
+  const markdownFile = fileList.find((file) => /\.(md|markdown)$/i.test(file.path));
   if (markdownFile) {
     return markdownFile.path;
   }
@@ -129,14 +125,10 @@ export type PendingMediaUpload = {
 export const BRANCH_COMPARE_PREVIEW_STAGING_DEBOUNCE_MS = 1000;
 
 export function isStorageBackedFileError(error: unknown): boolean {
-  return (
-    error instanceof Error && error.message.toLowerCase().includes("in storage")
-  );
+  return error instanceof Error && error.message.toLowerCase().includes("in storage");
 }
 
-export function readGraphViewMode(
-  storageKey: string,
-): "editor" | "graph" | null {
+export function readGraphViewMode(storageKey: string): "editor" | "graph" | null {
   try {
     const storedMode = localStorage.getItem(storageKey);
     if (storedMode === "editor" || storedMode === "graph") {
@@ -203,9 +195,7 @@ export function parseUpstreamConflictPaths(message: string | null): string[] {
     .filter((path) => path.length > 0);
 }
 
-export function getStagedFileStatus(
-  file: StagedFileRecord,
-): CommitPreviewFileStatus | null {
+export function getStagedFileStatus(file: StagedFileRecord): CommitPreviewFileStatus | null {
   return getSharedStagedFileStatus(file);
 }
 

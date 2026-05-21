@@ -1,8 +1,7 @@
 import { Infer, v } from "convex/values";
 import { vVaultDeletionState } from "./deletion/model";
 
-const { array, boolean, id, literal, number, object, optional, string, union } =
-  v;
+const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
 export const vGithubTree = object({
   path: string(),
@@ -26,13 +25,8 @@ export type GithubTreeData = Infer<typeof vGithubTreeData>;
  * GitHub visibility values currently supported by Noter's create and connect
  * flows.
  */
-export const vGitHubRepositoryVisibility = union(
-  literal("private"),
-  literal("public"),
-);
-export type GitHubRepositoryVisibility = Infer<
-  typeof vGitHubRepositoryVisibility
->;
+export const vGitHubRepositoryVisibility = union(literal("private"), literal("public"));
+export type GitHubRepositoryVisibility = Infer<typeof vGitHubRepositoryVisibility>;
 
 export function parseRepositoryFullName(repositoryFullName: string): {
   owner: string;
@@ -50,10 +44,7 @@ export function parseRepositoryFullName(repositoryFullName: string): {
   return { owner, name };
 }
 
-export const vTreeRefreshFailureKind = union(
-  literal("failed"),
-  literal("rate_limited"),
-);
+export const vTreeRefreshFailureKind = union(literal("failed"), literal("rate_limited"));
 export type TreeRefreshFailureKind = Infer<typeof vTreeRefreshFailureKind>;
 
 const githubRepositoryCoordinatesFields = {

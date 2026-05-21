@@ -3,9 +3,7 @@ export type JsonRecord = Record<string, unknown>;
 /**
  * Checks whether the value is any non-null object, including arrays.
  */
-export function isObjectRecord(
-  value: unknown,
-): value is Record<string, unknown> {
+export function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
@@ -20,18 +18,12 @@ export function asRecord(value: unknown): JsonRecord {
   return isRecord(value) ? value : {};
 }
 
-export function readString(
-  record: JsonRecord,
-  key: string,
-): string | undefined {
+export function readString(record: JsonRecord, key: string): string | undefined {
   const value = record[key];
   return typeof value === "string" ? value : undefined;
 }
 
-export function readStringOrNumber(
-  record: JsonRecord,
-  key: string,
-): string | undefined {
+export function readStringOrNumber(record: JsonRecord, key: string): string | undefined {
   const value = record[key];
   if (typeof value === "string") {
     return value;
@@ -42,54 +34,33 @@ export function readStringOrNumber(
   return undefined;
 }
 
-export function readBoolean(
-  record: JsonRecord,
-  key: string,
-): boolean | undefined {
+export function readBoolean(record: JsonRecord, key: string): boolean | undefined {
   const value = record[key];
   return typeof value === "boolean" ? value : undefined;
 }
 
-export function readNumber(
-  record: JsonRecord,
-  key: string,
-): number | undefined {
+export function readNumber(record: JsonRecord, key: string): number | undefined {
   const value = record[key];
-  return typeof value === "number" && Number.isFinite(value)
-    ? value
-    : undefined;
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 export function clamp(num: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, num));
 }
 
-const SAFE_ERROR_MESSAGE_KEYS = [
-  "message",
-  "error",
-  "detail",
-  "statusText",
-  "title",
-] as const;
+const SAFE_ERROR_MESSAGE_KEYS = ["message", "error", "detail", "statusText", "title"] as const;
 
 /**
  * Formats unknown thrown values without serializing arbitrary object payloads.
  */
-export function toErrorMessage(
-  error: unknown,
-  fallback = "Unknown error",
-): string {
+export function toErrorMessage(error: unknown, fallback = "Unknown error"): string {
   if (error instanceof Error) {
     return error.message.length > 0 ? error.message : fallback;
   }
   if (typeof error === "string") {
     return error.length > 0 ? error : fallback;
   }
-  if (
-    typeof error === "number" ||
-    typeof error === "boolean" ||
-    typeof error === "bigint"
-  ) {
+  if (typeof error === "number" || typeof error === "boolean" || typeof error === "bigint") {
     return String(error);
   }
   if (error === undefined) {

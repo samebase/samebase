@@ -1,7 +1,4 @@
-import {
-  getTailwindColorHex,
-  type FaceColors,
-} from "@/components/logo/logoTailwindColors";
+import { getTailwindColorHex, type FaceColors } from "@/components/logo/logoTailwindColors";
 import {
   addVectors,
   dotProduct,
@@ -33,17 +30,8 @@ import {
   voxelKey,
   type VoxelCoordinate,
 } from "@/components/logo/logoVoxelState";
-import {
-  resolveLogoViewState,
-  type LogoViewDragConfig,
-} from "@/components/logo/logoViewDrag";
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  type MouseEvent,
-  type PointerEvent,
-} from "react";
+import { resolveLogoViewState, type LogoViewDragConfig } from "@/components/logo/logoViewDrag";
+import { useCallback, useEffect, useRef, type MouseEvent, type PointerEvent } from "react";
 import { type LogoShuffleAnimationConfig } from "@/components/logo/NLogoScene";
 
 const DRAG_THRESHOLD_PX = 4;
@@ -168,10 +156,7 @@ type NLogoRasterSceneProps = {
   opacity: number;
   onInteractionEnd?: () => void;
   onInteractionStart?: () => void;
-  onViewChange: (nextView: {
-    elevationDegrees: number;
-    rotationDegrees: number;
-  }) => void;
+  onViewChange: (nextView: { elevationDegrees: number; rotationDegrees: number }) => void;
   rotationAxisMode?: LogoRotationAxisMode;
   rotationDegrees: number;
   shuffleAnimation: LogoShuffleAnimationConfig;
@@ -321,10 +306,7 @@ function getCanvasBackingSize(canvas: HTMLCanvasElement): number {
   const rect = canvas.getBoundingClientRect();
   const cssSize = Math.max(1, Math.min(rect.width || 640, rect.height || 640));
   const targetSize = Math.round(cssSize * Math.min(window.devicePixelRatio, 2));
-  return Math.min(
-    Math.max(targetSize, RASTER_BACKING_MIN_SIZE),
-    RASTER_BACKING_MAX_SIZE,
-  );
+  return Math.min(Math.max(targetSize, RASTER_BACKING_MIN_SIZE), RASTER_BACKING_MAX_SIZE);
 }
 
 function createRasterCanvas(sizePx: number): HTMLCanvasElement {
@@ -336,18 +318,12 @@ function createRasterCanvas(sizePx: number): HTMLCanvasElement {
 
 function getFaceCenter(face: RasterFace): Vector3 {
   return scaleVector(
-    face.vertices.reduce<Vector3>(
-      (sum, vertex) => addVectors(sum, vertex),
-      [0, 0, 0],
-    ),
+    face.vertices.reduce<Vector3>((sum, vertex) => addVectors(sum, vertex), [0, 0, 0]),
     1 / face.vertices.length,
   );
 }
 
-function drawPolygon(
-  context: CanvasRenderingContext2D,
-  points: readonly Point2D[],
-) {
+function drawPolygon(context: CanvasRenderingContext2D, points: readonly Point2D[]) {
   const [firstPoint, ...remainingPoints] = points;
 
   context.beginPath();
@@ -383,10 +359,7 @@ function renderCubeUnitCanvas({
 
     return {
       color: getTailwindColorHex(faceColors[face.colorKey]),
-      depth: dotProduct(
-        projection.rotatePoint(getFaceCenter(face)),
-        projection.cameraDirection,
-      ),
+      depth: dotProduct(projection.rotatePoint(getFaceCenter(face)), projection.cameraDirection),
       points: face.vertices.map((vertex) => projection.projectPoint(vertex)),
     };
   }).filter((face) => face !== null);
@@ -452,10 +425,7 @@ function getFaceOnState({
   let visibleFaceDot = -1;
 
   for (const face of CUBE_FACES) {
-    const dot = dotProduct(
-      projection.rotatePoint(face.normal),
-      projection.cameraDirection,
-    );
+    const dot = dotProduct(projection.rotatePoint(face.normal), projection.cameraDirection);
     if (dot > visibleFaceDot) {
       visibleFace = face;
       visibleFaceDot = dot;
@@ -470,19 +440,13 @@ function getFaceOnState({
   for (let x = 0; x < GRID_SIZE; x += 1) {
     for (let y = 0; y < GRID_SIZE; y += 1) {
       for (let z = 0; z < GRID_SIZE; z += 1) {
-        projectedGridCenters.push(
-          projection.projectPoint(getMotifCenter([x, y, z])),
-        );
+        projectedGridCenters.push(projection.projectPoint(getMotifCenter([x, y, z])));
       }
     }
   }
 
-  const xRanks = getSortedProjectionRanks(
-    projectedGridCenters.map((point) => point.x),
-  );
-  const yRanks = getSortedProjectionRanks(
-    projectedGridCenters.map((point) => point.y),
-  );
+  const xRanks = getSortedProjectionRanks(projectedGridCenters.map((point) => point.x));
+  const yRanks = getSortedProjectionRanks(projectedGridCenters.map((point) => point.y));
   if (xRanks.length !== GRID_SIZE || yRanks.length !== GRID_SIZE) {
     return null;
   }
@@ -495,9 +459,7 @@ function getFaceOnState({
     }
 
     const point = projection.projectPoint(getMotifCenter(coordinate));
-    cells.add(
-      `${getProjectionRank(xRanks, point.x)},${getProjectionRank(yRanks, point.y)}`,
-    );
+    cells.add(`${getProjectionRank(xRanks, point.x)},${getProjectionRank(yRanks, point.y)}`);
   }
 
   return {
@@ -610,25 +572,14 @@ function renderFaceOnRecursiveImage({
 }
 
 function isWithinRasterGrid([x, y, z]: VoxelCoordinate): boolean {
-  return (
-    x >= 0 &&
-    x < GRID_SIZE &&
-    y >= 0 &&
-    y < GRID_SIZE &&
-    z >= 0 &&
-    z < GRID_SIZE
-  );
+  return x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE && z >= 0 && z < GRID_SIZE;
 }
 
 function offsetRasterCoordinate(
   coordinate: VoxelCoordinate,
   offset: VoxelCoordinate,
 ): VoxelCoordinate {
-  return [
-    coordinate[0] + offset[0],
-    coordinate[1] + offset[1],
-    coordinate[2] + offset[2],
-  ];
+  return [coordinate[0] + offset[0], coordinate[1] + offset[1], coordinate[2] + offset[2]];
 }
 
 function getRasterGridCoordinate(index: number): number {
@@ -637,16 +588,11 @@ function getRasterGridCoordinate(index: number): number {
 
 function getRasterDistanceProjectionHalfSize(distanceScale: number): number {
   const cellHalfSize = 0.5 / GRID_SIZE;
-  return (
-    cellHalfSize +
-    (0.5 - cellHalfSize) * normalizeLogoDistanceScale(distanceScale)
-  );
+  return cellHalfSize + (0.5 - cellHalfSize) * normalizeLogoDistanceScale(distanceScale);
 }
 
 function isDefaultRasterDistanceScale(distanceScale: number): boolean {
-  return (
-    normalizeLogoDistanceScale(distanceScale) === DEFAULT_LOGO_DISTANCE_SCALE
-  );
+  return normalizeLogoDistanceScale(distanceScale) === DEFAULT_LOGO_DISTANCE_SCALE;
 }
 
 function createRasterGridPoint({
@@ -711,26 +657,18 @@ function getRasterGridEdgeKey(from: RasterGridPoint, to: RasterGridPoint) {
   return `${getRasterGridPointKey(from)}:${getRasterGridPointKey(to)}`;
 }
 
-function areRasterGridPointsEqual(
-  left: RasterGridPoint,
-  right: RasterGridPoint,
-) {
+function areRasterGridPointsEqual(left: RasterGridPoint, right: RasterGridPoint) {
   return left.u === right.u && left.v === right.v;
 }
 
-function areRasterFaceCellsAdjacent(
-  left: RasterFaceCell,
-  right: RasterFaceCell,
-): boolean {
+function areRasterFaceCellsAdjacent(left: RasterFaceCell, right: RasterFaceCell): boolean {
   return (
     (left.u === right.u && Math.abs(left.v - right.v) === 1) ||
     (left.v === right.v && Math.abs(left.u - right.u) === 1)
   );
 }
 
-function collectRasterFaceCells(
-  filledVoxels: ReadonlySet<string>,
-): RasterFaceCell[] {
+function collectRasterFaceCells(filledVoxels: ReadonlySet<string>): RasterFaceCell[] {
   const cells: RasterFaceCell[] = [];
 
   for (const key of filledVoxels) {
@@ -740,10 +678,7 @@ function collectRasterFaceCells(
     }
 
     for (const faceDefinition of RASTER_FACE_DEFINITIONS) {
-      const neighbor = offsetRasterCoordinate(
-        coordinate,
-        faceDefinition.neighborOffset,
-      );
+      const neighbor = offsetRasterCoordinate(coordinate, faceDefinition.neighborOffset);
       if (filledVoxels.has(voxelKey(neighbor[0], neighbor[1], neighbor[2]))) {
         continue;
       }
@@ -801,9 +736,7 @@ function takeNextRasterBoundaryEdge(
   return null;
 }
 
-function getRasterMergedSurfaceLoops(
-  cells: readonly RasterFaceCell[],
-): RasterGridPoint[][] {
+function getRasterMergedSurfaceLoops(cells: readonly RasterFaceCell[]): RasterGridPoint[][] {
   const edges = new Map<string, RasterGridEdge>();
   for (const cell of cells) {
     const bottomLeft = { u: cell.u, v: cell.v };
@@ -863,8 +796,7 @@ function takeRasterConnectedSurface(
     component.push(currentCell);
     for (const candidate of cells.values()) {
       if (
-        getRasterFaceCellGroupKey(candidate) !==
-          getRasterFaceCellGroupKey(currentCell) ||
+        getRasterFaceCellGroupKey(candidate) !== getRasterFaceCellGroupKey(currentCell) ||
         !areRasterFaceCellsAdjacent(currentCell, candidate)
       ) {
         continue;
@@ -886,10 +818,7 @@ function buildRasterMergedSurfaces({
   projection: RasterProjection;
 }): RasterMergedSurface[] {
   const remainingCells = new Map(
-    collectRasterFaceCells(filledVoxels).map((cell) => [
-      getRasterFaceCellKey(cell),
-      cell,
-    ]),
+    collectRasterFaceCells(filledVoxels).map((cell) => [getRasterFaceCellKey(cell), cell]),
   );
   const mergedSurfaces: RasterMergedSurface[] = [];
 
@@ -1005,21 +934,13 @@ function collectDistanceScaledRasterFaces({
         continue;
       }
 
-      const faceCenter = addVectors(
-        item.center,
-        scaleRasterCubeLocalPoint(getFaceCenter(face)),
-      );
+      const faceCenter = addVectors(item.center, scaleRasterCubeLocalPoint(getFaceCenter(face)));
       faces.push({
         colorKey: face.colorKey,
-        depth: dotProduct(
-          projection.rotatePoint(faceCenter),
-          projection.cameraDirection,
-        ),
+        depth: dotProduct(projection.rotatePoint(faceCenter), projection.cameraDirection),
         key: `${item.key}:${face.colorKey}:${face.normal.join(",")}`,
         points: face.vertices.map((vertex) =>
-          projection.projectPoint(
-            addVectors(item.center, scaleRasterCubeLocalPoint(vertex)),
-          ),
+          projection.projectPoint(addVectors(item.center, scaleRasterCubeLocalPoint(vertex))),
         ),
       });
     }
@@ -1153,11 +1074,7 @@ function renderSurfaceMotifCanvas({
 }
 
 function getMotifCenter([x, y, z]: VoxelCoordinate): Vector3 {
-  return [
-    (x + 0.5) / GRID_SIZE - 0.5,
-    (y + 0.5) / GRID_SIZE - 0.5,
-    (z + 0.5) / GRID_SIZE - 0.5,
-  ];
+  return [(x + 0.5) / GRID_SIZE - 0.5, (y + 0.5) / GRID_SIZE - 0.5, (z + 0.5) / GRID_SIZE - 0.5];
 }
 
 function getMotifDrawItems({
@@ -1180,16 +1097,10 @@ function getMotifDrawItems({
       continue;
     }
 
-    const center = scaleVector(
-      getMotifCenter(coordinate),
-      normalizedDistanceScale,
-    );
+    const center = scaleVector(getMotifCenter(coordinate), normalizedDistanceScale);
     drawItems.push({
       center,
-      depth: dotProduct(
-        projection.rotatePoint(center),
-        projection.cameraDirection,
-      ),
+      depth: dotProduct(projection.rotatePoint(center), projection.cameraDirection),
       key,
     });
   }
@@ -1203,14 +1114,8 @@ function getMotifDrawItems({
       Math.max((performance.now() - move.startTimeMs) / move.durationMs, 0),
       1,
     );
-    const startCenter = scaleVector(
-      getMotifCenter(move.from),
-      normalizedDistanceScale,
-    );
-    const endCenter = scaleVector(
-      getMotifCenter(move.to),
-      normalizedDistanceScale,
-    );
+    const startCenter = scaleVector(getMotifCenter(move.from), normalizedDistanceScale);
+    const endCenter = scaleVector(getMotifCenter(move.to), normalizedDistanceScale);
     const travelProgress = easeInOutCubic(progress);
     const center: Vector3 = [
       startCenter[0] + (endCenter[0] - startCenter[0]) * travelProgress,
@@ -1220,10 +1125,7 @@ function getMotifDrawItems({
 
     drawItems.push({
       center,
-      depth: dotProduct(
-        projection.rotatePoint(center),
-        projection.cameraDirection,
-      ),
+      depth: dotProduct(projection.rotatePoint(center), projection.cameraDirection),
       key: `${move.fromKey}->${move.toKey}`,
     });
   }
@@ -1314,9 +1216,7 @@ function getRasterLevelSize({
 }
 
 function easeInOutCubic(value: number): number {
-  return value < 0.5
-    ? 4 * value * value * value
-    : 1 - Math.pow(-2 * value + 2, 3) / 2;
+  return value < 0.5 ? 4 * value * value * value : 1 - Math.pow(-2 * value + 2, 3) / 2;
 }
 
 function renderRasterRecursiveImage({
@@ -1345,9 +1245,7 @@ function renderRasterRecursiveImage({
   rotationDegrees: number;
 }): HTMLCanvasElement {
   const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
-  const worldHalfSize = getRasterDistanceProjectionHalfSize(
-    normalizedDistanceScale,
-  );
+  const worldHalfSize = getRasterDistanceProjectionHalfSize(normalizedDistanceScale);
   const exactCellSize = getRasterExactCellSize({
     depth,
     outputSizePx,
@@ -1458,9 +1356,7 @@ function renderRasterScene({
   rotationDegrees: number;
 }) {
   const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
-  const worldHalfSize = getRasterDistanceProjectionHalfSize(
-    normalizedDistanceScale,
-  );
+  const worldHalfSize = getRasterDistanceProjectionHalfSize(normalizedDistanceScale);
   const sizePx = getCanvasBackingSize(canvas);
   if (canvas.width !== sizePx) {
     canvas.width = sizePx;
@@ -1519,8 +1415,7 @@ function renderRasterScene({
 }
 
 function createRasterMotionState(voxelState: string): RasterMotionState {
-  const homeFilledVoxels =
-    parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet();
+  const homeFilledVoxels = parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet();
   return {
     activeMoves: [],
     currentFilledVoxels: new Set(homeFilledVoxels),
@@ -1567,16 +1462,13 @@ function scheduleNextRasterMove({
     return false;
   }
 
-  const nextMove =
-    originCandidates[Math.floor(Math.random() * originCandidates.length)];
+  const nextMove = originCandidates[Math.floor(Math.random() * originCandidates.length)];
   if (nextMove.destinations.length === 0) {
     return false;
   }
 
   const toCoordinate =
-    nextMove.destinations[
-      Math.floor(Math.random() * nextMove.destinations.length)
-    ];
+    nextMove.destinations[Math.floor(Math.random() * nextMove.destinations.length)];
   const toKey = voxelKey(toCoordinate[0], toCoordinate[1], toCoordinate[2]);
   motion.activeMoves.push({
     durationMs: SHUFFLE_MOVE_DURATION_MS,
@@ -1620,9 +1512,7 @@ function syncRasterMotion({
 
   if (completedMoves.length > 0) {
     const completedMoveSet = new Set(completedMoves);
-    motion.activeMoves = motion.activeMoves.filter(
-      (move) => !completedMoveSet.has(move),
-    );
+    motion.activeMoves = motion.activeMoves.filter((move) => !completedMoveSet.has(move));
     for (const move of completedMoves) {
       motion.currentFilledVoxels.add(move.toKey);
       motion.lastMovedKey = move.toKey;
@@ -1635,8 +1525,7 @@ function syncRasterMotion({
       motion,
       rotationAxisMode,
       rotationDegrees,
-      startTimeMs:
-        timestampMs + motion.activeMoves.length * SHUFFLE_MOVE_STAGGER_MS,
+      startTimeMs: timestampMs + motion.activeMoves.length * SHUFFLE_MOVE_STAGGER_MS,
     });
     if (!didScheduleMove) {
       break;
@@ -1806,10 +1695,7 @@ export function NLogoRasterScene({
     const deltaX = event.clientX - interaction.startX;
     const deltaY = event.clientY - interaction.startY;
 
-    if (
-      interaction.status === "pending" &&
-      Math.hypot(deltaX, deltaY) >= DRAG_THRESHOLD_PX
-    ) {
+    if (interaction.status === "pending" && Math.hypot(deltaX, deltaY) >= DRAG_THRESHOLD_PX) {
       interactionRef.current.status = "dragging";
       onInteractionStart?.();
     }
@@ -1824,11 +1710,9 @@ export function NLogoRasterScene({
         disableSnap: event.altKey || event.shiftKey,
         view: {
           elevationDegrees:
-            interaction.startElevationDegrees +
-            deltaY * DRAG_ELEVATION_DEGREES_PER_PIXEL,
+            interaction.startElevationDegrees + deltaY * DRAG_ELEVATION_DEGREES_PER_PIXEL,
           rotationDegrees:
-            interaction.startRotationDegrees +
-            deltaX * DRAG_ROTATION_DEGREES_PER_PIXEL,
+            interaction.startRotationDegrees + deltaX * DRAG_ROTATION_DEGREES_PER_PIXEL,
         },
       }),
     );
@@ -1836,10 +1720,7 @@ export function NLogoRasterScene({
 
   const handlePointerUp = (event: PointerEvent<HTMLCanvasElement>) => {
     const interaction = interactionRef.current;
-    if (
-      interaction.pointerId !== event.pointerId ||
-      interaction.button === null
-    ) {
+    if (interaction.pointerId !== event.pointerId || interaction.button === null) {
       return;
     }
 

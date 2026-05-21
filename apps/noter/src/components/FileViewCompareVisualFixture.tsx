@@ -8,9 +8,7 @@ import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { getReviewSplitDiffHighlights } from "@/lib/reviewSplitDiff";
 
-export type FileViewCompareVisualMode =
-  | "file-view-compare-sidebar"
-  | "file-view-compare-loading";
+export type FileViewCompareVisualMode = "file-view-compare-sidebar" | "file-view-compare-loading";
 
 const COMPARED_TREE_ITEMS = [
   {
@@ -57,16 +55,9 @@ const COMPARE_TEXT_NEXT = `export function shouldClearCompareOnReviewExit(args: 
 // affordance as the live sidebar without introducing fixture-only behavior.
 const NOOP_ON_FILE_RESTORE = () => {};
 
-export function FileViewCompareVisualFixture({
-  mode,
-}: {
-  mode: FileViewCompareVisualMode;
-}) {
+export function FileViewCompareVisualFixture({ mode }: { mode: FileViewCompareVisualMode }) {
   const isLoadingMode = mode === "file-view-compare-loading";
-  const splitDiffHighlights = getReviewSplitDiffHighlights(
-    COMPARE_TEXT_BASE,
-    COMPARE_TEXT_NEXT,
-  );
+  const splitDiffHighlights = getReviewSplitDiffHighlights(COMPARE_TEXT_BASE, COMPARE_TEXT_NEXT);
 
   return (
     <div
@@ -112,12 +103,7 @@ export function FileViewCompareVisualFixture({
                   selectedFile="src/lib/reviewDiffControls.ts"
                   restoringFilePath={null}
                   folderExpansionStates={[]}
-                  autoExpandedPaths={[
-                    "docs",
-                    "src",
-                    "src/components",
-                    "src/lib",
-                  ]}
+                  autoExpandedPaths={["docs", "src", "src/components", "src/lib"]}
                   forceAutoExpandedPaths={true}
                   onFileRestore={NOOP_ON_FILE_RESTORE}
                 />
@@ -138,19 +124,15 @@ export function FileViewCompareVisualFixture({
                       src/lib/reviewDiffControls.ts
                     </div>
                     <div className="mt-1 text-xs text-slate-500">
-                      Compare-only added PR files should keep the same diff
-                      controls as staged review files.
+                      Compare-only added PR files should keep the same diff controls as staged
+                      review files.
                     </div>
                   </div>
 
                   <div className="border-b border-slate-200 px-4 py-3">
                     <div className="flex flex-wrap gap-x-4 gap-y-2">
                       <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="fixture-compare-show-patch"
-                          checked={false}
-                          disabled
-                        />
+                        <Checkbox id="fixture-compare-show-patch" checked={false} disabled />
                         <Label
                           htmlFor="fixture-compare-show-patch"
                           className="text-xs font-medium text-slate-500"
@@ -159,11 +141,7 @@ export function FileViewCompareVisualFixture({
                         </Label>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="fixture-compare-inline-diffs"
-                          checked={false}
-                          disabled
-                        />
+                        <Checkbox id="fixture-compare-inline-diffs" checked={false} disabled />
                         <Label
                           htmlFor="fixture-compare-inline-diffs"
                           className="text-xs font-medium text-slate-500"
@@ -172,11 +150,7 @@ export function FileViewCompareVisualFixture({
                         </Label>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="fixture-compare-side-by-side"
-                          checked={true}
-                          disabled
-                        />
+                        <Checkbox id="fixture-compare-side-by-side" checked={true} disabled />
                         <Label
                           htmlFor="fixture-compare-side-by-side"
                           className="text-xs font-medium text-slate-500"
@@ -185,11 +159,7 @@ export function FileViewCompareVisualFixture({
                         </Label>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="fixture-compare-syntax-deleted"
-                          checked={true}
-                          disabled
-                        />
+                        <Checkbox id="fixture-compare-syntax-deleted" checked={true} disabled />
                         <Label
                           htmlFor="fixture-compare-syntax-deleted"
                           className="text-xs font-medium text-slate-500"

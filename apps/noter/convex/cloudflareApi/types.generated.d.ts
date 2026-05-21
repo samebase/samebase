@@ -18,9 +18,9 @@ export type Readable<T> =
         ? Readable<E>[]
         : T extends object
           ? {
-              [K in keyof T as NonNullable<T[K]> extends $Write<unknown>
-                ? never
-                : K]: Readable<T[K]>;
+              [K in keyof T as NonNullable<T[K]> extends $Write<unknown> ? never : K]: Readable<
+                T[K]
+              >;
             }
           : T;
 export type Writable<T> =
@@ -32,13 +32,11 @@ export type Writable<T> =
         ? Writable<E>[]
         : T extends object
           ? {
-              [K in keyof T as NonNullable<T[K]> extends $Read<unknown>
-                ? never
-                : K]: Writable<T[K]>;
+              [K in keyof T as NonNullable<T[K]> extends $Read<unknown> ? never : K]: Writable<
+                T[K]
+              >;
             } & {
-              [K in keyof T as NonNullable<T[K]> extends $Read<unknown>
-                ? K
-                : never]?: never;
+              [K in keyof T as NonNullable<T[K]> extends $Read<unknown> ? K : never]?: never;
             }
           : T;
 export interface paths {
@@ -2145,12 +2143,7 @@ export interface components {
      * @example success
      * @enum {string}
      */
-    builds_BuildOutcome:
-      | "success"
-      | "fail"
-      | "skipped"
-      | "cancelled"
-      | "terminated";
+    builds_BuildOutcome: "success" | "fail" | "skipped" | "cancelled" | "terminated";
     builds_BuildTriggerMetadataResponse: {
       /** @example developer@cloudflare.com */
       author?: string;
@@ -2345,9 +2338,7 @@ export interface components {
       env_worker_names?: {
         [key: string]: string;
       } | null;
-      package_manager?:
-        | (string & components["schemas"]["builds_PackageManager"])
-        | null;
+      package_manager?: (string & components["schemas"]["builds_PackageManager"]) | null;
       /**
        * @example {
        *       "build": "npm run build",
@@ -2738,8 +2729,7 @@ export interface components {
       observability?: components["schemas"]["workers_observability"];
       placement?: components["schemas"]["workers_placement_info"];
       placement_mode?: components["schemas"]["workers_placement_mode"] & string;
-      placement_status?: components["schemas"]["workers_placement_status"] &
-        string;
+      placement_status?: components["schemas"]["workers_placement_status"] & string;
       /**
        * @description The immutable ID of the script.
        * @example e8f70fdbc8b1fb0b8ddb1af166186758
@@ -2975,10 +2965,7 @@ export interface components {
      * @description Status of [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement).
      * @enum {string}
      */
-    workers_placement_status:
-      | "SUCCESS"
-      | "UNSUPPORTED_APPLICATION"
-      | "INSUFFICIENT_INVOCATIONS";
+    workers_placement_status: "SUCCESS" | "UNSUPPORTED_APPLICATION" | "INSUFFICIENT_INVOCATIONS";
     /**
      * @description Configuration for [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement). Specify mode='smart' for Smart Placement, or one of region/hostname/host.
      * @enum {string}
@@ -2995,9 +2982,7 @@ export interface components {
     /** @example my-tag */
     workers_tag: string;
     /** @description List of Workers that will consume logs from the attached Worker. */
-    workers_tail_consumers:
-      | components["schemas"]["workers_tail_consumers_script"][]
-      | null;
+    workers_tail_consumers: components["schemas"]["workers_tail_consumers_script"][] | null;
     /** @description A reference to a script that will consume logs from the attached Worker. */
     workers_tail_consumers_script: {
       /**
@@ -3865,10 +3850,7 @@ export interface components {
        *     - Omit to leave unchanged.
        */
       secrets?: {
-        [key: string]: Omit<
-          components["schemas"]["workers_secret"],
-          "type"
-        > | null;
+        [key: string]: Omit<components["schemas"]["workers_secret"], "type"> | null;
       };
       /** @description Optional version tags to apply to the new script version. */
       version_tags?: {
@@ -4706,9 +4688,7 @@ export interface components {
         (Record<string, unknown> | null);
       tags?: components["schemas"]["workers_tags"];
       /** @description List of Workers that will consume logs from the attached Worker. */
-      tail_consumers?:
-        | components["schemas"]["workers_tail_consumers_script"][]
-        | null;
+      tail_consumers?: components["schemas"]["workers_tail_consumers_script"][] | null;
     };
     "workers_script-and-version-settings-response": components["schemas"]["workers_api-response-common"] & {
       result: components["schemas"]["workers_script-and-version-settings-item"];
@@ -5794,160 +5774,111 @@ export interface components {
 }
 export type IamResponseCollectionAccounts =
   components["schemas"]["iam_response_collection_accounts"];
-export type IamApiResponseCollection =
-  components["schemas"]["iam_api-response-collection"];
-export type IamApiResponseCommon =
-  components["schemas"]["iam_api-response-common"];
+export type IamApiResponseCollection = components["schemas"]["iam_api-response-collection"];
+export type IamApiResponseCommon = components["schemas"]["iam_api-response-common"];
 export type IamSchemasMessages = components["schemas"]["iam_schemas-messages"];
 export type IamResultInfo = components["schemas"]["iam_result_info"];
 export type IamAccount = components["schemas"]["iam_account"];
 export type IamCommonComponentsSchemasIdentifier =
   components["schemas"]["iam_common_components-schemas-identifier"];
 export type IamAccountType = components["schemas"]["iam_account-type"];
-export type IamApiResponseCommonFailure =
-  components["schemas"]["iam_api-response-common-failure"];
+export type IamApiResponseCommonFailure = components["schemas"]["iam_api-response-common-failure"];
 export type IamCreateAccount = components["schemas"]["iam_create-account"];
-export type IamResponseSingleAccount =
-  components["schemas"]["iam_response_single_account"];
-export type IamApiResponseSingle =
-  components["schemas"]["iam_api-response-single"];
+export type IamResponseSingleAccount = components["schemas"]["iam_response_single_account"];
+export type IamApiResponseSingle = components["schemas"]["iam_api-response-single"];
 export type BuildsAccountId = components["schemas"]["builds_account_id"];
 export type BuildsApiResponse = components["schemas"]["builds_APIResponse"];
-export type BuildsPaginationInfo =
-  components["schemas"]["builds_PaginationInfo"];
-export type BuildsGetAccountLimitResponse =
-  components["schemas"]["builds_GetAccountLimitResponse"];
+export type BuildsPaginationInfo = components["schemas"]["builds_PaginationInfo"];
+export type BuildsGetAccountLimitResponse = components["schemas"]["builds_GetAccountLimitResponse"];
 export type BuildsVersionIds = components["schemas"]["builds_version_ids"];
-export type BuildsBuildsByVersionResponse =
-  components["schemas"]["builds_BuildsByVersionResponse"];
+export type BuildsBuildsByVersionResponse = components["schemas"]["builds_BuildsByVersionResponse"];
 export type BuildsBuildResponse = components["schemas"]["builds_BuildResponse"];
 export type BuildsBuildOutcome = components["schemas"]["builds_BuildOutcome"];
 export type BuildsBuildTriggerMetadataResponse =
   components["schemas"]["builds_BuildTriggerMetadataResponse"];
 export type BuildsBranch = components["schemas"]["builds_branch"];
 export type BuildsBuildCommand = components["schemas"]["builds_build_command"];
-export type BuildsBuildTokenName =
-  components["schemas"]["builds_build_token_name"];
-export type BuildsBuildTokenUuid =
-  components["schemas"]["builds_build_token_uuid"];
-export type BuildsBuildTriggerSource =
-  components["schemas"]["builds_BuildTriggerSource"];
+export type BuildsBuildTokenName = components["schemas"]["builds_build_token_name"];
+export type BuildsBuildTokenUuid = components["schemas"]["builds_build_token_uuid"];
+export type BuildsBuildTriggerSource = components["schemas"]["builds_BuildTriggerSource"];
 export type BuildsCommitHash = components["schemas"]["builds_commit_hash"];
-export type BuildsDeployCommand =
-  components["schemas"]["builds_deploy_command"];
-export type BuildsProviderAccountName =
-  components["schemas"]["builds_provider_account_name"];
-export type BuildsScmProviderType =
-  components["schemas"]["builds_SCMProviderType"];
+export type BuildsDeployCommand = components["schemas"]["builds_deploy_command"];
+export type BuildsProviderAccountName = components["schemas"]["builds_provider_account_name"];
+export type BuildsScmProviderType = components["schemas"]["builds_SCMProviderType"];
 export type BuildsRepoName = components["schemas"]["builds_repo_name"];
-export type BuildsRootDirectory =
-  components["schemas"]["builds_root_directory"];
+export type BuildsRootDirectory = components["schemas"]["builds_root_directory"];
 export type BuildsBuildUuid = components["schemas"]["builds_build_uuid"];
 export type BuildsCreatedOn = components["schemas"]["builds_created_on"];
 export type BuildsModifiedOn = components["schemas"]["builds_modified_on"];
 export type BuildsBuildStatus = components["schemas"]["builds_BuildStatus"];
 export type BuildsStoppedOn = components["schemas"]["builds_stopped_on"];
-export type BuildsBranchExcludes =
-  components["schemas"]["builds_branch_excludes"];
-export type BuildsBranchIncludes =
-  components["schemas"]["builds_branch_includes"];
-export type BuildsBuildCachingEnabled =
-  components["schemas"]["builds_build_caching_enabled"];
+export type BuildsBranchExcludes = components["schemas"]["builds_branch_excludes"];
+export type BuildsBranchIncludes = components["schemas"]["builds_branch_includes"];
+export type BuildsBuildCachingEnabled = components["schemas"]["builds_build_caching_enabled"];
 export type BuildsDeletedOn = components["schemas"]["builds_deleted_on"];
-export type BuildsExternalScriptId =
-  components["schemas"]["builds_external_script_id"];
+export type BuildsExternalScriptId = components["schemas"]["builds_external_script_id"];
 export type BuildsPathExcludes = components["schemas"]["builds_path_excludes"];
 export type BuildsPathIncludes = components["schemas"]["builds_path_includes"];
 export type BuildsUpsertRepoConnectionResponse =
   components["schemas"]["builds_UpsertRepoConnectionResponse"];
-export type BuildsProviderAccountId =
-  components["schemas"]["builds_provider_account_id"];
-export type BuildsRepoConnectionUuid =
-  components["schemas"]["builds_repo_connection_uuid"];
+export type BuildsProviderAccountId = components["schemas"]["builds_provider_account_id"];
+export type BuildsRepoConnectionUuid = components["schemas"]["builds_repo_connection_uuid"];
 export type BuildsRepoId = components["schemas"]["builds_repo_id"];
 export type BuildsTriggerName = components["schemas"]["builds_trigger_name"];
 export type BuildsTriggerUuid = components["schemas"]["builds_trigger_uuid"];
 export type BuildsErrorResponse = components["schemas"]["builds_ErrorResponse"];
-export type BuildsCanceledBuildResponse =
-  components["schemas"]["builds_CanceledBuildResponse"];
+export type BuildsCanceledBuildResponse = components["schemas"]["builds_CanceledBuildResponse"];
 export type BuildsCursor = components["schemas"]["builds_cursor"];
-export type BuildsBuildLogsResponse =
-  components["schemas"]["builds_BuildLogsResponse"];
-export type BuildsExternalScriptIds =
-  components["schemas"]["builds_external_script_ids"];
-export type BuildsLatestBuildsResponse =
-  components["schemas"]["builds_LatestBuildsResponse"];
-export type BuildsConfigAutofillResponse =
-  components["schemas"]["builds_ConfigAutofillResponse"];
-export type BuildsPackageManager =
-  components["schemas"]["builds_PackageManager"];
+export type BuildsBuildLogsResponse = components["schemas"]["builds_BuildLogsResponse"];
+export type BuildsExternalScriptIds = components["schemas"]["builds_external_script_ids"];
+export type BuildsLatestBuildsResponse = components["schemas"]["builds_LatestBuildsResponse"];
+export type BuildsConfigAutofillResponse = components["schemas"]["builds_ConfigAutofillResponse"];
+export type BuildsPackageManager = components["schemas"]["builds_PackageManager"];
 export type BuildsUpsertRepoConnectionRequest =
   components["schemas"]["builds_UpsertRepoConnectionRequest"];
-export type BuildsListTokensResponse =
-  components["schemas"]["builds_ListTokensResponse"];
-export type BuildsCloudflareTokenId =
-  components["schemas"]["builds_cloudflare_token_id"];
+export type BuildsListTokensResponse = components["schemas"]["builds_ListTokensResponse"];
+export type BuildsCloudflareTokenId = components["schemas"]["builds_cloudflare_token_id"];
 export type BuildsOwnerType = components["schemas"]["builds_owner_type"];
-export type BuildsCreateBuildTokenRequest =
-  components["schemas"]["builds_CreateBuildTokenRequest"];
+export type BuildsCreateBuildTokenRequest = components["schemas"]["builds_CreateBuildTokenRequest"];
 export type BuildsCreateBuildTokenResponse =
   components["schemas"]["builds_CreateBuildTokenResponse"];
-export type BuildsCreateTriggerRequest =
-  components["schemas"]["builds_CreateTriggerRequest"];
-export type BuildsTriggerResponse =
-  components["schemas"]["builds_TriggerResponse"];
-export type BuildsUpdateTriggerRequest =
-  components["schemas"]["builds_UpdateTriggerRequest"];
-export type BuildsCreateBuildRequest =
-  components["schemas"]["builds_CreateBuildRequest"];
-export type BuildsBuildSeedRepoInput =
-  components["schemas"]["builds_BuildSeedRepoInput"];
-export type BuildsBuildSeedRepoInputFile =
-  components["schemas"]["builds_BuildSeedRepoInputFile"];
-export type BuildsInsertBuildResponse =
-  components["schemas"]["builds_InsertBuildResponse"];
+export type BuildsCreateTriggerRequest = components["schemas"]["builds_CreateTriggerRequest"];
+export type BuildsTriggerResponse = components["schemas"]["builds_TriggerResponse"];
+export type BuildsUpdateTriggerRequest = components["schemas"]["builds_UpdateTriggerRequest"];
+export type BuildsCreateBuildRequest = components["schemas"]["builds_CreateBuildRequest"];
+export type BuildsBuildSeedRepoInput = components["schemas"]["builds_BuildSeedRepoInput"];
+export type BuildsBuildSeedRepoInputFile = components["schemas"]["builds_BuildSeedRepoInputFile"];
+export type BuildsInsertBuildResponse = components["schemas"]["builds_InsertBuildResponse"];
 export type BuildsEnvironmentVariablesResponse =
   components["schemas"]["builds_EnvironmentVariablesResponse"];
 export type BuildsIsSecret = components["schemas"]["builds_is_secret"];
 export type BuildsEnvironmentVariablesRequest =
   components["schemas"]["builds_EnvironmentVariablesRequest"];
-export type BuildsEnvironmentVariableKey =
-  components["schemas"]["builds_environment_variable_key"];
+export type BuildsEnvironmentVariableKey = components["schemas"]["builds_environment_variable_key"];
 export type BuildsScriptName = components["schemas"]["builds_script_name"];
 export type BuildsDetailedDeployHookResponse =
   components["schemas"]["builds_DetailedDeployHookResponse"];
-export type BuildsDeployHookName =
-  components["schemas"]["builds_deploy_hook_name"];
-export type BuildsDeployHookUuid =
-  components["schemas"]["builds_deploy_hook_uuid"];
-export type BuildsCreateDeployHookRequest =
-  components["schemas"]["builds_CreateDeployHookRequest"];
-export type BuildsDeployHookResponse =
-  components["schemas"]["builds_DeployHookResponse"];
+export type BuildsDeployHookName = components["schemas"]["builds_deploy_hook_name"];
+export type BuildsDeployHookUuid = components["schemas"]["builds_deploy_hook_uuid"];
+export type BuildsCreateDeployHookRequest = components["schemas"]["builds_CreateDeployHookRequest"];
+export type BuildsDeployHookResponse = components["schemas"]["builds_DeployHookResponse"];
 export type WorkersIdentifier = components["schemas"]["workers_identifier"];
-export type WorkersApiResponseCommon =
-  components["schemas"]["workers_api-response-common"];
+export type WorkersApiResponseCommon = components["schemas"]["workers_api-response-common"];
 export type WorkersMessages = components["schemas"]["workers_messages"];
-export type WorkersAccountSettings =
-  components["schemas"]["workers_account-settings"];
+export type WorkersAccountSettings = components["schemas"]["workers_account-settings"];
 export type WorkersApiResponseCommonFailure =
   components["schemas"]["workers_api-response-common-failure"];
 export type WorkersCompletedUploadAssetsResponse =
   components["schemas"]["workers_completed-upload-assets-response"];
-export type WorkersUploadAssetsResponse =
-  components["schemas"]["workers_upload-assets-response"];
-export type WorkersNamespaceListResponse =
-  components["schemas"]["workers_namespace-list-response"];
-export type WorkersNamespaceResponse =
-  components["schemas"]["workers_namespace-response"];
+export type WorkersUploadAssetsResponse = components["schemas"]["workers_upload-assets-response"];
+export type WorkersNamespaceListResponse = components["schemas"]["workers_namespace-list-response"];
+export type WorkersNamespaceResponse = components["schemas"]["workers_namespace-response"];
 export type WorkersCreatedOn = components["schemas"]["workers_created_on"];
 export type WorkersModifiedOn = components["schemas"]["workers_modified_on"];
 export type WorkersUuid = components["schemas"]["workers_uuid"];
-export type WorkersDispatchNamespaceName =
-  components["schemas"]["workers_dispatch_namespace_name"];
+export type WorkersDispatchNamespaceName = components["schemas"]["workers_dispatch_namespace_name"];
 export type WorkersScriptCount = components["schemas"]["workers_script_count"];
-export type WorkersTrustedWorkers =
-  components["schemas"]["workers_trusted_workers"];
+export type WorkersTrustedWorkers = components["schemas"]["workers_trusted_workers"];
 export type WorkersNamespaceSingleResponse =
   components["schemas"]["workers_namespace-single-response"];
 export type WorkersApiResponseNullResult =
@@ -5956,110 +5887,74 @@ export type WorkersNamespaceScriptDeleteBulkResponse =
   components["schemas"]["workers_namespace-script-delete-bulk-response"];
 export type WorkersNamespaceScriptResponse =
   components["schemas"]["workers_namespace-script-response"];
-export type WorkersScriptResponse =
-  components["schemas"]["workers_script-response"];
-export type WorkersCompatibilityDate =
-  components["schemas"]["workers_compatibility_date"];
-export type WorkersCompatibilityFlags =
-  components["schemas"]["workers_compatibility_flags"];
-export type WorkersCompatibilityFlag =
-  components["schemas"]["workers_compatibility_flag"];
+export type WorkersScriptResponse = components["schemas"]["workers_script-response"];
+export type WorkersCompatibilityDate = components["schemas"]["workers_compatibility_date"];
+export type WorkersCompatibilityFlags = components["schemas"]["workers_compatibility_flags"];
+export type WorkersCompatibilityFlag = components["schemas"]["workers_compatibility_flag"];
 export type WorkersEtag = components["schemas"]["workers_etag"];
 export type WorkersHasAssets = components["schemas"]["workers_has_assets"];
 export type WorkersHasModules = components["schemas"]["workers_has_modules"];
 export type WorkersLogpush = components["schemas"]["workers_logpush"];
-export type WorkersObservability =
-  components["schemas"]["workers_observability"];
-export type WorkersPlacementInfo =
-  components["schemas"]["workers_placement_info"];
-export type WorkersPlacementTarget =
-  components["schemas"]["workers_placement_target"];
-export type WorkersPlacementStatus =
-  components["schemas"]["workers_placement_status"];
-export type WorkersPlacementMode =
-  components["schemas"]["workers_placement_mode"];
+export type WorkersObservability = components["schemas"]["workers_observability"];
+export type WorkersPlacementInfo = components["schemas"]["workers_placement_info"];
+export type WorkersPlacementTarget = components["schemas"]["workers_placement_target"];
+export type WorkersPlacementStatus = components["schemas"]["workers_placement_status"];
+export type WorkersPlacementMode = components["schemas"]["workers_placement_mode"];
 export type WorkersTags = components["schemas"]["workers_tags"];
 export type WorkersTag = components["schemas"]["workers_tag"];
-export type WorkersTailConsumers =
-  components["schemas"]["workers_tail_consumers"];
-export type WorkersTailConsumersScript =
-  components["schemas"]["workers_tail_consumers_script"];
+export type WorkersTailConsumers = components["schemas"]["workers_tail_consumers"];
+export type WorkersTailConsumersScript = components["schemas"]["workers_tail_consumers_script"];
 export type WorkersUsageModel = components["schemas"]["workers_usage_model"];
 export type WorkersScriptName = components["schemas"]["workers_script_name"];
 export type WorkersNamespaceScriptResponseSingle =
   components["schemas"]["workers_namespace-script-response-single"];
-export type WorkersMultipartScript =
-  components["schemas"]["workers_multipart-script"];
+export type WorkersMultipartScript = components["schemas"]["workers_multipart-script"];
 export type WorkersAssets = components["schemas"]["workers_assets"];
 export type WorkersBindings = components["schemas"]["workers_bindings"];
 export type WorkersBindingItem = components["schemas"]["workers_binding_item"];
-export type WorkersBindingKindAi =
-  components["schemas"]["workers_binding_kind_ai"];
+export type WorkersBindingKindAi = components["schemas"]["workers_binding_kind_ai"];
 export type WorkersBindingName = components["schemas"]["workers_binding_name"];
-export type WorkersBindingKindAiSearch =
-  components["schemas"]["workers_binding_kind_ai_search"];
+export type WorkersBindingKindAiSearch = components["schemas"]["workers_binding_kind_ai_search"];
 export type WorkersBindingKindAiSearchNamespace =
   components["schemas"]["workers_binding_kind_ai_search_namespace"];
 export type WorkersBindingKindAnalyticsEngine =
   components["schemas"]["workers_binding_kind_analytics_engine"];
-export type WorkersBindingKindAssets =
-  components["schemas"]["workers_binding_kind_assets"];
-export type WorkersBindingKindBrowser =
-  components["schemas"]["workers_binding_kind_browser"];
-export type WorkersBindingKindD1 =
-  components["schemas"]["workers_binding_kind_d1"];
-export type WorkersBindingKindDataBlob =
-  components["schemas"]["workers_binding_kind_data_blob"];
+export type WorkersBindingKindAssets = components["schemas"]["workers_binding_kind_assets"];
+export type WorkersBindingKindBrowser = components["schemas"]["workers_binding_kind_browser"];
+export type WorkersBindingKindD1 = components["schemas"]["workers_binding_kind_d1"];
+export type WorkersBindingKindDataBlob = components["schemas"]["workers_binding_kind_data_blob"];
 export type WorkersBindingKindDispatchNamespace =
   components["schemas"]["workers_binding_kind_dispatch_namespace"];
 export type WorkersBindingKindDurableObjectNamespace =
   components["schemas"]["workers_binding_kind_durable_object_namespace"];
-export type WorkersNamespaceIdentifier =
-  components["schemas"]["workers_namespace_identifier"];
-export type WorkersBindingKindHyperdrive =
-  components["schemas"]["workers_binding_kind_hyperdrive"];
-export type WorkersBindingKindInherit =
-  components["schemas"]["workers_binding_kind_inherit"];
-export type WorkersBindingKindImages =
-  components["schemas"]["workers_binding_kind_images"];
-export type WorkersBindingKindJson =
-  components["schemas"]["workers_binding_kind_json"];
+export type WorkersNamespaceIdentifier = components["schemas"]["workers_namespace_identifier"];
+export type WorkersBindingKindHyperdrive = components["schemas"]["workers_binding_kind_hyperdrive"];
+export type WorkersBindingKindInherit = components["schemas"]["workers_binding_kind_inherit"];
+export type WorkersBindingKindImages = components["schemas"]["workers_binding_kind_images"];
+export type WorkersBindingKindJson = components["schemas"]["workers_binding_kind_json"];
 export type WorkersBindingKindKvNamespace =
   components["schemas"]["workers_binding_kind_kv_namespace"];
-export type WorkersBindingKindMedia =
-  components["schemas"]["workers_binding_kind_media"];
+export type WorkersBindingKindMedia = components["schemas"]["workers_binding_kind_media"];
 export type WorkersBindingKindMtlsCertificate =
   components["schemas"]["workers_binding_kind_mtls_certificate"];
-export type WorkersBindingKindPlainText =
-  components["schemas"]["workers_binding_kind_plain_text"];
-export type WorkersBindingKindPipelines =
-  components["schemas"]["workers_binding_kind_pipelines"];
-export type WorkersBindingKindQueue =
-  components["schemas"]["workers_binding_kind_queue"];
-export type WorkersBindingKindRatelimit =
-  components["schemas"]["workers_binding_kind_ratelimit"];
-export type WorkersBindingKindR2Bucket =
-  components["schemas"]["workers_binding_kind_r2_bucket"];
+export type WorkersBindingKindPlainText = components["schemas"]["workers_binding_kind_plain_text"];
+export type WorkersBindingKindPipelines = components["schemas"]["workers_binding_kind_pipelines"];
+export type WorkersBindingKindQueue = components["schemas"]["workers_binding_kind_queue"];
+export type WorkersBindingKindRatelimit = components["schemas"]["workers_binding_kind_ratelimit"];
+export type WorkersBindingKindR2Bucket = components["schemas"]["workers_binding_kind_r2_bucket"];
 export type WorkersBindingKindSecretText =
   components["schemas"]["workers_binding_kind_secret_text"];
-export type WorkersBindingKindSendEmail =
-  components["schemas"]["workers_binding_kind_send_email"];
-export type WorkersBindingKindService =
-  components["schemas"]["workers_binding_kind_service"];
-export type WorkersBindingKindTextBlob =
-  components["schemas"]["workers_binding_kind_text_blob"];
-export type WorkersBindingKindVectorize =
-  components["schemas"]["workers_binding_kind_vectorize"];
+export type WorkersBindingKindSendEmail = components["schemas"]["workers_binding_kind_send_email"];
+export type WorkersBindingKindService = components["schemas"]["workers_binding_kind_service"];
+export type WorkersBindingKindTextBlob = components["schemas"]["workers_binding_kind_text_blob"];
+export type WorkersBindingKindVectorize = components["schemas"]["workers_binding_kind_vectorize"];
 export type WorkersBindingKindVersionMetadata =
   components["schemas"]["workers_binding_kind_version_metadata"];
 export type WorkersBindingKindSecretsStoreSecret =
   components["schemas"]["workers_binding_kind_secrets_store_secret"];
-export type WorkersBindingKindFlagship =
-  components["schemas"]["workers_binding_kind_flagship"];
-export type WorkersBindingKindSecretKey =
-  components["schemas"]["workers_binding_kind_secret_key"];
-export type WorkersBindingKindWorkflow =
-  components["schemas"]["workers_binding_kind_workflow"];
+export type WorkersBindingKindFlagship = components["schemas"]["workers_binding_kind_flagship"];
+export type WorkersBindingKindSecretKey = components["schemas"]["workers_binding_kind_secret_key"];
+export type WorkersBindingKindWorkflow = components["schemas"]["workers_binding_kind_workflow"];
 export type WorkersBindingKindWasmModule =
   components["schemas"]["workers_binding_kind_wasm_module"];
 export type WorkersBindingKindVpcService =
@@ -6067,49 +5962,38 @@ export type WorkersBindingKindVpcService =
 export type WorkersBindingKindVpcNetwork =
   components["schemas"]["workers_binding_kind_vpc_network"];
 export type WorkersLimits = components["schemas"]["workers_limits"];
-export type WorkersSingleStepMigrations =
-  components["schemas"]["workers_single_step_migrations"];
+export type WorkersSingleStepMigrations = components["schemas"]["workers_single_step_migrations"];
 export type WorkersMigrationTagConditions =
   components["schemas"]["workers_migration_tag_conditions"];
-export type WorkersMigrationStep =
-  components["schemas"]["workers_migration_step"];
+export type WorkersMigrationStep = components["schemas"]["workers_migration_step"];
 export type WorkersMultipleStepMigrations =
   components["schemas"]["workers_multiple_step_migrations"];
 export type WorkersScriptResponseUploadSingle =
   components["schemas"]["workers_script-response-upload-single"];
-export type WorkersScriptResponseUpload =
-  components["schemas"]["workers_script-response-upload"];
+export type WorkersScriptResponseUpload = components["schemas"]["workers_script-response-upload"];
 export type WorkersCreateAssetsUploadSessionObject =
   components["schemas"]["workers_create-assets-upload-session-object"];
-export type WorkersManifestValue =
-  components["schemas"]["workers_manifest-value"];
+export type WorkersManifestValue = components["schemas"]["workers_manifest-value"];
 export type WorkersCreateAssetsUploadSessionResponse =
   components["schemas"]["workers_create-assets-upload-session-response"];
-export type WorkersScriptResponseSingle =
-  components["schemas"]["workers_script-response-single"];
-export type WorkersApiResponseSingle =
-  components["schemas"]["workers_api-response-single"];
+export type WorkersScriptResponseSingle = components["schemas"]["workers_script-response-single"];
+export type WorkersApiResponseSingle = components["schemas"]["workers_api-response-single"];
 export type WorkersSecret = components["schemas"]["workers_secret"];
-export type WorkersSecretPatchRequest =
-  components["schemas"]["workers_secret-patch-request"];
-export type WorkersSecretPatchResponse =
-  components["schemas"]["workers_secret-patch-response"];
+export type WorkersSecretPatchRequest = components["schemas"]["workers_secret-patch-request"];
+export type WorkersSecretPatchResponse = components["schemas"]["workers_secret-patch-response"];
 export type WorkersSecretName = components["schemas"]["workers_secret_name"];
-export type WorkersSecretNameUrlEncoded =
-  components["schemas"]["workers_secret_name_url_encoded"];
+export type WorkersSecretNameUrlEncoded = components["schemas"]["workers_secret_name_url_encoded"];
 export type WorkersNamespaceScriptAndVersionSettingsItem =
   components["schemas"]["workers_namespace-script-and-version-settings-item"];
 export type WorkersPlacementInfoNoStatus =
   components["schemas"]["workers_placement_info_no_status"];
-export type WorkersApiResponseCollection =
-  components["schemas"]["workers_api-response-collection"];
+export type WorkersApiResponseCollection = components["schemas"]["workers_api-response-collection"];
 export type WorkersDomain = components["schemas"]["workers_Domain"];
 export type WorkersNamespace = components["schemas"]["workers_namespace"];
 export type WorkersSchemasId = components["schemas"]["workers_schemas-id"];
 export type WorkersObject = components["schemas"]["workers_object"];
 export type WorkersCursor = components["schemas"]["workers_cursor"];
-export type WorkersObservabilityQuery =
-  components["schemas"]["workers-observability_query"];
+export type WorkersObservabilityQuery = components["schemas"]["workers-observability_query"];
 export type WorkersObservabilityFilterNode =
   components["schemas"]["workers-observability_filter_node"];
 export type WorkersObservabilityFilterLeaf =
@@ -6118,16 +6002,13 @@ export type WorkersObservabilityQueryResults =
   components["schemas"]["workers-observability_query_results"];
 export type WorkersObservabilityTelemetryEvent =
   components["schemas"]["workers-observability_telemetry_event"];
-export type WorkersObservabilityQueryRun =
-  components["schemas"]["workers-observability_query_run"];
+export type WorkersObservabilityQueryRun = components["schemas"]["workers-observability_query_run"];
 export type WorkersObservabilityPerformanceInformation =
   components["schemas"]["workers-observability_performance_information"];
 export type WorkersPlacementRegionsResponse =
   components["schemas"]["workers_placement-regions-response"];
-export type WorkersPlacementProvider =
-  components["schemas"]["workers_placement-provider"];
-export type WorkersPlacementRegion =
-  components["schemas"]["workers_placement-region"];
+export type WorkersPlacementProvider = components["schemas"]["workers_placement-provider"];
+export type WorkersPlacementRegion = components["schemas"]["workers_placement-region"];
 export type WorkersScriptResponseCollection =
   components["schemas"]["workers_script-response-collection"];
 export type WorkersRoute = components["schemas"]["workers_route"];
@@ -6135,69 +6016,51 @@ export type WorkersDeployment = components["schemas"]["workers_deployment"];
 export type WorkersSchedule = components["schemas"]["workers_schedule"];
 export type WorkersScriptSettingsResponse =
   components["schemas"]["workers_script-settings-response"];
-export type WorkersScriptSettingsItem =
-  components["schemas"]["workers_script-settings-item"];
+export type WorkersScriptSettingsItem = components["schemas"]["workers_script-settings-item"];
 export type WorkersScriptAndVersionSettingsResponse =
   components["schemas"]["workers_script-and-version-settings-response"];
 export type WorkersScriptAndVersionSettingsItem =
   components["schemas"]["workers_script-and-version-settings-item"];
 export type WorkersSubdomain = components["schemas"]["workers_subdomain"];
 export type WorkersTail = components["schemas"]["workers_tail"];
-export type WorkersUsageModelResponse =
-  components["schemas"]["workers_usage-model-response"];
+export type WorkersUsageModelResponse = components["schemas"]["workers_usage-model-response"];
 export type WorkersUserLimits = components["schemas"]["workers_user_limits"];
-export type WorkersSchemasScriptName =
-  components["schemas"]["workers_schemas-script_name"];
-export type WorkersVersionsListResponse =
-  components["schemas"]["workers_versions-list-response"];
-export type WorkersVersionItemShort =
-  components["schemas"]["workers_version-item-short"];
+export type WorkersSchemasScriptName = components["schemas"]["workers_schemas-script_name"];
+export type WorkersVersionsListResponse = components["schemas"]["workers_versions-list-response"];
+export type WorkersVersionItemShort = components["schemas"]["workers_version-item-short"];
 export type WorkersVersionsUploadResponse =
   components["schemas"]["workers_versions-upload-response"];
-export type WorkersVersionItemUploaded =
-  components["schemas"]["workers_version-item-uploaded"];
-export type WorkersVersionItemFull =
-  components["schemas"]["workers_version-item-full"];
-export type WorkersVersionIdentifier =
-  components["schemas"]["workers_version_identifier"];
+export type WorkersVersionItemUploaded = components["schemas"]["workers_version-item-uploaded"];
+export type WorkersVersionItemFull = components["schemas"]["workers_version-item-full"];
+export type WorkersVersionIdentifier = components["schemas"]["workers_version_identifier"];
 export type WorkersVersionsSingleResponse =
   components["schemas"]["workers_versions-single-response"];
 export type WorkersService = components["schemas"]["workers_service"];
 export type WorkersEnvironment = components["schemas"]["workers_environment"];
-export type WorkersSchemasSubdomain =
-  components["schemas"]["workers_schemas-subdomain"];
+export type WorkersSchemasSubdomain = components["schemas"]["workers_schemas-subdomain"];
 export type WorkersWorker = components["schemas"]["workers_Worker"];
 export type WorkersErrorAuth = components["schemas"]["workers_ErrorAuth"];
-export type WorkersErrorInternalServer =
-  components["schemas"]["workers_ErrorInternalServer"];
-export type WorkersErrorWorkerNameInvalid =
-  components["schemas"]["workers_ErrorWorkerNameInvalid"];
-export type WorkersErrorWorkerInvalid =
-  components["schemas"]["workers_ErrorWorkerInvalid"];
+export type WorkersErrorInternalServer = components["schemas"]["workers_ErrorInternalServer"];
+export type WorkersErrorWorkerNameInvalid = components["schemas"]["workers_ErrorWorkerNameInvalid"];
+export type WorkersErrorWorkerInvalid = components["schemas"]["workers_ErrorWorkerInvalid"];
 export type WorkersErrorWorkerTagLengthLimit =
   components["schemas"]["workers_ErrorWorkerTagLengthLimit"];
 export type WorkersErrorWorkerNameSubdomainLengthLimit =
   components["schemas"]["workers_ErrorWorkerNameSubdomainLengthLimit"];
-export type WorkersErrorWorkerTagInvalid =
-  components["schemas"]["workers_ErrorWorkerTagInvalid"];
+export type WorkersErrorWorkerTagInvalid = components["schemas"]["workers_ErrorWorkerTagInvalid"];
 export type WorkersErrorWorkerObservabilitySamplingRateInvalid =
   components["schemas"]["workers_ErrorWorkerObservabilitySamplingRateInvalid"];
 export type WorkersErrorWorkerNamePreviewLengthLimit =
   components["schemas"]["workers_ErrorWorkerNamePreviewLengthLimit"];
-export type WorkersErrorWorkerLimit =
-  components["schemas"]["workers_ErrorWorkerLimit"];
-export type WorkersErrorWorkerTagLimit =
-  components["schemas"]["workers_ErrorWorkerTagLimit"];
+export type WorkersErrorWorkerLimit = components["schemas"]["workers_ErrorWorkerLimit"];
+export type WorkersErrorWorkerTagLimit = components["schemas"]["workers_ErrorWorkerTagLimit"];
 export type WorkersErrorWorkerNameConflict =
   components["schemas"]["workers_ErrorWorkerNameConflict"];
-export type WorkersErrorMissingParam =
-  components["schemas"]["workers_ErrorMissingParam"];
-export type WorkersErrorWorkerNotFound =
-  components["schemas"]["workers_ErrorWorkerNotFound"];
+export type WorkersErrorMissingParam = components["schemas"]["workers_ErrorMissingParam"];
+export type WorkersErrorWorkerNotFound = components["schemas"]["workers_ErrorWorkerNotFound"];
 export type WorkersVersion = components["schemas"]["workers_Version"];
 export type WorkersContainers = components["schemas"]["workers_containers"];
-export type WorkersContainerItem =
-  components["schemas"]["workers_container_item"];
+export type WorkersContainerItem = components["schemas"]["workers_container_item"];
 export type IamTokenVerifyResponseSingleSegment =
   components["schemas"]["iam_token_verify_response_single_segment"];
 export type IamExpiresOn = components["schemas"]["iam_expires_on"];
@@ -6205,39 +6068,29 @@ export type IamTokenIdentifier = components["schemas"]["iam_token_identifier"];
 export type IamNotBefore = components["schemas"]["iam_not_before"];
 export type IamTokenStatus = components["schemas"]["iam_token_status"];
 export type ResponseBuildsNotFound = components["responses"]["builds_NotFound"];
-export type ResponseBuildsSuccessEmpty =
-  components["responses"]["builds_SuccessEmpty"];
-export type ResponseBuildsBadRequest =
-  components["responses"]["builds_BadRequest"];
+export type ResponseBuildsSuccessEmpty = components["responses"]["builds_SuccessEmpty"];
+export type ResponseBuildsBadRequest = components["responses"]["builds_BadRequest"];
 export type ResponseBuildsConflict = components["responses"]["builds_Conflict"];
 export type ResponseWorkers_200 = components["responses"]["workers_200"];
 export type ResponseWorkers_4Xx = components["responses"]["workers_4XX"];
-export type ResponseWorkersErrorAuth =
-  components["responses"]["workers_ErrorAuth"];
+export type ResponseWorkersErrorAuth = components["responses"]["workers_ErrorAuth"];
 export type ResponseWorkersErrorInternalServer =
   components["responses"]["workers_ErrorInternalServer"];
 export type ResponseWorkersErrorWorkerNotFound =
   components["responses"]["workers_ErrorWorkerNotFound"];
-export type ParameterBuildsAccountId =
-  components["parameters"]["builds_AccountId"];
-export type ParameterBuildsBuildUuid =
-  components["parameters"]["builds_BuildUuid"];
+export type ParameterBuildsAccountId = components["parameters"]["builds_AccountId"];
+export type ParameterBuildsBuildUuid = components["parameters"]["builds_BuildUuid"];
 export type ParameterBuildsRepoConnectionUuid =
   components["parameters"]["builds_RepoConnectionUuid"];
 export type ParameterBuildsPage = components["parameters"]["builds_Page"];
 export type ParameterBuildsPerPage = components["parameters"]["builds_PerPage"];
-export type ParameterBuildsTriggerUuid =
-  components["parameters"]["builds_TriggerUuid"];
-export type ParameterBuildsScriptName =
-  components["parameters"]["builds_ScriptName"];
-export type ParameterBuildsDeployHookUuid =
-  components["parameters"]["builds_DeployHookUuid"];
+export type ParameterBuildsTriggerUuid = components["parameters"]["builds_TriggerUuid"];
+export type ParameterBuildsScriptName = components["parameters"]["builds_ScriptName"];
+export type ParameterBuildsDeployHookUuid = components["parameters"]["builds_DeployHookUuid"];
 export type RequestBodyWorkersNamespaceUpload =
   components["requestBodies"]["workers_namespace_upload"];
-export type RequestBodyWorkersScriptUpload =
-  components["requestBodies"]["workers_script_upload"];
-export type RequestBodyWorkersVersionPost =
-  components["requestBodies"]["workers_version-post"];
+export type RequestBodyWorkersScriptUpload = components["requestBodies"]["workers_script_upload"];
+export type RequestBodyWorkersVersionPost = components["requestBodies"]["workers_version-post"];
 export type $defs = Record<string, never>;
 export interface operations {
   "accounts-list-accounts": {
@@ -8167,8 +8020,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["workers_Domain"] &
-          Record<string, unknown>;
+        "application/json": components["schemas"]["workers_Domain"] & Record<string, unknown>;
       };
     };
     responses: {
@@ -8496,10 +8348,7 @@ export interface operations {
             headers: {
               [key: string]: string;
             };
-            logpushDataset:
-              | "opentelemetry-traces"
-              | "opentelemetry-logs"
-              | "opentelemetry-metrics";
+            logpushDataset: "opentelemetry-traces" | "opentelemetry-logs" | "opentelemetry-metrics";
             /** @enum {string} */
             type: "logpush";
             url: string;
@@ -9732,13 +9581,7 @@ export interface operations {
            * @default calculations
            * @enum {string}
            */
-          view?:
-            | "traces"
-            | "events"
-            | "calculations"
-            | "invocations"
-            | "requests"
-            | "agents";
+          view?: "traces" | "events" | "calculations" | "invocations" | "requests" | "agents";
         };
       };
     };
@@ -10460,13 +10303,7 @@ export interface operations {
            * @default calculations
            * @enum {string}
            */
-          view?:
-            | "traces"
-            | "events"
-            | "calculations"
-            | "invocations"
-            | "requests"
-            | "agents";
+          view?: "traces" | "events" | "calculations" | "invocations" | "requests" | "agents";
         };
       };
     };
@@ -12338,8 +12175,7 @@ export interface operations {
     /** @description Worker creation parameters. */
     requestBody: {
       content: {
-        "application/json": components["schemas"]["workers_Worker"] &
-          Record<string, unknown>;
+        "application/json": components["schemas"]["workers_Worker"] & Record<string, unknown>;
       };
     };
     responses: {
@@ -12453,8 +12289,7 @@ export interface operations {
     /** @description Worker update parameters. */
     requestBody: {
       content: {
-        "application/json": components["schemas"]["workers_Worker"] &
-          Record<string, unknown>;
+        "application/json": components["schemas"]["workers_Worker"] & Record<string, unknown>;
       };
     };
     responses: {
@@ -12569,8 +12404,7 @@ export interface operations {
     /** @description Worker partial update parameters. */
     requestBody: {
       content: {
-        "application/json": components["schemas"]["workers_Worker"] &
-          Record<string, unknown>;
+        "application/json": components["schemas"]["workers_Worker"] & Record<string, unknown>;
         "application/merge-patch+json": components["schemas"]["workers_Worker"] &
           Record<string, unknown>;
       };

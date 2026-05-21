@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const selectAllShortcut =
-  process.platform === "darwin" ? "Meta+A" : "Control+A";
+const selectAllShortcut = process.platform === "darwin" ? "Meta+A" : "Control+A";
 
 function isExpectedLocalConvexSyncConsoleError(message: string) {
   return (
@@ -28,9 +27,7 @@ test("public landing route uses the right sidebar shell", async ({ page }) => {
   });
 });
 
-test("public landing dev rail exposes the route URL display", async ({
-  page,
-}) => {
+test("public landing dev rail exposes the route URL display", async ({ page }) => {
   await page.addInitScript(() => {
     Math.random = () => 0.57;
   });
@@ -53,15 +50,10 @@ test("public landing dev rail exposes the route URL display", async ({
   await page.getByRole("link", { name: "/terms", exact: true }).click();
   await expect(page).toHaveURL(/\/terms\?dev$/);
   await expect(page.getByTestId("route-url-display")).toHaveText("/terms?dev");
-  await expect(page.getByTestId("route-url-display")).toHaveAttribute(
-    "title",
-    "/terms?dev",
-  );
+  await expect(page.getByTestId("route-url-display")).toHaveAttribute("title", "/terms?dev");
 });
 
-test("public route URL display clamps long URLs to two lines", async ({
-  page,
-}) => {
+test("public route URL display clamps long URLs to two lines", async ({ page }) => {
   const longPath =
     "/?dev&route=codex-find-main-header-url-research&state=abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
 
@@ -91,16 +83,11 @@ test("public route URL display clamps long URLs to two lines", async ({
   expect(metrics.height).toBeLessThanOrEqual(metrics.lineHeight * 2 + 1);
 });
 
-test("public landing ProseMark copy survives full selection deletion", async ({
-  page,
-}) => {
+test("public landing ProseMark copy survives full selection deletion", async ({ page }) => {
   const errorMessages: string[] = [];
   page.on("console", (message) => {
     const text = message.text();
-    if (
-      message.type() === "error" &&
-      !isExpectedLocalConvexSyncConsoleError(text)
-    ) {
+    if (message.type() === "error" && !isExpectedLocalConvexSyncConsoleError(text)) {
       errorMessages.push(text);
     }
   });

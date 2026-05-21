@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  buildMcpToolInputSchema,
-  findToolInCatalog,
-  listCatalogToolsForSurface,
-} from "./catalog";
+import { buildMcpToolInputSchema, findToolInCatalog, listCatalogToolsForSurface } from "./catalog";
 
 describe("listCatalogToolsForSurface", () => {
   it("filters MCP tools by granted scopes", () => {
@@ -24,12 +20,7 @@ describe("listCatalogToolsForSurface", () => {
       surface: "mcp",
       grantedScopes: ["files.write"],
     }).map((tool) => tool.name);
-    expect(writeTools).toEqual([
-      "edit_file",
-      "replace_in_file",
-      "create_file",
-      "delete_file",
-    ]);
+    expect(writeTools).toEqual(["edit_file", "replace_in_file", "create_file", "delete_file"]);
 
     const prodProposalTools = listCatalogToolsForSurface({
       surface: "mcp",
@@ -48,12 +39,7 @@ describe("listCatalogToolsForSurface", () => {
 
     const allTools = listCatalogToolsForSurface({
       surface: "mcp",
-      grantedScopes: [
-        "vaults.read",
-        "files.read",
-        "files.write",
-        "prod.read.propose",
-      ],
+      grantedScopes: ["vaults.read", "files.read", "files.write", "prod.read.propose"],
     }).map((tool) => tool.name);
     expect(allTools).toEqual([
       "vaults.list",
@@ -124,12 +110,7 @@ describe("buildMcpToolInputSchema", () => {
     expect(schema.properties).toHaveProperty("replacements");
     expect(schema.properties).toHaveProperty("vaultId");
     expect(schema.properties).toHaveProperty("branch");
-    expect(schema.required).toEqual([
-      "path",
-      "replacements",
-      "vaultId",
-      "branch",
-    ]);
+    expect(schema.required).toEqual(["path", "replacements", "vaultId", "branch"]);
   });
 
   it("adds only vault context to vault-scoped tools", () => {

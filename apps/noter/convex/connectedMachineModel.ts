@@ -4,40 +4,18 @@ import {
   MACHINE_REGISTRATION_REQUEST_TTL_MS,
 } from "../shared/connectedMachinePresence";
 
-const {
-  array,
-  boolean,
-  id,
-  literal,
-  null: vNull,
-  number,
-  object,
-  optional,
-  string,
-  union,
-} = v;
+const { array, boolean, id, literal, null: vNull, number, object, optional, string, union } = v;
 
-export {
-  CONNECTED_MACHINE_STALE_AFTER_MS,
-  MACHINE_REGISTRATION_REQUEST_TTL_MS,
-};
+export { CONNECTED_MACHINE_STALE_AFTER_MS, MACHINE_REGISTRATION_REQUEST_TTL_MS };
 export const MACHINE_REGISTRATION_BOOTSTRAP_RATE_LIMIT_MAX_REQUESTS = 10;
 export const MACHINE_REGISTRATION_BOOTSTRAP_RATE_LIMIT_WINDOW_MS =
   MACHINE_REGISTRATION_REQUEST_TTL_MS;
 export const MACHINE_CONTROL_TOKEN_TTL_MS = 15 * 60 * 1000;
 
-export const vConnectedMachineCapability = union(
-  literal("presence"),
-  literal("liveControl"),
-);
-export type ConnectedMachineCapability = Infer<
-  typeof vConnectedMachineCapability
->;
+export const vConnectedMachineCapability = union(literal("presence"), literal("liveControl"));
+export type ConnectedMachineCapability = Infer<typeof vConnectedMachineCapability>;
 
-export const vConnectedMachineStatus = union(
-  literal("online"),
-  literal("offline"),
-);
+export const vConnectedMachineStatus = union(literal("online"), literal("offline"));
 export type ConnectedMachineStatus = Infer<typeof vConnectedMachineStatus>;
 
 export const vConnectedMachineControlStatus = union(
@@ -45,15 +23,9 @@ export const vConnectedMachineControlStatus = union(
   literal("starting"),
   literal("ready"),
 );
-export type ConnectedMachineControlStatus = Infer<
-  typeof vConnectedMachineControlStatus
->;
+export type ConnectedMachineControlStatus = Infer<typeof vConnectedMachineControlStatus>;
 
-export const vConnectedMachineOs = union(
-  literal("linux"),
-  literal("macos"),
-  literal("windows"),
-);
+export const vConnectedMachineOs = union(literal("linux"), literal("macos"), literal("windows"));
 export type ConnectedMachineOs = Infer<typeof vConnectedMachineOs>;
 
 const connectedMachineLiveControlFields = {
@@ -111,9 +83,7 @@ export const vMachineRegistrationRequestRow = object({
   expiresAt: number(),
   approvedAt: optional(number()),
 });
-export type MachineRegistrationRequestRow = Infer<
-  typeof vMachineRegistrationRequestRow
->;
+export type MachineRegistrationRequestRow = Infer<typeof vMachineRegistrationRequestRow>;
 
 export const vMachineCredentialRow = object({
   userId: id("users"),
@@ -157,9 +127,7 @@ export const vPublishHeartbeatFromConnectorArgs = object({
   allowedRoots: array(string()),
   ...connectedMachineLiveControlFields,
 });
-export type PublishHeartbeatFromConnectorArgs = Infer<
-  typeof vPublishHeartbeatFromConnectorArgs
->;
+export type PublishHeartbeatFromConnectorArgs = Infer<typeof vPublishHeartbeatFromConnectorArgs>;
 
 export const vCreateMachineRegistrationRequestArgs = object({
   bootstrapFingerprint: string(),
@@ -216,9 +184,7 @@ export const vMachineRegistrationBrowserView = union(
     expiresAt: number(),
   }),
 );
-export type MachineRegistrationBrowserView = Infer<
-  typeof vMachineRegistrationBrowserView
->;
+export type MachineRegistrationBrowserView = Infer<typeof vMachineRegistrationBrowserView>;
 
 export const vValidateMachineCredentialResult = union(
   object({
@@ -231,35 +197,27 @@ export const vValidateMachineCredentialResult = union(
     reason: union(literal("not_found"), literal("machine_mismatch")),
   }),
 );
-export type ValidateMachineCredentialResult = Infer<
-  typeof vValidateMachineCredentialResult
->;
+export type ValidateMachineCredentialResult = Infer<typeof vValidateMachineCredentialResult>;
 
 export const vApproveMachineRegistrationRequestReturns = vNull();
 
 export const vIssueMachineControlTokenArgs = object({
   machineId: string(),
 });
-export type IssueMachineControlTokenArgs = Infer<
-  typeof vIssueMachineControlTokenArgs
->;
+export type IssueMachineControlTokenArgs = Infer<typeof vIssueMachineControlTokenArgs>;
 
 export const vIssueMachineControlTokenReturns = object({
   expiresAt: number(),
   token: string(),
 });
-export type IssueMachineControlTokenResult = Infer<
-  typeof vIssueMachineControlTokenReturns
->;
+export type IssueMachineControlTokenResult = Infer<typeof vIssueMachineControlTokenReturns>;
 
 export const vIntrospectMachineControlTokenArgs = object({
   machineId: string(),
   now: number(),
   tokenHash: string(),
 });
-export type IntrospectMachineControlTokenArgs = Infer<
-  typeof vIntrospectMachineControlTokenArgs
->;
+export type IntrospectMachineControlTokenArgs = Infer<typeof vIntrospectMachineControlTokenArgs>;
 
 export const vMachineControlTokenIntrospectionResult = union(
   object({

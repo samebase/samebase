@@ -12,39 +12,34 @@
 
 ## Summary
 
-Solve the immediate local-dev problem for Codex-created worktrees: new worktrees
-often start without Convex environment values, so `make` is not smooth.
+Solve the immediate local-dev problem for Codex-created worktrees: new worktrees often start without
+Convex environment values, so `make` is not smooth.
 
 The MVP approach is intentionally small:
 
-1. Require developer machine to already be authenticated with GitHub CLI and
-   Convex CLI.
+1. Require developer machine to already be authenticated with GitHub CLI and Convex CLI.
 2. On `make`, run preflight checks for those auth states.
-3. If `apps/noter/.env.local` is missing in the current worktree, copy it from
-   the `main` worktree.
+3. If `apps/noter/.env.local` is missing in the current worktree, copy it from the `main` worktree.
 4. Continue with existing `pnpm install` and `pnpm dev`.
 
-This keeps local workflows fast and reduces support surface. Non-technical users
-can stay in browser-only mode.
+This keeps local workflows fast and reduces support surface. Non-technical users can stay in
+browser-only mode.
 
 ## Problem Statement
 
 Current behavior in new worktrees:
 
 - User starts a fresh Codex conversation in a new git worktree.
-- Repo code is present, but Convex env linkage in `apps/noter/.env.local` may be
-  missing.
+- Repo code is present, but Convex env linkage in `apps/noter/.env.local` may be missing.
 - `make` cannot reliably start dev without manual repair.
 
 Goal: make this path reliable with minimal new infrastructure.
 
 ## Goals
 
-- Make new local worktrees boot with one command (`make`) when tools are already
-  set up.
+- Make new local worktrees boot with one command (`make`) when tools are already set up.
 - Keep behavior deterministic and non-interactive.
-- Reuse existing `gh` and `convex` auth; do not introduce new auth layers in
-  MVP.
+- Reuse existing `gh` and `convex` auth; do not introduce new auth layers in MVP.
 - Avoid locking users into Noter-managed local auth for basic local development.
 
 ## Non-Goals
@@ -61,8 +56,7 @@ Goal: make this path reliable with minimal new infrastructure.
    - `gh auth status`
    - `npx convex login status`
 2. `make` must fail fast with actionable error if either check fails.
-3. `apps/noter/.env.local` is bootstrapped from the `main` worktree only when
-   missing.
+3. `apps/noter/.env.local` is bootstrapped from the `main` worktree only when missing.
 4. Existing shared Convex deployment behavior remains unchanged.
 5. Any advanced preview-per-worktree provisioning is deferred.
 
@@ -168,6 +162,5 @@ Helper script responsibilities:
 
 ## Open Questions
 
-1. Should fallback source support non-`main` default branch repos (`master` or
-   configured default)?
+1. Should fallback source support non-`main` default branch repos (`master` or configured default)?
 2. Should bootstrap optionally copy from a user-defined canonical worktree path?

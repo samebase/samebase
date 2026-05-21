@@ -26,10 +26,7 @@ describe("dependent array helpers", () => {
 
     const mapped = map(values, (value) => `${value}`);
     const reversed = reverse(mapped);
-    const promised = await promiseAll([
-      Promise.resolve("a"),
-      Promise.resolve("b"),
-    ]);
+    const promised = await promiseAll([Promise.resolve("a"), Promise.resolve("b")]);
 
     expectType<Array1<string>>()(mapped, true);
     expectType<Array1<string>>()(reversed, true);
@@ -105,10 +102,7 @@ describe("dependent object helpers", () => {
       ["b", 2],
     ] as const);
 
-    const mapped = mapEntries(obj, ([key, value]) => [
-      `${key}-next`,
-      value * 2,
-    ]);
+    const mapped = mapEntries(obj, ([key, value]) => [`${key}-next`, value * 2]);
 
     expectType<Record<"a" | "b", 1 | 2>>()(obj, true);
     expect(mapped).toEqual({ "a-next": 2, "b-next": 4 });

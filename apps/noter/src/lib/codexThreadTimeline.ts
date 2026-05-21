@@ -63,9 +63,7 @@ function readTextContent(value: unknown): string[] {
  * Collapse both shapes into one display string so timeline rendering stays
  * stable across provider payload variants.
  */
-export function readCodexThreadItemDisplayText(
-  item: CodexAppServerThreadItem,
-): string | null {
+export function readCodexThreadItemDisplayText(item: CodexAppServerThreadItem): string | null {
   const rawItem = asRecord(item.raw);
   const directText = readString(rawItem?.text);
   if (directText && directText.trim().length > 0) {
@@ -80,9 +78,7 @@ export function readCodexThreadItemDisplayText(
   return item.summary;
 }
 
-function readMessageRole(
-  item: CodexAppServerThreadItem,
-): "user" | "assistant" | null {
+function readMessageRole(item: CodexAppServerThreadItem): "user" | "assistant" | null {
   if (item.type === "userMessage") {
     return "user";
   }
@@ -232,15 +228,11 @@ function readWorkPreview(item: CodexAppServerThreadItem): string | null {
     : `${firstChangedFile} +${changedFiles.length - 1} more`;
 }
 
-function readWorkCategory(
-  item: CodexAppServerThreadItem,
-): CodexThreadTimelineWorkCategory {
+function readWorkCategory(item: CodexAppServerThreadItem): CodexThreadTimelineWorkCategory {
   return itemTypeIsToolActivity(item.type) ? "tool" : "info";
 }
 
-function readWorkTone(
-  item: CodexAppServerThreadItem,
-): CodexThreadTimelineWorkTone {
+function readWorkTone(item: CodexAppServerThreadItem): CodexThreadTimelineWorkTone {
   const rawItem = asRecord(item.raw);
   const exitCode = rawItem?.exitCode;
   const status = readString(rawItem?.status)?.toLowerCase();
@@ -260,9 +252,7 @@ function readWorkTone(
   return "info";
 }
 
-function buildWorkEntry(
-  item: CodexAppServerThreadItem,
-): CodexThreadTimelineWorkEntry {
+function buildWorkEntry(item: CodexAppServerThreadItem): CodexThreadTimelineWorkEntry {
   return {
     category: readWorkCategory(item),
     changedFiles: readChangedFiles(item),
@@ -274,9 +264,7 @@ function buildWorkEntry(
   };
 }
 
-function buildTurnErrorEntry(
-  turn: CodexAppServerThreadTurn,
-): CodexThreadTimelineWorkEntry | null {
+function buildTurnErrorEntry(turn: CodexAppServerThreadTurn): CodexThreadTimelineWorkEntry | null {
   const errorMessage = turn.errorMessage?.trim();
   if (!errorMessage) {
     return null;
@@ -337,10 +325,7 @@ export function deriveCodexThreadTimelineEntries(
       }
 
       const workEntry = buildWorkEntry(item);
-      if (
-        pendingWorkCategory !== null &&
-        pendingWorkCategory !== workEntry.category
-      ) {
+      if (pendingWorkCategory !== null && pendingWorkCategory !== workEntry.category) {
         flushPendingWorkEntries();
       }
 
@@ -353,10 +338,7 @@ export function deriveCodexThreadTimelineEntries(
       continue;
     }
 
-    if (
-      pendingWorkCategory !== null &&
-      pendingWorkCategory !== turnErrorEntry.category
-    ) {
+    if (pendingWorkCategory !== null && pendingWorkCategory !== turnErrorEntry.category) {
       flushPendingWorkEntries();
     }
 

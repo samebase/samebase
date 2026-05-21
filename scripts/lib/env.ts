@@ -11,9 +11,7 @@ export function stripWrappingQuotes(value: string): string {
   return value;
 }
 
-export function readOptionalEnvValue(
-  value: string | null | undefined,
-): string | null {
+export function readOptionalEnvValue(value: string | null | undefined): string | null {
   if (typeof value !== "string") {
     return null;
   }

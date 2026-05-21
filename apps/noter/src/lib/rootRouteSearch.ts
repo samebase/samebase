@@ -60,24 +60,16 @@ function readOptionalNumber(value: unknown): number | undefined {
 
 function readOptionalLogoFractalDepth(value: unknown): number | undefined {
   const numericValue = readOptionalNumber(value);
-  return typeof numericValue === "number"
-    ? normalizeLogoFractalDepth(numericValue)
-    : undefined;
+  return typeof numericValue === "number" ? normalizeLogoFractalDepth(numericValue) : undefined;
 }
 
 const rootRouteSearchSchema = z
   .object({
-    auth: z.preprocess(
-      readOptionalGoogleAuthProvider,
-      z.literal("google").optional(),
-    ),
+    auth: z.preprocess(readOptionalGoogleAuthProvider, z.literal("google").optional()),
     dev: z.literal(true).optional(),
     devtools: z.literal(true).optional(),
     delete: z.literal(true).optional(),
-    depth: z.preprocess(
-      readOptionalLogoFractalDepth,
-      z.number().finite().optional(),
-    ),
+    depth: z.preprocess(readOptionalLogoFractalDepth, z.number().finite().optional()),
     dist: z.preprocess((value) => {
       const numericValue = readOptionalNumber(value);
       return typeof numericValue === "number"
@@ -90,10 +82,7 @@ const rootRouteSearchSchema = z
       readOptionalSidebarResetFlag,
       z.literal(true).optional(),
     ),
-    signup: z.preprocess(
-      readOptionalGoogleSignupReturn,
-      z.literal("google").optional(),
-    ),
+    signup: z.preprocess(readOptionalGoogleSignupReturn, z.literal("google").optional()),
   })
   .merge(appThemeColorSearchFieldSchema)
   .merge(rootThemeModeSearchFieldSchema);
@@ -118,9 +107,7 @@ function parseRootRouteSearch(search: unknown): RootRouteSearch {
   return { [SEARCH_RESET_QUERY_PARAM]: true as const };
 }
 
-export function validateRootRouteSearch(
-  search: Record<string, unknown>,
-): RootRouteSearch {
+export function validateRootRouteSearch(search: Record<string, unknown>): RootRouteSearch {
   return parseRootRouteSearch(search);
 }
 
@@ -129,13 +116,9 @@ export function validateRootRouteSearch(
  * normalizes it through the app's TanStack search parser before schema
  * validation.
  */
-export function readRootRouteSearch(
-  search: string | URLSearchParams | undefined,
-): RootRouteSearch {
+export function readRootRouteSearch(search: string | URLSearchParams | undefined): RootRouteSearch {
   return parseRootRouteSearch(
-    parseTanStackSearch(
-      typeof search === "string" ? search : (search?.toString() ?? ""),
-    ),
+    parseTanStackSearch(typeof search === "string" ? search : (search?.toString() ?? "")),
   );
 }
 

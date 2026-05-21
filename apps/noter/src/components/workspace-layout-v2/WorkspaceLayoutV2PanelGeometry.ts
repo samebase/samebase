@@ -9,10 +9,7 @@ export function getWorkspaceLayoutV2PanelMaxHeightPx(viewportHeightPx: number) {
     return WORKSPACE_LAYOUT_V2_PANEL_DEFAULT_HEIGHT_PX;
   }
 
-  return Math.max(
-    WORKSPACE_LAYOUT_V2_PANEL_MIN_HEIGHT_PX,
-    Math.floor(viewportHeightPx),
-  );
+  return Math.max(WORKSPACE_LAYOUT_V2_PANEL_MIN_HEIGHT_PX, Math.floor(viewportHeightPx));
 }
 
 export function clampWorkspaceLayoutV2PanelHeight(args: {
@@ -35,10 +32,7 @@ export function getDefaultWorkspaceLayoutV2PanelHeight(args: {
   }
 
   const preferredHeight = args.isMobile
-    ? Math.floor(
-        args.viewportHeightPx *
-          WORKSPACE_LAYOUT_V2_PANEL_MOBILE_DEFAULT_HEIGHT_RATIO,
-      )
+    ? Math.floor(args.viewportHeightPx * WORKSPACE_LAYOUT_V2_PANEL_MOBILE_DEFAULT_HEIGHT_RATIO)
     : WORKSPACE_LAYOUT_V2_PANEL_DEFAULT_HEIGHT_PX;
 
   return clampWorkspaceLayoutV2PanelHeight({

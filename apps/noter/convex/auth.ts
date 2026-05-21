@@ -50,10 +50,7 @@ function buildUserPatch(profile: Record<string, unknown>): UserPatch {
   return patch;
 }
 
-async function upsertSeedGithubConnection(
-  db: DatabaseWriter,
-  userId: Id<"users">,
-): Promise<void> {
+async function upsertSeedGithubConnection(db: DatabaseWriter, userId: Id<"users">): Promise<void> {
   const credential = readOptionalEnv("DEV_SEED_GITHUB_API_KEY");
   if (credential === null) {
     return;
@@ -82,10 +79,7 @@ async function upsertSeedGithubConnection(
   });
 }
 
-async function upsertSeedConvexConnection(
-  db: DatabaseWriter,
-  userId: Id<"users">,
-): Promise<void> {
+async function upsertSeedConvexConnection(db: DatabaseWriter, userId: Id<"users">): Promise<void> {
   const credential = readOptionalEnv("DEV_SEED_CONVEX_MANAGEMENT_API_KEY");
   const teamId = readOptionalEnv("DEV_SEED_CONVEX_TEAM_ID");
   const teamSlug = readOptionalEnv("DEV_SEED_CONVEX_TEAM_SLUG");
@@ -156,15 +150,9 @@ async function upsertSeedCloudflareConnection(
   });
 }
 
-async function applyAutoSeedProviderKeys(
-  db: DatabaseWriter,
-  userId: Id<"users">,
-) {
+async function applyAutoSeedProviderKeys(db: DatabaseWriter, userId: Id<"users">) {
   const deploymentProfile = resolveDeploymentProfile();
-  if (
-    deploymentProfile.kind !== "local_worktree" &&
-    deploymentProfile.kind !== "preview"
-  ) {
+  if (deploymentProfile.kind !== "local_worktree" && deploymentProfile.kind !== "preview") {
     return;
   }
   await upsertSeedGithubConnection(db, userId);

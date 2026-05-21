@@ -16,11 +16,10 @@
 
 ## Summary
 
-Add an alternate Graph View to the file editor using ReactFlow. The MVP is
-minimal: it renders nodes for root `AGENTS.md` and `tools.json` (when present),
-connects them with a single edge, and provides an `Editor`/`Graph` switch inside
-FileView `Developer tools`. The graph is read-only and is intended to validate
-ReactFlow’s feel and integration surface before deeper agent-editing work.
+Add an alternate Graph View to the file editor using ReactFlow. The MVP is minimal: it renders nodes
+for root `AGENTS.md` and `tools.json` (when present), connects them with a single edge, and provides
+an `Editor`/`Graph` switch inside FileView `Developer tools`. The graph is read-only and is intended
+to validate ReactFlow’s feel and integration surface before deeper agent-editing work.
 
 ## Goals
 
@@ -40,16 +39,16 @@ ReactFlow’s feel and integration surface before deeper agent-editing work.
 
 - Graph view replaces the editor pane (sidebar remains visible).
 - Toggle lives inside FileView `Developer tools`, not the default editor header.
-- `Developer tools` stays hidden by default in normal editor mode and remains
-  visible while graph mode is active.
+- `Developer tools` stays hidden by default in normal editor mode and remains visible while graph
+  mode is active.
 - Toggle state is persisted per vault via localStorage.
 - Clicking a graph node opens the file and switches back to Editor view.
 - If no nodes are present, render an empty canvas (no placeholder text).
 
 ## Data Inputs
 
-- Source tree: `vault.treeData.tree` plus staged changes merged in
-  `finalTreeData` (same set used by the file tree).
+- Source tree: `vault.treeData.tree` plus staged changes merged in `finalTreeData` (same set used by
+  the file tree).
 - Node presence is determined solely by filename equality:
   - `AGENTS.md`
   - `tools.json`
@@ -108,14 +107,12 @@ Positions:
 
 - Open a repo with `AGENTS.md` and `tools.json` present.
 - Rename or delete one of the files in staging and confirm node updates.
-- Expand `Developer tools`, toggle between Editor/Graph, and refresh; verify
-  persisted view.
+- Expand `Developer tools`, toggle between Editor/Graph, and refresh; verify persisted view.
 - Click node to open file; verify it switches to Editor view.
 
 ## Future Iterations
 
-- Parse `AGENTS.md` / `tools.json` into semantic nodes (tools, subagents,
-  skills).
+- Parse `AGENTS.md` / `tools.json` into semantic nodes (tools, subagents, skills).
 - Visual styling closer to LangSmith-style cards and dashed edges.
 - Dragging/arranging nodes saved to repo state.
 - Read-only minimap, layout helpers, and auto-fit on load.

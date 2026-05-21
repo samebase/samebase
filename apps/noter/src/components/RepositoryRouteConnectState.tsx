@@ -65,12 +65,8 @@ export function RepositoryRouteConnectState({
                 <GitHubLogoIcon className="h-4 w-4" />
                 <span>Repository route</span>
               </div>
-              <h1 className="mt-2 text-xl font-semibold">
-                {repositoryFullName}
-              </h1>
-              <p className="mt-3 max-w-lg text-sm text-muted-foreground">
-                {description}
-              </p>
+              <h1 className="mt-2 text-xl font-semibold">{repositoryFullName}</h1>
+              <p className="mt-3 max-w-lg text-sm text-muted-foreground">{description}</p>
               {errorMessage ? (
                 <div
                   role="alert"
@@ -83,9 +79,7 @@ export function RepositoryRouteConnectState({
               ) : null}
               <div className="mt-5 flex flex-wrap items-center gap-2">
                 <Button
-                  onClick={
-                    githubConnected ? onConnectRepository : onConnectGithub
-                  }
+                  onClick={githubConnected ? onConnectRepository : onConnectGithub}
                   disabled={isConnectingGithub || isConnectingRepository}
                 >
                   {primaryLabel}

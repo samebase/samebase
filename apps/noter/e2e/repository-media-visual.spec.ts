@@ -43,10 +43,7 @@ for (const scenario of SCENARIOS) {
             element.addEventListener("load", () => resolve(), { once: true });
             element.addEventListener(
               "error",
-              () =>
-                reject(
-                  new Error("Failed to load repository media fixture image."),
-                ),
+              () => reject(new Error("Failed to load repository media fixture image.")),
               { once: true },
             );
           });
@@ -65,12 +62,8 @@ for (const scenario of SCENARIOS) {
         }
       });
     } else {
-      const voxViewer = page.getByTestId(
-        "repository-media-preview-panel-vox-viewer",
-      );
-      const voxCanvas = page.getByTestId(
-        "repository-media-preview-panel-vox-canvas",
-      );
+      const voxViewer = page.getByTestId("repository-media-preview-panel-vox-viewer");
+      const voxCanvas = page.getByTestId("repository-media-preview-panel-vox-canvas");
 
       await expect(voxViewer).toHaveAttribute("data-state", "ready");
       await expect(voxCanvas).toBeVisible();

@@ -10,17 +10,11 @@ import { assertConnectedVault } from "../vault/state";
 import { toErrorMessage } from "../jsonUtils";
 import { assertCodespacesEnabled } from "../../shared/featureFlags";
 
-async function getGithubAccessToken(
-  ctx: ActionCtx,
-  userId: Id<"users">,
-): Promise<string> {
-  const connection = await ctx.runQuery(
-    internal.providerConnections.getByUserAndKind,
-    {
-      userId,
-      kind: "github",
-    },
-  );
+async function getGithubAccessToken(ctx: ActionCtx, userId: Id<"users">): Promise<string> {
+  const connection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+    userId,
+    kind: "github",
+  });
   if (connection?.kind !== "github") {
     throw new Error("GitHub is not connected");
   }
@@ -41,10 +35,7 @@ export const createVaultWithCodespace = action({
     branch: v.optional(v.string()),
   },
   returns: createVaultWithCodespaceResult,
-  handler: async (
-    ctx,
-    args,
-  ): Promise<Infer<typeof createVaultWithCodespaceResult>> => {
+  handler: async (ctx, args): Promise<Infer<typeof createVaultWithCodespaceResult>> => {
     assertCodespacesEnabled();
     const userId = await getUserId(ctx);
     const { vaultId, runId } = await ctx.runMutation(
@@ -97,13 +88,10 @@ export const createVaultWithCodespace = action({
       });
       const commitSha = branchData.commit.sha;
       const repositoryFullName = `${repo.data.owner.login}/${repo.data.name}`;
-      await ctx.runMutation(
-        internal.appProvisioningRuns.recordRepositoryFullName,
-        {
-          runId,
-          repositoryFullName,
-        },
-      );
+      await ctx.runMutation(internal.appProvisioningRuns.recordRepositoryFullName, {
+        runId,
+        repositoryFullName,
+      });
       await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
         runId,
         step: "fetch_github_repo",
@@ -112,19 +100,16 @@ export const createVaultWithCodespace = action({
         state: "running",
       });
 
-      await ctx.runMutation(
-        internal.vault.records.connectExistingRepositoryVaultGitHub,
-        {
-          vaultId,
-          runId,
-          userId,
-          ghRepoId: repo.data.id.toString(),
-          ghRepoOwner: repo.data.owner.login,
-          ghRepoName: repo.data.name,
-          defaultBranch,
-          visibility: repo.data.private ? "private" : "public",
-        },
-      );
+      await ctx.runMutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
+        vaultId,
+        runId,
+        userId,
+        ghRepoId: repo.data.id.toString(),
+        ghRepoOwner: repo.data.owner.login,
+        ghRepoName: repo.data.name,
+        defaultBranch,
+        visibility: repo.data.private ? "private" : "public",
+      });
       await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
         runId,
         step: "connect_github",
@@ -158,22 +143,16 @@ export const createVaultWithCodespace = action({
         state: "running",
       });
 
-      await ctx.runMutation(
-        internal.vault.records.updateVaultDevcontainerConfig,
-        {
-          vaultId,
-          devcontainerConfig: generateDevcontainerConfig(),
-        },
-      );
+      await ctx.runMutation(internal.vault.records.updateVaultDevcontainerConfig, {
+        vaultId,
+        devcontainerConfig: generateDevcontainerConfig(),
+      });
 
-      const { codespaceId } = await ctx.runAction(
-        api.codespaces.index.createCodespace,
-        {
-          vaultId,
-          branch,
-          commitSha,
-        },
-      );
+      const { codespaceId } = await ctx.runAction(api.codespaces.index.createCodespace, {
+        vaultId,
+        branch,
+        commitSha,
+      });
       await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
         runId,
         step: "finish",
@@ -188,14 +167,11 @@ export const createVaultWithCodespace = action({
       };
     } catch (error) {
       try {
-        await ctx.runMutation(
-          internal.infraProvisioning.markWorkflowProvisioningFailed,
-          {
-            runId,
-            workflowId: "codespace-first",
-            message: toErrorMessage(error),
-          },
-        );
+        await ctx.runMutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+          runId,
+          workflowId: "codespace-first",
+          message: toErrorMessage(error),
+        });
       } catch (markError) {
         console.error("codespaces:vault:create_mark_failed_error", {
           runId,
@@ -219,10 +195,7 @@ const rebuildCodespaceIfStaleResult = v.object({
 export const rebuildCodespaceIfStale = action({
   args: { vaultId: v.id("vaults") },
   returns: rebuildCodespaceIfStaleResult,
-  handler: async (
-    ctx,
-    args,
-  ): Promise<Infer<typeof rebuildCodespaceIfStaleResult>> => {
+  handler: async (ctx, args): Promise<Infer<typeof rebuildCodespaceIfStaleResult>> => {
     assertCodespacesEnabled();
     const userId = await getUserId(ctx);
 
@@ -276,14 +249,11 @@ export const rebuildCodespaceIfStale = action({
     }
 
     // Create new codespace with latest commit
-    const { codespaceId } = await ctx.runAction(
-      api.codespaces.index.createCodespace,
-      {
-        vaultId: args.vaultId,
-        branch,
-        commitSha: latestCommitSha,
-      },
-    );
+    const { codespaceId } = await ctx.runAction(api.codespaces.index.createCodespace, {
+      vaultId: args.vaultId,
+      branch,
+      commitSha: latestCommitSha,
+    });
 
     return {
       rebuilt: true,
@@ -305,10 +275,7 @@ const ensureCodespaceReadyResult = v.object({
 export const ensureCodespaceReady = action({
   args: { vaultId: v.id("vaults") },
   returns: ensureCodespaceReadyResult,
-  handler: async (
-    ctx,
-    args,
-  ): Promise<Infer<typeof ensureCodespaceReadyResult>> => {
+  handler: async (ctx, args): Promise<Infer<typeof ensureCodespaceReadyResult>> => {
     assertCodespacesEnabled();
     const userId = await getUserId(ctx);
     const vault = await ctx.runQuery(internal.codespaces.mutations.getVault, {
@@ -330,12 +297,9 @@ export const ensureCodespaceReady = action({
     }
 
     // Get codespace state
-    const codespace = await ctx.runQuery(
-      internal.codespaces.mutations.getCodespace,
-      {
-        codespaceId,
-      },
-    );
+    const codespace = await ctx.runQuery(internal.codespaces.mutations.getCodespace, {
+      codespaceId,
+    });
 
     if (!codespace) {
       throw new Error("Codespace not found");
@@ -356,10 +320,9 @@ export const ensureCodespaceReady = action({
       const pollInterval = 5000; // 5 seconds
 
       while (Date.now() - startTime < maxWaitMs) {
-        const currentCodespace = await ctx.runQuery(
-          internal.codespaces.mutations.getCodespace,
-          { codespaceId },
-        );
+        const currentCodespace = await ctx.runQuery(internal.codespaces.mutations.getCodespace, {
+          codespaceId,
+        });
 
         if (currentCodespace?.state === "running") {
           break;
@@ -372,27 +335,20 @@ export const ensureCodespaceReady = action({
     // Agent health is best-effort. A running Codespace is considered usable
     // even when the custom agent endpoint is unavailable.
     try {
-      const portEnsured = await ctx.runAction(
-        api.codespaces.ports.ensureCodespacePortsVisibility,
-        { codespaceId },
-      );
+      const portEnsured = await ctx.runAction(api.codespaces.ports.ensureCodespacePortsVisibility, {
+        codespaceId,
+      });
       if (!portEnsured.ensured) {
-        console.log(
-          "codespaces:vaultIntegration:ensureCodespaceReady:ports:ensure:failed",
-          {
-            codespaceId,
-            results: portEnsured.results,
-          },
-        );
+        console.log("codespaces:vaultIntegration:ensureCodespaceReady:ports:ensure:failed", {
+          codespaceId,
+          results: portEnsured.results,
+        });
       }
     } catch (error) {
-      console.log(
-        "codespaces:vaultIntegration:ensureCodespaceReady:ports:ensure:error",
-        {
-          codespaceId,
-          message: error instanceof Error ? error.message : String(error),
-        },
-      );
+      console.log("codespaces:vaultIntegration:ensureCodespaceReady:ports:ensure:error", {
+        codespaceId,
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
     await ctx.runAction(api.codespaces.executor.checkAgentHealth, {
       codespaceId,

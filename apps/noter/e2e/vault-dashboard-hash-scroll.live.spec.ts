@@ -20,9 +20,7 @@ function vaultHashTarget(page: Page, hashId: string) {
   return page.locator(`[data-vault-dashboard-repository-hash-id="${hashId}"]`);
 }
 
-async function waitForOptionalVisible(
-  locator: ReturnType<typeof vaultHashTarget>,
-) {
+async function waitForOptionalVisible(locator: ReturnType<typeof vaultHashTarget>) {
   try {
     await locator.waitFor({ state: "visible", timeout: 30_000 });
     return true;
@@ -44,9 +42,7 @@ async function signInWithAutofillWhenPresent(page: Page): Promise<void> {
   }
 }
 
-async function measureVaultHashScroll(
-  page: Page,
-): Promise<VaultHashScrollMeasurement> {
+async function measureVaultHashScroll(page: Page): Promise<VaultHashScrollMeasurement> {
   return page.evaluate(
     ({ previousHash, targetHash }) => {
       function cardRect(hashId: string) {
@@ -72,9 +68,7 @@ async function measureVaultHashScroll(
           return null;
         }
 
-        const header = element.querySelector(
-          "[data-vault-dashboard-repository-header]",
-        );
+        const header = element.querySelector("[data-vault-dashboard-repository-header]");
         if (!(header instanceof HTMLElement)) {
           return null;
         }
@@ -97,11 +91,7 @@ async function measureVaultHashScroll(
         let currentElement = element.parentElement;
         while (currentElement) {
           const overflowY = window.getComputedStyle(currentElement).overflowY;
-          if (
-            overflowY === "auto" ||
-            overflowY === "overlay" ||
-            overflowY === "scroll"
-          ) {
+          if (overflowY === "auto" || overflowY === "overlay" || overflowY === "scroll") {
             return currentElement;
           }
           currentElement = currentElement.parentElement;
@@ -121,9 +111,7 @@ async function measureVaultHashScroll(
         nativeTargetIdExists: Boolean(document.getElementById(targetHash)),
         previousHeaderBottom: previousHeaderRect?.bottom ?? null,
         previousHeaderTop: previousHeaderRect?.top ?? null,
-        scrollportBottom: scrollportRect
-          ? Math.round(scrollportRect.bottom)
-          : null,
+        scrollportBottom: scrollportRect ? Math.round(scrollportRect.bottom) : null,
         scrollportTop: scrollportRect ? Math.round(scrollportRect.top) : null,
         scrollTop: scrollport?.scrollTop ?? null,
         targetTop: targetRect?.top ?? null,
@@ -148,11 +136,7 @@ async function alignTargetVaultToTop(page: Page): Promise<boolean> {
     let currentElement = element.parentElement;
     while (currentElement) {
       const overflowY = window.getComputedStyle(currentElement).overflowY;
-      if (
-        overflowY === "auto" ||
-        overflowY === "overlay" ||
-        overflowY === "scroll"
-      ) {
+      if (overflowY === "auto" || overflowY === "overlay" || overflowY === "scroll") {
         const elementRect = element.getBoundingClientRect();
         const scrollportRect = currentElement.getBoundingClientRect();
         currentElement.scrollTop += elementRect.top - scrollportRect.top;
@@ -165,10 +149,7 @@ async function alignTargetVaultToTop(page: Page): Promise<boolean> {
   }, TARGET_REPOSITORY_HASH);
 }
 
-async function scrollVaultDashboardBy(
-  page: Page,
-  scrollTopDelta: number,
-): Promise<boolean> {
+async function scrollVaultDashboardBy(page: Page, scrollTopDelta: number): Promise<boolean> {
   return page.evaluate(
     ({ scrollTopDelta, targetHash }) => {
       const element = document.querySelector(
@@ -181,11 +162,7 @@ async function scrollVaultDashboardBy(
       let currentElement = element.parentElement;
       while (currentElement) {
         const overflowY = window.getComputedStyle(currentElement).overflowY;
-        if (
-          overflowY === "auto" ||
-          overflowY === "overlay" ||
-          overflowY === "scroll"
-        ) {
+        if (overflowY === "auto" || overflowY === "overlay" || overflowY === "scroll") {
           currentElement.scrollTop += scrollTopDelta;
           return true;
         }
@@ -235,9 +212,7 @@ test.describe("vault dashboard hash scrolling", () => {
     expect(beforeScroll.nativePreviousIdExists).toBe(false);
     expect(beforeScroll.nativeTargetIdExists).toBe(false);
     if (beforeScroll.scrollTop === null || beforeScroll.targetTop === null) {
-      throw new Error(
-        "Could not measure initial vault dashboard scroll state.",
-      );
+      throw new Error("Could not measure initial vault dashboard scroll state.");
     }
 
     expect(await scrollVaultDashboardBy(page, -40)).toBe(true);
@@ -247,10 +222,7 @@ test.describe("vault dashboard hash scrolling", () => {
       .toBe(`#${TARGET_REPOSITORY_HASH}`);
 
     const afterSmallScroll = await measureVaultHashScroll(page);
-    if (
-      afterSmallScroll.scrollTop === null ||
-      afterSmallScroll.targetTop === null
-    ) {
+    if (afterSmallScroll.scrollTop === null || afterSmallScroll.targetTop === null) {
       throw new Error("Could not measure small-scroll dashboard state.");
     }
 
@@ -275,12 +247,8 @@ test.describe("vault dashboard hash scrolling", () => {
       throw new Error("Could not measure final vault dashboard scroll state.");
     }
 
-    expect(afterScroll.previousHeaderTop).toBeGreaterThanOrEqual(
-      afterScroll.scrollportTop,
-    );
-    expect(afterScroll.previousHeaderBottom).toBeLessThanOrEqual(
-      afterScroll.scrollportBottom,
-    );
+    expect(afterScroll.previousHeaderTop).toBeGreaterThanOrEqual(afterScroll.scrollportTop);
+    expect(afterScroll.previousHeaderBottom).toBeLessThanOrEqual(afterScroll.scrollportBottom);
     expect(afterScroll.scrollTop).toBeLessThan(afterSmallScroll.scrollTop);
     expect(afterScroll.scrollTop).toBeGreaterThan(0);
   });
@@ -303,15 +271,10 @@ test.describe("vault dashboard hash scrolling", () => {
       name: `Remove vault ${TARGET_REPOSITORY_FULL_NAME}`,
     });
 
-    await expect(deleteLink).toHaveAttribute(
-      "href",
-      `/?delete#${TARGET_REPOSITORY_HASH}`,
-    );
+    await expect(deleteLink).toHaveAttribute("href", `/?delete#${TARGET_REPOSITORY_HASH}`);
 
     await deleteLink.click();
-    await expect(page).toHaveURL(
-      new RegExp(`/\\?delete#${TARGET_REPOSITORY_HASH}$`),
-    );
+    await expect(page).toHaveURL(new RegExp(`/\\?delete#${TARGET_REPOSITORY_HASH}$`));
     await expect(
       page.getByRole("heading", {
         name: `Remove Vault ${TARGET_REPOSITORY_FULL_NAME}`,
@@ -319,9 +282,7 @@ test.describe("vault dashboard hash scrolling", () => {
     ).toBeVisible();
   });
 
-  test("clears delete mode when the current hash does not target a vault", async ({
-    page,
-  }) => {
+  test("clears delete mode when the current hash does not target a vault", async ({ page }) => {
     test.slow();
 
     await page.goto("/?delete", { waitUntil: "domcontentloaded" });
@@ -333,9 +294,7 @@ test.describe("vault dashboard hash scrolling", () => {
       `Vault hash ${TARGET_REPOSITORY_HASH} was not visible on dashboard`,
     );
 
-    await expect
-      .poll(() => new URL(page.url()).searchParams.has("delete"))
-      .toBe(false);
+    await expect.poll(() => new URL(page.url()).searchParams.has("delete")).toBe(false);
     await expect(page.getByRole("dialog")).not.toBeVisible();
   });
 });

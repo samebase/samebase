@@ -5,8 +5,7 @@ export type UnionToIntersection<Union> = (
   ? Intersection
   : never;
 
-export type UnpackPromise<Value> =
-  Value extends Promise<infer Inner> ? Inner : Value;
+export type UnpackPromise<Value> = Value extends Promise<infer Inner> ? Inner : Value;
 
 /**
  * Use this instead of `{}` in generic constraints where an object-like value is
@@ -14,8 +13,11 @@ export type UnpackPromise<Value> =
  */
 export type EmptyObject = Record<string, unknown>;
 
-export type Arguments<Func extends (...args: never[]) => unknown> =
-  Func extends (...args: infer Args) => unknown ? Args : never;
+export type Arguments<Func extends (...args: never[]) => unknown> = Func extends (
+  ...args: infer Args
+) => unknown
+  ? Args
+  : never;
 
 export type FirstArgument<Func extends (...args: never[]) => unknown> =
   Arguments<Func> extends [infer Arg, ...unknown[]] ? Arg : never;
@@ -65,25 +67,8 @@ export type Array2<Value> = [Value, Value, ...Value[]];
 export type Array3<Value> = [Value, Value, Value, ...Value[]];
 export type Array4<Value> = [Value, Value, Value, Value, ...Value[]];
 export type Array5<Value> = [Value, Value, Value, Value, Value, ...Value[]];
-export type Array6<Value> = [
-  Value,
-  Value,
-  Value,
-  Value,
-  Value,
-  Value,
-  ...Value[],
-];
-export type Array7<Value> = [
-  Value,
-  Value,
-  Value,
-  Value,
-  Value,
-  Value,
-  Value,
-  ...Value[],
-];
+export type Array6<Value> = [Value, Value, Value, Value, Value, Value, ...Value[]];
+export type Array7<Value> = [Value, Value, Value, Value, Value, Value, Value, ...Value[]];
 
 export function map<Value, Result>(
   arr: Array1<Value>,
@@ -124,10 +109,7 @@ export function isKeyOf<Value extends object>(
 
 export function exactly<Value>(length: 1, arr: Value[]): arr is [Value];
 export function exactly<Value>(length: 2, arr: Value[]): arr is [Value, Value];
-export function exactly<Value>(
-  length: 3,
-  arr: Value[],
-): arr is [Value, Value, Value];
+export function exactly<Value>(length: 3, arr: Value[]): arr is [Value, Value, Value];
 export function exactly<Value>(length: number, arr: Value[]): arr is Value[];
 export function exactly<Value>(length: number, arr: Value[]): arr is Value[] {
   return arr.length === length;
@@ -135,9 +117,7 @@ export function exactly<Value>(length: number, arr: Value[]): arr is Value[] {
 
 export const excactly = exactly;
 
-export function notEmpty<Value>(
-  value: Value | null | undefined,
-): value is Value {
+export function notEmpty<Value>(value: Value | null | undefined): value is Value {
   return value !== null && value !== undefined;
 }
 
@@ -185,19 +165,11 @@ export function split<Value>(
   return { good, bad };
 }
 
-export function promiseAll<Value>(
-  promises: Array3<Promise<Value>>,
-): Promise<Array3<Value>>;
-export function promiseAll<Value>(
-  promises: Array2<Promise<Value>>,
-): Promise<Array2<Value>>;
-export function promiseAll<Value>(
-  promises: Array1<Promise<Value>>,
-): Promise<Array1<Value>>;
+export function promiseAll<Value>(promises: Array3<Promise<Value>>): Promise<Array3<Value>>;
+export function promiseAll<Value>(promises: Array2<Promise<Value>>): Promise<Array2<Value>>;
+export function promiseAll<Value>(promises: Array1<Promise<Value>>): Promise<Array1<Value>>;
 export function promiseAll<Value>(promises: Promise<Value>[]): Promise<Value[]>;
-export function promiseAll<Value>(
-  promises: Promise<Value>[],
-): Promise<Value[]> {
+export function promiseAll<Value>(promises: Promise<Value>[]): Promise<Value[]> {
   return Promise.all(promises);
 }
 

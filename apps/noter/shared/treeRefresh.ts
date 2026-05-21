@@ -23,9 +23,7 @@ export function isRepositoryMetadataStale(args: {
   }
 
   const now = args.now ?? Date.now();
-  return (
-    now - args.lastRepositoryMetadataRefreshAt >= REPOSITORY_METADATA_STALE_MS
-  );
+  return now - args.lastRepositoryMetadataRefreshAt >= REPOSITORY_METADATA_STALE_MS;
 }
 
 export function shouldPreserveTreeRefreshFailureAfterSuccess(args: {
@@ -57,7 +55,6 @@ export function doesTreeRefreshClaimMatch(args: {
   treeRefreshStartedAt?: number;
 }): boolean {
   return (
-    typeof args.claimedStartedAt === "number" &&
-    args.treeRefreshStartedAt === args.claimedStartedAt
+    typeof args.claimedStartedAt === "number" && args.treeRefreshStartedAt === args.claimedStartedAt
   );
 }

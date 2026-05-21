@@ -5,9 +5,7 @@ export const MCP_ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000;
 export const MCP_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 function bytesToHex(bytes: Uint8Array): string {
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(
-    "",
-  );
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function createOpaqueToken(prefix: string): string {

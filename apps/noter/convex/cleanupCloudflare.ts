@@ -33,10 +33,7 @@ export const cleanupCloudflareData = internalMutation({
     const domains = await ctx.db.query("vaultDomains").collect();
     for (const domain of domains) {
       const source = readUnknownField(domain, "source");
-      if (
-        source === "cloudflare_workers_default" ||
-        source === "cloudflare_workers_custom"
-      ) {
+      if (source === "cloudflare_workers_default" || source === "cloudflare_workers_custom") {
         await ctx.db.delete(domain._id);
       }
     }

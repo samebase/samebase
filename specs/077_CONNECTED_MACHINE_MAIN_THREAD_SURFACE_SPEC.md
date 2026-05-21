@@ -13,35 +13,33 @@
 
 ## Summary
 
-`/machines` now ships a real selected-thread pane inside the shared workspace
-shell instead of an empty canvas.
+`/machines` now ships a real selected-thread pane inside the shared workspace shell instead of an
+empty canvas.
 
 The shipped main pane must:
 
 1. show the selected machine-local Codex thread as a compact timeline
 2. keep grouped work/tool activity between message rows
 3. keep the composer anchored at the bottom of the pane
-4. render both user and assistant messages through the shared
-   `ProsemarkReadOnly` surface so markdown behaves the same way as other Noter
-   chat surfaces
+4. render both user and assistant messages through the shared `ProsemarkReadOnly` surface so
+   markdown behaves the same way as other Noter chat surfaces
 
 ## Locked Product Decisions
 
-1. `/machines` stays on the shared workspace shell and keeps the sidebar-first
-   route structure from the earlier thread-browser work.
-2. The main pane reads machine-local Codex thread detail instead of trying to
-   force vault chat state onto the connected-machine route.
-3. User and assistant message rows must share the same markdown renderer:
-   `ProsemarkReadOnly`.
-4. The renderer contract lives inside the shared Prosemark surface, while
-   role-specific layout remains outside it.
+1. `/machines` stays on the shared workspace shell and keeps the sidebar-first route structure from
+   the earlier thread-browser work.
+2. The main pane reads machine-local Codex thread detail instead of trying to force vault chat state
+   onto the connected-machine route.
+3. User and assistant message rows must share the same markdown renderer: `ProsemarkReadOnly`.
+4. The renderer contract lives inside the shared Prosemark surface, while role-specific layout
+   remains outside it.
 5. User messages stay visually distinct and right-aligned.
-6. Assistant messages stay in the main timeline column without extra faux-card
-   chrome beyond what the route already needs.
-7. Tool and reasoning items stay grouped into compact work-log blocks rather
-   than interleaving raw payload dumps between every message.
-8. The bottom composer uses `ChatInput` in `prosemark` mode and fails closed
-   when machine control is unavailable.
+6. Assistant messages stay in the main timeline column without extra faux-card chrome beyond what
+   the route already needs.
+7. Tool and reasoning items stay grouped into compact work-log blocks rather than interleaving raw
+   payload dumps between every message.
+8. The bottom composer uses `ChatInput` in `prosemark` mode and fails closed when machine control is
+   unavailable.
 
 ## Current Behavior
 
@@ -62,20 +60,18 @@ For hydrated message items:
 1. the pane reads the display text from the selected thread timeline entry
 2. both user and assistant rows render that text with `ProsemarkReadOnly`
 3. the surrounding row chrome controls alignment, spacing, and bubble styling
-4. the message renderer should not fork into a `<pre>` path for user prompts or
-   a `StaticMarkdownDocument` path for assistant replies
+4. the message renderer should not fork into a `<pre>` path for user prompts or a
+   `StaticMarkdownDocument` path for assistant replies
 
-This keeps markdown rendering, folding, and typography behavior aligned with the
-rest of Noter's read-only chat surfaces.
+This keeps markdown rendering, folding, and typography behavior aligned with the rest of Noter's
+read-only chat surfaces.
 
 ### Work-log rendering contract
 
-Non-message items such as reasoning, tool calls, command executions, and file
-changes continue to render as grouped compact work-log rows with concise titles
-and previews.
+Non-message items such as reasoning, tool calls, command executions, and file changes continue to
+render as grouped compact work-log rows with concise titles and previews.
 
-The message renderer change must not flatten those activity groups into message
-bodies.
+The message renderer change must not flatten those activity groups into message bodies.
 
 ## Source Of Truth Files
 
@@ -88,19 +84,18 @@ bodies.
 
 ## Relationship To Earlier Research
 
-The earlier research note in `research/2026-04-02-machines-main-chat-surface.md`
-proposed `StaticMarkdownDocument` for lightweight assistant rendering.
+The earlier research note in `research/2026-04-02-machines-main-chat-surface.md` proposed
+`StaticMarkdownDocument` for lightweight assistant rendering.
 
-The shipped behavior standardizes on `ProsemarkReadOnly` for both message roles
-instead so `/machines` matches the existing Noter chat rendering contract.
+The shipped behavior standardizes on `ProsemarkReadOnly` for both message roles instead so
+`/machines` matches the existing Noter chat rendering contract.
 
 ## Acceptance
 
 - [x] `/machines` can show the selected machine-local thread in the main pane.
-- [x] User and assistant messages render through the shared `ProsemarkReadOnly`
-      surface.
+- [x] User and assistant messages render through the shared `ProsemarkReadOnly` surface.
 - [x] Work/tool activity remains grouped separately from message rows.
-- [x] The bottom composer stays anchored to the pane and can continue the
-      selected thread when machine control is available.
-- [x] The shipped UI keeps screenshot coverage for the full machines workspace
-      surface, including the main thread pane.
+- [x] The bottom composer stays anchored to the pane and can continue the selected thread when
+      machine control is available.
+- [x] The shipped UI keeps screenshot coverage for the full machines workspace surface, including
+      the main thread pane.

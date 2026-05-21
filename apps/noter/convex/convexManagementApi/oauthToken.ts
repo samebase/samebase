@@ -5,17 +5,11 @@ const convexOAuthTokenResponseSchema = z.object({
   token_type: z.literal("bearer"),
 });
 
-export type ConvexOAuthTokenResponse = z.infer<
-  typeof convexOAuthTokenResponseSchema
->;
+export type ConvexOAuthTokenResponse = z.infer<typeof convexOAuthTokenResponseSchema>;
 
-export function parseConvexOAuthTokenResponse(
-  payload: unknown,
-): ConvexOAuthTokenResponse {
+export function parseConvexOAuthTokenResponse(payload: unknown): ConvexOAuthTokenResponse {
   const tokenResponse = convexOAuthTokenResponseSchema.parse(payload);
-  const strictResult = convexOAuthTokenResponseSchema
-    .strict()
-    .safeParse(payload);
+  const strictResult = convexOAuthTokenResponseSchema.strict().safeParse(payload);
 
   if (!strictResult.success) {
     // TODO: Send this schema-drift event through server-side PostHog once the

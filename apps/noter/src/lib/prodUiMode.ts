@@ -1,7 +1,4 @@
-import {
-  buildPathWithTanStackSearch,
-  parseTanStackSearch,
-} from "./tanstackSearchParams";
+import { buildPathWithTanStackSearch, parseTanStackSearch } from "./tanstackSearchParams";
 import { applySearchPatch } from "@/lib/routeSearchFlags";
 import { type DeploymentProfile } from "../../convex/deploymentProfile";
 
@@ -10,9 +7,7 @@ const QUERY_PARAM_LINK_LABEL_PREFIX = "?";
 export const FORCE_PROD_UI_MODE_LINK_LABEL = `${QUERY_PARAM_LINK_LABEL_PREFIX}${FORCE_PROD_UI_QUERY_PARAM}`;
 const PRODUCTION_PUBLIC_HOSTNAMES = ["noter.md", "www.noter.md"] as const;
 
-export function isProdUiModeEnabled(
-  search: Readonly<Record<string, unknown>>,
-): boolean {
+export function isProdUiModeEnabled(search: Readonly<Record<string, unknown>>): boolean {
   const value = search[FORCE_PROD_UI_QUERY_PARAM];
   return (
     Object.prototype.hasOwnProperty.call(search, FORCE_PROD_UI_QUERY_PARAM) &&
@@ -29,10 +24,7 @@ export function isProductionPublicHostname(hostname: string): boolean {
 }
 
 export function isBrowserProductionPublicOrigin(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    isProductionPublicHostname(window.location.hostname)
-  );
+  return typeof window !== "undefined" && isProductionPublicHostname(window.location.hostname);
 }
 
 export function isProductionDeploymentProfile(
@@ -60,8 +52,7 @@ export function shouldStripVisibleProdUiQuery(args: {
 }): boolean {
   const searchParams = new URLSearchParams(args.search);
   return (
-    (args.productionPublicOrigin ||
-      isProductionDeploymentProfile(args.deploymentProfile)) &&
+    (args.productionPublicOrigin || isProductionDeploymentProfile(args.deploymentProfile)) &&
     searchParams.has(FORCE_PROD_UI_QUERY_PARAM)
   );
 }

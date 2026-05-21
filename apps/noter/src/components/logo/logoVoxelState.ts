@@ -65,15 +65,8 @@ export function isWithinGrid(x: number, y: number, z: number): boolean {
   return isWithinVoxelGrid(GRID_SIZE, x, y, z);
 }
 
-export function isWithinVoxelGrid(
-  gridSize: number,
-  x: number,
-  y: number,
-  z: number,
-): boolean {
-  return (
-    x >= 0 && x < gridSize && y >= 0 && y < gridSize && z >= 0 && z < gridSize
-  );
+export function isWithinVoxelGrid(gridSize: number, x: number, y: number, z: number): boolean {
+  return x >= 0 && x < gridSize && y >= 0 && y < gridSize && z >= 0 && z < gridSize;
 }
 
 export function normalizeRotationDegrees(value: number): number {
@@ -88,9 +81,7 @@ export function normalizeElevationDegrees(value: number): number {
   return normalizeRotationDegrees(value);
 }
 
-export function createFilledVoxelSet(
-  coordinates: readonly VoxelCoordinate[],
-): Set<string> {
+export function createFilledVoxelSet(coordinates: readonly VoxelCoordinate[]): Set<string> {
   return new Set(coordinates.map(([x, y, z]) => voxelKey(x, y, z)));
 }
 
@@ -110,9 +101,7 @@ export function getLogoFractalGridSize(depth: number): number {
   return GRID_SIZE ** normalizeLogoFractalDepth(depth);
 }
 
-function readBaseFractalCoordinates(
-  filledVoxels: ReadonlySet<string>,
-): VoxelCoordinate[] {
+function readBaseFractalCoordinates(filledVoxels: ReadonlySet<string>): VoxelCoordinate[] {
   const coordinates: VoxelCoordinate[] = [];
 
   for (const key of filledVoxels) {
@@ -202,9 +191,7 @@ export function serializeVoxelState(filledVoxels: ReadonlySet<string>): string {
   return layers.join(VOXEL_LAYER_SEPARATOR);
 }
 
-export function parseVoxelState(
-  serializedState: string | null,
-): Set<string> | null {
+export function parseVoxelState(serializedState: string | null): Set<string> | null {
   if (!serializedState) {
     return null;
   }
@@ -254,12 +241,8 @@ export function parseVoxelState(
   return filledVoxels;
 }
 
-export function applyVoxelEdit(
-  serializedState: string,
-  edit: VoxelEdit,
-): string {
-  const filledVoxels =
-    parseVoxelState(serializedState) ?? createDefaultFilledVoxelSet();
+export function applyVoxelEdit(serializedState: string, edit: VoxelEdit): string {
+  const filledVoxels = parseVoxelState(serializedState) ?? createDefaultFilledVoxelSet();
   const [x, y, z] = edit.coordinate;
 
   if (!isWithinGrid(x, y, z)) {
@@ -276,6 +259,4 @@ export function applyVoxelEdit(
   return serializeVoxelState(filledVoxels);
 }
 
-export const DEFAULT_VOXEL_STATE = serializeVoxelState(
-  createDefaultFilledVoxelSet(),
-);
+export const DEFAULT_VOXEL_STATE = serializeVoxelState(createDefaultFilledVoxelSet());

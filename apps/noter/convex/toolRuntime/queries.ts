@@ -5,18 +5,7 @@ import type { QueryCtx } from "../_generated/server";
 import { vPullRequestLabel } from "../schema";
 import { isLiveConnectedVault } from "../vault/state";
 
-const {
-  array,
-  boolean,
-  id,
-  literal,
-  null: nullValue,
-  number,
-  object,
-  optional,
-  string,
-  union,
-} = v;
+const { array, boolean, id, literal, null: nullValue, number, object, optional, string, union } = v;
 
 const listVaultsForUserArgsValidator = object({
   userId: id("users"),
@@ -38,9 +27,7 @@ const listVaultRemoteBranchesForUserArgsValidator = object({
   userId: id("users"),
   vaultId: id("vaults"),
 });
-type ListVaultRemoteBranchesForUserArgs = Infer<
-  typeof listVaultRemoteBranchesForUserArgsValidator
->;
+type ListVaultRemoteBranchesForUserArgs = Infer<typeof listVaultRemoteBranchesForUserArgsValidator>;
 
 const vaultRemoteBranchResultValidator = object({
   name: string(),
@@ -60,9 +47,7 @@ const vaultRemoteBranchResultValidator = object({
 });
 type VaultRemoteBranchResult = Infer<typeof vaultRemoteBranchResultValidator>;
 
-const listVaultRemoteBranchesForUserResultValidator = array(
-  vaultRemoteBranchResultValidator,
-);
+const listVaultRemoteBranchesForUserResultValidator = array(vaultRemoteBranchResultValidator);
 type ListVaultRemoteBranchesForUserResult = Infer<
   typeof listVaultRemoteBranchesForUserResultValidator
 >;
@@ -71,9 +56,7 @@ const getVaultContextForUserArgsValidator = object({
   userId: id("users"),
   vaultId: string(),
 });
-type GetVaultContextForUserArgs = Infer<
-  typeof getVaultContextForUserArgsValidator
->;
+type GetVaultContextForUserArgs = Infer<typeof getVaultContextForUserArgsValidator>;
 
 const vaultContextForUserResultValidator = union(
   object({
@@ -85,9 +68,7 @@ const vaultContextForUserResultValidator = union(
   }),
   nullValue(),
 );
-type VaultContextForUserResult = Infer<
-  typeof vaultContextForUserResultValidator
->;
+type VaultContextForUserResult = Infer<typeof vaultContextForUserResultValidator>;
 
 function compareRemoteBranchSortOrder(
   left: VaultRemoteBranchResult,
@@ -128,10 +109,7 @@ function getDefaultBranchTree(
 export const listVaultsForUser = internalQuery({
   args: listVaultsForUserArgsValidator,
   returns: listVaultsForUserResultValidator,
-  handler: async (
-    ctx,
-    args: ListVaultsForUserArgs,
-  ): Promise<ListVaultsForUserResult> => {
+  handler: async (ctx, args: ListVaultsForUserArgs): Promise<ListVaultsForUserResult> => {
     const vaults = await ctx.db
       .query("vaults")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
@@ -162,11 +140,7 @@ export const listVaultRemoteBranchesForUser = internalQuery({
     args: ListVaultRemoteBranchesForUserArgs,
   ): Promise<ListVaultRemoteBranchesForUserResult> => {
     const vault = await ctx.db.get(args.vaultId);
-    if (
-      !vault ||
-      vault.userId !== args.userId ||
-      !isLiveConnectedVault(vault)
-    ) {
+    if (!vault || vault.userId !== args.userId || !isLiveConnectedVault(vault)) {
       return [];
     }
 
@@ -197,20 +171,13 @@ export const listVaultRemoteBranchesForUser = internalQuery({
 export const getVaultContextForUser = internalQuery({
   args: getVaultContextForUserArgsValidator,
   returns: vaultContextForUserResultValidator,
-  handler: async (
-    ctx,
-    args: GetVaultContextForUserArgs,
-  ): Promise<VaultContextForUserResult> => {
+  handler: async (ctx, args: GetVaultContextForUserArgs): Promise<VaultContextForUserResult> => {
     const vaultId = ctx.db.normalizeId("vaults", args.vaultId);
     if (!vaultId) {
       return null;
     }
     const vault = await ctx.db.get(vaultId);
-    if (
-      !vault ||
-      vault.userId !== args.userId ||
-      !isLiveConnectedVault(vault)
-    ) {
+    if (!vault || vault.userId !== args.userId || !isLiveConnectedVault(vault)) {
       return null;
     }
     const defaultBranchTree = await getDefaultBranchTree(ctx, {

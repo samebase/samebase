@@ -34,8 +34,7 @@ export const useApiKeyConnectDialog = ({
   connectGithubWithApiKey,
   connectConvexWithApiKey,
 }: UseApiKeyConnectDialogArgs) => {
-  const [apiKeyDialogProvider, setApiKeyDialogProvider] =
-    useState<ApiKeyProvider | null>(null);
+  const [apiKeyDialogProvider, setApiKeyDialogProvider] = useState<ApiKeyProvider | null>(null);
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [apiKeyError, setApiKeyError] = useState<string | null>(null);
   const [isConnectingApiKey, setIsConnectingApiKey] = useState(false);
@@ -88,26 +87,15 @@ export const useApiKeyConnectDialog = ({
       setApiKeyInput("");
       setApiKeyError(null);
     } catch (error) {
-      setApiKeyError(
-        error instanceof Error
-          ? error.message
-          : "Failed to connect using API key",
-      );
+      setApiKeyError(error instanceof Error ? error.message : "Failed to connect using API key");
     } finally {
       isConnectingApiKeyRef.current = false;
       setIsConnectingApiKey(false);
     }
-  }, [
-    apiKeyDialogProvider,
-    apiKeyInput,
-    connectConvexWithApiKey,
-    connectGithubWithApiKey,
-  ]);
+  }, [apiKeyDialogProvider, apiKeyInput, connectConvexWithApiKey, connectGithubWithApiKey]);
 
   const apiKeyProviderLabel = getApiKeyProviderLabel(apiKeyDialogProvider);
-  const apiKeySubmitLabel = isConnectingApiKey
-    ? "Connecting..."
-    : `Connect ${apiKeyProviderLabel}`;
+  const apiKeySubmitLabel = isConnectingApiKey ? "Connecting..." : `Connect ${apiKeyProviderLabel}`;
 
   const apiKeyDialog = useMemo(
     () => (
@@ -123,14 +111,11 @@ export const useApiKeyConnectDialog = ({
           <DialogHeader>
             <DialogTitle>{`Connect ${apiKeyProviderLabel} with API key`}</DialogTitle>
             <DialogDescription>
-              Paste your {apiKeyProviderLabel} API key or token to connect this
-              account.
+              Paste your {apiKeyProviderLabel} API key or token to connect this account.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor={apiKeyInputId}>
-              {`${apiKeyProviderLabel} API key`}
-            </Label>
+            <Label htmlFor={apiKeyInputId}>{`${apiKeyProviderLabel} API key`}</Label>
             <Input
               id={apiKeyInputId}
               type="password"
@@ -159,11 +144,7 @@ export const useApiKeyConnectDialog = ({
             ) : null}
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={closeApiKeyDialog}
-              disabled={isConnectingApiKey}
-            >
+            <Button variant="outline" onClick={closeApiKeyDialog} disabled={isConnectingApiKey}>
               Cancel
             </Button>
             <Button

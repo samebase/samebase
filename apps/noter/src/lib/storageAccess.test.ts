@@ -3,18 +3,11 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { ensureWindowStorageAccess } from "./storageAccess";
 
-const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
-  window,
-  "localStorage",
-);
+const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
 
 afterEach(() => {
   if (originalLocalStorageDescriptor) {
-    Object.defineProperty(
-      window,
-      "localStorage",
-      originalLocalStorageDescriptor,
-    );
+    Object.defineProperty(window, "localStorage", originalLocalStorageDescriptor);
     return;
   }
 
@@ -38,10 +31,7 @@ describe("storageAccess", () => {
     expect(window.localStorage.length).toBe(2);
     expect(window.localStorage.key(0)).toBe("__convexAuthToken");
     expect(window.localStorage.getItem("__convexAuthToken")).toBe("secret");
-    expect(Object.keys(window.localStorage)).toEqual([
-      "__convexAuthToken",
-      "theme",
-    ]);
+    expect(Object.keys(window.localStorage)).toEqual(["__convexAuthToken", "theme"]);
 
     window.localStorage.removeItem("__convexAuthToken");
     expect(Object.keys(window.localStorage)).toEqual(["theme"]);

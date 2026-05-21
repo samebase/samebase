@@ -4,11 +4,7 @@ export type VaultSyncStatusVisualMode = "vault-sync-status-states";
 
 const FIXTURE_NOW = Date.parse("2026-03-26T18:00:00Z");
 
-export function VaultSyncStatusVisualFixture({
-  mode,
-}: {
-  mode: VaultSyncStatusVisualMode;
-}) {
+export function VaultSyncStatusVisualFixture({ mode }: { mode: VaultSyncStatusVisualMode }) {
   return (
     <div
       data-testid="vault-sync-status-visual-fixture"

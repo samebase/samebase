@@ -34,12 +34,7 @@ export type StarterSeedGitClient = {
     tree: string;
     parents: string[];
   }): Promise<{ sha: string }>;
-  createRef(args: {
-    owner: string;
-    repo: string;
-    ref: string;
-    sha: string;
-  }): Promise<void>;
+  createRef(args: { owner: string; repo: string; ref: string; sha: string }): Promise<void>;
   updateRef(args: {
     owner: string;
     repo: string;
@@ -148,9 +143,7 @@ async function retryOperation<T>(args: {
   throw new Error(`Unreachable retry state for ${args.operation}`);
 }
 
-export function createStarterSeedGitClient(
-  octokit: Octokit,
-): StarterSeedGitClient {
+export function createStarterSeedGitClient(octokit: Octokit): StarterSeedGitClient {
   return {
     createTree: async (args) => {
       const response = await octokit.rest.git.createTree({
@@ -216,10 +209,7 @@ export function createStarterSeedGitClient(
           content: args.contentBase64,
         });
         return {
-          sha: readRequiredCommitSha(
-            response.data.commit.sha,
-            "seed:bootstrapCommit",
-          ),
+          sha: readRequiredCommitSha(response.data.commit.sha, "seed:bootstrapCommit"),
         };
       } catch (error) {
         if (!isMissingBranchError(error)) {
@@ -235,10 +225,7 @@ export function createStarterSeedGitClient(
         content: args.contentBase64,
       });
       return {
-        sha: readRequiredCommitSha(
-          response.data.commit.sha,
-          "seed:bootstrapCommit",
-        ),
+        sha: readRequiredCommitSha(response.data.commit.sha, "seed:bootstrapCommit"),
       };
     },
   };
@@ -254,8 +241,7 @@ function validateManifest(manifest: StarterTemplateManifest): void {
   }
 
   const binaryFiles = manifest.binaryFiles;
-  const fileCount =
-    Object.keys(manifest.files).length + Object.keys(binaryFiles).length;
+  const fileCount = Object.keys(manifest.files).length + Object.keys(binaryFiles).length;
   if (fileCount === 0) {
     throw new Error("starter template manifest has no files");
   }
@@ -269,10 +255,7 @@ function validateManifest(manifest: StarterTemplateManifest): void {
     );
   }
 
-  const manifestPaths = new Set([
-    ...Object.keys(manifest.files),
-    ...Object.keys(binaryFiles),
-  ]);
+  const manifestPaths = new Set([...Object.keys(manifest.files), ...Object.keys(binaryFiles)]);
   const invalidModeEntries = Object.keys(manifest.fileModes).filter(
     (filePath) => !manifestPaths.has(filePath),
   );
@@ -290,14 +273,12 @@ export function buildTreeEntriesForManifest(
 ): StarterTemplateTreeEntry[] {
   const resolveMode = (filePath: string): StarterTemplateFileMode =>
     fileModes[filePath] ?? "100644";
-  const entries: StarterTemplateTreeEntry[] = Object.entries(files).map(
-    ([filePath, content]) => ({
-      path: filePath,
-      mode: resolveMode(filePath),
-      type: "blob",
-      content,
-    }),
-  );
+  const entries: StarterTemplateTreeEntry[] = Object.entries(files).map(([filePath, content]) => ({
+    path: filePath,
+    mode: resolveMode(filePath),
+    type: "blob",
+    content,
+  }));
 
   entries.push(
     ...Object.entries(binaryFileShas).map(([filePath, sha]) => ({
@@ -325,8 +306,7 @@ async function createBinaryFileBlobs(args: {
   for (const [filePath, contentBase64] of entries) {
     const blob = await retryOperation({
       operation: "seed:createBlob",
-      shouldRetry: (error) =>
-        isRetryableError(error) && !isEmptyRepositoryError(error),
+      shouldRetry: (error) => isRetryableError(error) && !isEmptyRepositoryError(error),
       run: async () =>
         await args.client.createBlob({
           owner: args.owner,
@@ -371,8 +351,7 @@ export async function seedRepositoryWithStarter(args: {
 
     return await retryOperation({
       operation: "seed:createTree",
-      shouldRetry: (error) =>
-        isRetryableError(error) && !isEmptyRepositoryError(error),
+      shouldRetry: (error) => isRetryableError(error) && !isEmptyRepositoryError(error),
       run: async () =>
         await args.client.createTree({
           owner: args.owner,
@@ -384,9 +363,7 @@ export async function seedRepositoryWithStarter(args: {
 
   const bootstrapPath = ".noter-seed-bootstrap";
   const bootstrapMessage = "chore: bootstrap branch for starter seeding";
-  const bootstrapContentBase64 = Buffer.from("bootstrap\n", "utf8").toString(
-    "base64",
-  );
+  const bootstrapContentBase64 = Buffer.from("bootstrap\n", "utf8").toString("base64");
 
   let tree: { sha: string };
   let seededFromEmptyRepository = false;
@@ -455,8 +432,7 @@ export async function seedRepositoryWithStarter(args: {
     try {
       await retryOperation({
         operation: "seed:createRef",
-        shouldRetry: (error) =>
-          isRetryableError(error) && !isRefAlreadyExistsError(error),
+        shouldRetry: (error) => isRetryableError(error) && !isRefAlreadyExistsError(error),
         run: async () =>
           await args.client.createRef({
             owner: args.owner,

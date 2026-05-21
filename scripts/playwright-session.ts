@@ -1,25 +1,11 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
-import {
-  readOptionalEnvValue,
-  readPositiveIntegerEnvValue,
-} from "./lib/env.ts";
-import {
-  fail,
-  isMainModule,
-  resolveRepoRoot,
-  runMain,
-} from "./lib/scriptRuntime.ts";
+import { readOptionalEnvValue, readPositiveIntegerEnvValue } from "./lib/env.ts";
+import { fail, isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
 
 const DEFAULT_ANON_VITE_PORT = 5174;
 const DEFAULT_RECORDINGS_DIRNAME = "noter-browser-recordings";
@@ -44,11 +30,8 @@ function resolvePlaywrightUrl(env: NodeJS.ProcessEnv): string {
   }
 
   const vitePort =
-    readPositiveIntegerEnvValue(
-      env.ANON_VITE_PORT,
-      "ANON_VITE_PORT",
-      HELP_TEXT,
-    ) ?? DEFAULT_ANON_VITE_PORT;
+    readPositiveIntegerEnvValue(env.ANON_VITE_PORT, "ANON_VITE_PORT", HELP_TEXT) ??
+    DEFAULT_ANON_VITE_PORT;
   return `http://127.0.0.1:${vitePort}`;
 }
 
@@ -77,19 +60,15 @@ function runBranchBrowser(
     env?: NodeJS.ProcessEnv;
   } = {},
 ): ExecResult {
-  const result = spawnSync(
-    process.execPath,
-    [getBranchBrowserScriptPath(repoRoot), ...args],
-    {
-      cwd: repoRoot,
-      env: {
-        ...process.env,
-        ...options.env,
-      },
-      encoding: "utf8",
-      stdio: options.capture ? "pipe" : "inherit",
+  const result = spawnSync(process.execPath, [getBranchBrowserScriptPath(repoRoot), ...args], {
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      ...options.env,
     },
-  );
+    encoding: "utf8",
+    stdio: options.capture ? "pipe" : "inherit",
+  });
 
   if (result.status !== 0) {
     fail(
@@ -212,20 +191,12 @@ function handleRecordStop(repoRoot: string): void {
     env: sessionEnv,
   });
   writeFileSync(`${prefix}.snapshot.txt`, snapshot.stdout, "utf8");
-  runBranchBrowser(
-    repoRoot,
-    ["cli", "screenshot", `--filename=${prefix}.png`],
-    {
-      env: sessionEnv,
-    },
-  );
-  runBranchBrowser(
-    repoRoot,
-    ["cli", "video-stop", `--filename=${prefix}.webm`],
-    {
-      env: sessionEnv,
-    },
-  );
+  runBranchBrowser(repoRoot, ["cli", "screenshot", `--filename=${prefix}.png`], {
+    env: sessionEnv,
+  });
+  runBranchBrowser(repoRoot, ["cli", "video-stop", `--filename=${prefix}.webm`], {
+    env: sessionEnv,
+  });
   const trace = runBranchBrowser(repoRoot, ["cli", "tracing-stop"], {
     capture: true,
     env: sessionEnv,
@@ -241,12 +212,7 @@ function handleRecordStop(repoRoot: string): void {
 
 async function main(): Promise<void> {
   const command = process.argv.at(2);
-  if (
-    command === undefined ||
-    command === "help" ||
-    command === "--help" ||
-    command === "-h"
-  ) {
+  if (command === undefined || command === "help" || command === "--help" || command === "-h") {
     console.log(HELP_TEXT);
     return;
   }

@@ -20,14 +20,12 @@ async function loadMonaco() {
   return monaco;
 }
 
-export function MonacoSurface(props: {
-  dataTestId: string;
-  initialValue?: string;
-}) {
+export function MonacoSurface(props: { dataTestId: string; initialValue?: string }) {
   let hostRef: HTMLDivElement | undefined;
 
   onMount(() => {
-    if (!hostRef) {
+    const hostNode = hostRef;
+    if (!hostNode) {
       return;
     }
 
@@ -35,16 +33,13 @@ export function MonacoSurface(props: {
     let cleanup = () => {};
 
     void loadMonaco().then((monaco) => {
-      if (disposed || !hostRef) {
+      if (disposed) {
         return;
       }
 
-      const model = monaco.editor.createModel(
-        props.initialValue ?? "",
-        "markdown",
-      );
+      const model = monaco.editor.createModel(props.initialValue ?? "", "markdown");
 
-      const editor = monaco.editor.create(hostRef, {
+      const editor = monaco.editor.create(hostNode, {
         model,
         automaticLayout: true,
         folding: false,
@@ -89,11 +84,13 @@ export function MonacoSurface(props: {
   });
 
   return (
-    <div
-      class="h-full min-h-0 w-full overflow-hidden touch-pan-y"
-      data-testid={props.dataTestId}
-    >
-      <div ref={hostRef} class="h-full min-h-0 w-full touch-pan-y" />
+    <div class="h-full min-h-0 w-full overflow-hidden touch-pan-y" data-testid={props.dataTestId}>
+      <div
+        ref={(node) => {
+          hostRef = node;
+        }}
+        class="h-full min-h-0 w-full touch-pan-y"
+      />
     </div>
   );
 }

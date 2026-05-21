@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ProsemarkMergeEditorOptions } from "@/components/ProsemarkMergeEditor";
 import { getReviewSplitDiffHighlights } from "@/lib/reviewSplitDiff";
 import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
@@ -42,34 +35,28 @@ export function useFileViewInlinePreview({
   selectedPreviewStagedFile: StagedFileRecord | null;
   updateStagedFileContent: UpdateStagedFileContent;
 }) {
-  const [inlinePreviewDraftStagingId, setInlinePreviewDraftStagingId] =
-    useState<StagedFileRecord["_id"] | null>(null);
-  const [inlinePreviewDraftContent, setInlinePreviewDraftContent] =
-    useState("");
-  const [inlinePreviewDraftBaseVersion, setInlinePreviewDraftBaseVersion] =
-    useState(0);
-  const [
-    inlinePreviewHasPendingLocalEdit,
-    setInlinePreviewHasPendingLocalEdit,
-  ] = useState(false);
-  const [inlinePreviewOptions, setInlinePreviewOptions] =
-    useState<ProsemarkMergeEditorOptions>(DEFAULT_INLINE_PREVIEW_OPTIONS);
+  const [inlinePreviewDraftStagingId, setInlinePreviewDraftStagingId] = useState<
+    StagedFileRecord["_id"] | null
+  >(null);
+  const [inlinePreviewDraftContent, setInlinePreviewDraftContent] = useState("");
+  const [inlinePreviewDraftBaseVersion, setInlinePreviewDraftBaseVersion] = useState(0);
+  const [inlinePreviewHasPendingLocalEdit, setInlinePreviewHasPendingLocalEdit] = useState(false);
+  const [inlinePreviewOptions, setInlinePreviewOptions] = useState<ProsemarkMergeEditorOptions>(
+    DEFAULT_INLINE_PREVIEW_OPTIONS,
+  );
   const [showInlinePreviewPatch, setShowInlinePreviewPatch] = useState(
     DEFAULT_SHOW_INLINE_PREVIEW_PATCH,
   );
-  const [showInlinePreviewSideBySide, setShowInlinePreviewSideBySide] =
-    useState(DEFAULT_SHOW_INLINE_PREVIEW_SIDE_BY_SIDE);
-  const [inlinePreviewSaveError, setInlinePreviewSaveError] = useState<
-    string | null
-  >(null);
+  const [showInlinePreviewSideBySide, setShowInlinePreviewSideBySide] = useState(
+    DEFAULT_SHOW_INLINE_PREVIEW_SIDE_BY_SIDE,
+  );
+  const [inlinePreviewSaveError, setInlinePreviewSaveError] = useState<string | null>(null);
   const [inlinePreviewInFlightSave, setInlinePreviewInFlightSave] =
     useState<InlinePreviewSaveSnapshot | null>(null);
   const [inlinePreviewFailedSave, setInlinePreviewFailedSave] =
     useState<InlinePreviewSaveSnapshot | null>(null);
   const inlinePreviewDraftContentRef = useRef("");
-  const activePreviewStagingIdRef = useRef<StagedFileRecord["_id"] | null>(
-    null,
-  );
+  const activePreviewStagingIdRef = useRef<StagedFileRecord["_id"] | null>(null);
   const flushPendingInlinePreviewSaveRef = useRef<(() => void) | null>(null);
   const inlinePreviewAutosaveContextKeyRef = useRef("");
   const inlinePreviewMountedRef = useRef(true);
@@ -93,15 +80,8 @@ export function useFileViewInlinePreview({
       return { oldLines: [], newLines: [] };
     }
 
-    return getReviewSplitDiffHighlights(
-      selectedPreviewBaseContent,
-      inlinePreviewEditorContent,
-    );
-  }, [
-    inlinePreviewEditorContent,
-    selectedPreviewBaseContent,
-    showInlinePreviewSideBySide,
-  ]);
+    return getReviewSplitDiffHighlights(selectedPreviewBaseContent, inlinePreviewEditorContent);
+  }, [inlinePreviewEditorContent, selectedPreviewBaseContent, showInlinePreviewSideBySide]);
   const inlinePreviewAutosaveContextKey = buildInlinePreviewAutosaveContextKey(
     commitReviewMode,
     activePreviewStagingId,
@@ -145,9 +125,7 @@ export function useFileViewInlinePreview({
             return;
           }
           setInlinePreviewInFlightSave((current) =>
-            matchesInlinePreviewSaveSnapshot(current, nextSave)
-              ? null
-              : current,
+            matchesInlinePreviewSaveSnapshot(current, nextSave) ? null : current,
           );
           if (activePreviewStagingIdRef.current !== nextSave.stagingId) {
             return;
@@ -164,9 +142,7 @@ export function useFileViewInlinePreview({
             return;
           }
           setInlinePreviewInFlightSave((current) =>
-            matchesInlinePreviewSaveSnapshot(current, nextSave)
-              ? null
-              : current,
+            matchesInlinePreviewSaveSnapshot(current, nextSave) ? null : current,
           );
           if (activePreviewStagingIdRef.current !== nextSave.stagingId) {
             return;
@@ -325,8 +301,7 @@ export function useFileViewInlinePreview({
       window.clearTimeout(timeoutId);
       if (
         didStartSave ||
-        inlinePreviewAutosaveContextKeyRef.current ===
-          inlinePreviewAutosaveContextKey
+        inlinePreviewAutosaveContextKeyRef.current === inlinePreviewAutosaveContextKey
       ) {
         return;
       }

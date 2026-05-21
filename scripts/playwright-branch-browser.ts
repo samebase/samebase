@@ -61,12 +61,7 @@ type PlaywrightCliConfig = {
 function main(args: string[]): void {
   const [command, ...rest] = args;
 
-  if (
-    !command ||
-    command === "help" ||
-    command === "--help" ||
-    command === "-h"
-  ) {
+  if (!command || command === "help" || command === "--help" || command === "-h") {
     console.log(HELP_TEXT);
     return;
   }
@@ -190,9 +185,7 @@ function requiresSessionReopen(
   return new RegExp(`session '${escapedSession}' is v`, "i").test(output);
 }
 
-function writeCapturedOutput(
-  result: import("node:child_process").SpawnSyncReturns<string>,
-): void {
+function writeCapturedOutput(result: import("node:child_process").SpawnSyncReturns<string>): void {
   if (result.stdout) {
     process.stdout.write(result.stdout);
   }
@@ -221,9 +214,7 @@ function getProfileDir(session: string): string {
  * Every branch-owned persistent browser should inherit the same launch flags so
  * Chrome crash recovery UI never blocks automation after an unclean exit.
  */
-export function buildPlaywrightCliConfig(
-  repoRoot: string = getRepoRoot(),
-): PlaywrightCliConfig {
+export function buildPlaywrightCliConfig(repoRoot: string = getRepoRoot()): PlaywrightCliConfig {
   return {
     browser: {
       browserName: PLAYWRIGHT_CLI_BROWSER_NAME,
@@ -265,14 +256,10 @@ function ensureConfiguredBrowserInstalled(): void {
     return;
   }
 
-  const installResult = spawnSync(
-    "node",
-    [playwrightCliPath, "install", PLAYWRIGHT_CLI_CHANNEL],
-    {
-      encoding: "utf8",
-      stdio: "inherit",
-    },
-  );
+  const installResult = spawnSync("node", [playwrightCliPath, "install", PLAYWRIGHT_CLI_CHANNEL], {
+    encoding: "utf8",
+    stdio: "inherit",
+  });
 
   if (installResult.status !== 0 || !existsSync(executablePath)) {
     fail(
@@ -304,13 +291,7 @@ function getBundledPlaywrightCliPath(repoRoot: string): string {
   }
 
   const cliEntryPath = result.stdout.trim();
-  return path.resolve(
-    path.dirname(cliEntryPath),
-    "..",
-    "..",
-    "playwright",
-    "cli.js",
-  );
+  return path.resolve(path.dirname(cliEntryPath), "..", "..", "playwright", "cli.js");
 }
 
 function getBundledBrowserExecutablePath(playwrightCliPath: string): string {
@@ -363,25 +344,21 @@ export function sanitizeChromeCrashRecoveryState(profileDir: string): void {
     return localState;
   });
 
-  updateJsonFile(
-    path.join(profileDir, "Default", "Preferences"),
-    (preferences) => {
-      if (isRecord(preferences.profile)) {
-        preferences.profile.exit_type = "Normal";
-      }
+  updateJsonFile(path.join(profileDir, "Default", "Preferences"), (preferences) => {
+    if (isRecord(preferences.profile)) {
+      preferences.profile.exit_type = "Normal";
+    }
 
-      const sessionEventLog = isRecord(preferences.sessions)
-        ? preferences.sessions.event_log
-        : undefined;
+    const sessionEventLog = isRecord(preferences.sessions)
+      ? preferences.sessions.event_log
+      : undefined;
 
-      if (isRecord(preferences.sessions) && Array.isArray(sessionEventLog)) {
-        preferences.sessions.event_log =
-          clearCrashFlagsFromSessionEventLog(sessionEventLog);
-      }
+    if (isRecord(preferences.sessions) && Array.isArray(sessionEventLog)) {
+      preferences.sessions.event_log = clearCrashFlagsFromSessionEventLog(sessionEventLog);
+    }
 
-      return preferences;
-    },
-  );
+    return preferences;
+  });
 }
 
 function getRepoRoot(): string {
@@ -398,9 +375,7 @@ function getBranchIdentifier(): string {
   return `detached-${shortSha}`;
 }
 
-function getSessionState(
-  session: string,
-): "open" | "closed" | "missing" | "unknown" {
+function getSessionState(session: string): "open" | "closed" | "missing" | "unknown" {
   const sessionDetails = getSessionDetails(session);
   if (!sessionDetails) {
     return "unknown";
@@ -483,9 +458,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function clearCrashFlagsFromSessionEventLog(eventLog: unknown[]): unknown[] {
-  return eventLog.map((entry) =>
-    isRecord(entry) ? { ...entry, crashed: false } : entry,
-  );
+  return eventLog.map((entry) => (isRecord(entry) ? { ...entry, crashed: false } : entry));
 }
 
 /**
@@ -518,11 +491,7 @@ function getStableHueDegrees(repoRoot: string): number {
   return Math.round((hueToken / 0xffff) * 359);
 }
 
-function hslToRgb(
-  hue: number,
-  saturation: number,
-  lightness: number,
-): RgbColor {
+function hslToRgb(hue: number, saturation: number, lightness: number): RgbColor {
   if (saturation === 0) {
     const grayscale = Math.round(lightness * 255);
     return {
@@ -601,9 +570,7 @@ function normalizeBranchSessionSegment(branchIdentifier: string): string {
 }
 
 function abbreviateBranchSessionSegment(branchIdentifier: string): string {
-  const normalizedBranch = slugify(
-    normalizeBranchSessionSegment(branchIdentifier),
-  );
+  const normalizedBranch = slugify(normalizeBranchSessionSegment(branchIdentifier));
   const segments = normalizedBranch.split("-").filter(Boolean);
 
   if (segments.length > 1) {
@@ -613,26 +580,18 @@ function abbreviateBranchSessionSegment(branchIdentifier: string): string {
     );
   }
 
-  return truncateSessionSegment(
-    normalizedBranch,
-    SESSION_BRANCH_SEGMENT_MAX_LENGTH,
-  );
+  return truncateSessionSegment(normalizedBranch, SESSION_BRANCH_SEGMENT_MAX_LENGTH);
 }
 
 function getSafeExplicitSession(explicitSession: string): string {
   if (!EXPLICIT_SESSION_PATTERN.test(explicitSession)) {
-    fail(
-      'PLAYWRIGHT_SESSION may only contain letters, numbers, ".", "_" and "-".',
-    );
+    fail('PLAYWRIGHT_SESSION may only contain letters, numbers, ".", "_" and "-".');
   }
 
   return explicitSession;
 }
 
-export function buildDerivedSessionName(
-  repoRoot: string,
-  branchIdentifier: string,
-): string {
+export function buildDerivedSessionName(repoRoot: string, branchIdentifier: string): string {
   const repoName = truncateSessionSegment(
     slugify(path.basename(repoRoot)),
     SESSION_REPO_SEGMENT_MAX_LENGTH,
@@ -674,11 +633,7 @@ export function parseSessionDetailsFromListOutput(
       status: "open",
     };
 
-    for (
-      let detailIndex = index + 1;
-      detailIndex < lines.length;
-      detailIndex += 1
-    ) {
+    for (let detailIndex = index + 1; detailIndex < lines.length; detailIndex += 1) {
       const detailLine = lines[detailIndex] ?? "";
       if (detailLine.startsWith("- ")) {
         break;
@@ -719,9 +674,7 @@ export function parseSessionStateFromListOutput(
   output: string,
   session: string,
 ): "open" | "closed" | "missing" {
-  return (
-    parseSessionDetailsFromListOutput(output, session)?.status ?? "missing"
-  );
+  return parseSessionDetailsFromListOutput(output, session)?.status ?? "missing";
 }
 
 /**
@@ -729,10 +682,7 @@ export function parseSessionStateFromListOutput(
  * closes only the branch-owned profile, relaunches it in headed mode, then
  * polls the macOS window list for a restore-pages popup from that exact PID.
  */
-function verifyRestorePagesSuppression(options: {
-  url?: string;
-  headed: boolean;
-}): void {
+function verifyRestorePagesSuppression(options: { url?: string; headed: boolean }): void {
   const session = getSessionName();
   const profileDir = getProfileDir(session);
 
@@ -819,17 +769,12 @@ function terminateProfileBrowserProcesses(profileDir: string): void {
         continue;
       }
 
-      fail(
-        `Failed to terminate branch browser process ${pid} for ${profileDir}.`,
-      );
+      fail(`Failed to terminate branch browser process ${pid} for ${profileDir}.`);
     }
   }
 }
 
-function assertObservedWindowTitles(
-  windowTitles: Set<string>,
-  pid: number,
-): void {
+function assertObservedWindowTitles(windowTitles: Set<string>, pid: number): void {
   if (windowTitles.size > 0) {
     return;
   }
@@ -929,9 +874,7 @@ FileHandle.standardOutput.write(data)`;
     : [];
 }
 
-function listProfileBrowserProcesses(
-  profileDir: string,
-): { pid: number; args: string }[] {
+function listProfileBrowserProcesses(profileDir: string): { pid: number; args: string }[] {
   const result = spawnSync("ps", ["-axo", "pid=,args="], {
     encoding: "utf8",
   });
@@ -949,13 +892,8 @@ export function parseProfileBrowserProcessesFromPsOutput(
   profileDir: string,
 ): { pid: number; args: string }[] {
   const userDataDirFlag = `--user-data-dir=${profileDir}`;
-  const escapedUserDataDirFlag = userDataDirFlag.replaceAll(
-    /[.*+?^${}()|[\]\\]/g,
-    "\\$&",
-  );
-  const userDataDirPattern = new RegExp(
-    `(?:^|\\s)${escapedUserDataDirFlag}(?:\\s|$)`,
-  );
+  const escapedUserDataDirFlag = userDataDirFlag.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const userDataDirPattern = new RegExp(`(?:^|\\s)${escapedUserDataDirFlag}(?:\\s|$)`);
 
   return output
     .split("\n")
@@ -979,9 +917,7 @@ export function parseProfileBrowserProcessesFromPsOutput(
 /**
  * The main browser process has the profile arg but no helper subprocess flags.
  */
-function getPrimaryProfileBrowserProcess(
-  profileDir: string,
-): { pid: number; args: string } | null {
+function getPrimaryProfileBrowserProcess(profileDir: string): { pid: number; args: string } | null {
   for (const processInfo of listProfileBrowserProcesses(profileDir)) {
     if (processInfo.args.includes("Helper")) {
       continue;
@@ -998,11 +934,7 @@ function getPrimaryProfileBrowserProcess(
   return null;
 }
 
-function waitForValue<T>(
-  readValue: () => T | null,
-  timeoutMs: number,
-  timeoutMessage: string,
-): T {
+function waitForValue<T>(readValue: () => T | null, timeoutMs: number, timeoutMessage: string): T {
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
@@ -1052,7 +984,5 @@ function handleMainError(error: unknown): never {
 }
 
 function isMainModule(): boolean {
-  return process.argv[1]
-    ? path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
-    : false;
+  return process.argv[1] ? path.resolve(process.argv[1]) === fileURLToPath(import.meta.url) : false;
 }

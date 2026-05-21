@@ -88,8 +88,7 @@ function prioritizePaths(paths: string[], activeFilePath: string): string[] {
     rank: rankPath(path, scopePrefix),
   }));
 
-  const scoped =
-    scopePrefix === null ? ranked : ranked.filter((p) => p.rank <= 4);
+  const scoped = scopePrefix === null ? ranked : ranked.filter((p) => p.rank <= 4);
   const pool = scoped.length > 0 ? scoped : ranked;
 
   pool.sort((a, b) => a.rank - b.rank || a.index - b.index);
@@ -156,10 +155,7 @@ export function useProjectFiles(
       .filter((entry) => shouldInclude(entry) || shouldIncludeTsConfig(entry))
       .map((entry) => entry.path);
     const uniquePaths = Array.from(new Set(candidatePaths));
-    const paths = prioritizePaths(uniquePaths, activeFilePath).slice(
-      0,
-      MAX_BATCH_FILE_PATHS,
-    );
+    const paths = prioritizePaths(uniquePaths, activeFilePath).slice(0, MAX_BATCH_FILE_PATHS);
 
     if (paths.length === 0) {
       setLoading(false);
@@ -191,10 +187,7 @@ export function useProjectFiles(
         }
       } catch (error) {
         if (!abortController.signal.aborted) {
-          console.error(
-            "useProjectFiles: failed to load project files:",
-            error,
-          );
+          console.error("useProjectFiles: failed to load project files:", error);
           setLoading(false);
         }
       }

@@ -16,31 +16,29 @@
 
 ## Summary
 
-Build a hosted remote MCP server for `noter.md` plus an OAuth provider for that
-server, with all server-side MCP and OAuth logic living in Convex.
+Build a hosted remote MCP server for `noter.md` plus an OAuth provider for that server, with all
+server-side MCP and OAuth logic living in Convex.
 
 The default architecture is:
 
-1. Cloudflare fronts `https://noter.md` and remains the proxy, TLS, routing,
-   WAF, and observability layer.
-2. Convex `httpAction`s own the MCP transport and OAuth provider routes: `/mcp`,
-   `/oauth/mcp/*`, and the required `/.well-known/*` metadata endpoints.
-3. Convex stores OAuth clients, auth requests, grants, authorization codes,
-   access tokens, refresh tokens, and audit history.
-4. The existing `noter.md` React app renders consent and revocation UI against
-   that Convex-backed state.
+1. Cloudflare fronts `https://noter.md` and remains the proxy, TLS, routing, WAF, and observability
+   layer.
+2. Convex `httpAction`s own the MCP transport and OAuth provider routes: `/mcp`, `/oauth/mcp/*`, and
+   the required `/.well-known/*` metadata endpoints.
+3. Convex stores OAuth clients, auth requests, grants, authorization codes, access tokens, refresh
+   tokens, and audit history.
+4. The existing `noter.md` React app renders consent and revocation UI against that Convex-backed
+   state.
 
-This is the simplest architecture that still matches the remote MCP model:
-same-origin public URLs, Cloudflare control at the edge, and one backend system
-to implement and operate.
+This is the simplest architecture that still matches the remote MCP model: same-origin public URLs,
+Cloudflare control at the edge, and one backend system to implement and operate.
 
 ## Goals
 
 - Expose a remote MCP server that ChatGPT web can connect to with OAuth.
 - Keep the public MCP surface same-origin on `https://noter.md/mcp`.
 - Put all MCP server and OAuth provider logic in the existing Convex app.
-- Reuse Convex for durable state, user identity, approvals, audit, and tool
-  execution.
+- Reuse Convex for durable state, user identity, approvals, audit, and tool execution.
 - Keep provider-issued MCP tokens first-party to `noter.md`.
 - Support dynamic client registration for clients such as ChatGPT.
 - Preserve approval-first behavior for sensitive Noter operations.
@@ -48,11 +46,9 @@ to implement and operate.
 ## Non-Goals
 
 - Creating a separate `apps/noter-mcp` service or standalone edge runtime.
-- Making public MCP access tokens valid against unrelated Convex routes or app
-  APIs.
+- Making public MCP access tokens valid against unrelated Convex routes or app APIs.
 - Reusing the browser app session token as an MCP access token.
-- Passing GitHub, Cloudflare, or Convex provider tokens through to the MCP
-  client.
+- Passing GitHub, Cloudflare, or Convex provider tokens through to the MCP client.
 - Shipping every optional MCP feature in v1.
 
 ## External Constraints
@@ -63,8 +59,7 @@ Current remote MCP clients, including ChatGPT web, expect:
 
 1. A hosted MCP server over remote HTTP transport.
 2. OAuth as a first-class auth option.
-3. Dynamic client registration when the client does not have a pre-provisioned
-   client ID.
+3. Dynamic client registration when the client does not have a pre-provisioned client ID.
 
 ### MCP authorization expectations
 
@@ -84,21 +79,19 @@ Convex gives us the pieces we need for a simple provider implementation:
 1. `httpAction` can serve custom HTTP routes and return `Response`.
 2. The existing app already has OAuth routes in `apps/noter/convex/http.ts`.
 3. Convex is a strong fit for durable OAuth state, audit, and business logic.
-4. Convex request handling is naturally request/response oriented, so v1 should
-   favor a narrow MCP surface instead of assuming we need advanced edge session
-   machinery on day one.
+4. Convex request handling is naturally request/response oriented, so v1 should favor a narrow MCP
+   surface instead of assuming we need advanced edge session machinery on day one.
 
 ### Cloudflare integration constraints
 
 Cloudflare is still the front door, but not the MCP application runtime:
 
-1. Cloudflare should proxy the same-origin MCP and OAuth paths for
-   `https://noter.md`.
-2. If a Cloudflare Worker is needed for path routing, it should remain a thin
-   proxy only and should not own MCP or OAuth business logic.
+1. Cloudflare should proxy the same-origin MCP and OAuth paths for `https://noter.md`.
+2. If a Cloudflare Worker is needed for path routing, it should remain a thin proxy only and should
+   not own MCP or OAuth business logic.
 3. Cloudflare Web Analytics is useful for browser-facing site traffic.
-4. MCP and OAuth observability should primarily come from Convex logs and audit
-   data, with Cloudflare proxy metrics as a secondary signal.
+4. MCP and OAuth observability should primarily come from Convex logs and audit data, with
+   Cloudflare proxy metrics as a secondary signal.
 
 ## Decision
 
@@ -106,18 +99,16 @@ Use a Convex-first, same-origin architecture.
 
 ### Why this is the recommended shape
 
-1. It is the simplest viable implementation that satisfies the remote MCP
-   contract.
+1. It is the simplest viable implementation that satisfies the remote MCP contract.
 2. It avoids a second runtime and a second server codebase.
 3. It keeps the MCP protocol, OAuth state, and tool execution in one backend.
 4. Cloudflare still gives us the operational benefits we want at the edge.
-5. It leaves room to move selective responsibilities to Cloudflare later without
-   changing the public URLs.
+5. It leaves room to move selective responsibilities to Cloudflare later without changing the public
+   URLs.
 
 ### Why same-origin on `noter.md` is the default
 
-1. The MCP spec allows the resource server and authorization server to share an
-   origin.
+1. The MCP spec allows the resource server and authorization server to share an origin.
 2. ChatGPT does not require a dedicated `mcp.` subdomain.
 3. Same-origin keeps consent, cookies, and user expectations simpler.
 4. Cloudflare can still control, proxy, and observe the traffic at the edge.
@@ -128,29 +119,28 @@ We are not making a Cloudflare Worker the main MCP or OAuth runtime in v1.
 
 Reasons:
 
-1. It adds a second place to implement auth, token issuance, and protocol
-   behavior.
+1. It adds a second place to implement auth, token issuance, and protocol behavior.
 2. It forces a more complex token boundary before we know we need it.
 3. The user explicitly wants the server logic to stay in Convex.
 4. Convex already has the primitives needed for the first version.
 
 ### Rejected architecture: internal Convex JWT path in v1
 
-We are not adding a second internal JWT audience or `customJwt` provider for the
-first implementation.
+We are not adding a second internal JWT audience or `customJwt` provider for the first
+implementation.
 
 Reasons:
 
 1. It is useful only if we split the public MCP runtime away from Convex.
-2. If Convex owns token issuance and token validation directly, the extra JWT
-   hop adds complexity without buying much.
+2. If Convex owns token issuance and token validation directly, the extra JWT hop adds complexity
+   without buying much.
 3. Opaque token lookup inside Convex is simpler to reason about and revoke.
 
 ### Acceptable future pivot
 
-If we later need edge-issued JWTs, richer transport handling, or stronger edge
-rate controls, we can move selective validation or transport work to Cloudflare.
-That should be a later optimization, not the starting point.
+If we later need edge-issued JWTs, richer transport handling, or stronger edge rate controls, we can
+move selective validation or transport work to Cloudflare. That should be a later optimization, not
+the starting point.
 
 ## High-Level Architecture
 
@@ -185,10 +175,9 @@ That should be a later optimization, not the starting point.
 
 1. MCP client or browser hits `https://noter.md/...`.
 2. Cloudflare proxies the MCP and OAuth paths to Convex.
-3. Convex `httpAction`s validate the request, load or mutate OAuth state, and
-   run the appropriate backend logic.
-4. The React app uses normal app auth to let the signed-in user approve or
-   revoke grants.
+3. Convex `httpAction`s validate the request, load or mutate OAuth state, and run the appropriate
+   backend logic.
+4. The React app uses normal app auth to let the signed-in user approve or revoke grants.
 
 ## Component Responsibilities
 
@@ -236,8 +225,8 @@ Default shape:
 
 1. Cloudflare continues serving or proxying the main `noter.md` application.
 2. Cloudflare proxies MCP and OAuth routes to Convex on the same public host.
-3. Any Cloudflare Worker used for routing should stay a thin proxy and should
-   not contain OAuth, token, or MCP business logic.
+3. Any Cloudflare Worker used for routing should stay a thin proxy and should not contain OAuth,
+   token, or MCP business logic.
 
 Recommended route patterns:
 
@@ -252,15 +241,14 @@ The simple design should use the simplest matching telemetry sources:
 
 1. Use Cloudflare Web Analytics for browser-facing page traffic on `noter.md`.
 2. Use Convex logs and MCP audit tables for protocol-level visibility.
-3. Use Cloudflare proxy metrics and request traces as a secondary network-level
-   signal.
+3. Use Cloudflare proxy metrics and request traces as a secondary network-level signal.
 
 Implications:
 
 1. We still get Cloudflare control and broad traffic visibility.
 2. We do not need a Worker runtime just to gain analytics.
-3. MCP-specific debugging should center on Convex because that is where token
-   validation and tool execution happen.
+3. MCP-specific debugging should center on Convex because that is where token validation and tool
+   execution happen.
 
 ## Token Model
 
@@ -282,22 +270,21 @@ Rules:
 
 ### 3. Access token
 
-Use an opaque bearer token generated with at least 128 bits of entropy and
-stored only as the SHA-256 hash in Convex.
+Use an opaque bearer token generated with at least 128 bits of entropy and stored only as the
+SHA-256 hash in Convex.
 
 Rules:
 
 1. First-party to `noter.md`.
 2. Bound to `client_id`, `grant_id`, `user_id`, resource, and scope.
-3. TTL must be 1-24 hours (recommend 1 hour in v1; shorten further per threat
-   model).
+3. TTL must be 1-24 hours (recommend 1 hour in v1; shorten further per threat model).
 4. Validated by lookup inside Convex on every `/mcp` call.
 5. Not accepted by unrelated app routes or internal Convex auth.
 
 ### 4. Refresh token
 
-Use an opaque refresh token generated with at least 128 bits of entropy and
-stored only as the SHA-256 hash in Convex.
+Use an opaque refresh token generated with at least 128 bits of entropy and stored only as the
+SHA-256 hash in Convex.
 
 Rules:
 
@@ -319,8 +306,8 @@ Reasons:
 
 No `apps/noter/convex/auth.config.ts` change is required for v1.
 
-The existing app-login provider remains unchanged. MCP access tokens are not fed
-into `ctx.auth`; they are validated explicitly inside the MCP HTTP routes.
+The existing app-login provider remains unchanged. MCP access tokens are not fed into `ctx.auth`;
+they are validated explicitly inside the MCP HTTP routes.
 
 ## Convex Data Model Additions
 
@@ -434,8 +421,7 @@ Fields:
 
 ### 7. `mcpAccessAudit`
 
-Immutable audit trail for registration, approval, issuance, refresh, use, and
-revocation.
+Immutable audit trail for registration, approval, issuance, refresh, use, and revocation.
 
 Fields:
 
@@ -463,8 +449,8 @@ Rules:
 
 1. Existing approval-first operations must keep their approval step.
 2. MCP can create a proposal, but it must not silently bypass approval.
-3. If direct `files.write` feels too broad at launch, we should narrow it to a
-   proposal-style write flow instead of widening scopes elsewhere.
+3. If direct `files.write` feels too broad at launch, we should narrow it to a proposal-style write
+   flow instead of widening scopes elsewhere.
 
 ## Protocol Flow
 
@@ -473,18 +459,16 @@ Rules:
 1. MCP client discovers auth metadata.
 2. MCP client calls `/oauth/mcp/register`.
 3. Convex applies strict metadata validation before persistence:
-   - reject malformed or oversized `redirect_uris`, `client_name`, and
-     `contacts`
-   - require https redirect URIs in production (with explicit localhost/dev
-     exceptions only where intended)
+   - reject malformed or oversized `redirect_uris`, `client_name`, and `contacts`
+   - require https redirect URIs in production (with explicit localhost/dev exceptions only where
+     intended)
    - enforce fixed v1 bounds for field lengths and list sizes
-4. Convex enforces `tokenEndpointAuthMethod = "none"` in v1 and rejects
-   registrations requesting other methods.
-5. Cloudflare applies per-IP throttling for `/oauth/mcp/register` and optional
-   per-client throttling once a `client_id` exists.
-6. Dynamic registrations are created as `provisional` and auto-expire if no
-   token exchange occurs before `provisionalExpiresAt` (TTL must be 24-48 hours;
-   recommend 24 hours in v1).
+4. Convex enforces `tokenEndpointAuthMethod = "none"` in v1 and rejects registrations requesting
+   other methods.
+5. Cloudflare applies per-IP throttling for `/oauth/mcp/register` and optional per-client throttling
+   once a `client_id` exists.
+6. Dynamic registrations are created as `provisional` and auto-expire if no token exchange occurs
+   before `provisionalExpiresAt` (TTL must be 24-48 hours; recommend 24 hours in v1).
 7. Convex returns `client_id`.
 
 ### 2. Authorization request
@@ -504,13 +488,12 @@ Rules:
 3. Convex enforces registered `tokenEndpointAuthMethod`; in v1 this means:
    - registered method must be `"none"`
    - client-auth credentials in token requests are rejected
-4. On successful exchange, provisional clients are promoted to `active` and
-   `firstTokenExchangedAt` is set.
+4. On successful exchange, provisional clients are promoted to `active` and `firstTokenExchangedAt`
+   is set.
 5. Convex issues:
    - short-lived opaque access token
    - long-lived opaque refresh token
-6. Only SHA-256 token hashes are stored in Convex for both access and refresh
-   tokens.
+6. Only SHA-256 token hashes are stored in Convex for both access and refresh tokens.
 7. Issuance is recorded in `mcpAccessAudit`.
 
 ### 4. MCP call
@@ -564,25 +547,19 @@ Do not introduce a blanket `admin` scope.
 ## Security Rules
 
 1. Never hand third-party provider tokens to the MCP client.
-2. Require PKCE for public clients with `code_challenge_method = "S256"` only;
-   reject `"plain"`.
-3. Require resource or audience validation on token exchange and `/mcp`
-   requests.
-4. Store authorization codes, access tokens, and refresh tokens only as SHA-256
-   hashes of cryptographically random tokens (minimum 128-bit entropy) and
-   verify in constant time.
+2. Require PKCE for public clients with `code_challenge_method = "S256"` only; reject `"plain"`.
+3. Require resource or audience validation on token exchange and `/mcp` requests.
+4. Store authorization codes, access tokens, and refresh tokens only as SHA-256 hashes of
+   cryptographically random tokens (minimum 128-bit entropy) and verify in constant time.
 5. Rotate refresh tokens.
 6. Keep access token TTL short.
 7. Audit registration, approval, issuance, refresh, use, and revocation.
 8. Preserve approval-first semantics for sensitive Noter operations.
 9. Keep Cloudflare proxy logic thin so there is one authoritative backend path.
-10. Enforce strict dynamic-registration validation and route throttling in
-    Phase 1.
+10. Enforce strict dynamic-registration validation and route throttling in Phase 1.
 11. Automatically expire never-used provisional dynamic registrations.
-12. Enforce v1 `tokenEndpointAuthMethod = "none"` in both registration and token
-    exchange.
-13. Recommended TTL defaults can be tightened further based on the deployment
-    threat model.
+12. Enforce v1 `tokenEndpointAuthMethod = "none"` in both registration and token exchange.
+13. Recommended TTL defaults can be tightened further based on the deployment threat model.
 
 ## Recommended Repo Layout
 
@@ -632,8 +609,7 @@ Frontend additions can stay inside the existing app for:
 
 1. Implement opaque auth code, access token, and refresh token handling.
 2. Implement `/mcp` with a minimal tool surface.
-3. Validate ChatGPT web connection end to end through the Cloudflare-fronted
-   same-origin path.
+3. Validate ChatGPT web connection end to end through the Cloudflare-fronted same-origin path.
 
 ### Phase 3: user controls
 
@@ -655,25 +631,22 @@ This is the required execution approach for this project:
 2. For each phase, write phase-scoped automated tests first.
 3. Implement only enough code to make that phase pass.
 4. Run manual smoke checks for that phase before moving to the next one.
-5. Keep CI green; do not keep intentionally failing future-phase tests in the
-   branch.
+5. Keep CI green; do not keep intentionally failing future-phase tests in the branch.
 
 Rules:
 
-1. Future-phase coverage should be recorded as docs/checklists, not failing
-   tests.
-2. Do not remove tests that already passed in earlier phases; adapt only when
-   behavior changes with explicit spec updates.
-3. Each checkpoint commit should include code + tests + tracker update in this
-   spec.
+1. Future-phase coverage should be recorded as docs/checklists, not failing tests.
+2. Do not remove tests that already passed in earlier phases; adapt only when behavior changes with
+   explicit spec updates.
+3. Each checkpoint commit should include code + tests + tracker update in this spec.
 
 ## Test Strategy
 
 ### Test organization
 
 1. Keep a full test matrix documented up front in this spec and `manual-tests/`.
-2. Add automated tests incrementally per phase in `apps/noter/convex/*.test.ts`
-   and related frontend test files when needed.
+2. Add automated tests incrementally per phase in `apps/noter/convex/*.test.ts` and related frontend
+   test files when needed.
 3. Keep manual test playbooks in `manual-tests/` as stable smoke checks.
 
 Recommended manual test docs to add:
@@ -687,11 +660,11 @@ Recommended manual test docs to add:
 
 Phase 1 gate:
 
-1. `/.well-known/oauth-protected-resource` and
-   `/.well-known/oauth-authorization-server` return valid JSON.
+1. `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server` return
+   valid JSON.
 2. `/oauth/mcp/register` validates input and persists clients.
-3. `/oauth/mcp/authorize` validates request shape and produces deterministic
-   redirect/error behavior.
+3. `/oauth/mcp/authorize` validates request shape and produces deterministic redirect/error
+   behavior.
 4. Dynamic-registration abuse controls are active:
    - strict field validation and bounds
    - Cloudflare per-IP throttling for `/oauth/mcp/register`
@@ -726,8 +699,8 @@ Phase 4 gate:
 
 ## Execution Tracker
 
-Use this as the chat-independent implementation tracker so a new session can
-resume without relying on conversation context.
+Use this as the chat-independent implementation tracker so a new session can resume without relying
+on conversation context.
 
 - Last updated: 2026-03-08
 - Overall status: `2/4 phases complete`
@@ -744,15 +717,14 @@ Phase status:
 
 Phase 3 progress notes:
 
-- 2026-03-08: `/oauth/mcp/authorize` redirect-to-app flow now targets the React
-  app origin (instead of Convex `"/"`), and the app handles
-  `mcp_consent_request` with explicit client/resource/scope consent
-  (Approve/Deny) before redirecting back to the MCP client callback.
+- 2026-03-08: `/oauth/mcp/authorize` redirect-to-app flow now targets the React app origin (instead
+  of Convex `"/"`), and the app handles `mcp_consent_request` with explicit client/resource/scope
+  consent (Approve/Deny) before redirecting back to the MCP client callback.
 
 Checkpoint rule:
 
-- After each implementation checkpoint commit, update this section with the new
-  status and the latest commit SHA.
+- After each implementation checkpoint commit, update this section with the new status and the
+  latest commit SHA.
 
 ## Acceptance Criteria
 
@@ -766,14 +738,13 @@ Checkpoint rule:
 ## Open Questions
 
 1. Do we want direct `files.write` at launch, or only proposal-style writes?
-2. Should consent always redirect into the React app, or should Convex also be
-   able to render a minimal fallback approval page?
-3. What access-token TTL is short enough for safety without making ChatGPT
-   refresh too aggressively?
-4. Do we need any non-POST transport support in v1, or is a narrow HTTP shape
-   enough for the first ChatGPT integration?
-5. At what scale would it be worth moving token validation or rate limiting from
-   Convex into Cloudflare?
+2. Should consent always redirect into the React app, or should Convex also be able to render a
+   minimal fallback approval page?
+3. What access-token TTL is short enough for safety without making ChatGPT refresh too aggressively?
+4. Do we need any non-POST transport support in v1, or is a narrow HTTP shape enough for the first
+   ChatGPT integration?
+5. At what scale would it be worth moving token validation or rate limiting from Convex into
+   Cloudflare?
 
 ## Source Notes
 

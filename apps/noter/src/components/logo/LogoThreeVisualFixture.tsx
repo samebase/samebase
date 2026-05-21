@@ -6,10 +6,7 @@ import {
   STATIC_LOGO_ROTATION_DEGREES,
   STATIC_LOGO_VOXEL_STATE,
 } from "@/components/logo/logoStaticSvgContract";
-import {
-  DEFAULT_FACE_COLORS,
-  getTailwindColorHex,
-} from "@/components/logo/logoTailwindColors";
+import { DEFAULT_FACE_COLORS, getTailwindColorHex } from "@/components/logo/logoTailwindColors";
 import { useEffect, useRef, useState } from "react";
 
 export type LogoThreeVisualMode = "logo-three-reference";
@@ -44,9 +41,7 @@ function LogoThreeScalePreview({
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="grid gap-2">
-          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
-            Three
-          </div>
+          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Three</div>
           <div
             className="overflow-hidden border border-slate-200"
             style={{
@@ -74,9 +69,7 @@ function LogoThreeScalePreview({
         </div>
 
         <div className="grid gap-2">
-          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
-            SVG
-          </div>
+          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">SVG</div>
           <div
             className="flex items-center justify-center border border-slate-200"
             style={{
@@ -111,9 +104,9 @@ export function LogoThreeVisualFixture() {
   const diffCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isReferenceReady, setIsReferenceReady] = useState(false);
   const [isReferenceUnavailable, setIsReferenceUnavailable] = useState(false);
-  const [mismatchPixelsBySize, setMismatchPixelsBySize] = useState<
-    Partial<Record<number, number>>
-  >({});
+  const [mismatchPixelsBySize, setMismatchPixelsBySize] = useState<Partial<Record<number, number>>>(
+    {},
+  );
 
   useEffect(() => {
     if (!isReferenceUnavailable) {
@@ -153,48 +146,44 @@ export function LogoThreeVisualFixture() {
         }
       }
 
-      const referenceCanvas = await new Promise<HTMLCanvasElement | null>(
-        (resolve) => {
-          const waitForSizedCanvas = () => {
-            if (cancelled) {
-              resolve(null);
-              return;
-            }
+      const referenceCanvas = await new Promise<HTMLCanvasElement | null>((resolve) => {
+        const waitForSizedCanvas = () => {
+          if (cancelled) {
+            resolve(null);
+            return;
+          }
 
-            const nextReferenceCanvas =
-              referenceContainer.querySelector("canvas");
-            if (!(nextReferenceCanvas instanceof HTMLCanvasElement)) {
-              window.requestAnimationFrame(waitForSizedCanvas);
-              return;
-            }
+          const nextReferenceCanvas = referenceContainer.querySelector("canvas");
+          if (!(nextReferenceCanvas instanceof HTMLCanvasElement)) {
+            window.requestAnimationFrame(waitForSizedCanvas);
+            return;
+          }
 
-            const containerRect = referenceContainer.getBoundingClientRect();
-            const canvasRect = nextReferenceCanvas.getBoundingClientRect();
-            const hasStableSize =
-              Math.abs(canvasRect.width - containerRect.width) <= 2 &&
-              Math.abs(canvasRect.height - containerRect.height) <= 2 &&
-              nextReferenceCanvas.width > 0 &&
-              nextReferenceCanvas.height > 0;
+          const containerRect = referenceContainer.getBoundingClientRect();
+          const canvasRect = nextReferenceCanvas.getBoundingClientRect();
+          const hasStableSize =
+            Math.abs(canvasRect.width - containerRect.width) <= 2 &&
+            Math.abs(canvasRect.height - containerRect.height) <= 2 &&
+            nextReferenceCanvas.width > 0 &&
+            nextReferenceCanvas.height > 0;
 
-            if (!hasStableSize) {
-              window.requestAnimationFrame(waitForSizedCanvas);
-              return;
-            }
+          if (!hasStableSize) {
+            window.requestAnimationFrame(waitForSizedCanvas);
+            return;
+          }
 
-            resolve(nextReferenceCanvas);
-          };
+          resolve(nextReferenceCanvas);
+        };
 
-          waitForSizedCanvas();
-        },
-      );
+        waitForSizedCanvas();
+      });
       if (!(referenceCanvas instanceof HTMLCanvasElement)) {
         return;
       }
 
       const compareWidth = PREVIEW_SIZE;
       const compareHeight = PREVIEW_SIZE;
-      const background =
-        window.getComputedStyle(referenceContainer).backgroundColor;
+      const background = window.getComputedStyle(referenceContainer).backgroundColor;
 
       const createRasterContext = (size: number) => {
         const canvas = document.createElement("canvas");
@@ -217,12 +206,7 @@ export function LogoThreeVisualFixture() {
         const svgContext = createRasterContext(size);
         svgContext.drawImage(svgImage, 0, 0, size, size);
 
-        const referenceData = referenceContext.getImageData(
-          0,
-          0,
-          size,
-          size,
-        ).data;
+        const referenceData = referenceContext.getImageData(0, 0, size, size).data;
         const svgData = svgContext.getImageData(0, 0, size, size).data;
 
         return {
@@ -240,26 +224,16 @@ export function LogoThreeVisualFixture() {
 
       diffCanvas.width = compareWidth;
       diffCanvas.height = compareHeight;
-      const diffImage = diffContext.createImageData(
-        compareWidth,
-        compareHeight,
-      );
+      const diffImage = diffContext.createImageData(compareWidth, compareHeight);
       const primaryDiff = collectDiff(PREVIEW_SIZE);
       let mismatches = 0;
 
-      for (
-        let index = 0;
-        index < primaryDiff.referenceData.length;
-        index += 4
-      ) {
+      for (let index = 0; index < primaryDiff.referenceData.length; index += 4) {
         const samePixel =
           primaryDiff.referenceData[index] === primaryDiff.svgData[index] &&
-          primaryDiff.referenceData[index + 1] ===
-            primaryDiff.svgData[index + 1] &&
-          primaryDiff.referenceData[index + 2] ===
-            primaryDiff.svgData[index + 2] &&
-          primaryDiff.referenceData[index + 3] ===
-            primaryDiff.svgData[index + 3];
+          primaryDiff.referenceData[index + 1] === primaryDiff.svgData[index + 1] &&
+          primaryDiff.referenceData[index + 2] === primaryDiff.svgData[index + 2] &&
+          primaryDiff.referenceData[index + 3] === primaryDiff.svgData[index + 3];
 
         if (!samePixel) {
           mismatches += 1;
@@ -316,23 +290,18 @@ export function LogoThreeVisualFixture() {
     >
       <div className="mx-auto grid max-w-[212rem] gap-6 border border-slate-300 bg-white p-8 shadow-sm">
         <div className="grid gap-1">
-          <h1 className="text-xl font-semibold">
-            Logo Three Reference Fixture
-          </h1>
+          <h1 className="text-xl font-semibold">Logo Three Reference Fixture</h1>
           <p className="text-sm text-slate-600">
-            Left: current Three renderer at a fixed camera angle. Center:
-            rasterized SVG at the same display size. Right: per-pixel browser
-            diff after both are rasterized to a `1000x1000` comparison surface.
-            The lower row shows how the same pair behaves at smaller display
+            Left: current Three renderer at a fixed camera angle. Center: rasterized SVG at the same
+            display size. Right: per-pixel browser diff after both are rasterized to a `1000x1000`
+            comparison surface. The lower row shows how the same pair behaves at smaller display
             sizes.
           </p>
         </div>
 
         <div className="grid gap-5 2xl:grid-cols-3">
           <section className="grid gap-3 border border-slate-200 p-4">
-            <div className="text-sm font-medium text-slate-800">
-              Three Reference
-            </div>
+            <div className="text-sm font-medium text-slate-800">Three Reference</div>
             <div className="flex items-center justify-center border border-slate-200 p-4">
               <div
                 ref={referenceContainerRef}
@@ -369,9 +338,7 @@ export function LogoThreeVisualFixture() {
           </section>
 
           <section className="grid gap-3 border border-slate-200 p-4">
-            <div className="text-sm font-medium text-slate-800">
-              Static SVG Image
-            </div>
+            <div className="text-sm font-medium text-slate-800">Static SVG Image</div>
             <div className="flex items-center justify-center border border-slate-200 p-4">
               <div
                 className="flex items-center justify-center border border-slate-200"
@@ -400,9 +367,7 @@ export function LogoThreeVisualFixture() {
 
           <section className="grid gap-3 border border-slate-200 p-4">
             <div className="flex items-center justify-between gap-4">
-              <div className="text-sm font-medium text-slate-800">
-                Raster Diff
-              </div>
+              <div className="text-sm font-medium text-slate-800">Raster Diff</div>
               <div
                 data-testid="logo-three-parity-mismatch-count"
                 className="text-sm tabular-nums text-slate-600"

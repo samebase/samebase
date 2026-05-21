@@ -1,8 +1,6 @@
 import { AppBootFailureState } from "@/components/AppBootFailureState";
 
-export type AppBootFailureStateVisualMode =
-  | "app-boot-failure-stale"
-  | "app-boot-failure-generic";
+export type AppBootFailureStateVisualMode = "app-boot-failure-stale" | "app-boot-failure-generic";
 
 /**
  * These exact message strings intentionally drive the stale-vs-generic
@@ -18,9 +16,5 @@ export function AppBootFailureStateVisualFixture({
 }: {
   mode: AppBootFailureStateVisualMode;
 }) {
-  return (
-    <AppBootFailureState
-      error={new Error(APP_BOOT_FAILURE_FIXTURE_ERRORS[mode])}
-    />
-  );
+  return <AppBootFailureState error={new Error(APP_BOOT_FAILURE_FIXTURE_ERRORS[mode])} />;
 }

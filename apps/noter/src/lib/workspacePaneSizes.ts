@@ -24,9 +24,7 @@ export type ResolvedWorkspaceDesktopSidebarWidths = {
   rightWidthPx: number;
 };
 
-export function getWorkspaceDesktopSidebarPreferredWidthCapPx(
-  containerWidthPx: number,
-) {
+export function getWorkspaceDesktopSidebarPreferredWidthCapPx(containerWidthPx: number) {
   return Math.max(
     0,
     Math.min(
@@ -36,13 +34,8 @@ export function getWorkspaceDesktopSidebarPreferredWidthCapPx(
   );
 }
 
-export function getWorkspaceDesktopMaxCombinedSidebarWidthPx(
-  containerWidthPx: number,
-) {
-  return Math.max(
-    0,
-    containerWidthPx - MIN_WORKSPACE_DESKTOP_MAIN_PANE_WIDTH_PX,
-  );
+export function getWorkspaceDesktopMaxCombinedSidebarWidthPx(containerWidthPx: number) {
+  return Math.max(0, containerWidthPx - MIN_WORKSPACE_DESKTOP_MAIN_PANE_WIDTH_PX);
 }
 
 export function getWorkspaceDesktopSidebarWidthRange(
@@ -53,14 +46,10 @@ export function getWorkspaceDesktopSidebarWidthRange(
     0,
     Math.min(
       getWorkspaceDesktopSidebarPreferredWidthCapPx(containerWidthPx),
-      getWorkspaceDesktopMaxCombinedSidebarWidthPx(containerWidthPx) -
-        oppositeSidebarWidthPx,
+      getWorkspaceDesktopMaxCombinedSidebarWidthPx(containerWidthPx) - oppositeSidebarWidthPx,
     ),
   );
-  const minWidthPx = Math.min(
-    MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
-    maxWidthPx,
-  );
+  const minWidthPx = Math.min(MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX, maxWidthPx);
 
   return {
     maxWidthPx,
@@ -84,14 +73,8 @@ export function clampWorkspaceDesktopSidebarWidthPx(
 export function getWorkspaceMobileSidebarWidthRange(
   viewportWidthPx: number,
 ): WorkspaceSidebarWidthRange {
-  const maxWidthPx = Math.max(
-    0,
-    viewportWidthPx - MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX,
-  );
-  const minWidthPx = Math.min(
-    MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX,
-    maxWidthPx,
-  );
+  const maxWidthPx = Math.max(0, viewportWidthPx - MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX);
+  const minWidthPx = Math.min(MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX, maxWidthPx);
 
   return {
     maxWidthPx,
@@ -103,8 +86,7 @@ export function clampWorkspaceMobileSidebarWidthPx(
   desiredWidthPx: number,
   viewportWidthPx: number,
 ) {
-  const { minWidthPx, maxWidthPx } =
-    getWorkspaceMobileSidebarWidthRange(viewportWidthPx);
+  const { minWidthPx, maxWidthPx } = getWorkspaceMobileSidebarWidthRange(viewportWidthPx);
 
   return clampNumber(desiredWidthPx, minWidthPx, maxWidthPx);
 }
@@ -116,17 +98,13 @@ function roundResolvedDesktopWidths(
 ) {
   let roundedLeftWidthPx = Math.max(0, Math.round(leftWidthPx));
   let roundedRightWidthPx = Math.max(0, Math.round(rightWidthPx));
-  const roundedOverflowPx =
-    roundedLeftWidthPx + roundedRightWidthPx - maxCombinedWidthPx;
+  const roundedOverflowPx = roundedLeftWidthPx + roundedRightWidthPx - maxCombinedWidthPx;
 
   if (roundedOverflowPx > 0) {
     if (roundedLeftWidthPx >= roundedRightWidthPx) {
       roundedLeftWidthPx = Math.max(0, roundedLeftWidthPx - roundedOverflowPx);
     } else {
-      roundedRightWidthPx = Math.max(
-        0,
-        roundedRightWidthPx - roundedOverflowPx,
-      );
+      roundedRightWidthPx = Math.max(0, roundedRightWidthPx - roundedOverflowPx);
     }
   }
 
@@ -147,12 +125,8 @@ export function resolveWorkspaceDesktopSidebarWidths(args: {
   rightOpen: boolean;
   rightWidthPx: number;
 }): ResolvedWorkspaceDesktopSidebarWidths {
-  const maxCombinedWidthPx = getWorkspaceDesktopMaxCombinedSidebarWidthPx(
-    args.containerWidthPx,
-  );
-  const preferredWidthCapPx = getWorkspaceDesktopSidebarPreferredWidthCapPx(
-    args.containerWidthPx,
-  );
+  const maxCombinedWidthPx = getWorkspaceDesktopMaxCombinedSidebarWidthPx(args.containerWidthPx);
+  const preferredWidthCapPx = getWorkspaceDesktopSidebarPreferredWidthCapPx(args.containerWidthPx);
   const leftPreferredWidthPx = args.leftOpen
     ? clampNumber(args.leftWidthPx, 0, preferredWidthCapPx)
     : 0;
@@ -198,8 +172,7 @@ export function resolveWorkspaceDesktopSidebarWidths(args: {
         maxCombinedWidthPx,
       );
     }
-    const weightedLeftWidthPx =
-      (maxCombinedWidthPx * leftPreferredWidthPx) / totalDesiredWidthPx;
+    const weightedLeftWidthPx = (maxCombinedWidthPx * leftPreferredWidthPx) / totalDesiredWidthPx;
     return roundResolvedDesktopWidths(
       weightedLeftWidthPx,
       maxCombinedWidthPx - weightedLeftWidthPx,
@@ -217,8 +190,7 @@ export function resolveWorkspaceDesktopSidebarWidths(args: {
     MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
     preferredWidthCapPx,
   );
-  let overflowPx =
-    resolvedLeftWidthPx + resolvedRightWidthPx - maxCombinedWidthPx;
+  let overflowPx = resolvedLeftWidthPx + resolvedRightWidthPx - maxCombinedWidthPx;
 
   if (overflowPx <= 0) {
     return {
@@ -227,33 +199,23 @@ export function resolveWorkspaceDesktopSidebarWidths(args: {
     };
   }
 
-  const leftFlexibleWidthPx =
-    resolvedLeftWidthPx - MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX;
-  const rightFlexibleWidthPx =
-    resolvedRightWidthPx - MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX;
+  const leftFlexibleWidthPx = resolvedLeftWidthPx - MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX;
+  const rightFlexibleWidthPx = resolvedRightWidthPx - MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX;
   const totalFlexibleWidthPx = leftFlexibleWidthPx + rightFlexibleWidthPx;
 
   if (totalFlexibleWidthPx > 0) {
-    const leftReductionPx =
-      (overflowPx * leftFlexibleWidthPx) / totalFlexibleWidthPx;
-    const clampedLeftReductionPx = Math.min(
-      leftFlexibleWidthPx,
-      leftReductionPx,
-    );
+    const leftReductionPx = (overflowPx * leftFlexibleWidthPx) / totalFlexibleWidthPx;
+    const clampedLeftReductionPx = Math.min(leftFlexibleWidthPx, leftReductionPx);
     const clampedRightReductionPx = Math.min(
       rightFlexibleWidthPx,
       overflowPx - clampedLeftReductionPx,
     );
     resolvedLeftWidthPx -= clampedLeftReductionPx;
     resolvedRightWidthPx -= clampedRightReductionPx;
-    overflowPx =
-      resolvedLeftWidthPx + resolvedRightWidthPx - maxCombinedWidthPx;
+    overflowPx = resolvedLeftWidthPx + resolvedRightWidthPx - maxCombinedWidthPx;
   }
 
-  if (
-    overflowPx > 0 &&
-    resolvedLeftWidthPx > MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX
-  ) {
+  if (overflowPx > 0 && resolvedLeftWidthPx > MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX) {
     const leftOverflowReductionPx = Math.min(
       resolvedLeftWidthPx - MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
       overflowPx,
@@ -262,19 +224,12 @@ export function resolveWorkspaceDesktopSidebarWidths(args: {
     overflowPx -= leftOverflowReductionPx;
   }
 
-  if (
-    overflowPx > 0 &&
-    resolvedRightWidthPx > MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX
-  ) {
+  if (overflowPx > 0 && resolvedRightWidthPx > MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX) {
     resolvedRightWidthPx -= Math.min(
       resolvedRightWidthPx - MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
       overflowPx,
     );
   }
 
-  return roundResolvedDesktopWidths(
-    resolvedLeftWidthPx,
-    resolvedRightWidthPx,
-    maxCombinedWidthPx,
-  );
+  return roundResolvedDesktopWidths(resolvedLeftWidthPx, resolvedRightWidthPx, maxCombinedWidthPx);
 }

@@ -1,6 +1,4 @@
-export function keys<Obj extends object>(
-  value: Obj,
-): Array<keyof Obj & string> {
+export function keys<Obj extends object>(value: Obj): Array<keyof Obj & string> {
   // @ts-expect-error Object.keys returns the own enumerable string keys at runtime.
   return Object.keys(value);
 }
@@ -21,10 +19,10 @@ export function fromEntries<Key extends PropKey, Value>(
   return Object.fromEntries(entries);
 }
 
-export function pick<
-  Obj extends object,
-  const Keys extends readonly (keyof Obj)[],
->(value: Obj, keys: Keys): Pick<Obj, Keys[number]> {
+export function pick<Obj extends object, const Keys extends readonly (keyof Obj)[]>(
+  value: Obj,
+  keys: Keys,
+): Pick<Obj, Keys[number]> {
   const picked: Partial<Pick<Obj, Keys[number]>> = {};
 
   for (const key of keys) {
@@ -43,9 +41,7 @@ export function mapEntries<
   ResultValue,
 >(
   value: Obj,
-  callback: (
-    entry: [key: keyof Obj, value: Obj[keyof Obj]],
-  ) => readonly [ResultKey, ResultValue],
+  callback: (entry: [key: keyof Obj, value: Obj[keyof Obj]]) => readonly [ResultKey, ResultValue],
 ): Record<ResultKey, ResultValue> {
   return fromEntries(entries(value).map(callback));
 }

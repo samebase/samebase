@@ -40,10 +40,7 @@ export interface ToolContext {
 }
 
 const replaceInFileReplacementSchema = z.object({
-  oldText: z
-    .string()
-    .min(1)
-    .describe("Exact existing text to replace, including whitespace"),
+  oldText: z.string().min(1).describe("Exact existing text to replace, including whitespace"),
   newText: z.string().describe("Replacement text"),
 });
 type ReplaceInFileReplacement = z.infer<typeof replaceInFileReplacementSchema>;
@@ -123,19 +120,16 @@ async function executeSharedRuntimeTool(
     input: unknown;
   },
 ): Promise<string> {
-  const result = await toolCtx.ctx.runAction(
-    internal.toolRuntime.runtime.runTool,
-    {
-      toolName: args.toolName,
-      inputJson: JSON.stringify(args.input),
-      surface: "agent",
-      userId: toolCtx.userId,
-      grantedScopes: [],
-      vaultId: toolCtx.vaultId,
-      branch: toolCtx.branch,
-      threadId: toolCtx.threadId,
-    },
-  );
+  const result = await toolCtx.ctx.runAction(internal.toolRuntime.runtime.runTool, {
+    toolName: args.toolName,
+    inputJson: JSON.stringify(args.input),
+    surface: "agent",
+    userId: toolCtx.userId,
+    grantedScopes: [],
+    vaultId: toolCtx.vaultId,
+    branch: toolCtx.branch,
+    threadId: toolCtx.threadId,
+  });
   if (result.status === "ok") {
     if (typeof result.structuredContentJson === "string") {
       try {
@@ -177,9 +171,7 @@ async function executeListFiles(
   });
 }
 
-async function executeGetVaultRemoteBranches(
-  toolCtx: ToolContext,
-): Promise<string> {
+async function executeGetVaultRemoteBranches(toolCtx: ToolContext): Promise<string> {
   return await executeSharedRuntimeTool(toolCtx, {
     toolName: "get_vault_remote_branches",
     input: {},
@@ -216,10 +208,7 @@ async function executeCreateFile(
   });
 }
 
-async function executeDeleteFile(
-  toolCtx: ToolContext,
-  input: { path: string },
-): Promise<string> {
+async function executeDeleteFile(toolCtx: ToolContext, input: { path: string }): Promise<string> {
   return await executeSharedRuntimeTool(toolCtx, {
     toolName: "delete_file",
     input,
@@ -324,9 +313,7 @@ export function createTools(toolCtx: ToolContext) {
         replacements: z
           .array(replaceInFileReplacementSchema)
           .min(1)
-          .describe(
-            "Exact oldText/newText replacements to apply atomically to the file",
-          ),
+          .describe("Exact oldText/newText replacements to apply atomically to the file"),
       }),
       handler: async (_ctx, input) => {
         return await executeReplaceInFile(toolCtx, input);
@@ -377,9 +364,7 @@ export function createTools(toolCtx: ToolContext) {
     commit_and_push: createTool({
       description: catalogDescription("commit_and_push"),
       args: z.object({
-        message: z
-          .string()
-          .describe("A short commit message describing the changes"),
+        message: z.string().describe("A short commit message describing the changes"),
       }),
       handler: async (_ctx, input) => {
         // This tool result is a signal — the chat action turns it into an approval card.
@@ -458,13 +443,7 @@ export function createTools(toolCtx: ToolContext) {
     request_convex_projects_read: createTool({
       description: catalogDescription("request_convex_projects_read"),
       args: z.object({
-        limit: z
-          .number()
-          .int()
-          .min(1)
-          .max(100)
-          .optional()
-          .describe("Maximum projects to include"),
+        limit: z.number().int().min(1).max(100).optional().describe("Maximum projects to include"),
         allowRawFallback: z
           .boolean()
           .optional()
@@ -481,13 +460,7 @@ export function createTools(toolCtx: ToolContext) {
     request_cloudflare_accounts_read: createTool({
       description: catalogDescription("request_cloudflare_accounts_read"),
       args: z.object({
-        limit: z
-          .number()
-          .int()
-          .min(1)
-          .max(100)
-          .optional()
-          .describe("Maximum accounts to include"),
+        limit: z.number().int().min(1).max(100).optional().describe("Maximum accounts to include"),
         allowRawFallback: z
           .boolean()
           .optional()
@@ -502,9 +475,7 @@ export function createTools(toolCtx: ToolContext) {
     }),
 
     request_cloudflare_workers_inventory_read: createTool({
-      description: catalogDescription(
-        "request_cloudflare_workers_inventory_read",
-      ),
+      description: catalogDescription("request_cloudflare_workers_inventory_read"),
       args: z.object({
         accountId: z
           .string()
@@ -512,13 +483,7 @@ export function createTools(toolCtx: ToolContext) {
           .describe(
             "Cloudflare account ID to query (optional if already stored on the connection)",
           ),
-        limit: z
-          .number()
-          .int()
-          .min(1)
-          .max(100)
-          .optional()
-          .describe("Maximum Workers to include"),
+        limit: z.number().int().min(1).max(100).optional().describe("Maximum Workers to include"),
         allowRawFallback: z
           .boolean()
           .optional()
@@ -540,13 +505,7 @@ export function createTools(toolCtx: ToolContext) {
           .enum(["vault", "global"])
           .optional()
           .describe("Read scope. Defaults to vault scope."),
-        limit: z
-          .number()
-          .int()
-          .min(1)
-          .max(100)
-          .optional()
-          .describe("Maximum rows to return"),
+        limit: z.number().int().min(1).max(100).optional().describe("Maximum rows to return"),
         allowRawFallback: z
           .boolean()
           .optional()

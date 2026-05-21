@@ -42,10 +42,7 @@ function detectLineEnding(content: string): LineEnding {
   return content.includes("\r\n") ? "\r\n" : "\n";
 }
 
-function normalizeSnippetLineEndings(
-  content: string,
-  lineEnding: LineEnding,
-): string {
+function normalizeSnippetLineEndings(content: string, lineEnding: LineEnding): string {
   return content.replace(/\r\n|\r|\n/g, lineEnding);
 }
 
@@ -101,18 +98,9 @@ export function buildReplaceInFilePlan(args: {
       );
     }
 
-    const normalizedOldText = normalizeSnippetLineEndings(
-      replacement.oldText,
-      lineEnding,
-    );
-    const normalizedNewText = normalizeSnippetLineEndings(
-      replacement.newText,
-      lineEnding,
-    );
-    const matchOffsets = findMatchOffsets(
-      args.sourceContent,
-      normalizedOldText,
-    );
+    const normalizedOldText = normalizeSnippetLineEndings(replacement.oldText, lineEnding);
+    const normalizedNewText = normalizeSnippetLineEndings(replacement.newText, lineEnding);
+    const matchOffsets = findMatchOffsets(args.sourceContent, normalizedOldText);
 
     if (matchOffsets.length === 0) {
       throw new ReplaceInFileError(

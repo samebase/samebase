@@ -58,11 +58,7 @@ type ShuffleOriginCandidateContext = {
 
 function voxelCoordinateFromKey(key: string): VoxelCoordinate {
   const [xText, yText, zText] = key.split(",");
-  return [
-    Number.parseInt(xText, 10),
-    Number.parseInt(yText, 10),
-    Number.parseInt(zText, 10),
-  ];
+  return [Number.parseInt(xText, 10), Number.parseInt(yText, 10), Number.parseInt(zText, 10)];
 }
 
 function getAdjacentFreeDestinations(
@@ -105,8 +101,7 @@ function hasVisibleExposedFace(
     const neighborZ = from[2] + direction.offset[2];
     const neighborKey = voxelKey(neighborX, neighborY, neighborZ);
     const isFaceCovered =
-      isWithinVoxelGrid(gridSize, neighborX, neighborY, neighborZ) &&
-      filledVoxels.has(neighborKey);
+      isWithinVoxelGrid(gridSize, neighborX, neighborY, neighborZ) && filledVoxels.has(neighborKey);
 
     if (isFaceCovered) {
       continue;
@@ -137,28 +132,15 @@ export function getShuffleOriginCandidates({
   const candidates: ShuffleOriginCandidate[] = [];
   const centerIndex = (gridSize - 1) / 2;
   const centerVoxelKey =
-    gridSize === GRID_SIZE
-      ? CENTER_VOXEL_KEY
-      : voxelKey(centerIndex, centerIndex, centerIndex);
+    gridSize === GRID_SIZE ? CENTER_VOXEL_KEY : voxelKey(centerIndex, centerIndex, centerIndex);
 
   for (const fromKey of filledVoxels) {
-    if (
-      blockedKeys.has(fromKey) ||
-      fromKey === lastMovedCubeKey ||
-      fromKey === centerVoxelKey
-    ) {
+    if (blockedKeys.has(fromKey) || fromKey === lastMovedCubeKey || fromKey === centerVoxelKey) {
       continue;
     }
 
     const fromCoordinate = voxelCoordinateFromKey(fromKey);
-    if (
-      !hasVisibleExposedFace(
-        filledVoxels,
-        fromCoordinate,
-        cameraLocalVector,
-        gridSize,
-      )
-    ) {
+    if (!hasVisibleExposedFace(filledVoxels, fromCoordinate, cameraLocalVector, gridSize)) {
       continue;
     }
 

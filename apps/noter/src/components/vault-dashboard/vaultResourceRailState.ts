@@ -1,8 +1,5 @@
 import type { api } from "../../../convex/_generated/api";
-import {
-  type VaultResourceRailRowState,
-  type VaultResourceRailState,
-} from "./VaultResourceRail";
+import { type VaultResourceRailRowState, type VaultResourceRailState } from "./VaultResourceRail";
 import { type VaultDashboardSourceSetup } from "./vaultSourceSetup";
 import {
   resolveVaultProviderSetupStatus,
@@ -46,20 +43,12 @@ function resolveSourceSetupResourceProvider(
   return null;
 }
 
-function isVaultResourceSetupBlockingManualActions(
-  vault: VaultDashboardVault,
-): boolean {
-  if (
-    vault.sourceSetup.status === "running" ||
-    vault.sourceSetup.status === "failed"
-  ) {
+function isVaultResourceSetupBlockingManualActions(vault: VaultDashboardVault): boolean {
+  if (vault.sourceSetup.status === "running" || vault.sourceSetup.status === "failed") {
     return true;
   }
 
-  return (
-    vault.providerSetup.status === "running" ||
-    vault.providerSetup.status === "failed"
-  );
+  return vault.providerSetup.status === "running" || vault.providerSetup.status === "failed";
 }
 
 function normalizeResourceScope(value: string | undefined): string | undefined {
@@ -108,35 +97,24 @@ export function buildVaultDashboardResourceRailState({
   vault: VaultDashboardVault;
 }): VaultResourceRailState {
   const canConfigureMissingResources =
-    vault.state === "ready" &&
-    !isVaultResourceSetupBlockingManualActions(vault);
+    vault.state === "ready" && !isVaultResourceSetupBlockingManualActions(vault);
   const providerSetup = resolveVaultProviderSetupStatus(vault.providerSetup);
-  const providerSetupProvider = resolveVaultProviderSetupStepProvider(
-    vault.providerSetup,
-  );
-  const sourceSetupProvider = resolveSourceSetupResourceProvider(
-    vault.sourceSetup,
-  );
+  const providerSetupProvider = resolveVaultProviderSetupStepProvider(vault.providerSetup);
+  const sourceSetupProvider = resolveSourceSetupResourceProvider(vault.sourceSetup);
   const convexProjectScope = normalizeResourceScope(vault.convexTeamSlug);
   const cloudflareWorkerScope = resolveCloudflareWorkersSubdomain({
     productionUrl: vault.cloudflareProductionUrl,
     workerName: vault.cloudflareWorkerName,
   });
   let githubRow: VaultResourceRailRowState<"github">;
-  if (
-    vault.sourceSetup.status === "failed" &&
-    sourceSetupProvider === "github"
-  ) {
+  if (vault.sourceSetup.status === "failed" && sourceSetupProvider === "github") {
     githubRow = {
       provider: "github",
       status: "failed",
       value: vault.repositoryFullName,
       actions: [{ kind: "retry", label: "Retry" }],
     };
-  } else if (
-    vault.sourceSetup.status === "running" &&
-    sourceSetupProvider === "github"
-  ) {
+  } else if (vault.sourceSetup.status === "running" && sourceSetupProvider === "github") {
     githubRow = {
       provider: "github",
       status: "running",
@@ -158,20 +136,14 @@ export function buildVaultDashboardResourceRailState({
   }
 
   let convexRow: VaultResourceRailRowState<"convex">;
-  if (
-    vault.sourceSetup.status === "failed" &&
-    sourceSetupProvider === "convex"
-  ) {
+  if (vault.sourceSetup.status === "failed" && sourceSetupProvider === "convex") {
     convexRow = {
       provider: "convex",
       status: "failed",
       value: vault.ghRepoName,
       actions: [{ kind: "retry", label: "Retry" }],
     };
-  } else if (
-    vault.sourceSetup.status === "running" &&
-    sourceSetupProvider === "convex"
-  ) {
+  } else if (vault.sourceSetup.status === "running" && sourceSetupProvider === "convex") {
     convexRow = {
       provider: "convex",
       status: "running",
@@ -226,20 +198,14 @@ export function buildVaultDashboardResourceRailState({
   }
 
   let cloudflareRow: VaultResourceRailRowState<"cloudflare">;
-  if (
-    vault.sourceSetup.status === "failed" &&
-    sourceSetupProvider === "cloudflare"
-  ) {
+  if (vault.sourceSetup.status === "failed" && sourceSetupProvider === "cloudflare") {
     cloudflareRow = {
       provider: "cloudflare",
       status: "failed",
       value: vault.ghRepoName,
       actions: [{ kind: "retry", label: "Retry" }],
     };
-  } else if (
-    vault.sourceSetup.status === "running" &&
-    sourceSetupProvider === "cloudflare"
-  ) {
+  } else if (vault.sourceSetup.status === "running" && sourceSetupProvider === "cloudflare") {
     cloudflareRow = {
       provider: "cloudflare",
       status: "running",

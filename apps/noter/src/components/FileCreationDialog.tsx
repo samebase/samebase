@@ -1,12 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   Dialog,
   DialogContent as DialogContentUI,
@@ -141,9 +136,7 @@ export function FileCreationDialog({
     switch (e.key) {
       case "ArrowDown":
         e.preventDefault();
-        setSelectedFolderIndex((prev) =>
-          Math.min(prev + 1, filteredFolders.length - 1),
-        );
+        setSelectedFolderIndex((prev) => Math.min(prev + 1, filteredFolders.length - 1));
         break;
       case "ArrowUp":
         e.preventDefault();
@@ -206,8 +199,7 @@ export function FileCreationDialog({
                   key={folder.path}
                   className={cn(
                     "cursor-pointer px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground",
-                    index === selectedFolderIndex &&
-                      "bg-accent text-accent-foreground",
+                    index === selectedFolderIndex && "bg-accent text-accent-foreground",
                   )}
                   onClick={() => handleFolderSelect(folder.path)}
                 >

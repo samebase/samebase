@@ -1,17 +1,8 @@
-import {
-  useCallback,
-  useRef,
-  useState,
-  type ChangeEvent,
-  type DragEvent,
-} from "react";
+import { useCallback, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
-import {
-  readUploadStorageId,
-  uploadMediaWithCleanup,
-} from "@/lib/mediaUploadWorkflow";
+import { readUploadStorageId, uploadMediaWithCleanup } from "@/lib/mediaUploadWorkflow";
 import {
   getDefaultUploadFolderPath,
   normalizeFolderPath,
@@ -19,9 +10,7 @@ import {
 } from "./fileViewShared";
 import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
 
-type VaultId = NonNullable<
-  (typeof api.vault.records.getVaultByRepository)["_returnType"]
->["_id"];
+type VaultId = NonNullable<(typeof api.vault.records.getVaultByRepository)["_returnType"]>["_id"];
 type StorageId = Id<"_storage">;
 
 type GenerateUploadUrl = (args: { vaultId: VaultId }) => Promise<string>;
@@ -60,8 +49,7 @@ export function useFileViewMediaUpload({
 }) {
   const mediaUploadInputRef = useRef<HTMLInputElement>(null);
   const pendingMediaUploadFolderPathRef = useRef("");
-  const [pendingMediaUpload, setPendingMediaUpload] =
-    useState<PendingMediaUpload | null>(null);
+  const [pendingMediaUpload, setPendingMediaUpload] = useState<PendingMediaUpload | null>(null);
   const [mediaUploadError, setMediaUploadError] = useState<string | null>(null);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [isMediaUploadDragOver, setIsMediaUploadDragOver] = useState(false);
@@ -71,27 +59,23 @@ export function useFileViewMediaUpload({
     reason: "Pending media upload",
   });
 
-  const prepareMediaUpload = useCallback(
-    (file: File, preferredFolderPath: string) => {
-      const looksLikeImage =
-        file.type.startsWith("image/") ||
-        isRenderableRepositoryMediaPath(file.name);
-      if (!looksLikeImage) {
-        // Clear any older staged file so a failed validation cannot submit
-        // stale media from a previous selection.
-        setPendingMediaUpload(null);
-        setMediaUploadError("Only image uploads are supported right now.");
-        return;
-      }
+  const prepareMediaUpload = useCallback((file: File, preferredFolderPath: string) => {
+    const looksLikeImage =
+      file.type.startsWith("image/") || isRenderableRepositoryMediaPath(file.name);
+    if (!looksLikeImage) {
+      // Clear any older staged file so a failed validation cannot submit
+      // stale media from a previous selection.
+      setPendingMediaUpload(null);
+      setMediaUploadError("Only image uploads are supported right now.");
+      return;
+    }
 
-      setMediaUploadError(null);
-      setPendingMediaUpload({
-        file,
-        preferredFolderPath: normalizeFolderPath(preferredFolderPath),
-      });
-    },
-    [],
-  );
+    setMediaUploadError(null);
+    setPendingMediaUpload({
+      file,
+      preferredFolderPath: normalizeFolderPath(preferredFolderPath),
+    });
+  }, []);
 
   const handleRequestMediaUpload = useCallback(
     (preferredFolderPath?: string) => {
@@ -116,13 +100,7 @@ export function useFileViewMediaUpload({
   );
 
   const handleMediaUploadSubmit = useCallback(
-    ({
-      replaceExisting,
-      targetPath,
-    }: {
-      replaceExisting: boolean;
-      targetPath: string;
-    }) => {
+    ({ replaceExisting, targetPath }: { replaceExisting: boolean; targetPath: string }) => {
       if (!pendingMediaUpload) {
         return;
       }
@@ -136,8 +114,7 @@ export function useFileViewMediaUpload({
           const response = await fetch(uploadUrl, {
             method: "POST",
             headers: {
-              "Content-Type":
-                pendingMediaUpload.file.type || "application/octet-stream",
+              "Content-Type": pendingMediaUpload.file.type || "application/octet-stream",
             },
             body: pendingMediaUpload.file,
           });

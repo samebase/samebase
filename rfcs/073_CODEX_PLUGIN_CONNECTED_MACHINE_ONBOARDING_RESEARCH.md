@@ -3,10 +3,9 @@
 ## Status
 
 - Research note with merged outcomes
-- Current merged outcome: installer, browser approval, durable machine
-  credentials, and presence are now on `main`
-- Follow-on phone-control direction:
-  `rfcs/078_TUNNELED_LOCAL_CODEX_CONTROL_SPEC.md`
+- Current merged outcome: installer, browser approval, durable machine credentials, and presence are
+  now on `main`
+- Follow-on phone-control direction: `rfcs/078_TUNNELED_LOCAL_CODEX_CONTROL_SPEC.md`
 - Scope: first-user internal MVP with a clear path to public npm distribution
 - Related docs:
   - `specs/043_REMOTE_MCP_OAUTH_PROVIDER_CONVEX_ARCHITECTURE_SPEC.md`
@@ -20,26 +19,22 @@
 
 ## Decision Summary
 
-Noter should treat hosted plugin auth and local machine connect as two separate
-steps:
+Noter should treat hosted plugin auth and local machine connect as two separate steps:
 
 1. plugin auth gives the user access to hosted Noter tools
-2. machine connect registers one local Codex instance as a Noter execution
-   target
+2. machine connect registers one local Codex instance as a Noter execution target
 
 The installer model for this MVP should be:
 
 1. machine-scoped, not repo-scoped
 2. one canonical `noter.ts` source file
-3. that same file mirrored byte-for-byte into both the npm package entrypoint
-   and the hosted `/noter.ts` asset
+3. that same file mirrored byte-for-byte into both the npm package entrypoint and the hosted
+   `/noter.ts` asset
 4. one local config file per Codex instance at `~/.noter/config.json`
-5. hosted-file-first for the first user, with `@noter-md/sync` added later as a
-   thin public wrapper
+5. hosted-file-first for the first user, with `@noter-md/sync` added later as a thin public wrapper
 
-The machine-connect page should stay intentionally small. Its job is not to
-teach the whole system. Its job is to act as the browser-side checkpoint
-between:
+The machine-connect page should stay intentionally small. Its job is not to teach the whole system.
+Its job is to act as the browser-side checkpoint between:
 
 1. local bootstrap
 2. signed-in Noter session
@@ -51,8 +46,8 @@ Noter now has three adjacent capabilities:
 
 1. hosted MCP auth and consent for the Noter plugin
 2. a local-only Codex app-server research browser
-3. a connected-machine foundation that now ships machine approval, durable
-   credentials, and presence in Convex
+3. a connected-machine foundation that now ships machine approval, durable credentials, and presence
+   in Convex
 
 The user-facing bridge between them is still missing.
 
@@ -69,8 +64,8 @@ That does not yet mean:
 3. Noter may later send remote work to this laptop
 4. a local connector is installed and running
 
-The onboarding gap is: what exactly should happen after plugin auth so the user
-can actually see and control local Codex threads?
+The onboarding gap is: what exactly should happen after plugin auth so the user can actually see and
+control local Codex threads?
 
 ## Product Model
 
@@ -79,13 +74,12 @@ The correct mental model is:
 1. plugin auth is account-level and hosted
 2. machine connect is machine-level and local
 
-These compose, but they are not the same action and they must not share the same
-long-lived credential.
+These compose, but they are not the same action and they must not share the same long-lived
+credential.
 
 Implications:
 
-1. do not tell the user that successful plugin auth means the machine is now
-   connected
+1. do not tell the user that successful plugin auth means the machine is now connected
 2. do not ask the user to edit a repo `package.json`
 3. do not make Homebrew the default
 4. do not reuse MCP OAuth access tokens as machine credentials
@@ -99,8 +93,7 @@ Reasons:
 1. it is machine-scoped, not repo-scoped
 2. one machine may serve many repos and many Codex threads
 3. asking the user to install it in each repo creates drift and duplication
-4. repo dependencies imply app-runtime or repo-tooling ownership, which is false
-   here
+4. repo dependencies imply app-runtime or repo-tooling ownership, which is false here
 5. machine state belongs in a Noter-owned directory outside repos
 
 Conclusion:
@@ -118,10 +111,10 @@ This is the current first-user and iteration path.
 Prerequisite:
 
 1. `node` must already exist on `PATH`
-2. if we recommend `nvm` on macOS, it should use the official `nvm` installer
-   plus `nvm install --lts`
-3. we should not recommend Homebrew-installed `nvm`, because the `nvm`
-   maintainers explicitly mark that path unsupported
+2. if we recommend `nvm` on macOS, it should use the official `nvm` installer plus
+   `nvm install --lts`
+3. we should not recommend Homebrew-installed `nvm`, because the `nvm` maintainers explicitly mark
+   that path unsupported
 4. on Windows PowerShell, a truthful package-manager path is
    `winget install --id OpenJS.NodeJS.LTS -e` when `winget` is present
 
@@ -131,8 +124,8 @@ Shape:
 curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'
 ```
 
-On Windows PowerShell the same bootstrap needs `curl.exe` because `curl`
-resolves to `Invoke-WebRequest` there:
+On Windows PowerShell the same bootstrap needs `curl.exe` because `curl` resolves to
+`Invoke-WebRequest` there:
 
 ```powershell
 curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'
@@ -150,8 +143,7 @@ Why this is the right first step:
 2. it makes preview and worktree iteration easy
 3. it avoids waiting on npm publishing before the flow is usable
 4. it keeps the real source artifact visible and inspectable
-5. it still works in Windows PowerShell once the transport command switches to
-   `curl.exe`
+5. it still works in Windows PowerShell once the transport command switches to `curl.exe`
 
 ### Channel B: Published npm package
 
@@ -163,14 +155,12 @@ Shape:
 npx @noter-md/sync connect
 ```
 
-The important rule is that the npm package should remain a thin wrapper around
-the same installer logic that powers the hosted file. We do not want separate
-implementations.
+The important rule is that the npm package should remain a thin wrapper around the same installer
+logic that powers the hosted file. We do not want separate implementations.
 
 ## Why Homebrew Is Not The Default
 
-Homebrew can exist as an optional install channel later, but it should not be
-the default.
+Homebrew can exist as an optional install channel later, but it should not be the default.
 
 Reasons:
 
@@ -194,16 +184,14 @@ Rules:
 3. local dev can serve `http://127.0.0.1:5174/noter.ts`
 4. the hosted file should stay byte-for-byte identical to the package entrypoint
 5. production direct execution should rely on the built-in default source URL
-6. preview or local targeting should come from the direct command itself, not
-   from mutating the file contents per deploy
+6. preview or local targeting should come from the direct command itself, not from mutating the file
+   contents per deploy
 
 This keeps the audit story simpler:
 
 1. a user can inspect one canonical script shape
-2. Codex or another reviewer does not need to reason about a separately stamped
-   hosted variant
-3. preview and worktree targeting stays explicit only when the operator opts
-   into the override form
+2. Codex or another reviewer does not need to reason about a separately stamped hosted variant
+3. preview and worktree targeting stays explicit only when the operator opts into the override form
 
 ## MVP Trust And Provenance
 
@@ -214,13 +202,13 @@ We are not trying to solve full public artifact provenance yet.
 The current assumption is:
 
 1. the first user is the operator building the flow
-2. downloading directly from `https://noter.md/noter.ts` or a trusted preview
-   deploy is acceptable for now
-3. the script should be transparent about what it does and keep the hosted copy
-   identical to the package source
+2. downloading directly from `https://noter.md/noter.ts` or a trusted preview deploy is acceptable
+   for now
+3. the script should be transparent about what it does and keep the hosted copy identical to the
+   package source
 
-If we want a visible version marker later, it should be a small manual comment
-inside the installer source itself, for example:
+If we want a visible version marker later, it should be a small manual comment inside the installer
+source itself, for example:
 
 ```js
 // noter-sync-version: <sha-or-tag>
@@ -231,8 +219,7 @@ Rules for that marker:
 1. it should change only when the installer file itself changes
 2. it should describe the installer artifact, not the whole app deploy
 3. it should not be auto-stamped per deploy, preview, or unrelated repo commit
-4. the hosted file and the package file should still mirror that exact comment
-   byte-for-byte
+4. the hosted file and the package file should still mirror that exact comment byte-for-byte
 
 This RFC does not require:
 
@@ -241,8 +228,7 @@ This RFC does not require:
 3. detached provenance manifests
 4. package-signing policy
 
-Those can be added later if public distribution or broader trust requirements
-justify them.
+Those can be added later if public distribution or broader trust requirements justify them.
 
 ## Local Config Model
 
@@ -265,10 +251,10 @@ Important behavior:
 
 1. rerunning the bootstrap updates the same file
 2. the config records the current installer source URL
-3. switching from prod to a preview or local deploy should overwrite that one
-   config file, not create parallel installation records
-4. derivable values such as `sourceOrigin` or the machine-connect URL do not
-   need to be stored in the file
+3. switching from prod to a preview or local deploy should overwrite that one config file, not
+   create parallel installation records
+4. derivable values such as `sourceOrigin` or the machine-connect URL do not need to be stored in
+   the file
 
 This keeps the MVP aligned with the user mental model:
 
@@ -320,8 +306,8 @@ Once `@noter-md/sync` is published, the same flow becomes:
 
 1. user runs `npx @noter-md/sync connect`
 2. the package executes the same installer logic
-3. if needed, the package can still point the user back to the hosted `noter.ts`
-   as the canonical inspectable artifact
+3. if needed, the package can still point the user back to the hosted `noter.ts` as the canonical
+   inspectable artifact
 
 ## What The Machine-Connect Page Is For
 
@@ -331,8 +317,7 @@ It gives us:
 
 1. a stable URL the CLI can open after bootstrap
 2. a signed-in browser checkpoint for machine approval
-3. an in-app starting point when the user initiates from the dashboard instead
-   of the terminal
+3. an in-app starting point when the user initiates from the dashboard instead of the terminal
 
 It should remain intentionally thin:
 
@@ -346,25 +331,22 @@ It should not become a long documentation page.
 
 ## Preview And Worktree Iteration
 
-This design is still deploy-scoped, but the local state is intentionally not
-multi-install.
+This design is still deploy-scoped, but the local state is intentionally not multi-install.
 
 Rules:
 
 1. the direct hosted-file command determines which deploy the bootstrap targets
 2. there is no `--from` override flag in the public CLI contract
-3. rerunning the bootstrap against another deploy updates `~/.noter/config.json`
-   to that new source URL
-4. the operator can iterate on prod, preview, or local worktrees without
-   republishing npm, but only one source URL is active in the local config at a
-   time
+3. rerunning the bootstrap against another deploy updates `~/.noter/config.json` to that new source
+   URL
+4. the operator can iterate on prod, preview, or local worktrees without republishing npm, but only
+   one source URL is active in the local config at a time
 
-For now, the machine-connect UI may continue to show the explicit-URL form even
-though production users can use the shorter default command. That is only a UI
-copy choice, not a different runtime model.
+For now, the machine-connect UI may continue to show the explicit-URL form even though production
+users can use the shorter default command. That is only a UI copy choice, not a different runtime
+model.
 
-This keeps the iteration story strong without forcing multi-install complexity
-into the MVP.
+This keeps the iteration story strong without forcing multi-install complexity into the MVP.
 
 ## Public And Private Boundary
 
@@ -417,12 +399,10 @@ What we should not copy for this slice:
 
 ## Acceptance Criteria
 
-1. A user can tell the difference between authenticating the plugin and
-   connecting the machine.
+1. A user can tell the difference between authenticating the plugin and connecting the machine.
 2. The first-user path works without publishing npm first.
 3. The installer is machine-scoped and does not require repo edits.
-4. The hosted file is inspectable and stays byte-for-byte identical to the
-   package entrypoint.
+4. The hosted file is inspectable and stays byte-for-byte identical to the package entrypoint.
 5. The local bootstrap state lives in one config file at `~/.noter/config.json`.
 6. The browser handoff is positioned as machine approval, not generic docs.
 7. The same underlying installer logic can later ship through `@noter-md/sync`.
@@ -441,5 +421,5 @@ Ship this in two layers:
    - keep it as a thin wrapper over the same file
    - let npm provide the cleaner public command once the package actually exists
 
-This keeps the first-user path fast and iteratable while preserving the public
-product shape we want later.
+This keeps the first-user path fast and iteratable while preserving the public product shape we want
+later.

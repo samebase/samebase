@@ -1,19 +1,5 @@
-import {
-  useState,
-  useRef,
-  useEffect,
-  useCallback,
-  type ReactNode,
-} from "react";
-import {
-  X,
-  Loader2,
-  GitCommitHorizontal,
-  Check,
-  Wrench,
-  ChevronRight,
-  Plus,
-} from "lucide-react";
+import { useState, useRef, useEffect, useCallback, type ReactNode } from "react";
+import { X, Loader2, GitCommitHorizontal, Check, Wrench, ChevronRight, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChatInput, type ChatInputHandle } from "@/components/ChatInput";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
@@ -40,10 +26,7 @@ function parseMetadata(metadata: unknown): MessageMetadata | null {
   return result.success ? result.data : null;
 }
 
-function hasRecordKey(
-  value: unknown,
-  key: string,
-): value is Record<string, unknown> {
+function hasRecordKey(value: unknown, key: string): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && key in value;
 }
 
@@ -53,11 +36,7 @@ function getRecordValue(value: unknown, key: string): unknown {
 
 // --- Tool activity badge ---
 
-function ToolActivityBadge({
-  tools,
-}: {
-  tools: Array<{ tool: string; input: unknown }>;
-}) {
+function ToolActivityBadge({ tools }: { tools: Array<{ tool: string; input: unknown }> }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -82,9 +61,7 @@ function ToolActivityBadge({
             return (
               <div key={idx} className="flex items-center gap-1">
                 <span className="font-mono">{t.tool}</span>
-                {displayValue && (
-                  <span className="truncate opacity-70">{displayValue}</span>
-                )}
+                {displayValue && <span className="truncate opacity-70">{displayValue}</span>}
               </div>
             );
           })}
@@ -103,9 +80,7 @@ type ToolCallInfo = {
   providerExecuted?: boolean;
 };
 
-function extractToolCalls(
-  parts: UIMessage["parts"] | undefined,
-): ToolCallInfo[] {
+function extractToolCalls(parts: UIMessage["parts"] | undefined): ToolCallInfo[] {
   if (!parts) return [];
   const toolCalls: ToolCallInfo[] = [];
   for (const part of parts) {
@@ -123,8 +98,7 @@ function extractToolCalls(
       output,
       errorText: typeof errorText === "string" ? errorText : undefined,
       state: typeof state === "string" ? state : undefined,
-      providerExecuted:
-        typeof providerExecuted === "boolean" ? providerExecuted : undefined,
+      providerExecuted: typeof providerExecuted === "boolean" ? providerExecuted : undefined,
     });
   }
   return toolCalls;
@@ -175,9 +149,7 @@ function ToolCallList({ toolCalls }: { toolCalls: ToolCallInfo[] }) {
                 <span className="flex items-center gap-2 text-foreground">
                   <span className="font-mono">{call.tool}</span>
                   {displayValue && (
-                    <span className="truncate text-muted-foreground">
-                      {displayValue}
-                    </span>
+                    <span className="truncate text-muted-foreground">{displayValue}</span>
                   )}
                   {stateLabel && (
                     <span
@@ -213,9 +185,7 @@ function ToolCallList({ toolCalls }: { toolCalls: ToolCallInfo[] }) {
                   </div>
                 )}
                 {call.errorText && (
-                  <div className="text-red-600 dark:text-red-400">
-                    Error: {call.errorText}
-                  </div>
+                  <div className="text-red-600 dark:text-red-400">Error: {call.errorText}</div>
                 )}
                 {call.providerExecuted === false && (
                   <div className="text-amber-700 dark:text-amber-400">
@@ -245,9 +215,7 @@ function CapabilitiesPanel({
   systemPrompt?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const toolsEnabled = Boolean(
-    repositoryFullName && vaultId && hasGithubConnection,
-  );
+  const toolsEnabled = Boolean(repositoryFullName && vaultId && hasGithubConnection);
 
   let statusLine = "Open a repository to enable tools.";
   if (repositoryFullName) {
@@ -267,10 +235,7 @@ function CapabilitiesPanel({
         className="flex w-full items-center gap-1.5 px-3 py-1.5 text-muted-foreground hover:text-foreground"
       >
         <ChevronRight
-          className={cn(
-            "h-3 w-3 shrink-0 transition-transform",
-            expanded && "rotate-90",
-          )}
+          className={cn("h-3 w-3 shrink-0 transition-transform", expanded && "rotate-90")}
         />
         <span className="font-medium">Chat tools</span>
         <span
@@ -291,16 +256,12 @@ function CapabilitiesPanel({
           <div className="mt-1 space-y-0.5">
             {TOOL_CATALOG.map((toolInfo) => (
               <div key={toolInfo.name} className="flex items-center gap-2">
-                <span className="font-mono text-[11px] text-foreground">
-                  {toolInfo.name}
-                </span>
+                <span className="font-mono text-[11px] text-foreground">{toolInfo.name}</span>
                 <span>{toolInfo.uiDescription}</span>
               </div>
             ))}
           </div>
-          <div className="mt-2">
-            Tool usage appears as a badge on assistant responses.
-          </div>
+          <div className="mt-2">Tool usage appears as a badge on assistant responses.</div>
           {systemPrompt && (
             <details className="mt-2">
               <summary className="cursor-pointer text-[11px] text-muted-foreground">
@@ -346,9 +307,7 @@ function CommitProposalCard({
         <GitCommitHorizontal className="h-3.5 w-3.5" />
         Commit proposal
       </div>
-      <p className="mt-1 text-xs text-muted-foreground font-mono">
-        {metadata.message}
-      </p>
+      <p className="mt-1 text-xs text-muted-foreground font-mono">{metadata.message}</p>
       {metadata.committed ? (
         <div className="mt-2 flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
           <Check className="h-3 w-3" />
@@ -374,9 +333,7 @@ function CommitProposalCard({
             Approve & Push
           </button>
           {metadata.error ? (
-            <div className="mt-2 text-xs text-red-600">
-              Commit failed: {metadata.error}
-            </div>
+            <div className="mt-2 text-xs text-red-600">Commit failed: {metadata.error}</div>
           ) : null}
         </>
       )}
@@ -384,9 +341,7 @@ function CommitProposalCard({
   );
 }
 
-function renderProdReadLabel(metadata: {
-  resourceKind: ProdReadProposal["resourceKind"];
-}) {
+function renderProdReadLabel(metadata: { resourceKind: ProdReadProposal["resourceKind"] }) {
   const labels: Record<ProdReadProposal["resourceKind"], string> = {
     deployment_status: "Deployment status",
     logs: "Logs",
@@ -446,20 +401,15 @@ function ProdReadProposalCard({
   }
 
   const providerLabel = renderProviderLabel(metadata.provider);
-  const scopeLabel =
-    metadata.scope === "vault" ? "Vault scope" : "Global scope";
+  const scopeLabel = metadata.scope === "vault" ? "Vault scope" : "Global scope";
 
   return (
     <div className="my-1 corner-notch-1 border border-border bg-background p-2.5">
-      <div className="text-xs font-medium text-foreground">
-        Production read approval
-      </div>
+      <div className="text-xs font-medium text-foreground">Production read approval</div>
       <div className="mt-1 text-xs text-muted-foreground">
         {providerLabel} • {renderProdReadLabel(metadata)} • {scopeLabel}
       </div>
-      <div className="mt-1 text-xs text-muted-foreground font-mono">
-        {metadata.paramsPreview}
-      </div>
+      <div className="mt-1 text-xs text-muted-foreground font-mono">{metadata.paramsPreview}</div>
 
       {status === "approved" && (
         <div className="mt-2 text-xs text-amber-700 dark:text-amber-400">
@@ -467,13 +417,9 @@ function ProdReadProposalCard({
         </div>
       )}
       {status === "executed" && (
-        <div className="mt-2 text-xs text-green-600 dark:text-green-400">
-          Executed.
-        </div>
+        <div className="mt-2 text-xs text-green-600 dark:text-green-400">Executed.</div>
       )}
-      {status === "rejected" && (
-        <div className="mt-2 text-xs text-muted-foreground">Rejected.</div>
-      )}
+      {status === "rejected" && <div className="mt-2 text-xs text-muted-foreground">Rejected.</div>}
       {status === "failed" && (
         <div className="mt-2 text-xs text-red-600">
           Failed: {metadata.error ?? "Execution failed"}
@@ -519,13 +465,7 @@ function ProdReadProposalCard({
 
 // --- Message bubble ---
 
-function MessageBubble({
-  msg,
-  threadId,
-}: {
-  msg: ChatUIMessage;
-  threadId: string;
-}) {
+function MessageBubble({ msg, threadId }: { msg: ChatUIMessage; threadId: string }) {
   const metadata = parseMetadata(msg.metadata);
 
   if (msg.role === "user") {
@@ -555,18 +495,10 @@ function MessageBubble({
       <ToolCallList toolCalls={toolCalls} />
       <ProsemarkReadOnly value={msg.text} className="text-sm" />
       {isCommitProposal && (
-        <CommitProposalCard
-          metadata={metadata}
-          threadId={threadId}
-          messageId={msg.id}
-        />
+        <CommitProposalCard metadata={metadata} threadId={threadId} messageId={msg.id} />
       )}
       {isProdReadProposal && (
-        <ProdReadProposalCard
-          metadata={metadata}
-          threadId={threadId}
-          messageId={msg.id}
-        />
+        <ProdReadProposalCard metadata={metadata} threadId={threadId} messageId={msg.id} />
       )}
     </div>
   );
@@ -644,18 +576,10 @@ export function EditorChatPanel({
   const viewer = useQuery(api.users.viewer);
 
   // Vault pages use the per-vault thread; non-vault pages fall back to the old local thread id.
-  const vaultThread = useQuery(
-    api.chat.index.getThreadForVault,
-    vaultId ? { vaultId } : "skip",
-  );
-  const threadId = vaultId
-    ? (vaultThread?.threadId ?? pendingThreadId)
-    : localThreadId;
+  const vaultThread = useQuery(api.chat.index.getThreadForVault, vaultId ? { vaultId } : "skip");
+  const threadId = vaultId ? (vaultThread?.threadId ?? pendingThreadId) : localThreadId;
 
-  const threadContext = useQuery(
-    api.chat.index.getThreadContext,
-    threadId ? { threadId } : "skip",
-  );
+  const threadContext = useQuery(api.chat.index.getThreadContext, threadId ? { threadId } : "skip");
   const threadContextLoaded = threadContext !== undefined;
 
   const messages = useUIMessages(
@@ -678,9 +602,7 @@ export function EditorChatPanel({
 
   const draftNeedsSave = useCallback((draft: string) => {
     const lastSavedDraft = lastSavedDraftRef.current;
-    return lastSavedDraft === null
-      ? draft.trim().length > 0
-      : draft !== lastSavedDraft;
+    return lastSavedDraft === null ? draft.trim().length > 0 : draft !== lastSavedDraft;
   }, []);
 
   const ensureThreadId = useCallback(async () => {
@@ -853,8 +775,7 @@ export function EditorChatPanel({
       return flushDraftPromiseRef.current;
     }
     const savePromise = (async () => {
-      const activeThreadId =
-        threadId ?? (draft.trim().length > 0 ? await ensureThreadId() : null);
+      const activeThreadId = threadId ?? (draft.trim().length > 0 ? await ensureThreadId() : null);
       if (!activeThreadId) {
         return;
       }
@@ -988,12 +909,7 @@ export function EditorChatPanel({
     >
       {shellMode === "standalone" ? (
         <div className="border-b border-border">
-          <div
-            className={cn(
-              "flex items-center gap-1 py-0",
-              EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME,
-            )}
-          >
+          <div className={cn("flex items-center gap-1 py-0", EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME)}>
             <div className="min-w-0 flex-1">{headerResizeHandle}</div>
             <div className="flex shrink-0 items-center gap-0">
               {newConversationButton}

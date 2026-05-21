@@ -1,12 +1,6 @@
-export type CommitReviewFileStatus =
-  | "added"
-  | "modified"
-  | "deleted"
-  | "renamed";
+export type CommitReviewFileStatus = "added" | "modified" | "deleted" | "renamed";
 
-export function getCommitStatusTextClassName(
-  status: CommitReviewFileStatus,
-): string {
+export function getCommitStatusTextClassName(status: CommitReviewFileStatus): string {
   if (status === "added") {
     return "text-emerald-700 dark:text-emerald-300";
   }

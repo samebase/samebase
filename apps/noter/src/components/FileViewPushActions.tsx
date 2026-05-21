@@ -38,15 +38,10 @@ export function FileViewPushActions({
           size="sm"
           variant="outline"
           onClick={onCreateDraftPullRequest}
-          disabled={
-            isPushing ||
-            isCreatingDraftPullRequest ||
-            !canCreateDraftPullRequest
-          }
+          disabled={isPushing || isCreatingDraftPullRequest || !canCreateDraftPullRequest}
           className={cn(
             "h-6 px-2 text-xs border-sky-500 text-sky-700 hover:bg-sky-50",
-            !canCreateDraftPullRequest &&
-              "text-sky-600/70 hover:bg-transparent",
+            !canCreateDraftPullRequest && "text-sky-600/70 hover:bg-transparent",
           )}
         >
           {isCreatingDraftPullRequest ? "Creating..." : draftButtonLabel}
@@ -56,9 +51,7 @@ export function FileViewPushActions({
         size="sm"
         variant={hasChangesToCommit ? "default" : "outline"}
         onClick={onManualCommit}
-        disabled={
-          isPushing || isCreatingDraftPullRequest || !hasChangesToCommit
-        }
+        disabled={isPushing || isCreatingDraftPullRequest || !hasChangesToCommit}
         className={
           hasChangesToCommit
             ? "h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"

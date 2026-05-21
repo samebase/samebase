@@ -27,10 +27,7 @@ const providerStepRetryMessage = {
   delete_convex: "Removing Convex resources.",
   delete_github_repo: "Removing GitHub repository.",
 } satisfies Record<
-  | "delete_codespaces"
-  | "delete_cloudflare"
-  | "delete_convex"
-  | "delete_github_repo",
+  "delete_codespaces" | "delete_cloudflare" | "delete_convex" | "delete_github_repo",
   string
 >;
 
@@ -74,13 +71,10 @@ async function resolveGitHubOctokit(
   ctx: Pick<ActionCtx, "runQuery">,
   userId: Id<"users">,
 ): Promise<Octokit> {
-  const githubConnection = await ctx.runQuery(
-    internal.providerConnections.getByUserAndKind,
-    {
-      userId,
-      kind: "github",
-    },
-  );
+  const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+    userId,
+    kind: "github",
+  });
   if (githubConnection?.kind !== "github") {
     throw new Error("GitHub is not connected.");
   }
@@ -122,13 +116,10 @@ export const deleteConnectedCodespaces = internalAction({
 
     const octokit = await resolveGitHubOctokit(ctx, args.userId);
     for (const codespace of codespaces) {
-      await ctx.runMutation(
-        internal.codespaces.mutations.updateCodespaceState,
-        {
-          codespaceId: codespace._id,
-          state: "deleting",
-        },
-      );
+      await ctx.runMutation(internal.codespaces.mutations.updateCodespaceState, {
+        codespaceId: codespace._id,
+        state: "deleting",
+      });
 
       try {
         await octokit.rest.codespaces.deleteForAuthenticatedUser({
@@ -136,32 +127,23 @@ export const deleteConnectedCodespaces = internalAction({
         });
       } catch (error) {
         if (!(error instanceof RequestError && error.status === 404)) {
-          await ctx.runMutation(
-            internal.codespaces.mutations.updateCodespaceState,
-            {
-              codespaceId: codespace._id,
-              state: "failed",
-            },
-          );
+          await ctx.runMutation(internal.codespaces.mutations.updateCodespaceState, {
+            codespaceId: codespace._id,
+            state: "failed",
+          });
           throw error;
         }
       }
 
-      await ctx.runMutation(
-        internal.codespaces.mutations.clearActiveCodespace,
-        {
-          vaultId: args.vaultId,
-          codespaceId: codespace._id,
-        },
-      );
-      await ctx.runMutation(
-        internal.codespaces.mutations.updateCodespaceState,
-        {
-          codespaceId: codespace._id,
-          state: "deleted",
-          deletedAt: Date.now(),
-        },
-      );
+      await ctx.runMutation(internal.codespaces.mutations.clearActiveCodespace, {
+        vaultId: args.vaultId,
+        codespaceId: codespace._id,
+      });
+      await ctx.runMutation(internal.codespaces.mutations.updateCodespaceState, {
+        codespaceId: codespace._id,
+        state: "deleted",
+        deletedAt: Date.now(),
+      });
     }
 
     return null;
@@ -186,13 +168,10 @@ export const deleteCloudflare = internalAction({
       return null;
     }
 
-    const cloudflareConnection = await ctx.runQuery(
-      internal.providerConnections.getByUserAndKind,
-      {
-        userId: args.userId,
-        kind: "cloudflare",
-      },
-    );
+    const cloudflareConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+      userId: args.userId,
+      kind: "cloudflare",
+    });
     if (cloudflareConnection?.kind !== "cloudflare") {
       throw new Error("Cloudflare connection is required to remove resources.");
     }
@@ -232,13 +211,10 @@ export const deleteConvex = internalAction({
       return null;
     }
 
-    const convexConnection = await ctx.runQuery(
-      internal.providerConnections.getByUserAndKind,
-      {
-        userId: args.userId,
-        kind: "convex",
-      },
-    );
+    const convexConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+      userId: args.userId,
+      kind: "convex",
+    });
     if (convexConnection?.kind !== "convex") {
       throw new Error("Convex connection is required to remove resources.");
     }

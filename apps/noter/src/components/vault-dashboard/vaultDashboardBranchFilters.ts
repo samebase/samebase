@@ -1,7 +1,4 @@
-import {
-  normalizePullRequestLabels,
-  type PullRequestLabelInput,
-} from "@/lib/pullRequestLabels";
+import { normalizePullRequestLabels, type PullRequestLabelInput } from "@/lib/pullRequestLabels";
 
 export type VaultBranchFilters = {
   hiddenLabels: string[];
@@ -68,9 +65,7 @@ export function normalizeVaultBranchFilters(
   }
 
   return {
-    hiddenLabels: Array.from(hiddenLabelsByKey.values()).sort((a, b) =>
-      compareLabelNames(a, b),
-    ),
+    hiddenLabels: Array.from(hiddenLabelsByKey.values()).sort((a, b) => compareLabelNames(a, b)),
     includeDrafts: filters.includeDrafts === true,
     includeNoLabel: filters.includeNoLabel !== false,
     branchesExpanded: filters.branchesExpanded === true,
@@ -106,10 +101,7 @@ export function setVaultBranchFilterLabelIncluded(args: {
     includeNoLabel: true,
   }).hiddenLabels;
   const nextHiddenLabelsByKey = new Map(
-    normalizedHiddenLabels.map((labelName) => [
-      normalizeLabelKey(labelName),
-      labelName,
-    ]),
+    normalizedHiddenLabels.map((labelName) => [normalizeLabelKey(labelName), labelName]),
   );
   const trimmedLabelName = args.labelName.trim();
   if (trimmedLabelName.length === 0) {
@@ -123,9 +115,7 @@ export function setVaultBranchFilterLabelIncluded(args: {
     nextHiddenLabelsByKey.set(labelKey, trimmedLabelName);
   }
 
-  return Array.from(nextHiddenLabelsByKey.values()).sort((a, b) =>
-    compareLabelNames(a, b),
-  );
+  return Array.from(nextHiddenLabelsByKey.values()).sort((a, b) => compareLabelNames(a, b));
 }
 
 export function filterVaultRemoteBranches<T extends VaultBranchFilterable>(
@@ -133,21 +123,16 @@ export function filterVaultRemoteBranches<T extends VaultBranchFilterable>(
   filters: Partial<VaultBranchFilters> | null | undefined,
 ): T[] {
   const normalizedFilters = normalizeVaultBranchFilters(filters);
-  const hiddenLabelKeys = new Set(
-    normalizedFilters.hiddenLabels.map(normalizeLabelKey),
-  );
+  const hiddenLabelKeys = new Set(normalizedFilters.hiddenLabels.map(normalizeLabelKey));
 
   return branches.filter((branch) => {
-    if (
-      !normalizedFilters.includeDrafts &&
-      branch.pullRequestIsDraft === true
-    ) {
+    if (!normalizedFilters.includeDrafts && branch.pullRequestIsDraft === true) {
       return false;
     }
 
-    const branchLabelKeys = normalizePullRequestLabels(
-      branch.pullRequestLabels,
-    ).map((label) => normalizeLabelKey(label.name));
+    const branchLabelKeys = normalizePullRequestLabels(branch.pullRequestLabels).map((label) =>
+      normalizeLabelKey(label.name),
+    );
     if (branchLabelKeys.length === 0) {
       return normalizedFilters.includeNoLabel;
     }
@@ -160,9 +145,7 @@ export function filterVaultRemoteBranches<T extends VaultBranchFilterable>(
  * Merge live PR labels with persisted hidden labels so users can still remove a
  * saved label even when no current branch exposes it.
  */
-export function buildVaultBranchFilterOptions<
-  T extends VaultBranchFilterable,
->(args: {
+export function buildVaultBranchFilterOptions<T extends VaultBranchFilterable>(args: {
   branches: T[];
   hiddenLabels: string[];
   includeNoLabel: boolean;
@@ -180,9 +163,7 @@ export function buildVaultBranchFilterOptions<
   let noLabelCount = 0;
 
   for (const branch of args.branches) {
-    const normalizedLabels = normalizePullRequestLabels(
-      branch.pullRequestLabels,
-    );
+    const normalizedLabels = normalizePullRequestLabels(branch.pullRequestLabels);
     if (normalizedLabels.length === 0) {
       noLabelCount += 1;
       continue;
@@ -234,9 +215,7 @@ export function buildVaultBranchFilterOptions<
   }
 
   return [
-    ...Array.from(labelOptionsByKey.values()).sort((a, b) =>
-      compareLabelNames(a.name, b.name),
-    ),
+    ...Array.from(labelOptionsByKey.values()).sort((a, b) => compareLabelNames(a.name, b.name)),
     {
       key: NO_LABEL_FILTER_KEY,
       name: NO_LABEL_FILTER_NAME,

@@ -38,11 +38,7 @@ function renderFileViewPatchLines(patch: string) {
 }
 
 export function FileViewPatchText({ patch }: { patch: string }) {
-  return (
-    <div className="p-3 font-mono text-xs leading-5">
-      {renderFileViewPatchLines(patch)}
-    </div>
-  );
+  return <div className="p-3 font-mono text-xs leading-5">{renderFileViewPatchLines(patch)}</div>;
 }
 
 export function FileViewPatchPreview({

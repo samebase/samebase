@@ -86,10 +86,7 @@ const CURRENT_CASE_IMAGE_KINDS = [
 ] as const satisfies readonly RasterSeamLabImageKind[];
 
 function getMergeModeLabel(mergeMode: RasterSeamLabMergeMode) {
-  return (
-    RASTER_SEAM_LAB_MERGE_MODES.find((mode) => mode.value === mergeMode)
-      ?.label ?? mergeMode
-  );
+  return RASTER_SEAM_LAB_MERGE_MODES.find((mode) => mode.value === mergeMode)?.label ?? mergeMode;
 }
 
 function formatScaleInput(value: number) {
@@ -222,18 +219,14 @@ function SeamLabCanvas({
     sourceSizePx,
   ]);
 
-  const seamRatio =
-    result.coveredPixels > 0 ? result.seamPixels / result.coveredPixels : 0;
+  const seamRatio = result.coveredPixels > 0 ? result.seamPixels / result.coveredPixels : 0;
 
   return (
     <div className="grid gap-2">
       <div className="flex items-center justify-between gap-3 text-xs">
-        <span className="font-medium text-black/80">
-          {IMAGE_KIND_LABELS[imageKind]}
-        </span>
+        <span className="font-medium text-black/80">{IMAGE_KIND_LABELS[imageKind]}</span>
         <span className="font-mono text-black/50">
-          {result.seamPixels} / {result.coveredPixels} (
-          {(seamRatio * 100).toFixed(1)}%) err{" "}
+          {result.seamPixels} / {result.coveredPixels} ({(seamRatio * 100).toFixed(1)}%) err{" "}
           {(result.meanSquaredError * 100).toFixed(1)}%
         </span>
       </div>
@@ -258,9 +251,7 @@ function AngleSweepCanvas({ config }: { config: SeamLabRenderConfig }) {
         <span className="text-sm font-medium text-black/80">
           {formatAngleDegrees(config.rotationDegrees)}°
         </span>
-        <span className="font-mono text-[10px] text-black/45">
-          {config.sourceSizePx}px
-        </span>
+        <span className="font-mono text-[10px] text-black/45">{config.sourceSizePx}px</span>
       </div>
       <SeamLabCanvas config={config} imageKind="mask" zoom="small" />
     </div>
@@ -274,20 +265,14 @@ function MergeModeSweepCanvas({ config }: { config: SeamLabRenderConfig }) {
         <span className="text-sm font-medium text-black/80">
           {getMergeModeLabel(config.mergeMode)}
         </span>
-        <span className="font-mono text-[10px] text-black/45">
-          {config.sourceSizePx}px
-        </span>
+        <span className="font-mono text-[10px] text-black/45">{config.sourceSizePx}px</span>
       </div>
       <SeamLabCanvas config={config} imageKind="mask" zoom="small" />
     </div>
   );
 }
 
-export function LogoRasterSeamLabPage({
-  routeSearch,
-}: {
-  routeSearch: LogoRouteSearch;
-}) {
+export function LogoRasterSeamLabPage({ routeSearch }: { routeSearch: LogoRouteSearch }) {
   const initialRotationDegrees = normalizeRotationDegrees(
     routeSearch.rot ?? RASTER_SEAM_LAB_DEFAULT_ROTATION_DEGREES,
   );
@@ -301,25 +286,15 @@ export function LogoRasterSeamLabPage({
     normalizeRasterSeamLabSourceSizePx(RASTER_SEAM_LAB_DEFAULT_SOURCE_SIZE_PX),
   );
   const [recursiveDepth, setRecursiveDepth] = useState(
-    normalizeRasterSeamLabDepth(
-      routeSearch.depth ?? RASTER_SEAM_LAB_DEFAULT_DEPTH,
-    ),
+    normalizeRasterSeamLabDepth(routeSearch.depth ?? RASTER_SEAM_LAB_DEFAULT_DEPTH),
   );
-  const [rotationDegrees, setRotationDegrees] = useState(
-    initialRotationDegrees,
-  );
-  const [elevationDegrees, setElevationDegrees] = useState(
-    initialElevationDegrees,
-  );
+  const [rotationDegrees, setRotationDegrees] = useState(initialRotationDegrees);
+  const [elevationDegrees, setElevationDegrees] = useState(initialElevationDegrees);
   const [mergeMode, setMergeMode] = useState<RasterSeamLabMergeMode>(
     RASTER_SEAM_LAB_DEFAULT_MERGE_MODE,
   );
-  const [spacingScale, setSpacingScale] = useState(
-    RASTER_SEAM_LAB_DEFAULT_SPACING_SCALE,
-  );
-  const [inflationScale, setInflationScale] = useState(
-    RASTER_SEAM_LAB_DEFAULT_INFLATION_SCALE,
-  );
+  const [spacingScale, setSpacingScale] = useState(RASTER_SEAM_LAB_DEFAULT_SPACING_SCALE);
+  const [inflationScale, setInflationScale] = useState(RASTER_SEAM_LAB_DEFAULT_INFLATION_SCALE);
   const setCommittedSourceSizePx = (value: number) => {
     setSourceSizePx(normalizeRasterSeamLabSourceSizePx(value));
   };
@@ -380,9 +355,7 @@ export function LogoRasterSeamLabPage({
               <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                 {baseGridSize}x{baseGridSize} Image Tile
               </div>
-              <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-                Raster Seam Lab
-              </h1>
+              <h1 className="mt-2 text-2xl font-semibold tracking-tight">Raster Seam Lab</h1>
             </div>
 
             <div className="grid gap-2">
@@ -398,9 +371,7 @@ export function LogoRasterSeamLabPage({
                     key={nextGridSize}
                     type="button"
                     size="sm"
-                    variant={
-                      baseGridSize === nextGridSize ? "default" : "outline"
-                    }
+                    variant={baseGridSize === nextGridSize ? "default" : "outline"}
                     className="rounded-none"
                     onClick={() => {
                       setBaseGridSize(nextGridSize);
@@ -423,9 +394,7 @@ export function LogoRasterSeamLabPage({
                     key={nextSourceSizePx}
                     type="button"
                     size="sm"
-                    variant={
-                      sourceSizePx === nextSourceSizePx ? "default" : "outline"
-                    }
+                    variant={sourceSizePx === nextSourceSizePx ? "default" : "outline"}
                     className="rounded-none"
                     onClick={() => {
                       setCommittedSourceSizePx(nextSourceSizePx);
@@ -461,9 +430,7 @@ export function LogoRasterSeamLabPage({
                     key={nextDepth}
                     type="button"
                     size="sm"
-                    variant={
-                      recursiveDepth === nextDepth ? "default" : "outline"
-                    }
+                    variant={recursiveDepth === nextDepth ? "default" : "outline"}
                     className="rounded-none"
                     onClick={() => {
                       setRecursiveDepth(nextDepth);
@@ -566,23 +533,18 @@ export function LogoRasterSeamLabPage({
                     {" -> "}
                     {labStats.effectiveGridSize}x{labStats.effectiveGridSize}x
                     {labStats.effectiveGridSize}, {sourceSizePx}px source,{" "}
-                    {getMergeModeLabel(mergeMode)}, rotation{" "}
-                    {formatAngleDegrees(rotationDegrees)}°, elevation{" "}
-                    {formatAngleDegrees(elevationDegrees)}°, inflate{" "}
-                    {inflationScaleLabel}
+                    {getMergeModeLabel(mergeMode)}, rotation {formatAngleDegrees(rotationDegrees)}°,
+                    elevation {formatAngleDegrees(elevationDegrees)}°, inflate {inflationScaleLabel}
                   </div>
                   <div className="mt-1 font-mono text-[11px] text-black/45">
                     {labStats.occupiedCells} cells{" | "}
                     {labStats.recursiveTileDraws} cached draws{" | "}
                     {labStats.mergedFaceRects} visible rects
                     {" -> "}
-                    {labStats.mergedFaceLoops} loops /{" "}
-                    {labStats.mergedFacePoints} points
+                    {labStats.mergedFaceLoops} loops / {labStats.mergedFacePoints} points
                   </div>
                 </div>
-                <div className="font-mono text-[11px] text-black/45">
-                  magenta = mismatch
-                </div>
+                <div className="font-mono text-[11px] text-black/45">magenta = mismatch</div>
               </div>
               <div className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-4">
                 {CURRENT_CASE_IMAGE_KINDS.map((imageKind) => (
@@ -605,8 +567,7 @@ export function LogoRasterSeamLabPage({
                   Merge Sweep
                 </div>
                 <div className="mt-1 text-sm text-black/60">
-                  Same angle and source, different composition and geometry
-                  strategies.
+                  Same angle and source, different composition and geometry strategies.
                 </div>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -620,9 +581,7 @@ export function LogoRasterSeamLabPage({
                       setMergeMode(mode.value);
                     }}
                   >
-                    <MergeModeSweepCanvas
-                      config={{ ...seamLabConfig, mergeMode: mode.value }}
-                    />
+                    <MergeModeSweepCanvas config={{ ...seamLabConfig, mergeMode: mode.value }} />
                   </button>
                 ))}
               </div>
@@ -665,8 +624,7 @@ export function LogoRasterSeamLabPage({
                   Source Sweep
                 </div>
                 <div className="mt-1 text-sm text-black/60">
-                  Same angle, smaller source rasters make seam pixels easier to
-                  catch.
+                  Same angle, smaller source rasters make seam pixels easier to catch.
                 </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

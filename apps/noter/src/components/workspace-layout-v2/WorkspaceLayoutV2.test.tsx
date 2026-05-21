@@ -100,9 +100,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
     expect(markup).toContain('data-testid="main-header-actions"');
     expect(markup).toContain("/machines");
     expect(markup).not.toContain("hidden justify-between md:flex");
-    expect((markup.match(/hidden h-8 w-8 md:inline-flex/g) ?? []).length).toBe(
-      2,
-    );
+    expect((markup.match(/hidden h-8 w-8 md:inline-flex/g) ?? []).length).toBe(2);
   });
 
   it("omits the right pane and right toggle when a route does not provide a right pane", () => {
@@ -122,13 +120,9 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
     expect(markup).toContain('aria-label="Toggle Left Sidebar"');
     expect(markup).not.toContain("right pane");
-    expect(markup).not.toContain(
-      'data-testid="workspace-layout-v2-pane-right"',
-    );
+    expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-right"');
     expect(markup).not.toContain('aria-label="Toggle Right Sidebar"');
-    expect((markup.match(/hidden h-8 w-8 md:inline-flex/g) ?? []).length).toBe(
-      1,
-    );
+    expect((markup.match(/hidden h-8 w-8 md:inline-flex/g) ?? []).length).toBe(1);
   });
 
   it("omits the left pane and left toggle when a route does not provide a left pane", () => {

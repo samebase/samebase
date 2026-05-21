@@ -67,10 +67,8 @@ function computeExpectedDraggedView(args: {
   const resolvedView = resolveLogoViewState({
     config: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
     view: {
-      elevationDegrees:
-        startElevationDegrees + args.dy * DRAG_ELEVATION_DEGREES_PER_PIXEL,
-      rotationDegrees:
-        startRotationDegrees + args.dx * DRAG_ROTATION_DEGREES_PER_PIXEL,
+      elevationDegrees: startElevationDegrees + args.dy * DRAG_ELEVATION_DEGREES_PER_PIXEL,
+      rotationDegrees: startRotationDegrees + args.dx * DRAG_ROTATION_DEGREES_PER_PIXEL,
     },
   });
 
@@ -113,9 +111,7 @@ test.describe("logo view snapping parity", () => {
 
     expect(Math.abs(sceneBox.width - sceneBox.height)).toBeLessThanOrEqual(1);
     expect(sceneBox.y).toBeGreaterThan(80);
-    expect(viewportSize.height - sceneBox.y - sceneBox.height).toBeGreaterThan(
-      80,
-    );
+    expect(viewportSize.height - sceneBox.y - sceneBox.height).toBeGreaterThan(80);
 
     await expect(scene).toHaveScreenshot("logo-mobile-square-scene.png", {
       animations: "disabled",
@@ -125,9 +121,7 @@ test.describe("logo view snapping parity", () => {
     });
   });
 
-  test("logo route follows the shared landing drag config", async ({
-    page,
-  }) => {
+  test("logo route follows the shared landing drag config", async ({ page }) => {
     const dragCases = [
       { name: "small vertical drag", dx: 0, dy: 10 },
       { name: "larger vertical drag", dx: 0, dy: 20 },
@@ -146,15 +140,11 @@ test.describe("logo view snapping parity", () => {
       await dragLogoScene(page, logoScene, dragCase);
       const logoEnd = await readLogoViewState(logoScene);
 
-      expect(logoEnd, `${dragCase.name} should match shared config`).toEqual(
-        expectedEnd,
-      );
+      expect(logoEnd, `${dragCase.name} should match shared config`).toEqual(expectedEnd);
     }
   });
 
-  test("freeView disables the shared snap behavior on the logo route", async ({
-    page,
-  }) => {
+  test("freeView disables the shared snap behavior on the logo route", async ({ page }) => {
     const snappedScene = await loadLogoRoute(page, "/logo");
     await dragLogoScene(page, snappedScene, { dx: 0, dy: 10 });
     const snappedEnd = await readLogoViewState(snappedScene);
@@ -169,9 +159,7 @@ test.describe("logo view snapping parity", () => {
     expect(Number(freeEnd.elevationDegrees)).toBeLessThan(38);
   });
 
-  test("default snapping canonicalizes unsnapped query params", async ({
-    page,
-  }) => {
+  test("default snapping canonicalizes unsnapped query params", async ({ page }) => {
     const snappedScene = await loadLogoRoute(page, "/logo?elev=359.1");
     await expect.poll(() => page.url()).not.toContain("elev=359.1");
     expect(await readLogoViewState(snappedScene)).toEqual({

@@ -12,24 +12,9 @@ import {
   CLOUDFLARE_TOKEN_REFRESH_STALE_LOCK_MS,
 } from "../shared/cloudflareTokenRefresh";
 
-const {
-  array,
-  boolean,
-  id,
-  literal,
-  null: vNull,
-  number,
-  object,
-  optional,
-  string,
-  union,
-} = v;
+const { array, boolean, id, literal, null: vNull, number, object, optional, string, union } = v;
 
-const vProviderKind = union(
-  literal("github"),
-  literal("convex"),
-  literal("cloudflare"),
-);
+const vProviderKind = union(literal("github"), literal("convex"), literal("cloudflare"));
 export type ProviderKind = Infer<typeof vProviderKind>;
 
 const vOAuthAuth = object({
@@ -200,19 +185,13 @@ async function upsertCloudflareConnection(
   args: Infer<typeof vCloudflareConnectionUpsert>,
 ): Promise<void> {
   const now = Date.now();
-  const existing = await getConnectionByUserAndKind(
-    db,
-    args.userId,
-    "cloudflare",
-  );
+  const existing = await getConnectionByUserAndKind(db, args.userId, "cloudflare");
   if (existing) {
     const patch = {
       auth: args.auth,
       accountId: args.accountId,
       updatedAt: now,
-      ...(args.tokenHealth !== undefined
-        ? { tokenHealth: args.tokenHealth }
-        : {}),
+      ...(args.tokenHealth !== undefined ? { tokenHealth: args.tokenHealth } : {}),
       ...(args.tokenRefreshStartedAt !== undefined
         ? { tokenRefreshStartedAt: args.tokenRefreshStartedAt }
         : {}),
@@ -230,9 +209,7 @@ async function upsertCloudflareConnection(
     accountId: args.accountId,
     createdAt: now,
     updatedAt: now,
-    ...(args.tokenHealth !== undefined
-      ? { tokenHealth: args.tokenHealth }
-      : {}),
+    ...(args.tokenHealth !== undefined ? { tokenHealth: args.tokenHealth } : {}),
     ...(args.tokenRefreshStartedAt !== undefined
       ? { tokenRefreshStartedAt: args.tokenRefreshStartedAt }
       : {}),
@@ -293,11 +270,7 @@ export const setConvexTeamSlug = internalMutation({
   },
   returns: vNull(),
   handler: async (ctx, args) => {
-    const existing = await getConnectionByUserAndKind(
-      ctx.db,
-      args.userId,
-      "convex",
-    );
+    const existing = await getConnectionByUserAndKind(ctx.db, args.userId, "convex");
     if (existing?.kind !== "convex" || existing.teamId !== args.teamId) {
       throw new Error("Convex connection changed before team slug update.");
     }
@@ -330,16 +303,9 @@ export const claimCloudflareTokenRefresh = internalMutation({
     nextAllowedRefreshAt: optional(number()),
   }),
   handler: async (ctx, args) => {
-    const connection = await getConnectionByUserAndKind(
-      ctx.db,
-      args.userId,
-      "cloudflare",
-    );
+    const connection = await getConnectionByUserAndKind(ctx.db, args.userId, "cloudflare");
 
-    if (
-      connection?.kind !== "cloudflare" ||
-      connection.auth.method !== "mcp_oauth"
-    ) {
+    if (connection?.kind !== "cloudflare" || connection.auth.method !== "mcp_oauth") {
       return { claimed: false };
     }
 
@@ -356,17 +322,13 @@ export const claimCloudflareTokenRefresh = internalMutation({
     ) {
       return {
         claimed: false,
-        nextAllowedRefreshAt:
-          tokenRefreshStartedAt + CLOUDFLARE_TOKEN_REFRESH_STALE_LOCK_MS,
+        nextAllowedRefreshAt: tokenRefreshStartedAt + CLOUDFLARE_TOKEN_REFRESH_STALE_LOCK_MS,
       };
     }
 
     if (!args.force) {
       const lastTokenRefreshAt = connection.lastTokenRefreshAt;
-      if (
-        typeof lastTokenRefreshAt === "number" &&
-        now - lastTokenRefreshAt < debounceMs
-      ) {
+      if (typeof lastTokenRefreshAt === "number" && now - lastTokenRefreshAt < debounceMs) {
         return {
           claimed: false,
           nextAllowedRefreshAt: lastTokenRefreshAt + debounceMs,
@@ -392,15 +354,8 @@ export const releaseCloudflareTokenRefresh = internalMutation({
     lastTokenRefreshAt: optional(number()),
   }),
   handler: async (ctx, args) => {
-    const connection = await getConnectionByUserAndKind(
-      ctx.db,
-      args.userId,
-      "cloudflare",
-    );
-    if (
-      connection?.kind !== "cloudflare" ||
-      connection.auth.method !== "mcp_oauth"
-    ) {
+    const connection = await getConnectionByUserAndKind(ctx.db, args.userId, "cloudflare");
+    if (connection?.kind !== "cloudflare" || connection.auth.method !== "mcp_oauth") {
       return {};
     }
 

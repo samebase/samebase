@@ -22,11 +22,7 @@ type ConvexDeployPlan =
       kind: "frontendOnly";
     };
 
-function run(
-  command: string,
-  args: readonly string[],
-  env?: NodeJS.ProcessEnv,
-) {
+function run(command: string, args: readonly string[], env?: NodeJS.ProcessEnv) {
   return new Promise<void>((resolve, reject) => {
     const child = spawn(command, [...args], {
       env,
@@ -65,9 +61,7 @@ function isWorkersBuild(env: NodeJS.ProcessEnv) {
 function readDeployKey(args: {
   env: NodeJS.ProcessEnv;
   branch: string;
-  deployKeyName:
-    | typeof PROD_CONVEX_DEPLOY_KEY
-    | typeof PREVIEW_CONVEX_DEPLOY_KEY;
+  deployKeyName: typeof PROD_CONVEX_DEPLOY_KEY | typeof PREVIEW_CONVEX_DEPLOY_KEY;
 }) {
   const deployKey = args.env[args.deployKeyName];
   if (deployKey) {
@@ -79,9 +73,7 @@ function readDeployKey(args: {
   );
 }
 
-export function selectConvexDeployPlan(
-  env: NodeJS.ProcessEnv,
-): ConvexDeployPlan {
+export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan {
   if (isPagesBuild(env)) {
     throw new Error(
       "Cloudflare Pages builds are disabled for Noter production during the Workers cutover. Keep the last good Pages deployment active until the Worker is public.",

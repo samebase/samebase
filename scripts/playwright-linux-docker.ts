@@ -5,12 +5,7 @@ import path from "node:path";
 import process from "node:process";
 
 import { parsePositiveInteger } from "../apps/noter/dev/appBuildMetadata.ts";
-import {
-  fail,
-  isMainModule,
-  resolveRepoRoot,
-  runMain,
-} from "./lib/scriptRuntime.ts";
+import { fail, isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
 
 const DEFAULT_IMAGE = "mcr.microsoft.com/playwright:v1.58.2-noble";
 const DEFAULT_OUT_DIR = ".tmp/playwright-linux";
@@ -113,21 +108,16 @@ function readGitOutput(repoRoot: string, args: string[]): string | null {
  */
 function resolveHostBuildMetadata(repoRoot: string) {
   const appCommit =
-    readTrimmedEnv("VITE_APP_COMMIT") ??
-    readGitOutput(repoRoot, ["rev-parse", "HEAD"]);
+    readTrimmedEnv("VITE_APP_COMMIT") ?? readGitOutput(repoRoot, ["rev-parse", "HEAD"]);
   if (!appCommit || !FULL_GIT_COMMIT_PATTERN.test(appCommit)) {
     fail("Could not resolve a full git commit for the Linux Playwright build.");
   }
 
   const appCommitNumber =
     parsePositiveInteger(readTrimmedEnv("VITE_APP_COMMIT_NUMBER")) ??
-    parsePositiveInteger(
-      readGitOutput(repoRoot, ["rev-list", "--count", "HEAD"]),
-    );
+    parsePositiveInteger(readGitOutput(repoRoot, ["rev-list", "--count", "HEAD"]));
   if (appCommitNumber === null) {
-    fail(
-      "Could not resolve a positive git commit count for the Linux Playwright build.",
-    );
+    fail("Could not resolve a positive git commit count for the Linux Playwright build.");
   }
 
   return {
@@ -153,13 +143,9 @@ function commandExists(command: string): boolean {
 }
 
 function ensureDockerIsRunning(): void {
-  const result = spawnSync(
-    "docker",
-    ["info", "--format", "{{.Architecture}}"],
-    {
-      encoding: "utf8",
-    },
-  );
+  const result = spawnSync("docker", ["info", "--format", "{{.Architecture}}"], {
+    encoding: "utf8",
+  });
 
   if (result.status !== 0) {
     fail("Docker is not running. Start OrbStack/Docker and retry.");
@@ -202,10 +188,7 @@ function runDocker(
   const defaultPlatform = "linux/arm64";
   const image = readEnv("PLAYWRIGHT_LINUX_IMAGE", DEFAULT_IMAGE);
   const platform = readEnv("PLAYWRIGHT_LINUX_PLATFORM", defaultPlatform);
-  const pnpmStoreVolume = readEnv(
-    "PLAYWRIGHT_LINUX_PNPM_STORE_VOLUME",
-    DEFAULT_PNPM_STORE_VOLUME,
-  );
+  const pnpmStoreVolume = readEnv("PLAYWRIGHT_LINUX_PNPM_STORE_VOLUME", DEFAULT_PNPM_STORE_VOLUME);
   const vitePort = readEnv("PLAYWRIGHT_VITE_PORT", DEFAULT_VITE_PORT);
   const hostBuildMetadata = resolveHostBuildMetadata(repoRoot);
   const updateSnapshots = hasSnapshotUpdateArg(args) ? "1" : "0";
@@ -263,10 +246,7 @@ async function main(): Promise<void> {
   const outDirRaw = readEnv("PLAYWRIGHT_LINUX_OUT", DEFAULT_OUT_DIR);
   const outDirPath = path.resolve(repoRoot, outDirRaw);
   const tempDir = path.resolve(repoRoot, ".tmp");
-  const runnerPath = path.join(
-    tempDir,
-    `playwright-linux-docker-${process.pid}.sh`,
-  );
+  const runnerPath = path.join(tempDir, `playwright-linux-docker-${process.pid}.sh`);
 
   rmSync(outDirPath, { recursive: true, force: true });
   mkdirSync(outDirPath, { recursive: true });

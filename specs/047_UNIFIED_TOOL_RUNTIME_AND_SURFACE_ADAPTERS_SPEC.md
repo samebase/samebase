@@ -18,8 +18,8 @@ Define one canonical tool runtime in Convex that is shared by:
 2. MCP server clients (including ChatGPT)
 3. Noter UI actions/buttons
 
-This replaces per-surface tool reimplementation with a single source of truth
-for tool metadata, input contracts, execution logic, access policy, and audit.
+This replaces per-surface tool reimplementation with a single source of truth for tool metadata,
+input contracts, execution logic, access policy, and audit.
 
 ## Why This Spec Exists
 
@@ -29,22 +29,22 @@ Current state duplicates tool behavior across surfaces:
 2. MCP tools are separately hardcoded in `apps/noter/convex/mcp/http.ts`.
 3. UI approval/button flows use chat metadata paths that are not MCP-native.
 
-This causes drift in behavior, naming, and approval semantics. We need one
-runtime so adding a tool once makes it available everywhere by policy.
+This causes drift in behavior, naming, and approval semantics. We need one runtime so adding a tool
+once makes it available everywhere by policy.
 
 ## Product Decisions (Locked)
 
 1. A tool is defined exactly once in Convex runtime code.
 2. Agent, MCP, and UI are adapters over the same runtime.
 3. Tool names are canonical and shared across surfaces; no per-surface renaming.
-4. MCP write/destructive confirmation uses MCP client-native confirmation UX,
-   not Noter-specific redirect/card UX.
-5. Existing approval-first provider reads remain approval-first in backend
-   policy and are represented as proposal/status results in MCP (not UI cards).
-6. `commit_and_push` stays out of MCP for now, but remains in the same shared
-   runtime for Agent/UI so there is still one implementation.
-7. Branch context is first-class for repository tools; file/edit/list tools must
-   be explicitly branch-aware to match the latest remote-branch model.
+4. MCP write/destructive confirmation uses MCP client-native confirmation UX, not Noter-specific
+   redirect/card UX.
+5. Existing approval-first provider reads remain approval-first in backend policy and are
+   represented as proposal/status results in MCP (not UI cards).
+6. `commit_and_push` stays out of MCP for now, but remains in the same shared runtime for Agent/UI
+   so there is still one implementation.
+7. Branch context is first-class for repository tools; file/edit/list tools must be explicitly
+   branch-aware to match the latest remote-branch model.
 
 ## Goals
 
@@ -63,18 +63,17 @@ runtime so adding a tool once makes it available everywhere by policy.
 
 ## Current State Research
 
-1. `apps/noter/convex/agent/toolCatalog.ts` holds Agent UI metadata, but not a
-   shared executable registry.
-2. `apps/noter/convex/agent/tools.ts` includes concrete executors and policy,
-   tightly coupled to Agent runtime wiring.
-3. `apps/noter/convex/mcp/http.ts` currently exposes only `vaults.list` and does
-   not reuse Agent executors.
-4. `apps/noter/src/components/ChatFab.tsx` commit/prod-read approval cards are
-   Noter-web specific and not reusable by MCP clients.
-5. `main` now includes branch-native repository state through
-   `vaultRemoteBranches` and `vaultBranchTrees`, with ahead/behind and PR-link
-   metadata surfaced in vault/dashboard flows. Shared tools must consume this
-   model instead of assuming a single implicit branch.
+1. `apps/noter/convex/agent/toolCatalog.ts` holds Agent UI metadata, but not a shared executable
+   registry.
+2. `apps/noter/convex/agent/tools.ts` includes concrete executors and policy, tightly coupled to
+   Agent runtime wiring.
+3. `apps/noter/convex/mcp/http.ts` currently exposes only `vaults.list` and does not reuse Agent
+   executors.
+4. `apps/noter/src/components/ChatFab.tsx` commit/prod-read approval cards are Noter-web specific
+   and not reusable by MCP clients.
+5. `main` now includes branch-native repository state through `vaultRemoteBranches` and
+   `vaultBranchTrees`, with ahead/behind and PR-link metadata surfaced in vault/dashboard flows.
+   Shared tools must consume this model instead of assuming a single implicit branch.
 
 ## Architecture
 
@@ -93,13 +92,13 @@ Recommended files:
 
 Responsibilities:
 
-1. `catalog.ts`: canonical tool metadata (name, description, input schema, scope
-   requirements, surface availability, safety hints).
+1. `catalog.ts`: canonical tool metadata (name, description, input schema, scope requirements,
+   surface availability, safety hints).
 2. `executors/*.ts`: actual tool logic (read/write/list/proposal/etc).
-3. `policy.ts`: centralized checks (auth, scope, vault ownership, branch/path
-   constraints, proposal-only gating).
-4. `runTool.ts`: single execution entrypoint that validates input, enforces
-   policy, runs executor, and records audit.
+3. `policy.ts`: centralized checks (auth, scope, vault ownership, branch/path constraints,
+   proposal-only gating).
+4. `runTool.ts`: single execution entrypoint that validates input, enforces policy, runs executor,
+   and records audit.
 
 ### 2) Surface adapters
 
@@ -162,9 +161,9 @@ Notes:
 
 1. Names stay unchanged to avoid transition churn in prompts and UI metadata.
 2. `commit_and_push` remains canonical but not exposed to MCP in this phase.
-3. `read_file`, `list_files`, `edit_file`, `replace_in_file`, `create_file`, and
-   `delete_file` must take explicit branch context in shared runtime adapters
-   (no implicit `main` fallback in runtime policy).
+3. `read_file`, `list_files`, `edit_file`, `replace_in_file`, `create_file`, and `delete_file` must
+   take explicit branch context in shared runtime adapters (no implicit `main` fallback in runtime
+   policy).
 
 ## MCP Contract Updates
 
@@ -188,8 +187,7 @@ Initial scope mapping:
 2. `files.read` => `read_file`, `list_files`
 3. `files.write` => `edit_file`, `replace_in_file`, `create_file`, `delete_file`
 4. `prod.read.propose` => all `request_*_read` tools
-5. `commits.propose` => reserved for now (`commit_and_push` not exposed in MCP
-   in this phase)
+5. `commits.propose` => reserved for now (`commit_and_push` not exposed in MCP in this phase)
 
 ## Data And Audit
 
@@ -219,8 +217,8 @@ Purpose:
 2. Migrate `vaults.list`, `read_file`, `list_files` executors first.
 3. Wire Agent and MCP adapters to these migrated tools.
 4. Keep legacy paths for unmigrated tools temporarily.
-5. Include `get_vault_remote_branches` in Phase 1 so branch context is available
-   to all surfaces from the start.
+5. Include `get_vault_remote_branches` in Phase 1 so branch context is available to all surfaces
+   from the start.
 
 ### Phase 2: all file write tools
 
@@ -247,8 +245,8 @@ Purpose:
 3. Same tool name and behavior across surfaces for migrated tools.
 4. Server policy blocks unauthorized writes even if client attempts raw calls.
 5. Audit records include surface and tool name for every execution.
-6. Branch-aware tools behave consistently for non-default branches (including
-   repos where default branch is not `main`).
+6. Branch-aware tools behave consistently for non-default branches (including repos where default
+   branch is not `main`).
 
 ## Test Strategy
 
@@ -267,11 +265,10 @@ Purpose:
 
 ## Open Questions
 
-1. Should we expose `commit_and_push` to MCP later as proposal-only or direct
-   write tool?
+1. Should we expose `commit_and_push` to MCP later as proposal-only or direct write tool?
 2. Do we want per-tool concurrency controls in `policy.ts` for write tools?
-3. Should MCP return standardized machine-readable error codes for policy blocks
-   (`scope_missing`, `vault_context_missing`, `path_rejected`)?
+3. Should MCP return standardized machine-readable error codes for policy blocks (`scope_missing`,
+   `vault_context_missing`, `path_rejected`)?
 
 ## Execution Tracker
 

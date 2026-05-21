@@ -8,9 +8,7 @@ type CloudflareBuildFailureLogsState = CloudflareBranchPreviewState & {
   cloudflarePreviewStatus?: string;
 };
 
-export function hasCurrentCloudflareBranchPreview(
-  args: CloudflareBranchPreviewState,
-): boolean {
+export function hasCurrentCloudflareBranchPreview(args: CloudflareBranchPreviewState): boolean {
   return (
     typeof args.pullRequestNumber === "number" &&
     typeof args.cloudflareBranchPreviewUrl === "string" &&

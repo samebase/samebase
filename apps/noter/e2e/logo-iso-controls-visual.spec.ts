@@ -34,12 +34,7 @@ async function sampleLogoCanvasCorner(page: Page) {
   const y = Math.min(8, png.height - 1);
   const index = (y * png.width + x) * 4;
 
-  return [
-    png.data[index],
-    png.data[index + 1],
-    png.data[index + 2],
-    png.data[index + 3],
-  ] as const;
+  return [png.data[index], png.data[index + 1], png.data[index + 2], png.data[index + 3]] as const;
 }
 
 test("logo iso controls sidebar", async ({ page }) => {
@@ -78,50 +73,43 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
   const linksSidebar = page.getByTestId("workspace-layout-v2-pane-right");
-  const routeUrlHeader = linksSidebar.getByTestId(
-    PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID,
-  );
+  const routeUrlHeader = linksSidebar.getByTestId(PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID);
   const publicLinks = linksSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
 
   await expect(controlsSidebar).toBeVisible();
-  await expect(
-    controlsSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID),
-  ).toHaveCount(0);
+  await expect(controlsSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID)).toHaveCount(0);
   await expect(linksSidebar).toBeVisible();
-  await expect(routeUrlHeader.getByTestId("route-url-display")).toHaveAttribute(
-    "title",
-    "/logo",
+  await expect(routeUrlHeader.getByTestId("route-url-display")).toHaveAttribute("title", "/logo");
+  await expect(routeUrlHeader.getByTestId("route-url-display")).toHaveText("/logo");
+  await expect(publicLinks.getByRole("link", { name: "/home", exact: true })).toHaveAttribute(
+    "href",
+    "/",
   );
-  await expect(routeUrlHeader.getByTestId("route-url-display")).toHaveText(
-    "/logo",
-  );
-  await expect(
-    publicLinks.getByRole("link", { name: "/home", exact: true }),
-  ).toHaveAttribute("href", "/");
   await expect(
     publicLinks.getByRole("link", { name: LOCAL_STORAGE_ROUTE, exact: true }),
   ).toHaveCount(0);
-  await expect(
-    publicLinks.getByRole("link", { name: "/terms", exact: true }),
-  ).toHaveAttribute("href", "/terms");
-  await expect(
-    publicLinks.getByRole("link", { name: "/privacy", exact: true }),
-  ).toHaveAttribute("href", "/privacy");
-  await expect(
-    publicLinks.getByRole("link", { name: "?light", exact: true }),
-  ).toHaveAttribute("href", "/logo?light");
-  await expect(
-    publicLinks.getByRole("link", { name: "?dark", exact: true }),
-  ).toHaveAttribute("href", "/logo?dark");
-  await expect(publicLinks).toHaveScreenshot(
-    "logo-right-sidebar-meta-section.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.03,
-      scale: "css",
-    },
+  await expect(publicLinks.getByRole("link", { name: "/terms", exact: true })).toHaveAttribute(
+    "href",
+    "/terms",
   );
+  await expect(publicLinks.getByRole("link", { name: "/privacy", exact: true })).toHaveAttribute(
+    "href",
+    "/privacy",
+  );
+  await expect(publicLinks.getByRole("link", { name: "?light", exact: true })).toHaveAttribute(
+    "href",
+    "/logo?light",
+  );
+  await expect(publicLinks.getByRole("link", { name: "?dark", exact: true })).toHaveAttribute(
+    "href",
+    "/logo?dark",
+  );
+  await expect(publicLinks).toHaveScreenshot("logo-right-sidebar-meta-section.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.03,
+    scale: "css",
+  });
 });
 
 test("logo public query links toggle root theme mode", async ({ page }) => {
@@ -136,30 +124,20 @@ test("logo public query links toggle root theme mode", async ({ page }) => {
   await publicLinks.getByRole("link", { name: "?light", exact: true }).click();
   await expect(page).toHaveURL(/\/logo\?dev&light$/);
   await expect(page.locator("html")).not.toHaveClass(/dark/);
-  await expect(
-    publicLinks.getByRole("link", { name: "?-light", exact: true }),
-  ).toBeVisible();
+  await expect(publicLinks.getByRole("link", { name: "?-light", exact: true })).toBeVisible();
 
   await publicLinks.getByRole("link", { name: "?dark", exact: true }).click();
   await expect(page).toHaveURL(/\/logo\?dev&dark$/);
   await expect(page.locator("html")).toHaveClass(/dark/);
-  await expect(
-    publicLinks.getByRole("link", { name: "?-dark", exact: true }),
-  ).toBeVisible();
+  await expect(publicLinks.getByRole("link", { name: "?-dark", exact: true })).toBeVisible();
 
   await publicLinks.getByRole("link", { name: "?-dark", exact: true }).click();
   await expect(page).toHaveURL(/\/logo\?dev$/);
-  await expect(
-    publicLinks.getByRole("link", { name: "?light", exact: true }),
-  ).toBeVisible();
-  await expect(
-    publicLinks.getByRole("link", { name: "?dark", exact: true }),
-  ).toBeVisible();
+  await expect(publicLinks.getByRole("link", { name: "?light", exact: true })).toBeVisible();
+  await expect(publicLinks.getByRole("link", { name: "?dark", exact: true })).toBeVisible();
 });
 
-test("logo public query links repaint the three scene theme colors", async ({
-  page,
-}) => {
+test("logo public query links repaint the three scene theme colors", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo?dev&light", {
     waitUntil: "domcontentloaded",
@@ -183,9 +161,7 @@ test("logo public query links repaint the three scene theme colors", async ({
   expect(darkPixel).toEqual([57, 68, 71, 255]);
 });
 
-test("logo public query color overrides repaint the three scene base color", async ({
-  page,
-}) => {
+test("logo public query color overrides repaint the three scene base color", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo?dev&light&base=%23112233", {
     waitUntil: "domcontentloaded",
@@ -197,9 +173,7 @@ test("logo public query color overrides repaint the three scene base color", asy
   expect(await sampleLogoCanvasCorner(page)).toEqual([17, 34, 51, 255]);
 });
 
-test("logo public query links cancel conflicting root theme modes", async ({
-  page,
-}) => {
+test("logo public query links cancel conflicting root theme modes", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo?dev&light&dark", {
     waitUntil: "domcontentloaded",
@@ -218,9 +192,7 @@ test("logo public query links cancel conflicting root theme modes", async ({
   ).toBeVisible();
 });
 
-test("logo recursive depth renders a rotatable shuffleable Three scene", async ({
-  page,
-}) => {
+test("logo recursive depth renders a rotatable shuffleable Three scene", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo?depth=3&rot=45", {
     waitUntil: "domcontentloaded",
@@ -231,21 +203,13 @@ test("logo recursive depth renders a rotatable shuffleable Three scene", async (
 
   await expect(canvas).toBeVisible();
   await expect(controlsSidebar.getByLabel("Depth value")).toHaveValue("3");
-  await expect(
-    controlsSidebar.getByRole("button", { name: "Add" }),
-  ).toHaveCount(0);
-  await expect(
-    controlsSidebar.getByRole("button", { name: "Start shuffle" }),
-  ).toBeVisible();
+  await expect(controlsSidebar.getByRole("button", { name: "Add" })).toHaveCount(0);
+  await expect(controlsSidebar.getByRole("button", { name: "Start shuffle" })).toBeVisible();
   await expect(controlsSidebar).toContainText("Parallel cubes");
   await controlsSidebar.getByRole("button", { name: "Start shuffle" }).click();
-  await expect(
-    controlsSidebar.getByRole("button", { name: "Stop shuffle" }),
-  ).toBeVisible();
+  await expect(controlsSidebar.getByRole("button", { name: "Stop shuffle" })).toBeVisible();
   await controlsSidebar.getByRole("button", { name: "Stop shuffle" }).click();
-  await expect(
-    controlsSidebar.getByRole("button", { name: "Start shuffle" }),
-  ).toBeVisible();
+  await expect(controlsSidebar.getByRole("button", { name: "Start shuffle" })).toBeVisible();
   await controlsSidebar.getByRole("button", { name: "SVG" }).click();
   await expect
     .poll(() => {
@@ -272,9 +236,7 @@ test("logo recursive depth renders a rotatable shuffleable Three scene", async (
   });
 });
 
-test("logo recursive depth keeps opacity visually ordered", async ({
-  page,
-}) => {
+test("logo recursive depth keeps opacity visually ordered", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo?depth=2&rot=45", {
     waitUntil: "domcontentloaded",
@@ -289,20 +251,15 @@ test("logo recursive depth keeps opacity visually ordered", async ({
   await expect(controlsSidebar.getByLabel("Opacity value")).toHaveValue("0.40");
   await waitForPaint(page);
 
-  await expect(canvas).toHaveScreenshot(
-    "logo-depth-2-opacity-three-scene.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.01,
-      scale: "css",
-    },
-  );
+  await expect(canvas).toHaveScreenshot("logo-depth-2-opacity-three-scene.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
+  });
 });
 
-test("logo depth 5 keeps the tiled Three preview responsive", async ({
-  page,
-}) => {
+test("logo depth 5 keeps the tiled Three preview responsive", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo?depth=5&rot=45", {
     waitUntil: "domcontentloaded",
@@ -312,16 +269,10 @@ test("logo depth 5 keeps the tiled Three preview responsive", async ({
 
   await expect(page.locator("canvas").first()).toBeVisible();
   await expect(controlsSidebar.getByLabel("Depth value")).toHaveValue("5");
-  await expect(
-    controlsSidebar.getByRole("button", { name: "Add" }),
-  ).toHaveCount(0);
-  await expect(
-    controlsSidebar.getByRole("button", { name: "Start shuffle" }),
-  ).toBeVisible();
+  await expect(controlsSidebar.getByRole("button", { name: "Add" })).toHaveCount(0);
+  await expect(controlsSidebar.getByRole("button", { name: "Start shuffle" })).toBeVisible();
   await controlsSidebar.getByRole("button", { name: "Start shuffle" }).click();
-  await expect(
-    controlsSidebar.getByRole("button", { name: "Stop shuffle" }),
-  ).toBeVisible();
+  await expect(controlsSidebar.getByRole("button", { name: "Stop shuffle" })).toBeVisible();
 
   await controlsSidebar.getByLabel("Yaw value").fill("90");
   await expect
@@ -332,9 +283,7 @@ test("logo depth 5 keeps the tiled Three preview responsive", async ({
     .toBe("5:90");
 });
 
-test("logo iso depth 5 keeps recursive preview responsive", async ({
-  page,
-}) => {
+test("logo iso depth 5 keeps recursive preview responsive", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo/iso?depth=5&vox=xxx_xox_xxx-xox_ooo_xox-xxx_xox_xxx", {
     waitUntil: "domcontentloaded",
@@ -345,9 +294,7 @@ test("logo iso depth 5 keeps recursive preview responsive", async ({
 
   await expect(canvas).toBeVisible();
   await expect(controlsSidebar.getByLabel("Depth value")).toHaveValue("5");
-  await expect(
-    controlsSidebar.getByRole("button", { name: "Add" }),
-  ).toHaveCount(0);
+  await expect(controlsSidebar.getByRole("button", { name: "Add" })).toHaveCount(0);
   await waitForPaint(page);
   await expect(canvas).toHaveScreenshot("logo-iso-depth-5-scene.png", {
     animations: "disabled",
@@ -356,18 +303,12 @@ test("logo iso depth 5 keeps recursive preview responsive", async ({
     scale: "css",
   });
 
-  await expect(
-    controlsSidebar.getByRole("button", { name: "Start shuffle" }),
-  ).toBeVisible();
+  await expect(controlsSidebar.getByRole("button", { name: "Start shuffle" })).toBeVisible();
   await controlsSidebar.getByRole("button", { name: "Start shuffle" }).click();
-  await expect(
-    controlsSidebar.getByRole("button", { name: "Stop shuffle" }),
-  ).toBeVisible();
+  await expect(controlsSidebar.getByRole("button", { name: "Stop shuffle" })).toBeVisible();
 });
 
-test("logo raster depth 6 keeps recursive preview responsive", async ({
-  page,
-}) => {
+test("logo raster depth 6 keeps recursive preview responsive", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo/raster?depth=6&top=red-500&elev=359.9&freeView", {
     waitUntil: "domcontentloaded",
@@ -378,9 +319,7 @@ test("logo raster depth 6 keeps recursive preview responsive", async ({
 
   await expect(canvas).toBeVisible();
   await expect(controlsSidebar.getByLabel("Depth value")).toHaveValue("6");
-  await expect(
-    controlsSidebar.getByRole("button", { name: "Add" }),
-  ).toHaveCount(0);
+  await expect(controlsSidebar.getByRole("button", { name: "Add" })).toHaveCount(0);
   await waitForPaint(page);
   await expect(canvas).toHaveScreenshot("logo-raster-depth-6-scene.png", {
     animations: "disabled",
@@ -389,13 +328,9 @@ test("logo raster depth 6 keeps recursive preview responsive", async ({
     scale: "css",
   });
 
-  await expect(
-    controlsSidebar.getByRole("button", { name: "Start shuffle" }),
-  ).toBeVisible();
+  await expect(controlsSidebar.getByRole("button", { name: "Start shuffle" })).toBeVisible();
   await controlsSidebar.getByRole("button", { name: "Start shuffle" }).click();
-  await expect(
-    controlsSidebar.getByRole("button", { name: "Stop shuffle" }),
-  ).toBeVisible();
+  await expect(controlsSidebar.getByRole("button", { name: "Stop shuffle" })).toBeVisible();
 
   await controlsSidebar.getByLabel("Yaw value").fill("90");
   await expect
@@ -406,9 +341,7 @@ test("logo raster depth 6 keeps recursive preview responsive", async ({
     .toBe("/logo/raster:6:90");
 });
 
-test("logo raster face-on recursion renders without tile seams", async ({
-  page,
-}) => {
+test("logo raster face-on recursion renders without tile seams", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(
     "/logo/raster?depth=2&top=red-500&elev=0&rot=180&vox=xxx_oox_xxo-xoo_ooo_xox-oxx_xox_xox",
@@ -421,32 +354,23 @@ test("logo raster face-on recursion renders without tile seams", async ({
 
   await expect(canvas).toBeVisible();
   await waitForPaint(page);
-  await expect(canvas).toHaveScreenshot(
-    "logo-raster-face-on-depth-2-scene.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.01,
-      scale: "css",
-    },
-  );
+  await expect(canvas).toHaveScreenshot("logo-raster-face-on-depth-2-scene.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
+  });
 });
 
-test("logo raster seam lab shows the tiny 2x2 image-composition diagnostic", async ({
-  page,
-}) => {
+test("logo raster seam lab shows the tiny 2x2 image-composition diagnostic", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo/raster-seams?elev=22&rot=22", {
     waitUntil: "domcontentloaded",
   });
 
   const currentCase = page.getByTestId("logo-raster-seam-lab-current-case");
-  const sourceCanvas = currentCase.locator(
-    'canvas[data-logo-raster-seam-lab="source"]',
-  );
-  const maskCanvas = currentCase.locator(
-    'canvas[data-logo-raster-seam-lab="mask"]',
-  );
+  const sourceCanvas = currentCase.locator('canvas[data-logo-raster-seam-lab="source"]');
+  const maskCanvas = currentCase.locator('canvas[data-logo-raster-seam-lab="mask"]');
 
   await expect(currentCase).toBeVisible();
   await expect(sourceCanvas).toHaveCount(1);
@@ -468,57 +392,42 @@ test("logo raster seam lab shows the tiny 2x2 image-composition diagnostic", asy
     .locator("button")
     .evaluateAll(
       (buttons) =>
-        new Set(
-          buttons.map((button) =>
-            Math.round(button.getBoundingClientRect().top),
-          ),
-        ).size,
+        new Set(buttons.map((button) => Math.round(button.getBoundingClientRect().top))).size,
     );
 
   await expect(mergeSweep).toBeVisible();
   expect(mergeSweepRowCount).toBeGreaterThan(1);
-  await expect(mergeSweep).toHaveScreenshot(
-    "logo-raster-seam-lab-merge-sweep.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.01,
-      scale: "css",
-    },
-  );
+  await expect(mergeSweep).toHaveScreenshot("logo-raster-seam-lab-merge-sweep.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
+  });
 
   await page.getByRole("button", { exact: true, name: "2" }).click();
   await expect(currentCase).toContainText("depth 2");
-  await expect(currentCase).toHaveScreenshot(
-    "logo-raster-seam-lab-depth-2.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.01,
-      scale: "css",
-    },
-  );
+  await expect(currentCase).toHaveScreenshot("logo-raster-seam-lab-depth-2.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
+  });
 
   await page.getByRole("button", { exact: true, name: "3x3" }).click();
   await expect(currentCase).toContainText("3x3 base, depth 2 -> 9x9x9");
-  await expect(currentCase).toHaveScreenshot(
-    "logo-raster-seam-lab-3x3-depth-2.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.01,
-      scale: "css",
-    },
-  );
+  await expect(currentCase).toHaveScreenshot("logo-raster-seam-lab-3x3-depth-2.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
+  });
 
   await page.getByRole("button", { name: "Merged faces" }).first().click();
   await expect(currentCase).toContainText("Merged faces");
   await expect(currentCase.getByText(/0 \/ \d+ \(0\.0%\)/)).toHaveCount(4);
 });
 
-test("logo raster seam lab inflation input allows partial edits", async ({
-  page,
-}) => {
+test("logo raster seam lab inflation input allows partial edits", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo/raster-seams?elev=22&rot=22", {
     waitUntil: "domcontentloaded",
@@ -542,26 +451,19 @@ test("logo raster seam lab inflation input allows partial edits", async ({
   await expect(inflationInput).toHaveValue("1.500");
 });
 
-test("logo raster seam lab spacing scale moves the fake 3d centers", async ({
-  page,
-}) => {
+test("logo raster seam lab spacing scale moves the fake 3d centers", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo/raster-seams?depth=2&elev=22&rot=22", {
     waitUntil: "domcontentloaded",
   });
 
   const currentCase = page.getByTestId("logo-raster-seam-lab-current-case");
-  const composedCanvas = currentCase.locator(
-    'canvas[data-logo-raster-seam-lab="composed"]',
-  );
+  const composedCanvas = currentCase.locator('canvas[data-logo-raster-seam-lab="composed"]');
   const spacingInput = page.getByLabel("Spacing scale");
 
   await expect(spacingInput).toHaveValue("1.000");
   await expect(spacingInput).toHaveAttribute("type", "number");
-  await expect(page.locator('input[type="range"]').first()).toHaveAttribute(
-    "max",
-    "2",
-  );
+  await expect(page.locator('input[type="range"]').first()).toHaveAttribute("max", "2");
   await waitForPaint(page);
   const defaultImage = await composedCanvas.evaluate((element) => {
     if (!(element instanceof HTMLCanvasElement)) {
@@ -587,18 +489,14 @@ test("logo raster seam lab spacing scale moves the fake 3d centers", async ({
   await expect(spacingInput).toHaveValue("0.990");
 });
 
-test("logo raster seam lab source size input allows larger custom rasters", async ({
-  page,
-}) => {
+test("logo raster seam lab source size input allows larger custom rasters", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo/raster-seams?elev=22&rot=22", {
     waitUntil: "domcontentloaded",
   });
 
   const currentCase = page.getByTestId("logo-raster-seam-lab-current-case");
-  const maskCanvas = currentCase.locator(
-    'canvas[data-logo-raster-seam-lab="mask"]',
-  );
+  const maskCanvas = currentCase.locator('canvas[data-logo-raster-seam-lab="mask"]');
   const sourceInput = page.getByLabel("Source size");
   const rotationInput = page.getByLabel("Rotation degrees");
   const elevationInput = page.getByLabel("Elevation degrees");
@@ -634,44 +532,29 @@ test("logo shape presets include seam stress models", async ({ page }) => {
   });
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
-  const shapeSelect = controlsSidebar
-    .getByRole("combobox")
-    .filter({ hasText: "Checker Lattice" });
+  const shapeSelect = controlsSidebar.getByRole("combobox").filter({ hasText: "Checker Lattice" });
 
   await expect(shapeSelect).toBeVisible();
   await shapeSelect.click();
-  await expect(
-    page.getByText("Sierpinski Carpet", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("Sierpinski Carpet", { exact: true })).toBeVisible();
   await expect(page.getByText("Full Cube", { exact: true })).toBeVisible();
   await page.getByText("Sierpinski Carpet", { exact: true }).click();
 
   await expect(
-    controlsSidebar
-      .getByRole("combobox")
-      .filter({ hasText: "Sierpinski Carpet" }),
+    controlsSidebar.getByRole("combobox").filter({ hasText: "Sierpinski Carpet" }),
   ).toBeVisible();
-  await expect(controlsSidebar).toContainText(
-    "xxx_xox_xxx-xox_ooo_xox-xxx_xox_xxx",
-  );
+  await expect(controlsSidebar).toContainText("xxx_xox_xxx-xox_ooo_xox-xxx_xox_xxx");
 
-  await controlsSidebar
-    .getByRole("combobox")
-    .filter({ hasText: "Sierpinski Carpet" })
-    .click();
+  await controlsSidebar.getByRole("combobox").filter({ hasText: "Sierpinski Carpet" }).click();
   await page.getByText("Full Cube", { exact: true }).click();
 
   await expect(
     controlsSidebar.getByRole("combobox").filter({ hasText: "Full Cube" }),
   ).toBeVisible();
-  await expect(controlsSidebar).toContainText(
-    "xxx_xxx_xxx-xxx_xxx_xxx-xxx_xxx_xxx",
-  );
+  await expect(controlsSidebar).toContainText("xxx_xxx_xxx-xxx_xxx_xxx-xxx_xxx_xxx");
 });
 
-test("logo depth slider clears default depth from the URL", async ({
-  page,
-}) => {
+test("logo depth slider clears default depth from the URL", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo?depth=3&rot=45", {
     waitUntil: "domcontentloaded",
@@ -682,10 +565,7 @@ test("logo depth slider clears default depth from the URL", async ({
   const depthValue = controlsSidebar.getByLabel("Depth value");
 
   await expect(depthSlider).toHaveAttribute("max", "5");
-  await expect(depthValue).toHaveAttribute(
-    "max",
-    `${EXPECTED_LOGO_DEPTH_HARD_MAX.three}`,
-  );
+  await expect(depthValue).toHaveAttribute("max", `${EXPECTED_LOGO_DEPTH_HARD_MAX.three}`);
   await expect(depthValue).toHaveValue("3");
   await depthSlider.fill("1");
   await expect(depthValue).toHaveValue("1");
@@ -697,9 +577,7 @@ test("logo depth slider clears default depth from the URL", async ({
     .toBe(false);
 });
 
-test("logo pages cap URL-edited recursive depth before rendering", async ({
-  page,
-}) => {
+test("logo pages cap URL-edited recursive depth before rendering", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo?depth=99&rot=45", {
     waitUntil: "domcontentloaded",
@@ -710,12 +588,9 @@ test("logo pages cap URL-edited recursive depth before rendering", async ({
     `${EXPECTED_LOGO_DEPTH_HARD_MAX.three}`,
   );
 
-  await page.goto(
-    "/logo/svg?depth=99&vox=xxx_xxx_xxx-xxx_xxx_xxx-xxx_xxx_xxx",
-    {
-      waitUntil: "domcontentloaded",
-    },
-  );
+  await page.goto("/logo/svg?depth=99&vox=xxx_xxx_xxx-xxx_xxx_xxx-xxx_xxx_xxx", {
+    waitUntil: "domcontentloaded",
+  });
 
   const staticLogo = page.getByTestId("logo-static-svg-image");
   await expect(staticLogo).toBeVisible();
@@ -723,9 +598,7 @@ test("logo pages cap URL-edited recursive depth before rendering", async ({
     .poll(async () => {
       const src = await staticLogo.getAttribute("src");
       const hash = src?.split("#")[1] ?? "";
-      return decodeURIComponent(hash).endsWith(
-        `:${EXPECTED_LOGO_DEPTH_HARD_MAX.svg}`,
-      );
+      return decodeURIComponent(hash).endsWith(`:${EXPECTED_LOGO_DEPTH_HARD_MAX.svg}`);
     })
     .toBe(true);
 
@@ -744,9 +617,7 @@ test("logo pages cap URL-edited recursive depth before rendering", async ({
   ).toHaveValue(`${EXPECTED_LOGO_DEPTH_HARD_MAX.raster}`);
 });
 
-test("logo distance scale controls Three and raster previews", async ({
-  page,
-}) => {
+test("logo distance scale controls Three and raster previews", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo?dist=1.25&rot=45", {
     waitUntil: "domcontentloaded",
@@ -765,34 +636,24 @@ test("logo distance scale controls Three and raster previews", async ({
 
   await distanceInput.fill("2.5");
   await expect(distanceInput).toHaveValue("2.5");
-  await expect
-    .poll(() => new URL(page.url()).searchParams.get("dist"))
-    .toBe("2.5");
+  await expect.poll(() => new URL(page.url()).searchParams.get("dist")).toBe("2.5");
   await distanceInput.press("Enter");
   await expect(distanceInput).toHaveValue("2.500");
 
   await distanceInput.fill("1");
   await distanceInput.press("Enter");
-  await expect
-    .poll(() => new URL(page.url()).searchParams.has("dist"))
-    .toBe(false);
+  await expect.poll(() => new URL(page.url()).searchParams.has("dist")).toBe(false);
 
   await page.goto("/logo/raster?dist=0.5&rot=45", {
     waitUntil: "domcontentloaded",
   });
+  await expect(page.locator('canvas[data-logo-renderer="raster"]').first()).toBeVisible();
   await expect(
-    page.locator('canvas[data-logo-renderer="raster"]').first(),
-  ).toBeVisible();
-  await expect(
-    page
-      .getByTestId("workspace-layout-v2-pane-left")
-      .getByLabel("Distance scale"),
+    page.getByTestId("workspace-layout-v2-pane-left").getByLabel("Distance scale"),
   ).toHaveValue("0.500");
 });
 
-test("logo raster distance scale keeps depth 3 on the geometric base path", async ({
-  page,
-}) => {
+test("logo raster distance scale keeps depth 3 on the geometric base path", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo/raster?depth=3&dist=1.5&top=red-500&elev=22&rot=45", {
     waitUntil: "domcontentloaded",
@@ -802,15 +663,12 @@ test("logo raster distance scale keeps depth 3 on the geometric base path", asyn
 
   await expect(canvas).toBeVisible();
   await waitForPaint(page);
-  await expect(canvas).toHaveScreenshot(
-    "logo-raster-distance-depth-3-scene.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.01,
-      scale: "css",
-    },
-  );
+  await expect(canvas).toHaveScreenshot("logo-raster-distance-depth-3-scene.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
+  });
 });
 
 test("logo iso controls mobile boot", async ({ page }) => {
@@ -828,9 +686,7 @@ test("logo iso controls mobile boot", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Preview" })).toHaveCount(0);
 });
 
-test("logo view mobile header button reopens the controls sidebar", async ({
-  page,
-}) => {
+test("logo view mobile header button reopens the controls sidebar", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/logo?elev=215.3", {
     waitUntil: "domcontentloaded",
@@ -893,9 +749,7 @@ test("logo view angle input stacks below the slider", async ({ page }) => {
   expect(inputBox.width).toBeLessThan(sliderBox.width);
 });
 
-test("logo view button groups wrap to one per row in the default rail", async ({
-  page,
-}) => {
+test("logo view button groups wrap to one per row in the default rail", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo?elev=144.7", {
     waitUntil: "domcontentloaded",
@@ -921,12 +775,7 @@ test("logo view button groups wrap to one per row in the default rail", async ({
   expect(cubeAxisBox).not.toBeNull();
   expect(verticalBox).not.toBeNull();
 
-  if (
-    addBox === null ||
-    removeBox === null ||
-    cubeAxisBox === null ||
-    verticalBox === null
-  ) {
+  if (addBox === null || removeBox === null || cubeAxisBox === null || verticalBox === null) {
     throw new Error("Expected the logo view buttons to be visible.");
   }
 
@@ -951,15 +800,12 @@ test("logo view exposes striped left-face controls", async ({ page }) => {
   });
   await expect(linkedWidthGapCheckbox).not.toBeChecked();
 
-  await expect(leftFaceSection).toHaveScreenshot(
-    "logo-left-face-stripe-controls.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.01,
-      scale: "css",
-    },
-  );
+  await expect(leftFaceSection).toHaveScreenshot("logo-left-face-stripe-controls.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
+  });
 
   const canvas = page.locator("canvas").first();
   await waitForPaint(page);
@@ -982,17 +828,13 @@ test("logo view exposes striped left-face controls", async ({ page }) => {
   await expect(linkedWidthGapCheckbox).toBeChecked();
   await expect(page).toHaveURL(/stripeLink/);
 
-  await leftFaceSection
-    .getByRole("spinbutton", { name: "Stripe gap" })
-    .fill("0");
+  await leftFaceSection.getByRole("spinbutton", { name: "Stripe gap" }).fill("0");
   await expect(page).toHaveURL(/stripeW=0/);
   await expect(page).toHaveURL(/stripeG=0/);
   await expect(page).toHaveURL(/stripeLink/);
 });
 
-test("logo view color selection applies Tailwind colors to the Three scene", async ({
-  page,
-}) => {
+test("logo view color selection applies Tailwind colors to the Three scene", async ({ page }) => {
   const unsupportedColorWarnings: string[] = [];
   page.on("console", (message) => {
     const text = message.text();
@@ -1020,19 +862,13 @@ test("logo view color selection applies Tailwind colors to the Three scene", asy
   await expect(page).toHaveURL(/primary=%23ff00cc/);
   await expect(primaryColorPicker).toContainText("#ff00cc");
 
-  await primaryColorPopover
-    .getByRole("button", { name: "Sky family", exact: true })
-    .click();
+  await primaryColorPopover.getByRole("button", { name: "Sky family", exact: true }).click();
   await expect(page).toHaveURL(/primary=sky-500/);
 
-  await primaryColorPopover
-    .getByRole("button", { name: "Red family", exact: true })
-    .click();
+  await primaryColorPopover.getByRole("button", { name: "Red family", exact: true }).click();
   await expect(page).toHaveURL(/primary=red-500/);
 
-  await primaryColorPopover
-    .getByRole("button", { name: "Red 600", exact: true })
-    .click();
+  await primaryColorPopover.getByRole("button", { name: "Red 600", exact: true }).click();
   await expect(page).toHaveURL(/primary=red-600/);
 
   await page.evaluate(async () => {
@@ -1043,15 +879,12 @@ test("logo view color selection applies Tailwind colors to the Three scene", asy
     });
   });
 
-  await expect(primaryColorPopover).toHaveScreenshot(
-    "logo-color-picker-popover.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.01,
-      scale: "css",
-    },
-  );
+  await expect(primaryColorPopover).toHaveScreenshot("logo-color-picker-popover.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
+  });
 
   await page.keyboard.press("Escape");
   await expect(primaryColorPopover).toBeHidden();
@@ -1065,9 +898,7 @@ test("logo view color selection applies Tailwind colors to the Three scene", asy
   expect(unsupportedColorWarnings).toEqual([]);
 });
 
-test("logo view desktop header toggle collapses and reopens the sidebar", async ({
-  page,
-}) => {
+test("logo view desktop header toggle collapses and reopens the sidebar", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo?elev=215.3", {
     waitUntil: "domcontentloaded",
@@ -1084,18 +915,14 @@ test("logo view desktop header toggle collapses and reopens the sidebar", async 
   await leftToggle.click();
   await expect
     .poll(async () =>
-      controlsSidebar.evaluate((element) =>
-        Math.round(element.getBoundingClientRect().width),
-      ),
+      controlsSidebar.evaluate((element) => Math.round(element.getBoundingClientRect().width)),
     )
     .toBe(0);
 
   await leftToggle.click();
   await expect
     .poll(async () =>
-      controlsSidebar.evaluate((element) =>
-        Math.round(element.getBoundingClientRect().width),
-      ),
+      controlsSidebar.evaluate((element) => Math.round(element.getBoundingClientRect().width)),
     )
     .toBeGreaterThan(200);
 });

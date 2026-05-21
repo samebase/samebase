@@ -26,9 +26,7 @@ type TreeRefreshUiState =
  * then an active treeRefreshCooldownUntil window, then a lastTreeRefreshFailedAt
  * that is newer than lastTreeRefreshAt. Anything else is idle.
  */
-export function getTreeRefreshUiState(
-  args: TreeRefreshUiStateArgs,
-): TreeRefreshUiState {
+export function getTreeRefreshUiState(args: TreeRefreshUiStateArgs): TreeRefreshUiState {
   const now = args.now ?? Date.now();
 
   if (
@@ -38,10 +36,7 @@ export function getTreeRefreshUiState(
     return { kind: "syncing" };
   }
 
-  if (
-    typeof args.treeRefreshCooldownUntil === "number" &&
-    args.treeRefreshCooldownUntil > now
-  ) {
+  if (typeof args.treeRefreshCooldownUntil === "number" && args.treeRefreshCooldownUntil > now) {
     if (args.treeRefreshFailureKind === "rate_limited") {
       return {
         kind: "rate_limited",

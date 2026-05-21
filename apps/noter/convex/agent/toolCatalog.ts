@@ -29,8 +29,7 @@ export const TOOL_CATALOG: ToolMeta[] = [
   },
   {
     name: "list_files",
-    description:
-      "List files in the repository, optionally filtered to a directory.",
+    description: "List files in the repository, optionally filtered to a directory.",
     uiDescription: "List files (optionally by directory)",
   },
   {
@@ -127,16 +126,14 @@ Common endpoints:
     name: "request_cloudflare_accounts_read",
     description:
       "Request approval to list Cloudflare accounts available to the connected token. This tool only creates an approval proposal and does not execute direct reads.",
-    uiDescription:
-      "Propose Cloudflare account inventory read (approval required)",
+    uiDescription: "Propose Cloudflare account inventory read (approval required)",
     inputDisplayKey: "limit",
   },
   {
     name: "request_cloudflare_workers_inventory_read",
     description:
       "Request approval to list Cloudflare Workers for an account. This tool only creates an approval proposal and does not execute direct reads.",
-    uiDescription:
-      "Propose Cloudflare Workers inventory read (approval required)",
+    uiDescription: "Propose Cloudflare Workers inventory read (approval required)",
     inputDisplayKey: "accountId",
   },
   {

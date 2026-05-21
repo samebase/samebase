@@ -135,10 +135,7 @@ function normalizeJsonRpcMessages(payload: unknown): JsonRpcMessage[] {
   return messages;
 }
 
-function findMessageById(
-  messages: JsonRpcMessage[],
-  id: JsonRpcId,
-): JsonRpcMessage | undefined {
+function findMessageById(messages: JsonRpcMessage[], id: JsonRpcId): JsonRpcMessage | undefined {
   return messages.find((msg) => msg.id === id);
 }
 
@@ -163,10 +160,7 @@ function extractToolText(result: unknown): {
   const textChunks: string[] = [];
   for (const item of content) {
     const itemRecord = asRecord(item);
-    if (
-      itemRecord["type"] === "text" &&
-      typeof itemRecord["text"] === "string"
-    ) {
+    if (itemRecord["type"] === "text" && typeof itemRecord["text"] === "string") {
       textChunks.push(itemRecord["text"]);
     }
   }
@@ -246,10 +240,7 @@ async function initializeSession(args: {
     timeoutMs: args.timeoutMs,
   });
 
-  const initializeResultMessage = findMessageById(
-    initResponse.messages,
-    initId,
-  );
+  const initializeResultMessage = findMessageById(initResponse.messages, initId);
   if (!initializeResultMessage) {
     throw new Error("Cloudflare MCP initialize response is missing result.");
   }
@@ -349,9 +340,7 @@ export async function callCloudflareMcpTool(args: {
     }
     return text;
   } catch (error) {
-    throw new Error(
-      `Cloudflare MCP tool call failed: ${toErrorMessage(error)}`,
-    );
+    throw new Error(`Cloudflare MCP tool call failed: ${toErrorMessage(error)}`);
   } finally {
     await closeSession({
       url: CLOUDFLARE_MCP_SERVER_URL,

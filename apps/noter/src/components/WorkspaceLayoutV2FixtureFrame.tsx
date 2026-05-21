@@ -10,9 +10,7 @@ import { WorkspaceLayoutV2MemorySidebarProvider } from "@/components/workspace-l
 
 const WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX = 320;
 
-type WorkspaceLayoutV2FixtureFrameProps = ComponentProps<
-  typeof WorkspaceLayoutV2FullPage
-> & {
+type WorkspaceLayoutV2FixtureFrameProps = ComponentProps<typeof WorkspaceLayoutV2FullPage> & {
   dataTestId: string;
   defaultOpen?: boolean;
   defaultRightOpen?: boolean;
@@ -49,8 +47,7 @@ export function WorkspaceLayoutV2FixtureFrame({
     mobileSurface: { kind: "unmerged" },
     rightDesktopOpen: defaultRightOpen,
     rightDesktopWidthPx: desktopSidebarWidthPx,
-    rightMobileWidthPx:
-      rightMobileWidthPx ?? WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX,
+    rightMobileWidthPx: rightMobileWidthPx ?? WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX,
   } satisfies WorkspaceSidebarState;
 
   return (

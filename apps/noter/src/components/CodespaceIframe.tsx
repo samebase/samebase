@@ -23,9 +23,7 @@ function buildCodespaceUrl(webUrl: string, filePath?: string): string {
   }
 
   const url = new URL(webUrl);
-  const normalizedPath = filePath.startsWith("/")
-    ? filePath
-    : `/workspaces/${filePath}`;
+  const normalizedPath = filePath.startsWith("/") ? filePath : `/workspaces/${filePath}`;
   url.searchParams.set("file", normalizedPath);
   return url.toString();
 }
@@ -97,9 +95,7 @@ export function CodespaceIframe({
       <div className={cn("flex items-center justify-center h-full", className)}>
         <div className="text-center space-y-4">
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            No Codespace available
-          </p>
+          <p className="text-sm text-muted-foreground">No Codespace available</p>
         </div>
       </div>
     );
@@ -112,26 +108,18 @@ export function CodespaceIframe({
           {codespace.state === "creating" ? (
             <>
               <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
-              <p className="text-sm text-muted-foreground">
-                Creating Codespace...
-              </p>
-              <p className="text-xs text-muted-foreground">
-                This may take 30-90 seconds
-              </p>
+              <p className="text-sm text-muted-foreground">Creating Codespace...</p>
+              <p className="text-xs text-muted-foreground">This may take 30-90 seconds</p>
             </>
           ) : codespace.state === "starting" ? (
             <>
               <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
-              <p className="text-sm text-muted-foreground">
-                Starting Codespace...
-              </p>
+              <p className="text-sm text-muted-foreground">Starting Codespace...</p>
             </>
           ) : (
             <>
               <AlertCircle className="h-8 w-8 mx-auto text-amber-600" />
-              <p className="text-sm text-muted-foreground">
-                Codespace is {codespace.state}
-              </p>
+              <p className="text-sm text-muted-foreground">Codespace is {codespace.state}</p>
             </>
           )}
         </div>
@@ -144,9 +132,7 @@ export function CodespaceIframe({
       <div className={cn("flex items-center justify-center h-full", className)}>
         <div className="text-center space-y-4">
           <AlertCircle className="h-8 w-8 mx-auto text-amber-600" />
-          <p className="text-sm text-muted-foreground">
-            Codespace URL not available
-          </p>
+          <p className="text-sm text-muted-foreground">Codespace URL not available</p>
         </div>
       </div>
     );
@@ -158,9 +144,7 @@ export function CodespaceIframe({
 
   if (iframeFailureReason) {
     return (
-      <div
-        className={cn("flex items-center justify-center h-full p-4", className)}
-      >
+      <div className={cn("flex items-center justify-center h-full p-4", className)}>
         <div className="text-center space-y-4 max-w-md">
           <AlertCircle className="h-8 w-8 mx-auto text-red-600" />
           <p className="text-sm text-muted-foreground">
@@ -180,10 +164,7 @@ export function CodespaceIframe({
             >
               Retry Embed
             </Button>
-            <Button
-              onClick={() => window.open(iframeUrl, "_blank")}
-              variant="outline"
-            >
+            <Button onClick={() => window.open(iframeUrl, "_blank")} variant="outline">
               <ExternalLink className="h-4 w-4 mr-2" />
               Open in New Tab
             </Button>

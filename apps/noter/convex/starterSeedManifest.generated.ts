@@ -17,8 +17,7 @@ export const starterTemplateManifest: StarterTemplateManifest = {
   sourceRepo: "https://github.com/notermd/app.git",
   sourceBranch: "v5-tanstack-start-workers",
   sourceCommit: "83ec6e413997c326f201b60049adee03c9faa713",
-  contentHash:
-    "887f772c2d87cde320083226578fd405223a213dca4e93f3695a43eda5dfdbfa",
+  contentHash: "887f772c2d87cde320083226578fd405223a213dca4e93f3695a43eda5dfdbfa",
   commitMessage: "chore: seed starter template",
   files: {
     ".agents/skills/convex-create-component/SKILL.md":
@@ -85,8 +84,7 @@ export const starterTemplateManifest: StarterTemplateManifest = {
       "# Logs\nlogs\n*.log\nnpm-debug.log*\nyarn-debug.log*\nyarn-error.log*\npnpm-debug.log*\nlerna-debug.log*\n\nnode_modules\ndist\ndist-ssr\n.wrangler\n*.local\n\n# Editor directories and files\n.vscode/*\n!.vscode/extensions.json\n.idea\n.DS_Store\n*.suo\n*.ntvs*\n*.njsproj\n*.sln\n*.sw?\n",
     ".node-version": "24\n",
     ".vite-hooks/pre-commit": "vp staged\n",
-    ".vscode/extensions.json":
-      '{\n  "recommendations": ["VoidZero.vite-plus-extension-pack"]\n}\n',
+    ".vscode/extensions.json": '{\n  "recommendations": ["VoidZero.vite-plus-extension-pack"]\n}\n',
     ".vscode/settings.json":
       '{\n  "[javascript][javascriptreact][typescript][typescriptreact][json][jsonc][yaml][toml][html][css][scss][less][markdown][mdx][graphql]": {\n    "editor.defaultFormatter": "oxc.oxc-vscode"\n  },\n  "editor.defaultFormatter": "oxc.oxc-vscode",\n  "oxc.fmt.configPath": "./vite.config.ts",\n  "editor.formatOnSave": true,\n  "editor.formatOnSaveMode": "file",\n  "editor.codeActionsOnSave": {\n    "source.fixAll.oxc": "explicit"\n  }\n}\n',
     "AGENTS.md":

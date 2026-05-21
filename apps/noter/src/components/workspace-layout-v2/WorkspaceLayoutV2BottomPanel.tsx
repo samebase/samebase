@@ -20,18 +20,13 @@ import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
  * deprecated, so new/default route chrome should omit chat panels unless a
  * route explicitly opts into reviving that surface.
  */
-export type WorkspaceLayoutV2BottomPanelProps =
-  WorkspaceLayoutV2PaneFrameProps & {
-    closeDisabled?: boolean;
-    onOpenChange?: (isOpen: boolean) => void;
-    open?: boolean;
-  };
+export type WorkspaceLayoutV2BottomPanelProps = WorkspaceLayoutV2PaneFrameProps & {
+  closeDisabled?: boolean;
+  onOpenChange?: (isOpen: boolean) => void;
+  open?: boolean;
+};
 
-function WorkspaceLayoutV2PanelToggleButton({
-  onClick,
-}: {
-  onClick: () => void;
-}) {
+function WorkspaceLayoutV2PanelToggleButton({ onClick }: { onClick: () => void }) {
   return (
     <Button
       type="button"
@@ -70,9 +65,7 @@ export function WorkspaceLayoutV2MainViewportWithPanel({
   const hasPanel = panel !== undefined;
   const isPanelOpenControlled = panel?.open !== undefined;
   const [uncontrolledPanelOpen, setUncontrolledPanelOpen] = useState(hasPanel);
-  const [panelHeightPx, setPanelHeightPx] = useState(
-    WORKSPACE_LAYOUT_V2_PANEL_DEFAULT_HEIGHT_PX,
-  );
+  const [panelHeightPx, setPanelHeightPx] = useState(WORKSPACE_LAYOUT_V2_PANEL_DEFAULT_HEIGHT_PX);
   const panelHeightCustomizedRef = useRef(false);
   const panelOpen = panel?.open ?? uncontrolledPanelOpen;
   const closeDisabled = panel?.closeDisabled ?? false;

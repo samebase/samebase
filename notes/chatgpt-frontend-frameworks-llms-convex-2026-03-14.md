@@ -55,19 +55,18 @@ We also discussed reasons to use something else:
 
 ### Svelte vs React mental model
 
-We discussed the difference in thinking between React + TypeScript, Svelte, and
-Elm-style architecture.
+We discussed the difference in thinking between React + TypeScript, Svelte, and Elm-style
+architecture.
 
 Main points:
 
-- React + TypeScript is JavaScript-first, with framework APIs and types layered
-  on top
+- React + TypeScript is JavaScript-first, with framework APIs and types layered on top
 - Elm pushes stronger modeling and compiler-guided design
-- Svelte tries to reduce framework ceremony and make UI feel like a more direct
-  consequence of state changes
+- Svelte tries to reduce framework ceremony and make UI feel like a more direct consequence of state
+  changes
 
-We also noted that Svelte is not really “Elm but practical”; it stays in JS/TS
-but without Elm’s hard guarantees.
+We also noted that Svelte is not really “Elm but practical”; it stays in JS/TS but without Elm’s
+hard guarantees.
 
 ### shadcn support
 
@@ -79,8 +78,7 @@ We covered that:
 Practical conclusion:
 
 - React has the cleanest shadcn/ui path
-- Svelte can get a similar style, but not with the exact same official component
-  system
+- Svelte can get a similar style, but not with the exact same official component system
 
 ### LLM support for React vs Svelte
 
@@ -88,8 +86,7 @@ You asked for actual studies or benchmarks.
 
 We reviewed:
 
-- Web-Bench as the most directly relevant benchmark including both React and
-  Svelte
+- Web-Bench as the most directly relevant benchmark including both React and Svelte
 - DesignBench as a broader frontend benchmark with React but not Svelte
 - SvelteBench as a Svelte-focused benchmark
 
@@ -97,8 +94,8 @@ Main conclusion:
 
 - React is still the safer default for LLM-assisted frontend work overall
 - Svelte is no longer a bad LLM target, especially with strong current models
-- There was not strong enough evidence to claim that Svelte is categorically
-  better for correctness-per-token
+- There was not strong enough evidence to claim that Svelte is categorically better for
+  correctness-per-token
 
 ### Convex with Svelte
 
@@ -108,13 +105,13 @@ Main conclusion:
 
 - Svelte works with Convex and has official support
 - Convex + Svelte is viable and documented
-- Convex + React still looks more mature and polished overall, especially around
-  SSR and integration depth
+- Convex + React still looks more mature and polished overall, especially around SSR and integration
+  depth
 
 ### Svelte template syntax objection
 
-You pointed out that Svelte’s custom `{#if}` and related syntax feels like
-learning another mini-language.
+You pointed out that Svelte’s custom `{#if}` and related syntax feels like learning another
+mini-language.
 
 We concluded:
 
@@ -146,8 +143,7 @@ You asked whether there are React-like options that are simpler.
 
 We discussed:
 
-- modern React itself being simpler if you avoid unnecessary effects and
-  memoization
+- modern React itself being simpler if you avoid unnecessary effects and memoization
 - Preact as the closest “React but simpler” option
 - signals as a way to reduce `useEffect` / `useMemo` friction
 - Solid as JSX with a simpler reactive mental model, though not actually React
@@ -163,8 +159,7 @@ Practical conclusion:
 We covered:
 
 - signals as reactive values with automatic dependency tracking
-- Solid as a framework built around fine-grained reactivity and signals-like
-  primitives
+- Solid as a framework built around fine-grained reactivity and signals-like primitives
 
 Main idea:
 

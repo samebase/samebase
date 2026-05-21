@@ -1,8 +1,5 @@
 // Simple fuzzy search implementation
-export function fuzzyMatch(
-  needle: string,
-  haystack: string,
-): { score: number; matches: number[] } {
+export function fuzzyMatch(needle: string, haystack: string): { score: number; matches: number[] } {
   if (!needle) return { score: 0, matches: [] };
 
   const needleLower = needle.toLowerCase();
@@ -12,19 +9,12 @@ export function fuzzyMatch(
   let needleIndex = 0;
   let score = 0;
 
-  for (
-    let i = 0;
-    i < haystackLower.length && needleIndex < needleLower.length;
-    i++
-  ) {
+  for (let i = 0; i < haystackLower.length && needleIndex < needleLower.length; i++) {
     if (haystackLower[i] === needleLower[needleIndex]) {
       matches.push(i);
       needleIndex++;
       // Boost score for consecutive matches
-      if (
-        matches.length > 1 &&
-        matches[matches.length - 1] === matches[matches.length - 2] + 1
-      ) {
+      if (matches.length > 1 && matches[matches.length - 1] === matches[matches.length - 2] + 1) {
         score += 2;
       } else {
         score += 1;
@@ -45,10 +35,7 @@ export function fuzzyMatch(
   return { score: -1, matches: [] };
 }
 
-export function highlightMatches(
-  text: string,
-  matches: number[],
-): React.ReactNode {
+export function highlightMatches(text: string, matches: number[]): React.ReactNode {
   if (matches.length === 0) return text;
 
   const parts: React.ReactNode[] = [];

@@ -80,9 +80,7 @@ function peerExtension({
   branch: string;
   filePath: string;
   setVersion: (version: number) => void;
-  setPull: (
-    pull: (updates: readonly Update[], version: number) => void,
-  ) => void;
+  setPull: (pull: (updates: readonly Update[], version: number) => void) => void;
   setSyncError: (error: string | null) => void;
 }) {
   let plugin = ViewPlugin.fromClass(
@@ -227,10 +225,7 @@ function isProseFile(filePath: string): boolean {
   return !ext || PROSE_EXTENSIONS.has(ext);
 }
 
-function shouldUseCodeMirrorEditor(args: {
-  filePath: string;
-  editorOverride: CodeEditorOverride;
-}) {
+function shouldUseCodeMirrorEditor(args: { filePath: string; editorOverride: CodeEditorOverride }) {
   return args.editorOverride === "codemirror" || isProseFile(args.filePath);
 }
 
@@ -248,9 +243,7 @@ export function CodeEditorWrapper({
   repositoryFullName: string;
   branch: string;
   filePath: string;
-  stagedFile: NonNullable<
-    GetFunctionReferenceReturnType<typeof api.fileStaging.getByNewPath>
-  >;
+  stagedFile: NonNullable<GetFunctionReferenceReturnType<typeof api.fileStaging.getByNewPath>>;
   vaultId: Id<"vaults">;
   tree: GithubTree[];
   treeSHA: string;
@@ -295,9 +288,7 @@ export function CodeEditor({
   branch: string;
   filePath: string;
 }) {
-  const pullRef = useRef<
-    ((updates: readonly Update[], version: number) => void) | null
-  >(null);
+  const pullRef = useRef<((updates: readonly Update[], version: number) => void) | null>(null);
   // CodeEditor is keyed by repo/branch/file path, so this captures the mount
   // version for the currently opened file without forcing the editor surface to
   // remount on every successful collaborative sync.

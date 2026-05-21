@@ -1,11 +1,4 @@
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -158,9 +151,7 @@ async function createNotConnectedVault() {
   return { asUser, ids, t };
 }
 
-async function readSingleRefreshRequest(
-  t: ConvexTest,
-): Promise<Doc<"repositoryRefreshRequests">> {
+async function readSingleRefreshRequest(t: ConvexTest): Promise<Doc<"repositoryRefreshRequests">> {
   const requests = await listRefreshRequests(t);
   expect(requests).toHaveLength(1);
   return requests[0];
@@ -310,10 +301,7 @@ describe("repository refresh demand ingest", () => {
       return await ctx.db
         .query("vaults")
         .withIndex("by_userId_and_state_and_deletion_state", (q) =>
-          q
-            .eq("userId", ids.userId)
-            .eq("state", "connected")
-            .eq("deletion.state", "not_deleting"),
+          q.eq("userId", ids.userId).eq("state", "connected").eq("deletion.state", "not_deleting"),
         )
         .paginate({
           cursor: null,
@@ -328,17 +316,12 @@ describe("repository refresh demand ingest", () => {
       asUser.mutation(api.repositoryRefresh.enqueueDashboardRepositoryRefresh),
     ).resolves.toBeNull();
 
-    await expect(listRefreshRequests(t)).resolves.toHaveLength(
-      MAX_DASHBOARD_REFRESH_DEMAND_VAULTS,
-    );
+    await expect(listRefreshRequests(t)).resolves.toHaveLength(MAX_DASHBOARD_REFRESH_DEMAND_VAULTS);
 
-    await t.mutation(
-      internal.repositoryRefresh.enqueueDashboardRepositoryRefreshPage,
-      {
-        userId: ids.userId,
-        cursor: firstPage.continueCursor,
-      },
-    );
+    await t.mutation(internal.repositoryRefresh.enqueueDashboardRepositoryRefreshPage, {
+      userId: ids.userId,
+      cursor: firstPage.continueCursor,
+    });
 
     await expect(listRefreshRequests(t)).resolves.toHaveLength(
       MAX_DASHBOARD_REFRESH_DEMAND_VAULTS + 1,
@@ -366,12 +349,9 @@ describe("repository refresh demand ingest", () => {
       throw new Error("Expected queued request.");
     }
 
-    const manual = await asUser.mutation(
-      api.repositoryRefresh.enqueueManualRepositoryRefresh,
-      {
-        vaultId: ids.vaultId,
-      },
-    );
+    const manual = await asUser.mutation(api.repositoryRefresh.enqueueManualRepositoryRefresh, {
+      vaultId: ids.vaultId,
+    });
     expect(manual).toEqual({
       kind: "updated",
       requestId,
@@ -392,20 +372,15 @@ describe("repository refresh demand ingest", () => {
 
   it("upgrades scheduled dashboard demand before the worker starts", async () => {
     const { asUser, ids, t } = await createConnectedVault();
-    await asUser.mutation(
-      api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-    );
+    await asUser.mutation(api.repositoryRefresh.enqueueDashboardRepositoryRefresh);
     const before = await readSingleRefreshRequest(t);
     if (before.lifecycle.state !== "scheduled") {
       throw new Error("Expected scheduled request.");
     }
 
-    const manual = await asUser.mutation(
-      api.repositoryRefresh.enqueueManualRepositoryRefresh,
-      {
-        vaultId: ids.vaultId,
-      },
-    );
+    const manual = await asUser.mutation(api.repositoryRefresh.enqueueManualRepositoryRefresh, {
+      vaultId: ids.vaultId,
+    });
 
     expect(manual).toEqual({
       kind: "updated",
@@ -439,9 +414,7 @@ describe("repository refresh demand ingest", () => {
 
   it("reuses running demand unchanged", async () => {
     const { asUser, ids, t } = await createConnectedVault();
-    await asUser.mutation(
-      api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-    );
+    await asUser.mutation(api.repositoryRefresh.enqueueDashboardRepositoryRefresh);
     const created = await readSingleRefreshRequest(t);
     await t.run(async (ctx) => {
       await ctx.db.patch(created._id, {
@@ -456,12 +429,9 @@ describe("repository refresh demand ingest", () => {
     });
     const before = await getRefreshRequest(t, created._id);
 
-    const duplicate = await asUser.mutation(
-      api.repositoryRefresh.enqueueManualRepositoryRefresh,
-      {
-        vaultId: ids.vaultId,
-      },
-    );
+    const duplicate = await asUser.mutation(api.repositoryRefresh.enqueueManualRepositoryRefresh, {
+      vaultId: ids.vaultId,
+    });
 
     expect(duplicate).toEqual({
       kind: "already_running",
@@ -531,12 +501,8 @@ describe("repository refresh demand ingest", () => {
     if (running.lifecycle.state !== "running") {
       throw new Error("Expected running request.");
     }
-    expect(running.lifecycle.startedAt).toBeGreaterThanOrEqual(
-      request.lifecycle.scheduledAt,
-    );
-    expect(running.lifecycle.leaseExpiresAt).toBeGreaterThan(
-      running.lifecycle.startedAt,
-    );
+    expect(running.lifecycle.startedAt).toBeGreaterThanOrEqual(request.lifecycle.scheduledAt);
+    expect(running.lifecycle.leaseExpiresAt).toBeGreaterThan(running.lifecycle.startedAt);
   });
 
   it("ignores failed completion from a stale Workpool job", async () => {
@@ -550,18 +516,15 @@ describe("repository refresh demand ingest", () => {
       throw new Error("Expected scheduled request.");
     }
 
-    await t.mutation(
-      internal.repositoryRefresh.finishRepositoryRefreshRequestFailed,
-      {
-        requestId: request._id,
-        workpoolJobId: "stale-job",
-        failure: {
-          kind: "provider_error",
-          cooldownUntil: 200,
-          message: "Stale job failed late.",
-        },
+    await t.mutation(internal.repositoryRefresh.finishRepositoryRefreshRequestFailed, {
+      requestId: request._id,
+      workpoolJobId: "stale-job",
+      failure: {
+        kind: "provider_error",
+        cooldownUntil: 200,
+        message: "Stale job failed late.",
       },
-    );
+    });
 
     await expect(getRefreshRequest(t, request._id)).resolves.toEqual(request);
   });
@@ -577,14 +540,11 @@ describe("repository refresh demand ingest", () => {
       throw new Error("Expected scheduled request.");
     }
 
-    await t.mutation(
-      internal.repositoryRefresh.finishRepositoryRefreshRequestCanceled,
-      {
-        requestId: request._id,
-        workpoolJobId: request.lifecycle.workpoolJobId,
-        reason: "worker_canceled",
-      },
-    );
+    await t.mutation(internal.repositoryRefresh.finishRepositoryRefreshRequestCanceled, {
+      requestId: request._id,
+      workpoolJobId: request.lifecycle.workpoolJobId,
+      reason: "worker_canceled",
+    });
 
     await expect(getRefreshRequest(t, request._id)).resolves.toMatchObject({
       lifecycle: {
@@ -596,9 +556,7 @@ describe("repository refresh demand ingest", () => {
 
   it("creates a new row when the matching row is terminal history", async () => {
     const { asUser, t } = await createConnectedVault();
-    await asUser.mutation(
-      api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-    );
+    await asUser.mutation(api.repositoryRefresh.enqueueDashboardRepositoryRefresh);
     const created = await readSingleRefreshRequest(t);
     await t.run(async (ctx) => {
       await ctx.db.patch(created._id, {
@@ -614,9 +572,7 @@ describe("repository refresh demand ingest", () => {
       });
     });
 
-    await asUser.mutation(
-      api.repositoryRefresh.enqueueDashboardRepositoryRefresh,
-    );
+    await asUser.mutation(api.repositoryRefresh.enqueueDashboardRepositoryRefresh);
 
     const requests = await listRefreshRequests(t);
     expect(requests).toHaveLength(2);
@@ -659,20 +615,18 @@ describe("repository refresh demand ingest", () => {
     if (result.kind !== "created") {
       throw new Error("Expected created result.");
     }
-    await expect(getRefreshRequest(t, result.requestId)).resolves.toMatchObject(
-      {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        demand: {
-          scope: "repository",
-          source: "source_setup",
-          runId: ids.runId,
-        },
-        lifecycle: {
-          state: "scheduled",
-        },
+    await expect(getRefreshRequest(t, result.requestId)).resolves.toMatchObject({
+      userId: ids.userId,
+      vaultId: ids.vaultId,
+      demand: {
+        scope: "repository",
+        source: "source_setup",
+        runId: ids.runId,
       },
-    );
+      lifecycle: {
+        state: "scheduled",
+      },
+    });
   });
 
   it("completes existing repository setup and enqueues refresh atomically", async () => {
@@ -686,8 +640,7 @@ describe("repository refresh demand ingest", () => {
     });
 
     const result = await t.mutation(
-      internal.repositoryRefresh
-        .completeExistingRepositoryConnectionAndEnqueueRefresh,
+      internal.repositoryRefresh.completeExistingRepositoryConnectionAndEnqueueRefresh,
       {
         userId: ids.userId,
         vaultId: ids.vaultId,
@@ -730,18 +683,12 @@ describe("repository refresh demand ingest", () => {
     });
 
     await expect(
-      t.mutation(
-        internal.repositoryRefresh
-          .completeExistingRepositoryConnectionAndEnqueueRefresh,
-        {
-          userId: ids.userId,
-          vaultId: ids.vaultId,
-          runId: ids.runId,
-        },
-      ),
-    ).rejects.toThrow(
-      "Existing repository workflow has not reached the finish boundary.",
-    );
+      t.mutation(internal.repositoryRefresh.completeExistingRepositoryConnectionAndEnqueueRefresh, {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+      }),
+    ).rejects.toThrow("Existing repository workflow has not reached the finish boundary.");
     await expect(listRefreshRequests(t)).resolves.toHaveLength(0);
     const run = await t.run(async (ctx) => {
       return await ctx.db.get(ids.runId);
@@ -768,15 +715,11 @@ describe("repository refresh demand ingest", () => {
     });
 
     await expect(
-      t.mutation(
-        internal.repositoryRefresh
-          .completeExistingRepositoryConnectionAndEnqueueRefresh,
-        {
-          userId: ids.userId,
-          vaultId: ids.vaultId,
-          runId,
-        },
-      ),
+      t.mutation(internal.repositoryRefresh.completeExistingRepositoryConnectionAndEnqueueRefresh, {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        runId,
+      }),
     ).rejects.toThrow("Existing repository vault is not connected.");
     await expect(listRefreshRequests(t)).resolves.toHaveLength(0);
     const run = await t.run(async (ctx) => {
@@ -817,15 +760,13 @@ describe("repository refresh demand ingest", () => {
     if (result.kind !== "created") {
       throw new Error("Expected created result.");
     }
-    await expect(getRefreshRequest(t, result.requestId)).resolves.toMatchObject(
-      {
-        demand: {
-          scope: "repository",
-          source: "source_setup",
-          runId: createRunId,
-        },
+    await expect(getRefreshRequest(t, result.requestId)).resolves.toMatchObject({
+      demand: {
+        scope: "repository",
+        source: "source_setup",
+        runId: createRunId,
       },
-    );
+    });
   });
 
   it("rejects source setup demand for mismatched runs", async () => {
@@ -850,14 +791,11 @@ describe("repository refresh demand ingest", () => {
     });
 
     await expect(
-      t.mutation(
-        internal.repositoryRefresh.enqueueSourceSetupRepositoryRefresh,
-        {
-          userId: ids.userId,
-          vaultId: ids.vaultId,
-          runId: otherRunId,
-        },
-      ),
+      t.mutation(internal.repositoryRefresh.enqueueSourceSetupRepositoryRefresh, {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        runId: otherRunId,
+      }),
     ).rejects.toThrow("Source setup run does not match refresh demand.");
   });
 
@@ -872,14 +810,11 @@ describe("repository refresh demand ingest", () => {
     });
 
     await expect(
-      t.mutation(
-        internal.repositoryRefresh.enqueueSourceSetupRepositoryRefresh,
-        {
-          userId: ids.userId,
-          vaultId: ids.vaultId,
-          runId: ids.runId,
-        },
-      ),
+      t.mutation(internal.repositoryRefresh.enqueueSourceSetupRepositoryRefresh, {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+      }),
     ).rejects.toThrow("Source setup run has not succeeded.");
   });
 
@@ -900,14 +835,11 @@ describe("repository refresh demand ingest", () => {
     });
 
     await expect(
-      t.mutation(
-        internal.repositoryRefresh.enqueueSourceSetupRepositoryRefresh,
-        {
-          userId: ids.userId,
-          vaultId: ids.vaultId,
-          runId: retryRunId,
-        },
-      ),
+      t.mutation(internal.repositoryRefresh.enqueueSourceSetupRepositoryRefresh, {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        runId: retryRunId,
+      }),
     ).rejects.toThrow("Retry run is not source setup refresh demand.");
   });
 });

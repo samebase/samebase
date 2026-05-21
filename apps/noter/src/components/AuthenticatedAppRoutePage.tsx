@@ -9,11 +9,7 @@ import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
 import { Authenticated, Unauthenticated, useConvexAuth } from "convex/react";
 import { Suspense, useMemo, type ReactNode } from "react";
 
-export function AuthenticatedAppRoutePage({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export function AuthenticatedAppRoutePage({ children }: { children: ReactNode }) {
   const pathname = useLocation({
     select: (location) => location.pathname,
   });

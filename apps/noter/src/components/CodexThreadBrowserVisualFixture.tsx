@@ -181,11 +181,7 @@ const SIDEBAR_VIEW_MODEL = buildCodexThreadSidebarViewModel({
   threads: ACTIVE_THREADS,
 });
 
-export function CodexThreadBrowserVisualFixture({
-  mode,
-}: {
-  mode: CodexThreadBrowserVisualMode;
-}) {
+export function CodexThreadBrowserVisualFixture({ mode }: { mode: CodexThreadBrowserVisualMode }) {
   mode satisfies CodexThreadBrowserVisualMode;
 
   return (

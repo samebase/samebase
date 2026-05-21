@@ -1,9 +1,4 @@
-import {
-  useEffect,
-  useState,
-  type ComponentPropsWithoutRef,
-  type ReactNode,
-} from "react";
+import { useEffect, useState, type ComponentPropsWithoutRef, type ReactNode } from "react";
 import ReactMarkdown, {
   defaultUrlTransform,
   type Components,
@@ -35,13 +30,7 @@ const SANITIZED_VIDEO_ATTRIBUTES: string[] = [
 ];
 
 const SANITIZED_DETAILS_ATTRIBUTES: string[] = ["open"];
-const SANITIZED_IMAGE_ATTRIBUTES: string[] = [
-  "alt",
-  "height",
-  "src",
-  "title",
-  "width",
-];
+const SANITIZED_IMAGE_ATTRIBUTES: string[] = ["alt", "height", "src", "title", "width"];
 const SANITIZED_SOURCE_ATTRIBUTES: string[] = ["src", "type"];
 
 const markdownSanitizeSchema = {
@@ -58,22 +47,14 @@ const markdownSanitizeSchema = {
     poster: ["http", "https"],
     src: ["http", "https"],
   },
-  tagNames: [
-    ...(defaultSchema.tagNames ?? []),
-    "br",
-    "details",
-    "source",
-    "summary",
-    "video",
-  ],
+  tagNames: [...(defaultSchema.tagNames ?? []), "br", "details", "source", "summary", "video"],
 } satisfies RehypeSanitizeOptions;
 
 const markdownRehypePlugins: ReactMarkdownOptions["rehypePlugins"] = [
   rehypeRaw,
   [rehypeSanitize, markdownSanitizeSchema],
 ];
-const MARKDOWN_LINK_CLASS_NAME =
-  "font-medium text-foreground underline underline-offset-4";
+const MARKDOWN_LINK_CLASS_NAME = "font-medium text-foreground underline underline-offset-4";
 
 type MarkdownInternalLinkTarget = {
   hash: string | undefined;
@@ -99,9 +80,7 @@ function isInternalRouteHref(value: string | undefined): value is string {
     return false;
   }
 
-  return (
-    value.startsWith("?") || (value.startsWith("/") && !value.startsWith("//"))
-  );
+  return value.startsWith("?") || (value.startsWith("/") && !value.startsWith("//"));
 }
 
 function buildInternalLinkTarget({
@@ -115,10 +94,7 @@ function buildInternalLinkTarget({
   pathname: string;
   searchStr: string;
 }): MarkdownInternalLinkTarget {
-  const baseUrl = new URL(
-    `${pathname}${searchStr}${locationHash}`,
-    "https://noter.local",
-  );
+  const baseUrl = new URL(`${pathname}${searchStr}${locationHash}`, "https://noter.local");
   const targetUrl = new URL(href, baseUrl);
   const search: Record<string, string> = {};
 
@@ -173,15 +149,7 @@ function MarkdownVideo({
   width,
 }: Pick<
   ComponentPropsWithoutRef<"video">,
-  | "children"
-  | "height"
-  | "loop"
-  | "muted"
-  | "poster"
-  | "preload"
-  | "src"
-  | "title"
-  | "width"
+  "children" | "height" | "loop" | "muted" | "poster" | "preload" | "src" | "title" | "width"
 >) {
   if (!src && children === undefined) {
     return null;
@@ -212,10 +180,7 @@ function MarkdownImage({
   src,
   title,
   width,
-}: Pick<
-  ComponentPropsWithoutRef<"img">,
-  "alt" | "height" | "src" | "title" | "width"
->) {
+}: Pick<ComponentPropsWithoutRef<"img">, "alt" | "height" | "src" | "title" | "width">) {
   if (!src) {
     return null;
   }
@@ -240,9 +205,7 @@ function MarkdownImage({
   );
 }
 
-function MarkdownTaskCheckbox({
-  checked,
-}: Pick<ComponentPropsWithoutRef<"input">, "checked">) {
+function MarkdownTaskCheckbox({ checked }: Pick<ComponentPropsWithoutRef<"input">, "checked">) {
   const [isChecked, setIsChecked] = useState(Boolean(checked));
 
   useEffect(() => {
@@ -311,11 +274,7 @@ type MarkdownHeadingNode = {
   };
 };
 
-function renderHeading(
-  level: 1 | 2 | 3 | 4,
-  children: ReactNode,
-  headingId: string | undefined,
-) {
+function renderHeading(level: 1 | 2 | 3 | 4, children: ReactNode, headingId: string | undefined) {
   switch (level) {
     case 1:
       return (
@@ -401,11 +360,7 @@ function getMarkdownComponents(headingIdsByLine: ReadonlyMap<number, string>) {
       );
     },
     blockquote({ children }) {
-      return (
-        <blockquote className="border-l pl-4 text-muted-foreground">
-          {children}
-        </blockquote>
-      );
+      return <blockquote className="border-l pl-4 text-muted-foreground">{children}</blockquote>;
     },
     br() {
       return <br />;
@@ -464,15 +419,7 @@ function getMarkdownComponents(headingIdsByLine: ReadonlyMap<number, string>) {
       return <hr className="border-border" />;
     },
     img({ alt, height, src, title, width }) {
-      return (
-        <MarkdownImage
-          alt={alt}
-          height={height}
-          src={src}
-          title={title}
-          width={width}
-        />
-      );
+      return <MarkdownImage alt={alt} height={height} src={src} title={title} width={width} />;
     },
     input({ checked, disabled, type }) {
       if (type !== "checkbox") {
@@ -492,9 +439,7 @@ function getMarkdownComponents(headingIdsByLine: ReadonlyMap<number, string>) {
     },
     pre({ children }) {
       return (
-        <pre className="overflow-x-auto border bg-accent p-4 text-sm leading-6">
-          {children}
-        </pre>
+        <pre className="overflow-x-auto border bg-accent p-4 text-sm leading-6">{children}</pre>
       );
     },
     source({ src, type }) {
@@ -522,11 +467,7 @@ function getMarkdownComponents(headingIdsByLine: ReadonlyMap<number, string>) {
       return <tbody className="divide-y">{children}</tbody>;
     },
     td({ children }) {
-      return (
-        <td className="border-r px-3 py-2 align-top last:border-r-0">
-          {children}
-        </td>
-      );
+      return <td className="border-r px-3 py-2 align-top last:border-r-0">{children}</td>;
     },
     th({ children }) {
       return (
@@ -544,17 +485,7 @@ function getMarkdownComponents(headingIdsByLine: ReadonlyMap<number, string>) {
     ul({ children }) {
       return <ul className="list-disc space-y-1 pl-6">{children}</ul>;
     },
-    video({
-      children,
-      height,
-      loop,
-      muted,
-      poster,
-      preload,
-      src,
-      title,
-      width,
-    }) {
+    video({ children, height, loop, muted, poster, preload, src, title, width }) {
       return (
         <MarkdownVideo
           height={height}
@@ -583,10 +514,7 @@ export function MarkdownLandingDocument({
   markdown: string;
 }) {
   const headingIdsByLine = new Map(
-    getLandingMarkdownHeadings(markdown).map((heading) => [
-      heading.line,
-      heading.id,
-    ]),
+    getLandingMarkdownHeadings(markdown).map((heading) => [heading.line, heading.id]),
   );
   const markdownComponents = getMarkdownComponents(headingIdsByLine);
 

@@ -25,11 +25,7 @@ describe("logoVoxelState", () => {
 
     for (const key of voxelGrid.filledVoxels) {
       const [xText, yText, zText] = key.split(",");
-      if (
-        typeof xText !== "string" ||
-        typeof yText !== "string" ||
-        typeof zText !== "string"
-      ) {
+      if (typeof xText !== "string" || typeof yText !== "string" || typeof zText !== "string") {
         throw new Error(`Unexpected voxel key: ${key}`);
       }
       projectedCells.add(`${yText},${zText}`);
@@ -51,12 +47,7 @@ describe("logoVoxelState", () => {
 
     expect(voxelGrid.gridSize).toBe(9);
     expect(voxelGrid.filledVoxels).toEqual(
-      new Set([
-        voxelKey(0, 0, 0),
-        voxelKey(6, 6, 6),
-        voxelKey(2, 2, 2),
-        voxelKey(8, 8, 8),
-      ]),
+      new Set([voxelKey(0, 0, 0), voxelKey(6, 6, 6), voxelKey(2, 2, 2), voxelKey(8, 8, 8)]),
     );
   });
 

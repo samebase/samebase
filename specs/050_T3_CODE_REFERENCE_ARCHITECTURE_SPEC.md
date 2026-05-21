@@ -7,8 +7,8 @@
 
 ## Purpose
 
-Capture how T3 Code actually works so Noter can borrow the right ideas without
-mixing them into retired hosted-sandbox auth work.
+Capture how T3 Code actually works so Noter can borrow the right ideas without mixing them into
+retired hosted-sandbox auth work.
 
 This is a reference study, not an implementation commitment.
 
@@ -16,9 +16,9 @@ This is a reference study, not an implementation commitment.
 
 T3 Code is not just a terminal wrapper around Codex CLI.
 
-Its main chat UI talks to a backend service that starts `codex app-server` per
-session and translates provider events into a normalized runtime model. The
-terminal is a separate side drawer built with `xterm`, not the main Codex UI.
+Its main chat UI talks to a backend service that starts `codex app-server` per session and
+translates provider events into a normalized runtime model. The terminal is a separate side drawer
+built with `xterm`, not the main Codex UI.
 
 The strongest reusable idea for Noter is:
 
@@ -26,8 +26,8 @@ The strongest reusable idea for Noter is:
 2. keep terminal as an escape hatch, not the primary UX
 3. separate prompt/chat UI from terminal UI
 
-The main thing Noter should not copy directly is T3 Code's local-desktop
-assumption. T3 Code is local-server-first. Noter should stay web-first.
+The main thing Noter should not copy directly is T3 Code's local-desktop assumption. T3 Code is
+local-server-first. Noter should stay web-first.
 
 ## Verified Findings
 
@@ -39,8 +39,7 @@ assumption. T3 Code is local-server-first. Noter should stay web-first.
    - `cwd`
    - optional `CODEX_HOME`
    - stdio pipes
-4. T3 Code calls `initialize`, then opens or resumes a Codex thread over the app
-   server protocol.
+4. T3 Code calls `initialize`, then opens or resumes a Codex thread over the app server protocol.
 
 ### App architecture
 
@@ -52,8 +51,7 @@ assumption. T3 Code is local-server-first. Noter should stay web-first.
    - `providers.interruptTurn`
    - `providers.respondToRequest`
    - `providers.stopSession`
-4. Codex is modeled as a provider. Claude Code is reserved but not yet
-   implemented.
+4. Codex is modeled as a provider. Claude Code is reserved but not yet implemented.
 
 ### UI split
 
@@ -66,8 +64,7 @@ assumption. T3 Code is local-server-first. Noter should stay web-first.
 
 1. T3 Code persists state locally with sqlite.
 2. The server also supports an auth token for WebSocket connections.
-3. T3 Code is designed around a local companion server, even when the frontend
-   is a web app.
+3. T3 Code is designed around a local companion server, even when the frontend is a web app.
 
 ## T3 Code Flow
 
@@ -77,8 +74,7 @@ assumption. T3 Code is local-server-first. Noter should stay web-first.
 2. UI calls backend provider methods over WebSocket.
 3. Backend starts `codex app-server`.
 4. Backend normalizes Codex runtime events into app-level events.
-5. UI renders messages, plans, approvals, runtime state, and diffs from that
-   normalized stream.
+5. UI renders messages, plans, approvals, runtime state, and diffs from that normalized stream.
 
 ### Terminal flow
 
@@ -108,8 +104,8 @@ Noter is deciding between two different product directions:
 
 These are not the same thing.
 
-The credential persistence question is separate from the main interaction model.
-That separation still matters for local and connected-machine flows.
+The credential persistence question is separate from the main interaction model. That separation
+still matters for local and connected-machine flows.
 
 ## What Noter Should Reuse
 
@@ -123,26 +119,22 @@ That separation still matters for local and connected-machine flows.
 
 ### Partial matches
 
-1. JSON-RPC-style transport is reasonable, but Noter does not need to copy the
-   exact T3 protocol.
-2. Their provider abstraction is good as a concept, but Noter should fit it into
-   Convex and existing provider patterns.
+1. JSON-RPC-style transport is reasonable, but Noter does not need to copy the exact T3 protocol.
+2. Their provider abstraction is good as a concept, but Noter should fit it into Convex and existing
+   provider patterns.
 
 ## What Noter Should Not Reuse Directly
 
 1. Local desktop server as the primary deployment model.
 2. Local sqlite as the system of record.
 3. Local shell/editor integration assumptions.
-4. `node-pty` as the main backend terminal primitive before a concrete terminal
-   owner exists.
+4. `node-pty` as the main backend terminal primitive before a concrete terminal owner exists.
 
 ## Web-First Translation For Noter
 
-If Noter wants the T3-style Codex experience but stays web-first, the clean
-translation is:
+If Noter wants the T3-style Codex experience but stays web-first, the clean translation is:
 
-1. Codex auth persists on the operator's local or connected machine at
-   `CODEX_HOME`.
+1. Codex auth persists on the operator's local or connected machine at `CODEX_HOME`.
 2. Noter reaches a machine-local control service for the selected repo worktree.
 3. That control service starts `codex app-server`.
 4. Noter proxies app-server events into a web-safe runtime surface.
@@ -156,8 +148,7 @@ For Noter, the clean sequence is:
 
 1. ship the connected-machine auth/control boundary first
 2. keep terminal access as a secondary diagnostic path
-3. separately design a web-first Codex provider runtime around
-   `codex app-server`
+3. separately design a web-first Codex provider runtime around `codex app-server`
 
 That means:
 

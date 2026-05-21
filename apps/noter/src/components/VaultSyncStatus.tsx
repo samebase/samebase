@@ -67,16 +67,10 @@ export function VaultSyncStatusContent({
   });
   const isSyncing = treeRefreshUiState.kind === "syncing";
   const suppressChecks =
-    treeRefreshUiState.kind === "rate_limited" ||
-    treeRefreshUiState.kind === "cooldown";
+    treeRefreshUiState.kind === "rate_limited" || treeRefreshUiState.kind === "cooldown";
 
   return (
-    <div
-      className={cn(
-        "flex items-center gap-2 text-xs text-muted-foreground",
-        className,
-      )}
-    >
+    <div className={cn("flex items-center gap-2 text-xs text-muted-foreground", className)}>
       {stagedFiles.length > 0 && (
         <EditedFilesCategoriesPopover
           repositoryFullName={repositoryFullName}
@@ -93,10 +87,7 @@ export function VaultSyncStatusContent({
       ) : treeRefreshUiState.kind === "rate_limited" ? (
         <span
           className="inline-flex items-center gap-1 text-amber-700"
-          title={
-            treeRefreshFailureMessage ??
-            "GitHub API rate limited. Auto-refresh paused."
-          }
+          title={treeRefreshFailureMessage ?? "GitHub API rate limited. Auto-refresh paused."}
         >
           <span>GitHub rate limited</span>
           <span>·</span>
@@ -107,10 +98,7 @@ export function VaultSyncStatusContent({
       ) : treeRefreshUiState.kind === "cooldown" ? (
         <span
           className="inline-flex items-center gap-1 text-amber-700"
-          title={
-            treeRefreshFailureMessage ??
-            "Auto-refresh paused after a failed sync."
-          }
+          title={treeRefreshFailureMessage ?? "Auto-refresh paused after a failed sync."}
         >
           <span>Paused</span>
           <span>·</span>
@@ -124,10 +112,7 @@ export function VaultSyncStatusContent({
             <>
               <span
                 className="text-amber-700"
-                title={
-                  treeRefreshFailureMessage ??
-                  "Last sync failed. Showing cached state."
-                }
+                title={treeRefreshFailureMessage ?? "Last sync failed. Showing cached state."}
               >
                 Last sync failed
               </span>
@@ -135,12 +120,7 @@ export function VaultSyncStatusContent({
             </>
           )}
           {showChecks && !suppressChecks && (
-            <CommitStatus
-              owner={owner}
-              repo={repoName}
-              commitSha={commitSha}
-              className="mr-1"
-            />
+            <CommitStatus owner={owner} repo={repoName} commitSha={commitSha} className="mr-1" />
           )}
           {commitSha && commitUrl ? (
             <a
@@ -196,9 +176,6 @@ export function VaultSyncStatus({
   );
 
   return (
-    <VaultSyncStatusContent
-      {...props}
-      stagedFiles={stagedFiles ?? stagedFilesFromQuery ?? []}
-    />
+    <VaultSyncStatusContent {...props} stagedFiles={stagedFiles ?? stagedFilesFromQuery ?? []} />
   );
 }

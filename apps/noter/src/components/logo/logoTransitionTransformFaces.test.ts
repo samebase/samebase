@@ -24,14 +24,8 @@ describe("logoTransitionTransformFaces", () => {
       height: 360,
     });
     expect(scene.faces).toHaveLength(6);
-    expect(
-      scene.faces.every((face) => face.transform.startsWith("matrix(")),
-    ).toBe(true);
-    expect(scene.axisGuideLines.map((line) => line.key)).toEqual([
-      "x",
-      "y",
-      "z",
-    ]);
+    expect(scene.faces.every((face) => face.transform.startsWith("matrix("))).toBe(true);
+    expect(scene.axisGuideLines.map((line) => line.key)).toEqual(["x", "y", "z"]);
   });
 
   it("serializes the live preview as svg markup", () => {
@@ -42,9 +36,7 @@ describe("logoTransitionTransformFaces", () => {
     expect(svgMarkup).toContain("<svg ");
     expect(svgMarkup).toContain('id="transform-lab-face"');
     expect(svgMarkup).toContain(">0,0,0<");
-    expect(svgMarkup).toContain(
-      'marker-end="url(#transform-lab-axis-arrow-x)"',
-    );
+    expect(svgMarkup).toContain('marker-end="url(#transform-lab-axis-arrow-x)"');
     expect(svgMarkup).toContain(">X<");
     expect(svgMarkup).toContain(">Y<");
     expect(svgMarkup).toContain(">Z<");

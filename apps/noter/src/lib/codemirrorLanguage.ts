@@ -5,13 +5,7 @@ import { languages } from "@codemirror/language-data";
 import { GFM } from "@lezer/markdown";
 import { prosemarkMarkdownSyntaxExtensions } from "@prosemark/core";
 
-const MARKDOWN_FILE_EXTENSIONS = new Set([
-  "markdown",
-  "md",
-  "mdc",
-  "mdx",
-  "mkd",
-]);
+const MARKDOWN_FILE_EXTENSIONS = new Set(["markdown", "md", "mdc", "mdx", "mkd"]);
 
 export type CodeMirrorFileLanguageKind = "markdown" | "code" | "plain";
 
@@ -57,8 +51,7 @@ function getMatchingLanguage(filePath?: string) {
   // with basename-only entries like `Dockerfile`, so try both forms and a
   // lowercased fallback before giving up on syntax highlighting.
   for (const candidate of matchingLanguageCandidates) {
-    const matchingLanguage =
-      LanguageDescription.matchFilename(languages, candidate) ?? null;
+    const matchingLanguage = LanguageDescription.matchFilename(languages, candidate) ?? null;
     if (matchingLanguage) {
       return matchingLanguage;
     }
@@ -74,9 +67,7 @@ export function createProsemarkMarkdownExtension(): Extension {
   });
 }
 
-export function getCodeMirrorFileLanguageKind(
-  filePath?: string,
-): CodeMirrorFileLanguageKind {
+export function getCodeMirrorFileLanguageKind(filePath?: string): CodeMirrorFileLanguageKind {
   // Historical callers without a file path are prose-first surfaces like chat
   // messages and landing copy, so keep them on the markdown parser.
   if (!filePath || isMarkdownFilePath(filePath)) {
@@ -93,9 +84,7 @@ export function getCodeMirrorFileLanguageKind(
   return getFileExtension(filePath) === null ? "markdown" : "plain";
 }
 
-export function getInitialCodeMirrorLanguageExtension(
-  filePath?: string,
-): Extension {
+export function getInitialCodeMirrorLanguageExtension(filePath?: string): Extension {
   return getCodeMirrorFileLanguageKind(filePath) === "markdown"
     ? createProsemarkMarkdownExtension()
     : [];
@@ -103,9 +92,7 @@ export function getInitialCodeMirrorLanguageExtension(
 
 const languageExtensionCache = new Map<string, Promise<Extension>>();
 
-export async function loadCodeMirrorLanguageExtension(
-  filePath?: string,
-): Promise<Extension> {
+export async function loadCodeMirrorLanguageExtension(filePath?: string): Promise<Extension> {
   const languageKind = getCodeMirrorFileLanguageKind(filePath);
 
   if (languageKind === "markdown") {

@@ -4,12 +4,7 @@ import { action, type ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { type Infer, v } from "convex/values";
 import { internal } from "../_generated/api";
-import {
-  isObjectRecord as isRecord,
-  readBoolean,
-  readNumber,
-  readString,
-} from "../jsonUtils";
+import { isObjectRecord as isRecord, readBoolean, readNumber, readString } from "../jsonUtils";
 import { starterTemplateManifest } from "../starterSeedManifest.generated";
 import { assertCodespacesEnabled } from "../../shared/featureFlags";
 
@@ -32,10 +27,8 @@ const CODEX_AGENT_PACKAGE_JSON_PATH = ".codespace-agent/package.json";
 const CODEX_AGENT_SERVER_PATH = ".codespace-agent/server.ts";
 const CODEX_AGENT_SYNC_LOCK_DIR = ".codespace-agent/.sync-lock";
 const CODEX_AGENT_SYNC_STATUS_PATH = ".codespace-agent/.sync-status.json";
-const CODEX_AGENT_SYNC_BACKUP_PACKAGE_JSON_PATH =
-  ".codespace-agent/.sync-backup-package.json";
-const CODEX_AGENT_SYNC_BACKUP_SERVER_PATH =
-  ".codespace-agent/.sync-backup-server.ts";
+const CODEX_AGENT_SYNC_BACKUP_PACKAGE_JSON_PATH = ".codespace-agent/.sync-backup-package.json";
+const CODEX_AGENT_SYNC_BACKUP_SERVER_PATH = ".codespace-agent/.sync-backup-server.ts";
 const CODEX_AGENT_RESTART_TIMEOUT_MS = 30000;
 const CODEX_AGENT_RESTART_POLL_INTERVAL_MS = 1000;
 const CODEX_AGENT_INSTALL_TIMEOUT_MS = 120000;
@@ -79,12 +72,9 @@ export const executeCommand = action({
   handler: async (ctx, args): Promise<Infer<typeof executeCommandResult>> => {
     assertCodespacesEnabled();
     // Get codespace record with agentUrl and agentToken
-    const codespace = await ctx.runQuery(
-      internal.codespaces.mutations.getCodespace,
-      {
-        codespaceId: args.codespaceId,
-      },
-    );
+    const codespace = await ctx.runQuery(internal.codespaces.mutations.getCodespace, {
+      codespaceId: args.codespaceId,
+    });
 
     if (!codespace) {
       throw new Error("Codespace not found");
@@ -95,9 +85,7 @@ export const executeCommand = action({
     }
 
     if (codespace.state !== "running") {
-      throw new Error(
-        `Codespace is not running (current state: ${codespace.state})`,
-      );
+      throw new Error(`Codespace is not running (current state: ${codespace.state})`);
     }
 
     // Call agent via HTTP
@@ -136,17 +124,11 @@ export const writeFileToCodespace = action({
     content: v.string(),
   },
   returns: writeFileToCodespaceResult,
-  handler: async (
-    ctx,
-    args,
-  ): Promise<Infer<typeof writeFileToCodespaceResult>> => {
+  handler: async (ctx, args): Promise<Infer<typeof writeFileToCodespaceResult>> => {
     assertCodespacesEnabled();
-    const codespace = await ctx.runQuery(
-      internal.codespaces.mutations.getCodespace,
-      {
-        codespaceId: args.codespaceId,
-      },
-    );
+    const codespace = await ctx.runQuery(internal.codespaces.mutations.getCodespace, {
+      codespaceId: args.codespaceId,
+    });
 
     if (!codespace) {
       throw new Error("Codespace not found");
@@ -157,9 +139,7 @@ export const writeFileToCodespace = action({
     }
 
     if (codespace.state !== "running") {
-      throw new Error(
-        `Codespace is not running (current state: ${codespace.state})`,
-      );
+      throw new Error(`Codespace is not running (current state: ${codespace.state})`);
     }
 
     const response = await fetch(`${codespace.agentUrl}/files/write`, {
@@ -196,17 +176,11 @@ export const readFileFromCodespace = action({
     filePath: v.string(),
   },
   returns: readFileFromCodespaceResult,
-  handler: async (
-    ctx,
-    args,
-  ): Promise<Infer<typeof readFileFromCodespaceResult>> => {
+  handler: async (ctx, args): Promise<Infer<typeof readFileFromCodespaceResult>> => {
     assertCodespacesEnabled();
-    const codespace = await ctx.runQuery(
-      internal.codespaces.mutations.getCodespace,
-      {
-        codespaceId: args.codespaceId,
-      },
-    );
+    const codespace = await ctx.runQuery(internal.codespaces.mutations.getCodespace, {
+      codespaceId: args.codespaceId,
+    });
 
     if (!codespace) {
       throw new Error("Codespace not found");
@@ -217,15 +191,11 @@ export const readFileFromCodespace = action({
     }
 
     if (codespace.state !== "running") {
-      throw new Error(
-        `Codespace is not running (current state: ${codespace.state})`,
-      );
+      throw new Error(`Codespace is not running (current state: ${codespace.state})`);
     }
 
     const response = await fetch(
-      `${codespace.agentUrl}/files/read?filePath=${encodeURIComponent(
-        args.filePath,
-      )}`,
+      `${codespace.agentUrl}/files/read?filePath=${encodeURIComponent(args.filePath)}`,
       {
         headers: {
           Authorization: `Bearer ${codespace.agentToken}`,
@@ -264,12 +234,9 @@ export const listFiles = action({
   returns: listFilesResult,
   handler: async (ctx, args): Promise<Infer<typeof listFilesResult>> => {
     assertCodespacesEnabled();
-    const codespace = await ctx.runQuery(
-      internal.codespaces.mutations.getCodespace,
-      {
-        codespaceId: args.codespaceId,
-      },
-    );
+    const codespace = await ctx.runQuery(internal.codespaces.mutations.getCodespace, {
+      codespaceId: args.codespaceId,
+    });
 
     if (!codespace) {
       throw new Error("Codespace not found");
@@ -280,9 +247,7 @@ export const listFiles = action({
     }
 
     if (codespace.state !== "running") {
-      throw new Error(
-        `Codespace is not running (current state: ${codespace.state})`,
-      );
+      throw new Error(`Codespace is not running (current state: ${codespace.state})`);
     }
 
     const url = new URL(`${codespace.agentUrl}/files/list`);
@@ -321,12 +286,9 @@ export const deleteFile = action({
   returns: deleteFileResult,
   handler: async (ctx, args): Promise<Infer<typeof deleteFileResult>> => {
     assertCodespacesEnabled();
-    const codespace = await ctx.runQuery(
-      internal.codespaces.mutations.getCodespace,
-      {
-        codespaceId: args.codespaceId,
-      },
-    );
+    const codespace = await ctx.runQuery(internal.codespaces.mutations.getCodespace, {
+      codespaceId: args.codespaceId,
+    });
 
     if (!codespace) {
       throw new Error("Codespace not found");
@@ -337,9 +299,7 @@ export const deleteFile = action({
     }
 
     if (codespace.state !== "running") {
-      throw new Error(
-        `Codespace is not running (current state: ${codespace.state})`,
-      );
+      throw new Error(`Codespace is not running (current state: ${codespace.state})`);
     }
 
     const response = await fetch(`${codespace.agentUrl}/files/delete`, {
@@ -382,12 +342,9 @@ export const getFileStat = action({
   returns: getFileStatResult,
   handler: async (ctx, args): Promise<Infer<typeof getFileStatResult>> => {
     assertCodespacesEnabled();
-    const codespace = await ctx.runQuery(
-      internal.codespaces.mutations.getCodespace,
-      {
-        codespaceId: args.codespaceId,
-      },
-    );
+    const codespace = await ctx.runQuery(internal.codespaces.mutations.getCodespace, {
+      codespaceId: args.codespaceId,
+    });
 
     if (!codespace) {
       throw new Error("Codespace not found");
@@ -398,15 +355,11 @@ export const getFileStat = action({
     }
 
     if (codespace.state !== "running") {
-      throw new Error(
-        `Codespace is not running (current state: ${codespace.state})`,
-      );
+      throw new Error(`Codespace is not running (current state: ${codespace.state})`);
     }
 
     const response = await fetch(
-      `${codespace.agentUrl}/files/stat?filePath=${encodeURIComponent(
-        args.filePath,
-      )}`,
+      `${codespace.agentUrl}/files/stat?filePath=${encodeURIComponent(args.filePath)}`,
       {
         headers: {
           Authorization: `Bearer ${codespace.agentToken}`,
@@ -439,12 +392,9 @@ export const checkAgentHealth = action({
   returns: checkAgentHealthResult,
   handler: async (ctx, args): Promise<Infer<typeof checkAgentHealthResult>> => {
     assertCodespacesEnabled();
-    const codespace = await ctx.runQuery(
-      internal.codespaces.mutations.getCodespace,
-      {
-        codespaceId: args.codespaceId,
-      },
-    );
+    const codespace = await ctx.runQuery(internal.codespaces.mutations.getCodespace, {
+      codespaceId: args.codespaceId,
+    });
 
     if (!codespace) {
       return { healthy: false };
@@ -543,12 +493,9 @@ async function getActiveRunningCodespace(
   agentToken: string;
 }> {
   assertCodespacesEnabled();
-  const codespace = await ctx.runQuery(
-    internal.codespaces.mutations.getCodespace,
-    {
-      codespaceId,
-    },
-  );
+  const codespace = await ctx.runQuery(internal.codespaces.mutations.getCodespace, {
+    codespaceId,
+  });
 
   if (!codespace) {
     throw new Error("Codespace not found");
@@ -559,9 +506,7 @@ async function getActiveRunningCodespace(
     throw new Error("Codespace agent not available");
   }
   if (codespace.state !== "running") {
-    throw new Error(
-      `Codespace is not running (current state: ${codespace.state})`,
-    );
+    throw new Error(`Codespace is not running (current state: ${codespace.state})`);
   }
 
   return {
@@ -706,9 +651,7 @@ async function executeCodespaceAgentCommand(args: {
   const payload = await executeCodespaceAgentCommandResult(args);
 
   if (!payload.success) {
-    throw new Error(
-      `Codespace command failed: ${payload.stderr || "unknown error"}`,
-    );
+    throw new Error(`Codespace command failed: ${payload.stderr || "unknown error"}`);
   }
 }
 
@@ -716,8 +659,7 @@ async function waitForCodespaceAgent(args: {
   agentUrl: string;
   timeoutMs?: number;
 }): Promise<void> {
-  const deadline =
-    Date.now() + (args.timeoutMs ?? CODEX_AGENT_RESTART_TIMEOUT_MS);
+  const deadline = Date.now() + (args.timeoutMs ?? CODEX_AGENT_RESTART_TIMEOUT_MS);
   let lastError = "Timed out waiting for Codespace agent restart";
 
   while (Date.now() < deadline) {
@@ -742,9 +684,7 @@ async function waitForCodespaceAgent(args: {
   throw new Error(`Codespace agent did not restart cleanly: ${lastError}`);
 }
 
-async function isCodespaceAgentHealthy(args: {
-  agentUrl: string;
-}): Promise<boolean> {
+async function isCodespaceAgentHealthy(args: { agentUrl: string }): Promise<boolean> {
   try {
     const response = await fetch(`${args.agentUrl}/health`, {
       method: "GET",
@@ -803,9 +743,7 @@ async function tryAcquireCodespaceAgentSyncLock(args: {
   });
 
   if (!result.success) {
-    throw new Error(
-      `Codespace command failed: ${result.stderr || "unknown error"}`,
-    );
+    throw new Error(`Codespace command failed: ${result.stderr || "unknown error"}`);
   }
 
   return result.stdout.trim() === "acquired";
@@ -852,9 +790,7 @@ async function isCodespaceAgentSyncLockHeld(args: {
   });
 
   if (!result.success) {
-    throw new Error(
-      `Codespace command failed: ${result.stderr || "unknown error"}`,
-    );
+    throw new Error(`Codespace command failed: ${result.stderr || "unknown error"}`);
   }
 
   return result.stdout.trim() === "locked";
@@ -894,9 +830,7 @@ type CodespaceAgentSyncStatus = {
   status: "success" | "rolled_back";
 };
 
-function parseCodespaceAgentSyncStatus(
-  content: string | null,
-): CodespaceAgentSyncStatus | null {
+function parseCodespaceAgentSyncStatus(content: string | null): CodespaceAgentSyncStatus | null {
   if (content === null) {
     return null;
   }
@@ -965,10 +899,7 @@ async function waitForCodespaceAgentSyncResult(args: {
         return status;
       }
 
-      lastError =
-        status === null
-          ? "sync status file missing"
-          : "sync status token mismatch";
+      lastError = status === null ? "sync status file missing" : "sync status token mismatch";
     } catch (error) {
       lastError = describeError(error);
     }
@@ -976,9 +907,7 @@ async function waitForCodespaceAgentSyncResult(args: {
     await sleep(CODEX_AGENT_RESTART_POLL_INTERVAL_MS);
   }
 
-  throw new Error(
-    `Codespace agent sync did not report a completion status: ${lastError}`,
-  );
+  throw new Error(`Codespace agent sync did not report a completion status: ${lastError}`);
 }
 
 async function storeCodespaceAgentRollbackFile(args: {
@@ -1087,10 +1016,7 @@ export function buildCodespaceAgentRestartCommand(args: {
     `server_backup_exists=${args.serverBackupExists ? "1" : "0"}`,
     `install_timeout_seconds=${Math.ceil(CODEX_AGENT_INSTALL_TIMEOUT_MS / 1000)}`,
     `restart_timeout_seconds=${Math.ceil(CODEX_AGENT_RESTART_TIMEOUT_MS / 1000)}`,
-    `poll_interval_seconds=${Math.max(
-      1,
-      Math.ceil(CODEX_AGENT_RESTART_POLL_INTERVAL_MS / 1000),
-    )}`,
+    `poll_interval_seconds=${Math.max(1, Math.ceil(CODEX_AGENT_RESTART_POLL_INTERVAL_MS / 1000))}`,
     "stop_agent() {",
     '  server_pid=""',
     '  if [ -f "$pid_path" ]; then',
@@ -1214,9 +1140,7 @@ async function syncBundledCodespaceAgent(args: {
   agentUrl: string;
   agentToken: string;
 }): Promise<void> {
-  const bundledPackageJson = getBundledCodespaceAgentAsset(
-    CODEX_AGENT_PACKAGE_JSON_PATH,
-  );
+  const bundledPackageJson = getBundledCodespaceAgentAsset(CODEX_AGENT_PACKAGE_JSON_PATH);
   const bundledServer = getBundledCodespaceAgentAsset(CODEX_AGENT_SERVER_PATH);
 
   for (;;) {
@@ -1314,9 +1238,7 @@ async function syncBundledCodespaceAgent(args: {
             });
           }
         } catch (error) {
-          const restorePrefix = `Failed to update bundled Codespace agent: ${describeError(
-            error,
-          )}`;
+          const restorePrefix = `Failed to update bundled Codespace agent: ${describeError(error)}`;
 
           try {
             await restoreCodespaceAgentFiles({
@@ -1329,9 +1251,7 @@ async function syncBundledCodespaceAgent(args: {
             });
           } catch (restoreError) {
             syncError = new Error(
-              `${restorePrefix}; rollback failed before restart: ${describeError(
-                restoreError,
-              )}`,
+              `${restorePrefix}; rollback failed before restart: ${describeError(restoreError)}`,
             );
           }
 
@@ -1404,9 +1324,7 @@ async function syncBundledCodespaceAgent(args: {
   }
 }
 
-function normalizeCodexStatus(
-  payload: unknown,
-): Infer<typeof codexStatusResult> {
+function normalizeCodexStatus(payload: unknown): Infer<typeof codexStatusResult> {
   const runtimeDefault: Infer<typeof codexRuntimeStatusResult> = {
     running: false,
     initialized: false,
@@ -1439,8 +1357,7 @@ function normalizeCodexStatus(
     lastExitCode: readNumber(runtimeRecord, "lastExitCode"),
     lastExitSignal: readString(runtimeRecord, "lastExitSignal"),
     pendingRequestCount: readNumber(runtimeRecord, "pendingRequestCount") ?? 0,
-    pendingApprovalCount:
-      readNumber(runtimeRecord, "pendingApprovalCount") ?? 0,
+    pendingApprovalCount: readNumber(runtimeRecord, "pendingApprovalCount") ?? 0,
     eventCursor: readNumber(runtimeRecord, "eventCursor") ?? 0,
   };
 

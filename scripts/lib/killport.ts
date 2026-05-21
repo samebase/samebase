@@ -54,9 +54,7 @@ export function resolveStoredLocalBackendPort(repoRoot: string): number | null {
 
   const rawUrl =
     ("CONVEX_URL" in envFile.vars ? envFile.vars.CONVEX_URL : undefined) ??
-    ("VITE_CONVEX_URL" in envFile.vars
-      ? envFile.vars.VITE_CONVEX_URL
-      : undefined);
+    ("VITE_CONVEX_URL" in envFile.vars ? envFile.vars.VITE_CONVEX_URL : undefined);
   if (typeof rawUrl !== "string") {
     return null;
   }
@@ -64,9 +62,7 @@ export function resolveStoredLocalBackendPort(repoRoot: string): number | null {
   return parsePort(rawUrl);
 }
 
-export async function stopListeningPort(
-  port: number,
-): Promise<StopListeningPortResult> {
+export async function stopListeningPort(port: number): Promise<StopListeningPortResult> {
   const pids = unique(listListeningPids(port));
   if (pids.length === 0) {
     return {

@@ -4,12 +4,7 @@ import { Infer, v } from "convex/values";
 
 import { components, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import {
-  internalAction,
-  internalMutation,
-  mutation,
-  type MutationCtx,
-} from "./_generated/server";
+import { internalAction, internalMutation, mutation, type MutationCtx } from "./_generated/server";
 import { MAX_DASHBOARD_REFRESH_DEMAND_VAULTS } from "../shared/repositoryRefresh";
 import { TREE_REFRESH_FAILURE_COOLDOWN_MS } from "../shared/treeRefresh";
 import { toErrorMessage } from "./jsonUtils";
@@ -45,13 +40,10 @@ const { id, literal, null: vNull, object, string, union } = v;
  * The request row carries demand source. Scheduler priority is derived from
  * that demand, so callers never choose a pool or queue lane.
  */
-const repositoryRefreshWorkpool = new Workpool(
-  components.repositoryRefreshWorkpool,
-  {
-    maxParallelism: 3,
-    retryActionsByDefault: false,
-  },
-);
+const repositoryRefreshWorkpool = new Workpool(components.repositoryRefreshWorkpool, {
+  maxParallelism: 3,
+  retryActionsByDefault: false,
+});
 const REPOSITORY_REFRESH_RUNNING_LEASE_MS = 15 * 60 * 1000;
 
 type RepositoryRefreshWorkerIntent = "passive" | "source_setup" | "manual";
@@ -147,9 +139,7 @@ function getRepositoryRefreshWorkerIntent(
   }
 }
 
-function shouldHydrateCloudflarePreviewLinks(
-  demand: RepositoryScopeRefreshDemand,
-): boolean {
+function shouldHydrateCloudflarePreviewLinks(demand: RepositoryScopeRefreshDemand): boolean {
   switch (demand.source) {
     case "dashboard":
       return false;
@@ -163,9 +153,7 @@ function shouldHydrateCloudflarePreviewLinks(
   }
 }
 
-function toRepositoryRefreshResult(args: {
-  refreshed: boolean;
-}): RepositoryRefreshResult {
+function toRepositoryRefreshResult(args: { refreshed: boolean }): RepositoryRefreshResult {
   if (!args.refreshed) {
     return { kind: "no_work_needed" };
   }
@@ -179,10 +167,7 @@ function isRunningRepositoryRefreshLeaseValid(
   request: Doc<"repositoryRefreshRequests">,
   now: number,
 ): boolean {
-  return (
-    request.lifecycle.state === "running" &&
-    request.lifecycle.leaseExpiresAt > now
-  );
+  return request.lifecycle.state === "running" && request.lifecycle.leaseExpiresAt > now;
 }
 
 async function markExpiredRunningRepositoryRefreshRequestFailed(
@@ -223,10 +208,7 @@ async function selectDashboardRefreshVaultPage(
   const page = await ctx.db
     .query("vaults")
     .withIndex("by_userId_and_state_and_deletion_state", (q) =>
-      q
-        .eq("userId", args.userId)
-        .eq("state", "connected")
-        .eq("deletion.state", "not_deleting"),
+      q.eq("userId", args.userId).eq("state", "connected").eq("deletion.state", "not_deleting"),
     )
     .paginate({
       cursor: args.cursor,
@@ -285,9 +267,7 @@ async function enqueueDashboardRepositoryRefreshPageForUser(
  * Accepts completed create/connect setup runs only.
  * Retry runs are rejected because retries are not original source setup demand.
  */
-function assertSourceSetupRepositoryRefreshRun(
-  run: Doc<"appProvisioningRuns">,
-): void {
+function assertSourceSetupRepositoryRefreshRun(run: Doc<"appProvisioningRuns">): void {
   switch (run.trigger) {
     case "create":
     case "connect_existing_repository":
@@ -366,11 +346,7 @@ async function getActiveRepositoryRefreshRequest(
       return running;
     }
 
-    await markExpiredRunningRepositoryRefreshRequestFailed(
-      ctx,
-      running,
-      args.now,
-    );
+    await markExpiredRunningRepositoryRefreshRequestFailed(ctx, running, args.now);
   }
 
   const scheduled = await getActiveRepositoryRefreshRequestForState(ctx, {
@@ -710,15 +686,11 @@ async function getOwnedActiveRepositoryRefreshRequest(
   const request = await ctx.db.get(args.requestId);
   if (
     !request ||
-    (request.lifecycle.state !== "scheduled" &&
-      request.lifecycle.state !== "running")
+    (request.lifecycle.state !== "scheduled" && request.lifecycle.state !== "running")
   ) {
     return null;
   }
-  if (
-    args.workpoolJobId !== null &&
-    request.lifecycle.workpoolJobId !== args.workpoolJobId
-  ) {
+  if (args.workpoolJobId !== null && request.lifecycle.workpoolJobId !== args.workpoolJobId) {
     return null;
   }
 
@@ -897,28 +869,22 @@ export const runRepositoryRefreshRequest = internalAction({
       case "no_work_needed":
         return { kind: "no_work_needed" };
       case "cancel":
-        await ctx.runMutation(
-          internal.repositoryRefresh.finishRepositoryRefreshRequestCanceled,
-          {
-            requestId: args.requestId,
-            workpoolJobId: null,
-            reason: input.reason,
-          },
-        );
+        await ctx.runMutation(internal.repositoryRefresh.finishRepositoryRefreshRequestCanceled, {
+          requestId: args.requestId,
+          workpoolJobId: null,
+          reason: input.reason,
+        });
         return { kind: "no_work_needed" };
       case "fail": {
         const now = Date.now();
-        await ctx.runMutation(
-          internal.repositoryRefresh.finishRepositoryRefreshRequestFailed,
-          {
-            requestId: args.requestId,
-            workpoolJobId: null,
-            failure: makeRepositoryRefreshProviderFailure({
-              now,
-              message: input.message,
-            }),
-          },
-        );
+        await ctx.runMutation(internal.repositoryRefresh.finishRepositoryRefreshRequestFailed, {
+          requestId: args.requestId,
+          workpoolJobId: null,
+          failure: makeRepositoryRefreshProviderFailure({
+            now,
+            message: input.message,
+          }),
+        });
         throw new Error(input.message);
       }
       case "ready":
@@ -929,12 +895,9 @@ export const runRepositoryRefreshRequest = internalAction({
       }
     }
 
-    await ctx.runMutation(
-      internal.repositoryRefresh.refreshRepositoryRefreshRequestLease,
-      {
-        requestId: args.requestId,
-      },
-    );
+    await ctx.runMutation(internal.repositoryRefresh.refreshRepositoryRefreshRequestLease, {
+      requestId: args.requestId,
+    });
 
     try {
       const refreshResult: {
@@ -947,35 +910,27 @@ export const runRepositoryRefreshRequest = internalAction({
           repo: input.repo,
           includeAheadBehind: true,
           includePullRequestLinks: true,
-          includeCloudflarePreviewLinks: shouldHydrateCloudflarePreviewLinks(
-            input.demand,
-          ),
+          includeCloudflarePreviewLinks: shouldHydrateCloudflarePreviewLinks(input.demand),
           cloudflarePreviewBranchNames: [],
           intent: getRepositoryRefreshWorkerIntent(input.demand),
         },
       });
       const result = toRepositoryRefreshResult(refreshResult);
-      await ctx.runMutation(
-        internal.repositoryRefresh.finishRepositoryRefreshRequestSucceeded,
-        {
-          requestId: args.requestId,
-          result,
-        },
-      );
+      await ctx.runMutation(internal.repositoryRefresh.finishRepositoryRefreshRequestSucceeded, {
+        requestId: args.requestId,
+        result,
+      });
       return result;
     } catch (error) {
       const now = Date.now();
-      await ctx.runMutation(
-        internal.repositoryRefresh.finishRepositoryRefreshRequestFailed,
-        {
-          requestId: args.requestId,
-          workpoolJobId: null,
-          failure: makeRepositoryRefreshProviderFailure({
-            now,
-            message: toErrorMessage(error),
-          }),
-        },
-      );
+      await ctx.runMutation(internal.repositoryRefresh.finishRepositoryRefreshRequestFailed, {
+        requestId: args.requestId,
+        workpoolJobId: null,
+        failure: makeRepositoryRefreshProviderFailure({
+          now,
+          message: toErrorMessage(error),
+        }),
+      });
       throw error;
     }
   },
@@ -1094,78 +1049,73 @@ export const enqueueSourceSetupRepositoryRefresh = internalMutation({
  * source-setup refresh demand. If enqueue fails, the success event is rolled
  * back with the run state update because both writes are in one mutation.
  */
-export const completeExistingRepositoryConnectionAndEnqueueRefresh =
-  internalMutation({
-    args: object({
-      userId: id("users"),
-      vaultId: id("vaults"),
-      runId: id("appProvisioningRuns"),
-    }),
-    returns: vEnqueueRepositoryRefreshResult,
-    handler: async (ctx, args): Promise<EnqueueRepositoryRefreshResult> => {
-      const run = await ctx.db.get(args.runId);
+export const completeExistingRepositoryConnectionAndEnqueueRefresh = internalMutation({
+  args: object({
+    userId: id("users"),
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+  }),
+  returns: vEnqueueRepositoryRefreshResult,
+  handler: async (ctx, args): Promise<EnqueueRepositoryRefreshResult> => {
+    const run = await ctx.db.get(args.runId);
+    if (
+      !run ||
+      run.userId !== args.userId ||
+      run.vaultId !== args.vaultId ||
+      run.trigger !== "connect_existing_repository"
+    ) {
+      throw new Error("Provisioning run does not match existing repository workflow.");
+    }
+    if (run.state === "failed" || run.state === "canceled") {
+      throw new Error("Terminal source setup run cannot be completed.");
+    }
+
+    const now = Date.now();
+    if (run.state !== "succeeded") {
+      if (run.state !== "running" || run.currentStep !== "sync_tree") {
+        throw new Error("Existing repository workflow has not reached the finish boundary.");
+      }
+      const vault = await ctx.db.get(args.vaultId);
       if (
-        !run ||
-        run.userId !== args.userId ||
-        run.vaultId !== args.vaultId ||
-        run.trigger !== "connect_existing_repository"
+        !vault ||
+        vault.userId !== args.userId ||
+        vault.state !== "connected" ||
+        vault.deletion.state !== "not_deleting"
       ) {
-        throw new Error(
-          "Provisioning run does not match existing repository workflow.",
-        );
+        throw new Error("Existing repository vault is not connected.");
       }
-      if (run.state === "failed" || run.state === "canceled") {
-        throw new Error("Terminal source setup run cannot be completed.");
-      }
-
-      const now = Date.now();
-      if (run.state !== "succeeded") {
-        if (run.state !== "running" || run.currentStep !== "sync_tree") {
-          throw new Error(
-            "Existing repository workflow has not reached the finish boundary.",
-          );
-        }
-        const vault = await ctx.db.get(args.vaultId);
-        if (
-          !vault ||
-          vault.userId !== args.userId ||
-          vault.state !== "connected" ||
-          vault.deletion.state !== "not_deleting"
-        ) {
-          throw new Error("Existing repository vault is not connected.");
-        }
-        await ctx.db.insert("appProvisioningEvents", {
-          userId: run.userId,
-          vaultId: run.vaultId,
-          repositoryFullName: run.repositoryFullName,
-          runId: args.runId,
-          step: "finish",
-          level: "info",
-          message: "Connected existing repository.",
-          createdAt: now,
-        });
-        await ctx.db.patch(args.runId, {
-          state: "succeeded",
-          currentStep: "finish",
-          updatedAt: now,
-          completedAt: now,
-        });
-      }
-
-      const result = await enqueueAndScheduleRepositoryRefresh(ctx, {
-        userId: args.userId,
-        vaultId: args.vaultId,
-        demand: {
-          scope: "repository",
-          source: "source_setup",
-          runId: args.runId,
-        },
+      await ctx.db.insert("appProvisioningEvents", {
+        userId: run.userId,
+        vaultId: run.vaultId,
+        repositoryFullName: run.repositoryFullName,
+        runId: args.runId,
+        step: "finish",
+        level: "info",
+        message: "Connected existing repository.",
+        createdAt: now,
       });
-      if (result.kind === "blocked") {
-        throw new Error(
-          `Source setup refresh blocked after existing repository connection: reason=${result.reason}, runId=${args.runId}, userId=${args.userId}, vaultId=${args.vaultId}.`,
-        );
-      }
-      return result;
-    },
-  });
+      await ctx.db.patch(args.runId, {
+        state: "succeeded",
+        currentStep: "finish",
+        updatedAt: now,
+        completedAt: now,
+      });
+    }
+
+    const result = await enqueueAndScheduleRepositoryRefresh(ctx, {
+      userId: args.userId,
+      vaultId: args.vaultId,
+      demand: {
+        scope: "repository",
+        source: "source_setup",
+        runId: args.runId,
+      },
+    });
+    if (result.kind === "blocked") {
+      throw new Error(
+        `Source setup refresh blocked after existing repository connection: reason=${result.reason}, runId=${args.runId}, userId=${args.userId}, vaultId=${args.vaultId}.`,
+      );
+    }
+    return result;
+  },
+});

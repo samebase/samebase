@@ -17,8 +17,7 @@ function isReservedWranglerFlag(value: string) {
 }
 
 function readWorkerName() {
-  const workerName =
-    process.env.WRANGLER_CI_OVERRIDE_NAME ?? process.env.CLOUDFLARE_WORKER_NAME;
+  const workerName = process.env.WRANGLER_CI_OVERRIDE_NAME ?? process.env.CLOUDFLARE_WORKER_NAME;
 
   if (!workerName) {
     throw new Error(`Set CLOUDFLARE_WORKER_NAME for local deploys.
@@ -26,9 +25,7 @@ Workers Builds can pass the connected Worker name through WRANGLER_CI_OVERRIDE_N
   }
 
   if (!/^[a-zA-Z0-9-]+$/.test(workerName)) {
-    throw new Error(
-      "Cloudflare Worker names can only contain letters, numbers, and dashes.",
-    );
+    throw new Error("Cloudflare Worker names can only contain letters, numbers, and dashes.");
   }
 
   return workerName;
@@ -59,9 +56,7 @@ function run(command: string, args: readonly string[]) {
 
 const [modeArg, ...extraArgs] = process.argv.slice(2);
 if (!isMode(modeArg)) {
-  throw new Error(
-    "Usage: pnpm run deploy[:preview][:dry-run] -- [wrangler flags]",
-  );
+  throw new Error("Usage: pnpm run deploy[:preview][:dry-run] -- [wrangler flags]");
 }
 
 if (extraArgs.some(isReservedWranglerFlag)) {
@@ -71,8 +66,7 @@ if (extraArgs.some(isReservedWranglerFlag)) {
 }
 
 const workerName = readWorkerName();
-const isWorkersBuild =
-  process.env.WORKERS_CI === "1" || process.env.WORKERS_CI === "true";
+const isWorkersBuild = process.env.WORKERS_CI === "1" || process.env.WORKERS_CI === "true";
 const isDryRun = extraArgs.includes("--dry-run");
 
 if (!isWorkersBuild) {

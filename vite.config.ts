@@ -6,7 +6,7 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   fmt: {
-    printWidth: 80,
+    printWidth: 100,
     proseWrap: "always",
   },
   lint: {
@@ -127,17 +127,11 @@ export default defineConfig({
         },
       },
       {
-        files: [
-          "apps/noter/convex/**/*.ts",
-          "apps/noter-starter-template/convex/**/*.ts",
-        ],
+        files: ["apps/noter/convex/**/*.ts", "apps/noter-starter-template/convex/**/*.ts"],
         rules: {
           "@convex-dev/import-wrong-runtime": "off",
           "@convex-dev/no-old-registered-function-syntax": "error",
-          "@convex-dev/require-args-validator": [
-            "error",
-            { ignoreUnusedArguments: true },
-          ],
+          "@convex-dev/require-args-validator": ["error", { ignoreUnusedArguments: true }],
         },
       },
     ],

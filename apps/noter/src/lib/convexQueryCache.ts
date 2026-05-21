@@ -26,8 +26,8 @@ function stableStringify(value: unknown): string {
 
     // Sort keys for deterministic output
     const out: Record<string, unknown> = {};
-    for (const [key, entryValue] of Object.entries(nextValue).sort(
-      ([leftKey], [rightKey]) => leftKey.localeCompare(rightKey),
+    for (const [key, entryValue] of Object.entries(nextValue).sort(([leftKey], [rightKey]) =>
+      leftKey.localeCompare(rightKey),
     )) {
       out[key] = stringify(entryValue);
     }

@@ -85,11 +85,7 @@ async function writeBranchFile(
   });
 }
 
-async function readBranchFile(
-  page: Page,
-  branch: string,
-  fileName: string,
-): Promise<string> {
+async function readBranchFile(page: Page, branch: string, fileName: string): Promise<string> {
   await page.goto(buildFileRoute(branch, fileName), {
     waitUntil: "domcontentloaded",
   });
@@ -128,16 +124,12 @@ test.describe("vault multi-branch live flows", () => {
 
     await branchLinkLocator(page, BRANCHES.slash).click();
     await expect(page).toHaveURL(
-      new RegExp(
-        `/vault/${REPO_OWNER}/${REPO_NAME}/${encodeBranchSegment(BRANCHES.slash)}`,
-      ),
+      new RegExp(`/vault/${REPO_OWNER}/${REPO_NAME}/${encodeBranchSegment(BRANCHES.slash)}`),
     );
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(
-      new RegExp(
-        `/vault/${REPO_OWNER}/${REPO_NAME}/${encodeBranchSegment(BRANCHES.slash)}`,
-      ),
+      new RegExp(`/vault/${REPO_OWNER}/${REPO_NAME}/${encodeBranchSegment(BRANCHES.slash)}`),
     );
   });
 
@@ -163,28 +155,11 @@ test.describe("vault multi-branch live flows", () => {
     const alphaMarker = `playwright alpha marker ${timestamp}`;
 
     await writeBranchFile(page, BRANCHES.beta, BRANCH_FILES.beta, betaMarker);
-    await writeBranchFile(
-      page,
-      BRANCHES.alpha,
-      BRANCH_FILES.alpha,
-      alphaMarker,
-    );
+    await writeBranchFile(page, BRANCHES.alpha, BRANCH_FILES.alpha, alphaMarker);
 
-    const betaText = await readBranchFile(
-      page,
-      BRANCHES.beta,
-      BRANCH_FILES.beta,
-    );
-    const alphaText = await readBranchFile(
-      page,
-      BRANCHES.alpha,
-      BRANCH_FILES.alpha,
-    );
-    const slashText = await readBranchFile(
-      page,
-      BRANCHES.slash,
-      BRANCH_FILES.slash,
-    );
+    const betaText = await readBranchFile(page, BRANCHES.beta, BRANCH_FILES.beta);
+    const alphaText = await readBranchFile(page, BRANCHES.alpha, BRANCH_FILES.alpha);
+    const slashText = await readBranchFile(page, BRANCHES.slash, BRANCH_FILES.slash);
 
     const markerObservations = {
       betaHasOwnMarker: betaText.includes(betaMarker),

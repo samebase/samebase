@@ -6,19 +6,18 @@ Related spec: `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
 
 ## Summary
 
-Production New App creation for `nicu-chiciuc/tmp-newapp-1212341234` failed in
-`seed_starter` after GitHub repository creation and vault connection succeeded.
+Production New App creation for `nicu-chiciuc/tmp-newapp-1212341234` failed in `seed_starter` after
+GitHub repository creation and vault connection succeeded.
 
-The vault is correctly preserved as a connected GitHub vault, but it has no
-default-branch tree, no infrastructure records, and no Convex or Cloudflare
-state beyond `not_configured`. This is the Phase 5 backend durability gap: the
-user-visible state is clear enough to inspect, but the backend does not yet
-retry the idempotent source setup step.
+The vault is correctly preserved as a connected GitHub vault, but it has no default-branch tree, no
+infrastructure records, and no Convex or Cloudflare state beyond `not_configured`. This is the Phase
+5 backend durability gap: the user-visible state is clear enough to inspect, but the backend does
+not yet retry the idempotent source setup step.
 
 ## Production State
 
-Checked from the primary checkout's `apps/noter` directory with
-`CONVEX_DEPLOY_KEY=` so `--prod` targets the production deployment.
+Checked from the primary checkout's `apps/noter` directory with `CONVEX_DEPLOY_KEY=` so `--prod`
+targets the production deployment.
 
 - Production deployment observed by CLI: `clear-butterfly-858`
 - Vault: `k977r7zjf2m9kzvsbemwapg9gh86a2rx`
@@ -57,9 +56,9 @@ Raw production logs show:
 - `seed:failed` with
   `Git Repository is empty. - https://docs.github.com/rest/git/blobs#create-a-blob`
 
-The bootstrap commit succeeded, but the next manifest write still saw GitHub's
-empty-repository response. This looks like a short GitHub consistency window
-after `createOrUpdateFileContents` creates the first branch commit.
+The bootstrap commit succeeded, but the next manifest write still saw GitHub's empty-repository
+response. This looks like a short GitHub consistency window after `createOrUpdateFileContents`
+creates the first branch commit.
 
 ## Likely Fix Shape
 
@@ -67,27 +66,24 @@ Do not retry `create_github_repo` by default.
 
 Make `seed_starter` safe to retry after the empty-repo bootstrap path:
 
-1. Keep the initial `createManifestTree` behavior that detects an empty
-   repository and creates the bootstrap commit.
-2. After bootstrap, retry `createManifestTree` when GitHub still reports the
-   repository as empty.
-3. Keep the existing force-update behavior so a later successful starter commit
-   replaces the bootstrap-only branch.
-4. Add focused tests that simulate empty repo, successful bootstrap, then one or
-   more stale empty-repo responses before manifest tree creation succeeds.
-5. Once the step is proven idempotent, consider enabling Workflow retry for
-   `seed_starter` under Phase 5.
+1. Keep the initial `createManifestTree` behavior that detects an empty repository and creates the
+   bootstrap commit.
+2. After bootstrap, retry `createManifestTree` when GitHub still reports the repository as empty.
+3. Keep the existing force-update behavior so a later successful starter commit replaces the
+   bootstrap-only branch.
+4. Add focused tests that simulate empty repo, successful bootstrap, then one or more stale
+   empty-repo responses before manifest tree creation succeeds.
+5. Once the step is proven idempotent, consider enabling Workflow retry for `seed_starter` under
+   Phase 5.
 
 Relevant code:
 
 - `apps/noter/convex/starterSeed.ts`: `seedRepositoryWithStarter`
-- `apps/noter/convex/appProvisioningWorkflow.ts`: `seed_starter` currently runs
-  with `retry: false`
+- `apps/noter/convex/appProvisioningWorkflow.ts`: `seed_starter` currently runs with `retry: false`
 
 ## Operator Note
 
-For production Convex reads from this repo, use the primary checkout and avoid a
-deploy key:
+For production Convex reads from this repo, use the primary checkout and avoid a deploy key:
 
 ```bash
 repo_root="$(git rev-parse --show-toplevel)"
@@ -96,5 +92,5 @@ cd "$primary_checkout/apps/noter"
 CONVEX_DEPLOYMENT=<primary-checkout-CONVEX_DEPLOYMENT> CONVEX_DEPLOY_KEY= npx convex run --prod --inline-query '<query>'
 ```
 
-If Convex prints that it is ignoring `--prod` because of `CONVEX_DEPLOY_KEY`,
-the command is pointed at the wrong deployment.
+If Convex prints that it is ignoring `--prod` because of `CONVEX_DEPLOY_KEY`, the command is pointed
+at the wrong deployment.

@@ -15,9 +15,7 @@ describe("resolveWorkspaceDesktopSidebarWidths", () => {
     expect(
       resolveWorkspaceDesktopSidebarWidths({
         containerWidthPx:
-          DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX * 2 +
-          MIN_WORKSPACE_DESKTOP_MAIN_PANE_WIDTH_PX +
-          48,
+          DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX * 2 + MIN_WORKSPACE_DESKTOP_MAIN_PANE_WIDTH_PX + 48,
         leftOpen: true,
         leftWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
         rightOpen: true,
@@ -84,9 +82,7 @@ describe("resolveWorkspaceDesktopSidebarWidths", () => {
     });
 
     expect(resolvedWidths.leftWidthPx + resolvedWidths.rightWidthPx).toBe(280);
-    expect(resolvedWidths.leftWidthPx).toBeGreaterThan(
-      resolvedWidths.rightWidthPx,
-    );
+    expect(resolvedWidths.leftWidthPx).toBeGreaterThan(resolvedWidths.rightWidthPx);
   });
 
   it("preserves constrained desktop width preferences below the minimum", () => {
@@ -128,8 +124,6 @@ describe("clampWorkspaceMobileSidebarWidthPx", () => {
   });
 
   it("respects the mobile minimum width when the viewport can fit it", () => {
-    expect(clampWorkspaceMobileSidebarWidthPx(20, 430)).toBe(
-      MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX,
-    );
+    expect(clampWorkspaceMobileSidebarWidthPx(20, 430)).toBe(MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX);
   });
 });

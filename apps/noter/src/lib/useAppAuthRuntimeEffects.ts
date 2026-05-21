@@ -5,10 +5,7 @@ import { useRouter } from "@tanstack/react-router";
 import { useConvexAuth } from "convex/react";
 import { useEffect } from "react";
 
-export function useAppAuthRuntimeEffects(
-  pathname: string,
-  rootRouteSearch: RootRouteSearch,
-) {
+export function useAppAuthRuntimeEffects(pathname: string, rootRouteSearch: RootRouteSearch) {
   const { isAuthenticated } = useConvexAuth();
   const router = useRouter();
 

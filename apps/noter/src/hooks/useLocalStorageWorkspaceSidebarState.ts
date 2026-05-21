@@ -17,9 +17,7 @@ type UseLocalStorageWorkspaceSidebarStateArgs = {
   storageKey: string;
 };
 
-function serializeWorkspaceMobileSurface(
-  surface: WorkspaceSidebarState["mobileSurface"],
-) {
+function serializeWorkspaceMobileSurface(surface: WorkspaceSidebarState["mobileSurface"]) {
   if (surface.kind === "unmerged") {
     return "unmerged";
   }
@@ -40,23 +38,15 @@ function serializeWorkspaceSidebarState(state: WorkspaceSidebarState): string {
   ].join("|");
 }
 
-function areWorkspaceSidebarStatesEqual(
-  left: WorkspaceSidebarState,
-  right: WorkspaceSidebarState,
-) {
-  return (
-    serializeWorkspaceSidebarState(left) ===
-    serializeWorkspaceSidebarState(right)
-  );
+function areWorkspaceSidebarStatesEqual(left: WorkspaceSidebarState, right: WorkspaceSidebarState) {
+  return serializeWorkspaceSidebarState(left) === serializeWorkspaceSidebarState(right);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function parseMobilePane(
-  value: unknown,
-): WorkspaceSidebarState["mobilePane"] | null {
+function parseMobilePane(value: unknown): WorkspaceSidebarState["mobilePane"] | null {
   if (value === "left" || value === "main" || value === "right") {
     return value;
   }
@@ -68,9 +58,7 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function parseMobileSurface(
-  value: unknown,
-): WorkspaceSidebarState["mobileSurface"] | null {
+function parseMobileSurface(value: unknown): WorkspaceSidebarState["mobileSurface"] | null {
   if (!isRecord(value)) {
     return null;
   }
@@ -95,9 +83,7 @@ function parseMobileSurface(
   return null;
 }
 
-function parseWorkspaceSidebarState(
-  value: unknown,
-): WorkspaceSidebarState | null {
+function parseWorkspaceSidebarState(value: unknown): WorkspaceSidebarState | null {
   if (!isRecord(value)) {
     return null;
   }
@@ -129,9 +115,7 @@ function parseWorkspaceSidebarState(
   };
 }
 
-function parseStoredWorkspaceSidebarState(
-  value: unknown,
-): WorkspaceSidebarState | null {
+function parseStoredWorkspaceSidebarState(value: unknown): WorkspaceSidebarState | null {
   if (!isRecord(value)) {
     return null;
   }
@@ -162,9 +146,7 @@ function readLocalStorageWorkspaceSidebarState({
       return defaults;
     }
 
-    const storedState = parseStoredWorkspaceSidebarState(
-      JSON.parse(storedValue),
-    );
+    const storedState = parseStoredWorkspaceSidebarState(JSON.parse(storedValue));
     if (storedState === null) {
       return defaults;
     }
@@ -228,8 +210,7 @@ export function useLocalStorageWorkspaceSidebarState({
   );
   const latestSidebarStateRef = React.useRef(sidebarState);
   const pendingWidthPersistTimeoutRef = React.useRef<number | null>(null);
-  const pendingWidthPersistStateRef =
-    React.useRef<WorkspaceSidebarState | null>(null);
+  const pendingWidthPersistStateRef = React.useRef<WorkspaceSidebarState | null>(null);
 
   const clearPendingWidthPersist = React.useCallback(() => {
     if (pendingWidthPersistTimeoutRef.current !== null) {
@@ -319,13 +300,7 @@ export function useLocalStorageWorkspaceSidebarState({
     });
     latestSidebarStateRef.current = nextSidebarState;
     setSidebarState(nextSidebarState);
-  }, [
-    clearPendingWidthPersist,
-    defaults,
-    flushPendingWidthPersist,
-    reset,
-    storageKey,
-  ]);
+  }, [clearPendingWidthPersist, defaults, flushPendingWidthPersist, reset, storageKey]);
 
   React.useEffect(() => {
     return () => {

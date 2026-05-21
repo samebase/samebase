@@ -88,9 +88,7 @@ function deleteIndexedDbDatabase(name: string): Promise<void> {
 
 async function clearAllIndexedDbDatabases() {
   const listDatabases =
-    typeof indexedDB === "undefined"
-      ? null
-      : Reflect.get(indexedDB, "databases");
+    typeof indexedDB === "undefined" ? null : Reflect.get(indexedDB, "databases");
   const databases =
     typeof listDatabases === "function"
       ? await listDatabases.call(indexedDB).catch(() => null)
@@ -137,9 +135,7 @@ async function unregisterServiceWorkers() {
 
   try {
     const registrations = await serviceWorkerContainer.getRegistrations();
-    await Promise.all(
-      registrations.map((registration) => registration.unregister()),
-    );
+    await Promise.all(registrations.map((registration) => registration.unregister()));
   } catch {
     // Ignore browsers that reject service-worker enumeration in private modes.
   }
@@ -168,9 +164,7 @@ export async function resetLocalAppData() {
 }
 
 export function reloadApp() {
-  window.location.replace(
-    buildRecoveryReloadUrl(new URL(window.location.href)),
-  );
+  window.location.replace(buildRecoveryReloadUrl(new URL(window.location.href)));
 }
 
 function autoRecoverFromStaleAssets(event: Event): boolean {
@@ -224,10 +218,7 @@ export function initializeAppBootRecovery() {
   scheduleRecoveryReloadParamCleanup();
 
   window.addEventListener("vite:preloadError", (event) => {
-    if (
-      !isVitePreloadErrorEvent(event) ||
-      !isLikelyStaleAssetError(event.payload)
-    ) {
+    if (!isVitePreloadErrorEvent(event) || !isLikelyStaleAssetError(event.payload)) {
       return;
     }
 

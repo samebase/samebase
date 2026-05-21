@@ -350,8 +350,7 @@ function resolveTarget(target: string, rest: string[]): void {
 
   const worktrees = getWorktrees();
   const wt = worktrees.find(
-    (worktree) =>
-      worktree.shortBranch === target || worktree.branchName === target,
+    (worktree) => worktree.shortBranch === target || worktree.branchName === target,
   );
 
   log(wt);
@@ -419,12 +418,9 @@ function parseWorktreeBlock(block: string): WorktreeEntry {
 }
 
 function getLocalBranches(repoRoot: string): string[] {
-  const output = git(
-    ["for-each-ref", "refs/heads", "--format=%(refname:short)"],
-    {
-      cwd: repoRoot,
-    },
-  );
+  const output = git(["for-each-ref", "refs/heads", "--format=%(refname:short)"], {
+    cwd: repoRoot,
+  });
   return output
     .split("\n")
     .map((line) => line.trim())
@@ -448,9 +444,7 @@ function printWorktreeList(options: ListOptions = { status: false }): void {
   for (let index = 0; index < worktrees.length; index += 1) {
     const wt = worktrees[index];
     const summary = getWorktreeSummary(wt.worktree);
-    const label = wt.branchName
-      ? wt.branchName
-      : `detached@${wt.HEAD.slice(0, 8)}`;
+    const label = wt.branchName ? wt.branchName : `detached@${wt.HEAD.slice(0, 8)}`;
     const marker = wt.worktree === repoRoot ? colorize("*", "cyan") : " ";
     const stateLabel = getStateLabel(summary);
     const state = colorize(pad(stateLabel, 8), getStateTone(summary));
@@ -522,9 +516,7 @@ function dim(text: string): string {
 }
 
 function pad(text: string, width: number): string {
-  return text.length >= width
-    ? text
-    : `${text}${" ".repeat(width - text.length)}`;
+  return text.length >= width ? text : `${text}${" ".repeat(width - text.length)}`;
 }
 
 function formatPath(inputPath: string): string {
@@ -549,9 +541,7 @@ function isDirty(summary: WorktreeSummary): boolean {
   return summary.staged > 0 || summary.unstaged > 0 || summary.untracked > 0;
 }
 
-function getStateLabel(
-  summary: WorktreeSummary,
-): "clean" | "dirty" | "conflict" {
+function getStateLabel(summary: WorktreeSummary): "clean" | "dirty" | "conflict" {
   if (summary.conflicts > 0) {
     return "conflict";
   }
@@ -589,12 +579,7 @@ function getWorktreeSummary(worktreePath: string): WorktreeSummary {
     if (y !== " " && y !== "?") {
       unstaged += 1;
     }
-    if (
-      x === "U" ||
-      y === "U" ||
-      (x === "A" && y === "A") ||
-      (x === "D" && y === "D")
-    ) {
+    if (x === "U" || y === "U" || (x === "A" && y === "A") || (x === "D" && y === "D")) {
       conflicts += 1;
     }
   }
@@ -615,12 +600,9 @@ function getWorktreeDivergence(
     return null;
   }
 
-  const result = gitStatus(
-    ["rev-list", "--left-right", "--count", `${baseRef}...HEAD`],
-    {
-      cwd: worktreePath,
-    },
-  );
+  const result = gitStatus(["rev-list", "--left-right", "--count", `${baseRef}...HEAD`], {
+    cwd: worktreePath,
+  });
   if (result.status !== 0) {
     return null;
   }
@@ -647,10 +629,9 @@ function formatDivergence(divergence: WorktreeDivergence | null): string {
     return `${dim("+?")} ${dim("-?")}`;
   }
 
-  return [
-    formatCountToken("+", divergence.ahead),
-    formatCountToken("-", divergence.behind),
-  ].join(" ");
+  return [formatCountToken("+", divergence.ahead), formatCountToken("-", divergence.behind)].join(
+    " ",
+  );
 }
 
 function git(gitArgs: string[], options: { cwd?: string } = {}): string {
@@ -661,10 +642,7 @@ function git(gitArgs: string[], options: { cwd?: string } = {}): string {
   });
 }
 
-function gitStatus(
-  gitArgs: string[],
-  options: { cwd?: string } = {},
-): GitStatusResult {
+function gitStatus(gitArgs: string[], options: { cwd?: string } = {}): GitStatusResult {
   const result = spawnSync("git", gitArgs, {
     cwd: options.cwd,
     encoding: "utf8",
@@ -682,17 +660,10 @@ function hasLocalChanges(worktreePath: string): boolean {
   return status.trim().length > 0;
 }
 
-function isAncestor(
-  ancestor: string,
-  descendant: string,
-  cwd: string,
-): boolean {
-  const result = gitStatus(
-    ["merge-base", "--is-ancestor", ancestor, descendant],
-    {
-      cwd,
-    },
-  );
+function isAncestor(ancestor: string, descendant: string, cwd: string): boolean {
+  const result = gitStatus(["merge-base", "--is-ancestor", ancestor, descendant], {
+    cwd,
+  });
   return result.status === 0;
 }
 
@@ -772,11 +743,7 @@ function runClean(options: CleanOptions): void {
 
   const baseLabel = baseRef === base ? base : `${base} (${baseRef})`;
   console.log(`base: ${baseLabel}`);
-  console.log(
-    apply
-      ? "mode: apply (will remove candidates)"
-      : "mode: dry-run (no removals)",
-  );
+  console.log(apply ? "mode: apply (will remove candidates)" : "mode: dry-run (no removals)");
   if (toRemove.length === 0) {
     console.log("remove candidates: none");
   } else {
@@ -822,9 +789,7 @@ function runClean(options: CleanOptions): void {
   if (removed > 0) {
     git(["worktree", "prune"], { cwd: repoRoot });
   }
-  console.log(
-    `done. removed ${removed}, failed ${failed}, manual checks ${manualCheck.length}.`,
-  );
+  console.log(`done. removed ${removed}, failed ${failed}, manual checks ${manualCheck.length}.`);
 }
 
 function runBranchClean(options: CleanOptions): void {
@@ -898,11 +863,7 @@ function runBranchClean(options: CleanOptions): void {
 
   const baseLabel = baseRef === base ? base : `${base} (${baseRef})`;
   console.log(`base: ${baseLabel}`);
-  console.log(
-    apply
-      ? "mode: apply (will remove candidates)"
-      : "mode: dry-run (no removals)",
-  );
+  console.log(apply ? "mode: apply (will remove candidates)" : "mode: dry-run (no removals)");
   if (toRemove.length === 0) {
     console.log("remove candidates: none");
   } else {
@@ -943,9 +904,7 @@ function runBranchClean(options: CleanOptions): void {
     }
   }
 
-  console.log(
-    `done. removed ${removed}, failed ${failed}, manual checks ${manualCheck.length}.`,
-  );
+  console.log(`done. removed ${removed}, failed ${failed}, manual checks ${manualCheck.length}.`);
 }
 
 /**
@@ -982,10 +941,7 @@ function resolveDefaultBranchName(repoRoot: string): string {
   process.exit(1);
 }
 
-function resolveListBaseRef(
-  repoRoot: string,
-  requestedBase: string | undefined,
-): string | null {
+function resolveListBaseRef(repoRoot: string, requestedBase: string | undefined): string | null {
   const trimmed = requestedBase?.trim();
   if (trimmed && trimmed.length > 0) {
     const explicit = resolveBaseRef(repoRoot, trimmed);

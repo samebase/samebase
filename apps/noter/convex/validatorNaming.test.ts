@@ -59,9 +59,7 @@ describe("Convex validator names", () => {
         }
 
         const relativePath = path.relative(convexDir, filePath);
-        violations.push(
-          `${relativePath}:${lineNumberForIndex(source, match.index)} ${name}`,
-        );
+        violations.push(`${relativePath}:${lineNumberForIndex(source, match.index)} ${name}`);
       }
     }
 

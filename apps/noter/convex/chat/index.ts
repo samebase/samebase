@@ -1,9 +1,4 @@
-import {
-  query,
-  mutation,
-  internalMutation,
-  internalQuery,
-} from "../_generated/server";
+import { query, mutation, internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { components, internal } from "../_generated/api";
@@ -17,11 +12,7 @@ import {
   toUIMessages,
   type UIMessage,
 } from "@convex-dev/agent";
-import {
-  vStreamArgs,
-  vStreamDelta,
-  vStreamMessage,
-} from "@convex-dev/agent/validators";
+import { vStreamArgs, vStreamDelta, vStreamMessage } from "@convex-dev/agent/validators";
 import {
   vProdAccessAuditAction,
   vProdAccessProvider,
@@ -39,10 +30,7 @@ import {
 import { assertProdReadAccess, hashText } from "./prodAccess";
 import { ensureThreadAccess, getThreadById } from "./threads";
 import { assertConnectedVault } from "../vault/state";
-import {
-  buildClaimedCommitProposalPayload,
-  canClaimCommitProposal,
-} from "./commitProposalClaim";
+import { buildClaimedCommitProposalPayload, canClaimCommitProposal } from "./commitProposalClaim";
 
 const {
   string,
@@ -84,8 +72,7 @@ export const createThread = mutation({
         .first();
       if (existing) {
         await ctx.db.patch(existing._id, {
-          repositoryFullName:
-            args.repositoryFullName ?? existing.repositoryFullName,
+          repositoryFullName: args.repositoryFullName ?? existing.repositoryFullName,
           branch: args.branch ?? existing.branch,
           filePath: args.filePath ?? existing.filePath,
         });
@@ -93,12 +80,9 @@ export const createThread = mutation({
       }
     }
 
-    const thread = await ctx.runMutation(
-      components.agent.threads.createThread,
-      {
-        userId,
-      },
-    );
+    const thread = await ctx.runMutation(components.agent.threads.createThread, {
+      userId,
+    });
 
     await ctx.db.insert("agentThreadContext", {
       threadId: thread._id,
@@ -128,9 +112,7 @@ export const getThreadForVault = query({
     const userId = await getUserId(ctx);
     const thread = await ctx.db
       .query("agentThreadContext")
-      .withIndex("by_userId_and_vaultId", (q) =>
-        q.eq("userId", userId).eq("vaultId", args.vaultId),
-      )
+      .withIndex("by_userId_and_vaultId", (q) => q.eq("userId", userId).eq("vaultId", args.vaultId))
       .first();
     if (!thread) return null;
     return { threadId: thread.threadId, systemPrompt: thread.systemPrompt };
@@ -475,9 +457,7 @@ export const rejectProdRead = mutation({
       ? await getConnectionByUserAndKind(ctx.db, user._id, "github")
       : null;
     const githubUsername =
-      githubConnection?.kind === "github"
-        ? githubConnection.username
-        : undefined;
+      githubConnection?.kind === "github" ? githubConnection.username : undefined;
     if (!user || !isAdminUser(githubUsername, user.email)) {
       throw new Error("Only admin users can reject production reads");
     }
@@ -504,14 +484,11 @@ export const rejectProdRead = mutation({
       error: "Rejected by user",
     });
 
-    await ctx.runMutation(
-      internal.chat.index.updateProdReadProposalMessageStatusInternal,
-      {
-        messageId: args.messageId,
-        status: "rejected",
-        error: "Rejected by user",
-      },
-    );
+    await ctx.runMutation(internal.chat.index.updateProdReadProposalMessageStatusInternal, {
+      messageId: args.messageId,
+      status: "rejected",
+      error: "Rejected by user",
+    });
 
     return null;
   },
@@ -534,9 +511,7 @@ export const confirmProdRead = mutation({
       ? await getConnectionByUserAndKind(ctx.db, user._id, "github")
       : null;
     const githubUsername =
-      githubConnection?.kind === "github"
-        ? githubConnection.username
-        : undefined;
+      githubConnection?.kind === "github" ? githubConnection.username : undefined;
     if (!user || !isAdminUser(githubUsername, user.email)) {
       throw new Error("Only admin users can approve production reads");
     }
@@ -574,14 +549,11 @@ export const confirmProdRead = mutation({
         error: "Request approval expired",
       });
 
-      await ctx.runMutation(
-        internal.chat.index.updateProdReadProposalMessageStatusInternal,
-        {
-          messageId: args.messageId,
-          status: "expired",
-          error: "Request approval expired",
-        },
-      );
+      await ctx.runMutation(internal.chat.index.updateProdReadProposalMessageStatusInternal, {
+        messageId: args.messageId,
+        status: "expired",
+        error: "Request approval expired",
+      });
       return null;
     }
 
@@ -605,23 +577,16 @@ export const confirmProdRead = mutation({
       error: undefined,
     });
 
-    await ctx.runMutation(
-      internal.chat.index.updateProdReadProposalMessageStatusInternal,
-      {
-        messageId: args.messageId,
-        status: "approved",
-        error: undefined,
-      },
-    );
+    await ctx.runMutation(internal.chat.index.updateProdReadProposalMessageStatusInternal, {
+      messageId: args.messageId,
+      status: "approved",
+      error: undefined,
+    });
 
-    await ctx.scheduler.runAfter(
-      0,
-      internal.chat.actions.executeApprovedProdRead,
-      {
-        requestId: args.requestId,
-        proposalMessageId: args.messageId,
-      },
-    );
+    await ctx.scheduler.runAfter(0, internal.chat.actions.executeApprovedProdRead, {
+      requestId: args.requestId,
+      proposalMessageId: args.messageId,
+    });
 
     return null;
   },
@@ -657,37 +622,29 @@ export const confirmCommit = mutation({
       return null;
     }
     const proposalBranch =
-      typeof claimResult.branch === "string" &&
-      claimResult.branch.trim().length > 0
+      typeof claimResult.branch === "string" && claimResult.branch.trim().length > 0
         ? claimResult.branch.trim()
         : thread.branch;
 
     try {
-      await ctx.scheduler.runAfter(
-        0,
-        internal.fileStagingActions.commitAllStaged,
-        {
-          userId,
-          vaultId: vault._id,
-          branch: proposalBranch,
-          commitProposalMessageId: args.messageId,
-        },
-      );
+      await ctx.scheduler.runAfter(0, internal.fileStagingActions.commitAllStaged, {
+        userId,
+        vaultId: vault._id,
+        branch: proposalBranch,
+        commitProposalMessageId: args.messageId,
+      });
     } catch (error) {
       const commitError =
         error instanceof Error && error.message.length > 0
           ? error.message
           : "Failed to schedule commit";
 
-      await ctx.runMutation(
-        internal.chat.index.updateCommitProposalMessageCommittedInternal,
-        {
-          messageId: args.messageId,
-          committed: false,
-          committing: false,
-          error: commitError,
-        },
-      );
+      await ctx.runMutation(internal.chat.index.updateCommitProposalMessageCommittedInternal, {
+        messageId: args.messageId,
+        committed: false,
+        committing: false,
+        error: commitError,
+      });
 
       throw error;
     }
@@ -847,9 +804,7 @@ export const updateCommitProposalMessageCommittedInternal = internalMutation({
       payloadJson: JSON.stringify({
         ...parsed,
         committed: args.committed,
-        ...(args.committing !== undefined
-          ? { committing: args.committing }
-          : {}),
+        ...(args.committing !== undefined ? { committing: args.committing } : {}),
         error: args.error,
       }),
     });

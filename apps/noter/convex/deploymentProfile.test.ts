@@ -79,9 +79,7 @@ describe("deploymentProfile", () => {
   });
 
   it("derives password auth mode from the explicit deployment profile", () => {
-    expect(resolvePasswordAuthMode({ kind: "local_worktree" })).toBe(
-      "local_worktree_seed",
-    );
+    expect(resolvePasswordAuthMode({ kind: "local_worktree" })).toBe("local_worktree_seed");
     expect(resolvePasswordAuthMode({ kind: "preview" })).toBe("preview_seed");
     expect(resolvePasswordAuthMode({ kind: "local_development" })).toBe("off");
     expect(resolvePasswordAuthMode({ kind: "convex_dev" })).toBe("off");
@@ -89,14 +87,10 @@ describe("deploymentProfile", () => {
   });
 
   it("blocks preview password sign-up while keeping preview sign-in enabled", () => {
-    expect(() =>
-      assertPasswordAuthFlowAllowed("preview_seed", "signUp"),
-    ).toThrowError(
+    expect(() => assertPasswordAuthFlowAllowed("preview_seed", "signUp")).toThrowError(
       "Preview deployments only allow password sign-in for the seeded account",
     );
 
-    expect(() =>
-      assertPasswordAuthFlowAllowed("preview_seed", "signIn"),
-    ).not.toThrow();
+    expect(() => assertPasswordAuthFlowAllowed("preview_seed", "signIn")).not.toThrow();
   });
 });

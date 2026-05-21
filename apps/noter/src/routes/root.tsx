@@ -10,10 +10,7 @@ import { pick } from "@noter-md/dependent/object";
 import { AppBootErrorBoundary } from "@/components/AppBootErrorBoundary";
 import { LOGO_THEME_COLOR_SEARCH_KEYS } from "@/lib/appThemeColorSearch";
 import { applySearchPatch } from "@/lib/routeSearchFlags";
-import {
-  type RootRouteSearch,
-  validateRootRouteSearch,
-} from "@/lib/rootRouteSearch";
+import { type RootRouteSearch, validateRootRouteSearch } from "@/lib/rootRouteSearch";
 import { ROOT_THEME_MODE_SEARCH_KEYS } from "@/lib/rootThemeModeSearch";
 import { buildRootHead } from "@/lib/rootHead";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
@@ -42,10 +39,7 @@ type RootSearchMiddlewareArgs = {
   search: RootRouteSearch;
 };
 
-function retainRootSearchParams({
-  next,
-  search,
-}: RootSearchMiddlewareArgs): RootRouteSearch {
+function retainRootSearchParams({ next, search }: RootSearchMiddlewareArgs): RootRouteSearch {
   let nextSearch: RootRouteSearch = {
     ...pick(search, RETAINED_ROOT_SEARCH_KEYS),
     ...next(search),

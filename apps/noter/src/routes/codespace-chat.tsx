@@ -36,8 +36,6 @@ function CodespaceChatRouteComponent() {
   );
 }
 
-export const Route = createFileRoute(
-  "/vault/$owner/$repo/codespace/$branch/chat",
-)({
+export const Route = createFileRoute("/vault/$owner/$repo/codespace/$branch/chat")({
   component: CodespaceChatRouteComponent,
 });

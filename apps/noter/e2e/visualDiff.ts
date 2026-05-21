@@ -18,10 +18,7 @@ type ScreenshotDiffParams = {
     diffMask?: string;
     expected?: string;
   };
-  diffVisualization?:
-    | "directional-mask"
-    | "directional-weighted"
-    | "weighted-red";
+  diffVisualization?: "directional-mask" | "directional-weighted" | "weighted-red";
   maxDimensionDeltaPx?: {
     height?: number;
     width?: number;
@@ -64,10 +61,7 @@ const MAX_RGBA_DELTA_DISTANCE = Math.hypot(255, 255, 255, 255);
  * local checks do not dirty the worktree with rasterization noise.
  */
 function shouldWriteScreenshotArtifacts(testInfo: TestInfo) {
-  return (
-    testInfo.config.updateSnapshots === "all" ||
-    testInfo.config.updateSnapshots === "changed"
-  );
+  return testInfo.config.updateSnapshots === "all" || testInfo.config.updateSnapshots === "changed";
 }
 
 export function measureScreenshotForegroundBounds(
@@ -79,8 +73,7 @@ export function measureScreenshotForegroundBounds(
 ): ScreenshotForegroundBounds | null {
   const png = PNG.sync.read(screenshot);
   const backgroundChannelThreshold =
-    options?.backgroundChannelThreshold ??
-    DEFAULT_FOREGROUND_BACKGROUND_CHANNEL_THRESHOLD;
+    options?.backgroundChannelThreshold ?? DEFAULT_FOREGROUND_BACKGROUND_CHANNEL_THRESHOLD;
   const ignoreEdgeInsetPx = options?.ignoreEdgeInsetPx ?? 0;
   let minX = png.width;
   let minY = png.height;
@@ -163,9 +156,7 @@ function getVisualizedPixelDiffIntensity(args: {
   expectedPng: PNG;
   index: number;
 }) {
-  const redDelta = Math.abs(
-    args.expectedPng.data[args.index] - args.actualPng.data[args.index],
-  );
+  const redDelta = Math.abs(args.expectedPng.data[args.index] - args.actualPng.data[args.index]);
   const greenDelta = Math.abs(
     args.expectedPng.data[args.index + 1] - args.actualPng.data[args.index + 1],
   );
@@ -176,8 +167,7 @@ function getVisualizedPixelDiffIntensity(args: {
     args.expectedPng.data[args.index + 3] - args.actualPng.data[args.index + 3],
   );
   const normalizedDelta =
-    Math.hypot(redDelta, greenDelta, blueDelta, alphaDelta) /
-    MAX_RGBA_DELTA_DISTANCE;
+    Math.hypot(redDelta, greenDelta, blueDelta, alphaDelta) / MAX_RGBA_DELTA_DISTANCE;
 
   return normalizedDelta === 0 ? 0 : Math.sqrt(normalizedDelta);
 }
@@ -272,18 +262,9 @@ function buildDirectionalMaskDiffPng(args: {
         })
       : 1;
 
-    displayPng.data[index] = blendDiffChannel(
-      diffMaskPng.data[index],
-      intensity,
-    );
-    displayPng.data[index + 1] = blendDiffChannel(
-      diffMaskPng.data[index + 1],
-      intensity,
-    );
-    displayPng.data[index + 2] = blendDiffChannel(
-      diffMaskPng.data[index + 2],
-      intensity,
-    );
+    displayPng.data[index] = blendDiffChannel(diffMaskPng.data[index], intensity);
+    displayPng.data[index + 1] = blendDiffChannel(diffMaskPng.data[index + 1], intensity);
+    displayPng.data[index + 2] = blendDiffChannel(diffMaskPng.data[index + 2], intensity);
     displayPng.data[index + 3] = 255;
   }
 
@@ -299,11 +280,7 @@ export async function takeStableScreenshot(
 ): Promise<Buffer> {
   let lastError: unknown;
 
-  for (
-    let attempt = 0;
-    attempt < STABLE_SCREENSHOT_MAX_ATTEMPTS;
-    attempt += 1
-  ) {
+  for (let attempt = 0; attempt < STABLE_SCREENSHOT_MAX_ATTEMPTS; attempt += 1) {
     await locator.waitFor({ state: "visible" });
 
     try {
@@ -344,18 +321,13 @@ export async function expectScreenshotsToMatch({
   const maxWidthDeltaPx = maxDimensionDeltaPx?.width ?? 0;
   const maxHeightDeltaPx = maxDimensionDeltaPx?.height ?? 0;
 
-  expect(Math.abs(actualPng.width - expectedPng.width)).toBeLessThanOrEqual(
-    maxWidthDeltaPx,
-  );
-  expect(Math.abs(actualPng.height - expectedPng.height)).toBeLessThanOrEqual(
-    maxHeightDeltaPx,
-  );
+  expect(Math.abs(actualPng.width - expectedPng.width)).toBeLessThanOrEqual(maxWidthDeltaPx);
+  expect(Math.abs(actualPng.height - expectedPng.height)).toBeLessThanOrEqual(maxHeightDeltaPx);
 
   const comparisonWidth = Math.min(expectedPng.width, actualPng.width);
   const comparisonHeight = Math.min(expectedPng.height, actualPng.height);
   const comparableExpectedPng =
-    comparisonWidth === expectedPng.width &&
-    comparisonHeight === expectedPng.height
+    comparisonWidth === expectedPng.width && comparisonHeight === expectedPng.height
       ? expectedPng
       : cropPng(expectedPng, comparisonWidth, comparisonHeight);
   const comparableActualPng =
@@ -393,10 +365,7 @@ export async function expectScreenshotsToMatch({
           })
         : {
             diffMaskPng: diffPng,
-            displayPng: buildWeightedRedDiffPng(
-              comparableExpectedPng,
-              comparableActualPng,
-            ),
+            displayPng: buildWeightedRedDiffPng(comparableExpectedPng, comparableActualPng),
           };
   const weightedDiffBuffer = PNG.sync.write(diffVisualizationResult.displayPng);
   const diffMaskBuffer = PNG.sync.write(diffVisualizationResult.diffMaskPng);

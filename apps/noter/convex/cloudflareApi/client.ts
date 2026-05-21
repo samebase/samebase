@@ -13,12 +13,7 @@ import {
   type AjvStandaloneValidateFunction,
 } from "./validators.generated";
 import { callCloudflareMcpTool } from "../cloudflareMcp";
-import {
-  readBoolean,
-  readString,
-  readStringOrNumber,
-  toErrorMessage,
-} from "../jsonUtils";
+import { readBoolean, readString, readStringOrNumber, toErrorMessage } from "../jsonUtils";
 
 const WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE =
   "Cloudflare connection is missing Workers Builds write access. Reconnect Cloudflare and grant Workers Builds, Workers, and Workers Scripts access, then retry.";
@@ -29,14 +24,12 @@ type CloudflareApiErrorDetail = {
   message?: string;
 };
 type CloudflareApiOpenApiClient = Client<paths>;
-type CloudflareApiDeletePath =
-  keyof typeof cloudflareApiResponseValidators.DELETE &
-    ClientPathsWithMethod<CloudflareApiOpenApiClient, "delete">;
+type CloudflareApiDeletePath = keyof typeof cloudflareApiResponseValidators.DELETE &
+  ClientPathsWithMethod<CloudflareApiOpenApiClient, "delete">;
 type CloudflareApiGetPath = keyof typeof cloudflareApiResponseValidators.GET &
   ClientPathsWithMethod<CloudflareApiOpenApiClient, "get">;
-type CloudflareApiPatchPath =
-  keyof typeof cloudflareApiResponseValidators.PATCH &
-    ClientPathsWithMethod<CloudflareApiOpenApiClient, "patch">;
+type CloudflareApiPatchPath = keyof typeof cloudflareApiResponseValidators.PATCH &
+  ClientPathsWithMethod<CloudflareApiOpenApiClient, "patch">;
 type CloudflareApiPostPath = keyof typeof cloudflareApiResponseValidators.POST &
   ClientPathsWithMethod<CloudflareApiOpenApiClient, "post">;
 type CloudflareApiPutPath = keyof typeof cloudflareApiResponseValidators.PUT &
@@ -53,28 +46,48 @@ type CloudflareApiBodyOption<Operation> =
     : FetchOptions<Operation> extends { body?: infer Body }
       ? { body?: Body }
       : { body?: never };
-type CloudflareApiRequestOptions<Operation> =
-  CloudflareApiParamsOption<Operation> & CloudflareApiBodyOption<Operation>;
-type CloudflareApiDeleteOptions<Path extends CloudflareApiDeletePath> =
-  CloudflareApiRequestOptions<NonNullable<paths[Path]["delete"]>>;
-type CloudflareApiGetOptions<Path extends CloudflareApiGetPath> =
-  CloudflareApiRequestOptions<NonNullable<paths[Path]["get"]>>;
-type CloudflareApiPatchOptions<Path extends CloudflareApiPatchPath> =
-  CloudflareApiRequestOptions<NonNullable<paths[Path]["patch"]>>;
-type CloudflareApiPostOptions<Path extends CloudflareApiPostPath> =
-  CloudflareApiRequestOptions<NonNullable<paths[Path]["post"]>>;
-type CloudflareApiPutOptions<Path extends CloudflareApiPutPath> =
-  CloudflareApiRequestOptions<NonNullable<paths[Path]["put"]>>;
-type CloudflareApiDeleteJsonResponse<Path extends CloudflareApiDeletePath> =
-  MethodResponse<CloudflareApiOpenApiClient, "delete", Path>;
-type CloudflareApiGetJsonResponse<Path extends CloudflareApiGetPath> =
-  MethodResponse<CloudflareApiOpenApiClient, "get", Path>;
-type CloudflareApiPatchJsonResponse<Path extends CloudflareApiPatchPath> =
-  MethodResponse<CloudflareApiOpenApiClient, "patch", Path>;
-type CloudflareApiPostJsonResponse<Path extends CloudflareApiPostPath> =
-  MethodResponse<CloudflareApiOpenApiClient, "post", Path>;
-type CloudflareApiPutJsonResponse<Path extends CloudflareApiPutPath> =
-  MethodResponse<CloudflareApiOpenApiClient, "put", Path>;
+type CloudflareApiRequestOptions<Operation> = CloudflareApiParamsOption<Operation> &
+  CloudflareApiBodyOption<Operation>;
+type CloudflareApiDeleteOptions<Path extends CloudflareApiDeletePath> = CloudflareApiRequestOptions<
+  NonNullable<paths[Path]["delete"]>
+>;
+type CloudflareApiGetOptions<Path extends CloudflareApiGetPath> = CloudflareApiRequestOptions<
+  NonNullable<paths[Path]["get"]>
+>;
+type CloudflareApiPatchOptions<Path extends CloudflareApiPatchPath> = CloudflareApiRequestOptions<
+  NonNullable<paths[Path]["patch"]>
+>;
+type CloudflareApiPostOptions<Path extends CloudflareApiPostPath> = CloudflareApiRequestOptions<
+  NonNullable<paths[Path]["post"]>
+>;
+type CloudflareApiPutOptions<Path extends CloudflareApiPutPath> = CloudflareApiRequestOptions<
+  NonNullable<paths[Path]["put"]>
+>;
+type CloudflareApiDeleteJsonResponse<Path extends CloudflareApiDeletePath> = MethodResponse<
+  CloudflareApiOpenApiClient,
+  "delete",
+  Path
+>;
+type CloudflareApiGetJsonResponse<Path extends CloudflareApiGetPath> = MethodResponse<
+  CloudflareApiOpenApiClient,
+  "get",
+  Path
+>;
+type CloudflareApiPatchJsonResponse<Path extends CloudflareApiPatchPath> = MethodResponse<
+  CloudflareApiOpenApiClient,
+  "patch",
+  Path
+>;
+type CloudflareApiPostJsonResponse<Path extends CloudflareApiPostPath> = MethodResponse<
+  CloudflareApiOpenApiClient,
+  "post",
+  Path
+>;
+type CloudflareApiPutJsonResponse<Path extends CloudflareApiPutPath> = MethodResponse<
+  CloudflareApiOpenApiClient,
+  "put",
+  Path
+>;
 type CloudflareApiResponseResult<Response> = [Response] extends [never]
   ? void
   : Response extends { result?: infer Result }
@@ -82,14 +95,18 @@ type CloudflareApiResponseResult<Response> = [Response] extends [never]
     : void;
 type CloudflareApiDeleteResponse<Path extends CloudflareApiDeletePath> =
   CloudflareApiResponseResult<CloudflareApiDeleteJsonResponse<Path>>;
-type CloudflareApiGetResponse<Path extends CloudflareApiGetPath> =
-  CloudflareApiResponseResult<CloudflareApiGetJsonResponse<Path>>;
-type CloudflareApiPatchResponse<Path extends CloudflareApiPatchPath> =
-  CloudflareApiResponseResult<CloudflareApiPatchJsonResponse<Path>>;
-type CloudflareApiPostResponse<Path extends CloudflareApiPostPath> =
-  CloudflareApiResponseResult<CloudflareApiPostJsonResponse<Path>>;
-type CloudflareApiPutResponse<Path extends CloudflareApiPutPath> =
-  CloudflareApiResponseResult<CloudflareApiPutJsonResponse<Path>>;
+type CloudflareApiGetResponse<Path extends CloudflareApiGetPath> = CloudflareApiResponseResult<
+  CloudflareApiGetJsonResponse<Path>
+>;
+type CloudflareApiPatchResponse<Path extends CloudflareApiPatchPath> = CloudflareApiResponseResult<
+  CloudflareApiPatchJsonResponse<Path>
+>;
+type CloudflareApiPostResponse<Path extends CloudflareApiPostPath> = CloudflareApiResponseResult<
+  CloudflareApiPostJsonResponse<Path>
+>;
+type CloudflareApiPutResponse<Path extends CloudflareApiPutPath> = CloudflareApiResponseResult<
+  CloudflareApiPutJsonResponse<Path>
+>;
 type CloudflareApiDeleteEndpointArgs<Path extends CloudflareApiDeletePath> = {
   method: "DELETE";
   path: Path;
@@ -115,26 +132,23 @@ type CloudflareApiDeleteRequestArgs<Path extends CloudflareApiDeletePath> =
     method: "DELETE";
     path: Path;
   } & CloudflareApiDeleteOptions<Path>;
-type CloudflareApiGetRequestArgs<Path extends CloudflareApiGetPath> =
-  CloudflareApiRequestBase & {
-    method: "GET";
-    path: Path;
-  } & CloudflareApiGetOptions<Path>;
+type CloudflareApiGetRequestArgs<Path extends CloudflareApiGetPath> = CloudflareApiRequestBase & {
+  method: "GET";
+  path: Path;
+} & CloudflareApiGetOptions<Path>;
 type CloudflareApiPatchRequestArgs<Path extends CloudflareApiPatchPath> =
   CloudflareApiRequestBase & {
     method: "PATCH";
     path: Path;
   } & CloudflareApiPatchOptions<Path>;
-type CloudflareApiPostRequestArgs<Path extends CloudflareApiPostPath> =
-  CloudflareApiRequestBase & {
-    method: "POST";
-    path: Path;
-  } & CloudflareApiPostOptions<Path>;
-type CloudflareApiPutRequestArgs<Path extends CloudflareApiPutPath> =
-  CloudflareApiRequestBase & {
-    method: "PUT";
-    path: Path;
-  } & CloudflareApiPutOptions<Path>;
+type CloudflareApiPostRequestArgs<Path extends CloudflareApiPostPath> = CloudflareApiRequestBase & {
+  method: "POST";
+  path: Path;
+} & CloudflareApiPostOptions<Path>;
+type CloudflareApiPutRequestArgs<Path extends CloudflareApiPutPath> = CloudflareApiRequestBase & {
+  method: "PUT";
+  path: Path;
+} & CloudflareApiPutOptions<Path>;
 type CloudflareApiRequestParams = {
   path?: Record<string, unknown>;
   query?: Record<string, unknown>;
@@ -174,21 +188,21 @@ export class CloudflareApiError extends Error {
   }
 }
 
-export function formatCloudflareApiEndpoint<
-  const Path extends CloudflareApiDeletePath,
->(args: CloudflareApiDeleteEndpointArgs<Path>): string;
-export function formatCloudflareApiEndpoint<
-  const Path extends CloudflareApiGetPath,
->(args: CloudflareApiGetEndpointArgs<Path>): string;
-export function formatCloudflareApiEndpoint<
-  const Path extends CloudflareApiPatchPath,
->(args: CloudflareApiPatchEndpointArgs<Path>): string;
-export function formatCloudflareApiEndpoint<
-  const Path extends CloudflareApiPostPath,
->(args: CloudflareApiPostEndpointArgs<Path>): string;
-export function formatCloudflareApiEndpoint<
-  const Path extends CloudflareApiPutPath,
->(args: CloudflareApiPutEndpointArgs<Path>): string;
+export function formatCloudflareApiEndpoint<const Path extends CloudflareApiDeletePath>(
+  args: CloudflareApiDeleteEndpointArgs<Path>,
+): string;
+export function formatCloudflareApiEndpoint<const Path extends CloudflareApiGetPath>(
+  args: CloudflareApiGetEndpointArgs<Path>,
+): string;
+export function formatCloudflareApiEndpoint<const Path extends CloudflareApiPatchPath>(
+  args: CloudflareApiPatchEndpointArgs<Path>,
+): string;
+export function formatCloudflareApiEndpoint<const Path extends CloudflareApiPostPath>(
+  args: CloudflareApiPostEndpointArgs<Path>,
+): string;
+export function formatCloudflareApiEndpoint<const Path extends CloudflareApiPutPath>(
+  args: CloudflareApiPutEndpointArgs<Path>,
+): string;
 export function formatCloudflareApiEndpoint(args: {
   method: CloudflareApiRequestMethod;
   path: string;
@@ -213,9 +227,7 @@ function formatCloudflareApiEndpointUnchecked(args: {
  * Sends one OpenAPI-typed Cloudflare request through Cloudflare MCP, then
  * validates the JSON envelope for that exact method and path.
  */
-export function requestCloudflareApi<
-  const Path extends CloudflareApiDeletePath,
->(
+export function requestCloudflareApi<const Path extends CloudflareApiDeletePath>(
   args: CloudflareApiDeleteRequestArgs<Path>,
 ): Promise<CloudflareApiDeleteResponse<Path>>;
 export function requestCloudflareApi<const Path extends CloudflareApiGetPath>(
@@ -334,14 +346,9 @@ export function isWorkersBuildsInvalidTokenMessage(args: {
   );
 }
 
-export function isCloudflareMcpInvalidAccessTokenError(
-  error: unknown,
-): boolean {
+export function isCloudflareMcpInvalidAccessTokenError(error: unknown): boolean {
   const message = toErrorMessage(error).toLowerCase();
-  return (
-    message.includes("invalid_token") ||
-    message.includes("invalid access token")
-  );
+  return message.includes("invalid_token") || message.includes("invalid access token");
 }
 
 function readCloudflareApiRequestParams(options: {
@@ -389,8 +396,7 @@ async function executeCloudflareApiMcpRequest(args: {
     throw new Error("Cloudflare token is required.");
   }
 
-  const bodyPart =
-    args.body === undefined ? "" : `, body: ${JSON.stringify(args.body)}`;
+  const bodyPart = args.body === undefined ? "" : `, body: ${JSON.stringify(args.body)}`;
   const code = `async () => {
   return await cloudflare.request({
     method: ${JSON.stringify(args.method)},
@@ -447,9 +453,7 @@ function parseCloudflareApiEnvelope(args: {
   if (isRecord(payload)) {
     return payload;
   }
-  throw new Error(
-    `Cloudflare MCP returned a non-object response for ${args.endpoint}.`,
-  );
+  throw new Error(`Cloudflare MCP returned a non-object response for ${args.endpoint}.`);
 }
 
 function validateCloudflareApiResult(args: {
@@ -510,9 +514,7 @@ function readCloudflareApiResultData(args: {
   });
 }
 
-function readCloudflareApiErrorDetails(
-  value: unknown,
-): readonly CloudflareApiErrorDetail[] {
+function readCloudflareApiErrorDetails(value: unknown): readonly CloudflareApiErrorDetail[] {
   if (Array.isArray(value)) {
     const details: CloudflareApiErrorDetail[] = [];
     for (const item of value) {
@@ -528,9 +530,7 @@ function readCloudflareApiErrorDetails(
   return detail ? [detail] : [];
 }
 
-function readCloudflareApiErrorDetail(
-  value: unknown,
-): CloudflareApiErrorDetail | null {
+function readCloudflareApiErrorDetail(value: unknown): CloudflareApiErrorDetail | null {
   const record = isRecord(value) ? value : {};
   const code = readStringOrNumber(record, "code");
   const message = readString(record, "message");
@@ -547,9 +547,7 @@ function readCloudflareApiErrorDetail(
   return detail;
 }
 
-function formatCloudflareApiErrorDetails(
-  details: readonly CloudflareApiErrorDetail[],
-): string {
+function formatCloudflareApiErrorDetails(details: readonly CloudflareApiErrorDetail[]): string {
   if (details.length === 0) {
     return "unknown Cloudflare API error";
   }
@@ -567,8 +565,7 @@ function isWorkersBuildsInvalidTokenDetails(args: {
   details: readonly CloudflareApiErrorDetail[];
 }): boolean {
   return (
-    isWorkersBuildsApiPath(args.path) &&
-    args.details.some((detail) => detail.code === "12006")
+    isWorkersBuildsApiPath(args.path) && args.details.some((detail) => detail.code === "12006")
   );
 }
 
@@ -576,10 +573,7 @@ function isWorkersBuildsApiPath(path: string): boolean {
   return path.includes("/builds/");
 }
 
-function serializeCloudflareApiPath(
-  pathname: string,
-  pathParams: Record<string, unknown>,
-): string {
+function serializeCloudflareApiPath(pathname: string, pathParams: Record<string, unknown>): string {
   const normalizedPathParams: Record<string, unknown> = {};
   const entries: [string, unknown][] = Object.entries(pathParams);
   for (const [name, value] of entries) {

@@ -44,9 +44,7 @@ function expectRecord(value: unknown, label: string): JsonRecord {
 }
 
 function readJsonObject(relativePath: string): JsonRecord {
-  const parsed: unknown = JSON.parse(
-    fs.readFileSync(path.join(repoRoot, relativePath), "utf8"),
-  );
+  const parsed: unknown = JSON.parse(fs.readFileSync(path.join(repoRoot, relativePath), "utf8"));
   return expectRecord(parsed, relativePath);
 }
 
@@ -66,20 +64,14 @@ function readStringArray(value: unknown, label: string): string[] {
   return items;
 }
 
-function readOptionalRecord(
-  value: unknown,
-  label: string,
-): JsonRecord | undefined {
+function readOptionalRecord(value: unknown, label: string): JsonRecord | undefined {
   if (value === undefined) {
     return undefined;
   }
   return expectRecord(value, label);
 }
 
-function readOptionalStringArray(
-  value: unknown,
-  label: string,
-): string[] | undefined {
+function readOptionalStringArray(value: unknown, label: string): string[] | undefined {
   if (value === undefined) {
     return undefined;
   }
@@ -106,10 +98,7 @@ function readOptionalStringRecord(
   return parsed;
 }
 
-function readOptionalJsPlugins(
-  value: unknown,
-  label: string,
-): JsPluginConfig[] | undefined {
+function readOptionalJsPlugins(value: unknown, label: string): JsPluginConfig[] | undefined {
   if (value === undefined) {
     return undefined;
   }
@@ -142,10 +131,7 @@ function readOptionalJsPlugins(
   return plugins;
 }
 
-function readOptionalOverrides(
-  value: unknown,
-  label: string,
-): OxlintOverride[] | undefined {
+function readOptionalOverrides(value: unknown, label: string): OxlintOverride[] | undefined {
   if (value === undefined) {
     return undefined;
   }
@@ -159,10 +145,7 @@ function readOptionalOverrides(
     const override: OxlintOverride = {};
 
     if (record.files !== undefined) {
-      override.files = readStringArray(
-        record.files,
-        `${label}[${index}].files`,
-      );
+      override.files = readStringArray(record.files, `${label}[${index}].files`);
     }
 
     if (record.rules !== undefined) {
@@ -180,25 +163,16 @@ function readRootViteConfig(): JsonRecord {
 }
 
 function readRootLintConfig(): OxlintConfig {
-  const config = expectRecord(
-    readRootViteConfig()["lint"],
-    "vite.config.ts.lint",
-  );
+  const config = expectRecord(readRootViteConfig()["lint"], "vite.config.ts.lint");
   return {
     options: readOptionalRecord(config.options, "vite.config.ts.lint.options"),
     ignorePatterns: readOptionalStringArray(
       config.ignorePatterns,
       "vite.config.ts.lint.ignorePatterns",
     ),
-    jsPlugins: readOptionalJsPlugins(
-      config.jsPlugins,
-      "vite.config.ts.lint.jsPlugins",
-    ),
+    jsPlugins: readOptionalJsPlugins(config.jsPlugins, "vite.config.ts.lint.jsPlugins"),
     rules: readOptionalRecord(config.rules, "vite.config.ts.lint.rules"),
-    overrides: readOptionalOverrides(
-      config.overrides,
-      "vite.config.ts.lint.overrides",
-    ),
+    overrides: readOptionalOverrides(config.overrides, "vite.config.ts.lint.overrides"),
   };
 }
 
@@ -207,10 +181,7 @@ function readRootFmtConfig(): JsonRecord {
 }
 
 function readRootStagedConfig(): Record<string, string> {
-  const staged = readOptionalStringRecord(
-    readRootViteConfig()["staged"],
-    "vite.config.ts.staged",
-  );
+  const staged = readOptionalStringRecord(readRootViteConfig()["staged"], "vite.config.ts.staged");
   if (!staged) {
     throw new Error("vite.config.ts.staged must be defined");
   }
@@ -238,9 +209,7 @@ describe("lint config", () => {
     expect(oxlintConfig.options).toMatchObject({ typeAware: true });
     expect(oxlintConfig.ignorePatterns).toContain("**/.codespace-agent/**");
     expect(oxlintConfig.ignorePatterns).not.toContain("**/vite.config.ts");
-    expect(
-      appWideOverride?.rules?.["@typescript-eslint/no-explicit-any"],
-    ).toBeUndefined();
+    expect(appWideOverride?.rules?.["@typescript-eslint/no-explicit-any"]).toBeUndefined();
     expect(oxlintConfig.jsPlugins).toEqual(
       expect.arrayContaining([
         {
@@ -258,15 +227,9 @@ describe("lint config", () => {
       specifier: "eslint-plugin-noter-local",
     });
     expect(oxlintConfig.rules).toMatchObject({
-      "react-refresh/only-export-components": [
-        "error",
-        { allowConstantExport: true },
-      ],
+      "react-refresh/only-export-components": ["error", { allowConstantExport: true }],
       "@typescript-eslint/await-thenable": "error",
-      "@typescript-eslint/consistent-type-assertions": [
-        "warn",
-        { assertionStyle: "never" },
-      ],
+      "@typescript-eslint/consistent-type-assertions": ["warn", { assertionStyle: "never" }],
       "@typescript-eslint/no-unnecessary-condition": "error",
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/restrict-template-expressions": "error",
@@ -290,26 +253,20 @@ describe("lint config", () => {
       "@convex-dev/eslint-plugin": "2.0.0",
       "eslint-plugin-react-refresh": "^0.4.7",
     });
-    expect(
-      rootPackage.devDependencies?.["eslint-plugin-noter-local"],
-    ).toBeUndefined();
+    expect(rootPackage.devDependencies?.["eslint-plugin-noter-local"]).toBeUndefined();
     expect(rootPackage.devDependencies?.vitest).toBeUndefined();
     expect(rootPackage.devDependencies?.oxlint).toBeUndefined();
     expect(rootPackage.devDependencies?.["oxlint-tsgolint"]).toBeUndefined();
     expect(fmtConfig).toMatchObject({
-      printWidth: 80,
+      printWidth: 100,
       proseWrap: "always",
     });
     expect(stagedConfig).toMatchObject({
       "*.{cjs,css,cts,html,js,json,jsonc,jsonl,jsx,md,mjs,mts,ts,toml,tsx,yaml,yml}":
         "vp check --fix",
     });
-    expect(rootPackage.scripts?.prepare).toBe(
-      "vp config --hooks-dir .vite-hooks",
-    );
-    expect(rootPackage.scripts?.["lint:scripts"]).toContain(
-      "pnpm exec vp lint",
-    );
+    expect(rootPackage.scripts?.prepare).toBe("vp config --hooks-dir .vite-hooks");
+    expect(rootPackage.scripts?.["lint:scripts"]).toContain("pnpm exec vp lint");
     expect(rootPackage.scripts?.["lint:scripts"]).not.toContain("--config");
     expect(appPackage.scripts?.check).toContain("pnpm run lint:vp");
     expect(appPackage.scripts?.lint).toContain("pnpm run check");
@@ -318,8 +275,6 @@ describe("lint config", () => {
     expect(appPackage.scripts?.lint).not.toContain("eslint");
     expect(rootPackage.devDependencies?.husky).toBeUndefined();
     expect(appPackage.devDependencies?.eslint).toBeUndefined();
-    expect(
-      appPackage.devDependencies?.["@typescript-eslint/parser"],
-    ).toBeUndefined();
+    expect(appPackage.devDependencies?.["@typescript-eslint/parser"]).toBeUndefined();
   });
 });

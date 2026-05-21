@@ -5,12 +5,12 @@
 Implement Polar billing so that:
 
 - Free remains self-sustainable (BYO providers, no Noter-managed infra).
-- Paid (Pro) unlocks Noter-managed vault creation (GitHub repo creation +
-  starter seeding + infra provisioning).
+- Paid (Pro) unlocks Noter-managed vault creation (GitHub repo creation + starter seeding + infra
+  provisioning).
 - Entitlement is webhook-driven (never trust client redirects as the authority).
 
-This spec is focused on a minimal, production-ready subscription flow, with a
-clear path to credits/metering later.
+This spec is focused on a minimal, production-ready subscription flow, with a clear path to
+credits/metering later.
 
 ## Non-Goals (V1)
 
@@ -21,10 +21,10 @@ clear path to credits/metering later.
 ## Polar Model (What We Use)
 
 - Checkout Sessions: server-side creation returns a checkout URL to redirect to.
-- `external_customer_id`: a stable Noter-generated identifier, stored on the
-  user record, used to reconcile Polar state back to the Convex user.
-- Webhooks: signature-validated inbound events; we treat customer state as the
-  source of truth for entitlements.
+- `external_customer_id`: a stable Noter-generated identifier, stored on the user record, used to
+  reconcile Polar state back to the Convex user.
+- Webhooks: signature-validated inbound events; we treat customer state as the source of truth for
+  entitlements.
 - Customer Portal Sessions: server-side creation returns a customer portal URL.
 
 ## Environment Strategy
@@ -79,8 +79,7 @@ Actions
 
 - `createPolarCheckoutSession`
   - Input: billing interval (`monthly`/`annual`), `successUrl`, `returnUrl`
-  - Ensures the viewer has `billingPolarExternalCustomerId` (generate if
-    missing)
+  - Ensures the viewer has `billingPolarExternalCustomerId` (generate if missing)
   - Calls Polar `POST /v1/checkouts` with:
     - `products: [<productId>]`
     - `external_customer_id: <billingPolarExternalCustomerId>`
@@ -98,29 +97,27 @@ Actions
 Internal helpers
 
 - `ensurePolarExternalCustomerId` (mutation)
-- `applyPolarCustomerState` (mutation): updates user billing fields based on
-  canonical customer state.
+- `applyPolarCustomerState` (mutation): updates user billing fields based on canonical customer
+  state.
 
 ## Webhooks
 
-Create `apps/noter/convex/polarWebhooks.ts` + route it in
-`apps/noter/convex/http.ts`:
+Create `apps/noter/convex/polarWebhooks.ts` + route it in `apps/noter/convex/http.ts`:
 
 - Route: `POST /webhooks/polar`
-- Validate signature using Polar SDK helper (`validateEvent`) against
-  `POLAR_WEBHOOK_SECRET`.
+- Validate signature using Polar SDK helper (`validateEvent`) against `POLAR_WEBHOOK_SECRET`.
 - From the validated event, extract the `external_customer_id` (via customer).
 - Fetch canonical state: `GET /v1/customers/external/{external_id}/state`
 - Derive entitlement:
-  - Pro is active if any `active_subscriptions[].product_id` matches the Pro
-    product(s) for the current environment.
+  - Pro is active if any `active_subscriptions[].product_id` matches the Pro product(s) for the
+    current environment.
 - Persist billing fields via `applyPolarCustomerState`.
 
 Idempotency strategy:
 
 - Webhook deliveries may be repeated or out of order.
-- We always compute from canonical customer state and apply the same update, so
-  repeated processing is safe.
+- We always compute from canonical customer state and apply the same update, so repeated processing
+  is safe.
 
 ## Feature Gating
 
@@ -128,8 +125,7 @@ Gate `vaultActions.createRepository`:
 
 - Admin user bypass (owner can always create managed vaults).
 - Otherwise require active Pro entitlement.
-- On failure, throw a clear error: \"Upgrade to Pro to create a Noter-managed
-  project.\"
+- On failure, throw a clear error: \"Upgrade to Pro to create a Noter-managed project.\"
 
 Do not gate `vaultActions.connectRepository` (free tier flow).
 

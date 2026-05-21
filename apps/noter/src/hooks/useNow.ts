@@ -8,8 +8,7 @@ export function useNow({
   intervalMs?: number;
 } = {}) {
   const [now, setNow] = useState(Date.now());
-  const normalizedIntervalMs =
-    Number.isFinite(intervalMs) && intervalMs > 0 ? intervalMs : 1_000;
+  const normalizedIntervalMs = Number.isFinite(intervalMs) && intervalMs > 0 ? intervalMs : 1_000;
 
   useEffect(() => {
     if (!enabled) {

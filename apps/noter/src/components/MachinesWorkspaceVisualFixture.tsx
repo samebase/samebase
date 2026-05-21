@@ -78,12 +78,9 @@ const FIXTURE_TURN_LATEST: CodexAppServerThreadTurn = {
     {
       id: "item-machine-workspace-reasoning-latest",
       type: "reasoning",
-      summary:
-        "Compare the shared shell against Codex before adding extra chrome.",
+      summary: "Compare the shared shell against Codex before adding extra chrome.",
       raw: {
-        summary: [
-          "Compare the shared shell against Codex before adding extra chrome.",
-        ],
+        summary: ["Compare the shared shell against Codex before adding extra chrome."],
       },
     },
     {
@@ -100,8 +97,7 @@ const FIXTURE_TURN_LATEST: CodexAppServerThreadTurn = {
       type: "commandExecution",
       summary: "pnpm exec playwright test machines-workspace",
       raw: {
-        command:
-          "pnpm exec playwright test apps/noter/e2e/machines-workspace-visual.spec.ts",
+        command: "pnpm exec playwright test apps/noter/e2e/machines-workspace-visual.spec.ts",
         cwd: FIXTURE_WORKTREE_CWD,
       },
     },
@@ -224,8 +220,7 @@ const FOURTH_THREAD: CodexAppServerThread = {
   id: "thread-machine-workspace-fourth",
   name: "Investigate flaky screenshot test",
   path: `${FIXTURE_SESSION_ROOT}/thread-machine-workspace-fourth.jsonl`,
-  preview:
-    "Check why the screenshot diff keeps shifting a pixel or two between runs.",
+  preview: "Check why the screenshot diff keeps shifting a pixel or two between runs.",
   project: {
     id: FIXTURE_SECOND_PROJECT_ROOT,
     label: "learn_vp",
@@ -245,8 +240,7 @@ const FIFTH_THREAD: CodexAppServerThread = {
   id: "thread-machine-workspace-fifth",
   name: "Map PR 390 UI diagram",
   path: `${FIXTURE_SESSION_ROOT}/thread-machine-workspace-fifth.jsonl`,
-  preview:
-    "Lay out the sidebar structure before we connect the rest of the chat surface.",
+  preview: "Lay out the sidebar structure before we connect the rest of the chat surface.",
   updatedAt: 1_775_420_262,
 };
 
@@ -272,23 +266,16 @@ const SIXTH_THREAD: CodexAppServerThread = {
 };
 
 export function MachinesWorkspaceVisualFixture() {
-  const [machineThreads, setMachineThreads] = useState<
-    Record<string, CodexAppServerThread[]>
-  >({
+  const [machineThreads, setMachineThreads] = useState<Record<string, CodexAppServerThread[]>>({
     "machine-mac": [FIRST_THREAD, SECOND_THREAD, THIRD_THREAD],
     "machine-win": [FOURTH_THREAD, FIFTH_THREAD, SIXTH_THREAD],
   });
   const [pendingConversation, setPendingConversation] =
     useState<MachinesWorkspaceProjectConversationSelection | null>(null);
-  const [selectedMachineId, setSelectedMachineId] =
-    useState<string>("machine-mac");
-  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(
-    SECOND_THREAD.id,
-  );
+  const [selectedMachineId, setSelectedMachineId] = useState<string>("machine-mac");
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(SECOND_THREAD.id);
   const [turnDraft, setTurnDraft] = useState("");
-  const [machinePinnedThreadIds, setMachinePinnedThreadIds] = useState<
-    Record<string, string[]>
-  >({
+  const [machinePinnedThreadIds, setMachinePinnedThreadIds] = useState<Record<string, string[]>>({
     "machine-mac": [SECOND_THREAD.id, THIRD_THREAD.id],
     "machine-win": [FOURTH_THREAD.id],
   });
@@ -301,13 +288,9 @@ export function MachinesWorkspaceVisualFixture() {
     [machineThreads, selectedThreadId],
   );
   const selectedMachineDisplayName =
-    selectedMachineId === "machine-win"
-      ? "Research Windows Workstation"
-      : "Research MacBook Pro";
+    selectedMachineId === "machine-win" ? "Research Windows Workstation" : "Research MacBook Pro";
   const selectedMachineHostname =
-    selectedMachineId === "machine-win"
-      ? "research-win.local"
-      : "research-mbp.local";
+    selectedMachineId === "machine-win" ? "research-win.local" : "research-mbp.local";
   const handleThreadPinChange = (args: {
     machineId: string;
     nextPinned: boolean;
@@ -321,19 +304,13 @@ export function MachinesWorkspaceVisualFixture() {
         [args.machineId]: args.nextPinned
           ? [
               args.threadId,
-              ...machinePinnedIds.filter(
-                (currentThreadId) => currentThreadId !== args.threadId,
-              ),
+              ...machinePinnedIds.filter((currentThreadId) => currentThreadId !== args.threadId),
             ]
-          : machinePinnedIds.filter(
-              (currentThreadId) => currentThreadId !== args.threadId,
-            ),
+          : machinePinnedIds.filter((currentThreadId) => currentThreadId !== args.threadId),
       };
     });
   };
-  const handleProjectStartConversation = (
-    args: MachinesWorkspaceProjectConversationSelection,
-  ) => {
+  const handleProjectStartConversation = (args: MachinesWorkspaceProjectConversationSelection) => {
     setPendingConversation(args);
     setSelectedMachineId(args.machineId);
     setSelectedThreadId(null);
@@ -347,8 +324,7 @@ export function MachinesWorkspaceVisualFixture() {
     createdThreadCountRef.current += 1;
     const nextId = `thread-machine-workspace-created-${createdThreadCountRef.current}`;
     const nextUpdatedAt =
-      FIXTURE_RELATIVE_TIME_REFERENCE_MS +
-      createdThreadCountRef.current * 60_000;
+      FIXTURE_RELATIVE_TIME_REFERENCE_MS + createdThreadCountRef.current * 60_000;
     const worktreeLabel =
       pendingConversation.envMode === "worktree"
         ? `m${createdThreadCountRef.current.toString().padStart(3, "0")}`
@@ -368,15 +344,9 @@ export function MachinesWorkspaceVisualFixture() {
         {
           id: `assistant-${nextId}`,
           raw: {
-            text:
-              pendingConversation.envMode === "worktree"
-                ? "WORKTREE READY"
-                : "LOCAL READY",
+            text: pendingConversation.envMode === "worktree" ? "WORKTREE READY" : "LOCAL READY",
           },
-          summary:
-            pendingConversation.envMode === "worktree"
-              ? "WORKTREE READY"
-              : "LOCAL READY",
+          summary: pendingConversation.envMode === "worktree" ? "WORKTREE READY" : "LOCAL READY",
           type: "agentMessage",
         },
       ],
@@ -444,9 +414,7 @@ export function MachinesWorkspaceVisualFixture() {
 
   return (
     <TestRouterProvider>
-      <WorkspaceLayoutV2MemorySidebarProvider
-        initialState={initialSidebarState}
-      >
+      <WorkspaceLayoutV2MemorySidebarProvider initialState={initialSidebarState}>
         <div className="bg-slate-100 p-8 text-slate-950">
           <div
             data-testid="machines-workspace-visual-fixture-page"
@@ -455,9 +423,7 @@ export function MachinesWorkspaceVisualFixture() {
             <MachinesWorkspaceView
               dataTestId="machines-workspace-visual-fixture"
               isSubmittingTurn={false}
-              leftSidebarHeader={
-                <SidebarHomeAccountHeader userDisplayName="nicu@noter.md" />
-              }
+              leftSidebarHeader={<SidebarHomeAccountHeader userDisplayName="nicu@noter.md" />}
               machineInventories={[
                 {
                   hasLoadedThreadInventory: true,

@@ -7,12 +7,7 @@ import {
   defaultHighlightStyle,
   foldKeymap,
 } from "@codemirror/language";
-import {
-  dropCursor,
-  rectangularSelection,
-  keymap,
-  EditorView,
-} from "@codemirror/view";
+import { dropCursor, rectangularSelection, keymap, EditorView } from "@codemirror/view";
 
 /**
  * File-view CodeMirror surfaces share the same base shell so editable code,

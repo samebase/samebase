@@ -13,11 +13,7 @@ import {
   vVaultDeletionRun,
   vVaultDeletionStep,
 } from "./vault/deletion/model";
-import {
-  vMcpTokenHealthSource,
-  vMcpTokenHealthStatus,
-  vMcpTokenHealth,
-} from "./mcpTokenHealth";
+import { vMcpTokenHealthSource, vMcpTokenHealthStatus, vMcpTokenHealth } from "./mcpTokenHealth";
 import {
   vConnectedMachineRow,
   vMachineControlTokenRow,
@@ -29,8 +25,7 @@ import { vRepositoryRefreshRequest } from "./repositoryRefreshModel";
 import { codespacesTable } from "./codespaces/model";
 import { vWorkspaceSidebarStateRow } from "./workspaceSidebarStateModel";
 
-const { array, boolean, id, literal, number, object, optional, string, union } =
-  v;
+const { array, boolean, id, literal, number, object, optional, string, union } = v;
 const { users: _authUsers, ...authTablesWithoutUsers } = authTables;
 
 const BillingProvider = optional(literal("polar"));
@@ -48,9 +43,7 @@ const BillingUpdatedAt = optional(number());
 const BillingCurrentPeriodEndAt = optional(number());
 const BillingPolarExternalCustomerId = optional(string());
 
-const PricingBillingCycle = optional(
-  union(literal("monthly"), literal("annual")),
-);
+const PricingBillingCycle = optional(union(literal("monthly"), literal("annual")));
 
 export const vPullRequestLabel = union(
   string(),
@@ -63,17 +56,9 @@ export type PullRequestLabel = Infer<typeof vPullRequestLabel>;
 
 export type GithubTree = Infer<typeof vGithubTree>;
 export type GithubTreeData = Infer<typeof vGithubTreeData>;
-export type GitHubRepositoryVisibility = Infer<
-  typeof vGitHubRepositoryVisibility
->;
-export const vAppProvisioningEventLevel = union(
-  literal("info"),
-  literal("warn"),
-  literal("error"),
-);
-export type AppProvisioningEventLevel = Infer<
-  typeof vAppProvisioningEventLevel
->;
+export type GitHubRepositoryVisibility = Infer<typeof vGitHubRepositoryVisibility>;
+export const vAppProvisioningEventLevel = union(literal("info"), literal("warn"), literal("error"));
+export type AppProvisioningEventLevel = Infer<typeof vAppProvisioningEventLevel>;
 
 export const vAppProvisioningStep = union(
   literal("initialize_vault"),
@@ -117,9 +102,7 @@ export const vAppProvisioningRunTrigger = union(
   literal("connect_existing_repository"),
   literal("retry"),
 );
-export type AppProvisioningRunTrigger = Infer<
-  typeof vAppProvisioningRunTrigger
->;
+export type AppProvisioningRunTrigger = Infer<typeof vAppProvisioningRunTrigger>;
 
 export const vAppProvisioningRunState = union(
   literal("queued"),
@@ -147,20 +130,14 @@ export const vConvexDeployKeys = object({
 });
 export type ConvexDeployKeys = Infer<typeof vConvexDeployKeys>;
 
-export const vVaultDomainKind = union(
-  literal("main"),
-  literal("branch_preview"),
-);
+export const vVaultDomainKind = union(literal("main"), literal("branch_preview"));
 
 export const vVaultDomainSource = union(
   literal("cloudflare_workers_default"),
   literal("cloudflare_workers_custom"),
 );
 
-export const vVaultRemoteBranchState = union(
-  literal("active"),
-  literal("deleted_upstream"),
-);
+export const vVaultRemoteBranchState = union(literal("active"), literal("deleted_upstream"));
 
 export type TreeRefreshFailureKind = Infer<typeof vTreeRefreshFailureKind>;
 export type VaultDeletionStep = Infer<typeof vVaultDeletionStep>;
@@ -168,10 +145,7 @@ export type VaultDeletionEventLevel = Infer<typeof vVaultDeletionEventLevel>;
 
 export const vProdAccessScope = union(literal("vault"), literal("global"));
 
-export const vProdAccessProvider = union(
-  literal("convex"),
-  literal("cloudflare"),
-);
+export const vProdAccessProvider = union(literal("convex"), literal("cloudflare"));
 
 export const vProdAccessResourceKind = union(
   literal("deployment_status"),
@@ -206,17 +180,10 @@ export const vProdAccessAuditAction = union(
   literal("expired"),
 );
 
-export const vProviderKind = union(
-  literal("github"),
-  literal("convex"),
-  literal("cloudflare"),
-);
+export const vProviderKind = union(literal("github"), literal("convex"), literal("cloudflare"));
 export type ProviderKind = Infer<typeof vProviderKind>;
 
-export const vMcpOauthClientCreatedBy = union(
-  literal("dynamic_registration"),
-  literal("manual"),
-);
+export const vMcpOauthClientCreatedBy = union(literal("dynamic_registration"), literal("manual"));
 export const vMcpOauthClientRegistrationStatus = union(
   literal("provisional"),
   literal("active"),
@@ -368,10 +335,10 @@ export default defineSchema({
     globalChatOpen: optional(boolean()),
   }).index("by_user", ["userId"]),
 
-  workspaceSidebarState: defineTable(vWorkspaceSidebarStateRow).index(
-    "by_user_and_workspace_key",
-    ["userId", "workspaceKey"],
-  ),
+  workspaceSidebarState: defineTable(vWorkspaceSidebarStateRow).index("by_user_and_workspace_key", [
+    "userId",
+    "workspaceKey",
+  ]),
 
   vaultBranchFilters: defineTable({
     userId: id("users"),
@@ -395,11 +362,7 @@ export default defineSchema({
    */
   vaults: defineTable(vVaultRow)
     .index("by_userId", ["userId"])
-    .index("by_userId_and_state_and_deletion_state", [
-      "userId",
-      "state",
-      "deletion.state",
-    ])
+    .index("by_userId_and_state_and_deletion_state", ["userId", "state", "deletion.state"])
     .index("by_userId_and_ghRepoId", ["userId", "ghRepoId"])
     .index("by_owner_and_name", ["owner", "name"]),
 
@@ -453,11 +416,7 @@ export default defineSchema({
    * branch-scoped demand; exact refresh steps stay backend execution policy.
    */
   repositoryRefreshRequests: defineTable(vRepositoryRefreshRequest)
-    .index("by_userId_and_vaultId_and_dedupeKey", [
-      "userId",
-      "vaultId",
-      "dedupeKey",
-    ])
+    .index("by_userId_and_vaultId_and_dedupeKey", ["userId", "vaultId", "dedupeKey"])
     .index("by_userId_and_vaultId_and_dedupeKey_and_lifecycle_state", [
       "userId",
       "vaultId",
@@ -658,11 +617,7 @@ export default defineSchema({
     .index("by_vault_and_branch_and_path", ["vaultId", "branch", "filePath"])
     .index("by_vault_and_initial_path", ["vaultId", "initialFilePath"])
     .index("by_vault_and_branch", ["vaultId", "branch"])
-    .index("by_vault_and_branch_and_initial_path", [
-      "vaultId",
-      "branch",
-      "initialFilePath",
-    ])
+    .index("by_vault_and_branch_and_initial_path", ["vaultId", "branch", "initialFilePath"])
     .index("by_vault", ["vaultId"])
     .index("by_vault_and_storageId", ["vaultId", "storageId"])
     .index("by_user", ["lastEditUserId"]),
@@ -817,11 +772,7 @@ export default defineSchema({
    * OAuth state records for provider integrations.
    */
   oauthStates: defineTable({
-    provider: union(
-      literal("github"),
-      literal("convex"),
-      literal("cloudflare_mcp"),
-    ),
+    provider: union(literal("github"), literal("convex"), literal("cloudflare_mcp")),
     userId: id("users"),
     state: string(),
     returnToPath: optional(string()),
@@ -989,16 +940,8 @@ export default defineSchema({
     .index("by_file", ["vaultId", "filePath"])
     .index("by_file_and_version", ["vaultId", "filePath", "version"])
     .index("by_vaultId_and_branch", ["vaultId", "branch"])
-    .index("by_vaultId_and_branch_and_timestamp", [
-      "vaultId",
-      "branch",
-      "timestamp",
-    ])
-    .index("by_vaultId_and_branch_and_filePath", [
-      "vaultId",
-      "branch",
-      "filePath",
-    ])
+    .index("by_vaultId_and_branch_and_timestamp", ["vaultId", "branch", "timestamp"])
+    .index("by_vaultId_and_branch_and_filePath", ["vaultId", "branch", "filePath"])
     .index("by_vaultId_and_branch_and_filePath_and_version", [
       "vaultId",
       "branch",

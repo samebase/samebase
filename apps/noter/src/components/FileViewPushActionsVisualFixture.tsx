@@ -16,12 +16,9 @@ export function FileViewPushActionsVisualFixture({
     >
       <div className="mx-auto max-w-4xl">
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            File View Push Actions
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight">File View Push Actions</h1>
           <p className="mt-2 max-w-2xl text-sm text-stone-600">
-            Visual fixture for the primary branch actions near the editor
-            header.
+            Visual fixture for the primary branch actions near the editor header.
           </p>
         </div>
 
@@ -31,9 +28,7 @@ export function FileViewPushActionsVisualFixture({
               canCreateDraftPullRequest={!isOpenPullRequestMode}
               currentPullRequestNumber={isOpenPullRequestMode ? 999 : undefined}
               currentPullRequestUrl={
-                isOpenPullRequestMode
-                  ? "https://github.com/noter-md/noter/pull/999"
-                  : undefined
+                isOpenPullRequestMode ? "https://github.com/noter-md/noter/pull/999" : undefined
               }
               draftButtonLabel={isDefaultDraftMode ? "draft" : "create draft"}
               hasChangesToCommit={!isOpenPullRequestMode}

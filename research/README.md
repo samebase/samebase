@@ -1,7 +1,7 @@
 # Research
 
-`research/` is for exploratory material that informs decisions but does not
-define the current product contract.
+`research/` is for exploratory material that informs decisions but does not define the current
+product contract.
 
 Use `research/` for:
 
@@ -11,9 +11,8 @@ Use `research/` for:
 - benchmarks, experiments, and tradeoff investigations
 - bug-finding memos before a concrete rollout plan exists
 
-Research is useful evidence, not normative behavior. If a research document
-turns into a concrete proposal, promote it to `rfcs/`. If that proposal becomes
-accepted and active, move the accepted contract into `specs/`.
+Research is useful evidence, not normative behavior. If a research document turns into a concrete
+proposal, promote it to `rfcs/`. If that proposal becomes accepted and active, move the accepted
+contract into `specs/`.
 
-When a research document is no longer useful for active decisions, move it to
-`archive/`.
+When a research document is no longer useful for active decisions, move it to `archive/`.

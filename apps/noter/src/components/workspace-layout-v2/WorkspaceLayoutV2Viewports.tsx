@@ -22,14 +22,13 @@ function getMobilePaneSeparatorClass(pane: MobilePane, activePane: MobilePane) {
   return "workspace-mobile-pane-separators";
 }
 
-type WorkspaceLayoutV2DesktopViewportProps =
-  WorkspaceLayoutV2ResolvedPaneContent & {
-    activeResizeSide: WorkspaceLayoutV2ActiveResizeSide;
-    desktopLeftWidthPx: number;
-    desktopRightWidthPx: number;
-    showLeftPane: boolean;
-    showRightPane: boolean;
-  };
+type WorkspaceLayoutV2DesktopViewportProps = WorkspaceLayoutV2ResolvedPaneContent & {
+  activeResizeSide: WorkspaceLayoutV2ActiveResizeSide;
+  desktopLeftWidthPx: number;
+  desktopRightWidthPx: number;
+  showLeftPane: boolean;
+  showRightPane: boolean;
+};
 
 export function WorkspaceLayoutV2DesktopViewport({
   activeResizeSide,
@@ -44,10 +43,7 @@ export function WorkspaceLayoutV2DesktopViewport({
   return (
     <div className="absolute inset-0 flex min-h-0 overflow-hidden bg-background">
       {showLeftPane ? (
-        <div
-          className="h-full min-h-0 shrink-0"
-          style={{ width: `${desktopLeftWidthPx}px` }}
-        >
+        <div className="h-full min-h-0 shrink-0" style={{ width: `${desktopLeftWidthPx}px` }}>
           <div
             data-testid="workspace-layout-v2-pane-left"
             className={cn(
@@ -73,10 +69,7 @@ export function WorkspaceLayoutV2DesktopViewport({
       </div>
 
       {showRightPane ? (
-        <div
-          className="h-full min-h-0 shrink-0"
-          style={{ width: `${desktopRightWidthPx}px` }}
-        >
+        <div className="h-full min-h-0 shrink-0" style={{ width: `${desktopRightWidthPx}px` }}>
           <div
             data-testid="workspace-layout-v2-pane-right"
             className={cn(
@@ -97,19 +90,18 @@ export function WorkspaceLayoutV2DesktopViewport({
   );
 }
 
-type WorkspaceLayoutV2MobileViewportProps =
-  WorkspaceLayoutV2ResolvedPaneContent & {
-    carouselRef: RefObject<HTMLDivElement | null>;
-    leftWidthPx: number;
-    lockCarouselScroll: boolean;
-    mergedSurfaceSide: WorkspaceLayoutV2MobileMergedSide | null;
-    mobilePane: MobilePane;
-    paneWidthPx: number;
-    peekWidthPx: number;
-    rightWidthPx: number;
-    showLeftPane: boolean;
-    showRightPane: boolean;
-  };
+type WorkspaceLayoutV2MobileViewportProps = WorkspaceLayoutV2ResolvedPaneContent & {
+  carouselRef: RefObject<HTMLDivElement | null>;
+  leftWidthPx: number;
+  lockCarouselScroll: boolean;
+  mergedSurfaceSide: WorkspaceLayoutV2MobileMergedSide | null;
+  mobilePane: MobilePane;
+  paneWidthPx: number;
+  peekWidthPx: number;
+  rightWidthPx: number;
+  showLeftPane: boolean;
+  showRightPane: boolean;
+};
 
 export function WorkspaceLayoutV2MobileViewport({
   carouselRef,

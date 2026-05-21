@@ -41,9 +41,7 @@ function quantizeAngleDegrees(value: number, stepDegrees?: number): number {
     return normalizeRotationDegrees(value);
   }
 
-  return normalizeRotationDegrees(
-    Math.round(value / stepDegrees) * stepDegrees,
-  );
+  return normalizeRotationDegrees(Math.round(value / stepDegrees) * stepDegrees);
 }
 
 export function resolveDraggedAngleDegrees({
@@ -68,8 +66,7 @@ export function resolveDraggedAngleDegrees({
   let closestDistanceDegrees = snapThresholdDegrees + 1;
 
   for (const snapTargetDegrees of snapDegrees) {
-    const normalizedSnapTargetDegrees =
-      normalizeRotationDegrees(snapTargetDegrees);
+    const normalizedSnapTargetDegrees = normalizeRotationDegrees(snapTargetDegrees);
     const distanceDegrees = getCircularAngleDistanceDegrees(
       quantizedValue,
       normalizedSnapTargetDegrees,

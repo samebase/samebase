@@ -2,15 +2,15 @@
 
 ## Status
 
-Implemented for MVP with persisted threads, commit proposals, and approval-first
-production read requests.
+Implemented for MVP with persisted threads, commit proposals, and approval-first production read
+requests.
 
 Last updated: 2026-02-13
 
 ## Scope
 
-Noter's chat is a floating assistant (`ChatFab`) that is scoped to the current
-vault when available and stored in Convex.
+Noter's chat is a floating assistant (`ChatFab`) that is scoped to the current vault when available
+and stored in Convex.
 
 ## Current Implementation
 
@@ -27,8 +27,7 @@ vault when available and stored in Convex.
 ### Backend
 
 - Thread/message lifecycle: `apps/noter/convex/chat/index.ts`
-- Response generation and proposal/result messages:
-  `apps/noter/convex/chat/actions.ts`
+- Response generation and proposal/result messages: `apps/noter/convex/chat/actions.ts`
 - Tool catalog/system behavior: `apps/noter/convex/agent/*`
 
 ## Data Model

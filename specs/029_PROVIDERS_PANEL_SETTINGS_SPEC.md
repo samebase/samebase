@@ -1,14 +1,13 @@
 # Providers Panel Settings Spec
 
-**Summary** Rename the dashboard "Connections" panel to "Providers", make it
-collapsible like the existing Developer tools section, and persist the
-open/closed state in Convex so it syncs across devices.
+**Summary** Rename the dashboard "Connections" panel to "Providers", make it collapsible like the
+existing Developer tools section, and persist the open/closed state in Convex so it syncs across
+devices.
 
 **Goals**
 
 - Rename the panel label from "Connections" to "Providers".
-- Make the Providers panel collapsible with the same interaction pattern as
-  Developer tools.
+- Make the Providers panel collapsible with the same interaction pattern as Developer tools.
 - Persist the open/closed state per user in Convex (not localStorage).
 
 **Non-Goals**
@@ -30,13 +29,12 @@ open/closed state in Convex so it syncs across devices.
 - New module: `apps/noter/convex/dashboardSettings.ts`
   - Query `getDashboardSettings`
     - Returns `{ providersPanelOpen: boolean }`
-    - If unauthenticated or no row exists, return
-      `{ providersPanelOpen: false }`
+    - If unauthenticated or no row exists, return `{ providersPanelOpen: false }`
   - Mutation `setProvidersPanelOpen`
     - Args: `{ isOpen: boolean }`
     - Upsert a row by `userId` to persist the setting
-  - Follow Convex style: validators before handlers, `Infer` for types, and
-    destructured `v` builders.
+  - Follow Convex style: validators before handlers, `Infer` for types, and destructured `v`
+    builders.
 
 **Frontend**
 

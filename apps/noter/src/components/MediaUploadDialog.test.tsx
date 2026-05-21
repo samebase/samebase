@@ -10,38 +10,24 @@ vi.mock("@/hooks/use-mobile", () => ({
 // Replace portal-backed dialog primitives with passthrough shells for SSR assertions.
 vi.mock("@/components/ui/dialog", () => ({
   Dialog: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  DialogContent: ({ children }: { children?: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  DialogHeader: ({ children }: { children?: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  DialogTitle: ({ children }: { children?: ReactNode }) => (
-    <div>{children}</div>
-  ),
+  DialogContent: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  DialogHeader: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  DialogTitle: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
 
 // Mirror the sheet API with inert wrappers so mobile-only structure stays simple here.
 vi.mock("@/components/ui/sheet", () => ({
   Sheet: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  SheetContent: ({ children }: { children?: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  SheetHeader: ({ children }: { children?: ReactNode }) => (
-    <div>{children}</div>
-  ),
+  SheetContent: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  SheetHeader: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   SheetTitle: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
 
 // Keep the button primitive minimal while preserving disabled-state assertions.
 vi.mock("@/components/ui/button", () => ({
-  Button: ({
-    children,
-    disabled,
-  }: {
-    children?: ReactNode;
-    disabled?: boolean;
-  }) => <button disabled={disabled}>{children}</button>,
+  Button: ({ children, disabled }: { children?: ReactNode; disabled?: boolean }) => (
+    <button disabled={disabled}>{children}</button>
+  ),
 }));
 
 // Keep input markup inspectable without pulling in interactive wrapper behavior.
@@ -56,15 +42,7 @@ vi.mock("@/components/ui/input", () => ({
     value?: string;
     disabled?: boolean;
     placeholder?: string;
-  }) => (
-    <input
-      id={id}
-      value={value}
-      disabled={disabled}
-      placeholder={placeholder}
-      readOnly
-    />
-  ),
+  }) => <input id={id} value={value} disabled={disabled} placeholder={placeholder} readOnly />,
 }));
 
 import { MediaUploadDialog } from "./MediaUploadDialog";

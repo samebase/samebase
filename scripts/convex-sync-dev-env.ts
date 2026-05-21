@@ -45,10 +45,7 @@ type ConvexHttpClientConstructor = {
     options?: { logger?: boolean },
   ): {
     setAdminAuth(token: string): void;
-    query(
-      functionReference: unknown,
-      args: Record<string, never>,
-    ): Promise<unknown>;
+    query(functionReference: unknown, args: Record<string, never>): Promise<unknown>;
   };
 };
 
@@ -84,9 +81,7 @@ if (options.showHelp) {
 
 const repoRoot = resolveRepoRoot();
 const appDir = path.join(repoRoot, "apps", "noter");
-const targetEnvPath = path.resolve(
-  options.targetEnv ?? path.join(appDir, ".env.anon-seed.local"),
-);
+const targetEnvPath = path.resolve(options.targetEnv ?? path.join(appDir, ".env.anon-seed.local"));
 const localAnonEnvPath = path.join(appDir, ".env.local");
 
 await main();
@@ -95,9 +90,7 @@ async function main() {
   const validatedSource = validateSourceEnvPrereqs();
   if (options.checkPrereqs) {
     if (validatedSource === null) {
-      console.log(
-        "No cloud dev source env found; allowing local-only seed env.",
-      );
+      console.log("No cloud dev source env found; allowing local-only seed env.");
       process.exit(0);
     }
     console.log(`Validated worktree seed source env: ${validatedSource.path}`);
@@ -119,9 +112,7 @@ async function main() {
     );
   }
   if (!isAnonymousLikeDeploymentName(localAnonDeployment.name)) {
-    exitWithError(
-      `Local deployment must be anonymous/local (got ${localAnonDeployment.raw}).`,
-    );
+    exitWithError(`Local deployment must be anonymous/local (got ${localAnonDeployment.raw}).`);
   }
 
   if (validatedSource === null) {
@@ -131,9 +122,7 @@ async function main() {
       process.exit(0);
     }
 
-    writeEnvFile(targetEnvPath, [
-      { name: "CONVEX_DEPLOYMENT", value: localAnonDeployment.raw },
-    ]);
+    writeEnvFile(targetEnvPath, [{ name: "CONVEX_DEPLOYMENT", value: localAnonDeployment.raw }]);
     console.log(
       "No cloud dev source env found. Wrote seed env file with local CONVEX_DEPLOYMENT only.",
     );
@@ -224,9 +213,7 @@ function parseArgs(args: string[]): SyncOptions {
   return result;
 }
 
-function parseDeploymentFromEnv(
-  vars: Record<string, string>,
-): Deployment | null {
+function parseDeploymentFromEnv(vars: Record<string, string>): Deployment | null {
   const raw = vars.CONVEX_DEPLOYMENT;
   if (!raw) {
     return null;
@@ -294,14 +281,10 @@ function validateSourceEnvPrereqs(): {
 
   const sourceDeployment = parseDeploymentFromEnv(sourceEnv.vars);
   if (!sourceDeployment) {
-    exitWithError(
-      `Source env does not contain a usable CONVEX_DEPLOYMENT: ${sourceEnvPath}`,
-    );
+    exitWithError(`Source env does not contain a usable CONVEX_DEPLOYMENT: ${sourceEnvPath}`);
   }
   if (sourceDeployment.type !== "dev") {
-    exitWithError(
-      `Source deployment must be dev (got ${sourceDeployment.raw}).`,
-    );
+    exitWithError(`Source deployment must be dev (got ${sourceDeployment.raw}).`);
   }
   if (isAnonymousLikeDeploymentName(sourceDeployment.name)) {
     exitWithError(
@@ -364,11 +347,11 @@ async function listDeploymentEnvVars({
     });
   }
 
-  const result = spawnSync(
-    "npx",
-    ["convex", "env", "list", "--env-file", envFile],
-    { cwd: appDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
-  );
+  const result = spawnSync("npx", ["convex", "env", "list", "--env-file", envFile], {
+    cwd: appDir,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
 
   if (result.status !== 0) {
     const output = `${result.stdout || ""}\n${result.stderr || ""}`.trim();
@@ -429,9 +412,7 @@ async function listDeploymentEnvVarsWithDeployKey({
 
   try {
     const result = await client.query(
-      convexServerModule.makeFunctionReference(
-        "_system/cli/queryEnvironmentVariables",
-      ),
+      convexServerModule.makeFunctionReference("_system/cli/queryEnvironmentVariables"),
       {},
     );
     return normalizeEnvQueryResult(result);
@@ -443,9 +424,7 @@ async function listDeploymentEnvVarsWithDeployKey({
 function writeEnvFile(filePath: string, entries: EnvEntry[]) {
   const dir = path.dirname(filePath);
   fs.mkdirSync(dir, { recursive: true });
-  const lines = entries.map(
-    (entry) => `${entry.name}=${formatEnvValue(entry.value)}`,
-  );
+  const lines = entries.map((entry) => `${entry.name}=${formatEnvValue(entry.value)}`);
   const contents = lines.join("\n") + (lines.length > 0 ? "\n" : "");
   fs.writeFileSync(filePath, contents, "utf8");
 }
@@ -482,9 +461,7 @@ function findSourceEnvFile(repoRoot: string): string | null {
     return null;
   }
 
-  const mainCandidate = candidates.find(
-    (candidate) => candidate.branch === "refs/heads/main",
-  );
+  const mainCandidate = candidates.find((candidate) => candidate.branch === "refs/heads/main");
   if (mainCandidate) {
     return mainCandidate.envPath;
   }

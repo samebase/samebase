@@ -1,8 +1,6 @@
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 
-export type WorkspaceSidebarStatePersistenceMode =
-  | "immediate"
-  | "width_deferred";
+export type WorkspaceSidebarStatePersistenceMode = "immediate" | "width_deferred";
 
 export type WorkspaceSidebarStateUpdate = (
   currentState: WorkspaceSidebarState,

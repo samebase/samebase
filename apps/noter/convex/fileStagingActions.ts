@@ -9,12 +9,7 @@ import { createTwoFilesPatch, diffLines } from "diff";
 import { getUserId } from "./common";
 import type { Id } from "./_generated/dataModel";
 import type { GithubTree } from "./schema";
-import {
-  guessMime,
-  INLINE_TEXT_MAX,
-  isTextBuffer,
-  withRetry,
-} from "./gitOperationsActions";
+import { guessMime, INLINE_TEXT_MAX, isTextBuffer, withRetry } from "./gitOperationsActions";
 import { isObjectRecord as isRecord } from "./jsonUtils";
 import { rebaseStagedContent } from "./stagingRebase";
 import { selectRepositoryTreeForBranch } from "./fileStaging";
@@ -82,17 +77,11 @@ export async function runPostCommitTreeRefresh<T>(args: {
   }
 }
 
-async function getGithubAccessToken(
-  ctx: ActionCtx,
-  userId: Id<"users">,
-): Promise<string> {
-  const connection = await ctx.runQuery(
-    internal.providerConnections.getByUserAndKind,
-    {
-      userId,
-      kind: "github",
-    },
-  );
+async function getGithubAccessToken(ctx: ActionCtx, userId: Id<"users">): Promise<string> {
+  const connection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+    userId,
+    kind: "github",
+  });
   if (connection?.kind !== "github") {
     throw new Error("GitHub is not connected");
   }
@@ -157,9 +146,7 @@ type OpenPullRequestCandidate = {
   };
 };
 
-function readPullRequestActivityAt(
-  pullRequest: OpenPullRequestCandidate,
-): number {
+function readPullRequestActivityAt(pullRequest: OpenPullRequestCandidate): number {
   const updatedAt = Date.parse(pullRequest.updated_at ?? "");
   if (!Number.isNaN(updatedAt)) {
     return updatedAt;
@@ -187,11 +174,9 @@ function readMatchingOpenPullRequestForBranch(args: {
     const pullRequestRepositoryFullName = pullRequest.head.repo?.full_name;
     if (
       pullRequest.head.ref !== args.branch ||
-      (typeof args.baseBranch === "string" &&
-        pullRequest.base.ref !== args.baseBranch) ||
+      (typeof args.baseBranch === "string" && pullRequest.base.ref !== args.baseBranch) ||
       typeof pullRequestRepositoryFullName !== "string" ||
-      pullRequestRepositoryFullName.toLowerCase() !==
-        normalizedRepositoryFullName ||
+      pullRequestRepositoryFullName.toLowerCase() !== normalizedRepositoryFullName ||
       typeof pullRequest.base.ref !== "string" ||
       pullRequest.base.ref.length === 0 ||
       typeof pullRequest.html_url !== "string" ||
@@ -220,9 +205,7 @@ function readMatchingOpenPullRequestForBranch(args: {
     : null;
 }
 
-function readEditableFileState(
-  stagedFile: EditableFileState,
-): EditableFileState {
+function readEditableFileState(stagedFile: EditableFileState): EditableFileState {
   return {
     content: stagedFile.content,
     parentCommitSha: stagedFile.parentCommitSha,
@@ -257,20 +240,17 @@ async function stageRepositoryBinaryBlobForEditing(args: {
     throw new Error(args.missingStorageError);
   }
 
-  const stagedFile = await args.ctx.runMutation(
-    internal.fileStaging.saveBinaryUploadToStaging,
-    {
-      vaultId: args.vaultId,
-      filePath: args.originalFilePath,
-      branch: args.targetBranch,
-      storageId: args.storageId,
-      mime: args.mime ?? guessMime(args.filePath),
-      size: args.size,
-      stagedBlobSha: args.fileSha,
-      replaceExisting: true,
-      userId: args.userId,
-    },
-  );
+  const stagedFile = await args.ctx.runMutation(internal.fileStaging.saveBinaryUploadToStaging, {
+    vaultId: args.vaultId,
+    filePath: args.originalFilePath,
+    branch: args.targetBranch,
+    storageId: args.storageId,
+    mime: args.mime ?? guessMime(args.filePath),
+    size: args.size,
+    stagedBlobSha: args.fileSha,
+    replaceExisting: true,
+    userId: args.userId,
+  });
 
   return readEditableFileState(stagedFile);
 }
@@ -465,16 +445,11 @@ async function cleanupTemporaryDraftBranch(args: {
       ref: `heads/${args.branch}`,
     });
   } catch (cleanupError) {
-    console.warn(
-      "Failed to remove temporary draft branch after draft PR error:",
-      cleanupError,
-    );
+    console.warn("Failed to remove temporary draft branch after draft PR error:", cleanupError);
   }
 }
 
-export function getDraftPullRequestCreateErrorMessage(
-  error: unknown,
-): string | null {
+export function getDraftPullRequestCreateErrorMessage(error: unknown): string | null {
   const message = getErrorMessage(error);
   if (message.includes("No commits between")) {
     return "This branch has no changes to open as a pull request.";
@@ -515,18 +490,12 @@ async function getTreeMapForRef(args: {
   });
 
   if (treeResponse.data.truncated) {
-    throw new Error(
-      "Upstream tree is too large to validate staged changes safely.",
-    );
+    throw new Error("Upstream tree is too large to validate staged changes safely.");
   }
 
   const shaByPath = new Map<string, string>();
   for (const item of treeResponse.data.tree) {
-    if (
-      item.type === "blob" &&
-      typeof item.path === "string" &&
-      typeof item.sha === "string"
-    ) {
+    if (item.type === "blob" && typeof item.path === "string" && typeof item.sha === "string") {
       shaByPath.set(item.path, item.sha);
     }
   }
@@ -564,10 +533,7 @@ function toHeaderMap(value: unknown): HeaderMap | null {
       continue;
     }
 
-    if (
-      Array.isArray(headerValue) &&
-      headerValue.every((item) => typeof item === "string")
-    ) {
+    if (Array.isArray(headerValue) && headerValue.every((item) => typeof item === "string")) {
       headers[key] = headerValue;
     }
   }
@@ -575,10 +541,7 @@ function toHeaderMap(value: unknown): HeaderMap | null {
   return headers;
 }
 
-function getHeaderValue(
-  headers: HeaderMap | null,
-  name: string,
-): string | null {
+function getHeaderValue(headers: HeaderMap | null, name: string): string | null {
   if (!headers) {
     return null;
   }
@@ -779,9 +742,7 @@ type CommitPreviewResult = Infer<typeof commitPreviewResult>;
 type BranchComparePreviewResult = Infer<typeof branchComparePreviewResult>;
 type DraftPullRequestResult = Infer<typeof draftPullRequestResult>;
 type StagedMediaUploadResult = Infer<typeof stagedMediaUploadResult>;
-type DefaultBranchDraftPullRequestResult = Infer<
-  typeof defaultBranchDraftPullRequestResult
->;
+type DefaultBranchDraftPullRequestResult = Infer<typeof defaultBranchDraftPullRequestResult>;
 type RebaseConflictPreviewFile = Infer<typeof rebaseConflictPreviewFile>;
 type RebaseConflictPreviewResult = Infer<typeof rebaseConflictPreviewResult>;
 
@@ -881,20 +842,15 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
     if (cached && cached.upstreamSha === upstreamSha) {
       return cached.matches;
     }
-    const matches =
-      computeGitBlobShaFromText(file.initialContent) === upstreamSha;
+    const matches = computeGitBlobShaFromText(file.initialContent) === upstreamSha;
     initialContentMatchesUpstreamCache.set(file, {
       upstreamSha,
       matches,
     });
     return matches;
   };
-  const shouldSkipFastPathRebase = (
-    file: StagedFileForCommit,
-    upstreamSha: string,
-  ): boolean =>
-    upstreamSha === file.parentCommitSha &&
-    initialContentMatchesUpstream(file, upstreamSha);
+  const shouldSkipFastPathRebase = (file: StagedFileForCommit, upstreamSha: string): boolean =>
+    upstreamSha === file.parentCommitSha && initialContentMatchesUpstream(file, upstreamSha);
 
   const shaByPath = await getBranchTreeMap({
     octokit: args.octokit,
@@ -933,9 +889,7 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
     file: StagedFileForCommit,
   ): { path: string; sha: string } | null => {
     const preferredUpstreamPath =
-      file.filePath === file.initialFilePath
-        ? file.filePath
-        : file.initialFilePath;
+      file.filePath === file.initialFilePath ? file.filePath : file.initialFilePath;
     const fallbackUpstreamPath = file.filePath;
     const upstreamPath = shaByPath.has(preferredUpstreamPath)
       ? preferredUpstreamPath
@@ -966,10 +920,7 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
       continue;
     }
     if (file.fileDeleted) {
-      if (
-        file.parentCommitSha !== null &&
-        !shouldSkipFastPathRebase(file, upstreamSha)
-      ) {
+      if (file.parentCommitSha !== null && !shouldSkipFastPathRebase(file, upstreamSha)) {
         upstreamShasToPrefetch.add(upstreamSha);
       }
       continue;
@@ -984,9 +935,7 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
     upstreamShasToPrefetch.add(upstreamSha);
   }
 
-  await Promise.all(
-    Array.from(upstreamShasToPrefetch).map((sha) => getBlobText(sha)),
-  );
+  await Promise.all(Array.from(upstreamShasToPrefetch).map((sha) => getBlobText(sha)));
 
   const conflicts: StagedFileRebaseConflict[] = [];
   const rebasedFiles: StagedFileForCommit[] = [];
@@ -996,11 +945,7 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
     const upstreamSha = upstreamLocation?.sha ?? null;
     if (isBinaryStagedFile(file)) {
       if (file.fileDeleted) {
-        if (
-          file.parentCommitSha === null ||
-          !upstreamSha ||
-          upstreamSha === file.parentCommitSha
-        ) {
+        if (file.parentCommitSha === null || !upstreamSha || upstreamSha === file.parentCommitSha) {
           rebasedFiles.push(file);
           continue;
         }
@@ -1152,11 +1097,7 @@ export async function rebaseStagedFilesOnLatestHead(args: {
 }): Promise<StagedFileForCommit[]> {
   const inspection = await inspectStagedFilesAgainstLatestHead(args);
   if (inspection.conflicts.length > 0) {
-    throw new Error(
-      formatUpstreamConflictError(
-        inspection.conflicts.map((file) => file.filePath),
-      ),
-    );
+    throw new Error(formatUpstreamConflictError(inspection.conflicts.map((file) => file.filePath)));
   }
 
   return inspection.rebasedFiles;
@@ -1253,11 +1194,9 @@ export function buildRebaseConflictPreviewFromStagedFiles(args: {
       isMarkdown: !isBinary && isMarkdownPath(file.filePath),
       baseBlobSha: file.parentCommitSha ?? undefined,
       upstreamBlobSha: file.upstreamSha,
-      baseToStagedPatchTruncated:
-        patchPair?.baseToStagedPatch.truncated ?? false,
+      baseToStagedPatchTruncated: patchPair?.baseToStagedPatch.truncated ?? false,
       baseToStagedPatch: patchPair?.baseToStagedPatch.patch,
-      baseToUpstreamPatchTruncated:
-        patchPair?.baseToUpstreamPatch.truncated ?? false,
+      baseToUpstreamPatchTruncated: patchPair?.baseToUpstreamPatch.truncated ?? false,
       baseToUpstreamPatch: patchPair?.baseToUpstreamPatch.patch,
     };
   });
@@ -1280,9 +1219,7 @@ function buildRebaseConflictBundleMarkdown(args: {
         ...(file.filePath !== file.initialFilePath
           ? [`- Previous path: ${file.initialFilePath}`]
           : []),
-        ...(file.parentCommitSha
-          ? [`- Base blob SHA: ${file.parentCommitSha}`]
-          : []),
+        ...(file.parentCommitSha ? [`- Base blob SHA: ${file.parentCommitSha}`] : []),
         `- Upstream blob SHA: ${file.upstreamSha}`,
         `- Binary media conflict${file.mime ? ` (${file.mime})` : ""}`,
       ];
@@ -1294,16 +1231,13 @@ function buildRebaseConflictBundleMarkdown(args: {
       ];
     }
 
-    const { baseToStagedPatch, baseToUpstreamPatch } =
-      buildConflictPatchPair(file);
+    const { baseToStagedPatch, baseToUpstreamPatch } = buildConflictPatchPair(file);
     const fileLines = [
       `## ${file.filePath}`,
       ...(file.filePath !== file.initialFilePath
         ? [`- Previous path: ${file.initialFilePath}`]
         : []),
-      ...(file.parentCommitSha
-        ? [`- Base blob SHA: ${file.parentCommitSha}`]
-        : []),
+      ...(file.parentCommitSha ? [`- Base blob SHA: ${file.parentCommitSha}`] : []),
       `- Upstream blob SHA: ${file.upstreamSha}`,
     ];
 
@@ -1350,10 +1284,7 @@ function truncateInlineDiffContent(content: string): {
   }
 
   const suffix = "\n\n... [content truncated for rich preview]";
-  const sliceLength = Math.max(
-    0,
-    MAX_COMMIT_PREVIEW_MARKDOWN_RICH_CHARS_PER_FIELD - suffix.length,
-  );
+  const sliceLength = Math.max(0, MAX_COMMIT_PREVIEW_MARKDOWN_RICH_CHARS_PER_FIELD - suffix.length);
 
   return {
     content: `${content.slice(0, sliceLength)}${suffix}`,
@@ -1395,17 +1326,12 @@ function computeLineStats(
 
 function isMarkdownPath(path: string): boolean {
   const lower = path.toLowerCase();
-  return (
-    lower.endsWith(".md") ||
-    lower.endsWith(".mdx") ||
-    lower.endsWith(".markdown")
-  );
+  return lower.endsWith(".md") || lower.endsWith(".mdx") || lower.endsWith(".markdown");
 }
 
 function canHydrateInlineDiffText(path: string, buffer: Uint8Array): boolean {
   const mime = guessMime(path);
-  const hasKnownTextMime =
-    mime.includes("charset=utf-8") || mime === "image/svg+xml";
+  const hasKnownTextMime = mime.includes("charset=utf-8") || mime === "image/svg+xml";
 
   if (!hasKnownTextMime && mime !== "application/octet-stream") {
     return false;
@@ -1478,9 +1404,7 @@ function buildCommitPreviewFileFromContents(args: {
   };
 }
 
-function clampCommitPreviewPatches(
-  files: CommitPreviewFile[],
-): CommitPreviewFile[] {
+function clampCommitPreviewPatches(files: CommitPreviewFile[]): CommitPreviewFile[] {
   let totalPatchChars = 0;
 
   return files.map((file) => {
@@ -1496,10 +1420,7 @@ function clampCommitPreviewPatches(
       patchTruncated = true;
     }
 
-    const remainingBudget = Math.max(
-      0,
-      MAX_COMMIT_PREVIEW_PATCH_CHARS_TOTAL - totalPatchChars,
-    );
+    const remainingBudget = Math.max(0, MAX_COMMIT_PREVIEW_PATCH_CHARS_TOTAL - totalPatchChars);
     if (boundedPatch.length > remainingBudget) {
       if (remainingBudget > 0) {
         boundedPatch = `${boundedPatch.slice(0, remainingBudget)}\n... [patch truncated]`;
@@ -1519,9 +1440,7 @@ function clampCommitPreviewPatches(
   });
 }
 
-function buildCommitPreviewTotals(
-  files: CommitPreviewFile[],
-): CommitPreviewTotals {
+function buildCommitPreviewTotals(files: CommitPreviewFile[]): CommitPreviewTotals {
   return files.reduce<CommitPreviewTotals>(
     (acc, file) => {
       acc.files += 1;
@@ -1547,15 +1466,9 @@ function buildCommitPreviewTotals(
   );
 }
 
-function buildCommitPreviewSafety(
-  files: CommitPreviewFile[],
-): CommitPreviewSafety {
-  const destructiveFileCount = files.filter(
-    (file) => file.status === "deleted",
-  ).length;
-  const truncatedPatchFileCount = files.filter(
-    (file) => file.patchTruncated,
-  ).length;
+function buildCommitPreviewSafety(files: CommitPreviewFile[]): CommitPreviewSafety {
+  const destructiveFileCount = files.filter((file) => file.status === "deleted").length;
+  const truncatedPatchFileCount = files.filter((file) => file.patchTruncated).length;
 
   return {
     destructiveFileCount,
@@ -1564,12 +1477,8 @@ function buildCommitPreviewSafety(
   };
 }
 
-function finalizeCommitPreviewFiles(
-  files: CommitPreviewFile[],
-): CommitPreviewFile[] {
-  const sortedFiles = [...files].sort((left, right) =>
-    left.path.localeCompare(right.path),
-  );
+function finalizeCommitPreviewFiles(files: CommitPreviewFile[]): CommitPreviewFile[] {
+  const sortedFiles = [...files].sort((left, right) => left.path.localeCompare(right.path));
   return clampCommitPreviewPatches(sortedFiles);
 }
 
@@ -1645,8 +1554,7 @@ function buildRemoteComparePreviewFileFromMetadata(
     status: readCommitPreviewFileStatus(file.status),
     path: file.filename,
     previousPath:
-      typeof file.previous_filename === "string" &&
-      file.previous_filename.length > 0
+      typeof file.previous_filename === "string" && file.previous_filename.length > 0
         ? file.previous_filename
         : undefined,
     isBinary: false,
@@ -1657,10 +1565,7 @@ function buildRemoteComparePreviewFileFromMetadata(
     newLineCount: 0,
     isMarkdown: isMarkdownPath(file.filename),
     patchTruncated: false,
-    patch:
-      typeof file.patch === "string" && file.patch.length > 0
-        ? file.patch
-        : undefined,
+    patch: typeof file.patch === "string" && file.patch.length > 0 ? file.patch : undefined,
   };
 }
 
@@ -1688,18 +1593,13 @@ export async function buildRemoteComparePreviewFile(args: {
       };
 
   const basePath =
-    metadataFile.status === "renamed" &&
-    typeof metadataFile.previousPath === "string"
+    metadataFile.status === "renamed" && typeof metadataFile.previousPath === "string"
       ? metadataFile.previousPath
       : metadataFile.path;
   const oldSha =
-    metadataFile.status === "added"
-      ? null
-      : (args.baseShaByPath.get(basePath) ?? null);
+    metadataFile.status === "added" ? null : (args.baseShaByPath.get(basePath) ?? null);
   const newSha =
-    metadataFile.status === "deleted"
-      ? null
-      : (args.headShaByPath.get(metadataFile.path) ?? null);
+    metadataFile.status === "deleted" ? null : (args.headShaByPath.get(metadataFile.path) ?? null);
 
   if (
     (metadataFile.status !== "added" && !oldSha) ||
@@ -1760,10 +1660,7 @@ function findMatchingRemoteCompareFile(args: {
 
 function resolveComparedStagedFileBasePath(args: {
   stagedFile: StagedFileForCommit;
-  matchedRemoteFile: Pick<
-    CommitPreviewFile,
-    "status" | "path" | "previousPath"
-  > | null;
+  matchedRemoteFile: Pick<CommitPreviewFile, "status" | "path" | "previousPath"> | null;
   baseTreePaths: Set<string>;
 }): string | null {
   if (args.matchedRemoteFile) {
@@ -1801,10 +1698,7 @@ function resolveComparedStagedFileBasePath(args: {
  */
 export function buildComparedCommitPreviewFileFromStagedFile(args: {
   stagedFile: StagedFileForCommit;
-  matchedRemoteFile: Pick<
-    CommitPreviewFile,
-    "status" | "path" | "previousPath"
-  > | null;
+  matchedRemoteFile: Pick<CommitPreviewFile, "status" | "path" | "previousPath"> | null;
   basePath: string | null;
   baseContent: string;
   includePatch: boolean;
@@ -1865,14 +1759,10 @@ async function buildBranchComparePreviewFiles(args: {
   getBlobTextBySha: (sha: string) => Promise<string>;
   includePatch: boolean;
 }): Promise<CommitPreviewFile[]> {
-  const remoteFilesByPath = new Map(
-    args.remoteFiles.map((file) => [file.path, file]),
-  );
+  const remoteFilesByPath = new Map(args.remoteFiles.map((file) => [file.path, file]));
   const remoteFilesByPreviousPath = new Map(
     args.remoteFiles.flatMap((file) =>
-      typeof file.previousPath === "string"
-        ? ([[file.previousPath, file]] as const)
-        : [],
+      typeof file.previousPath === "string" ? ([[file.previousPath, file]] as const) : [],
     ),
   );
   const baseTreePaths = new Set(args.baseShaByPath.keys());
@@ -1896,12 +1786,8 @@ async function buildBranchComparePreviewFiles(args: {
       matchedRemoteFile,
       baseTreePaths,
     });
-    const baseSha =
-      typeof basePath === "string"
-        ? args.baseShaByPath.get(basePath)
-        : undefined;
-    const baseContent =
-      typeof baseSha === "string" ? await args.getBlobTextBySha(baseSha) : "";
+    const baseSha = typeof basePath === "string" ? args.baseShaByPath.get(basePath) : undefined;
+    const baseContent = typeof baseSha === "string" ? await args.getBlobTextBySha(baseSha) : "";
 
     const overlayFile = buildComparedCommitPreviewFileFromStagedFile({
       stagedFile,
@@ -1915,10 +1801,7 @@ async function buildBranchComparePreviewFiles(args: {
     }
   }
 
-  return finalizeCommitPreviewFiles([
-    ...remoteFilesByPath.values(),
-    ...overlayFiles,
-  ]);
+  return finalizeCommitPreviewFiles([...remoteFilesByPath.values(), ...overlayFiles]);
 }
 
 async function getPullRequestCompareFiles(args: {
@@ -2015,13 +1898,10 @@ export const getFileForEditing = action({
     const userId = await getUserId(ctx);
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
-    const vault = await ctx.runQuery(
-      internal.vault.records.getByRepositoryFullName,
-      {
-        repositoryFullName: args.repositoryFullName,
-        userId,
-      },
-    );
+    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+    });
 
     if (!vault) {
       throw new Error("Vault not found");
@@ -2079,12 +1959,9 @@ export const getFileForEditing = action({
         throw new Error("File SHA is missing");
       }
 
-      const cachedBlob = await ctx.runQuery(
-        internal.gitOperations.getBlobBySha,
-        {
-          sha: fileSha,
-        },
-      );
+      const cachedBlob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+        sha: fileSha,
+      });
 
       if (cachedBlob) {
         if (typeof cachedBlob.text !== "string") {
@@ -2103,17 +1980,14 @@ export const getFileForEditing = action({
           });
         }
 
-        const stagedFile = await ctx.runMutation(
-          internal.fileStaging.saveToStaging,
-          {
-            branch: targetBranch,
-            vaultId: vault._id,
-            initialFilePath: args.originalFilePath,
-            content: cachedBlob.text,
-            initialContent: cachedBlob.text,
-            parentCommitSha: fileSha,
-          },
-        );
+        const stagedFile = await ctx.runMutation(internal.fileStaging.saveToStaging, {
+          branch: targetBranch,
+          vaultId: vault._id,
+          initialFilePath: args.originalFilePath,
+          content: cachedBlob.text,
+          initialContent: cachedBlob.text,
+          parentCommitSha: fileSha,
+        });
 
         return readEditableFileState(stagedFile);
       }
@@ -2159,17 +2033,12 @@ export const getFileForEditing = action({
         });
       }
 
-      const savedBlob = await ctx.runQuery(
-        internal.gitOperations.getBlobBySha,
-        {
-          sha: fileSha,
-        },
-      );
+      const savedBlob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+        sha: fileSha,
+      });
 
       if (!savedBlob) {
-        throw new Error(
-          "File not found in blobs table after literally saving it there?!?",
-        );
+        throw new Error("File not found in blobs table after literally saving it there?!?");
       }
 
       if (typeof savedBlob.text !== "string") {
@@ -2188,17 +2057,14 @@ export const getFileForEditing = action({
         });
       }
 
-      const stagedFile = await ctx.runMutation(
-        internal.fileStaging.saveToStaging,
-        {
-          branch: targetBranch,
-          vaultId: vault._id,
-          initialFilePath: args.originalFilePath,
-          content: savedBlob.text,
-          initialContent: savedBlob.text,
-          parentCommitSha: fileSha,
-        },
-      );
+      const stagedFile = await ctx.runMutation(internal.fileStaging.saveToStaging, {
+        branch: targetBranch,
+        vaultId: vault._id,
+        initialFilePath: args.originalFilePath,
+        content: savedBlob.text,
+        initialContent: savedBlob.text,
+        parentCommitSha: fileSha,
+      });
 
       return readEditableFileState(stagedFile);
     } catch (error) {
@@ -2230,13 +2096,10 @@ export const stageUploadedMedia = action({
 
     const userId = await getUserId(ctx);
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
-    const vault = await ctx.runQuery(
-      internal.vault.records.getByRepositoryFullName,
-      {
-        repositoryFullName: args.repositoryFullName,
-        userId,
-      },
-    );
+    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+    });
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -2259,20 +2122,17 @@ export const stageUploadedMedia = action({
 
     const uploadedBuffer = Buffer.from(await uploadedBlob.arrayBuffer());
     const stagedBlobSha = computeGitBlobShaFromBuffer(uploadedBuffer);
-    const stagedFile = await ctx.runMutation(
-      internal.fileStaging.saveBinaryUploadToStaging,
-      {
-        vaultId: vault._id,
-        filePath: args.filePath,
-        branch: targetBranch,
-        storageId: args.storageId,
-        mime: uploadedBlob.type || guessMime(args.filePath),
-        size: uploadedBlob.size,
-        stagedBlobSha,
-        replaceExisting: args.replaceExisting,
-        userId,
-      },
-    );
+    const stagedFile = await ctx.runMutation(internal.fileStaging.saveBinaryUploadToStaging, {
+      vaultId: vault._id,
+      filePath: args.filePath,
+      branch: targetBranch,
+      storageId: args.storageId,
+      mime: uploadedBlob.type || guessMime(args.filePath),
+      size: uploadedBlob.size,
+      stagedBlobSha,
+      replaceExisting: args.replaceExisting,
+      userId,
+    });
 
     return {
       filePath: stagedFile.filePath,
@@ -2294,13 +2154,10 @@ export const commitStaging = action({
     const userId = await getUserId(ctx);
 
     // Get the vault information while we have auth context
-    const vault = await ctx.runQuery(
-      internal.vault.records.getByRepositoryFullName,
-      {
-        repositoryFullName: args.repositoryFullName,
-        userId,
-      },
-    );
+    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+    });
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -2325,13 +2182,10 @@ export const createDraftPullRequest = action({
   returns: draftPullRequestResult,
   handler: async (ctx, args): Promise<DraftPullRequestResult> => {
     const userId = await getUserId(ctx);
-    const vault = await ctx.runQuery(
-      internal.vault.records.getByRepositoryFullName,
-      {
-        repositoryFullName: args.repositoryFullName,
-        userId,
-      },
-    );
+    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+    });
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -2386,10 +2240,7 @@ export const createDraftPullRequest = action({
           cloudflarePreviewBranchNames: [],
         });
       } catch (error) {
-        console.warn(
-          "Failed to refresh remote branch metadata after opening existing PR:",
-          error,
-        );
+        console.warn("Failed to refresh remote branch metadata after opening existing PR:", error);
       }
 
       return {
@@ -2437,10 +2288,7 @@ export const createDraftPullRequest = action({
           cloudflarePreviewBranchNames: [],
         });
       } catch (error) {
-        console.warn(
-          "Failed to refresh remote branch metadata after creating draft PR:",
-          error,
-        );
+        console.warn("Failed to refresh remote branch metadata after creating draft PR:", error);
       }
 
       return {
@@ -2497,13 +2345,10 @@ export const createDraftPullRequestFromDefaultBranch = action({
   returns: defaultBranchDraftPullRequestResult,
   handler: async (ctx, args): Promise<DefaultBranchDraftPullRequestResult> => {
     const userId = await getUserId(ctx);
-    const vault = await ctx.runQuery(
-      internal.vault.records.getByRepositoryFullName,
-      {
-        repositoryFullName: args.repositoryFullName,
-        userId,
-      },
-    );
+    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+    });
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -2720,13 +2565,10 @@ export const pullFromGitHub = action({
     }
 
     // Atomically claim the refresh lock; force because user explicitly requested pull
-    const claim = await ctx.runMutation(
-      internal.vault.branches.claimTreeRefresh,
-      {
-        vaultId: vault._id,
-        force: true,
-      },
-    );
+    const claim = await ctx.runMutation(internal.vault.branches.claimTreeRefresh, {
+      vaultId: vault._id,
+      force: true,
+    });
     if (!claim.claimed) return null;
     if (typeof claim.startedAt !== "number") {
       throw new Error("Tree refresh claim missing start timestamp");
@@ -2747,28 +2589,22 @@ export const pullFromGitHub = action({
       if (failure.kind === "rate_limited") {
         githubRateLimitResetByUser.set(userId, failure.cooldownUntil);
       }
-      const releaseResult = await ctx.runMutation(
-        internal.vault.branches.releaseTreeRefresh,
-        {
+      const releaseResult = await ctx.runMutation(internal.vault.branches.releaseTreeRefresh, {
+        vaultId: vault._id,
+        startedAt: claim.startedAt,
+        markRefreshed: false,
+        failureKind: failure.kind,
+        failureMessage: failure.message,
+        cooldownUntil: failure.cooldownUntil,
+      });
+      if (!releaseResult.released) {
+        await ctx.runMutation(internal.vault.branches.recordTreeRefreshFailure, {
           vaultId: vault._id,
           startedAt: claim.startedAt,
-          markRefreshed: false,
           failureKind: failure.kind,
           failureMessage: failure.message,
           cooldownUntil: failure.cooldownUntil,
-        },
-      );
-      if (!releaseResult.released) {
-        await ctx.runMutation(
-          internal.vault.branches.recordTreeRefreshFailure,
-          {
-            vaultId: vault._id,
-            startedAt: claim.startedAt,
-            failureKind: failure.kind,
-            failureMessage: failure.message,
-            cooldownUntil: failure.cooldownUntil,
-          },
-        );
+        });
       }
       throw error;
     }
@@ -2800,18 +2636,13 @@ export const pullFromGitHubInternal = internalAction({
     });
 
     // 1. Read all staging records for this vault (including unchanged)
-    const allStaged = await ctx.runQuery(
-      internal.fileStaging.listAllStagedFiles,
-      {
-        vaultId: args.vaultId,
-        includeUnchanged: true,
-      },
-    );
+    const allStaged = await ctx.runQuery(internal.fileStaging.listAllStagedFiles, {
+      vaultId: args.vaultId,
+      includeUnchanged: true,
+    });
 
     const treeMapByBranch = new Map<string, Promise<Map<string, string>>>();
-    const getTreeMapForBranch = (
-      branch: string,
-    ): Promise<Map<string, string>> => {
+    const getTreeMapForBranch = (branch: string): Promise<Map<string, string>> => {
       const existing = treeMapByBranch.get(branch);
       if (existing) {
         return existing;
@@ -2938,14 +2769,11 @@ export const pullFromGitHubInternal = internalAction({
                 throw error;
               }
 
-              const latestStaging = await ctx.runQuery(
-                internal.fileStaging.getByOriginalPath,
-                {
-                  vaultId: args.vaultId,
-                  originalFilePath: item.initialFilePath,
-                  branch: item.branch,
-                },
-              );
+              const latestStaging = await ctx.runQuery(internal.fileStaging.getByOriginalPath, {
+                vaultId: args.vaultId,
+                originalFilePath: item.initialFilePath,
+                branch: item.branch,
+              });
 
               if (!latestStaging) {
                 shouldAdvanceParentCommit = false;
@@ -2957,17 +2785,14 @@ export const pullFromGitHubInternal = internalAction({
                 });
 
                 if (retriedRebase.content !== latestStaging.content) {
-                  await ctx.runMutation(
-                    internal.collaborative.pushContentUpdate,
-                    {
-                      vaultId: args.vaultId,
-                      filePath: latestStaging.filePath,
-                      branch: item.branch,
-                      expectedVersion: latestStaging.version,
-                      newContent: retriedRebase.content,
-                      userId: args.userId,
-                    },
-                  );
+                  await ctx.runMutation(internal.collaborative.pushContentUpdate, {
+                    vaultId: args.vaultId,
+                    filePath: latestStaging.filePath,
+                    branch: item.branch,
+                    expectedVersion: latestStaging.version,
+                    newContent: retriedRebase.content,
+                    userId: args.userId,
+                  });
                 }
               }
             }
@@ -2984,9 +2809,7 @@ export const pullFromGitHubInternal = internalAction({
         }
       } catch (error) {
         if (isStaleBaseVersionError(error)) {
-          console.warn(
-            `Skipping stale staging rebase for ${item.branch}:${item.filePath}`,
-          );
+          console.warn(`Skipping stale staging rebase for ${item.branch}:${item.filePath}`);
           continue;
         }
         console.error(`Failed to fetch blob ${item.sha}:`, error);
@@ -3008,9 +2831,7 @@ export const pullFromGitHubInternal = internalAction({
     }
 
     // 5. Refresh touched branch caches after reconciliation
-    const touchedBranches = listTouchedBranchesForRefresh(
-      allStaged.map((item) => item.branch),
-    );
+    const touchedBranches = listTouchedBranchesForRefresh(allStaged.map((item) => item.branch));
     for (const branch of touchedBranches) {
       await ctx.runAction(internal.github.updateRepositoryTree, {
         userId: args.userId,
@@ -3069,13 +2890,10 @@ export const batchReadFiles = action({
     const defaultBranch = connectedVault.defaultBranch;
     const branchToLoad = requestedBranch ?? defaultBranch;
     if (branchToLoad) {
-      let branchTree = await ctx.runQuery(
-        internal.vault.branches.getVaultBranchTree,
-        {
-          vaultId: args.vaultId,
-          branch: branchToLoad,
-        },
-      );
+      let branchTree = await ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
+        vaultId: args.vaultId,
+        branch: branchToLoad,
+      });
 
       if (!branchTree) {
         await ctx.runAction(internal.github.updateRepositoryTree, {
@@ -3088,13 +2906,10 @@ export const batchReadFiles = action({
           includeCloudflarePreviewLinks: false,
           cloudflarePreviewBranchNames: [],
         });
-        branchTree = await ctx.runQuery(
-          internal.vault.branches.getVaultBranchTree,
-          {
-            vaultId: args.vaultId,
-            branch: branchToLoad,
-          },
-        );
+        branchTree = await ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
+          vaultId: args.vaultId,
+          branch: branchToLoad,
+        });
       }
 
       if (branchTree) {
@@ -3195,18 +3010,12 @@ export const batchReadFiles = action({
       } catch (error) {
         if (isGitHubRateLimitError(error)) {
           const failure = describeRepositoryTreeRefreshFailure(error);
-          const resetAtMs = rememberRateLimitResetAtMs(
+          const resetAtMs = rememberRateLimitResetAtMs(userId, failure.cooldownUntil);
+          console.warn("batchReadFiles: hit GitHub rate limit, stopping uncached reads for now", {
             userId,
-            failure.cooldownUntil,
-          );
-          console.warn(
-            "batchReadFiles: hit GitHub rate limit, stopping uncached reads for now",
-            {
-              userId,
-              resetAtMs,
-              failedPath: miss.path,
-            },
-          );
+            resetAtMs,
+            failedPath: miss.path,
+          });
           break;
         }
 
@@ -3230,13 +3039,10 @@ export const getCommitPreview = action({
     const userId = await getUserId(ctx);
     const includePatch = args.includePatch ?? true;
 
-    const vault = await ctx.runQuery(
-      internal.vault.records.getByRepositoryFullName,
-      {
-        repositoryFullName: args.repositoryFullName,
-        userId,
-      },
-    );
+    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+    });
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -3297,13 +3103,10 @@ export const getBranchComparePreview = action({
     const userId = await getUserId(ctx);
     const includePatch = args.includePatch ?? true;
 
-    const vault = await ctx.runQuery(
-      internal.vault.records.getByRepositoryFullName,
-      {
-        repositoryFullName: args.repositoryFullName,
-        userId,
-      },
-    );
+    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+    });
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -3345,13 +3148,11 @@ export const getBranchComparePreview = action({
       branch,
     });
     const baseBranch = currentPullRequest?.baseBranch ?? defaultBranch;
-    const compareResponse = await octokit.rest.repos.compareCommitsWithBasehead(
-      {
-        owner: vault.owner,
-        repo: vault.name,
-        basehead: `${baseBranch}...${branch}`,
-      },
-    );
+    const compareResponse = await octokit.rest.repos.compareCommitsWithBasehead({
+      owner: vault.owner,
+      repo: vault.name,
+      basehead: `${baseBranch}...${branch}`,
+    });
     const mergeBaseCommitSha = compareResponse.data.merge_base_commit.sha;
     const baseCommitSha = compareResponse.data.base_commit.sha;
     const mergeBaseSha =
@@ -3464,13 +3265,10 @@ export const restoreComparedDeletedFileToStaging = action({
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const userId = await getUserId(ctx);
-    const vault = await ctx.runQuery(
-      internal.vault.records.getByRepositoryFullName,
-      {
-        repositoryFullName: args.repositoryFullName,
-        userId,
-      },
-    );
+    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+    });
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -3492,13 +3290,11 @@ export const restoreComparedDeletedFileToStaging = action({
       branch,
     });
     const baseBranch = currentPullRequest?.baseBranch ?? defaultBranch;
-    const compareResponse = await octokit.rest.repos.compareCommitsWithBasehead(
-      {
-        owner: vault.owner,
-        repo: vault.name,
-        basehead: `${baseBranch}...${branch}`,
-      },
-    );
+    const compareResponse = await octokit.rest.repos.compareCommitsWithBasehead({
+      owner: vault.owner,
+      repo: vault.name,
+      basehead: `${baseBranch}...${branch}`,
+    });
     const mergeBaseCommitSha = compareResponse.data.merge_base_commit.sha;
     const baseCommitSha = compareResponse.data.base_commit.sha;
     const mergeBaseSha =
@@ -3514,15 +3310,12 @@ export const restoreComparedDeletedFileToStaging = action({
       ref: mergeBaseSha,
     });
     const basePath =
-      typeof args.previousPath === "string" &&
-      baseShaByPath.has(args.previousPath)
+      typeof args.previousPath === "string" && baseShaByPath.has(args.previousPath)
         ? args.previousPath
         : args.filePath;
     const baseSha = baseShaByPath.get(basePath);
     if (typeof baseSha !== "string") {
-      throw new Error(
-        "Deleted compare file is not available from the PR base.",
-      );
+      throw new Error("Deleted compare file is not available from the PR base.");
     }
 
     const blobResponse = await octokit.rest.git.getBlob({
@@ -3534,14 +3327,11 @@ export const restoreComparedDeletedFileToStaging = action({
       Buffer.from(blobResponse.data.content.replace(/\n/g, ""), "base64"),
     );
     if (!canHydrateInlineDiffText(basePath, buffer)) {
-      throw new Error(
-        "Only text compare files can be restored into staging right now.",
-      );
+      throw new Error("Only text compare files can be restored into staging right now.");
     }
-    const content = Buffer.from(
-      blobResponse.data.content.replace(/\n/g, ""),
-      "base64",
-    ).toString("utf-8");
+    const content = Buffer.from(blobResponse.data.content.replace(/\n/g, ""), "base64").toString(
+      "utf-8",
+    );
 
     await ctx.runMutation(api.fileStaging.createFileInStaging, {
       vaultId: vault._id,
@@ -3563,13 +3353,10 @@ export const getRebaseConflictPreview = action({
   handler: async (ctx, args): Promise<RebaseConflictPreviewResult> => {
     const userId = await getUserId(ctx);
 
-    const vault = await ctx.runQuery(
-      internal.vault.records.getByRepositoryFullName,
-      {
-        repositoryFullName: args.repositoryFullName,
-        userId,
-      },
-    );
+    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+    });
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -3628,13 +3415,10 @@ export const getRebaseConflictBundle = action({
   handler: async (ctx, args): Promise<string> => {
     const userId = await getUserId(ctx);
 
-    const vault = await ctx.runQuery(
-      internal.vault.records.getByRepositoryFullName,
-      {
-        repositoryFullName: args.repositoryFullName,
-        userId,
-      },
-    );
+    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+    });
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -3720,11 +3504,7 @@ export async function createCommitWithMultipleFiles({
     for (const part of parts) {
       const value = part.value;
       const lineCount =
-        typeof part.count === "number"
-          ? part.count
-          : value === ""
-            ? 0
-            : value.split("\n").length; // count lines even without trailing newline
+        typeof part.count === "number" ? part.count : value === "" ? 0 : value.split("\n").length; // count lines even without trailing newline
       if (part.added) {
         if (lineCount > 0) {
           ranges.push({ from: newLine, to: newLine + lineCount - 1 });
@@ -3739,13 +3519,11 @@ export async function createCommitWithMultipleFiles({
     return ranges;
   };
 
-  const normalizedStagedFiles: StagedFileForCommit[] = stagedFiles.map(
-    (file) => ({
-      ...file,
-      initialContent: file.initialContent,
-      branch,
-    }),
-  );
+  const normalizedStagedFiles: StagedFileForCommit[] = stagedFiles.map((file) => ({
+    ...file,
+    initialContent: file.initialContent,
+    branch,
+  }));
 
   const resolvedStagedFiles = skipRebase
     ? normalizedStagedFiles
@@ -3756,8 +3534,7 @@ export async function createCommitWithMultipleFiles({
         branch,
         stagedFiles: normalizedStagedFiles,
       });
-  const changedResolvedStagedFiles =
-    resolvedStagedFiles.filter(hasStagedFileChanges);
+  const changedResolvedStagedFiles = resolvedStagedFiles.filter(hasStagedFileChanges);
 
   // Summarize all changes to craft a commit message
   const changesInfo: Array<{
@@ -3843,10 +3620,7 @@ export async function createCommitWithMultipleFiles({
     const parts = p.split("/");
     return parts[parts.length - 1] || p;
   };
-  const shortRanges = (
-    ranges: Array<{ from: number; to: number }>,
-    max = 2,
-  ) => {
+  const shortRanges = (ranges: Array<{ from: number; to: number }>, max = 2) => {
     const items = ranges
       .slice(0, max)
       .map((r) => (r.from === r.to ? `${r.from}` : `${r.from}-${r.to}`));
@@ -3858,9 +3632,7 @@ export async function createCommitWithMultipleFiles({
     if (info.deleted) {
       subjectTokens.push(`D ${basename(info.initialFilePath)}`);
     } else if (info.isBinary && renamed) {
-      subjectTokens.push(
-        `${basename(info.initialFilePath)}->${basename(info.filePath)}`,
-      );
+      subjectTokens.push(`${basename(info.initialFilePath)}->${basename(info.filePath)}`);
     } else if (info.isBinary) {
       subjectTokens.push(`${basename(info.filePath)}`);
     } else if (renamed && info.modifiedLines.length > 0) {
@@ -3868,13 +3640,9 @@ export async function createCommitWithMultipleFiles({
         `${basename(info.initialFilePath)}->${basename(info.filePath)}[${shortRanges(info.modifiedLines)}]`,
       );
     } else if (renamed) {
-      subjectTokens.push(
-        `${basename(info.initialFilePath)}->${basename(info.filePath)}`,
-      );
+      subjectTokens.push(`${basename(info.initialFilePath)}->${basename(info.filePath)}`);
     } else if (info.modifiedLines.length > 0) {
-      subjectTokens.push(
-        `${basename(info.filePath)}[${shortRanges(info.modifiedLines)}]`,
-      );
+      subjectTokens.push(`${basename(info.filePath)}[${shortRanges(info.modifiedLines)}]`);
     } else if (info.wasModified) {
       subjectTokens.push(`${basename(info.filePath)}[]`);
     }
@@ -3928,8 +3696,7 @@ export async function createCommitWithMultipleFiles({
         }
 
         const existingBlobSha =
-          file.parentCommitSha !== null &&
-          file.stagedBlobSha === file.parentCommitSha
+          file.parentCommitSha !== null && file.stagedBlobSha === file.parentCommitSha
             ? file.parentCommitSha
             : null;
         if (existingBlobSha) {
@@ -3943,9 +3710,7 @@ export async function createCommitWithMultipleFiles({
         }
 
         if (!file.storageId) {
-          throw new Error(
-            `Binary file ${file.filePath} is missing staged storage data.`,
-          );
+          throw new Error(`Binary file ${file.filePath} is missing staged storage data.`);
         }
 
         const cacheKey = file.stagedBlobSha ?? file.storageId;
@@ -3966,9 +3731,7 @@ export async function createCommitWithMultipleFiles({
 
         const storedBlob = await loadStorageBlob(file.storageId);
         if (!storedBlob) {
-          throw new Error(
-            `Binary file ${file.filePath} is no longer available in staged storage.`,
-          );
+          throw new Error(`Binary file ${file.filePath} is no longer available in staged storage.`);
         }
 
         const storedBuffer = Buffer.from(await storedBlob.arrayBuffer());
@@ -3978,12 +3741,9 @@ export async function createCommitWithMultipleFiles({
           content: storedBuffer.toString("base64"),
           encoding: "base64",
         });
-        const expectedSha =
-          file.stagedBlobSha ?? computeGitBlobShaFromBuffer(storedBuffer);
+        const expectedSha = file.stagedBlobSha ?? computeGitBlobShaFromBuffer(storedBuffer);
         if (createdBlob.sha !== expectedSha) {
-          throw new Error(
-            `Binary file ${file.filePath} blob SHA mismatch during commit.`,
-          );
+          throw new Error(`Binary file ${file.filePath} blob SHA mismatch during commit.`);
         }
 
         createdBlobShaBySourceSha.set(cacheKey, createdBlob.sha);
@@ -4029,9 +3789,7 @@ export async function createCommitWithMultipleFiles({
         console.error("Failed to create commit:", error);
         throw error;
       }
-      console.warn(
-        `Commit attempt ${attempt + 1} failed (status ${status}), retrying...`,
-      );
+      console.warn(`Commit attempt ${attempt + 1} failed (status ${status}), retrying...`);
       await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
     }
   }
@@ -4062,23 +3820,17 @@ export const commitAllStaged = internalAction({
     const repoName = connectedVault.name;
     const fullRepo = `${repoOwner}/${repoName}`;
 
-    const updateCommitProposalStatus = async (
-      committed: boolean,
-      error?: string,
-    ) => {
+    const updateCommitProposalStatus = async (committed: boolean, error?: string) => {
       if (!args.commitProposalMessageId) {
         return;
       }
 
-      await ctx.runMutation(
-        internal.chat.index.updateCommitProposalMessageCommittedInternal,
-        {
-          messageId: args.commitProposalMessageId,
-          committed,
-          committing: false,
-          error,
-        },
-      );
+      await ctx.runMutation(internal.chat.index.updateCommitProposalMessageCommittedInternal, {
+        messageId: args.commitProposalMessageId,
+        committed,
+        committing: false,
+        error,
+      });
     };
 
     try {
@@ -4163,10 +3915,7 @@ export const commitAllStaged = internalAction({
             branch: commitBranch,
           }),
         onWarning: (error) => {
-          console.error(
-            "Post-commit tree refresh failed; continuing with cleanup:",
-            error,
-          );
+          console.error("Post-commit tree refresh failed; continuing with cleanup:", error);
         },
       });
 
@@ -4175,9 +3924,7 @@ export const commitAllStaged = internalAction({
       //    the correct content immediately without hitting GitHub API
       if (updatedVault) {
         try {
-          for (const file of resolvedChangedFiles.filter(
-            hasStagedFileChanges,
-          )) {
+          for (const file of resolvedChangedFiles.filter(hasStagedFileChanges)) {
             if (file.fileDeleted) continue;
 
             const newSha = updatedVault.treeData?.tree.find(
@@ -4220,10 +3967,7 @@ export const commitAllStaged = internalAction({
             }
           }
         } catch (error) {
-          console.error(
-            "Failed to warm blob cache after commit; continuing cleanup:",
-            error,
-          );
+          console.error("Failed to warm blob cache after commit; continuing cleanup:", error);
         }
       }
 
@@ -4237,9 +3981,7 @@ export const commitAllStaged = internalAction({
       await updateCommitProposalStatus(true);
     } catch (error) {
       const commitError =
-        error instanceof Error && error.message.length > 0
-          ? error.message
-          : "Commit failed";
+        error instanceof Error && error.message.length > 0 ? error.message : "Commit failed";
 
       try {
         await updateCommitProposalStatus(false, commitError);
@@ -4247,10 +3989,7 @@ export const commitAllStaged = internalAction({
         console.error("Failed updating commit proposal status:", statusError);
       }
 
-      console.error(
-        `Failed to commit staged files in vault ${args.vaultId}:`,
-        error,
-      );
+      console.error(`Failed to commit staged files in vault ${args.vaultId}:`, error);
       throw error;
     }
 

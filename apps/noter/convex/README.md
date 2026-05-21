@@ -1,7 +1,7 @@
 # Convex Backend Overview
 
-This directory contains Noter's backend: schema, auth, repository workflows,
-collaboration logic, chat orchestration, and infrastructure provisioning.
+This directory contains Noter's backend: schema, auth, repository workflows, collaboration logic,
+chat orchestration, and infrastructure provisioning.
 
 ## Start Here
 
@@ -10,8 +10,7 @@ collaboration logic, chat orchestration, and infrastructure provisioning.
 3. `vault/actions.ts` - repository connect/create/delete + infra retry actions
 4. `infraProvisioning.ts` - async Convex/Cloudflare provisioning flow
 5. `chat/index.ts` + `chat/actions.ts` - AI Fab chat lifecycle + approvals
-6. `codespaces/index.ts` + `codespaces/vaultIntegration.ts` - Codespaces
-   lifecycle integration
+6. `codespaces/index.ts` + `codespaces/vaultIntegration.ts` - Codespaces lifecycle integration
 
 ## AI Fab / Agent Flow
 
@@ -35,17 +34,13 @@ flowchart LR
 ## Agent Data Model
 
 - `agentThreadContext` - per-thread vault/repo/file context.
-- `chatMessageMetadata` - commit/prod-read/tool activity payloads keyed by agent
-  message ID.
-- `aiProdAccessRequests` + `aiProdAccessAudit` - approval-first production read
-  workflow.
+- `chatMessageMetadata` - commit/prod-read/tool activity payloads keyed by agent message ID.
+- `aiProdAccessRequests` + `aiProdAccessAudit` - approval-first production read workflow.
 
 ## Chat Module Map
 
-- `chat/index.ts` - `api.chat.index.*` queries/mutations (threads, messages,
-  approvals).
-- `chat/actions.ts` - `internal.chat.actions.*` actions (agent run + prod-read
-  execution).
+- `chat/index.ts` - `api.chat.index.*` queries/mutations (threads, messages, approvals).
+- `chat/actions.ts` - `internal.chat.actions.*` actions (agent run + prod-read execution).
 - `chat/metadata.ts` - metadata schemas + parse/build helpers.
 - `chat/prodAccess.ts` - prod-read access helpers (admin + vault checks).
 - `chat/threads.ts` - thread access helpers.
@@ -53,33 +48,31 @@ flowchart LR
 
 ## Vault Module Map
 
-- `vault/actions.ts` - public actions for GitHub repository ownership,
-  connect/create, provisioning retry, and deletion retry.
-- `vault/dashboard.ts` - public dashboard queries for vault cards, branch
-  filters, and infrastructure/domain summaries.
-- `vault/records.ts` - vault row creation, lookup, readiness, and GitHub
-  connection mutations.
-- `vault/branches.ts` - remote branch sync, branch-tree cache, tree refresh
-  claims, and branch selection helpers.
+- `vault/actions.ts` - public actions for GitHub repository ownership, connect/create, provisioning
+  retry, and deletion retry.
+- `vault/dashboard.ts` - public dashboard queries for vault cards, branch filters, and
+  infrastructure/domain summaries.
+- `vault/records.ts` - vault row creation, lookup, readiness, and GitHub connection mutations.
+- `vault/branches.ts` - remote branch sync, branch-tree cache, tree refresh claims, and branch
+  selection helpers.
 - `vault/model.ts` + `vault/state.ts` - validators and runtime guards.
-- `vault/deletion/` - deletion eligibility, runs, events, local cleanup,
-  workflow orchestration, and provider actions.
+- `vault/deletion/` - deletion eligibility, runs, events, local cleanup, workflow orchestration, and
+  provider actions.
 
 ## Key Workflows
 
 ### Vault Creation Paths
 
-- `createRepository` (`vault/actions.ts`): creates an app provisioning run and
-  starts the full create-app Workflow.
-- `connectRepository` (`vault/actions.ts`): connects an existing GitHub repo and
-  creates vault without infra auto-provisioning.
+- `createRepository` (`vault/actions.ts`): creates an app provisioning run and starts the full
+  create-app Workflow.
+- `connectRepository` (`vault/actions.ts`): connects an existing GitHub repo and creates vault
+  without infra auto-provisioning.
 
 ### Infrastructure Provisioning
 
-- Entrypoint:
-  `internal.appProvisioningWorkflow.startVaultInfrastructureProvisioning`
-- State tracking: `vaults.convex`, `vaults.cloudflare`, and provider metadata in
-  the `vaultInfrastructure` table
+- Entrypoint: `internal.appProvisioningWorkflow.startVaultInfrastructureProvisioning`
+- State tracking: `vaults.convex`, `vaults.cloudflare`, and provider metadata in the
+  `vaultInfrastructure` table
 - Domain tracking: `vaultDomains` table
 - Retry path: `api.vault.actions.retryInfrastructureProvisioning`
 
@@ -87,8 +80,7 @@ flowchart LR
 
 - Commit proposals in chat
 - Production read proposals (Convex/Cloudflare/logs/data)
-- Explicit approve/reject with audit trails (`aiProdAccessRequests`,
-  `aiProdAccessAudit`)
+- Explicit approve/reject with audit trails (`aiProdAccessRequests`, `aiProdAccessAudit`)
 
 ## Useful Local Commands
 

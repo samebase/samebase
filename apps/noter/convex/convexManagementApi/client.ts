@@ -29,16 +29,16 @@ const CONVEX_MANAGEMENT_DECIMAL_ID_FIELDS: ReadonlySet<string> = new Set([
   "ssoTeamId",
   "teamId",
 ]);
-const CONVEX_MANAGEMENT_DECIMAL_PATH_PARAMETER_NAMES: ReadonlySet<string> =
-  new Set(["project_id", "team_id"]);
+const CONVEX_MANAGEMENT_DECIMAL_PATH_PARAMETER_NAMES: ReadonlySet<string> = new Set([
+  "project_id",
+  "team_id",
+]);
 
 type ConvexManagementOpenApiClient = Client<paths>;
-type ConvexManagementGetPath =
-  keyof typeof convexManagementResponseValidators.GET &
-    ClientPathsWithMethod<ConvexManagementOpenApiClient, "get">;
-type ConvexManagementPostPath =
-  keyof typeof convexManagementResponseValidators.POST &
-    ClientPathsWithMethod<ConvexManagementOpenApiClient, "post">;
+type ConvexManagementGetPath = keyof typeof convexManagementResponseValidators.GET &
+  ClientPathsWithMethod<ConvexManagementOpenApiClient, "get">;
+type ConvexManagementPostPath = keyof typeof convexManagementResponseValidators.POST &
+  ClientPathsWithMethod<ConvexManagementOpenApiClient, "post">;
 type ConvexManagementParamsOption<Operation> =
   FetchOptions<Operation> extends { params: infer Params }
     ? { params: Params }
@@ -51,13 +51,16 @@ type ConvexManagementBodyOption<Operation> =
     : FetchOptions<Operation> extends { body?: infer Body }
       ? { body?: Body }
       : { body?: never };
-type ConvexManagementRequestOptions<Operation> =
-  ConvexManagementParamsOption<Operation> &
-    ConvexManagementBodyOption<Operation>;
-type ConvexManagementGetOpenApiOptions<Path extends ConvexManagementGetPath> =
-  MaybeOptionalInit<paths[Path], "get">;
-type ConvexManagementPostOpenApiOptions<Path extends ConvexManagementPostPath> =
-  MaybeOptionalInit<paths[Path], "post">;
+type ConvexManagementRequestOptions<Operation> = ConvexManagementParamsOption<Operation> &
+  ConvexManagementBodyOption<Operation>;
+type ConvexManagementGetOpenApiOptions<Path extends ConvexManagementGetPath> = MaybeOptionalInit<
+  paths[Path],
+  "get"
+>;
+type ConvexManagementPostOpenApiOptions<Path extends ConvexManagementPostPath> = MaybeOptionalInit<
+  paths[Path],
+  "post"
+>;
 type ConvexManagementGetOptions<Path extends ConvexManagementGetPath> =
   ConvexManagementRequestOptions<NonNullable<paths[Path]["get"]>>;
 type ConvexManagementPostOptions<Path extends ConvexManagementPostPath> =
@@ -70,10 +73,16 @@ type ConvexManagementPostInitParam<Path extends ConvexManagementPostPath> =
   undefined extends ConvexManagementPostOpenApiOptions<Path>
     ? [options?: ConvexManagementPostOptions<Path>]
     : [options: ConvexManagementPostOptions<Path>];
-type ConvexManagementGetJsonResponse<Path extends ConvexManagementGetPath> =
-  MethodResponse<ConvexManagementOpenApiClient, "get", Path>;
-type ConvexManagementPostJsonResponse<Path extends ConvexManagementPostPath> =
-  MethodResponse<ConvexManagementOpenApiClient, "post", Path>;
+type ConvexManagementGetJsonResponse<Path extends ConvexManagementGetPath> = MethodResponse<
+  ConvexManagementOpenApiClient,
+  "get",
+  Path
+>;
+type ConvexManagementPostJsonResponse<Path extends ConvexManagementPostPath> = MethodResponse<
+  ConvexManagementOpenApiClient,
+  "post",
+  Path
+>;
 type ConvexManagementGetResponse<Path extends ConvexManagementGetPath> = [
   ConvexManagementGetJsonResponse<Path>,
 ] extends [never]
@@ -102,10 +111,7 @@ type ConvexManagementRequestParams = {
   query?: Record<string, unknown>;
 };
 
-export type ConvexCloudDeployment = Extract<
-  PlatformDeploymentResponse,
-  { kind: "cloud" }
->;
+export type ConvexCloudDeployment = Extract<PlatformDeploymentResponse, { kind: "cloud" }>;
 
 export function isConvexCloudDeployment(
   deployment: PlatformDeploymentResponse,
@@ -116,23 +122,19 @@ export function isConvexCloudDeployment(
 export async function fetchConvexTeamTokenDetails(token: string): Promise<{
   teamId: string;
 }> {
-  const details = await requestConvexManagementApi(
-    token,
-    "GET",
-    "/token_details",
-  );
+  const details = await requestConvexManagementApi(token, "GET", "/token_details");
   if (details.type !== "teamToken") {
     throw new Error("Convex token is missing team access.");
   }
   return { teamId: details.teamId };
 }
 
-export function formatConvexManagementApiEndpoint<
-  const Path extends ConvexManagementGetPath,
->(args: ConvexManagementGetEndpointArgs<Path>): string;
-export function formatConvexManagementApiEndpoint<
-  const Path extends ConvexManagementPostPath,
->(args: ConvexManagementPostEndpointArgs<Path>): string;
+export function formatConvexManagementApiEndpoint<const Path extends ConvexManagementGetPath>(
+  args: ConvexManagementGetEndpointArgs<Path>,
+): string;
+export function formatConvexManagementApiEndpoint<const Path extends ConvexManagementPostPath>(
+  args: ConvexManagementPostEndpointArgs<Path>,
+): string;
 export function formatConvexManagementApiEndpoint(args: {
   method: "GET" | "POST";
   path: string;
@@ -158,17 +160,13 @@ function formatConvexManagementApiEndpointUnchecked(args: {
  * response with the generated validator for that exact method and path.
  * Endpoints without a JSON response resolve as void.
  */
-export function requestConvexManagementApi<
-  const Path extends ConvexManagementGetPath,
->(
+export function requestConvexManagementApi<const Path extends ConvexManagementGetPath>(
   token: string,
   method: "GET",
   path: Path,
   ...init: ConvexManagementGetInitParam<Path>
 ): Promise<ConvexManagementGetResponse<Path>>;
-export function requestConvexManagementApi<
-  const Path extends ConvexManagementPostPath,
->(
+export function requestConvexManagementApi<const Path extends ConvexManagementPostPath>(
   token: string,
   method: "POST",
   path: Path,
@@ -177,11 +175,7 @@ export function requestConvexManagementApi<
 export async function requestConvexManagementApi(
   token: string,
   ...request:
-    | [
-        method: "GET",
-        path: ConvexManagementGetPath,
-        options?: { params?: unknown; body?: unknown },
-      ]
+    | [method: "GET", path: ConvexManagementGetPath, options?: { params?: unknown; body?: unknown }]
     | [
         method: "POST",
         path: ConvexManagementPostPath,
@@ -235,9 +229,7 @@ function readConvexManagementRequestParams(
   };
 }
 
-function readConvexManagementRequestBody(
-  options: { body?: unknown } | undefined,
-): unknown {
+function readConvexManagementRequestBody(options: { body?: unknown } | undefined): unknown {
   return options?.body;
 }
 
@@ -252,9 +244,7 @@ function readOptionalRecordProperty(
   if (isRecord(value)) {
     return value;
   }
-  throw new Error(
-    `Convex Management API request params.${name} must be an object.`,
-  );
+  throw new Error(`Convex Management API request params.${name} must be an object.`);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -380,20 +370,14 @@ function parseConvexManagementResponseJson(args: {
   }
 }
 
-function reviveConvexManagementResponseValue(
-  key: string,
-  value: unknown,
-): unknown {
+function reviveConvexManagementResponseValue(key: string, value: unknown): unknown {
   if (!isLosslessNumber(value)) {
     return value;
   }
 
   const serialized = value.toString();
   if (CONVEX_MANAGEMENT_DECIMAL_ID_FIELDS.has(key)) {
-    return readConvexManagementDecimalValue(
-      serialized,
-      `Convex response field ${key}`,
-    );
+    return readConvexManagementDecimalValue(serialized, `Convex response field ${key}`);
   }
   if (!isSafeNumber(serialized, { approx: false })) {
     throw new Error(
@@ -417,10 +401,7 @@ function assertConvexManagementResultOk(args: {
   throw new ConvexManagementApiError({
     status: args.result.response.status,
     path: args.endpoint,
-    responseBodySummary: toErrorMessage(
-      args.result.error,
-      "No error details returned",
-    ),
+    responseBodySummary: toErrorMessage(args.result.error, "No error details returned"),
   });
 }
 
@@ -437,10 +418,9 @@ function serializeConvexManagementPath(
 
     const label = `Convex path parameter ${name}`;
     const segment = readConvexManagementPathSegment(value, label);
-    normalizedPathParams[name] =
-      CONVEX_MANAGEMENT_DECIMAL_PATH_PARAMETER_NAMES.has(name)
-        ? readConvexManagementDecimalValue(segment, label)
-        : segment;
+    normalizedPathParams[name] = CONVEX_MANAGEMENT_DECIMAL_PATH_PARAMETER_NAMES.has(name)
+      ? readConvexManagementDecimalValue(segment, label)
+      : segment;
   }
   return defaultPathSerializer(pathname, normalizedPathParams);
 }
@@ -460,10 +440,7 @@ function readConvexManagementPathSegment(value: string, label: string): string {
   return normalized;
 }
 
-function readConvexManagementDecimalValue(
-  value: string,
-  label: string,
-): string {
+function readConvexManagementDecimalValue(value: string, label: string): string {
   if (!/^[0-9]+$/.test(value)) {
     throw new Error(`${label} must be a decimal identifier.`);
   }

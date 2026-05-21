@@ -4,9 +4,9 @@ Use `@playwright/cli` for direct browser driving.
 
 ## Noter Repo Default
 
-When `scripts/playwright-branch-browser.ts` exists, prefer the branch wrapper so
-each branch keeps a deterministic session/profile and reopening the session adds
-a fresh tab instead of unloading a dirty page.
+When `scripts/playwright-branch-browser.ts` exists, prefer the branch wrapper so each branch keeps a
+deterministic session/profile and reopening the session adds a fresh tab instead of unloading a
+dirty page.
 
 ```bash
 SESSION="$(node ./scripts/playwright-branch-browser.ts session)"

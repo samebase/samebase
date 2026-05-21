@@ -6,16 +6,10 @@ export function resolveLogoSceneCameraDepthBounds(cameraFitRadius: number): {
   distance: number;
   far: number;
 } {
-  const distance = Math.max(
-    MIN_ISOMETRIC_CAMERA_DISTANCE,
-    cameraFitRadius * CAMERA_DEPTH_PADDING,
-  );
+  const distance = Math.max(MIN_ISOMETRIC_CAMERA_DISTANCE, cameraFitRadius * CAMERA_DEPTH_PADDING);
 
   return {
     distance,
-    far: Math.max(
-      MIN_CAMERA_FAR_PLANE,
-      distance + cameraFitRadius * CAMERA_DEPTH_PADDING,
-    ),
+    far: Math.max(MIN_CAMERA_FAR_PLANE, distance + cameraFitRadius * CAMERA_DEPTH_PADDING),
   };
 }

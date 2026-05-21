@@ -31,9 +31,7 @@ const PUBLIC_LAYOUT_LEFT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 240;
 const PUBLIC_LAYOUT_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 const PUBLIC_LAYOUT_RIGHT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 
-type WorkspaceLayoutV2FullPageProps = ComponentProps<
-  typeof WorkspaceLayoutV2FullPage
->;
+type WorkspaceLayoutV2FullPageProps = ComponentProps<typeof WorkspaceLayoutV2FullPage>;
 type PublicLayoutRightToggleVisibility = NonNullable<
   WorkspaceLayoutV2FullPageProps["rightToggleVisibility"]
 >;
@@ -44,8 +42,7 @@ type VisiblePublicLayoutRightToggleVisibility = Exclude<
 
 const PUBLIC_LAYOUT_RIGHT_TOGGLE_BUTTON_CLASS_NAMES = {
   all: "absolute right-0 top-0 z-20 h-8 w-8 rounded-none",
-  desktop:
-    "absolute right-0 top-0 z-20 hidden h-8 w-8 rounded-none md:inline-flex",
+  desktop: "absolute right-0 top-0 z-20 hidden h-8 w-8 rounded-none md:inline-flex",
 } as const satisfies Record<VisiblePublicLayoutRightToggleVisibility, string>;
 
 function PublicLayoutRightSidebarOverlayToggle({
@@ -79,9 +76,7 @@ function PublicLayoutMainContent({
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       {rightToggleVisibility === "hidden" ? null : (
-        <PublicLayoutRightSidebarOverlayToggle
-          visibility={rightToggleVisibility}
-        />
+        <PublicLayoutRightSidebarOverlayToggle visibility={rightToggleVisibility} />
       )}
       {children}
     </div>
@@ -110,8 +105,7 @@ export function PublicLayoutShell({
   const hasLeftPane = left !== undefined;
   const location = useLocation();
   const rootRouteSearch = readRootRouteSearch(location.searchStr);
-  const sidebarResetRequested =
-    isPublicLayoutSidebarResetRequested(rootRouteSearch);
+  const sidebarResetRequested = isPublicLayoutSidebarResetRequested(rootRouteSearch);
   const defaultSidebarState = useMemo(
     () =>
       ({
@@ -150,8 +144,7 @@ export function PublicLayoutShell({
 
     setSidebarState(
       (state) =>
-        state.mobileSurface.kind === "merged" &&
-        state.mobileSurface.side === "left"
+        state.mobileSurface.kind === "merged" && state.mobileSurface.side === "left"
           ? { ...state, mobileSurface: { kind: "unmerged" } }
           : state,
       "immediate",
@@ -164,16 +157,12 @@ export function PublicLayoutShell({
   });
   const publicRightSidebarPane = usePublicRightSidebarPane();
   const hasMainHeader = Boolean(main?.header);
-  const layoutRightToggleVisibility = hasMainHeader
-    ? rightToggleVisibility
-    : "hidden";
+  const layoutRightToggleVisibility = hasMainHeader ? rightToggleVisibility : "hidden";
   const mainPane =
     main === undefined
       ? ({
           content: (
-            <PublicLayoutMainContent
-              rightToggleVisibility={rightToggleVisibility}
-            >
+            <PublicLayoutMainContent rightToggleVisibility={rightToggleVisibility}>
               {children}
             </PublicLayoutMainContent>
           ),
@@ -183,9 +172,7 @@ export function PublicLayoutShell({
         : ({
             ...main,
             content: (
-              <PublicLayoutMainContent
-                rightToggleVisibility={rightToggleVisibility}
-              >
+              <PublicLayoutMainContent rightToggleVisibility={rightToggleVisibility}>
                 {main.content}
               </PublicLayoutMainContent>
             ),
@@ -210,18 +197,9 @@ export function PublicLayoutShell({
   );
 }
 
-export function Layout({
-  children,
-  dataTestId,
-}: {
-  children: ReactNode;
-  dataTestId?: string;
-}) {
+export function Layout({ children, dataTestId }: { children: ReactNode; dataTestId?: string }) {
   return (
-    <main
-      data-testid={dataTestId}
-      className="flex min-h-svh w-full flex-col bg-background"
-    >
+    <main data-testid={dataTestId} className="flex min-h-svh w-full flex-col bg-background">
       {children}
     </main>
   );

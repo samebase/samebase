@@ -8,9 +8,7 @@ export const DEFAULT_LOCAL_SITE_PORT = 5173;
 const getLocalDevOriginStatePath = (cwd = process.cwd()) =>
   path.join(cwd, "node_modules", ".cache", "noter-local-dev-origin.json");
 
-export const readEnvFile = (
-  cwd: string = process.cwd(),
-): Partial<Record<string, string>> => {
+export const readEnvFile = (cwd: string = process.cwd()): Partial<Record<string, string>> => {
   const envPath = path.join(cwd, ".env.local");
   if (!fs.existsSync(envPath)) {
     return {};
@@ -34,9 +32,7 @@ export const readEnvFile = (
   return env;
 };
 
-export const usesLocalConvexDeployment = (
-  cwd: string = process.cwd(),
-): boolean => {
+export const usesLocalConvexDeployment = (cwd: string = process.cwd()): boolean => {
   const env = readEnvFile(cwd);
   const rawUrl = normalizeEnvValue(env.CONVEX_URL ?? env.VITE_CONVEX_URL);
   if (rawUrl === undefined) {
@@ -61,29 +57,23 @@ const normalizeConfiguredPort = (value: string | undefined): string | null => {
   return Number.isInteger(parsed) && parsed > 0 ? String(parsed) : null;
 };
 
-export const readConfiguredLocalDevPort = (
-  env: NodeJS.ProcessEnv = process.env,
-): string | null => normalizeConfiguredPort(env.VITE_PORT);
+export const readConfiguredLocalDevPort = (env: NodeJS.ProcessEnv = process.env): string | null =>
+  normalizeConfiguredPort(env.VITE_PORT);
 
 /**
  * Pick the same local frontend port that the Vite wrapper will claim so
  * SITE_URL can stay aligned even before Vite starts listening.
  */
-export const resolveLocalDevPort = (
-  env: NodeJS.ProcessEnv = process.env,
-): string => {
+export const resolveLocalDevPort = (env: NodeJS.ProcessEnv = process.env): string => {
   const configuredPort = readConfiguredLocalDevPort(env);
-  let port =
-    configuredPort !== null ? Number(configuredPort) : DEFAULT_LOCAL_SITE_PORT;
+  let port = configuredPort !== null ? Number(configuredPort) : DEFAULT_LOCAL_SITE_PORT;
   while (isPortInUse(port)) {
     port += 1;
   }
   return String(port);
 };
 
-export const resolveLocalDevOrigin = (
-  env: NodeJS.ProcessEnv = process.env,
-): string => {
+export const resolveLocalDevOrigin = (env: NodeJS.ProcessEnv = process.env): string => {
   const explicitOrigin = normalizeEnvValue(env.DEV_ENV_ORIGIN);
   if (explicitOrigin !== undefined) {
     return explicitOrigin;
@@ -105,17 +95,12 @@ export const resolveSiteUrlSyncOrigin = (
     return explicitOrigin;
   }
   if (!usesLocalConvexDeployment(cwd)) {
-    throw new Error(
-      "DEV_ENV_ORIGIN is required unless the Convex deployment points at localhost.",
-    );
+    throw new Error("DEV_ENV_ORIGIN is required unless the Convex deployment points at localhost.");
   }
   return resolveLocalDevOrigin(env);
 };
 
-export const writeLocalDevOriginState = (
-  origin: string,
-  cwd: string = process.cwd(),
-): void => {
+export const writeLocalDevOriginState = (origin: string, cwd: string = process.cwd()): void => {
   fs.mkdirSync(path.dirname(getLocalDevOriginStatePath(cwd)), {
     recursive: true,
   });
@@ -177,8 +162,7 @@ export const parsePort = (url: string): number | null => {
 };
 
 export const listListeningPids = (port: number): string[] => {
-  const isString = (value: unknown): value is string =>
-    typeof value === "string";
+  const isString = (value: unknown): value is string => typeof value === "string";
 
   if (process.platform === "win32") {
     const netstatResult = spawnSync("netstat", ["-ano", "-p", "tcp"], {
@@ -197,10 +181,7 @@ export const listListeningPids = (port: number): string[] => {
       .filter((parts) => parts.length >= 5 && /LISTENING/i.test(parts[3] ?? ""))
       .filter((parts) => {
         const localAddress = parts[1] ?? "";
-        return (
-          localAddress.endsWith(`:${port}`) ||
-          localAddress.endsWith(`]:${port}`)
-        );
+        return localAddress.endsWith(`:${port}`) || localAddress.endsWith(`]:${port}`);
       })
       .map((parts) => parts.at(-1))
       .filter(isString)
@@ -220,5 +201,4 @@ export const listListeningPids = (port: number): string[] => {
     .filter(Boolean);
 };
 
-export const isPortInUse = (port: number): boolean =>
-  listListeningPids(port).length > 0;
+export const isPortInUse = (port: number): boolean => listListeningPids(port).length > 0;

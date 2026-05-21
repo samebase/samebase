@@ -28,10 +28,7 @@ function makeResolvedContext(args?: {
   const mutationCalls = args?.mutationCalls ?? [];
 
   const ctx = {
-    runQuery: async (
-      _queryRef: unknown,
-      queryArgs: Record<string, unknown>,
-    ): Promise<unknown> => {
+    runQuery: async (_queryRef: unknown, queryArgs: Record<string, unknown>): Promise<unknown> => {
       queryCalls.push({ ref: _queryRef, args: queryArgs });
       if (args?.queryHandler) {
         return args.queryHandler(queryArgs);
@@ -221,10 +218,7 @@ describe("executeRuntimeTool write dispatch", () => {
     const context = makeResolvedContext({
       mutationCalls,
       queryHandler: (queryArgs) => {
-        if (
-          queryArgs.newPath === "README.md" ||
-          queryArgs.originalFilePath === "README.md"
-        ) {
+        if (queryArgs.newPath === "README.md" || queryArgs.originalFilePath === "README.md") {
           return {
             content: "",
             fileDeleted: true,
@@ -244,9 +238,7 @@ describe("executeRuntimeTool write dispatch", () => {
         context,
         input: { path: "README.md", content: "new content" },
       }),
-    ).rejects.toThrow(
-      "edit_file failed: README.md does not exist; use create_file",
-    );
+    ).rejects.toThrow("edit_file failed: README.md does not exist; use create_file");
     expect(mutationCalls).toHaveLength(0);
   });
 
@@ -275,9 +267,7 @@ describe("executeRuntimeTool write dispatch", () => {
         context,
         input: { path: "src/new.ts", content: "new file" },
       }),
-    ).rejects.toThrow(
-      "create_file failed: src/new.ts already exists; use edit_file",
-    );
+    ).rejects.toThrow("create_file failed: src/new.ts already exists; use edit_file");
     expect(mutationCalls).toHaveLength(0);
   });
 

@@ -145,9 +145,7 @@ describe("logoRouteSearch", () => {
   });
 
   it("preserves the public dev flag across logo query-state sync", () => {
-    expect(
-      preserveLogoRouteDevModeSearch({ primary: "red-600" }, { dev: true }),
-    ).toEqual({
+    expect(preserveLogoRouteDevModeSearch({ primary: "red-600" }, { dev: true })).toEqual({
       dev: true,
       primary: "red-600",
     });
@@ -207,14 +205,10 @@ describe("logoRouteSearch", () => {
     expect(validateLogoRouteSearchForRenderer("svg")({ depth: "99" })).toEqual({
       depth: getLogoRendererFractalDepthHardMax("svg"),
     });
-    expect(
-      validateLogoRouteSearchForRenderer("three")({ depth: "99" }),
-    ).toEqual({
+    expect(validateLogoRouteSearchForRenderer("three")({ depth: "99" })).toEqual({
       depth: getLogoRendererFractalDepthHardMax("three"),
     });
-    expect(
-      validateLogoRouteSearchForRenderer("raster")({ depth: "99" }),
-    ).toEqual({
+    expect(validateLogoRouteSearchForRenderer("raster")({ depth: "99" })).toEqual({
       depth: getLogoRendererFractalDepthHardMax("raster"),
     });
     expect(validateLogoRouteSearchForRenderer("iso")({ depth: "99" })).toEqual({

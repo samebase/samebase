@@ -21,12 +21,7 @@ const FIXTURE_CONFIGS: FixtureConfig[] = [
 ];
 
 function FixtureBar({ className }: { className?: string }) {
-  return (
-    <div
-      aria-hidden="true"
-      className={cn("rounded-none bg-current/50", className)}
-    />
-  );
+  return <div aria-hidden="true" className={cn("rounded-none bg-current/50", className)} />;
 }
 
 function CornerNotchChipElement({
@@ -75,11 +70,7 @@ function CornerNotchChip({
   if (zoom === 1) {
     return (
       <div className="w-fit border border-stone-400 bg-stone-300 p-2">
-        <CornerNotchChipElement
-          borderWidth={borderWidth}
-          type={type}
-          zoom={zoom}
-        />
+        <CornerNotchChipElement borderWidth={borderWidth} type={type} zoom={zoom} />
       </div>
     );
   }
@@ -92,11 +83,7 @@ function CornerNotchChip({
           width: FIXTURE_BOX_SIZE * zoom,
         }}
       >
-        <CornerNotchChipElement
-          borderWidth={borderWidth}
-          type={type}
-          zoom={zoom}
-        />
+        <CornerNotchChipElement borderWidth={borderWidth} type={type} zoom={zoom} />
       </div>
     </div>
   );
@@ -118,11 +105,7 @@ function CornerNotchTouchingPair({
             width: FIXTURE_BOX_SIZE * zoom,
           }}
         >
-          <CornerNotchChipElement
-            borderWidth={borderWidth}
-            type={type}
-            zoom={zoom}
-          />
+          <CornerNotchChipElement borderWidth={borderWidth} type={type} zoom={zoom} />
         </div>
         <div
           style={{
@@ -130,11 +113,7 @@ function CornerNotchTouchingPair({
             width: FIXTURE_BOX_SIZE * zoom,
           }}
         >
-          <CornerNotchChipElement
-            borderWidth={borderWidth}
-            type={type}
-            zoom={zoom}
-          />
+          <CornerNotchChipElement borderWidth={borderWidth} type={type} zoom={zoom} />
         </div>
       </div>
     </div>
@@ -158,33 +137,18 @@ function FixtureTypeMarkers({ type }: { type: FixtureConfig["type"] }) {
   );
 }
 
-function FixtureBorderMarkers({
-  borderWidth,
-}: {
-  borderWidth: FixtureBorderWidth;
-}) {
+function FixtureBorderMarkers({ borderWidth }: { borderWidth: FixtureBorderWidth }) {
   return (
     <div className="flex items-center gap-1">
       <FixtureBar className="h-1.5 w-8 bg-stone-500/55" />
-      {borderWidth === 2 ? (
-        <FixtureBar className="h-1 w-5 bg-stone-500/45" />
-      ) : null}
+      {borderWidth === 2 ? <FixtureBar className="h-1 w-5 bg-stone-500/45" /> : null}
     </div>
   );
 }
 
-function CornerNotchFixtureSection({
-  testId,
-  zoom,
-}: {
-  testId: string;
-  zoom: FixtureZoom;
-}) {
+function CornerNotchFixtureSection({ testId, zoom }: { testId: string; zoom: FixtureZoom }) {
   return (
-    <section
-      data-testid={testId}
-      className="grid gap-3 border border-stone-300 bg-stone-100 p-4"
-    >
+    <section data-testid={testId} className="grid gap-3 border border-stone-300 bg-stone-100 p-4">
       <div className="grid gap-3 md:grid-cols-3">
         {FIXTURE_CONFIGS.map((config) => (
           <div
@@ -219,10 +183,7 @@ export function CornerNotchDetailVisualFixture() {
       <div className="mx-auto grid max-w-[1800px] gap-6">
         <CornerNotchFixtureSection testId="corner-notch-detail-raw" zoom={1} />
 
-        <CornerNotchFixtureSection
-          testId="corner-notch-detail-zoomed"
-          zoom={12}
-        />
+        <CornerNotchFixtureSection testId="corner-notch-detail-zoomed" zoom={12} />
       </div>
     </div>
   );

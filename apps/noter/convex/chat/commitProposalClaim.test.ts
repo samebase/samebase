@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  buildClaimedCommitProposalPayload,
-  canClaimCommitProposal,
-} from "./commitProposalClaim";
+import { buildClaimedCommitProposalPayload, canClaimCommitProposal } from "./commitProposalClaim";
 
 describe("canClaimCommitProposal", () => {
   it("allows claiming when proposal is idle", () => {

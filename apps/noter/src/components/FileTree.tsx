@@ -17,12 +17,7 @@ import {
   UpdateIcon,
 } from "@/lib/radixIcons";
 import { cn } from "@/lib/utils";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DialogContext } from "@/contexts/dialog-context-state";
 import {
@@ -33,17 +28,12 @@ import {
   buildEffectiveFolderExpansionStates,
   type FolderExpansionState,
 } from "@/lib/fileTreeState";
-import {
-  getFileTreeTooltipText,
-  getRestoreDeletionLabel,
-} from "@/lib/fileTreeLabels";
+import { getFileTreeTooltipText, getRestoreDeletionLabel } from "@/lib/fileTreeLabels";
 
 const FILE_TREE_BASE_PADDING_PX = 4;
 const FILE_TREE_LEVEL_INDENT_PX = 6;
 
-type FileTreeFileSelectEvent =
-  | MouseEvent<HTMLAnchorElement>
-  | MouseEvent<HTMLDivElement>;
+type FileTreeFileSelectEvent = MouseEvent<HTMLAnchorElement> | MouseEvent<HTMLDivElement>;
 
 type FileTreeFileSelectHandler = (
   path: string,
@@ -123,8 +113,7 @@ function buildTree(items: FileTreeItem[]): TreeNode[] {
           label: index === parts.length - 1 ? item.label : undefined,
           href: index === parts.length - 1 ? item.href : undefined,
           elementId: index === parts.length - 1 ? item.elementId : undefined,
-          children:
-            index === parts.length - 1 && item.type === "blob" ? undefined : [],
+          children: index === parts.length - 1 && item.type === "blob" ? undefined : [],
           size: index === parts.length - 1 ? item.size : undefined,
           deleted: index === parts.length - 1 ? item.deleted : undefined,
           status: index === parts.length - 1 ? item.status : undefined,
@@ -188,9 +177,7 @@ function TreeNodeComponent({
 }) {
   const dialog = useContext(DialogContext);
 
-  const expansionState = folderExpansionStates.find(
-    (state) => state.folderPath === node.path,
-  );
+  const expansionState = folderExpansionStates.find((state) => state.folderPath === node.path);
   const isOpen = expansionState
     ? expansionState.isExpanded === true
     : autoExpandedPaths.has(node.path);
@@ -213,16 +200,12 @@ function TreeNodeComponent({
   const fileStatus = node.type === "blob" ? node.status : undefined;
   const isDeletedFile = fileStatus === "deleted" || node.deleted === true;
   const isRestorePending = restoringFilePath === node.path;
-  const canCreateFile =
-    isFolder && dialog !== undefined && onFileCreate !== undefined;
+  const canCreateFile = isFolder && dialog !== undefined && onFileCreate !== undefined;
   const canUploadImage = isFolder && onMediaUploadRequest !== undefined;
   const canCreateFolder = isFolder && dialog !== undefined;
-  const canRenameFile =
-    node.type === "blob" && !isDeletedFile && onFileRename !== undefined;
-  const canDeleteFile =
-    node.type === "blob" && !isDeletedFile && onFileDelete !== undefined;
-  const canRestoreFile =
-    node.type === "blob" && isDeletedFile && onFileRestore !== undefined;
+  const canRenameFile = node.type === "blob" && !isDeletedFile && onFileRename !== undefined;
+  const canDeleteFile = node.type === "blob" && !isDeletedFile && onFileDelete !== undefined;
+  const canRestoreFile = node.type === "blob" && isDeletedFile && onFileRestore !== undefined;
   const canOpenContextMenu =
     canCreateFile ||
     canUploadImage ||
@@ -230,9 +213,7 @@ function TreeNodeComponent({
     canRenameFile ||
     canDeleteFile ||
     canRestoreFile;
-  const fileStatusClassName = fileStatus
-    ? getCommitStatusTextClassName(fileStatus)
-    : undefined;
+  const fileStatusClassName = fileStatus ? getCommitStatusTextClassName(fileStatus) : undefined;
   const openContextMenu = useCallback((x: number, y: number) => {
     setContextMenu({ x, y });
   }, []);
@@ -325,11 +306,7 @@ function TreeNodeComponent({
   };
 
   const handleRenameSubmit = () => {
-    if (
-      renamingValue.trim() &&
-      renamingValue.trim() !== node.name &&
-      onFileRename
-    ) {
+    if (renamingValue.trim() && renamingValue.trim() !== node.name && onFileRename) {
       const pathParts = node.path.split("/");
       pathParts[pathParts.length - 1] = renamingValue.trim();
       const newPath = pathParts.join("/");
@@ -350,8 +327,7 @@ function TreeNodeComponent({
   const nodeLabel = node.label ?? node.name;
   const nodeRowClassName = cn(
     "flex items-center gap-0.5 px-1 py-1.5 text-sm cursor-pointer hover:bg-muted/30 corner-notch-1 md:py-0.5",
-    isSelected &&
-      "bg-primary/15 hover:bg-primary/20 ring-1 ring-inset ring-primary/40",
+    isSelected && "bg-primary/15 hover:bg-primary/20 ring-1 ring-inset ring-primary/40",
     "transition-colors",
     "min-h-9 md:min-h-[auto]", // Touch-friendly height on mobile
   );
@@ -486,10 +462,7 @@ function TreeNodeComponent({
       {/* Context Menu */}
       {contextMenu && (
         <>
-          <div
-            className="fixed inset-0 z-10"
-            onClick={() => setContextMenu(null)}
-          />
+          <div className="fixed inset-0 z-10" onClick={() => setContextMenu(null)} />
           <div
             className="fixed z-20 bg-background border border-border corner-notch-1 shadow-lg py-1 min-w-32"
             style={{ left: contextMenu.x, top: contextMenu.y }}
@@ -584,10 +557,7 @@ export function FileTree({
   forceAutoExpandedPaths = false,
 }: FileTreeProps) {
   const tree = useMemo(() => buildTree(items), [items]);
-  const autoExpandedPathSet = useMemo(
-    () => new Set(autoExpandedPaths),
-    [autoExpandedPaths],
-  );
+  const autoExpandedPathSet = useMemo(() => new Set(autoExpandedPaths), [autoExpandedPaths]);
   const [manualExpansionOverrides, setManualExpansionOverrides] = useState(
     () => new Map<string, boolean>(),
   );

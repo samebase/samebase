@@ -10,12 +10,13 @@ async function openResearchFixture(page: Page) {
 test("codex app-server research visual fixture", async ({ page }) => {
   await page.setViewportSize({ width: 1480, height: 2200 });
   await openResearchFixture(page);
-  await expect(
-    page.getByTestId("codex-app-server-research-visual-fixture"),
-  ).toHaveScreenshot("codex-app-server-research.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    maxDiffPixelRatio: 0.06,
-  });
+  await expect(page.getByTestId("codex-app-server-research-visual-fixture")).toHaveScreenshot(
+    "codex-app-server-research.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.06,
+    },
+  );
 });

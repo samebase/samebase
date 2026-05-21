@@ -60,10 +60,7 @@ function isIndentedContinuationLine(line: string): boolean {
   return /^[ \t]+/.test(line);
 }
 
-function pushTextSegment(
-  segments: StaticMarkdownInlineSegment[],
-  value: string,
-): void {
+function pushTextSegment(segments: StaticMarkdownInlineSegment[], value: string): void {
   if (value.length === 0) {
     return;
   }
@@ -80,9 +77,7 @@ function pushTextSegment(
   });
 }
 
-export function parseStaticMarkdownInline(
-  value: string,
-): StaticMarkdownInlineSegment[] {
+export function parseStaticMarkdownInline(value: string): StaticMarkdownInlineSegment[] {
   const segments: StaticMarkdownInlineSegment[] = [];
   let match: RegExpExecArray | null = null;
   let lastIndex = 0;
@@ -151,9 +146,7 @@ export function parseStaticMarkdown(markdown: string): StaticMarkdownBlock[] {
 
         if (trimmedListLine.length === 0) {
           if (currentItemParts.length > 0) {
-            items.push(
-              parseStaticMarkdownInline(currentItemParts.join(" ").trim()),
-            );
+            items.push(parseStaticMarkdownInline(currentItemParts.join(" ").trim()));
             currentItemParts = [];
           }
           index += 1;
@@ -163,9 +156,7 @@ export function parseStaticMarkdown(markdown: string): StaticMarkdownBlock[] {
         const listItemMatch = listLine.trimStart().match(listItemPattern);
         if (listItemMatch) {
           if (currentItemParts.length > 0) {
-            items.push(
-              parseStaticMarkdownInline(currentItemParts.join(" ").trim()),
-            );
+            items.push(parseStaticMarkdownInline(currentItemParts.join(" ").trim()));
           }
 
           currentItemParts = [listItemMatch[1].trim()];
@@ -187,9 +178,7 @@ export function parseStaticMarkdown(markdown: string): StaticMarkdownBlock[] {
       }
 
       if (currentItemParts.length > 0) {
-        items.push(
-          parseStaticMarkdownInline(currentItemParts.join(" ").trim()),
-        );
+        items.push(parseStaticMarkdownInline(currentItemParts.join(" ").trim()));
       }
 
       if (items.length > 0) {

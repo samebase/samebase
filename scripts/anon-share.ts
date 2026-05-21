@@ -99,30 +99,20 @@ const APPS_NOTER_DIRNAME = "apps/noter";
 const QUICK_TUNNEL_URL_PATTERN = /https:\/\/[a-z0-9.-]+\.trycloudflare\.com\b/i;
 const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
-const CONFIGURED_CONVEX_ENV_KEYS: readonly string[] = [
-  "VITE_CONVEX_URL",
-  "CONVEX_URL",
-];
+const CONFIGURED_CONVEX_ENV_KEYS: readonly string[] = ["VITE_CONVEX_URL", "CONVEX_URL"];
 
 const SHARE_MODE_CONFIG: Record<ShareMode, ShareModeConfig> = {
   anonymous: {
     bootstrapCommand: PNPM_COMMAND,
     bootstrapArgs: ["run", "anon:once"],
     devCommand: PNPM_COMMAND,
-    buildDevArgs: (frontendPort) => [
-      "run",
-      "anon",
-      "--",
-      "--vite-port",
-      String(frontendPort),
-    ],
+    buildDevArgs: (frontendPort) => ["run", "anon", "--", "--vite-port", String(frontendPort)],
     devTargetPortVar: null,
     defaultStartPort: 5174,
     shareLabel: "Anonymous local share",
     devLabel: "anonymous local dev",
     readyLabel: "anonymous local frontend",
-    bootstrapMessage:
-      "Bootstrapping anonymous local environment with `pnpm anon:once`.",
+    bootstrapMessage: "Bootstrapping anonymous local environment with `pnpm anon:once`.",
     startMessage: (origin) =>
       `Starting anonymous local dev on ${origin} with a private Convex proxy.`,
   },
@@ -136,10 +126,8 @@ const SHARE_MODE_CONFIG: Record<ShareMode, ShareModeConfig> = {
     shareLabel: "Local share",
     devLabel: "local dev",
     readyLabel: "local frontend",
-    bootstrapMessage:
-      "Bootstrapping local environment with `pnpm run bootstrap`.",
-    startMessage: (origin) =>
-      `Starting local dev on ${origin} with a private Convex proxy.`,
+    bootstrapMessage: "Bootstrapping local environment with `pnpm run bootstrap`.",
+    startMessage: (origin) => `Starting local dev on ${origin} with a private Convex proxy.`,
   },
 };
 
@@ -175,9 +163,7 @@ export function parseCloudflaredQuickTunnelUrl(line: unknown): string | null {
   return match?.[0] ?? null;
 }
 
-export function readLocalConvexUrlFromEnvContents(
-  contents: unknown,
-): string | null {
+export function readLocalConvexUrlFromEnvContents(contents: unknown): string | null {
   if (typeof contents !== "string" || contents.length === 0) {
     return null;
   }
@@ -313,14 +299,10 @@ function resolveAppsNoterDir(repoRoot: string): string {
 function readConfiguredConvexUrl(repoRoot: string): string {
   const envPath = path.join(resolveAppsNoterDir(repoRoot), ".env.local");
   if (!fs.existsSync(envPath)) {
-    throw new Error(
-      `Missing ${APPS_NOTER_DIRNAME}/.env.local after bootstrap.`,
-    );
+    throw new Error(`Missing ${APPS_NOTER_DIRNAME}/.env.local after bootstrap.`);
   }
 
-  const value = readLocalConvexUrlFromEnvContents(
-    fs.readFileSync(envPath, "utf8"),
-  );
+  const value = readLocalConvexUrlFromEnvContents(fs.readFileSync(envPath, "utf8"));
   if (!value) {
     throw new Error(
       `Could not find VITE_CONVEX_URL or CONVEX_URL in ${APPS_NOTER_DIRNAME}/.env.local.`,
@@ -359,19 +341,14 @@ async function findAvailablePort(startPort: number): Promise<number> {
     }
   }
 
-  throw new Error(
-    `Could not find an available frontend port starting at ${startPort}.`,
-  );
+  throw new Error(`Could not find an available frontend port starting at ${startPort}.`);
 }
 
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function describeProcessExit(
-  code: number | null,
-  signal: NodeJS.Signals | null,
-): string {
+function describeProcessExit(code: number | null, signal: NodeJS.Signals | null): string {
   if (signal) {
     return `signal ${signal}`;
   }
@@ -386,10 +363,7 @@ function createExitState(): ExitState {
   };
 }
 
-function waitForChildExit(
-  childProcess: ChildProcess,
-  exitState: ExitState,
-): Promise<ChildExit> {
+function waitForChildExit(childProcess: ChildProcess, exitState: ExitState): Promise<ChildExit> {
   return new Promise((resolve) => {
     childProcess.once("exit", (code, signal) => {
       exitState.exited = true;
@@ -451,14 +425,10 @@ async function waitForUrlReady(args: WaitForUrlReadyArgs): Promise<void> {
     await sleep(250);
   }
 
-  throw new Error(
-    `Timed out waiting for ${args.label} readiness at ${args.url}.`,
-  );
+  throw new Error(`Timed out waiting for ${args.label} readiness at ${args.url}.`);
 }
 
-async function waitForFrontendOrigin(
-  args: WaitForFrontendOriginArgs,
-): Promise<string> {
+async function waitForFrontendOrigin(args: WaitForFrontendOriginArgs): Promise<string> {
   const appsNoterDir = resolveAppsNoterDir(args.repoRoot);
   const deadline = Date.now() + args.timeoutMs;
 
@@ -473,10 +443,7 @@ async function waitForFrontendOrigin(
     }
 
     const localDevOriginState = readLocalDevOriginState(appsNoterDir);
-    if (
-      localDevOriginState !== null &&
-      localDevOriginState.writtenAt >= args.minimumWrittenAt
-    ) {
+    if (localDevOriginState !== null && localDevOriginState.writtenAt >= args.minimumWrittenAt) {
       return localDevOriginState.origin;
     }
 
@@ -500,8 +467,7 @@ async function ensureCloudflaredBinary(repoRoot: string): Promise<void> {
     }
   } catch (error) {
     throw new Error(
-      error instanceof Error &&
-        error.message.includes("spawnSync cloudflared ENOENT")
+      error instanceof Error && error.message.includes("spawnSync cloudflared ENOENT")
         ? "The `cloudflared` command was not found. Install cloudflared before using the share targets."
         : describeError(error),
     );
@@ -588,9 +554,7 @@ function startCloudflaredQuickTunnel(
     if (isClosing || sawTunnelUrl) {
       return;
     }
-    rejectReady(
-      new Error("Timed out waiting for Cloudflare quick tunnel readiness."),
-    );
+    rejectReady(new Error("Timed out waiting for Cloudflare quick tunnel readiness."));
     void stopChildProcess(childProcess);
   }, CLOUDFLARED_READY_TIMEOUT_MS);
   readyTimeoutId.unref();
@@ -629,9 +593,7 @@ function startCloudflaredQuickTunnel(
 
   childProcess.once("error", (error) => {
     clearTimeout(readyTimeoutId);
-    rejectReady(
-      new Error(`cloudflared failed to start: ${describeError(error)}`),
-    );
+    rejectReady(new Error(`cloudflared failed to start: ${describeError(error)}`));
   });
 
   childProcess.once("close", () => {
@@ -753,10 +715,7 @@ async function stopProcessGroup(
   await stopped;
 }
 
-async function setLocalSiteUrl(
-  repoRoot: string,
-  publicTunnelUrl: string,
-): Promise<void> {
+async function setLocalSiteUrl(repoRoot: string, publicTunnelUrl: string): Promise<void> {
   const publicOrigin = new URL(publicTunnelUrl).origin;
   await runCommand({
     command: "npx",

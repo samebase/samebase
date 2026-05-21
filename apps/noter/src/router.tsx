@@ -1,12 +1,6 @@
-import {
-  createRouter as createTanStackRouter,
-  type RouterHistory,
-} from "@tanstack/react-router";
+import { createRouter as createTanStackRouter, type RouterHistory } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
-import {
-  parseTanStackSearch,
-  stringifyTanStackSearch,
-} from "@/lib/tanstackSearchParams";
+import { parseTanStackSearch, stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
 
 export function getRouter() {
   return createTanStackRouter({

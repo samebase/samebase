@@ -31,13 +31,9 @@ type CreateCommitData = GitApi["createCommit"]["response"]["data"];
 type UpdateRefData = GitApi["updateRef"]["response"]["data"];
 type GetTreeData = GitApi["getTree"]["response"]["data"];
 type GetBlobData = GitApi["getBlob"]["response"]["data"];
-type CreateTreeEntry = NonNullable<
-  GitApi["createTree"]["parameters"]["tree"]
->[number];
+type CreateTreeEntry = NonNullable<GitApi["createTree"]["parameters"]["tree"]>[number];
 
-function hasInlineContent(
-  entry: CreateTreeEntry,
-): entry is CreateTreeEntry & { content: string } {
+function hasInlineContent(entry: CreateTreeEntry): entry is CreateTreeEntry & { content: string } {
   return "content" in entry && typeof entry.content === "string";
 }
 
@@ -74,10 +70,7 @@ const makeAuthor = () => ({
   date: "2020-01-01T00:00:00Z",
 });
 
-const makeGetCommitResponse = (
-  treeSha: string,
-  commitSha: string,
-): GetCommitResponse => ({
+const makeGetCommitResponse = (treeSha: string, commitSha: string): GetCommitResponse => ({
   status: 200,
   url: `https://api.github.com/repos/test-owner/test-repo/git/commits/${commitSha}`,
   headers: emptyHeaders,
@@ -116,10 +109,7 @@ const makeCreateTreeResponse = (treeSha: string): CreateTreeResponse => ({
   } satisfies CreateTreeData,
 });
 
-const makeCreateCommitResponse = (
-  treeSha: string,
-  commitSha: string,
-): CreateCommitResponse => ({
+const makeCreateCommitResponse = (treeSha: string, commitSha: string): CreateCommitResponse => ({
   status: 201,
   url: `https://api.github.com/repos/test-owner/test-repo/git/commits/${commitSha}`,
   headers: emptyHeaders,
@@ -391,8 +381,7 @@ describe("draft pull request helpers", () => {
   it("returns a friendly message when the branch has no PR-worthy commits", () => {
     expect(
       getDraftPullRequestCreateErrorMessage({
-        message:
-          "Validation Failed: No commits between main and feature-branch",
+        message: "Validation Failed: No commits between main and feature-branch",
       }),
     ).toBe("This branch has no changes to open as a pull request.");
   });
@@ -726,9 +715,7 @@ describe("buildRemoteComparePreviewFile", () => {
         return encoder.encode("export const flag = false;\n");
       }
       if (sha === "head-sha") {
-        return encoder.encode(
-          "export const flag = true;\nexport const compare = true;\n",
-        );
+        return encoder.encode("export const flag = true;\nexport const compare = true;\n");
       }
 
       throw new Error(`Unexpected sha ${sha}`);
@@ -754,8 +741,7 @@ describe("buildRemoteComparePreviewFile", () => {
         path: "src/file.ts",
         isMarkdown: false,
         richOldContent: "export const flag = false;\n",
-        richNewContent:
-          "export const flag = true;\nexport const compare = true;\n",
+        richNewContent: "export const flag = true;\nexport const compare = true;\n",
         oldLineCount: 2,
         newLineCount: 3,
       }),
@@ -851,9 +837,7 @@ describe("createCommitWithMultipleFiles", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     octokit = new Octokit({ auth: "test" });
-    vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(
-      makeGetTreeResponse("head-tree", []),
-    );
+    vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(makeGetTreeResponse("head-tree", []));
   });
 
   /**
@@ -864,9 +848,7 @@ describe("createCommitWithMultipleFiles", () => {
    */
   it("Test 1: Single file edit - creates only 1 tree entry with base_tree", async () => {
     // Setup mocks
-    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
-      makeGetRefResponse("abc123"),
-    );
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(makeGetRefResponse("abc123"));
     vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
       makeGetCommitResponse("tree123", "abc123"),
     );
@@ -908,9 +890,7 @@ describe("createCommitWithMultipleFiles", () => {
 
     // Verify base_tree parameter is passed
     expect(createTreeCall.base_tree).toBe("tree123");
-    expect(updateRefSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ force: false }),
-    );
+    expect(updateRefSpy).toHaveBeenCalledWith(expect.objectContaining({ force: false }));
   });
 
   /**
@@ -920,19 +900,13 @@ describe("createCommitWithMultipleFiles", () => {
    */
   it("Test 1b: Rebases stale staged content to preserve upstream-only lines", async () => {
     const targetBranch = "feature/stale-rebase";
-    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
-      makeGetRefResponse("abc123"),
-    );
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(makeGetRefResponse("abc123"));
     vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
       makeGetCommitResponse("tree123", "abc123"),
     );
     const getTreeSpy = vi
       .spyOn(octokit.rest.git, "getTree")
-      .mockResolvedValue(
-        makeGetTreeResponse("head-tree", [
-          { path: "TODO.md", sha: "upstream" },
-        ]),
-      );
+      .mockResolvedValue(makeGetTreeResponse("head-tree", [{ path: "TODO.md", sha: "upstream" }]));
 
     const upstreamContent = [
       "!!! github notes",
@@ -954,9 +928,7 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
       makeCreateCommitResponse("newtree123", "commit123"),
     );
-    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
-      makeUpdateRefResponse("commit123"),
-    );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(makeUpdateRefResponse("commit123"));
 
     const staleInitial = [
       "!!! github notes",
@@ -1005,9 +977,7 @@ describe("createCommitWithMultipleFiles", () => {
       throw new Error("createTree was not called");
     }
 
-    const todoEntry = createTreeCall.tree.find(
-      (entry) => entry.path === "TODO.md",
-    );
+    const todoEntry = createTreeCall.tree.find((entry) => entry.path === "TODO.md");
     const committedContent = readInlineContent(todoEntry);
     expect(committedContent).toContain("- [ ] run a 2-week Augment Code pilot");
     expect(committedContent).toBe(
@@ -1026,9 +996,7 @@ describe("createCommitWithMultipleFiles", () => {
 
   it("Test 1d: Rebases when parent SHA matches but initial content is stale", async () => {
     const targetBranch = "feature/stale-parent-sha";
-    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
-      makeGetRefResponse("abc123"),
-    );
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(makeGetRefResponse("abc123"));
     vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
       makeGetCommitResponse("tree123", "abc123"),
     );
@@ -1038,10 +1006,7 @@ describe("createCommitWithMultipleFiles", () => {
     const getBlobSpy = vi
       .spyOn(octokit.rest.git, "getBlob")
       .mockResolvedValue(
-        makeGetBlobResponse(
-          "upstream",
-          ["alpha", "beta", "gamma", "delta", ""].join("\n"),
-        ),
+        makeGetBlobResponse("upstream", ["alpha", "beta", "gamma", "delta", ""].join("\n")),
       );
     const createTreeSpy = vi
       .spyOn(octokit.rest.git, "createTree")
@@ -1049,9 +1014,7 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
       makeCreateCommitResponse("newtree123", "commit123"),
     );
-    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
-      makeUpdateRefResponse("commit123"),
-    );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(makeUpdateRefResponse("commit123"));
 
     await createCommitWithMultipleFiles({
       octokit,
@@ -1072,22 +1035,16 @@ describe("createCommitWithMultipleFiles", () => {
       branch: targetBranch,
     });
 
-    expect(getBlobSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ file_sha: "upstream" }),
-    );
+    expect(getBlobSpy).toHaveBeenCalledWith(expect.objectContaining({ file_sha: "upstream" }));
 
     const createTreeCall = createTreeSpy.mock.calls[0]?.[0];
     if (!createTreeCall) {
       throw new Error("createTree was not called");
     }
 
-    const todoEntry = createTreeCall.tree.find(
-      (entry) => entry.path === "TODO.md",
-    );
+    const todoEntry = createTreeCall.tree.find((entry) => entry.path === "TODO.md");
     const committedContent = readInlineContent(todoEntry);
-    expect(committedContent).toBe(
-      ["alpha-updated", "beta", "gamma", "delta", ""].join("\n"),
-    );
+    expect(committedContent).toBe(["alpha-updated", "beta", "gamma", "delta", ""].join("\n"));
   });
 
   it("collects rebase conflict payloads for files that cannot apply cleanly", async () => {
@@ -1231,9 +1188,7 @@ describe("createCommitWithMultipleFiles", () => {
   });
 
   it("Test 1c: skipRebase avoids extra head-tree lookups", async () => {
-    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
-      makeGetRefResponse("abc123"),
-    );
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(makeGetRefResponse("abc123"));
     vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
       makeGetCommitResponse("tree123", "abc123"),
     );
@@ -1245,9 +1200,7 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
       makeCreateCommitResponse("newtree123", "commit123"),
     );
-    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
-      makeUpdateRefResponse("commit123"),
-    );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(makeUpdateRefResponse("commit123"));
 
     await createCommitWithMultipleFiles({
       octokit,
@@ -1285,9 +1238,7 @@ describe("createCommitWithMultipleFiles", () => {
    * Verify: Tree entry for deleted file has sha: null
    */
   it("Test 2: File deletion - creates tree entry with sha null", async () => {
-    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
-      makeGetRefResponse("abc123"),
-    );
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(makeGetRefResponse("abc123"));
     vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
       makeGetCommitResponse("tree123", "abc123"),
     );
@@ -1297,9 +1248,7 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
       makeCreateCommitResponse("newtree123", "commit123"),
     );
-    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
-      makeUpdateRefResponse("commit123"),
-    );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(makeUpdateRefResponse("commit123"));
 
     await createCommitWithMultipleFiles({
       octokit,
@@ -1333,9 +1282,7 @@ describe("createCommitWithMultipleFiles", () => {
    * Verify: Tree entries contain deletion of old path AND addition of new path
    */
   it("Test 3: File rename - creates entries for old and new paths", async () => {
-    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
-      makeGetRefResponse("abc123"),
-    );
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(makeGetRefResponse("abc123"));
     vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
       makeGetCommitResponse("tree123", "abc123"),
     );
@@ -1345,9 +1292,7 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
       makeCreateCommitResponse("newtree123", "commit123"),
     );
-    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
-      makeUpdateRefResponse("commit123"),
-    );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(makeUpdateRefResponse("commit123"));
 
     await createCommitWithMultipleFiles({
       octokit,
@@ -1373,12 +1318,8 @@ describe("createCommitWithMultipleFiles", () => {
     // Should have 2 entries: deletion of old path + addition of new path
     expect(createTreeCall.tree.length).toBe(2);
 
-    const deletionEntry = createTreeCall.tree.find(
-      (entry) => entry.path === "src/old-name.ts",
-    );
-    const additionEntry = createTreeCall.tree.find(
-      (entry) => entry.path === "src/new-name.ts",
-    );
+    const deletionEntry = createTreeCall.tree.find((entry) => entry.path === "src/old-name.ts");
+    const additionEntry = createTreeCall.tree.find((entry) => entry.path === "src/new-name.ts");
 
     expect(deletionEntry).toBeDefined();
     expect(additionEntry).toBeDefined();
@@ -1396,9 +1337,7 @@ describe("createCommitWithMultipleFiles", () => {
    * Verify: No full tree reconstruction happens (base_tree is used)
    */
   it("Test 4: Mixed changes - handles edits, deletes, and renames", async () => {
-    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
-      makeGetRefResponse("abc123"),
-    );
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(makeGetRefResponse("abc123"));
     vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
       makeGetCommitResponse("tree123", "abc123"),
     );
@@ -1408,9 +1347,7 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
       makeCreateCommitResponse("newtree123", "commit123"),
     );
-    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
-      makeUpdateRefResponse("commit123"),
-    );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(makeUpdateRefResponse("commit123"));
 
     await createCommitWithMultipleFiles({
       octokit,
@@ -1474,9 +1411,7 @@ describe("createCommitWithMultipleFiles", () => {
     expect(paths).toContain("src/renamed-new.ts");
 
     // Verify content-based entries for additions
-    const edit1Entry = createTreeCall.tree.find(
-      (e) => e.path === "src/edit1.ts",
-    );
+    const edit1Entry = createTreeCall.tree.find((e) => e.path === "src/edit1.ts");
     expect(readInlineContent(edit1Entry)).toBe("new content 1");
   });
 
@@ -1507,9 +1442,7 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
       makeCreateCommitResponse("newtree123", "commit123"),
     );
-    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
-      makeUpdateRefResponse("commit123"),
-    );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(makeUpdateRefResponse("commit123"));
 
     const result = await createCommitWithMultipleFiles({
       octokit,
@@ -1548,9 +1481,7 @@ describe("createCommitWithMultipleFiles", () => {
    * Verify: No retry, error is thrown
    */
   it("Test 5b: Non-retryable errors are thrown immediately", async () => {
-    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
-      makeGetRefResponse("abc123"),
-    );
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(makeGetRefResponse("abc123"));
     vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
       makeGetCommitResponse("tree123", "abc123"),
     );
@@ -1558,9 +1489,7 @@ describe("createCommitWithMultipleFiles", () => {
     const error500 = Object.assign(new Error("Internal Server Error"), {
       status: 500,
     });
-    const createTreeSpy = vi
-      .spyOn(octokit.rest.git, "createTree")
-      .mockRejectedValue(error500);
+    const createTreeSpy = vi.spyOn(octokit.rest.git, "createTree").mockRejectedValue(error500);
 
     await expect(
       createCommitWithMultipleFiles({
@@ -1591,9 +1520,7 @@ describe("createCommitWithMultipleFiles", () => {
    * Verify: No Git writes are attempted (file never existed in repo)
    */
   it("Test 6: Deleting a new file (parentCommitSha null) does not create an empty commit", async () => {
-    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
-      makeGetRefResponse("abc123"),
-    );
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(makeGetRefResponse("abc123"));
     vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
       makeGetCommitResponse("tree123", "abc123"),
     );
@@ -1625,9 +1552,7 @@ describe("createCommitWithMultipleFiles", () => {
     });
 
     expect(result.sha).toBe("abc123");
-    expect(result.url).toBe(
-      "https://github.com/test-owner/test-repo/commit/abc123",
-    );
+    expect(result.url).toBe("https://github.com/test-owner/test-repo/commit/abc123");
     expect(createTreeSpy).not.toHaveBeenCalled();
     expect(createCommitSpy).not.toHaveBeenCalled();
     expect(updateRefSpy).not.toHaveBeenCalled();
@@ -1639,9 +1564,7 @@ describe("createCommitWithMultipleFiles", () => {
    * Verify: Only the addition entry is created, no deletion of old path
    */
   it("Test 7: Renaming a new file skips old-path deletion", async () => {
-    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
-      makeGetRefResponse("abc123"),
-    );
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(makeGetRefResponse("abc123"));
     vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
       makeGetCommitResponse("tree123", "abc123"),
     );
@@ -1651,9 +1574,7 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
       makeCreateCommitResponse("newtree123", "commit123"),
     );
-    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
-      makeUpdateRefResponse("commit123"),
-    );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(makeUpdateRefResponse("commit123"));
 
     await createCommitWithMultipleFiles({
       octokit,
@@ -1689,9 +1610,7 @@ describe("createCommitWithMultipleFiles", () => {
    * Verify: tree entries use content field
    */
   it("Test 8: No createBlob calls - content is provided inline", async () => {
-    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
-      makeGetRefResponse("abc123"),
-    );
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(makeGetRefResponse("abc123"));
     vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
       makeGetCommitResponse("tree123", "abc123"),
     );
@@ -1702,9 +1621,7 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
       makeCreateCommitResponse("newtree123", "commit123"),
     );
-    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
-      makeUpdateRefResponse("commit123"),
-    );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(makeUpdateRefResponse("commit123"));
 
     await createCommitWithMultipleFiles({
       octokit,

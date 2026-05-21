@@ -13,11 +13,7 @@ import { normalizeOptionalString } from "./utils";
 
 const { array, id, literal, object, optional, string, union } = v;
 
-const toolSurfaceValidator = union(
-  literal("agent"),
-  literal("mcp"),
-  literal("ui"),
-);
+const toolSurfaceValidator = union(literal("agent"), literal("mcp"), literal("ui"));
 
 const runToolArgsValidator = object({
   toolName: string(),
@@ -39,9 +35,7 @@ const runToolResultValidator = object({
 });
 type RunToolResult = Infer<typeof runToolResultValidator>;
 
-function parseInputJson(
-  inputJson: string,
-): { ok: true; value: unknown } | { ok: false } {
+function parseInputJson(inputJson: string): { ok: true; value: unknown } | { ok: false } {
   try {
     return {
       ok: true,
@@ -82,21 +76,16 @@ async function resolveToolContext(
   ctx: ActionCtx,
   args: RunToolArgs,
   requiresGithubConnection: boolean,
-): Promise<
-  { ok: true; value: ResolvedToolContext } | { ok: false; message: string }
-> {
+): Promise<{ ok: true; value: ResolvedToolContext } | { ok: false; message: string }> {
   const branch = normalizeOptionalString(args.branch);
   const threadId = normalizeOptionalString(args.threadId);
   const vault =
     args.vaultId === undefined
       ? null
-      : await ctx.runQuery(
-          internal.toolRuntime.queries.getVaultContextForUser,
-          {
-            userId: args.userId,
-            vaultId: args.vaultId,
-          },
-        );
+      : await ctx.runQuery(internal.toolRuntime.queries.getVaultContextForUser, {
+          userId: args.userId,
+          vaultId: args.vaultId,
+        });
 
   if (args.vaultId !== undefined) {
     if (vault === null) {
@@ -106,13 +95,10 @@ async function resolveToolContext(
 
   let githubAccessToken: string | undefined;
   if (requiresGithubConnection) {
-    const githubConnection = await ctx.runQuery(
-      internal.providerConnections.getByUserAndKind,
-      {
-        userId: args.userId,
-        kind: "github",
-      },
-    );
+    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+      userId: args.userId,
+      kind: "github",
+    });
     if (githubConnection?.kind !== "github") {
       return {
         ok: false,
@@ -187,11 +173,7 @@ export const runTool = internalAction({
       });
     }
 
-    const resolvedContext = await resolveToolContext(
-      ctx,
-      args,
-      tool.requiresGithubConnection,
-    );
+    const resolvedContext = await resolveToolContext(ctx, args, tool.requiresGithubConnection);
     if (!resolvedContext.ok) {
       return toActionResult({
         status: "blocked",
@@ -211,8 +193,7 @@ export const runTool = internalAction({
         output,
       });
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Tool execution failed.";
+      const message = error instanceof Error ? error.message : "Tool execution failed.";
       return toActionResult({
         status: "error",
         text: message,

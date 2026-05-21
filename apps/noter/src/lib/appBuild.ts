@@ -6,14 +6,8 @@ export const APP_BUILD_VERSION_PREFIX = "v";
 const UNKNOWN_APP_BUILD_VERSION_NUMBER = "?";
 const SHORT_APP_BUILD_COMMIT_LENGTH = 8;
 
-function isValidAppBuildCommitNumber(
-  commitNumber: number | null,
-): commitNumber is number {
-  if (
-    commitNumber === null ||
-    !Number.isSafeInteger(commitNumber) ||
-    commitNumber < 1
-  ) {
+function isValidAppBuildCommitNumber(commitNumber: number | null): commitNumber is number {
+  if (commitNumber === null || !Number.isSafeInteger(commitNumber) || commitNumber < 1) {
     return false;
   }
 
@@ -24,9 +18,7 @@ function isValidAppBuildCommitNumber(
  * Keep the numeric segment separate from surrounding chrome so the status bar
  * can render it either as plain text or as part of a linked reference.
  */
-export function formatAppBuildVersionNumber(
-  commitNumber: number | null,
-): string {
+export function formatAppBuildVersionNumber(commitNumber: number | null): string {
   return isValidAppBuildCommitNumber(commitNumber)
     ? String(commitNumber)
     : UNKNOWN_APP_BUILD_VERSION_NUMBER;
@@ -36,12 +28,8 @@ export function formatAppBuildVersionNumber(
  * The header exposes the current build as a simple, one-based repo version so
  * users can speak about builds without needing to trade raw SHAs.
  */
-export function formatAppBuildVersionLabel(
-  commitNumber: number | null,
-): string {
-  return `${APP_BUILD_VERSION_PREFIX}${formatAppBuildVersionNumber(
-    commitNumber,
-  )}`;
+export function formatAppBuildVersionLabel(commitNumber: number | null): string {
+  return `${APP_BUILD_VERSION_PREFIX}${formatAppBuildVersionNumber(commitNumber)}`;
 }
 
 /**
@@ -61,10 +49,7 @@ function selectionIncludesNode(node: Node, selection: Selection): boolean {
       if (range.intersectsNode(node)) {
         return true;
       }
-    } else if (
-      typeof selection.containsNode === "function" &&
-      selection.containsNode(node, true)
-    ) {
+    } else if (typeof selection.containsNode === "function" && selection.containsNode(node, true)) {
       return true;
     }
 

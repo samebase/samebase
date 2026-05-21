@@ -14,15 +14,10 @@ import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
 import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
 import { Link } from "@tanstack/react-router";
 
-export function LogoStaticSvgPage({
-  routeSearch,
-}: {
-  routeSearch: LogoRouteSearch;
-}) {
+export function LogoStaticSvgPage({ routeSearch }: { routeSearch: LogoRouteSearch }) {
   const logoTheme = useResolvedAppThemeColorState(routeSearch);
   const baseFilledVoxels =
-    parseVoxelState(routeSearch.vox ?? null) ??
-    createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES);
+    parseVoxelState(routeSearch.vox ?? null) ?? createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES);
   const fractalDepth = clampLogoFractalDepthForRenderer(
     routeSearch.depth ?? DEFAULT_LOGO_FRACTAL_DEPTH,
     "svg",
@@ -61,12 +56,10 @@ export function LogoStaticSvgPage({
 
       <div className="grid max-w-4xl gap-5 border border-black/10 bg-white/84 p-6 text-black/75 backdrop-blur-sm sm:p-8">
         <div className="grid gap-2">
-          <h1 className="text-lg font-medium text-black/85">
-            Static SVG Preview
-          </h1>
+          <h1 className="text-lg font-medium text-black/85">Static SVG Preview</h1>
           <p className="max-w-2xl text-sm leading-6">
-            This route renders the default Three camera view as true SVG face
-            polygons instead of the interactive WebGL scene.
+            This route renders the default Three camera view as true SVG face polygons instead of
+            the interactive WebGL scene.
           </p>
         </div>
 

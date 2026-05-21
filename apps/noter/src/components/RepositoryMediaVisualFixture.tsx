@@ -48,11 +48,7 @@ const FIXTURE_BY_MODE: Record<
   },
 };
 
-export function RepositoryMediaVisualFixture({
-  mode,
-}: {
-  mode: RepositoryMediaVisualMode;
-}) {
+export function RepositoryMediaVisualFixture({ mode }: { mode: RepositoryMediaVisualMode }) {
   const fixture = FIXTURE_BY_MODE[mode];
   const folderExpansionStates = [
     {
@@ -61,9 +57,7 @@ export function RepositoryMediaVisualFixture({
     },
   ];
   const sidebarHeader = (
-    <div className="flex h-full items-center px-3 text-sm font-medium text-foreground">
-      Noter
-    </div>
+    <div className="flex h-full items-center px-3 text-sm font-medium text-foreground">Noter</div>
   );
 
   const sidebarContent = (
@@ -134,22 +128,16 @@ export function RepositoryMediaVisualFixture({
       main={{
         header: (
           <RepositoryWorkspacePaneHeader
-            title={
-              fixture.selectedFile.split("/").slice(0, -1).join("/") || "/"
-            }
+            title={fixture.selectedFile.split("/").slice(0, -1).join("/") || "/"}
           />
         ),
         content: (
           <div className="max-w-none h-full flex flex-col">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-base font-medium md:text-sm">
-                <span className="block truncate text-foreground">
-                  {fixture.selectedFile}
-                </span>
+                <span className="block truncate text-foreground">{fixture.selectedFile}</span>
               </h2>
-              <div className="text-xs text-muted-foreground">
-                Read-only media preview
-              </div>
+              <div className="text-xs text-muted-foreground">Read-only media preview</div>
             </div>
             <div className="min-h-0 flex-1">
               <RepositoryMediaPreviewPanel

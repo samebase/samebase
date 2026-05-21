@@ -111,9 +111,7 @@ export const getVaultReadContext = internalQuery({
         .first(),
       ctx.db
         .query("providerConnections")
-        .withIndex("by_user_kind", (q) =>
-          q.eq("userId", vault.userId).eq("kind", "convex"),
-        )
+        .withIndex("by_user_kind", (q) => q.eq("userId", vault.userId).eq("kind", "convex"))
         .first(),
     ]);
 
@@ -121,8 +119,7 @@ export const getVaultReadContext = internalQuery({
       infra,
       vault,
       vaultUserId: vault.userId,
-      convexConnection:
-        convexConnectionRaw?.kind === "convex" ? convexConnectionRaw : null,
+      convexConnection: convexConnectionRaw?.kind === "convex" ? convexConnectionRaw : null,
     };
   },
 });

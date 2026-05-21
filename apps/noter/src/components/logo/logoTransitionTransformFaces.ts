@@ -142,10 +142,7 @@ function createTransformString(
   return `matrix(${formatNumber(u.x)} ${formatNumber(u.y)} ${formatNumber(v.x)} ${formatNumber(v.y)} ${formatNumber(origin.x)} ${formatNumber(origin.y)})`;
 }
 
-function addWorldPoints(
-  left: LogoWorldPoint,
-  right: LogoWorldPoint,
-): LogoWorldPoint {
+function addWorldPoints(left: LogoWorldPoint, right: LogoWorldPoint): LogoWorldPoint {
   return {
     x: left.x + right.x,
     y: left.y + right.y,
@@ -161,10 +158,7 @@ function subtractUnitCubeCenter(point: LogoWorldPoint): LogoWorldPoint {
   };
 }
 
-function scaleWorldPoint(
-  point: LogoWorldPoint,
-  factor: number,
-): LogoWorldPoint {
+function scaleWorldPoint(point: LogoWorldPoint, factor: number): LogoWorldPoint {
   return {
     x: point.x * factor,
     y: point.y * factor,
@@ -204,9 +198,7 @@ function createAxisGuideLines(args: {
     scenePoints: [origin, xEnd, yEnd, zEnd],
     viewBoxSize: TRANSFORM_LAB_VIEW_BOX.width,
   });
-  const projectedOrigin = projector.projectRotatedPoint(
-    projector.rotateWorldPoint(origin),
-  );
+  const projectedOrigin = projector.projectRotatedPoint(projector.rotateWorldPoint(origin));
 
   return [
     {
@@ -237,9 +229,7 @@ function createAxisGuideLines(args: {
   }));
 }
 
-function createFaceCorners(
-  face: CubeFaceDefinition,
-): readonly LogoWorldPoint[] {
+function createFaceCorners(face: CubeFaceDefinition): readonly LogoWorldPoint[] {
   const origin = subtractUnitCubeCenter(face.origin);
   const uPoint = subtractUnitCubeCenter(addWorldPoints(face.origin, face.u));
   const uvPoint = subtractUnitCubeCenter(

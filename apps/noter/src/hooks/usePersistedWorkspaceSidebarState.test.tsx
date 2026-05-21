@@ -68,9 +68,7 @@ function SidebarStateProbe() {
   );
 }
 
-function setLatestMobilePane(
-  nextPane: React.SetStateAction<WorkspaceSidebarState["mobilePane"]>,
-) {
+function setLatestMobilePane(nextPane: React.SetStateAction<WorkspaceSidebarState["mobilePane"]>) {
   const controller = latestSidebarStateController;
   if (controller === null) {
     throw new Error("Expected sidebar state controller");
@@ -79,16 +77,13 @@ function setLatestMobilePane(
   controller.setState(
     (state) => ({
       ...state,
-      mobilePane:
-        nextPane instanceof Function ? nextPane(state.mobilePane) : nextPane,
+      mobilePane: nextPane instanceof Function ? nextPane(state.mobilePane) : nextPane,
     }),
     "immediate",
   );
 }
 
-function setLatestMobileSurface(
-  nextSurface: WorkspaceSidebarState["mobileSurface"],
-) {
+function setLatestMobileSurface(nextSurface: WorkspaceSidebarState["mobileSurface"]) {
   const controller = latestSidebarStateController;
   if (controller === null) {
     throw new Error("Expected sidebar state controller");
@@ -109,10 +104,7 @@ function PersistedSidebarProviderProbe({
   workspaceKey?: WorkspaceSidebarStateKey;
 }) {
   return (
-    <PersistedSidebarProvider
-      defaultState={DEFAULT_SIDEBAR_STATE}
-      workspaceKey={workspaceKey}
-    >
+    <PersistedSidebarProvider defaultState={DEFAULT_SIDEBAR_STATE} workspaceKey={workspaceKey}>
       <div data-testid="provider-child" />
     </PersistedSidebarProvider>
   );
@@ -154,18 +146,14 @@ describe("usePersistedWorkspaceSidebarState", () => {
       mountedRoot.render(<SidebarStateProbe />);
     });
 
-    expect(
-      rootElement.firstElementChild?.getAttribute("data-mobile-pane"),
-    ).toBe("left");
+    expect(rootElement.firstElementChild?.getAttribute("data-mobile-pane")).toBe("left");
 
     mockedQueryState = null;
     act(() => {
       mountedRoot.render(<SidebarStateProbe />);
     });
 
-    expect(
-      rootElement.firstElementChild?.getAttribute("data-mobile-pane"),
-    ).toBe("left");
+    expect(rootElement.firstElementChild?.getAttribute("data-mobile-pane")).toBe("left");
   });
 
   it("still falls back to defaults on the first null load", () => {
@@ -179,9 +167,7 @@ describe("usePersistedWorkspaceSidebarState", () => {
       mountedRoot.render(<SidebarStateProbe />);
     });
 
-    expect(
-      rootElement.firstElementChild?.getAttribute("data-mobile-pane"),
-    ).toBe("main");
+    expect(rootElement.firstElementChild?.getAttribute("data-mobile-pane")).toBe("main");
   });
 
   it("does not persist updates before the first query result hydrates", () => {
@@ -200,12 +186,8 @@ describe("usePersistedWorkspaceSidebarState", () => {
     });
 
     expect(mockedMutation).not.toHaveBeenCalled();
-    expect(rootElement.firstElementChild?.getAttribute("data-hydrated")).toBe(
-      "0",
-    );
-    expect(
-      rootElement.firstElementChild?.getAttribute("data-mobile-pane"),
-    ).toBe("left");
+    expect(rootElement.firstElementChild?.getAttribute("data-hydrated")).toBe("0");
+    expect(rootElement.firstElementChild?.getAttribute("data-mobile-pane")).toBe("left");
   });
 
   it("ignores failures from superseded persists", async () => {
@@ -239,9 +221,7 @@ describe("usePersistedWorkspaceSidebarState", () => {
       await Promise.resolve();
     });
 
-    expect(
-      rootElement.firstElementChild?.getAttribute("data-mobile-pane"),
-    ).toBe("right");
+    expect(rootElement.firstElementChild?.getAttribute("data-mobile-pane")).toBe("right");
   });
 
   it("persists mobile surface changes even when pane and widths stay unchanged", () => {
@@ -287,17 +267,13 @@ describe("usePersistedWorkspaceSidebarState", () => {
       mountedRoot.render(<PersistedSidebarProviderProbe />);
     });
 
-    expect(
-      rootElement.querySelector('[data-testid="provider-child"]'),
-    ).toBeNull();
+    expect(rootElement.querySelector('[data-testid="provider-child"]')).toBeNull();
 
     mockedQueryState = null;
     act(() => {
       mountedRoot.render(<PersistedSidebarProviderProbe />);
     });
 
-    expect(
-      rootElement.querySelector('[data-testid="provider-child"]'),
-    ).not.toBeNull();
+    expect(rootElement.querySelector('[data-testid="provider-child"]')).not.toBeNull();
   });
 });

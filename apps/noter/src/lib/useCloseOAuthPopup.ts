@@ -22,9 +22,7 @@ export function useCloseOAuthPopup(pathname: string, enabled: boolean) {
       return;
     }
 
-    const authKeys = Object.keys(localStorage).filter((key) =>
-      key.startsWith("__convexAuth"),
-    );
+    const authKeys = Object.keys(localStorage).filter((key) => key.startsWith("__convexAuth"));
     const authTokens: Record<string, string> = {};
 
     for (const key of authKeys) {
@@ -40,10 +38,7 @@ export function useCloseOAuthPopup(pathname: string, enabled: boolean) {
 
       window.opener.location.reload();
     } catch {
-      window.opener.postMessage(
-        { type: "convex-auth-tokens", tokens: authTokens },
-        "*",
-      );
+      window.opener.postMessage({ type: "convex-auth-tokens", tokens: authTokens }, "*");
     }
 
     window.close();

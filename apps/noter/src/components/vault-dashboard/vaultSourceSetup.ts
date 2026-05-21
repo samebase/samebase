@@ -9,9 +9,7 @@ export type VaultDashboardSourceSetupStep = Extract<
   { status: "failed" | "running" }
 >["step"];
 
-export function formatVaultSourceSetupStep(
-  step: VaultDashboardSourceSetupStep,
-): string {
+export function formatVaultSourceSetupStep(step: VaultDashboardSourceSetupStep): string {
   switch (step) {
     case "run_created":
       return "run created";

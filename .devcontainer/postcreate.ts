@@ -13,9 +13,7 @@ async function main(): Promise<void> {
   process.chdir(workspaceDir);
 
   // Keep the devcontainer bootstrap aligned with normal worktree setup rules.
-  run(process.execPath, [
-    path.join(workspaceDir, "scripts/bootstrap-worktree.ts"),
-  ]);
+  run(process.execPath, [path.join(workspaceDir, "scripts/bootstrap-worktree.ts")]);
 
   if (!commandExists("codex")) {
     console.log("Installing @openai/codex...");
@@ -24,10 +22,7 @@ async function main(): Promise<void> {
 
   const agentDir = path.join(workspaceDir, ".codespace-agent");
   const agentNodeModulesDir = path.join(agentDir, "node_modules");
-  if (
-    (await pathExists(agentDir)) &&
-    !(await pathExists(agentNodeModulesDir))
-  ) {
+  if ((await pathExists(agentDir)) && !(await pathExists(agentNodeModulesDir))) {
     console.log("Installing .codespace-agent dependencies...");
     run(NPM_COMMAND, ["install", "--no-package-lock"], { cwd: agentDir });
   }
@@ -38,11 +33,7 @@ function commandExists(command: string): boolean {
   return result.status === 0;
 }
 
-function run(
-  command: string,
-  args: string[],
-  options: { cwd?: string } = {},
-): void {
+function run(command: string, args: string[], options: { cwd?: string } = {}): void {
   const result = spawnSync(command, args, {
     cwd: options.cwd,
     stdio: "inherit",

@@ -2689,12 +2689,7 @@
       },
       "PlatformCustomDomainResponse": {
         "type": "object",
-        "required": [
-          "creationTime",
-          "deploymentName",
-          "requestDestination",
-          "domain"
-        ],
+        "required": ["creationTime", "deploymentName", "requestDestination", "domain"],
         "properties": {
           "creationTime": {
             "type": "integer",

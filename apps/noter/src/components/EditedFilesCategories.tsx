@@ -14,9 +14,7 @@ import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { buildVaultFileRoute } from "@/lib/vaultRoutes";
 import type { Id } from "../../convex/_generated/dataModel";
 
-type StagedFile = NonNullable<
-  Awaited<(typeof api.fileStaging.getByNewPath)["_returnType"]>
->;
+type StagedFile = NonNullable<Awaited<(typeof api.fileStaging.getByNewPath)["_returnType"]>>;
 type StagedFilesSummary = NonNullable<
   (typeof api.fileStaging.listStagedFilesBranchSummaries)["_returnType"]
 >[number]["counts"];
@@ -89,11 +87,7 @@ function summarizeCategories(
   };
 }
 
-export function EditedFilesCategoriesPopoverTrigger({
-  counts,
-}: {
-  counts: StagedFilesSummary;
-}) {
+export function EditedFilesCategoriesPopoverTrigger({ counts }: { counts: StagedFilesSummary }) {
   // Single line with all categories and different colors
   return (
     <div className="flex items-center gap-3">
@@ -229,9 +223,7 @@ export function EditedFilesCategories({
               }}
               className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 corner-notch-1 truncate w-full ${linkStyle}`}
             >
-              <div className="text-muted-foreground">
-                {file.initialFilePath} →
-              </div>
+              <div className="text-muted-foreground">{file.initialFilePath} →</div>
               <div className="font-medium">{file.filePath}</div>
             </button>
           ))}
@@ -257,9 +249,7 @@ export function EditedFilesCategories({
               }}
               className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 corner-notch-1 truncate w-full ${linkStyle}`}
             >
-              <div className="text-muted-foreground">
-                {file.initialFilePath} →
-              </div>
+              <div className="text-muted-foreground">{file.initialFilePath} →</div>
               <div className="font-medium">{file.filePath}</div>
             </button>
           ))}
@@ -333,19 +323,15 @@ export function EditedFilesCategoriesPopover({
   summaryCounts?: StagedFilesSummary;
 }) {
   const [open, setOpen] = useState(false);
-  const shouldLoadStagedFiles =
-    open && stagedFiles === undefined && vaultId !== undefined;
+  const shouldLoadStagedFiles = open && stagedFiles === undefined && vaultId !== undefined;
   const stagedFilesFromQuery = useQuery(
     api.fileStaging.listStagedFiles,
     shouldLoadStagedFiles ? { vaultId, branch } : "skip",
   );
   const resolvedStagedFiles =
-    stagedFiles ??
-    (stagedFilesFromQuery === undefined ? undefined : stagedFilesFromQuery);
+    stagedFiles ?? (stagedFilesFromQuery === undefined ? undefined : stagedFilesFromQuery);
   const categories =
-    resolvedStagedFiles !== undefined
-      ? categorizeStagedFiles(resolvedStagedFiles)
-      : null;
+    resolvedStagedFiles !== undefined ? categorizeStagedFiles(resolvedStagedFiles) : null;
   const counts =
     categories !== null
       ? summarizeCategories(categories)
@@ -354,9 +340,7 @@ export function EditedFilesCategoriesPopover({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button
-          className={`text-xs text-muted-foreground ${linkStyle} flex items-center gap-2`}
-        >
+        <button className={`text-xs text-muted-foreground ${linkStyle} flex items-center gap-2`}>
           <div className="flex items-center gap-1">
             <EditedFilesCategoriesPopoverTrigger counts={counts} />
           </div>

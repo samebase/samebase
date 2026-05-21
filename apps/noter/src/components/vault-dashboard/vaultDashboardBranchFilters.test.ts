@@ -45,10 +45,7 @@ describe("vaultBranchFilters", () => {
     });
 
     expect(
-      areVaultBranchFiltersEqual(
-        { branchesExpanded: true },
-        { branchesExpanded: false },
-      ),
+      areVaultBranchFiltersEqual({ branchesExpanded: true }, { branchesExpanded: false }),
     ).toBe(false);
   });
 

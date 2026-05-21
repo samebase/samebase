@@ -61,9 +61,7 @@ describe("vault branch mutations", () => {
       }),
     ).rejects.toThrow("Vault not found");
     await expect(
-      t.run(
-        async (ctx) => (await ctx.db.get(ids.vaultId))?.treeRefreshStartedAt,
-      ),
+      t.run(async (ctx) => (await ctx.db.get(ids.vaultId))?.treeRefreshStartedAt),
     ).resolves.toBeNull();
 
     const asOwner = t.withIdentity({
@@ -76,9 +74,7 @@ describe("vault branch mutations", () => {
       }),
     ).resolves.toBeNull();
     await expect(
-      t.run(
-        async (ctx) => (await ctx.db.get(ids.vaultId))?.treeRefreshStartedAt,
-      ),
+      t.run(async (ctx) => (await ctx.db.get(ids.vaultId))?.treeRefreshStartedAt),
     ).resolves.toEqual(expect.any(Number));
   });
 });

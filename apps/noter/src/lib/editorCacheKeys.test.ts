@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  buildMonacoAppliedCacheKey,
-  buildProjectFilesCacheKey,
-} from "./editorCacheKeys";
+import { buildMonacoAppliedCacheKey, buildProjectFilesCacheKey } from "./editorCacheKeys";
 
 describe("buildMonacoAppliedCacheKey", () => {
   it("includes vault, branch, and tree SHA", () => {

@@ -13,9 +13,7 @@ import type {
 
 const SIDEBAR_WIDTH_PERSIST_DELAY_MS = 160;
 
-function serializeWorkspaceMobileSurface(
-  surface: WorkspaceSidebarState["mobileSurface"],
-) {
+function serializeWorkspaceMobileSurface(surface: WorkspaceSidebarState["mobileSurface"]) {
   if (surface.kind === "unmerged") {
     return "unmerged";
   }
@@ -36,14 +34,8 @@ function serializeWorkspaceSidebarState(state: WorkspaceSidebarState): string {
   ].join("|");
 }
 
-function areWorkspaceSidebarStatesEqual(
-  left: WorkspaceSidebarState,
-  right: WorkspaceSidebarState,
-) {
-  return (
-    serializeWorkspaceSidebarState(left) ===
-    serializeWorkspaceSidebarState(right)
-  );
+function areWorkspaceSidebarStatesEqual(left: WorkspaceSidebarState, right: WorkspaceSidebarState) {
+  return serializeWorkspaceSidebarState(left) === serializeWorkspaceSidebarState(right);
 }
 
 type UsePersistedWorkspaceSidebarStateArgs = {
@@ -59,15 +51,10 @@ export function usePersistedWorkspaceSidebarState({
   defaults,
   workspaceKey,
 }: UsePersistedWorkspaceSidebarStateArgs): WorkspaceSidebarStateController {
-  const persistedState = useQuery(
-    api.workspaceSidebarState.getWorkspaceSidebarState,
-    {
-      workspaceKey,
-    },
-  );
-  const setWorkspaceSidebarState = useMutation(
-    api.workspaceSidebarState.setWorkspaceSidebarState,
-  );
+  const persistedState = useQuery(api.workspaceSidebarState.getWorkspaceSidebarState, {
+    workspaceKey,
+  });
+  const setWorkspaceSidebarState = useMutation(api.workspaceSidebarState.setWorkspaceSidebarState);
   const [sidebarState, setSidebarState] = React.useState(defaults);
   const latestSidebarStateRef = React.useRef(sidebarState);
   const latestServerStateRef = React.useRef(defaults);
@@ -104,8 +91,7 @@ export function usePersistedWorkspaceSidebarState({
       }).catch((error: unknown) => {
         if (
           pendingPersistSignatureRef.current !== attemptedSignature ||
-          serializeWorkspaceSidebarState(latestSidebarStateRef.current) !==
-            attemptedSignature
+          serializeWorkspaceSidebarState(latestSidebarStateRef.current) !== attemptedSignature
         ) {
           return;
         }
@@ -122,8 +108,7 @@ export function usePersistedWorkspaceSidebarState({
   const scheduleWidthPersist = React.useCallback(
     (nextState: WorkspaceSidebarState) => {
       clearPendingWidthPersist();
-      pendingQueuedSignatureRef.current =
-        serializeWorkspaceSidebarState(nextState);
+      pendingQueuedSignatureRef.current = serializeWorkspaceSidebarState(nextState);
       pendingWidthPersistTimeoutRef.current = window.setTimeout(() => {
         pendingWidthPersistTimeoutRef.current = null;
         pendingQueuedSignatureRef.current = null;
@@ -190,13 +175,10 @@ export function usePersistedWorkspaceSidebarState({
     const nextServerState = persistedState ?? defaults;
     latestServerStateRef.current = nextServerState;
     const nextServerSignature = serializeWorkspaceSidebarState(nextServerState);
-    const currentLocalSignature = serializeWorkspaceSidebarState(
-      latestSidebarStateRef.current,
-    );
+    const currentLocalSignature = serializeWorkspaceSidebarState(latestSidebarStateRef.current);
 
     if (
-      (pendingQueuedSignatureRef.current !== null ||
-        pendingPersistSignatureRef.current !== null) &&
+      (pendingQueuedSignatureRef.current !== null || pendingPersistSignatureRef.current !== null) &&
       nextServerSignature !== currentLocalSignature
     ) {
       return;
@@ -213,12 +195,7 @@ export function usePersistedWorkspaceSidebarState({
       pendingPersistSignatureRef.current = null;
     }
 
-    if (
-      areWorkspaceSidebarStatesEqual(
-        latestSidebarStateRef.current,
-        nextServerState,
-      )
-    ) {
+    if (areWorkspaceSidebarStatesEqual(latestSidebarStateRef.current, nextServerState)) {
       return;
     }
 

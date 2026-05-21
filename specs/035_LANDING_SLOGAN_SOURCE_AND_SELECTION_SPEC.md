@@ -12,14 +12,13 @@
 
 ## Summary
 
-Define a markdown-first source of truth for landing slogans so copy can be
-updated without touching code, and select a random slogan for each separate
-landing request in the sign-in view.
+Define a markdown-first source of truth for landing slogans so copy can be updated without touching
+code, and select a random slogan for each separate landing request in the sign-in view.
 
 ## Why This Spec Exists
 
-Landing copy should be easy to evolve. Right now, the headline is hard-coded. We
-want slogan management to be content-first:
+Landing copy should be easy to evolve. Right now, the headline is hard-coded. We want slogan
+management to be content-first:
 
 1. edit one markdown file,
 2. keep slogans short and memorable,

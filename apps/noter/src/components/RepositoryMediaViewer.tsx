@@ -29,10 +29,7 @@ export type RepositoryMediaAsset =
       fileName: string;
     };
 
-type RepositoryMediaDisplayAsset = Extract<
-  RepositoryMediaAsset,
-  { found: true }
->;
+type RepositoryMediaDisplayAsset = Extract<RepositoryMediaAsset, { found: true }>;
 
 export function RepositoryMediaPreviewPanel({
   asset,
@@ -188,7 +185,5 @@ export function RepositoryMediaViewer({
     return <div className="h-full min-h-[400px]" />;
   }
 
-  return (
-    <RepositoryMediaPreviewPanel asset={asset} fallbackLabel={fallbackLabel} />
-  );
+  return <RepositoryMediaPreviewPanel asset={asset} fallbackLabel={fallbackLabel} />;
 }

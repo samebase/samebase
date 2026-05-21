@@ -14,9 +14,7 @@ describe("installIconSvgAsset", () => {
     )
       .replace(/\r\n/g, "\n")
       .trim();
-    const generatedSvg = createInstallIconSvgMarkup()
-      .replace(/\r\n/g, "\n")
-      .trim();
+    const generatedSvg = createInstallIconSvgMarkup().replace(/\r\n/g, "\n").trim();
 
     expect(installIconSvg).toBe(generatedSvg);
   });

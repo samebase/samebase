@@ -10,9 +10,7 @@ export function resolveAuthoritativeNow(args: {
   browserNowAtSync: number;
   serverNowAtSync: number;
 }): number {
-  return (
-    args.serverNowAtSync + Math.max(0, args.browserNow - args.browserNowAtSync)
-  );
+  return args.serverNowAtSync + Math.max(0, args.browserNow - args.browserNowAtSync);
 }
 
 /**
@@ -29,9 +27,7 @@ export function resolveConnectedMachineStatus(args: {
     return "offline";
   }
 
-  return args.lastSeenAt + CONNECTED_MACHINE_STALE_AFTER_MS >= args.now
-    ? "online"
-    : "offline";
+  return args.lastSeenAt + CONNECTED_MACHINE_STALE_AFTER_MS >= args.now ? "online" : "offline";
 }
 
 /**

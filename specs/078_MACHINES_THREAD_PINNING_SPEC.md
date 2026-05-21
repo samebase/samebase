@@ -8,29 +8,26 @@
 
 ## Summary
 
-The `/machines` thread rail should support pinning and unpinning threads using
-the same machine-local pin state that Codex desktop already persists.
+The `/machines` thread rail should support pinning and unpinning threads using the same
+machine-local pin state that Codex desktop already persists.
 
-Unpinning should stay direct and always visible on pinned rows. Pinning should
-match the native desktop mental model without relying on hover alone:
+Unpinning should stay direct and always visible on pinned rows. Pinning should match the native
+desktop mental model without relying on hover alone:
 
-1. on desktop, an unpinned row reveals its pin affordance on hover or keyboard
-   focus
-2. on mobile, the selected unpinned row reveals the same affordance because
-   selection is the closest equivalent to hover
+1. on desktop, an unpinned row reveals its pin affordance on hover or keyboard focus
+2. on mobile, the selected unpinned row reveals the same affordance because selection is the closest
+   equivalent to hover
 
-This feature should reuse the existing `pinnedThreadIds` inventory contract
-instead of introducing a second persistence layer in Convex or route-local
-state.
+This feature should reuse the existing `pinnedThreadIds` inventory contract instead of introducing a
+second persistence layer in Convex or route-local state.
 
 ## Research
 
 ### Existing pin data already exists end to end
 
-`packages/sync/noter.ts` already reads desktop pin state from
-`$CODEX_HOME/.codex-global-state.json` under `pinned-thread-ids`, and the
-machine-control `GET /threads` response already returns that array as
-`pinnedThreadIds`.
+`packages/sync/noter.ts` already reads desktop pin state from `$CODEX_HOME/.codex-global-state.json`
+under `pinned-thread-ids`, and the machine-control `GET /threads` response already returns that
+array as `pinnedThreadIds`.
 
 That means pin state is already:
 
@@ -46,8 +43,8 @@ That means pin state is already:
 2. project groups for remaining threads
 3. stable grouping based on `useCodexThreadSidebarViewModel`
 
-Today the pinned section only shows a static leading pin icon. Unpinned rows do
-not expose any pin affordance at all.
+Today the pinned section only shows a static leading pin icon. Unpinned rows do not expose any pin
+affordance at all.
 
 ### The current backend has no pin mutation
 
@@ -64,9 +61,9 @@ There is no `pin` or `unpin` route yet, so the UI cannot persist pin changes.
 
 ### Mobile needs a non-hover affordance
 
-The user problem is specifically that hover works on desktop but not on mobile.
-The existing `/machines` rail already has explicit selected-row state, so the
-selected thread is the right mobile substitute for hover:
+The user problem is specifically that hover works on desktop but not on mobile. The existing
+`/machines` rail already has explicit selected-row state, so the selected thread is the right mobile
+substitute for hover:
 
 1. tap the row to select it
 2. selection reveals the pin affordance
@@ -104,25 +101,24 @@ Behavior:
 1. both accept `{ threadId }`
 2. both mutate `pinned-thread-ids` in `$CODEX_HOME/.codex-global-state.json`
 3. both preserve unrelated keys in the global state file
-4. pin deduplicates and prepends the id so the newly pinned thread lands at the
-   top of the pinned section immediately
+4. pin deduplicates and prepends the id so the newly pinned thread lands at the top of the pinned
+   section immediately
 5. unpin removes the id entirely
 
 These routes are local UI-state mutations. They do not call the provider.
 
 ### 2. Refresh inventory after each pin mutation
 
-`MachinesWorkspacePage` should call the new endpoint and then refresh the thread
-inventory through the existing `GET /threads` flow.
+`MachinesWorkspacePage` should call the new endpoint and then refresh the thread inventory through
+the existing `GET /threads` flow.
 
-That refresh is required because `GET /threads` already owns two important
-contracts:
+That refresh is required because `GET /threads` already owns two important contracts:
 
 1. pinned-thread fallback for older sessions outside the provider page limit
 2. canonical grouping after pinned threads are removed from project buckets
 
-Refreshing after pin/unpin keeps the page aligned with the same inventory logic
-instead of duplicating it in React state.
+Refreshing after pin/unpin keeps the page aligned with the same inventory logic instead of
+duplicating it in React state.
 
 ### 3. Row affordance rules
 
@@ -141,18 +137,14 @@ Interaction rules:
 
 1. clicking the row selects the thread
 2. clicking the pin button must not also trigger row selection again
-3. pinning a selected thread keeps it selected after it moves into the pinned
-   section
-4. unpinning a selected thread keeps it selected if it remains in the refreshed
-   inventory
-5. if unpinning removes the thread from the visible inventory because it falls
-   outside the current list limit, the existing selection fallback may choose
-   the first visible thread
+3. pinning a selected thread keeps it selected after it moves into the pinned section
+4. unpinning a selected thread keeps it selected if it remains in the refreshed inventory
+5. if unpinning removes the thread from the visible inventory because it falls outside the current
+   list limit, the existing selection fallback may choose the first visible thread
 
 ### 4. Pending state
 
-Pin and unpin are async operations and should show a local pending state in the
-button itself.
+Pin and unpin are async operations and should show a local pending state in the button itself.
 
 Requirements:
 
@@ -175,13 +167,11 @@ If the same icon is used for both states, that is acceptable.
 
 ## Validation
 
-1. Add sync-runtime tests that cover pin and unpin persistence in the desktop
-   global state file.
+1. Add sync-runtime tests that cover pin and unpin persistence in the desktop global state file.
 2. Add visual coverage for:
    - desktop hover revealing the pin affordance on an unpinned row
    - mobile selected-row state revealing the same affordance
-3. Keep the existing machines workspace visual coverage green after the row
-   structure change.
+3. Keep the existing machines workspace visual coverage green after the row structure change.
 
 ## Implementation Notes
 

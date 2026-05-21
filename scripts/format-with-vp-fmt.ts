@@ -11,24 +11,15 @@ const repoRoot = path.resolve(__dirname, "..");
  * `vp fmt` as the formatter entrypoint so generated output stays aligned with
  * the shipped Vite+ toolchain.
  */
-export function formatWithVpFmt(
-  filePath: string,
-  contents: string,
-): Promise<string> {
-  const normalizedContents = contents.endsWith("\n")
-    ? contents
-    : `${contents}\n`;
+export function formatWithVpFmt(filePath: string, contents: string): Promise<string> {
+  const normalizedContents = contents.endsWith("\n") ? contents : `${contents}\n`;
 
   return new Promise((resolve, reject) => {
-    const child = spawn(
-      "pnpm",
-      ["exec", "vp", "fmt", `--stdin-filepath=${filePath}`],
-      {
-        cwd: repoRoot,
-        env: process.env,
-        stdio: ["pipe", "pipe", "pipe"],
-      },
-    );
+    const child = spawn("pnpm", ["exec", "vp", "fmt", `--stdin-filepath=${filePath}`], {
+      cwd: repoRoot,
+      env: process.env,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
 
     let stdout = "";
     let stderr = "";
@@ -44,11 +35,7 @@ export function formatWithVpFmt(
     child.on("error", reject);
     child.on("close", (code) => {
       if (code !== 0) {
-        reject(
-          new Error(
-            stderr.trim() || `vp fmt exited with code ${code ?? "unknown"}`,
-          ),
-        );
+        reject(new Error(stderr.trim() || `vp fmt exited with code ${code ?? "unknown"}`));
         return;
       }
 

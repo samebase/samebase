@@ -1,10 +1,5 @@
 import { useEffect, useRef } from "react";
-import {
-  Compartment,
-  EditorSelection,
-  EditorState,
-  type Extension,
-} from "@codemirror/state";
+import { Compartment, EditorSelection, EditorState, type Extension } from "@codemirror/state";
 import { EditorView } from "codemirror";
 import { indentWithTab } from "@codemirror/commands";
 import { syntaxTree } from "@codemirror/language";
@@ -92,16 +87,12 @@ export function CodeMirrorFileSurface({
       }
 
       const effectiveTheme =
-        themeRef.current === "system"
-          ? systemThemeRef.current
-          : themeRef.current;
+        themeRef.current === "system" ? systemThemeRef.current : themeRef.current;
       const isDark = effectiveTheme === "dark";
       const prosemarkSelectionAnchor =
         languageKind === "code"
           ? undefined
-          : EditorSelection.single(
-              findInitialSafeSelectionAnchor(initialValueRef.current),
-            );
+          : EditorSelection.single(findInitialSafeSelectionAnchor(initialValueRef.current));
 
       editor = new EditorView({
         state: EditorState.create({
@@ -109,9 +100,7 @@ export function CodeMirrorFileSurface({
           selection: prosemarkSelectionAnchor,
           extensions: [
             ...fileCodeMirrorBaseExtensions,
-            languageCompartment.of(
-              getInitialCodeMirrorLanguageExtension(filePath),
-            ),
+            languageCompartment.of(getInitialCodeMirrorLanguageExtension(filePath)),
             prosemarkBasicSetup(),
             prosemarkBaseThemeSetup(),
             ...(isAutoHeightSurface
@@ -133,12 +122,7 @@ export function CodeMirrorFileSurface({
               {
                 key: "Alt-p",
                 run: (view) => {
-                  console.log(
-                    printTree(
-                      syntaxTree(view.state),
-                      view.state.doc.toString(),
-                    ),
-                  );
+                  console.log(printTree(syntaxTree(view.state), view.state.doc.toString()));
                   return true;
                 },
               },
@@ -153,8 +137,7 @@ export function CodeMirrorFileSurface({
       pendingLanguageLoadRef.current = languageLoadKey;
 
       try {
-        const languageExtension =
-          await loadCodeMirrorLanguageExtension(filePath);
+        const languageExtension = await loadCodeMirrorLanguageExtension(filePath);
         if (pendingLanguageLoadRef.current !== languageLoadKey) {
           return;
         }
@@ -204,20 +187,12 @@ export function CodeMirrorFileSurface({
     <div
       ref={containerRef}
       data-testid={dataTestId}
-      className={
-        isAutoHeightSurface
-          ? "relative w-full"
-          : "relative h-full min-h-0 w-full"
-      }
+      className={isAutoHeightSurface ? "relative w-full" : "relative h-full min-h-0 w-full"}
       {...mobilePaneDrag.containerProps}
     >
       <div
         ref={editorRef}
-        className={
-          isAutoHeightSurface
-            ? "notranslate w-full"
-            : "notranslate h-full min-h-0 w-full"
-        }
+        className={isAutoHeightSurface ? "notranslate w-full" : "notranslate h-full min-h-0 w-full"}
         translate="no"
       />
     </div>

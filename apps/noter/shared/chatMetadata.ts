@@ -6,9 +6,7 @@ const toolActivityItemSchema = z.object({
   input: z.unknown(),
 });
 
-const requestIdSchema = z.custom<Id<"aiProdAccessRequests">>(
-  (value) => typeof value === "string",
-);
+const requestIdSchema = z.custom<Id<"aiProdAccessRequests">>((value) => typeof value === "string");
 
 const toolActivitySchema = z
   .object({
@@ -47,14 +45,7 @@ const prodReadProposalSchema = z
     paramsPreview: z.string(),
     summary: z.string(),
     status: z
-      .enum([
-        "proposed",
-        "approved",
-        "rejected",
-        "executed",
-        "failed",
-        "expired",
-      ])
+      .enum(["proposed", "approved", "rejected", "executed", "failed", "expired"])
       .optional(),
     error: z.string().optional(),
     tools: z.array(toolActivityItemSchema).optional(),

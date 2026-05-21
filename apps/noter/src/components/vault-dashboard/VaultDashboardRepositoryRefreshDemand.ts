@@ -28,23 +28,15 @@ export function useDashboardRepositoryRefreshDemand() {
   useEffect(() => {
     const enqueueDashboardDemand = () => {
       const now = Date.now();
-      if (
-        now - lastDashboardDemandAtRef.current <
-        DASHBOARD_REFRESH_DEMAND_EVENT_GUARD_MS
-      ) {
+      if (now - lastDashboardDemandAtRef.current < DASHBOARD_REFRESH_DEMAND_EVENT_GUARD_MS) {
         return;
       }
       lastDashboardDemandAtRef.current = now;
 
       // Surface-level signal only. Convex owns vault selection and continuation.
-      void enqueueDashboardRepositoryRefreshMutation().catch(
-        (error: unknown) => {
-          console.error(
-            "Failed to enqueue repository refresh demand from dashboard:",
-            error,
-          );
-        },
-      );
+      void enqueueDashboardRepositoryRefreshMutation().catch((error: unknown) => {
+        console.error("Failed to enqueue repository refresh demand from dashboard:", error);
+      });
     };
 
     const enqueueInitialDashboardDemand = () => {
@@ -99,10 +91,7 @@ export function useDashboardRepositoryRefreshDemand() {
       void enqueueManualRepositoryRefreshMutation({
         vaultId,
       }).catch((error: unknown) => {
-        console.error(
-          "Failed to enqueue manual repository refresh demand:",
-          error,
-        );
+        console.error("Failed to enqueue manual repository refresh demand:", error);
       });
     },
     [enqueueManualRepositoryRefreshMutation],

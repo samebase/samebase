@@ -25,12 +25,8 @@ describe("buildMcpAuthorizationServerMetadata", () => {
     const metadata = buildMcpAuthorizationServerMetadata("https://noter.md");
 
     expect(metadata.issuer).toBe("https://noter.md");
-    expect(metadata.authorization_endpoint).toBe(
-      "https://noter.md/oauth/mcp/authorize",
-    );
-    expect(metadata.registration_endpoint).toBe(
-      "https://noter.md/oauth/mcp/register",
-    );
+    expect(metadata.authorization_endpoint).toBe("https://noter.md/oauth/mcp/authorize");
+    expect(metadata.registration_endpoint).toBe("https://noter.md/oauth/mcp/register");
     expect(metadata.token_endpoint_auth_methods_supported).toEqual(["none"]);
     expect(metadata.code_challenge_methods_supported).toEqual(["S256"]);
   });
@@ -74,9 +70,7 @@ describe("validateDynamicClientRegistrationPayload", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toContain(
-        'token_endpoint_auth_method must be "none"',
-      );
+      expect(result.error).toContain('token_endpoint_auth_method must be "none"');
     }
   });
 
@@ -88,9 +82,7 @@ describe("validateDynamicClientRegistrationPayload", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toContain(
-        'token_endpoint_auth_method must be "none"',
-      );
+      expect(result.error).toContain('token_endpoint_auth_method must be "none"');
     }
   });
 
@@ -126,10 +118,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
     url.searchParams.set("resource", "https://noter.md/mcp");
     url.searchParams.set("scope", "vaults.read files.read");
     url.searchParams.set("state", "state_abc");
-    url.searchParams.set(
-      "code_challenge",
-      "0123456789012345678901234567890123456789012",
-    );
+    url.searchParams.set("code_challenge", "0123456789012345678901234567890123456789012");
     url.searchParams.set("code_challenge_method", "S256");
 
     const result = validateAuthorizeRequestFromUrl(url);
@@ -147,10 +136,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
     url.searchParams.set("client_id", "client_123");
     url.searchParams.set("redirect_uri", "https://example.com/callback");
     url.searchParams.set("scope", "vaults.read");
-    url.searchParams.set(
-      "code_challenge",
-      "0123456789012345678901234567890123456789012",
-    );
+    url.searchParams.set("code_challenge", "0123456789012345678901234567890123456789012");
     url.searchParams.set("code_challenge_method", "S256");
 
     const result = validateAuthorizeRequestFromUrl(url);
@@ -167,10 +153,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
     url.searchParams.set("redirect_uri", "https://example.com/callback");
     url.searchParams.set("resource", "   ");
     url.searchParams.set("scope", "vaults.read");
-    url.searchParams.set(
-      "code_challenge",
-      "0123456789012345678901234567890123456789012",
-    );
+    url.searchParams.set("code_challenge", "0123456789012345678901234567890123456789012");
     url.searchParams.set("code_challenge_method", "S256");
 
     const result = validateAuthorizeRequestFromUrl(url);
@@ -185,10 +168,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
     url.searchParams.set("client_id", "client_123");
     url.searchParams.set("redirect_uri", "https://example.com/callback");
     url.searchParams.set("resource", "https://noter.md/mcp");
-    url.searchParams.set(
-      "code_challenge",
-      "0123456789012345678901234567890123456789012",
-    );
+    url.searchParams.set("code_challenge", "0123456789012345678901234567890123456789012");
     url.searchParams.set("code_challenge_method", "S256");
 
     const result = validateAuthorizeRequestFromUrl(url);
@@ -205,10 +185,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
     url.searchParams.set("redirect_uri", "https://example.com/callback");
     url.searchParams.set("resource", "https://noter.md/mcp");
     url.searchParams.set("scope", "   ");
-    url.searchParams.set(
-      "code_challenge",
-      "0123456789012345678901234567890123456789012",
-    );
+    url.searchParams.set("code_challenge", "0123456789012345678901234567890123456789012");
     url.searchParams.set("code_challenge_method", "S256");
 
     const result = validateAuthorizeRequestFromUrl(url);
@@ -224,10 +201,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
     url.searchParams.set("redirect_uri", "https://example.com/callback");
     url.searchParams.set("resource", "https://noter.md/mcp");
     url.searchParams.set("scope", "admin");
-    url.searchParams.set(
-      "code_challenge",
-      "0123456789012345678901234567890123456789012",
-    );
+    url.searchParams.set("code_challenge", "0123456789012345678901234567890123456789012");
     url.searchParams.set("code_challenge_method", "S256");
 
     const result = validateAuthorizeRequestFromUrl(url);
@@ -244,10 +218,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
     url.searchParams.set("redirect_uri", "http://localhost:5174/callback");
     url.searchParams.set("resource", "https://noter.md/mcp");
     url.searchParams.set("scope", "vaults.read");
-    url.searchParams.set(
-      "code_challenge",
-      "0123456789012345678901234567890123456789012",
-    );
+    url.searchParams.set("code_challenge", "0123456789012345678901234567890123456789012");
     url.searchParams.set("code_challenge_method", "S256");
 
     const result = validateAuthorizeRequestFromUrl(url);
@@ -264,10 +235,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
     url.searchParams.set("redirect_uri", "http://localhost:5174/callback");
     url.searchParams.set("resource", "https://noter.md/mcp");
     url.searchParams.set("scope", "vaults.read");
-    url.searchParams.set(
-      "code_challenge",
-      "0123456789012345678901234567890123456789012",
-    );
+    url.searchParams.set("code_challenge", "0123456789012345678901234567890123456789012");
     url.searchParams.set("code_challenge_method", "S256");
 
     const result = validateAuthorizeRequestFromUrl(url, {
@@ -284,8 +252,7 @@ describe("validateTokenRequestFromSearchParams", () => {
       code: "mcpac_example",
       client_id: "client_123",
       redirect_uri: "https://example.com/callback",
-      code_verifier:
-        "0123456789012345678901234567890123456789012345678901234567890123",
+      code_verifier: "0123456789012345678901234567890123456789012345678901234567890123",
     });
 
     const result = validateTokenRequestFromSearchParams(params);
@@ -335,8 +302,7 @@ describe("validateTokenRequestFromSearchParams", () => {
       code: "mcpac_example",
       client_id: "client_123",
       redirect_uri: "http://localhost:5174/callback",
-      code_verifier:
-        "0123456789012345678901234567890123456789012345678901234567890123",
+      code_verifier: "0123456789012345678901234567890123456789012345678901234567890123",
     });
 
     const result = validateTokenRequestFromSearchParams(params);
@@ -352,8 +318,7 @@ describe("validateTokenRequestFromSearchParams", () => {
       code: "mcpac_example",
       client_id: "client_123",
       redirect_uri: "http://localhost:5174/callback",
-      code_verifier:
-        "0123456789012345678901234567890123456789012345678901234567890123",
+      code_verifier: "0123456789012345678901234567890123456789012345678901234567890123",
     });
 
     const result = validateTokenRequestFromSearchParams(params, {
@@ -365,9 +330,7 @@ describe("validateTokenRequestFromSearchParams", () => {
 
 describe("readBearerTokenFromAuthorizationHeader", () => {
   it("extracts bearer token", () => {
-    const result = readBearerTokenFromAuthorizationHeader(
-      "Bearer mcpat_example",
-    );
+    const result = readBearerTokenFromAuthorizationHeader("Bearer mcpat_example");
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value).toBe("mcpat_example");
@@ -375,9 +338,7 @@ describe("readBearerTokenFromAuthorizationHeader", () => {
   });
 
   it("accepts lowercase bearer scheme", () => {
-    const result = readBearerTokenFromAuthorizationHeader(
-      "bearer mcpat_example",
-    );
+    const result = readBearerTokenFromAuthorizationHeader("bearer mcpat_example");
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value).toBe("mcpat_example");
@@ -385,9 +346,7 @@ describe("readBearerTokenFromAuthorizationHeader", () => {
   });
 
   it("accepts mixed-case bearer scheme", () => {
-    const result = readBearerTokenFromAuthorizationHeader(
-      "BeArEr mcpat_example",
-    );
+    const result = readBearerTokenFromAuthorizationHeader("BeArEr mcpat_example");
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value).toBe("mcpat_example");

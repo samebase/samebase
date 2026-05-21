@@ -4,9 +4,7 @@ export type GitCommandRunner = (command: string) => boolean;
 const SHALLOW_GIT_REPOSITORY_OUTPUT = "true";
 const FULL_GIT_REPOSITORY_OUTPUT = "false";
 
-export function parsePositiveInteger(
-  value: string | null | undefined,
-): number | null {
+export function parsePositiveInteger(value: string | null | undefined): number | null {
   if (!value) {
     return null;
   }
@@ -24,9 +22,7 @@ export function parsePositiveInteger(
   return parsed;
 }
 
-function readIsShallowGitRepository(
-  readGitOutput: GitOutputReader,
-): boolean | null {
+function readIsShallowGitRepository(readGitOutput: GitOutputReader): boolean | null {
   const output = readGitOutput("git rev-parse --is-shallow-repository");
   if (output === SHALLOW_GIT_REPOSITORY_OUTPUT) {
     return true;

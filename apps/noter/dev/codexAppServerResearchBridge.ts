@@ -44,9 +44,7 @@ function isCodexLocalControlRuntimeConstructor(
   return typeof value === "function";
 }
 
-function isCodexLocalControlRouterFactory(
-  value: unknown,
-): value is CodexLocalControlRouterFactory {
+function isCodexLocalControlRouterFactory(value: unknown): value is CodexLocalControlRouterFactory {
   return typeof value === "function";
 }
 
@@ -59,14 +57,10 @@ async function loadCodexLocalControlBridgeModule(): Promise<CodexLocalControlBri
   const runtimeConstructor = candidateModule["CodexLocalControlRuntime"];
   const routerFactory = candidateModule["createCodexLocalControlRouter"];
   if (!isCodexLocalControlRuntimeConstructor(runtimeConstructor)) {
-    throw new Error(
-      "Expected noter.ts bridge module to export CodexLocalControlRuntime.",
-    );
+    throw new Error("Expected noter.ts bridge module to export CodexLocalControlRuntime.");
   }
   if (!isCodexLocalControlRouterFactory(routerFactory)) {
-    throw new Error(
-      "Expected noter.ts bridge module to export createCodexLocalControlRouter.",
-    );
+    throw new Error("Expected noter.ts bridge module to export createCodexLocalControlRouter.");
   }
 
   return {
@@ -80,16 +74,13 @@ async function loadCodexLocalControlBridgeModule(): Promise<CodexLocalControlBri
  * control runtime so the browser, CLI, and Playwright all exercise the same
  * handler and runtime contract during Phase 1 extraction work.
  */
-export function codexAppServerResearchBridgePlugin(args: {
-  workspaceRoot: string;
-}): Plugin {
+export function codexAppServerResearchBridgePlugin(args: { workspaceRoot: string }): Plugin {
   return {
     name: "codex-app-server-research-bridge",
     apply: "serve",
     async configureServer(server: ViteDevServer) {
       const bridgeModule = await loadCodexLocalControlBridgeModule();
-      const { CodexLocalControlRuntime, createCodexLocalControlRouter } =
-        bridgeModule;
+      const { CodexLocalControlRuntime, createCodexLocalControlRouter } = bridgeModule;
       const runtime = new CodexLocalControlRuntime(args.workspaceRoot);
       const router = createCodexLocalControlRouter({
         routeBasePath: CODEX_APP_SERVER_RESEARCH_API_BASE,
@@ -108,8 +99,7 @@ export function codexAppServerResearchBridgePlugin(args: {
           res.setHeader("Content-Type", "application/json; charset=utf-8");
           res.end(
             JSON.stringify({
-              error:
-                "codex-app-server-research-bridge only supports loopback requests.",
+              error: "codex-app-server-research-bridge only supports loopback requests.",
             }),
           );
           return;
@@ -124,8 +114,6 @@ export function codexAppServerResearchBridgePlugin(args: {
 function requestIsFromLoopback(req: IncomingMessage): boolean {
   const remoteAddress = req.socket.remoteAddress;
   return (
-    remoteAddress === "127.0.0.1" ||
-    remoteAddress === "::1" ||
-    remoteAddress === "::ffff:127.0.0.1"
+    remoteAddress === "127.0.0.1" || remoteAddress === "::1" || remoteAddress === "::ffff:127.0.0.1"
   );
 }

@@ -25,9 +25,9 @@
 
 Add read-only browser preview support for small `.vox` files in Noter file view.
 
-This is primarily for Teardown and MagicaVoxel-style assets that are small
-enough to fit through Noter's existing repository media fetch path, such as the
-82 KB sample asset that motivated this proposal.
+This is primarily for Teardown and MagicaVoxel-style assets that are small enough to fit through
+Noter's existing repository media fetch path, such as the 82 KB sample asset that motivated this
+proposal.
 
 V1 stays intentionally narrow:
 
@@ -41,46 +41,42 @@ V1 stays intentionally narrow:
 
 Today Noter can render repository images, but it cannot render voxel assets.
 
-That is a poor fit for modding workflows where `.vox` is a first-class asset
-format. In Teardown specifically, mods commonly ship `.vox` files, and the
-official modding docs describe `.vox` as a normal asset type backed by
-MagicaVoxel.
+That is a poor fit for modding workflows where `.vox` is a first-class asset format. In Teardown
+specifically, mods commonly ship `.vox` files, and the official modding docs describe `.vox` as a
+normal asset type backed by MagicaVoxel.
 
 The current experience forces the operator into one of two bad outcomes:
 
 1. the file is treated as non-renderable and never gets an in-app preview
 2. the operator has to leave Noter to inspect even very small voxel assets
 
-This makes Noter weaker as a repository browser for game/mod repos even though
-the browser already has the primitives needed to render this format.
+This makes Noter weaker as a repository browser for game/mod repos even though the browser already
+has the primitives needed to render this format.
 
 ## Current State
 
 ### Media classification
 
-`apps/noter/shared/repositoryMedia.ts` currently recognizes only image
-extensions and exposes only one renderable media kind: `image`.
+`apps/noter/shared/repositoryMedia.ts` currently recognizes only image extensions and exposes only
+one renderable media kind: `image`.
 
 That means `.vox` is not treated as renderable media at all.
 
 ### Backend asset loading
 
-`apps/noter/convex/github.ts#getRepositoryMediaAsset` already supports fetching
-small binary media through GitHub, storing it in Convex storage, and returning a
-signed URL for frontend display.
+`apps/noter/convex/github.ts#getRepositoryMediaAsset` already supports fetching small binary media
+through GitHub, storing it in Convex storage, and returning a signed URL for frontend display.
 
 Important current constraint:
 
-1. files larger than 1 MB return
-   `Preview unavailable for files larger than 1 MB.`
+1. files larger than 1 MB return `Preview unavailable for files larger than 1 MB.`
 
-That limit is already acceptable for the initial request because the motivating
-asset size is 82 KB.
+That limit is already acceptable for the initial request because the motivating asset size is 82 KB.
 
 ### Frontend rendering
 
-`apps/noter/src/components/RepositoryMediaViewer.tsx` assumes the loaded asset
-is an image and renders it with `<img>`.
+`apps/noter/src/components/RepositoryMediaViewer.tsx` assumes the loaded asset is an image and
+renders it with `<img>`.
 
 There is no current branch for:
 
@@ -90,23 +86,21 @@ There is no current branch for:
 
 ### Existing rendering dependency
 
-`apps/noter/package.json` already includes `three`, and the app already owns
-Three.js scene code elsewhere.
+`apps/noter/package.json` already includes `three`, and the app already owns Three.js scene code
+elsewhere.
 
-This means Noter does not need a new rendering stack just to add a `.vox`
-preview path.
+This means Noter does not need a new rendering stack just to add a `.vox` preview path.
 
 ## External Research
 
 ### Teardown format context
 
-The Teardown modding docs explicitly describe `.vox` files as mod assets and
-state that almost all Teardown assets were modeled in MagicaVoxel.
+The Teardown modding docs explicitly describe `.vox` files as mod assets and state that almost all
+Teardown assets were modeled in MagicaVoxel.
 
-The same docs also explain that Teardown uses palette indices as material
-semantics, not just RGB display colors. That matters because a browser preview
-can be visually useful without being a fully faithful simulation of in-game
-material behavior.
+The same docs also explain that Teardown uses palette indices as material semantics, not just RGB
+display colors. That matters because a browser preview can be visually useful without being a fully
+faithful simulation of in-game material behavior.
 
 ### Browser loader availability
 
@@ -115,19 +109,18 @@ Three.js officially ships `VOXLoader`, and its docs state that it can either:
 1. load a `.vox` asset from a URL
 2. parse raw `ArrayBuffer` data
 
-The loader returns parsed `chunks` plus a scene graph, which is sufficient for
-browser-side preview in Noter.
+The loader returns parsed `chunks` plus a scene graph, which is sufficient for browser-side preview
+in Noter.
 
 ### VoxTool caveat
 
-Teardown's VoxTool documentation calls out compression and decompression
-utilities for voxel assets.
+Teardown's VoxTool documentation calls out compression and decompression utilities for voxel assets.
 
-That implies Noter should not assume every Teardown-related voxel artifact is a
-plain MagicaVoxel `.vox` file that `VOXLoader` can parse directly.
+That implies Noter should not assume every Teardown-related voxel artifact is a plain MagicaVoxel
+`.vox` file that `VOXLoader` can parse directly.
 
-V1 should therefore support standard `.vox` files that parse successfully and
-gracefully reject files that do not.
+V1 should therefore support standard `.vox` files that parse successfully and gracefully reject
+files that do not.
 
 ## Goals
 
@@ -144,16 +137,15 @@ gracefully reject files that do not.
 2. Preview support for files larger than the current repository media limit.
 3. Editing `.vox` files inside Noter.
 4. Accurate Teardown material simulation based on palette index semantics.
-5. Preview support for compressed or otherwise non-standard VoxTool artifacts
-   that `VOXLoader` cannot parse directly.
+5. Preview support for compressed or otherwise non-standard VoxTool artifacts that `VOXLoader`
+   cannot parse directly.
 6. A generic 3D asset framework for every model format.
 
 ## Product Decisions
 
 ### 1. Add `.vox` as a new repository media kind
 
-Noter should treat `.vox` as renderable repository media instead of as a text
-file or unknown blob.
+Noter should treat `.vox` as renderable repository media instead of as a text file or unknown blob.
 
 Recommended type model:
 
@@ -161,13 +153,12 @@ Recommended type model:
 type RepositoryMediaKind = "image" | "vox";
 ```
 
-This keeps the current media pipeline intact while making the viewer extensible
-enough for one non-image format.
+This keeps the current media pipeline intact while making the viewer extensible enough for one
+non-image format.
 
 ### 2. Scope v1 to small `.vox` files only
 
-V1 should explicitly reuse the current media asset loading path and its size
-constraints.
+V1 should explicitly reuse the current media asset loading path and its size constraints.
 
 Rules:
 
@@ -175,8 +166,8 @@ Rules:
 2. if the file hits the current `> 1 MB` limit, show the existing size error
 3. this RFC does not introduce a separate large-file path
 
-This keeps implementation small and solves the immediate Teardown/modding use
-case without inventing storage policy first.
+This keeps implementation small and solves the immediate Teardown/modding use case without inventing
+storage policy first.
 
 ### 3. Keep backend transport opaque
 
@@ -198,8 +189,7 @@ Why:
 
 ### 4. Parse `.vox` on the client with `VOXLoader`
 
-The preview component should fetch the asset URL as binary data and parse it
-with `VOXLoader`.
+The preview component should fetch the asset URL as binary data and parse it with `VOXLoader`.
 
 Implementation guidance:
 
@@ -213,13 +203,12 @@ The viewer should provide at least:
 2. wheel or trackpad zoom
 3. passive fit-to-model on initial load
 
-The implementation may use `OrbitControls` or an equivalent app-owned camera
-control layer.
+The implementation may use `OrbitControls` or an equivalent app-owned camera control layer.
 
 ### 5. Keep the UX read-only and low-chrome
 
-The `.vox` preview should live inside the existing repository media panel rather
-than introducing a separate page or modal.
+The `.vox` preview should live inside the existing repository media panel rather than introducing a
+separate page or modal.
 
 Recommended UI contract:
 
@@ -234,21 +223,18 @@ This matches the repo's current additive-minimalism preference.
 
 V1 preview should render the voxel model geometry and palette colors only.
 
-It should not attempt to interpret Teardown-specific material meaning from
-palette indices.
+It should not attempt to interpret Teardown-specific material meaning from palette indices.
 
 Why:
 
 1. the preview is still highly useful for inspection and navigation
 2. material-semantic emulation would require Teardown-specific palette policy
-3. that would widen the feature from "browser preview" into a game-specific
-   renderer
+3. that would widen the feature from "browser preview" into a game-specific renderer
 
 ### 7. Parse failures should be explicit and non-destructive
 
-If a `.vox` file cannot be parsed, the UI should show a clear unavailable state
-inside the preview panel instead of falling back to raw binary text or crashing
-the file view.
+If a `.vox` file cannot be parsed, the UI should show a clear unavailable state inside the preview
+panel instead of falling back to raw binary text or crashing the file view.
 
 Recommended message:
 
@@ -264,8 +250,7 @@ This covers:
 
 ### Media detection
 
-Add `.vox` to the renderable media extension set in
-`apps/noter/shared/repositoryMedia.ts`.
+Add `.vox` to the renderable media extension set in `apps/noter/shared/repositoryMedia.ts`.
 
 Selection rules:
 
@@ -275,8 +260,8 @@ Selection rules:
 
 ### Asset contract
 
-Extend `repositoryMediaAssetResult` in `apps/noter/convex/github.ts` to support
-a success payload for `kind: "vox"`.
+Extend `repositoryMediaAssetResult` in `apps/noter/convex/github.ts` to support a success payload
+for `kind: "vox"`.
 
 Recommended contract shape:
 
@@ -300,24 +285,22 @@ type RepositoryMediaAsset =
     };
 ```
 
-The backend does not need voxel-specific metadata for v1 beyond the same fields
-already used for images.
+The backend does not need voxel-specific metadata for v1 beyond the same fields already used for
+images.
 
 ### MIME handling
 
-`apps/noter/convex/gitOperationsActions.ts#guessMime` should recognize `.vox`
-explicitly instead of letting it fall through as an unknown extension.
+`apps/noter/convex/gitOperationsActions.ts#guessMime` should recognize `.vox` explicitly instead of
+letting it fall through as an unknown extension.
 
-Because this RFC does not depend on a special browser MIME contract, the safe v1
-behavior is to return `application/octet-stream`.
+Because this RFC does not depend on a special browser MIME contract, the safe v1 behavior is to
+return `application/octet-stream`.
 
-The actual renderer should ignore MIME for parsing and rely on file kind plus
-binary fetch.
+The actual renderer should ignore MIME for parsing and rely on file kind plus binary fetch.
 
 ### Viewer behavior
 
-`apps/noter/src/components/RepositoryMediaViewer.tsx` should switch on
-`asset.kind`:
+`apps/noter/src/components/RepositoryMediaViewer.tsx` should switch on `asset.kind`:
 
 1. `image` keeps the current `<img>` path
 2. `vox` renders a dedicated canvas/WebGL preview component
@@ -344,12 +327,10 @@ Image behavior must remain unchanged.
 ## Implementation Outline
 
 1. Extend media-kind detection in `apps/noter/shared/repositoryMedia.ts`.
-2. Extend the Convex media asset validator and TypeScript union in
-   `apps/noter/convex/github.ts`.
-3. Add explicit `.vox` MIME handling in
-   `apps/noter/convex/gitOperationsActions.ts`.
-4. Refactor `RepositoryMediaViewer` so the preview panel dispatches by media
-   kind instead of assuming `<img>`.
+2. Extend the Convex media asset validator and TypeScript union in `apps/noter/convex/github.ts`.
+3. Add explicit `.vox` MIME handling in `apps/noter/convex/gitOperationsActions.ts`.
+4. Refactor `RepositoryMediaViewer` so the preview panel dispatches by media kind instead of
+   assuming `<img>`.
 5. Add a `RepositoryVoxPreview` component that owns:
    - binary fetch
    - aborting/canceling in-flight fetch on unmount or asset change
@@ -363,23 +344,22 @@ Image behavior must remain unchanged.
 
 - [ ] Selecting a small `.vox` file in file view renders an in-app 3D preview.
 - [ ] Existing image previews continue to render unchanged.
-- [ ] A missing `.vox` file preserves the existing missing-state behavior
-      without rendering stale preview content.
-- [ ] A `.vox` file larger than the existing media limit shows the current size
-      error instead of attempting a partial load.
-- [ ] A `.vox` fetch/load failure shows a user-visible unavailable state that is
-      distinct from parse failure.
-- [ ] An invalid or unsupported `.vox` file shows an unavailable-state message
-      instead of crashing the page.
+- [ ] A missing `.vox` file preserves the existing missing-state behavior without rendering stale
+      preview content.
+- [ ] A `.vox` file larger than the existing media limit shows the current size error instead of
+      attempting a partial load.
+- [ ] A `.vox` fetch/load failure shows a user-visible unavailable state that is distinct from parse
+      failure.
+- [ ] An invalid or unsupported `.vox` file shows an unavailable-state message instead of crashing
+      the page.
 - [ ] The viewer remains read-only and embedded in the existing media panel.
-- [ ] At least one visual regression fixture/screenshot covers the shipped
-      `.vox` preview state.
+- [ ] At least one visual regression fixture/screenshot covers the shipped `.vox` preview state.
 
 ## Follow-ups
 
-1. Decide whether Git LFS or another large-binary path should later support
-   `.vox` files above the current limit.
-2. Validate a representative set of real Teardown `.vox` assets against
-   `VOXLoader`, including assets that have passed through VoxTool.
-3. Consider whether a future Teardown-specific preview should map palette
-   indices to material labels without changing the rendered geometry path.
+1. Decide whether Git LFS or another large-binary path should later support `.vox` files above the
+   current limit.
+2. Validate a representative set of real Teardown `.vox` assets against `VOXLoader`, including
+   assets that have passed through VoxTool.
+3. Consider whether a future Teardown-specific preview should map palette indices to material labels
+   without changing the rendered geometry path.

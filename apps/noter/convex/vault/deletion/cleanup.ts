@@ -1,10 +1,7 @@
 import { v, type Infer } from "convex/values";
 import { internalMutation, type MutationCtx } from "../../_generated/server";
 import type { Id } from "../../_generated/dataModel";
-import {
-  vVaultDeletionCleanupStep,
-  type VaultDeletionCleanupStep,
-} from "./model";
+import { vVaultDeletionCleanupStep, type VaultDeletionCleanupStep } from "./model";
 
 const { id, literal, number, object, union } = v;
 
@@ -21,9 +18,7 @@ const deleteOnlyByVaultCleanupTables = union(
   literal("agentGraphNodeLayout"),
   literal("agentThreadContext"),
 );
-type DeleteOnlyByVaultCleanupTable = Infer<
-  typeof deleteOnlyByVaultCleanupTables
->;
+type DeleteOnlyByVaultCleanupTable = Infer<typeof deleteOnlyByVaultCleanupTables>;
 
 const vaultLocalCleanupTable = union(
   deleteOnlyByVaultCleanupTables,
@@ -46,9 +41,7 @@ const vaultLocalCleanupBatchResult = union(
     state: literal("deleted"),
   }),
 );
-export type VaultLocalCleanupBatchResult = Infer<
-  typeof vaultLocalCleanupBatchResult
->;
+export type VaultLocalCleanupBatchResult = Infer<typeof vaultLocalCleanupBatchResult>;
 
 const vaultLocalCleanupStepBatchResult = union(
   object({
@@ -60,9 +53,7 @@ const vaultLocalCleanupStepBatchResult = union(
     state: literal("done"),
   }),
 );
-export type VaultLocalCleanupStepBatchResult = Infer<
-  typeof vaultLocalCleanupStepBatchResult
->;
+export type VaultLocalCleanupStepBatchResult = Infer<typeof vaultLocalCleanupStepBatchResult>;
 
 export const VAULT_LOCAL_CLEANUP_BATCH_SIZE = 50;
 
@@ -76,9 +67,7 @@ type VaultLocalCleanupHandler = (
   args: VaultLocalCleanupArgs,
 ) => Promise<number>;
 
-function deleteByVaultBatch(
-  tableName: DeleteOnlyByVaultCleanupTable,
-): VaultLocalCleanupHandler {
+function deleteByVaultBatch(tableName: DeleteOnlyByVaultCleanupTable): VaultLocalCleanupHandler {
   return async function deleteByVault(
     ctx: VaultLocalCleanupCtx,
     args: VaultLocalCleanupArgs,
@@ -185,10 +174,7 @@ async function patchAiProdAccessRequestsBatch(
   for (const row of rows) {
     await ctx.db.patch(row._id, {
       vaultId: undefined,
-      status:
-        row.status === "proposed" || row.status === "approved"
-          ? "expired"
-          : row.status,
+      status: row.status === "proposed" || row.status === "approved" ? "expired" : row.status,
       error:
         row.status === "proposed" || row.status === "approved"
           ? "Vault was deleted before production access was used."
@@ -318,21 +304,15 @@ const vaultLocalCleanupRegistryByStep = {
   ],
   cleanup_access_state: ["aiProdAccessRequests"],
   detach_agent_context: ["agentThreadContext"],
-  cleanup_provisioning_history: [
-    "appProvisioningEvents",
-    "appProvisioningRuns",
-  ],
+  cleanup_provisioning_history: ["appProvisioningEvents", "appProvisioningRuns"],
 } satisfies Record<VaultDeletionCleanupStep, readonly VaultLocalCleanupTable[]>;
 
 function cleanupEntriesForStep(step: VaultDeletionCleanupStep): ReadonlyArray<{
   table: VaultLocalCleanupTable;
   cleanup: VaultLocalCleanupHandler;
 }> {
-  const tables: readonly VaultLocalCleanupTable[] =
-    vaultLocalCleanupRegistryByStep[step];
-  return vaultLocalCleanupRegistry.filter((entry) =>
-    tables.some((table) => table === entry.table),
-  );
+  const tables: readonly VaultLocalCleanupTable[] = vaultLocalCleanupRegistryByStep[step];
+  return vaultLocalCleanupRegistry.filter((entry) => tables.some((table) => table === entry.table));
 }
 
 export async function deleteVaultLocalDataBatchForUser(

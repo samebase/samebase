@@ -1,9 +1,6 @@
 import { Fragment, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import {
-  parseStaticMarkdown,
-  type StaticMarkdownInlineSegment,
-} from "@/lib/staticMarkdown";
+import { parseStaticMarkdown, type StaticMarkdownInlineSegment } from "@/lib/staticMarkdown";
 
 type StaticMarkdownDocumentProps = {
   value: string;
@@ -27,34 +24,21 @@ function getHeadingClassName(level: 1 | 2 | 3 | 4 | 5 | 6): string {
   }
 }
 
-function renderInlineContent(
-  segments: StaticMarkdownInlineSegment[],
-): ReactNode[] {
+function renderInlineContent(segments: StaticMarkdownInlineSegment[]): ReactNode[] {
   return segments.map((segment, index) => {
     if (segment.type === "text") {
-      return (
-        <Fragment key={`text-${index}-${segment.value}`}>
-          {segment.value}
-        </Fragment>
-      );
+      return <Fragment key={`text-${index}-${segment.value}`}>{segment.value}</Fragment>;
     }
 
     return (
-      <code
-        key={`code-${index}-${segment.value}`}
-        className="cm-static-markdown-inline-code"
-      >
+      <code key={`code-${index}-${segment.value}`} className="cm-static-markdown-inline-code">
         {segment.value}
       </code>
     );
   });
 }
 
-function renderHeading(
-  level: 1 | 2 | 3 | 4 | 5 | 6,
-  key: string,
-  children: ReactNode[],
-) {
+function renderHeading(level: 1 | 2 | 3 | 4 | 5 | 6, key: string, children: ReactNode[]) {
   const className = getHeadingClassName(level);
 
   switch (level) {
@@ -97,10 +81,7 @@ function renderHeading(
   }
 }
 
-export function StaticMarkdownDocument({
-  value,
-  className,
-}: StaticMarkdownDocumentProps) {
+export function StaticMarkdownDocument({ value, className }: StaticMarkdownDocumentProps) {
   const blocks = parseStaticMarkdown(value);
   const lines: ReactNode[] = [];
 
@@ -119,21 +100,14 @@ export function StaticMarkdownDocument({
 
     if (block.type === "heading") {
       lines.push(
-        renderHeading(
-          block.level,
-          `heading-${blockIndex}`,
-          renderInlineContent(block.content),
-        ),
+        renderHeading(block.level, `heading-${blockIndex}`, renderInlineContent(block.content)),
       );
       return;
     }
 
     if (block.type === "paragraph") {
       lines.push(
-        <p
-          key={`paragraph-${blockIndex}`}
-          className="cm-line cm-static-markdown-paragraph"
-        >
+        <p key={`paragraph-${blockIndex}`} className="cm-line cm-static-markdown-paragraph">
           {renderInlineContent(block.content)}
         </p>,
       );
@@ -141,15 +115,9 @@ export function StaticMarkdownDocument({
     }
 
     lines.push(
-      <ul
-        key={`list-group-${blockIndex}`}
-        className="cm-static-markdown-list-root"
-      >
+      <ul key={`list-group-${blockIndex}`} className="cm-static-markdown-list-root">
         {block.items.map((item, itemIndex) => (
-          <li
-            key={`list-${blockIndex}-${itemIndex}`}
-            className="cm-line cm-static-markdown-list"
-          >
+          <li key={`list-${blockIndex}-${itemIndex}`} className="cm-line cm-static-markdown-list">
             <span className="cm-rendered-list-mark" aria-hidden="true">
               •
             </span>

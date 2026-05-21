@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  readEnvFileValue,
-  resolveBrowserConvexProxyTarget,
-} from "./browserConvexProxy";
+import { readEnvFileValue, resolveBrowserConvexProxyTarget } from "./browserConvexProxy";
 
 describe("browserConvexProxy", () => {
   it("prefers the local Convex URL when the dev frontend has a public origin", () => {
@@ -27,13 +24,8 @@ describe("browserConvexProxy", () => {
   });
 
   it("reads raw env file values without process env overrides", () => {
-    const envPath = new URL(
-      "./fixtures/browser-convex-proxy.env",
-      import.meta.url,
-    );
+    const envPath = new URL("./fixtures/browser-convex-proxy.env", import.meta.url);
 
-    expect(readEnvFileValue(envPath.pathname, "VITE_CONVEX_URL")).toBe(
-      "http://127.0.0.1:11036",
-    );
+    expect(readEnvFileValue(envPath.pathname, "VITE_CONVEX_URL")).toBe("http://127.0.0.1:11036");
   });
 });

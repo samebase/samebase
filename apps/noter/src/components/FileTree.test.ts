@@ -3,14 +3,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 
 import { FileTree } from "@/components/FileTree";
-import {
-  getFileTreeTooltipText,
-  getRestoreDeletionLabel,
-} from "@/lib/fileTreeLabels";
-import {
-  buildEffectiveFolderExpansionStates,
-  getAncestorFolderPaths,
-} from "@/lib/fileTreeState";
+import { getFileTreeTooltipText, getRestoreDeletionLabel } from "@/lib/fileTreeLabels";
+import { buildEffectiveFolderExpansionStates, getAncestorFolderPaths } from "@/lib/fileTreeState";
 
 describe("buildEffectiveFolderExpansionStates", () => {
   it("force-opens changed folders in changes mode", () => {

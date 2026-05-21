@@ -25,9 +25,7 @@ import { AppBootFailureState } from "@/components/AppBootFailureState";
 describe("AppBootFailureState", () => {
   it("renders the stale-asset recovery copy", () => {
     const markup = renderToStaticMarkup(
-      <AppBootFailureState
-        error={new Error("Failed to fetch dynamically imported module")}
-      />,
+      <AppBootFailureState error={new Error("Failed to fetch dynamically imported module")} />,
     );
 
     expect(markup).toContain("Noter updated while this tab was open.");

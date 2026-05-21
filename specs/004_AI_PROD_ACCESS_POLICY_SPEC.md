@@ -5,29 +5,23 @@
 - Status: Implemented for MVP owner mode (with follow-ups)
 - Owner: Noter chat/agent + platform security
 - Last updated: 2026-02-13
-- Related plan:
-  `specs/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
+- Related plan: `specs/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
 
 ## Summary
 
-Define how the main Noter AI can inspect production infrastructure, logs, and
-data in a way that is auditable and gated by explicit user approval for each
-request.
+Define how the main Noter AI can inspect production infrastructure, logs, and data in a way that is
+auditable and gated by explicit user approval for each request.
 
 This spec is intentionally approval-first and read-only for MVP.
 
 ## Implementation Snapshot (2026-02-13)
 
-- Proposal -> explicit approval -> execution flow is live in `chat.ts` +
-  `chat/actions.ts`.
-- Request/audit persistence is live via `aiProdAccessRequests` and
-  `aiProdAccessAudit`.
+- Proposal -> explicit approval -> execution flow is live in `chat.ts` + `chat/actions.ts`.
+- Request/audit persistence is live via `aiProdAccessRequests` and `aiProdAccessAudit`.
 - Admin-only enforcement is active via `isAdminUser`.
 - Request expiration (TTL) is active.
-- Redaction is active through `infraReadPolicy.ts` with default mode
-  `MVP_OWNER_MODE`.
-- Global kill switch is still a follow-up (not currently wired as a runtime
-  gate).
+- Redaction is active through `infraReadPolicy.ts` with default mode `MVP_OWNER_MODE`.
+- Global kill switch is still a follow-up (not currently wired as a runtime gate).
 
 ## Goals
 
@@ -63,8 +57,7 @@ This spec is intentionally approval-first and read-only for MVP.
 Runtime configuration:
 
 - MVP defaults to owner mode behavior.
-- Production reads are enabled in MVP and always require explicit per-request
-  approval.
+- Production reads are enabled in MVP and always require explicit per-request approval.
 
 ## Threat Model
 
@@ -166,11 +159,7 @@ aiProdAccessRequests: defineTable({
   toolName: v.string(),
   paramsJson: v.string(),
   status: ProdReadStatus,
-  redactionLevel: v.union(
-    v.literal("default"),
-    v.literal("strict"),
-    v.literal("raw_fallback"),
-  ),
+  redactionLevel: v.union(v.literal("default"), v.literal("strict"), v.literal("raw_fallback")),
   approvedBy: v.optional(v.id("users")),
   approvedAt: v.optional(v.number()),
   executedAt: v.optional(v.number()),
@@ -351,8 +340,7 @@ Default PII redaction:
 
 Mode behavior:
 
-- `MVP_OWNER_MODE`: allow `raw_fallback` only after explicit approval and
-  warning banner.
+- `MVP_OWNER_MODE`: allow `raw_fallback` only after explicit approval and warning banner.
 - `MULTI_USER_MODE`: force `strict`, block raw fallback.
 
 Reference redaction pipeline order:

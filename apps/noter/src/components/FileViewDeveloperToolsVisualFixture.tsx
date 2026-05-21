@@ -15,24 +15,18 @@ export type FileViewDeveloperToolsVisualMode =
   | "file-view-developer-tools-codemirror"
   | "file-view-developer-tools-graph";
 
-function getFixtureViewMode(
-  mode: FileViewDeveloperToolsVisualMode,
-): FileViewMode {
+function getFixtureViewMode(mode: FileViewDeveloperToolsVisualMode): FileViewMode {
   return mode === "file-view-developer-tools-graph" ? "graph" : "editor";
 }
 
-function getFixtureDeveloperToolsOpen(
-  mode: FileViewDeveloperToolsVisualMode,
-): boolean {
+function getFixtureDeveloperToolsOpen(mode: FileViewDeveloperToolsVisualMode): boolean {
   return mode !== "file-view-developer-tools-collapsed";
 }
 
 function getFixtureEditorOverride(
   mode: FileViewDeveloperToolsVisualMode,
 ): FileViewEditorOverride | undefined {
-  return mode === "file-view-developer-tools-codemirror"
-    ? "codemirror"
-    : undefined;
+  return mode === "file-view-developer-tools-codemirror" ? "codemirror" : undefined;
 }
 
 export function FileViewDeveloperToolsVisualFixture({
@@ -48,11 +42,7 @@ export function FileViewDeveloperToolsVisualFixture({
     <SidebarAccountSection>
       <div className="flex w-full min-w-0 items-center justify-between gap-2 text-sm font-medium">
         <span className="block min-w-0 truncate">nicu@noter.md</span>
-        <Button
-          variant="secondary"
-          size="icon"
-          className="h-8 w-8 rounded-ui md:h-6 md:w-6"
-        >
+        <Button variant="secondary" size="icon" className="h-8 w-8 rounded-ui md:h-6 md:w-6">
           <PersonIcon className="h-4 w-4 md:h-3 md:w-3" />
           <span className="sr-only">Open user menu</span>
         </Button>
@@ -61,9 +51,7 @@ export function FileViewDeveloperToolsVisualFixture({
   );
   const sidebarContent = (
     <div className="flex min-h-0 flex-1 flex-col bg-muted/10">
-      <div className="border-b p-3 text-xs text-muted-foreground">
-        noter-md/noter
-      </div>
+      <div className="border-b p-3 text-xs text-muted-foreground">noter-md/noter</div>
       <div className="flex min-h-0 flex-1 items-center justify-center p-3 text-xs text-muted-foreground">
         File tree
       </div>
@@ -83,11 +71,7 @@ export function FileViewDeveloperToolsVisualFixture({
         header: (
           <RepositoryWorkspacePaneHeader
             title="src/components/FileView.tsx"
-            right={
-              <div className="font-mono text-xs text-muted-foreground">
-                74f9c18
-              </div>
-            }
+            right={<div className="font-mono text-xs text-muted-foreground">74f9c18</div>}
             onQuickOpen={() => {}}
           />
         ),
@@ -99,9 +83,7 @@ export function FileViewDeveloperToolsVisualFixture({
                   <div className="mb-0.5 font-mono text-[11px] text-muted-foreground">
                     feat/graph-toggle
                   </div>
-                  <h2 className="text-base font-medium md:text-sm">
-                    src/components/FileView.tsx
-                  </h2>
+                  <h2 className="text-base font-medium md:text-sm">src/components/FileView.tsx</h2>
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -111,20 +93,12 @@ export function FileViewDeveloperToolsVisualFixture({
                     </div>
                     {showEditorActions ? (
                       <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-6 px-2 text-xs"
-                        >
+                        <Button size="sm" variant="outline" className="h-6 px-2 text-xs">
                           Review Changes
                         </Button>
                       </>
                     ) : null}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-6 px-2 text-xs"
-                    >
+                    <Button size="sm" variant="outline" className="h-6 px-2 text-xs">
                       Create Draft PR
                     </Button>
                     <Button
@@ -149,9 +123,7 @@ export function FileViewDeveloperToolsVisualFixture({
               <div className="relative flex-1 min-h-0 corner-notch-1 border bg-background">
                 {viewMode === "editor" ? (
                   <div className="flex h-full min-h-[420px] flex-col">
-                    <div className="border-b px-4 py-3 text-sm font-medium">
-                      Editor surface
-                    </div>
+                    <div className="border-b px-4 py-3 text-sm font-medium">Editor surface</div>
                     <div className="grid flex-1 gap-2 p-4 font-mono text-xs text-muted-foreground">
                       <div className="rounded-ui bg-muted/60 px-3 py-2">
                         export function FileViewInner() {"{"}
@@ -162,9 +134,7 @@ export function FileViewDeveloperToolsVisualFixture({
                       <div className="rounded-ui bg-muted/40 px-3 py-2">
                         {"  "}return {"<RepositoryEditor />"};
                       </div>
-                      <div className="rounded-ui bg-muted/60 px-3 py-2">
-                        {"}"}
-                      </div>
+                      <div className="rounded-ui bg-muted/60 px-3 py-2">{"}"}</div>
                     </div>
                   </div>
                 ) : (
@@ -196,8 +166,7 @@ export function FileViewDeveloperToolsVisualFixture({
         ),
       }}
       right={{
-        content:
-          FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarContent : null,
+        content: FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarContent : null,
       }}
     />
   );

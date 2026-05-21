@@ -18,9 +18,7 @@ vi.mock("@/components/MachinesWorkspaceThreadPane", () => ({
       {thread?.name}
     </div>
   ),
-  MachinesWorkspaceThreadPane: () => (
-    <div data-component="MachinesWorkspaceThreadPane" />
-  ),
+  MachinesWorkspaceThreadPane: () => <div data-component="MachinesWorkspaceThreadPane" />,
 }));
 
 import {
@@ -61,11 +59,7 @@ const THREAD_FIXTURE: CodexAppServerThread = {
   },
 };
 
-function MachinesWorkspaceTestSidebarProvider({
-  children,
-}: {
-  children: ReactNode;
-}) {
+function MachinesWorkspaceTestSidebarProvider({ children }: { children: ReactNode }) {
   return (
     <WorkspaceLayoutV2MemorySidebarProvider
       initialState={{
@@ -125,9 +119,7 @@ describe("MachinesWorkspaceView", () => {
       "This machine is offline. Start `noter-sync run` on the machine first.",
     );
     expect(markup).toContain("Offline machine thread");
-    expect(markup).toMatch(
-      /<button[^>]*disabled=""[^>]*>.*Offline machine thread/s,
-    );
+    expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>.*Offline machine thread/s);
   });
 
   it("renders a project-level start conversation button", () => {
@@ -313,8 +305,7 @@ describe("MachinesWorkspaceView", () => {
       macSectionStart === -1 || winSectionStart === -1
         ? ""
         : markup.slice(macSectionStart, winSectionStart);
-    const winSection =
-      winSectionStart === -1 ? "" : markup.slice(winSectionStart);
+    const winSection = winSectionStart === -1 ? "" : markup.slice(winSectionStart);
 
     expect(macSection.match(/animate-spin/g)?.length ?? 0).toBe(1);
     expect(winSection).not.toContain("animate-spin");

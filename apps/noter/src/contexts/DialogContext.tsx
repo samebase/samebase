@@ -1,9 +1,5 @@
 import { useState, ReactNode } from "react";
-import {
-  DialogContext,
-  type DialogContextType,
-  type DialogState,
-} from "./dialog-context-state";
+import { DialogContext, type DialogContextType, type DialogState } from "./dialog-context-state";
 
 interface DialogProviderProps {
   children: ReactNode;
@@ -63,7 +59,5 @@ export function DialogProvider({ children }: DialogProviderProps) {
     closeFolderCreation,
   };
 
-  return (
-    <DialogContext.Provider value={value}>{children}</DialogContext.Provider>
-  );
+  return <DialogContext.Provider value={value}>{children}</DialogContext.Provider>;
 }

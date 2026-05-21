@@ -1,6 +1,5 @@
 export function readAppBuildCommit(): string {
-  const commit =
-    typeof __APP_COMMIT__ === "string" ? __APP_COMMIT__.trim() : "";
+  const commit = typeof __APP_COMMIT__ === "string" ? __APP_COMMIT__.trim() : "";
   if (commit.length > 0 && commit !== "unknown") {
     return commit;
   }

@@ -23,9 +23,7 @@ export function readStagedFileKind(kind?: StagedFileKind): StagedFileKind {
   return kind ?? "text";
 }
 
-export function hasStagedBinaryContentChange(
-  file: StagedFileBinaryStateLike,
-): boolean {
+export function hasStagedBinaryContentChange(file: StagedFileBinaryStateLike): boolean {
   return (
     readStagedFileKind(file.kind) === "binary" &&
     typeof file.stagedBlobSha === "string" &&
@@ -33,9 +31,7 @@ export function hasStagedBinaryContentChange(
   );
 }
 
-export function hasStagedFileContentChange(
-  file: StagedFileChangeCandidate,
-): boolean {
+export function hasStagedFileContentChange(file: StagedFileChangeCandidate): boolean {
   if (readStagedFileKind(file.kind) === "binary") {
     return hasStagedBinaryContentChange(file);
   }
@@ -49,15 +45,11 @@ export function hasStagedFileChanges(file: StagedFileChangeCandidate): boolean {
   }
 
   return (
-    file.fileDeleted ||
-    file.filePath !== file.initialFilePath ||
-    hasStagedFileContentChange(file)
+    file.fileDeleted || file.filePath !== file.initialFilePath || hasStagedFileContentChange(file)
   );
 }
 
-export function getStagedFileStatus(
-  file: StagedFileChangeCandidate,
-): StagedFileStatus | null {
+export function getStagedFileStatus(file: StagedFileChangeCandidate): StagedFileStatus | null {
   if (file.fileDeleted) {
     return "deleted";
   }

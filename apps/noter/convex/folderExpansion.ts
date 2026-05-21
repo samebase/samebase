@@ -23,9 +23,7 @@ export const getFolderExpansionStates = query({
 
     const expansionStates = await ctx.db
       .query("folderExpansionState")
-      .withIndex("by_user_and_vault", (q) =>
-        q.eq("userId", userId).eq("vaultId", args.vaultId),
-      )
+      .withIndex("by_user_and_vault", (q) => q.eq("userId", userId).eq("vaultId", args.vaultId))
       .collect();
 
     return expansionStates.map((state) => ({
@@ -55,10 +53,7 @@ export const setFolderExpansionState = mutation({
     const existingState = await ctx.db
       .query("folderExpansionState")
       .withIndex("by_user_vault_and_path", (q) =>
-        q
-          .eq("userId", userId)
-          .eq("vaultId", args.vaultId)
-          .eq("folderPath", args.folderPath),
+        q.eq("userId", userId).eq("vaultId", args.vaultId).eq("folderPath", args.folderPath),
       )
       .first();
 
@@ -97,9 +92,7 @@ export const clearFolderExpansionStates = mutation({
 
     const expansionStates = await ctx.db
       .query("folderExpansionState")
-      .withIndex("by_user_and_vault", (q) =>
-        q.eq("userId", userId).eq("vaultId", args.vaultId),
-      )
+      .withIndex("by_user_and_vault", (q) => q.eq("userId", userId).eq("vaultId", args.vaultId))
       .collect();
 
     // Delete all states for this user and vault

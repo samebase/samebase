@@ -11,10 +11,7 @@ import {
 import { getUserId } from "../common";
 import { vPullRequestLabel, type PullRequestLabel } from "../schema";
 import { vGithubTreeData, vTreeRefreshFailureKind } from "./model";
-import {
-  hasStagedFileChanges,
-  type StagedFileChangeCandidate,
-} from "../stagingChanges";
+import { hasStagedFileChanges, type StagedFileChangeCandidate } from "../stagingChanges";
 import { isLiveConnectedVault } from "./state";
 import { isVaultDeletingOrDeleteFailed } from "./deletion/state";
 import {
@@ -25,8 +22,7 @@ import {
 } from "../../shared/treeRefresh";
 
 const nullValidator = v.null();
-const { array, boolean, id, literal, number, object, optional, string, union } =
-  v;
+const { array, boolean, id, literal, number, object, optional, string, union } = v;
 const cloudflarePreviewMetadataFields = {
   cloudflareBranchPreviewUrl: optional(string()),
   cloudflarePreviewPullRequestNumber: optional(number()),
@@ -36,12 +32,8 @@ const cloudflarePreviewMetadataFields = {
   cloudflarePreviewLogsUrl: optional(string()),
   cloudflarePreviewCommentCreatedAt: optional(number()),
 } as const;
-const cloudflarePreviewMetadataValidator = object(
-  cloudflarePreviewMetadataFields,
-);
-type CloudflarePreviewMetadata = Infer<
-  typeof cloudflarePreviewMetadataValidator
->;
+const cloudflarePreviewMetadataValidator = object(cloudflarePreviewMetadataFields);
+type CloudflarePreviewMetadata = Infer<typeof cloudflarePreviewMetadataValidator>;
 
 /**
  * Cloudflare can edit or partially reformat its PR comment without removing the
@@ -69,22 +61,17 @@ export function resolveSyncedCloudflarePreviewMetadata(args: {
 
   return {
     cloudflareBranchPreviewUrl:
-      args.incoming.cloudflareBranchPreviewUrl ??
-      args.existing?.cloudflareBranchPreviewUrl,
+      args.incoming.cloudflareBranchPreviewUrl ?? args.existing?.cloudflareBranchPreviewUrl,
     cloudflarePreviewPullRequestNumber:
       args.incoming.cloudflarePreviewPullRequestNumber ??
       args.existing?.cloudflarePreviewPullRequestNumber,
-    cloudflarePreviewUrl:
-      args.incoming.cloudflarePreviewUrl ?? args.existing?.cloudflarePreviewUrl,
+    cloudflarePreviewUrl: args.incoming.cloudflarePreviewUrl ?? args.existing?.cloudflarePreviewUrl,
     cloudflarePreviewCommitSha:
-      args.incoming.cloudflarePreviewCommitSha ??
-      args.existing?.cloudflarePreviewCommitSha,
+      args.incoming.cloudflarePreviewCommitSha ?? args.existing?.cloudflarePreviewCommitSha,
     cloudflarePreviewStatus:
-      args.incoming.cloudflarePreviewStatus ??
-      args.existing?.cloudflarePreviewStatus,
+      args.incoming.cloudflarePreviewStatus ?? args.existing?.cloudflarePreviewStatus,
     cloudflarePreviewLogsUrl:
-      args.incoming.cloudflarePreviewLogsUrl ??
-      args.existing?.cloudflarePreviewLogsUrl,
+      args.incoming.cloudflarePreviewLogsUrl ?? args.existing?.cloudflarePreviewLogsUrl,
     cloudflarePreviewCommentCreatedAt:
       args.incoming.cloudflarePreviewCommentCreatedAt ??
       args.existing?.cloudflarePreviewCommentCreatedAt,
@@ -150,9 +137,7 @@ type BranchStagingRecord = BranchStagingChangeCandidate & {
   branch: string;
 };
 
-export function hasBranchStagingChanges(
-  file: BranchStagingChangeCandidate,
-): boolean {
+export function hasBranchStagingChanges(file: BranchStagingChangeCandidate): boolean {
   return hasStagedFileChanges(file);
 }
 
@@ -167,10 +152,7 @@ export function resolveSyncedBranchLastCommitAt(args: {
   if (args.incomingLastCommitAt !== undefined) {
     return args.incomingLastCommitAt;
   }
-  if (
-    args.existingBranch &&
-    args.existingBranch.headCommitSha === args.incomingHeadCommitSha
-  ) {
+  if (args.existingBranch && args.existingBranch.headCommitSha === args.incomingHeadCommitSha) {
     return args.existingBranch.lastCommitAt;
   }
   return undefined;
@@ -240,15 +222,11 @@ async function deleteVaultBranchArtifacts(
     await ctx.db.delete(stagingFile._id);
   }
 
-  await ctx.scheduler.runAfter(
-    0,
-    internal.fileStaging.deleteCollaborativeUpdatesBatch,
-    {
-      vaultId: args.vaultId,
-      branch: args.branch,
-      cutoffTimestamp: args.collaborativeUpdatesCutoffTimestamp,
-    },
-  );
+  await ctx.scheduler.runAfter(0, internal.fileStaging.deleteCollaborativeUpdatesBatch, {
+    vaultId: args.vaultId,
+    branch: args.branch,
+    cutoffTimestamp: args.collaborativeUpdatesCutoffTimestamp,
+  });
 }
 
 async function pruneDeletedUpstreamBranchesForVault(
@@ -275,10 +253,7 @@ async function pruneDeletedUpstreamBranchesForVault(
   const branchHasStagedChanges = new Map<string, boolean>();
   for (const branch of deletedUpstreamBranches) {
     const branchStaging = stagingFilesByBranch.get(branch.name) ?? [];
-    branchHasStagedChanges.set(
-      branch.name,
-      branchStaging.some(hasBranchStagingChanges),
-    );
+    branchHasStagedChanges.set(branch.name, branchStaging.some(hasBranchStagingChanges));
   }
 
   const branchNamesToPrune = new Set(
@@ -355,14 +330,12 @@ export const getVaultRemoteBranches = query({
       deletedUpstreamAt: branch.deletedUpstreamAt,
       lastSyncedAt: branch.lastSyncedAt,
       cloudflareBranchPreviewUrl: branch.cloudflareBranchPreviewUrl,
-      cloudflarePreviewPullRequestNumber:
-        branch.cloudflarePreviewPullRequestNumber,
+      cloudflarePreviewPullRequestNumber: branch.cloudflarePreviewPullRequestNumber,
       cloudflarePreviewUrl: branch.cloudflarePreviewUrl,
       cloudflarePreviewCommitSha: branch.cloudflarePreviewCommitSha,
       cloudflarePreviewStatus: branch.cloudflarePreviewStatus,
       cloudflarePreviewLogsUrl: branch.cloudflarePreviewLogsUrl,
-      cloudflarePreviewCommentCreatedAt:
-        branch.cloudflarePreviewCommentCreatedAt,
+      cloudflarePreviewCommentCreatedAt: branch.cloudflarePreviewCommentCreatedAt,
     }));
   },
 });
@@ -393,11 +366,7 @@ export const syncVaultRemoteBranches = internalMutation({
         lastCommitAt: optional(number()),
         aheadBy: optional(number()),
         behindBy: optional(number()),
-        aheadBehindState: union(
-          literal("resolved"),
-          literal("unavailable"),
-          literal("preserve"),
-        ),
+        aheadBehindState: union(literal("resolved"), literal("unavailable"), literal("preserve")),
         pullRequestUrl: optional(string()),
         pullRequestNumber: optional(number()),
         pullRequestLabels: optional(array(vPullRequestLabel)),
@@ -421,9 +390,7 @@ export const syncVaultRemoteBranches = internalMutation({
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .collect();
 
-    const existingByName = new Map(
-      existing.map((branch) => [branch.name, branch]),
-    );
+    const existingByName = new Map(existing.map((branch) => [branch.name, branch]));
     const seenNames = new Set<string>();
 
     for (const branch of args.branches) {
@@ -588,11 +555,7 @@ export const syncVaultRemoteBranchCloudflarePreviews = internalMutation({
     branches: array(
       object({
         name: string(),
-        previewState: union(
-          literal("resolved"),
-          literal("clear"),
-          literal("preserve"),
-        ),
+        previewState: union(literal("resolved"), literal("clear"), literal("preserve")),
         ...cloudflarePreviewMetadataFields,
       }),
     ),
@@ -608,9 +571,7 @@ export const syncVaultRemoteBranchCloudflarePreviews = internalMutation({
       .query("vaultRemoteBranches")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .collect();
-    const existingByName = new Map(
-      existing.map((branch) => [branch.name, branch]),
-    );
+    const existingByName = new Map(existing.map((branch) => [branch.name, branch]));
 
     for (const branch of args.branches) {
       if (branch.previewState === "preserve") {
@@ -635,14 +596,12 @@ export const syncVaultRemoteBranchCloudflarePreviews = internalMutation({
               incoming: {
                 previewState: "resolved",
                 cloudflareBranchPreviewUrl: branch.cloudflareBranchPreviewUrl,
-                cloudflarePreviewPullRequestNumber:
-                  branch.cloudflarePreviewPullRequestNumber,
+                cloudflarePreviewPullRequestNumber: branch.cloudflarePreviewPullRequestNumber,
                 cloudflarePreviewUrl: branch.cloudflarePreviewUrl,
                 cloudflarePreviewCommitSha: branch.cloudflarePreviewCommitSha,
                 cloudflarePreviewStatus: branch.cloudflarePreviewStatus,
                 cloudflarePreviewLogsUrl: branch.cloudflarePreviewLogsUrl,
-                cloudflarePreviewCommentCreatedAt:
-                  branch.cloudflarePreviewCommentCreatedAt,
+                cloudflarePreviewCommentCreatedAt: branch.cloudflarePreviewCommentCreatedAt,
               },
             });
 
@@ -734,16 +693,12 @@ export function resolveVaultBranchSelection(args: {
   const requestedBranchMatch =
     args.requestedBranch === undefined
       ? undefined
-      : args.remoteBranches.find(
-          (branch) => branch.name === args.requestedBranch,
-        );
+      : args.remoteBranches.find((branch) => branch.name === args.requestedBranch);
   const defaultBranch =
-    activeRemoteBranches.find((branch) => branch.isDefault)?.name ??
-    args.defaultBranch;
+    activeRemoteBranches.find((branch) => branch.isDefault)?.name ?? args.defaultBranch;
   const canValidateRequestedBranch = args.remoteBranches.length > 0;
   const requestedBranchDiffersFromDefault =
-    args.requestedBranch !== undefined &&
-    args.requestedBranch !== defaultBranch;
+    args.requestedBranch !== undefined && args.requestedBranch !== defaultBranch;
   const branchNotFound = Boolean(
     args.requestedBranch &&
     ((canValidateRequestedBranch && !requestedBranchMatch) ||
@@ -768,8 +723,7 @@ export function countActiveRemoteBranches(
     remoteState: "active" | "deleted_upstream";
   }>,
 ): number {
-  return remoteBranches.filter((branch) => branch.remoteState === "active")
-    .length;
+  return remoteBranches.filter((branch) => branch.remoteState === "active").length;
 }
 
 const REFRESH_DEBOUNCE_MS = TREE_REFRESH_DEBOUNCE_MS;
@@ -801,11 +755,7 @@ export const claimTreeRefresh = internalMutation({
     claimed: v.boolean(),
     startedAt: v.optional(v.number()),
     reason: v.optional(
-      v.union(
-        v.literal("cooldown"),
-        v.literal("recent_success"),
-        v.literal("in_progress"),
-      ),
+      v.union(v.literal("cooldown"), v.literal("recent_success"), v.literal("in_progress")),
     ),
   }),
   handler: async (
@@ -845,10 +795,7 @@ export const claimTreeRefresh = internalMutation({
       }
 
       // Skip if another refresh is already in progress (and not stale)
-      if (
-        vault.treeRefreshStartedAt &&
-        now - vault.treeRefreshStartedAt < STALE_LOCK_MS
-      ) {
+      if (vault.treeRefreshStartedAt && now - vault.treeRefreshStartedAt < STALE_LOCK_MS) {
         return { claimed: false, reason: "in_progress" };
       }
     }
@@ -905,10 +852,7 @@ export const releaseTreeRefresh = internalMutation({
     }
 
     const now = Date.now();
-    const cooldownUntil = getLaterCooldownUntil(
-      vault.treeRefreshCooldownUntil,
-      args.cooldownUntil,
-    );
+    const cooldownUntil = getLaterCooldownUntil(vault.treeRefreshCooldownUntil, args.cooldownUntil);
     const shouldPreserveCooldownState =
       args.markRefreshed !== false &&
       shouldPreserveTreeRefreshCooldownAfterSuccess({
@@ -929,9 +873,7 @@ export const releaseTreeRefresh = internalMutation({
           }
         : {
             lastTreeRefreshAt:
-              args.updateLastTreeRefreshAt === false
-                ? vault.lastTreeRefreshAt
-                : now,
+              args.updateLastTreeRefreshAt === false ? vault.lastTreeRefreshAt : now,
             treeRefreshStartedAt: undefined,
             // Preserve any newer repo-level cooldown that landed while this
             // tree refresh was still in flight so a late success cannot reopen
@@ -945,9 +887,7 @@ export const releaseTreeRefresh = internalMutation({
             treeRefreshFailureMessage: shouldPreserveCooldownState
               ? vault.treeRefreshFailureMessage
               : undefined,
-            treeRefreshCooldownUntil: shouldPreserveCooldownState
-              ? cooldownUntil
-              : undefined,
+            treeRefreshCooldownUntil: shouldPreserveCooldownState ? cooldownUntil : undefined,
           },
     );
     return { released: true };

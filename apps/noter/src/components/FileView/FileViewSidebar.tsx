@@ -122,18 +122,10 @@ export function FileViewSidebarContent({
               }
             }}
           >
-            <ToggleGroupItem
-              value="simple"
-              aria-label="Simple View"
-              className="h-7 px-2 text-xs"
-            >
+            <ToggleGroupItem value="simple" aria-label="Simple View" className="h-7 px-2 text-xs">
               Simple View
             </ToggleGroupItem>
-            <ToggleGroupItem
-              value="all"
-              aria-label="All Files"
-              className="h-7 px-2 text-xs"
-            >
+            <ToggleGroupItem value="all" aria-label="All Files" className="h-7 px-2 text-xs">
               All Files
             </ToggleGroupItem>
             <ToggleGroupItem
@@ -213,10 +205,7 @@ export function FileViewSidebarFooter({
         }}
         onDragLeave={(event) => {
           const relatedTarget = event.relatedTarget;
-          if (
-            !(relatedTarget instanceof Node) ||
-            !event.currentTarget.contains(relatedTarget)
-          ) {
+          if (!(relatedTarget instanceof Node) || !event.currentTarget.contains(relatedTarget)) {
             onMediaUploadDragOverChange(false);
           }
         }}

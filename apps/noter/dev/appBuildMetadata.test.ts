@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import {
-  parsePositiveInteger,
-  resolveAppCommitNumber,
-} from "./appBuildMetadata";
+import { parsePositiveInteger, resolveAppCommitNumber } from "./appBuildMetadata";
 
 describe("parsePositiveInteger", () => {
   it("accepts positive integers", () => {
@@ -82,9 +79,7 @@ describe("resolveAppCommitNumber", () => {
         runGitCommand,
       }),
     ).toBe(1007);
-    expect(runGitCommand).toHaveBeenCalledWith(
-      "git fetch --quiet --unshallow origin",
-    );
+    expect(runGitCommand).toHaveBeenCalledWith("git fetch --quiet --unshallow origin");
     expect(runGitCommand).toHaveBeenCalledTimes(1);
     expect(readGitOutput).toHaveBeenCalledTimes(3);
   });
@@ -108,13 +103,7 @@ describe("resolveAppCommitNumber", () => {
         runGitCommand,
       }),
     ).toBeNull();
-    expect(runGitCommand).toHaveBeenNthCalledWith(
-      1,
-      "git fetch --quiet --unshallow origin",
-    );
-    expect(runGitCommand).toHaveBeenNthCalledWith(
-      2,
-      "git fetch --quiet --depth=2147483647 origin",
-    );
+    expect(runGitCommand).toHaveBeenNthCalledWith(1, "git fetch --quiet --unshallow origin");
+    expect(runGitCommand).toHaveBeenNthCalledWith(2, "git fetch --quiet --depth=2147483647 origin");
   });
 });

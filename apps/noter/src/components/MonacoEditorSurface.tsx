@@ -51,8 +51,7 @@ export function MonacoEditorSurface({
   const containerRef = useRef<HTMLDivElement>(null);
   const mobilePaneDrag = useWorkspaceLayoutV2DragSurface(true);
   const [editorHeightPx, setEditorHeightPx] = useState(MIN_EDITOR_HEIGHT_PX);
-  const showLineNumbers =
-    !disableLineNumbers && (!isMobileViewport || showMobileLineNumbers);
+  const showLineNumbers = !disableLineNumbers && (!isMobileViewport || showMobileLineNumbers);
   const showFolding = !disableFolding && !isMobileViewport;
 
   useEffect(() => {

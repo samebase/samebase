@@ -1,11 +1,8 @@
 import { ConvexReactClient } from "convex/react";
 
 const browserConvexProxyPath =
-  typeof __BROWSER_CONVEX_PROXY_PATH__ === "undefined"
-    ? null
-    : __BROWSER_CONVEX_PROXY_PATH__;
-const fallbackConvexUrl =
-  import.meta.env.MODE === "test" ? "http://127.0.0.1:3210" : null;
+  typeof __BROWSER_CONVEX_PROXY_PATH__ === "undefined" ? null : __BROWSER_CONVEX_PROXY_PATH__;
+const fallbackConvexUrl = import.meta.env.MODE === "test" ? "http://127.0.0.1:3210" : null;
 
 // Prefer the browser proxy when Vite exposes one for public dev origins, then
 // the normal app env var, then the local Vitest fallback for route imports.

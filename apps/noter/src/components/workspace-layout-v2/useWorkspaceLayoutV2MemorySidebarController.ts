@@ -11,11 +11,12 @@ export function useWorkspaceLayoutV2MemorySidebarController(
   initialState: WorkspaceSidebarState,
 ): WorkspaceSidebarStateController {
   const [state, setState] = useState(initialState);
-  const setControllerState = useCallback<
-    WorkspaceSidebarStateController["setState"]
-  >((updateState) => {
-    setState((currentState) => updateState(currentState));
-  }, []);
+  const setControllerState = useCallback<WorkspaceSidebarStateController["setState"]>(
+    (updateState) => {
+      setState((currentState) => updateState(currentState));
+    },
+    [],
+  );
 
   return useMemo(
     () => ({

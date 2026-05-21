@@ -1263,9 +1263,7 @@ export interface components {
            *     playful-otter-123.
            */
           name: string;
-          previewIdentifier?:
-            | null
-            | components["schemas"]["PreviewDeploymentIdentifier"];
+          previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
           /** @description The project this deployment belongs to. */
           projectId: components["schemas"]["ProjectId"];
           /**
@@ -1309,9 +1307,7 @@ export interface components {
            * @description The port where this local deployment is running.
            */
           port: number;
-          previewIdentifier?:
-            | null
-            | components["schemas"]["PreviewDeploymentIdentifier"];
+          previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
           /** @description The project this deployment belongs to. */
           projectId: components["schemas"]["ProjectId"];
         };
@@ -1632,88 +1628,63 @@ export interface components {
   pathItems: never;
 }
 export type AdminKey = components["schemas"]["AdminKey"];
-export type CancelInvitationArgs =
-  components["schemas"]["CancelInvitationArgs"];
-export type CreateCustomRoleArgs =
-  components["schemas"]["CreateCustomRoleArgs"];
-export type CreateDeploymentType =
-  components["schemas"]["CreateDeploymentType"];
-export type CreateInvitationArgs =
-  components["schemas"]["CreateInvitationArgs"];
-export type CreatePersonalAccessTokenArgs =
-  components["schemas"]["CreatePersonalAccessTokenArgs"];
+export type CancelInvitationArgs = components["schemas"]["CancelInvitationArgs"];
+export type CreateCustomRoleArgs = components["schemas"]["CreateCustomRoleArgs"];
+export type CreateDeploymentType = components["schemas"]["CreateDeploymentType"];
+export type CreateInvitationArgs = components["schemas"]["CreateInvitationArgs"];
+export type CreatePersonalAccessTokenArgs = components["schemas"]["CreatePersonalAccessTokenArgs"];
 export type CreatePersonalAccessTokenResponse =
   components["schemas"]["CreatePersonalAccessTokenResponse"];
-export type CreateTeamAccessTokenResponse =
-  components["schemas"]["CreateTeamAccessTokenResponse"];
+export type CreateTeamAccessTokenResponse = components["schemas"]["CreateTeamAccessTokenResponse"];
 export type CustomRoleId = components["schemas"]["CustomRoleId"];
 export type CustomRoleResponse = components["schemas"]["CustomRoleResponse"];
 export type DefaultEnvironmentVariableChangeArgs =
   components["schemas"]["DefaultEnvironmentVariableChangeArgs"];
 export type DefaultEnvironmentVariableResponse =
   components["schemas"]["DefaultEnvironmentVariableResponse"];
-export type DeleteCustomRoleArgs =
-  components["schemas"]["DeleteCustomRoleArgs"];
-export type DeletePersonalAccessTokenArgs =
-  components["schemas"]["DeletePersonalAccessTokenArgs"];
+export type DeleteCustomRoleArgs = components["schemas"]["DeleteCustomRoleArgs"];
+export type DeletePersonalAccessTokenArgs = components["schemas"]["DeletePersonalAccessTokenArgs"];
 export type DeploymentClass = components["schemas"]["DeploymentClass"];
-export type DeploymentClassMetadata =
-  components["schemas"]["DeploymentClassMetadata"];
+export type DeploymentClassMetadata = components["schemas"]["DeploymentClassMetadata"];
 export type DeploymentId = components["schemas"]["DeploymentId"];
 export type DeploymentReference = components["schemas"]["DeploymentReference"];
-export type DeploymentRegionMetadata =
-  components["schemas"]["DeploymentRegionMetadata"];
+export type DeploymentRegionMetadata = components["schemas"]["DeploymentRegionMetadata"];
 export type DeploymentType = components["schemas"]["DeploymentType"];
 export type DeviceName = components["schemas"]["DeviceName"];
 export type InvitationResponse = components["schemas"]["InvitationResponse"];
 export type IsDefaultDeployment = components["schemas"]["IsDefaultDeployment"];
-export type ListCustomRolesResponse =
-  components["schemas"]["ListCustomRolesResponse"];
-export type ListDeploymentClassesResponse =
-  components["schemas"]["ListDeploymentClassesResponse"];
-export type ListDeploymentRegionsResponse =
-  components["schemas"]["ListDeploymentRegionsResponse"];
-export type ListLocalDeploymentsResponse =
-  components["schemas"]["ListLocalDeploymentsResponse"];
+export type ListCustomRolesResponse = components["schemas"]["ListCustomRolesResponse"];
+export type ListDeploymentClassesResponse = components["schemas"]["ListDeploymentClassesResponse"];
+export type ListDeploymentRegionsResponse = components["schemas"]["ListDeploymentRegionsResponse"];
+export type ListLocalDeploymentsResponse = components["schemas"]["ListLocalDeploymentsResponse"];
 export type ManagedBy = components["schemas"]["ManagedBy"];
 export type MemberId = components["schemas"]["MemberId"];
 export type PaginatedDefaultEnvironmentVariablesResponse =
   components["schemas"]["PaginatedDefaultEnvironmentVariablesResponse"];
-export type PaginatedDeploymentsResponse =
-  components["schemas"]["PaginatedDeploymentsResponse"];
+export type PaginatedDeploymentsResponse = components["schemas"]["PaginatedDeploymentsResponse"];
 export type PaginatedPersonalAccessTokensResponse =
   components["schemas"]["PaginatedPersonalAccessTokensResponse"];
 export type PaginationMetadata = components["schemas"]["PaginationMetadata"];
-export type PersonalAccessTokenResponse =
-  components["schemas"]["PersonalAccessTokenResponse"];
-export type PlatformCreateDeployKeyArgs =
-  components["schemas"]["PlatformCreateDeployKeyArgs"];
+export type PersonalAccessTokenResponse = components["schemas"]["PersonalAccessTokenResponse"];
+export type PlatformCreateDeployKeyArgs = components["schemas"]["PlatformCreateDeployKeyArgs"];
 export type PlatformCreateDeployKeyResponse =
   components["schemas"]["PlatformCreateDeployKeyResponse"];
-export type PlatformCreateDeploymentArgs =
-  components["schemas"]["PlatformCreateDeploymentArgs"];
+export type PlatformCreateDeploymentArgs = components["schemas"]["PlatformCreateDeploymentArgs"];
 export type PlatformCreatePreviewDeployKeyArgs =
   components["schemas"]["PlatformCreatePreviewDeployKeyArgs"];
 export type PlatformCreatePreviewDeployKeyResponse =
   components["schemas"]["PlatformCreatePreviewDeployKeyResponse"];
-export type PlatformCreateProjectArgs =
-  components["schemas"]["PlatformCreateProjectArgs"];
-export type PlatformCreateProjectResponse =
-  components["schemas"]["PlatformCreateProjectResponse"];
-export type PlatformCreateTeamArgs =
-  components["schemas"]["PlatformCreateTeamArgs"];
-export type PlatformCustomDomainResponse =
-  components["schemas"]["PlatformCustomDomainResponse"];
+export type PlatformCreateProjectArgs = components["schemas"]["PlatformCreateProjectArgs"];
+export type PlatformCreateProjectResponse = components["schemas"]["PlatformCreateProjectResponse"];
+export type PlatformCreateTeamArgs = components["schemas"]["PlatformCreateTeamArgs"];
+export type PlatformCustomDomainResponse = components["schemas"]["PlatformCustomDomainResponse"];
 export type PlatformDeleteCustomDomainArgs =
   components["schemas"]["PlatformDeleteCustomDomainArgs"];
-export type PlatformDeleteDeployKeyArgs =
-  components["schemas"]["PlatformDeleteDeployKeyArgs"];
+export type PlatformDeleteDeployKeyArgs = components["schemas"]["PlatformDeleteDeployKeyArgs"];
 export type PlatformDeletePreviewDeployKeyArgs =
   components["schemas"]["PlatformDeletePreviewDeployKeyArgs"];
-export type PlatformDeployKeyResponse =
-  components["schemas"]["PlatformDeployKeyResponse"];
-export type PlatformDeploymentResponse =
-  components["schemas"]["PlatformDeploymentResponse"];
+export type PlatformDeployKeyResponse = components["schemas"]["PlatformDeployKeyResponse"];
+export type PlatformDeploymentResponse = components["schemas"]["PlatformDeploymentResponse"];
 export type PlatformListCustomDomainsResponse =
   components["schemas"]["PlatformListCustomDomainsResponse"];
 export type PlatformListInvitationsResponse =
@@ -1722,16 +1693,12 @@ export type PlatformListPreviewDeployKeysResponse =
   components["schemas"]["PlatformListPreviewDeployKeysResponse"];
 export type PlatformListTeamMembersResponse =
   components["schemas"]["PlatformListTeamMembersResponse"];
-export type PlatformProjectDetails =
-  components["schemas"]["PlatformProjectDetails"];
-export type PlatformTokenDetailsResponse =
-  components["schemas"]["PlatformTokenDetailsResponse"];
+export type PlatformProjectDetails = components["schemas"]["PlatformProjectDetails"];
+export type PlatformTokenDetailsResponse = components["schemas"]["PlatformTokenDetailsResponse"];
 export type PlatformTransferDeploymentArgs =
   components["schemas"]["PlatformTransferDeploymentArgs"];
-export type PlatformUpdateDeploymentArgs =
-  components["schemas"]["PlatformUpdateDeploymentArgs"];
-export type PreviewDeploymentIdentifier =
-  components["schemas"]["PreviewDeploymentIdentifier"];
+export type PlatformUpdateDeploymentArgs = components["schemas"]["PlatformUpdateDeploymentArgs"];
+export type PreviewDeploymentIdentifier = components["schemas"]["PreviewDeploymentIdentifier"];
 export type ProjectId = components["schemas"]["ProjectId"];
 export type ProjectName = components["schemas"]["ProjectName"];
 export type ProjectSlug = components["schemas"]["ProjectSlug"];
@@ -1742,24 +1709,19 @@ export type RequestDestination = components["schemas"]["RequestDestination"];
 export type Role = components["schemas"]["Role"];
 export type RoleStatement = components["schemas"]["RoleStatement"];
 export type RoleStatementAction = components["schemas"]["RoleStatementAction"];
-export type RoleStatementActions =
-  components["schemas"]["RoleStatementActions"];
+export type RoleStatementActions = components["schemas"]["RoleStatementActions"];
 export type RoleStatementEffect = components["schemas"]["RoleStatementEffect"];
-export type RoleStatementWildcardAction =
-  components["schemas"]["RoleStatementWildcardAction"];
+export type RoleStatementWildcardAction = components["schemas"]["RoleStatementWildcardAction"];
 export type TeamId = components["schemas"]["TeamId"];
 export type TeamMember = components["schemas"]["TeamMember"];
-export type TeamMemberCustomRole =
-  components["schemas"]["TeamMemberCustomRole"];
+export type TeamMemberCustomRole = components["schemas"]["TeamMemberCustomRole"];
 export type TeamName = components["schemas"]["TeamName"];
 export type TeamResponse = components["schemas"]["TeamResponse"];
 export type TeamSlug = components["schemas"]["TeamSlug"];
-export type UpdateCustomRoleArgs =
-  components["schemas"]["UpdateCustomRoleArgs"];
+export type UpdateCustomRoleArgs = components["schemas"]["UpdateCustomRoleArgs"];
 export type UpdateDefaultEnvironmentVariablesArgs =
   components["schemas"]["UpdateDefaultEnvironmentVariablesArgs"];
-export type UpdateTeamMemberRoleArgs =
-  components["schemas"]["UpdateTeamMemberRoleArgs"];
+export type UpdateTeamMemberRoleArgs = components["schemas"]["UpdateTeamMemberRoleArgs"];
 export type $defs = Record<string, never>;
 export interface operations {
   "create project": {

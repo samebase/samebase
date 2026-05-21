@@ -9,11 +9,7 @@ import { Button } from "./ui/button";
 import { useCacheQuery as useVaultQuery } from "@/lib/convexQueryCache";
 import { parseVaultPathContext } from "@/lib/vaultRoutes";
 
-const CODESPACE_STATES_REQUIRING_ENSURE = new Set([
-  "stopped",
-  "failed",
-  "deleted",
-]);
+const CODESPACE_STATES_REQUIRING_ENSURE = new Set(["stopped", "failed", "deleted"]);
 
 function formatCodespaceState(state: string): string {
   return `${state.charAt(0).toUpperCase()}${state.slice(1)}`;
@@ -23,10 +19,7 @@ export function CodespaceChatOnlyView() {
   const pathname = useLocation({
     select: (location) => location.pathname,
   });
-  const { owner, repoName, branch } = useMemo(
-    () => parseVaultPathContext(pathname),
-    [pathname],
-  );
+  const { owner, repoName, branch } = useMemo(() => parseVaultPathContext(pathname), [pathname]);
   const targetBranch = branch;
   const repositoryFullName = useMemo(() => {
     if (!owner || !repoName) {
@@ -49,14 +42,10 @@ export function CodespaceChatOnlyView() {
     api.codespaces.mutations.getActiveCodespace,
     vaultId ? { vaultId } : "skip",
   );
-  const ensureCodespaceReady = useAction(
-    api.codespaces.vaultIntegration.ensureCodespaceReady,
-  );
+  const ensureCodespaceReady = useAction(api.codespaces.vaultIntegration.ensureCodespaceReady);
   const [isEnsuringCodespace, setIsEnsuringCodespace] = useState(false);
   const [ensureError, setEnsureError] = useState<string | null>(null);
-  const [autoEnsureDoneForVaultId, setAutoEnsureDoneForVaultId] = useState<
-    string | null
-  >(null);
+  const [autoEnsureDoneForVaultId, setAutoEnsureDoneForVaultId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!vaultId) {
@@ -78,9 +67,7 @@ export function CodespaceChatOnlyView() {
       await ensureCodespaceReady({ vaultId });
     } catch (error) {
       setEnsureError(
-        error instanceof Error
-          ? error.message
-          : "Failed to start embedded Codespace view",
+        error instanceof Error ? error.message : "Failed to start embedded Codespace view",
       );
     } finally {
       setIsEnsuringCodespace(false);
@@ -95,8 +82,7 @@ export function CodespaceChatOnlyView() {
       return;
     }
     const shouldAutoEnsure =
-      codespace === null ||
-      CODESPACE_STATES_REQUIRING_ENSURE.has(codespace.state);
+      codespace === null || CODESPACE_STATES_REQUIRING_ENSURE.has(codespace.state);
     if (!shouldAutoEnsure) {
       return;
     }
@@ -105,13 +91,7 @@ export function CodespaceChatOnlyView() {
     }
     setAutoEnsureDoneForVaultId(vaultId);
     void handleEnsureCodespace();
-  }, [
-    vaultId,
-    codespace,
-    autoEnsureDoneForVaultId,
-    isEnsuringCodespace,
-    handleEnsureCodespace,
-  ]);
+  }, [vaultId, codespace, autoEnsureDoneForVaultId, isEnsuringCodespace, handleEnsureCodespace]);
 
   if (!owner || !repoName) {
     return (
@@ -163,18 +143,12 @@ export function CodespaceChatOnlyView() {
             <Link to={fileViewPath}>Back</Link>
           </Button>
           <div className="min-w-0">
-            <div className="truncate text-sm font-medium">
-              Codespace Chat View
-            </div>
-            <div className="truncate text-xs text-muted-foreground">
-              {repositoryFullName}
-            </div>
+            <div className="truncate text-sm font-medium">Codespace Chat View</div>
+            <div className="truncate text-xs text-muted-foreground">{repositoryFullName}</div>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={stateBadgeVariant}>
-            {formatCodespaceState(state)}
-          </Badge>
+          <Badge variant={stateBadgeVariant}>{formatCodespaceState(state)}</Badge>
           <Button
             variant="outline"
             size="sm"
@@ -192,11 +166,7 @@ export function CodespaceChatOnlyView() {
           </Button>
           {codespace?.webUrl && (
             <Button variant="outline" size="sm" asChild>
-              <a
-                href={codespace.webUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
+              <a href={codespace.webUrl} target="_blank" rel="noopener noreferrer">
                 Open Tab
                 <ExternalLink className="ml-2 h-3.5 w-3.5" />
               </a>
@@ -205,16 +175,10 @@ export function CodespaceChatOnlyView() {
         </div>
       </div>
       {ensureError && (
-        <div className="border-b bg-red-50 px-3 py-2 text-sm text-red-700">
-          {ensureError}
-        </div>
+        <div className="border-b bg-red-50 px-3 py-2 text-sm text-red-700">{ensureError}</div>
       )}
       <div className="min-h-0 flex-1">
-        <CodespaceIframe
-          vaultId={resolvedVaultId}
-          className="h-full"
-          kioskMode
-        />
+        <CodespaceIframe vaultId={resolvedVaultId} className="h-full" kioskMode />
       </div>
     </div>
   );

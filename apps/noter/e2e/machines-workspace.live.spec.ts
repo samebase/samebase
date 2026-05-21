@@ -15,9 +15,7 @@ async function ensureMachinesRouteReady(page: Page): Promise<void> {
   await expect(page.locator('[data-sidebar-shell="mobile"]')).toBeVisible();
 }
 
-test("mobile machines route keeps the left sidebar open after reload", async ({
-  page,
-}) => {
+test("mobile machines route keeps the left sidebar open after reload", async ({ page }) => {
   const viewport = page.viewportSize();
   test.skip(viewport === null || viewport.width >= 768, "mobile-only repro");
 
@@ -27,9 +25,7 @@ test("mobile machines route keeps the left sidebar open after reload", async ({
   await ensureMachinesRouteReady(page);
 
   const shell = page.locator('[data-sidebar-shell="mobile"]');
-  const leftTrigger = page.locator(
-    '[data-sidebar="trigger"][data-side="left"]',
-  );
+  const leftTrigger = page.locator('[data-sidebar="trigger"][data-side="left"]');
   const initialPane = await shell.getAttribute("data-mobile-pane");
   if (initialPane !== "left") {
     await leftTrigger.press("Enter");

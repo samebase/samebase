@@ -1,13 +1,6 @@
-import {
-  devices,
-  expect,
-  test,
-  type Locator,
-  type Page,
-} from "@playwright/test";
+import { devices, expect, test, type Locator, type Page } from "@playwright/test";
 
-const { defaultBrowserType: _defaultBrowserType, ...iPhone13 } =
-  devices["iPhone 13"];
+const { defaultBrowserType: _defaultBrowserType, ...iPhone13 } = devices["iPhone 13"];
 
 async function pressEnter(locator: Locator) {
   await locator.focus();
@@ -31,9 +24,7 @@ async function openMachinesWorkspaceFixture(page: Page) {
 }
 
 async function activateHeaderTitle(page: Page) {
-  await page
-    .getByTestId("machines-workspace-thread-header-title-toggle")
-    .dispatchEvent("click");
+  await page.getByTestId("machines-workspace-thread-header-title-toggle").dispatchEvent("click");
 }
 
 test("machines workspace fixture", async ({ page }) => {
@@ -56,27 +47,20 @@ test("machines workspace fixture", async ({ page }) => {
   });
 });
 
-test("machines workspace header expands the selected title on click", async ({
-  page,
-}) => {
+test("machines workspace header expands the selected title on click", async ({ page }) => {
   await openMachinesWorkspaceFixture(page);
   await activateHeaderTitle(page);
 
   const header = page.getByTestId("machines-workspace-visual-fixture-header");
-  await expect(header).toHaveScreenshot(
-    "machines-workspace-header-expanded.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      scale: "css",
-      maxDiffPixelRatio: 0.03,
-    },
-  );
+  await expect(header).toHaveScreenshot("machines-workspace-header-expanded.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
 });
 
-test("machines workspace narrow sidebar keeps thread titles clamped", async ({
-  page,
-}) => {
+test("machines workspace narrow sidebar keeps thread titles clamped", async ({ page }) => {
   await openMachinesWorkspaceFixture(page);
 
   await narrowLeftSidebar(page);
@@ -109,9 +93,7 @@ test("machines workspace project collapse stays closed", async ({ page }) => {
   await expect(projectThread).toBeHidden();
 });
 
-test("machines workspace desktop hover reveals the pin affordance", async ({
-  page,
-}) => {
+test("machines workspace desktop hover reveals the pin affordance", async ({ page }) => {
   await openMachinesWorkspaceFixture(page);
 
   await page
@@ -154,17 +136,11 @@ test("machines workspace project plus button opens a local draft conversation", 
 }) => {
   await openMachinesWorkspaceFixture(page);
 
-  await pressEnter(
-    page.getByRole("button", { name: "Start new conversation in noter" }),
-  );
+  await pressEnter(page.getByRole("button", { name: "Start new conversation in noter" }));
   await pressEnter(page.getByRole("menuitem", { name: "Local" }));
 
   await expect(
-    page
-      .getByText(
-        "Send the first prompt to start a local conversation in noter.",
-      )
-      .first(),
+    page.getByText("Send the first prompt to start a local conversation in noter.").first(),
   ).toBeVisible();
 });
 
@@ -173,17 +149,11 @@ test("machines workspace project plus button opens a worktree draft conversation
 }) => {
   await openMachinesWorkspaceFixture(page);
 
-  await pressEnter(
-    page.getByRole("button", { name: "Start new conversation in noter" }),
-  );
+  await pressEnter(page.getByRole("button", { name: "Start new conversation in noter" }));
   await pressEnter(page.getByRole("menuitem", { name: "New worktree" }));
 
   await expect(
-    page
-      .getByText(
-        "Send the first prompt to create a new worktree conversation in noter.",
-      )
-      .first(),
+    page.getByText("Send the first prompt to create a new worktree conversation in noter.").first(),
   ).toBeVisible();
 });
 
@@ -194,51 +164,36 @@ test.describe("mobile", () => {
     await openMachinesWorkspaceFixture(page);
 
     const header = page.getByTestId("machines-workspace-visual-fixture-header");
-    await expect(header).toHaveScreenshot(
-      "machines-workspace-header-mobile.png",
-      {
-        animations: "disabled",
-        caret: "hide",
-        scale: "css",
-        maxDiffPixelRatio: 0.03,
-      },
-    );
+    await expect(header).toHaveScreenshot("machines-workspace-header-mobile.png", {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.03,
+    });
 
-    const workspace = page.getByTestId(
-      "machines-workspace-visual-fixture-page",
-    );
-    await expect(workspace).toHaveScreenshot(
-      "machines-workspace-page-mobile.png",
-      {
-        animations: "disabled",
-        caret: "hide",
-        scale: "css",
-        maxDiffPixelRatio: 0.03,
-      },
-    );
+    const workspace = page.getByTestId("machines-workspace-visual-fixture-page");
+    await expect(workspace).toHaveScreenshot("machines-workspace-page-mobile.png", {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.03,
+    });
   });
 
-  test("machines workspace header expands the selected title on click mobile", async ({
-    page,
-  }) => {
+  test("machines workspace header expands the selected title on click mobile", async ({ page }) => {
     await openMachinesWorkspaceFixture(page);
     await activateHeaderTitle(page);
 
     const header = page.getByTestId("machines-workspace-visual-fixture-header");
-    await expect(header).toHaveScreenshot(
-      "machines-workspace-header-expanded-mobile.png",
-      {
-        animations: "disabled",
-        caret: "hide",
-        scale: "css",
-        maxDiffPixelRatio: 0.03,
-      },
-    );
+    await expect(header).toHaveScreenshot("machines-workspace-header-expanded-mobile.png", {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.03,
+    });
   });
 
-  test("machines workspace mobile selected row reveals the pin affordance", async ({
-    page,
-  }) => {
+  test("machines workspace mobile selected row reveals the pin affordance", async ({ page }) => {
     await openMachinesWorkspaceFixture(page);
 
     await pressEnter(
@@ -247,17 +202,12 @@ test.describe("mobile", () => {
       }),
     );
 
-    const sidebar = page.getByTestId(
-      "machines-workspace-visual-fixture-sidebar",
-    );
-    await expect(sidebar).toHaveScreenshot(
-      "machines-workspace-pin-selected-mobile.png",
-      {
-        animations: "disabled",
-        caret: "hide",
-        scale: "css",
-        maxDiffPixelRatio: 0.03,
-      },
-    );
+    const sidebar = page.getByTestId("machines-workspace-visual-fixture-sidebar");
+    await expect(sidebar).toHaveScreenshot("machines-workspace-pin-selected-mobile.png", {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.03,
+    });
   });
 });

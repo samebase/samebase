@@ -11,9 +11,7 @@ describe("repositoryMedia", () => {
     expect(getRepositoryMediaKind("assets/icons/logo.SVG")).toBe("image");
     expect(getRepositoryMediaKind("mods/monument/monu10.VOX")).toBe("vox");
     expect(isRenderableRepositoryMediaPath("assets/icon-512.png")).toBe(true);
-    expect(isRenderableRepositoryMediaPath("mods/monument/monu10.vox")).toBe(
-      true,
-    );
+    expect(isRenderableRepositoryMediaPath("mods/monument/monu10.vox")).toBe(true);
   });
 
   it("ignores dotted directories when the file name has no extension", () => {

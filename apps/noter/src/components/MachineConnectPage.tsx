@@ -111,40 +111,36 @@ function LocalRequirementsSection() {
       <div className="space-y-2">
         <p className="text-sm font-medium">Local requirements</p>
         <p className="text-sm text-muted-foreground">
-          These commands need <code>node</code> and the Codex CLI{" "}
-          <code>codex</code> on your PATH. Check with{" "}
-          <code>node --version</code> and <code>codex --version</code>. The
-          direct hosted-file examples also need <code>curl</code>. On
-          macOS/Linux, check with <code>curl --version</code>. In Windows
-          PowerShell, check with <code>curl.exe --version</code> so the
-          prerequisite matches the command below and bypasses the built-in{" "}
-          <code>Invoke-WebRequest</code> alias.
+          These commands need <code>node</code> and the Codex CLI <code>codex</code> on your PATH.
+          Check with <code>node --version</code> and <code>codex --version</code>. The direct
+          hosted-file examples also need <code>curl</code>. On macOS/Linux, check with{" "}
+          <code>curl --version</code>. In Windows PowerShell, check with{" "}
+          <code>curl.exe --version</code> so the prerequisite matches the command below and bypasses
+          the built-in <code>Invoke-WebRequest</code> alias.
         </p>
         <p className="text-sm text-muted-foreground">
-          Mobile live control also needs <code>cloudflared</code> on your PATH.
-          Check with <code>cloudflared --version</code>. Without it, the machine
-          can still connect and publish presence, but Noter marks live control
-          unavailable until the Cloudflare quick tunnel binary is installed.
+          Mobile live control also needs <code>cloudflared</code> on your PATH. Check with{" "}
+          <code>cloudflared --version</code>. Without it, the machine can still connect and publish
+          presence, but Noter marks live control unavailable until the Cloudflare quick tunnel
+          binary is installed.
         </p>
         <p className="text-sm text-muted-foreground">
-          macOS: if you want <code>nvm</code>, use the official installer, then
-          run <code>nvm install --lts</code>. The <code>nvm</code> project does
-          not support Homebrew-installed <code>nvm</code>. macOS already ships
-          with <code>curl</code>; if it is missing or too old, install it with{" "}
-          <code>brew install curl</code>.
+          macOS: if you want <code>nvm</code>, use the official installer, then run{" "}
+          <code>nvm install --lts</code>. The <code>nvm</code> project does not support
+          Homebrew-installed <code>nvm</code>. macOS already ships with <code>curl</code>; if it is
+          missing or too old, install it with <code>brew install curl</code>.
         </p>
         <p className="text-sm text-muted-foreground">
           Windows PowerShell: if <code>winget</code> is available, run{" "}
-          <code>winget install --id OpenJS.NodeJS.LTS -e</code>. Recent Windows
-          versions usually already include <code>curl.exe</code>; if yours does
-          not, install curl with <code>winget</code> or another package manager.
-          For mobile live control, install Cloudflare Tunnel with{" "}
-          <code>winget install --id Cloudflare.cloudflared -e</code>.
+          <code>winget install --id OpenJS.NodeJS.LTS -e</code>. Recent Windows versions usually
+          already include <code>curl.exe</code>; if yours does not, install curl with{" "}
+          <code>winget</code> or another package manager. For mobile live control, install
+          Cloudflare Tunnel with <code>winget install --id Cloudflare.cloudflared -e</code>.
         </p>
         <p className="text-sm text-muted-foreground">
-          Linux: install Node.js with your preferred setup, then make sure the{" "}
-          <code>curl</code> package is present too, for example{" "}
-          <code>apt install curl</code> or <code>dnf install curl</code>.
+          Linux: install Node.js with your preferred setup, then make sure the <code>curl</code>{" "}
+          package is present too, for example <code>apt install curl</code> or{" "}
+          <code>dnf install curl</code>.
         </p>
         <p className="text-sm text-muted-foreground">
           If you prefer an installer, use the current Node.js LTS download from{" "}
@@ -160,9 +156,9 @@ function LocalRequirementsSection() {
         </p>
         <p className="text-sm text-muted-foreground">
           If <code>codex</code> is missing, install the official Codex CLI with{" "}
-          <code>npm install -g @openai/codex</code>. The Codex desktop app alone
-          does not guarantee that the shell command exists on this machine, and
-          OpenAI currently documents native Windows CLI support as experimental.
+          <code>npm install -g @openai/codex</code>. The Codex desktop app alone does not guarantee
+          that the shell command exists on this machine, and OpenAI currently documents native
+          Windows CLI support as experimental.
         </p>
       </div>
     </section>
@@ -178,15 +174,12 @@ function buildDirectCommandVariants(args: {
   scriptUrl: string;
 }): DirectCommandVariant[] {
   const commandBuilder =
-    args.action === "connect"
-      ? buildDirectNoterSyncConnectCommand
-      : buildDirectNoterSyncRunCommand;
+    args.action === "connect" ? buildDirectNoterSyncConnectCommand : buildDirectNoterSyncRunCommand;
 
   return [
     {
       command: commandBuilder(args.scriptUrl, "macos"),
-      description:
-        "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
+      description: "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
       label: `Direct hosted file ${args.action} (Unix/macOS)`,
     },
     {
@@ -198,14 +191,8 @@ function buildDirectCommandVariants(args: {
   ];
 }
 
-function CopyableCommandBlock({
-  command,
-  description,
-  label,
-}: CopyableCommandBlockProps) {
-  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
-    "idle",
-  );
+function CopyableCommandBlock({ command, description, label }: CopyableCommandBlockProps) {
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
 
   useEffect(() => {
     if (copyState !== "copied") {
@@ -237,21 +224,9 @@ function CopyableCommandBlock({
           <h2 className="text-sm font-medium">{label}</h2>
           <p className="text-sm text-muted-foreground">{description}</p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => void handleCopyClick()}
-        >
-          {copyState === "copied" ? (
-            <Check className="h-4 w-4" />
-          ) : (
-            <Copy className="h-4 w-4" />
-          )}
-          {copyState === "copied"
-            ? "Copied"
-            : copyState === "failed"
-              ? "Copy failed"
-              : "Copy"}
+        <Button variant="outline" size="sm" onClick={() => void handleCopyClick()}>
+          {copyState === "copied" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+          {copyState === "copied" ? "Copied" : copyState === "failed" ? "Copy failed" : "Copy"}
         </Button>
       </div>
       <code className="mt-4 block overflow-x-auto whitespace-pre-wrap break-all bg-muted/40 px-3 py-3 font-mono text-xs leading-5 md:whitespace-pre md:break-normal">
@@ -261,9 +236,7 @@ function CopyableCommandBlock({
   );
 }
 
-function renderDirectCommandVariants(
-  commandVariants: DirectCommandVariant[],
-): ReactElement[] {
+function renderDirectCommandVariants(commandVariants: DirectCommandVariant[]): ReactElement[] {
   return commandVariants.map((commandVariant) => (
     <CopyableCommandBlock
       key={commandVariant.label}
@@ -294,9 +267,7 @@ function renderMachineApprovalState(args: {
     case "loading":
       return (
         <section className="corner-notch-1 border border-border p-4">
-          <p className="text-sm text-muted-foreground">
-            Checking this machine handoff.
-          </p>
+          <p className="text-sm text-muted-foreground">Checking this machine handoff.</p>
         </section>
       );
     case "sign_in_required":
@@ -311,8 +282,8 @@ function renderMachineApprovalState(args: {
       return (
         <section className="corner-notch-1 border border-border p-4">
           <p className="text-sm text-muted-foreground">
-            This machine handoff is missing or no longer available. Rerun the
-            connect command from the terminal to start a fresh approval.
+            This machine handoff is missing or no longer available. Rerun the connect command from
+            the terminal to start a fresh approval.
           </p>
         </section>
       );
@@ -322,8 +293,8 @@ function renderMachineApprovalState(args: {
           <div className="space-y-2">
             <p className="text-sm font-medium">{machineSummary}</p>
             <p className="text-sm text-muted-foreground">
-              This approval window expired before the browser approved it. Rerun
-              the connect command from the terminal to request a fresh handoff.
+              This approval window expired before the browser approved it. Rerun the connect command
+              from the terminal to request a fresh handoff.
             </p>
           </div>
         </section>
@@ -336,17 +307,11 @@ function renderMachineApprovalState(args: {
               <p className="text-sm font-medium">Approve this machine</p>
               <p className="text-sm text-muted-foreground">{machineSummary}</p>
               <p className="text-sm text-muted-foreground">
-                Codex {args.requestState.connectorVersion} on{" "}
-                {args.requestState.os}
+                Codex {args.requestState.connectorVersion} on {args.requestState.os}
               </p>
             </div>
-            <Button
-              onClick={args.onApprove}
-              disabled={args.isApproving || !args.onApprove}
-            >
-              {args.isApproving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : null}
+            <Button onClick={args.onApprove} disabled={args.isApproving || !args.onApprove}>
+              {args.isApproving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {args.isApproving ? "Approving..." : "Approve machine"}
             </Button>
           </div>
@@ -360,9 +325,8 @@ function renderMachineApprovalState(args: {
               <p className="text-sm font-medium">Machine approved</p>
               <p className="text-sm text-muted-foreground">{machineSummary}</p>
               <p className="text-sm text-muted-foreground">
-                The terminal can finish bootstrap now. Start the local connector
-                with one of these commands to publish heartbeats from this
-                machine.
+                The terminal can finish bootstrap now. Start the local connector with one of these
+                commands to publish heartbeats from this machine.
               </p>
             </div>
 
@@ -387,9 +351,7 @@ function readMachineLiveControlSummary(machine: ConnectedMachineItem): {
     return {
       detail:
         typeof machine.controlUrlUpdatedAt === "number"
-          ? `Published ${formatConnectedMachineHeartbeatTimestamp(
-              machine.controlUrlUpdatedAt,
-            )}`
+          ? `Published ${formatConnectedMachineHeartbeatTimestamp(machine.controlUrlUpdatedAt)}`
           : null,
       label: "Live control ready",
     };
@@ -415,11 +377,7 @@ function readMachineLiveControlSummary(machine: ConnectedMachineItem): {
   };
 }
 
-function ConnectedMachineList({
-  machines,
-}: {
-  machines: ConnectedMachineItem[];
-}) {
+function ConnectedMachineList({ machines }: { machines: ConnectedMachineItem[] }) {
   if (machines.length === 0) {
     return null;
   }
@@ -437,40 +395,23 @@ function ConnectedMachineList({
           const liveControl = readMachineLiveControlSummary(machine);
 
           return (
-            <section
-              key={machine.machineId}
-              className="corner-notch-1 border border-border p-4"
-            >
+            <section key={machine.machineId} className="corner-notch-1 border border-border p-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div className="space-y-1">
                   <p className="text-sm font-medium">{machine.displayName}</p>
+                  <p className="text-sm text-muted-foreground">{machine.hostname}</p>
+                  <p className="text-sm text-muted-foreground">{machine.connectorVersion}</p>
                   <p className="text-sm text-muted-foreground">
-                    {machine.hostname}
+                    Last ping {formatConnectedMachineHeartbeatTimestamp(machine.lastSeenAt)}
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    {machine.connectorVersion}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Last ping{" "}
-                    {formatConnectedMachineHeartbeatTimestamp(
-                      machine.lastSeenAt,
-                    )}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {liveControl.label}
-                  </p>
+                  <p className="text-sm text-muted-foreground">{liveControl.label}</p>
                   {liveControl.detail ? (
-                    <p className="text-sm text-muted-foreground">
-                      {liveControl.detail}
-                    </p>
+                    <p className="text-sm text-muted-foreground">{liveControl.detail}</p>
                   ) : null}
                 </div>
                 <div className="text-sm font-medium">
-                  <div>
-                    {machine.status === "online" ? "Online" : "Offline"}
-                  </div>
-                  {machine.status === "online" &&
-                  machine.controlStatus === "ready" ? (
+                  <div>{machine.status === "online" ? "Online" : "Offline"}</div>
+                  {machine.status === "online" && machine.controlStatus === "ready" ? (
                     <Button asChild className="mt-3" size="sm">
                       <Link
                         {...buildMachinesWorkspaceLinkOptions({
@@ -515,24 +456,20 @@ export function MachineConnectPageContent({
           <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
             Connected machine
           </p>
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Connect this machine
-          </h1>
+          <h1 className="text-3xl font-semibold tracking-tight">Connect this machine</h1>
           <p className="max-w-2xl text-sm text-muted-foreground">
-            Run the connect command on the machine that already has Node.js and
-            the Codex CLI on PATH, then approve the browser handoff here.
+            Run the connect command on the machine that already has Node.js and the Codex CLI on
+            PATH, then approve the browser handoff here.
           </p>
         </div>
 
         <section className="corner-notch-1 border border-border p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="space-y-1">
-              <p className="text-sm font-medium">
-                Your machine list lives on this page
-              </p>
+              <p className="text-sm font-medium">Your machine list lives on this page</p>
               <p className="text-sm text-muted-foreground">
-                Once <code>noter-sync run</code> is publishing heartbeats,
-                scroll down to Connected machines here to open live control.
+                Once <code>noter-sync run</code> is publishing heartbeats, scroll down to Connected
+                machines here to open live control.
               </p>
             </div>
             {connectedMachines.length > 0 ? (
@@ -552,8 +489,7 @@ export function MachineConnectPageContent({
         {openedByCli ? (
           <section className="corner-notch-1 border border-border p-4">
             <p className="text-sm text-muted-foreground">
-              The bootstrap already ran on this machine and opened the browser
-              here.
+              The bootstrap already ran on this machine and opened the browser here.
             </p>
           </section>
         ) : null}
@@ -602,12 +538,11 @@ export function MachineConnectPage() {
   const routeSearch = machineConnectRouteApi.useSearch();
   const [isApproving, setIsApproving] = useState(false);
   const [approvalError, setApprovalError] = useState<string | null>(null);
-  const [machineRegistrationClockSync, setMachineRegistrationClockSync] =
-    useState<{
-      browserNowAtSync: number;
-      requestId: string;
-      serverNowAtSync: number;
-    } | null>(null);
+  const [machineRegistrationClockSync, setMachineRegistrationClockSync] = useState<{
+    browserNowAtSync: number;
+    requestId: string;
+    serverNowAtSync: number;
+  } | null>(null);
   const bootstrapSearch = {
     openedByCli: routeSearch.openedByCli ?? false,
     requestId: routeSearch.requestId ?? null,
@@ -616,13 +551,9 @@ export function MachineConnectPage() {
     requestId: MachineConnectRouteSearch["requestId"] | null;
   };
   const scriptUrl = buildNoterSyncScriptUrl(resolveCurrentOrigin());
-  const connectedMachinesQuery = useQuery(
-    api.connectedMachines.listConnectedMachines,
-  );
+  const connectedMachinesQuery = useQuery(api.connectedMachines.listConnectedMachines);
   const now = useNow({
-    enabled:
-      Boolean(bootstrapSearch.requestId) ||
-      (connectedMachinesQuery?.length ?? 0) > 0,
+    enabled: Boolean(bootstrapSearch.requestId) || (connectedMachinesQuery?.length ?? 0) > 0,
     intervalMs: 1_000,
   });
   const approveMachineRegistrationRequest = useMutation(
@@ -630,45 +561,36 @@ export function MachineConnectPage() {
   );
   const machineRegistrationRequest = useQuery(
     api.connectedMachines.getMachineRegistrationRequestForBrowser,
-    bootstrapSearch.requestId
-      ? { requestId: bootstrapSearch.requestId }
-      : "skip",
+    bootstrapSearch.requestId ? { requestId: bootstrapSearch.requestId } : "skip",
   );
   // Preserve the backend order from `connectedMachinesQuery`; this map only
   // derives the displayed status with `resolveConnectedMachineStatus(now, ...)`
   // and must not re-sort `connectedMachines` on the client.
-  const connectedMachines: ConnectedMachineItem[] = (
-    connectedMachinesQuery ?? []
-  ).map((machine) => ({
-    ...machine,
-    status: resolveConnectedMachineStatus({
-      lastSeenAt: machine.lastSeenAt,
-      now,
-      status: machine.status,
+  const connectedMachines: ConnectedMachineItem[] = (connectedMachinesQuery ?? []).map(
+    (machine) => ({
+      ...machine,
+      status: resolveConnectedMachineStatus({
+        lastSeenAt: machine.lastSeenAt,
+        now,
+        status: machine.status,
+      }),
     }),
-  }));
+  );
   const heartbeatLog = useConnectedMachineHeartbeatLog(connectedMachines);
   const pendingMachineRegistrationId =
-    machineRegistrationRequest?.kind === "pending"
-      ? machineRegistrationRequest.requestId
-      : null;
+    machineRegistrationRequest?.kind === "pending" ? machineRegistrationRequest.requestId : null;
   const pendingMachineRegistrationServerNow =
-    machineRegistrationRequest?.kind === "pending"
-      ? machineRegistrationRequest.serverNow
-      : null;
+    machineRegistrationRequest?.kind === "pending" ? machineRegistrationRequest.serverNow : null;
   const machineRegistrationNow =
-    pendingMachineRegistrationId &&
-    typeof pendingMachineRegistrationServerNow === "number"
+    pendingMachineRegistrationId && typeof pendingMachineRegistrationServerNow === "number"
       ? resolveAuthoritativeNow({
           browserNow: now,
           browserNowAtSync:
-            machineRegistrationClockSync?.requestId ===
-            pendingMachineRegistrationId
+            machineRegistrationClockSync?.requestId === pendingMachineRegistrationId
               ? machineRegistrationClockSync.browserNowAtSync
               : now,
           serverNowAtSync:
-            machineRegistrationClockSync?.requestId ===
-            pendingMachineRegistrationId
+            machineRegistrationClockSync?.requestId === pendingMachineRegistrationId
               ? machineRegistrationClockSync.serverNowAtSync
               : pendingMachineRegistrationServerNow,
         })
@@ -680,10 +602,7 @@ export function MachineConnectPage() {
   }, [bootstrapSearch.requestId]);
 
   useEffect(() => {
-    if (
-      !pendingMachineRegistrationId ||
-      typeof pendingMachineRegistrationServerNow !== "number"
-    ) {
+    if (!pendingMachineRegistrationId || typeof pendingMachineRegistrationServerNow !== "number") {
       setMachineRegistrationClockSync(null);
       return;
     }
@@ -707,9 +626,7 @@ export function MachineConnectPage() {
         requestId: bootstrapSearch.requestId,
       });
     } catch (error) {
-      setApprovalError(
-        error instanceof Error ? error.message : "Could not approve machine.",
-      );
+      setApprovalError(error instanceof Error ? error.message : "Could not approve machine.");
     } finally {
       setIsApproving(false);
     }
@@ -774,11 +691,7 @@ export function MachineConnectPage() {
         heartbeatLog={heartbeatLog}
         isApproving={isApproving}
         openedByCli={bootstrapSearch.openedByCli}
-        onApprove={
-          requestState.kind === "pending"
-            ? () => void handleApprove()
-            : undefined
-        }
+        onApprove={requestState.kind === "pending" ? () => void handleApprove() : undefined}
         packageConnectCommand={buildPublishedNoterSyncConnectCommand()}
         packageRunCommand={buildPublishedNoterSyncRunCommand()}
         requestState={requestState}

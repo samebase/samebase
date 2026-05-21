@@ -77,10 +77,7 @@ describe("deriveCodexThreadTimelineEntries", () => {
             {
               id: "change-1",
               raw: {
-                changes: [
-                  { path: "README.md" },
-                  { path: "apps/noter/src/App.tsx" },
-                ],
+                changes: [{ path: "README.md" }, { path: "apps/noter/src/App.tsx" }],
               },
               summary: "2 changes",
               type: "fileChange",
@@ -98,11 +95,7 @@ describe("deriveCodexThreadTimelineEntries", () => {
       ],
     });
 
-    expect(entries.map((entry) => entry.kind)).toEqual([
-      "message",
-      "work",
-      "message",
-    ]);
+    expect(entries.map((entry) => entry.kind)).toEqual(["message", "work", "message"]);
 
     const workGroup = entries[1];
     expect(workGroup).toMatchObject({
@@ -112,15 +105,9 @@ describe("deriveCodexThreadTimelineEntries", () => {
       throw new Error("Expected a work group.");
     }
 
-    expect(workGroup.entries.map((entry) => entry.title)).toEqual([
-      "Command",
-      "File changes",
-    ]);
+    expect(workGroup.entries.map((entry) => entry.title)).toEqual(["Command", "File changes"]);
     expect(workGroup.entries[0]?.preview).toBe("pnpm test");
-    expect(workGroup.entries[1]?.changedFiles).toEqual([
-      "README.md",
-      "apps/noter/src/App.tsx",
-    ]);
+    expect(workGroup.entries[1]?.changedFiles).toEqual(["README.md", "apps/noter/src/App.tsx"]);
   });
 
   it("marks failing command items as error-toned work entries", () => {
@@ -213,14 +200,8 @@ describe("deriveCodexThreadTimelineEntries", () => {
     if (toolGroup.kind !== "work") {
       throw new Error("Expected a tool work group.");
     }
-    expect(toolGroup.entries.map((entry) => entry.category)).toEqual([
-      "tool",
-      "tool",
-    ]);
-    expect(toolGroup.entries.map((entry) => entry.title)).toEqual([
-      "MCP tool",
-      "Tool call",
-    ]);
+    expect(toolGroup.entries.map((entry) => entry.category)).toEqual(["tool", "tool"]);
+    expect(toolGroup.entries.map((entry) => entry.title)).toEqual(["MCP tool", "Tool call"]);
     expect(toolGroup.entries.map((entry) => entry.preview)).toEqual([
       "github/fetch_pr",
       "apply_patch",

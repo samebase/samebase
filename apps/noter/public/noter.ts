@@ -45,10 +45,8 @@ export const MACHINE_CONNECT_ROUTE = "/machines/connect";
 export const NOTER_STATE_DIRNAME = ".noter";
 export const NOTER_CONFIG_FILENAME = "config.json";
 export const NOTER_CONFIG_PATHNAME = ".noter/config.json";
-export const CONNECTED_MACHINE_BOOTSTRAP_PATHNAME =
-  "/connected-machines/bootstrap";
-export const CONNECTED_MACHINE_HEARTBEAT_PATHNAME =
-  "/connected-machines/heartbeat";
+export const CONNECTED_MACHINE_BOOTSTRAP_PATHNAME = "/connected-machines/bootstrap";
+export const CONNECTED_MACHINE_HEARTBEAT_PATHNAME = "/connected-machines/heartbeat";
 export const CONNECTED_MACHINE_HEARTBEAT_INTERVAL_MS = 15_000;
 export const CONNECTED_MACHINE_CAPABILITIES = ["presence"];
 export const NETWORK_TIMEOUT_MS = 15_000;
@@ -63,8 +61,7 @@ const MACHINE_CONTROL_TOKEN_AUDIENCE = "machine-control";
 const MACHINE_CONTROL_TOKEN_CACHE_TTL_MS = 30_000;
 const MACHINE_CONTROL_INTROSPECTION_TIMEOUT_MS = 2_000;
 const MACHINE_CONTROL_INTROSPECTION_BACKOFF_MS = [200, 500];
-const MACHINE_CONTROL_INTROSPECTION_PATHNAME =
-  "/connected-machines/control/introspect";
+const MACHINE_CONTROL_INTROSPECTION_PATHNAME = "/connected-machines/control/introspect";
 const MACHINE_CONTROL_READINESS_PROBE_TOKEN = "mmct_readiness_probe";
 const CLOUDFLARED_TUNNEL_START_TIMEOUT_MS = 30_000;
 const CLOUDFLARED_TUNNEL_SHUTDOWN_TIMEOUT_MS = 5_000;
@@ -109,9 +106,9 @@ function randomToken(size = 32) {
 async function sha256Hex(input) {
   const bytes = new TextEncoder().encode(input);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest), (value) =>
-    value.toString(16).padStart(2, "0"),
-  ).join("");
+  return Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, "0")).join(
+    "",
+  );
 }
 
 function buildConnectorVersion(codexVersion) {
@@ -222,8 +219,7 @@ export function parseCliArgs(argv) {
  */
 export function validateSourceUrl(value, options = {}) {
   const sourceUrl = new URL(value);
-  const isLoopbackHttp =
-    sourceUrl.protocol === "http:" && isLoopbackHostname(sourceUrl.hostname);
+  const isLoopbackHttp = sourceUrl.protocol === "http:" && isLoopbackHostname(sourceUrl.hostname);
   const allowLegacyInstallerPath = options.allowLegacyInstallerPath === true;
   if (sourceUrl.protocol !== "https:" && !isLoopbackHttp) {
     throw new Error(
@@ -232,12 +228,9 @@ export function validateSourceUrl(value, options = {}) {
   }
   if (
     sourceUrl.pathname !== NOTER_SYNC_SCRIPT_PATHNAME &&
-    (!allowLegacyInstallerPath ||
-      sourceUrl.pathname !== LEGACY_NOTER_SYNC_SCRIPT_PATHNAME)
+    (!allowLegacyInstallerPath || sourceUrl.pathname !== LEGACY_NOTER_SYNC_SCRIPT_PATHNAME)
   ) {
-    throw new Error(
-      `The installer source URL must point to ${NOTER_SYNC_SCRIPT_PATHNAME}.`,
-    );
+    throw new Error(`The installer source URL must point to ${NOTER_SYNC_SCRIPT_PATHNAME}.`);
   }
   if (
     sourceUrl.username.length > 0 ||
@@ -276,24 +269,15 @@ export function buildMachineConnectUrl(sourceUrl, requestId) {
 }
 
 export function buildBootstrapUrl(convexSiteUrl) {
-  return new URL(
-    CONNECTED_MACHINE_BOOTSTRAP_PATHNAME,
-    convexSiteUrl,
-  ).toString();
+  return new URL(CONNECTED_MACHINE_BOOTSTRAP_PATHNAME, convexSiteUrl).toString();
 }
 
 export function buildHeartbeatUrl(convexSiteUrl) {
-  return new URL(
-    CONNECTED_MACHINE_HEARTBEAT_PATHNAME,
-    convexSiteUrl,
-  ).toString();
+  return new URL(CONNECTED_MACHINE_HEARTBEAT_PATHNAME, convexSiteUrl).toString();
 }
 
 function buildMachineControlIntrospectionUrl(convexSiteUrl) {
-  return new URL(
-    MACHINE_CONTROL_INTROSPECTION_PATHNAME,
-    convexSiteUrl,
-  ).toString();
+  return new URL(MACHINE_CONTROL_INTROSPECTION_PATHNAME, convexSiteUrl).toString();
 }
 
 function createInitialLiveControlState() {
@@ -307,9 +291,7 @@ function createInitialLiveControlState() {
 
 function updateLiveControlState(state, updates) {
   const nextControlStatus =
-    typeof updates.controlStatus === "string"
-      ? updates.controlStatus
-      : state.controlStatus;
+    typeof updates.controlStatus === "string" ? updates.controlStatus : state.controlStatus;
   const nextControlStatusDetail =
     typeof updates.controlStatusDetail === "string"
       ? updates.controlStatusDetail
@@ -338,16 +320,12 @@ function updateLiveControlState(state, updates) {
 }
 
 function buildHeartbeatCapabilities(controlStatus) {
-  return controlStatus === "ready"
-    ? ["presence", "liveControl"]
-    : CONNECTED_MACHINE_CAPABILITIES;
+  return controlStatus === "ready" ? ["presence", "liveControl"] : CONNECTED_MACHINE_CAPABILITIES;
 }
 
 export function buildMachineHeartbeatBody(args) {
   const liveControlState =
-    typeof args.readLiveControlState === "function"
-      ? args.readLiveControlState()
-      : null;
+    typeof args.readLiveControlState === "function" ? args.readLiveControlState() : null;
   const controlStatus =
     typeof liveControlState?.controlStatus === "string"
       ? liveControlState.controlStatus
@@ -357,9 +335,7 @@ export function buildMachineHeartbeatBody(args) {
       ? liveControlState.controlStatusDetail
       : undefined;
   const controlUrl =
-    typeof liveControlState?.controlUrl === "string"
-      ? liveControlState.controlUrl
-      : undefined;
+    typeof liveControlState?.controlUrl === "string" ? liveControlState.controlUrl : undefined;
   const controlUrlUpdatedAt =
     typeof liveControlState?.controlUrlUpdatedAt === "number"
       ? liveControlState.controlUrlUpdatedAt
@@ -386,12 +362,7 @@ function buildCodexCliMissingMessage() {
 }
 
 function codexCommandWasNotFound(error) {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "ENOENT"
-  );
+  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
 }
 
 function codexShellOutputWasNotFound(output) {
@@ -423,11 +394,7 @@ function normalizeRuntimePlatform(currentPlatform = process.platform) {
  * that shim to the real script entrypoint on Windows so one-off commands avoid
  * both the quoted `/c` bug and cmd.exe metacharacter expansion.
  */
-export function buildCodexSpawnInvocation(
-  args,
-  currentPlatform = process.platform,
-  options = {},
-) {
+export function buildCodexSpawnInvocation(args, currentPlatform = process.platform, options = {}) {
   if (normalizeRuntimePlatform(currentPlatform) === "win32") {
     return buildCodexRuntimeSpawnInvocation(args, currentPlatform, options);
   }
@@ -491,17 +458,13 @@ function resolveWindowsPathCommand(command, env = process.env) {
  * current Node process tree and stop it reliably later.
  */
 function readWindowsCmdShimTarget(shimPath) {
-  const matches = readFileSync(shimPath, "utf8").match(
-    /"%(?:~dp0|dp0%)\\([^"]+?)"\s+%[*]/,
-  );
+  const matches = readFileSync(shimPath, "utf8").match(/"%(?:~dp0|dp0%)\\([^"]+?)"\s+%[*]/);
   return matches?.[1] ?? null;
 }
 
 function resolveWindowsCmdShimScriptPath(shimPath, shimTarget) {
   try {
-    return realpathSync(
-      path.resolve(path.dirname(shimPath), ...shimTarget.split(/[\\/]+/)),
-    );
+    return realpathSync(path.resolve(path.dirname(shimPath), ...shimTarget.split(/[\\/]+/)));
   } catch (error) {
     if (codexCommandWasNotFound(error)) {
       return null;
@@ -517,11 +480,7 @@ const WINDOWS_VOLTA_WHICH_TIMEOUT_MS = 5_000;
  * which package-local command it would execute and then resolve that package's
  * npm-style `.cmd` shim the same way we do for global npm installs.
  */
-function resolveWindowsVoltaPackageShimPath(
-  shimPath,
-  env = process.env,
-  cwd = process.cwd(),
-) {
+function resolveWindowsVoltaPackageShimPath(shimPath, env = process.env, cwd = process.cwd()) {
   const shimContents = readFileSync(shimPath, "utf8").trim();
   if (!/^@echo off\r?\nvolta run %~n0 %\*$/i.test(shimContents)) {
     return null;
@@ -592,11 +551,7 @@ function resolveWindowsCmdShimNodeCommand(shimPath, env = process.env) {
   );
 }
 
-function resolveWindowsShimInvocation(
-  shimPath,
-  env = process.env,
-  options = {},
-) {
+function resolveWindowsShimInvocation(shimPath, env = process.env, options = {}) {
   const directTarget = readWindowsCmdShimTarget(shimPath);
   if (directTarget !== null) {
     const scriptPath = resolveWindowsCmdShimScriptPath(shimPath, directTarget);
@@ -610,11 +565,7 @@ function resolveWindowsShimInvocation(
     };
   }
 
-  const voltaPackageShimPath = resolveWindowsVoltaPackageShimPath(
-    shimPath,
-    env,
-    options.cwd,
-  );
+  const voltaPackageShimPath = resolveWindowsVoltaPackageShimPath(shimPath, env, options.cwd);
   if (voltaPackageShimPath === null) {
     return null;
   }
@@ -624,10 +575,7 @@ function resolveWindowsShimInvocation(
     return null;
   }
 
-  const scriptPath = resolveWindowsCmdShimScriptPath(
-    voltaPackageShimPath,
-    voltaTarget,
-  );
+  const scriptPath = resolveWindowsCmdShimScriptPath(voltaPackageShimPath, voltaTarget);
   if (scriptPath === null) {
     return null;
   }
@@ -663,11 +611,7 @@ export function buildCodexRuntimeSpawnInvocation(
 
   const extension = path.extname(codexPath).toLowerCase();
   if (extension === ".cmd" || extension === ".bat") {
-    const shimInvocation = resolveWindowsShimInvocation(
-      codexPath,
-      runtimeEnv,
-      options,
-    );
+    const shimInvocation = resolveWindowsShimInvocation(codexPath, runtimeEnv, options);
     if (shimInvocation === null) {
       throw new Error(
         `${buildCodexCliMissingMessage()} The Windows CLI shim could not be resolved to its script entrypoint.`,
@@ -727,11 +671,7 @@ function runCodexCommand(args, options = {}) {
     let stdout = "";
     let stderr = "";
     let timedOut = false;
-    const invocation = buildCodexSpawnInvocation(
-      args,
-      process.platform,
-      options,
-    );
+    const invocation = buildCodexSpawnInvocation(args, process.platform, options);
     const timeoutMs =
       typeof options.timeout === "number" && Number.isFinite(options.timeout)
         ? options.timeout
@@ -756,21 +696,17 @@ function runCodexCommand(args, options = {}) {
             });
           }, timeoutMs);
 
-    processHandle.stdout?.on("data", (chunk) => {
+    processHandle.stdout.on("data", (chunk) => {
       stdout += chunk.toString();
     });
-    processHandle.stderr?.on("data", (chunk) => {
+    processHandle.stderr.on("data", (chunk) => {
       stderr += chunk.toString();
     });
     processHandle.once("error", (error) => {
       if (timeoutId !== null) {
         clearTimeout(timeoutId);
       }
-      reject(
-        codexCommandWasNotFound(error)
-          ? new Error(buildCodexCliMissingMessage())
-          : error,
-      );
+      reject(codexCommandWasNotFound(error) ? new Error(buildCodexCliMissingMessage()) : error);
     });
     processHandle.once("close", (code, signal) => {
       if (timeoutId !== null) {
@@ -778,9 +714,7 @@ function runCodexCommand(args, options = {}) {
       }
 
       if (timedOut && timeoutMs !== null) {
-        reject(
-          new Error(`codex ${args.join(" ")} timed out after ${timeoutMs}ms.`),
-        );
+        reject(new Error(`codex ${args.join(" ")} timed out after ${timeoutMs}ms.`));
         return;
       }
 
@@ -814,11 +748,7 @@ function runCodexCommand(args, options = {}) {
  * signal.
  */
 export function detectCodexVersion(options = {}) {
-  const invocation = buildCodexSpawnInvocation(
-    ["--version"],
-    process.platform,
-    options,
-  );
+  const invocation = buildCodexSpawnInvocation(["--version"], process.platform, options);
   const result = spawnSync(
     invocation.command,
     invocation.args,
@@ -849,7 +779,7 @@ export function detectCodexVersion(options = {}) {
     );
   }
 
-  return (result.stdout || result.stderr).trim();
+  return commandOutput;
 }
 
 /**
@@ -921,9 +851,7 @@ export function writeLocalConfig(args) {
   const nextRecord = {
     codexVersion: args.codexVersion,
     installedAt:
-      typeof existingRecord?.installedAt === "string"
-        ? existingRecord.installedAt
-        : nowIso,
+      typeof existingRecord?.installedAt === "string" ? existingRecord.installedAt : nowIso,
     machineId: args.machineId,
     sourceUrl: args.sourceUrl,
     updatedAt: nowIso,
@@ -989,27 +917,20 @@ function readStoredMachineConfig(args = {}) {
 export function validateConvexSiteUrl(value) {
   const convexSiteUrl = new URL(value);
   const isLoopbackHttp =
-    convexSiteUrl.protocol === "http:" &&
-    isLoopbackHostname(convexSiteUrl.hostname);
+    convexSiteUrl.protocol === "http:" && isLoopbackHostname(convexSiteUrl.hostname);
   if (convexSiteUrl.protocol !== "https:" && !isLoopbackHttp) {
     throw new Error(
       "The runtime Convex site URL must use https, except for explicit localhost testing.",
     );
   }
   if (convexSiteUrl.username || convexSiteUrl.password) {
-    throw new Error(
-      "The runtime Convex site URL must not include credentials.",
-    );
+    throw new Error("The runtime Convex site URL must not include credentials.");
   }
   if (convexSiteUrl.search.length > 0 || convexSiteUrl.hash.length > 0) {
-    throw new Error(
-      "The runtime Convex site URL must not include query params or hashes.",
-    );
+    throw new Error("The runtime Convex site URL must not include query params or hashes.");
   }
   if (convexSiteUrl.pathname !== "/") {
-    throw new Error(
-      "The runtime Convex site URL must be an origin with no path.",
-    );
+    throw new Error("The runtime Convex site URL must be an origin with no path.");
   }
   convexSiteUrl.hash = "";
   return convexSiteUrl;
@@ -1027,11 +948,7 @@ function createHttpError(statusCode, message, errorName = "HttpError") {
 }
 
 function createMachineControlServiceError(message, retryable) {
-  const error = createHttpError(
-    503,
-    message,
-    MACHINE_CONTROL_SERVICE_ERROR_NAME,
-  );
+  const error = createHttpError(503, message, MACHINE_CONTROL_SERVICE_ERROR_NAME);
   error.retryable = retryable;
   return error;
 }
@@ -1067,9 +984,7 @@ function readBoolean(value) {
 }
 
 function readNumber(value) {
-  return typeof value === "number" && Number.isFinite(value)
-    ? value
-    : undefined;
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function readStringArray(value) {
@@ -1135,9 +1050,7 @@ function readLoopbackOriginKey(value) {
 
   try {
     const url = new URL(origin);
-    return isLoopbackHostname(url.hostname)
-      ? `${url.protocol}//${url.hostname}`
-      : null;
+    return isLoopbackHostname(url.hostname) ? `${url.protocol}//${url.hostname}` : null;
   } catch {
     return null;
   }
@@ -1159,8 +1072,7 @@ function originMatchesAllowedOrigins(requestOrigin, allowedOrigins) {
   }
 
   return allowedOrigins.some(
-    (allowedOrigin) =>
-      readLoopbackOriginKey(allowedOrigin) === requestLoopbackOriginKey,
+    (allowedOrigin) => readLoopbackOriginKey(allowedOrigin) === requestLoopbackOriginKey,
   );
 }
 
@@ -1195,10 +1107,7 @@ function addCorsHeaders(args) {
 
   appendVaryHeader(args.res, "Origin");
   args.res.setHeader("Access-Control-Allow-Origin", args.origin);
-  args.res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Authorization, Content-Type",
-  );
+  args.res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
   args.res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   args.res.setHeader("Access-Control-Max-Age", "600");
 }
@@ -1251,21 +1160,11 @@ function resolveDesktopGlobalStateLockPath() {
 }
 
 function desktopGlobalStateWasNotFound(error) {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "ENOENT"
-  );
+  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
 }
 
 function desktopGlobalStateLockIsHeld(error) {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "EEXIST"
-  );
+  return typeof error === "object" && error !== null && "code" in error && error.code === "EEXIST";
 }
 
 function desktopGlobalStateDirectorySyncIsUnsupported(error) {
@@ -1286,7 +1185,7 @@ async function acquireDesktopGlobalStateLock() {
   const waitDeadline = Date.now() + CODEX_GLOBAL_STATE_LOCK_TIMEOUT_MS;
   mkdirSync(path.dirname(globalStateLockPath), { recursive: true });
 
-  while (true) {
+  for (;;) {
     try {
       return openSync(globalStateLockPath, "wx", 0o600);
     } catch (error) {
@@ -1294,9 +1193,7 @@ async function acquireDesktopGlobalStateLock() {
         throw error;
       }
       if (Date.now() >= waitDeadline) {
-        throw new Error(
-          `Timed out waiting to update ${CODEX_GLOBAL_STATE_FILENAME}`,
-        );
+        throw new Error(`Timed out waiting to update ${CODEX_GLOBAL_STATE_FILENAME}`);
       }
       await sleep(CODEX_GLOBAL_STATE_LOCK_RETRY_MS);
     }
@@ -1339,9 +1236,7 @@ async function readDesktopGlobalState() {
   const rawGlobalState = await readFile(globalStatePath, "utf8");
   const parsedGlobalState = asRecord(JSON.parse(rawGlobalState));
   if (parsedGlobalState === null) {
-    throw new Error(
-      `${CODEX_GLOBAL_STATE_FILENAME} must contain a JSON object`,
-    );
+    throw new Error(`${CODEX_GLOBAL_STATE_FILENAME} must contain a JSON object`);
   }
   return parsedGlobalState;
 }
@@ -1401,9 +1296,7 @@ async function updateDesktopPinnedThreadIds(updatePinnedThreadIds) {
       }
 
       const nextPinnedThreadIds = readPinnedThreadIds(
-        updatePinnedThreadIds(
-          readPinnedThreadIds(nextGlobalState["pinned-thread-ids"]),
-        ),
+        updatePinnedThreadIds(readPinnedThreadIds(nextGlobalState["pinned-thread-ids"])),
       );
       nextGlobalState["pinned-thread-ids"] = nextPinnedThreadIds;
       await writeDesktopGlobalState(nextGlobalState);
@@ -1423,9 +1316,7 @@ async function updateDesktopPinnedThreadIds(updatePinnedThreadIds) {
 
 function readPathLeaf(value) {
   const normalized = normalizePathForDisplay(value);
-  const segments = normalized
-    .split("/")
-    .filter((segment) => segment.length > 0);
+  const segments = normalized.split("/").filter((segment) => segment.length > 0);
   return segments[segments.length - 1] ?? value;
 }
 
@@ -1440,9 +1331,7 @@ function readCodexWorktreeId(value) {
  */
 function buildThreadProjectInfo(args) {
   const normalizedCwd = normalizePathForDisplay(path.resolve(args.cwd));
-  const normalizedProjectRoot = normalizePathForDisplay(
-    path.resolve(args.projectRoot),
-  );
+  const normalizedProjectRoot = normalizePathForDisplay(path.resolve(args.projectRoot));
   const isProjectRoot = normalizedCwd === normalizedProjectRoot;
 
   if (isProjectRoot) {
@@ -1524,14 +1413,7 @@ async function readThreadProjectInfo(cwd) {
     try {
       const { stdout } = await execFileAsync(
         "git",
-        [
-          "-C",
-          cwd,
-          "rev-parse",
-          "--path-format=absolute",
-          "--show-toplevel",
-          "--git-common-dir",
-        ],
+        ["-C", cwd, "rev-parse", "--path-format=absolute", "--show-toplevel", "--git-common-dir"],
         {
           timeout: 5_000,
           maxBuffer: 64 * 1024,
@@ -1579,9 +1461,7 @@ function buildMachineWorktreeBranchName() {
 
 function worktreeCreateErrorLooksRetryable(error) {
   const message = describeError(error);
-  return /already exists|already checked out|already registered|already used/i.test(
-    message,
-  );
+  return /already exists|already checked out|already registered|already used/i.test(message);
 }
 
 /**
@@ -1594,11 +1474,7 @@ async function createMachineGitWorktree(cwd) {
   const worktreesRoot = path.join(resolveCodexHomeDirectory(), "worktrees");
   mkdirSync(worktreesRoot, { recursive: true });
 
-  for (
-    let attempt = 0;
-    attempt < CODEX_MACHINE_WORKTREE_CREATE_RETRY_LIMIT;
-    attempt += 1
-  ) {
+  for (let attempt = 0; attempt < CODEX_MACHINE_WORKTREE_CREATE_RETRY_LIMIT; attempt += 1) {
     const branch = buildMachineWorktreeBranchName();
     const worktreeRoot = await mkdtemp(
       path.join(worktreesRoot, `${CODEX_MACHINE_WORKTREE_BRANCH_PREFIX}-`),
@@ -1622,9 +1498,7 @@ async function createMachineGitWorktree(cwd) {
         },
       };
     } catch (error) {
-      await rm(worktreeRoot, { recursive: true, force: true }).catch(
-        () => undefined,
-      );
+      await rm(worktreeRoot, { recursive: true, force: true }).catch(() => undefined);
 
       if (
         worktreeCreateErrorLooksRetryable(error) &&
@@ -1654,11 +1528,7 @@ function cloneJsonValue(value) {
 
 function normalizeTurnInput(body) {
   const rawInput =
-    body.input !== undefined
-      ? body.input
-      : typeof body.text === "string"
-        ? body.text
-        : undefined;
+    body.input !== undefined ? body.input : typeof body.text === "string" ? body.text : undefined;
 
   if (rawInput === undefined) {
     return undefined;
@@ -1680,11 +1550,7 @@ function normalizeTurnInput(body) {
 }
 
 function normalizeSandboxMode(value) {
-  if (
-    value === "read-only" ||
-    value === "workspace-write" ||
-    value === "danger-full-access"
-  ) {
+  if (value === "read-only" || value === "workspace-write" || value === "danger-full-access") {
     return value;
   }
 
@@ -1940,9 +1806,7 @@ function normalizeThreadTurn(value) {
   }
 
   const items = Array.isArray(record.items)
-    ? record.items
-        .map((item) => normalizeThreadItem(item))
-        .filter((item) => item !== null)
+    ? record.items.map((item) => normalizeThreadItem(item)).filter((item) => item !== null)
     : [];
 
   return {
@@ -1981,10 +1845,7 @@ function deriveThreadPreviewFallback(record) {
 
     const summary = normalizedTurn.items
       .map((item) => item.summary)
-      .find(
-        (itemSummary) =>
-          typeof itemSummary === "string" && itemSummary.length > 0,
-      );
+      .find((itemSummary) => typeof itemSummary === "string" && itemSummary.length > 0);
     if (summary) {
       return summary;
     }
@@ -1999,8 +1860,7 @@ function normalizeThread(value) {
     return null;
   }
   const id = readString(record.id);
-  const preview =
-    readString(record.preview) ?? deriveThreadPreviewFallback(record);
+  const preview = readString(record.preview) ?? deriveThreadPreviewFallback(record);
   const cwd = readString(record.cwd);
   const updatedAt = readNumber(record.updatedAt);
   const createdAt = readNumber(record.createdAt);
@@ -2014,9 +1874,7 @@ function normalizeThread(value) {
   const gitInfo = asRecord(record.gitInfo);
   const fallbackProjectInfo = buildFallbackThreadProjectInfo(cwd);
   const turns = Array.isArray(record.turns)
-    ? record.turns
-        .map((turn) => normalizeThreadTurn(turn))
-        .filter((turn) => turn !== null)
+    ? record.turns.map((turn) => normalizeThreadTurn(turn)).filter((turn) => turn !== null)
     : [];
 
   return {
@@ -2040,10 +1898,7 @@ function normalizeThread(value) {
           sha: readString(gitInfo.sha) ?? null,
         }
       : null,
-    path:
-      typeof record.path === "string"
-        ? normalizePathForDisplay(record.path)
-        : null,
+    path: typeof record.path === "string" ? normalizePathForDisplay(record.path) : null,
     agentNickname: readString(record.agentNickname) ?? null,
     agentRole: readString(record.agentRole) ?? null,
     turns,
@@ -2128,8 +1983,7 @@ function withApprovalContext(args) {
   baseParams.requestId = args.requestId;
 
   const itemId = readString(baseParams.itemId);
-  const context =
-    itemId !== undefined ? args.approvalContextByItemId.get(itemId) : undefined;
+  const context = itemId !== undefined ? args.approvalContextByItemId.get(itemId) : undefined;
   if (!context) {
     return baseParams;
   }
@@ -2198,9 +2052,7 @@ function createMachineControlAuth(args = {}) {
   if (!args.introspectionUrl || !args.machineId) {
     return {
       applyCors(req, res) {
-        const requestOrigin = normalizeOrigin(
-          readHeaderValue(req.headers.origin),
-        );
+        const requestOrigin = normalizeOrigin(readHeaderValue(req.headers.origin));
         if (requestOrigin === null) {
           return;
         }
@@ -2253,10 +2105,7 @@ function createMachineControlAuth(args = {}) {
     const now = Date.now();
     const cachedValidation = positiveValidationCache.get(token);
     if (cachedValidation) {
-      if (
-        cachedValidation.cacheExpiresAt > now &&
-        cachedValidation.expiresAt > now
-      ) {
+      if (cachedValidation.cacheExpiresAt > now && cachedValidation.expiresAt > now) {
         return cachedValidation;
       }
 
@@ -2266,11 +2115,7 @@ function createMachineControlAuth(args = {}) {
     let lastInfrastructureError = null;
     const totalAttempts = MACHINE_CONTROL_INTROSPECTION_BACKOFF_MS.length + 1;
 
-    for (
-      let attemptIndex = 0;
-      attemptIndex < totalAttempts;
-      attemptIndex += 1
-    ) {
+    for (let attemptIndex = 0; attemptIndex < totalAttempts; attemptIndex += 1) {
       try {
         const response = await fetchWithTimeout(
           args.introspectionUrl,
@@ -2289,11 +2134,7 @@ function createMachineControlAuth(args = {}) {
           MACHINE_CONTROL_INTROSPECTION_TIMEOUT_MS,
         );
 
-        if (
-          response.status === 502 ||
-          response.status === 503 ||
-          response.status === 504
-        ) {
+        if (response.status === 502 || response.status === 503 || response.status === 504) {
           throw createMachineControlServiceError(
             `Machine control introspection failed: HTTP ${response.status}.`,
             true,
@@ -2360,10 +2201,7 @@ function createMachineControlAuth(args = {}) {
         const cachedResult = {
           active,
           audience,
-          cacheExpiresAt: Math.min(
-            expiresAt,
-            now + MACHINE_CONTROL_TOKEN_CACHE_TTL_MS,
-          ),
+          cacheExpiresAt: Math.min(expiresAt, now + MACHINE_CONTROL_TOKEN_CACHE_TTL_MS),
           expiresAt,
           machineId,
           userId,
@@ -2371,18 +2209,12 @@ function createMachineControlAuth(args = {}) {
         positiveValidationCache.set(token, cachedResult);
         return cachedResult;
       } catch (error) {
-        if (
-          error instanceof Error &&
-          error.name === MACHINE_CONTROL_AUTH_ERROR_NAME
-        ) {
+        if (error instanceof Error && error.name === MACHINE_CONTROL_AUTH_ERROR_NAME) {
           throw error;
         }
 
         if (!machineControlErrorIsRetryable(error)) {
-          if (
-            error instanceof Error &&
-            error.name === MACHINE_CONTROL_SERVICE_ERROR_NAME
-          ) {
+          if (error instanceof Error && error.name === MACHINE_CONTROL_SERVICE_ERROR_NAME) {
             throw error;
           }
 
@@ -2400,8 +2232,7 @@ function createMachineControlAuth(args = {}) {
           break;
         }
 
-        const baseDelay =
-          MACHINE_CONTROL_INTROSPECTION_BACKOFF_MS[attemptIndex] ?? 0;
+        const baseDelay = MACHINE_CONTROL_INTROSPECTION_BACKOFF_MS[attemptIndex] ?? 0;
         const jitter = Math.floor(Math.random() * 100);
         await sleep(baseDelay + jitter);
       }
@@ -2417,9 +2248,7 @@ function createMachineControlAuth(args = {}) {
 
   return {
     applyCors(req, res) {
-      const requestOrigin = normalizeOrigin(
-        readHeaderValue(req.headers.origin),
-      );
+      const requestOrigin = normalizeOrigin(readHeaderValue(req.headers.origin));
       if (requestOrigin === null) {
         return;
       }
@@ -2438,15 +2267,9 @@ function createMachineControlAuth(args = {}) {
       });
     },
     async authorizeRequest(req) {
-      const bearerToken = readBearerToken(
-        readHeaderValue(req.headers.authorization),
-      );
+      const bearerToken = readBearerToken(readHeaderValue(req.headers.authorization));
       if (!bearerToken) {
-        throw createHttpError(
-          401,
-          "Missing bearer token.",
-          MACHINE_CONTROL_AUTH_ERROR_NAME,
-        );
+        throw createHttpError(401, "Missing bearer token.", MACHINE_CONTROL_AUTH_ERROR_NAME);
       }
 
       await introspectMachineControlToken(bearerToken);
@@ -2495,15 +2318,19 @@ function buildCodexLocalControlStatus(args) {
 export function localControlStatusIsReady(status, machineId) {
   const statusRecord = asRecord(status);
   const serviceRecord = asRecord(statusRecord?.service);
-  const authRecord = asRecord(serviceRecord?.auth);
+  if (!serviceRecord || serviceRecord.loopbackOnly !== true) {
+    return false;
+  }
+
+  const authRecord = asRecord(serviceRecord.auth);
+  if (!authRecord || authRecord.enforced !== true || authRecord.readinessProbePassed !== true) {
+    return false;
+  }
+
+  const authMachineId = authRecord.machineId;
 
   return (
-    serviceRecord?.loopbackOnly === true &&
-    authRecord?.enforced === true &&
-    authRecord?.readinessProbePassed === true &&
-    (authRecord?.machineId === machineId ||
-      authRecord?.machineId === null ||
-      typeof authRecord?.machineId === "undefined")
+    authMachineId === machineId || authMachineId === null || typeof authMachineId === "undefined"
   );
 }
 
@@ -2558,9 +2385,7 @@ export class CodexLocalControlRuntime {
   }
 
   isRunning() {
-    return Boolean(
-      this.process && !this.process.killed && this.process.exitCode === null,
-    );
+    return Boolean(this.process && !this.process.killed && this.process.exitCode === null);
   }
 
   getSnapshot() {
@@ -2637,16 +2462,13 @@ export class CodexLocalControlRuntime {
         const previous = this.approvalContextByItemId.get(item.id) ?? {};
         this.approvalContextByItemId.set(item.id, {
           ...previous,
-          commandText:
-            typeof item.command === "string" ? item.command : undefined,
+          commandText: typeof item.command === "string" ? item.command : undefined,
           cwd: typeof item.cwd === "string" ? item.cwd : undefined,
           commandActions: cloneJsonValue(item.commandActions),
         });
       }
 
-      while (
-        this.approvalContextByItemId.size > CODEX_APPROVAL_CONTEXT_BUFFER_SIZE
-      ) {
+      while (this.approvalContextByItemId.size > CODEX_APPROVAL_CONTEXT_BUFFER_SIZE) {
         const oldestKey = this.approvalContextByItemId.keys().next().value;
         if (oldestKey === undefined) {
           break;
@@ -2680,10 +2502,7 @@ export class CodexLocalControlRuntime {
       return;
     }
 
-    if (
-      method === "codex/event/exec_command_begin" ||
-      method === "codex/event/exec_command_end"
-    ) {
+    if (method === "codex/event/exec_command_begin" || method === "codex/event/exec_command_end") {
       this.approvalContextByItemId.set(message.call_id, {
         ...previous,
         command: cloneJsonValue(message.command),
@@ -2815,9 +2634,7 @@ export class CodexLocalControlRuntime {
       } catch (error) {
         clearTimeout(timeoutId);
         this.pendingRequests.delete(requestId);
-        reject(
-          error instanceof Error ? error : new Error(describeError(error)),
-        );
+        reject(error instanceof Error ? error : new Error(describeError(error)));
       }
     });
   }
@@ -3067,13 +2884,10 @@ export class CodexLocalControlRuntime {
         const seenCursors = new Set();
         let cursor = null;
 
-        while (true) {
+        for (;;) {
           const searchParams = new URLSearchParams();
           searchParams.set("archived", archived);
-          searchParams.set(
-            "limit",
-            String(CODEX_THREAD_LIST_RECOVERY_PAGE_LIMIT),
-          );
+          searchParams.set("limit", String(CODEX_THREAD_LIST_RECOVERY_PAGE_LIMIT));
           if (cursor) {
             searchParams.set("cursor", cursor);
           }
@@ -3081,8 +2895,7 @@ export class CodexLocalControlRuntime {
           const result = await this.listThreads(searchParams, {
             repairMissingPinnedThreads: false,
           });
-          const matchedThread =
-            result.threads.find((thread) => thread.id === threadId) ?? null;
+          const matchedThread = result.threads.find((thread) => thread.id === threadId) ?? null;
           if (matchedThread) {
             return matchedThread;
           }
@@ -3112,8 +2925,7 @@ export class CodexLocalControlRuntime {
    * for protocol inspection.
    */
   async listThreads(searchParams, options = {}) {
-    const repairMissingPinnedThreads =
-      options.repairMissingPinnedThreads !== false;
+    const repairMissingPinnedThreads = options.repairMissingPinnedThreads !== false;
     const pinnedThreadIds = await readDesktopPinnedThreadIds();
     const params = {};
     const archived = searchParams.get("archived");
@@ -3214,13 +3026,9 @@ export class CodexLocalControlRuntime {
         })
         .filter((thread) =>
           archived === "true"
-            ? normalizePathForDisplay(thread.path ?? "").includes(
-                "/archived_sessions/",
-              )
+            ? normalizePathForDisplay(thread.path ?? "").includes("/archived_sessions/")
             : archived === "false"
-              ? !normalizePathForDisplay(thread.path ?? "").includes(
-                  "/archived_sessions/",
-                )
+              ? !normalizePathForDisplay(thread.path ?? "").includes("/archived_sessions/")
               : true,
         );
 
@@ -3256,17 +3064,13 @@ export class CodexLocalControlRuntime {
           (await this.readThreadSummary(threadId)))
         : null;
     const thread =
-      normalizedThread === null
-        ? fallbackThread
-        : await enrichThreadProjectInfo(normalizedThread);
+      normalizedThread === null ? fallbackThread : await enrichThreadProjectInfo(normalizedThread);
     if (!thread || !threadRecord) {
       throw new Error("thread/read returned an invalid thread payload");
     }
 
     const turns = Array.isArray(threadRecord.turns)
-      ? threadRecord.turns
-          .map((turn) => normalizeThreadTurn(turn))
-          .filter((turn) => turn !== null)
+      ? threadRecord.turns.map((turn) => normalizeThreadTurn(turn)).filter((turn) => turn !== null)
       : thread.turns;
 
     if (normalizedThread === null) {
@@ -3280,16 +3084,13 @@ export class CodexLocalControlRuntime {
               ? deriveThreadPreviewFallback(threadRecord)
               : thread.preview),
           cliVersion: readString(threadRecord.cliVersion) ?? thread.cliVersion,
-          modelProvider:
-            readString(threadRecord.modelProvider) ?? thread.modelProvider,
+          modelProvider: readString(threadRecord.modelProvider) ?? thread.modelProvider,
           sourceLabel:
             threadRecord.source !== undefined
               ? describeThreadSource(threadRecord.source)
               : thread.sourceLabel,
           source:
-            threadRecord.source !== undefined
-              ? cloneJsonValue(threadRecord.source)
-              : thread.source,
+            threadRecord.source !== undefined ? cloneJsonValue(threadRecord.source) : thread.source,
           status:
             threadRecord.status !== undefined
               ? normalizeThreadStatus(threadRecord.status)
@@ -3297,11 +3098,8 @@ export class CodexLocalControlRuntime {
           gitInfo:
             asRecord(threadRecord.gitInfo) !== null
               ? {
-                  branch:
-                    readString(asRecord(threadRecord.gitInfo).branch) ?? null,
-                  originUrl:
-                    readString(asRecord(threadRecord.gitInfo).originUrl) ??
-                    null,
+                  branch: readString(asRecord(threadRecord.gitInfo).branch) ?? null,
+                  originUrl: readString(asRecord(threadRecord.gitInfo).originUrl) ?? null,
                   sha: readString(asRecord(threadRecord.gitInfo).sha) ?? null,
                 }
               : thread.gitInfo,
@@ -3309,8 +3107,7 @@ export class CodexLocalControlRuntime {
             typeof threadRecord.path === "string"
               ? normalizePathForDisplay(threadRecord.path)
               : thread.path,
-          agentNickname:
-            readString(threadRecord.agentNickname) ?? thread.agentNickname,
+          agentNickname: readString(threadRecord.agentNickname) ?? thread.agentNickname,
           agentRole: readString(threadRecord.agentRole) ?? thread.agentRole,
           turns,
           raw: cloneJsonValue(threadRecord),
@@ -3359,10 +3156,7 @@ export class CodexLocalControlRuntime {
     const record = asRecord(body);
     const requestId = record?.requestId;
     const decision = readString(record?.decision);
-    if (
-      (typeof requestId !== "string" && typeof requestId !== "number") ||
-      !decision
-    ) {
+    if ((typeof requestId !== "string" && typeof requestId !== "number") || !decision) {
       throw new Error("requestId and decision are required");
     }
 
@@ -3502,14 +3296,10 @@ export class CodexLocalControlRuntime {
       throw new Error("threadId is required");
     }
 
-    const pinnedThreadIds = await updateDesktopPinnedThreadIds(
-      (currentPinnedThreadIds) => [
-        threadId,
-        ...currentPinnedThreadIds.filter(
-          (currentThreadId) => currentThreadId !== threadId,
-        ),
-      ],
-    );
+    const pinnedThreadIds = await updateDesktopPinnedThreadIds((currentPinnedThreadIds) => [
+      threadId,
+      ...currentPinnedThreadIds.filter((currentThreadId) => currentThreadId !== threadId),
+    ]);
 
     return {
       pinnedThreadIds,
@@ -3524,11 +3314,8 @@ export class CodexLocalControlRuntime {
       throw new Error("threadId is required");
     }
 
-    const pinnedThreadIds = await updateDesktopPinnedThreadIds(
-      (currentPinnedThreadIds) =>
-        currentPinnedThreadIds.filter(
-          (currentThreadId) => currentThreadId !== threadId,
-        ),
+    const pinnedThreadIds = await updateDesktopPinnedThreadIds((currentPinnedThreadIds) =>
+      currentPinnedThreadIds.filter((currentThreadId) => currentThreadId !== threadId),
     );
 
     return {
@@ -3621,9 +3408,7 @@ export class CodexLocalControlRuntime {
   }
 
   async generateProtocol(args) {
-    const tempDir = await mkdtemp(
-      path.join(tmpdir(), `noter-codex-${args.mode}-`),
-    );
+    const tempDir = await mkdtemp(path.join(tmpdir(), `noter-codex-${args.mode}-`));
     try {
       const commandArgs = [
         "app-server",
@@ -3662,9 +3447,7 @@ function normalizeRouteBasePath(value) {
 
 export function createCodexLocalControlRouter(args) {
   const routeBasePath = normalizeRouteBasePath(args.routeBasePath ?? "");
-  const machineControlAuth = createMachineControlAuth(
-    args.machineControlAuth ?? {},
-  );
+  const machineControlAuth = createMachineControlAuth(args.machineControlAuth ?? {});
   const serviceStatus = args.serviceStatus ?? {
     loopbackOnly: args.loopbackOnly === true,
   };
@@ -3693,9 +3476,7 @@ export function createCodexLocalControlRouter(args) {
           includeSensitive: false,
         });
         const authIsEnforced = authStatus.enforced === true;
-        const bearerToken = readBearerToken(
-          readHeaderValue(req.headers.authorization),
-        );
+        const bearerToken = readBearerToken(readHeaderValue(req.headers.authorization));
 
         if (authIsEnforced && !bearerToken) {
           // Keep the loopback readiness probe working without exposing runtime
@@ -3735,11 +3516,7 @@ export function createCodexLocalControlRouter(args) {
 
       if (req.method === "POST" && routePath === "/runtime/ensure") {
         const body = asRecord(await readJsonBody(req)) ?? {};
-        sendJson(
-          res,
-          200,
-          await args.runtime.ensureRuntime(body.forceRestart === true),
-        );
+        sendJson(res, 200, await args.runtime.ensureRuntime(body.forceRestart === true));
         return;
       }
 
@@ -3749,10 +3526,7 @@ export function createCodexLocalControlRouter(args) {
       }
 
       if (req.method === "GET" && routePath === "/events") {
-        const sinceParam = Number.parseInt(
-          url.searchParams.get("since") ?? "0",
-          10,
-        );
+        const sinceParam = Number.parseInt(url.searchParams.get("since") ?? "0", 10);
         const since = Number.isFinite(sinceParam) ? sinceParam : 0;
         sendJson(res, 200, await args.runtime.listEvents(since));
         return;
@@ -3771,11 +3545,7 @@ export function createCodexLocalControlRouter(args) {
 
       if (req.method === "GET" && routePath === "/threads/loaded") {
         await args.runtime.ensureRuntime(false);
-        sendJson(
-          res,
-          200,
-          await args.runtime.listLoadedThreads(url.searchParams),
-        );
+        sendJson(res, 200, await args.runtime.listLoadedThreads(url.searchParams));
         return;
       }
 
@@ -3793,98 +3563,58 @@ export function createCodexLocalControlRouter(args) {
       }
 
       if (req.method === "POST" && routePath === "/approval/respond") {
-        sendJson(
-          res,
-          200,
-          await args.runtime.respondApproval(await readJsonBody(req)),
-        );
+        sendJson(res, 200, await args.runtime.respondApproval(await readJsonBody(req)));
         return;
       }
 
       if (req.method === "POST" && routePath === "/thread/start") {
         await args.runtime.ensureRuntime(false);
-        sendJson(
-          res,
-          200,
-          await args.runtime.threadStart(await readJsonBody(req)),
-        );
+        sendJson(res, 200, await args.runtime.threadStart(await readJsonBody(req)));
         return;
       }
 
       if (req.method === "POST" && routePath === "/worktree/create") {
-        sendJson(
-          res,
-          200,
-          await args.runtime.worktreeCreate(await readJsonBody(req)),
-        );
+        sendJson(res, 200, await args.runtime.worktreeCreate(await readJsonBody(req)));
         return;
       }
 
       if (req.method === "POST" && routePath === "/thread/resume") {
         await args.runtime.ensureRuntime(false);
-        sendJson(
-          res,
-          200,
-          await args.runtime.threadResume(await readJsonBody(req)),
-        );
+        sendJson(res, 200, await args.runtime.threadResume(await readJsonBody(req)));
         return;
       }
 
       if (req.method === "POST" && routePath === "/thread/archive") {
         await args.runtime.ensureRuntime(false);
-        sendJson(
-          res,
-          200,
-          await args.runtime.threadArchive(await readJsonBody(req)),
-        );
+        sendJson(res, 200, await args.runtime.threadArchive(await readJsonBody(req)));
         return;
       }
 
       if (req.method === "POST" && routePath === "/thread/unarchive") {
         await args.runtime.ensureRuntime(false);
-        sendJson(
-          res,
-          200,
-          await args.runtime.threadUnarchive(await readJsonBody(req)),
-        );
+        sendJson(res, 200, await args.runtime.threadUnarchive(await readJsonBody(req)));
         return;
       }
 
       if (req.method === "POST" && routePath === "/thread/pin") {
-        sendJson(
-          res,
-          200,
-          await args.runtime.threadPin(await readJsonBody(req)),
-        );
+        sendJson(res, 200, await args.runtime.threadPin(await readJsonBody(req)));
         return;
       }
 
       if (req.method === "POST" && routePath === "/thread/unpin") {
-        sendJson(
-          res,
-          200,
-          await args.runtime.threadUnpin(await readJsonBody(req)),
-        );
+        sendJson(res, 200, await args.runtime.threadUnpin(await readJsonBody(req)));
         return;
       }
 
       if (req.method === "POST" && routePath === "/turn/start") {
         await args.runtime.ensureRuntime(false);
-        sendJson(
-          res,
-          200,
-          await args.runtime.turnStart(await readJsonBody(req)),
-        );
+        sendJson(res, 200, await args.runtime.turnStart(await readJsonBody(req)));
         return;
       }
 
       if (req.method === "POST" && routePath === "/turn/interrupt") {
         await args.runtime.ensureRuntime(false);
-        sendJson(
-          res,
-          200,
-          await args.runtime.turnInterrupt(await readJsonBody(req)),
-        );
+        sendJson(res, 200, await args.runtime.turnInterrupt(await readJsonBody(req)));
         return;
       }
 
@@ -3939,9 +3669,7 @@ function readServerAddress(server) {
 }
 
 export async function startLocalCodexControlServer(args = {}) {
-  const runtime = new CodexLocalControlRuntime(
-    args.workspaceRoot ?? process.cwd(),
-  );
+  const runtime = new CodexLocalControlRuntime(args.workspaceRoot ?? process.cwd());
   const serviceStatus = {
     loopbackOnly: false,
   };
@@ -4005,17 +3733,12 @@ async function readJsonResponse(response) {
  * Bound installer/runtime requests so dead network paths fail clearly instead
  * of hanging the terminal forever.
  */
-async function fetchWithTimeout(
-  resource,
-  init,
-  timeoutLabel,
-  timeoutMs = NETWORK_TIMEOUT_MS,
-) {
+async function fetchWithTimeout(resource, init, timeoutLabel, timeoutMs = NETWORK_TIMEOUT_MS) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
     controller.abort();
   }, timeoutMs);
-  timeoutId.unref?.();
+  timeoutId.unref();
 
   try {
     return await fetch(resource, {
@@ -4059,18 +3782,14 @@ async function fetchNoterConnectConfig(sourceUrl) {
   const { parsed, text } = await readJsonResponse(response);
   const convexSiteUrl = parsed?.convexSiteUrl;
   if (typeof convexSiteUrl !== "string" || convexSiteUrl.length === 0) {
-    throw new Error(
-      `${NOTER_CONNECT_CONFIG_PATHNAME} is missing a valid "convexSiteUrl" string.`,
-    );
+    throw new Error(`${NOTER_CONNECT_CONFIG_PATHNAME} is missing a valid "convexSiteUrl" string.`);
   }
 
   try {
     return validateConvexSiteUrl(convexSiteUrl).toString();
   } catch (error) {
     throw new Error(
-      error instanceof Error
-        ? error.message
-        : `Invalid ${NOTER_CONNECT_CONFIG_PATHNAME}: ${text}`,
+      error instanceof Error ? error.message : `Invalid ${NOTER_CONNECT_CONFIG_PATHNAME}: ${text}`,
     );
   }
 }
@@ -4087,9 +3806,7 @@ async function readLocalControlStatus(localControlOrigin) {
   );
 
   if (!response.ok) {
-    throw new Error(
-      `Local control status request failed: HTTP ${response.status}.`,
-    );
+    throw new Error(`Local control status request failed: HTTP ${response.status}.`);
   }
 
   const { parsed, text } = await readJsonResponse(response);
@@ -4114,14 +3831,10 @@ async function readLocalControlStatus(localControlOrigin) {
 
   if (authProbeResponse.status !== 401) {
     if (authProbeResponse.ok) {
-      throw new Error(
-        "Local control auth probe unexpectedly accepted a synthetic bearer token.",
-      );
+      throw new Error("Local control auth probe unexpectedly accepted a synthetic bearer token.");
     }
 
-    throw new Error(
-      `Local control auth probe failed: HTTP ${authProbeResponse.status}.`,
-    );
+    throw new Error(`Local control auth probe failed: HTTP ${authProbeResponse.status}.`);
   }
 
   const serviceRecord = asRecord(status.service);
@@ -4140,23 +3853,18 @@ async function readLocalControlStatus(localControlOrigin) {
 
 async function ensureCloudflaredBinary() {
   try {
-    const { stdout, stderr } = await execFileAsync(
-      "cloudflared",
-      ["--version"],
-      {
-        cwd: process.cwd(),
-        timeout: 10_000,
-      },
-    );
-    const version = `${stdout ?? ""}${stderr ?? ""}`.trim();
+    const { stdout, stderr } = await execFileAsync("cloudflared", ["--version"], {
+      cwd: process.cwd(),
+      timeout: 10_000,
+    });
+    const version = `${stdout}${stderr}`.trim();
     if (version.length === 0) {
       throw new Error("cloudflared --version returned an empty response");
     }
     return version;
   } catch (error) {
     throw new Error(
-      error instanceof Error &&
-        error.message.includes("spawn cloudflared ENOENT")
+      error instanceof Error && error.message.includes("spawn cloudflared ENOENT")
         ? "The `cloudflared` command was not found. Install cloudflared before using mobile live control."
         : describeError(error),
     );
@@ -4184,7 +3892,7 @@ async function stopChildProcess(childProcess, signal = "SIGTERM") {
       }
       finish();
     }, CLOUDFLARED_TUNNEL_SHUTDOWN_TIMEOUT_MS);
-    timeoutId.unref?.();
+    timeoutId.unref();
 
     childProcess.once("exit", () => {
       clearTimeout(timeoutId);
@@ -4226,13 +3934,12 @@ function startCloudflaredQuickTunnel(args) {
 
     updateLiveControlState(args.liveControlState, {
       controlStatus: "unavailable",
-      controlStatusDetail:
-        "Timed out waiting for Cloudflare quick tunnel readiness.",
+      controlStatusDetail: "Timed out waiting for Cloudflare quick tunnel readiness.",
       controlUrl: null,
     });
     void stopChildProcess(childProcess);
   }, CLOUDFLARED_TUNNEL_START_TIMEOUT_MS);
-  startTimeoutId.unref?.();
+  startTimeoutId.unref();
 
   const handleLine = (line) => {
     const quickTunnelUrl = parseCloudflaredQuickTunnelUrl(line);
@@ -4321,9 +4028,7 @@ async function postJson(args) {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        ...(args.authorization
-          ? { authorization: `Bearer ${args.authorization}` }
-          : {}),
+        ...(args.authorization ? { authorization: `Bearer ${args.authorization}` } : {}),
       },
       body: JSON.stringify(args.body),
     },
@@ -4377,10 +4082,7 @@ async function publishMachineHeartbeat(args) {
       body: buildMachineHeartbeatBody(args),
     });
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message === "invalid machine credential"
-    ) {
+    if (error instanceof Error && error.message === "invalid machine credential") {
       const authError = new Error(
         "This machine is not approved yet. Finish approval in Noter and retry `noter-sync run`.",
       );
@@ -4392,9 +4094,7 @@ async function publishMachineHeartbeat(args) {
 }
 
 function readDirectDownloadCommand(currentPlatform = process.platform) {
-  return normalizeRuntimePlatform(currentPlatform) === "win32"
-    ? "curl.exe -fsSL"
-    : "curl -fsSL";
+  return normalizeRuntimePlatform(currentPlatform) === "win32" ? "curl.exe -fsSL" : "curl -fsSL";
 }
 
 /**
@@ -4408,10 +4108,7 @@ function shellSingleQuote(value, currentPlatform = process.platform) {
     : `'${value.replaceAll("'", "'\"'\"'")}'`;
 }
 
-function buildOptionalStateDirArg(
-  stateDirectory,
-  currentPlatform = process.platform,
-) {
+function buildOptionalStateDirArg(stateDirectory, currentPlatform = process.platform) {
   return typeof stateDirectory === "string" && stateDirectory.trim().length > 0
     ? ` --state-dir ${shellSingleQuote(stateDirectory, currentPlatform)}`
     : "";
@@ -4493,16 +4190,13 @@ export function formatConnectorRunningMarkdown(args) {
 }
 
 async function runConnectCommand(parsedArgs) {
-  const sourceUrl = validateSourceUrl(
-    parsedArgs.sourceUrl ?? NOTER_SYNC_SOURCE_URL,
-  ).toString();
+  const sourceUrl = validateSourceUrl(parsedArgs.sourceUrl ?? NOTER_SYNC_SOURCE_URL).toString();
   const codexVersion = detectCodexVersion();
   const existingRecord = readLocalConfig({
     stateDirectory: parsedArgs.stateDirectory,
   });
   const machineId =
-    typeof existingRecord?.machineId === "string" &&
-    existingRecord.machineId.length > 0
+    typeof existingRecord?.machineId === "string" && existingRecord.machineId.length > 0
       ? existingRecord.machineId
       : buildMachineId();
   const displayName = hostname();
@@ -4530,11 +4224,7 @@ async function runConnectCommand(parsedArgs) {
       configPath,
       machineConnectUrl: registration.machineConnectUrl,
       machineId,
-      runCommand: buildDirectRunCommand(
-        sourceUrl,
-        process.platform,
-        parsedArgs.stateDirectory,
-      ),
+      runCommand: buildDirectRunCommand(sourceUrl, process.platform, parsedArgs.stateDirectory),
       sourceUrl,
     }),
   );
@@ -4543,7 +4233,9 @@ async function runConnectCommand(parsedArgs) {
 export async function runHeartbeatLoop(args) {
   /** @type {() => void} */
   let requestStop = () => {};
-  let shouldPublishOfflineHeartbeat = true;
+  const heartbeatLoopState = {
+    shouldPublishOfflineHeartbeat: true,
+  };
   const stopPromise = new Promise((resolve) => {
     requestStop = () => resolve("stop");
   });
@@ -4569,18 +4261,13 @@ export async function runHeartbeatLoop(args) {
           status: "online",
         });
       } catch (error) {
-        if (
-          error instanceof Error &&
-          error.name === MACHINE_CREDENTIAL_AUTH_ERROR_NAME
-        ) {
-          shouldPublishOfflineHeartbeat = false;
+        if (error instanceof Error && error.name === MACHINE_CREDENTIAL_AUTH_ERROR_NAME) {
+          heartbeatLoopState.shouldPublishOfflineHeartbeat = false;
           throw error;
         }
 
         console.warn(
-          error instanceof Error
-            ? error.message
-            : "Could not publish the online heartbeat.",
+          error instanceof Error ? error.message : "Could not publish the online heartbeat.",
         );
       }
 
@@ -4596,7 +4283,7 @@ export async function runHeartbeatLoop(args) {
     process.removeListener("SIGINT", handleStop);
     process.removeListener("SIGTERM", handleStop);
 
-    if (shouldPublishOfflineHeartbeat) {
+    if (heartbeatLoopState.shouldPublishOfflineHeartbeat) {
       try {
         await publishMachineHeartbeat({
           connectorVersion: args.connectorVersion,
@@ -4611,9 +4298,7 @@ export async function runHeartbeatLoop(args) {
         });
       } catch (error) {
         console.warn(
-          error instanceof Error
-            ? error.message
-            : "Could not publish the offline heartbeat.",
+          error instanceof Error ? error.message : "Could not publish the offline heartbeat.",
         );
       }
     }
@@ -4643,9 +4328,7 @@ async function runConnectorCommand(parsedArgs) {
   try {
     let localControlStatus = null;
     try {
-      localControlStatus = await readLocalControlStatus(
-        localControlServer.origin,
-      );
+      localControlStatus = await readLocalControlStatus(localControlServer.origin);
     } catch (error) {
       updateLiveControlState(liveControlState, {
         controlStatus: "unavailable",
@@ -4660,8 +4343,7 @@ async function runConnectorCommand(parsedArgs) {
     ) {
       updateLiveControlState(liveControlState, {
         controlStatus: "unavailable",
-        controlStatusDetail:
-          "Local control auth is not ready for live tunnel publication.",
+        controlStatusDetail: "Local control auth is not ready for live tunnel publication.",
         controlUrl: null,
       });
     }

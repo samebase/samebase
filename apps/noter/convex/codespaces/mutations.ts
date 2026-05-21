@@ -236,11 +236,7 @@ export const getActiveCodespace = query({
     const userId = await getUserId(ctx);
     const vault = await ctx.db.get(args.vaultId);
 
-    if (
-      !vault?.activeCodespaceId ||
-      vault.userId !== userId ||
-      !isLiveConnectedVault(vault)
-    ) {
+    if (!vault?.activeCodespaceId || vault.userId !== userId || !isLiveConnectedVault(vault)) {
       return null;
     }
 
@@ -291,10 +287,7 @@ export const listConnectedCodespacesForVault = internalQuery({
       .query("codespaces")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .filter((q) =>
-        q.and(
-          q.eq(q.field("userId"), args.userId),
-          q.neq(q.field("state"), "deleted"),
-        ),
+        q.and(q.eq(q.field("userId"), args.userId), q.neq(q.field("state"), "deleted")),
       )
       .collect();
 
@@ -323,12 +316,7 @@ export const getConnectedCodespacesCount = query({
     const codespaces = await ctx.db
       .query("codespaces")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("userId"), userId),
-          q.neq(q.field("state"), "deleted"),
-        ),
-      )
+      .filter((q) => q.and(q.eq(q.field("userId"), userId), q.neq(q.field("state"), "deleted")))
       .collect();
 
     return codespaces.length;

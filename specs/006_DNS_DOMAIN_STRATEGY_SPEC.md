@@ -11,8 +11,8 @@
 
 ## Summary
 
-This spec defines DNS and domain management for noter-managed vault apps with a
-pilot-first rollout that prioritizes simplification and low migration risk.
+This spec defines DNS and domain management for noter-managed vault apps with a pilot-first rollout
+that prioritizes simplification and low migration risk.
 
 Decisions:
 
@@ -20,8 +20,7 @@ Decisions:
 2. `apps.noter.md` is delegated to Netlify DNS.
 3. Noter-managed vault production URLs use custom domains under `apps.noter.md`.
 4. Preview deploys use Netlify default preview URLs in pilot.
-5. Main app domain migration is deferred until pilot acceptance criteria are
-   met.
+5. Main app domain migration is deferred until pilot acceptance criteria are met.
 
 ## Goals
 
@@ -71,8 +70,7 @@ Out of scope:
 1. Production hostnames use single-label format before `apps.noter.md`.
 2. Format: `{owner}-{repo}-{suffix}.apps.noter.md`.
 3. `suffix` is required for collision resistance and stable uniqueness.
-4. Hostname generation must sanitize invalid DNS characters and enforce label
-   length constraints.
+4. Hostname generation must sanitize invalid DNS characters and enforce label length constraints.
 
 ### Preview Policy
 
@@ -86,8 +84,7 @@ Out of scope:
 Planned additions:
 
 1. New public action: `vaultActions.refreshVaultDomains({ vaultId })`.
-2. New internal sync action for pulling branch preview URLs from Netlify deploy
-   data.
+2. New internal sync action for pulling branch preview URLs from Netlify deploy data.
 3. Optional vault fields for domain sync observability:
 
 - `infraLastDomainSyncAt?: number`
@@ -100,8 +97,8 @@ No breaking changes:
 
 ## Provisioning Behavior Requirements
 
-1. After site provisioning, Noter attempts to attach the generated custom
-   production domain in Netlify.
+1. After site provisioning, Noter attempts to attach the generated custom production domain in
+   Netlify.
 2. On success:
 
 - store custom URL as `netlifyProductionUrl`.
@@ -110,8 +107,7 @@ No breaking changes:
 3. On failure:
 
 - keep fallback to Netlify default URL.
-- set infra status to `partial` when base site is healthy but domain binding
-  failed.
+- set infra status to `partial` when base site is healthy but domain binding failed.
 - keep retry path available.
 
 ## Security and Reliability
@@ -124,11 +120,9 @@ No breaking changes:
 ## Rollout Plan
 
 1. Phase 1: Create and validate delegated zone `apps.noter.md`.
-2. Phase 2: Enable custom production domains for newly created noter-managed
-   vaults.
+2. Phase 2: Enable custom production domains for newly created noter-managed vaults.
 3. Phase 3: Backfill existing noter-managed vaults via retry/sync action.
-4. Phase 4: Evaluate moving main `noter` app hosting and optionally DNS
-   authority.
+4. Phase 4: Evaluate moving main `noter` app hosting and optionally DNS authority.
 
 ## Acceptance Criteria
 
@@ -173,8 +167,7 @@ No breaking changes:
 2. Delegated zone is `apps.noter.md`.
 3. Single-label hostnames are preferred for simpler wildcard/cert handling.
 4. Preview DNS customization is deferred.
-5. Later migration of `noter.md` to Netlify is explicitly possible but not part
-   of this pilot.
+5. Later migration of `noter.md` to Netlify is explicitly possible but not part of this pilot.
 
 ## References
 

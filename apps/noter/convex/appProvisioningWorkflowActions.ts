@@ -13,10 +13,7 @@ import type {
   AppProvisioningRunState,
   AppProvisioningStep,
 } from "./schema";
-import {
-  createStarterSeedGitClient,
-  seedRepositoryWithStarter,
-} from "./starterSeed";
+import { createStarterSeedGitClient, seedRepositoryWithStarter } from "./starterSeed";
 
 const { boolean, id, literal, object, string, union } = v;
 
@@ -55,21 +52,13 @@ function readRequiredDefaultBranch(repoData: unknown): string {
   throw new Error("GitHub repository does not have a default branch.");
 }
 
-function readRepositoryCoordinates(args: {
-  ownerName: string;
-  repoName: string;
-}): {
+function readRepositoryCoordinates(args: { ownerName: string; repoName: string }): {
   ownerName: string;
   repoName: string;
 } {
   const ownerName = args.ownerName.trim();
   const repoName = args.repoName.trim();
-  if (
-    !ownerName ||
-    !repoName ||
-    ownerName.includes("/") ||
-    repoName.includes("/")
-  ) {
+  if (!ownerName || !repoName || ownerName.includes("/") || repoName.includes("/")) {
     throw new Error("Invalid repository full name.");
   }
   return { ownerName, repoName };
@@ -92,13 +81,10 @@ async function resolveGitHubOctokit(
   ctx: Pick<ActionCtx, "runQuery">,
   userId: Id<"users">,
 ): Promise<Octokit> {
-  const githubConnection = await ctx.runQuery(
-    internal.providerConnections.getByUserAndKind,
-    {
-      userId,
-      kind: "github",
-    },
-  );
+  const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+    userId,
+    kind: "github",
+  });
   if (githubConnection?.kind !== "github") {
     throw new Error("GitHub is not connected.");
   }
@@ -130,11 +116,7 @@ async function assertCreateRun(
   },
 ): Promise<Doc<"appProvisioningRuns">> {
   const run = await getProvisioningRun(ctx, args.runId);
-  if (
-    run.userId !== args.userId ||
-    run.trigger !== "create" ||
-    run.vaultId !== args.vaultId
-  ) {
+  if (run.userId !== args.userId || run.trigger !== "create" || run.vaultId !== args.vaultId) {
     throw new Error("Provisioning run does not match create workflow.");
   }
   return run;
@@ -154,9 +136,7 @@ async function assertConnectExistingRepositoryRun(
     run.trigger !== "connect_existing_repository" ||
     run.vaultId !== args.vaultId
   ) {
-    throw new Error(
-      "Provisioning run does not match existing repository workflow.",
-    );
+    throw new Error("Provisioning run does not match existing repository workflow.");
   }
   return run;
 }
@@ -208,26 +188,22 @@ export const validateCreateAppConnections = internalAction({
       throw new Error("GitHub owner is required.");
     }
 
-    const [
-      currentUser,
-      githubConnection,
-      convexConnection,
-      cloudflareConnection,
-    ] = await Promise.all([
-      ctx.runQuery(internal.users.getById, { userId: args.userId }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId: args.userId,
-        kind: "github",
-      }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId: args.userId,
-        kind: "convex",
-      }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId: args.userId,
-        kind: "cloudflare",
-      }),
-    ]);
+    const [currentUser, githubConnection, convexConnection, cloudflareConnection] =
+      await Promise.all([
+        ctx.runQuery(internal.users.getById, { userId: args.userId }),
+        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+          userId: args.userId,
+          kind: "github",
+        }),
+        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+          userId: args.userId,
+          kind: "convex",
+        }),
+        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+          userId: args.userId,
+          kind: "cloudflare",
+        }),
+      ]);
 
     if (!currentUser) {
       throw new Error("User not found.");
@@ -239,9 +215,7 @@ export const validateCreateAppConnections = internalAction({
       throw new Error("Convex connection is required to create a project.");
     }
     if (cloudflareConnection?.kind !== "cloudflare") {
-      throw new Error(
-        "Cloudflare connection is required to create a Worker-backed app.",
-      );
+      throw new Error("Cloudflare connection is required to create a Worker-backed app.");
     }
 
     const isAdmin = isAdminUser(githubConnection.username, currentUser.email);
@@ -310,13 +284,10 @@ export const createGitHubRepository = internalAction({
     const ownerName = repo.data.owner.login;
     const repoFinalName = repo.data.name;
     const repositoryFullName = `${ownerName}/${repoFinalName}`;
-    await ctx.runMutation(
-      internal.appProvisioningRuns.recordRepositoryFullName,
-      {
-        runId: args.runId,
-        repositoryFullName,
-      },
-    );
+    await ctx.runMutation(internal.appProvisioningRuns.recordRepositoryFullName, {
+      runId: args.runId,
+      repositoryFullName,
+    });
     await appendRunEvent(ctx, {
       runId: args.runId,
       step: "create_github_repo",
@@ -324,9 +295,7 @@ export const createGitHubRepository = internalAction({
       message: `Created GitHub repository ${repositoryFullName}.`,
       state: "running",
     });
-    const visibility: "private" | "public" = repo.data.private
-      ? "private"
-      : "public";
+    const visibility: "private" | "public" = repo.data.private ? "private" : "public";
 
     return {
       ghRepoId: repo.data.id.toString(),
@@ -415,16 +384,11 @@ export const fetchExistingGitHubRepository = internalAction({
     const ownerName = repo.data.owner.login;
     const repoFinalName = repo.data.name;
     const repositoryFullName = `${ownerName}/${repoFinalName}`;
-    const visibility: "private" | "public" = repo.data.private
-      ? "private"
-      : "public";
-    await ctx.runMutation(
-      internal.appProvisioningRuns.recordRepositoryFullName,
-      {
-        runId: args.runId,
-        repositoryFullName,
-      },
-    );
+    const visibility: "private" | "public" = repo.data.private ? "private" : "public";
+    await ctx.runMutation(internal.appProvisioningRuns.recordRepositoryFullName, {
+      runId: args.runId,
+      repositoryFullName,
+    });
 
     await appendRunEvent(ctx, {
       runId: args.runId,
@@ -519,19 +483,16 @@ export const createVaultForRepository = internalAction({
       state: "running",
     });
 
-    await ctx.runMutation(
-      internal.vault.records.connectNoterManagedVaultGitHub,
-      {
-        vaultId: args.vaultId,
-        userId: args.userId,
-        ghRepoId: args.ghRepoId,
-        ghRepoOwner: args.ownerName,
-        ghRepoName: args.repoName,
-        defaultBranch: args.defaultBranch,
-        visibility: args.visibility,
-        runId: args.runId,
-      },
-    );
+    await ctx.runMutation(internal.vault.records.connectNoterManagedVaultGitHub, {
+      vaultId: args.vaultId,
+      userId: args.userId,
+      ghRepoId: args.ghRepoId,
+      ghRepoOwner: args.ownerName,
+      ghRepoName: args.repoName,
+      defaultBranch: args.defaultBranch,
+      visibility: args.visibility,
+      runId: args.runId,
+    });
     await appendRunEvent(ctx, {
       runId: args.runId,
       step: "connect_github",
@@ -567,19 +528,16 @@ export const connectExistingRepositoryVault = internalAction({
       state: "running",
     });
 
-    await ctx.runMutation(
-      internal.vault.records.connectExistingRepositoryVaultGitHub,
-      {
-        vaultId: args.vaultId,
-        userId: args.userId,
-        ghRepoId: args.ghRepoId,
-        ghRepoOwner: args.ownerName,
-        ghRepoName: args.repoName,
-        defaultBranch: args.defaultBranch,
-        visibility: args.visibility,
-        runId: args.runId,
-      },
-    );
+    await ctx.runMutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
+      vaultId: args.vaultId,
+      userId: args.userId,
+      ghRepoId: args.ghRepoId,
+      ghRepoOwner: args.ownerName,
+      ghRepoName: args.repoName,
+      defaultBranch: args.defaultBranch,
+      visibility: args.visibility,
+      runId: args.runId,
+    });
     await appendRunEvent(ctx, {
       runId: args.runId,
       step: "connect_github",
@@ -656,8 +614,7 @@ export const finishExistingRepositoryConnection = internalAction({
     await assertConnectExistingRepositoryRun(ctx, args);
 
     const result = await ctx.runMutation(
-      internal.repositoryRefresh
-        .completeExistingRepositoryConnectionAndEnqueueRefresh,
+      internal.repositoryRefresh.completeExistingRepositoryConnectionAndEnqueueRefresh,
       {
         userId: args.userId,
         vaultId: args.vaultId,

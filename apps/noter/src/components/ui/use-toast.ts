@@ -16,13 +16,7 @@ function genId() {
 
 const toastManager = ToastPrimitive.createToastManager<ToastData>();
 
-function toToastOptions({
-  action,
-  description,
-  title,
-  variant,
-  ...props
-}: ToastProps) {
+function toToastOptions({ action, description, title, variant, ...props }: ToastProps) {
   return {
     ...props,
     data: action === undefined ? undefined : { action },

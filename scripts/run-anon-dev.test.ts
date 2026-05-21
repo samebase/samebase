@@ -37,14 +37,7 @@ describe("run-anon-dev", () => {
   it("lets explicit CLI flags override env defaults", () => {
     expect(
       parseAnonArgs(
-        [
-          "--once",
-          "--no-branch",
-          "--vite-port",
-          "6001",
-          "--source-env",
-          "custom.env.local",
-        ],
+        ["--once", "--no-branch", "--vite-port", "6001", "--source-env", "custom.env.local"],
         {
           ANON_ALLOW_MISSING_SOURCE_ENV: "1",
           ANON_VITE_PORT: "5174",
@@ -100,8 +93,7 @@ describe("run-anon-dev", () => {
       env: {
         CONVEX_AGENT_MODE: "anonymous",
         VITE_LOCAL_WORKTREE_PASSWORD_EMAIL: LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
-        VITE_LOCAL_WORKTREE_PASSWORD_VALUE:
-          LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
+        VITE_LOCAL_WORKTREE_PASSWORD_VALUE: LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
         VITE_PORT: "6001",
       },
       longRunning: true,

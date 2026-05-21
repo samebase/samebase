@@ -16,10 +16,7 @@ import {
   isNoterManagedVault,
 } from "./state";
 import { isVaultDeletingOrDeleteFailed } from "./deletion/state";
-import {
-  countActiveRemoteBranches,
-  resolveVaultBranchSelection,
-} from "./branches";
+import { countActiveRemoteBranches, resolveVaultBranchSelection } from "./branches";
 import { getLastRepositoryMetadataRefreshAt } from "../../shared/treeRefresh";
 
 const nullValidator = v.null();
@@ -104,80 +101,79 @@ function pickProvisioningVaultOperationalFields(vault: ProvisioningVault) {
   };
 }
 
-export const createInitializingExistingRepositoryVaultForUser =
-  internalMutation({
-    args: {
-      userId: id("users"),
-      ghRepoOwner: string(),
-      ghRepoName: string(),
-    },
-    returns: object({
-      vaultId: id("vaults"),
-      runId: id("appProvisioningRuns"),
-    }),
-    handler: async (
-      ctx,
-      args,
-    ): Promise<{
-      vaultId: Id<"vaults">;
-      runId: Id<"appProvisioningRuns">;
-    }> => {
-      const user = await ctx.db.get(args.userId);
-      if (!user) {
-        throw new Error("User not found");
-      }
-      const owner = args.ghRepoOwner.trim();
-      const name = args.ghRepoName.trim();
-      if (!owner || !name) {
-        throw new Error("Invalid repository full name");
-      }
-      await assertUserHasNoVaultForRepository(ctx, {
-        userId: args.userId,
-        owner,
-        name,
-      });
+export const createInitializingExistingRepositoryVaultForUser = internalMutation({
+  args: {
+    userId: id("users"),
+    ghRepoOwner: string(),
+    ghRepoName: string(),
+  },
+  returns: object({
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    vaultId: Id<"vaults">;
+    runId: Id<"appProvisioningRuns">;
+  }> => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+    const owner = args.ghRepoOwner.trim();
+    const name = args.ghRepoName.trim();
+    if (!owner || !name) {
+      throw new Error("Invalid repository full name");
+    }
+    await assertUserHasNoVaultForRepository(ctx, {
+      userId: args.userId,
+      owner,
+      name,
+    });
 
-      const now = Date.now();
-      const vaultId = await ctx.db.insert("vaults", {
-        userId: args.userId,
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-      });
-      const repositoryFullName = `${owner}/${name}`;
-      const runId = await ctx.db.insert("appProvisioningRuns", {
-        userId: args.userId,
-        vaultId,
-        repositoryFullName,
-        trigger: "connect_existing_repository",
-        state: "queued",
-        currentStep: "run_created",
-        createdAt: now,
-        updatedAt: now,
-      });
+    const now = Date.now();
+    const vaultId = await ctx.db.insert("vaults", {
+      userId: args.userId,
+      deletion: { state: "not_deleting" },
+      state: "not_connected",
+    });
+    const repositoryFullName = `${owner}/${name}`;
+    const runId = await ctx.db.insert("appProvisioningRuns", {
+      userId: args.userId,
+      vaultId,
+      repositoryFullName,
+      trigger: "connect_existing_repository",
+      state: "queued",
+      currentStep: "run_created",
+      createdAt: now,
+      updatedAt: now,
+    });
 
-      // The run owns source setup for this existing repository connection.
-      await ctx.db.patch(vaultId, {
-        state: "provisioning",
-        githubMode: "connect_existing_repository",
-        runId,
-        startedAt: now,
-        owner,
-        name,
-      });
-      await ctx.db.insert("appProvisioningEvents", {
-        userId: args.userId,
-        vaultId,
-        repositoryFullName,
-        runId,
-        step: "initialize_vault",
-        level: "info",
-        message: "Queued existing repository connection.",
-        createdAt: now,
-      });
+    // The run owns source setup for this existing repository connection.
+    await ctx.db.patch(vaultId, {
+      state: "provisioning",
+      githubMode: "connect_existing_repository",
+      runId,
+      startedAt: now,
+      owner,
+      name,
+    });
+    await ctx.db.insert("appProvisioningEvents", {
+      userId: args.userId,
+      vaultId,
+      repositoryFullName,
+      runId,
+      step: "initialize_vault",
+      level: "info",
+      message: "Queued existing repository connection.",
+      createdAt: now,
+    });
 
-      return { vaultId, runId };
-    },
-  });
+    return { vaultId, runId };
+  },
+});
 
 export const connectExistingRepositoryVaultGitHub = internalMutation({
   args: {
@@ -216,9 +212,7 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
         vault.ghRepoId !== args.ghRepoId ||
         vault.runId !== args.runId
       ) {
-        throw new Error(
-          "Connected vault repository identity cannot be changed.",
-        );
+        throw new Error("Connected vault repository identity cannot be changed.");
       }
       return null;
     }
@@ -372,14 +366,10 @@ export const connectNoterManagedVaultGitHub = internalMutation({
     }
     if (isConnectedVault(vault)) {
       if (!isNoterManagedVault(vault)) {
-        throw new Error(
-          "Connected vault repository identity cannot be changed.",
-        );
+        throw new Error("Connected vault repository identity cannot be changed.");
       }
       if (vault.ghRepoId !== args.ghRepoId || vault.runId !== args.runId) {
-        throw new Error(
-          "Connected vault repository identity cannot be changed.",
-        );
+        throw new Error("Connected vault repository identity cannot be changed.");
       }
       return null;
     }
@@ -524,9 +514,7 @@ export const hasOtherVaultsForRepository = internalQuery({
   handler: async (ctx, args) => {
     for await (const vault of ctx.db
       .query("vaults")
-      .withIndex("by_owner_and_name", (q) =>
-        q.eq("owner", args.owner).eq("name", args.repo),
-      )) {
+      .withIndex("by_owner_and_name", (q) => q.eq("owner", args.owner).eq("name", args.repo))) {
       if (isConnectedVault(vault) && vault._id !== args.excludeVaultId) {
         return true;
       }
@@ -547,9 +535,7 @@ async function getVaultByRepositoryHelper(
 
   const vault = await ctx.db
     .query("vaults")
-    .withIndex("by_owner_and_name", (q) =>
-      q.eq("owner", owner).eq("name", name),
-    )
+    .withIndex("by_owner_and_name", (q) => q.eq("owner", owner).eq("name", name))
     .filter((q) => q.eq(q.field("userId"), args.userId))
     .first();
 
@@ -566,12 +552,11 @@ async function getVaultByRepositoryHelper(
     .query("vaultRemoteBranches")
     .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
     .collect();
-  const { defaultBranch, resolvedBranch, branchNotFound } =
-    resolveVaultBranchSelection({
-      requestedBranch,
-      defaultBranch: vault.defaultBranch,
-      remoteBranches,
-    });
+  const { defaultBranch, resolvedBranch, branchNotFound } = resolveVaultBranchSelection({
+    requestedBranch,
+    defaultBranch: vault.defaultBranch,
+    remoteBranches,
+  });
 
   const branchTree = await ctx.db
     .query("vaultBranchTrees")
@@ -591,15 +576,13 @@ async function getVaultByRepositoryHelper(
     treeSHA: branchTree?.treeSHA,
     commitSHA: branchTree?.commitSHA,
     treeData: branchTree?.treeData,
-    treeRefreshStartedAt:
-      branchTree?.treeRefreshStartedAt ?? vault.treeRefreshStartedAt,
+    treeRefreshStartedAt: branchTree?.treeRefreshStartedAt ?? vault.treeRefreshStartedAt,
     lastTreeRefreshAt: branchTree?.lastTreeRefreshAt ?? vault.lastTreeRefreshAt,
     lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
     treeRefreshFailureKind: vault.treeRefreshFailureKind,
     treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
     treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
-    lastRepositoryMetadataRefreshAt:
-      getLastRepositoryMetadataRefreshAt(remoteBranches),
+    lastRepositoryMetadataRefreshAt: getLastRepositoryMetadataRefreshAt(remoteBranches),
     // Budget automatic refreshes from live remote branches only; retained
     // deleted-upstream rows are local recovery state, not GitHub fan-out.
     remoteBranchCount: countActiveRemoteBranches(remoteBranches),

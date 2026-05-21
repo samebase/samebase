@@ -14,14 +14,8 @@ import {
   LANDING_MARKDOWN_PREVIEW_ROUTE,
 } from "@/lib/landingMarkdownPreview";
 import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
-import {
-  FORCE_PROD_UI_MODE_LINK_LABEL,
-  FORCE_PROD_UI_QUERY_PARAM,
-} from "@/lib/prodUiMode";
-import {
-  SEARCH_RESET_LINK_LABEL,
-  SEARCH_RESET_QUERY_PARAM,
-} from "@/lib/searchReset";
+import { FORCE_PROD_UI_MODE_LINK_LABEL, FORCE_PROD_UI_QUERY_PARAM } from "@/lib/prodUiMode";
+import { SEARCH_RESET_LINK_LABEL, SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import {
   ROOT_THEME_DARK_MODE_LINK_LABEL,
   ROOT_THEME_LIGHT_MODE_DISABLE_LINK_LABEL,
@@ -33,17 +27,13 @@ import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStat
 import { sanitizePublicLayoutSidebarState } from "@/lib/publicLayoutSidebarState";
 import { Layout, PublicLayoutShell } from "./Layout";
 
-const {
-  signInWithGoogleMock,
-  signInWithPasswordMock,
-  useConvexAuthMock,
-  useQueryMock,
-} = vi.hoisted(() => ({
-  signInWithGoogleMock: vi.fn(),
-  signInWithPasswordMock: vi.fn(),
-  useConvexAuthMock: vi.fn(),
-  useQueryMock: vi.fn(),
-}));
+const { signInWithGoogleMock, signInWithPasswordMock, useConvexAuthMock, useQueryMock } =
+  vi.hoisted(() => ({
+    signInWithGoogleMock: vi.fn(),
+    signInWithPasswordMock: vi.fn(),
+    useConvexAuthMock: vi.fn(),
+    useQueryMock: vi.fn(),
+  }));
 
 function encodeStaticHref(path: string): string {
   return path.split("&").join("&amp;");
@@ -205,9 +195,7 @@ describe("Layout", () => {
             dataTestId="local-storage-workspace"
             defaultLeftOpen
             left={{
-              content: (
-                <div data-testid="local-storage-left-pane">localStorage</div>
-              ),
+              content: <div data-testid="local-storage-left-pane">localStorage</div>,
             }}
             leftToggleVisibility="all"
             main={{
@@ -328,9 +316,7 @@ describe("Layout", () => {
       </TestRouterProvider>,
     );
 
-    const devShortcutIndex = markup.indexOf(
-      LANDING_DEV_MODE_DISABLE_LINK_LABEL,
-    );
+    const devShortcutIndex = markup.indexOf(LANDING_DEV_MODE_DISABLE_LINK_LABEL);
     const prodUiShortcutIndex = markup.indexOf(FORCE_PROD_UI_MODE_LINK_LABEL);
     const resetShortcutIndex = markup.indexOf(SEARCH_RESET_LINK_LABEL);
     const lightShortcutIndex = markup.indexOf(ROOT_THEME_LIGHT_MODE_LINK_LABEL);
@@ -376,9 +362,7 @@ describe("Layout", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain(
-      `data-testid="${PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID}"`,
-    );
+    expect(markup).toContain(`data-testid="${PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID}"`);
     expect(markup).toContain('data-testid="route-url-display"');
     expect(markup).toContain('title="/?dev"');
     expect(markup).toContain(">/?dev</p>");
@@ -399,9 +383,7 @@ describe("Layout", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain(
-      `data-testid="${PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID}"`,
-    );
+    expect(markup).toContain(`data-testid="${PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID}"`);
     expect(markup).toContain('aria-hidden="true"');
     expect(markup).toContain('data-testid="route-url-display"');
   });
@@ -558,9 +540,7 @@ describe("Layout", () => {
     expect(markup).toContain(ROOT_THEME_LIGHT_MODE_DISABLE_LINK_LABEL);
     expect(markup).not.toContain(`>${ROOT_THEME_LIGHT_MODE_LINK_LABEL}<`);
     expect(markup).toContain(ROOT_THEME_DARK_MODE_LINK_LABEL);
-    expect(markup).toContain(
-      `href="${encodeStaticHref(logoWithoutLightPath)}"`,
-    );
+    expect(markup).toContain(`href="${encodeStaticHref(logoWithoutLightPath)}"`);
   });
 
   it("replaces active light mode with dark mode in the current URL", () => {
@@ -833,12 +813,8 @@ describe("Layout", () => {
       },
     })}"`;
 
-    expect(homeMarkup).not.toContain(
-      LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
-    );
-    expect(landingPreviewMarkup).toContain(
-      LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
-    );
+    expect(homeMarkup).not.toContain(LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL);
+    expect(landingPreviewMarkup).toContain(LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL);
     expect(landingPreviewMarkup).toContain(landingPreviewRomanianHref);
   });
 

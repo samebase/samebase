@@ -9,10 +9,7 @@ async function expectInlinePadding(locator: Locator, expectedPx: string) {
 async function expectElementsDoNotOverlap(first: Locator, second: Locator) {
   await expect
     .poll(async () => {
-      const [firstBox, secondBox] = await Promise.all([
-        first.boundingBox(),
-        second.boundingBox(),
-      ]);
+      const [firstBox, secondBox] = await Promise.all([first.boundingBox(), second.boundingBox()]);
       if (firstBox === null || secondBox === null) {
         return false;
       }
@@ -40,10 +37,7 @@ async function expectOptionalCheckboxUnchecked(locator: Locator) {
  * expectElementInsideContainer checks boundingBox containment with 1px of
  * tolerance for sub-pixel layout rounding; missing boxes fail closed.
  */
-async function expectElementInsideContainer(
-  element: Locator,
-  container: Locator,
-) {
+async function expectElementInsideContainer(element: Locator, container: Locator) {
   await expect
     .poll(async () => {
       const [elementBox, containerBox] = await Promise.all([
@@ -57,10 +51,8 @@ async function expectElementInsideContainer(
       return (
         elementBox.x >= containerBox.x - 1 &&
         elementBox.y >= containerBox.y - 1 &&
-        elementBox.x + elementBox.width <=
-          containerBox.x + containerBox.width + 1 &&
-        elementBox.y + elementBox.height <=
-          containerBox.y + containerBox.height + 1
+        elementBox.x + elementBox.width <= containerBox.x + containerBox.width + 1 &&
+        elementBox.y + elementBox.height <= containerBox.y + containerBox.height + 1
       );
     })
     .toBe(true);
@@ -83,16 +75,9 @@ async function expectSidebarTextOwnsWrappedLine({
             return false;
           }
 
-          const iconElement = rowElement.querySelector(
-            `[data-testid="${testIds.iconTestId}"]`,
-          );
-          const textElement = rowElement.querySelector(
-            `[data-testid="${testIds.textTestId}"]`,
-          );
-          if (
-            !(iconElement instanceof HTMLElement) ||
-            !(textElement instanceof HTMLElement)
-          ) {
+          const iconElement = rowElement.querySelector(`[data-testid="${testIds.iconTestId}"]`);
+          const textElement = rowElement.querySelector(`[data-testid="${testIds.textTestId}"]`);
+          if (!(iconElement instanceof HTMLElement) || !(textElement instanceof HTMLElement)) {
             return false;
           }
 
@@ -122,9 +107,10 @@ test("vault dashboard fixture (create control)", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
-  await expect(
-    fixture.getByRole("button", { name: "Connect existing app" }),
-  ).toHaveAttribute("href", "/add");
+  await expect(fixture.getByRole("button", { name: "Connect existing app" })).toHaveAttribute(
+    "href",
+    "/add",
+  );
   await expect(fixture).toHaveScreenshot("vault-create-control.png", {
     animations: "disabled",
     caret: "hide",
@@ -141,18 +127,9 @@ test("vault dashboard fixture (sidebar account clamp)", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
-  await expectInlinePadding(
-    page.getByTestId("dashboard-sidebar-account-section"),
-    "4px",
-  );
-  await expectInlinePadding(
-    page.getByTestId("dashboard-sidebar-providers-section"),
-    "4px",
-  );
-  await expectInlinePadding(
-    page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID),
-    "4px",
-  );
+  await expectInlinePadding(page.getByTestId("dashboard-sidebar-account-section"), "4px");
+  await expectInlinePadding(page.getByTestId("dashboard-sidebar-providers-section"), "4px");
+  await expectInlinePadding(page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID), "4px");
   await expectSidebarTextOwnsWrappedLine({
     iconTestId: "dashboard-sidebar-account-icon",
     row: page.getByTestId("dashboard-sidebar-account-row"),
@@ -160,9 +137,7 @@ test("vault dashboard fixture (sidebar account clamp)", async ({ page }) => {
   });
   await expectSidebarTextOwnsWrappedLine({
     iconTestId: "dashboard-sidebar-provider-icon",
-    row: page
-      .getByTestId("dashboard-sidebar-provider-row")
-      .filter({ hasText: "GitHub" }),
+    row: page.getByTestId("dashboard-sidebar-provider-row").filter({ hasText: "GitHub" }),
     textTestId: "dashboard-sidebar-provider-text",
   });
   await expect(fixture).toHaveScreenshot("vault-sidebar-account-clamp.png", {
@@ -173,9 +148,7 @@ test("vault dashboard fixture (sidebar account clamp)", async ({ page }) => {
   });
 });
 
-test("vault dashboard fixture (mobile sidebar min width)", async ({
-  browser,
-}, testInfo) => {
+test("vault dashboard fixture (mobile sidebar min width)", async ({ browser }, testInfo) => {
   const baseURL = testInfo.project.use.baseURL;
   if (typeof baseURL !== "string") {
     throw new Error("Playwright baseURL is required for mobile fixture tests.");
@@ -192,27 +165,17 @@ test("vault dashboard fixture (mobile sidebar min width)", async ({
   });
   await page.waitForLoadState("networkidle");
 
-  await expect(
-    page.locator("[data-workspace-layout-v2='mobile']"),
-  ).toHaveAttribute("data-mobile-pane", "right");
+  await expect(page.locator("[data-workspace-layout-v2='mobile']")).toHaveAttribute(
+    "data-mobile-pane",
+    "right",
+  );
   const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
   await expect(rightPane).toHaveCSS("width", "96px");
-  await expectInlinePadding(
-    page.getByTestId("dashboard-sidebar-account-section"),
-    "4px",
-  );
-  await expectInlinePadding(
-    page.getByTestId("dashboard-sidebar-providers-section"),
-    "4px",
-  );
-  await expectInlinePadding(
-    page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID),
-    "4px",
-  );
+  await expectInlinePadding(page.getByTestId("dashboard-sidebar-account-section"), "4px");
+  await expectInlinePadding(page.getByTestId("dashboard-sidebar-providers-section"), "4px");
+  await expectInlinePadding(page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID), "4px");
   await expect
-    .poll(() =>
-      rightPane.evaluate((pane) => pane.scrollWidth <= pane.clientWidth),
-    )
+    .poll(() => rightPane.evaluate((pane) => pane.scrollWidth <= pane.clientWidth))
     .toBe(true);
   await expectSidebarTextOwnsWrappedLine({
     iconTestId: "dashboard-sidebar-account-icon",
@@ -221,9 +184,7 @@ test("vault dashboard fixture (mobile sidebar min width)", async ({
   });
   await expectSidebarTextOwnsWrappedLine({
     iconTestId: "dashboard-sidebar-provider-icon",
-    row: page
-      .getByTestId("dashboard-sidebar-provider-row")
-      .filter({ hasText: "GitHub" }),
+    row: page.getByTestId("dashboard-sidebar-provider-row").filter({ hasText: "GitHub" }),
     textTestId: "dashboard-sidebar-provider-text",
   });
 
@@ -253,9 +214,7 @@ test("vault dashboard fixture (branch PR labels)", async ({ page }) => {
   });
 });
 
-test("vault dashboard fixture (developer tools query spacing)", async ({
-  page,
-}) => {
+test("vault dashboard fixture (developer tools query spacing)", async ({ page }) => {
   await page.setViewportSize({ width: 640, height: 260 });
   await page.goto("/visual-fixture?mode=vault-dashboard-dev-tools-hidden", {
     waitUntil: "domcontentloaded",
@@ -264,9 +223,7 @@ test("vault dashboard fixture (developer tools query spacing)", async ({
 
   const hiddenFixture = page.getByTestId("vault-dashboard-visual-fixture");
   const hiddenCard = page.getByTestId("vault-dashboard-dev-tools-card");
-  await expect(
-    hiddenFixture.getByRole("button", { name: "Developer tools" }),
-  ).toHaveCount(0);
+  await expect(hiddenFixture.getByRole("button", { name: "Developer tools" })).toHaveCount(0);
 
   const hiddenBox = await hiddenCard.boundingBox();
   expect(hiddenBox).not.toBeNull();
@@ -274,15 +231,12 @@ test("vault dashboard fixture (developer tools query spacing)", async ({
     throw new Error("Expected hidden developer tools fixture card bounds");
   }
 
-  await expect(hiddenFixture).toHaveScreenshot(
-    "vault-dashboard-dev-tools-hidden.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      scale: "css",
-      maxDiffPixelRatio: 0.03,
-    },
-  );
+  await expect(hiddenFixture).toHaveScreenshot("vault-dashboard-dev-tools-hidden.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
 
   await page.goto("/visual-fixture?mode=vault-dashboard-dev-tools-visible", {
     waitUntil: "domcontentloaded",
@@ -291,9 +245,7 @@ test("vault dashboard fixture (developer tools query spacing)", async ({
 
   const visibleFixture = page.getByTestId("vault-dashboard-visual-fixture");
   const visibleCard = page.getByTestId("vault-dashboard-dev-tools-card");
-  await expect(
-    visibleFixture.getByRole("button", { name: "Developer tools" }),
-  ).toBeVisible();
+  await expect(visibleFixture.getByRole("button", { name: "Developer tools" })).toBeVisible();
 
   const visibleBox = await visibleCard.boundingBox();
   expect(visibleBox).not.toBeNull();
@@ -314,9 +266,7 @@ test("vault dashboard fixture (delete dialog)", async ({ page }) => {
     name: "Remove Vault noter-md/noter",
   });
   await expect(deleteDialog).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Remove Vault" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove Vault" })).toBeVisible();
   await expect(
     deleteDialog.getByRole("checkbox", {
       name: "Also remove GitHub repository",
@@ -345,9 +295,7 @@ test("vault dashboard fixture (delete dialog)", async ({ page }) => {
   });
 });
 
-test("vault dashboard fixture (delete dialog mobile)", async ({
-  browser,
-}, testInfo) => {
+test("vault dashboard fixture (delete dialog mobile)", async ({ browser }, testInfo) => {
   const baseURL = testInfo.project.use.baseURL;
   if (typeof baseURL !== "string") {
     throw new Error("Playwright baseURL is required for mobile fixture tests.");
@@ -368,9 +316,7 @@ test("vault dashboard fixture (delete dialog mobile)", async ({
     name: "Remove Vault noter-md/noter",
   });
   await expect(deleteDialog).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Remove Vault" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove Vault" })).toBeVisible();
   await expect(
     deleteDialog.getByRole("checkbox", {
       name: "Also remove GitHub repository",
@@ -391,15 +337,12 @@ test("vault dashboard fixture (delete dialog mobile)", async ({
       name: "Also remove Cloudflare Worker",
     }),
   ).not.toBeChecked();
-  await expect(page).toHaveScreenshot(
-    "vault-dashboard-delete-dialog-mobile.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      scale: "css",
-      maxDiffPixelRatio: 0.03,
-    },
-  );
+  await expect(page).toHaveScreenshot("vault-dashboard-delete-dialog-mobile.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
 
   await context.close();
 });
@@ -417,15 +360,12 @@ test("vault dashboard fixture (provisioning log)", async ({ page }) => {
       name: "Provisioning log for noter-md/noter-app",
     }),
   ).toBeVisible();
-  await expect(fixture).toHaveScreenshot(
-    "vault-dashboard-provisioning-log.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      scale: "css",
-      maxDiffPixelRatio: 0.03,
-    },
-  );
+  await expect(fixture).toHaveScreenshot("vault-dashboard-provisioning-log.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
 });
 
 test("vault dashboard fixture (infra setup progress)", async ({ page }) => {
@@ -437,12 +377,8 @@ test("vault dashboard fixture (infra setup progress)", async ({ page }) => {
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
   await expect(fixture.getByText("Infra: provisioning")).toBeVisible();
-  await expect(
-    fixture.getByRole("button", { name: "Provision infra" }),
-  ).toHaveCount(0);
-  await expect(
-    fixture.getByRole("button", { name: "Retry infra" }),
-  ).toHaveCount(0);
+  await expect(fixture.getByRole("button", { name: "Provision infra" })).toHaveCount(0);
+  await expect(fixture.getByRole("button", { name: "Retry infra" })).toHaveCount(0);
   await expect(fixture).toHaveScreenshot("vault-dashboard-infra-setup.png", {
     animations: "disabled",
     caret: "hide",
@@ -464,26 +400,16 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   });
   await expect(deleteLink).toBeVisible();
   await expect(deleteLink).toHaveAttribute("href", "/?delete#noter");
-  await expect(
-    fixture.getByRole("link", { name: "Project settings" }),
-  ).toBeVisible();
-  await expect(
-    fixture.getByRole("link", { name: "Cloudflare preview" }),
-  ).toBeVisible();
-  await expect(
-    fixture.getByRole("link", { name: "Preview deploy" }),
-  ).toBeVisible();
-  await expect(
-    fixture.getByRole("link", { name: "Production deploy" }),
-  ).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Project settings" })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Cloudflare preview" })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Preview deploy" })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Production deploy" })).toBeVisible();
   await expect(
     fixture.getByRole("link", {
       name: "PR #321 Use the full dashboard main pane",
     }),
   ).toBeVisible();
-  await expect(
-    fixture.getByRole("link", { name: "Edit" }).first(),
-  ).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Edit" }).first()).toBeVisible();
   await expect(
     fixture.getByRole("link", {
       name: "codex/dashboard-main-pane-spacing",
@@ -510,45 +436,30 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   });
   await expect(deleteLink).toBeVisible();
   await expect(deleteLink).toHaveAttribute("href", "/?delete#noter");
-  await expect(
-    fixture.getByRole("link", { name: "Project settings" }),
-  ).toBeVisible();
-  await expect(
-    fixture.getByRole("link", { name: "Cloudflare preview" }),
-  ).toBeVisible();
-  await expect(
-    fixture.getByRole("link", { name: "Preview deploy" }),
-  ).toBeVisible();
-  await expect(
-    fixture.getByRole("link", { name: "Production deploy" }),
-  ).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Project settings" })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Cloudflare preview" })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Preview deploy" })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Production deploy" })).toBeVisible();
   await expect(
     fixture.getByRole("link", {
       name: "PR #321 Use the full dashboard main pane",
     }),
   ).toBeVisible();
-  await expect(
-    fixture.getByRole("link", { name: "Edit" }).first(),
-  ).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Edit" }).first()).toBeVisible();
   await expect(
     fixture.getByRole("link", {
       name: "codex/dashboard-main-pane-spacing",
     }),
   ).toBeVisible();
-  await expect(fixture).toHaveScreenshot(
-    "vault-dashboard-list-spacing-desktop.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      scale: "css",
-      maxDiffPixelRatio: 0.03,
-    },
-  );
+  await expect(fixture).toHaveScreenshot("vault-dashboard-list-spacing-desktop.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
 });
 
-test("vault dashboard fixture (bottom target can align at top)", async ({
-  page,
-}) => {
+test("vault dashboard fixture (bottom target can align at top)", async ({ page }) => {
   await page.setViewportSize({ width: 960, height: 520 });
   await page.goto("/visual-fixture?mode=vault-dashboard-bottom-target-scroll", {
     waitUntil: "domcontentloaded",
@@ -560,9 +471,7 @@ test("vault dashboard fixture (bottom target can align at top)", async ({
     .locator("section > div")
     .nth(1);
   const target = page.getByTestId("vault-dashboard-bottom-target-card");
-  const targetHeader = target.locator(
-    "[data-vault-dashboard-repository-header]",
-  );
+  const targetHeader = target.locator("[data-vault-dashboard-repository-header]");
   const targetRepositoryLink = page.getByRole("link", {
     name: "#noter-bottom-target",
     exact: true,
@@ -613,35 +522,24 @@ test("vault dashboard fixture (bottom target can align at top)", async ({
           return [];
         }
 
-        const header = targetElement.querySelector(
-          "[data-vault-dashboard-repository-header]",
-        );
+        const header = targetElement.querySelector("[data-vault-dashboard-repository-header]");
         const scrollportElement = targetElement
           .closest('[data-testid="workspace-layout-v2-main-viewport"]')
           ?.querySelector("section > div:nth-of-type(2)");
-        if (
-          !(header instanceof HTMLElement) ||
-          !(scrollportElement instanceof HTMLElement)
-        ) {
+        if (!(header instanceof HTMLElement) || !(scrollportElement instanceof HTMLElement)) {
           return [];
         }
 
         const headerBox = header.getBoundingClientRect();
         const scrollportBox = scrollportElement.getBoundingClientRect();
-        return Array.from(
-          targetElement.querySelectorAll("[data-vault-dashboard-branch-row]"),
-        )
+        return Array.from(targetElement.querySelectorAll("[data-vault-dashboard-branch-row]"))
           .filter((rowElement) => {
             if (!(rowElement instanceof HTMLElement)) {
               return false;
             }
 
             const rowBox = rowElement.getBoundingClientRect();
-            const visibleTop = Math.max(
-              rowBox.top,
-              headerBox.bottom,
-              scrollportBox.top,
-            );
+            const visibleTop = Math.max(rowBox.top, headerBox.bottom, scrollportBox.top);
             const visibleBottom = Math.min(rowBox.bottom, scrollportBox.bottom);
             return visibleBottom - visibleTop > 1;
           })
@@ -649,24 +547,19 @@ test("vault dashboard fixture (bottom target can align at top)", async ({
             const branchLink = rowElement.querySelector(
               'a[aria-label^="Open "][aria-label$=" branch on GitHub"]',
             );
-            return branchLink instanceof HTMLElement
-              ? branchLink.textContent.trim()
-              : "";
+            return branchLink instanceof HTMLElement ? branchLink.textContent.trim() : "";
           });
       }),
     )
     .toEqual(["codex/bottom-target-last-branch"]);
   await expect(targetRepositoryLink).toBeVisible();
   await expect(targetLastBranchLink).toBeVisible();
-  await expect(page).toHaveScreenshot(
-    "vault-dashboard-bottom-target-scroll.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      scale: "css",
-      maxDiffPixelRatio: 0.03,
-    },
-  );
+  await expect(page).toHaveScreenshot("vault-dashboard-bottom-target-scroll.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
 });
 
 test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
@@ -700,9 +593,7 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
       return Math.abs(headerBox.y - scrollportBox.y);
     })
     .toBeLessThanOrEqual(1);
-  await expect(
-    page.getByRole("link", { name: "#noter", exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "#noter", exact: true })).toBeVisible();
   const branchExpansionButton = header.getByRole("button", {
     name: "Show less branches",
     exact: true,
@@ -718,9 +609,7 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
   await expectElementInsideContainer(branchExpansionButton, header);
   await expectElementInsideContainer(branchFilterCount, header);
   await expectElementInsideContainer(branchFiltersButton, header);
-  await expect(
-    page.getByText("codex/sticky-dashboard-branch-05"),
-  ).toBeVisible();
+  await expect(page.getByText("codex/sticky-dashboard-branch-05")).toBeVisible();
   await expect(page).toHaveScreenshot("vault-dashboard-sticky-header.png", {
     animations: "disabled",
     caret: "hide",
@@ -740,15 +629,11 @@ test("vault dashboard fixture (list spacing expansion)", async ({ page }) => {
   await page.getByRole("button", { name: "Show 5 more branches" }).click();
 
   await expect(page.getByText("codex/archive-doc-taxonomy")).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Show less branches" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show less branches" })).toBeVisible();
   await page.getByRole("button", { name: "Show less branches" }).click();
 
   await expect(page.getByText("codex/archive-doc-taxonomy")).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Show 5 more branches" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show 5 more branches" })).toBeVisible();
 });
 
 test("vault dashboard fixture (branch filters popover)", async ({ page }) => {
@@ -767,9 +652,7 @@ test("vault dashboard fixture (branch filters popover)", async ({ page }) => {
   });
 });
 
-test("vault dashboard fixture (branch filters mobile sheet)", async ({
-  browser,
-}, testInfo) => {
+test("vault dashboard fixture (branch filters mobile sheet)", async ({ browser }, testInfo) => {
   const baseURL = testInfo.project.use.baseURL;
   if (typeof baseURL !== "string") {
     throw new Error("Playwright baseURL is required for mobile fixture tests.");

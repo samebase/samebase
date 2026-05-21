@@ -1,33 +1,31 @@
 ---
 name: noter-playwright-live
 description:
-  Run Noter-stack apps locally and inspect real UI behavior with Playwright CLI.
-  Use when asked to start the site, navigate pages, log in, click through flows,
-  reproduce UI bugs, verify visual states, or capture screenshots/snapshots.
-  Applies to this noter monorepo and repositories created from noter starter
-  template (React + Vite + Convex).
+  Run Noter-stack apps locally and inspect real UI behavior with Playwright CLI. Use when asked to
+  start the site, navigate pages, log in, click through flows, reproduce UI bugs, verify visual
+  states, or capture screenshots/snapshots. Applies to this noter monorepo and repositories created
+  from noter starter template (React + Vite + Convex).
 ---
 
 # Noter Playwright Live
 
 ## Goal
 
-Use a real browser session (not unit/E2E test runner) to validate behavior and
-visuals for Noter-stack apps.
+Use a real browser session (not unit/E2E test runner) to validate behavior and visuals for
+Noter-stack apps.
 
 ## Core Policy
 
-- Start with the real route first when the bug touches scroll, touch, drag,
-  focus, selection, layout ownership, auth wiring, or route shell behavior.
-- Prefer the real worktree app flow (`pnpm anon`) and the shipped bootstrap/sign
-  in path over custom mock pages.
-- Only use a fixture when it mounts the exact production component tree without
-  invented wrapper chrome, spacing, headers, or placeholder structure.
-- For a production interaction bug, add a failing real-route or honest
-  production-component repro before adding narrower fixture coverage.
-- When scripting touch gestures, anchor on visible rendered content inside the
-  shipped surface instead of arbitrary coordinates inside a large auto-height
-  container.
+- Start with the real route first when the bug touches scroll, touch, drag, focus, selection, layout
+  ownership, auth wiring, or route shell behavior.
+- Prefer the real worktree app flow (`pnpm anon`) and the shipped bootstrap/sign in path over custom
+  mock pages.
+- Only use a fixture when it mounts the exact production component tree without invented wrapper
+  chrome, spacing, headers, or placeholder structure.
+- For a production interaction bug, add a failing real-route or honest production-component repro
+  before adding narrower fixture coverage.
+- When scripting touch gestures, anchor on visible rendered content inside the shipped surface
+  instead of arbitrary coordinates inside a large auto-height container.
 
 ## Workflow
 
@@ -41,8 +39,8 @@ git rev-parse --abbrev-ref HEAD
 2. Detect project type.
 
 - Noter monorepo: `apps/noter/package.json` exists.
-- Noter starter/generated app: root `package.json` includes Vite + Convex
-  scripts (`dev`, `dev:frontend`, `dev:backend`).
+- Noter starter/generated app: root `package.json` includes Vite + Convex scripts (`dev`,
+  `dev:frontend`, `dev:backend`).
 
 3. Start dev server in a long-running session.
 
@@ -84,8 +82,8 @@ fi
 - Use `snapshot` to get stable element refs.
 - Prefer `fill`, `click`, `type`, and `press` commands over `eval`.
 - Re-snapshot after navigation or major DOM changes.
-- If reproducing a route bug, keep the repro on the real route until the bug is
-  understood before inventing any narrower fixture.
+- If reproducing a route bug, keep the repro on the real route until the bug is understood before
+  inventing any narrower fixture.
 
 7. Capture evidence.
 
@@ -109,8 +107,7 @@ fi
 Use these defaults when working in this repository.
 
 1. Bootstrap with `pnpm anon` (sets Convex local env and seeds dev auth).
-2. If sign-in is needed, read seeded credentials from
-   `apps/noter/convex/devAuth.ts` constants:
+2. If sign-in is needed, read seeded credentials from `apps/noter/convex/devAuth.ts` constants:
    - `DEV_SEED_EMAIL`
    - `DEV_SEED_PASSWORD`
 3. Typical smoke flow after sign-in:
@@ -118,29 +115,25 @@ Use these defaults when working in this repository.
    - Fill `New app name`
    - Click `New app`
    - Wait for new vault card and infra status text
-4. For UI regressions in shared shells or editors, prefer the shipped route over
-   `/visual-fixture` unless the fixture is already an honest production
-   component mount.
+4. For UI regressions in shared shells or editors, prefer the shipped route over `/visual-fixture`
+   unless the fixture is already an honest production component mount.
 
 ## Playwright Session Rules
 
-- In this repo, prefer `node ./scripts/playwright-branch-browser.ts` or
-  `pnpm playwright:open` over raw `@playwright/cli open`.
+- In this repo, prefer `node ./scripts/playwright-branch-browser.ts` or `pnpm playwright:open` over
+  raw `@playwright/cli open`.
 - Use one deterministic session/profile per active branch.
 - Reuse the same `-s` session for multi-step flows.
-- If the branch session is already open, add a fresh tab instead of navigating a
-  dirty editor tab. This avoids Chrome `Leave site?` popups caused by
-  beforeunload handlers.
+- If the branch session is already open, add a fresh tab instead of navigating a dirty editor tab.
+  This avoids Chrome `Leave site?` popups caused by beforeunload handlers.
 - Avoid sharing one session across unrelated projects.
 - Use `close-all` only when explicitly cleaning up broad stale state.
 
 ## Safety Rules
 
-- Never print or copy API keys/tokens from `.env*` files into user-facing
-  output.
+- Never print or copy API keys/tokens from `.env*` files into user-facing output.
 - Do not mutate unrelated repositories during UI checks.
-- If app startup fails, include the exact failing command and first actionable
-  error lines.
+- If app startup fails, include the exact failing command and first actionable error lines.
 
 ## References
 

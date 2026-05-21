@@ -1,6 +1,4 @@
-export function normalizeEnvValue(
-  value: string | null | undefined,
-): string | undefined {
+export function normalizeEnvValue(value: string | null | undefined): string | undefined {
   const trimmed = value?.trim();
   if (!trimmed) {
     return undefined;

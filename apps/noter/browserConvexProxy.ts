@@ -1,10 +1,7 @@
 import fs from "node:fs";
 import { normalizeEnvValue } from "./scripts/normalizeEnvValue.ts";
 
-export function readEnvFileValue(
-  envPath: string,
-  key: string,
-): string | undefined {
+export function readEnvFileValue(envPath: string, key: string): string | undefined {
   if (!fs.existsSync(envPath)) {
     return undefined;
   }

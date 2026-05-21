@@ -25,16 +25,11 @@ export function extractMatchingDeploymentDeployKey({
   }
 
   const separatorIndex = normalizedDeployKey.indexOf("|");
-  if (
-    separatorIndex <= 0 ||
-    separatorIndex === normalizedDeployKey.length - 1
-  ) {
+  if (separatorIndex <= 0 || separatorIndex === normalizedDeployKey.length - 1) {
     return null;
   }
 
-  const deploymentSpecifier = normalizedDeployKey
-    .slice(0, separatorIndex)
-    .trim();
+  const deploymentSpecifier = normalizedDeployKey.slice(0, separatorIndex).trim();
   const deployKeyDeployment = parseDeploymentSpecifier(deploymentSpecifier);
   if (deployKeyDeployment === null) {
     return null;
@@ -90,11 +85,7 @@ function parseDeploymentSpecifier(rawDeployment: string): Deployment | null {
     return null;
   }
 
-  if (
-    deploymentType !== "dev" &&
-    deploymentType !== "prod" &&
-    deploymentType !== "preview"
-  ) {
+  if (deploymentType !== "dev" && deploymentType !== "prod" && deploymentType !== "preview") {
     return null;
   }
 

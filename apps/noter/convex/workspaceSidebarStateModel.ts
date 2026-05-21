@@ -14,9 +14,7 @@ export const vWorkspaceMobileSidebarPane = union(
   literal("main"),
   literal("right"),
 );
-export type WorkspaceMobileSidebarPane = Infer<
-  typeof vWorkspaceMobileSidebarPane
->;
+export type WorkspaceMobileSidebarPane = Infer<typeof vWorkspaceMobileSidebarPane>;
 
 /**
  * unmerged = mobile carousel panes stay separate

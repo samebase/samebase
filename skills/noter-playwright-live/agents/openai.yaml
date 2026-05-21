@@ -1,7 +1,6 @@
 interface:
   display_name: "Noter Live UI"
-  short_description:
-    "Drive Noter-stack apps in a real browser with Playwright CLI"
+  short_description: "Drive Noter-stack apps in a real browser with Playwright CLI"
   default_prompt:
-    "Start the local app, run the key UI flow with Playwright CLI, and return
-    screenshots plus any blockers."
+    "Start the local app, run the key UI flow with Playwright CLI, and return screenshots plus any
+    blockers."
