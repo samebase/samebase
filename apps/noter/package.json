@@ -10,6 +10,7 @@
     "dev:backend": "node ./scripts/convex-dev.ts",
     "generate:convex-management-api": "node ./scripts/generate-convex-management-api.ts",
     "verify:convex-management-api": "pnpm run generate:convex-management-api && git diff --exit-code -- convex/convexManagementApi/openApi.generated.json convex/convexManagementApi/types.generated.d.ts convex/convexManagementApi/validators.generated.js convex/convexManagementApi/validators.generated.d.ts",
+    "evaluate:hey-api-convex-management": "node ./scripts/evaluate-hey-api-convex-management-api.ts",
     "generate:install-icon-assets": "node ./scripts/generate-install-icon-assets.ts",
     "verify:install-icon-assets": "npm run generate:install-icon-assets && git diff --exit-code -- public/install-icon.svg public/apple-touch-icon.png public/icon-192.png public/icon-512.png public/icon-maskable-192.png public/icon-maskable-512.png",
     "predev": "node ./scripts/predev.ts",
@@ -105,6 +106,7 @@
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
+    "@hey-api/openapi-ts": "0.97.1",
     "@playwright/cli": "^0.1.1",
     "@playwright/test": "1.58.2",
     "@tailwindcss/vite": "^4.2.2",
