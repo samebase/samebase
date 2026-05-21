@@ -6,6 +6,7 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   fmt: {
+    ignorePatterns: ["**/convex/_generated/**"],
     printWidth: 100,
     proseWrap: "always",
   },
