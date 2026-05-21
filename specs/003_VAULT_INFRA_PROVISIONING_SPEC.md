@@ -66,12 +66,33 @@ state.
 ### `vaultInfrastructure`
 
 - `vaultId`
-- Convex fields: `convexProjectId`, `convexProjectSlug`, `convexDeploymentName`,
-  `convexDeploymentType`, `convexCloudUrl`, `convexSiteUrl`, `convexDeployKeyId`
+- Convex fields: `convexProjectId`, `convexTeamSlug`, `convexProjectSlug`,
+  `convexDeploymentName`, `convexDeploymentType`, `convexCloudUrl`,
+  `convexSiteUrl`
+- `convexDeployKey`: either `{ state: "not_created" }` or
+  `{ state: "created", id }`
 - No provider readiness, error, or hosting state. Product readiness lives on
   `vaults.convex` and `vaults.cloudflare`; active writer state lives on
   `vaultInfrastructureOwnership`; run errors live on `appProvisioningRuns` and
   `appProvisioningEvents`.
+
+Indexes:
+
+- `by_vault`
+
+### `vaultInfrastructureTargets`
+
+- `vaultId`
+- `convex`: either `{ state: "planned", projectName }` or
+  `{ state: "created", projectName, projectId }`
+- `cloudflare`: either `{ state: "planned", workerName }` or
+  `{ state: "created", accountId, workerName, workerTag, productionUrl }`
+- `createdAt`, `updatedAt`
+
+The target row records user-selected provider names before side effects happen
+and exact provider identities after a provider resource has been created. Do not
+model created identities as optional sibling fields; the `planned`/`created`
+variant must say which identifiers exist.
 
 Indexes:
 
@@ -199,6 +220,13 @@ Dashboard external links:
 
 - Uses user-scoped provider connections for Convex and Cloudflare (no operator
   fallback).
+- Cloudflare provisioning requires the selected account id already stored on the
+  Cloudflare provider connection. It must not inventory accounts and choose one
+  during provisioning.
+- Workers Builds repository connection uses the connected vault's stored GitHub
+  repo id and a required owner id read from the GitHub repository response. The
+  response repo id must match the vault before Cloudflare receives the
+  connection request.
 - Provisioning is idempotent/resumable and does not auto-teardown resources on
   vault deletion unless explicitly requested.
 

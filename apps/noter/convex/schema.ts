@@ -130,6 +130,23 @@ export const vAppProvisioningRunState = union(
 );
 export type AppProvisioningRunState = Infer<typeof vAppProvisioningRunState>;
 
+export const vConvexDeployKeyState = union(
+  object({
+    state: literal("not_created"),
+  }),
+  object({
+    state: literal("created"),
+    id: string(),
+  }),
+);
+export type ConvexDeployKeyState = Infer<typeof vConvexDeployKeyState>;
+
+export const vConvexDeployKeys = object({
+  production: vConvexDeployKeyState,
+  preview: vConvexDeployKeyState,
+});
+export type ConvexDeployKeys = Infer<typeof vConvexDeployKeys>;
+
 export const vVaultDomainKind = union(
   literal("main"),
   literal("branch_preview"),
@@ -465,12 +482,13 @@ export default defineSchema({
     vaultId: id("vaults"),
 
     convexProjectId: string(),
+    convexTeamSlug: string(),
     convexProjectSlug: string(),
     convexDeploymentName: string(),
     convexDeploymentType: union(literal("prod"), literal("dev")),
     convexCloudUrl: string(),
     convexSiteUrl: string(),
-    convexDeployKeyId: optional(string()),
+    convexDeployKeys: vConvexDeployKeys,
   }).index("by_vault", ["vaultId"]),
 
   /**
@@ -480,12 +498,30 @@ export default defineSchema({
    */
   vaultInfrastructureTargets: defineTable({
     vaultId: id("vaults"),
-    convexProjectName: string(),
-    convexProjectId: optional(string()),
-    cloudflareWorkerName: string(),
-    cloudflareAccountId: optional(string()),
-    cloudflareWorkerTag: optional(string()),
-    cloudflareProductionUrl: optional(string()),
+    convex: union(
+      object({
+        state: literal("planned"),
+        projectName: string(),
+      }),
+      object({
+        state: literal("created"),
+        projectName: string(),
+        projectId: string(),
+      }),
+    ),
+    cloudflare: union(
+      object({
+        state: literal("planned"),
+        workerName: string(),
+      }),
+      object({
+        state: literal("created"),
+        accountId: string(),
+        workerName: string(),
+        workerTag: string(),
+        productionUrl: string(),
+      }),
+    ),
     createdAt: number(),
     updatedAt: number(),
   }).index("by_vault", ["vaultId"]),

@@ -1,10 +1,10 @@
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
 import {
   resolveConnectionFailureProvider,
   selectCloudflareBuildConfigTreeData,
-  selectExistingCloudflareWorkerTag,
+  selectExistingCloudflareWorker,
 } from "./infraProvisioning";
 import type { GithubTreeData } from "./schema";
 import { sanitizeSlug, vaultSuffix } from "./slugUtils";
@@ -22,6 +22,10 @@ const branchTreeData = {
     },
   ],
 } satisfies GithubTreeData;
+const convexProjectId = "9223372036854775807";
+const convexTeamId = "9223372036854775806";
+const otherConvexTeamId = "9223372036854775805";
+
 describe("selectCloudflareBuildConfigTreeData", () => {
   it("prefers the branch tree cache", () => {
     expect(
@@ -40,10 +44,15 @@ describe("selectCloudflareBuildConfigTreeData", () => {
   });
 });
 
-describe("selectExistingCloudflareWorkerTag", () => {
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
+describe("selectExistingCloudflareWorker", () => {
   it("prefers the fully connected Worker tag", () => {
     expect(
-      selectExistingCloudflareWorkerTag({
+      selectExistingCloudflareWorker({
         cloudflare: {
           state: "connected",
           accountId: "account-1",
@@ -53,38 +62,53 @@ describe("selectExistingCloudflareWorkerTag", () => {
           connectedAt: 20,
         },
         target: {
-          cloudflareAccountId: "account-1",
-          cloudflareWorkerTag: "target-worker-tag",
+          cloudflare: {
+            state: "created",
+            accountId: "account-1",
+            workerName: "noter",
+            workerTag: "target-worker-tag",
+            productionUrl: "https://noter.example.workers.dev",
+          },
         },
         accountId: "account-1",
       }),
-    ).toBe("connected-worker-tag");
+    ).toEqual({ state: "created", workerTag: "connected-worker-tag" });
   });
 
   it("trusts a recorded target Worker tag for the same account", () => {
     expect(
-      selectExistingCloudflareWorkerTag({
+      selectExistingCloudflareWorker({
         cloudflare: { state: "not_configured" },
         target: {
-          cloudflareAccountId: "account-1",
-          cloudflareWorkerTag: " target-worker-tag ",
+          cloudflare: {
+            state: "created",
+            accountId: "account-1",
+            workerName: "noter",
+            workerTag: " target-worker-tag ",
+            productionUrl: "https://noter.example.workers.dev",
+          },
         },
         accountId: "account-1",
       }),
-    ).toBe("target-worker-tag");
+    ).toEqual({ state: "created", workerTag: "target-worker-tag" });
   });
 
-  it("ignores a recorded target Worker tag for another account", () => {
+  it("keeps planned Worker names adoptable without a recorded tag", () => {
     expect(
-      selectExistingCloudflareWorkerTag({
+      selectExistingCloudflareWorker({
         cloudflare: { state: "not_configured" },
         target: {
-          cloudflareAccountId: "account-1",
-          cloudflareWorkerTag: "target-worker-tag",
+          cloudflare: {
+            state: "created",
+            accountId: "account-1",
+            workerName: "noter",
+            workerTag: "target-worker-tag",
+            productionUrl: "https://noter.example.workers.dev",
+          },
         },
         accountId: "account-2",
       }),
-    ).toBe(undefined);
+    ).toEqual({ state: "planned" });
   });
 });
 
@@ -184,8 +208,14 @@ describe("infrastructure provisioning ownership", () => {
     const suffix = vaultSuffix(ids.vaultId);
     expect(result).toEqual({ claimed: true });
     expect(target).toMatchObject({
-      convexProjectName: sanitizeSlug(`ada-older-retry-${suffix}`, 40),
-      cloudflareWorkerName: sanitizeSlug(`ada-older-retry-${suffix}`, 58),
+      convex: {
+        state: "planned",
+        projectName: sanitizeSlug(`ada-older-retry-${suffix}`, 40),
+      },
+      cloudflare: {
+        state: "planned",
+        workerName: sanitizeSlug(`ada-older-retry-${suffix}`, 58),
+      },
     });
     expect(record).toEqual({ applied: true });
   });
@@ -242,8 +272,14 @@ describe("infrastructure provisioning ownership", () => {
       });
       await ctx.db.insert("vaultInfrastructureTargets", {
         vaultId,
-        convexProjectName: "provider-retry",
-        cloudflareWorkerName: "provider-retry",
+        convex: {
+          state: "planned",
+          projectName: "provider-retry",
+        },
+        cloudflare: {
+          state: "planned",
+          workerName: "provider-retry",
+        },
         createdAt: 31,
         updatedAt: 31,
       });
@@ -268,7 +304,11 @@ describe("infrastructure provisioning ownership", () => {
 
     expect(result).toEqual({ applied: true });
     expect(target).toMatchObject({
-      convexProjectId: "convex-project-id",
+      convex: {
+        state: "created",
+        projectName: "provider-retry",
+        projectId: "convex-project-id",
+      },
     });
   });
 
@@ -330,8 +370,14 @@ describe("infrastructure provisioning ownership", () => {
       });
       await ctx.db.insert("vaultInfrastructureTargets", {
         vaultId,
-        convexProjectName: "provider-retry",
-        cloudflareWorkerName: "provider-retry",
+        convex: {
+          state: "planned",
+          projectName: "provider-retry",
+        },
+        cloudflare: {
+          state: "planned",
+          workerName: "provider-retry",
+        },
         createdAt: 31,
         updatedAt: 31,
       });
@@ -359,10 +405,122 @@ describe("infrastructure provisioning ownership", () => {
 
     expect(result).toEqual({ applied: true });
     expect(target).toMatchObject({
-      cloudflareAccountId: "cloudflare-account-id",
-      cloudflareWorkerName: "provider-retry",
-      cloudflareWorkerTag: "cloudflare-worker-tag",
-      cloudflareProductionUrl: "https://provider-retry.example.workers.dev",
+      cloudflare: {
+        state: "created",
+        accountId: "cloudflare-account-id",
+        workerName: "provider-retry",
+        workerTag: "cloudflare-worker-tag",
+        productionUrl: "https://provider-retry.example.workers.dev",
+      },
+    });
+  });
+
+  it("records production and preview Convex deploy key ids separately", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/deploy-keys",
+        trigger: "create",
+        state: "running",
+        currentStep: "ensure_cloudflare",
+        createdAt: 10,
+        updatedAt: 10,
+      });
+
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "deploy-keys",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+        convex: {
+          state: "connected",
+          projectId: "convex-project-id",
+          projectSlug: "deploy-keys",
+          deploymentName: "deploy-keys-prod",
+          connectedAt: 25,
+        },
+        cloudflare: {
+          state: "provisioning",
+          runId,
+          startedAt: 26,
+        },
+      });
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId,
+        runId,
+        provisioningVersion: 1,
+        state: "active",
+        updatedAt: 30,
+      });
+      await ctx.db.insert("vaultInfrastructure", {
+        vaultId,
+        convexProjectId: "convex-project-id",
+        convexTeamSlug: "ada-team",
+        convexProjectSlug: "deploy-keys",
+        convexDeploymentName: "deploy-keys-prod",
+        convexDeploymentType: "prod",
+        convexCloudUrl: "https://deploy-keys.convex.cloud",
+        convexSiteUrl: "https://deploy-keys.convex.site",
+        convexDeployKeys: {
+          production: { state: "not_created" },
+          preview: { state: "not_created" },
+        },
+      });
+
+      return { runId, vaultId };
+    });
+
+    const productionRecord = await t.mutation(
+      internal.infraProvisioning.recordConvexDeployKeyIdentity,
+      {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+        deployment: "production",
+        convexDeployKeyId: "production-key-id",
+      },
+    );
+    const previewRecord = await t.mutation(
+      internal.infraProvisioning.recordConvexDeployKeyIdentity,
+      {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+        deployment: "preview",
+        convexDeployKeyId: "preview-key-id",
+      },
+    );
+    const infrastructure = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("vaultInfrastructure")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .first();
+    });
+
+    expect(productionRecord).toEqual({ applied: true });
+    expect(previewRecord).toEqual({ applied: true });
+    expect(infrastructure).toMatchObject({
+      convexDeployKeys: {
+        production: { state: "created", id: "production-key-id" },
+        preview: { state: "created", id: "preview-key-id" },
+      },
     });
   });
 
@@ -617,5 +775,180 @@ describe("infrastructure provisioning ownership", () => {
       level: "error",
       message: expectedMessage,
     });
+  });
+
+  it("records GitHub repository validation errors in the visible provisioning log", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/github-validation-failure",
+        workflowId: "workflow-github",
+        trigger: "create",
+        state: "running",
+        currentStep: "fetch_github_repo",
+        createdAt: 10,
+        updatedAt: 30,
+      });
+
+      return { runId };
+    });
+
+    await t.mutation(
+      internal.infraProvisioning.markWorkflowProvisioningFailed,
+      {
+        runId: ids.runId,
+        workflowId: "workflow-github",
+        message:
+          "Error: Uncaught Error: GitHub repository response did not match the vault repo.\n    at fetchGitHubRepoIdentity",
+      },
+    );
+
+    const result = await t.run(async (ctx) => {
+      const run = await ctx.db.get(ids.runId);
+      const event = await ctx.db
+        .query("appProvisioningEvents")
+        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
+        .first();
+      return { event, run };
+    });
+
+    const expectedMessage =
+      "GitHub repository response did not match the vault repo.";
+    expect(result.run).toMatchObject({
+      state: "failed",
+      lastError: expectedMessage,
+    });
+    expect(result.event).toMatchObject({
+      step: "fetch_github_repo",
+      level: "error",
+      message: expectedMessage,
+    });
+  });
+
+  it("validates the preview Convex project against the connected team", async () => {
+    const requests: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: Request) => {
+        requests.push(input.url);
+        return new Response(
+          `{
+            "createTime": 1710000000000,
+            "id": ${convexProjectId},
+            "name": "Preview validation",
+            "slug": "preview-validation",
+            "teamId": ${otherConvexTeamId},
+            "teamSlug": "other-team"
+          }`,
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }),
+    );
+
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/preview-validation",
+        trigger: "create",
+        state: "running",
+        currentStep: "ensure_convex_preview",
+        createdAt: 10,
+        updatedAt: 30,
+      });
+
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "preview-validation",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+        convex: {
+          state: "connected",
+          projectId: convexProjectId,
+          projectSlug: "preview-validation",
+          deploymentName: "preview-validation-prod",
+          connectedAt: 25,
+        },
+        cloudflare: { state: "not_configured" },
+      });
+      await ctx.db.insert("providerConnections", {
+        kind: "convex",
+        userId,
+        auth: {
+          method: "api_key",
+          credential: "convex-token",
+        },
+        teamId: convexTeamId,
+        createdAt: 26,
+        updatedAt: 26,
+      });
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId,
+        runId,
+        provisioningVersion: 1,
+        state: "active",
+        updatedAt: 30,
+      });
+      await ctx.db.insert("vaultInfrastructure", {
+        vaultId,
+        convexProjectId,
+        convexTeamSlug: "ada-team",
+        convexProjectSlug: "preview-validation",
+        convexDeploymentName: "preview-validation-prod",
+        convexDeploymentType: "prod",
+        convexCloudUrl: "https://preview-validation.convex.cloud",
+        convexSiteUrl: "https://preview-validation.convex.site",
+        convexDeployKeys: {
+          production: { state: "not_created" },
+          preview: { state: "not_created" },
+        },
+      });
+
+      return { runId, vaultId };
+    });
+
+    await expect(
+      t.action(internal.infraProvisioning.ensureConvexPreviewInfrastructure, {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+      }),
+    ).rejects.toThrow("Convex project belonged to a different team.");
+
+    expect(requests).toEqual([
+      `https://api.convex.dev/v1/projects/${convexProjectId}`,
+    ]);
   });
 });

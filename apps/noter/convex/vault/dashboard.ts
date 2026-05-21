@@ -693,17 +693,6 @@ export const getUserVaults = query({
       .query("vaults")
       .filter((q) => q.eq(q.field("userId"), userId))
       .collect();
-    const convexConnection = await ctx.db
-      .query("providerConnections")
-      .withIndex("by_user_kind", (q) =>
-        q.eq("userId", userId).eq("kind", "convex"),
-      )
-      .first();
-    const convexTeamDashboardSlug =
-      convexConnection?.kind === "convex"
-        ? convexConnection.teamSlug
-        : undefined;
-
     // Pre-GitHub vaults render as non-ready cards; repo-backed controls stay
     // gated until a connected vault has branch data.
     const connectedVaults = vaults.filter(isConnectedVault);
@@ -790,7 +779,7 @@ export const getUserVaults = query({
           };
         }
 
-        const [stagingData, remoteBranches, defaultBranchTree] =
+        const [stagingData, remoteBranches, defaultBranchTree, infrastructure] =
           await Promise.all([
             ctx.db
               .query("fileStaging")
@@ -805,6 +794,10 @@ export const getUserVaults = query({
               .withIndex("by_vault_and_branch", (q) =>
                 q.eq("vaultId", vault._id).eq("branch", vault.defaultBranch),
               )
+              .first(),
+            ctx.db
+              .query("vaultInfrastructure")
+              .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
               .first(),
           ]);
 
@@ -838,6 +831,7 @@ export const getUserVaults = query({
             : undefined;
         const connectedCloudflare =
           cloudflare.state === "connected" ? cloudflare : null;
+        const convexTeamSlug = infrastructure?.convexTeamSlug;
 
         return {
           _id: vault._id,
@@ -897,7 +891,7 @@ export const getUserVaults = query({
                   ? buildConvexPreviewDeploymentDashboardUrl({
                       branchName: branch.name,
                       projectSlug: convexProjectSlug,
-                      teamSlug: convexTeamDashboardSlug,
+                      teamSlug: convexTeamSlug,
                     })
                   : undefined,
             })),
@@ -905,17 +899,17 @@ export const getUserVaults = query({
           cloudflareWorkerName: connectedCloudflare?.workerName,
           cloudflareProjectDashboardUrl:
             buildCloudflareWorkerDashboardUrl(connectedCloudflare),
-          convexTeamSlug: convexTeamDashboardSlug,
+          convexTeamSlug,
           convexProjectSlug,
           convexProjectSettingsDashboardUrl:
             buildConvexProjectSettingsDashboardUrl({
               projectSlug: convexProjectSlug,
-              teamSlug: convexTeamDashboardSlug,
+              teamSlug: convexTeamSlug,
             }),
           convexDeploymentDashboardUrl: buildConvexDeploymentDashboardUrl({
             deploymentName: convexDeploymentName,
             projectSlug: convexProjectSlug,
-            teamSlug: convexTeamDashboardSlug,
+            teamSlug: convexTeamSlug,
           }),
         };
       }),
@@ -943,11 +937,12 @@ export const getVaultInfrastructure = query({
       providerSetup: providerSetupSummary,
       infrastructure: v.optional(
         v.object({
-          convexProjectId: v.optional(v.string()),
-          convexProjectSlug: v.optional(v.string()),
-          convexDeploymentName: v.optional(v.string()),
-          convexCloudUrl: v.optional(v.string()),
-          convexSiteUrl: v.optional(v.string()),
+          convexProjectId: v.string(),
+          convexTeamSlug: v.string(),
+          convexProjectSlug: v.string(),
+          convexDeploymentName: v.string(),
+          convexCloudUrl: v.string(),
+          convexSiteUrl: v.string(),
         }),
       ),
       domains: v.array(
@@ -992,6 +987,7 @@ export const getVaultInfrastructure = query({
       infrastructure: infrastructure
         ? {
             convexProjectId: infrastructure.convexProjectId,
+            convexTeamSlug: infrastructure.convexTeamSlug,
             convexProjectSlug: infrastructure.convexProjectSlug,
             convexDeploymentName: infrastructure.convexDeploymentName,
             convexCloudUrl: infrastructure.convexCloudUrl,

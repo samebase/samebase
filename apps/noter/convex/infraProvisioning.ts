@@ -11,10 +11,20 @@ import type { Doc, Id } from "./_generated/dataModel";
 import {
   isConvexCloudDeployment,
   requestConvexManagementApi,
+  type ConvexCloudDeployment,
 } from "./convexManagementApi/client";
-import { ensureCloudflareResources } from "./cloudflareResources";
-import { asRecord, readString, readStringOrNumber } from "./jsonUtils";
-import type { AppProvisioningStep, GithubTreeData } from "./schema";
+import { isConvexManagementNotFoundError } from "./convexManagementApi/errors";
+import type { PlatformDeploymentResponse } from "./convexManagementApi/types.generated";
+import {
+  ensureCloudflareResources,
+  type ExistingCloudflareWorkerIdentity,
+} from "./cloudflareResources";
+import { asRecord, readStringOrNumber } from "./jsonUtils";
+import type {
+  AppProvisioningStep,
+  ConvexDeployKeyState,
+  GithubTreeData,
+} from "./schema";
 import { sanitizeSlug, vaultSuffix } from "./slugUtils";
 import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
 import {
@@ -27,9 +37,14 @@ const PROVISIONING_STALE_MS = 10 * 60 * 1000;
 const GITHUB_API_VERSION = "2022-11-28";
 const activeProvisioningRunResult = v.object({ active: v.boolean() });
 const infrastructurePatchResult = v.object({ applied: v.boolean() });
+const vConvexDeployKeyDeployment = v.union(
+  v.literal("production"),
+  v.literal("preview"),
+);
 
 const convexInfrastructureRecordValidator = v.object({
   convexProjectId: v.string(),
+  convexTeamSlug: v.string(),
   convexProjectSlug: v.string(),
   convexDeploymentName: v.string(),
   convexDeploymentType: v.union(v.literal("prod"), v.literal("dev")),
@@ -78,6 +93,15 @@ async function readVaultInfrastructureTarget(
     .first();
 }
 
+function requireVaultInfrastructureTarget(
+  target: Doc<"vaultInfrastructureTargets"> | null,
+): Doc<"vaultInfrastructureTargets"> {
+  if (!target) {
+    throw new Error("Infrastructure target not found for vault.");
+  }
+  return target;
+}
+
 async function ensureVaultInfrastructureTarget(
   ctx: Pick<MutationCtx, "db">,
   vault: NoterManagedConnectedVault,
@@ -91,14 +115,14 @@ async function ensureVaultInfrastructureTarget(
   const suffix = vaultSuffix(vault._id);
   await ctx.db.insert("vaultInfrastructureTargets", {
     vaultId: vault._id,
-    convexProjectName: sanitizeSlug(
-      `${vault.owner}-${vault.name}-${suffix}`,
-      40,
-    ),
-    cloudflareWorkerName: sanitizeSlug(
-      `${vault.owner}-${vault.name}-${suffix}`,
-      58,
-    ),
+    convex: {
+      state: "planned",
+      projectName: sanitizeSlug(`${vault.owner}-${vault.name}-${suffix}`, 40),
+    },
+    cloudflare: {
+      state: "planned",
+      workerName: sanitizeSlug(`${vault.owner}-${vault.name}-${suffix}`, 58),
+    },
     createdAt: now,
     updatedAt: now,
   });
@@ -160,7 +184,8 @@ async function fetchGitHubRepoIdentity(args: {
   githubAccessToken: string;
   owner: string;
   repo: string;
-}): Promise<{ repoId?: string; ownerId?: string }> {
+  expectedRepoId: string;
+}): Promise<{ ownerId: string }> {
   const repoRaw = await requestGitHubRepoApi({
     githubAccessToken: args.githubAccessToken,
     owner: args.owner,
@@ -172,7 +197,16 @@ async function fetchGitHubRepoIdentity(args: {
   const repoId = readStringOrNumber(record, "id");
   const ownerRecord = asRecord(record["owner"]);
   const ownerId = readStringOrNumber(ownerRecord, "id");
-  return { repoId, ownerId };
+  if (!repoId) {
+    throw new Error("GitHub repository response did not include repo id.");
+  }
+  if (repoId !== args.expectedRepoId) {
+    throw new Error("GitHub repository response did not match the vault repo.");
+  }
+  if (!ownerId) {
+    throw new Error("GitHub repository response did not include owner id.");
+  }
+  return { ownerId };
 }
 
 function parseDeployKeyIdentifier(deployKey: string): string {
@@ -183,45 +217,10 @@ function parseDeployKeyIdentifier(deployKey: string): string {
   return deployKey.slice(0, pipeIdx);
 }
 
-type CloudflareAccountSummary = {
-  id: string;
-  name?: string;
-  isDefault: boolean;
-};
-
-function parseCloudflareAccountInventory(
-  raw: string,
-): CloudflareAccountSummary[] {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return [];
-  }
-  if (!Array.isArray(parsed)) {
-    return [];
-  }
-  const accounts: CloudflareAccountSummary[] = [];
-  for (const entry of parsed) {
-    const record = asRecord(entry);
-    const id = readString(record, "id");
-    if (!id) {
-      continue;
-    }
-    const isDefaultRaw = record["isDefault"];
-    accounts.push({
-      id,
-      name: readString(record, "name"),
-      isDefault: isDefaultRaw === true,
-    });
-  }
-  return accounts;
-}
-
 type ConvexProvisionResult = {
   convexProjectId: string;
   convexProjectSlug: string;
-  convexTeamSlug?: string;
+  convexTeamSlug: string;
   convexDeploymentName: string;
   convexDeploymentType: "prod" | "dev";
   convexCloudUrl: string;
@@ -233,33 +232,146 @@ type ConvexDeployKeyResult = {
   deployKey: string;
 };
 
+type ExistingConvexResources =
+  | { state: "none" }
+  | { state: "project_created"; projectId: string }
+  | { state: "deployment_created"; projectId: string; deploymentName: string };
+
+function requireConvexCloudDeployment(args: {
+  deployment: PlatformDeploymentResponse;
+  deploymentType: "prod" | "dev";
+  projectId: string;
+  description: string;
+}): ConvexCloudDeployment {
+  if (!isConvexCloudDeployment(args.deployment)) {
+    throw new Error(`${args.description} was not cloud.`);
+  }
+  if (args.deployment.deploymentType !== args.deploymentType) {
+    throw new Error(`${args.description} had the wrong deployment type.`);
+  }
+  if (args.deployment.projectId !== args.projectId) {
+    throw new Error(`${args.description} belonged to a different project.`);
+  }
+  return args.deployment;
+}
+
+async function readDefaultConvexCloudDeployment(args: {
+  convexToken: string;
+  projectId: string;
+  deploymentType: "prod" | "dev";
+}): Promise<ConvexCloudDeployment | null> {
+  try {
+    const deployment = await requestConvexManagementApi(
+      args.convexToken,
+      "GET",
+      "/projects/{project_id}/deployment",
+      {
+        params: {
+          path: { project_id: args.projectId },
+          query:
+            args.deploymentType === "prod"
+              ? { defaultProd: true }
+              : { defaultDev: true },
+        },
+      },
+    );
+    return requireConvexCloudDeployment({
+      deployment,
+      deploymentType: args.deploymentType,
+      projectId: args.projectId,
+      description:
+        args.deploymentType === "prod"
+          ? "Default Convex production deployment"
+          : "Default Convex dev deployment",
+    });
+  } catch (error) {
+    if (isConvexManagementNotFoundError(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function createConvexCloudDeployment(args: {
+  convexToken: string;
+  projectId: string;
+  deploymentType: "prod" | "dev";
+}): Promise<ConvexCloudDeployment> {
+  const deployment = await requestConvexManagementApi(
+    args.convexToken,
+    "POST",
+    "/projects/{project_id}/create_deployment",
+    {
+      params: { path: { project_id: args.projectId } },
+      body: {
+        type: args.deploymentType,
+      },
+    },
+  );
+  return requireConvexCloudDeployment({
+    deployment,
+    deploymentType: args.deploymentType,
+    projectId: args.projectId,
+    description: "Created Convex deployment",
+  });
+}
+
+async function readConvexProjectDetails(args: {
+  convexToken: string;
+  projectId: string;
+  teamId: string;
+}) {
+  const project = await requestConvexManagementApi(
+    args.convexToken,
+    "GET",
+    "/projects/{project_id}",
+    { params: { path: { project_id: args.projectId } } },
+  );
+  if (project.teamId !== args.teamId) {
+    throw new Error("Convex project belonged to a different team.");
+  }
+  return project;
+}
+
+function selectExistingConvexResources(args: {
+  infrastructure: Doc<"vaultInfrastructure"> | null;
+  target: Doc<"vaultInfrastructureTargets">;
+}): ExistingConvexResources {
+  if (args.infrastructure) {
+    return {
+      state: "deployment_created",
+      projectId: args.infrastructure.convexProjectId,
+      deploymentName: args.infrastructure.convexDeploymentName,
+    };
+  }
+
+  if (args.target.convex.state === "created") {
+    return {
+      state: "project_created",
+      projectId: args.target.convex.projectId,
+    };
+  }
+
+  return { state: "none" };
+}
+
 async function ensureConvexResources(args: {
   teamId: string;
   convexToken: string;
   projectName: string;
-  existing: {
-    projectId?: string;
-    projectSlug?: string;
-    deploymentName?: string;
-    cloudUrl?: string;
-    siteUrl?: string;
-  };
-  onProjectCreated?: (identity: { projectId: string }) => Promise<void>;
+  existing: ExistingConvexResources;
+  onProjectCreated: (identity: { projectId: string }) => Promise<void>;
 }): Promise<ConvexProvisionResult> {
   const projectName = args.projectName;
 
-  let projectId = args.existing.projectId;
-  let projectSlug = args.existing.projectSlug;
-  let teamSlug: string | undefined;
-
-  const projects = await requestConvexManagementApi(
-    args.convexToken,
-    "GET",
-    "/teams/{team_id}/list_projects",
-    { params: { path: { team_id: args.teamId } } },
-  );
-
-  if (!projectId) {
+  let projectId: string;
+  if (args.existing.state === "none") {
+    const projects = await requestConvexManagementApi(
+      args.convexToken,
+      "GET",
+      "/teams/{team_id}/list_projects",
+      { params: { path: { team_id: args.teamId } } },
+    );
     for (const project of projects) {
       if (project.name === projectName || project.slug === projectName) {
         throw new Error(
@@ -267,24 +379,7 @@ async function ensureConvexResources(args: {
         );
       }
     }
-  }
-  if (projectId && !projectSlug) {
-    for (const project of projects) {
-      if (project.id === projectId) {
-        projectSlug = project.slug;
-        teamSlug = project.teamSlug;
-        break;
-      }
-    }
-  }
-  if (!teamSlug) {
-    teamSlug = projects[0]?.teamSlug;
-  }
 
-  let deploymentName = args.existing.deploymentName;
-  let deploymentUrl = args.existing.cloudUrl;
-
-  if (!projectId) {
     const createResponse = await requestConvexManagementApi(
       args.convexToken,
       "POST",
@@ -298,98 +393,65 @@ async function ensureConvexResources(args: {
       },
     );
 
-    projectId = createResponse.projectId;
-    projectSlug = createResponse.slug;
-    deploymentName = createResponse.deploymentName ?? undefined;
-    deploymentUrl = createResponse.deploymentUrl ?? undefined;
+    projectId = createResponse.id;
 
     // Record the provider identity before later deployment lookups can fail so
     // retries can recognize the project that this run already created.
-    await args.onProjectCreated?.({ projectId });
-
-    const refreshedProjects = await requestConvexManagementApi(
-      args.convexToken,
-      "GET",
-      "/teams/{team_id}/list_projects",
-      { params: { path: { team_id: args.teamId } } },
-    );
-    for (const project of refreshedProjects) {
-      if (project.id === projectId) {
-        projectSlug = project.slug;
-        teamSlug = project.teamSlug;
-        break;
-      }
-    }
+    await args.onProjectCreated({ projectId });
+  } else {
+    projectId = args.existing.projectId;
   }
 
-  if (!projectId) {
-    throw new Error("Failed to resolve Convex project ID");
-  }
+  const project = await readConvexProjectDetails({
+    convexToken: args.convexToken,
+    projectId,
+    teamId: args.teamId,
+  });
 
-  if (!deploymentName) {
-    const deployments = await requestConvexManagementApi(
-      args.convexToken,
-      "GET",
-      "/projects/{project_id}/list_deployments",
-      { params: { path: { project_id: projectId } } },
-    );
+  let productionDeployment: ConvexCloudDeployment | null = null;
 
-    for (const deployment of deployments) {
-      if (
-        isConvexCloudDeployment(deployment) &&
-        deployment.deploymentType === "prod"
-      ) {
-        deploymentName = deployment.name;
-        deploymentUrl = deployment.deploymentUrl;
-        break;
-      }
-    }
-  }
-
-  if (!deploymentName) {
-    const createdDeployment = await requestConvexManagementApi(
-      args.convexToken,
-      "POST",
-      "/projects/{project_id}/create_deployment",
-      {
-        params: { path: { project_id: projectId } },
-        body: {
-          type: "prod",
+  if (args.existing.state === "deployment_created") {
+    productionDeployment = requireConvexCloudDeployment({
+      deployment: await requestConvexManagementApi(
+        args.convexToken,
+        "GET",
+        "/deployments/{deployment_name}",
+        {
+          params: {
+            path: { deployment_name: args.existing.deploymentName },
+          },
         },
-      },
-    );
-    if (!isConvexCloudDeployment(createdDeployment)) {
-      throw new Error("Created Convex production deployment was not cloud.");
-    }
-    deploymentName = createdDeployment.name;
-    deploymentUrl = createdDeployment.deploymentUrl;
+      ),
+      deploymentType: "prod",
+      projectId,
+      description: "Recorded Convex production deployment",
+    });
   }
 
-  if (!deploymentName) {
-    throw new Error("Failed to resolve Convex deployment name");
-  }
-  if (!projectSlug) {
-    throw new Error("Failed to resolve Convex project slug");
-  }
+  productionDeployment ??= await readDefaultConvexCloudDeployment({
+    convexToken: args.convexToken,
+    projectId,
+    deploymentType: "prod",
+  });
 
-  if (!deploymentUrl) {
-    deploymentUrl = args.existing.cloudUrl;
-  }
-  if (!deploymentUrl) {
-    deploymentUrl = `https://${deploymentName}.convex.cloud`;
-  }
+  productionDeployment ??= await createConvexCloudDeployment({
+    convexToken: args.convexToken,
+    projectId,
+    deploymentType: "prod",
+  });
 
-  const siteUrl =
-    args.existing.siteUrl ?? `https://${deploymentName}.convex.site`;
+  if (productionDeployment.isDefault !== true) {
+    throw new Error("Convex production deployment was not the default.");
+  }
 
   return {
     convexProjectId: projectId,
-    convexProjectSlug: projectSlug,
-    convexTeamSlug: teamSlug,
-    convexDeploymentName: deploymentName,
+    convexProjectSlug: project.slug,
+    convexTeamSlug: project.teamSlug,
+    convexDeploymentName: productionDeployment.name,
     convexDeploymentType: "prod",
-    convexCloudUrl: deploymentUrl,
-    convexSiteUrl: siteUrl,
+    convexCloudUrl: productionDeployment.deploymentUrl,
+    convexSiteUrl: `https://${productionDeployment.name}.convex.site`,
   };
 }
 
@@ -400,60 +462,34 @@ type ConvexPreviewProvisionResult = {
 
 async function ensureConvexPreviewResources(args: {
   convexToken: string;
+  teamId: string;
   projectId: string;
-  vaultId: string;
 }): Promise<ConvexPreviewProvisionResult> {
-  const deployments = await requestConvexManagementApi(
-    args.convexToken,
-    "GET",
-    "/projects/{project_id}/list_deployments",
-    { params: { path: { project_id: args.projectId } } },
-  );
+  // Preview deployment creation starts from recorded infrastructure, so prove
+  // that project still belongs to the currently connected Convex team first.
+  await readConvexProjectDetails({
+    convexToken: args.convexToken,
+    projectId: args.projectId,
+    teamId: args.teamId,
+  });
 
-  let deploymentName: string | undefined;
-  let deploymentUrl: string | undefined;
+  const defaultDevDeployment = await readDefaultConvexCloudDeployment({
+    convexToken: args.convexToken,
+    projectId: args.projectId,
+    deploymentType: "dev",
+  });
 
-  for (const deployment of deployments) {
-    if (
-      isConvexCloudDeployment(deployment) &&
-      deployment.deploymentType === "dev"
-    ) {
-      deploymentName = deployment.name;
-      deploymentUrl = deployment.deploymentUrl;
-      break;
-    }
-  }
-
-  if (!deploymentName) {
-    const created = await requestConvexManagementApi(
-      args.convexToken,
-      "POST",
-      "/projects/{project_id}/create_deployment",
-      {
-        params: { path: { project_id: args.projectId } },
-        body: {
-          type: "dev",
-        },
-      },
-    );
-    if (!isConvexCloudDeployment(created)) {
-      throw new Error("Created Convex preview deployment was not cloud.");
-    }
-    deploymentName = created.name;
-    deploymentUrl = created.deploymentUrl;
-  }
-
-  if (!deploymentName) {
-    throw new Error("Failed to resolve Convex preview deployment name.");
-  }
-
-  if (!deploymentUrl) {
-    deploymentUrl = `https://${deploymentName}.convex.cloud`;
-  }
+  const deployment =
+    defaultDevDeployment ??
+    (await createConvexCloudDeployment({
+      convexToken: args.convexToken,
+      projectId: args.projectId,
+      deploymentType: "dev",
+    }));
 
   return {
-    previewDeploymentName: deploymentName,
-    previewCloudUrl: deploymentUrl,
+    previewDeploymentName: deployment.name,
+    previewCloudUrl: deployment.deploymentUrl,
   };
 }
 
@@ -518,22 +554,27 @@ export function selectCloudflareBuildConfigTreeData(args: {
   throw new Error("Default branch tree is not synced yet.");
 }
 
-export function selectExistingCloudflareWorkerTag(args: {
+export function selectExistingCloudflareWorker(args: {
   cloudflare: NoterManagedConnectedVault["cloudflare"];
-  target: Pick<
-    Doc<"vaultInfrastructureTargets">,
-    "cloudflareAccountId" | "cloudflareWorkerTag"
-  > | null;
+  target: Pick<Doc<"vaultInfrastructureTargets">, "cloudflare">;
   accountId: string;
-}): string | undefined {
-  if (args.cloudflare.state === "connected") {
-    return args.cloudflare.workerTag;
+}): ExistingCloudflareWorkerIdentity {
+  if (
+    args.cloudflare.state === "connected" &&
+    args.cloudflare.accountId === args.accountId
+  ) {
+    return { state: "created", workerTag: args.cloudflare.workerTag.trim() };
   }
-  if (!args.target || args.target.cloudflareAccountId !== args.accountId) {
-    return undefined;
+  if (
+    args.target.cloudflare.state === "created" &&
+    args.target.cloudflare.accountId === args.accountId
+  ) {
+    return {
+      state: "created",
+      workerTag: args.target.cloudflare.workerTag.trim(),
+    };
   }
-  const workerTag = args.target.cloudflareWorkerTag?.trim();
-  return workerTag || undefined;
+  return { state: "planned" };
 }
 
 type ProvisioningEventCtx = Pick<ActionCtx, "runMutation"> &
@@ -855,45 +896,12 @@ export async function resolveCloudflareProvisioningConnection(
   const cloudflareServerUrl = resolveCloudflareMcpServerUrl(
     resolvedCloudflareConnection,
   );
-  let cloudflareAccountId = resolvedCloudflareConnection.accountId?.trim()
-    ? resolvedCloudflareConnection.accountId.trim()
-    : "";
+  const cloudflareAccountId = resolvedCloudflareConnection.accountId?.trim();
 
   if (!cloudflareToken) {
     throw new Error(
       "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
     );
-  }
-
-  if (!cloudflareAccountId) {
-    const accountInventory = await ctx.runAction(
-      internal.infraRead.getCloudflareAccountInventory,
-      {
-        userId,
-        limit: 50,
-      },
-    );
-    const accounts = parseCloudflareAccountInventory(accountInventory.raw);
-    if (accounts.length === 0) {
-      throw new Error(
-        "No Cloudflare account is available for provisioning. Reconnect Cloudflare and retry.",
-      );
-    }
-    if (accounts.length > 1) {
-      throw new Error(
-        "Multiple Cloudflare accounts are available. Select an account before provisioning can continue.",
-      );
-    }
-    cloudflareAccountId = accounts[0].id;
-    await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
-      userId,
-      auth: resolvedCloudflareConnection.auth,
-      accountId: cloudflareAccountId,
-    });
-    console.log("infra:cloudflare:account:auto_selected", {
-      accountId: cloudflareAccountId,
-      accountCount: accounts.length,
-    });
   }
 
   if (!cloudflareAccountId) {
@@ -974,6 +982,10 @@ export const recordConvexInfrastructure = internalMutation({
     await ctx.db.insert("vaultInfrastructure", {
       vaultId: args.vaultId,
       ...args.convex,
+      convexDeployKeys: {
+        production: { state: "not_created" },
+        preview: { state: "not_created" },
+      },
     });
 
     return { applied: true };
@@ -995,11 +1007,17 @@ export const recordConvexProjectIdentity = internalMutation({
 
     const target = await readVaultInfrastructureTarget(ctx, args.vaultId);
     if (!target) {
-      return { applied: false };
+      throw new Error(
+        "Infrastructure target is required before recording Convex project identity.",
+      );
     }
 
     await ctx.db.patch(target._id, {
-      convexProjectId: args.projectId,
+      convex: {
+        state: "created",
+        projectName: target.convex.projectName,
+        projectId: args.projectId,
+      },
       updatedAt: Date.now(),
     });
 
@@ -1007,10 +1025,11 @@ export const recordConvexProjectIdentity = internalMutation({
   },
 });
 
-export const recordConvexDeployKey = internalMutation({
+export const recordConvexDeployKeyIdentity = internalMutation({
   args: {
     vaultId: v.id("vaults"),
     runId: v.id("appProvisioningRuns"),
+    deployment: vConvexDeployKeyDeployment,
     convexDeployKeyId: v.string(),
   },
   returns: infrastructurePatchResult,
@@ -1022,12 +1041,27 @@ export const recordConvexDeployKey = internalMutation({
 
     const existing = await readVaultInfrastructure(ctx, args.vaultId);
     if (!existing) {
-      return { applied: false };
+      throw new Error(
+        "Convex infrastructure is required before recording deploy key identity.",
+      );
     }
 
-    await ctx.db.patch(existing._id, {
-      convexDeployKeyId: args.convexDeployKeyId,
-    });
+    const deployKey: ConvexDeployKeyState = {
+      state: "created",
+      id: args.convexDeployKeyId,
+    };
+    const convexDeployKeys =
+      args.deployment === "production"
+        ? {
+            production: deployKey,
+            preview: existing.convexDeployKeys.preview,
+          }
+        : {
+            production: existing.convexDeployKeys.production,
+            preview: deployKey,
+          };
+
+    await ctx.db.patch(existing._id, { convexDeployKeys });
 
     return { applied: true };
   },
@@ -1051,14 +1085,19 @@ export const recordCloudflareWorkerIdentity = internalMutation({
 
     const target = await readVaultInfrastructureTarget(ctx, args.vaultId);
     if (!target) {
-      return { applied: false };
+      throw new Error(
+        "Infrastructure target is required before recording Cloudflare Worker identity.",
+      );
     }
 
     await ctx.db.patch(target._id, {
-      cloudflareAccountId: args.accountId,
-      cloudflareWorkerName: args.workerName,
-      cloudflareWorkerTag: args.workerTag,
-      cloudflareProductionUrl: args.productionUrl,
+      cloudflare: {
+        state: "created",
+        accountId: args.accountId,
+        workerName: args.workerName,
+        workerTag: args.workerTag,
+        productionUrl: args.productionUrl,
+      },
       updatedAt: Date.now(),
     });
 
@@ -1427,26 +1466,17 @@ export const ensureConvexInfrastructure = internalAction({
         vaultId: args.vaultId,
       },
     );
+    const infrastructureTarget = requireVaultInfrastructureTarget(target);
     const { convexToken, convexTeamId } =
       await resolveConvexProvisioningConnection(ctx, vault.userId);
-    const targetConvexProjectName = target?.convexProjectName.trim();
-    const targetConvexProjectId = target?.convexProjectId?.trim();
     const convex = await ensureConvexResources({
       teamId: convexTeamId,
       convexToken,
-      projectName:
-        targetConvexProjectName ||
-        sanitizeSlug(
-          `${vault.owner}-${vault.name}-${vaultSuffix(args.vaultId)}`,
-          40,
-        ),
-      existing: {
-        projectId: existing?.convexProjectId ?? targetConvexProjectId,
-        projectSlug: existing?.convexProjectSlug,
-        deploymentName: existing?.convexDeploymentName,
-        cloudUrl: existing?.convexCloudUrl,
-        siteUrl: existing?.convexSiteUrl,
-      },
+      projectName: infrastructureTarget.convex.projectName,
+      existing: selectExistingConvexResources({
+        infrastructure: existing,
+        target: infrastructureTarget,
+      }),
       onProjectCreated: async ({ projectId }) => {
         const record = await ctx.runMutation(
           internal.infraProvisioning.recordConvexProjectIdentity,
@@ -1463,13 +1493,11 @@ export const ensureConvexInfrastructure = internalAction({
         }
       },
     });
-    if (convex.convexTeamSlug) {
-      await ctx.runMutation(internal.providerConnections.setConvexTeamSlug, {
-        userId: vault.userId,
-        teamId: convexTeamId,
-        teamSlug: convex.convexTeamSlug,
-      });
-    }
+    await ctx.runMutation(internal.providerConnections.setConvexTeamSlug, {
+      userId: vault.userId,
+      teamId: convexTeamId,
+      teamSlug: convex.convexTeamSlug,
+    });
 
     const { applied } = await ctx.runMutation(
       internal.infraProvisioning.recordConvexInfrastructure,
@@ -1478,6 +1506,7 @@ export const ensureConvexInfrastructure = internalAction({
         runId: args.runId,
         convex: {
           convexProjectId: convex.convexProjectId,
+          convexTeamSlug: convex.convexTeamSlug,
           convexProjectSlug: convex.convexProjectSlug,
           convexDeploymentName: convex.convexDeploymentName,
           convexDeploymentType: convex.convexDeploymentType,
@@ -1559,20 +1588,18 @@ export const ensureConvexPreviewInfrastructure = internalAction({
         vaultId: args.vaultId,
       },
     );
-    if (!existing?.convexProjectId) {
+    if (!existing) {
       throw new Error(
         "Convex project is required before preview provisioning can continue.",
       );
     }
 
-    const { convexToken } = await resolveConvexProvisioningConnection(
-      ctx,
-      vault.userId,
-    );
+    const { convexToken, convexTeamId } =
+      await resolveConvexProvisioningConnection(ctx, vault.userId);
     await ensureConvexPreviewResources({
       convexToken,
+      teamId: convexTeamId,
       projectId: existing.convexProjectId,
-      vaultId: args.vaultId,
     });
 
     await appendProvisioningRunEvent(ctx, {
@@ -1637,11 +1664,7 @@ export const ensureCloudflareInfrastructure = internalAction({
         vaultId: args.vaultId,
       },
     );
-    if (
-      !existing?.convexProjectId ||
-      !existing.convexDeploymentName ||
-      !existing.convexCloudUrl
-    ) {
+    if (!existing) {
       throw new Error(
         "Convex production deployment is required before Cloudflare provisioning can continue.",
       );
@@ -1662,10 +1685,8 @@ export const ensureCloudflareInfrastructure = internalAction({
       ctx,
       vault.userId,
     );
-    const { convexToken } = await resolveConvexProvisioningConnection(
-      ctx,
-      vault.userId,
-    );
+    const { convexToken, convexTeamId } =
+      await resolveConvexProvisioningConnection(ctx, vault.userId);
     const {
       cloudflareToken,
       cloudflareServerUrl,
@@ -1678,45 +1699,73 @@ export const ensureCloudflareInfrastructure = internalAction({
         vaultId: args.vaultId,
       },
     );
+    const infrastructureTarget = requireVaultInfrastructureTarget(target);
     const previewConvex = await ensureConvexPreviewResources({
       convexToken,
+      teamId: convexTeamId,
       projectId: existing.convexProjectId,
-      vaultId: args.vaultId,
     });
     const productionDeployKey = await createConvexDeployKey({
       convexToken,
       deploymentName: existing.convexDeploymentName,
       name: `noter-${vaultSuffix(args.vaultId)}`,
     });
+    const productionDeployKeyRecord = await ctx.runMutation(
+      internal.infraProvisioning.recordConvexDeployKeyIdentity,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        deployment: "production",
+        convexDeployKeyId: productionDeployKey.convexDeployKeyId,
+      },
+    );
+    if (!productionDeployKeyRecord.applied) {
+      await cancelSupersededProvisioningRun(ctx, {
+        runId: args.runId,
+        step: "ensure_cloudflare",
+      });
+      return null;
+    }
     const previewDeployKey = await createConvexDeployKey({
       convexToken,
       deploymentName: previewConvex.previewDeploymentName,
       name: `noter-preview-${vaultSuffix(args.vaultId)}`,
     });
+    const previewDeployKeyRecord = await ctx.runMutation(
+      internal.infraProvisioning.recordConvexDeployKeyIdentity,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        deployment: "preview",
+        convexDeployKeyId: previewDeployKey.convexDeployKeyId,
+      },
+    );
+    if (!previewDeployKeyRecord.applied) {
+      await cancelSupersededProvisioningRun(ctx, {
+        runId: args.runId,
+        step: "ensure_cloudflare",
+      });
+      return null;
+    }
     const repoIdentity = await fetchGitHubRepoIdentity({
       githubAccessToken,
       owner: vault.owner,
       repo: vault.name,
+      expectedRepoId: vault.ghRepoId,
     });
-    const targetCloudflareWorkerName = target?.cloudflareWorkerName.trim();
-    const existingCloudflareWorkerTag = selectExistingCloudflareWorkerTag({
+    const existingCloudflareWorker = selectExistingCloudflareWorker({
       cloudflare: vault.cloudflare,
-      target,
+      target: infrastructureTarget,
       accountId: cloudflareAccountId,
     });
     const provisionedCloudflare = await ensureCloudflareResources({
       owner: vault.owner,
       repo: vault.name,
-      ghRepoId: repoIdentity.repoId ?? vault.ghRepoId,
+      ghRepoId: vault.ghRepoId,
       ghRepoOwnerId: repoIdentity.ownerId,
       defaultBranch,
       vaultId: args.vaultId,
-      workerName:
-        targetCloudflareWorkerName ||
-        sanitizeSlug(
-          `${vault.owner}-${vault.name}-${vaultSuffix(args.vaultId)}`,
-          58,
-        ),
+      workerName: infrastructureTarget.cloudflare.workerName,
       cloudflareToken,
       cloudflareServerUrl,
       cloudflareAuthMethod,
@@ -1724,7 +1773,7 @@ export const ensureCloudflareInfrastructure = internalAction({
       buildConfig: resolveCloudflareBuildConfig({
         treeData: buildConfigTreeData,
       }),
-      existingWorkerTag: existingCloudflareWorkerTag,
+      existingWorker: existingCloudflareWorker,
       onWorkerResolved: async (worker) => {
         const record = await ctx.runMutation(
           internal.infraProvisioning.recordCloudflareWorkerIdentity,
@@ -1754,21 +1803,6 @@ export const ensureCloudflareInfrastructure = internalAction({
         },
       },
     });
-    const { applied } = await ctx.runMutation(
-      internal.infraProvisioning.recordConvexDeployKey,
-      {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        convexDeployKeyId: productionDeployKey.convexDeployKeyId,
-      },
-    );
-    if (!applied) {
-      await cancelSupersededProvisioningRun(ctx, {
-        runId: args.runId,
-        step: "ensure_cloudflare",
-      });
-      return null;
-    }
     const connectionMark = await ctx.runMutation(
       internal.infraProvisioning.markCloudflareConnected,
       {
@@ -1990,6 +2024,9 @@ const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "Cloudflare Workers Builds has no build API token",
   "Cloudflare has multiple Workers build tokens",
   "GitHub owner id is required before Cloudflare Workers Builds can connect the repository.",
+  "GitHub repository response did not include repo id.",
+  "GitHub repository response did not match the vault repo.",
+  "GitHub repository response did not include owner id.",
 ];
 
 function extractUserFacingProvisioningError(message: string): string | null {

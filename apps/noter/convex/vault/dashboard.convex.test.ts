@@ -576,11 +576,16 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("vaultInfrastructure", {
         vaultId,
         convexProjectId: "stale-convex-project",
+        convexTeamSlug: "provider-state-team",
         convexProjectSlug: "stale-project",
         convexDeploymentName: "stale-prod",
         convexDeploymentType: "prod",
         convexCloudUrl: "https://stale.convex.cloud",
         convexSiteUrl: "https://stale.convex.site",
+        convexDeployKeys: {
+          production: { state: "not_created" },
+          preview: { state: "not_created" },
+        },
       });
 
       return { runId, userId, vaultId };
@@ -1274,11 +1279,16 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("vaultInfrastructure", {
         vaultId,
         convexProjectId: "delete-convex-project",
+        convexTeamSlug: "delete-team",
         convexProjectSlug: "delete-convex",
         convexDeploymentName: "delete-convex-prod",
         convexDeploymentType: "prod",
         convexCloudUrl: "https://delete-convex.convex.cloud",
         convexSiteUrl: "https://delete-convex.convex.site",
+        convexDeployKeys: {
+          production: { state: "created", id: "delete-convex-key" },
+          preview: { state: "created", id: "delete-preview-convex-key" },
+        },
       });
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
