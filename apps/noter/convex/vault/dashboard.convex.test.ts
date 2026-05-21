@@ -576,6 +576,7 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("vaultInfrastructure", {
         vaultId,
         convexProjectId: "stale-convex-project",
+        convexTeamSlug: "provider-state-team",
         convexProjectSlug: "stale-project",
         convexDeploymentName: "stale-prod",
         convexDeploymentType: "prod",
@@ -1274,6 +1275,7 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("vaultInfrastructure", {
         vaultId,
         convexProjectId: "delete-convex-project",
+        convexTeamSlug: "delete-team",
         convexProjectSlug: "delete-convex",
         convexDeploymentName: "delete-convex-prod",
         convexDeploymentType: "prod",

@@ -66,12 +66,31 @@ state.
 ### `vaultInfrastructure`
 
 - `vaultId`
-- Convex fields: `convexProjectId`, `convexProjectSlug`, `convexDeploymentName`,
-  `convexDeploymentType`, `convexCloudUrl`, `convexSiteUrl`, `convexDeployKeyId`
+- Convex fields: `convexProjectId`, `convexTeamSlug`, `convexProjectSlug`,
+  `convexDeploymentName`, `convexDeploymentType`, `convexCloudUrl`,
+  `convexSiteUrl`, `convexDeployKeyId`
 - No provider readiness, error, or hosting state. Product readiness lives on
   `vaults.convex` and `vaults.cloudflare`; active writer state lives on
   `vaultInfrastructureOwnership`; run errors live on `appProvisioningRuns` and
   `appProvisioningEvents`.
+
+Indexes:
+
+- `by_vault`
+
+### `vaultInfrastructureTargets`
+
+- `vaultId`
+- `convex`: either `{ state: "planned", projectName }` or
+  `{ state: "created", projectName, projectId }`
+- `cloudflare`: either `{ state: "planned", workerName }` or
+  `{ state: "created", accountId, workerName, workerTag, productionUrl }`
+- `createdAt`, `updatedAt`
+
+The target row records user-selected provider names before side effects happen
+and exact provider identities after a provider resource has been created. Do not
+model created identities as optional sibling fields; the `planned`/`created`
+variant must say which identifiers exist.
 
 Indexes:
 

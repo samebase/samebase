@@ -153,7 +153,7 @@ export const getConvexDeploymentStatus = internalAction({
       args.vaultId,
     );
 
-    if (!infra?.convexDeploymentName) {
+    if (!infra) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
 
@@ -196,7 +196,7 @@ export const getConvexLogs = internalAction({
       args.vaultId,
     );
 
-    if (!infra?.convexProjectId) {
+    if (!infra) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
 

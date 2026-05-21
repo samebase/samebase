@@ -53,8 +53,13 @@ describe("selectExistingCloudflareWorkerTag", () => {
           connectedAt: 20,
         },
         target: {
-          cloudflareAccountId: "account-1",
-          cloudflareWorkerTag: "target-worker-tag",
+          cloudflare: {
+            state: "created",
+            accountId: "account-1",
+            workerName: "noter",
+            workerTag: "target-worker-tag",
+            productionUrl: "https://noter.example.workers.dev",
+          },
         },
         accountId: "account-1",
       }),
@@ -66,8 +71,13 @@ describe("selectExistingCloudflareWorkerTag", () => {
       selectExistingCloudflareWorkerTag({
         cloudflare: { state: "not_configured" },
         target: {
-          cloudflareAccountId: "account-1",
-          cloudflareWorkerTag: " target-worker-tag ",
+          cloudflare: {
+            state: "created",
+            accountId: "account-1",
+            workerName: "noter",
+            workerTag: " target-worker-tag ",
+            productionUrl: "https://noter.example.workers.dev",
+          },
         },
         accountId: "account-1",
       }),
@@ -79,8 +89,13 @@ describe("selectExistingCloudflareWorkerTag", () => {
       selectExistingCloudflareWorkerTag({
         cloudflare: { state: "not_configured" },
         target: {
-          cloudflareAccountId: "account-1",
-          cloudflareWorkerTag: "target-worker-tag",
+          cloudflare: {
+            state: "created",
+            accountId: "account-1",
+            workerName: "noter",
+            workerTag: "target-worker-tag",
+            productionUrl: "https://noter.example.workers.dev",
+          },
         },
         accountId: "account-2",
       }),
@@ -184,8 +199,14 @@ describe("infrastructure provisioning ownership", () => {
     const suffix = vaultSuffix(ids.vaultId);
     expect(result).toEqual({ claimed: true });
     expect(target).toMatchObject({
-      convexProjectName: sanitizeSlug(`ada-older-retry-${suffix}`, 40),
-      cloudflareWorkerName: sanitizeSlug(`ada-older-retry-${suffix}`, 58),
+      convex: {
+        state: "planned",
+        projectName: sanitizeSlug(`ada-older-retry-${suffix}`, 40),
+      },
+      cloudflare: {
+        state: "planned",
+        workerName: sanitizeSlug(`ada-older-retry-${suffix}`, 58),
+      },
     });
     expect(record).toEqual({ applied: true });
   });
@@ -242,8 +263,14 @@ describe("infrastructure provisioning ownership", () => {
       });
       await ctx.db.insert("vaultInfrastructureTargets", {
         vaultId,
-        convexProjectName: "provider-retry",
-        cloudflareWorkerName: "provider-retry",
+        convex: {
+          state: "planned",
+          projectName: "provider-retry",
+        },
+        cloudflare: {
+          state: "planned",
+          workerName: "provider-retry",
+        },
         createdAt: 31,
         updatedAt: 31,
       });
@@ -268,7 +295,11 @@ describe("infrastructure provisioning ownership", () => {
 
     expect(result).toEqual({ applied: true });
     expect(target).toMatchObject({
-      convexProjectId: "convex-project-id",
+      convex: {
+        state: "created",
+        projectName: "provider-retry",
+        projectId: "convex-project-id",
+      },
     });
   });
 
@@ -330,8 +361,14 @@ describe("infrastructure provisioning ownership", () => {
       });
       await ctx.db.insert("vaultInfrastructureTargets", {
         vaultId,
-        convexProjectName: "provider-retry",
-        cloudflareWorkerName: "provider-retry",
+        convex: {
+          state: "planned",
+          projectName: "provider-retry",
+        },
+        cloudflare: {
+          state: "planned",
+          workerName: "provider-retry",
+        },
         createdAt: 31,
         updatedAt: 31,
       });
@@ -359,10 +396,13 @@ describe("infrastructure provisioning ownership", () => {
 
     expect(result).toEqual({ applied: true });
     expect(target).toMatchObject({
-      cloudflareAccountId: "cloudflare-account-id",
-      cloudflareWorkerName: "provider-retry",
-      cloudflareWorkerTag: "cloudflare-worker-tag",
-      cloudflareProductionUrl: "https://provider-retry.example.workers.dev",
+      cloudflare: {
+        state: "created",
+        accountId: "cloudflare-account-id",
+        workerName: "provider-retry",
+        workerTag: "cloudflare-worker-tag",
+        productionUrl: "https://provider-retry.example.workers.dev",
+      },
     });
   });
 

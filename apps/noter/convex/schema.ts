@@ -465,6 +465,7 @@ export default defineSchema({
     vaultId: id("vaults"),
 
     convexProjectId: string(),
+    convexTeamSlug: string(),
     convexProjectSlug: string(),
     convexDeploymentName: string(),
     convexDeploymentType: union(literal("prod"), literal("dev")),
@@ -480,12 +481,30 @@ export default defineSchema({
    */
   vaultInfrastructureTargets: defineTable({
     vaultId: id("vaults"),
-    convexProjectName: string(),
-    convexProjectId: optional(string()),
-    cloudflareWorkerName: string(),
-    cloudflareAccountId: optional(string()),
-    cloudflareWorkerTag: optional(string()),
-    cloudflareProductionUrl: optional(string()),
+    convex: union(
+      object({
+        state: literal("planned"),
+        projectName: string(),
+      }),
+      object({
+        state: literal("created"),
+        projectName: string(),
+        projectId: string(),
+      }),
+    ),
+    cloudflare: union(
+      object({
+        state: literal("planned"),
+        workerName: string(),
+      }),
+      object({
+        state: literal("created"),
+        accountId: string(),
+        workerName: string(),
+        workerTag: string(),
+        productionUrl: string(),
+      }),
+    ),
     createdAt: number(),
     updatedAt: number(),
   }).index("by_vault", ["vaultId"]),
