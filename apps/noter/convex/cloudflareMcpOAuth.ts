@@ -407,7 +407,6 @@ const cloudflareMcpOauthAuthValidator = object({
 const cloudflareApiKeyAuthValidator = object({
   method: literal("api_key"),
   credential: string(),
-  credentialExpiresAt: optional(number()),
 });
 const resolvedCloudflareConnectionValidator = object({
   auth: union(cloudflareMcpOauthAuthValidator, cloudflareApiKeyAuthValidator),

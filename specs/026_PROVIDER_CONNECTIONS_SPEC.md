@@ -53,7 +53,6 @@ union and nested auth-method union.
 3. `apiKeyAuth`:
    - `method: "api_key"`
    - `credential`
-   - `credentialExpiresAt?`
 
 ### Provider documents
 

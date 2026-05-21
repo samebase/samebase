@@ -48,7 +48,6 @@ const vMcpOauthAuth = object({
 const vApiKeyAuth = object({
   method: literal("api_key"),
   credential: string(),
-  credentialExpiresAt: optional(number()),
 });
 const vProviderAuth = union(vOAuthAuth, vMcpOauthAuth, vApiKeyAuth);
 export type ProviderAuth = Infer<typeof vProviderAuth>;
