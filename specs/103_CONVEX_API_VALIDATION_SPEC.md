@@ -85,8 +85,9 @@ Noter pins Convex Management API validation to the published OpenAPI schema:
    strings before AJV runs so feature code never receives truncated provider
    IDs. Non-ID numeric fields are converted to JavaScript numbers only when the
    conversion is safe.
-7. Validate `/oauth/token` with a small local JSON Schema because it is outside
-   the Management API spec. Its response contract is exactly the documented
+7. Validate `/oauth/token` with a small local Zod schema because it is outside
+   the Management API spec and has no OpenAPI document in this integration. Its
+   response contract is exactly the documented
    `{ access_token, token_type: "bearer" }` shape; extra fields are logged by
    field name and ignored so schema drift is visible without leaking token
    values or failing an otherwise-valid OAuth exchange. Its request body, HTTP

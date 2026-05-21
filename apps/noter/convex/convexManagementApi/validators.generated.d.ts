@@ -7,7 +7,6 @@ import type {
   PlatformProjectDetails,
   PlatformTokenDetailsResponse,
 } from "./types.generated";
-import type { ConvexOAuthTokenResponse } from "./oauthToken";
 
 export type AjvStandaloneValidationError = {
   instancePath: string;
@@ -31,4 +30,3 @@ export const ajvPlatformDeploymentResponseList: AjvStandaloneValidateFunction<
   PlatformDeploymentResponse[]
 >;
 export const ajvPlatformCreateDeployKeyResponse: AjvStandaloneValidateFunction<PlatformCreateDeployKeyResponse>;
-export const ajvConvexOAuthTokenResponse: AjvStandaloneValidateFunction<ConvexOAuthTokenResponse>;

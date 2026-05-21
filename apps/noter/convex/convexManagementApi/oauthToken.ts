@@ -1,30 +1,41 @@
-import { ajvConvexOAuthTokenResponse } from "./validators.generated";
-import { validatePayload } from "./payloadValidation";
+import { z, type ZodIssue } from "zod";
+import { ConvexApiValidationError } from "./errors";
 
-const CONVEX_OAUTH_TOKEN_RESPONSE_FIELDS: ReadonlySet<string> = new Set([
-  "access_token",
-  "token_type",
-]);
-
-export type ConvexOAuthTokenResponse = {
-  access_token: string;
-  token_type: "bearer";
+const convexOAuthTokenResponseFields = {
+  access_token: z.string().min(1),
+  token_type: z.literal("bearer"),
 };
+const convexOAuthTokenResponseSchema = z.object(convexOAuthTokenResponseFields);
+const CONVEX_OAUTH_TOKEN_RESPONSE_FIELDS: ReadonlySet<string> = new Set(
+  Object.keys(convexOAuthTokenResponseFields),
+);
+
+export type ConvexOAuthTokenResponse = z.infer<
+  typeof convexOAuthTokenResponseSchema
+>;
 
 export function parseConvexOAuthTokenResponse(
   payload: unknown,
 ): ConvexOAuthTokenResponse {
-  const tokenResponse = validatePayload({
-    path: "/oauth/token",
-    schemaName: "ConvexOAuthTokenResponse",
-    validator: ajvConvexOAuthTokenResponse,
-    payload,
-  });
+  const result = convexOAuthTokenResponseSchema.safeParse(payload);
+  if (!result.success) {
+    throw new ConvexApiValidationError({
+      path: "/oauth/token",
+      schemaName: "ConvexOAuthTokenResponse",
+      validationErrors: result.error.issues.map(formatZodIssue),
+    });
+  }
+
   warnUnexpectedConvexOAuthTokenResponseFields(payload);
-  return {
-    access_token: tokenResponse.access_token,
-    token_type: tokenResponse.token_type,
-  };
+  return result.data;
+}
+
+function formatZodIssue(issue: ZodIssue): string {
+  const path =
+    issue.path.length > 0
+      ? `/${issue.path.map((segment) => String(segment)).join("/")}`
+      : "/";
+  return `${path} ${issue.message}`;
 }
 
 function warnUnexpectedConvexOAuthTokenResponseFields(payload: unknown): void {
