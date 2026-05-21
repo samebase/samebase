@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { isObject } from "@robolex/sure";
 import { Ajv2020, type AnySchema } from "ajv/dist/2020.js";
 import { standaloneCode } from "ajv/dist/standalone/index.js";
 import openapiTS, {
@@ -103,22 +104,28 @@ function parseJsonSchemaDocument(documentText: string): OpenAPI3 {
 }
 
 function isJsonSchemaDocument(payload: unknown): payload is AnySchema {
-  return (
-    typeof payload === "boolean" ||
-    (!!payload && typeof payload === "object" && !Array.isArray(payload))
-  );
+  return typeof payload === "boolean" || readRecordOrNull(payload) !== null;
 }
 
 function isOpenApiDocument(payload: unknown): payload is OpenAPI3 {
+  const document = readRecordOrNull(payload);
   return (
-    isRecord(payload) &&
-    typeof payload.openapi === "string" &&
-    isRecord(payload.info)
+    document !== null &&
+    typeof document.openapi === "string" &&
+    readRecordOrNull(document.info) !== null
   );
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
+function readRecordOrNull(value: unknown): Record<string, unknown> | null {
+  return isObject(value) && !Array.isArray(value) ? value : null;
+}
+
+function readRecord(value: unknown, message: string): Record<string, unknown> {
+  const record = readRecordOrNull(value);
+  if (record !== null) {
+    return record;
+  }
+  throw new Error(message);
 }
 
 function normalizeConvexManagementValidationDocument(
@@ -151,24 +158,22 @@ function readRecordPath(
   root: unknown,
   pathSegments: readonly string[],
 ): Record<string, unknown> {
+  const pathLabel = pathSegments.join(".");
   let value = root;
   for (const segment of pathSegments) {
-    if (!isRecord(value)) {
-      throw new Error(`Expected ${pathSegments.join(".")} to be an object.`);
-    }
-    value = value[segment];
+    value = readRecord(value, `Expected ${pathLabel} to be an object.`)[
+      segment
+    ];
   }
-  if (isRecord(value)) {
-    return value;
-  }
-  throw new Error(`Expected ${pathSegments.join(".")} to be an object.`);
+  return readRecord(value, `Expected ${pathLabel} to be an object.`);
 }
 
 function isConvexManagementInt64IdSchema(
   value: unknown,
 ): value is { description?: string; format: "int64"; type: "integer" } {
+  const record = readRecordOrNull(value);
   return (
-    isRecord(value) && value.type === "integer" && value.format === "int64"
+    record !== null && record.type === "integer" && record.format === "int64"
   );
 }
 
@@ -180,20 +185,20 @@ function collectConvexManagementResponseValidatorEntries(
   const usedExportNames = new Set<string>();
 
   for (const [path, pathItem] of Object.entries(paths)) {
-    if (!isRecord(pathItem)) {
-      throw new Error(`Expected path ${path} to be an object.`);
-    }
+    const pathItemRecord = readRecord(
+      pathItem,
+      `Expected path ${path} to be an object.`,
+    );
     for (const method of convexManagementOperationMethods) {
-      const operation = pathItem[method];
+      const operation = pathItemRecord[method];
       if (operation === undefined) {
         continue;
       }
-      if (!isRecord(operation)) {
-        throw new Error(
-          `Expected ${method.toUpperCase()} ${path} to be an object.`,
-        );
-      }
-      const operationId = operation["operationId"];
+      const operationRecord = readRecord(
+        operation,
+        `Expected ${method.toUpperCase()} ${path} to be an object.`,
+      );
+      const operationId = operationRecord["operationId"];
       if (typeof operationId !== "string" || !operationId) {
         throw new Error(
           `Expected ${method.toUpperCase()} ${path} to have an operationId.`,
@@ -202,7 +207,7 @@ function collectConvexManagementResponseValidatorEntries(
 
       const schemas = readSuccessJsonResponseSchemas({
         method,
-        operation,
+        operation: operationRecord,
         path,
       });
       const exportName =
@@ -238,12 +243,10 @@ function readSuccessJsonResponseSchemas(args: {
   operation: Record<string, unknown>;
   path: string;
 }): AnySchema[] {
-  const responses = args.operation["responses"];
-  if (!isRecord(responses)) {
-    throw new Error(
-      `Expected ${args.method.toUpperCase()} ${args.path} responses to be an object.`,
-    );
-  }
+  const responses = readRecord(
+    args.operation["responses"],
+    `Expected ${args.method.toUpperCase()} ${args.path} responses to be an object.`,
+  );
 
   const schemas: AnySchema[] = [];
   for (const [status, response] of Object.entries(responses)) {
@@ -251,30 +254,27 @@ function readSuccessJsonResponseSchemas(args: {
     if (!Number.isInteger(statusCode) || statusCode < 200 || statusCode > 299) {
       continue;
     }
-    if (!isRecord(response)) {
-      throw new Error(
-        `Expected ${args.method.toUpperCase()} ${args.path} response ${status} to be an object.`,
-      );
-    }
-    const content = response["content"];
+    const responseRecord = readRecord(
+      response,
+      `Expected ${args.method.toUpperCase()} ${args.path} response ${status} to be an object.`,
+    );
+    const content = responseRecord["content"];
     if (content === undefined) {
       continue;
     }
-    if (!isRecord(content)) {
-      throw new Error(
-        `Expected ${args.method.toUpperCase()} ${args.path} response ${status} content to be an object.`,
-      );
-    }
-    const jsonMediaType = content["application/json"];
+    const contentRecord = readRecord(
+      content,
+      `Expected ${args.method.toUpperCase()} ${args.path} response ${status} content to be an object.`,
+    );
+    const jsonMediaType = contentRecord["application/json"];
     if (jsonMediaType === undefined) {
       continue;
     }
-    if (!isRecord(jsonMediaType)) {
-      throw new Error(
-        `Expected ${args.method.toUpperCase()} ${args.path} response ${status} application/json media type to be an object.`,
-      );
-    }
-    if (jsonMediaType["schema"] === undefined) {
+    const jsonMediaTypeRecord = readRecord(
+      jsonMediaType,
+      `Expected ${args.method.toUpperCase()} ${args.path} response ${status} application/json media type to be an object.`,
+    );
+    if (jsonMediaTypeRecord["schema"] === undefined) {
       throw new Error(
         `Expected ${args.method.toUpperCase()} ${args.path} response ${status} application/json to have a schema.`,
       );
