@@ -21,9 +21,8 @@ import {
   formatCloudflareApiEndpoint,
   requestCloudflareApi,
 } from "./cloudflareApi/client";
-import { asRecord, clamp, readString } from "./jsonUtils";
+import { clamp } from "./jsonUtils";
 import type { Doc, Id } from "./_generated/dataModel";
-import { CLOUDFLARE_MCP_SERVER_URL } from "./cloudflareMcp";
 
 const EXECUTION_RESULT = v.object({
   summary: v.string(),
@@ -100,17 +99,6 @@ function resolveCloudflareToken(
     return connection.auth.credential;
   }
   throw new Error("Cloudflare is not connected");
-}
-
-function resolveCloudflareMcpServerUrl(
-  connection: { auth: { method: string } } | null,
-): string {
-  if (connection?.auth.method === "mcp_oauth") {
-    const auth = asRecord(connection.auth);
-    const url = readString(auth, "mcpServerUrl")?.trim() ?? "";
-    if (url) return url;
-  }
-  return CLOUDFLARE_MCP_SERVER_URL;
 }
 
 function compareConvexDeploymentActivity(
@@ -264,7 +252,6 @@ export const getCloudflareWorkerStatus = internalAction({
 
     return await readCloudflareWorkerStatus({
       cloudflareToken: resolveCloudflareToken(cloudflareConnection),
-      cloudflareServerUrl: resolveCloudflareMcpServerUrl(cloudflareConnection),
       accountId: cloudflare.accountId,
       workerName: cloudflare.workerName,
       workerTag: cloudflare.workerTag,
@@ -297,7 +284,6 @@ export const getCloudflareLogs = internalAction({
 
     return await readCloudflareBuildLogs({
       cloudflareToken: resolveCloudflareToken(cloudflareConnection),
-      cloudflareServerUrl: resolveCloudflareMcpServerUrl(cloudflareConnection),
       accountId: cloudflare.accountId,
       workerName: cloudflare.workerName,
       workerTag: cloudflare.workerTag,
@@ -367,7 +353,6 @@ export const getCloudflareAccountInventory = internalAction({
     );
 
     const token = resolveCloudflareToken(cloudflareConnection);
-    const serverUrl = resolveCloudflareMcpServerUrl(cloudflareConnection);
     const perPage = clamp(args.limit ?? 50, 1, 100);
     const request = {
       params: {
@@ -379,7 +364,6 @@ export const getCloudflareAccountInventory = internalAction({
     };
     const accounts = await requestCloudflareApi({
       token,
-      serverUrl,
       method: "GET",
       path: "/accounts",
       ...request,
@@ -421,7 +405,6 @@ export const getCloudflareWorkersInventory = internalAction({
     );
 
     const token = resolveCloudflareToken(cloudflareConnection);
-    const serverUrl = resolveCloudflareMcpServerUrl(cloudflareConnection);
     const perPage = clamp(args.limit ?? 50, 1, 100);
     const accountId = args.accountId ?? cloudflareConnection?.accountId;
     if (!accountId) {
@@ -438,7 +421,6 @@ export const getCloudflareWorkersInventory = internalAction({
     };
     const workers = await requestCloudflareApi({
       token,
-      serverUrl,
       method: "GET",
       path: "/accounts/{account_id}/workers/scripts",
       ...request,

@@ -90,7 +90,6 @@ row with:
 - `auth.credential` (access token)
 - `auth.refreshCredential` (optional)
 - `auth.credentialExpiresAt` (optional)
-- `auth.mcpServerUrl` (Cloudflare MCP endpoint)
 
 ### Read-only first
 

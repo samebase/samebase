@@ -249,7 +249,6 @@ export const vMcpOAuthAuth = object({
   refreshCredential: optional(string()),
   credentialExpiresAt: optional(number()),
   clientId: optional(string()),
-  mcpServerUrl: string(),
 });
 export const vApiKeyAuth = object({
   method: literal("api_key"),

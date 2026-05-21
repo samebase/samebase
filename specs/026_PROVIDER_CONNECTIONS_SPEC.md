@@ -50,7 +50,6 @@ union and nested auth-method union.
    - `refreshCredential?`
    - `credentialExpiresAt?`
    - `clientId?`
-   - `mcpServerUrl`
 3. `apiKeyAuth`:
    - `method: "api_key"`
    - `credential`

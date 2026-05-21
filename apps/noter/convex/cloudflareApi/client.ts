@@ -12,10 +12,7 @@ import {
   cloudflareApiResponseValidators,
   type AjvStandaloneValidateFunction,
 } from "./validators.generated";
-import {
-  callCloudflareMcpTool,
-  CLOUDFLARE_MCP_SERVER_URL,
-} from "../cloudflareMcp";
+import { callCloudflareMcpTool } from "../cloudflareMcp";
 import {
   readBoolean,
   readString,
@@ -148,7 +145,6 @@ type CloudflareApiMcpResult = {
 };
 type CloudflareApiRequestBase = {
   token: string;
-  serverUrl?: string;
 };
 
 export class CloudflareApiError extends Error {
@@ -269,7 +265,6 @@ export async function requestCloudflareApi(
   });
   const result = await executeCloudflareApiMcpRequest({
     token: args.token,
-    serverUrl: args.serverUrl,
     method: args.method,
     endpoint,
     body: readCloudflareApiRequestBody(args),
@@ -375,7 +370,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 async function executeCloudflareApiMcpRequest(args: {
   token: string;
-  serverUrl?: string;
   method: CloudflareApiRequestMethod;
   endpoint: string;
   body?: unknown;
@@ -392,7 +386,6 @@ async function executeCloudflareApiMcpRequest(args: {
     token: readCloudflareMcpToken(args.token),
     toolName: "execute",
     toolArgs: { code },
-    serverUrl: args.serverUrl ?? CLOUDFLARE_MCP_SERVER_URL,
   }).catch((error: unknown) => {
     const message = toErrorMessage(error);
     if (

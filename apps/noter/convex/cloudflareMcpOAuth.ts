@@ -25,7 +25,6 @@ const CLOUDFLARE_MCP_OAUTH_ISSUER = "https://mcp.cloudflare.com";
 const CLOUDFLARE_MCP_AUTHORIZATION_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/authorize`;
 const CLOUDFLARE_MCP_TOKEN_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/token`;
 const CLOUDFLARE_MCP_REGISTRATION_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/register`;
-const CLOUDFLARE_MCP_SERVER_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/mcp`;
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
 const FormEncodedParams = globalThis.URLSearchParams;
 const CLOUDFLARE_OAUTH_ERROR_MESSAGE_KEYS = [
@@ -354,7 +353,6 @@ export const storeCloudflareMcpOauthConnection = internalMutation({
         refreshCredential: args.refreshToken,
         credentialExpiresAt: args.expiresAt,
         clientId: args.clientId,
-        mcpServerUrl: CLOUDFLARE_MCP_SERVER_URL,
       },
       accountId: undefined,
       tokenHealth: {
@@ -381,7 +379,6 @@ const cloudflareMcpOauthAuthValidator = object({
   refreshCredential: optional(string()),
   credentialExpiresAt: optional(number()),
   clientId: optional(string()),
-  mcpServerUrl: string(),
 });
 const cloudflareApiKeyAuthValidator = object({
   method: literal("api_key"),
@@ -566,7 +563,6 @@ export const resolveConnectionForUser = internalAction({
         refreshed.refreshToken ?? connection.auth.refreshCredential,
       credentialExpiresAt: nextExpiresAt,
       clientId,
-      mcpServerUrl: connection.auth.mcpServerUrl,
     };
     const nowAfterRefresh = Date.now();
     const refreshedTokenHealth: Infer<typeof vMcpTokenHealth> = {
