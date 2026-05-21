@@ -7,7 +7,7 @@ import {
 import {
   ConvexManagementApiError,
   isConvexManagementNotFoundError,
-} from "./infraProviders";
+} from "./convexManagementApi/errors";
 
 describe("provider deletion errors", () => {
   it("recognizes Convex management not-found errors", () => {
@@ -16,7 +16,7 @@ describe("provider deletion errors", () => {
         new ConvexManagementApiError({
           status: 404,
           path: "/projects/project-123/delete",
-          payload: { error: "not found" },
+          responseBodySummary: "not found",
         }),
       ),
     ).toBe(true);
@@ -28,7 +28,7 @@ describe("provider deletion errors", () => {
         new ConvexManagementApiError({
           status: 500,
           path: "/projects/project-123/delete",
-          payload: { error: "provider failure" },
+          responseBodySummary: "provider failure",
         }),
       ),
     ).toBe(false);

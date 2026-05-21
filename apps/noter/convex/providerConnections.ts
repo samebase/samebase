@@ -171,10 +171,17 @@ async function upsertConvexConnection(
   const now = Date.now();
   const existing = await getConnectionByUserAndKind(db, args.userId, "convex");
   if (existing) {
+    if (existing.kind !== "convex") {
+      throw new Error("Convex connection lookup returned another provider.");
+    }
+    const teamSlug =
+      args.teamSlug !== undefined || existing.teamId !== args.teamId
+        ? args.teamSlug
+        : existing.teamSlug;
     await db.patch(existing._id, {
       auth: args.auth,
       teamId: args.teamId,
-      teamSlug: args.teamSlug,
+      teamSlug,
       updatedAt: now,
     });
     return;
@@ -276,6 +283,31 @@ export const upsertConvex = internalMutation({
   returns: vNull(),
   handler: async (ctx, args) => {
     await upsertConvexConnection(ctx.db, args);
+    return null;
+  },
+});
+
+export const setConvexTeamSlug = internalMutation({
+  args: {
+    userId: id("users"),
+    teamId: string(),
+    teamSlug: string(),
+  },
+  returns: vNull(),
+  handler: async (ctx, args) => {
+    const existing = await getConnectionByUserAndKind(
+      ctx.db,
+      args.userId,
+      "convex",
+    );
+    if (existing?.kind !== "convex" || existing.teamId !== args.teamId) {
+      throw new Error("Convex connection changed before team slug update.");
+    }
+
+    await ctx.db.patch(existing._id, {
+      teamSlug: args.teamSlug,
+      updatedAt: Date.now(),
+    });
     return null;
   },
 });
