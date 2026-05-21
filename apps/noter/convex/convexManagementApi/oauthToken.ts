@@ -6,8 +6,8 @@ const convexOAuthTokenResponseFields = {
   token_type: z.literal("bearer"),
 };
 const convexOAuthTokenResponseSchema = z.object(convexOAuthTokenResponseFields);
-const CONVEX_OAUTH_TOKEN_RESPONSE_FIELDS: ReadonlySet<string> = new Set(
-  Object.keys(convexOAuthTokenResponseFields),
+const convexOAuthStrictTokenResponseSchema = z.strictObject(
+  convexOAuthTokenResponseFields,
 );
 
 export type ConvexOAuthTokenResponse = z.infer<
@@ -39,7 +39,14 @@ function formatZodIssue(issue: ZodIssue): string {
 }
 
 function warnUnexpectedConvexOAuthTokenResponseFields(payload: unknown): void {
-  const fields = collectUnexpectedConvexOAuthTokenResponseFields(payload);
+  const strictResult = convexOAuthStrictTokenResponseSchema.safeParse(payload);
+  if (strictResult.success) {
+    return;
+  }
+
+  const fields = strictResult.error.issues
+    .flatMap((issue) => (issue.code === "unrecognized_keys" ? issue.keys : []))
+    .sort();
   if (fields.length === 0) {
     return;
   }
@@ -51,16 +58,4 @@ function warnUnexpectedConvexOAuthTokenResponseFields(payload: unknown): void {
     schemaName: "ConvexOAuthTokenResponse",
     fields,
   });
-}
-
-function collectUnexpectedConvexOAuthTokenResponseFields(
-  payload: unknown,
-): string[] {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    return [];
-  }
-
-  return Object.keys(payload)
-    .filter((field) => !CONVEX_OAUTH_TOKEN_RESPONSE_FIELDS.has(field))
-    .sort();
 }
