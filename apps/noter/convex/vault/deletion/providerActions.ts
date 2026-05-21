@@ -6,7 +6,7 @@ import { v } from "convex/values";
 import { internalAction, type ActionCtx } from "../../_generated/server";
 import { internal } from "../../_generated/api";
 import type { Doc, Id } from "../../_generated/dataModel";
-import { createConvexManagementClient } from "../../convexManagementApi/client";
+import { postConvexManagementApi } from "../../convexManagementApi/client";
 import { isConvexManagementNotFoundError } from "../../convexManagementApi/errors";
 import {
   deleteCloudflareResources,
@@ -246,18 +246,19 @@ export const deleteConvex = internalAction({
       throw new Error("Convex connection is required to remove resources.");
     }
 
-    const convexClient = createConvexManagementClient({
-      token: convexConnection.auth.credential,
-    });
     try {
       if (plan.convex.action === "delete_project") {
-        await convexClient.deleteProject({
-          projectId: plan.convex.projectId,
-        });
+        await postConvexManagementApi(
+          convexConnection.auth.credential,
+          "/projects/{project_id}/delete",
+          { params: { path: { project_id: plan.convex.projectId } } },
+        );
       } else {
-        await convexClient.deleteDeployment({
-          deploymentName: plan.convex.deploymentName,
-        });
+        await postConvexManagementApi(
+          convexConnection.auth.credential,
+          "/deployments/{deployment_name}/delete",
+          { params: { path: { deployment_name: plan.convex.deploymentName } } },
+        );
       }
     } catch (error) {
       if (!isConvexManagementNotFoundError(error)) {

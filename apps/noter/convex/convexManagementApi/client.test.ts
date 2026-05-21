@@ -2,11 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { Client, ClientPathsWithMethod } from "openapi-fetch";
 
 import {
-  createConvexManagementClient,
   formatConvexManagementApiEndpoint,
-  readConvexManagementDecimalPathId,
-  readConvexManagementPathSegment,
-  type ConvexManagementClient,
+  getConvexManagementApi,
+  postConvexManagementApi,
 } from "./client";
 import type {
   operations,
@@ -32,9 +30,7 @@ const expectType =
     void input;
   };
 
-function assertConvexManagementClientTypes(
-  client: ConvexManagementClient,
-): void {
+function assertConvexManagementRequestTypes(): void {
   type ConvexManagementGetPath = ClientPathsWithMethod<Client<paths>, "get">;
   type ConvexManagementPostPath = ClientPathsWithMethod<Client<paths>, "post">;
   type ListProjectsPathParams =
@@ -48,11 +44,23 @@ function assertConvexManagementClientTypes(
 
   expectType<{ team_id: string }>()(listProjectsPathParams, true);
   expectType<Promise<PlatformProjectDetails[]>>()(
-    client.listProjects({ teamId: LARGE_CONVEX_ID }),
+    getConvexManagementApi("team-token", "/teams/{team_id}/list_projects", {
+      params: { path: { team_id: LARGE_CONVEX_ID } },
+    }),
     true,
   );
   expectType<Promise<PlatformDeploymentResponse[]>>()(
-    client.listDeployments({ projectId: LARGE_CONVEX_ID }),
+    getConvexManagementApi(
+      "team-token",
+      "/projects/{project_id}/list_deployments",
+      { params: { path: { project_id: LARGE_CONVEX_ID } } },
+    ),
+    true,
+  );
+  expectType<Promise<void>>()(
+    postConvexManagementApi("team-token", "/projects/{project_id}/delete", {
+      params: { path: { project_id: LARGE_CONVEX_ID } },
+    }),
     true,
   );
 
@@ -86,17 +94,21 @@ function assertConvexManagementClientTypes(
   const missingListProjectsPathParams: ListProjectsPathParams = {};
   void missingListProjectsPathParams;
 
-  void client.listProjects({
-    // @ts-expect-error Convex Management API IDs are opaque decimal strings.
-    teamId: 123,
+  void getConvexManagementApi("team-token", "/teams/{team_id}/list_projects", {
+    params: {
+      path: {
+        // @ts-expect-error Convex Management API IDs are opaque decimal strings.
+        team_id: 123,
+      },
+    },
   });
 
-  // @ts-expect-error Convex Management API clients require a token.
-  createConvexManagementClient({});
+  // @ts-expect-error The list projects endpoint requires path parameters.
+  void getConvexManagementApi("team-token", "/teams/{team_id}/list_projects");
 }
-void assertConvexManagementClientTypes;
+void assertConvexManagementRequestTypes;
 
-describe("createConvexManagementClient", () => {
+describe("Convex Management API request helpers", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
@@ -115,9 +127,11 @@ describe("createConvexManagementClient", () => {
       }),
     );
 
-    await createConvexManagementClient({ token: "team-token" }).listProjects({
-      teamId: LARGE_CONVEX_ID,
-    });
+    await getConvexManagementApi(
+      "team-token",
+      "/teams/{team_id}/list_projects",
+      { params: { path: { team_id: LARGE_CONVEX_ID } } },
+    );
 
     expect(requests.map(readRequest)).toEqual([
       {
@@ -153,8 +167,8 @@ describe("createConvexManagementClient", () => {
     );
 
     await expect(
-      createConvexManagementClient({ token: "team-token" }).listProjects({
-        teamId: LARGE_CONVEX_PARENT_ID,
+      getConvexManagementApi("team-token", "/teams/{team_id}/list_projects", {
+        params: { path: { team_id: LARGE_CONVEX_PARENT_ID } },
       }),
     ).resolves.toEqual([
       {
@@ -198,9 +212,11 @@ describe("createConvexManagementClient", () => {
     );
 
     await expect(
-      createConvexManagementClient({ token: "team-token" }).listDeployments({
-        projectId: LARGE_CONVEX_PARENT_ID,
-      }),
+      getConvexManagementApi(
+        "team-token",
+        "/projects/{project_id}/list_deployments",
+        { params: { path: { project_id: LARGE_CONVEX_PARENT_ID } } },
+      ),
     ).resolves.toEqual([
       {
         class: "s16",
@@ -229,9 +245,11 @@ describe("createConvexManagementClient", () => {
       }),
     );
 
-    await createConvexManagementClient({ token: "team-token" }).deleteProject({
-      projectId: "123",
-    });
+    await postConvexManagementApi(
+      "team-token",
+      "/projects/{project_id}/delete",
+      { params: { path: { project_id: "123" } } },
+    );
 
     expect(requests.map(readRequest)).toEqual([
       {
@@ -245,16 +263,40 @@ describe("createConvexManagementClient", () => {
 
   it("warns when path segment values need trimming", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return new Response(
+          `{
+            "class": "s16",
+            "createTime": 1710000000000,
+            "creator": ${LARGE_CONVEX_PARENT_ID},
+            "deploymentType": "prod",
+            "deploymentUrl": "https://noter.convex.cloud",
+            "id": ${LARGE_CONVEX_ID},
+            "isDefault": true,
+            "kind": "cloud",
+            "name": "team-project",
+            "projectId": ${LARGE_CONVEX_PARENT_ID},
+            "reference": "prod",
+            "region": "aws-us-east-1"
+          }`,
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }),
+    );
 
-    expect(
-      readConvexManagementPathSegment(
-        " team-project ",
-        "Convex deployment name",
-      ),
-    ).toBe("team-project");
+    await getConvexManagementApi(
+      "team-token",
+      "/deployments/{deployment_name}",
+      { params: { path: { deployment_name: " team-project " } } },
+    );
 
     expect(warn).toHaveBeenCalledWith("convex:api:trimmed_path_parameter", {
-      label: "Convex deployment name",
+      label: "Convex path parameter deployment_name",
       originalLength: 14,
       normalizedLength: 12,
     });
@@ -262,16 +304,24 @@ describe("createConvexManagementClient", () => {
 
   it("warns when decimal path IDs need trimming", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return new Response("[]", {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }),
+    );
 
-    expect(
-      readConvexManagementDecimalPathId(
-        ` ${LARGE_CONVEX_ID} `,
-        "Convex project ID",
-      ),
-    ).toBe(LARGE_CONVEX_ID);
+    await getConvexManagementApi(
+      "team-token",
+      "/teams/{team_id}/list_projects",
+      { params: { path: { team_id: ` ${LARGE_CONVEX_ID} ` } } },
+    );
 
     expect(warn).toHaveBeenCalledWith("convex:api:trimmed_path_parameter", {
-      label: "Convex project ID",
+      label: "Convex path parameter team_id",
       originalLength: LARGE_CONVEX_ID.length + 2,
       normalizedLength: LARGE_CONVEX_ID.length,
     });
