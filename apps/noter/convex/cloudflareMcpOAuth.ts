@@ -51,25 +51,15 @@ type OAuthContext = ActionCtx | MutationCtx;
 type CloudflareOAuthTokenOperation =
   | "exchange Cloudflare OAuth code"
   | "refresh Cloudflare OAuth token";
-const cloudflareMcpNonEmptyString = z.string().min(1);
-const cloudflareMcpClientRegistrationResponseSchema = z
-  .object({
-    client_id: cloudflareMcpNonEmptyString,
-  })
-  .transform((response) => ({
-    clientId: response.client_id,
-  }));
-const cloudflareMcpTokenResponseSchema = z
-  .object({
-    access_token: cloudflareMcpNonEmptyString,
-    refresh_token: cloudflareMcpNonEmptyString,
-    expires_in: z.number(),
-  })
-  .transform((response) => ({
-    accessToken: response.access_token,
-    refreshToken: response.refresh_token,
-    expiresIn: response.expires_in,
-  }));
+const nonEmptyString = z.string().min(1);
+const cloudflareMcpClientRegistrationResponseSchema = z.object({
+  client_id: nonEmptyString,
+});
+const cloudflareMcpTokenResponseSchema = z.object({
+  access_token: nonEmptyString,
+  refresh_token: nonEmptyString,
+  expires_in: z.number(),
+});
 const cloudflareOauthEndpointErrorMessageSchema = z.preprocess(
   (value) => (typeof value === "string" ? value : undefined),
   z.string().optional(),
@@ -83,6 +73,9 @@ const cloudflareOauthEndpointErrorSchema = z.object({
 });
 type CloudflareMcpTokenResponse = z.infer<
   typeof cloudflareMcpTokenResponseSchema
+>;
+type CloudflareMcpClientRegistrationResponse = z.infer<
+  typeof cloudflareMcpClientRegistrationResponseSchema
 >;
 
 async function fetchWithTimeout(
@@ -178,7 +171,7 @@ function parseCloudflareMcpTokenResponse(
 
 async function registerCloudflareMcpClient(args: {
   redirectUri: string;
-}): Promise<{ clientId: string }> {
+}): Promise<CloudflareMcpClientRegistrationResponse> {
   const response = await fetchWithTimeout(CLOUDFLARE_MCP_REGISTRATION_URL, {
     method: "POST",
     headers: {
@@ -209,7 +202,7 @@ async function registerCloudflareMcpClient(args: {
 
   logCloudflareMcpEvent("cloudflare:mcp_oauth:client_registered", {
     redirectUri: args.redirectUri,
-    clientIdLength: registration.data.clientId.length,
+    clientIdLength: registration.data.client_id.length,
   });
 
   return registration.data;
@@ -220,11 +213,7 @@ async function exchangeCloudflareMcpOAuthCode(args: {
   codeVerifier: string;
   clientId: string;
   redirectUri: string;
-}): Promise<{
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
-}> {
+}): Promise<CloudflareMcpTokenResponse> {
   const payload = new FormEncodedParams({
     grant_type: "authorization_code",
     client_id: args.clientId,
@@ -300,11 +289,7 @@ function isLikelyInvalidCloudflareTokenError(error: unknown): boolean {
 async function refreshCloudflareMcpOAuthToken(args: {
   refreshToken: string;
   clientId: string;
-}): Promise<{
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
-}> {
+}): Promise<CloudflareMcpTokenResponse> {
   const payload = new FormEncodedParams({
     grant_type: "refresh_token",
     client_id: args.clientId,
@@ -345,7 +330,8 @@ async function buildCloudflareMcpOAuthUrl(
   const state = randomToken();
   const codeVerifier = randomToken(64);
   const codeChallenge = await createCodeChallenge(codeVerifier);
-  const { clientId } = await registerCloudflareMcpClient({ redirectUri });
+  const registeredClient = await registerCloudflareMcpClient({ redirectUri });
+  const clientId = registeredClient.client_id;
 
   const now = Date.now();
   await ctx.runMutation(internal.oauthState.createOauthState, {
@@ -591,11 +577,11 @@ export const resolveConnectionForUser = internalAction({
       });
       throw error;
     }
-    const nextExpiresAt = Date.now() + refreshed.expiresIn * 1000;
+    const nextExpiresAt = Date.now() + refreshed.expires_in * 1000;
     const refreshedAuth: Infer<typeof cloudflareMcpOauthAuthValidator> = {
       method: "mcp_oauth",
-      credential: refreshed.accessToken,
-      refreshCredential: refreshed.refreshToken,
+      credential: refreshed.access_token,
+      refreshCredential: refreshed.refresh_token,
       credentialExpiresAt: nextExpiresAt,
       clientId,
     };
@@ -743,14 +729,14 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
       redirectUri,
     });
 
-    const expiresAt = Date.now() + token.expiresIn * 1000;
+    const expiresAt = Date.now() + token.expires_in * 1000;
 
     await ctx.runMutation(
       internal.cloudflareMcpOAuth.storeCloudflareMcpOauthConnection,
       {
         userId: oauthState.userId,
-        accessToken: token.accessToken,
-        refreshToken: token.refreshToken,
+        accessToken: token.access_token,
+        refreshToken: token.refresh_token,
         expiresAt,
         clientId,
         oauthStateId: oauthState._id,
@@ -758,10 +744,10 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
     );
     logCloudflareMcpEvent("cloudflare:mcp_oauth:exchange_succeeded", {
       userId: oauthState.userId,
-      expiresIn: token.expiresIn,
+      expiresIn: token.expires_in,
       expiresAt,
       clientIdLength: clientId.length,
-      hasRefreshToken: typeof token.refreshToken === "string",
+      hasRefreshToken: typeof token.refresh_token === "string",
     });
   } catch (err) {
     await ctx.runMutation(internal.oauthState.deleteOauthState, {
