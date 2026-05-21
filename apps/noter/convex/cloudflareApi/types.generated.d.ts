@@ -1996,7 +1996,7 @@ export interface components {
       /** @description Account settings */
       settings?: {
         /** @description Sets an abuse contact email to notify for abuse reports. */
-        abuse_contact_email?: string;
+        abuse_contact_email?: string | null;
         /**
          * @description Indicates whether membership in this account requires that
          *     Two-Factor Authentication is enabled

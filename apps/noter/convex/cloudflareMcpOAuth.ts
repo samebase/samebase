@@ -343,6 +343,7 @@ const storeCloudflareMcpOauthConnectionArgs = {
   refreshToken: string(),
   expiresAt: number(),
   clientId: string(),
+  accountId: string(),
   oauthStateId: id("oauthStates"),
 } as const;
 const storeCloudflareMcpOauthConnectionResultValidator = nullValue();
@@ -361,7 +362,7 @@ export const storeCloudflareMcpOauthConnection = internalMutation({
         credentialExpiresAt: args.expiresAt,
         clientId: args.clientId,
       },
-      accountId: undefined,
+      accountId: args.accountId,
       tokenHealth: {
         status: deriveMcpTokenStatusFromExpiry(args.expiresAt, checkedAt),
         checkedAt,
@@ -403,6 +404,38 @@ const getCloudflareMcpOAuthUrlResultValidator = string();
 type ResolvedCloudflareConnection = Infer<
   typeof resolvedCloudflareConnectionValidator
 >;
+
+async function resolveCloudflareMcpAccountId(
+  ctx: ActionCtx,
+  args: {
+    userId: Id<"users">;
+    auth: Infer<typeof cloudflareMcpOauthAuthValidator>;
+    accountId?: string;
+    tokenHealth: Infer<typeof vMcpTokenHealth>;
+  },
+): Promise<string> {
+  const existingAccountId = args.accountId?.trim();
+  if (existingAccountId) {
+    return existingAccountId;
+  }
+
+  const accountId = await ctx.runAction(
+    internal.cloudflareAccountDiscovery.resolveSingleAccountIdForToken,
+    {
+      token: args.auth.credential,
+    },
+  );
+  await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
+    userId: args.userId,
+    auth: args.auth,
+    accountId,
+    tokenHealth: args.tokenHealth,
+  });
+  console.log("cloudflare:mcp_oauth:account_selected", {
+    userId: args.userId,
+  });
+  return accountId;
+}
 
 export const resolveConnectionForUser = internalAction({
   args: {
@@ -453,9 +486,15 @@ export const resolveConnectionForUser = internalAction({
       shouldRefresh,
     });
     if (!shouldRefresh) {
-      return {
+      const accountId = await resolveCloudflareMcpAccountId(ctx, {
+        userId: args.userId,
         auth: connection.auth,
         accountId: connection.accountId,
+        tokenHealth: effectiveTokenHealth,
+      });
+      return {
+        auth: connection.auth,
+        accountId,
         tokenHealth: effectiveTokenHealth,
       };
     }
@@ -580,9 +619,16 @@ export const resolveConnectionForUser = internalAction({
       clientIdLength: clientId.length,
     });
 
-    return {
+    const accountId = await resolveCloudflareMcpAccountId(ctx, {
+      userId: args.userId,
       auth: refreshedAuth,
       accountId: connection.accountId,
+      tokenHealth: refreshedTokenHealth,
+    });
+
+    return {
+      auth: refreshedAuth,
+      accountId,
       tokenHealth: refreshedTokenHealth,
     };
   },
@@ -704,6 +750,12 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
     });
 
     const expiresAt = Date.now() + token.expires_in * 1000;
+    const accountId = await ctx.runAction(
+      internal.cloudflareAccountDiscovery.resolveSingleAccountIdForToken,
+      {
+        token: token.access_token,
+      },
+    );
 
     await ctx.runMutation(
       internal.cloudflareMcpOAuth.storeCloudflareMcpOauthConnection,
@@ -713,6 +765,7 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
         refreshToken: token.refresh_token,
         expiresAt,
         clientId,
+        accountId,
         oauthStateId: oauthState._id,
       },
     );

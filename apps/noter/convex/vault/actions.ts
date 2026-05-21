@@ -16,7 +16,10 @@ import {
   resolveCloudflareProvisioningConnection,
   resolveConvexProvisioningConnection,
 } from "../infraProvisioning";
-import { isCloudflareWorkerNameAvailable } from "../cloudflareResources";
+import {
+  isCloudflareMcpInvalidAccessTokenError,
+  isCloudflareWorkerNameAvailable,
+} from "../cloudflareResources";
 import {
   buildNumberedAppResourceNameSuggestion,
   validateAppResourceName,
@@ -464,6 +467,31 @@ async function buildAvailableCloudflareWorkerNameSuggestion(args: {
   return null;
 }
 
+async function readCloudflareWorkerNameAvailability(args: {
+  connection: Awaited<
+    ReturnType<typeof resolveCloudflareProvisioningConnection>
+  >;
+  workerName: string;
+}): Promise<AppResourceNameAvailability> {
+  const available = await isCloudflareWorkerNameAvailable({
+    token: args.connection.cloudflareToken,
+    accountId: args.connection.cloudflareAccountId,
+    workerName: args.workerName,
+  });
+  if (available) {
+    return buildAvailableResult();
+  }
+
+  return buildTakenResult({
+    providerLabel: "Cloudflare Worker",
+    suggestion: await buildAvailableCloudflareWorkerNameSuggestion({
+      token: args.connection.cloudflareToken,
+      accountId: args.connection.cloudflareAccountId,
+      baseName: args.workerName,
+    }),
+  });
+}
+
 async function checkCloudflareWorkerNameAvailability(
   ctx: ActionCtx,
   args: {
@@ -482,23 +510,27 @@ async function checkCloudflareWorkerNameAvailability(
       ctx,
       args.userId,
     );
-    const available = await isCloudflareWorkerNameAvailable({
-      token: connection.cloudflareToken,
-      accountId: connection.cloudflareAccountId,
-      workerName,
-    });
-    if (available) {
-      return buildAvailableResult();
+    try {
+      return await readCloudflareWorkerNameAvailability({
+        connection,
+        workerName,
+      });
+    } catch (error) {
+      if (
+        connection.cloudflareAuthMethod === "mcp_oauth" &&
+        isCloudflareMcpInvalidAccessTokenError(error)
+      ) {
+        const refreshedConnection =
+          await resolveCloudflareProvisioningConnection(ctx, args.userId, {
+            forceRefresh: true,
+          });
+        return await readCloudflareWorkerNameAvailability({
+          connection: refreshedConnection,
+          workerName,
+        });
+      }
+      throw error;
     }
-
-    return buildTakenResult({
-      providerLabel: "Cloudflare Worker",
-      suggestion: await buildAvailableCloudflareWorkerNameSuggestion({
-        token: connection.cloudflareToken,
-        accountId: connection.cloudflareAccountId,
-        baseName: workerName,
-      }),
-    });
   } catch (error) {
     console.warn("vault:create:cloudflare_name_check_failed", {
       message: toErrorMessage(error),

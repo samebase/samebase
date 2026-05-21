@@ -269,11 +269,31 @@ function buildCloudflareApiSubsetDocument(
     target: subsetDocument,
     root: selectedPaths,
   });
+  normalizeObservedCloudflareApiResponseShapes(subsetDocument);
 
   if (isOpenApiDocument(subsetDocument)) {
     return subsetDocument;
   }
   throw new Error("Failed to build Cloudflare API subset document.");
+}
+
+function normalizeObservedCloudflareApiResponseShapes(document: JsonRecord) {
+  // Cloudflare /accounts returns null for this field when no abuse contact
+  // email is set, while the upstream schema currently declares only string.
+  markSchemaNullable(
+    document,
+    "#/components/schemas/iam_account/properties/settings/properties/abuse_contact_email",
+  );
+}
+
+function markSchemaNullable(document: JsonRecord, pointer: string): void {
+  const schema = readJsonPointer(document, pointer);
+  if (!isRecord(schema)) {
+    throw new Error(
+      `Expected Cloudflare API schema ${pointer} to be an object.`,
+    );
+  }
+  schema["nullable"] = true;
 }
 
 function ensureCloudflareApiOperationIds(paths: JsonRecord): void {

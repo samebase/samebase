@@ -14519,7 +14519,8 @@
               "abuse_contact_email": {
                 "description": "Sets an abuse contact email to notify for abuse reports.",
                 "type": "string",
-                "x-auditable": true
+                "x-auditable": true,
+                "nullable": true
               },
               "enforce_twofactor": {
                 "default": false,
