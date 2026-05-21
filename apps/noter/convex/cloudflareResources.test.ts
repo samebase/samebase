@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   buildCloudflareWorkersEnvVars,
+  isCloudflareMcpInvalidAccessTokenError,
   isWorkersBuildsInvalidTokenMessage,
   readCloudflareWorkerTag,
   selectCurrentBuildTokenUuid,
@@ -88,6 +89,16 @@ describe("cloudflare resources", () => {
         message:
           "Cloudflare MCP tool call failed: Error: Cloudflare API error: 12006: Invalid token",
       }),
+    ).toBe(true);
+  });
+
+  it("recognizes invalid Cloudflare MCP access tokens", () => {
+    expect(
+      isCloudflareMcpInvalidAccessTokenError(
+        new Error(
+          'Cloudflare MCP request failed (401): {"error":"invalid_token","error_description":"Invalid access token"}',
+        ),
+      ),
     ).toBe(true);
   });
 

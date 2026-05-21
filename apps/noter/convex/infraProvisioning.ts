@@ -873,16 +873,16 @@ async function resolveGitHubProvisioningConnection(
 export async function resolveCloudflareProvisioningConnection(
   ctx: ActionCtx,
   userId: Id<"users">,
+  options?: { forceRefresh: true },
 ): Promise<{
   cloudflareToken: string;
   cloudflareAuthMethod: "api_key" | "mcp_oauth";
   cloudflareAccountId: string;
 }> {
+  const resolveArgs = options ? { userId, forceRefresh: true } : { userId };
   const resolvedCloudflareConnection = await ctx.runAction(
     internal.cloudflareMcpOAuth.resolveConnectionForUser,
-    {
-      userId,
-    },
+    resolveArgs,
   );
   if (!resolvedCloudflareConnection) {
     throw new Error(

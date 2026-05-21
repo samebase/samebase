@@ -7,6 +7,7 @@ import { clamp, toErrorMessage } from "./jsonUtils";
 
 export {
   CloudflareApiError,
+  isCloudflareMcpInvalidAccessTokenError,
   isWorkersBuildsInvalidTokenMessage,
 } from "./cloudflareApi/client";
 
@@ -65,14 +66,12 @@ export function isCloudflareWorkerNotFoundError(error: unknown): boolean {
     return error.details.some((detail) => {
       const message = detail.message?.toLowerCase();
       return (
+        detail.code === "10007" ||
         message === "worker not found" ||
         message === "trigger not found" ||
         message === "script not found" ||
         message === "not found" ||
-        message === "workers.api.error.not_found" ||
-        (detail.code === "10007" &&
-          message?.includes("worker") === true &&
-          message.includes("does not exist"))
+        message === "workers.api.error.not_found"
       );
     });
   }

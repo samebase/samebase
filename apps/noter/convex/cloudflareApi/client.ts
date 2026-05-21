@@ -334,6 +334,16 @@ export function isWorkersBuildsInvalidTokenMessage(args: {
   );
 }
 
+export function isCloudflareMcpInvalidAccessTokenError(
+  error: unknown,
+): boolean {
+  const message = toErrorMessage(error).toLowerCase();
+  return (
+    message.includes("invalid_token") ||
+    message.includes("invalid access token")
+  );
+}
+
 function readCloudflareApiRequestParams(options: {
   params?: unknown;
 }): CloudflareApiRequestParams | undefined {
