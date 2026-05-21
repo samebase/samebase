@@ -291,6 +291,10 @@ type CloudflareWorkerIdentity = {
   productionUrl: string;
 };
 
+export type ExistingCloudflareWorkerIdentity =
+  | { state: "planned" }
+  | { state: "created"; workerTag: string };
+
 async function readAccountSubdomain(args: {
   token: string;
   serverUrl?: string;
@@ -368,7 +372,7 @@ async function ensureWorker(args: {
   serverUrl?: string;
   accountId: string;
   workerName: string;
-  existingWorkerTag?: string;
+  existingWorker: ExistingCloudflareWorkerIdentity;
 }): Promise<CloudflareWorkerIdentity> {
   const accountSubdomain = await readAccountSubdomain(args);
   const existing = await readWorker({
@@ -379,11 +383,17 @@ async function ensureWorker(args: {
   });
   if (existing) {
     const workerTag = readCloudflareWorkerTag(existing, args.workerName);
-    if (args.existingWorkerTag !== workerTag) {
+    if (
+      args.existingWorker.state === "created" &&
+      args.existingWorker.workerTag !== workerTag
+    ) {
       throw new Error(
         `Cloudflare Worker name ${args.workerName} already exists. Choose another Worker name and try again.`,
       );
     }
+    // The planned target owns the Worker name before provider writes. If the
+    // previous run created the Worker but failed before recording its tag, retry
+    // uses Cloudflare's identity as the missing checkpoint.
     return {
       workerName: args.workerName,
       workerTag,
@@ -863,7 +873,7 @@ type EnsureCloudflareResourcesArgs = {
   cloudflareAuthMethod: CloudflareAuthMethod;
   accountId: string;
   buildConfig: CloudflareBuildConfig;
-  existingWorkerTag?: string;
+  existingWorker: ExistingCloudflareWorkerIdentity;
   convex: CloudflareProvisionConvexState;
   onWorkerResolved: (worker: CloudflareWorkerIdentity) => Promise<void>;
 };
@@ -890,7 +900,7 @@ export async function ensureCloudflareResources(
       serverUrl: args.cloudflareServerUrl,
       accountId: args.accountId,
       workerName: args.workerName,
-      existingWorkerTag: args.existingWorkerTag,
+      existingWorker: args.existingWorker,
     });
     workerName = worker.workerName;
 

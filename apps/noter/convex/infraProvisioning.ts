@@ -15,7 +15,10 @@ import {
 } from "./convexManagementApi/client";
 import { isConvexManagementNotFoundError } from "./convexManagementApi/errors";
 import type { PlatformDeploymentResponse } from "./convexManagementApi/types.generated";
-import { ensureCloudflareResources } from "./cloudflareResources";
+import {
+  ensureCloudflareResources,
+  type ExistingCloudflareWorkerIdentity,
+} from "./cloudflareResources";
 import { asRecord, readStringOrNumber } from "./jsonUtils";
 import type { AppProvisioningStep, GithubTreeData } from "./schema";
 import { sanitizeSlug, vaultSuffix } from "./slugUtils";
@@ -451,8 +454,17 @@ type ConvexPreviewProvisionResult = {
 
 async function ensureConvexPreviewResources(args: {
   convexToken: string;
+  teamId: string;
   projectId: string;
 }): Promise<ConvexPreviewProvisionResult> {
+  // Preview deployment creation starts from recorded infrastructure, so prove
+  // that project still belongs to the currently connected Convex team first.
+  await readConvexProjectDetails({
+    convexToken: args.convexToken,
+    projectId: args.projectId,
+    teamId: args.teamId,
+  });
+
   const defaultDevDeployment = await readDefaultConvexCloudDeployment({
     convexToken: args.convexToken,
     projectId: args.projectId,
@@ -534,22 +546,27 @@ export function selectCloudflareBuildConfigTreeData(args: {
   throw new Error("Default branch tree is not synced yet.");
 }
 
-export function selectExistingCloudflareWorkerTag(args: {
+export function selectExistingCloudflareWorker(args: {
   cloudflare: NoterManagedConnectedVault["cloudflare"];
   target: Pick<Doc<"vaultInfrastructureTargets">, "cloudflare">;
   accountId: string;
-}): string | undefined {
-  if (args.cloudflare.state === "connected") {
-    return args.cloudflare.workerTag;
+}): ExistingCloudflareWorkerIdentity {
+  if (
+    args.cloudflare.state === "connected" &&
+    args.cloudflare.accountId === args.accountId
+  ) {
+    return { state: "created", workerTag: args.cloudflare.workerTag.trim() };
   }
   if (
-    args.target.cloudflare.state !== "created" ||
-    args.target.cloudflare.accountId !== args.accountId
+    args.target.cloudflare.state === "created" &&
+    args.target.cloudflare.accountId === args.accountId
   ) {
-    return undefined;
+    return {
+      state: "created",
+      workerTag: args.target.cloudflare.workerTag.trim(),
+    };
   }
-  const workerTag = args.target.cloudflare.workerTag.trim();
-  return workerTag || undefined;
+  return { state: "planned" };
 }
 
 type ProvisioningEventCtx = Pick<ActionCtx, "runMutation"> &
@@ -1555,12 +1572,11 @@ export const ensureConvexPreviewInfrastructure = internalAction({
       );
     }
 
-    const { convexToken } = await resolveConvexProvisioningConnection(
-      ctx,
-      vault.userId,
-    );
+    const { convexToken, convexTeamId } =
+      await resolveConvexProvisioningConnection(ctx, vault.userId);
     await ensureConvexPreviewResources({
       convexToken,
+      teamId: convexTeamId,
       projectId: existing.convexProjectId,
     });
 
@@ -1647,10 +1663,8 @@ export const ensureCloudflareInfrastructure = internalAction({
       ctx,
       vault.userId,
     );
-    const { convexToken } = await resolveConvexProvisioningConnection(
-      ctx,
-      vault.userId,
-    );
+    const { convexToken, convexTeamId } =
+      await resolveConvexProvisioningConnection(ctx, vault.userId);
     const {
       cloudflareToken,
       cloudflareServerUrl,
@@ -1666,6 +1680,7 @@ export const ensureCloudflareInfrastructure = internalAction({
     const infrastructureTarget = requireVaultInfrastructureTarget(target);
     const previewConvex = await ensureConvexPreviewResources({
       convexToken,
+      teamId: convexTeamId,
       projectId: existing.convexProjectId,
     });
     const productionDeployKey = await createConvexDeployKey({
@@ -1684,7 +1699,7 @@ export const ensureCloudflareInfrastructure = internalAction({
       repo: vault.name,
       expectedRepoId: vault.ghRepoId,
     });
-    const existingCloudflareWorkerTag = selectExistingCloudflareWorkerTag({
+    const existingCloudflareWorker = selectExistingCloudflareWorker({
       cloudflare: vault.cloudflare,
       target: infrastructureTarget,
       accountId: cloudflareAccountId,
@@ -1704,7 +1719,7 @@ export const ensureCloudflareInfrastructure = internalAction({
       buildConfig: resolveCloudflareBuildConfig({
         treeData: buildConfigTreeData,
       }),
-      existingWorkerTag: existingCloudflareWorkerTag,
+      existingWorker: existingCloudflareWorker,
       onWorkerResolved: async (worker) => {
         const record = await ctx.runMutation(
           internal.infraProvisioning.recordCloudflareWorkerIdentity,
@@ -1970,6 +1985,9 @@ const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "Cloudflare Workers Builds has no build API token",
   "Cloudflare has multiple Workers build tokens",
   "GitHub owner id is required before Cloudflare Workers Builds can connect the repository.",
+  "GitHub repository response did not include repo id.",
+  "GitHub repository response did not match the vault repo.",
+  "GitHub repository response did not include owner id.",
 ];
 
 function extractUserFacingProvisioningError(message: string): string | null {
