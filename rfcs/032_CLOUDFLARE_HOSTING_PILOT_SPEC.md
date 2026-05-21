@@ -88,8 +88,9 @@ row with:
 
 - `auth.method = "mcp_oauth"`
 - `auth.credential` (access token)
-- `auth.refreshCredential` (optional)
-- `auth.credentialExpiresAt` (optional)
+- `auth.refreshCredential`
+- `auth.credentialExpiresAt`
+- `auth.clientId`
 
 ### Read-only first
 

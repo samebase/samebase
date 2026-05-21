@@ -41,9 +41,9 @@ const vOAuthAuth = object({
 const vMcpOauthAuth = object({
   method: literal("mcp_oauth"),
   credential: string(),
-  refreshCredential: optional(string()),
-  credentialExpiresAt: optional(number()),
-  clientId: optional(string()),
+  refreshCredential: string(),
+  credentialExpiresAt: number(),
+  clientId: string(),
 });
 const vApiKeyAuth = object({
   method: literal("api_key"),

@@ -100,14 +100,24 @@ type McpOAuthAuth = {
   method: "mcp_oauth";
   // OAuth credentials minted for the remote MCP server.
   credential: string;
-  refreshCredential?: string;
-  credentialExpiresAt?: number;
+  refreshCredential: string;
+  credentialExpiresAt: number;
+  clientId: string;
 };
 ```
 
 Notes:
 
-1. `credentialExpiresAt` is optional because some flows may not return it.
+1. Cloudflare's public API MCP server publishes OAuth metadata with
+   `authorization_code` and `refresh_token` grant support. Its public
+   implementation uses `@cloudflare/workers-oauth-provider` with a nonzero
+   `refreshTokenTTL` and fixed `accessTokenTTL`, so Noter requires
+   `refreshCredential`, `credentialExpiresAt`, and `clientId` for persisted
+   `mcp_oauth` rows and fails connection creation/refresh if the token response
+   omits that metadata. Evidence checked on 2026-05-21:
+   [link https://mcp.cloudflare.com/.well-known/oauth-authorization-server](https://mcp.cloudflare.com/.well-known/oauth-authorization-server),
+   [cloudflare/mcp](https://github.com/cloudflare/mcp), and
+   `@cloudflare/workers-oauth-provider@0.6.0`.
 2. `api_key` remains as-is. For Cloudflare seed/bootstrap, it represents a
    Cloudflare API token (not a global API key), stored in `auth.credential`.
 
