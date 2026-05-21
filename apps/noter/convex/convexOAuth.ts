@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { httpAction, internalMutation, mutation } from "./_generated/server";
 import type { ActionCtx, MutationCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { z } from "zod";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
@@ -21,14 +22,6 @@ const CONVEX_AUTHORIZE_URL =
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
 
 type OAuthContext = ActionCtx | MutationCtx;
-type ConvexOAuthTokenRequest = {
-  grant_type: "authorization_code";
-  client_id: string;
-  client_secret: string;
-  code: string;
-  code_verifier: string;
-  redirect_uri: string;
-};
 type ConvexOAuthTokenEndpoint = {
   path: "/oauth/token";
   url: string;
@@ -40,6 +33,29 @@ type ConvexOAuthTokenEndpoint = {
 type ConvexOAuthCodeExchangeResult = {
   accessToken: string;
 };
+
+const convexOAuthNonEmptyString = z.string().min(1);
+const convexOAuthRedirectUri = convexOAuthNonEmptyString.url();
+const convexOAuthAuthorizeRequestSchema = z.strictObject({
+  client_id: convexOAuthNonEmptyString,
+  redirect_uri: convexOAuthRedirectUri,
+  response_type: z.literal("code"),
+  state: convexOAuthNonEmptyString,
+  code_challenge: convexOAuthNonEmptyString,
+  code_challenge_method: z.literal("S256"),
+});
+const convexOAuthTokenRequestSchema = z.strictObject({
+  grant_type: z.literal("authorization_code"),
+  client_id: convexOAuthNonEmptyString,
+  client_secret: convexOAuthNonEmptyString,
+  code: convexOAuthNonEmptyString,
+  code_verifier: convexOAuthNonEmptyString,
+  redirect_uri: convexOAuthRedirectUri,
+});
+type ConvexOAuthAuthorizeRequest = z.infer<
+  typeof convexOAuthAuthorizeRequestSchema
+>;
+type ConvexOAuthTokenRequest = z.infer<typeof convexOAuthTokenRequestSchema>;
 
 const CONVEX_OAUTH_TOKEN_ENDPOINT = {
   path: "/oauth/token",
@@ -90,15 +106,14 @@ async function buildConvexOAuthUrl(
     expiresAt: now + OAUTH_STATE_TTL_MS,
   });
 
-  const authorizeUrl = new URL(CONVEX_AUTHORIZE_URL);
-  authorizeUrl.searchParams.set("client_id", clientId);
-  authorizeUrl.searchParams.set("redirect_uri", redirectUri);
-  authorizeUrl.searchParams.set("response_type", "code");
-  authorizeUrl.searchParams.set("state", state);
-  authorizeUrl.searchParams.set("code_challenge", codeChallenge);
-  authorizeUrl.searchParams.set("code_challenge_method", "S256");
-
-  return authorizeUrl.toString();
+  return encodeConvexOAuthAuthorizeUrl({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    state,
+    code_challenge: codeChallenge,
+    code_challenge_method: "S256",
+  });
 }
 
 async function exchangeConvexOAuthCode(args: {
@@ -147,14 +162,20 @@ async function requestConvexOAuthToken(
 function encodeConvexOAuthTokenRequest(
   request: ConvexOAuthTokenRequest,
 ): string {
-  const body = new URLSearchParams();
-  body.set("grant_type", request.grant_type);
-  body.set("client_id", request.client_id);
-  body.set("client_secret", request.client_secret);
-  body.set("code", request.code);
-  body.set("code_verifier", request.code_verifier);
-  body.set("redirect_uri", request.redirect_uri);
-  return body.toString();
+  return new URLSearchParams(
+    convexOAuthTokenRequestSchema.parse(request),
+  ).toString();
+}
+
+function encodeConvexOAuthAuthorizeUrl(
+  request: ConvexOAuthAuthorizeRequest,
+): string {
+  const search = convexOAuthAuthorizeRequestSchema.parse(request);
+  const authorizeUrl = new URL(CONVEX_AUTHORIZE_URL);
+  for (const [name, value] of Object.entries(search)) {
+    authorizeUrl.searchParams.set(name, value);
+  }
+  return authorizeUrl.toString();
 }
 
 export const storeConvexOauthTokens = internalMutation({
