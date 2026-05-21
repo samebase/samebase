@@ -17,12 +17,13 @@ import {
   readCloudflareBuildLogs,
   readCloudflareWorkerStatus,
 } from "./cloudflareResources";
+import {
+  formatCloudflareApiEndpoint,
+  requestCloudflareApi,
+} from "./cloudflareApi/client";
 import { asRecord, clamp, readString } from "./jsonUtils";
 import type { Doc, Id } from "./_generated/dataModel";
-import {
-  callCloudflareMcpTool,
-  CLOUDFLARE_MCP_SERVER_URL,
-} from "./cloudflareMcp";
+import { CLOUDFLARE_MCP_SERVER_URL } from "./cloudflareMcp";
 
 const EXECUTION_RESULT = v.object({
   summary: v.string(),
@@ -112,14 +113,6 @@ function resolveCloudflareMcpServerUrl(
   return CLOUDFLARE_MCP_SERVER_URL;
 }
 
-function tryParseJson(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
-}
-
 function compareConvexDeploymentActivity(
   left: PlatformDeploymentResponse,
   right: PlatformDeploymentResponse,
@@ -140,6 +133,16 @@ function compareConvexProjectInventoryRow(
     return nameDelta;
   }
   return left.id.localeCompare(right.id);
+}
+
+function compareCloudflareInventoryRow(
+  left: { id?: string; name?: string },
+  right: { id?: string; name?: string },
+): number {
+  return (
+    (left.name ?? "").localeCompare(right.name ?? "") ||
+    (left.id ?? "").localeCompare(right.id ?? "")
+  );
 }
 
 export const getConvexDeploymentStatus = internalAction({
@@ -366,41 +369,38 @@ export const getCloudflareAccountInventory = internalAction({
     const token = resolveCloudflareToken(cloudflareConnection);
     const serverUrl = resolveCloudflareMcpServerUrl(cloudflareConnection);
     const perPage = clamp(args.limit ?? 50, 1, 100);
-
-    const code = `async () => {
-  const response = await cloudflare.request({
-    method: "GET",
-    path: "/accounts?page=1&per_page=${perPage}",
-  });
-  if (!response || response.success !== true) {
-    const errors = response && Array.isArray(response.errors) ? response.errors : response;
-    throw new Error("Cloudflare API error: " + JSON.stringify(errors));
-  }
-  const result = Array.isArray(response.result) ? response.result : [];
-  return result.map((account) => ({
-    id: account?.id,
-    name: account?.name,
-    isDefault:
-      account?.is_default === true || account?.default === true,
-  }));
-}`;
-
-    const text = await callCloudflareMcpTool({
+    const request = {
+      params: {
+        query: {
+          page: 1,
+          per_page: perPage,
+        },
+      },
+    };
+    const accounts = await requestCloudflareApi({
       token,
-      toolName: "execute",
-      toolArgs: { code },
       serverUrl,
+      method: "GET",
+      path: "/accounts",
+      ...request,
     });
-
-    const parsed = tryParseJson(text);
-    const raw =
-      typeof parsed === "string" ? parsed : JSON.stringify(parsed, null, 2);
+    const rows = [...(accounts ?? [])]
+      .sort(compareCloudflareInventoryRow)
+      .map((account) => ({
+        id: account.id,
+        name: account.name,
+        type: account.type,
+      }));
 
     return {
       summary: "Cloudflare account inventory",
-      endpoint: "/accounts",
-      raw,
-      rowCount: Array.isArray(parsed) ? parsed.length : undefined,
+      endpoint: formatCloudflareApiEndpoint({
+        method: "GET",
+        path: "/accounts",
+        ...request,
+      }),
+      raw: JSON.stringify(rows, null, 2),
+      rowCount: rows.length,
     };
   },
 });
@@ -429,44 +429,38 @@ export const getCloudflareWorkersInventory = internalAction({
         "Cloudflare accountId is required to list Workers. Reconnect or select an account first.",
       );
     }
-
-    const code = `async () => {
-  const accountId = ${JSON.stringify(accountId)};
-  const response = await cloudflare.request({
-    method: "GET",
-    path:
-      "/accounts/" +
-      encodeURIComponent(accountId) +
-      "/workers/scripts?page=1&per_page=${perPage}",
-  });
-  if (!response || response.success !== true) {
-    const errors = response && Array.isArray(response.errors) ? response.errors : response;
-    throw new Error("Cloudflare API error: " + JSON.stringify(errors));
-  }
-  const result = Array.isArray(response.result) ? response.result : [];
-  return result.map((worker) => ({
-    name: worker?.id,
-    tag: worker?.tag,
-    modifiedOn: worker?.modified_on,
-  }));
-}`;
-
-    const text = await callCloudflareMcpTool({
+    const request = {
+      params: {
+        path: {
+          account_id: accountId,
+        },
+      },
+    };
+    const workers = await requestCloudflareApi({
       token,
-      toolName: "execute",
-      toolArgs: { code },
       serverUrl,
+      method: "GET",
+      path: "/accounts/{account_id}/workers/scripts",
+      ...request,
     });
-
-    const parsed = tryParseJson(text);
-    const raw =
-      typeof parsed === "string" ? parsed : JSON.stringify(parsed, null, 2);
+    const rows = [...(workers ?? [])]
+      .sort(compareCloudflareInventoryRow)
+      .slice(0, perPage)
+      .map((worker) => ({
+        name: worker.id,
+        tag: worker.tag,
+        modifiedOn: worker.modified_on,
+      }));
 
     return {
       summary: `Cloudflare Workers inventory for account ${accountId}`,
-      endpoint: `/accounts/${encodeURIComponent(accountId)}/workers/scripts`,
-      raw,
-      rowCount: Array.isArray(parsed) ? parsed.length : undefined,
+      endpoint: formatCloudflareApiEndpoint({
+        method: "GET",
+        path: "/accounts/{account_id}/workers/scripts",
+        ...request,
+      }),
+      raw: JSON.stringify(rows, null, 2),
+      rowCount: rows.length,
     };
   },
 });

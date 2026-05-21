@@ -1,17 +1,14 @@
-import { notEmpty } from "@noter-md/dependent/main";
 import {
-  callCloudflareMcpTool,
-  CLOUDFLARE_MCP_SERVER_URL,
-} from "./cloudflareMcp";
-import {
-  asRecord,
-  clamp,
-  readBoolean,
-  readString,
-  readStringOrNumber,
-  toErrorMessage,
-  type JsonRecord,
-} from "./jsonUtils";
+  requestCloudflareApi,
+  CloudflareApiError,
+} from "./cloudflareApi/client";
+import type { components, Readable } from "./cloudflareApi/types.generated";
+import { clamp, toErrorMessage } from "./jsonUtils";
+
+export {
+  CloudflareApiError,
+  isWorkersBuildsInvalidTokenMessage,
+} from "./cloudflareApi/client";
 
 type CloudflareProvisionConvexState = {
   production: {
@@ -31,21 +28,28 @@ type CloudflareBuildConfig = {
   previewDeployCommand: string;
 };
 
+type CloudflareWorker = Readable<components["schemas"]["workers_Worker"]>;
+type CloudflareWorkerTagSource = {
+  id?: string;
+  external_script_id?: string;
+  tag?: string;
+  name?: string;
+};
+type CloudflareBuildTokenRecord = Readable<
+  components["schemas"]["builds_ListTokensResponse"]
+>;
+type CloudflareBuildTrigger = Readable<
+  components["schemas"]["builds_TriggerResponse"]
+>;
+type CloudflareBuildEnvVars =
+  components["schemas"]["builds_EnvironmentVariablesRequest"];
+
 export type CloudflareBuildToken = {
   name: string;
   uuid: string;
   cloudflareTokenId: string;
 };
 
-type CloudflareRequestMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-
-type CloudflareApiErrorDetail = {
-  code?: string;
-  message?: string;
-};
-
-const WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE =
-  "Cloudflare connection is missing Workers Builds write access. Reconnect Cloudflare and grant Workers Builds, Workers, and Workers Scripts access, then retry.";
 const NOTER_WORKERS_BUILD_TOKEN_NAME = "noter build token";
 const WORKERS_BUILDS_TOKEN_REQUIRED_MESSAGE = `Cloudflare Workers Builds has no build API token. In Cloudflare, create a Workers Builds API token named "${NOTER_WORKERS_BUILD_TOKEN_NAME}", then retry.`;
 const BUILD_TOKEN_PAGE_SIZE = 100;
@@ -55,99 +59,6 @@ const PREVIEW_CONVEX_DEPLOY_KEY = "PREVIEW_CONVEX_DEPLOY_KEY";
 type CloudflareConvexDeployKeyName =
   | typeof PROD_CONVEX_DEPLOY_KEY
   | typeof PREVIEW_CONVEX_DEPLOY_KEY;
-
-export class CloudflareApiError extends Error {
-  readonly method: CloudflareRequestMethod;
-
-  readonly path: string;
-
-  readonly details: readonly CloudflareApiErrorDetail[];
-
-  constructor(args: {
-    method: CloudflareRequestMethod;
-    path: string;
-    details: readonly CloudflareApiErrorDetail[];
-  }) {
-    super(
-      `Cloudflare API request failed for ${args.method} ${args.path}: ${formatCloudflareApiErrorDetails(args.details)}`,
-    );
-    this.name = "CloudflareApiError";
-    this.method = args.method;
-    this.path = args.path;
-    this.details = args.details;
-  }
-}
-
-function formatCloudflareApiErrorDetails(
-  details: readonly CloudflareApiErrorDetail[],
-): string {
-  if (details.length === 0) {
-    return "unknown Cloudflare API error";
-  }
-
-  return details
-    .map((detail) => {
-      const code = detail.code ? `code ${detail.code}` : "unknown code";
-      return detail.message ? `${code}: ${detail.message}` : code;
-    })
-    .join("; ");
-}
-
-function readCloudflareApiErrorDetail(
-  value: unknown,
-): CloudflareApiErrorDetail | null {
-  const record = asRecord(value);
-  const code = readStringOrNumber(record, "code");
-  const message = readString(record, "message");
-  if (!code && !message) {
-    return null;
-  }
-  const detail: CloudflareApiErrorDetail = {};
-  if (code) {
-    detail.code = code;
-  }
-  if (message) {
-    detail.message = message;
-  }
-  return detail;
-}
-
-function readCloudflareApiErrorDetails(
-  value: unknown,
-): readonly CloudflareApiErrorDetail[] {
-  if (Array.isArray(value)) {
-    return value.map(readCloudflareApiErrorDetail).filter(notEmpty);
-  }
-
-  const detail = readCloudflareApiErrorDetail(value);
-  return detail ? [detail] : [];
-}
-
-function isWorkersBuildsApiPath(path: string): boolean {
-  return path.includes("/builds/");
-}
-
-export function isWorkersBuildsInvalidTokenMessage(args: {
-  path: string;
-  message: string;
-}): boolean {
-  const message = args.message.toLowerCase();
-  return (
-    isWorkersBuildsApiPath(args.path) &&
-    message.includes("12006") &&
-    message.includes("invalid token")
-  );
-}
-
-function isWorkersBuildsInvalidTokenDetails(args: {
-  path: string;
-  details: readonly CloudflareApiErrorDetail[];
-}): boolean {
-  return (
-    isWorkersBuildsApiPath(args.path) &&
-    args.details.some((detail) => detail.code === "12006")
-  );
-}
 
 export function isCloudflareWorkerNotFoundError(error: unknown): boolean {
   if (error instanceof CloudflareApiError) {
@@ -178,95 +89,22 @@ export function isCloudflareWorkerNotFoundError(error: unknown): boolean {
   return false;
 }
 
-function parseJsonText(value: string): unknown {
-  try {
-    return JSON.parse(value);
-  } catch (error) {
-    const excerpt = value.length > 240 ? `${value.slice(0, 240)}...` : value;
-    throw new Error(
-      `Cloudflare MCP returned non-JSON response: ${toErrorMessage(error)} (payload excerpt: ${excerpt})`,
-    );
+function requireCloudflareResult<T>(value: T | undefined, message: string): T {
+  if (value !== undefined) {
+    return value;
   }
+  throw new Error(message);
 }
 
-function readStringArray(record: JsonRecord, key: string): string[] {
-  const value = record[key];
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  const strings: string[] = [];
-  for (const item of value) {
-    if (typeof item === "string") {
-      strings.push(item);
-    }
-  }
-  return strings;
-}
-
-function requireString(args: {
-  record: JsonRecord;
-  key: string;
-  message: string;
-}): string {
-  const value = readString(args.record, args.key);
+function requireCloudflareString(
+  value: string | null | undefined,
+  message: string,
+): string {
   if (value) {
     return value;
   }
-  throw new Error(args.message);
+  throw new Error(message);
 }
-
-async function requestCloudflareApi(args: {
-  token: string;
-  serverUrl?: string;
-  method: CloudflareRequestMethod;
-  path: string;
-  body?: unknown;
-}): Promise<unknown> {
-  const bodyPart =
-    args.body === undefined ? "" : `, body: ${JSON.stringify(args.body)}`;
-  const code = `async () => {
-  return await cloudflare.request({
-    method: ${JSON.stringify(args.method)},
-    path: ${JSON.stringify(args.path)}${bodyPart}
-  });
-}`;
-  const text = await callCloudflareMcpTool({
-    token: args.token,
-    toolName: "execute",
-    toolArgs: { code },
-    serverUrl: args.serverUrl ?? CLOUDFLARE_MCP_SERVER_URL,
-  }).catch((error: unknown) => {
-    const message = toErrorMessage(error);
-    if (
-      isWorkersBuildsInvalidTokenMessage({
-        path: args.path,
-        message,
-      })
-    ) {
-      throw new Error(WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE);
-    }
-    throw error;
-  });
-  const response = asRecord(parseJsonText(text));
-  if (readBoolean(response, "success") !== true) {
-    const details = readCloudflareApiErrorDetails(response["errors"]);
-    if (isWorkersBuildsInvalidTokenDetails({ path: args.path, details })) {
-      throw new Error(WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE);
-    }
-    throw new CloudflareApiError({
-      method: args.method,
-      path: args.path,
-      details,
-    });
-  }
-  return response["result"];
-}
-
-type CloudflareBuildEnvVars = Record<
-  string,
-  { value: string; is_secret: boolean }
->;
 
 export function buildCloudflareWorkersEnvVars(vars: {
   deployKeyName: CloudflareConvexDeployKeyName;
@@ -304,10 +142,14 @@ async function readAccountSubdomain(args: {
     token: args.token,
     serverUrl: args.serverUrl,
     method: "GET",
-    path: `/accounts/${encodeURIComponent(args.accountId)}/workers/subdomain`,
+    path: "/accounts/{account_id}/workers/subdomain",
+    params: {
+      path: {
+        account_id: args.accountId,
+      },
+    },
   });
-  const record = asRecord(raw);
-  const subdomain = readString(record, "subdomain")?.trim();
+  const subdomain = raw?.subdomain.trim();
   if (!subdomain) {
     throw new Error(
       "Cloudflare Workers needs a configured workers.dev subdomain before Noter can create a production URL.",
@@ -321,15 +163,24 @@ async function readWorker(args: {
   serverUrl?: string;
   accountId: string;
   workerName: string;
-}): Promise<JsonRecord | null> {
+}): Promise<CloudflareWorker | null> {
   try {
     const raw = await requestCloudflareApi({
       token: args.token,
       serverUrl: args.serverUrl,
       method: "GET",
-      path: `/accounts/${encodeURIComponent(args.accountId)}/workers/workers/${encodeURIComponent(args.workerName)}`,
+      path: "/accounts/{account_id}/workers/workers/{worker_id}",
+      params: {
+        path: {
+          account_id: args.accountId,
+          worker_id: args.workerName,
+        },
+      },
     });
-    return asRecord(raw);
+    return requireCloudflareResult(
+      raw,
+      `Cloudflare Worker ${args.workerName} response did not include a Worker.`,
+    );
   } catch (error) {
     if (isCloudflareWorkerNotFoundError(error)) {
       return null;
@@ -349,16 +200,13 @@ export async function isCloudflareWorkerNameAvailable(args: {
 }
 
 export function readCloudflareWorkerTag(
-  worker: JsonRecord,
+  worker: CloudflareWorkerTagSource,
   workerName: string,
 ): string {
   // New Workers services do not appear in /workers/scripts until they have a
   // script version, but the Workers service id is the same external_script_id
   // that Workers Builds calls the worker tag.
-  const workerTag =
-    readString(worker, "id") ??
-    readString(worker, "external_script_id") ??
-    readString(worker, "tag");
+  const workerTag = worker.id ?? worker.external_script_id ?? worker.tag;
   if (workerTag) {
     return workerTag;
   }
@@ -405,19 +253,31 @@ async function ensureWorker(args: {
     token: args.token,
     serverUrl: args.serverUrl,
     method: "POST",
-    path: `/accounts/${encodeURIComponent(args.accountId)}/workers/workers`,
+    path: "/accounts/{account_id}/workers/workers",
+    params: {
+      path: {
+        account_id: args.accountId,
+      },
+    },
     body: {
       name: args.workerName,
+      logpush: false,
       subdomain: {
         enabled: true,
         previews_enabled: true,
       },
       observability: {
         enabled: true,
+        head_sampling_rate: 1,
       },
+      tags: [],
+      tail_consumers: [],
     },
   });
-  const created = asRecord(createdRaw);
+  const created = requireCloudflareResult(
+    createdRaw,
+    `Cloudflare Worker ${args.workerName} response did not include the created Worker.`,
+  );
   const workerTag = readCloudflareWorkerTag(created, args.workerName);
   return {
     workerName: args.workerName,
@@ -439,7 +299,12 @@ async function ensureRepositoryConnection(args: {
     token: args.token,
     serverUrl: args.serverUrl,
     method: "PUT",
-    path: `/accounts/${encodeURIComponent(args.accountId)}/builds/repos/connections`,
+    path: "/accounts/{account_id}/builds/repos/connections",
+    params: {
+      path: {
+        account_id: args.accountId,
+      },
+    },
     body: {
       provider_type: "github",
       provider_account_id: args.ghRepoOwnerId,
@@ -448,20 +313,17 @@ async function ensureRepositoryConnection(args: {
       repo_name: args.repo,
     },
   });
-  const record = asRecord(raw);
-  return requireString({
-    record,
-    key: "repo_connection_uuid",
-    message:
-      "Cloudflare Workers Builds repository connection did not return an id.",
-  });
+  return requireCloudflareString(
+    raw?.repo_connection_uuid,
+    "Cloudflare Workers Builds repository connection did not return an id.",
+  );
 }
 
 async function resolveBuildTokenUuid(args: {
   token: string;
   serverUrl?: string;
   accountId: string;
-  existingTriggers: readonly JsonRecord[];
+  existingTriggers: readonly CloudflareBuildTrigger[];
   authMethod: CloudflareAuthMethod;
 }): Promise<string> {
   if (args.authMethod === "mcp_oauth") {
@@ -502,7 +364,7 @@ async function resolveOAuthBuildTokenUuid(args: {
   token: string;
   serverUrl?: string;
   accountId: string;
-  existingTriggers: readonly JsonRecord[];
+  existingTriggers: readonly CloudflareBuildTrigger[];
 }): Promise<string> {
   const existingBuildTokenUuid = await findReusableBuildTokenUuid({
     token: args.token,
@@ -530,10 +392,20 @@ async function findCurrentBuildTokenUuid(args: {
       token: args.token,
       serverUrl: args.serverUrl,
       method: "GET",
-      path: `/accounts/${encodeURIComponent(args.accountId)}/builds/tokens?page=${page}&per_page=${BUILD_TOKEN_PAGE_SIZE}`,
+      path: "/accounts/{account_id}/builds/tokens",
+      params: {
+        path: {
+          account_id: args.accountId,
+        },
+        query: {
+          page,
+          per_page: BUILD_TOKEN_PAGE_SIZE,
+        },
+      },
     });
-    tokens.push(...parseBuildTokens(rawTokens));
-    if (!Array.isArray(rawTokens) || rawTokens.length < BUILD_TOKEN_PAGE_SIZE) {
+    const tokensPage = rawTokens ?? [];
+    tokens.push(...parseBuildTokens(tokensPage));
+    if (tokensPage.length < BUILD_TOKEN_PAGE_SIZE) {
       return selectCurrentBuildTokenUuid({
         tokens,
         cloudflareTokenId: args.cloudflareTokenId,
@@ -555,10 +427,20 @@ async function findReusableBuildTokenUuid(args: {
       token: args.token,
       serverUrl: args.serverUrl,
       method: "GET",
-      path: `/accounts/${encodeURIComponent(args.accountId)}/builds/tokens?page=${page}&per_page=${BUILD_TOKEN_PAGE_SIZE}`,
+      path: "/accounts/{account_id}/builds/tokens",
+      params: {
+        path: {
+          account_id: args.accountId,
+        },
+        query: {
+          page,
+          per_page: BUILD_TOKEN_PAGE_SIZE,
+        },
+      },
     });
-    tokens.push(...parseBuildTokens(rawTokens));
-    if (!Array.isArray(rawTokens) || rawTokens.length < BUILD_TOKEN_PAGE_SIZE) {
+    const tokensPage = rawTokens ?? [];
+    tokens.push(...parseBuildTokens(tokensPage));
+    if (tokensPage.length < BUILD_TOKEN_PAGE_SIZE) {
       return selectReusableBuildTokenUuid({
         tokens,
         preferredBuildTokenUuids: args.preferredBuildTokenUuids,
@@ -567,23 +449,23 @@ async function findReusableBuildTokenUuid(args: {
   }
 }
 
-function parseBuildTokens(raw: unknown): CloudflareBuildToken[] {
-  const tokens = Array.isArray(raw) ? raw.map(asRecord) : [];
-  return tokens
-    .map((tokenRecord) => {
-      const uuid = readString(tokenRecord, "build_token_uuid");
-      const cloudflareTokenId = readString(tokenRecord, "cloudflare_token_id");
-      if (!uuid || !cloudflareTokenId) {
-        return null;
-      }
-      return {
-        name: readString(tokenRecord, "build_token_name") ?? "",
-        uuid,
-        cloudflareTokenId,
-      };
-    })
-    .filter(notEmpty)
-    .sort(compareBuildTokens);
+function parseBuildTokens(
+  tokenRecords: readonly CloudflareBuildTokenRecord[],
+): CloudflareBuildToken[] {
+  const tokens: CloudflareBuildToken[] = [];
+  for (const tokenRecord of tokenRecords) {
+    const uuid = tokenRecord.build_token_uuid;
+    const cloudflareTokenId = tokenRecord.cloudflare_token_id;
+    if (!uuid || !cloudflareTokenId) {
+      continue;
+    }
+    tokens.push({
+      name: tokenRecord.build_token_name ?? "",
+      uuid,
+      cloudflareTokenId,
+    });
+  }
+  return tokens.sort(compareBuildTokens);
 }
 
 function compareBuildTokens(
@@ -674,11 +556,15 @@ export function selectCurrentBuildTokenUuid(args: {
 }
 
 function readTriggerBuildTokenUuids(
-  triggers: readonly JsonRecord[],
+  triggers: readonly CloudflareBuildTrigger[],
 ): readonly string[] {
-  return triggers
-    .map((trigger) => readString(trigger, "build_token_uuid"))
-    .filter(notEmpty);
+  const uuids: string[] = [];
+  for (const trigger of triggers) {
+    if (trigger.build_token_uuid) {
+      uuids.push(trigger.build_token_uuid);
+    }
+  }
+  return uuids;
 }
 
 async function resolveCurrentCloudflareTokenId(args: {
@@ -691,12 +577,10 @@ async function resolveCurrentCloudflareTokenId(args: {
     method: "GET",
     path: "/user/tokens/verify",
   });
-  return requireString({
-    record: asRecord(raw),
-    key: "id",
-    message:
-      "Cloudflare did not return an id for the current token, so Workers Builds cannot create a build token.",
-  });
+  return requireCloudflareString(
+    raw?.id,
+    "Cloudflare did not return an id for the current token, so Workers Builds cannot create a build token.",
+  );
 }
 
 async function createBuildToken(args: {
@@ -709,30 +593,33 @@ async function createBuildToken(args: {
     token: args.token,
     serverUrl: args.serverUrl,
     method: "POST",
-    path: `/accounts/${encodeURIComponent(args.accountId)}/builds/tokens`,
+    path: "/accounts/{account_id}/builds/tokens",
+    params: {
+      path: {
+        account_id: args.accountId,
+      },
+    },
     body: {
       build_token_name: NOTER_WORKERS_BUILD_TOKEN_NAME,
       build_token_secret: args.token,
       cloudflare_token_id: args.cloudflareTokenId,
     },
   });
-  return requireString({
-    record: asRecord(raw),
-    key: "build_token_uuid",
-    message:
-      "Cloudflare Workers Builds did not return an id for the created build token.",
-  });
+  return requireCloudflareString(
+    raw?.build_token_uuid,
+    "Cloudflare Workers Builds did not return an id for the created build token.",
+  );
 }
 
 type CloudflareBuildTriggerKind = "production" | "preview";
 
 function matchesTriggerKind(args: {
-  trigger: JsonRecord;
+  trigger: CloudflareBuildTrigger;
   kind: CloudflareBuildTriggerKind;
   defaultBranch: string;
 }): boolean {
-  const branchIncludes = readStringArray(args.trigger, "branch_includes");
-  const branchExcludes = readStringArray(args.trigger, "branch_excludes");
+  const branchIncludes = args.trigger.branch_includes ?? [];
+  const branchExcludes = args.trigger.branch_excludes ?? [];
   if (args.kind === "production") {
     return (
       branchIncludes.length === 1 &&
@@ -751,14 +638,20 @@ async function listBuildTriggers(args: {
   serverUrl?: string;
   accountId: string;
   workerTag: string;
-}): Promise<JsonRecord[]> {
+}): Promise<CloudflareBuildTrigger[]> {
   const raw = await requestCloudflareApi({
     token: args.token,
     serverUrl: args.serverUrl,
     method: "GET",
-    path: `/accounts/${encodeURIComponent(args.accountId)}/builds/workers/${encodeURIComponent(args.workerTag)}/triggers`,
+    path: "/accounts/{account_id}/builds/workers/{external_script_id}/triggers",
+    params: {
+      path: {
+        account_id: args.accountId,
+        external_script_id: args.workerTag,
+      },
+    },
   });
-  return Array.isArray(raw) ? raw.map(asRecord) : [];
+  return raw ?? [];
 }
 
 async function upsertBuildTrigger(args: {
@@ -770,7 +663,7 @@ async function upsertBuildTrigger(args: {
   buildTokenUuid: string;
   buildConfig: CloudflareBuildConfig;
   defaultBranch: string;
-  existingTriggers: readonly JsonRecord[];
+  existingTriggers: readonly CloudflareBuildTrigger[];
   kind: CloudflareBuildTriggerKind;
 }): Promise<string> {
   const existingTrigger = args.existingTriggers.find((trigger) =>
@@ -782,9 +675,7 @@ async function upsertBuildTrigger(args: {
   );
   const triggerName =
     args.kind === "production" ? "Production Deploy" : "Preview Deploy";
-  const body = {
-    external_script_id: args.workerTag,
-    repo_connection_uuid: args.repoConnectionUuid,
+  const triggerConfig = {
     build_token_uuid: args.buildTokenUuid,
     trigger_name: triggerName,
     build_command: args.buildConfig.buildCommand,
@@ -799,24 +690,47 @@ async function upsertBuildTrigger(args: {
     path_excludes: [],
   };
 
-  const existingTriggerUuid = existingTrigger
-    ? readString(existingTrigger, "trigger_uuid")
-    : undefined;
+  const existingTriggerUuid = existingTrigger?.trigger_uuid;
+  if (existingTriggerUuid) {
+    const raw = await requestCloudflareApi({
+      token: args.token,
+      serverUrl: args.serverUrl,
+      method: "PATCH",
+      path: "/accounts/{account_id}/builds/triggers/{trigger_uuid}",
+      params: {
+        path: {
+          account_id: args.accountId,
+          trigger_uuid: existingTriggerUuid,
+        },
+      },
+      body: triggerConfig,
+    });
+    return requireCloudflareString(
+      raw?.trigger_uuid,
+      `${triggerName} trigger did not return an id.`,
+    );
+  }
+
   const raw = await requestCloudflareApi({
     token: args.token,
     serverUrl: args.serverUrl,
-    method: existingTriggerUuid ? "PATCH" : "POST",
-    path: existingTriggerUuid
-      ? `/accounts/${encodeURIComponent(args.accountId)}/builds/triggers/${encodeURIComponent(existingTriggerUuid)}`
-      : `/accounts/${encodeURIComponent(args.accountId)}/builds/triggers`,
-    body,
+    method: "POST",
+    path: "/accounts/{account_id}/builds/triggers",
+    params: {
+      path: {
+        account_id: args.accountId,
+      },
+    },
+    body: {
+      external_script_id: args.workerTag,
+      repo_connection_uuid: args.repoConnectionUuid,
+      ...triggerConfig,
+    },
   });
-  const record = asRecord(raw);
-  return requireString({
-    record,
-    key: "trigger_uuid",
-    message: `${triggerName} trigger did not return an id.`,
-  });
+  return requireCloudflareString(
+    raw?.trigger_uuid,
+    `${triggerName} trigger did not return an id.`,
+  );
 }
 
 async function setTriggerEnvironmentVariables(args: {
@@ -830,7 +744,13 @@ async function setTriggerEnvironmentVariables(args: {
     token: args.token,
     serverUrl: args.serverUrl,
     method: "PATCH",
-    path: `/accounts/${encodeURIComponent(args.accountId)}/builds/triggers/${encodeURIComponent(args.triggerUuid)}/environment_variables`,
+    path: "/accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables",
+    params: {
+      path: {
+        account_id: args.accountId,
+        trigger_uuid: args.triggerUuid,
+      },
+    },
     body: args.envVars,
   });
 }
@@ -846,7 +766,13 @@ async function triggerInitialBuild(args: {
     token: args.token,
     serverUrl: args.serverUrl,
     method: "POST",
-    path: `/accounts/${encodeURIComponent(args.accountId)}/builds/triggers/${encodeURIComponent(args.triggerUuid)}/builds`,
+    path: "/accounts/{account_id}/builds/triggers/{trigger_uuid}/builds",
+    params: {
+      path: {
+        account_id: args.accountId,
+        trigger_uuid: args.triggerUuid,
+      },
+    },
     body: {
       branch: args.branch,
     },
@@ -1055,9 +981,18 @@ export async function readCloudflareWorkerStatus(
     token: args.cloudflareToken,
     serverUrl: args.cloudflareServerUrl,
     method: "GET",
-    path: workerEndpoint,
+    path: "/accounts/{account_id}/workers/workers/{worker_id}",
+    params: {
+      path: {
+        account_id: args.accountId,
+        worker_id: args.workerName,
+      },
+    },
   });
-  const workerRecord = asRecord(worker);
+  const workerRecord = requireCloudflareResult(
+    worker,
+    `Cloudflare Worker ${args.workerName} response did not include a Worker.`,
+  );
   const workerTag =
     args.workerTag ?? readCloudflareWorkerTag(workerRecord, args.workerName);
   const triggers = await listBuildTriggers({
@@ -1093,15 +1028,24 @@ export async function readCloudflareBuildLogs(
     token: args.cloudflareToken,
     serverUrl: args.cloudflareServerUrl,
     method: "GET",
-    path: buildsEndpoint,
+    path: "/accounts/{account_id}/builds/workers/{external_script_id}/builds",
+    params: {
+      path: {
+        account_id: args.accountId,
+        external_script_id: args.workerTag,
+      },
+      query: {
+        page: 1,
+        per_page: maxEntries,
+      },
+    },
   });
-  const builds = Array.isArray(buildsPayload) ? buildsPayload : [];
+  const builds = buildsPayload ?? [];
   const selectedBuilds = builds.slice(0, maxEntries);
 
   const logsByBuild = await Promise.all(
     selectedBuilds.map(async (build) => {
-      const record = asRecord(build);
-      const buildUuid = readString(record, "build_uuid");
+      const buildUuid = build.build_uuid;
       if (!buildUuid) {
         return {
           build,
@@ -1114,10 +1058,17 @@ export async function readCloudflareBuildLogs(
         token: args.cloudflareToken,
         serverUrl: args.cloudflareServerUrl,
         method: "GET",
-        path: logsEndpoint,
+        path: "/accounts/{account_id}/builds/builds/{build_uuid}/logs",
+        params: {
+          path: {
+            account_id: args.accountId,
+            build_uuid: buildUuid,
+          },
+        },
       });
 
       return {
+        endpoint: logsEndpoint,
         buildUuid,
         build,
         logs: logsPayload,
@@ -1155,7 +1106,13 @@ async function deleteCloudflareBuildTrigger(args: {
       token: args.cloudflareToken,
       serverUrl: args.cloudflareServerUrl,
       method: "DELETE",
-      path: `/accounts/${encodeURIComponent(args.accountId)}/builds/triggers/${encodeURIComponent(args.triggerUuid)}`,
+      path: "/accounts/{account_id}/builds/triggers/{trigger_uuid}",
+      params: {
+        path: {
+          account_id: args.accountId,
+          trigger_uuid: args.triggerUuid,
+        },
+      },
     });
   } catch (error) {
     if (!isCloudflareWorkerNotFoundError(error)) {
@@ -1180,7 +1137,7 @@ export async function deleteCloudflareResources(
   });
   await Promise.all(
     triggers.map(async (trigger) => {
-      const triggerUuid = readString(trigger, "trigger_uuid");
+      const triggerUuid = trigger.trigger_uuid;
       if (!triggerUuid) {
         return;
       }
@@ -1196,6 +1153,12 @@ export async function deleteCloudflareResources(
     token: args.cloudflareToken,
     serverUrl: args.cloudflareServerUrl,
     method: "DELETE",
-    path: `/accounts/${encodeURIComponent(args.accountId)}/workers/workers/${encodeURIComponent(args.workerName)}`,
+    path: "/accounts/{account_id}/workers/workers/{worker_id}",
+    params: {
+      path: {
+        account_id: args.accountId,
+        worker_id: args.workerName,
+      },
+    },
   });
 }
