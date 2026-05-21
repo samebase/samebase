@@ -411,17 +411,18 @@ describe("Convex Management API request helpers", () => {
 
   it("rejects non-string path parameters at the request boundary", async () => {
     const fetch = vi.fn();
+    const key = "team-token";
+    const params = { params: { path: { team_id: 123 } } };
+    const route = "/teams/{team_id}/list_projects";
+    const verb = "GET";
     vi.stubGlobal("fetch", fetch);
 
-    await expect(
-      requestConvexManagementApi(
-        "team-token",
-        // @ts-expect-error Runtime callers can still pass non-string path params.
-        "GET",
-        "/teams/{team_id}/list_projects",
-        { params: { path: { team_id: 123 } } },
-      ),
-    ).rejects.toThrow("Convex path parameter team_id must be a string.");
+    // @ts-expect-error Runtime callers can still pass non-string path params.
+    const request = requestConvexManagementApi(key, verb, route, params);
+
+    await expect(request).rejects.toThrow(
+      "Convex path parameter team_id must be a string.",
+    );
 
     expect(fetch).not.toHaveBeenCalled();
   });

@@ -153,6 +153,11 @@ function formatConvexManagementApiEndpointUnchecked(args: {
   });
 }
 
+/**
+ * Sends one OpenAPI-typed Convex Management request, then validates the JSON
+ * response with the generated validator for that exact method and path.
+ * Endpoints without a JSON response resolve as void.
+ */
 export function requestConvexManagementApi<
   const Path extends ConvexManagementGetPath,
 >(

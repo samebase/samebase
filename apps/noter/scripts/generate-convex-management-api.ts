@@ -361,13 +361,14 @@ function formatConvexManagementResponseValidatorMethodJs(
   method: ConvexManagementOperationMethod,
 ): string {
   const methodEntries = entries.filter((entry) => entry.method === method);
-  return `  ${method.toUpperCase()}: {
-${methodEntries
-  .map((entry) => {
+  let validatorEntries = "";
+  for (const entry of methodEntries) {
     const value = entry.exportName ?? "null";
-    return `    ${JSON.stringify(entry.path)}: ${value},`;
-  })
-  .join("\n")}
+    validatorEntries = `${validatorEntries}    ${JSON.stringify(entry.path)}: ${value},
+`;
+  }
+  return `  ${method.toUpperCase()}: {
+${validatorEntries}
   },
 `;
 }
@@ -387,16 +388,17 @@ function formatConvexManagementResponseValidatorMethodDts(
   method: ConvexManagementOperationMethod,
 ): string {
   const methodEntries = entries.filter((entry) => entry.method === method);
-  return `  ${method.toUpperCase()}: {
-${methodEntries
-  .map((entry) => {
+  let validatorEntries = "";
+  for (const entry of methodEntries) {
     const value =
       entry.exportName === null
         ? "null"
         : `AjvStandaloneValidateFunction<SuccessResponseJSON<operations[${JSON.stringify(entry.operationId)}]>>`;
-    return `    ${JSON.stringify(entry.path)}: ${value};`;
-  })
-  .join("\n")}
+    validatorEntries = `${validatorEntries}    ${JSON.stringify(entry.path)}: ${value};
+`;
+  }
+  return `  ${method.toUpperCase()}: {
+${validatorEntries}
   };
 `;
 }
