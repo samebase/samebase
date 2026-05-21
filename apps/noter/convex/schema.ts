@@ -130,6 +130,23 @@ export const vAppProvisioningRunState = union(
 );
 export type AppProvisioningRunState = Infer<typeof vAppProvisioningRunState>;
 
+export const vConvexDeployKeyState = union(
+  object({
+    state: literal("not_created"),
+  }),
+  object({
+    state: literal("created"),
+    id: string(),
+  }),
+);
+export type ConvexDeployKeyState = Infer<typeof vConvexDeployKeyState>;
+
+export const vConvexDeployKeys = object({
+  production: vConvexDeployKeyState,
+  preview: vConvexDeployKeyState,
+});
+export type ConvexDeployKeys = Infer<typeof vConvexDeployKeys>;
+
 export const vVaultDomainKind = union(
   literal("main"),
   literal("branch_preview"),
@@ -471,15 +488,7 @@ export default defineSchema({
     convexDeploymentType: union(literal("prod"), literal("dev")),
     convexCloudUrl: string(),
     convexSiteUrl: string(),
-    convexDeployKey: union(
-      object({
-        state: literal("not_created"),
-      }),
-      object({
-        state: literal("created"),
-        id: string(),
-      }),
-    ),
+    convexDeployKeys: vConvexDeployKeys,
   }).index("by_vault", ["vaultId"]),
 
   /**

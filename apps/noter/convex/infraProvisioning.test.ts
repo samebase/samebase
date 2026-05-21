@@ -415,6 +415,115 @@ describe("infrastructure provisioning ownership", () => {
     });
   });
 
+  it("records production and preview Convex deploy key ids separately", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/deploy-keys",
+        trigger: "create",
+        state: "running",
+        currentStep: "ensure_cloudflare",
+        createdAt: 10,
+        updatedAt: 10,
+      });
+
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "deploy-keys",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+        convex: {
+          state: "connected",
+          projectId: "convex-project-id",
+          projectSlug: "deploy-keys",
+          deploymentName: "deploy-keys-prod",
+          connectedAt: 25,
+        },
+        cloudflare: {
+          state: "provisioning",
+          runId,
+          startedAt: 26,
+        },
+      });
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId,
+        runId,
+        provisioningVersion: 1,
+        state: "active",
+        updatedAt: 30,
+      });
+      await ctx.db.insert("vaultInfrastructure", {
+        vaultId,
+        convexProjectId: "convex-project-id",
+        convexTeamSlug: "ada-team",
+        convexProjectSlug: "deploy-keys",
+        convexDeploymentName: "deploy-keys-prod",
+        convexDeploymentType: "prod",
+        convexCloudUrl: "https://deploy-keys.convex.cloud",
+        convexSiteUrl: "https://deploy-keys.convex.site",
+        convexDeployKeys: {
+          production: { state: "not_created" },
+          preview: { state: "not_created" },
+        },
+      });
+
+      return { runId, vaultId };
+    });
+
+    const productionRecord = await t.mutation(
+      internal.infraProvisioning.recordConvexDeployKeyIdentity,
+      {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+        deployment: "production",
+        convexDeployKeyId: "production-key-id",
+      },
+    );
+    const previewRecord = await t.mutation(
+      internal.infraProvisioning.recordConvexDeployKeyIdentity,
+      {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+        deployment: "preview",
+        convexDeployKeyId: "preview-key-id",
+      },
+    );
+    const infrastructure = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("vaultInfrastructure")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .first();
+    });
+
+    expect(productionRecord).toEqual({ applied: true });
+    expect(previewRecord).toEqual({ applied: true });
+    expect(infrastructure).toMatchObject({
+      convexDeployKeys: {
+        production: { state: "created", id: "production-key-id" },
+        preview: { state: "created", id: "preview-key-id" },
+      },
+    });
+  });
+
   it("keeps active ownership fresh between provider state transitions", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
@@ -822,7 +931,10 @@ describe("infrastructure provisioning ownership", () => {
         convexDeploymentType: "prod",
         convexCloudUrl: "https://preview-validation.convex.cloud",
         convexSiteUrl: "https://preview-validation.convex.site",
-        convexDeployKey: { state: "not_created" },
+        convexDeployKeys: {
+          production: { state: "not_created" },
+          preview: { state: "not_created" },
+        },
       });
 
       return { runId, vaultId };

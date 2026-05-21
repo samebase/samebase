@@ -20,7 +20,11 @@ import {
   type ExistingCloudflareWorkerIdentity,
 } from "./cloudflareResources";
 import { asRecord, readStringOrNumber } from "./jsonUtils";
-import type { AppProvisioningStep, GithubTreeData } from "./schema";
+import type {
+  AppProvisioningStep,
+  ConvexDeployKeyState,
+  GithubTreeData,
+} from "./schema";
 import { sanitizeSlug, vaultSuffix } from "./slugUtils";
 import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
 import {
@@ -33,6 +37,10 @@ const PROVISIONING_STALE_MS = 10 * 60 * 1000;
 const GITHUB_API_VERSION = "2022-11-28";
 const activeProvisioningRunResult = v.object({ active: v.boolean() });
 const infrastructurePatchResult = v.object({ applied: v.boolean() });
+const vConvexDeployKeyDeployment = v.union(
+  v.literal("production"),
+  v.literal("preview"),
+);
 
 const convexInfrastructureRecordValidator = v.object({
   convexProjectId: v.string(),
@@ -974,7 +982,10 @@ export const recordConvexInfrastructure = internalMutation({
     await ctx.db.insert("vaultInfrastructure", {
       vaultId: args.vaultId,
       ...args.convex,
-      convexDeployKey: { state: "not_created" },
+      convexDeployKeys: {
+        production: { state: "not_created" },
+        preview: { state: "not_created" },
+      },
     });
 
     return { applied: true };
@@ -1014,10 +1025,11 @@ export const recordConvexProjectIdentity = internalMutation({
   },
 });
 
-export const recordConvexDeployKey = internalMutation({
+export const recordConvexDeployKeyIdentity = internalMutation({
   args: {
     vaultId: v.id("vaults"),
     runId: v.id("appProvisioningRuns"),
+    deployment: vConvexDeployKeyDeployment,
     convexDeployKeyId: v.string(),
   },
   returns: infrastructurePatchResult,
@@ -1034,12 +1046,22 @@ export const recordConvexDeployKey = internalMutation({
       );
     }
 
-    await ctx.db.patch(existing._id, {
-      convexDeployKey: {
-        state: "created",
-        id: args.convexDeployKeyId,
-      },
-    });
+    const deployKey: ConvexDeployKeyState = {
+      state: "created",
+      id: args.convexDeployKeyId,
+    };
+    const convexDeployKeys =
+      args.deployment === "production"
+        ? {
+            production: deployKey,
+            preview: existing.convexDeployKeys.preview,
+          }
+        : {
+            production: existing.convexDeployKeys.production,
+            preview: deployKey,
+          };
+
+    await ctx.db.patch(existing._id, { convexDeployKeys });
 
     return { applied: true };
   },
@@ -1688,11 +1710,43 @@ export const ensureCloudflareInfrastructure = internalAction({
       deploymentName: existing.convexDeploymentName,
       name: `noter-${vaultSuffix(args.vaultId)}`,
     });
+    const productionDeployKeyRecord = await ctx.runMutation(
+      internal.infraProvisioning.recordConvexDeployKeyIdentity,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        deployment: "production",
+        convexDeployKeyId: productionDeployKey.convexDeployKeyId,
+      },
+    );
+    if (!productionDeployKeyRecord.applied) {
+      await cancelSupersededProvisioningRun(ctx, {
+        runId: args.runId,
+        step: "ensure_cloudflare",
+      });
+      return null;
+    }
     const previewDeployKey = await createConvexDeployKey({
       convexToken,
       deploymentName: previewConvex.previewDeploymentName,
       name: `noter-preview-${vaultSuffix(args.vaultId)}`,
     });
+    const previewDeployKeyRecord = await ctx.runMutation(
+      internal.infraProvisioning.recordConvexDeployKeyIdentity,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        deployment: "preview",
+        convexDeployKeyId: previewDeployKey.convexDeployKeyId,
+      },
+    );
+    if (!previewDeployKeyRecord.applied) {
+      await cancelSupersededProvisioningRun(ctx, {
+        runId: args.runId,
+        step: "ensure_cloudflare",
+      });
+      return null;
+    }
     const repoIdentity = await fetchGitHubRepoIdentity({
       githubAccessToken,
       owner: vault.owner,
@@ -1749,21 +1803,6 @@ export const ensureCloudflareInfrastructure = internalAction({
         },
       },
     });
-    const { applied } = await ctx.runMutation(
-      internal.infraProvisioning.recordConvexDeployKey,
-      {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        convexDeployKeyId: productionDeployKey.convexDeployKeyId,
-      },
-    );
-    if (!applied) {
-      await cancelSupersededProvisioningRun(ctx, {
-        runId: args.runId,
-        step: "ensure_cloudflare",
-      });
-      return null;
-    }
     const connectionMark = await ctx.runMutation(
       internal.infraProvisioning.markCloudflareConnected,
       {
