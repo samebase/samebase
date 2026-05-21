@@ -224,12 +224,7 @@ async function postJsonRpcMessage(args: {
     );
   }
 
-  const contentType = response.headers.get("content-type") ?? "";
-  const normalizedPayload =
-    contentType.includes("text/event-stream") && typeof payload === "string"
-      ? payload
-      : payload;
-  const messages = normalizeJsonRpcMessages(normalizedPayload);
+  const messages = normalizeJsonRpcMessages(payload);
   return { sessionId, messages };
 }
 
