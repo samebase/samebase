@@ -216,6 +216,34 @@ Key domain entities:
   Prefer a small typed utility in the right shared module when it lets the
   business code read directly, then delete any one-off wrapper that no longer
   earns its place.
+- Before keeping a helper, validator wrapper, adapter, custom error shape, or
+  mirror type introduced by a patch, run a delete-first reduction pass. If its
+  main job is renaming, copying, unwrapping, reshaping, filtering, or
+  re-reporting something a library already returns in a usable form, remove it
+  and use the library API directly unless the wrapper protects a real current
+  invariant such as secret redaction, unsafe I/O isolation, or multiple shipped
+  callsites.
+- For runtime validation and parsing, prefer one source-of-truth schema and
+  derive the TypeScript type from it. Do not duplicate field lists, hand-write
+  parallel response types, add strict companion schemas, translate validator
+  issues, or walk unknown keys when the validator already strips, rejects,
+  reports, or types that information well enough for the current caller.
+- After replacing one validation approach with another, run the same reduction
+  pass again on the new code. Do not preserve the old approach's helper shape,
+  error normalization, field extraction, or naming pattern just because it was
+  already there before the library switch.
+- Treat generated validation glue as a carrying cost, not a default win, but do
+  not replace broad OpenAPI-derived coverage with hand-written schemas just to
+  reduce generated files. If a schema is tiny, hand-documented, outside the
+  generated source's true contract, or only used by one boundary, compare it
+  against a direct hand-written schema using an existing runtime validation
+  library. Keep the generator path when it protects a broad current API surface
+  or prevents real drift from a source-of-truth spec; narrow it when a
+  non-generated boundary was merely bolted onto the generator.
+- When tests pressure production code into adding a mapper, branch, helper, or
+  named intermediate value solely to make assertions prettier, simplify the test
+  instead. Assert the app behavior directly, and for diagnostics prefer matching
+  the upstream library's own issue payload over inventing a normalized shape.
 - Let focused module paths carry generic utility context. Prefer names like
   `pick` from an object module over prefixing every export, and avoid broad
   barrel exports that erase that context.
