@@ -1,17 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import type { Client, ClientPathsWithMethod } from "openapi-fetch";
 
 import {
-  formatConvexManagementApiEndpoint,
-  requestConvexManagementApi,
+  createConvexManagementApi,
+  type CreateDeployKeyResponse,
+  type ListDeploymentsResponse,
+  type ListProjectsResponse,
+  type PlatformDeploymentResponse,
 } from "./client";
-import type {
-  CustomRoleResponse,
-  operations,
-  paths,
-  PlatformDeploymentResponse,
-  PlatformProjectDetails,
-} from "./types.generated";
+import { ConvexManagementApiError } from "./errors";
 
 const LARGE_CONVEX_ID = "9223372036854775807";
 const LARGE_CONVEX_PARENT_ID = "9223372036854775806";
@@ -30,151 +26,169 @@ const expectType =
     void input;
   };
 
-function assertConvexManagementRequestTypes(): void {
-  type ConvexManagementGetPath = ClientPathsWithMethod<Client<paths>, "get">;
-  type ConvexManagementPostPath = ClientPathsWithMethod<Client<paths>, "post">;
-  type ListProjectsPathParams =
-    operations["list projects"]["parameters"]["path"];
+function assertConvexManagementTypes(): void {
+  const convex = createConvexManagementApi("team-token");
 
-  const listProjectsGetPath: ConvexManagementGetPath =
-    "/teams/{team_id}/list_projects";
-  const listProjectsPathParams: ListProjectsPathParams = {
-    team_id: LARGE_CONVEX_ID,
-  };
-
-  expectType<{ team_id: string }>()(listProjectsPathParams, true);
-  expectType<Promise<PlatformProjectDetails[]>>()(
-    requestConvexManagementApi(
-      "team-token",
-      "GET",
-      "/teams/{team_id}/list_projects",
-      {
-        params: { path: { team_id: LARGE_CONVEX_ID } },
-      },
-    ),
+  expectType<Promise<ListProjectsResponse>>()(
+    convex.listProjects({ teamId: LARGE_CONVEX_ID }),
     true,
   );
-  expectType<Promise<PlatformDeploymentResponse[]>>()(
-    requestConvexManagementApi(
-      "team-token",
-      "GET",
-      "/projects/{project_id}/list_deployments",
-      { params: { path: { project_id: LARGE_CONVEX_ID } } },
-    ),
+  expectType<Promise<ListDeploymentsResponse>>()(
+    convex.listDeployments({ projectId: LARGE_CONVEX_ID }),
     true,
   );
-  expectType<Promise<void>>()(
-    requestConvexManagementApi(
-      "team-token",
-      "POST",
-      "/projects/{project_id}/delete",
-      {
-        params: { path: { project_id: LARGE_CONVEX_ID } },
-      },
-    ),
-    true,
-  );
-  expectType<Promise<CustomRoleResponse>>()(
-    requestConvexManagementApi(
-      "team-token",
-      "POST",
-      "/teams/{team_id}/create_custom_role",
-      {
-        params: { path: { team_id: LARGE_CONVEX_PARENT_ID } },
-        body: {
-          name: "operator",
-          statements: [],
-        },
-      },
-    ),
-    true,
-  );
-
-  const customRoleResponse: CustomRoleResponse = {
-    createTime: 1710000000000,
-    id: LARGE_CONVEX_ID,
-    name: "operator",
-    statements: [],
-    teamId: LARGE_CONVEX_PARENT_ID,
-  };
-  expectType<string>()(customRoleResponse.id, true);
-
-  expectType<string>()(
-    formatConvexManagementApiEndpoint({
-      method: "GET",
-      path: "/teams/{team_id}/list_projects",
-      params: {
-        path: {
-          team_id: LARGE_CONVEX_ID,
-        },
-      },
+  expectType<Promise<PlatformDeploymentResponse>>()(
+    convex.createDeployment({
+      deploymentType: "prod",
+      projectId: LARGE_CONVEX_ID,
     }),
     true,
   );
-
-  void listProjectsGetPath;
-
-  // @ts-expect-error The list projects endpoint only allows GET.
-  const listProjectsPostPath: ConvexManagementPostPath =
-    "/teams/{team_id}/list_projects";
-  void listProjectsPostPath;
-
-  const numericListProjectsPathParams: ListProjectsPathParams = {
-    // @ts-expect-error OpenAPI path IDs must stay decimal strings.
-    team_id: 123,
-  };
-  void numericListProjectsPathParams;
-
-  // @ts-expect-error The team_id path parameter is required.
-  const missingListProjectsPathParams: ListProjectsPathParams = {};
-  void missingListProjectsPathParams;
-
-  // @ts-expect-error The list projects endpoint requires path parameters.
-  void requestConvexManagementApi(
-    "team-token",
-    "GET",
-    "/teams/{team_id}/list_projects",
+  expectType<Promise<CreateDeployKeyResponse>>()(
+    convex.createDeployKey({
+      deploymentName: "happy-animal-123",
+      name: "deploy key",
+    }),
+    true,
   );
-}
-void assertConvexManagementRequestTypes;
+  expectType<Promise<void>>()(
+    convex.deleteProject({ projectId: LARGE_CONVEX_ID }),
+    true,
+  );
 
-describe("Convex Management API request helpers", () => {
+  // @ts-expect-error The team ID is required.
+  void convex.listProjects({});
+
+  void convex.createDeployment({
+    // @ts-expect-error Deployment creation only supports prod and dev here.
+    deploymentType: "preview",
+    projectId: LARGE_CONVEX_ID,
+  });
+}
+void assertConvexManagementTypes;
+
+describe("Convex Management API client", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
-  it("materializes typed OpenAPI path parameters for GET requests", async () => {
+  it("sends named generated SDK requests with auth headers", async () => {
     const requests: Request[] = [];
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: Request) => {
         requests.push(input);
-        return new Response("[]", {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify([
+            {
+              createTime: 1710000000000,
+              id: LARGE_CONVEX_ID,
+              name: "Noter",
+              slug: "noter",
+              teamId: LARGE_CONVEX_PARENT_ID,
+              teamSlug: "noter-team",
+            },
+          ]),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
       }),
     );
 
-    await requestConvexManagementApi(
-      "team-token",
-      "GET",
-      "/teams/{team_id}/list_projects",
-      { params: { path: { team_id: LARGE_CONVEX_ID } } },
-    );
+    const convex = createConvexManagementApi("team-token");
+
+    await expect(
+      convex.listProjects({ teamId: LARGE_CONVEX_PARENT_ID }),
+    ).resolves.toEqual([
+      {
+        createTime: 1710000000000,
+        id: LARGE_CONVEX_ID,
+        name: "Noter",
+        slug: "noter",
+        teamId: LARGE_CONVEX_PARENT_ID,
+        teamSlug: "noter-team",
+      },
+    ]);
 
     expect(requests.map(readRequest)).toEqual([
       {
         authorization: "Bearer team-token",
         contentType: null,
         method: "GET",
-        url: `https://api.convex.dev/v1/teams/${LARGE_CONVEX_ID}/list_projects`,
+        url: `https://api.convex.dev/v1/teams/${LARGE_CONVEX_PARENT_ID}/list_projects`,
       },
     ]);
   });
 
-  it("preserves Convex project IDs from responses as decimal strings", async () => {
+  it("builds operator endpoints through the generated client", () => {
+    const convex = createConvexManagementApi("team-token");
+
+    expect(
+      convex.endpoints.deploymentInProject({
+        projectId: LARGE_CONVEX_ID,
+        defaultProd: true,
+      }),
+    ).toBe(`/projects/${LARGE_CONVEX_ID}/deployment?defaultProd=true`);
+  });
+
+  it("sends JSON bodies for generated POST requests", async () => {
+    const requests: Request[] = [];
+    const bodies: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: Request) => {
+        requests.push(input);
+        bodies.push(await input.text());
+        return new Response(
+          JSON.stringify({
+            class: "s16",
+            createTime: 1710000000000,
+            deploymentType: "prod",
+            deploymentUrl: "https://noter.convex.cloud",
+            id: LARGE_CONVEX_ID,
+            isDefault: true,
+            kind: "cloud",
+            name: "noter-prod",
+            projectId: LARGE_CONVEX_PARENT_ID,
+            reference: "prod",
+            region: "aws-us-east-1",
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }),
+    );
+
+    const convex = createConvexManagementApi("team-token");
+
+    await expect(
+      convex.createDeployment({
+        deploymentType: "prod",
+        projectId: LARGE_CONVEX_PARENT_ID,
+      }),
+    ).resolves.toMatchObject({
+      id: LARGE_CONVEX_ID,
+      kind: "cloud",
+      projectId: LARGE_CONVEX_PARENT_ID,
+    });
+
+    expect(requests.map(readRequest)).toEqual([
+      {
+        authorization: "Bearer team-token",
+        contentType: "application/json",
+        method: "POST",
+        url: `https://api.convex.dev/v1/projects/${LARGE_CONVEX_PARENT_ID}/create_deployment`,
+      },
+    ]);
+    expect(bodies).toEqual([JSON.stringify({ type: "prod" })]);
+  });
+
+  it("fails closed when a provider ID arrives as a JSON number", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
@@ -185,7 +199,7 @@ describe("Convex Management API request helpers", () => {
               "id": ${LARGE_CONVEX_ID},
               "name": "Noter",
               "slug": "noter",
-              "teamId": ${LARGE_CONVEX_PARENT_ID},
+              "teamId": "${LARGE_CONVEX_PARENT_ID}",
               "teamSlug": "noter-team"
             }
           ]`,
@@ -197,124 +211,40 @@ describe("Convex Management API request helpers", () => {
       }),
     );
 
+    const convex = createConvexManagementApi("team-token");
+
     await expect(
-      requestConvexManagementApi(
-        "team-token",
-        "GET",
-        "/teams/{team_id}/list_projects",
-        {
-          params: { path: { team_id: LARGE_CONVEX_PARENT_ID } },
-        },
-      ),
-    ).resolves.toEqual([
-      {
-        createTime: 1710000000000,
-        id: LARGE_CONVEX_ID,
-        name: "Noter",
-        slug: "noter",
-        teamId: LARGE_CONVEX_PARENT_ID,
-        teamSlug: "noter-team",
-      },
-    ]);
+      convex.listProjects({ teamId: LARGE_CONVEX_PARENT_ID }),
+    ).rejects.toThrow(
+      `Convex API response for /teams/${LARGE_CONVEX_PARENT_ID}/list_projects did not match list projects response: /0/id`,
+    );
   });
 
-  it("preserves Convex deployment and member IDs from responses as decimal strings", async () => {
+  it("keeps provider error responses status-addressable", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
-        return new Response(
-          `[
-            {
-              "class": "s16",
-              "createTime": 1710000000000,
-              "creator": ${LARGE_CONVEX_PARENT_ID},
-              "deploymentType": "prod",
-              "deploymentUrl": "https://noter.convex.cloud",
-              "id": ${LARGE_CONVEX_ID},
-              "isDefault": true,
-              "kind": "cloud",
-              "name": "noter-prod",
-              "projectId": ${LARGE_CONVEX_PARENT_ID},
-              "reference": "prod",
-              "region": "aws-us-east-1"
-            }
-          ]`,
-          {
-            status: 200,
-            headers: { "content-type": "application/json" },
-          },
-        );
+        return new Response(JSON.stringify({ message: "deployment missing" }), {
+          status: 404,
+          headers: { "content-type": "application/json" },
+        });
       }),
     );
 
-    await expect(
-      requestConvexManagementApi(
-        "team-token",
-        "GET",
-        "/projects/{project_id}/list_deployments",
-        { params: { path: { project_id: LARGE_CONVEX_PARENT_ID } } },
-      ),
-    ).resolves.toEqual([
-      {
-        class: "s16",
-        createTime: 1710000000000,
-        creator: LARGE_CONVEX_PARENT_ID,
-        deploymentType: "prod",
-        deploymentUrl: "https://noter.convex.cloud",
-        id: LARGE_CONVEX_ID,
-        isDefault: true,
-        kind: "cloud",
-        name: "noter-prod",
-        projectId: LARGE_CONVEX_PARENT_ID,
-        reference: "prod",
-        region: "aws-us-east-1",
-      },
-    ]);
-  });
-
-  it("preserves Convex custom role IDs from responses as decimal strings", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
-        return new Response(
-          `{
-            "createTime": 1710000000000,
-            "id": ${LARGE_CONVEX_ID},
-            "name": "operator",
-            "statements": [],
-            "teamId": ${LARGE_CONVEX_PARENT_ID}
-          }`,
-          {
-            status: 200,
-            headers: { "content-type": "application/json" },
-          },
-        );
-      }),
-    );
+    const convex = createConvexManagementApi("team-token");
 
     await expect(
-      requestConvexManagementApi(
-        "team-token",
-        "POST",
-        "/teams/{team_id}/create_custom_role",
-        {
-          params: { path: { team_id: LARGE_CONVEX_PARENT_ID } },
-          body: {
-            name: "operator",
-            statements: [],
-          },
-        },
-      ),
-    ).resolves.toEqual({
-      createTime: 1710000000000,
-      id: LARGE_CONVEX_ID,
-      name: "operator",
-      statements: [],
-      teamId: LARGE_CONVEX_PARENT_ID,
-    });
+      convex.getDeployment({ deploymentName: "missing-deployment" }),
+    ).rejects.toMatchObject({
+      message:
+        "Convex API request failed (404) for /deployments/missing-deployment: deployment missing",
+      path: "/deployments/missing-deployment",
+      responseBodySummary: "deployment missing",
+      status: 404,
+    } satisfies Partial<ConvexManagementApiError>);
   });
 
-  it("materializes typed OpenAPI path parameters for empty POST requests", async () => {
+  it("sends empty destructive POST requests without JSON content headers", async () => {
     const requests: Request[] = [];
     vi.stubGlobal(
       "fetch",
@@ -324,12 +254,11 @@ describe("Convex Management API request helpers", () => {
       }),
     );
 
-    await requestConvexManagementApi(
-      "team-token",
-      "POST",
-      "/projects/{project_id}/delete",
-      { params: { path: { project_id: "123" } } },
-    );
+    const convex = createConvexManagementApi("team-token");
+
+    await expect(
+      convex.deleteProject({ projectId: "123" }),
+    ).resolves.toBeUndefined();
 
     expect(requests.map(readRequest)).toEqual([
       {
@@ -339,92 +268,6 @@ describe("Convex Management API request helpers", () => {
         url: "https://api.convex.dev/v1/projects/123/delete",
       },
     ]);
-  });
-
-  it("warns when path segment values need trimming", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
-        return new Response(
-          `{
-            "class": "s16",
-            "createTime": 1710000000000,
-            "creator": ${LARGE_CONVEX_PARENT_ID},
-            "deploymentType": "prod",
-            "deploymentUrl": "https://noter.convex.cloud",
-            "id": ${LARGE_CONVEX_ID},
-            "isDefault": true,
-            "kind": "cloud",
-            "name": "team-project",
-            "projectId": ${LARGE_CONVEX_PARENT_ID},
-            "reference": "prod",
-            "region": "aws-us-east-1"
-          }`,
-          {
-            status: 200,
-            headers: { "content-type": "application/json" },
-          },
-        );
-      }),
-    );
-
-    await requestConvexManagementApi(
-      "team-token",
-      "GET",
-      "/deployments/{deployment_name}",
-      { params: { path: { deployment_name: " team-project " } } },
-    );
-
-    expect(warn).toHaveBeenCalledWith("convex:api:trimmed_path_parameter", {
-      label: "Convex path parameter deployment_name",
-      originalLength: 14,
-      normalizedLength: 12,
-    });
-  });
-
-  it("warns when decimal path IDs need trimming", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
-        return new Response("[]", {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        });
-      }),
-    );
-
-    await requestConvexManagementApi(
-      "team-token",
-      "GET",
-      "/teams/{team_id}/list_projects",
-      { params: { path: { team_id: ` ${LARGE_CONVEX_ID} ` } } },
-    );
-
-    expect(warn).toHaveBeenCalledWith("convex:api:trimmed_path_parameter", {
-      label: "Convex path parameter team_id",
-      originalLength: LARGE_CONVEX_ID.length + 2,
-      normalizedLength: LARGE_CONVEX_ID.length,
-    });
-  });
-
-  it("rejects non-string path parameters at the request boundary", async () => {
-    const fetch = vi.fn();
-    const key = "team-token";
-    const params = { params: { path: { team_id: 123 } } };
-    const route = "/teams/{team_id}/list_projects";
-    const verb = "GET";
-    vi.stubGlobal("fetch", fetch);
-
-    // @ts-expect-error Runtime callers can still pass non-string path params.
-    const request = requestConvexManagementApi(key, verb, route, params);
-
-    await expect(request).rejects.toThrow(
-      "Convex path parameter team_id must be a string.",
-    );
-
-    expect(fetch).not.toHaveBeenCalled();
   });
 });
 

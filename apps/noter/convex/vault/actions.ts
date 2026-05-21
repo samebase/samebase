@@ -11,7 +11,7 @@ import { toErrorMessage } from "../jsonUtils";
 import { parseRepositoryFullName } from "./model";
 import { isLiveConnectedVault, isNoterManagedVault } from "./state";
 import { toSafeRepoName } from "../repoName";
-import { requestConvexManagementApi } from "../convexManagementApi/client";
+import { createConvexManagementApi } from "../convexManagementApi/client";
 import {
   resolveCloudflareProvisioningConnection,
   resolveConvexProvisioningConnection,
@@ -408,12 +408,8 @@ async function checkConvexProjectNameAvailability(
   try {
     const { convexToken, convexTeamId } =
       await resolveConvexProvisioningConnection(ctx, args.userId);
-    const projects = await requestConvexManagementApi(
-      convexToken,
-      "GET",
-      "/teams/{team_id}/list_projects",
-      { params: { path: { team_id: convexTeamId } } },
-    );
+    const convex = createConvexManagementApi(convexToken);
+    const projects = await convex.listProjects({ teamId: convexTeamId });
     const unavailableNames = new Set<string>();
     for (const project of projects) {
       unavailableNames.add(project.name);

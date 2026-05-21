@@ -45,5 +45,3 @@ allowBuilds:
   protobufjs: false
   sharp: false
   workerd: true
-patchedDependencies:
-  ajv@8.18.0: patches/ajv@8.18.0.patch

@@ -6,7 +6,7 @@ import { v } from "convex/values";
 import { internalAction, type ActionCtx } from "../../_generated/server";
 import { internal } from "../../_generated/api";
 import type { Doc, Id } from "../../_generated/dataModel";
-import { requestConvexManagementApi } from "../../convexManagementApi/client";
+import { createConvexManagementApi } from "../../convexManagementApi/client";
 import { isConvexManagementNotFoundError } from "../../convexManagementApi/errors";
 import {
   deleteCloudflareResources,
@@ -247,20 +247,15 @@ export const deleteConvex = internalAction({
     }
 
     try {
+      const convex = createConvexManagementApi(
+        convexConnection.auth.credential,
+      );
       if (plan.convex.action === "delete_project") {
-        await requestConvexManagementApi(
-          convexConnection.auth.credential,
-          "POST",
-          "/projects/{project_id}/delete",
-          { params: { path: { project_id: plan.convex.projectId } } },
-        );
+        await convex.deleteProject({ projectId: plan.convex.projectId });
       } else {
-        await requestConvexManagementApi(
-          convexConnection.auth.credential,
-          "POST",
-          "/deployments/{deployment_name}/delete",
-          { params: { path: { deployment_name: plan.convex.deploymentName } } },
-        );
+        await convex.deleteDeployment({
+          deploymentName: plan.convex.deploymentName,
+        });
       }
     } catch (error) {
       if (!isConvexManagementNotFoundError(error)) {

@@ -10,7 +10,7 @@ import { internal } from "./_generated/api";
 import { Infer, v } from "convex/values";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import { isRecord, readString } from "./jsonUtils";
-import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
+import { createConvexManagementApi } from "./convexManagementApi/client";
 import { ConvexManagementApiError } from "./convexManagementApi/errors";
 import {
   deriveMcpTokenStatusFromExpiry,
@@ -296,7 +296,11 @@ async function fetchConvexApiKeyTeamDetails(token: string): Promise<{
   teamId: string;
 }> {
   try {
-    return await fetchConvexTeamTokenDetails(token);
+    const details = await createConvexManagementApi(token).getTokenDetails();
+    if (details.type !== "teamToken") {
+      throw new Error("Convex token is missing team access.");
+    }
+    return { teamId: details.teamId };
   } catch (error) {
     if (
       error instanceof ConvexManagementApiError &&
