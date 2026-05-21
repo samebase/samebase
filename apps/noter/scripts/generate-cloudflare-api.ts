@@ -272,12 +272,18 @@ function markSchemaNullable(document: JsonRecord, pointer: string): void {
   schema["nullable"] = true;
 }
 
+/**
+ * Lets Workers Builds operations define their own `result` shapes.
+ *
+ * Cloudflare composes Builds responses with `allOf`: the shared
+ * `builds_APIResponse` envelope plus an operation-specific schema. `allOf`
+ * validates both schemas independently, so a shared `result: object` does not
+ * get overridden by an endpoint's `result: array`; it makes array-list
+ * responses impossible. Keep the shared schema to envelope fields only, then
+ * let each operation's schema carry the concrete `result` contract.
+ */
 function removeBuildsApiResponseResultShape(document: JsonRecord): void {
-  const schema = readRecordPath(document, [
-    "components",
-    "schemas",
-    "builds_APIResponse",
-  ]);
+  const schema = readRecordPath(document, ["components", "schemas", "builds_APIResponse"]);
   const properties = readRecordPath(schema, ["properties"]);
   delete properties["result"];
 
