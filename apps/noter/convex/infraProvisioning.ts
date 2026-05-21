@@ -11,7 +11,10 @@ import type { Doc, Id } from "./_generated/dataModel";
 import {
   isConvexCloudDeployment,
   requestConvexManagementApi,
+  type ConvexCloudDeployment,
 } from "./convexManagementApi/client";
+import { isConvexManagementNotFoundError } from "./convexManagementApi/errors";
+import type { PlatformDeploymentResponse } from "./convexManagementApi/types.generated";
 import { ensureCloudflareResources } from "./cloudflareResources";
 import { asRecord, readString, readStringOrNumber } from "./jsonUtils";
 import type { AppProvisioningStep, GithubTreeData } from "./schema";
@@ -221,7 +224,7 @@ function parseCloudflareAccountInventory(
 type ConvexProvisionResult = {
   convexProjectId: string;
   convexProjectSlug: string;
-  convexTeamSlug?: string;
+  convexTeamSlug: string;
   convexDeploymentName: string;
   convexDeploymentType: "prod" | "dev";
   convexCloudUrl: string;
@@ -233,33 +236,123 @@ type ConvexDeployKeyResult = {
   deployKey: string;
 };
 
+function requireConvexCloudDeployment(args: {
+  deployment: PlatformDeploymentResponse;
+  deploymentType: "prod" | "dev";
+  projectId: string;
+  description: string;
+}): ConvexCloudDeployment {
+  if (!isConvexCloudDeployment(args.deployment)) {
+    throw new Error(`${args.description} was not cloud.`);
+  }
+  if (args.deployment.deploymentType !== args.deploymentType) {
+    throw new Error(`${args.description} had the wrong deployment type.`);
+  }
+  if (args.deployment.projectId !== args.projectId) {
+    throw new Error(`${args.description} belonged to a different project.`);
+  }
+  return args.deployment;
+}
+
+async function readDefaultConvexCloudDeployment(args: {
+  convexToken: string;
+  projectId: string;
+  deploymentType: "prod" | "dev";
+}): Promise<ConvexCloudDeployment | null> {
+  try {
+    const deployment = await requestConvexManagementApi(
+      args.convexToken,
+      "GET",
+      "/projects/{project_id}/deployment",
+      {
+        params: {
+          path: { project_id: args.projectId },
+          query:
+            args.deploymentType === "prod"
+              ? { defaultProd: true }
+              : { defaultDev: true },
+        },
+      },
+    );
+    return requireConvexCloudDeployment({
+      deployment,
+      deploymentType: args.deploymentType,
+      projectId: args.projectId,
+      description:
+        args.deploymentType === "prod"
+          ? "Default Convex production deployment"
+          : "Default Convex dev deployment",
+    });
+  } catch (error) {
+    if (isConvexManagementNotFoundError(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function createConvexCloudDeployment(args: {
+  convexToken: string;
+  projectId: string;
+  deploymentType: "prod" | "dev";
+}): Promise<ConvexCloudDeployment> {
+  const deployment = await requestConvexManagementApi(
+    args.convexToken,
+    "POST",
+    "/projects/{project_id}/create_deployment",
+    {
+      params: { path: { project_id: args.projectId } },
+      body: {
+        type: args.deploymentType,
+      },
+    },
+  );
+  return requireConvexCloudDeployment({
+    deployment,
+    deploymentType: args.deploymentType,
+    projectId: args.projectId,
+    description: "Created Convex deployment",
+  });
+}
+
+async function readConvexProjectDetails(args: {
+  convexToken: string;
+  projectId: string;
+  teamId: string;
+}) {
+  const project = await requestConvexManagementApi(
+    args.convexToken,
+    "GET",
+    "/projects/{project_id}",
+    { params: { path: { project_id: args.projectId } } },
+  );
+  if (project.teamId !== args.teamId) {
+    throw new Error("Convex project belonged to a different team.");
+  }
+  return project;
+}
+
 async function ensureConvexResources(args: {
   teamId: string;
   convexToken: string;
   projectName: string;
   existing: {
     projectId?: string;
-    projectSlug?: string;
     deploymentName?: string;
-    cloudUrl?: string;
-    siteUrl?: string;
   };
   onProjectCreated?: (identity: { projectId: string }) => Promise<void>;
 }): Promise<ConvexProvisionResult> {
   const projectName = args.projectName;
 
   let projectId = args.existing.projectId;
-  let projectSlug = args.existing.projectSlug;
-  let teamSlug: string | undefined;
-
-  const projects = await requestConvexManagementApi(
-    args.convexToken,
-    "GET",
-    "/teams/{team_id}/list_projects",
-    { params: { path: { team_id: args.teamId } } },
-  );
 
   if (!projectId) {
+    const projects = await requestConvexManagementApi(
+      args.convexToken,
+      "GET",
+      "/teams/{team_id}/list_projects",
+      { params: { path: { team_id: args.teamId } } },
+    );
     for (const project of projects) {
       if (project.name === projectName || project.slug === projectName) {
         throw new Error(
@@ -268,21 +361,6 @@ async function ensureConvexResources(args: {
       }
     }
   }
-  if (projectId && !projectSlug) {
-    for (const project of projects) {
-      if (project.id === projectId) {
-        projectSlug = project.slug;
-        teamSlug = project.teamSlug;
-        break;
-      }
-    }
-  }
-  if (!teamSlug) {
-    teamSlug = projects[0]?.teamSlug;
-  }
-
-  let deploymentName = args.existing.deploymentName;
-  let deploymentUrl = args.existing.cloudUrl;
 
   if (!projectId) {
     const createResponse = await requestConvexManagementApi(
@@ -298,98 +376,67 @@ async function ensureConvexResources(args: {
       },
     );
 
-    projectId = createResponse.projectId;
-    projectSlug = createResponse.slug;
-    deploymentName = createResponse.deploymentName ?? undefined;
-    deploymentUrl = createResponse.deploymentUrl ?? undefined;
+    projectId = createResponse.id;
 
     // Record the provider identity before later deployment lookups can fail so
     // retries can recognize the project that this run already created.
     await args.onProjectCreated?.({ projectId });
-
-    const refreshedProjects = await requestConvexManagementApi(
-      args.convexToken,
-      "GET",
-      "/teams/{team_id}/list_projects",
-      { params: { path: { team_id: args.teamId } } },
-    );
-    for (const project of refreshedProjects) {
-      if (project.id === projectId) {
-        projectSlug = project.slug;
-        teamSlug = project.teamSlug;
-        break;
-      }
-    }
   }
 
   if (!projectId) {
     throw new Error("Failed to resolve Convex project ID");
   }
 
-  if (!deploymentName) {
-    const deployments = await requestConvexManagementApi(
-      args.convexToken,
-      "GET",
-      "/projects/{project_id}/list_deployments",
-      { params: { path: { project_id: projectId } } },
-    );
+  const project = await readConvexProjectDetails({
+    convexToken: args.convexToken,
+    projectId,
+    teamId: args.teamId,
+  });
 
-    for (const deployment of deployments) {
-      if (
-        isConvexCloudDeployment(deployment) &&
-        deployment.deploymentType === "prod"
-      ) {
-        deploymentName = deployment.name;
-        deploymentUrl = deployment.deploymentUrl;
-        break;
-      }
-    }
-  }
+  let productionDeployment: ConvexCloudDeployment | null = null;
 
-  if (!deploymentName) {
-    const createdDeployment = await requestConvexManagementApi(
-      args.convexToken,
-      "POST",
-      "/projects/{project_id}/create_deployment",
-      {
-        params: { path: { project_id: projectId } },
-        body: {
-          type: "prod",
+  if (args.existing.deploymentName) {
+    productionDeployment = requireConvexCloudDeployment({
+      deployment: await requestConvexManagementApi(
+        args.convexToken,
+        "GET",
+        "/deployments/{deployment_name}",
+        {
+          params: {
+            path: { deployment_name: args.existing.deploymentName },
+          },
         },
-      },
-    );
-    if (!isConvexCloudDeployment(createdDeployment)) {
-      throw new Error("Created Convex production deployment was not cloud.");
-    }
-    deploymentName = createdDeployment.name;
-    deploymentUrl = createdDeployment.deploymentUrl;
+      ),
+      deploymentType: "prod",
+      projectId,
+      description: "Recorded Convex production deployment",
+    });
   }
 
-  if (!deploymentName) {
-    throw new Error("Failed to resolve Convex deployment name");
-  }
-  if (!projectSlug) {
-    throw new Error("Failed to resolve Convex project slug");
-  }
+  productionDeployment ??= await readDefaultConvexCloudDeployment({
+    convexToken: args.convexToken,
+    projectId,
+    deploymentType: "prod",
+  });
 
-  if (!deploymentUrl) {
-    deploymentUrl = args.existing.cloudUrl;
-  }
-  if (!deploymentUrl) {
-    deploymentUrl = `https://${deploymentName}.convex.cloud`;
-  }
+  productionDeployment ??= await createConvexCloudDeployment({
+    convexToken: args.convexToken,
+    projectId,
+    deploymentType: "prod",
+  });
 
-  const siteUrl =
-    args.existing.siteUrl ?? `https://${deploymentName}.convex.site`;
+  if (productionDeployment.isDefault !== true) {
+    throw new Error("Convex production deployment was not the default.");
+  }
 
   return {
     convexProjectId: projectId,
-    convexProjectSlug: projectSlug,
-    convexTeamSlug: teamSlug,
-    convexDeploymentName: deploymentName,
+    convexProjectSlug: project.slug,
+    convexTeamSlug: project.teamSlug,
+    convexDeploymentName: productionDeployment.name,
     convexDeploymentType: "prod",
-    convexCloudUrl: deploymentUrl,
-    convexSiteUrl: siteUrl,
+    convexCloudUrl: productionDeployment.deploymentUrl,
+    convexSiteUrl: `https://${productionDeployment.name}.convex.site`,
   };
 }
 
@@ -401,59 +448,24 @@ type ConvexPreviewProvisionResult = {
 async function ensureConvexPreviewResources(args: {
   convexToken: string;
   projectId: string;
-  vaultId: string;
 }): Promise<ConvexPreviewProvisionResult> {
-  const deployments = await requestConvexManagementApi(
-    args.convexToken,
-    "GET",
-    "/projects/{project_id}/list_deployments",
-    { params: { path: { project_id: args.projectId } } },
-  );
+  const defaultDevDeployment = await readDefaultConvexCloudDeployment({
+    convexToken: args.convexToken,
+    projectId: args.projectId,
+    deploymentType: "dev",
+  });
 
-  let deploymentName: string | undefined;
-  let deploymentUrl: string | undefined;
-
-  for (const deployment of deployments) {
-    if (
-      isConvexCloudDeployment(deployment) &&
-      deployment.deploymentType === "dev"
-    ) {
-      deploymentName = deployment.name;
-      deploymentUrl = deployment.deploymentUrl;
-      break;
-    }
-  }
-
-  if (!deploymentName) {
-    const created = await requestConvexManagementApi(
-      args.convexToken,
-      "POST",
-      "/projects/{project_id}/create_deployment",
-      {
-        params: { path: { project_id: args.projectId } },
-        body: {
-          type: "dev",
-        },
-      },
-    );
-    if (!isConvexCloudDeployment(created)) {
-      throw new Error("Created Convex preview deployment was not cloud.");
-    }
-    deploymentName = created.name;
-    deploymentUrl = created.deploymentUrl;
-  }
-
-  if (!deploymentName) {
-    throw new Error("Failed to resolve Convex preview deployment name.");
-  }
-
-  if (!deploymentUrl) {
-    deploymentUrl = `https://${deploymentName}.convex.cloud`;
-  }
+  const deployment =
+    defaultDevDeployment ??
+    (await createConvexCloudDeployment({
+      convexToken: args.convexToken,
+      projectId: args.projectId,
+      deploymentType: "dev",
+    }));
 
   return {
-    previewDeploymentName: deploymentName,
-    previewCloudUrl: deploymentUrl,
+    previewDeploymentName: deployment.name,
+    previewCloudUrl: deployment.deploymentUrl,
   };
 }
 
@@ -1442,10 +1454,7 @@ export const ensureConvexInfrastructure = internalAction({
         ),
       existing: {
         projectId: existing?.convexProjectId ?? targetConvexProjectId,
-        projectSlug: existing?.convexProjectSlug,
         deploymentName: existing?.convexDeploymentName,
-        cloudUrl: existing?.convexCloudUrl,
-        siteUrl: existing?.convexSiteUrl,
       },
       onProjectCreated: async ({ projectId }) => {
         const record = await ctx.runMutation(
@@ -1463,13 +1472,11 @@ export const ensureConvexInfrastructure = internalAction({
         }
       },
     });
-    if (convex.convexTeamSlug) {
-      await ctx.runMutation(internal.providerConnections.setConvexTeamSlug, {
-        userId: vault.userId,
-        teamId: convexTeamId,
-        teamSlug: convex.convexTeamSlug,
-      });
-    }
+    await ctx.runMutation(internal.providerConnections.setConvexTeamSlug, {
+      userId: vault.userId,
+      teamId: convexTeamId,
+      teamSlug: convex.convexTeamSlug,
+    });
 
     const { applied } = await ctx.runMutation(
       internal.infraProvisioning.recordConvexInfrastructure,
@@ -1572,7 +1579,6 @@ export const ensureConvexPreviewInfrastructure = internalAction({
     await ensureConvexPreviewResources({
       convexToken,
       projectId: existing.convexProjectId,
-      vaultId: args.vaultId,
     });
 
     await appendProvisioningRunEvent(ctx, {
@@ -1681,7 +1687,6 @@ export const ensureCloudflareInfrastructure = internalAction({
     const previewConvex = await ensureConvexPreviewResources({
       convexToken,
       projectId: existing.convexProjectId,
-      vaultId: args.vaultId,
     });
     const productionDeployKey = await createConvexDeployKey({
       convexToken,
