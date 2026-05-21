@@ -258,6 +258,10 @@ function normalizeObservedCloudflareApiResponseShapes(document: JsonRecord) {
     document,
     "#/components/schemas/iam_account/properties/settings/properties/abuse_contact_email",
   );
+  // Workers Builds operation schemas own the concrete result shape. The shared
+  // envelope currently says result is an object, which rejects list endpoints
+  // whose documented and observed result is an array.
+  removeBuildsApiResponseResultShape(document);
 }
 
 function markSchemaNullable(document: JsonRecord, pointer: string): void {
@@ -266,6 +270,21 @@ function markSchemaNullable(document: JsonRecord, pointer: string): void {
     throw new Error(`Expected Cloudflare API schema ${pointer} to be an object.`);
   }
   schema["nullable"] = true;
+}
+
+function removeBuildsApiResponseResultShape(document: JsonRecord): void {
+  const schema = readRecordPath(document, [
+    "components",
+    "schemas",
+    "builds_APIResponse",
+  ]);
+  const properties = readRecordPath(schema, ["properties"]);
+  delete properties["result"];
+
+  const required = schema["required"];
+  if (Array.isArray(required)) {
+    schema["required"] = required.filter((field) => field !== "result");
+  }
 }
 
 function ensureCloudflareApiOperationIds(paths: JsonRecord): void {
