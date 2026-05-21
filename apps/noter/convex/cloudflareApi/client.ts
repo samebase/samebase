@@ -139,10 +139,15 @@ type CloudflareApiRequestParams = {
   path?: Record<string, unknown>;
   query?: Record<string, unknown>;
 };
-type CloudflareApiMcpResult = {
-  data?: unknown;
-  error?: unknown;
-};
+type CloudflareApiMcpResult =
+  | {
+      state: "success";
+      data: Record<string, unknown>;
+    }
+  | {
+      state: "error";
+      error: Record<string, unknown>;
+    };
 type CloudflareApiRequestBase = {
   token: string;
 };
@@ -267,53 +272,54 @@ export async function requestCloudflareApi(
     token: args.token,
     method: args.method,
     endpoint,
-    body: readCloudflareApiRequestBody(args),
+    body: args.body,
   });
 
-  if (args.method === "DELETE") {
-    return validateCloudflareApiResult({
-      result,
-      endpoint,
-      method: args.method,
-      path: args.path,
-      validator: cloudflareApiResponseValidators.DELETE[args.path],
-    });
+  switch (args.method) {
+    case "DELETE":
+      return validateCloudflareApiResult({
+        result,
+        endpoint,
+        method: args.method,
+        path: args.path,
+        validator: cloudflareApiResponseValidators.DELETE[args.path],
+      });
+    case "GET":
+      return validateCloudflareApiResult({
+        result,
+        endpoint,
+        method: args.method,
+        path: args.path,
+        validator: cloudflareApiResponseValidators.GET[args.path],
+      });
+    case "PATCH":
+      return validateCloudflareApiResult({
+        result,
+        endpoint,
+        method: args.method,
+        path: args.path,
+        validator: cloudflareApiResponseValidators.PATCH[args.path],
+      });
+    case "POST":
+      return validateCloudflareApiResult({
+        result,
+        endpoint,
+        method: args.method,
+        path: args.path,
+        validator: cloudflareApiResponseValidators.POST[args.path],
+      });
+    case "PUT":
+      return validateCloudflareApiResult({
+        result,
+        endpoint,
+        method: args.method,
+        path: args.path,
+        validator: cloudflareApiResponseValidators.PUT[args.path],
+      });
+    default:
+      args satisfies never;
+      throw new Error("Unsupported Cloudflare API method.");
   }
-  if (args.method === "GET") {
-    return validateCloudflareApiResult({
-      result,
-      endpoint,
-      method: args.method,
-      path: args.path,
-      validator: cloudflareApiResponseValidators.GET[args.path],
-    });
-  }
-  if (args.method === "PATCH") {
-    return validateCloudflareApiResult({
-      result,
-      endpoint,
-      method: args.method,
-      path: args.path,
-      validator: cloudflareApiResponseValidators.PATCH[args.path],
-    });
-  }
-  if (args.method === "POST") {
-    return validateCloudflareApiResult({
-      result,
-      endpoint,
-      method: args.method,
-      path: args.path,
-      validator: cloudflareApiResponseValidators.POST[args.path],
-    });
-  }
-
-  return validateCloudflareApiResult({
-    result,
-    endpoint,
-    method: args.method,
-    path: args.path,
-    validator: cloudflareApiResponseValidators.PUT[args.path],
-  });
 }
 
 export function isWorkersBuildsInvalidTokenMessage(args: {
@@ -328,10 +334,10 @@ export function isWorkersBuildsInvalidTokenMessage(args: {
   );
 }
 
-function readCloudflareApiRequestParams(
-  options: { params?: unknown } | undefined,
-): CloudflareApiRequestParams | undefined {
-  const params = options?.params;
+function readCloudflareApiRequestParams(options: {
+  params?: unknown;
+}): CloudflareApiRequestParams | undefined {
+  const params = options.params;
   if (params === undefined) {
     return undefined;
   }
@@ -342,12 +348,6 @@ function readCloudflareApiRequestParams(
     path: readOptionalRecordProperty(params, "path"),
     query: readOptionalRecordProperty(params, "query"),
   };
-}
-
-function readCloudflareApiRequestBody(
-  options: { body?: unknown } | undefined,
-): unknown {
-  return options?.body;
 }
 
 function readOptionalRecordProperty(
@@ -374,6 +374,11 @@ async function executeCloudflareApiMcpRequest(args: {
   endpoint: string;
   body?: unknown;
 }): Promise<CloudflareApiMcpResult> {
+  const token = args.token.trim();
+  if (!token) {
+    throw new Error("Cloudflare token is required.");
+  }
+
   const bodyPart =
     args.body === undefined ? "" : `, body: ${JSON.stringify(args.body)}`;
   const code = `async () => {
@@ -383,7 +388,7 @@ async function executeCloudflareApiMcpRequest(args: {
   });
 }`;
   const text = await callCloudflareMcpTool({
-    token: readCloudflareMcpToken(args.token),
+    token,
     toolName: "execute",
     toolArgs: { code },
   }).catch((error: unknown) => {
@@ -404,7 +409,7 @@ async function executeCloudflareApiMcpRequest(args: {
     text,
   });
   if (readBoolean(response, "success") === true) {
-    return { data: response };
+    return { state: "success", data: response };
   }
 
   const details = readCloudflareApiErrorDetails(response["errors"]);
@@ -412,15 +417,9 @@ async function executeCloudflareApiMcpRequest(args: {
     throw new Error(WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE);
   }
   return {
+    state: "error",
     error: response,
   };
-}
-
-function readCloudflareMcpToken(token: string): string {
-  if (!token) {
-    throw new Error("Cloudflare token is required.");
-  }
-  return token;
 }
 
 function parseCloudflareApiEnvelope(args: {
@@ -451,7 +450,7 @@ function validateCloudflareApiResult(args: {
   validator: AjvStandaloneValidateFunction<unknown> | null;
 }): unknown {
   const schemaName = `${args.method} ${args.path} response`;
-  assertCloudflareApiResultOk({
+  const payload = readCloudflareApiResultData({
     result: args.result,
     endpoint: args.endpoint,
     method: args.method,
@@ -460,7 +459,6 @@ function validateCloudflareApiResult(args: {
     return undefined;
   }
 
-  const payload = args.result.data;
   if (args.validator(payload)) {
     return readCloudflareApiEnvelopeResult(payload);
   }
@@ -486,20 +484,19 @@ function readCloudflareApiEnvelopeResult(payload: unknown): unknown {
   return undefined;
 }
 
-function assertCloudflareApiResultOk(args: {
+function readCloudflareApiResultData(args: {
   result: CloudflareApiMcpResult;
   endpoint: string;
   method: CloudflareApiRequestMethod;
-}): void {
-  if (args.result.error === undefined) {
-    return;
+}): Record<string, unknown> {
+  if (args.result.state === "success") {
+    return args.result.data;
   }
 
-  const response = isRecord(args.result.error) ? args.result.error : {};
   throw new CloudflareApiError({
     method: args.method,
     path: args.endpoint,
-    details: readCloudflareApiErrorDetails(response["errors"]),
+    details: readCloudflareApiErrorDetails(args.result.error["errors"]),
   });
 }
 

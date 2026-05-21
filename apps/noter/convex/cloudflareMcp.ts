@@ -17,11 +17,6 @@ type JsonRpcMessage = {
   error?: unknown;
 };
 
-type McpToolTextContent = {
-  type: "text";
-  text: string;
-};
-
 function resolveOriginHeader(): string {
   const siteUrl = process.env.SITE_URL ?? process.env.CONVEX_SITE_URL;
   if (!siteUrl) {
@@ -172,11 +167,7 @@ function extractToolText(result: unknown): {
       itemRecord["type"] === "text" &&
       typeof itemRecord["text"] === "string"
     ) {
-      const chunk: McpToolTextContent = {
-        type: "text",
-        text: itemRecord["text"],
-      };
-      textChunks.push(chunk.text);
+      textChunks.push(itemRecord["text"]);
     }
   }
 
