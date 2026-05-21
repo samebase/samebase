@@ -14485,10 +14485,6 @@
             },
             "type": "array"
           },
-          "result": {
-            "nullable": true,
-            "type": "object"
-          },
           "result_info": {
             "$ref": "#/components/schemas/builds_PaginationInfo"
           },
@@ -14497,7 +14493,7 @@
             "type": "boolean"
           }
         },
-        "required": ["success", "errors", "messages", "result"],
+        "required": ["success", "errors", "messages"],
         "type": "object"
       },
       "builds_PaginationInfo": {

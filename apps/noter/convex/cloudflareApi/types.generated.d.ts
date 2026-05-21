@@ -2064,7 +2064,6 @@ export interface components {
         message?: string;
       }[];
       messages: string[];
-      result: Record<string, unknown> | null;
       result_info?: components["schemas"]["builds_PaginationInfo"];
       /** @example true */
       success: boolean;
