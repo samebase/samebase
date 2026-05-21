@@ -926,7 +926,7 @@ export interface components {
       tokenType: string;
     };
     /** Format: int64 */
-    CustomRoleId: number;
+    CustomRoleId: string;
     CustomRoleResponse: {
       /** Format: int64 */
       createTime: number;

@@ -45,6 +45,7 @@ const generatedFormatPaths = [
   "convex/convexManagementApi/validators.generated.d.ts",
 ];
 const convexManagementDecimalIdSchemaNames = [
+  "CustomRoleId",
   "DeploymentId",
   "MemberId",
   "ProjectId",
@@ -55,6 +56,17 @@ const convexManagementDecimalIdSchemaRefs = new Set(
     (schemaName) => `#/components/schemas/${schemaName}`,
   ),
 );
+const convexManagementOperationMethods = ["get", "post"] as const;
+type ConvexManagementOperationMethod =
+  (typeof convexManagementOperationMethods)[number];
+type ConvexManagementResponseValidatorEntry = {
+  method: ConvexManagementOperationMethod;
+  path: string;
+  operationId: string;
+  exportName: string | null;
+  schema: AnySchema | null;
+  schemaId: string | null;
+};
 
 // openapi-fetch gives callsites compile-time path/body/response types, but it
 // does not runtime-validate provider JSON. Convex cannot compile AJV schemas at
@@ -68,6 +80,8 @@ const documentText = await response.text();
 const documentJson = parseJsonSchemaDocument(documentText);
 const validationDocumentJson =
   normalizeConvexManagementValidationDocument(documentJson);
+const responseValidatorEntries =
+  collectConvexManagementResponseValidatorEntries(documentJson);
 const ajv = new Ajv2020({
   allErrors: true,
   code: { esm: true, source: true },
@@ -76,21 +90,9 @@ const ajv = new Ajv2020({
 });
 ajv.addFormat("int32", true);
 ajv.addFormat("int64", true);
-
-const validatorSchemaIds = {
-  ajvPlatformTokenDetailsResponse:
-    "noter://convex-management-api/PlatformTokenDetailsResponse",
-  ajvPlatformProjectDetailsList:
-    "noter://convex-management-api/PlatformProjectDetailsList",
-  ajvPlatformCreateProjectResponse:
-    "noter://convex-management-api/PlatformCreateProjectResponse",
-  ajvPlatformDeploymentResponse:
-    "noter://convex-management-api/PlatformDeploymentResponse",
-  ajvPlatformDeploymentResponseList:
-    "noter://convex-management-api/PlatformDeploymentResponseList",
-  ajvPlatformCreateDeployKeyResponse:
-    "noter://convex-management-api/PlatformCreateDeployKeyResponse",
-};
+const validatorSchemaIds = buildConvexManagementValidatorSchemaIds(
+  responseValidatorEntries,
+);
 
 function parseJsonSchemaDocument(documentText: string): OpenAPI3 {
   const payload: unknown = JSON.parse(documentText);
@@ -170,6 +172,237 @@ function isConvexManagementInt64IdSchema(
   );
 }
 
+function collectConvexManagementResponseValidatorEntries(
+  document: OpenAPI3,
+): ConvexManagementResponseValidatorEntry[] {
+  const paths = readRecordPath(document, ["paths"]);
+  const entries: ConvexManagementResponseValidatorEntry[] = [];
+  const usedExportNames = new Set<string>();
+
+  for (const [path, pathItem] of Object.entries(paths)) {
+    if (!isRecord(pathItem)) {
+      throw new Error(`Expected path ${path} to be an object.`);
+    }
+    for (const method of convexManagementOperationMethods) {
+      const operation = pathItem[method];
+      if (operation === undefined) {
+        continue;
+      }
+      if (!isRecord(operation)) {
+        throw new Error(
+          `Expected ${method.toUpperCase()} ${path} to be an object.`,
+        );
+      }
+      const operationId = operation["operationId"];
+      if (typeof operationId !== "string" || !operationId) {
+        throw new Error(
+          `Expected ${method.toUpperCase()} ${path} to have an operationId.`,
+        );
+      }
+
+      const schemas = readSuccessJsonResponseSchemas({
+        method,
+        operation,
+        path,
+      });
+      const exportName =
+        schemas.length === 0
+          ? null
+          : buildUniqueValidatorExportName({
+              method,
+              operationId,
+              path,
+              usedExportNames,
+            });
+      const schemaId =
+        exportName === null
+          ? null
+          : `noter://convex-management-api/${exportName}`;
+
+      entries.push({
+        method,
+        path,
+        operationId,
+        exportName,
+        schema: combineJsonResponseSchemas(schemas),
+        schemaId,
+      });
+    }
+  }
+
+  return entries;
+}
+
+function readSuccessJsonResponseSchemas(args: {
+  method: ConvexManagementOperationMethod;
+  operation: Record<string, unknown>;
+  path: string;
+}): AnySchema[] {
+  const responses = args.operation["responses"];
+  if (!isRecord(responses)) {
+    throw new Error(
+      `Expected ${args.method.toUpperCase()} ${args.path} responses to be an object.`,
+    );
+  }
+
+  const schemas: AnySchema[] = [];
+  for (const [status, response] of Object.entries(responses)) {
+    const statusCode = Number(status);
+    if (!Number.isInteger(statusCode) || statusCode < 200 || statusCode > 299) {
+      continue;
+    }
+    if (!isRecord(response)) {
+      throw new Error(
+        `Expected ${args.method.toUpperCase()} ${args.path} response ${status} to be an object.`,
+      );
+    }
+    const content = response["content"];
+    if (content === undefined) {
+      continue;
+    }
+    if (!isRecord(content)) {
+      throw new Error(
+        `Expected ${args.method.toUpperCase()} ${args.path} response ${status} content to be an object.`,
+      );
+    }
+    const jsonMediaType = content["application/json"];
+    if (jsonMediaType === undefined) {
+      continue;
+    }
+    if (!isRecord(jsonMediaType)) {
+      throw new Error(
+        `Expected ${args.method.toUpperCase()} ${args.path} response ${status} application/json media type to be an object.`,
+      );
+    }
+    if (jsonMediaType["schema"] === undefined) {
+      throw new Error(
+        `Expected ${args.method.toUpperCase()} ${args.path} response ${status} application/json to have a schema.`,
+      );
+    }
+
+    schemas.push({
+      $ref: `${convexManagementOpenApiSchemaId}#/paths/${escapeJsonPointer(args.path)}/${args.method}/responses/${escapeJsonPointer(status)}/content/application~1json/schema`,
+    });
+  }
+
+  return schemas;
+}
+
+function combineJsonResponseSchemas(schemas: AnySchema[]): AnySchema | null {
+  if (schemas.length === 0) {
+    return null;
+  }
+  if (schemas.length === 1) {
+    return schemas[0];
+  }
+  return { anyOf: schemas };
+}
+
+function escapeJsonPointer(value: string): string {
+  return value.replaceAll("~", "~0").replaceAll("/", "~1");
+}
+
+function buildUniqueValidatorExportName(args: {
+  method: ConvexManagementOperationMethod;
+  operationId: string;
+  path: string;
+  usedExportNames: Set<string>;
+}): string {
+  const operationName = toPascalIdentifier(args.operationId);
+  const baseName = `ajv${operationName || "Operation"}Response`;
+  if (!args.usedExportNames.has(baseName)) {
+    args.usedExportNames.add(baseName);
+    return baseName;
+  }
+
+  const fallbackName = `ajv${toPascalIdentifier(`${args.method} ${args.path}`)}Response`;
+  if (!args.usedExportNames.has(fallbackName)) {
+    args.usedExportNames.add(fallbackName);
+    return fallbackName;
+  }
+
+  throw new Error(
+    `Could not create a unique validator export for ${args.method.toUpperCase()} ${args.path}.`,
+  );
+}
+
+function toPascalIdentifier(value: string): string {
+  return value
+    .split(/[^A-Za-z0-9]+/)
+    .filter((part) => part.length > 0)
+    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
+    .join("");
+}
+
+function buildConvexManagementValidatorSchemaIds(
+  entries: ConvexManagementResponseValidatorEntry[],
+): Record<string, string> {
+  const schemaIds: Record<string, string> = {};
+  for (const entry of entries) {
+    if (entry.exportName !== null && entry.schemaId !== null) {
+      schemaIds[entry.exportName] = entry.schemaId;
+    }
+  }
+  return schemaIds;
+}
+
+function formatConvexManagementResponseValidatorsJs(
+  entries: ConvexManagementResponseValidatorEntry[],
+): string {
+  return `export const convexManagementResponseValidators = {
+${formatConvexManagementResponseValidatorMethodJs(entries, "get")}
+${formatConvexManagementResponseValidatorMethodJs(entries, "post")}
+};
+`;
+}
+
+function formatConvexManagementResponseValidatorMethodJs(
+  entries: ConvexManagementResponseValidatorEntry[],
+  method: ConvexManagementOperationMethod,
+): string {
+  const methodEntries = entries.filter((entry) => entry.method === method);
+  let validatorEntries = "";
+  for (const entry of methodEntries) {
+    const value = entry.exportName ?? "null";
+    validatorEntries = `${validatorEntries}    ${JSON.stringify(entry.path)}: ${value},
+`;
+  }
+  return `  ${method.toUpperCase()}: {
+${validatorEntries}
+  },
+`;
+}
+
+function formatConvexManagementResponseValidatorsDts(
+  entries: ConvexManagementResponseValidatorEntry[],
+): string {
+  return `export const convexManagementResponseValidators: {
+${formatConvexManagementResponseValidatorMethodDts(entries, "get")}
+${formatConvexManagementResponseValidatorMethodDts(entries, "post")}
+};
+`;
+}
+
+function formatConvexManagementResponseValidatorMethodDts(
+  entries: ConvexManagementResponseValidatorEntry[],
+  method: ConvexManagementOperationMethod,
+): string {
+  const methodEntries = entries.filter((entry) => entry.method === method);
+  let validatorEntries = "";
+  for (const entry of methodEntries) {
+    const value =
+      entry.exportName === null
+        ? "null"
+        : `AjvStandaloneValidateFunction<SuccessResponseJSON<operations[${JSON.stringify(entry.operationId)}]>>`;
+    validatorEntries = `${validatorEntries}    ${JSON.stringify(entry.path)}: ${value};
+`;
+  }
+  return `  ${method.toUpperCase()}: {
+${validatorEntries}
+  };
+`;
+}
+
 function transformConvexManagementOpenApiType(
   schemaObject: SchemaObject,
   options: TransformNodeOptions,
@@ -201,56 +434,19 @@ writeFileSync(
 );
 
 ajv.addSchema(validationDocumentJson, convexManagementOpenApiSchemaId);
-ajv.addSchema(
-  {
-    $ref: `${convexManagementOpenApiSchemaId}#/components/schemas/PlatformTokenDetailsResponse`,
-  },
-  validatorSchemaIds.ajvPlatformTokenDetailsResponse,
-);
-ajv.addSchema(
-  {
-    type: "array",
-    items: {
-      $ref: `${convexManagementOpenApiSchemaId}#/components/schemas/PlatformProjectDetails`,
-    },
-  },
-  validatorSchemaIds.ajvPlatformProjectDetailsList,
-);
-ajv.addSchema(
-  {
-    $ref: `${convexManagementOpenApiSchemaId}#/components/schemas/PlatformCreateProjectResponse`,
-  },
-  validatorSchemaIds.ajvPlatformCreateProjectResponse,
-);
-ajv.addSchema(
-  {
-    $ref: `${convexManagementOpenApiSchemaId}#/components/schemas/PlatformDeploymentResponse`,
-  },
-  validatorSchemaIds.ajvPlatformDeploymentResponse,
-);
-ajv.addSchema(
-  {
-    type: "array",
-    items: {
-      $ref: `${convexManagementOpenApiSchemaId}#/components/schemas/PlatformDeploymentResponse`,
-    },
-  },
-  validatorSchemaIds.ajvPlatformDeploymentResponseList,
-);
-ajv.addSchema(
-  {
-    $ref: `${convexManagementOpenApiSchemaId}#/components/schemas/PlatformCreateDeployKeyResponse`,
-  },
-  validatorSchemaIds.ajvPlatformCreateDeployKeyResponse,
-);
+for (const entry of responseValidatorEntries) {
+  if (entry.schema !== null && entry.schemaId !== null) {
+    ajv.addSchema(entry.schema, entry.schemaId);
+  }
+}
 
 writeFileSync(
   validatorsOutputPath,
-  `// Generated from ${sourceUrl}. Do not edit by hand.\n/* eslint-disable */\n\n${standaloneCode(ajv, validatorSchemaIds)}\n`,
+  `// Generated from ${sourceUrl}. Do not edit by hand.\n/* eslint-disable */\n\n${standaloneCode(ajv, validatorSchemaIds)}\n${formatConvexManagementResponseValidatorsJs(responseValidatorEntries)}`,
 );
 writeFileSync(
   validatorTypesOutputPath,
-  `// Generated from ${sourceUrl}. Do not edit by hand.\n\nimport type {\n  PlatformCreateDeployKeyResponse,\n  PlatformCreateProjectResponse,\n  PlatformDeploymentResponse,\n  PlatformProjectDetails,\n  PlatformTokenDetailsResponse,\n} from "./types.generated";\n\nexport type AjvStandaloneValidationError = {\n  instancePath: string;\n  keyword?: string;\n  message?: string;\n  params?: unknown;\n};\n\nexport type AjvStandaloneValidateFunction<T> = {\n  (payload: unknown): payload is T;\n  errors: AjvStandaloneValidationError[] | null;\n};\n\nexport const ajvPlatformTokenDetailsResponse: AjvStandaloneValidateFunction<PlatformTokenDetailsResponse>;\nexport const ajvPlatformProjectDetailsList: AjvStandaloneValidateFunction<PlatformProjectDetails[]>;\nexport const ajvPlatformCreateProjectResponse: AjvStandaloneValidateFunction<PlatformCreateProjectResponse>;\nexport const ajvPlatformDeploymentResponse: AjvStandaloneValidateFunction<PlatformDeploymentResponse>;\nexport const ajvPlatformDeploymentResponseList: AjvStandaloneValidateFunction<PlatformDeploymentResponse[]>;\nexport const ajvPlatformCreateDeployKeyResponse: AjvStandaloneValidateFunction<PlatformCreateDeployKeyResponse>;\n`,
+  `// Generated from ${sourceUrl}. Do not edit by hand.\n\nimport type { SuccessResponseJSON } from "openapi-typescript-helpers";\nimport type { operations } from "./types.generated";\n\nexport type AjvStandaloneValidationError = {\n  instancePath: string;\n  keyword?: string;\n  message?: string;\n  params?: unknown;\n};\n\nexport type AjvStandaloneValidateFunction<T> = {\n  (payload: unknown): payload is T;\n  errors: AjvStandaloneValidationError[] | null;\n};\n\n${formatConvexManagementResponseValidatorsDts(responseValidatorEntries)}`,
 );
 
 execFileSync("pnpm", ["exec", "vp", "fmt", ...generatedFormatPaths], {

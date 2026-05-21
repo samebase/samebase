@@ -1,30 +1,17 @@
-import createOpenApiFetchClient, {
+import {
   createFinalURL,
   createQuerySerializer,
   defaultPathSerializer,
   type Client,
   type ClientPathsWithMethod,
   type FetchOptions,
+  type MaybeOptionalInit,
+  type MethodResponse,
 } from "openapi-fetch";
 import { isLosslessNumber, isSafeNumber, parse } from "lossless-json";
-import type {
-  paths,
-  PlatformCreateDeployKeyArgs,
-  PlatformCreateDeployKeyResponse,
-  PlatformCreateDeploymentArgs,
-  PlatformCreateProjectArgs,
-  PlatformCreateProjectResponse,
-  PlatformDeploymentResponse,
-  PlatformProjectDetails,
-  PlatformTokenDetailsResponse,
-} from "./types.generated";
+import type { paths, PlatformDeploymentResponse } from "./types.generated";
 import {
-  ajvPlatformCreateDeployKeyResponse,
-  ajvPlatformCreateProjectResponse,
-  ajvPlatformDeploymentResponse,
-  ajvPlatformDeploymentResponseList,
-  ajvPlatformProjectDetailsList,
-  ajvPlatformTokenDetailsResponse,
+  convexManagementResponseValidators,
   type AjvStandaloneValidateFunction,
 } from "./validators.generated";
 import { toErrorMessage } from "../jsonUtils";
@@ -42,17 +29,66 @@ const CONVEX_MANAGEMENT_DECIMAL_ID_FIELDS: ReadonlySet<string> = new Set([
   "ssoTeamId",
   "teamId",
 ]);
+const CONVEX_MANAGEMENT_DECIMAL_PATH_PARAMETER_NAMES: ReadonlySet<string> =
+  new Set(["project_id", "team_id"]);
 
 type ConvexManagementOpenApiClient = Client<paths>;
-type ConvexManagementGetEndpointArgs<
-  Path extends ClientPathsWithMethod<ConvexManagementOpenApiClient, "get">,
-> = {
+type ConvexManagementGetPath =
+  keyof typeof convexManagementResponseValidators.GET &
+    ClientPathsWithMethod<ConvexManagementOpenApiClient, "get">;
+type ConvexManagementPostPath =
+  keyof typeof convexManagementResponseValidators.POST &
+    ClientPathsWithMethod<ConvexManagementOpenApiClient, "post">;
+type ConvexManagementParamsOption<Operation> =
+  FetchOptions<Operation> extends { params: infer Params }
+    ? { params: Params }
+    : FetchOptions<Operation> extends { params?: infer Params }
+      ? { params?: Params }
+      : { params?: never };
+type ConvexManagementBodyOption<Operation> =
+  FetchOptions<Operation> extends { body: infer Body }
+    ? { body: Body }
+    : FetchOptions<Operation> extends { body?: infer Body }
+      ? { body?: Body }
+      : { body?: never };
+type ConvexManagementRequestOptions<Operation> =
+  ConvexManagementParamsOption<Operation> &
+    ConvexManagementBodyOption<Operation>;
+type ConvexManagementGetOpenApiOptions<Path extends ConvexManagementGetPath> =
+  MaybeOptionalInit<paths[Path], "get">;
+type ConvexManagementPostOpenApiOptions<Path extends ConvexManagementPostPath> =
+  MaybeOptionalInit<paths[Path], "post">;
+type ConvexManagementGetOptions<Path extends ConvexManagementGetPath> =
+  ConvexManagementRequestOptions<NonNullable<paths[Path]["get"]>>;
+type ConvexManagementPostOptions<Path extends ConvexManagementPostPath> =
+  ConvexManagementRequestOptions<NonNullable<paths[Path]["post"]>>;
+type ConvexManagementGetInitParam<Path extends ConvexManagementGetPath> =
+  undefined extends ConvexManagementGetOpenApiOptions<Path>
+    ? [options?: ConvexManagementGetOptions<Path>]
+    : [options: ConvexManagementGetOptions<Path>];
+type ConvexManagementPostInitParam<Path extends ConvexManagementPostPath> =
+  undefined extends ConvexManagementPostOpenApiOptions<Path>
+    ? [options?: ConvexManagementPostOptions<Path>]
+    : [options: ConvexManagementPostOptions<Path>];
+type ConvexManagementGetJsonResponse<Path extends ConvexManagementGetPath> =
+  MethodResponse<ConvexManagementOpenApiClient, "get", Path>;
+type ConvexManagementPostJsonResponse<Path extends ConvexManagementPostPath> =
+  MethodResponse<ConvexManagementOpenApiClient, "post", Path>;
+type ConvexManagementGetResponse<Path extends ConvexManagementGetPath> = [
+  ConvexManagementGetJsonResponse<Path>,
+] extends [never]
+  ? void
+  : ConvexManagementGetJsonResponse<Path>;
+type ConvexManagementPostResponse<Path extends ConvexManagementPostPath> = [
+  ConvexManagementPostJsonResponse<Path>,
+] extends [never]
+  ? void
+  : ConvexManagementPostJsonResponse<Path>;
+type ConvexManagementGetEndpointArgs<Path extends ConvexManagementGetPath> = {
   method: "GET";
   path: Path;
 } & Pick<FetchOptions<NonNullable<paths[Path]["get"]>>, "params">;
-type ConvexManagementPostEndpointArgs<
-  Path extends ClientPathsWithMethod<ConvexManagementOpenApiClient, "post">,
-> = {
+type ConvexManagementPostEndpointArgs<Path extends ConvexManagementPostPath> = {
   method: "POST";
   path: Path;
 } & Pick<FetchOptions<NonNullable<paths[Path]["post"]>>, "params">;
@@ -61,36 +97,15 @@ type ConvexManagementOpenApiResult<T> = {
   error?: unknown;
   response: Response;
 };
+type ConvexManagementRequestParams = {
+  path?: Record<string, unknown>;
+  query?: Record<string, unknown>;
+};
 
 export type ConvexCloudDeployment = Extract<
   PlatformDeploymentResponse,
   { kind: "cloud" }
 >;
-
-export interface ConvexManagementClient {
-  getTokenDetails(): Promise<PlatformTokenDetailsResponse>;
-  listProjects(args: { teamId: string }): Promise<PlatformProjectDetails[]>;
-  createProject(args: {
-    teamId: string;
-    body: PlatformCreateProjectArgs;
-  }): Promise<PlatformCreateProjectResponse>;
-  listDeployments(args: {
-    projectId: string;
-  }): Promise<PlatformDeploymentResponse[]>;
-  createDeployment(args: {
-    projectId: string;
-    body: PlatformCreateDeploymentArgs;
-  }): Promise<PlatformDeploymentResponse>;
-  getDeployment(args: {
-    deploymentName: string;
-  }): Promise<PlatformDeploymentResponse>;
-  createDeployKey(args: {
-    deploymentName: string;
-    body: PlatformCreateDeployKeyArgs;
-  }): Promise<PlatformCreateDeployKeyResponse>;
-  deleteProject(args: { projectId: string }): Promise<void>;
-  deleteDeployment(args: { deploymentName: string }): Promise<void>;
-}
 
 export function isConvexCloudDeployment(
   deployment: PlatformDeploymentResponse,
@@ -101,9 +116,11 @@ export function isConvexCloudDeployment(
 export async function fetchConvexTeamTokenDetails(token: string): Promise<{
   teamId: string;
 }> {
-  const details = await createConvexManagementClient({
+  const details = await requestConvexManagementApi(
     token,
-  }).getTokenDetails();
+    "GET",
+    "/token_details",
+  );
   if (details.type !== "teamToken") {
     throw new Error("Convex token is missing team access.");
   }
@@ -111,24 +128,22 @@ export async function fetchConvexTeamTokenDetails(token: string): Promise<{
 }
 
 export function formatConvexManagementApiEndpoint<
-  const Path extends ClientPathsWithMethod<
-    ConvexManagementOpenApiClient,
-    "get"
-  >,
+  const Path extends ConvexManagementGetPath,
 >(args: ConvexManagementGetEndpointArgs<Path>): string;
 export function formatConvexManagementApiEndpoint<
-  const Path extends ClientPathsWithMethod<
-    ConvexManagementOpenApiClient,
-    "post"
-  >,
+  const Path extends ConvexManagementPostPath,
 >(args: ConvexManagementPostEndpointArgs<Path>): string;
 export function formatConvexManagementApiEndpoint(args: {
   method: "GET" | "POST";
   path: string;
-  params?: {
-    path?: Record<string, unknown>;
-    query?: Record<string, unknown>;
-  };
+  params?: ConvexManagementRequestParams;
+}): string {
+  return formatConvexManagementApiEndpointUnchecked(args);
+}
+
+function formatConvexManagementApiEndpointUnchecked(args: {
+  path: string;
+  params?: ConvexManagementRequestParams;
 }): string {
   return createFinalURL(args.path, {
     baseUrl: "",
@@ -138,211 +153,154 @@ export function formatConvexManagementApiEndpoint(args: {
   });
 }
 
-export function createConvexManagementClient(args: {
+/**
+ * Sends one OpenAPI-typed Convex Management request, then validates the JSON
+ * response with the generated validator for that exact method and path.
+ * Endpoints without a JSON response resolve as void.
+ */
+export function requestConvexManagementApi<
+  const Path extends ConvexManagementGetPath,
+>(
+  token: string,
+  method: "GET",
+  path: Path,
+  ...init: ConvexManagementGetInitParam<Path>
+): Promise<ConvexManagementGetResponse<Path>>;
+export function requestConvexManagementApi<
+  const Path extends ConvexManagementPostPath,
+>(
+  token: string,
+  method: "POST",
+  path: Path,
+  ...init: ConvexManagementPostInitParam<Path>
+): Promise<ConvexManagementPostResponse<Path>>;
+export async function requestConvexManagementApi(
+  token: string,
+  ...request:
+    | [
+        method: "GET",
+        path: ConvexManagementGetPath,
+        options?: { params?: unknown; body?: unknown },
+      ]
+    | [
+        method: "POST",
+        path: ConvexManagementPostPath,
+        options?: { params?: unknown; body?: unknown },
+      ]
+): Promise<unknown> {
+  const [method, path, options] = request;
+  const params = readConvexManagementRequestParams(options);
+  const endpoint = formatConvexManagementApiEndpointUnchecked({
+    path,
+    params,
+  });
+  const result = await executeConvexManagementApiRequest({
+    token,
+    method,
+    endpoint,
+    body: readConvexManagementRequestBody(options),
+  });
+  if (method === "GET") {
+    return validateConvexManagementResult({
+      result,
+      endpoint,
+      method,
+      path,
+      validator: convexManagementResponseValidators.GET[path],
+    });
+  }
+
+  return validateConvexManagementResult({
+    result,
+    endpoint,
+    method,
+    path,
+    validator: convexManagementResponseValidators.POST[path],
+  });
+}
+
+function readConvexManagementRequestParams(
+  options: { params?: unknown } | undefined,
+): ConvexManagementRequestParams | undefined {
+  const params = options?.params;
+  if (params === undefined) {
+    return undefined;
+  }
+  if (!isRecord(params)) {
+    throw new Error("Convex Management API request params must be an object.");
+  }
+  return {
+    path: readOptionalRecordProperty(params, "path"),
+    query: readOptionalRecordProperty(params, "query"),
+  };
+}
+
+function readConvexManagementRequestBody(
+  options: { body?: unknown } | undefined,
+): unknown {
+  return options?.body;
+}
+
+function readOptionalRecordProperty(
+  record: Record<string, unknown>,
+  name: string,
+): Record<string, unknown> | undefined {
+  const value = record[name];
+  if (value === undefined) {
+    return undefined;
+  }
+  if (isRecord(value)) {
+    return value;
+  }
+  throw new Error(
+    `Convex Management API request params.${name} must be an object.`,
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+async function executeConvexManagementApiRequest(args: {
   token: string;
-}): ConvexManagementClient {
-  const token = args.token;
+  method: "GET" | "POST";
+  endpoint: string;
+  body?: unknown;
+}): Promise<ConvexManagementOpenApiResult<string>> {
+  const headers = new Headers({
+    Authorization: `Bearer ${readConvexManagementAccessToken(args.token)}`,
+  });
+  let body: string | undefined;
+  if (args.body !== undefined) {
+    headers.set("Content-Type", "application/json");
+    body = JSON.stringify(args.body);
+  }
+
+  const response = await fetchConvexManagementApi(
+    new Request(`${CONVEX_MANAGEMENT_BASE_URL}${args.endpoint}`, {
+      method: args.method,
+      headers,
+      body,
+    }),
+  );
+  const text = await response.text();
+  if (response.ok) {
+    return {
+      data: text,
+      response,
+    };
+  }
+  return {
+    error: text,
+    response,
+  };
+}
+
+function readConvexManagementAccessToken(token: string): string {
   if (!token) {
     throw new Error("Convex access token is required.");
   }
-
-  const client = createOpenApiFetchClient<paths>({
-    baseUrl: CONVEX_MANAGEMENT_BASE_URL,
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    fetch: fetchConvexManagementApi,
-    pathSerializer: serializeConvexManagementPath,
-  });
-
-  return {
-    async getTokenDetails() {
-      const path = "/token_details";
-      const result = await client.GET(path, { parseAs: "text" });
-      return validateConvexManagementJsonResult({
-        result,
-        endpoint: formatConvexManagementApiEndpoint({
-          method: "GET",
-          path,
-        }),
-        method: "GET",
-        path,
-        validator: ajvPlatformTokenDetailsResponse,
-      });
-    },
-    async listProjects({ teamId }) {
-      const path = "/teams/{team_id}/list_projects";
-      const params = {
-        path: {
-          team_id: readConvexManagementDecimalPathId(teamId, "Convex team ID"),
-        },
-      };
-      const result = await client.GET(path, { params, parseAs: "text" });
-      return validateConvexManagementJsonResult({
-        result,
-        endpoint: formatConvexManagementApiEndpoint({
-          method: "GET",
-          path,
-          params,
-        }),
-        method: "GET",
-        path,
-        validator: ajvPlatformProjectDetailsList,
-      });
-    },
-    async createProject({ teamId, body }) {
-      const path = "/teams/{team_id}/create_project";
-      const params = {
-        path: {
-          team_id: readConvexManagementDecimalPathId(teamId, "Convex team ID"),
-        },
-      };
-      const result = await client.POST(path, { params, body, parseAs: "text" });
-      return validateConvexManagementJsonResult({
-        result,
-        endpoint: formatConvexManagementApiEndpoint({
-          method: "POST",
-          path,
-          params,
-        }),
-        method: "POST",
-        path,
-        validator: ajvPlatformCreateProjectResponse,
-      });
-    },
-    async listDeployments({ projectId }) {
-      const path = "/projects/{project_id}/list_deployments";
-      const params = {
-        path: {
-          project_id: readConvexManagementDecimalPathId(
-            projectId,
-            "Convex project ID",
-          ),
-        },
-      };
-      const result = await client.GET(path, { params, parseAs: "text" });
-      return validateConvexManagementJsonResult({
-        result,
-        endpoint: formatConvexManagementApiEndpoint({
-          method: "GET",
-          path,
-          params,
-        }),
-        method: "GET",
-        path,
-        validator: ajvPlatformDeploymentResponseList,
-      });
-    },
-    async createDeployment({ projectId, body }) {
-      const path = "/projects/{project_id}/create_deployment";
-      const params = {
-        path: {
-          project_id: readConvexManagementDecimalPathId(
-            projectId,
-            "Convex project ID",
-          ),
-        },
-      };
-      const result = await client.POST(path, { params, body, parseAs: "text" });
-      return validateConvexManagementJsonResult({
-        result,
-        endpoint: formatConvexManagementApiEndpoint({
-          method: "POST",
-          path,
-          params,
-        }),
-        method: "POST",
-        path,
-        validator: ajvPlatformDeploymentResponse,
-      });
-    },
-    async getDeployment({ deploymentName }) {
-      const path = "/deployments/{deployment_name}";
-      const params = {
-        path: {
-          deployment_name: readConvexManagementPathSegment(
-            deploymentName,
-            "Convex deployment name",
-          ),
-        },
-      };
-      const result = await client.GET(path, { params, parseAs: "text" });
-      return validateConvexManagementJsonResult({
-        result,
-        endpoint: formatConvexManagementApiEndpoint({
-          method: "GET",
-          path,
-          params,
-        }),
-        method: "GET",
-        path,
-        validator: ajvPlatformDeploymentResponse,
-      });
-    },
-    async createDeployKey({ deploymentName, body }) {
-      const path = "/deployments/{deployment_name}/create_deploy_key";
-      const params = {
-        path: {
-          deployment_name: readConvexManagementPathSegment(
-            deploymentName,
-            "Convex deployment name",
-          ),
-        },
-      };
-      const result = await client.POST(path, { params, body, parseAs: "text" });
-      return validateConvexManagementJsonResult({
-        result,
-        endpoint: formatConvexManagementApiEndpoint({
-          method: "POST",
-          path,
-          params,
-        }),
-        method: "POST",
-        path,
-        validator: ajvPlatformCreateDeployKeyResponse,
-      });
-    },
-    async deleteProject({ projectId }) {
-      const path = "/projects/{project_id}/delete";
-      const params = {
-        path: {
-          project_id: readConvexManagementDecimalPathId(
-            projectId,
-            "Convex project ID",
-          ),
-        },
-      };
-      const result = await client.POST(path, { params });
-      assertConvexManagementResultOk({
-        result,
-        endpoint: formatConvexManagementApiEndpoint({
-          method: "POST",
-          path,
-          params,
-        }),
-      });
-    },
-    async deleteDeployment({ deploymentName }) {
-      const path = "/deployments/{deployment_name}/delete";
-      const params = {
-        path: {
-          deployment_name: readConvexManagementPathSegment(
-            deploymentName,
-            "Convex deployment name",
-          ),
-        },
-      };
-      const result = await client.POST(path, { params });
-      assertConvexManagementResultOk({
-        result,
-        endpoint: formatConvexManagementApiEndpoint({
-          method: "POST",
-          path,
-          params,
-        }),
-      });
-    },
-  };
+  return token;
 }
 
 async function fetchConvexManagementApi(input: Request): Promise<Response> {
@@ -363,18 +321,22 @@ async function fetchConvexManagementApi(input: Request): Promise<Response> {
   }
 }
 
-function validateConvexManagementJsonResult<T>(args: {
+function validateConvexManagementResult(args: {
   result: ConvexManagementOpenApiResult<string>;
   endpoint: string;
   method: "GET" | "POST";
   path: string;
-  validator: AjvStandaloneValidateFunction<T>;
-}): T {
+  validator: AjvStandaloneValidateFunction<unknown> | null;
+}): unknown {
   const schemaName = `${args.method} ${args.path} response`;
   assertConvexManagementResultOk({
     result: args.result,
     endpoint: args.endpoint,
   });
+  if (args.validator === null) {
+    return undefined;
+  }
+
   const payload = parseConvexManagementResponseJson({
     endpoint: args.endpoint,
     schemaName,
@@ -469,31 +431,21 @@ function serializeConvexManagementPath(
   const normalizedPathParams: Record<string, unknown> = {};
   const entries: [string, unknown][] = Object.entries(pathParams);
   for (const [name, value] of entries) {
+    if (typeof value !== "string") {
+      throw new Error(`Convex path parameter ${name} must be a string.`);
+    }
+
+    const label = `Convex path parameter ${name}`;
+    const segment = readConvexManagementPathSegment(value, label);
     normalizedPathParams[name] =
-      typeof value === "string"
-        ? readConvexManagementPathSegment(
-            value,
-            `Convex path parameter ${name}`,
-          )
-        : value;
+      CONVEX_MANAGEMENT_DECIMAL_PATH_PARAMETER_NAMES.has(name)
+        ? readConvexManagementDecimalValue(segment, label)
+        : segment;
   }
   return defaultPathSerializer(pathname, normalizedPathParams);
 }
 
-export function readConvexManagementDecimalPathId(
-  value: string,
-  label: string,
-): string {
-  return readConvexManagementDecimalValue(
-    readConvexManagementPathSegment(value, label),
-    label,
-  );
-}
-
-export function readConvexManagementPathSegment(
-  value: string,
-  label: string,
-): string {
+function readConvexManagementPathSegment(value: string, label: string): string {
   const normalized = value.trim();
   if (normalized !== value) {
     console.warn("convex:api:trimmed_path_parameter", {
