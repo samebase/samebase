@@ -1,8 +1,8 @@
 # WorkspaceLayoutV2 Solid Lab
 
-This app is a tiny SolidJS sandbox for the `WorkspaceLayoutV2` sidebar shell. It
-exists to show the smallest useful version of the layout without React app
-chrome, Convex state, or custom gesture code.
+This app is a tiny SolidJS sandbox for the `WorkspaceLayoutV2` sidebar shell. It exists to show the
+smallest useful version of the layout without React app chrome, Convex state, or custom gesture
+code.
 
 ## Current Shape
 

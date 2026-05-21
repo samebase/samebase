@@ -21,15 +21,11 @@ describe("codemirrorLanguage", () => {
     expect(Array.isArray(extension)).toBe(true);
     expect(extension).not.toHaveLength(0);
 
-    await expect(
-      loadCodeMirrorLanguageExtension("infra/Dockerfile"),
-    ).resolves.not.toEqual([]);
+    await expect(loadCodeMirrorLanguageExtension("infra/Dockerfile")).resolves.not.toEqual([]);
   });
 
   it("falls back to plain text when no file language matches", async () => {
     expect(getCodeMirrorFileLanguageKind("notes.txt")).toBe("plain");
-    await expect(loadCodeMirrorLanguageExtension("notes.txt")).resolves.toEqual(
-      [],
-    );
+    await expect(loadCodeMirrorLanguageExtension("notes.txt")).resolves.toEqual([]);
   });
 });

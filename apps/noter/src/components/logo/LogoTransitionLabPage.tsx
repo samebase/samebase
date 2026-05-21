@@ -134,24 +134,17 @@ export function LogoTransitionLabPage() {
         return;
       }
 
-      const parsedFaces = Array.from(
-        svgElement.querySelectorAll<SVGPolygonElement>("polygon"),
-      )
+      const parsedFaces = Array.from(svgElement.querySelectorAll<SVGPolygonElement>("polygon"))
         .map((polygonElement) => {
-          const points = parsePointList(
-            polygonElement.getAttribute("points") ?? "",
-          );
+          const points = parsePointList(polygonElement.getAttribute("points") ?? "");
           if (points.length < 3) {
             return null;
           }
 
-          const animateElement =
-            polygonElement.querySelector("animateTransform");
+          const animateElement = polygonElement.querySelector("animateTransform");
 
           return {
-            animateTo: parseTranslate(
-              animateElement?.getAttribute("to") ?? null,
-            ),
+            animateTo: parseTranslate(animateElement?.getAttribute("to") ?? null),
             fill: polygonElement.getAttribute("fill") ?? "#000000",
             points,
             stroke: polygonElement.getAttribute("stroke") ?? "#000000",
@@ -192,9 +185,7 @@ export function LogoTransitionLabPage() {
   }, [faces, selectedFaceIndex]);
 
   const selectedFace =
-    selectedFaceIndex >= 0 && selectedFaceIndex < faces.length
-      ? faces[selectedFaceIndex]
-      : null;
+    selectedFaceIndex >= 0 && selectedFaceIndex < faces.length ? faces[selectedFaceIndex] : null;
 
   const getSvgPoint = (clientX: number, clientY: number): Point | null => {
     const svgElement = svgRef.current;
@@ -208,21 +199,15 @@ export function LogoTransitionLabPage() {
     }
 
     return {
-      x:
-        viewBox.minX + ((clientX - bounds.left) / bounds.width) * viewBox.width,
-      y:
-        viewBox.minY +
-        ((clientY - bounds.top) / bounds.height) * viewBox.height,
+      x: viewBox.minX + ((clientX - bounds.left) / bounds.width) * viewBox.width,
+      y: viewBox.minY + ((clientY - bounds.top) / bounds.height) * viewBox.height,
     };
   };
 
-  const currentEditableOffset =
-    activeFrame === "start" ? startOffset : endOffset;
+  const currentEditableOffset = activeFrame === "start" ? startOffset : endOffset;
   const previewOffset = mixOffset(startOffset, endOffset, previewProgress);
 
-  const beginDrag = (
-    event: React.PointerEvent<SVGPolygonElement | SVGCircleElement>,
-  ) => {
+  const beginDrag = (event: React.PointerEvent<SVGPolygonElement | SVGCircleElement>) => {
     if (!selectedFace) {
       return;
     }
@@ -255,14 +240,8 @@ export function LogoTransitionLabPage() {
     }
 
     const nextOffset = {
-      x:
-        dragSession.initialOffset.x +
-        pointerPoint.x -
-        dragSession.pointerStart.x,
-      y:
-        dragSession.initialOffset.y +
-        pointerPoint.y -
-        dragSession.pointerStart.y,
+      x: dragSession.initialOffset.x + pointerPoint.x - dragSession.pointerStart.x,
+      y: dragSession.initialOffset.y + pointerPoint.y - dragSession.pointerStart.y,
     };
 
     if (dragSession.frame === "start") {
@@ -322,9 +301,9 @@ export function LogoTransitionLabPage() {
                 Start / End Transition Lab
               </h1>
               <p className="mt-2 text-sm leading-6 text-black/60">
-                Click a rhombus in the scene, switch between start and end, then
-                drag the active face to where it should land. The scrubber shows
-                the straight interpolation between those two points.
+                Click a rhombus in the scene, switch between start and end, then drag the active
+                face to where it should land. The scrubber shows the straight interpolation between
+                those two points.
               </p>
             </div>
 
@@ -411,9 +390,7 @@ export function LogoTransitionLabPage() {
               <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                 Selected Face
               </div>
-              <div>
-                Polygon {selectedFaceIndex >= 0 ? selectedFaceIndex + 1 : "?"}
-              </div>
+              <div>Polygon {selectedFaceIndex >= 0 ? selectedFaceIndex + 1 : "?"}</div>
               <div>Start: {formatOffset(startOffset)}</div>
               <div>End: {formatOffset(endOffset)}</div>
             </div>
@@ -431,9 +408,8 @@ export function LogoTransitionLabPage() {
                 Notes
               </div>
               <p className="mt-2">
-                Black outline is the start frame. Orange outline is the end
-                frame. Cyan outline is the scrubbed preview. The solid face is
-                the one you are dragging right now.
+                Black outline is the start frame. Orange outline is the end frame. Cyan outline is
+                the scrubbed preview. The solid face is the one you are dragging right now.
               </p>
             </div>
           </div>
@@ -445,13 +421,10 @@ export function LogoTransitionLabPage() {
                   Workspace
                 </div>
                 <div className="mt-1 text-sm text-black/60">
-                  Click any rhombus to select it. Drag the solid version of the
-                  selected face.
+                  Click any rhombus to select it. Drag the solid version of the selected face.
                 </div>
               </div>
-              <div className="font-mono text-[11px] text-black/45">
-                /logo-transition-lab
-              </div>
+              <div className="font-mono text-[11px] text-black/45">/logo-transition-lab</div>
             </div>
 
             <div className="flex min-h-[38rem] items-center justify-center border border-black/10 bg-[#fcfbf7] p-4">
@@ -467,9 +440,7 @@ export function LogoTransitionLabPage() {
                   {faces.map((face, index) => (
                     <polygon
                       key={`face-${index}`}
-                      points={face.points
-                        .map((point) => `${point.x} ${point.y}`)
-                        .join(" ")}
+                      points={face.points.map((point) => `${point.x} ${point.y}`).join(" ")}
                       fill={face.fill}
                       stroke={face.stroke}
                       strokeWidth={face.strokeWidth}
@@ -482,9 +453,7 @@ export function LogoTransitionLabPage() {
                   ))}
 
                   <polygon
-                    points={selectedFace.points
-                      .map((point) => `${point.x} ${point.y}`)
-                      .join(" ")}
+                    points={selectedFace.points.map((point) => `${point.x} ${point.y}`).join(" ")}
                     fill="none"
                     stroke="#111111"
                     strokeDasharray="4 4"
@@ -493,9 +462,7 @@ export function LogoTransitionLabPage() {
                   />
 
                   <polygon
-                    points={selectedFace.points
-                      .map((point) => `${point.x} ${point.y}`)
-                      .join(" ")}
+                    points={selectedFace.points.map((point) => `${point.x} ${point.y}`).join(" ")}
                     fill="none"
                     stroke="#ff5a1f"
                     strokeDasharray="4 4"
@@ -504,9 +471,7 @@ export function LogoTransitionLabPage() {
                   />
 
                   <polygon
-                    points={selectedFace.points
-                      .map((point) => `${point.x} ${point.y}`)
-                      .join(" ")}
+                    points={selectedFace.points.map((point) => `${point.x} ${point.y}`).join(" ")}
                     fill="none"
                     stroke="#0ea5e9"
                     strokeWidth={1.5}
@@ -514,9 +479,7 @@ export function LogoTransitionLabPage() {
                   />
 
                   <polygon
-                    points={selectedFace.points
-                      .map((point) => `${point.x} ${point.y}`)
-                      .join(" ")}
+                    points={selectedFace.points.map((point) => `${point.x} ${point.y}`).join(" ")}
                     fill={selectedFace.fill}
                     fillOpacity={0.88}
                     stroke={selectedFace.stroke}
@@ -527,10 +490,7 @@ export function LogoTransitionLabPage() {
                   />
 
                   {selectedFace.points.map((point, pointIndex) => {
-                    const positionedPoint = addOffset(
-                      point,
-                      currentEditableOffset,
-                    );
+                    const positionedPoint = addOffset(point, currentEditableOffset);
                     return (
                       <circle
                         key={`handle-${pointIndex}`}

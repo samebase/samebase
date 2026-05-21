@@ -2,8 +2,7 @@
 
 ## Goal
 
-Validate token and protected MCP endpoints are present and enforce OAuth
-validation rules.
+Validate token and protected MCP endpoints are present and enforce OAuth validation rules.
 
 ## Prerequisites
 
@@ -22,12 +21,11 @@ validation rules.
 
 ## Expected
 
-1. Token endpoint responds with OAuth JSON errors (`invalid_grant` or
-   `invalid_client`) rather than `404`.
-2. MCP endpoint responds `401` with `error=invalid_token` and `WWW-Authenticate`
-   header.
+1. Token endpoint responds with OAuth JSON errors (`invalid_grant` or `invalid_client`) rather than
+   `404`.
+2. MCP endpoint responds `401` with `error=invalid_token` and `WWW-Authenticate` header.
 
 ## Notes
 
-- Full authorization-code + PKCE success flow requires an authenticated Noter
-  session for `/oauth/mcp/authorize`.
+- Full authorization-code + PKCE success flow requires an authenticated Noter session for
+  `/oauth/mcp/authorize`.

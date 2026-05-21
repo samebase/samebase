@@ -63,9 +63,7 @@ function getHeadingLevel(marker: string): LandingMarkdownHeadingLevel {
   }
 }
 
-export function getLandingMarkdownHeadings(
-  markdown: string,
-): LandingMarkdownHeading[] {
+export function getLandingMarkdownHeadings(markdown: string): LandingMarkdownHeading[] {
   const allocateHeadingId = createLandingMarkdownHeadingIdAllocator();
   const headings: LandingMarkdownHeading[] = [];
   let openFenceMarker: string | null = null;

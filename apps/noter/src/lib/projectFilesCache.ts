@@ -20,10 +20,7 @@ const projectFilesCacheScopes = new Map<string, ProjectFilesCacheScope>();
 const pendingFetches = new Map<string, Promise<ProjectFile[]>>();
 const pendingFetchScopes = new Map<string, ProjectFilesCacheScope>();
 
-function isSameVaultBranch(
-  left: ProjectFilesCacheScope,
-  right: ProjectFilesCacheScope,
-): boolean {
+function isSameVaultBranch(left: ProjectFilesCacheScope, right: ProjectFilesCacheScope): boolean {
   return left.vaultId === right.vaultId && left.branch === right.branch;
 }
 
@@ -97,9 +94,7 @@ export function loadProjectFilesWithSharedPromise(
       if (pendingFetches.get(args.cacheKey) === inFlight) {
         pendingFetches.delete(args.cacheKey);
       }
-      if (
-        pendingFetchScopes.get(args.cacheKey)?.treeSHA === args.scope.treeSHA
-      ) {
+      if (pendingFetchScopes.get(args.cacheKey)?.treeSHA === args.scope.treeSHA) {
         pendingFetchScopes.delete(args.cacheKey);
       }
     });

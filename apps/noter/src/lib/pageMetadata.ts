@@ -47,8 +47,7 @@ export const TERMS_PAGE_METADATA: PageMetadata = {
 
 export const PITCH_DECK_PAGE_METADATA: PageMetadata = {
   title: "Pitch Deck | Noter",
-  description:
-    "Pitch deck surface for Noter. Public route used for deck review and PDF export.",
+  description: "Pitch deck surface for Noter. Public route used for deck review and PDF export.",
   canonicalPath: "/pitch",
   robots: "noindex,nofollow",
   openGraphType: "website",
@@ -56,8 +55,7 @@ export const PITCH_DECK_PAGE_METADATA: PageMetadata = {
 
 export const PITCH_DECK_PRINT_PAGE_METADATA: PageMetadata = {
   title: "Pitch Deck Print | Noter",
-  description:
-    "Print-ready pitch deck surface for Noter. Used for stable PDF export.",
+  description: "Print-ready pitch deck surface for Noter. Used for stable PDF export.",
   canonicalPath: "/pitch/print",
   robots: "noindex,nofollow",
   openGraphType: "website",
@@ -65,8 +63,7 @@ export const PITCH_DECK_PRINT_PAGE_METADATA: PageMetadata = {
 
 export const PITCH_DECK_MOBILE_PRINT_PAGE_METADATA: PageMetadata = {
   title: "Pitch Deck Mobile Print | Noter",
-  description:
-    "Mobile print-ready pitch deck surface for Noter. Used for vertical PDF export.",
+  description: "Mobile print-ready pitch deck surface for Noter. Used for vertical PDF export.",
   canonicalPath: "/pitch/print/mobile",
   robots: "noindex,nofollow",
   openGraphType: "website",
@@ -89,8 +86,7 @@ export const NOT_FOUND_PAGE_METADATA: PageMetadata = {
 
 export const MACHINE_CONNECT_PAGE_METADATA: PageMetadata = {
   title: "Connect This Machine | noter",
-  description:
-    "Connect a Codex machine to noter with a deploy-scoped bootstrap command.",
+  description: "Connect a Codex machine to noter with a deploy-scoped bootstrap command.",
   canonicalPath: MACHINE_CONNECT_ROUTE,
   robots: "noindex,nofollow",
   openGraphType: "website",
@@ -98,8 +94,7 @@ export const MACHINE_CONNECT_PAGE_METADATA: PageMetadata = {
 
 export const MACHINES_PAGE_METADATA: PageMetadata = {
   title: "Machines | noter",
-  description:
-    "Browse connected machines and continue machine-local Codex threads from noter.",
+  description: "Browse connected machines and continue machine-local Codex threads from noter.",
   canonicalPath: MACHINES_ROUTE,
   robots: "noindex,nofollow",
   openGraphType: "website",
@@ -269,9 +264,7 @@ function upsertMetaTag({
 }
 
 function upsertCanonicalLink(href: string): void {
-  let element = document.head.querySelector<HTMLLinkElement>(
-    'link[rel="canonical"]',
-  );
+  let element = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
 
   if (!element) {
     element = document.createElement("link");
@@ -288,10 +281,7 @@ export function applyPageMetadata(metadata: PageMetadata): void {
   }
 
   const canonicalUrl = resolveCanonicalUrl(metadata.canonicalPath);
-  const socialImageUrl = new URL(
-    DEFAULT_SOCIAL_IMAGE_PATH,
-    resolveSiteOrigin(),
-  ).toString();
+  const socialImageUrl = new URL(DEFAULT_SOCIAL_IMAGE_PATH, resolveSiteOrigin()).toString();
 
   document.title = metadata.title;
 

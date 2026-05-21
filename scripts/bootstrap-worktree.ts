@@ -202,9 +202,7 @@ function getCurrentBranch(): string {
 }
 
 function switchToExistingDetachedHeadBranch(): string {
-  const localCandidates = preferredBranchOrder(
-    listLocalBranchesPointingAtHead(),
-  );
+  const localCandidates = preferredBranchOrder(listLocalBranchesPointingAtHead());
 
   for (const branchName of localCandidates) {
     const switchResult = spawnSync("git", ["switch", branchName], {
@@ -222,11 +220,9 @@ function switchToExistingDetachedHeadBranch(): string {
       continue;
     }
 
-    const switchResult = spawnSync(
-      "git",
-      ["switch", "--track", "-c", localBranch, remoteBranch],
-      { stdio: "ignore" },
-    );
+    const switchResult = spawnSync("git", ["switch", "--track", "-c", localBranch, remoteBranch], {
+      stdio: "ignore",
+    });
 
     if (switchResult.status === 0) {
       return localBranch;
@@ -326,11 +322,9 @@ function pickRandom(words: readonly string[]): string {
 }
 
 function branchExists(branchName: string): boolean {
-  const result = spawnSync(
-    "git",
-    ["show-ref", "--verify", "--quiet", `refs/heads/${branchName}`],
-    { stdio: "ignore" },
-  );
+  const result = spawnSync("git", ["show-ref", "--verify", "--quiet", `refs/heads/${branchName}`], {
+    stdio: "ignore",
+  });
   return result.status === 0;
 }
 
@@ -360,10 +354,8 @@ function configureCacheRoot(): string {
   const cacheRoot = "/vscode/noter-cache";
   mkdirSync(cacheRoot, { recursive: true });
 
-  process.env.PNPM_HOME =
-    process.env.PNPM_HOME ?? path.join(cacheRoot, "pnpm-home");
-  process.env.PNPM_STORE_DIR =
-    process.env.PNPM_STORE_DIR ?? path.join(cacheRoot, "pnpm-store");
+  process.env.PNPM_HOME = process.env.PNPM_HOME ?? path.join(cacheRoot, "pnpm-home");
+  process.env.PNPM_STORE_DIR = process.env.PNPM_STORE_DIR ?? path.join(cacheRoot, "pnpm-store");
   process.env.PATH = `${process.env.PNPM_HOME}:${process.env.PATH ?? ""}`;
 
   return cacheRoot;
@@ -398,11 +390,7 @@ function computeInstallHash(workspace: string): string {
   return hash.digest("hex");
 }
 
-function collectPackageJsonFiles(
-  relativeDir: string,
-  depth: number,
-  output: string[],
-): void {
+function collectPackageJsonFiles(relativeDir: string, depth: number, output: string[]): void {
   if (depth > 3) {
     return;
   }
@@ -431,14 +419,10 @@ function installDependenciesIfNeeded({
 }: InstallOptions): void {
   const hashFileBase = cacheRoot || path.join(workspace, ".devcontainer");
   const hashFile = path.join(hashFileBase, "pnpm-install.hash");
-  const previousHash = existsSync(hashFile)
-    ? readFileSync(hashFile, "utf8").trim()
-    : "";
+  const previousHash = existsSync(hashFile) ? readFileSync(hashFile, "utf8").trim() : "";
   const nodeModulesDir = path.join(workspace, "node_modules");
   const shouldInstall =
-    !existsSync(nodeModulesDir) ||
-    currentHash.length === 0 ||
-    currentHash !== previousHash;
+    !existsSync(nodeModulesDir) || currentHash.length === 0 || currentHash !== previousHash;
 
   if (!shouldInstall) {
     console.log("Dependencies unchanged; skipping pnpm install.");
@@ -451,14 +435,10 @@ function installDependenciesIfNeeded({
     ...(anonMode ? { CONVEX_AGENT_MODE: "anonymous" } : {}),
   };
 
-  const installResult = spawnSync(
-    "pnpm",
-    ["install", "--frozen-lockfile", "--prefer-offline"],
-    {
-      stdio: "inherit",
-      env,
-    },
-  );
+  const installResult = spawnSync("pnpm", ["install", "--frozen-lockfile", "--prefer-offline"], {
+    stdio: "inherit",
+    env,
+  });
 
   if (installResult.status !== 0) {
     process.exit(installResult.status ?? 1);

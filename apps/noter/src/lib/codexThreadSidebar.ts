@@ -52,9 +52,7 @@ function readProjectLabel(thread: CodexAppServerThread): string {
     return explicitLabel;
   }
 
-  const pathParts = thread.project.rootCwd
-    .split(/[\\/]+/)
-    .filter((part) => part.length > 0);
+  const pathParts = thread.project.rootCwd.split(/[\\/]+/).filter((part) => part.length > 0);
   return pathParts.at(-1) ?? thread.project.rootCwd;
 }
 
@@ -62,9 +60,7 @@ function readProjectLabel(thread: CodexAppServerThread): string {
  * The provider inventory can contain repeated snapshots of the same thread.
  * Keep the freshest copy so every consumer starts from one stable thread list.
  */
-export function dedupeCodexThreadsById(
-  threads: CodexAppServerThread[],
-): CodexAppServerThread[] {
+export function dedupeCodexThreadsById(threads: CodexAppServerThread[]): CodexAppServerThread[] {
   const threadsById = new Map<string, CodexAppServerThread>();
 
   for (const thread of threads) {
@@ -74,9 +70,7 @@ export function dedupeCodexThreadsById(
     }
   }
 
-  return Array.from(threadsById.values()).sort(
-    (left, right) => right.updatedAt - left.updatedAt,
-  );
+  return Array.from(threadsById.values()).sort((left, right) => right.updatedAt - left.updatedAt);
 }
 
 function buildSidebarThread(args: {
@@ -84,9 +78,7 @@ function buildSidebarThread(args: {
   pinnedThreadIds: Set<string>;
   thread: CodexAppServerThread;
 }): CodexThreadSidebarThread {
-  const workspaceLabel = args.thread.workspace.isProjectRoot
-    ? null
-    : args.thread.workspace.label;
+  const workspaceLabel = args.thread.workspace.isProjectRoot ? null : args.thread.workspace.label;
 
   return {
     id: args.thread.id,
@@ -115,9 +107,7 @@ export function buildCodexThreadSidebarViewModel(args: {
   const uniqueThreads = dedupeCodexThreadsById(args.threads);
   const loadedThreadIds = new Set(args.loadedThreadIds ?? []);
   const pinnedThreadIds = new Set(args.pinnedThreadIds);
-  const threadById = new Map(
-    uniqueThreads.map((thread) => [thread.id, thread] as const),
-  );
+  const threadById = new Map(uniqueThreads.map((thread) => [thread.id, thread] as const));
   const projectMap = new Map<string, CodexThreadSidebarProject>();
 
   const pinnedThreads = args.pinnedThreadIds
@@ -146,10 +136,7 @@ export function buildCodexThreadSidebarViewModel(args: {
     if (current) {
       current.count += 1;
       current.loadedCount += sidebarThread.isLoaded ? 1 : 0;
-      current.latestUpdatedAt = Math.max(
-        current.latestUpdatedAt,
-        thread.updatedAt,
-      );
+      current.latestUpdatedAt = Math.max(current.latestUpdatedAt, thread.updatedAt);
       current.threads.push(sidebarThread);
       continue;
     }

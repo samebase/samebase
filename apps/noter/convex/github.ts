@@ -16,10 +16,7 @@ import {
   type RepositoryMediaKind,
   isSvgRepositoryMediaPath,
 } from "../shared/repositoryMedia";
-import {
-  isRepositoryMetadataStale,
-  TREE_REFRESH_FAILURE_COOLDOWN_MS,
-} from "../shared/treeRefresh";
+import { isRepositoryMetadataStale, TREE_REFRESH_FAILURE_COOLDOWN_MS } from "../shared/treeRefresh";
 import { readStagedFileKind } from "./stagingChanges";
 import type { PullRequestLabel as StoredPullRequestLabel } from "./schema";
 
@@ -58,9 +55,7 @@ const githubRepositoryPreviewResult = object({
   hasMore: boolean(),
 });
 
-type GitHubRepositoryPreviewResult = Infer<
-  typeof githubRepositoryPreviewResult
->;
+type GitHubRepositoryPreviewResult = Infer<typeof githubRepositoryPreviewResult>;
 
 type CachedRepositoryBlob = {
   size?: number | null;
@@ -75,14 +70,8 @@ type TreeRefreshFailureDescriptor = {
   message: string;
   cooldownUntil: number;
 };
-const publicRefreshRepositoryIntent = union(
-  literal("passive"),
-  literal("manual"),
-);
-const refreshRepositoryIntent = union(
-  publicRefreshRepositoryIntent,
-  literal("source_setup"),
-);
+const publicRefreshRepositoryIntent = union(literal("passive"), literal("manual"));
+const refreshRepositoryIntent = union(publicRefreshRepositoryIntent, literal("source_setup"));
 const refreshRepositoryTreeReason = union(
   literal("cooldown"),
   literal("recent_success"),
@@ -152,12 +141,9 @@ const refreshRepositoryTreeForUserInput = union(
     intent: refreshRepositoryIntent,
   }),
 );
-type RefreshRepositoryTreeForUserArgs = Infer<
-  typeof refreshRepositoryTreeForUserInput
->;
+type RefreshRepositoryTreeForUserArgs = Infer<typeof refreshRepositoryTreeForUserInput>;
 
-const GITHUB_REPOSITORY_DISCOVERY_AFFILIATION =
-  "owner,collaborator,organization_member";
+const GITHUB_REPOSITORY_DISCOVERY_AFFILIATION = "owner,collaborator,organization_member";
 const GITHUB_REPOSITORY_PREVIEW_PAGE_SIZE = 10;
 const GITHUB_REPOSITORY_DISCOVERY_PAGE_SIZE = 100;
 const MAX_GITHUB_REPOSITORY_PAGES = 100;
@@ -175,9 +161,7 @@ const MAX_AUTO_REFRESH_BRANCH_ENRICHMENT_BRANCHES = 40;
  * Missing branch means "use the default branch"; an empty provided branch is a
  * caller bug and must not silently become default-branch work.
  */
-function normalizeOptionalRepositoryBranch(
-  branch: string | undefined,
-): string | undefined {
+function normalizeOptionalRepositoryBranch(branch: string | undefined): string | undefined {
   if (branch === undefined) {
     return undefined;
   }
@@ -217,10 +201,7 @@ function toHeaderMap(value: unknown): HeaderMap | null {
       continue;
     }
 
-    if (
-      Array.isArray(headerValue) &&
-      headerValue.every((item) => typeof item === "string")
-    ) {
+    if (Array.isArray(headerValue) && headerValue.every((item) => typeof item === "string")) {
       headers[key] = headerValue;
     }
   }
@@ -259,10 +240,7 @@ function getErrorHeaders(error: unknown): HeaderMap | null {
   return toHeaderMap(response.headers);
 }
 
-function getHeaderValue(
-  headers: HeaderMap | null,
-  name: string,
-): string | null {
+function getHeaderValue(headers: HeaderMap | null, name: string): string | null {
   if (!headers) {
     return null;
   }
@@ -336,13 +314,9 @@ export function describeRepositoryTreeRefreshFailure(
     };
   }
 
-  const retryAfterSeconds = parsePositiveInteger(
-    getHeaderValue(headers, "retry-after"),
-  );
+  const retryAfterSeconds = parsePositiveInteger(getHeaderValue(headers, "retry-after"));
   const rateLimitRemaining = getHeaderValue(headers, "x-ratelimit-remaining");
-  const resetAtSeconds = parsePositiveInteger(
-    getHeaderValue(headers, "x-ratelimit-reset"),
-  );
+  const resetAtSeconds = parsePositiveInteger(getHeaderValue(headers, "x-ratelimit-reset"));
 
   if (retryAfterSeconds !== null) {
     return {
@@ -381,17 +355,14 @@ export function shouldBypassRecentSuccessDebounceForBranchRefresh(args: {
     const now = args.now ?? Date.now();
     if (
       typeof args.lastRepositoryMetadataRefreshAt === "number" &&
-      now - args.lastRepositoryMetadataRefreshAt <
-        MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS
+      now - args.lastRepositoryMetadataRefreshAt < MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS
     ) {
       return false;
     }
     return true;
   }
 
-  return (
-    !args.hasResolvedBranchTree && args.defaultBranch !== args.requestedBranch
-  );
+  return !args.hasResolvedBranchTree && args.defaultBranch !== args.requestedBranch;
 }
 
 export function shouldRefreshRepositoryMetadata(args: {
@@ -483,15 +454,11 @@ function shouldPreserveTargetedCloudflarePreviewHydration(args: {
 }): boolean {
   return (
     args.includeCloudflarePreviewLinks &&
-    args.cloudflarePreviewBranchNames.some(
-      (branchName) => branchName.trim().length > 0,
-    )
+    args.cloudflarePreviewBranchNames.some((branchName) => branchName.trim().length > 0)
   );
 }
 
-function normalizeCloudflarePreviewBranchNames(
-  branchNames: string[],
-): string[] {
+function normalizeCloudflarePreviewBranchNames(branchNames: string[]): string[] {
   const normalizedBranchNames: string[] = [];
   const seenBranchNames = new Set<string>();
 
@@ -551,8 +518,7 @@ export function applyRepositoryTreeMetadataSyncBudget(args: {
     shouldSyncMetadata: true,
     includeAheadBehind: false,
     includePullRequestLinks: args.includePullRequestLinks,
-    includeCloudflarePreviewLinks:
-      shouldPreserveTargetedCloudflarePreviewHydration(args),
+    includeCloudflarePreviewLinks: shouldPreserveTargetedCloudflarePreviewHydration(args),
     includeLastCommitTimestamps: args.includeLastCommitTimestamps,
   };
 }
@@ -596,8 +562,7 @@ export function computeRepositoryTreeMetadataSyncPlan(args: {
   const includeAheadBehind = args.includeAheadBehind;
   const includePullRequestLinks =
     args.includePullRequestLinks || args.includeCloudflarePreviewLinks;
-  const shouldSyncMetadata =
-    isRepoScoped || includeAheadBehind || includePullRequestLinks;
+  const shouldSyncMetadata = isRepoScoped || includeAheadBehind || includePullRequestLinks;
 
   return applyRepositoryTreeMetadataSyncBudget({
     shouldSyncMetadata,
@@ -615,9 +580,7 @@ function buildGitHubRepositoryDiscoveryUrl(perPage: number): string {
   return `https://api.github.com/user/repos?sort=updated&per_page=${perPage}&affiliation=${GITHUB_REPOSITORY_DISCOVERY_AFFILIATION}`;
 }
 
-export function readGitHubNextPageUrl(
-  linkHeader: string | null | undefined,
-): string | null {
+export function readGitHubNextPageUrl(linkHeader: string | null | undefined): string | null {
   if (typeof linkHeader !== "string" || linkHeader.trim().length === 0) {
     return null;
   }
@@ -632,9 +595,7 @@ export function readGitHubNextPageUrl(
   return null;
 }
 
-export function normalizeGitHubRepositoryListItem(
-  value: unknown,
-): GitHubRepositoryListItem | null {
+export function normalizeGitHubRepositoryListItem(value: unknown): GitHubRepositoryListItem | null {
   if (!isRecord(value)) {
     return null;
   }
@@ -723,9 +684,7 @@ async function fetchGitHubRepositoryPage(args: {
   });
 
   if (!response.ok) {
-    throw new Error(
-      `GitHub API error: ${response.status} ${response.statusText}`,
-    );
+    throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
   }
 
   return {
@@ -769,9 +728,7 @@ export async function listGitHubRepositories(args: {
       throw new Error("GitHub repository pagination loop detected");
     }
     if (seenPageUrls.size >= MAX_GITHUB_REPOSITORY_PAGES) {
-      throw new Error(
-        `GitHub repository pagination exceeded ${MAX_GITHUB_REPOSITORY_PAGES} pages`,
-      );
+      throw new Error(`GitHub repository pagination exceeded ${MAX_GITHUB_REPOSITORY_PAGES} pages`);
     }
     seenPageUrls.add(nextPageUrl);
 
@@ -796,13 +753,10 @@ export const listRepositoriesPreview = action({
   returns: githubRepositoryPreviewResult,
   handler: async (ctx): Promise<GitHubRepositoryPreviewResult> => {
     const userId = await getUserId(ctx);
-    const githubConnection = await ctx.runQuery(
-      internal.providerConnections.getByUserAndKind,
-      {
-        userId,
-        kind: "github",
-      },
-    );
+    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+      userId,
+      kind: "github",
+    });
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected");
     }
@@ -818,13 +772,10 @@ export const listRepositories = action({
   returns: array(githubRepositoryListItem),
   handler: async (ctx): Promise<GitHubRepositoryList> => {
     const userId = await getUserId(ctx);
-    const githubConnection = await ctx.runQuery(
-      internal.providerConnections.getByUserAndKind,
-      {
-        userId,
-        kind: "github",
-      },
-    );
+    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+      userId,
+      kind: "github",
+    });
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected");
     }
@@ -841,8 +792,7 @@ const repositoryFileContentResult = union(
 
 type RepositoryFileContent = Infer<typeof repositoryFileContentResult>;
 const MAX_REPOSITORY_MEDIA_BYTES = 1_000_000;
-const REPOSITORY_MEDIA_TOO_LARGE_MESSAGE =
-  "Preview unavailable for files larger than 1 MB.";
+const REPOSITORY_MEDIA_TOO_LARGE_MESSAGE = "Preview unavailable for files larger than 1 MB.";
 
 const repositoryMediaAssetResult = union(
   object({
@@ -886,17 +836,13 @@ type StagedRepositoryMediaAssetCandidate = {
   content: string;
 };
 const CLOUDFLARE_PREVIEW_COMMENT_CONCURRENCY = 5;
-const CLOUDFLARE_PREVIEW_COMMENT_AUTHORS = new Set([
-  "cloudflare-workers-and-pages[bot]",
-]);
+const CLOUDFLARE_PREVIEW_COMMENT_AUTHORS = new Set(["cloudflare-workers-and-pages[bot]"]);
 
 /**
  * Mirror GitHub's preview size ceiling for cached blobs so storage-backed media
  * cannot bypass the same protection the live Contents API path already applies.
  */
-export function isRepositoryMediaPreviewTooLarge(
-  size: number | null | undefined,
-): boolean {
+export function isRepositoryMediaPreviewTooLarge(size: number | null | undefined): boolean {
   return typeof size === "number" && size > MAX_REPOSITORY_MEDIA_BYTES;
 }
 
@@ -956,10 +902,7 @@ interface RemoteBranchSummary {
   isProtected: boolean;
 }
 
-type PullRequestLabelSummary = Extract<
-  StoredPullRequestLabel,
-  { name: string }
->;
+type PullRequestLabelSummary = Extract<StoredPullRequestLabel, { name: string }>;
 
 interface CachedBranchTreeSnapshot {
   treeSHA: string;
@@ -1013,9 +956,7 @@ function parseGitTimestamp(value: string | undefined): number | undefined {
  * Keep only stable human-visible label metadata from GitHub's PR payload so
  * the cached branch metadata stays small and display-ready.
  */
-export function readPullRequestLabels(
-  labels: unknown,
-): PullRequestLabelSummary[] {
+export function readPullRequestLabels(labels: unknown): PullRequestLabelSummary[] {
   if (!Array.isArray(labels)) {
     return [];
   }
@@ -1039,9 +980,7 @@ export function readPullRequestLabels(
     labelNames.push({
       name,
       color:
-        isRecord(label) &&
-        typeof label.color === "string" &&
-        label.color.length > 0
+        isRecord(label) && typeof label.color === "string" && label.color.length > 0
           ? label.color
           : undefined,
     });
@@ -1050,13 +989,8 @@ export function readPullRequestLabels(
   return labelNames;
 }
 
-function isAllowedCloudflarePreviewCommentAuthor(
-  login: unknown,
-): login is string {
-  return (
-    typeof login === "string" &&
-    CLOUDFLARE_PREVIEW_COMMENT_AUTHORS.has(login.toLowerCase())
-  );
+function isAllowedCloudflarePreviewCommentAuthor(login: unknown): login is string {
+  return typeof login === "string" && CLOUDFLARE_PREVIEW_COMMENT_AUTHORS.has(login.toLowerCase());
 }
 
 async function getLatestPullRequestCloudflarePreviewComment(args: {
@@ -1113,9 +1047,7 @@ async function getLatestPullRequestCloudflarePreviewComment(args: {
         state: "resolved",
         preview: {
           ...parsed,
-          cloudflarePreviewCommentCreatedAt: parseGitTimestamp(
-            comment.created_at,
-          ),
+          cloudflarePreviewCommentCreatedAt: parseGitTimestamp(comment.created_at),
         },
       };
     }
@@ -1161,10 +1093,7 @@ async function getCloudflarePreviewLinksByBranch(args: {
     index < args.branches.length;
     index += CLOUDFLARE_PREVIEW_COMMENT_CONCURRENCY
   ) {
-    const batch = args.branches.slice(
-      index,
-      index + CLOUDFLARE_PREVIEW_COMMENT_CONCURRENCY,
-    );
+    const batch = args.branches.slice(index, index + CLOUDFLARE_PREVIEW_COMMENT_CONCURRENCY);
     const batchUpdates = await Promise.all(
       batch.map(async (branch): Promise<RemoteBranchCloudflarePreviewSync> => {
         if (branch.pullRequestState !== "resolved") {
@@ -1182,13 +1111,12 @@ async function getCloudflarePreviewLinksByBranch(args: {
         }
 
         try {
-          const previewResult =
-            await getLatestPullRequestCloudflarePreviewComment({
-              octokit: args.octokit,
-              owner: args.owner,
-              repo: args.repo,
-              pullRequestNumber: branch.pullRequestNumber,
-            });
+          const previewResult = await getLatestPullRequestCloudflarePreviewComment({
+            octokit: args.octokit,
+            owner: args.owner,
+            repo: args.repo,
+            pullRequestNumber: branch.pullRequestNumber,
+          });
           if (previewResult.state === "preserve") {
             return {
               name: branch.name,
@@ -1213,8 +1141,7 @@ async function getCloudflarePreviewLinksByBranch(args: {
             cloudflarePreviewCommitSha: preview.previewCommitSha,
             cloudflarePreviewStatus: preview.previewStatus,
             cloudflarePreviewLogsUrl: preview.previewLogsUrl,
-            cloudflarePreviewCommentCreatedAt:
-              preview.cloudflarePreviewCommentCreatedAt,
+            cloudflarePreviewCommentCreatedAt: preview.cloudflarePreviewCommentCreatedAt,
           };
         } catch (error: unknown) {
           console.warn(
@@ -1224,10 +1151,7 @@ async function getCloudflarePreviewLinksByBranch(args: {
               repo: args.repo,
               branchName: branch.name,
               pullRequestNumber: branch.pullRequestNumber,
-              error:
-                error instanceof Error
-                  ? error.message
-                  : toErrorMessage(error, "unknown"),
+              error: error instanceof Error ? error.message : toErrorMessage(error, "unknown"),
             }),
           );
           return {
@@ -1256,9 +1180,7 @@ export function shouldSyncCloudflarePreviewLinks(args: {
   );
 }
 
-function readPullRequestHeadRepositoryFullName(
-  pullRequest: unknown,
-): string | undefined {
+function readPullRequestHeadRepositoryFullName(pullRequest: unknown): string | undefined {
   if (!isRecord(pullRequest)) {
     return undefined;
   }
@@ -1281,9 +1203,7 @@ export function resolveAheadBehindBaseBranch(args: {
   branchNames: string[];
   defaultBranch: string;
 }): string | undefined {
-  return args.branchNames.some(
-    (branchName) => branchName === args.defaultBranch,
-  )
+  return args.branchNames.some((branchName) => branchName === args.defaultBranch)
     ? args.defaultBranch
     : undefined;
 }
@@ -1334,24 +1254,16 @@ async function getAheadBehindByBranch(args: {
     (branchName) => branchName !== args.baseBranch,
   );
   const chunkSize = 10;
-  for (
-    let startIndex = 0;
-    startIndex < branchNamesToCompare.length;
-    startIndex += chunkSize
-  ) {
-    const chunk = branchNamesToCompare.slice(
-      startIndex,
-      startIndex + chunkSize,
-    );
+  for (let startIndex = 0; startIndex < branchNamesToCompare.length; startIndex += chunkSize) {
+    const chunk = branchNamesToCompare.slice(startIndex, startIndex + chunkSize);
     const chunkResults = await Promise.all(
       chunk.map(async (branchName) => {
         try {
-          const response =
-            await args.octokit.rest.repos.compareCommitsWithBasehead({
-              owner: args.owner,
-              repo: args.repo,
-              basehead: `${args.baseBranch}...${branchName}`,
-            });
+          const response = await args.octokit.rest.repos.compareCommitsWithBasehead({
+            owner: args.owner,
+            repo: args.repo,
+            basehead: `${args.baseBranch}...${branchName}`,
+          });
           const aheadBy = response.data.ahead_by;
           const behindBy = response.data.behind_by;
           if (typeof aheadBy !== "number" || typeof behindBy !== "number") {
@@ -1376,10 +1288,7 @@ async function getAheadBehindByBranch(args: {
               repo: args.repo,
               baseBranch: args.baseBranch,
               branchName,
-              error:
-                error instanceof Error
-                  ? error.message
-                  : toErrorMessage(error, "unknown"),
+              error: error instanceof Error ? error.message : toErrorMessage(error, "unknown"),
             }),
           );
           return {
@@ -1500,8 +1409,7 @@ export function collectLatestOpenPullRequestsByBranch(args: {
       continue;
     }
 
-    const pullRequestHeadRepo =
-      readPullRequestHeadRepositoryFullName(pullRequest);
+    const pullRequestHeadRepo = readPullRequestHeadRepositoryFullName(pullRequest);
     if (
       typeof pullRequestHeadRepo !== "string" ||
       pullRequestHeadRepo.toLowerCase() !== normalizedRepositoryFullName
@@ -1510,9 +1418,7 @@ export function collectLatestOpenPullRequestsByBranch(args: {
     }
 
     const updatedAtRaw =
-      typeof pullRequest.updated_at === "string"
-        ? pullRequest.updated_at
-        : pullRequest.created_at;
+      typeof pullRequest.updated_at === "string" ? pullRequest.updated_at : pullRequest.created_at;
     const updatedAtParsed = Date.parse(updatedAtRaw ?? "");
     const updatedAt = Number.isNaN(updatedAtParsed) ? 0 : updatedAtParsed;
     const existing = latestByBranch.get(branchName);
@@ -1691,8 +1597,7 @@ async function listRemoteBranches(args: {
       if (typeof branch.name !== "string") {
         continue;
       }
-      const headCommitSha =
-        typeof branch.commit.sha === "string" ? branch.commit.sha : "";
+      const headCommitSha = typeof branch.commit.sha === "string" ? branch.commit.sha : "";
       if (headCommitSha.length === 0) {
         continue;
       }
@@ -1736,12 +1641,7 @@ async function listRemoteBranches(args: {
         branchNames,
       })
     : Promise.resolve(
-        new Map(
-          branchNames.map((branchName) => [
-            branchName,
-            { state: "preserve" as const },
-          ]),
-        ),
+        new Map(branchNames.map((branchName) => [branchName, { state: "preserve" as const }])),
       );
   const pullRequestsByBranchPromise = effectiveSyncPlan.includePullRequestLinks
     ? getOpenPullRequestsByBranch({
@@ -1765,19 +1665,18 @@ async function listRemoteBranches(args: {
         >(),
       });
 
-  const [timestampsBySha, aheadBehindByBranch, pullRequestsByBranch] =
-    await Promise.all([
-      effectiveSyncPlan.includeLastCommitTimestamps
-        ? getHeadCommitTimestamps({
-            octokit: args.octokit,
-            owner: args.owner,
-            repo: args.repo,
-            shas: branches.map((branch) => branch.headCommitSha),
-          })
-        : Promise.resolve(new Map<string, number | undefined>()),
-      aheadBehindByBranchPromise,
-      pullRequestsByBranchPromise,
-    ]);
+  const [timestampsBySha, aheadBehindByBranch, pullRequestsByBranch] = await Promise.all([
+    effectiveSyncPlan.includeLastCommitTimestamps
+      ? getHeadCommitTimestamps({
+          octokit: args.octokit,
+          owner: args.owner,
+          repo: args.repo,
+          shas: branches.map((branch) => branch.headCommitSha),
+        })
+      : Promise.resolve(new Map<string, number | undefined>()),
+    aheadBehindByBranchPromise,
+    pullRequestsByBranchPromise,
+  ]);
 
   return branches.map((branch) => {
     const aheadBehind = aheadBehindByBranch.get(branch.name) ?? {
@@ -1791,10 +1690,8 @@ async function listRemoteBranches(args: {
     return {
       ...branch,
       lastCommitAt: timestampsBySha.get(branch.headCommitSha),
-      aheadBy:
-        aheadBehind.state === "resolved" ? aheadBehind.aheadBy : undefined,
-      behindBy:
-        aheadBehind.state === "resolved" ? aheadBehind.behindBy : undefined,
+      aheadBy: aheadBehind.state === "resolved" ? aheadBehind.aheadBy : undefined,
+      behindBy: aheadBehind.state === "resolved" ? aheadBehind.behindBy : undefined,
       aheadBehindState: aheadBehind.state,
       pullRequestUrl: pullRequest?.url,
       pullRequestNumber: pullRequest?.number,
@@ -1810,10 +1707,7 @@ function buildDataUrl(mimeType: string, content: Buffer): string {
   return `data:${mimeType};base64,${content.toString("base64")}`;
 }
 
-function readStoredMimeType(
-  filePath: string,
-  blobMime: string | undefined,
-): string {
+function readStoredMimeType(filePath: string, blobMime: string | undefined): string {
   if (typeof blobMime === "string" && blobMime.includes("/")) {
     return blobMime;
   }
@@ -1848,10 +1742,7 @@ async function resolveCachedRepositoryMediaAsset(
     }
   }
 
-  if (
-    typeof cachedBlob?.text === "string" &&
-    isSvgRepositoryMediaPath(filePath)
-  ) {
+  if (typeof cachedBlob?.text === "string" && isSvgRepositoryMediaPath(filePath)) {
     return {
       found: true,
       kind: mediaKind,
@@ -1924,9 +1815,7 @@ export async function resolveStagedRepositoryMediaAsset(args: {
     typeof args.stagedFile.stagedBlobSha === "string" &&
     args.stagedFile.stagedBlobSha.length > 0
   ) {
-    const cachedBlob = await args.loadCachedBlobBySha(
-      args.stagedFile.stagedBlobSha,
-    );
+    const cachedBlob = await args.loadCachedBlobBySha(args.stagedFile.stagedBlobSha);
     const resolvedCachedAsset = await resolveCachedRepositoryMediaAsset(
       { storage: args.storage },
       cachedBlob,
@@ -1952,10 +1841,7 @@ export async function resolveStagedRepositoryMediaAsset(args: {
       found: true,
       kind: args.mediaKind,
       mimeType: "image/svg+xml",
-      url: buildDataUrl(
-        "image/svg+xml",
-        Buffer.from(args.stagedFile.content, "utf-8"),
-      ),
+      url: buildDataUrl("image/svg+xml", Buffer.from(args.stagedFile.content, "utf-8")),
       fileName: args.fileName,
     };
   }
@@ -2011,13 +1897,10 @@ export const getRepositoryFileContent = action({
       throw new Error("User not found");
     }
 
-    const vault = await ctx.runQuery(
-      internal.vault.records.getByRepositoryFullName,
-      {
-        repositoryFullName: args.repositoryFullName,
-        userId,
-      },
-    );
+    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+    });
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -2044,13 +1927,10 @@ export const getRepositoryFileContent = action({
       }
     }
 
-    const githubConnection = await ctx.runQuery(
-      internal.providerConnections.getByUserAndKind,
-      {
-        userId,
-        kind: "github",
-      },
-    );
+    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+      userId,
+      kind: "github",
+    });
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected");
     }
@@ -2108,14 +1988,11 @@ export const getRepositoryMediaAsset = action({
 
     const requestedBranch = normalizeOptionalRepositoryBranch(args.branch);
     const userId = await getUserId(ctx);
-    const vault = await ctx.runQuery(
-      internal.vault.records.getByRepositoryFullName,
-      {
-        repositoryFullName: args.repositoryFullName,
-        userId,
-        branch: requestedBranch,
-      },
-    );
+    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+      branch: requestedBranch,
+    });
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -2124,19 +2001,15 @@ export const getRepositoryMediaAsset = action({
     const shouldSkipStaging = args.skipStaging === true;
 
     if (requestedBranch && !shouldSkipStaging) {
-      const stagedFile = await ctx.runQuery(
-        internal.fileStaging.getByNewPathInternal,
-        {
-          vaultId: vault._id,
-          branch: requestedBranch,
-          newPath: args.filePath,
-        },
-      );
+      const stagedFile = await ctx.runQuery(internal.fileStaging.getByNewPathInternal, {
+        vaultId: vault._id,
+        branch: requestedBranch,
+        newPath: args.filePath,
+      });
       if (stagedFile) {
         const stagedAsset = await resolveStagedRepositoryMediaAsset({
           storage: ctx.storage,
-          loadCachedBlobBySha: (sha) =>
-            ctx.runQuery(internal.gitOperations.getBlobBySha, { sha }),
+          loadCachedBlobBySha: (sha) => ctx.runQuery(internal.gitOperations.getBlobBySha, { sha }),
           stagedFile,
           filePath: args.filePath,
           mediaKind,
@@ -2170,12 +2043,9 @@ export const getRepositoryMediaAsset = action({
       }
 
       targetFileSha = targetFile.sha;
-      const cachedBlob = await ctx.runQuery(
-        internal.gitOperations.getBlobBySha,
-        {
-          sha: targetFileSha,
-        },
-      );
+      const cachedBlob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+        sha: targetFileSha,
+      });
       const resolvedCachedAsset = await resolveCachedRepositoryMediaAsset(
         ctx,
         cachedBlob,
@@ -2188,13 +2058,10 @@ export const getRepositoryMediaAsset = action({
       }
     }
 
-    const githubConnection = await ctx.runQuery(
-      internal.providerConnections.getByUserAndKind,
-      {
-        userId,
-        kind: "github",
-      },
-    );
+    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+      userId,
+      kind: "github",
+    });
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected");
     }
@@ -2215,12 +2082,9 @@ export const getRepositoryMediaAsset = action({
         if (targetFileSha === null) {
           return { found: false, reason: "missing" };
         }
-        const cachedBlob = await ctx.runQuery(
-          internal.gitOperations.getBlobBySha,
-          {
-            sha: targetFileSha,
-          },
-        );
+        const cachedBlob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+          sha: targetFileSha,
+        });
         const resolvedCachedAsset = await resolveCachedRepositoryMediaAsset(
           ctx,
           cachedBlob,
@@ -2242,10 +2106,7 @@ export const getRepositoryMediaAsset = action({
         repo: vault.name,
         file_sha: targetFileSha,
       });
-      if (
-        typeof blob.data.content !== "string" ||
-        blob.data.content.length === 0
-      ) {
+      if (typeof blob.data.content !== "string" || blob.data.content.length === 0) {
         return {
           found: false,
           reason: "unavailable",
@@ -2310,11 +2171,10 @@ async function refreshRepositoryTreeForUserHelper(
 ): Promise<RefreshRepositoryTreeResult> {
   const intent = args.intent;
   const requestedBranch =
-    args.scope === "branch"
-      ? normalizeRequiredRepositoryBranch(args.branch)
-      : undefined;
-  const requestedCloudflarePreviewBranchNames =
-    normalizeCloudflarePreviewBranchNames(args.cloudflarePreviewBranchNames);
+    args.scope === "branch" ? normalizeRequiredRepositoryBranch(args.branch) : undefined;
+  const requestedCloudflarePreviewBranchNames = normalizeCloudflarePreviewBranchNames(
+    args.cloudflarePreviewBranchNames,
+  );
   const includeCloudflarePreviewLinks = args.includeCloudflarePreviewLinks;
 
   const repositoryFullName = `${args.owner}/${args.repo}`;
@@ -2347,9 +2207,7 @@ async function refreshRepositoryTreeForUserHelper(
       : { refreshed: false };
   }
 
-  const debounceMs = vault.branchNotFound
-    ? MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS
-    : undefined;
+  const debounceMs = vault.branchNotFound ? MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS : undefined;
   const skipRecentSuccessDebounce =
     refreshPlan.shouldSyncMetadata ||
     shouldBypassRecentSuccessDebounceForBranchRefresh({
@@ -2361,16 +2219,13 @@ async function refreshRepositoryTreeForUserHelper(
     });
 
   // Atomically claim the refresh lock; skip if debounced or already running
-  const claim = await ctx.runMutation(
-    internal.vault.branches.claimTreeRefresh,
-    {
-      vaultId: vault._id,
-      debounceMs,
-      // Missing or stale branch metadata still needs a refresh even when the
-      // repo itself synced recently.
-      skipRecentSuccessDebounce,
-    },
-  );
+  const claim = await ctx.runMutation(internal.vault.branches.claimTreeRefresh, {
+    vaultId: vault._id,
+    debounceMs,
+    // Missing or stale branch metadata still needs a refresh even when the
+    // repo itself synced recently.
+    skipRecentSuccessDebounce,
+  });
   if (!claim.claimed) {
     return {
       refreshed: false,
@@ -2403,11 +2258,9 @@ async function refreshRepositoryTreeForUserHelper(
         repo: args.repo,
         includeAheadBehind: metadataSyncPlan.includeAheadBehind,
         includePullRequestLinks: metadataSyncPlan.includePullRequestLinks,
-        includeCloudflarePreviewLinks:
-          metadataSyncPlan.includeCloudflarePreviewLinks,
+        includeCloudflarePreviewLinks: metadataSyncPlan.includeCloudflarePreviewLinks,
         cloudflarePreviewBranchNames: requestedCloudflarePreviewBranchNames,
-        includeLastCommitTimestamps:
-          metadataSyncPlan.includeLastCommitTimestamps,
+        includeLastCommitTimestamps: metadataSyncPlan.includeLastCommitTimestamps,
         intent,
       });
 
@@ -2465,28 +2318,22 @@ async function refreshRepositoryTreeForUserHelper(
 
   if (refreshFailure) {
     try {
-      const releaseResult = await ctx.runMutation(
-        internal.vault.branches.releaseTreeRefresh,
-        {
+      const releaseResult = await ctx.runMutation(internal.vault.branches.releaseTreeRefresh, {
+        vaultId: vault._id,
+        startedAt: claim.startedAt,
+        markRefreshed: false,
+        failureKind: refreshFailure.kind,
+        failureMessage: refreshFailure.message,
+        cooldownUntil: refreshFailure.cooldownUntil,
+      });
+      if (!releaseResult.released) {
+        await ctx.runMutation(internal.vault.branches.recordTreeRefreshFailure, {
           vaultId: vault._id,
           startedAt: claim.startedAt,
-          markRefreshed: false,
           failureKind: refreshFailure.kind,
           failureMessage: refreshFailure.message,
           cooldownUntil: refreshFailure.cooldownUntil,
-        },
-      );
-      if (!releaseResult.released) {
-        await ctx.runMutation(
-          internal.vault.branches.recordTreeRefreshFailure,
-          {
-            vaultId: vault._id,
-            startedAt: claim.startedAt,
-            failureKind: refreshFailure.kind,
-            failureMessage: refreshFailure.message,
-            cooldownUntil: refreshFailure.cooldownUntil,
-          },
-        );
+        });
       }
     } catch (releaseError) {
       console.error("Failed to persist repository tree refresh failure", {
@@ -2530,11 +2377,7 @@ export const refreshRepositoryTree = action({
       userId,
       vaultId: args.vaultId,
     });
-    if (
-      !vault ||
-      vault.state !== "connected" ||
-      vault.deletion.state !== "not_deleting"
-    ) {
+    if (!vault || vault.state !== "connected" || vault.deletion.state !== "not_deleting") {
       throw new Error("Vault not found.");
     }
 
@@ -2597,24 +2440,18 @@ export const syncRepositoryMetadata = internalAction({
     if (!currentUser) {
       throw new Error("User not found");
     }
-    const githubConnection = await ctx.runQuery(
-      internal.providerConnections.getByUserAndKind,
-      {
-        userId: args.userId,
-        kind: "github",
-      },
-    );
+    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+      userId: args.userId,
+      kind: "github",
+    });
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected");
     }
 
-    const vault = await ctx.runQuery(
-      internal.vault.records.getByRepositoryFullName,
-      {
-        repositoryFullName: `${args.owner}/${args.repo}`,
-        userId: args.userId,
-      },
-    );
+    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+      repositoryFullName: `${args.owner}/${args.repo}`,
+      userId: args.userId,
+    });
 
     if (!vault) {
       throw new Error("Vault not found");
@@ -2623,8 +2460,9 @@ export const syncRepositoryMetadata = internalAction({
     const octokit: Octokit = new Octokit({
       auth: githubConnection.auth.credential,
     });
-    const requestedCloudflarePreviewBranchNames =
-      normalizeCloudflarePreviewBranchNames(args.cloudflarePreviewBranchNames);
+    const requestedCloudflarePreviewBranchNames = normalizeCloudflarePreviewBranchNames(
+      args.cloudflarePreviewBranchNames,
+    );
 
     const remoteBranches = await listRemoteBranches({
       octokit,
@@ -2658,8 +2496,7 @@ export const syncRepositoryMetadata = internalAction({
           );
     if (
       shouldSyncCloudflarePreviewLinks({
-        includeCloudflarePreviewLinks:
-          effectiveSyncPlan.includeCloudflarePreviewLinks,
+        includeCloudflarePreviewLinks: effectiveSyncPlan.includeCloudflarePreviewLinks,
         includePullRequestLinks: effectiveSyncPlan.includePullRequestLinks,
         branches: cloudflarePreviewTargetBranches,
       })
@@ -2670,13 +2507,10 @@ export const syncRepositoryMetadata = internalAction({
         repo: args.repo,
         branches: cloudflarePreviewTargetBranches,
       });
-      await ctx.runMutation(
-        internal.vault.branches.syncVaultRemoteBranchCloudflarePreviews,
-        {
-          vaultId: vault._id,
-          branches: cloudflarePreviews,
-        },
-      );
+      await ctx.runMutation(internal.vault.branches.syncVaultRemoteBranchCloudflarePreviews, {
+        vaultId: vault._id,
+        branches: cloudflarePreviews,
+      });
     }
 
     return null;
@@ -2706,26 +2540,20 @@ export const refreshBranchTree = internalAction({
     if (!currentUser) {
       throw new Error("User not found");
     }
-    const githubConnection = await ctx.runQuery(
-      internal.providerConnections.getByUserAndKind,
-      {
-        userId: args.userId,
-        kind: "github",
-      },
-    );
+    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+      userId: args.userId,
+      kind: "github",
+    });
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected");
     }
 
     const targetBranch = normalizeRequiredRepositoryBranch(args.branch);
-    const vault = await ctx.runQuery(
-      internal.vault.records.getByRepositoryFullName,
-      {
-        repositoryFullName: `${args.owner}/${args.repo}`,
-        userId: args.userId,
-        branch: targetBranch,
-      },
-    );
+    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+      repositoryFullName: `${args.owner}/${args.repo}`,
+      userId: args.userId,
+      branch: targetBranch,
+    });
 
     if (!vault) {
       throw new Error("Vault not found");
@@ -2750,13 +2578,10 @@ export const refreshBranchTree = internalAction({
     });
     const latestCommitSha = latestCommits.data[0]?.sha;
 
-    const cachedBranchTree = await ctx.runQuery(
-      internal.vault.branches.getVaultBranchTree,
-      {
-        vaultId: vault._id,
-        branch: resolvedBranch,
-      },
-    );
+    const cachedBranchTree = await ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
+      vaultId: vault._id,
+      branch: resolvedBranch,
+    });
     const { shouldUpdateBranchTree } = computeRepositoryTreeUpdatePlan({
       resolvedBranch,
       fetchedTreeSHA: tree.data.sha,
@@ -2802,8 +2627,9 @@ export const updateRepositoryTree = internalAction({
       args.target.scope === "branch"
         ? normalizeRequiredRepositoryBranch(args.target.branch)
         : undefined;
-    const requestedCloudflarePreviewBranchNames =
-      normalizeCloudflarePreviewBranchNames(args.cloudflarePreviewBranchNames);
+    const requestedCloudflarePreviewBranchNames = normalizeCloudflarePreviewBranchNames(
+      args.cloudflarePreviewBranchNames,
+    );
     // This path runs after app-owned repository writes. Use manual debounce
     // semantics while explicit caller flags choose metadata depth.
     const metadataSyncPlan = computeRepositoryTreeMetadataSyncPlan({
@@ -2822,23 +2648,18 @@ export const updateRepositoryTree = internalAction({
         repo: args.repo,
         includeAheadBehind: metadataSyncPlan.includeAheadBehind,
         includePullRequestLinks: metadataSyncPlan.includePullRequestLinks,
-        includeCloudflarePreviewLinks:
-          metadataSyncPlan.includeCloudflarePreviewLinks,
+        includeCloudflarePreviewLinks: metadataSyncPlan.includeCloudflarePreviewLinks,
         cloudflarePreviewBranchNames: requestedCloudflarePreviewBranchNames,
-        includeLastCommitTimestamps:
-          metadataSyncPlan.includeLastCommitTimestamps,
+        includeLastCommitTimestamps: metadataSyncPlan.includeLastCommitTimestamps,
         intent: "manual",
       });
     }
     let branchToRefresh = targetBranch;
     if (!branchToRefresh) {
-      const vault = await ctx.runQuery(
-        internal.vault.records.getByRepositoryFullName,
-        {
-          repositoryFullName: `${args.owner}/${args.repo}`,
-          userId: args.userId,
-        },
-      );
+      const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+        repositoryFullName: `${args.owner}/${args.repo}`,
+        userId: args.userId,
+      });
       if (!vault) {
         throw new Error("Vault not found");
       }

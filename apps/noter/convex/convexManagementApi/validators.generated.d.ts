@@ -27,9 +27,7 @@ export const convexManagementResponseValidators: {
       SuccessResponseJSON<operations["get deployment in project by project id"]>
     >;
     "/teams/{team_id_or_slug}/projects/{project_slug}/deployment": AjvStandaloneValidateFunction<
-      SuccessResponseJSON<
-        operations["get deployment in project by project slug"]
-      >
+      SuccessResponseJSON<operations["get deployment in project by project slug"]>
     >;
     "/projects/{project_id}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["get project by id"]>

@@ -13,9 +13,7 @@ function readOptionalString(value: unknown): string | undefined {
 const pricingCheckoutValues = ["success", "cancel"] as const;
 const MACHINE_CONNECT_PRESENCE_SEARCH_KEYS = ["openedByCli"] as const;
 
-function readOptionalPricingCheckoutState(
-  value: unknown,
-): "success" | "cancel" | undefined {
+function readOptionalPricingCheckoutState(value: unknown): "success" | "cancel" | undefined {
   if (value === "success" || value === "cancel") {
     return value;
   }
@@ -44,9 +42,7 @@ const pricingRouteSearchSchema = z.object({
 
 export type PricingRouteSearch = z.infer<typeof pricingRouteSearchSchema>;
 
-export function validatePricingRouteSearch(
-  search: Record<string, unknown>,
-): PricingRouteSearch {
+export function validatePricingRouteSearch(search: Record<string, unknown>): PricingRouteSearch {
   return pricingRouteSearchSchema.parse(search);
 }
 
@@ -61,18 +57,13 @@ const machineConnectRouteSearchSchema = z.object({
   requestId: z.preprocess(readOptionalString, z.string().optional()),
 });
 
-export type MachineConnectRouteSearch = z.infer<
-  typeof machineConnectRouteSearchSchema
->;
+export type MachineConnectRouteSearch = z.infer<typeof machineConnectRouteSearchSchema>;
 
 export function validateMachineConnectRouteSearch(
   search: Record<string, unknown>,
 ): MachineConnectRouteSearch {
   return machineConnectRouteSearchSchema.parse(
-    normalizeRouteSearchPresenceFlags(
-      search,
-      MACHINE_CONNECT_PRESENCE_SEARCH_KEYS,
-    ),
+    normalizeRouteSearchPresenceFlags(search, MACHINE_CONNECT_PRESENCE_SEARCH_KEYS),
   );
 }
 
@@ -83,9 +74,7 @@ const machinesRouteSearchSchema = z.object({
 
 export type MachinesRouteSearch = z.infer<typeof machinesRouteSearchSchema>;
 
-export function validateMachinesRouteSearch(
-  search: Record<string, unknown>,
-): MachinesRouteSearch {
+export function validateMachinesRouteSearch(search: Record<string, unknown>): MachinesRouteSearch {
   return machinesRouteSearchSchema.parse(search);
 }
 
@@ -93,10 +82,8 @@ export function buildMachinesRouteSearch(args?: {
   machineId?: string | null;
   threadId?: string | null;
 }): MachinesRouteSearch {
-  const machineId =
-    typeof args?.machineId === "string" ? args.machineId.trim() : "";
-  const threadId =
-    typeof args?.threadId === "string" ? args.threadId.trim() : "";
+  const machineId = typeof args?.machineId === "string" ? args.machineId.trim() : "";
+  const threadId = typeof args?.threadId === "string" ? args.threadId.trim() : "";
 
   return {
     ...(machineId.length > 0 ? { machineId } : {}),

@@ -51,8 +51,7 @@ function createClearAllStagingTestContext(args: {
     scheduledCalls,
     ctx: {
       db: {
-        get: async (id: string) =>
-          id === args.targetVaultId ? args.vault : null,
+        get: async (id: string) => (id === args.targetVaultId ? args.vault : null),
         query: (table: string) => ({
           withIndex: (
             indexName: string,
@@ -89,8 +88,7 @@ function createClearAllStagingTestContext(args: {
                 return args.stagedFiles.filter(
                   (file) =>
                     file.vaultId === vaultIdConstraint &&
-                    (branchConstraint === undefined ||
-                      file.branch === branchConstraint),
+                    (branchConstraint === undefined || file.branch === branchConstraint),
                 );
               },
             };
@@ -101,11 +99,7 @@ function createClearAllStagingTestContext(args: {
         },
       },
       scheduler: {
-        runAfter: async (
-          delayMs: number,
-          fnRef: unknown,
-          scheduledArgs: unknown,
-        ) => {
+        runAfter: async (delayMs: number, fnRef: unknown, scheduledArgs: unknown) => {
           scheduledCalls.push({ delayMs, fnRef, args: scheduledArgs });
         },
       },
@@ -137,9 +131,7 @@ function createClearMatchingStagingSnapshotTestContext(args: {
     fnRef: unknown;
     args: unknown;
   }> = [];
-  const stagingById = new Map(
-    args.stagedFiles.map((file) => [file._id, file] as const),
-  );
+  const stagingById = new Map(args.stagedFiles.map((file) => [file._id, file] as const));
 
   return {
     deletedIds,
@@ -152,11 +144,7 @@ function createClearMatchingStagingSnapshotTestContext(args: {
         },
       },
       scheduler: {
-        runAfter: async (
-          delayMs: number,
-          fnRef: unknown,
-          scheduledArgs: unknown,
-        ) => {
+        runAfter: async (delayMs: number, fnRef: unknown, scheduledArgs: unknown) => {
           scheduledCalls.push({ delayMs, fnRef, args: scheduledArgs });
         },
       },

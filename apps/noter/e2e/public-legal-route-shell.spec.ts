@@ -19,15 +19,12 @@ function getLegalShellScreenshotOptions(page: Page) {
 }
 
 async function readTermsRouteState(page: Page) {
-  await expect(
-    page.getByRole("heading", { name: "Terms of Service" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Terms of Service" })).toBeVisible();
   await expect(page.locator(".cm-static-markdown")).toBeVisible();
 
   return await page.evaluate(() => ({
     hasRoutedMain: document.querySelector("main") !== null,
-    headingClassName:
-      document.querySelector("h1")?.getAttribute("class") ?? null,
+    headingClassName: document.querySelector("h1")?.getAttribute("class") ?? null,
     title: document.title,
   }));
 }

@@ -51,10 +51,7 @@ export function WorkspaceLayoutV2VisualFixture() {
       }}
       panel={{
         content: (
-          <ProsemarkReadOnly
-            filePath="workspace-layout-v2-panel.md"
-            value={mobileSidebarSpecRaw}
-          />
+          <ProsemarkReadOnly filePath="workspace-layout-v2-panel.md" value={mobileSidebarSpecRaw} />
         ),
       }}
     />

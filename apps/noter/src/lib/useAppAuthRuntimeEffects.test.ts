@@ -33,11 +33,7 @@ function buildSearchStringFromObject(search: Record<string, unknown>): string {
   const parts: string[] = [];
   for (const [key, value] of searchParams.entries()) {
     const encodedKey = encodeURIComponent(key);
-    parts.push(
-      value.length === 0
-        ? encodedKey
-        : `${encodedKey}=${encodeURIComponent(value)}`,
-    );
+    parts.push(value.length === 0 ? encodedKey : `${encodedKey}=${encodeURIComponent(value)}`);
   }
   return parts.length > 0 ? `?${parts.join("&")}` : "";
 }
@@ -91,17 +87,13 @@ describe("useAppAuthRuntimeEffects", () => {
     buildLocationMock.mockImplementation(
       (options: {
         hash?: true;
-        search?: (
-          currentSearch: Record<string, unknown>,
-        ) => Record<string, unknown>;
+        search?: (currentSearch: Record<string, unknown>) => Record<string, unknown>;
       }) => {
         const currentSearch = Object.fromEntries(
           new URLSearchParams(window.location.search).entries(),
         );
         const nextSearch =
-          typeof options.search === "function"
-            ? options.search(currentSearch)
-            : currentSearch;
+          typeof options.search === "function" ? options.search(currentSearch) : currentSearch;
         return {
           href: `${window.location.pathname}${buildSearchStringFromObject(nextSearch)}${options.hash === true ? window.location.hash : ""}`,
         };

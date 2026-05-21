@@ -37,11 +37,7 @@ describe("MarkdownLandingDocument", () => {
 
     act(() => {
       root?.render(
-        options?.strict ? (
-          <React.StrictMode>{documentElement}</React.StrictMode>
-        ) : (
-          documentElement
-        ),
+        options?.strict ? <React.StrictMode>{documentElement}</React.StrictMode> : documentElement,
       );
     });
 
@@ -139,9 +135,7 @@ describe("MarkdownLandingDocument", () => {
   it("renders README task checkboxes as local interactive controls", () => {
     const element = renderMarkdown("- [ ] Create account");
 
-    const checkbox = element.querySelector<HTMLInputElement>(
-      'input[type="checkbox"]',
-    );
+    const checkbox = element.querySelector<HTMLInputElement>('input[type="checkbox"]');
     expect(checkbox?.hasAttribute("disabled")).toBe(false);
     expect(checkbox?.checked).toBe(false);
 
@@ -196,15 +190,13 @@ describe("MarkdownLandingDocument", () => {
       );
     });
 
-    expect(
-      element.querySelector('[data-testid="router-location"]')?.textContent,
-    ).toBe("/landing-preview?lang=ro");
+    expect(element.querySelector('[data-testid="router-location"]')?.textContent).toBe(
+      "/landing-preview?lang=ro",
+    );
   });
 
   it("detects common video file URLs", () => {
-    expect(isMarkdownVideoUrl("https://example.com/demo.MP4?download=1")).toBe(
-      true,
-    );
+    expect(isMarkdownVideoUrl("https://example.com/demo.MP4?download=1")).toBe(true);
     expect(isMarkdownVideoUrl("/assets/demo.gif")).toBe(false);
   });
 });

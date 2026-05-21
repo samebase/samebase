@@ -44,9 +44,7 @@ describe("buildVaultFileRoute", () => {
 
 describe("isChatOnlyCodespaceRoute", () => {
   it("matches the codespace chat route", () => {
-    expect(
-      isChatOnlyCodespaceRoute("/vault/octo/repo/codespace/main/chat"),
-    ).toBe(true);
+    expect(isChatOnlyCodespaceRoute("/vault/octo/repo/codespace/main/chat")).toBe(true);
   });
 
   it("does not match editor file routes", () => {
@@ -54,9 +52,7 @@ describe("isChatOnlyCodespaceRoute", () => {
   });
 
   it("does not match non-chat routes under codespace namespace", () => {
-    expect(
-      isChatOnlyCodespaceRoute("/vault/octo/repo/codespace/main/src/index.ts"),
-    ).toBe(false);
+    expect(isChatOnlyCodespaceRoute("/vault/octo/repo/codespace/main/src/index.ts")).toBe(false);
   });
 });
 
@@ -81,11 +77,7 @@ describe("parseVaultPathContext", () => {
   });
 
   it("parses encoded branch names", () => {
-    expect(
-      parseVaultPathContext(
-        "/vault/octo/repo/feature%2Flogin-flow/src/App.tsx",
-      ),
-    ).toEqual({
+    expect(parseVaultPathContext("/vault/octo/repo/feature%2Flogin-flow/src/App.tsx")).toEqual({
       owner: "octo",
       repositoryFullName: "octo/repo",
       repoName: "repo",
@@ -96,9 +88,7 @@ describe("parseVaultPathContext", () => {
   });
 
   it("parses codespace chat routes", () => {
-    expect(
-      parseVaultPathContext("/vault/octo/repo/codespace/feature%2Flogin/chat"),
-    ).toEqual({
+    expect(parseVaultPathContext("/vault/octo/repo/codespace/feature%2Flogin/chat")).toEqual({
       owner: "octo",
       repositoryFullName: "octo/repo",
       repoName: "repo",
@@ -108,9 +98,7 @@ describe("parseVaultPathContext", () => {
   });
 
   it("treats codespace as a normal branch outside chat-only route shape", () => {
-    expect(
-      parseVaultPathContext("/vault/octo/repo/codespace/src/index.ts"),
-    ).toEqual({
+    expect(parseVaultPathContext("/vault/octo/repo/codespace/src/index.ts")).toEqual({
       owner: "octo",
       repositoryFullName: "octo/repo",
       repoName: "repo",

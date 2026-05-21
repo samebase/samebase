@@ -113,9 +113,7 @@ export const cloudflareApiResponseValidators: {
       SuccessResponseJSON<operations["getDeployHook"]>
     >;
     "/accounts/{account_id}/workers/account-settings": AjvStandaloneValidateFunction<
-      SuccessResponseJSON<
-        operations["worker-account-settings-fetch-worker-account-settings"]
-      >
+      SuccessResponseJSON<operations["worker-account-settings-fetch-worker-account-settings"]>
     >;
     "/accounts/{account_id}/workers/dispatch/namespaces": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["namespace-worker-list"]>
@@ -152,9 +150,7 @@ export const cloudflareApiResponseValidators: {
       SuccessResponseJSON<operations["workers.domains.get"]>
     >;
     "/accounts/{account_id}/workers/durable_objects/namespaces": AjvStandaloneValidateFunction<
-      SuccessResponseJSON<
-        operations["durable-objects-namespace-list-namespaces"]
-      >
+      SuccessResponseJSON<operations["durable-objects-namespace-list-namespaces"]>
     >;
     "/accounts/{account_id}/workers/durable_objects/namespaces/{id}/objects": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["durable-objects-namespace-list-objects"]>
@@ -255,9 +251,7 @@ export const cloudflareApiResponseValidators: {
       SuccessResponseJSON<operations["namespace-worker-patch-namespace"]>
     >;
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/secrets-bulk": AjvStandaloneValidateFunction<
-      SuccessResponseJSON<
-        operations["namespace-worker-patch-script-secrets-bulk"]
-      >
+      SuccessResponseJSON<operations["namespace-worker-patch-script-secrets-bulk"]>
     >;
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/settings": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["namespace-worker-patch-script-settings"]>
@@ -278,9 +272,7 @@ export const cloudflareApiResponseValidators: {
       SuccessResponseJSON<operations["worker-script-patch-settings"]>
     >;
     "/accounts/{account_id}/workers/services/{service_name}/environments/{environment_name}/settings": AjvStandaloneValidateFunction<
-      SuccessResponseJSON<
-        operations["worker-script-environment-patch-settings"]
-      >
+      SuccessResponseJSON<operations["worker-script-environment-patch-settings"]>
     >;
     "/accounts/{account_id}/workers/workers/{worker_id}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["editWorker"]>
@@ -288,9 +280,7 @@ export const cloudflareApiResponseValidators: {
   };
 
   POST: {
-    "/accounts": AjvStandaloneValidateFunction<
-      SuccessResponseJSON<operations["account-creation"]>
-    >;
+    "/accounts": AjvStandaloneValidateFunction<SuccessResponseJSON<operations["account-creation"]>>;
     "/accounts/{account_id}/builds/tokens": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["createBuildToken"]>
     >;
@@ -311,9 +301,7 @@ export const cloudflareApiResponseValidators: {
       SuccessResponseJSON<operations["namespace-worker-create"]>
     >;
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/assets-upload-session": AjvStandaloneValidateFunction<
-      SuccessResponseJSON<
-        operations["namespace-worker-script-update-create-assets-upload-session"]
-      >
+      SuccessResponseJSON<operations["namespace-worker-script-update-create-assets-upload-session"]>
     >;
     "/accounts/{account_id}/workers/observability/destinations": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["destination.create"]>
@@ -340,9 +328,7 @@ export const cloudflareApiResponseValidators: {
       SuccessResponseJSON<operations["telemetry.values.list"]>
     >;
     "/accounts/{account_id}/workers/scripts/{script_name}/assets-upload-session": AjvStandaloneValidateFunction<
-      SuccessResponseJSON<
-        operations["worker-script-update-create-assets-upload-session"]
-      >
+      SuccessResponseJSON<operations["worker-script-update-create-assets-upload-session"]>
     >;
     "/accounts/{account_id}/workers/scripts/{script_name}/deployments": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["worker-deployments-create-deployment"]>
@@ -375,9 +361,7 @@ export const cloudflareApiResponseValidators: {
       SuccessResponseJSON<operations["updateDeployHook"]>
     >;
     "/accounts/{account_id}/workers/account-settings": AjvStandaloneValidateFunction<
-      SuccessResponseJSON<
-        operations["worker-account-settings-create-worker-account-settings"]
-      >
+      SuccessResponseJSON<operations["worker-account-settings-create-worker-account-settings"]>
     >;
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["namespace-worker-put-namespace"]>
@@ -405,9 +389,7 @@ export const cloudflareApiResponseValidators: {
       SuccessResponseJSON<operations["worker-script-put-content"]>
     >;
     "/accounts/{account_id}/workers/scripts/{script_name}/schedules": AjvStandaloneValidateFunction<
-      SuccessResponseJSON<
-        operations["worker-cron-trigger-update-cron-triggers"]
-      >
+      SuccessResponseJSON<operations["worker-cron-trigger-update-cron-triggers"]>
     >;
     "/accounts/{account_id}/workers/scripts/{script_name}/secrets": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["worker-put-script-secret"]>

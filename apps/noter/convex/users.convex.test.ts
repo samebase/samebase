@@ -51,9 +51,7 @@ describe("users Convex contract", () => {
       hasConvexConnection: false,
       hasCloudflareConnection: false,
     });
-    await expect(asUser.query(api.users.isCurrentUserApproved)).resolves.toBe(
-      true,
-    );
+    await expect(asUser.query(api.users.isCurrentUserApproved)).resolves.toBe(true);
   });
 
   it("keeps provider connection state scoped to the authenticated user", async () => {
@@ -99,22 +97,16 @@ describe("users Convex contract", () => {
       hasConvexConnection: false,
       hasCloudflareConnection: false,
     });
-    await expect(
-      asViewer.query(api.users.getGithubConnectionStatus),
-    ).resolves.toEqual({ connected: false });
-    await expect(asViewer.query(api.users.isCurrentUserApproved)).resolves.toBe(
-      false,
-    );
-    await expect(
-      asViewer.mutation(api.users.disconnectGithub),
-    ).resolves.toBeNull();
+    await expect(asViewer.query(api.users.getGithubConnectionStatus)).resolves.toEqual({
+      connected: false,
+    });
+    await expect(asViewer.query(api.users.isCurrentUserApproved)).resolves.toBe(false);
+    await expect(asViewer.mutation(api.users.disconnectGithub)).resolves.toBeNull();
 
     const ownerConnectionAfterViewerDisconnect = await t.run(async (ctx) => {
       return await ctx.db
         .query("providerConnections")
-        .withIndex("by_user_kind", (q) =>
-          q.eq("userId", ownerId).eq("kind", "github"),
-        )
+        .withIndex("by_user_kind", (q) => q.eq("userId", ownerId).eq("kind", "github"))
         .unique();
     });
     expect(ownerConnectionAfterViewerDisconnect).toMatchObject({
@@ -128,9 +120,7 @@ describe("users Convex contract", () => {
       tokenIdentifier: `test:${ownerId}`,
     });
 
-    await expect(
-      asOwner.query(api.users.getGithubConnectionStatus),
-    ).resolves.toEqual({
+    await expect(asOwner.query(api.users.getGithubConnectionStatus)).resolves.toEqual({
       connected: true,
       username: "owner-login",
       authMethod: "api_key",

@@ -74,28 +74,21 @@ type AgentGraphChatContextValue = {
   onCommitResize: (nodeId: string, width: number, height: number) => void;
 };
 
-const AgentGraphChatContext = createContext<AgentGraphChatContextValue | null>(
-  null,
-);
+const AgentGraphChatContext = createContext<AgentGraphChatContextValue | null>(null);
 
 function getNumberStyleValue(value: unknown): number | undefined {
   return typeof value === "number" ? value : undefined;
 }
 
-function mergeGraphNodes(
-  current: AgentGraphNode[],
-  incoming: AgentGraphNode[],
-): AgentGraphNode[] {
+function mergeGraphNodes(current: AgentGraphNode[], incoming: AgentGraphNode[]): AgentGraphNode[] {
   const currentById = new Map(current.map((node) => [node.id, node]));
   return incoming.map((node) => {
     const existing = currentById.get(node.id);
     if (!existing) {
       return node;
     }
-    const existingWidth =
-      existing.width ?? getNumberStyleValue(existing.style?.width);
-    const existingHeight =
-      existing.height ?? getNumberStyleValue(existing.style?.height);
+    const existingWidth = existing.width ?? getNumberStyleValue(existing.style?.width);
+    const existingHeight = existing.height ?? getNumberStyleValue(existing.style?.height);
     const mergedData = { ...existing.data, ...node.data };
     return {
       ...existing,
@@ -142,10 +135,8 @@ function AgentNode({ data, id, width, height }: NodeProps<AgentGraphNode>) {
     reason: "Pending agent graph prompt",
   });
 
-  const currentWidth =
-    typeof width === "number" ? width : DEFAULT_AGENT_NODE_SIZE.width;
-  const currentHeight =
-    typeof height === "number" ? height : DEFAULT_AGENT_NODE_SIZE.height;
+  const currentWidth = typeof width === "number" ? width : DEFAULT_AGENT_NODE_SIZE.width;
+  const currentHeight = typeof height === "number" ? height : DEFAULT_AGENT_NODE_SIZE.height;
 
   const handleSend = useCallback(async () => {
     const trimmed = input.trim();
@@ -159,8 +150,7 @@ function AgentNode({ data, id, width, height }: NodeProps<AgentGraphNode>) {
     try {
       await graphContext.onSendMessage(trimmed);
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to send message.";
+      const message = err instanceof Error ? err.message : "Failed to send message.";
       setError(message);
       setInput(trimmed);
     } finally {
@@ -323,24 +313,9 @@ function AgentNode({ data, id, width, height }: NodeProps<AgentGraphNode>) {
                 viewBox="0 0 10 10"
                 className={`text-muted-foreground/60 ${handle.rotation}`}
               >
-                <path
-                  d="M0 10L10 0"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  fill="none"
-                />
-                <path
-                  d="M0 6L6 0"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  fill="none"
-                />
-                <path
-                  d="M0 2L2 0"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  fill="none"
-                />
+                <path d="M0 10L10 0" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                <path d="M0 6L6 0" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                <path d="M0 2L2 0" stroke="currentColor" strokeWidth="1.5" fill="none" />
               </svg>
             </div>
           ))}
@@ -406,10 +381,7 @@ function AgentNode({ data, id, width, height }: NodeProps<AgentGraphNode>) {
                       <div className="font-medium">
                         {message.role === "assistant" ? "Agent" : "You"}
                       </div>
-                      <ProsemarkReadOnly
-                        value={message.content}
-                        className="text-xs"
-                      />
+                      <ProsemarkReadOnly value={message.content} className="text-xs" />
                     </div>
                   ))}
                 </div>
@@ -425,9 +397,7 @@ function AgentNode({ data, id, width, height }: NodeProps<AgentGraphNode>) {
                 textareaClassName="min-h-[2.75rem] text-xs"
                 sendButtonClassName="h-7 w-7"
               />
-              {error && (
-                <div className="mt-1 text-[11px] text-red-600">{error}</div>
-              )}
+              {error && <div className="mt-1 text-[11px] text-red-600">{error}</div>}
             </div>
           </>
         )}
@@ -449,14 +419,8 @@ export function AgentGraphView({
   const createThread = useMutation(api.chat.index.createThread);
   const sendMessage = useMutation(api.chat.index.sendMessage);
   const setNodeLayout = useMutation(api.agentGraphLayout.setNodeLayout);
-  const vaultThread = useQuery(
-    api.chat.index.getThreadForVault,
-    vaultId ? { vaultId } : "skip",
-  );
-  const nodeLayouts = useQuery(
-    api.agentGraphLayout.getNodeLayouts,
-    vaultId ? { vaultId } : "skip",
-  );
+  const vaultThread = useQuery(api.chat.index.getThreadForVault, vaultId ? { vaultId } : "skip");
+  const nodeLayouts = useQuery(api.agentGraphLayout.getNodeLayouts, vaultId ? { vaultId } : "skip");
   const threadId = vaultId ? (vaultThread?.threadId ?? pendingThreadId) : null;
   const messages = useUIMessages(
     api.chat.index.listThreadMessages,
@@ -481,9 +445,7 @@ export function AgentGraphView({
       nodes.map((node) => {
         const layout = layoutById?.get(node.id);
         const defaults =
-          node.data.kind === "tool"
-            ? DEFAULT_TOOL_NODE_SIZE
-            : DEFAULT_AGENT_NODE_SIZE;
+          node.data.kind === "tool" ? DEFAULT_TOOL_NODE_SIZE : DEFAULT_AGENT_NODE_SIZE;
         return {
           ...node,
           width: layout?.width ?? node.width ?? defaults.width,
@@ -492,8 +454,7 @@ export function AgentGraphView({
       }),
     [nodes, layoutById],
   );
-  const [graphNodes, setGraphNodes, onNodesChange] =
-    useNodesState<AgentGraphNode>([]);
+  const [graphNodes, setGraphNodes, onNodesChange] = useNodesState<AgentGraphNode>([]);
 
   useEffect(() => {
     setGraphNodes((current) => mergeGraphNodes(current, baseNodes));
@@ -529,14 +490,7 @@ export function AgentGraphView({
     });
     setPendingThreadId(createdId);
     return createdId;
-  }, [
-    threadId,
-    vaultId,
-    createThread,
-    repositoryFullName,
-    branch,
-    normalizedFilePath,
-  ]);
+  }, [threadId, vaultId, createThread, repositoryFullName, branch, normalizedFilePath]);
 
   const handleSendMessage = useCallback(
     async (content: string) => {
@@ -556,12 +510,7 @@ export function AgentGraphView({
   );
 
   const handleResizeNode = useCallback(
-    (
-      nodeId: string,
-      width: number,
-      height: number,
-      position?: { x: number; y: number },
-    ) => {
+    (nodeId: string, width: number, height: number, position?: { x: number; y: number }) => {
       setGraphNodes((current) =>
         current.map((node) =>
           node.id === nodeId
@@ -598,14 +547,7 @@ export function AgentGraphView({
       onResizeNode: handleResizeNode,
       onCommitResize: handleCommitResize,
     }),
-    [
-      vaultId,
-      onOpenFile,
-      nodeMessages,
-      handleSendMessage,
-      handleResizeNode,
-      handleCommitResize,
-    ],
+    [vaultId, onOpenFile, nodeMessages, handleSendMessage, handleResizeNode, handleCommitResize],
   );
   const styledEdges = useMemo(
     () =>

@@ -3,11 +3,7 @@ import type { ActionCtx } from "../_generated/server";
 import type { z } from "zod";
 
 export type ToolSurface = "agent" | "mcp" | "ui";
-export type ToolSafety =
-  | "read_only"
-  | "write"
-  | "destructive"
-  | "proposal_only";
+export type ToolSafety = "read_only" | "write" | "destructive" | "proposal_only";
 export type ToolStatus = "ok" | "error" | "blocked";
 
 export type McpScope =

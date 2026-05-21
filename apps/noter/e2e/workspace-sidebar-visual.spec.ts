@@ -1,7 +1,6 @@
 import { devices, expect, test, type Page } from "@playwright/test";
 
-const { defaultBrowserType: _pixel7BrowserType, ...pixel7Device } =
-  devices["Pixel 7"];
+const { defaultBrowserType: _pixel7BrowserType, ...pixel7Device } = devices["Pixel 7"];
 
 async function gotoFileViewFixture(page: Page) {
   await page.goto("/visual-fixture?mode=fileview-layout-persistence", {
@@ -10,17 +9,12 @@ async function gotoFileViewFixture(page: Page) {
   await page.waitForLoadState("networkidle");
 }
 
-async function scrollFileViewCarouselToPane(
-  page: Page,
-  pane: "left" | "main" | "right",
-) {
-  await page
-    .getByTestId("workspace-layout-v2-pane-main")
-    .evaluate((element, nextPane) => {
-      const paneIndex = nextPane === "left" ? 0 : nextPane === "main" ? 1 : 2;
-      element.scrollLeft = element.clientWidth * paneIndex;
-      element.dispatchEvent(new Event("scroll", { bubbles: true }));
-    }, pane);
+async function scrollFileViewCarouselToPane(page: Page, pane: "left" | "main" | "right") {
+  await page.getByTestId("workspace-layout-v2-pane-main").evaluate((element, nextPane) => {
+    const paneIndex = nextPane === "left" ? 0 : nextPane === "main" ? 1 : 2;
+    element.scrollLeft = element.clientWidth * paneIndex;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+  }, pane);
 
   await expect(page.locator("[data-mobile-pane]").first()).toHaveAttribute(
     "data-mobile-pane",
@@ -34,18 +28,14 @@ async function getFixtureViewportClip(page: Page) {
 
   expect(bounds).not.toBeNull();
   if (bounds === null) {
-    throw new Error(
-      "Expected fileview layout fixture bounds for screenshot clip",
-    );
+    throw new Error("Expected fileview layout fixture bounds for screenshot clip");
   }
 
   return {
     x: Math.round(bounds.x),
     y: Math.round(bounds.y),
     width: Math.round(bounds.width),
-    height: Math.round(
-      Math.min(bounds.height, page.viewportSize()?.height ?? 0),
-    ),
+    height: Math.round(Math.min(bounds.height, page.viewportSize()?.height ?? 0)),
   };
 }
 
@@ -57,19 +47,14 @@ test("fileview desktop shell with right tree", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("fileview-layout-visual-fixture");
-  await expect(
-    page.getByRole("button", { name: "Open bottom panel" }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Open bottom panel" })).toHaveCount(0);
 
-  await expect(fixture).toHaveScreenshot(
-    "fileview-layout-shell-right-tree.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      scale: "css",
-      maxDiffPixelRatio: 0.03,
-    },
-  );
+  await expect(fixture).toHaveScreenshot("fileview-layout-shell-right-tree.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
 });
 
 test.describe("fileview mobile", () => {
@@ -86,28 +71,21 @@ test.describe("fileview mobile", () => {
 
     await scrollFileViewCarouselToPane(page, "right");
 
-    await expect(page.getByTestId("workspace-sidebar-main-scrim")).toHaveCount(
-      0,
-    );
+    await expect(page.getByTestId("workspace-sidebar-main-scrim")).toHaveCount(0);
     await expect(page.getByTestId("fileview-layout-body-button")).toBeVisible();
     await expect
       .poll(async () =>
-        header.evaluate(
-          (element) => window.getComputedStyle(element).scrollSnapStop,
-        ),
+        header.evaluate((element) => window.getComputedStyle(element).scrollSnapStop),
       )
       .toBe("always");
 
-    await expect(page).toHaveScreenshot(
-      "fileview-layout-mobile-sidebar-open.png",
-      {
-        animations: "disabled",
-        caret: "hide",
-        clip: await getFixtureViewportClip(page),
-        fullPage: false,
-        scale: "css",
-        maxDiffPixelRatio: 0.03,
-      },
-    );
+    await expect(page).toHaveScreenshot("fileview-layout-mobile-sidebar-open.png", {
+      animations: "disabled",
+      caret: "hide",
+      clip: await getFixtureViewportClip(page),
+      fullPage: false,
+      scale: "css",
+      maxDiffPixelRatio: 0.03,
+    });
   });
 });

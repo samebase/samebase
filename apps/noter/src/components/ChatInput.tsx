@@ -80,90 +80,88 @@ const prosemarkInputTheme = EditorView.theme({
   },
 });
 
-const SimpleChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
-  function SimpleChatInput(
-    {
-      value,
-      onValueChange,
-      onSend,
-      placeholder = "Type a message...",
-      disabled = false,
-      rows = 3,
-      className,
-      textareaClassName,
-      sendButtonClassName,
-      autoResize = false,
-    },
-    ref,
-  ) {
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const canSend = value.trim().length > 0 && !disabled;
-
-    const resizeTextarea = useCallback(() => {
-      const el = textareaRef.current;
-      if (!el) return;
-      if (!autoResize) {
-        el.style.height = "";
-        return;
-      }
-      el.style.height = "auto";
-      const nextHeight = Math.min(
-        AUTO_RESIZE_MAX_HEIGHT,
-        Math.max(AUTO_RESIZE_MIN_HEIGHT, el.scrollHeight),
-      );
-      el.style.height = `${nextHeight}px`;
-    }, [autoResize]);
-
-    useImperativeHandle(
-      ref,
-      () => ({
-        focus: () => {
-          textareaRef.current?.focus();
-        },
-      }),
-      [],
-    );
-
-    useLayoutEffect(() => {
-      resizeTextarea();
-    }, [value, resizeTextarea]);
-
-    return (
-      <div className={cn("flex items-end gap-2", className)}>
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(event) => onValueChange(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.shiftKey) {
-              event.preventDefault();
-              if (canSend) {
-                onSend();
-              }
-            }
-          }}
-          placeholder={placeholder}
-          rows={rows}
-          disabled={disabled}
-          className={cn(
-            "max-h-60 min-h-[4.5rem] flex-1 resize-none corner-notch-1 border border-input bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring",
-            textareaClassName,
-          )}
-        />
-        <button
-          onClick={() => onSend()}
-          disabled={!canSend}
-          className={cn(
-            "flex h-8 w-8 shrink-0 items-center justify-center corner-notch-1 bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40",
-            sendButtonClassName,
-          )}
-        >
-          <Send className="h-4 w-4" />
-        </button>
-      </div>
-    );
+const SimpleChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(function SimpleChatInput(
+  {
+    value,
+    onValueChange,
+    onSend,
+    placeholder = "Type a message...",
+    disabled = false,
+    rows = 3,
+    className,
+    textareaClassName,
+    sendButtonClassName,
+    autoResize = false,
   },
-);
+  ref,
+) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const canSend = value.trim().length > 0 && !disabled;
+
+  const resizeTextarea = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    if (!autoResize) {
+      el.style.height = "";
+      return;
+    }
+    el.style.height = "auto";
+    const nextHeight = Math.min(
+      AUTO_RESIZE_MAX_HEIGHT,
+      Math.max(AUTO_RESIZE_MIN_HEIGHT, el.scrollHeight),
+    );
+    el.style.height = `${nextHeight}px`;
+  }, [autoResize]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: () => {
+        textareaRef.current?.focus();
+      },
+    }),
+    [],
+  );
+
+  useLayoutEffect(() => {
+    resizeTextarea();
+  }, [value, resizeTextarea]);
+
+  return (
+    <div className={cn("flex items-end gap-2", className)}>
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={(event) => onValueChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            if (canSend) {
+              onSend();
+            }
+          }
+        }}
+        placeholder={placeholder}
+        rows={rows}
+        disabled={disabled}
+        className={cn(
+          "max-h-60 min-h-[4.5rem] flex-1 resize-none corner-notch-1 border border-input bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring",
+          textareaClassName,
+        )}
+      />
+      <button
+        onClick={() => onSend()}
+        disabled={!canSend}
+        className={cn(
+          "flex h-8 w-8 shrink-0 items-center justify-center corner-notch-1 bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40",
+          sendButtonClassName,
+        )}
+      >
+        <Send className="h-4 w-4" />
+      </button>
+    </div>
+  );
+});
 
 const ProsemarkChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
   function ProsemarkChatInput(
@@ -239,10 +237,7 @@ const ProsemarkChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
         const contentHeight = view.contentHeight;
         const nextHeight = Math.min(
           AUTO_RESIZE_MAX_HEIGHT,
-          Math.max(
-            AUTO_RESIZE_MIN_HEIGHT,
-            contentHeight + paddingTop + paddingBottom,
-          ),
+          Math.max(AUTO_RESIZE_MIN_HEIGHT, contentHeight + paddingTop + paddingBottom),
         );
         container.style.height = `${nextHeight}px`;
       };
@@ -265,11 +260,7 @@ const ProsemarkChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
 
       const updateListener = EditorView.updateListener.of((update) => {
         if (!update.docChanged) return;
-        if (
-          update.transactions.some((transaction) =>
-            transaction.annotation(EXTERNAL_UPDATE),
-          )
-        ) {
+        if (update.transactions.some((transaction) => transaction.annotation(EXTERNAL_UPDATE))) {
           return;
         }
         const nextValue = update.state.doc.toString();
@@ -313,15 +304,9 @@ const ProsemarkChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
           prosemarkInputTheme,
           updateListener,
           keymapExtension,
-          themeCompartmentRef.current.of(
-            isDarkRef.current ? prosemarkDarkTheme : [],
-          ),
-          editableCompartmentRef.current.of(
-            EditorView.editable.of(!disabledRef.current),
-          ),
-          placeholderCompartmentRef.current.of(
-            placeholder(placeholderRef.current),
-          ),
+          themeCompartmentRef.current.of(isDarkRef.current ? prosemarkDarkTheme : []),
+          editableCompartmentRef.current.of(EditorView.editable.of(!disabledRef.current)),
+          placeholderCompartmentRef.current.of(placeholder(placeholderRef.current)),
         ],
       });
 
@@ -344,15 +329,9 @@ const ProsemarkChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
       if (!view) return;
       view.dispatch({
         effects: [
-          themeCompartmentRef.current.reconfigure(
-            isDark ? prosemarkDarkTheme : [],
-          ),
-          editableCompartmentRef.current.reconfigure(
-            EditorView.editable.of(!disabled),
-          ),
-          placeholderCompartmentRef.current.reconfigure(
-            placeholder(placeholderText),
-          ),
+          themeCompartmentRef.current.reconfigure(isDark ? prosemarkDarkTheme : []),
+          editableCompartmentRef.current.reconfigure(EditorView.editable.of(!disabled)),
+          placeholderCompartmentRef.current.reconfigure(placeholder(placeholderText)),
         ],
       });
     }, [isDark, disabled, placeholderText]);
@@ -397,13 +376,14 @@ const ProsemarkChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
   },
 );
 
-export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
-  function ChatInput({ mode = "simple", ...props }, ref) {
-    if (mode === "prosemark") {
-      return <ProsemarkChatInput {...props} ref={ref} />;
-    }
-    return <SimpleChatInput {...props} ref={ref} />;
-  },
-);
+export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput(
+  { mode = "simple", ...props },
+  ref,
+) {
+  if (mode === "prosemark") {
+    return <ProsemarkChatInput {...props} ref={ref} />;
+  }
+  return <SimpleChatInput {...props} ref={ref} />;
+});
 
 ChatInput.displayName = "ChatInput";

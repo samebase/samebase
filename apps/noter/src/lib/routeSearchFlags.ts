@@ -57,10 +57,7 @@ export function normalizeRouteSearchPresenceFlags(
   keys: readonly string[],
 ): unknown {
   if (search instanceof URLSearchParams) {
-    return normalizeRouteSearchPresenceFlags(
-      Object.fromEntries(search.entries()),
-      keys,
-    );
+    return normalizeRouteSearchPresenceFlags(Object.fromEntries(search.entries()), keys);
   }
 
   if (!isSearchRecord(search)) {

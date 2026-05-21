@@ -47,8 +47,7 @@ async function main(): Promise<void> {
           return false;
         }
         return (
-          fileContents.includes("CONVEX_DEPLOYMENT=") &&
-          fileContents.includes("VITE_CONVEX_URL=")
+          fileContents.includes("CONVEX_DEPLOYMENT=") && fileContents.includes("VITE_CONVEX_URL=")
         );
       },
       60_000,
@@ -60,10 +59,7 @@ async function main(): Promise<void> {
         if (!convexClientUrl) {
           return false;
         }
-        const convexInstanceUrl = new URL(
-          "instance_name",
-          `${convexClientUrl}/`,
-        ).toString();
+        const convexInstanceUrl = new URL("instance_name", `${convexClientUrl}/`).toString();
         try {
           const response = await fetch(convexInstanceUrl);
           return response.ok;
@@ -78,19 +74,15 @@ async function main(): Promise<void> {
     for (const [key, value] of [
       ["PROVIDER_GITHUB_OAUTH_CLIENT_ID", "ci-placeholder"],
       ["PROVIDER_GITHUB_OAUTH_CLIENT_SECRET", "ci-placeholder"],
-      [
-        "PROVIDER_GITHUB_OAUTH_REDIRECT_URL",
-        "https://example.com/oauth/github/callback",
-      ],
+      ["PROVIDER_GITHUB_OAUTH_REDIRECT_URL", "https://example.com/oauth/github/callback"],
     ] as const) {
       await runConvexEnvSet(key, value);
     }
 
     await waitFor(
       async () =>
-        (await readOptionalFile(convexBootstrapLogPath))?.includes(
-          "Convex functions ready!",
-        ) ?? false,
+        (await readOptionalFile(convexBootstrapLogPath))?.includes("Convex functions ready!") ??
+        false,
       180_000,
       "Timed out waiting for Convex functions to become ready.",
     );
@@ -116,16 +108,7 @@ async function main(): Promise<void> {
  * for fatal errors and the idempotent single-key write contract.
  */
 async function runConvexEnvSet(key: string, value: string): Promise<void> {
-  const args = [
-    "--filter",
-    "noter",
-    "exec",
-    "convex",
-    "env",
-    "set",
-    key,
-    value,
-  ];
+  const args = ["--filter", "noter", "exec", "convex", "env", "set", key, value];
 
   for (let attempt = 1; attempt <= convexEnvSetMaxAttempts; attempt += 1) {
     const result = spawnSync(PNPM_COMMAND, args, {
@@ -139,10 +122,7 @@ async function runConvexEnvSet(key: string, value: string): Promise<void> {
     }
 
     const output = `${result.stdout}\n${result.stderr}`;
-    if (
-      attempt < convexEnvSetMaxAttempts &&
-      isTransientConvexEnvSetFailure(output)
-    ) {
+    if (attempt < convexEnvSetMaxAttempts && isTransientConvexEnvSetFailure(output)) {
       console.warn(
         `Retrying convex env set for ${key} after transient local backend conflict (${attempt}/${convexEnvSetMaxAttempts}).`,
       );
@@ -151,9 +131,7 @@ async function runConvexEnvSet(key: string, value: string): Promise<void> {
     }
 
     writeProcessOutput(result.stdout, result.stderr);
-    throw new Error(
-      `convex env set ${key} failed with exit code ${result.status ?? "unknown"}.`,
-    );
+    throw new Error(`convex env set ${key} failed with exit code ${result.status ?? "unknown"}.`);
   }
 
   throw new Error(`convex env set ${key} retry loop ended unexpectedly.`);
@@ -190,9 +168,7 @@ async function waitFor(
   throw new Error(failureMessage);
 }
 
-async function stopProcess(
-  childProcess: ReturnType<typeof spawn>,
-): Promise<void> {
+async function stopProcess(childProcess: ReturnType<typeof spawn>): Promise<void> {
   if (childProcess.exitCode !== null) {
     return;
   }

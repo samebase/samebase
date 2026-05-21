@@ -9,12 +9,9 @@ export function VaultDashboardBranchVisualFixture() {
     >
       <div className="mx-auto max-w-4xl">
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Vault Dashboard Branch Row
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Vault Dashboard Branch Row</h1>
           <p className="mt-2 max-w-2xl text-sm text-stone-600">
-            Visual fixture for the dashboard branch hierarchy when an open pull
-            request exists.
+            Visual fixture for the dashboard branch hierarchy when an open pull request exists.
           </p>
         </div>
 
@@ -34,8 +31,7 @@ export function VaultDashboardBranchVisualFixture() {
                   behindBy: 0,
                   pullRequestUrl: "https://github.com/noter-md/noter/pull/999",
                   pullRequestNumber: 999,
-                  pullRequestTitle:
-                    "Show PR titles above lighter branch labels",
+                  pullRequestTitle: "Show PR titles above lighter branch labels",
                 }}
               />
             </TestRouterProvider>

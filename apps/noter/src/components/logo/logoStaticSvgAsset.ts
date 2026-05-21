@@ -22,8 +22,7 @@ type StaticLogoSvgOptions = {
 };
 
 export function createStaticLogoSvgMarkup(options: StaticLogoSvgOptions = {}) {
-  const filledVoxels =
-    options.filledVoxels ?? createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES);
+  const filledVoxels = options.filledVoxels ?? createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES);
   const view = options.view ?? {
     elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
     rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
@@ -44,8 +43,7 @@ export function createLogoIdentityViewSvgMarkup(
   viewId: LogoIdentityViewId,
   options: StaticLogoSvgOptions = {},
 ) {
-  const filledVoxels =
-    options.filledVoxels ?? createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES);
+  const filledVoxels = options.filledVoxels ?? createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES);
   const view = getLogoIdentityViewContract(viewId);
 
   return createLogoThreeSvgMarkup({

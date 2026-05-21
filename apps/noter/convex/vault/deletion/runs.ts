@@ -1,9 +1,5 @@
 import { v, type Infer } from "convex/values";
-import {
-  internalMutation,
-  internalQuery,
-  type MutationCtx,
-} from "../../_generated/server";
+import { internalMutation, internalQuery, type MutationCtx } from "../../_generated/server";
 import { internal } from "../../_generated/api";
 import type { Doc, Id } from "../../_generated/dataModel";
 import {
@@ -33,9 +29,7 @@ const deletionRunEventState = union(literal("unchanged"), literal("running"));
 
 type ProviderKind = "github" | "convex" | "cloudflare";
 
-function getRepositoryFullName(
-  vault: Exclude<Doc<"vaults">, { state: "not_connected" }>,
-): string {
+function getRepositoryFullName(vault: Exclude<Doc<"vaults">, { state: "not_connected" }>): string {
   return `${vault.owner}/${vault.name}`;
 }
 
@@ -63,9 +57,7 @@ async function hasProviderConnection(
 ): Promise<boolean> {
   const connection = await ctx.db
     .query("providerConnections")
-    .withIndex("by_user_kind", (q) =>
-      q.eq("userId", args.userId).eq("kind", args.kind),
-    )
+    .withIndex("by_user_kind", (q) => q.eq("userId", args.userId).eq("kind", args.kind))
     .unique();
   return connection?.kind === args.kind;
 }
@@ -151,9 +143,7 @@ async function buildConvexPlan(
   }
 
   const projectId =
-    vault.convex.state === "connected"
-      ? vault.convex.projectId
-      : infrastructure?.convexProjectId;
+    vault.convex.state === "connected" ? vault.convex.projectId : infrastructure?.convexProjectId;
   if (typeof projectId === "string") {
     await requireProviderConnection(ctx, {
       userId: vault.userId,
@@ -458,10 +448,7 @@ export const createRetryRun = internalMutation({
       throw new Error("Vault not found");
     }
     const deletion = readVaultDeletionState(vault);
-    if (
-      deletion.state !== "delete_failed" ||
-      deletion.runId !== args.failedRunId
-    ) {
+    if (deletion.state !== "delete_failed" || deletion.runId !== args.failedRunId) {
       throw new Error("Vault is not waiting for deletion retry.");
     }
 
@@ -723,9 +710,7 @@ export const finishWorkflowRun = internalMutation({
   },
 });
 
-export function readRetainedSnapshot(
-  run: Doc<"vaultDeletionRuns">,
-): VaultDeletionRetainedSnapshot {
+export function readRetainedSnapshot(run: Doc<"vaultDeletionRuns">): VaultDeletionRetainedSnapshot {
   if (run.snapshot.state !== "retained_for_retry") {
     throw new Error("Deletion retry snapshot is not available.");
   }

@@ -3,10 +3,10 @@
 ## Status
 
 - Date: 2026-04-02
-- Reported issue: on mobile, refreshing `/machines` after opening the sidebar
-  resets the shell back to the closed state
-- Current decision: persist shared workspace-shell sidebar state in Convex, then
-  add route-owned sidebar content persistence only where it clearly belongs
+- Reported issue: on mobile, refreshing `/machines` after opening the sidebar resets the shell back
+  to the closed state
+- Current decision: persist shared workspace-shell sidebar state in Convex, then add route-owned
+  sidebar content persistence only where it clearly belongs
 
 ## Reproduction
 
@@ -27,8 +27,8 @@ This matches the user report exactly.
 The shared sidebar shell currently keeps its state only in React memory:
 
 - `apps/noter/src/components/sidebar.tsx`
-  - `SidebarProvider` owns `mobilePane`, left/right desktop open state, and
-    left/right mobile and desktop widths with `useState(...)`
+  - `SidebarProvider` owns `mobilePane`, left/right desktop open state, and left/right mobile and
+    desktop widths with `useState(...)`
 - `apps/noter/src/components/MachinesWorkspaceView.tsx`
   - mounts its own `SidebarProvider`
   - also keeps `openProjectIds` only in component state
@@ -37,18 +37,17 @@ The shared sidebar shell currently keeps its state only in React memory:
 - `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
   - mounts its own `SidebarProvider`
 
-That means a full refresh recreates the provider and drops every sidebar state
-slice back to its defaults.
+That means a full refresh recreates the provider and drops every sidebar state slice back to its
+defaults.
 
-There is also a partial legacy persistence path that does not currently restore
-anything:
+There is also a partial legacy persistence path that does not currently restore anything:
 
 - `apps/noter/src/components/sidebar.tsx`
   - writes a `sidebar_state` cookie when the primary desktop sidebar toggles
 - no app code reads that cookie back into `SidebarProvider`
 
-So the current cookie is effectively write-only and does not solve refresh
-restore for the shared shell.
+So the current cookie is effectively write-only and does not solve refresh restore for the shared
+shell.
 
 ## Existing Convex Patterns Worth Reusing
 
@@ -58,11 +57,10 @@ Two existing patterns point to the right fix shape:
    - stores per-user, per-vault sidebar tree expansion state in Convex
 2. `apps/noter/convex/dashboardSettings.ts`
    - stores lightweight per-user UI toggles in Convex
-   - the client keeps a local optimistic mirror and ignores server echoes until
-     the pending write settles
+   - the client keeps a local optimistic mirror and ignores server echoes until the pending write
+     settles
 
-Those two patterns together are a better foundation than adding more cookie or
-`localStorage` state.
+Those two patterns together are a better foundation than adding more cookie or `localStorage` state.
 
 ## Options Considered
 
@@ -80,18 +78,17 @@ Why not:
 
 ### 2. Expand `dashboardSettings`
 
-This is tempting because it already stores UI toggles in Convex, but it is the
-wrong abstraction for the shared workspace shell.
+This is tempting because it already stores UI toggles in Convex, but it is the wrong abstraction for
+the shared workspace shell.
 
 Why not:
 
 - `dashboardSettings` is global per-user state, not route- or surface-scoped
-- sidebar widths and mobile pane state do not belong beside billing-cycle and
-  chat-dock preferences
-- `/machines` and repository routes would either leak into dashboard-only state
-  or force awkward optional fields with no clear ownership
-- route-specific extras such as file-tree scroll or machine-group expansion do
-  not fit this table cleanly
+- sidebar widths and mobile pane state do not belong beside billing-cycle and chat-dock preferences
+- `/machines` and repository routes would either leak into dashboard-only state or force awkward
+  optional fields with no clear ownership
+- route-specific extras such as file-tree scroll or machine-group expansion do not fit this table
+  cleanly
 
 ### 3. Add A Dedicated `workspaceSidebarState` Convex Model
 
@@ -100,18 +97,16 @@ This is the best fit.
 Why:
 
 - it matches the shared-shell architecture directly
-- it keeps shell geometry and open/closed state separate from unrelated product
-  settings
+- it keeps shell geometry and open/closed state separate from unrelated product settings
 - it can scope state by workspace surface instead of by one giant settings row
-- it leaves room for route-owned follow-up state without forcing everything into
-  one table
+- it leaves room for route-owned follow-up state without forcing everything into one table
 
 ## Recommended Design
 
 ### Phase 1: Persist Shared Shell State
 
-Add a dedicated Convex table for shared workspace sidebar state, keyed by user
-and workspace surface.
+Add a dedicated Convex table for shared workspace sidebar state, keyed by user and workspace
+surface.
 
 Suggested row shape:
 
@@ -136,28 +131,26 @@ Suggested initial `workspaceKey` values:
 - `machines`
 - `repository`
 
-`repository` should stay workspace-level, not per-vault, for shell state. File
-tree structure already has its own per-vault persistence, and most users will
-expect sidebar open/width behavior to feel stable across repositories.
+`repository` should stay workspace-level, not per-vault, for shell state. File tree structure
+already has its own per-vault persistence, and most users will expect sidebar open/width behavior to
+feel stable across repositories.
 
 ### Client Shape
 
-Keep `SidebarProvider` presentational and fixture-safe. Do not couple Convex
-directly into it.
+Keep `SidebarProvider` presentational and fixture-safe. Do not couple Convex directly into it.
 
 Instead:
 
-1. Extend `SidebarProvider` so the full shell state can be controlled from the
-   outside, not just the primary desktop open boolean.
-2. Add a wrapper hook such as
-   `usePersistedWorkspaceSidebarState({ workspaceKey, defaults })` that:
+1. Extend `SidebarProvider` so the full shell state can be controlled from the outside, not just the
+   primary desktop open boolean.
+2. Add a wrapper hook such as `usePersistedWorkspaceSidebarState({ workspaceKey, defaults })` that:
    - reads the row from Convex
    - mirrors it locally for immediate UI response
    - uses the same pending-write pattern as `dashboardSettings`
    - feeds controlled state and change handlers into `SidebarProvider`
 
-That preserves the current fixture and visual-test ergonomics while giving the
-production routes a real persistence path.
+That preserves the current fixture and visual-test ergonomics while giving the production routes a
+real persistence path.
 
 ### Write Cadence
 
@@ -171,36 +164,34 @@ This avoids turning drag into a mutation flood.
 
 ### Hydration Behavior
 
-The client should hydrate from Convex without letting late server echoes stomp
-fresh local interactions.
+The client should hydrate from Convex without letting late server echoes stomp fresh local
+interactions.
 
 Recommended behavior:
 
 - start from the current route defaults
 - apply the server state once it loads
-- if the user has already interacted locally, ignore stale server echoes until
-  the pending local write settles
+- if the user has already interacted locally, ignore stale server echoes until the pending local
+  write settles
 
 That is the same pattern already used successfully for dashboard settings.
 
 ## Why Scroll Restoration Is A Separate Concern
 
-The user asked for scroll position too, which is a good direction, but it does
-not belong in the generic shell layer.
+The user asked for scroll position too, which is a good direction, but it does not belong in the
+generic shell layer.
 
-The shell owns open state and pane geometry. The routes own the actual scroll
-containers.
+The shell owns open state and pane geometry. The routes own the actual scroll containers.
 
 Examples:
 
 - `apps/noter/src/components/MachinesWorkspaceView.tsx`
   - the left rail scroll container lives inside route content
 - `apps/noter/src/components/FileView.tsx`
-  - the file-tree scroll container is route-owned and already has separate
-    folder-expansion persistence
+  - the file-tree scroll container is route-owned and already has separate folder-expansion
+    persistence
 - `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
-  - sidebar content is different again and already has its own
-    `providersPanelOpen` state
+  - sidebar content is different again and already has its own `providersPanelOpen` state
 
 So the clean split is:
 
@@ -209,8 +200,8 @@ So the clean split is:
 
 ## Phase 2: Route-Owned Sidebar Content Persistence
 
-After Phase 1 fixes the reported bug, add route-specific persistence where it is
-worth the complexity.
+After Phase 1 fixes the reported bug, add route-specific persistence where it is worth the
+complexity.
 
 ### `/machines`
 
@@ -219,8 +210,8 @@ Good follow-up candidates:
 - left rail `scrollTop`
 - expanded project ids (`openProjectIds`)
 
-These can live in a small `/machines`-specific Convex record keyed by user and
-surface. They should not be stuffed into the generic shell row.
+These can live in a small `/machines`-specific Convex record keyed by user and surface. They should
+not be stuffed into the generic shell row.
 
 ### Repository File View
 
@@ -228,8 +219,8 @@ Good follow-up candidate:
 
 - file-tree `scrollTop`
 
-Folder expansion is already persisted per user per vault, so this would be an
-incremental addition rather than a new generic system.
+Folder expansion is already persisted per user per vault, so this would be an incremental addition
+rather than a new generic system.
 
 ### Dashboard
 
@@ -240,8 +231,7 @@ No extra route-specific change is required for the initial fix.
 
 ## Validation Plan
 
-Before implementing the fix, add a real-route Playwright repro for the reported
-behavior.
+Before implementing the fix, add a real-route Playwright repro for the reported behavior.
 
 Recommended first test:
 
@@ -261,10 +251,9 @@ Follow-up tests after rollout:
 
 Once Convex-backed shell persistence ships:
 
-- remove the write-only `sidebar_state` cookie path from
-  `apps/noter/src/components/sidebar.tsx`
-- update the privacy-policy copy that currently claims the cookie is how the
-  sidebar preference is remembered
+- remove the write-only `sidebar_state` cookie path from `apps/noter/src/components/sidebar.tsx`
+- update the privacy-policy copy that currently claims the cookie is how the sidebar preference is
+  remembered
 
 ## Recommendation Summary
 
@@ -275,9 +264,7 @@ The best fix is:
 1. introduce a dedicated Convex-backed shared workspace sidebar state model
 2. control `SidebarProvider` from a thin persistence wrapper hook
 3. ship Phase 1 with open state, `mobilePane`, and widths
-4. add scroll and other sidebar-content details only in the routes that own
-   those scroll containers
+4. add scroll and other sidebar-content details only in the routes that own those scroll containers
 
-That fixes the reported mobile refresh bug, fits the current shared-shell
-architecture, and avoids mixing shell state with unrelated settings or adding
-another local-only persistence system.
+That fixes the reported mobile refresh bug, fits the current shared-shell architecture, and avoids
+mixing shell state with unrelated settings or adding another local-only persistence system.

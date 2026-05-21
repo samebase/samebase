@@ -10,9 +10,7 @@ export type ConnectedMachineHeartbeatMachine = {
 
 const MAX_HEARTBEAT_LOG_LINES = 40;
 
-export function formatConnectedMachineHeartbeatTimestamp(
-  value: number,
-): string {
+export function formatConnectedMachineHeartbeatTimestamp(value: number): string {
   return new Date(value).toLocaleTimeString();
 }
 
@@ -20,9 +18,7 @@ function buildHeartbeatLogLine(args: {
   machine: ConnectedMachineHeartbeatMachine;
   kind: "discovered" | "heartbeat" | "status";
 }) {
-  const timestamp = formatConnectedMachineHeartbeatTimestamp(
-    args.machine.lastSeenAt,
-  );
+  const timestamp = formatConnectedMachineHeartbeatTimestamp(args.machine.lastSeenAt);
   const summary = `${args.machine.displayName} (${args.machine.hostname})`;
 
   switch (args.kind) {
@@ -86,9 +82,7 @@ export function useConnectedMachineHeartbeatLog(
       return;
     }
 
-    setLines((current) =>
-      [...current, ...nextLines].slice(-MAX_HEARTBEAT_LOG_LINES),
-    );
+    setLines((current) => [...current, ...nextLines].slice(-MAX_HEARTBEAT_LOG_LINES));
   }, [machines]);
 
   return lines.join("\n");

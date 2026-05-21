@@ -41,12 +41,8 @@ async function captureLandingReloadFrames(
     let frame = 0;
     const capture = () => {
       frameStore.push({
-        content: readRect(
-          document.querySelector('[data-testid="public-landing-content"]'),
-        ),
-        copy: readRect(
-          document.querySelector('[data-testid="public-landing-copy"]'),
-        ),
+        content: readRect(document.querySelector('[data-testid="public-landing-content"]')),
+        copy: readRect(document.querySelector('[data-testid="public-landing-copy"]')),
       });
       frame += 1;
       if (frame >= sampleCount) {
@@ -71,29 +67,19 @@ async function captureLandingReloadFrames(
   });
 }
 
-async function expectPathname(
-  page: Parameters<typeof test>[0]["page"],
-  pathname: string,
-) {
+async function expectPathname(page: Parameters<typeof test>[0]["page"], pathname: string) {
   await expect.poll(() => new URL(page.url()).pathname).toBe(pathname);
 }
 
-async function expectSearchFlag(
-  page: Parameters<typeof test>[0]["page"],
-  flag: string,
-) {
-  await expect
-    .poll(() => new URL(page.url()).searchParams.has(flag))
-    .toBe(true);
+async function expectSearchFlag(page: Parameters<typeof test>[0]["page"], flag: string) {
+  await expect.poll(() => new URL(page.url()).searchParams.has(flag)).toBe(true);
 }
 
 test("local landing reload keeps the password auth slot stable on the dev server", async ({
   page,
 }) => {
   await page.goto("/", { waitUntil: "networkidle" });
-  await expect(
-    page.getByRole("button", { name: "Autofill & sign in" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Autofill & sign in" })).toBeVisible();
 
   const reloadFrames = await captureLandingReloadFrames(page);
   const visibleFrames = reloadFrames.flatMap((frame) => {
@@ -109,20 +95,12 @@ test("local landing reload keeps the password auth slot stable on the dev server
   const copyTopValues = visibleFrames.map((frame) => frame.copy!.top);
   const copyHeightValues = visibleFrames.map((frame) => frame.copy!.height);
 
-  expect(
-    Math.max(...contentTopValues) - Math.min(...contentTopValues),
-  ).toBeLessThanOrEqual(1);
-  expect(
-    Math.max(...copyTopValues) - Math.min(...copyTopValues),
-  ).toBeLessThanOrEqual(1);
-  expect(
-    Math.max(...copyHeightValues) - Math.min(...copyHeightValues),
-  ).toBeLessThanOrEqual(1);
+  expect(Math.max(...contentTopValues) - Math.min(...contentTopValues)).toBeLessThanOrEqual(1);
+  expect(Math.max(...copyTopValues) - Math.min(...copyTopValues)).toBeLessThanOrEqual(1);
+  expect(Math.max(...copyHeightValues) - Math.min(...copyHeightValues)).toBeLessThanOrEqual(1);
 });
 
-test("public landing keeps the mobile sidebar header hidden", async ({
-  page,
-}, testInfo) => {
+test("public landing keeps the mobile sidebar header hidden", async ({ page }, testInfo) => {
   test.skip(
     testInfo.project.name !== "chromium-mobile",
     "Mobile carousel state is only visible in the mobile project.",
@@ -131,9 +109,7 @@ test("public landing keeps the mobile sidebar header hidden", async ({
   await page.goto("/?dev", { waitUntil: "networkidle" });
   const shell = page.locator('[data-workspace-layout-v2="mobile"]');
 
-  await expect(
-    page.getByRole("button", { name: "Toggle sidebar" }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Toggle sidebar" })).toHaveCount(0);
   await expect(shell).toHaveAttribute("data-mobile-pane", "main");
   await expectSearchFlag(page, "dev");
 
@@ -169,13 +145,7 @@ test("landing dev mode reload keeps the editable copy stable on the dev server",
   const copyTopValues = visibleFrames.map((frame) => frame.copy!.top);
   const copyHeightValues = visibleFrames.map((frame) => frame.copy!.height);
 
-  expect(
-    Math.max(...contentTopValues) - Math.min(...contentTopValues),
-  ).toBeLessThanOrEqual(1);
-  expect(
-    Math.max(...copyTopValues) - Math.min(...copyTopValues),
-  ).toBeLessThanOrEqual(1);
-  expect(
-    Math.max(...copyHeightValues) - Math.min(...copyHeightValues),
-  ).toBeLessThanOrEqual(1);
+  expect(Math.max(...contentTopValues) - Math.min(...contentTopValues)).toBeLessThanOrEqual(1);
+  expect(Math.max(...copyTopValues) - Math.min(...copyTopValues)).toBeLessThanOrEqual(1);
+  expect(Math.max(...copyHeightValues) - Math.min(...copyHeightValues)).toBeLessThanOrEqual(1);
 });

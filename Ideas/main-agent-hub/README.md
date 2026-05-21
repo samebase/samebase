@@ -2,14 +2,13 @@
 
 ## Problem
 
-When multiple agents are running in separate worktrees, I keep context switching
-between chats and lose flow. The work itself is happening, but the control
-surface is fragmented.
+When multiple agents are running in separate worktrees, I keep context switching between chats and
+lose flow. The work itself is happening, but the control surface is fragmented.
 
 ## Desired outcome
 
-Have one persistent "main agent" (similar to Noter's ChatFab) that can see,
-coordinate, and talk to all active worktree agents from a single place.
+Have one persistent "main agent" (similar to Noter's ChatFab) that can see, coordinate, and talk to
+all active worktree agents from a single place.
 
 Think of it like a Wispr Flow-style layer above all worktrees:
 
@@ -37,20 +36,17 @@ Think of it like a Wispr Flow-style layer above all worktrees:
 ## MVP (ship fast)
 
 1. Add a single "Hub" chat entrypoint that is always visible.
-2. Show active worktree agents as sessions with status:
-   `idle | running | blocked | needs-review`.
+2. Show active worktree agents as sessions with status: `idle | running | blocked | needs-review`.
 3. Let Hub send a task to any session with one click.
 4. Stream back concise progress updates into Hub (with source worktree labels).
-5. Add a quick "focus transfer" action: open related worktree + recent
-   messages + changed files.
-6. Add a "create branch" action from Hub for any worktree session, even as a
-   simple markdown command first (example: `create branch codex/<name>`).
+5. Add a quick "focus transfer" action: open related worktree + recent messages + changed files.
+6. Add a "create branch" action from Hub for any worktree session, even as a simple markdown command
+   first (example: `create branch codex/<name>`).
 
 ## UX notes
 
 - Default to a compact floating entrypoint (ChatFab-like behavior).
-- Keep interaction command-first: "ask agent X to continue task Y", "summarize
-  all running work".
+- Keep interaction command-first: "ask agent X to continue task Y", "summarize all running work".
 - Avoid forcing manual tab hopping for normal coordination tasks.
 
 ## Success criteria

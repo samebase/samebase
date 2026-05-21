@@ -4,8 +4,7 @@ export const FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES = [
   "file-view-open-pr",
 ] as const;
 
-export type FileViewPushActionsVisualMode =
-  (typeof FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES)[number];
+export type FileViewPushActionsVisualMode = (typeof FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES)[number];
 
 export function isFileViewPushActionsVisualMode(
   value: string,

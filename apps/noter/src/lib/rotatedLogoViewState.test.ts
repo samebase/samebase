@@ -1,13 +1,6 @@
 // @vitest-environment jsdom
 
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const DEFAULT_VIEW = {
   elevationDegrees: 35,
@@ -83,8 +76,7 @@ describe("rotatedLogoViewState", () => {
 
   it("hydrates persisted logo view state after the memory cache resets", async () => {
     const initialModule = await importRotatedLogoViewState();
-    const { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY, persistRotatedLogoViewState } =
-      initialModule;
+    const { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY, persistRotatedLogoViewState } = initialModule;
 
     persistRotatedLogoViewState({
       key: DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY,
@@ -110,8 +102,7 @@ describe("rotatedLogoViewState", () => {
 
   it("keeps visit-persisted logo view state out of localStorage", async () => {
     const initialModule = await importRotatedLogoViewState();
-    const { PUBLIC_LANDING_LOGO_VIEW_STATE_KEY, persistRotatedLogoViewState } =
-      initialModule;
+    const { PUBLIC_LANDING_LOGO_VIEW_STATE_KEY, persistRotatedLogoViewState } = initialModule;
 
     persistRotatedLogoViewState({
       key: PUBLIC_LANDING_LOGO_VIEW_STATE_KEY,

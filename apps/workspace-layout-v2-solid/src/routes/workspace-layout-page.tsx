@@ -10,18 +10,11 @@ const MOBILE_SIDEBAR_MIN_WIDTH_PX = 160;
 const RIGHT_SIDEBAR_LINK_HREF =
   "https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Overflow/Carousels";
 
-function scrollToMobilePane(args: {
-  carouselNode: HTMLDivElement;
-  paneNode: HTMLElement;
-}) {
+function scrollToMobilePane(args: { carouselNode: HTMLDivElement; paneNode: HTMLElement }) {
   args.carouselNode.scrollLeft = args.paneNode.offsetLeft;
 }
 
-function Pane(props: {
-  children: JSX.Element;
-  class: string;
-  dataTestId: string;
-}) {
+function Pane(props: { children: JSX.Element; class: string; dataTestId: string }) {
   return (
     <section class={props.class} data-testid={props.dataTestId}>
       {props.children}
@@ -67,9 +60,7 @@ export function WorkspaceLayoutPage() {
       });
     };
 
-    const mediaQuery = window.matchMedia(
-      `(max-width: ${MOBILE_BREAKPOINT_PX - 1}px)`,
-    );
+    const mediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX - 1}px)`);
     const handleViewportChange = () => {
       if (mediaQuery.matches) {
         scrollToMainPane();
@@ -101,10 +92,7 @@ export function WorkspaceLayoutPage() {
 
   return (
     <main class="h-svh bg-background text-foreground">
-      <div
-        class="hidden h-full min-h-0 md:flex"
-        data-workspace-layout-v2="desktop"
-      >
+      <div class="hidden h-full min-h-0 md:flex" data-workspace-layout-v2="desktop">
         <Pane
           class="flex h-full min-h-0 w-80 overflow-hidden border-r border-border bg-background"
           dataTestId="workspace-layout-v2-pane-left"
@@ -133,12 +121,11 @@ export function WorkspaceLayoutPage() {
         </Pane>
       </div>
 
-      <div
-        class="relative h-full min-h-0 md:hidden"
-        data-workspace-layout-v2="mobile"
-      >
+      <div class="relative h-full min-h-0 md:hidden" data-workspace-layout-v2="mobile">
         <div
-          ref={mobileCarouselRef}
+          ref={(node) => {
+            mobileCarouselRef = node;
+          }}
           class="absolute inset-0 flex min-h-0 snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain bg-background [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           <div class="h-full shrink-0" style={mobileEditorSidebarStyle}>
@@ -154,7 +141,9 @@ export function WorkspaceLayoutPage() {
           </div>
 
           <div
-            ref={mobileMainPaneRef}
+            ref={(node) => {
+              mobileMainPaneRef = node;
+            }}
             class="h-full shrink-0"
             style={mobileMainStyle}
           >

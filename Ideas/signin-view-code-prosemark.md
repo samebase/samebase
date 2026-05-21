@@ -2,19 +2,16 @@
 
 ## Goal
 
-Make the sign-in screen behave like a rendered document, not a hardcoded React
-layout:
+Make the sign-in screen behave like a rendered document, not a hardcoded React layout:
 
 - `view`: users see the rendered landing + interactive sign-in controls
 - `code`: users see the source for the same screen (like mermaid renderers)
 
-This keeps landing UX editable as content while preserving product-grade auth
-actions.
+This keeps landing UX editable as content while preserving product-grade auth actions.
 
 ## Why this is interesting
 
-- Landing copy and structure can evolve quickly without touching component JSX
-  every time.
+- Landing copy and structure can evolve quickly without touching component JSX every time.
 - The UI and its source stay in sync by design.
 - It fits Noter's "docs + code in one place" product identity.
 
@@ -63,8 +60,7 @@ Renderer maps each shortcode to a known React component. No dynamic code eval.
 ## Implementation sketch (later)
 
 1. **Content file**
-   - Add `apps/noter/src/content/signin.landing.md` (or reuse `noter.md` section
-     if preferred).
+   - Add `apps/noter/src/content/signin.landing.md` (or reuse `noter.md` section if preferred).
 2. **Doc renderer**
    - Parse markdown with existing pipeline.
    - Detect shortcodes like `[[auth.google]]`.
@@ -72,24 +68,20 @@ Renderer maps each shortcode to a known React component. No dynamic code eval.
 3. **Toggle UI**
    - Add compact top-right toggle in sign-in card: `view | code`.
 4. **Code mode**
-   - Reuse `ProsemarkReadOnly` (or read-only CodeMirror) to show raw markdown
-     source.
+   - Reuse `ProsemarkReadOnly` (or read-only CodeMirror) to show raw markdown source.
 5. **Guardrails**
-   - Unknown shortcode renders a visible warning placeholder in dev, no-op in
-     prod.
+   - Unknown shortcode renders a visible warning placeholder in dev, no-op in prod.
    - Strict whitelist mapping for interactive blocks.
 
 ## Component mapping (first pass)
 
 - `[[auth.google]]` -> current `SignInWithGoogle`
-- `[[auth.password-dev]]` -> current `PasswordAuthForm` gated by
-  `import.meta.env.DEV`
+- `[[auth.password-dev]]` -> current `PasswordAuthForm` gated by `import.meta.env.DEV`
 - `[[auth.waitlist]]` -> current `WaitlistForm`
 
 ## UX details
 
-- Persist last mode (`view` or `code`) in localStorage key scoped to sign-in
-  screen.
+- Persist last mode (`view` or `code`) in localStorage key scoped to sign-in screen.
 - Default to `view` for first-time visitors.
 - In `code` mode, disable editing (read-only).
 

@@ -56,10 +56,7 @@ export function setAuthProvider(provider: AuthProvider) {
  * Keep provider bookkeeping next to the auth action so every Google login path
  * stamps the same provider before redirecting into Convex Auth.
  */
-export function signInWithGoogleAction(args: {
-  signIn: SignInAction;
-  redirectTo: string;
-}) {
+export function signInWithGoogleAction(args: { signIn: SignInAction; redirectTo: string }) {
   setAuthProvider("google");
   return args.signIn("google", { redirectTo: args.redirectTo });
 }
@@ -123,10 +120,8 @@ export function useNoterSignInActions() {
   const { signIn } = useAuthActions();
 
   return {
-    signInWithGoogle: (redirectTo: string) =>
-      signInWithGoogleAction({ signIn, redirectTo }),
-    signInWithPassword: (args: PasswordSignInArgs) =>
-      signInWithPasswordAction({ signIn, ...args }),
+    signInWithGoogle: (redirectTo: string) => signInWithGoogleAction({ signIn, redirectTo }),
+    signInWithPassword: (args: PasswordSignInArgs) => signInWithPasswordAction({ signIn, ...args }),
   };
 }
 
@@ -183,9 +178,7 @@ export function openAuthPopup(
     if (messageData.type !== "convex-auth-tokens") return;
     cleanup();
     if (!isStringRecord(messageData.tokens)) {
-      console.warn(
-        "authClient:ignored popup message with invalid token payload",
-      );
+      console.warn("authClient:ignored popup message with invalid token payload");
       return;
     }
     for (const [key, value] of Object.entries(messageData.tokens)) {

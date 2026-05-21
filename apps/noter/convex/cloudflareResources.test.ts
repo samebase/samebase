@@ -104,17 +104,12 @@ describe("cloudflare resources", () => {
   });
 
   it("selects the only Cloudflare account exposed to OAuth", () => {
-    expect(selectSingleCloudflareAccountId([{ id: " account-id " }])).toBe(
-      "account-id",
-    );
+    expect(selectSingleCloudflareAccountId([{ id: " account-id " }])).toBe("account-id");
   });
 
   it("fails closed when Cloudflare OAuth exposes multiple accounts", () => {
     expect(() =>
-      selectSingleCloudflareAccountId([
-        { id: "first-account-id" },
-        { id: "second-account-id" },
-      ]),
+      selectSingleCloudflareAccountId([{ id: "first-account-id" }, { id: "second-account-id" }]),
     ).toThrow("multiple accounts");
   });
 

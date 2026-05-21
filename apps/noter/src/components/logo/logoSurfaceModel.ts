@@ -31,12 +31,7 @@ export type LogoSurfaceQuad = {
   key: string;
   materialIndex: number;
   normal: LogoSurfaceVertex;
-  vertices: readonly [
-    LogoSurfaceVertex,
-    LogoSurfaceVertex,
-    LogoSurfaceVertex,
-    LogoSurfaceVertex,
-  ];
+  vertices: readonly [LogoSurfaceVertex, LogoSurfaceVertex, LogoSurfaceVertex, LogoSurfaceVertex];
 };
 
 function collectSparseRectangles(
@@ -71,11 +66,7 @@ function collectSparseRectangles(
     let height = 1;
     let canGrow = true;
     while (row + height < gridSize && canGrow) {
-      for (
-        let nextColumn = column;
-        nextColumn < column + width;
-        nextColumn += 1
-      ) {
+      for (let nextColumn = column; nextColumn < column + width; nextColumn += 1) {
         const nextCell = (row + height) * gridSize + nextColumn;
         if (!cells.has(nextCell) || visited.has(nextCell)) {
           canGrow = false;
@@ -88,11 +79,7 @@ function collectSparseRectangles(
     }
 
     for (let nextRow = row; nextRow < row + height; nextRow += 1) {
-      for (
-        let nextColumn = column;
-        nextColumn < column + width;
-        nextColumn += 1
-      ) {
+      for (let nextColumn = column; nextColumn < column + width; nextColumn += 1) {
         visited.add(nextRow * gridSize + nextColumn);
       }
     }
@@ -134,12 +121,7 @@ function addFaceCell(
   facePlanes.set(plane, new Set([cell]));
 }
 
-function toVoxelCell(
-  gridSize: number,
-  x: number,
-  y: number,
-  z: number,
-): number {
+function toVoxelCell(gridSize: number, x: number, y: number, z: number): number {
   return (x * gridSize + y) * gridSize + z;
 }
 
@@ -184,34 +166,22 @@ function collectSurfaceFacePlanes(
   for (const coordinate of filledVoxelCoordinates.coordinates) {
     const [x, y, z] = coordinate;
 
-    if (
-      !isVoxelFilled(filledVoxelCoordinates.filledCells, gridSize, x + 1, y, z)
-    ) {
+    if (!isVoxelFilled(filledVoxelCoordinates.filledCells, gridSize, x + 1, y, z)) {
       addFaceCell(facePlanes.positiveX, gridSize, x, y, z);
     }
-    if (
-      !isVoxelFilled(filledVoxelCoordinates.filledCells, gridSize, x - 1, y, z)
-    ) {
+    if (!isVoxelFilled(filledVoxelCoordinates.filledCells, gridSize, x - 1, y, z)) {
       addFaceCell(facePlanes.negativeX, gridSize, x, y, z);
     }
-    if (
-      !isVoxelFilled(filledVoxelCoordinates.filledCells, gridSize, x, y + 1, z)
-    ) {
+    if (!isVoxelFilled(filledVoxelCoordinates.filledCells, gridSize, x, y + 1, z)) {
       addFaceCell(facePlanes.positiveY, gridSize, y, x, z);
     }
-    if (
-      !isVoxelFilled(filledVoxelCoordinates.filledCells, gridSize, x, y - 1, z)
-    ) {
+    if (!isVoxelFilled(filledVoxelCoordinates.filledCells, gridSize, x, y - 1, z)) {
       addFaceCell(facePlanes.negativeY, gridSize, y, x, z);
     }
-    if (
-      !isVoxelFilled(filledVoxelCoordinates.filledCells, gridSize, x, y, z + 1)
-    ) {
+    if (!isVoxelFilled(filledVoxelCoordinates.filledCells, gridSize, x, y, z + 1)) {
       addFaceCell(facePlanes.positiveZ, gridSize, z, x, y);
     }
-    if (
-      !isVoxelFilled(filledVoxelCoordinates.filledCells, gridSize, x, y, z - 1)
-    ) {
+    if (!isVoxelFilled(filledVoxelCoordinates.filledCells, gridSize, x, y, z - 1)) {
       addFaceCell(facePlanes.negativeZ, gridSize, z, x, y);
     }
   }
@@ -239,10 +209,7 @@ export function buildLogoSurfaceQuads(
   );
 
   for (let x = 0; x < gridSize; x += 1) {
-    for (const rectangle of collectSparseRectangles(
-      facePlanes.positiveX.get(x),
-      gridSize,
-    )) {
+    for (const rectangle of collectSparseRectangles(facePlanes.positiveX.get(x), gridSize)) {
       const plane = toWorld(x + 1, gridSize);
       const y0 = toWorld(rectangle.row, gridSize);
       const y1 = toWorld(rectangle.row + rectangle.height, gridSize);
@@ -262,10 +229,7 @@ export function buildLogoSurfaceQuads(
       });
     }
 
-    for (const rectangle of collectSparseRectangles(
-      facePlanes.negativeX.get(x),
-      gridSize,
-    )) {
+    for (const rectangle of collectSparseRectangles(facePlanes.negativeX.get(x), gridSize)) {
       const plane = toWorld(x, gridSize);
       const y0 = toWorld(rectangle.row, gridSize);
       const y1 = toWorld(rectangle.row + rectangle.height, gridSize);
@@ -287,10 +251,7 @@ export function buildLogoSurfaceQuads(
   }
 
   for (let y = 0; y < gridSize; y += 1) {
-    for (const rectangle of collectSparseRectangles(
-      facePlanes.positiveY.get(y),
-      gridSize,
-    )) {
+    for (const rectangle of collectSparseRectangles(facePlanes.positiveY.get(y), gridSize)) {
       const plane = toWorld(y + 1, gridSize);
       const x0 = toWorld(rectangle.row, gridSize);
       const x1 = toWorld(rectangle.row + rectangle.height, gridSize);
@@ -310,10 +271,7 @@ export function buildLogoSurfaceQuads(
       });
     }
 
-    for (const rectangle of collectSparseRectangles(
-      facePlanes.negativeY.get(y),
-      gridSize,
-    )) {
+    for (const rectangle of collectSparseRectangles(facePlanes.negativeY.get(y), gridSize)) {
       const plane = toWorld(y, gridSize);
       const x0 = toWorld(rectangle.row, gridSize);
       const x1 = toWorld(rectangle.row + rectangle.height, gridSize);
@@ -335,10 +293,7 @@ export function buildLogoSurfaceQuads(
   }
 
   for (let z = 0; z < gridSize; z += 1) {
-    for (const rectangle of collectSparseRectangles(
-      facePlanes.positiveZ.get(z),
-      gridSize,
-    )) {
+    for (const rectangle of collectSparseRectangles(facePlanes.positiveZ.get(z), gridSize)) {
       const plane = toWorld(z + 1, gridSize);
       const x0 = toWorld(rectangle.row, gridSize);
       const x1 = toWorld(rectangle.row + rectangle.height, gridSize);
@@ -358,10 +313,7 @@ export function buildLogoSurfaceQuads(
       });
     }
 
-    for (const rectangle of collectSparseRectangles(
-      facePlanes.negativeZ.get(z),
-      gridSize,
-    )) {
+    for (const rectangle of collectSparseRectangles(facePlanes.negativeZ.get(z), gridSize)) {
       const plane = toWorld(z, gridSize);
       const x0 = toWorld(rectangle.row, gridSize);
       const x1 = toWorld(rectangle.row + rectangle.height, gridSize);

@@ -120,16 +120,13 @@ describe("vault deletion workflow", () => {
       subject: `${ids.userId}|test-session`,
       tokenIdentifier: `test:${ids.userId}`,
     });
-    const { deletionRunId } = await asUser.action(
-      api.vault.actions.deleteVault,
-      {
-        vaultId: ids.vaultId,
-        removeCodespaces: false,
-        removeGithubRepo: false,
-        removeConvexProvision: false,
-        removeCloudflareProvision: false,
-      },
-    );
+    const { deletionRunId } = await asUser.action(api.vault.actions.deleteVault, {
+      vaultId: ids.vaultId,
+      removeCodespaces: false,
+      removeGithubRepo: false,
+      removeConvexProvision: false,
+      removeCloudflareProvision: false,
+    });
 
     const queued = await t.run(async (ctx) => {
       return {
@@ -137,9 +134,7 @@ describe("vault deletion workflow", () => {
         vault: await ctx.db.get(ids.vaultId),
         events: await ctx.db
           .query("vaultDeletionEvents")
-          .withIndex("by_run_and_created_at", (q) =>
-            q.eq("runId", deletionRunId),
-          )
+          .withIndex("by_run_and_created_at", (q) => q.eq("runId", deletionRunId))
           .collect(),
       };
     });
@@ -165,28 +160,23 @@ describe("vault deletion workflow", () => {
         },
       },
     });
-    expect(queued.events.map((event) => event.step)).toContain(
-      "initialize_deletion",
-    );
+    expect(queued.events.map((event) => event.step)).toContain("initialize_deletion");
 
     expect(queued.vault).toMatchObject({ _id: ids.vaultId });
   });
 
   it("returns dashboard deletion state and closes live repository lookups", async () => {
     const { ids, t } = await createConnectedVault();
-    const { deletionRunId } = await t.mutation(
-      internal.vault.deletion.runs.createInitialRun,
-      {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        options: {
-          removeCodespaces: false,
-          removeGithubRepo: false,
-          removeConvexProvision: false,
-          removeCloudflareProvision: false,
-        },
+    const { deletionRunId } = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
+      userId: ids.userId,
+      vaultId: ids.vaultId,
+      options: {
+        removeCodespaces: false,
+        removeGithubRepo: false,
+        removeConvexProvision: false,
+        removeCloudflareProvision: false,
       },
-    );
+    });
     const asUser = t.withIdentity({
       subject: `${ids.userId}|test-session`,
       tokenIdentifier: `test:${ids.userId}`,
@@ -266,14 +256,11 @@ describe("vault deletion workflow", () => {
         isApproved: true,
       });
     });
-    await t.mutation(
-      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
-      {
-        userId,
-        ghRepoOwner: "ada",
-        ghRepoName: "existing-app",
-      },
-    );
+    await t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
+      userId,
+      ghRepoOwner: "ada",
+      ghRepoName: "existing-app",
+    });
     const asUser = t.withIdentity({
       subject: `${userId}|test-session`,
       tokenIdentifier: `test:${userId}`,
@@ -333,11 +320,7 @@ describe("vault deletion workflow", () => {
         cloudflare: { state: "not_configured" },
         connectedAt: 4,
       });
-      for (
-        let index = 0;
-        index < VAULT_LOCAL_CLEANUP_BATCH_SIZE + 1;
-        index += 1
-      ) {
+      for (let index = 0; index < VAULT_LOCAL_CLEANUP_BATCH_SIZE + 1; index += 1) {
         await ctx.db.insert("vaultBranchTrees", {
           vaultId,
           branch: `branch-${index}`,
@@ -353,19 +336,16 @@ describe("vault deletion workflow", () => {
 
       return { userId, vaultId };
     });
-    const { deletionRunId } = await t.mutation(
-      internal.vault.deletion.runs.createInitialRun,
-      {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        options: {
-          removeCodespaces: false,
-          removeGithubRepo: false,
-          removeConvexProvision: false,
-          removeCloudflareProvision: false,
-        },
+    const { deletionRunId } = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
+      userId: ids.userId,
+      vaultId: ids.vaultId,
+      options: {
+        removeCodespaces: false,
+        removeGithubRepo: false,
+        removeConvexProvision: false,
+        removeCloudflareProvision: false,
       },
-    );
+    });
     await t.mutation(internal.vault.deletion.runs.markWorkflowStarted, {
       runId: deletionRunId,
       workflowId: "workflow-test",
@@ -443,9 +423,7 @@ describe("vault deletion workflow", () => {
           .collect(),
         events: await ctx.db
           .query("vaultDeletionEvents")
-          .withIndex("by_run_and_created_at", (q) =>
-            q.eq("runId", deletionRunId),
-          )
+          .withIndex("by_run_and_created_at", (q) => q.eq("runId", deletionRunId))
           .collect(),
       };
     });
@@ -518,9 +496,7 @@ describe("vault deletion workflow", () => {
       const vault = await ctx.db.get(ids.vaultId);
       const runs = await ctx.db
         .query("vaultDeletionRuns")
-        .withIndex("by_vault_and_updated_at", (q) =>
-          q.eq("vaultId", ids.vaultId),
-        )
+        .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", ids.vaultId))
         .collect();
       return { runs, vault };
     });
@@ -628,27 +604,22 @@ describe("vault deletion workflow", () => {
       return { userId, vaultId };
     });
 
-    const result = await t.mutation(
-      internal.vault.deletion.runs.createInitialRun,
-      {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        options: {
-          removeCodespaces: true,
-          removeGithubRepo: false,
-          removeConvexProvision: false,
-          removeCloudflareProvision: false,
-        },
+    const result = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
+      userId: ids.userId,
+      vaultId: ids.vaultId,
+      options: {
+        removeCodespaces: true,
+        removeGithubRepo: false,
+        removeConvexProvision: false,
+        removeCloudflareProvision: false,
       },
-    );
+    });
 
     const snapshot = await t.run(async (ctx) => {
       const vault = await ctx.db.get(ids.vaultId);
       const runs = await ctx.db
         .query("vaultDeletionRuns")
-        .withIndex("by_vault_and_updated_at", (q) =>
-          q.eq("vaultId", ids.vaultId),
-        )
+        .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", ids.vaultId))
         .collect();
       return { runs, vault };
     });
@@ -712,19 +683,16 @@ describe("vault deletion workflow", () => {
 
       return { userId, vaultId };
     });
-    const initial = await t.mutation(
-      internal.vault.deletion.runs.createInitialRun,
-      {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        options: {
-          removeCodespaces: false,
-          removeGithubRepo: false,
-          removeConvexProvision: false,
-          removeCloudflareProvision: false,
-        },
+    const initial = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
+      userId: ids.userId,
+      vaultId: ids.vaultId,
+      options: {
+        removeCodespaces: false,
+        removeGithubRepo: false,
+        removeConvexProvision: false,
+        removeCloudflareProvision: false,
       },
-    );
+    });
     await t.mutation(internal.vault.deletion.runs.markWorkflowFailed, {
       runId: initial.deletionRunId,
       message: "Provider cleanup failed.",
@@ -817,19 +785,16 @@ describe("vault deletion workflow", () => {
 
       return { githubConnectionId, userId, vaultId };
     });
-    const initial = await t.mutation(
-      internal.vault.deletion.runs.createInitialRun,
-      {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        options: {
-          removeCodespaces: false,
-          removeGithubRepo: true,
-          removeConvexProvision: false,
-          removeCloudflareProvision: false,
-        },
+    const initial = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
+      userId: ids.userId,
+      vaultId: ids.vaultId,
+      options: {
+        removeCodespaces: false,
+        removeGithubRepo: true,
+        removeConvexProvision: false,
+        removeCloudflareProvision: false,
       },
-    );
+    });
     await t.mutation(internal.vault.deletion.runs.markWorkflowFailed, {
       runId: initial.deletionRunId,
       message: "Provider cleanup failed.",
@@ -849,9 +814,7 @@ describe("vault deletion workflow", () => {
       const vault = await ctx.db.get(ids.vaultId);
       const runs = await ctx.db
         .query("vaultDeletionRuns")
-        .withIndex("by_vault_and_updated_at", (q) =>
-          q.eq("vaultId", ids.vaultId),
-        )
+        .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", ids.vaultId))
         .collect();
       return { runs, vault };
     });

@@ -1,8 +1,6 @@
 export const CODEX_APP_SERVER_RESEARCH_ROUTE = "/research/codex-app-server";
-export const CODEX_APP_SERVER_THREAD_BROWSER_ROUTE =
-  "/research/codex-app-server/browser";
-export const CODEX_APP_SERVER_RESEARCH_API_BASE =
-  "/__noter/research/codex-app-server";
+export const CODEX_APP_SERVER_THREAD_BROWSER_ROUTE = "/research/codex-app-server/browser";
+export const CODEX_APP_SERVER_RESEARCH_API_BASE = "/__noter/research/codex-app-server";
 
 export type CodexAppServerRequestId = string | number;
 
@@ -245,9 +243,7 @@ function readString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-function summarizeCommandItem(
-  item: Record<string, unknown>,
-): string | undefined {
+function summarizeCommandItem(item: Record<string, unknown>): string | undefined {
   const command = readString(item.command);
   const cwd = readString(item.cwd);
 
@@ -260,9 +256,7 @@ function summarizeCommandItem(
   return cwd;
 }
 
-function summarizeFileChangeItem(
-  item: Record<string, unknown>,
-): string | undefined {
+function summarizeFileChangeItem(item: Record<string, unknown>): string | undefined {
   const changes = item.changes;
   if (!Array.isArray(changes)) {
     return undefined;

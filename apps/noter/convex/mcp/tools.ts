@@ -23,10 +23,7 @@ type ListVaultsForUserResult = Infer<typeof listVaultsForUserResultValidator>;
 export const listVaultsForUser = internalQuery({
   args: listVaultsForUserArgsValidator,
   returns: listVaultsForUserResultValidator,
-  handler: async (
-    ctx,
-    args: ListVaultsForUserArgs,
-  ): Promise<ListVaultsForUserResult> => {
+  handler: async (ctx, args: ListVaultsForUserArgs): Promise<ListVaultsForUserResult> => {
     const vaults = await ctx.db
       .query("vaults")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))

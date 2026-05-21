@@ -27,9 +27,7 @@ const captureConvexReadme = () => {
   };
 };
 
-const restoreConvexReadmeIfOverwritten = (
-  snapshot: { path: string; contents: string } | null,
-) => {
+const restoreConvexReadmeIfOverwritten = (snapshot: { path: string; contents: string } | null) => {
   if (!snapshot) {
     return;
   }

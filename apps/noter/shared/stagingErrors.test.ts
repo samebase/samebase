@@ -14,9 +14,7 @@ describe("stagingErrors", () => {
         expectedVersion: 3,
         actualVersion: 4,
       }),
-    ).toBe(
-      "[STALE_BASE_VERSION] pushContentUpdate failed: stale base version (expected 3, got 4)",
-    );
+    ).toBe("[STALE_BASE_VERSION] pushContentUpdate failed: stale base version (expected 3, got 4)");
   });
 
   it("detects stale-base-version errors by stable tag", () => {

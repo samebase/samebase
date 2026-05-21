@@ -18,11 +18,7 @@ function normalizeHashInput(hash?: string): string {
   return rawHash.length === 0 ? "" : `#${rawHash}`;
 }
 
-function setPlainSearchParam(
-  searchParams: URLSearchParams,
-  key: string,
-  value: string | true,
-) {
+function setPlainSearchParam(searchParams: URLSearchParams, key: string, value: string | true) {
   searchParams.set(key, value === true ? "" : value);
 }
 
@@ -44,11 +40,7 @@ function serializePlainSearchParams(searchParams: URLSearchParams): string {
 // TODO(tanstack-router-cleanup): delete this serializer helper once the app can
 // rely on TanStack's standard search serialization without changing the shipped
 // URL contract.
-function appendSearchParamValue(
-  searchParams: URLSearchParams,
-  key: string,
-  value: unknown,
-) {
+function appendSearchParamValue(searchParams: URLSearchParams, key: string, value: unknown) {
   if (value === false || value === null || typeof value === "undefined") {
     return;
   }
@@ -79,9 +71,7 @@ function appendSearchParamValue(
 // TanStack's default search semantics without changing the shipped URL
 // contract.
 export function parseTanStackSearch(search: string): Record<string, string> {
-  const searchParams = new URLSearchParams(
-    search.startsWith("?") ? search.slice(1) : search,
-  );
+  const searchParams = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
 
   if (searchParams.has(SEARCH_RESET_QUERY_PARAM)) {
     return { [SEARCH_RESET_QUERY_PARAM]: "" };

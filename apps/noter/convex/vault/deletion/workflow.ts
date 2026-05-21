@@ -37,9 +37,7 @@ const cleanupStepMessage = {
   cleanup_provisioning_history: "Cleaning setup history.",
 } satisfies Record<VaultDeletionCleanupStep, string>;
 
-export function resolveVaultDeletionWorkflowError(
-  result: RunResult,
-): string | null {
+export function resolveVaultDeletionWorkflowError(result: RunResult): string | null {
   switch (result.kind) {
     case "success":
       return null;
@@ -62,18 +60,13 @@ export const deleteVaultWorkflow = workflow.define({
   },
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
-    await step.runMutation(
-      internal.vault.deletion.runs.claimWorkflowRun,
-      args,
-      {
-        name: "lock_vault",
-      },
-    );
-    await step.runAction(
-      internal.vault.deletion.providerActions.deleteConnectedCodespaces,
-      args,
-      { name: "delete_codespaces", retry: idempotentProviderStepRetry },
-    );
+    await step.runMutation(internal.vault.deletion.runs.claimWorkflowRun, args, {
+      name: "lock_vault",
+    });
+    await step.runAction(internal.vault.deletion.providerActions.deleteConnectedCodespaces, args, {
+      name: "delete_codespaces",
+      retry: idempotentProviderStepRetry,
+    });
     await step.runAction(
       internal.vault.deletion.providerActions.deleteCloudflare,
       {
@@ -122,11 +115,7 @@ export const deleteVaultWorkflow = workflow.define({
         { name: `${cleanupStep}_batch_0` },
       );
 
-      for (
-        let batchNumber = 1;
-        cleanupResult.state === "needs_more";
-        batchNumber += 1
-      ) {
+      for (let batchNumber = 1; cleanupResult.state === "needs_more"; batchNumber += 1) {
         cleanupResult = await step.runMutation(
           internal.vault.deletion.cleanup.cleanupVaultLocalDataStepBatch,
           {
@@ -185,9 +174,7 @@ export const startVaultDeletion = internalMutation({
         args,
         {
           startAsync: true,
-          onComplete:
-            internal.vault.deletion.workflow
-              .handleVaultDeletionWorkflowComplete,
+          onComplete: internal.vault.deletion.workflow.handleVaultDeletionWorkflowComplete,
           context: {
             runId: args.runId,
           },
@@ -222,10 +209,7 @@ export const handleVaultDeletionWorkflowComplete = internalMutation({
     if (!run) {
       throw new Error("Deletion run not found.");
     }
-    if (
-      run.workflow.state === "started" &&
-      run.workflow.workflowId !== args.workflowId
-    ) {
+    if (run.workflow.state === "started" && run.workflow.workflowId !== args.workflowId) {
       throw new Error("Workflow completion id does not match deletion run.");
     }
     if (run.state === "succeeded" || run.state === "failed") {

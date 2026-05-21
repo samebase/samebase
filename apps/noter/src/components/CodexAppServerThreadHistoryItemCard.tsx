@@ -21,9 +21,7 @@ function readString(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
-function readThreadItemDisplayText(
-  item: CodexAppServerThreadItem,
-): string | null {
+function readThreadItemDisplayText(item: CodexAppServerThreadItem): string | null {
   const rawItem = asRecord(item.raw);
   const rawText = readString(rawItem?.text);
   if (rawText) {
@@ -51,11 +49,10 @@ export function CodexAppServerThreadHistoryItemCard({
   defaultExpanded = false,
 }: CodexAppServerThreadHistoryItemCardProps) {
   const displayText = readThreadItemDisplayText(item);
-  const { isExpandable, isExpanded, measurementRef, toggleExpanded } =
-    useExpandableClampText({
-      text: displayText,
-      defaultExpanded,
-    });
+  const { isExpandable, isExpanded, measurementRef, toggleExpanded } = useExpandableClampText({
+    text: displayText,
+    defaultExpanded,
+  });
 
   return (
     <div className="grid gap-2 border border-border bg-white px-3 py-2">

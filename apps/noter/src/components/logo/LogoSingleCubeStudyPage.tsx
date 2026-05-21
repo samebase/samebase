@@ -26,35 +26,32 @@ const LOGO_SINGLE_CUBE_STUDY_INITIAL_STATE: LogoSingleCubeStudyState = {
 function useLogoSingleCubeStudyStore() {
   // Keep this store scoped to the route; the single-cube lab has no shareable
   // state beyond the surrounding dev-shell query params.
-  return useCreateStore(
-    LOGO_SINGLE_CUBE_STUDY_INITIAL_STATE,
-    ({ setState }) => ({
-      setAngleDegrees: (angleDegrees: number) => {
-        setState((state) => ({
-          ...state,
-          angleDegrees,
-        }));
-      },
-      toggleShowEdges: () => {
-        setState((state) => ({
-          ...state,
-          showEdges: !state.showEdges,
-        }));
-      },
-      toggleShowGrid: () => {
-        setState((state) => ({
-          ...state,
-          showGrid: !state.showGrid,
-        }));
-      },
-      toggleVividColors: () => {
-        setState((state) => ({
-          ...state,
-          vividColors: !state.vividColors,
-        }));
-      },
-    }),
-  );
+  return useCreateStore(LOGO_SINGLE_CUBE_STUDY_INITIAL_STATE, ({ setState }) => ({
+    setAngleDegrees: (angleDegrees: number) => {
+      setState((state) => ({
+        ...state,
+        angleDegrees,
+      }));
+    },
+    toggleShowEdges: () => {
+      setState((state) => ({
+        ...state,
+        showEdges: !state.showEdges,
+      }));
+    },
+    toggleShowGrid: () => {
+      setState((state) => ({
+        ...state,
+        showGrid: !state.showGrid,
+      }));
+    },
+    toggleVividColors: () => {
+      setState((state) => ({
+        ...state,
+        vividColors: !state.vividColors,
+      }));
+    },
+  }));
 }
 
 function CubeStudyCanvas({
@@ -110,19 +107,10 @@ function CubeStudyCanvas({
   );
 }
 
-export function LogoSingleCubeStudyPage({
-  routeSearch,
-}: {
-  routeSearch: LogoRouteSearch;
-}) {
+export function LogoSingleCubeStudyPage({ routeSearch }: { routeSearch: LogoRouteSearch }) {
   const store = useLogoSingleCubeStudyStore();
   const { angleDegrees, showEdges, showGrid, vividColors } = useSelector(store);
-  const {
-    setAngleDegrees,
-    toggleShowEdges,
-    toggleShowGrid,
-    toggleVividColors,
-  } = store.actions;
+  const { setAngleDegrees, toggleShowEdges, toggleShowGrid, toggleVividColors } = store.actions;
 
   return (
     <div className="min-h-screen bg-[#f5f4ef] text-black">
@@ -153,10 +141,9 @@ export function LogoSingleCubeStudyPage({
                 Single Cube Rotation Lab
               </h1>
               <p className="mt-2 text-sm leading-6 text-black/60">
-                One cube, one exact pixel baseline at 45°, and cleaner integer
-                variants between 0° and 90°. Use this to see which snapped views
-                still produce legible pixel steps before we change the full logo
-                again.
+                One cube, one exact pixel baseline at 45°, and cleaner integer variants between 0°
+                and 90°. Use this to see which snapped views still produce legible pixel steps
+                before we change the full logo again.
               </p>
             </div>
 
@@ -182,9 +169,7 @@ export function LogoSingleCubeStudyPage({
                     key={presetAngle}
                     type="button"
                     size="sm"
-                    variant={
-                      angleDegrees === presetAngle ? "default" : "outline"
-                    }
+                    variant={angleDegrees === presetAngle ? "default" : "outline"}
                     className="rounded-none"
                     onClick={() => {
                       setAngleDegrees(presetAngle);
@@ -236,9 +221,8 @@ export function LogoSingleCubeStudyPage({
                 What To Watch
               </div>
               <p className="mt-2">
-                Look for repeated stair-step rhythms, readable top corners, and
-                whether 45° matches the expected 2:1 diagonal baseline. Turn on
-                the pixel grid only when you need it.
+                Look for repeated stair-step rhythms, readable top corners, and whether 45° matches
+                the expected 2:1 diagonal baseline. Turn on the pixel grid only when you need it.
               </p>
             </div>
           </div>
@@ -251,13 +235,10 @@ export function LogoSingleCubeStudyPage({
                     Workspace
                   </div>
                   <div className="mt-1 text-sm text-black/60">
-                    Tight crop, enlarged pixels, current angle{" "}
-                    {angleDegrees.toFixed(0)}°
+                    Tight crop, enlarged pixels, current angle {angleDegrees.toFixed(0)}°
                   </div>
                 </div>
-                <div className="font-mono text-[11px] text-black/45">
-                  45° = exact 2:1
-                </div>
+                <div className="font-mono text-[11px] text-black/45">45° = exact 2:1</div>
               </div>
               <div className="flex min-h-[40rem] items-center justify-center border border-black/10 bg-[#fcfbf7] p-0">
                 <CubeStudyCanvas
@@ -291,12 +272,8 @@ export function LogoSingleCubeStudyPage({
                     }}
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm font-medium text-black/80">
-                        {sampleAngle}°
-                      </span>
-                      <span className="font-mono text-[10px] text-black/45">
-                        yaw
-                      </span>
+                      <span className="text-sm font-medium text-black/80">{sampleAngle}°</span>
+                      <span className="font-mono text-[10px] text-black/45">yaw</span>
                     </div>
                     <div className="flex items-center justify-center border border-black/10 bg-[#fcfbf7] p-0">
                       <CubeStudyCanvas

@@ -25,17 +25,11 @@ const ensureCodespacePortsVisibilityResult = v.object({
   ),
 });
 
-async function getGithubAccessToken(
-  ctx: ActionCtx,
-  userId: Id<"users">,
-): Promise<string> {
-  const connection = await ctx.runQuery(
-    internal.providerConnections.getByUserAndKind,
-    {
-      userId,
-      kind: "github",
-    },
-  );
+async function getGithubAccessToken(ctx: ActionCtx, userId: Id<"users">): Promise<string> {
+  const connection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+    userId,
+    kind: "github",
+  });
   if (connection?.kind !== "github") {
     throw new Error("GitHub is not connected");
   }
@@ -163,9 +157,7 @@ async function fetchCodespaceTunnelAuth(args: {
 
   if (!response.ok) {
     const body = await readResponseBodyTextTruncated(response, 600);
-    throw new Error(
-      `Failed to fetch codespace metadata (${response.status}): ${body}`,
-    );
+    throw new Error(`Failed to fetch codespace metadata (${response.status}): ${body}`);
   }
 
   const json: unknown = await response.json();
@@ -179,13 +171,9 @@ async function fetchCodespaceTunnelAuth(args: {
   );
 
   const connection = readRecord(json, "connection");
-  const tunnelProperties = connection
-    ? readRecord(connection, "tunnelProperties")
-    : undefined;
+  const tunnelProperties = connection ? readRecord(connection, "tunnelProperties") : undefined;
 
-  const tunnelId = tunnelProperties
-    ? readString(tunnelProperties, "tunnelId")
-    : undefined;
+  const tunnelId = tunnelProperties ? readString(tunnelProperties, "tunnelId") : undefined;
   const managePortsAccessToken = tunnelProperties
     ? readString(tunnelProperties, "managePortsAccessToken")
     : undefined;
@@ -194,12 +182,8 @@ async function fetchCodespaceTunnelAuth(args: {
     throw new Error("Codespace tunnel properties not available yet");
   }
 
-  const clusterId = tunnelProperties
-    ? readString(tunnelProperties, "clusterId")
-    : undefined;
-  const serviceUri = tunnelProperties
-    ? readString(tunnelProperties, "serviceUri")
-    : undefined;
+  const clusterId = tunnelProperties ? readString(tunnelProperties, "clusterId") : undefined;
+  const serviceUri = tunnelProperties ? readString(tunnelProperties, "serviceUri") : undefined;
 
   return {
     tunnelId,
@@ -235,10 +219,7 @@ async function fetchCodespaceTunnelAuthWithRetry(args: {
   throw new Error(lastError ?? "Failed to fetch codespace tunnel metadata");
 }
 
-function tunnelPortPutBody(args: {
-  portNumber: number;
-  visibility: PortVisibility;
-}): {
+function tunnelPortPutBody(args: { portNumber: number; visibility: PortVisibility }): {
   portNumber: number;
   labels: string[];
   protocol: "http";
@@ -342,8 +323,7 @@ async function ensureTunnelPortVisibility(args: {
 
   const commonHeaders: Record<string, string> = {
     Authorization: `Tunnel ${args.managePortsAccessToken}`,
-    Accept:
-      "application/vnd.github.merge-info-preview+json, application/vnd.github.nebula-preview",
+    Accept: "application/vnd.github.merge-info-preview+json, application/vnd.github.nebula-preview",
   };
 
   // Best-effort fast-path: if it's already correct, do nothing.
@@ -370,9 +350,7 @@ async function ensureTunnelPortVisibility(args: {
   });
   if (!deleted.ok && deleted.status !== 404) {
     const body = await readResponseBodyTextTruncated(deleted, 400);
-    throw new Error(
-      `Failed to delete tunnel port ${args.portNumber} (${deleted.status}): ${body}`,
-    );
+    throw new Error(`Failed to delete tunnel port ${args.portNumber} (${deleted.status}): ${body}`);
   }
 
   const putResponse = await fetch(portUrl, {
@@ -456,10 +434,7 @@ async function ensureTunnelPortVisibilityWithRetry(args: {
 export const ensureCodespacePortsVisibility = action({
   args: { codespaceId: v.id("codespaces") },
   returns: ensureCodespacePortsVisibilityResult,
-  handler: async (
-    ctx,
-    args,
-  ): Promise<Infer<typeof ensureCodespacePortsVisibilityResult>> => {
+  handler: async (ctx, args): Promise<Infer<typeof ensureCodespacePortsVisibilityResult>> => {
     assertCodespacesEnabled();
     const ensuredAt = Date.now();
     let userId: Id<"users">;
@@ -467,20 +442,15 @@ export const ensureCodespacePortsVisibility = action({
     try {
       userId = await getUserId(ctx);
 
-      const codespace = await ctx.runQuery(
-        internal.codespaces.mutations.getCodespace,
-        {
-          codespaceId: args.codespaceId,
-        },
-      );
+      const codespace = await ctx.runQuery(internal.codespaces.mutations.getCodespace, {
+        codespaceId: args.codespaceId,
+      });
       if (!codespace || codespace.userId !== userId) {
         throw new Error("Codespace not found");
       }
 
       if (codespace.state !== "running") {
-        throw new Error(
-          `Codespace is not running (current state: ${codespace.state})`,
-        );
+        throw new Error(`Codespace is not running (current state: ${codespace.state})`);
       }
 
       const githubAccessToken = await getGithubAccessToken(ctx, userId);
@@ -543,30 +513,22 @@ export const ensureCodespacePortsVisibility = action({
       }
 
       const ensured = results.every((entry) => entry.applied);
-      await ctx.runMutation(
-        internal.codespaces.mutations.updatePortsVisibilityStatus,
-        {
-          codespaceId: args.codespaceId,
-          ensured,
-          ensuredAt,
-          lastError: ensured
-            ? undefined
-            : JSON.stringify(results).slice(0, 800),
-        },
-      );
+      await ctx.runMutation(internal.codespaces.mutations.updatePortsVisibilityStatus, {
+        codespaceId: args.codespaceId,
+        ensured,
+        ensuredAt,
+        lastError: ensured ? undefined : JSON.stringify(results).slice(0, 800),
+      });
 
       return { ensured, results };
     } catch (error) {
       const message = parseErrorMessage(error);
-      await ctx.runMutation(
-        internal.codespaces.mutations.updatePortsVisibilityStatus,
-        {
-          codespaceId: args.codespaceId,
-          ensured: false,
-          ensuredAt,
-          lastError: message.slice(0, 800),
-        },
-      );
+      await ctx.runMutation(internal.codespaces.mutations.updatePortsVisibilityStatus, {
+        codespaceId: args.codespaceId,
+        ensured: false,
+        ensuredAt,
+        lastError: message.slice(0, 800),
+      });
       throw error;
     }
   },

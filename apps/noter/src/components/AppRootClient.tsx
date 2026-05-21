@@ -7,20 +7,15 @@ import { syncDocumentThemeColorSearch } from "@/lib/appThemeColorSearch";
 import { client } from "@/lib/convexClient";
 import { QueryProvider } from "@/lib/providers/query-provider";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
-import {
-  readRootThemeMode,
-  syncDocumentRootThemeMode,
-} from "@/lib/rootThemeModeSearch";
+import { readRootThemeMode, syncDocumentRootThemeMode } from "@/lib/rootThemeModeSearch";
 import { OptionalThemeProvider } from "@/lib/themeStorageFallback";
 
-const posthogApiHost =
-  import.meta.env.VITE_PUBLIC_POSTHOG_HOST || "https://eu.i.posthog.com";
+const posthogApiHost = import.meta.env.VITE_PUBLIC_POSTHOG_HOST || "https://eu.i.posthog.com";
 const POSTHOG_INIT_DELAY_MS = 10_000;
 
 function useDeferredPostHogInit() {
   useEffect(() => {
-    const posthogProjectToken = import.meta.env
-      .VITE_PUBLIC_POSTHOG_PROJECT_TOKEN;
+    const posthogProjectToken = import.meta.env.VITE_PUBLIC_POSTHOG_PROJECT_TOKEN;
     if (!posthogProjectToken) {
       return;
     }
@@ -41,9 +36,7 @@ function useDeferredPostHogInit() {
             defaults: "2026-01-30",
             // Keep localhost sessions visible while developing instead of
             // marking them as internal/test users under the defaults snapshot.
-            internal_or_test_user_hostname: import.meta.env.DEV
-              ? null
-              : undefined,
+            internal_or_test_user_hostname: import.meta.env.DEV ? null : undefined,
           });
         })
         .catch(() => {});
@@ -57,8 +50,7 @@ function useDeferredPostHogInit() {
 }
 
 function AppRouterRoot() {
-  const { background, border, dark, light, primary, secondary } =
-    useRootRouteSearch();
+  const { background, border, dark, light, primary, secondary } = useRootRouteSearch();
   const themeMode = readRootThemeMode({ dark, light });
   useDeferredPostHogInit();
 

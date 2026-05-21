@@ -1,8 +1,4 @@
-export type RasterSeamLabImageKind =
-  | "composed"
-  | "mask"
-  | "reference"
-  | "source";
+export type RasterSeamLabImageKind = "composed" | "mask" | "reference" | "source";
 
 export type RasterSeamLabDepth = 1 | 2;
 
@@ -40,9 +36,7 @@ export type RasterSeamLabStats = {
   recursiveTileDraws: number;
 };
 
-export const RASTER_SEAM_LAB_DEPTHS = [
-  1, 2,
-] as const satisfies readonly RasterSeamLabDepth[];
+export const RASTER_SEAM_LAB_DEPTHS = [1, 2] as const satisfies readonly RasterSeamLabDepth[];
 
 export const RASTER_SEAM_LAB_GRID_SIZES = [
   2, 3,
@@ -94,8 +88,7 @@ export const RASTER_SEAM_LAB_MERGE_MODES = [
 export const RASTER_SEAM_LAB_DEFAULT_ELEVATION_DEGREES = 22;
 export const RASTER_SEAM_LAB_DEFAULT_DEPTH: RasterSeamLabDepth = 1;
 export const RASTER_SEAM_LAB_DEFAULT_GRID_SIZE: RasterSeamLabGridSize = 2;
-export const RASTER_SEAM_LAB_DEFAULT_MERGE_MODE: RasterSeamLabMergeMode =
-  "source-over";
+export const RASTER_SEAM_LAB_DEFAULT_MERGE_MODE: RasterSeamLabMergeMode = "source-over";
 export const RASTER_SEAM_LAB_DEFAULT_ROTATION_DEGREES = 22;
 export const RASTER_SEAM_LAB_DEFAULT_SOURCE_SIZE_PX = 24;
 export const RASTER_SEAM_LAB_MIN_SOURCE_SIZE_PX = 1;
@@ -119,9 +112,7 @@ export const RASTER_SEAM_LAB_EMPTY_STATS = {
   recursiveTileDraws: 0,
 } satisfies RasterSeamLabStats;
 
-export function normalizeRasterSeamLabDepth(
-  value: number | null | undefined,
-): RasterSeamLabDepth {
+export function normalizeRasterSeamLabDepth(value: number | null | undefined): RasterSeamLabDepth {
   return value === 2 ? 2 : RASTER_SEAM_LAB_DEFAULT_DEPTH;
 }
 
@@ -131,9 +122,7 @@ export function normalizeRasterSeamLabGridSize(
   return value === 3 ? 3 : RASTER_SEAM_LAB_DEFAULT_GRID_SIZE;
 }
 
-export function normalizeRasterSeamLabSourceSizePx(
-  value: number | null | undefined,
-) {
+export function normalizeRasterSeamLabSourceSizePx(value: number | null | undefined) {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return RASTER_SEAM_LAB_DEFAULT_SOURCE_SIZE_PX;
   }
@@ -141,9 +130,7 @@ export function normalizeRasterSeamLabSourceSizePx(
   return Math.max(RASTER_SEAM_LAB_MIN_SOURCE_SIZE_PX, Math.round(value));
 }
 
-export function normalizeRasterSeamLabInflationScale(
-  value: number | null | undefined,
-) {
+export function normalizeRasterSeamLabInflationScale(value: number | null | undefined) {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return RASTER_SEAM_LAB_DEFAULT_INFLATION_SCALE;
   }
@@ -151,9 +138,7 @@ export function normalizeRasterSeamLabInflationScale(
   return Math.max(RASTER_SEAM_LAB_MIN_INFLATION_SCALE, value);
 }
 
-export function normalizeRasterSeamLabSpacingScale(
-  value: number | null | undefined,
-) {
+export function normalizeRasterSeamLabSpacingScale(value: number | null | undefined) {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return RASTER_SEAM_LAB_DEFAULT_SPACING_SCALE;
   }

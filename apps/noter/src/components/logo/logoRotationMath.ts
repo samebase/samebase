@@ -1,7 +1,4 @@
-import {
-  FAVICON_ROTATION_DEGREES,
-  normalizeRotationDegrees,
-} from "./logoVoxelState";
+import { FAVICON_ROTATION_DEGREES, normalizeRotationDegrees } from "./logoVoxelState";
 
 const ORBIT_RIGHT_AXIS = normalizeVector([1, 0, -1]);
 const WORLD_UP_AXIS = [0, 1, 0] as const;
@@ -56,15 +53,9 @@ export function rotateVectorAroundAxis(
   const dot = dotProduct(normalizedAxis, vector);
 
   return [
-    vector[0] * cosine +
-      cross[0] * sine +
-      normalizedAxis[0] * dot * (1 - cosine),
-    vector[1] * cosine +
-      cross[1] * sine +
-      normalizedAxis[1] * dot * (1 - cosine),
-    vector[2] * cosine +
-      cross[2] * sine +
-      normalizedAxis[2] * dot * (1 - cosine),
+    vector[0] * cosine + cross[0] * sine + normalizedAxis[0] * dot * (1 - cosine),
+    vector[1] * cosine + cross[1] * sine + normalizedAxis[1] * dot * (1 - cosine),
+    vector[2] * cosine + cross[2] * sine + normalizedAxis[2] * dot * (1 - cosine),
   ];
 }
 

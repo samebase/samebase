@@ -103,46 +103,30 @@ const LOGO_ROUTE_PRESENCE_SEARCH_KEYS = [
   ...ROOT_THEME_MODE_SEARCH_KEYS,
 ] as const;
 
-function isLogoRotationAxisMode(
-  value: string | undefined,
-): value is LogoRotationAxisMode {
+function isLogoRotationAxisMode(value: string | undefined): value is LogoRotationAxisMode {
   return value === "cube-y" || value === "screen-vertical";
 }
 
-function readOptionalRotationAxisMode(
-  value: unknown,
-): LogoRotationAxisMode | undefined {
+function readOptionalRotationAxisMode(value: unknown): LogoRotationAxisMode | undefined {
   const rotationAxisMode = readOptionalString(value);
-  return isLogoRotationAxisMode(rotationAxisMode)
-    ? rotationAxisMode
-    : undefined;
+  return isLogoRotationAxisMode(rotationAxisMode) ? rotationAxisMode : undefined;
 }
 
-function readOptionalIsoStyleId(
-  value: unknown,
-): LogoIsometricStyleId | undefined {
+function readOptionalIsoStyleId(value: unknown): LogoIsometricStyleId | undefined {
   const isoStyleId = readOptionalString(value);
   return typeof isoStyleId === "string" && isLogoIsometricStyleId(isoStyleId)
     ? isoStyleId
     : undefined;
 }
 
-function readOptionalLeftFaceStyleKind(
-  value: unknown,
-): LogoLeftFaceStyleKind | undefined {
+function readOptionalLeftFaceStyleKind(value: unknown): LogoLeftFaceStyleKind | undefined {
   const leftFaceStyleKind = readOptionalString(value);
-  return isLogoLeftFaceStyleKind(leftFaceStyleKind)
-    ? leftFaceStyleKind
-    : undefined;
+  return isLogoLeftFaceStyleKind(leftFaceStyleKind) ? leftFaceStyleKind : undefined;
 }
 
-function readOptionalLeftFaceStripeBasis(
-  value: unknown,
-): LogoLeftFaceStripeBasis | undefined {
+function readOptionalLeftFaceStripeBasis(value: unknown): LogoLeftFaceStripeBasis | undefined {
   const leftFaceStripeBasis = readOptionalString(value);
-  return isLogoLeftFaceStripeBasis(leftFaceStripeBasis)
-    ? leftFaceStripeBasis
-    : undefined;
+  return isLogoLeftFaceStripeBasis(leftFaceStripeBasis) ? leftFaceStripeBasis : undefined;
 }
 
 function readCanonicalVoxelState(value: unknown): string | undefined {
@@ -152,9 +136,7 @@ function readCanonicalVoxelState(value: unknown): string | undefined {
   }
 
   const parsedVoxelState = parseVoxelState(voxelState);
-  return parsedVoxelState === null
-    ? undefined
-    : serializeVoxelState(parsedVoxelState);
+  return parsedVoxelState === null ? undefined : serializeVoxelState(parsedVoxelState);
 }
 
 const logoRouteSearchFieldSchema = z
@@ -169,10 +151,7 @@ const logoRouteSearchFieldSchema = z
     elev: z.preprocess(readOptionalNumber, z.number().finite().optional()),
     freeView: z.literal(true).optional(),
     isoSide: z.preprocess(readOptionalNumber, z.number().finite().optional()),
-    isoStyle: z.preprocess(
-      readOptionalIsoStyleId,
-      z.enum(LOGO_ISOMETRIC_STYLE_VALUES).optional(),
-    ),
+    isoStyle: z.preprocess(readOptionalIsoStyleId, z.enum(LOGO_ISOMETRIC_STYLE_VALUES).optional()),
     leftFace: z.preprocess(
       readOptionalLeftFaceStyleKind,
       z.enum(LOGO_LEFT_FACE_STYLE_KINDS).optional(),
@@ -192,45 +171,31 @@ const logoRouteSearchFieldSchema = z
   .merge(appThemeColorSearchFieldSchema)
   .merge(rootThemeModeSearchFieldSchema);
 
-export const logoRouteSearchSchema = logoRouteSearchFieldSchema.transform(
-  (search) => {
-    const themeModeSearch = readRootThemeModeSearch(search);
-    return {
-      ...(themeModeSearch.dark ? { dark: true as const } : {}),
-      ...(themeModeSearch.light ? { light: true as const } : {}),
-      ...readLogoThemeColorSearch(search),
-      ...(typeof search.axis === "string" ? { axis: search.axis } : {}),
-      ...(search.dev ? { dev: true as const } : {}),
-      ...(typeof search.depth === "number"
-        ? { depth: normalizeLogoFractalDepth(search.depth) }
-        : {}),
-      ...(typeof search.dist === "number"
-        ? { dist: normalizeLogoDistanceScale(search.dist) }
-        : {}),
-      ...(typeof search.elev === "number"
-        ? { elev: normalizeElevationDegrees(search.elev) }
-        : {}),
-      ...(search.freeView ? { freeView: true } : {}),
-      ...(typeof search.isoSide === "number"
-        ? { isoSide: normalizeLogoIsometricCubeSidePixels(search.isoSide) }
-        : {}),
-      ...(typeof search.isoStyle === "string"
-        ? { isoStyle: search.isoStyle }
-        : {}),
-      ...buildLogoLeftFaceStyleSearch(readLogoLeftFaceStyle(search)),
-      ...(typeof search.rot === "number"
-        ? { rot: normalizeRotationDegrees(search.rot) }
-        : {}),
-      ...(typeof search.vox === "string" ? { vox: search.vox } : {}),
-    };
-  },
-);
+export const logoRouteSearchSchema = logoRouteSearchFieldSchema.transform((search) => {
+  const themeModeSearch = readRootThemeModeSearch(search);
+  return {
+    ...(themeModeSearch.dark ? { dark: true as const } : {}),
+    ...(themeModeSearch.light ? { light: true as const } : {}),
+    ...readLogoThemeColorSearch(search),
+    ...(typeof search.axis === "string" ? { axis: search.axis } : {}),
+    ...(search.dev ? { dev: true as const } : {}),
+    ...(typeof search.depth === "number" ? { depth: normalizeLogoFractalDepth(search.depth) } : {}),
+    ...(typeof search.dist === "number" ? { dist: normalizeLogoDistanceScale(search.dist) } : {}),
+    ...(typeof search.elev === "number" ? { elev: normalizeElevationDegrees(search.elev) } : {}),
+    ...(search.freeView ? { freeView: true } : {}),
+    ...(typeof search.isoSide === "number"
+      ? { isoSide: normalizeLogoIsometricCubeSidePixels(search.isoSide) }
+      : {}),
+    ...(typeof search.isoStyle === "string" ? { isoStyle: search.isoStyle } : {}),
+    ...buildLogoLeftFaceStyleSearch(readLogoLeftFaceStyle(search)),
+    ...(typeof search.rot === "number" ? { rot: normalizeRotationDegrees(search.rot) } : {}),
+    ...(typeof search.vox === "string" ? { vox: search.vox } : {}),
+  };
+});
 
 export type LogoRouteSearch = z.infer<typeof logoRouteSearchSchema>;
 
-export function validateLogoRouteSearch(
-  search: Record<string, unknown>,
-): LogoRouteSearch {
+export function validateLogoRouteSearch(search: Record<string, unknown>): LogoRouteSearch {
   return logoRouteSearchSchema.parse(
     normalizeRouteSearchPresenceFlags(search, LOGO_ROUTE_PRESENCE_SEARCH_KEYS),
   );
@@ -266,8 +231,7 @@ export function clampLogoRouteSearchForRenderer(
 export function validateLogoRouteSearchForRenderer(
   renderer: LogoDepthRenderer,
 ): (search: Record<string, unknown>) => LogoRouteSearch {
-  return (search) =>
-    clampLogoRouteSearchForRenderer(validateLogoRouteSearch(search), renderer);
+  return (search) => clampLogoRouteSearchForRenderer(validateLogoRouteSearch(search), renderer);
 }
 
 export function buildLogoRouteSearch(args: {
@@ -291,34 +255,25 @@ export function buildLogoRouteSearch(args: {
   return {
     ...readRootThemeModeSearch(args.themeModeSearch ?? {}),
     ...buildLogoThemeColorSearch(args.themeColors),
-    ...(args.rotationAxisMode !== "cube-y"
-      ? { axis: args.rotationAxisMode }
-      : {}),
+    ...(args.rotationAxisMode !== "cube-y" ? { axis: args.rotationAxisMode } : {}),
     ...(args.elevationDegrees !== DEFAULT_ELEVATION_DEGREES
       ? { elev: Number(args.elevationDegrees.toFixed(1)) }
       : {}),
     // `depth` is retained by the root route, so default depth needs an own
     // undefined tombstone to clear a previous recursive preview value.
-    depth:
-      fractalDepth !== DEFAULT_LOGO_FRACTAL_DEPTH ? fractalDepth : undefined,
+    depth: fractalDepth !== DEFAULT_LOGO_FRACTAL_DEPTH ? fractalDepth : undefined,
     dist:
-      distanceScale !== DEFAULT_LOGO_DISTANCE_SCALE
-        ? Number(distanceScale.toFixed(3))
-        : undefined,
+      distanceScale !== DEFAULT_LOGO_DISTANCE_SCALE ? Number(distanceScale.toFixed(3)) : undefined,
     ...(args.viewSnapEnabled ? {} : { freeView: true }),
     ...(args.isoCubeSidePixels !== DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX
       ? { isoSide: args.isoCubeSidePixels }
       : {}),
-    ...(args.isoStyleId !== DEFAULT_LOGO_ISOMETRIC_STYLE_ID
-      ? { isoStyle: args.isoStyleId }
-      : {}),
+    ...(args.isoStyleId !== DEFAULT_LOGO_ISOMETRIC_STYLE_ID ? { isoStyle: args.isoStyleId } : {}),
     ...buildLogoLeftFaceStyleSearch(leftFaceStyle),
     ...(args.rotationDegrees !== DEFAULT_ROTATION_DEGREES
       ? { rot: Number(args.rotationDegrees.toFixed(1)) }
       : {}),
-    ...(args.voxelState !== DEFAULT_VOXEL_STATE
-      ? { vox: args.voxelState }
-      : {}),
+    ...(args.voxelState !== DEFAULT_VOXEL_STATE ? { vox: args.voxelState } : {}),
   };
 }
 
@@ -346,8 +301,7 @@ function buildLogoLeftFaceStyleSearch(leftFaceStyle: LogoLeftFaceStyle): {
   return {
     leftFace: "striped",
     stripeA:
-      leftFaceStyle.stripeAngleDegrees !==
-      DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES
+      leftFaceStyle.stripeAngleDegrees !== DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES
         ? Number(leftFaceStyle.stripeAngleDegrees.toFixed(1))
         : undefined,
     stripeBasis:

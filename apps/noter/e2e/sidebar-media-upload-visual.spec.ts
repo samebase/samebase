@@ -32,9 +32,7 @@ for (const scenario of SCENARIOS) {
       await expect(footerTrigger).toBeVisible();
     }
     await expect(page.getByText("Upload Image")).toBeVisible();
-    await expect(
-      page.getByText("This replaces the existing file"),
-    ).toBeVisible();
+    await expect(page.getByText("This replaces the existing file")).toBeVisible();
     await page.evaluate(async () => {
       await document.fonts.ready;
     });

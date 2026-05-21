@@ -4,9 +4,7 @@ import {
   buildRebaseConflictPreviewFromStagedFiles,
 } from "./fileStagingActions";
 
-type BuildCommitPreviewArgs = Parameters<
-  typeof buildCommitPreviewFromStagedFiles
->[0];
+type BuildCommitPreviewArgs = Parameters<typeof buildCommitPreviewFromStagedFiles>[0];
 type StagedFileForCommitPreview = BuildCommitPreviewArgs["stagedFiles"][number];
 
 function makeStagedFile(
@@ -72,9 +70,7 @@ describe("buildCommitPreviewFromStagedFiles", () => {
     expect(preview.safety.destructiveFileCount).toBe(1);
 
     const added = preview.files.find((file) => file.path === "added.md");
-    const renamed = preview.files.find(
-      (file) => file.path === "renamed-new.md",
-    );
+    const renamed = preview.files.find((file) => file.path === "renamed-new.md");
 
     expect(added?.status).toBe("added");
     expect(added?.isMarkdown).toBe(true);
@@ -87,10 +83,7 @@ describe("buildCommitPreviewFromStagedFiles", () => {
   });
 
   it("marks single-file patch truncation when per-file limit is exceeded", () => {
-    const largeContent = Array.from(
-      { length: 5000 },
-      (_, index) => `line-${index}`,
-    ).join("\n");
+    const largeContent = Array.from({ length: 5000 }, (_, index) => `line-${index}`).join("\n");
 
     const preview = buildCommitPreviewFromStagedFiles({
       stagedFiles: [
@@ -110,16 +103,11 @@ describe("buildCommitPreviewFromStagedFiles", () => {
     expect(preview.files[0]?.patchTruncated).toBe(true);
     expect(preview.files[0]?.patch).toContain("[patch truncated]");
     expect(preview.files[0]?.richContentTruncated).toBe(true);
-    expect(preview.files[0]?.richNewContent).toContain(
-      "[content truncated for rich preview]",
-    );
+    expect(preview.files[0]?.richNewContent).toContain("[content truncated for rich preview]");
   });
 
   it("truncates across many files when total patch budget is exceeded", () => {
-    const mediumPatch = Array.from(
-      { length: 500 },
-      (_, index) => `line-${index}`,
-    ).join("\n");
+    const mediumPatch = Array.from({ length: 500 }, (_, index) => `line-${index}`).join("\n");
 
     const stagedFiles = Array.from({ length: 60 }, (_, index) =>
       makeStagedFile({

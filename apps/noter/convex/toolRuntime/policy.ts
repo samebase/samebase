@@ -37,8 +37,7 @@ export function validateToolPolicy(args: {
   }
 
   if (tool.requiresVaultContext) {
-    const vaultId =
-      typeof request.vaultId === "string" ? request.vaultId.trim() : "";
+    const vaultId = typeof request.vaultId === "string" ? request.vaultId.trim() : "";
     if (vaultId.length === 0) {
       return {
         ok: false,
@@ -48,8 +47,7 @@ export function validateToolPolicy(args: {
   }
 
   if (tool.requiresBranchContext) {
-    const branch =
-      typeof request.branch === "string" ? request.branch.trim() : "";
+    const branch = typeof request.branch === "string" ? request.branch.trim() : "";
     if (branch.length === 0) {
       return {
         ok: false,
@@ -59,8 +57,7 @@ export function validateToolPolicy(args: {
   }
 
   if (tool.requiresThreadContext) {
-    const threadId =
-      typeof request.threadId === "string" ? request.threadId.trim() : "";
+    const threadId = typeof request.threadId === "string" ? request.threadId.trim() : "";
     if (threadId.length === 0) {
       return {
         ok: false,

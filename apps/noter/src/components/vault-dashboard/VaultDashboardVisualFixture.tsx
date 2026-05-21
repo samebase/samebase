@@ -79,31 +79,25 @@ const FIXTURE_BRANCH_EXPANSION_INITIAL_STATE: FixtureBranchExpansionState = {
 };
 
 function useFixtureRefreshCountStore() {
-  return useCreateStore(
-    FIXTURE_REFRESH_COUNT_INITIAL_STATE,
-    ({ setState }) => ({
-      incrementRefreshCount: () => {
-        setState((state) => ({
-          ...state,
-          refreshCount: state.refreshCount + 1,
-        }));
-      },
-    }),
-  );
+  return useCreateStore(FIXTURE_REFRESH_COUNT_INITIAL_STATE, ({ setState }) => ({
+    incrementRefreshCount: () => {
+      setState((state) => ({
+        ...state,
+        refreshCount: state.refreshCount + 1,
+      }));
+    },
+  }));
 }
 
 function useFixtureBranchExpansionStore() {
-  return useCreateStore(
-    FIXTURE_BRANCH_EXPANSION_INITIAL_STATE,
-    ({ setState }) => ({
-      toggleBranchesExpanded: () => {
-        setState((state) => ({
-          ...state,
-          branchesExpanded: !state.branchesExpanded,
-        }));
-      },
-    }),
-  );
+  return useCreateStore(FIXTURE_BRANCH_EXPANSION_INITIAL_STATE, ({ setState }) => ({
+    toggleBranchesExpanded: () => {
+      setState((state) => ({
+        ...state,
+        branchesExpanded: !state.branchesExpanded,
+      }));
+    },
+  }));
 }
 
 function fakeVaultId(): Parameters<typeof VaultBranchLinkRow>[0]["vaultId"] {
@@ -120,10 +114,7 @@ interface FixtureVaultBranchRow {
 }
 
 function fixtureVaultBranch(
-  branch: Omit<
-    FixtureVaultBranch,
-    "isProtected" | "lastSyncedAt" | "remoteState"
-  > & {
+  branch: Omit<FixtureVaultBranch, "isProtected" | "lastSyncedAt" | "remoteState"> & {
     remoteState?: FixtureVaultBranch["remoteState"];
   },
 ): FixtureVaultBranch {
@@ -183,10 +174,7 @@ const fixtureDeleteDialogTarget = {
 
 function FixtureVaultLastUpdatedStatusCard() {
   const refreshCountStore = useFixtureRefreshCountStore();
-  const refreshCount = useSelector(
-    refreshCountStore,
-    (state) => state.refreshCount,
-  );
+  const refreshCount = useSelector(refreshCountStore, (state) => state.refreshCount);
   const { incrementRefreshCount } = refreshCountStore.actions;
 
   return (
@@ -202,9 +190,7 @@ function FixtureVaultLastUpdatedStatusCard() {
             <h3 className="min-w-0 font-semibold">
               <span className="flex min-w-0 items-center gap-2">
                 <span className="min-w-0 truncate">
-                  <span className="font-normal text-muted-foreground">
-                    noter-md/
-                  </span>
+                  <span className="font-normal text-muted-foreground">noter-md/</span>
                   <span>noter</span>
                 </span>
               </span>
@@ -233,8 +219,7 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
       aheadBy: 0,
       behindBy: 0,
     }),
-    productionDeploymentDashboardUrl:
-      "https://dashboard.convex.dev/t/nicu/noter/calm-swan-123",
+    productionDeploymentDashboardUrl: "https://dashboard.convex.dev/t/nicu/noter/calm-swan-123",
   },
   {
     branch: fixtureVaultBranch({
@@ -246,8 +231,7 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
       pullRequestUrl: "https://github.com/noter-md/noter/pull/321",
       pullRequestNumber: 321,
       pullRequestTitle: "Use the full dashboard main pane",
-      cloudflareBranchPreviewUrl:
-        "https://codex-dashboard-main-pane-spacing.noter.pages.dev",
+      cloudflareBranchPreviewUrl: "https://codex-dashboard-main-pane-spacing.noter.pages.dev",
       cloudflarePreviewPullRequestNumber: 321,
       convexPreviewDeploymentDashboardUrl:
         "https://dashboard.convex.dev/t/nicu/noter/preview/codex/dashboard-main-pane-spacing",
@@ -330,42 +314,26 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
   },
 ];
 
-const STICKY_HEADER_BRANCHES: FixtureVaultBranchRow[] = Array.from(
-  { length: 32 },
-  (_, index) => ({
-    branch: fixtureVaultBranch({
-      name:
-        index === 0
-          ? "main"
-          : `codex/sticky-dashboard-branch-${String(index).padStart(2, "0")}`,
-      headCommitSha: "1234567890abcdef1234567890abcdef12345678",
-      isDefault: index === 0,
-      aheadBy: index === 0 ? 0 : index % 4,
-      behindBy: index === 0 ? 0 : index % 3,
-      pullRequestLabels:
-        index > 0 && index % 7 === 0
-          ? [{ name: "hidden", color: "#6f42c1" }]
-          : undefined,
-    }),
+const STICKY_HEADER_BRANCHES: FixtureVaultBranchRow[] = Array.from({ length: 32 }, (_, index) => ({
+  branch: fixtureVaultBranch({
+    name: index === 0 ? "main" : `codex/sticky-dashboard-branch-${String(index).padStart(2, "0")}`,
+    headCommitSha: "1234567890abcdef1234567890abcdef12345678",
+    isDefault: index === 0,
+    aheadBy: index === 0 ? 0 : index % 4,
+    behindBy: index === 0 ? 0 : index % 3,
+    pullRequestLabels:
+      index > 0 && index % 7 === 0 ? [{ name: "hidden", color: "#6f42c1" }] : undefined,
   }),
-);
+}));
 
-function VaultDashboardListSpacingFixture({
-  mode,
-}: {
-  mode: VaultDashboardVisualMode;
-}) {
+function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisualMode }) {
   const branchExpansionStore = useFixtureBranchExpansionStore();
-  const branchesExpanded = useSelector(
-    branchExpansionStore,
-    (state) => state.branchesExpanded,
-  );
+  const branchesExpanded = useSelector(branchExpansionStore, (state) => state.branchesExpanded);
   const { toggleBranchesExpanded } = branchExpansionStore.actions;
   const visibleBranches = branchesExpanded
     ? LIST_SPACING_BRANCHES
     : LIST_SPACING_BRANCHES.slice(0, 5);
-  const hiddenBranchCount =
-    LIST_SPACING_BRANCHES.length - visibleBranches.length;
+  const hiddenBranchCount = LIST_SPACING_BRANCHES.length - visibleBranches.length;
 
   return (
     <div
@@ -392,9 +360,7 @@ function VaultDashboardListSpacingFixture({
             }
             branchSection={
               <div className="space-y-1.5">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground/80">
-                  Branches
-                </p>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground/80">Branches</p>
                 <div className="-mx-4 overflow-hidden border bg-muted">
                   {visibleBranches.map((branchRow) => (
                     <VaultBranchLinkRow
@@ -402,9 +368,7 @@ function VaultDashboardListSpacingFixture({
                       vaultId={fakeVaultId()}
                       repositoryFullName="noter-md/noter"
                       branch={branchRow.branch}
-                      productionDeploymentDashboardUrl={
-                        branchRow.productionDeploymentDashboardUrl
-                      }
+                      productionDeploymentDashboardUrl={branchRow.productionDeploymentDashboardUrl}
                     />
                   ))}
                 </div>
@@ -417,19 +381,11 @@ function VaultDashboardListSpacingFixture({
   );
 }
 
-function VaultDashboardDeveloperToolsFixture({
-  visible,
-}: {
-  visible: boolean;
-}) {
+function VaultDashboardDeveloperToolsFixture({ visible }: { visible: boolean }) {
   return (
     <div
       data-testid="vault-dashboard-visual-fixture"
-      data-mode={
-        visible
-          ? "vault-dashboard-dev-tools-visible"
-          : "vault-dashboard-dev-tools-hidden"
-      }
+      data-mode={visible ? "vault-dashboard-dev-tools-visible" : "vault-dashboard-dev-tools-hidden"}
       className="w-full bg-background text-foreground"
     >
       <TestRouterProvider>
@@ -456,11 +412,7 @@ function VaultDashboardDeveloperToolsFixture({
                 visible,
                 open: false,
                 onOpenChange: () => {},
-                content: (
-                  <div className="text-xs text-muted-foreground">
-                    Codespace ready
-                  </div>
-                ),
+                content: <div className="text-xs text-muted-foreground">Codespace ready</div>,
               }}
             />
           </div>
@@ -534,9 +486,7 @@ function VaultDashboardProvisioningLogFixture() {
               onOpenChange: () => {},
               content: (
                 <div className="space-y-2">
-                  <div className="text-xs text-muted-foreground">
-                    Infra: Provisioning
-                  </div>
+                  <div className="text-xs text-muted-foreground">Infra: Provisioning</div>
                   <textarea
                     aria-label="Provisioning log for noter-md/noter-app"
                     readOnly
@@ -547,22 +497,19 @@ function VaultDashboardProvisioningLogFixture() {
                         createdAt: Date.parse("2026-05-02T12:30:01Z"),
                         level: "info",
                         step: "create_github_repo",
-                        message:
-                          "Created GitHub repository noter-md/noter-app.",
+                        message: "Created GitHub repository noter-md/noter-app.",
                       },
                       {
                         createdAt: Date.parse("2026-05-02T12:30:04Z"),
                         level: "info",
                         step: "ensure_convex",
-                        message:
-                          "Ensuring Convex project and production deployment.",
+                        message: "Ensuring Convex project and production deployment.",
                       },
                       {
                         createdAt: Date.parse("2026-05-02T12:30:08Z"),
                         level: "info",
                         step: "ensure_cloudflare",
-                        message:
-                          "Ensuring Cloudflare Worker and deploy settings.",
+                        message: "Ensuring Cloudflare Worker and deploy settings.",
                       },
                     ])}
                   />
@@ -592,10 +539,7 @@ function VaultDashboardInfrastructureSetupFixture() {
             titleHref="https://github.com/noter-md/noter-app"
             repositoryLinks={<FixtureRepositoryLinks />}
             setupSection={
-              <VaultSetupProgressSection
-                status="running"
-                label="Infra: provisioning"
-              >
+              <VaultSetupProgressSection status="running" label="Infra: provisioning">
                 <textarea
                   aria-label="Provisioning log for noter-md/noter-app"
                   readOnly
@@ -618,8 +562,7 @@ function VaultDashboardInfrastructureSetupFixture() {
                       createdAt: Date.parse("2026-05-08T09:15:05Z"),
                       level: "info",
                       step: "ensure_convex",
-                      message:
-                        "Ensuring Convex project and production deployment.",
+                      message: "Ensuring Convex project and production deployment.",
                     },
                   ])}
                 />
@@ -715,14 +658,9 @@ function VaultDashboardBottomTargetScrollFixture() {
 
 function VaultDashboardStickyHeaderFixture() {
   const branchExpansionStore = useFixtureBranchExpansionStore();
-  const branchesExpanded = useSelector(
-    branchExpansionStore,
-    (state) => state.branchesExpanded,
-  );
+  const branchesExpanded = useSelector(branchExpansionStore, (state) => state.branchesExpanded);
   const { toggleBranchesExpanded } = branchExpansionStore.actions;
-  const stickyHeaderBranches = STICKY_HEADER_BRANCHES.map(
-    (branchRow) => branchRow.branch,
-  );
+  const stickyHeaderBranches = STICKY_HEADER_BRANCHES.map((branchRow) => branchRow.branch);
   const stickyHeaderFilters = {
     hiddenLabels: ["hidden"],
     includeDrafts: false,
@@ -753,14 +691,10 @@ function VaultDashboardStickyHeaderFixture() {
               titleHref="https://github.com/noter-md/noter"
               repositoryLinks={<FixtureRepositoryLinks />}
               topRightAction={<FixtureDeleteControl />}
-              repositoryStatus={
-                <span data-testid="sticky-header-status">Updated 12s ago</span>
-              }
+              repositoryStatus={<span data-testid="sticky-header-status">Updated 12s ago</span>}
               headerControls={
                 <VaultBranchHeaderControls
-                  filteredBranchCount={
-                    branchSectionState.filteredRemoteBranches.length
-                  }
+                  filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
                   filterOptions={branchSectionState.filterOptions}
                   filters={stickyHeaderFilters}
                   hiddenBranchCount={branchSectionState.hiddenBranchCount}
@@ -769,8 +703,7 @@ function VaultDashboardStickyHeaderFixture() {
                   expansion={
                     branchSectionState.hasBranchListOverflow
                       ? {
-                          hiddenBranchCount:
-                            branchSectionState.collapsedBranchCount,
+                          hiddenBranchCount: branchSectionState.collapsedBranchCount,
                           isExpanded: branchesExpanded,
                           onToggle: toggleBranchesExpanded,
                           placement: "header",
@@ -864,8 +797,7 @@ function FixtureDashboardSidebarAccountClamp({
                 key: "github",
                 icon: <GitHubLogoIcon className="h-4 w-4" />,
                 label: "GitHub",
-                status:
-                  "Connected as alexandria-super-long-github-operator (OAuth)",
+                status: "Connected as alexandria-super-long-github-operator (OAuth)",
                 actions: [],
               },
             ]}
@@ -894,11 +826,7 @@ function FixtureDashboardCreateControl() {
             isSignOutPending={false}
             onSignOut={() => {}}
           />
-          <VaultDashboardProvidersSection
-            open={true}
-            onOpenChange={() => {}}
-            providerRows={[]}
-          />
+          <VaultDashboardProvidersSection open={true} onOpenChange={() => {}} providerRows={[]} />
           <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">
             <Select value="nicu-chiciuc" onValueChange={() => {}}>
               <SelectTrigger className="w-full">
@@ -953,11 +881,7 @@ function FixtureDashboardCreateControl() {
   );
 }
 
-export function VaultDashboardVisualFixture({
-  mode,
-}: {
-  mode: VaultDashboardVisualMode;
-}) {
+export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisualMode }) {
   if (mode === "vault-create-control") {
     return <FixtureDashboardCreateControl />;
   }
@@ -1007,12 +931,7 @@ export function VaultDashboardVisualFixture({
   }
 
   if (mode === "vault-sidebar-account-mobile-min") {
-    return (
-      <FixtureDashboardSidebarAccountClamp
-        mobilePane="right"
-        rightMobileWidthPx={1}
-      />
-    );
+    return <FixtureDashboardSidebarAccountClamp mobilePane="right" rightMobileWidthPx={1} />;
   }
 
   if (mode === "vault-branch-mobile-alignment") {
@@ -1042,8 +961,7 @@ export function VaultDashboardVisualFixture({
                       repositoryFullName="noter-md/noter"
                       branch={fixtureVaultBranch({
                         name: "main",
-                        headCommitSha:
-                          "1234567890abcdef1234567890abcdef12345678",
+                        headCommitSha: "1234567890abcdef1234567890abcdef12345678",
                         isDefault: true,
                         aheadBy: 0,
                         behindBy: 0,
@@ -1055,16 +973,13 @@ export function VaultDashboardVisualFixture({
                       repositoryFullName="noter-md/noter"
                       branch={fixtureVaultBranch({
                         name: "codex/mobile-branch-card-spacing",
-                        headCommitSha:
-                          "abcdef1234567890abcdef1234567890abcdef12",
+                        headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
                         isDefault: false,
                         aheadBy: 2,
                         behindBy: 0,
-                        pullRequestUrl:
-                          "https://github.com/noter-md/noter/pull/321",
+                        pullRequestUrl: "https://github.com/noter-md/noter/pull/321",
                         pullRequestNumber: 321,
-                        pullRequestTitle:
-                          "Align mobile branch rows with vault cards",
+                        pullRequestTitle: "Align mobile branch rows with vault cards",
                       })}
                     />
                   </div>
@@ -1089,14 +1004,10 @@ export function VaultDashboardVisualFixture({
             <div className="space-y-3">
               <div>
                 <div className="text-lg font-semibold">
-                  <span className="font-normal text-muted-foreground">
-                    noter-md/
-                  </span>
+                  <span className="font-normal text-muted-foreground">noter-md/</span>
                   <span>noter</span>
                 </div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  Updated 12s ago
-                </div>
+                <div className="mt-1 text-xs text-muted-foreground">Updated 12s ago</div>
               </div>
 
               <div className="space-y-1.5">
@@ -1105,9 +1016,7 @@ export function VaultDashboardVisualFixture({
                     Branches
                   </p>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground/80">
-                      1 of 4
-                    </span>
+                    <span className="text-xs text-muted-foreground/80">1 of 4</span>
                     <VaultBranchFiltersControl
                       value={{
                         hiddenLabels: ["research"],
@@ -1159,13 +1068,11 @@ export function VaultDashboardVisualFixture({
                       repositoryFullName="noter-md/noter"
                       branch={fixtureVaultBranch({
                         name: "codex/branch-filters",
-                        headCommitSha:
-                          "abcdef1234567890abcdef1234567890abcdef12",
+                        headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
                         isDefault: false,
                         aheadBy: 1,
                         behindBy: 0,
-                        pullRequestUrl:
-                          "https://github.com/noter-md/noter/pull/321",
+                        pullRequestUrl: "https://github.com/noter-md/noter/pull/321",
                         pullRequestNumber: 321,
                         pullRequestTitle: "Ship saved branch filters per vault",
                         pullRequestLabels: [

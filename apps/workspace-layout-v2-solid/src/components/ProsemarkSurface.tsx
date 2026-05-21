@@ -8,8 +8,7 @@ import { onCleanup, onMount } from "solid-js";
 function findInitialSafeSelectionAnchor(docText: string) {
   let lineStart = 0;
   for (let index = 0; index <= docText.length; index += 1) {
-    const isLineEnd =
-      index === docText.length || docText.charCodeAt(index) === 10;
+    const isLineEnd = index === docText.length || docText.charCodeAt(index) === 10;
     if (!isLineEnd) {
       continue;
     }
@@ -54,26 +53,22 @@ const prosemarkSurfaceTheme = EditorView.theme({
   },
 });
 
-export function ProsemarkSurface(props: {
-  dataTestId: string;
-  initialValue?: string;
-}) {
+export function ProsemarkSurface(props: { dataTestId: string; initialValue?: string }) {
   let hostRef: HTMLDivElement | undefined;
 
   onMount(() => {
-    if (!hostRef) {
+    const hostNode = hostRef;
+    if (!hostNode) {
       return;
     }
 
     const themeCompartment = new Compartment();
     const initialValue = props.initialValue ?? "";
     const editor = new EditorView({
-      parent: hostRef,
+      parent: hostNode,
       state: EditorState.create({
         doc: initialValue,
-        selection: EditorSelection.single(
-          findInitialSafeSelectionAnchor(initialValue),
-        ),
+        selection: EditorSelection.single(findInitialSafeSelectionAnchor(initialValue)),
         extensions: [
           markdown(),
           prosemarkBasicSetup(),
@@ -91,11 +86,13 @@ export function ProsemarkSurface(props: {
   });
 
   return (
-    <div
-      class="h-full min-h-0 w-full overflow-hidden touch-pan-y"
-      data-testid={props.dataTestId}
-    >
-      <div ref={hostRef} class="h-full min-h-0 w-full touch-pan-y" />
+    <div class="h-full min-h-0 w-full overflow-hidden touch-pan-y" data-testid={props.dataTestId}>
+      <div
+        ref={(node) => {
+          hostRef = node;
+        }}
+        class="h-full min-h-0 w-full touch-pan-y"
+      />
     </div>
   );
 }

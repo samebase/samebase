@@ -56,12 +56,8 @@ type HeaderMap = Record<string, HeaderValue>;
 
 type CommitStatusResult = Infer<typeof commitStatusResultValidator>;
 type CommitStatusOkResult = Infer<typeof commitStatusOkResultValidator>;
-type CommitStatusCooldownResult = Infer<
-  typeof commitStatusCooldownResultValidator
->;
-type CommitStatusRateLimitedResult = Infer<
-  typeof commitStatusRateLimitedResultValidator
->;
+type CommitStatusCooldownResult = Infer<typeof commitStatusCooldownResultValidator>;
+type CommitStatusRateLimitedResult = Infer<typeof commitStatusRateLimitedResultValidator>;
 
 function readSharedCooldownMessage(vault: {
   treeRefreshFailureKind?: "failed" | "rate_limited";
@@ -95,10 +91,7 @@ function toHeaderMap(value: unknown): HeaderMap | null {
       continue;
     }
 
-    if (
-      Array.isArray(headerValue) &&
-      headerValue.every((item) => typeof item === "string")
-    ) {
+    if (Array.isArray(headerValue) && headerValue.every((item) => typeof item === "string")) {
       headers[key] = headerValue;
     }
   }
@@ -136,10 +129,7 @@ function getErrorHeaders(error: unknown): HeaderMap | null {
   return toHeaderMap(response.headers);
 }
 
-function getHeaderValue(
-  headers: HeaderMap | null,
-  name: string,
-): string | null {
+function getHeaderValue(headers: HeaderMap | null, name: string): string | null {
   if (!headers) {
     return null;
   }
@@ -201,13 +191,10 @@ export const getCommitStatus = action({
   returns: commitStatusResultValidator,
   handler: async (ctx, { owner, repo, ref }): Promise<CommitStatusResult> => {
     const userId = await getUserId(ctx);
-    const vault = await ctx.runQuery(
-      internal.vault.records.getByRepositoryFullName,
-      {
-        repositoryFullName: `${owner}/${repo}`,
-        userId,
-      },
-    );
+    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+      repositoryFullName: `${owner}/${repo}`,
+      userId,
+    });
     if (!vault) {
       throw new Error("Vault not found");
     }
@@ -223,13 +210,10 @@ export const getCommitStatus = action({
       return cooldownResult;
     }
 
-    const githubConnection = await ctx.runQuery(
-      internal.providerConnections.getByUserAndKind,
-      {
-        userId,
-        kind: "github",
-      },
-    );
+    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+      userId,
+      kind: "github",
+    });
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected");
     }
@@ -287,19 +271,14 @@ export const getCommitStatus = action({
         cooldownUntil: failure.cooldownUntil,
       });
 
-      const resetAtSeconds = parsePositiveInteger(
-        getHeaderValue(headers, "x-ratelimit-reset"),
-      );
-      const retryAfterSeconds = parsePositiveInteger(
-        getHeaderValue(headers, "retry-after"),
-      );
+      const resetAtSeconds = parsePositiveInteger(getHeaderValue(headers, "x-ratelimit-reset"));
+      const retryAfterSeconds = parsePositiveInteger(getHeaderValue(headers, "retry-after"));
 
       const rateLimitedResult: CommitStatusRateLimitedResult = {
         kind: "rate_limited",
         message: failure.message,
         resetAtMs: resetAtSeconds === null ? null : resetAtSeconds * 1000,
-        retryAfterMs:
-          retryAfterSeconds === null ? null : retryAfterSeconds * 1000,
+        retryAfterMs: retryAfterSeconds === null ? null : retryAfterSeconds * 1000,
       };
       return rateLimitedResult;
     }

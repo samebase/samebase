@@ -97,9 +97,7 @@ export function useWorkspaceLayoutV2MobileCarouselController({
       }
 
       scrollDerivedMobilePaneRef.current =
-        mergedSurfaceSide !== null && currentPane === mergedSurfaceSide
-          ? null
-          : nextPane;
+        mergedSurfaceSide !== null && currentPane === mergedSurfaceSide ? null : nextPane;
       return nextPane;
     });
   });

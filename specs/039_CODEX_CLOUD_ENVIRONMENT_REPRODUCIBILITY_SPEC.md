@@ -7,8 +7,8 @@
 
 ## Objective
 
-Make Codex local + Codex cloud behavior reproducible from repo state, without
-storing secrets in git.
+Make Codex local + Codex cloud behavior reproducible from repo state, without storing secrets in
+git.
 
 ## What This Spec Delivers
 
@@ -25,18 +25,15 @@ storing secrets in git.
 
 ## Current Repo Facts (as of 2026-03-05)
 
-- Local Codex environment file already exists:
-  `.codex/environments/environment.toml`.
+- Local Codex environment file already exists: `.codex/environments/environment.toml`.
 - Current local setup script in that file is `make bootstrap-anon`.
-- Local worktree bootstrap and run flow are already standardized via
-  `make anon`.
+- Local worktree bootstrap and run flow are already standardized via `make anon`.
 
 ## Core Decisions
 
 ### Decision 1: Local environment stays committed
 
-Use `.codex/environments/environment.toml` as the committed local environment
-contract.
+Use `.codex/environments/environment.toml` as the committed local environment contract.
 
 Rules:
 
@@ -75,8 +72,7 @@ Add:
 
 - `docs/codex/cloud-environment-runbook.md`
 
-This runbook maps every cloud UI field to manifest keys and includes
-reset/rebuild steps.
+This runbook maps every cloud UI field to manifest keys and includes reset/rebuild steps.
 
 ## File Contract
 
@@ -138,8 +134,8 @@ Must include:
 ## Cloud Security Baseline
 
 - Agent internet: `off` by default.
-- If internet is required, use allowlist + safe methods (`GET`, `HEAD`,
-  `OPTIONS`) unless a stronger case is documented.
+- If internet is required, use allowlist + safe methods (`GET`, `HEAD`, `OPTIONS`) unless a stronger
+  case is documented.
 - Secrets only in Codex cloud secrets, never in git.
 
 ## Setup Procedure (Concrete)
@@ -185,22 +181,18 @@ Must include:
 
 ## Open Choices (Need Your Call)
 
-1. Single cloud environment for all branches, or separate environments by
-   purpose (`default`, `review`, `migration`)?
+1. Single cloud environment for all branches, or separate environments by purpose (`default`,
+   `review`, `migration`)?
 2. Keep cloud agent internet fully off, or allow restricted dependency domains?
 
 ## References
 
-- Codex local environments:
-  https://developers.openai.com/codex/app/local-environments/
+- Codex local environments: https://developers.openai.com/codex/app/local-environments/
 - Codex worktrees: https://developers.openai.com/codex/app/worktrees/
-- Codex cloud environments:
-  https://developers.openai.com/codex/cloud/environments/
-- Codex cloud internet access:
-  https://developers.openai.com/codex/cloud/internet-access/
+- Codex cloud environments: https://developers.openai.com/codex/cloud/environments/
+- Codex cloud internet access: https://developers.openai.com/codex/cloud/internet-access/
 - Codex config basics: https://developers.openai.com/codex/config-basic/
 - Codex config reference: https://developers.openai.com/codex/config-reference/
 - Codex AGENTS.md guide: https://developers.openai.com/codex/guides/agents-md/
-- Codex CLI features (`codex cloud exec`):
-  https://developers.openai.com/codex/cli/features/
+- Codex CLI features (`codex cloud exec`): https://developers.openai.com/codex/cli/features/
 - `codex-universal` image reference: https://github.com/openai/codex-universal

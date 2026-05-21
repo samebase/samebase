@@ -13,9 +13,9 @@
 
 ## Summary
 
-Refactor auth and provider connectivity so app login is separate from provider
-connections. Introduce a dedicated `providerConnections` table as the single
-source of truth for GitHub, Convex, and Cloudflare credentials.
+Refactor auth and provider connectivity so app login is separate from provider connections.
+Introduce a dedicated `providerConnections` table as the single source of truth for GitHub, Convex,
+and Cloudflare credentials.
 
 ## Locked Product Decisions
 
@@ -23,19 +23,18 @@ source of truth for GitHub, Convex, and Cloudflare credentials.
    - `prod`: Google only.
    - `dev`: Google + password.
    - GitHub is removed from app sign-in.
-2. Provider access is explicit connection-only flow for
-   GitHub/Convex/Cloudflare.
+2. Provider access is explicit connection-only flow for GitHub/Convex/Cloudflare.
 3. One active connection per (`userId`, `kind`).
-4. `auth.method` values are `oauth`, `mcp_oauth`, and `api_key`. GitHub/Convex
-   use `oauth` or `api_key`; Cloudflare uses `mcp_oauth` in the user-facing flow
-   and `api_key` for local/dev seed bootstrap.
+4. `auth.method` values are `oauth`, `mcp_oauth`, and `api_key`. GitHub/Convex use `oauth` or
+   `api_key`; Cloudflare uses `mcp_oauth` in the user-facing flow and `api_key` for local/dev seed
+   bootstrap.
 5. Use union-based modeling; no sparse generic token object on `users`.
 6. Include index support for `kind` + `auth.method`.
 
 ## Data Model
 
-`apps/noter/convex/schema.ts` adds `providerConnections` with top-level provider
-union and nested auth-method union.
+`apps/noter/convex/schema.ts` adds `providerConnections` with top-level provider union and nested
+auth-method union.
 
 ### Auth validators
 
@@ -84,8 +83,8 @@ union and nested auth-method union.
 
 ## Users Table Changes
 
-Provider credential fields are removed from `users` as source-of-truth. Provider
-credentials must be read from `providerConnections`.
+Provider credential fields are removed from `users` as source-of-truth. Provider credentials must be
+read from `providerConnections`.
 
 ## Backend Contract
 
@@ -126,15 +125,13 @@ Each status includes:
    - `getGithubOAuthUrl`
    - `/oauth/github/start`
    - `/oauth/github/callback`
-   - Callback stores `kind: "github"` + `auth.method: "oauth"` in
-     `providerConnections`.
-3. Convex and Cloudflare OAuth modules write to `providerConnections` (not
-   `users`).
+   - Callback stores `kind: "github"` + `auth.method: "oauth"` in `providerConnections`.
+3. Convex and Cloudflare OAuth modules write to `providerConnections` (not `users`).
 
 ## Runtime Consumer Rule
 
-All runtime flows that need provider credentials must read
-`providerConnections`. Missing connection must fail explicitly with:
+All runtime flows that need provider credentials must read `providerConnections`. Missing connection
+must fail explicitly with:
 
 - `"GitHub is not connected"`
 - `"Convex is not connected"`
@@ -172,15 +169,13 @@ Seed transport contract:
 1. `make anon` / `make anon-once` writes a dedicated local seed file:
    `apps/noter/.env.anon-seed.local`.
 2. That file contains local `CONVEX_DEPLOYMENT` plus `DEV_SEED_*` inputs.
-3. Seeding runs through `devAuth:seedPasswordAccount` with
-   `--env-file .env.anon-seed.local`.
+3. Seeding runs through `devAuth:seedPasswordAccount` with `--env-file .env.anon-seed.local`.
 4. Do not copy full cloud dev env into local anonymous deployment env.
 
 No shared fallback env names are used for seed inputs.
 
 ## Rollout Notes
 
-1. Hard cut architecture; backward compatibility with legacy user token fields
-   is out of scope.
+1. Hard cut architecture; backward compatibility with legacy user token fields is out of scope.
 2. Target initial rollout on fresh dev deployments.
 3. Data backfill/migration for legacy rows is out of scope for this change set.

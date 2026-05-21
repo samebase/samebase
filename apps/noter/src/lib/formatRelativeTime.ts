@@ -1,7 +1,4 @@
-export function formatRelativeTimeAgo(
-  timestamp: number,
-  now: number = Date.now(),
-): string {
+export function formatRelativeTimeAgo(timestamp: number, now: number = Date.now()): string {
   const diff = Math.max(0, now - timestamp);
   const minutes = Math.floor(diff / (1000 * 60));
   if (minutes < 1) {
@@ -33,10 +30,7 @@ export function formatRelativeTimeAgoWithSeconds(
   return formatRelativeTimeAgo(timestamp, now);
 }
 
-export function formatRelativeTimeUntil(
-  timestamp: number,
-  now: number = Date.now(),
-): string {
+export function formatRelativeTimeUntil(timestamp: number, now: number = Date.now()): string {
   const diff = Math.max(0, timestamp - now);
   const minutes = Math.floor(diff / (1000 * 60));
   if (minutes < 1) {

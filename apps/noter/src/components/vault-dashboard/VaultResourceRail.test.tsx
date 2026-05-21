@@ -1,10 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  VaultResourceRail,
-  type VaultResourceRailState,
-} from "./VaultResourceRail";
+import { VaultResourceRail, type VaultResourceRailState } from "./VaultResourceRail";
 
 describe("VaultResourceRail", () => {
   it("renders explicit provider resource states and scoped links", () => {

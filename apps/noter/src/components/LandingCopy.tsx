@@ -69,13 +69,7 @@ function parseStaticLandingCopy(markdown: string): LandingCopyBlock[] {
   return blocks;
 }
 
-function StaticLandingCopy({
-  className,
-  markdown,
-}: {
-  className?: string;
-  markdown: string;
-}) {
+function StaticLandingCopy({ className, markdown }: { className?: string; markdown: string }) {
   const blocks = parseStaticLandingCopy(markdown);
 
   // These line boxes mirror the editable ProseMark surface so toggling `?dev`
@@ -87,9 +81,7 @@ function StaticLandingCopy({
           case "heading":
             return (
               <div key={`heading-${index}`}>
-                <h2 className="m-0 text-[20.16px] font-bold leading-[28.8px]">
-                  {block.text}
-                </h2>
+                <h2 className="m-0 text-[20.16px] font-bold leading-[28.8px]">{block.text}</h2>
                 <div aria-hidden="true" className="h-[20.578px]" />
               </div>
             );
@@ -101,10 +93,7 @@ function StaticLandingCopy({
                     className="pl-[19.125px] indent-[-13.125px] leading-[20.578px]"
                     key={`${item}-${itemIndex}`}
                   >
-                    <span
-                      aria-hidden="true"
-                      className="inline-block w-[1ch] text-center"
-                    >
+                    <span aria-hidden="true" className="inline-block w-[1ch] text-center">
                       {"\u2022"}
                     </span>
                     <span> {item}</span>
@@ -143,9 +132,7 @@ export function LandingCopy({
   }
 
   return (
-    <Suspense
-      fallback={<StaticLandingCopy className={className} markdown={markdown} />}
-    >
+    <Suspense fallback={<StaticLandingCopy className={className} markdown={markdown} />}>
       <EditableLandingCopy
         value={markdown}
         className={className}

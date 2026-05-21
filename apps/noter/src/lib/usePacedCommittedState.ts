@@ -30,18 +30,12 @@ export function usePacedCommittedState<TState>({
   equals: (left: TState, right: TState) => boolean;
   wait: number;
 }) {
-  const [draft, setDraft] = useState<PacedCommittedStateDraft<TState> | null>(
-    null,
-  );
-  const activeDraft =
-    draft !== null && equals(draft.base, committed) ? draft : null;
+  const [draft, setDraft] = useState<PacedCommittedStateDraft<TState> | null>(null);
+  const activeDraft = draft !== null && equals(draft.base, committed) ? draft : null;
   const value = activeDraft?.value ?? committed;
 
   const executeCommit = (nextDraft: PacedCommittedStateDraft<TState>) => {
-    if (
-      !equals(nextDraft.base, committed) ||
-      equals(nextDraft.value, committed)
-    ) {
+    if (!equals(nextDraft.base, committed) || equals(nextDraft.value, committed)) {
       return;
     }
 

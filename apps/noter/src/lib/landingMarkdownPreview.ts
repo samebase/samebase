@@ -3,16 +3,13 @@ import { z } from "zod";
 export const LANDING_MARKDOWN_PREVIEW_ROUTE = "/landing-preview";
 
 export const LANDING_MARKDOWN_PREVIEW_TEST_ID = "landing-markdown-preview";
-export const LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID =
-  "landing-markdown-preview-article";
-export const LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID =
-  "landing-markdown-preview-sidebar";
+export const LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID = "landing-markdown-preview-article";
+export const LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID = "landing-markdown-preview-sidebar";
 export const LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM = "lang";
 
 const LANDING_MARKDOWN_PREVIEW_LANGUAGES = ["en", "ro"] as const;
 
-export type LandingMarkdownPreviewLanguage =
-  (typeof LANDING_MARKDOWN_PREVIEW_LANGUAGES)[number];
+export type LandingMarkdownPreviewLanguage = (typeof LANDING_MARKDOWN_PREVIEW_LANGUAGES)[number];
 
 export const LANDING_MARKDOWN_PREVIEW_DEFAULT_LANGUAGE = "en";
 export const LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL = `?${LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM}=ro`;

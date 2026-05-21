@@ -72,9 +72,7 @@ type RefreshTokenRequestInput = {
   refreshToken: string;
 };
 
-export type TokenRequestInput =
-  | AuthorizationCodeTokenRequestInput
-  | RefreshTokenRequestInput;
+export type TokenRequestInput = AuthorizationCodeTokenRequestInput | RefreshTokenRequestInput;
 
 export type JsonRpcRequestPayload = {
   jsonrpc: "2.0";
@@ -133,17 +131,13 @@ function parseAndValidateUri(
       }
       return null;
     }
-    return parsed.protocol === "https:" || parsed.protocol === "http:"
-      ? parsed
-      : null;
+    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed : null;
   } catch {
     return null;
   }
 }
 
-function resolveAllowLoopbackHttpRedirectUris(
-  options?: McpProtocolValidationOptions,
-): boolean {
+function resolveAllowLoopbackHttpRedirectUris(options?: McpProtocolValidationOptions): boolean {
   return options?.allowLoopbackHttpRedirectUris === true;
 }
 
@@ -167,9 +161,7 @@ export function redirectUriMatchesRegistered(args: {
   registeredRedirectUris: string[];
   options?: McpProtocolValidationOptions;
 }): boolean {
-  const allowLoopbackHttpRedirectUris = resolveAllowLoopbackHttpRedirectUris(
-    args.options,
-  );
+  const allowLoopbackHttpRedirectUris = resolveAllowLoopbackHttpRedirectUris(args.options);
   const requested = parseAndValidateUri(args.requestedRedirectUri, {
     forRedirect: true,
     allowLoopbackHttpRedirectUris,
@@ -190,11 +182,7 @@ export function redirectUriMatchesRegistered(args: {
   });
 }
 
-function readStringArray(
-  value: unknown,
-  maxItems: number,
-  maxLength: number,
-): string[] | null {
+function readStringArray(value: unknown, maxItems: number, maxLength: number): string[] | null {
   if (!Array.isArray(value)) {
     return null;
   }
@@ -228,10 +216,7 @@ function readOptionalStringArray(
 
 function validateGrantTypes(grantTypes: string[]): boolean {
   const allowed = new Set<string>(DEFAULT_GRANT_TYPES);
-  if (
-    grantTypes.length === 0 ||
-    grantTypes.length > DEFAULT_GRANT_TYPES.length
-  ) {
+  if (grantTypes.length === 0 || grantTypes.length > DEFAULT_GRANT_TYPES.length) {
     return false;
   }
   if (!grantTypes.every((grantType) => allowed.has(grantType))) {
@@ -241,9 +226,7 @@ function validateGrantTypes(grantTypes: string[]): boolean {
 }
 
 function validateResponseTypes(responseTypes: string[]): boolean {
-  return (
-    responseTypes.length === 1 && responseTypes[0] === DEFAULT_RESPONSE_TYPES[0]
-  );
+  return responseTypes.length === 1 && responseTypes[0] === DEFAULT_RESPONSE_TYPES[0];
 }
 
 function normalizeScopeToken(scope: string): string {
@@ -289,9 +272,7 @@ export function buildMcpAuthorizationServerMetadata(baseUrl: string): {
     response_types_supported: DEFAULT_RESPONSE_TYPES,
     grant_types_supported: DEFAULT_GRANT_TYPES,
     code_challenge_methods_supported: [CODE_CHALLENGE_METHOD],
-    token_endpoint_auth_methods_supported: [
-      SUPPORTED_TOKEN_ENDPOINT_AUTH_METHOD,
-    ],
+    token_endpoint_auth_methods_supported: [SUPPORTED_TOKEN_ENDPOINT_AUTH_METHOD],
     scopes_supported: MCP_V1_SUPPORTED_SCOPES,
   };
 }
@@ -301,8 +282,7 @@ export function validateDynamicClientRegistrationPayload(
   options?: McpProtocolValidationOptions,
 ): ValidationResult<DynamicClientRegistrationInput> {
   const record = asRecord(payload);
-  const allowLoopbackHttpRedirectUris =
-    resolveAllowLoopbackHttpRedirectUris(options);
+  const allowLoopbackHttpRedirectUris = resolveAllowLoopbackHttpRedirectUris(options);
 
   const clientNameValue = record.client_name;
   let clientName: string | null = null;
@@ -334,8 +314,7 @@ export function validateDynamicClientRegistrationPayload(
     return {
       ok: false,
       status: 400,
-      error:
-        "redirect_uris must be a non-empty array of valid redirect URI strings.",
+      error: "redirect_uris must be a non-empty array of valid redirect URI strings.",
     };
   }
 
@@ -355,11 +334,7 @@ export function validateDynamicClientRegistrationPayload(
     }
   }
 
-  const contacts = readOptionalStringArray(
-    record.contacts,
-    MAX_CONTACTS,
-    MAX_CONTACT_LENGTH,
-  );
+  const contacts = readOptionalStringArray(record.contacts, MAX_CONTACTS, MAX_CONTACT_LENGTH);
   if (contacts === null) {
     return {
       ok: false,
@@ -376,19 +351,14 @@ export function validateDynamicClientRegistrationPayload(
     return {
       ok: false,
       status: 400,
-      error:
-        "grant_types must contain supported values and include authorization_code.",
+      error: "grant_types must contain supported values and include authorization_code.",
     };
   }
 
   const responseTypes =
     record.response_types === undefined
       ? [...DEFAULT_RESPONSE_TYPES]
-      : readStringArray(
-          record.response_types,
-          DEFAULT_RESPONSE_TYPES.length,
-          16,
-        );
+      : readStringArray(record.response_types, DEFAULT_RESPONSE_TYPES.length, 16);
   if (responseTypes === null || !validateResponseTypes(responseTypes)) {
     return {
       ok: false,
@@ -409,8 +379,7 @@ export function validateDynamicClientRegistrationPayload(
     };
   }
   const tokenEndpointAuthMethod =
-    tokenEndpointAuthMethodValue?.trim() ??
-    SUPPORTED_TOKEN_ENDPOINT_AUTH_METHOD;
+    tokenEndpointAuthMethodValue?.trim() ?? SUPPORTED_TOKEN_ENDPOINT_AUTH_METHOD;
 
   if (tokenEndpointAuthMethod !== SUPPORTED_TOKEN_ENDPOINT_AUTH_METHOD) {
     return {
@@ -437,8 +406,7 @@ export function validateAuthorizeRequestFromUrl(
   url: URL,
   options?: McpProtocolValidationOptions,
 ): ValidationResult<AuthorizeRequestInput> {
-  const allowLoopbackHttpRedirectUris =
-    resolveAllowLoopbackHttpRedirectUris(options);
+  const allowLoopbackHttpRedirectUris = resolveAllowLoopbackHttpRedirectUris(options);
   const responseType = url.searchParams.get("response_type");
   if (responseType !== "code") {
     return {
@@ -481,8 +449,7 @@ export function validateAuthorizeRequestFromUrl(
   // Some native MCP clients (including Codex desktop) omit `resource`.
   // Defaulting to same-origin `/mcp` keeps OAuth interop while remaining
   // bounded to this MCP server origin.
-  const resourceRaw =
-    url.searchParams.get("resource")?.trim() || `${url.origin}/mcp`;
+  const resourceRaw = url.searchParams.get("resource")?.trim() || `${url.origin}/mcp`;
   const resource = parseAndValidateUri(resourceRaw, {
     forRedirect: false,
     allowLoopbackHttpRedirectUris,
@@ -561,8 +528,7 @@ export function validateTokenRequestFromSearchParams(
   params: URLSearchParams,
   options?: McpProtocolValidationOptions,
 ): ValidationResult<TokenRequestInput> {
-  const allowLoopbackHttpRedirectUris =
-    resolveAllowLoopbackHttpRedirectUris(options);
+  const allowLoopbackHttpRedirectUris = resolveAllowLoopbackHttpRedirectUris(options);
   const grantType = params.get("grant_type")?.trim() ?? "";
   if (grantType === "authorization_code") {
     const code = params.get("code")?.trim() ?? "";
@@ -720,11 +686,7 @@ export function validateJsonRpcRequestPayload(
   let id: string | number | null | undefined;
   if (idValue === undefined) {
     id = undefined;
-  } else if (
-    typeof idValue === "string" ||
-    typeof idValue === "number" ||
-    idValue === null
-  ) {
+  } else if (typeof idValue === "string" || typeof idValue === "number" || idValue === null) {
     id = idValue;
   } else {
     return {

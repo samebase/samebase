@@ -9,9 +9,7 @@ const localStorageRouteScreenshotOptions = {
   maxDiffPixelRatio: 0.03,
 } as const;
 
-test("localStorage route shows raw strings and formatted JSON values", async ({
-  page,
-}) => {
+test("localStorage route shows raw strings and formatted JSON values", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.addInitScript(() => {
     window.localStorage.clear();
@@ -25,18 +23,13 @@ test("localStorage route shows raw strings and formatted JSON values", async ({
         },
       }),
     );
-    window.localStorage.setItem(
-      "noter.multiline",
-      "line one\nline two\nline three",
-    );
+    window.localStorage.setItem("noter.multiline", "line one\nline two\nline three");
   });
 
   await page.goto("/localStorage", { waitUntil: "networkidle" });
 
   await expect(page.getByTestId("local-storage-route")).toBeVisible();
-  await expect(page.getByTestId("local-storage-sidebar-file")).toHaveText(
-    "localStorage",
-  );
+  await expect(page.getByTestId("local-storage-sidebar-file")).toHaveText("localStorage");
   await expect(
     page.getByTestId("local-storage-entry-key").filter({
       hasText: "noter.multiline",
@@ -58,9 +51,7 @@ test("localStorage route shows raw strings and formatted JSON values", async ({
   );
 });
 
-test("localStorage route reflects sidebar persistence without manual refresh", async ({
-  page,
-}) => {
+test("localStorage route reflects sidebar persistence without manual refresh", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.addInitScript(() => {
     window.localStorage.clear();
@@ -94,9 +85,7 @@ test("localStorage route reflects sidebar persistence without manual refresh", a
   ).toBeVisible();
 });
 
-test("localStorage right sidebar reserves the dev link row", async ({
-  page,
-}) => {
+test("localStorage right sidebar reserves the dev link row", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/localStorage", { waitUntil: "networkidle" });
 
@@ -110,9 +99,7 @@ test("localStorage right sidebar reserves the dev link row", async ({
     }),
   ).toHaveCount(0);
 
-  const hiddenLocalStorageRow = publicLinks.locator(
-    "#public-local-storage-route-link",
-  );
+  const hiddenLocalStorageRow = publicLinks.locator("#public-local-storage-route-link");
   await expect(hiddenLocalStorageRow).toHaveAttribute("aria-hidden", "true");
   await expect(hiddenLocalStorageRow).toHaveAttribute("tabindex", "-1");
   await expect(hiddenLocalStorageRow).toHaveText(LOCAL_STORAGE_ROUTE);

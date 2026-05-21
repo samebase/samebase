@@ -16,24 +16,15 @@ function redactDefault(text: string): string {
   let output = text;
 
   // Authorization/cookies/tokens.
-  output = output.replace(
-    /(authorization\s*[:=]\s*bearer\s+)[^\s"']+/gi,
-    "$1[REDACTED]",
-  );
-  output = output.replace(
-    /(x[-_]?(api[-_])?key\s*[:=]\s*)[^\s"']+/gi,
-    "$1[REDACTED]",
-  );
+  output = output.replace(/(authorization\s*[:=]\s*bearer\s+)[^\s"']+/gi, "$1[REDACTED]");
+  output = output.replace(/(x[-_]?(api[-_])?key\s*[:=]\s*)[^\s"']+/gi, "$1[REDACTED]");
   output = output.replace(/(token\s*[:=]\s*)[^\s"']+/gi, "$1[REDACTED]");
   output = output.replace(/(cookie\s*[:=]\s*)[^\n]+/gi, "$1[REDACTED]");
   output = output.replace(/(secret\s*[:=]\s*)[^\s"']+/gi, "$1[REDACTED]");
   output = output.replace(/(password\s*[:=]\s*)[^\s"']+/gi, "$1[REDACTED]");
 
   // PII.
-  output = output.replace(
-    /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,
-    "[REDACTED_EMAIL]",
-  );
+  output = output.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[REDACTED_EMAIL]");
   output = output.replace(/\+?[0-9][0-9().\-\s]{7,}[0-9]/g, "[REDACTED_PHONE]");
 
   return output;

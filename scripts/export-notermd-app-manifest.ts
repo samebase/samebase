@@ -1,14 +1,6 @@
 import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import {
-  mkdir,
-  mkdtemp,
-  readdir,
-  readFile,
-  rm,
-  stat,
-  writeFile,
-} from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -105,9 +97,7 @@ function readToken(): string {
     return envToken.trim();
   }
 
-  throw new Error(
-    "Set NOTER_TEMPLATE_GITHUB_TOKEN before exporting notermd/app.",
-  );
+  throw new Error("Set NOTER_TEMPLATE_GITHUB_TOKEN before exporting notermd/app.");
 }
 
 async function githubFetch(token: string, url: string): Promise<Response> {
@@ -128,10 +118,9 @@ async function githubFetch(token: string, url: string): Promise<Response> {
     });
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error(
-        `GitHub request timed out after ${githubRequestTimeoutMs}ms for ${url}`,
-        { cause: error },
-      );
+      throw new Error(`GitHub request timed out after ${githubRequestTimeoutMs}ms for ${url}`, {
+        cause: error,
+      });
     }
     throw error;
   } finally {
@@ -140,18 +129,13 @@ async function githubFetch(token: string, url: string): Promise<Response> {
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(
-      `GitHub request failed ${response.status} for ${url}: ${body}`,
-    );
+    throw new Error(`GitHub request failed ${response.status} for ${url}: ${body}`);
   }
 
   return response;
 }
 
-async function resolveSourceCommit(args: {
-  token: string;
-  sourceBranch: string;
-}): Promise<string> {
+async function resolveSourceCommit(args: { token: string; sourceBranch: string }): Promise<string> {
   const response = await githubFetch(
     args.token,
     `${githubApiBase}/repos/${sourceOwner}/${sourceRepoName}/commits/${encodeURIComponent(args.sourceBranch)}`,
@@ -183,10 +167,7 @@ async function downloadArchive(args: {
   await writeFile(args.outputPath, buffer);
 }
 
-async function extractArchive(args: {
-  archivePath: string;
-  extractDir: string;
-}): Promise<void> {
+async function extractArchive(args: { archivePath: string; extractDir: string }): Promise<void> {
   try {
     await execFileAsync("tar", [
       "-xzf",
@@ -229,10 +210,7 @@ async function runPnpm(args: readonly string[], cwd: string): Promise<void> {
   });
 }
 
-async function formatGeneratedFile(
-  filePath: string,
-  cwd: string,
-): Promise<void> {
+async function formatGeneratedFile(filePath: string, cwd: string): Promise<void> {
   await runPnpm(["exec", "vp", "fmt", filePath], cwd);
 }
 
@@ -242,8 +220,7 @@ function containsBinaryControlByte(buffer: Buffer): boolean {
       return true;
     }
 
-    const isAllowedTextControlByte =
-      byte === 9 || byte === 10 || byte === 12 || byte === 13;
+    const isAllowedTextControlByte = byte === 9 || byte === 10 || byte === 12 || byte === 13;
     if (byte < 32 && !isAllowedTextControlByte) {
       return true;
     }
@@ -252,20 +229,14 @@ function containsBinaryControlByte(buffer: Buffer): boolean {
   return false;
 }
 
-async function collectFiles(
-  rootDir: string,
-  currentDir: string,
-): Promise<CollectedFile[]> {
+async function collectFiles(rootDir: string, currentDir: string): Promise<CollectedFile[]> {
   const entries = await readdir(currentDir, { withFileTypes: true });
   const files: CollectedFile[] = [];
   const decoder = new TextDecoder("utf-8", { fatal: true });
 
   for (const entry of entries) {
     const absolutePath = path.join(currentDir, entry.name);
-    const relativePath = path
-      .relative(rootDir, absolutePath)
-      .split(path.sep)
-      .join("/");
+    const relativePath = path.relative(rootDir, absolutePath).split(path.sep).join("/");
 
     if (entry.isDirectory()) {
       files.push(...(await collectFiles(rootDir, absolutePath)));
@@ -342,10 +313,7 @@ function compareUtf8PathBytes(left: string, right: string): number {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
-const outputPath = path.resolve(
-  repoRoot,
-  "apps/noter/convex/starterSeedManifest.generated.ts",
-);
+const outputPath = path.resolve(repoRoot, "apps/noter/convex/starterSeedManifest.generated.ts");
 
 const { sourceBranch } = parseArgs(process.argv.slice(2));
 const token = readToken();
@@ -360,9 +328,7 @@ try {
   await extractArchive({ archivePath, extractDir });
 
   const files = await collectFiles(extractDir, extractDir);
-  files.sort((left, right) =>
-    compareUtf8PathBytes(left.relativePath, right.relativePath),
-  );
+  files.sort((left, right) => compareUtf8PathBytes(left.relativePath, right.relativePath));
 
   if (files.length === 0) {
     throw new Error("notermd/app archive contained no files");

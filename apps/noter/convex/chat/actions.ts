@@ -74,9 +74,7 @@ function parseAllowedDataTable(value: unknown): AllowedDataTable {
   return allowedDataTableSchema.parse(value);
 }
 
-function selectAssistantMessageId(
-  messages: MessageDoc[] | undefined,
-): string | undefined {
+function selectAssistantMessageId(messages: MessageDoc[] | undefined): string | undefined {
   if (!messages) return undefined;
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const msg = messages[i];
@@ -94,10 +92,9 @@ export const generateResponse = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const threadContext = await ctx.runQuery(
-      internal.chat.index.getThreadContextForAction,
-      { threadId: args.threadId },
-    );
+    const threadContext = await ctx.runQuery(internal.chat.index.getThreadContextForAction, {
+      threadId: args.threadId,
+    });
     if (!threadContext) {
       throw new Error("Thread not found");
     }
@@ -112,13 +109,10 @@ export const generateResponse = internalAction({
       });
       if (isLiveConnectedVault(v)) {
         vault = v;
-        const githubConnection = await ctx.runQuery(
-          internal.providerConnections.getByUserAndKind,
-          {
-            userId: v.userId,
-            kind: "github",
-          },
-        );
+        const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+          userId: v.userId,
+          kind: "github",
+        });
         if (githubConnection?.kind === "github") {
           githubAccessToken = githubConnection.auth.credential;
         }
@@ -126,9 +120,7 @@ export const generateResponse = internalAction({
     }
 
     const toolBranch =
-      vault && githubAccessToken && threadContext.branch
-        ? threadContext.branch
-        : null;
+      vault && githubAccessToken && threadContext.branch ? threadContext.branch : null;
     const hasToolAccess = Boolean(vault && githubAccessToken && toolBranch);
 
     // Gather context for the system prompt
@@ -137,17 +129,12 @@ export const generateResponse = internalAction({
 
     if (vault) {
       const contextBranch = threadContext.branch || vault.defaultBranch;
-      const branchTree = await ctx.runQuery(
-        internal.vault.branches.getVaultBranchTree,
-        {
-          vaultId: vault._id,
-          branch: contextBranch,
-        },
-      );
+      const branchTree = await ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
+        vaultId: vault._id,
+        branch: contextBranch,
+      });
       if (branchTree) {
-        repoTree = branchTree.treeData.tree
-          .filter((t) => t.type === "blob")
-          .map((t) => t.path);
+        repoTree = branchTree.treeData.tree.filter((t) => t.type === "blob").map((t) => t.path);
       }
     }
 
@@ -286,12 +273,9 @@ export const executeApprovedProdRead = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const request = await ctx.runQuery(
-      internal.chat.index.getProdAccessRequestInternal,
-      {
-        requestId: args.requestId,
-      },
-    );
+    const request = await ctx.runQuery(internal.chat.index.getProdAccessRequestInternal, {
+      requestId: args.requestId,
+    });
     if (!request) {
       return null;
     }
@@ -306,16 +290,13 @@ export const executeApprovedProdRead = internalAction({
     const now = Date.now();
     if (request.expiresAt && now > request.expiresAt) {
       const error = "Request approval expired before execution";
-      await ctx.runMutation(
-        internal.chat.index.setProdAccessRequestStatusInternal,
-        {
-          requestId: request._id,
-          status: "expired",
-          error,
-          approvedBy: request.approvedBy,
-          approvedAt: request.approvedAt,
-        },
-      );
+      await ctx.runMutation(internal.chat.index.setProdAccessRequestStatusInternal, {
+        requestId: request._id,
+        status: "expired",
+        error,
+        approvedBy: request.approvedBy,
+        approvedAt: request.approvedAt,
+      });
       await ctx.runMutation(internal.chat.index.addProdAccessAuditInternal, {
         requestId: request._id,
         actorUserId: auditActorUserId,
@@ -325,14 +306,11 @@ export const executeApprovedProdRead = internalAction({
         argumentHash,
         error,
       });
-      await ctx.runMutation(
-        internal.chat.index.updateProdReadProposalMessageStatusInternal,
-        {
-          messageId: args.proposalMessageId,
-          status: "expired",
-          error,
-        },
-      );
+      await ctx.runMutation(internal.chat.index.updateProdReadProposalMessageStatusInternal, {
+        messageId: args.proposalMessageId,
+        status: "expired",
+        error,
+      });
 
       const expiredMessage = `Production read expired before execution: ${error}.`;
       const { messageId } = await saveMessage(ctx, components.agent, {
@@ -368,113 +346,67 @@ export const executeApprovedProdRead = internalAction({
           }
         | undefined;
 
-      if (
-        request.provider === "convex" &&
-        request.resourceKind === "deployment_status"
-      ) {
+      if (request.provider === "convex" && request.resourceKind === "deployment_status") {
         if (!request.vaultId) {
-          throw new Error(
-            "Vault context is required for Convex deployment status",
-          );
+          throw new Error("Vault context is required for Convex deployment status");
         }
-        executionResult = await ctx.runAction(
-          internal.infraRead.getConvexDeploymentStatus,
-          {
-            vaultId: request.vaultId,
-          },
-        );
-      } else if (
-        request.provider === "convex" &&
-        request.resourceKind === "logs"
-      ) {
+        executionResult = await ctx.runAction(internal.infraRead.getConvexDeploymentStatus, {
+          vaultId: request.vaultId,
+        });
+      } else if (request.provider === "convex" && request.resourceKind === "logs") {
         if (!request.vaultId) {
           throw new Error("Vault context is required for Convex logs");
         }
-        executionResult = await ctx.runAction(
-          internal.infraRead.getConvexLogs,
-          {
-            vaultId: request.vaultId,
-            maxLines: parseOptionalPositiveNumber(params["maxLines"]),
-          },
-        );
+        executionResult = await ctx.runAction(internal.infraRead.getConvexLogs, {
+          vaultId: request.vaultId,
+          maxLines: parseOptionalPositiveNumber(params["maxLines"]),
+        });
       } else if (
         request.provider === "cloudflare" &&
         request.resourceKind === "deployment_status"
       ) {
         if (!request.vaultId) {
-          throw new Error(
-            "Vault context is required for Cloudflare Worker status",
-          );
+          throw new Error("Vault context is required for Cloudflare Worker status");
         }
-        executionResult = await ctx.runAction(
-          internal.infraRead.getCloudflareWorkerStatus,
-          {
-            vaultId: request.vaultId,
-          },
-        );
-      } else if (
-        request.provider === "cloudflare" &&
-        request.resourceKind === "logs"
-      ) {
+        executionResult = await ctx.runAction(internal.infraRead.getCloudflareWorkerStatus, {
+          vaultId: request.vaultId,
+        });
+      } else if (request.provider === "cloudflare" && request.resourceKind === "logs") {
         if (!request.vaultId) {
           throw new Error("Vault context is required for Cloudflare logs");
         }
-        executionResult = await ctx.runAction(
-          internal.infraRead.getCloudflareLogs,
-          {
-            vaultId: request.vaultId,
-            maxEntries: parseOptionalPositiveNumber(params["maxEntries"]),
-          },
-        );
-      } else if (
-        request.provider === "convex" &&
-        request.resourceKind === "data_query"
-      ) {
-        executionResult = await ctx.runAction(
-          internal.infraRead.getConvexDataQuery,
-          {
-            table: parseAllowedDataTable(params["table"]),
-            limit: parseOptionalPositiveNumber(params["limit"]),
-            vaultId:
-              request.scope === "vault"
-                ? (request.vaultId ?? undefined)
-                : undefined,
-          },
-        );
-      } else if (
-        request.provider === "convex" &&
-        request.resourceKind === "project_inventory"
-      ) {
-        executionResult = await ctx.runAction(
-          internal.infraRead.getConvexProjectInventory,
-          {
-            limit: parseOptionalPositiveNumber(params["limit"]),
-            userId: request.requesterUserId,
-          },
-        );
+        executionResult = await ctx.runAction(internal.infraRead.getCloudflareLogs, {
+          vaultId: request.vaultId,
+          maxEntries: parseOptionalPositiveNumber(params["maxEntries"]),
+        });
+      } else if (request.provider === "convex" && request.resourceKind === "data_query") {
+        executionResult = await ctx.runAction(internal.infraRead.getConvexDataQuery, {
+          table: parseAllowedDataTable(params["table"]),
+          limit: parseOptionalPositiveNumber(params["limit"]),
+          vaultId: request.scope === "vault" ? (request.vaultId ?? undefined) : undefined,
+        });
+      } else if (request.provider === "convex" && request.resourceKind === "project_inventory") {
+        executionResult = await ctx.runAction(internal.infraRead.getConvexProjectInventory, {
+          limit: parseOptionalPositiveNumber(params["limit"]),
+          userId: request.requesterUserId,
+        });
       } else if (
         request.provider === "cloudflare" &&
         request.resourceKind === "account_inventory"
       ) {
-        executionResult = await ctx.runAction(
-          internal.infraRead.getCloudflareAccountInventory,
-          {
-            limit: parseOptionalPositiveNumber(params["limit"]),
-            userId: request.requesterUserId,
-          },
-        );
+        executionResult = await ctx.runAction(internal.infraRead.getCloudflareAccountInventory, {
+          limit: parseOptionalPositiveNumber(params["limit"]),
+          userId: request.requesterUserId,
+        });
       } else if (
         request.provider === "cloudflare" &&
         request.resourceKind === "workers_inventory"
       ) {
-        executionResult = await ctx.runAction(
-          internal.infraRead.getCloudflareWorkersInventory,
-          {
-            limit: parseOptionalPositiveNumber(params["limit"]),
-            userId: request.requesterUserId,
-            accountId: parseOptionalNonEmptyString(params["accountId"]),
-          },
-        );
+        executionResult = await ctx.runAction(internal.infraRead.getCloudflareWorkersInventory, {
+          limit: parseOptionalPositiveNumber(params["limit"]),
+          userId: request.requesterUserId,
+          accountId: parseOptionalNonEmptyString(params["accountId"]),
+        });
       }
 
       if (!executionResult) {
@@ -489,18 +421,15 @@ export const executeApprovedProdRead = internalAction({
         mode: getProdAccessMode(),
       });
 
-      await ctx.runMutation(
-        internal.chat.index.setProdAccessRequestStatusInternal,
-        {
-          requestId: request._id,
-          status: "executed",
-          error: undefined,
-          approvedBy: request.approvedBy,
-          approvedAt: request.approvedAt,
-          executedAt: Date.now(),
-          redactionLevel: redacted.effectiveLevel,
-        },
-      );
+      await ctx.runMutation(internal.chat.index.setProdAccessRequestStatusInternal, {
+        requestId: request._id,
+        status: "executed",
+        error: undefined,
+        approvedBy: request.approvedBy,
+        approvedAt: request.approvedAt,
+        executedAt: Date.now(),
+        redactionLevel: redacted.effectiveLevel,
+      });
       await ctx.runMutation(internal.chat.index.addProdAccessAuditInternal, {
         requestId: request._id,
         actorUserId: auditActorUserId,
@@ -512,13 +441,10 @@ export const executeApprovedProdRead = internalAction({
         logLineCount: executionResult.logLineCount,
         error: undefined,
       });
-      await ctx.runMutation(
-        internal.chat.index.updateProdReadProposalMessageStatusInternal,
-        {
-          messageId: args.proposalMessageId,
-          status: "executed",
-        },
-      );
+      await ctx.runMutation(internal.chat.index.updateProdReadProposalMessageStatusInternal, {
+        messageId: args.proposalMessageId,
+        status: "executed",
+      });
 
       const output = [
         `Production read complete: ${executionResult.summary}.`,
@@ -549,22 +475,16 @@ export const executeApprovedProdRead = internalAction({
 
       return null;
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Unknown production read error";
+      const message = error instanceof Error ? error.message : "Unknown production read error";
 
-      await ctx.runMutation(
-        internal.chat.index.setProdAccessRequestStatusInternal,
-        {
-          requestId: request._id,
-          status: "failed",
-          error: message,
-          approvedBy: request.approvedBy,
-          approvedAt: request.approvedAt,
-          executedAt: Date.now(),
-        },
-      );
+      await ctx.runMutation(internal.chat.index.setProdAccessRequestStatusInternal, {
+        requestId: request._id,
+        status: "failed",
+        error: message,
+        approvedBy: request.approvedBy,
+        approvedAt: request.approvedAt,
+        executedAt: Date.now(),
+      });
       await ctx.runMutation(internal.chat.index.addProdAccessAuditInternal, {
         requestId: request._id,
         actorUserId: auditActorUserId,
@@ -574,14 +494,11 @@ export const executeApprovedProdRead = internalAction({
         argumentHash,
         error: message,
       });
-      await ctx.runMutation(
-        internal.chat.index.updateProdReadProposalMessageStatusInternal,
-        {
-          messageId: args.proposalMessageId,
-          status: "failed",
-          error: message,
-        },
-      );
+      await ctx.runMutation(internal.chat.index.updateProdReadProposalMessageStatusInternal, {
+        messageId: args.proposalMessageId,
+        status: "failed",
+        error: message,
+      });
       const failedMessage = `Production read failed: ${message}.`;
       const { messageId } = await saveMessage(ctx, components.agent, {
         threadId: request.threadId,

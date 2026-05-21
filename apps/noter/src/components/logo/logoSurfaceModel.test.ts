@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  buildLogoSurfaceQuads,
-  getLogoSurfaceFitRadius,
-} from "@/components/logo/logoSurfaceModel";
+import { buildLogoSurfaceQuads, getLogoSurfaceFitRadius } from "@/components/logo/logoSurfaceModel";
 import {
   createDefaultFilledVoxelSet,
   createFilledVoxelSet,
@@ -54,10 +51,7 @@ describe("buildLogoSurfaceQuads", () => {
 
   it("supports larger recursive grids without changing renderer contracts", () => {
     const voxelGrid = createLogoFractalVoxelGrid({ depth: 2 });
-    const surfaceQuads = buildLogoSurfaceQuads(
-      voxelGrid.filledVoxels,
-      voxelGrid.gridSize,
-    );
+    const surfaceQuads = buildLogoSurfaceQuads(voxelGrid.filledVoxels, voxelGrid.gridSize);
 
     expect(surfaceQuads.length).toBeGreaterThan(72);
     expect(
@@ -73,9 +67,7 @@ describe("buildLogoSurfaceQuads", () => {
 describe("getLogoSurfaceFitRadius", () => {
   it("measures surface bounds from shared quad vertices", () => {
     expect(
-      getLogoSurfaceFitRadius(
-        buildLogoSurfaceQuads(createDefaultFilledVoxelSet()),
-      ),
+      getLogoSurfaceFitRadius(buildLogoSurfaceQuads(createDefaultFilledVoxelSet())),
     ).toBeCloseTo(Math.sqrt(4.75));
   });
 });

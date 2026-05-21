@@ -2,21 +2,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 import { findRepositorySearchMatch } from "@/lib/repositorySearch";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import {
-  AddRepositoryPageContent,
-  type AddRepositoryRepository,
-} from "./AddRepository";
+import { AddRepositoryPageContent, type AddRepositoryRepository } from "./AddRepository";
 
-type AddRepositoryPageContentProps = Parameters<
-  typeof AddRepositoryPageContent
->[0];
+type AddRepositoryPageContentProps = Parameters<typeof AddRepositoryPageContent>[0];
 
 const noop = () => {};
 
-function buildRepository(
-  id: number,
-  fullName: string,
-): AddRepositoryRepository {
+function buildRepository(id: number, fullName: string): AddRepositoryRepository {
   const slashIndex = fullName.indexOf("/");
   if (slashIndex === -1) {
     throw new Error(`Invalid repository full name: ${fullName}`);
@@ -40,10 +32,7 @@ function buildRepository(
   };
 }
 
-function buildRepositoryRow(
-  repository: AddRepositoryRepository,
-  searchQuery: string,
-) {
+function buildRepositoryRow(repository: AddRepositoryRepository, searchQuery: string) {
   const searchMatch = findRepositorySearchMatch(searchQuery, repository);
   if (searchMatch === null) {
     throw new Error(`${repository.full_name} does not match ${searchQuery}`);
@@ -55,9 +44,7 @@ function buildRepositoryRow(
   };
 }
 
-function renderAddRepositoryContent(
-  overrides: Partial<AddRepositoryPageContentProps>,
-) {
+function renderAddRepositoryContent(overrides: Partial<AddRepositoryPageContentProps>) {
   const props: AddRepositoryPageContentProps = {
     connectingRepositoryFullName: null,
     emptyRepositoryMessage: null,

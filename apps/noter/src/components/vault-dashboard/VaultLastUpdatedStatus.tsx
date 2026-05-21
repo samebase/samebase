@@ -22,23 +22,16 @@ const VAULT_LAST_UPDATED_STATUS_INITIAL_STATE: VaultLastUpdatedStatusState = {
 };
 
 function useVaultLastUpdatedStatusStore() {
-  return useCreateStore(
-    VAULT_LAST_UPDATED_STATUS_INITIAL_STATE,
-    ({ setState }) => ({
-      clearFrozenNow: () => {
-        setState((state) =>
-          state.frozenNow === null ? state : { ...state, frozenNow: null },
-        );
-      },
-      freezeNow: () => {
-        setState((state) =>
-          state.frozenNow === null
-            ? { ...state, frozenNow: getCurrentSecondTimestamp() }
-            : state,
-        );
-      },
-    }),
-  );
+  return useCreateStore(VAULT_LAST_UPDATED_STATUS_INITIAL_STATE, ({ setState }) => ({
+    clearFrozenNow: () => {
+      setState((state) => (state.frozenNow === null ? state : { ...state, frozenNow: null }));
+    },
+    freezeNow: () => {
+      setState((state) =>
+        state.frozenNow === null ? { ...state, frozenNow: getCurrentSecondTimestamp() } : state,
+      );
+    },
+  }));
 }
 
 /**

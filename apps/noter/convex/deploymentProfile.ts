@@ -27,9 +27,7 @@ const vPublicDeploymentAuthPolicy = object({
   deploymentProfile: vDeploymentProfile,
   passwordAuthMode: vPasswordAuthMode,
 });
-export type PublicDeploymentAuthPolicy = Infer<
-  typeof vPublicDeploymentAuthPolicy
->;
+export type PublicDeploymentAuthPolicy = Infer<typeof vPublicDeploymentAuthPolicy>;
 
 type DeploymentProfileEnv = {
   CONVEX_AGENT_MODE?: string;
@@ -112,9 +110,7 @@ function isAnonymousLikeDeploymentSpecifier(rawSpecifier: string): boolean {
  * Classify the current runtime into the deployment buckets the app actually
  * cares about, rather than letting each subsystem infer its own environment.
  */
-export function resolveDeploymentProfileFromEnv(
-  env: DeploymentProfileEnv,
-): DeploymentProfile {
+export function resolveDeploymentProfileFromEnv(env: DeploymentProfileEnv): DeploymentProfile {
   if (readAgentMode(env) === "anonymous") {
     return { kind: "local_worktree" };
   }
@@ -166,10 +162,8 @@ export function resolveDeploymentProfile(): DeploymentProfile {
     CONVEX_CLOUD_URL: readOptionalEnv("CONVEX_CLOUD_URL") ?? undefined,
     CONVEX_DEPLOYMENT: readOptionalEnv("CONVEX_DEPLOYMENT") ?? undefined,
     CONVEX_SITE_URL: readOptionalEnv("CONVEX_SITE_URL") ?? undefined,
-    PREVIEW_SEED_AUTH_EMAIL:
-      readOptionalEnv("PREVIEW_SEED_AUTH_EMAIL") ?? undefined,
-    PREVIEW_SEED_AUTH_PASSWORD:
-      readOptionalEnv("PREVIEW_SEED_AUTH_PASSWORD") ?? undefined,
+    PREVIEW_SEED_AUTH_EMAIL: readOptionalEnv("PREVIEW_SEED_AUTH_EMAIL") ?? undefined,
+    PREVIEW_SEED_AUTH_PASSWORD: readOptionalEnv("PREVIEW_SEED_AUTH_PASSWORD") ?? undefined,
     SITE_URL: readOptionalEnv("SITE_URL") ?? undefined,
   });
 }
@@ -178,9 +172,7 @@ export function resolveDeploymentProfile(): DeploymentProfile {
  * Password auth intentionally stays narrower than the deployment profile:
  * only local worktrees and preview deployments get seeded credentials.
  */
-export function resolvePasswordAuthMode(
-  profile: DeploymentProfile,
-): PasswordAuthMode {
+export function resolvePasswordAuthMode(profile: DeploymentProfile): PasswordAuthMode {
   switch (profile.kind) {
     case "local_worktree":
       return "local_worktree_seed";
@@ -207,9 +199,7 @@ export function assertPasswordAuthFlowAllowed(
   switch (passwordAuthMode) {
     case "preview_seed":
       if (flow === "signUp") {
-        throw new Error(
-          "Preview deployments only allow password sign-in for the seeded account",
-        );
+        throw new Error("Preview deployments only allow password sign-in for the seeded account");
       }
       return;
     case "local_worktree_seed":

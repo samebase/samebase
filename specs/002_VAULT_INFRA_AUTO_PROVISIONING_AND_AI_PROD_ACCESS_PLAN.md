@@ -4,8 +4,8 @@
 
 - Infra auto-provisioning for noter-managed vault creation is implemented.
 - Existing-repo GitHub connect remains non-provisioning by default.
-- Approval-first production read flow is implemented with request/audit tables
-  and chat approval cards.
+- Approval-first production read flow is implemented with request/audit tables and chat approval
+  cards.
 - See current source-of-truth specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
@@ -14,20 +14,19 @@
 
 Update the specs to cover two coupled MVP tracks:
 
-1. Auto-provision infrastructure (Convex + Netlify) for new noter-managed
-   vaults.
-2. Allow the main AI to inspect production infra/logs/data with explicit
-   per-request approval and auditability.
+1. Auto-provision infrastructure (Convex + Netlify) for new noter-managed vaults.
+2. Allow the main AI to inspect production infra/logs/data with explicit per-request approval and
+   auditability.
 
-This keeps your "move fast" single-user workflow, while preventing a dangerous
-rewrite when real users arrive.
+This keeps your "move fast" single-user workflow, while preventing a dangerous rewrite when real
+users arrive.
 
 ## Spec Files to Add/Update
 
 1. Add `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`.
 2. Add `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`.
-3. Add a short cross-link section to `specs/001_CODESPACE_CONNECTION_SPEC.md`
-   pointing to the new infra specs.
+3. Add a short cross-link section to `specs/001_CODESPACE_CONNECTION_SPEC.md` pointing to the new
+   infra specs.
 
 ## Required API/Schema Changes (to include in specs)
 
@@ -35,8 +34,7 @@ rewrite when real users arrive.
 
 1. Extend `vaults`:
 
-- `infraState`:
-  `"not_started" | "provisioning" | "ready" | "failed" | "partial"`
+- `infraState`: `"not_started" | "provisioning" | "ready" | "failed" | "partial"`
 - `infraLastError`: optional string
 - `infraLastProvisionedAt`: optional number
 
@@ -53,24 +51,20 @@ rewrite when real users arrive.
 
 4. Add table `aiProdAccessRequests`:
 
-- requester, vault/global scope, provider, resource kind, params, status,
-  approvedBy, approvedAt, executedAt, redactionLevel, error
+- requester, vault/global scope, provider, resource kind, params, status, approvedBy, approvedAt,
+  executedAt, redactionLevel, error
 
 5. Add table `aiProdAccessAudit`:
 
-- requestId, actor, action, endpoint/tool, argument hash, row/log counts,
-  timestamp
+- requestId, actor, action, endpoint/tool, argument hash, row/log counts, timestamp
 
 ### Convex function contracts
 
-1. `infraProvisioning.provisionVaultInfrastructure({ vaultId })` internal
-   action.
+1. `infraProvisioning.provisionVaultInfrastructure({ vaultId })` internal action.
 2. `vaultActions.retryInfrastructureProvisioning({ vaultId })` public action.
 3. `vault.getVaultInfrastructure({ vaultId })` public query.
-4. `chat.proposeProdRead(...)` internal/public plumbing for approval-first prod
-   reads.
-5. `chat.confirmProdRead({ requestId, threadId })` mutation to execute approved
-   read.
+4. `chat.proposeProdRead(...)` internal/public plumbing for approval-first prod reads.
+5. `chat.confirmProdRead({ requestId, threadId })` mutation to execute approved read.
 6. Read executors:
 
 - `infraRead.getConvexDeploymentStatus`
@@ -134,9 +128,8 @@ rewrite when real users arrive.
 2. Request/audit persistence for prod access.
 3. Idempotent retry logic for infra provisioning.
 4. Operator-facing infra status in vault dashboard.
-5. Provider adapter boundary for Convex/Netlify reads and provisioning so
-   internals can switch to generated OpenAPI SDKs later without changing tool
-   contracts.
+5. Provider adapter boundary for Convex/Netlify reads and provisioning so internals can switch to
+   generated OpenAPI SDKs later without changing tool contracts.
 
 ## What Can Be Deferred (post-MVP)
 
@@ -162,10 +155,9 @@ rewrite when real users arrive.
 2. Main-branch-first deployment behavior.
 3. Admin user is currently you (`isAdminUser` gate).
 4. Explicit approval required for every prod logs/data read.
-5. MVP allows broader access under `MVP_OWNER_MODE`, with planned switch to
-   strict mode before external users.
-6. Legacy note: `CONVEX_MANAGEMENT_TOKEN` and `CONVEX_TEAM_ID` are no longer
-   used by runtime code.
+5. MVP allows broader access under `MVP_OWNER_MODE`, with planned switch to strict mode before
+   external users.
+6. Legacy note: `CONVEX_MANAGEMENT_TOKEN` and `CONVEX_TEAM_ID` are no longer used by runtime code.
 7. Legacy note: `NETLIFY_ACCESS_TOKEN` is no longer used by runtime code.
 
 ## Provider Boundary and Migration
@@ -180,8 +172,6 @@ rewrite when real users arrive.
 
 ## Acceptance Criteria for "Spec Updated"
 
-1. Both new spec files exist with concrete schemas, APIs, flow diagrams, and
-   test matrix.
+1. Both new spec files exist with concrete schemas, APIs, flow diagrams, and test matrix.
 2. Existing codespace spec cross-links to new infra docs.
-3. Each spec includes a migration/rollout section and a "flip to multi-user safe
-   mode" checklist.
+3. Each spec includes a migration/rollout section and a "flip to multi-user safe mode" checklist.

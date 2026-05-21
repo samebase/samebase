@@ -17,12 +17,12 @@ const landingPreviewMarkdown = readFileSync(
   new URL("../src/content/landing-preview.md", import.meta.url),
   "utf8",
 );
-const expectedLandingPreviewSidebarLinks = getLandingMarkdownHeadings(
-  landingPreviewMarkdown,
-).map((heading) => ({
-  href: heading.href,
-  text: heading.text,
-}));
+const expectedLandingPreviewSidebarLinks = getLandingMarkdownHeadings(landingPreviewMarkdown).map(
+  (heading) => ({
+    href: heading.href,
+    text: heading.text,
+  }),
+);
 const expectedLandingPreviewVideoSrcs = [
   "/landing-preview/step-1-create-accounts.mp4",
   "/landing-preview/step-2-use-template.mp4",
@@ -40,9 +40,7 @@ const expectedRomanianPreviewHref = buildPathWithTanStackSearch({
 
 async function expectSidebarLinksToMatchMarkdown(sidebar: Locator) {
   const sidebarLinks = sidebar.getByRole("link");
-  await expect(sidebarLinks).toHaveCount(
-    expectedLandingPreviewSidebarLinks.length,
-  );
+  await expect(sidebarLinks).toHaveCount(expectedLandingPreviewSidebarLinks.length);
   await expect(sidebarLinks).toHaveText(
     expectedLandingPreviewSidebarLinks.map((link) => link.text),
   );
@@ -76,9 +74,7 @@ async function waitForVideoCurrentFrame(video: Locator) {
       const handleError = () => {
         cleanup();
         reject(
-          new Error(
-            `Landing video failed to load a frame: ${element.error?.code ?? "unknown"}`,
-          ),
+          new Error(`Landing video failed to load a frame: ${element.error?.code ?? "unknown"}`),
         );
       };
       const cleanup = () => {
@@ -95,9 +91,7 @@ async function waitForVideoCurrentFrame(video: Locator) {
   });
 }
 
-test("landing markdown preview route renders markdown in workspace chrome", async ({
-  page,
-}) => {
+test("landing markdown preview route renders markdown in workspace chrome", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
 
   await page.goto("/landing-preview?dev", {
@@ -136,24 +130,15 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
       name: "Română",
     })
     .getAttribute("href");
-  expect(markdownRomanianHref?.startsWith(LANDING_MARKDOWN_PREVIEW_ROUTE)).toBe(
-    true,
-  );
-  const markdownRomanianSearch = new URLSearchParams(
-    markdownRomanianHref?.split("?").at(1) ?? "",
-  );
-  expect(
-    markdownRomanianSearch.get(LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM),
-  ).toBe("ro");
+  expect(markdownRomanianHref?.startsWith(LANDING_MARKDOWN_PREVIEW_ROUTE)).toBe(true);
+  const markdownRomanianSearch = new URLSearchParams(markdownRomanianHref?.split("?").at(1) ?? "");
+  expect(markdownRomanianSearch.get(LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM)).toBe("ro");
   expect(markdownRomanianSearch.has(LANDING_DEV_MODE_QUERY_PARAM)).toBe(true);
   await expect(article.locator("details")).toHaveCount(4);
   await expect(article.locator("details video")).toHaveCount(0);
   const videos = article.locator("video");
   await expect(videos).toHaveCount(expectedLandingPreviewVideoSrcs.length);
-  for (const [
-    index,
-    expectedVideoSrc,
-  ] of expectedLandingPreviewVideoSrcs.entries()) {
+  for (const [index, expectedVideoSrc] of expectedLandingPreviewVideoSrcs.entries()) {
     const video = videos.nth(index);
     await expect(video).toBeVisible();
     await expect(video).toHaveAttribute("src", expectedVideoSrc);
@@ -175,9 +160,7 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
       name: "4: Create a Convex project and a CONVEX_DEPLOY_KEY",
     })
     .click();
-  await expect(page).toHaveURL(
-    /#4-create-a-convex-project-and-a-convex-deploy-key$/,
-  );
+  await expect(page).toHaveURL(/#4-create-a-convex-project-and-a-convex-deploy-key$/);
   await expect(
     article.locator('[id="4-create-a-convex-project-and-a-convex-deploy-key"]'),
   ).toBeInViewport();
@@ -204,9 +187,7 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
     .locator('[id="why-is-noter-md-free"]');
   await expect(finalHeading).toBeInViewport();
   await expect
-    .poll(() =>
-      finalHeading.evaluate((element) => element.getBoundingClientRect().top),
-    )
+    .poll(() => finalHeading.evaluate((element) => element.getBoundingClientRect().top))
     .toBeLessThan(80);
 });
 
@@ -244,9 +225,7 @@ test("landing markdown preview sidebar hash links keep the mobile sidebar open",
 
   const layout = page.locator('[data-workspace-layout-v2="mobile"]');
   const carousel = page.getByTestId("workspace-layout-v2-pane-main");
-  const mobileSidebar = page.getByTestId(
-    LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID,
-  );
+  const mobileSidebar = page.getByTestId(LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID);
 
   await expect(layout).toHaveAttribute("data-mobile-pane", "left");
   await expect(mobileSidebar).toBeVisible();
@@ -275,18 +254,14 @@ test("landing markdown preview sidebar hash links keep the mobile sidebar open",
       left: true,
     });
   await expect(layout).toHaveAttribute("data-mobile-pane", "left");
-  await expect
-    .poll(() => carousel.evaluate((element) => element.scrollLeft))
-    .toBeLessThan(80);
+  await expect.poll(() => carousel.evaluate((element) => element.scrollLeft)).toBeLessThan(80);
 
   const articleHeading = page
     .getByTestId(LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID)
     .locator('[id="6-connect-codex-to-github"]');
   await expect(articleHeading).toHaveCount(1);
 
-  const targetTop = await articleHeading.evaluate(
-    (element) => element.getBoundingClientRect().top,
-  );
+  const targetTop = await articleHeading.evaluate((element) => element.getBoundingClientRect().top);
   expect(targetTop).toBeGreaterThan(0);
   expect(targetTop).toBeLessThan(80);
 });

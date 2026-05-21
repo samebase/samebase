@@ -44,8 +44,7 @@ export function MachineConnectVisualFixture() {
             {
               command:
                 "curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'",
-              description:
-                "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
+              description: "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
               label: "Direct hosted file connect (Unix/macOS)",
             },
             {
@@ -58,10 +57,8 @@ export function MachineConnectVisualFixture() {
           ]}
           directRunCommands={[
             {
-              command:
-                "curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run",
-              description:
-                "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
+              command: "curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run",
+              description: "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
               label: "Direct hosted file run (Unix/macOS)",
             },
             {

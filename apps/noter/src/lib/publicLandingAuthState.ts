@@ -20,27 +20,15 @@ function readAuthFlagValue(): string | null {
 }
 
 function readAuthProviderValue(): string | null {
-  return withLocalStorage(
-    (storage) => storage.getItem(AUTH_PROVIDER_KEY),
-    null,
-  );
+  return withLocalStorage((storage) => storage.getItem(AUTH_PROVIDER_KEY), null);
 }
 
-function isStoredPasswordAuthMode(
-  value: string | null,
-): value is PublicPasswordAuthMode {
-  return (
-    value === "off" ||
-    value === "local_worktree_seed" ||
-    value === "preview_seed"
-  );
+function isStoredPasswordAuthMode(value: string | null): value is PublicPasswordAuthMode {
+  return value === "off" || value === "local_worktree_seed" || value === "preview_seed";
 }
 
 function readStoredPasswordAuthMode(): PublicPasswordAuthMode | null {
-  const storedValue = withLocalStorage(
-    (storage) => storage.getItem(PASSWORD_AUTH_MODE_KEY),
-    null,
-  );
+  const storedValue = withLocalStorage((storage) => storage.getItem(PASSWORD_AUTH_MODE_KEY), null);
   return isStoredPasswordAuthMode(storedValue) ? storedValue : null;
 }
 

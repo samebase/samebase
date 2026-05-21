@@ -1,7 +1,4 @@
-import {
-  normalizeRouteSearchPresenceFlags,
-  type SearchPatch,
-} from "@/lib/routeSearchFlags";
+import { normalizeRouteSearchPresenceFlags, type SearchPatch } from "@/lib/routeSearchFlags";
 import { z } from "zod";
 
 export const ROOT_THEME_MODE_SEARCH_KEYS = ["light", "dark"] as const;
@@ -11,13 +8,10 @@ export const ROOT_THEME_LIGHT_MODE_LINK_LABEL = `${QUERY_PARAM_LINK_LABEL_PREFIX
 export const ROOT_THEME_LIGHT_MODE_DISABLE_LINK_LABEL = `${QUERY_PARAM_DISABLE_LINK_LABEL_PREFIX}light`;
 export const ROOT_THEME_DARK_MODE_LINK_LABEL = `${QUERY_PARAM_LINK_LABEL_PREFIX}dark`;
 export const ROOT_THEME_DARK_MODE_DISABLE_LINK_LABEL = `${QUERY_PARAM_DISABLE_LINK_LABEL_PREFIX}dark`;
-export type RootThemeModeSearchKey =
-  (typeof ROOT_THEME_MODE_SEARCH_KEYS)[number];
+export type RootThemeModeSearchKey = (typeof ROOT_THEME_MODE_SEARCH_KEYS)[number];
 export type RootThemeMode = "system" | RootThemeModeSearchKey;
 type ForcedRootThemeMode = Exclude<RootThemeMode, "system">;
-export type RootThemeModeSearch = Partial<
-  Record<RootThemeModeSearchKey, true | undefined>
->;
+export type RootThemeModeSearch = Partial<Record<RootThemeModeSearchKey, true | undefined>>;
 export type RootThemeModeSearchPatch = SearchPatch<RootThemeModeSearch>;
 
 export const rootThemeModeSearchFieldSchema = z.object({
@@ -25,9 +19,7 @@ export const rootThemeModeSearchFieldSchema = z.object({
   light: z.literal(true).optional(),
 });
 
-export function validateRootThemeModeSearch(
-  search: Record<string, unknown>,
-): RootThemeModeSearch {
+export function validateRootThemeModeSearch(search: Record<string, unknown>): RootThemeModeSearch {
   return rootThemeModeSearchFieldSchema.parse(
     normalizeRouteSearchPresenceFlags(search, ROOT_THEME_MODE_SEARCH_KEYS),
   );
@@ -45,9 +37,7 @@ export function readRootThemeMode(search: RootThemeModeSearch): RootThemeMode {
   return "system";
 }
 
-export function readRootThemeModeSearch(
-  search: RootThemeModeSearch,
-): RootThemeModeSearch {
+export function readRootThemeModeSearch(search: RootThemeModeSearch): RootThemeModeSearch {
   const themeMode = readRootThemeMode(search);
 
   if (themeMode === "light") {
@@ -61,9 +51,7 @@ export function readRootThemeModeSearch(
   return {};
 }
 
-export function buildRootThemeModeSearch(
-  themeMode: RootThemeMode,
-): RootThemeModeSearchPatch {
+export function buildRootThemeModeSearch(themeMode: RootThemeMode): RootThemeModeSearchPatch {
   if (themeMode === "light") {
     return { dark: null, light: true };
   }
@@ -79,9 +67,7 @@ export function buildToggledRootThemeModeSearch(
   search: RootThemeModeSearch,
   themeMode: ForcedRootThemeMode,
 ): RootThemeModeSearchPatch {
-  return buildRootThemeModeSearch(
-    readRootThemeMode(search) === themeMode ? "system" : themeMode,
-  );
+  return buildRootThemeModeSearch(readRootThemeMode(search) === themeMode ? "system" : themeMode);
 }
 
 function readSystemRootThemeMode(): ForcedRootThemeMode | undefined {
@@ -107,14 +93,10 @@ export function syncDocumentRootThemeMode(themeMode: RootThemeMode): void {
     return;
   }
 
-  const resolvedThemeMode =
-    themeMode === "system" ? readSystemRootThemeMode() : themeMode;
+  const resolvedThemeMode = themeMode === "system" ? readSystemRootThemeMode() : themeMode;
   if (typeof resolvedThemeMode === "undefined") {
     return;
   }
 
-  document.documentElement.classList.toggle(
-    "dark",
-    resolvedThemeMode === "dark",
-  );
+  document.documentElement.classList.toggle("dark", resolvedThemeMode === "dark");
 }

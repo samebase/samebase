@@ -10,14 +10,8 @@ import {
 } from "@/lib/appBootRecovery";
 import { CONVEX_QUERY_CACHE_DB_NAME } from "@/lib/convexQueryCacheStorage";
 
-const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
-  window,
-  "localStorage",
-);
-const originalSessionStorageDescriptor = Object.getOwnPropertyDescriptor(
-  window,
-  "sessionStorage",
-);
+const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
+const originalSessionStorageDescriptor = Object.getOwnPropertyDescriptor(window, "sessionStorage");
 
 function createTestStorage() {
   const entries = new Map<string, string>();
@@ -46,21 +40,13 @@ function createTestStorage() {
 
 afterEach(() => {
   if (originalLocalStorageDescriptor) {
-    Object.defineProperty(
-      window,
-      "localStorage",
-      originalLocalStorageDescriptor,
-    );
+    Object.defineProperty(window, "localStorage", originalLocalStorageDescriptor);
   } else {
     Reflect.deleteProperty(window, "localStorage");
   }
 
   if (originalSessionStorageDescriptor) {
-    Object.defineProperty(
-      window,
-      "sessionStorage",
-      originalSessionStorageDescriptor,
-    );
+    Object.defineProperty(window, "sessionStorage", originalSessionStorageDescriptor);
   } else {
     Reflect.deleteProperty(window, "sessionStorage");
   }
@@ -71,21 +57,15 @@ afterEach(() => {
 
 describe("appBootRecovery", () => {
   it("recognizes stale chunk and dynamic import failures", () => {
-    expect(
-      isLikelyStaleAssetError(
-        new Error("Failed to fetch dynamically imported module"),
-      ),
-    ).toBe(true);
-    expect(isLikelyStaleAssetError(new Error("Loading chunk 42 failed."))).toBe(
+    expect(isLikelyStaleAssetError(new Error("Failed to fetch dynamically imported module"))).toBe(
       true,
     );
+    expect(isLikelyStaleAssetError(new Error("Loading chunk 42 failed."))).toBe(true);
     expect(isLikelyStaleAssetError(new Error("Network timeout"))).toBe(false);
   });
 
   it("adds a cache-busting recovery query param", () => {
-    const reloadedUrl = new URL(
-      buildRecoveryReloadUrl(new URL("https://noter.md/?devtools=true")),
-    );
+    const reloadedUrl = new URL(buildRecoveryReloadUrl(new URL("https://noter.md/?devtools=true")));
 
     expect(reloadedUrl.searchParams.get("devtools")).toBe("true");
     expect(reloadedUrl.searchParams.has("__noter-reload")).toBe(true);
@@ -93,9 +73,7 @@ describe("appBootRecovery", () => {
 
   it("removes the cache-busting recovery query param without dropping others", () => {
     const strippedUrl = new URL(
-      stripRecoveryReloadParam(
-        new URL("https://noter.md/?devtools=true&__noter-reload=123"),
-      ),
+      stripRecoveryReloadParam(new URL("https://noter.md/?devtools=true&__noter-reload=123")),
     );
 
     expect(strippedUrl.searchParams.get("devtools")).toBe("true");
@@ -119,9 +97,7 @@ describe("appBootRecovery", () => {
 
     initializeAppBootRecovery();
 
-    expect(
-      new URL(window.location.href).searchParams.has("__noter-reload"),
-    ).toBe(true);
+    expect(new URL(window.location.href).searchParams.has("__noter-reload")).toBe(true);
 
     window.dispatchEvent(new Event("load"));
 

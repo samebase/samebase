@@ -1,16 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
-import {
-  Annotation,
-  Compartment,
-  EditorSelection,
-  EditorState,
-} from "@codemirror/state";
-import {
-  EditorView,
-  drawSelection,
-  dropCursor,
-  rectangularSelection,
-} from "@codemirror/view";
+import { Annotation, Compartment, EditorSelection, EditorState } from "@codemirror/state";
+import { EditorView, drawSelection, dropCursor, rectangularSelection } from "@codemirror/view";
 import { unifiedMergeView } from "@codemirror/merge";
 import { prosemarkBaseThemeSetup, prosemarkBasicSetup } from "@prosemark/core";
 import { useTheme } from "next-themes";
@@ -201,9 +191,7 @@ export function ProsemarkMergeEditor({
 
     const state = EditorState.create({
       doc: lastValueRef.current,
-      selection: EditorSelection.single(
-        findInitialSafeSelectionAnchor(lastValueRef.current),
-      ),
+      selection: EditorSelection.single(findInitialSafeSelectionAnchor(lastValueRef.current)),
       extensions: [
         languageCompartmentRef.current.of(
           getInitialCodeMirrorLanguageExtension(filePathRef.current),
@@ -219,12 +207,8 @@ export function ProsemarkMergeEditor({
           EditorState.readOnly.of(!editableRef.current),
           EditorView.editable.of(editableRef.current),
         ]),
-        cursorCompartmentRef.current.of(
-          !editableRef.current ? prosemarkHiddenCursorTheme : [],
-        ),
-        mergeCompartmentRef.current.of(
-          buildMergeExtensions(initialMergeConfig),
-        ),
+        cursorCompartmentRef.current.of(!editableRef.current ? prosemarkHiddenCursorTheme : []),
+        mergeCompartmentRef.current.of(buildMergeExtensions(initialMergeConfig)),
         EditorView.updateListener.of((update) => {
           if (!update.docChanged) return;
           if (
@@ -283,15 +267,12 @@ export function ProsemarkMergeEditor({
 
     const nextLanguageKind = getCodeMirrorFileLanguageKind(filePath);
     languageKindRef.current = nextLanguageKind;
-    const initialLanguageExtension =
-      getInitialCodeMirrorLanguageExtension(filePath);
+    const initialLanguageExtension = getInitialCodeMirrorLanguageExtension(filePath);
 
     // Reset to the synchronous parser immediately so merge surfaces do not
     // briefly highlight the next file with the previous grammar.
     view.dispatch({
-      effects: languageCompartmentRef.current.reconfigure(
-        initialLanguageExtension,
-      ),
+      effects: languageCompartmentRef.current.reconfigure(initialLanguageExtension),
     });
 
     let isCurrent = true;
@@ -305,8 +286,7 @@ export function ProsemarkMergeEditor({
         }
 
         viewRef.current.dispatch({
-          effects:
-            languageCompartmentRef.current.reconfigure(languageExtension),
+          effects: languageCompartmentRef.current.reconfigure(languageExtension),
         });
         resizeToContent();
       })
@@ -316,9 +296,7 @@ export function ProsemarkMergeEditor({
         }
 
         view.dispatch({
-          effects: languageCompartmentRef.current.reconfigure(
-            initialLanguageExtension,
-          ),
+          effects: languageCompartmentRef.current.reconfigure(initialLanguageExtension),
         });
         resizeToContent();
       });
@@ -337,9 +315,7 @@ export function ProsemarkMergeEditor({
           EditorState.readOnly.of(!editable),
           EditorView.editable.of(editable),
         ]),
-        cursorCompartmentRef.current.reconfigure(
-          !editable ? prosemarkHiddenCursorTheme : [],
-        ),
+        cursorCompartmentRef.current.reconfigure(!editable ? prosemarkHiddenCursorTheme : []),
       ],
     });
   }, [editable]);
@@ -355,28 +331,17 @@ export function ProsemarkMergeEditor({
     );
     if (
       lastMergeConfigRef.current &&
-      prosemarkMergeViewConfigsEqual(
-        lastMergeConfigRef.current,
-        nextMergeConfig,
-      )
+      prosemarkMergeViewConfigsEqual(lastMergeConfigRef.current, nextMergeConfig)
     ) {
       resizeToContent();
       return;
     }
     lastMergeConfigRef.current = nextMergeConfig;
     view.dispatch({
-      effects: mergeCompartmentRef.current.reconfigure(
-        buildMergeExtensions(nextMergeConfig),
-      ),
+      effects: mergeCompartmentRef.current.reconfigure(buildMergeExtensions(nextMergeConfig)),
     });
     resizeToContent();
-  }, [
-    value,
-    baseValue,
-    allowInlineDiffs,
-    syntaxHighlightDeletions,
-    resizeToContent,
-  ]);
+  }, [value, baseValue, allowInlineDiffs, syntaxHighlightDeletions, resizeToContent]);
 
   useEffect(() => {
     const container = containerRef.current;

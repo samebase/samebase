@@ -1,7 +1,4 @@
-import {
-  DEFAULT_FACE_COLORS,
-  getTailwindColorHex,
-} from "@/components/logo/logoTailwindColors";
+import { DEFAULT_FACE_COLORS, getTailwindColorHex } from "@/components/logo/logoTailwindColors";
 
 const CANVAS_SIZE = 36;
 const GRID_STEP = 1;
@@ -28,9 +25,7 @@ type ProjectedAxes = {
 
 export const SINGLE_CUBE_STUDY_CANVAS_SIZE = CANVAS_SIZE;
 
-export const SINGLE_CUBE_STUDY_SAMPLE_ANGLES = [
-  0, 15, 30, 45, 60, 75, 90,
-] as const;
+export const SINGLE_CUBE_STUDY_SAMPLE_ANGLES = [0, 15, 30, 45, 60, 75, 90] as const;
 
 const VIVID_FACE_COLORS = {
   left: "#ef4444",
@@ -99,9 +94,7 @@ function getPolygonArea(points: readonly Point2D[]) {
 
   for (let index = 0; index < points.length; index += 1) {
     const nextIndex = (index + 1) % points.length;
-    area +=
-      points[index].x * points[nextIndex].y -
-      points[nextIndex].x * points[index].y;
+    area += points[index].x * points[nextIndex].y - points[nextIndex].x * points[index].y;
   }
 
   return Math.abs(area) / 2;
@@ -122,10 +115,8 @@ function translateFacesToCanvas(faces: readonly CubeFace[]): CubeFace[] {
   const cubeWidth = bounds.maxX - bounds.minX + 1;
   const cubeHeight = bounds.maxY - bounds.minY + 1;
   const availableSize = CANVAS_SIZE - CANVAS_MARGIN * 2;
-  const offsetX =
-    CANVAS_MARGIN + Math.round((availableSize - cubeWidth) / 2) - bounds.minX;
-  const offsetY =
-    CANVAS_MARGIN + Math.round((availableSize - cubeHeight) / 2) - bounds.minY;
+  const offsetX = CANVAS_MARGIN + Math.round((availableSize - cubeWidth) / 2) - bounds.minX;
+  const offsetY = CANVAS_MARGIN + Math.round((availableSize - cubeHeight) / 2) - bounds.minY;
 
   return faces.map((face) => ({
     ...face,
@@ -171,12 +162,7 @@ function fillPolygonPixels(
 ) {
   context.fillStyle = fillStyle;
   for (const rowSpan of collectPolygonRowSpans(points)) {
-    context.fillRect(
-      rowSpan.startX,
-      rowSpan.y,
-      rowSpan.endX - rowSpan.startX + 1,
-      1,
-    );
+    context.fillRect(rowSpan.startX, rowSpan.y, rowSpan.endX - rowSpan.startX + 1, 1);
   }
 }
 
@@ -224,10 +210,7 @@ function drawPolygonEdges(
   }
 }
 
-function buildVisibleFaces(
-  yawDegrees: number,
-  vividColors: boolean,
-): CubeFace[] {
+function buildVisibleFaces(yawDegrees: number, vividColors: boolean): CubeFace[] {
   const palette = vividColors ? VIVID_FACE_COLORS : DEFAULT_STUDY_FACE_COLORS;
   const axes = getProjectedAxes(yawDegrees);
   const topFront = { x: 0, y: 0 };
@@ -253,9 +236,7 @@ function buildVisibleFaces(
     },
   ] satisfies readonly CubeFace[];
 
-  return translateFacesToCanvas(
-    faces.filter((face) => getPolygonArea(face.points) > 0.5),
-  );
+  return translateFacesToCanvas(faces.filter((face) => getPolygonArea(face.points) > 0.5));
 }
 
 function drawGrid(context: CanvasRenderingContext2D) {
@@ -321,8 +302,7 @@ export function isPointInsidePolygon(
   ) {
     const currentPoint = polygon[currentIndex];
     const previousPoint = polygon[previousIndex];
-    const crossesHorizontalRange =
-      currentPoint.y > pointY !== previousPoint.y > pointY;
+    const crossesHorizontalRange = currentPoint.y > pointY !== previousPoint.y > pointY;
 
     if (!crossesHorizontalRange) {
       continue;

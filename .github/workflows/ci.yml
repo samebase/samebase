@@ -138,17 +138,16 @@ jobs:
 
       - name: Run Playwright tests
         run:
-          PLAYWRIGHT_SKIP_BUILD=1 PLAYWRIGHT_VITE_PORT=43121 pnpm --filter noter
-          exec playwright test -c playwright.config.ts --shard=${{ matrix.shard
-          }}
+          PLAYWRIGHT_SKIP_BUILD=1 PLAYWRIGHT_VITE_PORT=43121 pnpm --filter noter exec playwright
+          test -c playwright.config.ts --shard=${{ matrix.shard }}
 
       - name: Upload Playwright failure artifacts
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
           name:
-            playwright-failure-artifacts-node-${{ matrix.node-version
-            }}-shard-${{ matrix.shard_label }}
+            playwright-failure-artifacts-node-${{ matrix.node-version }}-shard-${{
+            matrix.shard_label }}
           if-no-files-found: ignore
           retention-days: 7
           path: |

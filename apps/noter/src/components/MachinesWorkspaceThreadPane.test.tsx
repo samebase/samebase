@@ -3,13 +3,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
 
 vi.mock("@/components/ChatInput", () => ({
-  ChatInput: ({
-    placeholder,
-    value,
-  }: {
-    placeholder?: string;
-    value?: string;
-  }) => (
+  ChatInput: ({ placeholder, value }: { placeholder?: string; value?: string }) => (
     <div data-component="ChatInput" data-placeholder={placeholder}>
       {value}
     </div>
@@ -17,13 +11,7 @@ vi.mock("@/components/ChatInput", () => ({
 }));
 
 vi.mock("@/components/ProsemarkReadOnly", () => ({
-  ProsemarkReadOnly: ({
-    className,
-    value,
-  }: {
-    className?: string;
-    value: string;
-  }) => (
+  ProsemarkReadOnly: ({ className, value }: { className?: string; value: string }) => (
     <div data-component="ProsemarkReadOnly" className={className}>
       {value}
     </div>
@@ -113,9 +101,7 @@ describe("MachinesWorkspaceThreadPane", () => {
 
     expect(markup).not.toContain("<pre");
     expect(markup).not.toContain("cm-static-markdown");
-    expect(
-      (markup.match(/data-component="ProsemarkReadOnly"/g) ?? []).length,
-    ).toBe(2);
+    expect((markup.match(/data-component="ProsemarkReadOnly"/g) ?? []).length).toBe(2);
     expect(markup).toContain("User message with `code`");
     expect(markup).toContain("Assistant message with");
   });
@@ -167,9 +153,7 @@ describe("MachinesWorkspaceThreadPane", () => {
     expect(markup).toContain(
       "Waiting for the new conversation to hydrate. Its first message will appear here once the machine inventory refreshes.",
     );
-    expect(markup).toContain(
-      'data-placeholder="Waiting for the new conversation to hydrate..."',
-    );
+    expect(markup).toContain('data-placeholder="Waiting for the new conversation to hydrate..."');
   });
 
   it("renders the moved header metadata in the shared route header component", () => {

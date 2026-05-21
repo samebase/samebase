@@ -30,11 +30,10 @@ Backend owns refresh supply:
 
 Persist demand, not old frontend refresh mechanics.
 
-Browser activation events collapse before demand reaches Convex. Route load,
-Page Visibility resumes, window focus, and future browser activation edges all
-mean the same thing to the backend: the user is looking at a surface and wants
-it fresh if policy allows. Durable demand must not preserve `page_load`,
-`visibility`, `focus`, or a one-value replacement like `surface_active` as
+Browser activation events collapse before demand reaches Convex. Route load, Page Visibility
+resumes, window focus, and future browser activation edges all mean the same thing to the backend:
+the user is looking at a surface and wants it fresh if policy allows. Durable demand must not
+preserve `page_load`, `visibility`, `focus`, or a one-value replacement like `surface_active` as
 trigger fields. The demand `source` is the product-level trigger.
 
 ## State Model
@@ -52,9 +51,7 @@ type RepositoryRefreshRequest = {
   updatedAt: number;
 };
 
-type RepositoryRefreshDemand =
-  | RepositoryScopeRefreshDemand
-  | BranchScopeRefreshDemand;
+type RepositoryRefreshDemand = RepositoryScopeRefreshDemand | BranchScopeRefreshDemand;
 
 type RepositoryScopeRefreshDemand =
   | {
@@ -165,8 +162,8 @@ Schema rules:
 - no caller-provided ahead/behind setting
 - no caller-provided `priority`
 - no caller-provided `dedupeKey`
-- no user or vault prefix inside `dedupeKey`; row fields and indexes already
-  carry `userId` and `vaultId`
+- no user or vault prefix inside `dedupeKey`; row fields and indexes already carry `userId` and
+  `vaultId`
 - no repository demand with `branch`
 - no branch demand without `branch`
 - no dashboard branch fan-out
@@ -176,14 +173,14 @@ Schema rules:
 - no `running` row without `leaseExpiresAt`
 - no `succeeded` row without result
 - build rows through constructors only
-- no `attempt` field while Workpool retries are disabled; add a real retry model
-  only when retries ship
-- no durable browser trigger values for `page_load`, `visibility`, `focus`, or
-  `surface_active`; frontend browser events map to the entry point/source
-- no manual trigger value such as `dashboard_status_click`; `source: "manual"`
-  plus `scope` is enough
-- no mirrored `source_setup.mode`; keep setup mode on the provisioning run and
-  reference it by `runId`
+- no `attempt` field while Workpool retries are disabled; add a real retry model only when retries
+  ship
+- no durable browser trigger values for `page_load`, `visibility`, `focus`, or `surface_active`;
+  frontend browser events map to the entry point/source
+- no manual trigger value such as `dashboard_status_click`; `source: "manual"` plus `scope` is
+  enough
+- no mirrored `source_setup.mode`; keep setup mode on the provisioning run and reference it by
+  `runId`
 - no result timestamp separate from `lifecycle.completedAt`
 
 ## Backend Execution Policy
@@ -211,8 +208,8 @@ Do not model these as frontend request choices.
 
 ## State Matrix Rules
 
-Only multiply dependent axes. If execution steps are backend policy, do not
-matrix `source × step`; that would make callers own steps again.
+Only multiply dependent axes. If execution steps are backend policy, do not matrix `source × step`;
+that would make callers own steps again.
 
 Current dependency edges:
 
@@ -260,9 +257,9 @@ failure.kind -> failure fields
 | `failed`    | `startedAt`, `failedAt`, `failure`                      |
 | `canceled`  | `canceledAt`, `reason`                                  |
 
-Tests should enumerate these edges with small matrices. When a forbidden state
-is still representable, simplify the state shape first; add runtime guards only
-when the rule depends on live database/provider/time facts.
+Tests should enumerate these edges with small matrices. When a forbidden state is still
+representable, simplify the state shape first; add runtime guards only when the rule depends on live
+database/provider/time facts.
 
 ## Target: State And Constructors
 
@@ -308,28 +305,26 @@ Entry points:
 Behavior:
 
 - authenticate user
-- dashboard entry point accepts no caller-selected work or trigger fields and no
-  arguments:
+- dashboard entry point accepts no caller-selected work or trigger fields and no arguments:
 
 ```ts
 enqueueDashboardRepositoryRefresh();
 ```
 
-- dashboard entry point selects connected, non-deleting vaults for the
-  authenticated user in bounded backend pages
+- dashboard entry point selects connected, non-deleting vaults for the authenticated user in bounded
+  backend pages
 - dashboard pagination is internal Convex state only
-- route load, Page Visibility, and window focus are frontend event sources only;
-  the browser never passes the event subtype to Convex
+- route load, Page Visibility, and window focus are frontend event sources only; the browser never
+  passes the event subtype to Convex
 - browser never passes `vaultIds`
 - browser never passes cursor
 - browser never loops pages
 - manual entry point loads one requested vault and blocks if deleting
-- source setup entry point validates the provisioning run and stores only the
-  `runId`; setup mode stays on that run
+- source setup entry point validates the provisioning run and stores only the `runId`; setup mode
+  stays on that run
 - build typed demand
 - coalesce by dedupe key
-- dashboard signal returns `null`; explicit one-vault/setup entry points return
-  enqueue status
+- dashboard signal returns `null`; explicit one-vault/setup entry points return enqueue status
 
 Accepted enqueue policy:
 
@@ -344,15 +339,13 @@ Accepted enqueue policy:
 - running rows are reused only while the lease is valid
 - queued rows are updated only when incoming demand has stronger priority
 - scheduled rows are updated only when incoming demand has stronger priority
-- scheduled-row upgrades replace `demand`, set `lifecycle.notBefore = now`, set
-  `updatedAt = now`, and preserve `workpoolJobId`, `createdAt`,
-  `lifecycle.queuedAt`, and `lifecycle.scheduledAt`
-- queued-row upgrades replace `demand`, set `lifecycle.notBefore = now`, set
-  `updatedAt = now`, and preserve `createdAt` plus `lifecycle.queuedAt`
-- weaker or equal queued/scheduled duplicates return the existing row without a
-  write
-- deletion/non-connected vault state returns `blocked`; do not create a canceled
-  request row for work that should never run
+- scheduled-row upgrades replace `demand`, set `lifecycle.notBefore = now`, set `updatedAt = now`,
+  and preserve `workpoolJobId`, `createdAt`, `lifecycle.queuedAt`, and `lifecycle.scheduledAt`
+- queued-row upgrades replace `demand`, set `lifecycle.notBefore = now`, set `updatedAt = now`, and
+  preserve `createdAt` plus `lifecycle.queuedAt`
+- weaker or equal queued/scheduled duplicates return the existing row without a write
+- deletion/non-connected vault state returns `blocked`; do not create a canceled request row for
+  work that should never run
 
 Priority strength:
 
@@ -393,8 +386,7 @@ type EnqueueRepositoryRefreshResult =
 Implementation shape:
 
 - one shared enqueue helper owns all coalescing
-- public/browser entry points build the one matching source demand, then call
-  backend helpers
+- public/browser entry points build the one matching source demand, then call backend helpers
 - backend setup entry points build demand, then call the helper
 - do not duplicate active-row lookup rules in each entry point
 
@@ -406,8 +398,7 @@ Target shape:
   - caller does not pass cursor
   - returns `null`
   - converts the first bounded vault page into repository demand
-  - schedules `repositoryRefresh.enqueueDashboardRepositoryRefreshPage` when
-    more vaults remain
+  - schedules `repositoryRefresh.enqueueDashboardRepositoryRefreshPage` when more vaults remain
 - `repositoryRefresh.enqueueDashboardRepositoryRefreshPage`
   - internal mutation only
   - accepts `userId` and internal cursor
@@ -423,9 +414,8 @@ Target shape:
   - marks the existing-repository run `succeeded`
   - writes the finish event
   - enqueues source-setup demand in the same mutation
-- active coalescing identity is `userId + vaultId + dedupeKey`;
-  `lifecycle.state` may be used only to scan/filter active rows or terminal
-  rows, not to define a different active row identity
+- active coalescing identity is `userId + vaultId + dedupeKey`; `lifecycle.state` may be used only
+  to scan/filter active rows or terminal rows, not to define a different active row identity
 - existing-repository finish enqueues `source_setup`
 
 Do not:
@@ -446,46 +436,40 @@ Behavior:
 - enqueue repository-scoped rows into Workpool from backend mutations
 - transition queued rows to `scheduled` with `workpoolJobId`
 - re-read request when the worker starts
-- transition scheduled rows to `running` with `leaseExpiresAt` when worker code
-  starts
+- transition scheduled rows to `running` with `leaseExpiresAt` when worker code starts
 - re-check vault/deletion gate when the worker starts
 - cancel scheduled/running work if the vault was deleted or started deleting
 - fail scheduled/running work if the vault is no longer connected
 - refresh the lease after worker start
 - choose internal repository steps from demand source
-- call the internal GitHub refresh action with `scope: "repository"` and
-  backend-selected args
-- `dashboard` demand requests branch/PR metadata without Cloudflare preview
-  hydration
-- `manual` and `source_setup` demand request Cloudflare preview hydration from
-  backend policy, not from caller-provided provider/depth fields
-- current preview hydration target policy is broad:
-  `cloudflarePreviewBranchNames: []` means all remote branches; branches without
-  PRs are cleared locally, branches with PRs may read PR comments for Cloudflare
-  Pages links
-- passive `dashboard` demand uses one backend passive refresh policy; demand
-  does not preserve route-load, Page Visibility, or window-focus distinctions
-- `source_setup` uses distinct backend execution policy so the one-time
-  create/connect finish path does not inherit passive dashboard large-repo caps
+- call the internal GitHub refresh action with `scope: "repository"` and backend-selected args
+- `dashboard` demand requests branch/PR metadata without Cloudflare preview hydration
+- `manual` and `source_setup` demand request Cloudflare preview hydration from backend policy, not
+  from caller-provided provider/depth fields
+- current preview hydration target policy is broad: `cloudflarePreviewBranchNames: []` means all
+  remote branches; branches without PRs are cleared locally, branches with PRs may read PR comments
+  for Cloudflare Pages links
+- passive `dashboard` demand uses one backend passive refresh policy; demand does not preserve
+  route-load, Page Visibility, or window-focus distinctions
+- `source_setup` uses distinct backend execution policy so the one-time create/connect finish path
+  does not inherit passive dashboard large-repo caps
 - update `vaultRemoteBranches` through the existing metadata sync path
 - refresh the default branch tree when backend policy requires it
 - finish the request as `succeeded`, `failed`, or `canceled`
 - Workpool `canceled` completion marks `worker_canceled`
-- public direct branch refresh accepts `vaultId` plus required branch/options,
-  validates `userId + vaultId`, then derives repository coordinates from the
-  vault and calls the same internal helper with `scope: "branch"`
+- public direct branch refresh accepts `vaultId` plus required branch/options, validates
+  `userId + vaultId`, then derives repository coordinates from the vault and calls the same internal
+  helper with `scope: "branch"`
 - internal post-write refresh uses explicit `target: { scope: "repository" }` or
   `target: { scope: "branch"; branch: string }`; no optional branch fallback
-- keep file-view branch refresh on the existing direct action until the branch
-  demand worker moves it
+- keep file-view branch refresh on the existing direct action until the branch demand worker moves
+  it
 
 Deferred:
 
-- targeted preview-link hydration for a subset of branches after passive
-  dashboard refresh
-- bounded preview-link hydration for `source_setup` and manual repository
-  refresh; current behavior is correct structurally but too broad for large
-  repos
+- targeted preview-link hydration for a subset of branches after passive dashboard refresh
+- bounded preview-link hydration for `source_setup` and manual repository refresh; current behavior
+  is correct structurally but too broad for large repos
 
 Retry policy:
 
@@ -493,13 +477,12 @@ Retry policy:
 - Provider failures become terminal request failures.
 - Existing vault cooldown fields decide when later demand may make another row.
 - No retry counters are added to request state.
-- If a running lease expires, the next matching demand fails the stale owner and
-  creates or upgrades fresh work.
+- If a running lease expires, the next matching demand fails the stale owner and creates or upgrades
+  fresh work.
 
 Dashboard cleanup:
 
-- dashboard route load, Page Visibility resume, and window focus send the same
-  backend demand signal
+- dashboard route load, Page Visibility resume, and window focus send the same backend demand signal
 - dashboard manual refresh sends one vault-level demand
 - React does not loop vaults, batch ids, choose depth, or call GitHub directly
 
@@ -521,46 +504,38 @@ Remove dashboard-era refresh mechanics that duplicate backend ownership.
 
 Rules:
 
-- dashboard route emits the same demand when the surface becomes active from
-  route load, Page Visibility resume, or window focus
+- dashboard route emits the same demand when the surface becomes active from route load, Page
+  Visibility resume, or window focus
 - dashboard route does not wait for `vaults` before emitting demand
 - backend treats "no connected vaults" as an empty dashboard demand page
 - manual dashboard refresh sends only `{ vaultId }`
 - a small dashboard demand hook owns the queue mutations
-- React may listen to multiple browser events, but it does not pass browser
-  event subtype to Convex
-- React may use a small local duplicate-request guard for browser event storms;
-  durable freshness debounce, cooldown, pagination, and scheduling stay in
-  Convex
+- React may listen to multiple browser events, but it does not pass browser event subtype to Convex
+- React may use a small local duplicate-request guard for browser event storms; durable freshness
+  debounce, cooldown, pagination, and scheduling stay in Convex
 - React does not import the GitHub refresh action for dashboard freshness
 - React does not batch, paginate, or loop dashboard repository refresh
-- React does not compute dashboard metadata staleness or missing preview-link
-  policy before sending demand
-- React does not choose ahead/behind, PR metadata, provider links, or target
-  branches
-- React keeps Cloudflare preview-link rendering helpers, but not frontend
-  hydration-target selection helpers
-- dashboard naming should say "refresh demand", not "tree refresh", unless it
-  calls direct tree refresh code
-- file-view direct refresh keeps a branch-scoped debounce key; no branchless
-  refresh bucket remains
-- direct GitHub tree refresh uses passive or manual action intent; the old
-  repository-tree `page_load`, `visibility`, and `focus` trigger contract is
-  gone
-- direct GitHub tree refresh accepts vault, branch, and action intent from
-  React; the public action owns ahead/behind, PR metadata, and provider-link
-  depth
-- generic frontend duplicate-request guards live in `refreshDebounce`, not a
-  dashboard/tree-refresh named module
+- React does not compute dashboard metadata staleness or missing preview-link policy before sending
+  demand
+- React does not choose ahead/behind, PR metadata, provider links, or target branches
+- React keeps Cloudflare preview-link rendering helpers, but not frontend hydration-target selection
+  helpers
+- dashboard naming should say "refresh demand", not "tree refresh", unless it calls direct tree
+  refresh code
+- file-view direct refresh keeps a branch-scoped debounce key; no branchless refresh bucket remains
+- direct GitHub tree refresh uses passive or manual action intent; the old repository-tree
+  `page_load`, `visibility`, and `focus` trigger contract is gone
+- direct GitHub tree refresh accepts vault, branch, and action intent from React; the public action
+  owns ahead/behind, PR metadata, and provider-link depth
+- generic frontend duplicate-request guards live in `refreshDebounce`, not a dashboard/tree-refresh
+  named module
 
 Keep:
 
 - file-view branch refresh on direct `github.refreshRepositoryTree`
 - draft-PR branch hydration on direct `github.refreshRepositoryTree`
-- Cloudflare MCP token health polling; it is provider auth maintenance, not
-  repository freshness
-- provider OAuth popup reload; it is connection-state recovery, not repository
-  freshness
+- Cloudflare MCP token health polling; it is provider auth maintenance, not repository freshness
+- provider OAuth popup reload; it is connection-state recovery, not repository freshness
 
 This cleanup proves:
 

@@ -16,9 +16,7 @@ type CompareBackToEditorBehavior = {
  * Compare-only PR diffs should only drop compare mode when the selected file
  * still has a normal editor target outside compare mode.
  */
-export function shouldClearCompareOnReviewExit(
-  args: ReviewExitBehavior,
-): boolean {
+export function shouldClearCompareOnReviewExit(args: ReviewExitBehavior): boolean {
   return (
     args.isCompareRequested &&
     args.hasComparedSelection &&
@@ -32,9 +30,7 @@ export function shouldClearCompareOnReviewExit(
  * review to enter the header control should only offer a direct return to the
  * normal editor when the selected compare row can reopen there.
  */
-export function shouldShowCompareBackToEditor(
-  args: CompareBackToEditorBehavior,
-): boolean {
+export function shouldShowCompareBackToEditor(args: CompareBackToEditorBehavior): boolean {
   return (
     args.commitReviewMode === "editor" &&
     args.isCompareRequested &&

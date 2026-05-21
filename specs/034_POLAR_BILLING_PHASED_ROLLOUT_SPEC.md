@@ -17,13 +17,12 @@ Roll out Polar billing in phases so we can:
 1. Keep Free self-sustainable (BYO providers, minimal Noter compute).
 2. Unlock Noter-managed vault creation for paid users (Pro).
 3. Make entitlements transparent and correct (webhook-driven, reconciled).
-4. Leave a clean path for credits/metering later without redoing the billing
-   core.
+4. Leave a clean path for credits/metering later without redoing the billing core.
 
 ## Why This Spec Exists
 
-Billing impacts core product flows (vault creation and managed infra). A phased
-rollout reduces risk by sequencing:
+Billing impacts core product flows (vault creation and managed infra). A phased rollout reduces risk
+by sequencing:
 
 - entitlement correctness first (backend + webhook),
 - then UX polish and operational hardening,
@@ -34,8 +33,7 @@ rollout reduces risk by sequencing:
 1. Polar-backed Pro subscription flow (checkout redirect + customer portal).
 2. Webhook-driven entitlements (redirect success is never authority).
 3. Minimal configuration surface:
-   - server-side Convex env vars only (`POLAR_ACCESS_TOKEN`,
-     `POLAR_WEBHOOK_SECRET`)
+   - server-side Convex env vars only (`POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`)
    - infer sandbox vs production from `CONVEX_DEPLOYMENT`
 4. Gate Noter-managed vault creation behind active Pro (admin bypass).
 
@@ -48,8 +46,7 @@ rollout reduces risk by sequencing:
 ## Design Constraints (Locked)
 
 1. No frontend Polar secrets (no Vite env vars for Polar).
-2. Entitlements are computed from Polar canonical customer state (not event
-   payload fields).
+2. Entitlements are computed from Polar canonical customer state (not event payload fields).
 3. Webhook processing must be idempotent.
 4. Prefer additive schema changes.
 5. Strict TypeScript: no `any`, no type assertions.
@@ -117,13 +114,11 @@ Exit criteria:
 Exit criteria:
 
 - [ ] Sandbox and production are both supported via deployment inference.
-- [ ] Subscription lifecycle changes converge correctly (webhook +
-      reconciliation).
+- [ ] Subscription lifecycle changes converge correctly (webhook + reconciliation).
 
 ### Phase 4: Config moved out of code (DB-backed billing config)
 
-Goal: avoid code deploys for product ID changes and add transparent plan
-metadata.
+Goal: avoid code deploys for product ID changes and add transparent plan metadata.
 
 - [ ] Add a `billingConfig` table keyed by `environment` (sandbox/production).
 - [ ] Store:
@@ -185,7 +180,6 @@ Exit criteria:
 
 ## Acceptance Criteria
 
-- [ ] A user can subscribe to Pro via Polar and become entitled without manual
-      intervention.
+- [ ] A user can subscribe to Pro via Polar and become entitled without manual intervention.
 - [ ] A user can cancel and lose entitlement reliably.
 - [ ] Free plan remains viable and low-cost for Noter (BYO providers).

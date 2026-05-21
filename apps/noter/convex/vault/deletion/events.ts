@@ -77,9 +77,7 @@ export const listForVault = query({
 
     const events = await ctx.db
       .query("vaultDeletionEvents")
-      .withIndex("by_vault_and_created_at", (q) =>
-        q.eq("vaultId", args.vaultId),
-      )
+      .withIndex("by_vault_and_created_at", (q) => q.eq("vaultId", args.vaultId))
       .order("desc")
       .take(MAX_DELETION_EVENTS);
 

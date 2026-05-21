@@ -1,13 +1,5 @@
-import {
-  RouterContextProvider,
-  createMemoryHistory,
-} from "@tanstack/react-router";
-import {
-  createElement,
-  useState,
-  type ReactElement,
-  type ReactNode,
-} from "react";
+import { RouterContextProvider, createMemoryHistory } from "@tanstack/react-router";
+import { createElement, useState, type ReactElement, type ReactNode } from "react";
 import { createAppRouter } from "@/router";
 
 type TestRouterProviderProps = {

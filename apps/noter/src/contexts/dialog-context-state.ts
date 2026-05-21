@@ -18,6 +18,4 @@ export interface DialogContextType extends DialogState {
   closeFolderCreation: () => void;
 }
 
-export const DialogContext = createContext<DialogContextType | undefined>(
-  undefined,
-);
+export const DialogContext = createContext<DialogContextType | undefined>(undefined);

@@ -26,10 +26,7 @@ type WorkspaceLayoutV2ToggleVisibility = "all" | "desktop" | "hidden";
 const TOGGLE_BUTTON_CLASS_NAMES = {
   all: "h-8 w-8 rounded-none",
   desktop: "hidden h-8 w-8 md:inline-flex",
-} as const satisfies Record<
-  Exclude<WorkspaceLayoutV2ToggleVisibility, "hidden">,
-  string
->;
+} as const satisfies Record<Exclude<WorkspaceLayoutV2ToggleVisibility, "hidden">, string>;
 
 function WorkspaceLayoutV2MainPaneHeader({
   children,
@@ -42,13 +39,9 @@ function WorkspaceLayoutV2MainPaneHeader({
 }) {
   const { toggleLeftPane, toggleRightPane } = useWorkspacePaneActions();
   const leftToggleButtonClassName =
-    leftToggleVisibility === "hidden"
-      ? null
-      : TOGGLE_BUTTON_CLASS_NAMES[leftToggleVisibility];
+    leftToggleVisibility === "hidden" ? null : TOGGLE_BUTTON_CLASS_NAMES[leftToggleVisibility];
   const rightToggleButtonClassName =
-    rightToggleVisibility === "hidden"
-      ? null
-      : TOGGLE_BUTTON_CLASS_NAMES[rightToggleVisibility];
+    rightToggleVisibility === "hidden" ? null : TOGGLE_BUTTON_CLASS_NAMES[rightToggleVisibility];
 
   return (
     <div className="flex h-full items-center gap-2">
@@ -57,11 +50,7 @@ function WorkspaceLayoutV2MainPaneHeader({
           type="button"
           variant="ghost"
           size="icon"
-          aria-label={
-            leftToggleVisibility === "desktop"
-              ? "Toggle Left Sidebar"
-              : "Toggle sidebar"
-          }
+          aria-label={leftToggleVisibility === "desktop" ? "Toggle Left Sidebar" : "Toggle sidebar"}
           className={leftToggleButtonClassName}
           onClick={toggleLeftPane}
         >
@@ -115,12 +104,10 @@ export function WorkspaceLayoutV2FullPage({
   const isMobile = useIsMobile();
 
   const hasDesktopHeaderToggle =
-    (left && leftToggleVisibility !== "hidden") ||
-    (right && rightToggleVisibility !== "hidden");
+    (left && leftToggleVisibility !== "hidden") || (right && rightToggleVisibility !== "hidden");
 
   const hasMobileHeaderToggle =
-    (left && leftToggleVisibility === "all") ||
-    (right && rightToggleVisibility === "all");
+    (left && leftToggleVisibility === "all") || (right && rightToggleVisibility === "all");
 
   const hideMainHeader = isMobile
     ? !main.header && !hasMobileHeaderToggle

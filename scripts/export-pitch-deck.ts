@@ -9,14 +9,10 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const appDir = path.join(repoRoot, "apps/noter");
 const appDistDir = path.join(appDir, "dist");
-const previewPort = Number.parseInt(
-  process.env.PITCH_DECK_EXPORT_PORT ?? "43129",
-  10,
-);
+const previewPort = Number.parseInt(process.env.PITCH_DECK_EXPORT_PORT ?? "43129", 10);
 const previewUrl = `http://127.0.0.1:${previewPort}`;
 const requireFromApp = createRequire(path.join(appDir, "package.json"));
-const playwrightModule: typeof PlaywrightTest =
-  requireFromApp("@playwright/test");
+const playwrightModule: typeof PlaywrightTest = requireFromApp("@playwright/test");
 const { chromium } = playwrightModule;
 type ExportTarget = {
   outputPath: string;
@@ -87,15 +83,7 @@ async function main() {
 
   const previewProcess = spawn(
     "pnpm",
-    [
-      "exec",
-      "vite",
-      "preview",
-      "--host",
-      "127.0.0.1",
-      "--port",
-      String(previewPort),
-    ],
+    ["exec", "vite", "preview", "--host", "127.0.0.1", "--port", String(previewPort)],
     {
       cwd: appDir,
       stdio: "inherit",
@@ -138,10 +126,7 @@ async function main() {
   } finally {
     previewProcess.kill("SIGTERM");
     await new Promise((resolve) => {
-      if (
-        previewProcess.exitCode !== null ||
-        previewProcess.signalCode !== null
-      ) {
+      if (previewProcess.exitCode !== null || previewProcess.signalCode !== null) {
         resolve(undefined);
         return;
       }
@@ -158,8 +143,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(
-    error instanceof Error ? error.message : "Failed to export pitch deck PDF.",
-  );
+  console.error(error instanceof Error ? error.message : "Failed to export pitch deck PDF.");
   process.exitCode = 1;
 });

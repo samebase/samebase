@@ -1,21 +1,14 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import {
-  readUploadStorageId,
-  uploadMediaWithCleanup,
-} from "@/lib/mediaUploadWorkflow";
+import { readUploadStorageId, uploadMediaWithCleanup } from "@/lib/mediaUploadWorkflow";
 
 describe("readUploadStorageId", () => {
   it("reads the storage id from a valid upload response", () => {
-    expect(readUploadStorageId({ storageId: "storage-123" })).toBe(
-      "storage-123",
-    );
+    expect(readUploadStorageId({ storageId: "storage-123" })).toBe("storage-123");
   });
 
   it("throws when the upload response is missing the storage id", () => {
-    expect(() => readUploadStorageId({})).toThrow(
-      "Upload response did not include a storage id.",
-    );
+    expect(() => readUploadStorageId({})).toThrow("Upload response did not include a storage id.");
   });
 });
 

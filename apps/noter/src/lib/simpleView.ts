@@ -41,9 +41,7 @@ type FilterSimpleViewTreeItemsOptions = {
 const frontmatterRegex = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 
 function getFrontmatterSource(markdown: string): string | null {
-  const withoutBom = markdown.startsWith("\uFEFF")
-    ? markdown.slice(1)
-    : markdown;
+  const withoutBom = markdown.startsWith("\uFEFF") ? markdown.slice(1) : markdown;
   const match = withoutBom.match(frontmatterRegex);
   return match?.[1] ?? null;
 }
@@ -56,9 +54,7 @@ export function hasStagedSimpleViewConfigFile(
   stagedConfigFile: StagedSimpleViewConfigFile,
 ): stagedConfigFile is { fileDeleted: false } {
   return (
-    stagedConfigFile !== undefined &&
-    stagedConfigFile !== null &&
-    !stagedConfigFile.fileDeleted
+    stagedConfigFile !== undefined && stagedConfigFile !== null && !stagedConfigFile.fileDeleted
   );
 }
 
@@ -66,9 +62,7 @@ export function isStagedSimpleViewConfigDeleted(
   stagedConfigFile: StagedSimpleViewConfigFile,
 ): stagedConfigFile is { fileDeleted: true } {
   return (
-    stagedConfigFile !== undefined &&
-    stagedConfigFile !== null &&
-    stagedConfigFile.fileDeleted
+    stagedConfigFile !== undefined && stagedConfigFile !== null && stagedConfigFile.fileDeleted
   );
 }
 
@@ -79,10 +73,7 @@ export function hasSimpleViewConfigFile(
   if (isStagedSimpleViewConfigDeleted(stagedConfigFile)) {
     return false;
   }
-  return (
-    hasStagedSimpleViewConfigFile(stagedConfigFile) ||
-    repositoryConfigContent !== null
-  );
+  return hasStagedSimpleViewConfigFile(stagedConfigFile) || repositoryConfigContent !== null;
 }
 
 export function shouldLoadRepositorySimpleViewConfig(
@@ -101,9 +92,7 @@ export function shouldLoadRepositorySimpleViewConfig(
   return !didAttemptRepositoryLoad;
 }
 
-export function parseSimpleViewConfig(
-  noterMarkdown: string | null | undefined,
-): SimpleViewConfig {
+export function parseSimpleViewConfig(noterMarkdown: string | null | undefined): SimpleViewConfig {
   if (noterMarkdown === null || noterMarkdown === undefined) {
     return {
       hasConfigFile: false,
@@ -196,9 +185,7 @@ export function filterSimpleViewTreeItems<T extends TreeItem>(
   }
 
   const includedItems = items.filter(
-    (item) =>
-      alwaysIncludePaths.has(item.path) ||
-      !isExcluded(item.path, excludePatterns),
+    (item) => alwaysIncludePaths.has(item.path) || !isExcluded(item.path, excludePatterns),
   );
   const includedPaths = includedItems.map((item) => item.path);
 

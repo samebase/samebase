@@ -152,9 +152,7 @@ function FileViewWrapper() {
   const vaultId = vault?._id;
   const selectedTreeEntry = useMemo(
     () =>
-      vault?.treeData?.tree.find(
-        (item: { path: string }) => item.path === selectedFile,
-      ) ?? null,
+      vault?.treeData?.tree.find((item: { path: string }) => item.path === selectedFile) ?? null,
     [vault, selectedFile],
   );
   const selectedFileExistsInTree = selectedTreeEntry?.type === "blob";
@@ -170,8 +168,7 @@ function FileViewWrapper() {
       tree: vault.treeData?.tree ?? [],
     });
   }, [vault, routeBranch, selectedFile, selectedFileExistsInTree]);
-  const selectedFileIsRenderableMedia =
-    isRenderableRepositoryMediaPath(selectedFile);
+  const selectedFileIsRenderableMedia = isRenderableRepositoryMediaPath(selectedFile);
   const [storageBackedSelection, setStorageBackedSelection] = useState<
     Partial<Record<string, true>>
   >({});
@@ -195,9 +192,7 @@ function FileViewWrapper() {
     },
     [router],
   );
-  const [connectRouteError, setConnectRouteError] = useState<string | null>(
-    null,
-  );
+  const [connectRouteError, setConnectRouteError] = useState<string | null>(null);
   const [isConnectingRepository, setIsConnectingRepository] = useState(false);
   const [isConnectingGithub, setIsConnectingGithub] = useState(false);
   const githubConnected = githubConnection?.connected === true;
@@ -367,28 +362,14 @@ function FileViewWrapper() {
       filePath: selectedFile.length > 0 ? selectedFile : undefined,
     });
     navigateByHref(appendCurrentSearch(nextPath), { replace: true });
-  }, [
-    appendCurrentSearch,
-    owner,
-    repoName,
-    branch,
-    branchParam,
-    selectedFile,
-    navigateByHref,
-  ]);
+  }, [appendCurrentSearch, owner, repoName, branch, branchParam, selectedFile, navigateByHref]);
 
   /**
    * If we recovered a file path from an old branchless URL, rewrite the URL to
    * the canonical `/vault/:owner/:repo/:branch/:file` form.
    */
   useEffect(() => {
-    if (
-      !owner ||
-      !repoName ||
-      !branch ||
-      !branchParam ||
-      !legacyBranchlessFilePath
-    ) {
+    if (!owner || !repoName || !branch || !branchParam || !legacyBranchlessFilePath) {
       return;
     }
     const nextPath = buildVaultFileRoute({
@@ -430,14 +411,7 @@ function FileViewWrapper() {
         console.error("Failed to refresh repository tree:", error);
       });
     },
-    [
-      vaultId,
-      owner,
-      repoName,
-      branch,
-      refreshTree,
-      vault?.treeRefreshCooldownUntil,
-    ],
+    [vaultId, owner, repoName, branch, refreshTree, vault?.treeRefreshCooldownUntil],
   );
 
   /**
@@ -718,21 +692,15 @@ function FileViewRepositorySetupState({
   );
 }
 
-type FileViewVault = NonNullable<
-  (typeof api.vault.records.getVaultByRepository)["_returnType"]
-> & {
+type FileViewVault = NonNullable<(typeof api.vault.records.getVaultByRepository)["_returnType"]> & {
   treeData: NonNullable<
-    NonNullable<
-      (typeof api.vault.records.getVaultByRepository)["_returnType"]
-    >["treeData"]
+    NonNullable<(typeof api.vault.records.getVaultByRepository)["_returnType"]>["treeData"]
   >;
   treeSHA: string;
 };
 
 function hasFileViewVaultTree(
-  vault: NonNullable<
-    (typeof api.vault.records.getVaultByRepository)["_returnType"]
-  >,
+  vault: NonNullable<(typeof api.vault.records.getVaultByRepository)["_returnType"]>,
 ): vault is FileViewVault {
   return Boolean(vault.treeSHA && vault.treeData);
 }
@@ -756,13 +724,8 @@ function FileViewInner({
   const router = useRouter();
   const location = useLocation();
   const routeSearch = useFileViewRouteSearch();
-  const dashboardSettings = useLiveQuery(
-    api.dashboardSettings.getDashboardSettings,
-    {},
-  );
-  const setEditorChatOpen = useMutation(
-    api.dashboardSettings.setEditorChatOpen,
-  );
+  const dashboardSettings = useLiveQuery(api.dashboardSettings.getDashboardSettings, {});
+  const setEditorChatOpen = useMutation(api.dashboardSettings.setEditorChatOpen);
   const buildCurrentFileViewHref = useCallback(
     (fileViewSearch: FileViewRouteSearchPatch) =>
       buildFileViewSearchHref({
@@ -774,12 +737,7 @@ function FileViewInner({
         },
         hash: location.hash,
       }),
-    [
-      location.hash,
-      location.pathname,
-      location.search,
-      routeSearch.mobileLineNumbers,
-    ],
+    [location.hash, location.pathname, location.search, routeSearch.mobileLineNumbers],
   );
   const navigateByHref = useCallback(
     (href: string, options?: { replace?: boolean }) => {
@@ -813,34 +771,27 @@ function FileViewInner({
   } = useDialog();
 
   const repositoryFullName = `${owner}/${repoName}`;
-  const selectedFileIsRenderableMedia =
-    isRenderableRepositoryMediaPath(selectedFile);
+  const selectedFileIsRenderableMedia = isRenderableRepositoryMediaPath(selectedFile);
   const commitSha = vault.commitSHA;
   const selectedFileGitHubUrl = selectedFile
     ? `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/blob/${encodeGitHubPath(branch)}/${encodeGitHubPath(selectedFile)}`
     : `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/tree/${encodeGitHubPath(branch)}`;
 
   // Folder expansion state
-  const folderExpansionStates = useQuery(
-    api.folderExpansion.getFolderExpansionStates,
-    { vaultId: vault._id },
-  );
+  const folderExpansionStates = useQuery(api.folderExpansion.getFolderExpansionStates, {
+    vaultId: vault._id,
+  });
   const setFolderExpansionState = useMutation(
     api.folderExpansion.setFolderExpansionState,
   ).withOptimisticUpdate((localStore, args) => {
-    const currentValue = localStore.getQuery(
-      api.folderExpansion.getFolderExpansionStates,
-      {
-        vaultId: vault._id,
-      },
-    );
+    const currentValue = localStore.getQuery(api.folderExpansion.getFolderExpansionStates, {
+      vaultId: vault._id,
+    });
 
     if (currentValue) {
       const newState = [...currentValue];
 
-      const folderIndex = newState.findIndex(
-        (folder) => folder.folderPath === args.folderPath,
-      );
+      const folderIndex = newState.findIndex((folder) => folder.folderPath === args.folderPath);
 
       if (folderIndex !== -1) {
         newState[folderIndex].isExpanded = args.isExpanded;
@@ -864,37 +815,27 @@ function FileViewInner({
   // Command palette state
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);
-  const [draftPullRequestError, setDraftPullRequestError] = useState<
-    string | null
-  >(null);
-  const [commitPreview, setCommitPreview] = useState<CommitPreview | null>(
+  const [draftPullRequestError, setDraftPullRequestError] = useState<string | null>(null);
+  const [commitPreview, setCommitPreview] = useState<CommitPreview | null>(null);
+  const [commitPreviewError, setCommitPreviewError] = useState<string | null>(null);
+  const [branchComparePreview, setBranchComparePreview] = useState<BranchComparePreview | null>(
     null,
   );
-  const [commitPreviewError, setCommitPreviewError] = useState<string | null>(
+  const [branchComparePreviewError, setBranchComparePreviewError] = useState<string | null>(null);
+  const [branchCompareLoadingStartedAt, setBranchCompareLoadingStartedAt] = useState<number | null>(
     null,
   );
-  const [branchComparePreview, setBranchComparePreview] =
-    useState<BranchComparePreview | null>(null);
-  const [branchComparePreviewError, setBranchComparePreviewError] = useState<
-    string | null
-  >(null);
-  const [branchCompareLoadingStartedAt, setBranchCompareLoadingStartedAt] =
-    useState<number | null>(null);
-  const [branchCompareLoadingElapsedMs, setBranchCompareLoadingElapsedMs] =
-    useState(0);
-  const [rebaseConflictPreview, setRebaseConflictPreview] =
-    useState<RebaseConflictPreview | null>(null);
-  const [rebaseConflictPreviewError, setRebaseConflictPreviewError] = useState<
-    string | null
-  >(null);
-  const [rebaseConflictBundleFeedback, setRebaseConflictBundleFeedback] =
-    useState<string | null>(null);
-  const [restoringDeletedFilePath, setRestoringDeletedFilePath] = useState<
-    string | null
-  >(null);
+  const [branchCompareLoadingElapsedMs, setBranchCompareLoadingElapsedMs] = useState(0);
+  const [rebaseConflictPreview, setRebaseConflictPreview] = useState<RebaseConflictPreview | null>(
+    null,
+  );
+  const [rebaseConflictPreviewError, setRebaseConflictPreviewError] = useState<string | null>(null);
+  const [rebaseConflictBundleFeedback, setRebaseConflictBundleFeedback] = useState<string | null>(
+    null,
+  );
+  const [restoringDeletedFilePath, setRestoringDeletedFilePath] = useState<string | null>(null);
   const [developerToolsOpen, setDeveloperToolsOpen] = useState(false);
-  const [editorOverride, setEditorOverride] =
-    useState<FileViewEditorOverride>("default");
+  const [editorOverride, setEditorOverride] = useState<FileViewEditorOverride>("default");
   const restoringDeletedFilePathRef = useRef<string | null>(null);
   const clearInlinePreviewSaveErrorRef = useRef<() => void>(() => {});
 
@@ -905,20 +846,15 @@ function FileViewInner({
   const [createDraftPullRequest, draftPullRequestStatus] = useConvexAction(
     api.fileStagingActions.createDraftPullRequest,
   );
-  const [
-    createDraftPullRequestFromDefaultBranch,
-    defaultBranchDraftPullRequestStatus,
-  ] = useConvexAction(
-    api.fileStagingActions.createDraftPullRequestFromDefaultBranch,
-  );
+  const [createDraftPullRequestFromDefaultBranch, defaultBranchDraftPullRequestStatus] =
+    useConvexAction(api.fileStagingActions.createDraftPullRequestFromDefaultBranch);
   const [getCommitPreview, commitPreviewStatus] = useConvexAction(
     api.fileStagingActions.getCommitPreview,
   );
-  const [getBranchComparePreview] = useConvexAction(
-    api.fileStagingActions.getBranchComparePreview,
+  const [getBranchComparePreview] = useConvexAction(api.fileStagingActions.getBranchComparePreview);
+  const [getRebaseConflictPreview, rebaseConflictPreviewStatus] = useConvexAction(
+    api.fileStagingActions.getRebaseConflictPreview,
   );
-  const [getRebaseConflictPreview, rebaseConflictPreviewStatus] =
-    useConvexAction(api.fileStagingActions.getRebaseConflictPreview);
   const [getRebaseConflictBundle, rebaseConflictBundleStatus] = useConvexAction(
     api.fileStagingActions.getRebaseConflictBundle,
   );
@@ -928,37 +864,21 @@ function FileViewInner({
   const [clearAllStaging, clearingStagingStatus] = useConvexMutation(
     api.fileStaging.clearAllStaging,
   );
-  const [updateStagedFileContent] = useConvexMutation(
-    api.fileStaging.updateStagedFileContent,
-  );
-  const [generateUploadUrl] = useConvexMutation(
-    api.fileStaging.generateUploadUrl,
-  );
-  const [deletePendingUploadBlob] = useConvexMutation(
-    api.fileStaging.deletePendingUploadBlob,
-  );
+  const [updateStagedFileContent] = useConvexMutation(api.fileStaging.updateStagedFileContent);
+  const [generateUploadUrl] = useConvexMutation(api.fileStaging.generateUploadUrl);
+  const [deletePendingUploadBlob] = useConvexMutation(api.fileStaging.deletePendingUploadBlob);
 
-  const [markFileForDeletion] = useConvexMutation(
-    api.fileStaging.markFileForDeletion,
-  );
+  const [markFileForDeletion] = useConvexMutation(api.fileStaging.markFileForDeletion);
   const [revertDeletedFileInStaging] = useConvexMutation(
     api.fileStaging.revertDeletedFileInStaging,
   );
   const [restoreComparedDeletedFileToStaging] = useConvexAction(
     api.fileStagingActions.restoreComparedDeletedFileToStaging,
   );
-  const [renameFileInStaging] = useConvexAction(
-    api.fileStagingActions.renameFileInStaging,
-  );
-  const loadRepositoryFileContent = useAction(
-    api.github.getRepositoryFileContent,
-  );
-  const stageFileForEditing = useAction(
-    api.fileStagingActions.getFileForEditing,
-  );
-  const [stageUploadedMedia] = useConvexAction(
-    api.fileStagingActions.stageUploadedMedia,
-  );
+  const [renameFileInStaging] = useConvexAction(api.fileStagingActions.renameFileInStaging);
+  const loadRepositoryFileContent = useAction(api.github.getRepositoryFileContent);
+  const stageFileForEditing = useAction(api.fileStagingActions.getFileForEditing);
+  const [stageUploadedMedia] = useConvexAction(api.fileStagingActions.stageUploadedMedia);
   const isDiffRequested = routeSearch.diff ?? false;
 
   // Get count of staged files for this vault
@@ -983,13 +903,9 @@ function FileViewInner({
       dontCache: true,
     },
   );
-  const [repositoryNoterContent, setRepositoryNoterContent] = useState<
-    string | null
-  >(null);
-  const [didAttemptRepositoryNoterLoad, setDidAttemptRepositoryNoterLoad] =
-    useState(false);
-  const [didResolveRepositoryNoterLoad, setDidResolveRepositoryNoterLoad] =
-    useState(false);
+  const [repositoryNoterContent, setRepositoryNoterContent] = useState<string | null>(null);
+  const [didAttemptRepositoryNoterLoad, setDidAttemptRepositoryNoterLoad] = useState(false);
+  const [didResolveRepositoryNoterLoad, setDidResolveRepositoryNoterLoad] = useState(false);
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>("all");
   const [sidebarModeHydrated, setSidebarModeHydrated] = useState(false);
 
@@ -1019,15 +935,12 @@ function FileViewInner({
   const reviewRouteKeyRef = useRef<string | null>(null);
   const branchComparePreviewRequestKeyRef = useRef<string | null>(null);
   const branchComparePreviewRequestedTargetKeyRef = useRef<string | null>(null);
-  const branchComparePreviewRequestedStagingKeyRef = useRef<string | null>(
-    null,
-  );
+  const branchComparePreviewRequestedStagingKeyRef = useRef<string | null>(null);
   const branchComparePreviewReloadTimeoutRef = useRef<number | null>(null);
   const currentRemoteBranch = useMemo(
     () =>
       remoteBranches?.find(
-        (remoteBranch) =>
-          remoteBranch.name === branch && remoteBranch.remoteState === "active",
+        (remoteBranch) => remoteBranch.name === branch && remoteBranch.remoteState === "active",
       ) ?? null,
     [branch, remoteBranches],
   );
@@ -1037,12 +950,8 @@ function FileViewInner({
   const isDefaultBranch =
     currentRemoteBranch?.isDefault ??
     (typeof vault.defaultBranch === "string" && branch === vault.defaultBranch);
-  const currentBranchPullRequestNumber = isDefaultBranch
-    ? undefined
-    : currentPullRequestNumber;
-  const currentBranchPullRequestUrl = isDefaultBranch
-    ? undefined
-    : currentPullRequestUrl;
+  const currentBranchPullRequestNumber = isDefaultBranch ? undefined : currentPullRequestNumber;
+  const currentBranchPullRequestUrl = isDefaultBranch ? undefined : currentPullRequestUrl;
   const hasCurrentBranchPullRequest = currentBranchPullRequestUrl != null;
 
   /** Listen for Cmd/Ctrl + P and open the file view command palette. */
@@ -1063,12 +972,8 @@ function FileViewInner({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const hasNoterConfigFile = hasSimpleViewConfigFile(
-    stagedNoterFile,
-    repositoryNoterContent,
-  );
-  const hasDeletedStagedNoterFile =
-    isStagedSimpleViewConfigDeleted(stagedNoterFile);
+  const hasNoterConfigFile = hasSimpleViewConfigFile(stagedNoterFile, repositoryNoterContent);
+  const hasDeletedStagedNoterFile = isStagedSimpleViewConfigDeleted(stagedNoterFile);
   const didResolveSimpleViewConfigSource =
     stagedNoterFile !== undefined &&
     (hasStagedSimpleViewConfigFile(stagedNoterFile) ||
@@ -1079,10 +984,7 @@ function FileViewInner({
     () => getSimpleViewPreferenceStorageKey(vault._id),
     [vault._id],
   );
-  const graphViewStorageKey = useMemo(
-    () => `noter:graph-view:${vault._id}`,
-    [vault._id],
-  );
+  const graphViewStorageKey = useMemo(() => `noter:graph-view:${vault._id}`, [vault._id]);
   const [viewMode, setViewMode] = useState<"editor" | "graph">(() => {
     return readGraphViewMode(graphViewStorageKey) ?? "editor";
   });
@@ -1132,12 +1034,7 @@ function FileViewInner({
    * supplied a staged copy or a staged deletion for that same file.
    */
   useEffect(() => {
-    if (
-      !shouldLoadRepositorySimpleViewConfig(
-        stagedNoterFile,
-        didAttemptRepositoryNoterLoad,
-      )
-    ) {
+    if (!shouldLoadRepositorySimpleViewConfig(stagedNoterFile, didAttemptRepositoryNoterLoad)) {
       return;
     }
 
@@ -1200,11 +1097,7 @@ function FileViewInner({
 
     setSidebarMode(defaultMode);
     setSidebarModeHydrated(true);
-  }, [
-    didResolveSimpleViewConfigSource,
-    hasNoterConfigFile,
-    sidebarModeStorageKey,
-  ]);
+  }, [didResolveSimpleViewConfigSource, hasNoterConfigFile, sidebarModeStorageKey]);
 
   /** Save the current sidebar mode (`simple` or `all`) after the initial load completes. */
   useEffect(() => {
@@ -1216,12 +1109,7 @@ function FileViewInner({
     } catch (error) {
       console.warn("Failed to persist sidebar view preference", error);
     }
-  }, [
-    didResolveSimpleViewConfigSource,
-    sidebarMode,
-    sidebarModeHydrated,
-    sidebarModeStorageKey,
-  ]);
+  }, [didResolveSimpleViewConfigSource, sidebarMode, sidebarModeHydrated, sidebarModeStorageKey]);
 
   const stagedNoterContent = hasStagedSimpleViewConfigFile(stagedNoterFile)
     ? stagedNoterFile.content
@@ -1249,11 +1137,9 @@ function FileViewInner({
       const preserveReviewOnMount =
         preserveCurrentReviewMode && routeSearch.review && !routeSearch.diff;
       const includeDiff =
-        options?.reviewMode === "review" ||
-        (preserveCurrentReviewMode && routeSearch.diff);
+        options?.reviewMode === "review" || (preserveCurrentReviewMode && routeSearch.diff);
       const includeCompare =
-        options?.compare === true ||
-        (preserveCurrentCompareMode && routeSearch.compare);
+        options?.compare === true || (preserveCurrentCompareMode && routeSearch.compare);
       const pathname = buildVaultFileRoute({
         owner,
         repoName,
@@ -1347,12 +1233,7 @@ function FileViewInner({
         { replace: options?.replace },
       );
     },
-    [
-      buildCurrentFileViewHref,
-      navigateByHref,
-      routeSearch.diff,
-      routeSearch.review,
-    ],
+    [buildCurrentFileViewHref, navigateByHref, routeSearch.diff, routeSearch.review],
   );
   const resetRebaseConflictState = useCallback(() => {
     setRebaseConflictPreview(null);
@@ -1499,10 +1380,7 @@ function FileViewInner({
       // Renamed staging rows keep their initial path as the mutation key, so a
       // second rename needs to follow either the current selected path or the
       // selected staged row's initial path.
-      if (
-        selectedFile === originalPath ||
-        stagedFile?.initialFilePath === originalPath
-      ) {
+      if (selectedFile === originalPath || stagedFile?.initialFilePath === originalPath) {
         navigateByHref(buildVaultFileUrl(newPath));
       }
 
@@ -1513,17 +1391,13 @@ function FileViewInner({
   };
 
   // Handler for deleting files from the file tree
-  const handleFileDelete = async (
-    filePath: string,
-    originalPath = filePath,
-  ) => {
+  const handleFileDelete = async (filePath: string, originalPath = filePath) => {
     if (!owner || !repoName) return;
 
     try {
       // Get the file's SHA from the tree (null for new files)
       const fileSha =
-        vault.treeData.tree.find((t: GithubTree) => t.path === originalPath)
-          ?.sha ?? null;
+        vault.treeData.tree.find((t: GithubTree) => t.path === originalPath)?.sha ?? null;
 
       // Ensure we retain original file content in staging for review mode.
       if (fileSha) {
@@ -1562,10 +1436,7 @@ function FileViewInner({
     }
   };
 
-  const handleRestoreDeletedFile = async (
-    filePath: string,
-    originalPath = filePath,
-  ) => {
+  const handleRestoreDeletedFile = async (filePath: string, originalPath = filePath) => {
     if (restoringDeletedFilePathRef.current !== null) {
       return;
     }
@@ -1576,8 +1447,7 @@ function FileViewInner({
     try {
       const deletedStagedFile =
         stagedFiles?.find(
-          (candidate) =>
-            candidate.filePath === filePath && candidate.fileDeleted,
+          (candidate) => candidate.filePath === filePath && candidate.fileDeleted,
         ) ?? null;
       const comparedDeletedFile =
         branchComparePreview?.files.find(
@@ -1595,10 +1465,7 @@ function FileViewInner({
           repositoryFullName,
           branch,
           filePath,
-          previousPath:
-            originalPath !== filePath
-              ? originalPath
-              : comparedDeletedFile.previousPath,
+          previousPath: originalPath !== filePath ? originalPath : comparedDeletedFile.previousPath,
         });
       } else {
         throw new Error("Deleted file is not available to restore.");
@@ -1615,9 +1482,7 @@ function FileViewInner({
       if (restoringDeletedFilePathRef.current === filePath) {
         restoringDeletedFilePathRef.current = null;
       }
-      setRestoringDeletedFilePath((current) =>
-        current === filePath ? null : current,
-      );
+      setRestoringDeletedFilePath((current) => (current === filePath ? null : current));
     }
   };
 
@@ -1647,15 +1512,10 @@ function FileViewInner({
   };
 
   // Handler for creating folders in specific paths from the file tree
-  const handleCreateFolderInFolder = (
-    folderPath: string,
-    folderName: string,
-  ) => {
+  const handleCreateFolderInFolder = (folderPath: string, folderName: string) => {
     if (!owner || !repoName || !folderName.trim()) return;
 
-    const newFolderPath = folderPath
-      ? `${folderPath}/${folderName}`
-      : folderName;
+    const newFolderPath = folderPath ? `${folderPath}/${folderName}` : folderName;
     const readmeFilePath = `${newFolderPath}/README.md`;
 
     // Create a README file in the folder to make the folder exist in Git
@@ -1682,21 +1542,14 @@ function FileViewInner({
     }).catch((error) => {
       console.error("Failed to commit changes:", error);
       const message =
-        error instanceof Error && error.message.length > 0
-          ? error.message
-          : "Commit failed";
+        error instanceof Error && error.message.length > 0 ? error.message : "Commit failed";
       if (parseUpstreamConflictPaths(message).length > 0) {
         handleUpstreamConflictDetected(message);
         return;
       }
       setCommitError(message);
     });
-  }, [
-    branch,
-    commitStaging,
-    handleUpstreamConflictDetected,
-    repositoryFullName,
-  ]);
+  }, [branch, commitStaging, handleUpstreamConflictDetected, repositoryFullName]);
 
   const handleDraftPullRequest = useCallback(() => {
     setCommitError(null);
@@ -1715,10 +1568,7 @@ function FileViewInner({
     }
 
     const pendingPullRequestWindow = window.open("", "_blank");
-    const handleCreatedPullRequest = async (args: {
-      url: string;
-      nextBranch: string;
-    }) => {
+    const handleCreatedPullRequest = async (args: { url: string; nextBranch: string }) => {
       let didHydrateNextBranch = false;
       try {
         const refreshResult = await refreshRepositoryTree({
@@ -1741,20 +1591,14 @@ function FileViewInner({
         );
       }
       if (didHydrateNextBranch && args.nextBranch !== branch) {
-        navigateByHref(
-          buildVaultFileUrl(selectedFile, { branch: args.nextBranch }),
-        );
+        navigateByHref(buildVaultFileUrl(selectedFile, { branch: args.nextBranch }));
       }
       if (pendingPullRequestWindow && !pendingPullRequestWindow.closed) {
         pendingPullRequestWindow.opener = null;
         pendingPullRequestWindow.location.replace(args.url);
         return;
       }
-      const openedWindow = window.open(
-        args.url,
-        "_blank",
-        "noopener,noreferrer",
-      );
+      const openedWindow = window.open(args.url, "_blank", "noopener,noreferrer");
       if (!openedWindow) {
         setDraftPullRequestError(
           "Draft pull request created, but the browser blocked opening a new tab.",
@@ -1929,11 +1773,9 @@ function FileViewInner({
 
   const handleToggleReviewMode = useCallback(() => {
     const selectedComparedPreviewFile =
-      branchComparePreview?.files.find((file) => file.path === selectedFile) ??
-      null;
+      branchComparePreview?.files.find((file) => file.path === selectedFile) ?? null;
     const hasComparedEditorTarget = Boolean(
-      selectedComparedPreviewFile &&
-      selectedComparedPreviewFile.status !== "deleted",
+      selectedComparedPreviewFile && selectedComparedPreviewFile.status !== "deleted",
     );
 
     if (
@@ -1992,13 +1834,11 @@ function FileViewInner({
   }
 
   const selectedRebaseConflictFile =
-    rebaseConflictPreview?.files.find((file) => file.path === selectedFile) ??
-    null;
+    rebaseConflictPreview?.files.find((file) => file.path === selectedFile) ?? null;
   const selectedCommitPreviewFile =
     commitPreview?.files.find((file) => file.path === selectedFile) ?? null;
   const selectedComparedFile =
-    branchComparePreview?.files.find((file) => file.path === selectedFile) ??
-    null;
+    branchComparePreview?.files.find((file) => file.path === selectedFile) ?? null;
   const selectedPreviewFile = isCompareRequested
     ? (selectedComparedFile ?? selectedCommitPreviewFile)
     : selectedCommitPreviewFile;
@@ -2014,17 +1854,13 @@ function FileViewInner({
   const selectedPreviewCanRenderInline = Boolean(
     !selectedFileIsRenderableMedia &&
     (isCompareRequested
-      ? selectedPreviewHasRichTextDiff ||
-        (!selectedComparedFile && selectedPreviewStagedFile)
+      ? selectedPreviewHasRichTextDiff || (!selectedComparedFile && selectedPreviewStagedFile)
       : selectedPreviewStagedFile || selectedPreviewHasRichTextDiff),
   );
   const selectedPreviewBaseContent =
-    isCompareRequested &&
-    typeof selectedComparedFile?.richOldContent === "string"
+    isCompareRequested && typeof selectedComparedFile?.richOldContent === "string"
       ? selectedComparedFile.richOldContent
-      : (selectedPreviewStagedFile?.initialContent ??
-        selectedPreviewFile?.richOldContent ??
-        "");
+      : (selectedPreviewStagedFile?.initialContent ?? selectedPreviewFile?.richOldContent ?? "");
   const selectedPreviewBaseFilePath = getPreviewBaseFilePath({
     comparedPreviousPath: selectedComparedFile?.previousPath,
     currentFilePath: selectedFile,
@@ -2100,14 +1936,11 @@ function FileViewInner({
         size: undefined,
         status: "added" as const,
       }));
-    const existingPaths = new Set(
-      [...treeItems, ...newFiles].map((item) => item.path),
-    );
+    const existingPaths = new Set([...treeItems, ...newFiles].map((item) => item.path));
     const deletedFiles = (stagedFiles || [])
       .filter(
         (staged: StagedFileRecord) =>
-          getStagedFileStatus(staged) === "deleted" &&
-          !existingPaths.has(staged.filePath),
+          getStagedFileStatus(staged) === "deleted" && !existingPaths.has(staged.filePath),
       )
       .map((staged: StagedFileRecord) => ({
         deleted: true,
@@ -2130,9 +1963,7 @@ function FileViewInner({
       status: file.status,
     }));
   }, [branchComparePreview]);
-  const effectiveSidebarMode: EffectiveSidebarMode = isCompareRequested
-    ? "compare"
-    : sidebarMode;
+  const effectiveSidebarMode: EffectiveSidebarMode = isCompareRequested ? "compare" : sidebarMode;
 
   const { agentGraphNodes, agentGraphEdges } = useMemo(() => {
     const nodes: AgentGraphNode[] = [];
@@ -2173,8 +2004,7 @@ function FileViewInner({
     return { agentGraphNodes: nodes, agentGraphEdges: edges };
   }, [finalTreeData]);
 
-  const forceSidebarSelectionVisible =
-    reviewOnMountRequested || commitReviewMode === "review";
+  const forceSidebarSelectionVisible = reviewOnMountRequested || commitReviewMode === "review";
   const alwaysVisibleSimpleViewPaths = useMemo(() => {
     return finalTreeData
       .filter((item) => {
@@ -2183,8 +2013,7 @@ function FileViewInner({
         }
 
         return (
-          item.status === "deleted" ||
-          (forceSidebarSelectionVisible && item.path === selectedFile)
+          item.status === "deleted" || (forceSidebarSelectionVisible && item.path === selectedFile)
         );
       })
       .map((item) => item.path);
@@ -2198,10 +2027,7 @@ function FileViewInner({
       return finalTreeData;
     }
 
-    if (
-      !simpleViewConfig.hasValidConfig ||
-      simpleViewConfig.excludePatterns.length === 0
-    ) {
+    if (!simpleViewConfig.hasValidConfig || simpleViewConfig.excludePatterns.length === 0) {
       return finalTreeData;
     }
 
@@ -2209,13 +2035,9 @@ function FileViewInner({
     // rules still need a navigation entry while review is active. Deleted files
     // stay visible even outside review because they do not exist in the
     // repository tree anymore.
-    return filterSimpleViewTreeItems(
-      finalTreeData,
-      simpleViewConfig.excludePatterns,
-      {
-        alwaysIncludePaths: alwaysVisibleSimpleViewPaths,
-      },
-    );
+    return filterSimpleViewTreeItems(finalTreeData, simpleViewConfig.excludePatterns, {
+      alwaysIncludePaths: alwaysVisibleSimpleViewPaths,
+    });
   }, [
     alwaysVisibleSimpleViewPaths,
     comparedTreeData,
@@ -2224,16 +2046,12 @@ function FileViewInner({
     simpleViewConfig,
   ]);
   const existingUploadTargetPaths = useMemo(() => {
-    return finalTreeData
-      .filter((item) => item.type === "blob")
-      .map((item) => item.path);
+    return finalTreeData.filter((item) => item.type === "blob").map((item) => item.path);
   }, [finalTreeData]);
   const autoExpandedSidebarPaths = useMemo(() => {
     if (effectiveSidebarMode === "compare") {
       return Array.from(
-        new Set(
-          comparedTreeData.flatMap((item) => getAncestorFolderPaths(item.path)),
-        ),
+        new Set(comparedTreeData.flatMap((item) => getAncestorFolderPaths(item.path))),
       );
     }
 
@@ -2244,12 +2062,7 @@ function FileViewInner({
     // Keep the active review target visible in the stable sidebar even when a
     // parent folder was previously collapsed.
     return getAncestorFolderPaths(selectedFile);
-  }, [
-    comparedTreeData,
-    effectiveSidebarMode,
-    forceSidebarSelectionVisible,
-    selectedFile,
-  ]);
+  }, [comparedTreeData, effectiveSidebarMode, forceSidebarSelectionVisible, selectedFile]);
 
   const emptyRepository = visibleTreeData.length === 0;
   const didResolveStagedFiles = stagedFiles !== undefined;
@@ -2263,8 +2076,7 @@ function FileViewInner({
       (hasChangesToCommit === true || (currentRemoteBranch?.aheadBy ?? 0) > 0);
   const draftButtonLabel = isDefaultBranch ? "draft" : "create draft";
   const isCreatingDraftPullRequest =
-    draftPullRequestStatus === "loading" ||
-    defaultBranchDraftPullRequestStatus === "loading";
+    draftPullRequestStatus === "loading" || defaultBranchDraftPullRequestStatus === "loading";
   const isResettingToGitHub = clearingStagingStatus === "loading";
   const resetToGitHubDisabled =
     isResettingToGitHub ||
@@ -2283,12 +2095,7 @@ function FileViewInner({
         currentBranchPullRequestNumber ?? "no-pr",
         vault.lastTreeRefreshAt ?? "no-refresh",
       ].join(":"),
-    [
-      branch,
-      commitSha,
-      currentBranchPullRequestNumber,
-      vault.lastTreeRefreshAt,
-    ],
+    [branch, commitSha, currentBranchPullRequestNumber, vault.lastTreeRefreshAt],
   );
   const branchComparePreviewStagingRefreshKey = useMemo(
     () => buildStagingPreviewRefreshKey(stagedFiles),
@@ -2326,8 +2133,7 @@ function FileViewInner({
       typeof branchComparePreview.pullRequestNumber === "number"
         ? `PR #${branchComparePreview.pullRequestNumber} ${baseSummary}`
         : `${baseSummary} (no open PR)`;
-    const truncationSummary = branchComparePreview.safety
-      .includesTruncatedPatches
+    const truncationSummary = branchComparePreview.safety.includesTruncatedPatches
       ? " · truncated patches"
       : "";
     const sourceListSummary = branchComparePreview.sourceFileListTruncated
@@ -2348,9 +2154,7 @@ function FileViewInner({
     }
 
     const updateElapsed = () => {
-      setBranchCompareLoadingElapsedMs(
-        Date.now() - branchCompareLoadingStartedAt,
-      );
+      setBranchCompareLoadingElapsedMs(Date.now() - branchCompareLoadingStartedAt);
     };
 
     updateElapsed();
@@ -2371,9 +2175,7 @@ function FileViewInner({
       return;
     }
     reviewRouteKeyRef.current = nextRouteKey;
-    setAllowAutoExitReview((current) =>
-      commitReviewMode === "review" ? current : true,
-    );
+    setAllowAutoExitReview((current) => (commitReviewMode === "review" ? current : true));
   }, [branch, selectedFile, commitReviewMode]);
 
   /** If review mode is open and there are no staged changes left, switch the URL back to editor mode. */
@@ -2403,11 +2205,7 @@ function FileViewInner({
    * staged changes, otherwise `editor`.
    */
   useEffect(() => {
-    if (
-      !reviewOnMountRequested ||
-      commitReviewMode === "review" ||
-      !didResolveStagedFiles
-    ) {
+    if (!reviewOnMountRequested || commitReviewMode === "review" || !didResolveStagedFiles) {
       return;
     }
     resetCommitPreviewState();
@@ -2431,12 +2229,7 @@ function FileViewInner({
   useEffect(() => {
     if (commitReviewMode !== "review" || !hasChangesToCommit) return;
     void loadCommitPreview();
-  }, [
-    commitReviewMode,
-    hasChangesToCommit,
-    commitPreviewRefreshKey,
-    loadCommitPreview,
-  ]);
+  }, [commitReviewMode, hasChangesToCommit, commitPreviewRefreshKey, loadCommitPreview]);
 
   /** Cancel any pending compare-preview reload timer when this component unmounts. */
   useEffect(() => {
@@ -2476,10 +2269,8 @@ function FileViewInner({
     const startBranchCompareReload = (resetPreview: boolean) => {
       clearBranchComparePreviewReloadTimeout();
       branchComparePreviewRequestKeyRef.current = nextRequestKey;
-      branchComparePreviewRequestedTargetKeyRef.current =
-        branchCompareTargetRefreshKey;
-      branchComparePreviewRequestedStagingKeyRef.current =
-        branchComparePreviewStagingRefreshKey;
+      branchComparePreviewRequestedTargetKeyRef.current = branchCompareTargetRefreshKey;
+      branchComparePreviewRequestedStagingKeyRef.current = branchComparePreviewStagingRefreshKey;
       setBranchCompareLoadingStartedAt((current) => {
         if (resetPreview) {
           return Date.now();
@@ -2539,20 +2330,13 @@ function FileViewInner({
 
     navigateByHref(
       buildVaultFileUrl(firstComparedFile.path, {
-        reviewMode:
-          firstComparedFile.status === "deleted" ? "review" : undefined,
+        reviewMode: firstComparedFile.status === "deleted" ? "review" : undefined,
       }),
       {
         replace: true,
       },
     );
-  }, [
-    branchComparePreview,
-    buildVaultFileUrl,
-    isCompareRequested,
-    navigateByHref,
-    selectedFile,
-  ]);
+  }, [branchComparePreview, buildVaultFileUrl, isCompareRequested, navigateByHref, selectedFile]);
 
   // MARK: Return
 
@@ -2585,14 +2369,10 @@ function FileViewInner({
       emptyRepository={emptyRepository}
       items={visibleTreeData}
       onFileSelect={handleFileSelect}
-      onFileRename={(originalPath, newPath) =>
-        void handleFileRename(originalPath, newPath)
-      }
+      onFileRename={(originalPath, newPath) => void handleFileRename(originalPath, newPath)}
       onFileCreate={handleCreateFileInFolder}
       onMediaUploadRequest={handleRequestMediaUpload}
-      onFileDelete={(filePath, originalPath) =>
-        void handleFileDelete(filePath, originalPath)
-      }
+      onFileDelete={(filePath, originalPath) => void handleFileDelete(filePath, originalPath)}
       onFileRestore={(filePath, originalPath) =>
         void handleRestoreDeletedFile(filePath, originalPath)
       }
@@ -2601,9 +2381,7 @@ function FileViewInner({
       folderExpansionStates={folderExpansionStates ?? []}
       onFolderToggle={handleFolderToggle}
       autoExpandedPaths={autoExpandedSidebarPaths}
-      forceAutoExpandedPaths={
-        forceSidebarSelectionVisible || effectiveSidebarMode === "compare"
-      }
+      forceAutoExpandedPaths={forceSidebarSelectionVisible || effectiveSidebarMode === "compare"}
       onOpenFileCreation={() => openFileCreation("")}
       onOpenFolderCreation={() => openFolderCreation("")}
       onSidebarModeChange={handleSidebarModeChange}
@@ -2627,12 +2405,9 @@ function FileViewInner({
     ? selectedFile.split("/").slice(0, -1).join("/") || "/"
     : undefined;
   const dashboardEditorChatOpen = dashboardSettings?.editorChatOpen;
-  const [editorChatOpen, setEditorChatOpenState] = useState<boolean | null>(
-    null,
-  );
+  const [editorChatOpen, setEditorChatOpenState] = useState<boolean | null>(null);
   const [isEditorChatBusy, setIsEditorChatBusy] = useState(false);
-  const [shouldAutoFocusChatInput, setShouldAutoFocusChatInput] =
-    useState(false);
+  const [shouldAutoFocusChatInput, setShouldAutoFocusChatInput] = useState(false);
   const editorChatPendingRef = useRef<boolean | null>(null);
   const developerToolsVisible = viewMode === "graph" || developerToolsOpen;
   const showEditorOverrideControl =
@@ -2677,21 +2452,18 @@ function FileViewInner({
     setEditorChatOpenState(serverValue);
   }, [dashboardEditorChatOpen]);
 
-  const resolvedEditorChatOpen =
-    editorChatOpen ?? dashboardEditorChatOpen ?? false;
+  const resolvedEditorChatOpen = editorChatOpen ?? dashboardEditorChatOpen ?? false;
   const handleEditorChatOpenChange = useCallback(
     (isOpen: boolean) => {
       setShouldAutoFocusChatInput(isOpen);
       setEditorChatOpenState(isOpen);
       editorChatPendingRef.current = isOpen;
-      void setEditorChatOpen({ isOpen, scope: "vault" }).catch(
-        (error: unknown) => {
-          console.error("Failed to persist FileView chat state:", error);
-          editorChatPendingRef.current = null;
-          setShouldAutoFocusChatInput(false);
-          setEditorChatOpenState(dashboardEditorChatOpen ?? false);
-        },
-      );
+      void setEditorChatOpen({ isOpen, scope: "vault" }).catch((error: unknown) => {
+        console.error("Failed to persist FileView chat state:", error);
+        editorChatPendingRef.current = null;
+        setShouldAutoFocusChatInput(false);
+        setEditorChatOpenState(dashboardEditorChatOpen ?? false);
+      });
     },
     [dashboardEditorChatOpen, setEditorChatOpen],
   );
@@ -2701,9 +2473,7 @@ function FileViewInner({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="min-w-0">
-            <div className="mb-0.5 font-mono text-[11px] text-muted-foreground">
-              {branch}
-            </div>
+            <div className="mb-0.5 font-mono text-[11px] text-muted-foreground">{branch}</div>
             {selectedFile ? (
               <h2 className="text-base font-medium md:text-sm">
                 <a
@@ -2742,9 +2512,7 @@ function FileViewInner({
               <Button
                 size="sm"
                 variant={
-                  commitReviewMode === "review" || showCompareBackToEditor
-                    ? "secondary"
-                    : "outline"
+                  commitReviewMode === "review" || showCompareBackToEditor ? "secondary" : "outline"
                 }
                 onClick={handleToggleReviewMode}
                 disabled={
@@ -2793,12 +2561,8 @@ function FileViewInner({
             }}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
-            editorOverride={
-              showEditorOverrideControl ? editorOverride : undefined
-            }
-            onEditorOverrideChange={
-              showEditorOverrideControl ? setEditorOverride : undefined
-            }
+            editorOverride={showEditorOverrideControl ? editorOverride : undefined}
+            onEditorOverrideChange={showEditorOverrideControl ? setEditorOverride : undefined}
           />
         </div>
       </div>
@@ -2833,9 +2597,7 @@ function FileViewInner({
 
               {branchCompareLoadingState ? (
                 branchCompareLoadingState
-              ) : commitPreview ||
-                rebaseConflictPreview ||
-                branchComparePreview ? (
+              ) : commitPreview || rebaseConflictPreview || branchComparePreview ? (
                 <div className="flex min-h-0 flex-1 flex-col">
                   <div className="flex min-h-0 flex-1 flex-col">
                     {selectedFile ? (
@@ -2849,8 +2611,7 @@ function FileViewInner({
                                   {selectedRebaseConflictFile.path}
                                 </div>
                                 <div className="mt-1 text-xs text-amber-900/80">
-                                  {rebaseConflictPreview &&
-                                  rebaseConflictPreview.files.length > 1
+                                  {rebaseConflictPreview && rebaseConflictPreview.files.length > 1
                                     ? `${rebaseConflictPreview.files.length} files need review. Rebase staging onto the latest GitHub state to materialize conflict markers or auto-merge clean files.`
                                     : "Review the conflict patches below, then rebase staging onto the latest GitHub state before editing a manual resolution."}
                                 </div>
@@ -2858,9 +2619,7 @@ function FileViewInner({
                                   <Button
                                     size="sm"
                                     onClick={handleRebaseOntoLatestGitHub}
-                                    disabled={
-                                      pullFromGitHubStatus === "loading"
-                                    }
+                                    disabled={pullFromGitHubStatus === "loading"}
                                     className="h-7 px-2 text-xs"
                                   >
                                     {pullFromGitHubStatus === "loading"
@@ -2872,10 +2631,8 @@ function FileViewInner({
                                     variant="outline"
                                     onClick={handleCopyRebaseConflictBundle}
                                     disabled={
-                                      rebaseConflictPreviewStatus ===
-                                        "loading" ||
-                                      rebaseConflictBundleStatus ===
-                                        "loading" ||
+                                      rebaseConflictPreviewStatus === "loading" ||
+                                      rebaseConflictBundleStatus === "loading" ||
                                       !rebaseConflictPreview ||
                                       rebaseConflictPreview.files.length === 0
                                     }
@@ -2889,13 +2646,11 @@ function FileViewInner({
                                 <div className="mt-2 text-[11px] text-amber-950/70">
                                   {selectedRebaseConflictFile.baseBlobSha ? (
                                     <>
-                                      Base blob:{" "}
-                                      {selectedRebaseConflictFile.baseBlobSha}
+                                      Base blob: {selectedRebaseConflictFile.baseBlobSha}
                                       {"  "}
                                     </>
                                   ) : null}
-                                  Upstream blob:{" "}
-                                  {selectedRebaseConflictFile.upstreamBlobSha}
+                                  Upstream blob: {selectedRebaseConflictFile.upstreamBlobSha}
                                 </div>
                                 {rebaseConflictBundleFeedback ? (
                                   <div className="mt-2 text-xs text-amber-950">
@@ -2906,9 +2661,9 @@ function FileViewInner({
                               {selectedRebaseConflictFile.isBinary ? (
                                 <div className="min-h-0">
                                   <div className="border-b px-3 py-3 text-sm text-amber-950">
-                                    Binary image conflicts cannot be merged
-                                    inline. Rebase first, then upload again if
-                                    you still want to replace the upstream file.
+                                    Binary image conflicts cannot be merged inline. Rebase first,
+                                    then upload again if you still want to replace the upstream
+                                    file.
                                   </div>
                                   <RepositoryMediaViewer
                                     repositoryFullName={repositoryFullName}
@@ -2933,9 +2688,7 @@ function FileViewInner({
                                     ) : null}
                                     {selectedRebaseConflictFile.baseToStagedPatch ? (
                                       <FileViewPatchText
-                                        patch={
-                                          selectedRebaseConflictFile.baseToStagedPatch
-                                        }
+                                        patch={selectedRebaseConflictFile.baseToStagedPatch}
                                       />
                                     ) : null}
                                   </div>
@@ -2950,9 +2703,7 @@ function FileViewInner({
                                     ) : null}
                                     {selectedRebaseConflictFile.baseToUpstreamPatch ? (
                                       <FileViewPatchText
-                                        patch={
-                                          selectedRebaseConflictFile.baseToUpstreamPatch
-                                        }
+                                        patch={selectedRebaseConflictFile.baseToUpstreamPatch}
                                       />
                                     ) : null}
                                   </div>
@@ -2968,13 +2719,9 @@ function FileViewInner({
                               <div className="border-b px-3 py-2">
                                 <FileViewInlinePreviewControls
                                   controlsIdPrefix="inline-option"
-                                  patchAvailable={Boolean(
-                                    selectedPreviewFile?.patch,
-                                  )}
+                                  patchAvailable={Boolean(selectedPreviewFile?.patch)}
                                   showPatch={showInlinePreviewPatch}
-                                  allowInlineDiffs={
-                                    inlinePreviewOptions.allowInlineDiffs
-                                  }
+                                  allowInlineDiffs={inlinePreviewOptions.allowInlineDiffs}
                                   showSideBySide={showInlinePreviewSideBySide}
                                   syntaxHighlightDeletions={
                                     inlinePreviewOptions.syntaxHighlightDeletions
@@ -2997,9 +2744,7 @@ function FileViewInner({
                                       setShowInlinePreviewPatch(false);
                                     }
                                   }}
-                                  onSyntaxHighlightDeletionsChange={(
-                                    nextValue,
-                                  ) => {
+                                  onSyntaxHighlightDeletionsChange={(nextValue) => {
                                     setInlinePreviewOptions((current) => ({
                                       ...current,
                                       syntaxHighlightDeletions: nextValue,
@@ -3012,11 +2757,8 @@ function FileViewInner({
                                   {inlinePreviewSaveError}
                                 </div>
                               ) : null}
-                              {showInlinePreviewPatch &&
-                              selectedPreviewFile?.patch ? (
-                                <FileViewPatchPreview
-                                  file={selectedPreviewFile}
-                                />
+                              {showInlinePreviewPatch && selectedPreviewFile?.patch ? (
+                                <FileViewPatchPreview file={selectedPreviewFile} />
                               ) : showInlinePreviewSideBySide ? (
                                 <FileViewSplitPreview
                                   beforeValue={selectedPreviewBaseContent}
@@ -3090,9 +2832,7 @@ function FileViewInner({
                   showPatch={showInlinePreviewPatch}
                   allowInlineDiffs={inlinePreviewOptions.allowInlineDiffs}
                   showSideBySide={showInlinePreviewSideBySide}
-                  syntaxHighlightDeletions={
-                    inlinePreviewOptions.syntaxHighlightDeletions
-                  }
+                  syntaxHighlightDeletions={inlinePreviewOptions.syntaxHighlightDeletions}
                   onShowPatchChange={(nextValue) => {
                     setShowInlinePreviewPatch(nextValue);
                     if (nextValue) {
@@ -3127,12 +2867,8 @@ function FileViewInner({
                   afterValue={inlinePreviewEditorContent}
                   beforeFilePath={selectedPreviewBaseFilePath}
                   afterFilePath={selectedFile}
-                  oldHighlightedLineNumbers={
-                    inlinePreviewSplitDiffHighlights.oldLines
-                  }
-                  newHighlightedLineNumbers={
-                    inlinePreviewSplitDiffHighlights.newLines
-                  }
+                  oldHighlightedLineNumbers={inlinePreviewSplitDiffHighlights.oldLines}
+                  newHighlightedLineNumbers={inlinePreviewSplitDiffHighlights.newLines}
                 />
               ) : (
                 <ProsemarkMergeEditor
@@ -3170,8 +2906,7 @@ function FileViewInner({
       <WorkspaceLayoutV2FullPage
         left={{
           header: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarHeader : null,
-          content:
-            FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarContent : null,
+          content: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarContent : null,
           footer: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarFooter : null,
         }}
         main={{
@@ -3199,12 +2934,9 @@ function FileViewInner({
             : undefined
         }
         right={{
-          header:
-            FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarHeader : null,
-          content:
-            FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarContent : null,
-          footer:
-            FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarFooter : null,
+          header: FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarHeader : null,
+          content: FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarContent : null,
+          footer: FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarFooter : null,
         }}
       />
 

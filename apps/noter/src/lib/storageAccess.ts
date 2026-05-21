@@ -57,9 +57,7 @@ function createInMemoryStorage(): Storage {
   return storage;
 }
 
-export function ensureWindowStorageAccess(
-  storageKey: "localStorage" | "sessionStorage",
-) {
+export function ensureWindowStorageAccess(storageKey: "localStorage" | "sessionStorage") {
   if (typeof window === "undefined") {
     return;
   }

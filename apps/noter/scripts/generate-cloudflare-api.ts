@@ -3,18 +3,12 @@ import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { Ajv2020, type AnySchema } from "ajv/dist/2020.js";
 import { standaloneCode } from "ajv/dist/standalone/index.js";
-import openapiTS, {
-  astToString,
-  COMMENT_HEADER,
-  type OpenAPI3,
-} from "openapi-typescript";
+import openapiTS, { astToString, COMMENT_HEADER, type OpenAPI3 } from "openapi-typescript";
 import { includes } from "@noter-md/dependent/main";
 
-const sourceUrl =
-  "https://raw.githubusercontent.com/cloudflare/api-schemas/main/openapi.json";
+const sourceUrl = "https://raw.githubusercontent.com/cloudflare/api-schemas/main/openapi.json";
 const sourceFetchTimeoutMs = 30_000;
-const cloudflareApiOpenApiSchemaId =
-  "noter://cloudflare-api/openApi.generated.json";
+const cloudflareApiOpenApiSchemaId = "noter://cloudflare-api/openApi.generated.json";
 const appRoot = fileURLToPath(new URL("../", import.meta.url));
 const openApiDocumentOutputPath = fileURLToPath(
   new URL("../convex/cloudflareApi/openApi.generated.json", import.meta.url),
@@ -26,9 +20,7 @@ const validatorTypesOutputPath = fileURLToPath(
   new URL("../convex/cloudflareApi/validators.generated.d.ts", import.meta.url),
 );
 const typesOutputPath = "convex/cloudflareApi/types.generated.d.ts";
-const typesOutputFilePath = fileURLToPath(
-  new URL(`../${typesOutputPath}`, import.meta.url),
-);
+const typesOutputFilePath = fileURLToPath(new URL(`../${typesOutputPath}`, import.meta.url));
 const generatedFormatPaths = [
   "convex/cloudflareApi/openApi.generated.json",
   typesOutputPath,
@@ -40,13 +32,7 @@ const cloudflareApiFamilyPathPrefixes = [
   "/accounts/{account_id}/builds",
 ] as const;
 const cloudflareApiExactPaths = ["/accounts", "/user/tokens/verify"] as const;
-const cloudflareApiOperationMethods = [
-  "delete",
-  "get",
-  "patch",
-  "post",
-  "put",
-] as const;
+const cloudflareApiOperationMethods = ["delete", "get", "patch", "post", "put"] as const;
 const ajvIgnoredFormats = [
   "binary",
   "byte",
@@ -68,8 +54,7 @@ type JsonRecord = Record<string, unknown>;
 type OpenAPI3WithPaths = OpenAPI3 & {
   paths: NonNullable<OpenAPI3["paths"]>;
 };
-type CloudflareApiOperationMethod =
-  (typeof cloudflareApiOperationMethods)[number];
+type CloudflareApiOperationMethod = (typeof cloudflareApiOperationMethods)[number];
 type CloudflareApiResponseValidatorEntry = {
   method: CloudflareApiOperationMethod;
   path: string;
@@ -93,10 +78,8 @@ const documentText = await response.text();
 const documentJson = parseJsonSchemaDocument(documentText);
 const subsetDocumentJson = buildCloudflareApiSubsetDocument(documentJson);
 const typeDocumentJson = normalizeCloudflareApiTypeDocument(subsetDocumentJson);
-const validationDocumentJson =
-  normalizeCloudflareApiValidationDocument(subsetDocumentJson);
-const responseValidatorEntries =
-  collectCloudflareApiResponseValidatorEntries(subsetDocumentJson);
+const validationDocumentJson = normalizeCloudflareApiValidationDocument(subsetDocumentJson);
+const responseValidatorEntries = collectCloudflareApiResponseValidatorEntries(subsetDocumentJson);
 const ajv = new Ajv2020({
   allErrors: true,
   code: { esm: true, source: true },
@@ -106,9 +89,7 @@ const ajv = new Ajv2020({
 for (const format of ajvIgnoredFormats) {
   ajv.addFormat(format, true);
 }
-const validatorSchemaIds = buildCloudflareApiValidatorSchemaIds(
-  responseValidatorEntries,
-);
+const validatorSchemaIds = buildCloudflareApiValidatorSchemaIds(responseValidatorEntries);
 
 function parseJsonSchemaDocument(documentText: string): OpenAPI3WithPaths {
   const payload: unknown = JSON.parse(documentText);
@@ -138,17 +119,12 @@ function isRecord(value: unknown): value is JsonRecord {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
-function readOptionalString(
-  record: JsonRecord,
-  key: string,
-): string | undefined {
+function readOptionalString(record: JsonRecord, key: string): string | undefined {
   const value = record[key];
   return typeof value === "string" ? value : undefined;
 }
 
-function normalizeCloudflareApiValidationDocument(
-  document: OpenAPI3,
-): AnySchema {
+function normalizeCloudflareApiValidationDocument(document: OpenAPI3): AnySchema {
   const normalizedDocument: unknown = structuredClone(document);
   normalizeOpenApiSchemaKeywords(normalizedDocument);
 
@@ -244,9 +220,7 @@ function normalizeOpenApiExclusiveLimit(args: {
   delete args.record[args.exclusiveKey];
 }
 
-function buildCloudflareApiSubsetDocument(
-  document: OpenAPI3WithPaths,
-): OpenAPI3 {
+function buildCloudflareApiSubsetDocument(document: OpenAPI3WithPaths): OpenAPI3 {
   const selectedPaths = collectSelectedCloudflareApiPaths(document);
   ensureCloudflareApiOperationIds(selectedPaths);
   const info = readCloudflareApiSubsetInfo(document);
@@ -289,9 +263,7 @@ function normalizeObservedCloudflareApiResponseShapes(document: JsonRecord) {
 function markSchemaNullable(document: JsonRecord, pointer: string): void {
   const schema = readJsonPointer(document, pointer);
   if (!isRecord(schema)) {
-    throw new Error(
-      `Expected Cloudflare API schema ${pointer} to be an object.`,
-    );
+    throw new Error(`Expected Cloudflare API schema ${pointer} to be an object.`);
   }
   schema["nullable"] = true;
 }
@@ -308,9 +280,7 @@ function ensureCloudflareApiOperationIds(paths: JsonRecord): void {
         continue;
       }
       if (!isRecord(operation)) {
-        throw new Error(
-          `Expected ${method.toUpperCase()} ${path} to be an object.`,
-        );
+        throw new Error(`Expected ${method.toUpperCase()} ${path} to be an object.`);
       }
       const operationId = operation["operationId"];
       if (typeof operationId === "string" && operationId.length > 0) {
@@ -322,9 +292,7 @@ function ensureCloudflareApiOperationIds(paths: JsonRecord): void {
   }
 }
 
-function collectSelectedCloudflareApiPaths(
-  document: OpenAPI3WithPaths,
-): JsonRecord {
+function collectSelectedCloudflareApiPaths(document: OpenAPI3WithPaths): JsonRecord {
   const selectedPaths: JsonRecord = {};
   const entries = Object.entries(document.paths).sort(([left], [right]) =>
     left.localeCompare(right),
@@ -397,17 +365,13 @@ function collectReferencedComponents(args: {
 
 function readJsonPointer(root: unknown, pointer: string): unknown {
   if (!pointer.startsWith("#/")) {
-    throw new Error(
-      `Cloudflare API subset cannot resolve external ref ${pointer}.`,
-    );
+    throw new Error(`Cloudflare API subset cannot resolve external ref ${pointer}.`);
   }
 
   let value = root;
   for (const segment of parseJsonPointerSegments(pointer)) {
     if (!isRecord(value)) {
-      throw new Error(
-        `Cloudflare API ref ${pointer} passed through a non-object.`,
-      );
+      throw new Error(`Cloudflare API ref ${pointer} passed through a non-object.`);
     }
     value = value[segment];
   }
@@ -418,11 +382,7 @@ function readJsonPointer(root: unknown, pointer: string): unknown {
   return value;
 }
 
-function setJsonPointer(
-  root: JsonRecord,
-  pointer: string,
-  value: unknown,
-): void {
+function setJsonPointer(root: JsonRecord, pointer: string, value: unknown): void {
   const segments = parseJsonPointerSegments(pointer);
   let target = root;
   for (const segment of segments.slice(0, -1)) {
@@ -468,15 +428,11 @@ function collectCloudflareApiResponseValidatorEntries(
         continue;
       }
       if (!isRecord(operation)) {
-        throw new Error(
-          `Expected ${method.toUpperCase()} ${path} to be an object.`,
-        );
+        throw new Error(`Expected ${method.toUpperCase()} ${path} to be an object.`);
       }
       const operationId = operation["operationId"];
       if (typeof operationId !== "string" || !operationId) {
-        throw new Error(
-          `Expected ${method.toUpperCase()} ${path} to have an operationId.`,
-        );
+        throw new Error(`Expected ${method.toUpperCase()} ${path} to have an operationId.`);
       }
 
       const schemas = readSuccessJsonResponseSchemas({
@@ -493,8 +449,7 @@ function collectCloudflareApiResponseValidatorEntries(
               path,
               usedExportNames,
             });
-      const schemaId =
-        exportName === null ? null : `noter://cloudflare-api/${exportName}`;
+      const schemaId = exportName === null ? null : `noter://cloudflare-api/${exportName}`;
 
       entries.push({
         method,
@@ -510,10 +465,7 @@ function collectCloudflareApiResponseValidatorEntries(
   return entries;
 }
 
-function readRecordPath(
-  root: unknown,
-  pathSegments: readonly string[],
-): JsonRecord {
+function readRecordPath(root: unknown, pathSegments: readonly string[]): JsonRecord {
   let value = root;
   for (const segment of pathSegments) {
     if (!isRecord(value)) {
@@ -711,10 +663,7 @@ function formatCloudflareApiOpenApiTypes(
     .replaceAll("$Write<any>", "$Write<unknown>");
 }
 
-writeFileSync(
-  openApiDocumentOutputPath,
-  `${JSON.stringify(subsetDocumentJson, null, 2)}\n`,
-);
+writeFileSync(openApiDocumentOutputPath, `${JSON.stringify(subsetDocumentJson, null, 2)}\n`);
 
 const openApiTypeAst = await openapiTS(typeDocumentJson, {
   emptyObjectsUnknown: true,
@@ -747,11 +696,7 @@ execFileSync("pnpm", ["exec", "vp", "fmt", ...generatedFormatPaths], {
   cwd: appRoot,
   stdio: "inherit",
 });
-execFileSync(
-  "pnpm",
-  ["exec", "vp", "check", "--fix", ...generatedFormatPaths],
-  {
-    cwd: appRoot,
-    stdio: "inherit",
-  },
-);
+execFileSync("pnpm", ["exec", "vp", "check", "--fix", ...generatedFormatPaths], {
+  cwd: appRoot,
+  stdio: "inherit",
+});

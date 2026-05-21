@@ -36,12 +36,8 @@ function MediaUploadProbe() {
         type="file"
         onChange={mediaUpload.handleMediaUploadInputChange}
       />
-      <div data-testid="pending-file">
-        {mediaUpload.pendingMediaUpload?.file.name ?? ""}
-      </div>
-      <div data-testid="error-message">
-        {mediaUpload.mediaUploadError ?? ""}
-      </div>
+      <div data-testid="pending-file">{mediaUpload.pendingMediaUpload?.file.name ?? ""}</div>
+      <div data-testid="error-message">{mediaUpload.mediaUploadError ?? ""}</div>
     </div>
   );
 }
@@ -91,36 +87,26 @@ describe("useFileViewMediaUpload", () => {
       throw new Error("Expected file input");
     }
 
-    setInputFile(
-      input,
-      new File(["image"], "cover.png", { type: "image/png" }),
-    );
+    setInputFile(input, new File(["image"], "cover.png", { type: "image/png" }));
     act(() => {
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
-    expect(
-      rootElement.querySelector('[data-testid="pending-file"]')?.textContent,
-    ).toBe("cover.png");
-    expect(
-      rootElement.querySelector('[data-testid="error-message"]')?.textContent,
-    ).toBe("");
+    expect(rootElement.querySelector('[data-testid="pending-file"]')?.textContent).toBe(
+      "cover.png",
+    );
+    expect(rootElement.querySelector('[data-testid="error-message"]')?.textContent).toBe("");
     expect(dispatchBeforeUnload()).toBe(true);
 
-    setInputFile(
-      input,
-      new File(["text"], "notes.txt", { type: "text/plain" }),
-    );
+    setInputFile(input, new File(["text"], "notes.txt", { type: "text/plain" }));
     act(() => {
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
-    expect(
-      rootElement.querySelector('[data-testid="pending-file"]')?.textContent,
-    ).toBe("");
-    expect(
-      rootElement.querySelector('[data-testid="error-message"]')?.textContent,
-    ).toBe("Only image uploads are supported right now.");
+    expect(rootElement.querySelector('[data-testid="pending-file"]')?.textContent).toBe("");
+    expect(rootElement.querySelector('[data-testid="error-message"]')?.textContent).toBe(
+      "Only image uploads are supported right now.",
+    );
     expect(dispatchBeforeUnload()).toBe(false);
   });
 });

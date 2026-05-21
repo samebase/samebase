@@ -37,9 +37,7 @@ export type WorkspacePaneActions = {
   setLeftDesktopWidthPx: Dispatch<SetStateAction<number>>;
   setLeftMobileWidthPx: Dispatch<SetStateAction<number>>;
   setMobilePane: Dispatch<SetStateAction<WorkspaceMobilePane>>;
-  setMobileSurface: Dispatch<
-    SetStateAction<WorkspaceSidebarState["mobileSurface"]>
-  >;
+  setMobileSurface: Dispatch<SetStateAction<WorkspaceSidebarState["mobileSurface"]>>;
   setRightDesktopOpen: Dispatch<SetStateAction<boolean>>;
   setRightDesktopWidthPx: Dispatch<SetStateAction<number>>;
   setRightMobileWidthPx: Dispatch<SetStateAction<number>>;
@@ -66,15 +64,14 @@ const WORKSPACE_LAYOUT_V2_EMPTY_ELEMENT_SIZE: ElementSize = {
   widthPx: 0,
 };
 
-const WORKSPACE_LAYOUT_V2_LOCAL_STORE_INITIAL_STATE: WorkspaceLayoutV2LocalStoreState =
-  {
-    activeResizeSide: null,
-    mobile: {
-      grip: WORKSPACE_LAYOUT_V2_IDLE_MOBILE_GRIP,
-      isPaneSettled: true,
-    },
-    viewportSize: WORKSPACE_LAYOUT_V2_EMPTY_ELEMENT_SIZE,
-  };
+const WORKSPACE_LAYOUT_V2_LOCAL_STORE_INITIAL_STATE: WorkspaceLayoutV2LocalStoreState = {
+  activeResizeSide: null,
+  mobile: {
+    grip: WORKSPACE_LAYOUT_V2_IDLE_MOBILE_GRIP,
+    isPaneSettled: true,
+  },
+  viewportSize: WORKSPACE_LAYOUT_V2_EMPTY_ELEMENT_SIZE,
+};
 
 /**
  * Owns transient layout interaction state for one mounted workspace runtime.
@@ -82,53 +79,44 @@ const WORKSPACE_LAYOUT_V2_LOCAL_STORE_INITIAL_STATE: WorkspaceLayoutV2LocalStore
  * provider and one React context.
  */
 function useCreateWorkspaceLayoutV2Store() {
-  return useCreateStore(
-    WORKSPACE_LAYOUT_V2_LOCAL_STORE_INITIAL_STATE,
-    ({ setState }) => ({
-      setActiveResizeSide: (
-        activeResizeSide: WorkspaceLayoutV2ActiveResizeSide,
-      ) => {
-        setState((state) =>
-          state.activeResizeSide === activeResizeSide
-            ? state
-            : { ...state, activeResizeSide },
-        );
-      },
-      setIsMobilePaneSettled: (isPaneSettled: boolean) => {
-        setState((state) =>
-          state.mobile.isPaneSettled === isPaneSettled
-            ? state
-            : {
-                ...state,
-                mobile: { ...state.mobile, isPaneSettled },
-              },
-        );
-      },
-      setMobileGrip: (grip: WorkspaceLayoutV2MobileGrip) => {
-        setState((state) =>
-          state.mobile.grip === grip
-            ? state
-            : {
-                ...state,
-                mobile: { ...state.mobile, grip },
-              },
-        );
-      },
-      setViewportSize: (viewportSize: ElementSize) => {
-        setState((state) =>
-          state.viewportSize.heightPx === viewportSize.heightPx &&
-          state.viewportSize.widthPx === viewportSize.widthPx
-            ? state
-            : { ...state, viewportSize },
-        );
-      },
-    }),
-  );
+  return useCreateStore(WORKSPACE_LAYOUT_V2_LOCAL_STORE_INITIAL_STATE, ({ setState }) => ({
+    setActiveResizeSide: (activeResizeSide: WorkspaceLayoutV2ActiveResizeSide) => {
+      setState((state) =>
+        state.activeResizeSide === activeResizeSide ? state : { ...state, activeResizeSide },
+      );
+    },
+    setIsMobilePaneSettled: (isPaneSettled: boolean) => {
+      setState((state) =>
+        state.mobile.isPaneSettled === isPaneSettled
+          ? state
+          : {
+              ...state,
+              mobile: { ...state.mobile, isPaneSettled },
+            },
+      );
+    },
+    setMobileGrip: (grip: WorkspaceLayoutV2MobileGrip) => {
+      setState((state) =>
+        state.mobile.grip === grip
+          ? state
+          : {
+              ...state,
+              mobile: { ...state.mobile, grip },
+            },
+      );
+    },
+    setViewportSize: (viewportSize: ElementSize) => {
+      setState((state) =>
+        state.viewportSize.heightPx === viewportSize.heightPx &&
+        state.viewportSize.widthPx === viewportSize.widthPx
+          ? state
+          : { ...state, viewportSize },
+      );
+    },
+  }));
 }
 
-type WorkspaceLayoutV2Store = ReturnType<
-  typeof useCreateWorkspaceLayoutV2Store
->;
+type WorkspaceLayoutV2Store = ReturnType<typeof useCreateWorkspaceLayoutV2Store>;
 
 type WorkspacePaneRuntimeContextValue = {
   actions: WorkspacePaneActions;
@@ -142,8 +130,7 @@ type WorkspacePaneRuntimeProviderProps = {
   shortcutPaneSide?: WorkspacePaneSide;
 };
 
-const WorkspacePaneRuntimeContext =
-  createContext<WorkspacePaneRuntimeContextValue | null>(null);
+const WorkspacePaneRuntimeContext = createContext<WorkspacePaneRuntimeContextValue | null>(null);
 
 /** Returns durable workspace pane actions from the runtime boundary. */
 export function useWorkspacePaneActions() {
@@ -183,10 +170,7 @@ export function useWorkspaceLayoutV2Selector<T>(
  * Pane actions expose React dispatch setters so callers can update from the
  * current persisted value without learning the controller persistence contract.
  */
-function resolveNextPaneValue<T>(
-  currentValue: T,
-  nextValue: SetStateAction<T>,
-) {
+function resolveNextPaneValue<T>(currentValue: T, nextValue: SetStateAction<T>) {
   return nextValue instanceof Function ? nextValue(currentValue) : nextValue;
 }
 
@@ -203,9 +187,7 @@ function areMobileSurfacesEqual(
   }
 
   return (
-    right.kind === "merged" &&
-    left.side === right.side &&
-    left.mainWidthPx === right.mainWidthPx
+    right.kind === "merged" && left.side === right.side && left.mainWidthPx === right.mainWidthPx
   );
 }
 
@@ -312,10 +294,7 @@ export function WorkspacePaneRuntimeProvider({
   const setMobileSurface = useCallback(
     (nextSurface: SetStateAction<WorkspaceSidebarState["mobileSurface"]>) => {
       controller.setState((state) => {
-        const nextMobileSurface = resolveNextPaneValue(
-          state.mobileSurface,
-          nextSurface,
-        );
+        const nextMobileSurface = resolveNextPaneValue(state.mobileSurface, nextSurface);
         if (areMobileSurfacesEqual(state.mobileSurface, nextMobileSurface)) {
           return state;
         }
@@ -344,12 +323,10 @@ export function WorkspacePaneRuntimeProvider({
         } satisfies WorkspaceSidebarState["mobileSurface"];
         const nextState = {
           ...state,
-          leftMobileWidthPx:
-            side === "left" ? sideWidthPx : state.leftMobileWidthPx,
+          leftMobileWidthPx: side === "left" ? sideWidthPx : state.leftMobileWidthPx,
           mobilePane: side,
           mobileSurface: nextMobileSurface,
-          rightMobileWidthPx:
-            side === "right" ? sideWidthPx : state.rightMobileWidthPx,
+          rightMobileWidthPx: side === "right" ? sideWidthPx : state.rightMobileWidthPx,
         };
 
         if (
@@ -380,9 +357,7 @@ export function WorkspacePaneRuntimeProvider({
 
   const toggleLeftPane = useCallback(() => {
     if (isMobile) {
-      setMobilePane((currentPane) =>
-        currentPane === "left" ? "main" : "left",
-      );
+      setMobilePane((currentPane) => (currentPane === "left" ? "main" : "left"));
       return;
     }
 
@@ -391,9 +366,7 @@ export function WorkspacePaneRuntimeProvider({
 
   const toggleRightPane = useCallback(() => {
     if (isMobile) {
-      setMobilePane((currentPane) =>
-        currentPane === "right" ? "main" : "right",
-      );
+      setMobilePane((currentPane) => (currentPane === "right" ? "main" : "right"));
       return;
     }
 
@@ -473,10 +446,7 @@ export function WorkspacePaneRuntimeProvider({
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.key === WORKSPACE_PANE_KEYBOARD_SHORTCUT &&
-        (event.metaKey || event.ctrlKey)
-      ) {
+      if (event.key === WORKSPACE_PANE_KEYBOARD_SHORTCUT && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
         if (shortcutPaneSide === "right") {
           workspacePaneActions.toggleRightPane();

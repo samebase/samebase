@@ -32,9 +32,7 @@ function getLogoIdentityView(viewId: LogoIdentityViewId) {
 describe("logoStaticSvgAsset", () => {
   it("keeps the committed static logo svg in sync with the generated markup", () => {
     const staticLogoSvg = readPublicAsset("/logo-static.svg");
-    const generatedSvg = createStaticLogoSvgMarkup()
-      .replace(/\r\n/g, "\n")
-      .trim();
+    const generatedSvg = createStaticLogoSvgMarkup().replace(/\r\n/g, "\n").trim();
 
     expect(staticLogoSvg).toBe(generatedSvg);
   });
@@ -52,9 +50,7 @@ describe("logoStaticSvgAsset", () => {
     });
 
     expect(generatedStaticLogoSvgMarkup).toContain("<polygon ");
-    expect(generatedStaticLogoSvgMarkup).toContain(
-      '<use href="#logo-recursive-level-5"',
-    );
+    expect(generatedStaticLogoSvgMarkup).toContain('<use href="#logo-recursive-level-5"');
     expect(generatedStaticLogoSvgMarkup.match(/<use /g) ?? []).toHaveLength(49);
   });
 
@@ -86,9 +82,7 @@ describe("logoStaticSvgAsset", () => {
   it("keeps the committed logo identity svgs in sync with their view contract", () => {
     for (const view of LOGO_IDENTITY_VIEW_CONTRACTS) {
       const committedSvg = readPublicAsset(view.assetPath);
-      const generatedSvg = createLogoIdentityViewSvgMarkup(view.id)
-        .replace(/\r\n/g, "\n")
-        .trim();
+      const generatedSvg = createLogoIdentityViewSvgMarkup(view.id).replace(/\r\n/g, "\n").trim();
 
       expect(committedSvg).toBe(generatedSvg);
     }

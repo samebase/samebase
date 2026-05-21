@@ -30,18 +30,14 @@ function compareStorageKeys(left: string, right: string): number {
 }
 
 function readStorageErrorMessage(error: unknown): string {
-  return error instanceof Error
-    ? error.message
-    : "localStorage could not be read.";
+  return error instanceof Error ? error.message : "localStorage could not be read.";
 }
 
 /**
  * Captures raw localStorage strings in a stable order without parsing,
  * truncating, or normalizing the stored values.
  */
-export function readLocalStorageSnapshot(
-  storage: ReadableLocalStorage,
-): LocalStorageSnapshot {
+export function readLocalStorageSnapshot(storage: ReadableLocalStorage): LocalStorageSnapshot {
   try {
     const keys: string[] = [];
 
@@ -97,9 +93,7 @@ export function notifyBrowserLocalStorageChanged(): void {
   window.dispatchEvent(new Event(BROWSER_LOCAL_STORAGE_CHANGE_EVENT));
 }
 
-export function subscribeBrowserLocalStorageSnapshot(
-  onStoreChange: () => void,
-): () => void {
+export function subscribeBrowserLocalStorageSnapshot(onStoreChange: () => void): () => void {
   if (typeof window === "undefined") {
     return () => {};
   }
@@ -108,9 +102,6 @@ export function subscribeBrowserLocalStorageSnapshot(
   window.addEventListener(BROWSER_LOCAL_STORAGE_CHANGE_EVENT, onStoreChange);
   return () => {
     window.removeEventListener("storage", onStoreChange);
-    window.removeEventListener(
-      BROWSER_LOCAL_STORAGE_CHANGE_EVENT,
-      onStoreChange,
-    );
+    window.removeEventListener(BROWSER_LOCAL_STORAGE_CHANGE_EVENT, onStoreChange);
   };
 }

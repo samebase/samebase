@@ -212,15 +212,12 @@ describe("requestCodexAppServerJson", () => {
 
   it("throws a typed error with status when the request fails", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(
-        JSON.stringify({ error: "Machine control token expired." }),
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-          status: 401,
+      new Response(JSON.stringify({ error: "Machine control token expired." }), {
+        headers: {
+          "Content-Type": "application/json",
         },
-      ),
+        status: 401,
+      }),
     );
 
     await expect(

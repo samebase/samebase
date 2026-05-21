@@ -1,14 +1,14 @@
 # noter.md
 
-noter is a collaborative, GitHub-connected code editor built as a PNPM workspace
-with React + TanStack Start/Vite on the frontend and Convex on the backend.
+noter is a collaborative, GitHub-connected code editor built as a PNPM workspace with React +
+TanStack Start/Vite on the frontend and Convex on the backend.
 
 ## Current Product Capabilities (2026-02-13)
 
 - Real-time collaborative editing with CodeMirror + Convex synchronization
 - GitHub repository connection (`connectRepository`) for existing repos
-- New agent/repo creation (`createRepository`) for noter-managed vaults, seeded
-  as a runnable starter in a single commit
+- New agent/repo creation (`createRepository`) for noter-managed vaults, seeded as a runnable
+  starter in a single commit
 - Automatic infrastructure provisioning for new noter-managed vaults:
   - Convex project/deployment
   - Cloudflare Workers project + environment wiring
@@ -21,19 +21,17 @@ with React + TanStack Start/Vite on the frontend and Convex on the backend.
 
 ## Important Behavior
 
-- Auto infra provisioning is triggered only for newly created noter-managed
-  vaults.
+- Auto infra provisioning is triggered only for newly created noter-managed vaults.
 - Connecting an existing GitHub repository does not auto-provision infra.
-- Starter seed source of truth is maintained in `apps/noter-starter-template`
-  and exported to `apps/noter/convex/starterSeedManifest.generated.ts`.
+- Starter seed source of truth is maintained in `apps/noter-starter-template` and exported to
+  `apps/noter/convex/starterSeedManifest.generated.ts`.
 
 ## Tech Stack
 
 - Frontend: React, TypeScript, Vite, TanStack Start, TanStack Router
 - Backend: Convex (queries, mutations, actions, scheduler)
 - Editor: CodeMirror 6
-- Auth: Convex Auth (Google in prod, Google + password in dev) + provider
-  OAuth/API key connections
+- Auth: Convex Auth (Google in prod, Google + password in dev) + provider OAuth/API key connections
 - UI: Tailwind CSS + Radix UI + shadcn/ui patterns
 - Workspace tooling: PNPM + Vite+
 
@@ -64,8 +62,7 @@ with React + TanStack Start/Vite on the frontend and Convex on the backend.
 
 ### Windows (Outside WSL)
 
-Native Windows setup works, but it is a little different from the repo's
-macOS/Linux `make` flow.
+Native Windows setup works, but it is a little different from the repo's macOS/Linux `make` flow.
 
 1. Install Node.js 24 LTS. If you use `winget`, this works well in PowerShell:
 
@@ -73,8 +70,8 @@ macOS/Linux `make` flow.
 winget install --id OpenJS.NodeJS.LTS -e
 ```
 
-2. Install PNPM 11.1.1. If `corepack` is not available on your PATH after
-   installing Node, install PNPM directly:
+2. Install PNPM 11.1.1. If `corepack` is not available on your PATH after installing Node, install
+   PNPM directly:
 
 ```powershell
 npm install -g pnpm@11.1.1
@@ -101,42 +98,36 @@ pnpm dev
 ```
 
 6. Open the URL Vite prints in the terminal. The usual default is
-   [http://127.0.0.1:5173/](http://127.0.0.1:5173/), and if that port is busy
-   noter now picks the next free local port before startup so the frontend and
-   `SITE_URL` stay aligned.
+   [http://127.0.0.1:5173/](http://127.0.0.1:5173/), and if that port is busy noter now picks the
+   next free local port before startup so the frontend and `SITE_URL` stay aligned.
 
 Notes:
 
-- In Windows PowerShell, direct hosted-file `noter.ts` commands should use
-  `curl.exe`, not the built-in `curl` alias. This matches the Windows-safe
-  command work merged in PR `#395`.
-- The `noter.ts connect` flow now prints a `next:` approval URL instead of
-  trying to open a browser automatically. Open that printed link manually in a
-  signed-in browser. This keeps the flow consistent across native Windows and
-  Linux sandbox environments.
-- Windows `noter.ts` resolution also supports Codex installed through Volta, as
-  long as the `codex` and `volta` commands are available on `PATH`. noter
-  resolves that shim from the current workspace so project-scoped Volta setups
-  launch the same Codex binary that the later runtime command would use.
-- On a brand-new machine, the first `pnpm dev` run may pause for an interactive
-  Convex CLI login/bootstrap prompt before `apps/noter/.env.local` exists.
-- On native Windows primary checkouts, `pnpm dev` now retries local `SITE_URL`
-  sync after the long-running backend starts, so local OAuth redirects continue
-  to follow the URL Vite printed even when the temporary bootstrap backend exits
-  first.
-- `pnpm dev` now tries to stop stale local `convex-local-backend` listeners on
-  `3210` before bootstrap. If it still reports that `3210` is occupied, stop the
-  leftover backend process manually and retry.
-- For local connected-machine testing with `/noter.ts` on a fresh Windows
-  checkout that does not already have a cloud dev source env, use the dated
-  troubleshooting notes in
-  `research/windows-native-connected-machine-walkthrough-2026-04-01.md` if you
-  need the older step-by-step debugging sequence.
-- The primary checkout path above works without GNU Make, and the worktree
-  anonymous bootstrap flow now uses root package scripts too. Prefer `pnpm dev`
-  in the primary checkout and `pnpm anon` / `pnpm anon:once` in worktrees.
-  Anonymous startup no longer has a make alias; treat the package scripts as the
-  source of truth for that flow.
+- In Windows PowerShell, direct hosted-file `noter.ts` commands should use `curl.exe`, not the
+  built-in `curl` alias. This matches the Windows-safe command work merged in PR `#395`.
+- The `noter.ts connect` flow now prints a `next:` approval URL instead of trying to open a browser
+  automatically. Open that printed link manually in a signed-in browser. This keeps the flow
+  consistent across native Windows and Linux sandbox environments.
+- Windows `noter.ts` resolution also supports Codex installed through Volta, as long as the `codex`
+  and `volta` commands are available on `PATH`. noter resolves that shim from the current workspace
+  so project-scoped Volta setups launch the same Codex binary that the later runtime command would
+  use.
+- On a brand-new machine, the first `pnpm dev` run may pause for an interactive Convex CLI
+  login/bootstrap prompt before `apps/noter/.env.local` exists.
+- On native Windows primary checkouts, `pnpm dev` now retries local `SITE_URL` sync after the
+  long-running backend starts, so local OAuth redirects continue to follow the URL Vite printed even
+  when the temporary bootstrap backend exits first.
+- `pnpm dev` now tries to stop stale local `convex-local-backend` listeners on `3210` before
+  bootstrap. If it still reports that `3210` is occupied, stop the leftover backend process manually
+  and retry.
+- For local connected-machine testing with `/noter.ts` on a fresh Windows checkout that does not
+  already have a cloud dev source env, use the dated troubleshooting notes in
+  `research/windows-native-connected-machine-walkthrough-2026-04-01.md` if you need the older
+  step-by-step debugging sequence.
+- The primary checkout path above works without GNU Make, and the worktree anonymous bootstrap flow
+  now uses root package scripts too. Prefer `pnpm dev` in the primary checkout and `pnpm anon` /
+  `pnpm anon:once` in worktrees. Anonymous startup no longer has a make alias; treat the package
+  scripts as the source of truth for that flow.
 
 ### Installation
 
@@ -154,8 +145,8 @@ pnpm dev
 
 ### Worktrees
 
-For a git worktree, use the repo-standard anonymous bootstrap commands instead
-of the primary-checkout flow:
+For a git worktree, use the repo-standard anonymous bootstrap commands instead of the
+primary-checkout flow:
 
 ```bash
 pnpm anon:once
@@ -168,18 +159,17 @@ pnpm anon
 pnpm build
 ```
 
-For Cloudflare Workers Builds, point the project root directory at `apps/noter`
-and use:
+For Cloudflare Workers Builds, point the project root directory at `apps/noter` and use:
 
 - Build command: `pnpm run build`
 - Production deploy command: `pnpm run deploy`
 - Non-production deploy command: `pnpm run deploy:preview`
 
-`wrangler.jsonc` owns the static asset directory and SPA fallback. The build
-script deploys Convex first by selecting `PROD_CONVEX_DEPLOY_KEY` for `main` and
-`PREVIEW_CONVEX_DEPLOY_KEY` for non-production branches. Do not set a generic
-`CONVEX_DEPLOY_KEY` in the Workers build environment. Local dry-runs build the
-app assets without deploying Convex and can validate the Worker package with:
+`wrangler.jsonc` owns the static asset directory and SPA fallback. The build script deploys Convex
+first by selecting `PROD_CONVEX_DEPLOY_KEY` for `main` and `PREVIEW_CONVEX_DEPLOY_KEY` for
+non-production branches. Do not set a generic `CONVEX_DEPLOY_KEY` in the Workers build environment.
+Local dry-runs build the app assets without deploying Convex and can validate the Worker package
+with:
 
 ```bash
 CLOUDFLARE_WORKER_NAME=noter-next pnpm --filter noter deploy:dry-run
@@ -195,8 +185,8 @@ pnpm test
 
 1. Configure Convex deployment env vars.
 2. Configure app-login providers (Google, plus password in dev and preview when
-   `PREVIEW_SEED_AUTH_EMAIL` and `PREVIEW_SEED_AUTH_PASSWORD` are set on preview
-   deployments; the seeded preview email must still be allowlisted).
+   `PREVIEW_SEED_AUTH_EMAIL` and `PREVIEW_SEED_AUTH_PASSWORD` are set on preview deployments; the
+   seeded preview email must still be allowlisted).
 3. Configure provider connection OAuth/API keys (GitHub/Convex/Cloudflare).
 
 ## Contributing
@@ -209,20 +199,18 @@ This project uses:
 - TypeScript for type safety
 - Vitest for testing
 
-Convex-generated client files under `apps/noter/convex/_generated/` are
-intentionally committed. Building against an already-existing dev deployment can
-hide this requirement, because `convex codegen` has a deployment to talk to.
-Creating a fresh preview deployment is different: `convex deploy --cmd ...` runs
-the app build before Convex finishes the preview deploy's push/codegen phase, so
-a fresh Cloudflare clone cannot generate `_generated` on the fly and must get
+Convex-generated client files under `apps/noter/convex/_generated/` are intentionally committed.
+Building against an already-existing dev deployment can hide this requirement, because
+`convex codegen` has a deployment to talk to. Creating a fresh preview deployment is different:
+`convex deploy --cmd ...` runs the app build before Convex finishes the preview deploy's
+push/codegen phase, so a fresh Cloudflare clone cannot generate `_generated` on the fly and must get
 those files from git.
 
 ## License
 
 Proprietary. All rights reserved.
 
-This repository is not open source. Access to the source code does not grant
-permission to use, modify, or redistribute it unless the copyright holder gives
-separate written permission. Third-party dependencies remain subject to their
-own license terms. See [LICENSE.md](LICENSE.md) and [LICENSING.md](LICENSING.md)
-for the authoritative terms and dependency licensing notes.
+This repository is not open source. Access to the source code does not grant permission to use,
+modify, or redistribute it unless the copyright holder gives separate written permission.
+Third-party dependencies remain subject to their own license terms. See [LICENSE.md](LICENSE.md) and
+[LICENSING.md](LICENSING.md) for the authoritative terms and dependency licensing notes.

@@ -15,10 +15,7 @@ export async function getUserId(ctx: { auth: Auth }) {
  * @param tasks  An array of functions returning a Promise
  * @param limit  Max number of concurrent executions
  */
-export async function allLimited<T>(
-  tasks: (() => Promise<T>)[],
-  limit = 50,
-): Promise<T[]> {
+export async function allLimited<T>(tasks: (() => Promise<T>)[], limit = 50): Promise<T[]> {
   const results: T[] = new Array(tasks.length);
   let nextIndex = 0;
 

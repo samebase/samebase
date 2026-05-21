@@ -11,12 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 
 function FixtureBar({ className }: { className?: string }) {
-  return (
-    <div
-      aria-hidden="true"
-      className={cn("rounded-none bg-current/50", className)}
-    />
-  );
+  return <div aria-hidden="true" className={cn("rounded-none bg-current/50", className)} />;
 }
 
 function FixtureButtonLabel({ className }: { className?: string }) {
@@ -43,11 +38,7 @@ function FixtureTypeMarkers({ type }: { type: CornerNotchType }) {
 function FixtureEmptyInput({ className }: { className?: string }) {
   return (
     <div className="relative">
-      <Input
-        className={cn("border-stone-300 text-transparent", className)}
-        readOnly
-        value=""
-      />
+      <Input className={cn("border-stone-300 text-transparent", className)} readOnly value="" />
       <FixtureBar className="pointer-events-none absolute left-3 top-1/2 h-2.5 w-24 -translate-y-1/2 bg-stone-400/55" />
     </div>
   );
@@ -102,12 +93,7 @@ export function CornerNotchVisualFixture() {
                         <FixtureButtonLabel className="w-12" />
                       </Button>
                     </div>
-                    <div
-                      className={cn(
-                        "h-7 border border-stone-300 bg-stone-50",
-                        notchClass,
-                      )}
-                    />
+                    <div className={cn("h-7 border border-stone-300 bg-stone-50", notchClass)} />
                   </CardContent>
                 </Card>
               );

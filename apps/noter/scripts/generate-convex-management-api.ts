@@ -13,31 +13,19 @@ import openapiTS, {
 } from "openapi-typescript";
 
 const sourceUrl = "https://api.convex.dev/v1/openapi.json";
-const convexManagementOpenApiSchemaId =
-  "https://api.convex.dev/v1/openapi.json";
+const convexManagementOpenApiSchemaId = "https://api.convex.dev/v1/openapi.json";
 const appRoot = fileURLToPath(new URL("../", import.meta.url));
 const openApiDocumentOutputPath = fileURLToPath(
-  new URL(
-    "../convex/convexManagementApi/openApi.generated.json",
-    import.meta.url,
-  ),
+  new URL("../convex/convexManagementApi/openApi.generated.json", import.meta.url),
 );
 const validatorsOutputPath = fileURLToPath(
-  new URL(
-    "../convex/convexManagementApi/validators.generated.js",
-    import.meta.url,
-  ),
+  new URL("../convex/convexManagementApi/validators.generated.js", import.meta.url),
 );
 const validatorTypesOutputPath = fileURLToPath(
-  new URL(
-    "../convex/convexManagementApi/validators.generated.d.ts",
-    import.meta.url,
-  ),
+  new URL("../convex/convexManagementApi/validators.generated.d.ts", import.meta.url),
 );
 const typesOutputPath = "convex/convexManagementApi/types.generated.d.ts";
-const typesOutputFilePath = fileURLToPath(
-  new URL(`../${typesOutputPath}`, import.meta.url),
-);
+const typesOutputFilePath = fileURLToPath(new URL(`../${typesOutputPath}`, import.meta.url));
 const generatedFormatPaths = [
   "convex/convexManagementApi/openApi.generated.json",
   typesOutputPath,
@@ -52,13 +40,10 @@ const convexManagementDecimalIdSchemaNames = [
   "TeamId",
 ] as const;
 const convexManagementDecimalIdSchemaRefs = new Set(
-  convexManagementDecimalIdSchemaNames.map(
-    (schemaName) => `#/components/schemas/${schemaName}`,
-  ),
+  convexManagementDecimalIdSchemaNames.map((schemaName) => `#/components/schemas/${schemaName}`),
 );
 const convexManagementOperationMethods = ["get", "post"] as const;
-type ConvexManagementOperationMethod =
-  (typeof convexManagementOperationMethods)[number];
+type ConvexManagementOperationMethod = (typeof convexManagementOperationMethods)[number];
 type ConvexManagementResponseValidatorEntry = {
   method: ConvexManagementOperationMethod;
   path: string;
@@ -78,10 +63,8 @@ if (!response.ok) {
 
 const documentText = await response.text();
 const documentJson = parseJsonSchemaDocument(documentText);
-const validationDocumentJson =
-  normalizeConvexManagementValidationDocument(documentJson);
-const responseValidatorEntries =
-  collectConvexManagementResponseValidatorEntries(documentJson);
+const validationDocumentJson = normalizeConvexManagementValidationDocument(documentJson);
+const responseValidatorEntries = collectConvexManagementResponseValidatorEntries(documentJson);
 const ajv = new Ajv2020({
   allErrors: true,
   code: { esm: true, source: true },
@@ -90,9 +73,7 @@ const ajv = new Ajv2020({
 });
 ajv.addFormat("int32", true);
 ajv.addFormat("int64", true);
-const validatorSchemaIds = buildConvexManagementValidatorSchemaIds(
-  responseValidatorEntries,
-);
+const validatorSchemaIds = buildConvexManagementValidatorSchemaIds(responseValidatorEntries);
 
 function parseJsonSchemaDocument(documentText: string): OpenAPI3 {
   const payload: unknown = JSON.parse(documentText);
@@ -110,29 +91,21 @@ function isJsonSchemaDocument(payload: unknown): payload is AnySchema {
 }
 
 function isOpenApiDocument(payload: unknown): payload is OpenAPI3 {
-  return (
-    isRecord(payload) &&
-    typeof payload.openapi === "string" &&
-    isRecord(payload.info)
-  );
+  return isRecord(payload) && typeof payload.openapi === "string" && isRecord(payload.info);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
-function normalizeConvexManagementValidationDocument(
-  document: OpenAPI3,
-): AnySchema {
+function normalizeConvexManagementValidationDocument(document: OpenAPI3): AnySchema {
   const normalizedDocument: unknown = structuredClone(document);
   const schemas = readRecordPath(normalizedDocument, ["components", "schemas"]);
 
   for (const schemaName of convexManagementDecimalIdSchemaNames) {
     const schema = schemas[schemaName];
     if (!isConvexManagementInt64IdSchema(schema)) {
-      throw new Error(
-        `${sourceUrl} schema ${schemaName} is no longer an int64 schema.`,
-      );
+      throw new Error(`${sourceUrl} schema ${schemaName} is no longer an int64 schema.`);
     }
     schemas[schemaName] = {
       description: schema.description,
@@ -147,10 +120,7 @@ function normalizeConvexManagementValidationDocument(
   throw new Error("Failed to build normalized Convex Management API schema.");
 }
 
-function readRecordPath(
-  root: unknown,
-  pathSegments: readonly string[],
-): Record<string, unknown> {
+function readRecordPath(root: unknown, pathSegments: readonly string[]): Record<string, unknown> {
   let value = root;
   for (const segment of pathSegments) {
     if (!isRecord(value)) {
@@ -167,9 +137,7 @@ function readRecordPath(
 function isConvexManagementInt64IdSchema(
   value: unknown,
 ): value is { description?: string; format: "int64"; type: "integer" } {
-  return (
-    isRecord(value) && value.type === "integer" && value.format === "int64"
-  );
+  return isRecord(value) && value.type === "integer" && value.format === "int64";
 }
 
 function collectConvexManagementResponseValidatorEntries(
@@ -189,15 +157,11 @@ function collectConvexManagementResponseValidatorEntries(
         continue;
       }
       if (!isRecord(operation)) {
-        throw new Error(
-          `Expected ${method.toUpperCase()} ${path} to be an object.`,
-        );
+        throw new Error(`Expected ${method.toUpperCase()} ${path} to be an object.`);
       }
       const operationId = operation["operationId"];
       if (typeof operationId !== "string" || !operationId) {
-        throw new Error(
-          `Expected ${method.toUpperCase()} ${path} to have an operationId.`,
-        );
+        throw new Error(`Expected ${method.toUpperCase()} ${path} to have an operationId.`);
       }
 
       const schemas = readSuccessJsonResponseSchemas({
@@ -214,10 +178,7 @@ function collectConvexManagementResponseValidatorEntries(
               path,
               usedExportNames,
             });
-      const schemaId =
-        exportName === null
-          ? null
-          : `noter://convex-management-api/${exportName}`;
+      const schemaId = exportName === null ? null : `noter://convex-management-api/${exportName}`;
 
       entries.push({
         method,

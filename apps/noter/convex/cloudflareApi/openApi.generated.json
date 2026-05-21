@@ -1915,11 +1915,7 @@
         ],
         "summary": "List dispatch namespaces",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       },
       "post": {
         "description": "Create a new Workers for Platforms namespace.",
@@ -2099,11 +2095,7 @@
         ],
         "summary": "Get dispatch namespace",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       },
       "patch": {
         "description": "Patch a Workers for Platforms namespace. Omitted fields are left unchanged.",
@@ -2414,11 +2406,7 @@
         ],
         "summary": "List Scripts in Namespace",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}": {
@@ -2562,11 +2550,7 @@
         ],
         "summary": "Worker Details",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       },
       "put": {
         "description": "Upload a worker module to a Workers for Platforms namespace. You can find more about the multipart metadata on our docs: https://developers.cloudflare.com/workers/configuration/multipart-upload-metadata/.",
@@ -2782,11 +2766,7 @@
         ],
         "summary": "Get Script Bindings",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/content": {
@@ -2853,11 +2833,7 @@
         ],
         "summary": "Get Script Content",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       },
       "put": {
         "description": "Put script content for a script uploaded to a Workers for Platforms namespace.",
@@ -3065,11 +3041,7 @@
         ],
         "summary": "List Script Secrets",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       },
       "put": {
         "description": "Add a secret to a script uploaded to a Workers for Platforms namespace.",
@@ -3437,11 +3409,7 @@
         ],
         "summary": "Get secret binding",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/settings": {
@@ -3519,11 +3487,7 @@
         ],
         "summary": "Get Script Settings",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       },
       "patch": {
         "description": "Patch script metadata, such as bindings.",
@@ -3701,11 +3665,7 @@
         ],
         "summary": "Get Script Tags",
         "tags": ["Workers for Platforms"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       },
       "put": {
         "description": "Put script tags for a script uploaded to a Workers for Platforms namespace.",
@@ -4616,11 +4576,7 @@
                                     "type": "string"
                                   }
                                 },
-                                "required": [
-                                  "last_complete",
-                                  "last_error",
-                                  "error_message"
-                                ],
+                                "required": ["last_complete", "last_error", "error_message"],
                                 "type": "object"
                               },
                               "logpushDataset": {
@@ -4674,13 +4630,7 @@
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "slug",
-                          "name",
-                          "enabled",
-                          "configuration",
-                          "scripts"
-                        ],
+                        "required": ["slug", "name", "enabled", "configuration", "scripts"],
                         "type": "object"
                       },
                       "type": "array"
@@ -4835,10 +4785,7 @@
         },
         "summary": "Get Destinations",
         "tags": ["Destinations"],
-        "x-api-token-group": [
-          "Workers Observability Write",
-          "Workers Observability Read"
-        ]
+        "x-api-token-group": ["Workers Observability Write", "Workers Observability Read"]
       },
       "parameters": [
         {
@@ -5002,13 +4949,7 @@
                           "type": "string"
                         }
                       },
-                      "required": [
-                        "slug",
-                        "name",
-                        "enabled",
-                        "configuration",
-                        "scripts"
-                      ],
+                      "required": ["slug", "name", "enabled", "configuration", "scripts"],
                       "type": "object"
                     },
                     "success": {
@@ -5269,13 +5210,7 @@
                           "type": "string"
                         }
                       },
-                      "required": [
-                        "slug",
-                        "name",
-                        "enabled",
-                        "configuration",
-                        "scripts"
-                      ],
+                      "required": ["slug", "name", "enabled", "configuration", "scripts"],
                       "type": "object"
                     },
                     "success": {
@@ -5579,13 +5514,7 @@
                           "type": "string"
                         }
                       },
-                      "required": [
-                        "slug",
-                        "name",
-                        "enabled",
-                        "configuration",
-                        "scripts"
-                      ],
+                      "required": ["slug", "name", "enabled", "configuration", "scripts"],
                       "type": "object"
                     },
                     "success": {
@@ -6016,10 +5945,7 @@
         },
         "summary": "List queries",
         "tags": ["Saved Queries"],
-        "x-api-token-group": [
-          "Workers Observability Write",
-          "Workers Observability Read"
-        ]
+        "x-api-token-group": ["Workers Observability Write", "Workers Observability Read"]
       },
       "parameters": [
         {
@@ -6826,10 +6752,7 @@
         },
         "summary": "Get query",
         "tags": ["Saved Queries"],
-        "x-api-token-group": [
-          "Workers Observability Write",
-          "Workers Observability Read"
-        ]
+        "x-api-token-group": ["Workers Observability Write", "Workers Observability Read"]
       },
       "parameters": [
         {
@@ -7423,11 +7346,7 @@
                                       "type": "string"
                                     }
                                   },
-                                  "required": [
-                                    "kind",
-                                    "filterCombination",
-                                    "filters"
-                                  ],
+                                  "required": ["kind", "filterCombination", "filters"],
                                   "type": "object"
                                 },
                                 {
@@ -7987,10 +7906,7 @@
         },
         "summary": "View a query that has been shared",
         "tags": ["Shared", "Query"],
-        "x-api-token-group": [
-          "Workers Observability Write",
-          "Workers Observability Read"
-        ]
+        "x-api-token-group": ["Workers Observability Write", "Workers Observability Read"]
       },
       "parameters": [
         {
@@ -8064,11 +7980,7 @@
                                   "type": "string"
                                 }
                               },
-                              "required": [
-                                "kind",
-                                "filterCombination",
-                                "filters"
-                              ],
+                              "required": ["kind", "filterCombination", "filters"],
                               "type": "object"
                             },
                             {
@@ -8434,11 +8346,7 @@
                                   "type": "string"
                                 }
                               },
-                              "required": [
-                                "kind",
-                                "filterCombination",
-                                "filters"
-                              ],
+                              "required": ["kind", "filterCombination", "filters"],
                               "type": "object"
                             },
                             {
@@ -8959,11 +8867,7 @@
                                       "type": "string"
                                     }
                                   },
-                                  "required": [
-                                    "kind",
-                                    "filterCombination",
-                                    "filters"
-                                  ],
+                                  "required": ["kind", "filterCombination", "filters"],
                                   "type": "object"
                                 },
                                 {
@@ -9367,11 +9271,7 @@
                                   "type": "string"
                                 }
                               },
-                              "required": [
-                                "kind",
-                                "filterCombination",
-                                "filters"
-                              ],
+                              "required": ["kind", "filterCombination", "filters"],
                               "type": "object"
                             },
                             {
@@ -9729,11 +9629,7 @@
         ],
         "summary": "List Placement Regions",
         "tags": ["Worker Placement"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       }
     },
     "/accounts/{account_id}/workers/scripts": {
@@ -9792,11 +9688,7 @@
         ],
         "summary": "List Workers",
         "tags": ["Worker Script"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       }
     },
     "/accounts/{account_id}/workers/scripts-search": {
@@ -9905,12 +9797,7 @@
                                 "type": "string"
                               }
                             },
-                            "required": [
-                              "id",
-                              "script_name",
-                              "created_on",
-                              "modified_on"
-                            ],
+                            "required": ["id", "script_name", "created_on", "modified_on"],
                             "type": "object"
                           },
                           "type": "array"
@@ -9947,11 +9834,7 @@
         ],
         "summary": "Search Workers",
         "tags": ["Worker Script"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}": {
@@ -10090,11 +9973,7 @@
         ],
         "summary": "Download Worker",
         "tags": ["Worker Script"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       },
       "put": {
         "description": "Upload a worker module. You can find more about the multipart metadata on our docs: https://developers.cloudflare.com/workers/configuration/multipart-upload-metadata/.",
@@ -10447,11 +10326,7 @@
         ],
         "summary": "Get script content",
         "tags": ["Worker Script"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/deployments": {
@@ -10531,11 +10406,7 @@
         ],
         "summary": "List Deployments",
         "tags": ["Worker Deployments"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       },
       "post": {
         "description": "Deployments configure how [Worker Versions](https://developers.cloudflare.com/api/operations/worker-versions-list-versions) are deployed to traffic. A deployment can consist of one or two versions of a Worker.",
@@ -10767,11 +10638,7 @@
         ],
         "summary": "Get Deployment",
         "tags": ["Worker Deployments"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/schedules": {
@@ -11000,11 +10867,7 @@
         ],
         "summary": "Get Script Settings",
         "tags": ["Worker Script"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       },
       "patch": {
         "description": "Patch script-level settings when using [Worker Versions](https://developers.cloudflare.com/api/operations/worker-versions-list-versions). Including but not limited to Logpush and Tail Consumers.",
@@ -11143,11 +11006,7 @@
         ],
         "summary": "List script secrets",
         "tags": ["Worker Script"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       },
       "put": {
         "description": "Add a secret to a script.",
@@ -11537,11 +11396,7 @@
         ],
         "summary": "Get Settings",
         "tags": ["Worker Script"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       },
       "patch": {
         "description": "Patch metadata or config, such as bindings or usage model.",
@@ -11759,11 +11614,7 @@
         ],
         "summary": "Get Worker subdomain",
         "tags": ["Worker Script"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       },
       "post": {
         "description": "Enable or disable the Worker on the workers.dev subdomain.",
@@ -12135,11 +11986,7 @@
         ],
         "summary": "Fetch Usage Model",
         "tags": ["Worker Script"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       },
       "put": {
         "description": "Updates the Usage Model for a given Worker. Requires a Workers Paid subscription.",
@@ -12304,11 +12151,7 @@
         ],
         "summary": "List Versions",
         "tags": ["Worker Versions"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       },
       "post": {
         "description": "Upload a Worker Version without deploying to Cloudflare's network. You can find more about the multipart metadata on our docs: https://developers.cloudflare.com/workers/configuration/multipart-upload-metadata/.",
@@ -12456,11 +12299,7 @@
         ],
         "summary": "Get Version Detail",
         "tags": ["Worker Versions"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       }
     },
     "/accounts/{account_id}/workers/services/{service_name}/environments/{environment_name}/content": {
@@ -12527,11 +12366,7 @@
         ],
         "summary": "Get script content",
         "tags": ["Worker Environment"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       },
       "put": {
         "description": "Put script content from a worker with an environment.",
@@ -12723,11 +12558,7 @@
         ],
         "summary": "Get Script Settings",
         "tags": ["Worker Environment"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       },
       "patch": {
         "description": "Patch script metadata, such as bindings.",
@@ -13078,11 +12909,7 @@
         ],
         "summary": "List Workers",
         "tags": ["Workers"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       },
       "post": {
         "description": "Create a new Worker.",
@@ -13495,11 +13322,7 @@
         ],
         "summary": "Get Worker",
         "tags": ["Workers"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       },
       "patch": {
         "description": "Perform a partial update on a Worker, where omitted properties are left unchanged from their current values.",
@@ -14067,11 +13890,7 @@
         ],
         "summary": "List Versions",
         "tags": ["Versions"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       },
       "post": {
         "description": "Create a new version.",
@@ -14315,11 +14134,7 @@
         ],
         "summary": "Get Version",
         "tags": ["Versions"],
-        "x-api-token-group": [
-          "Workers Tail Read",
-          "Workers Scripts Write",
-          "Workers Scripts Read"
-        ]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       }
     },
     "/user/tokens/verify": {
@@ -15295,11 +15110,7 @@
             "$ref": "#/components/schemas/builds_cloudflare_token_id"
           }
         },
-        "required": [
-          "build_token_name",
-          "build_token_secret",
-          "cloudflare_token_id"
-        ],
+        "required": ["build_token_name", "build_token_secret", "cloudflare_token_id"],
         "type": "object"
       },
       "builds_CreateBuildTokenResponse": {
@@ -16485,11 +16296,7 @@
       },
       "workers_placement_status": {
         "description": "Status of [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement).",
-        "enum": [
-          "SUCCESS",
-          "UNSUPPORTED_APPLICATION",
-          "INSUFFICIENT_INVOCATIONS"
-        ],
+        "enum": ["SUCCESS", "UNSUPPORTED_APPLICATION", "INSUFFICIENT_INVOCATIONS"],
         "readOnly": true,
         "type": "string",
         "x-auditable": true
@@ -18567,15 +18374,7 @@
             "x-stainless-terraform-configurability": "computed_optional"
           }
         },
-        "required": [
-          "id",
-          "cert_id",
-          "zone_id",
-          "zone_name",
-          "hostname",
-          "service",
-          "environment"
-        ],
+        "required": ["id", "cert_id", "zone_id", "zone_name", "hostname", "service", "environment"],
         "type": "object"
       },
       "workers_namespace": {
@@ -19057,12 +18856,7 @@
                         "type": "number"
                       }
                     },
-                    "required": [
-                      "value",
-                      "count",
-                      "interval",
-                      "sampleInterval"
-                    ],
+                    "required": ["value", "count", "interval", "sampleInterval"],
                     "type": "object"
                   },
                   "type": "array"
@@ -19123,12 +18917,7 @@
                               "type": "number"
                             }
                           },
-                          "required": [
-                            "value",
-                            "count",
-                            "interval",
-                            "sampleInterval"
-                          ],
+                          "required": ["value", "count", "interval", "sampleInterval"],
                           "type": "object"
                         },
                         "type": "array"
@@ -19193,12 +18982,7 @@
                         "type": "number"
                       }
                     },
-                    "required": [
-                      "value",
-                      "count",
-                      "interval",
-                      "sampleInterval"
-                    ],
+                    "required": ["value", "count", "interval", "sampleInterval"],
                     "type": "object"
                   },
                   "type": "array"
@@ -19259,12 +19043,7 @@
                               "type": "number"
                             }
                           },
-                          "required": [
-                            "value",
-                            "count",
-                            "interval",
-                            "sampleInterval"
-                          ],
+                          "required": ["value", "count", "interval", "sampleInterval"],
                           "type": "object"
                         },
                         "type": "array"
@@ -19383,12 +19162,7 @@
                             "type": "number"
                           }
                         },
-                        "required": [
-                          "aggregates",
-                          "count",
-                          "interval",
-                          "sampleInterval"
-                        ],
+                        "required": ["aggregates", "count", "interval", "sampleInterval"],
                         "type": "object"
                       },
                       "type": "array"
@@ -21044,12 +20818,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "worker_id",
-                    "worker_name",
-                    "namespace_id",
-                    "namespace_name"
-                  ],
+                  "required": ["worker_id", "worker_name", "namespace_id", "namespace_name"],
                   "type": "object"
                 },
                 "type": "array"
@@ -21083,13 +20852,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "id",
-                    "hostname",
-                    "zone_id",
-                    "zone_name",
-                    "certificate_id"
-                  ],
+                  "required": ["id", "hostname", "zone_id", "zone_name", "certificate_id"],
                   "type": "object"
                 },
                 "type": "array"
@@ -21119,12 +20882,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "worker_id",
-                    "worker_name",
-                    "namespace_id",
-                    "namespace_name"
-                  ],
+                  "required": ["worker_id", "worker_name", "namespace_id", "namespace_name"],
                   "type": "object"
                 },
                 "type": "array"

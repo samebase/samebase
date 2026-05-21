@@ -20,12 +20,7 @@ import {
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import landingPreviewMarkdown from "@/content/landing-preview.md?raw";
 import landingPreviewRomanianMarkdown from "@/content/landing-preview.ro.md?raw";
-import {
-  useEffect,
-  useMemo,
-  useState,
-  type MouseEvent as ReactMouseEvent,
-} from "react";
+import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from "react";
 
 const LANDING_MARKDOWN_BY_LANGUAGE = {
   en: landingPreviewMarkdown,
@@ -35,10 +30,7 @@ const LANDING_MARKDOWN_BY_LANGUAGE = {
 const LANDING_MARKDOWN_HEADINGS_BY_LANGUAGE = {
   en: getLandingMarkdownHeadings(landingPreviewMarkdown),
   ro: getLandingMarkdownHeadings(landingPreviewRomanianMarkdown),
-} satisfies Record<
-  LandingMarkdownPreviewLanguage,
-  ReturnType<typeof getLandingMarkdownHeadings>
->;
+} satisfies Record<LandingMarkdownPreviewLanguage, ReturnType<typeof getLandingMarkdownHeadings>>;
 
 const LANDING_PREVIEW_HELP_CENTER_START_FOLDER = {
   label: "Start here",
@@ -63,8 +55,7 @@ const LANDING_PREVIEW_HELP_CENTER_FOLDERS = [
   LANDING_PREVIEW_HELP_CENTER_NOTER_FOLDER,
 ] as const;
 
-type LandingPreviewHelpCenterFolder =
-  (typeof LANDING_PREVIEW_HELP_CENTER_FOLDERS)[number];
+type LandingPreviewHelpCenterFolder = (typeof LANDING_PREVIEW_HELP_CENTER_FOLDERS)[number];
 
 type LandingPreviewHelpCenter = {
   items: FileTreeItem[];
@@ -131,22 +122,18 @@ function getLandingPreviewHelpCenter({
   headings: LandingMarkdownHeading[];
   includeElementIds: boolean;
 }): LandingPreviewHelpCenter {
-  const items: FileTreeItem[] = LANDING_PREVIEW_HELP_CENTER_FOLDERS.map(
-    (folder) => ({
-      label: folder.label,
-      originalPath: folder.path,
-      path: folder.path,
-      type: "tree",
-    }),
-  );
+  const items: FileTreeItem[] = LANDING_PREVIEW_HELP_CENTER_FOLDERS.map((folder) => ({
+    label: folder.label,
+    originalPath: folder.path,
+    path: folder.path,
+    type: "tree",
+  }));
   const pathByHeadingId: Partial<Record<string, string>> = {};
   const headingByPath: Partial<Record<string, LandingMarkdownHeading>> = {};
 
   for (const heading of headings) {
     const folder = getLandingPreviewHelpCenterFolder(heading);
-    const path = `${folder.path}/${getLandingPreviewHelpCenterFileName(
-      heading,
-    )}`;
+    const path = `${folder.path}/${getLandingPreviewHelpCenterFileName(heading)}`;
 
     pathByHeadingId[heading.id] = path;
     headingByPath[path] = heading;
@@ -161,21 +148,17 @@ function getLandingPreviewHelpCenter({
   }
 
   return {
-    folderExpansionStates: LANDING_PREVIEW_HELP_CENTER_FOLDERS.map(
-      (folder) => ({
-        folderPath: folder.path,
-        isExpanded: true,
-      }),
-    ),
+    folderExpansionStates: LANDING_PREVIEW_HELP_CENTER_FOLDERS.map((folder) => ({
+      folderPath: folder.path,
+      isExpanded: true,
+    })),
     headingByPath,
     items,
     pathByHeadingId,
   };
 }
 
-function getLandingPreviewSelectedHelpCenterPath(
-  pathByHeadingId: Partial<Record<string, string>>,
-) {
+function getLandingPreviewSelectedHelpCenterPath(pathByHeadingId: Partial<Record<string, string>>) {
   if (typeof window === "undefined") {
     return undefined;
   }
@@ -234,9 +217,8 @@ function getLandingPreviewArticleHeading(headingId: string) {
     `[data-testid="${LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID}"]`,
   );
   return (
-    article?.querySelector<HTMLElement>(
-      `[data-landing-heading-id="${CSS.escape(headingId)}"]`,
-    ) ?? null
+    article?.querySelector<HTMLElement>(`[data-landing-heading-id="${CSS.escape(headingId)}"]`) ??
+    null
   );
 }
 
@@ -272,21 +254,14 @@ function scrollHeadingWithinCurrentPane(target: HTMLElement) {
     scrollContainer === document.documentElement
       ? { top: 0 }
       : scrollContainer.getBoundingClientRect();
-  const scrollMarginTop =
-    Number.parseFloat(window.getComputedStyle(target).scrollMarginTop) || 0;
+  const scrollMarginTop = Number.parseFloat(window.getComputedStyle(target).scrollMarginTop) || 0;
 
-  scrollContainer.scrollTop +=
-    targetBounds.top - containerBounds.top - scrollMarginTop;
+  scrollContainer.scrollTop += targetBounds.top - containerBounds.top - scrollMarginTop;
 }
 
-function LandingMarkdownPreviewSidebar({
-  language,
-}: {
-  language: LandingMarkdownPreviewLanguage;
-}) {
+function LandingMarkdownPreviewSidebar({ language }: { language: LandingMarkdownPreviewLanguage }) {
   const { isMobile, mobilePane } = useWorkspacePaneState();
-  const landingPreviewHeadings =
-    LANDING_MARKDOWN_HEADINGS_BY_LANGUAGE[language];
+  const landingPreviewHeadings = LANDING_MARKDOWN_HEADINGS_BY_LANGUAGE[language];
   const landingPreviewHelpCenter = useMemo(
     () =>
       getLandingPreviewHelpCenter({
@@ -299,17 +274,13 @@ function LandingMarkdownPreviewSidebar({
     () => landingPreviewHelpCenter.folderExpansionStates,
   );
   const [selectedFile, setSelectedFile] = useState(() =>
-    getLandingPreviewSelectedHelpCenterPath(
-      landingPreviewHelpCenter.pathByHeadingId,
-    ),
+    getLandingPreviewSelectedHelpCenterPath(landingPreviewHelpCenter.pathByHeadingId),
   );
 
   useEffect(() => {
     function syncSelectedFileWithLocation() {
       setSelectedFile(
-        getLandingPreviewSelectedHelpCenterPath(
-          landingPreviewHelpCenter.pathByHeadingId,
-        ),
+        getLandingPreviewSelectedHelpCenterPath(landingPreviewHelpCenter.pathByHeadingId),
       );
     }
 
@@ -361,11 +332,7 @@ function LandingMarkdownPreviewSidebar({
         }}
         onFileSelect={(path, _status, event) => {
           const heading = landingPreviewHelpCenter.headingByPath[path];
-          if (
-            heading === undefined ||
-            event === undefined ||
-            shouldUseNativeLinkClick(event)
-          ) {
+          if (heading === undefined || event === undefined || shouldUseNativeLinkClick(event)) {
             return;
           }
 
@@ -376,9 +343,7 @@ function LandingMarkdownPreviewSidebar({
 
           event.preventDefault();
           setSelectedFile(path);
-          const mobileCarousel = isMobile
-            ? getLandingPreviewMobileCarousel()
-            : null;
+          const mobileCarousel = isMobile ? getLandingPreviewMobileCarousel() : null;
           const mobileCarouselScrollLeft = mobileCarousel?.scrollLeft ?? 0;
           window.history.pushState(
             window.history.state,
@@ -423,10 +388,7 @@ export function LandingMarkdownPreviewPage({
       defaultMobilePane={getLandingPreviewDefaultMobilePane()}
       left={{ content: <LandingMarkdownPreviewSidebar language={language} /> }}
     >
-      <div
-        data-testid={LANDING_MARKDOWN_PREVIEW_TEST_ID}
-        className="flex min-h-0 flex-1 flex-col"
-      >
+      <div data-testid={LANDING_MARKDOWN_PREVIEW_TEST_ID} className="flex min-h-0 flex-1 flex-col">
         <LandingMarkdownPreviewDocument language={language} />
       </div>
     </PublicLayoutShell>

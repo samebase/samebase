@@ -50,8 +50,7 @@ const pickNodeBinFromNvm = (preferredMajors: string[]) => {
   const nvmCandidates: string[] = Array.from(
     new Set(
       [process.env.NVM_DIR, path.join(os.homedir(), ".nvm")].filter(
-        (value): value is string =>
-          typeof value === "string" && value.length > 0,
+        (value): value is string => typeof value === "string" && value.length > 0,
       ),
     ),
   );
@@ -127,16 +126,13 @@ const pickAnonymousLocalPorts = () => {
     return ports;
   }
 
-  console.warn(
-    "No free anonymous worktree port pair found; falling back to Convex defaults.",
-  );
+  console.warn("No free anonymous worktree port pair found; falling back to Convex defaults.");
   return null;
 };
 
 const normalizePortList = (ports: number[]) =>
   ports.filter(
-    (port, index, all) =>
-      Number.isFinite(port) && port > 0 && all.indexOf(port) === index,
+    (port, index, all) => Number.isFinite(port) && port > 0 && all.indexOf(port) === index,
   );
 
 const readLocalBackendPorts = (preferredPorts: number[] = []) => {
@@ -153,10 +149,7 @@ const readLocalBackendPorts = (preferredPorts: number[] = []) => {
 
   const contents = fs.readFileSync(envFile, "utf8");
   for (const line of contents.split(/\r?\n/)) {
-    if (
-      !line.startsWith("VITE_CONVEX_URL=") &&
-      !line.startsWith("CONVEX_URL=")
-    ) {
+    if (!line.startsWith("VITE_CONVEX_URL=") && !line.startsWith("CONVEX_URL=")) {
       continue;
     }
     const eqIndex = line.indexOf("=");
@@ -197,10 +190,7 @@ const isLocalBackendReady = async (port: number) => {
   }
 };
 
-const waitForLocalBackend = async (
-  timeoutMs: number,
-  preferredPorts: number[] = [],
-) => {
+const waitForLocalBackend = async (timeoutMs: number, preferredPorts: number[] = []) => {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     for (const port of readLocalBackendPorts(preferredPorts)) {
@@ -213,10 +203,7 @@ const waitForLocalBackend = async (
   return false;
 };
 
-const waitForRecentLocalDevOrigin = async (
-  timeoutMs: number,
-  sinceMs: number,
-) => {
+const waitForRecentLocalDevOrigin = async (timeoutMs: number, sinceMs: number) => {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const originState = readLocalDevOriginState();
@@ -248,8 +235,7 @@ const readEnvVar = (name: string, env: NodeJS.ProcessEnv) => {
 };
 
 const hasValidPrivateKey = (value: string) =>
-  value.includes("-----BEGIN PRIVATE KEY-----") &&
-  value.includes("-----END PRIVATE KEY-----");
+  value.includes("-----BEGIN PRIVATE KEY-----") && value.includes("-----END PRIVATE KEY-----");
 
 const hasValidJwks = (value: string) => {
   try {
@@ -265,15 +251,10 @@ const hasValidJwks = (value: string) => {
   }
 };
 
-const ensureAnonymousAuthKeys = async (
-  env: NodeJS.ProcessEnv,
-  preferredPorts: number[] = [],
-) => {
+const ensureAnonymousAuthKeys = async (env: NodeJS.ProcessEnv, preferredPorts: number[] = []) => {
   const backendReady = await waitForLocalBackend(20000, preferredPorts);
   if (!backendReady) {
-    console.warn(
-      "Skipping anonymous auth key setup: local Convex backend is not ready.",
-    );
+    console.warn("Skipping anonymous auth key setup: local Convex backend is not ready.");
     return false;
   }
 
@@ -291,21 +272,15 @@ const ensureAnonymousAuthKeys = async (
   removeEnvVar("JWT_PRIVATE_KEY", env);
   removeEnvVar("JWKS", env);
 
-  const setupResult = spawnSync(
-    "npx",
-    ["@convex-dev/auth", "--skip-git-check"],
-    {
-      stdio: "pipe",
-      encoding: "utf8",
-      env,
-    },
-  );
+  const setupResult = spawnSync("npx", ["@convex-dev/auth", "--skip-git-check"], {
+    stdio: "pipe",
+    encoding: "utf8",
+    env,
+  });
 
   if (setupResult.status !== 0) {
     const output = `${setupResult.stdout}\n${setupResult.stderr}`.trim();
-    console.warn(
-      `Anonymous auth key setup failed${output ? `:\n${output}` : "."}`,
-    );
+    console.warn(`Anonymous auth key setup failed${output ? `:\n${output}` : "."}`);
     return false;
   }
 
@@ -319,9 +294,7 @@ if (!supportedNodeBin) {
   console.error(
     "Could not find a supported Node.js runtime (18, 20, 22, or 24) for Convex Node actions.",
   );
-  console.error(
-    "Install one with nvm (for example `nvm install 24`) and retry.",
-  );
+  console.error("Install one with nvm (for example `nvm install 24`) and retry.");
   process.exit(1);
 }
 env.PATH = [supportedNodeBin, env.PATH].filter(Boolean).join(path.delimiter);
@@ -356,10 +329,7 @@ if (process.env.CONVEX_AGENT_MODE === "anonymous") {
     args.push("--local");
   }
 
-  if (
-    !hasCliOption(args, "--local-cloud-port") &&
-    !hasCliOption(args, "--local-site-port")
-  ) {
+  if (!hasCliOption(args, "--local-cloud-port") && !hasCliOption(args, "--local-site-port")) {
     anonymousLocalPorts = pickAnonymousLocalPorts();
     if (anonymousLocalPorts) {
       args.push(
@@ -376,9 +346,7 @@ const localConvexBin = path.join(
   ".bin",
   process.platform === "win32" ? "convex.cmd" : "convex",
 );
-const convexExecutable = fs.existsSync(localConvexBin)
-  ? localConvexBin
-  : "convex";
+const convexExecutable = fs.existsSync(localConvexBin) ? localConvexBin : "convex";
 /**
  * Launch the checked-in Convex CLI through Node directly so the long-lived dev
  * server stays attached to the real child process instead of a Windows `.cmd`
@@ -421,9 +389,7 @@ const hasChildExited = () => childExited;
 const shouldRetrySiteUrlSync =
   process.env.CONVEX_AGENT_MODE !== "anonymous" &&
   !refreshAnonAuth &&
-  !args.some(
-    (arg) => arg === "--until-success" || arg.startsWith("--until-success="),
-  ) &&
+  !args.some((arg) => arg === "--until-success" || arg.startsWith("--until-success=")) &&
   usesLocalConvexDeployment();
 
 const maybeExit = () => {
@@ -492,10 +458,7 @@ if (shouldRetrySiteUrlSync) {
       // Give frontend origin publication its own timeout window so slow local
       // backends do not consume the entire retry budget before Vite records
       // the chosen port for this startup.
-      const localDevOrigin = await waitForRecentLocalDevOrigin(
-        20_000,
-        siteUrlRetryStartedAt,
-      );
+      const localDevOrigin = await waitForRecentLocalDevOrigin(20_000, siteUrlRetryStartedAt);
       if (!localDevOrigin || hasChildExited()) {
         return;
       }
@@ -512,9 +475,7 @@ if (shouldRetrySiteUrlSync) {
         },
       );
       if (syncResult.status !== 0) {
-        console.warn(
-          "Local SITE_URL sync failed after the long-running backend started.",
-        );
+        console.warn("Local SITE_URL sync failed after the long-running backend started.");
       }
     } catch (error) {
       console.warn(
@@ -527,10 +488,7 @@ if (shouldRetrySiteUrlSync) {
 }
 
 if (refreshAnonAuth) {
-  void ensureAnonymousAuthKeys(
-    env,
-    anonymousLocalPorts ? [anonymousLocalPorts.cloud] : [],
-  )
+  void ensureAnonymousAuthKeys(env, anonymousLocalPorts ? [anonymousLocalPorts.cloud] : [])
     .then((ok) => {
       if (!ok) {
         refreshFailed = true;

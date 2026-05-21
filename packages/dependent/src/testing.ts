@@ -5,11 +5,7 @@ export const expectType =
   <Expected>() =>
   <Actual>(
     value: Actual,
-    input: Expected extends Actual
-      ? Actual extends Expected
-        ? true
-        : never
-      : never,
+    input: Expected extends Actual ? (Actual extends Expected ? true : never) : never,
   ) => {
     void value;
     void input;

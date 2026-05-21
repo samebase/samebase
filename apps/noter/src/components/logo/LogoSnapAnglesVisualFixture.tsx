@@ -1,8 +1,5 @@
 import { NLogoScene } from "@/components/logo/NLogoScene";
-import {
-  DEFAULT_FACE_COLORS,
-  getTailwindColorHex,
-} from "@/components/logo/logoTailwindColors";
+import { DEFAULT_FACE_COLORS, getTailwindColorHex } from "@/components/logo/logoTailwindColors";
 import { STATIC_LOGO_VOXEL_STATE } from "@/components/logo/logoStaticSvgContract";
 import {
   PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ELEVATION_SNAP_DEGREES,
@@ -56,8 +53,7 @@ export function LogoSnapAnglesVisualFixture() {
         <div className="grid gap-1">
           <h1 className="text-xl font-semibold">Logo Snap Angle Fixture</h1>
           <p className="text-sm text-slate-700">
-            Rot {formatAngleLabel(rotationDegrees)} / Elev{" "}
-            {formatAngleLabel(elevationDegrees)}
+            Rot {formatAngleLabel(rotationDegrees)} / Elev {formatAngleLabel(elevationDegrees)}
           </p>
         </div>
 

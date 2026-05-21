@@ -27,9 +27,7 @@ describe("noterSync", () => {
   });
 
   it("builds the published package command", () => {
-    expect(buildPublishedNoterSyncConnectCommand()).toBe(
-      "npx @noter-md/sync connect",
-    );
+    expect(buildPublishedNoterSyncConnectCommand()).toBe("npx @noter-md/sync connect");
   });
 
   it("builds the published package run command", () => {
@@ -37,9 +35,7 @@ describe("noterSync", () => {
   });
 
   it("builds the direct hosted-file command", () => {
-    expect(
-      buildDirectNoterSyncConnectCommand("https://noter.md/noter.ts"),
-    ).toBe(
+    expect(buildDirectNoterSyncConnectCommand("https://noter.md/noter.ts")).toBe(
       `curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'`,
     );
   });
@@ -51,17 +47,10 @@ describe("noterSync", () => {
   });
 
   it("builds PowerShell-safe direct hosted-file commands for Windows", () => {
-    expect(
-      buildDirectNoterSyncConnectCommand(
-        "https://noter.md/noter.ts",
-        "windows",
-      ),
-    ).toBe(
+    expect(buildDirectNoterSyncConnectCommand("https://noter.md/noter.ts", "windows")).toBe(
       `curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'`,
     );
-    expect(
-      buildDirectNoterSyncRunCommand("https://noter.md/noter.ts", "windows"),
-    ).toBe(
+    expect(buildDirectNoterSyncRunCommand("https://noter.md/noter.ts", "windows")).toBe(
       `curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run`,
     );
   });

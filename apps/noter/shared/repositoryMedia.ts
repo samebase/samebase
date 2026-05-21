@@ -1,12 +1,4 @@
-const IMAGE_EXTENSIONS = new Set([
-  "png",
-  "jpg",
-  "jpeg",
-  "gif",
-  "webp",
-  "svg",
-  "avif",
-]);
+const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "avif"]);
 
 const VOX_EXTENSIONS = new Set(["vox"]);
 
@@ -27,9 +19,7 @@ function getNormalizedExtension(filePath: string): string | null {
   return fileName.slice(extensionStart + 1).toLowerCase();
 }
 
-export function getRepositoryMediaKind(
-  filePath: string,
-): RepositoryMediaKind | null {
+export function getRepositoryMediaKind(filePath: string): RepositoryMediaKind | null {
   const extension = getNormalizedExtension(filePath);
   if (!extension) {
     return null;

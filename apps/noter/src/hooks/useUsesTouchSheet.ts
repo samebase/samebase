@@ -3,10 +3,7 @@ import { useEffect, useState } from "react";
 const TOUCH_SHEET_MEDIA_QUERY = "(hover: none) and (pointer: coarse)";
 
 function getTouchSheetMediaQuery() {
-  if (
-    typeof window === "undefined" ||
-    typeof window.matchMedia !== "function"
-  ) {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
     return null;
   }
 
@@ -39,8 +36,7 @@ export function useUsesTouchSheet() {
 
     updateUsesTouchSheet();
     touchDeviceQuery.addEventListener("change", updateUsesTouchSheet);
-    return () =>
-      touchDeviceQuery.removeEventListener("change", updateUsesTouchSheet);
+    return () => touchDeviceQuery.removeEventListener("change", updateUsesTouchSheet);
   }, []);
 
   return usesTouchSheet;

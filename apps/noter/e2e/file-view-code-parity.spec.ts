@@ -16,16 +16,10 @@ const PARITY_CAPTURE_DEVICE_SCALE_FACTOR = 2;
 const PARITY_DIFF_COLOR_MONACO = [255, 59, 48] as const;
 const PARITY_DIFF_COLOR_PROSEMARK = [0, 122, 255] as const;
 const PARITY_PIXEL_DIFF_OUTPUT_PATH = fileURLToPath(
-  new URL(
-    "../public/visual-fixtures/file-view-code-parity-pixel-diff.png",
-    import.meta.url,
-  ),
+  new URL("../public/visual-fixtures/file-view-code-parity-pixel-diff.png", import.meta.url),
 );
 const PARITY_METRICS_OUTPUT_PATH = fileURLToPath(
-  new URL(
-    "../public/visual-fixtures/file-view-code-parity-metrics.json",
-    import.meta.url,
-  ),
+  new URL("../public/visual-fixtures/file-view-code-parity-metrics.json", import.meta.url),
 );
 
 test.use({ deviceScaleFactor: PARITY_CAPTURE_DEVICE_SCALE_FACTOR });
@@ -51,13 +45,9 @@ async function waitForParityEditors(page: Page) {
   await expect(monacoSurface).not.toContainText("Loading...", {
     timeout: 15_000,
   });
-  await expect(prosemarkSurface).toHaveAttribute(
-    "data-language-ready",
-    "true",
-    {
-      timeout: 15_000,
-    },
-  );
+  await expect(prosemarkSurface).toHaveAttribute("data-language-ready", "true", {
+    timeout: 15_000,
+  });
   await waitForStableFonts(page);
 }
 
@@ -67,10 +57,7 @@ async function waitForParityEditors(page: Page) {
  * run so regular verification stays read-only.
  */
 function shouldWriteParityArtifacts(testInfo: TestInfo) {
-  return (
-    testInfo.config.updateSnapshots === "all" ||
-    testInfo.config.updateSnapshots === "changed"
-  );
+  return testInfo.config.updateSnapshots === "all" || testInfo.config.updateSnapshots === "changed";
 }
 
 function scaleForegroundBoundsMetricsToCssPixels(
@@ -124,21 +111,15 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
   const fixture = page.getByTestId("file-view-code-parity-visual-fixture");
   const editorPanels = page.getByTestId("file-view-code-parity-editor-panels");
   const monacoSurface = page.getByTestId("file-view-code-parity-monaco");
-  const monacoCapture = page.getByTestId(
-    "file-view-code-parity-monaco-capture",
-  );
+  const monacoCapture = page.getByTestId("file-view-code-parity-monaco-capture");
   const prosemarkSurface = page.getByTestId("file-view-code-parity-prosemark");
-  const prosemarkCapture = page.getByTestId(
-    "file-view-code-parity-prosemark-capture",
-  );
+  const prosemarkCapture = page.getByTestId("file-view-code-parity-prosemark-capture");
   const diffSurface = page.getByTestId("file-view-code-parity-diff");
   const boundsDelta = page.getByTestId("file-view-code-parity-bounds-delta");
   const resolutionScaleSlider = page.getByRole("slider", {
     name: "Parity resolution scale",
   });
-  const mismatchCount = page.getByTestId(
-    "file-view-code-parity-mismatch-count",
-  );
+  const mismatchCount = page.getByTestId("file-view-code-parity-mismatch-count");
   const diffPreview = page.getByTestId("file-view-code-parity-diff-preview");
 
   await expect(fixture).toBeVisible();
@@ -168,10 +149,7 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
 
   if (shouldWriteRecordedArtifacts) {
     await mkdir(dirname(PARITY_METRICS_OUTPUT_PATH), { recursive: true });
-    await writeFile(
-      PARITY_METRICS_OUTPUT_PATH,
-      JSON.stringify(foregroundBoundsDelta, null, 2),
-    );
+    await writeFile(PARITY_METRICS_OUTPUT_PATH, JSON.stringify(foregroundBoundsDelta, null, 2));
   }
 
   await expectScreenshotsToMatch({
@@ -196,9 +174,7 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
   });
 
   await page.evaluate(() => {
-    window.dispatchEvent(
-      new CustomEvent("file-view-code-parity-refresh-artifacts"),
-    );
+    window.dispatchEvent(new CustomEvent("file-view-code-parity-refresh-artifacts"));
   });
   // Linux CI can take a few extra seconds to finish the html-to-image capture
   // and decode the refreshed diff preview after this explicit artifact refresh.

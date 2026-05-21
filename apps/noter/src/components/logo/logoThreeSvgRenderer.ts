@@ -1,10 +1,6 @@
 import { LOGO_THREE_SVG_VIEWBOX_SIZE } from "./logoStaticSvgContract";
 import { toRenderedRotationDegrees } from "./logoRotationMath";
-import {
-  getTailwindColorHex,
-  type FaceColorKey,
-  type FaceColors,
-} from "./logoTailwindColors";
+import { getTailwindColorHex, type FaceColorKey, type FaceColors } from "./logoTailwindColors";
 import {
   buildLogoSurfaceQuads,
   type LogoSurfaceQuad,
@@ -143,20 +139,13 @@ function projectPoint(
   viewBoxSize: number,
 ): LogoProjectedPoint {
   return {
-    x:
-      ((dotVectors(point, right) + frustumHalfHeight) /
-        (frustumHalfHeight * 2)) *
-      viewBoxSize,
-    y:
-      ((frustumHalfHeight - dotVectors(point, up)) / (frustumHalfHeight * 2)) *
-      viewBoxSize,
+    x: ((dotVectors(point, right) + frustumHalfHeight) / (frustumHalfHeight * 2)) * viewBoxSize,
+    y: ((frustumHalfHeight - dotVectors(point, up)) / (frustumHalfHeight * 2)) * viewBoxSize,
   };
 }
 
 function serializePolygon(points: readonly LogoProjectedPoint[]): string {
-  return points
-    .map((point) => `${point.x.toFixed(6)},${point.y.toFixed(6)}`)
-    .join(" ");
+  return points.map((point) => `${point.x.toFixed(6)},${point.y.toFixed(6)}`).join(" ");
 }
 
 function toLogoWorldPoint([x, y, z]: LogoSurfaceVertex): LogoWorldPoint {
@@ -171,10 +160,7 @@ function toVector3(point: LogoWorldPoint): Vector3 {
   };
 }
 
-function getSurfaceQuadColor(
-  faceColors: FaceColors,
-  surfaceQuad: LogoSurfaceQuad,
-): string {
+function getSurfaceQuadColor(faceColors: FaceColors, surfaceQuad: LogoSurfaceQuad): string {
   return getTailwindColorHex(faceColors[surfaceQuad.colorKey]);
 }
 
@@ -192,17 +178,12 @@ function getSceneCubeCorners(gridSize: number): LogoWorldPoint[] {
   ];
 }
 
-function readBaseCoordinates(
-  filledVoxels: ReadonlySet<string>,
-): VoxelCoordinate[] {
+function readBaseCoordinates(filledVoxels: ReadonlySet<string>): VoxelCoordinate[] {
   const coordinates: VoxelCoordinate[] = [];
 
   for (const key of filledVoxels) {
     const coordinate = parseVoxelKey(key);
-    if (
-      !coordinate ||
-      !isWithinVoxelGrid(GRID_SIZE, coordinate[0], coordinate[1], coordinate[2])
-    ) {
+    if (!coordinate || !isWithinVoxelGrid(GRID_SIZE, coordinate[0], coordinate[1], coordinate[2])) {
       continue;
     }
 
@@ -210,8 +191,7 @@ function readBaseCoordinates(
   }
 
   return coordinates.sort(
-    (left, right) =>
-      left[0] - right[0] || left[1] - right[1] || left[2] - right[2],
+    (left, right) => left[0] - right[0] || left[1] - right[1] || left[2] - right[2],
   );
 }
 
@@ -227,24 +207,17 @@ export function createLogoProjector({
   viewBoxSize?: number;
 }): LogoProjector {
   const { cameraDirection, right, up } = getCameraBasis(elevationDegrees);
-  const rotationRadians =
-    (toRenderedRotationDegrees(rotationDegrees) * Math.PI) / 180;
-  const rotateWorldPoint = (point: LogoWorldPoint) =>
-    rotateVectorY(point, rotationRadians);
+  const rotationRadians = (toRenderedRotationDegrees(rotationDegrees) * Math.PI) / 180;
+  const rotateWorldPoint = (point: LogoWorldPoint) => rotateVectorY(point, rotationRadians);
   const radius = scenePoints.reduce((maxRadius, point) => {
     const rotatedPoint = rotateWorldPoint(point);
-    return Math.max(
-      maxRadius,
-      Math.hypot(rotatedPoint.x, rotatedPoint.y, rotatedPoint.z),
-    );
+    return Math.max(maxRadius, Math.hypot(rotatedPoint.x, rotatedPoint.y, rotatedPoint.z));
   }, 0);
-  const frustumHalfHeight =
-    radius > 0 ? radius * CAMERA_FRUSTUM_PADDING : CAMERA_FRUSTUM_PADDING;
+  const frustumHalfHeight = radius > 0 ? radius * CAMERA_FRUSTUM_PADDING : CAMERA_FRUSTUM_PADDING;
 
   return {
     cameraDirection,
-    projectRotatedPoint: (point) =>
-      projectPoint(point, right, up, frustumHalfHeight, viewBoxSize),
+    projectRotatedPoint: (point) => projectPoint(point, right, up, frustumHalfHeight, viewBoxSize),
     rotateWorldPoint,
   };
 }
@@ -268,9 +241,7 @@ function getProjectedScene({
   const projector = createLogoProjector({
     elevationDegrees,
     rotationDegrees,
-    scenePoints: surfaceQuads.flatMap((quad) =>
-      quad.vertices.map(toLogoWorldPoint),
-    ),
+    scenePoints: surfaceQuads.flatMap((quad) => quad.vertices.map(toLogoWorldPoint)),
     viewBoxSize,
   });
   const rotatedQuads = surfaceQuads
@@ -314,18 +285,14 @@ function createLogoProjectedQuadsWithProjector({
 
   for (const quad of surfaceQuads) {
     const normal = projector.rotateWorldPoint(toLogoWorldPoint(quad.normal));
-    if (
-      dotVectors(toVector3(normal), toVector3(projector.cameraDirection)) <= 0
-    ) {
+    if (dotVectors(toVector3(normal), toVector3(projector.cameraDirection)) <= 0) {
       continue;
     }
 
     const vertices = quad.vertices.map((vertex) =>
       projector.rotateWorldPoint(toLogoWorldPoint(vertex)),
     );
-    const points = vertices.map((vertex) =>
-      projector.projectRotatedPoint(vertex),
-    );
+    const points = vertices.map((vertex) => projector.projectRotatedPoint(vertex));
     const center = vertices.reduce(
       (sum, vertex) => ({
         x: sum.x + vertex.x / vertices.length,
@@ -338,10 +305,7 @@ function createLogoProjectedQuadsWithProjector({
     projectedQuads.push({
       color: getSurfaceQuadColor(faceColors, quad),
       colorKey: quad.colorKey,
-      depth: dotVectors(
-        toVector3(center),
-        toVector3(projector.cameraDirection),
-      ),
+      depth: dotVectors(toVector3(center), toVector3(projector.cameraDirection)),
       key: quad.key,
       materialOrder: quad.materialIndex,
       points,
@@ -388,9 +352,7 @@ export function createLogoThreeProjectedQuads({
 
   return rotatedQuads
     .map((quad) => {
-      const points = quad.vertices.map((vertex) =>
-        projector.projectRotatedPoint(vertex),
-      );
+      const points = quad.vertices.map((vertex) => projector.projectRotatedPoint(vertex));
       const center = quad.vertices.reduce(
         (sum, vertex) => ({
           x: sum.x + vertex.x / quad.vertices.length,
@@ -616,9 +578,7 @@ function createLogoThreeRecursiveSvgMarkup({
     })
     .join("");
 
-  const recursiveGroups = [
-    `<g id="${RECURSIVE_GROUP_PREFIX}-1">${basePolygons}</g>`,
-  ];
+  const recursiveGroups = [`<g id="${RECURSIVE_GROUP_PREFIX}-1">${basePolygons}</g>`];
   for (let level = 2; level <= depth; level += 1) {
     recursiveGroups.push(
       createRecursiveUseGroup({

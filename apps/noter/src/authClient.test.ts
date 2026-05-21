@@ -1,8 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import {
-  buildPathWithTanStackSearch,
-  stringifyTanStackSearch,
-} from "./lib/tanstackSearchParams";
+import { buildPathWithTanStackSearch, stringifyTanStackSearch } from "./lib/tanstackSearchParams";
 
 const {
   buildLocationMock,
@@ -45,11 +42,7 @@ vi.mock("@tanstack/react-router", () => ({
   }),
 }));
 
-import {
-  signInWithPasswordAction,
-  signOutWithAnalytics,
-  useAutoSignIn,
-} from "./authClient";
+import { signInWithPasswordAction, signOutWithAnalytics, useAutoSignIn } from "./authClient";
 
 describe("useAutoSignIn", () => {
   const originalWindow = globalThis.window;
@@ -77,17 +70,13 @@ describe("useAutoSignIn", () => {
     buildLocationMock.mockImplementation(
       (options: {
         hash?: true;
-        search?: (
-          currentSearch: Record<string, unknown>,
-        ) => Record<string, unknown>;
+        search?: (currentSearch: Record<string, unknown>) => Record<string, unknown>;
       }) => {
         const currentSearch = Object.fromEntries(
           new URLSearchParams(window.location.search).entries(),
         );
         const nextSearch =
-          typeof options.search === "function"
-            ? options.search(currentSearch)
-            : currentSearch;
+          typeof options.search === "function" ? options.search(currentSearch) : currentSearch;
         return {
           href: buildPathWithTanStackSearch({
             pathname: window.location.pathname,
@@ -139,10 +128,7 @@ describe("useAutoSignIn", () => {
 
     useAutoSignIn({ auth: "google" });
 
-    expect(localStorageSetItemMock).toHaveBeenCalledWith(
-      "noter_auth_provider",
-      "google",
-    );
+    expect(localStorageSetItemMock).toHaveBeenCalledWith("noter_auth_provider", "google");
     expect(replaceStateMock).toHaveBeenCalledWith(
       { __TSR_index: 7, __TSR_key: "popup-route" },
       "",
@@ -254,10 +240,7 @@ describe("useAutoSignIn", () => {
       email: "nicu@noter.md",
       password: "pass1234",
     });
-    expect(localStorageSetItemMock).toHaveBeenCalledWith(
-      "noter_auth_provider",
-      "password",
-    );
+    expect(localStorageSetItemMock).toHaveBeenCalledWith("noter_auth_provider", "password");
   });
 
   it("always signs out even if PostHog reset throws", async () => {
@@ -282,12 +265,8 @@ describe("useAutoSignIn", () => {
       }),
     ).resolves.toBeUndefined();
 
-    expect(localStorageRemoveItemMock).toHaveBeenCalledWith(
-      "noter_was_authenticated",
-    );
-    expect(localStorageRemoveItemMock).toHaveBeenCalledWith(
-      "noter_auth_provider",
-    );
+    expect(localStorageRemoveItemMock).toHaveBeenCalledWith("noter_was_authenticated");
+    expect(localStorageRemoveItemMock).toHaveBeenCalledWith("noter_auth_provider");
     expect(resetMock).toHaveBeenCalledTimes(1);
     expect(signOutMock).toHaveBeenCalledTimes(1);
   });

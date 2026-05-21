@@ -2,12 +2,7 @@
 
 import { EditorView } from "codemirror";
 import { syntaxTree } from "@codemirror/language";
-import {
-  Decoration,
-  type DecorationSet,
-  ViewPlugin,
-  type ViewUpdate,
-} from "@codemirror/view";
+import { Decoration, type DecorationSet, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { type Range } from "@codemirror/state";
 
 function traverseTree(view: EditorView) {

@@ -3,39 +3,31 @@
 File: TODO.md
 
 - # The most important right now is to fix rebaseing works, because we always accept only things on incoming side instead of even trying to reconcile!!!!
-- - [ ] security: remove first-request token bootstrap in
-        `.codespace-agent/server.ts`; require preconfigured secret for auth
-        before exposing agent APIs
-- - [ ] security: fix codespace agent exposure model (`port 3000` public +
-        `/exec`/file endpoints); restrict reachability or add hardened gateway
-        auth
-- - [ ] starter manifest hygiene: exclude `.codespace-agent/node_modules/**`
-        from template export and regenerate deterministic
-        `starterSeedManifest.generated.ts`
-- - [ ] starter template hygiene: add CI coverage for
-        `apps/noter-starter-template` (we missed a `node_modules`/ignore drift
-        once because it wasn't being checked)
+- - [ ] security: remove first-request token bootstrap in `.codespace-agent/server.ts`; require
+        preconfigured secret for auth before exposing agent APIs
+- - [ ] security: fix codespace agent exposure model (`port 3000` public + `/exec`/file endpoints);
+        restrict reachability or add hardened gateway auth
+- - [ ] starter manifest hygiene: exclude `.codespace-agent/node_modules/**` from template export
+        and regenerate deterministic `starterSeedManifest.generated.ts`
+- - [ ] starter template hygiene: add CI coverage for `apps/noter-starter-template` (we missed a
+        `node_modules`/ignore drift once because it wasn't being checked)
 - - [ ] editor: on hover over Tailwind classes, show their definition
-- - [ ] simple view: consider switching from exclude-only to explicit include
-        allowlist (ex: `**/*.md`, `**/config.json`, `**/tools.json`)
+- - [ ] simple view: consider switching from exclude-only to explicit include allowlist (ex:
+        `**/*.md`, `**/config.json`, `**/tools.json`)
 - - [x] removing noter from builder.io todo is done
 
 ## 4c85f40b0778553e94963907aa041e32bdebae69 2026-02-15 TODO.md[6-7]
 
 File: TODO.md
 
-- - [ ] security: remove first-request token bootstrap in
-        `.codespace-agent/server.ts`; require preconfigured secret for auth
-        before exposing agent APIs
-- - [ ] security: fix codespace agent exposure model (`port 3000` public +
-        `/exec`/file endpoints); restrict reachability or add hardened gateway
-        auth
-- - [ ] starter manifest hygiene: exclude `.codespace-agent/node_modules/**`
-        from template export and regenerate deterministic
-        `starterSeedManifest.generated.ts`
-- - [ ] starter template hygiene: add CI coverage for
-        `apps/noter-starter-template` (we missed a `node_modules`/ignore drift
-        once because it wasn't being checked)
+- - [ ] security: remove first-request token bootstrap in `.codespace-agent/server.ts`; require
+        preconfigured secret for auth before exposing agent APIs
+- - [ ] security: fix codespace agent exposure model (`port 3000` public + `/exec`/file endpoints);
+        restrict reachability or add hardened gateway auth
+- - [ ] starter manifest hygiene: exclude `.codespace-agent/node_modules/**` from template export
+        and regenerate deterministic `starterSeedManifest.generated.ts`
+- - [ ] starter template hygiene: add CI coverage for `apps/noter-starter-template` (we missed a
+        `node_modules`/ignore drift once because it wasn't being checked)
 - - [ ] editor: on hover over Tailwind classes, show their definition
 - - [x] removing noter from builder.io todo is done
 
@@ -43,9 +35,8 @@ File: TODO.md
 
 File: TODO.md
 
-- - [ ] https://developers.openai.com/codex/ide/ use this instead of the app.
-        Vscode is the default platform. No need to invent agent+can use
-        openclaw!!!
+- - [ ] https://developers.openai.com/codex/ide/ use this instead of the app. Vscode is the default
+        platform. No need to invent agent+can use openclaw!!!
 
 ## 8e9b6e91a420e20006486c0a4202a254fd435154 2026-02-14 noter.md[5-10,17-18]
 
@@ -78,8 +69,7 @@ File: noter.md
 
 File: TODO.md
 
-- - [ ] research https://vly.ai/, and all others startups shown on
-        https://www.convex.dev/startups
+- - [ ] research https://vly.ai/, and all others startups shown on https://www.convex.dev/startups
 
 ## 1f5e31f9896f785cf0529b06787b1c64615415b7 2026-02-14 TODO.md[28], noter.md[9-10]
 
@@ -119,37 +109,34 @@ File: README.md
 
 File: TODO.md
 
-- - [ ] for markdown reads, return file size first and let agents decide whether
-        to include full content in context
-- - [ ] markdown optimization for agents: show headers/subheaders first, replace
-        paragraph bodies with character counts plus section slugs, and let AI
-        request full text only for selected sections
-- - [ ] add fish-like aliases, or even better make this input behave like a fish
-        terminal
+- - [ ] for markdown reads, return file size first and let agents decide whether to include full
+        content in context
+- - [ ] markdown optimization for agents: show headers/subheaders first, replace paragraph bodies
+        with character counts plus section slugs, and let AI request full text only for selected
+        sections
+- - [ ] add fish-like aliases, or even better make this input behave like a fish terminal
 - - [ ] in dev mode, simple terminal should show/accept the full command format:
         `noter "add todo or whatever paragraph"`
-- - [ ] explore frontmatter-based settings in markdown (e.g. `noter.md`) as an
-        alternative to JSON: LLM-readable, human-readable, and schema-validated
-        into TypeScript objects
-- - [ ] treat chat as a terminal UX: user sends commands, system
-        executes/actions, then returns clear output (like a shell loop)
-- - [ ] pot discuta cu Predeus ca Robolex sa fie dezvoltat pe noter.md; asta e o
-        metoda buna si pentru juniori, pentru ca au acces la aceleasi
-        posibilitati ca seniorii; faptul ca noter.md e facut in noter inseamna
-        ca produsul e bun
+- - [ ] explore frontmatter-based settings in markdown (e.g. `noter.md`) as an alternative to JSON:
+        LLM-readable, human-readable, and schema-validated into TypeScript objects
+- - [ ] treat chat as a terminal UX: user sends commands, system executes/actions, then returns
+        clear output (like a shell loop)
+- - [ ] pot discuta cu Predeus ca Robolex sa fie dezvoltat pe noter.md; asta e o metoda buna si
+        pentru juniori, pentru ca au acces la aceleasi posibilitati ca seniorii; faptul ca noter.md
+        e facut in noter inseamna ca produsul e bun
 - - [x] removing noter from builder.io todo is done
 
 ## d32c2b9b26128a2b61989a844c175db22be6dafe 2026-02-13 README.md[5,7]
 
 File: README.md
 
-- Noter is a collaborative, GitHub-connected code editor built as a Turborepo
-  monorepo with React + Vite on the frontend and Convex on the backend.
+- Noter is a collaborative, GitHub-connected code editor built as a Turborepo monorepo with React +
+  Vite on the frontend and Convex on the backend.
 - ## Current Product Capabilities (2026-02-13)
 - - Real-time collaborative editing with CodeMirror + Convex synchronization
 - - GitHub repository connection (`connectRepository`) for existing repos
-- - New agent/repo creation (`createRepository`) for noter-managed vaults,
-    seeded as a runnable starter in a single commit
+- - New agent/repo creation (`createRepository`) for noter-managed vaults, seeded as a runnable
+    starter in a single commit
 - - Automatic infrastructure provisioning for new noter-managed vaults:
 - - Convex project/deployment
 - - Netlify site + environment wiring
@@ -160,11 +147,10 @@ File: README.md
 - - Commit proposals
 - - Production infrastructure/data read requests
 - ## Important Behavior
-- - Auto infra provisioning is triggered only for newly created noter-managed
-    vaults.
+- - Auto infra provisioning is triggered only for newly created noter-managed vaults.
 - - Connecting an existing GitHub repository does not auto-provision infra.
-- - Starter seed source of truth is maintained in `apps/noter-starter-template`
-    and exported to `apps/noter/convex/starterSeedManifest.generated.ts`.
+- - Starter seed source of truth is maintained in `apps/noter-starter-template` and exported to
+    `apps/noter/convex/starterSeedManifest.generated.ts`.
 - - Frontend: React 18, TypeScript, Vite, React Router
 - - Backend: Convex (queries, mutations, actions, scheduler)
 - - Editor: CodeMirror 6
@@ -204,8 +190,8 @@ File: README.md
 - npm run build
 - npm run lint
 - ## Environment Notes
-- Infra provisioning requires backend environment configuration for provider
-  tokens/team IDs (see `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`).
+- Infra provisioning requires backend environment configuration for provider tokens/team IDs (see
+  `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`).
 - ## Read-First Docs for New Agent Sessions
 - 1. `AGENTS.md`
 - 2. `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
@@ -265,13 +251,13 @@ File: specs/CODESPACE_CONNECTION_SPEC.md
 - - `stopped` - Codespace is shut down (can be restarted)
 - - `error` - Codespace creation or operation failed
 - ### Connection Establishment
-- The connection is established automatically when you create a Codespace
-  through Noter's interface, providing both visual and programmatic access to
-  your GitHub repository in a cloud development environment.
+- The connection is established automatically when you create a Codespace through Noter's interface,
+  providing both visual and programmatic access to your GitHub repository in a cloud development
+  environment.
 - ## TODO/Ideas
 - ### Enhanced Code Block Rendering
-- - **Scope**: Not limited to TypeScript - apply to all languages that would use
-    Monaco if they were in a file
+- - **Scope**: Not limited to TypeScript - apply to all languages that would use Monaco if they were
+    in a file
 - - **Benefits**:
 - - Syntax highlighting
 - - IntelliSense/autocomplete
@@ -287,9 +273,8 @@ File: specs/CODESPACE_CONNECTION_SPEC.md
 
 File: specs/CODESPACE_CONNECTION_SPEC.md
 
-- This document specifies how Noter connects to and interacts with GitHub
-  Codespaces, providing both visual and programmatic access to cloud development
-  environments.
+- This document specifies how Noter connects to and interacts with GitHub Codespaces, providing both
+  visual and programmatic access to cloud development environments.
 - **URL Pattern**: `https://{codespace-name}.github.dev`
 - - **Access Type**: Direct browser access to VS Code in the browser
 - - **Authentication**: GitHub session-based authentication
@@ -297,10 +282,8 @@ File: specs/CODESPACE_CONNECTION_SPEC.md
 - - **Port**: Runs on port 3000 inside the Codespace
 - ### 1. Codespace Creation Process
 - 1. **API Call**: Noter calls GitHub API to create a Codespace
-- 2. **Agent Setup**: Node.js HTTP server starts on port 3000 inside the
-     Codespace
-- 5. **Status Tracking**: Real-time status updates (creating → running →
-     stopped)
+- 2. **Agent Setup**: Node.js HTTP server starts on port 3000 inside the Codespace
+- 5. **Status Tracking**: Real-time status updates (creating → running → stopped)
 - ### 2. Connection Establishment
 - ```typescript
 
@@ -502,8 +485,8 @@ File: specs/CODESPACE_CONNECTION_SPEC.md
 
 File: AGENTS.md
 
-- - **NEVER merge a PR until CI is green** - always wait for checks to pass,
-    then squash-merge with `gh pr merge --squash`
+- - **NEVER merge a PR until CI is green** - always wait for checks to pass, then squash-merge with
+    `gh pr merge --squash`
 
 ## da4dfebcfdda37b63e9c8a2117057a764425327e 2026-02-12 TODO.md[11]
 
@@ -515,31 +498,25 @@ File: TODO.md
 
 File: VISION.md
 
-- Noter is evolving from a collaborative code editor into a comprehensive
-  platform for building LangGraph agents with full-stack capabilities. The goal
-  is to compete with tools like Agent Builder (LangSmith) and Lovable, but with
-  a unique approach that combines AI agents, real-time collaboration, and
-  full-stack development.
+- Noter is evolving from a collaborative code editor into a comprehensive platform for building
+  LangGraph agents with full-stack capabilities. The goal is to compete with tools like Agent
+  Builder (LangSmith) and Lovable, but with a unique approach that combines AI agents, real-time
+  collaboration, and full-stack development.
 - ## The Meta-Proof
-- - Proves the Convex + React stack can scale to complex, real-world
-    applications
+- - Proves the Convex + React stack can scale to complex, real-world applications
 - ## Target Positioning
 - ### vs Agent Builder (LangSmith)
 - - **Similar**: Create LangGraph agents with defined behaviors and tools
 - - **Different**: Full-stack UI/database capabilities, not just agent logic
-- - **Advantage**: Complete development environment, not just agent
-    configuration
+- - **Advantage**: Complete development environment, not just agent configuration
 - ### vs Lovable/No-Code Platforms
 - - **Similar**: Rapid full-stack application development
 - - **Different**: AI-first development through conversation, not drag-and-drop
-- - **Advantage**: Can build truly sophisticated applications, not limited to
-    templates
+- - **Advantage**: Can build truly sophisticated applications, not limited to templates
 - ### vs Cursor/GitHub Copilot
 - - **Similar**: AI-assisted development
-- - **Different**: Complete application scaffolding and deployment, not just
-    code assistance
-- - **Advantage**: End-to-end development platform with built-in
-    hosting/database
+- - **Different**: Complete application scaffolding and deployment, not just code assistance
+- - **Advantage**: End-to-end development platform with built-in hosting/database
 - - **Frontend**: React + Vite + Tailwind
 - - **Deployment**: Netlify (frontend) + Convex (backend)
 - - **Collaboration**: Real-time editing via Convex
@@ -556,11 +533,9 @@ File: VISION.md
 - ## Missing Capabilities (Priority Order)
 - ### High Priority
 - 1. **Repository Creation**: GitHub API integration to create new repos
-- 2. **Agent Scaffolding**: Templates for AGENTS.md, tools.json, basic
-     React+Convex setup
+- 2. **Agent Scaffolding**: Templates for AGENTS.md, tools.json, basic React+Convex setup
 - 3. **Terminal Access**: Execute commands, run builds, install packages
-- 4. **Development Server Control**: Start/stop dev servers, see running
-     processes
+- 4. **Development Server Control**: Start/stop dev servers, see running processes
 - ### Medium Priority
 - 1. **Package Management**: Install/remove dependencies via npm/pnpm
 - 2. **Test Execution**: Run test suites and see results
@@ -573,12 +548,9 @@ File: VISION.md
 - 4. **Advanced Deployment**: Multiple environments, staging/production
 - ## Immediate Next Steps
 - 1. **Update Project Documentation**: Reflect new vision in README, AGENTS.md
-- 2. **Implement Repo Creation**: Add "Create New Agent" button and GitHub repo
-     creation flow
-- 3. **Create Agent Templates**: Define standard scaffolding for new agent
-     projects
-- 4. **Add Terminal Capabilities**: Enable command execution for full dev
-     environment
+- 2. **Implement Repo Creation**: Add "Create New Agent" button and GitHub repo creation flow
+- 3. **Create Agent Templates**: Define standard scaffolding for new agent projects
+- 4. **Add Terminal Capabilities**: Enable command execution for full dev environment
 - ## Success Metrics
 - ### Technical
 - - Can create and deploy a functional LangGraph agent in <30 minutes
@@ -593,59 +565,52 @@ File: VISION.md
 - - **Developers** have a complete IDE for sophisticated agent development
 - - **Teams** can collaborate in real-time on complex multi-agent systems
 - - **The platform itself** continues to evolve through self-improvement
-- The ultimate goal: Make building AI agents as easy as creating a document, but
-  with the power to create truly sophisticated applications.
+- The ultimate goal: Make building AI agents as easy as creating a document, but with the power to
+  create truly sophisticated applications.
 
 ## 2488d6a2259c545ac11e7c9ef31d06bd83de7411 2026-02-11 TODO.md[8,15-16,…]
 
 File: TODO.md
 
-- - [ ] **VERY IMPORTANT**: Try Convex components for defining things internally
-        but also at AI agent component level
-- - [ ] **AI Agent Access**: Give AI agent ability to query which files are
-        "staged" and generally have more access to the Convex functions
-        themselves
-- - [ ] **File Staging Bug**: Fix issue where marking newly created files for
-        deletion causes them to appear both as "to be created" and "to be
-        deleted" in stagedFiles. Instead, newly created files should be
-        completely removed from stagedFiles when deleted, not marked for
-        deletion.
-- - [ ] for prompts that are linked to files, enable inline editing that
-        automatically propagates changes to the actual files
-- - [ ] folders can be used as objects or arrays because of ordered preservation
-        (note: this is undefined behavior in JS)
-- - [ ] have 1 agent with which I talk, but I also see the agent they are
-        building, on the side. Basically instead of chat and code generated to
-        the right. You get chat and markdown generated to the right, with
-- - [ ] **MDX Function Calling Enhancement**: Implement MDX-like syntax with
-        function calls instead of tags for text rendering:
+- - [ ] **VERY IMPORTANT**: Try Convex components for defining things internally but also at AI
+        agent component level
+- - [ ] **AI Agent Access**: Give AI agent ability to query which files are "staged" and generally
+        have more access to the Convex functions themselves
+- - [ ] **File Staging Bug**: Fix issue where marking newly created files for deletion causes them
+        to appear both as "to be created" and "to be deleted" in stagedFiles. Instead, newly created
+        files should be completely removed from stagedFiles when deleted, not marked for deletion.
+- - [ ] for prompts that are linked to files, enable inline editing that automatically propagates
+        changes to the actual files
+- - [ ] folders can be used as objects or arrays because of ordered preservation (note: this is
+        undefined behavior in JS)
+- - [ ] have 1 agent with which I talk, but I also see the agent they are building, on the side.
+        Basically instead of chat and code generated to the right. You get chat and markdown
+        generated to the right, with
+- - [ ] **MDX Function Calling Enhancement**: Implement MDX-like syntax with function calls instead
+        of tags for text rendering:
 - - Support `@code(language="json", filePath="config/app.json")...@end` syntax
 - - Add `@edit()`, `@note()`, `@warning()` function blocks
 - - Parse function calls with parameter extraction (language, filePath, etc.)
 - - Integrate with existing EnhancedMarkdownRenderer
-- - Benefits: No React compilation needed, backward compatible, extensible,
-    type-safe
+- - Benefits: No React compilation needed, backward compatible, extensible, type-safe
 - - Alternative to full MDX that works with plain text rendering
 - ## UI/UX Improvements
-- - [ ] commit proposal UI: make the commit description clickable to go to
-        GitHub commit URL, ensure button inside doesn't change sizes
+- - [ ] commit proposal UI: make the commit description clickable to go to GitHub commit URL, ensure
+        button inside doesn't change sizes
 - ## Development Environment
 - - [ ] the dev container should default to fish. Even the ai should prefer that
 - ## Research & Inspiration
 - - [ ] **Video Reference**: Problems that could be solved by Noter -
         https://www.youtube.com/watch?v=YVq28OTPCKw
-- - [ ] add settings page for each vault an also for the whole app that allows
-        auto commits
-- - [ ] when path doesn't have owner or repo name or can't find it, redirect to
-        vaults
+- - [ ] add settings page for each vault an also for the whole app that allows auto commits
+- - [ ] when path doesn't have owner or repo name or can't find it, redirect to vaults
 - - [x] update the tree from time to time?
 - - [ ] fix dark mode/light mode toggle - it's redirecting to /
 - - [ ]
 - - [ ] improve file search functionality with better fuzzy matching
 - - [ ] add keyboard shortcuts for common actions (save, commit, etc.)
 - - [ ] implement file diff view to show changes before committing
-- - [ ] fix implicit `any` types across frontend components (13 errors,
-        CI-blocking):
+- - [ ] fix implicit `any` types across frontend components (13 errors, CI-blocking):
 - - AddRepository.tsx: `repo`, `vault` params in callbacks (4)
 - - ChatFab.tsx: `msg` param (1)
 - - CodeEditor.tsx: `u` param in update callback (1)
@@ -656,10 +621,8 @@ File: TODO.md
 
 File: TODO.md
 
-- - [ ] add settings page for each vault an also for the whole app that allows
-        auto commits
-- - [ ] when path doesn't have owner or repo name or can't find it, redirect to
-        vaults
+- - [ ] add settings page for each vault an also for the whole app that allows auto commits
+- - [ ] when path doesn't have owner or repo name or can't find it, redirect to vaults
 - - [x] update the tree from time to time?
 - - [ ] fix dark mode/light mode toggle - it's redirecting to /
 - - [ ]
@@ -671,8 +634,7 @@ File: TODO.md
 
 File: TODO.md
 
-- - [ ] add line numbers to code display to fix line reference issues in AI
-        assistant
+- - [ ] add line numbers to code display to fix line reference issues in AI assistant
 
 ## 5a98c3c727c3352a8ea98662c1725495c61894b8 2026-02-10 TODO.md[9]
 
@@ -705,16 +667,13 @@ File: README.md
 File: TODO.md
 
 - - [ ] update the tree from time to time?
-- - [ ] **IMPORTANT, make less changes to collaborativeUpdates db, takes lots of
-        resources**
-- - [ ] **BUG: If a GitHub repository is renamed, the vault UI still shows the
-        old name. It also appears in search with the old name, which is
-        confusing. Need to detect repo renames and update vault metadata
-        accordingly.**
-- - [ ] **CHAT: Don't use "Auto" label for model selection - it implies it's the
-        worst option. Instead, show each message with the model that created it
-        attached. Each message should have `model` field showing "Claude 3.5",
-        "GPT-4o", "Recommended", etc.**
+- - [ ] **IMPORTANT, make less changes to collaborativeUpdates db, takes lots of resources**
+- - [ ] **BUG: If a GitHub repository is renamed, the vault UI still shows the old name. It also
+        appears in search with the old name, which is confusing. Need to detect repo renames and
+        update vault metadata accordingly.**
+- - [ ] **CHAT: Don't use "Auto" label for model selection - it implies it's the worst option.
+        Instead, show each message with the model that created it attached. Each message should have
+        `model` field showing "Claude 3.5", "GPT-4o", "Recommended", etc.**
 - - [ ]
 
 ## 87a137a1d724d44503bc8972f20707fcbf8bfd2e 2025-08-08 TODO.md[5-6]

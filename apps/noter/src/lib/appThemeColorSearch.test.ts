@@ -130,18 +130,14 @@ describe("appThemeColorSearch", () => {
       secondary: "lime-100",
     });
 
-    const styleElement = document.getElementById(
-      "noter-app-theme-color-search",
-    );
+    const styleElement = document.getElementById("noter-app-theme-color-search");
     expect(styleElement?.textContent).toContain(":root");
     expect(styleElement?.textContent).toContain(".dark");
     expect(styleElement?.textContent).toContain("--background: 0 0% 0%;");
     expect(styleElement?.textContent).toContain("--foreground: 0 0% 100%;");
     expect(styleElement?.textContent).toContain("--border: 0 0% 20%;");
     expect(styleElement?.textContent).toContain("--input: 0 0% 20%;");
-    expect(styleElement?.textContent).toContain(
-      "--primary: 192.9 10.9% 25.1%;",
-    );
+    expect(styleElement?.textContent).toContain("--primary: 192.9 10.9% 25.1%;");
     expect(styleElement?.textContent).toContain("--primary: 0 0% 100%;");
 
     syncDocumentThemeColorSearch({});

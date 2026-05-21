@@ -1,10 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  FilePlusIcon,
-  GitHubLogoIcon,
-  PersonIcon,
-  PlusIcon,
-} from "@/lib/radixIcons";
+import { FilePlusIcon, GitHubLogoIcon, PersonIcon, PlusIcon } from "@/lib/radixIcons";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { FileTree } from "@/components/FileTree";
 import { FileViewDeveloperTools } from "@/components/FileViewDeveloperTools";
@@ -20,8 +15,7 @@ import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
 import type { WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import type { FolderExpansionState } from "@/lib/fileTreeState";
 
-export type FileViewProsemarkHeightVisualMode =
-  "fileview-prosemark-flex-height";
+export type FileViewProsemarkHeightVisualMode = "fileview-prosemark-flex-height";
 
 type FixtureSidebarMode = "all" | "compare" | "simple";
 
@@ -137,9 +131,7 @@ const FIXTURE_TREE_ITEMS = [
   type: "blob" | "tree";
 }>;
 
-function isFixtureDocumentPath(
-  path: string,
-): path is keyof typeof FIXTURE_DOCUMENTS {
+function isFixtureDocumentPath(path: string): path is keyof typeof FIXTURE_DOCUMENTS {
   return Object.prototype.hasOwnProperty.call(FIXTURE_DOCUMENTS, path);
 }
 
@@ -163,9 +155,7 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
   mode: FileViewProsemarkHeightVisualMode;
 }) {
   const [developerToolsOpen, setDeveloperToolsOpen] = useState(false);
-  const [folderExpansionStates, setFolderExpansionStates] = useState<
-    FolderExpansionState[]
-  >([
+  const [folderExpansionStates, setFolderExpansionStates] = useState<FolderExpansionState[]>([
     {
       folderPath: "docs",
       isExpanded: true,
@@ -175,17 +165,14 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
       isExpanded: true,
     },
   ]);
-  const [selectedFile, setSelectedFile] =
-    useState<keyof typeof FIXTURE_DOCUMENTS>("README.md");
+  const [selectedFile, setSelectedFile] = useState<keyof typeof FIXTURE_DOCUMENTS>("README.md");
   const [sidebarMode, setSidebarMode] = useState<FixtureSidebarMode>("all");
 
   const headerTitle = selectedFile.split("/").slice(0, -1).join("/") || "/";
   const selectedFileGitHubUrl = `https://github.com/${FIXTURE_REPOSITORY_FULL_NAME}/blob/${FIXTURE_BRANCH}/${selectedFile}`;
   const visibleTreeItems =
     sidebarMode === "simple"
-      ? FIXTURE_TREE_ITEMS.filter(
-          (item) => item.path === "README.md" || item.path === "AGENTS.md",
-        )
+      ? FIXTURE_TREE_ITEMS.filter((item) => item.path === "README.md" || item.path === "AGENTS.md")
       : sidebarMode === "compare"
         ? FIXTURE_TREE_ITEMS.filter(
             (item) =>
@@ -212,11 +199,7 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
     <SidebarAccountSection>
       <div className="flex w-full min-w-0 items-center justify-between gap-2 text-sm font-medium">
         <span className="block min-w-0 truncate">nicu@noter.md</span>
-        <Button
-          variant="secondary"
-          size="icon"
-          className="h-8 w-8 rounded-ui md:h-6 md:w-6"
-        >
+        <Button variant="secondary" size="icon" className="h-8 w-8 rounded-ui md:h-6 md:w-6">
           <PersonIcon className="h-4 w-4 md:h-3 md:w-3" />
           <span className="sr-only">Open user menu</span>
         </Button>
@@ -266,27 +249,15 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
             value={sidebarMode}
             className="justify-start"
             onValueChange={(value) => {
-              if (
-                value === "simple" ||
-                value === "all" ||
-                value === "compare"
-              ) {
+              if (value === "simple" || value === "all" || value === "compare") {
                 setSidebarMode(value);
               }
             }}
           >
-            <ToggleGroupItem
-              value="simple"
-              aria-label="Simple View"
-              className="h-7 px-2 text-xs"
-            >
+            <ToggleGroupItem value="simple" aria-label="Simple View" className="h-7 px-2 text-xs">
               Simple View
             </ToggleGroupItem>
-            <ToggleGroupItem
-              value="all"
-              aria-label="All Files"
-              className="h-7 px-2 text-xs"
-            >
+            <ToggleGroupItem value="all" aria-label="All Files" className="h-7 px-2 text-xs">
               All Files
             </ToggleGroupItem>
             <ToggleGroupItem
@@ -370,16 +341,9 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
       defaultOpen={FILE_VIEW_TREE_SIDEBAR_SIDE === "left"}
       defaultRightOpen={FILE_VIEW_TREE_SIDEBAR_SIDE === "right"}
       shortcutPaneSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
-      left={
-        FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? activeSidebar : inactiveSidebar
-      }
+      left={FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? activeSidebar : inactiveSidebar}
       main={{
-        header: (
-          <RepositoryWorkspacePaneHeader
-            title={headerTitle}
-            onQuickOpen={() => {}}
-          />
-        ),
+        header: <RepositoryWorkspacePaneHeader title={headerTitle} onQuickOpen={() => {}} />,
         content: (
           <div
             data-testid="fileview-prosemark-height-visual-fixture"
@@ -415,11 +379,7 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
                     now={FIXTURE_NOW}
                     showChecks={false}
                   />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-6 px-2 text-xs"
-                  >
+                  <Button size="sm" variant="outline" className="h-6 px-2 text-xs">
                     Review Changes
                   </Button>
                   <FileViewPushActions
@@ -459,11 +419,7 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
           </div>
         ),
       }}
-      right={
-        FILE_VIEW_TREE_SIDEBAR_SIDE === "right"
-          ? activeSidebar
-          : inactiveSidebar
-      }
+      right={FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? activeSidebar : inactiveSidebar}
     />
   );
 }

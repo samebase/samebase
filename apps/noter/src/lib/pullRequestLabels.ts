@@ -13,14 +13,10 @@ function getHexColorLuminance(color: string): number {
   );
   const toLinear = (channel: number) => {
     const normalized = channel / 255;
-    return normalized <= 0.03928
-      ? normalized / 12.92
-      : ((normalized + 0.055) / 1.055) ** 2.4;
+    return normalized <= 0.03928 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
   };
 
-  return (
-    0.2126 * toLinear(red) + 0.7152 * toLinear(green) + 0.0722 * toLinear(blue)
-  );
+  return 0.2126 * toLinear(red) + 0.7152 * toLinear(green) + 0.0722 * toLinear(blue);
 }
 
 function getContrastRatio(a: number, b: number): number {
@@ -34,17 +30,12 @@ function getLabelTextColor(backgroundColor: string): string {
   const darkTextColor = "#1f2328";
   const backgroundLuminance = getHexColorLuminance(backgroundColor);
   const lightContrast = getContrastRatio(backgroundLuminance, 1);
-  const darkContrast = getContrastRatio(
-    backgroundLuminance,
-    getHexColorLuminance(darkTextColor),
-  );
+  const darkContrast = getContrastRatio(backgroundLuminance, getHexColorLuminance(darkTextColor));
 
   return darkContrast >= lightContrast ? darkTextColor : lightTextColor;
 }
 
-export function normalizePullRequestLabelColor(
-  color: string | undefined,
-): string | undefined {
+export function normalizePullRequestLabelColor(color: string | undefined): string | undefined {
   if (typeof color !== "string") {
     return undefined;
   }
@@ -69,9 +60,7 @@ export function normalizePullRequestLabels(
     }
 
     const color =
-      typeof label === "string"
-        ? undefined
-        : normalizePullRequestLabelColor(label.color);
+      typeof label === "string" ? undefined : normalizePullRequestLabelColor(label.color);
     const existing = labelsByName.get(name);
     if (!existing || (typeof color === "string" && existing.color !== color)) {
       labelsByName.set(name, { name, color });
@@ -81,9 +70,7 @@ export function normalizePullRequestLabels(
   return Array.from(labelsByName.values());
 }
 
-export function buildPullRequestLabelStyle(
-  color: string | undefined,
-): CSSProperties | undefined {
+export function buildPullRequestLabelStyle(color: string | undefined): CSSProperties | undefined {
   if (typeof color !== "string") {
     return undefined;
   }

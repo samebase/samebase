@@ -1,11 +1,7 @@
 import { ChevronDownIcon, ChevronRightIcon } from "@/lib/radixIcons";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useWorkspacePaneState } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
 import {
@@ -36,15 +32,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  ArrowUpRight,
-  Folder,
-  GitBranch,
-  GitFork,
-  Loader2,
-  Pin,
-  Plus,
-} from "lucide-react";
+import { ArrowUpRight, Folder, GitBranch, GitFork, Loader2, Pin, Plus } from "lucide-react";
 
 type MachinesWorkspaceViewProps = {
   machineInventories: MachinesWorkspaceSidebarInventory[];
@@ -72,9 +60,7 @@ type MachinesWorkspaceViewProps = {
     nextPinned: boolean;
     threadId: string;
   }) => void;
-  onProjectStartConversation?: (
-    selection: MachinesWorkspaceProjectConversationSelection,
-  ) => void;
+  onProjectStartConversation?: (selection: MachinesWorkspaceProjectConversationSelection) => void;
   onThreadSelect?: (selection: { machineId: string; threadId: string }) => void;
 };
 
@@ -84,14 +70,8 @@ function normalizeTimestampToMilliseconds(value: number): number {
 }
 
 /** Render the compact sidebar age badges used beside each thread row. */
-function formatRelativeTime(
-  value: number,
-  referenceTimeMs: number = Date.now(),
-): string {
-  const diffMs = Math.max(
-    0,
-    referenceTimeMs - normalizeTimestampToMilliseconds(value),
-  );
+function formatRelativeTime(value: number, referenceTimeMs: number = Date.now()): string {
+  const diffMs = Math.max(0, referenceTimeMs - normalizeTimestampToMilliseconds(value));
   const minuteMs = 60_000;
   const hourMs = 60 * minuteMs;
   const dayMs = 24 * hourMs;
@@ -186,17 +166,14 @@ function ThreadRow(props: {
   onPinChange?: (threadId: string, nextPinned: boolean) => void;
   onSelect?: (threadId: string) => void;
 }) {
-  const { isMobile, leftDesktopWidthPx, leftMobileWidthPx } =
-    useWorkspacePaneState();
+  const { isMobile, leftDesktopWidthPx, leftMobileWidthPx } = useWorkspacePaneState();
   const leftSidebarWidthPx = isMobile ? leftMobileWidthPx : leftDesktopWidthPx;
   // Once the rail gets very narrow, the fixed timestamp chrome can starve the
   // flex title column down to zero width, which makes line-clamp appear stuck.
-  const showTrailingMeta =
-    leftSidebarWidthPx >= MIN_LEFT_SIDEBAR_WIDTH_FOR_THREAD_META_PX;
+  const showTrailingMeta = leftSidebarWidthPx >= MIN_LEFT_SIDEBAR_WIDTH_FOR_THREAD_META_PX;
   const pinActionAlwaysVisible = props.item.isPinned;
   const pinActionVisibleBecauseSelected = isMobile && props.isSelected;
-  const pinActionVisible =
-    pinActionAlwaysVisible || pinActionVisibleBecauseSelected;
+  const pinActionVisible = pinActionAlwaysVisible || pinActionVisibleBecauseSelected;
   const pinActionIsPending = props.pinActionPendingKey === props.threadKey;
   const pinActionDisabled = pinActionIsPending || props.isDisabled === true;
 
@@ -263,10 +240,7 @@ function ThreadRow(props: {
           <div className="flex shrink-0 items-center gap-1 pt-0.5 text-[12px] tabular-nums text-muted-foreground">
             <ArrowUpRight className="h-3 w-3" strokeWidth={1.75} />
             <span>
-              {formatRelativeTime(
-                props.item.thread.updatedAt,
-                props.relativeTimeReferenceMs,
-              )}
+              {formatRelativeTime(props.item.thread.updatedAt, props.relativeTimeReferenceMs)}
             </span>
           </div>
         ) : null}
@@ -329,10 +303,7 @@ function ProjectSection(props: {
                 }}
               >
                 {props.isStartConversationPending ? (
-                  <Loader2
-                    className="h-3.5 w-3.5 animate-spin"
-                    strokeWidth={1.75}
-                  />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} />
                 ) : (
                   <Plus className="h-3.5 w-3.5" strokeWidth={1.75} />
                 )}
@@ -375,9 +346,7 @@ function ProjectSection(props: {
 }
 
 /** Map machine connectivity into the small status pill copy shown in the rail. */
-function readMachineSectionStatusLabel(
-  section: MachinesWorkspaceSidebarSection,
-): string {
+function readMachineSectionStatusLabel(section: MachinesWorkspaceSidebarSection): string {
   if (section.machineStatus !== "online") {
     return "Offline";
   }
@@ -390,9 +359,7 @@ function readMachineSectionStatusLabel(
 }
 
 /** Keep machine status styling literal so Tailwind can statically extract it. */
-function readMachineSectionStatusClassName(
-  section: MachinesWorkspaceSidebarSection,
-): string {
+function readMachineSectionStatusClassName(section: MachinesWorkspaceSidebarSection): string {
   if (section.machineStatus !== "online") {
     return "border-border text-muted-foreground";
   }
@@ -480,25 +447,16 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
     () => machineSections.map((section) => section.machineId),
     [machineSections],
   );
-  const machineIdsSignature = useMemo(
-    () => machineIds.join("\u0000"),
-    [machineIds],
-  );
+  const machineIdsSignature = useMemo(() => machineIds.join("\u0000"), [machineIds]);
   const stableMachineIds = useMemo(
-    () =>
-      machineIdsSignature.length > 0 ? machineIdsSignature.split("\u0000") : [],
+    () => (machineIdsSignature.length > 0 ? machineIdsSignature.split("\u0000") : []),
     [machineIdsSignature],
   );
-  const validMachineIds = useMemo(
-    () => new Set(stableMachineIds),
-    [stableMachineIds],
-  );
+  const validMachineIds = useMemo(() => new Set(stableMachineIds), [stableMachineIds]);
   const selectedMachineSection = useMemo(
     () =>
       props.selectedMachineId
-        ? (machineSections.find(
-            (section) => section.machineId === props.selectedMachineId,
-          ) ?? null)
+        ? (machineSections.find((section) => section.machineId === props.selectedMachineId) ?? null)
         : null,
     [machineSections, props.selectedMachineId],
   );
@@ -514,41 +472,24 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
   const projectKeys = useMemo(
     () =>
       machineSections.flatMap((section) =>
-        section.projects.map((project) =>
-          buildProjectKey(section.machineId, project.id),
-        ),
+        section.projects.map((project) => buildProjectKey(section.machineId, project.id)),
       ),
     [machineSections],
   );
-  const projectKeysSignature = useMemo(
-    () => projectKeys.join("\u0000"),
-    [projectKeys],
-  );
+  const projectKeysSignature = useMemo(() => projectKeys.join("\u0000"), [projectKeys]);
   const stableProjectKeys = useMemo(
-    () =>
-      projectKeysSignature.length > 0
-        ? projectKeysSignature.split("\u0000")
-        : [],
+    () => (projectKeysSignature.length > 0 ? projectKeysSignature.split("\u0000") : []),
     [projectKeysSignature],
   );
-  const validProjectKeys = useMemo(
-    () => new Set(stableProjectKeys),
-    [stableProjectKeys],
-  );
+  const validProjectKeys = useMemo(() => new Set(stableProjectKeys), [stableProjectKeys]);
   const selectedProjectKey =
     selectedMachineSection &&
     selectedThreadSummary &&
-    !selectedMachineSection.pinnedThreads.some(
-      (thread) => thread.id === selectedThreadSummary.id,
-    )
-      ? buildProjectKey(
-          selectedMachineSection.machineId,
-          selectedThreadSummary.project.id,
-        )
+    !selectedMachineSection.pinnedThreads.some((thread) => thread.id === selectedThreadSummary.id)
+      ? buildProjectKey(selectedMachineSection.machineId, selectedThreadSummary.project.id)
       : null;
   const fallbackProjectMachine =
-    selectedMachineSection ??
-    (machineSections.length > 0 ? machineSections[0] : null);
+    selectedMachineSection ?? (machineSections.length > 0 ? machineSections[0] : null);
   const fallbackProject =
     fallbackProjectMachine && fallbackProjectMachine.projects.length > 0
       ? fallbackProjectMachine.projects[0]
@@ -578,12 +519,8 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
     }
     return next;
   });
-  const sidebarTestId = props.dataTestId
-    ? `${props.dataTestId}-sidebar`
-    : undefined;
-  const headerTestId = props.dataTestId
-    ? `${props.dataTestId}-header`
-    : undefined;
+  const sidebarTestId = props.dataTestId ? `${props.dataTestId}-sidebar` : undefined;
+  const headerTestId = props.dataTestId ? `${props.dataTestId}-header` : undefined;
 
   useEffect(() => {
     setOpenMachineIds((current) => {
@@ -594,10 +531,7 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
         }
       }
 
-      if (
-        props.selectedMachineId !== null &&
-        validMachineIds.has(props.selectedMachineId)
-      ) {
+      if (props.selectedMachineId !== null && validMachineIds.has(props.selectedMachineId)) {
         next.add(props.selectedMachineId);
       }
 
@@ -631,12 +565,7 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
 
       return setsAreEqual(current, next) ? current : next;
     });
-  }, [
-    firstProjectKey,
-    projectKeysSignature,
-    selectedProjectKey,
-    validProjectKeys,
-  ]);
+  }, [firstProjectKey, projectKeysSignature, selectedProjectKey, validProjectKeys]);
 
   return (
     <WorkspaceLayoutV2FullPage
@@ -673,8 +602,7 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                     </div>
                   ) : null}
 
-                  {section.machineStatusReason === null &&
-                  !section.hasLoadedThreadInventory ? (
+                  {section.machineStatusReason === null && !section.hasLoadedThreadInventory ? (
                     <div className="px-3 py-2 text-[11px] leading-5 text-muted-foreground">
                       Loading threads...
                     </div>
@@ -686,22 +614,16 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                         <ThreadRow
                           key={thread.id}
                           item={thread}
-                          threadKey={buildMachineThreadKey(
-                            section.machineId,
-                            thread.id,
-                          )}
+                          threadKey={buildMachineThreadKey(section.machineId, thread.id)}
                           isSelected={
                             section.machineId === props.selectedMachineId &&
                             thread.id === props.selectedThreadId
                           }
                           pinActionPendingKey={props.pendingPinThreadKey}
                           isDisabled={
-                            section.machineStatusReason !== null ||
-                            props.isSubmittingTurn
+                            section.machineStatusReason !== null || props.isSubmittingTurn
                           }
-                          relativeTimeReferenceMs={
-                            props.relativeTimeReferenceMs
-                          }
+                          relativeTimeReferenceMs={props.relativeTimeReferenceMs}
                           onPinChange={
                             props.onThreadPinChange
                               ? (threadId, nextPinned) => {
@@ -726,14 +648,10 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
 
                   <div className="grid min-w-0 gap-1 pb-1">
                     {section.projects.map((group) => {
-                      const projectKey = buildProjectKey(
-                        section.machineId,
-                        group.id,
-                      );
+                      const projectKey = buildProjectKey(section.machineId, group.id);
                       const projectStartIsPending =
                         props.isSubmittingTurn &&
-                        props.pendingConversation?.machineId ===
-                          section.machineId &&
+                        props.pendingConversation?.machineId === section.machineId &&
                         props.pendingConversation.projectId === group.id;
                       return (
                         <ProjectSection
@@ -741,8 +659,7 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                           group={group}
                           isOpen={openProjectIds.has(projectKey)}
                           isStartConversationDisabled={
-                            section.machineStatusReason !== null ||
-                            props.isSubmittingTurn
+                            section.machineStatusReason !== null || props.isSubmittingTurn
                           }
                           isStartConversationPending={projectStartIsPending}
                           onOpenChange={(nextOpen) => {
@@ -774,22 +691,16 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                             <ThreadRow
                               key={thread.id}
                               item={thread}
-                              threadKey={buildMachineThreadKey(
-                                section.machineId,
-                                thread.id,
-                              )}
+                              threadKey={buildMachineThreadKey(section.machineId, thread.id)}
                               isSelected={
                                 section.machineId === props.selectedMachineId &&
                                 thread.id === props.selectedThreadId
                               }
                               pinActionPendingKey={props.pendingPinThreadKey}
                               isDisabled={
-                                section.machineStatusReason !== null ||
-                                props.isSubmittingTurn
+                                section.machineStatusReason !== null || props.isSubmittingTurn
                               }
-                              relativeTimeReferenceMs={
-                                props.relativeTimeReferenceMs
-                              }
+                              relativeTimeReferenceMs={props.relativeTimeReferenceMs}
                               className="pl-10"
                               onPinChange={
                                 props.onThreadPinChange

@@ -53,9 +53,7 @@ export function SidebarMediaUploadVisualFixture() {
     <>
       <div className="border-b border-border/50 p-3">
         <div className="text-sm font-medium text-foreground">Noter</div>
-        <div className="mt-1 text-xs text-muted-foreground">
-          Sidebar media upload fixture
-        </div>
+        <div className="mt-1 text-xs text-muted-foreground">Sidebar media upload fixture</div>
       </div>
 
       <div className="border-b border-border/50 p-3">
@@ -106,12 +104,9 @@ export function SidebarMediaUploadVisualFixture() {
           content: (
             <div className="flex h-full min-h-0 flex-col p-6">
               <div className="mb-3">
-                <div className="text-sm font-medium text-foreground">
-                  Upload target review
-                </div>
+                <div className="text-sm font-medium text-foreground">Upload target review</div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  The dialog stays tap-first on mobile and asks before replacing
-                  an existing path.
+                  The dialog stays tap-first on mobile and asks before replacing an existing path.
                 </div>
               </div>
             </div>

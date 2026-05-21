@@ -3,17 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { buildPullRequestLabelStyle } from "@/lib/pullRequestLabels";
 import {
   setVaultBranchFilterLabelIncluded,
@@ -61,9 +52,7 @@ function VaultBranchFiltersPanel({
   const labelSearch = useSelector(panelStore, (state) => state.labelSearch);
   const { setLabelSearch } = panelStore.actions;
   const hasCustomFilters =
-    value.hiddenLabels.length > 0 ||
-    value.includeDrafts === true ||
-    value.includeNoLabel === false;
+    value.hiddenLabels.length > 0 || value.includeDrafts === true || value.includeNoLabel === false;
   const visibleOptions = options.filter((option) =>
     matchesOptionSearch(option, labelSearch.trim()),
   );
@@ -209,15 +198,8 @@ export function VaultBranchFiltersControl({
   return (
     <Popover open={isOpen} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent
-        align="end"
-        className="w-[22rem] max-w-[calc(100vw-1rem)] p-0"
-      >
-        <VaultBranchFiltersPanel
-          value={value}
-          options={options}
-          onChange={onChange}
-        />
+      <PopoverContent align="end" className="w-[22rem] max-w-[calc(100vw-1rem)] p-0">
+        <VaultBranchFiltersPanel value={value} options={options} onChange={onChange} />
       </PopoverContent>
     </Popover>
   );

@@ -44,9 +44,7 @@ export const getNodeLayouts = query({
 
     const layouts = await ctx.db
       .query("agentGraphNodeLayout")
-      .withIndex("by_user_and_vault", (q) =>
-        q.eq("userId", userId).eq("vaultId", args.vaultId),
-      )
+      .withIndex("by_user_and_vault", (q) => q.eq("userId", userId).eq("vaultId", args.vaultId))
       .collect();
 
     return layouts.map((layout) => ({
@@ -74,10 +72,7 @@ export const setNodeLayout = mutation({
     const existing = await ctx.db
       .query("agentGraphNodeLayout")
       .withIndex("by_user_vault_and_node", (q) =>
-        q
-          .eq("userId", userId)
-          .eq("vaultId", args.vaultId)
-          .eq("nodeId", args.nodeId),
+        q.eq("userId", userId).eq("vaultId", args.vaultId).eq("nodeId", args.nodeId),
       )
       .first();
 

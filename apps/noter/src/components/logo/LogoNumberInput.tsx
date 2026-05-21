@@ -2,8 +2,7 @@ import { Input } from "@/components/ui/input";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 
 const LOGO_NUMBER_INPUT_CLASS_NAMES = {
-  preview:
-    "h-9 w-full max-w-32 rounded-none border-border bg-background px-2 font-mono text-sm",
+  preview: "h-9 w-full max-w-32 rounded-none border-border bg-background px-2 font-mono text-sm",
   seamLab:
     "h-9 w-full rounded-none border-black/15 bg-white px-2 font-mono text-sm text-black shadow-none",
 } as const;
@@ -44,9 +43,7 @@ export function LogoNumberInput({
   variant: LogoNumberInputVariant;
 }) {
   const normalizedValue = normalizeValue(value);
-  const [inputValue, setInputValue] = useState(() =>
-    formatValue(normalizedValue),
-  );
+  const [inputValue, setInputValue] = useState(() => formatValue(normalizedValue));
   const isEditingRef = useRef(false);
 
   useEffect(() => {
@@ -60,8 +57,7 @@ export function LogoNumberInput({
   const commitInputValue = () => {
     isEditingRef.current = false;
     const parsedValue = parseLogoNumberInput(inputValue);
-    const nextValue =
-      parsedValue === null ? normalizedValue : normalizeValue(parsedValue);
+    const nextValue = parsedValue === null ? normalizedValue : normalizeValue(parsedValue);
 
     onValueChange(nextValue);
     setInputValue(formatValue(nextValue));

@@ -16,10 +16,7 @@ export type RepositoryFullNameMatchSegments = {
   slashMatched: boolean;
 };
 
-export function getFuzzyMatchIndices(
-  query: string,
-  target: string,
-): number[] | null {
+export function getFuzzyMatchIndices(query: string, target: string): number[] | null {
   const normalizedQuery = query.toLowerCase().replace(/\s+/g, "");
   if (normalizedQuery.length === 0) {
     return [];
@@ -92,10 +89,7 @@ export function findRepositorySearchMatch(
   return null;
 }
 
-export function repositoryMatchesSearch(
-  query: string,
-  repository: SearchableRepository,
-): boolean {
+export function repositoryMatchesSearch(query: string, repository: SearchableRepository): boolean {
   return findRepositorySearchMatch(query, repository) !== null;
 }
 

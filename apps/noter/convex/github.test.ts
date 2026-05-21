@@ -108,15 +108,9 @@ describe("readPullRequestLabels", () => {
   });
 
   it("ignores malformed labels and supports string payloads", () => {
-    expect(
-      readPullRequestLabels([
-        "release",
-        { name: "" },
-        { color: "ff0000" },
-        null,
-        42,
-      ]),
-    ).toEqual([{ name: "release", color: undefined }]);
+    expect(readPullRequestLabels(["release", { name: "" }, { color: "ff0000" }, null, 42])).toEqual(
+      [{ name: "release", color: undefined }],
+    );
   });
 });
 
@@ -138,10 +132,7 @@ describe("shouldSyncCloudflarePreviewLinks", () => {
       shouldSyncCloudflarePreviewLinks({
         includeCloudflarePreviewLinks: true,
         includePullRequestLinks: true,
-        branches: [
-          { pullRequestState: "resolved" },
-          { pullRequestState: "resolved" },
-        ],
+        branches: [{ pullRequestState: "resolved" }, { pullRequestState: "resolved" }],
       }),
     ).toBe(true);
   });
@@ -151,10 +142,7 @@ describe("shouldSyncCloudflarePreviewLinks", () => {
       shouldSyncCloudflarePreviewLinks({
         includeCloudflarePreviewLinks: true,
         includePullRequestLinks: true,
-        branches: [
-          { pullRequestState: "resolved" },
-          { pullRequestState: "preserve" },
-        ],
+        branches: [{ pullRequestState: "resolved" }, { pullRequestState: "preserve" }],
       }),
     ).toBe(false);
   });
@@ -579,9 +567,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
   });
 
   it("keeps repo metadata sync for repo-scoped refreshes", () => {
-    expect(
-      computeRepositoryTreeMetadataSyncPlan(repositoryMetadataSyncRequest),
-    ).toEqual({
+    expect(computeRepositoryTreeMetadataSyncPlan(repositoryMetadataSyncRequest)).toEqual({
       shouldSyncMetadata: true,
       includeAheadBehind: false,
       includePullRequestLinks: false,
@@ -941,11 +927,7 @@ describe("listGitHubRepositories", () => {
 
     const fetchImpl: typeof fetch = async (input, init) => {
       requestedUrls.push(
-        typeof input === "string"
-          ? input
-          : input instanceof URL
-            ? input.toString()
-            : input.url,
+        typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url,
       );
       expect(init?.headers).toMatchObject({
         Authorization: "Bearer github-token",
@@ -1033,11 +1015,7 @@ describe("listGitHubRepositoryPreview", () => {
     const requestedUrls: string[] = [];
     const fetchImpl: typeof fetch = async (input, init) => {
       requestedUrls.push(
-        typeof input === "string"
-          ? input
-          : input instanceof URL
-            ? input.toString()
-            : input.url,
+        typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url,
       );
       expect(init?.headers).toMatchObject({
         Authorization: "Bearer github-token",

@@ -5,10 +5,7 @@ import {
   mergeFileViewRouteSearch,
   validateFileViewRouteSearch,
 } from "@/lib/fileViewRouteSearch";
-import {
-  parseTanStackSearch,
-  stringifyTanStackSearch,
-} from "@/lib/tanstackSearchParams";
+import { parseTanStackSearch, stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
 
 describe("fileViewRouteSearch", () => {
   it("accepts routed file-view flags and mobile line numbers", () => {
@@ -51,9 +48,7 @@ describe("fileViewRouteSearch", () => {
   it("accepts parsed search params for the file-view contract", () => {
     expect(
       validateFileViewRouteSearch(
-        Object.fromEntries(
-          new URLSearchParams("?compare&review&mobileLineNumbers=1").entries(),
-        ),
+        Object.fromEntries(new URLSearchParams("?compare&review&mobileLineNumbers=1").entries()),
       ),
     ).toEqual({
       compare: true,
@@ -79,14 +74,11 @@ describe("fileViewRouteSearch", () => {
   it("updates file-view keys while preserving unrelated query params", () => {
     expect(
       stringifyTanStackSearch(
-        mergeFileViewRouteSearch(
-          parseTanStackSearch("?devtools&mobileLineNumbers=1&compare"),
-          {
-            diff: true,
-            mobileLineNumbers: "1",
-            review: true,
-          },
-        ),
+        mergeFileViewRouteSearch(parseTanStackSearch("?devtools&mobileLineNumbers=1&compare"), {
+          diff: true,
+          mobileLineNumbers: "1",
+          review: true,
+        }),
       ),
     ).toBe("?devtools&mobileLineNumbers=1&diff&review");
   });
@@ -94,15 +86,12 @@ describe("fileViewRouteSearch", () => {
   it("builds file-view hrefs without decoding encoded branch slashes", () => {
     expect(
       buildFileViewSearchHref({
-        pathname:
-          "/vault/noter-md/noter/codex%2Fintegrate-new-skill-files/README.md",
+        pathname: "/vault/noter-md/noter/codex%2Fintegrate-new-skill-files/README.md",
         search: parseTanStackSearch("?dev"),
         fileViewSearch: {
           compare: true,
         },
       }),
-    ).toBe(
-      "/vault/noter-md/noter/codex%2Fintegrate-new-skill-files/README.md?dev&compare",
-    );
+    ).toBe("/vault/noter-md/noter/codex%2Fintegrate-new-skill-files/README.md?dev&compare");
   });
 });

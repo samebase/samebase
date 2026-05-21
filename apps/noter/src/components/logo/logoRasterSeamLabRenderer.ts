@@ -315,18 +315,12 @@ function getCubeFaces({
 
 function getFaceCenter(face: RasterSeamLabFace): Vector3 {
   return scaleVector(
-    face.vertices.reduce<Vector3>(
-      (sum, vertex) => addVectors(sum, vertex),
-      [0, 0, 0],
-    ),
+    face.vertices.reduce<Vector3>((sum, vertex) => addVectors(sum, vertex), [0, 0, 0]),
     1 / face.vertices.length,
   );
 }
 
-function drawPolygon(
-  context: CanvasRenderingContext2D,
-  points: readonly Point2D[],
-) {
+function drawPolygon(context: CanvasRenderingContext2D, points: readonly Point2D[]) {
   const [firstPoint, ...remainingPoints] = points;
   context.beginPath();
   context.moveTo(firstPoint.x, firstPoint.y);
@@ -356,10 +350,7 @@ function drawProjectedFaces({
 
       return {
         color: face.color,
-        depth: dotProduct(
-          projection.rotatePoint(getFaceCenter(face)),
-          projection.cameraDirection,
-        ),
+        depth: dotProduct(projection.rotatePoint(getFaceCenter(face)), projection.cameraDirection),
         key: face.key,
         points: face.vertices.map((vertex) => projection.projectPoint(vertex)),
       };
@@ -383,9 +374,7 @@ function drawProjectedFaces({
     });
 }
 
-function getFaceColorChannels(
-  color: string,
-): readonly [number, number, number] {
+function getFaceColorChannels(color: string): readonly [number, number, number] {
   if (color === FACE_COLORS.x) {
     return [255, 0, 0];
   }
@@ -411,9 +400,7 @@ function isPointInsidePolygon(point: Point2D, polygon: readonly Point2D[]) {
     if (
       current.y > point.y === previous.y > point.y ||
       point.x >=
-        ((previous.x - current.x) * (point.y - current.y)) /
-          (previous.y - current.y) +
-          current.x
+        ((previous.x - current.x) * (point.y - current.y)) / (previous.y - current.y) + current.x
     ) {
       continue;
     }
@@ -442,10 +429,7 @@ function drawProjectedFacesCrisp({
 
       return {
         color: face.color,
-        depth: dotProduct(
-          projection.rotatePoint(getFaceCenter(face)),
-          projection.cameraDirection,
-        ),
+        depth: dotProduct(projection.rotatePoint(getFaceCenter(face)), projection.cameraDirection),
         key: face.key,
         points: face.vertices.map((vertex) => projection.projectPoint(vertex)),
       };
@@ -459,25 +443,16 @@ function drawProjectedFacesCrisp({
       return left.key.localeCompare(right.key);
     });
 
-  const imageData = context.createImageData(
-    projection.sizePx,
-    projection.sizePx,
-  );
+  const imageData = context.createImageData(projection.sizePx, projection.sizePx);
 
   for (const face of projectedFaces) {
     const redGreenBlue = getFaceColorChannels(face.color);
-    const minX = Math.max(
-      0,
-      Math.floor(Math.min(...face.points.map((point) => point.x))),
-    );
+    const minX = Math.max(0, Math.floor(Math.min(...face.points.map((point) => point.x))));
     const maxX = Math.min(
       projection.sizePx - 1,
       Math.ceil(Math.max(...face.points.map((point) => point.x))),
     );
-    const minY = Math.max(
-      0,
-      Math.floor(Math.min(...face.points.map((point) => point.y))),
-    );
+    const minY = Math.max(0, Math.floor(Math.min(...face.points.map((point) => point.y))));
     const maxY = Math.min(
       projection.sizePx - 1,
       Math.ceil(Math.max(...face.points.map((point) => point.y))),
@@ -508,10 +483,7 @@ function createLabCanvas(sizePx: number): HTMLCanvasElement {
   return canvas;
 }
 
-function createUnitCubeCanvas(
-  projection: RasterSeamLabProjection,
-  halfSize: number,
-) {
+function createUnitCubeCanvas(projection: RasterSeamLabProjection, halfSize: number) {
   const canvas = createLabCanvas(projection.sizePx);
   const context = canvas.getContext("2d");
   if (!context) {
@@ -529,10 +501,7 @@ function createUnitCubeCanvas(
   return canvas;
 }
 
-function createCrispUnitCubeCanvas(
-  projection: RasterSeamLabProjection,
-  halfSize: number,
-) {
+function createCrispUnitCubeCanvas(projection: RasterSeamLabProjection, halfSize: number) {
   const canvas = createLabCanvas(projection.sizePx);
   const context = canvas.getContext("2d");
   if (!context) {
@@ -550,13 +519,7 @@ function createCrispUnitCubeCanvas(
   return canvas;
 }
 
-function getGridCoordinate({
-  gridSize,
-  index,
-}: {
-  gridSize: number;
-  index: number;
-}): number {
+function getGridCoordinate({ gridSize, index }: { gridSize: number; index: number }): number {
   return index / gridSize - 0.5;
 }
 
@@ -590,11 +553,7 @@ function getGridCells(gridSize: number): GridCell[] {
   return cells;
 }
 
-function addBoundaryEdge(
-  edges: Map<string, GridEdge>,
-  from: GridPoint2D,
-  to: GridPoint2D,
-) {
+function addBoundaryEdge(edges: Map<string, GridEdge>, from: GridPoint2D, to: GridPoint2D) {
   // Adjacent cells add the same edge in opposite directions; deleting that pair
   // leaves only the outer loop that should be rasterized.
   const reverseKey = getGridEdgeKey(to, from);
@@ -606,10 +565,7 @@ function addBoundaryEdge(
   edges.set(getGridEdgeKey(from, to), { from, to });
 }
 
-function takeNextBoundaryEdge(
-  edges: Map<string, GridEdge>,
-  point: GridPoint2D,
-): GridEdge | null {
+function takeNextBoundaryEdge(edges: Map<string, GridEdge>, point: GridPoint2D): GridEdge | null {
   const pointKey = getGridPointKey(point);
   for (const edge of edges.values()) {
     if (getGridPointKey(edge.from) !== pointKey) {
@@ -623,11 +579,7 @@ function takeNextBoundaryEdge(
   return null;
 }
 
-function areGridPointsColinear(
-  previous: GridPoint2D,
-  current: GridPoint2D,
-  next: GridPoint2D,
-) {
+function areGridPointsColinear(previous: GridPoint2D, current: GridPoint2D, next: GridPoint2D) {
   return (
     (previous.u === current.u && current.u === next.u) ||
     (previous.v === current.v && current.v === next.v)
@@ -814,11 +766,7 @@ function getMergedFaceGroups({
             vAxis: group.vAxis,
           });
           return (
-            totalDepth +
-            dotProduct(
-              projection.rotatePoint(rectCenter),
-              projection.cameraDirection,
-            )
+            totalDepth + dotProduct(projection.rotatePoint(rectCenter), projection.cameraDirection)
           );
         }, 0) / group.rects.length;
 
@@ -953,8 +901,7 @@ function getSpacedGridHalfSize({
 }) {
   const cellHalfSize = halfSize / gridSize;
   return (
-    cellHalfSize +
-    (halfSize - cellHalfSize) * normalizeRasterSeamLabSpacingScale(spacingScale)
+    cellHalfSize + (halfSize - cellHalfSize) * normalizeRasterSeamLabSpacingScale(spacingScale)
   );
 }
 
@@ -970,8 +917,7 @@ function getDrawItems({
   spacingScale: number;
 }): RasterSeamLabDrawItem[] {
   const drawItems: RasterSeamLabDrawItem[] = [];
-  const normalizedSpacingScale =
-    normalizeRasterSeamLabSpacingScale(spacingScale);
+  const normalizedSpacingScale = normalizeRasterSeamLabSpacingScale(spacingScale);
 
   for (let x = 0; x < gridSize; x += 1) {
     for (let y = 0; y < gridSize; y += 1) {
@@ -982,10 +928,7 @@ function getDrawItems({
         );
         drawItems.push({
           center,
-          depth: dotProduct(
-            projection.rotatePoint(center),
-            projection.cameraDirection,
-          ),
+          depth: dotProduct(projection.rotatePoint(center), projection.cameraDirection),
           key: `${x},${y},${z}`,
         });
       }
@@ -1171,23 +1114,21 @@ function renderInflatedComposedImage({
 
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
-  getDrawItems({ gridSize, halfSize, projection, spacingScale }).forEach(
-    (item, index) => {
-      const offset = projection.projectVector(item.center);
-      if (index === 0) {
-        context.drawImage(childCanvas, offset.x, offset.y);
-        return;
-      }
+  getDrawItems({ gridSize, halfSize, projection, spacingScale }).forEach((item, index) => {
+    const offset = projection.projectVector(item.center);
+    if (index === 0) {
+      context.drawImage(childCanvas, offset.x, offset.y);
+      return;
+    }
 
-      context.drawImage(
-        childCanvas,
-        offset.x - inflatedOffset,
-        offset.y - inflatedOffset,
-        inflatedSize,
-        inflatedSize,
-      );
-    },
-  );
+    context.drawImage(
+      childCanvas,
+      offset.x - inflatedOffset,
+      offset.y - inflatedOffset,
+      inflatedSize,
+      inflatedSize,
+    );
+  });
 
   return canvas;
 }
@@ -1282,11 +1223,7 @@ function renderSingleCompositeImage({
       sizePx: projection.sizePx,
     })) {
       const parentOffset = getDrawImageOffset(projection, parentItem);
-      magicContext.drawImage(
-        childCanvas,
-        parentOffset.x - offset.x,
-        parentOffset.y - offset.y,
-      );
+      magicContext.drawImage(childCanvas, parentOffset.x - offset.x, parentOffset.y - offset.y);
     }
 
     context.drawImage(magicCanvas, offset.x, offset.y);
@@ -1613,8 +1550,7 @@ function getRasterSeamLabStats({
     ),
     mergedFacePoints: visibleMergedFaceGroups.reduce(
       (totalPoints, group) =>
-        totalPoints +
-        group.loops.reduce((groupPoints, loop) => groupPoints + loop.length, 0),
+        totalPoints + group.loops.reduce((groupPoints, loop) => groupPoints + loop.length, 0),
       0,
     ),
     mergedFaceRects: visibleMergedFaceGroups.reduce(
@@ -1945,14 +1881,10 @@ function measureSeams({
     }
 
     coveredPixels += 1;
-    const redDelta =
-      composedImageData.data[index] - referenceImageData.data[index];
-    const greenDelta =
-      composedImageData.data[index + 1] - referenceImageData.data[index + 1];
-    const blueDelta =
-      composedImageData.data[index + 2] - referenceImageData.data[index + 2];
-    const alphaDelta =
-      composedImageData.data[index + 3] - referenceImageData.data[index + 3];
+    const redDelta = composedImageData.data[index] - referenceImageData.data[index];
+    const greenDelta = composedImageData.data[index + 1] - referenceImageData.data[index + 1];
+    const blueDelta = composedImageData.data[index + 2] - referenceImageData.data[index + 2];
+    const alphaDelta = composedImageData.data[index + 3] - referenceImageData.data[index + 3];
     squaredError +=
       redDelta * redDelta +
       greenDelta * greenDelta +
@@ -1961,12 +1893,8 @@ function measureSeams({
 
     if (
       composedImageData.data[index + 3] < SEAM_ALPHA_THRESHOLD ||
-      getColorDistance(
-        composedImageData.data,
-        referenceImageData.data,
-        index,
-        index,
-      ) > SEAM_COLOR_DISTANCE_THRESHOLD
+      getColorDistance(composedImageData.data, referenceImageData.data, index, index) >
+        SEAM_COLOR_DISTANCE_THRESHOLD
     ) {
       seamPixels += 1;
     }
@@ -2011,12 +1939,7 @@ function drawSeamMask({
     return;
   }
 
-  const maskImageData = context.getImageData(
-    0,
-    0,
-    composedCanvas.width,
-    composedCanvas.height,
-  );
+  const maskImageData = context.getImageData(0, 0, composedCanvas.width, composedCanvas.height);
   for (let index = 0; index < referenceImageData.data.length; index += 4) {
     if (referenceImageData.data[index + 3] < SEAM_ALPHA_THRESHOLD) {
       continue;
@@ -2024,12 +1947,8 @@ function drawSeamMask({
 
     if (
       composedImageData.data[index + 3] >= SEAM_ALPHA_THRESHOLD &&
-      getColorDistance(
-        composedImageData.data,
-        referenceImageData.data,
-        index,
-        index,
-      ) <= SEAM_COLOR_DISTANCE_THRESHOLD
+      getColorDistance(composedImageData.data, referenceImageData.data, index, index) <=
+        SEAM_COLOR_DISTANCE_THRESHOLD
     ) {
       continue;
     }
@@ -2067,12 +1986,9 @@ export function drawLogoRasterSeamLabImage(
     sourceSizePx: number;
   },
 ): RasterSeamLabResult {
-  const normalizedSourceSizePx =
-    normalizeRasterSeamLabSourceSizePx(sourceSizePx);
-  const normalizedSpacingScale =
-    normalizeRasterSeamLabSpacingScale(spacingScale);
-  const normalizedInflationScale =
-    normalizeRasterSeamLabInflationScale(inflationScale);
+  const normalizedSourceSizePx = normalizeRasterSeamLabSourceSizePx(sourceSizePx);
+  const normalizedSpacingScale = normalizeRasterSeamLabSpacingScale(spacingScale);
+  const normalizedInflationScale = normalizeRasterSeamLabInflationScale(inflationScale);
   const worldHalfSize = getSpacedGridHalfSize({
     gridSize: getEffectiveGridSize({ depth, gridSize }),
     halfSize: 0.5,

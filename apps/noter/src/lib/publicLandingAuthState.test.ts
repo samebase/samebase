@@ -12,10 +12,7 @@ import {
 } from "./publicLandingAuthState";
 import { validateRootRouteSearch } from "./rootRouteSearch";
 
-const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
-  window,
-  "localStorage",
-);
+const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
 
 function createMockStorage(): Storage {
   const entries = new Map<string, string>();
@@ -44,11 +41,7 @@ function createMockStorage(): Storage {
 
 afterEach(() => {
   if (originalLocalStorageDescriptor) {
-    Object.defineProperty(
-      window,
-      "localStorage",
-      originalLocalStorageDescriptor,
-    );
+    Object.defineProperty(window, "localStorage", originalLocalStorageDescriptor);
     return;
   }
 
@@ -63,12 +56,7 @@ describe("publicLandingAuthState", () => {
     });
     window.localStorage.setItem("__convexAuthRefreshToken", "anon-token");
 
-    expect(
-      shouldRenderPublicLandingWithoutAuthGate(
-        "/",
-        validateRootRouteSearch({}),
-      ),
-    ).toBe(true);
+    expect(shouldRenderPublicLandingWithoutAuthGate("/", validateRootRouteSearch({}))).toBe(true);
   });
 
   it("hides the anonymous landing after a remembered auth flow starts", () => {
@@ -78,12 +66,7 @@ describe("publicLandingAuthState", () => {
     });
     window.localStorage.setItem("noter_auth_provider", "google");
 
-    expect(
-      shouldRenderPublicLandingWithoutAuthGate(
-        "/",
-        validateRootRouteSearch({}),
-      ),
-    ).toBe(false);
+    expect(shouldRenderPublicLandingWithoutAuthGate("/", validateRootRouteSearch({}))).toBe(false);
   });
 
   it("keeps Google auth hidden on the normal public landing with remembered auth state", () => {
@@ -93,15 +76,8 @@ describe("publicLandingAuthState", () => {
     });
     window.localStorage.setItem("noter_auth_provider", "google");
 
-    expect(
-      shouldShowGoogleAuthForPathname("/", validateRootRouteSearch({})),
-    ).toBe(false);
-    expect(
-      shouldShowGoogleAuthForPathname(
-        "/",
-        validateRootRouteSearch({ dev: true }),
-      ),
-    ).toBe(true);
+    expect(shouldShowGoogleAuthForPathname("/", validateRootRouteSearch({}))).toBe(false);
+    expect(shouldShowGoogleAuthForPathname("/", validateRootRouteSearch({ dev: true }))).toBe(true);
   });
 
   it("forces the public landing closed-signup state for marked Google returns", () => {
@@ -114,17 +90,13 @@ describe("publicLandingAuthState", () => {
     const routeSearch = validateRootRouteSearch({ signup: "google" });
 
     expect(shouldRenderGoogleSignupClosedState("/", routeSearch)).toBe(true);
-    expect(shouldRenderPublicLandingWithoutAuthGate("/", routeSearch)).toBe(
-      true,
-    );
+    expect(shouldRenderPublicLandingWithoutAuthGate("/", routeSearch)).toBe(true);
     expect(shouldShowGoogleAuthForPathname("/", routeSearch)).toBe(false);
   });
 
   it("maps the public password auth mode to a stable landing surface", () => {
     expect(getPasswordAuthSurface("preview_seed")).toBe("preview");
-    expect(getPasswordAuthSurface("local_worktree_seed")).toBe(
-      "local_worktree",
-    );
+    expect(getPasswordAuthSurface("local_worktree_seed")).toBe("local_worktree");
     expect(getPasswordAuthSurface("off")).toBe("hidden");
   });
 
@@ -157,9 +129,7 @@ describe("publicLandingAuthState", () => {
 
     rememberPublicLandingPasswordAuthMode("local_worktree_seed");
 
-    expect(resolvePublicLandingPasswordAuthMode(undefined)).toBe(
-      "local_worktree_seed",
-    );
+    expect(resolvePublicLandingPasswordAuthMode(undefined)).toBe("local_worktree_seed");
     expect(
       getVisiblePasswordAuthSurface({
         passwordAuthMode: resolvePublicLandingPasswordAuthMode(undefined),
@@ -173,10 +143,7 @@ describe("publicLandingAuthState", () => {
       configurable: true,
       value: createMockStorage(),
     });
-    window.localStorage.setItem(
-      "noter_public_landing_password_auth_mode",
-      "nope",
-    );
+    window.localStorage.setItem("noter_public_landing_password_auth_mode", "nope");
 
     expect(resolvePublicLandingPasswordAuthMode(undefined)).toBe("off");
   });

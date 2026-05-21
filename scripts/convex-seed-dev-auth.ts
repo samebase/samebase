@@ -4,11 +4,7 @@ import { readEnvFile } from "./lib/envFile.ts";
 import { resolveRepoRoot } from "./lib/scriptRuntime.ts";
 import path from "node:path";
 import { WORKTREE_ENV_ALLOWLIST } from "./worktree-env-allowlist.ts";
-import {
-  listListeningPids,
-  parsePort,
-  sleep,
-} from "../apps/noter/scripts/convex-local-utils.ts";
+import { listListeningPids, parsePort, sleep } from "../apps/noter/scripts/convex-local-utils.ts";
 
 const repoRoot = resolveRepoRoot();
 const appDir = path.join(repoRoot, "apps", "noter");
@@ -31,30 +27,20 @@ if (!seedEnv) {
 
 const backendPort = resolveBackendPort(localEnv.vars);
 if (!backendPort) {
-  exitWithError(
-    `Local env file does not contain VITE_CONVEX_URL or CONVEX_URL: ${localEnvPath}`,
-  );
+  exitWithError(`Local env file does not contain VITE_CONVEX_URL or CONVEX_URL: ${localEnvPath}`);
 }
 
 const seedEntries = Object.entries(seedEnv.vars).filter(([name]) =>
   WORKTREE_ENV_ALLOWLIST.has(name),
 );
-const BACKEND_READY_MARKERS = [
-  "Convex functions ready!",
-  "Preparing to watch files...",
-];
+const BACKEND_READY_MARKERS = ["Convex functions ready!", "Preparing to watch files..."];
 
 let backendReady = false;
 let backendOutputTail = "";
 
 const backend = spawn(
   "node",
-  [
-    "scripts/convex-dev.ts",
-    "--tail-logs=disable",
-    "--typecheck=disable",
-    "--codegen=disable",
-  ],
+  ["scripts/convex-dev.ts", "--tail-logs=disable", "--typecheck=disable", "--codegen=disable"],
   {
     cwd: appDir,
     env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" },
@@ -132,16 +118,12 @@ try {
   }
 
   for (const [name, value] of seedEntries) {
-    const result = spawnSync(
-      "npx",
-      ["convex", "env", "set", name, "--env-file", localEnvPath],
-      {
-        cwd: appDir,
-        input: value,
-        encoding: "utf8",
-        stdio: ["pipe", "inherit", "inherit"],
-      },
-    );
+    const result = spawnSync("npx", ["convex", "env", "set", name, "--env-file", localEnvPath], {
+      cwd: appDir,
+      input: value,
+      encoding: "utf8",
+      stdio: ["pipe", "inherit", "inherit"],
+    });
     if (result.status !== 0) {
       exitWithError(`Failed to set ${name} in local Convex env`);
     }
@@ -176,9 +158,7 @@ try {
 
 process.exit(exitCode);
 
-function resolveBackendPort(
-  vars: Record<string, string | undefined>,
-): number | null {
+function resolveBackendPort(vars: Record<string, string | undefined>): number | null {
   for (const key of ["CONVEX_URL", "VITE_CONVEX_URL"]) {
     const url = vars[key];
     if (typeof url !== "string" || url.trim().length === 0) {
@@ -237,9 +217,7 @@ function attachBackendStream(
     }
 
     backendOutputTail = `${backendOutputTail}${chunk}`.slice(-2048);
-    if (
-      BACKEND_READY_MARKERS.some((marker) => backendOutputTail.includes(marker))
-    ) {
+    if (BACKEND_READY_MARKERS.some((marker) => backendOutputTail.includes(marker))) {
       backendReady = true;
     }
   });

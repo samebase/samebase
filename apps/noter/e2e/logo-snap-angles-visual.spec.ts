@@ -32,8 +32,7 @@ type RenderedLogoSnapMatrix = LogoSnapMatrix & {
 
 const LOGO_SNAP_MATRICES = [
   {
-    description:
-      "Orthographic rotations use only orthographic elevation snap points.",
+    description: "Orthographic rotations use only orthographic elevation snap points.",
     elevationDegrees: PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ELEVATION_SNAP_DEGREES,
     rotationDegrees: PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ROTATION_SNAP_DEGREES,
     title: "Orthographic snap matrix",
@@ -53,10 +52,7 @@ function formatAngleLabel(angleDegrees: number): string {
   return `${isWholeNumber ? normalizedAngle.toFixed(0) : normalizedAngle.toFixed(3)}°`;
 }
 
-function buildCellKey(
-  rotationDegrees: number,
-  elevationDegrees: number,
-): string {
+function buildCellKey(rotationDegrees: number, elevationDegrees: number): string {
   return `${rotationDegrees}:${elevationDegrees}`;
 }
 
@@ -106,9 +102,7 @@ function renderMatrixSection(matrix: RenderedLogoSnapMatrix): string {
       const cells = matrix.rotationDegrees
         .map((rotationDegrees) => {
           const imageData =
-            matrix.imageDataByKey.get(
-              buildCellKey(rotationDegrees, elevationDegrees),
-            ) ?? "";
+            matrix.imageDataByKey.get(buildCellKey(rotationDegrees, elevationDegrees)) ?? "";
           return `<div class="matrix-cell"><img alt="Rot ${escapeHtml(formatAngleLabel(rotationDegrees))} Elev ${escapeHtml(formatAngleLabel(elevationDegrees))}" src="data:image/png;base64,${imageData}" width="${PREVIEW_SIZE}" height="${PREVIEW_SIZE}"/></div>`;
         })
         .join("");
@@ -266,10 +260,7 @@ test("logo snap angle matrix visual fixture", async ({ page }, testInfo) => {
           rotationDegrees,
           elevationDegrees,
         );
-        imageDataByKey.set(
-          buildCellKey(rotationDegrees, elevationDegrees),
-          imageData,
-        );
+        imageDataByKey.set(buildCellKey(rotationDegrees, elevationDegrees), imageData);
       }
     }
 
@@ -283,9 +274,7 @@ test("logo snap angle matrix visual fixture", async ({ page }, testInfo) => {
   await page.setContent(buildMatrixHtml(renderedMatrices), {
     waitUntil: "load",
   });
-  await page.waitForFunction(() =>
-    Array.from(document.images).every((image) => image.complete),
-  );
+  await page.waitForFunction(() => Array.from(document.images).every((image) => image.complete));
 
   const fixture = page.getByTestId("logo-snap-angle-matrix");
   await expect(fixture).toBeVisible();

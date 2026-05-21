@@ -15,10 +15,7 @@ function handleBeforeUnload(event: BeforeUnloadEvent) {
 }
 
 function syncBeforeUnloadListener() {
-  if (
-    typeof window === "undefined" ||
-    typeof window.addEventListener === "undefined"
-  ) {
+  if (typeof window === "undefined" || typeof window.addEventListener === "undefined") {
     return;
   }
 
@@ -56,13 +53,7 @@ export function registerPageLeaveGuard(reason: string): () => void {
   };
 }
 
-export function usePageLeaveGuard({
-  enabled,
-  reason,
-}: {
-  enabled: boolean;
-  reason: string;
-}) {
+export function usePageLeaveGuard({ enabled, reason }: { enabled: boolean; reason: string }) {
   useEffect(() => {
     if (!enabled) {
       return;

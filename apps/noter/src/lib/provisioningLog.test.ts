@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  formatProvisioningLogLine,
-  formatProvisioningLogText,
-} from "./provisioningLog";
+import { formatProvisioningLogLine, formatProvisioningLogText } from "./provisioningLog";
 
 describe("formatProvisioningLogLine", () => {
   it("formats timestamp, level, step, and message", () => {
@@ -14,9 +11,7 @@ describe("formatProvisioningLogLine", () => {
         step: "ensure_cloudflare",
         message: "Cloudflare Worker ready.",
       }),
-    ).toBe(
-      "2026-05-02T12:30:05.000Z INFO  ensure Cloudflare - Cloudflare Worker ready.",
-    );
+    ).toBe("2026-05-02T12:30:05.000Z INFO  ensure Cloudflare - Cloudflare Worker ready.");
   });
 });
 

@@ -1,7 +1,4 @@
-import {
-  buildCodexThreadSidebarViewModel,
-  dedupeCodexThreadsById,
-} from "@/lib/codexThreadSidebar";
+import { buildCodexThreadSidebarViewModel, dedupeCodexThreadsById } from "@/lib/codexThreadSidebar";
 import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -70,9 +67,7 @@ describe("dedupeCodexThreadsById", () => {
       updatedAt: 25,
     });
 
-    expect(dedupeCodexThreadsById([staleThread, freshThread])).toEqual([
-      freshThread,
-    ]);
+    expect(dedupeCodexThreadsById([staleThread, freshThread])).toEqual([freshThread]);
   });
 });
 
@@ -108,9 +103,7 @@ describe("buildCodexThreadSidebarViewModel", () => {
       threads: [rootThread, worktreeThread, pinnedThread],
     });
 
-    expect(viewModel.pinnedThreads.map((thread) => thread.id)).toEqual([
-      pinnedThread.id,
-    ]);
+    expect(viewModel.pinnedThreads.map((thread) => thread.id)).toEqual([pinnedThread.id]);
     expect(viewModel.pinnedThreads[0]?.isPinned).toBe(true);
     expect(viewModel.pinnedThreads[0]?.showWorkspaceIndicator).toBe(true);
     expect(viewModel.projects).toHaveLength(1);
@@ -118,12 +111,8 @@ describe("buildCodexThreadSidebarViewModel", () => {
       rootThread.id,
       worktreeThread.id,
     ]);
-    expect(viewModel.projects[0]?.threads[0]?.showWorkspaceIndicator).toBe(
-      false,
-    );
-    expect(viewModel.projects[0]?.threads[1]?.showWorkspaceIndicator).toBe(
-      true,
-    );
+    expect(viewModel.projects[0]?.threads[0]?.showWorkspaceIndicator).toBe(false);
+    expect(viewModel.projects[0]?.threads[1]?.showWorkspaceIndicator).toBe(true);
     expect(viewModel.projects[0]?.threads[1]?.workspaceLabel).toBe("e2ca");
     expect(viewModel.projects[0]?.loadedCount).toBe(1);
   });
@@ -178,8 +167,6 @@ describe("buildCodexThreadSidebarViewModel", () => {
       threads: [windowsPathThread],
     });
 
-    expect(viewModel.projects.map((project) => project.label)).toEqual([
-      "repo",
-    ]);
+    expect(viewModel.projects.map((project) => project.label)).toEqual(["repo"]);
   });
 });

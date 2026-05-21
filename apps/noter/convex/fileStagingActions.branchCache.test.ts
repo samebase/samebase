@@ -54,13 +54,7 @@ describe("selectBatchReadRepositoryTree", () => {
 describe("listTouchedBranchesForRefresh", () => {
   it("deduplicates branches while preserving first-seen order", () => {
     expect(
-      listTouchedBranchesForRefresh([
-        "main",
-        "feature/a",
-        "main",
-        "feature/b",
-        "feature/a",
-      ]),
+      listTouchedBranchesForRefresh(["main", "feature/a", "main", "feature/b", "feature/a"]),
     ).toEqual(["main", "feature/a", "feature/b"]);
   });
 });

@@ -12,9 +12,7 @@ import {
   type ToolActivityPayload,
 } from "../../shared/chatMetadata";
 
-export function parseMetadataPayload(
-  payloadJson: string,
-): MessageMetadata | null {
+export function parseMetadataPayload(payloadJson: string): MessageMetadata | null {
   try {
     const parsed = JSON.parse(payloadJson);
     const typeResult = metadataTypeSchema.safeParse(parsed);
@@ -41,23 +39,17 @@ export function parseMetadataPayload(
   }
 }
 
-export function parseCommitPayload(
-  payloadJson: string,
-): CommitProposalPayload | null {
+export function parseCommitPayload(payloadJson: string): CommitProposalPayload | null {
   const parsed = parseMetadataPayload(payloadJson);
   return parsed?.type === "commit_proposal" ? parsed : null;
 }
 
-export function parseProdReadProposalPayload(
-  payloadJson: string,
-): ProdReadProposalPayload | null {
+export function parseProdReadProposalPayload(payloadJson: string): ProdReadProposalPayload | null {
   const parsed = parseMetadataPayload(payloadJson);
   return parsed?.type === "prod_read_proposal" ? parsed : null;
 }
 
-export function buildToolActivityPayload(
-  tools: ToolActivityItem[],
-): ToolActivityPayload {
+export function buildToolActivityPayload(tools: ToolActivityItem[]): ToolActivityPayload {
   return { type: "tool_activity", tools };
 }
 
@@ -110,9 +102,7 @@ type ProdReadResultInput = Pick<
   | "error"
 >;
 
-export function buildProdReadResultPayload(
-  payload: ProdReadResultInput,
-): ProdReadResultPayload {
+export function buildProdReadResultPayload(payload: ProdReadResultInput): ProdReadResultPayload {
   return { type: "prod_read_result", ...payload };
 }
 

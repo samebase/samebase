@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  getLogoPreset,
-  getLogoPresetSelection,
-} from "@/components/logo/logoPresets";
+import { getLogoPreset, getLogoPresetSelection } from "@/components/logo/logoPresets";
 import { parseVoxelState, voxelKey } from "@/components/logo/logoVoxelState";
 
 describe("logoPresets", () => {

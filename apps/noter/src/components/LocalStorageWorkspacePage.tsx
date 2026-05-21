@@ -27,11 +27,7 @@ function formatLocalStorageValue(value: string): string {
   }
 }
 
-function LocalStorageUnavailableState({
-  errorMessage,
-}: {
-  errorMessage: string;
-}) {
+function LocalStorageUnavailableState({ errorMessage }: { errorMessage: string }) {
   return (
     <div className="flex min-h-full items-center justify-center p-6">
       <p role="alert" className="max-w-xl text-sm text-muted-foreground">
@@ -41,15 +37,9 @@ function LocalStorageUnavailableState({
   );
 }
 
-function LocalStorageEntriesTable({
-  snapshot,
-}: {
-  snapshot: LocalStorageSnapshot;
-}) {
+function LocalStorageEntriesTable({ snapshot }: { snapshot: LocalStorageSnapshot }) {
   if (snapshot.kind === "unavailable") {
-    return (
-      <LocalStorageUnavailableState errorMessage={snapshot.errorMessage} />
-    );
+    return <LocalStorageUnavailableState errorMessage={snapshot.errorMessage} />;
   }
 
   if (snapshot.entries.length === 0) {

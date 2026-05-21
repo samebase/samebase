@@ -12,13 +12,12 @@
 
 ## Summary
 
-Improve mobile editing ergonomics for Monaco-backed files by reclaiming
-horizontal space where it matters most:
+Improve mobile editing ergonomics for Monaco-backed files by reclaiming horizontal space where it
+matters most:
 
 1. remove mobile side gutters around the editor surface,
 2. hide the right-side Monaco scrollbar on mobile,
-3. support a boolean toggle to show/hide mobile line numbers for width tradeoff
-   testing.
+3. support a boolean toggle to show/hide mobile line numbers for width tradeoff testing.
 
 Desktop behavior should remain unchanged.
 
@@ -34,8 +33,8 @@ The result is earlier soft-wrapping and reduced code readability on phones.
 
 ## Goals
 
-1. Make Monaco editor content span full phone width (edge-to-edge inside the
-   viewport) while preserving surrounding UI spacing.
+1. Make Monaco editor content span full phone width (edge-to-edge inside the viewport) while
+   preserving surrounding UI spacing.
 2. Remove mobile-only right scrollbar width overhead.
 3. Add a prop-driven mobile line-number toggle to compare readability vs width.
 4. Preserve existing desktop/tablet editor behavior.
@@ -51,8 +50,7 @@ The result is earlier soft-wrapping and reduced code readability on phones.
 ### Layout (Monaco wrapper)
 
 1. Keep existing container padding for controls/metadata.
-2. Apply mobile-only full-bleed treatment using negative horizontal margin on
-   the Monaco wrapper.
+2. Apply mobile-only full-bleed treatment using negative horizontal margin on the Monaco wrapper.
 3. Scope the full-bleed treatment to Monaco-backed files only.
 
 ### Monaco Runtime Options
@@ -80,8 +78,7 @@ Prop is threaded from `CodeEditorWrapper` to `MonacoEditor`.
 
 1. Add `showMobileLineNumbers` prop to `CodeEditorWrapper` and `MonacoEditor`.
 2. Detect mobile viewport in `MonacoEditor` with shared `useIsMobile()`.
-3. Build Monaco `options` object with mobile-conditional scrollbar/gutter
-   behavior.
+3. Build Monaco `options` object with mobile-conditional scrollbar/gutter behavior.
 4. Update `MonacoEditor` wrapper styles to become mobile full-bleed.
 5. Run lint/typecheck for touched app code.
 6. Validate manually in mobile viewport using Playwright.

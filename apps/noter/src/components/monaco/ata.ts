@@ -137,16 +137,8 @@ function releaseSlot(): void {
   }
 }
 
-async function rateLimitedFetch(
-  input: RequestInfo | URL,
-  init?: RequestInit,
-): Promise<Response> {
-  const url =
-    typeof input === "string"
-      ? input
-      : input instanceof URL
-        ? input.href
-        : input.url;
+async function rateLimitedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
 
   // Fast-path: skip blocked or previously-404'd packages
   if (isBlockedUrl(url)) {
@@ -199,9 +191,7 @@ const ata = setupTypeAcquisition({
 });
 
 type DelegateListener = Required<{
-  [k in keyof ATABootstrapConfig["delegate"]]: Set<
-    NonNullable<ATABootstrapConfig["delegate"][k]>
-  >;
+  [k in keyof ATABootstrapConfig["delegate"]]: Set<NonNullable<ATABootstrapConfig["delegate"][k]>>;
 }>;
 
 function createDelegate() {

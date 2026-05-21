@@ -33,8 +33,7 @@ describe("app resource names", () => {
   });
 
   it("uses provider-specific name limits", () => {
-    const longName =
-      "a-very-long-generated-app-name-that-should-be-truncated-for-providers";
+    const longName = "a-very-long-generated-app-name-that-should-be-truncated-for-providers";
 
     expect(sanitizeAppResourceName(longName, "convex")).toHaveLength(40);
     expect(sanitizeAppResourceName(longName, "cloudflare")).toHaveLength(63);
@@ -106,9 +105,7 @@ describe("app resource names", () => {
         number: 20,
       });
       expect(numberedSuggestion.length).toBeLessThanOrEqual(maxLength);
-      expect(validateAppResourceName(numberedSuggestion, provider).valid).toBe(
-        true,
-      );
+      expect(validateAppResourceName(numberedSuggestion, provider).valid).toBe(true);
     }
   });
 });

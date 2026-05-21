@@ -27,10 +27,7 @@ function ensureATAListener(monaco: Monaco) {
  * Set up ATA (Automatic Type Acquisition) for a mounted Monaco editor.
  * Only call this for .ts / .tsx files – it has no effect on other languages.
  */
-export const setupEditorATA: NonNullable<EditorProps["onMount"]> = (
-  editor,
-  monaco,
-) => {
+export const setupEditorATA: NonNullable<EditorProps["onMount"]> = (editor, monaco) => {
   const defaults = monaco.languages.typescript.typescriptDefaults;
 
   defaults.setCompilerOptions({
@@ -86,10 +83,7 @@ export function parseTsConfig(raw: string): ParsedTsConfig {
  * Apply tsconfig-derived compiler options (paths, baseUrl, etc.) to Monaco's
  * TypeScript defaults. Call once when project files are available.
  */
-export function applyTsConfigToMonaco(
-  monaco: Monaco,
-  tsconfig: ParsedTsConfig,
-) {
+export function applyTsConfigToMonaco(monaco: Monaco, tsconfig: ParsedTsConfig) {
   const defaults = monaco.languages.typescript.typescriptDefaults;
 
   // Map tsconfig paths to Monaco-compatible paths (relative to baseUrl)
@@ -98,9 +92,7 @@ export function applyTsConfigToMonaco(
     monacoPaths = {};
     for (const [pattern, targets] of Object.entries(tsconfig.paths)) {
       // Strip leading "./" from targets – Monaco baseUrl is "file:///"
-      monacoPaths[pattern] = targets.map((t) =>
-        t.startsWith("./") ? t.slice(2) : t,
-      );
+      monacoPaths[pattern] = targets.map((t) => (t.startsWith("./") ? t.slice(2) : t));
     }
   }
 

@@ -18,10 +18,7 @@ export function WorkspaceLayoutV2MemorySidebarProvider({
   const controller = useWorkspaceLayoutV2MemorySidebarController(initialState);
 
   return (
-    <WorkspacePaneRuntimeProvider
-      controller={controller}
-      shortcutPaneSide={shortcutPaneSide}
-    >
+    <WorkspacePaneRuntimeProvider controller={controller} shortcutPaneSide={shortcutPaneSide}>
       {children}
     </WorkspacePaneRuntimeProvider>
   );

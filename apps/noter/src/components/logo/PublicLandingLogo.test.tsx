@@ -2,24 +2,14 @@
 
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { getLogoRendererFractalDepthHardMax } from "@/components/logo/logoDepthLimits";
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
 import { createLogoFractalVoxelGrid } from "@/components/logo/logoVoxelState";
 import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
-import {
-  resolveAppThemeColorState,
-  syncDocumentThemeColorSearch,
-} from "@/lib/appThemeColorSearch";
+import { resolveAppThemeColorState, syncDocumentThemeColorSearch } from "@/lib/appThemeColorSearch";
 import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
 import {
   PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES,
@@ -70,9 +60,7 @@ function getLogoLink(rootElement: HTMLElement) {
 }
 
 function getLogoImage(rootElement: HTMLElement) {
-  const logoImage = rootElement.querySelector(
-    `[data-testid="${PUBLIC_LANDING_LOGO_TEST_ID}"]`,
-  );
+  const logoImage = rootElement.querySelector(`[data-testid="${PUBLIC_LANDING_LOGO_TEST_ID}"]`);
   if (!(logoImage instanceof HTMLImageElement)) {
     throw new Error("Expected logo image");
   }
@@ -81,9 +69,7 @@ function getLogoImage(rootElement: HTMLElement) {
 }
 
 function getLogoImageDecodedSource(rootElement: HTMLElement) {
-  return decodeURIComponent(
-    getLogoImage(rootElement).getAttribute("src") ?? "",
-  );
+  return decodeURIComponent(getLogoImage(rootElement).getAttribute("src") ?? "");
 }
 
 function installLogoThemeStyle() {
@@ -122,11 +108,9 @@ describe("PublicLandingLogo", () => {
     }
     document.body.replaceChildren();
     document.documentElement.className = "";
-    document
-      .querySelectorAll("[data-public-logo-theme-test-style]")
-      .forEach((element) => {
-        element.remove();
-      });
+    document.querySelectorAll("[data-public-logo-theme-test-style]").forEach((element) => {
+      element.remove();
+    });
     syncDocumentThemeColorSearch({});
     window.localStorage.clear();
     vi.unstubAllGlobals();
@@ -175,10 +159,7 @@ describe("PublicLandingLogo", () => {
       elevationDegrees: PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES,
       rotationDegrees: 180,
     };
-    window.localStorage.setItem(
-      "noter:logo-view:dashboard-empty",
-      JSON.stringify(persistedView),
-    );
+    window.localStorage.setItem("noter:logo-view:dashboard-empty", JSON.stringify(persistedView));
 
     const rootElement = document.createElement("div");
     document.body.append(rootElement);
@@ -225,10 +206,7 @@ describe("PublicLandingLogo", () => {
 
     await act(async () => {
       localRoot.render(
-        <PublicLandingLogo
-          loadInteractiveScene={false}
-          themeColorSearch={{ depth: 2 }}
-        />,
+        <PublicLandingLogo loadInteractiveScene={false} themeColorSearch={{ depth: 2 }} />,
       );
     });
 
@@ -257,10 +235,7 @@ describe("PublicLandingLogo", () => {
 
     await act(async () => {
       localRoot.render(
-        <PublicLandingLogo
-          loadInteractiveScene={false}
-          themeColorSearch={{ depth: 99 }}
-        />,
+        <PublicLandingLogo loadInteractiveScene={false} themeColorSearch={{ depth: 99 }} />,
       );
     });
 
@@ -363,26 +338,19 @@ describe("PublicLandingLogo", () => {
       );
     });
 
-    expect(
-      decodeURIComponent(getLogoImage(rootElement).getAttribute("src") ?? ""),
-    ).toContain("#00c950");
+    expect(decodeURIComponent(getLogoImage(rootElement).getAttribute("src") ?? "")).toContain(
+      "#00c950",
+    );
 
     await act(async () => {
-      localRoot.render(
-        <PublicLandingLogo
-          loadInteractiveScene={false}
-          themeColorSearch={{}}
-        />,
-      );
+      localRoot.render(<PublicLandingLogo loadInteractiveScene={false} themeColorSearch={{}} />);
       syncDocumentThemeColorSearch({});
       await new Promise<void>((resolve) => {
         window.setTimeout(resolve, 0);
       });
     });
 
-    const source = decodeURIComponent(
-      getLogoImage(rootElement).getAttribute("src") ?? "",
-    );
+    const source = decodeURIComponent(getLogoImage(rootElement).getAttribute("src") ?? "");
 
     expect(source).toContain("#ffffff");
     expect(source).toContain("#394447");

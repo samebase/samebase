@@ -38,11 +38,7 @@ function Tooltip({
     return tooltip;
   }
 
-  return (
-    <TooltipPrimitive.Provider delay={delayDuration}>
-      {tooltip}
-    </TooltipPrimitive.Provider>
-  );
+  return <TooltipPrimitive.Provider delay={delayDuration}>{tooltip}</TooltipPrimitive.Provider>;
 }
 
 function TooltipTrigger({
@@ -77,10 +73,7 @@ function TooltipContent({
   children,
   ...props
 }: TooltipPrimitive.Popup.Props &
-  Pick<
-    TooltipPrimitive.Positioner.Props,
-    "align" | "alignOffset" | "side" | "sideOffset"
-  >) {
+  Pick<TooltipPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset">) {
   return (
     <TooltipPrimitive.Portal>
       <TooltipPrimitive.Positioner

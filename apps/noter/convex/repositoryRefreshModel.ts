@@ -29,9 +29,7 @@ export const vRepositoryRefreshPriority = union(
  * Scheduler lane derived from demand source by `getRepositoryRefreshPriority`.
  * It is intentionally not persisted on request rows.
  */
-export type RepositoryRefreshPriority = Infer<
-  typeof vRepositoryRefreshPriority
->;
+export type RepositoryRefreshPriority = Infer<typeof vRepositoryRefreshPriority>;
 
 // MARK: Refresh Demand
 // Demand answers "what user-visible freshness is needed?"
@@ -54,9 +52,7 @@ export const vDashboardRepositoryRefreshDemand = object({
  * Repository demand created by passive dashboard activation.
  * Route load, visibility resume, and window focus all collapse before Convex.
  */
-export type DashboardRepositoryRefreshDemand = Infer<
-  typeof vDashboardRepositoryRefreshDemand
->;
+export type DashboardRepositoryRefreshDemand = Infer<typeof vDashboardRepositoryRefreshDemand>;
 
 /**
  * Manual vault-level refresh.
@@ -73,9 +69,7 @@ export const vManualRepositoryRefreshDemand = object({
  * Repository demand created by an explicit dashboard refresh action.
  * It upgrades passive dashboard demand because the user requested it directly.
  */
-export type ManualRepositoryRefreshDemand = Infer<
-  typeof vManualRepositoryRefreshDemand
->;
+export type ManualRepositoryRefreshDemand = Infer<typeof vManualRepositoryRefreshDemand>;
 
 /**
  * GitHub repo create/connect flow finished.
@@ -93,9 +87,7 @@ export const vSourceSetupRepositoryRefreshDemand = object({
  * Repository demand created by backend setup completion.
  * The run id is audit context, not caller-selected refresh depth.
  */
-export type SourceSetupRepositoryRefreshDemand = Infer<
-  typeof vSourceSetupRepositoryRefreshDemand
->;
+export type SourceSetupRepositoryRefreshDemand = Infer<typeof vSourceSetupRepositoryRefreshDemand>;
 
 /**
  * File route asks for freshness for the branch it is showing.
@@ -112,9 +104,7 @@ export const vFileViewBranchRefreshDemand = object({
  * Branch demand created by file-route activation.
  * The branch is required because file freshness is branch-specific.
  */
-export type FileViewBranchRefreshDemand = Infer<
-  typeof vFileViewBranchRefreshDemand
->;
+export type FileViewBranchRefreshDemand = Infer<typeof vFileViewBranchRefreshDemand>;
 
 /**
  * Manual branch-level refresh.
@@ -131,9 +121,7 @@ export const vManualBranchRefreshDemand = object({
  * Branch demand created by a direct branch refresh click.
  * It is separate from repository manual demand so dedupe includes the branch.
  */
-export type ManualBranchRefreshDemand = Infer<
-  typeof vManualBranchRefreshDemand
->;
+export type ManualBranchRefreshDemand = Infer<typeof vManualBranchRefreshDemand>;
 
 /**
  * Local commit finished for one branch.
@@ -148,9 +136,7 @@ export const vCommitBranchRefreshDemand = object({
 /**
  * Branch demand created after a local commit changes one branch.
  */
-export type CommitBranchRefreshDemand = Infer<
-  typeof vCommitBranchRefreshDemand
->;
+export type CommitBranchRefreshDemand = Infer<typeof vCommitBranchRefreshDemand>;
 
 /**
  * Local pull finished for one branch.
@@ -183,9 +169,7 @@ export const vRepositoryScopeRefreshDemand = union(
  * All demand whose dedupe key is the whole repository.
  * These states cannot carry `branch`.
  */
-export type RepositoryScopeRefreshDemand = Infer<
-  typeof vRepositoryScopeRefreshDemand
->;
+export type RepositoryScopeRefreshDemand = Infer<typeof vRepositoryScopeRefreshDemand>;
 
 /**
  * Branch-level freshness demand.
@@ -290,9 +274,7 @@ export const vRepositoryRefreshCancelReason = union(
 /**
  * Why a queued or running request stopped without success/failure.
  */
-export type RepositoryRefreshCancelReason = Infer<
-  typeof vRepositoryRefreshCancelReason
->;
+export type RepositoryRefreshCancelReason = Infer<typeof vRepositoryRefreshCancelReason>;
 
 /**
  * Durable execution state.
@@ -349,9 +331,7 @@ export const vRepositoryRefreshLifecycle = union(
  * Durable execution state for one refresh request row.
  * The union keeps worker-only fields out of queued/terminal states.
  */
-export type RepositoryRefreshLifecycle = Infer<
-  typeof vRepositoryRefreshLifecycle
->;
+export type RepositoryRefreshLifecycle = Infer<typeof vRepositoryRefreshLifecycle>;
 
 // MARK: Request Rows
 // Request rows combine ownership, demand, dedupe, and lifecycle.
@@ -433,9 +413,7 @@ export const vEnqueueRepositoryRefreshResult = union(
  * Public result shape shared by all demand-ingest entry points.
  * This reports queue/coalescing outcome, not whether refresh work has run.
  */
-export type EnqueueRepositoryRefreshResult = Infer<
-  typeof vEnqueueRepositoryRefreshResult
->;
+export type EnqueueRepositoryRefreshResult = Infer<typeof vEnqueueRepositoryRefreshResult>;
 
 // MARK: Builder Inputs
 // Builder input is the backend request constructor, not a frontend contract.
@@ -490,9 +468,7 @@ export function getRepositoryRefreshPriority(
   }
 }
 
-function getRepositoryRefreshPriorityRank(
-  priority: RepositoryRefreshPriority,
-): number {
+function getRepositoryRefreshPriorityRank(priority: RepositoryRefreshPriority): number {
   switch (priority) {
     case "background":
       return 0;
@@ -527,9 +503,7 @@ export function isRepositoryRefreshPriorityStronger(args: {
  * Builds the stable key used to find an active queued/running request.
  * Repository demand ignores source; branch demand includes the branch name.
  */
-export function deriveRepositoryRefreshDedupeKey(
-  demand: RepositoryRefreshDemand,
-): string {
+export function deriveRepositoryRefreshDedupeKey(demand: RepositoryRefreshDemand): string {
   switch (demand.scope) {
     case "repository":
       return "repository";
@@ -609,9 +583,7 @@ export function upgradeScheduledRepositoryRefreshRequest(
   },
 ): RepositoryRefreshRequest {
   if (request.lifecycle.state !== "scheduled") {
-    throw new Error(
-      "Only scheduled repository refresh requests can be upgraded.",
-    );
+    throw new Error("Only scheduled repository refresh requests can be upgraded.");
   }
   return {
     ...request,
@@ -643,9 +615,7 @@ export function markRepositoryRefreshRequestScheduled(
   },
 ): RepositoryRefreshRequest {
   if (request.lifecycle.state !== "queued") {
-    throw new Error(
-      "Only queued repository refresh requests can be scheduled.",
-    );
+    throw new Error("Only queued repository refresh requests can be scheduled.");
   }
   return {
     ...request,
@@ -726,18 +696,10 @@ export function markRepositoryRefreshRequestFailed(
     failure: RepositoryRefreshFailure;
   },
 ): RepositoryRefreshRequest {
-  if (
-    request.lifecycle.state !== "scheduled" &&
-    request.lifecycle.state !== "running"
-  ) {
-    throw new Error(
-      "Only scheduled or running repository refresh requests can fail.",
-    );
+  if (request.lifecycle.state !== "scheduled" && request.lifecycle.state !== "running") {
+    throw new Error("Only scheduled or running repository refresh requests can fail.");
   }
-  const startedAt =
-    request.lifecycle.state === "running"
-      ? request.lifecycle.startedAt
-      : args.now;
+  const startedAt = request.lifecycle.state === "running" ? request.lifecycle.startedAt : args.now;
   return {
     ...request,
     lifecycle: {

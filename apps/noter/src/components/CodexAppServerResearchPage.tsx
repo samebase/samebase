@@ -1,12 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { ConnectedMachineHeartbeatLogSection } from "@/components/ConnectedMachineHeartbeatLog";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CodexAppServerThreadHistoryItemCard } from "@/components/CodexAppServerThreadHistoryItemCard";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -72,8 +66,7 @@ type ThreadActionResponse = {
   runtime: CodexAppServerRuntimeSnapshot;
 };
 
-const DEFAULT_TURN_PROMPT =
-  "Reply with exactly the word READY and nothing else.";
+const DEFAULT_TURN_PROMPT = "Reply with exactly the word READY and nothing else.";
 const THREAD_LIST_LIMIT = 100;
 const DEFAULT_THREAD_LIST_QUERY: ThreadListQueryState = {
   searchTerm: "",
@@ -117,9 +110,7 @@ function formatJson(value: unknown): string {
 
 function readCurrentThreadId(value: unknown): string | null {
   const runtime = asRecord(asRecord(value)?.runtime);
-  return typeof runtime?.currentThreadId === "string"
-    ? runtime.currentThreadId
-    : null;
+  return typeof runtime?.currentThreadId === "string" ? runtime.currentThreadId : null;
 }
 
 function getEventListKey(args: {
@@ -138,12 +129,8 @@ function getThreadStatusLabel(thread: CodexAppServerThread): string {
   return thread.status.type;
 }
 
-function readProtocolRequestPath(args: {
-  mode: ProtocolMode;
-  experimental: boolean;
-}): string {
-  const pathname =
-    args.mode === "json-schema" ? "/protocol/json-schema" : "/protocol/ts";
+function readProtocolRequestPath(args: { mode: ProtocolMode; experimental: boolean }): string {
+  const pathname = args.mode === "json-schema" ? "/protocol/json-schema" : "/protocol/ts";
   if (!args.experimental) {
     return pathname;
   }
@@ -160,9 +147,7 @@ function buildCodexThreadBrowserLinkOptions(selectedThreadId: string | null) {
   });
 }
 
-function RuntimeStatusBadge(props: {
-  status: CodexAppServerStatusResponse | null;
-}) {
+function RuntimeStatusBadge(props: { status: CodexAppServerStatusResponse | null }) {
   const { status } = props;
   if (!status) {
     return <Badge variant="outline">Loading</Badge>;
@@ -183,9 +168,7 @@ function RuntimeStatusBadge(props: {
   return <Badge variant="outline">Stopped</Badge>;
 }
 
-function EventLevelBadge(props: {
-  level: "info" | "success" | "warning" | "error";
-}) {
+function EventLevelBadge(props: { level: "info" | "success" | "warning" | "error" }) {
   const className =
     props.level === "success"
       ? "bg-emerald-600 text-white"
@@ -206,9 +189,7 @@ function ThreadStatusBadge(props: { thread: CodexAppServerThread }) {
         ? "bg-red-600 text-white"
         : "bg-slate-200 text-slate-900";
 
-  return (
-    <Badge className={className}>{getThreadStatusLabel(props.thread)}</Badge>
-  );
+  return <Badge className={className}>{getThreadStatusLabel(props.thread)}</Badge>;
 }
 
 function ProtocolFilesViewer(props: {
@@ -246,9 +227,7 @@ function ProtocolFilesViewer(props: {
             </button>
           ))}
           {props.protocol?.files.length === 0 ? (
-            <div className="px-3 py-4 text-sm text-muted-foreground">
-              No files.
-            </div>
+            <div className="px-3 py-4 text-sm text-muted-foreground">No files.</div>
           ) : null}
         </div>
       </div>
@@ -294,8 +273,7 @@ function SelectedThreadDetailPanel(props: {
           >
             browser view
           </a>{" "}
-          to choose a local provider thread, then return here for detail and
-          control actions.
+          to choose a local provider thread, then return here for detail and control actions.
         </div>
       ) : null}
 
@@ -325,47 +303,33 @@ function SelectedThreadDetailPanel(props: {
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">Source</span>
-                <span className="font-mono text-xs">
-                  {props.thread.sourceLabel}
-                </span>
+                <span className="font-mono text-xs">{props.thread.sourceLabel}</span>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">Model provider</span>
-                <span className="font-mono text-xs">
-                  {props.thread.modelProvider ?? "n/a"}
-                </span>
+                <span className="font-mono text-xs">{props.thread.modelProvider ?? "n/a"}</span>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">Turns</span>
-                <span className="font-mono text-xs">
-                  {props.thread.turns.length}
-                </span>
+                <span className="font-mono text-xs">{props.thread.turns.length}</span>
               </div>
             </div>
             <div className="grid gap-2 text-sm">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">Created</span>
-                <span className="font-mono text-xs">
-                  {formatDateTime(props.thread.createdAt)}
-                </span>
+                <span className="font-mono text-xs">{formatDateTime(props.thread.createdAt)}</span>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">Updated</span>
-                <span className="font-mono text-xs">
-                  {formatDateTime(props.thread.updatedAt)}
-                </span>
+                <span className="font-mono text-xs">{formatDateTime(props.thread.updatedAt)}</span>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">Path</span>
-                <span className="font-mono text-xs">
-                  {props.thread.path ?? "n/a"}
-                </span>
+                <span className="font-mono text-xs">{props.thread.path ?? "n/a"}</span>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">Branch</span>
-                <span className="font-mono text-xs">
-                  {props.thread.gitInfo?.branch ?? "n/a"}
-                </span>
+                <span className="font-mono text-xs">{props.thread.gitInfo?.branch ?? "n/a"}</span>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">CWD</span>
@@ -391,10 +355,7 @@ function SelectedThreadDetailPanel(props: {
               </div>
             ) : null}
             {props.thread.turns.map((turn) => (
-              <div
-                key={turn.id}
-                className="grid gap-3 border border-border bg-slate-50 p-3"
-              >
+              <div key={turn.id} className="grid gap-3 border border-border bg-slate-50 p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="font-mono text-sm">{turn.id}</div>
                   <Badge variant="outline">{turn.status}</Badge>
@@ -404,9 +365,7 @@ function SelectedThreadDetailPanel(props: {
                   </Badge>
                 </div>
                 {turn.errorMessage ? (
-                  <div className="text-sm text-red-700">
-                    {turn.errorMessage}
-                  </div>
+                  <div className="text-sm text-red-700">{turn.errorMessage}</div>
                 ) : null}
                 <div className="grid gap-2">
                   {turn.items.map((item, index) => (
@@ -463,8 +422,8 @@ export function CodexAppServerSelectedThreadCard(props: {
           >
             browser view
           </a>{" "}
-          to browse and switch threads; this page stays focused on detailed
-          inspection and runtime controls.
+          to browse and switch threads; this page stays focused on detailed inspection and runtime
+          controls.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -486,16 +445,12 @@ export function CodexAppServerResearchPage() {
   const router = useRouter();
   const navigate = codexResearchRouteApi.useNavigate();
   const routeSearch = codexResearchRouteApi.useSearch();
-  const connectedMachinesQuery = useQuery(
-    api.connectedMachines.listConnectedMachines,
-  );
+  const connectedMachinesQuery = useQuery(api.connectedMachines.listConnectedMachines);
   const now = useNow({
     enabled: (connectedMachinesQuery?.length ?? 0) > 0,
     intervalMs: 1_000,
   });
-  const [status, setStatus] = useState<CodexAppServerStatusResponse | null>(
-    null,
-  );
+  const [status, setStatus] = useState<CodexAppServerStatusResponse | null>(null);
   const [events, setEvents] = useState<CodexAppServerResearchEvent[]>([]);
   const [requests, setRequests] = useState<CodexAppServerApprovalRequest[]>([]);
   const [threads, setThreads] = useState<CodexAppServerThread[]>([]);
@@ -503,19 +458,13 @@ export function CodexAppServerResearchPage() {
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(
     () => routeSearch.threadId ?? null,
   );
-  const [selectedThread, setSelectedThread] =
-    useState<CodexAppServerThread | null>(null);
-  const [selectedThreadError, setSelectedThreadError] = useState<string | null>(
-    null,
-  );
+  const [selectedThread, setSelectedThread] = useState<CodexAppServerThread | null>(null);
+  const [selectedThreadError, setSelectedThreadError] = useState<string | null>(null);
   const [isSelectedThreadLoading, setIsSelectedThreadLoading] = useState(false);
-  const [protocol, setProtocol] =
-    useState<CodexAppServerProtocolResponse | null>(null);
+  const [protocol, setProtocol] = useState<CodexAppServerProtocolResponse | null>(null);
   const [protocolMode, setProtocolMode] = useState<ProtocolMode>("json-schema");
   const [protocolExperimental, setProtocolExperimental] = useState(true);
-  const [activeProtocolFilePath, setActiveProtocolFilePath] = useState<
-    string | null
-  >(null);
+  const [activeProtocolFilePath, setActiveProtocolFilePath] = useState<string | null>(null);
   const [lastResponse, setLastResponse] = useState<unknown>(null);
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
@@ -599,9 +548,7 @@ export function CodexAppServerResearchPage() {
     return `/threads?${searchParams.toString()}`;
   }
 
-  const refreshThreads = async (
-    query: ThreadListQueryState = DEFAULT_THREAD_LIST_QUERY,
-  ) => {
+  const refreshThreads = async (query: ThreadListQueryState = DEFAULT_THREAD_LIST_QUERY) => {
     const response = await requestJson<CodexAppServerThreadsResponse>({
       path: buildThreadsPath(query),
     });
@@ -618,9 +565,7 @@ export function CodexAppServerResearchPage() {
         return current;
       }
 
-      const refreshedSummary = response.threads.find(
-        (thread) => thread.id === current.id,
-      );
+      const refreshedSummary = response.threads.find((thread) => thread.id === current.id);
       return refreshedSummary
         ? {
             ...current,
@@ -632,9 +577,7 @@ export function CodexAppServerResearchPage() {
     return response;
   };
 
-  const refreshSelectedThread = async (
-    threadId: string | null = selectedThreadId,
-  ) => {
+  const refreshSelectedThread = async (threadId: string | null = selectedThreadId) => {
     const requestId = selectedThreadRequestRef.current + 1;
     selectedThreadRequestRef.current = requestId;
 
@@ -658,9 +601,7 @@ export function CodexAppServerResearchPage() {
     } catch (nextError) {
       if (selectedThreadRequestRef.current === requestId) {
         setSelectedThreadError(
-          nextError instanceof Error
-            ? nextError.message
-            : "Failed to load thread detail.",
+          nextError instanceof Error ? nextError.message : "Failed to load thread detail.",
         );
       }
       throw nextError;
@@ -680,9 +621,7 @@ export function CodexAppServerResearchPage() {
       await Promise.all([refreshStatus(), refreshRequests(), refreshEvents()]);
       return response;
     } catch (nextError) {
-      setError(
-        nextError instanceof Error ? nextError.message : "Request failed.",
-      );
+      setError(nextError instanceof Error ? nextError.message : "Request failed.");
       return null;
     } finally {
       setIsBusy(false);
@@ -718,9 +657,7 @@ export function CodexAppServerResearchPage() {
 
   useEffect(() => {
     const requestedThreadId = routeSearch.threadId ?? null;
-    setSelectedThreadId((current) =>
-      current === requestedThreadId ? current : requestedThreadId,
-    );
+    setSelectedThreadId((current) => (current === requestedThreadId ? current : requestedThreadId));
   }, [routeSearch.threadId]);
 
   useEffect(() => {
@@ -797,8 +734,8 @@ export function CodexAppServerResearchPage() {
           </div>
           <p className="max-w-4xl text-sm text-slate-600">
             Local-only dev page for exploring the repo-owned bridge around{" "}
-            <code>codex app-server</code>. This phase treats the runtime as a
-            machine-scoped thread inventory, not a single current-thread demo.
+            <code>codex app-server</code>. This phase treats the runtime as a machine-scoped thread
+            inventory, not a single current-thread demo.
           </p>
           <div className="flex flex-wrap gap-2 text-xs text-slate-600">
             <span className="border border-slate-300 bg-slate-100 px-2 py-1 font-mono">
@@ -834,46 +771,28 @@ export function CodexAppServerResearchPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Codex</span>
                     <span className="font-mono">
-                      {status?.codexVersion ??
-                        status?.codexInstallError ??
-                        "loading"}
+                      {status?.codexVersion ?? status?.codexInstallError ?? "loading"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Started</span>
-                    <span className="font-mono">
-                      {formatTimestamp(status?.runtime.startedAt)}
-                    </span>
+                    <span className="font-mono">{formatTimestamp(status?.runtime.startedAt)}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">
-                      Current thread
-                    </span>
-                    <span className="font-mono">
-                      {status?.runtime.currentThreadId ?? "none"}
-                    </span>
+                    <span className="text-muted-foreground">Current thread</span>
+                    <span className="font-mono">{status?.runtime.currentThreadId ?? "none"}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">
-                      Selected thread
-                    </span>
-                    <span className="font-mono">
-                      {selectedThreadId ?? "none"}
-                    </span>
+                    <span className="text-muted-foreground">Selected thread</span>
+                    <span className="font-mono">{selectedThreadId ?? "none"}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">
-                      Pending approvals
-                    </span>
-                    <span className="font-mono">
-                      {status?.runtime.pendingApprovalCount ?? "0"}
-                    </span>
+                    <span className="text-muted-foreground">Pending approvals</span>
+                    <span className="font-mono">{status?.runtime.pendingApprovalCount ?? "0"}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Event cursor</span>
-                    <span className="font-mono">
-                      {status?.runtime.eventCursor ?? "0"}
-                    </span>
+                    <span className="font-mono">{status?.runtime.eventCursor ?? "0"}</span>
                   </div>
                 </div>
 
@@ -1019,16 +938,12 @@ export function CodexAppServerResearchPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="font-mono text-base">
-                  Protocol export
-                </CardTitle>
+                <CardTitle className="font-mono text-base">Protocol export</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-4">
                 <div className="flex flex-wrap items-center gap-3">
                   <Button
-                    variant={
-                      protocolMode === "json-schema" ? "default" : "outline"
-                    }
+                    variant={protocolMode === "json-schema" ? "default" : "outline"}
                     onClick={() => {
                       setProtocolMode("json-schema");
                     }}
@@ -1058,25 +973,19 @@ export function CodexAppServerResearchPage() {
                   disabled={isBusy}
                   onClick={() => {
                     void runAction(async () => {
-                      const nextProtocol =
-                        await requestJson<CodexAppServerProtocolResponse>({
-                          path: readProtocolRequestPath({
-                            mode: protocolMode,
-                            experimental: protocolExperimental,
-                          }),
-                        });
+                      const nextProtocol = await requestJson<CodexAppServerProtocolResponse>({
+                        path: readProtocolRequestPath({
+                          mode: protocolMode,
+                          experimental: protocolExperimental,
+                        }),
+                      });
                       setProtocol(nextProtocol);
-                      setActiveProtocolFilePath(
-                        nextProtocol.files[0]?.path ?? null,
-                      );
+                      setActiveProtocolFilePath(nextProtocol.files[0]?.path ?? null);
                       return nextProtocol;
                     });
                   }}
                 >
-                  Load{" "}
-                  {protocolMode === "json-schema"
-                    ? "JSON Schema"
-                    : "TypeScript"}
+                  Load {protocolMode === "json-schema" ? "JSON Schema" : "TypeScript"}
                 </Button>
                 {protocol ? (
                   <ProtocolFilesViewer
@@ -1086,8 +995,7 @@ export function CodexAppServerResearchPage() {
                   />
                 ) : (
                   <div className="border border-dashed border-border px-4 py-8 text-sm text-muted-foreground">
-                    Load generated protocol files to inspect the current
-                    app-server contract.
+                    Load generated protocol files to inspect the current app-server contract.
                   </div>
                 )}
               </CardContent>
@@ -1105,8 +1013,7 @@ export function CodexAppServerResearchPage() {
               error={selectedThreadError}
               onRefresh={() => {
                 void runAction(async () => {
-                  const response =
-                    await refreshSelectedThread(selectedThreadId);
+                  const response = await refreshSelectedThread(selectedThreadId);
                   return response;
                 });
               }}
@@ -1115,9 +1022,7 @@ export function CodexAppServerResearchPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="font-mono text-base">
-                  Thread and turn control
-                </CardTitle>
+                <CardTitle className="font-mono text-base">Thread and turn control</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-6">
                 <div className="grid gap-4 lg:grid-cols-2">
@@ -1129,22 +1034,18 @@ export function CodexAppServerResearchPage() {
                       disabled={isBusy}
                       onClick={() => {
                         void runAction(async () => {
-                          const response =
-                            await requestJson<ThreadActionResponse>({
-                              path: "/thread/start",
-                              method: "POST",
-                              body: {
-                                cwd: runtimeForm.cwd || undefined,
-                                model: runtimeForm.model || undefined,
-                                approvalPolicy:
-                                  runtimeForm.approvalPolicy || undefined,
-                                sandbox: runtimeForm.sandbox || undefined,
-                                personality:
-                                  runtimeForm.personality || undefined,
-                                persistExtendedHistory:
-                                  runtimeForm.persistExtendedHistory,
-                              },
-                            });
+                          const response = await requestJson<ThreadActionResponse>({
+                            path: "/thread/start",
+                            method: "POST",
+                            body: {
+                              cwd: runtimeForm.cwd || undefined,
+                              model: runtimeForm.model || undefined,
+                              approvalPolicy: runtimeForm.approvalPolicy || undefined,
+                              sandbox: runtimeForm.sandbox || undefined,
+                              personality: runtimeForm.personality || undefined,
+                              persistExtendedHistory: runtimeForm.persistExtendedHistory,
+                            },
+                          });
                           const nextThreadId = response.runtime.currentThreadId;
                           await refreshThreads();
                           if (nextThreadId) {
@@ -1169,24 +1070,20 @@ export function CodexAppServerResearchPage() {
                       disabled={isBusy || resumeThreadId.trim().length === 0}
                       onClick={() => {
                         void runAction(async () => {
-                          const response =
-                            await requestJson<ThreadActionResponse>({
-                              path: "/thread/resume",
-                              method: "POST",
-                              body: {
-                                threadId: resumeThreadId.trim(),
-                                cwd: runtimeForm.cwd || undefined,
-                                model: runtimeForm.model || undefined,
-                                approvalPolicy:
-                                  runtimeForm.approvalPolicy || undefined,
-                                sandbox: runtimeForm.sandbox || undefined,
-                                personality:
-                                  runtimeForm.personality || undefined,
-                              },
-                            });
+                          const response = await requestJson<ThreadActionResponse>({
+                            path: "/thread/resume",
+                            method: "POST",
+                            body: {
+                              threadId: resumeThreadId.trim(),
+                              cwd: runtimeForm.cwd || undefined,
+                              model: runtimeForm.model || undefined,
+                              approvalPolicy: runtimeForm.approvalPolicy || undefined,
+                              sandbox: runtimeForm.sandbox || undefined,
+                              personality: runtimeForm.personality || undefined,
+                            },
+                          });
                           const nextThreadId =
-                            response.runtime.currentThreadId ??
-                            resumeThreadId.trim();
+                            response.runtime.currentThreadId ?? resumeThreadId.trim();
                           await refreshThreads();
                           setSelectedThreadId(nextThreadId);
                           await refreshSelectedThread(nextThreadId);
@@ -1258,8 +1155,7 @@ export function CodexAppServerResearchPage() {
                       disabled={isBusy || turnForm.prompt.trim().length === 0}
                       onClick={() => {
                         void runAction(async () => {
-                          const targetThreadId =
-                            turnForm.threadId.trim() || selectedThreadId;
+                          const targetThreadId = turnForm.threadId.trim() || selectedThreadId;
                           const response = await requestJson({
                             path: "/turn/start",
                             method: "POST",
@@ -1268,8 +1164,7 @@ export function CodexAppServerResearchPage() {
                               text: turnForm.prompt,
                               cwd: runtimeForm.cwd || undefined,
                               model: runtimeForm.model || undefined,
-                              approvalPolicy:
-                                runtimeForm.approvalPolicy || undefined,
+                              approvalPolicy: runtimeForm.approvalPolicy || undefined,
                               sandbox: runtimeForm.sandbox || undefined,
                               personality: runtimeForm.personality || undefined,
                               effort: turnForm.effort || undefined,
@@ -1280,8 +1175,7 @@ export function CodexAppServerResearchPage() {
                                   : undefined,
                             },
                           });
-                          const nextThreadId =
-                            targetThreadId ?? readCurrentThreadId(response);
+                          const nextThreadId = targetThreadId ?? readCurrentThreadId(response);
                           await refreshThreads();
                           if (nextThreadId) {
                             setSelectedThreadId(nextThreadId);
@@ -1317,13 +1211,10 @@ export function CodexAppServerResearchPage() {
                     </div>
                     <Button
                       variant="outline"
-                      disabled={
-                        isBusy || interruptForm.turnId.trim().length === 0
-                      }
+                      disabled={isBusy || interruptForm.turnId.trim().length === 0}
                       onClick={() => {
                         void runAction(async () => {
-                          const targetThreadId =
-                            interruptForm.threadId.trim() || selectedThreadId;
+                          const targetThreadId = interruptForm.threadId.trim() || selectedThreadId;
                           const response = await requestJson({
                             path: "/turn/interrupt",
                             method: "POST",
@@ -1382,31 +1273,27 @@ export function CodexAppServerResearchPage() {
                       className="min-h-[160px] font-mono text-xs"
                     />
                     <div className="flex flex-wrap gap-2">
-                      {["accept", "acceptForSession", "decline", "cancel"].map(
-                        (decision) => (
-                          <Button
-                            key={decision}
-                            variant={
-                              decision === "accept" ? "default" : "outline"
-                            }
-                            disabled={isBusy}
-                            onClick={() => {
-                              void runAction(() =>
-                                requestJson({
-                                  path: "/approval/respond",
-                                  method: "POST",
-                                  body: {
-                                    requestId: request.id,
-                                    decision,
-                                  },
-                                }),
-                              );
-                            }}
-                          >
-                            {decision}
-                          </Button>
-                        ),
-                      )}
+                      {["accept", "acceptForSession", "decline", "cancel"].map((decision) => (
+                        <Button
+                          key={decision}
+                          variant={decision === "accept" ? "default" : "outline"}
+                          disabled={isBusy}
+                          onClick={() => {
+                            void runAction(() =>
+                              requestJson({
+                                path: "/approval/respond",
+                                method: "POST",
+                                body: {
+                                  requestId: request.id,
+                                  decision,
+                                },
+                              }),
+                            );
+                          }}
+                        >
+                          {decision}
+                        </Button>
+                      ))}
                     </div>
                   </div>
                 ))}
@@ -1415,9 +1302,7 @@ export function CodexAppServerResearchPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="font-mono text-base">
-                  Event stream
-                </CardTitle>
+                <CardTitle className="font-mono text-base">Event stream</CardTitle>
               </CardHeader>
               <CardContent>
                 <Tabs defaultValue="normalized">
@@ -1444,13 +1329,9 @@ export function CodexAppServerResearchPage() {
                             className="grid gap-2 border border-border bg-white p-4"
                           >
                             <div className="flex flex-wrap items-center gap-2">
-                              <div className="font-mono text-sm">
-                                {event.normalized?.title}
-                              </div>
+                              <div className="font-mono text-sm">{event.normalized?.title}</div>
                               {event.normalized ? (
-                                <EventLevelBadge
-                                  level={event.normalized.level}
-                                />
+                                <EventLevelBadge level={event.normalized.level} />
                               ) : null}
                               <Badge variant="outline">#{event.cursor}</Badge>
                               <span className="ml-auto text-xs text-muted-foreground">
@@ -1462,9 +1343,7 @@ export function CodexAppServerResearchPage() {
                                 {event.normalized.summary}
                               </div>
                             ) : null}
-                            <div className="text-xs text-slate-500">
-                              {event.method}
-                            </div>
+                            <div className="text-xs text-slate-500">{event.method}</div>
                             <Textarea
                               readOnly
                               value={formatJson(event.normalized?.data)}
@@ -1486,9 +1365,7 @@ export function CodexAppServerResearchPage() {
                           className="grid gap-2 border border-border bg-white p-4"
                         >
                           <div className="flex flex-wrap items-center gap-2">
-                            <div className="font-mono text-sm">
-                              {event.method}
-                            </div>
+                            <div className="font-mono text-sm">{event.method}</div>
                             <Badge variant="outline">#{event.cursor}</Badge>
                             <span className="ml-auto text-xs text-muted-foreground">
                               {formatTimestamp(event.at)}

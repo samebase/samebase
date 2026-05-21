@@ -1,7 +1,4 @@
-import {
-  getTailwindColorHex,
-  type FaceColors,
-} from "@/components/logo/logoTailwindColors";
+import { getTailwindColorHex, type FaceColors } from "@/components/logo/logoTailwindColors";
 import {
   getLogoRotationAxis,
   getWorldCameraVector,
@@ -45,10 +42,7 @@ import {
   type VoxelEdit,
   voxelKey,
 } from "@/components/logo/logoVoxelState";
-import {
-  resolveLogoViewState,
-  type LogoViewDragConfig,
-} from "@/components/logo/logoViewDrag";
+import { resolveLogoViewState, type LogoViewDragConfig } from "@/components/logo/logoViewDrag";
 import {
   useEffect,
   useRef,
@@ -173,8 +167,7 @@ void main() {
 `;
 
 export const LOGO_SHUFFLE_PARALLEL_OPTIONS = [1, 2, 3] as const;
-export type LogoShuffleParallelMoves =
-  (typeof LOGO_SHUFFLE_PARALLEL_OPTIONS)[number];
+export type LogoShuffleParallelMoves = (typeof LOGO_SHUFFLE_PARALLEL_OPTIONS)[number];
 export type LogoShuffleAnimationConfig = {
   enabled: boolean;
   parallelMoves: LogoShuffleParallelMoves;
@@ -349,10 +342,7 @@ type NLogoSceneProps = {
   onInteractionEnd?: () => void;
   onRenderReady?: () => void;
   onRenderUnavailable?: () => void;
-  onViewChange: (nextView: {
-    elevationDegrees: number;
-    rotationDegrees: number;
-  }) => void;
+  onViewChange: (nextView: { elevationDegrees: number; rotationDegrees: number }) => void;
   onVoxelEdit: (edit: VoxelEdit) => void;
   rotationAxisMode?: LogoRotationAxisMode;
   rotationDegrees: number;
@@ -403,16 +393,8 @@ function getCubeMovePosition(
   gridSize: number,
   distanceScale: number,
 ): readonly [number, number, number] {
-  const [startX, startY, startZ] = getVoxelWorldCenter(
-    move.from,
-    gridSize,
-    distanceScale,
-  );
-  const [endX, endY, endZ] = getVoxelWorldCenter(
-    move.to,
-    gridSize,
-    distanceScale,
-  );
+  const [startX, startY, startZ] = getVoxelWorldCenter(move.from, gridSize, distanceScale);
+  const [endX, endY, endZ] = getVoxelWorldCenter(move.to, gridSize, distanceScale);
   const travelProgress = easeInOutCubic(progress);
   return [
     startX + (endX - startX) * travelProgress,
@@ -456,8 +438,7 @@ function resolveSceneVoxelGrid({
   voxelGrid: LogoVoxelGrid | undefined;
   voxelState: string;
 }): ResolvedSceneVoxelGrid {
-  const baseFilledVoxels =
-    parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet();
+  const baseFilledVoxels = parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet();
   const normalizedFractalDepth = clampLogoFractalDepthForRenderer(
     fractalDepth ?? DEFAULT_LOGO_FRACTAL_DEPTH,
     "three",
@@ -497,14 +478,9 @@ function buildQuadGeometry(surfaceQuad: LogoSurfaceQuad): THREE.BufferGeometry {
     surfaceQuad.normal[1],
     surfaceQuad.normal[2],
   ]);
-  const uvs = surfaceQuad.vertices.flatMap((vertex) =>
-    getSurfaceVertexUv(surfaceQuad, vertex),
-  );
+  const uvs = surfaceQuad.vertices.flatMap((vertex) => getSurfaceVertexUv(surfaceQuad, vertex));
 
-  geometry.setAttribute(
-    "position",
-    new THREE.Float32BufferAttribute(positions, 3),
-  );
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
   geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
   geometry.setIndex([0, 1, 2, 0, 2, 3]);
@@ -513,9 +489,7 @@ function buildQuadGeometry(surfaceQuad: LogoSurfaceQuad): THREE.BufferGeometry {
   return geometry;
 }
 
-function buildMergedQuadGeometry(
-  surfaceQuads: readonly LogoSurfaceQuad[],
-): THREE.BufferGeometry {
+function buildMergedQuadGeometry(surfaceQuads: readonly LogoSurfaceQuad[]): THREE.BufferGeometry {
   const geometry = new THREE.BufferGeometry();
   const vertexCount = surfaceQuads.length * 4;
   const positions = new Float32Array(vertexCount * 3);
@@ -561,9 +535,7 @@ function buildMergedQuadGeometry(
   return geometry;
 }
 
-function getRecursiveSurfaceFaceKind(
-  colorKey: LogoSurfaceQuad["colorKey"],
-): number {
+function getRecursiveSurfaceFaceKind(colorKey: LogoSurfaceQuad["colorKey"]): number {
   switch (colorKey) {
     case "right":
       return 0;
@@ -589,11 +561,7 @@ function getSurfaceQuadCenter(surfaceQuad: LogoSurfaceQuad): THREE.Vector3 {
   return center;
 }
 
-function writeQuadIndices(
-  indices: Uint32Array,
-  indexOffset: number,
-  vertexOffset: number,
-) {
+function writeQuadIndices(indices: Uint32Array, indexOffset: number, vertexOffset: number) {
   indices[indexOffset] = vertexOffset;
   indices[indexOffset + 1] = vertexOffset + 1;
   indices[indexOffset + 2] = vertexOffset + 2;
@@ -647,10 +615,7 @@ function buildRecursiveSurfaceGeometry(
   indexAttribute.setUsage(THREE.DynamicDrawUsage);
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
-  geometry.setAttribute(
-    "logoFaceKind",
-    new THREE.BufferAttribute(faceKinds, 1),
-  );
+  geometry.setAttribute("logoFaceKind", new THREE.BufferAttribute(faceKinds, 1));
   geometry.setIndex(indexAttribute);
   geometry.computeBoundingSphere();
 
@@ -752,26 +717,10 @@ function translateLogoSurfaceVertices(
   center: readonly [number, number, number],
 ): LogoSurfaceQuad["vertices"] {
   return [
-    [
-      vertices[0][0] + center[0],
-      vertices[0][1] + center[1],
-      vertices[0][2] + center[2],
-    ],
-    [
-      vertices[1][0] + center[0],
-      vertices[1][1] + center[1],
-      vertices[1][2] + center[2],
-    ],
-    [
-      vertices[2][0] + center[0],
-      vertices[2][1] + center[1],
-      vertices[2][2] + center[2],
-    ],
-    [
-      vertices[3][0] + center[0],
-      vertices[3][1] + center[1],
-      vertices[3][2] + center[2],
-    ],
+    [vertices[0][0] + center[0], vertices[0][1] + center[1], vertices[0][2] + center[2]],
+    [vertices[1][0] + center[0], vertices[1][1] + center[1], vertices[1][2] + center[2]],
+    [vertices[2][0] + center[0], vertices[2][1] + center[1], vertices[2][2] + center[2]],
+    [vertices[3][0] + center[0], vertices[3][1] + center[1], vertices[3][2] + center[2]],
   ];
 }
 
@@ -792,11 +741,7 @@ function buildDistanceScaledLogoSurfaceQuads(
       continue;
     }
 
-    const center = getVoxelWorldCenter(
-      coordinate,
-      gridSize,
-      normalizedDistanceScale,
-    );
+    const center = getVoxelWorldCenter(coordinate, gridSize, normalizedDistanceScale);
     for (const face of SPACED_LOGO_CUBE_FACE_SPECS) {
       quads.push({
         colorKey: face.colorKey,
@@ -811,10 +756,7 @@ function buildDistanceScaledLogoSurfaceQuads(
   return quads;
 }
 
-function getDistanceScaledGridFitRadius(
-  gridSize: number,
-  distanceScale: number,
-): number {
+function getDistanceScaledGridFitRadius(gridSize: number, distanceScale: number): number {
   const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
   return (((gridSize - 1) / 2) * normalizedDistanceScale + 0.5) * Math.sqrt(3);
 }
@@ -849,8 +791,7 @@ function createLogoMeshesFromParts(
   materials: LogoSceneMaterials,
 ): LogoSceneMesh[] {
   return logoParts.map(
-    ({ geometry, materialIndex }) =>
-      new THREE.Mesh(geometry, materials[materialIndex]),
+    ({ geometry, materialIndex }) => new THREE.Mesh(geometry, materials[materialIndex]),
   );
 }
 
@@ -871,12 +812,9 @@ function getTileWorldCenter({
 }): readonly [number, number, number] {
   const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
   return [
-    (coordinate[0] * tileGridSize + tileGridSize / 2 - fullGridSize / 2) *
-      normalizedDistanceScale,
-    (coordinate[1] * tileGridSize + tileGridSize / 2 - fullGridSize / 2) *
-      normalizedDistanceScale,
-    (coordinate[2] * tileGridSize + tileGridSize / 2 - fullGridSize / 2) *
-      normalizedDistanceScale,
+    (coordinate[0] * tileGridSize + tileGridSize / 2 - fullGridSize / 2) * normalizedDistanceScale,
+    (coordinate[1] * tileGridSize + tileGridSize / 2 - fullGridSize / 2) * normalizedDistanceScale,
+    (coordinate[2] * tileGridSize + tileGridSize / 2 - fullGridSize / 2) * normalizedDistanceScale,
   ];
 }
 
@@ -1006,10 +944,7 @@ function createRecursiveLogoMeshes({
   const meshes = [mesh];
 
   return {
-    cameraFitRadius: getDistanceScaledGridFitRadius(
-      fullGridSize,
-      normalizedDistanceScale,
-    ),
+    cameraFitRadius: getDistanceScaledGridFitRadius(fullGridSize, normalizedDistanceScale),
     meshes,
     recursiveTileState: {
       currentFilledTiles: new Set(instanceState.filledTiles),
@@ -1052,11 +987,7 @@ function createLogoGeometryRenderState({
     });
   }
 
-  const surfaceQuads = buildDistanceScaledLogoSurfaceQuads(
-    filledVoxels,
-    gridSize,
-    distanceScale,
-  );
+  const surfaceQuads = buildDistanceScaledLogoSurfaceQuads(filledVoxels, gridSize, distanceScale);
   const cameraFitRadius =
     surfaceQuads.length > 0
       ? getLogoSurfaceFitRadius(surfaceQuads, gridSize)
@@ -1133,10 +1064,7 @@ function createLeftFaceMaterialState(): LeftFaceMaterialState {
   };
 
   return {
-    materials: [
-      createMaterial(leftPositiveUniforms),
-      createMaterial(leftNegativeUniforms),
-    ],
+    materials: [createMaterial(leftPositiveUniforms), createMaterial(leftNegativeUniforms)],
     uniforms: [leftPositiveUniforms, leftNegativeUniforms],
   };
 }
@@ -1279,8 +1207,7 @@ function applyLeftFaceMaterialState({
       );
       uniforms.stripeGap.value = normalizedStyle.stripeGap * stripeBasisScale;
       uniforms.stripeOffset.value = normalizedStyle.stripeOffset;
-      uniforms.stripeWidth.value =
-        normalizedStyle.stripeWidth * stripeBasisScale;
+      uniforms.stripeWidth.value = normalizedStyle.stripeWidth * stripeBasisScale;
       continue;
     }
 
@@ -1363,16 +1290,12 @@ function applySceneResolvedFaceColors({
   }
 }
 
-function getAnimatedColor(
-  color: THREE.Color,
-  elapsedSeconds: number,
-): THREE.Color {
+function getAnimatedColor(color: THREE.Color, elapsedSeconds: number): THREE.Color {
   const hsl = { h: 0, l: 0, s: 0 };
   color.getHSL(hsl);
 
   return new THREE.Color().setHSL(
-    (hsl.h + (elapsedSeconds * FACE_COLOR_ANIMATION_DEGREES_PER_SECOND) / 360) %
-      1,
+    (hsl.h + (elapsedSeconds * FACE_COLOR_ANIMATION_DEGREES_PER_SECOND) / 360) % 1,
     Math.max(hsl.s, FACE_COLOR_ANIMATION_MIN_SATURATION),
     THREE.MathUtils.clamp(
       hsl.l,
@@ -1382,10 +1305,7 @@ function getAnimatedColor(
   );
 }
 
-function getAnimatedFaceColors(
-  faceColors: FaceColors,
-  elapsedSeconds: number,
-): ResolvedFaceColors {
+function getAnimatedFaceColors(faceColors: FaceColors, elapsedSeconds: number): ResolvedFaceColors {
   const resolvedFaceColors = resolveFaceColors(faceColors);
   return {
     left: getAnimatedColor(resolvedFaceColors.left, elapsedSeconds),
@@ -1394,10 +1314,7 @@ function getAnimatedFaceColors(
   };
 }
 
-function applyMaterialOpacity(
-  materials: LogoSceneMaterials,
-  opacity: number,
-): number {
+function applyMaterialOpacity(materials: LogoSceneMaterials, opacity: number): number {
   const normalizedOpacity = THREE.MathUtils.clamp(opacity, 0, 1);
   const isTransparent = normalizedOpacity < 1;
   const nextSide = isTransparent ? THREE.DoubleSide : THREE.FrontSide;
@@ -1452,17 +1369,11 @@ function applyRecursiveSurfaceOpacity(
 }
 
 function applySceneOpacity(sceneState: SceneState, opacity: number): number {
-  const normalizedOpacity = applyMaterialOpacity(
-    sceneState.cubeMaterials,
-    opacity,
-  );
+  const normalizedOpacity = applyMaterialOpacity(sceneState.cubeMaterials, opacity);
   sceneState.opacity = normalizedOpacity;
   sceneState.renderer.domElement.style.opacity = "1";
   if (sceneState.recursiveTileState) {
-    applyRecursiveSurfaceOpacity(
-      sceneState.recursiveTileState.materialState,
-      normalizedOpacity,
-    );
+    applyRecursiveSurfaceOpacity(sceneState.recursiveTileState.materialState, normalizedOpacity);
   }
   return normalizedOpacity;
 }
@@ -1482,8 +1393,7 @@ function replaceLogoGeometry(
     recursiveRenderDepth: sceneState.recursiveRenderDepth,
   });
   const previousLogoMeshes = sceneState.logoMeshes;
-  const previousRecursiveMaterial =
-    sceneState.recursiveTileState?.materialState.material ?? null;
+  const previousRecursiveMaterial = sceneState.recursiveTileState?.materialState.material ?? null;
   for (const logoMesh of previousLogoMeshes) {
     sceneState.logoGroup.remove(logoMesh);
     logoMesh.geometry.dispose();
@@ -1508,8 +1418,7 @@ function getCameraSpaceDepth(
   matrixWorld: THREE.Matrix4,
   camera: THREE.Camera,
 ): number {
-  return point.applyMatrix4(matrixWorld).applyMatrix4(camera.matrixWorldInverse)
-    .z;
+  return point.applyMatrix4(matrixWorld).applyMatrix4(camera.matrixWorldInverse).z;
 }
 
 function syncRecursiveSurfaceDrawOrder(sceneState: SceneState) {
@@ -1524,11 +1433,7 @@ function syncRecursiveSurfaceDrawOrder(sceneState: SceneState) {
   const sortedFaces = tileState.surfaceGeometry.drawFaces.map((face) => {
     depthVector.copy(face.center);
     return {
-      depth: getCameraSpaceDepth(
-        depthVector,
-        tileState.mesh.matrixWorld,
-        sceneState.camera,
-      ),
+      depth: getCameraSpaceDepth(depthVector, tileState.mesh.matrixWorld, sceneState.camera),
       face,
     };
   });
@@ -1543,11 +1448,7 @@ function syncRecursiveSurfaceDrawOrder(sceneState: SceneState) {
 
   let indexOffset = 0;
   for (const { face } of sortedFaces) {
-    writeQuadIndices(
-      tileState.surfaceGeometry.indices,
-      indexOffset,
-      face.vertexOffset,
-    );
+    writeQuadIndices(tileState.surfaceGeometry.indices, indexOffset, face.vertexOffset);
     indexOffset += 6;
   }
 
@@ -1588,18 +1489,16 @@ function syncRecursiveTileInstanceOrder(sceneState: SceneState) {
 
   // Shuffle mutates the settled tile set, and transparency needs those settled
   // instances packed from back to front before the draw call.
-  const visibleTileKeys = [...tileState.currentFilledTiles].sort(
-    (left, right) => {
-      const depthDifference =
-        getTileCameraDepth(left, sceneState, tileState) -
-        getTileCameraDepth(right, sceneState, tileState);
-      if (depthDifference !== 0) {
-        return depthDifference;
-      }
+  const visibleTileKeys = [...tileState.currentFilledTiles].sort((left, right) => {
+    const depthDifference =
+      getTileCameraDepth(left, sceneState, tileState) -
+      getTileCameraDepth(right, sceneState, tileState);
+    if (depthDifference !== 0) {
+      return depthDifference;
+    }
 
-      return left.localeCompare(right);
-    },
-  );
+    return left.localeCompare(right);
+  });
   const hiddenMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
   const tileMatrix = new THREE.Matrix4();
 
@@ -1621,11 +1520,7 @@ function syncRecursiveTileInstanceOrder(sceneState: SceneState) {
     tileState.keyToIndex.set(key, index);
   });
 
-  for (
-    let index = visibleTileKeys.length;
-    index < tileState.instanceCapacity;
-    index += 1
-  ) {
+  for (let index = visibleTileKeys.length; index < tileState.instanceCapacity; index += 1) {
     tileState.mesh.setMatrixAt(index, hiddenMatrix);
   }
   tileState.mesh.instanceMatrix.needsUpdate = true;
@@ -1639,15 +1534,11 @@ function syncTransparentFaceRenderOrder(sceneState: SceneState) {
 
   const meshes = [
     ...sceneState.logoMeshes,
-    ...sceneState.activeCubeMoves
-      .filter((move) => move.mesh.visible)
-      .map((move) => move.mesh),
+    ...sceneState.activeCubeMoves.filter((move) => move.mesh.visible).map((move) => move.mesh),
     ...sceneState.activeTileMoves.flatMap((move) =>
       move.group.visible
         ? move.group.children.filter(
-            (
-              child,
-            ): child is THREE.Mesh<THREE.BufferGeometry, LogoSceneMaterial> =>
+            (child): child is THREE.Mesh<THREE.BufferGeometry, LogoSceneMaterial> =>
               child instanceof THREE.Mesh,
           )
         : [],
@@ -1744,17 +1635,9 @@ function scheduleNextCubeMove(
   }
 
   const toKey = voxelKey(toCoordinate[0], toCoordinate[1], toCoordinate[2]);
-  const moveMesh = new THREE.Mesh(
-    sceneState.cubeGeometry,
-    sceneState.cubeMaterials,
-  );
+  const moveMesh = new THREE.Mesh(sceneState.cubeGeometry, sceneState.cubeMaterials);
   moveMesh.visible = false;
-  setCubeMeshPosition(
-    moveMesh,
-    nextMove.from,
-    sceneState.gridSize,
-    sceneState.distanceScale,
-  );
+  setCubeMeshPosition(moveMesh, nextMove.from, sceneState.gridSize, sceneState.distanceScale);
   sceneState.logoGroup.add(moveMesh);
   sceneState.activeCubeMoves.push({
     durationMs: SHUFFLE_MOVE_DURATION_MS,
@@ -1864,10 +1747,7 @@ function syncTileShuffleAnimation(
       continue;
     }
 
-    const progress = Math.min(
-      Math.max((timestampMs - move.startTimeMs) / move.durationMs, 0),
-      1,
-    );
+    const progress = Math.min(Math.max((timestampMs - move.startTimeMs) / move.durationMs, 0), 1);
     const [x, y, z] = getTileMovePosition(move, progress, tileState);
     move.group.position.set(x, y, z);
 
@@ -1941,10 +1821,7 @@ function syncCubeShuffleAnimation(
       continue;
     }
 
-    const progress = Math.min(
-      Math.max((timestampMs - move.startTimeMs) / move.durationMs, 0),
-      1,
-    );
+    const progress = Math.min(Math.max((timestampMs - move.startTimeMs) / move.durationMs, 0), 1);
     const [x, y, z] = getCubeMovePosition(
       move,
       progress,
@@ -1972,12 +1849,7 @@ function syncCubeShuffleAnimation(
   }
 
   if (didChangeOccupancy) {
-    replaceLogoGeometry(
-      sceneState,
-      sceneState.currentFilledVoxels,
-      sceneState.gridSize,
-      false,
-    );
+    replaceLogoGeometry(sceneState, sceneState.currentFilledVoxels, sceneState.gridSize, false);
   }
 
   while (sceneState.activeCubeMoves.length < parallelMoves) {
@@ -2240,22 +2112,15 @@ export function NLogoScene({
     const getCameraFitRadius = () =>
       sceneStateRef.current?.cameraFitRadius ?? initialCameraFitRadius;
 
-    const getFrustumHalfSpan = () =>
-      getCameraFitRadius() * CAMERA_FRUSTUM_PADDING;
+    const getFrustumHalfSpan = () => getCameraFitRadius() * CAMERA_FRUSTUM_PADDING;
 
     const getCameraDistance = () =>
       resolveLogoSceneCameraDepthBounds(getCameraFitRadius()).distance;
 
     const updateCameraPosition = () => {
-      const [cameraX, cameraY, cameraZ] = getWorldCameraVector(
-        elevationDegreesRef.current,
-      );
-      camera.position
-        .set(cameraX, cameraY, cameraZ)
-        .setLength(getCameraDistance());
-      const [upX, upY, upZ] = getWorldScreenVerticalAxis(
-        elevationDegreesRef.current,
-      );
+      const [cameraX, cameraY, cameraZ] = getWorldCameraVector(elevationDegreesRef.current);
+      camera.position.set(cameraX, cameraY, cameraZ).setLength(getCameraDistance());
+      const [upX, upY, upZ] = getWorldScreenVerticalAxis(elevationDegreesRef.current);
       camera.up.set(upX, upY, upZ);
       camera.lookAt(0, 0, 0);
     };
@@ -2268,9 +2133,7 @@ export function NLogoScene({
       rotationAxisVector.set(axisX, axisY, axisZ);
       logoGroup.quaternion.setFromAxisAngle(
         rotationAxisVector,
-        THREE.MathUtils.degToRad(
-          toRenderedRotationDegrees(rotationDegreesRef.current),
-        ),
+        THREE.MathUtils.degToRad(toRenderedRotationDegrees(rotationDegreesRef.current)),
       );
     };
 
@@ -2279,8 +2142,7 @@ export function NLogoScene({
       const height = container.clientHeight || 768;
       const aspect = width / height;
       const cameraFitRadius = getCameraFitRadius();
-      const cameraDepthBounds =
-        resolveLogoSceneCameraDepthBounds(cameraFitRadius);
+      const cameraDepthBounds = resolveLogoSceneCameraDepthBounds(cameraFitRadius);
       const frustumHalfSpan = getFrustumHalfSpan();
       const frustumHalfHeight = Math.max(
         frustumHalfSpan,
@@ -2364,8 +2226,7 @@ export function NLogoScene({
         );
       }
       if (sceneState && animateFaceColorsRef.current) {
-        const animationStartedAt =
-          faceColorAnimationStartedAtRef.current ?? timestampMs;
+        const animationStartedAt = faceColorAnimationStartedAtRef.current ?? timestampMs;
         faceColorAnimationStartedAtRef.current = animationStartedAt;
         applySceneResolvedFaceColors({
           backgroundColor: backgroundColorRef.current,
@@ -2541,11 +2402,7 @@ export function NLogoScene({
     kind: VoxelEdit["kind"],
   ): VoxelEdit | null => {
     const sceneState = sceneStateRef.current;
-    if (
-      !sceneState ||
-      !voxelEditingEnabledRef.current ||
-      shuffleAnimationRef.current.enabled
-    ) {
+    if (!sceneState || !voxelEditingEnabledRef.current || shuffleAnimationRef.current.enabled) {
       return null;
     }
 
@@ -2561,31 +2418,20 @@ export function NLogoScene({
 
     const x = ((clientX - canvasRect.left) / canvasRect.width) * 2 - 1;
     const y = -((clientY - canvasRect.top) / canvasRect.height) * 2 + 1;
-    sceneState.raycaster.setFromCamera(
-      new THREE.Vector2(x, y),
-      sceneState.camera,
-    );
-    const intersections = sceneState.raycaster.intersectObjects(
-      sceneState.logoMeshes,
-      false,
-    );
+    sceneState.raycaster.setFromCamera(new THREE.Vector2(x, y), sceneState.camera);
+    const intersections = sceneState.raycaster.intersectObjects(sceneState.logoMeshes, false);
     if (intersections.length === 0) {
       return null;
     }
     const intersection = intersections[0];
 
-    const localPoint = sceneState.logoGroup.worldToLocal(
-      intersection.point.clone(),
-    );
+    const localPoint = sceneState.logoGroup.worldToLocal(intersection.point.clone());
     const intersectionNormal = intersection.normal ?? intersection.face?.normal;
     if (!intersectionNormal) {
       return null;
     }
     const localNormal = intersectionNormal.clone();
-    localPoint.addScaledVector(
-      localNormal,
-      kind === "add" ? RAYCAST_OFFSET : -RAYCAST_OFFSET,
-    );
+    localPoint.addScaledVector(localNormal, kind === "add" ? RAYCAST_OFFSET : -RAYCAST_OFFSET);
 
     const coordinate = pointToVoxelCoordinate(
       localPoint,
@@ -2653,10 +2499,7 @@ export function NLogoScene({
     const deltaX = event.clientX - interaction.startX;
     const deltaY = event.clientY - interaction.startY;
 
-    if (
-      interaction.status === "pending" &&
-      Math.hypot(deltaX, deltaY) >= DRAG_THRESHOLD_PX
-    ) {
+    if (interaction.status === "pending" && Math.hypot(deltaX, deltaY) >= DRAG_THRESHOLD_PX) {
       interactionRef.current.status = "dragging";
       onInteractionStartRef.current?.();
     }
@@ -2672,11 +2515,9 @@ export function NLogoScene({
         disableSnap,
         view: {
           elevationDegrees:
-            interaction.startElevationDegrees +
-            deltaY * DRAG_ELEVATION_DEGREES_PER_PIXEL,
+            interaction.startElevationDegrees + deltaY * DRAG_ELEVATION_DEGREES_PER_PIXEL,
           rotationDegrees:
-            interaction.startRotationDegrees +
-            deltaX * DRAG_ROTATION_DEGREES_PER_PIXEL,
+            interaction.startRotationDegrees + deltaX * DRAG_ROTATION_DEGREES_PER_PIXEL,
         },
       }),
     );
@@ -2684,19 +2525,12 @@ export function NLogoScene({
 
   const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
     const interaction = interactionRef.current;
-    if (
-      interaction.pointerId !== event.pointerId ||
-      interaction.button === null
-    ) {
+    if (interaction.pointerId !== event.pointerId || interaction.button === null) {
       return;
     }
 
     if (interaction.status !== "dragging") {
-      const edit = pickVoxelEdit(
-        event.clientX,
-        event.clientY,
-        editModeRef.current,
-      );
+      const edit = pickVoxelEdit(event.clientX, event.clientY, editModeRef.current);
       if (edit) {
         onVoxelEditRef.current(edit);
       }

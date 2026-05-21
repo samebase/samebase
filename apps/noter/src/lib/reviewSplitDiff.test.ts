@@ -4,9 +4,7 @@ import { getReviewSplitDiffHighlights } from "./reviewSplitDiff";
 
 describe("getReviewSplitDiffHighlights", () => {
   it("highlights removed and added lines separately", () => {
-    expect(
-      getReviewSplitDiffHighlights("one\ntwo\nthree\n", "one\nbeta\nthree\n"),
-    ).toEqual({
+    expect(getReviewSplitDiffHighlights("one\ntwo\nthree\n", "one\nbeta\nthree\n")).toEqual({
       oldLines: [2],
       newLines: [2],
     });

@@ -2,10 +2,7 @@ import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import type {
-  VOXChunk,
-  VOXResult,
-} from "three/examples/jsm/loaders/VOXLoader.js";
+import type { VOXChunk, VOXResult } from "three/examples/jsm/loaders/VOXLoader.js";
 
 type PreviewStatus = "idle" | "loading" | "ready" | "error";
 const PREVIEW_LOADING_DELAY_MS = 500;
@@ -36,10 +33,7 @@ function buildChunkVoxelMeshes(chunks: readonly VOXChunk[]): RenderableObject {
 
     for (let index = 0; index < chunk.data.length; index += 4) {
       const paletteIndex = chunk.data[index + 3];
-      paletteCounts.set(
-        paletteIndex,
-        (paletteCounts.get(paletteIndex) ?? 0) + 1,
-      );
+      paletteCounts.set(paletteIndex, (paletteCounts.get(paletteIndex) ?? 0) + 1);
     }
 
     if (paletteCounts.size === 0) {
@@ -169,9 +163,7 @@ function disposeObjectResources(root: THREE.Object3D) {
       return;
     }
 
-    const nodeMaterials = Array.isArray(node.material)
-      ? node.material
-      : [node.material];
+    const nodeMaterials = Array.isArray(node.material) ? node.material : [node.material];
 
     for (const material of nodeMaterials) {
       if (!(material instanceof THREE.Material)) {
@@ -208,8 +200,7 @@ function fitCameraToBounds(
   const center = bounds.getCenter(new THREE.Vector3());
   const size = bounds.getSize(new THREE.Vector3());
   const radius = Math.max(size.length() / 2, 1);
-  const distance =
-    (radius / Math.sin(THREE.MathUtils.degToRad(camera.fov) / 2)) * 1.15;
+  const distance = (radius / Math.sin(THREE.MathUtils.degToRad(camera.fov) / 2)) * 1.15;
   const direction = new THREE.Vector3(1, 0.9, 1.15).normalize();
 
   controls.target.copy(center);
@@ -266,8 +257,7 @@ export function RepositoryVoxPreview({
       }
     };
 
-    const shouldIgnoreResult = () =>
-      abortController.signal.aborted || isDisposed;
+    const shouldIgnoreResult = () => abortController.signal.aborted || isDisposed;
 
     const clearLoadingDelay = () => {
       if (loadingDelayId !== null) {
@@ -364,9 +354,7 @@ export function RepositoryVoxPreview({
         }
 
         const message =
-          error instanceof VoxParseError
-            ? error.message
-            : "Failed to load .vox preview.";
+          error instanceof VoxParseError ? error.message : "Failed to load .vox preview.";
         if (shouldIgnoreResult()) {
           return;
         }

@@ -13,14 +13,8 @@ import type {
   PlatformDeploymentResponse,
   PlatformProjectDetails,
 } from "./convexManagementApi/types.generated";
-import {
-  readCloudflareBuildLogs,
-  readCloudflareWorkerStatus,
-} from "./cloudflareResources";
-import {
-  formatCloudflareApiEndpoint,
-  requestCloudflareApi,
-} from "./cloudflareApi/client";
+import { readCloudflareBuildLogs, readCloudflareWorkerStatus } from "./cloudflareResources";
+import { formatCloudflareApiEndpoint, requestCloudflareApi } from "./cloudflareApi/client";
 import { clamp } from "./jsonUtils";
 import type { Doc, Id } from "./_generated/dataModel";
 
@@ -139,10 +133,7 @@ export const getConvexDeploymentStatus = internalAction({
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { infra, convexConnection } = await loadVaultContext(
-      ctx,
-      args.vaultId,
-    );
+    const { infra, convexConnection } = await loadVaultContext(ctx, args.vaultId);
 
     if (!infra) {
       throw new Error(getVaultInfraError(args.vaultId));
@@ -182,10 +173,7 @@ export const getConvexLogs = internalAction({
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { infra, convexConnection } = await loadVaultContext(
-      ctx,
-      args.vaultId,
-    );
+    const { infra, convexConnection } = await loadVaultContext(ctx, args.vaultId);
 
     if (!infra) {
       throw new Error(getVaultInfraError(args.vaultId));
@@ -210,9 +198,7 @@ export const getConvexLogs = internalAction({
     const max = clamp(args.maxLines ?? 20, 1, 100);
 
     const lines: string[] = [];
-    for (const deployment of [...deployments]
-      .sort(compareConvexDeploymentActivity)
-      .slice(0, max)) {
+    for (const deployment of [...deployments].sort(compareConvexDeploymentActivity).slice(0, max)) {
       const createdAtText = new Date(deployment.createTime).toISOString();
       lines.push(
         `[${createdAtText}] ${deployment.name} type=${deployment.deploymentType} kind=${deployment.kind}`,
@@ -305,8 +291,7 @@ export const getConvexProjectInventory = internalAction({
           kind: "convex",
         })
       : null;
-    const convexConnection =
-      convexConnectionRaw?.kind === "convex" ? convexConnectionRaw : null;
+    const convexConnection = convexConnectionRaw?.kind === "convex" ? convexConnectionRaw : null;
     const convexToken = resolveConvexToken(convexConnection);
     const teamId = resolveConvexTeamId(convexConnection);
     const endpoint = formatConvexManagementApiEndpoint({
@@ -325,9 +310,7 @@ export const getConvexProjectInventory = internalAction({
       { params: { path: { team_id: teamId } } },
     );
     const max = clamp(args.limit ?? 50, 1, 100);
-    const rows = [...projects]
-      .sort(compareConvexProjectInventoryRow)
-      .slice(0, max);
+    const rows = [...projects].sort(compareConvexProjectInventoryRow).slice(0, max);
 
     return {
       summary: `Convex project inventory for team ${teamId}`,
@@ -369,17 +352,13 @@ export const getCloudflareAccountInventory = internalAction({
       ...request,
     });
     if (!accounts) {
-      throw new Error(
-        "Cloudflare account inventory response did not include accounts.",
-      );
+      throw new Error("Cloudflare account inventory response did not include accounts.");
     }
-    const rows = [...accounts]
-      .sort(compareCloudflareInventoryRow)
-      .map((account) => ({
-        id: account.id,
-        name: account.name,
-        type: account.type,
-      }));
+    const rows = [...accounts].sort(compareCloudflareInventoryRow).map((account) => ({
+      id: account.id,
+      name: account.name,
+      type: account.type,
+    }));
 
     return {
       summary: "Cloudflare account inventory",

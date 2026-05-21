@@ -147,8 +147,7 @@ function resolveSceneVoxelGrid({
     };
   }
 
-  const filledVoxels =
-    parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet();
+  const filledVoxels = parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet();
   if (normalizedFractalDepth > DEFAULT_LOGO_FRACTAL_DEPTH) {
     return {
       filledVoxels,
@@ -190,10 +189,7 @@ function getBoundedRecursiveCubeSidePixels({
   const renderGridSize = getLogoFractalGridSize(recursiveRenderDepth);
   let nextCubeSidePixels = cubeSidePixels;
   while (nextCubeSidePixels > MIN_RECURSIVE_ISO_CUBE_SIDE_PX) {
-    const frameMetrics = getLogoIsometricFrameMetrics(
-      nextCubeSidePixels,
-      renderGridSize,
-    );
+    const frameMetrics = getLogoIsometricFrameMetrics(nextCubeSidePixels, renderGridSize);
     if (
       frameMetrics.canvasWidth <= containerWidth &&
       frameMetrics.canvasHeight <= containerHeight
@@ -300,10 +296,7 @@ function syncCubeShuffleAnimation(
       continue;
     }
 
-    const progress = Math.min(
-      Math.max((timestampMs - move.startTimeMs) / move.durationMs, 0),
-      1,
-    );
+    const progress = Math.min(Math.max((timestampMs - move.startTimeMs) / move.durationMs, 0), 1);
 
     if (progress >= 1) {
       completedMoves.push(move);
@@ -653,23 +646,14 @@ export function NLogoIsoScene({
       const devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
 
       canvas.width = Math.max(1, Math.floor(containerWidth * devicePixelRatio));
-      canvas.height = Math.max(
-        1,
-        Math.floor(containerHeight * devicePixelRatio),
-      );
+      canvas.height = Math.max(1, Math.floor(containerHeight * devicePixelRatio));
 
       context.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
       context.clearRect(0, 0, containerWidth, containerHeight);
       context.fillStyle = backgroundColorRef.current;
       context.fillRect(0, 0, containerWidth, containerHeight);
       context.imageSmoothingEnabled = false;
-      context.drawImage(
-        offscreenCanvas,
-        offsetX,
-        offsetY,
-        drawWidth,
-        drawHeight,
-      );
+      context.drawImage(offscreenCanvas, offsetX, offsetY, drawWidth, drawHeight);
 
       viewportRef.current = {
         faces: visibleFaces,
@@ -755,14 +739,8 @@ export function NLogoIsoScene({
     };
   };
 
-  const pickFace = (
-    clientX: number,
-    clientY: number,
-  ): IsometricVisibleFace | null => {
-    if (
-      !voxelEditingEnabledRef.current ||
-      shuffleAnimationRef.current.enabled
-    ) {
+  const pickFace = (clientX: number, clientY: number): IsometricVisibleFace | null => {
+    if (!voxelEditingEnabledRef.current || shuffleAnimationRef.current.enabled) {
       return null;
     }
 
@@ -773,10 +751,8 @@ export function NLogoIsoScene({
     }
 
     const canvasRect = canvas.getBoundingClientRect();
-    const x =
-      (clientX - canvasRect.left - viewport.offsetX) / viewport.pixelScale;
-    const y =
-      (clientY - canvasRect.top - viewport.offsetY) / viewport.pixelScale;
+    const x = (clientX - canvasRect.left - viewport.offsetX) / viewport.pixelScale;
+    const y = (clientY - canvasRect.top - viewport.offsetY) / viewport.pixelScale;
 
     for (const face of [...viewport.faces].reverse()) {
       if (isPointInsideRowSpans(x, y, face.hitRows)) {
@@ -803,10 +779,7 @@ export function NLogoIsoScene({
 
   const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
     const interaction = interactionRef.current;
-    if (
-      interaction.pointerId !== event.pointerId ||
-      interaction.button === null
-    ) {
+    if (interaction.pointerId !== event.pointerId || interaction.button === null) {
       return;
     }
 
@@ -867,11 +840,7 @@ export function NLogoIsoScene({
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
     >
-      <canvas
-        ref={canvasRef}
-        className="block h-full w-full"
-        data-logo-renderer="iso"
-      />
+      <canvas ref={canvasRef} className="block h-full w-full" data-logo-renderer="iso" />
     </div>
   );
 }

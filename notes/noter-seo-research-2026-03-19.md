@@ -4,27 +4,23 @@ Date: 2026-03-19
 
 ## Goal
 
-Capture the SEO research relevant to Noter's current product shape and
-deployment so a future PR can improve discoverability without indexing the wrong
-parts of the product.
+Capture the SEO research relevant to Noter's current product shape and deployment so a future PR can
+improve discoverability without indexing the wrong parts of the product.
 
 ## Executive summary
 
-Noter does not currently have a "small on-page SEO tweaks" problem. It has a
-public-surface problem.
+Noter does not currently have a "small on-page SEO tweaks" problem. It has a public-surface problem.
 
-The logged-out experience is a lightweight landing shell plus waitlist/login,
-while the real product value lives behind authentication. Search engines can
-render the current homepage content after JavaScript, but the site still has
-critical crawl/index issues and almost no public information architecture to
-rank with.
+The logged-out experience is a lightweight landing shell plus waitlist/login, while the real product
+value lives behind authentication. Search engines can render the current homepage content after
+JavaScript, but the site still has critical crawl/index issues and almost no public information
+architecture to rank with.
 
 The highest-leverage direction is:
 
 1. Keep the private app mostly out of the index.
 2. Build a real public marketing and docs surface on `noter.md`.
-3. Give each public page a stable topic, title, canonical URL, and supporting
-   content.
+3. Give each public page a stable topic, title, canonical URL, and supporting content.
 4. Fix the current crawl hygiene issues before doing content work.
 
 ## Product and surface reviewed
@@ -52,9 +48,9 @@ Live production checks reviewed:
 
 ### 1. Google-style rendering can see the homepage content
 
-The public landing shell is rendered by the bootstrap path before the main app
-hydrates. That means crawlers that execute JavaScript can see a real H1 and body
-copy on the homepage, even though the initial HTML is sparse.
+The public landing shell is rendered by the bootstrap path before the main app hydrates. That means
+crawlers that execute JavaScript can see a real H1 and body copy on the homepage, even though the
+initial HTML is sparse.
 
 Relevant local references:
 
@@ -64,8 +60,7 @@ Relevant local references:
 Implication:
 
 - Noter is not blocked on full SSR just to get the homepage indexed.
-- However, this is still a brittle base compared with statically rendered public
-  pages.
+- However, this is still a brittle base compared with statically rendered public pages.
 
 ### 2. The default metadata is generic
 
@@ -99,19 +94,17 @@ Implication:
 
 Live verification showed:
 
-- `https://noter.md/sitemap.xml` returns the HTML app shell instead of sitemap
-  XML
+- `https://noter.md/sitemap.xml` returns the HTML app shell instead of sitemap XML
 
 Implication:
 
 - Search Console has no proper sitemap feed to consume
-- index discovery is weaker than it should be even for the few public URLs that
-  exist
+- index discovery is weaker than it should be even for the few public URLs that exist
 
 ### 5. Public route differentiation is very limited
 
-The current route tree is mostly app routes behind authentication. Logged-out
-users are effectively funneled to the landing/sign-in surface.
+The current route tree is mostly app routes behind authentication. Logged-out users are effectively
+funneled to the landing/sign-in surface.
 
 Relevant local references:
 
@@ -125,14 +118,14 @@ Implication:
 
 ### 6. Unauthenticated deep routes can collapse to the same landing content
 
-A rendered check of `/pricing` while unauthenticated produced the landing page
-content instead of a distinct public pricing document.
+A rendered check of `/pricing` while unauthenticated produced the landing page content instead of a
+distinct public pricing document.
 
 Implication:
 
 - multiple URLs can expose essentially the same content under `200`
-- this creates duplicate and soft-404-style risk unless canonicals, `noindex`,
-  or real public page rendering are added intentionally
+- this creates duplicate and soft-404-style risk unless canonicals, `noindex`, or real public page
+  rendering are added intentionally
 
 ### 7. Homepage positioning is unstable because the slogan rotates
 
@@ -190,8 +183,8 @@ Noter should not try to win broad head terms like:
 
 Those spaces are too broad and too crowded for the current public footprint.
 
-The better approach is to pick a narrower primary wedge and support adjacent
-wedges with dedicated pages.
+The better approach is to pick a narrower primary wedge and support adjacent wedges with dedicated
+pages.
 
 The strongest candidates based on the current product are:
 
@@ -202,20 +195,17 @@ The strongest candidates based on the current product are:
 
 Recommended homepage thesis:
 
-- position Noter primarily as a GitHub-backed workspace for AI agents and human
-  operators
+- position Noter primarily as a GitHub-backed workspace for AI agents and human operators
 
 Why this is the best fit:
 
 - it aligns with the actual product
 - it is more specific than `code editor`
-- it still leaves room for MCP, mobile operations, and approval-first AI flows
-  as secondary pages
+- it still leaves room for MCP, mobile operations, and approval-first AI flows as secondary pages
 
 ## Recommended public information architecture
 
-Noter needs more indexable, intent-specific public pages. A practical first
-pass:
+Noter needs more indexable, intent-specific public pages. A practical first pass:
 
 - `/`
   - stable homepage with one clear thesis, real product screenshots, primary CTA
@@ -237,8 +227,8 @@ pass:
 Important principle:
 
 - public pages should be indexable
-- app routes, auth flows, consent flows, and per-vault routes should generally
-  be `noindex` or otherwise kept out of Search
+- app routes, auth flows, consent flows, and per-vault routes should generally be `noindex` or
+  otherwise kept out of Search
 
 ## Technical SEO recommendations
 
@@ -271,8 +261,8 @@ For private or utility routes, use one of:
 - proper auth status handling
 - real 404 behavior for non-public pages
 
-Do not let multiple logged-out URLs return the same landing body under `200`
-without explicit canonical handling.
+Do not let multiple logged-out URLs return the same landing body under `200` without explicit
+canonical handling.
 
 ### 4. Add structured data for core site identity
 
@@ -290,16 +280,16 @@ Only add schema that matches visible on-page content.
 
 ### 5. Prefer statically rendered public pages even if the app remains SPA-based
 
-The current JavaScript-rendered landing is indexable enough to work, but
-statically rendering public marketing pages would still be better for:
+The current JavaScript-rendered landing is indexable enough to work, but statically rendering public
+marketing pages would still be better for:
 
 - crawl predictability
 - metadata correctness
 - easier canonical control
 - simpler sharing previews
 
-This does not require converting the private app to SSR. It only requires a more
-intentional public surface.
+This does not require converting the private app to SSR. It only requires a more intentional public
+surface.
 
 ### 6. Keep titles and messaging stable
 
@@ -312,8 +302,8 @@ A better pattern is:
 
 ## Content strategy recommendations
 
-Noter will benefit most from first-hand, product-specific content rather than
-generic SEO blog output.
+Noter will benefit most from first-hand, product-specific content rather than generic SEO blog
+output.
 
 High-value content types:
 
@@ -353,8 +343,8 @@ Metrics to watch first:
 - impressions and CTR for the homepage and key landing pages
 - duplicate, soft-404, and excluded URL patterns
 
-Do not treat `site:noter.md` as authoritative. It is useful as a rough check,
-but Google documents that the `site:` operator is not exhaustive.
+Do not treat `site:noter.md` as authoritative. It is useful as a rough check, but Google documents
+that the `site:` operator is not exhaustive.
 
 ## Recommended implementation order
 
@@ -385,15 +375,14 @@ but Google documents that the `site:` operator is not exhaustive.
 
 ## Suggested first PR scope
 
-If the goal is a focused implementation PR after this research, the best first
-scope is:
+If the goal is a focused implementation PR after this research, the best first scope is:
 
 - add a valid `robots.txt`
 - add a real `sitemap.xml`
 - add canonical support
 - replace the generic homepage title and description
-- make `/pricing` a distinct public page when logged out, or explicitly remove
-  it from indexing until it is real
+- make `/pricing` a distinct public page when logged out, or explicitly remove it from indexing
+  until it is real
 
 That is the highest signal-to-effort starting point.
 
@@ -417,8 +406,7 @@ Primary guidance:
   `https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap`
 - Google robots meta tag guidance:
   `https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag`
-- Google AI features in Search:
-  `https://developers.google.com/search/docs/appearance/ai-features`
+- Google AI features in Search: `https://developers.google.com/search/docs/appearance/ai-features`
 - Google page experience guidance:
   `https://developers.google.com/search/docs/appearance/page-experience`
 - Google note about `site:` operator limitations:

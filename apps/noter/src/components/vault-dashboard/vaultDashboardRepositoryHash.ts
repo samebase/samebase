@@ -3,18 +3,14 @@ export function buildVaultDashboardRepositoryHashId(args: {
   repositoryFullName: string;
   repositoryName: string;
 }): string {
-  return args.hasDuplicateRepositoryName
-    ? args.repositoryFullName
-    : args.repositoryName;
+  return args.hasDuplicateRepositoryName ? args.repositoryFullName : args.repositoryName;
 }
 
 export function buildVaultDashboardRepositoryHashHref(hashId: string): string {
   return `#${encodeURI(hashId)}`;
 }
 
-export function normalizeVaultDashboardRepositoryHash(
-  hash: string,
-): string | null {
+export function normalizeVaultDashboardRepositoryHash(hash: string): string | null {
   const normalizedHash = hash.replace(/^#/, "");
   if (normalizedHash.length === 0) {
     return null;

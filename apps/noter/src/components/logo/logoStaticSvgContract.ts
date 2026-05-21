@@ -52,10 +52,8 @@ export const LOGO_IDENTITY_VIEW_CONTRACTS = [
     version: 3,
   },
 ] as const;
-export type LogoIdentityViewId =
-  (typeof LOGO_IDENTITY_VIEW_CONTRACTS)[number]["id"];
-export const LOGO_IDENTITY_EDIT_MARK_VIEW_ID =
-  "side-diagonal" satisfies LogoIdentityViewId;
+export type LogoIdentityViewId = (typeof LOGO_IDENTITY_VIEW_CONTRACTS)[number]["id"];
+export const LOGO_IDENTITY_EDIT_MARK_VIEW_ID = "side-diagonal" satisfies LogoIdentityViewId;
 export const LOGO_IDENTITY_EDIT_MARK_SVG_URL = "/logo-v2-side-diagonal.svg";
 
 export const STATIC_LOGO_VOXEL_STATE = serializeVoxelState(

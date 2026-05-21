@@ -9,10 +9,7 @@ import {
   type VoxelCoordinate,
   voxelKey,
 } from "@/components/logo/logoVoxelState";
-import {
-  getTailwindColorHex,
-  type FaceColors,
-} from "@/components/logo/logoTailwindColors";
+import { getTailwindColorHex, type FaceColors } from "@/components/logo/logoTailwindColors";
 
 const FRAME_PADDING = 4;
 export const DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX = 16;
@@ -112,33 +109,28 @@ export const LOGO_ISOMETRIC_STYLES = [
   },
   {
     capWidth: 2,
-    description:
-      "Standard 2:1 fill with shaded edge pixels on silhouettes and ridges.",
+    description: "Standard 2:1 fill with shaded edge pixels on silhouettes and ridges.",
     edgeMode: "shaded",
     id: "shaded-edge",
     label: "Shaded Edge",
   },
   {
     capWidth: 3,
-    description:
-      "Keeps 2:1 slopes but widens the top and bottom cap rows to 3 pixels.",
+    description: "Keeps 2:1 slopes but widens the top and bottom cap rows to 3 pixels.",
     edgeMode: "none",
     id: "cap-3",
     label: "Cap 3",
   },
   {
     capWidth: 4,
-    description:
-      "Keeps 2:1 slopes but widens the top and bottom cap rows to 4 pixels.",
+    description: "Keeps 2:1 slopes but widens the top and bottom cap rows to 4 pixels.",
     edgeMode: "none",
     id: "cap-4",
     label: "Cap 4",
   },
 ] as const satisfies readonly LogoIsometricStyle[];
 
-export function isLogoIsometricStyleId(
-  value: string | null,
-): value is LogoIsometricStyleId {
+export function isLogoIsometricStyleId(value: string | null): value is LogoIsometricStyleId {
   if (value === null) {
     return false;
   }
@@ -146,13 +138,8 @@ export function isLogoIsometricStyleId(
   return LOGO_ISOMETRIC_STYLES.some((style) => style.id === value);
 }
 
-export function getLogoIsometricStyle(
-  styleId: LogoIsometricStyleId,
-): LogoIsometricStyle {
-  return (
-    LOGO_ISOMETRIC_STYLES.find((style) => style.id === styleId) ??
-    LOGO_ISOMETRIC_STYLES[0]
-  );
+export function getLogoIsometricStyle(styleId: LogoIsometricStyleId): LogoIsometricStyle {
+  return LOGO_ISOMETRIC_STYLES.find((style) => style.id === styleId) ?? LOGO_ISOMETRIC_STYLES[0];
 }
 
 export function normalizeLogoIsometricCubeSidePixels(value: number): number {
@@ -161,8 +148,7 @@ export function normalizeLogoIsometricCubeSidePixels(value: number): number {
   }
 
   const roundedToStep =
-    Math.round(value / LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX) *
-    LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX;
+    Math.round(value / LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX) * LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX;
 
   return Math.min(
     Math.max(roundedToStep, MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX),
@@ -175,16 +161,10 @@ function normalizeLogoIsometricFrameCubeSidePixels(value: number): number {
     return DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX;
   }
 
-  return Math.min(
-    Math.max(Math.round(value), 1),
-    MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX,
-  );
+  return Math.min(Math.max(Math.round(value), 1), MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX);
 }
 
-function projectPoint(
-  position: CubePosition,
-  frameMetrics: LogoIsometricFrameMetrics,
-): Point {
+function projectPoint(position: CubePosition, frameMetrics: LogoIsometricFrameMetrics): Point {
   return {
     x: (position[0] - position[2]) * frameMetrics.tileHalfWidth,
     y:
@@ -241,8 +221,7 @@ function createLogoIsometricFrameMetrics(
   cubeSidePixels: number,
   gridSize: number,
 ): LogoIsometricFrameMetrics {
-  const normalizedCubeSidePixels =
-    normalizeLogoIsometricFrameCubeSidePixels(cubeSidePixels);
+  const normalizedCubeSidePixels = normalizeLogoIsometricFrameCubeSidePixels(cubeSidePixels);
   const tileHalfWidth = normalizedCubeSidePixels;
   const tileHalfHeight = normalizedCubeSidePixels / 2;
   const voxelScreenHeight = normalizedCubeSidePixels;
@@ -289,8 +268,7 @@ export function getLogoIsometricFrameMetrics(
   cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   gridSize = GRID_SIZE,
 ): LogoIsometricFrameMetrics {
-  const normalizedCubeSidePixels =
-    normalizeLogoIsometricFrameCubeSidePixels(cubeSidePixels);
+  const normalizedCubeSidePixels = normalizeLogoIsometricFrameCubeSidePixels(cubeSidePixels);
   const cacheKey = `${normalizedCubeSidePixels}:${gridSize}`;
   const cachedFrameMetrics = isometricFrameMetricsCache.get(cacheKey);
 
@@ -298,10 +276,7 @@ export function getLogoIsometricFrameMetrics(
     return cachedFrameMetrics;
   }
 
-  const frameMetrics = createLogoIsometricFrameMetrics(
-    normalizedCubeSidePixels,
-    gridSize,
-  );
+  const frameMetrics = createLogoIsometricFrameMetrics(normalizedCubeSidePixels, gridSize);
   isometricFrameMetricsCache.set(cacheKey, frameMetrics);
   return frameMetrics;
 }
@@ -323,10 +298,7 @@ function translatePolygon(
   }));
 }
 
-function translatePoint(
-  position: CubePosition,
-  frameMetrics: LogoIsometricFrameMetrics,
-): Point {
+function translatePoint(position: CubePosition, frameMetrics: LogoIsometricFrameMetrics): Point {
   const point = projectPoint(position, frameMetrics);
   return {
     x: point.x + frameMetrics.offsetX,
@@ -376,10 +348,7 @@ function collectPolygonRowSpans(polygon: readonly Point[]): RowSpan[] {
   return rowSpans;
 }
 
-function widenCapRows(
-  rowSpans: readonly RowSpan[],
-  capWidth: 2 | 3 | 4,
-): readonly RowSpan[] {
+function widenCapRows(rowSpans: readonly RowSpan[], capWidth: 2 | 3 | 4): readonly RowSpan[] {
   if (capWidth === 2 || rowSpans.length < 2) {
     return rowSpans;
   }
@@ -410,19 +379,11 @@ function fillRowSpans(
 ) {
   context.fillStyle = fillStyle;
   for (const rowSpan of rowSpans) {
-    context.fillRect(
-      rowSpan.startX,
-      rowSpan.y,
-      rowSpan.endX - rowSpan.startX + 1,
-      1,
-    );
+    context.fillRect(rowSpan.startX, rowSpan.y, rowSpan.endX - rowSpan.startX + 1, 1);
   }
 }
 
-function getStyledFaceRowSpans(
-  polygon: readonly Point[],
-  capWidth: 2 | 3 | 4,
-): readonly RowSpan[] {
+function getStyledFaceRowSpans(polygon: readonly Point[], capWidth: 2 | 3 | 4): readonly RowSpan[] {
   return widenCapRows(collectPolygonRowSpans(polygon), capWidth);
 }
 
@@ -451,12 +412,7 @@ function applyShadedEdges(
   context: CanvasRenderingContext2D,
   frameMetrics: LogoIsometricFrameMetrics,
 ) {
-  const imageData = context.getImageData(
-    0,
-    0,
-    frameMetrics.canvasWidth,
-    frameMetrics.canvasHeight,
-  );
+  const imageData = context.getImageData(0, 0, frameMetrics.canvasWidth, frameMetrics.canvasHeight);
   const source = imageData.data.slice();
   const next = imageData.data;
   const width = frameMetrics.canvasWidth;
@@ -470,12 +426,7 @@ function applyShadedEdges(
     return source[(y * width + x) * 4 + 3] > 0;
   };
 
-  const hasDifferentNeighbor = (
-    x: number,
-    y: number,
-    offsetX: number,
-    offsetY: number,
-  ) => {
+  const hasDifferentNeighbor = (x: number, y: number, offsetX: number, offsetY: number) => {
     const neighborX = x + offsetX;
     const neighborY = y + offsetY;
     if (!isOpaque(neighborX, neighborY)) {
@@ -556,10 +507,8 @@ function compareFaceLayers(
 ): number {
   const leftSortPosition = getFaceSortPosition(leftPosition, leftDirection);
   const rightSortPosition = getFaceSortPosition(rightPosition, rightDirection);
-  const leftDepth =
-    leftSortPosition[0] + leftSortPosition[1] + leftSortPosition[2];
-  const rightDepth =
-    rightSortPosition[0] + rightSortPosition[1] + rightSortPosition[2];
+  const leftDepth = leftSortPosition[0] + leftSortPosition[1] + leftSortPosition[2];
+  const rightDepth = rightSortPosition[0] + rightSortPosition[1] + rightSortPosition[2];
 
   if (leftDepth !== rightDepth) {
     return leftDepth - rightDepth;
@@ -598,10 +547,7 @@ function createRenderFace({
     coordinate,
     direction,
     normal: FACE_NORMALS[direction],
-    polygon: translatePolygon(
-      getCubeFacePolygon(position, direction, frameMetrics),
-      frameMetrics,
-    ),
+    polygon: translatePolygon(getCubeFacePolygon(position, direction, frameMetrics), frameMetrics),
     position,
   };
 }
@@ -620,15 +566,7 @@ function buildStaticRenderFaces(
   for (const key of filledVoxels) {
     const coordinate = parseVoxelCoordinate(key);
 
-    if (
-      !isVoxelFilled(
-        filledVoxels,
-        gridSize,
-        coordinate[0],
-        coordinate[1],
-        coordinate[2] + 1,
-      )
-    ) {
+    if (!isVoxelFilled(filledVoxels, gridSize, coordinate[0], coordinate[1], coordinate[2] + 1)) {
       renderFaces.push(
         createRenderFace({
           color: leftColor,
@@ -640,15 +578,7 @@ function buildStaticRenderFaces(
       );
     }
 
-    if (
-      !isVoxelFilled(
-        filledVoxels,
-        gridSize,
-        coordinate[0] + 1,
-        coordinate[1],
-        coordinate[2],
-      )
-    ) {
+    if (!isVoxelFilled(filledVoxels, gridSize, coordinate[0] + 1, coordinate[1], coordinate[2])) {
       renderFaces.push(
         createRenderFace({
           color: rightColor,
@@ -660,15 +590,7 @@ function buildStaticRenderFaces(
       );
     }
 
-    if (
-      !isVoxelFilled(
-        filledVoxels,
-        gridSize,
-        coordinate[0],
-        coordinate[1] + 1,
-        coordinate[2],
-      )
-    ) {
+    if (!isVoxelFilled(filledVoxels, gridSize, coordinate[0], coordinate[1] + 1, coordinate[2])) {
       renderFaces.push(
         createRenderFace({
           color: topColor,
@@ -698,11 +620,7 @@ function buildMovingRenderFaces(
 
   for (const movingVoxel of movingVoxels) {
     occupiedVoxelKeys.add(
-      voxelKey(
-        movingVoxel.coordinate[0],
-        movingVoxel.coordinate[1],
-        movingVoxel.coordinate[2],
-      ),
+      voxelKey(movingVoxel.coordinate[0], movingVoxel.coordinate[1], movingVoxel.coordinate[2]),
     );
   }
 
@@ -774,12 +692,7 @@ function buildMovingRenderFaces(
 }
 
 function compareRenderFaces(left: RenderFace, right: RenderFace): number {
-  return compareFaceLayers(
-    left.position,
-    left.direction,
-    right.position,
-    right.direction,
-  );
+  return compareFaceLayers(left.position, left.direction, right.position, right.direction);
 }
 
 function compareRecursiveDrawItems(
@@ -819,10 +732,7 @@ function getRecursiveDrawItems({
 
   for (const key of filledVoxels) {
     const coordinate = parseVoxelKey(key);
-    if (
-      !coordinate ||
-      !isWithinVoxelGrid(GRID_SIZE, coordinate[0], coordinate[1], coordinate[2])
-    ) {
+    if (!coordinate || !isWithinVoxelGrid(GRID_SIZE, coordinate[0], coordinate[1], coordinate[2])) {
       continue;
     }
 
@@ -842,9 +752,7 @@ function getRecursiveDrawItems({
   return drawItems.sort(compareRecursiveDrawItems);
 }
 
-function createIsometricCanvas(
-  frameMetrics: LogoIsometricFrameMetrics,
-): HTMLCanvasElement {
+function createIsometricCanvas(frameMetrics: LogoIsometricFrameMetrics): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
   canvas.width = frameMetrics.canvasWidth;
   canvas.height = frameMetrics.canvasHeight;
@@ -933,10 +841,7 @@ export function createLogoIsometricRecursiveCanvas({
     const childCanvas = canvas;
     const childFrameMetrics = frameMetrics;
     const childGridSize = getLogoFractalGridSize(level - 1);
-    frameMetrics = getLogoIsometricFrameMetrics(
-      cubeSidePixels,
-      getLogoFractalGridSize(level),
-    );
+    frameMetrics = getLogoIsometricFrameMetrics(cubeSidePixels, getLogoFractalGridSize(level));
     canvas = createIsometricCanvas(frameMetrics);
     const nextContext = canvas.getContext("2d", {
       willReadFrequently: true,
@@ -989,22 +894,11 @@ export function drawLogoIsometricFrame({
 
   const renderFaces = [
     ...buildStaticRenderFaces(filledVoxels, faceColors, frameMetrics, gridSize),
-    ...buildMovingRenderFaces(
-      filledVoxels,
-      faceColors,
-      frameMetrics,
-      gridSize,
-      movingVoxels,
-    ),
+    ...buildMovingRenderFaces(filledVoxels, faceColors, frameMetrics, gridSize, movingVoxels),
   ].sort(compareRenderFaces);
 
   for (const renderFace of renderFaces) {
-    fillStyledFace(
-      context,
-      renderFace.polygon,
-      renderFace.color,
-      style.capWidth,
-    );
+    fillStyledFace(context, renderFace.polygon, renderFace.color, style.capWidth);
   }
 
   if (style.edgeMode === "shaded") {
@@ -1095,10 +989,7 @@ export function createLogoIsometricSvgMarkup({
   styleId?: LogoIsometricSvgSafeStyleId;
 }): string {
   const style = getLogoIsometricStyle(styleId);
-  const frameMetrics = getLogoIsometricFrameMetrics(
-    DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
-    gridSize,
-  );
+  const frameMetrics = getLogoIsometricFrameMetrics(DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX, gridSize);
 
   if (style.edgeMode !== "none" || style.capWidth !== 2) {
     throw new Error("SVG export only supports flat four-point face geometry.");
@@ -1106,21 +997,13 @@ export function createLogoIsometricSvgMarkup({
 
   const renderFaces = [
     ...buildStaticRenderFaces(filledVoxels, faceColors, frameMetrics, gridSize),
-    ...buildMovingRenderFaces(
-      filledVoxels,
-      faceColors,
-      frameMetrics,
-      gridSize,
-      movingVoxels,
-    ),
+    ...buildMovingRenderFaces(filledVoxels, faceColors, frameMetrics, gridSize, movingVoxels),
   ].sort(compareRenderFaces);
   const backgroundRect = `<rect x="0" y="0" width="${frameMetrics.canvasWidth}" height="${frameMetrics.canvasHeight}" fill="${escapeSvgAttribute(backgroundColor)}"/>`;
   const renderFacePolygons = renderFaces
     .map((renderFace) => {
       const fill = escapeSvgAttribute(renderFace.color);
-      const points = escapeSvgAttribute(
-        serializeSvgPolygon(renderFace.polygon),
-      );
+      const points = escapeSvgAttribute(serializeSvgPolygon(renderFace.polygon));
       return `<polygon points="${points}" fill="${fill}"/>`;
     })
     .join("");
@@ -1137,14 +1020,7 @@ export function getIsometricAddCoordinate(
   const [dx, dy, dz] = face.normal;
   const nextCoordinate: VoxelCoordinate = [x + dx, y + dy, z + dz];
 
-  if (
-    !isWithinVoxelGrid(
-      gridSize,
-      nextCoordinate[0],
-      nextCoordinate[1],
-      nextCoordinate[2],
-    )
-  ) {
+  if (!isWithinVoxelGrid(gridSize, nextCoordinate[0], nextCoordinate[1], nextCoordinate[2])) {
     return null;
   }
 
@@ -1169,8 +1045,7 @@ export function isPointInsidePolygon(
   ) {
     const currentPoint = polygon[currentIndex];
     const previousPoint = polygon[previousIndex];
-    const crossesHorizontalRange =
-      currentPoint.y > pointY !== previousPoint.y > pointY;
+    const crossesHorizontalRange = currentPoint.y > pointY !== previousPoint.y > pointY;
 
     if (!crossesHorizontalRange) {
       continue;
@@ -1200,9 +1075,6 @@ export function isPointInsideRowSpans(
   }
 
   return rowSpans.some(
-    (rowSpan) =>
-      rowSpan.y === row &&
-      pointX >= rowSpan.startX &&
-      pointX < rowSpan.endX + 1,
+    (rowSpan) => rowSpan.y === row && pointX >= rowSpan.startX && pointX < rowSpan.endX + 1,
   );
 }

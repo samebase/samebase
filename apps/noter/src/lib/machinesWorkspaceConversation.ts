@@ -34,7 +34,5 @@ export function startedDraftConversationThreadMatches(args: {
   nextThreadId: string | null;
   startedThreadId: string | null;
 }): boolean {
-  return (
-    args.startedThreadId !== null && args.nextThreadId === args.startedThreadId
-  );
+  return args.startedThreadId !== null && args.nextThreadId === args.startedThreadId;
 }

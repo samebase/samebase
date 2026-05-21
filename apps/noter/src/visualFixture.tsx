@@ -95,10 +95,7 @@ import {
   SidebarMediaUploadVisualFixture,
   type SidebarMediaUploadVisualMode,
 } from "@/components/SidebarMediaUploadVisualFixture";
-import {
-  buildPathWithTanStackSearch,
-  parseTanStackSearch,
-} from "@/lib/tanstackSearchParams";
+import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import "./index.css";
 
 type VisualFixtureMode =
@@ -170,10 +167,7 @@ const FILE_VIEW_LAYOUT_VISUAL_MODES = [
   "fileview-layout-slide",
 ] as const satisfies readonly FileViewLayoutVisualMode[];
 
-const LOGO_VISUAL_MODES = [
-  "logo-three-reference",
-  "logo-snap-angles",
-] as const satisfies readonly (
+const LOGO_VISUAL_MODES = ["logo-three-reference", "logo-snap-angles"] as const satisfies readonly (
   | LogoThreeVisualMode
   | LogoSnapAnglesVisualMode
 )[];
@@ -315,23 +309,15 @@ const VISUAL_FIXTURE_GROUPS = [
   modes: readonly VisualFixtureMode[];
 }[];
 
-function isCommitReviewVisualMode(
-  mode: VisualFixtureMode,
-): mode is CommitReviewVisualMode {
-  return COMMIT_REVIEW_VISUAL_MODES.some(
-    (commitReviewMode) => commitReviewMode === mode,
-  );
+function isCommitReviewVisualMode(mode: VisualFixtureMode): mode is CommitReviewVisualMode {
+  return COMMIT_REVIEW_VISUAL_MODES.some((commitReviewMode) => commitReviewMode === mode);
 }
 
 function isVisualFixtureMode(value: string): value is VisualFixtureMode {
-  return VISUAL_FIXTURE_GROUPS.some((group) =>
-    group.modes.some((mode) => mode === value),
-  );
+  return VISUAL_FIXTURE_GROUPS.some((group) => group.modes.some((mode) => mode === value));
 }
 
-function readSelection(
-  modeSearchValue: string | undefined,
-): VisualFixtureSelection {
+function readSelection(modeSearchValue: string | undefined): VisualFixtureSelection {
   if (!modeSearchValue) {
     return { status: "missing" };
   }
@@ -418,10 +404,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <FileViewPushActionsVisualFixture mode={mode} />;
   }
 
-  if (
-    mode === "file-view-compare-sidebar" ||
-    mode === "file-view-compare-loading"
-  ) {
+  if (mode === "file-view-compare-sidebar" || mode === "file-view-compare-loading") {
     return <FileViewCompareVisualFixture mode={mode} />;
   }
 
@@ -437,10 +420,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <FileViewDeveloperToolsVisualFixture mode={mode} />;
   }
 
-  if (
-    mode === "fileview-monaco-drag" ||
-    mode === "fileview-monaco-flex-height"
-  ) {
+  if (mode === "fileview-monaco-drag" || mode === "fileview-monaco-flex-height") {
     return <FileViewMonacoDragVisualFixture mode={mode} />;
   }
 
@@ -448,10 +428,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <FileViewProsemarkHeightVisualFixture mode={mode} />;
   }
 
-  if (
-    mode === "file-view-connect-repository" ||
-    mode === "file-view-connect-github"
-  ) {
+  if (mode === "file-view-connect-repository" || mode === "file-view-connect-github") {
     return <RepositoryRouteConnectStateVisualFixture mode={mode} />;
   }
 
@@ -487,10 +464,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <ButtonVisualFixture />;
   }
 
-  if (
-    mode === "app-boot-failure-stale" ||
-    mode === "app-boot-failure-generic"
-  ) {
+  if (mode === "app-boot-failure-stale" || mode === "app-boot-failure-generic") {
     return <AppBootFailureStateVisualFixture mode={mode} />;
   }
 
@@ -521,11 +495,7 @@ function buildFixtureModeHref(mode: VisualFixtureMode) {
   });
 }
 
-function renderVisualFixtureModeDirectory({
-  invalidMode,
-}: {
-  invalidMode?: string;
-}) {
+function renderVisualFixtureModeDirectory({ invalidMode }: { invalidMode?: string }) {
   return (
     <div className="min-h-screen bg-stone-100 p-8 text-stone-950">
       <div className="mx-auto grid max-w-6xl gap-8">
@@ -549,9 +519,7 @@ function renderVisualFixtureModeDirectory({
               key={group.label}
               className="corner-notch-1 border border-stone-300 bg-white p-4"
             >
-              <div className="mb-3 text-sm font-medium text-stone-900">
-                {group.label}
-              </div>
+              <div className="mb-3 text-sm font-medium text-stone-900">{group.label}</div>
               <div className="grid gap-2">
                 {group.modes.map((mode) => (
                   <a

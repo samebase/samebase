@@ -39,17 +39,11 @@ const DB_CONCURRENCY = 80; // inline doc writes
 const UP_CONCURRENCY = 12; // storage uploads
 export const INLINE_TEXT_MAX = 900_000;
 
-async function getGithubAccessToken(
-  ctx: ActionCtx,
-  userId: Id<"users">,
-): Promise<string> {
-  const connection = await ctx.runQuery(
-    internal.providerConnections.getByUserAndKind,
-    {
-      userId,
-      kind: "github",
-    },
-  );
+async function getGithubAccessToken(ctx: ActionCtx, userId: Id<"users">): Promise<string> {
+  const connection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+    userId,
+    kind: "github",
+  });
   if (connection?.kind !== "github") {
     throw new Error("GitHub is not connected");
   }
@@ -113,43 +107,39 @@ export const downloadGitRepositoryAndMarkReady = internalAction({
 
       // 1) Stage: read all blobs (fast, higher concurrency)
       const staged = await allLimited(
-        files.map(
-          (filePath) => async (): Promise<StagedInline | StagedStored> => {
-            const { blob, oid } = await git.readBlob({
-              fs,
-              dir,
-              oid: commitOid,
-              filepath: filePath,
-            });
+        files.map((filePath) => async (): Promise<StagedInline | StagedStored> => {
+          const { blob, oid } = await git.readBlob({
+            fs,
+            dir,
+            oid: commitOid,
+            filepath: filePath,
+          });
 
-            // TODO: Filter if SHA is already saved
+          // TODO: Filter if SHA is already saved
 
-            const size = blob.byteLength;
-            const ext = path.extname(filePath).slice(1).toLowerCase();
-            const isText = isTextBuffer(blob);
-            let mime = guessMime(filePath);
-            if (mime === "application/octet-stream" && isText) {
-              mime = "text/plain; charset=utf-8";
-            }
+          const size = blob.byteLength;
+          const ext = path.extname(filePath).slice(1).toLowerCase();
+          const isText = isTextBuffer(blob);
+          let mime = guessMime(filePath);
+          if (mime === "application/octet-stream" && isText) {
+            mime = "text/plain; charset=utf-8";
+          }
 
-            if (isText && size <= INLINE_TEXT_MAX) {
-              const text = new TextDecoder("utf-8", { fatal: false }).decode(
-                blob,
-              );
-              return { kind: "inline", filePath, oid, size, mime, text, ext };
-            } else {
-              return {
-                kind: "stored",
-                filePath,
-                oid,
-                size,
-                mime,
-                u8: blob,
-                ext,
-              };
-            }
-          },
-        ),
+          if (isText && size <= INLINE_TEXT_MAX) {
+            const text = new TextDecoder("utf-8", { fatal: false }).decode(blob);
+            return { kind: "inline", filePath, oid, size, mime, text, ext };
+          } else {
+            return {
+              kind: "stored",
+              filePath,
+              oid,
+              size,
+              mime,
+              u8: blob,
+              ext,
+            };
+          }
+        }),
         READ_CONCURRENCY,
       );
 
@@ -191,16 +181,11 @@ export const downloadGitRepositoryAndMarkReady = internalAction({
             const { filePath, oid, size, mime, u8, ext } = item;
 
             // optional: avoid re-uploading if we already have this sha with a storageId
-            const existing = await ctx.runQuery(
-              internal.gitOperations.getBlobBySha,
-              { sha: oid },
-            );
+            const existing = await ctx.runQuery(internal.gitOperations.getBlobBySha, { sha: oid });
             let storageId: Id<"_storage"> | undefined = existing?.storageId;
 
             if (!storageId) {
-              storageId = await withRetry(() =>
-                ctx.storage.store(toBlob(u8, mime)),
-              );
+              storageId = await withRetry(() => ctx.storage.store(toBlob(u8, mime)));
             }
 
             console.log("expected to store blob", { storageId, oid, filePath });
@@ -298,10 +283,7 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-export async function withRetry<T>(
-  fn: () => Promise<T>,
-  attempts = 3,
-): Promise<T> {
+export async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
   let lastError: unknown;
   for (let i = 0; i < attempts; i++) {
     try {

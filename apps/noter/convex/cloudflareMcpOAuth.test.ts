@@ -19,16 +19,13 @@ describe("formatCloudflareOAuthEndpointError", () => {
         error_description:
           "redirect_uri includes ?code=abcdefghijklmnopqrstuvwxyz1234567890&state=abcdefghijklmnopqrstuvwxyz1234567890",
       }),
-    ).toBe(
-      "invalid_request: redirect_uri includes ?code=<redacted>&state=<redacted>",
-    );
+    ).toBe("invalid_request: redirect_uri includes ?code=<redacted>&state=<redacted>");
   });
 
   it("redacts leading OAuth-bearing values from endpoint details", () => {
     expect(
       formatCloudflareOAuthEndpointError({
-        error_description:
-          "code=short-code-value&state=short-state-value failed",
+        error_description: "code=short-code-value&state=short-state-value failed",
       }),
     ).toBe("code=<redacted>&state=<redacted> failed");
   });

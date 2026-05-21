@@ -31,9 +31,7 @@ describe("logoTailwindColors", () => {
   });
 
   it("uses a visible family swatch when the previous shade is not available", () => {
-    expect(
-      getTailwindColorTokenForSelection("Red", "base", "secondary-base"),
-    ).toBe("red-500");
+    expect(getTailwindColorTokenForSelection("Red", "base", "secondary-base")).toBe("red-500");
   });
 
   it("keeps the RGB preset on logo faces instead of repainting the background", () => {

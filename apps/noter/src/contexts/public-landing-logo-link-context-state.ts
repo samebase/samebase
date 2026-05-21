@@ -5,5 +5,6 @@ export type PublicLandingLogoLinkContextValue = {
   setIsLogoLinkVisible: (value: boolean) => void;
 };
 
-export const PublicLandingLogoLinkContext =
-  createContext<PublicLandingLogoLinkContextValue | null>(null);
+export const PublicLandingLogoLinkContext = createContext<PublicLandingLogoLinkContextValue | null>(
+  null,
+);

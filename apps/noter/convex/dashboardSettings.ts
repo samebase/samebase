@@ -65,9 +65,7 @@ function getDefaultDashboardSettings(): DashboardSettings {
 }
 
 function getChatOpenPatch(scope: ChatOpenScope, isOpen: boolean) {
-  return scope === "vault"
-    ? { editorChatOpen: isOpen }
-    : { globalChatOpen: isOpen };
+  return scope === "vault" ? { editorChatOpen: isOpen } : { globalChatOpen: isOpen };
 }
 
 async function upsertDashboardSettings(
@@ -95,10 +93,7 @@ async function upsertDashboardSettings(
 export const getDashboardSettings = query({
   args: getDashboardSettingsArgs,
   returns: getDashboardSettingsReturns,
-  handler: async (
-    ctx,
-    _args: GetDashboardSettingsArgs,
-  ): Promise<DashboardSettings> => {
+  handler: async (ctx, _args: GetDashboardSettingsArgs): Promise<DashboardSettings> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       return getDefaultDashboardSettings();
@@ -185,11 +180,7 @@ export const setEditorChatOpen = mutation({
       throw new Error("User not authenticated");
     }
 
-    await upsertDashboardSettings(
-      ctx,
-      userId,
-      getChatOpenPatch(args.scope, args.isOpen),
-    );
+    await upsertDashboardSettings(ctx, userId, getChatOpenPatch(args.scope, args.isOpen));
 
     return null;
   },

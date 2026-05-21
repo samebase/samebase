@@ -12,9 +12,7 @@ type AppBootFailureStateProps = {
 };
 
 export function AppBootFailureState({ error }: AppBootFailureStateProps) {
-  const [pendingAction, setPendingAction] = useState<"reload" | "reset" | null>(
-    null,
-  );
+  const [pendingAction, setPendingAction] = useState<"reload" | "reset" | null>(null);
   const isStaleAssetFailure = isLikelyStaleAssetError(error);
   const errorMessage = readBootFailureMessage(error);
   const buildCommit = readAppBuildCommit();
@@ -44,9 +42,7 @@ export function AppBootFailureState({ error }: AppBootFailureStateProps) {
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center gap-6 px-6 py-10">
         <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            App Recovery
-          </p>
+          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">App Recovery</p>
           <h1 className="text-xl font-medium">
             {isStaleAssetFailure
               ? "Noter updated while this tab was open."
@@ -82,14 +78,12 @@ export function AppBootFailureState({ error }: AppBootFailureStateProps) {
 
         <div className="space-y-2 border px-4 py-3 text-sm leading-6">
           <p>
-            Reset local data clears saved browser storage for noter on this
-            device and may sign you out.
+            Reset local data clears saved browser storage for noter on this device and may sign you
+            out.
           </p>
           <p className="text-muted-foreground">Build: {buildCommit}</p>
           {errorMessage ? (
-            <p className="break-words text-muted-foreground">
-              Error: {errorMessage}
-            </p>
+            <p className="break-words text-muted-foreground">Error: {errorMessage}</p>
           ) : null}
         </div>
       </div>

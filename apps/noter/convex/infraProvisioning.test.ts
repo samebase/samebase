@@ -182,28 +182,22 @@ describe("infrastructure provisioning ownership", () => {
       return { runId, vaultId };
     });
 
-    const result = await t.mutation(
-      internal.infraProvisioning.claimWorkflowProvisioning,
-      {
-        vaultId: ids.vaultId,
-        runId: ids.runId,
-        force: true,
-      },
-    );
+    const result = await t.mutation(internal.infraProvisioning.claimWorkflowProvisioning, {
+      vaultId: ids.vaultId,
+      runId: ids.runId,
+      force: true,
+    });
     const target = await t.run(async (ctx) => {
       return await ctx.db
         .query("vaultInfrastructureTargets")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
     });
-    const record = await t.mutation(
-      internal.infraProvisioning.recordConvexProjectIdentity,
-      {
-        vaultId: ids.vaultId,
-        runId: ids.runId,
-        projectId: "convex-project-id",
-      },
-    );
+    const record = await t.mutation(internal.infraProvisioning.recordConvexProjectIdentity, {
+      vaultId: ids.vaultId,
+      runId: ids.runId,
+      projectId: "convex-project-id",
+    });
 
     const suffix = vaultSuffix(ids.vaultId);
     expect(result).toEqual({ claimed: true });
@@ -287,14 +281,11 @@ describe("infrastructure provisioning ownership", () => {
       return { runId, vaultId };
     });
 
-    const result = await t.mutation(
-      internal.infraProvisioning.recordConvexProjectIdentity,
-      {
-        vaultId: ids.vaultId,
-        runId: ids.runId,
-        projectId: "convex-project-id",
-      },
-    );
+    const result = await t.mutation(internal.infraProvisioning.recordConvexProjectIdentity, {
+      vaultId: ids.vaultId,
+      runId: ids.runId,
+      projectId: "convex-project-id",
+    });
     const target = await t.run(async (ctx) => {
       return await ctx.db
         .query("vaultInfrastructureTargets")
@@ -385,17 +376,14 @@ describe("infrastructure provisioning ownership", () => {
       return { runId, vaultId };
     });
 
-    const result = await t.mutation(
-      internal.infraProvisioning.recordCloudflareWorkerIdentity,
-      {
-        vaultId: ids.vaultId,
-        runId: ids.runId,
-        accountId: "cloudflare-account-id",
-        workerName: "provider-retry",
-        workerTag: "cloudflare-worker-tag",
-        productionUrl: "https://provider-retry.example.workers.dev",
-      },
-    );
+    const result = await t.mutation(internal.infraProvisioning.recordCloudflareWorkerIdentity, {
+      vaultId: ids.vaultId,
+      runId: ids.runId,
+      accountId: "cloudflare-account-id",
+      workerName: "provider-retry",
+      workerTag: "cloudflare-worker-tag",
+      productionUrl: "https://provider-retry.example.workers.dev",
+    });
     const target = await t.run(async (ctx) => {
       return await ctx.db
         .query("vaultInfrastructureTargets")
@@ -590,14 +578,11 @@ describe("infrastructure provisioning ownership", () => {
       return { activeRunId, nextRunId, vaultId };
     });
 
-    const result = await t.mutation(
-      internal.infraProvisioning.claimWorkflowProvisioning,
-      {
-        vaultId: ids.vaultId,
-        runId: ids.nextRunId,
-        force: false,
-      },
-    );
+    const result = await t.mutation(internal.infraProvisioning.claimWorkflowProvisioning, {
+      vaultId: ids.vaultId,
+      runId: ids.nextRunId,
+      force: false,
+    });
     const ownership = await t.run(async (ctx) => {
       return await ctx.db
         .query("vaultInfrastructureOwnership")
@@ -667,14 +652,11 @@ describe("infrastructure provisioning ownership", () => {
       return { runId, vaultId };
     });
 
-    await t.mutation(
-      internal.infraProvisioning.markWorkflowProvisioningFailed,
-      {
-        runId: ids.runId,
-        workflowId: "workflow-generic",
-        message: "GitHub connection is required to provision infrastructure.",
-      },
-    );
+    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+      runId: ids.runId,
+      workflowId: "workflow-generic",
+      message: "GitHub connection is required to provision infrastructure.",
+    });
 
     const vault = await t.run(async (ctx) => await ctx.db.get(ids.vaultId));
 
@@ -745,15 +727,12 @@ describe("infrastructure provisioning ownership", () => {
       return { runId };
     });
 
-    await t.mutation(
-      internal.infraProvisioning.markWorkflowProvisioningFailed,
-      {
-        runId: ids.runId,
-        workflowId: "workflow-cloudflare",
-        message:
-          "Error: Uncaught Error: Cloudflare connection is missing Workers Builds write access. Reconnect Cloudflare and grant Workers Builds, Workers, and Workers Scripts access, then retry.\n    at requestCloudflareApi",
-      },
-    );
+    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+      runId: ids.runId,
+      workflowId: "workflow-cloudflare",
+      message:
+        "Error: Uncaught Error: Cloudflare connection is missing Workers Builds write access. Reconnect Cloudflare and grant Workers Builds, Workers, and Workers Scripts access, then retry.\n    at requestCloudflareApi",
+    });
 
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
@@ -805,15 +784,12 @@ describe("infrastructure provisioning ownership", () => {
       return { runId };
     });
 
-    await t.mutation(
-      internal.infraProvisioning.markWorkflowProvisioningFailed,
-      {
-        runId: ids.runId,
-        workflowId: "workflow-github",
-        message:
-          "Error: Uncaught Error: GitHub repository response did not match the vault repo.\n    at fetchGitHubRepoIdentity",
-      },
-    );
+    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+      runId: ids.runId,
+      workflowId: "workflow-github",
+      message:
+        "Error: Uncaught Error: GitHub repository response did not match the vault repo.\n    at fetchGitHubRepoIdentity",
+    });
 
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
@@ -824,8 +800,7 @@ describe("infrastructure provisioning ownership", () => {
       return { event, run };
     });
 
-    const expectedMessage =
-      "GitHub repository response did not match the vault repo.";
+    const expectedMessage = "GitHub repository response did not match the vault repo.";
     expect(result.run).toMatchObject({
       state: "failed",
       lastError: expectedMessage,
@@ -947,8 +922,6 @@ describe("infrastructure provisioning ownership", () => {
       }),
     ).rejects.toThrow("Convex project belonged to a different team.");
 
-    expect(requests).toEqual([
-      `https://api.convex.dev/v1/projects/${convexProjectId}`,
-    ]);
+    expect(requests).toEqual([`https://api.convex.dev/v1/projects/${convexProjectId}`]);
   });
 });

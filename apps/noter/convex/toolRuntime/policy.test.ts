@@ -217,12 +217,7 @@ describe("validateToolPolicy", () => {
   });
 
   it("requires files.write scope for every write tool", () => {
-    const writeToolNames = [
-      "edit_file",
-      "replace_in_file",
-      "create_file",
-      "delete_file",
-    ];
+    const writeToolNames = ["edit_file", "replace_in_file", "create_file", "delete_file"];
 
     for (const toolName of writeToolNames) {
       const tool = findToolInCatalog({ name: toolName });
@@ -266,9 +261,7 @@ describe("validateToolPolicy", () => {
     });
 
     expect(result.ok).toBe(false);
-    expect(result.message).toBe(
-      "request_convex_projects_read requires threadId context.",
-    );
+    expect(result.message).toBe("request_convex_projects_read requires threadId context.");
   });
 
   it("allows proposal tools with prod.read.propose scope and threadId", () => {

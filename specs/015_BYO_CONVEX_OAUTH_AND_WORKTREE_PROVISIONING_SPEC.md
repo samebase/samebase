@@ -13,22 +13,20 @@
 
 ## Summary
 
-Ship Bring Your Own Convex with explicit provider connections. App login remains
-separate from provider connectivity:
+Ship Bring Your Own Convex with explicit provider connections. App login remains separate from
+provider connectivity:
 
 1. App login: Google (and password in dev).
 2. GitHub connection: explicit provider connect flow.
 3. Convex connection: explicit provider connect flow.
 
-Provisioning must use user-scoped provider credentials stored in
-`providerConnections`.
+Provisioning must use user-scoped provider credentials stored in `providerConnections`.
 
 ## Goals
 
 1. Users can connect Convex from UI and provision in their own account.
 2. Project creation is gated on required provider connections.
-3. Infra provisioning uses user-scoped Convex credential from
-   `providerConnections`.
+3. Infra provisioning uses user-scoped Convex credential from `providerConnections`.
 
 ## Non-Goals
 

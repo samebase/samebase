@@ -1,22 +1,11 @@
 import { Infer, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "../_generated/api";
-import {
-  action,
-  internalMutation,
-  internalQuery,
-  query,
-} from "../_generated/server";
+import { action, internalMutation, internalQuery, query } from "../_generated/server";
 import { randomToken } from "../oauthUtils";
 import { applyMcpDenyErrorParamsToRedirectUrl } from "../../shared/mcpOAuth";
-import {
-  vMcpAuthRequestStatus,
-  vMcpOauthClientRegistrationStatus,
-} from "../schema";
-import {
-  getDefaultMcpProtocolValidationOptions,
-  redirectUriMatchesRegistered,
-} from "./protocol";
+import { vMcpAuthRequestStatus, vMcpOauthClientRegistrationStatus } from "../schema";
+import { getDefaultMcpProtocolValidationOptions, redirectUriMatchesRegistered } from "./protocol";
 import {
   createAuthorizationCodeValue,
   MCP_AUTHORIZATION_CODE_TTL_MS,
@@ -24,18 +13,7 @@ import {
   verifyPkceS256,
 } from "./tokens";
 
-const {
-  array,
-  boolean,
-  id,
-  literal,
-  null: nullValue,
-  number,
-  object,
-  optional,
-  string,
-  union,
-} = v;
+const { array, boolean, id, literal, null: nullValue, number, object, optional, string, union } = v;
 
 const registerDynamicClientArgsValidator = object({
   clientId: string(),
@@ -49,9 +27,7 @@ const registerDynamicClientArgsValidator = object({
   updatedAt: number(),
   metadataJson: string(),
 });
-type RegisterDynamicClientArgs = Infer<
-  typeof registerDynamicClientArgsValidator
->;
+type RegisterDynamicClientArgs = Infer<typeof registerDynamicClientArgsValidator>;
 
 const getClientByIdResultValidator = union(
   object({
@@ -123,16 +99,12 @@ type IssueAuthorizationCodeForAuthRequestResult = Infer<
 const completeAuthorizationRequestArgsValidator = object({
   requestId: string(),
 });
-type CompleteAuthorizationRequestArgs = Infer<
-  typeof completeAuthorizationRequestArgsValidator
->;
+type CompleteAuthorizationRequestArgs = Infer<typeof completeAuthorizationRequestArgsValidator>;
 
 const completeAuthorizationRequestResultValidator = object({
   redirectUrl: string(),
 });
-type CompleteAuthorizationRequestResult = Infer<
-  typeof completeAuthorizationRequestResultValidator
->;
+type CompleteAuthorizationRequestResult = Infer<typeof completeAuthorizationRequestResultValidator>;
 
 const denyAuthorizationRequestForCurrentUserArgsValidator = object({
   requestId: string(),
@@ -153,9 +125,7 @@ const denyAuthorizationRequestArgsValidator = object({
   userId: id("users"),
   now: number(),
 });
-type DenyAuthorizationRequestArgs = Infer<
-  typeof denyAuthorizationRequestArgsValidator
->;
+type DenyAuthorizationRequestArgs = Infer<typeof denyAuthorizationRequestArgsValidator>;
 
 const denyAuthorizationRequestResultValidator = union(
   object({
@@ -165,9 +135,7 @@ const denyAuthorizationRequestResultValidator = union(
   }),
   mcpOauthErrorValidator,
 );
-type DenyAuthorizationRequestResult = Infer<
-  typeof denyAuthorizationRequestResultValidator
->;
+type DenyAuthorizationRequestResult = Infer<typeof denyAuthorizationRequestResultValidator>;
 
 const getAuthorizationRequestForCurrentUserArgsValidator = object({
   requestId: string(),
@@ -207,9 +175,7 @@ const exchangeAuthorizationCodeArgsValidator = object({
   refreshTokenExpiresAt: number(),
   now: number(),
 });
-type ExchangeAuthorizationCodeArgs = Infer<
-  typeof exchangeAuthorizationCodeArgsValidator
->;
+type ExchangeAuthorizationCodeArgs = Infer<typeof exchangeAuthorizationCodeArgsValidator>;
 
 const tokenExchangeSuccessValidator = object({
   ok: literal(true),
@@ -221,10 +187,7 @@ const tokenExchangeSuccessValidator = object({
   refreshTokenIssued: boolean(),
 });
 
-const tokenExchangeResultValidator = union(
-  tokenExchangeSuccessValidator,
-  mcpOauthErrorValidator,
-);
+const tokenExchangeResultValidator = union(tokenExchangeSuccessValidator, mcpOauthErrorValidator);
 type TokenExchangeResult = Infer<typeof tokenExchangeResultValidator>;
 
 const exchangeRefreshTokenArgsValidator = object({
@@ -255,9 +218,7 @@ const validateAccessTokenResultValidator = union(
   }),
   mcpOauthErrorValidator,
 );
-type ValidateAccessTokenResult = Infer<
-  typeof validateAccessTokenResultValidator
->;
+type ValidateAccessTokenResult = Infer<typeof validateAccessTokenResultValidator>;
 
 const MCP_LAST_USED_WRITE_THROTTLE_MS = 60 * 1000;
 
@@ -462,8 +423,7 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
     ctx,
     args: IssueAuthorizationCodeForAuthRequestArgs,
   ): Promise<IssueAuthorizationCodeForAuthRequestResult> => {
-    const allowLoopbackHttpRedirectUris =
-      args.allowLoopbackHttpRedirectUris === true;
+    const allowLoopbackHttpRedirectUris = args.allowLoopbackHttpRedirectUris === true;
     const authRequest = await ctx.db
       .query("mcpAuthRequests")
       .withIndex("by_request_id", (q) => q.eq("requestId", args.requestId))
@@ -540,8 +500,7 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
       return oauthError({
         status: 400,
         error: "invalid_request",
-        errorDescription:
-          "Authorization request redirect_uri is not registered.",
+        errorDescription: "Authorization request redirect_uri is not registered.",
       });
     }
 
@@ -732,14 +691,11 @@ export const denyAuthorizationRequestForCurrentUser = action({
     }
 
     const now = Date.now();
-    const denyResult = await ctx.runMutation(
-      internal.mcp.oauth.denyAuthorizationRequest,
-      {
-        requestId: args.requestId,
-        userId,
-        now,
-      },
-    );
+    const denyResult = await ctx.runMutation(internal.mcp.oauth.denyAuthorizationRequest, {
+      requestId: args.requestId,
+      userId,
+      now,
+    });
     if (!denyResult.ok) {
       throw new Error(`${denyResult.error}: ${denyResult.errorDescription}`);
     }
@@ -754,12 +710,8 @@ export const denyAuthorizationRequestForCurrentUser = action({
 export const exchangeAuthorizationCode = internalMutation({
   args: exchangeAuthorizationCodeArgsValidator,
   returns: tokenExchangeResultValidator,
-  handler: async (
-    ctx,
-    args: ExchangeAuthorizationCodeArgs,
-  ): Promise<TokenExchangeResult> => {
-    const allowLoopbackHttpRedirectUris =
-      args.allowLoopbackHttpRedirectUris === true;
+  handler: async (ctx, args: ExchangeAuthorizationCodeArgs): Promise<TokenExchangeResult> => {
+    const allowLoopbackHttpRedirectUris = args.allowLoopbackHttpRedirectUris === true;
     const authorizationCode = await ctx.db
       .query("mcpAuthorizationCodes")
       .withIndex("by_code_hash", (q) => q.eq("codeHash", args.codeHash))
@@ -801,9 +753,7 @@ export const exchangeAuthorizationCode = internalMutation({
 
     const authRequest = await ctx.db
       .query("mcpAuthRequests")
-      .withIndex("by_request_id", (q) =>
-        q.eq("requestId", authorizationCode.requestId),
-      )
+      .withIndex("by_request_id", (q) => q.eq("requestId", authorizationCode.requestId))
       .first();
     if (!authRequest) {
       return oauthError({
@@ -869,9 +819,7 @@ export const exchangeAuthorizationCode = internalMutation({
 
     const grant = await ctx.db
       .query("mcpGrants")
-      .withIndex("by_grant_id", (q) =>
-        q.eq("grantId", authorizationCode.grantId),
-      )
+      .withIndex("by_grant_id", (q) => q.eq("grantId", authorizationCode.grantId))
       .first();
     if (!grant || grant.status !== "active") {
       return oauthError({
@@ -961,15 +909,10 @@ export const exchangeAuthorizationCode = internalMutation({
 export const exchangeRefreshToken = internalMutation({
   args: exchangeRefreshTokenArgsValidator,
   returns: tokenExchangeResultValidator,
-  handler: async (
-    ctx,
-    args: ExchangeRefreshTokenArgs,
-  ): Promise<TokenExchangeResult> => {
+  handler: async (ctx, args: ExchangeRefreshTokenArgs): Promise<TokenExchangeResult> => {
     const refreshToken = await ctx.db
       .query("mcpRefreshTokens")
-      .withIndex("by_token_hash", (q) =>
-        q.eq("tokenHash", args.refreshTokenHash),
-      )
+      .withIndex("by_token_hash", (q) => q.eq("tokenHash", args.refreshTokenHash))
       .first();
     if (!refreshToken) {
       return oauthError({
@@ -987,10 +930,7 @@ export const exchangeRefreshToken = internalMutation({
       });
     }
 
-    if (
-      typeof refreshToken.expiresAt === "number" &&
-      refreshToken.expiresAt <= args.now
-    ) {
+    if (typeof refreshToken.expiresAt === "number" && refreshToken.expiresAt <= args.now) {
       await ctx.db.patch(refreshToken._id, {
         status: "expired",
       });
@@ -1109,10 +1049,7 @@ export const exchangeRefreshToken = internalMutation({
 export const validateAccessToken = internalMutation({
   args: validateAccessTokenArgsValidator,
   returns: validateAccessTokenResultValidator,
-  handler: async (
-    ctx,
-    args: ValidateAccessTokenArgs,
-  ): Promise<ValidateAccessTokenResult> => {
+  handler: async (ctx, args: ValidateAccessTokenArgs): Promise<ValidateAccessTokenResult> => {
     const accessToken = await ctx.db
       .query("mcpAccessTokens")
       .withIndex("by_token_hash", (q) => q.eq("tokenHash", args.tokenHash))

@@ -13,20 +13,20 @@
 
 ## Summary
 
-Expose MCP token health in the Providers UI so users can see whether their MCP
-connection is still usable before provisioning or production-read actions fail.
+Expose MCP token health in the Providers UI so users can see whether their MCP connection is still
+usable before provisioning or production-read actions fail.
 
-Initial target is Cloudflare (`auth.method = "mcp_oauth"`), with schema/API
-shapes designed so future MCP providers can reuse the same contract.
+Initial target is Cloudflare (`auth.method = "mcp_oauth"`), with schema/API shapes designed so
+future MCP providers can reuse the same contract.
 
 ## Problem
 
-Today, Providers UI shows only `connected` + auth method. Users can appear
-connected while the MCP access token is expired/invalid. The first clear signal
-often comes later during provisioning or infra reads, which is too late.
+Today, Providers UI shows only `connected` + auth method. Users can appear connected while the MCP
+access token is expired/invalid. The first clear signal often comes later during provisioning or
+infra reads, which is too late.
 
-We need explicit token health status in UI, including graceful behavior when no
-expiry metadata is available.
+We need explicit token health status in UI, including graceful behavior when no expiry metadata is
+available.
 
 ## Goals
 
@@ -38,8 +38,7 @@ expiry metadata is available.
 
 ## Non-Goals
 
-1. Full token-health UX for non-MCP auth methods (`oauth`, `api_key`) in this
-   phase.
+1. Full token-health UX for non-MCP auth methods (`oauth`, `api_key`) in this phase.
 2. Background cron jobs for periodic provider-wide health checks.
 3. New environment-variable fallback paths.
 4. Blocking all app usage when MCP token is unhealthy.
@@ -68,8 +67,7 @@ expiry metadata is available.
 1. `valid`: token is usable and not near expiry.
 2. `expiring_soon`: token still usable, but expiry is within warning window.
 3. `expired`: expiry timestamp has passed.
-4. `invalid`: active validation/refresh failed due auth error (for example
-   `401 invalid_token`).
+4. `invalid`: active validation/refresh failed due auth error (for example `401 invalid_token`).
 5. `unknown`: no reliable expiry data and no recent active validation result.
 
 ## Data Model Changes
@@ -88,8 +86,8 @@ tokenHealth?: {
 
 Notes:
 
-1. Keep `tokenHealth` optional; it is a cached health snapshot, not the source
-   of truth for the persisted credential shape.
+1. Keep `tokenHealth` optional; it is a cached health snapshot, not the source of truth for the
+   persisted credential shape.
 2. `expiresAt` is copied from auth metadata when available.
 3. `errorMessage` must be short/sanitized for UI display.
 
@@ -107,8 +105,8 @@ Extend/standardize the existing internal Cloudflare resolver behavior:
    - persist `tokenHealth` status.
 4. On auth failure, persist `tokenHealth.status = "invalid"` and short error.
 
-For Cloudflare, reuse `cloudflareMcpOAuth.resolveConnectionForUser` as the
-single implementation point.
+For Cloudflare, reuse `cloudflareMcpOAuth.resolveConnectionForUser` as the single implementation
+point.
 
 ### 2) Status Query Surface
 
@@ -142,8 +140,7 @@ Behavior:
 
 1. Requires authenticated user and existing Cloudflare connection.
 2. Calls internal resolver with `forceRefresh: true`.
-3. Returns updated status payload consistent with
-   `getCloudflareConnectionStatus`.
+3. Returns updated status payload consistent with `getCloudflareConnectionStatus`.
 
 ## Frontend UX Contract
 
@@ -169,8 +166,7 @@ For Cloudflare row when `authMethod = "mcp_oauth"`:
 For Cloudflare hosting selection:
 
 1. Keep existing connection gating (`connected`) unchanged in phase 1.
-2. If `mcpTokenStatus` is `invalid` or `expired`, show inline warning before
-   create/retry actions:
+2. If `mcpTokenStatus` is `invalid` or `expired`, show inline warning before create/retry actions:
    - `Cloudflare token is invalid or expired. Reconnect Cloudflare.`
 3. Do not hard-block create in phase 1; warn and allow user to proceed.
 
@@ -188,11 +184,11 @@ For Cloudflare hosting selection:
 
 ### Invalid Classification
 
-Use `invalid` when active refresh/probe returns auth-specific failure
-(`401 invalid_token`, invalid refresh token, revoked grant).
+Use `invalid` when active refresh/probe returns auth-specific failure (`401 invalid_token`, invalid
+refresh token, revoked grant).
 
-For transient network timeouts or provider outages, keep last non-invalid
-derived status and set `source = "runtime_error"` with `errorMessage`.
+For transient network timeouts or provider outages, keep last non-invalid derived status and set
+`source = "runtime_error"` with `errorMessage`.
 
 ## Performance and Safety
 
@@ -242,5 +238,4 @@ Log fields:
 
 1. Should `invalid` state hard-block Cloudflare-hosted repo creation in phase 2?
 2. Should we add periodic background refresh/check for long-lived sessions?
-3. Should `tokenHealth` be modeled generically for all provider auth methods in
-   a follow-up spec?
+3. Should `tokenHealth` be modeled generically for all provider auth methods in a follow-up spec?

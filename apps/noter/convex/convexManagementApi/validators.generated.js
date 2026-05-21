@@ -23,13 +23,11 @@ const schema2 = {
     id: { $ref: "#/components/schemas/ProjectId" },
     projectId: {
       $ref: "#/components/schemas/ProjectId",
-      description:
-        "Deprecated alias for `id`, kept for backwards compatibility.",
+      description: "Deprecated alias for `id`, kept for backwards compatibility.",
     },
     slug: {
       $ref: "#/components/schemas/ProjectSlug",
-      description:
-        "The shortened version of the project name used in Convex Dashboard URLs.",
+      description: "The shortened version of the project name used in Convex Dashboard URLs.",
     },
   },
 };
@@ -38,13 +36,7 @@ const schema5 = { type: "string" };
 const pattern0 = new RegExp("^[0-9]+$", "u");
 function validate2(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -253,13 +245,7 @@ validate2.evaluated = {
 };
 function validate0(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -279,8 +265,7 @@ function validate0(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate2.errors : vErrors.concat(validate2.errors);
+    vErrors = vErrors === null ? validate2.errors : vErrors.concat(validate2.errors);
     errors = vErrors.length;
   }
   validate0.errors = vErrors;
@@ -321,8 +306,7 @@ const schema8 = {
     },
     slug: {
       $ref: "#/components/schemas/ProjectSlug",
-      description:
-        "This shortened version of the name used in Convex Dashboard URLs.",
+      description: "This shortened version of the name used in Convex Dashboard URLs.",
     },
     teamId: { $ref: "#/components/schemas/TeamId" },
     teamSlug: {
@@ -336,13 +320,7 @@ const schema12 = { pattern: "^[0-9]+$", type: "string" };
 const schema13 = { type: "string" };
 function validate6(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -613,13 +591,7 @@ validate6.evaluated = {
 };
 function validate5(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -642,10 +614,7 @@ function validate5(
           dynamicAnchors,
         })
       ) {
-        vErrors =
-          vErrors === null
-            ? validate6.errors
-            : vErrors.concat(validate6.errors);
+        vErrors = vErrors === null ? validate6.errors : vErrors.concat(validate6.errors);
         errors = vErrors.length;
       }
     }
@@ -670,13 +639,7 @@ function validate5(
 validate5.evaluated = { items: true, dynamicProps: false, dynamicItems: false };
 function validate4(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -696,8 +659,7 @@ function validate4(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate5.errors : vErrors.concat(validate5.errors);
+    vErrors = vErrors === null ? validate5.errors : vErrors.concat(validate5.errors);
     errors = vErrors.length;
   }
   validate4.errors = vErrors;
@@ -737,8 +699,7 @@ const schema16 = {
         createTime: {
           type: "integer",
           format: "int64",
-          description:
-            "Timestamp in milliseconds when this deployment was created.",
+          description: "Timestamp in milliseconds when this deployment was created.",
         },
         creator: {
           oneOf: [
@@ -779,8 +740,7 @@ const schema16 = {
         lastDeployTime: {
           type: ["integer", "null"],
           format: "int64",
-          description:
-            "Timestamp in milliseconds of the last deploy to this deployment, if\nany.",
+          description: "Timestamp in milliseconds of the last deploy to this deployment, if\nany.",
         },
         name: {
           type: "string",
@@ -792,8 +752,7 @@ const schema16 = {
             { type: "null" },
             {
               $ref: "#/components/schemas/PreviewDeploymentIdentifier",
-              description:
-                "Preview deployment identifier, if this is a preview deployment.",
+              description: "Preview deployment identifier, if this is a preview deployment.",
             },
           ],
         },
@@ -834,8 +793,7 @@ const schema16 = {
         createTime: {
           type: "integer",
           format: "int64",
-          description:
-            "Timestamp in milliseconds when this deployment was created.",
+          description: "Timestamp in milliseconds when this deployment was created.",
         },
         creator: {
           $ref: "#/components/schemas/MemberId",
@@ -848,8 +806,7 @@ const schema16 = {
         },
         deviceName: {
           $ref: "#/components/schemas/DeviceName",
-          description:
-            "The device name where this local deployment is running.",
+          description: "The device name where this local deployment is running.",
         },
         isActive: {
           type: "boolean",
@@ -895,20 +852,13 @@ const schema20 = {
 const schema21 = { type: "string" };
 const schema23 = {
   type: "string",
-  description:
-    "An identifier that uniquely identifies this deployment within the project.",
+  description: "An identifier that uniquely identifies this deployment within the project.",
 };
 const schema24 = { type: "string", enum: ["aws-us-east-1", "aws-eu-west-1"] };
 const schema27 = { type: "string" };
 function validate11(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -1254,14 +1204,7 @@ function validate11(
         }
         errors++;
       }
-      if (
-        !(
-          data4 === "dev" ||
-          data4 === "prod" ||
-          data4 === "preview" ||
-          data4 === "custom"
-        )
-      ) {
+      if (!(data4 === "dev" || data4 === "prod" || data4 === "preview" || data4 === "custom")) {
         const err19 = {
           instancePath: instancePath + "/deploymentType",
           schemaPath: "#/components/schemas/DeploymentType/enum",
@@ -1296,10 +1239,7 @@ function validate11(
     }
     if (data.expiresAt !== undefined) {
       let data6 = data.expiresAt;
-      if (
-        !(typeof data6 == "number" && !(data6 % 1) && !isNaN(data6)) &&
-        data6 !== null
-      ) {
+      if (!(typeof data6 == "number" && !(data6 % 1) && !isNaN(data6)) && data6 !== null) {
         const err21 = {
           instancePath: instancePath + "/expiresAt",
           schemaPath: "#/oneOf/0/properties/expiresAt/type",
@@ -1401,10 +1341,7 @@ function validate11(
     }
     if (data.lastDeployTime !== undefined) {
       let data10 = data.lastDeployTime;
-      if (
-        !(typeof data10 == "number" && !(data10 % 1) && !isNaN(data10)) &&
-        data10 !== null
-      ) {
+      if (!(typeof data10 == "number" && !(data10 % 1) && !isNaN(data10)) && data10 !== null) {
         const err27 = {
           instancePath: instancePath + "/lastDeployTime",
           schemaPath: "#/oneOf/0/properties/lastDeployTime/type",
@@ -1860,14 +1797,7 @@ function validate11(
         }
         errors++;
       }
-      if (
-        !(
-          data19 === "dev" ||
-          data19 === "prod" ||
-          data19 === "preview" ||
-          data19 === "custom"
-        )
-      ) {
+      if (!(data19 === "dev" || data19 === "prod" || data19 === "preview" || data19 === "custom")) {
         const err52 = {
           instancePath: instancePath + "/deploymentType",
           schemaPath: "#/components/schemas/DeploymentType/enum",
@@ -2182,13 +2112,7 @@ function validate11(
 validate11.evaluated = { dynamicProps: true, dynamicItems: false };
 function validate10(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -2211,10 +2135,7 @@ function validate10(
           dynamicAnchors,
         })
       ) {
-        vErrors =
-          vErrors === null
-            ? validate11.errors
-            : vErrors.concat(validate11.errors);
+        vErrors = vErrors === null ? validate11.errors : vErrors.concat(validate11.errors);
         errors = vErrors.length;
       }
     }
@@ -2243,13 +2164,7 @@ validate10.evaluated = {
 };
 function validate9(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -2269,8 +2184,7 @@ function validate9(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate10.errors : vErrors.concat(validate10.errors);
+    vErrors = vErrors === null ? validate10.errors : vErrors.concat(validate10.errors);
     errors = vErrors.length;
   }
   validate9.errors = vErrors;
@@ -2283,13 +2197,7 @@ const schema30 = {
 };
 function validate15(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -2635,14 +2543,7 @@ function validate15(
         }
         errors++;
       }
-      if (
-        !(
-          data4 === "dev" ||
-          data4 === "prod" ||
-          data4 === "preview" ||
-          data4 === "custom"
-        )
-      ) {
+      if (!(data4 === "dev" || data4 === "prod" || data4 === "preview" || data4 === "custom")) {
         const err19 = {
           instancePath: instancePath + "/deploymentType",
           schemaPath: "#/components/schemas/DeploymentType/enum",
@@ -2677,10 +2578,7 @@ function validate15(
     }
     if (data.expiresAt !== undefined) {
       let data6 = data.expiresAt;
-      if (
-        !(typeof data6 == "number" && !(data6 % 1) && !isNaN(data6)) &&
-        data6 !== null
-      ) {
+      if (!(typeof data6 == "number" && !(data6 % 1) && !isNaN(data6)) && data6 !== null) {
         const err21 = {
           instancePath: instancePath + "/expiresAt",
           schemaPath: "#/oneOf/0/properties/expiresAt/type",
@@ -2782,10 +2680,7 @@ function validate15(
     }
     if (data.lastDeployTime !== undefined) {
       let data10 = data.lastDeployTime;
-      if (
-        !(typeof data10 == "number" && !(data10 % 1) && !isNaN(data10)) &&
-        data10 !== null
-      ) {
+      if (!(typeof data10 == "number" && !(data10 % 1) && !isNaN(data10)) && data10 !== null) {
         const err27 = {
           instancePath: instancePath + "/lastDeployTime",
           schemaPath: "#/oneOf/0/properties/lastDeployTime/type",
@@ -3241,14 +3136,7 @@ function validate15(
         }
         errors++;
       }
-      if (
-        !(
-          data19 === "dev" ||
-          data19 === "prod" ||
-          data19 === "preview" ||
-          data19 === "custom"
-        )
-      ) {
+      if (!(data19 === "dev" || data19 === "prod" || data19 === "preview" || data19 === "custom")) {
         const err52 = {
           instancePath: instancePath + "/deploymentType",
           schemaPath: "#/components/schemas/DeploymentType/enum",
@@ -3563,13 +3451,7 @@ function validate15(
 validate15.evaluated = { dynamicProps: true, dynamicItems: false };
 function validate14(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -3589,8 +3471,7 @@ function validate14(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate15.errors : vErrors.concat(validate15.errors);
+    vErrors = vErrors === null ? validate15.errors : vErrors.concat(validate15.errors);
     errors = vErrors.length;
   } else {
     var props0 = validate15.evaluated.props;
@@ -3606,13 +3487,7 @@ const schema45 = {
 };
 function validate18(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -3958,14 +3833,7 @@ function validate18(
         }
         errors++;
       }
-      if (
-        !(
-          data4 === "dev" ||
-          data4 === "prod" ||
-          data4 === "preview" ||
-          data4 === "custom"
-        )
-      ) {
+      if (!(data4 === "dev" || data4 === "prod" || data4 === "preview" || data4 === "custom")) {
         const err19 = {
           instancePath: instancePath + "/deploymentType",
           schemaPath: "#/components/schemas/DeploymentType/enum",
@@ -4000,10 +3868,7 @@ function validate18(
     }
     if (data.expiresAt !== undefined) {
       let data6 = data.expiresAt;
-      if (
-        !(typeof data6 == "number" && !(data6 % 1) && !isNaN(data6)) &&
-        data6 !== null
-      ) {
+      if (!(typeof data6 == "number" && !(data6 % 1) && !isNaN(data6)) && data6 !== null) {
         const err21 = {
           instancePath: instancePath + "/expiresAt",
           schemaPath: "#/oneOf/0/properties/expiresAt/type",
@@ -4105,10 +3970,7 @@ function validate18(
     }
     if (data.lastDeployTime !== undefined) {
       let data10 = data.lastDeployTime;
-      if (
-        !(typeof data10 == "number" && !(data10 % 1) && !isNaN(data10)) &&
-        data10 !== null
-      ) {
+      if (!(typeof data10 == "number" && !(data10 % 1) && !isNaN(data10)) && data10 !== null) {
         const err27 = {
           instancePath: instancePath + "/lastDeployTime",
           schemaPath: "#/oneOf/0/properties/lastDeployTime/type",
@@ -4564,14 +4426,7 @@ function validate18(
         }
         errors++;
       }
-      if (
-        !(
-          data19 === "dev" ||
-          data19 === "prod" ||
-          data19 === "preview" ||
-          data19 === "custom"
-        )
-      ) {
+      if (!(data19 === "dev" || data19 === "prod" || data19 === "preview" || data19 === "custom")) {
         const err52 = {
           instancePath: instancePath + "/deploymentType",
           schemaPath: "#/components/schemas/DeploymentType/enum",
@@ -4886,13 +4741,7 @@ function validate18(
 validate18.evaluated = { dynamicProps: true, dynamicItems: false };
 function validate17(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -4912,8 +4761,7 @@ function validate17(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate18.errors : vErrors.concat(validate18.errors);
+    vErrors = vErrors === null ? validate18.errors : vErrors.concat(validate18.errors);
     errors = vErrors.length;
   } else {
     var props0 = validate18.evaluated.props;
@@ -4929,13 +4777,7 @@ const schema60 = {
 };
 function validate21(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -5206,13 +5048,7 @@ validate21.evaluated = {
 };
 function validate20(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -5232,8 +5068,7 @@ function validate20(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate21.errors : vErrors.concat(validate21.errors);
+    vErrors = vErrors === null ? validate21.errors : vErrors.concat(validate21.errors);
     errors = vErrors.length;
   }
   validate20.errors = vErrors;
@@ -5257,13 +5092,7 @@ const schema67 = {
 };
 function validate24(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -5534,13 +5363,7 @@ validate24.evaluated = {
 };
 function validate23(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -5560,8 +5383,7 @@ function validate23(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate24.errors : vErrors.concat(validate24.errors);
+    vErrors = vErrors === null ? validate24.errors : vErrors.concat(validate24.errors);
     errors = vErrors.length;
   }
   validate23.errors = vErrors;
@@ -5585,13 +5407,7 @@ const schema74 = {
 };
 function validate27(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -5937,14 +5753,7 @@ function validate27(
         }
         errors++;
       }
-      if (
-        !(
-          data4 === "dev" ||
-          data4 === "prod" ||
-          data4 === "preview" ||
-          data4 === "custom"
-        )
-      ) {
+      if (!(data4 === "dev" || data4 === "prod" || data4 === "preview" || data4 === "custom")) {
         const err19 = {
           instancePath: instancePath + "/deploymentType",
           schemaPath: "#/components/schemas/DeploymentType/enum",
@@ -5979,10 +5788,7 @@ function validate27(
     }
     if (data.expiresAt !== undefined) {
       let data6 = data.expiresAt;
-      if (
-        !(typeof data6 == "number" && !(data6 % 1) && !isNaN(data6)) &&
-        data6 !== null
-      ) {
+      if (!(typeof data6 == "number" && !(data6 % 1) && !isNaN(data6)) && data6 !== null) {
         const err21 = {
           instancePath: instancePath + "/expiresAt",
           schemaPath: "#/oneOf/0/properties/expiresAt/type",
@@ -6084,10 +5890,7 @@ function validate27(
     }
     if (data.lastDeployTime !== undefined) {
       let data10 = data.lastDeployTime;
-      if (
-        !(typeof data10 == "number" && !(data10 % 1) && !isNaN(data10)) &&
-        data10 !== null
-      ) {
+      if (!(typeof data10 == "number" && !(data10 % 1) && !isNaN(data10)) && data10 !== null) {
         const err27 = {
           instancePath: instancePath + "/lastDeployTime",
           schemaPath: "#/oneOf/0/properties/lastDeployTime/type",
@@ -6543,14 +6346,7 @@ function validate27(
         }
         errors++;
       }
-      if (
-        !(
-          data19 === "dev" ||
-          data19 === "prod" ||
-          data19 === "preview" ||
-          data19 === "custom"
-        )
-      ) {
+      if (!(data19 === "dev" || data19 === "prod" || data19 === "preview" || data19 === "custom")) {
         const err52 = {
           instancePath: instancePath + "/deploymentType",
           schemaPath: "#/components/schemas/DeploymentType/enum",
@@ -6865,13 +6661,7 @@ function validate27(
 validate27.evaluated = { dynamicProps: true, dynamicItems: false };
 function validate26(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -6891,8 +6681,7 @@ function validate26(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate27.errors : vErrors.concat(validate27.errors);
+    vErrors = vErrors === null ? validate27.errors : vErrors.concat(validate27.errors);
     errors = vErrors.length;
   } else {
     var props0 = validate27.evaluated.props;
@@ -6908,13 +6697,7 @@ const schema89 = {
 };
 function validate30(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -7260,14 +7043,7 @@ function validate30(
         }
         errors++;
       }
-      if (
-        !(
-          data4 === "dev" ||
-          data4 === "prod" ||
-          data4 === "preview" ||
-          data4 === "custom"
-        )
-      ) {
+      if (!(data4 === "dev" || data4 === "prod" || data4 === "preview" || data4 === "custom")) {
         const err19 = {
           instancePath: instancePath + "/deploymentType",
           schemaPath: "#/components/schemas/DeploymentType/enum",
@@ -7302,10 +7078,7 @@ function validate30(
     }
     if (data.expiresAt !== undefined) {
       let data6 = data.expiresAt;
-      if (
-        !(typeof data6 == "number" && !(data6 % 1) && !isNaN(data6)) &&
-        data6 !== null
-      ) {
+      if (!(typeof data6 == "number" && !(data6 % 1) && !isNaN(data6)) && data6 !== null) {
         const err21 = {
           instancePath: instancePath + "/expiresAt",
           schemaPath: "#/oneOf/0/properties/expiresAt/type",
@@ -7407,10 +7180,7 @@ function validate30(
     }
     if (data.lastDeployTime !== undefined) {
       let data10 = data.lastDeployTime;
-      if (
-        !(typeof data10 == "number" && !(data10 % 1) && !isNaN(data10)) &&
-        data10 !== null
-      ) {
+      if (!(typeof data10 == "number" && !(data10 % 1) && !isNaN(data10)) && data10 !== null) {
         const err27 = {
           instancePath: instancePath + "/lastDeployTime",
           schemaPath: "#/oneOf/0/properties/lastDeployTime/type",
@@ -7866,14 +7636,7 @@ function validate30(
         }
         errors++;
       }
-      if (
-        !(
-          data19 === "dev" ||
-          data19 === "prod" ||
-          data19 === "preview" ||
-          data19 === "custom"
-        )
-      ) {
+      if (!(data19 === "dev" || data19 === "prod" || data19 === "preview" || data19 === "custom")) {
         const err52 = {
           instancePath: instancePath + "/deploymentType",
           schemaPath: "#/components/schemas/DeploymentType/enum",
@@ -8188,13 +7951,7 @@ function validate30(
 validate30.evaluated = { dynamicProps: true, dynamicItems: false };
 function validate29(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -8214,8 +7971,7 @@ function validate29(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate30.errors : vErrors.concat(validate30.errors);
+    vErrors = vErrors === null ? validate30.errors : vErrors.concat(validate30.errors);
     errors = vErrors.length;
   } else {
     var props0 = validate30.evaluated.props;
@@ -8250,13 +8006,7 @@ const schema106 = {
 const schema107 = { type: "string", enum: ["s16", "s256", "d1024"] };
 function validate34(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -8373,13 +8123,7 @@ validate34.evaluated = {
 };
 function validate33(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -8420,10 +8164,7 @@ function validate33(
               dynamicAnchors,
             })
           ) {
-            vErrors =
-              vErrors === null
-                ? validate34.errors
-                : vErrors.concat(validate34.errors);
+            vErrors = vErrors === null ? validate34.errors : vErrors.concat(validate34.errors);
             errors = vErrors.length;
           }
         }
@@ -8468,13 +8209,7 @@ validate33.evaluated = {
 };
 function validate32(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -8494,8 +8229,7 @@ function validate32(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate33.errors : vErrors.concat(validate33.errors);
+    vErrors = vErrors === null ? validate33.errors : vErrors.concat(validate33.errors);
     errors = vErrors.length;
   }
   validate32.errors = vErrors;
@@ -8531,13 +8265,7 @@ const schema110 = {
 };
 function validate39(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -8686,13 +8414,7 @@ validate39.evaluated = {
 };
 function validate38(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -8733,10 +8455,7 @@ function validate38(
               dynamicAnchors,
             })
           ) {
-            vErrors =
-              vErrors === null
-                ? validate39.errors
-                : vErrors.concat(validate39.errors);
+            vErrors = vErrors === null ? validate39.errors : vErrors.concat(validate39.errors);
             errors = vErrors.length;
           }
         }
@@ -8781,13 +8500,7 @@ validate38.evaluated = {
 };
 function validate37(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -8807,8 +8520,7 @@ function validate37(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate38.errors : vErrors.concat(validate38.errors);
+    vErrors = vErrors === null ? validate38.errors : vErrors.concat(validate38.errors);
     errors = vErrors.length;
   }
   validate37.errors = vErrors;
@@ -8844,13 +8556,7 @@ const schema114 = {
 };
 function validate43(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -8906,10 +8612,7 @@ function validate43(
               dynamicAnchors,
             })
           ) {
-            vErrors =
-              vErrors === null
-                ? validate11.errors
-                : vErrors.concat(validate11.errors);
+            vErrors = vErrors === null ? validate11.errors : vErrors.concat(validate11.errors);
             errors = vErrors.length;
           }
         }
@@ -8951,8 +8654,7 @@ function validate43(
           if (typeof data2.hasMore !== "boolean") {
             const err4 = {
               instancePath: instancePath + "/pagination/hasMore",
-              schemaPath:
-                "#/components/schemas/PaginationMetadata/properties/hasMore/type",
+              schemaPath: "#/components/schemas/PaginationMetadata/properties/hasMore/type",
               keyword: "type",
               params: { type: "boolean" },
               message: "must be boolean",
@@ -8970,8 +8672,7 @@ function validate43(
           if (typeof data4 !== "string" && data4 !== null) {
             const err5 = {
               instancePath: instancePath + "/pagination/nextCursor",
-              schemaPath:
-                "#/components/schemas/PaginationMetadata/properties/nextCursor/type",
+              schemaPath: "#/components/schemas/PaginationMetadata/properties/nextCursor/type",
               keyword: "type",
               params: { type: schema114.properties.nextCursor.type },
               message: "must be string,null",
@@ -9025,13 +8726,7 @@ validate43.evaluated = {
 };
 function validate42(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -9051,8 +8746,7 @@ function validate42(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate43.errors : vErrors.concat(validate43.errors);
+    vErrors = vErrors === null ? validate43.errors : vErrors.concat(validate43.errors);
     errors = vErrors.length;
   }
   validate42.errors = vErrors;
@@ -9079,13 +8773,7 @@ const schema116 = {
 };
 function validate47(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -9126,10 +8814,7 @@ function validate47(
               dynamicAnchors,
             })
           ) {
-            vErrors =
-              vErrors === null
-                ? validate11.errors
-                : vErrors.concat(validate11.errors);
+            vErrors = vErrors === null ? validate11.errors : vErrors.concat(validate11.errors);
             errors = vErrors.length;
           }
         }
@@ -9174,13 +8859,7 @@ validate47.evaluated = {
 };
 function validate46(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -9200,8 +8879,7 @@ function validate46(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate47.errors : vErrors.concat(validate47.errors);
+    vErrors = vErrors === null ? validate47.errors : vErrors.concat(validate47.errors);
     errors = vErrors.length;
   }
   validate46.errors = vErrors;
@@ -9229,13 +8907,7 @@ const schema118 = {
 const schema119 = { type: "string", description: "Encrypted admin key" };
 function validate51(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -9304,13 +8976,7 @@ validate51.evaluated = {
 };
 function validate50(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -9330,8 +8996,7 @@ function validate50(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate51.errors : vErrors.concat(validate51.errors);
+    vErrors = vErrors === null ? validate51.errors : vErrors.concat(validate51.errors);
     errors = vErrors.length;
   }
   validate50.errors = vErrors;
@@ -9364,30 +9029,26 @@ const schema122 = {
         { type: "null" },
         {
           $ref: "#/components/schemas/MemberId",
-          description:
-            "The member ID that created this deploy key (if available).",
+          description: "The member ID that created this deploy key (if available).",
         },
       ],
     },
     expiresAt: {
       type: ["integer", "null"],
       format: "int64",
-      description:
-        "Timestamp in milliseconds when this deploy key will expire.",
+      description: "Timestamp in milliseconds when this deploy key will expire.",
     },
     lastUsedTime: {
       type: ["integer", "null"],
       format: "int64",
-      description:
-        "Timestamp in milliseconds when this token was last used (if ever).",
+      description: "Timestamp in milliseconds when this token was last used (if ever).",
     },
     managedBy: {
       oneOf: [
         { type: "null" },
         {
           $ref: "#/components/schemas/ManagedBy",
-          description:
-            "The external integration that manages this deploy key, if any.",
+          description: "The external integration that manages this deploy key, if any.",
         },
       ],
     },
@@ -9409,13 +9070,7 @@ const schema124 = {
 };
 function validate55(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -9570,10 +9225,7 @@ function validate55(
     }
     if (data.expiresAt !== undefined) {
       let data2 = data.expiresAt;
-      if (
-        !(typeof data2 == "number" && !(data2 % 1) && !isNaN(data2)) &&
-        data2 !== null
-      ) {
+      if (!(typeof data2 == "number" && !(data2 % 1) && !isNaN(data2)) && data2 !== null) {
         const err7 = {
           instancePath: instancePath + "/expiresAt",
           schemaPath: "#/properties/expiresAt/type",
@@ -9591,10 +9243,7 @@ function validate55(
     }
     if (data.lastUsedTime !== undefined) {
       let data3 = data.lastUsedTime;
-      if (
-        !(typeof data3 == "number" && !(data3 % 1) && !isNaN(data3)) &&
-        data3 !== null
-      ) {
+      if (!(typeof data3 == "number" && !(data3 % 1) && !isNaN(data3)) && data3 !== null) {
         const err8 = {
           instancePath: instancePath + "/lastUsedTime",
           schemaPath: "#/properties/lastUsedTime/type",
@@ -9697,8 +9346,7 @@ function validate55(
           if (typeof data4.oauthApp !== "string") {
             const err13 = {
               instancePath: instancePath + "/managedBy/oauthApp",
-              schemaPath:
-                "#/components/schemas/ManagedBy/oneOf/1/properties/oauthApp/type",
+              schemaPath: "#/components/schemas/ManagedBy/oneOf/1/properties/oauthApp/type",
               keyword: "type",
               params: { type: "string" },
               message: "must be string",
@@ -9846,13 +9494,7 @@ validate55.evaluated = {
 };
 function validate54(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -9875,10 +9517,7 @@ function validate54(
           dynamicAnchors,
         })
       ) {
-        vErrors =
-          vErrors === null
-            ? validate55.errors
-            : vErrors.concat(validate55.errors);
+        vErrors = vErrors === null ? validate55.errors : vErrors.concat(validate55.errors);
         errors = vErrors.length;
       }
     }
@@ -9907,13 +9546,7 @@ validate54.evaluated = {
 };
 function validate53(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -9933,8 +9566,7 @@ function validate53(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate54.errors : vErrors.concat(validate54.errors);
+    vErrors = vErrors === null ? validate54.errors : vErrors.concat(validate54.errors);
     errors = vErrors.length;
   }
   validate53.errors = vErrors;
@@ -9961,13 +9593,7 @@ const schema126 = {
 };
 function validate59(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -10036,13 +9662,7 @@ validate59.evaluated = {
 };
 function validate58(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -10062,8 +9682,7 @@ function validate58(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate59.errors : vErrors.concat(validate59.errors);
+    vErrors = vErrors === null ? validate59.errors : vErrors.concat(validate59.errors);
     errors = vErrors.length;
   }
   validate58.errors = vErrors;
@@ -10091,13 +9710,7 @@ const schema129 = {
 };
 function validate62(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -10138,10 +9751,7 @@ function validate62(
               dynamicAnchors,
             })
           ) {
-            vErrors =
-              vErrors === null
-                ? validate55.errors
-                : vErrors.concat(validate55.errors);
+            vErrors = vErrors === null ? validate55.errors : vErrors.concat(validate55.errors);
             errors = vErrors.length;
           }
         }
@@ -10186,13 +9796,7 @@ validate62.evaluated = {
 };
 function validate61(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -10212,8 +9816,7 @@ function validate61(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate62.errors : vErrors.concat(validate62.errors);
+    vErrors = vErrors === null ? validate62.errors : vErrors.concat(validate62.errors);
     errors = vErrors.length;
   }
   validate61.errors = vErrors;
@@ -10254,13 +9857,7 @@ const schema132 = {
 };
 function validate67(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -10322,10 +9919,7 @@ function validate67(
     }
     if (data.expiresAt !== undefined) {
       let data1 = data.expiresAt;
-      if (
-        !(typeof data1 == "number" && !(data1 % 1) && !isNaN(data1)) &&
-        data1 !== null
-      ) {
+      if (!(typeof data1 == "number" && !(data1 % 1) && !isNaN(data1)) && data1 !== null) {
         const err3 = {
           instancePath: instancePath + "/expiresAt",
           schemaPath: "#/properties/expiresAt/type",
@@ -10343,10 +9937,7 @@ function validate67(
     }
     if (data.lastUsedTime !== undefined) {
       let data2 = data.lastUsedTime;
-      if (
-        !(typeof data2 == "number" && !(data2 % 1) && !isNaN(data2)) &&
-        data2 !== null
-      ) {
+      if (!(typeof data2 == "number" && !(data2 % 1) && !isNaN(data2)) && data2 !== null) {
         const err4 = {
           instancePath: instancePath + "/lastUsedTime",
           schemaPath: "#/properties/lastUsedTime/type",
@@ -10503,13 +10094,7 @@ validate67.evaluated = {
 };
 function validate66(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -10565,10 +10150,7 @@ function validate66(
               dynamicAnchors,
             })
           ) {
-            vErrors =
-              vErrors === null
-                ? validate67.errors
-                : vErrors.concat(validate67.errors);
+            vErrors = vErrors === null ? validate67.errors : vErrors.concat(validate67.errors);
             errors = vErrors.length;
           }
         }
@@ -10610,8 +10192,7 @@ function validate66(
           if (typeof data2.hasMore !== "boolean") {
             const err4 = {
               instancePath: instancePath + "/pagination/hasMore",
-              schemaPath:
-                "#/components/schemas/PaginationMetadata/properties/hasMore/type",
+              schemaPath: "#/components/schemas/PaginationMetadata/properties/hasMore/type",
               keyword: "type",
               params: { type: "boolean" },
               message: "must be boolean",
@@ -10629,8 +10210,7 @@ function validate66(
           if (typeof data4 !== "string" && data4 !== null) {
             const err5 = {
               instancePath: instancePath + "/pagination/nextCursor",
-              schemaPath:
-                "#/components/schemas/PaginationMetadata/properties/nextCursor/type",
+              schemaPath: "#/components/schemas/PaginationMetadata/properties/nextCursor/type",
               keyword: "type",
               params: { type: schema114.properties.nextCursor.type },
               message: "must be string,null",
@@ -10684,13 +10264,7 @@ validate66.evaluated = {
 };
 function validate65(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -10710,8 +10284,7 @@ function validate65(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate66.errors : vErrors.concat(validate66.errors);
+    vErrors = vErrors === null ? validate66.errors : vErrors.concat(validate66.errors);
     errors = vErrors.length;
   }
   validate65.errors = vErrors;
@@ -10738,13 +10311,7 @@ const schema137 = {
 };
 function validate70(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -10864,13 +10431,7 @@ const schema139 = {
 };
 function validate72(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -11300,13 +10861,7 @@ function validate72(
 validate72.evaluated = { dynamicProps: true, dynamicItems: false };
 function validate71(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -11326,8 +10881,7 @@ function validate71(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate72.errors : vErrors.concat(validate72.errors);
+    vErrors = vErrors === null ? validate72.errors : vErrors.concat(validate72.errors);
     errors = vErrors.length;
   } else {
     var props0 = validate72.evaluated.props;
@@ -11368,8 +10922,7 @@ const schema146 = {
     domain: { type: "string", description: "The custom domain name." },
     requestDestination: {
       $ref: "#/components/schemas/RequestDestination",
-      description:
-        "The destination for this custom domain (convexCloud or convexSite).",
+      description: "The destination for this custom domain (convexCloud or convexSite).",
     },
     verificationTime: {
       type: ["integer", "null"],
@@ -11382,13 +10935,7 @@ const schema146 = {
 const schema147 = { type: "string", enum: ["convexCloud", "convexSite"] };
 function validate76(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -11547,10 +11094,7 @@ function validate76(
     }
     if (data.verificationTime !== undefined) {
       let data4 = data.verificationTime;
-      if (
-        !(typeof data4 == "number" && !(data4 % 1) && !isNaN(data4)) &&
-        data4 !== null
-      ) {
+      if (!(typeof data4 == "number" && !(data4 % 1) && !isNaN(data4)) && data4 !== null) {
         const err9 = {
           instancePath: instancePath + "/verificationTime",
           schemaPath: "#/properties/verificationTime/type",
@@ -11597,13 +11141,7 @@ validate76.evaluated = {
 };
 function validate75(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -11644,10 +11182,7 @@ function validate75(
               dynamicAnchors,
             })
           ) {
-            vErrors =
-              vErrors === null
-                ? validate76.errors
-                : vErrors.concat(validate76.errors);
+            vErrors = vErrors === null ? validate76.errors : vErrors.concat(validate76.errors);
             errors = vErrors.length;
           }
         }
@@ -11692,13 +11227,7 @@ validate75.evaluated = {
 };
 function validate74(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -11718,8 +11247,7 @@ function validate74(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate75.errors : vErrors.concat(validate75.errors);
+    vErrors = vErrors === null ? validate75.errors : vErrors.concat(validate75.errors);
     errors = vErrors.length;
   }
   validate74.errors = vErrors;
@@ -11781,13 +11309,7 @@ const schema151 = {
 const schema152 = { pattern: "^[0-9]+$", type: "string" };
 function validate82(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -11905,13 +11427,7 @@ validate82.evaluated = {
 };
 function validate81(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -11997,10 +11513,7 @@ function validate81(
               dynamicAnchors,
             })
           ) {
-            vErrors =
-              vErrors === null
-                ? validate82.errors
-                : vErrors.concat(validate82.errors);
+            vErrors = vErrors === null ? validate82.errors : vErrors.concat(validate82.errors);
             errors = vErrors.length;
           }
         }
@@ -12133,13 +11646,7 @@ validate81.evaluated = {
 };
 function validate80(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -12180,10 +11687,7 @@ function validate80(
               dynamicAnchors,
             })
           ) {
-            vErrors =
-              vErrors === null
-                ? validate81.errors
-                : vErrors.concat(validate81.errors);
+            vErrors = vErrors === null ? validate81.errors : vErrors.concat(validate81.errors);
             errors = vErrors.length;
           }
         }
@@ -12228,13 +11732,7 @@ validate80.evaluated = {
 };
 function validate79(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -12254,8 +11752,7 @@ function validate79(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate80.errors : vErrors.concat(validate80.errors);
+    vErrors = vErrors === null ? validate80.errors : vErrors.concat(validate80.errors);
     errors = vErrors.length;
   }
   validate79.errors = vErrors;
@@ -12299,13 +11796,7 @@ const schema161 = { type: "string" };
 const schema162 = { type: "string" };
 function validate87(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -12698,8 +12189,7 @@ function validate87(
           if (typeof data3.oauthApp !== "string") {
             const err19 = {
               instancePath: instancePath + "/managedBy/oauthApp",
-              schemaPath:
-                "#/components/schemas/ManagedBy/oneOf/1/properties/oauthApp/type",
+              schemaPath: "#/components/schemas/ManagedBy/oneOf/1/properties/oauthApp/type",
               keyword: "type",
               params: { type: "string" },
               message: "must be string",
@@ -13032,13 +12522,7 @@ validate87.evaluated = {
 };
 function validate86(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -13058,8 +12542,7 @@ function validate86(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate87.errors : vErrors.concat(validate87.errors);
+    vErrors = vErrors === null ? validate87.errors : vErrors.concat(validate87.errors);
     errors = vErrors.length;
   }
   validate86.errors = vErrors;
@@ -13096,13 +12579,7 @@ const schema166 = {
 };
 function validate89(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -13227,8 +12704,7 @@ const schema169 = {
     customRoles: {
       type: ["array", "null"],
       items: { $ref: "#/components/schemas/TeamMemberCustomRole" },
-      description:
-        "The custom roles attached to this invitation. Present iff `role` is\n`custom`.",
+      description: "The custom roles attached to this invitation. Present iff `role` is\n`custom`.",
     },
     email: { type: "string" },
     expired: { type: "boolean" },
@@ -13237,13 +12713,7 @@ const schema169 = {
 };
 function validate92(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -13329,10 +12799,7 @@ function validate92(
               dynamicAnchors,
             })
           ) {
-            vErrors =
-              vErrors === null
-                ? validate82.errors
-                : vErrors.concat(validate82.errors);
+            vErrors = vErrors === null ? validate82.errors : vErrors.concat(validate82.errors);
             errors = vErrors.length;
           }
         }
@@ -13430,13 +12897,7 @@ validate92.evaluated = {
 };
 function validate91(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -13477,10 +12938,7 @@ function validate91(
               dynamicAnchors,
             })
           ) {
-            vErrors =
-              vErrors === null
-                ? validate92.errors
-                : vErrors.concat(validate92.errors);
+            vErrors = vErrors === null ? validate92.errors : vErrors.concat(validate92.errors);
             errors = vErrors.length;
           }
         }
@@ -13525,13 +12983,7 @@ validate91.evaluated = {
 };
 function validate90(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -13551,8 +13003,7 @@ function validate90(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate91.errors : vErrors.concat(validate91.errors);
+    vErrors = vErrors === null ? validate91.errors : vErrors.concat(validate91.errors);
     errors = vErrors.length;
   }
   validate90.errors = vErrors;
@@ -13596,13 +13047,7 @@ const schema173 = {
 };
 function validate98(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -13680,14 +13125,7 @@ function validate98(
             }
             errors++;
           }
-          if (
-            !(
-              data1 === "dev" ||
-              data1 === "prod" ||
-              data1 === "preview" ||
-              data1 === "custom"
-            )
-          ) {
+          if (!(data1 === "dev" || data1 === "prod" || data1 === "preview" || data1 === "custom")) {
             const err4 = {
               instancePath: instancePath + "/deploymentTypes/" + i0,
               schemaPath: "#/components/schemas/DeploymentType/enum",
@@ -13778,13 +13216,7 @@ validate98.evaluated = {
 };
 function validate97(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -13840,10 +13272,7 @@ function validate97(
               dynamicAnchors,
             })
           ) {
-            vErrors =
-              vErrors === null
-                ? validate98.errors
-                : vErrors.concat(validate98.errors);
+            vErrors = vErrors === null ? validate98.errors : vErrors.concat(validate98.errors);
             errors = vErrors.length;
           }
         }
@@ -13885,8 +13314,7 @@ function validate97(
           if (typeof data2.hasMore !== "boolean") {
             const err4 = {
               instancePath: instancePath + "/pagination/hasMore",
-              schemaPath:
-                "#/components/schemas/PaginationMetadata/properties/hasMore/type",
+              schemaPath: "#/components/schemas/PaginationMetadata/properties/hasMore/type",
               keyword: "type",
               params: { type: "boolean" },
               message: "must be boolean",
@@ -13904,8 +13332,7 @@ function validate97(
           if (typeof data4 !== "string" && data4 !== null) {
             const err5 = {
               instancePath: instancePath + "/pagination/nextCursor",
-              schemaPath:
-                "#/components/schemas/PaginationMetadata/properties/nextCursor/type",
+              schemaPath: "#/components/schemas/PaginationMetadata/properties/nextCursor/type",
               keyword: "type",
               params: { type: schema114.properties.nextCursor.type },
               message: "must be string,null",
@@ -13959,13 +13386,7 @@ validate97.evaluated = {
 };
 function validate96(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -13985,8 +13406,7 @@ function validate96(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null ? validate97.errors : vErrors.concat(validate97.errors);
+    vErrors = vErrors === null ? validate97.errors : vErrors.concat(validate97.errors);
     errors = vErrors.length;
   }
   validate96.errors = vErrors;
@@ -14051,8 +13471,7 @@ const schema181 = {
 const schema182 = { type: "string", enum: ["*"] };
 const schema183 = {
   type: "string",
-  description:
-    "An action that can be allowed or denied by a custom role statement.",
+  description: "An action that can be allowed or denied by a custom role statement.",
   enum: [
     "team:update",
     "team:delete",
@@ -14151,13 +13570,7 @@ const schema183 = {
 };
 function validate104(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -14396,13 +13809,7 @@ function validate104(
 validate104.evaluated = { dynamicProps: false, dynamicItems: true };
 function validate103(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -14469,10 +13876,7 @@ function validate103(
           dynamicAnchors,
         })
       ) {
-        vErrors =
-          vErrors === null
-            ? validate104.errors
-            : vErrors.concat(validate104.errors);
+        vErrors = vErrors === null ? validate104.errors : vErrors.concat(validate104.errors);
         errors = vErrors.length;
       }
     }
@@ -14551,13 +13955,7 @@ validate103.evaluated = {
 };
 function validate102(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -14838,10 +14236,7 @@ function validate102(
               dynamicAnchors,
             })
           ) {
-            vErrors =
-              vErrors === null
-                ? validate103.errors
-                : vErrors.concat(validate103.errors);
+            vErrors = vErrors === null ? validate103.errors : vErrors.concat(validate103.errors);
             errors = vErrors.length;
           }
         }
@@ -14928,13 +14323,7 @@ validate102.evaluated = {
 };
 function validate101(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -14954,10 +14343,7 @@ function validate101(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null
-        ? validate102.errors
-        : vErrors.concat(validate102.errors);
+    vErrors = vErrors === null ? validate102.errors : vErrors.concat(validate102.errors);
     errors = vErrors.length;
   }
   validate101.errors = vErrors;
@@ -14993,13 +14379,7 @@ const schema187 = {
 };
 function validate110(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -15280,10 +14660,7 @@ function validate110(
               dynamicAnchors,
             })
           ) {
-            vErrors =
-              vErrors === null
-                ? validate103.errors
-                : vErrors.concat(validate103.errors);
+            vErrors = vErrors === null ? validate103.errors : vErrors.concat(validate103.errors);
             errors = vErrors.length;
           }
         }
@@ -15370,13 +14747,7 @@ validate110.evaluated = {
 };
 function validate109(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -15432,10 +14803,7 @@ function validate109(
               dynamicAnchors,
             })
           ) {
-            vErrors =
-              vErrors === null
-                ? validate110.errors
-                : vErrors.concat(validate110.errors);
+            vErrors = vErrors === null ? validate110.errors : vErrors.concat(validate110.errors);
             errors = vErrors.length;
           }
         }
@@ -15477,8 +14845,7 @@ function validate109(
           if (typeof data2.hasMore !== "boolean") {
             const err4 = {
               instancePath: instancePath + "/pagination/hasMore",
-              schemaPath:
-                "#/components/schemas/PaginationMetadata/properties/hasMore/type",
+              schemaPath: "#/components/schemas/PaginationMetadata/properties/hasMore/type",
               keyword: "type",
               params: { type: "boolean" },
               message: "must be boolean",
@@ -15496,8 +14863,7 @@ function validate109(
           if (typeof data4 !== "string" && data4 !== null) {
             const err5 = {
               instancePath: instancePath + "/pagination/nextCursor",
-              schemaPath:
-                "#/components/schemas/PaginationMetadata/properties/nextCursor/type",
+              schemaPath: "#/components/schemas/PaginationMetadata/properties/nextCursor/type",
               keyword: "type",
               params: { type: schema114.properties.nextCursor.type },
               message: "must be string,null",
@@ -15551,13 +14917,7 @@ validate109.evaluated = {
 };
 function validate108(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -15577,10 +14937,7 @@ function validate108(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null
-        ? validate109.errors
-        : vErrors.concat(validate109.errors);
+    vErrors = vErrors === null ? validate109.errors : vErrors.concat(validate109.errors);
     errors = vErrors.length;
   }
   validate108.errors = vErrors;
@@ -15597,13 +14954,7 @@ const schema193 = {
 };
 function validate115(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -15884,10 +15235,7 @@ function validate115(
               dynamicAnchors,
             })
           ) {
-            vErrors =
-              vErrors === null
-                ? validate103.errors
-                : vErrors.concat(validate103.errors);
+            vErrors = vErrors === null ? validate103.errors : vErrors.concat(validate103.errors);
             errors = vErrors.length;
           }
         }
@@ -15974,13 +15322,7 @@ validate115.evaluated = {
 };
 function validate114(
   data,
-  {
-    instancePath = "",
-    parentData,
-    parentDataProperty,
-    rootData = data,
-    dynamicAnchors = {},
-  } = {},
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
@@ -16000,10 +15342,7 @@ function validate114(
       dynamicAnchors,
     })
   ) {
-    vErrors =
-      vErrors === null
-        ? validate115.errors
-        : vErrors.concat(validate115.errors);
+    vErrors = vErrors === null ? validate115.errors : vErrors.concat(validate115.errors);
     errors = vErrors.length;
   }
   validate114.errors = vErrors;
@@ -16026,29 +15365,21 @@ export const convexManagementResponseValidators = {
   GET: {
     "/teams/{team_id}/list_projects": ajvListProjectsResponse,
     "/projects/{project_id}/list_deployments": ajvListDeploymentsResponse,
-    "/projects/{project_id}/deployment":
-      ajvGetDeploymentInProjectByProjectIdResponse,
+    "/projects/{project_id}/deployment": ajvGetDeploymentInProjectByProjectIdResponse,
     "/teams/{team_id_or_slug}/projects/{project_slug}/deployment":
       ajvGetDeploymentInProjectByProjectSlugResponse,
     "/projects/{project_id}": ajvGetProjectByIdResponse,
-    "/teams/{team_id_or_slug}/projects/{project_slug}":
-      ajvGetProjectBySlugResponse,
+    "/teams/{team_id_or_slug}/projects/{project_slug}": ajvGetProjectBySlugResponse,
     "/deployments/{deployment_name}": ajvPlatformGetDeploymentResponse,
-    "/teams/{team_id}/list_deployment_classes":
-      ajvListDeploymentClassesResponse,
-    "/teams/{team_id}/list_deployment_regions":
-      ajvListDeploymentRegionsResponse,
+    "/teams/{team_id}/list_deployment_classes": ajvListDeploymentClassesResponse,
+    "/teams/{team_id}/list_deployment_regions": ajvListDeploymentRegionsResponse,
     "/teams/{team_id}/list_deployments": ajvListDeploymentsForTeamResponse,
-    "/teams/{team_id}/list_local_deployments":
-      ajvListLocalDeploymentsForTeamResponse,
-    "/deployments/{deployment_name}/list_deploy_keys":
-      ajvListDeployKeysResponse,
-    "/projects/{project_id}/list_preview_deploy_keys":
-      ajvListPreviewDeployKeysResponse,
+    "/teams/{team_id}/list_local_deployments": ajvListLocalDeploymentsForTeamResponse,
+    "/deployments/{deployment_name}/list_deploy_keys": ajvListDeployKeysResponse,
+    "/projects/{project_id}/list_preview_deploy_keys": ajvListPreviewDeployKeysResponse,
     "/list_personal_access_tokens": ajvListPersonalAccessTokensResponse,
     "/token_details": ajvGetTokenDetailsResponse,
-    "/deployments/{deployment_name}/custom_domains":
-      ajvListCustomDomainsResponse,
+    "/deployments/{deployment_name}/custom_domains": ajvListCustomDomainsResponse,
     "/teams/{team_id}/list_members": ajvListTeamMembersResponse,
     "/teams/{team_id}/list_pending_invites": ajvListPendingTeamInvitesResponse,
     "/projects/{project_id}/list_default_environment_variables":
@@ -16062,11 +15393,9 @@ export const convexManagementResponseValidators = {
     "/projects/{project_id}/create_deployment": ajvCreateDeploymentResponse,
     "/deployments/{deployment_name}/delete": null,
     "/deployments/{deployment_name}/transfer": null,
-    "/deployments/{deployment_name}/create_deploy_key":
-      ajvCreateDeployKeyResponse,
+    "/deployments/{deployment_name}/create_deploy_key": ajvCreateDeployKeyResponse,
     "/deployments/{deployment_name}/delete_deploy_key": null,
-    "/projects/{project_id}/create_preview_deploy_key":
-      ajvCreatePreviewDeployKeyResponse,
+    "/projects/{project_id}/create_preview_deploy_key": ajvCreatePreviewDeployKeyResponse,
     "/projects/{project_id}/delete_preview_deploy_key": null,
     "/create_personal_access_token": ajvCreatePersonalAccessTokenResponse,
     "/delete_personal_access_token": null,

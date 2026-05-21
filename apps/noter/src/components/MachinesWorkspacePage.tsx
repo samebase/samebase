@@ -80,11 +80,10 @@ type PendingStartedThreadSelection = {
   threadId: string;
 };
 
-type PendingDraftConversation =
-  MachinesWorkspaceProjectConversationSelection & {
-    preparedWorktreeBranch: string | null;
-    preparedWorktreeCwd: string | null;
-  };
+type PendingDraftConversation = MachinesWorkspaceProjectConversationSelection & {
+  preparedWorktreeBranch: string | null;
+  preparedWorktreeCwd: string | null;
+};
 
 const EMPTY_MACHINE_THREAD_INVENTORY_STATE: MachineThreadInventoryState = {
   hasLoadedThreadInventory: false,
@@ -109,17 +108,11 @@ function readMachineStatusReason(machine: ConnectedMachineView): string | null {
   }
 
   if (machine.controlStatus === "starting") {
-    return (
-      machine.controlStatusDetail ??
-      "Live control is still starting on this machine."
-    );
+    return machine.controlStatusDetail ?? "Live control is still starting on this machine.";
   }
 
   if (machine.controlStatus === "unavailable") {
-    return (
-      machine.controlStatusDetail ??
-      "Live control is unavailable for this machine right now."
-    );
+    return machine.controlStatusDetail ?? "Live control is unavailable for this machine right now.";
   }
 
   if (
@@ -134,12 +127,8 @@ function readMachineStatusReason(machine: ConnectedMachineView): string | null {
 }
 
 /** Default the route to the first interactive machine, then fall back to any machine. */
-function readPreferredMachineId(
-  machines: ConnectedMachineView[],
-): string | null {
-  const readyMachine = machines.find(
-    (machine) => readMachineStatusReason(machine) === null,
-  );
+function readPreferredMachineId(machines: ConnectedMachineView[]): string | null {
+  const readyMachine = machines.find((machine) => readMachineStatusReason(machine) === null);
   if (readyMachine) {
     return readyMachine.machineId;
   }
@@ -161,26 +150,20 @@ export function MachinesWorkspacePage() {
   const routeSearch = machinesRouteApi.useSearch();
   const now = useNow();
   const user = useQuery(api.users.viewer);
-  const connectedMachinesQuery = useQuery(
-    api.connectedMachines.listConnectedMachines,
-    {},
-  );
+  const connectedMachinesQuery = useQuery(api.connectedMachines.listConnectedMachines, {});
   const issueMachineControlToken = useMutation(
     api.connectedMachineControl.issueMachineControlToken,
   );
   const [machineThreadInventories, setMachineThreadInventories] = useState<
     Record<string, MachineThreadInventoryState>
   >({});
-  const [selectedThreadDetail, setSelectedThreadDetail] =
-    useState<CodexAppServerThread | null>(null);
-  const [selectedThreadError, setSelectedThreadError] = useState<string | null>(
+  const [selectedThreadDetail, setSelectedThreadDetail] = useState<CodexAppServerThread | null>(
     null,
   );
+  const [selectedThreadError, setSelectedThreadError] = useState<string | null>(null);
   const [isSelectedThreadLoading, setIsSelectedThreadLoading] = useState(false);
   const [isSubmittingTurn, setIsSubmittingTurn] = useState(false);
-  const [pendingPinThreadKey, setPendingPinThreadKey] = useState<string | null>(
-    null,
-  );
+  const [pendingPinThreadKey, setPendingPinThreadKey] = useState<string | null>(null);
   const [pendingStartedThreadSelection, setPendingStartedThreadSelection] =
     useState<PendingStartedThreadSelection | null>(null);
   const [pendingDraftConversation, setPendingDraftConversation] =
@@ -192,9 +175,7 @@ export function MachinesWorkspacePage() {
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(
     () => routeSearch.threadId ?? null,
   );
-  const machineControlTokensRef = useRef<
-    Partial<Record<string, MachineControlTokenState>>
-  >({});
+  const machineControlTokensRef = useRef<Partial<Record<string, MachineControlTokenState>>>({});
   const activePinRequestIdRef = useRef(0);
   const activeTurnSubmissionIdRef = useRef(0);
   const latestSelectedMachineControlIdRef = useRef<string | null>(null);
@@ -227,10 +208,7 @@ export function MachinesWorkspacePage() {
       return null;
     }
 
-    return (
-      machines.find((machine) => machine.machineId === selectedMachineId) ??
-      null
-    );
+    return machines.find((machine) => machine.machineId === selectedMachineId) ?? null;
   }, [machines, selectedMachineId]);
 
   const selectedMachineStatusReason = selectedMachine
@@ -241,27 +219,20 @@ export function MachinesWorkspacePage() {
     reason: "Pending connected-machine prompt",
   });
   const userDisplayName =
-    user?.name ??
-    user?.email ??
-    user?.githubUsername ??
-    (user ? "Account" : null);
+    user?.name ?? user?.email ?? user?.githubUsername ?? (user ? "Account" : null);
   const selectedMachineControlId = selectedMachine?.machineId ?? null;
   const selectedMachineInteractionBlockedReason =
     selectedMachineStatusReason ??
-    (selectedMachine === null
-      ? "Connect a machine to start or continue a Codex thread."
-      : null);
+    (selectedMachine === null ? "Connect a machine to start or continue a Codex thread." : null);
   const selectedMachineInventory =
     selectedMachineId === null
       ? EMPTY_MACHINE_THREAD_INVENTORY_STATE
-      : (machineThreadInventories[selectedMachineId] ??
-        EMPTY_MACHINE_THREAD_INVENTORY_STATE);
+      : (machineThreadInventories[selectedMachineId] ?? EMPTY_MACHINE_THREAD_INVENTORY_STATE);
   const selectedThreadSummary = useMemo(
     () =>
       selectedThreadId
-        ? (selectedMachineInventory.threads.find(
-            (thread) => thread.id === selectedThreadId,
-          ) ?? null)
+        ? (selectedMachineInventory.threads.find((thread) => thread.id === selectedThreadId) ??
+          null)
         : null,
     [selectedMachineInventory.threads, selectedThreadId],
   );
@@ -269,14 +240,11 @@ export function MachinesWorkspacePage() {
     pendingStartedThreadSelection?.machineId === selectedMachineId &&
     pendingStartedThreadSelection.threadId === selectedThreadId;
   const selectedPendingConversation =
-    pendingDraftConversation?.machineId === selectedMachineId &&
-    selectedThreadId === null
+    pendingDraftConversation?.machineId === selectedMachineId && selectedThreadId === null
       ? pendingDraftConversation
       : null;
   const selectedThread =
-    selectedThreadDetail?.id === selectedThreadId
-      ? selectedThreadDetail
-      : selectedThreadSummary;
+    selectedThreadDetail?.id === selectedThreadId ? selectedThreadDetail : selectedThreadSummary;
 
   const ensureMachineControlToken = useCallback(
     async (machineId: string, forceRefresh = false): Promise<string> => {
@@ -310,10 +278,7 @@ export function MachinesWorkspacePage() {
       }
 
       const runRequest = async (forceRefresh: boolean) => {
-        const token = await ensureMachineControlToken(
-          machine.machineId,
-          forceRefresh,
-        );
+        const token = await ensureMachineControlToken(machine.machineId, forceRefresh);
         return requestCodexAppServerJson<T>({
           baseUrl: machine.controlUrl,
           body: args.body,
@@ -328,10 +293,7 @@ export function MachinesWorkspacePage() {
       try {
         return await runRequest(false);
       } catch (requestError) {
-        if (
-          requestError instanceof CodexAppServerRequestError &&
-          requestError.status === 401
-        ) {
+        if (requestError instanceof CodexAppServerRequestError && requestError.status === 401) {
           delete machineControlTokensRef.current[machine.machineId];
           return runRequest(true);
         }
@@ -383,9 +345,7 @@ export function MachinesWorkspacePage() {
       return;
     }
 
-    const validMachineIds = new Set(
-      machines.map((machine) => machine.machineId),
-    );
+    const validMachineIds = new Set(machines.map((machine) => machine.machineId));
     setMachineThreadInventories((current) => {
       const nextEntries = Object.entries(current).filter(([machineId]) =>
         validMachineIds.has(machineId),
@@ -431,13 +391,7 @@ export function MachinesWorkspacePage() {
       replace: true,
       search: nextSearch,
     });
-  }, [
-    navigate,
-    routeSearch.machineId,
-    routeSearch.threadId,
-    selectedMachineId,
-    selectedThreadId,
-  ]);
+  }, [navigate, routeSearch.machineId, routeSearch.threadId, selectedMachineId, selectedThreadId]);
 
   useEffect(() => {
     if (machines === undefined) {
@@ -499,10 +453,7 @@ export function MachinesWorkspacePage() {
       return;
     }
 
-    if (
-      selectedMachineId !== pendingDraftConversation.machineId ||
-      selectedThreadId !== null
-    ) {
+    if (selectedMachineId !== pendingDraftConversation.machineId || selectedThreadId !== null) {
       setPendingDraftConversation(null);
     }
   }, [pendingDraftConversation, selectedMachineId, selectedThreadId]);
@@ -545,8 +496,7 @@ export function MachinesWorkspacePage() {
          * inventory instead of flashing the thread rail empty between retries.
          */
         setMachineThreadInventories((current) => {
-          const existing =
-            current[machine.machineId] ?? EMPTY_MACHINE_THREAD_INVENTORY_STATE;
+          const existing = current[machine.machineId] ?? EMPTY_MACHINE_THREAD_INVENTORY_STATE;
           if (existing.hasLoadedThreadInventory) {
             return current;
           }
@@ -564,8 +514,7 @@ export function MachinesWorkspacePage() {
       }
     };
 
-    const hydrate = () =>
-      Promise.all(inventoryMachines.map((machine) => hydrateMachine(machine)));
+    const hydrate = () => Promise.all(inventoryMachines.map((machine) => hydrateMachine(machine)));
 
     void hydrate();
     const intervalId = window.setInterval(() => {
@@ -609,10 +558,7 @@ export function MachinesWorkspacePage() {
       inFlight = true;
       setIsSelectedThreadLoading(true);
       try {
-        const response = await refreshSelectedThread(
-          selectedMachine,
-          selectedThreadId,
-        );
+        const response = await refreshSelectedThread(selectedMachine, selectedThreadId);
         if (didCancel()) {
           return;
         }
@@ -625,9 +571,7 @@ export function MachinesWorkspacePage() {
         }
 
         setSelectedThreadError(
-          error instanceof Error
-            ? error.message
-            : "Failed to load the selected thread.",
+          error instanceof Error ? error.message : "Failed to load the selected thread.",
         );
       } finally {
         if (!didCancel()) {
@@ -662,9 +606,7 @@ export function MachinesWorkspacePage() {
     const nextSelectedThreadId =
       selectedThreadId &&
       (selectedThreadIsPendingStart ||
-        selectedMachineInventory.threads.some(
-          (thread) => thread.id === selectedThreadId,
-        ))
+        selectedMachineInventory.threads.some((thread) => thread.id === selectedThreadId))
         ? selectedThreadId
         : selectedPendingConversation !== null
           ? null
@@ -694,8 +636,7 @@ export function MachinesWorkspacePage() {
       nextPinned: boolean;
       threadId: string;
     }) => {
-      const pinMachine =
-        machines?.find((machine) => machine.machineId === machineId) ?? null;
+      const pinMachine = machines?.find((machine) => machine.machineId === machineId) ?? null;
       if (pinMachine === null || readMachineStatusReason(pinMachine) !== null) {
         return;
       }
@@ -707,28 +648,25 @@ export function MachinesWorkspacePage() {
       setSelectedThreadError(null);
 
       void (async () => {
-        const pinRequestIsStale = () =>
-          activePinRequestIdRef.current !== pinRequestId;
+        const pinRequestIsStale = () => activePinRequestIdRef.current !== pinRequestId;
 
         try {
-          const response =
-            await requestMachineControlJson<CodexAppServerPinnedThreadsResponse>(
-              pinMachine,
-              {
-                body: {
-                  threadId,
-                },
-                method: "POST",
-                path: nextPinned ? "/thread/pin" : "/thread/unpin",
+          const response = await requestMachineControlJson<CodexAppServerPinnedThreadsResponse>(
+            pinMachine,
+            {
+              body: {
+                threadId,
               },
-            );
+              method: "POST",
+              path: nextPinned ? "/thread/pin" : "/thread/unpin",
+            },
+          );
           if (pinRequestIsStale()) {
             return;
           }
 
           setMachineThreadInventories((current) => {
-            const existing =
-              current[machineId] ?? EMPTY_MACHINE_THREAD_INVENTORY_STATE;
+            const existing = current[machineId] ?? EMPTY_MACHINE_THREAD_INVENTORY_STATE;
             return {
               ...current,
               [machineId]: {
@@ -761,9 +699,7 @@ export function MachinesWorkspacePage() {
           }
         } finally {
           if (!pinRequestIsStale()) {
-            setPendingPinThreadKey((current) =>
-              current === pinThreadKey ? null : current,
-            );
+            setPendingPinThreadKey((current) => (current === pinThreadKey ? null : current));
           }
         }
       })();
@@ -775,8 +711,7 @@ export function MachinesWorkspacePage() {
     const prompt = turnDraft.trim();
     const submitMachine = selectedMachine;
     const draftConversation =
-      pendingDraftConversation?.machineId === selectedMachineId &&
-      selectedThreadId === null
+      pendingDraftConversation?.machineId === selectedMachineId && selectedThreadId === null
         ? pendingDraftConversation
         : null;
     if (
@@ -810,21 +745,17 @@ export function MachinesWorkspacePage() {
           let preparedWorktreeBranch = draftConversation.preparedWorktreeBranch;
           let preparedWorktreeCwd = draftConversation.preparedWorktreeCwd;
 
-          if (
-            draftConversation.envMode === "worktree" &&
-            preparedWorktreeCwd === null
-          ) {
-            const worktreeResponse =
-              await requestMachineControlJson<WorktreeCreateResponse>(
-                submitMachine,
-                {
-                  body: {
-                    cwd: draftConversation.projectRootCwd,
-                  },
-                  method: "POST",
-                  path: "/worktree/create",
+          if (draftConversation.envMode === "worktree" && preparedWorktreeCwd === null) {
+            const worktreeResponse = await requestMachineControlJson<WorktreeCreateResponse>(
+              submitMachine,
+              {
+                body: {
+                  cwd: draftConversation.projectRootCwd,
                 },
-              );
+                method: "POST",
+                path: "/worktree/create",
+              },
+            );
             preparedWorktreeBranch = worktreeResponse.worktree.branch;
             preparedWorktreeCwd = worktreeResponse.worktree.cwd;
             targetCwd = preparedWorktreeCwd;
@@ -853,17 +784,16 @@ export function MachinesWorkspacePage() {
             targetCwd = preparedWorktreeCwd;
           }
 
-          const threadStartResponse =
-            await requestMachineControlJson<ThreadActionResponse>(
-              submitMachine,
-              {
-                body: {
-                  cwd: targetCwd,
-                },
-                method: "POST",
-                path: "/thread/start",
+          const threadStartResponse = await requestMachineControlJson<ThreadActionResponse>(
+            submitMachine,
+            {
+              body: {
+                cwd: targetCwd,
               },
-            );
+              method: "POST",
+              path: "/thread/start",
+            },
+          );
           const startedThreadId = threadStartResponse.runtime.currentThreadId;
           if (!startedThreadId) {
             throw new Error("Machine did not return a new thread id.");
@@ -935,10 +865,7 @@ export function MachinesWorkspacePage() {
 
         if (nextThreadId) {
           try {
-            const detailResponse = await refreshSelectedThread(
-              submitMachine,
-              nextThreadId,
-            );
+            const detailResponse = await refreshSelectedThread(submitMachine, nextThreadId);
             if (submissionIsStale()) {
               return;
             }
@@ -997,12 +924,8 @@ export function MachinesWorkspacePage() {
         return;
       }
 
-      const startMachine =
-        machines?.find((machine) => machine.machineId === machineId) ?? null;
-      if (
-        startMachine === null ||
-        readMachineStatusReason(startMachine) !== null
-      ) {
+      const startMachine = machines?.find((machine) => machine.machineId === machineId) ?? null;
+      if (startMachine === null || readMachineStatusReason(startMachine) !== null) {
         return;
       }
 
@@ -1030,23 +953,20 @@ export function MachinesWorkspacePage() {
     return null;
   }
 
-  const machineInventories: MachinesWorkspaceSidebarInventory[] = machines.map(
-    (machine) => {
-      const inventory =
-        machineThreadInventories[machine.machineId] ??
-        EMPTY_MACHINE_THREAD_INVENTORY_STATE;
-      return {
-        hasLoadedThreadInventory: inventory.hasLoadedThreadInventory,
-        machineDisplayName: machine.displayName,
-        machineHostname: machine.hostname,
-        machineId: machine.machineId,
-        machineStatus: machine.status,
-        machineStatusReason: readMachineStatusReason(machine),
-        pinnedThreadIds: inventory.pinnedThreadIds,
-        threads: inventory.threads,
-      };
-    },
-  );
+  const machineInventories: MachinesWorkspaceSidebarInventory[] = machines.map((machine) => {
+    const inventory =
+      machineThreadInventories[machine.machineId] ?? EMPTY_MACHINE_THREAD_INVENTORY_STATE;
+    return {
+      hasLoadedThreadInventory: inventory.hasLoadedThreadInventory,
+      machineDisplayName: machine.displayName,
+      machineHostname: machine.hostname,
+      machineId: machine.machineId,
+      machineStatus: machine.status,
+      machineStatusReason: readMachineStatusReason(machine),
+      pinnedThreadIds: inventory.pinnedThreadIds,
+      threads: inventory.threads,
+    };
+  });
 
   return (
     <PersistedSidebarProvider

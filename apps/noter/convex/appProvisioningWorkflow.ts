@@ -18,9 +18,7 @@ const workflowCompletionContext = object({
 });
 const createAppDescription = v.union(string(), v.null());
 
-export function resolveWorkflowCompletionError(
-  result: RunResult,
-): string | null {
+export function resolveWorkflowCompletionError(result: RunResult): string | null {
   switch (result.kind) {
     case "success":
       return null;
@@ -240,8 +238,7 @@ export const connectExistingRepository = workflow.define({
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
     await step.runAction(
-      internal.appProvisioningWorkflowActions
-        .validateExistingRepositoryConnection,
+      internal.appProvisioningWorkflowActions.validateExistingRepositoryConnection,
       {
         vaultId: args.vaultId,
         runId: args.runId,
@@ -289,8 +286,7 @@ export const connectExistingRepository = workflow.define({
       { name: "sync_tree", retry: idempotentProviderStepRetry },
     );
     await step.runAction(
-      internal.appProvisioningWorkflowActions
-        .finishExistingRepositoryConnection,
+      internal.appProvisioningWorkflowActions.finishExistingRepositoryConnection,
       {
         vaultId: args.vaultId,
         runId: args.runId,
@@ -321,8 +317,7 @@ export const startCreateAppProvisioning = internalMutation({
       args,
       {
         startAsync: true,
-        onComplete:
-          internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
+        onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
         context: {
           runId: args.runId,
         },
@@ -361,8 +356,7 @@ export const startConnectExistingRepositoryProvisioning = internalMutation({
       args,
       {
         startAsync: true,
-        onComplete:
-          internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
+        onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
         context: {
           runId: args.runId,
         },
@@ -403,8 +397,7 @@ export const startVaultInfrastructureProvisioning = internalMutation({
       },
       {
         startAsync: true,
-        onComplete:
-          internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
+        onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
         context: {
           runId: args.runId,
         },
@@ -459,14 +452,11 @@ export const handleProvisioningWorkflowComplete = internalMutation({
       return null;
     }
 
-    await ctx.runMutation(
-      internal.infraProvisioning.markWorkflowProvisioningFailed,
-      {
-        runId: args.context.runId,
-        workflowId: args.workflowId,
-        message: toErrorMessage(error),
-      },
-    );
+    await ctx.runMutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+      runId: args.context.runId,
+      workflowId: args.workflowId,
+      message: toErrorMessage(error),
+    });
 
     return null;
   },

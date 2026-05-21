@@ -21,10 +21,7 @@ export const vVaultDeletionGate = union(
 );
 export type VaultDeletionGate = Infer<typeof vVaultDeletionGate>;
 
-export const vVaultDeletionState = union(
-  vVaultDeletionNotDeleting,
-  vVaultDeletionGate,
-);
+export const vVaultDeletionState = union(vVaultDeletionNotDeleting, vVaultDeletionGate);
 export type VaultDeletionState = Infer<typeof vVaultDeletionState>;
 
 export const vVaultDeletionStep = union(
@@ -159,10 +156,7 @@ export const vVaultDeletionPlan = union(
     ...providerCleanupPlan,
     target: object({
       kind: literal("failed_repository_setup"),
-      githubMode: union(
-        literal("create_repository"),
-        literal("connect_existing_repository"),
-      ),
+      githubMode: union(literal("create_repository"), literal("connect_existing_repository")),
       ...repositorySetupCoordinates,
     }),
     githubRepository: object({
@@ -177,9 +171,7 @@ export const vVaultDeletionRetainedSnapshot = object({
   state: literal("retained_for_retry"),
   plan: vVaultDeletionPlan,
 });
-export type VaultDeletionRetainedSnapshot = Infer<
-  typeof vVaultDeletionRetainedSnapshot
->;
+export type VaultDeletionRetainedSnapshot = Infer<typeof vVaultDeletionRetainedSnapshot>;
 
 export const vVaultDeletionSnapshot = union(
   vVaultDeletionRetainedSnapshot,

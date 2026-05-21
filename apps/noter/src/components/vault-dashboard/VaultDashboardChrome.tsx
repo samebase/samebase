@@ -3,17 +3,12 @@ import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { type LogoThemeColorSearchInput } from "@/lib/appThemeColorSearch";
 import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
 import { Button } from "@/components/ui/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDownIcon, PersonIcon } from "@/lib/radixIcons";
 import { Loader2 } from "lucide-react";
 import { clsx } from "clsx";
 
-const SIDEBAR_METADATA_TEXT_CLASS =
-  "min-w-0 line-clamp-2 [overflow-wrap:anywhere]";
+const SIDEBAR_METADATA_TEXT_CLASS = "min-w-0 line-clamp-2 [overflow-wrap:anywhere]";
 const SIDEBAR_ROW_ICON_CLASS =
   "flex h-5 w-5 shrink-0 basis-full items-center justify-start md:basis-auto md:justify-center";
 const SIDEBAR_ROW_CONTENT_CLASS =
@@ -25,8 +20,7 @@ const DEVELOPER_TOOLS_PLACEHOLDER_TRIGGER_CLASS_NAME =
   "invisible pointer-events-none h-auto gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180";
 const SCROLLABLE_OVERFLOW_VALUES = new Set(["auto", "scroll", "overlay"]);
 const VAULT_DASHBOARD_BRANCH_ROW_SELECTOR = "[data-vault-dashboard-branch-row]";
-const VAULT_DASHBOARD_REPOSITORY_HEADER_SELECTOR =
-  "[data-vault-dashboard-repository-header]";
+const VAULT_DASHBOARD_REPOSITORY_HEADER_SELECTOR = "[data-vault-dashboard-repository-header]";
 
 export type VaultDashboardProviderActionViewModel = {
   disabled?: boolean;
@@ -75,11 +69,7 @@ export function VaultDashboardAccountSection({
       data-testid="dashboard-sidebar-account-section"
       className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
     >
-      <Collapsible
-        className="space-y-3"
-        open={open}
-        onOpenChange={onOpenChange}
-      >
+      <Collapsible className="space-y-3" open={open} onOpenChange={onOpenChange}>
         <CollapsibleTrigger asChild>
           <Button
             type="button"
@@ -95,25 +85,13 @@ export function VaultDashboardAccountSection({
         </CollapsibleTrigger>
         <CollapsibleContent>
           <div className="flex flex-wrap items-start gap-3">
-            <div
-              data-testid="dashboard-sidebar-account-row"
-              className={SIDEBAR_ROW_CONTENT_CLASS}
-            >
-              <div
-                data-testid="dashboard-sidebar-account-icon"
-                className={SIDEBAR_ROW_ICON_CLASS}
-              >
+            <div data-testid="dashboard-sidebar-account-row" className={SIDEBAR_ROW_CONTENT_CLASS}>
+              <div data-testid="dashboard-sidebar-account-icon" className={SIDEBAR_ROW_ICON_CLASS}>
                 <PersonIcon className="h-4 w-4" />
               </div>
-              <div
-                data-testid="dashboard-sidebar-account-text"
-                className={SIDEBAR_ROW_TEXT_CLASS}
-              >
+              <div data-testid="dashboard-sidebar-account-text" className={SIDEBAR_ROW_TEXT_CLASS}>
                 <div
-                  className={clsx(
-                    SIDEBAR_METADATA_TEXT_CLASS,
-                    "text-sm font-medium",
-                  )}
+                  className={clsx(SIDEBAR_METADATA_TEXT_CLASS, "text-sm font-medium")}
                   title={email}
                 >
                   {email}
@@ -173,11 +151,7 @@ export function VaultDashboardProvidersSection({
       data-testid="dashboard-sidebar-providers-section"
       className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
     >
-      <Collapsible
-        className="space-y-3"
-        open={open}
-        onOpenChange={onOpenChange}
-      >
+      <Collapsible className="space-y-3" open={open} onOpenChange={onOpenChange}>
         <CollapsibleTrigger asChild>
           <Button
             variant="ghost"
@@ -189,15 +163,9 @@ export function VaultDashboardProvidersSection({
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div
-            data-testid="dashboard-shell-sidebar-panel"
-            className="space-y-3"
-          >
+          <div data-testid="dashboard-shell-sidebar-panel" className="space-y-3">
             {providerRows.map((providerRow) => (
-              <div
-                key={providerRow.key}
-                className="flex flex-wrap items-start gap-3"
-              >
+              <div key={providerRow.key} className="flex flex-wrap items-start gap-3">
                 <div
                   data-provider-key={providerRow.key}
                   data-testid="dashboard-sidebar-provider-row"
@@ -213,9 +181,7 @@ export function VaultDashboardProvidersSection({
                     data-testid="dashboard-sidebar-provider-text"
                     className={SIDEBAR_ROW_TEXT_CLASS}
                   >
-                    <div className="text-sm font-medium">
-                      {providerRow.label}
-                    </div>
+                    <div className="text-sm font-medium">{providerRow.label}</div>
                     <div
                       className={clsx(
                         SIDEBAR_METADATA_TEXT_CLASS,
@@ -280,11 +246,7 @@ export function VaultDashboardEmptyState({
   );
 }
 
-export function VaultDashboardRepositoryList({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export function VaultDashboardRepositoryList({ children }: { children: ReactNode }) {
   return (
     <div className="mx-auto w-full max-w-[1000px]">
       <div className="space-y-2">{children}</div>
@@ -296,16 +258,10 @@ export function VaultDashboardRepositoryList({
  * Finds the scrollport that owns dashboard scrolling so spacer math uses the
  * same scroll bounds as route chrome.
  */
-function findVaultDashboardVerticalScrollport(
-  element: HTMLElement,
-): HTMLElement | null {
+function findVaultDashboardVerticalScrollport(element: HTMLElement): HTMLElement | null {
   let currentElement = element.parentElement;
   while (currentElement) {
-    if (
-      SCROLLABLE_OVERFLOW_VALUES.has(
-        window.getComputedStyle(currentElement).overflowY,
-      )
-    ) {
+    if (SCROLLABLE_OVERFLOW_VALUES.has(window.getComputedStyle(currentElement).overflowY)) {
       return currentElement;
     }
     currentElement = currentElement.parentElement;
@@ -322,12 +278,8 @@ function resolveVaultDashboardScrollEndTarget(target: HTMLElement): {
   element: HTMLElement;
   topPx: number;
 } {
-  const branchRows = target.querySelectorAll<HTMLElement>(
-    VAULT_DASHBOARD_BRANCH_ROW_SELECTOR,
-  );
-  const header = target.querySelector<HTMLElement>(
-    VAULT_DASHBOARD_REPOSITORY_HEADER_SELECTOR,
-  );
+  const branchRows = target.querySelectorAll<HTMLElement>(VAULT_DASHBOARD_BRANCH_ROW_SELECTOR);
+  const header = target.querySelector<HTMLElement>(VAULT_DASHBOARD_REPOSITORY_HEADER_SELECTOR);
   if (branchRows.length > 0 && header) {
     const lastBranchRow = branchRows[branchRows.length - 1];
     return {
@@ -369,12 +321,8 @@ export function VaultDashboardScrollTargetEndPadding() {
       const scrollEndTarget = resolveVaultDashboardScrollEndTarget(target);
       const targetRect = scrollEndTarget.element.getBoundingClientRect();
       const scrollportRect = scrollport.getBoundingClientRect();
-      const maxScrollTopPx = Math.max(
-        scrollport.scrollHeight - scrollport.clientHeight,
-        0,
-      );
-      const targetTopAtScrollStartPx =
-        targetRect.top - scrollportRect.top + scrollport.scrollTop;
+      const maxScrollTopPx = Math.max(scrollport.scrollHeight - scrollport.clientHeight, 0);
+      const targetTopAtScrollStartPx = targetRect.top - scrollportRect.top + scrollport.scrollTop;
       const targetTopAtScrollEndPx = targetTopAtScrollStartPx - maxScrollTopPx;
 
       // Branch rows are the final meaningful content: keep the vault header
@@ -384,16 +332,12 @@ export function VaultDashboardScrollTargetEndPadding() {
         0,
       );
       setHeightPx((currentHeightPx) =>
-        Math.abs(currentHeightPx - nextHeightPx) < 0.5
-          ? currentHeightPx
-          : nextHeightPx,
+        Math.abs(currentHeightPx - nextHeightPx) < 0.5 ? currentHeightPx : nextHeightPx,
       );
     };
 
     const resizeObserver =
-      typeof ResizeObserver === "undefined"
-        ? null
-        : new ResizeObserver(syncHeight);
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(syncHeight);
 
     const observeCurrentTarget = () => {
       if (resizeObserver) {
@@ -447,11 +391,7 @@ export function VaultDashboardScrollTargetEndPadding() {
   );
 }
 
-export function VaultDashboardSidebarContent({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export function VaultDashboardSidebarContent({ children }: { children: ReactNode }) {
   return (
     <div className="vault-dashboard-sidebar-content flex min-h-full min-w-0 flex-col">
       {children}
@@ -513,9 +453,7 @@ export function VaultDashboardRepositoryCard({
         <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
           <span className="font-normal text-muted-foreground">#</span>
           {titleRepositoryOwnerVisible ? (
-            <span className="font-normal text-muted-foreground">
-              {repositoryOwner}/
-            </span>
+            <span className="font-normal text-muted-foreground">{repositoryOwner}/</span>
           ) : null}
           <span>{repositoryName}</span>
         </span>
@@ -543,9 +481,7 @@ export function VaultDashboardRepositoryCard({
               <a
                 href={titleHref}
                 target={titleTarget}
-                rel={
-                  titleTarget === "_blank" ? "noopener noreferrer" : undefined
-                }
+                rel={titleTarget === "_blank" ? "noopener noreferrer" : undefined}
                 className={clsx(
                   "-mx-2 -my-1 inline-flex min-h-9 max-w-full items-start px-2 py-1 text-base leading-6 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
                   titleClassName,
@@ -586,30 +522,19 @@ export function VaultDashboardRepositoryCard({
                 onOpenChange={developerToolsSection.onOpenChange}
               >
                 <CollapsibleTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={DEVELOPER_TOOLS_TRIGGER_CLASS_NAME}
-                  >
+                  <Button variant="ghost" size="sm" className={DEVELOPER_TOOLS_TRIGGER_CLASS_NAME}>
                     Developer tools
                     <ChevronDownIcon className="h-3.5 w-3.5 transition-transform" />
                   </Button>
                 </CollapsibleTrigger>
-                <CollapsibleContent
-                  forceMount
-                  className="space-y-1.5 data-[state=closed]:hidden"
-                >
+                <CollapsibleContent forceMount className="space-y-1.5 data-[state=closed]:hidden">
                   {developerToolsSection.content}
                 </CollapsibleContent>
               </Collapsible>
             ) : (
               // Reserve the closed trigger box so toggling ?dev does not reflow
               // the visible dashboard card layout.
-              <Collapsible
-                className="space-y-1.5"
-                open={false}
-                aria-hidden={true}
-              >
+              <Collapsible className="space-y-1.5" open={false} aria-hidden={true}>
                 <CollapsibleTrigger asChild>
                   <Button
                     variant="ghost"
@@ -622,10 +547,7 @@ export function VaultDashboardRepositoryCard({
                     <ChevronDownIcon className="h-3.5 w-3.5 transition-transform" />
                   </Button>
                 </CollapsibleTrigger>
-                <CollapsibleContent
-                  forceMount
-                  className="space-y-1.5 data-[state=closed]:hidden"
-                />
+                <CollapsibleContent forceMount className="space-y-1.5 data-[state=closed]:hidden" />
               </Collapsible>
             )
           ) : null}

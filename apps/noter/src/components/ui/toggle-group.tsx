@@ -66,43 +66,27 @@ function ToggleGroup({
   } as const;
 
   if (props.type === "multiple") {
-    const {
-      defaultValue,
-      onValueChange,
-      value,
-      type: _type,
-      ...primitiveProps
-    } = props;
+    const { defaultValue, onValueChange, value, type: _type, ...primitiveProps } = props;
 
     return (
       <ToggleGroupPrimitive<string>
         {...commonProps}
         {...primitiveProps}
-        defaultValue={
-          defaultValue === undefined ? undefined : [...defaultValue]
-        }
+        defaultValue={defaultValue === undefined ? undefined : [...defaultValue]}
         multiple
         onValueChange={(groupValue) => {
           onValueChange?.(groupValue);
         }}
         value={value === undefined ? undefined : [...value]}
       >
-        <ToggleGroupContext.Provider
-          value={{ variant, size, spacing, orientation }}
-        >
+        <ToggleGroupContext.Provider value={{ variant, size, spacing, orientation }}>
           {children}
         </ToggleGroupContext.Provider>
       </ToggleGroupPrimitive>
     );
   }
 
-  const {
-    defaultValue,
-    onValueChange,
-    value,
-    type: _type,
-    ...primitiveProps
-  } = props;
+  const { defaultValue, onValueChange, value, type: _type, ...primitiveProps } = props;
 
   return (
     <ToggleGroupPrimitive<string>
@@ -114,9 +98,7 @@ function ToggleGroup({
       }}
       value={value === undefined ? undefined : [value]}
     >
-      <ToggleGroupContext.Provider
-        value={{ variant, size, spacing, orientation }}
-      >
+      <ToggleGroupContext.Provider value={{ variant, size, spacing, orientation }}>
         {children}
       </ToggleGroupContext.Provider>
     </ToggleGroupPrimitive>

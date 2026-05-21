@@ -27,21 +27,13 @@ import {
 } from "../../shared/appResourceNames";
 
 const { array, literal, null: nullValue, object, optional, string, union } = v;
-const githubRepositoryOwnerKind = union(
-  literal("user"),
-  literal("organization"),
-);
+const githubRepositoryOwnerKind = union(literal("user"), literal("organization"));
 const githubRepositoryOwnerOption = object({
   login: string(),
   kind: githubRepositoryOwnerKind,
 });
 const appResourceNameAvailability = object({
-  status: union(
-    literal("available"),
-    literal("taken"),
-    literal("invalid"),
-    literal("unknown"),
-  ),
+  status: union(literal("available"), literal("taken"), literal("invalid"), literal("unknown")),
   message: union(string(), nullValue()),
   suggestion: union(string(), nullValue()),
 });
@@ -102,9 +94,7 @@ function assertResourceNameAvailable(
 function validateCreateResourceName(
   provider: AppResourceNameProvider,
   name: string,
-):
-  | { valid: true; value: string }
-  | { valid: false; availability: AppResourceNameAvailability } {
+): { valid: true; value: string } | { valid: false; availability: AppResourceNameAvailability } {
   const validation = validateAppResourceName(name, provider);
   if (validation.valid) {
     return validation;
@@ -187,13 +177,10 @@ async function markProvisioningStartupFailed(
 ): Promise<void> {
   const message = toErrorMessage(args.error);
   try {
-    await ctx.runMutation(
-      internal.infraProvisioning.markWorkflowStartupFailed,
-      {
-        runId: args.runId,
-        message,
-      },
-    );
+    await ctx.runMutation(internal.infraProvisioning.markWorkflowStartupFailed, {
+      runId: args.runId,
+      message,
+    });
   } catch (markError) {
     console.error(args.logName, {
       runId: args.runId,
@@ -289,10 +276,7 @@ async function startCreateAppProvisioningOrFail(
   },
 ): Promise<void> {
   try {
-    await ctx.runMutation(
-      internal.appProvisioningWorkflow.startCreateAppProvisioning,
-      args,
-    );
+    await ctx.runMutation(internal.appProvisioningWorkflow.startCreateAppProvisioning, args);
   } catch (error) {
     await markProvisioningStartupFailed(ctx, {
       runId: args.runId,
@@ -316,8 +300,7 @@ async function startConnectExistingRepositoryProvisioningOrFail(
 ): Promise<void> {
   try {
     await ctx.runMutation(
-      internal.appProvisioningWorkflow
-        .startConnectExistingRepositoryProvisioning,
+      internal.appProvisioningWorkflow.startConnectExistingRepositoryProvisioning,
       args,
     );
   } catch (error) {
@@ -355,13 +338,10 @@ async function checkGitHubRepositoryNameAvailability(
   }
 
   try {
-    const githubConnection = await ctx.runQuery(
-      internal.providerConnections.getByUserAndKind,
-      {
-        userId: args.userId,
-        kind: "github",
-      },
-    );
+    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+      userId: args.userId,
+      kind: "github",
+    });
     if (githubConnection?.kind !== "github") {
       return buildUnknownResult("Could not check GitHub repository name.");
     }
@@ -409,8 +389,10 @@ async function checkConvexProjectNameAvailability(
   const projectName = validation.value;
 
   try {
-    const { convexToken, convexTeamId } =
-      await resolveConvexProvisioningConnection(ctx, args.userId);
+    const { convexToken, convexTeamId } = await resolveConvexProvisioningConnection(
+      ctx,
+      args.userId,
+    );
     const projects = await requestConvexManagementApi(
       convexToken,
       "GET",
@@ -468,9 +450,7 @@ async function buildAvailableCloudflareWorkerNameSuggestion(args: {
 }
 
 async function readCloudflareWorkerNameAvailability(args: {
-  connection: Awaited<
-    ReturnType<typeof resolveCloudflareProvisioningConnection>
-  >;
+  connection: Awaited<ReturnType<typeof resolveCloudflareProvisioningConnection>>;
   workerName: string;
 }): Promise<AppResourceNameAvailability> {
   const available = await isCloudflareWorkerNameAvailable({
@@ -506,10 +486,7 @@ async function checkCloudflareWorkerNameAvailability(
   const workerName = validation.value;
 
   try {
-    const connection = await resolveCloudflareProvisioningConnection(
-      ctx,
-      args.userId,
-    );
+    const connection = await resolveCloudflareProvisioningConnection(ctx, args.userId);
     try {
       return await readCloudflareWorkerNameAvailability({
         connection,
@@ -520,10 +497,13 @@ async function checkCloudflareWorkerNameAvailability(
         connection.cloudflareAuthMethod === "mcp_oauth" &&
         isCloudflareMcpInvalidAccessTokenError(error)
       ) {
-        const refreshedConnection =
-          await resolveCloudflareProvisioningConnection(ctx, args.userId, {
+        const refreshedConnection = await resolveCloudflareProvisioningConnection(
+          ctx,
+          args.userId,
+          {
             forceRefresh: true,
-          });
+          },
+        );
         return await readCloudflareWorkerNameAvailability({
           connection: refreshedConnection,
           workerName,
@@ -604,17 +584,12 @@ async function resolveGithubConnectionUsername(
 export const listRepositoryOwners = action({
   args: {},
   returns: array(githubRepositoryOwnerOption),
-  handler: async (
-    ctx,
-  ): Promise<Array<{ login: string; kind: "user" | "organization" }>> => {
+  handler: async (ctx): Promise<Array<{ login: string; kind: "user" | "organization" }>> => {
     const userId = await getUserId(ctx);
-    const githubConnection = await ctx.runQuery(
-      internal.providerConnections.getByUserAndKind,
-      {
-        userId,
-        kind: "github",
-      },
-    );
+    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+      userId,
+      kind: "github",
+    });
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected.");
     }
@@ -659,13 +634,10 @@ export const connectRepository = action({
   }> => {
     const userId = await getUserId(ctx);
     const { owner, name } = parseRepositoryFullName(args.repositoryFullName);
-    const githubConnection = await ctx.runQuery(
-      internal.providerConnections.getByUserAndKind,
-      {
-        userId,
-        kind: "github",
-      },
-    );
+    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+      userId,
+      kind: "github",
+    });
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected");
     }
@@ -717,26 +689,17 @@ export const createRepository = action({
       throw new Error("GitHub owner is required.");
     }
 
-    const githubConnection = await ctx.runQuery(
-      internal.providerConnections.getByUserAndKind,
-      {
-        userId,
-        kind: "github",
-      },
-    );
+    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+      userId,
+      kind: "github",
+    });
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected.");
     }
 
-    const convexNameValidation = validateCreateResourceName(
-      "convex",
-      args.convexProjectName,
-    );
+    const convexNameValidation = validateCreateResourceName("convex", args.convexProjectName);
     if (!convexNameValidation.valid) {
-      throw new Error(
-        convexNameValidation.availability.message ??
-          "Invalid Convex project name.",
-      );
+      throw new Error(convexNameValidation.availability.message ?? "Invalid Convex project name.");
     }
     const cloudflareNameValidation = validateCreateResourceName(
       "cloudflare",
@@ -744,31 +707,20 @@ export const createRepository = action({
     );
     if (!cloudflareNameValidation.valid) {
       throw new Error(
-        cloudflareNameValidation.availability.message ??
-          "Invalid Cloudflare Worker name.",
+        cloudflareNameValidation.availability.message ?? "Invalid Cloudflare Worker name.",
       );
     }
 
-    const resourceNameAvailability =
-      await checkCreateResourceNameAvailabilityForUser(ctx, {
-        userId,
-        githubRepositoryOwner: ghRepoOwner,
-        githubRepositoryName: repoName,
-        convexProjectName: convexNameValidation.value,
-        cloudflareWorkerName: cloudflareNameValidation.value,
-      });
-    assertResourceNameAvailable(
-      "GitHub repository name",
-      resourceNameAvailability.github,
-    );
-    assertResourceNameAvailable(
-      "Convex project name",
-      resourceNameAvailability.convex,
-    );
-    assertResourceNameAvailable(
-      "Cloudflare Worker name",
-      resourceNameAvailability.cloudflare,
-    );
+    const resourceNameAvailability = await checkCreateResourceNameAvailabilityForUser(ctx, {
+      userId,
+      githubRepositoryOwner: ghRepoOwner,
+      githubRepositoryName: repoName,
+      convexProjectName: convexNameValidation.value,
+      cloudflareWorkerName: cloudflareNameValidation.value,
+    });
+    assertResourceNameAvailable("GitHub repository name", resourceNameAvailability.github);
+    assertResourceNameAvailable("Convex project name", resourceNameAvailability.convex);
+    assertResourceNameAvailable("Cloudflare Worker name", resourceNameAvailability.cloudflare);
 
     const visibility = args.private === false ? "public" : "private";
     const { vaultId, runId } = await ctx.runMutation(
@@ -834,18 +786,13 @@ export const retryInfrastructureProvisioning = action({
       throw new Error("Vault not found");
     }
     if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
-      throw new Error(
-        "Infrastructure retry is available only for live Noter-managed vaults",
-      );
+      throw new Error("Infrastructure retry is available only for live Noter-managed vaults");
     }
-    const runId = await ctx.runMutation(
-      internal.appProvisioningRuns.createForVault,
-      {
-        userId,
-        vaultId: args.vaultId,
-        trigger: "retry",
-      },
-    );
+    const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
+      userId,
+      vaultId: args.vaultId,
+      trigger: "retry",
+    });
     await startVaultInfrastructureProvisioningOrFail(ctx, {
       vaultId: args.vaultId,
       runId,
@@ -867,13 +814,11 @@ export const deleteVault = action({
   returns: v.object({
     deletionRunId: v.id("vaultDeletionRuns"),
   }),
-  handler: async (
-    ctx,
-    args,
-  ): Promise<{ deletionRunId: Id<"vaultDeletionRuns"> }> => {
+  handler: async (ctx, args): Promise<{ deletionRunId: Id<"vaultDeletionRuns"> }> => {
     const userId = await getUserId(ctx);
-    const result: { deletionRunId: Id<"vaultDeletionRuns"> } =
-      await ctx.runMutation(internal.vault.deletion.runs.createInitialRun, {
+    const result: { deletionRunId: Id<"vaultDeletionRuns"> } = await ctx.runMutation(
+      internal.vault.deletion.runs.createInitialRun,
+      {
         userId,
         vaultId: args.vaultId,
         options: {
@@ -882,7 +827,8 @@ export const deleteVault = action({
           removeConvexProvision: args.removeConvexProvision ?? false,
           removeCloudflareProvision: args.removeCloudflareProvision ?? false,
         },
-      });
+      },
+    );
     const { deletionRunId } = result;
     await startVaultDeletionOrFail(ctx, {
       vaultId: args.vaultId,
@@ -901,16 +847,15 @@ export const retryDeleteVault = action({
   returns: v.object({
     deletionRunId: v.id("vaultDeletionRuns"),
   }),
-  handler: async (
-    ctx,
-    args,
-  ): Promise<{ deletionRunId: Id<"vaultDeletionRuns"> }> => {
+  handler: async (ctx, args): Promise<{ deletionRunId: Id<"vaultDeletionRuns"> }> => {
     const userId = await getUserId(ctx);
-    const result: { deletionRunId: Id<"vaultDeletionRuns"> } =
-      await ctx.runMutation(internal.vault.deletion.runs.createRetryRun, {
+    const result: { deletionRunId: Id<"vaultDeletionRuns"> } = await ctx.runMutation(
+      internal.vault.deletion.runs.createRetryRun,
+      {
         userId,
         failedRunId: args.runId,
-      });
+      },
+    );
     const { deletionRunId } = result;
     const retryRun = await ctx.runQuery(internal.vault.deletion.runs.getById, {
       runId: deletionRunId,

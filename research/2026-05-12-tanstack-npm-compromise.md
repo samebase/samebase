@@ -2,26 +2,24 @@
 
 ## Summary
 
-On May 11, 2026, TanStack disclosed a supply-chain compromise affecting
-published `@tanstack/*` packages. The committed Noter lockfile does not contain
-the compromised package versions or the known malware fingerprint, so this
-checkout does not appear compromised by the incident.
+On May 11, 2026, TanStack disclosed a supply-chain compromise affecting published `@tanstack/*`
+packages. The committed Noter lockfile does not contain the compromised package versions or the
+known malware fingerprint, so this checkout does not appear compromised by the incident.
 
-This branch still pins the affected direct TanStack router packages to the
-already-locked known-good versions because the direct `package.json` ranges were
-wide enough to admit the compromised releases during a fresh resolution.
+This branch still pins the affected direct TanStack router packages to the already-locked known-good
+versions because the direct `package.json` ranges were wide enough to admit the compromised releases
+during a fresh resolution.
 
 ## Sources
 
 - TanStack X advisory: https://x.com/tan_stack/status/2053948103766716630
 - TanStack router issue: https://github.com/TanStack/router/issues/7383
-- Socket campaign tracker:
-  https://socket.dev/supply-chain-attacks/mini-shai-hulud
+- Socket campaign tracker: https://socket.dev/supply-chain-attacks/mini-shai-hulud
 
 ## Advisory details
 
-The TanStack X post said the affected versions were published around 19:20-19:30
-UTC on May 11, 2026 and described the package-level fingerprint as:
+The TanStack X post said the affected versions were published around 19:20-19:30 UTC on May 11, 2026
+and described the package-level fingerprint as:
 
 ```json
 "optionalDependencies": {
@@ -29,15 +27,13 @@ UTC on May 11, 2026 and described the package-level fingerprint as:
 }
 ```
 
-The GitHub issue discussion describes the same fingerprint and says the payload
-runs through the git dependency's prepare lifecycle. Socket's tracker lists
-affected artifacts including the TanStack router package family published in two
-waves around 19:20 UTC and 19:26 UTC.
+The GitHub issue discussion describes the same fingerprint and says the payload runs through the git
+dependency's prepare lifecycle. Socket's tracker lists affected artifacts including the TanStack
+router package family published in two waves around 19:20 UTC and 19:26 UTC.
 
 ## Noter exposure
 
-The locked Noter versions are older than the affected artifacts relevant to this
-repo:
+The locked Noter versions are older than the affected artifacts relevant to this repo:
 
 | Package                           |       Locked in Noter | Known bad versions checked |
 | --------------------------------- | --------------------: | -------------------------- |
@@ -53,8 +49,8 @@ repo:
 | `@tanstack/router-utils`          |             `1.161.6` | `1.161.11`, `1.161.14`     |
 
 The last dependency update touching the lockfile was commit
-`61e2b997e4605ac2197fc630c29095f0c37e76a9`, committed at 2026-05-11 18:08:37
-+0300, which is 15:08:37 UTC and before the reported malicious publish window.
+`61e2b997e4605ac2197fc630c29095f0c37e76a9`, committed at 2026-05-11 18:08:37 +0300, which is
+15:08:37 UTC and before the reported malicious publish window.
 
 ## Checks run
 
@@ -66,20 +62,18 @@ find node_modules/.pnpm -path "*@tanstack*" -name "router_init.js" -print
 find node_modules/.pnpm -path "*@tanstack*" -name package.json -print | while read file; do node -e 'const fs=require("fs"); const p=process.argv[1]; const json=JSON.parse(fs.readFileSync(p,"utf8")); const opt=json.optionalDependencies||{}; if (opt["@tanstack/setup"] || JSON.stringify(opt).includes("79ac49eedf774dd4b0cfa308722bc463cfe5885c")) console.log(p);' "$file"; done
 ```
 
-`npm view` confirmed the known bad versions for the affected direct packages
-carry the `@tanstack/setup` optional dependency and are deprecated with a
-security warning, while the already-locked known-good versions checked here did
-not report that optional dependency.
+`npm view` confirmed the known bad versions for the affected direct packages carry the
+`@tanstack/setup` optional dependency and are deprecated with a security warning, while the
+already-locked known-good versions checked here did not report that optional dependency.
 
 ## Action
 
-- Pin affected direct TanStack router packages in app package manifests to the
-  current known-good lockfile versions.
+- Pin affected direct TanStack router packages in app package manifests to the current known-good
+  lockfile versions.
 - Make GitHub workflow installs use `pnpm install --frozen-lockfile` explicitly.
 
 ## Operator guidance
 
-No credential rotation is indicated from this repository state alone. Rotate and
-rebuild hosts only if a machine or CI job resolved or installed one of the known
-bad versions during the May 11, 2026 19:20-19:30 UTC window, or if local scans
-find the fingerprint above.
+No credential rotation is indicated from this repository state alone. Rotate and rebuild hosts only
+if a machine or CI job resolved or installed one of the known bad versions during the May 11, 2026
+19:20-19:30 UTC window, or if local scans find the fingerprint above.

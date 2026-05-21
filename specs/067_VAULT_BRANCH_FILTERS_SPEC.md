@@ -32,8 +32,7 @@ The branch filter UI is inclusive:
 
 ### Placement
 
-- Each vault card keeps a single `Filters` control in the `Branches` section
-  header.
+- Each vault card keeps a single `Filters` control in the `Branches` section header.
 - Desktop uses a popover.
 - Touch-first devices use a bottom sheet.
 
@@ -53,10 +52,8 @@ The branch filter UI is inclusive:
 
 ### Result summary
 
-- When filters hide any rows, the header shows the visible count summary
-  (`visible of total`).
-- Branch rows remain a single list; filtering does not introduce separate tabs
-  or grouped sections.
+- When filters hide any rows, the header shows the visible count summary (`visible of total`).
+- Branch rows remain a single list; filtering does not introduce separate tabs or grouped sections.
 
 ## Persistence Model
 
@@ -68,8 +65,8 @@ Stored fields:
 - `includeDrafts: boolean`
 - `includeNoLabel?: boolean`
 
-`includeNoLabel` stays optional at the storage layer so rows written before
-unlabeled-branch support remain readable until users resave their filters.
+`includeNoLabel` stays optional at the storage layer so rows written before unlabeled-branch support
+remain readable until users resave their filters.
 
 ## Filtering Rules
 
@@ -77,12 +74,11 @@ Given one branch row:
 
 1. If the branch is draft and `includeDrafts` is `false`, hide it.
 2. If the branch has no PR labels, show it only when `includeNoLabel` is `true`.
-3. If the branch has PR labels, hide it when any of its labels appear in
-   `hiddenLabels`.
+3. If the branch has PR labels, hide it when any of its labels appear in `hiddenLabels`.
 4. Otherwise keep it visible.
 
-This preserves the backend's compact hidden-label storage while presenting an
-inclusive checkbox model in the UI.
+This preserves the backend's compact hidden-label storage while presenting an inclusive checkbox
+model in the UI.
 
 ## Non-Goals
 

@@ -1,7 +1,6 @@
 # Prompt: Regenerate notermd/app-Style Artifact
 
-Use this prompt when asking an agent to recreate a clean public artifact
-history.
+Use this prompt when asking an agent to recreate a clean public artifact history.
 
 ```text
 You are regenerating a notermd/app-style public teaching artifact.

@@ -13,12 +13,11 @@
 
 ## Summary
 
-Introduce a per-vault "Simple View" that hides source/dev files using patterns
-defined in `noter.md` YAML frontmatter.
+Introduce a per-vault "Simple View" that hides source/dev files using patterns defined in `noter.md`
+YAML frontmatter.
 
-The goal is an agent-building view where non-essential implementation files are
-hidden, while agent-facing files (for example `AGENTS.md` and tool/skill config
-files) remain easier to navigate.
+The goal is an agent-building view where non-essential implementation files are hidden, while
+agent-facing files (for example `AGENTS.md` and tool/skill config files) remain easier to navigate.
 
 This spec also adds a Sidebar toggle to switch between:
 
@@ -30,8 +29,7 @@ This spec also adds a Sidebar toggle to switch between:
 1. Make repository navigation cleaner for agent-oriented workflows.
 2. Keep configuration human-readable and LLM-readable in markdown.
 3. Validate frontmatter into typed TypeScript objects before applying filters.
-4. Keep behavior safe by failing open (show all files) when config is
-   missing/invalid.
+4. Keep behavior safe by failing open (show all files) when config is missing/invalid.
 5. Keep filtering consistent between Sidebar tree and Cmd+P.
 
 ## Non-Goals
@@ -45,8 +43,7 @@ This spec also adds a Sidebar toggle to switch between:
 
 1. Config source: root `noter.md` frontmatter.
 2. Pattern model: `exclude` glob patterns.
-3. Default mode: `Simple View` when config exists (unless user has a saved
-   preference).
+3. Default mode: `Simple View` when config exists (unless user has a saved preference).
 4. Preference persistence: per vault in localStorage.
 5. Scope: apply filtering to Sidebar tree and Cmd+P.
 6. Fallback on invalid/missing config: show all files.
@@ -77,8 +74,7 @@ simpleView:
 ### Notes on comments
 
 1. YAML frontmatter supports end-of-line comments (`# ...`).
-2. Comments are for readability only and are not preserved in parsed TypeScript
-   objects.
+2. Comments are for readability only and are not preserved in parsed TypeScript objects.
 
 ## Parsing and Validation Contract
 
@@ -111,8 +107,7 @@ simpleView:
 5. Use `visibleTreeData` for:
    - Sidebar file tree;
    - Cmd+P file list.
-6. Direct URL navigation to a hidden file is still allowed; filter affects
-   browsing lists only.
+6. Direct URL navigation to a hidden file is still allowed; filter affects browsing lists only.
 
 ## Sidebar Toggle Contract
 
@@ -149,8 +144,7 @@ No public backend API contract changes are required.
 
 ## Acceptance Criteria
 
-1. A repo with valid `noter.md` frontmatter defaults to Simple View on first
-   load.
+1. A repo with valid `noter.md` frontmatter defaults to Simple View on first load.
 2. Sidebar shows filtered files when Simple View is on.
 3. Cmd+P shows the same filtered file set.
 4. Toggle state persists per vault after page reload.
@@ -178,14 +172,11 @@ No public backend API contract changes are required.
 
 1. `noter.md` lives at repository root.
 2. YAML frontmatter remains the canonical settings format for this feature.
-3. Filtering is presentation-only; it does not affect commits, staging, or Git
-   operations.
-4. Dashboard-wide "show more/less dev stuff" is deferred to a follow-up
-   iteration.
+3. Filtering is presentation-only; it does not affect commits, staging, or Git operations.
+4. Dashboard-wide "show more/less dev stuff" is deferred to a follow-up iteration.
 
 ## Future Follow-ups
 
-1. Optional app-level global default for Simple View in addition to per-vault
-   preference.
+1. Optional app-level global default for Simple View in addition to per-vault preference.
 2. Optional schema expansion for explicit include rules.
 3. Optional diagnostics UI for invalid frontmatter errors.

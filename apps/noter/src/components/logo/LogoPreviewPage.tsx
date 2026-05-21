@@ -5,10 +5,7 @@ import {
 } from "@/components/logo/NLogoScene";
 import { NLogoRasterScene } from "@/components/logo/NLogoRasterScene";
 import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
-import {
-  LogoIsoThumbnail,
-  NLogoIsoScene,
-} from "@/components/logo/NLogoIsoScene";
+import { LogoIsoThumbnail, NLogoIsoScene } from "@/components/logo/NLogoIsoScene";
 import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
@@ -92,17 +89,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LogoNumberInput } from "@/components/logo/LogoNumberInput";
 import { Label } from "@/components/ui/label";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { Layout, PublicLayoutShell } from "@/Layout";
 import {
   DEFAULT_ELEVATION_DEGREES,
@@ -119,14 +107,8 @@ import {
   serializeVoxelState,
   type VoxelEdit,
 } from "@/components/logo/logoVoxelState";
-import {
-  resolveLogoViewState,
-  type LogoViewState,
-} from "@/components/logo/logoViewDrag";
-import {
-  readLogoThemeColors,
-  useResolvedAppThemeColorState,
-} from "@/lib/appThemeColorSearch";
+import { resolveLogoViewState, type LogoViewState } from "@/components/logo/logoViewDrag";
+import { readLogoThemeColors, useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
 import {
   buildLogoRouteSearch,
   preserveLogoRouteDevModeSearch,
@@ -139,13 +121,7 @@ import { cn } from "@/lib/utils";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { Link } from "@tanstack/react-router";
 import { PaletteIcon } from "lucide-react";
-import {
-  useId,
-  useMemo,
-  useRef,
-  type ChangeEvent,
-  type ReactNode,
-} from "react";
+import { useId, useMemo, useRef, type ChangeEvent, type ReactNode } from "react";
 
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 const DEFAULT_LOGO_OPACITY = 1;
@@ -209,9 +185,7 @@ function clampLogoOpacity(value: number): number {
 }
 
 function formatLogoDistanceInput(value: number): string {
-  return normalizeLogoDistanceScale(value).toFixed(
-    LOGO_DISTANCE_INPUT_DECIMALS,
-  );
+  return normalizeLogoDistanceScale(value).toFixed(LOGO_DISTANCE_INPUT_DECIMALS);
 }
 
 function preserveLogoNumberInputValue(value: number) {
@@ -224,12 +198,8 @@ function readDefaultStripedLeftFaceStyle(): LogoStripedLeftFaceStyle {
   };
 }
 
-function readStripedLeftFaceStyle(
-  leftFaceStyle: LogoLeftFaceStyle,
-): LogoStripedLeftFaceStyle {
-  return leftFaceStyle.kind === "striped"
-    ? leftFaceStyle
-    : readDefaultStripedLeftFaceStyle();
+function readStripedLeftFaceStyle(leftFaceStyle: LogoLeftFaceStyle): LogoStripedLeftFaceStyle {
+  return leftFaceStyle.kind === "striped" ? leftFaceStyle : readDefaultStripedLeftFaceStyle();
 }
 
 function updateStripedLeftFaceStyle(
@@ -268,20 +238,11 @@ function readColorInputValue(token: LogoColorToken): string {
   return expandHexColorToken(getTailwindColorHex(token));
 }
 
-function ColorSwatch({
-  color,
-  size = "default",
-}: {
-  color: string;
-  size?: ColorSwatchSize;
-}) {
+function ColorSwatch({ color, size = "default" }: { color: string; size?: ColorSwatchSize }) {
   return (
     <span
       aria-hidden="true"
-      className={cn(
-        "shrink-0 border border-border",
-        COLOR_SWATCH_SIZE_CLASS_NAMES[size],
-      )}
+      className={cn("shrink-0 border border-border", COLOR_SWATCH_SIZE_CLASS_NAMES[size])}
       style={{ backgroundColor: color }}
     />
   );
@@ -296,28 +257,17 @@ function ThemeColorPicker({
 }: {
   currentToken: LogoColorToken;
   themeColorKey: LogoThemeColorKey;
-  onCustomColorChange: (
-    themeColorKey: LogoThemeColorKey,
-    nextColor: string,
-  ) => void;
-  onFamilyChange: (
-    themeColorKey: LogoThemeColorKey,
-    nextFamily: string,
-  ) => void;
+  onCustomColorChange: (themeColorKey: LogoThemeColorKey, nextColor: string) => void;
+  onFamilyChange: (themeColorKey: LogoThemeColorKey, nextFamily: string) => void;
   onShadeChange: (themeColorKey: LogoThemeColorKey, nextShade: string) => void;
 }) {
   const currentColorHex = getTailwindColorHex(currentToken);
   const colorInputValue = readColorInputValue(currentToken);
   const isTailwindToken = isTailwindColorToken(currentToken);
-  const currentFamily = isTailwindToken
-    ? getTailwindColorFamily(currentToken)
-    : null;
-  const currentShade = isTailwindToken
-    ? getTailwindColorShade(currentToken)
-    : null;
+  const currentFamily = isTailwindToken ? getTailwindColorFamily(currentToken) : null;
+  const currentShade = isTailwindToken ? getTailwindColorShade(currentToken) : null;
   const currentLabel = isTailwindToken ? currentToken : colorInputValue;
-  const availableShades =
-    currentFamily === null ? [] : getTailwindColorShades(currentFamily);
+  const availableShades = currentFamily === null ? [] : getTailwindColorShades(currentFamily);
   const themeColorLabel = THEME_COLOR_LABELS[themeColorKey];
 
   return (
@@ -335,9 +285,7 @@ function ThemeColorPicker({
               <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
                 {themeColorLabel}
               </span>
-              <span className="truncate font-mono text-xs text-foreground">
-                {currentLabel}
-              </span>
+              <span className="truncate font-mono text-xs text-foreground">{currentLabel}</span>
             </span>
           </span>
           <PaletteIcon className="size-4 shrink-0 text-muted-foreground" />
@@ -355,9 +303,7 @@ function ThemeColorPicker({
               {themeColorLabel}
             </span>
           </div>
-          <span className="truncate font-mono text-xs text-muted-foreground">
-            {currentLabel}
-          </span>
+          <span className="truncate font-mono text-xs text-muted-foreground">{currentLabel}</span>
         </div>
 
         <div className="flex items-center gap-2 border border-border bg-background p-2">
@@ -366,17 +312,13 @@ function ThemeColorPicker({
             className="h-10 w-14 shrink-0 cursor-pointer rounded-none border-border bg-background p-1 shadow-none"
             type="color"
             value={colorInputValue}
-            onChange={(event) =>
-              onCustomColorChange(themeColorKey, event.target.value)
-            }
+            onChange={(event) => onCustomColorChange(themeColorKey, event.target.value)}
           />
           <div className="min-w-0">
             <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
               Custom
             </div>
-            <div className="truncate font-mono text-xs text-foreground">
-              {colorInputValue}
-            </div>
+            <div className="truncate font-mono text-xs text-foreground">{colorInputValue}</div>
           </div>
         </div>
 
@@ -403,9 +345,7 @@ function ThemeColorPicker({
                     aria-pressed={isSelected}
                     className={cn(
                       "flex h-10 min-w-0 flex-col gap-1 border bg-background p-1 text-[10px] text-muted-foreground",
-                      isSelected
-                        ? "border-foreground"
-                        : "border-border hover:border-foreground/60",
+                      isSelected ? "border-foreground" : "border-border hover:border-foreground/60",
                     )}
                     type="button"
                     onClick={() => onShadeChange(themeColorKey, shade)}
@@ -438,17 +378,12 @@ function ThemeColorPicker({
                   aria-pressed={isSelected}
                   className={cn(
                     "flex h-8 min-w-0 items-center gap-2 border bg-background px-2 text-left text-xs text-foreground",
-                    isSelected
-                      ? "border-foreground"
-                      : "border-border hover:border-foreground/60",
+                    isSelected ? "border-foreground" : "border-border hover:border-foreground/60",
                   )}
                   type="button"
                   onClick={() => onFamilyChange(themeColorKey, family)}
                 >
-                  <ColorSwatch
-                    color={getTailwindColorFamilyHex(family)}
-                    size="compact"
-                  />
+                  <ColorSwatch color={getTailwindColorFamilyHex(family)} size="compact" />
                   <span className="truncate">{family}</span>
                 </button>
               );
@@ -469,9 +404,7 @@ function readVoxelState(routeSearch: LogoRouteSearch): string {
   return serializeVoxelState(parsedState);
 }
 
-function readLogoPresetSelection(
-  routeSearch: LogoRouteSearch,
-): LogoPresetSelection {
+function readLogoPresetSelection(routeSearch: LogoRouteSearch): LogoPresetSelection {
   return getLogoPresetSelection(readVoxelState(routeSearch));
 }
 
@@ -500,15 +433,11 @@ function readRotationDegrees(routeSearch: LogoRouteSearch): number {
   return normalizeRotationDegrees(routeSearch.rot);
 }
 
-function isLogoRotationAxisMode(
-  value: string | null,
-): value is LogoRotationAxisMode {
+function isLogoRotationAxisMode(value: string | null): value is LogoRotationAxisMode {
   return value === "cube-y" || value === "screen-vertical";
 }
 
-function readRotationAxisMode(
-  routeSearch: LogoRouteSearch,
-): LogoRotationAxisMode {
+function readRotationAxisMode(routeSearch: LogoRouteSearch): LogoRotationAxisMode {
   const value = routeSearch.axis ?? null;
   if (!isLogoRotationAxisMode(value)) {
     return DEFAULT_ROTATION_AXIS_MODE;
@@ -521,10 +450,7 @@ function readViewSnapEnabled(routeSearch: LogoRouteSearch): boolean {
   return !routeSearch.freeView;
 }
 
-function resolveLogoPreviewViewState(
-  view: LogoViewState,
-  viewSnapEnabled: boolean,
-): LogoViewState {
+function resolveLogoPreviewViewState(view: LogoViewState, viewSnapEnabled: boolean): LogoViewState {
   return resolveLogoViewState({
     config: viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined,
     view,
@@ -672,10 +598,7 @@ function buildLogoPreviewRouteSearch(
     buildLogoRouteSearch({
       distanceScale: routeState.distanceScale,
       elevationDegrees: resolvedView.elevationDegrees,
-      fractalDepth: clampLogoFractalDepthForRenderer(
-        routeState.fractalDepth,
-        renderMode,
-      ),
+      fractalDepth: clampLogoFractalDepthForRenderer(routeState.fractalDepth, renderMode),
       isoCubeSidePixels: routeState.isoCubeSidePixels,
       isoStyleId: routeState.isoStyleId,
       leftFaceStyle: routeState.leftFaceStyle,
@@ -701,17 +624,10 @@ function replaceLogoPreviewRouteSearch({
   routeState: LogoPreviewRouteState;
   renderMode: LogoPreviewRenderMode;
 }) {
-  const nextSearch = buildLogoPreviewRouteSearch(
-    routeState,
-    routeSearch,
-    renderMode,
-  );
+  const nextSearch = buildLogoPreviewRouteSearch(routeState, routeSearch, renderMode);
 
   if (
-    !areLogoRouteSearchesEqual(
-      nextSearch,
-      readCanonicalLogoRouteSearch(routeSearch, renderMode),
-    )
+    !areLogoRouteSearchesEqual(nextSearch, readCanonicalLogoRouteSearch(routeSearch, renderMode))
   ) {
     replaceRouteSearch(nextSearch);
   }
@@ -772,9 +688,7 @@ function useLogoPreviewStore() {
         isShuffleEnabled,
       }));
     },
-    setShuffleParallelMoves: (
-      shuffleParallelMoves: LogoShuffleParallelMoves,
-    ) => {
+    setShuffleParallelMoves: (shuffleParallelMoves: LogoShuffleParallelMoves) => {
       setState((state) => ({
         ...state,
         shuffleParallelMoves,
@@ -856,8 +770,7 @@ function useLogoPreviewController({
         setRouteStateDraft((currentState) => ({
           ...currentState,
           rotationDegrees: normalizeRotationDegrees(
-            currentState.rotationDegrees +
-              deltaSeconds * AUTO_ROTATE_DEGREES_PER_SECOND,
+            currentState.rotationDegrees + deltaSeconds * AUTO_ROTATE_DEGREES_PER_SECOND,
           ),
         }));
       },
@@ -871,10 +784,7 @@ function useLogoPreviewController({
           voxelState: preset.voxelState,
         }));
       },
-      applyViewState: (
-        nextView: LogoViewState,
-        options?: { viewSnapEnabled?: boolean },
-      ) => {
+      applyViewState: (nextView: LogoViewState, options?: { viewSnapEnabled?: boolean }) => {
         setRouteStateDraft((currentState) =>
           applyLogoPreviewViewState(currentState, nextView, options),
         );
@@ -927,9 +837,7 @@ function useLogoPreviewController({
         commitRouteState((currentState) =>
           applyLogoPreviewViewState(currentState, {
             elevationDegrees: currentState.elevationDegrees,
-            rotationDegrees: normalizeRotationDegrees(
-              currentState.rotationDegrees + deltaDegrees,
-            ),
+            rotationDegrees: normalizeRotationDegrees(currentState.rotationDegrees + deltaDegrees),
           }),
         );
       },
@@ -960,10 +868,7 @@ function useLogoPreviewController({
         }));
       },
       setFractalDepth: (fractalDepth: number) => {
-        const nextFractalDepth = clampLogoFractalDepthForRenderer(
-          fractalDepth,
-          renderMode,
-        );
+        const nextFractalDepth = clampLogoFractalDepthForRenderer(fractalDepth, renderMode);
         commitRouteState((currentState) => ({
           ...currentState,
           fractalDepth: nextFractalDepth,
@@ -972,8 +877,7 @@ function useLogoPreviewController({
       setIsoCubeSidePixels: (isoCubeSidePixels: number) => {
         debounceRouteState((currentState) => ({
           ...currentState,
-          isoCubeSidePixels:
-            normalizeLogoIsometricCubeSidePixels(isoCubeSidePixels),
+          isoCubeSidePixels: normalizeLogoIsometricCubeSidePixels(isoCubeSidePixels),
         }));
       },
       setIsoStyleId: (isoStyleId: LogoIsometricStyleId) => {
@@ -1004,8 +908,7 @@ function useLogoPreviewController({
         debounceRouteState((currentState) =>
           updateStripedLeftFaceStyle(currentState, (style) => ({
             ...style,
-            stripeAngleDegrees:
-              normalizeLogoLeftFaceStripeAngleDegrees(stripeAngleDegrees),
+            stripeAngleDegrees: normalizeLogoLeftFaceStripeAngleDegrees(stripeAngleDegrees),
           })),
         );
       },
@@ -1025,9 +928,7 @@ function useLogoPreviewController({
             return {
               ...style,
               stripeGap: normalizedGap,
-              stripeWidth: style.stripeGapLinked
-                ? normalizedGap
-                : style.stripeWidth,
+              stripeWidth: style.stripeGapLinked ? normalizedGap : style.stripeWidth,
             };
           }),
         );
@@ -1052,14 +953,11 @@ function useLogoPreviewController({
       setLeftFaceStripeWidth: (stripeWidth: number) => {
         debounceRouteState((currentState) =>
           updateStripedLeftFaceStyle(currentState, (style) => {
-            const normalizedWidth =
-              normalizeLogoLeftFaceStripeWidth(stripeWidth);
+            const normalizedWidth = normalizeLogoLeftFaceStripeWidth(stripeWidth);
 
             return {
               ...style,
-              stripeGap: style.stripeGapLinked
-                ? normalizedWidth
-                : style.stripeGap,
+              stripeGap: style.stripeGapLinked ? normalizedWidth : style.stripeGap,
               stripeWidth: normalizedWidth,
             };
           }),
@@ -1089,10 +987,7 @@ function useLogoPreviewController({
       },
       setShuffleEnabled: store.actions.setShuffleEnabled,
       setShuffleParallelMoves: store.actions.setShuffleParallelMoves,
-      setThemeColorFamily: (
-        themeColorKey: LogoThemeColorKey,
-        nextFamily: string,
-      ) => {
+      setThemeColorFamily: (themeColorKey: LogoThemeColorKey, nextFamily: string) => {
         commitRouteState((currentState) => ({
           ...currentState,
           themeColors: {
@@ -1105,10 +1000,7 @@ function useLogoPreviewController({
           },
         }));
       },
-      setThemeColorShade: (
-        themeColorKey: LogoThemeColorKey,
-        nextShade: string,
-      ) => {
+      setThemeColorShade: (themeColorKey: LogoThemeColorKey, nextShade: string) => {
         commitRouteState((currentState) => ({
           ...currentState,
           themeColors: {
@@ -1127,10 +1019,7 @@ function useLogoPreviewController({
           themeColors,
         }));
       },
-      setThemeCustomColor: (
-        themeColorKey: LogoThemeColorKey,
-        nextColor: string,
-      ) => {
+      setThemeCustomColor: (themeColorKey: LogoThemeColorKey, nextColor: string) => {
         const normalizedColor = expandHexColorToken(nextColor);
         if (!isLogoColorToken(normalizedColor)) {
           return;
@@ -1226,17 +1115,11 @@ const LOGO_ROUTE_SEARCH_KEYS = [
   "vox",
 ] as const satisfies readonly (keyof LogoRouteSearch)[];
 
-function areLogoRouteSearchesEqual(
-  left: LogoRouteSearch,
-  right: LogoRouteSearch,
-): boolean {
+function areLogoRouteSearchesEqual(left: LogoRouteSearch, right: LogoRouteSearch): boolean {
   return LOGO_ROUTE_SEARCH_KEYS.every((key) => left[key] === right[key]);
 }
 
-function areLogoThemeColorsEqual(
-  left: LogoThemeColors,
-  right: LogoThemeColors,
-): boolean {
+function areLogoThemeColorsEqual(left: LogoThemeColors, right: LogoThemeColors): boolean {
   return LOGO_THEME_COLOR_KEYS.every((key) => left[key] === right[key]);
 }
 
@@ -1253,10 +1136,7 @@ function LogoPreviewSection({
 }) {
   return (
     <section
-      className={cn(
-        "flex flex-col gap-2 border-t border-border py-2 first:border-t-0",
-        className,
-      )}
+      className={cn("flex flex-col gap-2 border-t border-border py-2 first:border-t-0", className)}
       data-testid={testId}
     >
       <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
@@ -1408,9 +1288,7 @@ export function LogoPreviewPage({
     renderMode,
     routeSearch,
   });
-  const { backgroundColor, faceColors } = useResolvedAppThemeColorState(
-    state.themeColors,
-  );
+  const { backgroundColor, faceColors } = useResolvedAppThemeColorState(state.themeColors);
   const viewSnapCheckboxId = useId();
   const faceColorAnimationCheckboxId = useId();
   const stripeGapLinkedCheckboxId = useId();
@@ -1423,22 +1301,17 @@ export function LogoPreviewPage({
   });
 
   const selectedPreset =
-    state.selectedPresetId === CUSTOM_LOGO_PRESET_ID
-      ? null
-      : getLogoPreset(state.selectedPresetId);
+    state.selectedPresetId === CUSTOM_LOGO_PRESET_ID ? null : getLogoPreset(state.selectedPresetId);
   const selectedIsoStyle = getLogoIsometricStyle(state.isoStyleId);
   const fractalDepthHardMax = getLogoRendererFractalDepthHardMax(renderMode);
-  const fractalDepthSliderMax =
-    getLogoRendererFractalDepthSliderMax(renderMode);
-  const rotationAngleControlLabel =
-    ROTATION_ANGLE_CONTROL_LABELS[state.rotationAxisMode];
+  const fractalDepthSliderMax = getLogoRendererFractalDepthSliderMax(renderMode);
+  const rotationAngleControlLabel = ROTATION_ANGLE_CONTROL_LABELS[state.rotationAxisMode];
   const isRecursiveDepth = state.fractalDepth > DEFAULT_LOGO_FRACTAL_DEPTH;
   const shuffleAnimation = {
     enabled: state.isShuffleEnabled,
     parallelMoves: state.shuffleParallelMoves,
   };
-  const stripedLeftFaceStyle =
-    state.leftFaceStyle.kind === "striped" ? state.leftFaceStyle : null;
+  const stripedLeftFaceStyle = state.leftFaceStyle.kind === "striped" ? state.leftFaceStyle : null;
 
   const modeSearch = preserveLogoRouteDevModeSearch(
     buildLogoRouteSearch({
@@ -1491,11 +1364,7 @@ export function LogoPreviewPage({
         rotationAxisMode={state.rotationAxisMode}
         rotationDegrees={state.rotationDegrees}
         shuffleAnimation={shuffleAnimation}
-        viewDragConfig={
-          state.isViewSnapEnabled
-            ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG
-            : undefined
-        }
+        viewDragConfig={state.isViewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined}
         voxelState={state.voxelState}
       />
     ) : (
@@ -1521,11 +1390,7 @@ export function LogoPreviewPage({
         animateFaceColors={state.isFaceColorAnimationEnabled}
         fractalDepth={state.fractalDepth}
         voxelEditingEnabled={!isRecursiveDepth}
-        viewDragConfig={
-          state.isViewSnapEnabled
-            ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG
-            : undefined
-        }
+        viewDragConfig={state.isViewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined}
         voxelState={state.voxelState}
       />
     );
@@ -1536,17 +1401,12 @@ export function LogoPreviewPage({
       style={{ backgroundColor }}
     >
       {/* Keep touch capture square so mobile top/bottom drag lanes stay free. */}
-      <div className="relative h-[min(100cqw,100cqh)] w-[min(100cqw,100cqh)]">
-        {logoScene}
-      </div>
+      <div className="relative h-[min(100cqw,100cqh)] w-[min(100cqw,100cqh)]">{logoScene}</div>
     </div>
   );
 
   const controlsContent = (
-    <div
-      data-testid="logo-preview-controls"
-      className="flex min-h-full flex-col gap-0 px-1 py-2"
-    >
+    <div data-testid="logo-preview-controls" className="flex min-h-full flex-col gap-0 px-1 py-2">
       <LogoPreviewSection title="Pages">
         <div className={LOGO_CONTROL_BUTTON_ROW_CLASS_NAME}>
           <Button
@@ -1579,32 +1439,17 @@ export function LogoPreviewPage({
               Iso
             </Link>
           </Button>
-          <Button
-            asChild
-            size="sm"
-            variant="outline"
-            className={LOGO_CONTROL_BUTTON_CLASS_NAME}
-          >
+          <Button asChild size="sm" variant="outline" className={LOGO_CONTROL_BUTTON_CLASS_NAME}>
             <Link search={modeSearch} to="/logo/svg">
               SVG
             </Link>
           </Button>
-          <Button
-            asChild
-            size="sm"
-            variant="outline"
-            className={LOGO_CONTROL_BUTTON_CLASS_NAME}
-          >
+          <Button asChild size="sm" variant="outline" className={LOGO_CONTROL_BUTTON_CLASS_NAME}>
             <Link search={modeSearch} to="/logo/single-cube">
               Study
             </Link>
           </Button>
-          <Button
-            asChild
-            size="sm"
-            variant="outline"
-            className={LOGO_CONTROL_BUTTON_CLASS_NAME}
-          >
+          <Button asChild size="sm" variant="outline" className={LOGO_CONTROL_BUTTON_CLASS_NAME}>
             <Link search={modeSearch} to="/logo/raster-seams">
               Seams
             </Link>
@@ -1618,9 +1463,7 @@ export function LogoPreviewPage({
           label="Depth"
           max={fractalDepthSliderMax}
           min={MIN_LOGO_FRACTAL_DEPTH}
-          normalizeValue={(value) =>
-            clampLogoFractalDepthForRenderer(value, renderMode)
-          }
+          normalizeValue={(value) => clampLogoFractalDepthForRenderer(value, renderMode)}
           onSliderChange={controls.setFractalDepth}
           onValueChange={controls.setFractalDepth}
           sliderAriaLabel="Depth slider"
@@ -1653,16 +1496,10 @@ export function LogoPreviewPage({
               Custom
             </SelectItem>
             {LOGO_PRESETS.map((preset) => (
-              <SelectItem
-                key={preset.id}
-                value={preset.id}
-                className="rounded-none"
-              >
+              <SelectItem key={preset.id} value={preset.id} className="rounded-none">
                 <div className="flex flex-col gap-0.5">
                   <span>{preset.label}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {preset.description}
-                  </span>
+                  <span className="text-xs text-muted-foreground">{preset.description}</span>
                 </div>
               </SelectItem>
             ))}
@@ -1753,8 +1590,7 @@ export function LogoPreviewPage({
               valueText={`${state.isoCubeSidePixels}px`}
             />
             <div className="text-xs text-muted-foreground">
-              {state.isoCubeSidePixels}px edge / {state.isoCubeSidePixels / 2}px
-              rise
+              {state.isoCubeSidePixels}px edge / {state.isoCubeSidePixels / 2}px rise
             </div>
             <Button
               type="button"
@@ -1762,9 +1598,7 @@ export function LogoPreviewPage({
               variant="outline"
               className="w-full rounded-none"
               onClick={() => {
-                controls.setIsoCubeSidePixels(
-                  DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
-                );
+                controls.setIsoCubeSidePixels(DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX);
               }}
             >
               Reset size
@@ -1788,11 +1622,7 @@ export function LogoPreviewPage({
               </SelectTrigger>
               <SelectContent className="rounded-none border-border">
                 {LOGO_ISOMETRIC_STYLES.map((style) => (
-                  <SelectItem
-                    key={style.id}
-                    value={style.id}
-                    className="rounded-none"
-                  >
+                  <SelectItem key={style.id} value={style.id} className="rounded-none">
                     <div className="flex flex-col gap-0.5">
                       <span>{style.label}</span>
                       <span className="text-xs text-muted-foreground">
@@ -1820,9 +1650,7 @@ export function LogoPreviewPage({
                     voxelState={state.voxelState}
                   />
                 </div>
-                <span className="font-mono text-[10px] text-muted-foreground">
-                  {size}px
-                </span>
+                <span className="font-mono text-[10px] text-muted-foreground">{size}px</span>
               </div>
             ))}
           </div>
@@ -1846,8 +1674,8 @@ export function LogoPreviewPage({
                 Snap view
               </span>
               <span>
-                Uses the same drag snapping as the landing page. Hold Alt or
-                Shift while dragging to bypass it.
+                Uses the same drag snapping as the landing page. Hold Alt or Shift while dragging to
+                bypass it.
               </span>
             </label>
           </div>
@@ -1863,9 +1691,7 @@ export function LogoPreviewPage({
                   key={mode}
                   type="button"
                   size="sm"
-                  variant={
-                    state.rotationAxisMode === mode ? "default" : "outline"
-                  }
+                  variant={state.rotationAxisMode === mode ? "default" : "outline"}
                   className={LOGO_CONTROL_BUTTON_CLASS_NAME}
                   onClick={() => {
                     controls.setRotationAxisMode(mode);
@@ -1877,8 +1703,8 @@ export function LogoPreviewPage({
             </div>
             {state.rotationAxisMode === "screen-vertical" ? (
               <div className="text-xs text-muted-foreground">
-                Vertical mode rotates around the current screen-up axis, so
-                changing elevation changes the resulting pose.
+                Vertical mode rotates around the current screen-up axis, so changing elevation
+                changes the resulting pose.
               </div>
             ) : null}
           </div>
@@ -1994,22 +1820,15 @@ export function LogoPreviewPage({
           <Select
             value={`${state.shuffleParallelMoves}`}
             onValueChange={(value) => {
-              controls.setShuffleParallelMoves(
-                parseShuffleParallelMoves(value),
-              );
+              controls.setShuffleParallelMoves(parseShuffleParallelMoves(value));
             }}
           >
             <SelectTrigger className="h-9 rounded-none border-border bg-background px-2 text-sm shadow-none">
-              {state.shuffleParallelMoves}{" "}
-              {state.shuffleParallelMoves === 1 ? "cube" : "cubes"}
+              {state.shuffleParallelMoves} {state.shuffleParallelMoves === 1 ? "cube" : "cubes"}
             </SelectTrigger>
             <SelectContent className="rounded-none border-border">
               {LOGO_SHUFFLE_PARALLEL_OPTIONS.map((option) => (
-                <SelectItem
-                  key={option}
-                  value={`${option}`}
-                  className="rounded-none"
-                >
+                <SelectItem key={option} value={`${option}`} className="rounded-none">
                   {option} {option === 1 ? "cube" : "cubes"}
                 </SelectItem>
               ))}
@@ -2022,9 +1841,7 @@ export function LogoPreviewPage({
             <Checkbox
               id={faceColorAnimationCheckboxId}
               checked={state.isFaceColorAnimationEnabled}
-              onCheckedChange={(checked) =>
-                controls.setFaceColorAnimationEnabled(checked === true)
-              }
+              onCheckedChange={(checked) => controls.setFaceColorAnimationEnabled(checked === true)}
               className="mt-0.5 border-border"
             />
             <label
@@ -2041,19 +1858,14 @@ export function LogoPreviewPage({
       </LogoPreviewSection>
 
       {renderMode === "three" ? (
-        <LogoPreviewSection
-          title="Left Face"
-          testId="logo-preview-left-face-section"
-        >
+        <LogoPreviewSection title="Left Face" testId="logo-preview-left-face-section">
           <div className={LOGO_CONTROL_BUTTON_ROW_CLASS_NAME}>
             {LEFT_FACE_STYLE_OPTIONS.map((kind) => (
               <Button
                 key={kind}
                 type="button"
                 size="sm"
-                variant={
-                  state.leftFaceStyle.kind === kind ? "default" : "outline"
-                }
+                variant={state.leftFaceStyle.kind === kind ? "default" : "outline"}
                 className={LOGO_CONTROL_BUTTON_CLASS_NAME}
                 onClick={() => {
                   controls.setLeftFaceStyleKind(kind);
@@ -2124,9 +1936,7 @@ export function LogoPreviewPage({
                       type="button"
                       size="sm"
                       variant={
-                        stripedLeftFaceStyle.stripeBasis === stripeBasis
-                          ? "default"
-                          : "outline"
+                        stripedLeftFaceStyle.stripeBasis === stripeBasis ? "default" : "outline"
                       }
                       className={LOGO_CONTROL_BUTTON_CLASS_NAME}
                       onClick={() => {

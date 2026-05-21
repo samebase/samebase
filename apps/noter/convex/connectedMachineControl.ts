@@ -74,10 +74,7 @@ export const issueMachineControlToken = mutation({
 export const introspectMachineControlToken = internalMutation({
   args: vIntrospectMachineControlTokenArgs,
   returns: vMachineControlTokenIntrospectionResult,
-  handler: async (
-    ctx,
-    args,
-  ): Promise<MachineControlTokenIntrospectionResult> => {
+  handler: async (ctx, args): Promise<MachineControlTokenIntrospectionResult> => {
     const token = await ctx.db
       .query("machineControlTokens")
       .withIndex("by_token_hash", (q) => q.eq("tokenHash", args.tokenHash))

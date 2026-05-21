@@ -3,10 +3,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { Id } from "../../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import {
-  VaultBranchLinkContent,
-  VaultProviderSetupSection,
-} from "./VaultDashboard";
+import { VaultBranchLinkContent, VaultProviderSetupSection } from "./VaultDashboard";
 import { VaultDashboardRepositoryCard } from "./VaultDashboardChrome";
 import { VaultResourceRail } from "./VaultResourceRail";
 import {
@@ -39,9 +36,7 @@ function fakeRunId(): Id<"appProvisioningRuns"> {
   return "kx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
-type ResourceRailBuilderVault = Parameters<
-  typeof buildVaultDashboardResourceRailState
->[0]["vault"];
+type ResourceRailBuilderVault = Parameters<typeof buildVaultDashboardResourceRailState>[0]["vault"];
 
 function makeResourceRailBuilderVault(
   overrides: Partial<ResourceRailBuilderVault>,
@@ -114,9 +109,9 @@ describe("VaultBranchLinkContent", () => {
     expect(markup).toContain('href="https://tmp-flow.nicuchiciuc.workers.dev"');
     expect(markup).toContain('title="Open production app"');
     expect(markup).toContain(">https://tmp-flow.nicuchiciuc.workers.dev<");
-    expect(
-      markup.indexOf(">https://tmp-flow.nicuchiciuc.workers.dev<"),
-    ).toBeLessThan(markup.indexOf(">main<"));
+    expect(markup.indexOf(">https://tmp-flow.nicuchiciuc.workers.dev<")).toBeLessThan(
+      markup.indexOf(">main<"),
+    );
   });
 });
 
@@ -142,9 +137,9 @@ describe("VaultDashboardRepositoryCard", () => {
     expect(buildVaultDashboardRepositoryHashHref("nicu-chiciuc/tmp-flow")).toBe(
       "#nicu-chiciuc/tmp-flow",
     );
-    expect(
-      normalizeVaultDashboardRepositoryHash("#nicu-chiciuc/tmp-flow"),
-    ).toBe("nicu-chiciuc/tmp-flow");
+    expect(normalizeVaultDashboardRepositoryHash("#nicu-chiciuc/tmp-flow")).toBe(
+      "nicu-chiciuc/tmp-flow",
+    );
   });
 
   it("keeps the repository title passive when no title href is provided", () => {
@@ -154,9 +149,7 @@ describe("VaultDashboardRepositoryCard", () => {
         repositoryOwner="noter-md"
         repositoryName="noter"
         titleSuffix={
-          <span className="shrink-0 text-xs font-normal text-muted-foreground">
-            (deleting...)
-          </span>
+          <span className="shrink-0 text-xs font-normal text-muted-foreground">(deleting...)</span>
         }
       />,
     );
@@ -199,9 +192,7 @@ describe("VaultDashboardRepositoryCard", () => {
 describe("formatVaultSourceSetupStep", () => {
   it("uses dashboard labels for create-app setup steps", () => {
     expect(formatVaultSourceSetupStep("connect_github")).toBe("connect GitHub");
-    expect(formatVaultSourceSetupStep("fetch_github_repo")).toBe(
-      "fetch GitHub repo",
-    );
+    expect(formatVaultSourceSetupStep("fetch_github_repo")).toBe("fetch GitHub repo");
     expect(formatVaultSourceSetupStep("create_vault")).toBe("connect GitHub");
     expect(formatVaultSourceSetupStep("seed_starter")).toBe("seed starter");
     expect(formatVaultSourceSetupStep("sync_tree")).toBe("sync tree");

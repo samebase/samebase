@@ -16,18 +16,14 @@ const SCENARIOS = [
 ] as const;
 
 for (const scenario of SCENARIOS) {
-  test(`file view developer tools fixture (${scenario.mode})`, async ({
-    page,
-  }) => {
+  test(`file view developer tools fixture (${scenario.mode})`, async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto(`/visual-fixture?mode=${scenario.mode}`, {
       waitUntil: "domcontentloaded",
     });
     await page.waitForLoadState("networkidle");
 
-    const fixture = page.getByTestId(
-      "file-view-developer-tools-visual-fixture",
-    );
+    const fixture = page.getByTestId("file-view-developer-tools-visual-fixture");
     await expect(fixture).toHaveScreenshot(scenario.snapshotName, {
       animations: "disabled",
       caret: "hide",

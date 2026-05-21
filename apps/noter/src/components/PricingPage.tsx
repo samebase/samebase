@@ -1,13 +1,5 @@
-import {
-  Link,
-  getRouteApi,
-  linkOptions,
-  useRouter,
-} from "@tanstack/react-router";
-import {
-  buildPricingRouteSearch,
-  type PricingRouteSearch,
-} from "@/lib/authenticatedRouteSearch";
+import { Link, getRouteApi, linkOptions, useRouter } from "@tanstack/react-router";
+import { buildPricingRouteSearch, type PricingRouteSearch } from "@/lib/authenticatedRouteSearch";
 import { useEffect, useMemo, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { useAction, useMutation, useQuery } from "convex/react";
@@ -17,18 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { PLAN_DISPLAY_PRICE, PLAN_FEATURES } from "@/lib/pricingContent";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-} from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 
 const pricingRouteApi = getRouteApi("/pricing");
 
-function buildPricingLinkOptions(
-  checkout: PricingRouteSearch["checkout"] | null,
-) {
+function buildPricingLinkOptions(checkout: PricingRouteSearch["checkout"] | null) {
   return linkOptions({
     to: "/pricing",
     search: buildPricingRouteSearch(checkout),
@@ -39,25 +24,14 @@ export function PricingPage() {
   const router = useRouter();
   const routeSearch = pricingRouteApi.useSearch();
   const billingStatus = useQuery(api.billing.getViewerBillingStatus);
-  const dashboardSettings = useQuery(
-    api.dashboardSettings.getDashboardSettings,
-  );
-  const setPricingBillingCycle = useMutation(
-    api.dashboardSettings.setPricingBillingCycle,
-  );
-  const createCheckoutSession = useAction(
-    api.billing.createPolarCheckoutSession,
-  );
-  const createPortalSession = useAction(
-    api.billing.createPolarCustomerPortalSession,
-  );
+  const dashboardSettings = useQuery(api.dashboardSettings.getDashboardSettings);
+  const setPricingBillingCycle = useMutation(api.dashboardSettings.setPricingBillingCycle);
+  const createCheckoutSession = useAction(api.billing.createPolarCheckoutSession);
+  const createPortalSession = useAction(api.billing.createPolarCustomerPortalSession);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
-  const [pendingIntent, setPendingIntent] = useState<
-    "checkout" | "portal" | null
-  >(null);
+  const [pendingIntent, setPendingIntent] = useState<"checkout" | "portal" | null>(null);
 
-  const billingCycle: BillingCycle =
-    dashboardSettings?.pricingBillingCycle ?? "monthly";
+  const billingCycle: BillingCycle = dashboardSettings?.pricingBillingCycle ?? "monthly";
 
   const checkoutState = routeSearch.checkout ?? null;
   const displayPrices = useMemo(
@@ -68,8 +42,7 @@ export function PricingPage() {
     [billingCycle],
   );
 
-  const isPro =
-    billingStatus?.plan === "pro" && billingStatus.status === "active";
+  const isPro = billingStatus?.plan === "pro" && billingStatus.status === "active";
 
   const buildPricingHref = (checkout: PricingRouteSearch["checkout"] | null) =>
     router.buildLocation(buildPricingLinkOptions(checkout)).href;
@@ -89,10 +62,7 @@ export function PricingPage() {
 
     try {
       const origin = window.location.origin;
-      const successUrl = new URL(
-        buildPricingHref("success"),
-        origin,
-      ).toString();
+      const successUrl = new URL(buildPricingHref("success"), origin).toString();
       const returnUrl = new URL(buildPricingHref("cancel"), origin).toString();
       const result = await createCheckoutSession({
         interval: billingCycle,
@@ -101,9 +71,7 @@ export function PricingPage() {
       });
       window.location.assign(result.url);
     } catch (error) {
-      setCheckoutError(
-        error instanceof Error ? error.message : "Unable to start checkout.",
-      );
+      setCheckoutError(error instanceof Error ? error.message : "Unable to start checkout.");
       setPendingIntent(null);
     }
   };
@@ -119,9 +87,7 @@ export function PricingPage() {
       window.location.assign(result.url);
     } catch (error) {
       setCheckoutError(
-        error instanceof Error
-          ? error.message
-          : "Unable to open the customer portal.",
+        error instanceof Error ? error.message : "Unable to open the customer portal.",
       );
       setPendingIntent(null);
     }
@@ -200,9 +166,7 @@ export function PricingPage() {
                   <h2 className="text-lg font-semibold">Pro</h2>
                   <Badge>Recommended</Badge>
                 </div>
-                <p className="text-3xl font-semibold tracking-tight">
-                  {displayPrices.pro}
-                </p>
+                <p className="text-3xl font-semibold tracking-tight">{displayPrices.pro}</p>
                 <p className="text-sm text-muted-foreground">
                   Simple subscription now, credits-ready as metering matures.
                 </p>
@@ -220,8 +184,7 @@ export function PricingPage() {
                   className="w-full"
                   disabled={
                     pendingIntent !== null ||
-                    (billingCycle === "annual" &&
-                      displayPrices.pro === "Coming soon")
+                    (billingCycle === "annual" && displayPrices.pro === "Coming soon")
                   }
                   onClick={() => {
                     if (isPro) {
@@ -256,9 +219,7 @@ export function PricingPage() {
                   <h2 className="text-lg font-semibold">Team</h2>
                   <Badge variant="secondary">Coming soon</Badge>
                 </div>
-                <p className="text-3xl font-semibold tracking-tight">
-                  {displayPrices.team}
-                </p>
+                <p className="text-3xl font-semibold tracking-tight">{displayPrices.team}</p>
                 <p className="text-sm text-muted-foreground">
                   Shared billing and collaboration controls are next.
                 </p>

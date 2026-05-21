@@ -1,9 +1,6 @@
 import { Layout, PublicLayoutShell } from "@/Layout";
 import { shouldRenderPublicLandingWithoutAuthGate } from "@/lib/publicLandingAuthState";
-import {
-  type RootRouteSearch,
-  useRootRouteSearch,
-} from "@/lib/rootRouteSearch";
+import { type RootRouteSearch, useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
 import { useConvexAuth } from "convex/react";
 
@@ -26,10 +23,7 @@ function shouldUsePublicLayoutShell(args: {
   }
 
   return (
-    shouldRenderPublicLandingWithoutAuthGate(
-      args.pathname,
-      args.rootRouteSearch,
-    ) || !args.isLoading
+    shouldRenderPublicLandingWithoutAuthGate(args.pathname, args.rootRouteSearch) || !args.isLoading
   );
 }
 

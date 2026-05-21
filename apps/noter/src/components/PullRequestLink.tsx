@@ -10,8 +10,7 @@ export function PullRequestLink({
   pullRequestUrl: string;
   className?: string;
 }) {
-  const pullRequestLabel =
-    typeof pullRequestNumber === "number" ? `#${pullRequestNumber}` : "PR";
+  const pullRequestLabel = typeof pullRequestNumber === "number" ? `#${pullRequestNumber}` : "PR";
 
   return (
     <a

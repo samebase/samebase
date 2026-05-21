@@ -2,8 +2,8 @@
 
 ## Purpose
 
-Ensure `WT-001` can be executed from both the main checkout and a worktree,
-verifying worktree discovery and anon seed setup behave consistently.
+Ensure `WT-001` can be executed from both the main checkout and a worktree, verifying worktree
+discovery and anon seed setup behave consistently.
 
 ## Preconditions
 
@@ -13,18 +13,16 @@ verifying worktree discovery and anon seed setup behave consistently.
 
 ## Steps
 
-1. From the main checkout root, run
-   `manual-tests/worktree/WT-001-anon-worktree-isolation.md` and complete its
-   cleanup.
+1. From the main checkout root, run `manual-tests/worktree/WT-001-anon-worktree-isolation.md` and
+   complete its cleanup.
 2. Create a runner worktree:
 
 ```bash
 git worktree add /tmp/noter-wt-runner -b codex/wt-meta-runner
 ```
 
-3. From `/tmp/noter-wt-runner`, re-run
-   `manual-tests/worktree/WT-001-anon-worktree-isolation.md` exactly as written,
-   then complete its cleanup.
+3. From `/tmp/noter-wt-runner`, re-run `manual-tests/worktree/WT-001-anon-worktree-isolation.md`
+   exactly as written, then complete its cleanup.
 4. Remove the runner worktree:
 
 ```bash
@@ -44,5 +42,4 @@ git branch -D codex/wt-meta-runner
 
 ## Cleanup
 
-- Remove any leftover `/tmp/noter-wt-a` and `/tmp/noter-wt-b` worktrees if they
-  still exist.
+- Remove any leftover `/tmp/noter-wt-a` and `/tmp/noter-wt-b` worktrees if they still exist.

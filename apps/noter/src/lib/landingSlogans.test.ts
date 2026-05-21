@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  DEFAULT_LANDING_SLOGAN,
-  parseLandingSlogans,
-  selectLandingSlogan,
-} from "./landingSlogans";
+import { DEFAULT_LANDING_SLOGAN, parseLandingSlogans, selectLandingSlogan } from "./landingSlogans";
 
 describe("parseLandingSlogans", () => {
   it("parses non-empty trimmed lines", () => {
@@ -30,14 +26,8 @@ describe("selectLandingSlogan", () => {
   it("selects a random slogan per call", () => {
     const slogans = ["first", "second", "third"];
 
-    expect(selectLandingSlogan(slogans, DEFAULT_LANDING_SLOGAN, () => 0)).toBe(
-      "first",
-    );
-    expect(
-      selectLandingSlogan(slogans, DEFAULT_LANDING_SLOGAN, () => 0.4),
-    ).toBe("second");
-    expect(
-      selectLandingSlogan(slogans, DEFAULT_LANDING_SLOGAN, () => 0.9),
-    ).toBe("third");
+    expect(selectLandingSlogan(slogans, DEFAULT_LANDING_SLOGAN, () => 0)).toBe("first");
+    expect(selectLandingSlogan(slogans, DEFAULT_LANDING_SLOGAN, () => 0.4)).toBe("second");
+    expect(selectLandingSlogan(slogans, DEFAULT_LANDING_SLOGAN, () => 0.9)).toBe("third");
   });
 });

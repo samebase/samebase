@@ -17,9 +17,7 @@ describe("anon-share", () => {
 
   it("ignores unrelated cloudflared log lines", () => {
     expect(
-      parseCloudflaredQuickTunnelUrl(
-        "2026-04-03T12:00:00Z INF Registered tunnel connection",
-      ),
+      parseCloudflaredQuickTunnelUrl("2026-04-03T12:00:00Z INF Registered tunnel connection"),
     ).toBe(null);
   });
 
@@ -30,9 +28,9 @@ describe("anon-share", () => {
     );
 
     expect(buffered.lines).toEqual([]);
-    expect(
-      parseCloudflaredQuickTunnelUrl(flushBufferedLine(buffered.buffer)),
-    ).toBe("https://steady-sunset.trycloudflare.com");
+    expect(parseCloudflaredQuickTunnelUrl(flushBufferedLine(buffered.buffer))).toBe(
+      "https://steady-sunset.trycloudflare.com",
+    );
   });
 
   it("prefers VITE_CONVEX_URL when reading the local anon env file", () => {
@@ -50,9 +48,7 @@ describe("anon-share", () => {
 
   it("falls back to CONVEX_URL when VITE_CONVEX_URL is absent", () => {
     expect(
-      readLocalConvexUrlFromEnvContents(
-        ["CONVEX_URL=http://127.0.0.1:3210", ""].join("\n"),
-      ),
+      readLocalConvexUrlFromEnvContents(["CONVEX_URL=http://127.0.0.1:3210", ""].join("\n")),
     ).toBe("http://127.0.0.1:3210");
   });
 });

@@ -24,10 +24,7 @@ import {
   isBrowserProductionPublicOrigin,
   isProdUiModeActive,
 } from "@/lib/prodUiMode";
-import {
-  SEARCH_RESET_LINK_LABEL,
-  SEARCH_RESET_QUERY_PARAM,
-} from "@/lib/searchReset";
+import { SEARCH_RESET_LINK_LABEL, SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import {
   ROOT_THEME_DARK_MODE_DISABLE_LINK_LABEL,
   ROOT_THEME_DARK_MODE_LINK_LABEL,
@@ -55,8 +52,7 @@ const APP_SIDEBAR_META_SECTION_CLASS_NAMES = {
 
 const APP_SIDEBAR_META_VERSION_CLASS_NAMES = {
   left: "flex max-w-full min-w-0 flex-row-reverse flex-wrap items-center justify-end gap-x-2 gap-y-1 font-mono",
-  right:
-    "flex max-w-full min-w-0 flex-row flex-wrap items-center gap-x-2 gap-y-1 font-mono",
+  right: "flex max-w-full min-w-0 flex-row flex-wrap items-center gap-x-2 gap-y-1 font-mono",
 } as const satisfies Record<AppSidebarMetaSectionSide, string>;
 const HIDDEN_PUBLIC_LINK_PLACEHOLDER_CLASS_NAME =
   "pointer-events-none select-none text-background no-underline";
@@ -100,10 +96,8 @@ export function AppSidebarMetaSection({
       : ROOT_THEME_DARK_MODE_LINK_LABEL;
 
   const isLandingPage = location.pathname === "/";
-  const showLandingPreviewLanguageLink =
-    location.pathname === LANDING_MARKDOWN_PREVIEW_ROUTE;
-  const showLogoLink =
-    isLandingPage && publicLandingLogoLink?.isLogoLinkVisible === true;
+  const showLandingPreviewLanguageLink = location.pathname === LANDING_MARKDOWN_PREVIEW_ROUTE;
+  const showLogoLink = isLandingPage && publicLandingLogoLink?.isLogoLinkVisible === true;
   const logoLinkClassName = showLogoLink
     ? "animate-underline-color"
     : "pointer-events-none select-none text-background no-underline";
@@ -112,9 +106,7 @@ export function AppSidebarMetaSection({
   const commitLabel = formatAppBuildCommitLabel(appCommit);
   const normalizedRepoUrl = repoUrl ? normalizeRepoUrl(repoUrl) : "";
   const commitUrl =
-    normalizedRepoUrl && appCommit !== "unknown"
-      ? `${normalizedRepoUrl}/commit/${appCommit}`
-      : "";
+    normalizedRepoUrl && appCommit !== "unknown" ? `${normalizedRepoUrl}/commit/${appCommit}` : "";
 
   return (
     <div
@@ -138,10 +130,7 @@ export function AppSidebarMetaSection({
         to={location.pathname}
         hash={location.hash}
         search={(currentSearch) =>
-          applySearchPatch(
-            currentSearch,
-            buildToggledRootThemeModeSearch(currentSearch, "light"),
-          )
+          applySearchPatch(currentSearch, buildToggledRootThemeModeSearch(currentSearch, "light"))
         }
       >
         {lightModeLabel}
@@ -151,10 +140,7 @@ export function AppSidebarMetaSection({
         to={location.pathname}
         hash={location.hash}
         search={(currentSearch) =>
-          applySearchPatch(
-            currentSearch,
-            buildToggledRootThemeModeSearch(currentSearch, "dark"),
-          )
+          applySearchPatch(currentSearch, buildToggledRootThemeModeSearch(currentSearch, "dark"))
         }
       >
         {darkModeLabel}
@@ -218,20 +204,14 @@ export function AppSidebarMetaSection({
           id="public-local-storage-route-link"
           to={LOCAL_STORAGE_ROUTE}
           aria-hidden={landingDevEnabled ? undefined : true}
-          className={
-            landingDevEnabled
-              ? undefined
-              : HIDDEN_PUBLIC_LINK_PLACEHOLDER_CLASS_NAME
-          }
+          className={landingDevEnabled ? undefined : HIDDEN_PUBLIC_LINK_PLACEHOLDER_CLASS_NAME}
           tabIndex={landingDevEnabled ? undefined : -1}
         >
           {LOCAL_STORAGE_ROUTE}
         </Link>
       ) : null}
       {showLandingPreviewLink ? (
-        <Link to={LANDING_MARKDOWN_PREVIEW_ROUTE}>
-          {LANDING_MARKDOWN_PREVIEW_ROUTE}
-        </Link>
+        <Link to={LANDING_MARKDOWN_PREVIEW_ROUTE}>{LANDING_MARKDOWN_PREVIEW_ROUTE}</Link>
       ) : null}
       <Link to="/terms">/terms</Link>
       <Link to="/privacy">/privacy</Link>
@@ -258,17 +238,11 @@ export function AppSidebarMetaSection({
             }
           }}
           onCopy={(event) => {
-            if (
-              !commitUrl ||
-              !hasSelectedAppBuildVersion(event.currentTarget)
-            ) {
+            if (!commitUrl || !hasSelectedAppBuildVersion(event.currentTarget)) {
               return;
             }
 
-            event.clipboardData.setData(
-              "text/plain",
-              `[${commitLabel}](${commitUrl})`,
-            );
+            event.clipboardData.setData("text/plain", `[${commitLabel}](${commitUrl})`);
             event.preventDefault();
           }}
         >

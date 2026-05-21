@@ -15,16 +15,16 @@
 
 ## Summary
 
-Remove Railway from the Noter product surface and codebase while keeping Netlify
-and Cloudflare support.
+Remove Railway from the Noter product surface and codebase while keeping Netlify and Cloudflare
+support.
 
-This spec also defines a cleanup checklist and rollout order for removing
-Railway-shaped data before schema/runtime changes are deployed.
+This spec also defines a cleanup checklist and rollout order for removing Railway-shaped data before
+schema/runtime changes are deployed.
 
 ## Why this spec exists
 
-As of 2026-03-05, Railway references span many runtime surfaces (schema unions,
-provider auth, hosting provisioning/read/delete logic, agent tools, and UI).
+As of 2026-03-05, Railway references span many runtime surfaces (schema unions, provider auth,
+hosting provisioning/read/delete logic, agent tools, and UI).
 
 Current footprint snapshot:
 
@@ -44,16 +44,15 @@ The removal must therefore be done in a controlled order:
 2. Netlify remains supported in this phase.
 3. Cloudflare remains supported in this phase.
 4. We do not keep a dormant Railway feature flag path.
-5. Data cleanup is executed manually in target deployments before Railway schema
-   literals are removed.
+5. Data cleanup is executed manually in target deployments before Railway schema literals are
+   removed.
 
 ## Goals
 
 1. Remove Railway from backend, frontend, and agent tooling.
 2. Keep Netlify + Cloudflare behavior stable.
 3. Define a clear manual cleanup checklist and rollout sequence for Convex data.
-4. Clean or normalize all Railway-shaped rows before schema literals are
-   removed.
+4. Clean or normalize all Railway-shaped rows before schema literals are removed.
 5. Leave a concise historical note of the Railway pilot decision.
 
 ## Non-Goals
@@ -72,8 +71,7 @@ The removal must therefore be done in a controlled order:
   - `ProdAccessProvider`
   - `VaultDomainSource`
   - `OAuthProvider`/`oauthStates.provider`
-  - hosting provider unions (`hostingProviderValidator`,
-    `hostingStateValidator`)
+  - hosting provider unions (`hostingProviderValidator`, `hostingStateValidator`)
 - Remove Railway provider connection shape from schema/provider validators.
 
 ### 2) Backend runtime
@@ -98,19 +96,17 @@ The removal must therefore be done in a controlled order:
 
 ### 4) Docs/specs/manual test references
 
-- Delete the Railway pilot spec (`027`) and keep the decision record in this
-  spec.
+- Delete the Railway pilot spec (`027`) and keep the decision record in this spec.
 - Update Cloudflare specs (`031`, `032`) to remove Railway assumptions.
 - Remove Railway mentions from manual test docs and env allowlists.
-- Keep fixture manifests in sync when new/removed spec files change the visible
-  simple-view list.
+- Keep fixture manifests in sync when new/removed spec files change the visible simple-view list.
 
 ## Data Cleanup Strategy (Manual)
 
 ### Principle
 
-Run targeted manual cleanup in Convex dashboard/CLI first, then deploy Railway
-schema/runtime removal.
+Run targeted manual cleanup in Convex dashboard/CLI first, then deploy Railway schema/runtime
+removal.
 
 ### Data transformations required before schema literal removal
 
@@ -124,8 +120,7 @@ schema/runtime removal.
    - For rows where `hosting.provider == "railway"`:
      - clear `hosting`
      - set `status` to `"partial"` (or `"failed"` if policy decides)
-     - set a clear `lastError` message directing user to reprovision with a
-       supported provider
+     - set a clear `lastError` message directing user to reprovision with a supported provider
 5. `vaultDomains`
    - Delete rows where `source == "railway_default"`.
 6. `aiProdAccessRequests`
@@ -138,8 +133,7 @@ Notes:
 
 ### Cleanup verification expectations
 
-- Verify each listed table has zero Railway-shaped rows before deploying Railway
-  literal removals.
+- Verify each listed table has zero Railway-shaped rows before deploying Railway literal removals.
 - Treat zero remaining rows as the merge/deploy gate for schema changes.
 
 ## Execution Plan
@@ -196,15 +190,14 @@ Chosen approach:
 - [ ] `make anon-once` + lint/typecheck pass in worktree.
 - [ ] Vault create/delete/provision flows still work for Netlify/Cloudflare.
 - [ ] Chat prod-read tools still work for non-Railway providers.
-- [ ] No remaining `railway` references in runtime code/docs intended to remain
-      active.
+- [ ] No remaining `railway` references in runtime code/docs intended to remain active.
 
 ## Rollback and Safety
 
 1. If cleanup introduces issues, stop before schema literal deletion.
 2. Keep manual cleanup operations scoped and reversible where practical.
-3. Use git revert for code/spec rollback; do not reintroduce manual table wipes
-   as a standard process.
+3. Use git revert for code/spec rollback; do not reintroduce manual table wipes as a standard
+   process.
 
 ## Acceptance Criteria
 

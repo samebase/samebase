@@ -12,9 +12,7 @@ const CONNECT_ROUTE_FIXTURES = [
 ] as const;
 
 for (const fixtureConfig of CONNECT_ROUTE_FIXTURES) {
-  test(`file view connect route visual fixture: ${fixtureConfig.mode}`, async ({
-    page,
-  }) => {
+  test(`file view connect route visual fixture: ${fixtureConfig.mode}`, async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto(`/visual-fixture?mode=${fixtureConfig.mode}`, {
       waitUntil: "domcontentloaded",

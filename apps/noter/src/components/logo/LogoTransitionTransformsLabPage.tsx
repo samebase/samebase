@@ -18,12 +18,8 @@ const ELEVATION_MIN_DEGREES = -85;
 const ELEVATION_MAX_DEGREES = 85;
 
 export function LogoTransitionTransformsLabPage() {
-  const [elevationDegrees, setElevationDegrees] = useState(
-    STATIC_LOGO_ELEVATION_DEGREES,
-  );
-  const [rotationDegrees, setRotationDegrees] = useState(
-    STATIC_LOGO_ROTATION_DEGREES,
-  );
+  const [elevationDegrees, setElevationDegrees] = useState(STATIC_LOGO_ELEVATION_DEGREES);
+  const [rotationDegrees, setRotationDegrees] = useState(STATIC_LOGO_ROTATION_DEGREES);
   const [rotationSpeed, setRotationSpeed] = useState(DEFAULT_ROTATION_SPEED);
   const [isAnimating, setIsAnimating] = useState(true);
 
@@ -35,8 +31,7 @@ export function LogoTransitionTransformsLabPage() {
     const intervalId = window.setInterval(() => {
       setRotationDegrees((currentRotationDegrees) =>
         normalizeRotationDegrees(
-          currentRotationDegrees +
-            (rotationSpeed * ROTATION_STEP_INTERVAL_MS) / 1000,
+          currentRotationDegrees + (rotationSpeed * ROTATION_STEP_INTERVAL_MS) / 1000,
         ),
       );
     }, ROTATION_STEP_INTERVAL_MS);
@@ -92,10 +87,9 @@ export function LogoTransitionTransformsLabPage() {
                 Single Cube Transform Lab
               </h1>
               <p className="mt-2 text-sm leading-6 text-black/60">
-                This version starts from one canonical cube. All face corners
-                are defined in unit <code>0/1</code> coordinates, then the SVG
-                is assembled from <code>&lt;use&gt;</code> transforms plus a
-                projected X/Y/Z axis guide.
+                This version starts from one canonical cube. All face corners are defined in unit{" "}
+                <code>0/1</code> coordinates, then the SVG is assembled from{" "}
+                <code>&lt;use&gt;</code> transforms plus a projected X/Y/Z axis guide.
               </p>
             </div>
 
@@ -163,11 +157,7 @@ export function LogoTransitionTransformsLabPage() {
                     key={presetAngle}
                     type="button"
                     size="sm"
-                    variant={
-                      Math.round(rotationDegrees) === presetAngle
-                        ? "default"
-                        : "outline"
-                    }
+                    variant={Math.round(rotationDegrees) === presetAngle ? "default" : "outline"}
                     className="rounded-none"
                     onClick={() => {
                       setRotationDegrees(presetAngle);
@@ -236,9 +226,9 @@ export function LogoTransitionTransformsLabPage() {
                 Notes
               </div>
               <p className="mt-2">
-                The preview and the textarea below are the same string. As the
-                view changes, the exact SVG markup updates with the current face
-                transform matrices and projected axis overlay.
+                The preview and the textarea below are the same string. As the view changes, the
+                exact SVG markup updates with the current face transform matrices and projected axis
+                overlay.
               </p>
             </div>
           </div>
@@ -252,8 +242,7 @@ export function LogoTransitionTransformsLabPage() {
                   </div>
                   <div className="mt-1 text-sm text-black/60">
                     Single cube preview with projected axes. Current rotation{" "}
-                    {rotationDegrees.toFixed(2)}°, elevation{" "}
-                    {elevationDegrees.toFixed(2)}°
+                    {rotationDegrees.toFixed(2)}°, elevation {elevationDegrees.toFixed(2)}°
                   </div>
                 </div>
                 <div className="font-mono text-[11px] text-black/45">
@@ -274,8 +263,8 @@ export function LogoTransitionTransformsLabPage() {
                   Live SVG
                 </div>
                 <div className="mt-1 text-sm text-black/60">
-                  Exact source for the current frame. This stays visible even
-                  while the preview is animating.
+                  Exact source for the current frame. This stays visible even while the preview is
+                  animating.
                 </div>
               </div>
               <textarea

@@ -8,8 +8,8 @@
 
 ## Summary
 
-Noter must make "what will be committed" explicit before commit, and must stop
-silent state drift where local edits and staged/committed content diverge.
+Noter must make "what will be committed" explicit before commit, and must stop silent state drift
+where local edits and staged/committed content diverge.
 
 Primary user goal:
 
@@ -19,9 +19,8 @@ Primary user goal:
 
 ## Problem Statement
 
-Current behavior provides file-level change categories, but no true patch
-preview. At the same time, sync/commit reliability gaps can make users feel like
-commit "removed stuff" unexpectedly.
+Current behavior provides file-level change categories, but no true patch preview. At the same time,
+sync/commit reliability gaps can make users feel like commit "removed stuff" unexpectedly.
 
 ## Current State (Observed)
 
@@ -49,8 +48,8 @@ commit "removed stuff" unexpectedly.
 
 ### Phase 0: Reliability Foundation (must ship first)
 
-- Fix collaborative push lock handling in both editor implementations so failed
-  push attempts always release locks and retry.
+- Fix collaborative push lock handling in both editor implementations so failed push attempts always
+  release locks and retry.
 - Surface sync failure state in editor UI (non-blocking but visible).
 - Remove silent failure swallowing from staged commit action path.
 - Ensure chat commit proposal is marked committed only after successful commit.

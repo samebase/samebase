@@ -11,16 +11,7 @@ import {
   type CodexThreadTimelineWorkEntry,
 } from "@/lib/codexThreadTimeline";
 import { cn } from "@/lib/utils";
-import {
-  Bot,
-  CircleAlert,
-  Eye,
-  Loader2,
-  Search,
-  SquarePen,
-  Terminal,
-  Wrench,
-} from "lucide-react";
+import { Bot, CircleAlert, Eye, Loader2, Search, SquarePen, Terminal, Wrench } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type MachinesWorkspaceThreadPaneProps = {
@@ -118,9 +109,7 @@ function deriveMachinesWorkspaceThreadEmptyState(args: {
   return { body, title };
 }
 
-function deriveMachinesWorkspaceThreadHeaderState(
-  args: MachinesWorkspaceThreadHeaderStateArgs,
-) {
+function deriveMachinesWorkspaceThreadHeaderState(args: MachinesWorkspaceThreadHeaderStateArgs) {
   const selectedMachineLabel = readSelectedMachineLabel({
     displayName: args.selectedMachineDisplayName,
     hostname: args.selectedMachineHostname,
@@ -132,9 +121,7 @@ function deriveMachinesWorkspaceThreadHeaderState(
         : `${args.pendingConversation.projectLabel} · ${readMachinesWorkspaceConversationEnvLabel(args.pendingConversation.envMode)}`
       : [
           args.thread.status.type,
-          args.thread.workspace.isProjectRoot
-            ? null
-            : (args.thread.workspace.label ?? "worktree"),
+          args.thread.workspace.isProjectRoot ? null : (args.thread.workspace.label ?? "worktree"),
         ]
           .filter((value): value is string => value !== null)
           .join(" · ");
@@ -153,9 +140,7 @@ function deriveMachinesWorkspaceThreadHeaderState(
   };
 }
 
-export function MachinesWorkspaceThreadHeader(
-  props: MachinesWorkspaceThreadHeaderStateArgs,
-) {
+export function MachinesWorkspaceThreadHeader(props: MachinesWorkspaceThreadHeaderStateArgs) {
   const headerState = deriveMachinesWorkspaceThreadHeaderState(props);
   const [isTitleExpanded, setIsTitleExpanded] = useState(false);
   const titleClassName =
@@ -169,13 +154,9 @@ export function MachinesWorkspaceThreadHeader(
     <div className="min-w-0">
       <div className="flex min-w-0 flex-col gap-0.5">
         <div className="flex min-w-0 flex-col gap-1 text-[11px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-          <div className="min-w-0 truncate">
-            {headerState.selectedMachineLabel}
-          </div>
+          <div className="min-w-0 truncate">{headerState.selectedMachineLabel}</div>
           {headerState.headerMeta ? (
-            <div className="hidden shrink-0 sm:block">
-              {headerState.headerMeta}
-            </div>
+            <div className="hidden shrink-0 sm:block">{headerState.headerMeta}</div>
           ) : null}
         </div>
         <button
@@ -189,10 +170,7 @@ export function MachinesWorkspaceThreadHeader(
           }}
         >
           <div
-            className={cn(
-              titleClassName,
-              isTitleExpanded ? "" : "line-clamp-2 sm:line-clamp-1",
-            )}
+            className={cn(titleClassName, isTitleExpanded ? "" : "line-clamp-2 sm:line-clamp-1")}
           >
             {headerState.title}
           </div>
@@ -254,13 +232,8 @@ function WorkEntryRow({ entry }: { entry: CodexThreadTimelineWorkEntry }) {
         </span>
         <div className="min-w-0 flex-1">
           <div
-            className={cn(
-              "truncate text-[11px] leading-5",
-              workToneClassName(entry.tone),
-            )}
-            title={
-              entry.preview ? `${entry.title} - ${entry.preview}` : entry.title
-            }
+            className={cn("truncate text-[11px] leading-5", workToneClassName(entry.tone))}
+            title={entry.preview ? `${entry.title} - ${entry.preview}` : entry.title}
           >
             <span className="text-foreground/85">{entry.title}</span>
             {entry.preview ? (
@@ -291,16 +264,8 @@ function WorkEntryRow({ entry }: { entry: CodexThreadTimelineWorkEntry }) {
   );
 }
 
-function ThreadMessageBody({
-  className,
-  text,
-}: {
-  className?: string;
-  text: string;
-}) {
-  return (
-    <ProsemarkReadOnly value={text} className={cn("text-sm", className)} />
-  );
+function ThreadMessageBody({ className, text }: { className?: string; text: string }) {
+  return <ProsemarkReadOnly value={text} className={cn("text-sm", className)} />;
 }
 
 export function MachinesWorkspaceThreadPane({
@@ -326,8 +291,7 @@ export function MachinesWorkspaceThreadPane({
     timelineEndRef.current?.scrollIntoView({ block: "end" });
   }, [isSubmittingTurn, thread?.id, timelineEntries.length]);
 
-  const composerDisabled =
-    isSubmittingTurn || selectedMachineStatusReason !== null;
+  const composerDisabled = isSubmittingTurn || selectedMachineStatusReason !== null;
   const composerPlaceholder =
     selectedMachineStatusReason !== null
       ? selectedMachineStatusReason
@@ -341,14 +305,13 @@ export function MachinesWorkspaceThreadPane({
           : selectedThreadId
             ? "Continue this thread..."
             : "Pick a thread or use a project's plus button to start a new conversation.";
-  const { body: emptyStateBody, title: emptyStateTitle } =
-    deriveMachinesWorkspaceThreadEmptyState({
-      hasPendingStartedThread,
-      isLoading,
-      pendingConversation,
-      selectedMachineStatusReason,
-      selectedThreadId,
-    });
+  const { body: emptyStateBody, title: emptyStateTitle } = deriveMachinesWorkspaceThreadEmptyState({
+    hasPendingStartedThread,
+    isLoading,
+    pendingConversation,
+    selectedMachineStatusReason,
+    selectedThreadId,
+  });
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
@@ -362,12 +325,8 @@ export function MachinesWorkspaceThreadPane({
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4">
           {thread === null ? (
             <div className="rounded-2xl border border-dashed border-border bg-card/20 px-5 py-8">
-              <div className="text-sm font-medium text-foreground">
-                {emptyStateTitle}
-              </div>
-              <div className="mt-2 text-sm leading-6 text-muted-foreground">
-                {emptyStateBody}
-              </div>
+              <div className="text-sm font-medium text-foreground">{emptyStateTitle}</div>
+              <div className="mt-2 text-sm leading-6 text-muted-foreground">{emptyStateBody}</div>
             </div>
           ) : timelineEntries.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-card/20 px-5 py-8 text-sm text-muted-foreground">
@@ -404,8 +363,7 @@ export function MachinesWorkspaceThreadPane({
                 >
                   <div className="mb-1.5 flex items-center justify-between gap-2 px-0.5">
                     <p className="text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
-                      {onlyToolEntries ? "Tool calls" : "Work log"} (
-                      {entry.entries.length})
+                      {onlyToolEntries ? "Tool calls" : "Work log"} ({entry.entries.length})
                     </p>
                     {onlyToolEntries ? (
                       <span className="flex items-center gap-1 text-[10px] text-muted-foreground">

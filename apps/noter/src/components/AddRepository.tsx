@@ -3,11 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
-import {
-  useAction,
-  useMutation,
-  useQuery as useConvexQuery,
-} from "convex/react";
+import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
 import { useState, type ReactElement } from "react";
@@ -23,9 +19,7 @@ import {
 import { resolveDisplayedRepositories } from "@/lib/addRepositoryPicker";
 import { queueExistingRepositoryAndNavigateToDashboard } from "@/lib/existingRepositoryConnectHandoff";
 
-type Repository = FunctionReturnType<
-  typeof api.github.listRepositories
->[number];
+type Repository = FunctionReturnType<typeof api.github.listRepositories>[number];
 
 export type AddRepositoryRepository = Repository;
 
@@ -76,10 +70,7 @@ function formatTimeAgo(timestamp: number) {
   return `${days}d ago`;
 }
 
-function renderHighlightedText(
-  target: string,
-  matchedIndices: number[],
-): ReactElement {
+function renderHighlightedText(target: string, matchedIndices: number[]): ReactElement {
   if (matchedIndices.length === 0) {
     return <span>{target}</span>;
   }
@@ -90,9 +81,7 @@ function renderHighlightedText(
   matchedIndices.forEach((index, i) => {
     if (index > lastIndex) {
       elements.push(
-        <span key={`text-${i}`}>
-          {targetOriginal.slice(lastIndex, index).join("")}
-        </span>,
+        <span key={`text-${i}`}>{targetOriginal.slice(lastIndex, index).join("")}</span>,
       );
     }
 
@@ -106,9 +95,7 @@ function renderHighlightedText(
   });
 
   if (lastIndex < targetOriginal.length) {
-    elements.push(
-      <span key="text-end">{targetOriginal.slice(lastIndex).join("")}</span>,
-    );
+    elements.push(<span key="text-end">{targetOriginal.slice(lastIndex).join("")}</span>);
   }
 
   return <span>{elements}</span>;
@@ -119,8 +106,7 @@ export function AddRepository() {
   const navigate = useNavigate();
   const vaults = useQuery(api.vault.dashboard.getUserVaults);
   const [searchQuery, setSearchQuery] = useState("");
-  const [retryingFullRepositories, setRetryingFullRepositories] =
-    useState(false);
+  const [retryingFullRepositories, setRetryingFullRepositories] = useState(false);
   const listRepositoriesPreview = useAction(api.github.listRepositoriesPreview);
   const listRepositories = useAction(api.github.listRepositories);
   const connectRepository = useAction(api.vault.actions.connectRepository);
@@ -128,8 +114,9 @@ export function AddRepository() {
   const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
   const githubConnected = githubConnection?.connected === true;
   const [connectError, setConnectError] = useState<string | null>(null);
-  const [connectingRepositoryFullName, setConnectingRepositoryFullName] =
-    useState<string | null>(null);
+  const [connectingRepositoryFullName, setConnectingRepositoryFullName] = useState<string | null>(
+    null,
+  );
 
   const {
     data: repositoryPreview,
@@ -173,11 +160,8 @@ export function AddRepository() {
   // Until the full query succeeds, every search result is still partial even
   // though the first page is already interactive.
   const hasPartialResults =
-    githubConnected &&
-    repositoryPreview?.hasMore === true &&
-    !hasFreshFullRepositories;
-  const loadingMore =
-    hasPartialResults && fullRepositoriesFetchStatus === "fetching";
+    githubConnected && repositoryPreview?.hasMore === true && !hasFreshFullRepositories;
+  const loadingMore = hasPartialResults && fullRepositoriesFetchStatus === "fetching";
   const hasSearchQuery = searchQuery.trim().length > 0;
   const showBackgroundError =
     hasPartialResults && (fullQueryError != null || retryingFullRepositories);
@@ -206,8 +190,7 @@ export function AddRepository() {
 
   const filteredRepositories = repositories.flatMap((repo: Repository) => {
     const isConnected = connectedVaults.some(
-      (vault: (typeof connectedVaults)[number]) =>
-        vault.repositoryFullName === repo.full_name,
+      (vault: (typeof connectedVaults)[number]) => vault.repositoryFullName === repo.full_name,
     );
     if (isConnected) {
       return [];
@@ -326,9 +309,7 @@ export function AddRepositoryPageContent({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 flex-shrink-0">
         <div className="flex items-center gap-2">
           <GitHubLogoIcon className="h-5 w-5 sm:h-6 sm:w-6" />
-          <h1 className="text-xl sm:text-2xl font-semibold">
-            Connect an existing repository
-          </h1>
+          <h1 className="text-xl sm:text-2xl font-semibold">Connect an existing repository</h1>
         </div>
         <Button variant="outline" asChild className="shrink-0">
           <Link to="/">
@@ -367,11 +348,10 @@ export function AddRepositoryPageContent({
         {githubConnected && (
           <>
             <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
-              Missing a private org repo? GitHub may be blocking Noter's OAuth
-              app. If you're an org owner, approve Noter in the org's Settings,
-              then Third-party Access, then OAuth app policy. Otherwise request
-              access from GitHub's Authorized OAuth Apps page if GitHub offers
-              that option, or ask an org owner to approve Noter.{" "}
+              Missing a private org repo? GitHub may be blocking Noter's OAuth app. If you're an org
+              owner, approve Noter in the org's Settings, then Third-party Access, then OAuth app
+              policy. Otherwise request access from GitHub's Authorized OAuth Apps page if GitHub
+              offers that option, or ask an org owner to approve Noter.{" "}
               <a
                 href={GITHUB_OAUTH_ORG_APPROVAL_DOCS_URL}
                 target="_blank"
@@ -393,17 +373,16 @@ export function AddRepositoryPageContent({
 
             {loadingMore && (
               <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
-                Showing the {repositoryPreviewCount} most recently updated
-                repositories while we load the rest. Search results stay partial
-                until loading finishes.
+                Showing the {repositoryPreviewCount} most recently updated repositories while we
+                load the rest. Search results stay partial until loading finishes.
               </p>
             )}
 
             {showBackgroundError && (
               <div className="mt-3 flex max-w-2xl items-center justify-between gap-3 border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 corner-notch-1">
                 <div>
-                  Couldn&apos;t load the rest of your repositories. You&apos;re
-                  still seeing the most recently updated ones.
+                  Couldn&apos;t load the rest of your repositories. You&apos;re still seeing the
+                  most recently updated ones.
                 </div>
                 <Button
                   variant="outline"
@@ -435,28 +414,16 @@ export function AddRepositoryPageContent({
               let slashHighlighted = false;
 
               if (searchMatch.kind === "owner") {
-                ownerHighlight = renderHighlightedText(
-                  ownerName,
-                  searchMatch.indices,
-                );
+                ownerHighlight = renderHighlightedText(ownerName, searchMatch.indices);
               } else if (searchMatch.kind === "repo") {
-                repoHighlight = renderHighlightedText(
-                  repoName,
-                  searchMatch.indices,
-                );
+                repoHighlight = renderHighlightedText(repoName, searchMatch.indices);
               } else if (searchMatch.kind === "full_name") {
                 const fullNameMatch = splitRepositoryFullNameMatch({
                   ownerName,
                   indices: searchMatch.indices,
                 });
-                ownerHighlight = renderHighlightedText(
-                  ownerName,
-                  fullNameMatch.ownerIndices,
-                );
-                repoHighlight = renderHighlightedText(
-                  repoName,
-                  fullNameMatch.repoIndices,
-                );
+                ownerHighlight = renderHighlightedText(ownerName, fullNameMatch.ownerIndices);
+                repoHighlight = renderHighlightedText(repoName, fullNameMatch.repoIndices);
                 slashHighlighted = fullNameMatch.slashMatched;
               }
 
@@ -468,15 +435,9 @@ export function AddRepositoryPageContent({
                   <div className="flex items-center gap-4 flex-1 min-w-0">
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-col items-start">
-                        <span
-                          className={`text-sm text-muted-foreground ${linkStyle}`}
-                        >
+                        <span className={`text-sm text-muted-foreground ${linkStyle}`}>
                           {ownerHighlight}
-                          {slashHighlighted ? (
-                            <mark className="bg-yellow-200">/</mark>
-                          ) : (
-                            "/"
-                          )}
+                          {slashHighlighted ? <mark className="bg-yellow-200">/</mark> : "/"}
                         </span>
                         <h3 className="font-semibold truncate">
                           <span className={linkStyle}>{repoHighlight}</span>
@@ -517,9 +478,7 @@ export function AddRepositoryPageContent({
           emptyRepositoryMessage !== null &&
           githubConnected && (
             <div className="text-center py-8">
-              <div className="text-muted-foreground">
-                {emptyRepositoryMessage}
-              </div>
+              <div className="text-muted-foreground">{emptyRepositoryMessage}</div>
             </div>
           )}
       </div>

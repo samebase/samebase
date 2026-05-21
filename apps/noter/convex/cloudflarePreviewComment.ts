@@ -90,9 +90,7 @@ function readHtmlCodeText(body: string, label: string): string | undefined {
 }
 
 function readMarkdownLinkHref(body: string, label: string): string | undefined {
-  const match = body.match(
-    new RegExp(`\\[${escapeRegExp(label)}\\]\\(([^)]+)\\)`, "i"),
-  );
+  const match = body.match(new RegExp(`\\[${escapeRegExp(label)}\\]\\(([^)]+)\\)`, "i"));
   if (typeof match?.[1] !== "string") {
     return undefined;
   }
@@ -118,14 +116,11 @@ export function parseCloudflarePreviewComment(
   const previewCommitSha = readHtmlCodeText(body, "Latest commit:");
   const previewStatusCell = readHtmlTableCell(body, "Status:");
   const previewStatus =
-    typeof previewStatusCell === "string"
-      ? normalizeCellText(previewStatusCell)
-      : undefined;
+    typeof previewStatusCell === "string" ? normalizeCellText(previewStatusCell) : undefined;
   const previewUrl = readHtmlAnchorHref(body, "Preview URL:");
   const branchPreviewUrl = readHtmlAnchorHref(body, "Branch Preview URL:");
   const previewLogsUrl =
-    readMarkdownLinkHref(body, "View logs") ??
-    readHtmlAnchorHref(body, "View logs:");
+    readMarkdownLinkHref(body, "View logs") ?? readHtmlAnchorHref(body, "View logs:");
 
   if (
     typeof previewCommitSha !== "string" &&

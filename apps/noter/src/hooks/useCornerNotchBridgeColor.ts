@@ -42,10 +42,7 @@ function syncBridgePaint(element: HTMLElement) {
   const borderBottomWidth = Number.parseFloat(styles.borderBottomWidth) || 0;
   const borderLeftWidth = Number.parseFloat(styles.borderLeftWidth) || 0;
 
-  element.style.setProperty(
-    "--noter-corner-notch-bridge-color",
-    styles.borderTopColor,
-  );
+  element.style.setProperty("--noter-corner-notch-bridge-color", styles.borderTopColor);
   element.style.setProperty(
     "--noter-corner-notch-bridge-top-left-size",
     toPixels(Math.min(borderTopWidth, borderLeftWidth).toString()),

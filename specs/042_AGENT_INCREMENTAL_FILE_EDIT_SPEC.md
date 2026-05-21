@@ -14,28 +14,25 @@
 
 Add a new AI tool for localized file edits without replacing the entire file.
 
-The existing `edit_file` tool remains unchanged and continues to support
-full-file replacement. The new tool, `replace_in_file`, is the default edit
-primitive for targeted changes.
+The existing `edit_file` tool remains unchanged and continues to support full-file replacement. The
+new tool, `replace_in_file`, is the default edit primitive for targeted changes.
 
-`replace_in_file` is model-facing and human-debuggable. Internally, successful
-replacements compile into CodeMirror `ChangeSet` updates so Noter continues to
-use the same collaborative editing substrate already used by the editor.
+`replace_in_file` is model-facing and human-debuggable. Internally, successful replacements compile
+into CodeMirror `ChangeSet` updates so Noter continues to use the same collaborative editing
+substrate already used by the editor.
 
 ## Goals
 
 - Reduce token cost for localized edits.
 - Make AI edit payloads easier to inspect than full-file replacement.
-- Reuse Noter's existing collaborative editing pipeline instead of inventing a
-  second edit backend.
+- Reuse Noter's existing collaborative editing pipeline instead of inventing a second edit backend.
 - Preserve real-time editor updates for open files.
 - Keep the current `edit_file` fallback for large rewrites and generated files.
 
 ## Non-Goals
 
 - Replacing the current `edit_file` tool.
-- Introducing a model-facing unified diff or raw CodeMirror `ChangeSet` tool in
-  v1.
+- Introducing a model-facing unified diff or raw CodeMirror `ChangeSet` tool in v1.
 - Changing collaborative undo semantics in v1.
 - Supporting regex-based edits in v1.
 - Supporting line-number-based edit contracts in v1.
@@ -83,8 +80,7 @@ Keep these existing tools as-is:
 - `create_file`
 - `delete_file`
 
-`replace_in_file` becomes the preferred tool for localized edits to existing
-files.
+`replace_in_file` becomes the preferred tool for localized edits to existing files.
 
 ## Why This Contract
 
@@ -108,8 +104,7 @@ files.
 
 ### Why exact search/replace
 
-- This matches the most successful existing agent editing pattern for current
-  model families.
+- This matches the most successful existing agent editing pattern for current model families.
 - It is concise and debuggable.
 - It lets the backend fail safely when a change is ambiguous.
 - It compiles naturally into a minimal `ChangeSet`.
@@ -122,12 +117,11 @@ files.
 
 ### Description
 
-Use this tool to make localized edits to an existing file by replacing exact
-text snippets. Prefer this over `edit_file` when changing one or more specific
-sections of a file. Each `oldText` must appear exactly once in the current file
-content. Include exact whitespace and indentation. If a replacement is ambiguous
-or not found, the tool will fail. Use `edit_file` only when rewriting most or
-all of the file.
+Use this tool to make localized edits to an existing file by replacing exact text snippets. Prefer
+this over `edit_file` when changing one or more specific sections of a file. Each `oldText` must
+appear exactly once in the current file content. Include exact whitespace and indentation. If a
+replacement is ambiguous or not found, the tool will fail. Use `edit_file` only when rewriting most
+or all of the file.
 
 ### Input schema
 
@@ -165,15 +159,12 @@ type ReplaceInFileInput = {
 - `replacements` is required and must contain at least one replacement.
 - Each replacement must include non-empty `oldText`.
 - `newText` may be empty to represent deletion.
-- Each `oldText` must match exactly once in the source snapshot used for the
-  tool call.
-- Matching is exact, including whitespace, indentation, and line endings after
-  normalization.
-- All replacements are resolved against the original source snapshot at tool
-  start, not against previously applied replacements in the same call.
+- Each `oldText` must match exactly once in the source snapshot used for the tool call.
+- Matching is exact, including whitespace, indentation, and line endings after normalization.
+- All replacements are resolved against the original source snapshot at tool start, not against
+  previously applied replacements in the same call.
 - Replacements must not overlap.
-- If the model needs dependent/chained edits, it should make multiple tool
-  calls.
+- If the model needs dependent/chained edits, it should make multiple tool calls.
 
 ### Explicitly unsupported in v1
 
@@ -185,14 +176,13 @@ type ReplaceInFileInput = {
 
 ## Source Snapshot Rules
 
-`replace_in_file` resolves against the same content source the current AI tools
-use:
+`replace_in_file` resolves against the same content source the current AI tools use:
 
 1. If the file already exists in `fileStaging`, use staged content.
 2. Otherwise, read repository content for the current branch/path.
 
-This preserves the existing Noter behavior where staged edits are the live
-working copy seen by the agent.
+This preserves the existing Noter behavior where staged edits are the live working copy seen by the
+agent.
 
 ## Execution Algorithm
 
@@ -237,8 +227,7 @@ If the file is not yet staged:
 
 ### 5. Return structured debug output
 
-The tool output should include a structured summary of what matched and what was
-applied.
+The tool output should include a structured summary of what matched and what was applied.
 
 Suggested shape:
 
@@ -264,13 +253,12 @@ Suggested shape:
 }
 ```
 
-The chat UI may continue showing the raw input payload for debugging. A richer
-rendered diff can be added later without changing the tool contract.
+The chat UI may continue showing the raw input payload for debugging. A richer rendered diff can be
+added later without changing the tool contract.
 
 ## Failure Semantics
 
-The tool must fail without partial application when any of the following are
-true:
+The tool must fail without partial application when any of the following are true:
 
 - the file does not exist
 - `replacements` is empty
@@ -287,8 +275,8 @@ Suggested error messages:
 - `replace_in_file failed: replacement 2 matched multiple locations; include more surrounding context`
 - `replace_in_file failed: replacements 1 and 2 overlap`
 
-The agent should be able to recover from these errors by reading the file again
-and retrying with more specific context.
+The agent should be able to recover from these errors by reading the file again and retrying with
+more specific context.
 
 ## Tool Selection Guidance
 
@@ -324,8 +312,7 @@ This tool is intentionally designed to make explicit AI revert possible later:
 - the backend can derive an inverse `ChangeSet`
 - later edits can map those inverse changes forward before revert
 
-That future capability is easier with minimal incremental edits than with
-whole-file replacement.
+That future capability is easier with minimal incremental edits than with whole-file replacement.
 
 ## Telemetry and Debugging
 
@@ -343,24 +330,22 @@ For chat/debug surfaces, preserve:
 - raw input payload
 - structured result payload
 
-Do not log full file contents outside existing debugging patterns unless
-explicitly needed.
+Do not log full file contents outside existing debugging patterns unless explicitly needed.
 
 ## Implementation Outline
 
 ### Tool catalog and prompting
 
 - Add `replace_in_file` to `TOOL_CATALOG`.
-- Update system prompt/tool instructions to prefer `replace_in_file` for
-  localized edits.
-- Keep `edit_file` documentation unchanged except for clarifying it is the
-  fallback for full rewrites.
+- Update system prompt/tool instructions to prefer `replace_in_file` for localized edits.
+- Keep `edit_file` documentation unchanged except for clarifying it is the fallback for full
+  rewrites.
 
 ### Backend execution
 
 - Add a new executor in `apps/noter/convex/agent/tools.ts`.
-- Add an internal helper in `apps/noter/convex/collaborative.ts` to apply a
-  precomputed incremental `ChangeSet` from the agent.
+- Add an internal helper in `apps/noter/convex/collaborative.ts` to apply a precomputed incremental
+  `ChangeSet` from the agent.
 - Reuse existing staging creation and branch handling behavior.
 
 ### UI/debugging

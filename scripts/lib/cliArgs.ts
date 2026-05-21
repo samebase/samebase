@@ -44,9 +44,6 @@ export function failUnexpectedArgument(arg: string, helpText: string): never {
   fail(`Unknown argument: ${arg}\n\n${helpText}`);
 }
 
-export function failMissingRequiredOptions(
-  message: string,
-  helpText: string,
-): never {
+export function failMissingRequiredOptions(message: string, helpText: string): never {
   fail(`${message}\n\n${helpText}`);
 }

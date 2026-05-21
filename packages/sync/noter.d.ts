@@ -18,10 +18,7 @@ export function buildMachineHeartbeatBody(args: {
   status: string;
 }): Record<string, unknown>;
 
-export function localControlStatusIsReady(
-  status: unknown,
-  machineId: string,
-): boolean;
+export function localControlStatusIsReady(status: unknown, machineId: string): boolean;
 
 export function parseCloudflaredQuickTunnelUrl(line: string): string | null;
 

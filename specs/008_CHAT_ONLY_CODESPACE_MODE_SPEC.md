@@ -27,45 +27,40 @@
 
 ## Summary
 
-Noter should provide a chat-only Codespace experience where the primary UX is a
-native Noter chat surface, while Codex runtime execution happens inside the
-vault dev-container.
+Noter should provide a chat-only Codespace experience where the primary UX is a native Noter chat
+surface, while Codex runtime execution happens inside the vault dev-container.
 
-This revision keeps iframe embedding as a fallback/debug path, not the primary
-path, because browser and GitHub framing policies prevent reliable in-iframe
-auth flows.
+This revision keeps iframe embedding as a fallback/debug path, not the primary path, because browser
+and GitHub framing policies prevent reliable in-iframe auth flows.
 
 ## Why This Revision
 
-During implementation and manual testing, we confirmed that iframe-first UX is
-not reliable as a primary integration path.
+During implementation and manual testing, we confirmed that iframe-first UX is not reliable as a
+primary integration path.
 
 ### Confirmed Issues Encountered (2026-02-14)
 
-1. GitHub login/consent redirects can be loaded during Codespace web auth and
-   are blocked in iframes.
+1. GitHub login/consent redirects can be loaded during Codespace web auth and are blocked in
+   iframes.
 2. Browser console error observed in product testing:
    - `Framing 'https://github.com/' violates the following Content Security Policy directive: "frame-ancestors 'none'".`
 3. Header-level confirmation from live endpoint checks:
    - `x-frame-options: deny`
    - CSP includes `frame-ancestors 'none'`
-4. Existing "Open in New Tab" fallback works, but that does not satisfy a
-   reliable embedded primary flow.
+4. Existing "Open in New Tab" fallback works, but that does not satisfy a reliable embedded primary
+   flow.
 5. Codespace agent port forwarding can return gateway auth responses (`401` with
-   `www-authenticate: tunnel` / `Bearer`) when port-level exposure is not
-   compatible with backend-to-codespace calls.
-6. Agent startup is unreliable when it depends on `CODESPACE_AGENT_TOKEN` being
-   pre-populated in runtime env at process start.
-7. Repositories created from starter seed failed to include `.devcontainer` +
-   `.codespace-agent`, causing agent server not to start at all in new vault
-   Codespaces.
+   `www-authenticate: tunnel` / `Bearer`) when port-level exposure is not compatible with
+   backend-to-codespace calls.
+6. Agent startup is unreliable when it depends on `CODESPACE_AGENT_TOKEN` being pre-populated in
+   runtime env at process start.
+7. Repositories created from starter seed failed to include `.devcontainer` + `.codespace-agent`,
+   causing agent server not to start at all in new vault Codespaces.
 
 ## Goals
 
-1. Keep full Codespace lifecycle behavior intact
-   (create/start/stop/delete/retry).
-2. Deliver a reliable chat-first UX inside Noter web app without depending on
-   in-iframe GitHub auth.
+1. Keep full Codespace lifecycle behavior intact (create/start/stop/delete/retry).
+2. Deliver a reliable chat-first UX inside Noter web app without depending on in-iframe GitHub auth.
 3. Keep Codex runtime inside each vault dev-container/Codespace.
 4. Remove manual localhost callback URL editing from user workflows.
 5. Maintain a deterministic fallback path to full `github.dev` when needed.
@@ -78,8 +73,8 @@ not reliable as a primary integration path.
 
 ## Decision
 
-Primary path changes from "kiosk iframe of VS Code web" to "Noter-native chat UI
-backed by Codex app-server in dev-container".
+Primary path changes from "kiosk iframe of VS Code web" to "Noter-native chat UI backed by Codex
+app-server in dev-container".
 
 Iframe embedding remains:
 
@@ -96,10 +91,8 @@ Result: Not viable as primary.
 Reasoning:
 
 1. GitHub auth pages are frame-blocked by policy.
-2. Third-party cookie/cross-site restrictions vary by browser and break
-   auth/session continuity.
-3. A degraded fallback is possible, but this cannot be the core product
-   contract.
+2. Third-party cookie/cross-site restrictions vary by browser and break auth/session continuity.
+3. A degraded fallback is possible, but this cannot be the core product contract.
 
 ### B. App-server-first (native chat UI + server-side Codex runtime)
 
@@ -107,12 +100,9 @@ Result: Viable and aligned with Codex harness model.
 
 Reasoning:
 
-1. Browser UI interacts with Noter backend/agent stream endpoints, not embedded
-   GitHub auth pages.
-2. Runtime remains inside workspace container where tools/filesystem access
-   already exists.
-3. Approval, audit, and state transitions can be integrated with existing Convex
-   model.
+1. Browser UI interacts with Noter backend/agent stream endpoints, not embedded GitHub auth pages.
+2. Runtime remains inside workspace container where tools/filesystem access already exists.
+3. Approval, audit, and state transitions can be integrated with existing Convex model.
 
 ## Proposed Architecture
 
@@ -131,8 +121,8 @@ Reasoning:
 ### Presentation Plane (Noter UI)
 
 1. `/vault/:owner/:repoName/:branch/chat` renders native chat interface.
-2. UI streams events/tokens/tool status via SSE from bridge (proxied through
-   Convex actions where needed).
+2. UI streams events/tokens/tool status via SSE from bridge (proxied through Convex actions where
+   needed).
 3. Optional controls: open full Codespace tab, retry runtime, reconnect session.
 
 ```mermaid
@@ -164,28 +154,24 @@ sequenceDiagram
 2. Dashboard has Chat entrypoint.
 3. `ChatFab` hidden on chat route.
 4. Iframe component has improved failure detection and retry/open-tab fallback.
-5. `ensureCodespaceReady` bug fixed when codespace is already up to date
-   (returns existing `codespaceId`).
+5. `ensureCodespaceReady` bug fixed when codespace is already up to date (returns existing
+   `codespaceId`).
 6. Agent startup hardening:
-   - `postStartCommand` is idempotent and starts agent with `nohup` when
-     missing.
-   - runtime token bootstrap in `.codespace-agent/server.ts` allows first
-     authenticated request to initialize token when env token is missing.
-7. Codespace agent runtime state file `.codespace-agent/.agent-token` is
-   persisted and gitignored.
-8. Starter template now carries `.devcontainer` and `.codespace-agent` assets
-   and syncs them from monorepo root before manifest export.
+   - `postStartCommand` is idempotent and starts agent with `nohup` when missing.
+   - runtime token bootstrap in `.codespace-agent/server.ts` allows first authenticated request to
+     initialize token when env token is missing.
+7. Codespace agent runtime state file `.codespace-agent/.agent-token` is persisted and gitignored.
+8. Starter template now carries `.devcontainer` and `.codespace-agent` assets and syncs them from
+   monorepo root before manifest export.
 
-These are transitional and remain useful as fallback even after app-server-first
-delivery.
+These are transitional and remain useful as fallback even after app-server-first delivery.
 
 ## Data Model Changes (Convex)
 
 ### `codespaces` table extensions
 
 1. `uiMode`: `"full" | "chat_only"` (optional, default `"full"`).
-2. `codexRuntimeState`:
-   `"not_started" | "starting" | "ready" | "busy" | "failed"` (optional).
+2. `codexRuntimeState`: `"not_started" | "starting" | "ready" | "busy" | "failed"` (optional).
 3. `codexRuntimeTransport`: `"app_server_stdio"` (optional).
 4. `codexRuntimeSessionId`: string (optional).
 5. `codexRuntimeThreadId`: string (optional).
@@ -209,10 +195,8 @@ Indexes:
 
 ### `apps/noter/convex/vaultCodespaceIntegration.ts`
 
-1. Extend `ensureCodespaceReady` to optionally ensure Codex runtime readiness
-   for `chat_only` mode.
-2. Return richer readiness payload (`codespaceId`, `ready`, `runtimeState`,
-   `authState`).
+1. Extend `ensureCodespaceReady` to optionally ensure Codex runtime readiness for `chat_only` mode.
+2. Return richer readiness payload (`codespaceId`, `ready`, `runtimeState`, `authState`).
 
 ### `apps/noter/convex/codespacesExecutor.ts` or new module `codespacesCodexRuntime.ts`
 
@@ -298,14 +282,12 @@ Bridge behavior:
 
 ## Operational Requirements (MVP)
 
-1. Agent API port `3000` must be externally reachable for Convex actions (not
-   only editor-local).
-2. Agent process must be auto-started on Codespace boot and restart-safe (no
-   duplicate process storms).
-3. Agent auth token must be stable across process restarts even when shell env
-   is missing token.
-4. New noter-managed repositories must include both `.devcontainer` and
-   `.codespace-agent` at seed time.
+1. Agent API port `3000` must be externally reachable for Convex actions (not only editor-local).
+2. Agent process must be auto-started on Codespace boot and restart-safe (no duplicate process
+   storms).
+3. Agent auth token must be stable across process restarts even when shell env is missing token.
+4. New noter-managed repositories must include both `.devcontainer` and `.codespace-agent` at seed
+   time.
 
 ## Mobile and Cross-device Requirements
 
@@ -343,8 +325,8 @@ Mitigation:
 Mitigation:
 
 1. Generated app runtime assets are owned by `notermd/app`.
-2. Noter exports exactly the selected `notermd/app` snapshot and does not
-   overlay root `.devcontainer` or `.codespace-agent` assets.
+2. Noter exports exactly the selected `notermd/app` snapshot and does not overlay root
+   `.devcontainer` or `.codespace-agent` assets.
 
 ### Risk 5: Scope creep (trying to fully replicate VS Code UI)
 
@@ -387,8 +369,8 @@ Mitigation:
 
 ## Acceptance Criteria (Revised)
 
-1. User can open Chat-only Mode and complete a Codex turn without relying on
-   iframe-rendered GitHub auth pages.
+1. User can open Chat-only Mode and complete a Codex turn without relying on iframe-rendered GitHub
+   auth pages.
 2. Primary chat flow works in desktop and mobile web.
 3. API-key bootstrap is automatic when configured.
 4. Device-code fallback works with clear in-app guidance.
@@ -398,15 +380,13 @@ Mitigation:
 ## Open Questions
 
 1. Session persistence scope: reuse per vault vs per conversation?
-2. Should transcript source of truth be agent threads/messages or dedicated
-   runtime transcript records?
-3. Where should approval gating be enforced first: agent bridge, Convex action
-   layer, or both?
+2. Should transcript source of truth be agent threads/messages or dedicated runtime transcript
+   records?
+3. Where should approval gating be enforced first: agent bridge, Convex action layer, or both?
 
 ## References
 
-1. OpenAI Codex harness architecture:
-   https://openai.com/index/unlocking-the-codex-harness/
+1. OpenAI Codex harness architecture: https://openai.com/index/unlocking-the-codex-harness/
 2. Codex app-server README (transport/auth/runtime):
    https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md
 3. GitHub login framing behavior (`x-frame-options`, CSP `frame-ancestors`):

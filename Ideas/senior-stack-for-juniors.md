@@ -6,9 +6,8 @@ Give your junior devs the same stack your senior engineer actually uses.
 
 ## Origin
 
-A previous build attempt (Robolex) got stuck in tooling and infrastructure
-complexity. The lesson: the stack itself can slow the team down before product
-learning even starts.
+A previous build attempt (Robolex) got stuck in tooling and infrastructure complexity. The lesson:
+the stack itself can slow the team down before product learning even starts.
 
 ## Problem
 
@@ -18,9 +17,8 @@ learning even starts.
 
 ## Proposal
 
-Offer a Convex-first build + mentoring setup where a junior engineer (for
-example, a college student hire) learns on the same production stack used by a
-senior engineer.
+Offer a Convex-first build + mentoring setup where a junior engineer (for example, a college student
+hire) learns on the same production stack used by a senior engineer.
 
 ## Suggested slogan options
 
@@ -51,7 +49,7 @@ senior engineer.
 
 ## Outreach draft
 
-I have a concrete suggestion for your team: put your junior engineer on the
-exact same stack a senior would choose (Convex + TypeScript + React), and I can
-help run that setup. It removes the "junior stack vs production stack" gap and
-gets you shipping faster while training the junior on real production patterns.
+I have a concrete suggestion for your team: put your junior engineer on the exact same stack a
+senior would choose (Convex + TypeScript + React), and I can help run that setup. It removes the
+"junior stack vs production stack" gap and gets you shipping faster while training the junior on
+real production patterns.

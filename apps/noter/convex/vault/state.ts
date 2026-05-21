@@ -1,8 +1,5 @@
 import type { Doc } from "../_generated/dataModel";
-import {
-  isVaultDeletingOrDeleteFailed,
-  readVaultDeletionState,
-} from "./deletion/state";
+import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
 
 export type ConnectedVault = Extract<Doc<"vaults">, { state: "connected" }>;
 export type NoterManagedConnectedVault = Extract<
@@ -10,9 +7,7 @@ export type NoterManagedConnectedVault = Extract<
   { githubMode: "create_repository" }
 >;
 
-export function isConnectedVault(
-  vault: Doc<"vaults"> | null | undefined,
-): vault is ConnectedVault {
+export function isConnectedVault(vault: Doc<"vaults"> | null | undefined): vault is ConnectedVault {
   return vault?.state === "connected";
 }
 
@@ -27,9 +22,7 @@ export function isLiveConnectedVault(
  * Callers that need different errors for missing vs. pre-GitHub vaults should
  * split those checks before calling this helper.
  */
-export function assertConnectedVault(
-  vault: Doc<"vaults"> | null | undefined,
-): ConnectedVault {
+export function assertConnectedVault(vault: Doc<"vaults"> | null | undefined): ConnectedVault {
   if (!isLiveConnectedVault(vault)) {
     if (vault && isVaultDeletingOrDeleteFailed(vault)) {
       const deletion = readVaultDeletionState(vault);
@@ -44,8 +37,6 @@ export function assertConnectedVault(
   return vault;
 }
 
-export function isNoterManagedVault(
-  vault: ConnectedVault,
-): vault is NoterManagedConnectedVault {
+export function isNoterManagedVault(vault: ConnectedVault): vault is NoterManagedConnectedVault {
   return vault.githubMode === "create_repository";
 }

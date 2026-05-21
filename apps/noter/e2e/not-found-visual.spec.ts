@@ -11,7 +11,5 @@ test("unknown routes render the routed not-found page", async ({ page }) => {
   await expect(content).toBeVisible();
   await expect(content).toContainText("Page not found");
   await expect(content).toContainText("/missing");
-  await expect(
-    page.getByRole("link", { name: /Go (home|to vaults)/ }),
-  ).toBeVisible();
+  await expect(page.getByRole("link", { name: /Go (home|to vaults)/ })).toBeVisible();
 });

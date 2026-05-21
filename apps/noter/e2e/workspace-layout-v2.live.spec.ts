@@ -7,15 +7,10 @@ async function openWorkspaceLayoutV2Fixture(
   page: Page,
   options?: { dev?: boolean },
 ): Promise<void> {
-  await page.goto(
-    `${WORKSPACE_LAYOUT_V2_STATUS_BAR_FIXTURE_URL}${options?.dev ? "&dev" : ""}`,
-    {
-      waitUntil: "domcontentloaded",
-    },
-  );
-  await expect(
-    page.getByTestId("workspace-layout-v2-visual-fixture"),
-  ).toBeVisible();
+  await page.goto(`${WORKSPACE_LAYOUT_V2_STATUS_BAR_FIXTURE_URL}${options?.dev ? "&dev" : ""}`, {
+    waitUntil: "domcontentloaded",
+  });
+  await expect(page.getByTestId("workspace-layout-v2-visual-fixture")).toBeVisible();
   await expect(page.locator("[data-workspace-layout-v2]")).toHaveCount(1);
 }
 
@@ -48,29 +43,22 @@ async function getMainEditorVisibleText(page: Page) {
     .evaluate((element) => element.textContent ?? "");
 }
 
-async function scrollWorkspaceCarouselToPane(
-  page: Page,
-  pane: "left" | "main" | "right",
-) {
-  await page
-    .getByTestId("workspace-layout-v2-pane-main")
-    .evaluate((element, nextPane) => {
-      const mainPane = element.querySelector(".snap-center");
-      if (!(mainPane instanceof HTMLElement)) {
-        throw new Error("Expected mobile carousel main pane.");
-      }
-      const panePeekPx = Number.parseFloat(
-        window.getComputedStyle(element).paddingLeft,
-      );
+async function scrollWorkspaceCarouselToPane(page: Page, pane: "left" | "main" | "right") {
+  await page.getByTestId("workspace-layout-v2-pane-main").evaluate((element, nextPane) => {
+    const mainPane = element.querySelector(".snap-center");
+    if (!(mainPane instanceof HTMLElement)) {
+      throw new Error("Expected mobile carousel main pane.");
+    }
+    const panePeekPx = Number.parseFloat(window.getComputedStyle(element).paddingLeft);
 
-      element.scrollLeft =
-        nextPane === "left"
-          ? panePeekPx
-          : nextPane === "main"
-            ? mainPane.offsetLeft - panePeekPx
-            : element.scrollWidth - element.clientWidth;
-      element.dispatchEvent(new Event("scroll", { bubbles: true }));
-    }, pane);
+    element.scrollLeft =
+      nextPane === "left"
+        ? panePeekPx
+        : nextPane === "main"
+          ? mainPane.offsetLeft - panePeekPx
+          : element.scrollWidth - element.clientWidth;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+  }, pane);
 
   await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
     "data-mobile-pane",
@@ -78,10 +66,7 @@ async function scrollWorkspaceCarouselToPane(
   );
 }
 
-async function scrollMainEditorToApproximateOffset(
-  page: Page,
-  scrollTop: number,
-) {
+async function scrollMainEditorToApproximateOffset(page: Page, scrollTop: number) {
   await page
     .getByTestId("workspace-layout-v2-main-editor-surface")
     .locator(".monaco-scrollable-element")
@@ -107,9 +92,7 @@ async function getHorizontalSeparatorWidths(locator: Locator) {
   });
 }
 
-test("desktop v2 fixture keeps sidebar triggers inside the main header", async ({
-  page,
-}) => {
+test("desktop v2 fixture keeps sidebar triggers inside the main header", async ({ page }) => {
   const viewport = page.viewportSize();
   test.skip(viewport === null || viewport.width < 768, "desktop-only");
 
@@ -148,9 +131,7 @@ test("desktop v2 fixture keeps the main header fixed while the editor body scrol
   test.skip(viewport === null || viewport.width < 768, "desktop-only");
 
   await openWorkspaceLayoutV2Fixture(page);
-  await waitForMonacoSurfaceReady(
-    page.getByTestId("workspace-layout-v2-main-editor-surface"),
-  );
+  await waitForMonacoSurfaceReady(page.getByTestId("workspace-layout-v2-main-editor-surface"));
 
   const mainHeader = page.getByTestId("workspace-layout-v2-main-pane-header");
   const mainHeaderBefore = await getRoundedBoundingBox(mainHeader);
@@ -165,9 +146,7 @@ test("desktop v2 fixture keeps the main header fixed while the editor body scrol
   expect(mainHeaderAfter.height).toBe(mainHeaderBefore.height);
 });
 
-test("mobile v2 fixture uses the carousel to move between panes", async ({
-  page,
-}) => {
+test("mobile v2 fixture uses the carousel to move between panes", async ({ page }) => {
   const viewport = page.viewportSize();
   test.skip(viewport === null || viewport.width >= 768, "mobile-only repro");
 
@@ -177,19 +156,13 @@ test("mobile v2 fixture uses the carousel to move between panes", async ({
   await expect(layout).toHaveAttribute("data-mobile-pane", "main");
 
   await scrollWorkspaceCarouselToPane(page, "left");
-  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(
-    0,
-  );
+  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(0);
 
   await scrollWorkspaceCarouselToPane(page, "main");
-  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(
-    0,
-  );
+  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(0);
 
   await scrollWorkspaceCarouselToPane(page, "right");
-  await expect(
-    page.getByTestId("workspace-layout-v2-right-resize"),
-  ).toHaveCount(0);
+  await expect(page.getByTestId("workspace-layout-v2-right-resize")).toHaveCount(0);
 });
 
 test("mobile v2 fixture keeps grip targets centered while rendering dots outside the active sidebar", async ({
@@ -226,22 +199,16 @@ test("mobile v2 fixture keeps grip targets centered while rendering dots outside
   );
   expect(rightGripBox.x).toBeLessThan(rightPaneBox.x);
   expect(rightGripBox.x + rightGripBox.width).toBeGreaterThan(rightPaneBox.x);
-  expect(rightDotsBox.x + rightDotsBox.width).toBeLessThanOrEqual(
-    rightPaneBox.x,
-  );
+  expect(rightDotsBox.x + rightDotsBox.width).toBeLessThanOrEqual(rightPaneBox.x);
 });
 
-test("mobile v2 fixture renders sidebar grip targets only with the dev flag", async ({
-  page,
-}) => {
+test("mobile v2 fixture renders sidebar grip targets only with the dev flag", async ({ page }) => {
   const viewport = page.viewportSize();
   test.skip(viewport === null || viewport.width >= 768, "mobile-only repro");
 
   await openWorkspaceLayoutV2Fixture(page);
   await scrollWorkspaceCarouselToPane(page, "left");
-  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(
-    0,
-  );
+  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(0);
 
   await openWorkspaceLayoutV2Fixture(page, { dev: true });
   await scrollWorkspaceCarouselToPane(page, "left");
@@ -322,9 +289,7 @@ test("mobile v2 fixture vertical main-editor scrolling reveals later Monaco cont
   test.skip(viewport === null || viewport.width >= 768, "mobile-only repro");
 
   await openWorkspaceLayoutV2Fixture(page);
-  await waitForMonacoSurfaceReady(
-    page.getByTestId("workspace-layout-v2-main-editor-surface"),
-  );
+  await waitForMonacoSurfaceReady(page.getByTestId("workspace-layout-v2-main-editor-surface"));
 
   const initialVisibleText = await getMainEditorVisibleText(page);
 

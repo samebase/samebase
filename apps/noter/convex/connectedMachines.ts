@@ -41,9 +41,7 @@ type GetMachineRegistrationRequestForBrowserArgs = Infer<
 const approveMachineRegistrationRequestArgs = object({
   requestId: string(),
 });
-type ApproveMachineRegistrationRequestArgs = Infer<
-  typeof approveMachineRegistrationRequestArgs
->;
+type ApproveMachineRegistrationRequestArgs = Infer<typeof approveMachineRegistrationRequestArgs>;
 
 function readUniqueCapabilities(
   values: ConnectedMachineCapability[],
@@ -53,9 +51,7 @@ function readUniqueCapabilities(
 
 function readUniqueRoots(values: string[]): string[] {
   return Array.from(
-    new Set(
-      values.map((value) => value.trim()).filter((value) => value.length > 0),
-    ),
+    new Set(values.map((value) => value.trim()).filter((value) => value.length > 0)),
   );
 }
 
@@ -266,20 +262,16 @@ export const createMachineRegistrationRequest = internalMutation({
     } satisfies MachineRegistrationRequestRow;
     const existingRateLimit = await ctx.db
       .query("machineRegistrationBootstrapRateLimits")
-      .withIndex("by_fingerprint", (q) =>
-        q.eq("fingerprint", args.bootstrapFingerprint),
-      )
+      .withIndex("by_fingerprint", (q) => q.eq("fingerprint", args.bootstrapFingerprint))
       .first();
     const existingWindowStillActive =
       typeof existingRateLimit?.windowStartedAt === "number" &&
-      existingRateLimit.windowStartedAt +
-        MACHINE_REGISTRATION_BOOTSTRAP_RATE_LIMIT_WINDOW_MS >
+      existingRateLimit.windowStartedAt + MACHINE_REGISTRATION_BOOTSTRAP_RATE_LIMIT_WINDOW_MS >
         args.createdAt;
     const existingRequestCount = existingRateLimit?.requestCount ?? 0;
     if (
       existingWindowStillActive &&
-      existingRequestCount >=
-        MACHINE_REGISTRATION_BOOTSTRAP_RATE_LIMIT_MAX_REQUESTS
+      existingRequestCount >= MACHINE_REGISTRATION_BOOTSTRAP_RATE_LIMIT_MAX_REQUESTS
     ) {
       throw new Error(
         "Too many machine registration requests from this machine. Wait a few minutes and try again.",
@@ -301,9 +293,7 @@ export const createMachineRegistrationRequest = internalMutation({
 
     if (existingRateLimit) {
       await ctx.db.patch(existingRateLimit._id, {
-        requestCount: existingWindowStillActive
-          ? existingRateLimit.requestCount + 1
-          : 1,
+        requestCount: existingWindowStillActive ? existingRateLimit.requestCount + 1 : 1,
         windowStartedAt: existingWindowStillActive
           ? existingRateLimit.windowStartedAt
           : args.createdAt,
@@ -340,9 +330,7 @@ export const publishHeartbeatFromConnector = internalMutation({
   ): Promise<ValidateMachineCredentialResult> => {
     const credential = await ctx.db
       .query("machineCredentials")
-      .withIndex("by_credential_hash", (q) =>
-        q.eq("credentialHash", args.credentialHash),
-      )
+      .withIndex("by_credential_hash", (q) => q.eq("credentialHash", args.credentialHash))
       .first();
     if (!credential) {
       return {
@@ -371,9 +359,7 @@ export const publishHeartbeatFromConnector = internalMutation({
       machineId: args.machineId,
       displayName: args.displayName,
       hostname: args.hostname,
-      sidebarOrder: existing
-        ? readConnectedMachineSidebarOrder(existing)
-        : args.now,
+      sidebarOrder: existing ? readConnectedMachineSidebarOrder(existing) : args.now,
       os: args.os,
       status: args.status ?? "online",
       lastSeenAt: args.now,

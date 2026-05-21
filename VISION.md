@@ -2,11 +2,10 @@
 
 ## Core Concept
 
-Noter is evolving from a collaborative code editor into a comprehensive platform
-for building LangGraph agents with full-stack capabilities. The goal is to
-compete with tools like Agent Builder (LangSmith) and Lovable, but with a unique
-approach that combines AI agents, real-time collaboration, and full-stack
-development.
+Noter is evolving from a collaborative code editor into a comprehensive platform for building
+LangGraph agents with full-stack capabilities. The goal is to compete with tools like Agent Builder
+(LangSmith) and Lovable, but with a unique approach that combines AI agents, real-time
+collaboration, and full-stack development.
 
 ## The Meta-Proof
 
@@ -24,14 +23,12 @@ development.
 
 - **Similar**: Rapid full-stack application development
 - **Different**: AI-first development through conversation, not drag-and-drop
-- **Advantage**: Can build truly sophisticated applications, not limited to
-  templates
+- **Advantage**: Can build truly sophisticated applications, not limited to templates
 
 ### vs Cursor/GitHub Copilot
 
 - **Similar**: AI-assisted development
-- **Different**: Complete application scaffolding and deployment, not just code
-  assistance
+- **Different**: Complete application scaffolding and deployment, not just code assistance
 - **Advantage**: End-to-end development platform with built-in hosting/database
 - **Frontend**: React + Vite + Tailwind
 - **Deployment**: Netlify (frontend) + Convex (backend)
@@ -54,8 +51,7 @@ development.
 ### High Priority
 
 1. **Repository Creation**: GitHub API integration to create new repos
-2. **Agent Scaffolding**: Templates for AGENTS.md, tools.json, basic
-   React+Convex setup
+2. **Agent Scaffolding**: Templates for AGENTS.md, tools.json, basic React+Convex setup
 3. **Terminal Access**: Execute commands, run builds, install packages
 4. **Development Server Control**: Start/stop dev servers, see running processes
 
@@ -76,12 +72,9 @@ development.
 ## Immediate Next Steps
 
 1. **Update Project Documentation**: Reflect new vision in README, AGENTS.md
-2. **Implement Repo Creation**: Add "Create New Agent" button and GitHub repo
-   creation flow
-3. **Create Agent Templates**: Define standard scaffolding for new agent
-   projects
-4. **Add Terminal Capabilities**: Enable command execution for full dev
-   environment
+2. **Implement Repo Creation**: Add "Create New Agent" button and GitHub repo creation flow
+3. **Create Agent Templates**: Define standard scaffolding for new agent projects
+4. **Add Terminal Capabilities**: Enable command execution for full dev environment
 
 ## Success Metrics
 
@@ -95,18 +88,17 @@ development.
 
 - Developer adoption: Active users building agents on the platform
 - Complexity proof: Agents built that go beyond simple CRUD operations
-- Community: Open-source contributions and agent templates Noter becomes the
-  go-to platform for AI agent development, where:
+- Community: Open-source contributions and agent templates Noter becomes the go-to platform for AI
+  agent development, where:
 - **Non-technical users** can describe what they want and get a working agent
 - **Developers** have a complete IDE for sophisticated agent development
 - **Teams** can collaborate in real-time on complex multi-agent systems
-- **The platform itself** continues to evolve through self-improvement The
-  ultimate goal: Make building AI agents as easy as creating a document, but
-  with the power to create truly sophisticated applications. Noter is an
-  AI-first collaborative platform for building full-stack AI agents. We combine
-  the simplicity of text-based agent definition (like LangSmith's Agent Builder)
-  with the power of full-stack development (like Lovable), but with a superior
-  stack and collaborative development experience.
+- **The platform itself** continues to evolve through self-improvement The ultimate goal: Make
+  building AI agents as easy as creating a document, but with the power to create truly
+  sophisticated applications. Noter is an AI-first collaborative platform for building full-stack AI
+  agents. We combine the simplicity of text-based agent definition (like LangSmith's Agent Builder)
+  with the power of full-stack development (like Lovable), but with a superior stack and
+  collaborative development experience.
 
 **Everything is text. Everything is collaborative. Everything is instant.**
 
@@ -114,13 +106,11 @@ development.
 
 **Noter building Noter** serves as the ultimate proof-of-concept:
 
-- Demonstrates the platform can handle sophisticated applications (not just todo
-  apps)
+- Demonstrates the platform can handle sophisticated applications (not just todo apps)
 - Shows self-improvement capabilities through recursive development
 - Proves the React + Convex stack can scale to complex, real-world applications
 - Creates a compelling narrative: "This platform was built by itself"
-- Validates that the creator agent concept works (current AI assistants already
-  help build Noter)
+- Validates that the creator agent concept works (current AI assistants already help build Noter)
 
 ## Market Positioning
 
@@ -131,50 +121,40 @@ development.
 - **Real-time by default** - perfect for collaborative agents and live updates
 - **Functions as first-class citizens** - no separate API layer to manage
 - **TypeScript throughout** - better AI code generation and fewer runtime errors
-- **Simpler mental model** - mutations, queries, actions vs SQL + REST +
-  realtime subscriptions
-- **Built-in scheduling** - cron jobs and background tasks without extra
-  infrastructure
+- **Simpler mental model** - mutations, queries, actions vs SQL + REST + realtime subscriptions
+- **Built-in scheduling** - cron jobs and background tasks without extra infrastructure
 - **No SQL to learn** - perfect for non-technical users
 
 ### Competitive Positioning
 
 **vs LangSmith Agent Builder**
 
-- **Similar**: AGENTS.md approach, text-based agent definition, subagent
-  workflows
-- **Better**: Full-stack UI capabilities, collaborative editing, instant
-  deployment
+- **Similar**: AGENTS.md approach, text-based agent definition, subagent workflows
+- **Better**: Full-stack UI capabilities, collaborative editing, instant deployment
 - **Target**: Their approach but with complete development environment
 
 **vs Lovable**
 
-- **Similar**: Full-stack app generation for non-devs, instant working
-  applications
-- **Better**: Superior stack (Convex > Supabase), AI agent focus, collaborative
-  development
+- **Similar**: Full-stack app generation for non-devs, instant working applications
+- **Better**: Superior stack (Convex > Supabase), AI agent focus, collaborative development
 - **Advantage**: Can build sophisticated agents, not just CRUD apps
 
 **vs Builder.io**
 
-- **Similar**: Real-time collaborative editing, instant preview, component-based
-  approach
+- **Similar**: Real-time collaborative editing, instant preview, component-based approach
 - **Different**: Text-based instead of visual, AI agents instead of websites
-- **Inspiration**: Their collaborative editing experience was key to Noter's
-  early success
+- **Inspiration**: Their collaborative editing experience was key to Noter's early success
 
 **vs DarkLang**
 
-- **Similar**: Instant deployment, integrated development environment,
-  simplified backend development
-- **Different**: AI agent focus vs general backend development, collaborative
-  editing vs solo development
-- **Influence**: DarkLang's vision of eliminating deployment friction and making
-  backend development accessible inspired Noter's "instant everything"
-  philosophy
-- **Learning**: DarkLang showed the power of tight integration between editor,
-  runtime, and deployment, but Noter applies this to AI agent development with
-  collaborative features
+- **Similar**: Instant deployment, integrated development environment, simplified backend
+  development
+- **Different**: AI agent focus vs general backend development, collaborative editing vs solo
+  development
+- **Influence**: DarkLang's vision of eliminating deployment friction and making backend development
+  accessible inspired Noter's "instant everything" philosophy
+- **Learning**: DarkLang showed the power of tight integration between editor, runtime, and
+  deployment, but Noter applies this to AI agent development with collaborative features
 
 ## Target Users
 
@@ -195,15 +175,12 @@ development.
 
 ### The Revolutionary Development Flow
 
-1. **Instant Interaction**: User describes what they want → immediately get a
-   working agent to test
+1. **Instant Interaction**: User describes what they want → immediately get a working agent to test
 2. **Creator Agent Watches**: AI observes user interactions with the agent
-3. **Natural Language Iteration**: "Make it more friendly" or "add email
-   notifications"
-4. **Real-time Modification**: Creator agent updates AGENTS.md, tools, and code
-   instantly
-5. **Collaborative Refinement**: Multiple people can interact and suggest
-   improvements simultaneously
+3. **Natural Language Iteration**: "Make it more friendly" or "add email notifications"
+4. **Real-time Modification**: Creator agent updates AGENTS.md, tools, and code instantly
+5. **Collaborative Refinement**: Multiple people can interact and suggest improvements
+   simultaneously
 
 ### The "Everything is Text" Philosophy
 
@@ -252,19 +229,17 @@ development.
 - **Full development environment access**
 - **Real-time modification capabilities**
 - **Collaborative with multiple humans**
-- **Understands the full stack** (React patterns, Convex functions, agent
-  architectures)
+- **Understands the full stack** (React patterns, Convex functions, agent architectures)
 
 ## The Collaborative Advantage
 
 ### Real-time Multi-user Agent Building
 
-- **Multiple people editing simultaneously**: One person on conversation flow,
-  another on UI, someone else on data models
-- **Live agent testing**: Everyone can interact with the agent as it's being
-  built
-- **Natural language feedback**: "It should handle refunds better" → creator
-  agent implements changes
+- **Multiple people editing simultaneously**: One person on conversation flow, another on UI,
+  someone else on data models
+- **Live agent testing**: Everyone can interact with the agent as it's being built
+- **Natural language feedback**: "It should handle refunds better" → creator agent implements
+  changes
 - **Instant gratification**: Changes happen immediately, no deployment delays
 
 ### The "Figma for AI Agents" Vision
@@ -278,8 +253,8 @@ development.
 
 ### The Critical "First Success" Test
 
-Can someone say "build me a customer feedback form that saves to database and
-sends email notifications" and:
+Can someone say "build me a customer feedback form that saves to database and sends email
+notifications" and:
 
 - Get a working agent in under 5 minutes
 - Immediately interact with it (not just read code)
@@ -291,8 +266,7 @@ sends email notifications" and:
 1. **Repository Creation Flow**: Create new agent repos from Noter
 2. **Agent Scaffolding**: Standard templates that actually work
 3. **Creator Agent Integration**: AI that can modify agents in real-time
-4. **Collaborative Testing**: Multiple users interacting with same agent
-   simultaneously
+4. **Collaborative Testing**: Multiple users interacting with same agent simultaneously
 
 ### Market Validation
 
@@ -334,9 +308,8 @@ Noter becomes the definitive platform for AI agent development where:
 - **The platform evolves itself** through recursive self-improvement
 - **Complex business logic becomes accessible** to non-technical users
 
-**The ultimate goal**: Make building AI agents as natural as having a
-conversation, but with the power to create truly sophisticated, full-stack
-applications.
+**The ultimate goal**: Make building AI agents as natural as having a conversation, but with the
+power to create truly sophisticated, full-stack applications.
 
 ## The Recursive Future
 
@@ -348,5 +321,5 @@ As Noter becomes more capable, it will:
 - **Create specialized tools** for different types of agents
 - **Evolve the creator agent** to be more intelligent and capable
 
-The platform that builds AI agents will itself be built by AI agents, creating a
-virtuous cycle of continuous improvement and capability expansion.
+The platform that builds AI agents will itself be built by AI agents, creating a virtuous cycle of
+continuous improvement and capability expansion.

@@ -34,23 +34,15 @@ export function buildVaultBranchSectionState({
   filters: VaultBranchFiltersState;
   remoteBranches: VaultRemoteBranchListItem[];
 }) {
-  const filteredRemoteBranches = filterVaultRemoteBranches(
-    remoteBranches,
-    filters,
-  );
-  const hasBranchListOverflow =
-    filteredRemoteBranches.length > COLLAPSED_BRANCH_LIMIT;
+  const filteredRemoteBranches = filterVaultRemoteBranches(remoteBranches, filters);
+  const hasBranchListOverflow = filteredRemoteBranches.length > COLLAPSED_BRANCH_LIMIT;
   const branchesExpanded = filters.branchesExpanded;
   const visibleRemoteBranches =
     hasBranchListOverflow && !branchesExpanded
       ? filteredRemoteBranches.slice(0, COLLAPSED_BRANCH_LIMIT)
       : filteredRemoteBranches;
-  const collapsedBranchCount = Math.max(
-    filteredRemoteBranches.length - COLLAPSED_BRANCH_LIMIT,
-    0,
-  );
-  const hiddenBranchCount =
-    remoteBranches.length - filteredRemoteBranches.length;
+  const collapsedBranchCount = Math.max(filteredRemoteBranches.length - COLLAPSED_BRANCH_LIMIT, 0);
+  const hiddenBranchCount = remoteBranches.length - filteredRemoteBranches.length;
   const filterOptions = buildVaultBranchFilterOptions({
     branches: remoteBranches,
     hiddenLabels: filters.hiddenLabels,

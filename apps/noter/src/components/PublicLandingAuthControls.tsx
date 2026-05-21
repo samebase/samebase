@@ -46,10 +46,7 @@ export function PublicLandingAuthControls() {
   const rootRouteSearch = useRootRouteSearch();
   const prodUiQueryEnabled = isProdUiModeEnabled(rootRouteSearch);
   const productionPublicOrigin = isBrowserProductionPublicOrigin();
-  const showGoogleAuth = shouldShowGoogleAuthForPathname(
-    pathname,
-    rootRouteSearch,
-  );
+  const showGoogleAuth = shouldShowGoogleAuthForPathname(pathname, rootRouteSearch);
   const showGoogleSignupClosedState = shouldRenderGoogleSignupClosedState(
     pathname,
     rootRouteSearch,
@@ -58,9 +55,7 @@ export function PublicLandingAuthControls() {
     pathname,
     rootRouteSearch,
   );
-  const deploymentAuthPolicy = useQuery(
-    api.deploymentProfile.getPublicDeploymentAuthPolicy,
-  );
+  const deploymentAuthPolicy = useQuery(api.deploymentProfile.getPublicDeploymentAuthPolicy);
   const deploymentProfile = deploymentAuthPolicy?.deploymentProfile;
   const prodUiModeEnabled = isProdUiModeActive({
     deploymentProfile,
@@ -113,22 +108,13 @@ export function PublicLandingAuthControls() {
 
   return (
     <div className="flex flex-col gap-2">
-      <SignInWithGoogle
-        visible={showGoogleAuth}
-        markPublicSignupReturn={markPublicSignupReturn}
-      />
-      {passwordAuthSurface !== "hidden" ? (
-        <PasswordAuthForm surface={passwordAuthSurface} />
-      ) : null}
+      <SignInWithGoogle visible={showGoogleAuth} markPublicSignupReturn={markPublicSignupReturn} />
+      {passwordAuthSurface !== "hidden" ? <PasswordAuthForm surface={passwordAuthSurface} /> : null}
     </div>
   );
 }
 
-export function PasswordAuthForm({
-  surface,
-}: {
-  surface: Exclude<PasswordAuthSurface, "hidden">;
-}) {
+export function PasswordAuthForm({ surface }: { surface: Exclude<PasswordAuthSurface, "hidden"> }) {
   const { signInWithPassword } = useNoterSignInActions();
   const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
   const [email, setEmail] = useState("");
@@ -162,11 +148,7 @@ export function PasswordAuthForm({
       password: nextPassword,
     })
       .catch((signInError: unknown) => {
-        setError(
-          signInError instanceof Error
-            ? signInError.message
-            : "Password sign-in failed",
-        );
+        setError(signInError instanceof Error ? signInError.message : "Password sign-in failed");
       })
       .finally(() => {
         setPending(false);
@@ -177,9 +159,7 @@ export function PasswordAuthForm({
     <div className="flex flex-col gap-2 rounded-md border p-3">
       <div className="flex items-center justify-between gap-2">
         <div className="text-sm font-medium">
-          {surface === "preview"
-            ? "Preview password sign in"
-            : "Password auth (local worktree)"}
+          {surface === "preview" ? "Preview password sign in" : "Password auth (local worktree)"}
         </div>
         {surface === "local_worktree" ? (
           <Button
@@ -189,9 +169,7 @@ export function PasswordAuthForm({
             className="h-auto px-2 py-1 text-xs"
             onClick={() => {
               setError(null);
-              setFlow((current) =>
-                current === "signIn" ? "signUp" : "signIn",
-              );
+              setFlow((current) => (current === "signIn" ? "signUp" : "signIn"));
             }}
             disabled={pending}
           >
@@ -217,9 +195,7 @@ export function PasswordAuthForm({
         />
         <Input
           type="password"
-          autoComplete={
-            effectiveFlow === "signIn" ? "current-password" : "new-password"
-          }
+          autoComplete={effectiveFlow === "signIn" ? "current-password" : "new-password"}
           placeholder="Password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}

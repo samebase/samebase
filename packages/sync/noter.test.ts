@@ -53,9 +53,7 @@ function readLocalGitEnvKeys() {
   });
 
   if (result.status !== 0) {
-    throw new Error(
-      `Expected git rev-parse --local-env-vars to succeed: ${result.stderr}`,
-    );
+    throw new Error(`Expected git rev-parse --local-env-vars to succeed: ${result.stderr}`);
   }
 
   return result.stdout.split(/\r?\n/u).filter((value) => value.length > 0);
@@ -152,9 +150,7 @@ describe("@noter-md/sync", () => {
   it("clears every repo-local git env var before spawning isolated repos", () => {
     const keepKey = "NOTER_TEST_KEEP_ENV";
     const previousKeepValue = process.env[keepKey];
-    const previousGitValues = new Map(
-      LOCAL_GIT_ENV_KEYS.map((key) => [key, process.env[key]]),
-    );
+    const previousGitValues = new Map(LOCAL_GIT_ENV_KEYS.map((key) => [key, process.env[key]]));
 
     try {
       process.env[keepKey] = "keep-me";
@@ -202,9 +198,7 @@ describe("@noter-md/sync", () => {
   });
 
   it("accepts an optional explicit source URL argument for direct hosted execution", () => {
-    expect(
-      parseCliArgs(["connect", "https://preview.noter.md/noter.ts"]),
-    ).toEqual({
+    expect(parseCliArgs(["connect", "https://preview.noter.md/noter.ts"])).toEqual({
       command: "connect",
       stateDirectory: null,
       sourceUrl: "https://preview.noter.md/noter.ts",
@@ -224,18 +218,14 @@ describe("@noter-md/sync", () => {
       sourceUrl: "https://preview.noter.md/noter.ts",
       stateDirectory: "/tmp/noter-worktree",
     });
-    expect(parseCliArgs(["run", "--state-dir", "/tmp/noter-worktree"])).toEqual(
-      {
-        command: "run",
-        stateDirectory: "/tmp/noter-worktree",
-      },
-    );
+    expect(parseCliArgs(["run", "--state-dir", "/tmp/noter-worktree"])).toEqual({
+      command: "run",
+      stateDirectory: "/tmp/noter-worktree",
+    });
   });
 
   it("rejects malformed explicit state directory usage", () => {
-    expect(() => parseCliArgs(["connect", "--state-dir"])).toThrow(
-      "Missing value for --state-dir",
-    );
+    expect(() => parseCliArgs(["connect", "--state-dir"])).toThrow("Missing value for --state-dir");
     expect(() =>
       parseCliArgs([
         "connect",
@@ -251,24 +241,22 @@ describe("@noter-md/sync", () => {
     expect(() => parseCliArgs(["run", "--state-dir", "--help"])).toThrow(
       "Invalid value for --state-dir: --help",
     );
-    expect(() => parseCliArgs(["run", "extra-arg"])).toThrow(
-      "Unexpected argument: extra-arg",
-    );
+    expect(() => parseCliArgs(["run", "extra-arg"])).toThrow("Unexpected argument: extra-arg");
   });
 
   it("accepts https deploy URLs and localhost http URLs", () => {
-    expect(
-      validateSourceUrl("https://preview.noter.md/noter.ts").toString(),
-    ).toBe("https://preview.noter.md/noter.ts");
+    expect(validateSourceUrl("https://preview.noter.md/noter.ts").toString()).toBe(
+      "https://preview.noter.md/noter.ts",
+    );
     expect(validateSourceUrl("http://127.0.0.1:5174/noter.ts").toString()).toBe(
       "http://127.0.0.1:5174/noter.ts",
     );
   });
 
   it("normalizes legacy stored installer URLs only when explicitly allowed", () => {
-    expect(() =>
-      validateSourceUrl("https://preview.noter.md/noter.js"),
-    ).toThrow("The installer source URL must point to /noter.ts.");
+    expect(() => validateSourceUrl("https://preview.noter.md/noter.js")).toThrow(
+      "The installer source URL must point to /noter.ts.",
+    );
     expect(
       validateSourceUrl("https://preview.noter.md/noter.js", {
         allowLegacyInstallerPath: true,
@@ -301,9 +289,7 @@ describe("@noter-md/sync", () => {
   });
 
   it("rejects installer source URLs with query params or hashes", () => {
-    expect(() =>
-      validateSourceUrl("https://noter.md/noter.ts?preview=1"),
-    ).toThrow(
+    expect(() => validateSourceUrl("https://noter.md/noter.ts?preview=1")).toThrow(
       "The installer source URL must not include credentials, query params, or hashes.",
     );
     expect(() => validateSourceUrl("https://noter.md/noter.ts#branch")).toThrow(
@@ -388,21 +374,14 @@ describe("@noter-md/sync", () => {
       tmpdir(),
       `noter-codex-home-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     );
-    const globalStatePath = path.join(
-      codexHomePath,
-      ".codex-global-state.json",
-    );
+    const globalStatePath = path.join(codexHomePath, ".codex-global-state.json");
     mkdirSync(codexHomePath, { recursive: true });
     writeFileSync(
       globalStatePath,
       `${JSON.stringify(
         {
           theme: "dark",
-          "pinned-thread-ids": [
-            "thread-existing",
-            "thread-target",
-            "thread-existing",
-          ],
+          "pinned-thread-ids": ["thread-existing", "thread-target", "thread-existing"],
         },
         null,
         2,
@@ -414,19 +393,13 @@ describe("@noter-md/sync", () => {
     try {
       const runtime = new CodexLocalControlRuntime("/tmp/noter");
 
-      await expect(
-        runtime.threadPin({ threadId: "thread-new" }),
-      ).resolves.toMatchObject({
+      await expect(runtime.threadPin({ threadId: "thread-new" })).resolves.toMatchObject({
         pinnedThreadIds: ["thread-new", "thread-existing", "thread-target"],
       });
-      await expect(
-        runtime.threadPin({ threadId: "thread-target" }),
-      ).resolves.toMatchObject({
+      await expect(runtime.threadPin({ threadId: "thread-target" })).resolves.toMatchObject({
         pinnedThreadIds: ["thread-target", "thread-new", "thread-existing"],
       });
-      await expect(
-        runtime.threadUnpin({ threadId: "thread-new" }),
-      ).resolves.toMatchObject({
+      await expect(runtime.threadUnpin({ threadId: "thread-new" })).resolves.toMatchObject({
         pinnedThreadIds: ["thread-target", "thread-existing"],
       });
 
@@ -455,19 +428,12 @@ describe("@noter-md/sync", () => {
     try {
       const runtime = new CodexLocalControlRuntime("/tmp/noter");
 
-      await expect(
-        runtime.threadPin({ threadId: "thread-first" }),
-      ).resolves.toMatchObject({
+      await expect(runtime.threadPin({ threadId: "thread-first" })).resolves.toMatchObject({
         pinnedThreadIds: ["thread-first"],
       });
 
       expect(
-        JSON.parse(
-          readFileSync(
-            path.join(codexHomePath, ".codex-global-state.json"),
-            "utf8",
-          ),
-        ),
+        JSON.parse(readFileSync(path.join(codexHomePath, ".codex-global-state.json"), "utf8")),
       ).toEqual({
         "pinned-thread-ids": ["thread-first"],
       });
@@ -487,10 +453,7 @@ describe("@noter-md/sync", () => {
       tmpdir(),
       `noter-codex-home-invalid-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     );
-    const globalStatePath = path.join(
-      codexHomePath,
-      ".codex-global-state.json",
-    );
+    const globalStatePath = path.join(codexHomePath, ".codex-global-state.json");
     mkdirSync(codexHomePath, { recursive: true });
     writeFileSync(globalStatePath, "[]\n", "utf8");
     process.env.CODEX_HOME = codexHomePath;
@@ -498,9 +461,9 @@ describe("@noter-md/sync", () => {
     try {
       const runtime = new CodexLocalControlRuntime("/tmp/noter");
 
-      await expect(
-        runtime.threadPin({ threadId: "thread-invalid" }),
-      ).rejects.toThrow(".codex-global-state.json must contain a JSON object");
+      await expect(runtime.threadPin({ threadId: "thread-invalid" })).rejects.toThrow(
+        ".codex-global-state.json must contain a JSON object",
+      );
       expect(readFileSync(globalStatePath, "utf8")).toBe("[]\n");
     } finally {
       if (previousCodexHome === undefined) {
@@ -518,10 +481,7 @@ describe("@noter-md/sync", () => {
       tmpdir(),
       `noter-codex-home-concurrent-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     );
-    const globalStatePath = path.join(
-      codexHomePath,
-      ".codex-global-state.json",
-    );
+    const globalStatePath = path.join(codexHomePath, ".codex-global-state.json");
     mkdirSync(codexHomePath, { recursive: true });
     writeFileSync(
       globalStatePath,
@@ -547,11 +507,7 @@ describe("@noter-md/sync", () => {
 
       expect(JSON.parse(readFileSync(globalStatePath, "utf8"))).toEqual({
         theme: "dark",
-        "pinned-thread-ids": [
-          "thread-second",
-          "thread-first",
-          "thread-existing",
-        ],
+        "pinned-thread-ids": ["thread-second", "thread-first", "thread-existing"],
       });
     } finally {
       if (previousCodexHome === undefined) {
@@ -569,10 +525,7 @@ describe("@noter-md/sync", () => {
       tmpdir(),
       `noter-codex-home-router-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     );
-    const globalStatePath = path.join(
-      codexHomePath,
-      ".codex-global-state.json",
-    );
+    const globalStatePath = path.join(codexHomePath, ".codex-global-state.json");
     process.env.CODEX_HOME = codexHomePath;
 
     const runtime = new CodexLocalControlRuntime("/tmp/noter");
@@ -598,16 +551,13 @@ describe("@noter-md/sync", () => {
         throw new Error("Expected a TCP server address");
       }
 
-      const pinResponse = await fetch(
-        `http://127.0.0.1:${address.port}/thread/pin`,
-        {
-          body: JSON.stringify({ threadId: "thread-router" }),
-          headers: {
-            "Content-Type": "application/json",
-          },
-          method: "POST",
+      const pinResponse = await fetch(`http://127.0.0.1:${address.port}/thread/pin`, {
+        body: JSON.stringify({ threadId: "thread-router" }),
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        method: "POST",
+      });
       expect(pinResponse.status).toBe(200);
       await expect(pinResponse.json()).resolves.toMatchObject({
         pinnedThreadIds: ["thread-router"],
@@ -616,16 +566,13 @@ describe("@noter-md/sync", () => {
         "pinned-thread-ids": ["thread-router"],
       });
 
-      const unpinResponse = await fetch(
-        `http://127.0.0.1:${address.port}/thread/unpin`,
-        {
-          body: JSON.stringify({ threadId: "thread-router" }),
-          headers: {
-            "Content-Type": "application/json",
-          },
-          method: "POST",
+      const unpinResponse = await fetch(`http://127.0.0.1:${address.port}/thread/unpin`, {
+        body: JSON.stringify({ threadId: "thread-router" }),
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        method: "POST",
+      });
       expect(unpinResponse.status).toBe(200);
       await expect(unpinResponse.json()).resolves.toMatchObject({
         pinnedThreadIds: [],
@@ -667,10 +614,7 @@ describe("@noter-md/sync", () => {
     mkdirSync(repoPath, { recursive: true });
     const gitEnv = buildIsolatedGitEnv();
 
-    expect(
-      spawnSync("git", ["init", "-b", "main"], { cwd: repoPath, env: gitEnv })
-        .status,
-    ).toBe(0);
+    expect(spawnSync("git", ["init", "-b", "main"], { cwd: repoPath, env: gitEnv }).status).toBe(0);
     expect(
       spawnSync("git", ["config", "user.email", "noter-tests@example.com"], {
         cwd: repoPath,
@@ -684,10 +628,7 @@ describe("@noter-md/sync", () => {
       }).status,
     ).toBe(0);
     writeFileSync(path.join(repoPath, "README.md"), "# Noter\n", "utf8");
-    expect(
-      spawnSync("git", ["add", "README.md"], { cwd: repoPath, env: gitEnv })
-        .status,
-    ).toBe(0);
+    expect(spawnSync("git", ["add", "README.md"], { cwd: repoPath, env: gitEnv }).status).toBe(0);
     expect(
       spawnSync("git", ["commit", "-m", "Initial commit"], {
         cwd: repoPath,
@@ -718,16 +659,13 @@ describe("@noter-md/sync", () => {
         throw new Error("Expected a TCP server address");
       }
 
-      const response = await fetch(
-        `http://127.0.0.1:${address.port}/worktree/create`,
-        {
-          body: JSON.stringify({ cwd: repoPath }),
-          headers: {
-            "Content-Type": "application/json",
-          },
-          method: "POST",
+      const response = await fetch(`http://127.0.0.1:${address.port}/worktree/create`, {
+        body: JSON.stringify({ cwd: repoPath }),
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        method: "POST",
+      });
       expect(response.status).toBe(200);
       const payload = await response.json();
       expect(payload).toMatchObject({
@@ -738,11 +676,9 @@ describe("@noter-md/sync", () => {
       });
       expect(statSync(payload.worktree.cwd).isDirectory()).toBe(true);
       expect(
-        spawnSync(
-          "git",
-          ["-C", payload.worktree.cwd, "rev-parse", "--abbrev-ref", "HEAD"],
-          { env: gitEnv },
-        )
+        spawnSync("git", ["-C", payload.worktree.cwd, "rev-parse", "--abbrev-ref", "HEAD"], {
+          env: gitEnv,
+        })
           .stdout.toString()
           .trim(),
       ).toBe(payload.worktree.branch);
@@ -798,10 +734,7 @@ describe("@noter-md/sync", () => {
       tmpdir(),
       `noter-codex-home-pinned-fallback-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     );
-    const globalStatePath = path.join(
-      codexHomePath,
-      ".codex-global-state.json",
-    );
+    const globalStatePath = path.join(codexHomePath, ".codex-global-state.json");
     mkdirSync(codexHomePath, { recursive: true });
     writeFileSync(
       globalStatePath,
@@ -823,12 +756,8 @@ describe("@noter-md/sync", () => {
 
       const result = await runtime.listThreads(new URLSearchParams());
 
-      expect(result.threads.map((thread) => thread.id)).toContain(
-        "thread-target",
-      );
-      expect(readThreadSummaryFromListMock).toHaveBeenCalledWith(
-        "thread-target",
-      );
+      expect(result.threads.map((thread) => thread.id)).toContain("thread-target");
+      expect(readThreadSummaryFromListMock).toHaveBeenCalledWith("thread-target");
     } finally {
       if (previousCodexHome === undefined) {
         delete process.env.CODEX_HOME;
@@ -925,9 +854,7 @@ describe("@noter-md/sync", () => {
     const result = await runtime.readThread("thread-target");
 
     expect(result.thread.createdAt).toBe(10);
-    expect(result.thread.preview).toBe(
-      "Recovered preview from the thread list.",
-    );
+    expect(result.thread.preview).toBe("Recovered preview from the thread list.");
     expect(result.thread.status.type).toBe("running");
     expect(result.thread.turns).toHaveLength(1);
     expect(result.thread.turns[0]?.items[1]?.summary).toBe("READY");
@@ -957,13 +884,7 @@ describe("@noter-md/sync", () => {
         cwd: "/Users/noter/projects/noter",
         stateDirectory: "./tmp/worktree-state",
       }),
-    ).toBe(
-      path.resolve(
-        "/Users/noter/projects/noter",
-        "tmp/worktree-state",
-        "config.json",
-      ),
-    );
+    ).toBe(path.resolve("/Users/noter/projects/noter", "tmp/worktree-state", "config.json"));
   });
 
   it("reads and writes local config data inside an explicit state directory", () => {
@@ -1057,12 +978,7 @@ describe("@noter-md/sync", () => {
   );
 
   it("builds the browser handoff URL for the current deploy and request id", () => {
-    expect(
-      buildMachineConnectUrl(
-        "https://preview.noter.md/noter.ts",
-        "request_123",
-      ),
-    ).toBe(
+    expect(buildMachineConnectUrl("https://preview.noter.md/noter.ts", "request_123")).toBe(
       "https://preview.noter.md/machines/connect?openedByCli&requestId=request_123",
     );
   });
@@ -1086,48 +1002,30 @@ describe("@noter-md/sync", () => {
 
   it("escapes explicit state-dir paths for Windows direct commands", () => {
     expect(
-      buildDirectConnectCommand(
-        "https://noter.md/noter.ts",
-        "win32",
-        "C:\\Users\\O'Brien\\.noter",
-      ),
+      buildDirectConnectCommand("https://noter.md/noter.ts", "win32", "C:\\Users\\O'Brien\\.noter"),
     ).toContain("--state-dir 'C:\\Users\\O''Brien\\.noter'");
     expect(
-      buildDirectRunCommand(
-        "https://noter.md/noter.ts",
-        "win32",
-        "C:\\Users\\O'Brien\\.noter",
-      ),
+      buildDirectRunCommand("https://noter.md/noter.ts", "win32", "C:\\Users\\O'Brien\\.noter"),
     ).toContain("--state-dir 'C:\\Users\\O''Brien\\.noter'");
   });
 
   it("escapes explicit state-dir paths for Unix direct commands", () => {
     expect(
-      buildDirectConnectCommand(
-        "https://noter.md/noter.ts",
-        "darwin",
-        "/tmp/O'Brien/.noter",
-      ),
+      buildDirectConnectCommand("https://noter.md/noter.ts", "darwin", "/tmp/O'Brien/.noter"),
     ).toContain(`--state-dir '/tmp/O'"'"'Brien/.noter'`);
     expect(
-      buildDirectRunCommand(
-        "https://noter.md/noter.ts",
-        "darwin",
-        "/tmp/O'Brien/.noter",
-      ),
+      buildDirectRunCommand("https://noter.md/noter.ts", "darwin", "/tmp/O'Brien/.noter"),
     ).toContain(`--state-dir '/tmp/O'"'"'Brien/.noter'`);
   });
 
   it("builds the deploy-scoped runtime config URL", () => {
-    expect(
-      buildNoterConnectConfigUrl("https://preview.noter.md/noter.ts"),
-    ).toBe("https://preview.noter.md/noter-connect.json");
+    expect(buildNoterConnectConfigUrl("https://preview.noter.md/noter.ts")).toBe(
+      "https://preview.noter.md/noter-connect.json",
+    );
   });
 
   it("documents the simple npm commands and advanced direct-file flows", () => {
-    expect(formatHelpText()).toContain(
-      "noter-sync connect [--state-dir <path>] [source-url]",
-    );
+    expect(formatHelpText()).toContain("noter-sync connect [--state-dir <path>] [source-url]");
     expect(formatHelpText()).toContain("noter-sync run [--state-dir <path>]");
     expect(formatHelpText()).toContain("npx @noter-md/sync connect");
     expect(formatHelpText()).toContain("npx @noter-md/sync run");
@@ -1155,14 +1053,10 @@ describe("@noter-md/sync", () => {
   });
 
   it("builds Windows-safe direct hosted-file commands", () => {
-    expect(
-      buildDirectConnectCommand("https://noter.md/noter.ts", "win32"),
-    ).toBe(
+    expect(buildDirectConnectCommand("https://noter.md/noter.ts", "win32")).toBe(
       `curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'`,
     );
-    expect(
-      buildDirectConnectCommand("https://noter.md/noter.ts", "windows"),
-    ).toBe(
+    expect(buildDirectConnectCommand("https://noter.md/noter.ts", "windows")).toBe(
       `curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'`,
     );
     expect(buildDirectRunCommand("https://noter.md/noter.ts", "win32")).toBe(
@@ -1308,17 +1202,11 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
         command: realpathSync(bundledNodePath),
       };
 
+      expect(buildCodexSpawnInvocation(["app-server", "--listen", "stdio://"], "win32")).toEqual(
+        expectedInvocation,
+      );
       expect(
-        buildCodexSpawnInvocation(
-          ["app-server", "--listen", "stdio://"],
-          "win32",
-        ),
-      ).toEqual(expectedInvocation);
-      expect(
-        buildCodexRuntimeSpawnInvocation(
-          ["app-server", "--listen", "stdio://"],
-          "win32",
-        ),
+        buildCodexRuntimeSpawnInvocation(["app-server", "--listen", "stdio://"], "win32"),
       ).toEqual(expectedInvocation);
     } finally {
       if (originalPath === undefined) {
@@ -1348,32 +1236,12 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
     const workspaceA = path.join(tempRoot, "workspace-a");
     const workspaceB = path.join(tempRoot, "workspace-b");
     const packageShimBaseName = "codex-package";
-    const packageShimPathA = path.join(
-      workspaceA,
-      `${packageShimBaseName}.cmd`,
-    );
-    const packageShimPathB = path.join(
-      workspaceB,
-      `${packageShimBaseName}.cmd`,
-    );
+    const packageShimPathA = path.join(workspaceA, `${packageShimBaseName}.cmd`);
+    const packageShimPathB = path.join(workspaceB, `${packageShimBaseName}.cmd`);
     const bundledNodePathA = path.join(workspaceA, "node.exe");
     const bundledNodePathB = path.join(workspaceB, "node.exe");
-    const scriptPathA = path.join(
-      workspaceA,
-      "node_modules",
-      "@openai",
-      "codex",
-      "dist",
-      "cli.js",
-    );
-    const scriptPathB = path.join(
-      workspaceB,
-      "node_modules",
-      "@openai",
-      "codex",
-      "dist",
-      "cli.js",
-    );
+    const scriptPathA = path.join(workspaceA, "node_modules", "@openai", "codex", "dist", "cli.js");
+    const scriptPathB = path.join(workspaceB, "node_modules", "@openai", "codex", "dist", "cli.js");
     const originalPath = process.env.PATH;
     const originalWindowsPath = process.env.Path;
     const originalPathext = process.env.PATHEXT;
@@ -1381,11 +1249,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
     mkdirSync(binDirectory, { recursive: true });
     mkdirSync(path.dirname(scriptPathA), { recursive: true });
     mkdirSync(path.dirname(scriptPathB), { recursive: true });
-    writeFileSync(
-      topLevelCodexShimPath,
-      "@echo off\r\nvolta run %~n0 %*\r\n",
-      "utf8",
-    );
+    writeFileSync(topLevelCodexShimPath, "@echo off\r\nvolta run %~n0 %*\r\n", "utf8");
     writeFileSync(voltaPath, "", "utf8");
     writeFileSync(
       packageShimPathA,
@@ -1408,9 +1272,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
     try {
       vi.resetModules();
       const actualChildProcess =
-        await vi.importActual<typeof import("node:child_process")>(
-          "node:child_process",
-        );
+        await vi.importActual<typeof import("node:child_process")>("node:child_process");
       const spawnSyncMock = vi.fn((command, args, options) => {
         if (command !== voltaPath) {
           return actualChildProcess.spawnSync(command, args, options);
@@ -1424,11 +1286,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
               : null;
 
         return {
-          output: [
-            null,
-            packageCommandPath ? `${packageCommandPath}\n` : "",
-            "",
-          ],
+          output: [null, packageCommandPath ? `${packageCommandPath}\n` : "", ""],
           pid: 1,
           signal: null,
           status: packageCommandPath === null ? 1 : 0,
@@ -1442,8 +1300,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
       }));
       const {
         buildCodexSpawnInvocation: buildCodexSpawnInvocationWithMock,
-        buildCodexRuntimeSpawnInvocation:
-          buildCodexRuntimeSpawnInvocationWithMock,
+        buildCodexRuntimeSpawnInvocation: buildCodexRuntimeSpawnInvocationWithMock,
       } = await import("./noter.ts");
 
       expect(
@@ -1518,11 +1375,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
     const originalPathext = process.env.PATHEXT;
 
     mkdirSync(binDirectory, { recursive: true });
-    writeFileSync(
-      shimPath,
-      `@ECHO off\r\n"%_prog%" "%dp0%\\missing\\cli.js" %*\r\n`,
-      "utf8",
-    );
+    writeFileSync(shimPath, `@ECHO off\r\n"%_prog%" "%dp0%\\missing\\cli.js" %*\r\n`, "utf8");
     writeFileSync(bundledNodePath, "", "utf8");
     process.env.PATH = binDirectory;
     process.env.Path = binDirectory;
@@ -1586,10 +1439,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
       process.env.PATHEXT = ".CMD;.EXE";
 
       try {
-        const invocation = buildCodexSpawnInvocation(
-          ["echo-argv", literalArg],
-          "win32",
-        );
+        const invocation = buildCodexSpawnInvocation(["echo-argv", literalArg], "win32");
         const result = spawnSync(invocation.command, invocation.args, {
           encoding: "utf8",
           env: {
@@ -1627,10 +1477,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
   it.runIf(process.platform !== "win32")(
     "resolves symlinked entrypoints before checking direct execution",
     () => {
-      const tempDirectory = path.join(
-        tmpdir(),
-        `noter-sync-link-${Date.now()}`,
-      );
+      const tempDirectory = path.join(tmpdir(), `noter-sync-link-${Date.now()}`);
       mkdirSync(tempDirectory, { recursive: true });
       const symlinkPath = path.join(tempDirectory, "noter-sync");
 
@@ -1652,8 +1499,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
       formatBootstrapReadyMarkdown({
         codexVersion: "codex 0.1.2",
         configPath: "/Users/noter/.noter/config.json",
-        machineConnectUrl:
-          "https://noter.md/machines/connect?openedByCli&requestId=request_123",
+        machineConnectUrl: "https://noter.md/machines/connect?openedByCli&requestId=request_123",
         machineId: "machine_123",
         runCommand,
         sourceUrl: "https://noter.md/noter.ts",
@@ -1739,8 +1585,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
           runHeartbeatLoop({
             connectorVersion: "noter-sync (codex 0.1.2)",
             displayName: "Research MacBook Pro",
-            heartbeatUrl:
-              "https://demo.convex.site/connected-machines/heartbeat",
+            heartbeatUrl: "https://demo.convex.site/connected-machines/heartbeat",
             hostname: "research-mbp.local",
             machineCredential: "mmc_invalid",
             machineId: "machine_123",
@@ -1804,9 +1649,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
         throw new Error("Expected a TCP server address");
       }
 
-      const response = await fetch(
-        `http://127.0.0.1:${address.port}/control/status`,
-      );
+      const response = await fetch(`http://127.0.0.1:${address.port}/control/status`);
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual({
         ...statusPayload,
@@ -1850,8 +1693,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
     const router = createCodexLocalControlRouter({
       machineControlAuth: {
         allowedOrigins: ["https://noter.md"],
-        introspectionUrl:
-          "https://noter.md/connected-machines/control/introspect",
+        introspectionUrl: "https://noter.md/connected-machines/control/introspect",
         machineId: "machine_123",
       },
       runtime,
@@ -1885,9 +1727,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
       });
       expect(runtime.ensureRuntime).not.toHaveBeenCalled();
       expect(runtime.listThreads).not.toHaveBeenCalled();
-      expect(response.headers.get("access-control-allow-origin")).toBe(
-        "https://noter.md",
-      );
+      expect(response.headers.get("access-control-allow-origin")).toBe("https://noter.md");
     } finally {
       await new Promise((resolve, reject) => {
         server.close((error) => {
@@ -1915,8 +1755,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
     const router = createCodexLocalControlRouter({
       machineControlAuth: {
         allowedOrigins: ["http://localhost:5198"],
-        introspectionUrl:
-          "https://noter.md/connected-machines/control/introspect",
+        introspectionUrl: "https://noter.md/connected-machines/control/introspect",
         machineId: "machine_123",
       },
       runtime,
@@ -1948,9 +1787,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
       expect(await response.json()).toEqual({
         error: "Missing bearer token.",
       });
-      expect(response.headers.get("access-control-allow-origin")).toBe(
-        "http://localhost:5174",
-      );
+      expect(response.headers.get("access-control-allow-origin")).toBe("http://localhost:5174");
     } finally {
       await new Promise((resolve, reject) => {
         server.close((error) => {
@@ -1973,8 +1810,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
     const router = createCodexLocalControlRouter({
       machineControlAuth: {
         allowedOrigins: ["http://localhost:5198"],
-        introspectionUrl:
-          "https://noter.md/connected-machines/control/introspect",
+        introspectionUrl: "https://noter.md/connected-machines/control/introspect",
         machineId: "machine_123",
       },
       runtime,
@@ -1997,37 +1833,27 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
         throw new Error("Expected a TCP server address");
       }
 
-      const crossSchemeResponse = await fetch(
-        `http://127.0.0.1:${address.port}/threads`,
-        {
-          headers: {
-            Origin: "https://localhost:5174",
-          },
+      const crossSchemeResponse = await fetch(`http://127.0.0.1:${address.port}/threads`, {
+        headers: {
+          Origin: "https://localhost:5174",
         },
-      );
+      });
       expect(crossSchemeResponse.status).toBe(403);
       expect(await crossSchemeResponse.json()).toEqual({
         error: "Origin is not allowed: https://localhost:5174",
       });
-      expect(
-        crossSchemeResponse.headers.get("access-control-allow-origin"),
-      ).toBeNull();
+      expect(crossSchemeResponse.headers.get("access-control-allow-origin")).toBeNull();
 
-      const crossHostnameResponse = await fetch(
-        `http://127.0.0.1:${address.port}/threads`,
-        {
-          headers: {
-            Origin: "http://127.0.0.1:5174",
-          },
+      const crossHostnameResponse = await fetch(`http://127.0.0.1:${address.port}/threads`, {
+        headers: {
+          Origin: "http://127.0.0.1:5174",
         },
-      );
+      });
       expect(crossHostnameResponse.status).toBe(403);
       expect(await crossHostnameResponse.json()).toEqual({
         error: "Origin is not allowed: http://127.0.0.1:5174",
       });
-      expect(
-        crossHostnameResponse.headers.get("access-control-allow-origin"),
-      ).toBeNull();
+      expect(crossHostnameResponse.headers.get("access-control-allow-origin")).toBeNull();
 
       const response = await fetch(`http://127.0.0.1:${address.port}/threads`, {
         headers: {
@@ -2065,8 +1891,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
     const router = createCodexLocalControlRouter({
       machineControlAuth: {
         allowedOrigins: ["https://noter.md"],
-        introspectionUrl:
-          "https://noter.md/connected-machines/control/introspect",
+        introspectionUrl: "https://noter.md/connected-machines/control/introspect",
         machineId: "machine_123",
       },
       runtime,
@@ -2107,9 +1932,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
         },
       });
       expect(runtime.getStatus).not.toHaveBeenCalled();
-      expect(response.headers.get("access-control-allow-origin")).toBe(
-        "https://noter.md",
-      );
+      expect(response.headers.get("access-control-allow-origin")).toBe("https://noter.md");
     } finally {
       await new Promise((resolve, reject) => {
         server.close((error) => {
@@ -2390,16 +2213,10 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
         Origin: "https://noter.md",
       };
 
-      const firstResponse = await fetch(
-        `http://127.0.0.1:${address.port}/threads`,
-        { headers },
-      );
+      const firstResponse = await fetch(`http://127.0.0.1:${address.port}/threads`, { headers });
       expect(firstResponse.status).toBe(200);
 
-      const secondResponse = await fetch(
-        `http://127.0.0.1:${address.port}/threads`,
-        { headers },
-      );
+      const secondResponse = await fetch(`http://127.0.0.1:${address.port}/threads`, { headers });
       expect(secondResponse.status).toBe(200);
 
       expect(introspectionHits).toHaveBeenCalledTimes(1);
@@ -2614,9 +2431,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
     });
 
     try {
-      expect(localControlServer.origin.startsWith("http://127.0.0.1:")).toBe(
-        true,
-      );
+      expect(localControlServer.origin.startsWith("http://127.0.0.1:")).toBe(true);
 
       const response = await fetch(`${localControlServer.origin}/missing`);
       expect(response.status).toBe(404);

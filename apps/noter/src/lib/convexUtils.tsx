@@ -7,16 +7,12 @@ export type GetFunctionReferenceReturnType<
 > = T extends { _returnType: infer ReturnType } ? ReturnType : never;
 
 // Convex useMutation wrapper that also returns the state (e.g. 'loading')
-export function useConvexMutation<T extends FunctionReference<"mutation">>(
-  mutation: T,
-) {
+export function useConvexMutation<T extends FunctionReference<"mutation">>(mutation: T) {
   const [state, setState] = useState<"idle" | "loading">("idle");
   const rawMutation = useMutation(mutation);
 
   const wrappedMutation = useCallback(
-    async (
-      ...args: Parameters<typeof rawMutation>
-    ): ReturnType<typeof rawMutation> => {
+    async (...args: Parameters<typeof rawMutation>): ReturnType<typeof rawMutation> => {
       setState("loading");
       try {
         const result = await rawMutation(...args);
@@ -34,16 +30,12 @@ export function useConvexMutation<T extends FunctionReference<"mutation">>(
 }
 
 // Convex useAction wrapper that also returns the state (e.g. 'loading')
-export function useConvexAction<T extends FunctionReference<"action">>(
-  action: T,
-) {
+export function useConvexAction<T extends FunctionReference<"action">>(action: T) {
   const [state, setState] = useState<"idle" | "loading">("idle");
   const rawAction = useAction(action);
 
   const wrappedAction = useCallback(
-    async (
-      ...args: Parameters<typeof rawAction>
-    ): ReturnType<typeof rawAction> => {
+    async (...args: Parameters<typeof rawAction>): ReturnType<typeof rawAction> => {
       setState("loading");
       try {
         const result = await rawAction(...args);

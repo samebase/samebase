@@ -78,8 +78,7 @@ export function resolveVaultProviderSetupStatus(
       return null;
     case "running": {
       const provider =
-        resolveVaultProviderSetupStepProvider(providerSetup) ??
-        providerSetup.provider;
+        resolveVaultProviderSetupStepProvider(providerSetup) ?? providerSetup.provider;
       return {
         status: "running",
         label: `${formatVaultProviderSetupProvider(provider)}: provisioning`,
@@ -87,8 +86,7 @@ export function resolveVaultProviderSetupStatus(
     }
     case "failed": {
       const provider =
-        resolveVaultProviderSetupStepProvider(providerSetup) ??
-        providerSetup.provider;
+        resolveVaultProviderSetupStepProvider(providerSetup) ?? providerSetup.provider;
       return {
         status: "failed",
         label: `${formatVaultProviderSetupProvider(provider)}: failed`,

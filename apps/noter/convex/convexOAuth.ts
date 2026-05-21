@@ -17,8 +17,7 @@ import {
   type ConvexOAuthTokenResponse,
 } from "./convexManagementApi/oauthToken";
 
-const CONVEX_AUTHORIZE_URL =
-  "https://dashboard.convex.dev/oauth/authorize/team";
+const CONVEX_AUTHORIZE_URL = "https://dashboard.convex.dev/oauth/authorize/team";
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
 
 type OAuthContext = ActionCtx | MutationCtx;
@@ -52,9 +51,7 @@ const convexOAuthTokenRequestSchema = z.strictObject({
   code_verifier: convexOAuthNonEmptyString,
   redirect_uri: convexOAuthRedirectUri,
 });
-type ConvexOAuthAuthorizeRequest = z.infer<
-  typeof convexOAuthAuthorizeRequestSchema
->;
+type ConvexOAuthAuthorizeRequest = z.infer<typeof convexOAuthAuthorizeRequestSchema>;
 type ConvexOAuthTokenRequest = z.infer<typeof convexOAuthTokenRequestSchema>;
 
 const CONVEX_OAUTH_TOKEN_ENDPOINT = {
@@ -85,10 +82,7 @@ async function fetchWithTimeout(
   }
 }
 
-async function buildConvexOAuthUrl(
-  ctx: OAuthContext,
-  userId: Id<"users">,
-): Promise<string> {
+async function buildConvexOAuthUrl(ctx: OAuthContext, userId: Id<"users">): Promise<string> {
   const clientId = readRequiredEnv("PROVIDER_CONVEX_OAUTH_CLIENT_ID");
   const redirectUri = readRequiredEnv("PROVIDER_CONVEX_OAUTH_REDIRECT_URL");
 
@@ -152,24 +146,16 @@ async function requestConvexOAuthToken(
 
   const tokenPayload = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new Error(
-      `Failed to call Convex OAuth endpoint ${endpoint.path} (${response.status}).`,
-    );
+    throw new Error(`Failed to call Convex OAuth endpoint ${endpoint.path} (${response.status}).`);
   }
   return endpoint.parseResponse(tokenPayload);
 }
 
-function encodeConvexOAuthTokenRequest(
-  request: ConvexOAuthTokenRequest,
-): string {
-  return new URLSearchParams(
-    convexOAuthTokenRequestSchema.parse(request),
-  ).toString();
+function encodeConvexOAuthTokenRequest(request: ConvexOAuthTokenRequest): string {
+  return new URLSearchParams(convexOAuthTokenRequestSchema.parse(request)).toString();
 }
 
-function encodeConvexOAuthAuthorizeUrl(
-  request: ConvexOAuthAuthorizeRequest,
-): string {
+function encodeConvexOAuthAuthorizeUrl(request: ConvexOAuthAuthorizeRequest): string {
   const search = convexOAuthAuthorizeRequestSchema.parse(request);
   const authorizeUrl = new URL(CONVEX_AUTHORIZE_URL);
   for (const [name, value] of Object.entries(search)) {
@@ -232,13 +218,10 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
     return new Response("Missing OAuth parameters", { status: 400 });
   }
 
-  const oauthState = await ctx.runQuery(
-    internal.oauthState.getOauthStateByState,
-    {
-      provider: "convex",
-      state,
-    },
-  );
+  const oauthState = await ctx.runQuery(internal.oauthState.getOauthStateByState, {
+    provider: "convex",
+    state,
+  });
 
   if (!oauthState) {
     return new Response("Invalid OAuth state", { status: 400 });
@@ -287,9 +270,7 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
   }
 
   const returnTo =
-    process.env.SITE_URL ??
-    process.env.CONVEX_SITE_URL ??
-    new URL(request.url).origin;
+    process.env.SITE_URL ?? process.env.CONVEX_SITE_URL ?? new URL(request.url).origin;
 
   const baseOrigin = new URL(request.url).origin;
   const returnUrl = new URL(returnTo, baseOrigin).toString();

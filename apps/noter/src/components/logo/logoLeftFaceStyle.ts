@@ -7,8 +7,7 @@ export const LOGO_LEFT_FACE_STRIPE_BASIS_VALUES = [
 ] as const;
 
 export type LogoLeftFaceStyleKind = (typeof LOGO_LEFT_FACE_STYLE_KINDS)[number];
-export type LogoLeftFaceStripeBasis =
-  (typeof LOGO_LEFT_FACE_STRIPE_BASIS_VALUES)[number];
+export type LogoLeftFaceStripeBasis = (typeof LOGO_LEFT_FACE_STRIPE_BASIS_VALUES)[number];
 
 export type LogoSecondaryLeftFaceStyle = {
   kind: "secondary";
@@ -24,9 +23,7 @@ export type LogoStripedLeftFaceStyle = {
   stripeWidth: number;
 };
 
-export type LogoLeftFaceStyle =
-  | LogoSecondaryLeftFaceStyle
-  | LogoStripedLeftFaceStyle;
+export type LogoLeftFaceStyle = LogoSecondaryLeftFaceStyle | LogoStripedLeftFaceStyle;
 
 export const LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE = {
   kind: "striped",
@@ -87,21 +84,14 @@ function clampFiniteNumber({
   return Math.min(Math.max(value, min), max);
 }
 
-export function isLogoLeftFaceStyleKind(
-  value: string | undefined,
-): value is LogoLeftFaceStyleKind {
+export function isLogoLeftFaceStyleKind(value: string | undefined): value is LogoLeftFaceStyleKind {
   return value === "secondary" || value === "striped";
 }
 
 export function isLogoLeftFaceStripeBasis(
   value: string | undefined,
 ): value is LogoLeftFaceStripeBasis {
-  return (
-    value === "auto" ||
-    value === "horizontal" ||
-    value === "vertical" ||
-    value === "raw"
-  );
+  return value === "auto" || value === "horizontal" || value === "vertical" || value === "raw";
 }
 
 export function normalizeLogoLeftFaceStripeAngleDegrees(value: number): number {
@@ -153,12 +143,8 @@ export function getLogoLeftFaceStripeBasisScale(
   style: Pick<LogoStripedLeftFaceStyle, "stripeAngleDegrees" | "stripeBasis">,
 ): number {
   const stripeAngleRadians = (style.stripeAngleDegrees * Math.PI) / 180;
-  const horizontalProjection = readLogoLeftFaceStripeAxisProjection(
-    Math.sin(stripeAngleRadians),
-  );
-  const verticalProjection = readLogoLeftFaceStripeAxisProjection(
-    Math.cos(stripeAngleRadians),
-  );
+  const horizontalProjection = readLogoLeftFaceStripeAxisProjection(Math.sin(stripeAngleRadians));
+  const verticalProjection = readLogoLeftFaceStripeAxisProjection(Math.cos(stripeAngleRadians));
 
   switch (style.stripeBasis) {
     case "auto":
@@ -176,9 +162,7 @@ export function getLogoLeftFaceStripeBasisScale(
   }
 }
 
-export function normalizeLogoLeftFaceStyle(
-  style: LogoLeftFaceStyle,
-): LogoLeftFaceStyle {
+export function normalizeLogoLeftFaceStyle(style: LogoLeftFaceStyle): LogoLeftFaceStyle {
   if (style.kind === "secondary") {
     return DEFAULT_LOGO_LEFT_FACE_STYLE;
   }
@@ -187,9 +171,7 @@ export function normalizeLogoLeftFaceStyle(
 
   return {
     kind: "striped",
-    stripeAngleDegrees: normalizeLogoLeftFaceStripeAngleDegrees(
-      style.stripeAngleDegrees,
-    ),
+    stripeAngleDegrees: normalizeLogoLeftFaceStripeAngleDegrees(style.stripeAngleDegrees),
     stripeBasis: style.stripeBasis,
     // When stripeGapLinked is true, stripeGap must track stripeWidth; otherwise
     // normalizeLogoLeftFaceStripeGap handles the independent gap value.
@@ -225,8 +207,7 @@ export function readLogoLeftFaceStyle(search: {
 
   return normalizeLogoLeftFaceStyle({
     kind: "striped",
-    stripeAngleDegrees:
-      search.stripeA ?? DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+    stripeAngleDegrees: search.stripeA ?? DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
     stripeBasis: search.stripeBasis ?? DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS,
     stripeGap: search.stripeG ?? DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
     stripeGapLinked,

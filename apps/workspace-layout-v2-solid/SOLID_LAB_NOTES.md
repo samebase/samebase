@@ -8,8 +8,8 @@
 4. Left is a ProseMark editor and main is a Monaco editor.
 5. Right is only a single link and has no extra chrome.
 6. There are no pane headers or filler sections.
-7. The main pane stays full viewport width, so sidebars are revealed by
-   scrolling instead of by shrinking the main pane.
+7. The main pane stays full viewport width, so sidebars are revealed by scrolling instead of by
+   shrinking the main pane.
 8. The only behavior code left is the initial mobile jump to the main pane.
 
 ## Non-Goals
@@ -24,5 +24,4 @@
 
 1. It isolates the carousel behavior from the real app.
 2. It makes the shell contract easy to reason about in one file.
-3. It shows which parts are truly required and which parts were accidental
-   complexity.
+3. It shows which parts are truly required and which parts were accidental complexity.

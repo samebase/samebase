@@ -1,15 +1,7 @@
 #!/usr/bin/env node
 import { parsePositiveIntegerOption } from "./lib/cliArgs.ts";
-import {
-  fail,
-  isMainModule,
-  resolveRepoRoot,
-  runMain,
-} from "./lib/scriptRuntime.ts";
-import {
-  resolveStoredLocalBackendPort,
-  stopListeningPort,
-} from "./lib/killport.ts";
+import { fail, isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
+import { resolveStoredLocalBackendPort, stopListeningPort } from "./lib/killport.ts";
 
 const HELP_TEXT = `Usage: scripts/killport.ts [options] [port]
 
@@ -50,11 +42,7 @@ export function parseKillPortArgs(args: string[]): KillPortOptions {
       continue;
     }
     if (arg.startsWith("--port=")) {
-      port = parsePositiveIntegerOption(
-        arg.slice("--port=".length),
-        "--port",
-        HELP_TEXT,
-      );
+      port = parsePositiveIntegerOption(arg.slice("--port=".length), "--port", HELP_TEXT);
       continue;
     }
     if (arg.startsWith("-")) {

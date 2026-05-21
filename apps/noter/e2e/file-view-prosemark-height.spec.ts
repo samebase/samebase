@@ -60,9 +60,7 @@ async function readScrollMetrics(locator: Locator): Promise<ScrollMetrics> {
 }
 
 function workspaceScrollContainer(surface: Locator) {
-  return surface.locator(
-    "xpath=ancestor::div[contains(@class, 'overflow-y-auto')][1]",
-  );
+  return surface.locator("xpath=ancestor::div[contains(@class, 'overflow-y-auto')][1]");
 }
 
 async function wheelSurface(page: Page, surface: Locator) {
@@ -80,11 +78,7 @@ async function wheelSurface(page: Page, surface: Locator) {
   await page.mouse.wheel(0, 1200);
 }
 
-async function swipeSurface(
-  page: Page,
-  scrollContainer: Locator,
-  surface: Locator,
-) {
+async function swipeSurface(page: Page, scrollContainer: Locator, surface: Locator) {
   const [scrollBounds, surfaceBounds] = await Promise.all([
     scrollContainer.boundingBox(),
     surface.boundingBox(),
@@ -109,9 +103,7 @@ async function swipeSurface(
       viewportBottomMargin,
       viewportHeight,
     }) => {
-      const surface = document.querySelector<HTMLElement>(
-        `[data-testid="${dataTestId}"]`,
-      );
+      const surface = document.querySelector<HTMLElement>(`[data-testid="${dataTestId}"]`);
       if (surface === null) {
         return null;
       }
@@ -125,11 +117,7 @@ async function swipeSurface(
       let visibleLineY: number | null = null;
 
       for (
-        let y = Math.max(
-          scrollContainerTop + probeTopOffset,
-          surfaceTop + probeTopOffset,
-          0,
-        );
+        let y = Math.max(scrollContainerTop + probeTopOffset, surfaceTop + probeTopOffset, 0);
         y <= probeBottom;
         y += probeStep
       ) {
@@ -159,15 +147,10 @@ async function swipeSurface(
       probeStep: SWIPE_PROBE_STEP_PX,
       probeTopOffset: SWIPE_PROBE_TOP_OFFSET_PX,
       scrollContainerBottom:
-        scrollBounds.y +
-        scrollBounds.height -
-        SWIPE_SCROLL_CONTAINER_BOTTOM_INSET_PX,
+        scrollBounds.y + scrollBounds.height - SWIPE_SCROLL_CONTAINER_BOTTOM_INSET_PX,
       scrollContainerTop: scrollBounds.y,
       startX: Math.min(
-        Math.max(
-          surfaceBounds.x + surfaceBounds.width / 2,
-          scrollBounds.x + 24,
-        ),
+        Math.max(surfaceBounds.x + surfaceBounds.width / 2, scrollBounds.x + 24),
         scrollBounds.x + scrollBounds.width - 24,
       ),
       surfaceTop: surfaceBounds.y,
@@ -204,10 +187,7 @@ async function swipeSurface(
   }
 }
 
-async function swipeSurfaceHorizontallyToLeftPane(
-  page: Page,
-  surface: Locator,
-) {
+async function swipeSurfaceHorizontallyToLeftPane(page: Page, surface: Locator) {
   const surfaceBounds = await surface.boundingBox();
   expect(surfaceBounds).not.toBeNull();
   if (surfaceBounds === null) {
@@ -221,10 +201,7 @@ async function swipeSurfaceHorizontallyToLeftPane(
 
     const surfaceRect = surfaceNode.getBoundingClientRect();
     const viewportBottomLimit = window.innerHeight - 96;
-    const visibleBottom = Math.min(
-      surfaceRect.bottom - 24,
-      viewportBottomLimit,
-    );
+    const visibleBottom = Math.min(surfaceRect.bottom - 24, viewportBottomLimit);
 
     for (const line of surfaceNode.querySelectorAll<HTMLElement>(".cm-line")) {
       for (const rect of line.getClientRects()) {
@@ -237,8 +214,7 @@ async function swipeSurfaceHorizontallyToLeftPane(
           continue;
         }
 
-        const desiredStartX =
-          rect.left + Math.min(Math.max(rect.width / 3, 24), 80);
+        const desiredStartX = rect.left + Math.min(Math.max(rect.width / 3, 24), 80);
         const startX = Math.min(
           Math.max(desiredStartX, surfaceRect.left + 24),
           surfaceRect.right - 96,
@@ -303,15 +279,12 @@ test("ProseMark keeps the real file-view workspace body scrollable on desktop", 
   await page.setViewportSize({ width: 1440, height: 1000 });
   const { scrollContainer, surface } = await openFixture(page);
   const initialMetrics = await readScrollMetrics(scrollContainer);
-  await expect(scrollContainer).toHaveScreenshot(
-    "fileview-prosemark-flex-height.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      scale: "css",
-      maxDiffPixelRatio: 0.05,
-    },
-  );
+  await expect(scrollContainer).toHaveScreenshot("fileview-prosemark-flex-height.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.05,
+  });
   await wheelSurface(page, surface);
 
   await expect
@@ -328,9 +301,7 @@ test.describe("mobile prose scroll", () => {
     viewport: { width: 390, height: 844 },
   });
 
-  test("ProseMark lets mobile carousel swipes start inside visible prose", async ({
-    page,
-  }) => {
+  test("ProseMark lets mobile carousel swipes start inside visible prose", async ({ page }) => {
     const { surface } = await openFixture(page);
     const shell = workspaceShell(page);
 

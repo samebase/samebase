@@ -1,33 +1,29 @@
 # Lumina: Complete Project Analysis & Technical Deep Dive
 
-> [!WARNING] Historical document from an earlier naming phase (`Lumina`). It is
-> not maintained as the primary source of truth for current Noter behavior. For
-> implementation context, start with `AGENTS.md`, `README.md`, and the specs
-> under `specs/`.
+> [!WARNING] Historical document from an earlier naming phase (`Lumina`). It is not maintained as
+> the primary source of truth for current Noter behavior. For implementation context, start with
+> `AGENTS.md`, `README.md`, and the specs under `specs/`.
 
 ## Executive Summary
 
-Lumina is a sophisticated web-based collaborative code editor that bridges the
-gap between traditional Git workflows and real-time collaborative editing. Built
-as a modern alternative to tools like Notion and Obsidian, it stores all data
-directly on GitHub to minimize vendor lock-in while providing a seamless,
-browser-based editing experience with real-time collaboration capabilities.
+Lumina is a sophisticated web-based collaborative code editor that bridges the gap between
+traditional Git workflows and real-time collaborative editing. Built as a modern alternative to
+tools like Notion and Obsidian, it stores all data directly on GitHub to minimize vendor lock-in
+while providing a seamless, browser-based editing experience with real-time collaboration
+capabilities.
 
 **Key Value Proposition:**
 
-- **Zero Vendor Lock-in**: All your data lives in your GitHub repositories - you
-  own it completely
-- **Real-time Collaborative Editing**: Multiple developers can edit the same
-  files simultaneously with automatic conflict resolution
-- **Instant GitHub Integration**: No setup required - connect any repository and
-  start editing immediately in your browser
-- **Git-Native Workflow**: Seamlessly bridges browser-based editing with
-  traditional Git operations (staging, committing, branching)
-- **Lightweight & Fast**: No heavy IDE setup - just open a URL and start coding
-  collaboratively
+- **Zero Vendor Lock-in**: All your data lives in your GitHub repositories - you own it completely
+- **Real-time Collaborative Editing**: Multiple developers can edit the same files simultaneously
+  with automatic conflict resolution
+- **Instant GitHub Integration**: No setup required - connect any repository and start editing
+  immediately in your browser
+- **Git-Native Workflow**: Seamlessly bridges browser-based editing with traditional Git operations
+  (staging, committing, branching)
+- **Lightweight & Fast**: No heavy IDE setup - just open a URL and start coding collaboratively
 
-_"The collaborative code editor that treats GitHub as your database, not your
-deployment target"_
+_"The collaborative code editor that treats GitHub as your database, not your deployment target"_
 
 ## Architecture Overview
 
@@ -130,8 +126,7 @@ Database Storage → pullUpdates → Other Clients
 
 **Staging States:**
 
-- **Unchanged:**
-  `content === initialContent && !fileDeleted && filePath === initialFilePath`
+- **Unchanged:** `content === initialContent && !fileDeleted && filePath === initialFilePath`
 - **Modified:** Content differs from initial content
 - **Deleted:** `fileDeleted === true`
 - **Renamed:** `filePath !== initialFilePath`
@@ -258,8 +253,7 @@ Database Storage → pullUpdates → Other Clients
 
 ### Indexing Strategy
 
-- **Performance Indexes:** `by_vault`, `by_vault_and_path`,
-  `by_file_and_version`
+- **Performance Indexes:** `by_vault`, `by_vault_and_path`, `by_file_and_version`
 - **User Experience:** `by_user_and_vault` for folder expansion states
 - **Deduplication:** `by_sha` for blob storage
 - **Collaboration:** `by_file` for update queries
@@ -555,16 +549,14 @@ pnpm preview         # Preview production build
 
 ## Conclusion
 
-Lumina represents a sophisticated approach to collaborative code editing that
-successfully bridges the gap between traditional Git workflows and modern
-real-time collaboration. Its architecture demonstrates thoughtful consideration
-of performance, scalability, and user experience while maintaining a strong
-commitment to avoiding vendor lock-in through GitHub-native storage.
+Lumina represents a sophisticated approach to collaborative code editing that successfully bridges
+the gap between traditional Git workflows and modern real-time collaboration. Its architecture
+demonstrates thoughtful consideration of performance, scalability, and user experience while
+maintaining a strong commitment to avoiding vendor lock-in through GitHub-native storage.
 
-The project's technical foundation is solid, with room for growth and
-enhancement. The combination of Convex for real-time functionality, CodeMirror
-for editing, and GitHub for storage creates a unique value proposition in the
-collaborative development tools market.
+The project's technical foundation is solid, with room for growth and enhancement. The combination
+of Convex for real-time functionality, CodeMirror for editing, and GitHub for storage creates a
+unique value proposition in the collaborative development tools market.
 
 **Key Strengths:**
 
@@ -582,11 +574,10 @@ collaborative development tools market.
 - Enterprise feature set
 - Performance optimization
 
-Lumina is well-positioned to capture market share in the collaborative
-development tools space, particularly among users who value data ownership and
-seamless GitHub integration.
+Lumina is well-positioned to capture market share in the collaborative development tools space,
+particularly among users who value data ownership and seamless GitHub integration.
 
 ---
 
-_This analysis was generated through comprehensive code examination and
-architectural review of the Lumina project as of the current state._
+_This analysis was generated through comprehensive code examination and architectural review of the
+Lumina project as of the current state._

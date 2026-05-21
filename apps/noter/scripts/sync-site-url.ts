@@ -27,15 +27,9 @@
  */
 
 import { spawnSync } from "child_process";
-import {
-  resolveSiteUrlSyncOrigin,
-  usesLocalConvexDeployment,
-} from "./convex-local-utils.ts";
+import { resolveSiteUrlSyncOrigin, usesLocalConvexDeployment } from "./convex-local-utils.ts";
 
-const writeProcessOutput = (
-  stream: NodeJS.WriteStream,
-  value: string | null | undefined,
-): void => {
+const writeProcessOutput = (stream: NodeJS.WriteStream, value: string | null | undefined): void => {
   if (typeof value === "string" && value.length > 0) {
     stream.write(value);
   }

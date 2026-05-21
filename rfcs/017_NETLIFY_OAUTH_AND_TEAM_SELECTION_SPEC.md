@@ -12,9 +12,9 @@
 
 ## Summary
 
-Noter uses Netlify OAuth to connect a user’s Netlify account for BYO hosting.
-OAuth callback exchanges the code server-side and stores the connection in
-`providerConnections` (`kind = "netlify"`).
+Noter uses Netlify OAuth to connect a user’s Netlify account for BYO hosting. OAuth callback
+exchanges the code server-side and stores the connection in `providerConnections`
+(`kind = "netlify"`).
 
 ## Goals
 
@@ -51,8 +51,7 @@ OAuth callback exchanges the code server-side and stores the connection in
 
 ## Data Model
 
-Uses `providerConnections` from spec 026. No provider token fields on `users`
-are source-of-truth.
+Uses `providerConnections` from spec 026. No provider token fields on `users` are source-of-truth.
 
 ## Configuration
 

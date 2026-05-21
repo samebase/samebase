@@ -8,9 +8,7 @@ type AnonymousLocalPortPair = {
   site: number;
 };
 
-export function listAnonymousLocalPortCandidates(
-  worktreeRoot: string,
-): AnonymousLocalPortPair[] {
+export function listAnonymousLocalPortCandidates(worktreeRoot: string): AnonymousLocalPortPair[] {
   const digest = createHash("sha256").update(worktreeRoot).digest();
   const startIndex = digest.readUInt32BE(0) % ANONYMOUS_LOCAL_PORT_PAIR_COUNT;
 

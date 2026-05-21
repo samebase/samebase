@@ -23,8 +23,8 @@ simpleView:
 
 # noter.md
 
-At the top of markdown you can define arguments/properties with frontmatter.
-This is commonly used to pass metadata to `tsx_md` or other markdown pipelines.
+At the top of markdown you can define arguments/properties with frontmatter. This is commonly used
+to pass metadata to `tsx_md` or other markdown pipelines.
 
 ## Frontmatter (recommended)
 

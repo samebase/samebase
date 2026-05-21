@@ -31,9 +31,7 @@ describe("resolveProsemarkMergeViewConfig", () => {
       SYNTAX_HIGHLIGHT_DELETIONS,
     );
 
-    expect(prosemarkMergeViewConfigsEqual(initialConfig, extendedConfig)).toBe(
-      true,
-    );
+    expect(prosemarkMergeViewConfigsEqual(initialConfig, extendedConfig)).toBe(true);
   });
 
   it("keeps trailing-newline-only edits visible", () => {
@@ -74,11 +72,6 @@ describe("resolveProsemarkMergeViewConfig", () => {
       SYNTAX_HIGHLIGHT_DELETIONS,
     );
 
-    expect(
-      prosemarkMergeViewConfigsEqual(
-        appendOnlyConfig,
-        editedExistingLineConfig,
-      ),
-    ).toBe(false);
+    expect(prosemarkMergeViewConfigsEqual(appendOnlyConfig, editedExistingLineConfig)).toBe(false);
   });
 });

@@ -11,9 +11,7 @@ function readDocumentThemeMode(): DocumentThemeMode {
 }
 
 export function useDocumentThemeMode(): DocumentThemeMode {
-  const [themeMode, setThemeMode] = useState<DocumentThemeMode>(() =>
-    readDocumentThemeMode(),
-  );
+  const [themeMode, setThemeMode] = useState<DocumentThemeMode>(() => readDocumentThemeMode());
 
   useEffect(() => {
     if (typeof document === "undefined") {

@@ -43,10 +43,7 @@ type MakeRepositoryRefreshRequestArgsForScopeSource<
   demand: Extract<RepositoryRefreshDemand, { scope: Scope; source: Source }>;
 };
 
-type DemandMatrixRow<
-  Scope extends RepositoryRefreshScope,
-  Source extends SourceForScope<Scope>,
-> = {
+type DemandMatrixRow<Scope extends RepositoryRefreshScope, Source extends SourceForScope<Scope>> = {
   scope: Scope;
   source: Source;
   expectedPriority: RepositoryRefreshPriority;
@@ -85,8 +82,7 @@ const demandMatrix = {
       scope: "repository",
       source: "manual",
       expectedPriority: "manual",
-      story:
-        "User clicks a vault-level refresh control; backend decides how deep to refresh.",
+      story: "User clicks a vault-level refresh control; backend decides how deep to refresh.",
       make: ({ ids }) => ({
         userId: ids.userId,
         vaultId: ids.vaultId,
@@ -122,8 +118,7 @@ const demandMatrix = {
       scope: "branch",
       source: "file_view",
       expectedPriority: "normal",
-      story:
-        "A file route becomes active and asks for the branch it is showing.",
+      story: "A file route becomes active and asks for the branch it is showing.",
       make: ({ ids }) => ({
         userId: ids.userId,
         vaultId: ids.vaultId,
@@ -140,8 +135,7 @@ const demandMatrix = {
       scope: "branch",
       source: "manual",
       expectedPriority: "manual",
-      story:
-        "User asks a specific branch to refresh; backend decides branch-scoped steps.",
+      story: "User asks a specific branch to refresh; backend decides branch-scoped steps.",
       make: ({ ids }) => ({
         userId: ids.userId,
         vaultId: ids.vaultId,
@@ -158,8 +152,7 @@ const demandMatrix = {
       scope: "branch",
       source: "commit",
       expectedPriority: "system",
-      story:
-        "A local commit changed one branch; persisted branch-visible state must catch up.",
+      story: "A local commit changed one branch; persisted branch-visible state must catch up.",
       make: ({ ids }) => ({
         userId: ids.userId,
         vaultId: ids.vaultId,
@@ -195,16 +188,13 @@ const demandMatrix = {
 
 type ScopeMatrixRow = {
   story: string;
-  makeDemand: (
-    context: RepositoryRefreshMatrixContext,
-  ) => RepositoryRefreshDemand;
+  makeDemand: (context: RepositoryRefreshMatrixContext) => RepositoryRefreshDemand;
   expectedDedupeKey: (ids: RepositoryRefreshMatrixContext["ids"]) => string;
 };
 
 const scopeMatrix = {
   repository: {
-    story:
-      "Repository demand is vault-wide and has no branch, provider, or metadata-depth fields.",
+    story: "Repository demand is vault-wide and has no branch, provider, or metadata-depth fields.",
     makeDemand: ({ runId }) => ({
       scope: "repository",
       source: "source_setup",
@@ -213,8 +203,7 @@ const scopeMatrix = {
     expectedDedupeKey: () => "repository",
   },
   branch: {
-    story:
-      "Branch demand is branch-scoped and cannot exist without a branch name.",
+    story: "Branch demand is branch-scoped and cannot exist without a branch name.",
     makeDemand: () => ({
       scope: "branch",
       branch: "main",
@@ -233,8 +222,7 @@ type LifecycleMatrixRow = {
 const lifecycleMatrix = {
   queued: {
     fields: ["notBefore", "queuedAt", "state"],
-    story:
-      "Queued work has durable demand only; no Workpool job or worker lease exists yet.",
+    story: "Queued work has durable demand only; no Workpool job or worker lease exists yet.",
     makeLifecycle: () => ({
       state: "queued",
       notBefore: 10,
@@ -266,8 +254,7 @@ const lifecycleMatrix = {
   },
   succeeded: {
     fields: ["completedAt", "result", "startedAt", "state"],
-    story:
-      "Succeeded work keeps the worker timing plus the successful outcome only.",
+    story: "Succeeded work keeps the worker timing plus the successful outcome only.",
     makeLifecycle: () => ({
       state: "succeeded",
       startedAt: 11,
@@ -277,8 +264,7 @@ const lifecycleMatrix = {
   },
   failed: {
     fields: ["failedAt", "failure", "startedAt", "state"],
-    story:
-      "Failed work keeps the worker timing plus the retry/cooldown failure only.",
+    story: "Failed work keeps the worker timing plus the retry/cooldown failure only.",
     makeLifecycle: () => ({
       state: "failed",
       startedAt: 11,
@@ -292,8 +278,7 @@ const lifecycleMatrix = {
   },
   canceled: {
     fields: ["canceledAt", "reason", "state"],
-    story:
-      "Canceled work records why the row stopped without preserving a worker result.",
+    story: "Canceled work records why the row stopped without preserving a worker result.",
     makeLifecycle: () => ({
       state: "canceled",
       canceledAt: 13,
@@ -349,16 +334,11 @@ describe("repository refresh model", () => {
 
         expect(request.demand.scope).toBe(row.scope);
         expect(request.demand.source).toBe(row.source);
-        expect(getRepositoryRefreshPriority(request.demand)).toBe(
-          row.expectedPriority,
-        );
+        expect(getRepositoryRefreshPriority(request.demand)).toBe(row.expectedPriority);
         expect(request.dedupeKey).toBe(row.expectedDedupeKey(context));
 
         const stored = await context.t.run(async (ctx) => {
-          const requestId = await ctx.db.insert(
-            "repositoryRefreshRequests",
-            request,
-          );
+          const requestId = await ctx.db.insert("repositoryRefreshRequests", request);
           return await ctx.db.get(requestId);
         });
         expect(stored).toMatchObject(request);
@@ -373,9 +353,7 @@ describe("repository refresh model", () => {
       const demand = row.makeDemand(context);
 
       expect(demand.scope).toBe(scope);
-      expect(deriveRepositoryRefreshDedupeKey(demand)).toBe(
-        row.expectedDedupeKey(),
-      );
+      expect(deriveRepositoryRefreshDedupeKey(demand)).toBe(row.expectedDedupeKey());
     }
   });
 
@@ -418,10 +396,7 @@ describe("repository refresh model", () => {
     });
 
     const stored = await t.run(async (ctx) => {
-      const requestId = await ctx.db.insert(
-        "repositoryRefreshRequests",
-        request,
-      );
+      const requestId = await ctx.db.insert("repositoryRefreshRequests", request);
       return await ctx.db.get(requestId);
     });
     expect(stored).toMatchObject(request);
@@ -450,10 +425,7 @@ describe("repository refresh model", () => {
     });
 
     const stored = await t.run(async (ctx) => {
-      const requestId = await ctx.db.insert(
-        "repositoryRefreshRequests",
-        request,
-      );
+      const requestId = await ctx.db.insert("repositoryRefreshRequests", request);
       return await ctx.db.get(requestId);
     });
     expect(stored).toMatchObject(request);
@@ -594,9 +566,7 @@ describe("repository refresh model", () => {
         now: 13,
         reason: "superseded",
       }),
-    ).toThrow(
-      "Only queued, scheduled, or running repository refresh requests can be canceled.",
-    );
+    ).toThrow("Only queued, scheduled, or running repository refresh requests can be canceled.");
   });
 });
 

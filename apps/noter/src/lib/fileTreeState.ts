@@ -9,10 +9,7 @@ export function getAncestorFolderPaths(path: string): string[] {
   let currentPath = "";
 
   for (let index = 0; index < pathSegments.length - 1; index += 1) {
-    currentPath =
-      index === 0
-        ? pathSegments[index]
-        : `${currentPath}/${pathSegments[index]}`;
+    currentPath = index === 0 ? pathSegments[index] : `${currentPath}/${pathSegments[index]}`;
     folderPaths.push(currentPath);
   }
 
@@ -29,9 +26,7 @@ export function buildEffectiveFolderExpansionStates(args: {
     return args.folderExpansionStates;
   }
 
-  const nextStates = new Map(
-    args.folderExpansionStates.map((state) => [state.folderPath, state]),
-  );
+  const nextStates = new Map(args.folderExpansionStates.map((state) => [state.folderPath, state]));
 
   for (const folderPath of args.autoExpandedPaths) {
     if (args.manualExpansionOverrides.has(folderPath)) {

@@ -11,13 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  CodeIcon,
-  ExternalLinkIcon,
-  MagicWandIcon,
-  PlayIcon,
-  StackIcon,
-} from "@/lib/radixIcons";
+import { CodeIcon, ExternalLinkIcon, MagicWandIcon, PlayIcon, StackIcon } from "@/lib/radixIcons";
 import { ReactNode } from "react";
 
 export function GetStartedDialog({ children }: { children: ReactNode }) {
@@ -45,8 +39,7 @@ function GetStartedContent() {
   return (
     <div className="overflow-y-auto">
       <p className="text-muted-foreground mb-2">
-        This template is a starting point for building your fullstack web
-        application.
+        This template is a starting point for building your fullstack web application.
       </p>
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
@@ -83,8 +76,7 @@ function GetStartedContent() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            Edit <Code>convex/messages.ts</Code> to change the backend
-            functionality.
+            Edit <Code>convex/messages.ts</Code> to change the backend functionality.
           </CardContent>
         </Card>
         <Card>
@@ -95,8 +87,7 @@ function GetStartedContent() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            Edit <Code>src/components/RootIndexRoutePage.tsx</Code> to change
-            your frontend.
+            Edit <Code>src/components/RootIndexRoutePage.tsx</Code> to change your frontend.
           </CardContent>
         </Card>
       </div>
@@ -107,16 +98,15 @@ function GetStartedContent() {
             Read comprehensive documentation for all Convex features.
           </Resource>
           <Resource title="Stack articles" href="https://stack.convex.dev/">
-            Learn about best practices, use cases, and more from a growing
-            collection of articles, videos, and walkthroughs.
+            Learn about best practices, use cases, and more from a growing collection of articles,
+            videos, and walkthroughs.
           </Resource>
           <Resource title="Discord" href="https://www.convex.dev/community">
-            Join our developer community to ask questions, trade tips & tricks,
-            and show off your projects.
+            Join our developer community to ask questions, trade tips & tricks, and show off your
+            projects.
           </Resource>
           <Resource title="Search them all" href="https://search.convex.dev/">
-            Get unblocked quickly by searching across the docs, Stack, and
-            Discord chats.
+            Get unblocked quickly by searching across the docs, Stack, and Discord chats.
           </Resource>
         </div>
       </div>
@@ -124,15 +114,7 @@ function GetStartedContent() {
   );
 }
 
-function Resource({
-  title,
-  children,
-  href,
-}: {
-  title: string;
-  children: ReactNode;
-  href: string;
-}) {
+function Resource({ title, children, href }: { title: string; children: ReactNode; href: string }) {
   return (
     <Button
       asChild

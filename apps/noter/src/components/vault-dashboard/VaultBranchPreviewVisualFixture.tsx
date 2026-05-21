@@ -48,11 +48,7 @@ function resolveCommentBody(mode: VaultBranchPreviewVisualMode): string {
   return NON_CLOUDFLARE_COMMENT_BODY;
 }
 
-export function VaultBranchPreviewVisualFixture({
-  mode,
-}: {
-  mode: VaultBranchPreviewVisualMode;
-}) {
+export function VaultBranchPreviewVisualFixture({ mode }: { mode: VaultBranchPreviewVisualMode }) {
   const preview = parseCloudflarePreviewComment(resolveCommentBody(mode));
 
   return (
@@ -76,8 +72,7 @@ export function VaultBranchPreviewVisualFixture({
               behindBy: 0,
               pullRequestUrl: "https://github.com/noter-md/noter/pull/290",
               pullRequestNumber: 290,
-              pullRequestTitle:
-                "Show PR names and labels above branch metadata",
+              pullRequestTitle: "Show PR names and labels above branch metadata",
               pullRequestLabels: [
                 { name: "needs review", color: "fbca04" },
                 { name: "dashboard", color: "0e8a16" },

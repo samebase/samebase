@@ -16,9 +16,7 @@ test("vault last updated status fixture", async ({ page }) => {
   });
 });
 
-test("vault last updated status fixture refreshes on click", async ({
-  page,
-}) => {
+test("vault last updated status fixture refreshes on click", async ({ page }) => {
   await page.setViewportSize({ width: 420, height: 220 });
   await page.goto("/visual-fixture?mode=vault-last-updated-status", {
     waitUntil: "domcontentloaded",
@@ -28,9 +26,7 @@ test("vault last updated status fixture refreshes on click", async ({
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
   await expect(fixture).toHaveAttribute("data-refresh-count", "0");
 
-  await page
-    .getByRole("button", { name: "Refresh noter-md/noter now" })
-    .click();
+  await page.getByRole("button", { name: "Refresh noter-md/noter now" }).click();
 
   await expect(fixture).toHaveAttribute("data-refresh-count", "1");
 });

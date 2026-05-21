@@ -15,42 +15,39 @@
 
 ## Prompt
 
-Research how Noter currently provisions Cloudflare Pages for generated
-`notermd/app` repositories, then map what has to change before Noter can
-provision Cloudflare Workers Static Assets through Workers Builds instead.
+Research how Noter currently provisions Cloudflare Pages for generated `notermd/app` repositories,
+then map what has to change before Noter can provision Cloudflare Workers Static Assets through
+Workers Builds instead.
 
-The immediate product goal is to make the public `notermd/app` template use
-Cloudflare Workers, then replace Noter's automatic Pages provisioning with
-Workers provisioning. This research started before implementation; later notes
-record constraints learned while building the first Workers provisioning PR.
+The immediate product goal is to make the public `notermd/app` template use Cloudflare Workers, then
+replace Noter's automatic Pages provisioning with Workers provisioning. This research started before
+implementation; later notes record constraints learned while building the first Workers provisioning
+PR.
 
 ## Current Finding
 
-Noter's current app creation path is deeply Cloudflare Pages-shaped. Replacing
-it with Workers is feasible, but it is a provider-adapter migration, not a
-template-only change.
+Noter's current app creation path is deeply Cloudflare Pages-shaped. Replacing it with Workers is
+feasible, but it is a provider-adapter migration, not a template-only change.
 
-The product should still present one supported stack. Noter does not yet have
-external users who require backwards compatibility, and the operator can remove
-or rewrite production data before deploying a breaking migration. Therefore the
-default implementation should not preserve Cloudflare Pages support unless doing
-so is clearly simpler than deleting it. Pages should be treated as the old stack
-being replaced, not as a second provider Noter intends to maintain.
+The product should still present one supported stack. Noter does not yet have external users who
+require backwards compatibility, and the operator can remove or rewrite production data before
+deploying a breaking migration. Therefore the default implementation should not preserve Cloudflare
+Pages support unless doing so is clearly simpler than deleting it. Pages should be treated as the
+old stack being replaced, not as a second provider Noter intends to maintain.
 
-The runtime app creation flow does not clone or preserve the public
-`notermd/app` commit history. Noter exports a selected `notermd/app` branch into
-`apps/noter/convex/starterSeedManifest.generated.ts`, then seeds the user's new
-GitHub repository as one starter commit. The pedagogical history stays in
-`notermd/app`; the generated user repository receives a snapshot.
+The runtime app creation flow does not clone or preserve the public `notermd/app` commit history.
+Noter exports a selected `notermd/app` branch into
+`apps/noter/convex/starterSeedManifest.generated.ts`, then seeds the user's new GitHub repository as
+one starter commit. The pedagogical history stays in `notermd/app`; the generated user repository
+receives a snapshot.
 
-Cloudflare Pages provisioning currently depends on Pages-specific API endpoints,
-build env semantics, preview comments, URL shapes, domain source values, status
-reads, log reads, and deletion behavior.
+Cloudflare Pages provisioning currently depends on Pages-specific API endpoints, build env
+semantics, preview comments, URL shapes, domain source values, status reads, log reads, and deletion
+behavior.
 
 ## Current Template Snapshot
 
-Before the Workers implementation, the generated starter manifest pointed at
-`notermd/app@main`:
+Before the Workers implementation, the generated starter manifest pointed at `notermd/app@main`:
 
 - `sourceRepo`: `https://github.com/notermd/app.git`
 - `sourceBranch`: `main`
@@ -71,9 +68,9 @@ The exported package is still Pages-oriented:
 }
 ```
 
-The Workers artifact currently lives in `notermd/app` branch
-`v5-tanstack-start-workers`. It uses Workers Static Assets, a `wrangler.jsonc`,
-`pnpm run build`, `pnpm run deploy`, and `pnpm run deploy:preview`.
+The Workers artifact currently lives in `notermd/app` branch `v5-tanstack-start-workers`. It uses
+Workers Static Assets, a `wrangler.jsonc`, `pnpm run build`, `pnpm run deploy`, and
+`pnpm run deploy:preview`.
 
 The first Workers provisioning implementation branch exports:
 
@@ -81,19 +78,18 @@ The first Workers provisioning implementation branch exports:
 - `sourceCommit`: `5df04d0d2a2883b4d480218a716bf9438461f11e`
 - `version`: `notermd-app-5df04d0d2a28`
 
-That branch is good enough for auto-provisioning. Commit numbering and template
-copy can still improve later without blocking the Noter implementation.
+That branch is good enough for auto-provisioning. Commit numbering and template copy can still
+improve later without blocking the Noter implementation.
 
 ## Current Noter Flow
 
 ### 1. User Starts App Creation
 
-`apps/noter/convex/vault/actions.ts:createRepository` creates an initializing
-Noter-managed vault and provisioning run, then starts
-`internal.appProvisioningWorkflow.startCreateAppProvisioning`.
+`apps/noter/convex/vault/actions.ts:createRepository` creates an initializing Noter-managed vault
+and provisioning run, then starts `internal.appProvisioningWorkflow.startCreateAppProvisioning`.
 
-The action requires GitHub only at this first boundary. Convex and Cloudflare
-connections are checked inside the workflow.
+The action requires GitHub only at this first boundary. Convex and Cloudflare connections are
+checked inside the workflow.
 
 ### 2. Convex Workflow Orchestrates Creation
 
@@ -111,19 +107,17 @@ connections are checked inside the workflow.
 10. `ensure_cloudflare`
 11. `finish`
 
-The existing-repository path intentionally does not auto-provision Convex or
-Cloudflare.
+The existing-repository path intentionally does not auto-provision Convex or Cloudflare.
 
 ### 3. Starter Seeding Uses One Snapshot Commit
 
-`scripts/export-notermd-app-manifest.ts` downloads the selected `notermd/app`
-branch archive from GitHub, collects all files, computes a content hash, and
-writes `apps/noter/convex/starterSeedManifest.generated.ts`.
+`scripts/export-notermd-app-manifest.ts` downloads the selected `notermd/app` branch archive from
+GitHub, collects all files, computes a content hash, and writes
+`apps/noter/convex/starterSeedManifest.generated.ts`.
 
-`apps/noter/convex/starterSeed.ts:seedRepositoryWithStarter` creates one GitHub
-commit with the manifest tree and no parents. If the target repository is empty,
-it first creates a temporary bootstrap commit and then force-updates the default
-branch to the starter commit.
+`apps/noter/convex/starterSeed.ts:seedRepositoryWithStarter` creates one GitHub commit with the
+manifest tree and no parents. If the target repository is empty, it first creates a temporary
+bootstrap commit and then force-updates the default branch to the starter commit.
 
 This means changing the generated template content requires:
 
@@ -135,31 +129,27 @@ or whatever final Workers branch replaces it.
 
 ### 4. Convex Production And Preview Deployments Are Created First
 
-`apps/noter/convex/infraProvisioning.ts:ensureCloudflareInfrastructure` requires
-the production Convex project/deployment to exist before Cloudflare
-provisioning.
+`apps/noter/convex/infraProvisioning.ts:ensureCloudflareInfrastructure` requires the production
+Convex project/deployment to exist before Cloudflare provisioning.
 
-During the Cloudflare step, Noter also ensures a Convex preview deployment and
-creates two deploy keys:
+During the Cloudflare step, Noter also ensures a Convex preview deployment and creates two deploy
+keys:
 
 1. production deploy key for the production Convex deployment
 2. preview deploy key for the preview Convex deployment
 
-Those keys are then injected into Cloudflare's production and preview build
-settings.
+Those keys are then injected into Cloudflare's production and preview build settings.
 
-For the Workers target, Noter injects those keys with the same names the public
-template and Noter production build use: `PROD_CONVEX_DEPLOY_KEY` for the
-production trigger and `PREVIEW_CONVEX_DEPLOY_KEY` for the preview trigger. Even
-though Workers Builds API triggers can isolate environment variables per
-trigger, using the split names keeps manual template setup, Noter app
-provisioning, and Noter production on one eventual contract.
+For the Workers target, Noter injects those keys with the same names the public template and Noter
+production build use: `PROD_CONVEX_DEPLOY_KEY` for the production trigger and
+`PREVIEW_CONVEX_DEPLOY_KEY` for the preview trigger. Even though Workers Builds API triggers can
+isolate environment variables per trigger, using the split names keeps manual template setup, Noter
+app provisioning, and Noter production on one eventual contract.
 
 ### 5. Pages Project Is Created Or Patched
 
-`apps/noter/convex/cloudflareResources.ts:ensureCloudflareResources` is the
-current Pages adapter. It calls the Cloudflare API through Cloudflare MCP
-`execute`, using `cloudflare.request`.
+`apps/noter/convex/cloudflareResources.ts:ensureCloudflareResources` is the current Pages adapter.
+It calls the Cloudflare API through Cloudflare MCP `execute`, using `cloudflare.request`.
 
 Pages endpoints currently used:
 
@@ -209,8 +199,7 @@ The Pages create/patch payload includes:
 }
 ```
 
-For the current single-package template, Noter resolves the Pages build config
-as:
+For the current single-package template, Noter resolves the Pages build config as:
 
 ```ts
 {
@@ -247,25 +236,23 @@ After Pages provisioning succeeded, Noter recorded:
 
 1. `vaultInfrastructure.cloudflare`
 2. `vaults.cloudflare`
-3. a `vaultDomains` row for the default branch with source
-   `cloudflare_pages_default`
+3. a `vaultDomains` row for the default branch with source `cloudflare_pages_default`
 
-The Workers migration keeps Cloudflare resource state on `vaults.cloudflare`,
-removes the duplicate `vaultInfrastructure.cloudflare` copy, and records Worker
-domain sources instead of Pages domain sources.
+The Workers migration keeps Cloudflare resource state on `vaults.cloudflare`, removes the duplicate
+`vaultInfrastructure.cloudflare` copy, and records Worker domain sources instead of Pages domain
+sources.
 
-`vaultInfrastructure` should stay a Convex resource record only. Its old
-`status`, `lastError`, `provisioningVersion`, and `lastProvisionedAt` fields are
-separate operational axes that can contradict the vault provider states,
-Workflow run state, and ownership row.
+`vaultInfrastructure` should stay a Convex resource record only. Its old `status`, `lastError`,
+`provisioningVersion`, and `lastProvisionedAt` fields are separate operational axes that can
+contradict the vault provider states, Workflow run state, and ownership row.
 
 ### 7. Preview Links Come From GitHub Comments
 
-Noter does not currently read preview URLs from Cloudflare's API. Instead,
-branch refresh parses PR comments from `cloudflare-workers-and-pages[bot]`.
+Noter does not currently read preview URLs from Cloudflare's API. Instead, branch refresh parses PR
+comments from `cloudflare-workers-and-pages[bot]`.
 
-`apps/noter/convex/cloudflarePreviewComment.ts` expects a Cloudflare Pages
-comment with table fields such as:
+`apps/noter/convex/cloudflarePreviewComment.ts` expects a Cloudflare Pages comment with table fields
+such as:
 
 1. `Preview URL`
 2. `Branch Preview URL`
@@ -283,9 +270,9 @@ The parsed values are cached on `vaultRemoteBranches`:
 6. `cloudflarePreviewLogsUrl`
 7. `cloudflarePreviewCommentCreatedAt`
 
-This is the highest-risk migration dependency. If Workers Builds comments differ
-from Pages comments, Noter should move preview metadata to a first-party
-Cloudflare Builds API read instead of extending a brittle comment parser.
+This is the highest-risk migration dependency. If Workers Builds comments differ from Pages
+comments, Noter should move preview metadata to a first-party Cloudflare Builds API read instead of
+extending a brittle comment parser.
 
 ### 8. Status, Logs, Inventory, And Deletion Were Pages-Specific
 
@@ -303,29 +290,27 @@ Previous deletion planning deleted the Pages project through:
 DELETE /accounts/:accountId/pages/projects/:projectName
 ```
 
-Workers migration has to replace these paths with Worker script, Workers Builds,
-deployment, and build log equivalents.
+Workers migration has to replace these paths with Worker script, Workers Builds, deployment, and
+build log equivalents.
 
 ## Workers Target Shape
 
-Cloudflare Workers Builds is the closest equivalent to Pages Git integration.
-Current Cloudflare docs describe Workers Builds as a two-step pipeline:
+Cloudflare Workers Builds is the closest equivalent to Pages Git integration. Current Cloudflare
+docs describe Workers Builds as a two-step pipeline:
 
 1. build command
 2. deploy command
 
-For non-production branch builds, Workers Builds uses a separate non-production
-branch deploy command. The default production deploy command is
-`npx wrangler deploy`; the default non-production deploy command is
-`npx wrangler versions upload`, which creates a preview version without
-promoting it to active production traffic.
+For non-production branch builds, Workers Builds uses a separate non-production branch deploy
+command. The default production deploy command is `npx wrangler deploy`; the default non-production
+deploy command is `npx wrangler versions upload`, which creates a preview version without promoting
+it to active production traffic.
 
 Workers branch behavior is closer to the model Noter wants:
 
 1. the production branch runs the build command then deploy command
 2. non-production branches can be enabled separately
-3. non-production branches run the build command then the non-production deploy
-   command
+3. non-production branches run the build command then the non-production deploy command
 4. preview URLs and pull request comments require non-production branch builds
 
 Relevant Cloudflare API surface from the Workers Builds docs:
@@ -333,40 +318,34 @@ Relevant Cloudflare API surface from the Workers Builds docs:
 1. `GET /accounts/:accountId/workers/scripts` to find the Worker tag
 2. `PUT /accounts/:accountId/builds/repos/connections` to connect a GitHub repo
 3. `GET /accounts/:accountId/builds/tokens` to find a build token
-4. `POST /accounts/:accountId/builds/triggers` to create production and preview
-   triggers
-5. `PATCH /accounts/:accountId/builds/triggers/:triggerUuid/environment_variables`
-   to set per-trigger build variables and secrets
-6. `POST /accounts/:accountId/builds/triggers/:triggerUuid/builds` to trigger a
-   build
+4. `POST /accounts/:accountId/builds/triggers` to create production and preview triggers
+5. `PATCH /accounts/:accountId/builds/triggers/:triggerUuid/environment_variables` to set
+   per-trigger build variables and secrets
+6. `POST /accounts/:accountId/builds/triggers/:triggerUuid/builds` to trigger a build
 7. `GET /accounts/:accountId/builds/workers/:workerTag/builds` to list builds
 8. `GET /accounts/:accountId/builds/builds/:buildUuid/logs` to read logs
-9. `GET /accounts/:accountId/workers/scripts/:workerName/deployments` to inspect
-   active Worker deployments
+9. `GET /accounts/:accountId/workers/scripts/:workerName/deployments` to inspect active Worker
+   deployments
 
-Cloudflare's docs state the Builds API requires token-backed credentials for
-configuration. The user-facing Noter flow must still stay web-authenticated
-through the Cloudflare MCP OAuth connection, not a manual API-token setup. Local
-and preview deployments can use operator-seeded Cloudflare credentials, but
-those credentials need the equivalent of Workers Scripts edit, Workers Builds
-Configuration edit, and Account Settings read.
+Cloudflare's docs state the Builds API requires token-backed credentials for configuration. The
+user-facing Noter flow must still stay web-authenticated through the Cloudflare MCP OAuth
+connection, not a manual API-token setup. Local and preview deployments can use operator-seeded
+Cloudflare credentials, but those credentials need the equivalent of Workers Scripts edit, Workers
+Builds Configuration edit, and Account Settings read.
 
 ## Implementation Follow-up
 
 The first Workers auto-provisioning implementation chose this shape:
 
-1. Export `notermd/app@v5-tanstack-start-workers` into
-   `starterSeedManifest.generated.ts`.
+1. Export `notermd/app@v5-tanstack-start-workers` into `starterSeedManifest.generated.ts`.
 2. Keep Cloudflare user authentication on the existing web/MCP OAuth path.
-3. Fail closed with reconnect copy when the Cloudflare connection lacks Workers
-   Builds access.
-4. Derive deterministic Worker names from owner, repository, and the vault
-   suffix so retries target the same Worker without storing a second copy.
-5. Create or read the Worker through the Workers API and enable `workers.dev`
-   plus preview URLs.
+3. Fail closed with reconnect copy when the Cloudflare connection lacks Workers Builds access.
+4. Derive deterministic Worker names from owner, repository, and the vault suffix so retries target
+   the same Worker without storing a second copy.
+5. Create or read the Worker through the Workers API and enable `workers.dev` plus preview URLs.
 6. Connect GitHub through Workers Builds repository connections.
-7. Verify the current Cloudflare credential, then create or reuse the Workers
-   Builds build token tied to that credential.
+7. Verify the current Cloudflare credential, then create or reuse the Workers Builds build token
+   tied to that credential.
 8. Create or patch production and preview Workers Builds triggers.
 9. Configure generated single-repository apps with:
    - build command: `pnpm run build`
@@ -374,21 +353,20 @@ The first Workers auto-provisioning implementation chose this shape:
    - preview deploy command: `pnpm run deploy:preview`
 10. Keep a temporary monorepo fallback with root `apps/noter`, `pnpm run build`,
     `pnpm exec wrangler deploy`, and `pnpm exec wrangler versions upload`.
-11. Store only `accountId`, `workerName`, `workerTag`, and `productionUrl` on
-    the vault's Cloudflare state.
-12. Rediscover Workers Builds triggers from `workerTag` before deleting the
-    Worker during vault teardown.
+11. Store only `accountId`, `workerName`, `workerTag`, and `productionUrl` on the vault's Cloudflare
+    state.
+12. Rediscover Workers Builds triggers from `workerTag` before deleting the Worker during vault
+    teardown.
 
-The first implementation did not finish the branch-preview metadata migration.
-The old Cloudflare Pages PR-comment parser still exists, so preview URLs remain
-the main follow-up risk.
+The first implementation did not finish the branch-preview metadata migration. The old Cloudflare
+Pages PR-comment parser still exists, so preview URLs remain the main follow-up risk.
 
 ## Expected Noter Migration Work
 
 ### 1. Template Export
 
-Once `notermd/app` has a final Workers branch or main is updated, refresh the
-starter manifest from that source:
+Once `notermd/app` has a final Workers branch or main is updated, refresh the starter manifest from
+that source:
 
 ```bash
 pnpm run template:export -- --branch v5-tanstack-start-workers
@@ -405,14 +383,13 @@ This alone does not change automatic Cloudflare provisioning.
 
 ### 2. Replace Pages Adapter With Workers Code
 
-Replace the Pages implementation with Workers behavior. The current
-`cloudflareResources.ts` owns Pages errors, Pages endpoints, Pages status/log
-reads, and Pages deletion. If the migration PR can delete or rewrite those paths
-directly, prefer that over introducing a long-term Pages/Workers abstraction.
+Replace the Pages implementation with Workers behavior. The current `cloudflareResources.ts` owns
+Pages errors, Pages endpoints, Pages status/log reads, and Pages deletion. If the migration PR can
+delete or rewrite those paths directly, prefer that over introducing a long-term Pages/Workers
+abstraction.
 
-Only keep a temporary Pages branch if it reduces implementation risk for the
-first deploy. It should not become a supported product path unless a real user
-need appears.
+Only keep a temporary Pages branch if it reduces implementation risk for the first deploy. It should
+not become a supported product path unless a real user need appears.
 
 Minimum Workers resource operations:
 
@@ -437,14 +414,12 @@ The Workers implementation only needs durable Cloudflare state on the vault:
 3. `workerTag`
 4. `productionUrl`
 
-Do not store account subdomain, repo connection IDs, or trigger UUIDs unless a
-current shipped path needs them. The provisioning and deletion paths can
-rediscover trigger UUIDs from `workerTag`.
+Do not store account subdomain, repo connection IDs, or trigger UUIDs unless a current shipped path
+needs them. The provisioning and deletion paths can rediscover trigger UUIDs from `workerTag`.
 
-Because production data can be cleared or migrated manually, this does not need
-a wide compatibility union that preserves the old Pages shape indefinitely.
-Prefer the simplest Workers state that the new provisioning and deletion paths
-need.
+Because production data can be cleared or migrated manually, this does not need a wide compatibility
+union that preserves the old Pages shape indefinitely. Prefer the simplest Workers state that the
+new provisioning and deletion paths need.
 
 ### 4. Update Domain Sources
 
@@ -458,29 +433,26 @@ Workers provisioning needs new source values, likely:
 1. `cloudflare_workers_default`
 2. `cloudflare_workers_custom`
 
-If production data is cleared before rollout, the old Pages source values can be
-removed instead of preserved. Keep them only if the deployment plan
-intentionally ships with existing Pages rows still present.
+If production data is cleared before rollout, the old Pages source values can be removed instead of
+preserved. Keep them only if the deployment plan intentionally ships with existing Pages rows still
+present.
 
 ### 5. Replace Preview Metadata Source
 
-Do not assume the existing Pages comment parser is sufficient. Test Workers
-Builds PR comments and check runs before choosing the data source.
+Do not assume the existing Pages comment parser is sufficient. Test Workers Builds PR comments and
+check runs before choosing the data source.
 
 Preferred implementation direction:
 
 1. use Workers Builds API for build status/logs where possible
-2. parse PR comments only as a compatibility fallback if Workers comments are
-   stable enough
-3. keep the dashboard branch preview cache fields if the product shape still
-   matches
+2. parse PR comments only as a compatibility fallback if Workers comments are stable enough
+3. keep the dashboard branch preview cache fields if the product shape still matches
 
 ### 6. Update Deletion
 
-Deletion should target Workers resources and associated build triggers. If old
-Pages projects still need cleanup, handle that as a one-off operational cleanup
-or a temporary migration path instead of preserving Pages as a supported
-deletion action.
+Deletion should target Workers resources and associated build triggers. If old Pages projects still
+need cleanup, handle that as a one-off operational cleanup or a temporary migration path instead of
+preserving Pages as a supported deletion action.
 
 ### 7. Update User-Facing Copy
 
@@ -498,57 +470,53 @@ Workers migration should update copy only when the backing behavior changes.
 
 1. **Cloudflare auth scope**
 
-   Workers Builds configuration requires permissions that may differ from the
-   current Pages setup. The implementation must fail closed with a clear
-   reconnect/permission message.
+   Workers Builds configuration requires permissions that may differ from the current Pages setup.
+   The implementation must fail closed with a clear reconnect/permission message.
 
 2. **Worker name coupling**
 
-   Cloudflare docs warn that when a repo has a Wrangler config, the Worker name
-   in the dashboard must match the `name` in Wrangler config. The v5 template
-   intentionally omits a fixed `name` and passes the Worker name at deploy time.
-   Noter provisioning must preserve that property because generated app names
-   vary per user.
+   Cloudflare docs warn that when a repo has a Wrangler config, the Worker name in the dashboard
+   must match the `name` in Wrangler config. The v5 template intentionally omits a fixed `name` and
+   passes the Worker name at deploy time. Noter provisioning must preserve that property because
+   generated app names vary per user.
 
 3. **First deploy behavior**
 
-   Cloudflare docs say `wrangler versions upload` cannot be used for the first
-   Worker upload. Production setup must use a real deploy path first; preview
-   branches can use version upload after the Worker exists.
+   Cloudflare docs say `wrangler versions upload` cannot be used for the first Worker upload.
+   Production setup must use a real deploy path first; preview branches can use version upload after
+   the Worker exists.
 
 4. **Preview parity**
 
-   Pages provides stable branch aliases like `<branch>.<project>.pages.dev`.
-   Workers preview URL shape and PR comments need real verification before UI
-   and cache behavior are changed.
+   Pages provides stable branch aliases like `<branch>.<project>.pages.dev`. Workers preview URL
+   shape and PR comments need real verification before UI and cache behavior are changed.
 
 5. **Breaking Pages compatibility is acceptable**
 
-   Existing Noter-managed vaults may already have Pages resources, but Noter can
-   reset or rewrite that production data before rollout. The implementation
-   should optimize for the future single Workers stack. The deployment checklist
-   should explicitly say whether old Pages rows/projects were removed manually
-   or by a one-off cleanup.
+   Existing Noter-managed vaults may already have Pages resources, but Noter can reset or rewrite
+   that production data before rollout. The implementation should optimize for the future single
+   Workers stack. The deployment checklist should explicitly say whether old Pages rows/projects
+   were removed manually or by a one-off cleanup.
 
 6. **Static asset billing**
 
-   The template should stay client-first and avoid Worker code paths unless
-   needed. The deployment should rely on Workers Static Assets serving static
-   files without introducing server function or SSR complexity.
+   The template should stay client-first and avoid Worker code paths unless needed. The deployment
+   should rely on Workers Static Assets serving static files without introducing server function or
+   SSR complexity.
 
 ## Recommended Implementation Sequence
 
 1. Land the artifact/spec/research PR.
-2. Land the Workers auto-provisioning PR with the template export, Workers state
-   shape, Workers provisioning, build-trigger reads, and deletion updates.
-3. Inspect a real Workers PR preview and replace the remaining Pages preview
-   comment path if Workers gives us a better source.
+2. Land the Workers auto-provisioning PR with the template export, Workers state shape, Workers
+   provisioning, build-trigger reads, and deletion updates.
+3. Inspect a real Workers PR preview and replace the remaining Pages preview comment path if Workers
+   gives us a better source.
 4. Move Noter production hosting from Pages to Workers.
-5. Remove remaining Pages copy, fixtures, tests, and operational cleanup paths
-   once production data has been cleared or migrated.
+5. Remove remaining Pages copy, fixtures, tests, and operational cleanup paths once production data
+   has been cleared or migrated.
 
-Do not split by adding a permanent Pages/Workers provider matrix unless the
-implementation proves that dual support is cheaper than replacement.
+Do not split by adding a permanent Pages/Workers provider matrix unless the implementation proves
+that dual support is cheaper than replacement.
 
 ## Sources
 

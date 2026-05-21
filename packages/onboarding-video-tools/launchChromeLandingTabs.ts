@@ -117,10 +117,7 @@ async function measurePage(page: Page) {
     // Compensate for browser chrome so the exported points stay inside the
     // rendered page instead of drifting into tab or toolbar hit targets.
     const chromeX = Math.max((window.outerWidth - window.innerWidth) / 2, 0);
-    const chromeY = Math.max(
-      window.outerHeight - window.innerHeight - chromeX,
-      0,
-    );
+    const chromeY = Math.max(window.outerHeight - window.innerHeight - chromeX, 0);
     // Convert page-relative coordinates into global screen points for the
     // native cursor driver, which only understands absolute screen positions.
     const toScreenPoint = (left: number, top: number): ScreenPoint => ({
@@ -151,10 +148,7 @@ async function measurePage(page: Page) {
 async function measureTabCenters(page: Page) {
   return page.evaluate(() => {
     const chromeX = Math.max((window.outerWidth - window.innerWidth) / 2, 0);
-    const chromeY = Math.max(
-      window.outerHeight - window.innerHeight - chromeX,
-      0,
-    );
+    const chromeY = Math.max(window.outerHeight - window.innerHeight - chromeX, 0);
     const screenX = window.screenX;
     const screenY = window.screenY;
     // Leave enough leading/trailing inset to avoid the window controls on the
@@ -163,16 +157,11 @@ async function measureTabCenters(page: Page) {
     const rightInset = 176;
     // Keep the four target tabs inside the center tab strip instead of letting
     // narrow windows collapse the click targets into unpredictable chrome.
-    const availableWidth = Math.max(
-      window.outerWidth - leftInset - rightInset,
-      560,
-    );
+    const availableWidth = Math.max(window.outerWidth - leftInset - rightInset, 560);
     const tabWidth = availableWidth / 4;
     // Bias the Y target into the vertical middle of the tab strip while staying
     // away from the toolbar boundary on compact window chrome.
-    const tabCenterY = Math.round(
-      screenY + Math.max(Math.min(chromeY * 0.38, 28), 16),
-    );
+    const tabCenterY = Math.round(screenY + Math.max(Math.min(chromeY * 0.38, 28), 16));
     const centerAt = (index: number): ScreenPoint => ({
       x: Math.round(screenX + leftInset + tabWidth * (index + 0.5)),
       y: tabCenterY,

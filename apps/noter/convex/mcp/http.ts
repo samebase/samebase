@@ -69,10 +69,9 @@ function resolveAppUrl(request: Request): URL | null {
   const requestOrigin = parseOrigin(request);
   const configuredSiteUrl = process.env.SITE_URL;
   if (!configuredSiteUrl) {
-    console.error(
-      "SITE_URL is not set; cannot redirect MCP OAuth consent to the React app.",
-      { requestOrigin },
-    );
+    console.error("SITE_URL is not set; cannot redirect MCP OAuth consent to the React app.", {
+      requestOrigin,
+    });
     return null;
   }
 
@@ -86,17 +85,12 @@ function resolveAppUrl(request: Request): URL | null {
     return appUrl;
   } catch (error) {
     const errorMessage =
-      error instanceof Error
-        ? error.message
-        : "Unknown SITE_URL validation error";
-    console.error(
-      "SITE_URL must be an absolute http(s) URL for MCP OAuth consent.",
-      {
-        configuredSiteUrl,
-        requestOrigin,
-        errorMessage,
-      },
-    );
+      error instanceof Error ? error.message : "Unknown SITE_URL validation error";
+    console.error("SITE_URL must be an absolute http(s) URL for MCP OAuth consent.", {
+      configuredSiteUrl,
+      requestOrigin,
+      errorMessage,
+    });
     return null;
   }
 }
@@ -112,8 +106,7 @@ function buildMcpConsentRedirectUrl(args: {
   if (consentUrl === null) {
     return {
       ok: false,
-      errorDescription:
-        "SITE_URL must be an absolute http(s) URL for MCP OAuth consent.",
+      errorDescription: "SITE_URL must be an absolute http(s) URL for MCP OAuth consent.",
     };
   }
   consentUrl.pathname = MCP_CONSENT_APP_PATH;
@@ -146,15 +139,10 @@ function hasFormUrlEncodedContentType(request: Request): boolean {
   if (!contentType) {
     return false;
   }
-  return contentType
-    .toLowerCase()
-    .startsWith("application/x-www-form-urlencoded");
+  return contentType.toLowerCase().startsWith("application/x-www-form-urlencoded");
 }
 
-function jsonRpcSuccessResponse(args: {
-  id?: string | number | null;
-  result: unknown;
-}): Response {
+function jsonRpcSuccessResponse(args: { id?: string | number | null; result: unknown }): Response {
   return jsonResponse({
     jsonrpc: "2.0",
     id: args.id,
@@ -224,19 +212,15 @@ function parseStructuredContent(value: string | undefined): unknown {
   }
 }
 
-export const getMcpOauthProtectedResourceMetadata = httpAction(
-  async (_ctx, request) => {
-    const origin = parseOrigin(request);
-    return jsonResponse(buildMcpProtectedResourceMetadata(origin), 200);
-  },
-);
+export const getMcpOauthProtectedResourceMetadata = httpAction(async (_ctx, request) => {
+  const origin = parseOrigin(request);
+  return jsonResponse(buildMcpProtectedResourceMetadata(origin), 200);
+});
 
-export const getMcpOauthAuthorizationServerMetadata = httpAction(
-  async (_ctx, request) => {
-    const origin = parseOrigin(request);
-    return jsonResponse(buildMcpAuthorizationServerMetadata(origin), 200);
-  },
-);
+export const getMcpOauthAuthorizationServerMetadata = httpAction(async (_ctx, request) => {
+  const origin = parseOrigin(request);
+  return jsonResponse(buildMcpAuthorizationServerMetadata(origin), 200);
+});
 
 export const getMcpOauthAuthorizationServerMetadataForMcpPath = httpAction(
   async (_ctx, request) => {
@@ -319,10 +303,7 @@ export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
   const now = Date.now();
   const protocolValidationOptions = getProtocolValidationOptions();
   const url = new URL(request.url);
-  const validation = validateAuthorizeRequestFromUrl(
-    url,
-    protocolValidationOptions,
-  );
+  const validation = validateAuthorizeRequestFromUrl(url, protocolValidationOptions);
   if (!validation.ok) {
     return oauthErrorResponse({
       status: validation.status,
@@ -345,8 +326,7 @@ export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
   if (
     client.registrationStatus === "expired" ||
     client.registrationStatus === "disabled" ||
-    (typeof client.provisionalExpiresAt === "number" &&
-      client.provisionalExpiresAt <= now)
+    (typeof client.provisionalExpiresAt === "number" && client.provisionalExpiresAt <= now)
   ) {
     return oauthErrorResponse({
       status: 400,
@@ -410,13 +390,10 @@ export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
     return Response.redirect(consentRedirect.value, 302);
   }
 
-  const hasExistingGrant = await ctx.runQuery(
-    internal.mcp.oauth.hasActiveGrantForAuthRequest,
-    {
-      requestId,
-      userId,
-    },
-  );
+  const hasExistingGrant = await ctx.runQuery(internal.mcp.oauth.hasActiveGrantForAuthRequest, {
+    requestId,
+    userId,
+  });
   if (!hasExistingGrant) {
     const consentRedirect = buildMcpConsentRedirectUrl({
       request,
@@ -469,8 +446,7 @@ export const exchangeMcpOauthToken = httpAction(async (ctx, request) => {
     return oauthErrorResponse({
       status: 415,
       error: "invalid_request",
-      errorDescription:
-        "content-type must be application/x-www-form-urlencoded",
+      errorDescription: "content-type must be application/x-www-form-urlencoded",
     });
   }
 
@@ -478,10 +454,7 @@ export const exchangeMcpOauthToken = httpAction(async (ctx, request) => {
   const params = new URLSearchParams(rawBody);
   const now = Date.now();
   const protocolValidationOptions = getProtocolValidationOptions();
-  const validation = validateTokenRequestFromSearchParams(
-    params,
-    protocolValidationOptions,
-  );
+  const validation = validateTokenRequestFromSearchParams(params, protocolValidationOptions);
   if (!validation.ok) {
     return oauthErrorResponse({
       status: validation.status,
@@ -504,8 +477,7 @@ export const exchangeMcpOauthToken = httpAction(async (ctx, request) => {
   if (
     client.registrationStatus === "expired" ||
     client.registrationStatus === "disabled" ||
-    (typeof client.provisionalExpiresAt === "number" &&
-      client.provisionalExpiresAt <= now)
+    (typeof client.provisionalExpiresAt === "number" && client.provisionalExpiresAt <= now)
   ) {
     return oauthErrorResponse({
       status: 400,
@@ -535,22 +507,19 @@ export const exchangeMcpOauthToken = httpAction(async (ctx, request) => {
     }
 
     const codeHash = await sha256Hex(validation.value.code);
-    const exchangeResult = await ctx.runMutation(
-      internal.mcp.oauth.exchangeAuthorizationCode,
-      {
-        codeHash,
-        clientId: validation.value.clientId,
-        redirectUri: validation.value.redirectUri,
-        codeVerifier: validation.value.codeVerifier,
-        allowLoopbackHttpRedirectUris:
-          protocolValidationOptions.allowLoopbackHttpRedirectUris === true,
-        accessTokenHash,
-        refreshTokenHash,
-        accessTokenExpiresAt: now + MCP_ACCESS_TOKEN_TTL_MS,
-        refreshTokenExpiresAt: now + MCP_REFRESH_TOKEN_TTL_MS,
-        now,
-      },
-    );
+    const exchangeResult = await ctx.runMutation(internal.mcp.oauth.exchangeAuthorizationCode, {
+      codeHash,
+      clientId: validation.value.clientId,
+      redirectUri: validation.value.redirectUri,
+      codeVerifier: validation.value.codeVerifier,
+      allowLoopbackHttpRedirectUris:
+        protocolValidationOptions.allowLoopbackHttpRedirectUris === true,
+      accessTokenHash,
+      refreshTokenHash,
+      accessTokenExpiresAt: now + MCP_ACCESS_TOKEN_TTL_MS,
+      refreshTokenExpiresAt: now + MCP_REFRESH_TOKEN_TTL_MS,
+      now,
+    });
 
     if (!exchangeResult.ok) {
       return oauthErrorResponse({
@@ -566,25 +535,20 @@ export const exchangeMcpOauthToken = httpAction(async (ctx, request) => {
       expires_in: Math.floor(MCP_ACCESS_TOKEN_TTL_MS / 1000),
       scope: exchangeResult.scope,
       resource: exchangeResult.resource,
-      ...(exchangeResult.refreshTokenIssued
-        ? { refresh_token: refreshToken }
-        : {}),
+      ...(exchangeResult.refreshTokenIssued ? { refresh_token: refreshToken } : {}),
     });
   }
 
   const oldRefreshTokenHash = await sha256Hex(validation.value.refreshToken);
-  const refreshResult = await ctx.runMutation(
-    internal.mcp.oauth.exchangeRefreshToken,
-    {
-      refreshTokenHash: oldRefreshTokenHash,
-      clientId: validation.value.clientId,
-      accessTokenHash,
-      newRefreshTokenHash: refreshTokenHash,
-      accessTokenExpiresAt: now + MCP_ACCESS_TOKEN_TTL_MS,
-      refreshTokenExpiresAt: now + MCP_REFRESH_TOKEN_TTL_MS,
-      now,
-    },
-  );
+  const refreshResult = await ctx.runMutation(internal.mcp.oauth.exchangeRefreshToken, {
+    refreshTokenHash: oldRefreshTokenHash,
+    clientId: validation.value.clientId,
+    accessTokenHash,
+    newRefreshTokenHash: refreshTokenHash,
+    accessTokenExpiresAt: now + MCP_ACCESS_TOKEN_TTL_MS,
+    refreshTokenExpiresAt: now + MCP_REFRESH_TOKEN_TTL_MS,
+    now,
+  });
 
   if (!refreshResult.ok) {
     return oauthErrorResponse({
@@ -600,9 +564,7 @@ export const exchangeMcpOauthToken = httpAction(async (ctx, request) => {
     expires_in: Math.floor(MCP_ACCESS_TOKEN_TTL_MS / 1000),
     scope: refreshResult.scope,
     resource: refreshResult.resource,
-    ...(refreshResult.refreshTokenIssued
-      ? { refresh_token: refreshToken }
-      : {}),
+    ...(refreshResult.refreshTokenIssued ? { refresh_token: refreshToken } : {}),
   });
 });
 
@@ -633,13 +595,10 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
 
   const now = Date.now();
   const accessTokenHash = await sha256Hex(bearerValidation.value);
-  const tokenValidation = await ctx.runMutation(
-    internal.mcp.oauth.validateAccessToken,
-    {
-      tokenHash: accessTokenHash,
-      now,
-    },
-  );
+  const tokenValidation = await ctx.runMutation(internal.mcp.oauth.validateAccessToken, {
+    tokenHash: accessTokenHash,
+    now,
+  });
   if (!tokenValidation.ok) {
     const response = oauthErrorResponse({
       status: tokenValidation.status,
@@ -771,23 +730,15 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
       surface: "mcp",
       userId: tokenValidation.userId,
       grantedScopes,
-      ...(tool.requiresVaultContext
-        ? { vaultId: normalizeOptionalString(args.vaultId) }
-        : {}),
-      ...(tool.requiresBranchContext
-        ? { branch: normalizeOptionalString(args.branch) }
-        : {}),
-      ...(tool.requiresThreadContext
-        ? { threadId: normalizeOptionalString(args.threadId) }
-        : {}),
+      ...(tool.requiresVaultContext ? { vaultId: normalizeOptionalString(args.vaultId) } : {}),
+      ...(tool.requiresBranchContext ? { branch: normalizeOptionalString(args.branch) } : {}),
+      ...(tool.requiresThreadContext ? { threadId: normalizeOptionalString(args.threadId) } : {}),
       ...(rpcRequest.id !== undefined && rpcRequest.id !== null
         ? { requestId: String(rpcRequest.id) }
         : {}),
     });
 
-    const structuredContent = parseStructuredContent(
-      result.structuredContentJson,
-    );
+    const structuredContent = parseStructuredContent(result.structuredContentJson);
 
     return jsonRpcSuccessResponse({
       id: rpcRequest.id,

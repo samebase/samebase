@@ -48,9 +48,7 @@ describe("formatAppBuildVersionNumber", () => {
 
 describe("formatAppBuildCommitLabel", () => {
   it("shortens full commit SHAs for display", () => {
-    expect(
-      formatAppBuildCommitLabel("1234567890abcdef1234567890abcdef12345678"),
-    ).toBe("12345678");
+    expect(formatAppBuildCommitLabel("1234567890abcdef1234567890abcdef12345678")).toBe("12345678");
   });
 
   it("falls back to the original marker for non-SHA values", () => {

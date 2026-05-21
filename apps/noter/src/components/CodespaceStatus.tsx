@@ -11,12 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "./ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { cn } from "../lib/utils";
 import {
   Activity,
@@ -36,10 +31,7 @@ interface CodespaceStatusProps {
   showActions?: boolean;
 }
 
-const STATE_STYLES: Record<
-  string,
-  { icon: typeof Activity; color: string; label: string }
-> = {
+const STATE_STYLES: Record<string, { icon: typeof Activity; color: string; label: string }> = {
   creating: {
     icon: Loader2,
     color: "text-blue-600 animate-spin",
@@ -96,9 +88,7 @@ export function CodespaceStatus({
   const [isEnsuringCodespace, setIsEnsuringCodespace] = useState(false);
   const [isDeletingCodespace, setIsDeletingCodespace] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const ensureCodespaceReady = useAction(
-    api.codespaces.vaultIntegration.ensureCodespaceReady,
-  );
+  const ensureCodespaceReady = useAction(api.codespaces.vaultIntegration.ensureCodespaceReady);
   const deleteCodespace = useAction(api.codespaces.index.deleteCodespace);
   const codespace = useQuery(api.codespaces.mutations.getActiveCodespace, {
     vaultId,
@@ -147,9 +137,7 @@ export function CodespaceStatus({
             }}
             disabled={isEnsuringCodespace}
           >
-            {isEnsuringCodespace && (
-              <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-            )}
+            {isEnsuringCodespace && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
             Create Codespace
           </Button>
         )}
@@ -166,8 +154,7 @@ export function CodespaceStatus({
   const portsEnsuredAt = codespace.portsVisibilityEnsuredAt;
   const portsLastError = codespace.portsVisibilityLastError;
   const agentBaseUrl =
-    codespace.agentUrl ??
-    `https://${codespace.ghCodespaceName}-3000.app.github.dev`;
+    codespace.agentUrl ?? `https://${codespace.ghCodespaceName}-3000.app.github.dev`;
   const agentHealthUrl = `${agentBaseUrl.replace(/\/$/, "")}/health`;
   const commitUrl = `https://github.com/${repositoryFullName}/commit/${codespace.commitSha}`;
 
@@ -246,21 +233,14 @@ export function CodespaceStatus({
                 </p>
                 {isRunning && (
                   <p>
-                    <strong>Agent:</strong>{" "}
-                    {isHealthy ? "Healthy" : "Unhealthy"}
+                    <strong>Agent:</strong> {isHealthy ? "Healthy" : "Unhealthy"}
                   </p>
                 )}
                 {isRunning && (
                   <p>
                     <strong>Ports:</strong>{" "}
-                    {portsEnsured === true
-                      ? "OK"
-                      : portsEnsured === false
-                        ? "Issue"
-                        : "Unknown"}
-                    {portsEnsuredAt && (
-                      <> ({new Date(portsEnsuredAt).toLocaleTimeString()})</>
-                    )}
+                    {portsEnsured === true ? "OK" : portsEnsured === false ? "Issue" : "Unknown"}
+                    {portsEnsuredAt && <> ({new Date(portsEnsuredAt).toLocaleTimeString()})</>}
                   </p>
                 )}
                 {isRunning && portsLastError && (
@@ -339,8 +319,8 @@ export function CodespaceStatus({
             <DialogTitle>Remove Codespace</DialogTitle>
             <DialogDescription>
               Are you sure you want to remove the Codespace for{" "}
-              <strong>{codespace.ghCodespaceName}</strong>? This will delete the
-              dev container from GitHub.
+              <strong>{codespace.ghCodespaceName}</strong>? This will delete the dev container from
+              GitHub.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

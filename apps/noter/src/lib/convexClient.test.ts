@@ -2,19 +2,17 @@
 
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-const { ConvexReactClientMock, convexReactClientConstructorMock } = vi.hoisted(
-  () => {
-    const convexReactClientConstructorMock = vi.fn();
+const { ConvexReactClientMock, convexReactClientConstructorMock } = vi.hoisted(() => {
+  const convexReactClientConstructorMock = vi.fn();
 
-    class ConvexReactClientMock {
-      constructor(url: string, options: { unsavedChangesWarning: boolean }) {
-        convexReactClientConstructorMock(url, options);
-      }
+  class ConvexReactClientMock {
+    constructor(url: string, options: { unsavedChangesWarning: boolean }) {
+      convexReactClientConstructorMock(url, options);
     }
+  }
 
-    return { ConvexReactClientMock, convexReactClientConstructorMock };
-  },
-);
+  return { ConvexReactClientMock, convexReactClientConstructorMock };
+});
 
 vi.mock("convex/react", () => ({
   ConvexReactClient: ConvexReactClientMock,
@@ -29,9 +27,8 @@ describe("convex client", () => {
   it("keeps Convex from installing the generic pending-request unload prompt", async () => {
     await import("./convexClient");
 
-    expect(convexReactClientConstructorMock).toHaveBeenCalledWith(
-      "http://127.0.0.1:3210",
-      { unsavedChangesWarning: false },
-    );
+    expect(convexReactClientConstructorMock).toHaveBeenCalledWith("http://127.0.0.1:3210", {
+      unsavedChangesWarning: false,
+    });
   });
 });

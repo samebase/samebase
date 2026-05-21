@@ -2,20 +2,19 @@
 
 ## Related Specs
 
-- `specs/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md` - Master
-  plan for infra provisioning and safe AI prod access.
-- `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md` - Auto-provisioning flow and
-  contracts for Convex + Cloudflare per vault.
-- `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md` - Approval-first policy for AI
-  production logs/data access.
+- `specs/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md` - Master plan for infra
+  provisioning and safe AI prod access.
+- `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md` - Auto-provisioning flow and contracts for Convex +
+  Cloudflare per vault.
+- `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md` - Approval-first policy for AI production logs/data
+  access.
 
 # GitHub Codespace Connection Specification
 
 ## Overview
 
-This document outlines how Noter connects to and interacts with GitHub
-Codespaces, providing both visual and programmatic access to cloud development
-environments.
+This document outlines how Noter connects to and interacts with GitHub Codespaces, providing both
+visual and programmatic access to cloud development environments.
 
 ## Connection Methods
 
@@ -37,8 +36,8 @@ environments.
 ### Problem
 
 - Some IDE auth flows redirect to `http://localhost:1455/auth/callback`.
-- In browser-based Codespaces, this `localhost` target resolves on the user's
-  machine, not inside the remote container where the extension is listening.
+- In browser-based Codespaces, this `localhost` target resolves on the user's machine, not inside
+  the remote container where the extension is listening.
 
 ### Supported Workflows
 
@@ -47,8 +46,7 @@ environments.
    codex login --device-auth
    ```
 2. Use API key auth in the extension/CLI when OAuth is not viable.
-3. If loopback OAuth is required, forward callback port `1455` from local
-   machine:
+3. If loopback OAuth is required, forward callback port `1455` from local machine:
    ```bash
    gh codespace ports forward 1455:1455 -c <codespace-name>
    ```
@@ -56,16 +54,15 @@ environments.
 ### Devcontainer Contract
 
 - Port `1455` is included in `forwardPorts` and marked private.
-- This does not make loopback OAuth automatic in browser Codespaces, but keeps
-  callback port wiring explicit for CLI forwarding workflows.
+- This does not make loopback OAuth automatic in browser Codespaces, but keeps callback port wiring
+  explicit for CLI forwarding workflows.
 
 ## Connection Workflow
 
 ### Creation Process:
 
 1. **Codespace Creation**: Noter calls GitHub API to create a Codespace
-2. **Agent Setup**: A Node.js HTTP server starts on port 3000 inside the
-   Codespace
+2. **Agent Setup**: A Node.js HTTP server starts on port 3000 inside the Codespace
 3. **URL Generation**:
    - Web URL: `{codespace-name}.github.dev`
    - Agent URL: `{codespace-name}-3000.app.github.dev`
@@ -102,8 +99,8 @@ const agentUrl = `https://${codespace.name}-3000.app.github.dev`;
 - **Programmatic Control**: HTTP API for file operations and command execution
 - **State Management**: Real-time status tracking (creating → running → stopped)
 - **Error Handling**: Graceful fallbacks and external link options
-- **Operational Safeguards**: Request timeouts and connection health checks back
-  stop agent-driven flows
+- **Operational Safeguards**: Request timeouts and connection health checks back stop agent-driven
+  flows
 
 ## Implementation Details
 
@@ -116,18 +113,17 @@ const agentUrl = `https://${codespace.name}-3000.app.github.dev`;
 
 ### Connection Establishment
 
-The connection is established automatically when you create a Codespace through
-Noter's interface, providing both visual and programmatic access to your GitHub
-repository in a cloud development environment.
+The connection is established automatically when you create a Codespace through Noter's interface,
+providing both visual and programmatic access to your GitHub repository in a cloud development
+environment.
 
 ## TODOs / Ideas
 
 ### Monaco in ProseMirror
 
-- **Idea**: Render Monaco editor inside ProseMirror for code blocks (`ts`, `js`,
-  etc.)
-- **Scope**: Not limited to TypeScript - apply to all languages that would use
-  Monaco if they were in a file
+- **Idea**: Render Monaco editor inside ProseMirror for code blocks (`ts`, `js`, etc.)
+- **Scope**: Not limited to TypeScript - apply to all languages that would use Monaco if they were
+  in a file
 - **Benefits**:
   - Syntax highlighting
   - IntelliSense/autocomplete

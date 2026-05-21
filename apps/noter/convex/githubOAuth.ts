@@ -5,23 +5,14 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./oauthUtils";
-import {
-  GITHUB_OAUTH_POPUP_NAME,
-  isSafeGithubOAuthReturnToPath,
-} from "../shared/githubOAuth";
+import { GITHUB_OAUTH_POPUP_NAME, isSafeGithubOAuthReturnToPath } from "../shared/githubOAuth";
 import { CODESPACES_ENABLED } from "../shared/featureFlags";
 
 const GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
 const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
 const GITHUB_API_URL = "https://api.github.com/user";
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
-const BASE_GITHUB_OAUTH_SCOPES = [
-  "repo",
-  "delete_repo",
-  "user",
-  "user:email",
-  "read:packages",
-];
+const BASE_GITHUB_OAUTH_SCOPES = ["repo", "delete_repo", "user", "user:email", "read:packages"];
 
 type OAuthContext = ActionCtx | MutationCtx;
 
@@ -53,8 +44,7 @@ async function buildGithubOAuthUrl(
   const redirectUri = readRequiredEnv("PROVIDER_GITHUB_OAUTH_REDIRECT_URL");
   const state = randomToken();
   const normalizedReturnToPath =
-    typeof returnToPath === "string" &&
-    isSafeGithubOAuthReturnToPath(returnToPath)
+    typeof returnToPath === "string" && isSafeGithubOAuthReturnToPath(returnToPath)
       ? returnToPath
       : undefined;
 
@@ -73,10 +63,7 @@ async function buildGithubOAuthUrl(
   authorizeUrl.searchParams.set("redirect_uri", redirectUri);
   authorizeUrl.searchParams.set(
     "scope",
-    [
-      ...BASE_GITHUB_OAUTH_SCOPES,
-      ...(CODESPACES_ENABLED ? ["codespace"] : []),
-    ].join(" "),
+    [...BASE_GITHUB_OAUTH_SCOPES, ...(CODESPACES_ENABLED ? ["codespace"] : [])].join(" "),
   );
   authorizeUrl.searchParams.set("state", state);
   return authorizeUrl.toString();
@@ -110,23 +97,17 @@ async function exchangeGithubOAuthCode(args: {
 
   const data = await response.json().catch(() => null);
   if (!response.ok || !data || typeof data.access_token !== "string") {
-    throw new Error(
-      `Failed to exchange GitHub OAuth code (${response.status}).`,
-    );
+    throw new Error(`Failed to exchange GitHub OAuth code (${response.status}).`);
   }
 
   return {
     accessToken: data.access_token,
-    refreshToken:
-      typeof data.refresh_token === "string" ? data.refresh_token : undefined,
-    expiresIn:
-      typeof data.expires_in === "number" ? data.expires_in : undefined,
+    refreshToken: typeof data.refresh_token === "string" ? data.refresh_token : undefined,
+    expiresIn: typeof data.expires_in === "number" ? data.expires_in : undefined,
   };
 }
 
-async function fetchGithubUser(
-  accessToken: string,
-): Promise<{ username: string }> {
+async function fetchGithubUser(accessToken: string): Promise<{ username: string }> {
   const response = await fetchWithTimeout(GITHUB_API_URL, {
     method: "GET",
     headers: {
@@ -137,9 +118,7 @@ async function fetchGithubUser(
   });
   const payload = await response.json().catch(() => null);
   if (!response.ok || !payload || typeof payload.login !== "string") {
-    throw new Error(
-      `Failed to fetch GitHub user profile (${response.status}).`,
-    );
+    throw new Error(`Failed to fetch GitHub user profile (${response.status}).`);
   }
   return { username: payload.login };
 }
@@ -202,13 +181,10 @@ export const finishGithubOAuth = httpAction(async (ctx, request) => {
     return new Response("Missing OAuth parameters", { status: 400 });
   }
 
-  const oauthState = await ctx.runQuery(
-    internal.oauthState.getOauthStateByState,
-    {
-      provider: "github",
-      state,
-    },
-  );
+  const oauthState = await ctx.runQuery(internal.oauthState.getOauthStateByState, {
+    provider: "github",
+    state,
+  });
   if (!oauthState) {
     return new Response("Invalid OAuth state", { status: 400 });
   }
@@ -232,9 +208,7 @@ export const finishGithubOAuth = httpAction(async (ctx, request) => {
     });
     const githubUser = await fetchGithubUser(token.accessToken);
     const expiresAt =
-      typeof token.expiresIn === "number"
-        ? Date.now() + token.expiresIn * 1000
-        : undefined;
+      typeof token.expiresIn === "number" ? Date.now() + token.expiresIn * 1000 : undefined;
 
     await ctx.runMutation(internal.githubOAuth.storeGithubOauthConnection, {
       userId: oauthState.userId,
@@ -252,9 +226,7 @@ export const finishGithubOAuth = httpAction(async (ctx, request) => {
   }
 
   const defaultReturnTo =
-    process.env.SITE_URL ??
-    process.env.CONVEX_SITE_URL ??
-    new URL(request.url).origin;
+    process.env.SITE_URL ?? process.env.CONVEX_SITE_URL ?? new URL(request.url).origin;
   const baseOrigin = new URL(request.url).origin;
   const fallbackReturnUrl = new URL(defaultReturnTo, baseOrigin).toString();
   const returnUrl =

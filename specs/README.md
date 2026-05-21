@@ -1,10 +1,10 @@
 # Specs
 
-`specs/` is for accepted, current source-of-truth behavior and accepted
-implementation plans that the team intends to execute or has already shipped.
+`specs/` is for accepted, current source-of-truth behavior and accepted implementation plans that
+the team intends to execute or has already shipped.
 
-A document belongs here when it answers "what should the product do now?" or
-"what is the currently accepted implementation contract?"
+A document belongs here when it answers "what should the product do now?" or "what is the currently
+accepted implementation contract?"
 
 Use `specs/` for:
 
@@ -19,6 +19,5 @@ Do not use `specs/` for:
 - historical notes
 - operator runbooks or compliance artifacts that do not define product behavior
 
-When a proposal becomes accepted and active, move or replace the relevant RFC
-with a spec. When a spec no longer matches reality, move it to `archive/` or
-replace it with the new source of truth.
+When a proposal becomes accepted and active, move or replace the relevant RFC with a spec. When a
+spec no longer matches reality, move it to `archive/` or replace it with the new source of truth.

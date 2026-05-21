@@ -2,20 +2,19 @@
 
 ## Core proposal
 
-Every new worktree starts with a default conversation file that is versioned in
-git on that branch. The conversation is appended at message boundaries (user
-submit + assistant final response), not token-by-token.
+Every new worktree starts with a default conversation file that is versioned in git on that branch.
+The conversation is appended at message boundaries (user submit + assistant final response), not
+token-by-token.
 
-This makes the thread portable across tools (Codex, Noter, other agents) and
-replayable from git history.
+This makes the thread portable across tools (Codex, Noter, other agents) and replayable from git
+history.
 
 ## Why this is useful
 
 - Conversation context becomes durable and branch-local.
 - Any tool that can read files can reconstruct the working context.
 - Git history gives a timeline of reasoning, decisions, and changes.
-- Noter can read the branch file directly, no separate chat sync protocol
-  needed.
+- Noter can read the branch file directly, no separate chat sync protocol needed.
 
 ## Recommended file shape
 
@@ -109,8 +108,7 @@ No cross-product API coupling is required if both tools agree on file format.
 ## Open questions to keep exploring
 
 - Should this live at repo root (`worktree.md`) or inside `.noter/`?
-- Should we include tool actions (commands, diffs, test results) inline or only
-  conversational text?
+- Should we include tool actions (commands, diffs, test results) inline or only conversational text?
 - Should merge to `main` keep or squash/remove conversation logs?
 - Should there be one file per session day or one rolling file per branch?
 

@@ -17,13 +17,12 @@
 This spec defines the product behavior for:
 
 1. Password app-login support in development.
-2. API-key connection mode for GitHub/Convex, plus seed-only Cloudflare API-key
-   bootstrap for anonymous local development.
+2. API-key connection mode for GitHub/Convex, plus seed-only Cloudflare API-key bootstrap for
+   anonymous local development.
 3. Anonymous worktree seed behavior for local development.
 
-Connection data architecture is defined by
-`specs/026_PROVIDER_CONNECTIONS_SPEC.md` and is the source of truth for
-storage/indexing details.
+Connection data architecture is defined by `specs/026_PROVIDER_CONNECTIONS_SPEC.md` and is the
+source of truth for storage/indexing details.
 
 ## Locked Product Decisions
 
@@ -35,9 +34,8 @@ storage/indexing details.
    - Email: `nicu@noter.md`
    - Password: `pass1234`
 3. Provider connections support OAuth and API key methods.
-4. Cloudflare API keys are seed-only for anonymous local development; the
-   user-facing Cloudflare connection flow is Cloudflare OAuth backed by the
-   internal `mcp_oauth` credential method.
+4. Cloudflare API keys are seed-only for anonymous local development; the user-facing Cloudflare
+   connection flow is Cloudflare OAuth backed by the internal `mcp_oauth` credential method.
 5. Allowlist enforcement remains mandatory for sign-in/sign-up.
 
 ## Backend Requirements
@@ -53,22 +51,20 @@ storage/indexing details.
 1. `seedPasswordAccount` must seed fixed dev credentials:
    - Email: `nicu@noter.md`
    - Password: `pass1234`
-2. `seedPasswordAccount` must also upsert provider API-key connections for the
-   seeded user into `providerConnections` (not `users`) when `DEV_SEED_*` inputs
-   are present.
+2. `seedPasswordAccount` must also upsert provider API-key connections for the seeded user into
+   `providerConnections` (not `users`) when `DEV_SEED_*` inputs are present.
 
 ### `apps/noter/convex/users.ts`
 
 Provide API-key connect actions with server-side validation:
 
 1. `connectGithubWithApiKey({ token })`
-2. `connectConvexWithApiKey({ token })` Each action validates the key before
-   upsert in `providerConnections`.
+2. `connectConvexWithApiKey({ token })` Each action validates the key before upsert in
+   `providerConnections`.
 
 ### Make targets
 
-`make anon` / `make anon-once` must run password-account seed during the anon
-startup flow.
+`make anon` / `make anon-once` must run password-account seed during the anon startup flow.
 
 Flow contract:
 
@@ -82,11 +78,10 @@ Flow contract:
 Isolation contract:
 
 1. In anonymous worktree mode, Convex deployment label is `anonymous-agent`.
-2. Worktree isolation must be enforced by distinct local backend URL/port pairs
-   (`VITE_CONVEX_URL`) and per-worktree local state.
-3. Local backend ports are selected deterministically from the worktree path
-   hash, then collision-checked; if a chosen pair is already in use, the next
-   available pair in range is used.
+2. Worktree isolation must be enforced by distinct local backend URL/port pairs (`VITE_CONVEX_URL`)
+   and per-worktree local state.
+3. Local backend ports are selected deterministically from the worktree path hash, then
+   collision-checked; if a chosen pair is already in use, the next available pair in range is used.
 4. Seed/auth data must not collide across concurrent worktrees.
 
 ## Frontend Requirements
@@ -124,5 +119,5 @@ Only these env vars are used:
 
 ## Notes
 
-The storage model and indexes for provider credentials are intentionally not
-duplicated here. See `specs/026_PROVIDER_CONNECTIONS_SPEC.md`.
+The storage model and indexes for provider credentials are intentionally not duplicated here. See
+`specs/026_PROVIDER_CONNECTIONS_SPEC.md`.

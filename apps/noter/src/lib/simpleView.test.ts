@@ -19,8 +19,7 @@ type TreeItem = {
   type: "tree" | "blob";
 };
 
-const UPDATE_SIMPLE_VIEW_FIXTURES =
-  process.env.UPDATE_SIMPLE_VIEW_FIXTURES === "1";
+const UPDATE_SIMPLE_VIEW_FIXTURES = process.env.UPDATE_SIMPLE_VIEW_FIXTURES === "1";
 // Regenerate fixtures with:
 // UPDATE_SIMPLE_VIEW_FIXTURES=1 pnpm exec vp test run apps/noter/src/lib/simpleView.test.ts
 
@@ -55,8 +54,7 @@ function getRepositoryTreeItems(): TreeItem[] {
 
     let currentDirectory = "";
     pathParts.forEach((pathPart, index) => {
-      currentDirectory =
-        index === 0 ? pathPart : `${currentDirectory}/${pathPart}`;
+      currentDirectory = index === 0 ? pathPart : `${currentDirectory}/${pathPart}`;
       directories.add(currentDirectory);
     });
   });
@@ -91,10 +89,7 @@ function readPathFixture(fixturePath: string): string[] {
     .filter((line) => line.length > 0);
 }
 
-function assertPathsContainFixture(
-  fixturePath: string,
-  actualPaths: string[],
-): void {
+function assertPathsContainFixture(fixturePath: string, actualPaths: string[]): void {
   if (UPDATE_SIMPLE_VIEW_FIXTURES) {
     mkdirSync(dirname(fixturePath), { recursive: true });
     writeFileSync(fixturePath, serializePathList(actualPaths), "utf8");
@@ -112,10 +107,7 @@ function getRootVisibleSimpleViewFilePaths(): string[] {
     throw new Error("Expected root noter.md to have valid simpleView config");
   }
 
-  return filterSimpleViewTreeItems(
-    getRepositoryTreeItems(),
-    parsedConfig.excludePatterns,
-  )
+  return filterSimpleViewTreeItems(getRepositoryTreeItems(), parsedConfig.excludePatterns)
     .filter((item) => item.type === "blob")
     .map((item) => item.path)
     .sort((a, b) => a.localeCompare(b));
@@ -125,15 +117,12 @@ describe("repository file tree fixtures", () => {
   it("contains the visible simple-view baseline fixture for root noter.md", () => {
     const visibleFiles = getRootVisibleSimpleViewFilePaths();
 
-    assertPathsContainFixture(
-      toFixtureFilePath("visible-simple-view-files.txt"),
-      visibleFiles,
-    );
+    assertPathsContainFixture(toFixtureFilePath("visible-simple-view-files.txt"), visibleFiles);
   });
 
   it("keeps visible spec files on the numbered underscore naming convention", () => {
-    const visibleSpecPaths = getRootVisibleSimpleViewFilePaths().filter(
-      (path) => path.startsWith("specs/"),
+    const visibleSpecPaths = getRootVisibleSimpleViewFilePaths().filter((path) =>
+      path.startsWith("specs/"),
     );
 
     const invalidSpecPaths = visibleSpecPaths.filter((path) => {
@@ -152,9 +141,7 @@ describe("repository file tree fixtures", () => {
 
 describe("getSimpleViewPreferenceStorageKey", () => {
   it("returns the per-vault key format", () => {
-    expect(getSimpleViewPreferenceStorageKey("vault_123")).toBe(
-      "noter-simple-view:vault_123",
-    );
+    expect(getSimpleViewPreferenceStorageKey("vault_123")).toBe("noter-simple-view:vault_123");
   });
 });
 
@@ -184,9 +171,7 @@ describe("simple view config source resolution", () => {
   });
 
   it("treats repository noter.md fallback as config when not staged", () => {
-    expect(
-      hasSimpleViewConfigFile(null, "---\nsimpleView:\n  exclude: []\n---"),
-    ).toBe(true);
+    expect(hasSimpleViewConfigFile(null, "---\nsimpleView:\n  exclude: []\n---")).toBe(true);
   });
 
   it("does not fall back to repository config when staged noter.md is deleted", () => {
@@ -358,18 +343,12 @@ describe("filterSimpleViewTreeItems", () => {
 
   it("supports exact matching for dotted root filenames", () => {
     const filtered = filterSimpleViewTreeItems(tree, ["tsconfig.base.json"]);
-    expect(filtered.some((item) => item.path === "tsconfig.base.json")).toBe(
-      false,
-    );
+    expect(filtered.some((item) => item.path === "tsconfig.base.json")).toBe(false);
   });
 
   it("matches nested hook files with explicit directory pattern", () => {
-    const filtered = filterSimpleViewTreeItems(tree, [
-      ".vite-hooks/pre-commit",
-    ]);
-    expect(
-      filtered.some((item) => item.path === ".vite-hooks/pre-commit"),
-    ).toBe(false);
+    const filtered = filterSimpleViewTreeItems(tree, [".vite-hooks/pre-commit"]);
+    expect(filtered.some((item) => item.path === ".vite-hooks/pre-commit")).toBe(false);
   });
 
   it("keeps always-included files even when simple-view rules exclude them", () => {
@@ -410,9 +389,7 @@ describe("filterSimpleViewTreeItems", () => {
 
   it("does not treat basename-only pattern as recursive", () => {
     const filtered = filterSimpleViewTreeItems(tree, ["pre-commit"]);
-    expect(
-      filtered.some((item) => item.path === ".vite-hooks/pre-commit"),
-    ).toBe(true);
+    expect(filtered.some((item) => item.path === ".vite-hooks/pre-commit")).toBe(true);
   });
 });
 
@@ -427,44 +404,33 @@ describe("filterSimpleViewTreeItems with repository structure", () => {
     ).toBe(true);
     expect(
       repositoryTreeItems.some(
-        (item) =>
-          item.path === ".vite-hooks/pre-commit" && item.type === "blob",
+        (item) => item.path === ".vite-hooks/pre-commit" && item.type === "blob",
       ),
     ).toBe(true);
   });
 
   it("hides tsconfig.base.json with an exact filename pattern", () => {
-    const filtered = filterSimpleViewTreeItems(repositoryTreeItems, [
-      "tsconfig.base.json",
-    ]);
+    const filtered = filterSimpleViewTreeItems(repositoryTreeItems, ["tsconfig.base.json"]);
 
     expect(
-      filtered.some(
-        (item) => item.path === "tsconfig.base.json" && item.type === "blob",
-      ),
+      filtered.some((item) => item.path === "tsconfig.base.json" && item.type === "blob"),
     ).toBe(false);
   });
 
   it("requires path-aware pattern to hide .vite-hooks/pre-commit", () => {
-    const basenamePatternFiltered = filterSimpleViewTreeItems(
-      repositoryTreeItems,
-      ["pre-commit"],
-    );
+    const basenamePatternFiltered = filterSimpleViewTreeItems(repositoryTreeItems, ["pre-commit"]);
     expect(
       basenamePatternFiltered.some(
-        (item) =>
-          item.path === ".vite-hooks/pre-commit" && item.type === "blob",
+        (item) => item.path === ".vite-hooks/pre-commit" && item.type === "blob",
       ),
     ).toBe(true);
 
-    const explicitPathFiltered = filterSimpleViewTreeItems(
-      repositoryTreeItems,
-      [".vite-hooks/pre-commit"],
-    );
+    const explicitPathFiltered = filterSimpleViewTreeItems(repositoryTreeItems, [
+      ".vite-hooks/pre-commit",
+    ]);
     expect(
       explicitPathFiltered.some(
-        (item) =>
-          item.path === ".vite-hooks/pre-commit" && item.type === "blob",
+        (item) => item.path === ".vite-hooks/pre-commit" && item.type === "blob",
       ),
     ).toBe(false);
   });
@@ -485,25 +451,14 @@ describe("current noter.md config with repository tree", () => {
       throw new Error("Expected root noter.md to have valid simpleView config");
     }
 
-    const filtered = filterSimpleViewTreeItems(
-      repositoryTreeItems,
-      parsedConfig.excludePatterns,
-    );
+    const filtered = filterSimpleViewTreeItems(repositoryTreeItems, parsedConfig.excludePatterns);
 
-    expect(filtered.some((item) => item.path === "tsconfig.base.json")).toBe(
+    expect(filtered.some((item) => item.path === "tsconfig.base.json")).toBe(false);
+    expect(filtered.some((item) => item.path === ".vite-hooks/pre-commit")).toBe(false);
+    expect(filtered.some((item) => item.path === "apps/noter/src/components/Untitled-1.md")).toBe(
       false,
     );
-    expect(
-      filtered.some((item) => item.path === ".vite-hooks/pre-commit"),
-    ).toBe(false);
-    expect(
-      filtered.some(
-        (item) => item.path === "apps/noter/src/components/Untitled-1.md",
-      ),
-    ).toBe(false);
-    expect(
-      filtered.some((item) => item.path === "apps/noter/convex/README.md"),
-    ).toBe(false);
+    expect(filtered.some((item) => item.path === "apps/noter/convex/README.md")).toBe(false);
   });
 
   it("keeps top-level docs visible", () => {
@@ -511,10 +466,7 @@ describe("current noter.md config with repository tree", () => {
       throw new Error("Expected root noter.md to have valid simpleView config");
     }
 
-    const filtered = filterSimpleViewTreeItems(
-      repositoryTreeItems,
-      parsedConfig.excludePatterns,
-    );
+    const filtered = filterSimpleViewTreeItems(repositoryTreeItems, parsedConfig.excludePatterns);
 
     expect(filtered.some((item) => item.path === "AGENTS.md")).toBe(true);
   });

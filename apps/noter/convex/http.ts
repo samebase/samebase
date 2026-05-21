@@ -1,9 +1,6 @@
 import { httpRouter } from "convex/server";
 import { auth } from "./auth";
-import {
-  finishCloudflareMcpOAuth,
-  startCloudflareMcpOAuth,
-} from "./cloudflareMcpOAuth";
+import { finishCloudflareMcpOAuth, startCloudflareMcpOAuth } from "./cloudflareMcpOAuth";
 import { finishConvexOAuth, startConvexOAuth } from "./convexOAuth";
 import {
   createMachineRegistrationRequest,

@@ -2,10 +2,7 @@ import { createServer } from "node:net";
 
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  buildPrimaryDevArgs,
-  buildPrimaryDevEnvironment,
-} from "./run-primary-dev.ts";
+import { buildPrimaryDevArgs, buildPrimaryDevEnvironment } from "./run-primary-dev.ts";
 
 const reserveFreePort = async (): Promise<string> =>
   await new Promise((resolve, reject) => {

@@ -70,11 +70,7 @@ const LONG_THREAD = {
     "check latest pr created; it was created from noter.md ui I'd like something to run on this machine that when it sees such a pr created knows that it needs to start codex to do the research and update the pull request with findings",
 } as const satisfies CodexAppServerThread;
 
-export function CodexThreadHistoryVisualFixture({
-  mode,
-}: {
-  mode: CodexThreadHistoryVisualMode;
-}) {
+export function CodexThreadHistoryVisualFixture({ mode }: { mode: CodexThreadHistoryVisualMode }) {
   return (
     <div data-mode={mode} className="bg-slate-100 p-8 text-slate-950">
       <div
@@ -86,9 +82,8 @@ export function CodexThreadHistoryVisualFixture({
             Codex Thread History Visual Fixture
           </h1>
           <p className="max-w-3xl text-sm leading-6 text-slate-600">
-            Covers both research-page ellipsis surfaces: thread history rows and
-            thread inventory previews. The chevron only appears when the
-            collapsed two-line view actually hides text.
+            Covers both research-page ellipsis surfaces: thread history rows and thread inventory
+            previews. The chevron only appears when the collapsed two-line view actually hides text.
           </p>
         </header>
 
@@ -118,10 +113,7 @@ export function CodexThreadHistoryVisualFixture({
             <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
               Expanded long message
             </div>
-            <CodexAppServerThreadHistoryItemCard
-              item={LONG_ITEM}
-              defaultExpanded
-            />
+            <CodexAppServerThreadHistoryItemCard item={LONG_ITEM} defaultExpanded />
           </div>
         </section>
 

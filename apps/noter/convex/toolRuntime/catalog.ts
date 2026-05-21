@@ -19,10 +19,7 @@ const editFileInputSchema = z.object({
   content: z.string().describe("The new full content of the file"),
 });
 const replaceInFileReplacementSchema = z.object({
-  oldText: z
-    .string()
-    .min(1)
-    .describe("Exact existing text to replace, including whitespace"),
+  oldText: z.string().min(1).describe("Exact existing text to replace, including whitespace"),
   newText: z.string().describe("Replacement text"),
 });
 const replaceInFileInputSchema = z.object({
@@ -42,25 +39,13 @@ const deleteFileInputSchema = z.object({
 const prodReadScopeSchema = z.enum(["vault", "global"]);
 const prodReadAllowRawFallbackSchema = z.boolean().optional();
 const requestConvexLogsReadInputSchema = z.object({
-  maxLines: z
-    .number()
-    .int()
-    .min(1)
-    .max(100)
-    .optional()
-    .describe("Maximum log lines to include"),
+  maxLines: z.number().int().min(1).max(100).optional().describe("Maximum log lines to include"),
   allowRawFallback: prodReadAllowRawFallbackSchema.describe(
     "In owner mode, allow explicit raw payload fallback",
   ),
 });
 const requestConvexProjectsReadInputSchema = z.object({
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(100)
-    .optional()
-    .describe("Maximum projects to include"),
+  limit: z.number().int().min(1).max(100).optional().describe("Maximum projects to include"),
   allowRawFallback: prodReadAllowRawFallbackSchema.describe(
     "In owner mode, allow explicit raw payload fallback",
   ),
@@ -78,13 +63,7 @@ const requestCloudflareLogsReadInputSchema = z.object({
   ),
 });
 const requestCloudflareAccountsReadInputSchema = z.object({
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(100)
-    .optional()
-    .describe("Maximum accounts to include"),
+  limit: z.number().int().min(1).max(100).optional().describe("Maximum accounts to include"),
   allowRawFallback: prodReadAllowRawFallbackSchema.describe(
     "In owner mode, allow explicit raw payload fallback",
   ),
@@ -93,16 +72,8 @@ const requestCloudflareWorkersInventoryReadInputSchema = z.object({
   accountId: z
     .string()
     .optional()
-    .describe(
-      "Cloudflare account ID to query (optional if already stored on the connection)",
-    ),
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(100)
-    .optional()
-    .describe("Maximum Workers to include"),
+    .describe("Cloudflare account ID to query (optional if already stored on the connection)"),
+  limit: z.number().int().min(1).max(100).optional().describe("Maximum Workers to include"),
   allowRawFallback: prodReadAllowRawFallbackSchema.describe(
     "In owner mode, allow explicit raw payload fallback",
   ),
@@ -118,16 +89,8 @@ const convexDataTableSchema = z.enum([
 ]);
 const requestConvexDataReadInputSchema = z.object({
   table: convexDataTableSchema.describe("Convex table to sample"),
-  scope: prodReadScopeSchema
-    .optional()
-    .describe("Read scope. Defaults to vault scope."),
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(100)
-    .optional()
-    .describe("Maximum rows to return"),
+  scope: prodReadScopeSchema.optional().describe("Read scope. Defaults to vault scope."),
+  limit: z.number().int().min(1).max(100).optional().describe("Maximum rows to return"),
   allowRawFallback: prodReadAllowRawFallbackSchema.describe(
     "In owner mode, allow explicit raw payload fallback",
   ),
@@ -135,10 +98,7 @@ const requestConvexDataReadInputSchema = z.object({
 
 export type ToolCatalogEntry<TInput> = ToolDefinition<TInput>;
 
-function withRequiredFields(
-  inputSchema: ToolJsonSchema,
-  requiredFields: string[],
-): ToolJsonSchema {
+function withRequiredFields(inputSchema: ToolJsonSchema, requiredFields: string[]): ToolJsonSchema {
   if (requiredFields.length === 0) {
     return inputSchema;
   }
@@ -151,10 +111,7 @@ function withRequiredFields(
 function contextRequiredFields(args: {
   tool: Pick<
     ToolDefinition<unknown>,
-    | "requiresVaultContext"
-    | "requiresBranchContext"
-    | "requiresThreadContext"
-    | "inputSchema"
+    "requiresVaultContext" | "requiresBranchContext" | "requiresThreadContext" | "inputSchema"
   >;
 }): string[] {
   const required = new Set(args.tool.inputSchema.required ?? []);
@@ -191,14 +148,10 @@ function parseRequiredFields(value: unknown): string[] | undefined {
 function zodToToolInputSchema(schema: z.ZodType<unknown>): ToolJsonSchema {
   const jsonSchema = z.toJSONSchema(schema);
   if (jsonSchema.type !== "object") {
-    throw new Error(
-      "Tool input schemas must serialize to JSON object schemas.",
-    );
+    throw new Error("Tool input schemas must serialize to JSON object schemas.");
   }
 
-  const properties = isRecord(jsonSchema.properties)
-    ? jsonSchema.properties
-    : {};
+  const properties = isRecord(jsonSchema.properties) ? jsonSchema.properties : {};
   const required = parseRequiredFields(jsonSchema.required);
 
   return {
@@ -212,10 +165,7 @@ function zodToToolInputSchema(schema: z.ZodType<unknown>): ToolJsonSchema {
 export function buildMcpToolInputSchema(
   tool: Pick<
     ToolDefinition<unknown>,
-    | "requiresVaultContext"
-    | "requiresBranchContext"
-    | "requiresThreadContext"
-    | "inputSchema"
+    "requiresVaultContext" | "requiresBranchContext" | "requiresThreadContext" | "inputSchema"
   >,
 ): ToolJsonSchema {
   const properties: Record<string, unknown> = {
@@ -250,26 +200,17 @@ export function buildMcpToolInputSchema(
 
 export const emptyToolInputSchema = zodToToolInputSchema(emptyInputSchema);
 
-export const readFileToolInputSchema =
-  zodToToolInputSchema(readFileInputSchema);
+export const readFileToolInputSchema = zodToToolInputSchema(readFileInputSchema);
 
-export const listFilesToolInputSchema =
-  zodToToolInputSchema(listFilesInputSchema);
+export const listFilesToolInputSchema = zodToToolInputSchema(listFilesInputSchema);
 
-export const editFileToolInputSchema =
-  zodToToolInputSchema(editFileInputSchema);
+export const editFileToolInputSchema = zodToToolInputSchema(editFileInputSchema);
 
-export const replaceInFileToolInputSchema = zodToToolInputSchema(
-  replaceInFileInputSchema,
-);
+export const replaceInFileToolInputSchema = zodToToolInputSchema(replaceInFileInputSchema);
 
-export const createFileToolInputSchema = zodToToolInputSchema(
-  createFileInputSchema,
-);
+export const createFileToolInputSchema = zodToToolInputSchema(createFileInputSchema);
 
-export const deleteFileToolInputSchema = zodToToolInputSchema(
-  deleteFileInputSchema,
-);
+export const deleteFileToolInputSchema = zodToToolInputSchema(deleteFileInputSchema);
 
 export const requestConvexLogsReadToolInputSchema = zodToToolInputSchema(
   requestConvexLogsReadInputSchema,
@@ -283,11 +224,13 @@ export const requestCloudflareLogsReadToolInputSchema = zodToToolInputSchema(
   requestCloudflareLogsReadInputSchema,
 );
 
-export const requestCloudflareAccountsReadToolInputSchema =
-  zodToToolInputSchema(requestCloudflareAccountsReadInputSchema);
+export const requestCloudflareAccountsReadToolInputSchema = zodToToolInputSchema(
+  requestCloudflareAccountsReadInputSchema,
+);
 
-export const requestCloudflareWorkersInventoryReadToolInputSchema =
-  zodToToolInputSchema(requestCloudflareWorkersInventoryReadInputSchema);
+export const requestCloudflareWorkersInventoryReadToolInputSchema = zodToToolInputSchema(
+  requestCloudflareWorkersInventoryReadInputSchema,
+);
 
 export const requestConvexDataReadToolInputSchema = zodToToolInputSchema(
   requestConvexDataReadInputSchema,
@@ -296,8 +239,7 @@ export const requestConvexDataReadToolInputSchema = zodToToolInputSchema(
 export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
   {
     name: "vaults.list",
-    description:
-      "List vault repositories available to the authenticated Noter user.",
+    description: "List vault repositories available to the authenticated Noter user.",
     surfaces: ["mcp"],
     requiredScopes: ["vaults.read"],
     requiresVaultContext: false,
@@ -324,8 +266,7 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
   },
   {
     name: "list_files",
-    description:
-      "List files in the repository, optionally filtered to a directory.",
+    description: "List files in the repository, optionally filtered to a directory.",
     surfaces: ["agent", "mcp"],
     requiredScopes: ["files.read"],
     requiresVaultContext: true,
@@ -366,8 +307,7 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
   },
   {
     name: "create_file",
-    description:
-      "Create a new file in the repository. Required inputs: path and content.",
+    description: "Create a new file in the repository. Required inputs: path and content.",
     surfaces: ["agent", "mcp"],
     requiredScopes: ["files.write"],
     requiresVaultContext: true,
@@ -380,8 +320,7 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
   },
   {
     name: "delete_file",
-    description:
-      "Mark a file for deletion in the repository. Required input: path.",
+    description: "Mark a file for deletion in the repository. Required input: path.",
     surfaces: ["agent", "mcp"],
     requiredScopes: ["files.write"],
     requiresVaultContext: true,
@@ -520,9 +459,7 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
   },
 ];
 
-export function findToolInCatalog(args: {
-  name: string;
-}): ToolCatalogEntry<unknown> | null {
+export function findToolInCatalog(args: { name: string }): ToolCatalogEntry<unknown> | null {
   for (const tool of RUNTIME_TOOL_CATALOG) {
     if (tool.name === args.name) {
       return tool;

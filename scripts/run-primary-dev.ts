@@ -36,10 +36,7 @@ export function buildPrimaryDevEnvironment(
   const explicitOrigin = normalizeEnvValue(env.DEV_ENV_ORIGIN);
   if (explicitOrigin !== undefined) {
     const explicitLoopbackPort = parseLoopbackOriginPort(explicitOrigin);
-    if (
-      explicitLoopbackPort !== null &&
-      normalizeEnvValue(env.VITE_PORT) === undefined
-    ) {
+    if (explicitLoopbackPort !== null && normalizeEnvValue(env.VITE_PORT) === undefined) {
       nextEnv.VITE_PORT = explicitLoopbackPort;
     }
     return nextEnv;
@@ -60,14 +57,10 @@ function isMainModule() {
 }
 
 if (isMainModule()) {
-  const child = spawn(
-    PNPM_COMMAND,
-    buildPrimaryDevArgs(process.argv.slice(2)),
-    {
-      env: buildPrimaryDevEnvironment(process.env),
-      stdio: "inherit",
-    },
-  );
+  const child = spawn(PNPM_COMMAND, buildPrimaryDevArgs(process.argv.slice(2)), {
+    env: buildPrimaryDevEnvironment(process.env),
+    stdio: "inherit",
+  });
 
   child.on("error", (error) => {
     console.error(error.message);

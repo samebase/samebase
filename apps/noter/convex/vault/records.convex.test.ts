@@ -14,30 +14,24 @@ describe("vault records Convex contract", () => {
       });
     });
 
-    await t.mutation(
-      internal.vault.records.createInitializingNoterManagedVaultForUser,
-      {
-        userId,
-        ghRepoOwner: "Ada",
-        ghRepoName: "Example-App",
-        visibility: "private",
-        convexProjectName: "example-app",
-        cloudflareWorkerName: "example-app",
-      },
-    );
+    await t.mutation(internal.vault.records.createInitializingNoterManagedVaultForUser, {
+      userId,
+      ghRepoOwner: "Ada",
+      ghRepoName: "Example-App",
+      visibility: "private",
+      convexProjectName: "example-app",
+      cloudflareWorkerName: "example-app",
+    });
 
     await expect(
-      t.mutation(
-        internal.vault.records.createInitializingNoterManagedVaultForUser,
-        {
-          userId,
-          ghRepoOwner: " ada ",
-          ghRepoName: " example-app ",
-          visibility: "private",
-          convexProjectName: "example-app-2",
-          cloudflareWorkerName: "example-app-2",
-        },
-      ),
+      t.mutation(internal.vault.records.createInitializingNoterManagedVaultForUser, {
+        userId,
+        ghRepoOwner: " ada ",
+        ghRepoName: " example-app ",
+        visibility: "private",
+        convexProjectName: "example-app-2",
+        cloudflareWorkerName: "example-app-2",
+      }),
     ).rejects.toThrow("Vault already exists for this repository.");
   });
 

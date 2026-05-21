@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import {
-  readRootRouteSearch,
-  validateRootRouteSearch,
-} from "./rootRouteSearch";
+import { readRootRouteSearch, validateRootRouteSearch } from "./rootRouteSearch";
 
 describe("rootRouteSearch", () => {
   it("accepts the routed root landing flags and auth provider", () => {
@@ -109,9 +106,7 @@ describe("rootRouteSearch", () => {
   });
 
   it("ignores all other parsed root params while reset is present", () => {
-    expect(readRootRouteSearch("?reset=true&primary=red-600&devtools")).toEqual(
-      { reset: true },
-    );
+    expect(readRootRouteSearch("?reset=true&primary=red-600&devtools")).toEqual({ reset: true });
   });
 
   it("activates reset from any present value", () => {

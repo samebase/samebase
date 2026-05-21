@@ -35,14 +35,10 @@ export function RepositoryWorkspacePaneHeader({
 
       <div className="min-w-0 flex-1 overflow-hidden">
         {middle ??
-          (title ? (
-            <span className="block truncate text-sm font-medium">{title}</span>
-          ) : null)}
+          (title ? <span className="block truncate text-sm font-medium">{title}</span> : null)}
       </div>
 
-      {right ? (
-        <div className="flex shrink-0 items-center gap-2">{right}</div>
-      ) : null}
+      {right ? <div className="flex shrink-0 items-center gap-2">{right}</div> : null}
     </div>
   );
 }

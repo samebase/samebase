@@ -1,20 +1,14 @@
 import { type ReactNode } from "react";
 import { ChevronDownIcon } from "@/lib/radixIcons";
 import { Button } from "@/components/ui/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 export type FileViewMode = "editor" | "graph";
 export type FileViewEditorOverride = "default" | "codemirror";
 
-function isFileViewEditorOverride(
-  value: string | undefined,
-): value is FileViewEditorOverride {
+function isFileViewEditorOverride(value: string | undefined): value is FileViewEditorOverride {
   return value === "default" || value === "codemirror";
 }
 
@@ -45,11 +39,7 @@ export function FileViewDeveloperTools({
   contentTestId,
 }: FileViewDeveloperToolsProps) {
   return (
-    <Collapsible
-      className="space-y-1.5"
-      open={open}
-      onOpenChange={onOpenChange}
-    >
+    <Collapsible className="space-y-1.5" open={open} onOpenChange={onOpenChange}>
       <CollapsibleTrigger asChild>
         <Button
           variant="ghost"
@@ -84,9 +74,7 @@ export function FileViewDeveloperTools({
         </Tabs>
         {editorOverride !== undefined && onEditorOverrideChange ? (
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-ui border bg-muted/20 px-2 py-1.5">
-            <div className="text-[11px] font-medium text-muted-foreground">
-              Editor engine
-            </div>
+            <div className="text-[11px] font-medium text-muted-foreground">Editor engine</div>
             <ToggleGroup
               type="single"
               value={editorOverride}
@@ -102,10 +90,7 @@ export function FileViewDeveloperTools({
               <ToggleGroupItem value="default" className="h-6 px-2 text-[11px]">
                 Auto
               </ToggleGroupItem>
-              <ToggleGroupItem
-                value="codemirror"
-                className="h-6 px-2 text-[11px]"
-              >
+              <ToggleGroupItem value="codemirror" className="h-6 px-2 text-[11px]">
                 CodeMirror
               </ToggleGroupItem>
             </ToggleGroup>

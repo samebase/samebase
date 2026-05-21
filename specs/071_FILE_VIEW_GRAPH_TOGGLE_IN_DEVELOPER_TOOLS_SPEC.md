@@ -15,12 +15,11 @@
 
 ## Summary
 
-FileView keeps the `Editor`/`Graph` switch inside the existing `Developer tools`
-collapsible instead of rendering it as an always-visible header row.
+FileView keeps the `Editor`/`Graph` switch inside the existing `Developer tools` collapsible instead
+of rendering it as an always-visible header row.
 
-The goal is to keep Graph View available for advanced and agent-focused
-workflows without spending default header space on a mode that most file-view
-sessions do not need.
+The goal is to keep Graph View available for advanced and agent-focused workflows without spending
+default header space on a mode that most file-view sessions do not need.
 
 This behavior keeps the current Graph contract intact:
 
@@ -30,20 +29,17 @@ This behavior keeps the current Graph contract intact:
 
 ## Problem
 
-Today FileView shows the `Editor`/`Graph` tabs in a dedicated row above the main
-content area, even for normal file-editing sessions.
+Today FileView shows the `Editor`/`Graph` tabs in a dedicated row above the main content area, even
+for normal file-editing sessions.
 
 That creates two UX issues:
 
-1. it gives an advanced/experimental surface permanent visual weight in the
-   default editor chrome
-2. it adds one more always-visible control row to a header that already carries
-   branch context, sync state, preview/review actions, PR actions, reset, and
-   developer controls
+1. it gives an advanced/experimental surface permanent visual weight in the default editor chrome
+2. it adds one more always-visible control row to a header that already carries branch context, sync
+   state, preview/review actions, PR actions, reset, and developer controls
 
-The current placement made sense while validating the Graph View MVP, but it is
-not a good long-term default if the graph entry point is meant to stay more
-developer-oriented than editor-oriented.
+The current placement made sense while validating the Graph View MVP, but it is not a good long-term
+default if the graph entry point is meant to stay more developer-oriented than editor-oriented.
 
 ## Current State
 
@@ -59,13 +55,11 @@ Current implementation in `apps/noter/src/components/FileView.tsx`:
 
 ### Related specs
 
-Current source docs assume the graph toggle is part of the default editor
-header:
+Current source docs assume the graph toggle is part of the default editor header:
 
-1. `specs/022_AGENT_GRAPH_VIEW_SPEC.md` says the toggle lives in the editor
-   header area.
-2. `specs/023_AGENT_GRAPH_CHAT_INTEGRATION_SPEC.md` formalizes only the
-   persistence contract, not the toggle placement.
+1. `specs/022_AGENT_GRAPH_VIEW_SPEC.md` says the toggle lives in the editor header area.
+2. `specs/023_AGENT_GRAPH_CHAT_INTEGRATION_SPEC.md` formalizes only the persistence contract, not
+   the toggle placement.
 
 ## Goals
 
@@ -88,19 +82,18 @@ header:
 
 Remove the standalone `Editor`/`Graph` row from the main FileView content area.
 
-FileView renders the same two-state mode control as the first item inside the
-existing `Developer tools` collapsible.
+FileView renders the same two-state mode control as the first item inside the existing
+`Developer tools` collapsible.
 
-This treats Graph View as an advanced tool rather than a default navigation
-surface.
+This treats Graph View as an advanced tool rather than a default navigation surface.
 
 ### 2. `Developer tools` stays hidden by default in normal editor mode
 
-When FileView opens in the normal `editor` mode, `Developer tools` should remain
-closed by default, matching the current advanced-tool behavior.
+When FileView opens in the normal `editor` mode, `Developer tools` should remain closed by default,
+matching the current advanced-tool behavior.
 
-This is the primary user-visible outcome of the change: the graph switch is no
-longer visible by default.
+This is the primary user-visible outcome of the change: the graph switch is no longer visible by
+default.
 
 ### 3. `Developer tools` stays visible when graph mode is active
 
@@ -115,11 +108,10 @@ Why:
 
 1. it keeps the return path to `Editor` visible
 2. it makes the active advanced mode self-explanatory
-3. it avoids trapping the user in a hidden toggle after persistence restores
-   graph mode
+3. it avoids trapping the user in a hidden toggle after persistence restores graph mode
 
-This behavior does not require persisting the open/closed state of
-`Developer tools`. The only persisted state remains `viewMode`.
+This behavior does not require persisting the open/closed state of `Developer tools`. The only
+persisted state remains `viewMode`.
 
 ### 4. Preserve the existing graph-mode contract
 
@@ -133,63 +125,57 @@ This behavior intentionally does not change the current graph contract:
 
 ## Product Decisions
 
-Use the same `Editor`/`Graph` control semantics that exist today, only in a new
-placement.
+Use the same `Editor`/`Graph` control semantics that exist today, only in a new placement.
 
-The implementation does not require switching component primitives. Reusing the
-current tabs-style control is preferred if it keeps the implementation small.
+The implementation does not require switching component primitives. Reusing the current tabs-style
+control is preferred if it keeps the implementation small.
 
 ### No new persistence surface
 
-Do not add Convex or localStorage persistence for the FileView `Developer tools`
-section itself.
+Do not add Convex or localStorage persistence for the FileView `Developer tools` section itself.
 
 Reasons:
 
 1. the user request is about default visibility, not cross-device sync
 2. `viewMode` is already the only state that needs to survive reloads
-3. adding a second persisted UI preference would expand scope without clear
-   value
+3. adding a second persisted UI preference would expand scope without clear value
 
 ## Implementation Notes
 
 1. Remove the standalone `editorSurfaceTabs` row from `FileView`.
-2. Render the same `Editor`/`Graph` control at the top of `CollapsibleContent`
-   for `Developer tools`.
-3. When `viewMode === "graph"`, keep `Developer tools` visible so the path back
-   to editor cannot disappear.
-4. When hydrating with persisted `graph` mode, render `Developer tools` open on
-   the first paint.
+2. Render the same `Editor`/`Graph` control at the top of `CollapsibleContent` for
+   `Developer tools`.
+3. When `viewMode === "graph"`, keep `Developer tools` visible so the path back to editor cannot
+   disappear.
+4. When hydrating with persisted `graph` mode, render `Developer tools` open on the first paint.
 5. Keep the current `viewMode` persistence effect and storage key unchanged.
 
 ## Acceptance Criteria
 
-1. Opening FileView in normal editor mode does not show the `Editor`/`Graph`
-   switch until `Developer tools` is expanded.
+1. Opening FileView in normal editor mode does not show the `Editor`/`Graph` switch until
+   `Developer tools` is expanded.
 2. Expanding `Developer tools` reveals the `Editor`/`Graph` switch.
 3. Switching to `graph` mode makes `Developer tools` visible immediately.
-4. Reloading a vault whose persisted mode is `graph` restores graph mode and
-   shows the toggle inside an open `Developer tools` section.
-5. Reloading a vault whose persisted mode is `editor` restores editor mode with
-   `Developer tools` closed by default.
+4. Reloading a vault whose persisted mode is `graph` restores graph mode and shows the toggle inside
+   an open `Developer tools` section.
+5. Reloading a vault whose persisted mode is `editor` restores editor mode with `Developer tools`
+   closed by default.
 6. Existing graph-node navigation still returns the user to `editor`.
 
 ## Validation Scenarios
 
-1. Open FileView on a vault in default editor mode and confirm no graph toggle
-   is visible until `Developer tools` is expanded.
-2. Expand `Developer tools`, switch to `graph`, and confirm the graph renders
-   without any standalone header toggle row.
-3. Refresh while in `graph` mode and confirm the section reopens with the switch
-   visible.
+1. Open FileView on a vault in default editor mode and confirm no graph toggle is visible until
+   `Developer tools` is expanded.
+2. Expand `Developer tools`, switch to `graph`, and confirm the graph renders without any standalone
+   header toggle row.
+3. Refresh while in `graph` mode and confirm the section reopens with the switch visible.
 4. Click a graph node and confirm the file opens in `editor` mode.
-5. Enter review mode from editor and confirm FileView still forces `editor`
-   mode.
+5. Enter review mode from editor and confirm FileView still forces `editor` mode.
 6. Add or update a narrow visual/screenshot fixture that covers:
    - default collapsed state
    - expanded `Developer tools` state with the switch visible
 
 ## Follow-Up
 
-Graph-related source docs should describe the toggle as part of
-`Developer tools`, not the default editor header.
+Graph-related source docs should describe the toggle as part of `Developer tools`, not the default
+editor header.

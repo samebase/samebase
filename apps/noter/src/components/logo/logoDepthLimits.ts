@@ -26,9 +26,7 @@ const LOGO_DEPTH_LIMITS = {
   },
 } as const satisfies Record<LogoDepthRenderer, LogoDepthLimit>;
 
-export function getLogoRendererFractalDepthHardMax(
-  renderer: LogoDepthRenderer,
-): number {
+export function getLogoRendererFractalDepthHardMax(renderer: LogoDepthRenderer): number {
   return LOGO_DEPTH_LIMITS[renderer].hardMax;
 }
 
@@ -46,8 +44,5 @@ export function clampLogoFractalDepthForRenderer(
   value: number,
   renderer: LogoDepthRenderer,
 ): number {
-  return Math.min(
-    normalizeLogoFractalDepth(value),
-    getLogoRendererFractalDepthHardMax(renderer),
-  );
+  return Math.min(normalizeLogoFractalDepth(value), getLogoRendererFractalDepthHardMax(renderer));
 }

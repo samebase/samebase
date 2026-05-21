@@ -47,14 +47,8 @@ export async function dispatchHumanTouchSwipe(
     for (const step of args.steps) {
       const rawX = bounds.x + args.startX + step.xOffset;
       const rawY = bounds.y + args.startY + step.yOffset;
-      const clampedX = Math.min(
-        Math.max(rawX, bounds.x),
-        bounds.x + bounds.width,
-      );
-      const clampedY = Math.min(
-        Math.max(rawY, bounds.y),
-        bounds.y + bounds.height,
-      );
+      const clampedX = Math.min(Math.max(rawX, bounds.x), bounds.x + bounds.width);
+      const clampedY = Math.min(Math.max(rawY, bounds.y), bounds.y + bounds.height);
       const reachedBounds = clampedX !== rawX || clampedY !== rawY;
 
       await page.waitForTimeout(step.delayMs);

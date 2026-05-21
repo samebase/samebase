@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  parseStaticMarkdown,
-  parseStaticMarkdownInline,
-} from "./staticMarkdown";
+import { parseStaticMarkdown, parseStaticMarkdownInline } from "./staticMarkdown";
 
 describe("parseStaticMarkdownInline", () => {
   it("parses text and inline code in sequence", () => {

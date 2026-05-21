@@ -1,20 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import {
-  buildPathWithTanStackSearch,
-  stringifyTanStackSearch,
-} from "./lib/tanstackSearchParams";
+import { buildPathWithTanStackSearch, stringifyTanStackSearch } from "./lib/tanstackSearchParams";
 
-const {
-  buildLocationMock,
-  isInIframeMock,
-  openAuthPopupMock,
-  signInWithGoogleMock,
-} = vi.hoisted(() => ({
-  buildLocationMock: vi.fn(),
-  isInIframeMock: vi.fn(() => false),
-  openAuthPopupMock: vi.fn(),
-  signInWithGoogleMock: vi.fn(),
-}));
+const { buildLocationMock, isInIframeMock, openAuthPopupMock, signInWithGoogleMock } = vi.hoisted(
+  () => ({
+    buildLocationMock: vi.fn(),
+    isInIframeMock: vi.fn(() => false),
+    openAuthPopupMock: vi.fn(),
+    signInWithGoogleMock: vi.fn(),
+  }),
+);
 
 vi.mock("@/authClient", () => ({
   isInIframe: isInIframeMock,
@@ -51,18 +45,14 @@ describe("SignInWithGoogle", () => {
     buildLocationMock.mockImplementation(
       (options: {
         hash?: true;
-        search?: (
-          currentSearch: Record<string, unknown>,
-        ) => Record<string, unknown>;
+        search?: (currentSearch: Record<string, unknown>) => Record<string, unknown>;
         to?: string;
       }) => {
         const currentSearch = Object.fromEntries(
           new URLSearchParams(window.location.search).entries(),
         );
         const nextSearch =
-          typeof options.search === "function"
-            ? options.search(currentSearch)
-            : currentSearch;
+          typeof options.search === "function" ? options.search(currentSearch) : currentSearch;
         return {
           href: buildPathWithTanStackSearch({
             pathname: options.to === "/" ? "/" : window.location.pathname,

@@ -2,14 +2,7 @@
 
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStateController";
 import { useLocalStorageWorkspaceSidebarState } from "./useLocalStorageWorkspaceSidebarState";
@@ -18,10 +11,7 @@ const { act } = React;
 Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
 
 const STORAGE_KEY = "noter_test_public_sidebar_state";
-const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
-  window,
-  "localStorage",
-);
+const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
 const DEFAULT_SIDEBAR_STATE = {
   leftDesktopOpen: false,
   leftDesktopWidthPx: 280,
@@ -91,23 +81,18 @@ function getLatestSidebarStateController() {
   return controller;
 }
 
-function setLatestMobilePane(
-  nextPane: React.SetStateAction<WorkspaceSidebarState["mobilePane"]>,
-) {
+function setLatestMobilePane(nextPane: React.SetStateAction<WorkspaceSidebarState["mobilePane"]>) {
   const controller = getLatestSidebarStateController();
   controller.setState(
     (state) => ({
       ...state,
-      mobilePane:
-        nextPane instanceof Function ? nextPane(state.mobilePane) : nextPane,
+      mobilePane: nextPane instanceof Function ? nextPane(state.mobilePane) : nextPane,
     }),
     "immediate",
   );
 }
 
-function setLatestMobileSurface(
-  nextSurface: WorkspaceSidebarState["mobileSurface"],
-) {
+function setLatestMobileSurface(nextSurface: WorkspaceSidebarState["mobileSurface"]) {
   const controller = getLatestSidebarStateController();
   controller.setState(
     (state) => ({
@@ -118,17 +103,13 @@ function setLatestMobileSurface(
   );
 }
 
-function setLatestRightDesktopWidthPx(
-  nextWidthPx: React.SetStateAction<number>,
-) {
+function setLatestRightDesktopWidthPx(nextWidthPx: React.SetStateAction<number>) {
   const controller = getLatestSidebarStateController();
   controller.setState(
     (state) => ({
       ...state,
       rightDesktopWidthPx:
-        nextWidthPx instanceof Function
-          ? nextWidthPx(state.rightDesktopWidthPx)
-          : nextWidthPx,
+        nextWidthPx instanceof Function ? nextWidthPx(state.rightDesktopWidthPx) : nextWidthPx,
     }),
     "width_deferred",
   );
@@ -158,11 +139,7 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
     rootElement?.remove();
     rootElement = null;
     if (originalLocalStorageDescriptor) {
-      Object.defineProperty(
-        window,
-        "localStorage",
-        originalLocalStorageDescriptor,
-      );
+      Object.defineProperty(window, "localStorage", originalLocalStorageDescriptor);
       return;
     }
 
@@ -191,12 +168,8 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
 
     renderProbe();
 
-    expect(
-      rootElement?.firstElementChild?.getAttribute("data-mobile-pane"),
-    ).toBe("right");
-    expect(
-      rootElement?.firstElementChild?.getAttribute("data-right-width"),
-    ).toBe("360");
+    expect(rootElement?.firstElementChild?.getAttribute("data-mobile-pane")).toBe("right");
+    expect(rootElement?.firstElementChild?.getAttribute("data-right-width")).toBe("360");
   });
 
   it("falls back to defaults for malformed localStorage payloads", () => {
@@ -213,12 +186,8 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
 
     renderProbe();
 
-    expect(
-      rootElement?.firstElementChild?.getAttribute("data-mobile-pane"),
-    ).toBe("main");
-    expect(
-      rootElement?.firstElementChild?.getAttribute("data-right-width"),
-    ).toBe("288");
+    expect(rootElement?.firstElementChild?.getAttribute("data-mobile-pane")).toBe("main");
+    expect(rootElement?.firstElementChild?.getAttribute("data-right-width")).toBe("288");
   });
 
   it("falls back to defaults for old localStorage payload versions", () => {
@@ -232,12 +201,8 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
 
     renderProbe();
 
-    expect(
-      rootElement?.firstElementChild?.getAttribute("data-mobile-pane"),
-    ).toBe("main");
-    expect(
-      rootElement?.firstElementChild?.getAttribute("data-right-width"),
-    ).toBe("288");
+    expect(rootElement?.firstElementChild?.getAttribute("data-mobile-pane")).toBe("main");
+    expect(rootElement?.firstElementChild?.getAttribute("data-right-width")).toBe("288");
   });
 
   it("falls back to defaults for malformed mobile surface payloads", () => {
@@ -254,12 +219,8 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
 
     renderProbe();
 
-    expect(
-      rootElement?.firstElementChild?.getAttribute("data-mobile-pane"),
-    ).toBe("main");
-    expect(
-      rootElement?.firstElementChild?.getAttribute("data-right-width"),
-    ).toBe("288");
+    expect(rootElement?.firstElementChild?.getAttribute("data-mobile-pane")).toBe("main");
+    expect(rootElement?.firstElementChild?.getAttribute("data-right-width")).toBe("288");
   });
 
   it("clears localStorage when the reset flag is active", () => {
@@ -274,9 +235,7 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
     renderProbe({ reset: true });
 
     expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
-    expect(
-      rootElement?.firstElementChild?.getAttribute("data-mobile-pane"),
-    ).toBe("main");
+    expect(rootElement?.firstElementChild?.getAttribute("data-mobile-pane")).toBe("main");
   });
 
   it("persists immediate pane changes to localStorage", () => {
@@ -337,9 +296,7 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
       setLatestRightDesktopWidthPx(340);
     });
 
-    expect(
-      rootElement?.firstElementChild?.getAttribute("data-right-width"),
-    ).toBe("340");
+    expect(rootElement?.firstElementChild?.getAttribute("data-right-width")).toBe("340");
     expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
 
     act(() => {

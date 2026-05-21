@@ -4,8 +4,7 @@ import { signInIfNeeded } from "./liveHelpers";
 // Worktree runs can override this so the temporary repo prefix follows the
 // repo's tmp-<worktree-id>-<intent> convention without hard-coding one value.
 const TEMP_REPOSITORY_PREFIX =
-  process.env.PLAYWRIGHT_TEMP_REPO_PREFIX?.trim() ||
-  "tmp-main-playwright-create-app";
+  process.env.PLAYWRIGHT_TEMP_REPO_PREFIX?.trim() || "tmp-main-playwright-create-app";
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -25,19 +24,12 @@ function removeVaultControl(page: Page, repoName: string): Locator {
 function vaultCard(page: Page, repoName: string): Locator {
   return page
     .getByRole("link", {
-      name: new RegExp(
-        `^#${escapeRegExp(repoName)}(?: \\(deleting\\.\\.\\.\\))?$`,
-      ),
+      name: new RegExp(`^#${escapeRegExp(repoName)}(?: \\(deleting\\.\\.\\.\\))?$`),
     })
-    .locator(
-      "xpath=ancestor::div[.//button[normalize-space(.)='Developer tools']][1]",
-    );
+    .locator("xpath=ancestor::div[.//button[normalize-space(.)='Developer tools']][1]");
 }
 
-async function createAppIfAvailable(
-  page: Page,
-  repoName: string,
-): Promise<void> {
+async function createAppIfAvailable(page: Page, repoName: string): Promise<void> {
   const repositoryNameInput = page.getByPlaceholder("GitHub repo name");
   const createError = page.locator(".text-red-600").last();
   await expect(repositoryNameInput).toBeVisible({ timeout: 15_000 });
@@ -66,10 +58,7 @@ async function createAppIfAvailable(
   }
 }
 
-async function removeTemporaryVault(
-  page: Page,
-  repoName: string,
-): Promise<void> {
+async function removeTemporaryVault(page: Page, repoName: string): Promise<void> {
   const removeControl = removeVaultControl(page, repoName);
   await expect(removeControl).toBeVisible({ timeout: 120_000 });
 
@@ -103,9 +92,7 @@ async function removeTemporaryVault(
 }
 
 test.describe("vault create app live flow", () => {
-  test("creates a temporary app and shows it on the dashboard", async ({
-    page,
-  }, testInfo) => {
+  test("creates a temporary app and shows it on the dashboard", async ({ page }, testInfo) => {
     test.slow();
     test.setTimeout(240_000);
     test.skip(
@@ -134,9 +121,9 @@ test.describe("vault create app live flow", () => {
 
       await expect(createdVaultCard).toBeVisible({ timeout: 120_000 });
       await expect(repositoryLink).toBeVisible({ timeout: 120_000 });
-      await expect(
-        createdVaultCard.getByRole("button", { name: "Developer tools" }),
-      ).toBeVisible({ timeout: 120_000 });
+      await expect(createdVaultCard.getByRole("button", { name: "Developer tools" })).toBeVisible({
+        timeout: 120_000,
+      });
 
       await testInfo.attach("created-repository-link", {
         body: (await repositoryLink.first().getAttribute("href")) ?? "",

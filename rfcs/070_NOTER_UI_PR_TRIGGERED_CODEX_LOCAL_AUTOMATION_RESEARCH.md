@@ -7,18 +7,18 @@
 
 ## Question
 
-When Noter creates a draft PR from the noter.md UI, how should this machine
-detect that PR, create or reuse a local worktree for it, start Codex on that
-worktree, and let Codex continue the research and update the PR?
+When Noter creates a draft PR from the noter.md UI, how should this machine detect that PR, create
+or reuse a local worktree for it, start Codex on that worktree, and let Codex continue the research
+and update the PR?
 
-This research also covers what metadata the PR itself should carry so the local
-runner does not need to guess.
+This research also covers what metadata the PR itself should carry so the local runner does not need
+to guess.
 
 Strategic direction update:
 
 - this RFC remains the narrow PR-triggered local automation document
-- for the broader "connected machines visible from the web UI / phone" product
-  direction, see `rfcs/078_TUNNELED_LOCAL_CODEX_CONTROL_SPEC.md`
+- for the broader "connected machines visible from the web UI / phone" product direction, see
+  `rfcs/078_TUNNELED_LOCAL_CODEX_CONTROL_SPEC.md`
 
 ## Verified Current State
 
@@ -36,13 +36,12 @@ As of 2026-03-25 21:13:36 UTC, the latest PR in `noter-md/noter` is:
 
 Observed follow-up timeline:
 
-- 2026-03-25 21:13:37 UTC: auto-added to a project by
-  `github-project-automation[bot]`
+- 2026-03-25 21:13:37 UTC: auto-added to a project by `github-project-automation[bot]`
 - 2026-03-25 21:13:44 UTC: CodeRabbit posted its draft-skipped status comment
 - 2026-03-25 21:17:56 UTC: Cloudflare Pages posted preview links
 
-Conclusion: the current PR has no machine-readable marker that says "this came
-from noter.md UI and should trigger local Codex work."
+Conclusion: the current PR has no machine-readable marker that says "this came from noter.md UI and
+should trigger local Codex work."
 
 ### How Noter creates draft PRs today
 
@@ -54,8 +53,7 @@ Current PR creation happens in the file-view push flow:
 Important current behavior:
 
 1. `buildDraftBranchName(...)` generates `draft/<slug>-<suffix>` branch names.
-2. `createDraftPullRequest(...)` and
-   `createDraftPullRequestFromDefaultBranch(...)` call
+2. `createDraftPullRequest(...)` and `createDraftPullRequestFromDefaultBranch(...)` call
    `octokit.rest.pulls.create(...)`.
 3. The PR create call currently sets only:
    - `title`
@@ -71,26 +69,22 @@ Important current behavior:
 ### What Noter stores today and what it does not
 
 `agentThreadContext` in `apps/noter/convex/schema.ts` and messages persisted via
-`apps/noter/convex/chat/index.ts` belong to Noter's own Convex-backed chat
-product.
+`apps/noter/convex/chat/index.ts` belong to Noter's own Convex-backed chat product.
 
-That state is **not** the same thing as a Codex Desktop or Codex CLI thread
-today.
+That state is **not** the same thing as a Codex Desktop or Codex CLI thread today.
 
 Current verified limitation:
 
-- there is no shared thread id between the Noter Convex chat tables and Codex
-  sessions
-- there is no automatic bridge that rehydrates a Codex first message from the
-  Noter chat tables
+- there is no shared thread id between the Noter Convex chat tables and Codex sessions
+- there is no automatic bridge that rehydrates a Codex first message from the Noter chat tables
 - the current draft-PR flow does not copy Noter chat context into PR metadata
 
 Conclusion:
 
-- if we want a local machine runner to act on a PR safely today, the PR itself
-  needs to carry the first message and runtime contract
-- reusing Noter chat state for Codex later is a future product decision, not a
-  capability that already exists
+- if we want a local machine runner to act on a PR safely today, the PR itself needs to carry the
+  first message and runtime contract
+- reusing Noter chat state for Codex later is a future product decision, not a capability that
+  already exists
 
 ### What Codex can already do on this machine
 
@@ -105,10 +99,10 @@ Observed locally on 2026-03-25:
 
 Important constraint:
 
-- `codex app <path>` can open a workspace, but the public CLI does not expose a
-  direct "open desktop app and seed first message" flag
-- `codex app-server` is powerful enough to do `thread/start`, `turn/start`, and
-  `thread/name/set`, but it is still an experimental surface
+- `codex app <path>` can open a workspace, but the public CLI does not expose a direct "open desktop
+  app and seed first message" flag
+- `codex app-server` is powerful enough to do `thread/start`, `turn/start`, and `thread/name/set`,
+  but it is still an experimental surface
 
 ### What GitHub auth already exists on this machine
 
@@ -117,9 +111,8 @@ Observed locally on 2026-03-25:
 - `gh auth status -t` shows an active `github.com` login for `nicu-chiciuc`
 - the current token scopes include `repo`
 
-That is enough for the MVP polling path to read PRs and update PR bodies,
-comments, labels, and branches through `gh` / GitHub API calls without adding a
-second auth layer first.
+That is enough for the MVP polling path to read PRs and update PR bodies, comments, labels, and
+branches through `gh` / GitHub API calls without adding a second auth layer first.
 
 ### What the repo already has for Codex app-server
 
@@ -145,16 +138,14 @@ Important correction:
 What it proves:
 
 - the repo already knows the Codex app-server RPC shape
-- `thread/start` and `turn/start` are real operations the product has used in a
-  remote environment
+- `thread/start` and `turn/start` are real operations the product has used in a remote environment
 
 What it does **not** prove:
 
 - that Noter already has a local app-server daemon
 - that Codespaces and local worktrees share the same runtime management path
 
-For local-machine app-server management, `~/dev/forks/t3code/` is the better
-reference, especially:
+For local-machine app-server management, `~/dev/forks/t3code/` is the better reference, especially:
 
 - `~/dev/forks/t3code/apps/server/src/codexAppServerManager.ts`
 - `~/dev/forks/t3code/apps/server/src/wsServer.ts`
@@ -179,10 +170,9 @@ Mechanics:
 
 1. The operator runs `make connect` locally.
 2. That Make target runs a small repo-owned Node watcher.
-3. The script polls GitHub for open PRs with an explicit Noter automation
-   marker.
-4. For each unclaimed PR/head SHA, the script creates or reuses a local worktree
-   and runs `codex exec -C <worktree> ...`.
+3. The script polls GitHub for open PRs with an explicit Noter automation marker.
+4. For each unclaimed PR/head SHA, the script creates or reuses a local worktree and runs
+   `codex exec -C <worktree> ...`.
 
 Pros:
 
@@ -196,8 +186,7 @@ Pros:
 Cons:
 
 - not instant; latency is poll interval based
-- `codex exec` is less explicit than app-server if you want a richer named
-  thread lifecycle
+- `codex exec` is less explicit than app-server if you want a richer named thread lifecycle
 - if the PR metadata is incomplete, the runner has to stop
 
 Assessment:
@@ -223,8 +212,7 @@ Cons:
 
 - more moving parts
 - requires tunnel lifecycle management on the local machine
-- requires webhook secret validation, replay protection, and 10-second response
-  discipline
+- requires webhook secret validation, replay protection, and 10-second response discipline
 - still needs a local durable queue/state layer after receipt
 
 Assessment:
@@ -237,9 +225,8 @@ Assessment:
 Mechanics:
 
 1. Same trigger as Option A.
-2. Instead of calling `codex exec`, the runner talks to a local HTTP bridge that
-   reuses the same Codex RPC concepts as the existing Codespaces code, but runs
-   them through a local daemon.
+2. Instead of calling `codex exec`, the runner talks to a local HTTP bridge that reuses the same
+   Codex RPC concepts as the existing Codespaces code, but runs them through a local daemon.
 3. The bridge calls:
    - `thread/start`
    - `thread/name/set`
@@ -250,9 +237,8 @@ Pros:
 - true explicit thread lifecycle
 - exact control over model and reasoning effort per run
 - easier to attach richer thread metadata later
-- lower implementation risk than a greenfield app-server client because this
-  repo already has a remote proof of concept and `t3code` has a stronger local
-  manager example
+- lower implementation risk than a greenfield app-server client because this repo already has a
+  remote proof of concept and `t3code` has a stronger local manager example
 
 Cons:
 
@@ -295,15 +281,13 @@ Build a real local app-server manager and switch execution from `codex exec` to:
 Why:
 
 - if you need a first-class named Codex thread with explicit runtime settings
-- if you want the local runner to report thread ids back into the PR body or
-  comments
-- if the operator explicitly wants a local named-thread experience instead of a
-  fire-and-wait `codex exec` run
+- if you want the local runner to report thread ids back into the PR body or comments
+- if the operator explicitly wants a local named-thread experience instead of a fire-and-wait
+  `codex exec` run
 
 ## The Missing Contract: PR Metadata
 
-Today the PR itself does not contain enough information to safely trigger local
-automation.
+Today the PR itself does not contain enough information to safely trigger local automation.
 
 The local runner should not infer intent from:
 
@@ -323,8 +307,8 @@ Use both:
 
 #### 1. Visible opt-in label
 
-Recommended: reuse `research` only if that label truly means "start the local
-research runner now." If not, add a more specific label such as:
+Recommended: reuse `research` only if that label truly means "start the local research runner now."
+If not, add a more specific label such as:
 
 - `codex-research`
 - or `noter-ui-research`
@@ -344,13 +328,11 @@ Example:
 Why both:
 
 - labels are good filters but easy to toggle manually
-- the hidden body block is durable, parseable, and can carry the first message
-  plus runtime settings
+- the hidden body block is durable, parseable, and can carry the first message plus runtime settings
 
 ### Fail-closed rule
 
-If the label is present but the body marker is missing or invalid, the local
-runner should:
+If the label is present but the body marker is missing or invalid, the local runner should:
 
 1. refuse to auto-run
 2. comment on the PR with the exact missing field
@@ -380,8 +362,8 @@ Why:
 
 ## Recommended First Codex Message
 
-For a PR-triggered local run, the first message should be stored in the PR and
-then passed into Codex almost verbatim.
+For a PR-triggered local run, the first message should be stored in the PR and then passed into
+Codex almost verbatim.
 
 Recommended template:
 
@@ -415,11 +397,11 @@ Recommended operator entrypoint:
 
 Optional wrapper:
 
-- `launchd` can run `make connect-once` on a schedule later if the operator
-  wants the runner to survive terminal closes
+- `launchd` can run `make connect-once` on a schedule later if the operator wants the runner to
+  survive terminal closes
 
-The repo-owned script should keep `--once` so it stays easy to test manually and
-easy to wrap with `launchd`.
+The repo-owned script should keep `--once` so it stays easy to test manually and easy to wrap with
+`launchd`.
 
 ### Detection flow
 
@@ -479,10 +461,9 @@ Notes:
 
 - keep the model and effort explicit even if the local config already matches
 - do not use `--ephemeral`; the session should persist in shared Codex state
-- write the last message and JSON event stream to local artifacts if you want
-  richer post-run reporting
-- use the PR body marker, not Convex chat state, as the durable cross-system
-  contract
+- write the last message and JSON event stream to local artifacts if you want richer post-run
+  reporting
+- use the PR body marker, not Convex chat state, as the durable cross-system contract
 
 #### Rich-thread path
 
@@ -502,16 +483,15 @@ The remote proof and local reference points are:
 
 ## PR Update Behavior
 
-Once the runner claims a PR, it should immediately post a short checkpoint
-comment that says:
+Once the runner claims a PR, it should immediately post a short checkpoint comment that says:
 
 1. the run was claimed
 2. which machine claimed it
 3. which local run id claimed it
 4. which model and reasoning effort were requested
 
-Do **not** post raw local filesystem paths to GitHub comments. Keep those local
-to the operator machine.
+Do **not** post raw local filesystem paths to GitHub comments. Keep those local to the operator
+machine.
 
 When the run finishes, it should:
 
@@ -525,24 +505,22 @@ When the run finishes, it should:
 
 ## Why polling wins for MVP
 
-Polling is the right first step here because it avoids three classes of
-complexity that do not help the product decision:
+Polling is the right first step here because it avoids three classes of complexity that do not help
+the product decision:
 
 1. inbound connectivity
 2. webhook security and replay handling
 3. always-on local HTTP services before the core contract is proven
 
-On a single operator machine, the real product risk is not event latency. The
-real product risk is ambiguous PR intent.
+On a single operator machine, the real product risk is not event latency. The real product risk is
+ambiguous PR intent.
 
-That is why the most important change is not the daemon. It is the PR metadata
-contract.
+That is why the most important change is not the daemon. It is the PR metadata contract.
 
-The Convex local-first article is useful here only as a design reminder: when a
-workflow needs durable coordination or third-party events, it is often more
-convenient to drive the flow from a coordinator instead of hiding everything in
-client-local state. In this case, the PR body and GitHub state are that durable
-coordination surface for the MVP, not Noter's internal chat tables.
+The Convex local-first article is useful here only as a design reminder: when a workflow needs
+durable coordination or third-party events, it is often more convenient to drive the flow from a
+coordinator instead of hiding everything in client-local state. In this case, the PR body and GitHub
+state are that durable coordination surface for the MVP, not Noter's internal chat tables.
 
 ## Concrete Implementation Plan
 
@@ -569,21 +547,18 @@ Add and use a local-only script behind `make connect` that:
 
 ### 3. Optional phase 2
 
-Build a dedicated local app-server manager, borrowing RPC shape from the
-Codespaces implementation and runtime management ideas from `t3code`.
+Build a dedicated local app-server manager, borrowing RPC shape from the Codespaces implementation
+and runtime management ideas from `t3code`.
 
 ## Open Questions
 
-1. Should the visible opt-in label be a new dedicated label instead of
-   overloading `research`?
-2. Should the local runner always push directly to the PR head branch, or should
-   it be able to open a follow-up branch when the PR is marked as "proposal
-   only"?
-3. Should the runner comment immediately when metadata is malformed, or should
-   it also auto-remove the trigger label to avoid repeated retries?
-4. If the user wants an actual Codex Desktop window to open, is `codex app`
-   sufficient after the run starts, or is the app-server path required from the
-   beginning?
+1. Should the visible opt-in label be a new dedicated label instead of overloading `research`?
+2. Should the local runner always push directly to the PR head branch, or should it be able to open
+   a follow-up branch when the PR is marked as "proposal only"?
+3. Should the runner comment immediately when metadata is malformed, or should it also auto-remove
+   the trigger label to avoid repeated retries?
+4. If the user wants an actual Codex Desktop window to open, is `codex app` sufficient after the run
+   starts, or is the app-server path required from the beginning?
 
 ## Sources
 
@@ -607,10 +582,8 @@ Codespaces implementation and runtime management ideas from `t3code`.
 
 - GitHub webhook events and payloads:
   https://docs.github.com/en/webhooks/webhook-events-and-payloads
-- GitHub repository webhooks REST API:
-  https://docs.github.com/en/rest/repos/webhooks
-- GitHub issue event types:
-  https://docs.github.com/en/rest/using-the-rest-api/issue-event-types
+- GitHub repository webhooks REST API: https://docs.github.com/en/rest/repos/webhooks
+- GitHub issue event types: https://docs.github.com/en/rest/using-the-rest-api/issue-event-types
 - GitHub searching issues and pull requests:
   https://docs.github.com/en/search-github/searching-on-github/searching-issues-and-pull-requests
 - GitHub webhook best practices:

@@ -32,11 +32,7 @@ function VisualText({ label, width }: VisualTextProps) {
   return (
     <>
       <span className="sr-only">{label}</span>
-      <span
-        aria-hidden
-        className="block h-2 shrink-0 bg-current"
-        style={{ width }}
-      />
+      <span aria-hidden className="block h-2 shrink-0 bg-current" style={{ width }} />
     </>
   );
 }
@@ -45,21 +41,12 @@ function VisualLegend({ label, width }: VisualTextProps) {
   return (
     <div className="flex h-4 items-center">
       <span className="sr-only">{label}</span>
-      <span
-        aria-hidden
-        className="block h-2 shrink-0 bg-stone-400"
-        style={{ width }}
-      />
+      <span aria-hidden className="block h-2 shrink-0 bg-stone-400" style={{ width }} />
     </div>
   );
 }
 
-function FixtureSection({
-  children,
-  description,
-  testId,
-  title,
-}: FixtureSectionProps) {
+function FixtureSection({ children, description, testId, title }: FixtureSectionProps) {
   return (
     <section className="grid gap-4 border border-stone-300 bg-white p-5">
       <div className="grid gap-1">
@@ -90,13 +77,11 @@ export function ButtonVisualFixture() {
     >
       <div className="mx-auto grid max-w-6xl gap-6">
         <header className="grid gap-2 border border-stone-300 bg-white p-5">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Button Visual Fixture
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Button Visual Fixture</h1>
           <p className="max-w-3xl text-sm text-stone-600">
-            Shared button coverage for the concrete variant, size, state, and
-            override combinations currently used across the app. These snapshots
-            use zero tolerance so small silhouette changes fail immediately.
+            Shared button coverage for the concrete variant, size, state, and override combinations
+            currently used across the app. These snapshots use zero tolerance so small silhouette
+            changes fail immediately.
           </p>
         </header>
 

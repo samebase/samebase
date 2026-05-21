@@ -11,15 +11,11 @@ type PolarServer = "sandbox" | "production";
 const POLAR_WEBHOOK_FETCH_TIMEOUT_MS = 8000;
 
 function inferPolarServer(): PolarServer {
-  return resolveDeploymentProfile().kind === "production"
-    ? "production"
-    : "sandbox";
+  return resolveDeploymentProfile().kind === "production" ? "production" : "sandbox";
 }
 
 function getPolarApiBaseUrl(server: PolarServer): string {
-  return server === "production"
-    ? "https://api.polar.sh/v1"
-    : "https://sandbox-api.polar.sh/v1";
+  return server === "production" ? "https://api.polar.sh/v1" : "https://sandbox-api.polar.sh/v1";
 }
 
 function readExternalCustomerIdFromEvent(event: unknown): string | null {
@@ -57,10 +53,7 @@ async function fetchCustomerState(args: {
   const url = `${baseUrl}/customers/external/${encodeURIComponent(args.externalCustomerId)}/state`;
 
   const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    POLAR_WEBHOOK_FETCH_TIMEOUT_MS,
-  );
+  const timeout = setTimeout(() => controller.abort(), POLAR_WEBHOOK_FETCH_TIMEOUT_MS);
 
   let response: Response;
   try {

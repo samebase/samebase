@@ -71,19 +71,9 @@ type LandingDemoStep =
 const PACKAGE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(PACKAGE_DIR, "../..");
 const DEFAULT_TMP_DIR = path.join(REPO_ROOT, ".tmp", "onboarding-video-tools");
-const DEFAULT_RENDER_DIR = path.join(
-  REPO_ROOT,
-  "research",
-  "onboarding-video-artifacts",
-);
-const DEFAULT_OUTPUT_PATH = path.join(
-  DEFAULT_RENDER_DIR,
-  "chrome-landing-tabs-demo.mp4",
-);
-const DEFAULT_SCREEN_OUTPUT_PATH = path.join(
-  DEFAULT_RENDER_DIR,
-  "screen-capture-demo.mp4",
-);
+const DEFAULT_RENDER_DIR = path.join(REPO_ROOT, "research", "onboarding-video-artifacts");
+const DEFAULT_OUTPUT_PATH = path.join(DEFAULT_RENDER_DIR, "chrome-landing-tabs-demo.mp4");
+const DEFAULT_SCREEN_OUTPUT_PATH = path.join(DEFAULT_RENDER_DIR, "screen-capture-demo.mp4");
 const DEFAULT_SCENE_PAD_POINTS = 40;
 const DEFAULT_BOTTOM_SHADOW_EXTRA_PAD_POINTS = 8;
 const DEFAULT_URLS = {
@@ -120,8 +110,7 @@ const LANDING_DEMO_MOUSE_TIMING = {
 } as const;
 const LANDING_DEMO_OUTPUT_FPS = 30;
 const LANDING_DEMO_RECORDER_WARMUP_SECONDS = 0.8;
-const LANDING_DEMO_AUTOMATION_START_DELAY_SECONDS =
-  LANDING_DEMO_RECORDER_WARMUP_SECONDS + 0.12;
+const LANDING_DEMO_AUTOMATION_START_DELAY_SECONDS = LANDING_DEMO_RECORDER_WARMUP_SECONDS + 0.12;
 const LANDING_DEMO_RECORDER_BUFFER_SECONDS = 0.75;
 const LANDING_DEMO_BROWSER_BUFFER_SECONDS = 3;
 
@@ -197,9 +186,7 @@ function parseScreenDemoArgs(argv: string[]): ScreenDemoOptions {
   const durationSeconds = Number(args.duration ?? "4");
 
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
-    throw new Error(
-      `Invalid --duration value: ${args.duration ?? "<missing>"}`,
-    );
+    throw new Error(`Invalid --duration value: ${args.duration ?? "<missing>"}`);
   }
 
   return {
@@ -212,9 +199,7 @@ async function runLandingDemo(options: LandingDemoOptions) {
   await mkdir(DEFAULT_TMP_DIR, { recursive: true });
   await mkdir(path.dirname(options.outputPath), { recursive: true });
 
-  const recordingDurationSeconds = computeRecordingDurationSeconds(
-    LANDING_DEMO_SEQUENCE,
-  );
+  const recordingDurationSeconds = computeRecordingDurationSeconds(LANDING_DEMO_SEQUENCE);
   const holdOpenSeconds =
     LANDING_DEMO_AUTOMATION_START_DELAY_SECONDS +
     recordingDurationSeconds +
@@ -229,11 +214,9 @@ async function runLandingDemo(options: LandingDemoOptions) {
     recorderBin,
     ["AppKit", "AVFoundation", "CoreMedia", "CoreVideo", "ScreenCaptureKit"],
   );
-  await compileSwiftBinary(
-    path.join(PACKAGE_DIR, "native", "animateMouse.swift"),
-    mouseBin,
-    ["AppKit"],
-  );
+  await compileSwiftBinary(path.join(PACKAGE_DIR, "native", "animateMouse.swift"), mouseBin, [
+    "AppKit",
+  ]);
   await compileSwiftBinary(
     path.join(PACKAGE_DIR, "native", "runWhiteBackdrop.swift"),
     backdropBin,
@@ -243,17 +226,9 @@ async function runLandingDemo(options: LandingDemoOptions) {
   const runId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const readyFile = path.join(DEFAULT_TMP_DIR, `landing-ready-${runId}.txt`);
   const coordsFile = path.join(DEFAULT_TMP_DIR, `landing-coords-${runId}.json`);
-  const recorderStartedFile = path.join(
-    DEFAULT_TMP_DIR,
-    `landing-recorder-started-${runId}.txt`,
-  );
-  const backdropReadyFile = path.join(
-    DEFAULT_TMP_DIR,
-    `landing-backdrop-ready-${runId}.txt`,
-  );
-  const profileDir = await mkdtemp(
-    path.join(DEFAULT_TMP_DIR, "chrome-profile-"),
-  );
+  const recorderStartedFile = path.join(DEFAULT_TMP_DIR, `landing-recorder-started-${runId}.txt`);
+  const backdropReadyFile = path.join(DEFAULT_TMP_DIR, `landing-backdrop-ready-${runId}.txt`);
+  const profileDir = await mkdtemp(path.join(DEFAULT_TMP_DIR, "chrome-profile-"));
 
   let demoProcess: BufferedChildProcess | null = null;
   let recorderProcess: BufferedChildProcess | null = null;
@@ -293,15 +268,9 @@ async function runLandingDemo(options: LandingDemoOptions) {
 
     const coords = parseLandingCoords(await readFile(coordsFile, "utf8"));
     const windowFrame = serializeWindowFrame(coords.windowFrame);
-    const captureFrame = expandWindowFrame(
-      coords.windowFrame,
-      options.padPoints,
-    );
+    const captureFrame = expandWindowFrame(coords.windowFrame, options.padPoints);
     const captureFrameArg = serializeWindowFrame(captureFrame);
-    const demoActions = serializeLandingDemoActions(
-      coords,
-      LANDING_DEMO_SEQUENCE,
-    );
+    const demoActions = serializeLandingDemoActions(coords, LANDING_DEMO_SEQUENCE);
 
     await focusChromeWindow(coords.windowFrame);
 
@@ -428,10 +397,7 @@ async function runScreenDemo(options: ScreenDemoOptions) {
   process.stdout.write(`${options.outputPath}\n`);
 }
 
-function serializeLandingDemoActions(
-  coords: LandingCoords,
-  steps: readonly LandingDemoStep[],
-) {
+function serializeLandingDemoActions(coords: LandingCoords, steps: readonly LandingDemoStep[]) {
   return steps
     .map((step) => {
       if (step.kind === "wait") {
@@ -444,10 +410,7 @@ function serializeLandingDemoActions(
     .join(";");
 }
 
-function resolveLandingDemoTarget(
-  coords: LandingCoords,
-  target: LandingDemoTarget,
-): ScreenPoint {
+function resolveLandingDemoTarget(coords: LandingCoords, target: LandingDemoTarget): ScreenPoint {
   switch (target) {
     case "tabs.github":
       return coords.tabs.github;
@@ -489,10 +452,7 @@ function computeRecordingDurationSeconds(steps: readonly LandingDemoStep[]) {
   );
 }
 
-function expandWindowFrame(
-  windowFrame: WindowFrame,
-  padPoints: number,
-): WindowFrame {
+function expandWindowFrame(windowFrame: WindowFrame, padPoints: number): WindowFrame {
   const bottomPadPoints = padPoints + DEFAULT_BOTTOM_SHADOW_EXTRA_PAD_POINTS;
 
   return {
@@ -510,11 +470,7 @@ function serializeWindowFrame(windowFrame: WindowFrame) {
   return `${windowFrame.x},${windowFrame.y},${windowFrame.width},${windowFrame.height}`;
 }
 
-async function compileSwiftBinary(
-  sourcePath: string,
-  outputPath: string,
-  frameworks: string[],
-) {
+async function compileSwiftBinary(sourcePath: string, outputPath: string, frameworks: string[]) {
   const shouldCompile = await binaryNeedsRebuild(sourcePath, outputPath);
   if (!shouldCompile) {
     return;
@@ -541,10 +497,7 @@ async function binaryNeedsRebuild(sourcePath: string, outputPath: string) {
     return true;
   }
 
-  const [sourceStat, outputStat] = await Promise.all([
-    stat(sourcePath),
-    stat(outputPath),
-  ]);
+  const [sourceStat, outputStat] = await Promise.all([stat(sourcePath), stat(outputPath)]);
 
   return sourceStat.mtimeMs > outputStat.mtimeMs;
 }
@@ -727,10 +680,7 @@ function parseLandingCoords(raw: string): LandingCoords {
   };
 }
 
-function parseLandingPageCoords(
-  value: unknown,
-  label: string,
-): { page: ScreenPoint } {
+function parseLandingPageCoords(value: unknown, label: string): { page: ScreenPoint } {
   if (!isRecord(value)) {
     throw new Error(`Missing ${label} coordinates.`);
   }

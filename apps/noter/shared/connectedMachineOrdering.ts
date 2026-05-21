@@ -9,9 +9,7 @@ export type ConnectedMachineSidebarSortable = {
  * Persist explicit machine order when available, but keep older rows stable by
  * falling back to the original row creation time instead of live heartbeats.
  */
-export function readConnectedMachineSidebarOrder(
-  machine: ConnectedMachineSidebarSortable,
-): number {
+export function readConnectedMachineSidebarOrder(machine: ConnectedMachineSidebarSortable): number {
   return machine.sidebarOrder ?? machine._creationTime;
 }
 
@@ -29,9 +27,7 @@ export function compareConnectedMachineSidebarOrder(
     return rightOrder - leftOrder;
   }
 
-  const displayNameComparison = left.displayName.localeCompare(
-    right.displayName,
-  );
+  const displayNameComparison = left.displayName.localeCompare(right.displayName);
   if (displayNameComparison !== 0) {
     return displayNameComparison;
   }

@@ -153,8 +153,7 @@ function requireVault(context: ResolvedToolContext) {
 }
 
 function requireBranch(context: ResolvedToolContext): string {
-  const branch =
-    typeof context.branch === "string" ? context.branch.trim() : "";
+  const branch = typeof context.branch === "string" ? context.branch.trim() : "";
   if (branch.length === 0) {
     throw new Error("Branch context is required for this tool.");
   }
@@ -162,8 +161,7 @@ function requireBranch(context: ResolvedToolContext): string {
 }
 
 function requireThreadId(context: ResolvedToolContext): string {
-  const threadId =
-    typeof context.threadId === "string" ? context.threadId.trim() : "";
+  const threadId = typeof context.threadId === "string" ? context.threadId.trim() : "";
   if (threadId.length === 0) {
     throw new Error("Thread context is required for this tool.");
   }
@@ -171,10 +169,7 @@ function requireThreadId(context: ResolvedToolContext): string {
 }
 
 function requireGithubAccessToken(context: ResolvedToolContext): string {
-  if (
-    typeof context.githubAccessToken !== "string" ||
-    context.githubAccessToken.length === 0
-  ) {
+  if (typeof context.githubAccessToken !== "string" || context.githubAccessToken.length === 0) {
     throw new Error("GitHub connection is required for this tool.");
   }
   return context.githubAccessToken;
@@ -268,15 +263,9 @@ async function isPathHiddenByStagingChangeForOriginal(args: {
   return isPathHiddenByStagingChange(byOriginalPath);
 }
 
-function hasStatusCode(
-  error: unknown,
-  status: number,
-): error is { status: number } {
+function hasStatusCode(error: unknown, status: number): error is { status: number } {
   return (
-    typeof error === "object" &&
-    error !== null &&
-    "status" in error &&
-    error.status === status
+    typeof error === "object" && error !== null && "status" in error && error.status === status
   );
 }
 
@@ -290,17 +279,12 @@ async function repositoryTreeContainsPath(args: {
 }): Promise<boolean> {
   const vault = requireVault(args.context);
   const branch = requireBranch(args.context);
-  const branchTree = await args.context.ctx.runQuery(
-    internal.vault.branches.getVaultBranchTree,
-    {
-      vaultId: vault._id,
-      branch,
-    },
-  );
+  const branchTree = await args.context.ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
+    vaultId: vault._id,
+    branch,
+  });
   const tree = branchTree?.treeData.tree ?? [];
-  return tree.some(
-    (entry) => entry.type === "blob" && entry.path === args.path,
-  );
+  return tree.some((entry) => entry.type === "blob" && entry.path === args.path);
 }
 
 async function assertCreateFilePathIsAvailable(args: {
@@ -309,20 +293,14 @@ async function assertCreateFilePathIsAvailable(args: {
 }): Promise<void> {
   const byOriginalPath = await loadStagedFileByOriginalPath(args);
   if (byOriginalPath) {
-    throw new Error(
-      `create_file failed: ${args.path} already exists; use edit_file`,
-    );
+    throw new Error(`create_file failed: ${args.path} already exists; use edit_file`);
   }
   const byCurrentPath = await loadStagedFileByNewPath(args);
   if (byCurrentPath && !byCurrentPath.fileDeleted) {
-    throw new Error(
-      `create_file failed: ${args.path} already exists; use edit_file`,
-    );
+    throw new Error(`create_file failed: ${args.path} already exists; use edit_file`);
   }
   if (await repositoryTreeContainsPath(args)) {
-    throw new Error(
-      `create_file failed: ${args.path} already exists; use edit_file`,
-    );
+    throw new Error(`create_file failed: ${args.path} already exists; use edit_file`);
   }
 }
 
@@ -351,9 +329,7 @@ async function loadExistingFileSnapshot(args: {
       path: args.path,
     })
   ) {
-    throw createFileNotFoundError(
-      `edit_file failed: ${args.path} does not exist; use create_file`,
-    );
+    throw createFileNotFoundError(`edit_file failed: ${args.path} does not exist; use create_file`);
   }
 
   const githubAccessToken = requireGithubAccessToken(args.context);
@@ -365,9 +341,7 @@ async function loadExistingFileSnapshot(args: {
     ref: branch,
   });
   if (Array.isArray(file.data) || file.data.type !== "file") {
-    throw new Error(
-      `edit_file failed: ${args.path} is a directory, not a file`,
-    );
+    throw new Error(`edit_file failed: ${args.path} is a directory, not a file`);
   }
   return {
     content: Buffer.from(file.data.content, "base64").toString("utf-8"),
@@ -475,12 +449,9 @@ function formatReplaceInFileResult(args: {
 export async function executeVaultsList(
   context: ResolvedToolContext,
 ): Promise<ToolExecutionOutput> {
-  const vaults = await context.ctx.runQuery(
-    internal.toolRuntime.queries.listVaultsForUser,
-    {
-      userId: context.userId,
-    },
-  );
+  const vaults = await context.ctx.runQuery(internal.toolRuntime.queries.listVaultsForUser, {
+    userId: context.userId,
+  });
   const structuredContent = {
     vaults: vaults.map((vault) => ({
       id: vault.vaultId,
@@ -602,19 +573,13 @@ export async function executeListFiles(
     }
   }
 
-  const stagedFiles = await context.ctx.runQuery(
-    api.fileStaging.listStagedFiles,
-    {
-      vaultId: vault._id,
-      branch,
-      includeUnchanged: true,
-    },
-  );
+  const stagedFiles = await context.ctx.runQuery(api.fileStaging.listStagedFiles, {
+    vaultId: vault._id,
+    branch,
+    includeUnchanged: true,
+  });
   for (const stagedFile of stagedFiles) {
-    if (
-      stagedFile.fileDeleted ||
-      stagedFile.filePath !== stagedFile.initialFilePath
-    ) {
+    if (stagedFile.fileDeleted || stagedFile.filePath !== stagedFile.initialFilePath) {
       paths.delete(stagedFile.initialFilePath);
     }
     if (!stagedFile.fileDeleted) {
@@ -624,9 +589,7 @@ export async function executeListFiles(
 
   let entries = Array.from(paths).sort();
   if (input.directory) {
-    const prefix = input.directory.endsWith("/")
-      ? input.directory
-      : `${input.directory}/`;
+    const prefix = input.directory.endsWith("/") ? input.directory : `${input.directory}/`;
     entries = entries.filter((path) => path.startsWith(prefix));
   }
 
@@ -677,9 +640,7 @@ export async function executeEditFile(
       path: input.path,
     });
     if (!snapshot) {
-      throw new Error(
-        `edit_file failed: ${input.path} does not exist; use create_file`,
-      );
+      throw new Error(`edit_file failed: ${input.path} does not exist; use create_file`);
     }
 
     await context.ctx.runMutation(internal.fileStaging.saveToStaging, {
@@ -719,17 +680,14 @@ export async function executeReplaceInFile(
   });
 
   if (snapshot.isStaged) {
-    await context.ctx.runMutation(
-      internal.collaborative.pushSerializedChangeSetUpdate,
-      {
-        vaultId: vault._id,
-        filePath: snapshot.filePath,
-        branch,
-        expectedVersion: snapshot.version,
-        serializedChangeSet: plan.serializedChangeSet,
-        userId: context.userId,
-      },
-    );
+    await context.ctx.runMutation(internal.collaborative.pushSerializedChangeSetUpdate, {
+      vaultId: vault._id,
+      filePath: snapshot.filePath,
+      branch,
+      expectedVersion: snapshot.version,
+      serializedChangeSet: plan.serializedChangeSet,
+      userId: context.userId,
+    });
   } else {
     await context.ctx.runMutation(internal.fileStaging.saveToStaging, {
       vaultId: vault._id,
@@ -800,16 +758,13 @@ export async function executeDeleteFile(
   });
   const sha = snapshot?.parentCommitSha ?? null;
 
-  await context.ctx.runMutation(
-    internal.fileStaging.internalMarkFileForDeletion,
-    {
-      vaultId: vault._id,
-      filePath: snapshot?.filePath ?? input.path,
-      parentCommitSha: sha,
-      branch,
-      userId: context.userId,
-    },
-  );
+  await context.ctx.runMutation(internal.fileStaging.internalMarkFileForDeletion, {
+    vaultId: vault._id,
+    filePath: snapshot?.filePath ?? input.path,
+    parentCommitSha: sha,
+    branch,
+    userId: context.userId,
+  });
 
   const resultText = `File marked for deletion: ${input.path}`;
   return {
@@ -831,21 +786,17 @@ async function executeProdReadRequest(args: {
   allowRawFallback?: boolean;
 }): Promise<ToolExecutionOutput> {
   const threadId = requireThreadId(args.context);
-  const proposal = await args.context.ctx.runMutation(
-    internal.chat.index.proposeProdReadInternal,
-    {
-      threadId,
-      requesterUserId: args.context.userId,
-      vaultId:
-        args.scope === "vault" ? requireVault(args.context)._id : undefined,
-      scope: args.scope,
-      provider: args.provider,
-      resourceKind: args.resourceKind,
-      toolName: args.toolName,
-      paramsJson: JSON.stringify(args.params),
-      allowRawFallback: args.allowRawFallback,
-    },
-  );
+  const proposal = await args.context.ctx.runMutation(internal.chat.index.proposeProdReadInternal, {
+    threadId,
+    requesterUserId: args.context.userId,
+    vaultId: args.scope === "vault" ? requireVault(args.context)._id : undefined,
+    scope: args.scope,
+    provider: args.provider,
+    resourceKind: args.resourceKind,
+    toolName: args.toolName,
+    paramsJson: JSON.stringify(args.params),
+    allowRawFallback: args.allowRawFallback,
+  });
 
   const structuredContent: ProdReadProposalPayload = {
     type: "prod_read_proposal",
@@ -893,9 +844,7 @@ async function executeRequestConvexLogsRead(
     resourceKind: "logs",
     toolName: "request_convex_logs_read",
     params: {
-      ...(typeof input.maxLines === "number"
-        ? { maxLines: input.maxLines }
-        : {}),
+      ...(typeof input.maxLines === "number" ? { maxLines: input.maxLines } : {}),
     },
     allowRawFallback: input.allowRawFallback,
   });
@@ -942,9 +891,7 @@ async function executeRequestCloudflareLogsRead(
     resourceKind: "logs",
     toolName: "request_cloudflare_logs_read",
     params: {
-      ...(typeof input.maxEntries === "number"
-        ? { maxEntries: input.maxEntries }
-        : {}),
+      ...(typeof input.maxEntries === "number" ? { maxEntries: input.maxEntries } : {}),
     },
     allowRawFallback: input.allowRawFallback,
   });
@@ -978,9 +925,7 @@ async function executeRequestCloudflareWorkersInventoryRead(
     resourceKind: "workers_inventory",
     toolName: "request_cloudflare_workers_inventory_read",
     params: {
-      ...(typeof input.accountId === "string"
-        ? { accountId: input.accountId }
-        : {}),
+      ...(typeof input.accountId === "string" ? { accountId: input.accountId } : {}),
       ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
     },
     allowRawFallback: input.allowRawFallback,
@@ -1059,9 +1004,7 @@ function parseEditFileInput(value: unknown): EditFileInput | null {
   };
 }
 
-function parseReplaceInFileReplacement(
-  value: unknown,
-): ReplaceInFileReplacement | null {
+function parseReplaceInFileReplacement(value: unknown): ReplaceInFileReplacement | null {
   const record = toRecord(value);
   if (!record) {
     return null;
@@ -1158,9 +1101,7 @@ function parseOptionalString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-function parseRequestConvexLogsReadInput(
-  value: unknown,
-): RequestConvexLogsReadInput | null {
+function parseRequestConvexLogsReadInput(value: unknown): RequestConvexLogsReadInput | null {
   const record = toRecord(value);
   if (!record) {
     return null;
@@ -1300,9 +1241,7 @@ function parseProdReadScope(value: unknown): ProdReadScope | undefined {
   return undefined;
 }
 
-function parseRequestConvexDataReadInput(
-  value: unknown,
-): RequestConvexDataReadInput | null {
+function parseRequestConvexDataReadInput(value: unknown): RequestConvexDataReadInput | null {
   const record = toRecord(value);
   if (!record) {
     return null;
@@ -1420,9 +1359,7 @@ export async function executeRuntimeTool(args: {
     case "request_cloudflare_workers_inventory_read": {
       const input = parseRequestCloudflareWorkersInventoryReadInput(args.input);
       if (!input) {
-        throw new Error(
-          "Invalid request_cloudflare_workers_inventory_read input.",
-        );
+        throw new Error("Invalid request_cloudflare_workers_inventory_read input.");
       }
       return executeRequestCloudflareWorkersInventoryRead(args.context, input);
     }

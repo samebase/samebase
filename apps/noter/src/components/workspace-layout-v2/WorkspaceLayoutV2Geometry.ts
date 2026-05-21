@@ -39,14 +39,12 @@ export type WorkspaceLayoutV2MobileGrip =
       startSideWidthPx: number;
     };
 
-export const WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE: WorkspaceLayoutV2MobileSurface =
-  {
-    kind: "unmerged",
-  };
-export const WORKSPACE_LAYOUT_V2_IDLE_MOBILE_GRIP: WorkspaceLayoutV2MobileGrip =
-  {
-    kind: "idle",
-  };
+export const WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE: WorkspaceLayoutV2MobileSurface = {
+  kind: "unmerged",
+};
+export const WORKSPACE_LAYOUT_V2_IDLE_MOBILE_GRIP: WorkspaceLayoutV2MobileGrip = {
+  kind: "idle",
+};
 
 export function getDesktopSidebarMaxWidthPx(viewportWidthPx: number) {
   return Math.max(
@@ -59,10 +57,7 @@ export function getMobilePanePeekWidthPx(configuredPeekWidthPx: number) {
   return Math.max(0, Math.round(configuredPeekWidthPx));
 }
 
-export function getMobileSidebarMaxWidthPx(args: {
-  peekWidthPx: number;
-  viewportWidthPx: number;
-}) {
+export function getMobileSidebarMaxWidthPx(args: { peekWidthPx: number; viewportWidthPx: number }) {
   return Math.max(1, Math.floor(args.viewportWidthPx - args.peekWidthPx * 2));
 }
 
@@ -73,10 +68,7 @@ export function getMobileSidebarMinWidthPx(args: {
   return clampNumber(Math.round(args.configuredMinWidthPx), 1, args.maxWidthPx);
 }
 
-export function getMobilePaneWidthPx(args: {
-  peekWidthPx: number;
-  viewportWidthPx: number;
-}) {
+export function getMobilePaneWidthPx(args: { peekWidthPx: number; viewportWidthPx: number }) {
   return Math.max(1, args.viewportWidthPx - args.peekWidthPx * 2);
 }
 
@@ -111,8 +103,7 @@ export function getMobileMinResizeMergeWidthsPx(args: {
   if (mergedMainWidthPx === null) {
     return null;
   }
-  const resizeDeltaPx =
-    Math.round(args.rawSideWidthPx) - Math.round(args.startSideWidthPx);
+  const resizeDeltaPx = Math.round(args.rawSideWidthPx) - Math.round(args.startSideWidthPx);
 
   return {
     mainWidthPx: clampNumber(
@@ -138,9 +129,7 @@ export function shouldCommitMobileMergedSurface(args: {
   mainWidthPx: number;
   settledMainWidthPx: number;
 }) {
-  return (
-    args.mainWidthPx <= (args.mainDefaultWidthPx + args.settledMainWidthPx) / 2
-  );
+  return args.mainWidthPx <= (args.mainDefaultWidthPx + args.settledMainWidthPx) / 2;
 }
 
 function getOppositeMobileMergedSide(side: WorkspaceLayoutV2MobileMergedSide) {
@@ -162,10 +151,7 @@ export function getMobileMergeHandoffSide(args: {
   shouldKeepCurrentMerge: boolean;
   sidebarMinWidthPx: number;
 }) {
-  if (
-    args.shouldKeepCurrentMerge ||
-    args.currentMergedSide !== args.resizeSide
-  ) {
+  if (args.shouldKeepCurrentMerge || args.currentMergedSide !== args.resizeSide) {
     return null;
   }
 
@@ -177,10 +163,8 @@ export function getMobileMergeHandoffSide(args: {
     return null;
   }
 
-  const oppositeWidthPx =
-    oppositeSide === "left" ? args.leftWidthPx : args.rightWidthPx;
-  return Math.abs(oppositeWidthPx - args.sidebarMinWidthPx) <=
-    MOBILE_PANE_SETTLED_TOLERANCE_PX
+  const oppositeWidthPx = oppositeSide === "left" ? args.leftWidthPx : args.rightWidthPx;
+  return Math.abs(oppositeWidthPx - args.sidebarMinWidthPx) <= MOBILE_PANE_SETTLED_TOLERANCE_PX
     ? oppositeSide
     : null;
 }
@@ -190,11 +174,7 @@ export function getMobileSidebarWidthPx(args: {
   minWidthPx: number;
   storedWidthPx: number;
 }) {
-  return clampNumber(
-    Math.round(args.storedWidthPx),
-    args.minWidthPx,
-    args.maxWidthPx,
-  );
+  return clampNumber(Math.round(args.storedWidthPx), args.minWidthPx, args.maxWidthPx);
 }
 
 export function getDesktopSidebarWidthPx(args: {
@@ -304,9 +284,8 @@ export function getMobilePaneScrollLeftPx(
   args: Parameters<typeof getMobilePaneScrollOffsets>[0],
 ) {
   return (
-    getMobilePaneScrollOffsets(args).find(
-      (paneOffset) => paneOffset.pane === pane,
-    )?.scrollLeftPx ?? 0
+    getMobilePaneScrollOffsets(args).find((paneOffset) => paneOffset.pane === pane)?.scrollLeftPx ??
+    0
   );
 }
 

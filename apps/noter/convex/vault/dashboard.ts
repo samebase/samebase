@@ -12,18 +12,11 @@ import {
 } from "./state";
 import { vVaultDeletionStep } from "./deletion/model";
 import { readVaultDeletionEligibility } from "./deletion/eligibility";
-import {
-  isVaultDeletingOrDeleteFailed,
-  readVaultDeletionState,
-} from "./deletion/state";
-import {
-  compareRemoteBranchSortOrder,
-  hasBranchStagingChanges,
-} from "./branches";
+import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
+import { compareRemoteBranchSortOrder, hasBranchStagingChanges } from "./branches";
 
 const nullValidator = v.null();
-const { array, boolean, id, literal, number, object, optional, string, union } =
-  v;
+const { array, boolean, id, literal, number, object, optional, string, union } = v;
 const cloudflarePreviewMetadataFields = {
   cloudflareBranchPreviewUrl: optional(string()),
   cloudflarePreviewPullRequestNumber: optional(number()),
@@ -225,10 +218,7 @@ async function readProviderRunSummary(
     };
   }
 
-  if (
-    args.status === "running" &&
-    (run.state === "queued" || run.state === "running")
-  ) {
+  if (args.status === "running" && (run.state === "queued" || run.state === "running")) {
     return {
       status: "running",
       provider: args.provider,
@@ -318,8 +308,7 @@ async function resolveVaultDeletionSummary(
         requestedAt: deletion.requestedAt,
         currentStep: run?.currentStep ?? "initialize_deletion",
         message: latestEvent?.message ?? "Deleting vault.",
-        updatedAt:
-          run?.updatedAt ?? latestEvent?.createdAt ?? deletion.requestedAt,
+        updatedAt: run?.updatedAt ?? latestEvent?.createdAt ?? deletion.requestedAt,
       };
     }
     case "delete_failed": {
@@ -327,8 +316,7 @@ async function resolveVaultDeletionSummary(
         ctx.db.get(deletion.runId),
         readLatestDeletionEvent(ctx, deletion.runId),
       ]);
-      const lastError =
-        run?.state === "failed" ? run.lastError : "Vault deletion failed.";
+      const lastError = run?.state === "failed" ? run.lastError : "Vault deletion failed.";
       return {
         state: "delete_failed",
         runId: deletion.runId,
@@ -336,8 +324,7 @@ async function resolveVaultDeletionSummary(
         currentStep: run?.currentStep ?? "initialize_deletion",
         message: latestEvent?.message ?? lastError,
         lastError,
-        updatedAt:
-          run?.updatedAt ?? latestEvent?.createdAt ?? deletion.failedAt,
+        updatedAt: run?.updatedAt ?? latestEvent?.createdAt ?? deletion.failedAt,
       };
     }
     default: {
@@ -405,10 +392,7 @@ async function resolveProviderSetupSummary(
     return { status: "ready" };
   }
 
-  const activeOwnership = await readActiveVaultInfrastructureOwnership(
-    ctx,
-    vault._id,
-  );
+  const activeOwnership = await readActiveVaultInfrastructureOwnership(ctx, vault._id);
   if (vault.convex.state === "not_configured") {
     if (activeOwnership) {
       return await readProviderRunSummary(ctx, {
@@ -443,10 +427,7 @@ async function resolveProviderSetupSummary(
   return { status: "not_applicable" };
 }
 
-function compareVaultDomainSortOrder(
-  left: VaultDomain,
-  right: VaultDomain,
-): number {
+function compareVaultDomainSortOrder(left: VaultDomain, right: VaultDomain): number {
   const leftKindOrder = left.kind === "main" ? 0 : 1;
   const rightKindOrder = right.kind === "main" ? 0 : 1;
   return (
@@ -471,10 +452,7 @@ type VaultBranchFilters = Infer<typeof vaultBranchFiltersValidator>;
  * checking presence and encode every segment before handing it to the browser.
  */
 function buildCloudflareWorkerDashboardUrl(
-  cloudflare:
-    | Pick<ConnectedCloudflareState, "accountId" | "workerName">
-    | null
-    | undefined,
+  cloudflare: Pick<ConnectedCloudflareState, "accountId" | "workerName"> | null | undefined,
 ): string | undefined {
   if (!cloudflare) {
     return undefined;
@@ -501,11 +479,7 @@ export function buildConvexDeploymentDashboardUrl(args: {
   const normalizedTeamSlug = args.teamSlug?.trim();
   const normalizedProjectSlug = args.projectSlug?.trim();
   const normalizedDeploymentName = args.deploymentName?.trim();
-  if (
-    !normalizedTeamSlug ||
-    !normalizedProjectSlug ||
-    !normalizedDeploymentName
-  ) {
+  if (!normalizedTeamSlug || !normalizedProjectSlug || !normalizedDeploymentName) {
     return undefined;
   }
 
@@ -589,9 +563,7 @@ export const setVaultBranchFilters = mutation({
 
     const existing = await ctx.db
       .query("vaultBranchFilters")
-      .withIndex("by_user_and_vault", (q) =>
-        q.eq("userId", userId).eq("vaultId", args.vaultId),
-      )
+      .withIndex("by_user_and_vault", (q) => q.eq("userId", userId).eq("vaultId", args.vaultId))
       .first();
     const shouldPersist =
       args.hiddenLabels.length > 0 ||
@@ -759,8 +731,7 @@ export const getUserVaults = query({
             treeRefreshFailureKind: vault.treeRefreshFailureKind,
             treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
             treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
-            state:
-              deletion.state === "delete_failed" ? "failed" : "copying_files",
+            state: deletion.state === "delete_failed" ? "failed" : "copying_files",
             sourceSetup: { status: "not_applicable" },
             providerSetup: { status: "not_applicable" },
             deletion,
@@ -779,34 +750,31 @@ export const getUserVaults = query({
           };
         }
 
-        const [stagingData, remoteBranches, defaultBranchTree, infrastructure] =
-          await Promise.all([
-            ctx.db
-              .query("fileStaging")
-              .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
-              .collect(),
-            ctx.db
-              .query("vaultRemoteBranches")
-              .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
-              .collect(),
-            ctx.db
-              .query("vaultBranchTrees")
-              .withIndex("by_vault_and_branch", (q) =>
-                q.eq("vaultId", vault._id).eq("branch", vault.defaultBranch),
-              )
-              .first(),
-            ctx.db
-              .query("vaultInfrastructure")
-              .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
-              .first(),
-          ]);
+        const [stagingData, remoteBranches, defaultBranchTree, infrastructure] = await Promise.all([
+          ctx.db
+            .query("fileStaging")
+            .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
+            .collect(),
+          ctx.db
+            .query("vaultRemoteBranches")
+            .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
+            .collect(),
+          ctx.db
+            .query("vaultBranchTrees")
+            .withIndex("by_vault_and_branch", (q) =>
+              q.eq("vaultId", vault._id).eq("branch", vault.defaultBranch),
+            )
+            .first(),
+          ctx.db
+            .query("vaultInfrastructure")
+            .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
+            .first(),
+        ]);
 
         const fileCount = stagingData.filter(hasBranchStagingChanges).length;
 
         const lastEditTime =
-          stagingData.length > 0
-            ? Math.max(...stagingData.map((s) => s.lastEditTime))
-            : undefined;
+          stagingData.length > 0 ? Math.max(...stagingData.map((s) => s.lastEditTime)) : undefined;
 
         const repositoryFullName = `${vault.owner}/${vault.name}`;
         const hasUsableDefaultBranchTree = Boolean(defaultBranchTree);
@@ -822,15 +790,10 @@ export const getUserVaults = query({
         const cloudflare = vault.cloudflare;
         const hasCloudflareProvision = cloudflare.state === "connected";
         const convexProjectSlug =
-          vault.convex.state === "connected"
-            ? vault.convex.projectSlug
-            : undefined;
+          vault.convex.state === "connected" ? vault.convex.projectSlug : undefined;
         const convexDeploymentName =
-          vault.convex.state === "connected"
-            ? vault.convex.deploymentName
-            : undefined;
-        const connectedCloudflare =
-          cloudflare.state === "connected" ? cloudflare : null;
+          vault.convex.state === "connected" ? vault.convex.deploymentName : undefined;
+        const connectedCloudflare = cloudflare.state === "connected" ? cloudflare : null;
         const convexTeamSlug = infrastructure?.convexTeamSlug;
 
         return {
@@ -856,56 +819,49 @@ export const getUserVaults = query({
           hasConnectedGitHubRepository: true,
           hasConvexProvision,
           hasCloudflareProvision,
-          remoteBranches: remoteBranches
-            .sort(compareRemoteBranchSortOrder)
-            .map((branch) => ({
-              name: branch.name,
-              headCommitSha: branch.headCommitSha,
-              lastCommitAt: branch.lastCommitAt,
-              aheadBy: branch.aheadBy,
-              behindBy: branch.behindBy,
-              pullRequestUrl: branch.pullRequestUrl,
-              pullRequestNumber: branch.pullRequestNumber,
-              pullRequestLabels: branch.pullRequestLabels,
-              pullRequestTitle: branch.pullRequestTitle,
-              pullRequestIsDraft: branch.pullRequestIsDraft,
-              isDefault: branch.isDefault,
-              isProtected: branch.isProtected,
-              remoteState: branch.remoteState,
-              lastSyncedAt: branch.lastSyncedAt,
-              cloudflareBranchPreviewUrl: branch.cloudflareBranchPreviewUrl,
-              cloudflarePreviewPullRequestNumber:
-                branch.cloudflarePreviewPullRequestNumber,
-              cloudflarePreviewUrl: branch.cloudflarePreviewUrl,
-              cloudflarePreviewCommitSha: branch.cloudflarePreviewCommitSha,
-              cloudflarePreviewStatus: branch.cloudflarePreviewStatus,
-              cloudflarePreviewLogsUrl: branch.cloudflarePreviewLogsUrl,
-              cloudflarePreviewCommentCreatedAt:
-                branch.cloudflarePreviewCommentCreatedAt,
-              convexPreviewDeploymentDashboardUrl:
-                !branch.isDefault &&
-                branch.remoteState === "active" &&
-                typeof branch.cloudflareBranchPreviewUrl === "string" &&
-                branch.pullRequestNumber ===
-                  branch.cloudflarePreviewPullRequestNumber
-                  ? buildConvexPreviewDeploymentDashboardUrl({
-                      branchName: branch.name,
-                      projectSlug: convexProjectSlug,
-                      teamSlug: convexTeamSlug,
-                    })
-                  : undefined,
-            })),
+          remoteBranches: remoteBranches.sort(compareRemoteBranchSortOrder).map((branch) => ({
+            name: branch.name,
+            headCommitSha: branch.headCommitSha,
+            lastCommitAt: branch.lastCommitAt,
+            aheadBy: branch.aheadBy,
+            behindBy: branch.behindBy,
+            pullRequestUrl: branch.pullRequestUrl,
+            pullRequestNumber: branch.pullRequestNumber,
+            pullRequestLabels: branch.pullRequestLabels,
+            pullRequestTitle: branch.pullRequestTitle,
+            pullRequestIsDraft: branch.pullRequestIsDraft,
+            isDefault: branch.isDefault,
+            isProtected: branch.isProtected,
+            remoteState: branch.remoteState,
+            lastSyncedAt: branch.lastSyncedAt,
+            cloudflareBranchPreviewUrl: branch.cloudflareBranchPreviewUrl,
+            cloudflarePreviewPullRequestNumber: branch.cloudflarePreviewPullRequestNumber,
+            cloudflarePreviewUrl: branch.cloudflarePreviewUrl,
+            cloudflarePreviewCommitSha: branch.cloudflarePreviewCommitSha,
+            cloudflarePreviewStatus: branch.cloudflarePreviewStatus,
+            cloudflarePreviewLogsUrl: branch.cloudflarePreviewLogsUrl,
+            cloudflarePreviewCommentCreatedAt: branch.cloudflarePreviewCommentCreatedAt,
+            convexPreviewDeploymentDashboardUrl:
+              !branch.isDefault &&
+              branch.remoteState === "active" &&
+              typeof branch.cloudflareBranchPreviewUrl === "string" &&
+              branch.pullRequestNumber === branch.cloudflarePreviewPullRequestNumber
+                ? buildConvexPreviewDeploymentDashboardUrl({
+                    branchName: branch.name,
+                    projectSlug: convexProjectSlug,
+                    teamSlug: convexTeamSlug,
+                  })
+                : undefined,
+          })),
           cloudflareProductionUrl: connectedCloudflare?.productionUrl,
           cloudflareWorkerName: connectedCloudflare?.workerName,
-          cloudflareProjectDashboardUrl:
-            buildCloudflareWorkerDashboardUrl(connectedCloudflare),
+          cloudflareProjectDashboardUrl: buildCloudflareWorkerDashboardUrl(connectedCloudflare),
           convexTeamSlug,
           convexProjectSlug,
-          convexProjectSettingsDashboardUrl:
-            buildConvexProjectSettingsDashboardUrl({
-              projectSlug: convexProjectSlug,
-              teamSlug: convexTeamSlug,
-            }),
+          convexProjectSettingsDashboardUrl: buildConvexProjectSettingsDashboardUrl({
+            projectSlug: convexProjectSlug,
+            teamSlug: convexTeamSlug,
+          }),
           convexDeploymentDashboardUrl: buildConvexDeploymentDashboardUrl({
             deploymentName: convexDeploymentName,
             projectSlug: convexProjectSlug,

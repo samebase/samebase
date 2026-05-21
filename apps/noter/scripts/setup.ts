@@ -19,10 +19,7 @@ loadEnvFile({ path: ".env.local", processEnv: config });
 
 const runOnceWorkflow = process.argv.includes("--once");
 const isInteractive = process.stdin.isTTY && process.stdout.isTTY;
-const hasSetupScriptRan = Object.prototype.hasOwnProperty.call(
-  config,
-  "SETUP_SCRIPT_RAN",
-);
+const hasSetupScriptRan = Object.prototype.hasOwnProperty.call(config, "SETUP_SCRIPT_RAN");
 
 if (runOnceWorkflow && hasSetupScriptRan) {
   // The script has already ran once, skip.
@@ -39,14 +36,10 @@ if (!isInteractive) {
 }
 
 // The fallback should never be used.
-const configuredDeployment = Object.prototype.hasOwnProperty.call(
-  config,
-  "CONVEX_DEPLOYMENT",
-)
+const configuredDeployment = Object.prototype.hasOwnProperty.call(config, "CONVEX_DEPLOYMENT")
   ? config.CONVEX_DEPLOYMENT
   : undefined;
-const deploymentName =
-  configuredDeployment?.split(":").slice(-1)[0] ?? "<your deployment name>";
+const deploymentName = configuredDeployment?.split(":").slice(-1)[0] ?? "<your deployment name>";
 
 const variables = JSON.stringify({
   help:

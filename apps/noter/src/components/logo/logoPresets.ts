@@ -90,9 +90,7 @@ function createSierpinskiCarpetVoxelState(): string {
     for (let y = 0; y < GRID_SIZE; y += 1) {
       for (let z = 0; z < GRID_SIZE; z += 1) {
         const centerAxisCount =
-          Number(x === centerIndex) +
-          Number(y === centerIndex) +
-          Number(z === centerIndex);
+          Number(x === centerIndex) + Number(y === centerIndex) + Number(z === centerIndex);
 
         if (centerAxisCount >= 2) {
           continue;
@@ -126,8 +124,7 @@ export const LOGO_PRESETS = [
     voxelState: createSierpinskiCarpetVoxelState(),
   },
   {
-    description:
-      "Solid 3x3x3 block for spotting raster seams across full faces",
+    description: "Solid 3x3x3 block for spotting raster seams across full faces",
     id: "full-cube",
     label: "Full Cube",
     voxelState: createFullCubeVoxelState(),
@@ -140,9 +137,7 @@ export const LOGO_PRESETS = [
   },
 ] as const satisfies readonly LogoPreset[];
 
-export function getLogoPresetSelection(
-  voxelState: string,
-): LogoPresetSelection {
+export function getLogoPresetSelection(voxelState: string): LogoPresetSelection {
   for (const preset of LOGO_PRESETS) {
     if (preset.voxelState === voxelState) {
       return preset.id;
@@ -152,9 +147,7 @@ export function getLogoPresetSelection(
   return CUSTOM_LOGO_PRESET_ID;
 }
 
-export function getLogoPreset(
-  presetId: LogoPresetId,
-): (typeof LOGO_PRESETS)[number] {
+export function getLogoPreset(presetId: LogoPresetId): (typeof LOGO_PRESETS)[number] {
   for (const preset of LOGO_PRESETS) {
     if (preset.id === presetId) {
       return preset;

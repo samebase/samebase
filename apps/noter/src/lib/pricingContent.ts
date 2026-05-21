@@ -2,10 +2,7 @@ import type { BillingCycle } from "../../convex/dashboardSettings";
 
 export type PaidPlan = "pro" | "team";
 
-export const PLAN_DISPLAY_PRICE: Record<
-  PaidPlan,
-  Record<BillingCycle, string>
-> = {
+export const PLAN_DISPLAY_PRICE: Record<PaidPlan, Record<BillingCycle, string>> = {
   pro: {
     monthly: "$20/mo",
     annual: "$200/yr",

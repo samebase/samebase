@@ -18,9 +18,8 @@
 
 ## Summary
 
-Define how the Graph View chat input connects to Noter's primary chat system
-using a single per-vault thread for the MVP, and formalize persistence of the
-Editor/Graph view mode per vault.
+Define how the Graph View chat input connects to Noter's primary chat system using a single
+per-vault thread for the MVP, and formalize persistence of the Editor/Graph view mode per vault.
 
 ## Goals
 
@@ -42,19 +41,17 @@ Editor/Graph view mode per vault.
 - Graph View chat reuses the per-vault chat thread and streams messages from
   `chat.index.listThreadMessages`.
 - Messages are sent via `chat.index.sendMessage`, matching ChatFab behavior.
-- The main Chat UI (`ChatFab`) continues to show one thread per vault (shared
-  with Graph View).
-- Editor/Graph view mode is stored in localStorage but is not specified as a
-  formal contract and does not cover failures or restore timing.
+- The main Chat UI (`ChatFab`) continues to show one thread per vault (shared with Graph View).
+- Editor/Graph view mode is stored in localStorage but is not specified as a formal contract and
+  does not cover failures or restore timing.
 
 ## Proposed Behavior
 
 ### 1) Graph Chat Uses the Vault Thread (MVP)
 
-- Graph View sends messages into the existing per-vault chat thread used by
-  ChatFab.
-- Graph View displays recent messages from the same thread (last N messages), so
-  the node chat is a mini view into the vault conversation.
+- Graph View sends messages into the existing per-vault chat thread used by ChatFab.
+- Graph View displays recent messages from the same thread (last N messages), so the node chat is a
+  mini view into the vault conversation.
 - No new per-node thread creation in the MVP.
 
 ### 2) System Prompt Behavior (MVP)
@@ -67,8 +64,8 @@ Editor/Graph view mode per vault.
 
 - Editor/Graph mode is persisted per vault in `localStorage`.
 - Key format: `noter:graph-view:${vaultId}`.
-- On load, the initial `viewMode` is derived from storage before first render to
-  avoid a flash of the default view.
+- On load, the initial `viewMode` is derived from storage before first render to avoid a flash of
+  the default view.
 - If storage is unavailable or corrupt, default to `editor`.
 
 ## Data Model
@@ -82,18 +79,17 @@ Add `agentGraphNodeLayout` to persist node sizes per user and vault.
 
 No new Convex API is required for the MVP.
 
-- Graph View uses existing `chat.index.createThread` and
-  `chat.index.sendMessage` against the vault thread.
+- Graph View uses existing `chat.index.createThread` and `chat.index.sendMessage` against the vault
+  thread.
 
 ## UI/UX Requirements
 
 - Agent nodes show chat history sourced from the vault thread (Convex).
-- The node chat input is labeled as part of the vault chat, not a separate
-  session.
+- The node chat input is labeled as part of the vault chat, not a separate session.
 - ChatFab continues to show the same messages (shared thread).
 - The message list in graph nodes is scrollable with a fixed max height.
-- If the agent file is missing or unreadable, the node chat input is disabled
-  with a concise error message.
+- If the agent file is missing or unreadable, the node chat input is disabled with a concise error
+  message.
 
 ## Persistence Requirements
 

@@ -14,12 +14,7 @@ import {
   readOptionalEnvValue,
   readPositiveIntegerEnvValue,
 } from "./lib/env.ts";
-import {
-  fail,
-  isMainModule,
-  resolveRepoRoot,
-  runMain,
-} from "./lib/scriptRuntime.ts";
+import { fail, isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
 import {
   LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
   LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
@@ -70,27 +65,19 @@ const LOCAL_WORKTREE_PASSWORD_AUTH_VITE_ENV = {
 
 function readDefaultVitePort(env: NodeJS.ProcessEnv): number {
   return (
-    readPositiveIntegerEnvValue(
-      env.ANON_VITE_PORT,
-      "ANON_VITE_PORT",
-      HELP_TEXT,
-    ) ?? DEFAULT_ANON_VITE_PORT
+    readPositiveIntegerEnvValue(env.ANON_VITE_PORT, "ANON_VITE_PORT", HELP_TEXT) ??
+    DEFAULT_ANON_VITE_PORT
   );
 }
 
-export function parseAnonArgs(
-  args: string[],
-  env: NodeJS.ProcessEnv = process.env,
-): AnonOptions {
+export function parseAnonArgs(args: string[], env: NodeJS.ProcessEnv = process.env): AnonOptions {
   const options: AnonOptions = {
     once: false,
     enableBranch: !readBooleanEnvValue(env.ANON_NO_BRANCH),
     vitePort: readDefaultVitePort(env),
     sourceEnv: readOptionalEnvValue(env.ANON_SOURCE_ENV),
     sourceDeployKey: readOptionalEnvValue(env.ANON_SOURCE_DEPLOY_KEY),
-    allowMissingSourceEnv: readBooleanEnvValue(
-      env.ANON_ALLOW_MISSING_SOURCE_ENV,
-    ),
+    allowMissingSourceEnv: readBooleanEnvValue(env.ANON_ALLOW_MISSING_SOURCE_ENV),
     showHelp: false,
   };
 
@@ -293,10 +280,7 @@ function runBlockingCommand(spec: CommandSpec): void {
     stdio: "inherit",
   });
   if (result.status !== 0) {
-    fail(
-      `${spec.label} failed with exit code ${result.status ?? 1}.`,
-      result.status ?? 1,
-    );
+    fail(`${spec.label} failed with exit code ${result.status ?? 1}.`, result.status ?? 1);
   }
 }
 

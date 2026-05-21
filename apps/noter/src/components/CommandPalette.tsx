@@ -39,10 +39,7 @@ function highlightMatches(text: string, matches: number[]): React.ReactNode {
       parts.push(text.slice(lastIndex, match));
     }
     parts.push(
-      <span
-        key={i}
-        className="bg-blue-200 text-blue-900 dark:bg-blue-700 dark:text-blue-100"
-      >
+      <span key={i} className="bg-blue-200 text-blue-900 dark:bg-blue-700 dark:text-blue-100">
         {text[match]}
       </span>,
     );
@@ -110,9 +107,7 @@ export function CommandPalette({
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
-          setSelectedIndex((prev) =>
-            Math.min(prev + 1, filteredFiles.length - 1),
-          );
+          setSelectedIndex((prev) => Math.min(prev + 1, filteredFiles.length - 1));
           break;
         case "ArrowUp":
           e.preventDefault();
@@ -121,10 +116,7 @@ export function CommandPalette({
         case "Enter":
           e.preventDefault();
           if (filteredFiles[selectedIndex]) {
-            onFileSelect(
-              filteredFiles[selectedIndex].path,
-              filteredFiles[selectedIndex].status,
-            );
+            onFileSelect(filteredFiles[selectedIndex].path, filteredFiles[selectedIndex].status);
             onOpenChange(false);
           }
           break;
@@ -200,9 +192,7 @@ export function CommandPalette({
                           ? highlightMatches(
                               fileName,
                               file.matches
-                                .filter(
-                                  (m) => m >= file.path.lastIndexOf("/") + 1,
-                                )
+                                .filter((m) => m >= file.path.lastIndexOf("/") + 1)
                                 .map((m) => m - file.path.lastIndexOf("/") - 1),
                             )
                           : fileName}
@@ -212,9 +202,7 @@ export function CommandPalette({
                           {query
                             ? highlightMatches(
                                 filePath,
-                                file.matches.filter(
-                                  (m) => m < file.path.lastIndexOf("/"),
-                                ),
+                                file.matches.filter((m) => m < file.path.lastIndexOf("/")),
                               )
                             : filePath}
                         </div>

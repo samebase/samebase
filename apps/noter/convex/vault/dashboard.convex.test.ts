@@ -106,24 +106,18 @@ describe("vault dashboard Convex contract", () => {
       });
     });
 
-    await t.mutation(
-      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
-      {
-        userId,
-        ghRepoOwner: "Ada",
-        ghRepoName: "Existing-App",
-      },
-    );
+    await t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
+      userId,
+      ghRepoOwner: "Ada",
+      ghRepoName: "Existing-App",
+    });
 
     await expect(
-      t.mutation(
-        internal.vault.records.createInitializingExistingRepositoryVaultForUser,
-        {
-          userId,
-          ghRepoOwner: "ada",
-          ghRepoName: "existing-app",
-        },
-      ),
+      t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
+        userId,
+        ghRepoOwner: "ada",
+        ghRepoName: "existing-app",
+      }),
     ).rejects.toThrow("Vault already exists for this repository.");
   });
 
@@ -145,19 +139,16 @@ describe("vault dashboard Convex contract", () => {
       },
     );
 
-    await t.mutation(
-      internal.vault.records.connectExistingRepositoryVaultGitHub,
-      {
-        vaultId: ids.vaultId,
-        runId: ids.runId,
-        userId,
-        ghRepoId: "123",
-        ghRepoOwner: "Ada",
-        ghRepoName: "Existing-App",
-        defaultBranch: "main",
-        visibility: "private",
-      },
-    );
+    await t.mutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
+      vaultId: ids.vaultId,
+      runId: ids.runId,
+      userId,
+      ghRepoId: "123",
+      ghRepoOwner: "Ada",
+      ghRepoName: "Existing-App",
+      defaultBranch: "main",
+      visibility: "private",
+    });
 
     const vault = await t.run(async (ctx) => {
       return await ctx.db.get(ids.vaultId);
@@ -256,14 +247,11 @@ describe("vault dashboard Convex contract", () => {
       return { runId, userId, vaultId };
     });
 
-    await t.mutation(
-      internal.infraProvisioning.markWorkflowProvisioningFailed,
-      {
-        runId: ids.runId,
-        workflowId: "workflow-1",
-        message: "GitHub tree sync failed.",
-      },
-    );
+    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+      runId: ids.runId,
+      workflowId: "workflow-1",
+      message: "GitHub tree sync failed.",
+    });
 
     const result = await t.run(async (ctx) => {
       const vault = await ctx.db.get(ids.vaultId);
@@ -1052,12 +1040,9 @@ describe("vault dashboard Convex contract", () => {
       tokenIdentifier: `test:${ids.userId}`,
     });
 
-    const infrastructure = await asUser.query(
-      api.vault.dashboard.getVaultInfrastructure,
-      {
-        vaultId: ids.vaultId,
-      },
-    );
+    const infrastructure = await asUser.query(api.vault.dashboard.getVaultInfrastructure, {
+      vaultId: ids.vaultId,
+    });
     if (!infrastructure) {
       throw new Error("Vault infrastructure result is missing.");
     }
@@ -1127,10 +1112,7 @@ describe("vault dashboard Convex contract", () => {
 
     let result = firstResult;
     while (result.state === "needs_more") {
-      result = await t.mutation(
-        internal.vault.deletion.cleanup.deleteVaultLocalDataBatch,
-        ids,
-      );
+      result = await t.mutation(internal.vault.deletion.cleanup.deleteVaultLocalDataBatch, ids);
     }
 
     expect(result).toEqual({ state: "deleted" });
@@ -1170,12 +1152,8 @@ describe("vault dashboard Convex contract", () => {
         updatedAt: 2,
         completedAt: 3,
       });
-      const storageId = await ctx.storage.store(
-        new Blob(["cached"], { type: "text/plain" }),
-      );
-      const stagedStorageId = await ctx.storage.store(
-        new Blob(["staged"], { type: "text/plain" }),
-      );
+      const storageId = await ctx.storage.store(new Blob(["cached"], { type: "text/plain" }));
+      const stagedStorageId = await ctx.storage.store(new Blob(["staged"], { type: "text/plain" }));
 
       await ctx.db.insert("vaultBranchFilters", {
         userId,
@@ -1369,16 +1347,16 @@ describe("vault dashboard Convex contract", () => {
     });
 
     const tables: string[] = [];
-    let result = await t.mutation(
-      internal.vault.deletion.cleanup.deleteVaultLocalDataBatch,
-      { vaultId: ids.vaultId, userId: ids.userId },
-    );
+    let result = await t.mutation(internal.vault.deletion.cleanup.deleteVaultLocalDataBatch, {
+      vaultId: ids.vaultId,
+      userId: ids.userId,
+    });
     while (result.state === "needs_more") {
       tables.push(result.table);
-      result = await t.mutation(
-        internal.vault.deletion.cleanup.deleteVaultLocalDataBatch,
-        { vaultId: ids.vaultId, userId: ids.userId },
-      );
+      result = await t.mutation(internal.vault.deletion.cleanup.deleteVaultLocalDataBatch, {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+      });
     }
 
     expect(result).toEqual({ state: "deleted" });
@@ -1407,10 +1385,7 @@ describe("vault dashboard Convex contract", () => {
       const request = await ctx.db.get(ids.requestId);
       const audit = await ctx.db.get(ids.auditId);
       const storage = await ctx.db.system.get("_storage", ids.storageId);
-      const stagedStorage = await ctx.db.system.get(
-        "_storage",
-        ids.stagedStorageId,
-      );
+      const stagedStorage = await ctx.db.system.get("_storage", ids.stagedStorageId);
       return {
         audit,
         request,

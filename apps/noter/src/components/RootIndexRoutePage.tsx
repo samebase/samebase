@@ -21,13 +21,9 @@ export function RootIndexRoutePage() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const shouldSkipAuthGate =
     !isAuthenticated &&
-    shouldRenderPublicLandingWithoutAuthGate(
-      location.pathname,
-      rootRouteSearch,
-    );
+    shouldRenderPublicLandingWithoutAuthGate(location.pathname, rootRouteSearch);
   const shouldRenderPublicLanding =
-    !isAuthenticated &&
-    (shouldSkipAuthGate || (!isLoading && location.pathname === "/"));
+    !isAuthenticated && (shouldSkipAuthGate || (!isLoading && location.pathname === "/"));
 
   useAppAuthRuntimeEffects(location.pathname, rootRouteSearch);
   usePageMetadata(

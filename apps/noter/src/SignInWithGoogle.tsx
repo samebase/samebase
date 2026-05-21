@@ -2,10 +2,7 @@ import { isInIframe, openAuthPopup, useNoterSignInActions } from "@/authClient";
 import { Button } from "@/components/ui/button";
 import { Chrome } from "lucide-react";
 import { useRouter } from "@tanstack/react-router";
-import {
-  buildGoogleAuthPopupSearch,
-  buildGoogleRedirectSearch,
-} from "./lib/googleAuthRedirect";
+import { buildGoogleAuthPopupSearch, buildGoogleRedirectSearch } from "./lib/googleAuthRedirect";
 
 export function SignInWithGoogle({
   visible = true,

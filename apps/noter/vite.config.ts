@@ -14,10 +14,7 @@ import {
   createStaticLogoSvgMarkup,
 } from "./src/components/logo/logoStaticSvgAsset";
 import { buildNoterSyncPublicScript } from "./noterSyncPublicScript";
-import {
-  readEnvFileValue,
-  resolveBrowserConvexProxyTarget,
-} from "./browserConvexProxy";
+import { readEnvFileValue, resolveBrowserConvexProxyTarget } from "./browserConvexProxy";
 import { resolveAppCommitNumber } from "./dev/appBuildMetadata";
 import { codexAppServerResearchBridgePlugin } from "./dev/codexAppServerResearchBridge";
 
@@ -28,9 +25,7 @@ const BROWSER_CONVEX_PROXY_PATH = "/__noter_convex_proxy";
 const devPortRaw = process.env.NOTER_DEV_PORT?.trim();
 const devPort = devPortRaw ? Number(devPortRaw) : undefined;
 const devStrictPort = readBooleanEnv(process.env.NOTER_DEV_STRICT_PORT);
-const devAllowedHosts = readAllowedHostsEnv(
-  process.env.NOTER_DEV_ALLOWED_HOSTS,
-);
+const devAllowedHosts = readAllowedHostsEnv(process.env.NOTER_DEV_ALLOWED_HOSTS);
 
 function readBooleanEnv(value: string | undefined): boolean | undefined {
   if (!value) {
@@ -89,10 +84,7 @@ function runGitCommand(command: string): boolean {
   }
 }
 
-const appCommit =
-  process.env.VITE_APP_COMMIT ??
-  readGitOutput("git rev-parse HEAD") ??
-  "unknown";
+const appCommit = process.env.VITE_APP_COMMIT ?? readGitOutput("git rev-parse HEAD") ?? "unknown";
 process.env.JITI_TSCONFIG_PATHS ??= appTsconfigPath;
 const appCommitNumber = resolveAppCommitNumber({
   envCommitNumber: process.env.VITE_APP_COMMIT_NUMBER,
@@ -107,21 +99,10 @@ const browserConvexProxyTarget = resolveBrowserConvexProxyTarget({
   envProxyTarget: process.env.NOTER_BROWSER_CONVEX_PROXY_TARGET,
   localEnvConvexUrl: readEnvFileValue(localEnvPath, "VITE_CONVEX_URL"),
 });
-const browserConvexProxyPath = browserConvexProxyTarget
-  ? BROWSER_CONVEX_PROXY_PATH
-  : null;
-const staticLogoSvgAssetPath = path.resolve(
-  currentDir,
-  "public/logo-static.svg",
-);
-const staticInstallIconSvgAssetPath = path.resolve(
-  currentDir,
-  "public/install-icon.svg",
-);
-const noterSyncPackageScriptPath = path.resolve(
-  gitRoot,
-  "packages/sync/noter.ts",
-);
+const browserConvexProxyPath = browserConvexProxyTarget ? BROWSER_CONVEX_PROXY_PATH : null;
+const staticLogoSvgAssetPath = path.resolve(currentDir, "public/logo-static.svg");
+const staticInstallIconSvgAssetPath = path.resolve(currentDir, "public/install-icon.svg");
+const noterSyncPackageScriptPath = path.resolve(gitRoot, "packages/sync/noter.ts");
 const staticNoterSyncScriptPath = path.resolve(currentDir, "public/noter.ts");
 const noterConnectConfigPathname = "/noter-connect.json";
 const runtimeNoterConnectConfigPath = path.resolve(
@@ -141,27 +122,20 @@ function parseValidatedNoterConnectConvexSiteUrl(value: string): string {
   try {
     const convexSiteUrl = new URL(value);
     const isLoopbackHttp =
-      convexSiteUrl.protocol === "http:" &&
-      isLoopbackHostname(convexSiteUrl.hostname);
+      convexSiteUrl.protocol === "http:" && isLoopbackHostname(convexSiteUrl.hostname);
     if (convexSiteUrl.protocol !== "https:" && !isLoopbackHttp) {
       throw new Error(
         "The runtime Convex site URL must use https, except for explicit localhost testing.",
       );
     }
     if (convexSiteUrl.username || convexSiteUrl.password) {
-      throw new Error(
-        "The runtime Convex site URL must not include credentials.",
-      );
+      throw new Error("The runtime Convex site URL must not include credentials.");
     }
     if (convexSiteUrl.search.length > 0 || convexSiteUrl.hash.length > 0) {
-      throw new Error(
-        "The runtime Convex site URL must not include query params or hashes.",
-      );
+      throw new Error("The runtime Convex site URL must not include query params or hashes.");
     }
     if (convexSiteUrl.pathname !== "/") {
-      throw new Error(
-        "The runtime Convex site URL must be an origin with no path.",
-      );
+      throw new Error("The runtime Convex site URL must be an origin with no path.");
     }
     return convexSiteUrl.toString();
   } catch (error) {
@@ -174,9 +148,7 @@ function parseValidatedNoterConnectConvexSiteUrl(value: string): string {
 }
 
 function readNoterSyncPackageScript(): string {
-  return readFileSync(noterSyncPackageScriptPath, "utf8")
-    .replace(/\r\n/g, "\n")
-    .trimEnd();
+  return readFileSync(noterSyncPackageScriptPath, "utf8").replace(/\r\n/g, "\n").trimEnd();
 }
 
 function syncStaticLogoSvgAsset() {
@@ -201,21 +173,14 @@ function syncLogoIdentitySvgAssets() {
   for (const asset of createLogoIdentitySvgAssets()) {
     // Fail closed: logo asset paths must be URL-rooted and resolve within public/.
     if (!asset.assetPath.startsWith("/")) {
-      throw new Error(
-        `Logo identity asset path must be root-relative: ${asset.assetPath}`,
-      );
+      throw new Error(`Logo identity asset path must be root-relative: ${asset.assetPath}`);
     }
 
     const relativeAssetPath = asset.assetPath.replace(/^\//, "");
     const targetAssetPath = path.resolve(publicRoot, relativeAssetPath);
     const relativeToPublicRoot = path.relative(publicRoot, targetAssetPath);
-    if (
-      relativeToPublicRoot.startsWith("..") ||
-      path.isAbsolute(relativeToPublicRoot)
-    ) {
-      throw new Error(
-        `Logo identity asset path escapes public/: ${asset.assetPath}`,
-      );
+    if (relativeToPublicRoot.startsWith("..") || path.isAbsolute(relativeToPublicRoot)) {
+      throw new Error(`Logo identity asset path escapes public/: ${asset.assetPath}`);
     }
 
     const nextAssetMarkup = asset.markup.trim();
@@ -254,11 +219,7 @@ function syncStaticInstallIconSvgAsset() {
     return;
   }
 
-  writeFileSync(
-    staticInstallIconSvgAssetPath,
-    `${nextInstallIconSvgMarkup}\n`,
-    "utf8",
-  );
+  writeFileSync(staticInstallIconSvgAssetPath, `${nextInstallIconSvgMarkup}\n`, "utf8");
 }
 
 /**
@@ -285,11 +246,7 @@ async function syncStaticNoterSyncScriptAsset() {
     return;
   }
 
-  writeFileSync(
-    staticNoterSyncScriptPath,
-    nextNoterSyncScriptWithNewline,
-    "utf8",
-  );
+  writeFileSync(staticNoterSyncScriptPath, nextNoterSyncScriptWithNewline, "utf8");
 }
 
 async function buildRuntimeNoterSyncScript() {
@@ -308,20 +265,15 @@ function readNoterConnectConvexSiteUrl(): string {
   const configuredViteSiteUrl = process.env.VITE_CONVEX_SITE_URL?.trim();
   if (
     configuredViteSiteUrl &&
-    (configuredViteSiteUrl.startsWith("https://") ||
-      configuredViteSiteUrl.startsWith("http://"))
+    (configuredViteSiteUrl.startsWith("https://") || configuredViteSiteUrl.startsWith("http://"))
   ) {
     return parseValidatedNoterConnectConvexSiteUrl(configuredViteSiteUrl);
   }
 
-  const localEnvSiteUrl = readEnvFileValue(
-    localEnvPath,
-    "VITE_CONVEX_SITE_URL",
-  );
+  const localEnvSiteUrl = readEnvFileValue(localEnvPath, "VITE_CONVEX_SITE_URL");
   if (
     localEnvSiteUrl &&
-    (localEnvSiteUrl.startsWith("https://") ||
-      localEnvSiteUrl.startsWith("http://"))
+    (localEnvSiteUrl.startsWith("https://") || localEnvSiteUrl.startsWith("http://"))
   ) {
     return parseValidatedNoterConnectConvexSiteUrl(localEnvSiteUrl);
   }
@@ -344,10 +296,7 @@ async function buildRuntimeNoterConnectConfig() {
   });
 }
 
-async function formatGeneratedFileContents(args: {
-  content: string;
-  filepath: string;
-}) {
+async function formatGeneratedFileContents(args: { content: string; filepath: string }) {
   return formatWithVpFmt(args.filepath, args.content);
 }
 
@@ -451,10 +400,7 @@ function syncStaticNoterSyncScriptAssetPlugin() {
           void buildRuntimeNoterSyncScript()
             .then((runtimeScript) => {
               response.statusCode = 200;
-              response.setHeader(
-                "Content-Type",
-                "application/typescript; charset=utf-8",
-              );
+              response.setHeader("Content-Type", "application/typescript; charset=utf-8");
               response.end(runtimeScript);
             })
             .catch(next);
@@ -506,10 +452,7 @@ function syncRuntimeNoterConnectConfigAssetPlugin() {
           void buildRuntimeNoterConnectConfig()
             .then((runtimeConfig) => {
               response.statusCode = 200;
-              response.setHeader(
-                "Content-Type",
-                "application/json; charset=utf-8",
-              );
+              response.setHeader("Content-Type", "application/json; charset=utf-8");
               response.end(runtimeConfig);
             })
             .catch(next);

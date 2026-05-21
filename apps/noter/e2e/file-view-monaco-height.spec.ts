@@ -1,8 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("Monaco keeps visible lines in the file-view flex-height layout", async ({
-  page,
-}) => {
+test("Monaco keeps visible lines in the file-view flex-height layout", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/visual-fixture?mode=fileview-monaco-flex-height", {
     waitUntil: "domcontentloaded",

@@ -1,9 +1,5 @@
 import { v } from "convex/values";
-import {
-  internalMutation,
-  internalQuery,
-  type MutationCtx,
-} from "./_generated/server";
+import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
@@ -112,11 +108,7 @@ export const appendRunEvent = internalMutation({
     if (!run) {
       throw new Error("Provisioning run not found.");
     }
-    if (
-      run.state === "succeeded" ||
-      run.state === "failed" ||
-      run.state === "canceled"
-    ) {
+    if (run.state === "succeeded" || run.state === "failed" || run.state === "canceled") {
       // Workflow cancellation and completion can leave in-flight step actions
       // trying to report late events. Terminal state owns the final record.
       return null;
@@ -136,9 +128,7 @@ export const appendRunEvent = internalMutation({
 
     const nextState = args.state === "unchanged" ? run.state : args.state;
     const isTerminal =
-      nextState === "succeeded" ||
-      nextState === "failed" ||
-      nextState === "canceled";
+      nextState === "succeeded" || nextState === "failed" || nextState === "canceled";
     await ctx.db.patch(args.runId, {
       state: nextState,
       currentStep: args.step,

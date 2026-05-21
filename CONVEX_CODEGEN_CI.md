@@ -2,8 +2,8 @@
 
 ## Context
 
-`convex codegen` behavior changed in Convex `v1.28.0+` to require deployment
-context in CI environments.
+`convex codegen` behavior changed in Convex `v1.28.0+` to require deployment context in CI
+environments.
 
 ## Current Repo State (2026-02-13)
 
@@ -15,8 +15,7 @@ context in CI environments.
 Plan for one of these approaches:
 
 1. Configure CI with `CONVEX_DEPLOYMENT` and required Convex credentials.
-2. Commit generated `_generated/` artifacts and remove codegen from CI
-   lint/build steps.
+2. Commit generated `_generated/` artifacts and remove codegen from CI lint/build steps.
 
 ## References
 

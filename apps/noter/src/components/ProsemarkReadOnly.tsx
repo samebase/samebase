@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-} from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import {
   Annotation,
   Compartment,
@@ -51,9 +45,7 @@ type ProsemarkReadOnlyProps = {
 };
 
 function getHighlightClassName(lineHighlightTone: "add" | "remove"): string {
-  return lineHighlightTone === "remove"
-    ? "cm-line-highlight-remove"
-    : "cm-line-highlight-add";
+  return lineHighlightTone === "remove" ? "cm-line-highlight-remove" : "cm-line-highlight-add";
 }
 
 function buildLineHighlights(
@@ -70,11 +62,7 @@ function buildLineHighlights(
   for (const lineNumber of highlightedLineNumbers) {
     if (lineNumber < 1 || lineNumber > doc.lines) continue;
     const line = doc.line(lineNumber);
-    builder.add(
-      line.from,
-      line.from,
-      Decoration.line({ class: lineClassName }),
-    );
+    builder.add(line.from, line.from, Decoration.line({ class: lineClassName }));
   }
 
   return builder.finish();
@@ -172,9 +160,7 @@ export function ProsemarkReadOnly({
     deduped.sort((left, right) => left - right);
     return deduped;
   }, [highlightedLineNumbers]);
-  const normalizedHighlightedLineNumbersRef = useRef(
-    normalizedHighlightedLineNumbers,
-  );
+  const normalizedHighlightedLineNumbersRef = useRef(normalizedHighlightedLineNumbers);
 
   const resizeToContent = useCallback(() => {
     const container = containerRef.current;
@@ -210,8 +196,7 @@ export function ProsemarkReadOnly({
   }, [onChange]);
 
   useEffect(() => {
-    normalizedHighlightedLineNumbersRef.current =
-      normalizedHighlightedLineNumbers;
+    normalizedHighlightedLineNumbersRef.current = normalizedHighlightedLineNumbers;
   }, [normalizedHighlightedLineNumbers]);
 
   useLayoutEffect(() => {
@@ -220,9 +205,7 @@ export function ProsemarkReadOnly({
 
     const state = EditorState.create({
       doc: lastValueRef.current,
-      selection: EditorSelection.single(
-        findInitialSafeSelectionAnchor(lastValueRef.current),
-      ),
+      selection: EditorSelection.single(findInitialSafeSelectionAnchor(lastValueRef.current)),
       extensions: [
         languageCompartmentRef.current.of(
           getInitialCodeMirrorLanguageExtension(filePathRef.current),
@@ -238,9 +221,7 @@ export function ProsemarkReadOnly({
           EditorState.readOnly.of(!editableRef.current),
           EditorView.editable.of(editableRef.current),
         ]),
-        cursorCompartmentRef.current.of(
-          !editableRef.current ? prosemarkHiddenCursorTheme : [],
-        ),
+        cursorCompartmentRef.current.of(!editableRef.current ? prosemarkHiddenCursorTheme : []),
         decorationsCompartmentRef.current.of(
           createLineHighlightExtension(
             normalizedHighlightedLineNumbersRef.current,
@@ -306,16 +287,13 @@ export function ProsemarkReadOnly({
 
     const nextLanguageKind = getCodeMirrorFileLanguageKind(filePath);
     languageKindRef.current = nextLanguageKind;
-    const initialLanguageExtension =
-      getInitialCodeMirrorLanguageExtension(filePath);
+    const initialLanguageExtension = getInitialCodeMirrorLanguageExtension(filePath);
 
     // Swap to the safe synchronous parser immediately so file switches do not
     // keep tokenizing with the previous document's grammar while the lazy
     // language chunk is still loading.
     view.dispatch({
-      effects: languageCompartmentRef.current.reconfigure(
-        initialLanguageExtension,
-      ),
+      effects: languageCompartmentRef.current.reconfigure(initialLanguageExtension),
     });
 
     let isCurrent = true;
@@ -329,8 +307,7 @@ export function ProsemarkReadOnly({
         }
 
         viewRef.current.dispatch({
-          effects:
-            languageCompartmentRef.current.reconfigure(languageExtension),
+          effects: languageCompartmentRef.current.reconfigure(languageExtension),
         });
         resizeToContent();
       })
@@ -340,9 +317,7 @@ export function ProsemarkReadOnly({
         }
 
         view.dispatch({
-          effects: languageCompartmentRef.current.reconfigure(
-            initialLanguageExtension,
-          ),
+          effects: languageCompartmentRef.current.reconfigure(initialLanguageExtension),
         });
         resizeToContent();
       });
@@ -361,9 +336,7 @@ export function ProsemarkReadOnly({
           EditorState.readOnly.of(!editable),
           EditorView.editable.of(editable),
         ]),
-        cursorCompartmentRef.current.reconfigure(
-          !editable ? prosemarkHiddenCursorTheme : [],
-        ),
+        cursorCompartmentRef.current.reconfigure(!editable ? prosemarkHiddenCursorTheme : []),
       ],
     });
   }, [editable]);
@@ -373,10 +346,7 @@ export function ProsemarkReadOnly({
     if (!view) return;
     view.dispatch({
       effects: decorationsCompartmentRef.current.reconfigure(
-        createLineHighlightExtension(
-          normalizedHighlightedLineNumbers,
-          lineHighlightTone,
-        ),
+        createLineHighlightExtension(normalizedHighlightedLineNumbers, lineHighlightTone),
       ),
     });
     resizeToContent();

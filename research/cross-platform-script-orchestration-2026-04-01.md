@@ -4,31 +4,28 @@ Date: 2026-04-01
 
 ## Why This Document Exists
 
-Native Windows setup work surfaced a second layer of portability problems in the
-repo: Git hooks and package scripts can still fail on Windows even when the app
-itself starts correctly.
+Native Windows setup work surfaced a second layer of portability problems in the repo: Git hooks and
+package scripts can still fail on Windows even when the app itself starts correctly.
 
-The immediate trigger was the `husky` pre-commit hook. Husky itself ran on
-Windows, but one of the scripts it invoked failed because the script body used
-POSIX-only inline environment-variable syntax.
+The immediate trigger was the `husky` pre-commit hook. Husky itself ran on Windows, but one of the
+scripts it invoked failed because the script body used POSIX-only inline environment-variable
+syntax.
 
-This memo evaluates the realistic options for making local scripts, hooks, and
-developer entrypoints work well on Windows without making the repo harder to
-understand.
+This memo evaluates the realistic options for making local scripts, hooks, and developer entrypoints
+work well on Windows without making the repo harder to understand.
 
 ## Why This Lives In `research`
 
-This is a current-state architecture memo, not an accepted implementation plan.
-It compares alternatives and recommends a direction, but it is not yet the
-repo's final scripting contract.
+This is a current-state architecture memo, not an accepted implementation plan. It compares
+alternatives and recommends a direction, but it is not yet the repo's final scripting contract.
 
 ## Repo Findings At The Time
 
-The findings below capture the repo state that triggered this memo on
-2026-04-01. They are historical context, not the current hook/config contract.
+The findings below capture the repo state that triggered this memo on 2026-04-01. They are
+historical context, not the current hook/config contract.
 
-The main issue is not Husky itself. The problem is the shell language used by
-the commands Husky calls.
+The main issue is not Husky itself. The problem is the shell language used by the commands Husky
+calls.
 
 Current examples in the repo:
 
@@ -51,16 +48,16 @@ The practical lesson from the Windows work is:
 
 - `cmd.exe` can run many npm scripts just fine.
 - Husky can trigger hooks on Windows just fine.
-- Inline POSIX env assignment, Bash-only wrappers, shell parameter expansion,
-  and cwd-sensitive shell choreography are the fragile parts.
+- Inline POSIX env assignment, Bash-only wrappers, shell parameter expansion, and cwd-sensitive
+  shell choreography are the fragile parts.
 
 ## Design Goals
 
 Any approach we adopt should optimize for these constraints:
 
 1. Node is already guaranteed in this repo and works well on Windows.
-2. The default contributor path should not require Bash, WSL, Bun, Deno, or
-   another task runner binary just to run hooks and core scripts.
+2. The default contributor path should not require Bash, WSL, Bun, Deno, or another task runner
+   binary just to run hooks and core scripts.
 3. The source of truth should be easy to read in code review.
 4. Scripts should work the same in hooks, CI, Codex, and normal terminals.
 5. We should avoid hiding important logic inside long `package.json` strings.
@@ -141,8 +138,7 @@ Assessment:
 
 What it is:
 
-- Move non-trivial logic into small JavaScript files under `scripts/` or the
-  owning package.
+- Move non-trivial logic into small JavaScript files under `scripts/` or the owning package.
 - Use `pnpm --dir ...` or `child_process.spawn` instead of `cd ... && ...`.
 - Let package scripts become short entrypoints that call those Node files.
 
@@ -162,8 +158,8 @@ What it does not solve:
 Repo fit:
 
 - Excellent.
-- This matches the repo's existing working examples and the broader
-  Node-first/Windows-first direction.
+- This matches the repo's existing working examples and the broader Node-first/Windows-first
+  direction.
 
 Assessment:
 
@@ -194,21 +190,18 @@ Repo fit:
 Assessment:
 
 - Better than Bash if the team strongly prefers shell-like scripts.
-- Worse than plain Node wrappers if the goal is maximum clarity and minimum
-  dependency surface.
+- Worse than plain Node wrappers if the goal is maximum clarity and minimum dependency surface.
 
 ### Option E: Bun Shell
 
 What it is:
 
-- Use Bun's built-in shell features or `bun run`-style scripting for
-  cross-platform scripts.
+- Use Bun's built-in shell features or `bun run`-style scripting for cross-platform scripts.
 
 What it solves well:
 
 - Bun's shell story is more capable than plain npm scripts.
-- Bun Shell is explicitly positioned as cross-platform and can replace some
-  helper packages.
+- Bun Shell is explicitly positioned as cross-platform and can replace some helper packages.
 
 What it costs:
 
@@ -225,15 +218,13 @@ Repo fit:
 Assessment:
 
 - Interesting technology.
-- Not a good default for this repo because Node is already the guaranteed and
-  trusted runtime.
+- Not a good default for this repo because Node is already the guaranteed and trusted runtime.
 
 ### Option F: Taskfile / `task`
 
 What it is:
 
-- Introduce a dedicated cross-platform task runner binary and express workflows
-  in `Taskfile.yml`.
+- Introduce a dedicated cross-platform task runner binary and express workflows in `Taskfile.yml`.
 
 What it solves well:
 
@@ -286,8 +277,8 @@ The best default architecture is:
 1. Keep Husky.
 2. Keep `npm-run-all` or `run-s` / `run-p` only for orchestration.
 3. Use small Node scripts as the source of truth for any non-trivial workflow.
-4. Allow `cross-env` only for truly tiny env-only cases where a Node wrapper
-   would be noisier than the problem.
+4. Allow `cross-env` only for truly tiny env-only cases where a Node wrapper would be noisier than
+   the problem.
 
 In other words:
 
@@ -308,12 +299,11 @@ If this direction is adopted, these conventions would keep it clear:
 
 1. `package.json` scripts should be short entrypoints, not long shell programs.
 2. Prefer `pnpm --dir apps/noter ...` over `cd apps/noter && ...`.
-3. Use Node wrappers for env setup, cwd changes, process spawning, retries, and
-   fallback logic.
+3. Use Node wrappers for env setup, cwd changes, process spawning, retries, and fallback logic.
 4. Reserve `cross-env` for single-command env injection only.
 5. Avoid `cross-env-shell` unless the command truly needs shell interpretation.
-6. Keep Bash-only scripts as optional operator tools, not the required default
-   path for hooks or core contributor workflows.
+6. Keep Bash-only scripts as optional operator tools, not the required default path for hooks or
+   core contributor workflows.
 
 ## Suggested Migration Order
 
@@ -346,8 +336,7 @@ Prefer:
 "lint:eslint": "node scripts/run-noter-eslint.js"
 ```
 
-That split is easier to read, easier to reuse in hooks and CI, and much easier
-to make Windows-safe.
+That split is easier to read, easier to reuse in hooks and CI, and much easier to make Windows-safe.
 
 ## Bottom Line
 

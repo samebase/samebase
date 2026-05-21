@@ -12,23 +12,17 @@ async function getBox(page: Page, testId: string) {
 }
 
 async function swipeFromMainToRightSidebar(page: Page) {
-  await page
-    .getByTestId("workspace-layout-v2-pane-main")
-    .evaluate((element) => {
-      element.scrollLeft = element.clientWidth * 2;
-      element.dispatchEvent(new Event("scroll", { bubbles: true }));
-    });
+  await page.getByTestId("workspace-layout-v2-pane-main").evaluate((element) => {
+    element.scrollLeft = element.clientWidth * 2;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+  });
 }
 
 function getFileViewLayoutShell(page: Page) {
   return page.locator("[data-mobile-pane]").first();
 }
 
-async function dragHorizontalHandle(
-  page: Page,
-  testId: string,
-  deltaXPx: number,
-) {
+async function dragHorizontalHandle(page: Page, testId: string, deltaXPx: number) {
   const handleBox = await getBox(page, testId);
   const startX = handleBox.x + handleBox.width / 2;
   const startY = handleBox.y + handleBox.height / 2;
@@ -55,21 +49,15 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
   const scrollContainer = page.getByTestId("fileview-layout-sidebar-scroll");
 
   await counterButton.click();
-  await expect(page.getByTestId("fileview-layout-counter-value")).toHaveText(
-    "1",
-  );
+  await expect(page.getByTestId("fileview-layout-counter-value")).toHaveText("1");
 
   await scrollContainer.evaluate((element) => {
     element.scrollTop = 180;
   });
-  const scrollTopBeforeCollapse = await scrollContainer.evaluate(
-    (element) => element.scrollTop,
-  );
+  const scrollTopBeforeCollapse = await scrollContainer.evaluate((element) => element.scrollTop);
   expect(scrollTopBeforeCollapse).toBe(180);
 
-  await page
-    .getByRole("button", { name: "Toggle Right Sidebar" })
-    .press("Enter");
+  await page.getByRole("button", { name: "Toggle Right Sidebar" }).press("Enter");
   await expect
     .poll(async () => {
       const fixtureBox = await fixture.boundingBox();
@@ -78,11 +66,7 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
         .getByRole("button", { name: "Toggle Right Sidebar" })
         .boundingBox();
 
-      if (
-        fixtureBox === null ||
-        headerBox === null ||
-        toggleButtonBox === null
-      ) {
+      if (fixtureBox === null || headerBox === null || toggleButtonBox === null) {
         return Number.NaN;
       }
 
@@ -95,9 +79,7 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
     })
     .toBeLessThanOrEqual(1);
 
-  await page
-    .getByRole("button", { name: "Toggle Right Sidebar" })
-    .press("Enter");
+  await page.getByRole("button", { name: "Toggle Right Sidebar" }).press("Enter");
   await expect
     .poll(async () => {
       const fixtureBox = await fixture.boundingBox();
@@ -120,18 +102,12 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
         .getByRole("button", { name: "Toggle Right Sidebar" })
         .boundingBox();
 
-      if (
-        headerBox === null ||
-        rightSidebarBox === null ||
-        toggleButtonBox === null
-      ) {
+      if (headerBox === null || rightSidebarBox === null || toggleButtonBox === null) {
         return Number.NaN;
       }
 
       return Math.abs(
-        rightSidebarBox.x -
-          (headerBox.x + headerBox.width) -
-          (toggleButtonBox.width + 8),
+        rightSidebarBox.x - (headerBox.x + headerBox.width) - (toggleButtonBox.width + 8),
       );
     })
     .toBeLessThanOrEqual(1);
@@ -148,9 +124,7 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
     })
     .toBeLessThanOrEqual(1);
 
-  await expect(page.getByTestId("fileview-layout-counter-value")).toHaveText(
-    "1",
-  );
+  await expect(page.getByTestId("fileview-layout-counter-value")).toHaveText("1");
   await expect
     .poll(async () => scrollContainer.evaluate((element) => element.scrollTop))
     .toBe(scrollTopBeforeCollapse);
@@ -177,11 +151,7 @@ test("fileview right sidebar collapses independently", async ({ page }) => {
         .getByRole("button", { name: "Toggle Right Sidebar" })
         .boundingBox();
 
-      if (
-        fixtureBox === null ||
-        headerBox === null ||
-        toggleButtonBox === null
-      ) {
+      if (fixtureBox === null || headerBox === null || toggleButtonBox === null) {
         return Number.NaN;
       }
 
@@ -210,9 +180,7 @@ test("fileview right sidebar collapses independently", async ({ page }) => {
     .toBeGreaterThan(100);
 });
 
-test("fileview desktop right sidebar resize persists across collapse", async ({
-  page,
-}) => {
+test("fileview desktop right sidebar resize persists across collapse", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 760 });
   await page.goto("/visual-fixture?mode=fileview-layout-persistence", {
     waitUntil: "domcontentloaded",
@@ -221,32 +189,22 @@ test("fileview desktop right sidebar resize persists across collapse", async ({
 
   const rightSidebar = page.getByTestId("fileview-layout-right-sidebar-body");
   const handle = page.getByTestId("workspace-layout-v2-right-resize");
-  const initialWidthPx = (
-    await getBox(page, "fileview-layout-right-sidebar-body")
-  ).width;
+  const initialWidthPx = (await getBox(page, "fileview-layout-right-sidebar-body")).width;
 
   await expect(handle).toBeVisible();
   await dragHorizontalHandle(page, "workspace-layout-v2-right-resize", -96);
   await expect
-    .poll(
-      async () =>
-        (await getBox(page, "fileview-layout-right-sidebar-body")).width,
-    )
+    .poll(async () => (await getBox(page, "fileview-layout-right-sidebar-body")).width)
     .toBeGreaterThan(initialWidthPx + 48);
 
-  const resizedWidthPx = (
-    await getBox(page, "fileview-layout-right-sidebar-body")
-  ).width;
+  const resizedWidthPx = (await getBox(page, "fileview-layout-right-sidebar-body")).width;
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
   await expect(rightSidebar).toBeHidden();
 
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
   await expect(rightSidebar).toBeVisible();
   await expect
-    .poll(
-      async () =>
-        (await getBox(page, "fileview-layout-right-sidebar-body")).width,
-    )
+    .poll(async () => (await getBox(page, "fileview-layout-right-sidebar-body")).width)
     .toBeGreaterThanOrEqual(resizedWidthPx - 1);
 });
 

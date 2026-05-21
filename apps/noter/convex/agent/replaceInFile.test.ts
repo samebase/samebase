@@ -55,9 +55,7 @@ describe("buildReplaceInFilePlan", () => {
       ],
     });
 
-    expect(plan.finalContent.replace(/\r\n?/g, "\n")).toBe(
-      "const count = 1;\nreturn count;\n",
-    );
+    expect(plan.finalContent.replace(/\r\n?/g, "\n")).toBe("const count = 1;\nreturn count;\n");
   });
 
   it("fails when a replacement matches multiple locations", () => {

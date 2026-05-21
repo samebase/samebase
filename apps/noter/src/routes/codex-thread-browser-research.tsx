@@ -13,9 +13,7 @@ function ResearchRouteUnavailablePage(props: {
     <RoutedPage pathname={props.pathname}>
       <div className="container my-auto">
         <div className="mx-auto flex max-w-[420px] flex-col items-center gap-3 py-16 text-center">
-          <h2 className="text-xl font-semibold tracking-tight">
-            {props.title}
-          </h2>
+          <h2 className="text-xl font-semibold tracking-tight">{props.title}</h2>
           <p className="text-sm text-muted-foreground">{props.description}</p>
         </div>
       </div>

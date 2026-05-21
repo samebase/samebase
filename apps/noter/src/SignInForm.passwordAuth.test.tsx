@@ -67,9 +67,9 @@ describe("PasswordAuthForm", () => {
       localRoot.render(<PasswordAuthForm surface="local_worktree" />);
     });
 
-    const autofillButton = Array.from(
-      rootElement.querySelectorAll("button"),
-    ).find((button) => button.textContent === "Autofill & sign in");
+    const autofillButton = Array.from(rootElement.querySelectorAll("button")).find(
+      (button) => button.textContent === "Autofill & sign in",
+    );
     if (!(autofillButton instanceof HTMLButtonElement)) {
       throw new Error("Autofill button not found");
     }
