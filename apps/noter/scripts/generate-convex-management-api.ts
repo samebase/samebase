@@ -420,7 +420,8 @@ function transformConvexManagementOpenApiType(
 
 writeFileSync(
   openApiDocumentOutputPath,
-  `${JSON.stringify(documentJson, null, 2)}\n`,
+  `${JSON.stringify(documentJson, null, 2)}
+`,
 );
 
 const openApiTypeAst = await openapiTS(documentJson, {
@@ -430,7 +431,8 @@ const openApiTypeAst = await openapiTS(documentJson, {
 });
 writeFileSync(
   typesOutputFilePath,
-  `${COMMENT_HEADER}${astToString(openApiTypeAst)}\n`,
+  `${COMMENT_HEADER}${astToString(openApiTypeAst)}
+`,
 );
 
 ajv.addSchema(validationDocumentJson, convexManagementOpenApiSchemaId);
@@ -442,11 +444,32 @@ for (const entry of responseValidatorEntries) {
 
 writeFileSync(
   validatorsOutputPath,
-  `// Generated from ${sourceUrl}. Do not edit by hand.\n/* eslint-disable */\n\n${standaloneCode(ajv, validatorSchemaIds)}\n${formatConvexManagementResponseValidatorsJs(responseValidatorEntries)}`,
+  `// Generated from ${sourceUrl}. Do not edit by hand.
+/* eslint-disable */
+
+${standaloneCode(ajv, validatorSchemaIds)}
+${formatConvexManagementResponseValidatorsJs(responseValidatorEntries)}`,
 );
 writeFileSync(
   validatorTypesOutputPath,
-  `// Generated from ${sourceUrl}. Do not edit by hand.\n\nimport type { SuccessResponseJSON } from "openapi-typescript-helpers";\nimport type { operations } from "./types.generated";\n\nexport type AjvStandaloneValidationError = {\n  instancePath: string;\n  keyword?: string;\n  message?: string;\n  params?: unknown;\n};\n\nexport type AjvStandaloneValidateFunction<T> = {\n  (payload: unknown): payload is T;\n  errors: AjvStandaloneValidationError[] | null;\n};\n\n${formatConvexManagementResponseValidatorsDts(responseValidatorEntries)}`,
+  `// Generated from ${sourceUrl}. Do not edit by hand.
+
+import type { SuccessResponseJSON } from "openapi-typescript-helpers";
+import type { operations } from "./types.generated";
+
+export type AjvStandaloneValidationError = {
+  instancePath: string;
+  keyword?: string;
+  message?: string;
+  params?: unknown;
+};
+
+export type AjvStandaloneValidateFunction<T> = {
+  (payload: unknown): payload is T;
+  errors: AjvStandaloneValidationError[] | null;
+};
+
+${formatConvexManagementResponseValidatorsDts(responseValidatorEntries)}`,
 );
 
 execFileSync("pnpm", ["exec", "vp", "fmt", ...generatedFormatPaths], {
