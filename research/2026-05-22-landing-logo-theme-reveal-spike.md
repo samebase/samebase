@@ -89,6 +89,19 @@ However, the proposal is currently a living explainer and its Chromium implement
 Canary or recent Brave/Chromium 147 builds. That is useful for a lab if we want shader experiments,
 but it is not the easiest or safest spike for Noter's public landing route.
 
+Follow-up, 2026-05-23: the current demo gallery is much stronger than a toy proof. It includes a
+Page Curl / Book Turn demo that renders two styled HTML pages into canvas textures, feeds them to a
+WebGL page-curl shader, and lets the user drag the page as a deformable surface. It also includes a
+Pixel Disintegration demo that samples a rendered HTML card with `getImageData()` and explodes the
+result into particles. Those demos are close in spirit to the reported "HTML page tearing like
+cloth" experiment: once live HTML is available as pixels or a texture, cloth, tear, curl, shatter,
+and shader effects become normal graphics problems.
+
+That changes the confidence level for a canvas lab: the effect is real enough to prototype, not just
+speculative. It does not change the first production recommendation, because the demos still require
+`canvas-draw-element` in Chrome Canary or recent Brave/Chromium builds and are not a browser-stable
+path for the public landing theme toggle.
+
 ## Local App Fit
 
 The landing theme switch already flows through root search params:
@@ -172,12 +185,13 @@ implementation touches sidebar chrome.
 
 ### Option 4: Canvas / HTML-in-Canvas lab
 
-This is an interesting research lab, not the easiest product spike.
+This is an interesting second spike, not the easiest product spike.
 
 Shape:
 
 - Add a dev-only page that checks for `ctx.drawElementImage`.
-- If available, draw a child subtree into canvas and experiment with shader/mask effects.
+- If available, draw a child subtree into canvas and experiment with shader, page-curl, particle, or
+  tear/cloth-style effects.
 - Otherwise show that stable browsers fall back to View Transitions.
 
 Why it is not first:
@@ -295,5 +309,8 @@ The product decision after the spike should be based on three facts:
 - [MDN archive: Drawing DOM objects into a canvas](https://www.devdoc.net/web/developer.mozilla.org/en-US/docs/Web/API/Canvas_API/Drawing_DOM_objects_into_a_canvas.html)
 - [WICG HTML-in-Canvas explainer](https://github.com/WICG/html-in-canvas)
 - [HTML-in-Canvas docs overview](https://html-in-canvas.dev/docs/overview/)
+- [HTML-in-Canvas demos](https://html-in-canvas.dev/demos/)
+- [HTML-in-Canvas Page Curl / Book Turn demo](https://html-in-canvas.dev/demos/page-curl-book-turn/)
+- [HTML-in-Canvas Pixel Disintegration demo](https://html-in-canvas.dev/demos/pixel-disintegration/)
 - [html2canvas documentation](https://html2canvas.hertzen.com/documentation/)
 - [html2canvas FAQ](https://html2canvas.hertzen.com/faq.html)
