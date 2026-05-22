@@ -106,11 +106,7 @@ export function FileViewLayoutVisualFixture({ mode }: { mode: FileViewLayoutVisu
               className="h-full"
               style={{ scrollSnapStop: "always" }}
             >
-              <FileViewMainHeader
-                currentUrl="/vault/noter-md/noter/main/README.md"
-                headerTitle="/"
-                onQuickOpen={() => {}}
-              />
+              <FileViewMainHeader headerTitle="/" onQuickOpen={() => {}} />
             </div>
           ),
           content: (

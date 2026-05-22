@@ -1,6 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
 import { PNG } from "pngjs";
-import { PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID } from "../src/components/PublicRightSidebar";
 import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
 import { LOCAL_STORAGE_ROUTE } from "../src/lib/localStorageRoute";
 
@@ -72,15 +71,17 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
   });
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  const mainPane = page.getByTestId("workspace-layout-v2-pane-main");
   const linksSidebar = page.getByTestId("workspace-layout-v2-pane-right");
-  const routeUrlHeader = linksSidebar.getByTestId(PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID);
+  const host = new URL(page.url()).host;
+  const routeUrlInput = mainPane.getByTestId("route-url-editor-input");
   const publicLinks = linksSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
 
   await expect(controlsSidebar).toBeVisible();
   await expect(controlsSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID)).toHaveCount(0);
+  await expect(routeUrlInput).toHaveValue(`${host}/logo`);
+  await expect(routeUrlInput).toHaveAttribute("title", `${host}/logo`);
   await expect(linksSidebar).toBeVisible();
-  await expect(routeUrlHeader.getByTestId("route-url-display")).toHaveAttribute("title", "/logo");
-  await expect(routeUrlHeader.getByTestId("route-url-display")).toHaveText("/logo");
   await expect(publicLinks.getByRole("link", { name: "/home", exact: true })).toHaveAttribute(
     "href",
     "/",

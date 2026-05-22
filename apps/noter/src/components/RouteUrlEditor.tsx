@@ -105,7 +105,7 @@ export function RouteUrlEditor() {
 
   return (
     <form
-      className="flex h-9 w-full min-w-0 items-center gap-1 border-b border-border bg-background px-1 text-foreground"
+      className="flex h-8 w-full min-w-0 items-center gap-1 bg-background px-1 text-foreground"
       data-testid="route-url-editor"
       onSubmit={submitInput}
     >
