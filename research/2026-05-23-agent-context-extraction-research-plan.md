@@ -41,6 +41,8 @@ Repo guidance sources:
   prompts and scoring rules.
 - `research/2026-05-23-agent-context-experiment-results-1.md` contains the first context-variant
   experiment result.
+- `research/2026-05-23-agent-context-experiment-results-2.md` contains the random-branch PR lookup
+  experiment result.
 
 Local thread evidence:
 
@@ -180,6 +182,10 @@ The first context-variant experiment tested safe cleanup inventory. It supported
 fail-closed cleanup in core, exact target proof in a triggerable cleanup skill, and Codex pinned
 thread/session/worktree metadata in the Noter operator overlay.
 
+The second experiment tested random-branch PR lookup. All variants found the PR in an exact-SHA
+fixture, but the PR workflow skill supplied the more robust lookup path and the Noter overlay
+improved interpretation of ready/build-label/review-bot state.
+
 ## Candidate Layer Shape
 
 ### Layer 1: General Agent Engineering
@@ -272,7 +278,8 @@ context, a triggerable skill, a workflow doc, or an operator overlay.
 
 ## Next Work
 
-1. Run Experiment 1, Random Branch PR Lookup, as the next read-only context-variant test.
+1. Run a UI route validation experiment next to test the route-visual skill and Noter app-template
+   overlay.
 2. Compare outcomes and revise the layer boundaries.
 3. Manually review the pinned comparison threads after the non-pinned baseline has more breadth.
 4. Draft actual skill files or package artifacts for the packs that survive experiment.
