@@ -39,6 +39,8 @@ Repo guidance sources:
 - `research/2026-05-23-agent-context-pack-drafts.md` contains the first candidate pack boundaries.
 - `research/2026-05-23-agent-context-experiment-prompts.md` contains context-variant experiment
   prompts and scoring rules.
+- `research/2026-05-23-agent-context-experiment-results-1.md` contains the first context-variant
+  experiment result.
 
 Local thread evidence:
 
@@ -174,6 +176,10 @@ The first pack draft keeps only `agent-engineering-core` as always-loaded. PR/re
 validation, typed refactoring, research-to-implementation, and cleanup behavior remain triggerable
 skills or overlays until experiments show otherwise.
 
+The first context-variant experiment tested safe cleanup inventory. It supported keeping generic
+fail-closed cleanup in core, exact target proof in a triggerable cleanup skill, and Codex pinned
+thread/session/worktree metadata in the Noter operator overlay.
+
 ## Candidate Layer Shape
 
 ### Layer 1: General Agent Engineering
@@ -266,8 +272,7 @@ context, a triggerable skill, a workflow doc, or an operator overlay.
 
 ## Next Work
 
-1. Run parallel agents against full-context, reduced-context, and overlay-context variants in
-   isolated worktrees.
+1. Run Experiment 1, Random Branch PR Lookup, as the next read-only context-variant test.
 2. Compare outcomes and revise the layer boundaries.
 3. Manually review the pinned comparison threads after the non-pinned baseline has more breadth.
 4. Draft actual skill files or package artifacts for the packs that survive experiment.
