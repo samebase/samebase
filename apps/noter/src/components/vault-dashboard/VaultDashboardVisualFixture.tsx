@@ -31,7 +31,9 @@ import {
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { buildVaultBranchSectionState } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import {
+  CreateControlMessageSlot,
   CreateProviderNameInput,
+  GitHubRepositoryNameSlashPreview,
   VaultBranchHeaderControls,
   VaultBranchLinkRow,
   VaultBranchListExpansionControl,
@@ -842,8 +844,11 @@ function FixtureDashboardCreateControl() {
               icon={<GitHubProviderLogo />}
               onChange={() => {}}
               placeholder="GitHub repo name"
-              value="field-notes"
+              value="field/notes"
             />
+            <CreateControlMessageSlot>
+              <GitHubRepositoryNameSlashPreview rawName="field/notes" />
+            </CreateControlMessageSlot>
             <CreateProviderNameInput
               disabled={false}
               icon={<ConvexProviderLogo />}

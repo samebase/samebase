@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vite-plus/test";
 
-import { toSafeRepoName } from "./repoName";
+import { toSafeRepoName } from "../shared/repoName";
 
 describe("toSafeRepoName", () => {
   it("sanitizes repository names", () => {
