@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Noter frontend
-- Last updated: 2026-05-19
+- Last updated: 2026-05-22
 - Related files: `apps/noter/src/components/logo/logoStaticSvgContract.ts`,
   `apps/noter/src/components/logo/logoStaticSvgAsset.ts`,
   `apps/noter/src/components/logo/logoLeftFaceStyle.ts`,
@@ -34,6 +34,10 @@ do not change the canonical identity asset contract.
 When a surface can only use one foreground color plus its background, use the canonical single-color
 stripe treatment. The shape and camera stay the same as the relevant identity view; only the left
 face changes from secondary color to a primary/background stripe pattern.
+
+Treat `▣` as the text letter for the mark in the same spirit that x.com can use the Unicode `x`. It
+is not a separate drawn logo; it is the plain-text proxy for the square-with-center-cutout read of
+the mark.
 
 ## Source Of Truth
 
@@ -86,6 +90,10 @@ gets the same stripe phase.
 
 Small favicons remain browser-chrome assets. They are not the identity source for product UI icons
 unless the product explicitly wants the favicon treatment.
+
+Samebase launch is one explicit favicon-adjacent case: use version 1, side-primary, when
+samebase.com needs the square-letter read of the mark. The match to the current small favicon is an
+intentional launch cue, not an accidental asset shortcut.
 
 ## Product Usage
 
