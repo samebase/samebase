@@ -33,7 +33,7 @@ import { buildVaultBranchSectionState } from "@/components/vault-dashboard/Vault
 import {
   CreateControlMessageSlot,
   CreateProviderNameInput,
-  GitHubRepositoryNameSlashWarning,
+  GitHubRepositoryNameSlashPreview,
   VaultBranchHeaderControls,
   VaultBranchLinkRow,
   VaultBranchListExpansionControl,
@@ -847,7 +847,7 @@ function FixtureDashboardCreateControl() {
               value="field/notes"
             />
             <CreateControlMessageSlot>
-              <GitHubRepositoryNameSlashWarning rawName="field/notes" />
+              <GitHubRepositoryNameSlashPreview rawName="field/notes" />
             </CreateControlMessageSlot>
             <CreateProviderNameInput
               disabled={false}

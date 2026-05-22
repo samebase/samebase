@@ -20,7 +20,7 @@ import {
   normalizeVaultDashboardRepositoryHash,
 } from "@/components/vault-dashboard/vaultDashboardRepositoryHash";
 import { ChevronDownIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
-import { CheckIcon, GitBranch, GitCommitHorizontal, Loader2, TriangleAlert } from "lucide-react";
+import { CheckIcon, GitBranch, GitCommitHorizontal, Loader2 } from "lucide-react";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { Link, useLocation, useNavigate, useRouter } from "@tanstack/react-router";
 import { linkStyle } from "../styles";
@@ -2603,25 +2603,23 @@ function CreateResourceNameStatus({
   kind,
 }: {
   children: ReactNode;
-  kind: "available" | "checking" | "warning";
+  kind: "available" | "checking" | "info";
 }) {
   return (
     <div
       className={clsx(
-        "flex min-w-0 items-start gap-1.5 text-xs",
+        "flex min-w-0 items-start text-xs",
+        kind !== "info" && "gap-1.5",
         kind === "available" && "text-green-600",
-        kind === "checking" && "text-muted-foreground",
-        kind === "warning" && "text-amber-700",
+        (kind === "checking" || kind === "info") && "text-muted-foreground",
       )}
       role="status"
     >
       {kind === "available" ? (
         <CheckIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-      ) : kind === "warning" ? (
-        <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-      ) : (
+      ) : kind === "checking" ? (
         <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin" />
-      )}
+      ) : null}
       <span className="min-w-0 [overflow-wrap:anywhere]">{children}</span>
     </div>
   );
@@ -2636,18 +2634,17 @@ function buildGitHubRepositoryNameSlashReplacement(rawName: string): string | nu
   return repositoryName;
 }
 
-export function GitHubRepositoryNameSlashWarning({ rawName }: { rawName: string }) {
+export function GitHubRepositoryNameSlashPreview({ rawName }: { rawName: string }) {
   const repositoryName = buildGitHubRepositoryNameSlashReplacement(rawName);
   if (!repositoryName) {
     return null;
   }
   return (
-    <CreateResourceNameStatus kind="warning">
-      In GitHub repository names, "/" will be replaced with "-":{" "}
-      <code className="rounded bg-amber-100 px-1 py-0.5 font-mono text-[11px] text-amber-950">
+    <CreateResourceNameStatus kind="info">
+      GitHub repo name:{" "}
+      <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px] text-foreground">
         {repositoryName}
       </code>
-      {"."}
     </CreateResourceNameStatus>
   );
 }
@@ -3619,7 +3616,7 @@ export function VaultDashboard() {
     }
 
     if (buildGitHubRepositoryNameSlashReplacement(createRepositoryName)) {
-      return <GitHubRepositoryNameSlashWarning rawName={createRepositoryName} />;
+      return <GitHubRepositoryNameSlashPreview rawName={createRepositoryName} />;
     }
 
     if (isCreateResourceNameCheckPending) {

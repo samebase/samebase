@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import {
-  GitHubRepositoryNameSlashWarning,
+  GitHubRepositoryNameSlashPreview,
   VaultBranchLinkContent,
   VaultProviderSetupSection,
 } from "./VaultDashboard";
@@ -193,19 +193,20 @@ describe("VaultDashboardRepositoryCard", () => {
   });
 });
 
-describe("GitHubRepositoryNameSlashWarning", () => {
+describe("GitHubRepositoryNameSlashPreview", () => {
   it("shows the exact repository name slash replacement", () => {
-    const markup = renderToStaticMarkup(<GitHubRepositoryNameSlashWarning rawName="field/notes" />);
+    const markup = renderToStaticMarkup(<GitHubRepositoryNameSlashPreview rawName="field/notes" />);
 
-    expect(markup).toContain("&quot;/&quot; will be replaced with &quot;-&quot;");
+    expect(markup).toContain("GitHub repo name:");
     expect(markup).toContain("<code");
     expect(markup).toContain("font-mono");
     expect(markup).toContain(">field-notes</code>");
+    expect(markup).not.toContain("will be replaced");
     expect(markup).not.toContain("&quot;field-notes&quot;");
   });
 
   it("stays empty when the name has no slash replacement", () => {
-    const markup = renderToStaticMarkup(<GitHubRepositoryNameSlashWarning rawName="field-notes" />);
+    const markup = renderToStaticMarkup(<GitHubRepositoryNameSlashPreview rawName="field-notes" />);
 
     expect(markup).toBe("");
   });
