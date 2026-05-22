@@ -45,6 +45,8 @@ Repo guidance sources:
   experiment result.
 - `research/2026-05-23-agent-context-experiment-results-3.md` contains the UI route validation
   experiment result.
+- `research/2026-05-23-agent-context-experiment-results-4.md` contains the typed provider-boundary
+  refactoring experiment result.
 
 Local thread evidence:
 
@@ -192,6 +194,12 @@ The third experiment tested real root-route query modes. It showed core can vali
 route UI skill expands coverage to desktop/mobile and focus/editability, and the Noter app-template
 overlay improves `?dev`/`?prod-ui` interpretation plus safe non-mutating input probes.
 
+The fourth experiment tested typed refactoring at the Convex Management API boundary. It showed the
+typed-product pack helps agents reduce wrappers without crossing TypeScript's proof boundary, while
+the Noter app-template overlay names why generated validation and decimal-string IDs are real
+provider-safety invariants. It also exposed that `pnpm anon` is an operator workflow with provider
+side effects, not a portable read-only test instruction.
+
 ## Candidate Layer Shape
 
 ### Layer 1: General Agent Engineering
@@ -218,6 +226,8 @@ Reusable for TypeScript and similar typed app repos:
 - use route-level reproduction for interaction regressions
 - keep UI copy and styling minimal unless product behavior proves the need
 - remove wrappers and compatibility shims when direct APIs become viable
+- keep small helper branches when they are the boundary that lets TypeScript prove method/path/body
+  inference without unsafe indexing
 
 ### Layer 3: Noter App Template
 
@@ -284,9 +294,8 @@ context, a triggerable skill, a workflow doc, or an operator overlay.
 
 ## Next Work
 
-1. Run a typed product/refactoring experiment next to test generated validation, tiny local schemas,
-   and delete-first simplification.
-2. Compare outcomes and revise the layer boundaries.
+1. Run a research-to-implementation or app-template adoption experiment next.
+2. Compare the first four experiments and revise the layer boundaries.
 3. Manually review the pinned comparison threads after the non-pinned baseline has more breadth.
 4. Draft actual skill files or package artifacts for the packs that survive experiment.
 5. Only then move durable material out of `AGENTS.md`.

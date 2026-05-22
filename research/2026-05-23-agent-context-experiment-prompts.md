@@ -42,6 +42,10 @@ Use these variants as the first comparison set:
   tokens, deploy keys, provider credentials, or sensitive user data.
 - Run experiments in separate worktrees or fixture copies so context variants do not share modified
   state.
+- When an experiment forbids external/provider writes, do not run setup commands that can sync env,
+  seed Convex, start provider-backed dev flows, or touch anonymous deployments unless the experiment
+  explicitly allows that side effect. Prefer focused static checks, package-local tests that do not
+  need provider bootstrap, or report that the requested validation is blocked by the safety rule.
 
 ## Scoring Rubric
 
@@ -215,6 +219,10 @@ Failure signals:
 - replaces broad generated coverage with a hand schema without proving equivalence
 - adds assertions to appease TypeScript
 - keeps redundant wrappers because tests were shaped around them
+- removes small overload or formatter boundaries even after TypeScript can no longer prove the
+  method/path/body relationship without unsafe indexing
+- runs provider-touching setup during a read-only/static refactor experiment without calling out the
+  side effect
 
 ## Experiment 6: Tiny Protocol Parser Reduction
 

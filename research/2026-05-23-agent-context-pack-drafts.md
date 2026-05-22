@@ -69,6 +69,10 @@ Include:
 - keep tiny local protocol boundaries tiny
 - rerun delete-first reduction after switching validation approaches
 - avoid test-shaped production helpers
+- keep small overload branches, formatter helpers, or implementation adapters when removing them
+  makes TypeScript rely on unsafe indexing, `never` collapse, or assertions
+- add negative type tests when reducing a typed request facade could accidentally permit invalid
+  params, bodies, methods, or response shapes
 - model state through required fields, closed variants, and deterministic ordering
 - separate committed route/server state from local draft/interaction state
 - justify effects and collapse duplicate synchronization
@@ -192,6 +196,9 @@ This overlay is intentionally not portable.
 Include:
 
 - use `pnpm anon:once` after checkout and `pnpm anon` before worktree dev/lint/test/commit workflows
+- treat `pnpm anon` as an operator workflow that can touch anonymous Convex/provider state; in
+  read-only experiments, either use a verification path that does not require it or explicitly
+  record why provider-state bootstrap was allowed
 - derive production Convex commands from the primary checkout without leaking deploy keys
 - rename meaningless branches early
 - fetch/rebase before implementation and PR workflows
