@@ -699,6 +699,140 @@ describe("vault dashboard Convex contract", () => {
     });
   });
 
+  it("uses active or failed provider ownership before reporting all providers ready", async () => {
+    const cases = [
+      {
+        label: "active",
+        ownershipState: "active",
+        runState: "running",
+        expectedSetup: {
+          status: "running",
+          provider: "cloudflare",
+        },
+      },
+      {
+        label: "failed",
+        ownershipState: "failed",
+        runState: "failed",
+        expectedSetup: {
+          status: "failed",
+          provider: "cloudflare",
+        },
+      },
+      {
+        label: "succeeded",
+        ownershipState: "succeeded",
+        runState: "succeeded",
+        expectedSetup: {
+          status: "ready",
+        },
+      },
+      {
+        label: "none",
+        ownershipState: null,
+        runState: "succeeded",
+        expectedSetup: {
+          status: "ready",
+        },
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      const t = makeConvexTest();
+      const ids = await t.run(async (ctx) => {
+        const userId = await ctx.db.insert("users", {
+          name: "Ada",
+          email: "ada@example.com",
+          isApproved: true,
+        });
+        const vaultId = await ctx.db.insert("vaults", {
+          userId,
+          deletion: { state: "not_deleting" },
+          state: "not_connected",
+        });
+        const runId = await ctx.db.insert("appProvisioningRuns", {
+          userId,
+          vaultId,
+          repositoryFullName: `ada/provider-${testCase.label}`,
+          trigger: "retry",
+          state: testCase.runState,
+          currentStep: "record_domains",
+          createdAt: 10,
+          updatedAt: 45,
+          ...(testCase.runState === "failed" ? { lastError: "Domain recording failed." } : {}),
+          ...(testCase.runState === "succeeded" ? { completedAt: 45 } : {}),
+        });
+
+        await ctx.db.replace(vaultId, {
+          userId,
+          deletion: { state: "not_deleting" },
+          state: "connected",
+          githubMode: "create_repository",
+          runId,
+          ghRepoId: "123",
+          owner: "ada",
+          name: `provider-${testCase.label}`,
+          visibility: "private",
+          defaultBranch: "main",
+          connectedAt: 20,
+          convex: {
+            state: "connected",
+            projectId: "convex-project",
+            projectSlug: `provider-${testCase.label}-project`,
+            deploymentName: `provider-${testCase.label}-prod`,
+            connectedAt: 24,
+          },
+          cloudflare: {
+            state: "connected",
+            accountId: "cloudflare-account",
+            accountName: "Cloudflare Account",
+            workerName: `provider-${testCase.label}-worker`,
+            workerTag: `provider-${testCase.label}-worker-tag`,
+            workersDevUrl: `https://provider-${testCase.label}.example.workers.dev`,
+            origin: "provisioned",
+            connectedAt: 26,
+            lastObservedAt: 26,
+          },
+        });
+        await ctx.db.insert("vaultBranchTrees", {
+          vaultId,
+          branch: "main",
+          treeSHA: "tree",
+          commitSHA: "commit",
+          treeData: {
+            sha: "tree",
+            truncated: false,
+            tree: [],
+          },
+          lastTreeRefreshAt: 29,
+        });
+        if (testCase.ownershipState) {
+          await ctx.db.insert("vaultInfrastructureOwnership", {
+            vaultId,
+            runId,
+            provisioningVersion: 2,
+            state: testCase.ownershipState,
+            updatedAt: 44,
+          });
+        }
+
+        return { userId, vaultId };
+      });
+
+      const asUser = t.withIdentity({
+        subject: `${ids.userId}|test-session`,
+        tokenIdentifier: `test:${ids.userId}`,
+      });
+
+      const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+
+      expect(vaults[0]).toMatchObject({
+        _id: ids.vaultId,
+        providerSetup: testCase.expectedSetup,
+      });
+    }
+  });
+
   it("keeps setup progress visible between tree sync and provider claim", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
@@ -992,13 +1126,8 @@ describe("vault dashboard Convex contract", () => {
           workerTag: "domain-order-worker-tag",
           workersDevUrl: "https://domain-order.example.workers.dev",
           origin: "provisioned",
-          management: "managed",
           connectedAt: 26,
-          lastVerifiedAt: 26,
-          lastCheck: {
-            state: "verified",
-            checkedAt: 26,
-          },
+          lastObservedAt: 26,
         },
       });
       await ctx.db.insert("vaultDomains", {

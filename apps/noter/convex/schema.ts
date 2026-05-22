@@ -239,8 +239,6 @@ export const vCloudflareDefaultAccount = union(
     state: literal("selected"),
     accountId: string(),
     accountName: string(),
-    selectedAt: number(),
-    lastVerifiedAt: number(),
   }),
 );
 export type CloudflareDefaultAccount = Infer<typeof vCloudflareDefaultAccount>;
@@ -480,17 +478,12 @@ export default defineSchema({
         projectId: string(),
       }),
     ),
-    cloudflare: union(
-      object({
-        state: literal("not_planned"),
-      }),
-      object({
-        state: literal("planned"),
-        accountId: string(),
-        accountName: string(),
-        workerName: string(),
-      }),
-    ),
+    cloudflare: object({
+      state: literal("planned"),
+      accountId: string(),
+      accountName: string(),
+      workerName: string(),
+    }),
     createdAt: number(),
     updatedAt: number(),
   }).index("by_vault", ["vaultId"]),

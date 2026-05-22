@@ -123,12 +123,6 @@ export type CloudflareWorkerInventoryItem = {
   modifiedOn?: string;
 };
 
-export type VerifiedCloudflareWorkerIdentity = {
-  workerName: string;
-  workerTag: string;
-  workersDevUrl?: string;
-};
-
 export type ExistingCloudflareWorkerIdentity =
   | { state: "planned" }
   | { state: "created"; workerTag: string };
@@ -284,23 +278,6 @@ export async function listCloudflareWorkers(args: {
         left.workerTag.localeCompare(right.workerTag),
     )
     .slice(0, args.limit);
-}
-
-export async function readCloudflareWorkerIdentity(args: {
-  token: string;
-  accountId: string;
-  workerName: string;
-}): Promise<VerifiedCloudflareWorkerIdentity> {
-  const worker = await readWorker(args);
-  if (!worker) {
-    throw new Error(`Cloudflare Worker ${args.workerName} was not found.`);
-  }
-
-  return {
-    workerName: args.workerName,
-    workerTag: readCloudflareWorkerTag(worker, args.workerName),
-    workersDevUrl: await readOptionalWorkersDevUrl(args),
-  };
 }
 
 export async function createCloudflareWorker(args: {

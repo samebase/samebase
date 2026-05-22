@@ -182,7 +182,7 @@ async function buildCloudflarePlan(
   if (vault.cloudflare.state !== "connected") {
     return { action: "skip", reason: "not_recorded" };
   }
-  if (vault.cloudflare.management !== "managed") {
+  if (vault.cloudflare.origin !== "provisioned") {
     return { action: "skip", reason: "not_managed" };
   }
 

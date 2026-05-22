@@ -5,7 +5,6 @@ import { isLiveConnectedVault } from "./state";
 const { boolean, id, literal, null: nullValue, object, optional, string, union } = v;
 
 const attachCloudflareOrigin = union(literal("provisioned"), literal("selected_existing"));
-const attachCloudflareManagement = union(literal("managed"), literal("external"));
 
 export const requireAttachableVault = internalQuery({
   args: {
@@ -36,7 +35,6 @@ export const attachWorker = internalMutation({
     workerTag: string(),
     workersDevUrl: optional(string()),
     origin: attachCloudflareOrigin,
-    management: attachCloudflareManagement,
   },
   returns: object({
     attached: boolean(),
@@ -60,13 +58,8 @@ export const attachWorker = internalMutation({
         workerTag: args.workerTag,
         workersDevUrl: args.workersDevUrl,
         origin: args.origin,
-        management: args.management,
         connectedAt: now,
-        lastVerifiedAt: now,
-        lastCheck: {
-          state: "verified",
-          checkedAt: now,
-        },
+        lastObservedAt: now,
       },
     });
 

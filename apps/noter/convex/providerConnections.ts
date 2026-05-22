@@ -103,7 +103,6 @@ const vProviderConnectionResult = union(
 
 export function buildSeedCloudflareDefaultAccount(
   accountId: string | null | undefined,
-  now: number,
 ): CloudflareDefaultAccount {
   const normalizedAccountId = accountId?.trim();
   if (!normalizedAccountId) {
@@ -116,8 +115,6 @@ export function buildSeedCloudflareDefaultAccount(
     state: "selected",
     accountId: normalizedAccountId,
     accountName: normalizedAccountId,
-    selectedAt: now,
-    lastVerifiedAt: now,
   };
 }
 

@@ -365,9 +365,6 @@ async function resolveProviderSetupSummary(
       fallbackUpdatedAt: vault.convex.startedAt,
     });
   }
-  if (vault.convex.state === "connected" && cloudflare.state === "connected") {
-    return { status: "ready" };
-  }
 
   const ownership = await readVaultInfrastructureOwnership(ctx, vault._id);
   if (vault.convex.state === "not_configured") {
@@ -400,8 +397,16 @@ async function resolveProviderSetupSummary(
     });
     return runningCreateRun ?? { status: "not_applicable" };
   }
+  if (ownership?.state === "active" || ownership?.state === "failed") {
+    return await readProviderRunSummary(ctx, {
+      provider: "cloudflare",
+      runId: ownership.runId,
+      status: ownership.state === "failed" ? "failed" : "running",
+      fallbackUpdatedAt: ownership.updatedAt,
+    });
+  }
 
-  return { status: "not_applicable" };
+  return { status: "ready" };
 }
 
 function compareVaultDomainSortOrder(left: VaultDomain, right: VaultDomain): number {

@@ -366,38 +366,6 @@ const resolveConnectionForUserResultValidator = union(
 const getCloudflareMcpOAuthUrlResultValidator = string();
 type ResolvedCloudflareConnection = Infer<typeof resolvedCloudflareConnectionValidator>;
 
-async function resolveCloudflareMcpDefaultAccount(
-  ctx: ActionCtx,
-  args: {
-    userId: Id<"users">;
-    auth: Infer<typeof cloudflareMcpOauthAuthValidator>;
-    defaultAccount: Infer<typeof vCloudflareDefaultAccount>;
-    tokenHealth: Infer<typeof vMcpTokenHealth>;
-  },
-): Promise<Infer<typeof vCloudflareDefaultAccount>> {
-  if (args.defaultAccount.state === "selected") {
-    return args.defaultAccount;
-  }
-
-  const defaultAccount = await ctx.runAction(
-    internal.cloudflareAccountDiscovery.resolveDefaultAccountForToken,
-    {
-      token: args.auth.credential,
-    },
-  );
-  await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
-    userId: args.userId,
-    auth: args.auth,
-    defaultAccount,
-    tokenHealth: args.tokenHealth,
-  });
-  console.log("cloudflare:mcp_oauth:default_account_resolved", {
-    userId: args.userId,
-    selected: defaultAccount.state === "selected",
-  });
-  return defaultAccount;
-}
-
 export const resolveConnectionForUser = internalAction({
   args: {
     userId: id("users"),
@@ -444,15 +412,9 @@ export const resolveConnectionForUser = internalAction({
       shouldRefresh,
     });
     if (!shouldRefresh) {
-      const defaultAccount = await resolveCloudflareMcpDefaultAccount(ctx, {
-        userId: args.userId,
-        auth: connection.auth,
-        defaultAccount: connection.defaultAccount,
-        tokenHealth: effectiveTokenHealth,
-      });
       return {
         auth: connection.auth,
-        defaultAccount,
+        defaultAccount: connection.defaultAccount,
         tokenHealth: effectiveTokenHealth,
       };
     }
@@ -575,16 +537,9 @@ export const resolveConnectionForUser = internalAction({
       clientIdLength: clientId.length,
     });
 
-    const defaultAccount = await resolveCloudflareMcpDefaultAccount(ctx, {
-      userId: args.userId,
-      auth: refreshedAuth,
-      defaultAccount: connection.defaultAccount,
-      tokenHealth: refreshedTokenHealth,
-    });
-
     return {
       auth: refreshedAuth,
-      defaultAccount,
+      defaultAccount: connection.defaultAccount,
       tokenHealth: refreshedTokenHealth,
     };
   },

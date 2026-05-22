@@ -60,13 +60,8 @@ describe("selectExistingCloudflareWorker", () => {
           workerTag: "connected-worker-tag",
           workersDevUrl: "https://noter.example.workers.dev",
           origin: "provisioned",
-          management: "managed",
           connectedAt: 20,
-          lastVerifiedAt: 20,
-          lastCheck: {
-            state: "verified",
-            checkedAt: 20,
-          },
+          lastObservedAt: 20,
         },
         accountId: "account-1",
       }),
@@ -356,7 +351,6 @@ describe("infrastructure provisioning ownership", () => {
         workerTag: "cloudflare-worker-tag",
         workersDevUrl: "https://provider-retry.example.workers.dev",
         origin: "provisioned",
-        management: "managed",
       },
     });
   });

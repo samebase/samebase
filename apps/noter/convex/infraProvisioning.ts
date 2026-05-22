@@ -91,15 +91,6 @@ function requireVaultInfrastructureTarget(
   return target;
 }
 
-function requirePlannedCloudflareTarget(
-  target: Doc<"vaultInfrastructureTargets">,
-): Extract<Doc<"vaultInfrastructureTargets">["cloudflare"], { state: "planned" }> {
-  if (target.cloudflare.state !== "planned") {
-    throw new Error("Cloudflare target is required before Worker provisioning can continue.");
-  }
-  return target.cloudflare;
-}
-
 async function assertVaultInfrastructureTargetExists(
   ctx: Pick<MutationCtx, "db">,
   vault: NoterManagedConnectedVault,
@@ -1024,13 +1015,8 @@ export const recordCloudflareWorkerIdentity = internalMutation({
         workerTag: args.workerTag,
         workersDevUrl: args.workersDevUrl,
         origin: "provisioned",
-        management: "managed",
         connectedAt: vault.cloudflare.state === "connected" ? vault.cloudflare.connectedAt : now,
-        lastVerifiedAt: now,
-        lastCheck: {
-          state: "verified",
-          checkedAt: now,
-        },
+        lastObservedAt: now,
       },
     });
 
@@ -1124,13 +1110,8 @@ export const markCloudflareConnected = internalMutation({
       workerTag: args.workerTag,
       workersDevUrl: args.workersDevUrl,
       origin: "provisioned",
-      management: "managed",
       connectedAt: vault.cloudflare.state === "connected" ? vault.cloudflare.connectedAt : now,
-      lastVerifiedAt: now,
-      lastCheck: {
-        state: "verified",
-        checkedAt: now,
-      },
+      lastObservedAt: now,
     } as const;
     await ctx.db.patch(args.vaultId, {
       cloudflare: connectedCloudflare,
@@ -1590,7 +1571,7 @@ export const ensureCloudflareInfrastructure = internalAction({
       vaultId: args.vaultId,
     });
     const infrastructureTarget = requireVaultInfrastructureTarget(target);
-    const cloudflareTarget = requirePlannedCloudflareTarget(infrastructureTarget);
+    const cloudflareTarget = infrastructureTarget.cloudflare;
     if (cloudflareTarget.accountId !== cloudflareAccountId) {
       throw new Error("Cloudflare account selection changed before provisioning could complete.");
     }

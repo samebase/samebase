@@ -33,17 +33,8 @@ type VaultCloudflareState =
       workerTag: string;
       workersDevUrl?: string;
       origin: "provisioned" | "selected_existing";
-      management: "managed" | "external";
       connectedAt: number;
-      lastVerifiedAt: number;
-      lastCheck:
-        | { state: "verified"; checkedAt: number }
-        | {
-            state: "failed";
-            checkedAt: number;
-            reason: "not_found" | "unauthorized" | "account_unavailable" | "provider_error";
-            message: string;
-          };
+      lastObservedAt: number;
     };
 ```
 
@@ -58,13 +49,11 @@ that specific endpoint can return an authentication error; attachment should sti
 
 `origin` answers how this vault attached to the Worker.
 
-`management` answers whether future product flows may mutate the Worker as an owned resource.
-
 `connectedAt` answers when this vault attached the Worker.
 
-`lastVerifiedAt` answers when Cloudflare last confirmed the Worker identity.
-
-`lastCheck` answers what the latest verification attempt saw.
+`lastObservedAt` answers when Cloudflare last confirmed the Worker identity. Cleanup ownership is
+derived from `origin`: `provisioned` Workers can be deleted by managed cleanup flows, while
+`selected_existing` Workers are external.
 
 ## Provider Connection Model
 
@@ -78,8 +67,6 @@ type CloudflareDefaultAccount =
       state: "selected";
       accountId: string;
       accountName: string;
-      selectedAt: number;
-      lastVerifiedAt: number;
     };
 ```
 
@@ -94,14 +81,12 @@ not be the durable connected Worker identity.
 The desired target shape is:
 
 ```ts
-type VaultInfrastructureTargetCloudflare =
-  | { state: "not_planned" }
-  | {
-      state: "planned";
-      accountId: string;
-      accountName: string;
-      workerName: string;
-    };
+type VaultInfrastructureTargetCloudflare = {
+  state: "planned";
+  accountId: string;
+  accountName: string;
+  workerName: string;
+};
 ```
 
 Full-app provisioning can use this target to keep retries deterministic. The target keeps the

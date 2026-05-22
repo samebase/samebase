@@ -156,7 +156,7 @@ async function upsertCloudflareApiKey(
 ): Promise<void> {
   const existing = await getConnectionByUserAndKind(db, userId, "cloudflare");
   const now = Date.now();
-  const defaultAccount = buildSeedCloudflareDefaultAccount(accountId, now);
+  const defaultAccount = buildSeedCloudflareDefaultAccount(accountId);
   if (existing) {
     await db.patch(existing._id, {
       auth: {

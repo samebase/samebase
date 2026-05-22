@@ -90,7 +90,6 @@ async function rememberDefaultAccount(
     tokenHealth: Awaited<ReturnType<typeof resolveCloudflareConnection>>["tokenHealth"];
   },
 ) {
-  const now = Date.now();
   await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
     userId: args.userId,
     auth: args.auth,
@@ -98,8 +97,6 @@ async function rememberDefaultAccount(
       state: "selected",
       accountId: args.account.accountId,
       accountName: args.account.accountName,
-      selectedAt: now,
-      lastVerifiedAt: now,
     },
     ...(args.tokenHealth ? { tokenHealth: args.tokenHealth } : {}),
   });
@@ -150,12 +147,6 @@ export const listWorkers = action({
     const account = await resolveAccount(ctx, {
       token: connection.token,
       accountId: args.accountId,
-    });
-    await rememberDefaultAccount(ctx, {
-      userId,
-      auth: connection.auth,
-      account,
-      tokenHealth: connection.tokenHealth,
     });
     const workers = await listCloudflareWorkers({
       token: connection.token,
@@ -209,7 +200,6 @@ export const connectExistingWorker = action({
       workerTag: worker.workerTag,
       workersDevUrl: worker.workersDevUrl,
       origin: "selected_existing",
-      management: "external",
     });
 
     return {
@@ -276,7 +266,6 @@ export const createWorker = action({
         workerTag: worker.workerTag,
         workersDevUrl: worker.workersDevUrl,
         origin: "provisioned",
-        management: "managed",
       });
     } catch (error) {
       await deleteCloudflareResources({
