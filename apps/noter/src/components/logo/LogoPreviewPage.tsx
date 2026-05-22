@@ -519,6 +519,7 @@ type LogoPreviewLocalStoreState = {
   editMode: VoxelEdit["kind"];
   isAutoRotating: boolean;
   isFaceColorAnimationEnabled: boolean;
+  isLeftFaceStripeAnimationEnabled: boolean;
   isSceneInteracting: boolean;
   isShuffleEnabled: boolean;
   logoOpacity: number;
@@ -554,6 +555,7 @@ function readLogoPreviewLocalStoreState(): LogoPreviewLocalStoreState {
     editMode: "add",
     isAutoRotating: false,
     isFaceColorAnimationEnabled: false,
+    isLeftFaceStripeAnimationEnabled: false,
     isSceneInteracting: false,
     isShuffleEnabled: false,
     logoOpacity: DEFAULT_LOGO_OPACITY,
@@ -668,6 +670,12 @@ function useLogoPreviewStore() {
       setState((state) => ({
         ...state,
         isFaceColorAnimationEnabled,
+      }));
+    },
+    setLeftFaceStripeAnimationEnabled: (isLeftFaceStripeAnimationEnabled: boolean) => {
+      setState((state) => ({
+        ...state,
+        isLeftFaceStripeAnimationEnabled,
       }));
     },
     setLogoOpacity: (logoOpacity: number) => {
@@ -904,6 +912,7 @@ function useLogoPreviewController({
           };
         });
       },
+      setLeftFaceStripeAnimationEnabled: store.actions.setLeftFaceStripeAnimationEnabled,
       setLeftFaceStripeAngleDegrees: (stripeAngleDegrees: number) => {
         debounceRouteState((currentState) =>
           updateStripedLeftFaceStyle(currentState, (style) => ({
@@ -1292,6 +1301,7 @@ export function LogoPreviewPage({
   const viewSnapCheckboxId = useId();
   const faceColorAnimationCheckboxId = useId();
   const stripeGapLinkedCheckboxId = useId();
+  const stripeAnimationCheckboxId = useId();
 
   useAnimationFrameLoop({
     isRunning: state.isAutoRotating && renderMode === "three",
@@ -1388,6 +1398,7 @@ export function LogoPreviewPage({
         rotationDegrees={state.rotationDegrees}
         shuffleAnimation={shuffleAnimation}
         animateFaceColors={state.isFaceColorAnimationEnabled}
+        animateLeftFaceStripes={state.isLeftFaceStripeAnimationEnabled}
         fractalDepth={state.fractalDepth}
         voxelEditingEnabled={!isRecursiveDepth}
         viewDragConfig={state.isViewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined}
@@ -1978,6 +1989,23 @@ export function LogoPreviewPage({
                 valueAriaLabel="Stripe offset"
                 valueText={stripedLeftFaceStyle.stripeOffset.toFixed(2)}
               />
+
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id={stripeAnimationCheckboxId}
+                  checked={state.isLeftFaceStripeAnimationEnabled}
+                  onCheckedChange={(checked) => {
+                    controls.setLeftFaceStripeAnimationEnabled(checked === true);
+                  }}
+                  className="border-border"
+                />
+                <label
+                  htmlFor={stripeAnimationCheckboxId}
+                  className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                >
+                  Animate stripes
+                </label>
+              </div>
             </>
           ) : null}
         </LogoPreviewSection>

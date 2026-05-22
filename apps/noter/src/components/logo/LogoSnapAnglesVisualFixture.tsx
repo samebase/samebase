@@ -82,6 +82,7 @@ export function LogoSnapAnglesVisualFixture() {
             rotationDegrees={rotationDegrees}
             shuffleAnimation={{ enabled: false, parallelMoves: 1 }}
             animateFaceColors={false}
+            animateLeftFaceStripes={false}
             voxelState={STATIC_LOGO_VOXEL_STATE}
           />
         </div>

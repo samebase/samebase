@@ -364,6 +364,7 @@ export function PublicLandingLogo({
               rotationDegrees={view.rotationDegrees}
               shuffleAnimation={{ enabled: false, parallelMoves: 1 }}
               animateFaceColors={false}
+              animateLeftFaceStripes={false}
               fractalDepth={fractalDepth}
               voxelGrid={isRecursiveDepth ? undefined : staticLogoVoxelGrid}
               voxelEditingEnabled={false}
