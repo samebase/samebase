@@ -698,7 +698,7 @@ describe("vault dashboard Convex contract", () => {
     });
   });
 
-  it("uses active or failed provider ownership before reporting all providers ready", async () => {
+  it("keeps active provider ownership visible but lets connected resources recover failed ownership", async () => {
     const cases = [
       {
         label: "active",
@@ -714,8 +714,7 @@ describe("vault dashboard Convex contract", () => {
         ownershipState: "failed",
         runState: "failed",
         expectedSetup: {
-          status: "failed",
-          provider: "cloudflare",
+          status: "ready",
         },
       },
       {

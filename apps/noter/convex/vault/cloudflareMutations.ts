@@ -1,10 +1,24 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import { internalMutation, internalQuery, type QueryCtx } from "../_generated/server";
 import { isLiveConnectedVault } from "./state";
 
 const { id, literal, null: nullValue, optional, string, union } = v;
 
 const attachCloudflareOrigin = union(literal("provisioned"), literal("selected_existing"));
+
+async function assertNoActiveCloudflareProvisioning(
+  ctx: Pick<QueryCtx, "db">,
+  vaultId: Id<"vaults">,
+): Promise<void> {
+  const ownership = await ctx.db
+    .query("vaultInfrastructureOwnership")
+    .withIndex("by_vault_and_state", (q) => q.eq("vaultId", vaultId).eq("state", "active"))
+    .first();
+  if (ownership) {
+    throw new Error("Cloudflare provisioning is already running.");
+  }
+}
 
 export const requireAttachableVault = internalQuery({
   args: {
@@ -20,6 +34,7 @@ export const requireAttachableVault = internalQuery({
     if (vault.cloudflare.state !== "not_configured") {
       throw new Error("Vault already has a Cloudflare Worker attached.");
     }
+    await assertNoActiveCloudflareProvisioning(ctx, args.vaultId);
 
     return null;
   },
@@ -44,6 +59,7 @@ export const attachWorker = internalMutation({
     if (vault.cloudflare.state !== "not_configured") {
       throw new Error("Vault already has a Cloudflare Worker attached.");
     }
+    await assertNoActiveCloudflareProvisioning(ctx, args.vaultId);
 
     const now = Date.now();
     await ctx.db.patch(args.vaultId, {

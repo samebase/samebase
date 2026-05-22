@@ -397,11 +397,11 @@ async function resolveProviderSetupSummary(
     });
     return runningCreateRun ?? { status: "not_applicable" };
   }
-  if (ownership?.state === "active" || ownership?.state === "failed") {
+  if (ownership?.state === "active") {
     return await readProviderRunSummary(ctx, {
       provider: "cloudflare",
       runId: ownership.runId,
-      status: ownership.state === "failed" ? "failed" : "running",
+      status: "running",
       fallbackUpdatedAt: ownership.updatedAt,
     });
   }
