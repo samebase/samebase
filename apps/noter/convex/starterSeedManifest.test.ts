@@ -21,6 +21,10 @@ describe("starterSeedManifest", () => {
     expect(filePaths).toContain("wrangler.jsonc");
     expect(filePaths).toContain("scripts/build-cloudflare.ts");
     expect(filePaths).toContain("scripts/deploy-cloudflare.ts");
+    expect(filePaths).toContain("scripts/ensure-convex-auth.ts");
+    expect(filePaths).toContain("convex/auth.ts");
+    expect(filePaths).toContain("convex/auth.config.ts");
+    expect(filePaths).toContain("convex/http.ts");
     expect(filePaths).toContain("src/router.tsx");
     expect(filePaths).toContain("src/routes/index.tsx");
     expect(filePaths).toContain("src/routeTree.gen.ts");
