@@ -102,34 +102,34 @@ type VaultConvexState =
 
 type VaultCloudflareState =
   | { state: "not_configured" }
-  | { state: "provisioning"; runId: Id<"appProvisioningRuns">; startedAt: number }
   | {
       state: "connected";
       accountId: string;
       workerName: string;
       workerTag: string;
-      productionUrl: string;
+      workersDevUrl?: string;
+      origin: "provisioned" | "selected_existing";
       connectedAt: number;
-    }
-  | { state: "failed"; runId: Id<"appProvisioningRuns">; failedAt: number };
+      lastObservedAt: number;
+    };
 ```
 
-This is the right foundation, but it is missing origin and target mode. A connected provider state
-does not currently distinguish:
+This is the right foundation. The remaining missing pieces for auto-adoption are explicit target
+mode and an observed-only origin. A connected provider state should distinguish:
 
-1. Noter created the resource.
-2. User connected an existing resource.
-3. Noter observed an external resource but is not allowed to manage it.
+1. The product flow provisioned the resource.
+2. The user selected an existing resource.
+3. The product observed an external resource but is not allowed to manage it.
 
 `research/2026-05-19-existing-app-resource-adoption.md` already captured the right conceptual origin
-set:
+set. Keep persisted literals brand-neutral:
 
 ```ts
-type VaultResourceOrigin = "created_by_noter" | "connected_existing" | "external_observed";
+type VaultResourceOrigin = "provisioned" | "selected_existing" | "observed_external";
 ```
 
-That should move from research into schema before any automatic adoption is allowed to write
-attached provider state.
+The observed-only origin should move from research into schema before any automatic adoption is
+allowed to write attached provider state.
 
 ## Current New App Flow
 
@@ -240,13 +240,13 @@ V1 target model:
 type ConvexTarget =
   | {
       mode: "create_project";
-      origin: "created_by_noter";
+      origin: "provisioned";
       teamId: string;
       projectName: string;
     }
   | {
       mode: "connect_existing_deployment";
-      origin: "connected_existing";
+      origin: "selected_existing";
       teamId: string;
       projectId: string;
       projectSlug: string;
@@ -261,17 +261,17 @@ type ConvexTarget =
 type CloudflareTarget =
   | {
       mode: "create_worker";
-      origin: "created_by_noter";
+      origin: "provisioned";
       accountId: string;
       workerName: string;
     }
   | {
       mode: "connect_existing_worker";
-      origin: "connected_existing";
+      origin: "selected_existing";
       accountId: string;
       workerName: string;
       workerTag: string;
-      productionUrl: string;
+      workersDevUrl?: string;
     }
   | {
       mode: "none";
@@ -284,7 +284,7 @@ closed:
 ```ts
 type ConnectedConvexState = {
   state: "connected";
-  origin: "created_by_noter" | "connected_existing";
+  origin: "provisioned" | "selected_existing";
   projectId: string;
   projectSlug: string;
   deploymentName: string;
@@ -293,11 +293,11 @@ type ConnectedConvexState = {
 
 type ConnectedCloudflareState = {
   state: "connected";
-  origin: "created_by_noter" | "connected_existing";
+  origin: "provisioned" | "selected_existing";
   accountId: string;
   workerName: string;
   workerTag: string;
-  productionUrl: string;
+  workersDevUrl?: string;
   connectedAt: number;
 };
 ```
@@ -328,8 +328,7 @@ After GitHub source setup succeeds, the resource rail should offer active action
    - Connect
    - Create
 2. Cloudflare missing:
-   - Connect Worker
-   - Create Worker
+   - Connect
 
 The action opens a compact picker for that provider:
 
@@ -356,7 +355,7 @@ generated stack. The first Cloudflare create/connect action should either:
    triggers, secrets, or deploy commands.
 
 The safer V1 is to require Convex before Noter-managed Workers Builds setup. If the user connects an
-existing Worker with an already-working non-Convex app, record it as `connected_existing` but do not
+existing Worker with an already-working non-Convex app, record it as `selected_existing` but do not
 overwrite triggers or env vars until the user approves Noter-managed deploys.
 
 ## Discovery Algorithm

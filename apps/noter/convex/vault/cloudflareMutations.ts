@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
 import { isLiveConnectedVault } from "./state";
 
-const { boolean, id, literal, null: nullValue, object, optional, string, union } = v;
+const { id, literal, null: nullValue, optional, string, union } = v;
 
 const attachCloudflareOrigin = union(literal("provisioned"), literal("selected_existing"));
 
@@ -30,15 +30,12 @@ export const attachWorker = internalMutation({
     vaultId: id("vaults"),
     userId: id("users"),
     accountId: string(),
-    accountName: string(),
     workerName: string(),
     workerTag: string(),
     workersDevUrl: optional(string()),
     origin: attachCloudflareOrigin,
   },
-  returns: object({
-    attached: boolean(),
-  }),
+  returns: nullValue(),
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
@@ -53,7 +50,6 @@ export const attachWorker = internalMutation({
       cloudflare: {
         state: "connected",
         accountId: args.accountId,
-        accountName: args.accountName,
         workerName: args.workerName,
         workerTag: args.workerTag,
         workersDevUrl: args.workersDevUrl,
@@ -63,6 +59,6 @@ export const attachWorker = internalMutation({
       },
     });
 
-    return { attached: true };
+    return null;
   },
 });

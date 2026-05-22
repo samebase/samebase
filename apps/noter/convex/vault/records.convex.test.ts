@@ -21,7 +21,6 @@ describe("vault records Convex contract", () => {
       visibility: "private",
       convexProjectName: "example-app",
       cloudflareAccountId: "cloudflare-account",
-      cloudflareAccountName: "Cloudflare Account",
       cloudflareWorkerName: "example-app",
     });
 
@@ -33,7 +32,6 @@ describe("vault records Convex contract", () => {
         visibility: "private",
         convexProjectName: "example-app-2",
         cloudflareAccountId: "cloudflare-account",
-        cloudflareAccountName: "Cloudflare Account",
         cloudflareWorkerName: "example-app-2",
       }),
     ).rejects.toThrow("Vault already exists for this repository.");

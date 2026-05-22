@@ -323,7 +323,6 @@ describe("vault dashboard Convex contract", () => {
         visibility: "private",
         convexProjectName: "early-vault",
         cloudflareAccountId: "cloudflare-account",
-        cloudflareAccountName: "Cloudflare Account",
         cloudflareWorkerName: "early-vault",
       },
     );
@@ -785,7 +784,6 @@ describe("vault dashboard Convex contract", () => {
           cloudflare: {
             state: "connected",
             accountId: "cloudflare-account",
-            accountName: "Cloudflare Account",
             workerName: `provider-${testCase.label}-worker`,
             workerTag: `provider-${testCase.label}-worker-tag`,
             workersDevUrl: `https://provider-${testCase.label}.example.workers.dev`,
@@ -1121,7 +1119,6 @@ describe("vault dashboard Convex contract", () => {
         cloudflare: {
           state: "connected",
           accountId: "cloudflare-account",
-          accountName: "Cloudflare Account",
           workerName: "domain-order-worker",
           workerTag: "domain-order-worker-tag",
           workersDevUrl: "https://domain-order.example.workers.dev",

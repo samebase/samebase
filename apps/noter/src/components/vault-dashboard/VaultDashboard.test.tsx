@@ -326,10 +326,7 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(state.rows[2]).toMatchObject({
       provider: "cloudflare",
       status: "action_required",
-      actions: [
-        { kind: "connect_existing", disabled: true },
-        { kind: "create_new", disabled: true },
-      ],
+      actions: [{ kind: "connect_existing", disabled: true }],
     });
   });
 

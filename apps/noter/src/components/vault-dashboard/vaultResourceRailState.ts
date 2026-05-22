@@ -259,12 +259,6 @@ export function buildVaultDashboardResourceRailState({
           disabled: !onConfigureCloudflare,
           onClick: onConfigureCloudflare,
         },
-        {
-          kind: "create_new",
-          label: "Create Worker",
-          disabled: !onConfigureCloudflare,
-          onClick: onConfigureCloudflare,
-        },
       ],
     };
   }

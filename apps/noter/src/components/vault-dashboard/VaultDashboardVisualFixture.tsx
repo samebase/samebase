@@ -519,12 +519,10 @@ function VaultDashboardConnectCloudflareOpenFixture() {
             {
               workerName: "atelier-web",
               workerTag: "72dc5c8bc9104b20af13ac36dcdbe9d1",
-              modifiedOn: "2026-05-20T12:00:00Z",
             },
             {
               workerName: "atelier-preview",
               workerTag: "c2f8194c2c7047a6991a736d8f708aaf",
-              modifiedOn: "2026-05-21T12:00:00Z",
             },
           ]}
         />

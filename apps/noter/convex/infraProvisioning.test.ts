@@ -55,7 +55,6 @@ describe("selectExistingCloudflareWorker", () => {
         cloudflare: {
           state: "connected",
           accountId: "account-1",
-          accountName: "Example",
           workerName: "noter",
           workerTag: "connected-worker-tag",
           workersDevUrl: "https://noter.example.workers.dev",
@@ -225,7 +224,6 @@ describe("infrastructure provisioning ownership", () => {
         cloudflare: {
           state: "planned",
           accountId: "cloudflare-account-id",
-          accountName: "Cloudflare Account",
           workerName: "provider-retry",
         },
         createdAt: 31,
@@ -318,7 +316,6 @@ describe("infrastructure provisioning ownership", () => {
         cloudflare: {
           state: "planned",
           accountId: "cloudflare-account-id",
-          accountName: "Cloudflare Account",
           workerName: "provider-retry",
         },
         createdAt: 31,
@@ -332,7 +329,6 @@ describe("infrastructure provisioning ownership", () => {
       vaultId: ids.vaultId,
       runId: ids.runId,
       accountId: "cloudflare-account-id",
-      accountName: "Cloudflare Account",
       workerName: "provider-retry",
       workerTag: "cloudflare-worker-tag",
       workersDevUrl: "https://provider-retry.example.workers.dev",
@@ -346,7 +342,6 @@ describe("infrastructure provisioning ownership", () => {
       cloudflare: {
         state: "connected",
         accountId: "cloudflare-account-id",
-        accountName: "Cloudflare Account",
         workerName: "provider-retry",
         workerTag: "cloudflare-worker-tag",
         workersDevUrl: "https://provider-retry.example.workers.dev",

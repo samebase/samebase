@@ -120,7 +120,6 @@ type CloudflareWorkerIdentity = {
 export type CloudflareWorkerInventoryItem = {
   workerName: string;
   workerTag: string;
-  modifiedOn?: string;
 };
 
 export type ExistingCloudflareWorkerIdentity =
@@ -269,7 +268,6 @@ export async function listCloudflareWorkers(args: {
     rows.push({
       workerName,
       workerTag,
-      ...(worker.modified_on ? { modifiedOn: worker.modified_on } : {}),
     });
   }
 

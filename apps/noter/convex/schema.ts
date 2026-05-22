@@ -481,7 +481,6 @@ export default defineSchema({
     cloudflare: object({
       state: literal("planned"),
       accountId: string(),
-      accountName: string(),
       workerName: string(),
     }),
     createdAt: number(),

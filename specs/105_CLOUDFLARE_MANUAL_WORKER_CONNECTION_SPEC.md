@@ -28,7 +28,6 @@ type VaultCloudflareState =
   | {
       state: "connected";
       accountId: string;
-      accountName: string;
       workerName: string;
       workerTag: string;
       workersDevUrl?: string;
@@ -84,7 +83,6 @@ The desired target shape is:
 type VaultInfrastructureTargetCloudflare = {
   state: "planned";
   accountId: string;
-  accountName: string;
   workerName: string;
 };
 ```

@@ -208,7 +208,6 @@ type CloudflareAccountOption = {
 type CloudflareWorkerOption = {
   workerName: string;
   workerTag: string;
-  modifiedOn?: string;
 };
 type CloudflareWorkerConnectMode = "existing" | "create";
 type VaultDashboardDeletion = VaultDashboardVault["deletion"];
@@ -3271,12 +3270,12 @@ export function VaultDashboard() {
       cloudflareWorkersRequestIdRef.current = requestId;
       setIsLoadingCloudflareResources(true);
       try {
-        const result = await listCloudflareWorkers({ accountId });
+        const workers = await listCloudflareWorkers({ accountId });
         if (cloudflareWorkersRequestIdRef.current !== requestId) {
           return;
         }
-        setCloudflareWorkers(result.workers);
-        setSelectedCloudflareWorkerName(result.workers[0]?.workerName ?? "");
+        setCloudflareWorkers(workers);
+        setSelectedCloudflareWorkerName(workers[0]?.workerName ?? "");
       } catch (error) {
         if (cloudflareWorkersRequestIdRef.current !== requestId) {
           return;

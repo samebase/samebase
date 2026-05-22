@@ -16,7 +16,7 @@ import {
   readOptionalWorkersDevUrl,
 } from "../cloudflareResources";
 
-const { array, id, object, optional, string } = v;
+const { array, id, null: nullValue, object, string } = v;
 
 const cloudflareAccountResult = object({
   accountId: string(),
@@ -25,7 +25,6 @@ const cloudflareAccountResult = object({
 const cloudflareWorkerResult = object({
   workerName: string(),
   workerTag: string(),
-  modifiedOn: optional(string()),
 });
 
 type CloudflareAccountResult = Infer<typeof cloudflareAccountResult>;
@@ -137,10 +136,7 @@ export const listWorkers = action({
   args: {
     accountId: string(),
   },
-  returns: object({
-    account: cloudflareAccountResult,
-    workers: array(cloudflareWorkerResult),
-  }),
+  returns: array(cloudflareWorkerResult),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
     const connection = await resolveCloudflareConnection(ctx, userId);
@@ -148,15 +144,11 @@ export const listWorkers = action({
       token: connection.token,
       accountId: args.accountId,
     });
-    const workers = await listCloudflareWorkers({
+    return await listCloudflareWorkers({
       token: connection.token,
       accountId: account.accountId,
       limit: 100,
     });
-    return {
-      account,
-      workers,
-    };
   },
 });
 
@@ -166,9 +158,7 @@ export const connectExistingWorker = action({
     accountId: string(),
     workerName: string(),
   },
-  returns: object({
-    workerName: string(),
-  }),
+  returns: nullValue(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
     await ctx.runQuery(internal.vault.cloudflareMutations.requireAttachableVault, {
@@ -195,16 +185,13 @@ export const connectExistingWorker = action({
       vaultId: args.vaultId,
       userId,
       accountId: account.accountId,
-      accountName: account.accountName,
       workerName: worker.workerName,
       workerTag: worker.workerTag,
       workersDevUrl: worker.workersDevUrl,
       origin: "selected_existing",
     });
 
-    return {
-      workerName: worker.workerName,
-    };
+    return null;
   },
 });
 
@@ -214,9 +201,7 @@ export const createWorker = action({
     accountId: string(),
     workerName: string(),
   },
-  returns: object({
-    workerName: string(),
-  }),
+  returns: nullValue(),
   handler: async (ctx, args) => {
     const validation = validateAppResourceName(args.workerName, "cloudflare");
     if (!validation.valid) {
@@ -261,7 +246,6 @@ export const createWorker = action({
         vaultId: args.vaultId,
         userId,
         accountId: account.accountId,
-        accountName: account.accountName,
         workerName: worker.workerName,
         workerTag: worker.workerTag,
         workersDevUrl: worker.workersDevUrl,
@@ -283,8 +267,6 @@ export const createWorker = action({
       throw error;
     }
 
-    return {
-      workerName: worker.workerName,
-    };
+    return null;
   },
 });

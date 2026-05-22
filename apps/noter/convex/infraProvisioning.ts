@@ -801,7 +801,6 @@ export async function resolveCloudflareProvisioningConnection(
   cloudflareToken: string;
   cloudflareAuthMethod: "api_key" | "mcp_oauth";
   cloudflareAccountId: string;
-  cloudflareAccountName: string;
 }> {
   const resolveArgs = options ? { userId, forceRefresh: true } : { userId };
   const resolvedCloudflareConnection = await ctx.runAction(
@@ -827,8 +826,7 @@ export async function resolveCloudflareProvisioningConnection(
     throw new Error("Cloudflare account selection is required before provisioning can continue.");
   }
   const cloudflareAccountId = defaultAccount.accountId.trim();
-  const cloudflareAccountName = defaultAccount.accountName.trim();
-  if (!cloudflareAccountId || !cloudflareAccountName) {
+  if (!cloudflareAccountId) {
     throw new Error("Cloudflare account selection is required before provisioning can continue.");
   }
 
@@ -836,7 +834,6 @@ export async function resolveCloudflareProvisioningConnection(
     cloudflareToken,
     cloudflareAuthMethod: resolvedCloudflareConnection.auth.method,
     cloudflareAccountId,
-    cloudflareAccountName,
   };
 }
 
@@ -992,7 +989,6 @@ export const recordCloudflareWorkerIdentity = internalMutation({
     vaultId: v.id("vaults"),
     runId: v.id("appProvisioningRuns"),
     accountId: v.string(),
-    accountName: v.string(),
     workerName: v.string(),
     workerTag: v.string(),
     workersDevUrl: v.optional(v.string()),
@@ -1010,7 +1006,6 @@ export const recordCloudflareWorkerIdentity = internalMutation({
       cloudflare: {
         state: "connected",
         accountId: args.accountId,
-        accountName: args.accountName,
         workerName: args.workerName,
         workerTag: args.workerTag,
         workersDevUrl: args.workersDevUrl,
@@ -1084,7 +1079,6 @@ export const markCloudflareConnected = internalMutation({
     vaultId: v.id("vaults"),
     runId: v.id("appProvisioningRuns"),
     accountId: v.string(),
-    accountName: v.string(),
     workerName: v.string(),
     workerTag: v.string(),
     workersDevUrl: v.optional(v.string()),
@@ -1105,7 +1099,6 @@ export const markCloudflareConnected = internalMutation({
     const connectedCloudflare = {
       state: "connected",
       accountId: args.accountId,
-      accountName: args.accountName,
       workerName: args.workerName,
       workerTag: args.workerTag,
       workersDevUrl: args.workersDevUrl,
@@ -1654,7 +1647,6 @@ export const ensureCloudflareInfrastructure = internalAction({
             vaultId: args.vaultId,
             runId: args.runId,
             accountId: cloudflareAccountId,
-            accountName: cloudflareTarget.accountName,
             workerName: worker.workerName,
             workerTag: worker.workerTag,
             workersDevUrl: worker.workersDevUrl,
@@ -1681,7 +1673,6 @@ export const ensureCloudflareInfrastructure = internalAction({
         vaultId: args.vaultId,
         runId: args.runId,
         accountId: provisionedCloudflare.accountId,
-        accountName: cloudflareTarget.accountName,
         workerName: provisionedCloudflare.workerName,
         workerTag: provisionedCloudflare.workerTag,
         workersDevUrl: provisionedCloudflare.workersDevUrl,
