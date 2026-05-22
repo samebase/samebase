@@ -152,6 +152,8 @@ async function readWorkerSubdomainEnabled(args: {
   accountId: string;
   workerName: string;
 }): Promise<boolean> {
+  // A workers.dev URL is usable only when this script-level subdomain is enabled,
+  // even when the account-level workers.dev subdomain exists.
   const raw = await requestCloudflareApi({
     token: args.token,
     method: "GET",
