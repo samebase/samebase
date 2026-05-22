@@ -2627,6 +2627,7 @@ function CreateResourceNameStatus({
   );
 }
 
+// Use toSafeRepoName here so the slash preview matches repository provisioning.
 function buildGitHubRepositoryNameSlashReplacement(rawName: string): string | null {
   const repositoryName = toSafeRepoName(rawName);
   if (!rawName.includes("/") || !repositoryName) {
@@ -3600,6 +3601,7 @@ export function VaultDashboard() {
       );
     }
 
+    // Show GitHub availability errors before slash previews and pending checks.
     if (
       githubRepositoryNameAvailability &&
       githubRepositoryNameAvailability.status !== "available"
@@ -3615,8 +3617,7 @@ export function VaultDashboard() {
       );
     }
 
-    const slashReplacementName = buildGitHubRepositoryNameSlashReplacement(createRepositoryName);
-    if (slashReplacementName) {
+    if (buildGitHubRepositoryNameSlashReplacement(createRepositoryName)) {
       return <GitHubRepositoryNameSlashWarning rawName={createRepositoryName} />;
     }
 
