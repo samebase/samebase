@@ -10,6 +10,7 @@ minimumReleaseAge: 10080
 # cooling period automatically.
 minimumReleaseAgeExclude:
   - convex@1.39.1
+  - qs@6.15.2
   - ws@8.20.1
 minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
@@ -35,6 +36,7 @@ overrides:
   "picomatch@4.0.3": 4.0.4
   postcss: 8.5.10
   protobufjs: 7.5.8
+  qs: 6.15.2
   ws: 8.20.1
 # Every dependency lifecycle script is reviewed explicitly. `true` allows the
 # script to run; `false` records that the script was seen and suppressed.
