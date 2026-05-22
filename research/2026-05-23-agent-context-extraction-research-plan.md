@@ -43,6 +43,8 @@ Repo guidance sources:
   experiment result.
 - `research/2026-05-23-agent-context-experiment-results-2.md` contains the random-branch PR lookup
   experiment result.
+- `research/2026-05-23-agent-context-experiment-results-3.md` contains the UI route validation
+  experiment result.
 
 Local thread evidence:
 
@@ -186,6 +188,10 @@ The second experiment tested random-branch PR lookup. All variants found the PR 
 fixture, but the PR workflow skill supplied the more robust lookup path and the Noter overlay
 improved interpretation of ready/build-label/review-bot state.
 
+The third experiment tested real root-route query modes. It showed core can validate exact URLs, the
+route UI skill expands coverage to desktop/mobile and focus/editability, and the Noter app-template
+overlay improves `?dev`/`?prod-ui` interpretation plus safe non-mutating input probes.
+
 ## Candidate Layer Shape
 
 ### Layer 1: General Agent Engineering
@@ -278,8 +284,8 @@ context, a triggerable skill, a workflow doc, or an operator overlay.
 
 ## Next Work
 
-1. Run a UI route validation experiment next to test the route-visual skill and Noter app-template
-   overlay.
+1. Run a typed product/refactoring experiment next to test generated validation, tiny local schemas,
+   and delete-first simplification.
 2. Compare outcomes and revise the layer boundaries.
 3. Manually review the pinned comparison threads after the non-pinned baseline has more breadth.
 4. Draft actual skill files or package artifacts for the packs that survive experiment.
