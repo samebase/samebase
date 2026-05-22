@@ -2627,20 +2627,27 @@ function CreateResourceNameStatus({
   );
 }
 
-function buildGitHubRepositoryNameSlashWarning(rawName: string): string | null {
+function buildGitHubRepositoryNameSlashReplacement(rawName: string): string | null {
   const repositoryName = toSafeRepoName(rawName);
   if (!rawName.includes("/") || !repositoryName) {
     return null;
   }
-  return `"/" will be replaced with "-": "${repositoryName}"`;
+  return repositoryName;
 }
 
 export function GitHubRepositoryNameSlashWarning({ rawName }: { rawName: string }) {
-  const warning = buildGitHubRepositoryNameSlashWarning(rawName);
-  if (!warning) {
+  const repositoryName = buildGitHubRepositoryNameSlashReplacement(rawName);
+  if (!repositoryName) {
     return null;
   }
-  return <CreateResourceNameStatus kind="warning">{warning}</CreateResourceNameStatus>;
+  return (
+    <CreateResourceNameStatus kind="warning">
+      in github repo name "/" will be replaced with "-":{" "}
+      <code className="rounded bg-amber-100 px-1 py-0.5 font-mono text-[11px] text-amber-950">
+        "{repositoryName}"
+      </code>
+    </CreateResourceNameStatus>
+  );
 }
 
 function CreateResourceNameHelp({ children }: { children: ReactNode }) {
@@ -3608,8 +3615,8 @@ export function VaultDashboard() {
       );
     }
 
-    const slashWarning = buildGitHubRepositoryNameSlashWarning(createRepositoryName);
-    if (slashWarning) {
+    const slashReplacementName = buildGitHubRepositoryNameSlashReplacement(createRepositoryName);
+    if (slashReplacementName) {
       return <GitHubRepositoryNameSlashWarning rawName={createRepositoryName} />;
     }
 

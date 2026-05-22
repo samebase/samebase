@@ -198,6 +198,8 @@ describe("GitHubRepositoryNameSlashWarning", () => {
     const markup = renderToStaticMarkup(<GitHubRepositoryNameSlashWarning rawName="field/notes" />);
 
     expect(markup).toContain("&quot;/&quot; will be replaced with &quot;-&quot;");
+    expect(markup).toContain("<code");
+    expect(markup).toContain("font-mono");
     expect(markup).toContain("&quot;field-notes&quot;");
   });
 
