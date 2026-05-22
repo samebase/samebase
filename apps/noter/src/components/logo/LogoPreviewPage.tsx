@@ -1950,7 +1950,7 @@ export function LogoPreviewPage({
               </div>
 
               <LogoRangeControl
-                formatValue={(value) => value.toFixed(1)}
+                formatValue={(value) => value.toFixed(3)}
                 label="Angle"
                 max={MAX_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES}
                 min={MIN_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES}
@@ -1961,7 +1961,7 @@ export function LogoPreviewPage({
                 step={LOGO_LEFT_FACE_STRIPE_ANGLE_STEP}
                 value={stripedLeftFaceStyle.stripeAngleDegrees}
                 valueAriaLabel="Stripe angle"
-                valueText={`${stripedLeftFaceStyle.stripeAngleDegrees.toFixed(1)}°`}
+                valueText={`${stripedLeftFaceStyle.stripeAngleDegrees.toFixed(3)}°`}
               />
 
               <LogoRangeControl

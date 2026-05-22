@@ -297,7 +297,7 @@ describe("logoRouteSearch", () => {
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         leftFaceStyle: {
           kind: "striped",
-          stripeAngleDegrees: 22,
+          stripeAngleDegrees: 22.125,
           stripeBasis: "horizontal",
           stripeGap: 0.32,
           stripeGapLinked: false,
@@ -314,7 +314,7 @@ describe("logoRouteSearch", () => {
       depth: undefined,
       dist: undefined,
       leftFace: "striped",
-      stripeA: 22,
+      stripeA: 22.125,
       stripeBasis: "horizontal",
       stripeG: 0.32,
       stripeO: 0.4,
