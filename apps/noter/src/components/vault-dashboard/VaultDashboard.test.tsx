@@ -97,7 +97,7 @@ describe("VaultBranchLinkContent", () => {
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="noter-md/noter"
-          cloudflareProductionUrl="https://tmp-flow.nicuchiciuc.workers.dev"
+          cloudflareWorkersDevUrl="https://tmp-flow.nicuchiciuc.workers.dev"
           branch={{
             name: "main",
             headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
@@ -369,7 +369,7 @@ describe("buildVaultDashboardResourceRailState", () => {
         convexProjectSettingsDashboardUrl:
           "https://dashboard.convex.dev/t/ada-team/demo-project/settings",
         cloudflareWorkerName: "demo-worker",
-        cloudflareProductionUrl: "https://demo-worker.ada.workers.dev",
+        cloudflareWorkersDevUrl: "https://demo-worker.ada.workers.dev",
         cloudflareProjectDashboardUrl:
           "https://dash.cloudflare.com/?to=/account/workers/services/view/demo-worker/production/deployments",
       }),

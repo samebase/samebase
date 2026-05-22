@@ -149,7 +149,7 @@ async function upsertCloudflareApiKey(
   db: DatabaseWriter,
   userId: Id<"users">,
   credential: string,
-  accountId?: string,
+  _accountId?: string,
 ): Promise<void> {
   const existing = await getConnectionByUserAndKind(db, userId, "cloudflare");
   const now = Date.now();
@@ -159,7 +159,7 @@ async function upsertCloudflareApiKey(
         method: "api_key",
         credential,
       },
-      ...(accountId ? { accountId } : {}),
+      defaultAccount: { state: "not_selected" },
       updatedAt: now,
     });
     return;
@@ -171,7 +171,7 @@ async function upsertCloudflareApiKey(
       method: "api_key",
       credential,
     },
-    accountId,
+    defaultAccount: { state: "not_selected" },
     createdAt: now,
     updatedAt: now,
   });

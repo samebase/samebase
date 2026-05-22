@@ -259,6 +259,8 @@ export const createInitializingNoterManagedVaultForUser = internalMutation({
     ghRepoName: string(),
     visibility: vGitHubRepositoryVisibility,
     convexProjectName: string(),
+    cloudflareAccountId: string(),
+    cloudflareAccountName: string(),
     cloudflareWorkerName: string(),
   },
   returns: object({
@@ -334,6 +336,8 @@ export const createInitializingNoterManagedVaultForUser = internalMutation({
       },
       cloudflare: {
         state: "planned",
+        accountId: args.cloudflareAccountId,
+        accountName: args.cloudflareAccountName,
         workerName: args.cloudflareWorkerName,
       },
       createdAt: now,

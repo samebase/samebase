@@ -11,6 +11,7 @@ import {
   vMcpTokenHealthStatus,
   type McpTokenHealth,
 } from "./mcpTokenHealth";
+import type { CloudflareDefaultAccount } from "./schema";
 import {
   CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS,
   CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS,
@@ -46,6 +47,7 @@ const providerAuthMethodValidator = union(
 const cloudflareConnectionStatusValidator = object({
   connected: boolean(),
   accountId: optional(string()),
+  accountName: optional(string()),
   authMethod: optional(providerAuthMethodValidator),
   mcpTokenStatus: optional(vMcpTokenHealthStatus),
   mcpTokenExpiresAt: optional(number()),
@@ -57,7 +59,7 @@ const cloudflareConnectionStatusValidator = object({
 });
 type CloudflareConnectionStatus = Infer<typeof cloudflareConnectionStatusValidator>;
 type CloudflareConnectionStatusInput = {
-  accountId?: string;
+  defaultAccount: CloudflareDefaultAccount;
   auth:
     | {
         method: "api_key";
@@ -173,7 +175,12 @@ function buildCloudflareConnectionStatus(
   const now = options?.now ?? Date.now();
   const baseStatus: CloudflareConnectionStatus = {
     connected: true,
-    accountId: connection.accountId,
+    ...(connection.defaultAccount.state === "selected"
+      ? {
+          accountId: connection.defaultAccount.accountId,
+          accountName: connection.defaultAccount.accountName,
+        }
+      : {}),
     authMethod: connection.auth.method,
     mcpTokenRefreshStartedAt: connection.tokenRefreshStartedAt,
     mcpTokenLastRefreshAt: connection.lastTokenRefreshAt,

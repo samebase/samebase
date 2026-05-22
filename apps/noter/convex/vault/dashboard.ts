@@ -334,21 +334,14 @@ async function resolveVaultDeletionSummary(
   }
 }
 
-async function readActiveVaultInfrastructureOwnership(
+async function readVaultInfrastructureOwnership(
   ctx: Pick<QueryCtx, "db">,
   vaultId: Id<"vaults">,
 ): Promise<VaultInfrastructureOwnership | null> {
-  const ownership = await ctx.db
+  return await ctx.db
     .query("vaultInfrastructureOwnership")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .first();
-  if (!ownership) {
-    return null;
-  }
-  if (ownership.state !== "active") {
-    return null;
-  }
-  return ownership;
 }
 
 async function resolveProviderSetupSummary(
@@ -364,14 +357,6 @@ async function resolveProviderSetupSummary(
       fallbackUpdatedAt: vault.convex.failedAt,
     });
   }
-  if (cloudflare.state === "failed") {
-    return await readProviderRunSummary(ctx, {
-      provider: "cloudflare",
-      runId: cloudflare.runId,
-      status: "failed",
-      fallbackUpdatedAt: cloudflare.failedAt,
-    });
-  }
   if (vault.convex.state === "provisioning") {
     return await readProviderRunSummary(ctx, {
       provider: "convex",
@@ -380,26 +365,18 @@ async function resolveProviderSetupSummary(
       fallbackUpdatedAt: vault.convex.startedAt,
     });
   }
-  if (cloudflare.state === "provisioning") {
-    return await readProviderRunSummary(ctx, {
-      provider: "cloudflare",
-      runId: cloudflare.runId,
-      status: "running",
-      fallbackUpdatedAt: cloudflare.startedAt,
-    });
-  }
   if (vault.convex.state === "connected" && cloudflare.state === "connected") {
     return { status: "ready" };
   }
 
-  const activeOwnership = await readActiveVaultInfrastructureOwnership(ctx, vault._id);
+  const ownership = await readVaultInfrastructureOwnership(ctx, vault._id);
   if (vault.convex.state === "not_configured") {
-    if (activeOwnership) {
+    if (ownership?.state === "active" || ownership?.state === "failed") {
       return await readProviderRunSummary(ctx, {
         provider: "convex",
-        runId: activeOwnership.runId,
-        status: "running",
-        fallbackUpdatedAt: activeOwnership.updatedAt,
+        runId: ownership.runId,
+        status: ownership.state === "failed" ? "failed" : "running",
+        fallbackUpdatedAt: ownership.updatedAt,
       });
     }
     const runningCreateRun = await readRunningProviderRunSummary(ctx, {
@@ -409,12 +386,12 @@ async function resolveProviderSetupSummary(
     return runningCreateRun ?? { status: "not_applicable" };
   }
   if (cloudflare.state === "not_configured") {
-    if (activeOwnership) {
+    if (ownership?.state === "active" || ownership?.state === "failed") {
       return await readProviderRunSummary(ctx, {
         provider: "cloudflare",
-        runId: activeOwnership.runId,
-        status: "running",
-        fallbackUpdatedAt: activeOwnership.updatedAt,
+        runId: ownership.runId,
+        status: ownership.state === "failed" ? "failed" : "running",
+        fallbackUpdatedAt: ownership.updatedAt,
       });
     }
     const runningCreateRun = await readRunningProviderRunSummary(ctx, {
@@ -641,7 +618,7 @@ const getUserVaultsResult = array(
         convexPreviewDeploymentDashboardUrl: optional(string()),
       }),
     ),
-    cloudflareProductionUrl: optional(string()),
+    cloudflareWorkersDevUrl: optional(string()),
     cloudflareWorkerName: optional(string()),
     cloudflareProjectDashboardUrl: optional(string()),
     convexTeamSlug: optional(string()),
@@ -701,7 +678,7 @@ export const getUserVaults = query({
         hasConvexProvision: false,
         hasCloudflareProvision: false,
         remoteBranches: [],
-        cloudflareProductionUrl: undefined,
+        cloudflareWorkersDevUrl: undefined,
         cloudflareWorkerName: undefined,
         cloudflareProjectDashboardUrl: undefined,
         convexTeamSlug: undefined,
@@ -740,7 +717,7 @@ export const getUserVaults = query({
             hasConvexProvision: vault.convex.state === "connected",
             hasCloudflareProvision: vault.cloudflare.state === "connected",
             remoteBranches: [],
-            cloudflareProductionUrl: undefined,
+            cloudflareWorkersDevUrl: undefined,
             cloudflareWorkerName: undefined,
             cloudflareProjectDashboardUrl: undefined,
             convexTeamSlug: undefined,
@@ -853,7 +830,7 @@ export const getUserVaults = query({
                   })
                 : undefined,
           })),
-          cloudflareProductionUrl: connectedCloudflare?.productionUrl,
+          cloudflareWorkersDevUrl: connectedCloudflare?.workersDevUrl,
           cloudflareWorkerName: connectedCloudflare?.workerName,
           cloudflareProjectDashboardUrl: buildCloudflareWorkerDashboardUrl(connectedCloudflare),
           convexTeamSlug,

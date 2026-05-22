@@ -182,6 +182,9 @@ async function buildCloudflarePlan(
   if (vault.cloudflare.state !== "connected") {
     return { action: "skip", reason: "not_recorded" };
   }
+  if (vault.cloudflare.management !== "managed") {
+    return { action: "skip", reason: "not_managed" };
+  }
 
   await requireProviderConnection(ctx, {
     userId: vault.userId,

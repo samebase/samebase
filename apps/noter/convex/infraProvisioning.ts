@@ -21,7 +21,7 @@ import {
 } from "./cloudflareResources";
 import { asRecord, readStringOrNumber } from "./jsonUtils";
 import type { AppProvisioningStep, ConvexDeployKeyState, GithubTreeData } from "./schema";
-import { sanitizeSlug, vaultSuffix } from "./slugUtils";
+import { vaultSuffix } from "./slugUtils";
 import {
   isLiveConnectedVault,
   isNoterManagedVault,
@@ -91,30 +91,25 @@ function requireVaultInfrastructureTarget(
   return target;
 }
 
-async function ensureVaultInfrastructureTarget(
+function requirePlannedCloudflareTarget(
+  target: Doc<"vaultInfrastructureTargets">,
+): Extract<Doc<"vaultInfrastructureTargets">["cloudflare"], { state: "planned" }> {
+  if (target.cloudflare.state !== "planned") {
+    throw new Error("Cloudflare target is required before Worker provisioning can continue.");
+  }
+  return target.cloudflare;
+}
+
+async function assertVaultInfrastructureTargetExists(
   ctx: Pick<MutationCtx, "db">,
   vault: NoterManagedConnectedVault,
-  now: number,
 ): Promise<void> {
   const existing = await readVaultInfrastructureTarget(ctx, vault._id);
   if (existing) {
     return;
   }
 
-  const suffix = vaultSuffix(vault._id);
-  await ctx.db.insert("vaultInfrastructureTargets", {
-    vaultId: vault._id,
-    convex: {
-      state: "planned",
-      projectName: sanitizeSlug(`${vault.owner}-${vault.name}-${suffix}`, 40),
-    },
-    cloudflare: {
-      state: "planned",
-      workerName: sanitizeSlug(`${vault.owner}-${vault.name}-${suffix}`, 58),
-    },
-    createdAt: now,
-    updatedAt: now,
-  });
+  throw new Error("Infrastructure target is required before provisioning can be claimed.");
 }
 
 async function readResponseTextSafe(response: Response): Promise<string> {
@@ -540,20 +535,10 @@ export function selectCloudflareBuildConfigTreeData(args: {
 
 export function selectExistingCloudflareWorker(args: {
   cloudflare: NoterManagedConnectedVault["cloudflare"];
-  target: Pick<Doc<"vaultInfrastructureTargets">, "cloudflare">;
   accountId: string;
 }): ExistingCloudflareWorkerIdentity {
   if (args.cloudflare.state === "connected" && args.cloudflare.accountId === args.accountId) {
     return { state: "created", workerTag: args.cloudflare.workerTag.trim() };
-  }
-  if (
-    args.target.cloudflare.state === "created" &&
-    args.target.cloudflare.accountId === args.accountId
-  ) {
-    return {
-      state: "created",
-      workerTag: args.target.cloudflare.workerTag.trim(),
-    };
   }
   return { state: "planned" };
 }
@@ -679,11 +664,9 @@ function hasFreshProviderProvisioningLock(args: {
     return true;
   }
 
-  const cloudflare = args.vault.cloudflare;
   return (
-    (args.vault.convex.state === "provisioning" &&
-      args.now - args.vault.convex.startedAt < PROVISIONING_STALE_MS) ||
-    (cloudflare.state === "provisioning" && args.now - cloudflare.startedAt < PROVISIONING_STALE_MS)
+    args.vault.convex.state === "provisioning" &&
+    args.now - args.vault.convex.startedAt < PROVISIONING_STALE_MS
   );
 }
 
@@ -721,12 +704,7 @@ function buildProviderFailurePatch(args: {
   };
   const failCloudflare = () => {
     if (cloudflare.state !== "connected") {
-      const failedCloudflare = {
-        state: "failed",
-        runId: args.runId,
-        failedAt: args.now,
-      } as const;
-      patch.cloudflare = failedCloudflare;
+      patch.cloudflare = { state: "not_configured" };
     }
   };
 
@@ -832,6 +810,7 @@ export async function resolveCloudflareProvisioningConnection(
   cloudflareToken: string;
   cloudflareAuthMethod: "api_key" | "mcp_oauth";
   cloudflareAccountId: string;
+  cloudflareAccountName: string;
 }> {
   const resolveArgs = options ? { userId, forceRefresh: true } : { userId };
   const resolvedCloudflareConnection = await ctx.runAction(
@@ -845,7 +824,7 @@ export async function resolveCloudflareProvisioningConnection(
   }
 
   const cloudflareToken = resolvedCloudflareConnection.auth.credential.trim();
-  const cloudflareAccountId = resolvedCloudflareConnection.accountId?.trim();
+  const defaultAccount = resolvedCloudflareConnection.defaultAccount;
 
   if (!cloudflareToken) {
     throw new Error(
@@ -853,7 +832,12 @@ export async function resolveCloudflareProvisioningConnection(
     );
   }
 
-  if (!cloudflareAccountId) {
+  if (defaultAccount.state !== "selected") {
+    throw new Error("Cloudflare account selection is required before provisioning can continue.");
+  }
+  const cloudflareAccountId = defaultAccount.accountId.trim();
+  const cloudflareAccountName = defaultAccount.accountName.trim();
+  if (!cloudflareAccountId || !cloudflareAccountName) {
     throw new Error("Cloudflare account selection is required before provisioning can continue.");
   }
 
@@ -861,6 +845,7 @@ export async function resolveCloudflareProvisioningConnection(
     cloudflareToken,
     cloudflareAuthMethod: resolvedCloudflareConnection.auth.method,
     cloudflareAccountId,
+    cloudflareAccountName,
   };
 }
 
@@ -1016,9 +1001,10 @@ export const recordCloudflareWorkerIdentity = internalMutation({
     vaultId: v.id("vaults"),
     runId: v.id("appProvisioningRuns"),
     accountId: v.string(),
+    accountName: v.string(),
     workerName: v.string(),
     workerTag: v.string(),
-    productionUrl: v.string(),
+    workersDevUrl: v.optional(v.string()),
   },
   returns: infrastructurePatchResult,
   handler: async (ctx, args) => {
@@ -1027,22 +1013,25 @@ export const recordCloudflareWorkerIdentity = internalMutation({
       return { applied: false };
     }
 
-    const target = await readVaultInfrastructureTarget(ctx, args.vaultId);
-    if (!target) {
-      throw new Error(
-        "Infrastructure target is required before recording Cloudflare Worker identity.",
-      );
-    }
+    const now = Date.now();
 
-    await ctx.db.patch(target._id, {
+    await ctx.db.patch(args.vaultId, {
       cloudflare: {
-        state: "created",
+        state: "connected",
         accountId: args.accountId,
+        accountName: args.accountName,
         workerName: args.workerName,
         workerTag: args.workerTag,
-        productionUrl: args.productionUrl,
+        workersDevUrl: args.workersDevUrl,
+        origin: "provisioned",
+        management: "managed",
+        connectedAt: vault.cloudflare.state === "connected" ? vault.cloudflare.connectedAt : now,
+        lastVerifiedAt: now,
+        lastCheck: {
+          state: "verified",
+          checkedAt: now,
+        },
       },
-      updatedAt: Date.now(),
     });
 
     return { applied: true };
@@ -1065,19 +1054,6 @@ export const markCloudflareProvisioning = internalMutation({
     if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
       return { applied: false };
     }
-    const cloudflare = vault.cloudflare;
-    if (cloudflare.state === "connected") {
-      return { applied: true };
-    }
-
-    const provisioningCloudflare = {
-      state: "provisioning",
-      runId: args.runId,
-      startedAt: Date.now(),
-    } as const;
-    await ctx.db.patch(args.vaultId, {
-      cloudflare: provisioningCloudflare,
-    });
 
     return { applied: true };
   },
@@ -1122,9 +1098,10 @@ export const markCloudflareConnected = internalMutation({
     vaultId: v.id("vaults"),
     runId: v.id("appProvisioningRuns"),
     accountId: v.string(),
+    accountName: v.string(),
     workerName: v.string(),
     workerTag: v.string(),
-    productionUrl: v.string(),
+    workersDevUrl: v.optional(v.string()),
   },
   returns: infrastructurePatchResult,
   handler: async (ctx, args) => {
@@ -1138,13 +1115,22 @@ export const markCloudflareConnected = internalMutation({
       return { applied: false };
     }
 
+    const now = Date.now();
     const connectedCloudflare = {
       state: "connected",
       accountId: args.accountId,
+      accountName: args.accountName,
       workerName: args.workerName,
       workerTag: args.workerTag,
-      productionUrl: args.productionUrl,
-      connectedAt: Date.now(),
+      workersDevUrl: args.workersDevUrl,
+      origin: "provisioned",
+      management: "managed",
+      connectedAt: vault.cloudflare.state === "connected" ? vault.cloudflare.connectedAt : now,
+      lastVerifiedAt: now,
+      lastCheck: {
+        state: "verified",
+        checkedAt: now,
+      },
     } as const;
     await ctx.db.patch(args.vaultId, {
       cloudflare: connectedCloudflare,
@@ -1251,7 +1237,7 @@ export const claimWorkflowProvisioning = internalMutation({
       }
     }
 
-    await ensureVaultInfrastructureTarget(ctx, vault, now);
+    await assertVaultInfrastructureTargetExists(ctx, vault);
 
     const cloudflare = vault.cloudflare;
     const claimedCloudflare =
@@ -1604,6 +1590,10 @@ export const ensureCloudflareInfrastructure = internalAction({
       vaultId: args.vaultId,
     });
     const infrastructureTarget = requireVaultInfrastructureTarget(target);
+    const cloudflareTarget = requirePlannedCloudflareTarget(infrastructureTarget);
+    if (cloudflareTarget.accountId !== cloudflareAccountId) {
+      throw new Error("Cloudflare account selection changed before provisioning could complete.");
+    }
     const previewConvex = await ensureConvexPreviewResources({
       convexToken,
       teamId: convexTeamId,
@@ -1659,7 +1649,6 @@ export const ensureCloudflareInfrastructure = internalAction({
     });
     const existingCloudflareWorker = selectExistingCloudflareWorker({
       cloudflare: vault.cloudflare,
-      target: infrastructureTarget,
       accountId: cloudflareAccountId,
     });
     const provisionedCloudflare = await ensureCloudflareResources({
@@ -1669,7 +1658,7 @@ export const ensureCloudflareInfrastructure = internalAction({
       ghRepoOwnerId: repoIdentity.ownerId,
       defaultBranch,
       vaultId: args.vaultId,
-      workerName: infrastructureTarget.cloudflare.workerName,
+      workerName: cloudflareTarget.workerName,
       cloudflareToken,
       cloudflareAuthMethod,
       accountId: cloudflareAccountId,
@@ -1684,9 +1673,10 @@ export const ensureCloudflareInfrastructure = internalAction({
             vaultId: args.vaultId,
             runId: args.runId,
             accountId: cloudflareAccountId,
+            accountName: cloudflareTarget.accountName,
             workerName: worker.workerName,
             workerTag: worker.workerTag,
-            productionUrl: worker.productionUrl,
+            workersDevUrl: worker.workersDevUrl,
           },
         );
         if (!record.applied) {
@@ -1710,9 +1700,10 @@ export const ensureCloudflareInfrastructure = internalAction({
         vaultId: args.vaultId,
         runId: args.runId,
         accountId: provisionedCloudflare.accountId,
+        accountName: cloudflareTarget.accountName,
         workerName: provisionedCloudflare.workerName,
         workerTag: provisionedCloudflare.workerTag,
-        productionUrl: provisionedCloudflare.productionUrl,
+        workersDevUrl: provisionedCloudflare.workersDevUrl,
       },
     );
     if (!connectionMark.applied) {
@@ -1747,7 +1738,7 @@ export const ensureCloudflareInfrastructure = internalAction({
         vaultId: args.vaultId,
         branch: defaultBranch,
         kind: "main",
-        url: provisionedCloudflare.productionUrl,
+        url: provisionedCloudflare.workersDevUrl,
         source: "cloudflare_workers_default",
         active: true,
       },
@@ -1759,7 +1750,7 @@ export const ensureCloudflareInfrastructure = internalAction({
       runId: args.runId,
       step: "record_domains",
       level: "info",
-      message: `Recorded production URL: ${provisionedCloudflare.productionUrl}.`,
+      message: `Recorded production URL: ${provisionedCloudflare.workersDevUrl}.`,
       state: "running",
     });
 

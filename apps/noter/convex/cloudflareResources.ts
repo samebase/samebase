@@ -114,7 +114,19 @@ export function buildCloudflareWorkersEnvVars(vars: {
 type CloudflareWorkerIdentity = {
   workerName: string;
   workerTag: string;
-  productionUrl: string;
+  workersDevUrl: string;
+};
+
+export type CloudflareWorkerInventoryItem = {
+  workerName: string;
+  workerTag: string;
+  modifiedOn?: string;
+};
+
+export type VerifiedCloudflareWorkerIdentity = {
+  workerName: string;
+  workerTag: string;
+  workersDevUrl?: string;
 };
 
 export type ExistingCloudflareWorkerIdentity =
@@ -170,6 +182,19 @@ async function readWorker(args: {
   }
 }
 
+export async function readOptionalWorkersDevUrl(args: {
+  token: string;
+  accountId: string;
+  workerName: string;
+}): Promise<string | undefined> {
+  try {
+    const accountSubdomain = await readAccountSubdomain(args);
+    return `https://${args.workerName}.${accountSubdomain}.workers.dev`;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function isCloudflareWorkerNameAvailable(args: {
   token: string;
   accountId: string;
@@ -193,6 +218,83 @@ export function readCloudflareWorkerTag(
   throw new Error(
     `Cloudflare Worker ${workerName} did not include id, external_script_id, or tag.`,
   );
+}
+
+export async function listCloudflareWorkers(args: {
+  token: string;
+  accountId: string;
+  limit: number;
+}): Promise<CloudflareWorkerInventoryItem[]> {
+  const workers = await requestCloudflareApi({
+    token: args.token,
+    method: "GET",
+    path: "/accounts/{account_id}/workers/scripts",
+    params: {
+      path: {
+        account_id: args.accountId,
+      },
+    },
+  });
+  if (!workers) {
+    throw new Error(
+      `Cloudflare Workers inventory for account ${args.accountId} response did not include Workers.`,
+    );
+  }
+
+  const rows: CloudflareWorkerInventoryItem[] = [];
+  for (const worker of workers) {
+    const workerName = worker.id?.trim();
+    const workerTag = worker.tag?.trim();
+    if (!workerName || !workerTag) {
+      continue;
+    }
+    rows.push({
+      workerName,
+      workerTag,
+      ...(worker.modified_on ? { modifiedOn: worker.modified_on } : {}),
+    });
+  }
+
+  return rows
+    .sort(
+      (left, right) =>
+        left.workerName.localeCompare(right.workerName) ||
+        left.workerTag.localeCompare(right.workerTag),
+    )
+    .slice(0, args.limit);
+}
+
+export async function readCloudflareWorkerIdentity(args: {
+  token: string;
+  accountId: string;
+  workerName: string;
+}): Promise<VerifiedCloudflareWorkerIdentity> {
+  const worker = await readWorker(args);
+  if (!worker) {
+    throw new Error(`Cloudflare Worker ${args.workerName} was not found.`);
+  }
+
+  return {
+    workerName: args.workerName,
+    workerTag: readCloudflareWorkerTag(worker, args.workerName),
+    workersDevUrl: await readOptionalWorkersDevUrl(args),
+  };
+}
+
+export async function createCloudflareWorker(args: {
+  token: string;
+  accountId: string;
+  workerName: string;
+}): Promise<CloudflareWorkerIdentity> {
+  return await ensureWorker({
+    token: args.token,
+    accountId: args.accountId,
+    workerName: args.workerName,
+    existingWorker: {
+      state: "created",
+      workerTag: "",
+    },
+  });
 }
 
 async function ensureWorker(args: {
@@ -220,7 +322,7 @@ async function ensureWorker(args: {
     return {
       workerName: args.workerName,
       workerTag,
-      productionUrl: `https://${args.workerName}.${accountSubdomain}.workers.dev`,
+      workersDevUrl: `https://${args.workerName}.${accountSubdomain}.workers.dev`,
     };
   }
 
@@ -256,7 +358,7 @@ async function ensureWorker(args: {
   return {
     workerName: args.workerName,
     workerTag,
-    productionUrl: `https://${args.workerName}.${accountSubdomain}.workers.dev`,
+    workersDevUrl: `https://${args.workerName}.${accountSubdomain}.workers.dev`,
   };
 }
 
@@ -721,7 +823,7 @@ export type ProvisionedCloudflareResources = {
   accountId: string;
   workerName: string;
   workerTag: string;
-  productionUrl: string;
+  workersDevUrl: string;
 };
 
 type EnsureCloudflareResourcesArgs = {
@@ -854,7 +956,7 @@ export async function ensureCloudflareResources(
       accountId: args.accountId,
       workerName: worker.workerName,
       workerTag: worker.workerTag,
-      productionUrl: worker.productionUrl,
+      workersDevUrl: worker.workersDevUrl,
     };
 
     console.log("infra:cloudflare:provision:success", {
@@ -862,7 +964,7 @@ export async function ensureCloudflareResources(
       accountId: result.accountId,
       workerName: result.workerName,
       workerTag: result.workerTag,
-      productionUrl: result.productionUrl,
+      workersDevUrl: result.workersDevUrl,
     });
 
     return result;

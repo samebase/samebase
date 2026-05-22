@@ -721,6 +721,8 @@ export const createRepository = action({
     assertResourceNameAvailable("GitHub repository name", resourceNameAvailability.github);
     assertResourceNameAvailable("Convex project name", resourceNameAvailability.convex);
     assertResourceNameAvailable("Cloudflare Worker name", resourceNameAvailability.cloudflare);
+    const { cloudflareAccountId, cloudflareAccountName } =
+      await resolveCloudflareProvisioningConnection(ctx, userId);
 
     const visibility = args.private === false ? "public" : "private";
     const { vaultId, runId } = await ctx.runMutation(
@@ -731,6 +733,8 @@ export const createRepository = action({
         ghRepoName: repoName,
         visibility,
         convexProjectName: convexNameValidation.value,
+        cloudflareAccountId,
+        cloudflareAccountName,
         cloudflareWorkerName: cloudflareNameValidation.value,
       },
     );

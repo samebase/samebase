@@ -60,12 +60,6 @@ export async function readVaultDeletionEligibility(
         reason: "Vault Convex provisioning is still running.",
       };
     }
-    if (vault.cloudflare.state === "provisioning") {
-      return {
-        state: "blocked",
-        reason: "Vault Cloudflare provisioning is still running.",
-      };
-    }
   }
 
   const activeProvisioningRun = await hasActiveProvisioningRun(ctx, vault._id);

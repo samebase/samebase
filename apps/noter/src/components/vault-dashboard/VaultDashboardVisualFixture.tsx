@@ -37,6 +37,7 @@ import {
   VaultBranchHeaderControls,
   VaultBranchLinkRow,
   VaultBranchListExpansionControl,
+  VaultDashboardCloudflareDialog,
   VaultDashboardDeleteControl,
   VaultDashboardDeleteDialog,
   VaultDashboardRepositoryExternalLinks,
@@ -46,11 +47,13 @@ import {
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 import { formatProvisioningLogText } from "@/lib/provisioningLog";
 import { type VaultBranchFilters } from "@/components/vault-dashboard/vaultDashboardBranchFilters";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 export type VaultDashboardVisualMode =
   | "vault-create-control"
   | "vault-dashboard-dev-tools-hidden"
   | "vault-dashboard-dev-tools-visible"
+  | "vault-dashboard-connect-cloudflare-open"
   | "vault-dashboard-delete-open"
   | "vault-dashboard-infra-setup"
   | "vault-dashboard-provisioning-log"
@@ -102,7 +105,7 @@ function useFixtureBranchExpansionStore() {
   }));
 }
 
-function fakeVaultId(): Parameters<typeof VaultBranchLinkRow>[0]["vaultId"] {
+function fakeVaultId(): Id<"vaults"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
   return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
@@ -461,6 +464,69 @@ function VaultDashboardDeleteOpenFixture() {
           removeCloudflareProvision={false}
           stagedChangesCount={3}
           vaultToDelete={fixtureDeleteDialogTarget}
+        />
+      </TestRouterProvider>
+    </div>
+  );
+}
+
+function VaultDashboardConnectCloudflareOpenFixture() {
+  return (
+    <div
+      data-testid="vault-dashboard-visual-fixture"
+      data-mode="vault-dashboard-connect-cloudflare-open"
+      className="w-full bg-background p-4 text-foreground"
+    >
+      <TestRouterProvider>
+        <VaultDashboardRepositoryList>
+          <VaultDashboardRepositoryCard
+            isReady={true}
+            repositoryOwner="samebase"
+            repositoryName="atelier"
+            titleHref="https://github.com/samebase/atelier"
+            repositoryLinks={<FixtureRepositoryLinks />}
+            topRightAction={<FixtureDeleteControl />}
+            repositoryStatus={<span>Updated 12s ago</span>}
+          />
+        </VaultDashboardRepositoryList>
+        <VaultDashboardCloudflareDialog
+          accounts={[
+            {
+              accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
+              accountName: "Samebase",
+            },
+          ]}
+          createWorkerName="atelier"
+          error={null}
+          isLoading={false}
+          isSubmitting={false}
+          mode="existing"
+          onAccountChange={() => {}}
+          onCreateWorkerNameChange={() => {}}
+          onModeChange={() => {}}
+          onOpenChange={() => {}}
+          onSubmit={() => {}}
+          onWorkerChange={() => {}}
+          open={true}
+          selectedAccountId="fe57d01d7ab41f60d00ba1aade20eb33"
+          selectedWorkerName="atelier-web"
+          vault={{
+            id: fakeVaultId(),
+            repositoryFullName: "samebase/atelier",
+            repositoryName: "atelier",
+          }}
+          workers={[
+            {
+              workerName: "atelier-web",
+              workerTag: "72dc5c8bc9104b20af13ac36dcdbe9d1",
+              modifiedOn: "2026-05-20T12:00:00Z",
+            },
+            {
+              workerName: "atelier-preview",
+              workerTag: "c2f8194c2c7047a6991a736d8f708aaf",
+              modifiedOn: "2026-05-21T12:00:00Z",
+            },
+          ]}
         />
       </TestRouterProvider>
     </div>
@@ -897,6 +963,10 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
 
   if (mode === "vault-dashboard-dev-tools-visible") {
     return <VaultDashboardDeveloperToolsFixture visible={true} />;
+  }
+
+  if (mode === "vault-dashboard-connect-cloudflare-open") {
+    return <VaultDashboardConnectCloudflareOpenFixture />;
   }
 
   if (mode === "vault-dashboard-delete-open") {

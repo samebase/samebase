@@ -322,6 +322,8 @@ describe("vault dashboard Convex contract", () => {
         ghRepoName: "early-vault",
         visibility: "private",
         convexProjectName: "early-vault",
+        cloudflareAccountId: "cloudflare-account",
+        cloudflareAccountName: "Cloudflare Account",
         cloudflareWorkerName: "early-vault",
       },
     );
@@ -543,11 +545,7 @@ describe("vault dashboard Convex contract", () => {
           deploymentName: "provider-state-prod",
           connectedAt: 24,
         },
-        cloudflare: {
-          state: "provisioning",
-          runId,
-          startedAt: 25,
-        },
+        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("vaultBranchTrees", {
         vaultId,
@@ -599,7 +597,7 @@ describe("vault dashboard Convex contract", () => {
         updatedAt: 30,
       },
     });
-    expect(vaults[0]).not.toHaveProperty("cloudflareProductionUrl");
+    expect(vaults[0]).not.toHaveProperty("cloudflareWorkersDevUrl");
     expect(vaults[0]).not.toHaveProperty("cloudflareProjectDashboardUrl");
   });
 
@@ -989,10 +987,18 @@ describe("vault dashboard Convex contract", () => {
         cloudflare: {
           state: "connected",
           accountId: "cloudflare-account",
+          accountName: "Cloudflare Account",
           workerName: "domain-order-worker",
           workerTag: "domain-order-worker-tag",
-          productionUrl: "https://domain-order.example.workers.dev",
+          workersDevUrl: "https://domain-order.example.workers.dev",
+          origin: "provisioned",
+          management: "managed",
           connectedAt: 26,
+          lastVerifiedAt: 26,
+          lastCheck: {
+            state: "verified",
+            checkedAt: 26,
+          },
         },
       });
       await ctx.db.insert("vaultDomains", {

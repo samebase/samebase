@@ -231,6 +231,20 @@ export type McpTokenHealthStatus = Infer<typeof vMcpTokenHealthStatus>;
 export type McpTokenHealthSource = Infer<typeof vMcpTokenHealthSource>;
 export type McpTokenHealth = Infer<typeof vMcpTokenHealth>;
 
+export const vCloudflareDefaultAccount = union(
+  object({
+    state: literal("not_selected"),
+  }),
+  object({
+    state: literal("selected"),
+    accountId: string(),
+    accountName: string(),
+    selectedAt: number(),
+    lastVerifiedAt: number(),
+  }),
+);
+export type CloudflareDefaultAccount = Infer<typeof vCloudflareDefaultAccount>;
+
 export const vGithubProviderConnection = object({
   kind: literal("github"),
   userId: id("users"),
@@ -252,7 +266,7 @@ export const vCloudflareProviderConnection = object({
   kind: literal("cloudflare"),
   userId: id("users"),
   auth: vCloudflareProviderAuth,
-  accountId: optional(string()),
+  defaultAccount: vCloudflareDefaultAccount,
   tokenHealth: optional(vMcpTokenHealth),
   tokenRefreshStartedAt: optional(number()),
   lastTokenRefreshAt: optional(number()),
@@ -468,15 +482,13 @@ export default defineSchema({
     ),
     cloudflare: union(
       object({
-        state: literal("planned"),
-        workerName: string(),
+        state: literal("not_planned"),
       }),
       object({
-        state: literal("created"),
+        state: literal("planned"),
         accountId: string(),
+        accountName: string(),
         workerName: string(),
-        workerTag: string(),
-        productionUrl: string(),
       }),
     ),
     createdAt: number(),

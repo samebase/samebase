@@ -87,27 +87,47 @@ export const vVaultConvexState = union(
 );
 export type VaultConvexState = Infer<typeof vVaultConvexState>;
 
+export const vVaultCloudflareOrigin = union(literal("provisioned"), literal("selected_existing"));
+export type VaultCloudflareOrigin = Infer<typeof vVaultCloudflareOrigin>;
+
+export const vVaultCloudflareManagement = union(literal("managed"), literal("external"));
+export type VaultCloudflareManagement = Infer<typeof vVaultCloudflareManagement>;
+
+export const vVaultCloudflareCheck = union(
+  object({
+    state: literal("verified"),
+    checkedAt: number(),
+  }),
+  object({
+    state: literal("failed"),
+    checkedAt: number(),
+    reason: union(
+      literal("not_found"),
+      literal("unauthorized"),
+      literal("account_unavailable"),
+      literal("provider_error"),
+    ),
+    message: string(),
+  }),
+);
+export type VaultCloudflareCheck = Infer<typeof vVaultCloudflareCheck>;
+
 export const vVaultCloudflareState = union(
   object({
     state: literal("not_configured"),
   }),
   object({
-    state: literal("provisioning"),
-    runId: id("appProvisioningRuns"),
-    startedAt: number(),
-  }),
-  object({
     state: literal("connected"),
     accountId: string(),
+    accountName: string(),
     workerName: string(),
     workerTag: string(),
-    productionUrl: string(),
+    workersDevUrl: optional(string()),
+    origin: vVaultCloudflareOrigin,
+    management: vVaultCloudflareManagement,
     connectedAt: number(),
-  }),
-  object({
-    state: literal("failed"),
-    runId: id("appProvisioningRuns"),
-    failedAt: number(),
+    lastVerifiedAt: number(),
+    lastCheck: vVaultCloudflareCheck,
   }),
 );
 export type VaultCloudflareState = Infer<typeof vVaultCloudflareState>;

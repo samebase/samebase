@@ -390,7 +390,11 @@ export const getCloudflareWorkersInventory = internalAction({
 
     const token = resolveCloudflareToken(cloudflareConnection);
     const perPage = clamp(args.limit ?? 50, 1, 100);
-    const accountId = args.accountId ?? cloudflareConnection?.accountId;
+    const accountId =
+      args.accountId ??
+      (cloudflareConnection?.defaultAccount.state === "selected"
+        ? cloudflareConnection.defaultAccount.accountId
+        : undefined);
     if (!accountId) {
       throw new Error(
         "Cloudflare accountId is required to list Workers. Reconnect or select an account first.",
