@@ -8,7 +8,10 @@ import {
   resolveDeploymentProfile,
   resolvePasswordAuthMode,
 } from "./deploymentProfile";
-import { getConnectionByUserAndKind } from "./providerConnections";
+import {
+  buildSeedCloudflareDefaultAccount,
+  getConnectionByUserAndKind,
+} from "./providerConnections";
 import { readOptionalEnv } from "./oauthUtils";
 
 type UserPatch = {
@@ -123,15 +126,17 @@ async function upsertSeedCloudflareConnection(
   if (credential === null) {
     return;
   }
+  const accountId = readOptionalEnv("DEV_SEED_CLOUDFLARE_ACCOUNT_ID");
   const existing = await getConnectionByUserAndKind(db, userId, "cloudflare");
   const now = Date.now();
+  const defaultAccount = buildSeedCloudflareDefaultAccount(accountId, now);
   if (existing) {
     await db.patch(existing._id, {
       auth: {
         method: "api_key",
         credential,
       },
-      defaultAccount: { state: "not_selected" },
+      defaultAccount,
       updatedAt: now,
     });
     return;
@@ -143,7 +148,7 @@ async function upsertSeedCloudflareConnection(
       method: "api_key",
       credential,
     },
-    defaultAccount: { state: "not_selected" },
+    defaultAccount,
     createdAt: now,
     updatedAt: now,
   });

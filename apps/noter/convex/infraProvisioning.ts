@@ -1746,6 +1746,10 @@ export const ensureCloudflareInfrastructure = internalAction({
         },
       );
       if (!domainRecordResult.applied) {
+        await cancelSupersededProvisioningRun(ctx, {
+          runId: args.runId,
+          step: "record_domains",
+        });
         return null;
       }
       await appendProvisioningRunEvent(ctx, {

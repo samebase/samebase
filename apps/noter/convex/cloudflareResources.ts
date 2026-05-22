@@ -153,6 +153,25 @@ async function readAccountSubdomain(args: { token: string; accountId: string }):
   return subdomain;
 }
 
+async function readWorkerSubdomainEnabled(args: {
+  token: string;
+  accountId: string;
+  workerName: string;
+}): Promise<boolean> {
+  const raw = await requestCloudflareApi({
+    token: args.token,
+    method: "GET",
+    path: "/accounts/{account_id}/workers/scripts/{script_name}/subdomain",
+    params: {
+      path: {
+        account_id: args.accountId,
+        script_name: args.workerName,
+      },
+    },
+  });
+  return raw?.enabled === true;
+}
+
 async function readWorker(args: {
   token: string;
   accountId: string;
@@ -188,6 +207,9 @@ export async function readOptionalWorkersDevUrl(args: {
   workerName: string;
 }): Promise<string | undefined> {
   try {
+    if (!(await readWorkerSubdomainEnabled(args))) {
+      return undefined;
+    }
     const accountSubdomain = await readAccountSubdomain(args);
     return `https://${args.workerName}.${accountSubdomain}.workers.dev`;
   } catch {

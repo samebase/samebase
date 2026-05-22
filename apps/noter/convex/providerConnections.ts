@@ -7,7 +7,7 @@ import {
 } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { vMcpTokenHealth } from "./mcpTokenHealth";
-import { vCloudflareDefaultAccount } from "./schema";
+import { vCloudflareDefaultAccount, type CloudflareDefaultAccount } from "./schema";
 import {
   CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS,
   CLOUDFLARE_TOKEN_REFRESH_STALE_LOCK_MS,
@@ -100,6 +100,26 @@ const vProviderConnectionResult = union(
   vConvexConnectionResult,
   vCloudflareConnectionResult,
 );
+
+export function buildSeedCloudflareDefaultAccount(
+  accountId: string | null | undefined,
+  now: number,
+): CloudflareDefaultAccount {
+  const normalizedAccountId = accountId?.trim();
+  if (!normalizedAccountId) {
+    return { state: "not_selected" };
+  }
+
+  // The seed env only carries the account id; listing accounts later replaces
+  // this display fallback with Cloudflare's current account name.
+  return {
+    state: "selected",
+    accountId: normalizedAccountId,
+    accountName: normalizedAccountId,
+    selectedAt: now,
+    lastVerifiedAt: now,
+  };
+}
 
 export async function getConnectionByUserAndKind(
   db: DatabaseReader,

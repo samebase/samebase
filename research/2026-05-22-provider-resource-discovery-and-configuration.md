@@ -495,11 +495,10 @@ and preselection, not silent adoption.
 
 ## Sources
 
-- Cloudflare Workers Builds docs: https://developers.cloudflare.com/workers/ci-cd/builds/
-- Cloudflare Workers Builds API reference:
-  https://developers.cloudflare.com/api/resources/workers_builds/
-- Cloudflare Workers API reference: https://developers.cloudflare.com/api/resources/workers/
-- Convex Management API docs: https://docs.convex.dev/management-api
-- Convex Management API OpenAPI document: https://api.convex.dev/v1/openapi.json
-- Current Cloudflare API validation spec: `specs/104_CLOUDFLARE_MCP_API_VALIDATION_SPEC.md`
-- Current Convex API validation spec: `specs/103_CONVEX_API_VALIDATION_SPEC.md`
+- [link Cloudflare Workers Builds docs](https://developers.cloudflare.com/workers/ci-cd/builds/)
+- [link Cloudflare Workers Builds API reference](https://developers.cloudflare.com/api/resources/workers_builds/)
+- [link Cloudflare Workers API reference](https://developers.cloudflare.com/api/resources/workers/)
+- [Convex Management API docs](https://docs.convex.dev/management-api)
+- [Convex Management API OpenAPI document](https://api.convex.dev/v1/openapi.json)
+- [Current Cloudflare API validation spec](../specs/104_CLOUDFLARE_MCP_API_VALIDATION_SPEC.md)
+- [Current Convex API validation spec](../specs/103_CONVEX_API_VALIDATION_SPEC.md)

@@ -3067,6 +3067,7 @@ export function VaultDashboard() {
   const shouldPopDeleteHistoryRef = useRef(false);
   const previousConnectCloudflareModeActiveRef = useRef(connectCloudflareModeActive);
   const shouldPopConnectCloudflareHistoryRef = useRef(false);
+  const cloudflareWorkersRequestIdRef = useRef(0);
   const [cloudflareAccounts, setCloudflareAccounts] = useState<CloudflareAccountOption[]>([]);
   const [cloudflareWorkers, setCloudflareWorkers] = useState<CloudflareWorkerOption[]>([]);
   const [selectedCloudflareAccountId, setSelectedCloudflareAccountId] = useState("");
@@ -3266,9 +3267,28 @@ export function VaultDashboard() {
 
   const loadCloudflareWorkersForAccount = useCallback(
     async (accountId: string) => {
-      const result = await listCloudflareWorkers({ accountId });
-      setCloudflareWorkers(result.workers);
-      setSelectedCloudflareWorkerName(result.workers[0]?.workerName ?? "");
+      const requestId = cloudflareWorkersRequestIdRef.current + 1;
+      cloudflareWorkersRequestIdRef.current = requestId;
+      setIsLoadingCloudflareResources(true);
+      try {
+        const result = await listCloudflareWorkers({ accountId });
+        if (cloudflareWorkersRequestIdRef.current !== requestId) {
+          return;
+        }
+        setCloudflareWorkers(result.workers);
+        setSelectedCloudflareWorkerName(result.workers[0]?.workerName ?? "");
+      } catch (error) {
+        if (cloudflareWorkersRequestIdRef.current !== requestId) {
+          return;
+        }
+        setCloudflareDialogError(
+          error instanceof Error ? error.message : "Could not load Cloudflare Workers.",
+        );
+      } finally {
+        if (cloudflareWorkersRequestIdRef.current === requestId) {
+          setIsLoadingCloudflareResources(false);
+        }
+      }
     },
     [listCloudflareWorkers],
   );
@@ -3304,6 +3324,7 @@ export function VaultDashboard() {
   );
 
   const resetCloudflareDialogState = useCallback(() => {
+    cloudflareWorkersRequestIdRef.current += 1;
     setCloudflareAccounts([]);
     setCloudflareWorkers([]);
     setSelectedCloudflareAccountId("");
@@ -3311,6 +3332,7 @@ export function VaultDashboard() {
     setCloudflareConnectMode("existing");
     setCloudflareCreateWorkerName("");
     setCloudflareDialogError(null);
+    setIsLoadingCloudflareResources(false);
   }, []);
 
   useEffect(() => {
@@ -3474,16 +3496,7 @@ export function VaultDashboard() {
     setSelectedCloudflareAccountId(accountId);
     setSelectedCloudflareWorkerName("");
     setCloudflareDialogError(null);
-    setIsLoadingCloudflareResources(true);
-    void loadCloudflareWorkersForAccount(accountId)
-      .catch((error) => {
-        setCloudflareDialogError(
-          error instanceof Error ? error.message : "Could not load Cloudflare Workers.",
-        );
-      })
-      .finally(() => {
-        setIsLoadingCloudflareResources(false);
-      });
+    void loadCloudflareWorkersForAccount(accountId);
   };
 
   const handleConnectCloudflareDialogOpenChange = (isOpen: boolean) => {

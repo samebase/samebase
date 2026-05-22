@@ -11,6 +11,7 @@ import { listCloudflareAccountsForToken } from "../cloudflareAccountDiscovery";
 import { validateAppResourceName } from "../../shared/appResourceNames";
 import {
   createCloudflareWorker,
+  deleteCloudflareResources,
   listCloudflareWorkers,
   readOptionalWorkersDevUrl,
 } from "../cloudflareResources";
@@ -242,6 +243,12 @@ export const createWorker = action({
       token: connection.token,
       accountId: args.accountId,
     });
+    // Recheck immediately before the provider write; if the final attach loses
+    // the vault race, the rollback below deletes the Worker this action made.
+    await ctx.runQuery(internal.vault.cloudflareMutations.requireAttachableVault, {
+      vaultId: args.vaultId,
+      userId,
+    });
     let worker: Awaited<ReturnType<typeof createCloudflareWorker>>;
     try {
       worker = await createCloudflareWorker({
@@ -259,17 +266,33 @@ export const createWorker = action({
       account,
       tokenHealth: connection.tokenHealth,
     });
-    await ctx.runMutation(internal.vault.cloudflareMutations.attachWorker, {
-      vaultId: args.vaultId,
-      userId,
-      accountId: account.accountId,
-      accountName: account.accountName,
-      workerName: worker.workerName,
-      workerTag: worker.workerTag,
-      workersDevUrl: worker.workersDevUrl,
-      origin: "provisioned",
-      management: "managed",
-    });
+    try {
+      await ctx.runMutation(internal.vault.cloudflareMutations.attachWorker, {
+        vaultId: args.vaultId,
+        userId,
+        accountId: account.accountId,
+        accountName: account.accountName,
+        workerName: worker.workerName,
+        workerTag: worker.workerTag,
+        workersDevUrl: worker.workersDevUrl,
+        origin: "provisioned",
+        management: "managed",
+      });
+    } catch (error) {
+      await deleteCloudflareResources({
+        cloudflareToken: connection.token,
+        accountId: account.accountId,
+        workerName: worker.workerName,
+        workerTag: worker.workerTag,
+      }).catch((cleanupError: unknown) => {
+        console.warn("cloudflare:create:rollback_failed", {
+          accountId: account.accountId,
+          workerName: worker.workerName,
+          error: toErrorMessage(cleanupError),
+        });
+      });
+      throw error;
+    }
 
     return {
       workerName: worker.workerName,
