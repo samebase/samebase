@@ -10,7 +10,7 @@ import { getUserId } from "../common";
 import { toErrorMessage } from "../jsonUtils";
 import { parseRepositoryFullName } from "./model";
 import { isLiveConnectedVault, isNoterManagedVault } from "./state";
-import { toSafeRepoName } from "../repoName";
+import { toSafeRepoName } from "../../shared/repoName";
 import { requestConvexManagementApi } from "../convexManagementApi/client";
 import {
   resolveCloudflareProvisioningConnection,

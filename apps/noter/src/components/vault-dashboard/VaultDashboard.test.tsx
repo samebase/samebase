@@ -3,7 +3,11 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { Id } from "../../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import { VaultBranchLinkContent, VaultProviderSetupSection } from "./VaultDashboard";
+import {
+  GitHubRepositoryNameSlashWarning,
+  VaultBranchLinkContent,
+  VaultProviderSetupSection,
+} from "./VaultDashboard";
 import { VaultDashboardRepositoryCard } from "./VaultDashboardChrome";
 import { VaultResourceRail } from "./VaultResourceRail";
 import {
@@ -186,6 +190,21 @@ describe("VaultDashboardRepositoryCard", () => {
     expect(ownerQualifiedMarkup).toContain("#");
     expect(ownerQualifiedMarkup).toContain("nicu-chiciuc/");
     expect(ownerQualifiedMarkup).toContain("tmp-flow");
+  });
+});
+
+describe("GitHubRepositoryNameSlashWarning", () => {
+  it("shows the exact repository name slash replacement", () => {
+    const markup = renderToStaticMarkup(<GitHubRepositoryNameSlashWarning rawName="field/notes" />);
+
+    expect(markup).toContain("&quot;/&quot; will be replaced with &quot;-&quot;");
+    expect(markup).toContain("&quot;field-notes&quot;");
+  });
+
+  it("stays empty when the name has no slash replacement", () => {
+    const markup = renderToStaticMarkup(<GitHubRepositoryNameSlashWarning rawName="field-notes" />);
+
+    expect(markup).toBe("");
   });
 });
 

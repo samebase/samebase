@@ -6,7 +6,7 @@ import { internalAction, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
-import { toSafeRepoName } from "./repoName";
+import { toSafeRepoName } from "../shared/repoName";
 import { isAdminUser } from "./users";
 import type {
   AppProvisioningEventLevel,

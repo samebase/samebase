@@ -77,7 +77,6 @@ import type * as oauthState from "../oauthState.js";
 import type * as oauthUtils from "../oauthUtils.js";
 import type * as polarWebhooks from "../polarWebhooks.js";
 import type * as providerConnections from "../providerConnections.js";
-import type * as repoName from "../repoName.js";
 import type * as repositoryRefresh from "../repositoryRefresh.js";
 import type * as repositoryRefreshModel from "../repositoryRefreshModel.js";
 import type * as slugUtils from "../slugUtils.js";
@@ -111,7 +110,11 @@ import type * as waitlistActions from "../waitlistActions.js";
 import type * as workspaceSidebarState from "../workspaceSidebarState.js";
 import type * as workspaceSidebarStateModel from "../workspaceSidebarStateModel.js";
 
-import type { ApiFromModules, FilterApi, FunctionReference } from "convex/server";
+import type {
+  ApiFromModules,
+  FilterApi,
+  FunctionReference,
+} from "convex/server";
 
 declare const fullApi: ApiFromModules<{
   "agent/graph": typeof agent_graph;
@@ -183,7 +186,6 @@ declare const fullApi: ApiFromModules<{
   oauthUtils: typeof oauthUtils;
   polarWebhooks: typeof polarWebhooks;
   providerConnections: typeof providerConnections;
-  repoName: typeof repoName;
   repositoryRefresh: typeof repositoryRefresh;
   repositoryRefreshModel: typeof repositoryRefreshModel;
   slugUtils: typeof slugUtils;
@@ -226,7 +228,10 @@ declare const fullApi: ApiFromModules<{
  * const myFunctionReference = api.myModule.myFunction;
  * ```
  */
-export declare const api: FilterApi<typeof fullApi, FunctionReference<any, "public">>;
+export declare const api: FilterApi<
+  typeof fullApi,
+  FunctionReference<any, "public">
+>;
 
 /**
  * A utility for referencing Convex functions in your app's internal API.
@@ -236,7 +241,10 @@ export declare const api: FilterApi<typeof fullApi, FunctionReference<any, "publ
  * const myFunctionReference = internal.myModule.myFunction;
  * ```
  */
-export declare const internal: FilterApi<typeof fullApi, FunctionReference<any, "internal">>;
+export declare const internal: FilterApi<
+  typeof fullApi,
+  FunctionReference<any, "internal">
+>;
 
 export declare const components: {
   agent: import("@convex-dev/agent/_generated/component.js").ComponentApi<"agent">;

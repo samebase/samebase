@@ -20,7 +20,7 @@ import {
   normalizeVaultDashboardRepositoryHash,
 } from "@/components/vault-dashboard/vaultDashboardRepositoryHash";
 import { ChevronDownIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
-import { CheckIcon, GitBranch, GitCommitHorizontal, Loader2 } from "lucide-react";
+import { CheckIcon, GitBranch, GitCommitHorizontal, Loader2, TriangleAlert } from "lucide-react";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { Link, useLocation, useNavigate, useRouter } from "@tanstack/react-router";
 import { linkStyle } from "../styles";
@@ -111,6 +111,7 @@ import {
   buildDefaultAppResourceName,
   validateAppResourceName,
 } from "../../../shared/appResourceNames";
+import { toSafeRepoName } from "../../../shared/repoName";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import {
   CloudflareProviderLogo,
@@ -2602,7 +2603,7 @@ function CreateResourceNameStatus({
   kind,
 }: {
   children: ReactNode;
-  kind: "available" | "checking";
+  kind: "available" | "checking" | "warning";
 }) {
   return (
     <div
@@ -2610,17 +2611,36 @@ function CreateResourceNameStatus({
         "flex min-w-0 items-start gap-1.5 text-xs",
         kind === "available" && "text-green-600",
         kind === "checking" && "text-muted-foreground",
+        kind === "warning" && "text-amber-700",
       )}
       role="status"
     >
       {kind === "available" ? (
         <CheckIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      ) : kind === "warning" ? (
+        <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
       ) : (
         <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin" />
       )}
-      <span className="min-w-0">{children}</span>
+      <span className="min-w-0 [overflow-wrap:anywhere]">{children}</span>
     </div>
   );
+}
+
+function buildGitHubRepositoryNameSlashWarning(rawName: string): string | null {
+  const repositoryName = toSafeRepoName(rawName);
+  if (!rawName.includes("/") || !repositoryName) {
+    return null;
+  }
+  return `"/" will be replaced with "-": "${repositoryName}"`;
+}
+
+export function GitHubRepositoryNameSlashWarning({ rawName }: { rawName: string }) {
+  const warning = buildGitHubRepositoryNameSlashWarning(rawName);
+  if (!warning) {
+    return null;
+  }
+  return <CreateResourceNameStatus kind="warning">{warning}</CreateResourceNameStatus>;
 }
 
 function CreateResourceNameHelp({ children }: { children: ReactNode }) {
@@ -2641,7 +2661,7 @@ function CreateResourceNameInlineAction({
   );
 }
 
-function CreateControlMessageSlot({
+export function CreateControlMessageSlot({
   children,
   size = "compact",
 }: {
@@ -3573,6 +3593,26 @@ export function VaultDashboard() {
       );
     }
 
+    if (
+      githubRepositoryNameAvailability &&
+      githubRepositoryNameAvailability.status !== "available"
+    ) {
+      return (
+        <CreateResourceNameFeedback
+          message={
+            githubRepositoryNameAvailability.message ?? "GitHub repository name is not available."
+          }
+          suggestion={githubRepositoryNameAvailability.suggestion}
+          onUseSuggestion={setNewRepositoryName}
+        />
+      );
+    }
+
+    const slashWarning = buildGitHubRepositoryNameSlashWarning(createRepositoryName);
+    if (slashWarning) {
+      return <GitHubRepositoryNameSlashWarning rawName={createRepositoryName} />;
+    }
+
     if (isCreateResourceNameCheckPending) {
       return (
         <CreateResourceNameStatus kind="checking">
@@ -3581,11 +3621,7 @@ export function VaultDashboard() {
       );
     }
 
-    if (!githubRepositoryNameAvailability) {
-      return null;
-    }
-
-    if (githubRepositoryNameAvailability.status === "available") {
+    if (githubRepositoryNameAvailability?.status === "available") {
       return (
         <CreateResourceNameStatus kind="available">
           GitHub repository name is available.
@@ -3593,15 +3629,7 @@ export function VaultDashboard() {
       );
     }
 
-    return (
-      <CreateResourceNameFeedback
-        message={
-          githubRepositoryNameAvailability.message ?? "GitHub repository name is not available."
-        }
-        suggestion={githubRepositoryNameAvailability.suggestion}
-        onUseSuggestion={setNewRepositoryName}
-      />
-    );
+    return null;
   };
   const createPlaceholder = "GitHub repo name";
   const createButtonLabel = isCreating ? "Creating app..." : "New App";
