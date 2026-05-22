@@ -14,6 +14,12 @@ type NormalizeRouteUrlEditorHrefInput = {
   rawHref: string;
 };
 
+function isAddressHostSegment(value: string): boolean {
+  return (
+    value === "localhost" || value.startsWith("[") || value.includes(".") || value.includes(":")
+  );
+}
+
 export function normalizeRouteUrlEditorHref({
   currentHref,
   origin,
@@ -30,7 +36,19 @@ export function normalizeRouteUrlEditorHref({
   try {
     const appOrigin = new URL(origin);
     const currentUrl = new URL(currentHref, appOrigin);
-    const nextUrl = new URL(trimmedHref, currentUrl);
+    const sameOriginAddress =
+      trimmedHref === appOrigin.host ||
+      trimmedHref.startsWith(`${appOrigin.host}/`) ||
+      trimmedHref.startsWith(`${appOrigin.host}?`) ||
+      trimmedHref.startsWith(`${appOrigin.host}#`);
+    const firstAddressSegment = trimmedHref.split(/[/?#]/, 1)[0] ?? "";
+    const hostLikeAddress =
+      /^[a-z0-9.[\]-]+(?::\d+)?$/i.test(firstAddressSegment) &&
+      isAddressHostSegment(firstAddressSegment);
+    const nextUrl = new URL(
+      sameOriginAddress || hostLikeAddress ? `//${trimmedHref}` : trimmedHref,
+      currentUrl,
+    );
 
     if (nextUrl.origin !== appOrigin.origin) {
       return {

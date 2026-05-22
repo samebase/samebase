@@ -43,6 +43,32 @@ describe("normalizeRouteUrlEditorHref", () => {
     });
   });
 
+  it("accepts Codex-style same-origin addresses without a scheme", () => {
+    expect(
+      normalizeRouteUrlEditorHref({
+        currentHref: "/visual-fixture?mode=route-url-editor",
+        origin: "http://localhost:5174",
+        rawHref: "localhost:5174/terms?dev",
+      }),
+    ).toEqual({
+      status: "valid",
+      href: "/terms?dev",
+    });
+  });
+
+  it("rejects external addresses without a scheme", () => {
+    expect(
+      normalizeRouteUrlEditorHref({
+        currentHref: "/visual-fixture?mode=route-url-editor",
+        origin: "http://localhost:5174",
+        rawHref: "example.com/noter",
+      }),
+    ).toEqual({
+      status: "invalid",
+      reason: "external-origin",
+    });
+  });
+
   it("rejects empty input", () => {
     expect(
       normalizeRouteUrlEditorHref({
