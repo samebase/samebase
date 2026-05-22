@@ -141,6 +141,8 @@ Include:
 - stop when the product question has enough evidence
 - update research when user corrections invalidate a speculative direction
 - prefer small script or fixture probes when they resolve uncertainty faster than prose
+- identify when the implementation already matches the requested architecture and the right next
+  step is hardening tests or invariants instead of replacing code
 
 Noter app-template hook:
 
@@ -176,10 +178,16 @@ This overlay is for the reusable Noter app template, not for the local repo oper
 Include:
 
 - `notermd/app` is the template source of truth
+- Noter exports and seeds; `notermd/app` owns generated app content
+- remove unwanted generated-app files upstream in `notermd/app`, not by filtering them out in Noter
 - exported manifests must preserve deterministic ordering, binary content, file modes, branch
   selection, explicit token config, and the generated app's real build command
+- use one deterministic path-ordering rule across exporter, manifest hashing, binary blob creation,
+  and runtime tree entries
 - avoid Noter-only overlays in generated app output
 - validate generated app behavior through its actual build or app-creation path
+- keep artifact-regeneration prompts and messy research in Noter docs, never inside generated app
+  output
 - keep Cloudflare-first assumptions only where the app template currently owns them
 
 Exclude:

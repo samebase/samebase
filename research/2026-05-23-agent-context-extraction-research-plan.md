@@ -47,6 +47,10 @@ Repo guidance sources:
   experiment result.
 - `research/2026-05-23-agent-context-experiment-results-4.md` contains the typed provider-boundary
   refactoring experiment result.
+- `research/2026-05-23-agent-context-experiment-results-5.md` contains the
+  research-to-implementation and app-template adoption experiment result.
+- `research/2026-05-23-agent-context-layer-synthesis.md` summarizes the surviving layer boundaries
+  after the first five experiments and sets the skill-drafting order.
 
 Local thread evidence:
 
@@ -200,6 +204,12 @@ the Noter app-template overlay names why generated validation and decimal-string
 provider-safety invariants. It also exposed that `pnpm anon` is an operator workflow with provider
 side effects, not a portable read-only test instruction.
 
+The fifth experiment tested `notermd/app` adoption with a mid-run correction forbidding Noter-only
+overlays. All variants recognized the exporter/seeder path already exists, but the
+research-to-implementation pack improved test-ownership judgment and the Noter app-template overlay
+found the concrete exact-source invariant that runtime seeding should use the same deterministic
+bytewise ordering as the exporter.
+
 ## Candidate Layer Shape
 
 ### Layer 1: General Agent Engineering
@@ -214,6 +224,8 @@ Reusable across languages and repos:
 - review as bugs, risks, regressions, and missing tests
 - fail closed for cleanup and external writes
 - verify claims against current evidence before completion
+- recognize when the current implementation already satisfies the request and should be hardened
+  instead of replaced
 
 ### Layer 2: Typed Product Engineering
 
@@ -238,6 +250,9 @@ Reusable for `notermd/app` or close descendants:
 - Cloudflare-first hosting and preview expectations
 - provider connection and vault concepts
 - app-owned route shell and mobile pane behavior
+- exact `notermd/app` source export without Noter-side overlays or filtering
+- generated-manifest provenance, binary/text split, file modes, bytewise path ordering, branch
+  selection, content hash, and generated app build-command validation
 
 ### Layer 4: Noter Operator Overlay
 
@@ -294,8 +309,9 @@ context, a triggerable skill, a workflow doc, or an operator overlay.
 
 ## Next Work
 
-1. Run a research-to-implementation or app-template adoption experiment next.
-2. Compare the first four experiments and revise the layer boundaries.
+1. Draft actual skill files or package artifacts for the packs that survived the first five
+   experiments.
+2. Run targeted experiments against those draft artifacts instead of adding more broad comparison
+   runs.
 3. Manually review the pinned comparison threads after the non-pinned baseline has more breadth.
-4. Draft actual skill files or package artifacts for the packs that survive experiment.
-5. Only then move durable material out of `AGENTS.md`.
+4. Only then move durable material out of `AGENTS.md`.
