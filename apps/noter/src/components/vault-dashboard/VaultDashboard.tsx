@@ -2643,10 +2643,11 @@ export function GitHubRepositoryNameSlashWarning({ rawName }: { rawName: string 
   }
   return (
     <CreateResourceNameStatus kind="warning">
-      in github repo name "/" will be replaced with "-":{" "}
+      In GitHub repository names, "/" will be replaced with "-":{" "}
       <code className="rounded bg-amber-100 px-1 py-0.5 font-mono text-[11px] text-amber-950">
         {repositoryName}
       </code>
+      {"."}
     </CreateResourceNameStatus>
   );
 }
