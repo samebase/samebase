@@ -95,6 +95,10 @@ import {
   SidebarMediaUploadVisualFixture,
   type SidebarMediaUploadVisualMode,
 } from "@/components/SidebarMediaUploadVisualFixture";
+import {
+  RouteUrlEditorVisualFixture,
+  type RouteUrlEditorVisualMode,
+} from "@/components/RouteUrlEditorVisualFixture";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import "./index.css";
 
@@ -120,6 +124,7 @@ type VisualFixtureMode =
   | CodexAppServerResearchVisualMode
   | CodexThreadBrowserVisualMode
   | CodexThreadHistoryVisualMode
+  | RouteUrlEditorVisualMode
   | "machines-workspace"
   | "machine-connect"
   | "vault-dashboard-branch-pr-title"
@@ -237,6 +242,9 @@ const FILE_VIEW_MONACO_DRAG_VISUAL_MODES = [
 const WORKSPACE_LAYOUT_V2_VISUAL_MODES = [
   "workspace-layout-v2-status-bar",
 ] as const satisfies readonly WorkspaceLayoutV2VisualMode[];
+const ROUTE_URL_EDITOR_VISUAL_MODES = [
+  "route-url-editor",
+] as const satisfies readonly RouteUrlEditorVisualMode[];
 const MISC_VISUAL_MODES = [
   "codex-app-server-research",
   "codex-thread-browser",
@@ -300,6 +308,10 @@ const VISUAL_FIXTURE_GROUPS = [
   {
     label: "Vault Sync Status",
     modes: VAULT_SYNC_STATUS_VISUAL_MODES,
+  },
+  {
+    label: "Route URL",
+    modes: ROUTE_URL_EDITOR_VISUAL_MODES,
   },
   {
     label: "Misc",
@@ -460,6 +472,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "workspace-layout-v2-status-bar") {
     return <WorkspaceLayoutV2VisualFixture />;
+  }
+
+  if (mode === "route-url-editor") {
+    return <RouteUrlEditorVisualFixture />;
   }
 
   if (mode === "button") {
