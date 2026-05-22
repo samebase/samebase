@@ -687,7 +687,7 @@ test("logo iso controls mobile boot", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Preview" })).toHaveCount(0);
 });
 
-test("logo view mobile header button reopens the controls sidebar", async ({ page }) => {
+test("logo view mobile header omits the controls sidebar button", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/logo?elev=215.3", {
     waitUntil: "domcontentloaded",
@@ -697,9 +697,6 @@ test("logo view mobile header button reopens the controls sidebar", async ({ pag
   const carousel = page.getByTestId("workspace-layout-v2-pane-main");
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
   const mainHeader = page.getByTestId("logo-preview-main-header");
-  const controlsToggle = page.getByRole("button", {
-    name: "Toggle sidebar",
-  });
 
   await expect(workspace).toHaveAttribute("data-mobile-pane", "left");
   await expect(controlsSidebar).toContainText("Pages");
@@ -709,7 +706,7 @@ test("logo view mobile header button reopens the controls sidebar", async ({ pag
     element.dispatchEvent(new Event("scroll", { bubbles: true }));
   });
   await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
-  await expect(controlsToggle).toBeVisible();
+  await expect(page.getByRole("button", { name: "Toggle sidebar" })).toHaveCount(0);
 
   await expect(mainHeader).toHaveScreenshot("logo-mobile-main-header.png", {
     animations: "disabled",
@@ -717,9 +714,6 @@ test("logo view mobile header button reopens the controls sidebar", async ({ pag
     scale: "css",
     maxDiffPixelRatio: 0.01,
   });
-
-  await controlsToggle.click();
-  await expect(workspace).toHaveAttribute("data-mobile-pane", "left");
 });
 
 test("logo view angle input stacks below the slider", async ({ page }) => {
@@ -915,7 +909,7 @@ test("logo view desktop header toggle collapses and reopens the sidebar", async 
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
   const leftToggle = page.getByRole("button", {
-    name: "Toggle sidebar",
+    name: "Toggle Left Sidebar",
   });
 
   await expect(leftToggle).toBeVisible();

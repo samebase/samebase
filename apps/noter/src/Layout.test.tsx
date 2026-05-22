@@ -196,7 +196,7 @@ describe("Layout", () => {
             left={{
               content: <div data-testid="local-storage-left-pane">localStorage</div>,
             }}
-            leftToggleVisibility="all"
+            leftToggleVisibility="desktop"
             main={{
               header: <div>Storage header</div>,
               content: <div>Storage values</div>,
@@ -209,7 +209,7 @@ describe("Layout", () => {
     expect(markup).toContain('data-testid="local-storage-workspace"');
     expect(markup).toContain('data-testid="workspace-layout-v2-pane-left"');
     expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
-    expect(markup).toContain('aria-label="Toggle sidebar"');
+    expect(markup).toContain('aria-label="Toggle Left Sidebar"');
     expect(markup).toContain("/logo");
     expect(markup).toContain("/home");
     expect(markup).toContain("/terms");

@@ -96,7 +96,7 @@ export function LocalStorageWorkspacePage() {
       left={{
         content: <LocalStorageSidebarContent />,
       }}
-      leftToggleVisibility="all"
+      leftToggleVisibility="desktop"
       main={{
         header: <RepositoryWorkspacePaneHeader title="localStorage" />,
         content: <LocalStorageEntriesTable snapshot={snapshot} />,
