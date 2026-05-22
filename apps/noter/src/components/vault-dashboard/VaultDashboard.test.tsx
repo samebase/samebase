@@ -200,7 +200,8 @@ describe("GitHubRepositoryNameSlashWarning", () => {
     expect(markup).toContain("&quot;/&quot; will be replaced with &quot;-&quot;");
     expect(markup).toContain("<code");
     expect(markup).toContain("font-mono");
-    expect(markup).toContain("&quot;field-notes&quot;");
+    expect(markup).toContain(">field-notes</code>");
+    expect(markup).not.toContain("&quot;field-notes&quot;");
   });
 
   it("stays empty when the name has no slash replacement", () => {
