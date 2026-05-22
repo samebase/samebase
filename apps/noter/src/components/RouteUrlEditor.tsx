@@ -4,8 +4,8 @@ import {
   useCallback,
   useEffect,
   useId,
-  useRef,
   useState,
+  type ChangeEvent,
   type FormEvent,
   type KeyboardEvent,
 } from "react";
@@ -37,16 +37,30 @@ function formatRouteUrlEditorAddress(href: string): string {
   return href;
 }
 
+type RouteUrlEditorCommitMode = "route-options" | "route-navigation";
+
+function getRouteUrlEditorCommitMode(args: {
+  currentHref: string;
+  nextHref: string;
+  origin: string;
+}): RouteUrlEditorCommitMode {
+  const appOrigin = new URL(args.origin);
+  const currentUrl = new URL(args.currentHref, appOrigin);
+  const nextUrl = new URL(args.nextHref, appOrigin);
+
+  return currentUrl.pathname === nextUrl.pathname ? "route-options" : "route-navigation";
+}
+
 export function RouteUrlEditor() {
   const location = useLocation();
   const router = useRouter();
   const currentHref = location.href;
-  const currentAddress = formatRouteUrlEditorAddress(currentHref);
+  const urlRealityAddress = formatRouteUrlEditorAddress(currentHref);
   const currentHistoryIndex = location.state.__TSR_index;
   const inputId = useId();
-  const inputRef = useRef<HTMLInputElement>(null);
   const [invalidInput, setInvalidInput] = useState(false);
   const [forwardHistoryIndex, setForwardHistoryIndex] = useState(currentHistoryIndex);
+  const [draftRealityAddress, setDraftRealityAddress] = useState(urlRealityAddress);
 
   const canGoBack = currentHistoryIndex > 0;
   const canGoForward = currentHistoryIndex < forwardHistoryIndex;
@@ -72,6 +86,13 @@ export function RouteUrlEditor() {
     [router],
   );
 
+  // Links, Back/Forward, and committed edits change URL reality; uncommitted
+  // draft text stays local only until one of those route commits lands.
+  useEffect(() => {
+    setDraftRealityAddress(urlRealityAddress);
+    setInvalidInput(false);
+  }, [urlRealityAddress]);
+
   const goBack = useCallback(() => {
     router.history.back();
   }, [router]);
@@ -88,27 +109,28 @@ export function RouteUrlEditor() {
     window.location.reload();
   }, []);
 
-  const clearInvalidInput = useCallback(() => {
-    if (invalidInput) {
-      setInvalidInput(false);
-    }
-  }, [invalidInput]);
+  const changeDraftRealityAddress = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      setDraftRealityAddress(event.currentTarget.value);
+
+      if (invalidInput) {
+        setInvalidInput(false);
+      }
+    },
+    [invalidInput],
+  );
 
   const resetInput = useCallback(() => {
-    const input = inputRef.current;
-    if (!input) {
-      return;
-    }
-
-    input.value = currentAddress;
+    setDraftRealityAddress(urlRealityAddress);
     setInvalidInput(false);
-  }, [currentAddress]);
+  }, [urlRealityAddress]);
 
   const commitInput = useCallback(
     (rawAddress: string) => {
+      const origin = readRouteUrlEditorOrigin();
       const result = normalizeRouteUrlEditorHref({
         currentHref,
-        origin: readRouteUrlEditorOrigin(),
+        origin,
         rawHref: rawAddress,
       });
 
@@ -117,19 +139,32 @@ export function RouteUrlEditor() {
         return;
       }
 
-      const input = inputRef.current;
-      if (input) {
-        input.value = formatRouteUrlEditorAddress(result.href);
-      }
+      setDraftRealityAddress(formatRouteUrlEditorAddress(result.href));
       setInvalidInput(false);
 
       if (result.href === currentHref) {
         return;
       }
 
-      void router.navigate({
-        href: result.href,
+      const commitMode = getRouteUrlEditorCommitMode({
+        currentHref,
+        nextHref: result.href,
+        origin,
       });
+
+      switch (commitMode) {
+        case "route-options":
+          void router.navigate({
+            href: result.href,
+            resetScroll: false,
+          });
+          return;
+        case "route-navigation":
+          void router.navigate({
+            href: result.href,
+          });
+          return;
+      }
     },
     [currentHref, router],
   );
@@ -137,14 +172,9 @@ export function RouteUrlEditor() {
   const submitInput = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      const input = inputRef.current;
-      if (!input) {
-        return;
-      }
-
-      commitInput(input.value);
+      commitInput(draftRealityAddress);
     },
-    [commitInput],
+    [commitInput, draftRealityAddress],
   );
 
   const handleInputKeyDown = useCallback(
@@ -198,12 +228,10 @@ export function RouteUrlEditor() {
         <RefreshCw aria-hidden="true" className="size-4" />
       </button>
       {/*
-        Keep typing uncontrolled: URL changes remount the input, but ordinary
-        keystrokes do not copy address text through React state.
+        URL reality comes from the router. Draft reality stays local until
+        submit, so option edits never navigate while the user is typing.
       */}
       <input
-        key={currentHref}
-        ref={inputRef}
         aria-describedby={invalidInput ? `${inputId}-error` : undefined}
         aria-invalid={invalidInput}
         autoCapitalize="none"
@@ -211,15 +239,15 @@ export function RouteUrlEditor() {
         autoCorrect="off"
         className="h-7 min-w-0 flex-1 border-0 bg-transparent px-1 font-mono text-sm leading-7 outline-none selection:bg-primary/20 aria-invalid:text-destructive"
         data-testid="route-url-editor-input"
-        defaultValue={currentAddress}
         id={inputId}
         inputMode="url"
         name="routeHref"
-        onInput={clearInvalidInput}
+        onChange={changeDraftRealityAddress}
         onKeyDown={handleInputKeyDown}
         spellCheck={false}
-        title={currentAddress}
+        title={urlRealityAddress}
         type="text"
+        value={draftRealityAddress}
       />
       <button
         aria-label="Go to route URL"
