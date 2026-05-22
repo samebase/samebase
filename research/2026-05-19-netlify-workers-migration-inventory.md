@@ -5,12 +5,10 @@
 - Status: Read-only research
 - Owner: Noter app migration and operator app consolidation
 - Created: 2026-05-19
-- Source: Chrome read-only pass through the Netlify dashboard for the
-  `nicuchiciuc-netlify` team
+- Source: Chrome read-only pass through the Netlify dashboard for the `nicuchiciuc-netlify` team
 - Related:
   - `research/2026-05-18-tsx-md-workers-migration.md` in the `tsx_md` repository
-  - `specs/001_TSX_MD_TANSTACK_START_MIGRATION_SPEC.md` in the `tsx_md`
-    repository
+  - `specs/001_TSX_MD_TANSTACK_START_MIGRATION_SPEC.md` in the `tsx_md` repository
   - `research/2026-05-15-notermd-workers-provisioning-migration.md`
   - `specs/030_MONOREPO_TYPESCRIPT_RUNTIME_AND_PORTABILITY_SPEC.md`
 
@@ -18,41 +16,34 @@
 
 Inventory the remaining Netlify apps before doing any real migration work.
 
-The operator wants to move personal and toy apps into the Noter-supported GitHub
-plus Convex plus Cloudflare Workers stack, but the main requirement is to avoid
-losing migration knowledge. This pass intentionally did not mutate Netlify,
-Cloudflare, GitHub, Convex, DNS, environment variables, or deployed apps.
+The operator wants to move personal and toy apps into the Noter-supported GitHub plus Convex plus
+Cloudflare Workers stack, but the main requirement is to avoid losing migration knowledge. This pass
+intentionally did not mutate Netlify, Cloudflare, GitHub, Convex, DNS, environment variables, or
+deployed apps.
 
 ## Current Finding
 
-The Netlify estate is small enough to migrate manually, but it is varied enough
-to justify a written migration playbook. The seven projects fall into four
-useful migration classes:
+The Netlify estate is small enough to migrate manually, but it is varied enough to justify a written
+migration playbook. The seven projects fall into four useful migration classes:
 
-1. Netlify Next.js apps with generated server functions: `ailegis-front`,
-   `bristol.tsx.md`.
-2. Convex-backed static/SPA apps with `dist` output: `chessmerge.com`,
-   `automato.tsx.md`, `weight.tsx.md`.
+1. Netlify Next.js apps with generated server functions: `ailegis-front`, `bristol.tsx.md`.
+2. Convex-backed static/SPA apps with `dist` output: `chessmerge.com`, `automato.tsx.md`,
+   `weight.tsx.md`.
 3. Static/SPA app without visible Convex env: `event-miner`.
-4. Legacy static or manually configured app with no visible build settings:
-   `iterseg`.
+4. Legacy static or manually configured app with no visible build settings: `iterseg`.
 
-The Convex-backed `dist` apps look like the best first real migration targets
-because they already match the Cloudflare Workers Static Assets shape more
-closely than the Next.js apps. The Next.js apps are more valuable for learning,
-but they should start with a source-code inspection because Netlify is currently
-deploying them through a generated `Next.js Server Handler` function.
+The Convex-backed `dist` apps look like the best first real migration targets because they already
+match the Cloudflare Workers Static Assets shape more closely than the Next.js apps. The Next.js
+apps are more valuable for learning, but they should start with a source-code inspection because
+Netlify is currently deploying them through a generated `Next.js Server Handler` function.
 
 ## Safety Notes
 
-- This pass recorded environment variable names only. Values were not opened or
-  copied.
-- No deploy settings, domains, DNS records, provider connections, tokens, or app
-  code were changed.
-- The Forms pages only showed generic Netlify Forms product copy in this pass,
-  not evidence of project-specific form handling.
-- No deployed Edge Functions were visible in the Netlify dashboard for any
-  project.
+- This pass recorded environment variable names only. Values were not opened or copied.
+- No deploy settings, domains, DNS records, provider connections, tokens, or app code were changed.
+- The Forms pages only showed generic Netlify Forms product copy in this pass, not evidence of
+  project-specific form handling.
+- No deployed Edge Functions were visible in the Netlify dashboard for any project.
 
 ## Inventory
 
@@ -70,23 +61,20 @@ deploying them through a generated `Next.js Server Handler` function.
 
 All seven projects use Node.js `22.x` in Netlify.
 
-All seven projects are configured to deploy only the production branch, with
-deploy previews enabled for pull requests against the production branch or
-branch deploy branches.
+All seven projects are configured to deploy only the production branch, with deploy previews enabled
+for pull requests against the production branch or branch deploy branches.
 
 Production branches:
 
-- `main`: `ailegis-front`, `chessmerge.com`, `bristol.tsx.md`,
-  `automato.tsx.md`, `weight.tsx.md`, `event-miner`
+- `main`: `ailegis-front`, `chessmerge.com`, `bristol.tsx.md`, `automato.tsx.md`, `weight.tsx.md`,
+  `event-miner`
 - `master`: `iterseg`
 
 Latest production deploys visible in Netlify:
 
-- `ailegis-front`: `main@63ad40a`, published 2026-02-17,
-  `chore: bump next and tailwind`
+- `ailegis-front`: `main@63ad40a`, published 2026-02-17, `chore: bump next and tailwind`
 - `chessmerge.com`: `main@acdbe1d`, published 2026-02-10, `something`
-- `bristol.tsx.md`: `main@2328b79`, published 2026-02-03,
-  `add claude code local settings`
+- `bristol.tsx.md`: `main@2328b79`, published 2026-02-03, `add claude code local settings`
 - `automato.tsx.md`: `main@8da124f`, published 2026-01-12,
   `Refactor WorkflowPanel component for improved code readability and consistency; format function return types and clean up whitespace`
 - `weight.tsx.md`: `main@e26a383`, published 2025-12-26, `fix ts error`
@@ -108,16 +96,16 @@ Latest production deploys visible in Netlify:
 All other projects:
 
 - No production function list was visible in this dashboard pass.
-- A default `netlify/functions` directory appears in the build settings, but
-  that alone does not prove deployed functions exist.
+- A default `netlify/functions` directory appears in the build settings, but that alone does not
+  prove deployed functions exist.
 
 ## Migration Interpretation
 
 ### Straight Workers Static Assets Candidates
 
-`chessmerge.com`, `automato.tsx.md`, and `weight.tsx.md` are probably the
-lowest-risk first migrations. They already build to `dist`, use Convex deploy
-keys, and do not show Netlify Functions or Edge Functions.
+`chessmerge.com`, `automato.tsx.md`, and `weight.tsx.md` are probably the lowest-risk first
+migrations. They already build to `dist`, use Convex deploy keys, and do not show Netlify Functions
+or Edge Functions.
 
 Expected migration work:
 
@@ -131,42 +119,38 @@ Expected migration work:
 
 ### Next.js/Server Function Candidates
 
-`ailegis-front` and `bristol.tsx.md` need more care. Netlify is not just serving
-static assets; it is running a generated Next.js server handler.
+`ailegis-front` and `bristol.tsx.md` need more care. Netlify is not just serving static assets; it
+is running a generated Next.js server handler.
 
 Expected migration work:
 
 - inspect whether the apps actually need server-side Next.js behavior
-- if server behavior is not needed, migrate to a static/SPA or TanStack-style
-  Workers app
-- if server behavior is needed, evaluate a Workers-compatible Next.js target
-  before touching production
+- if server behavior is not needed, migrate to a static/SPA or TanStack-style Workers app
+- if server behavior is needed, evaluate a Workers-compatible Next.js target before touching
+  production
 - preserve Clerk and API/env contracts for `ailegis-front`
 - preserve the Cara Care API token and Convex env contract for `bristol.tsx.md`
 
 ### Legacy/Unknown Candidate
 
-`iterseg` needs a source-code pass before any platform plan. Netlify shows no
-build command, no publish directory, no env vars, and production branch
-`master`.
+`iterseg` needs a source-code pass before any platform plan. Netlify shows no build command, no
+publish directory, no env vars, and production branch `master`.
 
 Expected migration work:
 
 - inspect the repository history and current file layout
-- determine whether Netlify is serving a manual/static deploy or an older build
-  shape not visible in the current settings panel
+- determine whether Netlify is serving a manual/static deploy or an older build shape not visible in
+  the current settings panel
 - preserve the current public URL behavior before replacing the deploy target
 
 ### Plain Static/SPA Candidate
 
-`event-miner` is likely a simple Workers Static Assets migration. It has a
-normal `npm run build` and `dist` output with no visible env vars or custom
-domains.
+`event-miner` is likely a simple Workers Static Assets migration. It has a normal `npm run build`
+and `dist` output with no visible env vars or custom domains.
 
 ## Proposed Next Pass
 
-Before changing any provider settings, inspect the repositories for the three
-likely-first apps:
+Before changing any provider settings, inspect the repositories for the three likely-first apps:
 
 1. `github.com/nicu-chiciuc/weight_tsx`
 2. `github.com/nicu-chiciuc/automato`
@@ -177,32 +161,30 @@ For each repository, document:
 - current framework and package manager
 - current Convex deployment naming and env contract
 - whether it already has Cloudflare or Wrangler files
-- whether the app has app-specific memory such as `AGENTS.md`, skills, or
-  migration notes
+- whether the app has app-specific memory such as `AGENTS.md`, skills, or migration notes
 - exact Netlify-to-Workers file changes required
 - whether the custom domain can move immediately or needs a staged DNS cutover
 
-After one migration is completed, extract the repeatable parts into a
-`migration-to-noter` skill rather than leaving the process only in this research
-document.
+After one migration is completed, extract the repeatable parts into a `migration-to-noter` skill
+rather than leaving the process only in this research document.
 
 ## `weight.tsx.md` Source Inspection
 
-Inspected 2026-05-19 from a fresh checkout of
-`github.com/nicu-chiciuc/weight_tsx` at `main@e26a383`.
+Inspected 2026-05-19 from a fresh checkout of `github.com/nicu-chiciuc/weight_tsx` at
+`main@e26a383`.
 
 ### Source Facts
 
 - App shape: root-level Vite React SPA with Convex Auth and Tailwind.
-- Package manager shape: npm project, no tracked lockfile. `.gitignore`
-  explicitly ignores `package-lock.json`.
+- Package manager shape: npm project, no tracked lockfile. `.gitignore` explicitly ignores
+  `package-lock.json`.
 - Current build: `npm run build` runs `tsc -b && vite build` and emits `dist`.
 - Current Netlify build command: `npx convex deploy --cmd 'npm run build'`.
 - Current Netlify env names: `CONVEX_DEPLOY_KEY`, `VITE_CONVEX_URL`.
 - Current custom domain: `weight.tsx.md`.
 - Current Netlify subdomain: `weight-tsx.netlify.app`.
-- No `wrangler.jsonc`, Cloudflare config, `netlify.toml`, `_redirects`, or
-  `_headers` files exist in the repository.
+- No `wrangler.jsonc`, Cloudflare config, `netlify.toml`, `_redirects`, or `_headers` files exist in
+  the repository.
 - `vercel.json` still exists only to rewrite all routes to `/index.html`.
 - No `AGENTS.md` or app-specific reusable memory exists in the repository.
 
@@ -224,39 +206,35 @@ npm run build
 
 - `convex/auth.config.ts` is outside the ESLint parser project list.
 - `src/App.tsx` has an unnecessary `FormData` assertion.
-- `src/App.tsx` has an existing React hook dependency warning for the fallback
-  `entries` array.
+- `src/App.tsx` has an existing React hook dependency warning for the fallback `entries` array.
 
 These are existing quality issues, not Workers migration blockers.
 
 ### Migration Risks
 
-The app is a good first Workers migration target because it is already a static
-Vite build backed by Convex. There is no visible server runtime to port.
+The app is a good first Workers migration target because it is already a static Vite build backed by
+Convex. There is no visible server runtime to port.
 
 The main migration-specific risk is the PWA layer:
 
-- `public/sw.js` caches source paths such as `/src/main.tsx`, `/src/App.tsx`,
-  and `/src/index.css`.
+- `public/sw.js` caches source paths such as `/src/main.tsx`, `/src/App.tsx`, and `/src/index.css`.
 - Those paths are not stable production assets after Vite builds into `dist`.
-- `public/manifest.json` and `index.html` reference `/icon.png`, but the repo
-  only has `public/favicon.png` and `public/convex.svg`.
+- `public/manifest.json` and `index.html` reference `/icon.png`, but the repo only has
+  `public/favicon.png` and `public/convex.svg`.
 
-The safest first migration should either remove the service worker registration
-and stale `public/sw.js`, or replace it with a minimal runtime-safe service
-worker that does not precache source files. PWA polish can come after the
-provider migration is verified.
+The safest first migration should either remove the service worker registration and stale
+`public/sw.js`, or replace it with a minimal runtime-safe service worker that does not precache
+source files. PWA polish can come after the provider migration is verified.
 
-After reviewing the minimal plan, the operator chose a fuller Noter-stack
-standardization for this first migration. The implementation should therefore
-move `weight_tsx` to TanStack Start SPA mode, pnpm, `vite-plus`, and the Noter
-Workers build/deploy contract instead of preserving the current Vite-only app
-shape.
+After reviewing the minimal plan, the operator chose a fuller Noter-stack standardization for this
+first migration. The implementation should therefore move `weight_tsx` to TanStack Start SPA mode,
+pnpm, `vite-plus`, and the Noter Workers build/deploy contract instead of preserving the current
+Vite-only app shape.
 
 ### Recommended Code Patch
 
-Use this as the first Noter-stack app migration shape. It keeps the product
-surface intact while standardizing the app shell and deployment contract.
+Use this as the first Noter-stack app migration shape. It keeps the product surface intact while
+standardizing the app shell and deployment contract.
 
 1. Convert package management to pnpm and commit `pnpm-lock.yaml`.
 2. Add TanStack Start SPA mode, `vite-plus`, and `wrangler` dependencies.
@@ -274,8 +252,8 @@ surface intact while standardizing the app shell and deployment contract.
    }
    ```
 
-   Do not hard-code `name` in `wrangler.jsonc`; the Worker name should come from
-   Cloudflare Workers Builds or the local deploy wrapper.
+   Do not hard-code `name` in `wrangler.jsonc`; the Worker name should come from Cloudflare Workers
+   Builds or the local deploy wrapper.
 
 4. Split `package.json` scripts:
 
@@ -296,8 +274,7 @@ surface intact while standardizing the app shell and deployment contract.
    - read `WORKERS_CI_BRANCH`
    - use `PROD_CONVEX_DEPLOY_KEY` for `main`
    - use `PREVIEW_CONVEX_DEPLOY_KEY` for non-production branches
-   - run `pnpm exec convex deploy --cmd 'pnpm run build:app'` with the selected
-     key
+   - run `pnpm exec convex deploy --cmd 'pnpm run build:app'` with the selected key
    - for local builds with no deploy keys, run `pnpm run build:app`
 
 6. Add `scripts/deploy-cloudflare.mjs`:
@@ -306,16 +283,15 @@ surface intact while standardizing the app shell and deployment contract.
    - reject manually passed Wrangler `--name` flags
    - run `pnpm exec wrangler deploy --name <worker>` for production
    - run `pnpm exec wrangler versions upload --name <worker>` for previews
-   - run the Cloudflare build path locally before Wrangler, but skip that extra
-     build inside Workers Builds because the dashboard build command already ran
+   - run the Cloudflare build path locally before Wrangler, but skip that extra build inside Workers
+     Builds because the dashboard build command already ran
 
 7. Remove `vercel.json`; Workers Static Assets SPA fallback replaces it.
-8. Remove or repair the service worker and `/icon.png` references before the
-   first Workers smoke test.
-9. Add a short `AGENTS.md` to the `weight_tsx` repo with the app contract: Vite
-   React SPA, Convex Auth backend, deploys through Cloudflare Workers Static
-   Assets, production domain `weight.tsx.md`, and the split Convex deploy-key
-   build contract.
+8. Remove or repair the service worker and `/icon.png` references before the first Workers smoke
+   test.
+9. Add a short `AGENTS.md` to the `weight_tsx` repo with the app contract: Vite React SPA, Convex
+   Auth backend, deploys through Cloudflare Workers Static Assets, production domain
+   `weight.tsx.md`, and the split Convex deploy-key build contract.
 
 ### Cloudflare Workers Build Settings
 
@@ -331,17 +307,15 @@ Use these values for the first Workers project:
 - Build secret: `PROD_CONVEX_DEPLOY_KEY`
 - Build secret: `PREVIEW_CONVEX_DEPLOY_KEY`
 
-For the first production migration, preserve the existing Convex production
-deployment so existing weight data stays intact. Copy the current production
-Netlify `CONVEX_DEPLOY_KEY` value into Cloudflare as `PROD_CONVEX_DEPLOY_KEY`.
-Create or choose a separate Convex preview deploy key before enabling
-non-production branch builds; otherwise keep non-production Workers builds
-disabled until the preview key exists.
+For the first production migration, preserve the existing Convex production deployment so existing
+weight data stays intact. Copy the current production Netlify `CONVEX_DEPLOY_KEY` value into
+Cloudflare as `PROD_CONVEX_DEPLOY_KEY`. Create or choose a separate Convex preview deploy key before
+enabling non-production branch builds; otherwise keep non-production Workers builds disabled until
+the preview key exists.
 
-Do not add `VITE_CONVEX_URL` manually unless a build proves Convex is not
-injecting the correct URL through `convex deploy --cmd`. The current Netlify
-build command already relies on `convex deploy --cmd`, and the Workers build
-script should preserve that shape.
+Do not add `VITE_CONVEX_URL` manually unless a build proves Convex is not injecting the correct URL
+through `convex deploy --cmd`. The current Netlify build command already relies on
+`convex deploy --cmd`, and the Workers build script should preserve that shape.
 
 ### Validation Plan
 
@@ -374,10 +348,9 @@ Started implementation on branch `codex/standardize-weight-workers` in
 Actual migration shape:
 
 - converted package management to pnpm with `packageManager: pnpm@11.1.1`
-- added `pnpm-workspace.yaml` with approved build scripts for `esbuild`,
-  `sharp`, and `workerd`
-- added `node-addon-api` and `node-gyp`, matching the TSX-MD migration, so the
-  approved `sharp` install can complete locally
+- added `pnpm-workspace.yaml` with approved build scripts for `esbuild`, `sharp`, and `workerd`
+- added `node-addon-api` and `node-gyp`, matching the TSX-MD migration, so the approved `sharp`
+  install can complete locally
 - moved from Vite `index.html` to TanStack Start SPA mode with:
   - `src/client.tsx`
   - `src/router.tsx`
@@ -387,11 +360,10 @@ Actual migration shape:
 - kept the existing `App.tsx` product UI and Convex functions intact
 - removed the stale service worker and Vercel rewrite config
 - updated manifest icons from missing `/icon.png` to existing `/favicon.png`
-- added `wrangler.jsonc`, Cloudflare build/deploy wrappers, `AGENTS.md`, and a
-  repo-specific README
-- kept the existing Netlify outer Convex deploy command working until cutover by
-  allowing Netlify to build app assets inside its nested `convex deploy --cmd`
-  step, while still rejecting generic `CONVEX_DEPLOY_KEY` in Workers builds
+- added `wrangler.jsonc`, Cloudflare build/deploy wrappers, `AGENTS.md`, and a repo-specific README
+- kept the existing Netlify outer Convex deploy command working until cutover by allowing Netlify to
+  build app assets inside its nested `convex deploy --cmd` step, while still rejecting generic
+  `CONVEX_DEPLOY_KEY` in Workers builds
 
 Validation completed before provider changes:
 
@@ -405,24 +377,21 @@ CLOUDFLARE_WORKER_NAME=weight-tsx pnpm run deploy:preview:dry-run
 pnpm run preview
 ```
 
-Browser smoke against `http://127.0.0.1:3021/` rendered the new Start shell and
-showed the intentional `VITE_CONVEX_URL` missing state. Browser smoke against
-`/not-a-real-route` rendered the app-level 404 through the SPA fallback. Both
-checks had no browser console errors.
+Browser smoke against `http://127.0.0.1:3021/` rendered the new Start shell and showed the
+intentional `VITE_CONVEX_URL` missing state. Browser smoke against `/not-a-real-route` rendered the
+app-level 404 through the SPA fallback. Both checks had no browser console errors.
 
-Authenticated Convex flows were not tested locally because the production Convex
-deploy key and production `VITE_CONVEX_URL` were not copied into the inspection
-checkout. That should be tested only after the Cloudflare build uses the
-preserved production Convex deploy key.
+Authenticated Convex flows were not tested locally because the production Convex deploy key and
+production `VITE_CONVEX_URL` were not copied into the inspection checkout. That should be tested
+only after the Cloudflare build uses the preserved production Convex deploy key.
 
-Only after that smoke test should `weight.tsx.md` move from Netlify to
-Cloudflare. Keep the Netlify project enabled until the Cloudflare domain is live
-and verified.
+Only after that smoke test should `weight.tsx.md` move from Netlify to Cloudflare. Keep the Netlify
+project enabled until the Cloudflare domain is live and verified.
 
 ### External References Checked
 
-- Cloudflare Workers Builds runs a build command followed by a deploy command;
-  preview builds use the non-production branch deploy command:
+- Cloudflare Workers Builds runs a build command followed by a deploy command; preview builds use
+  the non-production branch deploy command:
   <https://developers.cloudflare.com/workers/ci-cd/builds/configuration/>
 - Workers Builds injects `WORKERS_CI` and `WORKERS_CI_BRANCH` by default:
   <https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#default-variables>
@@ -454,7 +423,6 @@ This migration should become a reusable Noter workflow step:
 - move domain only after Worker smoke test passes
 - store provider identities in the dashboard
 
-`weight.tsx.md` also reinforces the need for Noter to show provider identity
-plainly. During and after this migration, the dashboard should surface at least
-the GitHub repo, Convex project/deployment, Cloudflare Worker name, production
-URL, and custom domain.
+`weight.tsx.md` also reinforces the need for Noter to show provider identity plainly. During and
+after this migration, the dashboard should surface at least the GitHub repo, Convex
+project/deployment, Cloudflare Worker name, production URL, and custom domain.
