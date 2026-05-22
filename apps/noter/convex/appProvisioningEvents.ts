@@ -5,7 +5,7 @@ import { getUserId } from "./common";
 
 const { array, id, number, object, string } = v;
 const MAX_PROVISIONING_EVENTS = 80;
-const MAX_PROVISIONING_MESSAGE_LENGTH = 800;
+const MAX_PROVISIONING_MESSAGE_LENGTH = 4000;
 
 const provisioningEventResult = object({
   _id: id("appProvisioningEvents"),

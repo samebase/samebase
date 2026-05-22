@@ -76,6 +76,7 @@ import type * as mcpTokenHealth from "../mcpTokenHealth.js";
 import type * as oauthState from "../oauthState.js";
 import type * as oauthUtils from "../oauthUtils.js";
 import type * as polarWebhooks from "../polarWebhooks.js";
+import type * as providerApiLog from "../providerApiLog.js";
 import type * as providerConnections from "../providerConnections.js";
 import type * as repositoryRefresh from "../repositoryRefresh.js";
 import type * as repositoryRefreshModel from "../repositoryRefreshModel.js";
@@ -187,6 +188,7 @@ declare const fullApi: ApiFromModules<{
   oauthState: typeof oauthState;
   oauthUtils: typeof oauthUtils;
   polarWebhooks: typeof polarWebhooks;
+  providerApiLog: typeof providerApiLog;
   providerConnections: typeof providerConnections;
   repositoryRefresh: typeof repositoryRefresh;
   repositoryRefreshModel: typeof repositoryRefreshModel;

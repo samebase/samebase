@@ -16,6 +16,7 @@ import {
 } from "./validators.generated";
 import { toErrorMessage } from "../jsonUtils";
 import { ConvexManagementApiError } from "./errors";
+import type { ProviderApiCallRecorder } from "../providerApiLog";
 
 const CONVEX_MANAGEMENT_BASE_URL = "https://api.convex.dev/v1";
 const CONVEX_MANAGEMENT_TIMEOUT_MS = 10_000;
@@ -53,6 +54,9 @@ type ConvexManagementBodyOption<Operation> =
       : { body?: never };
 type ConvexManagementRequestOptions<Operation> = ConvexManagementParamsOption<Operation> &
   ConvexManagementBodyOption<Operation>;
+type ConvexManagementApiCallOptions = {
+  recordApiCall?: ProviderApiCallRecorder;
+};
 type ConvexManagementGetOpenApiOptions<Path extends ConvexManagementGetPath> = MaybeOptionalInit<
   paths[Path],
   "get"
@@ -62,9 +66,9 @@ type ConvexManagementPostOpenApiOptions<Path extends ConvexManagementPostPath> =
   "post"
 >;
 type ConvexManagementGetOptions<Path extends ConvexManagementGetPath> =
-  ConvexManagementRequestOptions<NonNullable<paths[Path]["get"]>>;
+  ConvexManagementRequestOptions<NonNullable<paths[Path]["get"]>> & ConvexManagementApiCallOptions;
 type ConvexManagementPostOptions<Path extends ConvexManagementPostPath> =
-  ConvexManagementRequestOptions<NonNullable<paths[Path]["post"]>>;
+  ConvexManagementRequestOptions<NonNullable<paths[Path]["post"]>> & ConvexManagementApiCallOptions;
 type ConvexManagementGetInitParam<Path extends ConvexManagementGetPath> =
   undefined extends ConvexManagementGetOpenApiOptions<Path>
     ? [options?: ConvexManagementGetOptions<Path>]
@@ -175,15 +179,36 @@ export function requestConvexManagementApi<const Path extends ConvexManagementPo
 export async function requestConvexManagementApi(
   token: string,
   ...request:
-    | [method: "GET", path: ConvexManagementGetPath, options?: { params?: unknown; body?: unknown }]
+    | [
+        method: "GET",
+        path: ConvexManagementGetPath,
+        options?: { params?: unknown; body?: unknown; recordApiCall?: ProviderApiCallRecorder },
+      ]
     | [
         method: "POST",
         path: ConvexManagementPostPath,
-        options?: { params?: unknown; body?: unknown },
+        options?: { params?: unknown; body?: unknown; recordApiCall?: ProviderApiCallRecorder },
       ]
 ): Promise<unknown> {
   const [method, path, options] = request;
   const params = readConvexManagementRequestParams(options);
+  const body = readConvexManagementRequestBody(options);
+  const recordApiCall = options?.recordApiCall;
+  if (recordApiCall) {
+    const values: Record<string, unknown> = {};
+    if (params) {
+      values.params = params;
+    }
+    if (body !== undefined) {
+      values.body = body;
+    }
+    await recordApiCall({
+      provider: "Convex",
+      method,
+      endpoint: path,
+      values,
+    });
+  }
   const endpoint = formatConvexManagementApiEndpointUnchecked({
     path,
     params,
@@ -192,7 +217,7 @@ export async function requestConvexManagementApi(
     token,
     method,
     endpoint,
-    body: readConvexManagementRequestBody(options),
+    body,
   });
   if (method === "GET") {
     return validateConvexManagementResult({
