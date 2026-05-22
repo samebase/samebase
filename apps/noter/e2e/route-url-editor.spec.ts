@@ -10,6 +10,9 @@ test("route URL editor fixture navigates committed same-origin hrefs", async ({ 
   const input = page.getByTestId("route-url-editor-input");
   const editor = page.getByTestId("route-url-editor");
   const currentHref = page.getByTestId("route-url-editor-fixture-current-href");
+  const backButton = page.getByRole("button", { name: "Back" });
+  const forwardButton = page.getByRole("button", { name: "Forward" });
+  const refreshButton = page.getByRole("button", { name: "Refresh" });
   const editorBox = await editor.boundingBox();
   if (editorBox === null) {
     throw new Error("Expected route URL editor to be visible.");
@@ -19,6 +22,9 @@ test("route URL editor fixture navigates committed same-origin hrefs", async ({ 
   expect(editorBox.height).toBeLessThanOrEqual(40);
   await expect(input).toHaveValue(`${host}/visual-fixture?mode=route-url-editor`);
   await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
+  await expect(backButton).toBeVisible();
+  await expect(forwardButton).toBeVisible();
+  await expect(refreshButton).toBeVisible();
 
   await input.fill(`${host}/visual-fixture?mode=route-url-editor&draft=edited#done`);
   await input.press("Enter");

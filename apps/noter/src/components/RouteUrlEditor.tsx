@@ -1,7 +1,10 @@
 import { useLocation, useRouter } from "@tanstack/react-router";
-import { ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronRight, RefreshCw } from "lucide-react";
 import { useCallback, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
+
+const routeUrlEditorIconButtonClassName =
+  "flex size-7 shrink-0 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
 
 function readRouteUrlEditorOrigin(): string {
   return typeof window === "undefined" ? "https://noter.local" : window.location.origin;
@@ -31,6 +34,22 @@ export function RouteUrlEditor() {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [invalidInput, setInvalidInput] = useState(false);
+
+  const goBack = useCallback(() => {
+    router.history.back();
+  }, [router]);
+
+  const goForward = useCallback(() => {
+    router.history.forward();
+  }, [router]);
+
+  const refreshRoute = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.location.reload();
+  }, []);
 
   const clearInvalidInput = useCallback(() => {
     if (invalidInput) {
@@ -112,6 +131,33 @@ export function RouteUrlEditor() {
       <label className="sr-only" htmlFor={inputId}>
         Route URL
       </label>
+      <button
+        aria-label="Back"
+        className={routeUrlEditorIconButtonClassName}
+        onClick={goBack}
+        title="Back"
+        type="button"
+      >
+        <ArrowLeft aria-hidden="true" className="size-4" />
+      </button>
+      <button
+        aria-label="Forward"
+        className={routeUrlEditorIconButtonClassName}
+        onClick={goForward}
+        title="Forward"
+        type="button"
+      >
+        <ChevronRight aria-hidden="true" className="size-4" />
+      </button>
+      <button
+        aria-label="Refresh"
+        className={routeUrlEditorIconButtonClassName}
+        onClick={refreshRoute}
+        title="Refresh"
+        type="button"
+      >
+        <RefreshCw aria-hidden="true" className="size-4" />
+      </button>
       {/*
         Keep typing uncontrolled: URL changes remount the input, but ordinary
         keystrokes do not copy address text through React state.
@@ -138,7 +184,7 @@ export function RouteUrlEditor() {
       />
       <button
         aria-label="Go to route URL"
-        className="flex size-7 shrink-0 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+        className={routeUrlEditorIconButtonClassName}
         title="Go to route URL"
         type="submit"
       >
