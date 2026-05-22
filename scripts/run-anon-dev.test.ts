@@ -71,7 +71,7 @@ describe("run-anon-dev", () => {
     expect(plan.at(-1)?.args).toContain("--once");
   });
 
-  it("adds the long-running root pnpm dev step for anon", () => {
+  it("adds the long-running primary dev step for anon", () => {
     const plan = buildAnonCommandPlan(
       {
         once: false,
@@ -89,7 +89,7 @@ describe("run-anon-dev", () => {
     expect(plan.at(-1)).toMatchObject({
       label: "launch the long-running anonymous dev server",
       cwd: "/repo",
-      args: ["dev"],
+      args: ["dev:primary"],
       env: {
         CONVEX_AGENT_MODE: "anonymous",
         VITE_LOCAL_WORKTREE_PASSWORD_EMAIL: LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,

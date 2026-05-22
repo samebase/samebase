@@ -2,12 +2,13 @@
 
 ## Startup
 
-- In a git worktree, run `pnpm anon:once` once after checkout.
-- In a git worktree, use `pnpm anon` as the full startup command before dev/lint/test/commit
-  workflows. Do not replace it with `pnpm dev` or `npx convex dev`.
-- In the primary local checkout, use `pnpm dev`.
+- Use `pnpm dev` as the normal startup command. It runs the primary dev flow from the main checkout
+  and the anonymous local flow from linked git worktrees.
+- In a git worktree, `pnpm dev --once` or `pnpm anon:once` bootstraps once after checkout.
+- In a git worktree, use the anonymous startup flow before dev/lint/test/commit workflows. Do not
+  replace it with direct `npx convex dev`.
 - If Convex tooling complains about missing `CONVEX_DEPLOYMENT`, or a worktree command fails with
-  `Local backend isn't running`, run `pnpm anon` and retry.
+  `Local backend isn't running`, run `pnpm dev --once` and retry.
 - `rg` is not available in this environment. Use `grep` and `find` instead.
 
 ## Repo Knowledge Map

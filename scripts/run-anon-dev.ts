@@ -262,7 +262,7 @@ export function buildAnonCommandPlan(
       label: "launch the long-running anonymous dev server",
       cwd: repoRoot,
       command: PNPM_COMMAND,
-      args: ["dev"],
+      args: ["dev:primary"],
       env: {
         ...anonymousEnv,
         ...LOCAL_WORKTREE_PASSWORD_AUTH_VITE_ENV,
