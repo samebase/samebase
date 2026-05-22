@@ -1732,27 +1732,38 @@ export const ensureCloudflareInfrastructure = internalAction({
       return null;
     }
 
-    const domainRecordResult = await ctx.runMutation(
-      internal.infraProvisioning.upsertDomainRecord,
-      {
-        vaultId: args.vaultId,
-        branch: defaultBranch,
-        kind: "main",
-        url: provisionedCloudflare.workersDevUrl,
-        source: "cloudflare_workers_default",
-        active: true,
-      },
-    );
-    if (!domainRecordResult.applied) {
-      return null;
+    const workersDevUrl = provisionedCloudflare.workersDevUrl;
+    if (workersDevUrl) {
+      const domainRecordResult = await ctx.runMutation(
+        internal.infraProvisioning.upsertDomainRecord,
+        {
+          vaultId: args.vaultId,
+          branch: defaultBranch,
+          kind: "main",
+          url: workersDevUrl,
+          source: "cloudflare_workers_default",
+          active: true,
+        },
+      );
+      if (!domainRecordResult.applied) {
+        return null;
+      }
+      await appendProvisioningRunEvent(ctx, {
+        runId: args.runId,
+        step: "record_domains",
+        level: "info",
+        message: `Recorded production URL: ${workersDevUrl}.`,
+        state: "running",
+      });
+    } else {
+      await appendProvisioningRunEvent(ctx, {
+        runId: args.runId,
+        step: "record_domains",
+        level: "warn",
+        message: "Cloudflare Worker ready, but workers.dev URL was not available yet.",
+        state: "running",
+      });
     }
-    await appendProvisioningRunEvent(ctx, {
-      runId: args.runId,
-      step: "record_domains",
-      level: "info",
-      message: `Recorded production URL: ${provisionedCloudflare.workersDevUrl}.`,
-      state: "running",
-    });
 
     console.log("infra:provision:success", {
       vaultId: args.vaultId,

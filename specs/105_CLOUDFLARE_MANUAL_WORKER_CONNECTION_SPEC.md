@@ -51,6 +51,11 @@ type VaultCloudflareState =
 routes/domains or can have the workers.dev subdomain disabled. Created Workers should record it when
 Cloudflare exposes enough account subdomain information to compute it.
 
+The app must not require the account-level workers.dev subdomain endpoint before attaching or
+creating a Worker. The real Cloudflare MCP OAuth grant can verify accounts and Worker identity while
+that specific endpoint can return an authentication error; attachment should still succeed and leave
+`workersDevUrl` absent until a later build/domain observation can fill it in.
+
 `origin` answers how this vault attached to the Worker.
 
 `management` answers whether future product flows may mutate the Worker as an owned resource.

@@ -114,7 +114,7 @@ export function buildCloudflareWorkersEnvVars(vars: {
 type CloudflareWorkerIdentity = {
   workerName: string;
   workerTag: string;
-  workersDevUrl: string;
+  workersDevUrl?: string;
 };
 
 export type CloudflareWorkerInventoryItem = {
@@ -303,7 +303,6 @@ async function ensureWorker(args: {
   workerName: string;
   existingWorker: ExistingCloudflareWorkerIdentity;
 }): Promise<CloudflareWorkerIdentity> {
-  const accountSubdomain = await readAccountSubdomain(args);
   const existing = await readWorker({
     token: args.token,
     accountId: args.accountId,
@@ -322,7 +321,7 @@ async function ensureWorker(args: {
     return {
       workerName: args.workerName,
       workerTag,
-      workersDevUrl: `https://${args.workerName}.${accountSubdomain}.workers.dev`,
+      workersDevUrl: await readOptionalWorkersDevUrl(args),
     };
   }
 
@@ -358,7 +357,7 @@ async function ensureWorker(args: {
   return {
     workerName: args.workerName,
     workerTag,
-    workersDevUrl: `https://${args.workerName}.${accountSubdomain}.workers.dev`,
+    workersDevUrl: await readOptionalWorkersDevUrl(args),
   };
 }
 
@@ -823,7 +822,7 @@ export type ProvisionedCloudflareResources = {
   accountId: string;
   workerName: string;
   workerTag: string;
-  workersDevUrl: string;
+  workersDevUrl?: string;
 };
 
 type EnsureCloudflareResourcesArgs = {
