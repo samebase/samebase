@@ -69,6 +69,7 @@ const CAMERA_FRUSTUM_PADDING = 1.12;
 // even when the math is exact. A thin same-color stroke closes those seams
 // while still scaling down with the delivered SVG on smaller surfaces.
 const FACE_STROKE_WIDTH = 0.14;
+const TRANSPARENT_STRIPED_FACE_BACKGROUND_COLOR = "#ffffff";
 const STRIPE_CLIP_EPSILON = 1e-9;
 const ORBIT_RIGHT_AXIS = normalizeVector({
   x: 1,
@@ -468,6 +469,7 @@ export function createLogoThreeSvgMarkup({
   const polygons = projectedQuads
     .map((quad) =>
       createProjectedQuadSvgMarkup({
+        backgroundColor,
         faceColors,
         leftFaceStyle,
         quad,
@@ -688,10 +690,12 @@ function createStripedLeftFaceProjectedPolygons(
 }
 
 function createProjectedQuadSvgMarkup({
+  backgroundColor,
   faceColors,
   leftFaceStyle,
   quad,
 }: {
+  backgroundColor: string;
   faceColors: FaceColors;
   leftFaceStyle: LogoLeftFaceStyle;
   quad: LogoProjectedQuad;
@@ -706,7 +710,13 @@ function createProjectedQuadSvgMarkup({
   }
 
   const stripeColor = getTailwindColorHex(faceColors.right);
-  return createStripedLeftFaceProjectedPolygons(quad, normalizedStyle)
+  const backgroundFill = readStripedLeftFaceBackgroundColor(backgroundColor);
+  const backgroundPolygon = createSolidProjectedQuadSvgMarkup({
+    color: backgroundFill,
+    points: quad.points,
+    strokeWidth: 0,
+  });
+  const stripePolygons = createStripedLeftFaceProjectedPolygons(quad, normalizedStyle)
     .map((points) =>
       createSolidProjectedQuadSvgMarkup({
         color: stripeColor,
@@ -715,6 +725,18 @@ function createProjectedQuadSvgMarkup({
       }),
     )
     .join("");
+  return `${backgroundPolygon}${stripePolygons}`;
+}
+
+function readStripedLeftFaceBackgroundColor(backgroundColor: string): string {
+  if (backgroundColor.trim().toLowerCase() !== "transparent") {
+    return backgroundColor;
+  }
+
+  // A transparent SVG polygon does not occlude already-painted faces. The
+  // static root asset is transparent overall, but its stripe gaps still need
+  // the same white backing used by the default Three/public logo placement.
+  return TRANSPARENT_STRIPED_FACE_BACKGROUND_COLOR;
 }
 
 function getRecursiveChildCenter({
@@ -856,6 +878,7 @@ function createLogoThreeRecursiveSvgMarkup({
   const basePolygons = baseQuads
     .map((quad) =>
       createProjectedQuadSvgMarkup({
+        backgroundColor,
         faceColors,
         leftFaceStyle,
         quad,
