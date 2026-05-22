@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Implemented
 - Owner: Noter frontend
 - Last updated: 2026-05-23
 - Related docs:
@@ -14,14 +14,14 @@
 
 ## Summary
 
-Logo asset names should separate four different ideas that are currently blended together:
+Logo asset names separate four different ideas that were previously blended together:
 
 1. the logo identity view, such as side-primary, side-diagonal, or spatial
 2. the face treatment, such as duotone or striped
 3. the product role, such as public logo, edit mark, install icon, social card, or browser favicon
 4. the stable served URL, such as `/logo-static.svg` or `/icon-512.png`
 
-Recommendation:
+Implemented recommendation:
 
 1. introduce a treatment-aware brand asset contract in code
 2. generate treatment-named source assets under `apps/noter/public/brand/`
@@ -31,14 +31,13 @@ Recommendation:
 5. leave browser favicons as their own role unless the product explicitly wants favicon treatment
    work
 
-This makes a future change like "use the striped logo everywhere instead of the duotone secondary
-side" a small default flip plus generated asset refresh, not a repo-wide hunt for unrelated icon and
-logo paths.
+This makes a future treatment change a small default flip plus generated asset refresh, not a
+repo-wide hunt for unrelated icon and logo paths.
 
 ## Why This RFC Exists
 
-The current stripe work is hard to scope because asset names, generated output, and public contracts
-all use root-level filenames:
+This stripe work was hard to scope because asset names, generated output, and public contracts used
+root-level filenames:
 
 1. `/logo-static.svg`
 2. `/logo-v2-side-diagonal.svg`
@@ -55,8 +54,8 @@ That makes it unclear whether a path is:
 4. a browser compatibility asset
 5. a fixture or old experiment
 
-The result is a high-churn brand refresh. The code already knows the stripe recipe, but the public
-asset layer does not have names or contracts that make treatment switching obvious.
+The result was a high-churn brand refresh. The code already knew the stripe recipe, but the public
+asset layer did not have names or contracts that made treatment switching obvious.
 
 ## Current Code Facts
 
@@ -67,7 +66,7 @@ Accepted identity rules live in `specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md
 3. the canonical stripe treatment is `LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE`
 4. public SVG assets must be generated from `createLogoIdentityViewSvgMarkup`
 
-Current implementation facts:
+Implementation facts before this RFC was implemented:
 
 1. `apps/noter/src/components/logo/logoStaticSvgContract.ts` maps each identity view directly to a
    root public path.
@@ -75,8 +74,8 @@ Current implementation facts:
    `DEFAULT_FACE_COLORS`.
 3. `apps/noter/src/components/logo/logoThreeSvgRenderer.ts` emits one solid polygon per visible
    face.
-4. `apps/noter/src/components/logo/NLogoScene.tsx` already supports a striped left-face shader, but
-   its default is `DEFAULT_LOGO_LEFT_FACE_STYLE`, currently secondary.
+4. `apps/noter/src/components/logo/NLogoScene.tsx` already supported a striped left-face shader, but
+   its default was `DEFAULT_LOGO_LEFT_FACE_STYLE`, then secondary.
 5. `apps/noter/src/components/logo/PublicLandingLogo.tsx` creates the SVG fallback from
    `createStaticLogoSvgDataUrl` and then mounts `NLogoScene` without passing a treatment override.
 6. `apps/noter/src/components/installIconSvgAsset.ts` and
@@ -88,12 +87,12 @@ Current implementation facts:
 8. `apps/noter/public/favicon.png` and `apps/noter/public/favicon-32.png` are current browser-chrome
    assets, but they do not have a known generator.
 9. `apps/noter/public/noter-social-card.svg`, `apps/noter/public/noter-social-card.png`, and
-   `apps/noter/public/noter-x-profile-banner.png` are public brand assets, but they do not currently
-   have a code-owned treatment contract.
+   `apps/noter/public/noter-x-profile-banner.png` were public brand assets without a code-owned
+   treatment contract.
 10. `apps/noter/public/logo_pick.svg` appears to be a legacy public logo artifact with no shipped
     code reference beyond fixture enumeration.
 
-## Proposed Vocabulary
+## Implemented Vocabulary
 
 ### Logo Identity View
 
@@ -151,7 +150,7 @@ treatment changes:
 
 Stable URLs may be generated aliases. They should point to the current default treatment.
 
-## Proposed Public Asset Layout
+## Implemented Public Asset Layout
 
 Treatment-named source assets should live under `apps/noter/public/brand/`:
 
@@ -304,9 +303,7 @@ should derive from:
 2. `getLogoIdentityAssetPath({ viewId: "spatial", treatment })`
 3. the shared SVG generator
 
-Social and profile assets should get a generation path before the striped switch if possible. If
-they remain hand-maintained for the first pass, the RFC should treat them as explicit manual
-follow-up assets, not as files discovered by grep during the final brand flip.
+Social and profile assets now have generated SVG sources and PNG outputs for both treatments.
 
 ## Tests And Validation
 
@@ -329,33 +326,28 @@ Visual coverage should include:
 
 When refreshing Playwright baselines, keep using the repo rule for Docker Linux ARM64 screenshots.
 
-## Rollout Plan
+## Implemented Rollout
 
 ### Phase 1: Introduce Treatment-Aware Asset Contracts
 
-Add `LogoFaceTreatment`, treatment-named asset paths, and default-treatment alias helpers.
-
-Default stays duotone in this phase. Generated root assets should not change visually.
+Added `LogoFaceTreatment`, treatment-named asset paths, and default-treatment alias helpers.
 
 ### Phase 2: Add SVG Stripe Rendering
 
-Teach `logoThreeSvgRenderer.ts` to emit face-local striped left faces. Add unit tests that compare
-duotone and striped generated SVG output and assert stripe geometry exists on left faces only.
+Taught `logoThreeSvgRenderer.ts` to emit face-local striped left faces and added tests around the
+default striped output.
 
 ### Phase 3: Generate Named Brand Assets
 
-Generate and commit `public/brand/logo/*-duotone.svg` and `public/brand/logo/*-striped.svg`.
-
-Update the Vite sync plugin and static asset tests so root logo aliases are generated from the
-current default treatment.
+Generated and committed treatment-named logo, install, social-card, and profile-banner assets under
+`apps/noter/public/brand/`. Static asset tests keep root logo aliases synchronized with the current
+default treatment.
 
 ### Phase 4: Switch The Product Default
 
-Change `DEFAULT_LOGO_FACE_TREATMENT` from `duotone` to `striped`.
-
-Regenerate root logo aliases, install icons, social card assets, and profile banner assets. Update
-`specs/060_LOGO_PREVIEW_PLAYGROUND_SPEC.md` and `specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md` so
-the accepted docs no longer describe secondary as the product default.
+Set `DEFAULT_LOGO_FACE_TREATMENT` to `striped`; regenerated root logo aliases, install icons, social
+card assets, and profile banner assets; and updated accepted specs so they no longer describe
+secondary as the product default.
 
 ### Phase 5: Reduce Legacy Surface Area
 
@@ -377,13 +369,8 @@ or test surface depends on them.
 
 ## Open Questions
 
-1. Should `/logo/iso` and `/logo/raster` support striped left faces in the same rollout, or should
-   they remain dev exploration renderers until a second pass?
-2. Should the X profile banner become generated from SVG/HTML source, or is a hand-reviewed raster
-   acceptable for brand refreshes?
-3. Should the default `/logo` route canonicalize striped state out of the URL, while
-   `leftFace=secondary` remains the shareable duotone override?
-4. Should old duotone root assets be kept anywhere outside `public/brand/` after the switch?
+1. Should `/logo/iso` and `/logo/raster` support striped left faces in a second pass?
+2. Should unused experimental assets such as `logo_pick.svg` be removed in a separate cleanup?
 
 ## Expected Change Size
 

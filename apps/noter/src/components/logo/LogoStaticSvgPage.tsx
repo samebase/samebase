@@ -4,6 +4,7 @@ import {
 } from "@/components/logo/logoStaticSvgContract";
 import { clampLogoFractalDepthForRenderer } from "@/components/logo/logoDepthLimits";
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
+import { readLogoLeftFaceStyle } from "@/components/logo/logoLeftFaceStyle";
 import {
   createFilledVoxelSet,
   DEFAULT_LOGO_FRACTAL_DEPTH,
@@ -26,6 +27,7 @@ export function LogoStaticSvgPage({ routeSearch }: { routeSearch: LogoRouteSearc
     depth: fractalDepth,
     faceColors: logoTheme.faceColors,
     filledVoxels: baseFilledVoxels,
+    leftFaceStyle: readLogoLeftFaceStyle(routeSearch),
   })}#${logoTheme.cacheKey}:${fractalDepth}`;
 
   return (

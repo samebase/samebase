@@ -6,9 +6,14 @@ import {
   createStaticLogoSvgMarkup,
 } from "@/components/logo/logoStaticSvgAsset";
 import {
+  DEFAULT_LOGO_FACE_TREATMENT,
+  LOGO_FACE_TREATMENTS,
+} from "@/components/logo/logoFaceTreatment";
+import {
   LOGO_IDENTITY_EDIT_MARK_SVG_URL,
   LOGO_IDENTITY_VIEW_CONTRACTS,
   STATIC_LOGO_ELEVATION_DEGREES,
+  getLogoIdentityAssetPath,
   type LogoIdentityViewId,
 } from "@/components/logo/logoStaticSvgContract";
 
@@ -35,6 +40,14 @@ describe("logoStaticSvgAsset", () => {
     const generatedSvg = createStaticLogoSvgMarkup().replace(/\r\n/g, "\n").trim();
 
     expect(staticLogoSvg).toBe(generatedSvg);
+  });
+
+  it("uses the striped treatment for the default static logo", () => {
+    const generatedSvg = createStaticLogoSvgMarkup();
+
+    expect(DEFAULT_LOGO_FACE_TREATMENT).toBe("striped");
+    expect(generatedSvg).not.toContain('fill="#ecfccb"');
+    expect(generatedSvg).not.toContain('stroke="#ecfccb"');
   });
 
   it("exports real face polygons instead of a raster traced into one-pixel rects", () => {
@@ -85,6 +98,21 @@ describe("logoStaticSvgAsset", () => {
       const generatedSvg = createLogoIdentityViewSvgMarkup(view.id).replace(/\r\n/g, "\n").trim();
 
       expect(committedSvg).toBe(generatedSvg);
+
+      for (const faceTreatment of LOGO_FACE_TREATMENTS) {
+        const treatmentAssetPath = getLogoIdentityAssetPath({
+          treatment: faceTreatment,
+          viewId: view.id,
+        });
+        const treatmentSvg = readPublicAsset(treatmentAssetPath);
+        const generatedTreatmentSvg = createLogoIdentityViewSvgMarkup(view.id, {
+          faceTreatment,
+        })
+          .replace(/\r\n/g, "\n")
+          .trim();
+
+        expect(treatmentSvg).toBe(generatedTreatmentSvg);
+      }
     }
   });
 });

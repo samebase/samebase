@@ -7,7 +7,8 @@
 - Last updated: 2026-05-19
 - Related files: `apps/noter/src/components/logo/logoStaticSvgContract.ts`,
   `apps/noter/src/components/logo/logoStaticSvgAsset.ts`,
-  `apps/noter/src/components/logo/logoLeftFaceStyle.ts`,
+  `apps/noter/src/components/logo/logoFaceTreatment.ts`,
+  `apps/noter/src/components/logo/logoLeftFaceStyle.ts`, `apps/noter/public/brand/`,
   `apps/noter/public/logo-v1-side-primary.svg`, `apps/noter/public/logo-v2-side-diagonal.svg`,
   `apps/noter/public/logo-static.svg`, `apps/noter/public/noter-x-profile-banner.png`,
   `apps/noter/public/noter-social-card.svg`, `specs/060_LOGO_PREVIEW_PLAYGROUND_SPEC.md`,
@@ -21,7 +22,7 @@ The Noter logo identity is one `3x3x3` voxel shape viewed through three stable c
 1. Version 1, side-primary: at rotation `0deg` and elevation `0deg`, the mark reads as a `3x3`
    primary-color square with the center cut out to the background.
 2. Version 2, side-diagonal: at rotation `45deg` and elevation `0deg`, the mark exposes the primary
-   and secondary side colors without showing the top face.
+   side and striped left-face treatment without showing the top face.
 3. Version 3, spatial: from the same `45deg` rotation tilted down to the static logo elevation, the
    mark exposes the white top faces and reads as the full 3D object.
 
@@ -38,7 +39,8 @@ face changes from secondary color to a primary/background stripe pattern.
 ## Source Of Truth
 
 - The canonical shape is `STATIC_LOGO_VOXEL_COORDINATES`.
-- The canonical default colors are `DEFAULT_FACE_COLORS`: primary on the right face, secondary on
+- The canonical default treatment is `DEFAULT_LOGO_FACE_TREATMENT`, currently `striped`.
+- The canonical duotone colors are `DEFAULT_FACE_COLORS`: primary on the right face, secondary on
   the left face, and background on the top face.
 - The canonical single-color stripe treatment is `LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE`.
 - The canonical identity views live in `LOGO_IDENTITY_VIEW_CONTRACTS`.
@@ -83,6 +85,9 @@ gets the same stripe phase.
 - `/logo-v1-side-primary.svg` is the version 1 side-primary mark.
 - `/logo-v2-side-diagonal.svg` is the version 2 side-diagonal mark.
 - `/logo-static.svg` is the version 3 spatial mark and remains the canonical public static logo.
+- Stable root logo URLs point at the current default treatment.
+- Treatment-named assets under `apps/noter/public/brand/logo/` preserve both `duotone` and `striped`
+  exports for each identity view.
 
 Small favicons remain browser-chrome assets. They are not the identity source for product UI icons
 unless the product explicitly wants the favicon treatment.
