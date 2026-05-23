@@ -325,7 +325,6 @@ async function ensureWorker(
     existingWorker: ExistingCloudflareWorkerIdentity;
   } & CloudflareApiCallOptions,
 ): Promise<CloudflareWorkerIdentity> {
-  const accountSubdomain = await readAccountSubdomain(args);
   const existing = await readWorker({
     token: args.token,
     accountId: args.accountId,
