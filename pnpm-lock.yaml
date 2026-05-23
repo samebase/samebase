@@ -52,6 +52,9 @@ importers:
       eslint-plugin-react-refresh:
         specifier: ^0.4.7
         version: 0.4.26(eslint@8.57.1)
+      execa:
+        specifier: 9.6.1
+        version: 9.6.1
       typescript:
         specifier: 5.9.2
         version: 5.9.2

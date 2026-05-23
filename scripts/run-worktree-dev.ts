@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
+import { execa, execaSync } from "execa";
 
 import {
   failUnexpectedArgument,
@@ -277,40 +277,35 @@ export function buildWorktreeDevCommandPlan(
 }
 
 function runBlockingCommand(spec: CommandSpec): void {
-  const result = spawnSync(spec.command, spec.args, {
+  const result = execaSync(spec.command, spec.args, {
     cwd: spec.cwd,
     env: spec.env,
+    extendEnv: spec.env === undefined,
+    reject: false,
     stdio: "inherit",
   });
-  if (result.status !== 0) {
-    fail(`${spec.label} failed with exit code ${result.status ?? 1}.`, result.status ?? 1);
+  if (result.exitCode !== 0) {
+    fail(`${spec.label} failed with exit code ${result.exitCode ?? 1}.`, result.exitCode ?? 1);
   }
 }
 
-function runStreamingCommand(spec: CommandSpec): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(spec.command, spec.args, {
-      cwd: spec.cwd,
-      env: spec.env,
-      stdio: "inherit",
-    });
-
-    child.on("error", (error) => {
-      reject(new Error(`${spec.label} failed: ${error.message}`));
-    });
-
-    child.on("exit", (code, signal) => {
-      if (signal) {
-        process.kill(process.pid, signal);
-        return;
-      }
-      if (code === 0) {
-        resolve();
-        return;
-      }
-      reject(new Error(`${spec.label} failed with exit code ${code ?? 1}.`));
-    });
+async function runStreamingCommand(spec: CommandSpec): Promise<void> {
+  const result = await execa(spec.command, spec.args, {
+    cwd: spec.cwd,
+    env: spec.env,
+    extendEnv: spec.env === undefined,
+    reject: false,
+    stdio: "inherit",
   });
+
+  if (result.signal) {
+    process.kill(process.pid, result.signal);
+    return;
+  }
+  if (result.exitCode === 0) {
+    return;
+  }
+  throw new Error(`${spec.label} failed with exit code ${result.exitCode ?? 1}.`);
 }
 
 async function main(): Promise<void> {

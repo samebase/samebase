@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { spawn, spawnSync } from "node:child_process";
 import process from "node:process";
+import { execa, execaSync } from "execa";
 
 import { fail, isMainModule, runMain } from "./lib/scriptRuntime.ts";
 
@@ -17,15 +17,15 @@ export function classifyWorktree(gitDir: string, gitCommonDir: string): Worktree
 }
 
 export function resolveWorktreeKind(cwd = process.cwd()): WorktreeKind {
-  const result = spawnSync(
+  const result = execaSync(
     "git",
     ["rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"],
     {
       cwd,
-      encoding: "utf8",
+      reject: false,
     },
   );
-  if (result.status !== 0) {
+  if (result.failed) {
     fail("Run `pnpm dev` from inside a Git checkout.");
   }
 
@@ -45,31 +45,23 @@ export function buildContextDevArgs(kind: WorktreeKind, args: string[]): string[
 }
 
 async function main(): Promise<void> {
-  const child = spawn(
+  const result = await execa(
     PNPM_COMMAND,
     buildContextDevArgs(resolveWorktreeKind(), process.argv.slice(2)),
     {
+      reject: false,
       stdio: "inherit",
     },
   );
 
-  await new Promise<void>((resolve, reject) => {
-    child.on("error", (error) => {
-      reject(error);
-    });
-
-    child.on("exit", (code, signal) => {
-      if (signal) {
-        process.kill(process.pid, signal);
-        return;
-      }
-      if (code === 0) {
-        resolve();
-        return;
-      }
-      reject(new Error(`Dev startup failed with exit code ${code ?? 1}.`));
-    });
-  });
+  if (result.signal) {
+    process.kill(process.pid, result.signal);
+    return;
+  }
+  if (result.exitCode === 0) {
+    return;
+  }
+  throw new Error(`Dev startup failed with exit code ${result.exitCode ?? 1}.`);
 }
 
 if (isMainModule(import.meta.url)) {
