@@ -1,12 +1,11 @@
 import { expect, test } from "@playwright/test";
 
 const selectAllShortcut = process.platform === "darwin" ? "Meta+A" : "Control+A";
+const localConvexSyncConsoleErrorPattern =
+  /^WebSocket connection to 'ws:\/\/127\.0\.0\.1:\d+\/api\/[^']+\/sync' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED$/;
 
 function isExpectedLocalConvexSyncConsoleError(message: string) {
-  return (
-    message.includes("WebSocket connection to 'ws://127.0.0.1:3210/") &&
-    message.includes("net::ERR_CONNECTION_REFUSED")
-  );
+  return localConvexSyncConsoleErrorPattern.test(message);
 }
 
 test("public landing route uses the right sidebar shell", async ({ page }) => {
@@ -39,9 +38,11 @@ test("public landing header exposes the route URL editor", async ({ page }) => {
   });
   await page.waitForLoadState("networkidle");
 
-  const origin = new URL(page.url()).origin;
+  const pageUrl = new URL(page.url());
+  const origin = pageUrl.origin;
+  const host = pageUrl.host;
   const routeUrlInput = page.getByTestId("route-url-editor-input");
-  await expect(routeUrlInput).toHaveValue(`${origin}/?dev`);
+  await expect(routeUrlInput).toHaveValue(`${host}/?dev`);
   await expect(routeUrlInput).toHaveAttribute("title", `${origin}/?dev`);
   await expect(page).toHaveScreenshot("public-layout-landing-dev.png", {
     animations: "disabled",
@@ -54,7 +55,7 @@ test("public landing header exposes the route URL editor", async ({ page }) => {
 
   await page.getByRole("link", { name: "/terms", exact: true }).click();
   await expect(page).toHaveURL(/\/terms\?dev$/);
-  await expect(page.getByTestId("route-url-editor-input")).toHaveValue(`${origin}/terms?dev`);
+  await expect(page.getByTestId("route-url-editor-input")).toHaveValue(`${host}/terms?dev`);
   await expect(page.getByTestId("route-url-editor-input")).toHaveAttribute(
     "title",
     `${origin}/terms?dev`,
@@ -71,10 +72,12 @@ test("public route URL editor stays compact for long URLs", async ({ page }) => 
   });
   await page.waitForLoadState("networkidle");
 
-  const origin = new URL(page.url()).origin;
+  const pageUrl = new URL(page.url());
+  const origin = pageUrl.origin;
+  const host = pageUrl.host;
   const routeUrlEditor = page.getByTestId("route-url-editor");
   const routeUrlInput = page.getByTestId("route-url-editor-input");
-  await expect(routeUrlInput).toHaveValue(`${origin}${longPath}`);
+  await expect(routeUrlInput).toHaveValue(`${host}${longPath}`);
   await expect(routeUrlInput).toHaveAttribute("title", `${origin}${longPath}`);
 
   const metrics = await routeUrlEditor.evaluate((element) => {
