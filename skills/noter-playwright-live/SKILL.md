@@ -18,8 +18,8 @@ Noter-stack apps.
 
 - Start with the real route first when the bug touches scroll, touch, drag, focus, selection, layout
   ownership, auth wiring, or route shell behavior.
-- Prefer the real worktree app flow (`pnpm anon`) and the shipped bootstrap/sign in path over custom
-  mock pages.
+- Prefer the real worktree app flow (`pnpm dev:worktree`) and the shipped bootstrap/sign-in path
+  over custom mock pages.
 - Only use a fixture when it mounts the exact production component tree without invented wrapper
   chrome, spacing, headers, or placeholder structure.
 - For a production interaction bug, add a failing real-route or honest production-component repro
@@ -44,7 +44,7 @@ git rev-parse --abbrev-ref HEAD
 
 3. Start dev server in a long-running session.
 
-- Noter monorepo (preferred): run `pnpm anon` from repo root.
+- Noter monorepo (preferred): run `pnpm dev:worktree` from repo root.
 - Starter/generated app: run `pnpm run dev` from project root.
 
 If dependencies are missing, run `pnpm install` first.
@@ -106,7 +106,7 @@ fi
 
 Use these defaults when working in this repository.
 
-1. Bootstrap with `pnpm anon` (sets Convex local env and seeds dev auth).
+1. Bootstrap with `pnpm dev:worktree` (sets Convex local env and seeds dev auth).
 2. If sign-in is needed, read seeded credentials from `apps/noter/convex/devAuth.ts` constants:
    - `DEV_SEED_EMAIL`
    - `DEV_SEED_PASSWORD`

@@ -31,8 +31,8 @@ do not revive separate `page_load`, `visibility`, or `focus` policy from this re
 
 ## Investigation Log
 
-- Started from a clean detached worktree, bootstrapped with `make anon-once`, then created branch
-  `codex/nimble-ember-orbit`.
+- Started from a clean detached worktree, bootstrapped with `pnpm dev:worktree:once`, then created
+  branch `codex/nimble-ember-orbit`.
 - Rebased onto `origin/main` before starting implementation.
 - Confirmed the dashboard reads branch and PR state from `apps/noter/convex/vault.ts#getUserVaults`,
   which serves cached `vaultRemoteBranches` rows sorted by default-branch pinning, then

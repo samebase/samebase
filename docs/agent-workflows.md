@@ -12,12 +12,12 @@ git rev-parse --show-toplevel
 git rev-parse --abbrev-ref HEAD
 ```
 
-2. In a git worktree, run `pnpm anon:once` once after checkout, then use `pnpm anon` as the normal
-   startup path.
-3. In the primary local checkout, use `pnpm dev`.
-4. Do not replace worktree startup with `pnpm dev` or `npx convex dev`.
+2. Use `pnpm dev` as the normal startup path. It dispatches to the primary dev runner from the main
+   checkout and the anonymous local runner from linked git worktrees.
+3. In a git worktree, run `pnpm dev --once` or `pnpm dev:worktree:once` once after checkout.
+4. Do not replace worktree startup with direct `npx convex dev`.
 5. Do not run `npx convex dev --env-file` pointing at another checkout's `.env.local`; it rewrites
-   the current worktree's env and breaks local anon bootstrapping.
+   the current worktree's env and breaks local worktree bootstrapping.
 6. Before starting implementation on an existing work branch or worktree, run `git fetch origin` and
    rebase onto the latest `origin/main`.
 

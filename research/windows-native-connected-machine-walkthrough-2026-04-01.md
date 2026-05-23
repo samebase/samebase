@@ -21,7 +21,7 @@ flow.
 ## Bottom Line
 
 Native Windows outside WSL can run the local hosted-file connected-machine flow, but a fresh primary
-checkout still needed more manual setup than the repo's default worktree `make anon` path.
+checkout still needed more manual setup than the repo's default worktree `pnpm dev:worktree` path.
 
 The main verified gaps during this run were:
 

@@ -9,7 +9,7 @@ and isolated seed data.
 
 - Run from the main checkout root.
 - `pnpm` dependencies can install.
-- No long-running `pnpm anon` processes in the two temporary test worktrees.
+- No long-running `pnpm dev:worktree` processes in the two temporary test worktrees.
 
 ## Steps
 
@@ -23,8 +23,8 @@ git worktree add /tmp/noter-wt-b -b codex/wt-isolation-b
 2. In each worktree, bootstrap anonymous mode:
 
 ```bash
-make -C /tmp/noter-wt-a anon-once
-make -C /tmp/noter-wt-b anon-once
+make -C /tmp/noter-wt-a dev:worktree:once
+make -C /tmp/noter-wt-b dev:worktree:once
 ```
 
 3. Compare backend URLs written by each worktree:
@@ -56,7 +56,7 @@ grep -E '^(DEV_SEED_[^=]+|ANTHROPIC_API_KEY)=' /tmp/noter-wt-b/apps/noter/.env.a
   kill $pid; wait $pid 2>/dev/null || true)
 ```
 
-5. In the `make ... anon-once` outputs from step 2, confirm each worktree prints:
+5. In the `make ... dev:worktree:once` outputs from step 2, confirm each worktree prints:
 
 ```txt
 "created": true
@@ -64,7 +64,7 @@ grep -E '^(DEV_SEED_[^=]+|ANTHROPIC_API_KEY)=' /tmp/noter-wt-b/apps/noter/.env.a
 
 ## Expected Results
 
-1. Both `make ... anon-once` commands complete successfully.
+1. Both `make ... dev:worktree:once` commands complete successfully.
 2. `VITE_CONVEX_URL` values differ between `/tmp/noter-wt-a` and `/tmp/noter-wt-b`.
 3. Each worktree can run seed/auth setup without cross-worktree admin/auth conflicts.
 4. Each `.env.anon-seed.local` includes `DEV_SEED_*` entries from the dev seed env (API keys
@@ -81,8 +81,8 @@ grep -E '^(DEV_SEED_[^=]+|ANTHROPIC_API_KEY)=' /tmp/noter-wt-b/apps/noter/.env.a
 ```bash
 mkdir -p manual-tests/.runs
 # Use tee while running step 2:
-# make -C /tmp/noter-wt-a anon-once | tee manual-tests/.runs/wt-001-a.log
-# make -C /tmp/noter-wt-b anon-once | tee manual-tests/.runs/wt-001-b.log
+# make -C /tmp/noter-wt-a dev:worktree:once | tee manual-tests/.runs/wt-001-a.log
+# make -C /tmp/noter-wt-b dev:worktree:once | tee manual-tests/.runs/wt-001-b.log
 ```
 
 - Avoid saving `npx convex data ...` outputs to disk unless you redact API keys.

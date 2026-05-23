@@ -187,7 +187,7 @@ Chosen approach:
 
 - [ ] Manual cleanup completed for all listed Railway-shaped rows.
 - [ ] Manual verification confirms zero Railway rows in constrained fields.
-- [ ] `make anon-once` + lint/typecheck pass in worktree.
+- [ ] `pnpm dev:worktree:once` + lint/typecheck pass in worktree.
 - [ ] Vault create/delete/provision flows still work for Netlify/Cloudflare.
 - [ ] Chat prod-read tools still work for non-Railway providers.
 - [ ] No remaining `railway` references in runtime code/docs intended to remain active.

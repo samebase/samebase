@@ -100,7 +100,7 @@ describe("rebaseStagedContent", () => {
       "# Important",
       "",
       "- add better rebase",
-      "- bootstrap pnpm anon non-interactive",
+      "- bootstrap pnpm dev:worktree non-interactive",
       "- We need less",
       "",
     ].join("\n");
@@ -114,7 +114,7 @@ describe("rebaseStagedContent", () => {
     expect(result.hasConflict).toBe(false);
     expect(result.content).toContain("- void.cloud\n- Tuple");
     expect(result.content).toContain("- review Observable notebooks docs");
-    expect(result.content).toContain("- bootstrap pnpm anon non-interactive");
+    expect(result.content).toContain("- bootstrap pnpm dev:worktree non-interactive");
   });
 
   it("returns a conflict when repeated context makes insertion placement ambiguous", () => {

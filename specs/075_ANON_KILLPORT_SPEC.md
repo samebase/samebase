@@ -19,21 +19,21 @@ Replace the root `make kill-port` target with a single `make killport` target.
 2. `make killport` reads the current worktree's stored anonymous local backend port from
    `apps/noter/.env.local` and kills that port if it is listening
 
-`make anon` and `make anon-once` must run `make killport` before starting the anonymous Convex
-bootstrap flow.
+`pnpm dev:worktree` and `pnpm dev:worktree:once` must run `make killport` before starting the
+anonymous Convex bootstrap flow.
 
 ## Goals
 
 1. Remove the need to manually look up the stale local backend port
 2. Remove the need to manually type the stale local backend port
 3. Keep the recovery path explicit and easy to understand
-4. Avoid output parsing or retry wrappers around the whole `make anon` flow
+4. Avoid output parsing or retry wrappers around the whole `pnpm dev:worktree` flow
 
 ## Non-Goals
 
 1. Do not infer ports from worktree hashing or other fallbacks in `killport`
 2. Do not parse Convex CLI error output to discover the port
-3. Do not retry `make anon` automatically
+3. Do not retry `pnpm dev:worktree` automatically
 4. Do not keep both `kill-port` and `killport`
 
 ## Source Of Truth
@@ -60,13 +60,13 @@ If `apps/noter/.env.local` does not exist, or neither variable contains a local 
 4. If the port is known but nothing is listening on it, exit successfully
 5. If one or more processes are listening on that port, send `SIGTERM`
 
-### `make anon` and `make anon-once`
+### `pnpm dev:worktree` and `pnpm dev:worktree:once`
 
 1. Run `make killport` first
-2. Continue with the existing anonymous bootstrap flow after that no-op/cleanup
+2. Continue with the existing worktree bootstrap flow after that no-op/cleanup
 
 ## Notes
 
 This design intentionally prefers a small, explicit operator primitive over a broader automation
-layer. The fix is "stop the previously known anon backend for this worktree before starting a new
-one," not "inspect Convex failures and retry startup generically."
+layer. The fix is "stop the previously known anonymous backend for this worktree before starting a
+new one," not "inspect Convex failures and retry startup generically."

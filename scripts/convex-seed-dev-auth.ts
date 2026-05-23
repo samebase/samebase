@@ -21,7 +21,7 @@ if (!seedEnv) {
   exitWithError(
     `Missing required worktree seed env file: ${seedEnvPath}\n` +
       `Worktree bootstrap requires ${seedEnvPath} before auth seeding can continue.\n` +
-      "Run `node ./scripts/convex-sync-dev-env.ts` to generate it, then retry `pnpm anon`.",
+      "Run `node ./scripts/convex-sync-dev-env.ts` to generate it, then retry `pnpm dev:worktree`.",
   );
 }
 
@@ -95,7 +95,7 @@ const terminateListeningPidsOnPort = async (port: number): Promise<void> => {
 
   // convex dev can leave behind the underlying `convex-local` process if the
   // node wrapper is terminated abruptly. Ensure we leave the port clean for
-  // subsequent `convex dev` invocations in `pnpm anon`.
+  // subsequent `convex dev` invocations in `pnpm dev:worktree`.
   killPids(pids, "SIGTERM");
 
   const deadline = Date.now() + 5000;

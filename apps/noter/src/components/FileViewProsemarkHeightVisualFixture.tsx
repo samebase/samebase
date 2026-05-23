@@ -56,8 +56,8 @@ const AGENTS_DOCUMENT = `# AGENTS.md
 
 ## Worktree
 
-- run \`pnpm anon:once\` before local workflows in a git worktree
-- use \`pnpm anon\` for day-to-day startup inside the worktree
+- run \`pnpm dev:worktree:once\` before local workflows in a git worktree
+- use \`pnpm dev:worktree\` for day-to-day startup inside the worktree
 - keep the file-view shell aligned with the shipped route
 
 ## Visual coverage

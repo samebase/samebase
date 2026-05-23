@@ -7,7 +7,7 @@ import process from "node:process";
 import { readOptionalEnvValue, readPositiveIntegerEnvValue } from "./lib/env.ts";
 import { fail, isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
 
-const DEFAULT_ANON_VITE_PORT = 5174;
+const DEFAULT_WORKTREE_DEV_VITE_PORT = 5174;
 const DEFAULT_RECORDINGS_DIRNAME = "noter-browser-recordings";
 
 const HELP_TEXT = `Usage: scripts/playwright-session.ts <command>
@@ -30,8 +30,8 @@ function resolvePlaywrightUrl(env: NodeJS.ProcessEnv): string {
   }
 
   const vitePort =
-    readPositiveIntegerEnvValue(env.ANON_VITE_PORT, "ANON_VITE_PORT", HELP_TEXT) ??
-    DEFAULT_ANON_VITE_PORT;
+    readPositiveIntegerEnvValue(env.WORKTREE_DEV_VITE_PORT, "WORKTREE_DEV_VITE_PORT", HELP_TEXT) ??
+    DEFAULT_WORKTREE_DEV_VITE_PORT;
   return `http://127.0.0.1:${vitePort}`;
 }
 

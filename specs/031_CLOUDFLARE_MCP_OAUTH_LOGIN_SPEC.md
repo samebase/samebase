@@ -37,7 +37,7 @@ maintaining a parallel direct Cloudflare REST integration.
 1. Allow users to connect Cloudflare without manually creating/pasting API tokens by using the
    Cloudflare web OAuth consent flow.
 2. Keep a non-interactive, seed-friendly Cloudflare auth path using an API token (`api_key`) for
-   `make anon` / worktree seeding only.
+   `pnpm dev:worktree` / worktree seeding only.
 3. Make Cloudflare connection a first-class provider in `providerConnections`, consistent with
    GitHub/Convex provider connections.
 4. Keep the runtime integration surface **one**: Cloudflare MCP.

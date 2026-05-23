@@ -104,7 +104,8 @@ pnpm dev
 Notes:
 
 - In Windows PowerShell, direct hosted-file `noter.ts` commands should use `curl.exe`, not the
-  built-in `curl` alias. This matches the Windows-safe command work merged in PR `#395`.
+  built-in `curl` alias. This matches the Windows-safe command work merged in
+  [`#395`](https://github.com/noter-md/noter/pull/395).
 - The `noter.ts connect` flow now prints a `next:` approval URL instead of trying to open a browser
   automatically. Open that printed link manually in a signed-in browser. This keeps the flow
   consistent across native Windows and Linux sandbox environments.
@@ -124,10 +125,10 @@ Notes:
   already have a cloud dev source env, use the dated troubleshooting notes in
   `research/windows-native-connected-machine-walkthrough-2026-04-01.md` if you need the older
   step-by-step debugging sequence.
-- The primary checkout path above works without GNU Make, and the worktree anonymous bootstrap flow
-  now uses root package scripts too. Prefer `pnpm dev` in the primary checkout and `pnpm anon` /
-  `pnpm anon:once` in worktrees. Anonymous startup no longer has a make alias; treat the package
-  scripts as the source of truth for that flow.
+- The primary checkout path above works without GNU Make, and the worktree bootstrap flow now uses
+  root package scripts too. Prefer `pnpm dev` as the normal command in both primary and worktree
+  checkouts. Use `pnpm dev:worktree` / `pnpm dev:worktree:once` only when you need to force the
+  worktree-specific path directly.
 
 ### Installation
 
@@ -145,12 +146,12 @@ pnpm dev
 
 ### Worktrees
 
-For a git worktree, use the repo-standard anonymous bootstrap commands instead of the
+For a git worktree, use the repo-standard worktree bootstrap commands instead of the
 primary-checkout flow:
 
 ```bash
-pnpm anon:once
-pnpm anon
+pnpm dev:worktree:once
+pnpm dev:worktree
 ```
 
 ### Build

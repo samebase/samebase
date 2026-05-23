@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
+import { execa, execaSync } from "execa";
 
 import {
   failUnexpectedArgument,
@@ -21,25 +21,25 @@ import {
 } from "../runtime/localWorktreePasswordAuth.ts";
 
 const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-const DEFAULT_ANON_VITE_PORT = 5174;
+const DEFAULT_WORKTREE_DEV_VITE_PORT = 5174;
 
-const HELP_TEXT = `Usage: scripts/run-anon-dev.ts [options]
+const HELP_TEXT = `Usage: scripts/run-worktree-dev.ts [options]
 
-Bootstrap the anonymous local worktree flow, then optionally launch the
-long-running frontend and backend dev processes.
+Bootstrap the worktree dev flow, then optionally launch the long-running
+frontend and anonymous local backend dev processes.
 
 Options:
-  --once                     Bootstrap and seed the anonymous local backend, then exit.
+  --once                     Bootstrap and seed the worktree backend, then exit.
   --no-branch                Skip detached-HEAD branch creation during bootstrap.
   --vite-port <port>         Frontend port for the long-running dev server.
-                             Default: ${DEFAULT_ANON_VITE_PORT}
+                             Default: ${DEFAULT_WORKTREE_DEV_VITE_PORT}
   --source-env <path>        Explicit cloud dev source env file for local seed generation.
   --source-deploy-key <key>  Explicit cloud deploy key for source-env queries.
   --allow-missing-source-env Allow local-only seed generation when no cloud source env exists.
   -h, --help                 Show this help message.
 `;
 
-type AnonOptions = {
+type WorktreeDevOptions = {
   once: boolean;
   enableBranch: boolean;
   vitePort: number;
@@ -65,19 +65,22 @@ const LOCAL_WORKTREE_PASSWORD_AUTH_VITE_ENV = {
 
 function readDefaultVitePort(env: NodeJS.ProcessEnv): number {
   return (
-    readPositiveIntegerEnvValue(env.ANON_VITE_PORT, "ANON_VITE_PORT", HELP_TEXT) ??
-    DEFAULT_ANON_VITE_PORT
+    readPositiveIntegerEnvValue(env.WORKTREE_DEV_VITE_PORT, "WORKTREE_DEV_VITE_PORT", HELP_TEXT) ??
+    DEFAULT_WORKTREE_DEV_VITE_PORT
   );
 }
 
-export function parseAnonArgs(args: string[], env: NodeJS.ProcessEnv = process.env): AnonOptions {
-  const options: AnonOptions = {
+export function parseWorktreeDevArgs(
+  args: string[],
+  env: NodeJS.ProcessEnv = process.env,
+): WorktreeDevOptions {
+  const options: WorktreeDevOptions = {
     once: false,
-    enableBranch: !readBooleanEnvValue(env.ANON_NO_BRANCH),
+    enableBranch: !readBooleanEnvValue(env.WORKTREE_DEV_NO_BRANCH),
     vitePort: readDefaultVitePort(env),
-    sourceEnv: readOptionalEnvValue(env.ANON_SOURCE_ENV),
-    sourceDeployKey: readOptionalEnvValue(env.ANON_SOURCE_DEPLOY_KEY),
-    allowMissingSourceEnv: readBooleanEnvValue(env.ANON_ALLOW_MISSING_SOURCE_ENV),
+    sourceEnv: readOptionalEnvValue(env.WORKTREE_DEV_SOURCE_ENV),
+    sourceDeployKey: readOptionalEnvValue(env.WORKTREE_DEV_SOURCE_DEPLOY_KEY),
+    allowMissingSourceEnv: readBooleanEnvValue(env.WORKTREE_DEV_ALLOW_MISSING_SOURCE_ENV),
     showHelp: false,
   };
 
@@ -135,7 +138,7 @@ export function parseAnonArgs(args: string[], env: NodeJS.ProcessEnv = process.e
   return options;
 }
 
-export function buildAnonBootstrapArgs(options: AnonOptions): string[] {
+export function buildWorktreeDevBootstrapArgs(options: WorktreeDevOptions): string[] {
   const args = ["--anon"];
   if (!options.enableBranch) {
     args.push("--no-branch");
@@ -143,8 +146,8 @@ export function buildAnonBootstrapArgs(options: AnonOptions): string[] {
   return args;
 }
 
-export function buildAnonSeedEnvArgs(
-  options: AnonOptions,
+export function buildWorktreeDevSeedEnvArgs(
+  options: WorktreeDevOptions,
   mode: "check-prereqs" | "sync",
 ): string[] {
   const args: string[] = [];
@@ -164,8 +167,8 @@ export function buildAnonSeedEnvArgs(
  * Preserve the existing make-order semantics: the one-off local bootstrap must
  * finish before env sync and auth seeding can depend on the generated .env.local.
  */
-export function buildAnonCommandPlan(
-  options: AnonOptions,
+export function buildWorktreeDevCommandPlan(
+  options: WorktreeDevOptions,
   repoRoot: string,
   env: NodeJS.ProcessEnv = process.env,
 ): CommandSpec[] {
@@ -194,7 +197,7 @@ export function buildAnonCommandPlan(
       command: process.execPath,
       args: [
         path.join(repoRoot, "scripts", "convex-sync-dev-env.ts"),
-        ...buildAnonSeedEnvArgs(options, "check-prereqs"),
+        ...buildWorktreeDevSeedEnvArgs(options, "check-prereqs"),
       ],
       env: seedEnv,
     },
@@ -204,7 +207,7 @@ export function buildAnonCommandPlan(
       command: process.execPath,
       args: [
         path.join(repoRoot, "scripts", "bootstrap-worktree.ts"),
-        ...buildAnonBootstrapArgs(options),
+        ...buildWorktreeDevBootstrapArgs(options),
       ],
     },
     {
@@ -226,7 +229,7 @@ export function buildAnonCommandPlan(
       command: process.execPath,
       args: [
         path.join(repoRoot, "scripts", "convex-sync-dev-env.ts"),
-        ...buildAnonSeedEnvArgs(options, "sync"),
+        ...buildWorktreeDevSeedEnvArgs(options, "sync"),
       ],
       env: seedEnv,
     },
@@ -259,10 +262,10 @@ export function buildAnonCommandPlan(
   return [
     ...plan,
     {
-      label: "launch the long-running anonymous dev server",
+      label: "launch the long-running worktree dev server",
       cwd: repoRoot,
       command: PNPM_COMMAND,
-      args: ["dev"],
+      args: ["dev:primary"],
       env: {
         ...anonymousEnv,
         ...LOCAL_WORKTREE_PASSWORD_AUTH_VITE_ENV,
@@ -274,51 +277,46 @@ export function buildAnonCommandPlan(
 }
 
 function runBlockingCommand(spec: CommandSpec): void {
-  const result = spawnSync(spec.command, spec.args, {
+  const result = execaSync(spec.command, spec.args, {
     cwd: spec.cwd,
     env: spec.env,
+    extendEnv: spec.env === undefined,
+    reject: false,
     stdio: "inherit",
   });
-  if (result.status !== 0) {
-    fail(`${spec.label} failed with exit code ${result.status ?? 1}.`, result.status ?? 1);
+  if (result.exitCode !== 0) {
+    fail(`${spec.label} failed with exit code ${result.exitCode ?? 1}.`, result.exitCode ?? 1);
   }
 }
 
-function runStreamingCommand(spec: CommandSpec): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(spec.command, spec.args, {
-      cwd: spec.cwd,
-      env: spec.env,
-      stdio: "inherit",
-    });
-
-    child.on("error", (error) => {
-      reject(new Error(`${spec.label} failed: ${error.message}`));
-    });
-
-    child.on("exit", (code, signal) => {
-      if (signal) {
-        process.kill(process.pid, signal);
-        return;
-      }
-      if (code === 0) {
-        resolve();
-        return;
-      }
-      reject(new Error(`${spec.label} failed with exit code ${code ?? 1}.`));
-    });
+async function runStreamingCommand(spec: CommandSpec): Promise<void> {
+  const result = await execa(spec.command, spec.args, {
+    cwd: spec.cwd,
+    env: spec.env,
+    extendEnv: spec.env === undefined,
+    reject: false,
+    stdio: "inherit",
   });
+
+  if (result.signal) {
+    process.kill(process.pid, result.signal);
+    return;
+  }
+  if (result.exitCode === 0) {
+    return;
+  }
+  throw new Error(`${spec.label} failed with exit code ${result.exitCode ?? 1}.`);
 }
 
 async function main(): Promise<void> {
-  const options = parseAnonArgs(process.argv.slice(2));
+  const options = parseWorktreeDevArgs(process.argv.slice(2));
   if (options.showHelp) {
     console.log(HELP_TEXT);
     return;
   }
 
   const repoRoot = resolveRepoRoot();
-  const plan = buildAnonCommandPlan(options, repoRoot);
+  const plan = buildWorktreeDevCommandPlan(options, repoRoot);
   for (const spec of plan) {
     if (spec.longRunning) {
       await runStreamingCommand(spec);

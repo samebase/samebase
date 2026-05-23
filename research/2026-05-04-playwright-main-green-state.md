@@ -472,8 +472,8 @@ contract.
 PLAYWRIGHT_VITE_PORT=43121 pnpm --filter noter test:visual
 ```
 
-When running from a worktree before dev/lint/test workflows, use `pnpm anon` per repo startup rules
-if the local backend/setup is required.
+When running from a worktree before dev/lint/test workflows, use `pnpm dev:worktree` per repo
+startup rules if the local backend/setup is required.
 
 ## Decision Summary
 

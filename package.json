@@ -14,12 +14,13 @@
   "author": "",
   "type": "module",
   "scripts": {
-    "anon": "node ./scripts/run-anon-dev.ts",
-    "anon:once": "node ./scripts/run-anon-dev.ts --once",
     "bootstrap": "node ./scripts/bootstrap-worktree.ts",
     "connect": "node ./scripts/noter-pr-connect.ts",
     "connect:once": "node ./scripts/noter-pr-connect.ts --once",
-    "dev": "node ./scripts/run-primary-dev.ts",
+    "dev": "node ./scripts/run-context-dev.ts",
+    "dev:primary": "node ./scripts/run-primary-dev.ts",
+    "dev:worktree": "node ./scripts/run-worktree-dev.ts",
+    "dev:worktree:once": "node ./scripts/run-worktree-dev.ts --once",
     "build": "vp run --filter noter build",
     "build:ci": "vp run --filter noter build:ci",
     "check": "pnpm run check:workspace && pnpm run check:root",
@@ -61,8 +62,8 @@
     "playwright:record:stop": "node ./scripts/playwright-session.ts record-stop",
     "onboarding-video:landing-demo": "pnpm --filter @noter-md/onboarding-video-tools landing-demo",
     "onboarding-video:screen-demo": "pnpm --filter @noter-md/onboarding-video-tools screen-demo",
-    "share:anon": "node ./scripts/anon-share.ts",
-    "share:local": "node ./scripts/anon-share.ts --mode local",
+    "share:local": "node ./scripts/worktree-share.ts --mode local",
+    "share:worktree": "node ./scripts/worktree-share.ts",
     "typecheck:scripts": "tsgo -p tsconfig.scripts.json --pretty false"
   },
   "devDependencies": {
@@ -73,6 +74,7 @@
     "@typescript/native-preview": "7.0.0-dev.20260413.1",
     "convex-test": "^0.0.51",
     "eslint-plugin-react-refresh": "^0.4.7",
+    "execa": "9.6.1",
     "typescript": "5.9.2",
     "vite-plus": "0.1.18"
   },

@@ -44,7 +44,7 @@ problems, attempted fixes, and outcomes.
 ## Goals
 
 1. Adopt TanStack Router without widening scope into a separate framework boot migration first.
-2. Preserve the current `make anon` and Vite-based local workflows while the router changes.
+2. Preserve the current `pnpm dev:worktree` and Vite-based local workflows while the router changes.
 3. Keep the route-layout seams from `specs/080` so shell work and router work stay decoupled.
 4. Replace the landing/bootstrap split-brain with normal routed rendering.
 5. Keep a running migration log of real blockers and attempted fixes.
@@ -308,7 +308,7 @@ problems, attempted fixes, and outcomes.
 - Problem: after the routed-root phase rebased onto newer `origin/main`, the landing-focused
   Playwright slice no longer failed broadly, but a small set of shell assertions still regressed.
   Tried: reran only `public-landing-shell.spec.ts` and `landing-copy-visual.spec.ts` against the
-  real `make anon` stack and grouped the failures by invariant instead of updating snapshots
+  real `pnpm dev:worktree` stack and grouped the failures by invariant instead of updating snapshots
   blindly. Result: the remaining breakages clustered around pre-hydration toggle behavior,
   blocked-storage boot, and a couple of bootstrap-era visual assumptions rather than a general
   routed-root failure.

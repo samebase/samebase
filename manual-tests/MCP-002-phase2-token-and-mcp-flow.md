@@ -6,7 +6,7 @@ Validate token and protected MCP endpoints are present and enforce OAuth validat
 
 ## Prerequisites
 
-- Run worktree bootstrap: `pnpm anon`
+- Run worktree bootstrap: `pnpm dev:worktree`
 - Local Convex site URL: `http://127.0.0.1:11327`
 - A registered `client_id` from `MCP-001`
 

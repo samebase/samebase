@@ -42,7 +42,7 @@ function signalPid(pid: string, signal: "TERM" | "KILL"): void {
 }
 
 /**
- * Keep the anonymous bootstrap tied to the currently selected local backend
+ * Keep worktree bootstrap tied to the currently selected local backend
  * instead of guessing which listener to terminate.
  */
 export function resolveStoredLocalBackendPort(repoRoot: string): number | null {

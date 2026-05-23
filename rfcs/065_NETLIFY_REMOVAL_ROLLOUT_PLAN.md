@@ -103,10 +103,10 @@ Turn the Netlify-removal RFC into a working implementation tracker with:
 
 ```bash
 pnpm exec vitest run apps/noter/convex/toolRuntime/catalog.test.ts
-make anon
+pnpm dev:worktree
 ```
 
-Manual smoke after `make anon`:
+Manual smoke after `pnpm dev:worktree`:
 
 1. open the app
 2. create or open a vault chat
@@ -143,7 +143,7 @@ Manual smoke after `make anon`:
 ### Validation Commands
 
 ```bash
-make anon-once
+pnpm dev:worktree:once
 cd apps/noter && npm run lint:ci
 grep -Rni 'netlify' apps/noter/convex --exclude-dir=node_modules
 ```
@@ -184,10 +184,10 @@ grep -Rni 'netlify' apps/noter/convex --exclude-dir=node_modules
 ```bash
 cd apps/noter-starter-template && pnpm run template:export
 pnpm exec vitest run apps/noter/convex/starterSeedManifest.test.ts
-make anon
+pnpm dev:worktree
 ```
 
-Manual smoke after `make anon`:
+Manual smoke after `pnpm dev:worktree`:
 
 1. open the dashboard
 2. confirm there is no Netlify provider card
@@ -246,7 +246,7 @@ grep -Rni 'netlify' README.md apps/noter apps/noter-starter-template specs rfcs 
 1. Repo-wide backend/frontend gate:
 
 ```bash
-make anon-once
+pnpm dev:worktree:once
 cd apps/noter && npm run lint:ci
 ```
 
