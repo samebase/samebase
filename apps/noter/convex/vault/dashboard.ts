@@ -603,6 +603,7 @@ const getUserVaultsResult = array(
     hasConnectedGitHubRepository: boolean(),
     hasConvexProvision: boolean(),
     hasCloudflareProvision: boolean(),
+    canRemoveCloudflareProvision: boolean(),
     remoteBranches: array(
       object({
         name: string(),
@@ -682,6 +683,7 @@ export const getUserVaults = query({
         hasConnectedGitHubRepository: false,
         hasConvexProvision: false,
         hasCloudflareProvision: false,
+        canRemoveCloudflareProvision: false,
         remoteBranches: [],
         cloudflareWorkersDevUrl: undefined,
         cloudflareWorkerName: undefined,
@@ -721,6 +723,8 @@ export const getUserVaults = query({
             hasConnectedGitHubRepository: true,
             hasConvexProvision: vault.convex.state === "connected",
             hasCloudflareProvision: vault.cloudflare.state === "connected",
+            canRemoveCloudflareProvision:
+              vault.cloudflare.state === "connected" && vault.cloudflare.origin === "provisioned",
             remoteBranches: [],
             cloudflareWorkersDevUrl: undefined,
             cloudflareWorkerName: undefined,
@@ -771,6 +775,8 @@ export const getUserVaults = query({
         const hasConvexProvision = vault.convex.state === "connected";
         const cloudflare = vault.cloudflare;
         const hasCloudflareProvision = cloudflare.state === "connected";
+        const canRemoveCloudflareProvision =
+          cloudflare.state === "connected" && cloudflare.origin === "provisioned";
         const convexProjectSlug =
           vault.convex.state === "connected" ? vault.convex.projectSlug : undefined;
         const convexDeploymentName =
@@ -801,6 +807,7 @@ export const getUserVaults = query({
           hasConnectedGitHubRepository: true,
           hasConvexProvision,
           hasCloudflareProvision,
+          canRemoveCloudflareProvision,
           remoteBranches: remoteBranches.sort(compareRemoteBranchSortOrder).map((branch) => ({
             name: branch.name,
             headCommitSha: branch.headCommitSha,

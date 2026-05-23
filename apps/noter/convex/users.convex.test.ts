@@ -126,4 +126,38 @@ describe("users Convex contract", () => {
       authMethod: "api_key",
     });
   });
+
+  it("reports whether the Cloudflare connection still needs account selection", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      await ctx.db.insert("providerConnections", {
+        kind: "cloudflare",
+        userId,
+        auth: {
+          method: "api_key",
+          credential: "test-cloudflare-api-key",
+        },
+        defaultAccount: { state: "not_selected" },
+        createdAt: 1,
+        updatedAt: 2,
+      });
+      return userId;
+    });
+
+    const asUser = t.withIdentity({
+      subject: `${userId}|test-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+
+    await expect(asUser.query(api.users.getCloudflareConnectionStatus)).resolves.toEqual({
+      connected: true,
+      accountSelection: "not_selected",
+      authMethod: "api_key",
+    });
+  });
 });

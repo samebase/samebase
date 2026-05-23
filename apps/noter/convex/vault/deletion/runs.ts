@@ -175,8 +175,8 @@ async function buildCloudflarePlan(
   if (!options.removeCloudflareProvision) {
     return { action: "skip", reason: "not_requested" };
   }
-  if (!isConnectedVault(vault) || !isNoterManagedVault(vault)) {
-    return { action: "skip", reason: "not_noter_managed" };
+  if (!isConnectedVault(vault)) {
+    return { action: "skip", reason: "not_recorded" };
   }
 
   if (vault.cloudflare.state !== "connected") {

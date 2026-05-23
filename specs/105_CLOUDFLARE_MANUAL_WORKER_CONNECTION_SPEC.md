@@ -16,7 +16,7 @@ connection and separate from deployment wiring.
 - Do not configure Workers Builds in this slice.
 - Do not connect GitHub to Cloudflare in this slice.
 - Do not set Convex deploy keys in Workers Builds in this slice.
-- Do not auto-delete Cloudflare resources from manual connection state.
+- Do not delete Cloudflare Workers that were selected as existing external resources.
 
 ## State Model
 
@@ -71,6 +71,12 @@ type CloudflareDefaultAccount =
 
 Each vault stores its own Cloudflare account identity, so different vaults can target different
 accounts.
+
+If OAuth exposes more than one Cloudflare account, the provider connection remains connected with
+`defaultAccount.state === "not_selected"` until the user chooses one. New full-app creation must not
+start provisioning in that state; the dashboard should block create and offer an account selection
+path. Manual Worker attach/create can also choose an account and then stores that choice as the new
+default for later flows.
 
 ## Provisioning Target Model
 

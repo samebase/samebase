@@ -132,6 +132,29 @@ export const listAccounts = action({
   },
 });
 
+export const selectDefaultAccount = action({
+  args: {
+    accountId: string(),
+  },
+  returns: nullValue(),
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+    const connection = await resolveCloudflareConnection(ctx, userId);
+    const account = await resolveAccount(ctx, {
+      token: connection.token,
+      accountId: args.accountId,
+    });
+    await rememberDefaultAccount(ctx, {
+      userId,
+      auth: connection.auth,
+      account,
+      tokenHealth: connection.tokenHealth,
+    });
+
+    return null;
+  },
+});
+
 export const listWorkers = action({
   args: {
     accountId: string(),

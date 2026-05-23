@@ -175,6 +175,7 @@ const fixtureDeleteDialogTarget = {
   canRemoveGithubRepo: true,
   hasConvexProvision: true,
   hasCloudflareProvision: true,
+  canRemoveCloudflareProvision: true,
 } satisfies VaultDeleteDialogTarget;
 
 function FixtureVaultLastUpdatedStatusCard() {
