@@ -1,5 +1,5 @@
 import { RouterContextProvider, createMemoryHistory } from "@tanstack/react-router";
-import { createElement, useState, type ReactElement, type ReactNode } from "react";
+import { useEffect, useState, type ReactElement, type ReactNode } from "react";
 import { createAppRouter } from "@/router";
 
 type TestRouterProviderProps = {
@@ -27,8 +27,15 @@ export function TestRouterProvider({
     ),
   );
 
-  return createElement(RouterContextProvider, {
-    children,
-    router,
-  });
+  // Fixtures mount router context without TanStack's Matches/Transitioner tree,
+  // so keep memory-history navigations loading the same way production does.
+  useEffect(
+    () =>
+      router.history.subscribe(() => {
+        void router.load();
+      }),
+    [router],
+  );
+
+  return <RouterContextProvider router={router}>{children}</RouterContextProvider>;
 }

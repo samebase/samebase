@@ -53,6 +53,7 @@ import {
 import { isInIframe, useNoterAuthActions } from "@/authClient";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
+import { RouteUrlEditor } from "@/components/RouteUrlEditor";
 import {
   Dialog,
   DialogContent,
@@ -4839,7 +4840,7 @@ export function VaultDashboard() {
             content: sidebarContent,
           }}
           main={{
-            header: null,
+            header: <RouteUrlEditor />,
             content: dashboardBody,
           }}
           panel={

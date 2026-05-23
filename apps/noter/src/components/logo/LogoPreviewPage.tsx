@@ -2054,7 +2054,7 @@ export function LogoPreviewPage({
         left={{
           content: controlsContent,
         }}
-        leftToggleVisibility="all"
+        leftToggleVisibility="desktop"
         main={{
           content: sceneContent,
           headerTestId: "logo-preview-main-header",

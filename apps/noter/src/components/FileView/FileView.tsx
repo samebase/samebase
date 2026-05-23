@@ -2431,7 +2431,6 @@ function FileViewInner({
   ) : null;
   const fileViewMainHeader = (
     <FileViewMainHeader
-      currentUrl={location.href}
       headerTitle={headerTitle}
       onQuickOpen={() => setIsCommandPaletteOpen(true)}
     />

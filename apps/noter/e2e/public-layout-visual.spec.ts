@@ -28,7 +28,7 @@ test("public landing route uses the right sidebar shell", async ({ page }) => {
   });
 });
 
-test("public landing dev rail exposes the route URL display", async ({ page }) => {
+test("public landing header exposes the route URL editor", async ({ page }) => {
   await page.addInitScript(() => {
     Math.random = () => 0.57;
   });
@@ -39,23 +39,29 @@ test("public landing dev rail exposes the route URL display", async ({ page }) =
   });
   await page.waitForLoadState("networkidle");
 
-  const routeUrlDisplay = page.getByTestId("route-url-display");
-  await expect(routeUrlDisplay).toHaveText("/?dev");
-  await expect(routeUrlDisplay).toHaveAttribute("title", "/?dev");
+  const origin = new URL(page.url()).origin;
+  const routeUrlInput = page.getByTestId("route-url-editor-input");
+  await expect(routeUrlInput).toHaveValue(`${origin}/?dev`);
+  await expect(routeUrlInput).toHaveAttribute("title", `${origin}/?dev`);
   await expect(page).toHaveScreenshot("public-layout-landing-dev.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",
     maxDiffPixelRatio: 0.03,
   });
+  await routeUrlInput.focus();
+  await expect(routeUrlInput).toHaveValue(`${origin}/?dev`);
 
   await page.getByRole("link", { name: "/terms", exact: true }).click();
   await expect(page).toHaveURL(/\/terms\?dev$/);
-  await expect(page.getByTestId("route-url-display")).toHaveText("/terms?dev");
-  await expect(page.getByTestId("route-url-display")).toHaveAttribute("title", "/terms?dev");
+  await expect(page.getByTestId("route-url-editor-input")).toHaveValue(`${origin}/terms?dev`);
+  await expect(page.getByTestId("route-url-editor-input")).toHaveAttribute(
+    "title",
+    `${origin}/terms?dev`,
+  );
 });
 
-test("public route URL display clamps long URLs to two lines", async ({ page }) => {
+test("public route URL editor stays compact for long URLs", async ({ page }) => {
   const longPath =
     "/?dev&route=codex-find-main-header-url-research&state=abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
 
@@ -65,24 +71,27 @@ test("public route URL display clamps long URLs to two lines", async ({ page }) 
   });
   await page.waitForLoadState("networkidle");
 
-  const routeUrlDisplay = page.getByTestId("route-url-display");
-  await expect(routeUrlDisplay).toHaveText(longPath);
-  await expect(routeUrlDisplay).toHaveAttribute("title", longPath);
+  const origin = new URL(page.url()).origin;
+  const routeUrlEditor = page.getByTestId("route-url-editor");
+  const routeUrlInput = page.getByTestId("route-url-editor-input");
+  await expect(routeUrlInput).toHaveValue(`${origin}${longPath}`);
+  await expect(routeUrlInput).toHaveAttribute("title", `${origin}${longPath}`);
 
-  const metrics = await routeUrlDisplay.evaluate((element) => {
-    const styles = window.getComputedStyle(element);
+  const metrics = await routeUrlEditor.evaluate((element) => {
+    const input = element.querySelector('[data-testid="route-url-editor-input"]');
+    if (!(input instanceof HTMLInputElement)) {
+      throw new Error("Expected route URL editor input");
+    }
 
     return {
       height: element.getBoundingClientRect().height,
-      lineClamp: styles.getPropertyValue("-webkit-line-clamp"),
-      lineHeight: Number.parseFloat(styles.lineHeight),
-      overflow: styles.overflow,
+      inputClientWidth: input.clientWidth,
+      inputScrollWidth: input.scrollWidth,
     };
   });
 
-  expect(metrics.lineClamp).toBe("2");
-  expect(metrics.overflow).toBe("hidden");
-  expect(metrics.height).toBeLessThanOrEqual(metrics.lineHeight * 2 + 1);
+  expect(metrics.height).toBeLessThanOrEqual(32);
+  expect(metrics.inputScrollWidth).toBeGreaterThan(metrics.inputClientWidth);
 });
 
 test("public landing ProseMark copy survives full selection deletion", async ({ page }) => {

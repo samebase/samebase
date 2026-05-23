@@ -1,6 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
 import { PNG } from "pngjs";
-import { PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID } from "../src/components/PublicRightSidebar";
 import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
 import { LOCAL_STORAGE_ROUTE } from "../src/lib/localStorageRoute";
 
@@ -72,15 +71,17 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
   });
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  const mainPane = page.getByTestId("workspace-layout-v2-pane-main");
   const linksSidebar = page.getByTestId("workspace-layout-v2-pane-right");
-  const routeUrlHeader = linksSidebar.getByTestId(PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID);
+  const origin = new URL(page.url()).origin;
+  const routeUrlInput = mainPane.getByTestId("route-url-editor-input");
   const publicLinks = linksSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
 
   await expect(controlsSidebar).toBeVisible();
   await expect(controlsSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID)).toHaveCount(0);
+  await expect(routeUrlInput).toHaveValue(`${origin}/logo`);
+  await expect(routeUrlInput).toHaveAttribute("title", `${origin}/logo`);
   await expect(linksSidebar).toBeVisible();
-  await expect(routeUrlHeader.getByTestId("route-url-display")).toHaveAttribute("title", "/logo");
-  await expect(routeUrlHeader.getByTestId("route-url-display")).toHaveText("/logo");
   await expect(publicLinks.getByRole("link", { name: "/home", exact: true })).toHaveAttribute(
     "href",
     "/",
@@ -686,7 +687,7 @@ test("logo iso controls mobile boot", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Preview" })).toHaveCount(0);
 });
 
-test("logo view mobile header button reopens the controls sidebar", async ({ page }) => {
+test("logo view mobile header omits the controls sidebar button", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/logo?elev=215.3", {
     waitUntil: "domcontentloaded",
@@ -696,9 +697,6 @@ test("logo view mobile header button reopens the controls sidebar", async ({ pag
   const carousel = page.getByTestId("workspace-layout-v2-pane-main");
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
   const mainHeader = page.getByTestId("logo-preview-main-header");
-  const controlsToggle = page.getByRole("button", {
-    name: "Toggle sidebar",
-  });
 
   await expect(workspace).toHaveAttribute("data-mobile-pane", "left");
   await expect(controlsSidebar).toContainText("Pages");
@@ -708,7 +706,7 @@ test("logo view mobile header button reopens the controls sidebar", async ({ pag
     element.dispatchEvent(new Event("scroll", { bubbles: true }));
   });
   await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
-  await expect(controlsToggle).toBeVisible();
+  await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toHaveCount(0);
 
   await expect(mainHeader).toHaveScreenshot("logo-mobile-main-header.png", {
     animations: "disabled",
@@ -716,9 +714,6 @@ test("logo view mobile header button reopens the controls sidebar", async ({ pag
     scale: "css",
     maxDiffPixelRatio: 0.01,
   });
-
-  await controlsToggle.click();
-  await expect(workspace).toHaveAttribute("data-mobile-pane", "left");
 });
 
 test("logo view angle input stacks below the slider", async ({ page }) => {
@@ -914,7 +909,7 @@ test("logo view desktop header toggle collapses and reopens the sidebar", async 
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
   const leftToggle = page.getByRole("button", {
-    name: "Toggle sidebar",
+    name: "Toggle Left Sidebar",
   });
 
   await expect(leftToggle).toBeVisible();

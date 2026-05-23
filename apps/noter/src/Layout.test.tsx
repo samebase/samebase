@@ -2,7 +2,6 @@ import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
-import { PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID } from "@/components/PublicRightSidebar";
 import {
   LANDING_DEV_MODE_DISABLE_LINK_LABEL,
   LANDING_DEV_MODE_LINK_LABEL,
@@ -134,7 +133,7 @@ describe("Layout", () => {
     );
 
     expect(markup).toContain('aria-label="Toggle Right Sidebar"');
-    expect(markup).toContain("absolute right-0 top-0");
+    expect(markup).toContain("hidden h-8 w-8 md:inline-flex");
     expect(markup).not.toContain('aria-label="Toggle sidebar"');
   });
 
@@ -197,7 +196,7 @@ describe("Layout", () => {
             left={{
               content: <div data-testid="local-storage-left-pane">localStorage</div>,
             }}
-            leftToggleVisibility="all"
+            leftToggleVisibility="desktop"
             main={{
               header: <div>Storage header</div>,
               content: <div>Storage values</div>,
@@ -210,7 +209,7 @@ describe("Layout", () => {
     expect(markup).toContain('data-testid="local-storage-workspace"');
     expect(markup).toContain('data-testid="workspace-layout-v2-pane-left"');
     expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
-    expect(markup).toContain('aria-label="Toggle sidebar"');
+    expect(markup).toContain('aria-label="Toggle Left Sidebar"');
     expect(markup).toContain("/logo");
     expect(markup).toContain("/home");
     expect(markup).toContain("/terms");
@@ -341,7 +340,7 @@ describe("Layout", () => {
     expect(termsLinkIndex).toBeLessThan(privacyLinkIndex);
   });
 
-  it("shows a route URL editor in the public sidebar header", () => {
+  it("shows a route URL editor in the public main header", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
@@ -362,13 +361,13 @@ describe("Layout", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain(`data-testid="${PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID}"`);
-    expect(markup).toContain('data-testid="route-url-display"');
-    expect(markup).toContain('title="/?dev"');
-    expect(markup).toContain(">/?dev</p>");
+    expect(markup).toContain('data-testid="route-url-editor"');
+    expect(markup).toContain('data-testid="route-url-editor-input"');
+    expect(markup).toContain('title="https://noter.local/?dev"');
+    expect(markup).toContain('value="https://noter.local/?dev"');
   });
 
-  it("reserves the route URL header slot in the normal public sidebar", () => {
+  it("renders the route URL editor in the normal public shell", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
@@ -383,9 +382,10 @@ describe("Layout", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain(`data-testid="${PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID}"`);
-    expect(markup).toContain('aria-hidden="true"');
-    expect(markup).toContain('data-testid="route-url-display"');
+    expect(markup).toContain('data-testid="route-url-editor"');
+    expect(markup).toContain('data-testid="route-url-editor-input"');
+    expect(markup).toContain('title="https://noter.local/"');
+    expect(markup).toContain('value="https://noter.local/"');
   });
 
   it("opens the logo shortcut without changing root flags", () => {
