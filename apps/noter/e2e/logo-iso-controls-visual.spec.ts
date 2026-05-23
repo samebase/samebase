@@ -756,12 +756,13 @@ test("logo view button groups wrap to one per row in the default rail", async ({
   });
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  const viewSection = controlsSidebar.getByTestId("logo-preview-view-section");
   const addButton = controlsSidebar.getByRole("button", { name: "Add" });
   const removeButton = controlsSidebar.getByRole("button", { name: "Remove" });
-  const cubeAxisButton = controlsSidebar.getByRole("button", {
+  const cubeAxisButton = viewSection.getByRole("button", {
     name: "Cube axis",
   });
-  const verticalButton = controlsSidebar.getByRole("button", {
+  const verticalButton = viewSection.getByRole("button", {
     name: "Vertical",
   });
 

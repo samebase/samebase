@@ -1656,7 +1656,7 @@ export function LogoPreviewPage({
           </div>
         </LogoPreviewSection>
       ) : (
-        <LogoPreviewSection title="View">
+        <LogoPreviewSection title="View" testId="logo-preview-view-section">
           <div className="flex items-start gap-3">
             <Checkbox
               id={viewSnapCheckboxId}
