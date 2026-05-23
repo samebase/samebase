@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { renderToStaticMarkup } from "react-dom/server";
 import { buildPathWithTanStackSearch, stringifyTanStackSearch } from "./lib/tanstackSearchParams";
 
 const { buildLocationMock, isInIframeMock, openAuthPopupMock, signInWithGoogleMock } = vi.hoisted(
@@ -64,6 +65,21 @@ describe("SignInWithGoogle", () => {
     );
   }
 
+  function renderVisibleGoogleButton(props?: Parameters<typeof SignInWithGoogle>[0]) {
+    const element = SignInWithGoogle(props);
+    if (element === null) {
+      throw new Error("Expected visible Google sign-in button");
+    }
+    return element;
+  }
+
+  it("does not leave a hidden provider button in the DOM", () => {
+    const markup = renderToStaticMarkup(<SignInWithGoogle visible={false} />);
+
+    expect(markup).toBe("");
+    expect(markup).not.toContain("Google");
+  });
+
   it("preserves the MCP consent route when starting top-level Google auth", () => {
     const consentSearch = stringifyTanStackSearch({
       mcp_consent_request: "mcpar_test",
@@ -84,7 +100,7 @@ describe("SignInWithGoogle", () => {
     });
     mockCurrentRouteLocationBuilder();
 
-    const element = SignInWithGoogle();
+    const element = renderVisibleGoogleButton();
     const expectedRedirectTo = buildPathWithTanStackSearch({
       pathname: "/oauth/mcp/consent",
       search: {
@@ -118,7 +134,7 @@ describe("SignInWithGoogle", () => {
     });
     mockCurrentRouteLocationBuilder();
 
-    const element = SignInWithGoogle({ markPublicSignupReturn: true });
+    const element = renderVisibleGoogleButton({ markPublicSignupReturn: true });
     const expectedRedirectTo = buildPathWithTanStackSearch({
       pathname: "/",
       search: {
@@ -147,7 +163,7 @@ describe("SignInWithGoogle", () => {
     });
     mockCurrentRouteLocationBuilder();
 
-    const element = SignInWithGoogle({ markPublicSignupReturn: true });
+    const element = renderVisibleGoogleButton({ markPublicSignupReturn: true });
 
     element.props.onClick();
 

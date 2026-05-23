@@ -30,18 +30,15 @@ export function SignInWithGoogle({
       to: "/",
     }).href;
 
+  if (!visible) {
+    return null;
+  }
+
   return (
     <Button
-      aria-hidden={!visible}
-      className={
-        visible
-          ? "visible h-auto flex-1 opacity-100 py-2.5 transition-[opacity,visibility] duration-150 ease-out motion-reduce:transition-none"
-          : "invisible h-auto flex-1 pointer-events-none opacity-0 py-2.5 transition-[opacity,visibility] duration-150 ease-out disabled:opacity-0 motion-reduce:transition-none"
-      }
-      disabled={!visible}
+      className="h-auto flex-1 py-2.5"
       variant="outline"
       type="button"
-      tabIndex={visible ? undefined : -1}
       onClick={() => {
         if (isInIframe()) {
           openAuthPopup("google", { popupPath: buildGooglePopupPath() });
