@@ -33,6 +33,16 @@ portable TypeScript or generated-app skill pack.
   that preserves the remote branch. Full `clean` requires the current PR to be terminal: `MERGED` or
   `CLOSED`.
 
+## Shortcut Semantics
+
+- `create pr` means create or update a ready PR; `create draft` is the explicit draft path.
+- `push` commits first when needed, then pushes.
+- `rebase` means rebase onto the latest base and push the rewritten branch.
+- `ready` marks the current PR ready.
+- `wait` watches CI and reports status.
+- `ship` leaves an updated ready PR, clears actionable review feedback, and waits for CI.
+- `status` reports branch, local changes, and PR state.
+
 ## Convex And External State
 
 - For production Convex reads from worktrees, derive `CONVEX_DEPLOYMENT` from the primary checkout

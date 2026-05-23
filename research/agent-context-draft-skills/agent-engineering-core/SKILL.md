@@ -24,6 +24,8 @@ provider-specific rules, and product conventions in overlays or task skills.
   defending an earlier taxonomy.
 - Fail closed for destructive actions, external writes, credentialed reads, cleanup, production
   access, and publishing. Skip any target whose ownership or safety cannot be proven.
+- Preserve approval, auth, and audit boundaries. Do not silently widen access to production reads,
+  external writes, or privileged workflows.
 - Validate completion against current evidence. Re-check the relevant state after edits, tests,
   commands, PR updates, or cleanup.
 - Avoid leaking secrets, provider credentials, production data, or sensitive user content into logs,

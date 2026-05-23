@@ -56,6 +56,9 @@ Repo guidance sources:
   or an active `AGENTS.md` rewrite.
 - `research/2026-05-23-agent-context-forward-test-results-1.md` contains the first targeted
   forward-test pass against those draft artifacts and the revisions it produced.
+- `research/2026-05-23-agent-context-agents-migration-map.md` maps the current long `AGENTS.md`
+  sections to keep-short pointers, portable skills, Noter overlays, existing docs/skills, and
+  unresolved extraction work.
 
 Local thread evidence:
 
@@ -314,8 +317,7 @@ context, a triggerable skill, a workflow doc, or an operator overlay.
 
 ## Next Work
 
-1. Compare the revised draft artifacts against the long `AGENTS.md` sections and mark the intended
-   migration target for each cluster.
-2. Forward-test the revised artifacts as installed or package-like skills in an isolated context.
+1. Forward-test the revised artifacts as installed or package-like skills in an isolated context.
+2. Run one Convex-specific task before moving Convex CLI or Convex AI guidance.
 3. Manually review the pinned comparison threads after the non-pinned baseline has more breadth.
 4. Only then move durable material out of `AGENTS.md`.

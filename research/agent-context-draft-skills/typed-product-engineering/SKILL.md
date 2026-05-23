@@ -15,6 +15,8 @@ accidentally make impossible states possible.
 ## Type And Validation Boundaries
 
 - Do not use `any`, broad assertions, or assertion-based examples to bypass the type system.
+- When a suppression is unavoidable, use the narrowest possible `@ts-expect-error` and make the
+  expected type failure part of the proof.
 - Derive TypeScript types from the runtime schema, validator, or generated source of truth when one
   exists.
 - Keep broad generated validation when it protects a broad current provider or OpenAPI surface from
@@ -51,6 +53,8 @@ accidentally make impossible states possible.
   validation, or assertions at the proof boundary.
 - Do not add production helpers solely to make tests prettier. Assert behavior directly, and for
   diagnostics match upstream issue payloads when they are adequate.
+- Do not keep production helpers, barrels, or same-name re-export shims that exist only to preserve
+  an old import path or make tests cleaner.
 - Use negative type tests when reducing a typed request facade could accidentally permit invalid
   params, bodies, methods, response shapes, or route states.
 
@@ -66,6 +70,9 @@ accidentally make impossible states possible.
 - Separate committed route/server state from local draft or interaction state.
 - Treat every effect as something to justify. Prefer route lifecycle, data/cache APIs, event
   handlers, derived render state, or CSS when those owners fit.
+- Narrow maybe-null objects once before repeated reads. Prefer existence or truthiness checks when
+  the type already models absence; use exact missing-value checks only when the exact value is the
+  state being modeled.
 - Preserve existing placement, keyboard, focus, touch, selection, and editor behavior unless the
   product change explicitly requires moving them.
 

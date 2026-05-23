@@ -128,6 +128,14 @@ targeted tasks and applies the first revision pass:
   handoff and clarify source-owned generated-app files plus bytewise path ordering.
 - `pr-workflow-review` now has a non-mutating read-only PR triage mode.
 
+## Migration Map
+
+`research/2026-05-23-agent-context-agents-migration-map.md` compares the revised draft artifacts
+against the current long `AGENTS.md`. The map keeps startup essentials, source routing,
+architecture, shortcut recognition, task references, and Convex AI routing visible until installed
+skills or overlays prove they can be loaded before those rules are needed. It also identifies
+unresolved follow-up for Convex-specific module conventions and shadcn/UI ownership.
+
 ## Open Questions Before Moving `AGENTS.md`
 
 - Whether the portable artifacts should live as repo-local `skills/*`, a separate package, or both.

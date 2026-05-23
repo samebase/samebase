@@ -40,10 +40,13 @@ meant to be reviewed, forward-tested, and revised before any live context modula
   five draft artifacts: typed provider boundaries, route UI validation, cleanup, app-template
   research, and read-only PR triage. The resulting revisions were applied to the draft skills and
   overlays.
+- `research/2026-05-23-agent-context-agents-migration-map.md` maps the current `AGENTS.md` sections
+  to keep-short pointers, portable skills, Noter overlays, existing docs/skills, and unresolved
+  follow-up areas before any live modularization.
 
 ## Next Validation
 
-- Compare the overlay split against the long `AGENTS.md` sections before moving any active context.
 - Forward-test the revised artifacts as installed or package-like skills in an isolated context.
 - Decide whether the live packaging target is repo-local `skills/*`, a separate context package, or
   compatibility wrappers around existing repo skills.
+- Run one Convex-specific task before moving Convex CLI or Convex AI guidance.
