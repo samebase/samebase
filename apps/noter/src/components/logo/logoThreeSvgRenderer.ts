@@ -10,8 +10,10 @@ import { toRenderedRotationDegrees } from "./logoRotationMath";
 import { getTailwindColorHex, type FaceColorKey, type FaceColors } from "./logoTailwindColors";
 import {
   buildLogoSurfaceQuads,
+  getLogoSurfaceVertexUv,
   type LogoSurfaceQuad,
   type LogoSurfaceVertex,
+  type LogoSurfaceUvPoint,
 } from "./logoSurfaceModel";
 import {
   DEFAULT_LOGO_FRACTAL_DEPTH,
@@ -30,10 +32,7 @@ export type LogoProjectedPoint = {
   y: number;
 };
 
-type LogoFaceUvPoint = {
-  u: number;
-  v: number;
-};
+type LogoFaceUvPoint = LogoSurfaceUvPoint;
 
 export type LogoWorldPoint = {
   x: number;
@@ -163,24 +162,6 @@ function serializePolygon(points: readonly LogoProjectedPoint[]): string {
   return points.map((point) => `${point.x.toFixed(6)},${point.y.toFixed(6)}`).join(" ");
 }
 
-function getSurfaceVertexUv(
-  surfaceQuad: LogoSurfaceQuad,
-  vertex: LogoSurfaceVertex,
-): LogoFaceUvPoint {
-  switch (surfaceQuad.colorKey) {
-    case "left":
-      return { u: vertex[0], v: vertex[1] };
-    case "right":
-      return { u: vertex[2], v: vertex[1] };
-    case "top":
-      return { u: vertex[0], v: vertex[2] };
-    default: {
-      const unreachable = surfaceQuad.colorKey satisfies never;
-      return unreachable;
-    }
-  }
-}
-
 function toLogoWorldPoint([x, y, z]: LogoSurfaceVertex): LogoWorldPoint {
   return { x, y, z };
 }
@@ -289,7 +270,7 @@ function getProjectedScene({
         colorKey: quad.colorKey,
         key: quad.key,
         materialOrder: quad.materialIndex,
-        uvs: quad.vertices.map((vertex) => getSurfaceVertexUv(quad, vertex)),
+        uvs: quad.vertices.map((vertex) => getLogoSurfaceVertexUv(quad, vertex)),
         vertices: quad.vertices.map((vertex) =>
           projector.rotateWorldPoint(toLogoWorldPoint(vertex)),
         ),
@@ -344,7 +325,7 @@ function createLogoProjectedQuadsWithProjector({
       materialOrder: quad.materialIndex,
       points,
       strokeWidth: FACE_STROKE_WIDTH,
-      uvs: quad.vertices.map((vertex) => getSurfaceVertexUv(quad, vertex)),
+      uvs: quad.vertices.map((vertex) => getLogoSurfaceVertexUv(quad, vertex)),
     });
   }
 

@@ -1,11 +1,20 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { buildLogoSurfaceQuads, getLogoSurfaceFitRadius } from "@/components/logo/logoSurfaceModel";
+import {
+  buildLogoSurfaceQuads,
+  getLogoSurfaceFitRadius,
+  getLogoSurfaceVertexUv,
+  type LogoSurfaceQuad,
+} from "@/components/logo/logoSurfaceModel";
 import {
   createDefaultFilledVoxelSet,
   createFilledVoxelSet,
   createLogoFractalVoxelGrid,
 } from "@/components/logo/logoVoxelState";
+
+function readSurfaceQuadUvs(surfaceQuad: LogoSurfaceQuad) {
+  return surfaceQuad.vertices.map((vertex) => getLogoSurfaceVertexUv(surfaceQuad, vertex));
+}
 
 describe("buildLogoSurfaceQuads", () => {
   it("keeps the default logo as exposed faces without renderer-specific state", () => {
@@ -46,6 +55,33 @@ describe("buildLogoSurfaceQuads", () => {
       "negative-y:0:0:0:2:1",
       "positive-z:0:0:0:2:1",
       "negative-z:0:0:0:2:1",
+    ]);
+  });
+
+  it("keeps repeated left-face treatments in the same local UV space", () => {
+    const surfaceQuads = buildLogoSurfaceQuads(
+      createFilledVoxelSet([
+        [0, 0, 0],
+        [2, 2, 2],
+      ]),
+    );
+    const positiveLeftFaceUvs = surfaceQuads
+      .filter((surfaceQuad) => surfaceQuad.materialIndex === 4)
+      .map(readSurfaceQuadUvs);
+
+    expect(positiveLeftFaceUvs).toEqual([
+      [
+        { u: 0, v: 0 },
+        { u: 1, v: 0 },
+        { u: 1, v: 1 },
+        { u: 0, v: 1 },
+      ],
+      [
+        { u: 0, v: 0 },
+        { u: 1, v: 0 },
+        { u: 1, v: 1 },
+        { u: 0, v: 1 },
+      ],
     ]);
   });
 

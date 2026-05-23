@@ -26,6 +26,11 @@ type FilledVoxelCoordinates = {
 
 export type LogoSurfaceVertex = readonly [number, number, number];
 
+export type LogoSurfaceUvPoint = {
+  u: number;
+  v: number;
+};
+
 export type LogoSurfaceQuad = {
   colorKey: FaceColorKey;
   key: string;
@@ -191,6 +196,45 @@ function collectSurfaceFacePlanes(
 
 function toWorld(boundaryIndex: number, gridSize: number): number {
   return boundaryIndex - gridSize / 2;
+}
+
+function getLogoSurfacePlaneUv(
+  surfaceQuad: LogoSurfaceQuad,
+  vertex: LogoSurfaceVertex,
+): LogoSurfaceUvPoint {
+  switch (surfaceQuad.colorKey) {
+    case "left":
+      return { u: vertex[0], v: vertex[1] };
+    case "right":
+      return { u: vertex[2], v: vertex[1] };
+    case "top":
+      return { u: vertex[0], v: vertex[2] };
+    default: {
+      const unreachable = surfaceQuad.colorKey satisfies never;
+      return unreachable;
+    }
+  }
+}
+
+/**
+ * Face treatments are local to each exposed face, so matching faces should not
+ * shift stripe phase just because their voxels sit at different grid positions.
+ */
+export function getLogoSurfaceVertexUv(
+  surfaceQuad: LogoSurfaceQuad,
+  vertex: LogoSurfaceVertex,
+): LogoSurfaceUvPoint {
+  const vertexUv = getLogoSurfacePlaneUv(surfaceQuad, vertex);
+  let minU = vertexUv.u;
+  let minV = vertexUv.v;
+
+  for (const surfaceVertex of surfaceQuad.vertices) {
+    const surfaceUv = getLogoSurfacePlaneUv(surfaceQuad, surfaceVertex);
+    minU = Math.min(minU, surfaceUv.u);
+    minV = Math.min(minV, surfaceUv.v);
+  }
+
+  return { u: vertexUv.u - minU, v: vertexUv.v - minV };
 }
 
 /**

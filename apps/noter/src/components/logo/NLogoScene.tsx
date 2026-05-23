@@ -20,6 +20,7 @@ import {
 import { clampLogoFractalDepthForRenderer } from "@/components/logo/logoDepthLimits";
 import {
   buildLogoSurfaceQuads,
+  getLogoSurfaceVertexUv,
   getLogoSurfaceFitRadius,
   type LogoSurfaceQuad,
 } from "@/components/logo/logoSurfaceModel";
@@ -451,24 +452,6 @@ function getCubeMovePosition(
   ];
 }
 
-function getSurfaceVertexUv(
-  surfaceQuad: LogoSurfaceQuad,
-  vertex: readonly [number, number, number],
-): readonly [number, number] {
-  switch (surfaceQuad.colorKey) {
-    case "left":
-      return [vertex[0], vertex[1]];
-    case "right":
-      return [vertex[2], vertex[1]];
-    case "top":
-      return [vertex[0], vertex[2]];
-    default: {
-      const unreachable = surfaceQuad.colorKey satisfies never;
-      return unreachable;
-    }
-  }
-}
-
 function randomValueFrom<T>(values: readonly T[]): T | null {
   if (values.length === 0) {
     return null;
@@ -526,7 +509,10 @@ function buildQuadGeometry(surfaceQuad: LogoSurfaceQuad): THREE.BufferGeometry {
     surfaceQuad.normal[1],
     surfaceQuad.normal[2],
   ]);
-  const uvs = surfaceQuad.vertices.flatMap((vertex) => getSurfaceVertexUv(surfaceQuad, vertex));
+  const uvs = surfaceQuad.vertices.flatMap((vertex) => {
+    const uv = getLogoSurfaceVertexUv(surfaceQuad, vertex);
+    return [uv.u, uv.v];
+  });
 
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
@@ -552,15 +538,15 @@ function buildMergedQuadGeometry(surfaceQuads: readonly LogoSurfaceQuad[]): THRE
   for (const surfaceQuad of surfaceQuads) {
     for (const vertex of surfaceQuad.vertices) {
       const [x, y, z] = vertex;
-      const [u, v] = getSurfaceVertexUv(surfaceQuad, vertex);
+      const uv = getLogoSurfaceVertexUv(surfaceQuad, vertex);
       positions[vectorOffset] = x;
       positions[vectorOffset + 1] = y;
       positions[vectorOffset + 2] = z;
       normals[vectorOffset] = surfaceQuad.normal[0];
       normals[vectorOffset + 1] = surfaceQuad.normal[1];
       normals[vectorOffset + 2] = surfaceQuad.normal[2];
-      uvs[uvOffset] = u;
-      uvs[uvOffset + 1] = v;
+      uvs[uvOffset] = uv.u;
+      uvs[uvOffset + 1] = uv.v;
       uvOffset += 2;
       vectorOffset += 3;
     }
@@ -643,12 +629,12 @@ function buildRecursiveSurfaceGeometry(
 
     for (const vertex of surfaceQuad.vertices) {
       const [x, y, z] = vertex;
-      const [u, v] = getSurfaceVertexUv(surfaceQuad, vertex);
+      const uv = getLogoSurfaceVertexUv(surfaceQuad, vertex);
       positions[vectorOffset] = x;
       positions[vectorOffset + 1] = y;
       positions[vectorOffset + 2] = z;
-      uvs[uvOffset] = u;
-      uvs[uvOffset + 1] = v;
+      uvs[uvOffset] = uv.u;
+      uvs[uvOffset + 1] = uv.v;
       faceKinds[vertexOffset] = faceKind;
       uvOffset += 2;
       vectorOffset += 3;
