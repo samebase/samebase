@@ -243,7 +243,7 @@ export const connectExistingWorker = action({
     if (!workerName) {
       throw new Error("Cloudflare Worker is required.");
     }
-    await ctx.runQuery(internal.vault.cloudflareMutations.requireAttachableVault, {
+    await ctx.runQuery(internal.vault.cloudflareMutations.requireCloudflareWorkerConnectionVault, {
       vaultId: args.vaultId,
       userId,
     });
@@ -283,7 +283,7 @@ export const createWorker = action({
     }
 
     const userId = await getUserId(ctx);
-    await ctx.runQuery(internal.vault.cloudflareMutations.requireAttachableVault, {
+    await ctx.runQuery(internal.vault.cloudflareMutations.requireCloudflareWorkerConnectionVault, {
       vaultId: args.vaultId,
       userId,
     });
@@ -339,16 +339,22 @@ export const ensureCloudflareWorkerConnection = internalAction({
           account,
           tokenHealth: connection.tokenHealth,
         });
-        await ctx.runMutation(internal.vault.cloudflareMutations.attachWorkerForRun, {
-          vaultId: args.vaultId,
-          runId: args.runId,
-          userId: args.userId,
-          accountId: account.accountId,
-          workerName: worker.workerName,
-          workerTag: worker.workerTag,
-          workersDevUrl: worker.workersDevUrl,
-          origin: args.origin,
-        });
+        const { attached } = await ctx.runMutation(
+          internal.vault.cloudflareMutations.attachWorkerForRun,
+          {
+            vaultId: args.vaultId,
+            runId: args.runId,
+            userId: args.userId,
+            accountId: account.accountId,
+            workerName: worker.workerName,
+            workerTag: worker.workerTag,
+            workersDevUrl: worker.workersDevUrl,
+            origin: args.origin,
+          },
+        );
+        if (!attached) {
+          throw new Error("Cloudflare Worker connection did not attach a Worker.");
+        }
         return null;
       }
       case "provisioned": {
@@ -378,16 +384,22 @@ export const ensureCloudflareWorkerConnection = internalAction({
             account,
             tokenHealth: connection.tokenHealth,
           });
-          await ctx.runMutation(internal.vault.cloudflareMutations.attachWorkerForRun, {
-            vaultId: args.vaultId,
-            runId: args.runId,
-            userId: args.userId,
-            accountId: account.accountId,
-            workerName: worker.workerName,
-            workerTag: worker.workerTag,
-            workersDevUrl: worker.workersDevUrl,
-            origin: args.origin,
-          });
+          const { attached } = await ctx.runMutation(
+            internal.vault.cloudflareMutations.attachWorkerForRun,
+            {
+              vaultId: args.vaultId,
+              runId: args.runId,
+              userId: args.userId,
+              accountId: account.accountId,
+              workerName: worker.workerName,
+              workerTag: worker.workerTag,
+              workersDevUrl: worker.workersDevUrl,
+              origin: args.origin,
+            },
+          );
+          if (!attached) {
+            throw new Error("Cloudflare Worker connection did not attach a Worker.");
+          }
         } catch (error) {
           await deleteCloudflareResources({
             cloudflareToken: connection.token,

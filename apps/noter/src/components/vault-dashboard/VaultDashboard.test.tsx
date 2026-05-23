@@ -415,6 +415,45 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(markup).not.toContain("Connect Cloudflare");
   });
 
+  it("lets failed manual Cloudflare setup reopen the connection dialog", () => {
+    const onConfigureCloudflare = vi.fn();
+    const state = buildVaultDashboardResourceRailState({
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      onConfigureCloudflare,
+      vault: makeResourceRailBuilderVault({
+        providerSetup: {
+          status: "failed",
+          provider: "cloudflare",
+          runId: fakeRunId(),
+          step: "ensure_cloudflare",
+          message: "Cloudflare Worker connection failed.",
+          updatedAt: 30,
+        },
+      }),
+    });
+
+    const cloudflareRow = state.rows[2];
+    expect(cloudflareRow).toMatchObject({
+      provider: "cloudflare",
+      status: "failed",
+      value: "demo",
+    });
+    if (cloudflareRow.status !== "failed") {
+      throw new Error("Expected failed Cloudflare row.");
+    }
+    const [action] = cloudflareRow.actions;
+    expect(action).toMatchObject({
+      kind: "connect_existing",
+      label: "Connect",
+      disabled: false,
+    });
+    action.onClick?.();
+    expect(onConfigureCloudflare).toHaveBeenCalledTimes(1);
+
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+    expect(markup).toContain("Connect Cloudflare");
+  });
+
   it("shows missing provider actions after setup is idle", () => {
     const state = buildVaultDashboardResourceRailState({
       githubRepositoryUrl: "https://github.com/ada/demo",

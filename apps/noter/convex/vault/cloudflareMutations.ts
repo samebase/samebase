@@ -120,6 +120,25 @@ export const requireAttachableVault = internalQuery({
   },
 });
 
+export const requireCloudflareWorkerConnectionVault = internalQuery({
+  args: {
+    vaultId: id("vaults"),
+    userId: id("users"),
+  },
+  returns: nullValue(),
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+      throw new Error("Vault not found.");
+    }
+    if (vault.cloudflare.state !== "not_configured") {
+      throw new Error("Vault already has a Cloudflare Worker attached.");
+    }
+
+    return null;
+  },
+});
+
 export const attachWorker = internalMutation({
   args: {
     vaultId: id("vaults"),
@@ -275,7 +294,7 @@ export const attachWorkerForRun = internalMutation({
     workersDevUrl: optional(string()),
     origin: vVaultCloudflareOrigin,
   },
-  returns: nullValue(),
+  returns: object({ attached: boolean() }),
   handler: async (ctx, args) => {
     await requireCloudflareWorkerConnectionRun(ctx, args);
     const vault = await ctx.db.get(args.vaultId);
@@ -283,7 +302,14 @@ export const attachWorkerForRun = internalMutation({
       throw new Error("Vault not found.");
     }
     if (vault.cloudflare.state !== "not_configured") {
-      return null;
+      await appendCloudflareWorkerConnectionEvent(ctx, {
+        runId: args.runId,
+        step: "ensure_cloudflare",
+        level: "warn",
+        message: "Vault already has a Cloudflare Worker attached.",
+        state: "canceled",
+      });
+      return { attached: false };
     }
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
@@ -291,7 +317,7 @@ export const attachWorkerForRun = internalMutation({
       await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
         runId: args.runId,
       });
-      return null;
+      return { attached: false };
     }
 
     const now = Date.now();
@@ -315,7 +341,7 @@ export const attachWorkerForRun = internalMutation({
       state: "running",
     });
 
-    return null;
+    return { attached: true };
   },
 });
 

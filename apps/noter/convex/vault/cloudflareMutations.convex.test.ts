@@ -139,7 +139,7 @@ describe("vault Cloudflare attachment mutations", () => {
         workerTag: "manual-cloudflare-worker-tag",
         origin: "selected_existing",
       }),
-    ).resolves.toBeNull();
+    ).resolves.toEqual({ attached: true });
     await expect(
       t.mutation(internal.vault.cloudflareMutations.finishCloudflareWorkerConnection, ids),
     ).resolves.toBeNull();
@@ -181,11 +181,128 @@ describe("vault Cloudflare attachment mutations", () => {
     ]);
   });
 
+  it("lets the durable claim supersede stale active ownership", async () => {
+    const { ids, t } = await createCloudflareConnectionVault();
+    const staleRunId = await t.run(async (ctx) => {
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        repositoryFullName: "ada/manual-cloudflare",
+        trigger: "connect_cloudflare_worker",
+        state: "running",
+        currentStep: "ensure_cloudflare",
+        createdAt: 10,
+        updatedAt: 20,
+      });
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId: ids.vaultId,
+        runId,
+        provisioningVersion: 1,
+        state: "active",
+        updatedAt: 1,
+      });
+
+      return runId;
+    });
+
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.claimCloudflareWorkerConnection, {
+        ...ids,
+        accountId: "cloudflare-account",
+        workerName: "manual-cloudflare-worker",
+        origin: "selected_existing",
+      }),
+    ).resolves.toEqual({ claimed: true });
+
+    const result = await t.run(async (ctx) => {
+      const [staleRun, ownership] = await Promise.all([
+        ctx.db.get(staleRunId),
+        ctx.db
+          .query("vaultInfrastructureOwnership")
+          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+          .first(),
+      ]);
+
+      return { ownership, staleRun };
+    });
+
+    expect(result.ownership).toMatchObject({
+      runId: ids.runId,
+      provisioningVersion: 2,
+      state: "active",
+    });
+    expect(result.staleRun).toMatchObject({
+      state: "canceled",
+      currentStep: "claim_infra",
+    });
+  });
+
+  it("reports an unattached run so created Workers can be rolled back", async () => {
+    const { ids, t } = await createCloudflareConnectionVault();
+
+    await t.mutation(internal.vault.cloudflareMutations.claimCloudflareWorkerConnection, {
+      ...ids,
+      accountId: "cloudflare-account",
+      workerName: "manual-cloudflare-worker",
+      origin: "provisioned",
+    });
+    await t.run(async (ctx) => {
+      const otherRunId = await ctx.db.insert("appProvisioningRuns", {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        repositoryFullName: "ada/manual-cloudflare",
+        trigger: "connect_cloudflare_worker",
+        state: "running",
+        currentStep: "ensure_cloudflare",
+        createdAt: 40,
+        updatedAt: 40,
+      });
+      const ownership = await ctx.db
+        .query("vaultInfrastructureOwnership")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .first();
+      if (!ownership) {
+        throw new Error("Expected active ownership.");
+      }
+      await ctx.db.patch(ownership._id, {
+        runId: otherRunId,
+        updatedAt: 40,
+      });
+    });
+
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.attachWorkerForRun, {
+        ...ids,
+        accountId: "cloudflare-account",
+        workerName: "manual-cloudflare-worker",
+        workerTag: "manual-cloudflare-worker-tag",
+        origin: "provisioned",
+      }),
+    ).resolves.toEqual({ attached: false });
+
+    const result = await t.run(async (ctx) => {
+      const [run, vault] = await Promise.all([ctx.db.get(ids.runId), ctx.db.get(ids.vaultId)]);
+
+      return { run, vault };
+    });
+
+    expect(result.run).toMatchObject({
+      state: "canceled",
+      currentStep: "claim_infra",
+    });
+    expect(result.vault).toMatchObject({
+      cloudflare: { state: "not_configured" },
+    });
+  });
+
   it("rejects manual attachment while infrastructure ownership is active", async () => {
     const { ids, t } = await createAttachableVaultWithOwnership({
       ownershipState: "active",
     });
 
+    await expect(
+      t.query(internal.vault.cloudflareMutations.requireCloudflareWorkerConnectionVault, ids),
+    ).resolves.toBeNull();
     await expect(
       t.query(internal.vault.cloudflareMutations.requireAttachableVault, ids),
     ).rejects.toThrow("Cloudflare provisioning is already running.");

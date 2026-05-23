@@ -131,6 +131,11 @@ The modal submit action should return after the Workflow is queued. The modal th
 clearing `connect-cloudflare`, and the vault header/resource rail shows the Cloudflare row as
 running, failed, or ready from subscribed dashboard state.
 
+If a created Worker cannot be attached to the vault after the provider create call, the Workflow
+must delete that created Worker before surfacing failure. A failed manual Cloudflare run should keep
+the Cloudflare row failed while offering the same connection dialog again, so the operator can pick
+an existing Worker or create a new one without waiting for hidden state cleanup.
+
 ## Route Semantics
 
 `?connect-cloudflare#vault-name` opens the Cloudflare Worker connection dialog for the vault matched
