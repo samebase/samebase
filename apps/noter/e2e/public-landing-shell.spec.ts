@@ -939,6 +939,7 @@ test("public landing interactive elements use pointer cursors", async ({ page })
 });
 
 test("public landing renders the closed Google signup return state", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/?signup=google", { waitUntil: "networkidle" });
 
   const landingContent = page.getByTestId("public-landing-content");
