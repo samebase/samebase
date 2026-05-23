@@ -4,10 +4,12 @@ import {
   useCallback,
   useEffect,
   useId,
+  useRef,
   useState,
   type ChangeEvent,
   type FormEvent,
   type KeyboardEvent,
+  type SyntheticEvent,
 } from "react";
 import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
 
@@ -38,6 +40,50 @@ function formatRouteUrlEditorAddress(href: string): string {
 
 function isRouteUrlEditorIncompleteOptionDraft(address: string): boolean {
   return address.endsWith("?") || address.endsWith("#");
+}
+
+type RouteUrlEditorInputSelectionDirection = "backward" | "forward" | "none";
+
+type RouteUrlEditorInputSelection = {
+  direction: RouteUrlEditorInputSelectionDirection;
+  end: number;
+  start: number;
+};
+
+function readRouteUrlEditorInputSelection(
+  input: HTMLInputElement,
+): RouteUrlEditorInputSelection | null {
+  const { selectionDirection, selectionEnd, selectionStart } = input;
+  if (selectionStart === null || selectionEnd === null) {
+    return null;
+  }
+
+  const direction =
+    selectionDirection === "backward" || selectionDirection === "forward"
+      ? selectionDirection
+      : "none";
+
+  return {
+    direction,
+    end: selectionEnd,
+    start: selectionStart,
+  };
+}
+
+function restoreRouteUrlEditorRejectedInput(args: {
+  input: HTMLInputElement;
+  selection: RouteUrlEditorInputSelection | null;
+  value: string;
+}): void {
+  args.input.value = args.value;
+
+  if (!args.selection) {
+    return;
+  }
+
+  const start = Math.min(args.selection.start, args.value.length);
+  const end = Math.min(args.selection.end, args.value.length);
+  args.input.setSelectionRange(start, end, args.selection.direction);
 }
 
 function readRouteUrlEditorDraftRouteAddress(args: {
@@ -74,6 +120,7 @@ export function RouteUrlEditor() {
   const inputId = useId();
   const [forwardRouteHistoryIndex, setForwardRouteHistoryIndex] =
     useState(currentRouteHistoryIndex);
+  const inputSelectionBeforeChangeRef = useRef<RouteUrlEditorInputSelection | null>(null);
   const origin = readRouteUrlEditorOrigin();
   const urlRealityAddress = formatRouteUrlEditorAddress(currentHref);
   const [draftRouteAddress, setDraftRouteAddress] = useState(urlRealityAddress);
@@ -136,6 +183,10 @@ export function RouteUrlEditor() {
     window.location.reload();
   }, []);
 
+  const rememberInputSelection = useCallback((event: SyntheticEvent<HTMLInputElement>) => {
+    inputSelectionBeforeChangeRef.current = readRouteUrlEditorInputSelection(event.currentTarget);
+  }, []);
+
   const changeDraftRouteAddress = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const nextDraftRouteAddress = readRouteUrlEditorDraftRouteAddress({
@@ -143,7 +194,11 @@ export function RouteUrlEditor() {
         origin,
       });
       if (nextDraftRouteAddress === null) {
-        event.currentTarget.value = inputValue;
+        restoreRouteUrlEditorRejectedInput({
+          input: event.currentTarget,
+          selection: inputSelectionBeforeChangeRef.current,
+          value: inputValue,
+        });
         return;
       }
 
@@ -235,6 +290,8 @@ export function RouteUrlEditor() {
 
   const handleInputKeyDown = useCallback(
     (event: KeyboardEvent<HTMLInputElement>) => {
+      inputSelectionBeforeChangeRef.current = readRouteUrlEditorInputSelection(event.currentTarget);
+
       if (event.key !== "Escape") {
         return;
       }
@@ -298,8 +355,10 @@ export function RouteUrlEditor() {
         id={inputId}
         inputMode="url"
         name="routeHref"
+        onBeforeInput={rememberInputSelection}
         onChange={changeDraftRouteAddress}
         onKeyDown={handleInputKeyDown}
+        onSelect={rememberInputSelection}
         spellCheck={false}
         suppressHydrationWarning
         title={routeInputTitle}

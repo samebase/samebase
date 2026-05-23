@@ -168,6 +168,35 @@ test("route URL editor fixture refuses changes that merge host and path text", a
   await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
 });
 
+test("route URL editor preserves caret when rejecting root slash deletion", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 96 });
+  await page.goto("/logo", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+  const routeInputPrefix = `${origin}/`;
+
+  const input = page.getByTestId("route-url-editor-input");
+
+  await input.focus();
+  await expect(input).toHaveValue(`${routeInputPrefix}logo`);
+
+  await input.evaluate((element, prefix) => {
+    element.setSelectionRange(`${prefix}l`.length, `${prefix}l`.length);
+  }, routeInputPrefix);
+  await input.press("Backspace");
+
+  await expect(input).toHaveValue(`${routeInputPrefix}ogo`);
+  await expect(input).toHaveJSProperty("selectionStart", routeInputPrefix.length);
+  await expect(input).toHaveJSProperty("selectionEnd", routeInputPrefix.length);
+
+  await input.press("Backspace");
+
+  await expect(input).toHaveValue(`${routeInputPrefix}ogo`);
+  await expect(input).toHaveJSProperty("selectionStart", routeInputPrefix.length);
+  await expect(input).toHaveJSProperty("selectionEnd", routeInputPrefix.length);
+});
+
 test("route URL editor fixture applies same-path search and hash edits while typing", async ({
   page,
 }) => {
