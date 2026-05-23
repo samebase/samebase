@@ -3582,20 +3582,18 @@ export function VaultDashboard() {
     userId: user?._id,
   });
 
-  const deleteDialogVault =
-    deleteRepositoryFullName && vaults
-      ? (vaults.find((vault) => vault.repositoryFullName === deleteRepositoryFullName) ?? null)
-      : null;
+  const deleteDialogVault = deleteRepositoryFullName
+    ? (vaults.find((vault) => vault.repositoryFullName === deleteRepositoryFullName) ?? null)
+    : null;
   const canOpenDeleteDialog =
     deleteDialogVault?.deletion.state === "not_deleting" &&
     deleteDialogVault.deletion.deleteAction.state === "available";
   const vaultToDelete =
     deleteDialogVault && canOpenDeleteDialog ? buildVaultDeleteIntent(deleteDialogVault) : null;
-  const connectCloudflareDialogVault =
-    connectCloudflareRepositoryFullName && vaults
-      ? (vaults.find((vault) => vault.repositoryFullName === connectCloudflareRepositoryFullName) ??
-        null)
-      : null;
+  const connectCloudflareDialogVault = connectCloudflareRepositoryFullName
+    ? (vaults.find((vault) => vault.repositoryFullName === connectCloudflareRepositoryFullName) ??
+      null)
+    : null;
   const canOpenConnectCloudflareDialog =
     connectCloudflareDialogVault?.state === "ready" &&
     !connectCloudflareDialogVault.hasCloudflareProvision;
