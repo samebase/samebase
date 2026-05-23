@@ -14,7 +14,7 @@ type NormalizeRouteUrlEditorHrefInput = {
   rawHref: string;
 };
 
-function isAddressHostSegment(value: string): boolean {
+export function isRouteUrlEditorHostSegment(value: string): boolean {
   return (
     value === "localhost" || value.startsWith("[") || value.includes(".") || value.includes(":")
   );
@@ -44,7 +44,7 @@ export function normalizeRouteUrlEditorHref({
     const firstAddressSegment = trimmedHref.split(/[/?#]/, 1)[0] ?? "";
     const hostLikeAddress =
       /^[a-z0-9.[\]-]+(?::\d+)?$/i.test(firstAddressSegment) &&
-      isAddressHostSegment(firstAddressSegment);
+      isRouteUrlEditorHostSegment(firstAddressSegment);
     const nextUrl = new URL(
       sameOriginAddress || hostLikeAddress ? `//${trimmedHref}` : trimmedHref,
       currentUrl,
