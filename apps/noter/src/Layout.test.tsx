@@ -362,8 +362,10 @@ describe("Layout", () => {
     );
 
     expect(markup).toContain('data-testid="route-url-editor"');
+    expect(markup).toContain('data-testid="route-url-editor-host">noter.local</span>');
     expect(markup).toContain('data-testid="route-url-editor-input"');
-    expect(markup).toContain('value="noter.local/?dev"');
+    expect(markup).toContain('title="noter.local/?dev"');
+    expect(markup).toContain('value="/?dev"');
   });
 
   it("renders the route URL editor in the normal public shell", () => {
@@ -382,8 +384,10 @@ describe("Layout", () => {
     );
 
     expect(markup).toContain('data-testid="route-url-editor"');
+    expect(markup).toContain('data-testid="route-url-editor-host">noter.local</span>');
     expect(markup).toContain('data-testid="route-url-editor-input"');
-    expect(markup).toContain('value="noter.local/"');
+    expect(markup).toContain('title="noter.local/"');
+    expect(markup).toContain('value="/"');
   });
 
   it("opens the logo shortcut without changing root flags", () => {
