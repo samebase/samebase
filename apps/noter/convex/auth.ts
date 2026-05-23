@@ -136,7 +136,7 @@ async function upsertSeedCloudflareConnection(
         method: "api_key",
         credential,
       },
-      defaultAccount,
+      ...(accountId ? { defaultAccount } : {}),
       updatedAt: now,
     });
     return;

@@ -3288,6 +3288,8 @@ export function VaultDashboard() {
   const previousConnectCloudflareModeActiveRef = useRef(connectCloudflareModeActive);
   const shouldPopConnectCloudflareHistoryRef = useRef(false);
   const cloudflareWorkersRequestIdRef = useRef(0);
+  const cloudflareDialogResourcesRequestIdRef = useRef(0);
+  const cloudflareAccountDialogRequestIdRef = useRef(0);
   const providerRuntimeConfig: Record<ProviderKey, ProviderRuntimeConfig> = {
     github: {
       getOAuthUrl: () => getGithubOAuthUrl({}),
@@ -3517,6 +3519,7 @@ export function VaultDashboard() {
       const requestId = cloudflareWorkersRequestIdRef.current + 1;
       cloudflareWorkersRequestIdRef.current = requestId;
       setCloudflareConnectDialogLoading(true);
+      setCloudflareConnectDialogWorkers([]);
       try {
         const workers = await listCloudflareWorkers({ accountId });
         if (cloudflareWorkersRequestIdRef.current !== requestId) {
@@ -3546,10 +3549,15 @@ export function VaultDashboard() {
 
   const loadCloudflareDialogResources = useCallback(
     async (preferredAccountId: string | undefined) => {
+      const requestId = cloudflareDialogResourcesRequestIdRef.current + 1;
+      cloudflareDialogResourcesRequestIdRef.current = requestId;
       setCloudflareConnectDialogLoading(true);
       setCloudflareConnectDialogError(null);
       try {
         const accounts = await listCloudflareAccounts({});
+        if (cloudflareDialogResourcesRequestIdRef.current !== requestId) {
+          return;
+        }
         setCloudflareConnectDialogAccounts(accounts);
         if (accounts.length === 0) {
           setCloudflareConnectDialogSelectedAccountId("");
@@ -3561,13 +3569,21 @@ export function VaultDashboard() {
         const selectedAccount =
           accounts.find((account) => account.accountId === preferredAccountId) ?? accounts[0];
         setCloudflareConnectDialogSelectedAccountId(selectedAccount.accountId);
+        if (cloudflareDialogResourcesRequestIdRef.current !== requestId) {
+          return;
+        }
         await loadCloudflareWorkersForAccount(selectedAccount.accountId);
       } catch (error) {
+        if (cloudflareDialogResourcesRequestIdRef.current !== requestId) {
+          return;
+        }
         setCloudflareConnectDialogError(
           error instanceof Error ? error.message : "Could not load Cloudflare resources.",
         );
       } finally {
-        setCloudflareConnectDialogLoading(false);
+        if (cloudflareDialogResourcesRequestIdRef.current === requestId) {
+          setCloudflareConnectDialogLoading(false);
+        }
       }
     },
     [
@@ -3583,15 +3599,21 @@ export function VaultDashboard() {
 
   const resetCloudflareDialogState = useCallback(() => {
     cloudflareWorkersRequestIdRef.current += 1;
+    cloudflareDialogResourcesRequestIdRef.current += 1;
     resetCloudflareConnectDialogState();
   }, [resetCloudflareConnectDialogState]);
 
   const loadCloudflareAccountDialogResources = useCallback(
     async (preferredAccountId: string | undefined) => {
+      const requestId = cloudflareAccountDialogRequestIdRef.current + 1;
+      cloudflareAccountDialogRequestIdRef.current = requestId;
       setCloudflareAccountsLoading(true);
       setCloudflareAccountDialogError(null);
       try {
         const accounts = await listCloudflareAccounts({});
+        if (cloudflareAccountDialogRequestIdRef.current !== requestId) {
+          return;
+        }
         setCloudflareAccountDialogOptions(accounts);
         if (accounts.length === 0) {
           setCloudflareAccountDialogSelectedAccountId("");
@@ -3603,11 +3625,16 @@ export function VaultDashboard() {
           accounts.find((account) => account.accountId === preferredAccountId) ?? accounts[0];
         setCloudflareAccountDialogSelectedAccountId(selectedAccount.accountId);
       } catch (error) {
+        if (cloudflareAccountDialogRequestIdRef.current !== requestId) {
+          return;
+        }
         setCloudflareAccountDialogError(
           error instanceof Error ? error.message : "Could not load Cloudflare accounts.",
         );
       } finally {
-        setCloudflareAccountsLoading(false);
+        if (cloudflareAccountDialogRequestIdRef.current === requestId) {
+          setCloudflareAccountsLoading(false);
+        }
       }
     },
     [
@@ -3782,6 +3809,13 @@ export function VaultDashboard() {
     void loadCloudflareAccountDialogResources(cloudflareConnection?.accountId);
   };
 
+  const handleCloudflareAccountDialogOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      cloudflareAccountDialogRequestIdRef.current += 1;
+    }
+    setCloudflareAccountDialogOpen(isOpen);
+  };
+
   const handleSubmitCloudflareAccount = async () => {
     if (isSubmittingCloudflareAccount || !selectedCloudflareDefaultAccountId) {
       return;
@@ -3792,7 +3826,7 @@ export function VaultDashboard() {
       await selectCloudflareDefaultAccount({
         accountId: selectedCloudflareDefaultAccountId,
       });
-      setCloudflareAccountDialogOpen(false);
+      handleCloudflareAccountDialogOpenChange(false);
     } catch (error) {
       setCloudflareAccountDialogError(
         error instanceof Error ? error.message : "Could not save Cloudflare account.",
@@ -3819,10 +3853,7 @@ export function VaultDashboard() {
   const handleConfigureCloudflare = (repositoryHashId: string) => {
     void navigate({
       hash: repositoryHashId,
-      search: (currentSearch) => ({
-        ...currentSearch,
-        "connect-cloudflare": true,
-      }),
+      search: (currentSearch) => applySearchPatch(currentSearch, { "connect-cloudflare": true }),
       state: true,
       to: ".",
     });
@@ -4621,11 +4652,11 @@ export function VaultDashboard() {
     const apiKeyProvider = providerMetadata.apiKeyProvider;
     const actions = providerState.connected
       ? [
-          ...(provider === "cloudflare" && cloudflareAccountSelectionRequired
+          ...(provider === "cloudflare"
             ? [
                 {
                   key: "select-account",
-                  label: "Select account",
+                  label: cloudflareAccountSelectionRequired ? "Select account" : "Manage account",
                   onClick: handleOpenCloudflareAccountDialog,
                   disabled:
                     disconnectingProvider !== null ||
@@ -4883,7 +4914,7 @@ export function VaultDashboard() {
           setCloudflareAccountDialogSelectedAccountId(accountId);
           setCloudflareAccountDialogError(null);
         }}
-        onOpenChange={setCloudflareAccountDialogOpen}
+        onOpenChange={handleCloudflareAccountDialogOpenChange}
         onSubmit={() => {
           void handleSubmitCloudflareAccount();
         }}

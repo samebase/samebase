@@ -241,8 +241,8 @@ export const createWorker = action({
       token: connection.token,
       accountId: args.accountId,
     });
-    // Recheck immediately before the provider write; if the final attach loses
-    // the vault race, the rollback below deletes the Worker this action made.
+    // Recheck immediately before the provider write; if local persistence fails
+    // after creation, the rollback below deletes the Worker this action made.
     await ctx.runQuery(internal.vault.cloudflareMutations.requireAttachableVault, {
       vaultId: args.vaultId,
       userId,
@@ -258,13 +258,13 @@ export const createWorker = action({
       throw new Error(toErrorMessage(error));
     }
 
-    await rememberDefaultAccount(ctx, {
-      userId,
-      auth: connection.auth,
-      account,
-      tokenHealth: connection.tokenHealth,
-    });
     try {
+      await rememberDefaultAccount(ctx, {
+        userId,
+        auth: connection.auth,
+        account,
+        tokenHealth: connection.tokenHealth,
+      });
       await ctx.runMutation(internal.vault.cloudflareMutations.attachWorker, {
         vaultId: args.vaultId,
         userId,

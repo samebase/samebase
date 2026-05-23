@@ -478,11 +478,20 @@ export default defineSchema({
         projectId: string(),
       }),
     ),
-    cloudflare: object({
-      state: literal("planned"),
-      accountId: string(),
-      workerName: string(),
-    }),
+    cloudflare: union(
+      object({
+        state: literal("planned"),
+        accountId: string(),
+        workerName: string(),
+      }),
+      object({
+        state: literal("created"),
+        accountId: string(),
+        workerName: string(),
+        workerTag: string(),
+        workersDevUrl: optional(string()),
+      }),
+    ),
     createdAt: number(),
     updatedAt: number(),
   }).index("by_vault", ["vaultId"]),

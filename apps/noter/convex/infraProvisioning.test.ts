@@ -62,15 +62,41 @@ describe("selectExistingCloudflareWorker", () => {
           connectedAt: 20,
           lastObservedAt: 20,
         },
+        cloudflareTarget: {
+          state: "planned",
+          accountId: "account-1",
+          workerName: "noter",
+        },
         accountId: "account-1",
       }),
     ).toEqual({ state: "created", workerTag: "connected-worker-tag" });
+  });
+
+  it("prefers the provisional Worker tag recorded for retries", () => {
+    expect(
+      selectExistingCloudflareWorker({
+        cloudflare: { state: "not_configured" },
+        cloudflareTarget: {
+          state: "created",
+          accountId: "account-1",
+          workerName: "noter",
+          workerTag: "provisional-worker-tag",
+          workersDevUrl: "https://noter.example.workers.dev",
+        },
+        accountId: "account-1",
+      }),
+    ).toEqual({ state: "created", workerTag: "provisional-worker-tag" });
   });
 
   it("keeps missing Worker identity adoptable without a recorded tag", () => {
     expect(
       selectExistingCloudflareWorker({
         cloudflare: { state: "not_configured" },
+        cloudflareTarget: {
+          state: "planned",
+          accountId: "account-1",
+          workerName: "noter",
+        },
         accountId: "account-1",
       }),
     ).toEqual({ state: "planned" });
@@ -80,6 +106,11 @@ describe("selectExistingCloudflareWorker", () => {
     expect(
       selectExistingCloudflareWorker({
         cloudflare: { state: "not_configured" },
+        cloudflareTarget: {
+          state: "planned",
+          accountId: "account-2",
+          workerName: "noter",
+        },
         accountId: "account-2",
       }),
     ).toEqual({ state: "planned" });
@@ -333,19 +364,28 @@ describe("infrastructure provisioning ownership", () => {
       workerTag: "cloudflare-worker-tag",
       workersDevUrl: "https://provider-retry.example.workers.dev",
     });
-    const vault = await t.run(async (ctx) => {
-      return await ctx.db.get(ids.vaultId);
+    const { vault, target } = await t.run(async (ctx) => {
+      const vault = await ctx.db.get(ids.vaultId);
+      const target = await ctx.db
+        .query("vaultInfrastructureTargets")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .first();
+      return { target, vault };
     });
 
     expect(result).toEqual({ applied: true });
     expect(vault).toMatchObject({
       cloudflare: {
-        state: "connected",
+        state: "not_configured",
+      },
+    });
+    expect(target).toMatchObject({
+      cloudflare: {
+        state: "created",
         accountId: "cloudflare-account-id",
         workerName: "provider-retry",
         workerTag: "cloudflare-worker-tag",
         workersDevUrl: "https://provider-retry.example.workers.dev",
-        origin: "provisioned",
       },
     });
   });
