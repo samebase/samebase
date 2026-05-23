@@ -39,6 +39,7 @@ describe("starterSeedManifest", () => {
   });
 
   it("includes exact guest-name reservation in the starter auth flow", () => {
+    // The schema index, reservation mutation, and client call must stay aligned for exact guest-name lookup.
     expect(starterTemplateManifest.files["convex/guests.ts"]).toContain('.withIndex("by_name"');
     expect(starterTemplateManifest.files["convex/schema.ts"]).toContain("guestNames");
     expect(starterTemplateManifest.files["src/routes/index.tsx"]).toContain(

@@ -156,8 +156,9 @@ Requirements:
 1. uses TanStack Start
 2. stays client-first
 3. keeps Convex as backend
-4. includes minimal Convex Auth guest sessions, single-word guest display names reserved by exact
-   database usage, user-owned example data, and no external auth provider requirement
+4. includes minimal Convex Auth guest sessions, single-word guest display names reserved through a
+   database index-backed exact-match lookup, user-owned example data, and no external auth provider
+   requirement
 5. deploys with Workers Static Assets
 6. includes a minimal `wrangler.jsonc`
 7. does not hard-code the Worker name
