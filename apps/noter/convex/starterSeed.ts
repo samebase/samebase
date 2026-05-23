@@ -5,6 +5,7 @@ import {
   starterTemplateManifest,
   type StarterTemplateManifest,
 } from "./starterSeedManifest.generated";
+import type { ProviderApiCall, ProviderApiCallRecorder } from "./providerApiLog";
 
 export type { StarterTemplateManifest } from "./starterSeedManifest.generated";
 
@@ -50,6 +51,10 @@ export type StarterSeedGitClient = {
     path: string;
     contentBase64: string;
   }): Promise<{ sha: string }>;
+};
+
+type StarterSeedGitClientOptions = {
+  recordApiCall?: ProviderApiCallRecorder;
 };
 
 const RETRYABLE_STATUSES = new Set([409, 422]);
@@ -143,9 +148,33 @@ async function retryOperation<T>(args: {
   throw new Error(`Unreachable retry state for ${args.operation}`);
 }
 
-export function createStarterSeedGitClient(octokit: Octokit): StarterSeedGitClient {
+async function recordGitHubApiCall(
+  options: StarterSeedGitClientOptions | undefined,
+  call: Omit<ProviderApiCall, "provider">,
+): Promise<void> {
+  const recordApiCall = options?.recordApiCall;
+  if (recordApiCall) {
+    await recordApiCall({
+      provider: "GitHub",
+      ...call,
+    });
+  }
+}
+
+export function createStarterSeedGitClient(
+  octokit: Octokit,
+  options?: StarterSeedGitClientOptions,
+): StarterSeedGitClient {
   return {
     createTree: async (args) => {
+      await recordGitHubApiCall(options, {
+        method: "POST",
+        endpoint: "/repos/{owner}/{repo}/git/trees",
+        values: {
+          body: { tree: args.tree },
+          params: { path: { owner: args.owner, repo: args.repo } },
+        },
+      });
       const response = await octokit.rest.git.createTree({
         owner: args.owner,
         repo: args.repo,
@@ -157,6 +186,17 @@ export function createStarterSeedGitClient(octokit: Octokit): StarterSeedGitClie
       };
     },
     createBlob: async (args) => {
+      await recordGitHubApiCall(options, {
+        method: "POST",
+        endpoint: "/repos/{owner}/{repo}/git/blobs",
+        values: {
+          body: {
+            contentBase64: args.contentBase64,
+            encoding: "base64",
+          },
+          params: { path: { owner: args.owner, repo: args.repo } },
+        },
+      });
       const response = await octokit.rest.git.createBlob({
         owner: args.owner,
         repo: args.repo,
@@ -169,6 +209,18 @@ export function createStarterSeedGitClient(octokit: Octokit): StarterSeedGitClie
       };
     },
     createCommit: async (args) => {
+      await recordGitHubApiCall(options, {
+        method: "POST",
+        endpoint: "/repos/{owner}/{repo}/git/commits",
+        values: {
+          body: {
+            message: args.message,
+            parents: args.parents,
+            tree: args.tree,
+          },
+          params: { path: { owner: args.owner, repo: args.repo } },
+        },
+      });
       const response = await octokit.rest.git.createCommit({
         owner: args.owner,
         repo: args.repo,
@@ -182,6 +234,17 @@ export function createStarterSeedGitClient(octokit: Octokit): StarterSeedGitClie
       };
     },
     createRef: async (args) => {
+      await recordGitHubApiCall(options, {
+        method: "POST",
+        endpoint: "/repos/{owner}/{repo}/git/refs",
+        values: {
+          body: {
+            ref: args.ref,
+            sha: args.sha,
+          },
+          params: { path: { owner: args.owner, repo: args.repo } },
+        },
+      });
       await octokit.rest.git.createRef({
         owner: args.owner,
         repo: args.repo,
@@ -190,6 +253,17 @@ export function createStarterSeedGitClient(octokit: Octokit): StarterSeedGitClie
       });
     },
     updateRef: async (args) => {
+      await recordGitHubApiCall(options, {
+        method: "PATCH",
+        endpoint: "/repos/{owner}/{repo}/git/refs/{ref}",
+        values: {
+          body: {
+            force: args.force,
+            sha: args.sha,
+          },
+          params: { path: { owner: args.owner, repo: args.repo, ref: args.ref } },
+        },
+      });
       await octokit.rest.git.updateRef({
         owner: args.owner,
         repo: args.repo,
@@ -200,6 +274,18 @@ export function createStarterSeedGitClient(octokit: Octokit): StarterSeedGitClie
     },
     createBootstrapCommit: async (args) => {
       try {
+        await recordGitHubApiCall(options, {
+          method: "PUT",
+          endpoint: "/repos/{owner}/{repo}/contents/{path}",
+          values: {
+            body: {
+              branch: args.branch,
+              contentBase64: args.contentBase64,
+              message: args.message,
+            },
+            params: { path: { owner: args.owner, repo: args.repo, path: args.path } },
+          },
+        });
         const response = await octokit.rest.repos.createOrUpdateFileContents({
           owner: args.owner,
           repo: args.repo,
@@ -217,6 +303,17 @@ export function createStarterSeedGitClient(octokit: Octokit): StarterSeedGitClie
         }
       }
 
+      await recordGitHubApiCall(options, {
+        method: "PUT",
+        endpoint: "/repos/{owner}/{repo}/contents/{path}",
+        values: {
+          body: {
+            contentBase64: args.contentBase64,
+            message: args.message,
+          },
+          params: { path: { owner: args.owner, repo: args.repo, path: args.path } },
+        },
+      });
       const response = await octokit.rest.repos.createOrUpdateFileContents({
         owner: args.owner,
         repo: args.repo,

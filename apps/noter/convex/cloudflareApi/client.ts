@@ -14,6 +14,7 @@ import {
 } from "./validators.generated";
 import { callCloudflareMcpTool } from "../cloudflareMcp";
 import { readBoolean, readString, readStringOrNumber, toErrorMessage } from "../jsonUtils";
+import type { ProviderApiCallRecorder } from "../providerApiLog";
 
 const WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE =
   "Cloudflare connection is missing Workers Builds write access. Reconnect Cloudflare and grant Workers Builds, Workers, and Workers Scripts access, then retry.";
@@ -164,6 +165,7 @@ type CloudflareApiMcpResult =
     };
 type CloudflareApiRequestBase = {
   token: string;
+  recordApiCall?: ProviderApiCallRecorder;
 };
 
 export class CloudflareApiError extends Error {
@@ -276,6 +278,21 @@ export async function requestCloudflareApi(
       }),
 ): Promise<unknown> {
   const params = readCloudflareApiRequestParams(args);
+  if (args.recordApiCall) {
+    const values: Record<string, unknown> = {};
+    if (params) {
+      values.params = params;
+    }
+    if (args.body !== undefined) {
+      values.body = args.body;
+    }
+    await args.recordApiCall({
+      provider: "Cloudflare",
+      method: args.method,
+      endpoint: args.path,
+      values,
+    });
+  }
   const endpoint = formatCloudflareApiEndpointUnchecked({
     path: args.path,
     params,

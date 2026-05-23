@@ -14,6 +14,11 @@ import type {
   AppProvisioningStep,
 } from "./schema";
 import { createStarterSeedGitClient, seedRepositoryWithStarter } from "./starterSeed";
+import {
+  formatProviderApiCallLogMessage,
+  type ProviderApiCall,
+  type ProviderApiCallRecorder,
+} from "./providerApiLog";
 
 const { boolean, id, literal, object, string, union } = v;
 
@@ -105,6 +110,48 @@ async function appendRunEvent(
   },
 ): Promise<void> {
   await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, args);
+}
+
+async function appendProviderApiCallEvent(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    runId: Id<"appProvisioningRuns">;
+    step: AppProvisioningStep;
+    call: ProviderApiCall;
+  },
+): Promise<void> {
+  try {
+    await appendRunEvent(ctx, {
+      runId: args.runId,
+      step: args.step,
+      level: "info",
+      message: formatProviderApiCallLogMessage(args.call),
+      state: "running",
+    });
+  } catch {
+    console.warn("app:provision:api_call_event_append_failed", {
+      runId: args.runId,
+      step: args.step,
+      provider: args.call.provider,
+      endpoint: args.call.endpoint,
+    });
+  }
+}
+
+function createProviderApiCallRecorder(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    runId: Id<"appProvisioningRuns">;
+    step: AppProvisioningStep;
+  },
+): ProviderApiCallRecorder {
+  return async (call) => {
+    await appendProviderApiCallEvent(ctx, {
+      runId: args.runId,
+      step: args.step,
+      call,
+    });
+  };
 }
 
 async function assertCreateRun(
@@ -264,22 +311,47 @@ export const createGitHubRepository = internalAction({
 
     const octokit = await resolveGitHubOctokit(ctx, args.userId);
     const description = args.description?.trim();
+    const recordApiCall = createProviderApiCallRecorder(ctx, {
+      runId: args.runId,
+      step: "create_github_repo",
+    });
+    await recordApiCall({
+      provider: "GitHub",
+      method: "GET",
+      endpoint: "/user",
+    });
     const viewer = await octokit.rest.users.getAuthenticated();
-    const repo =
-      viewer.data.login === repositoryOwner
-        ? await octokit.rest.repos.createForAuthenticatedUser({
-            name: repoName,
-            auto_init: false,
-            private: args.private,
-            description: description ? description : undefined,
-          })
-        : await octokit.rest.repos.createInOrg({
-            org: repositoryOwner,
-            name: repoName,
-            auto_init: false,
-            private: args.private,
-            description: description ? description : undefined,
-          });
+    const repositoryBody = {
+      name: repoName,
+      auto_init: false,
+      private: args.private,
+      ...(description ? { description } : {}),
+    };
+    const repo = await (async () => {
+      if (viewer.data.login === repositoryOwner) {
+        await recordApiCall({
+          provider: "GitHub",
+          method: "POST",
+          endpoint: "/user/repos",
+          values: { body: repositoryBody },
+        });
+        return await octokit.rest.repos.createForAuthenticatedUser(repositoryBody);
+      }
+
+      await recordApiCall({
+        provider: "GitHub",
+        method: "POST",
+        endpoint: "/orgs/{org}/repos",
+        values: {
+          body: repositoryBody,
+          params: { path: { org: repositoryOwner } },
+        },
+      });
+      return await octokit.rest.repos.createInOrg({
+        ...repositoryBody,
+        org: repositoryOwner,
+      });
+    })();
 
     const ownerName = repo.data.owner.login;
     const repoFinalName = repo.data.name;
@@ -370,11 +442,39 @@ export const fetchExistingGitHubRepository = internalAction({
     });
 
     const octokit = await resolveGitHubOctokit(ctx, args.userId);
+    const recordApiCall = createProviderApiCallRecorder(ctx, {
+      runId: args.runId,
+      step: "fetch_github_repo",
+    });
+    await recordApiCall({
+      provider: "GitHub",
+      method: "GET",
+      endpoint: "/repos/{owner}/{repo}",
+      values: {
+        params: {
+          path: requestedRepository,
+        },
+      },
+    });
     const repo = await octokit.rest.repos.get({
       owner: requestedRepository.ownerName,
       repo: requestedRepository.repoName,
     });
     const defaultBranch = readRequiredDefaultBranch(repo.data);
+    await recordApiCall({
+      provider: "GitHub",
+      method: "GET",
+      endpoint: "/repos/{owner}/{repo}/branches/{branch}",
+      values: {
+        params: {
+          path: {
+            ownerName: repo.data.owner.login,
+            repoName: repo.data.name,
+            branch: defaultBranch,
+          },
+        },
+      },
+    });
     await octokit.rest.repos.getBranch({
       owner: repo.data.owner.login,
       repo: repo.data.name,
@@ -430,9 +530,13 @@ export const seedStarterRepository = internalAction({
     });
 
     const octokit = await resolveGitHubOctokit(ctx, args.userId);
+    const recordApiCall = createProviderApiCallRecorder(ctx, {
+      runId: args.runId,
+      step: "seed_starter",
+    });
     try {
       await seedRepositoryWithStarter({
-        client: createStarterSeedGitClient(octokit),
+        client: createStarterSeedGitClient(octokit, { recordApiCall }),
         owner: args.ownerName,
         repo: args.repoName,
         defaultBranch: args.defaultBranch,
@@ -572,11 +676,46 @@ export const syncVaultTreeForRepository = internalAction({
     });
 
     const octokit = await resolveGitHubOctokit(ctx, args.userId);
+    const recordApiCall = createProviderApiCallRecorder(ctx, {
+      runId: args.runId,
+      step: "sync_tree",
+    });
+    await recordApiCall({
+      provider: "GitHub",
+      method: "GET",
+      endpoint: "/repos/{owner}/{repo}/git/trees/{tree_sha}",
+      values: {
+        params: {
+          path: {
+            ownerName: args.ownerName,
+            repoName: args.repoName,
+            tree_sha: args.defaultBranch,
+          },
+          query: {
+            recursive: "1",
+          },
+        },
+      },
+    });
     const tree = await octokit.rest.git.getTree({
       owner: args.ownerName,
       repo: args.repoName,
       tree_sha: args.defaultBranch,
       recursive: "1",
+    });
+    await recordApiCall({
+      provider: "GitHub",
+      method: "GET",
+      endpoint: "/repos/{owner}/{repo}/branches/{branch}",
+      values: {
+        params: {
+          path: {
+            ownerName: args.ownerName,
+            repoName: args.repoName,
+            branch: args.defaultBranch,
+          },
+        },
+      },
     });
     const branchData = await octokit.rest.repos.getBranch({
       owner: args.ownerName,

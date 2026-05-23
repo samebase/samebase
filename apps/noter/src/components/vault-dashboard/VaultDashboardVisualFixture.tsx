@@ -24,6 +24,7 @@ import {
   VaultDashboardScrollTargetEndPadding,
   VaultDashboardSidebarContent,
 } from "@/components/vault-dashboard/VaultDashboardChrome";
+import { VaultProvisioningLogViewer } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
 import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
@@ -45,7 +46,6 @@ import {
   VaultSetupProgressSection,
 } from "@/components/vault-dashboard/VaultDashboard";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
-import { formatProvisioningLogText } from "@/lib/provisioningLog";
 import { type VaultBranchFilters } from "@/components/vault-dashboard/vaultDashboardBranchFilters";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -554,31 +554,38 @@ function VaultDashboardProvisioningLogFixture() {
               content: (
                 <div className="space-y-2">
                   <div className="text-xs text-muted-foreground">Infra: Provisioning</div>
-                  <textarea
-                    aria-label="Provisioning log for noter-md/noter-app"
-                    readOnly
-                    rows={6}
-                    className="w-full font-mono text-xs"
-                    value={formatProvisioningLogText([
+                  <VaultProvisioningLogViewer
+                    repositoryFullName="noter-md/noter-app"
+                    events={[
                       {
                         createdAt: Date.parse("2026-05-02T12:30:01Z"),
                         level: "info",
                         step: "create_github_repo",
-                        message: "Created GitHub repository noter-md/noter-app.",
+                        message:
+                          'API GitHub POST /user/repos values={"body":{"auto_init":false,"name":"[redacted]","private":true}}',
                       },
                       {
                         createdAt: Date.parse("2026-05-02T12:30:04Z"),
                         level: "info",
                         step: "ensure_convex",
-                        message: "Ensuring Convex project and production deployment.",
+                        message:
+                          'API Convex POST /teams/{team_id}/create_project values={"body":{"deploymentType":"prod","projectName":"[redacted]"},"params":{"path":{"team_id":"[redacted]"}}}',
                       },
                       {
                         createdAt: Date.parse("2026-05-02T12:30:08Z"),
                         level: "info",
                         step: "ensure_cloudflare",
-                        message: "Ensuring Cloudflare Worker and deploy settings.",
+                        message:
+                          'API Cloudflare POST /accounts/{account_id}/workers/workers values={"body":{"logpush":false,"name":"[redacted]","observability":{"enabled":true,"head_sampling_rate":1},"subdomain":{"enabled":true,"previews_enabled":true}},"params":{"path":{"account_id":"[redacted]"}}}',
                       },
-                    ])}
+                      {
+                        createdAt: Date.parse("2026-05-02T12:30:10Z"),
+                        level: "info",
+                        step: "ensure_cloudflare",
+                        message:
+                          'API Cloudflare PATCH /accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables values={"body":{"PROD_CONVEX_DEPLOY_KEY":"[secret]","VITE_CONVEX_URL":{"is_secret":"[secret]","value":"[redacted]"}},"params":{"path":{"account_id":"[redacted]","trigger_uuid":"[redacted]"}}}',
+                      },
+                    ]}
                   />
                 </div>
               ),
@@ -607,12 +614,9 @@ function VaultDashboardInfrastructureSetupFixture() {
             repositoryLinks={<FixtureRepositoryLinks />}
             setupSection={
               <VaultSetupProgressSection status="running" label="Infra: provisioning">
-                <textarea
-                  aria-label="Provisioning log for noter-md/noter-app"
-                  readOnly
-                  rows={5}
-                  className="w-full font-mono text-xs"
-                  value={formatProvisioningLogText([
+                <VaultProvisioningLogViewer
+                  repositoryFullName="noter-md/noter-app"
+                  events={[
                     {
                       createdAt: Date.parse("2026-05-08T09:15:00Z"),
                       level: "info",
@@ -631,7 +635,7 @@ function VaultDashboardInfrastructureSetupFixture() {
                       step: "ensure_convex",
                       message: "Ensuring Convex project and production deployment.",
                     },
-                  ])}
+                  ]}
                 />
               </VaultSetupProgressSection>
             }

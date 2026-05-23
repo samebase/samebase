@@ -23,6 +23,21 @@ export type ProvisioningLogEvent = {
   step: ProvisioningLogStep;
 };
 
+export type ProvisioningLogApiProvider = "Cloudflare" | "Convex" | "GitHub";
+
+export type ProvisioningLogApiCall = {
+  provider: ProvisioningLogApiProvider;
+  method: string;
+  endpoint: string;
+  values?: unknown;
+};
+
+export type ProvisioningLogDocumentEvent = {
+  time: string;
+  level: ProvisioningLogLevel;
+  step: string;
+} & ({ api: ProvisioningLogApiCall } | { message: string });
+
 const provisioningStepLabels = {
   initialize_vault: "initialize vault",
   validate_connections: "validate connections",
@@ -44,6 +59,79 @@ function formatProvisioningTimestamp(timestamp: number): string {
   return new Date(timestamp).toISOString();
 }
 
+function parseProvisioningLogApiProvider(provider: string): ProvisioningLogApiProvider | null {
+  switch (provider) {
+    case "Cloudflare":
+    case "Convex":
+    case "GitHub":
+      return provider;
+    default:
+      return null;
+  }
+}
+
+function parseProvisioningLogApiMessage(message: string): ProvisioningLogApiCall | null {
+  const match = /^API (\S+) (\S+) (\S+)(?: values=(.*))?$/.exec(message);
+  if (!match) {
+    return null;
+  }
+
+  const provider = match[1] ? parseProvisioningLogApiProvider(match[1]) : null;
+  const method = match[2];
+  const endpoint = match[3];
+  if (!provider || !method || !endpoint) {
+    return null;
+  }
+
+  const valuesSource = match[4];
+  if (!valuesSource) {
+    return {
+      provider,
+      method,
+      endpoint,
+    };
+  }
+
+  try {
+    return {
+      provider,
+      method,
+      endpoint,
+      values: JSON.parse(valuesSource),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function formatProvisioningLogDocumentEvent(
+  event: ProvisioningLogEvent,
+): ProvisioningLogDocumentEvent {
+  const base = {
+    time: formatProvisioningTimestamp(event.createdAt),
+    level: event.level,
+    step: provisioningStepLabels[event.step],
+  };
+  const apiCall = parseProvisioningLogApiMessage(event.message);
+  if (apiCall) {
+    return {
+      ...base,
+      api: apiCall,
+    };
+  }
+
+  return {
+    ...base,
+    message: event.message,
+  };
+}
+
+export function buildProvisioningLogDocumentEvents(
+  events: ProvisioningLogEvent[],
+): ProvisioningLogDocumentEvent[] {
+  return events.map(formatProvisioningLogDocumentEvent);
+}
+
 export function formatProvisioningLogLine(event: ProvisioningLogEvent): string {
   const level = event.level.toUpperCase().padEnd(5, " ");
   return `${formatProvisioningTimestamp(event.createdAt)} ${level} ${provisioningStepLabels[event.step]} - ${event.message}`;
@@ -51,4 +139,8 @@ export function formatProvisioningLogLine(event: ProvisioningLogEvent): string {
 
 export function formatProvisioningLogText(events: ProvisioningLogEvent[]): string {
   return events.map(formatProvisioningLogLine).join("\n");
+}
+
+export function formatProvisioningLogApiValues(apiCall: ProvisioningLogApiCall): string {
+  return JSON.stringify(apiCall.values ?? {}, null, 2);
 }

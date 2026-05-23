@@ -27,6 +27,11 @@ import {
   isNoterManagedVault,
   type NoterManagedConnectedVault,
 } from "./vault/state";
+import {
+  formatProviderApiCallLogMessage,
+  type ProviderApiCall,
+  type ProviderApiCallRecorder,
+} from "./providerApiLog";
 
 const PROVISIONING_STALE_MS = 10 * 60 * 1000;
 const GITHUB_API_VERSION = "2022-11-28";
@@ -127,8 +132,29 @@ async function requestGitHubRepoApi(args: {
   repo: string;
   path: string;
   method: GitHubRepoRequestMethod;
+  recordApiCall?: ProviderApiCallRecorder;
   body?: unknown;
 }): Promise<unknown> {
+  const recordApiCall = args.recordApiCall;
+  if (recordApiCall) {
+    const values: Record<string, unknown> = {
+      params: {
+        path: {
+          owner: args.owner,
+          repo: args.repo,
+        },
+      },
+    };
+    if (args.body !== undefined) {
+      values.body = args.body;
+    }
+    await recordApiCall({
+      provider: "GitHub",
+      method: args.method,
+      endpoint: `/repos/{owner}/{repo}${args.path}`,
+      values,
+    });
+  }
   const endpoint = `https://api.github.com/repos/${encodeURIComponent(args.owner)}/${encodeURIComponent(args.repo)}${args.path}`;
   const response = await fetch(endpoint, {
     method: args.method,
@@ -160,6 +186,7 @@ async function fetchGitHubRepoIdentity(args: {
   owner: string;
   repo: string;
   expectedRepoId: string;
+  recordApiCall?: ProviderApiCallRecorder;
 }): Promise<{ ownerId: string }> {
   const repoRaw = await requestGitHubRepoApi({
     githubAccessToken: args.githubAccessToken,
@@ -167,6 +194,7 @@ async function fetchGitHubRepoIdentity(args: {
     repo: args.repo,
     path: "",
     method: "GET",
+    recordApiCall: args.recordApiCall,
   });
   const record = asRecord(repoRaw);
   const repoId = readStringOrNumber(record, "id");
@@ -234,6 +262,7 @@ async function readDefaultConvexCloudDeployment(args: {
   convexToken: string;
   projectId: string;
   deploymentType: "prod" | "dev";
+  recordApiCall?: ProviderApiCallRecorder;
 }): Promise<ConvexCloudDeployment | null> {
   try {
     const deployment = await requestConvexManagementApi(
@@ -245,6 +274,7 @@ async function readDefaultConvexCloudDeployment(args: {
           path: { project_id: args.projectId },
           query: args.deploymentType === "prod" ? { defaultProd: true } : { defaultDev: true },
         },
+        recordApiCall: args.recordApiCall,
       },
     );
     return requireConvexCloudDeployment({
@@ -268,6 +298,7 @@ async function createConvexCloudDeployment(args: {
   convexToken: string;
   projectId: string;
   deploymentType: "prod" | "dev";
+  recordApiCall?: ProviderApiCallRecorder;
 }): Promise<ConvexCloudDeployment> {
   const deployment = await requestConvexManagementApi(
     args.convexToken,
@@ -278,6 +309,7 @@ async function createConvexCloudDeployment(args: {
       body: {
         type: args.deploymentType,
       },
+      recordApiCall: args.recordApiCall,
     },
   );
   return requireConvexCloudDeployment({
@@ -292,12 +324,16 @@ async function readConvexProjectDetails(args: {
   convexToken: string;
   projectId: string;
   teamId: string;
+  recordApiCall?: ProviderApiCallRecorder;
 }) {
   const project = await requestConvexManagementApi(
     args.convexToken,
     "GET",
     "/projects/{project_id}",
-    { params: { path: { project_id: args.projectId } } },
+    {
+      params: { path: { project_id: args.projectId } },
+      recordApiCall: args.recordApiCall,
+    },
   );
   if (project.teamId !== args.teamId) {
     throw new Error("Convex project belonged to a different team.");
@@ -332,6 +368,7 @@ async function ensureConvexResources(args: {
   convexToken: string;
   projectName: string;
   existing: ExistingConvexResources;
+  recordApiCall?: ProviderApiCallRecorder;
   onProjectCreated: (identity: { projectId: string }) => Promise<void>;
 }): Promise<ConvexProvisionResult> {
   const projectName = args.projectName;
@@ -342,7 +379,10 @@ async function ensureConvexResources(args: {
       args.convexToken,
       "GET",
       "/teams/{team_id}/list_projects",
-      { params: { path: { team_id: args.teamId } } },
+      {
+        params: { path: { team_id: args.teamId } },
+        recordApiCall: args.recordApiCall,
+      },
     );
     for (const project of projects) {
       if (project.name === projectName || project.slug === projectName) {
@@ -362,6 +402,7 @@ async function ensureConvexResources(args: {
           projectName,
           deploymentType: "prod",
         },
+        recordApiCall: args.recordApiCall,
       },
     );
 
@@ -378,6 +419,7 @@ async function ensureConvexResources(args: {
     convexToken: args.convexToken,
     projectId,
     teamId: args.teamId,
+    recordApiCall: args.recordApiCall,
   });
 
   let productionDeployment: ConvexCloudDeployment | null = null;
@@ -392,6 +434,7 @@ async function ensureConvexResources(args: {
           params: {
             path: { deployment_name: args.existing.deploymentName },
           },
+          recordApiCall: args.recordApiCall,
         },
       ),
       deploymentType: "prod",
@@ -404,12 +447,14 @@ async function ensureConvexResources(args: {
     convexToken: args.convexToken,
     projectId,
     deploymentType: "prod",
+    recordApiCall: args.recordApiCall,
   });
 
   productionDeployment ??= await createConvexCloudDeployment({
     convexToken: args.convexToken,
     projectId,
     deploymentType: "prod",
+    recordApiCall: args.recordApiCall,
   });
 
   if (productionDeployment.isDefault !== true) {
@@ -436,6 +481,7 @@ async function ensureConvexPreviewResources(args: {
   convexToken: string;
   teamId: string;
   projectId: string;
+  recordApiCall?: ProviderApiCallRecorder;
 }): Promise<ConvexPreviewProvisionResult> {
   // Preview deployment creation starts from recorded infrastructure, so prove
   // that project still belongs to the currently connected Convex team first.
@@ -443,12 +489,14 @@ async function ensureConvexPreviewResources(args: {
     convexToken: args.convexToken,
     projectId: args.projectId,
     teamId: args.teamId,
+    recordApiCall: args.recordApiCall,
   });
 
   const defaultDevDeployment = await readDefaultConvexCloudDeployment({
     convexToken: args.convexToken,
     projectId: args.projectId,
     deploymentType: "dev",
+    recordApiCall: args.recordApiCall,
   });
 
   const deployment =
@@ -457,6 +505,7 @@ async function ensureConvexPreviewResources(args: {
       convexToken: args.convexToken,
       projectId: args.projectId,
       deploymentType: "dev",
+      recordApiCall: args.recordApiCall,
     }));
 
   return {
@@ -469,6 +518,7 @@ async function createConvexDeployKey(args: {
   convexToken: string;
   deploymentName: string;
   name: string;
+  recordApiCall?: ProviderApiCallRecorder;
 }): Promise<ConvexDeployKeyResult> {
   // Create deploy-key secrets inside provider steps so Workflow journals only
   // safe app metadata, never key material.
@@ -481,6 +531,7 @@ async function createConvexDeployKey(args: {
       body: {
         name: args.name,
       },
+      recordApiCall: args.recordApiCall,
     },
   );
 
@@ -567,6 +618,39 @@ async function appendProvisioningRunEvent(
       step: args.step,
     });
   }
+}
+
+async function appendProviderApiCallEvent(
+  ctx: ProvisioningEventCtx,
+  args: {
+    runId: Id<"appProvisioningRuns">;
+    step: AppProvisioningStep;
+    call: ProviderApiCall;
+  },
+): Promise<void> {
+  await appendProvisioningRunEvent(ctx, {
+    runId: args.runId,
+    step: args.step,
+    level: "info",
+    message: formatProviderApiCallLogMessage(args.call),
+    state: "running",
+  });
+}
+
+function createProviderApiCallRecorder(
+  ctx: ProvisioningEventCtx,
+  args: {
+    runId: Id<"appProvisioningRuns">;
+    step: AppProvisioningStep;
+  },
+): ProviderApiCallRecorder {
+  return async (call) => {
+    await appendProviderApiCallEvent(ctx, {
+      runId: args.runId,
+      step: args.step,
+      call,
+    });
+  };
 }
 
 type VaultInfrastructureOwnership = Doc<"vaultInfrastructureOwnership">;
@@ -1361,6 +1445,10 @@ export const ensureConvexInfrastructure = internalAction({
       ctx,
       vault.userId,
     );
+    const recordApiCall = createProviderApiCallRecorder(ctx, {
+      runId: args.runId,
+      step: "ensure_convex",
+    });
     const convex = await ensureConvexResources({
       teamId: convexTeamId,
       convexToken,
@@ -1369,6 +1457,7 @@ export const ensureConvexInfrastructure = internalAction({
         infrastructure: existing,
         target: infrastructureTarget,
       }),
+      recordApiCall,
       onProjectCreated: async ({ projectId }) => {
         const record = await ctx.runMutation(
           internal.infraProvisioning.recordConvexProjectIdentity,
@@ -1480,10 +1569,15 @@ export const ensureConvexPreviewInfrastructure = internalAction({
       ctx,
       vault.userId,
     );
+    const recordApiCall = createProviderApiCallRecorder(ctx, {
+      runId: args.runId,
+      step: "ensure_convex_preview",
+    });
     await ensureConvexPreviewResources({
       convexToken,
       teamId: convexTeamId,
       projectId: existing.convexProjectId,
+      recordApiCall,
     });
 
     await appendProvisioningRunEvent(ctx, {
@@ -1566,6 +1660,10 @@ export const ensureCloudflareInfrastructure = internalAction({
     );
     const { cloudflareToken, cloudflareAuthMethod, cloudflareAccountId } =
       await resolveCloudflareProvisioningConnection(ctx, vault.userId);
+    const recordApiCall = createProviderApiCallRecorder(ctx, {
+      runId: args.runId,
+      step: "ensure_cloudflare",
+    });
     const target = await ctx.runQuery(internal.infraProvisioning.getInfrastructureTargetByVault, {
       vaultId: args.vaultId,
     });
@@ -1578,11 +1676,13 @@ export const ensureCloudflareInfrastructure = internalAction({
       convexToken,
       teamId: convexTeamId,
       projectId: existing.convexProjectId,
+      recordApiCall,
     });
     const productionDeployKey = await createConvexDeployKey({
       convexToken,
       deploymentName: existing.convexDeploymentName,
       name: `noter-${vaultSuffix(args.vaultId)}`,
+      recordApiCall,
     });
     const productionDeployKeyRecord = await ctx.runMutation(
       internal.infraProvisioning.recordConvexDeployKeyIdentity,
@@ -1604,6 +1704,7 @@ export const ensureCloudflareInfrastructure = internalAction({
       convexToken,
       deploymentName: previewConvex.previewDeploymentName,
       name: `noter-preview-${vaultSuffix(args.vaultId)}`,
+      recordApiCall,
     });
     const previewDeployKeyRecord = await ctx.runMutation(
       internal.infraProvisioning.recordConvexDeployKeyIdentity,
@@ -1626,6 +1727,7 @@ export const ensureCloudflareInfrastructure = internalAction({
       owner: vault.owner,
       repo: vault.name,
       expectedRepoId: vault.ghRepoId,
+      recordApiCall,
     });
     const existingCloudflareWorker = selectExistingCloudflareWorker({
       cloudflare: vault.cloudflare,
@@ -1647,6 +1749,7 @@ export const ensureCloudflareInfrastructure = internalAction({
         treeData: buildConfigTreeData,
       }),
       existingWorker: existingCloudflareWorker,
+      recordApiCall,
       onWorkerResolved: async (worker) => {
         const record = await ctx.runMutation(
           internal.infraProvisioning.recordCloudflareWorkerIdentity,
