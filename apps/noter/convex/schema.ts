@@ -100,6 +100,7 @@ export type AppProvisioningRunStep = Infer<typeof vAppProvisioningRunStep>;
 export const vAppProvisioningRunTrigger = union(
   literal("create"),
   literal("connect_existing_repository"),
+  literal("connect_cloudflare_worker"),
   literal("retry"),
 );
 export type AppProvisioningRunTrigger = Infer<typeof vAppProvisioningRunTrigger>;

@@ -8,7 +8,7 @@ import {
   isConnectedVault,
   isLiveConnectedVault,
   isNoterManagedVault,
-  type NoterManagedConnectedVault,
+  type ConnectedVault,
 } from "./state";
 import { vVaultDeletionStep } from "./deletion/model";
 import { readVaultDeletionEligibility } from "./deletion/eligibility";
@@ -118,10 +118,7 @@ type SourceSetupVault = Extract<
 >;
 type VaultDomain = Doc<"vaultDomains">;
 type VaultInfrastructureOwnership = Doc<"vaultInfrastructureOwnership">;
-type ConnectedCloudflareState = Extract<
-  NoterManagedConnectedVault["cloudflare"],
-  { state: "connected" }
->;
+type ConnectedCloudflareState = Extract<ConnectedVault["cloudflare"], { state: "connected" }>;
 const SOURCE_SETUP_ERROR_EVENT_SCAN_LIMIT = 20;
 
 async function readLatestRunErrorMessage(
@@ -346,7 +343,7 @@ async function readVaultInfrastructureOwnership(
 
 async function resolveProviderSetupSummary(
   ctx: Pick<QueryCtx, "db">,
-  vault: NoterManagedConnectedVault,
+  vault: ConnectedVault,
 ): Promise<ProviderSetupSummary> {
   const cloudflare = vault.cloudflare;
   if (vault.convex.state === "failed") {
@@ -367,6 +364,20 @@ async function resolveProviderSetupSummary(
   }
 
   const ownership = await readVaultInfrastructureOwnership(ctx, vault._id);
+  const ownershipRun = ownership ? await ctx.db.get(ownership.runId) : null;
+  if (
+    ownership &&
+    ownershipRun?.trigger === "connect_cloudflare_worker" &&
+    (ownership.state === "active" || ownership.state === "failed")
+  ) {
+    return await readProviderRunSummary(ctx, {
+      provider: "cloudflare",
+      runId: ownership.runId,
+      status: ownership.state === "failed" ? "failed" : "running",
+      fallbackUpdatedAt: ownership.updatedAt,
+    });
+  }
+
   if (vault.convex.state === "not_configured") {
     if (ownership?.state === "active" || ownership?.state === "failed") {
       return await readProviderRunSummary(ctx, {
@@ -768,10 +779,9 @@ export const getUserVaults = query({
           hasUsableDefaultBranchTree,
           vault,
         });
-        const providerSetup =
-          isNoterManagedVault(vault) && hasUsableDefaultBranchTree
-            ? await resolveProviderSetupSummary(ctx, vault)
-            : { status: "not_applicable" as const };
+        const providerSetup = hasUsableDefaultBranchTree
+          ? await resolveProviderSetupSummary(ctx, vault)
+          : { status: "not_applicable" as const };
         const hasConvexProvision = vault.convex.state === "connected";
         const cloudflare = vault.cloudflare;
         const hasCloudflareProvision = cloudflare.state === "connected";
@@ -926,9 +936,7 @@ export const getVaultInfrastructure = query({
       .collect();
 
     return {
-      providerSetup: isNoterManagedVault(vault)
-        ? await resolveProviderSetupSummary(ctx, vault)
-        : { status: "not_applicable" as const },
+      providerSetup: await resolveProviderSetupSummary(ctx, vault),
       infrastructure: infrastructure
         ? {
             convexProjectId: infrastructure.convexProjectId,

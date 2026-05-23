@@ -384,6 +384,37 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(markup).not.toContain("Create Worker");
   });
 
+  it("shows manual Cloudflare connection progress for existing-repository vaults", () => {
+    const state = buildVaultDashboardResourceRailState({
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      vault: makeResourceRailBuilderVault({
+        isNoterManaged: false,
+        providerSetup: {
+          status: "running",
+          provider: "cloudflare",
+          runId: fakeRunId(),
+          step: "ensure_cloudflare",
+          updatedAt: 30,
+        },
+      }),
+    });
+
+    expect(state.rows[1]).toEqual({
+      provider: "convex",
+      status: "pending",
+      value: "demo",
+    });
+    expect(state.rows[2]).toMatchObject({
+      provider: "cloudflare",
+      status: "running",
+      value: "demo",
+    });
+
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+    expect(markup).toContain("Cloudflare");
+    expect(markup).not.toContain("Connect Cloudflare");
+  });
+
   it("shows missing provider actions after setup is idle", () => {
     const state = buildVaultDashboardResourceRailState({
       githubRepositoryUrl: "https://github.com/ada/demo",

@@ -698,6 +698,99 @@ describe("vault dashboard Convex contract", () => {
     });
   });
 
+  it("shows an active manual Cloudflare Worker connection on existing-repository vaults", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const sourceRunId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/existing-cloudflare",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 10,
+        updatedAt: 20,
+        completedAt: 20,
+      });
+      const cloudflareRunId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/existing-cloudflare",
+        trigger: "connect_cloudflare_worker",
+        state: "running",
+        currentStep: "ensure_cloudflare",
+        createdAt: 30,
+        updatedAt: 40,
+      });
+
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId: sourceRunId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "existing-cloudflare",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 22,
+        convex: { state: "not_configured" },
+        cloudflare: { state: "not_configured" },
+      });
+      await ctx.db.insert("vaultBranchTrees", {
+        vaultId,
+        branch: "main",
+        treeSHA: "tree",
+        commitSHA: "commit",
+        treeData: {
+          sha: "tree",
+          truncated: false,
+          tree: [],
+        },
+        lastTreeRefreshAt: 24,
+      });
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId,
+        runId: cloudflareRunId,
+        provisioningVersion: 1,
+        state: "active",
+        updatedAt: 35,
+      });
+
+      return { cloudflareRunId, userId, vaultId };
+    });
+
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+
+    expect(vaults[0]).toMatchObject({
+      _id: ids.vaultId,
+      isNoterManaged: false,
+      providerSetup: {
+        status: "running",
+        provider: "cloudflare",
+        runId: ids.cloudflareRunId,
+        step: "ensure_cloudflare",
+        updatedAt: 40,
+      },
+    });
+  });
+
   it("keeps active provider ownership visible but lets connected resources recover failed ownership", async () => {
     const cases = [
       {

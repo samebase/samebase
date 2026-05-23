@@ -2631,10 +2631,9 @@ function VaultDashboardBody({
           !isReady && activeSourceSetup ? (
             <VaultSourceSetupSection sourceSetup={activeSourceSetup} />
           ) : undefined;
-        const providerSetupStatus =
-          isReady && vault.isNoterManaged
-            ? resolveVaultProviderSetupStatus(vault.providerSetup)
-            : null;
+        const providerSetupStatus = isReady
+          ? resolveVaultProviderSetupStatus(vault.providerSetup)
+          : null;
         const providerSetupSection =
           providerSetupStatus && activeProviderSetup ? (
             <VaultProviderSetupSection providerSetup={activeProviderSetup} />
@@ -2792,9 +2791,9 @@ function VaultDashboardBody({
                           ) : null}
                           {hasProvisioningLog ? (
                             <div className="space-y-2">
-                              {vault.isNoterManaged ? (
+                              {activeProviderSetup ? (
                                 <div className="text-xs text-muted-foreground">
-                                  {formatProviderSetupDeveloperLabel(vault.providerSetup)}
+                                  {formatProviderSetupDeveloperLabel(activeProviderSetup)}
                                 </div>
                               ) : null}
                               <VaultProvisioningLog
