@@ -48,6 +48,7 @@ type LandingLogoSceneComponent = typeof import("@/components/logo/NLogoScene").N
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 const AUTO_ROTATE_RESUME_DURATION_MS = 220;
 const AUTO_ROTATE_RESUME_MIN_SPEED_MULTIPLIER = 0.4;
+const REDUCED_MOTION_MEDIA_QUERY = "(prefers-reduced-motion: reduce)";
 // The canvas receives the requested depth; the SVG fallback stays cheap enough
 // to render before the interactive scene is ready.
 const LANDING_STATIC_SVG_FALLBACK_DEPTH = 3;
@@ -72,6 +73,7 @@ function easeOutCubic(value: number) {
 }
 
 export function PublicLandingLogo({
+  animateLeftFaceStripes = false,
   autoRotate = false,
   enableViewSnapping = true,
   loadInteractiveScene = true,
@@ -79,6 +81,7 @@ export function PublicLandingLogo({
   viewStatePersistence = "visit",
   viewStateKey = PUBLIC_LANDING_LOGO_VIEW_STATE_KEY,
 }: {
+  animateLeftFaceStripes?: boolean;
   autoRotate?: boolean;
   enableViewSnapping?: boolean;
   loadInteractiveScene?: boolean;
@@ -121,12 +124,14 @@ export function PublicLandingLogo({
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [isSvgVisible, setIsSvgVisible] = useState(true);
   const [isAutoRotating, setIsAutoRotating] = useState(autoRotate);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [view, setView] = useState<RotatedLogoViewState>(() => initialView);
   const publicLandingLogoLink = useOptionalPublicLandingLogoLink();
   const latestViewRef = useRef(view);
   const lastFrameTimeRef = useRef<number | null>(null);
   const autoRotateResumeStartedAtRef = useRef<number | null>(null);
   const isSceneInteractive = isSceneReady && !isSvgVisible;
+  const shouldAnimateLeftFaceStripes = animateLeftFaceStripes && !prefersReducedMotion;
   const persistLatestLogoView = useCallback(() => {
     persistRotatedLogoViewState({
       key: viewStateKey,
@@ -134,6 +139,24 @@ export function PublicLandingLogo({
       view: latestViewRef.current,
     });
   }, [viewStateKey, viewStatePersistence]);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia(REDUCED_MOTION_MEDIA_QUERY);
+    const syncReducedMotionPreference = () => {
+      setPrefersReducedMotion(mediaQuery.matches);
+    };
+
+    // Automatic stripe motion follows the user's OS motion preference.
+    syncReducedMotionPreference();
+    mediaQuery.addEventListener("change", syncReducedMotionPreference);
+    return () => {
+      mediaQuery.removeEventListener("change", syncReducedMotionPreference);
+    };
+  }, []);
 
   useEffect(() => {
     if (!loadInteractiveScene) {
@@ -364,7 +387,7 @@ export function PublicLandingLogo({
               rotationDegrees={view.rotationDegrees}
               shuffleAnimation={{ enabled: false, parallelMoves: 1 }}
               animateFaceColors={false}
-              animateLeftFaceStripes={false}
+              animateLeftFaceStripes={shouldAnimateLeftFaceStripes}
               fractalDepth={fractalDepth}
               voxelGrid={isRecursiveDepth ? undefined : staticLogoVoxelGrid}
               voxelEditingEnabled={false}

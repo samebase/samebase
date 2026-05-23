@@ -33,6 +33,10 @@ async function expectOptionalCheckboxUnchecked(locator: Locator) {
   await expect(locator).not.toBeChecked();
 }
 
+test.beforeEach(async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+});
+
 /**
  * expectElementInsideContainer checks boundingBox containment with 1px of
  * tolerance for sub-pixel layout rounding; missing boxes fail closed.
@@ -157,6 +161,7 @@ test("vault dashboard fixture (mobile sidebar min width)", async ({ browser }, t
   const context = await browser.newContext({
     ...devices["iPhone 13"],
     baseURL,
+    reducedMotion: "reduce",
   });
   const page = await context.newPage();
 
@@ -304,6 +309,7 @@ test("vault dashboard fixture (delete dialog mobile)", async ({ browser }, testI
   const context = await browser.newContext({
     ...devices["iPhone 13"],
     baseURL,
+    reducedMotion: "reduce",
   });
   const page = await context.newPage();
 
@@ -661,6 +667,7 @@ test("vault dashboard fixture (branch filters mobile sheet)", async ({ browser }
   const context = await browser.newContext({
     ...devices["iPhone 13"],
     baseURL,
+    reducedMotion: "reduce",
   });
   const page = await context.newPage();
 

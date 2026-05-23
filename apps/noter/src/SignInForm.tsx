@@ -38,6 +38,7 @@ export function SignInForm({ authPlacement = "inline", topNotice }: SignInFormPr
         >
           {topNotice}
           <PublicLandingLogo
+            animateLeftFaceStripes
             autoRotate={landingDevModeEnabled}
             enableViewSnapping={!landingDevModeEnabled}
             themeColorSearch={rootRouteSearch}
