@@ -15,6 +15,7 @@
   - `research/2026-05-23-agent-context-packaging-decision.md`
   - `research/agent-context-draft-bundle/noter-manifest.md`
   - `research/2026-05-23-agent-context-package-results.md`
+  - `research/2026-05-23-agent-context-compatibility-map.md`
   - `packages/agent-context/`
 
 ## Purpose
@@ -108,16 +109,14 @@ promotion:
    repo from `packages/agent-context` only after one package-location validation.
 4. Keep Noter overlays outside the portable package. They can live as repo-local overlay references
    or as entries in a Noter manifest.
-5. Leave existing skills such as `skills/create-pr/SKILL.md` and
-   `skills/noter-playwright-live/SKILL.md` in place initially. Either refit them later as thin
-   Noter-specific wrappers around the portable skills or keep them as compatibility entrypoints.
+5. Leave existing skills such as `skills/create-pr/SKILL.md`,
+   `skills/noter-playwright-live/SKILL.md`, and `skills/noter-refactoring-style/SKILL.md` in place
+   as compatibility entrypoints around packaged portable skills.
 6. Only then shrink `AGENTS.md`, one section at a time, with a checklist proving each removed rule
    has a reachable replacement.
 
 ## Remaining Validation
 
-- Decide whether existing repo skills should become compatibility wrappers around the portable
-  skills.
 - Decide whether shadcn/ui ownership belongs in `typed-product-engineering`, `noter-app-template`,
   or a small Noter UI overlay. Current evidence points to
   `specs/063_SHADCN_WRAPPER_ENTRYPOINT_SPEC.md` plus a short AGENTS pointer.

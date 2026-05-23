@@ -61,8 +61,9 @@ meant to be reviewed, forward-tested, and revised before any live context modula
   and Noter overlays into the first package-like bundle manifest.
 - `research/2026-05-23-agent-context-package-results.md` records the first real package layout in
   `packages/agent-context`.
+- `research/2026-05-23-agent-context-compatibility-map.md` keeps existing repo skills as
+  compatibility entrypoints around the packaged portable skills.
 
 ## Next Validation
 
-- Decide whether existing repo skills should become compatibility wrappers around the portable
-  skills.
+- Decide whether shadcn/ui ownership needs a small Noter UI overlay or only a compact spec pointer.

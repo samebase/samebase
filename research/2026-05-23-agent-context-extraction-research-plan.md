@@ -75,6 +75,8 @@ Repo guidance sources:
   maps core, portable skills, and Noter overlays.
 - `research/2026-05-23-agent-context-package-results.md` records the first real package layout under
   `packages/agent-context`, package validation expectations, and package-location validation.
+- `research/2026-05-23-agent-context-compatibility-map.md` records how existing repo skills remain
+  compatibility entrypoints around packaged portable skills.
 
 Local thread evidence:
 
@@ -343,8 +345,7 @@ context, a triggerable skill, a workflow doc, or an operator overlay.
 
 ## Next Work
 
-1. Decide whether existing repo skills should become compatibility wrappers around the portable
-   skills.
-2. Decide whether to open the Cloudflare API boundary hardening as a separate production-code PR.
+1. Decide whether to open the Cloudflare API boundary hardening as a separate production-code PR.
+2. Decide whether shadcn/ui ownership needs a small Noter UI overlay or only a compact spec-pointer.
 3. Manually review the pinned comparison threads after the non-pinned baseline has more breadth.
 4. Only then move durable material out of `AGENTS.md`.

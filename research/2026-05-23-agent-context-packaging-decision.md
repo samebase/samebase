@@ -14,6 +14,7 @@
   - `research/2026-05-23-agent-context-forward-test-results-4.md`
   - `research/agent-context-draft-bundle/noter-manifest.md`
   - `research/2026-05-23-agent-context-package-results.md`
+  - `research/2026-05-23-agent-context-compatibility-map.md`
   - `packages/agent-context/`
 
 ## Purpose
@@ -91,8 +92,8 @@ Before promoting files out of `research/`:
 - Use the completed editing-capable `noter-convex` validation as evidence, but keep Convex AI and
   CLI routing always-loaded until the overlay is installed or otherwise guaranteed reachable before
   backend work.
-- Decide whether existing repo skills should stay as compatibility wrappers or be refit around the
-  portable skills.
+- Keep existing repo skills as compatibility entrypoints around packaged portable skills; see
+  `research/2026-05-23-agent-context-compatibility-map.md`.
 - Keep shortcut recognition, startup essentials, source hierarchy, and Convex generated-guidance
   routing always-loaded until the runtime proves those rules are reachable before they are needed.
 
@@ -105,5 +106,5 @@ The first code movement is complete:
 - `packages/agent-context/overlays/noter-*.md` contains Noter-specific overlays.
 - `packages/agent-context/manifests/noter.md` is the first package-local Noter router.
 
-Next, validate from the package location and decide whether existing repo skills should become
-compatibility wrappers around the packaged portable skills.
+Existing repo skills remain compatibility entrypoints around the packaged portable skills; see
+`research/2026-05-23-agent-context-compatibility-map.md`.

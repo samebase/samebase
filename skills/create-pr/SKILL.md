@@ -5,6 +5,14 @@
 Create or update a concise PR that matches this repo's review expectations and keeps the running
 narrative accurate without dumping raw CI output into GitHub.
 
+## Packaged Context Relationship
+
+This skill remains the Noter-specific compatibility entrypoint for creating and updating PRs. For
+portable PR discovery, read-only triage, review stance, and CI interpretation, use
+`packages/agent-context/skills/pr-workflow-review/SKILL.md`. Pair it with
+`packages/agent-context/overlays/noter-operator-workflows.md` for this repo's build labels,
+ready/draft defaults, shortcut semantics, and review-bot requirements.
+
 ## When To Use
 
 Use when asked to create a PR, update a PR, improve PR quality, or keep a PR description in sync

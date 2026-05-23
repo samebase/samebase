@@ -155,9 +155,12 @@ overlays.
 `research/2026-05-23-agent-context-package-results.md` creates the first real package layout at
 `packages/agent-context`, with package-local core, skills, overlays, and Noter manifest.
 
+`research/2026-05-23-agent-context-compatibility-map.md` keeps existing repo skills as compatibility
+entrypoints around the packaged portable skills instead of deleting them or flattening their
+Noter-specific procedure into the portable package.
+
 ## Open Questions Before Moving `AGENTS.md`
 
-- Whether existing repo skills should be renamed/refit or left as compatibility wrappers.
 - How much of `AGENTS.md` should remain as repo memory hierarchy versus become a loadable core file.
 - Whether `noter-app-template` should be tested against an actual generated app build before moving
   any template guidance out of always-loaded context.

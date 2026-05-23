@@ -52,3 +52,14 @@ mode, Convex, provider, PR, cleanup, and response rules that portable skills int
 
 Do not shrink live `AGENTS.md` until each removed rule has a reachable replacement in core context,
 portable skills, Noter overlays, repo docs, or accepted specs.
+
+## Existing Repo Skill Compatibility
+
+Keep existing repo skills as compatibility entrypoints unless a later migration proves they can be
+deleted:
+
+- `skills/create-pr/SKILL.md` wraps `pr-workflow-review` with Noter PR creation/update conventions.
+- `skills/noter-playwright-live/SKILL.md` wraps `route-ui-validation` with live browser startup and
+  branch-session mechanics.
+- `skills/noter-refactoring-style/SKILL.md` wraps `typed-product-engineering` and
+  `route-ui-validation` with Noter app/UI refactoring style.

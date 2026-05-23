@@ -69,8 +69,8 @@ has this shape and should stay until the package is accepted as the source of tr
 
 ## Remaining Work
 
-- Decide whether existing repo skills should become compatibility wrappers around packaged portable
-  skills.
+- See `research/2026-05-23-agent-context-compatibility-map.md` for the decision to keep existing
+  repo skills as compatibility entrypoints around packaged portable skills.
 - Decide whether shadcn/ui ownership needs a small Noter UI overlay.
 - Keep `AGENTS.md` intact until each removed rule has a reachable core, skill, overlay, doc, or spec
   replacement.

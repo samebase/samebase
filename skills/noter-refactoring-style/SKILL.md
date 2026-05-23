@@ -18,6 +18,14 @@ Routes, fixtures, and feature screens should mostly pass content into a shared s
 not keep re-implementing shell behavior through adapters, compat wrappers, or layout-owned prop
 plumbing.
 
+## Packaged Context Relationship
+
+This skill remains the Noter-specific compatibility entrypoint for app/UI refactoring style. For
+portable typed refactoring, validation-boundary, state-modeling, and delete-first guidance, use
+`packages/agent-context/skills/typed-product-engineering/SKILL.md`. Pair it with
+`packages/agent-context/skills/route-ui-validation/SKILL.md` when the refactor changes shipped UI
+routes or interaction behavior.
+
 ## Core Principles
 
 - Change the standard instead of adding another wrapper around it.

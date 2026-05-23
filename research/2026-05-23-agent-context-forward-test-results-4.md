@@ -124,9 +124,8 @@ Applied artifact:
 
 - See `research/2026-05-23-agent-context-package-results.md` for the first package layout in
   `packages/agent-context`.
-- Run one package-location validation from `packages/agent-context/manifests/noter.md`.
-- Decide whether existing repo skills should become compatibility wrappers around the portable
-  skills.
+- See `research/2026-05-23-agent-context-compatibility-map.md` for the decision to keep existing
+  repo skills as compatibility entrypoints around packaged portable skills.
 - Keep `AGENTS.md` intact until each removed rule has a reachable core, skill, overlay, doc, or spec
   replacement.
 - Open the Cloudflare API boundary hardening as a separate production-code follow-up when desired.
