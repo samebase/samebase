@@ -197,23 +197,48 @@ test("route URL editor preserves caret when rejecting root slash deletion", asyn
   await expect(input).toHaveJSProperty("selectionEnd", routeInputPrefix.length);
 });
 
-test("route URL editor fixture applies same-path search and hash edits while typing", async ({
-  page,
-}) => {
+test("route URL editor commits same-path search and hash edits on blur", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 96 });
-  await page.goto("/visual-fixture?mode=route-url-editor", {
+  await page.goto("/logo", {
     waitUntil: "domcontentloaded",
   });
-  const currentHref = page.getByTestId("route-url-editor-fixture-current-href");
 
   const input = page.getByTestId("route-url-editor-input");
   const origin = await page.evaluate(() => window.location.origin);
   await input.focus();
-  await input.press("End");
-  await input.type("&draft=live#done");
+  await input.fill(`${origin}/logo?leftFace=secondary#done`);
 
-  await expect(input).toHaveValue(`${origin}/visual-fixture?mode=route-url-editor&draft=live#done`);
-  await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor&draft=live#done");
+  await expect(input).toHaveValue(`${origin}/logo?leftFace=secondary#done`);
+  await expect(page).toHaveURL(`${origin}/logo`);
+
+  await input.blur();
+
+  await expect(input).toHaveValue(`${origin}/logo?leftFace=secondary#done`);
+  await expect(page).toHaveURL(`${origin}/logo?leftFace=secondary#done`);
+});
+
+test("route URL editor keeps invalid route search drafts local until blur", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 96 });
+  await page.goto("/logo?leftFace=secondary", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const input = page.getByTestId("route-url-editor-input");
+  const origin = await page.evaluate(() => window.location.origin);
+
+  await input.focus();
+  await expect(input).toHaveValue(`${origin}/logo?leftFace=secondary`);
+
+  await input.press("End");
+  await input.press("Backspace");
+
+  await expect(input).toHaveValue(`${origin}/logo?leftFace=secondar`);
+  await expect(page).toHaveURL(`${origin}/logo?leftFace=secondary`);
+
+  await input.blur();
+
+  await expect(input).toHaveValue(`${origin}/logo`);
+  await expect(page).toHaveURL(`${origin}/logo`);
 });
 
 test("route URL editor fixture refuses pasted external origins", async ({ page }) => {
