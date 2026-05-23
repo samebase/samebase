@@ -1,6 +1,8 @@
 "use node";
 
+import { notEmpty } from "@noter-md/dependent/main";
 import { v } from "convex/values";
+
 import { internalAction } from "./_generated/server";
 import { requestCloudflareApi } from "./cloudflareApi/client";
 import { vCloudflareDefaultAccount } from "./schema";
@@ -31,13 +33,7 @@ function readCloudflareAccount(account: CloudflareAccountIdentity): CloudflareAc
 export function normalizeCloudflareAccounts(
   accounts: readonly CloudflareAccountIdentity[],
 ): CloudflareAccount[] {
-  const normalizedAccounts: CloudflareAccount[] = [];
-  for (const account of accounts) {
-    const normalizedAccount = readCloudflareAccount(account);
-    if (normalizedAccount) {
-      normalizedAccounts.push(normalizedAccount);
-    }
-  }
+  const normalizedAccounts = accounts.map(readCloudflareAccount).filter(notEmpty);
 
   return normalizedAccounts.sort(
     (left, right) =>

@@ -1,3 +1,5 @@
+import { notEmpty } from "@noter-md/dependent/main";
+
 import { requestCloudflareApi, CloudflareApiError } from "./cloudflareApi/client";
 import type { components, Readable } from "./cloudflareApi/types.generated";
 import { clamp, toErrorMessage } from "./jsonUtils";
@@ -125,6 +127,21 @@ export type CloudflareWorkerInventoryItem = {
 export type ExistingCloudflareWorkerIdentity =
   | { state: "planned" }
   | { state: "created"; workerTag: string };
+
+function readCloudflareWorkerInventoryItem(worker: {
+  id?: string;
+  tag?: string;
+}): CloudflareWorkerInventoryItem | null {
+  const workerName = worker.id?.trim();
+  const workerTag = worker.tag?.trim();
+  if (!workerName || !workerTag) {
+    return null;
+  }
+  return {
+    workerName,
+    workerTag,
+  };
+}
 
 async function readAccountSubdomain(args: { token: string; accountId: string }): Promise<string> {
   const raw = await requestCloudflareApi({
@@ -258,20 +275,9 @@ export async function listCloudflareWorkers(args: {
     );
   }
 
-  const rows: CloudflareWorkerInventoryItem[] = [];
-  for (const worker of workers) {
-    const workerName = worker.id?.trim();
-    const workerTag = worker.tag?.trim();
-    if (!workerName || !workerTag) {
-      continue;
-    }
-    rows.push({
-      workerName,
-      workerTag,
-    });
-  }
-
-  return rows
+  return workers
+    .map(readCloudflareWorkerInventoryItem)
+    .filter(notEmpty)
     .sort(
       (left, right) =>
         left.workerName.localeCompare(right.workerName) ||
@@ -519,20 +525,22 @@ async function findReusableBuildTokenUuid(args: {
 function parseBuildTokens(
   tokenRecords: readonly CloudflareBuildTokenRecord[],
 ): CloudflareBuildToken[] {
-  const tokens: CloudflareBuildToken[] = [];
-  for (const tokenRecord of tokenRecords) {
-    const uuid = tokenRecord.build_token_uuid;
-    const cloudflareTokenId = tokenRecord.cloudflare_token_id;
-    if (!uuid || !cloudflareTokenId) {
-      continue;
-    }
-    tokens.push({
-      name: tokenRecord.build_token_name ?? "",
-      uuid,
-      cloudflareTokenId,
-    });
+  return tokenRecords.map(readCloudflareBuildToken).filter(notEmpty).sort(compareBuildTokens);
+}
+
+function readCloudflareBuildToken(
+  tokenRecord: CloudflareBuildTokenRecord,
+): CloudflareBuildToken | null {
+  const uuid = tokenRecord.build_token_uuid;
+  const cloudflareTokenId = tokenRecord.cloudflare_token_id;
+  if (!uuid || !cloudflareTokenId) {
+    return null;
   }
-  return tokens.sort(compareBuildTokens);
+  return {
+    name: tokenRecord.build_token_name ?? "",
+    uuid,
+    cloudflareTokenId,
+  };
 }
 
 function compareBuildTokens(left: CloudflareBuildToken, right: CloudflareBuildToken): number {
