@@ -121,6 +121,25 @@ type VaultInfrastructureOwnership = Doc<"vaultInfrastructureOwnership">;
 type ConnectedCloudflareState = Extract<ConnectedVault["cloudflare"], { state: "connected" }>;
 const SOURCE_SETUP_ERROR_EVENT_SCAN_LIMIT = 20;
 
+function canRemoveConvexProvisionForVault(args: {
+  vault: ConnectedVault;
+  infrastructure: Doc<"vaultInfrastructure"> | null;
+}): boolean {
+  if (args.vault.convex.state !== "connected") {
+    return false;
+  }
+  if (args.vault.convex.origin === "provisioned") {
+    return true;
+  }
+  if (args.vault.convex.origin === "selected_existing") {
+    return false;
+  }
+  return (
+    isNoterManagedVault(args.vault) &&
+    args.infrastructure?.convexProjectId === args.vault.convex.projectId
+  );
+}
+
 async function readLatestRunErrorMessage(
   ctx: Pick<QueryCtx, "db">,
   runId: Id<"appProvisioningRuns">,
@@ -616,6 +635,7 @@ const getUserVaultsResult = array(
     hasConnectedGitHubRepository: boolean(),
     hasConvexProvision: boolean(),
     hasCloudflareProvision: boolean(),
+    canRemoveConvexProvision: boolean(),
     canRemoveCloudflareProvision: boolean(),
     remoteBranches: array(
       object({
@@ -696,6 +716,7 @@ export const getUserVaults = query({
         hasConnectedGitHubRepository: false,
         hasConvexProvision: false,
         hasCloudflareProvision: false,
+        canRemoveConvexProvision: false,
         canRemoveCloudflareProvision: false,
         remoteBranches: [],
         cloudflareWorkersDevUrl: undefined,
@@ -736,6 +757,7 @@ export const getUserVaults = query({
             hasConnectedGitHubRepository: true,
             hasConvexProvision: vault.convex.state === "connected",
             hasCloudflareProvision: vault.cloudflare.state === "connected",
+            canRemoveConvexProvision: false,
             canRemoveCloudflareProvision:
               vault.cloudflare.state === "connected" && vault.cloudflare.origin === "provisioned",
             remoteBranches: [],
@@ -787,6 +809,10 @@ export const getUserVaults = query({
         const hasConvexProvision = vault.convex.state === "connected";
         const cloudflare = vault.cloudflare;
         const hasCloudflareProvision = cloudflare.state === "connected";
+        const canRemoveConvexProvision = canRemoveConvexProvisionForVault({
+          vault,
+          infrastructure,
+        });
         const canRemoveCloudflareProvision =
           cloudflare.state === "connected" && cloudflare.origin === "provisioned";
         const convexProjectSlug =
@@ -819,6 +845,7 @@ export const getUserVaults = query({
           hasConnectedGitHubRepository: true,
           hasConvexProvision,
           hasCloudflareProvision,
+          canRemoveConvexProvision,
           canRemoveCloudflareProvision,
           remoteBranches: remoteBranches.sort(compareRemoteBranchSortOrder).map((branch) => ({
             name: branch.name,

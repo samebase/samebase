@@ -91,10 +91,14 @@ function resolveCloudflareWorkersSubdomain({
 
 export function buildVaultDashboardResourceRailState({
   githubRepositoryUrl,
+  onConfigureConvexCreate,
+  onConfigureConvexExisting,
   onConfigureCloudflare,
   vault,
 }: {
   githubRepositoryUrl: string;
+  onConfigureConvexCreate?: () => void;
+  onConfigureConvexExisting?: () => void;
   onConfigureCloudflare?: () => void;
   vault: VaultDashboardVault;
 }): VaultResourceRailState {
@@ -161,7 +165,20 @@ export function buildVaultDashboardResourceRailState({
       status: "failed",
       value: vault.convexProjectSlug ?? vault.ghRepoName,
       scope: vault.convexProjectSlug ? convexProjectScope : undefined,
-      actions: [{ kind: "retry", label: "Retry" }],
+      actions: [
+        {
+          kind: "connect_existing",
+          label: "Connect",
+          disabled: !onConfigureConvexExisting,
+          onClick: onConfigureConvexExisting,
+        },
+        {
+          kind: "create_new",
+          label: "Create",
+          disabled: !onConfigureConvexCreate,
+          onClick: onConfigureConvexCreate,
+        },
+      ],
     };
   } else if (
     vault.providerSetup.status === "running" &&
@@ -193,8 +210,18 @@ export function buildVaultDashboardResourceRailState({
       provider: "convex",
       status: "action_required",
       actions: [
-        { kind: "connect_existing", label: "Connect", disabled: true },
-        { kind: "create_new", label: "Create", disabled: true },
+        {
+          kind: "connect_existing",
+          label: "Connect",
+          disabled: !onConfigureConvexExisting,
+          onClick: onConfigureConvexExisting,
+        },
+        {
+          kind: "create_new",
+          label: "Create",
+          disabled: !onConfigureConvexCreate,
+          onClick: onConfigureConvexCreate,
+        },
       ],
     };
   }

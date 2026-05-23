@@ -7,6 +7,7 @@ import { TestRouterProvider } from "@/test/TestRouterProvider";
 import {
   GitHubRepositoryNameSlashPreview,
   VaultDashboardCloudflareAccountDialog,
+  VaultDashboardConvexDialog,
   VaultDashboardDeleteDialog,
   VaultBranchLinkContent,
   VaultProviderSetupSection,
@@ -75,6 +76,7 @@ function makeResourceRailBuilderVault(
     hasConnectedGitHubRepository: true,
     hasConvexProvision: false,
     hasCloudflareProvision: false,
+    canRemoveConvexProvision: false,
     canRemoveCloudflareProvision: false,
     remoteBranches: [],
   };
@@ -320,6 +322,7 @@ describe("VaultDashboardDeleteDialog", () => {
           canRemoveGithubRepo: false,
           hasConvexProvision: false,
           hasCloudflareProvision: true,
+          canRemoveConvexProvision: false,
           canRemoveCloudflareProvision: true,
         }}
       />,
@@ -349,6 +352,47 @@ describe("VaultDashboardCloudflareAccountDialog", () => {
     expect(markup).toContain("Select Cloudflare Account");
     expect(markup).toContain("Account A");
     expect(markup).toContain("Save Account");
+  });
+});
+
+describe("VaultDashboardConvexDialog", () => {
+  it("renders selectable Convex production deployments", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardConvexDialog
+        createProjectName="demo"
+        deployments={[
+          {
+            projectId: "project-1",
+            projectName: "Demo",
+            projectSlug: "demo",
+            teamSlug: "ada-team",
+            deploymentName: "demo-prod",
+            cloudUrl: "https://demo-prod.convex.cloud",
+            siteUrl: "https://demo-prod.convex.site",
+          },
+        ]}
+        error={null}
+        isLoading={false}
+        isSubmitting={false}
+        mode="existing"
+        onCreateProjectNameChange={vi.fn()}
+        onDeploymentChange={vi.fn()}
+        onModeChange={vi.fn()}
+        onOpenChange={vi.fn()}
+        onSubmit={vi.fn()}
+        open
+        selectedDeploymentKey="project-1/demo-prod"
+        vault={{
+          id: fakeVaultId(),
+          repositoryFullName: "ada/demo",
+          repositoryName: "demo",
+        }}
+      />,
+    );
+
+    expect(markup).toContain("Connect Convex ada/demo");
+    expect(markup).toContain("demo/demo-prod");
+    expect(markup).toContain("Connect Deployment");
   });
 });
 
@@ -454,9 +498,62 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(markup).toContain("Connect Cloudflare");
   });
 
-  it("shows missing provider actions after setup is idle", () => {
+  it("lets failed manual Convex setup reopen the deployment dialog", () => {
+    const onConfigureConvexCreate = vi.fn();
+    const onConfigureConvexExisting = vi.fn();
     const state = buildVaultDashboardResourceRailState({
       githubRepositoryUrl: "https://github.com/ada/demo",
+      onConfigureConvexCreate,
+      onConfigureConvexExisting,
+      vault: makeResourceRailBuilderVault({
+        providerSetup: {
+          status: "failed",
+          provider: "convex",
+          runId: fakeRunId(),
+          step: "ensure_convex",
+          message: "Convex deployment connection failed.",
+          updatedAt: 30,
+        },
+      }),
+    });
+
+    const convexRow = state.rows[1];
+    expect(convexRow).toMatchObject({
+      provider: "convex",
+      status: "failed",
+      value: "demo",
+    });
+    if (convexRow.status !== "failed") {
+      throw new Error("Expected failed Convex row.");
+    }
+    const [connectAction, createAction] = convexRow.actions;
+    expect(connectAction).toMatchObject({
+      kind: "connect_existing",
+      label: "Connect",
+      disabled: false,
+    });
+    expect(createAction).toMatchObject({
+      kind: "create_new",
+      label: "Create",
+      disabled: false,
+    });
+    connectAction.onClick?.();
+    createAction.onClick?.();
+    expect(onConfigureConvexExisting).toHaveBeenCalledTimes(1);
+    expect(onConfigureConvexCreate).toHaveBeenCalledTimes(1);
+
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+    expect(markup).toContain("Connect Convex");
+    expect(markup).toContain("Create Convex");
+  });
+
+  it("shows missing provider actions after setup is idle", () => {
+    const onConfigureConvexCreate = vi.fn();
+    const onConfigureConvexExisting = vi.fn();
+    const state = buildVaultDashboardResourceRailState({
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      onConfigureConvexCreate,
+      onConfigureConvexExisting,
       vault: makeResourceRailBuilderVault({}),
     });
 
@@ -464,8 +561,8 @@ describe("buildVaultDashboardResourceRailState", () => {
       provider: "convex",
       status: "action_required",
       actions: [
-        { kind: "connect_existing", disabled: true },
-        { kind: "create_new", disabled: true },
+        { kind: "connect_existing", disabled: false },
+        { kind: "create_new", disabled: false },
       ],
     });
     expect(state.rows[2]).toMatchObject({
@@ -473,6 +570,15 @@ describe("buildVaultDashboardResourceRailState", () => {
       status: "action_required",
       actions: [{ kind: "connect_existing", disabled: true }],
     });
+
+    const convexRow = state.rows[1];
+    if (convexRow.status !== "action_required") {
+      throw new Error("Expected Convex action row.");
+    }
+    convexRow.actions[0].onClick?.();
+    convexRow.actions[1].onClick?.();
+    expect(onConfigureConvexExisting).toHaveBeenCalledTimes(1);
+    expect(onConfigureConvexCreate).toHaveBeenCalledTimes(1);
   });
 
   it("keeps Convex preview progress on the Convex row", () => {

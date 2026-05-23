@@ -183,6 +183,7 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-dashboard-dev-tools-visible",
   "vault-dashboard-connect-cloudflare-open",
   "vault-dashboard-connect-cloudflare-mobile-shell-open",
+  "vault-dashboard-connect-convex-open",
   "vault-dashboard-delete-open",
   "vault-dashboard-infra-setup",
   "vault-dashboard-provisioning-log",
@@ -384,6 +385,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "vault-dashboard-dev-tools-visible" ||
     mode === "vault-dashboard-connect-cloudflare-open" ||
     mode === "vault-dashboard-connect-cloudflare-mobile-shell-open" ||
+    mode === "vault-dashboard-connect-convex-open" ||
     mode === "vault-dashboard-delete-open" ||
     mode === "vault-dashboard-infra-setup" ||
     mode === "vault-dashboard-provisioning-log" ||

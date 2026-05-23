@@ -138,12 +138,44 @@ async function buildConvexPlan(
   if (!options.removeConvexProvision) {
     return { action: "skip", reason: "not_requested" };
   }
-  if (!isConnectedVault(vault) || !isNoterManagedVault(vault)) {
+
+  if (!isConnectedVault(vault)) {
+    return { action: "skip", reason: "not_recorded" };
+  }
+
+  if (vault.convex.state === "connected") {
+    if (vault.convex.origin === "selected_existing") {
+      return { action: "skip", reason: "not_managed" };
+    }
+    if (vault.convex.origin === "provisioned") {
+      await requireProviderConnection(ctx, {
+        userId: vault.userId,
+        kind: "convex",
+      });
+      return { action: "delete_project", projectId: vault.convex.projectId };
+    }
+
+    const legacyProjectId = infrastructure?.convexProjectId;
+    if (
+      !isNoterManagedVault(vault) ||
+      typeof legacyProjectId !== "string" ||
+      legacyProjectId !== vault.convex.projectId
+    ) {
+      return { action: "skip", reason: "not_managed" };
+    }
+
+    await requireProviderConnection(ctx, {
+      userId: vault.userId,
+      kind: "convex",
+    });
+    return { action: "delete_project", projectId: legacyProjectId };
+  }
+
+  if (!isNoterManagedVault(vault)) {
     return { action: "skip", reason: "not_noter_managed" };
   }
 
-  const projectId =
-    vault.convex.state === "connected" ? vault.convex.projectId : infrastructure?.convexProjectId;
+  const projectId = infrastructure?.convexProjectId;
   if (typeof projectId === "string") {
     await requireProviderConnection(ctx, {
       userId: vault.userId,

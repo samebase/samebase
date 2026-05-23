@@ -8,6 +8,7 @@
 - Related plan: `specs/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
 - Related vault-first cleanup: `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
 - Cloudflare Workers migration: `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
+- Manual Convex attachment: `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`
 
 > Note: this spec describes the original MVP implementation. Its Cloudflare Pages-specific sections
 > are superseded by the Workers-only direction in
@@ -32,6 +33,8 @@ partially fails.
   succeeds.
 - `api.vault.actions.connectRepository` (existing GitHub repo connection) does **not**
   auto-provision infra.
+- Existing GitHub vaults can attach or create Convex resources later through the manual Convex
+  deployment connection flow in `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`.
 - `api.vault.actions.retryInfrastructureProvisioning` still exists as a backend action, but the
   dashboard no longer exposes `Provision infra` or `Retry infra` as the normal Noter-managed
   create-app path. Manual provider retry UI belongs to a later vault-first phase.

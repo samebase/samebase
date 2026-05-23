@@ -187,6 +187,7 @@ export type VaultDeleteDialogTarget = {
   canRemoveGithubRepo: boolean;
   hasConvexProvision: boolean;
   hasCloudflareProvision: boolean;
+  canRemoveConvexProvision: boolean;
   canRemoveCloudflareProvision: boolean;
 };
 
@@ -194,6 +195,11 @@ type VaultDeleteIntent = VaultDeleteDialogTarget & {
   id: Id<"vaults">;
 };
 type VaultCloudflareDialogTarget = {
+  id: Id<"vaults">;
+  repositoryFullName: string;
+  repositoryName: string;
+};
+type VaultConvexDialogTarget = {
   id: Id<"vaults">;
   repositoryFullName: string;
   repositoryName: string;
@@ -207,6 +213,16 @@ type CloudflareWorkerOption = {
   workerTag: string;
 };
 type CloudflareWorkerConnectMode = "existing" | "create";
+type ConvexDeploymentOption = {
+  projectId: string;
+  projectName: string;
+  projectSlug: string;
+  teamSlug: string;
+  deploymentName: string;
+  cloudUrl: string;
+  siteUrl: string;
+};
+type ConvexDeploymentConnectMode = "existing" | "create";
 
 function compareCloudflareAccountOptions(
   left: CloudflareAccountOption,
@@ -259,6 +275,10 @@ function formatProviderSetupDeveloperLabel(providerSetup: VaultDashboardProvider
   return "Providers";
 }
 
+function buildConvexDeploymentOptionKey(deployment: ConvexDeploymentOption): string {
+  return `${deployment.projectId}/${deployment.deploymentName}`;
+}
+
 export type VaultDeleteOptionKey =
   | "removeCodespaces"
   | "removeConvexProvision"
@@ -291,6 +311,15 @@ type VaultDashboardLocalState = {
     selectedAccountId: string;
     selectedWorkerName: string;
     workers: CloudflareWorkerOption[];
+  };
+  convexConnectDialog: {
+    connectMode: ConvexDeploymentConnectMode;
+    createProjectName: string;
+    deployments: ConvexDeploymentOption[];
+    error: string | null;
+    isLoadingResources: boolean;
+    isSubmittingDeployment: boolean;
+    selectedDeploymentKey: string;
   };
   cloudflarePollingPaused: boolean;
   cloudflareWorkerName: string;
@@ -344,6 +373,15 @@ function readVaultDashboardInitialLocalState(): VaultDashboardLocalState {
       selectedAccountId: "",
       selectedWorkerName: "",
       workers: [],
+    },
+    convexConnectDialog: {
+      connectMode: "existing",
+      createProjectName: "",
+      deployments: [],
+      error: null,
+      isLoadingResources: false,
+      isSubmittingDeployment: false,
+      selectedDeploymentKey: "",
     },
     cloudflarePollingPaused:
       typeof document !== "undefined" ? document.visibilityState !== "visible" : false,
@@ -412,6 +450,20 @@ function useVaultDashboardLocalStore() {
           selectedAccountId: "",
           selectedWorkerName: "",
           workers: [],
+        },
+      }));
+    },
+    resetConvexConnectDialogState: () => {
+      setState((state) => ({
+        ...state,
+        convexConnectDialog: {
+          connectMode: "existing",
+          createProjectName: "",
+          deployments: [],
+          error: null,
+          isLoadingResources: false,
+          isSubmittingDeployment: false,
+          selectedDeploymentKey: "",
         },
       }));
     },
@@ -532,6 +584,54 @@ function useVaultDashboardLocalStore() {
           selectedWorkerName: workers[0]?.workerName ?? "",
           workers,
         },
+      }));
+    },
+    setConvexConnectDialogConnectMode: (connectMode: ConvexDeploymentConnectMode) => {
+      setState((state) => ({
+        ...state,
+        convexConnectDialog: { ...state.convexConnectDialog, connectMode },
+      }));
+    },
+    setConvexConnectDialogCreateProjectName: (createProjectName: string) => {
+      setState((state) => ({
+        ...state,
+        convexConnectDialog: { ...state.convexConnectDialog, createProjectName },
+      }));
+    },
+    setConvexConnectDialogDeployments: (deployments: ConvexDeploymentOption[]) => {
+      setState((state) => ({
+        ...state,
+        convexConnectDialog: {
+          ...state.convexConnectDialog,
+          deployments,
+          selectedDeploymentKey: deployments[0]
+            ? buildConvexDeploymentOptionKey(deployments[0])
+            : "",
+        },
+      }));
+    },
+    setConvexConnectDialogError: (error: string | null) => {
+      setState((state) => ({
+        ...state,
+        convexConnectDialog: { ...state.convexConnectDialog, error },
+      }));
+    },
+    setConvexConnectDialogLoading: (isLoadingResources: boolean) => {
+      setState((state) => ({
+        ...state,
+        convexConnectDialog: { ...state.convexConnectDialog, isLoadingResources },
+      }));
+    },
+    setConvexConnectDialogSelectedDeploymentKey: (selectedDeploymentKey: string) => {
+      setState((state) => ({
+        ...state,
+        convexConnectDialog: { ...state.convexConnectDialog, selectedDeploymentKey },
+      }));
+    },
+    setConvexConnectDialogSubmitting: (isSubmittingDeployment: boolean) => {
+      setState((state) => ({
+        ...state,
+        convexConnectDialog: { ...state.convexConnectDialog, isSubmittingDeployment },
       }));
     },
     setCloudflareWorkerName: (cloudflareWorkerName: string, mode: CreateResourceNameMode) => {
@@ -674,6 +774,7 @@ function buildVaultDeleteIntent(vault: VaultDashboardVault): VaultDeleteIntent {
     canRemoveGithubRepo: vault.isNoterManaged && vault.hasConnectedGitHubRepository,
     hasConvexProvision: vault.hasConvexProvision,
     hasCloudflareProvision: vault.hasCloudflareProvision,
+    canRemoveConvexProvision: vault.canRemoveConvexProvision,
     canRemoveCloudflareProvision: vault.canRemoveCloudflareProvision,
   };
 }
@@ -837,12 +938,12 @@ export function VaultDashboardDeleteDialog({
                   onCheckedChange={(checked) =>
                     onDeleteOptionChange("removeConvexProvision", checked === true)
                   }
-                  disabled={!vaultToDelete.isNoterManaged || isDeleting || isCommitting}
+                  disabled={!vaultToDelete.canRemoveConvexProvision || isDeleting || isCommitting}
                   className="mt-0.5"
                 />
                 <label htmlFor="remove-convex-provision" className="text-sm text-muted-foreground">
                   Also remove Convex project/deployment
-                  {!vaultToDelete.isNoterManaged ? (
+                  {!vaultToDelete.canRemoveConvexProvision ? (
                     <div className="text-xs text-muted-foreground">
                       Only available for infrastructure provisioned by Noter.
                     </div>
@@ -1040,6 +1141,133 @@ function useProviderOAuthPopupCompletionReload({
     githubPopupOriginRef,
     githubPopupRef,
   ]);
+}
+
+export function VaultDashboardConvexDialog({
+  createProjectName,
+  deployments,
+  error,
+  isLoading,
+  isSubmitting,
+  mode,
+  onCreateProjectNameChange,
+  onDeploymentChange,
+  onModeChange,
+  onOpenChange,
+  onSubmit,
+  open,
+  selectedDeploymentKey,
+  vault,
+}: {
+  createProjectName: string;
+  deployments: ConvexDeploymentOption[];
+  error: string | null;
+  isLoading: boolean;
+  isSubmitting: boolean;
+  mode: ConvexDeploymentConnectMode;
+  onCreateProjectNameChange: (projectName: string) => void;
+  onDeploymentChange: (deploymentKey: string) => void;
+  onModeChange: (mode: ConvexDeploymentConnectMode) => void;
+  onOpenChange: (isOpen: boolean) => void;
+  onSubmit: () => void;
+  open: boolean;
+  selectedDeploymentKey: string;
+  vault: VaultConvexDialogTarget | null;
+}) {
+  const selectedDeployment = deployments.find(
+    (deployment) => buildConvexDeploymentOptionKey(deployment) === selectedDeploymentKey,
+  );
+  const submitDisabled =
+    isLoading ||
+    isSubmitting ||
+    (mode === "existing" ? !selectedDeployment : !createProjectName.trim());
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <AppDialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            {vault ? `Connect Convex ${vault.repositoryFullName}` : "Connect Convex"}
+          </DialogTitle>
+          <DialogDescription>Convex production deployment.</DialogDescription>
+        </DialogHeader>
+        {vault ? (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant={mode === "existing" ? "default" : "outline"}
+                onClick={() => onModeChange("existing")}
+                disabled={isLoading || isSubmitting}
+              >
+                Existing
+              </Button>
+              <Button
+                type="button"
+                variant={mode === "create" ? "default" : "outline"}
+                onClick={() => onModeChange("create")}
+                disabled={isLoading || isSubmitting}
+              >
+                Create
+              </Button>
+            </div>
+            {mode === "existing" ? (
+              <Select
+                // The dialog owns modality; a second modal lock here can shift mobile focus/scroll during open.
+                modal={false}
+                value={selectedDeploymentKey}
+                onValueChange={onDeploymentChange}
+                disabled={isLoading || deployments.length === 0}
+              >
+                <SelectTrigger aria-label="Convex deployment" className="w-full">
+                  <SelectValue
+                    placeholder={isLoading ? "Loading deployments" : "Convex deployment"}
+                  >
+                    {selectedDeployment
+                      ? `${selectedDeployment.projectSlug}/${selectedDeployment.deploymentName}`
+                      : undefined}
+                  </SelectValue>
+                </SelectTrigger>
+                <AppSelectContent>
+                  {deployments.map((deployment) => {
+                    const key = buildConvexDeploymentOptionKey(deployment);
+                    return (
+                      <AppSelectItem key={key} value={key}>
+                        {deployment.projectSlug}/{deployment.deploymentName}
+                      </AppSelectItem>
+                    );
+                  })}
+                </AppSelectContent>
+              </Select>
+            ) : (
+              <Input
+                value={createProjectName}
+                onChange={(event) => onCreateProjectNameChange(event.target.value)}
+                disabled={isLoading || isSubmitting}
+                placeholder="Project name"
+              />
+            )}
+            {error ? <div className="text-sm text-red-600">{error}</div> : null}
+          </div>
+        ) : null}
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              onOpenChange(false);
+            }}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button onClick={onSubmit} disabled={submitDisabled}>
+            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {mode === "existing" ? "Connect Deployment" : "Create Project"}
+          </Button>
+        </DialogFooter>
+      </AppDialogContent>
+    </Dialog>
+  );
 }
 
 export function VaultDashboardCloudflareDialog({
@@ -2264,8 +2492,10 @@ type VaultDashboardBodyProps = {
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
   persistedVaultBranchFiltersByVaultId: Map<string, VaultBranchFiltersState>;
   deleteRepositoryFullName?: string;
+  connectConvexRepositoryFullName?: string;
   connectCloudflareRepositoryFullName?: string;
   vaults: VaultDashboardVault[];
+  onConfigureConvex: (repositoryHashId: string, connectMode: ConvexDeploymentConnectMode) => void;
   onConfigureCloudflare: (repositoryHashId: string) => void;
   onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
   onManualRepositoryRefresh: (vaultId: Id<"vaults">) => void;
@@ -2423,8 +2653,10 @@ function VaultDashboardBody({
   openDeveloperToolsByVaultId,
   persistedVaultBranchFiltersByVaultId,
   deleteRepositoryFullName,
+  connectConvexRepositoryFullName,
   connectCloudflareRepositoryFullName,
   vaults,
+  onConfigureConvex,
   onConfigureCloudflare,
   onOpenDeveloperToolsChange,
   onManualRepositoryRefresh,
@@ -2436,6 +2668,7 @@ function VaultDashboardBody({
   );
   const vaultCardElementsRef = useRef(new Map<string, HTMLDivElement>());
   const lastScrolledDeleteRepositoryRef = useRef<string | null>(null);
+  const lastScrolledConnectConvexRepositoryRef = useRef<string | null>(null);
   const lastScrolledConnectCloudflareRepositoryRef = useRef<string | null>(null);
   const lastExplicitRepositoryHashScrollRef = useRef<string | null>(null);
   const replaceRepositoryLocationHash = useCallback((hashId: string) => {
@@ -2563,6 +2796,25 @@ function VaultDashboardBody({
   }, [deleteRepositoryFullName, vaults]);
 
   useEffect(() => {
+    if (!connectConvexRepositoryFullName) {
+      lastScrolledConnectConvexRepositoryRef.current = null;
+      return;
+    }
+
+    if (lastScrolledConnectConvexRepositoryRef.current === connectConvexRepositoryFullName) {
+      return;
+    }
+
+    const connectCardElement = vaultCardElementsRef.current.get(connectConvexRepositoryFullName);
+    if (!connectCardElement) {
+      return;
+    }
+
+    scrollVaultDashboardCardIntoView(connectCardElement);
+    lastScrolledConnectConvexRepositoryRef.current = connectConvexRepositoryFullName;
+  }, [connectConvexRepositoryFullName, vaults]);
+
+  useEffect(() => {
     if (!connectCloudflareRepositoryFullName) {
       lastScrolledConnectCloudflareRepositoryRef.current = null;
       return;
@@ -2635,6 +2887,12 @@ function VaultDashboardBody({
           developerToolsVisible && (openDeveloperToolsByVaultId[vault._id] ?? false);
         const resourceRailState = buildVaultDashboardResourceRailState({
           githubRepositoryUrl,
+          onConfigureConvexCreate: () => {
+            onConfigureConvex(repositoryHashId, "create");
+          },
+          onConfigureConvexExisting: () => {
+            onConfigureConvex(repositoryHashId, "existing");
+          },
           onConfigureCloudflare: () => {
             onConfigureCloudflare(repositoryHashId);
           },
@@ -3189,6 +3447,9 @@ export function VaultDashboard() {
   const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
   const getCloudflareMcpOAuthUrl = useAction(api.cloudflareMcpOAuth.getCloudflareMcpOAuthUrl);
   const refreshCloudflareMcpTokenIfNeeded = useAction(api.users.refreshCloudflareMcpTokenIfNeeded);
+  const listConvexProductionDeployments = useAction(api.vault.convex.listProductionDeployments);
+  const connectExistingConvexDeployment = useAction(api.vault.convex.connectExistingDeployment);
+  const createConvexProject = useAction(api.vault.convex.createProject);
   const listCloudflareAccounts = useAction(api.vault.cloudflare.listAccounts);
   const listCloudflareWorkers = useAction(api.vault.cloudflare.listWorkers);
   const selectCloudflareDefaultAccount = useAction(api.vault.cloudflare.selectDefaultAccount);
@@ -3264,6 +3525,7 @@ export function VaultDashboard() {
   const dashboardGlobalChatOpen = dashboardSettings?.globalChatOpen;
   const dashboardProvidersPanelOpen = dashboardSettings?.providersPanelOpen;
   const deleteModeActive = rootRouteSearch.delete;
+  const connectConvexModeActive = rootRouteSearch["connect-convex"];
   const connectCloudflareModeActive = rootRouteSearch["connect-cloudflare"];
   const deleteRepositoryFullName =
     deleteModeActive && vaults
@@ -3274,6 +3536,13 @@ export function VaultDashboard() {
       : undefined;
   const connectCloudflareRepositoryFullName =
     connectCloudflareModeActive && vaults
+      ? resolveVaultDashboardRepositoryFullNameForHash({
+          hash: location.hash,
+          vaults,
+        })
+      : undefined;
+  const connectConvexRepositoryFullName =
+    connectConvexModeActive && vaults
       ? resolveVaultDashboardRepositoryFullNameForHash({
           hash: location.hash,
           vaults,
@@ -3316,13 +3585,17 @@ export function VaultDashboard() {
   const convexPopupOriginRef = useRef<string | null>(null);
   const cloudflarePopupOriginRef = useRef<string | null>(null);
   const preparedDeleteRepositoryRef = useRef<string | null>(null);
+  const preparedConnectConvexRepositoryRef = useRef<string | null>(null);
   const preparedConnectCloudflareRepositoryRef = useRef<string | null>(null);
   // In-app delete icon clicks should close back to the dashboard entry that
   // existed before the modal; direct links should only replace the delete key.
   const previousDeleteModeActiveRef = useRef(deleteModeActive);
   const shouldPopDeleteHistoryRef = useRef(false);
+  const previousConnectConvexModeActiveRef = useRef(connectConvexModeActive);
+  const shouldPopConnectConvexHistoryRef = useRef(false);
   const previousConnectCloudflareModeActiveRef = useRef(connectCloudflareModeActive);
   const shouldPopConnectCloudflareHistoryRef = useRef(false);
+  const convexDialogResourcesRequestIdRef = useRef(0);
   const cloudflareWorkersRequestIdRef = useRef(0);
   const cloudflareDialogResourcesRequestIdRef = useRef(0);
   const cloudflareAccountDialogRequestIdRef = useRef(0);
@@ -3356,6 +3629,7 @@ export function VaultDashboard() {
     commitError,
     convexProjectName,
     convexProjectNameMode,
+    convexConnectDialog,
     createError,
     dashboardMountedAt,
     deleteError,
@@ -3401,10 +3675,23 @@ export function VaultDashboard() {
     workers: cloudflareWorkers,
   } = cloudflareConnectDialog;
   const {
+    connectMode: convexConnectMode,
+    createProjectName: convexCreateProjectName,
+    deployments: convexDeployments,
+    error: convexDialogError,
+    isLoadingResources: isLoadingConvexResources,
+    isSubmittingDeployment: isSubmittingConvexDeployment,
+    selectedDeploymentKey: selectedConvexDeploymentKey,
+  } = convexConnectDialog;
+  const selectedConvexDeployment = convexDeployments.find(
+    (deployment) => buildConvexDeploymentOptionKey(deployment) === selectedConvexDeploymentKey,
+  );
+  const {
     clearCreateError,
     markCommitAttempted,
     prepareDeleteDialog,
     resetCloudflareConnectDialogState,
+    resetConvexConnectDialogState,
     resetCreateRepositoryName,
     resetDeleteDialogState,
     setCloudflareAccountDialogError,
@@ -3425,6 +3712,13 @@ export function VaultDashboard() {
     setCloudflarePollingPaused,
     setCloudflareWorkerName,
     setCommitError,
+    setConvexConnectDialogConnectMode,
+    setConvexConnectDialogCreateProjectName,
+    setConvexConnectDialogDeployments,
+    setConvexConnectDialogError,
+    setConvexConnectDialogLoading,
+    setConvexConnectDialogSelectedDeploymentKey,
+    setConvexConnectDialogSubmitting,
     setConvexProjectName,
     setCreateError,
     setDeleteError,
@@ -3475,6 +3769,24 @@ export function VaultDashboard() {
     deleteDialogVault.deletion.deleteAction.state === "available";
   const vaultToDelete =
     deleteDialogVault && canOpenDeleteDialog ? buildVaultDeleteIntent(deleteDialogVault) : null;
+  const connectConvexDialogVault =
+    connectConvexRepositoryFullName && vaults
+      ? (vaults.find((vault) => vault.repositoryFullName === connectConvexRepositoryFullName) ??
+        null)
+      : null;
+  const canOpenConnectConvexDialog =
+    connectConvexDialogVault?.state === "ready" && !connectConvexDialogVault.hasConvexProvision;
+  const vaultToConnectConvex = useMemo(
+    () =>
+      connectConvexDialogVault && canOpenConnectConvexDialog
+        ? {
+            id: connectConvexDialogVault._id,
+            repositoryFullName: connectConvexDialogVault.repositoryFullName,
+            repositoryName: connectConvexDialogVault.ghRepoName,
+          }
+        : null,
+    [canOpenConnectConvexDialog, connectConvexDialogVault],
+  );
   const connectCloudflareDialogVault =
     connectCloudflareRepositoryFullName && vaults
       ? (vaults.find((vault) => vault.repositoryFullName === connectCloudflareRepositoryFullName) ??
@@ -3525,6 +3837,31 @@ export function VaultDashboard() {
     [deleteModeActive, navigate, router],
   );
 
+  const clearConnectConvexSearchParam = useCallback(
+    ({ preferHistoryBack }: { preferHistoryBack: boolean }) => {
+      const shouldPopConnectConvexRoute =
+        preferHistoryBack &&
+        connectConvexModeActive &&
+        shouldPopConnectConvexHistoryRef.current &&
+        router.history.canGoBack();
+      shouldPopConnectConvexHistoryRef.current = false;
+
+      if (shouldPopConnectConvexRoute) {
+        router.history.back();
+        return;
+      }
+
+      void navigate({
+        hash: true,
+        replace: true,
+        search: (currentSearch) => applySearchPatch(currentSearch, { "connect-convex": null }),
+        state: true,
+        to: ".",
+      });
+    },
+    [connectConvexModeActive, navigate, router],
+  );
+
   const clearConnectCloudflareSearchParam = useCallback(
     ({ preferHistoryBack }: { preferHistoryBack: boolean }) => {
       const shouldPopConnectCloudflareRoute =
@@ -3549,6 +3886,41 @@ export function VaultDashboard() {
     },
     [connectCloudflareModeActive, navigate, router],
   );
+
+  const loadConvexDialogResources = useCallback(async () => {
+    const requestId = convexDialogResourcesRequestIdRef.current + 1;
+    convexDialogResourcesRequestIdRef.current = requestId;
+    setConvexConnectDialogLoading(true);
+    setConvexConnectDialogError(null);
+    try {
+      const deployments = await listConvexProductionDeployments({});
+      if (convexDialogResourcesRequestIdRef.current !== requestId) {
+        return;
+      }
+      setConvexConnectDialogDeployments(deployments);
+    } catch (error) {
+      if (convexDialogResourcesRequestIdRef.current !== requestId) {
+        return;
+      }
+      setConvexConnectDialogError(
+        error instanceof Error ? error.message : "Could not load Convex deployments.",
+      );
+    } finally {
+      if (convexDialogResourcesRequestIdRef.current === requestId) {
+        setConvexConnectDialogLoading(false);
+      }
+    }
+  }, [
+    listConvexProductionDeployments,
+    setConvexConnectDialogDeployments,
+    setConvexConnectDialogError,
+    setConvexConnectDialogLoading,
+  ]);
+
+  const resetConvexDialogState = useCallback(() => {
+    convexDialogResourcesRequestIdRef.current += 1;
+    resetConvexConnectDialogState();
+  }, [resetConvexConnectDialogState]);
 
   const loadCloudflareWorkersForAccount = useCallback(
     async (accountId: string) => {
@@ -3723,6 +4095,49 @@ export function VaultDashboard() {
   ]);
 
   useEffect(() => {
+    const previousConnectConvexModeActive = previousConnectConvexModeActiveRef.current;
+    if (!previousConnectConvexModeActive && connectConvexModeActive) {
+      shouldPopConnectConvexHistoryRef.current = true;
+    }
+    if (!connectConvexModeActive) {
+      shouldPopConnectConvexHistoryRef.current = false;
+    }
+    previousConnectConvexModeActiveRef.current = connectConvexModeActive;
+
+    if (!vaultToConnectConvex) {
+      if (preparedConnectConvexRepositoryRef.current) {
+        preparedConnectConvexRepositoryRef.current = null;
+        resetConvexDialogState();
+      }
+      if (connectConvexModeActive && vaults) {
+        clearConnectConvexSearchParam({ preferHistoryBack: false });
+      }
+      return;
+    }
+
+    if (preparedConnectConvexRepositoryRef.current === vaultToConnectConvex.repositoryFullName) {
+      return;
+    }
+
+    preparedConnectConvexRepositoryRef.current = vaultToConnectConvex.repositoryFullName;
+    setConvexConnectDialogCreateProjectName(
+      buildDefaultAppResourceName({
+        repositoryName: vaultToConnectConvex.repositoryName,
+        provider: "convex",
+      }),
+    );
+    void loadConvexDialogResources();
+  }, [
+    clearConnectConvexSearchParam,
+    connectConvexModeActive,
+    loadConvexDialogResources,
+    resetConvexDialogState,
+    setConvexConnectDialogCreateProjectName,
+    vaultToConnectConvex,
+    vaults,
+  ]);
+
+  useEffect(() => {
     const previousConnectCloudflareModeActive = previousConnectCloudflareModeActiveRef.current;
     if (!previousConnectCloudflareModeActive && connectCloudflareModeActive) {
       shouldPopConnectCloudflareHistoryRef.current = true;
@@ -3886,6 +4301,26 @@ export function VaultDashboard() {
     clearConnectCloudflareSearchParam({ preferHistoryBack: true });
   };
 
+  const handleConnectConvexDialogOpenChange = (isOpen: boolean) => {
+    if (isOpen) {
+      return;
+    }
+    clearConnectConvexSearchParam({ preferHistoryBack: true });
+  };
+
+  const handleConfigureConvex = (
+    repositoryHashId: string,
+    connectMode: ConvexDeploymentConnectMode,
+  ) => {
+    setConvexConnectDialogConnectMode(connectMode);
+    void navigate({
+      hash: repositoryHashId,
+      search: (currentSearch) => applySearchPatch(currentSearch, { "connect-convex": true }),
+      state: true,
+      to: ".",
+    });
+  };
+
   const handleConfigureCloudflare = (repositoryHashId: string) => {
     void navigate({
       hash: repositoryHashId,
@@ -3893,6 +4328,39 @@ export function VaultDashboard() {
       state: true,
       to: ".",
     });
+  };
+
+  const handleSubmitConvexDeployment = async () => {
+    if (!vaultToConnectConvex || isSubmittingConvexDeployment) {
+      return;
+    }
+    setConvexConnectDialogError(null);
+    setConvexConnectDialogSubmitting(true);
+    try {
+      if (convexConnectMode === "existing") {
+        if (!selectedConvexDeployment) {
+          throw new Error("Convex deployment is required.");
+        }
+        await connectExistingConvexDeployment({
+          vaultId: vaultToConnectConvex.id,
+          projectId: selectedConvexDeployment.projectId,
+          deploymentName: selectedConvexDeployment.deploymentName,
+        });
+      } else {
+        await createConvexProject({
+          vaultId: vaultToConnectConvex.id,
+          projectName: convexCreateProjectName,
+        });
+      }
+      resetConvexDialogState();
+      clearConnectConvexSearchParam({ preferHistoryBack: true });
+    } catch (error) {
+      setConvexConnectDialogError(
+        error instanceof Error ? error.message : "Could not connect Convex deployment.",
+      );
+    } finally {
+      setConvexConnectDialogSubmitting(false);
+    }
   };
 
   const handleSubmitCloudflareWorker = async () => {
@@ -3949,10 +4417,9 @@ export function VaultDashboard() {
         removeGithubRepo: vaultToDelete.isNoterManaged
           ? vaultToDelete.canRemoveGithubRepo && removeGithubRepo
           : false,
-        removeConvexProvision:
-          vaultToDelete.isNoterManaged && vaultToDelete.hasConvexProvision
-            ? removeConvexProvision
-            : false,
+        removeConvexProvision: vaultToDelete.canRemoveConvexProvision
+          ? removeConvexProvision
+          : false,
         removeCloudflareProvision: vaultToDelete.canRemoveCloudflareProvision
           ? removeCloudflareProvision
           : false,
@@ -4854,8 +5321,10 @@ export function VaultDashboard() {
       openDeveloperToolsByVaultId={openDeveloperToolsByVaultId}
       persistedVaultBranchFiltersByVaultId={persistedVaultBranchFiltersByVaultId}
       deleteRepositoryFullName={deleteRepositoryFullName}
+      connectConvexRepositoryFullName={connectConvexRepositoryFullName}
       connectCloudflareRepositoryFullName={connectCloudflareRepositoryFullName}
       vaults={vaults}
+      onConfigureConvex={handleConfigureConvex}
       onConfigureCloudflare={handleConfigureCloudflare}
       onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
       onManualRepositoryRefresh={enqueueManualRepositoryRefresh}
@@ -4923,6 +5392,24 @@ export function VaultDashboard() {
         removeCloudflareProvision={removeCloudflareProvision}
         stagedChangesCount={stagedChangesCount}
         vaultToDelete={vaultToDelete}
+      />
+      <VaultDashboardConvexDialog
+        createProjectName={convexCreateProjectName}
+        deployments={convexDeployments}
+        error={convexDialogError}
+        isLoading={isLoadingConvexResources}
+        isSubmitting={isSubmittingConvexDeployment}
+        mode={convexConnectMode}
+        onCreateProjectNameChange={setConvexConnectDialogCreateProjectName}
+        onDeploymentChange={setConvexConnectDialogSelectedDeploymentKey}
+        onModeChange={setConvexConnectDialogConnectMode}
+        onOpenChange={handleConnectConvexDialogOpenChange}
+        onSubmit={() => {
+          void handleSubmitConvexDeployment();
+        }}
+        open={vaultToConnectConvex !== null}
+        selectedDeploymentKey={selectedConvexDeploymentKey}
+        vault={vaultToConnectConvex}
       />
       <VaultDashboardCloudflareDialog
         accounts={cloudflareAccounts}

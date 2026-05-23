@@ -96,6 +96,8 @@ import type * as vault_actions from "../vault/actions.js";
 import type * as vault_branches from "../vault/branches.js";
 import type * as vault_cloudflare from "../vault/cloudflare.js";
 import type * as vault_cloudflareMutations from "../vault/cloudflareMutations.js";
+import type * as vault_convex from "../vault/convex.js";
+import type * as vault_convexMutations from "../vault/convexMutations.js";
 import type * as vault_dashboard from "../vault/dashboard.js";
 import type * as vault_deletion_cleanup from "../vault/deletion/cleanup.js";
 import type * as vault_deletion_eligibility from "../vault/deletion/eligibility.js";
@@ -208,6 +210,8 @@ declare const fullApi: ApiFromModules<{
   "vault/branches": typeof vault_branches;
   "vault/cloudflare": typeof vault_cloudflare;
   "vault/cloudflareMutations": typeof vault_cloudflareMutations;
+  "vault/convex": typeof vault_convex;
+  "vault/convexMutations": typeof vault_convexMutations;
   "vault/dashboard": typeof vault_dashboard;
   "vault/deletion/cleanup": typeof vault_deletion_cleanup;
   "vault/deletion/eligibility": typeof vault_deletion_eligibility;
