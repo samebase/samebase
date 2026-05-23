@@ -40,7 +40,7 @@ export function resolveWorktreeKind(cwd = process.cwd()): WorktreeKind {
 }
 
 export function buildContextDevArgs(kind: WorktreeKind, args: string[]): string[] {
-  const script = kind === "main" ? "dev:primary" : "anon";
+  const script = kind === "main" ? "dev:primary" : "dev:worktree";
   return [script, ...args];
 }
 

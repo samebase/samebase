@@ -130,8 +130,8 @@ https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-conne
 
 - [ ] add better rebase skill/workflow: when conflict is only `pnpm-lock.yaml`, regenerate lockfile
       from manifests instead of manual conflict edits
-- [ ] bootstrap: make `make anon` / `make anon-once` non-interactive when Convex wants a backend
-      upgrade, or document the exact prompt/answer (`Yes` + `transfer data`)
+- [ ] bootstrap: make `pnpm dev:worktree` / `pnpm dev:worktree:once` non-interactive when Convex
+      wants a backend upgrade, or document the exact prompt/answer (`Yes` + `transfer data`)
 - [ ] We need less of a profit from AI, if we allow them to stay with their paid tools, for
       codex/claude, so we don't even need to run any serious ai infra. And the price we can provide
       is much lower than any competitions, since we don't choose that battle at all

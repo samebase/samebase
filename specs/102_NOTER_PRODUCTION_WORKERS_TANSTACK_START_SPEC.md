@@ -151,7 +151,7 @@ Convert `apps/noter` to TanStack Start SPA mode and keep local preview behavior 
 
 Validation:
 
-1. `pnpm anon`
+1. `pnpm dev:worktree`
 2. `pnpm --filter noter check`
 3. `pnpm --filter noter build`
 4. browser smoke test of `/`, `/home`, `/vault/$`, `/noter.ts`, and `/noter-connect.json`

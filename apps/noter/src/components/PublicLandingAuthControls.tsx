@@ -213,7 +213,7 @@ export function PasswordAuthForm({ surface }: { surface: Exclude<PasswordAuthSur
                 const credentials = readLocalWorktreePasswordCredentials();
                 if (!credentials) {
                   setError(
-                    "Autofill is only available from the worktree anon dev server. Restart with pnpm anon and reload.",
+                    "Autofill is only available from the worktree dev server. Restart with pnpm dev:worktree and reload.",
                   );
                   return;
                 }

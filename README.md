@@ -124,10 +124,10 @@ Notes:
   already have a cloud dev source env, use the dated troubleshooting notes in
   `research/windows-native-connected-machine-walkthrough-2026-04-01.md` if you need the older
   step-by-step debugging sequence.
-- The primary checkout path above works without GNU Make, and the worktree anonymous bootstrap flow
-  now uses root package scripts too. Prefer `pnpm dev` in the primary checkout and `pnpm anon` /
-  `pnpm anon:once` in worktrees. Anonymous startup no longer has a make alias; treat the package
-  scripts as the source of truth for that flow.
+- The primary checkout path above works without GNU Make, and the worktree bootstrap flow now uses
+  root package scripts too. Prefer `pnpm dev` as the normal command in both primary and worktree
+  checkouts. Use `pnpm dev:worktree` / `pnpm dev:worktree:once` only when you need to force the
+  worktree-specific path directly.
 
 ### Installation
 
@@ -145,12 +145,12 @@ pnpm dev
 
 ### Worktrees
 
-For a git worktree, use the repo-standard anonymous bootstrap commands instead of the
+For a git worktree, use the repo-standard worktree bootstrap commands instead of the
 primary-checkout flow:
 
 ```bash
-pnpm anon:once
-pnpm anon
+pnpm dev:worktree:once
+pnpm dev:worktree
 ```
 
 ### Build

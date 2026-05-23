@@ -69,7 +69,7 @@ If you want the smallest end-to-end verification, do these steps:
 From this worktree:
 
 ```bash
-pnpm anon
+pnpm dev:worktree
 ```
 
 Expected result:
@@ -81,8 +81,8 @@ Expected result:
 If this worktree chose another frontend port, substitute that origin in the commands below.
 
 Native Windows outside WSL is compatible with the hosted-file flow, and this spec's default startup
-path remains the worktree `pnpm anon` flow above. For dated primary-checkout troubleshooting notes
-and the manual Windows bootstrap sequence validated during local testing, see
+path remains the worktree `pnpm dev:worktree` flow above. For dated primary-checkout troubleshooting
+notes and the manual Windows bootstrap sequence validated during local testing, see
 `research/windows-native-connected-machine-walkthrough-2026-04-01.md`.
 
 For a native Windows primary checkout without GNU Make, the supported local startup path is

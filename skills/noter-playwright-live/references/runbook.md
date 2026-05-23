@@ -11,7 +11,7 @@
 ### Noter monorepo
 
 ```bash
-pnpm anon
+pnpm dev:worktree
 ```
 
 Expected result:

@@ -11,7 +11,7 @@ type ChildProcess = import("node:child_process").ChildProcess;
 
 type StdioOptions = import("node:child_process").StdioOptions;
 
-type ShareMode = "anonymous" | "local";
+type ShareMode = "worktree" | "local";
 
 type ParsedArgs = {
   mode: ShareMode;
@@ -102,19 +102,24 @@ const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const CONFIGURED_CONVEX_ENV_KEYS: readonly string[] = ["VITE_CONVEX_URL", "CONVEX_URL"];
 
 const SHARE_MODE_CONFIG: Record<ShareMode, ShareModeConfig> = {
-  anonymous: {
+  worktree: {
     bootstrapCommand: PNPM_COMMAND,
-    bootstrapArgs: ["run", "anon:once"],
+    bootstrapArgs: ["run", "dev:worktree:once"],
     devCommand: PNPM_COMMAND,
-    buildDevArgs: (frontendPort) => ["run", "anon", "--", "--vite-port", String(frontendPort)],
+    buildDevArgs: (frontendPort) => [
+      "run",
+      "dev:worktree",
+      "--",
+      "--vite-port",
+      String(frontendPort),
+    ],
     devTargetPortVar: null,
     defaultStartPort: 5174,
-    shareLabel: "Anonymous local share",
-    devLabel: "anonymous local dev",
-    readyLabel: "anonymous local frontend",
-    bootstrapMessage: "Bootstrapping anonymous local environment with `pnpm anon:once`.",
-    startMessage: (origin) =>
-      `Starting anonymous local dev on ${origin} with a private Convex proxy.`,
+    shareLabel: "Worktree share",
+    devLabel: "worktree dev",
+    readyLabel: "worktree frontend",
+    bootstrapMessage: "Bootstrapping worktree dev environment with `pnpm dev:worktree:once`.",
+    startMessage: (origin) => `Starting worktree dev on ${origin} with a private Convex proxy.`,
   },
   local: {
     bootstrapCommand: PNPM_COMMAND,
@@ -132,21 +137,21 @@ const SHARE_MODE_CONFIG: Record<ShareMode, ShareModeConfig> = {
 };
 
 /**
- * `pnpm share:anon` and `pnpm share:local` both expose one public frontend URL
+ * `pnpm share:worktree` and `pnpm share:local` both expose one public frontend URL
  * while keeping the configured Convex backend behind Vite's same-origin proxy.
  */
 function getHelpText(): string {
-  return `Usage: node scripts/anon-share.ts [options]
+  return `Usage: node scripts/worktree-share.ts [options]
 
 Start the local Noter dev server and publish the frontend over a Cloudflare
 quick tunnel while keeping the configured Convex backend behind Vite's
 same-origin proxy path.
 
 Options:
-  --mode <anonymous|local>
-      Share mode. Defaults to anonymous.
-      anonymous default port: ${SHARE_MODE_CONFIG.anonymous.defaultStartPort}
-      local default port:      ${SHARE_MODE_CONFIG.local.defaultStartPort}
+  --mode <worktree|local>
+      Share mode. Defaults to worktree.
+      worktree default port: ${SHARE_MODE_CONFIG.worktree.defaultStartPort}
+      local default port:    ${SHARE_MODE_CONFIG.local.defaultStartPort}
   --port <port>
       Preferred frontend port for the selected mode.
   -h, --help
@@ -232,7 +237,7 @@ function readEnvAssignmentValue(contents: string, key: string): string | null {
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
-  let mode: ShareMode = "anonymous";
+  let mode: ShareMode = "worktree";
 
   let preferredPort: number | null = null;
   let showHelp = false;
@@ -272,11 +277,11 @@ function parseArgs(argv: string[]): ParsedArgs {
 }
 
 function parseMode(value: string): ShareMode {
-  if (value === "anonymous" || value === "local") {
+  if (value === "worktree" || value === "local") {
     return value;
   }
 
-  throw new Error(`Invalid mode "${value}". Expected "anonymous" or "local".`);
+  throw new Error(`Invalid mode "${value}". Expected "worktree" or "local".`);
 }
 
 function parsePort(value: string): number {

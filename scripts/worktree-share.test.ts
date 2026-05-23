@@ -4,9 +4,9 @@ import {
   flushBufferedLine,
   parseCloudflaredQuickTunnelUrl,
   readLocalConvexUrlFromEnvContents,
-} from "./anon-share.ts";
+} from "./worktree-share.ts";
 
-describe("anon-share", () => {
+describe("worktree-share", () => {
   it("extracts a quick tunnel URL from cloudflared output", () => {
     expect(
       parseCloudflaredQuickTunnelUrl(
@@ -33,7 +33,7 @@ describe("anon-share", () => {
     );
   });
 
-  it("prefers VITE_CONVEX_URL when reading the local anon env file", () => {
+  it("prefers VITE_CONVEX_URL when reading the local worktree env file", () => {
     expect(
       readLocalConvexUrlFromEnvContents(
         [

@@ -8,7 +8,7 @@ chips.
 
 ## Preconditions
 
-- `pnpm anon` can run in the current checkout.
+- `pnpm dev:worktree` can run in the current checkout.
 - At least one connected vault has 2+ remote branches.
 - The vault has staged-file activity on at least two different branches.
 - Optional for full ordering coverage: at least one `deleted_upstream` branch entry and at least two
@@ -16,7 +16,7 @@ chips.
 
 ## Steps
 
-1. Start the app with `pnpm anon`.
+1. Start the app with `pnpm dev:worktree`.
 2. Open the dashboard and locate a vault card with multiple branches.
 3. Confirm branch entries are rendered as links in a vertical list (not a horizontal button row).
 4. Confirm the first branch is the repo default branch (for example `main`, `master`, or custom

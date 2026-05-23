@@ -7,7 +7,7 @@ and that the first sent message lands in the expected runtime context.
 
 ## Preconditions
 
-- Worktree app is running with `pnpm anon`.
+- Worktree app is running with `pnpm dev:worktree`.
 - A connected machine is available through the local `noter.ts` approval flow.
 - The selected machine has at least one git-backed project group in `/machines`.
 

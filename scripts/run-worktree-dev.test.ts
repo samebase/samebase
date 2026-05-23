@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { buildAnonCommandPlan, parseAnonArgs } from "./run-anon-dev.ts";
+import { buildWorktreeDevCommandPlan, parseWorktreeDevArgs } from "./run-worktree-dev.ts";
 import {
   LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
   LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
 } from "../runtime/localWorktreePasswordAuth.ts";
 
-describe("run-anon-dev", () => {
-  it("defaults to the long-running anonymous dev flow on port 5174", () => {
-    expect(parseAnonArgs([])).toMatchObject({
+describe("run-worktree-dev", () => {
+  it("defaults to the long-running worktree dev flow on port 5174", () => {
+    expect(parseWorktreeDevArgs([])).toMatchObject({
       once: false,
       enableBranch: true,
       vitePort: 5174,
@@ -18,13 +18,13 @@ describe("run-anon-dev", () => {
     });
   });
 
-  it("reads env fallbacks for the anonymous bootstrap flow", () => {
+  it("reads env fallbacks for the worktree bootstrap flow", () => {
     expect(
-      parseAnonArgs([], {
-        ANON_ALLOW_MISSING_SOURCE_ENV: "1",
-        ANON_SOURCE_DEPLOY_KEY: "dev:key|token",
-        ANON_SOURCE_ENV: "apps/noter/.env.source.local",
-        ANON_VITE_PORT: "6210",
+      parseWorktreeDevArgs([], {
+        WORKTREE_DEV_ALLOW_MISSING_SOURCE_ENV: "1",
+        WORKTREE_DEV_SOURCE_DEPLOY_KEY: "dev:key|token",
+        WORKTREE_DEV_SOURCE_ENV: "apps/noter/.env.source.local",
+        WORKTREE_DEV_VITE_PORT: "6210",
       }),
     ).toMatchObject({
       allowMissingSourceEnv: true,
@@ -36,11 +36,11 @@ describe("run-anon-dev", () => {
 
   it("lets explicit CLI flags override env defaults", () => {
     expect(
-      parseAnonArgs(
+      parseWorktreeDevArgs(
         ["--once", "--no-branch", "--vite-port", "6001", "--source-env", "custom.env.local"],
         {
-          ANON_ALLOW_MISSING_SOURCE_ENV: "1",
-          ANON_VITE_PORT: "5174",
+          WORKTREE_DEV_ALLOW_MISSING_SOURCE_ENV: "1",
+          WORKTREE_DEV_VITE_PORT: "5174",
         },
       ),
     ).toMatchObject({
@@ -52,8 +52,8 @@ describe("run-anon-dev", () => {
     });
   });
 
-  it("omits the final dev process for anon:once", () => {
-    const plan = buildAnonCommandPlan(
+  it("omits the final dev process for dev:worktree:once", () => {
+    const plan = buildWorktreeDevCommandPlan(
       {
         once: true,
         enableBranch: true,
@@ -71,8 +71,8 @@ describe("run-anon-dev", () => {
     expect(plan.at(-1)?.args).toContain("--once");
   });
 
-  it("adds the long-running primary dev step for anon", () => {
-    const plan = buildAnonCommandPlan(
+  it("adds the long-running primary dev step for worktree dev", () => {
+    const plan = buildWorktreeDevCommandPlan(
       {
         once: false,
         enableBranch: false,
@@ -87,7 +87,7 @@ describe("run-anon-dev", () => {
     );
 
     expect(plan.at(-1)).toMatchObject({
-      label: "launch the long-running anonymous dev server",
+      label: "launch the long-running worktree dev server",
       cwd: "/repo",
       args: ["dev:primary"],
       env: {

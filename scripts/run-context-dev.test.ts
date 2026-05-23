@@ -10,6 +10,6 @@ describe("run-context-dev", () => {
 
   it("uses the anonymous worktree runner when Git dir is per-worktree", () => {
     expect(classifyWorktree("/repo/.git/worktrees/feature", "/repo/.git")).toBe("linked");
-    expect(buildContextDevArgs("linked", ["--once"])).toEqual(["anon", "--once"]);
+    expect(buildContextDevArgs("linked", ["--once"])).toEqual(["dev:worktree", "--once"]);
   });
 });

@@ -3,13 +3,13 @@
 ## Purpose
 
 Ensure `WT-001` can be executed from both the main checkout and a worktree, verifying worktree
-discovery and anon seed setup behave consistently.
+discovery and worktree seed setup behave consistently.
 
 ## Preconditions
 
 - Main checkout is available.
 - No existing `/tmp/noter-wt-a` or `/tmp/noter-wt-b` worktrees.
-- No long-running `pnpm anon` processes in temporary worktrees.
+- No long-running `pnpm dev:worktree` processes in temporary worktrees.
 
 ## Steps
 

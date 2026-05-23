@@ -166,7 +166,7 @@ When running anonymous/local worktree seed path:
 
 Seed transport contract:
 
-1. `make anon` / `make anon-once` writes a dedicated local seed file:
+1. `pnpm dev:worktree` / `pnpm dev:worktree:once` writes a dedicated local seed file:
    `apps/noter/.env.anon-seed.local`.
 2. That file contains local `CONVEX_DEPLOYMENT` plus `DEV_SEED_*` inputs.
 3. Seeding runs through `devAuth:seedPasswordAccount` with `--env-file .env.anon-seed.local`.

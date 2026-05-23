@@ -64,7 +64,8 @@ Provide API-key connect actions with server-side validation:
 
 ### Make targets
 
-`make anon` / `make anon-once` must run password-account seed during the anon startup flow.
+`pnpm dev:worktree` / `pnpm dev:worktree:once` must run password-account seed during the worktree
+startup flow.
 
 Flow contract:
 

@@ -7,12 +7,12 @@ Ensure the landing page copy renders as prose while blurred, reveals markdown ma
 
 ## Preconditions
 
-- `pnpm anon` can run in the current checkout.
+- `pnpm dev:worktree` can run in the current checkout.
 - A local Vite URL is reachable in browser or Playwright.
 
 ## Steps
 
-1. Start the app: `pnpm anon`.
+1. Start the app: `pnpm dev:worktree`.
 2. Find the dev URL (example):
    `for p in $(seq 5173 5190); do curl -fsS "http://127.0.0.1:$p" >/dev/null && echo "http://127.0.0.1:$p" && break; done`
 3. Open the URL in a browser or Playwright CLI session.

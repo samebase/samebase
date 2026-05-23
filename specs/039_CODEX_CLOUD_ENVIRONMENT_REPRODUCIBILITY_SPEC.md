@@ -26,8 +26,8 @@ git.
 ## Current Repo Facts (as of 2026-03-05)
 
 - Local Codex environment file already exists: `.codex/environments/environment.toml`.
-- Current local setup script in that file is `make bootstrap-anon`.
-- Local worktree bootstrap and run flow are already standardized via `make anon`.
+- Current local setup script in that file is `pnpm run bootstrap`.
+- Local worktree bootstrap and run flow are already standardized via `pnpm dev:worktree`.
 
 ## Core Decisions
 
@@ -143,7 +143,7 @@ Must include:
 ### A. Local
 
 1. Ensure `.codex/environments/environment.toml` is committed and current.
-2. Start from worktree using existing repo flow (`make anon`).
+2. Start from worktree using existing repo flow (`pnpm dev:worktree`).
 
 ### B. Cloud
 
