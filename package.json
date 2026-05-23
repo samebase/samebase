@@ -25,7 +25,7 @@
     "build:ci": "vp run --filter noter build:ci",
     "check": "pnpm run check:workspace && pnpm run check:root",
     "check:ci": "pnpm run check:workspace:ci && pnpm run check:root",
-    "check:packages": "pnpm --filter @noter-md/dependent check && pnpm --filter @noter-md/onboarding-video-tools check",
+    "check:packages": "pnpm --filter @noter-md/dependent check && pnpm --filter @noter-md/onboarding-video-tools check && pnpm --filter @noter-md/agent-context check",
     "check:workspace": "vp run --filter noter check && pnpm run check:packages",
     "check:workspace:ci": "vp run --filter noter check:ci && pnpm run check:packages",
     "check:root": "pnpm run check:scripts",

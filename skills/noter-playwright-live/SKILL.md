@@ -14,6 +14,14 @@ description:
 Use a real browser session (not unit/E2E test runner) to validate behavior and visuals for
 Noter-stack apps.
 
+## Packaged Context Relationship
+
+This skill remains the Noter-specific compatibility entrypoint for live browser sessions. For the
+portable route-validation checklist, use
+`packages/agent-context/skills/route-ui-validation/SKILL.md`. Pair it with
+`packages/agent-context/overlays/noter-operator-workflows.md` for context-aware dev startup,
+branch-scoped browser sessions, Linux visual baselines, and Noter response rules.
+
 ## Core Policy
 
 - Start with the real route first when the bug touches scroll, touch, drag, focus, selection, layout
