@@ -25,6 +25,10 @@ function readRouteUrlEditorOrigin(): string {
   return typeof window === "undefined" ? "https://noter.local" : window.location.origin;
 }
 
+function readRouteUrlEditorDisplayOrigin(args: { focused: boolean; origin: string }): string {
+  return args.focused ? args.origin : new URL(args.origin).host;
+}
+
 type RouteUrlEditorInputSelectionDirection = "backward" | "forward" | "none";
 
 type RouteUrlEditorInputSelection = {
@@ -149,8 +153,9 @@ export function RouteUrlEditor() {
     rawHref: draftRouteAddress,
   });
   const routeInputInvalid = draftRouteAddress.trim() !== "" && draftHref === null;
-  const inputValue = `${origin}${draftRouteAddress}`;
-  const routeInputTitle = draftHref === null ? inputValue : `${origin}${draftHref}`;
+  const inputValue = `${readRouteUrlEditorDisplayOrigin({ focused: inputFocused, origin })}${draftRouteAddress}`;
+  const focusedInputValue = `${origin}${draftRouteAddress}`;
+  const routeInputTitle = draftHref === null ? focusedInputValue : `${origin}${draftHref}`;
 
   const canGoBack = currentRouteHistoryIndex > 0;
   const canGoForward = currentRouteHistoryIndex < forwardRouteHistoryIndex;
