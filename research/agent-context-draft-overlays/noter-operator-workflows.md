@@ -64,8 +64,8 @@ portable TypeScript or generated-app skill pack.
 - Mention relevant PR numbers as clickable Markdown links.
 - Include a clickable localhost URL when a relevant preview is running, and include the active
   Cloudflare tunnel URL for that app when one exists.
-- For Cloudflare URLs whose label would equal the URL, prefix the label with `link ` so ProseMark
-  renders it correctly.
+- For Cloudflare URLs whose label would equal the URL, prefix the label with `link` followed by a
+  space so ProseMark renders it correctly.
 
 ## Research Notes
 

@@ -1,5 +1,9 @@
 # Noter Agent Context Bundle Manifest Draft
 
+Status: superseded on 2026-05-23 by `../../packages/agent-context/manifests/noter.md`. This file
+remains as research evidence for the draft bundle shape and should not be treated as authoritative
+runtime guidance.
+
 ## Purpose
 
 This manifest describes how the draft extracted context should compose for Noter without moving live

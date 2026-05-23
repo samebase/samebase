@@ -6,6 +6,7 @@ This manifest describes how the extracted context composes for Noter. It does no
 `AGENTS.md` routing yet.
 
 Package-local paths in this manifest are authoritative over matching draft paths under `research/`.
+The historical draft manifest is `../../../research/agent-context-draft-bundle/noter-manifest.md`.
 The research files remain the evidence trail; this package is the candidate runtime/source bundle.
 
 ## Layers
