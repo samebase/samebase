@@ -6,6 +6,13 @@ import {
   STATIC_LOGO_VOXEL_COORDINATES,
   type LogoIdentityViewId,
 } from "./logoStaticSvgContract";
+import {
+  DEFAULT_LOGO_FACE_TREATMENT,
+  LOGO_FACE_TREATMENTS,
+  getLogoLeftFaceStyleForTreatment,
+  type LogoFaceTreatment,
+} from "./logoFaceTreatment";
+import { type LogoLeftFaceStyle } from "./logoLeftFaceStyle";
 import { DEFAULT_FACE_COLORS, type FaceColors } from "./logoTailwindColors";
 import { createLogoThreeSvgMarkup } from "./logoThreeSvgRenderer";
 import { GRID_SIZE, createFilledVoxelSet } from "./logoVoxelState";
@@ -13,13 +20,22 @@ import { GRID_SIZE, createFilledVoxelSet } from "./logoVoxelState";
 type StaticLogoSvgOptions = {
   depth?: number;
   faceColors?: FaceColors;
+  faceTreatment?: LogoFaceTreatment;
   filledVoxels?: ReadonlySet<string>;
   gridSize?: number;
+  leftFaceStyle?: LogoLeftFaceStyle;
   view?: {
     elevationDegrees: number;
     rotationDegrees: number;
   };
 };
+
+function readStaticLogoLeftFaceStyle(options: StaticLogoSvgOptions): LogoLeftFaceStyle {
+  return (
+    options.leftFaceStyle ??
+    getLogoLeftFaceStyleForTreatment(options.faceTreatment ?? DEFAULT_LOGO_FACE_TREATMENT)
+  );
+}
 
 export function createStaticLogoSvgMarkup(options: StaticLogoSvgOptions = {}) {
   const filledVoxels = options.filledVoxels ?? createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES);
@@ -35,6 +51,7 @@ export function createStaticLogoSvgMarkup(options: StaticLogoSvgOptions = {}) {
     faceColors: options.faceColors ?? DEFAULT_FACE_COLORS,
     filledVoxels,
     gridSize: options.gridSize ?? GRID_SIZE,
+    leftFaceStyle: readStaticLogoLeftFaceStyle(options),
     rotationDegrees: view.rotationDegrees,
   });
 }
@@ -53,6 +70,7 @@ export function createLogoIdentityViewSvgMarkup(
     faceColors: options.faceColors ?? DEFAULT_FACE_COLORS,
     filledVoxels,
     gridSize: options.gridSize ?? GRID_SIZE,
+    leftFaceStyle: readStaticLogoLeftFaceStyle(options),
     rotationDegrees: view.rotationDegrees,
   });
 }
@@ -62,11 +80,26 @@ export function createStaticLogoSvgDataUrl(options: StaticLogoSvgOptions = {}) {
 }
 
 export function createLogoIdentitySvgAssets() {
-  return LOGO_IDENTITY_VIEW_CONTRACTS.map((view) => ({
-    assetPath: view.assetPath,
-    markup: createLogoIdentityViewSvgMarkup(view.id),
-    viewId: view.id,
-  }));
+  return LOGO_IDENTITY_VIEW_CONTRACTS.flatMap((view) => {
+    const treatmentAssets = LOGO_FACE_TREATMENTS.map((faceTreatment) => ({
+      assetPath: view.treatmentAssetPaths[faceTreatment],
+      markup: createLogoIdentityViewSvgMarkup(view.id, {
+        faceTreatment,
+      }),
+      treatment: faceTreatment,
+      viewId: view.id,
+    }));
+
+    return [
+      ...treatmentAssets,
+      {
+        assetPath: view.assetPath,
+        markup: createLogoIdentityViewSvgMarkup(view.id),
+        treatment: DEFAULT_LOGO_FACE_TREATMENT,
+        viewId: view.id,
+      },
+    ];
+  });
 }
 
 function getLogoIdentityViewContract(viewId: LogoIdentityViewId) {

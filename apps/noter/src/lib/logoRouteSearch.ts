@@ -16,6 +16,7 @@ import {
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
 import {
+  DEFAULT_LOGO_LEFT_FACE_STYLE,
   LOGO_LEFT_FACE_STYLE_KINDS,
   DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
   DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS,
@@ -23,6 +24,7 @@ import {
   DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
   DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
   LOGO_LEFT_FACE_STRIPE_BASIS_VALUES,
+  areLogoLeftFaceStylesEqual,
   normalizeLogoLeftFaceStyle,
   readLogoLeftFaceStyle,
   isLogoLeftFaceStripeBasis,
@@ -286,9 +288,21 @@ function buildLogoLeftFaceStyleSearch(leftFaceStyle: LogoLeftFaceStyle): {
   stripeO?: number;
   stripeW?: number;
 } {
-  if (leftFaceStyle.kind === "secondary") {
+  if (areLogoLeftFaceStylesEqual(leftFaceStyle, DEFAULT_LOGO_LEFT_FACE_STYLE)) {
     return {
       leftFace: undefined,
+      stripeA: undefined,
+      stripeBasis: undefined,
+      stripeG: undefined,
+      stripeLink: undefined,
+      stripeO: undefined,
+      stripeW: undefined,
+    };
+  }
+
+  if (leftFaceStyle.kind === "secondary") {
+    return {
+      leftFace: "secondary",
       stripeA: undefined,
       stripeBasis: undefined,
       stripeG: undefined,

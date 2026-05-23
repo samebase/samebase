@@ -35,9 +35,11 @@ export const LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE = {
   stripeWidth: 0.25,
 } satisfies LogoStripedLeftFaceStyle;
 
-export const DEFAULT_LOGO_LEFT_FACE_STYLE: LogoSecondaryLeftFaceStyle = {
+export const LOGO_SECONDARY_LEFT_FACE_STYLE: LogoSecondaryLeftFaceStyle = {
   kind: "secondary",
 };
+
+export const DEFAULT_LOGO_LEFT_FACE_STYLE = LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE;
 
 export const DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES =
   LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE.stripeAngleDegrees;
@@ -164,7 +166,7 @@ export function getLogoLeftFaceStripeBasisScale(
 
 export function normalizeLogoLeftFaceStyle(style: LogoLeftFaceStyle): LogoLeftFaceStyle {
   if (style.kind === "secondary") {
-    return DEFAULT_LOGO_LEFT_FACE_STYLE;
+    return LOGO_SECONDARY_LEFT_FACE_STYLE;
   }
 
   const stripeWidth = normalizeLogoLeftFaceStripeWidth(style.stripeWidth);
@@ -193,6 +195,10 @@ export function readLogoLeftFaceStyle(search: {
   stripeO?: number;
   stripeW?: number;
 }): LogoLeftFaceStyle {
+  if (search.leftFace === "secondary") {
+    return LOGO_SECONDARY_LEFT_FACE_STYLE;
+  }
+
   if (search.leftFace !== "striped") {
     return DEFAULT_LOGO_LEFT_FACE_STYLE;
   }

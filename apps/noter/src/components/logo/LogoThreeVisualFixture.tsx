@@ -13,6 +13,8 @@ export type LogoThreeVisualMode = "logo-three-reference";
 
 const PREVIEW_SIZE = 1000;
 const SECONDARY_PREVIEW_SIZES = [240, 128, 64, 32] as const;
+const MAX_PIXEL_COLOR_DISTANCE = 16;
+const MAX_PIXEL_COLOR_DISTANCE_SQUARED = MAX_PIXEL_COLOR_DISTANCE ** 2;
 
 function LogoThreeScalePreview({
   isReferenceUnavailable,
@@ -93,6 +95,39 @@ function LogoThreeScalePreview({
         </div>
       </div>
     </section>
+  );
+}
+
+function getPixelColorDistanceSquared({
+  left,
+  offset,
+  right,
+}: {
+  left: Uint8ClampedArray;
+  offset: number;
+  right: Uint8ClampedArray;
+}): number {
+  const redDistance = left[offset] - right[offset];
+  const greenDistance = left[offset + 1] - right[offset + 1];
+  const blueDistance = left[offset + 2] - right[offset + 2];
+  return redDistance ** 2 + greenDistance ** 2 + blueDistance ** 2;
+}
+
+function isPixelVisuallyDifferent({
+  left,
+  offset,
+  right,
+}: {
+  left: Uint8ClampedArray;
+  offset: number;
+  right: Uint8ClampedArray;
+}): boolean {
+  return (
+    getPixelColorDistanceSquared({
+      left,
+      offset,
+      right,
+    }) > MAX_PIXEL_COLOR_DISTANCE_SQUARED
   );
 }
 
@@ -229,19 +264,19 @@ export function LogoThreeVisualFixture() {
       let mismatches = 0;
 
       for (let index = 0; index < primaryDiff.referenceData.length; index += 4) {
-        const samePixel =
-          primaryDiff.referenceData[index] === primaryDiff.svgData[index] &&
-          primaryDiff.referenceData[index + 1] === primaryDiff.svgData[index + 1] &&
-          primaryDiff.referenceData[index + 2] === primaryDiff.svgData[index + 2] &&
-          primaryDiff.referenceData[index + 3] === primaryDiff.svgData[index + 3];
+        const isDifferent = isPixelVisuallyDifferent({
+          left: primaryDiff.referenceData,
+          offset: index,
+          right: primaryDiff.svgData,
+        });
 
-        if (!samePixel) {
+        if (isDifferent) {
           mismatches += 1;
         }
 
-        diffImage.data[index] = samePixel ? 255 : 255;
-        diffImage.data[index + 1] = samePixel ? 255 : 0;
-        diffImage.data[index + 2] = samePixel ? 255 : 96;
+        diffImage.data[index] = 255;
+        diffImage.data[index + 1] = isDifferent ? 0 : 255;
+        diffImage.data[index + 2] = isDifferent ? 96 : 255;
         diffImage.data[index + 3] = 255;
       }
 
@@ -258,13 +293,13 @@ export function LogoThreeVisualFixture() {
         const diff = collectDiff(size);
         let sizeMismatches = 0;
         for (let index = 0; index < diff.referenceData.length; index += 4) {
-          const samePixel =
-            diff.referenceData[index] === diff.svgData[index] &&
-            diff.referenceData[index + 1] === diff.svgData[index + 1] &&
-            diff.referenceData[index + 2] === diff.svgData[index + 2] &&
-            diff.referenceData[index + 3] === diff.svgData[index + 3];
-
-          if (!samePixel) {
+          if (
+            isPixelVisuallyDifferent({
+              left: diff.referenceData,
+              offset: index,
+              right: diff.svgData,
+            })
+          ) {
             sizeMismatches += 1;
           }
         }

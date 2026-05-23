@@ -1,4 +1,11 @@
 import { LOGO_THREE_SVG_VIEWBOX_SIZE } from "./logoStaticSvgContract";
+import {
+  DEFAULT_LOGO_LEFT_FACE_STYLE,
+  getLogoLeftFaceStripeBasisScale,
+  normalizeLogoLeftFaceStyle,
+  type LogoLeftFaceStyle,
+  type LogoStripedLeftFaceStyle,
+} from "./logoLeftFaceStyle";
 import { toRenderedRotationDegrees } from "./logoRotationMath";
 import { getTailwindColorHex, type FaceColorKey, type FaceColors } from "./logoTailwindColors";
 import {
@@ -21,6 +28,11 @@ import {
 export type LogoProjectedPoint = {
   x: number;
   y: number;
+};
+
+type LogoFaceUvPoint = {
+  u: number;
+  v: number;
 };
 
 export type LogoWorldPoint = {
@@ -49,6 +61,7 @@ export type LogoProjectedQuad = {
   materialOrder: number;
   points: readonly LogoProjectedPoint[];
   strokeWidth: number;
+  uvs: readonly LogoFaceUvPoint[];
 };
 
 const CAMERA_FRUSTUM_PADDING = 1.12;
@@ -56,6 +69,8 @@ const CAMERA_FRUSTUM_PADDING = 1.12;
 // even when the math is exact. A thin same-color stroke closes those seams
 // while still scaling down with the delivered SVG on smaller surfaces.
 const FACE_STROKE_WIDTH = 0.14;
+const TRANSPARENT_STRIPED_FACE_BACKGROUND_COLOR = "#ffffff";
+const STRIPE_CLIP_EPSILON = 1e-9;
 const ORBIT_RIGHT_AXIS = normalizeVector({
   x: 1,
   y: 0,
@@ -146,6 +161,24 @@ function projectPoint(
 
 function serializePolygon(points: readonly LogoProjectedPoint[]): string {
   return points.map((point) => `${point.x.toFixed(6)},${point.y.toFixed(6)}`).join(" ");
+}
+
+function getSurfaceVertexUv(
+  surfaceQuad: LogoSurfaceQuad,
+  vertex: LogoSurfaceVertex,
+): LogoFaceUvPoint {
+  switch (surfaceQuad.colorKey) {
+    case "left":
+      return { u: vertex[0], v: vertex[1] };
+    case "right":
+      return { u: vertex[2], v: vertex[1] };
+    case "top":
+      return { u: vertex[0], v: vertex[2] };
+    default: {
+      const unreachable = surfaceQuad.colorKey satisfies never;
+      return unreachable;
+    }
+  }
 }
 
 function toLogoWorldPoint([x, y, z]: LogoSurfaceVertex): LogoWorldPoint {
@@ -256,6 +289,7 @@ function getProjectedScene({
         colorKey: quad.colorKey,
         key: quad.key,
         materialOrder: quad.materialIndex,
+        uvs: quad.vertices.map((vertex) => getSurfaceVertexUv(quad, vertex)),
         vertices: quad.vertices.map((vertex) =>
           projector.rotateWorldPoint(toLogoWorldPoint(vertex)),
         ),
@@ -310,6 +344,7 @@ function createLogoProjectedQuadsWithProjector({
       materialOrder: quad.materialIndex,
       points,
       strokeWidth: FACE_STROKE_WIDTH,
+      uvs: quad.vertices.map((vertex) => getSurfaceVertexUv(quad, vertex)),
     });
   }
 
@@ -370,6 +405,7 @@ export function createLogoThreeProjectedQuads({
         materialOrder: quad.materialOrder,
         points,
         strokeWidth: FACE_STROKE_WIDTH,
+        uvs: quad.uvs,
       };
     })
     .sort((left, rightQuad) => {
@@ -388,6 +424,7 @@ export function createLogoThreeSvgMarkup({
   faceColors,
   filledVoxels,
   gridSize = GRID_SIZE,
+  leftFaceStyle = DEFAULT_LOGO_LEFT_FACE_STYLE,
   rotationDegrees = DEFAULT_ROTATION_DEGREES,
   viewBoxSize = LOGO_THREE_SVG_VIEWBOX_SIZE,
 }: {
@@ -397,6 +434,7 @@ export function createLogoThreeSvgMarkup({
   faceColors: FaceColors;
   filledVoxels: ReadonlySet<string>;
   gridSize?: number;
+  leftFaceStyle?: LogoLeftFaceStyle;
   rotationDegrees?: number;
   viewBoxSize?: number;
 }): string {
@@ -408,6 +446,7 @@ export function createLogoThreeSvgMarkup({
       elevationDegrees,
       faceColors,
       filledVoxels,
+      leftFaceStyle,
       rotationDegrees,
       viewBoxSize,
     });
@@ -428,13 +467,276 @@ export function createLogoThreeSvgMarkup({
 
   const backgroundRect = `<rect x="0" y="0" width="${viewBoxSize}" height="${viewBoxSize}" fill="${escapeSvgAttribute(backgroundColor)}"/>`;
   const polygons = projectedQuads
-    .map((quad) => {
-      const fill = escapeSvgAttribute(quad.color);
-      return `<polygon points="${escapeSvgAttribute(serializePolygon(quad.points))}" fill="${fill}" stroke="${fill}" stroke-width="${FACE_STROKE_WIDTH}" stroke-linejoin="round" paint-order="stroke fill"/>`;
-    })
+    .map((quad) =>
+      createProjectedQuadSvgMarkup({
+        backgroundColor,
+        faceColors,
+        leftFaceStyle,
+        quad,
+      }),
+    )
     .join("");
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewBoxSize} ${viewBoxSize}" width="${viewBoxSize}" height="${viewBoxSize}">${backgroundRect}${polygons}</svg>`;
+}
+
+function createSolidProjectedQuadSvgMarkup({
+  color,
+  points,
+  strokeWidth,
+}: {
+  color: string;
+  points: readonly LogoProjectedPoint[];
+  strokeWidth: number;
+}): string {
+  const fill = escapeSvgAttribute(color);
+  return `<polygon points="${escapeSvgAttribute(serializePolygon(points))}" fill="${fill}" stroke="${fill}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke fill"/>`;
+}
+
+function dotUvPoint(point: LogoFaceUvPoint, normal: LogoFaceUvPoint): number {
+  return point.u * normal.u + point.v * normal.v;
+}
+
+function clipUvPolygonByStripeBoundary({
+  boundary,
+  keepGreater,
+  normal,
+  points,
+}: {
+  boundary: number;
+  keepGreater: boolean;
+  normal: LogoFaceUvPoint;
+  points: readonly LogoFaceUvPoint[];
+}): LogoFaceUvPoint[] {
+  if (points.length === 0) {
+    return [];
+  }
+
+  const clippedPoints: LogoFaceUvPoint[] = [];
+  let previousPoint = points[points.length - 1];
+  let previousValue = dotUvPoint(previousPoint, normal);
+  let wasPreviousInside = keepGreater
+    ? previousValue >= boundary - STRIPE_CLIP_EPSILON
+    : previousValue <= boundary + STRIPE_CLIP_EPSILON;
+
+  for (const currentPoint of points) {
+    const currentValue = dotUvPoint(currentPoint, normal);
+    const isCurrentInside = keepGreater
+      ? currentValue >= boundary - STRIPE_CLIP_EPSILON
+      : currentValue <= boundary + STRIPE_CLIP_EPSILON;
+
+    if (isCurrentInside !== wasPreviousInside) {
+      const denominator = currentValue - previousValue;
+      if (Math.abs(denominator) > STRIPE_CLIP_EPSILON) {
+        const progress = (boundary - previousValue) / denominator;
+        clippedPoints.push({
+          u: previousPoint.u + (currentPoint.u - previousPoint.u) * progress,
+          v: previousPoint.v + (currentPoint.v - previousPoint.v) * progress,
+        });
+      }
+    }
+
+    if (isCurrentInside) {
+      clippedPoints.push(currentPoint);
+    }
+
+    previousPoint = currentPoint;
+    previousValue = currentValue;
+    wasPreviousInside = isCurrentInside;
+  }
+
+  return clippedPoints;
+}
+
+function readUvBounds(uvs: readonly LogoFaceUvPoint[]): {
+  maxU: number;
+  maxV: number;
+  minU: number;
+  minV: number;
+} {
+  if (uvs.length === 0) {
+    throw new Error("Cannot read stripe bounds without quad UVs.");
+  }
+
+  const firstUv = uvs[0];
+  let minU = firstUv.u;
+  let maxU = firstUv.u;
+  let minV = firstUv.v;
+  let maxV = firstUv.v;
+
+  for (const uv of uvs) {
+    minU = Math.min(minU, uv.u);
+    maxU = Math.max(maxU, uv.u);
+    minV = Math.min(minV, uv.v);
+    maxV = Math.max(maxV, uv.v);
+  }
+
+  return { maxU, maxV, minU, minV };
+}
+
+function findProjectedPointForUv(
+  quad: LogoProjectedQuad,
+  targetUv: LogoFaceUvPoint,
+): LogoProjectedPoint | null {
+  for (let index = 0; index < quad.uvs.length; index += 1) {
+    const uv = quad.uvs[index];
+    const point = quad.points[index];
+    if (
+      Math.abs(uv.u - targetUv.u) <= STRIPE_CLIP_EPSILON &&
+      Math.abs(uv.v - targetUv.v) <= STRIPE_CLIP_EPSILON
+    ) {
+      return point;
+    }
+  }
+
+  return null;
+}
+
+function interpolateProjectedQuadUvPoint(
+  quad: LogoProjectedQuad,
+  uv: LogoFaceUvPoint,
+): LogoProjectedPoint {
+  const bounds = readUvBounds(quad.uvs);
+  const p00 = findProjectedPointForUv(quad, { u: bounds.minU, v: bounds.minV });
+  const p10 = findProjectedPointForUv(quad, { u: bounds.maxU, v: bounds.minV });
+  const p11 = findProjectedPointForUv(quad, { u: bounds.maxU, v: bounds.maxV });
+  const p01 = findProjectedPointForUv(quad, { u: bounds.minU, v: bounds.maxV });
+  if (!p00 || !p10 || !p11 || !p01) {
+    throw new Error("Cannot project stripe polygon without all quad UV corners.");
+  }
+
+  const uSpan = bounds.maxU - bounds.minU;
+  const vSpan = bounds.maxV - bounds.minV;
+  if (Math.abs(uSpan) <= STRIPE_CLIP_EPSILON || Math.abs(vSpan) <= STRIPE_CLIP_EPSILON) {
+    return p00;
+  }
+
+  const uProgress = (uv.u - bounds.minU) / uSpan;
+  const vProgress = (uv.v - bounds.minV) / vSpan;
+  const bottom = {
+    x: p00.x + (p10.x - p00.x) * uProgress,
+    y: p00.y + (p10.y - p00.y) * uProgress,
+  };
+  const top = {
+    x: p01.x + (p11.x - p01.x) * uProgress,
+    y: p01.y + (p11.y - p01.y) * uProgress,
+  };
+
+  return {
+    x: bottom.x + (top.x - bottom.x) * vProgress,
+    y: bottom.y + (top.y - bottom.y) * vProgress,
+  };
+}
+
+function createStripedLeftFaceProjectedPolygons(
+  quad: LogoProjectedQuad,
+  style: LogoStripedLeftFaceStyle,
+): LogoProjectedPoint[][] {
+  const stripeBasisScale = getLogoLeftFaceStripeBasisScale(style);
+  const stripeWidth = style.stripeWidth * stripeBasisScale;
+  const stripeGap = style.stripeGap * stripeBasisScale;
+  if (stripeWidth <= STRIPE_CLIP_EPSILON) {
+    return [];
+  }
+
+  const period = Math.max(stripeWidth + stripeGap, 0.0001);
+  const stripeAngleRadians = (style.stripeAngleDegrees * Math.PI) / 180;
+  const stripeNormal = {
+    u: Math.cos(stripeAngleRadians + Math.PI / 2),
+    v: Math.sin(stripeAngleRadians + Math.PI / 2),
+  };
+  const bounds = readUvBounds(quad.uvs);
+  const uvCorners = [
+    { u: bounds.minU, v: bounds.minV },
+    { u: bounds.maxU, v: bounds.minV },
+    { u: bounds.maxU, v: bounds.maxV },
+    { u: bounds.minU, v: bounds.maxV },
+  ];
+  const stripeValues = uvCorners.map(
+    (point) => dotUvPoint(point, stripeNormal) + style.stripeOffset * period,
+  );
+  const minStripeValue = Math.min(...stripeValues);
+  const maxStripeValue = Math.max(...stripeValues);
+  const firstStripeIndex = Math.floor(minStripeValue / period) - 1;
+  const lastStripeIndex = Math.ceil(maxStripeValue / period) + 1;
+  const projectedPolygons: LogoProjectedPoint[][] = [];
+
+  for (let stripeIndex = firstStripeIndex; stripeIndex <= lastStripeIndex; stripeIndex += 1) {
+    const stripeStart = stripeIndex * period - style.stripeOffset * period;
+    const stripeEnd = stripeStart + stripeWidth;
+    const clippedStart = clipUvPolygonByStripeBoundary({
+      boundary: stripeStart,
+      keepGreater: true,
+      normal: stripeNormal,
+      points: uvCorners,
+    });
+    const clippedStripe = clipUvPolygonByStripeBoundary({
+      boundary: stripeEnd,
+      keepGreater: false,
+      normal: stripeNormal,
+      points: clippedStart,
+    });
+
+    if (clippedStripe.length < 3) {
+      continue;
+    }
+
+    projectedPolygons.push(
+      clippedStripe.map((point) => interpolateProjectedQuadUvPoint(quad, point)),
+    );
+  }
+
+  return projectedPolygons;
+}
+
+function createProjectedQuadSvgMarkup({
+  backgroundColor,
+  faceColors,
+  leftFaceStyle,
+  quad,
+}: {
+  backgroundColor: string;
+  faceColors: FaceColors;
+  leftFaceStyle: LogoLeftFaceStyle;
+  quad: LogoProjectedQuad;
+}): string {
+  const normalizedStyle = normalizeLogoLeftFaceStyle(leftFaceStyle);
+  if (quad.colorKey !== "left" || normalizedStyle.kind !== "striped") {
+    return createSolidProjectedQuadSvgMarkup({
+      color: quad.color,
+      points: quad.points,
+      strokeWidth: quad.strokeWidth,
+    });
+  }
+
+  const stripeColor = getTailwindColorHex(faceColors.right);
+  const backgroundFill = readStripedLeftFaceBackgroundColor(backgroundColor);
+  const backgroundPolygon = createSolidProjectedQuadSvgMarkup({
+    color: backgroundFill,
+    points: quad.points,
+    strokeWidth: 0,
+  });
+  const stripePolygons = createStripedLeftFaceProjectedPolygons(quad, normalizedStyle)
+    .map((points) =>
+      createSolidProjectedQuadSvgMarkup({
+        color: stripeColor,
+        points,
+        strokeWidth: 0,
+      }),
+    )
+    .join("");
+  return `${backgroundPolygon}${stripePolygons}`;
+}
+
+function readStripedLeftFaceBackgroundColor(backgroundColor: string): string {
+  if (backgroundColor.trim().toLowerCase() !== "transparent") {
+    return backgroundColor;
+  }
+
+  // A transparent SVG polygon does not occlude already-painted faces. The
+  // static root asset is transparent overall, but its stripe gaps still need
+  // the same white backing used by the default Three/public logo placement.
+  return TRANSPARENT_STRIPED_FACE_BACKGROUND_COLOR;
 }
 
 function getRecursiveChildCenter({
@@ -545,6 +847,7 @@ function createLogoThreeRecursiveSvgMarkup({
   elevationDegrees,
   faceColors,
   filledVoxels,
+  leftFaceStyle,
   rotationDegrees,
   viewBoxSize,
 }: {
@@ -553,6 +856,7 @@ function createLogoThreeRecursiveSvgMarkup({
   elevationDegrees: number;
   faceColors: FaceColors;
   filledVoxels: ReadonlySet<string>;
+  leftFaceStyle: LogoLeftFaceStyle;
   rotationDegrees: number;
   viewBoxSize: number;
 }): string {
@@ -572,10 +876,14 @@ function createLogoThreeRecursiveSvgMarkup({
     projector,
   });
   const basePolygons = baseQuads
-    .map((quad) => {
-      const fill = escapeSvgAttribute(quad.color);
-      return `<polygon points="${escapeSvgAttribute(serializePolygon(quad.points))}" fill="${fill}" stroke="${fill}" stroke-width="${FACE_STROKE_WIDTH}" stroke-linejoin="round" paint-order="stroke fill"/>`;
-    })
+    .map((quad) =>
+      createProjectedQuadSvgMarkup({
+        backgroundColor,
+        faceColors,
+        leftFaceStyle,
+        quad,
+      }),
+    )
     .join("");
 
   const recursiveGroups = [`<g id="${RECURSIVE_GROUP_PREFIX}-1">${basePolygons}</g>`];

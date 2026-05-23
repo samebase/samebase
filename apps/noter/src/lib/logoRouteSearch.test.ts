@@ -244,23 +244,16 @@ describe("logoRouteSearch", () => {
   });
 
   it("preserves striped left-face route state", () => {
-    expect(
-      validateLogoRouteSearch({
-        leftFace: "striped",
-        stripeA: "-45",
-        stripeBasis: "vertical",
-        stripeG: "0.25",
-        stripeW: "0.25",
-      }),
-    ).toEqual({
+    const defaultStripedSearch = validateLogoRouteSearch({
       leftFace: "striped",
-      stripeA: undefined,
-      stripeBasis: undefined,
-      stripeG: undefined,
-      stripeLink: undefined,
-      stripeO: undefined,
-      stripeW: undefined,
+      stripeA: "-45",
+      stripeBasis: "vertical",
+      stripeG: "0.25",
+      stripeW: "0.25",
     });
+
+    expect(defaultStripedSearch).toEqual({});
+    expect(defaultStripedSearch.leftFace).toBeUndefined();
 
     expect(
       buildLogoRouteSearch({
@@ -287,7 +280,7 @@ describe("logoRouteSearch", () => {
     ).toEqual({
       depth: undefined,
       dist: undefined,
-      leftFace: "striped",
+      leftFace: undefined,
       stripeA: undefined,
       stripeBasis: undefined,
       stripeG: undefined,
@@ -326,6 +319,44 @@ describe("logoRouteSearch", () => {
       stripeG: 0.32,
       stripeO: 0.4,
       stripeW: 0.11,
+    });
+  });
+
+  it("preserves secondary as the explicit duotone route state", () => {
+    expect(validateLogoRouteSearch({ leftFace: "secondary" })).toEqual({
+      leftFace: "secondary",
+      stripeA: undefined,
+      stripeBasis: undefined,
+      stripeG: undefined,
+      stripeLink: undefined,
+      stripeO: undefined,
+      stripeW: undefined,
+    });
+
+    expect(
+      buildLogoRouteSearch({
+        distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+        fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
+        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+        leftFaceStyle: { kind: "secondary" },
+        rotationAxisMode: "cube-y",
+        rotationDegrees: DEFAULT_ROTATION_DEGREES,
+        themeColors: DEFAULT_LOGO_THEME_COLORS,
+        viewSnapEnabled: true,
+        voxelState: DEFAULT_VOXEL_STATE,
+      }),
+    ).toEqual({
+      depth: undefined,
+      dist: undefined,
+      leftFace: "secondary",
+      stripeA: undefined,
+      stripeBasis: undefined,
+      stripeG: undefined,
+      stripeLink: undefined,
+      stripeO: undefined,
+      stripeW: undefined,
     });
   });
 

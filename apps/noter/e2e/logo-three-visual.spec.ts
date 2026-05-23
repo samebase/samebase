@@ -2,7 +2,9 @@ import { expect, test } from "@playwright/test";
 
 test.use({ serviceWorkers: "block" });
 
-const MAX_PARITY_MISMATCH_PIXELS = 20_000;
+// The striped face adds high-frequency antialiased edges. Keep this below the
+// transparent-gap regression count so hidden back faces cannot show through.
+const MAX_PARITY_MISMATCH_PIXELS = 30_000;
 
 test("logo three reference fixture", async ({ page }) => {
   await page.setViewportSize({ width: 3400, height: 2600 });

@@ -138,9 +138,11 @@ Requirements:
 
 Initial default:
 
-- use `apps/noter/public/logo-static.svg` together with
-  `apps/noter/src/components/logoStaticSvgAsset.ts` as the canonical public-logo source for install
-  icon exports
+- use `apps/noter/public/brand/install/install-icon-striped.svg` as the treatment-named install
+  source for the stable `/install-icon.svg` alias
+- use `apps/noter/src/components/logo/logoStaticSvgAsset.ts` and
+  `apps/noter/src/components/installIconSvgAsset.ts` as the generator source for install icon
+  exports
 - committed PNG install icons may be generated from the repo-owned static logo source, but the
   served install assets must still be explicit committed files
 
