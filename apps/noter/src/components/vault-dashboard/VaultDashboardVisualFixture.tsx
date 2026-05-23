@@ -1,14 +1,9 @@
 import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
+import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
@@ -968,10 +963,10 @@ function FixtureDashboardCreateControl() {
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="GitHub owner" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="nicu-chiciuc">nicu-chiciuc</SelectItem>
-                <SelectItem value="noter-md">noter-md</SelectItem>
-              </SelectContent>
+              <AppSelectContent>
+                <AppSelectItem value="nicu-chiciuc">nicu-chiciuc</AppSelectItem>
+                <AppSelectItem value="noter-md">noter-md</AppSelectItem>
+              </AppSelectContent>
             </Select>
             <CreateProviderNameInput
               disabled={false}

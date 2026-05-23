@@ -1,11 +1,11 @@
 import { ConvexLogo } from "@/GetStarted/ConvexLogo";
+import { AppDialogContent } from "@/components/AppDialogContent";
 import { Code } from "@/components/Code";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogClose,
-  DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -18,7 +18,7 @@ export function GetStartedDialog({ children }: { children: ReactNode }) {
   return (
     <Dialog>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[calc(100vh-8rem)] grid-rows-[1fr_auto]">
+      <AppDialogContent size="lg" className="max-h-[calc(100dvh-8rem)] grid-rows-[1fr_auto]">
         <DialogHeader>
           <DialogTitle className="flex items-baseline gap-2">
             Your app powered by <ConvexLogo width={69} height={11} />
@@ -30,7 +30,7 @@ export function GetStartedDialog({ children }: { children: ReactNode }) {
             <Button variant="secondary">Got it</Button>
           </DialogClose>
         </DialogFooter>
-      </DialogContent>
+      </AppDialogContent>
     </Dialog>
   );
 }

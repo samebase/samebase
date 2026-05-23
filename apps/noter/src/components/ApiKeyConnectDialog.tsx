@@ -1,8 +1,8 @@
 import { useCallback, useId, useMemo, useRef, useState } from "react";
+import { AppDialogContent } from "@/components/AppDialogContent";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
@@ -107,7 +107,7 @@ export const useApiKeyConnectDialog = ({
           }
         }}
       >
-        <DialogContent>
+        <AppDialogContent>
           <DialogHeader>
             <DialogTitle>{`Connect ${apiKeyProviderLabel} with API key`}</DialogTitle>
             <DialogDescription>
@@ -156,7 +156,7 @@ export const useApiKeyConnectDialog = ({
               {apiKeySubmitLabel}
             </Button>
           </DialogFooter>
-        </DialogContent>
+        </AppDialogContent>
       </Dialog>
     ),
     [

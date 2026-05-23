@@ -1,14 +1,10 @@
 import { api } from "../../../convex/_generated/api";
+import { AppDialogContent } from "@/components/AppDialogContent";
+import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultProvisioningLog } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
@@ -56,7 +52,6 @@ import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { RouteUrlEditor } from "@/components/RouteUrlEditor";
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
@@ -756,7 +751,7 @@ export function VaultDashboardDeleteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <AppDialogContent>
         <DialogHeader>
           <DialogTitle>
             {vaultToDelete ? `Remove Vault ${vaultToDelete.repositoryFullName}` : "Remove Vault"}
@@ -901,7 +896,7 @@ export function VaultDashboardDeleteDialog({
             )}
           </Button>
         </DialogFooter>
-      </DialogContent>
+      </AppDialogContent>
     </Dialog>
   );
 }
@@ -1064,7 +1059,7 @@ export function VaultDashboardCloudflareDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="top-[50dvh] left-[50dvw] w-[calc(100dvw-2rem)] max-w-[calc(100dvw-2rem)] sm:w-full sm:max-w-md">
+      <AppDialogContent>
         <DialogHeader>
           <DialogTitle>
             {vault ? `Connect Cloudflare ${vault.repositoryFullName}` : "Connect Cloudflare"}
@@ -1079,13 +1074,13 @@ export function VaultDashboardCloudflareDialog({
                   {selectedAccount?.accountName}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <AppSelectContent>
                 {accounts.map((account) => (
-                  <SelectItem key={account.accountId} value={account.accountId}>
+                  <AppSelectItem key={account.accountId} value={account.accountId}>
                     {account.accountName}
-                  </SelectItem>
+                  </AppSelectItem>
                 ))}
-              </SelectContent>
+              </AppSelectContent>
             </Select>
             <div className="grid grid-cols-2 gap-2">
               <Button
@@ -1117,17 +1112,13 @@ export function VaultDashboardCloudflareDialog({
                     {selectedWorker?.workerName}
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent className="max-w-[var(--available-width)]">
+                <AppSelectContent>
                   {workers.map((worker) => (
-                    <SelectItem
-                      key={worker.workerTag}
-                      value={worker.workerName}
-                      className="[&>*:first-child]:line-clamp-2 [&>*:first-child]:min-w-0 [&>*:first-child]:shrink [&>*:first-child]:whitespace-normal [&>*:first-child]:[overflow-wrap:anywhere]"
-                    >
+                    <AppSelectItem key={worker.workerTag} value={worker.workerName}>
                       {worker.workerName}
-                    </SelectItem>
+                    </AppSelectItem>
                   ))}
-                </SelectContent>
+                </AppSelectContent>
               </Select>
             ) : (
               <Input
@@ -1155,7 +1146,7 @@ export function VaultDashboardCloudflareDialog({
             {mode === "existing" ? "Connect Worker" : "Create Worker"}
           </Button>
         </DialogFooter>
-      </DialogContent>
+      </AppDialogContent>
     </Dialog>
   );
 }
@@ -1186,7 +1177,7 @@ export function VaultDashboardCloudflareAccountDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <AppDialogContent>
         <DialogHeader>
           <DialogTitle>Select Cloudflare Account</DialogTitle>
           <DialogDescription>Choose the Cloudflare account to use for new apps.</DialogDescription>
@@ -1198,13 +1189,13 @@ export function VaultDashboardCloudflareAccountDialog({
                 {selectedAccount?.accountName}
               </SelectValue>
             </SelectTrigger>
-            <SelectContent>
+            <AppSelectContent>
               {accounts.map((account) => (
-                <SelectItem key={account.accountId} value={account.accountId}>
+                <AppSelectItem key={account.accountId} value={account.accountId}>
                   {account.accountName}
-                </SelectItem>
+                </AppSelectItem>
               ))}
-            </SelectContent>
+            </AppSelectContent>
           </Select>
           {error ? <div className="text-sm text-red-600">{error}</div> : null}
         </div>
@@ -1223,7 +1214,7 @@ export function VaultDashboardCloudflareAccountDialog({
             Save Account
           </Button>
         </DialogFooter>
-      </DialogContent>
+      </AppDialogContent>
     </Dialog>
   );
 }
@@ -4489,13 +4480,13 @@ export function VaultDashboard() {
           <SelectTrigger className="w-full">
             <SelectValue placeholder={ownerSelectPlaceholder} />
           </SelectTrigger>
-          <SelectContent>
+          <AppSelectContent>
             {githubRepositoryOwnerOptions.map((owner) => (
-              <SelectItem key={owner.login} value={owner.login}>
+              <AppSelectItem key={owner.login} value={owner.login}>
                 {owner.login}
-              </SelectItem>
+              </AppSelectItem>
             ))}
-          </SelectContent>
+          </AppSelectContent>
         </Select>
       )}
       <CreateProviderNameInput

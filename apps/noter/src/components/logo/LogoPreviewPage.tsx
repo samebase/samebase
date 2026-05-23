@@ -84,13 +84,14 @@ import {
   type LogoPresetId,
   type LogoPresetSelection,
 } from "@/components/logo/logoPresets";
+import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LogoNumberInput } from "@/components/logo/LogoNumberInput";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
+import { Select, SelectTrigger } from "@/components/ui/select";
 import { Layout, PublicLayoutShell } from "@/Layout";
 import {
   DEFAULT_ELEVATION_DEGREES,
@@ -1502,19 +1503,19 @@ export function LogoPreviewPage({
           <SelectTrigger className="h-9 rounded-none border-border bg-background px-2 text-sm shadow-none">
             {selectedPreset === null ? "Custom" : selectedPreset.label}
           </SelectTrigger>
-          <SelectContent className="rounded-none border-border">
-            <SelectItem value={CUSTOM_LOGO_PRESET_ID} className="rounded-none">
+          <AppSelectContent className="rounded-none border-border">
+            <AppSelectItem value={CUSTOM_LOGO_PRESET_ID} className="rounded-none">
               Custom
-            </SelectItem>
+            </AppSelectItem>
             {LOGO_PRESETS.map((preset) => (
-              <SelectItem key={preset.id} value={preset.id} className="rounded-none">
+              <AppSelectItem key={preset.id} value={preset.id} className="rounded-none">
                 <div className="flex flex-col gap-0.5">
                   <span>{preset.label}</span>
                   <span className="text-xs text-muted-foreground">{preset.description}</span>
                 </div>
-              </SelectItem>
+              </AppSelectItem>
             ))}
-          </SelectContent>
+          </AppSelectContent>
         </Select>
 
         {!isRecursiveDepth ? (
@@ -1631,9 +1632,9 @@ export function LogoPreviewPage({
               <SelectTrigger className="h-9 rounded-none border-border bg-background px-2 text-sm shadow-none">
                 {selectedIsoStyle.label}
               </SelectTrigger>
-              <SelectContent className="rounded-none border-border">
+              <AppSelectContent className="rounded-none border-border">
                 {LOGO_ISOMETRIC_STYLES.map((style) => (
-                  <SelectItem key={style.id} value={style.id} className="rounded-none">
+                  <AppSelectItem key={style.id} value={style.id} className="rounded-none">
                     <div className="flex flex-col gap-0.5">
                       <span>{style.label}</span>
                       <span className="text-xs text-muted-foreground">
@@ -1641,9 +1642,9 @@ export function LogoPreviewPage({
                         {style.edgeMode === "shaded" ? " + edge" : ""}
                       </span>
                     </div>
-                  </SelectItem>
+                  </AppSelectItem>
                 ))}
-              </SelectContent>
+              </AppSelectContent>
             </Select>
           </div>
 
@@ -1837,13 +1838,13 @@ export function LogoPreviewPage({
             <SelectTrigger className="h-9 rounded-none border-border bg-background px-2 text-sm shadow-none">
               {state.shuffleParallelMoves} {state.shuffleParallelMoves === 1 ? "cube" : "cubes"}
             </SelectTrigger>
-            <SelectContent className="rounded-none border-border">
+            <AppSelectContent className="rounded-none border-border">
               {LOGO_SHUFFLE_PARALLEL_OPTIONS.map((option) => (
-                <SelectItem key={option} value={`${option}`} className="rounded-none">
+                <AppSelectItem key={option} value={`${option}`} className="rounded-none">
                   {option} {option === 1 ? "cube" : "cubes"}
-                </SelectItem>
+                </AppSelectItem>
               ))}
-            </SelectContent>
+            </AppSelectContent>
           </Select>
         </div>
 

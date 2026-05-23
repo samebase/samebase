@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { AppDialogContent } from "@/components/AppDialogContent";
+import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { FileIcon, ChevronRightIcon } from "@/lib/radixIcons";
 import { cn } from "@/lib/utils";
@@ -147,7 +148,7 @@ export function CommandPalette({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="p-0 max-w-2xl max-h-[80vh] overflow-hidden">
+      <AppDialogContent size="lg" className="p-0 max-h-[80dvh] overflow-hidden">
         <div className="flex flex-col">
           {/* Search Input */}
           <div className="p-4 border-b">
@@ -215,7 +216,7 @@ export function CommandPalette({
             )}
           </div>
         </div>
-      </DialogContent>
+      </AppDialogContent>
     </Dialog>
   );
 }
