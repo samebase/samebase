@@ -197,7 +197,7 @@ test("route URL editor preserves caret when rejecting root slash deletion", asyn
   await expect(input).toHaveJSProperty("selectionEnd", routeInputPrefix.length);
 });
 
-test("route URL editor commits same-path search and hash edits on blur", async ({ page }) => {
+test("route URL editor applies same-path search and hash edits while typing", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 96 });
   await page.goto("/logo", {
     waitUntil: "domcontentloaded",
@@ -209,12 +209,41 @@ test("route URL editor commits same-path search and hash edits on blur", async (
   await input.fill(`${origin}/logo?leftFace=secondary#done`);
 
   await expect(input).toHaveValue(`${origin}/logo?leftFace=secondary#done`);
-  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(page).toHaveURL(`${origin}/logo?leftFace=secondary#done`);
 
   await input.blur();
 
   await expect(input).toHaveValue(`${origin}/logo?leftFace=secondary#done`);
   await expect(page).toHaveURL(`${origin}/logo?leftFace=secondary#done`);
+});
+
+test("route URL editor toggles landing dev mode while preserving focused draft text", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 720, height: 96 });
+  await page.goto("/", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const input = page.getByTestId("route-url-editor-input");
+  const origin = await page.evaluate(() => window.location.origin);
+
+  await input.focus();
+  await input.press("End");
+  await input.type("?dev");
+
+  await expect(input).toHaveValue(`${origin}/?dev`);
+  await expect(page).toHaveURL(`${origin}/?dev`);
+
+  await input.press("Backspace");
+
+  await expect(input).toHaveValue(`${origin}/?de`);
+  await expect(page).toHaveURL(`${origin}/`);
+
+  await input.blur();
+
+  await expect(input).toHaveValue(`${origin}/`);
+  await expect(page).toHaveURL(`${origin}/`);
 });
 
 test("route URL editor keeps invalid route search drafts local until blur", async ({ page }) => {
@@ -233,7 +262,7 @@ test("route URL editor keeps invalid route search drafts local until blur", asyn
   await input.press("Backspace");
 
   await expect(input).toHaveValue(`${origin}/logo?leftFace=secondar`);
-  await expect(page).toHaveURL(`${origin}/logo?leftFace=secondary`);
+  await expect(page).toHaveURL(`${origin}/logo`);
 
   await input.blur();
 
