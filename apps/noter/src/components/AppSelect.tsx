@@ -7,7 +7,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export function AppSelectContent({ className, ...props }: ComponentProps<typeof SelectContentUI>) {
-  return <SelectContentUI className={cn(className, "max-w-[var(--available-width)]")} {...props} />;
+  return <SelectContentUI className={cn(className, "max-w-(--available-width)")} {...props} />;
 }
 
 export function AppSelectItem({ className, ...props }: ComponentProps<typeof SelectItemUI>) {
