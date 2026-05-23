@@ -385,7 +385,7 @@ describe("Layout", () => {
     expect(markup).toContain('data-testid="route-url-editor"');
     expect(markup).toContain('data-testid="route-url-editor-input"');
     expect(markup).toContain('title="https://noter.local/"');
-    expect(markup).toContain('value="noter.local/"');
+    expect(markup).toContain('value="noter.local"');
   });
 
   it("opens the logo shortcut without changing root flags", () => {

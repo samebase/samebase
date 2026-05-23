@@ -228,9 +228,13 @@ test("route URL editor toggles landing dev mode while preserving focused draft t
   });
 
   const input = page.getByTestId("route-url-editor-input");
+  const editor = page.getByTestId("route-url-editor");
+  const host = await page.evaluate(() => window.location.host);
   const origin = await page.evaluate(() => window.location.origin);
 
+  await expect(input).toHaveValue(host);
   await input.focus();
+  await expect(input).toHaveValue(`${origin}/`);
   await input.press("End");
   await input.type("?dev");
 
@@ -244,9 +248,14 @@ test("route URL editor toggles landing dev mode while preserving focused draft t
 
   await input.blur();
 
-  const host = await page.evaluate(() => window.location.host);
-  await expect(input).toHaveValue(`${host}/`);
+  await expect(input).toHaveValue(host);
   await expect(page).toHaveURL(`${origin}/`);
+  await expect(editor).toHaveScreenshot("route-url-editor-root-blurred.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.01,
+  });
 });
 
 test("route URL editor keeps invalid route search drafts local until blur", async ({ page }) => {

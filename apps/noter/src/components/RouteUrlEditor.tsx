@@ -25,8 +25,21 @@ function readRouteUrlEditorOrigin(): string {
   return typeof window === "undefined" ? "https://noter.local" : window.location.origin;
 }
 
-function readRouteUrlEditorDisplayOrigin(args: { focused: boolean; origin: string }): string {
-  return args.focused ? args.origin : new URL(args.origin).host;
+/**
+ * Focus restores the absolute URL boundary for editing. Blur hides browser
+ * boilerplate: protocol, plus the bare root slash when it carries no route text.
+ */
+function readRouteUrlEditorInputValue(args: {
+  focused: boolean;
+  origin: string;
+  routeAddress: string;
+}): string {
+  const displayOrigin = args.focused ? args.origin : new URL(args.origin).host;
+  if (!args.focused && args.routeAddress === "/") {
+    return displayOrigin;
+  }
+
+  return `${displayOrigin}${args.routeAddress}`;
 }
 
 type RouteUrlEditorInputSelectionDirection = "backward" | "forward" | "none";
@@ -153,7 +166,11 @@ export function RouteUrlEditor() {
     rawHref: draftRouteAddress,
   });
   const routeInputInvalid = draftRouteAddress.trim() !== "" && draftHref === null;
-  const inputValue = `${readRouteUrlEditorDisplayOrigin({ focused: inputFocused, origin })}${draftRouteAddress}`;
+  const inputValue = readRouteUrlEditorInputValue({
+    focused: inputFocused,
+    origin,
+    routeAddress: draftRouteAddress,
+  });
   const focusedInputValue = `${origin}${draftRouteAddress}`;
   const routeInputTitle = draftHref === null ? focusedInputValue : `${origin}${draftHref}`;
 
