@@ -1,13 +1,3 @@
-export type RouteUrlEditorHrefInputResult =
-  | {
-      status: "valid";
-      href: string;
-    }
-  | {
-      status: "invalid";
-      reason: "empty" | "external-origin" | "malformed";
-    };
-
 type NormalizeRouteUrlEditorHrefInput = {
   currentHref: string;
   origin: string;
@@ -18,13 +8,10 @@ export function normalizeRouteUrlEditorHref({
   currentHref,
   origin,
   rawHref,
-}: NormalizeRouteUrlEditorHrefInput): RouteUrlEditorHrefInputResult {
+}: NormalizeRouteUrlEditorHrefInput): string | null {
   const trimmedHref = rawHref.trim();
   if (!trimmedHref) {
-    return {
-      status: "invalid",
-      reason: "empty",
-    };
+    return null;
   }
 
   if (
@@ -32,10 +19,7 @@ export function normalizeRouteUrlEditorHref({
     !trimmedHref.startsWith("?") &&
     !trimmedHref.startsWith("#")
   ) {
-    return {
-      status: "invalid",
-      reason: "malformed",
-    };
+    return null;
   }
 
   try {
@@ -44,20 +28,11 @@ export function normalizeRouteUrlEditorHref({
     const nextUrl = new URL(trimmedHref, currentUrl);
 
     if (nextUrl.origin !== appOrigin.origin) {
-      return {
-        status: "invalid",
-        reason: "external-origin",
-      };
+      return null;
     }
 
-    return {
-      status: "valid",
-      href: `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`,
-    };
+    return `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
   } catch {
-    return {
-      status: "invalid",
-      reason: "malformed",
-    };
+    return null;
   }
 }

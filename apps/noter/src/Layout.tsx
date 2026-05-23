@@ -112,27 +112,16 @@ export function PublicLayoutShell({
   const hasMainHeader = Boolean(mainHeader);
   const layoutRightToggleVisibility = hasMainHeader ? rightToggleVisibility : "hidden";
   const mainContent = main === undefined ? children : main.content;
-  const shouldWrapMainContent = main === undefined || main.header === undefined || !hasMainHeader;
-  const mainPane =
-    main === undefined
-      ? ({
-          header: mainHeader,
-          content: <PublicLayoutMainContent>{mainContent}</PublicLayoutMainContent>,
-        } satisfies WorkspaceLayoutV2PaneFrameProps)
-      : hasMainHeader
-        ? ({
-            ...main,
-            header: mainHeader,
-            content: shouldWrapMainContent ? (
-              <PublicLayoutMainContent>{mainContent}</PublicLayoutMainContent>
-            ) : (
-              mainContent
-            ),
-          } satisfies WorkspaceLayoutV2PaneFrameProps)
-        : ({
-            ...main,
-            content: <PublicLayoutMainContent>{mainContent}</PublicLayoutMainContent>,
-          } satisfies WorkspaceLayoutV2PaneFrameProps);
+  const shouldWrapMainContent = main?.header === undefined || !hasMainHeader;
+  const mainPane = {
+    ...(main ?? {}),
+    header: mainHeader,
+    content: shouldWrapMainContent ? (
+      <PublicLayoutMainContent>{mainContent}</PublicLayoutMainContent>
+    ) : (
+      mainContent
+    ),
+  } satisfies WorkspaceLayoutV2PaneFrameProps;
 
   return (
     <PublicLandingLogoLinkProvider>

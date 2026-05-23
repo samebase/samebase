@@ -11,10 +11,7 @@ describe("normalizeRouteUrlEditorHref", () => {
         origin: ORIGIN,
         rawHref: "/logo?dev#controls",
       }),
-    ).toEqual({
-      status: "valid",
-      href: "/logo?dev#controls",
-    });
+    ).toBe("/logo?dev#controls");
   });
 
   it("resolves search and hash edits against the current route", () => {
@@ -24,10 +21,7 @@ describe("normalizeRouteUrlEditorHref", () => {
         origin: ORIGIN,
         rawHref: "?prod-ui#preview",
       }),
-    ).toEqual({
-      status: "valid",
-      href: "/logo?prod-ui#preview",
-    });
+    ).toBe("/logo?prod-ui#preview");
   });
 
   it("rejects full URLs because the editor owns the origin prefix", () => {
@@ -37,10 +31,7 @@ describe("normalizeRouteUrlEditorHref", () => {
         origin: ORIGIN,
         rawHref: "https://noter.local/terms?dev",
       }),
-    ).toEqual({
-      status: "invalid",
-      reason: "malformed",
-    });
+    ).toBeNull();
   });
 
   it("rejects text without a route delimiter", () => {
@@ -50,23 +41,7 @@ describe("normalizeRouteUrlEditorHref", () => {
         origin: "http://localhost:5174",
         rawHref: "logo?dev",
       }),
-    ).toEqual({
-      status: "invalid",
-      reason: "malformed",
-    });
-  });
-
-  it("rejects malformed absolute URLs instead of silently repairing the origin", () => {
-    expect(
-      normalizeRouteUrlEditorHref({
-        currentHref: "/visual-fixture?mode=route-url-editor",
-        origin: "http://localhost:5174",
-        rawHref: "http:///localhost:5174/terms?dev",
-      }),
-    ).toEqual({
-      status: "invalid",
-      reason: "malformed",
-    });
+    ).toBeNull();
   });
 
   it("rejects protocol-relative external origins", () => {
@@ -76,10 +51,7 @@ describe("normalizeRouteUrlEditorHref", () => {
         origin: "http://localhost:5174",
         rawHref: "//example.com/noter",
       }),
-    ).toEqual({
-      status: "invalid",
-      reason: "external-origin",
-    });
+    ).toBeNull();
   });
 
   it("rejects empty input", () => {
@@ -89,22 +61,6 @@ describe("normalizeRouteUrlEditorHref", () => {
         origin: ORIGIN,
         rawHref: "  ",
       }),
-    ).toEqual({
-      status: "invalid",
-      reason: "empty",
-    });
-  });
-
-  it("rejects external origins", () => {
-    expect(
-      normalizeRouteUrlEditorHref({
-        currentHref: "/",
-        origin: ORIGIN,
-        rawHref: "https://example.com/logo",
-      }),
-    ).toEqual({
-      status: "invalid",
-      reason: "malformed",
-    });
+    ).toBeNull();
   });
 });

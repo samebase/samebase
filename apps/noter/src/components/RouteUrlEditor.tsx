@@ -23,26 +23,6 @@ function readRouteUrlEditorOrigin(): string {
   return typeof window === "undefined" ? "https://noter.local" : window.location.origin;
 }
 
-/**
- * URL reality comes from the router. The input shows same-origin URLs as route
- * text, while malformed or unexpected external values pass through so invalid
- * UI can explain them without hiding what happened.
- */
-function formatRouteUrlEditorAddress(href: string): string {
-  const origin = readRouteUrlEditorOrigin();
-
-  try {
-    const url = new URL(href, origin);
-    if (url.origin === origin) {
-      return `${url.pathname}${url.search}${url.hash}`;
-    }
-  } catch {
-    return href;
-  }
-
-  return href;
-}
-
 function isRouteUrlEditorIncompleteOptionDraft(address: string): boolean {
   return address.endsWith("?") || address.endsWith("#");
 }
@@ -132,18 +112,15 @@ export function RouteUrlEditor() {
     useState(currentRouteHistoryIndex);
   const inputSelectionBeforeChangeRef = useRef<RouteUrlEditorInputSelection | null>(null);
   const origin = readRouteUrlEditorOrigin();
-  const urlRealityAddress = formatRouteUrlEditorAddress(currentHref);
-  const [draftRouteAddress, setDraftRouteAddress] = useState(urlRealityAddress);
-  const draftRouteResult = normalizeRouteUrlEditorHref({
+  const [draftRouteAddress, setDraftRouteAddress] = useState(currentHref);
+  const draftHref = normalizeRouteUrlEditorHref({
     currentHref,
     origin,
     rawHref: draftRouteAddress,
   });
-  const routeInputInvalid =
-    draftRouteAddress.trim() !== "" && draftRouteResult.status === "invalid";
+  const routeInputInvalid = draftRouteAddress.trim() !== "" && draftHref === null;
   const inputValue = `${origin}${draftRouteAddress}`;
-  const routeInputTitle =
-    draftRouteResult.status === "valid" ? `${origin}${draftRouteResult.href}` : inputValue;
+  const routeInputTitle = draftHref === null ? inputValue : `${origin}${draftHref}`;
 
   const canGoBack = currentRouteHistoryIndex > 0;
   const canGoForward = currentRouteHistoryIndex < forwardRouteHistoryIndex;
@@ -172,8 +149,8 @@ export function RouteUrlEditor() {
   // Links and Back/Forward change URL reality. Draft text remains local while
   // the user edits; same-path search/hash changes still apply live below.
   useEffect(() => {
-    setDraftRouteAddress(urlRealityAddress);
-  }, [urlRealityAddress]);
+    setDraftRouteAddress(currentHref);
+  }, [currentHref]);
 
   const goBack = useCallback(() => {
     router.history.back();
@@ -214,13 +191,13 @@ export function RouteUrlEditor() {
 
       setDraftRouteAddress(nextDraftRouteAddress);
 
-      const nextHrefResult = normalizeRouteUrlEditorHref({
+      const nextHref = normalizeRouteUrlEditorHref({
         currentHref,
         origin,
         rawHref: nextDraftRouteAddress,
       });
 
-      if (nextHrefResult.status === "invalid" || nextHrefResult.href === currentHref) {
+      if (nextHref === null || nextHref === currentHref) {
         return;
       }
 
@@ -230,13 +207,13 @@ export function RouteUrlEditor() {
 
       const commitMode = getRouteUrlEditorCommitMode({
         currentHref,
-        nextHref: nextHrefResult.href,
+        nextHref,
         origin,
       });
 
       if (commitMode === "route-options") {
         void router.navigate({
-          href: nextHrefResult.href,
+          href: nextHref,
           replace: true,
           resetScroll: false,
         });
@@ -246,43 +223,43 @@ export function RouteUrlEditor() {
   );
 
   const resetInput = useCallback(() => {
-    setDraftRouteAddress(urlRealityAddress);
-  }, [urlRealityAddress]);
+    setDraftRouteAddress(currentHref);
+  }, [currentHref]);
 
   const commitInput = useCallback(
     (rawAddress: string) => {
-      const result = normalizeRouteUrlEditorHref({
+      const href = normalizeRouteUrlEditorHref({
         currentHref,
         origin,
         rawHref: rawAddress,
       });
 
-      if (result.status === "invalid") {
+      if (href === null) {
         return;
       }
 
-      setDraftRouteAddress(result.href);
+      setDraftRouteAddress(href);
 
-      if (result.href === currentHref) {
+      if (href === currentHref) {
         return;
       }
 
       const commitMode = getRouteUrlEditorCommitMode({
         currentHref,
-        nextHref: result.href,
+        nextHref: href,
         origin,
       });
 
       switch (commitMode) {
         case "route-options":
           void router.navigate({
-            href: result.href,
+            href,
             resetScroll: false,
           });
           return;
         case "route-navigation":
           void router.navigate({
-            href: result.href,
+            href,
           });
           return;
       }
