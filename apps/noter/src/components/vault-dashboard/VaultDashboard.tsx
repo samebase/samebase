@@ -1064,7 +1064,7 @@ export function VaultDashboardCloudflareDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="top-[50dvh] left-[50dvw] w-[calc(100dvw-2rem)] max-w-[calc(100dvw-2rem)] sm:w-full sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
             {vault ? `Connect Cloudflare ${vault.repositoryFullName}` : "Connect Cloudflare"}
@@ -1107,6 +1107,7 @@ export function VaultDashboardCloudflareDialog({
             </div>
             {mode === "existing" ? (
               <Select
+                modal={false}
                 value={selectedWorkerName}
                 onValueChange={onWorkerChange}
                 disabled={isLoading || workers.length === 0}
@@ -1116,9 +1117,13 @@ export function VaultDashboardCloudflareDialog({
                     {selectedWorker?.workerName}
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-w-[var(--available-width)]">
                   {workers.map((worker) => (
-                    <SelectItem key={worker.workerTag} value={worker.workerName}>
+                    <SelectItem
+                      key={worker.workerTag}
+                      value={worker.workerName}
+                      className="[&>*:first-child]:line-clamp-2 [&>*:first-child]:min-w-0 [&>*:first-child]:shrink [&>*:first-child]:whitespace-normal [&>*:first-child]:[overflow-wrap:anywhere]"
+                    >
                       {worker.workerName}
                     </SelectItem>
                   ))}

@@ -54,6 +54,7 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-dev-tools-hidden"
   | "vault-dashboard-dev-tools-visible"
   | "vault-dashboard-connect-cloudflare-open"
+  | "vault-dashboard-connect-cloudflare-mobile-shell-open"
   | "vault-dashboard-delete-open"
   | "vault-dashboard-infra-setup"
   | "vault-dashboard-provisioning-log"
@@ -514,6 +515,39 @@ function VaultDashboardDeleteOpenFixture() {
   );
 }
 
+function FixtureCloudflareConnectDialog() {
+  return (
+    <VaultDashboardCloudflareDialog
+      accounts={[
+        {
+          accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
+          accountName: "Samebase",
+        },
+      ]}
+      createWorkerName="atelier"
+      error={null}
+      isLoading={false}
+      isSubmitting={false}
+      mode="existing"
+      onAccountChange={() => {}}
+      onCreateWorkerNameChange={() => {}}
+      onModeChange={() => {}}
+      onOpenChange={() => {}}
+      onSubmit={() => {}}
+      onWorkerChange={() => {}}
+      open={true}
+      selectedAccountId="fe57d01d7ab41f60d00ba1aade20eb33"
+      selectedWorkerName="app-start-workers"
+      vault={{
+        id: fakeVaultId(),
+        repositoryFullName: "samebase/atelier",
+        repositoryName: "atelier",
+      }}
+      workers={FIXTURE_CLOUDFLARE_WORKERS}
+    />
+  );
+}
+
 function VaultDashboardConnectCloudflareOpenFixture() {
   return (
     <div
@@ -533,36 +567,33 @@ function VaultDashboardConnectCloudflareOpenFixture() {
             repositoryStatus={<span>Updated 12s ago</span>}
           />
         </VaultDashboardRepositoryList>
-        <VaultDashboardCloudflareDialog
-          accounts={[
-            {
-              accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
-              accountName: "Samebase",
-            },
-          ]}
-          createWorkerName="atelier"
-          error={null}
-          isLoading={false}
-          isSubmitting={false}
-          mode="existing"
-          onAccountChange={() => {}}
-          onCreateWorkerNameChange={() => {}}
-          onModeChange={() => {}}
-          onOpenChange={() => {}}
-          onSubmit={() => {}}
-          onWorkerChange={() => {}}
-          open={true}
-          selectedAccountId="fe57d01d7ab41f60d00ba1aade20eb33"
-          selectedWorkerName="app-start-workers"
-          vault={{
-            id: fakeVaultId(),
-            repositoryFullName: "samebase/atelier",
-            repositoryName: "atelier",
-          }}
-          workers={FIXTURE_CLOUDFLARE_WORKERS}
-        />
+        <FixtureCloudflareConnectDialog />
       </TestRouterProvider>
     </div>
+  );
+}
+
+function VaultDashboardConnectCloudflareMobileShellOpenFixture() {
+  return (
+    <FixtureDashboardShell
+      mainContent={
+        <>
+          <VaultDashboardRepositoryList>
+            <VaultDashboardRepositoryCard
+              isReady={true}
+              repositoryOwner="samebase"
+              repositoryName="atelier"
+              titleHref="https://github.com/samebase/atelier"
+              repositoryLinks={<FixtureRepositoryLinks />}
+              topRightAction={<FixtureDeleteControl />}
+              repositoryStatus={<span>Updated 12s ago</span>}
+            />
+          </VaultDashboardRepositoryList>
+          <FixtureCloudflareConnectDialog />
+        </>
+      }
+      rightContent={<div className="h-full w-full bg-background" />}
+    />
   );
 }
 
@@ -1004,6 +1035,10 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
 
   if (mode === "vault-dashboard-connect-cloudflare-open") {
     return <VaultDashboardConnectCloudflareOpenFixture />;
+  }
+
+  if (mode === "vault-dashboard-connect-cloudflare-mobile-shell-open") {
+    return <VaultDashboardConnectCloudflareMobileShellOpenFixture />;
   }
 
   if (mode === "vault-dashboard-delete-open") {
