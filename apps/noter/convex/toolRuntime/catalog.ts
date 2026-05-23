@@ -72,7 +72,7 @@ const requestCloudflareWorkersInventoryReadInputSchema = z.object({
   accountId: z
     .string()
     .optional()
-    .describe("Cloudflare account ID to query (optional if already stored on the connection)"),
+    .describe("Cloudflare account ID to query. Omit only when a default account is selected."),
   limit: z.number().int().min(1).max(100).optional().describe("Maximum Workers to include"),
   allowRawFallback: prodReadAllowRawFallbackSchema.describe(
     "In owner mode, allow explicit raw payload fallback",
