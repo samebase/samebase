@@ -384,10 +384,11 @@ test("vault dashboard fixture (provisioning log)", async ({ page }) => {
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
   await expect(
-    fixture.getByRole("textbox", {
+    fixture.getByRole("region", {
       name: "Provisioning log for noter-md/noter-app",
     }),
   ).toBeVisible();
+  await expect(fixture.locator(".monaco-editor")).toBeVisible();
   await expect(fixture).toHaveScreenshot("vault-dashboard-provisioning-log.png", {
     animations: "disabled",
     caret: "hide",

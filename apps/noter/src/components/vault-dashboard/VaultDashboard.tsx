@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
-import { VaultProvisioningLogTextarea } from "@/components/vault-dashboard/VaultProvisioningLogTextarea";
+import { VaultProvisioningLog } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
 import { VaultResourceRail } from "@/components/vault-dashboard/VaultResourceRail";
 import { buildVaultDashboardResourceRailState } from "@/components/vault-dashboard/vaultResourceRailState";
 import {
@@ -2797,7 +2797,7 @@ function VaultDashboardBody({
                                   {formatProviderSetupDeveloperLabel(vault.providerSetup)}
                                 </div>
                               ) : null}
-                              <VaultProvisioningLogTextarea
+                              <VaultProvisioningLog
                                 repositoryFullName={vault.repositoryFullName}
                                 vaultId={vault._id}
                               />
