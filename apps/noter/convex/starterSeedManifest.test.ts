@@ -24,6 +24,7 @@ describe("starterSeedManifest", () => {
     expect(filePaths).toContain("scripts/ensure-convex-auth.ts");
     expect(filePaths).toContain("convex/auth.ts");
     expect(filePaths).toContain("convex/auth.config.ts");
+    expect(filePaths).toContain("convex/guests.ts");
     expect(filePaths).toContain("convex/http.ts");
     expect(filePaths).toContain("src/router.tsx");
     expect(filePaths).toContain("src/routes/index.tsx");
@@ -35,5 +36,13 @@ describe("starterSeedManifest", () => {
     expect(starterTemplateManifest.fileModes[".vite-hooks/pre-commit"]).toBe("100755");
     expect(new Set(allFilePaths).size).toBe(allFilePaths.length);
     expect(allFilePaths.length).toBeGreaterThan(10);
+  });
+
+  it("includes exact guest-name reservation in the starter auth flow", () => {
+    expect(starterTemplateManifest.files["convex/guests.ts"]).toContain('.withIndex("by_name"');
+    expect(starterTemplateManifest.files["convex/schema.ts"]).toContain("guestNames");
+    expect(starterTemplateManifest.files["src/routes/index.tsx"]).toContain(
+      "api.guests.ensureName",
+    );
   });
 });
