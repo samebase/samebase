@@ -21,7 +21,7 @@ test("route URL editor fixture navigates committed same-origin hrefs", async ({ 
 
   expect(editorBox.x).toBe(0);
   expect(editorBox.height).toBeLessThanOrEqual(40);
-  await expect(input).toHaveValue(`${host}/visual-fixture?mode=route-url-editor`);
+  await expect(input).toHaveValue("/visual-fixture?mode=route-url-editor");
   await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
   await expect(backButton).toBeVisible();
   await expect(forwardButton).toBeVisible();
@@ -34,12 +34,12 @@ test("route URL editor fixture navigates committed same-origin hrefs", async ({ 
   await expect(goButton).toHaveCSS("opacity", "1");
 
   await input.fill(`${host}/visual-fixture?mode=route-url-editor&draft=edited#done`);
-  await expect(input).toHaveValue(`${host}/visual-fixture?mode=route-url-editor&draft=edited#done`);
+  await expect(input).toHaveValue("/visual-fixture?mode=route-url-editor&draft=edited#done");
   await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
 
   await input.press("Enter");
 
-  await expect(input).toHaveValue(`${host}/visual-fixture?mode=route-url-editor&draft=edited#done`);
+  await expect(input).toHaveValue("/visual-fixture?mode=route-url-editor&draft=edited#done");
   await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor&draft=edited#done");
 });
 
@@ -48,7 +48,6 @@ test("route URL editor fixture rejects external origins", async ({ page }) => {
   await page.goto("/visual-fixture?mode=route-url-editor", {
     waitUntil: "domcontentloaded",
   });
-  const host = await page.evaluate(() => window.location.host);
 
   const input = page.getByTestId("route-url-editor-input");
   const currentHref = page.getByTestId("route-url-editor-fixture-current-href");
@@ -60,5 +59,5 @@ test("route URL editor fixture rejects external origins", async ({ page }) => {
   await expect(input).toHaveValue("https://example.com/noter");
   await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
   await input.press("Escape");
-  await expect(input).toHaveValue(`${host}/visual-fixture?mode=route-url-editor`);
+  await expect(input).toHaveValue("/visual-fixture?mode=route-url-editor");
 });

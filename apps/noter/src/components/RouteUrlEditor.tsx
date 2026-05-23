@@ -21,20 +21,49 @@ function readRouteUrlEditorOrigin(): string {
   return typeof window === "undefined" ? "https://noter.local" : window.location.origin;
 }
 
+function readRouteUrlEditorHost(): string {
+  if (typeof window !== "undefined") {
+    return window.location.host;
+  }
+
+  return new URL(readRouteUrlEditorOrigin()).host;
+}
+
 function formatRouteUrlEditorAddress(href: string): string {
   const origin = readRouteUrlEditorOrigin();
 
   try {
     const url = new URL(href, origin);
-    const originUrl = new URL(origin);
-    if (url.origin === originUrl.origin) {
-      return `${url.host}${url.pathname}${url.search}${url.hash}`;
+    if (url.origin === origin) {
+      return `${url.pathname}${url.search}${url.hash}`;
     }
   } catch {
     return href;
   }
 
   return href;
+}
+
+function formatRouteUrlEditorDraftAddress(rawAddress: string): string {
+  const origin = readRouteUrlEditorOrigin();
+  const host = readRouteUrlEditorHost();
+  const trimmedAddress = rawAddress.trim();
+  const fullOriginAddress =
+    trimmedAddress === origin ||
+    trimmedAddress.startsWith(`${origin}/`) ||
+    trimmedAddress.startsWith(`${origin}?`) ||
+    trimmedAddress.startsWith(`${origin}#`);
+  const hostAddress =
+    trimmedAddress === host ||
+    trimmedAddress.startsWith(`${host}/`) ||
+    trimmedAddress.startsWith(`${host}?`) ||
+    trimmedAddress.startsWith(`${host}#`);
+
+  if (fullOriginAddress || hostAddress) {
+    return formatRouteUrlEditorAddress(hostAddress ? `//${trimmedAddress}` : trimmedAddress);
+  }
+
+  return rawAddress;
 }
 
 type RouteUrlEditorCommitMode = "route-options" | "route-navigation";
@@ -111,7 +140,7 @@ export function RouteUrlEditor() {
 
   const changeDraftRealityAddress = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
-      setDraftRealityAddress(event.currentTarget.value);
+      setDraftRealityAddress(formatRouteUrlEditorDraftAddress(event.currentTarget.value));
 
       if (invalidInput) {
         setInvalidInput(false);

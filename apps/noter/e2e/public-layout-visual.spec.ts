@@ -39,10 +39,9 @@ test("public landing header exposes the route URL editor", async ({ page }) => {
   });
   await page.waitForLoadState("networkidle");
 
-  const host = new URL(page.url()).host;
   const routeUrlInput = page.getByTestId("route-url-editor-input");
-  await expect(routeUrlInput).toHaveValue(`${host}/?dev`);
-  await expect(routeUrlInput).toHaveAttribute("title", `${host}/?dev`);
+  await expect(routeUrlInput).toHaveValue("/?dev");
+  await expect(routeUrlInput).toHaveAttribute("title", "/?dev");
   await expect(page).toHaveScreenshot("public-layout-landing-dev.png", {
     animations: "disabled",
     caret: "hide",
@@ -52,11 +51,8 @@ test("public landing header exposes the route URL editor", async ({ page }) => {
 
   await page.getByRole("link", { name: "/terms", exact: true }).click();
   await expect(page).toHaveURL(/\/terms\?dev$/);
-  await expect(page.getByTestId("route-url-editor-input")).toHaveValue(`${host}/terms?dev`);
-  await expect(page.getByTestId("route-url-editor-input")).toHaveAttribute(
-    "title",
-    `${host}/terms?dev`,
-  );
+  await expect(page.getByTestId("route-url-editor-input")).toHaveValue("/terms?dev");
+  await expect(page.getByTestId("route-url-editor-input")).toHaveAttribute("title", "/terms?dev");
 });
 
 test("public route URL editor stays compact for long URLs", async ({ page }) => {
@@ -69,11 +65,10 @@ test("public route URL editor stays compact for long URLs", async ({ page }) => 
   });
   await page.waitForLoadState("networkidle");
 
-  const host = new URL(page.url()).host;
   const routeUrlEditor = page.getByTestId("route-url-editor");
   const routeUrlInput = page.getByTestId("route-url-editor-input");
-  await expect(routeUrlInput).toHaveValue(`${host}${longPath}`);
-  await expect(routeUrlInput).toHaveAttribute("title", `${host}${longPath}`);
+  await expect(routeUrlInput).toHaveValue(longPath);
+  await expect(routeUrlInput).toHaveAttribute("title", longPath);
 
   const metrics = await routeUrlEditor.evaluate((element) => {
     const input = element.querySelector('[data-testid="route-url-editor-input"]');
