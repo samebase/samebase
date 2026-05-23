@@ -236,6 +236,7 @@ export function VaultDashboardEmptyState({
       <div className="text-center">
         <div className="mx-auto w-full max-w-[8rem]">
           <PublicLandingLogo
+            animateLeftFaceStripes
             themeColorSearch={themeColorSearch}
             viewStatePersistence="device"
             viewStateKey={DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY}

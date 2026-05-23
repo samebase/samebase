@@ -316,7 +316,7 @@ function buildLogoLeftFaceStyleSearch(leftFaceStyle: LogoLeftFaceStyle): {
     leftFace: "striped",
     stripeA:
       leftFaceStyle.stripeAngleDegrees !== DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES
-        ? Number(leftFaceStyle.stripeAngleDegrees.toFixed(1))
+        ? Number(leftFaceStyle.stripeAngleDegrees.toFixed(3))
         : undefined,
     stripeBasis:
       leftFaceStyle.stripeBasis !== DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS

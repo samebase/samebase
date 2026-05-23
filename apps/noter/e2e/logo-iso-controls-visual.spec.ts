@@ -799,7 +799,11 @@ test("logo view exposes striped left-face controls", async ({ page }) => {
   const linkedWidthGapCheckbox = leftFaceSection.getByRole("checkbox", {
     name: "Link width/gap",
   });
+  const animateStripesCheckbox = leftFaceSection.getByRole("checkbox", {
+    name: "Animate stripes",
+  });
   await expect(linkedWidthGapCheckbox).not.toBeChecked();
+  await expect(animateStripesCheckbox).not.toBeChecked();
 
   await expect(leftFaceSection).toHaveScreenshot("logo-left-face-stripe-controls.png", {
     animations: "disabled",
@@ -828,6 +832,9 @@ test("logo view exposes striped left-face controls", async ({ page }) => {
   await linkedWidthGapCheckbox.check();
   await expect(linkedWidthGapCheckbox).toBeChecked();
   await expect(page).toHaveURL(/stripeLink/);
+  await animateStripesCheckbox.check();
+  await expect(animateStripesCheckbox).toBeChecked();
+  await expect(page).not.toHaveURL(/stripeAnim/);
 
   await leftFaceSection.getByRole("spinbutton", { name: "Stripe gap" }).fill("0");
   await expect(page).toHaveURL(/stripeW=0/);

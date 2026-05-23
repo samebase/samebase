@@ -13,6 +13,7 @@ test("public landing route uses the right sidebar shell", async ({ page }) => {
   await page.addInitScript(() => {
     Math.random = () => 0.57;
   });
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/", {
     waitUntil: "domcontentloaded",
@@ -31,6 +32,7 @@ test("public landing dev rail exposes the route URL display", async ({ page }) =
   await page.addInitScript(() => {
     Math.random = () => 0.57;
   });
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/?dev", {
     waitUntil: "domcontentloaded",

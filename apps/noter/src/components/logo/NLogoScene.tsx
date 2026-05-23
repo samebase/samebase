@@ -61,8 +61,38 @@ const FACE_COLOR_ANIMATION_DEGREES_PER_SECOND = 15;
 const FACE_COLOR_ANIMATION_MIN_LIGHTNESS = 0.38;
 const FACE_COLOR_ANIMATION_MAX_LIGHTNESS = 0.76;
 const FACE_COLOR_ANIMATION_MIN_SATURATION = 0.5;
+const LEFT_FACE_STRIPE_ANIMATION_DURATION_MS = 4000;
+const THREE_RENDER_PIXEL_RATIO_MAX = 4;
 const SURFACE_MATERIAL_INDICES = [0, 1, 2, 3, 4, 5] as const;
 const THREE_RECURSIVE_TILE_DEPTH = 3;
+const LEFT_FACE_STRIPE_MASK_GLSL = `
+float readLeftFaceStripeMask(float stripeCoordinate, float stripeWidth, float stripeGap) {
+  if (stripeWidth <= 0.0) {
+    return 0.0;
+  }
+  if (stripeGap <= 0.0) {
+    return 1.0;
+  }
+
+  float period = max(stripeWidth + stripeGap, 0.0001);
+  float stripePhase = mod(stripeCoordinate, period);
+  // When stripe edges project onto the same screen line across separate faces,
+  // hard thresholds can read as cracks; one-pixel derivative AA keeps them crisp.
+  float edgeFeather = min(fwidth(stripeCoordinate) * 0.75, period * 0.5);
+  float edgeOverdraw = min(edgeFeather, stripeGap * 0.45);
+  float widthEdgeMask = 1.0 - smoothstep(
+    stripeWidth + edgeOverdraw - edgeFeather,
+    stripeWidth + edgeOverdraw + edgeFeather,
+    stripePhase
+  );
+  float wrapEdgeMask = 1.0 - smoothstep(
+    edgeOverdraw,
+    edgeOverdraw + edgeFeather,
+    period - stripePhase
+  );
+  return max(widthEdgeMask, wrapEdgeMask);
+}
+`;
 const LEFT_FACE_PATTERN_FRAGMENT_SHADER = `
 uniform vec3 backgroundColor;
 uniform float opacity;
@@ -75,17 +105,19 @@ uniform float stripeWidth;
 uniform float stripedEnabled;
 varying vec2 vUv;
 
+${LEFT_FACE_STRIPE_MASK_GLSL}
+
 void main() {
   vec3 faceColor = secondaryColor;
 
   if (stripedEnabled > 0.5) {
-    float period = max(stripeWidth + stripeGap, 0.0001);
     vec2 stripeNormal = vec2(
       cos(stripeAngleRadians + 1.57079632679),
       sin(stripeAngleRadians + 1.57079632679)
     );
-    float stripePhase = mod(dot(vUv, stripeNormal) + stripeOffset * period, period);
-    faceColor = stripePhase < stripeWidth ? primaryColor : backgroundColor;
+    float stripeCoordinate = dot(vUv, stripeNormal) + stripeOffset * (stripeWidth + stripeGap);
+    float stripeMask = readLeftFaceStripeMask(stripeCoordinate, stripeWidth, stripeGap);
+    faceColor = mix(backgroundColor, primaryColor, stripeMask);
   }
 
   gl_FragColor = vec4(faceColor, opacity);
@@ -124,6 +156,8 @@ uniform float stripedEnabled;
 varying float vLogoFaceKind;
 varying vec2 vUv;
 
+${LEFT_FACE_STRIPE_MASK_GLSL}
+
 void main() {
   vec3 faceColor = rightColor;
 
@@ -131,13 +165,13 @@ void main() {
     faceColor = leftColor;
 
     if (stripedEnabled > 0.5) {
-      float period = max(stripeWidth + stripeGap, 0.0001);
       vec2 stripeNormal = vec2(
         cos(stripeAngleRadians + 1.57079632679),
         sin(stripeAngleRadians + 1.57079632679)
       );
-      float stripePhase = mod(dot(vUv, stripeNormal) + stripeOffset * period, period);
-      faceColor = stripePhase < stripeWidth ? rightColor : backgroundColor;
+      float stripeCoordinate = dot(vUv, stripeNormal) + stripeOffset * (stripeWidth + stripeGap);
+      float stripeMask = readLeftFaceStripeMask(stripeCoordinate, stripeWidth, stripeGap);
+      faceColor = mix(backgroundColor, rightColor, stripeMask);
     }
   } else if (vLogoFaceKind > 0.5) {
     faceColor = topColor;
@@ -348,6 +382,7 @@ type NLogoSceneProps = {
   rotationDegrees: number;
   shuffleAnimation: LogoShuffleAnimationConfig;
   animateFaceColors: boolean;
+  animateLeftFaceStripes: boolean;
   fractalDepth?: number;
   voxelGrid?: LogoVoxelGrid;
   voxelEditingEnabled?: boolean;
@@ -385,6 +420,19 @@ function easeInOutCubic(value: number): number {
   }
 
   return 1 - Math.pow(-2 * value + 2, 3) / 2;
+}
+
+function getThreeRenderPixelRatio(leftFaceStyle: LogoLeftFaceStyle): number {
+  const normalizedStyle = normalizeLogoLeftFaceStyle(leftFaceStyle);
+  const pixelRatioScale = normalizedStyle.kind === "striped" ? 2 : 1;
+  return Math.min(window.devicePixelRatio * pixelRatioScale, THREE_RENDER_PIXEL_RATIO_MAX);
+}
+
+// One normalized progress loop advances the shader by one full stripe period.
+function getLoopedLeftFaceStripeOffset(stripeOffset: number, animationProgress: number): number {
+  const normalizedProgress = animationProgress % 1;
+  const loopedProgress = normalizedProgress < 0 ? normalizedProgress + 1 : normalizedProgress;
+  return (stripeOffset + loopedProgress) % 1;
 }
 
 function getCubeMovePosition(
@@ -1290,6 +1338,29 @@ function applySceneResolvedFaceColors({
   }
 }
 
+function applySceneLeftFaceStripeAnimationProgress(
+  sceneState: SceneState,
+  animationProgress: number,
+) {
+  const normalizedStyle = normalizeLogoLeftFaceStyle(sceneState.leftFaceStyle);
+  if (normalizedStyle.kind !== "striped") {
+    return;
+  }
+
+  const stripeOffset = getLoopedLeftFaceStripeOffset(
+    normalizedStyle.stripeOffset,
+    animationProgress,
+  );
+  for (const uniforms of sceneState.leftFaceMaterialState.uniforms) {
+    uniforms.stripeOffset.value = stripeOffset;
+  }
+
+  const recursiveTileState = sceneState.recursiveTileState;
+  if (recursiveTileState) {
+    recursiveTileState.materialState.uniforms.stripeOffset.value = stripeOffset;
+  }
+}
+
 function getAnimatedColor(color: THREE.Color, elapsedSeconds: number): THREE.Color {
   const hsl = { h: 0, l: 0, s: 0 };
   color.getHSL(hsl);
@@ -1887,6 +1958,7 @@ export function NLogoScene({
   rotationDegrees,
   shuffleAnimation,
   animateFaceColors,
+  animateLeftFaceStripes,
   voxelEditingEnabled = true,
   voxelGrid,
   viewDragConfig,
@@ -1909,6 +1981,8 @@ export function NLogoScene({
   const distanceScaleRef = useRef(normalizeLogoDistanceScale(distanceScale));
   const animateFaceColorsRef = useRef(animateFaceColors);
   const faceColorAnimationStartedAtRef = useRef<number | null>(null);
+  const animateLeftFaceStripesRef = useRef(animateLeftFaceStripes);
+  const leftFaceStripeAnimationStartedAtRef = useRef<number | null>(null);
   const shuffleAnimationRef = useRef(shuffleAnimation);
   const onInteractionStartRef = useRef(onInteractionStart);
   const onInteractionEndRef = useRef(onInteractionEnd);
@@ -2054,7 +2128,7 @@ export function NLogoScene({
       return;
     }
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(getThreeRenderPixelRatio(leftFaceStyleRef.current));
     renderer.domElement.style.display = "block";
     renderer.domElement.style.height = "100%";
     renderer.domElement.style.width = "100%";
@@ -2148,6 +2222,7 @@ export function NLogoScene({
         frustumHalfSpan,
         frustumHalfSpan / Math.max(aspect, 0.0001),
       );
+      renderer.setPixelRatio(getThreeRenderPixelRatio(leftFaceStyleRef.current));
       renderer.setSize(width, height, false);
       camera.left = -frustumHalfHeight * aspect;
       camera.right = frustumHalfHeight * aspect;
@@ -2208,8 +2283,13 @@ export function NLogoScene({
       }
     };
 
+    const hasActiveLeftFaceStripeAnimation = () =>
+      animateLeftFaceStripesRef.current && leftFaceStyleRef.current.kind === "striped";
+
     const hasActiveAnimation = () =>
-      shuffleAnimationRef.current.enabled || animateFaceColorsRef.current;
+      shuffleAnimationRef.current.enabled ||
+      animateFaceColorsRef.current ||
+      hasActiveLeftFaceStripeAnimation();
 
     const renderScene = (timestampMs: number) => {
       timer.update(timestampMs);
@@ -2236,6 +2316,15 @@ export function NLogoScene({
           ),
           sceneState,
         });
+      }
+      if (sceneState && hasActiveLeftFaceStripeAnimation()) {
+        const animationStartedAt = leftFaceStripeAnimationStartedAtRef.current ?? timestampMs;
+        leftFaceStripeAnimationStartedAtRef.current = animationStartedAt;
+        applySceneLeftFaceStripeAnimationProgress(
+          sceneState,
+          ((timestampMs - animationStartedAt) % LEFT_FACE_STRIPE_ANIMATION_DURATION_MS) /
+            LEFT_FACE_STRIPE_ANIMATION_DURATION_MS,
+        );
       }
       updateCameraPosition();
       applyLogoRotation();
@@ -2304,6 +2393,7 @@ export function NLogoScene({
       renderSceneRef.current = () => {};
       syncAnimationLoopRef.current = () => {};
       faceColorAnimationStartedAtRef.current = null;
+      leftFaceStripeAnimationStartedAtRef.current = null;
       renderer.dispose();
       container.replaceChildren();
     };
@@ -2363,6 +2453,32 @@ export function NLogoScene({
   }, [animateFaceColors, faceColors]);
 
   useEffect(() => {
+    animateLeftFaceStripesRef.current = animateLeftFaceStripes;
+
+    const sceneState = sceneStateRef.current;
+    if (!sceneState) {
+      return;
+    }
+
+    if (animateLeftFaceStripes) {
+      leftFaceStripeAnimationStartedAtRef.current = performance.now();
+      syncAnimationLoopRef.current();
+      renderSceneRef.current(performance.now());
+      return;
+    }
+
+    leftFaceStripeAnimationStartedAtRef.current = null;
+    // Reapply uniforms so the static stripe offset replaces the animated one.
+    applySceneResolvedFaceColors({
+      backgroundColor: backgroundColorRef.current,
+      faceColors: resolveFaceColors(faceColorsRef.current),
+      sceneState,
+    });
+    syncAnimationLoopRef.current();
+    renderSceneRef.current(performance.now());
+  }, [animateLeftFaceStripes]);
+
+  useEffect(() => {
     const normalizedStyle = normalizeLogoLeftFaceStyle(leftFaceStyle);
     leftFaceStyleRef.current = normalizedStyle;
 
@@ -2372,11 +2488,13 @@ export function NLogoScene({
     }
 
     sceneState.leftFaceStyle = normalizedStyle;
+    sceneState.resizeScene();
     applySceneResolvedFaceColors({
       backgroundColor: backgroundColorRef.current,
       faceColors: resolveFaceColors(faceColorsRef.current),
       sceneState,
     });
+    syncAnimationLoopRef.current();
     renderSceneRef.current(performance.now());
   }, [leftFaceStyle]);
 
