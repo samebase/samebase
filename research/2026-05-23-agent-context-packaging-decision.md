@@ -13,6 +13,8 @@
   - `research/2026-05-23-agent-context-forward-test-results-3.md`
   - `research/2026-05-23-agent-context-forward-test-results-4.md`
   - `research/agent-context-draft-bundle/noter-manifest.md`
+  - `research/2026-05-23-agent-context-package-results.md`
+  - `packages/agent-context/`
 
 ## Purpose
 
@@ -96,11 +98,12 @@ Before promoting files out of `research/`:
 
 ## Current Packaging Implication
 
-The next code movement should be narrow:
+The first code movement is complete:
 
-- Keep `research/agent-context-draft-skills/agent-engineering-core/SKILL.md` as a draft artifact for
-  now, but treat its final form as `core/agent-engineering-core.md`, not as a normal skill.
-- Treat the other five draft skill folders as candidates for direct skill promotion after the bundle
-  manifest has a real package location.
-- Keep `noter-*` overlays out of the portable package. They can be part of a Noter manifest or
-  repo-local overlay routing.
+- `packages/agent-context/core/agent-engineering-core.md` is the package core context.
+- `packages/agent-context/skills/*/SKILL.md` contains the five portable triggerable skills.
+- `packages/agent-context/overlays/noter-*.md` contains Noter-specific overlays.
+- `packages/agent-context/manifests/noter.md` is the first package-local Noter router.
+
+Next, validate from the package location and decide whether existing repo skills should become
+compatibility wrappers around the packaged portable skills.

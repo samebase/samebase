@@ -152,10 +152,11 @@ triggerable skills as installed-style artifacts. The pass supports the skill spl
 that Noter needs a package manifest or equivalent router to pair portable skills with the right
 overlays.
 
+`research/2026-05-23-agent-context-package-results.md` creates the first real package layout at
+`packages/agent-context`, with package-local core, skills, overlays, and Noter manifest.
+
 ## Open Questions Before Moving `AGENTS.md`
 
-- How to package the selected context-bundle shape in a real directory or installable repo-local
-  skill layout.
 - Whether existing repo skills should be renamed/refit or left as compatibility wrappers.
 - How much of `AGENTS.md` should remain as repo memory hierarchy versus become a loadable core file.
 - Whether `noter-app-template` should be tested against an actual generated app build before moving

@@ -122,7 +122,9 @@ Applied artifact:
 
 ## Remaining Work
 
-- Package the draft bundle shape in a real directory or installable repo-local skill layout.
+- See `research/2026-05-23-agent-context-package-results.md` for the first package layout in
+  `packages/agent-context`.
+- Run one package-location validation from `packages/agent-context/manifests/noter.md`.
 - Decide whether existing repo skills should become compatibility wrappers around the portable
   skills.
 - Keep `AGENTS.md` intact until each removed rule has a reachable core, skill, overlay, doc, or spec

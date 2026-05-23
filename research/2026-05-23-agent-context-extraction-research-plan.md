@@ -73,6 +73,8 @@ Repo guidance sources:
   the need for a manifest/router before promotion.
 - `research/agent-context-draft-bundle/noter-manifest.md` is the first package-like manifest that
   maps core, portable skills, and Noter overlays.
+- `research/2026-05-23-agent-context-package-results.md` records the first real package layout under
+  `packages/agent-context`, package validation expectations, and package-location validation.
 
 Local thread evidence:
 
@@ -341,9 +343,8 @@ context, a triggerable skill, a workflow doc, or an operator overlay.
 
 ## Next Work
 
-1. Package the draft bundle shape in a real directory or installable repo-local skill layout.
-2. Decide whether existing repo skills should become compatibility wrappers around the portable
+1. Decide whether existing repo skills should become compatibility wrappers around the portable
    skills.
-3. Decide whether to open the Cloudflare API boundary hardening as a separate production-code PR.
-4. Manually review the pinned comparison threads after the non-pinned baseline has more breadth.
-5. Only then move durable material out of `AGENTS.md`.
+2. Decide whether to open the Cloudflare API boundary hardening as a separate production-code PR.
+3. Manually review the pinned comparison threads after the non-pinned baseline has more breadth.
+4. Only then move durable material out of `AGENTS.md`.

@@ -54,8 +54,13 @@ overlay to pair with each portable skill.
 
 ## Promotion Rule
 
-Do not promote these files out of `research/` until the next packaging change creates either:
+The first package layout now exists at `packages/agent-context`; see
+`research/2026-05-23-agent-context-package-results.md`.
 
-- a real bundle directory with this manifest and copied core/skill/overlay files, or
-- repo-local installed skills plus a reachable always-loaded router that maps Noter tasks to the
-  right overlays.
+Do not remove the research draft files or shrink live `AGENTS.md` until:
+
+- the package has been validated from `packages/agent-context/manifests/noter.md`
+- existing repo skills are either kept as compatibility entrypoints or refit around the packaged
+  portable skills
+- each removed `AGENTS.md` rule has a reachable replacement in package core, package skill, package
+  overlay, repo docs, or accepted specs

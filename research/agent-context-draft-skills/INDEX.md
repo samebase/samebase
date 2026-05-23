@@ -59,10 +59,10 @@ meant to be reviewed, forward-tested, and revised before any live context modula
   for all five portable triggerable skills and the revisions it produced.
 - `research/agent-context-draft-bundle/noter-manifest.md` maps the current core, portable skills,
   and Noter overlays into the first package-like bundle manifest.
+- `research/2026-05-23-agent-context-package-results.md` records the first real package layout in
+  `packages/agent-context`.
 
 ## Next Validation
 
-- Package the draft bundle shape in a real directory or installable repo-local skill layout before
-  promoting artifacts out of `research/`.
 - Decide whether existing repo skills should become compatibility wrappers around the portable
   skills.
