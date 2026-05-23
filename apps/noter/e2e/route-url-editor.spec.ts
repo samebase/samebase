@@ -120,7 +120,9 @@ test("route URL editor fixture selects continuously across host and route text",
   expect(selectedText).toBe(`${host}${routePath}`);
 });
 
-test("route URL editor fixture refuses changes that remove the origin prefix", async ({ page }) => {
+test("route URL editor fixture refuses changes that remove the origin slash prefix", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 720, height: 96 });
   await page.goto("/visual-fixture?mode=route-url-editor", {
     waitUntil: "domcontentloaded",
@@ -134,7 +136,7 @@ test("route URL editor fixture refuses changes that remove the origin prefix", a
   await expect(input).toHaveValue(`${origin}/visual-fixture?mode=route-url-editor`);
 
   await input.evaluate((element, currentOrigin) => {
-    element.setSelectionRange(0, currentOrigin.length);
+    element.setSelectionRange(0, `${currentOrigin}/`.length);
   }, origin);
   await input.press("Backspace");
 
@@ -143,7 +145,7 @@ test("route URL editor fixture refuses changes that remove the origin prefix", a
   await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
 });
 
-test("route URL editor fixture keeps edits that preserve the origin prefix", async ({ page }) => {
+test("route URL editor fixture refuses changes that merge host and path text", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 96 });
   await page.goto("/visual-fixture?mode=route-url-editor", {
     waitUntil: "domcontentloaded",
@@ -161,12 +163,9 @@ test("route URL editor fixture keeps edits that preserve the origin prefix", asy
   }, origin);
   await input.press("Backspace");
 
-  await expect(input).toHaveValue(`${origin}visual-fixture?mode=route-url-editor`);
-  await expect(input).toHaveAttribute("aria-invalid", "true");
-  await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
-
-  await input.press("Escape");
   await expect(input).toHaveValue(`${origin}/visual-fixture?mode=route-url-editor`);
+  await expect(input).toHaveAttribute("aria-invalid", "false");
+  await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
 });
 
 test("route URL editor fixture applies same-path search and hash edits while typing", async ({

@@ -44,16 +44,12 @@ function readRouteUrlEditorDraftRouteAddress(args: {
   inputValue: string;
   origin: string;
 }): string | null {
-  if (!args.inputValue.startsWith(args.origin)) {
+  const enforcedInputPrefix = `${args.origin}/`;
+  if (!args.inputValue.startsWith(enforcedInputPrefix)) {
     return null;
   }
 
-  const routeAddress = args.inputValue.slice(args.origin.length);
-  if (routeAddress === "") {
-    return "/";
-  }
-
-  return routeAddress;
+  return `/${args.inputValue.slice(enforcedInputPrefix.length)}`;
 }
 
 type RouteUrlEditorCommitMode = "route-options" | "route-navigation";
