@@ -16,6 +16,8 @@
   - `research/agent-context-draft-bundle/noter-manifest.md`
   - `research/2026-05-23-agent-context-package-results.md`
   - `research/2026-05-23-agent-context-compatibility-map.md`
+  - `research/2026-05-23-agent-context-shadcn-ownership-decision.md`
+  - `research/2026-05-23-agent-context-cloudflare-boundary-followup.md`
   - `packages/agent-context/`
 
 ## Purpose
@@ -52,7 +54,7 @@ coverage status, and remaining work before anything is moved out of always-loade
 | `Code Guardrails`           | `typed-product-engineering` plus `noter-convex` plus unresolved UI residues                         | Strong   | Portable rules now cover strict typing, delete-first refactoring, provider/OpenAPI boundaries, state modeling, deterministic sorting, effects, wrappers, and tests. `noter-convex` covers Convex naming/validator conventions, `notEmpty`, provider-boundary rules, and contract tests. App-owned UI style APIs still need existing repo skills/docs or a future Noter UI overlay.                                                   |
 | `Non-Functional Guardrails` | `agent-engineering-core` plus `noter-operator-workflows`                                            | Strong   | Secret safety and fail-closed behavior are portable core. Approval, auth, audit, production reads, and provider boundaries stay in operator/app overlays.                                                                                                                                                                                                                                                                            |
 | `UI And Testing`            | `route-ui-validation` plus `typed-product-engineering` plus `noter-operator-workflows`              | Strong   | Portable route skill covers exact routes, interaction probes, desktop/mobile, fixtures, screenshots, and baseline handoff. Noter overlay keeps `pnpm anon`, `?dev`/`?prod-ui`, Linux ARM64 baseline command, and branch-scoped Playwright session details.                                                                                                                                                                           |
-| `shadcn/ui Rules`           | `existing-doc-or-skill` plus `keep-short`                                                           | Strong   | Keep a compact AGENTS pointer that generated shadcn files are read-only by default and additions use the CLI. The durable owner is `specs/063_SHADCN_WRAPPER_ENTRYPOINT_SPEC.md`, not portable skills or `noter-app-template`.                                                                                                                                                                                                       |
+| `shadcn/ui Rules`           | `existing-doc-or-skill` plus `keep-short`                                                           | Strong   | Keep a compact AGENTS pointer that generated shadcn files are read-only by default and additions use the CLI. The detailed owner is `specs/063_SHADCN_WRAPPER_ENTRYPOINT_SPEC.md`, not portable skills or `noter-app-template`; because that spec is still marked proposed, do not remove the compact AGENTS pointer unless the spec status is accepted/current.                                                                     |
 | `Workflow Shortcuts`        | `keep-short` plus `noter-operator-workflows`                                                        | Partial  | Shortcut trigger table likely needs to remain always-loaded so user commands like `commit`, `push`, `ship`, and `clean` are recognized. Move detailed semantics to the operator overlay and `docs/agent-workflows.md`.                                                                                                                                                                                                               |
 | `Workflow Rules`            | `pr-workflow-review`, `exact-resource-cleanup`, `noter-operator-workflows`, `existing-doc-or-skill` | Strong   | Portable PR and cleanup skills now cover read-only triage, review stance, CI, exact cleanup proof, and terminal-state cleanup. Build labels, ready/draft defaults, final directives, and shortcut meanings remain operator-specific.                                                                                                                                                                                                 |
 | `Worktree Rules`            | `keep-short` plus `noter-operator-workflows`                                                        | Partial  | Keep root/branch confirmation and detached-HEAD bootstrap pointer visible. Move detailed one-idea-per-worktree and Convex env-file caveats to operator overlay.                                                                                                                                                                                                                                                                      |
@@ -117,10 +119,6 @@ promotion:
 
 ## Remaining Validation
 
-- Decide whether shadcn/ui ownership belongs in `typed-product-engineering`, `noter-app-template`,
-  or a small Noter UI overlay. Current evidence points to
-  `specs/063_SHADCN_WRAPPER_ENTRYPOINT_SPEC.md` plus a short AGENTS pointer.
 - Decide whether shortcut recognition can safely move out of always-loaded context in the current
   Codex runtime.
-- Decide whether to open the Cloudflare API boundary test hardening as a separate production-code
-  follow-up.
+- Port the Cloudflare API boundary test hardening on a clean production-code branch when desired.

@@ -77,6 +77,12 @@ Repo guidance sources:
   `packages/agent-context`, package validation expectations, and package-location validation.
 - `research/2026-05-23-agent-context-compatibility-map.md` records how existing repo skills remain
   compatibility entrypoints around packaged portable skills.
+- `research/2026-05-23-agent-context-shadcn-ownership-decision.md` records the decision to keep
+  shadcn/ui ownership as spec 063 plus a compact `AGENTS.md` pointer rather than a portable skill or
+  Noter overlay.
+- `research/2026-05-23-agent-context-cloudflare-boundary-followup.md` records the decision to keep
+  Cloudflare API boundary hardening out of this extraction PR and port it on a clean production-code
+  branch when desired.
 
 Local thread evidence:
 
@@ -345,7 +351,8 @@ context, a triggerable skill, a workflow doc, or an operator overlay.
 
 ## Next Work
 
-1. Decide whether to open the Cloudflare API boundary hardening as a separate production-code PR.
-2. Decide whether shadcn/ui ownership needs a small Noter UI overlay or only a compact spec-pointer.
-3. Manually review the pinned comparison threads after the non-pinned baseline has more breadth.
+1. Decide whether shortcut recognition can safely move out of always-loaded context in the current
+   Codex runtime.
+2. Manually review the pinned comparison threads after the non-pinned baseline has more breadth.
+3. Port the Cloudflare API boundary hardening on a clean production-code branch when desired.
 4. Only then move durable material out of `AGENTS.md`.

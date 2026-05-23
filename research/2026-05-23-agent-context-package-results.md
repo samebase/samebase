@@ -8,6 +8,7 @@
   - `packages/agent-context/`
   - `research/agent-context-draft-bundle/noter-manifest.md`
   - `research/2026-05-23-agent-context-forward-test-results-4.md`
+  - `research/2026-05-23-agent-context-shadcn-ownership-decision.md`
 
 ## Purpose
 
@@ -58,6 +59,8 @@ Applied validation revision:
   over matching draft research paths.
 - The manifest now says a future shortened `AGENTS.md` must inline or point to core context before
   task-specific skills are chosen.
+- The manifest now points shadcn/ui ownership to spec 063 plus a compact `AGENTS.md` pointer instead
+  of introducing a portable skill or new Noter overlay.
 
 ## Decision
 
@@ -71,6 +74,7 @@ has this shape and should stay until the package is accepted as the source of tr
 
 - See `research/2026-05-23-agent-context-compatibility-map.md` for the decision to keep existing
   repo skills as compatibility entrypoints around packaged portable skills.
-- Decide whether shadcn/ui ownership needs a small Noter UI overlay.
+- See `research/2026-05-23-agent-context-shadcn-ownership-decision.md` for the decision to keep
+  shadcn/ui ownership in spec 063 plus a compact `AGENTS.md` pointer.
 - Keep `AGENTS.md` intact until each removed rule has a reachable core, skill, overlay, doc, or spec
   replacement.

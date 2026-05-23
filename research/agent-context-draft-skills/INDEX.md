@@ -63,7 +63,10 @@ meant to be reviewed, forward-tested, and revised before any live context modula
   `packages/agent-context`.
 - `research/2026-05-23-agent-context-compatibility-map.md` keeps existing repo skills as
   compatibility entrypoints around the packaged portable skills.
+- `research/2026-05-23-agent-context-shadcn-ownership-decision.md` keeps shadcn/ui ownership in spec
+  063 plus a compact `AGENTS.md` pointer.
 
 ## Next Validation
 
-- Decide whether shadcn/ui ownership needs a small Noter UI overlay or only a compact spec pointer.
+- Decide whether shortcut recognition can safely move out of always-loaded context in the current
+  Codex runtime.

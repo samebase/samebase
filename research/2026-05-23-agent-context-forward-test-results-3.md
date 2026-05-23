@@ -105,6 +105,7 @@ packaging target:
 - See `research/2026-05-23-agent-context-forward-test-results-4.md` for installed-style validation
   of the five portable triggerable skills.
 - Package the draft bundle shape in a real directory or installable repo-local skill layout.
-- Decide whether to open the Cloudflare API boundary hardening as a separate production-code PR.
+- See `research/2026-05-23-agent-context-cloudflare-boundary-followup.md` for the decision to keep
+  Cloudflare API boundary hardening as a separate production-code follow-up.
 - Only shrink `AGENTS.md` after each removed rule has a reachable core, skill, overlay, doc, or spec
   replacement.

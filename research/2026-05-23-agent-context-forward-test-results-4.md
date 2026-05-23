@@ -126,6 +126,7 @@ Applied artifact:
   `packages/agent-context`.
 - See `research/2026-05-23-agent-context-compatibility-map.md` for the decision to keep existing
   repo skills as compatibility entrypoints around packaged portable skills.
+- See `research/2026-05-23-agent-context-cloudflare-boundary-followup.md` for the clean-branch
+  follow-up shape for Cloudflare API boundary hardening.
 - Keep `AGENTS.md` intact until each removed rule has a reachable core, skill, overlay, doc, or spec
   replacement.
-- Open the Cloudflare API boundary hardening as a separate production-code follow-up when desired.

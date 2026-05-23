@@ -38,12 +38,21 @@ Load intent: installed-style skills that work without Noter-only commands or pro
 Load intent: repo/app/operator composition. These overlays supply Noter-specific startup, route
 mode, Convex, provider, PR, cleanup, and response rules that portable skills intentionally omit.
 
+### Repo Docs And Specs
+
+- `../../../specs/063_SHADCN_WRAPPER_ENTRYPOINT_SPEC.md`
+
+Load intent: source docs for narrow repo policies that do not earn a portable skill or package
+overlay. Shadcn/ui ownership stays as a compact always-loaded `AGENTS.md` reminder until spec 063 is
+accepted/current or the repo chooses to keep that pointer permanently.
+
 ## Trigger Map
 
 | Task shape                           | Core | Portable skill(s)            | Noter overlay(s)                                                                                        |
 | ------------------------------------ | ---- | ---------------------------- | ------------------------------------------------------------------------------------------------------- |
 | typed app code or provider client    | yes  | `typed-product-engineering`  | `noter-convex` for Convex/provider paths and scripts                                                    |
 | shipped UI route or interaction      | yes  | `route-ui-validation`        | `noter-operator-workflows`; `noter-app-template` when generated-app/template routes are involved        |
+| shadcn primitive ownership           | yes  | n/a                          | n/a; use `../../../specs/063_SHADCN_WRAPPER_ENTRYPOINT_SPEC.md` plus compact `AGENTS.md` pointer        |
 | PR, CI, review, or blocker triage    | yes  | `pr-workflow-review`         | `noter-operator-workflows` for build labels, ready/draft defaults, and review-bot requirements          |
 | cleanup, archive, stale resources    | yes  | `exact-resource-cleanup`     | `noter-operator-workflows` for vaults, previews, machine state, and Codex archive/pin checks            |
 | ambiguous research to implementation | yes  | `research-to-implementation` | `noter-app-template`, `noter-convex`, or `noter-operator-workflows` only when the evidence points there |
