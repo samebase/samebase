@@ -4,45 +4,58 @@ import { useMemo } from "react";
 import { useTheme } from "next-themes";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import {
-  CODE_SURFACE_FONT_FAMILY,
-  CODE_SURFACE_FONT_SIZE_PX,
-  CODE_SURFACE_LINE_HEIGHT_PX,
-} from "@/lib/codeSurfaceTypography";
+import { CODE_SURFACE_FONT_FAMILY } from "@/lib/codeSurfaceTypography";
 import {
   buildProvisioningLogDocumentEvents,
-  formatProvisioningLogDocument,
+  formatProvisioningLogApiValues,
   type ProvisioningLogApiCall,
   type ProvisioningLogEvent,
   type ProvisioningLogDocumentEvent,
 } from "@/lib/provisioningLog";
 
-const MIN_EDITOR_HEIGHT_PX = 180;
-const MAX_EDITOR_HEIGHT_PX = 360;
-const EDITOR_VERTICAL_PADDING_PX = 20;
+const LOG_FONT_SIZE_PX = 12;
+const LOG_LINE_HEIGHT_PX = 18;
+const MIN_VALUE_EDITOR_HEIGHT_PX = 48;
+const MAX_VALUE_EDITOR_HEIGHT_PX = 170;
+const VALUE_EDITOR_VERTICAL_PADDING_PX = 8;
 
-function buildProvisioningLogDocumentPath(repositoryFullName: string): string {
-  return `noter-provisioning-log/${repositoryFullName}.json`;
+type ProvisioningLogApiDocumentEvent = ProvisioningLogDocumentEvent & {
+  api: ProvisioningLogApiCall;
+};
+
+function buildProvisioningLogValueDocumentPath(
+  repositoryFullName: string,
+  event: ProvisioningLogApiDocumentEvent,
+): string {
+  return [
+    "noter-provisioning-log",
+    encodeURIComponent(repositoryFullName),
+    `${encodeURIComponent(event.time)}-${event.api.provider}-${event.api.method}-${encodeURIComponent(
+      event.api.endpoint,
+    )}.json`,
+  ].join("/");
 }
 
 function countDocumentLines(documentText: string): number {
   return documentText.split("\n").length;
 }
 
-type ProvisioningLogApiDocumentEvent = ProvisioningLogDocumentEvent & {
-  api: ProvisioningLogApiCall;
-};
-
-function isApiCallEvent(
-  event: ProvisioningLogDocumentEvent,
-): event is ProvisioningLogApiDocumentEvent {
-  return "api" in event;
+function getValueEditorHeight(documentText: string): number {
+  return Math.min(
+    MAX_VALUE_EDITOR_HEIGHT_PX,
+    Math.max(
+      MIN_VALUE_EDITOR_HEIGHT_PX,
+      countDocumentLines(documentText) * LOG_LINE_HEIGHT_PX + VALUE_EDITOR_VERTICAL_PADDING_PX,
+    ),
+  );
 }
 
-function getApiCallEvents(
-  events: ProvisioningLogDocumentEvent[],
-): ProvisioningLogApiDocumentEvent[] {
-  return events.filter(isApiCallEvent);
+function formatNonApiLogEvent(event: ProvisioningLogDocumentEvent): string {
+  if ("message" in event) {
+    return `${event.time} ${event.level.toUpperCase()} ${event.step} - ${event.message}`;
+  }
+
+  return `${event.time} ${event.level.toUpperCase()} ${event.step}`;
 }
 
 export function VaultProvisioningLogViewer(props: {
@@ -51,35 +64,53 @@ export function VaultProvisioningLogViewer(props: {
 }) {
   const { theme, systemTheme } = useTheme();
   const effectiveTheme = theme === "system" ? systemTheme : theme;
-  const documentText = useMemo(() => formatProvisioningLogDocument(props.events), [props.events]);
-  const apiCallEvents = useMemo(
-    () => getApiCallEvents(buildProvisioningLogDocumentEvents(props.events)),
-    [props.events],
-  );
-  const editorHeightPx = Math.min(
-    MAX_EDITOR_HEIGHT_PX,
-    Math.max(
-      MIN_EDITOR_HEIGHT_PX,
-      countDocumentLines(documentText) * CODE_SURFACE_LINE_HEIGHT_PX + EDITOR_VERTICAL_PADDING_PX,
-    ),
-  );
+  const logEvents = useMemo(() => buildProvisioningLogDocumentEvents(props.events), [props.events]);
 
   return (
-    <div aria-label={`Provisioning log for ${props.repositoryFullName}`} role="region">
-      {apiCallEvents.length > 0 ? (
-        <div className="mb-2 grid gap-1 text-xs">
-          {apiCallEvents.map((event) => (
-            <div
-              key={`${event.time}:${event.step}:${event.api.provider}:${event.api.method}:${event.api.endpoint}`}
-              className="grid grid-cols-[5rem_3.5rem_minmax(0,1fr)] gap-2"
-            >
-              <span className="text-muted-foreground">{event.api.provider}</span>
-              <span className="font-mono">{event.api.method}</span>
-              <span className="min-w-0 break-words font-mono">{event.api.endpoint}</span>
-            </div>
-          ))}
-        </div>
-      ) : null}
+    <div
+      aria-label={`Provisioning log for ${props.repositoryFullName}`}
+      role="region"
+      className="grid gap-3"
+    >
+      {logEvents.map((event) =>
+        "api" in event ? (
+          <ProvisioningLogApiEventViewer
+            key={`${event.time}:${event.step}:${event.api.provider}:${event.api.method}:${event.api.endpoint}`}
+            event={event}
+            repositoryFullName={props.repositoryFullName}
+            theme={effectiveTheme === "dark" ? "vs-dark" : "vs"}
+          />
+        ) : (
+          <div
+            key={`${event.time}:${event.step}:${event.message}`}
+            className="font-mono text-xs text-muted-foreground"
+          >
+            {formatNonApiLogEvent(event)}
+          </div>
+        ),
+      )}
+    </div>
+  );
+}
+
+function ProvisioningLogApiEventViewer(props: {
+  event: ProvisioningLogApiDocumentEvent;
+  repositoryFullName: string;
+  theme: "vs" | "vs-dark";
+}) {
+  const valuesText = useMemo(
+    () => formatProvisioningLogApiValues(props.event.api),
+    [props.event.api],
+  );
+  const editorHeightPx = getValueEditorHeight(valuesText);
+
+  return (
+    <div className="grid gap-1">
+      <div className="grid grid-cols-[5rem_3.5rem_minmax(0,1fr)] gap-2 text-xs">
+        <span className="text-muted-foreground">{props.event.api.provider}</span>
+        <span className="font-mono">{props.event.api.method}</span>
+        <span className="min-w-0 break-words font-mono">{props.event.api.endpoint}</span>
+      </div>
       <div
         className="notranslate w-full overflow-hidden border border-input bg-background"
         style={{ height: editorHeightPx }}
@@ -88,21 +119,22 @@ export function VaultProvisioningLogViewer(props: {
         <Editor
           height="100%"
           language="json"
-          path={buildProvisioningLogDocumentPath(props.repositoryFullName)}
-          theme={effectiveTheme === "dark" ? "vs-dark" : "vs"}
-          value={documentText}
+          path={buildProvisioningLogValueDocumentPath(props.repositoryFullName, props.event)}
+          theme={props.theme}
+          value={valuesText}
           options={{
             automaticLayout: true,
             cursorStyle: "line-thin",
             domReadOnly: true,
-            folding: true,
+            folding: false,
             fontFamily: CODE_SURFACE_FONT_FAMILY,
             fontLigatures: false,
-            fontSize: CODE_SURFACE_FONT_SIZE_PX,
+            fontSize: LOG_FONT_SIZE_PX,
             glyphMargin: false,
-            lineHeight: CODE_SURFACE_LINE_HEIGHT_PX,
-            lineNumbers: "on",
-            lineNumbersMinChars: 3,
+            lineDecorationsWidth: 0,
+            lineHeight: LOG_LINE_HEIGHT_PX,
+            lineNumbers: "off",
+            lineNumbersMinChars: 0,
             minimap: { enabled: false },
             overviewRulerBorder: false,
             overviewRulerLanes: 0,

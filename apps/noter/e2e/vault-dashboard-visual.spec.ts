@@ -388,7 +388,7 @@ test("vault dashboard fixture (provisioning log)", async ({ page }) => {
       name: "Provisioning log for noter-md/noter-app",
     }),
   ).toBeVisible();
-  await expect(fixture.locator(".monaco-editor")).toBeVisible();
+  await expect(fixture.locator(".monaco-editor")).toHaveCount(4);
   await expect(fixture).toHaveScreenshot("vault-dashboard-provisioning-log.png", {
     animations: "disabled",
     caret: "hide",

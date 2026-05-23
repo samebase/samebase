@@ -141,6 +141,6 @@ export function formatProvisioningLogText(events: ProvisioningLogEvent[]): strin
   return events.map(formatProvisioningLogLine).join("\n");
 }
 
-export function formatProvisioningLogDocument(events: ProvisioningLogEvent[]): string {
-  return JSON.stringify(buildProvisioningLogDocumentEvents(events), null, 2);
+export function formatProvisioningLogApiValues(apiCall: ProvisioningLogApiCall): string {
+  return JSON.stringify(apiCall.values ?? {}, null, 2);
 }
