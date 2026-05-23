@@ -435,5 +435,8 @@ export const ensureCloudflareWorkerConnection = internalAction({
         return null;
       }
     }
+
+    args.origin satisfies never;
+    throw new Error("Unsupported Cloudflare Worker origin.");
   },
 });

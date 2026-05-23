@@ -365,6 +365,8 @@ async function resolveProviderSetupSummary(
 
   const ownership = await readVaultInfrastructureOwnership(ctx, vault._id);
   const ownershipRun = ownership ? await ctx.db.get(ownership.runId) : null;
+  // Manual Cloudflare runs share infrastructure ownership, but their run state
+  // belongs in the provider rail before the generic Convex ownership fallback.
   if (
     ownership &&
     ownershipRun?.trigger === "connect_cloudflare_worker" &&
