@@ -124,7 +124,7 @@ These belong in a Noter or `notermd/app` template context, not generic engineeri
 
 These are repo/operator-specific and should not leak into portable packs.
 
-- Use `pnpm anon:once` and `pnpm anon` in worktrees.
+- Use the repo worktree startup flow in worktrees.
 - Rename meaningless generated branches early.
 - Fetch/rebase before implementation, PR update, or merge workflows.
 - Use `tmp-<worktree-id>-<intent>` for temporary Noter-managed repos/vaults.

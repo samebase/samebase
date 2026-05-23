@@ -68,12 +68,12 @@ boundary:
   key Noter invariants explicitly: generated response validation, path/body/response inference,
   non-string path-param rejection, and decimal-string Convex IDs.
 
-All variants ran `pnpm anon` before tests because the repo guidance says to use it before worktree
-dev/lint/test workflows. In this read-only experiment prompt, that conflicted with the instruction
-not to touch provider state. Two variants called out the conflict explicitly. This is a real
-extraction finding: the `pnpm anon` rule is an operator-worktree workflow, not a portable testing
-rule, and experiments that forbid provider writes need a separate verification path or an explicit
-allowance.
+All variants ran the then-current worktree startup command before tests because the repo guidance
+said to use it before worktree dev/lint/test workflows. In this read-only experiment prompt, that
+conflicted with the instruction not to touch provider state. Two variants called out the conflict
+explicitly. This is a real extraction finding: worktree startup is an operator workflow, not a
+portable testing rule, and experiments that forbid provider writes need a separate verification path
+or an explicit allowance.
 
 ## Scoring
 
@@ -87,30 +87,30 @@ allowance.
 | Portability judgment | 1         | 1.5           | 2                     |
 | Operator summary     | 2         | 2             | 2                     |
 
-Safety is capped at `1` for all variants because every run used `pnpm anon` under a prompt that
-forbade provider/external state changes. The agents did not leak secrets or intentionally mutate
-product data, but the experiment design exposed a workflow-context ambiguity.
+Safety is capped at `1` for all variants because every run used the worktree startup command under a
+prompt that forbade provider/external state changes. The agents did not leak secrets or
+intentionally mutate product data, but the experiment design exposed a workflow-context ambiguity.
 
 ## Observed Missing Context
 
 Core-only missing context:
 
 - did not know the best repo-specific test entrypoint initially
-- did not distinguish `pnpm anon` as an operator workflow that can touch provider state
+- did not distinguish worktree startup as an operator workflow that can touch provider state
 - did not have a strong reason to keep small implementation helpers when generic indexing became
   harder for TypeScript to prove
 
 Typed-product missing context:
 
 - correctly treated the TypeScript overload boundary as a safety boundary
-- still lacked an experiment-specific rule for avoiding `pnpm anon` when external writes are
+- still lacked an experiment-specific rule for avoiding worktree startup when external writes are
   disallowed
 
 Noter-overlay remaining gaps:
 
 - reported the provider-boundary invariants most clearly
-- still did not override the conflicting `pnpm anon` instruction with a safer read-only verification
-  strategy
+- still did not override the conflicting worktree-startup instruction with a safer read-only
+  verification strategy
 
 ## Extraction Decision
 
@@ -122,8 +122,8 @@ This experiment supports the current pack boundary, with refinements:
   in `typed-product-engineering`
 - keep Convex decimal-string IDs and app-provisioning provider-boundary examples in
   `noter-app-template`
-- keep `pnpm anon` and its provider-state side effects in `noter-operator-workflows`, with a warning
-  that read-only experiments should not blindly inherit it
+- keep Noter worktree startup and its provider-state side effects in `noter-operator-workflows`,
+  with a warning that read-only experiments should not blindly inherit it
 
 The typed-product context mattered most for knowing when not to delete the remaining helper branch.
 The Noter overlay mattered most for naming why decimal-string ID handling is not incidental style.

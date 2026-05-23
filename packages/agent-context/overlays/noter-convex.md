@@ -14,8 +14,8 @@ for Convex's generated guidance.
   - `convex-performance-audit` for latency, read amplification, subscription cost, or OCC issues
   - `convex-create-component` only when the feature genuinely needs a Convex component boundary
   - `convex-setup-auth` for auth provider or user-identity wiring
-- This overlay overrides generic Convex quickstart/dev advice inside this repo: worktrees use
-  `pnpm anon`, not raw `npx convex dev`.
+- This overlay overrides generic Convex quickstart/dev advice inside this repo: use Noter's
+  context-aware `pnpm dev` worktree flow, not raw `npx convex dev`.
 
 ## Before Editing
 
@@ -31,12 +31,11 @@ for Convex's generated guidance.
 
 ## Local And Production Commands
 
-- In worktrees, use the Noter operator workflow: `pnpm anon:once` once after checkout and
-  `pnpm anon` before dev, lint, test, and commit workflows.
-- In the primary checkout, use `pnpm dev`.
-- If an experiment or review explicitly forbids `pnpm anon`, run only local checks that do not need
-  Convex/provider state, such as formatting, static type checks, or unit tests with mocked
-  transports. Skip backend-dependent commands and record the reason.
+- In worktrees, use the Noter operator workflow: `pnpm dev --once` or `pnpm dev:worktree:once` once
+  after checkout, then context-aware `pnpm dev` for the dev flow.
+- If an experiment or review explicitly forbids provider-state bootstrap, run only local checks that
+  do not need Convex/provider state, such as formatting, static type checks, or unit tests with
+  mocked transports. Skip backend-dependent commands and record the reason.
 - Fresh validation worktrees may need dependencies materialized from the lockfile before `pnpm exec`
   commands can run.
 - Production reads from worktrees must derive `CONVEX_DEPLOYMENT` from the primary checkout and

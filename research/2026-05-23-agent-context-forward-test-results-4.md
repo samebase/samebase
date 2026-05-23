@@ -57,7 +57,7 @@ The agent had to seek Noter overlay context for:
 
 - `?dev` and `?prod-ui` semantics
 - key-presence query params
-- `pnpm anon` startup rules
+- Noter worktree startup rules
 - Linux/ARM64 screenshot baseline authority
 
 Applied revision:

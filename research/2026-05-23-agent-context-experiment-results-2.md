@@ -31,8 +31,9 @@ The fixture branch had no PR of its own. Its HEAD matched the head of PR
 [#818](https://github.com/noter-md/noter/pull/818), whose real branch is
 `codex/agent-context-extraction-research`.
 
-`pnpm anon:once` was run once after creating the worktree so the checkout matched repo worktree
-startup expectations, but the experiment itself did not start app servers or run product tests.
+The then-current one-time worktree bootstrap was run after creating the worktree so the checkout
+matched repo worktree startup expectations, but the experiment itself did not start app servers or
+run product tests.
 
 ## Variants
 

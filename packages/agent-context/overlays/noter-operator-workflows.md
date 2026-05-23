@@ -7,12 +7,14 @@ portable TypeScript or generated-app skill pack.
 
 ## Startup And Worktrees
 
-- In a worktree, run `pnpm anon:once` once after checkout.
-- In a worktree, use `pnpm anon` before dev, lint, test, and commit workflows.
-- Treat `pnpm anon` as an operator workflow that can touch anonymous Convex or provider state. For
-  read-only experiments, use a verification path that does not require it or record why the
+- Use `pnpm dev` as the normal startup command. It runs the primary dev flow from the main checkout
+  and the anonymous local flow from linked git worktrees.
+- In a worktree, run `pnpm dev --once` or `pnpm dev:worktree:once` once after checkout.
+- In a worktree, use the worktree startup flow before dev, lint, test, and commit workflows. Do not
+  replace it with direct `npx convex dev`.
+- Treat worktree startup as an operator workflow that can touch anonymous Convex or provider state.
+  For read-only experiments, use a verification path that does not require it or record why the
   provider-state bootstrap was allowed.
-- In the primary local checkout, use `pnpm dev`.
 - Confirm worktree root and branch before dev, test, commit, or cleanup work.
 - Fetch origin and rebase onto the latest `origin/main` before implementation on an existing branch
   or worktree.

@@ -75,7 +75,7 @@ The context variants affected the quality of the remaining-work judgment:
   `localeCompare`. It recommended aligning runtime ordering with exporter ordering so exact snapshot
   semantics are deterministic end to end.
 
-No variant ran `pnpm anon`, contacted providers, or modified files.
+No variant ran the then-current worktree startup command, contacted providers, or modified files.
 
 ## Scoring
 

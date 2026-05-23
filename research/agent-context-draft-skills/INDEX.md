@@ -32,8 +32,8 @@ meant to be reviewed, forward-tested, and revised before any live context modula
 - The artifact set intentionally avoids scripts, assets, and nested references until forward tests
   prove a repeated deterministic operation belongs in the package.
 - A separate explorer pass over the research artifacts agreed with the split and flagged the main
-  risk: `pnpm anon` is required for normal Noter worktree workflows but can touch provider state, so
-  it must remain out of portable and read-only experiment instructions.
+  risk: Noter worktree startup can touch provider state, so it must remain out of portable and
+  read-only experiment instructions.
 - A lightweight Node structural check confirmed all six draft skill folders have matching `SKILL.md`
   frontmatter and body headings. The system `skill-creator` validator could not run in this
   environment because Python was missing `PyYAML`.

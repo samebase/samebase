@@ -19,8 +19,8 @@ Noter-stack apps.
 This skill remains the Noter-specific compatibility entrypoint for live browser sessions. For the
 portable route-validation checklist, use
 `packages/agent-context/skills/route-ui-validation/SKILL.md`. Pair it with
-`packages/agent-context/overlays/noter-operator-workflows.md` for `pnpm anon`, branch-scoped browser
-sessions, Linux visual baselines, and Noter response rules.
+`packages/agent-context/overlays/noter-operator-workflows.md` for context-aware dev startup,
+branch-scoped browser sessions, Linux visual baselines, and Noter response rules.
 
 ## Core Policy
 

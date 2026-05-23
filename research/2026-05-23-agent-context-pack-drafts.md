@@ -22,16 +22,16 @@ The intended load shape is layered:
 
 ## Pack Map
 
-| Pack                         | Load Mode                            | Portability                       | Purpose                                                                                               |
-| ---------------------------- | ------------------------------------ | --------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `agent-engineering-core`     | Always loaded                        | General software engineering      | Preserve evidence-first, correction-aware, user-work-preserving agent behavior across repos.          |
-| `typed-product-engineering`  | Repo/app pack or triggerable skill   | TypeScript and typed product apps | Capture schema-derived typing, state ownership, route validation, and delete-first typed refactoring. |
-| `pr-workflow-review`         | Triggerable skill                    | Broad Git/GitHub repos            | Handle PR discovery, review stance, CI/check summaries, and scope calibration.                        |
-| `route-ui-validation`        | Triggerable skill                    | Interactive frontend apps         | Validate user-visible UI on exact routes, devices, query modes, and interaction states.               |
-| `research-to-implementation` | Triggerable skill                    | General product engineering       | Convert research into scoped implementation without research sprawl or speculative overlays.          |
-| `exact-resource-cleanup`     | Triggerable skill with repo overlays | Repos with external resources     | Dry-run and perform cleanup only after exact target proof.                                            |
-| `noter-app-template`         | App-template overlay                 | `notermd/app` and descendants     | Keep template/exporter behavior aligned with the app template source of truth.                        |
-| `noter-operator-workflows`   | Operator overlay                     | This repo/operator                | Keep `pnpm anon`, PR build labels, temp vault naming, preview cleanup, and machine state rules.       |
+| Pack                         | Load Mode                            | Portability                       | Purpose                                                                                                       |
+| ---------------------------- | ------------------------------------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `agent-engineering-core`     | Always loaded                        | General software engineering      | Preserve evidence-first, correction-aware, user-work-preserving agent behavior across repos.                  |
+| `typed-product-engineering`  | Repo/app pack or triggerable skill   | TypeScript and typed product apps | Capture schema-derived typing, state ownership, route validation, and delete-first typed refactoring.         |
+| `pr-workflow-review`         | Triggerable skill                    | Broad Git/GitHub repos            | Handle PR discovery, review stance, CI/check summaries, and scope calibration.                                |
+| `route-ui-validation`        | Triggerable skill                    | Interactive frontend apps         | Validate user-visible UI on exact routes, devices, query modes, and interaction states.                       |
+| `research-to-implementation` | Triggerable skill                    | General product engineering       | Convert research into scoped implementation without research sprawl or speculative overlays.                  |
+| `exact-resource-cleanup`     | Triggerable skill with repo overlays | Repos with external resources     | Dry-run and perform cleanup only after exact target proof.                                                    |
+| `noter-app-template`         | App-template overlay                 | `notermd/app` and descendants     | Keep template/exporter behavior aligned with the app template source of truth.                                |
+| `noter-operator-workflows`   | Operator overlay                     | This repo/operator                | Keep context-aware dev startup, PR build labels, temp vault naming, preview cleanup, and machine state rules. |
 
 ## `agent-engineering-core`
 
@@ -124,7 +124,7 @@ Include:
 
 Noter overlay hooks:
 
-- `pnpm anon` startup
+- context-aware `pnpm dev` startup
 - `?dev` and `?prod-ui` route expectations
 - Linux ARM64 visual baseline command
 - `noter-playwright-live` session rules
@@ -203,8 +203,9 @@ This overlay is intentionally not portable.
 
 Include:
 
-- use `pnpm anon:once` after checkout and `pnpm anon` before worktree dev/lint/test/commit workflows
-- treat `pnpm anon` as an operator workflow that can touch anonymous Convex/provider state; in
+- use `pnpm dev --once` or `pnpm dev:worktree:once` once after checkout, and use the worktree
+  startup flow before dev/lint/test/commit workflows
+- treat worktree startup as an operator workflow that can touch anonymous Convex/provider state; in
   read-only experiments, either use a verification path that does not require it or explicitly
   record why provider-state bootstrap was allowed
 - derive production Convex commands from the primary checkout without leaking deploy keys

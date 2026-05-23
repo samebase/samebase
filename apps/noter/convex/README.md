@@ -87,7 +87,8 @@ flowchart LR
 From the repo root in a worktree, use the Noter workflow instead of raw Convex dev commands:
 
 ```bash
-pnpm anon
+pnpm dev --once
+pnpm dev
 pnpm check
 ```
 

@@ -22,7 +22,7 @@ Prompt shape:
 
 ## Fixture
 
-The real app was started from the PR worktree with `pnpm anon`.
+The real app was started from the PR worktree with the then-current worktree startup command.
 
 - Worktree: `/Users/nicu/.codex/worktrees/c464/noter`
 - Local URL: `http://localhost:5175/`

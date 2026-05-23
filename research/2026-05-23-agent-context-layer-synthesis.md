@@ -34,7 +34,7 @@ software repos:
 - delegate bounded side tasks with explicit output contracts
 
 Do not put repo commands, provider-specific cleanup, visual baseline workflows, PR build labels, or
-`pnpm anon` into the portable core.
+Noter-specific dev startup into the portable core.
 
 ### Triggerable Skills
 
@@ -61,9 +61,9 @@ Draft these as overlays rather than portable skills:
 - `noter-convex`: Noter-specific Convex generated-guidance routing, worktree/prod CLI safety, module
   layout, validator naming, contract-test lane, component boundary cautions, and provider API
   validation rules.
-- `noter-operator-workflows`: `pnpm anon`, Convex production-read safety, PR build labels, shortcut
-  workflows, temporary vault naming, cleanup mechanics, localhost/tunnel response preferences, and
-  ProseMark link workaround.
+- `noter-operator-workflows`: context-aware dev startup, Convex production-read safety, PR build
+  labels, shortcut workflows, temporary vault naming, cleanup mechanics, localhost/tunnel response
+  preferences, and ProseMark link workaround.
 
 ## Boundary Lessons From Experiments
 
@@ -79,8 +79,8 @@ Draft these as overlays rather than portable skills:
 - App template adoption: research-to-implementation skill should prevent research sprawl and notice
   when architecture already exists; Noter app-template overlay should prevent Noter-side overlays or
   filtering.
-- `pnpm anon` is useful operator workflow context, but unsafe as generic read-only test setup
-  because it can touch anonymous Convex/provider state.
+- Noter worktree dev bootstrap is useful operator workflow context, but unsafe as generic read-only
+  test setup because it can touch anonymous Convex/provider state.
 
 ## Drafting Order
 
@@ -114,8 +114,8 @@ Noter overlay drafts:
 - `noter-operator-workflows.md`
 
 A separate explorer sanity check over the experiment artifacts agreed with this split and reinforced
-the main boundary risk: `pnpm anon` belongs in the Noter operator overlay, not portable or read-only
-experiment context.
+the main boundary risk: Noter worktree startup belongs in the Noter operator overlay, not portable
+or read-only experiment context.
 
 ## Forward-Test Revisions
 

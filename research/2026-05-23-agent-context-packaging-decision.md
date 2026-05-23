@@ -32,8 +32,8 @@ without pretending that every layer is a Codex skill.
 - The draft artifacts split into one always-applicable core, five portable triggerable skills, and
   three Noter overlays.
 - Forward tests show that the triggerable artifacts improve bounded tasks, while repo/operator
-  details such as `pnpm anon`, build labels, Convex production reads, and generated-app provenance
-  must stay out of the portable core.
+  details such as Noter-specific dev startup, build labels, Convex production reads, and
+  generated-app provenance must stay out of the portable core.
 - The editing-capable `noter-convex` validation shows repo overlays can guide bounded work without
   absorbing production-code follow-ups into the extraction branch.
 - The installed-style portable skill validation shows the five triggerable skills work as skill

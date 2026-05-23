@@ -32,7 +32,7 @@ This pass tests the next unresolved extraction questions:
 Validation ran in the isolated worktree
 `/Users/nicu/.codex/worktrees/c464-convex-overlay-validation/noter` on branch
 `codex/noter-convex-overlay-validation`. The worker did not push, commit, start dev servers, run
-`pnpm anon`, or touch provider state.
+worktree startup, or touch provider state.
 
 Fork-only changed path:
 
@@ -74,7 +74,7 @@ Applied revisions:
 - Named the provider-boundary exemplar shape more concretely: `expectType`, negative
   `@ts-expect-error` cases, request materialization, lossless identifier coverage when relevant, and
   fail-before-transport runtime validation.
-- Added a local-check fallback when a validation task explicitly forbids `pnpm anon`.
+- Added a local-check fallback when a validation task explicitly forbids provider-state bootstrap.
 - Noted that fresh validation worktrees may need dependency materialization from the lockfile before
   `pnpm exec` commands can run.
 

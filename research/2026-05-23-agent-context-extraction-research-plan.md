@@ -142,7 +142,8 @@ TypeScript and product-app specific:
 
 Noter/operator-specific:
 
-- `pnpm anon:once` and `pnpm anon` worktree startup
+- context-aware `pnpm dev` worktree startup, with `pnpm dev --once` or `pnpm dev:worktree:once` for
+  one-time worktree bootstrap
 - Convex CLI production-read safety
 - temporary vault naming
 - `noter.ts` machine-link isolation
@@ -244,8 +245,9 @@ overlay improves `?dev`/`?prod-ui` interpretation plus safe non-mutating input p
 The fourth experiment tested typed refactoring at the Convex Management API boundary. It showed the
 typed-product pack helps agents reduce wrappers without crossing TypeScript's proof boundary, while
 the Noter app-template overlay names why generated validation and decimal-string IDs are real
-provider-safety invariants. It also exposed that `pnpm anon` is an operator workflow with provider
-side effects, not a portable read-only test instruction.
+provider-safety invariants. It also exposed that worktree startup is an operator workflow with
+provider side effects, not a portable read-only test instruction. Current mainline startup uses
+context-aware `pnpm dev` commands, but the layer lesson is unchanged.
 
 The fifth experiment tested `notermd/app` adoption with a mid-run correction forbidding Noter-only
 overlays. All variants recognized the exporter/seeder path already exists, but the
@@ -311,7 +313,7 @@ Specific to Noter's Convex backend:
 
 Specific to this repo and this operator:
 
-- `pnpm anon` worktree lifecycle
+- context-aware worktree dev lifecycle
 - exact shortcut command meanings: `commit`, `push`, `create pr`, `ship`, `clean`, and related flows
 - PR build-label rules
 - temporary vault and preview cleanup
