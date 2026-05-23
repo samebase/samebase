@@ -122,6 +122,9 @@ function redactProviderApiValue(value: unknown, key = ""): RedactedProviderApiVa
     const redacted: { [key: string]: RedactedProviderApiValue } = {};
     const entries = Object.entries(value).sort(([left], [right]) => left.localeCompare(right));
     for (const [entryKey, entryValue] of entries) {
+      if (entryValue === undefined) {
+        continue;
+      }
       redacted[entryKey] = redactProviderApiValue(entryValue, entryKey);
     }
     return redacted;

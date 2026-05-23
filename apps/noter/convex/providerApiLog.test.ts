@@ -59,4 +59,26 @@ describe("formatProviderApiCallLogMessage", () => {
       }),
     ).toContain('"[2 more items redacted]"');
   });
+
+  it("omits missing request fields instead of showing undefined placeholders", () => {
+    const message = formatProviderApiCallLogMessage({
+      provider: "Cloudflare",
+      method: "GET",
+      endpoint: "/accounts/{account_id}/builds/tokens",
+      values: {
+        body: undefined,
+        params: {
+          path: {
+            account_id: "abc123",
+          },
+          query: undefined,
+        },
+      },
+    });
+
+    expect(message).toContain('"account_id":"[redacted]"');
+    expect(message).not.toContain("[undefined]");
+    expect(message).not.toContain('"body"');
+    expect(message).not.toContain('"query"');
+  });
 });
