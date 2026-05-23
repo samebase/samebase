@@ -97,6 +97,39 @@ test("route URL editor fixture selects across domain and route text", async ({ p
   expect(selectedText).toBe(`${host}${routePath}`);
 });
 
+test("route URL editor fixture keeps the current domain when host text is deleted", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 720, height: 96 });
+  await page.goto("/visual-fixture?mode=route-url-editor", {
+    waitUntil: "domcontentloaded",
+  });
+  const host = await page.evaluate(() => window.location.host);
+  const protocol = await page.evaluate(() => `${window.location.protocol}//`);
+  const currentHref = page.getByTestId("route-url-editor-fixture-current-href");
+
+  const input = page.getByTestId("route-url-editor-input");
+  await input.focus();
+  await expect(input).toHaveValue(`${protocol}${host}/visual-fixture?mode=route-url-editor`);
+
+  await input.evaluate((element, expectedHost) => {
+    if (!(element instanceof HTMLInputElement)) {
+      throw new Error("Expected route URL editor input.");
+    }
+
+    const hostStart = element.value.indexOf(expectedHost);
+    if (hostStart === -1) {
+      throw new Error("Expected input value to include host.");
+    }
+
+    element.setSelectionRange(hostStart, hostStart + expectedHost.length);
+  }, host);
+  await input.press("Backspace");
+
+  await expect(input).toHaveValue(`${protocol}${host}/visual-fixture?mode=route-url-editor`);
+  await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
+});
+
 test("route URL editor fixture rejects external origins", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 96 });
   await page.goto("/visual-fixture?mode=route-url-editor", {

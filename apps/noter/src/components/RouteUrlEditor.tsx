@@ -75,6 +75,7 @@ function formatRouteUrlEditorInputValue(args: {
 function readRouteUrlEditorExplicitSameOriginAddress(rawAddress: string): string | null {
   const origin = readRouteUrlEditorOrigin();
   const host = readRouteUrlEditorHost();
+  const protocolPrefix = readRouteUrlEditorProtocolPrefix();
   const trimmedAddress = rawAddress.trim();
   const fullOriginAddress =
     trimmedAddress === origin ||
@@ -86,6 +87,15 @@ function readRouteUrlEditorExplicitSameOriginAddress(rawAddress: string): string
     trimmedAddress.startsWith(`${host}/`) ||
     trimmedAddress.startsWith(`${host}?`) ||
     trimmedAddress.startsWith(`${host}#`);
+  const protocolWithoutHostAddress =
+    trimmedAddress === protocolPrefix ||
+    trimmedAddress.startsWith(`${protocolPrefix}/`) ||
+    trimmedAddress.startsWith(`${protocolPrefix}?`) ||
+    trimmedAddress.startsWith(`${protocolPrefix}#`);
+
+  if (protocolWithoutHostAddress) {
+    return trimmedAddress.slice(protocolPrefix.length) || "/";
+  }
 
   if (fullOriginAddress || hostAddress) {
     try {
