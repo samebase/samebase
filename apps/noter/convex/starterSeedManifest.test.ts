@@ -51,8 +51,22 @@ describe("starterSeedManifest", () => {
     );
   });
 
-  it("shows the creator name on starter todos", () => {
+  it("lists starter todos publicly with creator names", () => {
+    expect(starterTemplateManifest.files["README.md"]).toContain(
+      "the public todo list keeps guest author attribution",
+    );
+    expect(starterTemplateManifest.files["convex/schema.ts"]).toContain(
+      '.index("by_created_at", ["createdAt"])',
+    );
+    expect(starterTemplateManifest.files["convex/todos.ts"]).toContain(
+      '.withIndex("by_created_at")',
+    );
     expect(starterTemplateManifest.files["convex/todos.ts"]).toContain("creatorName");
+    expect(starterTemplateManifest.files["convex/todos.ts"]).toContain("viewerCanToggle");
+    expect(starterTemplateManifest.files["convex/todos.ts"]).toContain("viewerTodoCount");
+    expect(starterTemplateManifest.files["src/routes/index.tsx"]).toContain(
+      "<TodoList todos={todos} />",
+    );
     expect(starterTemplateManifest.files["src/routes/index.tsx"]).toContain(
       "Created by {todo.creatorName}",
     );
