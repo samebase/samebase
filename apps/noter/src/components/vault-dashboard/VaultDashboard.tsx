@@ -207,6 +207,33 @@ type CloudflareWorkerOption = {
   workerTag: string;
 };
 type CloudflareWorkerConnectMode = "existing" | "create";
+
+function compareCloudflareAccountOptions(
+  left: CloudflareAccountOption,
+  right: CloudflareAccountOption,
+) {
+  return (
+    left.accountName.localeCompare(right.accountName) ||
+    left.accountId.localeCompare(right.accountId)
+  );
+}
+
+function compareCloudflareWorkerOptions(
+  left: CloudflareWorkerOption,
+  right: CloudflareWorkerOption,
+) {
+  return (
+    left.workerName.localeCompare(right.workerName) || left.workerTag.localeCompare(right.workerTag)
+  );
+}
+
+function compareGitHubRepositoryOwnerOptions(
+  left: GitHubRepositoryOwnerOption,
+  right: GitHubRepositoryOwnerOption,
+) {
+  return left.login.localeCompare(right.login) || left.kind.localeCompare(right.kind);
+}
+
 type VaultDashboardDeletion = VaultDashboardVault["deletion"];
 type VaultDashboardDeleteAction = Extract<
   VaultDashboardDeletion,
@@ -574,16 +601,19 @@ function useVaultDashboardLocalStore() {
       githubRepositoryOwnerOptions: GitHubRepositoryOwnerOption[],
     ) => {
       setState((state) => {
-        const selectedOwnerStillExists = githubRepositoryOwnerOptions.some(
+        const sortedGithubRepositoryOwnerOptions = [...githubRepositoryOwnerOptions].sort(
+          compareGitHubRepositoryOwnerOptions,
+        );
+        const selectedOwnerStillExists = sortedGithubRepositoryOwnerOptions.some(
           (owner) => owner.login === state.selectedGithubRepositoryOwner,
         );
         const selectedGithubRepositoryOwner = selectedOwnerStillExists
           ? state.selectedGithubRepositoryOwner
-          : (githubRepositoryOwnerOptions[0]?.login ?? "");
+          : (sortedGithubRepositoryOwnerOptions[0]?.login ?? "");
         return {
           ...state,
           githubRepositoryOwnerLoadError: null,
-          githubRepositoryOwnerOptions,
+          githubRepositoryOwnerOptions: sortedGithubRepositoryOwnerOptions,
           selectedGithubRepositoryOwner,
         };
       });
@@ -1049,8 +1079,13 @@ export function VaultDashboardCloudflareDialog({
   vault: VaultCloudflareDialogTarget | null;
   workers: CloudflareWorkerOption[];
 }) {
-  const selectedAccount = accounts.find((account) => account.accountId === selectedAccountId);
-  const selectedWorker = workers.find((worker) => worker.workerName === selectedWorkerName);
+  const sortedAccounts = useMemo(
+    () => [...accounts].sort(compareCloudflareAccountOptions),
+    [accounts],
+  );
+  const sortedWorkers = useMemo(() => [...workers].sort(compareCloudflareWorkerOptions), [workers]);
+  const selectedAccount = sortedAccounts.find((account) => account.accountId === selectedAccountId);
+  const selectedWorker = sortedWorkers.find((worker) => worker.workerName === selectedWorkerName);
   const submitDisabled =
     isLoading ||
     isSubmitting ||
@@ -1075,7 +1110,7 @@ export function VaultDashboardCloudflareDialog({
                 </SelectValue>
               </SelectTrigger>
               <AppSelectContent>
-                {accounts.map((account) => (
+                {sortedAccounts.map((account) => (
                   <AppSelectItem key={account.accountId} value={account.accountId}>
                     {account.accountName}
                   </AppSelectItem>
@@ -1102,6 +1137,7 @@ export function VaultDashboardCloudflareDialog({
             </div>
             {mode === "existing" ? (
               <Select
+                // The dialog owns modality; a second modal lock here can shift mobile focus/scroll during open.
                 modal={false}
                 value={selectedWorkerName}
                 onValueChange={onWorkerChange}
@@ -1113,7 +1149,7 @@ export function VaultDashboardCloudflareDialog({
                   </SelectValue>
                 </SelectTrigger>
                 <AppSelectContent>
-                  {workers.map((worker) => (
+                  {sortedWorkers.map((worker) => (
                     <AppSelectItem key={worker.workerTag} value={worker.workerName}>
                       {worker.workerName}
                     </AppSelectItem>
@@ -1172,7 +1208,11 @@ export function VaultDashboardCloudflareAccountDialog({
   open: boolean;
   selectedAccountId: string;
 }) {
-  const selectedAccount = accounts.find((account) => account.accountId === selectedAccountId);
+  const sortedAccounts = useMemo(
+    () => [...accounts].sort(compareCloudflareAccountOptions),
+    [accounts],
+  );
+  const selectedAccount = sortedAccounts.find((account) => account.accountId === selectedAccountId);
   const submitDisabled = isLoading || isSubmitting || !selectedAccountId;
 
   return (
@@ -1190,7 +1230,7 @@ export function VaultDashboardCloudflareAccountDialog({
               </SelectValue>
             </SelectTrigger>
             <AppSelectContent>
-              {accounts.map((account) => (
+              {sortedAccounts.map((account) => (
                 <AppSelectItem key={account.accountId} value={account.accountId}>
                   {account.accountName}
                 </AppSelectItem>
@@ -4427,6 +4467,10 @@ export function VaultDashboard() {
   const ownerSelectPlaceholder = isLoadingGithubRepositoryOwners
     ? "Loading GitHub owners..."
     : "GitHub owner";
+  const sortedGithubRepositoryOwnerOptions = useMemo(
+    () => [...githubRepositoryOwnerOptions].sort(compareGitHubRepositoryOwnerOptions),
+    [githubRepositoryOwnerOptions],
+  );
   const createControlFooterMessages =
     createError ||
     !canCreateRepo ||
@@ -4481,7 +4525,7 @@ export function VaultDashboard() {
             <SelectValue placeholder={ownerSelectPlaceholder} />
           </SelectTrigger>
           <AppSelectContent>
-            {githubRepositoryOwnerOptions.map((owner) => (
+            {sortedGithubRepositoryOwnerOptions.map((owner) => (
               <AppSelectItem key={owner.login} value={owner.login}>
                 {owner.login}
               </AppSelectItem>

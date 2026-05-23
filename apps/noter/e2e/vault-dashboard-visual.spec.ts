@@ -62,6 +62,11 @@ async function expectElementInsideContainer(element: Locator, container: Locator
     .toBe(true);
 }
 
+/**
+ * expectElementInsideViewportInline checks that an element fits inside the
+ * viewport with the 16px inline margin used by mobile dialogs. It allows 1px
+ * of tolerance for sub-pixel layout rounding; missing boxes fail closed.
+ */
 async function expectElementInsideViewportInline(page: Page, element: Locator) {
   const [box, viewportWidth] = await Promise.all([
     element.boundingBox(),
