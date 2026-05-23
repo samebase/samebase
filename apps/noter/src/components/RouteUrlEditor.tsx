@@ -99,6 +99,10 @@ function readRouteUrlEditorHash(url: URL): string {
   return url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
 }
 
+/**
+ * readRouteUrlEditorExactSearch keeps RETAINED_ROOT_SEARCH_KEYS exact by
+ * returning undefined tombstones when the user removes a retained key.
+ */
 function readRouteUrlEditorExactSearch(args: {
   currentHref: string;
   nextHref: string;

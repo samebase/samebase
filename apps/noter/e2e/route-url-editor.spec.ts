@@ -253,6 +253,7 @@ test("route URL editor keeps invalid route search drafts local until blur", asyn
   });
 
   const input = page.getByTestId("route-url-editor-input");
+  const editor = page.getByTestId("route-url-editor");
   const origin = await page.evaluate(() => window.location.origin);
 
   await input.focus();
@@ -263,11 +264,23 @@ test("route URL editor keeps invalid route search drafts local until blur", asyn
 
   await expect(input).toHaveValue(`${origin}/logo?leftFace=secondar`);
   await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(editor).toHaveScreenshot("route-url-editor-invalid-draft-focused.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.01,
+  });
 
   await input.blur();
 
   await expect(input).toHaveValue(`${origin}/logo`);
   await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(editor).toHaveScreenshot("route-url-editor-invalid-draft-blurred.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.01,
+  });
 });
 
 test("route URL editor fixture refuses pasted external origins", async ({ page }) => {
