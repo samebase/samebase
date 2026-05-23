@@ -786,7 +786,7 @@ test("logo view button groups wrap to one per row in the default rail", async ({
 
 test("logo view exposes striped left-face controls", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/logo?leftFace=striped&stripeW=0.22&stripeG=0.18", {
+  await page.goto("/logo?leftFace=striped&stripeA=45&stripeO=0.5&stripeW=0.22&stripeG=0.18", {
     waitUntil: "domcontentloaded",
   });
 
@@ -796,6 +796,9 @@ test("logo view exposes striped left-face controls", async ({ page }) => {
   await expect(leftFaceSection).toContainText("Gap");
   await expect(leftFaceSection).toContainText("0.18");
   await expect(leftFaceSection).toContainText("Width basis");
+  await expect(leftFaceSection.getByRole("spinbutton", { name: "Stripe angle" })).toHaveValue(
+    "45.000",
+  );
   const linkedWidthGapCheckbox = leftFaceSection.getByRole("checkbox", {
     name: "Link width/gap",
   });
@@ -814,7 +817,7 @@ test("logo view exposes striped left-face controls", async ({ page }) => {
 
   const canvas = page.locator("canvas").first();
   await waitForPaint(page);
-  await expect(canvas).toHaveScreenshot("logo-striped-left-face-scene.png", {
+  await expect(canvas).toHaveScreenshot("logo-striped-left-face-plus-45-scene.png", {
     animations: "disabled",
     caret: "hide",
     maxDiffPixelRatio: 0.01,
