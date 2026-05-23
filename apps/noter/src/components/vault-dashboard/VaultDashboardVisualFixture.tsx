@@ -525,6 +525,10 @@ function VaultDashboardConnectCloudflareOpenFixture() {
               workerName: "atelier-preview",
               workerTag: "c2f8194c2c7047a6991a736d8f708aaf",
             },
+            {
+              workerName: "samebase-atelier-production-worker-eu-west",
+              workerTag: "70d0ab9620b44d7b99a9964cde102887",
+            },
           ]}
         />
       </TestRouterProvider>
