@@ -1,11 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { AppDialogContent } from "@/components/AppDialogContent";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent as DialogContentUI,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -304,12 +300,12 @@ export function MediaUploadDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContentUI className="sm:max-w-md" data-testid="media-upload-dialog-content">
+      <AppDialogContent data-testid="media-upload-dialog-content">
         <DialogHeader>
           <DialogTitle>Upload Image</DialogTitle>
         </DialogHeader>
         {dialogContent}
-      </DialogContentUI>
+      </AppDialogContent>
     </Dialog>
   );
 }

@@ -1,14 +1,10 @@
 import { api } from "../../../convex/_generated/api";
+import { AppDialogContent } from "@/components/AppDialogContent";
+import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultProvisioningLog } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
@@ -56,7 +52,6 @@ import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { RouteUrlEditor } from "@/components/RouteUrlEditor";
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
@@ -212,6 +207,33 @@ type CloudflareWorkerOption = {
   workerTag: string;
 };
 type CloudflareWorkerConnectMode = "existing" | "create";
+
+function compareCloudflareAccountOptions(
+  left: CloudflareAccountOption,
+  right: CloudflareAccountOption,
+) {
+  return (
+    left.accountName.localeCompare(right.accountName) ||
+    left.accountId.localeCompare(right.accountId)
+  );
+}
+
+function compareCloudflareWorkerOptions(
+  left: CloudflareWorkerOption,
+  right: CloudflareWorkerOption,
+) {
+  return (
+    left.workerName.localeCompare(right.workerName) || left.workerTag.localeCompare(right.workerTag)
+  );
+}
+
+function compareGitHubRepositoryOwnerOptions(
+  left: GitHubRepositoryOwnerOption,
+  right: GitHubRepositoryOwnerOption,
+) {
+  return left.login.localeCompare(right.login) || left.kind.localeCompare(right.kind);
+}
+
 type VaultDashboardDeletion = VaultDashboardVault["deletion"];
 type VaultDashboardDeleteAction = Extract<
   VaultDashboardDeletion,
@@ -579,16 +601,19 @@ function useVaultDashboardLocalStore() {
       githubRepositoryOwnerOptions: GitHubRepositoryOwnerOption[],
     ) => {
       setState((state) => {
-        const selectedOwnerStillExists = githubRepositoryOwnerOptions.some(
+        const sortedGithubRepositoryOwnerOptions = [...githubRepositoryOwnerOptions].sort(
+          compareGitHubRepositoryOwnerOptions,
+        );
+        const selectedOwnerStillExists = sortedGithubRepositoryOwnerOptions.some(
           (owner) => owner.login === state.selectedGithubRepositoryOwner,
         );
         const selectedGithubRepositoryOwner = selectedOwnerStillExists
           ? state.selectedGithubRepositoryOwner
-          : (githubRepositoryOwnerOptions[0]?.login ?? "");
+          : (sortedGithubRepositoryOwnerOptions[0]?.login ?? "");
         return {
           ...state,
           githubRepositoryOwnerLoadError: null,
-          githubRepositoryOwnerOptions,
+          githubRepositoryOwnerOptions: sortedGithubRepositoryOwnerOptions,
           selectedGithubRepositoryOwner,
         };
       });
@@ -756,7 +781,7 @@ export function VaultDashboardDeleteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <AppDialogContent>
         <DialogHeader>
           <DialogTitle>
             {vaultToDelete ? `Remove Vault ${vaultToDelete.repositoryFullName}` : "Remove Vault"}
@@ -901,7 +926,7 @@ export function VaultDashboardDeleteDialog({
             )}
           </Button>
         </DialogFooter>
-      </DialogContent>
+      </AppDialogContent>
     </Dialog>
   );
 }
@@ -1054,8 +1079,13 @@ export function VaultDashboardCloudflareDialog({
   vault: VaultCloudflareDialogTarget | null;
   workers: CloudflareWorkerOption[];
 }) {
-  const selectedAccount = accounts.find((account) => account.accountId === selectedAccountId);
-  const selectedWorker = workers.find((worker) => worker.workerName === selectedWorkerName);
+  const sortedAccounts = useMemo(
+    () => [...accounts].sort(compareCloudflareAccountOptions),
+    [accounts],
+  );
+  const sortedWorkers = useMemo(() => [...workers].sort(compareCloudflareWorkerOptions), [workers]);
+  const selectedAccount = sortedAccounts.find((account) => account.accountId === selectedAccountId);
+  const selectedWorker = sortedWorkers.find((worker) => worker.workerName === selectedWorkerName);
   const submitDisabled =
     isLoading ||
     isSubmitting ||
@@ -1064,7 +1094,7 @@ export function VaultDashboardCloudflareDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <AppDialogContent>
         <DialogHeader>
           <DialogTitle>
             {vault ? `Connect Cloudflare ${vault.repositoryFullName}` : "Connect Cloudflare"}
@@ -1079,13 +1109,13 @@ export function VaultDashboardCloudflareDialog({
                   {selectedAccount?.accountName}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
-                {accounts.map((account) => (
-                  <SelectItem key={account.accountId} value={account.accountId}>
+              <AppSelectContent>
+                {sortedAccounts.map((account) => (
+                  <AppSelectItem key={account.accountId} value={account.accountId}>
                     {account.accountName}
-                  </SelectItem>
+                  </AppSelectItem>
                 ))}
-              </SelectContent>
+              </AppSelectContent>
             </Select>
             <div className="grid grid-cols-2 gap-2">
               <Button
@@ -1107,6 +1137,8 @@ export function VaultDashboardCloudflareDialog({
             </div>
             {mode === "existing" ? (
               <Select
+                // The dialog owns modality; a second modal lock here can shift mobile focus/scroll during open.
+                modal={false}
                 value={selectedWorkerName}
                 onValueChange={onWorkerChange}
                 disabled={isLoading || workers.length === 0}
@@ -1116,13 +1148,13 @@ export function VaultDashboardCloudflareDialog({
                     {selectedWorker?.workerName}
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent>
-                  {workers.map((worker) => (
-                    <SelectItem key={worker.workerTag} value={worker.workerName}>
+                <AppSelectContent>
+                  {sortedWorkers.map((worker) => (
+                    <AppSelectItem key={worker.workerTag} value={worker.workerName}>
                       {worker.workerName}
-                    </SelectItem>
+                    </AppSelectItem>
                   ))}
-                </SelectContent>
+                </AppSelectContent>
               </Select>
             ) : (
               <Input
@@ -1150,7 +1182,7 @@ export function VaultDashboardCloudflareDialog({
             {mode === "existing" ? "Connect Worker" : "Create Worker"}
           </Button>
         </DialogFooter>
-      </DialogContent>
+      </AppDialogContent>
     </Dialog>
   );
 }
@@ -1176,12 +1208,16 @@ export function VaultDashboardCloudflareAccountDialog({
   open: boolean;
   selectedAccountId: string;
 }) {
-  const selectedAccount = accounts.find((account) => account.accountId === selectedAccountId);
+  const sortedAccounts = useMemo(
+    () => [...accounts].sort(compareCloudflareAccountOptions),
+    [accounts],
+  );
+  const selectedAccount = sortedAccounts.find((account) => account.accountId === selectedAccountId);
   const submitDisabled = isLoading || isSubmitting || !selectedAccountId;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <AppDialogContent>
         <DialogHeader>
           <DialogTitle>Select Cloudflare Account</DialogTitle>
           <DialogDescription>Choose the Cloudflare account to use for new apps.</DialogDescription>
@@ -1193,13 +1229,13 @@ export function VaultDashboardCloudflareAccountDialog({
                 {selectedAccount?.accountName}
               </SelectValue>
             </SelectTrigger>
-            <SelectContent>
-              {accounts.map((account) => (
-                <SelectItem key={account.accountId} value={account.accountId}>
+            <AppSelectContent>
+              {sortedAccounts.map((account) => (
+                <AppSelectItem key={account.accountId} value={account.accountId}>
                   {account.accountName}
-                </SelectItem>
+                </AppSelectItem>
               ))}
-            </SelectContent>
+            </AppSelectContent>
           </Select>
           {error ? <div className="text-sm text-red-600">{error}</div> : null}
         </div>
@@ -1218,7 +1254,7 @@ export function VaultDashboardCloudflareAccountDialog({
             Save Account
           </Button>
         </DialogFooter>
-      </DialogContent>
+      </AppDialogContent>
     </Dialog>
   );
 }
@@ -4431,6 +4467,10 @@ export function VaultDashboard() {
   const ownerSelectPlaceholder = isLoadingGithubRepositoryOwners
     ? "Loading GitHub owners..."
     : "GitHub owner";
+  const sortedGithubRepositoryOwnerOptions = useMemo(
+    () => [...githubRepositoryOwnerOptions].sort(compareGitHubRepositoryOwnerOptions),
+    [githubRepositoryOwnerOptions],
+  );
   const createControlFooterMessages =
     createError ||
     !canCreateRepo ||
@@ -4484,13 +4524,13 @@ export function VaultDashboard() {
           <SelectTrigger className="w-full">
             <SelectValue placeholder={ownerSelectPlaceholder} />
           </SelectTrigger>
-          <SelectContent>
-            {githubRepositoryOwnerOptions.map((owner) => (
-              <SelectItem key={owner.login} value={owner.login}>
+          <AppSelectContent>
+            {sortedGithubRepositoryOwnerOptions.map((owner) => (
+              <AppSelectItem key={owner.login} value={owner.login}>
                 {owner.login}
-              </SelectItem>
+              </AppSelectItem>
             ))}
-          </SelectContent>
+          </AppSelectContent>
         </Select>
       )}
       <CreateProviderNameInput

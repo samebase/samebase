@@ -1,14 +1,9 @@
 import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
+import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
@@ -54,6 +49,7 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-dev-tools-hidden"
   | "vault-dashboard-dev-tools-visible"
   | "vault-dashboard-connect-cloudflare-open"
+  | "vault-dashboard-connect-cloudflare-mobile-shell-open"
   | "vault-dashboard-delete-open"
   | "vault-dashboard-infra-setup"
   | "vault-dashboard-provisioning-log"
@@ -110,6 +106,49 @@ function fakeVaultId(): Id<"vaults"> {
   // needs a stable value for static rendering.
   return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
+
+const FIXTURE_CLOUDFLARE_WORKERS = [
+  {
+    workerName: "app-start-workers",
+    workerTag: "72dc5c8bc9104b20af13ac36dcdbe9d1",
+  },
+  {
+    workerName: "app-workers",
+    workerTag: "c2f8194c2c7047a6991a736d8f708aaf",
+  },
+  {
+    workerName: "nicu-chiciuc-samebase-86xc0t",
+    workerTag: "70d0ab9620b44d7b99a9964cde102887",
+  },
+  {
+    workerName: "noter-worker",
+    workerTag: "f832053cb31b46f0bff56f70b8c9b57e",
+  },
+  {
+    workerName: "tmp-flow-123",
+    workerTag: "f19375e848d44311ae35716d8ab0c59f",
+  },
+  {
+    workerName: "tmp-flow-1234",
+    workerTag: "62b44171ee3f41de80bfaf42a90cf8d7",
+  },
+  {
+    workerName: "tmp-my-asdf-app",
+    workerTag: "476a67f8258f4fa3bdd3e73cf825c3a5",
+  },
+  {
+    workerName: "tmp-my-first",
+    workerTag: "2f44c6d9c45e451ea825f52774a7f583",
+  },
+  {
+    workerName: "tmp-something",
+    workerTag: "9c0c2d7cfdce4d4480f6e043b2e9f11d",
+  },
+  {
+    workerName: "tsx-tsx-md",
+    workerTag: "abcb6778514d4e58b6f9a747d92f9234",
+  },
+];
 
 type FixtureVaultBranch = Parameters<typeof VaultBranchLinkRow>[0]["branch"];
 
@@ -471,6 +510,39 @@ function VaultDashboardDeleteOpenFixture() {
   );
 }
 
+function FixtureCloudflareConnectDialog() {
+  return (
+    <VaultDashboardCloudflareDialog
+      accounts={[
+        {
+          accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
+          accountName: "Samebase",
+        },
+      ]}
+      createWorkerName="atelier"
+      error={null}
+      isLoading={false}
+      isSubmitting={false}
+      mode="existing"
+      onAccountChange={() => {}}
+      onCreateWorkerNameChange={() => {}}
+      onModeChange={() => {}}
+      onOpenChange={() => {}}
+      onSubmit={() => {}}
+      onWorkerChange={() => {}}
+      open={true}
+      selectedAccountId="fe57d01d7ab41f60d00ba1aade20eb33"
+      selectedWorkerName="app-start-workers"
+      vault={{
+        id: fakeVaultId(),
+        repositoryFullName: "samebase/atelier",
+        repositoryName: "atelier",
+      }}
+      workers={FIXTURE_CLOUDFLARE_WORKERS}
+    />
+  );
+}
+
 function VaultDashboardConnectCloudflareOpenFixture() {
   return (
     <div
@@ -490,45 +562,33 @@ function VaultDashboardConnectCloudflareOpenFixture() {
             repositoryStatus={<span>Updated 12s ago</span>}
           />
         </VaultDashboardRepositoryList>
-        <VaultDashboardCloudflareDialog
-          accounts={[
-            {
-              accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
-              accountName: "Samebase",
-            },
-          ]}
-          createWorkerName="atelier"
-          error={null}
-          isLoading={false}
-          isSubmitting={false}
-          mode="existing"
-          onAccountChange={() => {}}
-          onCreateWorkerNameChange={() => {}}
-          onModeChange={() => {}}
-          onOpenChange={() => {}}
-          onSubmit={() => {}}
-          onWorkerChange={() => {}}
-          open={true}
-          selectedAccountId="fe57d01d7ab41f60d00ba1aade20eb33"
-          selectedWorkerName="atelier-web"
-          vault={{
-            id: fakeVaultId(),
-            repositoryFullName: "samebase/atelier",
-            repositoryName: "atelier",
-          }}
-          workers={[
-            {
-              workerName: "atelier-web",
-              workerTag: "72dc5c8bc9104b20af13ac36dcdbe9d1",
-            },
-            {
-              workerName: "atelier-preview",
-              workerTag: "c2f8194c2c7047a6991a736d8f708aaf",
-            },
-          ]}
-        />
+        <FixtureCloudflareConnectDialog />
       </TestRouterProvider>
     </div>
+  );
+}
+
+function VaultDashboardConnectCloudflareMobileShellOpenFixture() {
+  return (
+    <FixtureDashboardShell
+      mainContent={
+        <>
+          <VaultDashboardRepositoryList>
+            <VaultDashboardRepositoryCard
+              isReady={true}
+              repositoryOwner="samebase"
+              repositoryName="atelier"
+              titleHref="https://github.com/samebase/atelier"
+              repositoryLinks={<FixtureRepositoryLinks />}
+              topRightAction={<FixtureDeleteControl />}
+              repositoryStatus={<span>Updated 12s ago</span>}
+            />
+          </VaultDashboardRepositoryList>
+          <FixtureCloudflareConnectDialog />
+        </>
+      }
+      rightContent={<div className="h-full w-full bg-background" />}
+    />
   );
 }
 
@@ -903,10 +963,10 @@ function FixtureDashboardCreateControl() {
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="GitHub owner" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="nicu-chiciuc">nicu-chiciuc</SelectItem>
-                <SelectItem value="noter-md">noter-md</SelectItem>
-              </SelectContent>
+              <AppSelectContent>
+                <AppSelectItem value="nicu-chiciuc">nicu-chiciuc</AppSelectItem>
+                <AppSelectItem value="noter-md">noter-md</AppSelectItem>
+              </AppSelectContent>
             </Select>
             <CreateProviderNameInput
               disabled={false}
@@ -970,6 +1030,10 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
 
   if (mode === "vault-dashboard-connect-cloudflare-open") {
     return <VaultDashboardConnectCloudflareOpenFixture />;
+  }
+
+  if (mode === "vault-dashboard-connect-cloudflare-mobile-shell-open") {
+    return <VaultDashboardConnectCloudflareMobileShellOpenFixture />;
   }
 
   if (mode === "vault-dashboard-delete-open") {

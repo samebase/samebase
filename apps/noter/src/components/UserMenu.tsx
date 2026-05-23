@@ -1,11 +1,6 @@
+import { AppDialogContent } from "@/components/AppDialogContent";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,7 +31,7 @@ export function UserMenu({ children, menuLabel }: { children?: ReactNode; menuLa
     <div className={"flex items-center gap-2 text-sm font-medium w-full min-w-0 justify-between"}>
       {children}
       <Dialog open={accountOpen} onOpenChange={setAccountOpen}>
-        <DialogContent>
+        <AppDialogContent>
           <DialogHeader>
             <DialogTitle>Account</DialogTitle>
             <DialogDescription>Sign-in details for this session.</DialogDescription>
@@ -51,7 +46,7 @@ export function UserMenu({ children, menuLabel }: { children?: ReactNode; menuLa
               <span className="font-medium">{emailLabel}</span>
             </div>
           </div>
-        </DialogContent>
+        </AppDialogContent>
       </Dialog>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

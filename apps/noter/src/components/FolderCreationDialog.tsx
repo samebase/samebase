@@ -1,13 +1,9 @@
 import { useState, useMemo, useRef, useEffect } from "react";
+import { AppDialogContent } from "@/components/AppDialogContent";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import {
-  Dialog,
-  DialogContent as DialogContentUI,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { fuzzyMatch, highlightMatches } from "@/lib/fuzzySearch.tsx";
@@ -267,12 +263,12 @@ export function FolderCreationDialog({
   // Desktop Dialog for Folder Creation
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContentUI className="sm:max-w-md">
+      <AppDialogContent>
         <DialogHeader>
           <DialogTitle>Create New Folder</DialogTitle>
         </DialogHeader>
         {dialogContent}
-      </DialogContentUI>
+      </AppDialogContent>
     </Dialog>
   );
 }

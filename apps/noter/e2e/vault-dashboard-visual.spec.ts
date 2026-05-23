@@ -1,4 +1,4 @@
-import { devices, expect, test, type Locator } from "@playwright/test";
+import { devices, expect, test, type Locator, type Page } from "@playwright/test";
 import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
 
 async function expectInlinePadding(locator: Locator, expectedPx: string) {
@@ -60,6 +60,27 @@ async function expectElementInsideContainer(element: Locator, container: Locator
       );
     })
     .toBe(true);
+}
+
+/**
+ * expectElementInsideViewportInline checks that an element fits inside the
+ * viewport with the 16px inline margin used by mobile dialogs. It allows 1px
+ * of tolerance for sub-pixel layout rounding; missing boxes fail closed.
+ */
+async function expectElementInsideViewportInline(page: Page, element: Locator) {
+  const [box, viewportWidth] = await Promise.all([
+    element.boundingBox(),
+    page.evaluate(() => document.documentElement.clientWidth),
+  ]);
+
+  expect(box).not.toBeNull();
+  if (box === null) {
+    throw new Error("Expected element bounds");
+  }
+
+  expect(box.width).toBeLessThanOrEqual(viewportWidth - 32 + 1);
+  expect(box.x).toBeGreaterThanOrEqual(16 - 1);
+  expect(box.x + box.width).toBeLessThanOrEqual(viewportWidth - 16 + 1);
 }
 
 async function expectSidebarTextOwnsWrappedLine({
@@ -320,6 +341,81 @@ test("vault dashboard fixture (connect Cloudflare dialog)", async ({ page }) => 
     scale: "css",
     maxDiffPixelRatio: 0.03,
   });
+});
+
+test("vault dashboard fixture (connect Cloudflare worker select mobile)", async ({
+  browser,
+}, testInfo) => {
+  const baseURL = testInfo.project.use.baseURL;
+  if (typeof baseURL !== "string") {
+    throw new Error("Playwright baseURL is required for mobile fixture tests.");
+  }
+
+  const context = await browser.newContext({
+    viewport: { width: 376, height: 815 },
+    deviceScaleFactor: 1,
+    isMobile: true,
+    hasTouch: true,
+    baseURL,
+    reducedMotion: "reduce",
+    userAgent:
+      "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36",
+  });
+  const page = await context.newPage();
+
+  await page.goto("/visual-fixture?mode=vault-dashboard-connect-cloudflare-mobile-shell-open", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const connectDialog = page.getByRole("dialog", {
+    name: "Connect Cloudflare samebase/atelier",
+  });
+  await expectElementInsideViewportInline(page, connectDialog);
+
+  const beforeOpen = await page.evaluate(() => ({
+    bodyScrollWidth: document.body.scrollWidth,
+    htmlClientWidth: document.documentElement.clientWidth,
+    htmlScrollWidth: document.documentElement.scrollWidth,
+    innerWidth: window.innerWidth,
+    visualViewportPageTop: Math.round(window.visualViewport?.pageTop ?? 0),
+  }));
+  expect(beforeOpen.innerWidth).toBe(beforeOpen.htmlClientWidth);
+  expect(beforeOpen.htmlScrollWidth).toBe(beforeOpen.htmlClientWidth);
+  expect(beforeOpen.bodyScrollWidth).toBeLessThanOrEqual(beforeOpen.htmlClientWidth);
+  await expectElementInsideViewportInline(page, connectDialog);
+
+  const workerSelect = connectDialog.getByRole("combobox", {
+    name: "Cloudflare Worker",
+  });
+  await expectElementInsideViewportInline(page, workerSelect);
+  await workerSelect.tap();
+  const popup = page.getByRole("listbox").filter({ hasText: "tmp-my-asdf-app" });
+  await expect(page.getByRole("option", { name: "tmp-my-asdf-app" })).toBeVisible();
+
+  const afterOpen = await page.evaluate(() => ({
+    bodyScrollWidth: document.body.scrollWidth,
+    htmlClientWidth: document.documentElement.clientWidth,
+    htmlScrollWidth: document.documentElement.scrollWidth,
+    innerWidth: window.innerWidth,
+    visualViewportPageTop: Math.round(window.visualViewport?.pageTop ?? 0),
+  }));
+  expect(afterOpen.visualViewportPageTop).toBe(beforeOpen.visualViewportPageTop);
+  await expectElementInsideViewportInline(page, connectDialog);
+  await expectElementInsideViewportInline(page, workerSelect);
+  await expectElementInsideViewportInline(page, popup);
+
+  await expect(page).toHaveScreenshot(
+    "vault-dashboard-connect-cloudflare-worker-select-mobile.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.03,
+    },
+  );
+
+  await context.close();
 });
 
 test("vault dashboard fixture (delete dialog mobile)", async ({ browser }, testInfo) => {
