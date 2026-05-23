@@ -102,7 +102,8 @@ Before promoting files out of `research/`:
 The first code movement is complete:
 
 - `packages/agent-context/core/agent-engineering-core.md` is the package core context.
-- `packages/agent-context/skills/*/SKILL.md` contains the five portable triggerable skills.
+- `packages/agent-context/skills/*/SKILL.md` contains the packaged portable triggerable skills,
+  including the later `agent-context-extraction-lab` method skill.
 - `packages/agent-context/overlays/noter-*.md` contains Noter-specific overlays.
 - `packages/agent-context/manifests/noter.md` is the first package-local Noter router.
 

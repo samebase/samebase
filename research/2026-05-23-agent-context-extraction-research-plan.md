@@ -92,6 +92,8 @@ Repo guidance sources:
 - `research/2026-05-23-agent-context-live-agents-router-slice.md` records the first live `AGENTS.md`
   modularization slice: add a discoverability pointer to the package and migration map, but do not
   remove always-loaded rules yet.
+- `packages/agent-context/skills/agent-context-extraction-lab/SKILL.md` packages the extraction
+  process itself as a reusable protocol for future repo/context extraction work.
 
 Local thread evidence:
 

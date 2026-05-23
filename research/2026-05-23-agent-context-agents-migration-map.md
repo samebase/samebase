@@ -110,8 +110,8 @@ promotion:
 1. Keep the research artifacts as the evidence trail until `packages/agent-context` is accepted as
    the source of truth.
 2. Treat `agent-engineering-core` as an always-loaded core context file, not a triggerable skill.
-3. Promote the five portable triggerable skills into `skills/`, `$CODEX_HOME/skills`, or another
-   repo from `packages/agent-context` only after one package-location validation.
+3. Promote the six portable triggerable skills into `skills/`, `$CODEX_HOME/skills`, or another repo
+   from `packages/agent-context` only after one package-location validation.
 4. Keep Noter overlays outside the portable package. They can live as repo-local overlay references
    or as entries in a Noter manifest.
 5. Leave existing skills such as `skills/create-pr/SKILL.md`,

@@ -10,6 +10,7 @@
   - `research/2026-05-23-agent-context-forward-test-results-4.md`
   - `research/2026-05-23-agent-context-shadcn-ownership-decision.md`
   - `research/2026-05-23-agent-context-shortcut-routing-decision.md`
+  - `packages/agent-context/skills/agent-context-extraction-lab/SKILL.md`
 
 ## Purpose
 
@@ -29,14 +30,15 @@ Contents:
 - `skills/pr-workflow-review/SKILL.md`
 - `skills/exact-resource-cleanup/SKILL.md`
 - `skills/research-to-implementation/SKILL.md`
+- `skills/agent-context-extraction-lab/SKILL.md`
 - `overlays/noter-app-template.md`
 - `overlays/noter-convex.md`
 - `overlays/noter-operator-workflows.md`
 - `manifests/noter.md`
 
 `agent-engineering-core` is packaged as core Markdown rather than a skill because its purpose is
-always-loaded baseline behavior. The other five portable artifacts remain normal `SKILL.md` folders.
-The Noter overlays are package-local composition layers, not part of the portable default.
+always-loaded baseline behavior. The six portable artifacts remain normal `SKILL.md` folders. The
+Noter overlays are package-local composition layers, not part of the portable default.
 
 ## Package Validation
 
@@ -48,7 +50,7 @@ Package-level validation is intentionally lightweight:
   overlay files, and that each packaged skill has frontmatter name/description plus an H1.
 - `pnpm --filter @noter-md/agent-context check` passed.
 - `pnpm run check:packages` passed with the new package included.
-- The package structural verifier passed for all package manifest targets and five packaged skill
+- The package structural verifier passed for all package manifest targets and six packaged skill
   folders.
 - A read-only package-location subagent validation loaded only package-local manifest, core,
   `pr-workflow-review`, and `noter-operator-workflows` paths. It found no unresolved actionable PR
@@ -64,6 +66,8 @@ Applied validation revision:
   of introducing a portable skill or new Noter overlay.
 - The manifest now routes bare workflow shortcut commands to `noter-operator-workflows` while
   keeping the compact `AGENTS.md` command table until overlay loading is guaranteed.
+- The extraction method itself is now packaged as `agent-context-extraction-lab`, with a reference
+  for sampling, subagent experiment prompts, scoring, and a simple method-note outline.
 
 ## Decision
 

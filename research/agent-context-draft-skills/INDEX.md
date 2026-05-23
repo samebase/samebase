@@ -51,7 +51,7 @@ meant to be reviewed, forward-tested, and revised before any live context modula
   after revisions to its pre-edit checklist, test-harness guidance, generated-file rules, and
   provider verification commands.
 - `research/2026-05-23-agent-context-packaging-decision.md` selects a context-bundle packaging
-  shape: core context, five portable triggerable skills, and Noter overlays kept as separate layers.
+  shape: core context, portable triggerable skills, and Noter overlays kept as separate layers.
 - `research/2026-05-23-agent-context-forward-test-results-3.md` records an isolated editing-capable
   `noter-convex` validation and the decision to split Cloudflare API boundary hardening out of this
   extraction PR.
@@ -70,6 +70,8 @@ meant to be reviewed, forward-tested, and revised before any live context modula
 - `research/2026-05-23-agent-context-pinned-thread-comparison.md` confirms the pinned/high-salience
   threads mostly stress-test the existing split and records private browser archival as a recurrence
   candidate.
+- `packages/agent-context/skills/agent-context-extraction-lab/SKILL.md` packages this extraction
+  process itself as a reusable protocol.
 
 ## Next Validation
 
