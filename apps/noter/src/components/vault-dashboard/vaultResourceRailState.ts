@@ -222,7 +222,14 @@ export function buildVaultDashboardResourceRailState({
       provider: "cloudflare",
       status: "failed",
       value: vault.cloudflareWorkerName ?? vault.ghRepoName,
-      actions: [{ kind: "retry", label: "Retry" }],
+      actions: [
+        {
+          kind: "connect_existing",
+          label: "Connect",
+          disabled: !onConfigureCloudflare,
+          onClick: onConfigureCloudflare,
+        },
+      ],
     };
   } else if (
     vault.providerSetup.status === "running" &&

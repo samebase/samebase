@@ -272,6 +272,8 @@ function assertSourceSetupRepositoryRefreshRun(run: Doc<"appProvisioningRuns">):
     case "create":
     case "connect_existing_repository":
       return;
+    case "connect_cloudflare_worker":
+      throw new Error("Cloudflare Worker connection run is not source setup refresh demand.");
     case "retry":
       throw new Error("Retry run is not source setup refresh demand.");
     default: {

@@ -8,6 +8,8 @@ connection and separate from deployment wiring.
 - Let a vault attach an existing Cloudflare Worker from a selected Cloudflare account.
 - Let a vault create a new Cloudflare Worker in a selected Cloudflare account.
 - Store the attached Worker identity on the vault as the durable source of truth.
+- Queue attach/create work as a durable Workflow run so the dialog only waits for submission and the
+  vault header can show progress.
 - Keep the stored state brand-neutral so a future product rename does not leave product names in DB
   literals.
 
@@ -114,6 +116,26 @@ detail endpoint that can disagree with inventory for older Worker shapes.
 Manual Worker creation should check that the vault is still attachable before making the Cloudflare
 create call. The external create must not be the first operation that discovers the vault is already
 attached or unavailable.
+
+## Durable Execution
+
+Manual Worker attach/create uses `appProvisioningRuns` with trigger `connect_cloudflare_worker`. The
+run is intentionally narrow: it claims Cloudflare provider work, ensures the selected or newly
+created Worker, attaches the Worker to `vault.cloudflare`, then marks the run complete.
+
+Do not add a separate vault Cloudflare `provisioning` or `failed` variant for this flow. While the
+run is active or failed, dashboard state is derived from `vaultInfrastructureOwnership` plus the run
+events. Once the Worker is attached, `vault.cloudflare` remains the only durable resource identity.
+
+The modal submit action should return after the Workflow is queued. The modal then closes by
+clearing `connect-cloudflare`, and the vault header/resource rail shows the Cloudflare row as
+running, failed, or ready from subscribed dashboard state.
+
+If a created Worker cannot be attached to the vault after the provider create call, the Workflow
+must delete that created Worker before surfacing failure unless the vault now points at the same
+Cloudflare account and Worker name from a newer run. A failed manual Cloudflare run should keep the
+Cloudflare row failed while offering the same connection dialog again, so the operator can pick an
+existing Worker or create a new one without waiting for hidden state cleanup.
 
 ## Route Semantics
 

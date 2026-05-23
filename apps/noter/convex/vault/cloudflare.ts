@@ -1,7 +1,7 @@
 "use node";
 
 import { Infer, v } from "convex/values";
-import { action, type ActionCtx } from "../_generated/server";
+import { action, internalAction, type ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { getUserId } from "../common";
@@ -15,6 +15,7 @@ import {
   listCloudflareWorkers,
   readOptionalWorkersDevUrl,
 } from "../cloudflareResources";
+import { vVaultCloudflareOrigin, type VaultCloudflareOrigin } from "./model";
 
 const { array, id, null: nullValue, object, string } = v;
 
@@ -122,6 +123,60 @@ async function resolveListedWorker(args: { token: string; accountId: string; wor
   };
 }
 
+async function markCloudflareWorkerConnectionStartupFailed(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    runId: Id<"appProvisioningRuns">;
+    error: unknown;
+  },
+): Promise<void> {
+  await ctx.runMutation(internal.infraProvisioning.markWorkflowStartupFailed, {
+    runId: args.runId,
+    message: toErrorMessage(args.error),
+  });
+}
+
+async function startCloudflareWorkerConnectionOrFail(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"appProvisioningRuns">;
+    userId: Id<"users">;
+    accountId: string;
+    workerName: string;
+    origin: VaultCloudflareOrigin;
+  },
+): Promise<void> {
+  try {
+    await ctx.runMutation(internal.appProvisioningWorkflow.startCloudflareWorkerConnection, args);
+  } catch (error) {
+    await markCloudflareWorkerConnectionStartupFailed(ctx, {
+      runId: args.runId,
+      error,
+    });
+    throw error;
+  }
+}
+
+async function isCloudflareWorkerConnectionRunActive(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"appProvisioningRuns">;
+    userId: Id<"users">;
+  },
+): Promise<boolean> {
+  const result = await ctx.runQuery(
+    internal.vault.cloudflareMutations.readActiveCloudflareWorkerConnection,
+    {
+      vaultId: args.vaultId,
+      runId: args.runId,
+      userId: args.userId,
+    },
+  );
+  return result.active;
+}
+
 export const listAccounts = action({
   args: {},
   returns: array(cloudflareAccountResult),
@@ -184,33 +239,29 @@ export const connectExistingWorker = action({
   returns: nullValue(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    await ctx.runQuery(internal.vault.cloudflareMutations.requireAttachableVault, {
+    const accountId = args.accountId.trim();
+    const workerName = args.workerName.trim();
+    if (!accountId) {
+      throw new Error("Cloudflare account is required.");
+    }
+    if (!workerName) {
+      throw new Error("Cloudflare Worker is required.");
+    }
+    await ctx.runQuery(internal.vault.cloudflareMutations.requireCloudflareWorkerConnectionVault, {
       vaultId: args.vaultId,
       userId,
     });
-    const connection = await resolveCloudflareConnection(ctx, userId);
-    const account = await resolveAccount(ctx, {
-      token: connection.token,
-      accountId: args.accountId,
-    });
-    const worker = await resolveListedWorker({
-      token: connection.token,
-      accountId: account.accountId,
-      workerName: args.workerName,
-    });
-    await rememberDefaultAccount(ctx, {
+    const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
       userId,
-      auth: connection.auth,
-      account,
-      tokenHealth: connection.tokenHealth,
-    });
-    await ctx.runMutation(internal.vault.cloudflareMutations.attachWorker, {
       vaultId: args.vaultId,
+      trigger: "connect_cloudflare_worker",
+    });
+    await startCloudflareWorkerConnectionOrFail(ctx, {
+      vaultId: args.vaultId,
+      runId,
       userId,
-      accountId: account.accountId,
-      workerName: worker.workerName,
-      workerTag: worker.workerTag,
-      workersDevUrl: worker.workersDevUrl,
+      accountId,
+      workerName,
       origin: "selected_existing",
     });
 
@@ -230,66 +281,162 @@ export const createWorker = action({
     if (!validation.valid) {
       throw new Error(validation.message);
     }
+    const accountId = args.accountId.trim();
+    if (!accountId) {
+      throw new Error("Cloudflare account is required.");
+    }
 
     const userId = await getUserId(ctx);
-    await ctx.runQuery(internal.vault.cloudflareMutations.requireAttachableVault, {
+    await ctx.runQuery(internal.vault.cloudflareMutations.requireCloudflareWorkerConnectionVault, {
       vaultId: args.vaultId,
       userId,
     });
-    const connection = await resolveCloudflareConnection(ctx, userId);
+    const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
+      userId,
+      vaultId: args.vaultId,
+      trigger: "connect_cloudflare_worker",
+    });
+    await startCloudflareWorkerConnectionOrFail(ctx, {
+      vaultId: args.vaultId,
+      runId,
+      userId,
+      accountId,
+      workerName: validation.value,
+      origin: "provisioned",
+    });
+
+    return null;
+  },
+});
+
+export const ensureCloudflareWorkerConnection = internalAction({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    accountId: string(),
+    workerName: string(),
+    origin: vVaultCloudflareOrigin,
+  },
+  returns: nullValue(),
+  handler: async (ctx, args) => {
+    if (!(await isCloudflareWorkerConnectionRunActive(ctx, args))) {
+      return null;
+    }
+
+    const connection = await resolveCloudflareConnection(ctx, args.userId);
     const account = await resolveAccount(ctx, {
       token: connection.token,
       accountId: args.accountId,
     });
-    // Recheck immediately before the provider write; if local persistence fails
-    // after creation, the rollback below deletes the Worker this action made.
-    await ctx.runQuery(internal.vault.cloudflareMutations.requireAttachableVault, {
-      vaultId: args.vaultId,
-      userId,
-    });
-    let worker: Awaited<ReturnType<typeof createCloudflareWorker>>;
-    try {
-      worker = await createCloudflareWorker({
-        token: connection.token,
-        accountId: account.accountId,
-        workerName: validation.value,
-      });
-    } catch (error) {
-      throw new Error(toErrorMessage(error));
-    }
 
-    try {
-      await rememberDefaultAccount(ctx, {
-        userId,
-        auth: connection.auth,
-        account,
-        tokenHealth: connection.tokenHealth,
-      });
-      await ctx.runMutation(internal.vault.cloudflareMutations.attachWorker, {
-        vaultId: args.vaultId,
-        userId,
-        accountId: account.accountId,
-        workerName: worker.workerName,
-        workerTag: worker.workerTag,
-        workersDevUrl: worker.workersDevUrl,
-        origin: "provisioned",
-      });
-    } catch (error) {
-      await deleteCloudflareResources({
-        cloudflareToken: connection.token,
-        accountId: account.accountId,
-        workerName: worker.workerName,
-        workerTag: worker.workerTag,
-      }).catch((cleanupError: unknown) => {
-        console.warn("cloudflare:create:rollback_failed", {
+    switch (args.origin) {
+      case "selected_existing": {
+        const worker = await resolveListedWorker({
+          token: connection.token,
           accountId: account.accountId,
-          workerName: worker.workerName,
-          error: toErrorMessage(cleanupError),
+          workerName: args.workerName,
         });
-      });
-      throw error;
+        await rememberDefaultAccount(ctx, {
+          userId: args.userId,
+          auth: connection.auth,
+          account,
+          tokenHealth: connection.tokenHealth,
+        });
+        const { attached } = await ctx.runMutation(
+          internal.vault.cloudflareMutations.attachWorkerForRun,
+          {
+            vaultId: args.vaultId,
+            runId: args.runId,
+            userId: args.userId,
+            accountId: account.accountId,
+            workerName: worker.workerName,
+            workerTag: worker.workerTag,
+            workersDevUrl: worker.workersDevUrl,
+            origin: args.origin,
+          },
+        );
+        if (!attached) {
+          throw new Error("Cloudflare Worker connection did not attach a Worker.");
+        }
+        return null;
+      }
+      case "provisioned": {
+        const validation = validateAppResourceName(args.workerName, "cloudflare");
+        if (!validation.valid) {
+          throw new Error(validation.message);
+        }
+        if (!(await isCloudflareWorkerConnectionRunActive(ctx, args))) {
+          return null;
+        }
+
+        let worker: Awaited<ReturnType<typeof createCloudflareWorker>>;
+        try {
+          worker = await createCloudflareWorker({
+            token: connection.token,
+            accountId: account.accountId,
+            workerName: validation.value,
+          });
+        } catch (error) {
+          throw new Error(toErrorMessage(error));
+        }
+
+        try {
+          await rememberDefaultAccount(ctx, {
+            userId: args.userId,
+            auth: connection.auth,
+            account,
+            tokenHealth: connection.tokenHealth,
+          });
+          const { attached } = await ctx.runMutation(
+            internal.vault.cloudflareMutations.attachWorkerForRun,
+            {
+              vaultId: args.vaultId,
+              runId: args.runId,
+              userId: args.userId,
+              accountId: account.accountId,
+              workerName: worker.workerName,
+              workerTag: worker.workerTag,
+              workersDevUrl: worker.workersDevUrl,
+              origin: args.origin,
+            },
+          );
+          if (!attached) {
+            throw new Error("Cloudflare Worker connection did not attach a Worker.");
+          }
+        } catch (error) {
+          const { shouldDelete } = await ctx.runQuery(
+            internal.vault.cloudflareMutations.readCreatedWorkerRollbackSafety,
+            {
+              vaultId: args.vaultId,
+              runId: args.runId,
+              userId: args.userId,
+              accountId: account.accountId,
+              workerName: worker.workerName,
+            },
+          );
+          if (shouldDelete) {
+            await deleteCloudflareResources({
+              cloudflareToken: connection.token,
+              accountId: account.accountId,
+              workerName: worker.workerName,
+              workerTag: worker.workerTag,
+            }).catch((cleanupError: unknown) => {
+              console.warn("cloudflare:create:rollback_failed", {
+                accountId: account.accountId,
+                workerName: worker.workerName,
+                error: toErrorMessage(cleanupError),
+              });
+            });
+          }
+          throw error;
+        }
+
+        return null;
+      }
     }
 
-    return null;
+    args.origin satisfies never;
+    throw new Error("Unsupported Cloudflare Worker origin.");
   },
 });

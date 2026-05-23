@@ -2113,6 +2113,29 @@ export const markWorkflowProvisioningFailed = internalMutation({
       return null;
     }
 
+    if (run.trigger === "connect_cloudflare_worker") {
+      const ownership = await getVaultInfrastructureOwnership(ctx, vaultId);
+      if (ownership && isActiveProvisioningOwner(ownership, { runId: args.runId })) {
+        await ctx.db.patch(ownership._id, {
+          state: "failed",
+          updatedAt: now,
+        });
+      }
+      await recordWorkflowRunFailure(ctx, {
+        eventStep,
+        now,
+        run,
+        safeRunError,
+      });
+      console.error("cloudflare:worker_connection:failed", {
+        vaultId,
+        repo: run.repositoryFullName,
+        step: run.currentStep,
+        message: args.message,
+      });
+      return null;
+    }
+
     let sourceSetupFailureLogName: "app:connect_existing:failed" | "app:provision:failed" | null =
       null;
     if (run.trigger === "connect_existing_repository") {
