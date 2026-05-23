@@ -104,7 +104,8 @@ pnpm dev
 Notes:
 
 - In Windows PowerShell, direct hosted-file `noter.ts` commands should use `curl.exe`, not the
-  built-in `curl` alias. This matches the Windows-safe command work merged in PR `#395`.
+  built-in `curl` alias. This matches the Windows-safe command work merged in
+  [`#395`](https://github.com/noter-md/noter/pull/395).
 - The `noter.ts connect` flow now prints a `next:` approval URL instead of trying to open a browser
   automatically. Open that printed link manually in a signed-in browser. This keeps the flow
   consistent across native Windows and Linux sandbox environments.

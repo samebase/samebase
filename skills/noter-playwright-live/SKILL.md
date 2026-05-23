@@ -18,7 +18,7 @@ Noter-stack apps.
 
 - Start with the real route first when the bug touches scroll, touch, drag, focus, selection, layout
   ownership, auth wiring, or route shell behavior.
-- Prefer the real worktree app flow (`pnpm dev:worktree`) and the shipped bootstrap/sign in path
+- Prefer the real worktree app flow (`pnpm dev:worktree`) and the shipped bootstrap/sign-in path
   over custom mock pages.
 - Only use a fixture when it mounts the exact production component tree without invented wrapper
   chrome, spacing, headers, or placeholder structure.

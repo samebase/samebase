@@ -125,7 +125,7 @@ const SHARE_MODE_CONFIG: Record<ShareMode, ShareModeConfig> = {
     bootstrapCommand: PNPM_COMMAND,
     bootstrapArgs: ["run", "bootstrap"],
     devCommand: PNPM_COMMAND,
-    buildDevArgs: () => ["run", "dev"],
+    buildDevArgs: () => ["run", "dev:primary"],
     devTargetPortVar: "VITE_PORT",
     defaultStartPort: 5173,
     shareLabel: "Local share",
