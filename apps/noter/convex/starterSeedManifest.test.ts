@@ -42,6 +42,9 @@ describe("starterSeedManifest", () => {
     // The schema index, reservation mutation, and client call must stay aligned for exact guest-name lookup.
     expect(starterTemplateManifest.files["convex/guests.ts"]).toContain('.withIndex("by_name"');
     expect(starterTemplateManifest.files["convex/guests.ts"]).toContain("fallbackGuestName");
+    expect(starterTemplateManifest.files["convex/guests.ts"]).toContain(
+      "FALLBACK_GUEST_NAME_SPACE",
+    );
     expect(starterTemplateManifest.files["convex/schema.ts"]).toContain("guestNames");
     expect(starterTemplateManifest.files["src/routes/index.tsx"]).toContain(
       "api.guests.ensureName",
