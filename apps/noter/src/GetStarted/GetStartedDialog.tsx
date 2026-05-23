@@ -18,7 +18,10 @@ export function GetStartedDialog({ children }: { children: ReactNode }) {
   return (
     <Dialog>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <AppDialogContent size="lg" className="max-h-[calc(100dvh-8rem)] grid-rows-[1fr_auto]">
+      <AppDialogContent
+        size="lg"
+        className="[--noter-get-started-dialog-max-height:calc(100dvh-8rem)] [--noter-get-started-dialog-rows:1fr_auto] max-h-(--noter-get-started-dialog-max-height) grid-rows-(--noter-get-started-dialog-rows)"
+      >
         <DialogHeader>
           <DialogTitle className="flex items-baseline gap-2">
             Your app powered by <ConvexLogo width={69} height={11} />

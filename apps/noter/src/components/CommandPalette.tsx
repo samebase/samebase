@@ -148,7 +148,10 @@ export function CommandPalette({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <AppDialogContent size="lg" className="p-0 max-h-[80dvh] overflow-hidden">
+      <AppDialogContent
+        size="lg"
+        className="p-0 [--noter-command-palette-max-height:80dvh] max-h-(--noter-command-palette-max-height) overflow-hidden"
+      >
         <div className="flex flex-col">
           {/* Search Input */}
           <div className="p-4 border-b">

@@ -26,7 +26,7 @@ export function AppDialogContent({
       className={cn(
         appDialogContentSizeClass[size],
         className,
-        "top-[50dvh] left-[50dvw] w-[calc(100dvw-2rem)] max-w-[min(var(--noter-dialog-max-width),calc(100dvw-2rem))] sm:w-full sm:max-w-[min(var(--noter-dialog-max-width),calc(100dvw-2rem))]",
+        "[--noter-dialog-left:50dvw] [--noter-dialog-top:50dvh] [--noter-dialog-width:min(var(--noter-dialog-max-width),calc(100dvw-2rem))] top-(--noter-dialog-top) left-(--noter-dialog-left) w-(--noter-dialog-width) max-w-(--noter-dialog-width) sm:w-(--noter-dialog-width) sm:max-w-(--noter-dialog-width)",
       )}
       {...props}
     />
