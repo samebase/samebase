@@ -1,10 +1,13 @@
 import { renderToStaticMarkup } from "react-dom/server";
+import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { Id } from "../../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import {
   GitHubRepositoryNameSlashPreview,
+  VaultDashboardCloudflareAccountDialog,
+  VaultDashboardDeleteDialog,
   VaultBranchLinkContent,
   VaultProviderSetupSection,
 } from "./VaultDashboard";
@@ -26,6 +29,15 @@ vi.mock("convex/react", () => ({
   useAction: vi.fn(),
   useMutation: vi.fn(),
   useQuery: vi.fn(),
+}));
+
+vi.mock("@/components/ui/dialog", () => ({
+  Dialog: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  DialogContent: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  DialogDescription: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  DialogFooter: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  DialogHeader: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  DialogTitle: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
 
 function fakeVaultId(): Id<"vaults"> {
@@ -63,6 +75,7 @@ function makeResourceRailBuilderVault(
     hasConnectedGitHubRepository: true,
     hasConvexProvision: false,
     hasCloudflareProvision: false,
+    canRemoveCloudflareProvision: false,
     remoteBranches: [],
   };
   return { ...vault, ...overrides };
@@ -97,7 +110,7 @@ describe("VaultBranchLinkContent", () => {
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="noter-md/noter"
-          cloudflareProductionUrl="https://tmp-flow.nicuchiciuc.workers.dev"
+          cloudflareWorkersDevUrl="https://tmp-flow.nicuchiciuc.workers.dev"
           branch={{
             name: "main",
             headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
@@ -277,6 +290,68 @@ describe("VaultProviderSetupSection", () => {
   });
 });
 
+describe("VaultDashboardDeleteDialog", () => {
+  const baseProps = {
+    commitError: null,
+    connectedCodespacesCount: 0,
+    deleteError: null,
+    didAttemptCommit: false,
+    isCommitting: false,
+    isDeleting: false,
+    onCommitBeforeRemove: () => {},
+    onDeleteOptionChange: () => {},
+    onOpenChange: () => {},
+    onRemoveVault: () => {},
+    open: true,
+    removeCodespaces: false,
+    removeConvexProvision: false,
+    removeGithubRepo: false,
+    removeCloudflareProvision: false,
+    stagedChangesCount: 0,
+  } satisfies Omit<Parameters<typeof VaultDashboardDeleteDialog>[0], "vaultToDelete">;
+
+  it("allows Cloudflare cleanup for provisioned Workers on connected repository vaults", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardDeleteDialog
+        {...baseProps}
+        vaultToDelete={{
+          repositoryFullName: "ada/existing-repo",
+          isNoterManaged: false,
+          canRemoveGithubRepo: false,
+          hasConvexProvision: false,
+          hasCloudflareProvision: true,
+          canRemoveCloudflareProvision: true,
+        }}
+      />,
+    );
+
+    expect(markup).toContain("Also remove Cloudflare Worker");
+    expect(markup).not.toContain("Only available for Workers created from this app.");
+  });
+});
+
+describe("VaultDashboardCloudflareAccountDialog", () => {
+  it("renders selectable Cloudflare accounts for the create flow", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardCloudflareAccountDialog
+        accounts={[{ accountId: "account-a", accountName: "Account A" }]}
+        error={null}
+        isLoading={false}
+        isSubmitting={false}
+        onAccountChange={() => {}}
+        onOpenChange={() => {}}
+        onSubmit={() => {}}
+        open
+        selectedAccountId="account-a"
+      />,
+    );
+
+    expect(markup).toContain("Select Cloudflare Account");
+    expect(markup).toContain("Account A");
+    expect(markup).toContain("Save Account");
+  });
+});
+
 describe("buildVaultDashboardResourceRailState", () => {
   it("keeps future provider actions hidden while provisioning is running", () => {
     const state = buildVaultDashboardResourceRailState({
@@ -326,10 +401,7 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(state.rows[2]).toMatchObject({
       provider: "cloudflare",
       status: "action_required",
-      actions: [
-        { kind: "connect_existing", disabled: true },
-        { kind: "create_new", disabled: true },
-      ],
+      actions: [{ kind: "connect_existing", disabled: true }],
     });
   });
 
@@ -369,7 +441,7 @@ describe("buildVaultDashboardResourceRailState", () => {
         convexProjectSettingsDashboardUrl:
           "https://dashboard.convex.dev/t/ada-team/demo-project/settings",
         cloudflareWorkerName: "demo-worker",
-        cloudflareProductionUrl: "https://demo-worker.ada.workers.dev",
+        cloudflareWorkersDevUrl: "https://demo-worker.ada.workers.dev",
         cloudflareProjectDashboardUrl:
           "https://dash.cloudflare.com/?to=/account/workers/services/view/demo-worker/production/deployments",
       }),

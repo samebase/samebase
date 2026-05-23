@@ -57,20 +57,20 @@ function normalizeResourceScope(value: string | undefined): string | undefined {
 }
 
 function resolveCloudflareWorkersSubdomain({
-  productionUrl,
+  workersDevUrl,
   workerName,
 }: {
-  productionUrl: string | undefined;
+  workersDevUrl: string | undefined;
   workerName: string | undefined;
 }): string | undefined {
   const normalizedWorkerName = workerName?.trim();
-  if (!productionUrl || !normalizedWorkerName) {
+  if (!workersDevUrl || !normalizedWorkerName) {
     return undefined;
   }
 
   let hostname: string;
   try {
-    hostname = new URL(productionUrl).hostname;
+    hostname = new URL(workersDevUrl).hostname;
   } catch {
     return undefined;
   }
@@ -91,9 +91,11 @@ function resolveCloudflareWorkersSubdomain({
 
 export function buildVaultDashboardResourceRailState({
   githubRepositoryUrl,
+  onConfigureCloudflare,
   vault,
 }: {
   githubRepositoryUrl: string;
+  onConfigureCloudflare?: () => void;
   vault: VaultDashboardVault;
 }): VaultResourceRailState {
   const canConfigureMissingResources =
@@ -103,7 +105,7 @@ export function buildVaultDashboardResourceRailState({
   const sourceSetupProvider = resolveSourceSetupResourceProvider(vault.sourceSetup);
   const convexProjectScope = normalizeResourceScope(vault.convexTeamSlug);
   const cloudflareWorkerScope = resolveCloudflareWorkersSubdomain({
-    productionUrl: vault.cloudflareProductionUrl,
+    workersDevUrl: vault.cloudflareWorkersDevUrl,
     workerName: vault.cloudflareWorkerName,
   });
   let githubRow: VaultResourceRailRowState<"github">;
@@ -251,8 +253,12 @@ export function buildVaultDashboardResourceRailState({
       provider: "cloudflare",
       status: "action_required",
       actions: [
-        { kind: "connect_existing", label: "Connect", disabled: true },
-        { kind: "create_new", label: "Create Worker", disabled: true },
+        {
+          kind: "connect_existing",
+          label: "Connect",
+          disabled: !onConfigureCloudflare,
+          onClick: onConfigureCloudflare,
+        },
       ],
     };
   }

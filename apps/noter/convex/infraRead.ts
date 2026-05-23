@@ -373,11 +373,17 @@ export const getCloudflareAccountInventory = internalAction({
   },
 });
 
+/**
+ * Executes an approved Cloudflare Workers inventory read for the concrete
+ * account captured in the proposal payload. Default-account fallback belongs
+ * before approval so the approver and audit trail see the same account that
+ * execution reads.
+ */
 export const getCloudflareWorkersInventory = internalAction({
   args: {
     limit: v.optional(v.number()),
     userId: v.id("users"),
-    accountId: v.optional(v.string()),
+    accountId: v.string(),
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
@@ -390,12 +396,7 @@ export const getCloudflareWorkersInventory = internalAction({
 
     const token = resolveCloudflareToken(cloudflareConnection);
     const perPage = clamp(args.limit ?? 50, 1, 100);
-    const accountId = args.accountId ?? cloudflareConnection?.accountId;
-    if (!accountId) {
-      throw new Error(
-        "Cloudflare accountId is required to list Workers. Reconnect or select an account first.",
-      );
-    }
+    const accountId = args.accountId;
     const request = {
       params: {
         path: {

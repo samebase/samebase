@@ -402,10 +402,14 @@ export const executeApprovedProdRead = internalAction({
         request.provider === "cloudflare" &&
         request.resourceKind === "workers_inventory"
       ) {
+        const accountId = parseOptionalNonEmptyString(params["accountId"]);
+        if (!accountId) {
+          throw new Error("Cloudflare accountId is required to list Workers.");
+        }
         executionResult = await ctx.runAction(internal.infraRead.getCloudflareWorkersInventory, {
           limit: parseOptionalPositiveNumber(params["limit"]),
           userId: request.requesterUserId,
-          accountId: parseOptionalNonEmptyString(params["accountId"]),
+          accountId,
         });
       }
 

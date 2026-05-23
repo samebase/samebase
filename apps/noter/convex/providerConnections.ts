@@ -7,6 +7,7 @@ import {
 } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { vMcpTokenHealth } from "./mcpTokenHealth";
+import { vCloudflareDefaultAccount, type CloudflareDefaultAccount } from "./schema";
 import {
   CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS,
   CLOUDFLARE_TOKEN_REFRESH_STALE_LOCK_MS,
@@ -54,7 +55,7 @@ const vConvexConnectionUpsert = object({
 const vCloudflareConnectionUpsert = object({
   userId: id("users"),
   auth: vCloudflareProviderAuth,
-  accountId: optional(string()),
+  defaultAccount: vCloudflareDefaultAccount,
   tokenHealth: optional(vMcpTokenHealth),
   tokenRefreshStartedAt: optional(number()),
   lastTokenRefreshAt: optional(number()),
@@ -87,7 +88,7 @@ const vCloudflareConnectionResult = object({
   kind: literal("cloudflare"),
   userId: id("users"),
   auth: vCloudflareProviderAuth,
-  accountId: optional(string()),
+  defaultAccount: vCloudflareDefaultAccount,
   tokenHealth: optional(vMcpTokenHealth),
   tokenRefreshStartedAt: optional(number()),
   lastTokenRefreshAt: optional(number()),
@@ -99,6 +100,23 @@ const vProviderConnectionResult = union(
   vConvexConnectionResult,
   vCloudflareConnectionResult,
 );
+
+export function buildSeedCloudflareDefaultAccount(
+  accountId: string | null | undefined,
+): CloudflareDefaultAccount {
+  const normalizedAccountId = accountId?.trim();
+  if (!normalizedAccountId) {
+    return { state: "not_selected" };
+  }
+
+  // The seed env only carries the account id; listing accounts later replaces
+  // this display fallback with Cloudflare's current account name.
+  return {
+    state: "selected",
+    accountId: normalizedAccountId,
+    accountName: normalizedAccountId,
+  };
+}
 
 export async function getConnectionByUserAndKind(
   db: DatabaseReader,
@@ -189,7 +207,7 @@ async function upsertCloudflareConnection(
   if (existing) {
     const patch = {
       auth: args.auth,
-      accountId: args.accountId,
+      defaultAccount: args.defaultAccount,
       updatedAt: now,
       ...(args.tokenHealth !== undefined ? { tokenHealth: args.tokenHealth } : {}),
       ...(args.tokenRefreshStartedAt !== undefined
@@ -206,7 +224,7 @@ async function upsertCloudflareConnection(
     kind: "cloudflare" as const,
     userId: args.userId,
     auth: args.auth,
-    accountId: args.accountId,
+    defaultAccount: args.defaultAccount,
     createdAt: now,
     updatedAt: now,
     ...(args.tokenHealth !== undefined ? { tokenHealth: args.tokenHealth } : {}),

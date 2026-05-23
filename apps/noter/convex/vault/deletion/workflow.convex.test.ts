@@ -165,6 +165,102 @@ describe("vault deletion workflow", () => {
     expect(queued.vault).toMatchObject({ _id: ids.vaultId });
   });
 
+  it("plans Cloudflare cleanup from Worker origin for connected repository vaults", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      await ctx.db.insert("providerConnections", {
+        kind: "cloudflare",
+        userId,
+        auth: {
+          method: "api_key",
+          credential: "test-cloudflare-api-key",
+        },
+        defaultAccount: {
+          state: "selected",
+          accountId: "cloudflare-account",
+          accountName: "Cloudflare Account",
+        },
+        createdAt: 1,
+        updatedAt: 2,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/existing-repo",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 3,
+        updatedAt: 4,
+        completedAt: 5,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "existing-repo",
+        defaultBranch: "main",
+        visibility: "private",
+        convex: { state: "not_configured" },
+        cloudflare: {
+          state: "connected",
+          accountId: "cloudflare-account",
+          workerName: "existing-repo-worker",
+          workerTag: "worker-tag",
+          origin: "provisioned",
+          connectedAt: 6,
+          lastObservedAt: 7,
+        },
+        connectedAt: 8,
+      });
+
+      return { userId, vaultId };
+    });
+
+    const { deletionRunId } = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
+      userId: ids.userId,
+      vaultId: ids.vaultId,
+      options: {
+        removeCodespaces: false,
+        removeGithubRepo: false,
+        removeConvexProvision: false,
+        removeCloudflareProvision: true,
+      },
+    });
+
+    const run = await t.run(async (ctx) => await ctx.db.get(deletionRunId));
+
+    expect(run?.snapshot.state).toBe("retained_for_retry");
+    if (run?.snapshot.state !== "retained_for_retry") {
+      throw new Error("Deletion run did not retain a retry plan.");
+    }
+    expect(run.snapshot.plan).toMatchObject({
+      target: {
+        kind: "existing_repository",
+      },
+      cloudflare: {
+        action: "delete_worker",
+        accountId: "cloudflare-account",
+        workerName: "existing-repo-worker",
+        workerTag: "worker-tag",
+      },
+    });
+  });
+
   it("returns dashboard deletion state and closes live repository lookups", async () => {
     const { ids, t } = await createConnectedVault();
     const { deletionRunId } = await t.mutation(internal.vault.deletion.runs.createInitialRun, {

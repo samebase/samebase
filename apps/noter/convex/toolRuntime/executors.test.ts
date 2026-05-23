@@ -13,10 +13,18 @@ type QueryCall = {
   args: Record<string, unknown>;
 };
 
+type ActionCall = {
+  ref: unknown;
+  args: Record<string, unknown>;
+};
+
+type ActionHandler = (args: Record<string, unknown>) => unknown;
 type QueryHandler = (args: Record<string, unknown>) => unknown;
 type MutationHandler = (args: Record<string, unknown>) => unknown;
 
 function makeResolvedContext(args?: {
+  actionCalls?: ActionCall[];
+  actionHandler?: ActionHandler;
   queryCalls?: QueryCall[];
   queryHandler?: QueryHandler;
   mutationHandler?: MutationHandler;
@@ -24,10 +32,21 @@ function makeResolvedContext(args?: {
   branch?: string;
   threadId?: string;
 }): ResolvedToolContext {
+  const actionCalls = args?.actionCalls ?? [];
   const queryCalls = args?.queryCalls ?? [];
   const mutationCalls = args?.mutationCalls ?? [];
 
   const ctx = {
+    runAction: async (
+      _actionRef: unknown,
+      actionArgs: Record<string, unknown>,
+    ): Promise<unknown> => {
+      actionCalls.push({ ref: _actionRef, args: actionArgs });
+      if (args?.actionHandler) {
+        return args.actionHandler(actionArgs);
+      }
+      return null;
+    },
     runQuery: async (_queryRef: unknown, queryArgs: Record<string, unknown>): Promise<unknown> => {
       queryCalls.push({ ref: _queryRef, args: queryArgs });
       if (args?.queryHandler) {
@@ -359,5 +378,71 @@ describe("executeRuntimeTool write dispatch", () => {
       toolName: "request_convex_data_read",
     });
     expect(typeof mutationCalls[0].args.paramsJson).toBe("string");
+  });
+
+  it("resolves the default Cloudflare account before proposing a Workers inventory read", async () => {
+    const actionCalls: ActionCall[] = [];
+    const mutationCalls: MutationCall[] = [];
+    const context = makeResolvedContext({
+      actionCalls,
+      mutationCalls,
+      threadId: "thread_123",
+      actionHandler: () => ({
+        auth: { method: "api_key", credential: "cloudflare_token" },
+        defaultAccount: {
+          state: "selected",
+          accountId: "cloudflare_account_123",
+          accountName: "Main account",
+        },
+      }),
+      mutationHandler: () => ({ requestId: "request_123" }),
+    });
+
+    const output = await executeRuntimeTool({
+      toolName: "request_cloudflare_workers_inventory_read",
+      context,
+      input: { limit: 10 },
+    });
+
+    expect(output.text).toContain("I need your approval before reading Cloudflare");
+    expect(actionCalls).toHaveLength(1);
+    expect(actionCalls[0].args).toEqual({ userId: "users_test" });
+    expect(mutationCalls).toHaveLength(1);
+    expect(mutationCalls[0].args).toMatchObject({
+      threadId: "thread_123",
+      requesterUserId: "users_test",
+      provider: "cloudflare",
+      resourceKind: "workers_inventory",
+      toolName: "request_cloudflare_workers_inventory_read",
+      paramsJson: JSON.stringify({
+        accountId: "cloudflare_account_123",
+        limit: 10,
+      }),
+    });
+  });
+
+  it("uses an explicit Cloudflare account without reading the default selection", async () => {
+    const actionCalls: ActionCall[] = [];
+    const mutationCalls: MutationCall[] = [];
+    const context = makeResolvedContext({
+      actionCalls,
+      mutationCalls,
+      threadId: "thread_123",
+      mutationHandler: () => ({ requestId: "request_123" }),
+    });
+
+    await executeRuntimeTool({
+      toolName: "request_cloudflare_workers_inventory_read",
+      context,
+      input: { accountId: "cloudflare_account_explicit" },
+    });
+
+    expect(actionCalls).toHaveLength(0);
+    expect(mutationCalls).toHaveLength(1);
+    expect(mutationCalls[0].args).toMatchObject({
+      paramsJson: JSON.stringify({
+        accountId: "cloudflare_account_explicit",
+      }),
+    });
   });
 });

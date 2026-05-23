@@ -8,7 +8,10 @@ import { internal } from "./_generated/api";
 import { resolveDeploymentProfile, resolvePasswordAuthMode } from "./deploymentProfile";
 import { internalAction, internalMutation, type DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { getConnectionByUserAndKind } from "./providerConnections";
+import {
+  buildSeedCloudflareDefaultAccount,
+  getConnectionByUserAndKind,
+} from "./providerConnections";
 import { readOptionalEnv } from "./oauthUtils";
 
 const { boolean, null: vNull, object, optional, string } = v;
@@ -153,13 +156,14 @@ async function upsertCloudflareApiKey(
 ): Promise<void> {
   const existing = await getConnectionByUserAndKind(db, userId, "cloudflare");
   const now = Date.now();
+  const defaultAccount = buildSeedCloudflareDefaultAccount(accountId);
   if (existing) {
     await db.patch(existing._id, {
       auth: {
         method: "api_key",
         credential,
       },
-      ...(accountId ? { accountId } : {}),
+      defaultAccount,
       updatedAt: now,
     });
     return;
@@ -171,7 +175,7 @@ async function upsertCloudflareApiKey(
       method: "api_key",
       credential,
     },
-    accountId,
+    defaultAccount,
     createdAt: now,
     updatedAt: now,
   });

@@ -87,27 +87,22 @@ export const vVaultConvexState = union(
 );
 export type VaultConvexState = Infer<typeof vVaultConvexState>;
 
+export const vVaultCloudflareOrigin = union(literal("provisioned"), literal("selected_existing"));
+export type VaultCloudflareOrigin = Infer<typeof vVaultCloudflareOrigin>;
+
 export const vVaultCloudflareState = union(
   object({
     state: literal("not_configured"),
-  }),
-  object({
-    state: literal("provisioning"),
-    runId: id("appProvisioningRuns"),
-    startedAt: number(),
   }),
   object({
     state: literal("connected"),
     accountId: string(),
     workerName: string(),
     workerTag: string(),
-    productionUrl: string(),
+    workersDevUrl: optional(string()),
+    origin: vVaultCloudflareOrigin,
     connectedAt: number(),
-  }),
-  object({
-    state: literal("failed"),
-    runId: id("appProvisioningRuns"),
-    failedAt: number(),
+    lastObservedAt: number(),
   }),
 );
 export type VaultCloudflareState = Infer<typeof vVaultCloudflareState>;

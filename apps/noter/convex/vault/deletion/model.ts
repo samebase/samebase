@@ -111,6 +111,7 @@ const providerCleanupPlan = {
       action: literal("skip"),
       reason: union(
         literal("not_requested"),
+        literal("not_managed"),
         literal("not_noter_managed"),
         literal("not_recorded"),
       ),

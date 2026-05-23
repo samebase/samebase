@@ -1,58 +1,98 @@
 "use node";
 
+import { notEmpty } from "@noter-md/dependent/main";
 import { v } from "convex/values";
+
 import { internalAction } from "./_generated/server";
 import { requestCloudflareApi } from "./cloudflareApi/client";
+import { vCloudflareDefaultAccount } from "./schema";
 
 type CloudflareAccountIdentity = {
   id?: string | null;
+  name?: string | null;
 };
 
-export function selectSingleCloudflareAccountId(
-  accounts: readonly CloudflareAccountIdentity[],
-): string {
-  const accountIds: string[] = [];
-  for (const account of accounts) {
-    const accountId = account.id?.trim();
-    if (accountId) {
-      accountIds.push(accountId);
-    }
+export type CloudflareAccount = {
+  accountId: string;
+  accountName: string;
+};
+
+function readCloudflareAccount(account: CloudflareAccountIdentity): CloudflareAccount | null {
+  const accountId = account.id?.trim();
+  if (!accountId) {
+    return null;
   }
 
-  const [accountId] = accountIds;
-  if (!accountId) {
+  const accountName = account.name?.trim();
+  return {
+    accountId,
+    accountName: accountName ? accountName : accountId,
+  };
+}
+
+export function normalizeCloudflareAccounts(
+  accounts: readonly CloudflareAccountIdentity[],
+): CloudflareAccount[] {
+  const normalizedAccounts = accounts.map(readCloudflareAccount).filter(notEmpty);
+
+  return normalizedAccounts.sort(
+    (left, right) =>
+      left.accountName.localeCompare(right.accountName) ||
+      left.accountId.localeCompare(right.accountId),
+  );
+}
+
+export function selectSingleCloudflareDefaultAccount(
+  normalizedAccounts: readonly CloudflareAccount[],
+) {
+  if (normalizedAccounts.length === 0) {
     throw new Error(
       "Cloudflare OAuth did not expose any accounts. Reconnect Cloudflare and grant account access.",
     );
   }
-  if (accountIds.length > 1) {
-    throw new Error(
-      "Cloudflare OAuth exposed multiple accounts. Account selection is not supported yet.",
-    );
+  if (normalizedAccounts.length > 1) {
+    return { state: "not_selected" as const };
   }
-  return accountId;
+
+  const [account] = normalizedAccounts;
+  return {
+    state: "selected" as const,
+    accountId: account.accountId,
+    accountName: account.accountName,
+  };
 }
 
-export const resolveSingleAccountIdForToken = internalAction({
+export async function listCloudflareAccountsForToken(args: {
+  token: string;
+  perPage: number;
+}): Promise<CloudflareAccount[]> {
+  const accounts = await requestCloudflareApi({
+    token: args.token,
+    method: "GET",
+    path: "/accounts",
+    params: {
+      query: {
+        page: 1,
+        per_page: args.perPage,
+      },
+    },
+  });
+  if (!accounts) {
+    throw new Error("Cloudflare account response did not include accounts.");
+  }
+  return normalizeCloudflareAccounts(accounts);
+}
+
+export const resolveDefaultAccountForToken = internalAction({
   args: {
     token: v.string(),
   },
-  returns: v.string(),
+  returns: vCloudflareDefaultAccount,
   handler: async (_ctx, args) => {
-    const accounts = await requestCloudflareApi({
+    const accounts = await listCloudflareAccountsForToken({
       token: args.token,
-      method: "GET",
-      path: "/accounts",
-      params: {
-        query: {
-          page: 1,
-          per_page: 2,
-        },
-      },
+      perPage: 2,
     });
-    if (!accounts) {
-      throw new Error("Cloudflare account response did not include accounts.");
-    }
-    return selectSingleCloudflareAccountId(accounts);
+    return selectSingleCloudflareDefaultAccount(accounts);
   },
 });

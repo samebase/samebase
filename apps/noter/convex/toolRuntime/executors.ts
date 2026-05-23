@@ -918,6 +918,8 @@ async function executeRequestCloudflareWorkersInventoryRead(
   context: ResolvedToolContext,
   input: RequestCloudflareWorkersInventoryReadInput,
 ): Promise<ToolExecutionOutput> {
+  const accountId = await resolveCloudflareWorkersInventoryAccountId(context, input.accountId);
+
   return executeProdReadRequest({
     context,
     scope: "global",
@@ -925,11 +927,40 @@ async function executeRequestCloudflareWorkersInventoryRead(
     resourceKind: "workers_inventory",
     toolName: "request_cloudflare_workers_inventory_read",
     params: {
-      ...(typeof input.accountId === "string" ? { accountId: input.accountId } : {}),
+      accountId,
       ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
     },
     allowRawFallback: input.allowRawFallback,
   });
+}
+
+/**
+ * Stores a concrete Cloudflare account in the approval request. Execution
+ * should not re-resolve the user's default account because the selection could
+ * change between proposal, approval, and the provider read.
+ */
+async function resolveCloudflareWorkersInventoryAccountId(
+  context: ResolvedToolContext,
+  accountId: string | undefined,
+): Promise<string> {
+  const explicitAccountId = accountId?.trim();
+  if (explicitAccountId) {
+    return explicitAccountId;
+  }
+
+  const cloudflareConnection = await context.ctx.runAction(
+    internal.cloudflareMcpOAuth.resolveConnectionForUser,
+    {
+      userId: context.userId,
+    },
+  );
+  if (cloudflareConnection?.defaultAccount.state === "selected") {
+    return cloudflareConnection.defaultAccount.accountId;
+  }
+
+  throw new Error(
+    "Cloudflare accountId is required to list Workers. Select a default account or pass accountId.",
+  );
 }
 
 async function executeRequestConvexDataRead(

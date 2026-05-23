@@ -334,21 +334,14 @@ async function resolveVaultDeletionSummary(
   }
 }
 
-async function readActiveVaultInfrastructureOwnership(
+async function readVaultInfrastructureOwnership(
   ctx: Pick<QueryCtx, "db">,
   vaultId: Id<"vaults">,
 ): Promise<VaultInfrastructureOwnership | null> {
-  const ownership = await ctx.db
+  return await ctx.db
     .query("vaultInfrastructureOwnership")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .first();
-  if (!ownership) {
-    return null;
-  }
-  if (ownership.state !== "active") {
-    return null;
-  }
-  return ownership;
 }
 
 async function resolveProviderSetupSummary(
@@ -364,14 +357,6 @@ async function resolveProviderSetupSummary(
       fallbackUpdatedAt: vault.convex.failedAt,
     });
   }
-  if (cloudflare.state === "failed") {
-    return await readProviderRunSummary(ctx, {
-      provider: "cloudflare",
-      runId: cloudflare.runId,
-      status: "failed",
-      fallbackUpdatedAt: cloudflare.failedAt,
-    });
-  }
   if (vault.convex.state === "provisioning") {
     return await readProviderRunSummary(ctx, {
       provider: "convex",
@@ -380,26 +365,15 @@ async function resolveProviderSetupSummary(
       fallbackUpdatedAt: vault.convex.startedAt,
     });
   }
-  if (cloudflare.state === "provisioning") {
-    return await readProviderRunSummary(ctx, {
-      provider: "cloudflare",
-      runId: cloudflare.runId,
-      status: "running",
-      fallbackUpdatedAt: cloudflare.startedAt,
-    });
-  }
-  if (vault.convex.state === "connected" && cloudflare.state === "connected") {
-    return { status: "ready" };
-  }
 
-  const activeOwnership = await readActiveVaultInfrastructureOwnership(ctx, vault._id);
+  const ownership = await readVaultInfrastructureOwnership(ctx, vault._id);
   if (vault.convex.state === "not_configured") {
-    if (activeOwnership) {
+    if (ownership?.state === "active" || ownership?.state === "failed") {
       return await readProviderRunSummary(ctx, {
         provider: "convex",
-        runId: activeOwnership.runId,
-        status: "running",
-        fallbackUpdatedAt: activeOwnership.updatedAt,
+        runId: ownership.runId,
+        status: ownership.state === "failed" ? "failed" : "running",
+        fallbackUpdatedAt: ownership.updatedAt,
       });
     }
     const runningCreateRun = await readRunningProviderRunSummary(ctx, {
@@ -409,12 +383,12 @@ async function resolveProviderSetupSummary(
     return runningCreateRun ?? { status: "not_applicable" };
   }
   if (cloudflare.state === "not_configured") {
-    if (activeOwnership) {
+    if (ownership?.state === "active" || ownership?.state === "failed") {
       return await readProviderRunSummary(ctx, {
         provider: "cloudflare",
-        runId: activeOwnership.runId,
-        status: "running",
-        fallbackUpdatedAt: activeOwnership.updatedAt,
+        runId: ownership.runId,
+        status: ownership.state === "failed" ? "failed" : "running",
+        fallbackUpdatedAt: ownership.updatedAt,
       });
     }
     const runningCreateRun = await readRunningProviderRunSummary(ctx, {
@@ -423,8 +397,16 @@ async function resolveProviderSetupSummary(
     });
     return runningCreateRun ?? { status: "not_applicable" };
   }
+  if (ownership?.state === "active") {
+    return await readProviderRunSummary(ctx, {
+      provider: "cloudflare",
+      runId: ownership.runId,
+      status: "running",
+      fallbackUpdatedAt: ownership.updatedAt,
+    });
+  }
 
-  return { status: "not_applicable" };
+  return { status: "ready" };
 }
 
 function compareVaultDomainSortOrder(left: VaultDomain, right: VaultDomain): number {
@@ -621,6 +603,7 @@ const getUserVaultsResult = array(
     hasConnectedGitHubRepository: boolean(),
     hasConvexProvision: boolean(),
     hasCloudflareProvision: boolean(),
+    canRemoveCloudflareProvision: boolean(),
     remoteBranches: array(
       object({
         name: string(),
@@ -641,7 +624,7 @@ const getUserVaultsResult = array(
         convexPreviewDeploymentDashboardUrl: optional(string()),
       }),
     ),
-    cloudflareProductionUrl: optional(string()),
+    cloudflareWorkersDevUrl: optional(string()),
     cloudflareWorkerName: optional(string()),
     cloudflareProjectDashboardUrl: optional(string()),
     convexTeamSlug: optional(string()),
@@ -700,8 +683,9 @@ export const getUserVaults = query({
         hasConnectedGitHubRepository: false,
         hasConvexProvision: false,
         hasCloudflareProvision: false,
+        canRemoveCloudflareProvision: false,
         remoteBranches: [],
-        cloudflareProductionUrl: undefined,
+        cloudflareWorkersDevUrl: undefined,
         cloudflareWorkerName: undefined,
         cloudflareProjectDashboardUrl: undefined,
         convexTeamSlug: undefined,
@@ -739,8 +723,10 @@ export const getUserVaults = query({
             hasConnectedGitHubRepository: true,
             hasConvexProvision: vault.convex.state === "connected",
             hasCloudflareProvision: vault.cloudflare.state === "connected",
+            canRemoveCloudflareProvision:
+              vault.cloudflare.state === "connected" && vault.cloudflare.origin === "provisioned",
             remoteBranches: [],
-            cloudflareProductionUrl: undefined,
+            cloudflareWorkersDevUrl: undefined,
             cloudflareWorkerName: undefined,
             cloudflareProjectDashboardUrl: undefined,
             convexTeamSlug: undefined,
@@ -789,6 +775,8 @@ export const getUserVaults = query({
         const hasConvexProvision = vault.convex.state === "connected";
         const cloudflare = vault.cloudflare;
         const hasCloudflareProvision = cloudflare.state === "connected";
+        const canRemoveCloudflareProvision =
+          cloudflare.state === "connected" && cloudflare.origin === "provisioned";
         const convexProjectSlug =
           vault.convex.state === "connected" ? vault.convex.projectSlug : undefined;
         const convexDeploymentName =
@@ -819,6 +807,7 @@ export const getUserVaults = query({
           hasConnectedGitHubRepository: true,
           hasConvexProvision,
           hasCloudflareProvision,
+          canRemoveCloudflareProvision,
           remoteBranches: remoteBranches.sort(compareRemoteBranchSortOrder).map((branch) => ({
             name: branch.name,
             headCommitSha: branch.headCommitSha,
@@ -853,7 +842,7 @@ export const getUserVaults = query({
                   })
                 : undefined,
           })),
-          cloudflareProductionUrl: connectedCloudflare?.productionUrl,
+          cloudflareWorkersDevUrl: connectedCloudflare?.workersDevUrl,
           cloudflareWorkerName: connectedCloudflare?.workerName,
           cloudflareProjectDashboardUrl: buildCloudflareWorkerDashboardUrl(connectedCloudflare),
           convexTeamSlug,

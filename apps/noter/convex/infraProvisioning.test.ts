@@ -7,7 +7,6 @@ import {
   selectExistingCloudflareWorker,
 } from "./infraProvisioning";
 import type { GithubTreeData } from "./schema";
-import { sanitizeSlug, vaultSuffix } from "./slugUtils";
 import { makeConvexTest } from "./test.setup";
 
 const branchTreeData = {
@@ -58,53 +57,59 @@ describe("selectExistingCloudflareWorker", () => {
           accountId: "account-1",
           workerName: "noter",
           workerTag: "connected-worker-tag",
-          productionUrl: "https://noter.example.workers.dev",
+          workersDevUrl: "https://noter.example.workers.dev",
+          origin: "provisioned",
           connectedAt: 20,
+          lastObservedAt: 20,
         },
-        target: {
-          cloudflare: {
-            state: "created",
-            accountId: "account-1",
-            workerName: "noter",
-            workerTag: "target-worker-tag",
-            productionUrl: "https://noter.example.workers.dev",
-          },
+        cloudflareTarget: {
+          state: "planned",
+          accountId: "account-1",
+          workerName: "noter",
         },
         accountId: "account-1",
       }),
     ).toEqual({ state: "created", workerTag: "connected-worker-tag" });
   });
 
-  it("trusts a recorded target Worker tag for the same account", () => {
+  it("prefers the provisional Worker tag recorded for retries", () => {
     expect(
       selectExistingCloudflareWorker({
         cloudflare: { state: "not_configured" },
-        target: {
-          cloudflare: {
-            state: "created",
-            accountId: "account-1",
-            workerName: "noter",
-            workerTag: " target-worker-tag ",
-            productionUrl: "https://noter.example.workers.dev",
-          },
+        cloudflareTarget: {
+          state: "created",
+          accountId: "account-1",
+          workerName: "noter",
+          workerTag: "provisional-worker-tag",
+          workersDevUrl: "https://noter.example.workers.dev",
         },
         accountId: "account-1",
       }),
-    ).toEqual({ state: "created", workerTag: "target-worker-tag" });
+    ).toEqual({ state: "created", workerTag: "provisional-worker-tag" });
+  });
+
+  it("keeps missing Worker identity adoptable without a recorded tag", () => {
+    expect(
+      selectExistingCloudflareWorker({
+        cloudflare: { state: "not_configured" },
+        cloudflareTarget: {
+          state: "planned",
+          accountId: "account-1",
+          workerName: "noter",
+        },
+        accountId: "account-1",
+      }),
+    ).toEqual({ state: "planned" });
   });
 
   it("keeps planned Worker names adoptable without a recorded tag", () => {
     expect(
       selectExistingCloudflareWorker({
         cloudflare: { state: "not_configured" },
-        target: {
-          cloudflare: {
-            state: "created",
-            accountId: "account-1",
-            workerName: "noter",
-            workerTag: "target-worker-tag",
-            productionUrl: "https://noter.example.workers.dev",
-          },
+        cloudflareTarget: {
+          state: "planned",
+          accountId: "account-2",
+          workerName: "noter",
         },
         accountId: "account-2",
       }),
@@ -139,7 +144,7 @@ describe("resolveConnectionFailureProvider", () => {
 });
 
 describe("infrastructure provisioning ownership", () => {
-  it("creates a target row before provider side effects for older vaults", async () => {
+  it("requires a target row before provider side effects", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
@@ -182,36 +187,13 @@ describe("infrastructure provisioning ownership", () => {
       return { runId, vaultId };
     });
 
-    const result = await t.mutation(internal.infraProvisioning.claimWorkflowProvisioning, {
-      vaultId: ids.vaultId,
-      runId: ids.runId,
-      force: true,
-    });
-    const target = await t.run(async (ctx) => {
-      return await ctx.db
-        .query("vaultInfrastructureTargets")
-        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-        .first();
-    });
-    const record = await t.mutation(internal.infraProvisioning.recordConvexProjectIdentity, {
-      vaultId: ids.vaultId,
-      runId: ids.runId,
-      projectId: "convex-project-id",
-    });
-
-    const suffix = vaultSuffix(ids.vaultId);
-    expect(result).toEqual({ claimed: true });
-    expect(target).toMatchObject({
-      convex: {
-        state: "planned",
-        projectName: sanitizeSlug(`ada-older-retry-${suffix}`, 40),
-      },
-      cloudflare: {
-        state: "planned",
-        workerName: sanitizeSlug(`ada-older-retry-${suffix}`, 58),
-      },
-    });
-    expect(record).toEqual({ applied: true });
+    await expect(
+      t.mutation(internal.infraProvisioning.claimWorkflowProvisioning, {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+        force: true,
+      }),
+    ).rejects.toThrow("Infrastructure target is required before provisioning can be claimed.");
   });
 
   it("records provisional Convex project identity for retries", async () => {
@@ -272,6 +254,7 @@ describe("infrastructure provisioning ownership", () => {
         },
         cloudflare: {
           state: "planned",
+          accountId: "cloudflare-account-id",
           workerName: "provider-retry",
         },
         createdAt: 31,
@@ -346,11 +329,7 @@ describe("infrastructure provisioning ownership", () => {
           deploymentName: "provider-retry-prod",
           connectedAt: 25,
         },
-        cloudflare: {
-          state: "provisioning",
-          runId,
-          startedAt: 26,
-        },
+        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
@@ -367,6 +346,7 @@ describe("infrastructure provisioning ownership", () => {
         },
         cloudflare: {
           state: "planned",
+          accountId: "cloudflare-account-id",
           workerName: "provider-retry",
         },
         createdAt: 31,
@@ -382,23 +362,30 @@ describe("infrastructure provisioning ownership", () => {
       accountId: "cloudflare-account-id",
       workerName: "provider-retry",
       workerTag: "cloudflare-worker-tag",
-      productionUrl: "https://provider-retry.example.workers.dev",
+      workersDevUrl: "https://provider-retry.example.workers.dev",
     });
-    const target = await t.run(async (ctx) => {
-      return await ctx.db
+    const { vault, target } = await t.run(async (ctx) => {
+      const vault = await ctx.db.get(ids.vaultId);
+      const target = await ctx.db
         .query("vaultInfrastructureTargets")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
+      return { target, vault };
     });
 
     expect(result).toEqual({ applied: true });
+    expect(vault).toMatchObject({
+      cloudflare: {
+        state: "not_configured",
+      },
+    });
     expect(target).toMatchObject({
       cloudflare: {
         state: "created",
         accountId: "cloudflare-account-id",
         workerName: "provider-retry",
         workerTag: "cloudflare-worker-tag",
-        productionUrl: "https://provider-retry.example.workers.dev",
+        workersDevUrl: "https://provider-retry.example.workers.dev",
       },
     });
   });
@@ -446,11 +433,7 @@ describe("infrastructure provisioning ownership", () => {
           deploymentName: "deploy-keys-prod",
           connectedAt: 25,
         },
-        cloudflare: {
-          state: "provisioning",
-          runId,
-          startedAt: 26,
-        },
+        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
@@ -710,11 +693,7 @@ describe("infrastructure provisioning ownership", () => {
           deploymentName: "cloudflare-token-failure-prod",
           connectedAt: 25,
         },
-        cloudflare: {
-          state: "provisioning",
-          runId,
-          startedAt: 26,
-        },
+        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,

@@ -13,6 +13,7 @@ import {
 } from "./oauthUtils";
 import { isRecord } from "./jsonUtils";
 import { deriveMcpTokenStatusFromExpiry, vMcpTokenHealth } from "./mcpTokenHealth";
+import { vCloudflareDefaultAccount } from "./schema";
 
 const CLOUDFLARE_MCP_OAUTH_ISSUER = "https://mcp.cloudflare.com";
 const CLOUDFLARE_MCP_AUTHORIZATION_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/authorize`;
@@ -305,7 +306,7 @@ const storeCloudflareMcpOauthConnectionArgs = {
   refreshToken: string(),
   expiresAt: number(),
   clientId: string(),
-  accountId: string(),
+  defaultAccount: vCloudflareDefaultAccount,
   oauthStateId: id("oauthStates"),
 } as const;
 const storeCloudflareMcpOauthConnectionResultValidator = nullValue();
@@ -324,7 +325,7 @@ export const storeCloudflareMcpOauthConnection = internalMutation({
         credentialExpiresAt: args.expiresAt,
         clientId: args.clientId,
       },
-      accountId: args.accountId,
+      defaultAccount: args.defaultAccount,
       tokenHealth: {
         status: deriveMcpTokenStatusFromExpiry(args.expiresAt, checkedAt),
         checkedAt,
@@ -355,7 +356,7 @@ const cloudflareApiKeyAuthValidator = object({
 });
 const resolvedCloudflareConnectionValidator = object({
   auth: union(cloudflareMcpOauthAuthValidator, cloudflareApiKeyAuthValidator),
-  accountId: optional(string()),
+  defaultAccount: vCloudflareDefaultAccount,
   tokenHealth: optional(vMcpTokenHealth),
 });
 const resolveConnectionForUserResultValidator = union(
@@ -364,38 +365,6 @@ const resolveConnectionForUserResultValidator = union(
 );
 const getCloudflareMcpOAuthUrlResultValidator = string();
 type ResolvedCloudflareConnection = Infer<typeof resolvedCloudflareConnectionValidator>;
-
-async function resolveCloudflareMcpAccountId(
-  ctx: ActionCtx,
-  args: {
-    userId: Id<"users">;
-    auth: Infer<typeof cloudflareMcpOauthAuthValidator>;
-    accountId?: string;
-    tokenHealth: Infer<typeof vMcpTokenHealth>;
-  },
-): Promise<string> {
-  const existingAccountId = args.accountId?.trim();
-  if (existingAccountId) {
-    return existingAccountId;
-  }
-
-  const accountId = await ctx.runAction(
-    internal.cloudflareAccountDiscovery.resolveSingleAccountIdForToken,
-    {
-      token: args.auth.credential,
-    },
-  );
-  await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
-    userId: args.userId,
-    auth: args.auth,
-    accountId,
-    tokenHealth: args.tokenHealth,
-  });
-  console.log("cloudflare:mcp_oauth:account_selected", {
-    userId: args.userId,
-  });
-  return accountId;
-}
 
 export const resolveConnectionForUser = internalAction({
   args: {
@@ -415,7 +384,7 @@ export const resolveConnectionForUser = internalAction({
     if (connection.auth.method !== "mcp_oauth") {
       return {
         auth: connection.auth,
-        accountId: connection.accountId,
+        defaultAccount: connection.defaultAccount,
       };
     }
 
@@ -443,15 +412,9 @@ export const resolveConnectionForUser = internalAction({
       shouldRefresh,
     });
     if (!shouldRefresh) {
-      const accountId = await resolveCloudflareMcpAccountId(ctx, {
-        userId: args.userId,
-        auth: connection.auth,
-        accountId: connection.accountId,
-        tokenHealth: effectiveTokenHealth,
-      });
       return {
         auth: connection.auth,
-        accountId,
+        defaultAccount: connection.defaultAccount,
         tokenHealth: effectiveTokenHealth,
       };
     }
@@ -469,7 +432,7 @@ export const resolveConnectionForUser = internalAction({
       await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
         userId: args.userId,
         auth: connection.auth,
-        accountId: connection.accountId,
+        defaultAccount: connection.defaultAccount,
         tokenHealth,
       });
       console.log("cloudflare:mcp_token:refresh_failed", {
@@ -494,7 +457,7 @@ export const resolveConnectionForUser = internalAction({
       await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
         userId: args.userId,
         auth: connection.auth,
-        accountId: connection.accountId,
+        defaultAccount: connection.defaultAccount,
         tokenHealth,
       });
       console.log("cloudflare:mcp_token:refresh_failed", {
@@ -540,7 +503,7 @@ export const resolveConnectionForUser = internalAction({
       await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
         userId: args.userId,
         auth: connection.auth,
-        accountId: connection.accountId,
+        defaultAccount: connection.defaultAccount,
         tokenHealth,
       });
       throw error;
@@ -564,7 +527,7 @@ export const resolveConnectionForUser = internalAction({
     await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
       userId: args.userId,
       auth: refreshedAuth,
-      accountId: connection.accountId,
+      defaultAccount: connection.defaultAccount,
       tokenHealth: refreshedTokenHealth,
     });
     console.log("cloudflare:mcp_token:refresh_success", {
@@ -574,16 +537,9 @@ export const resolveConnectionForUser = internalAction({
       clientIdLength: clientId.length,
     });
 
-    const accountId = await resolveCloudflareMcpAccountId(ctx, {
-      userId: args.userId,
-      auth: refreshedAuth,
-      accountId: connection.accountId,
-      tokenHealth: refreshedTokenHealth,
-    });
-
     return {
       auth: refreshedAuth,
-      accountId,
+      defaultAccount: connection.defaultAccount,
       tokenHealth: refreshedTokenHealth,
     };
   },
@@ -696,8 +652,8 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
     });
 
     const expiresAt = Date.now() + token.expires_in * 1000;
-    const accountId = await ctx.runAction(
-      internal.cloudflareAccountDiscovery.resolveSingleAccountIdForToken,
+    const defaultAccount = await ctx.runAction(
+      internal.cloudflareAccountDiscovery.resolveDefaultAccountForToken,
       {
         token: token.access_token,
       },
@@ -709,7 +665,7 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
       refreshToken: token.refresh_token,
       expiresAt,
       clientId,
-      accountId,
+      defaultAccount,
       oauthStateId: oauthState._id,
     });
     console.log("cloudflare:mcp_oauth:exchange_succeeded", {
