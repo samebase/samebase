@@ -21,28 +21,6 @@ function readRouteUrlEditorOrigin(): string {
   return typeof window === "undefined" ? "https://noter.local" : window.location.origin;
 }
 
-function readRouteUrlEditorHost(): string {
-  if (typeof window !== "undefined") {
-    return window.location.host;
-  }
-
-  return new URL(readRouteUrlEditorOrigin()).host;
-}
-
-function formatRouteUrlEditorDisplayAddress(args: {
-  address: string;
-  focused: boolean;
-  host: string;
-  origin: string;
-  status: RouteUrlEditorDraftReality["status"];
-}): string {
-  if (args.status === "raw") {
-    return args.address;
-  }
-
-  return `${args.focused ? args.origin : args.host}${args.address}`;
-}
-
 function formatRouteUrlEditorAddress(href: string): string {
   const origin = readRouteUrlEditorOrigin();
 
@@ -58,85 +36,24 @@ function formatRouteUrlEditorAddress(href: string): string {
   return href;
 }
 
-type RouteUrlEditorDraftReality =
-  | {
-      status: "same-origin";
-      address: string;
-    }
-  | {
-      status: "raw";
-      address: string;
-    };
-
-function readRouteUrlEditorSameOriginDraftAddress(args: {
-  host: string;
-  origin: string;
-  rawAddress: string;
-}): string | null {
-  const trimmedAddress = args.rawAddress.trim();
-  const sameOriginPrefixes = [args.origin, args.host];
-
-  for (const prefix of sameOriginPrefixes) {
-    if (trimmedAddress === prefix) {
-      return "/";
-    }
-
-    if (
-      trimmedAddress.startsWith(`${prefix}/`) ||
-      trimmedAddress.startsWith(`${prefix}?`) ||
-      trimmedAddress.startsWith(`${prefix}#`)
-    ) {
-      return trimmedAddress.slice(prefix.length);
-    }
-  }
-
-  return null;
-}
-
-function readRouteUrlEditorDraftFromInput(args: {
-  currentHref: string;
-  host: string;
-  origin: string;
-  rawAddress: string;
-}): RouteUrlEditorDraftReality {
-  const sameOriginAddress = readRouteUrlEditorSameOriginDraftAddress({
-    host: args.host,
-    origin: args.origin,
-    rawAddress: args.rawAddress,
-  });
-  if (sameOriginAddress) {
-    return {
-      status: "same-origin",
-      address: sameOriginAddress,
-    };
-  }
-
-  const result = normalizeRouteUrlEditorHref({
-    currentHref: args.currentHref,
-    origin: args.origin,
-    rawHref: args.rawAddress,
-  });
-
-  if (result.status === "valid") {
-    return {
-      status: "same-origin",
-      address:
-        args.rawAddress.startsWith("/") ||
-        args.rawAddress.startsWith("?") ||
-        args.rawAddress.startsWith("#")
-          ? args.rawAddress
-          : formatRouteUrlEditorAddress(result.href),
-    };
-  }
-
-  return {
-    status: "raw",
-    address: args.rawAddress,
-  };
-}
-
 function isRouteUrlEditorIncompleteOptionDraft(address: string): boolean {
   return address.endsWith("?") || address.endsWith("#");
+}
+
+function readRouteUrlEditorDraftRouteAddress(args: {
+  inputValue: string;
+  origin: string;
+}): string | null {
+  if (!args.inputValue.startsWith(args.origin)) {
+    return null;
+  }
+
+  const routeAddress = args.inputValue.slice(args.origin.length);
+  if (routeAddress === "") {
+    return "/";
+  }
+
+  return routeAddress;
 }
 
 type RouteUrlEditorCommitMode = "route-options" | "route-navigation";
@@ -161,15 +78,9 @@ export function RouteUrlEditor() {
   const inputId = useId();
   const [forwardRouteHistoryIndex, setForwardRouteHistoryIndex] =
     useState(currentRouteHistoryIndex);
-  const [inputFocused, setInputFocused] = useState(false);
   const origin = readRouteUrlEditorOrigin();
-  const host = readRouteUrlEditorHost();
   const urlRealityAddress = formatRouteUrlEditorAddress(currentHref);
-  const [draftReality, setDraftReality] = useState<RouteUrlEditorDraftReality>({
-    status: "same-origin",
-    address: urlRealityAddress,
-  });
-  const draftRouteAddress = draftReality.address;
+  const [draftRouteAddress, setDraftRouteAddress] = useState(urlRealityAddress);
   const draftRouteResult = normalizeRouteUrlEditorHref({
     currentHref,
     origin,
@@ -177,15 +88,9 @@ export function RouteUrlEditor() {
   });
   const routeInputInvalid =
     draftRouteAddress.trim() !== "" && draftRouteResult.status === "invalid";
+  const inputValue = `${origin}${draftRouteAddress}`;
   const routeInputTitle =
-    draftRouteResult.status === "valid" ? `${host}${draftRouteResult.href}` : draftRouteAddress;
-  const inputValue = formatRouteUrlEditorDisplayAddress({
-    address: draftRouteAddress,
-    focused: inputFocused,
-    host,
-    origin,
-    status: draftReality.status,
-  });
+    draftRouteResult.status === "valid" ? `${origin}${draftRouteResult.href}` : inputValue;
 
   const canGoBack = currentRouteHistoryIndex > 0;
   const canGoForward = currentRouteHistoryIndex < forwardRouteHistoryIndex;
@@ -211,18 +116,11 @@ export function RouteUrlEditor() {
     [router],
   );
 
-  // Links and Back/Forward change URL reality; focused edits keep their draft
-  // text so live search/hash navigation cannot race the caret.
+  // Links and Back/Forward change URL reality. Draft text remains local while
+  // the user edits; same-path search/hash changes still apply live below.
   useEffect(() => {
-    if (inputFocused) {
-      return;
-    }
-
-    setDraftReality({
-      status: "same-origin",
-      address: urlRealityAddress,
-    });
-  }, [inputFocused, urlRealityAddress]);
+    setDraftRouteAddress(urlRealityAddress);
+  }, [urlRealityAddress]);
 
   const goBack = useCallback(() => {
     router.history.back();
@@ -242,39 +140,30 @@ export function RouteUrlEditor() {
     window.location.reload();
   }, []);
 
-  const focusInput = useCallback(() => {
-    setInputFocused(true);
-  }, []);
-
-  const blurInput = useCallback(() => {
-    setInputFocused(false);
-  }, []);
-
   const changeDraftRouteAddress = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
-      const nextDraftReality = readRouteUrlEditorDraftFromInput({
-        currentHref,
-        host,
+      const nextDraftRouteAddress = readRouteUrlEditorDraftRouteAddress({
+        inputValue: event.currentTarget.value,
         origin,
-        rawAddress: event.currentTarget.value,
       });
-      setDraftReality(nextDraftReality);
-
-      if (nextDraftReality.status === "raw") {
+      if (nextDraftRouteAddress === null) {
+        event.currentTarget.value = inputValue;
         return;
       }
+
+      setDraftRouteAddress(nextDraftRouteAddress);
 
       const nextHrefResult = normalizeRouteUrlEditorHref({
         currentHref,
         origin,
-        rawHref: nextDraftReality.address,
+        rawHref: nextDraftRouteAddress,
       });
 
       if (nextHrefResult.status === "invalid" || nextHrefResult.href === currentHref) {
         return;
       }
 
-      if (isRouteUrlEditorIncompleteOptionDraft(nextDraftReality.address)) {
+      if (isRouteUrlEditorIncompleteOptionDraft(nextDraftRouteAddress)) {
         return;
       }
 
@@ -292,14 +181,11 @@ export function RouteUrlEditor() {
         });
       }
     },
-    [currentHref, host, origin, router],
+    [currentHref, inputValue, origin, router],
   );
 
   const resetInput = useCallback(() => {
-    setDraftReality({
-      status: "same-origin",
-      address: urlRealityAddress,
-    });
+    setDraftRouteAddress(urlRealityAddress);
   }, [urlRealityAddress]);
 
   const commitInput = useCallback(
@@ -314,10 +200,7 @@ export function RouteUrlEditor() {
         return;
       }
 
-      setDraftReality({
-        status: "same-origin",
-        address: result.href,
-      });
+      setDraftRouteAddress(result.href);
 
       if (result.href === currentHref) {
         return;
@@ -419,9 +302,7 @@ export function RouteUrlEditor() {
         id={inputId}
         inputMode="url"
         name="routeHref"
-        onBlur={blurInput}
         onChange={changeDraftRouteAddress}
-        onFocus={focusInput}
         onKeyDown={handleInputKeyDown}
         spellCheck={false}
         suppressHydrationWarning

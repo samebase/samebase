@@ -30,7 +30,7 @@ describe("normalizeRouteUrlEditorHref", () => {
     });
   });
 
-  it("accepts same-origin absolute URLs but stores only the app href", () => {
+  it("rejects full URLs because the editor owns the origin prefix", () => {
     expect(
       normalizeRouteUrlEditorHref({
         currentHref: "/",
@@ -38,8 +38,21 @@ describe("normalizeRouteUrlEditorHref", () => {
         rawHref: "https://noter.local/terms?dev",
       }),
     ).toEqual({
-      status: "valid",
-      href: "/terms?dev",
+      status: "invalid",
+      reason: "malformed",
+    });
+  });
+
+  it("rejects text without a route delimiter", () => {
+    expect(
+      normalizeRouteUrlEditorHref({
+        currentHref: "/visual-fixture?mode=route-url-editor",
+        origin: "http://localhost:5174",
+        rawHref: "logo?dev",
+      }),
+    ).toEqual({
+      status: "invalid",
+      reason: "malformed",
     });
   });
 
@@ -56,38 +69,12 @@ describe("normalizeRouteUrlEditorHref", () => {
     });
   });
 
-  it("accepts Codex-style same-origin addresses without a scheme", () => {
+  it("rejects protocol-relative external origins", () => {
     expect(
       normalizeRouteUrlEditorHref({
         currentHref: "/visual-fixture?mode=route-url-editor",
         origin: "http://localhost:5174",
-        rawHref: "localhost:5174/terms?dev",
-      }),
-    ).toEqual({
-      status: "valid",
-      href: "/terms?dev",
-    });
-  });
-
-  it("accepts bracketed IPv6 same-origin addresses without a scheme", () => {
-    expect(
-      normalizeRouteUrlEditorHref({
-        currentHref: "/visual-fixture?mode=route-url-editor",
-        origin: "http://[::1]:5174",
-        rawHref: "[::1]:5174/terms?dev",
-      }),
-    ).toEqual({
-      status: "valid",
-      href: "/terms?dev",
-    });
-  });
-
-  it("rejects external addresses without a scheme", () => {
-    expect(
-      normalizeRouteUrlEditorHref({
-        currentHref: "/visual-fixture?mode=route-url-editor",
-        origin: "http://localhost:5174",
-        rawHref: "example.com/noter",
+        rawHref: "//example.com/noter",
       }),
     ).toEqual({
       status: "invalid",
@@ -117,7 +104,7 @@ describe("normalizeRouteUrlEditorHref", () => {
       }),
     ).toEqual({
       status: "invalid",
-      reason: "external-origin",
+      reason: "malformed",
     });
   });
 });

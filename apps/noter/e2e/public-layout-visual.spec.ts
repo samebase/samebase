@@ -39,11 +39,10 @@ test("public landing header exposes the route URL editor", async ({ page }) => {
   });
   await page.waitForLoadState("networkidle");
 
-  const host = new URL(page.url()).host;
   const origin = new URL(page.url()).origin;
   const routeUrlInput = page.getByTestId("route-url-editor-input");
-  await expect(routeUrlInput).toHaveValue(`${host}/?dev`);
-  await expect(routeUrlInput).toHaveAttribute("title", `${host}/?dev`);
+  await expect(routeUrlInput).toHaveValue(`${origin}/?dev`);
+  await expect(routeUrlInput).toHaveAttribute("title", `${origin}/?dev`);
   await expect(page).toHaveScreenshot("public-layout-landing-dev.png", {
     animations: "disabled",
     caret: "hide",
@@ -55,10 +54,10 @@ test("public landing header exposes the route URL editor", async ({ page }) => {
 
   await page.getByRole("link", { name: "/terms", exact: true }).click();
   await expect(page).toHaveURL(/\/terms\?dev$/);
-  await expect(page.getByTestId("route-url-editor-input")).toHaveValue(`${host}/terms?dev`);
+  await expect(page.getByTestId("route-url-editor-input")).toHaveValue(`${origin}/terms?dev`);
   await expect(page.getByTestId("route-url-editor-input")).toHaveAttribute(
     "title",
-    `${host}/terms?dev`,
+    `${origin}/terms?dev`,
   );
 });
 
@@ -72,11 +71,11 @@ test("public route URL editor stays compact for long URLs", async ({ page }) => 
   });
   await page.waitForLoadState("networkidle");
 
-  const host = new URL(page.url()).host;
+  const origin = new URL(page.url()).origin;
   const routeUrlEditor = page.getByTestId("route-url-editor");
   const routeUrlInput = page.getByTestId("route-url-editor-input");
-  await expect(routeUrlInput).toHaveValue(`${host}${longPath}`);
-  await expect(routeUrlInput).toHaveAttribute("title", `${host}${longPath}`);
+  await expect(routeUrlInput).toHaveValue(`${origin}${longPath}`);
+  await expect(routeUrlInput).toHaveAttribute("title", `${origin}${longPath}`);
 
   const metrics = await routeUrlEditor.evaluate((element) => {
     const input = element.querySelector('[data-testid="route-url-editor-input"]');

@@ -14,12 +14,6 @@ type NormalizeRouteUrlEditorHrefInput = {
   rawHref: string;
 };
 
-export function isRouteUrlEditorHostSegment(value: string): boolean {
-  return (
-    value === "localhost" || value.startsWith("[") || value.includes(".") || value.includes(":")
-  );
-}
-
 export function normalizeRouteUrlEditorHref({
   currentHref,
   origin,
@@ -33,7 +27,11 @@ export function normalizeRouteUrlEditorHref({
     };
   }
 
-  if (/^[a-z][a-z0-9+.-]*:\/\/\/+/i.test(trimmedHref)) {
+  if (
+    !trimmedHref.startsWith("/") &&
+    !trimmedHref.startsWith("?") &&
+    !trimmedHref.startsWith("#")
+  ) {
     return {
       status: "invalid",
       reason: "malformed",
@@ -43,21 +41,7 @@ export function normalizeRouteUrlEditorHref({
   try {
     const appOrigin = new URL(origin);
     const currentUrl = new URL(currentHref, appOrigin);
-    const sameOriginAddress =
-      trimmedHref === appOrigin.host ||
-      trimmedHref.startsWith(`${appOrigin.host}/`) ||
-      trimmedHref.startsWith(`${appOrigin.host}?`) ||
-      trimmedHref.startsWith(`${appOrigin.host}#`);
-    const firstAddressSegment = trimmedHref.split(/[/?#]/, 1)[0] ?? "";
-    const hostLikeAddress =
-      /^(?:\[[0-9a-f:.]+\]|[a-z0-9.-]+)(?::\d+)?$/i.test(firstAddressSegment) &&
-      isRouteUrlEditorHostSegment(firstAddressSegment);
-    // Address-bar-style host input must parse as an origin, not as a relative
-    // path, so same-origin and external-origin checks stay consistent.
-    const nextUrl = new URL(
-      sameOriginAddress || hostLikeAddress ? `//${trimmedHref}` : trimmedHref,
-      currentUrl,
-    );
+    const nextUrl = new URL(trimmedHref, currentUrl);
 
     if (nextUrl.origin !== appOrigin.origin) {
       return {
