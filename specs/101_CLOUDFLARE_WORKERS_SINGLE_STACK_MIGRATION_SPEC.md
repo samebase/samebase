@@ -156,13 +156,16 @@ Requirements:
 1. uses TanStack Start
 2. stays client-first
 3. keeps Convex as backend
-4. deploys with Workers Static Assets
-5. includes a minimal `wrangler.jsonc`
-6. does not hard-code the Worker name
-7. supports production deploys and preview-version uploads through repo-owned scripts
-8. documents manual self-deploy without Noter
-9. has clean, numbered commits and `REPO_HISTORY.md`
-10. avoids generator leftovers such as `.cta.json` and `.cursorrules`
+4. includes minimal Convex Auth guest sessions, single-word guest display names reserved through a
+   database index-backed exact-match lookup, user-owned example data, and no external auth provider
+   requirement
+5. deploys with Workers Static Assets
+6. includes a minimal `wrangler.jsonc`
+7. does not hard-code the Worker name
+8. supports production deploys and preview-version uploads through repo-owned scripts
+9. documents manual self-deploy without Noter
+10. has clean, numbered commits and `REPO_HISTORY.md`
+11. avoids generator leftovers such as `.cta.json` and `.cursorrules`
 
 ### Noter Production Target
 
