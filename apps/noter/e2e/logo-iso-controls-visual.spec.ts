@@ -74,14 +74,12 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
   const mainPane = page.getByTestId("workspace-layout-v2-pane-main");
   const linksSidebar = page.getByTestId("workspace-layout-v2-pane-right");
   const host = new URL(page.url()).host;
-  const routeUrlHost = mainPane.getByTestId("route-url-editor-host");
   const routeUrlInput = mainPane.getByTestId("route-url-editor-input");
   const publicLinks = linksSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
 
   await expect(controlsSidebar).toBeVisible();
   await expect(controlsSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID)).toHaveCount(0);
-  await expect(routeUrlHost).toHaveText(host);
-  await expect(routeUrlInput).toHaveValue("/logo");
+  await expect(routeUrlInput).toHaveValue(`${host}/logo`);
   await expect(routeUrlInput).toHaveAttribute("title", `${host}/logo`);
   await expect(linksSidebar).toBeVisible();
   await expect(publicLinks.getByRole("link", { name: "/home", exact: true })).toHaveAttribute(

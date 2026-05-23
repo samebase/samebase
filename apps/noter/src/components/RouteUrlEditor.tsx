@@ -58,6 +58,20 @@ type RouteUrlEditorDraftReality =
       address: string;
     };
 
+function formatRouteUrlEditorInputValue(args: {
+  address: string;
+  focused: boolean;
+  host: string;
+  protocolPrefix: string;
+  status: RouteUrlEditorDraftReality["status"];
+}): string {
+  if (args.status === "raw") {
+    return args.address;
+  }
+
+  return `${args.focused ? args.protocolPrefix : ""}${args.host}${args.address}`;
+}
+
 function readRouteUrlEditorExplicitSameOriginAddress(rawAddress: string): string | null {
   const origin = readRouteUrlEditorOrigin();
   const host = readRouteUrlEditorHost();
@@ -138,6 +152,7 @@ export function RouteUrlEditor() {
   const inputId = useId();
   const [invalidInput, setInvalidInput] = useState(false);
   const [forwardHistoryIndex, setForwardHistoryIndex] = useState(currentHistoryIndex);
+  const [inputFocused, setInputFocused] = useState(false);
   const protocolPrefix = readRouteUrlEditorProtocolPrefix();
   const host = readRouteUrlEditorHost();
   const urlRealityAddress = formatRouteUrlEditorAddress(currentHref);
@@ -147,6 +162,13 @@ export function RouteUrlEditor() {
   });
   const draftRealityAddress = draftReality.address;
   const urlRealityFullAddress = `${host}${urlRealityAddress}`;
+  const inputValue = formatRouteUrlEditorInputValue({
+    address: draftRealityAddress,
+    focused: inputFocused,
+    host,
+    protocolPrefix,
+    status: draftReality.status,
+  });
 
   const canGoBack = currentHistoryIndex > 0;
   const canGoForward = currentHistoryIndex < forwardHistoryIndex;
@@ -326,22 +348,6 @@ export function RouteUrlEditor() {
         URL reality comes from the router. Draft reality stays local until
         submit, so option edits never navigate while the user is typing.
       */}
-      {draftReality.status === "same-origin" ? (
-        <span
-          aria-hidden="true"
-          className="shrink-0 font-mono text-sm leading-7 text-muted-foreground"
-          data-testid="route-url-editor-origin"
-          suppressHydrationWarning
-        >
-          <span
-            className="hidden group-focus-within:inline"
-            data-testid="route-url-editor-protocol"
-          >
-            {protocolPrefix}
-          </span>
-          <span data-testid="route-url-editor-host">{host}</span>
-        </span>
-      ) : null}
       <input
         aria-describedby={invalidInput ? `${inputId}-error` : undefined}
         aria-invalid={invalidInput}
@@ -353,13 +359,15 @@ export function RouteUrlEditor() {
         id={inputId}
         inputMode="url"
         name="routeHref"
+        onBlur={() => setInputFocused(false)}
         onChange={changeDraftRealityAddress}
+        onFocus={() => setInputFocused(true)}
         onKeyDown={handleInputKeyDown}
         spellCheck={false}
         suppressHydrationWarning
         title={urlRealityFullAddress}
         type="text"
-        value={draftRealityAddress}
+        value={inputValue}
       />
       <button
         aria-label="Go to route URL"
