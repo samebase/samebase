@@ -9,6 +9,7 @@
   - `research/agent-context-draft-bundle/noter-manifest.md`
   - `research/2026-05-23-agent-context-forward-test-results-4.md`
   - `research/2026-05-23-agent-context-shadcn-ownership-decision.md`
+  - `research/2026-05-23-agent-context-shortcut-routing-decision.md`
 
 ## Purpose
 
@@ -61,6 +62,8 @@ Applied validation revision:
   task-specific skills are chosen.
 - The manifest now points shadcn/ui ownership to spec 063 plus a compact `AGENTS.md` pointer instead
   of introducing a portable skill or new Noter overlay.
+- The manifest now routes bare workflow shortcut commands to `noter-operator-workflows` while
+  keeping the compact `AGENTS.md` command table until overlay loading is guaranteed.
 
 ## Decision
 
@@ -76,5 +79,7 @@ has this shape and should stay until the package is accepted as the source of tr
   repo skills as compatibility entrypoints around packaged portable skills.
 - See `research/2026-05-23-agent-context-shadcn-ownership-decision.md` for the decision to keep
   shadcn/ui ownership in spec 063 plus a compact `AGENTS.md` pointer.
+- See `research/2026-05-23-agent-context-shortcut-routing-decision.md` for the decision to keep
+  shortcut recognition compact and always-loaded for now.
 - Keep `AGENTS.md` intact until each removed rule has a reachable core, skill, overlay, doc, or spec
   replacement.

@@ -18,6 +18,9 @@
   - `research/2026-05-23-agent-context-compatibility-map.md`
   - `research/2026-05-23-agent-context-shadcn-ownership-decision.md`
   - `research/2026-05-23-agent-context-cloudflare-boundary-followup.md`
+  - `research/2026-05-23-agent-context-shortcut-routing-decision.md`
+  - `research/2026-05-23-agent-context-pinned-thread-comparison.md`
+  - `research/2026-05-23-agent-context-live-agents-router-slice.md`
   - `packages/agent-context/`
 
 ## Purpose
@@ -55,7 +58,7 @@ coverage status, and remaining work before anything is moved out of always-loade
 | `Non-Functional Guardrails` | `agent-engineering-core` plus `noter-operator-workflows`                                            | Strong   | Secret safety and fail-closed behavior are portable core. Approval, auth, audit, production reads, and provider boundaries stay in operator/app overlays.                                                                                                                                                                                                                                                                            |
 | `UI And Testing`            | `route-ui-validation` plus `typed-product-engineering` plus `noter-operator-workflows`              | Strong   | Portable route skill covers exact routes, interaction probes, desktop/mobile, fixtures, screenshots, and baseline handoff. Noter overlay keeps `pnpm anon`, `?dev`/`?prod-ui`, Linux ARM64 baseline command, and branch-scoped Playwright session details.                                                                                                                                                                           |
 | `shadcn/ui Rules`           | `existing-doc-or-skill` plus `keep-short`                                                           | Strong   | Keep a compact AGENTS pointer that generated shadcn files are read-only by default and additions use the CLI. The detailed owner is `specs/063_SHADCN_WRAPPER_ENTRYPOINT_SPEC.md`, not portable skills or `noter-app-template`; because that spec is still marked proposed, do not remove the compact AGENTS pointer unless the spec status is accepted/current.                                                                     |
-| `Workflow Shortcuts`        | `keep-short` plus `noter-operator-workflows`                                                        | Partial  | Shortcut trigger table likely needs to remain always-loaded so user commands like `commit`, `push`, `ship`, and `clean` are recognized. Move detailed semantics to the operator overlay and `docs/agent-workflows.md`.                                                                                                                                                                                                               |
+| `Workflow Shortcuts`        | `keep-short` plus `noter-operator-workflows`                                                        | Strong   | Shortcut trigger table stays compact and always-loaded until the runtime guarantees `noter-operator-workflows` loads before bare commands are resolved. Detailed semantics now have a complete landing zone in the operator overlay and `docs/agent-workflows.md`.                                                                                                                                                                   |
 | `Workflow Rules`            | `pr-workflow-review`, `exact-resource-cleanup`, `noter-operator-workflows`, `existing-doc-or-skill` | Strong   | Portable PR and cleanup skills now cover read-only triage, review stance, CI, exact cleanup proof, and terminal-state cleanup. Build labels, ready/draft defaults, final directives, and shortcut meanings remain operator-specific.                                                                                                                                                                                                 |
 | `Worktree Rules`            | `keep-short` plus `noter-operator-workflows`                                                        | Partial  | Keep root/branch confirmation and detached-HEAD bootstrap pointer visible. Move detailed one-idea-per-worktree and Convex env-file caveats to operator overlay.                                                                                                                                                                                                                                                                      |
 | `Operator Preferences`      | `noter-operator-workflows` plus existing UI/refactor docs                                           | Partial  | Many are local response and process preferences. Keep concise response preference and no-preview reporting locally; move mobile URLs, Cloudflare link labels, no Vercel examples, shell-first preference, Playwright session details, and similar local rules to the operator overlay. Move visual minimalism and app-owned component API rules to `skills/noter-refactoring-style` or a future Noter UI overlay, not portable core. |
@@ -114,11 +117,13 @@ promotion:
 5. Leave existing skills such as `skills/create-pr/SKILL.md`,
    `skills/noter-playwright-live/SKILL.md`, and `skills/noter-refactoring-style/SKILL.md` in place
    as compatibility entrypoints around packaged portable skills.
-6. Only then shrink `AGENTS.md`, one section at a time, with a checklist proving each removed rule
+6. Add a live `AGENTS.md` pointer to `packages/agent-context/manifests/noter.md` and this migration
+   map before removing any broad rule.
+7. Only then shrink `AGENTS.md`, one section at a time, with a checklist proving each removed rule
    has a reachable replacement.
 
 ## Remaining Validation
 
-- Decide whether shortcut recognition can safely move out of always-loaded context in the current
-  Codex runtime.
 - Port the Cloudflare API boundary test hardening on a clean production-code branch when desired.
+- Track private authenticated browser-data archival as a possible triggerable skill only if the
+  workflow recurs outside pinned/high-salience threads.

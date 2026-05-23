@@ -53,6 +53,7 @@ accepted/current or the repo chooses to keep that pointer permanently.
 | typed app code or provider client    | yes  | `typed-product-engineering`  | `noter-convex` for Convex/provider paths and scripts                                                    |
 | shipped UI route or interaction      | yes  | `route-ui-validation`        | `noter-operator-workflows`; `noter-app-template` when generated-app/template routes are involved        |
 | shadcn primitive ownership           | yes  | n/a                          | n/a; use `../../../specs/063_SHADCN_WRAPPER_ENTRYPOINT_SPEC.md` plus compact `AGENTS.md` pointer        |
+| bare workflow shortcut command       | yes  | PR or cleanup skill by task  | `noter-operator-workflows`; keep compact `AGENTS.md` command table until overlay loading is guaranteed  |
 | PR, CI, review, or blocker triage    | yes  | `pr-workflow-review`         | `noter-operator-workflows` for build labels, ready/draft defaults, and review-bot requirements          |
 | cleanup, archive, stale resources    | yes  | `exact-resource-cleanup`     | `noter-operator-workflows` for vaults, previews, machine state, and Codex archive/pin checks            |
 | ambiguous research to implementation | yes  | `research-to-implementation` | `noter-app-template`, `noter-convex`, or `noter-operator-workflows` only when the evidence points there |

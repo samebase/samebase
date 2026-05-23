@@ -35,13 +35,24 @@ portable TypeScript or generated-app skill pack.
 
 ## Shortcut Semantics
 
-- `create pr` means create or update a ready PR; `create draft` is the explicit draft path.
-- `push` commits first when needed, then pushes.
-- `rebase` means rebase onto the latest base and push the rewritten branch.
-- `ready` marks the current PR ready.
-- `wait` watches CI and reports status.
-- `ship` leaves an updated ready PR, clears actionable review feedback, and waits for CI.
-- `status` reports branch, local changes, and PR state.
+When the user says one of these commands, execute it directly:
+
+| Command        | Action                                                                                                                                                         |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `commit`       | Stage changes and create a concise commit                                                                                                                      |
+| `push`         | Commit if needed, then push                                                                                                                                    |
+| `create pr`    | Push if needed, then create or update a ready PR                                                                                                               |
+| `create draft` | Push if needed, then create or update a draft PR                                                                                                               |
+| `ready`        | Mark the current PR ready                                                                                                                                      |
+| `wait`         | Watch CI and report status                                                                                                                                     |
+| `ship`         | Commit, push, ensure a ready PR exists, clear actionable review feedback, wait                                                                                 |
+| `squash`       | Squash-merge the current PR                                                                                                                                    |
+| `archive`      | Remove the current worktree/local branch after confirming a PR exists                                                                                          |
+| `link machine` | Run the current checkout's `noter.ts` machine-link flow with worktree isolation when needed                                                                    |
+| `clean vaults` | Remove temporary Noter-managed vaults for the current worktree                                                                                                 |
+| `clean`        | Run `clean vaults`, clean noter.md PR preview resources, remove the current worktree's local machine link, then remove the merged or closed-PR worktree/branch |
+| `status`       | Report branch, local changes, and PR state                                                                                                                     |
+| `rebase`       | Rebase onto the latest base and push the rewritten branch                                                                                                      |
 
 ## Convex And External State
 

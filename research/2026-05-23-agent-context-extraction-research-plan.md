@@ -83,6 +83,15 @@ Repo guidance sources:
 - `research/2026-05-23-agent-context-cloudflare-boundary-followup.md` records the decision to keep
   Cloudflare API boundary hardening out of this extraction PR and port it on a clean production-code
   branch when desired.
+- `research/2026-05-23-agent-context-shortcut-routing-decision.md` records the decision to keep
+  shortcut recognition compact and always-loaded until the Noter operator overlay has a guaranteed
+  pre-command loader.
+- `research/2026-05-23-agent-context-pinned-thread-comparison.md` compares pinned/high-salience
+  threads against the non-pinned/manual baseline and records one niche private-browser-archive
+  candidate without promoting it to core.
+- `research/2026-05-23-agent-context-live-agents-router-slice.md` records the first live `AGENTS.md`
+  modularization slice: add a discoverability pointer to the package and migration map, but do not
+  remove always-loaded rules yet.
 
 Local thread evidence:
 
@@ -351,8 +360,5 @@ context, a triggerable skill, a workflow doc, or an operator overlay.
 
 ## Next Work
 
-1. Decide whether shortcut recognition can safely move out of always-loaded context in the current
-   Codex runtime.
-2. Manually review the pinned comparison threads after the non-pinned baseline has more breadth.
-3. Port the Cloudflare API boundary hardening on a clean production-code branch when desired.
-4. Only then move durable material out of `AGENTS.md`.
+1. Port the Cloudflare API boundary hardening on a clean production-code branch when desired.
+2. Only then move durable material out of `AGENTS.md`.

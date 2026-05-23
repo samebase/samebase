@@ -65,8 +65,13 @@ meant to be reviewed, forward-tested, and revised before any live context modula
   compatibility entrypoints around the packaged portable skills.
 - `research/2026-05-23-agent-context-shadcn-ownership-decision.md` keeps shadcn/ui ownership in spec
   063 plus a compact `AGENTS.md` pointer.
+- `research/2026-05-23-agent-context-shortcut-routing-decision.md` keeps shortcut recognition
+  compact and always-loaded until the operator overlay has guaranteed pre-command loading.
+- `research/2026-05-23-agent-context-pinned-thread-comparison.md` confirms the pinned/high-salience
+  threads mostly stress-test the existing split and records private browser archival as a recurrence
+  candidate.
 
 ## Next Validation
 
-- Decide whether shortcut recognition can safely move out of always-loaded context in the current
-  Codex runtime.
+- Track private authenticated browser-data archival only if it recurs outside pinned/high-salience
+  threads.

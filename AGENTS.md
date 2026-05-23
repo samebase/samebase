@@ -503,6 +503,10 @@ Detailed flow rules live in `docs/agent-workflows.md`.
 
 ## Task-Specific References
 
+- For the extracted agent context bundle and live modularization map, use
+  `packages/agent-context/manifests/noter.md` and
+  `research/2026-05-23-agent-context-agents-migration-map.md`. The package does not replace live
+  routing yet; keep always-loaded rules until a migration proves each replacement is reachable.
 - For git/PR/shipping details, use `docs/agent-workflows.md`.
 - For live browser validation and route-first UI repros, use
   `skills/noter-playwright-live/SKILL.md`.
