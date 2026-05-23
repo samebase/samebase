@@ -1,4 +1,4 @@
-import { devices, expect, test, type Locator } from "@playwright/test";
+import { devices, expect, test, type Locator, type Page } from "@playwright/test";
 import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
 
 async function expectInlinePadding(locator: Locator, expectedPx: string) {
@@ -60,6 +60,43 @@ async function expectElementInsideContainer(element: Locator, container: Locator
       );
     })
     .toBe(true);
+}
+
+async function expectElementInsideViewportInline(page: Page, element: Locator) {
+  const [box, viewportWidth] = await Promise.all([
+    element.boundingBox(),
+    page.evaluate(() => document.documentElement.clientWidth),
+  ]);
+
+  expect(box).not.toBeNull();
+  if (box === null) {
+    throw new Error("Expected element bounds");
+  }
+
+  expect(box.width).toBeLessThanOrEqual(viewportWidth - 32 + 1);
+  expect(box.x).toBeGreaterThanOrEqual(16 - 1);
+  expect(box.x + box.width).toBeLessThanOrEqual(viewportWidth - 16 + 1);
+}
+
+async function forceMobileLayoutViewportOverflow(page: Page) {
+  await page.evaluate(() => {
+    if (document.querySelector("[data-testid='mobile-layout-overflow-probe']")) {
+      return;
+    }
+
+    const probe = document.createElement("div");
+    probe.dataset.testid = "mobile-layout-overflow-probe";
+    // Mirrors mobile workspace frames where an offscreen pane briefly widens the layout viewport.
+    probe.style.cssText = `
+      position:absolute;
+      left:${document.documentElement.clientWidth}px;
+      top:0;
+      width:108px;
+      height:1px;
+      pointer-events:none;
+    `;
+    document.body.append(probe);
+  });
 }
 
 async function expectSidebarTextOwnsWrappedLine({
@@ -347,6 +384,12 @@ test("vault dashboard fixture (connect Cloudflare worker select mobile)", async 
   });
   await page.waitForLoadState("networkidle");
 
+  const connectDialog = page.getByRole("dialog", {
+    name: "Connect Cloudflare samebase/atelier",
+  });
+  await expectElementInsideViewportInline(page, connectDialog);
+  await forceMobileLayoutViewportOverflow(page);
+
   const beforeOpen = await page.evaluate(() => ({
     bodyScrollWidth: document.body.scrollWidth,
     htmlClientWidth: document.documentElement.clientWidth,
@@ -354,12 +397,15 @@ test("vault dashboard fixture (connect Cloudflare worker select mobile)", async 
     innerWidth: window.innerWidth,
     visualViewportPageTop: Math.round(window.visualViewport?.pageTop ?? 0),
   }));
+  expect(beforeOpen.innerWidth).toBeGreaterThan(beforeOpen.htmlClientWidth);
+  await expectElementInsideViewportInline(page, connectDialog);
 
-  const workerSelect = page.getByRole("combobox", {
+  const workerSelect = connectDialog.getByRole("combobox", {
     name: "Cloudflare Worker",
   });
+  await expectElementInsideViewportInline(page, workerSelect);
   await workerSelect.tap();
-  await expect(page.getByRole("option", { name: "atelier-preview" })).toBeVisible();
+  await expect(page.getByRole("option", { name: "tmp-my-asdf-app" })).toBeVisible();
 
   const afterOpen = await page.evaluate(() => ({
     bodyScrollWidth: document.body.scrollWidth,
@@ -369,7 +415,8 @@ test("vault dashboard fixture (connect Cloudflare worker select mobile)", async 
     visualViewportPageTop: Math.round(window.visualViewport?.pageTop ?? 0),
   }));
   expect(afterOpen).toEqual(beforeOpen);
-  expect(afterOpen.htmlScrollWidth).toBeLessThanOrEqual(afterOpen.htmlClientWidth);
+  await expectElementInsideViewportInline(page, connectDialog);
+  await expectElementInsideViewportInline(page, workerSelect);
 
   await expect(page).toHaveScreenshot(
     "vault-dashboard-connect-cloudflare-worker-select-mobile.png",
