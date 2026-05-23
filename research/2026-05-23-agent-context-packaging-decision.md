@@ -11,6 +11,8 @@
   - `research/2026-05-23-agent-context-agents-migration-map.md`
   - `research/2026-05-23-agent-context-forward-test-results-2.md`
   - `research/2026-05-23-agent-context-forward-test-results-3.md`
+  - `research/2026-05-23-agent-context-forward-test-results-4.md`
+  - `research/agent-context-draft-bundle/noter-manifest.md`
 
 ## Purpose
 
@@ -31,6 +33,8 @@ without pretending that every layer is a Codex skill.
   must stay out of the portable core.
 - The editing-capable `noter-convex` validation shows repo overlays can guide bounded work without
   absorbing production-code follow-ups into the extraction branch.
+- The installed-style portable skill validation shows the five triggerable skills work as skill
+  artifacts, but Noter still needs a manifest or equivalent router to pair them with repo overlays.
 
 ## Decision
 
@@ -80,7 +84,8 @@ Do not move live `AGENTS.md` content merely because the bundle shape is clear.
 
 Before promoting files out of `research/`:
 
-- Run an installed-context test for the five portable triggerable skills.
+- Use the completed installed-style test for the five portable triggerable skills as evidence, but
+  package the bundle shape before promoting live artifacts.
 - Use the completed editing-capable `noter-convex` validation as evidence, but keep Convex AI and
   CLI routing always-loaded until the overlay is installed or otherwise guaranteed reachable before
   backend work.
@@ -95,7 +100,7 @@ The next code movement should be narrow:
 
 - Keep `research/agent-context-draft-skills/agent-engineering-core/SKILL.md` as a draft artifact for
   now, but treat its final form as `core/agent-engineering-core.md`, not as a normal skill.
-- Treat the other five draft skill folders as candidates for direct skill promotion after one more
-  installed-context test.
+- Treat the other five draft skill folders as candidates for direct skill promotion after the bundle
+  manifest has a real package location.
 - Keep `noter-*` overlays out of the portable package. They can be part of a Noter manifest or
   repo-local overlay routing.

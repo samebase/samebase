@@ -68,6 +68,11 @@ Repo guidance sources:
 - `research/2026-05-23-agent-context-forward-test-results-3.md` records the editing-capable
   `noter-convex` validation, the decision to split Cloudflare API boundary hardening into a
   production-code follow-up, and the first packaging decision.
+- `research/2026-05-23-agent-context-forward-test-results-4.md` records installed-style validation
+  for all five portable triggerable skills, resulting skill refinements, a real PR-feedback fix, and
+  the need for a manifest/router before promotion.
+- `research/agent-context-draft-bundle/noter-manifest.md` is the first package-like manifest that
+  maps core, portable skills, and Noter overlays.
 
 Local thread evidence:
 
@@ -336,8 +341,9 @@ context, a triggerable skill, a workflow doc, or an operator overlay.
 
 ## Next Work
 
-1. Run an installed-context test for the five portable triggerable skills before promoting them out
-   of `research/`.
-2. Decide whether to open the Cloudflare API boundary hardening as a separate production-code PR.
-3. Manually review the pinned comparison threads after the non-pinned baseline has more breadth.
-4. Only then move durable material out of `AGENTS.md`.
+1. Package the draft bundle shape in a real directory or installable repo-local skill layout.
+2. Decide whether existing repo skills should become compatibility wrappers around the portable
+   skills.
+3. Decide whether to open the Cloudflare API boundary hardening as a separate production-code PR.
+4. Manually review the pinned comparison threads after the non-pinned baseline has more breadth.
+5. Only then move durable material out of `AGENTS.md`.

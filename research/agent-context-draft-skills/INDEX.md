@@ -55,9 +55,14 @@ meant to be reviewed, forward-tested, and revised before any live context modula
 - `research/2026-05-23-agent-context-forward-test-results-3.md` records an isolated editing-capable
   `noter-convex` validation and the decision to split Cloudflare API boundary hardening out of this
   extraction PR.
+- `research/2026-05-23-agent-context-forward-test-results-4.md` records installed-style validation
+  for all five portable triggerable skills and the revisions it produced.
+- `research/agent-context-draft-bundle/noter-manifest.md` maps the current core, portable skills,
+  and Noter overlays into the first package-like bundle manifest.
 
 ## Next Validation
 
-- Forward-test the revised artifacts as installed or package-like skills in an isolated context.
-- Test the context-bundle packaging shape with the five portable triggerable skills before promoting
-  them out of `research/`.
+- Package the draft bundle shape in a real directory or installable repo-local skill layout before
+  promoting artifacts out of `research/`.
+- Decide whether existing repo skills should become compatibility wrappers around the portable
+  skills.

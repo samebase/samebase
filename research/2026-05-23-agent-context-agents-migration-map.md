@@ -11,7 +11,9 @@
   - `research/2026-05-23-agent-context-forward-test-results-1.md`
   - `research/2026-05-23-agent-context-forward-test-results-2.md`
   - `research/2026-05-23-agent-context-forward-test-results-3.md`
+  - `research/2026-05-23-agent-context-forward-test-results-4.md`
   - `research/2026-05-23-agent-context-packaging-decision.md`
+  - `research/agent-context-draft-bundle/noter-manifest.md`
 
 ## Purpose
 
@@ -100,7 +102,7 @@ promotion:
 1. Keep the draft artifacts under `research/` until one installed-context experiment passes.
 2. Treat `agent-engineering-core` as an always-loaded core context file, not a triggerable skill.
 3. Promote the five portable triggerable skills into `skills/`, `$CODEX_HOME/skills`, or another
-   repo only after one installed-context test.
+   repo only after the bundle manifest has a real package location.
 4. Keep Noter overlays outside the portable package. They can live as repo-local overlay references
    or as entries in a Noter manifest.
 5. Leave existing skills such as `skills/create-pr/SKILL.md` and
@@ -111,8 +113,10 @@ promotion:
 
 ## Remaining Validation
 
-- Run an installed-context test for the five portable triggerable skills before promoting them out
-  of `research/`.
+- Package the draft bundle shape in a real directory or installable repo-local skill layout before
+  promoting artifacts out of `research/`.
+- Decide whether existing repo skills should become compatibility wrappers around the portable
+  skills.
 - Decide whether shadcn/ui ownership belongs in `typed-product-engineering`, `noter-app-template`,
   or a small Noter UI overlay. Current evidence points to
   `specs/063_SHADCN_WRAPPER_ENTRYPOINT_SPEC.md` plus a short AGENTS pointer.

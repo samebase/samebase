@@ -145,7 +145,7 @@ Applied revisions:
 
 1. See `research/2026-05-23-agent-context-forward-test-results-3.md` for the editing-capable
    `noter-convex` validation.
-2. Run an installed-context test for the five portable triggerable skills before promoting them out
-   of `research/`.
+2. See `research/2026-05-23-agent-context-forward-test-results-4.md` for installed-style validation
+   of the five portable triggerable skills.
 3. Decide whether to open Cloudflare API boundary test hardening as a separate production-code
    follow-up.

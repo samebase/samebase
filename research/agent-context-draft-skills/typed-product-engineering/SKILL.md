@@ -37,6 +37,8 @@ accidentally make impossible states possible.
   needs auditable provider calls and strong request inference.
 - Preserve lossless parsing for provider identifiers or numeric fields whose wire shape can exceed
   JavaScript's safe number range.
+- Add lossless large-identifier tests only when the current provider surface has identifiers or
+  numeric fields that could exceed JavaScript's safe integer range.
 - Delete fallback record walking, string readers, mirror response types, or per-endpoint reshaping
   after generated validation covers the endpoint and current callers can use the generated shape.
 - Keep small hand-written schemas for endpoints that sit outside the generated contract.

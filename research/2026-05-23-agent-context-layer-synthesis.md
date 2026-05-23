@@ -147,10 +147,15 @@ validation for that overlay. The overlay is now tested for planning and bounded 
 editing, but still needs to be installed or otherwise guaranteed reachable before the Convex AI
 block or production CLI guidance can move out of always-loaded context.
 
+`research/2026-05-23-agent-context-forward-test-results-4.md` validates all five portable
+triggerable skills as installed-style artifacts. The pass supports the skill split, but also shows
+that Noter needs a package manifest or equivalent router to pair portable skills with the right
+overlays.
+
 ## Open Questions Before Moving `AGENTS.md`
 
-- How to test the selected context-bundle packaging shape before promoting draft artifacts out of
-  `research/`.
+- How to package the selected context-bundle shape in a real directory or installable repo-local
+  skill layout.
 - Whether existing repo skills should be renamed/refit or left as compatibility wrappers.
 - How much of `AGENTS.md` should remain as repo memory hierarchy versus become a loadable core file.
 - Whether `noter-app-template` should be tested against an actual generated app build before moving

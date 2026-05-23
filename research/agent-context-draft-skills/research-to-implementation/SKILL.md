@@ -33,6 +33,9 @@ Use this when research should drive a decision, not become the deliverable by de
   documentation, or deletion boundaries rather than replacing it.
 - End with the chosen implementation direction, the smallest hardening step, and any open question
   that would change that decision.
+- For context-package validation, report the source evidence, the decision, the smallest next step,
+  whether the context artifact was sufficient, and any missing guidance that belongs in core, skill,
+  overlay, docs, or follow-up code.
 - Keep prompt drafts and messy research out of generated product output unless the product
   explicitly needs them.
 - Re-open the research note when later experiments contradict the split.

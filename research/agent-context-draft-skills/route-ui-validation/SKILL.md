@@ -32,6 +32,8 @@ experience.
   as scroll, touch, focus, editor selection, pane selection, or responsive shell state.
 - Probe the live interaction point: hover, focus, keyboard, touch, drag, selection, editability,
   disabled or pending states, and scroll-end alignment when those are relevant.
+- For editability checks, prefer non-mutating probes when possible: intercept the input event,
+  prevent the write, confirm the content remains unchanged, and verify no write request fired.
 - Preserve browser-owned page scroll unless the route intentionally needs contained panes.
 - Verify text does not overlap or overflow its parent at relevant viewport sizes.
 - Re-snapshot after navigation, responsive changes, or major DOM changes before drawing conclusions.

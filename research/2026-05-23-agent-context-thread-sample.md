@@ -28,7 +28,8 @@ Current scan counts:
 
 ## Baseline Sample
 
-The first manual review pass covered a twelve-thread subset across the categories below. See
+The baseline table contains 28 deterministic candidate rows across the categories below. The first
+manual review pass covered a twelve-thread subset from this manifest; see
 `research/2026-05-23-agent-context-manual-review-pass-1.md` for extracted behavior requirements and
 experiment tasks.
 
