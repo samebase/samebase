@@ -14,8 +14,11 @@ describe("FileViewMainHeader", () => {
 
     expect(markup).toContain("docs");
     expect(markup).toContain('aria-label="Quick Open"');
+    expect(markup).toContain('data-testid="route-url-editor-origin-input"');
     expect(markup).toContain('data-testid="route-url-editor-input"');
+    expect(markup).toContain('title="https://noter.local"');
+    expect(markup).toContain('value="noter.local"');
     expect(markup).toContain('title="noter.local/vault/octo/repo/main/docs/README.md?diff"');
-    expect(markup).toContain('value="noter.local/vault/octo/repo/main/docs/README.md?diff"');
+    expect(markup).toContain('value="/vault/octo/repo/main/docs/README.md?diff"');
   });
 });

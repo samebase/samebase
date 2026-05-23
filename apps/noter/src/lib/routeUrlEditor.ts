@@ -43,8 +43,10 @@ export function normalizeRouteUrlEditorHref({
       trimmedHref.startsWith(`${appOrigin.host}#`);
     const firstAddressSegment = trimmedHref.split(/[/?#]/, 1)[0] ?? "";
     const hostLikeAddress =
-      /^[a-z0-9.[\]-]+(?::\d+)?$/i.test(firstAddressSegment) &&
+      /^(?:\[[0-9a-f:.]+\]|[a-z0-9.-]+)(?::\d+)?$/i.test(firstAddressSegment) &&
       isRouteUrlEditorHostSegment(firstAddressSegment);
+    // Address-bar-style host input must parse as an origin, not as a relative
+    // path, so same-origin and external-origin checks stay consistent.
     const nextUrl = new URL(
       sameOriginAddress || hostLikeAddress ? `//${trimmedHref}` : trimmedHref,
       currentUrl,

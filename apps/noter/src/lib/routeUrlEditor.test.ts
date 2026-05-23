@@ -56,6 +56,19 @@ describe("normalizeRouteUrlEditorHref", () => {
     });
   });
 
+  it("accepts bracketed IPv6 same-origin addresses without a scheme", () => {
+    expect(
+      normalizeRouteUrlEditorHref({
+        currentHref: "/visual-fixture?mode=route-url-editor",
+        origin: "http://[::1]:5174",
+        rawHref: "[::1]:5174/terms?dev",
+      }),
+    ).toEqual({
+      status: "valid",
+      href: "/terms?dev",
+    });
+  });
+
   it("rejects external addresses without a scheme", () => {
     expect(
       normalizeRouteUrlEditorHref({

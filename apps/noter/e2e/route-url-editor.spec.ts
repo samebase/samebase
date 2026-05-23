@@ -6,8 +6,9 @@ test("route URL editor fixture navigates committed same-origin hrefs", async ({ 
     waitUntil: "domcontentloaded",
   });
   const host = await page.evaluate(() => window.location.host);
-  const protocol = await page.evaluate(() => `${window.location.protocol}//`);
+  const origin = await page.evaluate(() => window.location.origin);
 
+  const originInput = page.getByTestId("route-url-editor-origin-input");
   const input = page.getByTestId("route-url-editor-input");
   const editor = page.getByTestId("route-url-editor");
   const currentHref = page.getByTestId("route-url-editor-fixture-current-href");
@@ -22,7 +23,9 @@ test("route URL editor fixture navigates committed same-origin hrefs", async ({ 
 
   expect(editorBox.x).toBe(0);
   expect(editorBox.height).toBeLessThanOrEqual(40);
-  await expect(input).toHaveValue(`${host}/visual-fixture?mode=route-url-editor`);
+  await expect(originInput).toHaveValue(host);
+  await expect(originInput).toHaveAttribute("title", origin);
+  await expect(input).toHaveValue("/visual-fixture?mode=route-url-editor");
   await expect(input).toHaveAttribute("title", `${host}/visual-fixture?mode=route-url-editor`);
   await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
   await expect(backButton).toBeVisible();
@@ -33,71 +36,29 @@ test("route URL editor fixture navigates committed same-origin hrefs", async ({ 
   await expect(goButton).toHaveCSS("opacity", "0");
 
   await input.focus();
-  await expect(input).toHaveValue(`${protocol}${host}/visual-fixture?mode=route-url-editor`);
+  await expect(originInput).toHaveValue(origin);
   await expect(goButton).toHaveCSS("opacity", "1");
 
-  await input.fill(`${host}/visual-fixture?mode=route-url-editor&draft=edited#done`);
-  await expect(input).toHaveValue(
-    `${protocol}${host}/visual-fixture?mode=route-url-editor&draft=edited#done`,
-  );
+  await input.fill("/logo?from=route-url-editor");
+  await expect(input).toHaveValue("/logo?from=route-url-editor");
   await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
 
   await input.press("Enter");
 
-  await expect(input).toHaveValue(
-    `${protocol}${host}/visual-fixture?mode=route-url-editor&draft=edited#done`,
-  );
-  await expect(input).toHaveAttribute(
-    "title",
-    `${host}/visual-fixture?mode=route-url-editor&draft=edited#done`,
-  );
-  await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor&draft=edited#done");
+  await expect(input).toHaveValue("/logo?from=route-url-editor");
+  await expect(input).toHaveAttribute("title", `${host}/logo?from=route-url-editor`);
+  await expect(currentHref).toHaveText("/logo?from=route-url-editor");
   await input.blur();
-  await expect(input).toHaveValue(`${host}/visual-fixture?mode=route-url-editor&draft=edited#done`);
-});
-
-test("route URL editor fixture selects across domain and route text", async ({ page }) => {
-  await page.setViewportSize({ width: 720, height: 96 });
-  await page.goto("/visual-fixture?mode=route-url-editor", {
-    waitUntil: "domcontentloaded",
+  await expect(originInput).toHaveValue(host);
+  await expect(editor).toHaveScreenshot("route-url-editor-committed.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.01,
   });
-  const host = await page.evaluate(() => window.location.host);
-  const protocol = await page.evaluate(() => `${window.location.protocol}//`);
-  const routePath = "/visual-fixture";
-
-  const input = page.getByTestId("route-url-editor-input");
-  await input.focus();
-  await expect(input).toHaveValue(`${protocol}${host}/visual-fixture?mode=route-url-editor`);
-
-  const selectedText = await input.evaluate(
-    (element, args) => {
-      if (!(element instanceof HTMLInputElement)) {
-        throw new Error("Expected route URL editor input.");
-      }
-
-      const hostStart = element.value.indexOf(args.host);
-      const routePathStart = element.value.indexOf(args.routePath);
-      if (hostStart === -1 || routePathStart === -1) {
-        throw new Error("Expected input value to include both host and route path.");
-      }
-
-      const routePathEnd = routePathStart + args.routePath.length;
-      element.setSelectionRange(hostStart, routePathEnd);
-      const selectionStart = element.selectionStart;
-      const selectionEnd = element.selectionEnd;
-      if (selectionStart === null || selectionEnd === null) {
-        throw new Error("Expected route URL editor input selection.");
-      }
-
-      return element.value.slice(selectionStart, selectionEnd);
-    },
-    { host, routePath },
-  );
-
-  expect(selectedText).toBe(`${host}${routePath}`);
 });
 
-test("route URL editor fixture keeps the current domain when host text is deleted", async ({
+test("route URL editor fixture keeps the origin readonly beside the route input", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 720, height: 96 });
@@ -105,29 +66,38 @@ test("route URL editor fixture keeps the current domain when host text is delete
     waitUntil: "domcontentloaded",
   });
   const host = await page.evaluate(() => window.location.host);
-  const protocol = await page.evaluate(() => `${window.location.protocol}//`);
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const originInput = page.getByTestId("route-url-editor-origin-input");
+  const input = page.getByTestId("route-url-editor-input");
+
+  await expect(originInput).toHaveAttribute("readonly", "");
+  await expect(originInput).toHaveValue(host);
+  await expect(input).toHaveValue("/visual-fixture?mode=route-url-editor");
+
+  await originInput.focus();
+  await expect(originInput).toHaveValue(origin);
+  await originInput.type("/");
+  await expect(originInput).toHaveValue(origin);
+  await expect(input).toHaveValue("/visual-fixture?mode=route-url-editor");
+});
+
+test("route URL editor fixture applies same-path search and hash edits while typing", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 720, height: 96 });
+  await page.goto("/visual-fixture?mode=route-url-editor", {
+    waitUntil: "domcontentloaded",
+  });
   const currentHref = page.getByTestId("route-url-editor-fixture-current-href");
 
   const input = page.getByTestId("route-url-editor-input");
   await input.focus();
-  await expect(input).toHaveValue(`${protocol}${host}/visual-fixture?mode=route-url-editor`);
+  await input.press("End");
+  await input.type("&draft=live#done");
 
-  await input.evaluate((element, expectedHost) => {
-    if (!(element instanceof HTMLInputElement)) {
-      throw new Error("Expected route URL editor input.");
-    }
-
-    const hostStart = element.value.indexOf(expectedHost);
-    if (hostStart === -1) {
-      throw new Error("Expected input value to include host.");
-    }
-
-    element.setSelectionRange(hostStart, hostStart + expectedHost.length);
-  }, host);
-  await input.press("Backspace");
-
-  await expect(input).toHaveValue(`${protocol}${host}/visual-fixture?mode=route-url-editor`);
-  await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
+  await expect(input).toHaveValue("/visual-fixture?mode=route-url-editor&draft=live#done");
+  await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor&draft=live#done");
 });
 
 test("route URL editor fixture rejects external origins", async ({ page }) => {
@@ -138,15 +108,24 @@ test("route URL editor fixture rejects external origins", async ({ page }) => {
   const host = await page.evaluate(() => window.location.host);
 
   const input = page.getByTestId("route-url-editor-input");
+  const editor = page.getByTestId("route-url-editor");
   const currentHref = page.getByTestId("route-url-editor-fixture-current-href");
 
   await input.focus();
   await input.fill("https://example.com/noter");
-  await input.press("Enter");
 
   await expect(input).toHaveAttribute("aria-invalid", "true");
   await expect(input).toHaveValue("https://example.com/noter");
   await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
+  await input.press("Enter");
+  await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
+  await expect(editor).toHaveScreenshot("route-url-editor-reject-external.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.01,
+  });
   await input.press("Escape");
-  await expect(input).toHaveValue(`${host}/visual-fixture?mode=route-url-editor`);
+  await expect(input).toHaveValue("/visual-fixture?mode=route-url-editor");
+  await expect(page.getByTestId("route-url-editor-origin-input")).toHaveValue(host);
 });

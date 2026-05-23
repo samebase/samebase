@@ -6,10 +6,11 @@ import {
   useId,
   useState,
   type ChangeEvent,
+  type FocusEvent,
   type FormEvent,
   type KeyboardEvent,
 } from "react";
-import { isRouteUrlEditorHostSegment, normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
+import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
 
 const routeUrlEditorIconButtonClassName =
   "flex size-7 shrink-0 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
@@ -29,10 +30,6 @@ function readRouteUrlEditorHost(): string {
   return new URL(readRouteUrlEditorOrigin()).host;
 }
 
-function readRouteUrlEditorProtocolPrefix(): string {
-  return `${new URL(readRouteUrlEditorOrigin()).protocol}//`;
-}
-
 function formatRouteUrlEditorAddress(href: string): string {
   const origin = readRouteUrlEditorOrigin();
 
@@ -46,98 +43,6 @@ function formatRouteUrlEditorAddress(href: string): string {
   }
 
   return href;
-}
-
-type RouteUrlEditorDraftReality =
-  | {
-      status: "same-origin";
-      address: string;
-    }
-  | {
-      status: "raw";
-      address: string;
-    };
-
-function formatRouteUrlEditorInputValue(args: {
-  address: string;
-  focused: boolean;
-  host: string;
-  protocolPrefix: string;
-  status: RouteUrlEditorDraftReality["status"];
-}): string {
-  if (args.status === "raw") {
-    return args.address;
-  }
-
-  return `${args.focused ? args.protocolPrefix : ""}${args.host}${args.address}`;
-}
-
-function readRouteUrlEditorExplicitSameOriginAddress(rawAddress: string): string | null {
-  const origin = readRouteUrlEditorOrigin();
-  const host = readRouteUrlEditorHost();
-  const protocolPrefix = readRouteUrlEditorProtocolPrefix();
-  const trimmedAddress = rawAddress.trim();
-  const fullOriginAddress =
-    trimmedAddress === origin ||
-    trimmedAddress.startsWith(`${origin}/`) ||
-    trimmedAddress.startsWith(`${origin}?`) ||
-    trimmedAddress.startsWith(`${origin}#`);
-  const hostAddress =
-    trimmedAddress === host ||
-    trimmedAddress.startsWith(`${host}/`) ||
-    trimmedAddress.startsWith(`${host}?`) ||
-    trimmedAddress.startsWith(`${host}#`);
-  const protocolWithoutHostAddress =
-    trimmedAddress === protocolPrefix ||
-    trimmedAddress.startsWith(`${protocolPrefix}/`) ||
-    trimmedAddress.startsWith(`${protocolPrefix}?`) ||
-    trimmedAddress.startsWith(`${protocolPrefix}#`);
-
-  if (protocolWithoutHostAddress) {
-    return trimmedAddress.slice(protocolPrefix.length) || "/";
-  }
-
-  if (fullOriginAddress || hostAddress) {
-    try {
-      const url = new URL(hostAddress ? `//${trimmedAddress}` : trimmedAddress, origin);
-      if (url.origin === origin) {
-        return `${url.pathname}${url.search}${url.hash}`;
-      }
-    } catch {
-      return null;
-    }
-  }
-
-  return null;
-}
-
-function readRouteUrlEditorDraftFromInput(rawAddress: string): RouteUrlEditorDraftReality {
-  const explicitSameOriginAddress = readRouteUrlEditorExplicitSameOriginAddress(rawAddress);
-
-  if (explicitSameOriginAddress) {
-    return {
-      status: "same-origin",
-      address: explicitSameOriginAddress,
-    };
-  }
-
-  const firstAddressSegment = rawAddress.trim().split(/[/?#]/, 1)[0] ?? "";
-  const schemeAddress = /^[a-z][a-z0-9+.-]*:\/\//i.test(rawAddress.trim());
-  const hostLikeAddress =
-    /^[a-z0-9.[\]-]+(?::\d+)?$/i.test(firstAddressSegment) &&
-    isRouteUrlEditorHostSegment(firstAddressSegment);
-
-  if (!schemeAddress && !hostLikeAddress) {
-    return {
-      status: "same-origin",
-      address: rawAddress,
-    };
-  }
-
-  return {
-    status: "raw",
-    address: rawAddress,
-  };
 }
 
 type RouteUrlEditorCommitMode = "route-options" | "route-navigation";
@@ -158,38 +63,39 @@ export function RouteUrlEditor() {
   const location = useLocation();
   const router = useRouter();
   const currentHref = location.href;
-  const currentHistoryIndex = location.state.__TSR_index;
-  const inputId = useId();
-  const [invalidInput, setInvalidInput] = useState(false);
-  const [forwardHistoryIndex, setForwardHistoryIndex] = useState(currentHistoryIndex);
-  const [inputFocused, setInputFocused] = useState(false);
-  const protocolPrefix = readRouteUrlEditorProtocolPrefix();
+  const currentRouteHistoryIndex = location.state.__TSR_index;
+  const originInputId = useId();
+  const routeInputId = useId();
+  const [forwardRouteHistoryIndex, setForwardRouteHistoryIndex] =
+    useState(currentRouteHistoryIndex);
+  const [editorFocused, setEditorFocused] = useState(false);
+  const [routeInputFocused, setRouteInputFocused] = useState(false);
+  const origin = readRouteUrlEditorOrigin();
   const host = readRouteUrlEditorHost();
   const urlRealityAddress = formatRouteUrlEditorAddress(currentHref);
-  const [draftReality, setDraftReality] = useState<RouteUrlEditorDraftReality>({
-    status: "same-origin",
-    address: urlRealityAddress,
+  const [draftRouteAddress, setDraftRouteAddress] = useState(urlRealityAddress);
+  const draftRouteResult = normalizeRouteUrlEditorHref({
+    currentHref,
+    origin,
+    rawHref: draftRouteAddress,
   });
-  const draftRealityAddress = draftReality.address;
-  const urlRealityFullAddress = `${host}${urlRealityAddress}`;
-  const inputValue = formatRouteUrlEditorInputValue({
-    address: draftRealityAddress,
-    focused: inputFocused,
-    host,
-    protocolPrefix,
-    status: draftReality.status,
-  });
+  const routeInputInvalid =
+    draftRouteAddress.trim() !== "" && draftRouteResult.status === "invalid";
+  const routeInputTitle =
+    draftRouteResult.status === "valid" ? `${host}${draftRouteResult.href}` : draftRouteAddress;
+  const originInputValue = editorFocused ? origin : host;
+  const originInputSize = Math.max(originInputValue.length, 1);
 
-  const canGoBack = currentHistoryIndex > 0;
-  const canGoForward = currentHistoryIndex < forwardHistoryIndex;
+  const canGoBack = currentRouteHistoryIndex > 0;
+  const canGoForward = currentRouteHistoryIndex < forwardRouteHistoryIndex;
 
-  // TanStack exposes back availability; keep the reached route index so Forward
-  // only enables after this chrome has actually seen a later app entry.
+  // TanStack writes __TSR_index into each route entry; keep the largest seen
+  // index so Forward only enables after this chrome has observed one.
   useEffect(
     () =>
       router.history.subscribe(({ action, location: nextLocation }) => {
         const nextHistoryIndex = nextLocation.state.__TSR_index;
-        setForwardHistoryIndex((currentForwardHistoryIndex) => {
+        setForwardRouteHistoryIndex((currentForwardHistoryIndex) => {
           if (action.type === "PUSH") {
             return nextHistoryIndex;
           }
@@ -204,15 +110,15 @@ export function RouteUrlEditor() {
     [router],
   );
 
-  // Links, Back/Forward, and committed edits change URL reality; uncommitted
-  // draft text stays local only until one of those route commits lands.
+  // Links and Back/Forward change URL reality; focused route edits keep their
+  // draft text so live search/hash navigation cannot race the caret.
   useEffect(() => {
-    setDraftReality({
-      status: "same-origin",
-      address: urlRealityAddress,
-    });
-    setInvalidInput(false);
-  }, [urlRealityAddress]);
+    if (routeInputFocused) {
+      return;
+    }
+
+    setDraftRouteAddress(urlRealityAddress);
+  }, [routeInputFocused, urlRealityAddress]);
 
   const goBack = useCallback(() => {
     router.history.back();
@@ -227,31 +133,69 @@ export function RouteUrlEditor() {
       return;
     }
 
+    // Intentionally match address-bar refresh: this is a browser reload, not a
+    // router navigation.
     window.location.reload();
   }, []);
 
-  const changeDraftRealityAddress = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      setDraftReality(readRouteUrlEditorDraftFromInput(event.currentTarget.value));
+  const focusRouteUrlEditor = useCallback(() => {
+    setEditorFocused(true);
+  }, []);
 
-      if (invalidInput) {
-        setInvalidInput(false);
+  const blurRouteUrlEditor = useCallback((event: FocusEvent<HTMLFormElement>) => {
+    const nextFocusedTarget = event.relatedTarget;
+    if (nextFocusedTarget instanceof Node && event.currentTarget.contains(nextFocusedTarget)) {
+      return;
+    }
+
+    setEditorFocused(false);
+  }, []);
+
+  const focusRouteInput = useCallback(() => {
+    setRouteInputFocused(true);
+  }, []);
+
+  const blurRouteInput = useCallback(() => {
+    setRouteInputFocused(false);
+  }, []);
+
+  const changeDraftRouteAddress = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const nextDraftRouteAddress = event.currentTarget.value;
+      setDraftRouteAddress(nextDraftRouteAddress);
+      const nextHrefResult = normalizeRouteUrlEditorHref({
+        currentHref,
+        origin,
+        rawHref: nextDraftRouteAddress,
+      });
+
+      if (nextHrefResult.status === "invalid" || nextHrefResult.href === currentHref) {
+        return;
+      }
+
+      const commitMode = getRouteUrlEditorCommitMode({
+        currentHref,
+        nextHref: nextHrefResult.href,
+        origin,
+      });
+
+      if (commitMode === "route-options") {
+        void router.navigate({
+          href: nextHrefResult.href,
+          replace: true,
+          resetScroll: false,
+        });
       }
     },
-    [invalidInput],
+    [currentHref, origin, router],
   );
 
   const resetInput = useCallback(() => {
-    setDraftReality({
-      status: "same-origin",
-      address: urlRealityAddress,
-    });
-    setInvalidInput(false);
+    setDraftRouteAddress(urlRealityAddress);
   }, [urlRealityAddress]);
 
   const commitInput = useCallback(
     (rawAddress: string) => {
-      const origin = readRouteUrlEditorOrigin();
       const result = normalizeRouteUrlEditorHref({
         currentHref,
         origin,
@@ -259,15 +203,10 @@ export function RouteUrlEditor() {
       });
 
       if (result.status === "invalid") {
-        setInvalidInput(true);
         return;
       }
 
-      setDraftReality({
-        status: "same-origin",
-        address: formatRouteUrlEditorAddress(result.href),
-      });
-      setInvalidInput(false);
+      setDraftRouteAddress(result.href);
 
       if (result.href === currentHref) {
         return;
@@ -293,15 +232,15 @@ export function RouteUrlEditor() {
           return;
       }
     },
-    [currentHref, router],
+    [currentHref, origin, router],
   );
 
   const submitInput = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      commitInput(draftRealityAddress);
+      commitInput(draftRouteAddress);
     },
-    [commitInput, draftRealityAddress],
+    [commitInput, draftRouteAddress],
   );
 
   const handleInputKeyDown = useCallback(
@@ -320,10 +259,15 @@ export function RouteUrlEditor() {
     <form
       className="group flex h-8 w-full min-w-0 items-center gap-1 bg-background px-1 text-foreground"
       data-testid="route-url-editor"
+      onBlur={blurRouteUrlEditor}
+      onFocus={focusRouteUrlEditor}
       onSubmit={submitInput}
     >
-      <label className="sr-only" htmlFor={inputId}>
-        Route URL
+      <label className="sr-only" htmlFor={originInputId}>
+        Route origin
+      </label>
+      <label className="sr-only" htmlFor={routeInputId}>
+        Route path
       </label>
       <button
         aria-label="Back"
@@ -354,31 +298,45 @@ export function RouteUrlEditor() {
       >
         <RefreshCw aria-hidden="true" className="size-4" />
       </button>
-      {/*
-        URL reality comes from the router. Draft reality stays local until
-        submit, so option edits never navigate while the user is typing.
-      */}
-      <input
-        aria-describedby={invalidInput ? `${inputId}-error` : undefined}
-        aria-invalid={invalidInput}
-        autoCapitalize="none"
-        autoComplete="off"
-        autoCorrect="off"
-        className="h-7 min-w-0 flex-1 border-0 bg-transparent px-1 font-mono text-sm leading-7 outline-none selection:bg-primary/20 aria-invalid:text-destructive"
-        data-testid="route-url-editor-input"
-        id={inputId}
-        inputMode="url"
-        name="routeHref"
-        onBlur={() => setInputFocused(false)}
-        onChange={changeDraftRealityAddress}
-        onFocus={() => setInputFocused(true)}
-        onKeyDown={handleInputKeyDown}
-        spellCheck={false}
-        suppressHydrationWarning
-        title={urlRealityFullAddress}
-        type="text"
-        value={inputValue}
-      />
+      <div className="flex min-w-0 flex-1 items-center">
+        <input
+          aria-label="Route origin"
+          className="h-7 min-w-[6ch] max-w-[45%] shrink-0 border-0 bg-transparent p-0 font-mono text-sm leading-7 text-muted-foreground outline-none selection:bg-primary/20 focus:text-foreground"
+          data-testid="route-url-editor-origin-input"
+          id={originInputId}
+          readOnly
+          size={originInputSize}
+          suppressHydrationWarning
+          title={origin}
+          type="text"
+          value={originInputValue}
+        />
+        {/*
+          URL reality comes from the router. The route draft is the only
+          editable field; same-path search/hash edits can apply live.
+        */}
+        <input
+          aria-describedby={routeInputInvalid ? `${routeInputId}-error` : undefined}
+          aria-invalid={routeInputInvalid}
+          autoCapitalize="none"
+          autoComplete="off"
+          autoCorrect="off"
+          className="h-7 min-w-0 flex-1 border-0 bg-transparent p-0 font-mono text-sm leading-7 outline-none selection:bg-primary/20 aria-invalid:text-destructive"
+          data-testid="route-url-editor-input"
+          id={routeInputId}
+          inputMode="url"
+          name="routeHref"
+          onBlur={blurRouteInput}
+          onChange={changeDraftRouteAddress}
+          onFocus={focusRouteInput}
+          onKeyDown={handleInputKeyDown}
+          spellCheck={false}
+          suppressHydrationWarning
+          title={routeInputTitle}
+          type="text"
+          value={draftRouteAddress}
+        />
+      </div>
       <button
         aria-label="Go to route URL"
         className={routeUrlEditorSubmitButtonClassName}
@@ -387,8 +345,8 @@ export function RouteUrlEditor() {
       >
         <ArrowUpRight aria-hidden="true" className="size-4" />
       </button>
-      {invalidInput ? (
-        <span className="sr-only" id={`${inputId}-error`}>
+      {routeInputInvalid ? (
+        <span className="sr-only" id={`${routeInputId}-error`}>
           Enter a same-origin app URL.
         </span>
       ) : null}
