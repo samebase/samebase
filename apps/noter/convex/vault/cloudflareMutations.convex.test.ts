@@ -317,7 +317,6 @@ describe("vault Cloudflare attachment mutations", () => {
         ...ids,
         accountId: "cloudflare-account",
         workerName: "manual-cloudflare-worker",
-        workerTag: "manual-cloudflare-worker-tag",
       }),
     ).resolves.toEqual({ shouldDelete: false });
     await expect(
@@ -325,7 +324,6 @@ describe("vault Cloudflare attachment mutations", () => {
         ...ids,
         accountId: "cloudflare-account",
         workerName: "different-worker",
-        workerTag: "different-worker-tag",
       }),
     ).resolves.toEqual({ shouldDelete: true });
   });

@@ -409,7 +409,6 @@ export const ensureCloudflareWorkerConnection = internalAction({
               userId: args.userId,
               accountId: account.accountId,
               workerName: worker.workerName,
-              workerTag: worker.workerTag,
             },
           );
           if (shouldDelete) {

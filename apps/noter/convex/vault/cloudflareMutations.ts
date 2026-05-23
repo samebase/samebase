@@ -352,7 +352,6 @@ export const readCreatedWorkerRollbackSafety = internalQuery({
     userId: id("users"),
     accountId: string(),
     workerName: string(),
-    workerTag: string(),
   },
   returns: object({ shouldDelete: boolean() }),
   handler: async (ctx, args) => {
@@ -367,8 +366,7 @@ export const readCreatedWorkerRollbackSafety = internalQuery({
       shouldDelete:
         cloudflare.state !== "connected" ||
         cloudflare.accountId !== args.accountId ||
-        cloudflare.workerName !== args.workerName ||
-        cloudflare.workerTag !== args.workerTag,
+        cloudflare.workerName !== args.workerName,
     };
   },
 });
