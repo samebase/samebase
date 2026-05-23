@@ -106,6 +106,8 @@ export function PublicLayoutShell({
     sidebarState,
   });
   const publicRightSidebarPane = usePublicRightSidebarPane();
+  // No main or header === undefined means the public shell owns the URL header
+  // and body wrapper; an explicit header, even null, preserves caller chrome.
   const mainHeader = main?.header === undefined ? <RouteUrlEditor /> : main.header;
   const hasMainHeader = Boolean(mainHeader);
   const layoutRightToggleVisibility = hasMainHeader ? rightToggleVisibility : "hidden";

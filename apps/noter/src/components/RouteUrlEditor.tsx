@@ -23,6 +23,11 @@ function readRouteUrlEditorOrigin(): string {
   return typeof window === "undefined" ? "https://noter.local" : window.location.origin;
 }
 
+/**
+ * URL reality comes from the router. The input shows same-origin URLs as route
+ * text, while malformed or unexpected external values pass through so invalid
+ * UI can explain them without hiding what happened.
+ */
 function formatRouteUrlEditorAddress(href: string): string {
   const origin = readRouteUrlEditorOrigin();
 
@@ -112,6 +117,11 @@ function getRouteUrlEditorCommitMode(args: {
   return currentUrl.pathname === nextUrl.pathname ? "route-options" : "route-navigation";
 }
 
+/**
+ * Displays route reality plus a local draft in one controlled URL input. Search
+ * and hash edits can apply while typing; pathname edits wait for submit, and
+ * rejected origin/root-slash edits restore the previous value and selection.
+ */
 export function RouteUrlEditor() {
   const location = useLocation();
   const router = useRouter();
