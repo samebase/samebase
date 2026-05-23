@@ -33,6 +33,13 @@ export function normalizeRouteUrlEditorHref({
     };
   }
 
+  if (/^[a-z][a-z0-9+.-]*:\/\/\/+/i.test(trimmedHref)) {
+    return {
+      status: "invalid",
+      reason: "malformed",
+    };
+  }
+
   try {
     const appOrigin = new URL(origin);
     const currentUrl = new URL(currentHref, appOrigin);

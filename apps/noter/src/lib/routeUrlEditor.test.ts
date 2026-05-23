@@ -43,6 +43,19 @@ describe("normalizeRouteUrlEditorHref", () => {
     });
   });
 
+  it("rejects malformed absolute URLs instead of silently repairing the origin", () => {
+    expect(
+      normalizeRouteUrlEditorHref({
+        currentHref: "/visual-fixture?mode=route-url-editor",
+        origin: "http://localhost:5174",
+        rawHref: "http:///localhost:5174/terms?dev",
+      }),
+    ).toEqual({
+      status: "invalid",
+      reason: "malformed",
+    });
+  });
+
   it("accepts Codex-style same-origin addresses without a scheme", () => {
     expect(
       normalizeRouteUrlEditorHref({

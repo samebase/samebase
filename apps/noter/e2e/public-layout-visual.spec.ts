@@ -41,11 +41,8 @@ test("public landing header exposes the route URL editor", async ({ page }) => {
 
   const host = new URL(page.url()).host;
   const origin = new URL(page.url()).origin;
-  const routeUrlOriginInput = page.getByTestId("route-url-editor-origin-input");
   const routeUrlInput = page.getByTestId("route-url-editor-input");
-  await expect(routeUrlOriginInput).toHaveValue(host);
-  await expect(routeUrlOriginInput).toHaveAttribute("title", origin);
-  await expect(routeUrlInput).toHaveValue("/?dev");
+  await expect(routeUrlInput).toHaveValue(`${host}/?dev`);
   await expect(routeUrlInput).toHaveAttribute("title", `${host}/?dev`);
   await expect(page).toHaveScreenshot("public-layout-landing-dev.png", {
     animations: "disabled",
@@ -53,11 +50,12 @@ test("public landing header exposes the route URL editor", async ({ page }) => {
     scale: "css",
     maxDiffPixelRatio: 0.03,
   });
+  await routeUrlInput.focus();
+  await expect(routeUrlInput).toHaveValue(`${origin}/?dev`);
 
   await page.getByRole("link", { name: "/terms", exact: true }).click();
   await expect(page).toHaveURL(/\/terms\?dev$/);
-  await expect(page.getByTestId("route-url-editor-origin-input")).toHaveValue(host);
-  await expect(page.getByTestId("route-url-editor-input")).toHaveValue("/terms?dev");
+  await expect(page.getByTestId("route-url-editor-input")).toHaveValue(`${host}/terms?dev`);
   await expect(page.getByTestId("route-url-editor-input")).toHaveAttribute(
     "title",
     `${host}/terms?dev`,
@@ -77,8 +75,7 @@ test("public route URL editor stays compact for long URLs", async ({ page }) => 
   const host = new URL(page.url()).host;
   const routeUrlEditor = page.getByTestId("route-url-editor");
   const routeUrlInput = page.getByTestId("route-url-editor-input");
-  await expect(page.getByTestId("route-url-editor-origin-input")).toHaveValue(host);
-  await expect(routeUrlInput).toHaveValue(longPath);
+  await expect(routeUrlInput).toHaveValue(`${host}${longPath}`);
   await expect(routeUrlInput).toHaveAttribute("title", `${host}${longPath}`);
 
   const metrics = await routeUrlEditor.evaluate((element) => {
