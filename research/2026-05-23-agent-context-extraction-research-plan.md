@@ -62,6 +62,12 @@ Repo guidance sources:
 - `research/2026-05-23-agent-context-forward-test-results-2.md` records an installed-style typed
   boundary audit, a Convex guidance gap probe, and a read-only `noter-convex` overlay forward test.
   It adds the `noter-convex` overlay draft and corrects Convex guidance pointers.
+- `research/2026-05-23-agent-context-packaging-decision.md` chooses a context-bundle packaging shape
+  so always-loaded core, triggerable portable skills, and Noter overlays do not get flattened into
+  one `skills/` folder.
+- `research/2026-05-23-agent-context-forward-test-results-3.md` records the editing-capable
+  `noter-convex` validation, the decision to split Cloudflare API boundary hardening into a
+  production-code follow-up, and the first packaging decision.
 
 Local thread evidence:
 
@@ -330,9 +336,8 @@ context, a triggerable skill, a workflow doc, or an operator overlay.
 
 ## Next Work
 
-1. Run an installed or editing-capable `noter-convex` test before moving Convex AI or CLI guidance
-   out of always-loaded context.
-2. Decide whether Cloudflare API boundary test hardening is part of this extraction PR or a separate
-   production-code follow-up.
+1. Run an installed-context test for the five portable triggerable skills before promoting them out
+   of `research/`.
+2. Decide whether to open the Cloudflare API boundary hardening as a separate production-code PR.
 3. Manually review the pinned comparison threads after the non-pinned baseline has more breadth.
 4. Only then move durable material out of `AGENTS.md`.

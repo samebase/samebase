@@ -10,6 +10,8 @@
   - `research/agent-context-draft-overlays/`
   - `research/2026-05-23-agent-context-forward-test-results-1.md`
   - `research/2026-05-23-agent-context-forward-test-results-2.md`
+  - `research/2026-05-23-agent-context-forward-test-results-3.md`
+  - `research/2026-05-23-agent-context-packaging-decision.md`
 
 ## Purpose
 
@@ -40,7 +42,7 @@ coverage status, and remaining work before anything is moved out of always-loade
 | --------------------------- | --------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `Startup`                   | `keep-short` plus `noter-operator-workflows`                                                        | Partial  | Keep `grep`/`find` availability and one-line worktree startup pointer always-loaded. Move `pnpm anon` details into operator overlay, but make the overlay load before dev/lint/test/commit workflows.                                                                                                                                                                                                                                |
 | `Repo Knowledge Map`        | `keep-short` plus `research-to-implementation`                                                      | Partial  | Keep source priority and "remember this" persistence always-loaded. Move anti-bulk-migration and research/source classification examples into research workflow references.                                                                                                                                                                                                                                                          |
-| `Convex CLI`                | `noter-operator-workflows` plus `noter-convex`                                                      | Partial  | Operator overlay has production-read safety, and `noter-convex` records Noter-specific Convex command overrides. Keep a short always-loaded fail-closed pointer until these overlays are installed or guaranteed reachable.                                                                                                                                                                                                          |
+| `Convex CLI`                | `noter-operator-workflows` plus `noter-convex`                                                      | Partial  | Operator overlay has production-read safety, and `noter-convex` records Noter-specific Convex command overrides. Keep a short always-loaded fail-closed pointer until these overlays are installed or guaranteed reachable before backend work.                                                                                                                                                                                      |
 | `Architecture`              | `keep-short`                                                                                        | Partial  | Keep the Noter monorepo stack and domain entities always-loaded for now. Do not move this to `noter-app-template`; that overlay is for generated apps derived from `notermd/app`, not this monorepo's full product architecture. Split later only if a separate Noter app overlay exists.                                                                                                                                            |
 | `Code Guardrails`           | `typed-product-engineering` plus `noter-convex` plus unresolved UI residues                         | Strong   | Portable rules now cover strict typing, delete-first refactoring, provider/OpenAPI boundaries, state modeling, deterministic sorting, effects, wrappers, and tests. `noter-convex` covers Convex naming/validator conventions, `notEmpty`, provider-boundary rules, and contract tests. App-owned UI style APIs still need existing repo skills/docs or a future Noter UI overlay.                                                   |
 | `Non-Functional Guardrails` | `agent-engineering-core` plus `noter-operator-workflows`                                            | Strong   | Secret safety and fail-closed behavior are portable core. Approval, auth, audit, production reads, and provider boundaries stay in operator/app overlays.                                                                                                                                                                                                                                                                            |
@@ -51,7 +53,7 @@ coverage status, and remaining work before anything is moved out of always-loade
 | `Worktree Rules`            | `keep-short` plus `noter-operator-workflows`                                                        | Partial  | Keep root/branch confirmation and detached-HEAD bootstrap pointer visible. Move detailed one-idea-per-worktree and Convex env-file caveats to operator overlay.                                                                                                                                                                                                                                                                      |
 | `Operator Preferences`      | `noter-operator-workflows` plus existing UI/refactor docs                                           | Partial  | Many are local response and process preferences. Keep concise response preference and no-preview reporting locally; move mobile URLs, Cloudflare link labels, no Vercel examples, shell-first preference, Playwright session details, and similar local rules to the operator overlay. Move visual minimalism and app-owned component API rules to `skills/noter-refactoring-style` or a future Noter UI overlay, not portable core. |
 | `Task-Specific References`  | `keep-short`                                                                                        | Strong   | Keep this as the always-loaded router to `docs/agent-workflows.md`, `skills/create-pr`, `skills/noter-playwright-live`, and any future installed draft skills.                                                                                                                                                                                                                                                                       |
-| `Convex AI Block`           | `keep-short` plus `noter-convex`                                                                    | Partial  | Keep a short always-loaded pointer to `apps/noter/convex/_generated/ai/guidelines.md` plus `noter-convex` until the overlay is installed or otherwise guaranteed to load before live Convex edits. The draft overlay has passed one read-only planning forward test after revisions.                                                                                                                                                 |
+| `Convex AI Block`           | `keep-short` plus `noter-convex`                                                                    | Partial  | Keep a short always-loaded pointer to `apps/noter/convex/_generated/ai/guidelines.md` plus `noter-convex` until the overlay is installed or otherwise guaranteed to load before live Convex edits. The draft overlay has passed read-only planning and isolated editing-capable forward tests after revisions.                                                                                                                       |
 
 ## Parallel Review Adjustments
 
@@ -84,35 +86,37 @@ A future shortened `AGENTS.md` should probably keep only:
   Convex/playwright/PR skills
 - shortcut command table, or an explicit pointer to the overlay if the runtime can reliably load it
   before interpreting those commands
-- Convex AI pointer until `noter-convex` is installed and editing-capable or otherwise guaranteed to
-  load before live Convex work
+- Convex AI pointer until `noter-convex` is installed or otherwise guaranteed to load before live
+  Convex work
 
 Do not shrink the architecture section into `noter-app-template`; generated-app template ownership
 and monorepo product orientation are separate layers.
 
 ## Packaging Decision Draft
 
-The first live packaging target should be repo-local and non-destructive:
+The first live packaging target should be a repo-local context bundle, not a flat `skills/`
+promotion:
 
 1. Keep the draft artifacts under `research/` until one installed-context experiment passes.
-2. Promote portable skills into `skills/` with their existing names or package them in a separate
-   context bundle that can be copied into other repos.
-3. Keep Noter overlays outside the portable package. They can live as repo-local overlay references
-   or as references loaded by a small `noter-operator-workflows` skill.
-4. Leave existing skills such as `skills/create-pr/SKILL.md` and
+2. Treat `agent-engineering-core` as an always-loaded core context file, not a triggerable skill.
+3. Promote the five portable triggerable skills into `skills/`, `$CODEX_HOME/skills`, or another
+   repo only after one installed-context test.
+4. Keep Noter overlays outside the portable package. They can live as repo-local overlay references
+   or as entries in a Noter manifest.
+5. Leave existing skills such as `skills/create-pr/SKILL.md` and
    `skills/noter-playwright-live/SKILL.md` in place initially. Either refit them later as thin
    Noter-specific wrappers around the portable skills or keep them as compatibility entrypoints.
-5. Only then shrink `AGENTS.md`, one section at a time, with a checklist proving each removed rule
+6. Only then shrink `AGENTS.md`, one section at a time, with a checklist proving each removed rule
    has a reachable replacement.
 
 ## Remaining Validation
 
-- Run an installed or editing-capable `noter-convex` test before moving the Convex AI block or
-  Convex CLI details out of always-loaded context.
+- Run an installed-context test for the five portable triggerable skills before promoting them out
+  of `research/`.
 - Decide whether shadcn/ui ownership belongs in `typed-product-engineering`, `noter-app-template`,
   or a small Noter UI overlay. Current evidence points to
   `specs/063_SHADCN_WRAPPER_ENTRYPOINT_SPEC.md` plus a short AGENTS pointer.
 - Decide whether shortcut recognition can safely move out of always-loaded context in the current
   Codex runtime.
-- Decide whether Cloudflare API boundary test hardening belongs in this extraction PR or a separate
-  production-code follow-up.
+- Decide whether to open the Cloudflare API boundary test hardening as a separate production-code
+  follow-up.

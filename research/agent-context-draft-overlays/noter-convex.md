@@ -34,6 +34,11 @@ for Convex's generated guidance.
 - In worktrees, use the Noter operator workflow: `pnpm anon:once` once after checkout and
   `pnpm anon` before dev, lint, test, and commit workflows.
 - In the primary checkout, use `pnpm dev`.
+- If an experiment or review explicitly forbids `pnpm anon`, run only local checks that do not need
+  Convex/provider state, such as formatting, static type checks, or unit tests with mocked
+  transports. Skip backend-dependent commands and record the reason.
+- Fresh validation worktrees may need dependencies materialized from the lockfile before `pnpm exec`
+  commands can run.
 - Production reads from worktrees must derive `CONVEX_DEPLOYMENT` from the primary checkout and
   clear `CONVEX_DEPLOY_KEY` in the same command environment.
 - If Convex CLI output says it is ignoring `--prod` because of `CONVEX_DEPLOY_KEY`, stop and rerun
@@ -69,6 +74,9 @@ for Convex's generated guidance.
   `vite.config.ts` and package manifests.
 - Add `.convex.test.ts` coverage when behavior depends on Convex auth, schema validation, function
   registration, component registration, database writes, scheduling, or HTTP routing.
+- Provider API client boundary tests can remain normal `.test.ts` files when they use mocked
+  transport and do not need Convex function registration, database state, auth, HTTP routing, or
+  scheduler behavior.
 - New registered-function, HTTP, scheduling, and auth coverage belongs in `.convex.test.ts` unless
   intentionally maintaining an existing older test file. Do not copy old unsuffixed `.test.ts`
   Convex examples just because they happen to use the harness.
@@ -95,6 +103,9 @@ for Convex's generated guidance.
   covered by the generated boundary.
 - For provider-boundary comparisons, inspect weaker tests against the strongest local exemplar
   before recommending production refactors.
+- Strong provider-boundary tests usually include type assertions such as `expectType`, negative
+  compile-time cases for wrong methods or missing required params, request materialization checks,
+  lossless identifier coverage when relevant, and fail-before-transport runtime validation.
 
 ## Research Notes
 

@@ -130,8 +130,10 @@ Applied revisions:
 
 ## Next Work
 
-1. Compare the revised drafts against the long `AGENTS.md` sections and mark what can move, what
-   must remain always-loaded, and what belongs in existing skills.
-2. Forward-test the revised artifacts as installed or package-like skills in an isolated context.
-3. Decide whether the first live packaging target is repo-local `skills/*`, a separate context
-   package, or compatibility wrappers around existing repo skills.
+1. See `research/2026-05-23-agent-context-agents-migration-map.md` for the section-by-section
+   `AGENTS.md` migration map.
+2. See `research/2026-05-23-agent-context-forward-test-results-2.md` and
+   `research/2026-05-23-agent-context-forward-test-results-3.md` for later installed-style and
+   editing-capable validation.
+3. See `research/2026-05-23-agent-context-packaging-decision.md` for the first context-bundle
+   packaging decision.

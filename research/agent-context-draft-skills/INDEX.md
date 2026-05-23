@@ -50,11 +50,14 @@ meant to be reviewed, forward-tested, and revised before any live context modula
 - A follow-up `noter-convex` forward test found the overlay sufficient for read-only Convex planning
   after revisions to its pre-edit checklist, test-harness guidance, generated-file rules, and
   provider verification commands.
+- `research/2026-05-23-agent-context-packaging-decision.md` selects a context-bundle packaging
+  shape: core context, five portable triggerable skills, and Noter overlays kept as separate layers.
+- `research/2026-05-23-agent-context-forward-test-results-3.md` records an isolated editing-capable
+  `noter-convex` validation and the decision to split Cloudflare API boundary hardening out of this
+  extraction PR.
 
 ## Next Validation
 
 - Forward-test the revised artifacts as installed or package-like skills in an isolated context.
-- Decide whether the live packaging target is repo-local `skills/*`, a separate context package, or
-  compatibility wrappers around existing repo skills.
-- Run an installed or editing-capable `noter-convex` test before moving Convex CLI or Convex AI
-  guidance out of always-loaded context.
+- Test the context-bundle packaging shape with the five portable triggerable skills before promoting
+  them out of `research/`.

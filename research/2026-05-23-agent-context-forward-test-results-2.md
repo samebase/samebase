@@ -143,8 +143,9 @@ Applied revisions:
 
 ## Next Work
 
-1. Run an installed or editing-capable `noter-convex` test before moving Convex AI or CLI guidance
-   out of always-loaded context.
-2. Decide whether to implement the Cloudflare API boundary test hardening now or record it as a
-   separate production-code follow-up.
-3. Package the portable skills in a repo-local `skills/*` experiment or a separate context bundle.
+1. See `research/2026-05-23-agent-context-forward-test-results-3.md` for the editing-capable
+   `noter-convex` validation.
+2. Run an installed-context test for the five portable triggerable skills before promoting them out
+   of `research/`.
+3. Decide whether to open Cloudflare API boundary test hardening as a separate production-code
+   follow-up.

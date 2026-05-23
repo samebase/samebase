@@ -142,12 +142,15 @@ unresolved follow-up for installed Convex overlay behavior and shadcn/UI ownersh
 
 `research/2026-05-23-agent-context-forward-test-results-2.md` resolves the first Convex follow-up by
 adding a draft `noter-convex` overlay and forward-testing it on a read-only Convex planning task.
-The overlay is still not installed; it needs an installed or editing-capable test before the Convex
-AI block or production CLI guidance can move out of always-loaded context.
+`research/2026-05-23-agent-context-forward-test-results-3.md` adds an isolated editing-capable
+validation for that overlay. The overlay is now tested for planning and bounded provider-boundary
+editing, but still needs to be installed or otherwise guaranteed reachable before the Convex AI
+block or production CLI guidance can move out of always-loaded context.
 
 ## Open Questions Before Moving `AGENTS.md`
 
-- Whether the portable artifacts should live as repo-local `skills/*`, a separate package, or both.
+- How to test the selected context-bundle packaging shape before promoting draft artifacts out of
+  `research/`.
 - Whether existing repo skills should be renamed/refit or left as compatibility wrappers.
 - How much of `AGENTS.md` should remain as repo memory hierarchy versus become a loadable core file.
 - Whether `noter-app-template` should be tested against an actual generated app build before moving
