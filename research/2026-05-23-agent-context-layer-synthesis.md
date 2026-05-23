@@ -89,6 +89,30 @@ Draft these as overlays rather than portable skills:
 4. Draft `noter-app-template` and `noter-operator-workflows` last, with clear labels that they are
    overlays, not portable defaults.
 
+## Draft Artifacts
+
+The first draft artifacts now live under `research/agent-context-draft-skills/` and
+`research/agent-context-draft-overlays/`. They are not installed skills and do not rewrite
+`AGENTS.md`.
+
+Portable skill drafts:
+
+- `agent-engineering-core/SKILL.md`
+- `typed-product-engineering/SKILL.md`
+- `route-ui-validation/SKILL.md`
+- `pr-workflow-review/SKILL.md`
+- `exact-resource-cleanup/SKILL.md`
+- `research-to-implementation/SKILL.md`
+
+Noter overlay drafts:
+
+- `noter-app-template.md`
+- `noter-operator-workflows.md`
+
+A separate explorer sanity check over the experiment artifacts agreed with this split and reinforced
+the main boundary risk: `pnpm anon` belongs in the Noter operator overlay, not portable or read-only
+experiment context.
+
 ## Open Questions Before Moving `AGENTS.md`
 
 - Whether the portable artifacts should live as repo-local `skills/*`, a separate package, or both.

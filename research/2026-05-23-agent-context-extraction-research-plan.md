@@ -51,6 +51,9 @@ Repo guidance sources:
   research-to-implementation and app-template adoption experiment result.
 - `research/2026-05-23-agent-context-layer-synthesis.md` summarizes the surviving layer boundaries
   after the first five experiments and sets the skill-drafting order.
+- `research/agent-context-draft-skills/` and `research/agent-context-draft-overlays/` contain the
+  first draft portable skills and Noter overlays. They are research artifacts, not installed skills
+  or an active `AGENTS.md` rewrite.
 
 Local thread evidence:
 
@@ -309,9 +312,9 @@ context, a triggerable skill, a workflow doc, or an operator overlay.
 
 ## Next Work
 
-1. Draft actual skill files or package artifacts for the packs that survived the first five
-   experiments.
-2. Run targeted experiments against those draft artifacts instead of adding more broad comparison
+1. Run targeted experiments against the draft artifacts instead of adding more broad comparison
    runs.
+2. Forward-test the draft skills on typed-boundary, route-validation, cleanup, and
+   research-to-implementation tasks.
 3. Manually review the pinned comparison threads after the non-pinned baseline has more breadth.
 4. Only then move durable material out of `AGENTS.md`.
