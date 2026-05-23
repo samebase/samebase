@@ -84,12 +84,13 @@ flowchart LR
 
 ## Useful Local Commands
 
-From `apps/noter`:
+From the repo root in a worktree, use the Noter workflow instead of raw Convex dev commands:
 
 ```bash
-npm run dev
-npm run lint
-npx convex logs
-npx convex logs --prod --history 50
-npx convex env list
+pnpm anon
+pnpm check
 ```
+
+For production Convex reads, follow the root `AGENTS.md` production-read safety rule: run from the
+primary checkout, derive `CONVEX_DEPLOYMENT` from that checkout, and clear `CONVEX_DEPLOY_KEY` in
+the same command environment before using `npx convex ... --prod`.

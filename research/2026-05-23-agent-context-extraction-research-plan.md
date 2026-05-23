@@ -59,6 +59,9 @@ Repo guidance sources:
 - `research/2026-05-23-agent-context-agents-migration-map.md` maps the current long `AGENTS.md`
   sections to keep-short pointers, portable skills, Noter overlays, existing docs/skills, and
   unresolved extraction work.
+- `research/2026-05-23-agent-context-forward-test-results-2.md` records an installed-style typed
+  boundary audit, a Convex guidance gap probe, and a read-only `noter-convex` overlay forward test.
+  It adds the `noter-convex` overlay draft and corrects Convex guidance pointers.
 
 Local thread evidence:
 
@@ -253,7 +256,6 @@ Reusable for TypeScript and similar typed app repos:
 
 Reusable for `notermd/app` or close descendants:
 
-- Convex runtime and schema conventions
 - React Router, Vite, shadcn, Tailwind, Playwright visual workflows
 - Cloudflare-first hosting and preview expectations
 - provider connection and vault concepts
@@ -262,7 +264,18 @@ Reusable for `notermd/app` or close descendants:
 - generated-manifest provenance, binary/text split, file modes, bytewise path ordering, branch
   selection, content hash, and generated app build-command validation
 
-### Layer 4: Noter Operator Overlay
+### Layer 4: Noter Convex Overlay
+
+Specific to Noter's Convex backend:
+
+- generated Convex guideline routing plus local command overrides
+- accepted-spec and current-callsite checks before backend edits
+- module layout, function references, validator naming, and `notEmpty` conventions
+- Convex contract-test lane and `makeConvexTest()` harness rules
+- production-read safety and provider-boundary verification commands
+- component-boundary cautions for app-owned domains
+
+### Layer 5: Noter Operator Overlay
 
 Specific to this repo and this operator:
 
@@ -317,7 +330,9 @@ context, a triggerable skill, a workflow doc, or an operator overlay.
 
 ## Next Work
 
-1. Forward-test the revised artifacts as installed or package-like skills in an isolated context.
-2. Run one Convex-specific task before moving Convex CLI or Convex AI guidance.
+1. Run an installed or editing-capable `noter-convex` test before moving Convex AI or CLI guidance
+   out of always-loaded context.
+2. Decide whether Cloudflare API boundary test hardening is part of this extraction PR or a separate
+   production-code follow-up.
 3. Manually review the pinned comparison threads after the non-pinned baseline has more breadth.
 4. Only then move durable material out of `AGENTS.md`.

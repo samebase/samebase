@@ -58,6 +58,9 @@ Draft these as overlays rather than portable skills:
 - `noter-app-template`: `notermd/app` source-of-truth rules, exact exported source tree, manifest
   provenance, binary/text split, file modes, deterministic ordering, generated app build-command
   validation, and Cloudflare/Convex app-template assumptions.
+- `noter-convex`: Noter-specific Convex generated-guidance routing, worktree/prod CLI safety, module
+  layout, validator naming, contract-test lane, component boundary cautions, and provider API
+  validation rules.
 - `noter-operator-workflows`: `pnpm anon`, Convex production-read safety, PR build labels, shortcut
   workflows, temporary vault naming, cleanup mechanics, localhost/tunnel response preferences, and
   ProseMark link workaround.
@@ -71,8 +74,8 @@ Draft these as overlays rather than portable skills:
 - UI validation: exact path validation is core; desktop/mobile/focus/editability is a route skill;
   `?dev` and `?prod-ui` semantics are Noter app-template context.
 - Typed refactoring: delete-first is core-shaped; generated/OpenAPI validation and TypeScript
-  proof-boundary rules belong in typed-product skill; Convex decimal-string IDs belong in Noter app
-  context.
+  proof-boundary rules belong in typed-product skill; Noter-specific Convex module, CLI, and
+  provider-boundary conventions belong in `noter-convex`.
 - App template adoption: research-to-implementation skill should prevent research sprawl and notice
   when architecture already exists; Noter app-template overlay should prevent Noter-side overlays or
   filtering.
@@ -86,8 +89,8 @@ Draft these as overlays rather than portable skills:
 2. Draft `route-ui-validation`, `pr-workflow-review`, and `exact-resource-cleanup` next.
 3. Draft `research-to-implementation` after those so it can reference the same evidence/decision
    structure used here.
-4. Draft `noter-app-template` and `noter-operator-workflows` last, with clear labels that they are
-   overlays, not portable defaults.
+4. Draft `noter-app-template`, `noter-convex`, and `noter-operator-workflows` last, with clear
+   labels that they are overlays, not portable defaults.
 
 ## Draft Artifacts
 
@@ -107,6 +110,7 @@ Portable skill drafts:
 Noter overlay drafts:
 
 - `noter-app-template.md`
+- `noter-convex.md`
 - `noter-operator-workflows.md`
 
 A separate explorer sanity check over the experiment artifacts agreed with this split and reinforced
@@ -134,7 +138,12 @@ targeted tasks and applies the first revision pass:
 against the current long `AGENTS.md`. The map keeps startup essentials, source routing,
 architecture, shortcut recognition, task references, and Convex AI routing visible until installed
 skills or overlays prove they can be loaded before those rules are needed. It also identifies
-unresolved follow-up for Convex-specific module conventions and shadcn/UI ownership.
+unresolved follow-up for installed Convex overlay behavior and shadcn/UI ownership.
+
+`research/2026-05-23-agent-context-forward-test-results-2.md` resolves the first Convex follow-up by
+adding a draft `noter-convex` overlay and forward-testing it on a read-only Convex planning task.
+The overlay is still not installed; it needs an installed or editing-capable test before the Convex
+AI block or production CLI guidance can move out of always-loaded context.
 
 ## Open Questions Before Moving `AGENTS.md`
 

@@ -2,9 +2,9 @@
 name: typed-product-engineering
 description:
   Engineer typed product applications with strict runtime boundaries and delete-first refactoring.
-  Use when changing TypeScript or similarly typed app code that involves schema-derived types,
-  validators, generated API clients, provider payloads, state models, route/server state, UI
-  abstractions, effects, or tests that pressure production code shape.
+  Use when changing, reviewing, or auditing TypeScript or similarly typed app code that involves
+  schema-derived types, validators, generated API clients, provider payloads, state models,
+  route/server state, UI abstractions, effects, or tests that pressure production code shape.
 ---
 
 # Typed Product Engineering
@@ -42,6 +42,8 @@ accidentally make impossible states possible.
 - Keep small hand-written schemas for endpoints that sit outside the generated contract.
 - Prove boundary reductions with negative type tests, invalid-payload runtime tests, lossless large
   identifier tests, and generated drift checks when the repo has them.
+- When comparing two provider boundaries, inspect the weaker boundary's tests against the strongest
+  local exemplar before recommending new abstractions.
 
 ## Refactoring Discipline
 

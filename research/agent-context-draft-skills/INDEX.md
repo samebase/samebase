@@ -18,10 +18,11 @@ meant to be reviewed, forward-tested, and revised before any live context modula
 
 ## Noter Overlays
 
-| Artifact                                                      | Load intent          | Scope                                                               |
-| ------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------- |
-| `../agent-context-draft-overlays/noter-app-template.md`       | App-template overlay | `notermd/app` and generated apps                                    |
-| `../agent-context-draft-overlays/noter-operator-workflows.md` | Operator overlay     | This repo's local workflow, PR, Convex, cleanup, and response rules |
+| Artifact                                                      | Load intent          | Scope                                                                |
+| ------------------------------------------------------------- | -------------------- | -------------------------------------------------------------------- |
+| `../agent-context-draft-overlays/noter-app-template.md`       | App-template overlay | `notermd/app` and generated apps                                     |
+| `../agent-context-draft-overlays/noter-operator-workflows.md` | Operator overlay     | This repo's local workflow, PR, Convex, cleanup, and response rules  |
+| `../agent-context-draft-overlays/noter-convex.md`             | Convex overlay       | Noter-specific Convex module, test, provider-boundary, and CLI rules |
 
 ## Validation So Far
 
@@ -43,10 +44,17 @@ meant to be reviewed, forward-tested, and revised before any live context modula
 - `research/2026-05-23-agent-context-agents-migration-map.md` maps the current `AGENTS.md` sections
   to keep-short pointers, portable skills, Noter overlays, existing docs/skills, and unresolved
   follow-up areas before any live modularization.
+- `research/2026-05-23-agent-context-forward-test-results-2.md` records an installed-style typed
+  audit plus a Convex guidance gap probe. The pass added the `noter-convex` overlay draft and
+  refined the typed skill trigger metadata.
+- A follow-up `noter-convex` forward test found the overlay sufficient for read-only Convex planning
+  after revisions to its pre-edit checklist, test-harness guidance, generated-file rules, and
+  provider verification commands.
 
 ## Next Validation
 
 - Forward-test the revised artifacts as installed or package-like skills in an isolated context.
 - Decide whether the live packaging target is repo-local `skills/*`, a separate context package, or
   compatibility wrappers around existing repo skills.
-- Run one Convex-specific task before moving Convex CLI or Convex AI guidance.
+- Run an installed or editing-capable `noter-convex` test before moving Convex CLI or Convex AI
+  guidance out of always-loaded context.
