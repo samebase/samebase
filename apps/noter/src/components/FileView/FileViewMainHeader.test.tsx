@@ -18,8 +18,6 @@ describe("FileViewMainHeader", () => {
     expect(markup).toContain(
       'title="https://noter.local/vault/octo/repo/main/docs/README.md?diff"',
     );
-    expect(markup).toContain(
-      'value="https://noter.local/vault/octo/repo/main/docs/README.md?diff"',
-    );
+    expect(markup).toContain('value="noter.local/vault/octo/repo/main/docs/README.md?diff"');
   });
 });

@@ -8,10 +8,12 @@ import {
 } from "@tanstack/react-router";
 import { pick } from "@noter-md/dependent/object";
 import { AppBootErrorBoundary } from "@/components/AppBootErrorBoundary";
-import { LOGO_THEME_COLOR_SEARCH_KEYS } from "@/lib/appThemeColorSearch";
 import { applySearchPatch } from "@/lib/routeSearchFlags";
-import { type RootRouteSearch, validateRootRouteSearch } from "@/lib/rootRouteSearch";
-import { ROOT_THEME_MODE_SEARCH_KEYS } from "@/lib/rootThemeModeSearch";
+import {
+  RETAINED_ROOT_SEARCH_KEYS,
+  type RootRouteSearch,
+  validateRootRouteSearch,
+} from "@/lib/rootRouteSearch";
 import { buildRootHead } from "@/lib/rootHead";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { Suspense, lazy, type ReactNode } from "react";
@@ -21,19 +23,6 @@ const LazyAppRootClient = lazy(() =>
     default: module.AppRootClient,
   })),
 );
-/**
- * Root-level preview/debug/theme controls should follow public-route
- * navigation until a caller clears the key with a route-search patch tombstone.
- */
-const RETAINED_ROOT_SEARCH_KEYS = [
-  "dev",
-  "devtools",
-  "depth",
-  "dist",
-  ...ROOT_THEME_MODE_SEARCH_KEYS,
-  ...LOGO_THEME_COLOR_SEARCH_KEYS,
-] as const satisfies readonly (keyof RootRouteSearch)[];
-
 type RootSearchMiddlewareArgs = {
   next: (search: RootRouteSearch) => RootRouteSearch;
   search: RootRouteSearch;

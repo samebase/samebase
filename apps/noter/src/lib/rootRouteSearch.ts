@@ -3,6 +3,7 @@ import { normalizeLogoDistanceScale } from "@/components/logo/logoDistanceScale"
 import { normalizeLogoFractalDepth } from "@/components/logo/logoVoxelState";
 import {
   appThemeColorSearchFieldSchema,
+  LOGO_THEME_COLOR_SEARCH_KEYS,
   readLogoThemeColorSearch,
 } from "@/lib/appThemeColorSearch";
 import { PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM } from "@/lib/publicLayoutSidebarPreferences";
@@ -90,6 +91,19 @@ const rootRouteSearchSchema = z
   .merge(rootThemeModeSearchFieldSchema);
 
 export type RootRouteSearch = z.infer<typeof rootRouteSearchSchema>;
+
+/**
+ * Root-level preview/debug/theme controls follow public-route navigation unless
+ * a caller clears the key with a route-search tombstone.
+ */
+export const RETAINED_ROOT_SEARCH_KEYS = [
+  "dev",
+  "devtools",
+  "depth",
+  "dist",
+  ...ROOT_THEME_MODE_SEARCH_KEYS,
+  ...LOGO_THEME_COLOR_SEARCH_KEYS,
+] as const satisfies readonly (keyof RootRouteSearch)[];
 
 function parseRootRouteSearch(search: unknown): RootRouteSearch {
   const parsedSearch = rootRouteSearchSchema.parse(
