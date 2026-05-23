@@ -31,7 +31,8 @@ export function SignInWithGoogle({
     }).href;
 
   if (!visible) {
-    return null;
+    // Preserve the landing auth slot without leaving a provider button for password managers.
+    return <div aria-hidden="true" className="h-[42px] flex-1" />;
   }
 
   return (

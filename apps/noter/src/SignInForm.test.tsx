@@ -66,17 +66,15 @@ describe("SignInWithGoogle", () => {
   }
 
   function renderVisibleGoogleButton(props?: Parameters<typeof SignInWithGoogle>[0]) {
-    const element = SignInWithGoogle(props);
-    if (element === null) {
-      throw new Error("Expected visible Google sign-in button");
-    }
-    return element;
+    return SignInWithGoogle(props);
   }
 
-  it("does not leave a hidden provider button in the DOM", () => {
+  it("reserves hidden provider space without leaving a button in the DOM", () => {
     const markup = renderToStaticMarkup(<SignInWithGoogle visible={false} />);
 
-    expect(markup).toBe("");
+    expect(markup).toContain('aria-hidden="true"');
+    expect(markup).toContain("h-[42px]");
+    expect(markup).not.toContain("<button");
     expect(markup).not.toContain("Google");
   });
 
