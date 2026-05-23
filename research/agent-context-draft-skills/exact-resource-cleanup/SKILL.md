@@ -15,6 +15,8 @@ owned.
 ## Prove Before Delete
 
 - Dry-run first unless the user explicitly requested deletion and the target is exact.
+- In dry-run mode, do not run setup commands, load provider credentials, or contact mutating
+  provider paths unless the user explicitly scopes that inspection.
 - Prove the current repository, branch, local dirty state, worktree existence, upstream, and remote
   branch target before deleting local Git resources.
 - Prove terminal PR state when cleanup depends on PR lifecycle.
@@ -33,6 +35,8 @@ owned.
   explicitly with the action needed to unblock it.
 - Do not invent cleanup metadata or scripts during cleanup unless the user asked for a cleanup
   implementation change.
+- End with a concrete decision such as `safe to archive`, `safe to clean`, `blocked`, or `skipped`,
+  plus the exact proof or blocker that determines the decision.
 
 ## Overlay Hooks
 

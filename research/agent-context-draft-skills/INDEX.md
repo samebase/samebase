@@ -36,12 +36,14 @@ meant to be reviewed, forward-tested, and revised before any live context modula
 - A lightweight Node structural check confirmed all six draft skill folders have matching `SKILL.md`
   frontmatter and body headings. The system `skill-creator` validator could not run in this
   environment because Python was missing `PyYAML`.
+- `research/2026-05-23-agent-context-forward-test-results-1.md` records targeted forward tests for
+  five draft artifacts: typed provider boundaries, route UI validation, cleanup, app-template
+  research, and read-only PR triage. The resulting revisions were applied to the draft skills and
+  overlays.
 
 ## Next Validation
 
-- Forward-test `typed-product-engineering` on a small typed boundary refactor.
-- Forward-test `route-ui-validation` on a route-shell or screenshot task.
-- Forward-test `exact-resource-cleanup` with a dry-run cleanup prompt in an isolated worktree.
-- Forward-test `research-to-implementation` on a source-of-truth comparison where the correct answer
-  may be "the implementation already exists; harden it."
 - Compare the overlay split against the long `AGENTS.md` sections before moving any active context.
+- Forward-test the revised artifacts as installed or package-like skills in an isolated context.
+- Decide whether the live packaging target is repo-local `skills/*`, a separate context package, or
+  compatibility wrappers around existing repo skills.

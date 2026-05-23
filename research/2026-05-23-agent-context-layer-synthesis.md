@@ -113,6 +113,21 @@ A separate explorer sanity check over the experiment artifacts agreed with this 
 the main boundary risk: `pnpm anon` belongs in the Noter operator overlay, not portable or read-only
 experiment context.
 
+## Forward-Test Revisions
+
+`research/2026-05-23-agent-context-forward-test-results-1.md` validates the draft artifacts on five
+targeted tasks and applies the first revision pass:
+
+- `typed-product-engineering` now names provider/OpenAPI proof-boundary invariants such as lossless
+  IDs, literal method/path callsites, generated drift checks, and negative type tests.
+- `route-ui-validation` now hands off to repo overlays for startup/auth/browser/baseline rules and
+  sharpens desktop/mobile transition validation.
+- `exact-resource-cleanup` and `noter-operator-workflows` now distinguish dry-run safety, `archive`,
+  and terminal-PR-gated `clean`.
+- `research-to-implementation` and `noter-app-template` now require a final direction/hardening
+  handoff and clarify source-owned generated-app files plus bytewise path ordering.
+- `pr-workflow-review` now has a non-mutating read-only PR triage mode.
+
 ## Open Questions Before Moving `AGENTS.md`
 
 - Whether the portable artifacts should live as repo-local `skills/*`, a separate package, or both.

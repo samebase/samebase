@@ -54,6 +54,8 @@ Repo guidance sources:
 - `research/agent-context-draft-skills/` and `research/agent-context-draft-overlays/` contain the
   first draft portable skills and Noter overlays. They are research artifacts, not installed skills
   or an active `AGENTS.md` rewrite.
+- `research/2026-05-23-agent-context-forward-test-results-1.md` contains the first targeted
+  forward-test pass against those draft artifacts and the revisions it produced.
 
 Local thread evidence:
 
@@ -312,9 +314,8 @@ context, a triggerable skill, a workflow doc, or an operator overlay.
 
 ## Next Work
 
-1. Run targeted experiments against the draft artifacts instead of adding more broad comparison
-   runs.
-2. Forward-test the draft skills on typed-boundary, route-validation, cleanup, and
-   research-to-implementation tasks.
+1. Compare the revised draft artifacts against the long `AGENTS.md` sections and mark the intended
+   migration target for each cluster.
+2. Forward-test the revised artifacts as installed or package-like skills in an isolated context.
 3. Manually review the pinned comparison threads after the non-pinned baseline has more breadth.
 4. Only then move durable material out of `AGENTS.md`.

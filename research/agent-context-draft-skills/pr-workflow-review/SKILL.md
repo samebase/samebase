@@ -17,8 +17,19 @@ Use this for Git and GitHub work where branch state, review state, and CI eviden
 - Discover the active PR from more than branch name when needed: upstream branch, same head commit,
   open PR refs, commit lineage, or explicit PR number.
 - Inspect the diff shape before reviewing or updating PR narrative.
-- Fetch and rebase onto the appropriate base before implementation or PR workflows when the repo
-  expects current base state.
+- For implementation or PR-update workflows, fetch and rebase when the repo expects current base
+  state. For read-only triage, do not rebase, push, rerun jobs, post comments, or update PR text.
+
+## Read-Only PR Triage
+
+- Use read-only evidence for "what is blocking?" requests: local status, branch tracking, active PR,
+  mergeability, check status, review state, review comments, and PR comments.
+- Treat bot statuses carefully. A green or skipped status can still mean "review skipped", rate
+  limited, disabled, or not run; report that separately from actionable blockers.
+- Prefer commands such as `git status --short --branch`, `git branch -vv`, `gh pr view --json ...`,
+  `gh pr checks --watch=false`, and read-only PR comment APIs.
+- End with the current blocker decision: no actionable blocker, blocked by named check, blocked by
+  requested changes, blocked by mergeability, or ambiguous because evidence is missing.
 
 ## Review Stance
 

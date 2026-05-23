@@ -29,6 +29,9 @@ portable TypeScript or generated-app skill pack.
   automation work.
 - Treat actionable review-bot comments as required fixes while shipping.
 - Do not merge before CI is green.
+- `archive` may proceed only after proving the branch is non-`main`, clean, and has a matching PR
+  that preserves the remote branch. Full `clean` requires the current PR to be terminal: `MERGED` or
+  `CLOSED`.
 
 ## Convex And External State
 
@@ -39,6 +42,9 @@ portable TypeScript or generated-app skill pack.
   requires Noter-managed test resources.
 - Cleanup must prove provider resource identity and skip resources whose exact preview ownership is
   not provable.
+- Dry-run cleanup proof should use read-only local and GitHub evidence such as `git status`,
+  `git worktree list --porcelain`, upstream/head SHA comparisons, PR head/base/state, matching local
+  machine-state paths, and visible running-process checks.
 
 ## Responses
 

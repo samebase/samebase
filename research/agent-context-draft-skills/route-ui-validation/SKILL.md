@@ -20,12 +20,16 @@ experience.
   tree without invented wrapper chrome, spacing, labels, or fake product state.
 - For production interaction regressions, create a failing real-route or honest production-component
   repro before relying on a narrower fixture.
+- After choosing the validation path, load the repo or app overlay for startup commands, auth setup,
+  browser/session tooling, route modes, and visual baseline rules.
 - Report the exact URL reached, the important state changes observed, and any blocker that prevented
   validation.
 
 ## Interaction Checks
 
 - Check desktop and mobile states when behavior differs.
+- For desktop/mobile differences, validate both the route state and the transition mechanism, such
+  as scroll, touch, focus, editor selection, pane selection, or responsive shell state.
 - Probe the live interaction point: hover, focus, keyboard, touch, drag, selection, editability,
   disabled or pending states, and scroll-end alignment when those are relevant.
 - Preserve browser-owned page scroll unless the route intentionally needs contained panes.
@@ -37,8 +41,8 @@ experience.
 - Add or update screenshot coverage when shipped UI changes.
 - Use before/after or diff images when screenshot or visual-regression work changes images.
 - Do not approve fake visual fixtures as product behavior.
-- Keep visual baseline instructions in repo overlays when they depend on a specific runner,
-  platform, or app startup command.
+- Treat local screenshots as diagnostic unless the repo overlay says they are the authoritative
+  baseline path. Keep runner, platform, and app startup instructions in overlays.
 
 ## Research Notes
 

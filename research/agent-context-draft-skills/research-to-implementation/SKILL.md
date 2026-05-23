@@ -31,6 +31,8 @@ Use this when research should drive a decision, not become the deliverable by de
   operator preference.
 - If implementation already matches the requested architecture, harden tests, provenance,
   documentation, or deletion boundaries rather than replacing it.
+- End with the chosen implementation direction, the smallest hardening step, and any open question
+  that would change that decision.
 - Keep prompt drafts and messy research out of generated product output unless the product
   explicitly needs them.
 - Re-open the research note when later experiments contradict the split.

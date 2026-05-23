@@ -27,6 +27,20 @@ accidentally make impossible states possible.
 - Keep upstream library value and error shapes unless production code needs a different shape for a
   current invariant such as redaction, unsafe I/O isolation, or multiple shipped callsites.
 
+## Provider And OpenAPI Boundaries
+
+- Keep generated OpenAPI types, operation maps, standalone validators, and validator registries when
+  they protect a broad current provider surface from drift.
+- Keep literal method, path, params, and body information visible at callsites when the product
+  needs auditable provider calls and strong request inference.
+- Preserve lossless parsing for provider identifiers or numeric fields whose wire shape can exceed
+  JavaScript's safe number range.
+- Delete fallback record walking, string readers, mirror response types, or per-endpoint reshaping
+  after generated validation covers the endpoint and current callers can use the generated shape.
+- Keep small hand-written schemas for endpoints that sit outside the generated contract.
+- Prove boundary reductions with negative type tests, invalid-payload runtime tests, lossless large
+  identifier tests, and generated drift checks when the repo has them.
+
 ## Refactoring Discipline
 
 - Prefer delete-first refactors for app-internal code. Remove or narrow the wrong abstraction and
