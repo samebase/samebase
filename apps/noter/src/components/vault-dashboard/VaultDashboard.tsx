@@ -3844,8 +3844,7 @@ export function VaultDashboard() {
   const convexConnected = convexConnection?.connected === true;
   const cloudflareConnected = cloudflareConnection?.connected === true;
   const cloudflareAccountSelectionRequired =
-    cloudflareConnection?.connected === true &&
-    cloudflareConnection.accountSelection === "not_selected";
+    cloudflareConnection?.connected === true && !cloudflareConnection.accountId;
   const cloudflareAuthMethod = cloudflareConnection?.authMethod;
   const requiredCloudflareConnectionLabel = "Cloudflare";
   const cloudflareMcpTokenStatus = cloudflareConnection?.mcpTokenStatus;
@@ -4234,9 +4233,18 @@ export function VaultDashboard() {
         {createError && <div className="text-sm text-red-600">{createError}</div>}
         {!canCreateRepo && (
           <div className="text-xs text-muted-foreground">
-            {hasRequiredCreateConnections
-              ? "Choose a GitHub owner to create an app."
-              : `Connect GitHub, Convex, and ${requiredCloudflareConnectionLabel} to create an app.`}
+            {cloudflareAccountSelectionRequired ? (
+              <>
+                Choose a Cloudflare account to create an app.{" "}
+                <CreateResourceNameInlineAction onClick={handleOpenCloudflareAccountDialog}>
+                  Select account
+                </CreateResourceNameInlineAction>
+              </>
+            ) : hasRequiredCreateConnections ? (
+              "Choose a GitHub owner to create an app."
+            ) : (
+              `Connect GitHub, Convex, and ${requiredCloudflareConnectionLabel} to create an app.`
+            )}
           </div>
         )}
         {githubRepositoryOwnerLoadError && (

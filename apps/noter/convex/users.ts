@@ -46,7 +46,6 @@ const providerAuthMethodValidator = union(
 );
 const cloudflareConnectionStatusValidator = object({
   connected: boolean(),
-  accountSelection: optional(union(literal("selected"), literal("not_selected"))),
   accountId: optional(string()),
   accountName: optional(string()),
   authMethod: optional(providerAuthMethodValidator),
@@ -176,7 +175,6 @@ function buildCloudflareConnectionStatus(
   const now = options?.now ?? Date.now();
   const baseStatus: CloudflareConnectionStatus = {
     connected: true,
-    accountSelection: connection.defaultAccount.state,
     ...(connection.defaultAccount.state === "selected"
       ? {
           accountId: connection.defaultAccount.accountId,

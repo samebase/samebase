@@ -156,7 +156,6 @@ describe("users Convex contract", () => {
 
     await expect(asUser.query(api.users.getCloudflareConnectionStatus)).resolves.toEqual({
       connected: true,
-      accountSelection: "not_selected",
       authMethod: "api_key",
     });
   });
