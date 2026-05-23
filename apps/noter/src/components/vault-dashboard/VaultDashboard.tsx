@@ -353,6 +353,18 @@ type VaultDashboardLocalState = {
   shouldAutoFocusChatInput: boolean;
 };
 
+function readInitialConvexConnectDialogState(): VaultDashboardLocalState["convexConnectDialog"] {
+  return {
+    connectMode: "existing",
+    createProjectName: "",
+    deployments: [],
+    error: null,
+    isLoadingResources: false,
+    isSubmittingDeployment: false,
+    selectedDeploymentKey: "",
+  };
+}
+
 function readVaultDashboardInitialLocalState(): VaultDashboardLocalState {
   return {
     cloudflareAccountDialog: {
@@ -374,15 +386,7 @@ function readVaultDashboardInitialLocalState(): VaultDashboardLocalState {
       selectedWorkerName: "",
       workers: [],
     },
-    convexConnectDialog: {
-      connectMode: "existing",
-      createProjectName: "",
-      deployments: [],
-      error: null,
-      isLoadingResources: false,
-      isSubmittingDeployment: false,
-      selectedDeploymentKey: "",
-    },
+    convexConnectDialog: readInitialConvexConnectDialogState(),
     cloudflarePollingPaused:
       typeof document !== "undefined" ? document.visibilityState !== "visible" : false,
     cloudflareWorkerName: "",
@@ -456,15 +460,7 @@ function useVaultDashboardLocalStore() {
     resetConvexConnectDialogState: () => {
       setState((state) => ({
         ...state,
-        convexConnectDialog: {
-          connectMode: "existing",
-          createProjectName: "",
-          deployments: [],
-          error: null,
-          isLoadingResources: false,
-          isSubmittingDeployment: false,
-          selectedDeploymentKey: "",
-        },
+        convexConnectDialog: readInitialConvexConnectDialogState(),
       }));
     },
     resetCreateRepositoryName: () => {

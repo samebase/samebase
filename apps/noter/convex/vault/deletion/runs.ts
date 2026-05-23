@@ -147,28 +147,25 @@ async function buildConvexPlan(
     if (vault.convex.origin === "selected_existing") {
       return { action: "skip", reason: "not_managed" };
     }
-    if (vault.convex.origin === "provisioned") {
-      await requireProviderConnection(ctx, {
-        userId: vault.userId,
-        kind: "convex",
-      });
-      return { action: "delete_project", projectId: vault.convex.projectId };
-    }
 
-    const legacyProjectId = infrastructure?.convexProjectId;
-    if (
-      !isNoterManagedVault(vault) ||
-      typeof legacyProjectId !== "string" ||
-      legacyProjectId !== vault.convex.projectId
-    ) {
-      return { action: "skip", reason: "not_managed" };
+    let projectId = vault.convex.projectId;
+    if (vault.convex.origin !== "provisioned") {
+      const legacyProjectId = infrastructure?.convexProjectId;
+      if (
+        !isNoterManagedVault(vault) ||
+        !legacyProjectId ||
+        legacyProjectId !== vault.convex.projectId
+      ) {
+        return { action: "skip", reason: "not_managed" };
+      }
+      projectId = legacyProjectId;
     }
 
     await requireProviderConnection(ctx, {
       userId: vault.userId,
       kind: "convex",
     });
-    return { action: "delete_project", projectId: legacyProjectId };
+    return { action: "delete_project", projectId };
   }
 
   if (!isNoterManagedVault(vault)) {

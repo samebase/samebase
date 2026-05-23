@@ -11,7 +11,7 @@ import type { AppProvisioningStep } from "../schema";
 import { vVaultConvexOrigin } from "./model";
 import { isLiveConnectedVault } from "./state";
 
-const { boolean, id, literal, null: nullValue, object, string, union } = v;
+const { boolean, id, literal, null: nullValue, object, string } = v;
 const CONVEX_CONNECTION_STALE_MS = 10 * 60 * 1000;
 const CONVEX_DEPLOY_KEYS_NOT_CREATED = {
   production: { state: "not_created" },
@@ -23,7 +23,7 @@ const convexInfrastructureRecordValidator = object({
   convexTeamSlug: string(),
   convexProjectSlug: string(),
   convexDeploymentName: string(),
-  convexDeploymentType: union(literal("prod"), literal("dev")),
+  convexDeploymentType: literal("prod"),
   convexCloudUrl: string(),
   convexSiteUrl: string(),
 });

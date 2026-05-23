@@ -65,14 +65,6 @@ async function resolveConvexConnection(
   return { token, teamId };
 }
 
-function compareConvexProject(left: PlatformProjectDetails, right: PlatformProjectDetails): number {
-  const nameDelta = left.name.localeCompare(right.name);
-  if (nameDelta !== 0) {
-    return nameDelta;
-  }
-  return left.id.localeCompare(right.id);
-}
-
 function compareConvexDeploymentResult(
   left: ConvexDeploymentResult,
   right: ConvexDeploymentResult,
@@ -80,7 +72,8 @@ function compareConvexDeploymentResult(
   return (
     left.projectName.localeCompare(right.projectName) ||
     left.projectSlug.localeCompare(right.projectSlug) ||
-    left.deploymentName.localeCompare(right.deploymentName)
+    left.deploymentName.localeCompare(right.deploymentName) ||
+    left.projectId.localeCompare(right.projectId)
   );
 }
 
@@ -102,6 +95,10 @@ function requireConvexProductionDeployment(args: {
     throw new Error(`${args.description} was not the default production deployment.`);
   }
   return args.deployment;
+}
+
+function buildConvexSiteUrl(deployment: ConvexCloudDeployment): string {
+  return `https://${deployment.name}.convex.site`;
 }
 
 async function listConvexProjects(args: {
@@ -209,7 +206,7 @@ function toConvexInfrastructureRecord(args: {
     convexDeploymentName: args.deployment.name,
     convexDeploymentType: "prod",
     convexCloudUrl: args.deployment.deploymentUrl,
-    convexSiteUrl: `https://${args.deployment.name}.convex.site`,
+    convexSiteUrl: buildConvexSiteUrl(args.deployment),
   };
 }
 
@@ -224,7 +221,7 @@ function toConvexDeploymentResult(args: {
     teamSlug: args.project.teamSlug,
     deploymentName: args.deployment.name,
     cloudUrl: args.deployment.deploymentUrl,
-    siteUrl: `https://${args.deployment.name}.convex.site`,
+    siteUrl: buildConvexSiteUrl(args.deployment),
   };
 }
 
@@ -236,7 +233,7 @@ async function listProductionDeploymentsForConnection(
     teamId: connection.teamId,
   });
   const deployments: ConvexDeploymentResult[] = [];
-  for (const project of [...projects].sort(compareConvexProject)) {
+  for (const project of projects) {
     const deployment = await readDefaultConvexProductionDeployment({
       token: connection.token,
       projectId: project.id,
@@ -274,12 +271,14 @@ async function createConvexProjectDeployment(args: {
     token: args.connection.token,
     teamId: args.connection.teamId,
   });
-  for (const project of projects) {
-    if (project.name === args.projectName || project.slug === args.projectName) {
-      throw new Error(
-        `Convex project name ${args.projectName} already exists. Choose another project name and try again.`,
-      );
-    }
+  if (
+    projects.some(
+      (project) => project.name === args.projectName || project.slug === args.projectName,
+    )
+  ) {
+    throw new Error(
+      `Convex project name ${args.projectName} already exists. Choose another project name and try again.`,
+    );
   }
 
   const createResponse = await requestConvexManagementApi(
@@ -312,19 +311,6 @@ async function createConvexProjectDeployment(args: {
   return toConvexInfrastructureRecord({ project, deployment });
 }
 
-async function markConvexDeploymentConnectionStartupFailed(
-  ctx: Pick<ActionCtx, "runMutation">,
-  args: {
-    runId: Id<"appProvisioningRuns">;
-    error: unknown;
-  },
-): Promise<void> {
-  await ctx.runMutation(internal.infraProvisioning.markWorkflowStartupFailed, {
-    runId: args.runId,
-    message: toErrorMessage(args.error),
-  });
-}
-
 async function startConvexDeploymentConnectionOrFail(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
@@ -337,9 +323,9 @@ async function startConvexDeploymentConnectionOrFail(
   try {
     await ctx.runMutation(internal.appProvisioningWorkflow.startConvexDeploymentConnection, args);
   } catch (error) {
-    await markConvexDeploymentConnectionStartupFailed(ctx, {
+    await ctx.runMutation(internal.infraProvisioning.markWorkflowStartupFailed, {
       runId: args.runId,
-      error,
+      message: toErrorMessage(error),
     });
     throw error;
   }
