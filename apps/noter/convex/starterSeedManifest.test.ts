@@ -38,9 +38,10 @@ describe("starterSeedManifest", () => {
     expect(allFilePaths.length).toBeGreaterThan(10);
   });
 
-  it("includes exact guest-name reservation in the starter auth flow", () => {
+  it("includes durable guest-name reservation in the starter auth flow", () => {
     // The schema index, reservation mutation, and client call must stay aligned for exact guest-name lookup.
     expect(starterTemplateManifest.files["convex/guests.ts"]).toContain('.withIndex("by_name"');
+    expect(starterTemplateManifest.files["convex/guests.ts"]).toContain("fallbackGuestName");
     expect(starterTemplateManifest.files["convex/schema.ts"]).toContain("guestNames");
     expect(starterTemplateManifest.files["src/routes/index.tsx"]).toContain(
       "api.guests.ensureName",
@@ -51,6 +52,15 @@ describe("starterSeedManifest", () => {
     expect(starterTemplateManifest.files["convex/todos.ts"]).toContain("creatorName");
     expect(starterTemplateManifest.files["src/routes/index.tsx"]).toContain(
       "Created by {todo.creatorName}",
+    );
+  });
+
+  it("caps starter todo abuse paths", () => {
+    expect(starterTemplateManifest.files["convex/todos.ts"]).toContain("MAX_TODOS_PER_USER = 50");
+    expect(starterTemplateManifest.files["convex/todos.ts"]).toContain(".take(MAX_TODOS_PER_USER)");
+    expect(starterTemplateManifest.files["convex/todos.ts"]).toContain("MAX_TODO_TEXT_LENGTH");
+    expect(starterTemplateManifest.files["src/routes/index.tsx"]).toContain(
+      "maxLength={TODO_TEXT_LIMIT}",
     );
   });
 });
