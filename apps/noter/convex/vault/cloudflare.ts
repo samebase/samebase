@@ -168,7 +168,11 @@ async function isCloudflareWorkerConnectionRunActive(
 ): Promise<boolean> {
   const result = await ctx.runQuery(
     internal.vault.cloudflareMutations.readActiveCloudflareWorkerConnection,
-    args,
+    {
+      vaultId: args.vaultId,
+      runId: args.runId,
+      userId: args.userId,
+    },
   );
   return result.active;
 }
