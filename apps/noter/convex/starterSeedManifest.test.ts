@@ -46,4 +46,11 @@ describe("starterSeedManifest", () => {
       "api.guests.ensureName",
     );
   });
+
+  it("shows the creator name on starter todos", () => {
+    expect(starterTemplateManifest.files["convex/todos.ts"]).toContain("creatorName");
+    expect(starterTemplateManifest.files["src/routes/index.tsx"]).toContain(
+      "Created by {todo.creatorName}",
+    );
+  });
 });
