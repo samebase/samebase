@@ -21,8 +21,8 @@ async function main(): Promise<void> {
       "--filter",
       "noter",
       "exec",
-      "convex",
-      "dev",
+      "node",
+      "scripts/convex-dev.ts",
       "--until-success",
       "--typecheck=disable",
       "--tail-logs=disable",
@@ -35,7 +35,7 @@ async function main(): Promise<void> {
 
   try {
     await sleep(2_000);
-    if (bootstrapProcess.exitCode !== null) {
+    if (hasChildExited(bootstrapProcess)) {
       await failWithLog("Convex bootstrap exited early:");
     }
 
@@ -50,8 +50,9 @@ async function main(): Promise<void> {
           fileContents.includes("CONVEX_DEPLOYMENT=") && fileContents.includes("VITE_CONVEX_URL=")
         );
       },
-      60_000,
+      180_000,
       "Timed out waiting for apps/noter/.env.local to include Convex local env values.",
+      bootstrapProcess,
     );
     await waitFor(
       async () => {
@@ -69,6 +70,7 @@ async function main(): Promise<void> {
       },
       90_000,
       "Timed out waiting for the local Convex instance to become reachable.",
+      bootstrapProcess,
     );
 
     for (const [key, value] of [
@@ -85,6 +87,7 @@ async function main(): Promise<void> {
         false,
       180_000,
       "Timed out waiting for Convex functions to become ready.",
+      bootstrapProcess,
     );
   } catch (error) {
     await stopProcess(bootstrapProcess);
@@ -157,19 +160,27 @@ async function waitFor(
   predicate: () => Promise<boolean>,
   timeoutMs: number,
   failureMessage: string,
+  childProcess: ReturnType<typeof spawn>,
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (await predicate()) {
       return;
     }
+    if (hasChildExited(childProcess)) {
+      throw new Error(`Convex bootstrap exited before readiness: ${failureMessage}`);
+    }
     await sleep(1_000);
   }
   throw new Error(failureMessage);
 }
 
+function hasChildExited(childProcess: ReturnType<typeof spawn>): boolean {
+  return childProcess.exitCode !== null || childProcess.signalCode !== null;
+}
+
 async function stopProcess(childProcess: ReturnType<typeof spawn>): Promise<void> {
-  if (childProcess.exitCode !== null) {
+  if (hasChildExited(childProcess)) {
     return;
   }
 

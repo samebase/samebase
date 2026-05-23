@@ -10,6 +10,7 @@ import { fail, isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntim
 const DEFAULT_IMAGE = "mcr.microsoft.com/playwright:v1.58.2-noble";
 const DEFAULT_OUT_DIR = ".tmp/playwright-linux";
 const DEFAULT_PNPM_STORE_VOLUME = "noter-playwright-linux-pnpm-store";
+const DEFAULT_CONVEX_CACHE_VOLUME = "noter-playwright-linux-convex-cache";
 const DEFAULT_VITE_PORT = "43121";
 const FULL_GIT_COMMIT_PATTERN = /^[0-9a-f]{40}$/i;
 
@@ -152,6 +153,10 @@ function ensureDockerIsRunning(): void {
   }
 }
 
+function toDockerVolumeSuffix(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_.-]/g, "-");
+}
+
 function hasSnapshotUpdateArg(args: string[]): boolean {
   return args.some(
     (arg) =>
@@ -189,6 +194,10 @@ function runDocker(
   const image = readEnv("PLAYWRIGHT_LINUX_IMAGE", DEFAULT_IMAGE);
   const platform = readEnv("PLAYWRIGHT_LINUX_PLATFORM", defaultPlatform);
   const pnpmStoreVolume = readEnv("PLAYWRIGHT_LINUX_PNPM_STORE_VOLUME", DEFAULT_PNPM_STORE_VOLUME);
+  const convexCacheVolume = readEnv(
+    "PLAYWRIGHT_LINUX_CONVEX_CACHE_VOLUME",
+    `${DEFAULT_CONVEX_CACHE_VOLUME}-${toDockerVolumeSuffix(platform)}`,
+  );
   const vitePort = readEnv("PLAYWRIGHT_VITE_PORT", DEFAULT_VITE_PORT);
   const hostBuildMetadata = resolveHostBuildMetadata(repoRoot);
   const updateSnapshots = hasSnapshotUpdateArg(args) ? "1" : "0";
@@ -217,6 +226,8 @@ function runDocker(
     `${runnerPath}:/runner.sh:ro`,
     "-v",
     `${pnpmStoreVolume}:/pnpm-store`,
+    "-v",
+    `${convexCacheVolume}:/root/.cache/convex`,
     image,
     "bash",
     "/runner.sh",
