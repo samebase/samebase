@@ -16,6 +16,7 @@ import { Route as pitchRouteImport } from "./routes/pitch";
 import { Route as machinesRouteImport } from "./routes/machines";
 import { Route as logoRouteImport } from "./routes/logo";
 import { Route as landingPreviewRouteImport } from "./routes/landing-preview";
+import { Route as htmlCanvasRouteImport } from "./routes/html-canvas";
 import { Route as addRepositoryRouteImport } from "./routes/add-repository";
 import { Route as publicLayoutRouteImport } from "./routes/public-layout";
 import { Route as vaultFileRouteImport } from "./routes/vault-file";
@@ -72,6 +73,11 @@ const logoRoute = logoRouteImport.update({
 const landingPreviewRoute = landingPreviewRouteImport.update({
   id: "/landing-preview",
   path: "/landing-preview",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const htmlCanvasRoute = htmlCanvasRouteImport.update({
+  id: "/html-canvas",
+  path: "/html-canvas",
   getParentRoute: () => rootRouteImport,
 } as any);
 const addRepositoryRoute = addRepositoryRouteImport.update({
@@ -158,11 +164,12 @@ const indexRoute = indexRouteImport.update({
   path: "/",
   getParentRoute: () => publicLayoutRoute,
 } as any);
-const codexThreadBrowserResearchRoute = codexThreadBrowserResearchRouteImport.update({
-  id: "/research/codex-app-server/browser",
-  path: "/research/codex-app-server/browser",
-  getParentRoute: () => rootRouteImport,
-} as any);
+const codexThreadBrowserResearchRoute =
+  codexThreadBrowserResearchRouteImport.update({
+    id: "/research/codex-app-server/browser",
+    path: "/research/codex-app-server/browser",
+    getParentRoute: () => rootRouteImport,
+  } as any);
 const pitchPrintMobileRoute = pitchPrintMobileRouteImport.update({
   id: "/pitch/print/mobile",
   path: "/pitch/print/mobile",
@@ -173,11 +180,12 @@ const mcpConsentRoute = mcpConsentRouteImport.update({
   path: "/oauth/mcp/consent",
   getParentRoute: () => rootRouteImport,
 } as any);
-const logoTransitionTransformsLabRoute = logoTransitionTransformsLabRouteImport.update({
-  id: "/logo/transition/transforms",
-  path: "/logo/transition/transforms",
-  getParentRoute: () => rootRouteImport,
-} as any);
+const logoTransitionTransformsLabRoute =
+  logoTransitionTransformsLabRouteImport.update({
+    id: "/logo/transition/transforms",
+    path: "/logo/transition/transforms",
+    getParentRoute: () => rootRouteImport,
+  } as any);
 const codespaceChatRoute = codespaceChatRouteImport.update({
   id: "/vault/$owner/$repo/codespace/$branch/chat",
   path: "/vault/$owner/$repo/codespace/$branch/chat",
@@ -187,6 +195,7 @@ const codespaceChatRoute = codespaceChatRouteImport.update({
 export interface FileRoutesByFullPath {
   "/": typeof indexRoute;
   "/add": typeof addRepositoryRoute;
+  "/html-canvas": typeof htmlCanvasRoute;
   "/landing-preview": typeof landingPreviewRoute;
   "/logo": typeof logoRoute;
   "/machines": typeof machinesRoute;
@@ -216,6 +225,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   "/add": typeof addRepositoryRoute;
+  "/html-canvas": typeof htmlCanvasRoute;
   "/landing-preview": typeof landingPreviewRoute;
   "/logo": typeof logoRoute;
   "/machines": typeof machinesRoute;
@@ -248,6 +258,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/_public": typeof publicLayoutRouteWithChildren;
   "/add": typeof addRepositoryRoute;
+  "/html-canvas": typeof htmlCanvasRoute;
   "/landing-preview": typeof landingPreviewRoute;
   "/logo": typeof logoRoute;
   "/machines": typeof machinesRoute;
@@ -281,6 +292,7 @@ export interface FileRouteTypes {
   fullPaths:
     | "/"
     | "/add"
+    | "/html-canvas"
     | "/landing-preview"
     | "/logo"
     | "/machines"
@@ -310,6 +322,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/add"
+    | "/html-canvas"
     | "/landing-preview"
     | "/logo"
     | "/machines"
@@ -341,6 +354,7 @@ export interface FileRouteTypes {
     | "__root__"
     | "/_public"
     | "/add"
+    | "/html-canvas"
     | "/landing-preview"
     | "/logo"
     | "/machines"
@@ -373,6 +387,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   publicLayoutRoute: typeof publicLayoutRouteWithChildren;
   addRepositoryRoute: typeof addRepositoryRoute;
+  htmlCanvasRoute: typeof htmlCanvasRoute;
   landingPreviewRoute: typeof landingPreviewRoute;
   logoRoute: typeof logoRoute;
   machinesRoute: typeof machinesRoute;
@@ -446,6 +461,13 @@ declare module "@tanstack/react-router" {
       path: "/landing-preview";
       fullPath: "/landing-preview";
       preLoaderRoute: typeof landingPreviewRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/html-canvas": {
+      id: "/html-canvas";
+      path: "/html-canvas";
+      fullPath: "/html-canvas";
+      preLoaderRoute: typeof htmlCanvasRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/add": {
@@ -621,11 +643,14 @@ const publicLayoutRouteChildren: publicLayoutRouteChildren = {
   termsRoute: termsRoute,
 };
 
-const publicLayoutRouteWithChildren = publicLayoutRoute._addFileChildren(publicLayoutRouteChildren);
+const publicLayoutRouteWithChildren = publicLayoutRoute._addFileChildren(
+  publicLayoutRouteChildren,
+);
 
 const rootRouteChildren: RootRouteChildren = {
   publicLayoutRoute: publicLayoutRouteWithChildren,
   addRepositoryRoute: addRepositoryRoute,
+  htmlCanvasRoute: htmlCanvasRoute,
   landingPreviewRoute: landingPreviewRoute,
   logoRoute: logoRoute,
   machinesRoute: machinesRoute,
