@@ -295,6 +295,41 @@ describe("vault Cloudflare attachment mutations", () => {
     });
   });
 
+  it("keeps rollback from deleting a Worker that became the connected resource", async () => {
+    const { ids, t } = await createCloudflareConnectionVault();
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch(ids.vaultId, {
+        cloudflare: {
+          state: "connected",
+          accountId: "cloudflare-account",
+          workerName: "manual-cloudflare-worker",
+          workerTag: "manual-cloudflare-worker-tag",
+          origin: "provisioned",
+          connectedAt: 50,
+          lastObservedAt: 50,
+        },
+      });
+    });
+
+    await expect(
+      t.query(internal.vault.cloudflareMutations.readCreatedWorkerRollbackSafety, {
+        ...ids,
+        accountId: "cloudflare-account",
+        workerName: "manual-cloudflare-worker",
+        workerTag: "manual-cloudflare-worker-tag",
+      }),
+    ).resolves.toEqual({ shouldDelete: false });
+    await expect(
+      t.query(internal.vault.cloudflareMutations.readCreatedWorkerRollbackSafety, {
+        ...ids,
+        accountId: "cloudflare-account",
+        workerName: "different-worker",
+        workerTag: "different-worker-tag",
+      }),
+    ).resolves.toEqual({ shouldDelete: true });
+  });
+
   it("rejects manual attachment while infrastructure ownership is active", async () => {
     const { ids, t } = await createAttachableVaultWithOwnership({
       ownershipState: "active",

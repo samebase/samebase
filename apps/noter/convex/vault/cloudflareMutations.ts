@@ -345,6 +345,34 @@ export const attachWorkerForRun = internalMutation({
   },
 });
 
+export const readCreatedWorkerRollbackSafety = internalQuery({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    accountId: string(),
+    workerName: string(),
+    workerTag: string(),
+  },
+  returns: object({ shouldDelete: boolean() }),
+  handler: async (ctx, args) => {
+    await requireCloudflareWorkerConnectionRun(ctx, args);
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+      return { shouldDelete: true };
+    }
+
+    const cloudflare = vault.cloudflare;
+    return {
+      shouldDelete:
+        cloudflare.state !== "connected" ||
+        cloudflare.accountId !== args.accountId ||
+        cloudflare.workerName !== args.workerName ||
+        cloudflare.workerTag !== args.workerTag,
+    };
+  },
+});
+
 export const finishCloudflareWorkerConnection = internalMutation({
   args: {
     vaultId: id("vaults"),

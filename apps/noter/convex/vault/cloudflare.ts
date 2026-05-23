@@ -401,18 +401,31 @@ export const ensureCloudflareWorkerConnection = internalAction({
             throw new Error("Cloudflare Worker connection did not attach a Worker.");
           }
         } catch (error) {
-          await deleteCloudflareResources({
-            cloudflareToken: connection.token,
-            accountId: account.accountId,
-            workerName: worker.workerName,
-            workerTag: worker.workerTag,
-          }).catch((cleanupError: unknown) => {
-            console.warn("cloudflare:create:rollback_failed", {
+          const { shouldDelete } = await ctx.runQuery(
+            internal.vault.cloudflareMutations.readCreatedWorkerRollbackSafety,
+            {
+              vaultId: args.vaultId,
+              runId: args.runId,
+              userId: args.userId,
               accountId: account.accountId,
               workerName: worker.workerName,
-              error: toErrorMessage(cleanupError),
+              workerTag: worker.workerTag,
+            },
+          );
+          if (shouldDelete) {
+            await deleteCloudflareResources({
+              cloudflareToken: connection.token,
+              accountId: account.accountId,
+              workerName: worker.workerName,
+              workerTag: worker.workerTag,
+            }).catch((cleanupError: unknown) => {
+              console.warn("cloudflare:create:rollback_failed", {
+                accountId: account.accountId,
+                workerName: worker.workerName,
+                error: toErrorMessage(cleanupError),
+              });
             });
-          });
+          }
           throw error;
         }
 
