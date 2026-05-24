@@ -158,11 +158,12 @@ const indexRoute = indexRouteImport.update({
   path: "/",
   getParentRoute: () => publicLayoutRoute,
 } as any);
-const codexThreadBrowserResearchRoute = codexThreadBrowserResearchRouteImport.update({
-  id: "/research/codex-app-server/browser",
-  path: "/research/codex-app-server/browser",
-  getParentRoute: () => rootRouteImport,
-} as any);
+const codexThreadBrowserResearchRoute =
+  codexThreadBrowserResearchRouteImport.update({
+    id: "/research/codex-app-server/browser",
+    path: "/research/codex-app-server/browser",
+    getParentRoute: () => rootRouteImport,
+  } as any);
 const pitchPrintMobileRoute = pitchPrintMobileRouteImport.update({
   id: "/pitch/print/mobile",
   path: "/pitch/print/mobile",
@@ -173,11 +174,12 @@ const mcpConsentRoute = mcpConsentRouteImport.update({
   path: "/oauth/mcp/consent",
   getParentRoute: () => rootRouteImport,
 } as any);
-const logoTransitionTransformsLabRoute = logoTransitionTransformsLabRouteImport.update({
-  id: "/logo/transition/transforms",
-  path: "/logo/transition/transforms",
-  getParentRoute: () => rootRouteImport,
-} as any);
+const logoTransitionTransformsLabRoute =
+  logoTransitionTransformsLabRouteImport.update({
+    id: "/logo/transition/transforms",
+    path: "/logo/transition/transforms",
+    getParentRoute: () => rootRouteImport,
+  } as any);
 const codespaceChatRoute = codespaceChatRouteImport.update({
   id: "/vault/$owner/$repo/codespace/$branch/chat",
   path: "/vault/$owner/$repo/codespace/$branch/chat",
@@ -621,7 +623,9 @@ const publicLayoutRouteChildren: publicLayoutRouteChildren = {
   termsRoute: termsRoute,
 };
 
-const publicLayoutRouteWithChildren = publicLayoutRoute._addFileChildren(publicLayoutRouteChildren);
+const publicLayoutRouteWithChildren = publicLayoutRoute._addFileChildren(
+  publicLayoutRouteChildren,
+);
 
 const rootRouteChildren: RootRouteChildren = {
   publicLayoutRoute: publicLayoutRouteWithChildren,
