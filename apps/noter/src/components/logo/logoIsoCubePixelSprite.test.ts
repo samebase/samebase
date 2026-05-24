@@ -4,7 +4,9 @@ import {
   LOGO_ISO_CUBE_PIXEL_SPRITE_PRESETS,
   applyLogoIsoCubePixelSpritePaint,
   createLogoIsoCubePixelKey,
+  parseLogoIsoCubePixelSpritePattern,
   parseLogoIsoCubePixelKey,
+  serializeLogoIsoCubePixelSpritePattern,
   type LogoIsoCubePixelSprite,
 } from "@/components/logo/logoIsoCubePixelSprite";
 
@@ -91,5 +93,43 @@ describe("logoIsoCubePixelSprite", () => {
         createLogoIsoCubePixelKey(10, 17),
       ]),
     );
+  });
+
+  it("serializes and parses the editable stripe pattern", () => {
+    const pattern = [
+      ".xxxx...",
+      "xxx.....",
+      "x....xxx",
+      "...xxxx.",
+      ".xxxx...",
+      "xxx....x",
+      ".....xxx",
+      "...xxxx.",
+    ].join("\n");
+    const parsedPattern = parseLogoIsoCubePixelSpritePattern({
+      cubeSidePixels: 8,
+      pattern,
+    });
+
+    if (parsedPattern.kind === "invalid") {
+      throw new Error("Expected editable stripe pattern to parse");
+    }
+
+    expect(parsedPattern.sprite).toBeDefined();
+    expect(
+      serializeLogoIsoCubePixelSpritePattern({
+        cubeSidePixels: 8,
+        sprite: parsedPattern.sprite,
+      }),
+    ).toBe(pattern);
+  });
+
+  it("rejects pattern text that does not match the cube side", () => {
+    expect(
+      parseLogoIsoCubePixelSpritePattern({
+        cubeSidePixels: 8,
+        pattern: "x",
+      }),
+    ).toEqual({ kind: "invalid" });
   });
 });

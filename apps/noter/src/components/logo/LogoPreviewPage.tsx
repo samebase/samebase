@@ -8,6 +8,8 @@ import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
 import {
   LOGO_ISO_CUBE_PIXEL_SPRITE_PRESETS,
   applyLogoIsoCubePixelSpritePaint,
+  parseLogoIsoCubePixelSpritePattern,
+  serializeLogoIsoCubePixelSpritePattern,
   type LogoIsoCubePixelEditKind,
   type LogoIsoCubePixelSprite,
   type LogoIsoCubePixelSpritePaint,
@@ -104,6 +106,7 @@ import { LogoNumberInput } from "@/components/logo/LogoNumberInput";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectTrigger } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Layout, PublicLayoutShell } from "@/Layout";
 import {
   DEFAULT_ELEVATION_DEGREES,
@@ -134,7 +137,15 @@ import { cn } from "@/lib/utils";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { Link } from "@tanstack/react-router";
 import { PaletteIcon } from "lucide-react";
-import { useId, useMemo, useRef, type ChangeEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ReactNode,
+} from "react";
 
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 const DEFAULT_LOGO_OPACITY = 1;
@@ -703,7 +714,10 @@ function useLogoPreviewStore() {
         };
       });
     },
-    setIsoCubePixelSprite: (cubeSidePixels: number, isoCubePixelSprite: LogoIsoCubePixelSprite) => {
+    setIsoCubePixelSprite: (
+      cubeSidePixels: number,
+      isoCubePixelSprite: LogoIsoCubePixelSprite | undefined,
+    ) => {
       setState((state) => {
         const currentSprite = state.isoCubePixelSpritesByCubeSide.get(cubeSidePixels);
         if (currentSprite === isoCubePixelSprite) {
@@ -711,7 +725,11 @@ function useLogoPreviewStore() {
         }
 
         const isoCubePixelSpritesByCubeSide = new Map(state.isoCubePixelSpritesByCubeSide);
-        isoCubePixelSpritesByCubeSide.set(cubeSidePixels, isoCubePixelSprite);
+        if (isoCubePixelSprite) {
+          isoCubePixelSpritesByCubeSide.set(cubeSidePixels, isoCubePixelSprite);
+        } else {
+          isoCubePixelSpritesByCubeSide.delete(cubeSidePixels);
+        }
         return {
           ...state,
           isoCubePixelSpritesByCubeSide,
@@ -986,6 +1004,7 @@ function useLogoPreviewController({
         }
         store.actions.setIsoCubePixelTool(isoCubePixelTool);
       },
+      setIsoCubePixelSprite: store.actions.setIsoCubePixelSprite,
       setLeftFaceStyleKind: (kind: LogoLeftFaceStyleKind) => {
         commitRouteState((currentState) => {
           if (kind === "secondary") {
@@ -1250,6 +1269,99 @@ function LogoPreviewSection({
       </div>
       {children}
     </section>
+  );
+}
+
+function LogoIsoCubePixelPatternTextarea({
+  cubeSidePixels,
+  disabled,
+  onSpriteChange,
+  sprite,
+}: {
+  cubeSidePixels: number;
+  disabled: boolean;
+  onSpriteChange: (sprite: LogoIsoCubePixelSprite | undefined) => void;
+  sprite: LogoIsoCubePixelSprite | undefined;
+}) {
+  const serializedPattern = useMemo(
+    () =>
+      serializeLogoIsoCubePixelSpritePattern({
+        cubeSidePixels,
+        sprite,
+      }),
+    [cubeSidePixels, sprite],
+  );
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftPattern, setDraftPattern] = useState(serializedPattern);
+  const previousSerializedPatternRef = useRef(serializedPattern);
+  const value = isEditing ? draftPattern : serializedPattern;
+  const parsedPattern = useMemo(
+    () =>
+      parseLogoIsoCubePixelSpritePattern({
+        cubeSidePixels,
+        pattern: value,
+      }),
+    [cubeSidePixels, value],
+  );
+  const isInvalid = parsedPattern.kind === "invalid";
+
+  useEffect(() => {
+    if (!isEditing) {
+      setDraftPattern(serializedPattern);
+    }
+  }, [isEditing, serializedPattern]);
+
+  // Presets and canvas drawing can replace the sprite while the textarea has
+  // a draft; keep that draft only when it already matches the serialized sprite.
+  useEffect(() => {
+    if (previousSerializedPatternRef.current === serializedPattern) {
+      return;
+    }
+
+    previousSerializedPatternRef.current = serializedPattern;
+    if (draftPattern !== serializedPattern) {
+      setIsEditing(false);
+      setDraftPattern(serializedPattern);
+    }
+  }, [draftPattern, serializedPattern]);
+
+  return (
+    <Textarea
+      aria-invalid={isInvalid}
+      aria-label="Cube pixel pattern"
+      autoCapitalize="off"
+      autoCorrect="off"
+      className="min-h-0 max-w-full resize-none overflow-hidden rounded-none font-mono text-xs leading-4 shadow-none [tab-size:1]"
+      disabled={disabled}
+      onBlur={() => {
+        setIsEditing(false);
+        setDraftPattern(serializedPattern);
+      }}
+      onChange={(event) => {
+        const nextPattern = event.target.value;
+        setIsEditing(true);
+        setDraftPattern(nextPattern);
+
+        const nextParsedPattern = parseLogoIsoCubePixelSpritePattern({
+          cubeSidePixels,
+          pattern: nextPattern,
+        });
+        if (nextParsedPattern.kind === "valid") {
+          onSpriteChange(nextParsedPattern.sprite);
+        }
+      }}
+      onFocus={() => {
+        setIsEditing(true);
+        setDraftPattern(serializedPattern);
+      }}
+      rows={cubeSidePixels}
+      spellCheck={false}
+      style={{
+        width: `${cubeSidePixels + 1}ch`,
+      }}
+      value={value}
+      wrap="off"
+    />
   );
 }
 
@@ -1767,6 +1879,16 @@ export function LogoPreviewPage({
                 faceColors={faceColors}
                 onCubePixelSpritePaint={controls.paintIsoCubePixelSprite}
                 styleId={state.isoStyleId}
+              />
+            </div>
+            <div className="flex justify-center">
+              <LogoIsoCubePixelPatternTextarea
+                cubeSidePixels={state.isoCubeSidePixels}
+                disabled={isRecursiveDepth}
+                onSpriteChange={(sprite) => {
+                  controls.setIsoCubePixelSprite(state.isoCubeSidePixels, sprite);
+                }}
+                sprite={isoCubePixelSprite}
               />
             </div>
             <div className={LOGO_CONTROL_BUTTON_ROW_CLASS_NAME}>
