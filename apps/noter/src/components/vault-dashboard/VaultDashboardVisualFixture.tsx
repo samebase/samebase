@@ -1,9 +1,7 @@
 import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import { Button } from "@/components/ui/button";
-import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
@@ -20,15 +18,8 @@ import {
   VaultDashboardSidebarContent,
 } from "@/components/vault-dashboard/VaultDashboardChrome";
 import { VaultProvisioningLogViewer } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
-import {
-  CloudflareProviderLogo,
-  ConvexProviderLogo,
-  GitHubProviderLogo,
-} from "@/components/vault-dashboard/VaultDashboardLogos";
 import { buildVaultBranchSectionState } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import {
-  CreateControlMessageSlot,
-  CreateProviderNameInput,
   GitHubRepositoryNameSlashPreview,
   VaultBranchHeaderControls,
   VaultBranchLinkRow,
@@ -36,6 +27,7 @@ import {
   VaultDashboardCloudflareDialog,
   VaultDashboardConvexDialog,
   VaultDashboardCreateDialog,
+  VaultDashboardCreateFormFields,
   VaultDashboardDeleteControl,
   VaultDashboardDeleteDialog,
   VaultDashboardRepositoryExternalLinks,
@@ -1054,41 +1046,32 @@ function FixtureDashboardCreateDialog() {
         onSubmit={() => {}}
         open
       >
-        <Select value="nicu-chiciuc" onValueChange={() => {}}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="GitHub owner" />
-          </SelectTrigger>
-          <AppSelectContent>
-            <AppSelectItem value="nicu-chiciuc">nicu-chiciuc</AppSelectItem>
-            <AppSelectItem value="noter-md">noter-md</AppSelectItem>
-          </AppSelectContent>
-        </Select>
-        <CreateProviderNameInput
-          disabled={false}
-          icon={<GitHubProviderLogo />}
-          onChange={() => {}}
-          placeholder="GitHub repo name"
-          value="field/notes"
+        <VaultDashboardCreateFormFields
+          canEditProviderResourceNames
+          cloudflareWorkerName="field-notes"
+          cloudflareWorkerNameSupport={null}
+          convexProjectName="field-notes"
+          convexProjectNameSupport={null}
+          githubConnected
+          githubRepositoryNameSupport={<GitHubRepositoryNameSlashPreview rawName="field/notes" />}
+          githubRepositoryOwnerOptions={[
+            { login: "nicu-chiciuc", kind: "user" },
+            { login: "noter-md", kind: "organization" },
+          ]}
+          hasRequiredCreateConnections
+          isCreating={false}
+          isLoadingGithubRepositoryOwners={false}
+          newRepositoryName="field/notes"
+          onCloudflareWorkerNameBlur={() => {}}
+          onCloudflareWorkerNameChange={() => {}}
+          onConvexProjectNameBlur={() => {}}
+          onConvexProjectNameChange={() => {}}
+          onGithubRepositoryOwnerChange={() => {}}
+          onNewRepositoryNameChange={() => {}}
+          ownerSelectPlaceholder="GitHub owner"
+          providerResourceNameInputDisabled={false}
+          selectedGithubRepositoryOwner="nicu-chiciuc"
         />
-        <CreateControlMessageSlot>
-          <GitHubRepositoryNameSlashPreview rawName="field/notes" />
-        </CreateControlMessageSlot>
-        <CreateProviderNameInput
-          disabled={false}
-          icon={<ConvexProviderLogo />}
-          onChange={() => {}}
-          placeholder="Convex project name"
-          value="field-notes"
-        />
-        <CreateControlMessageSlot>{null}</CreateControlMessageSlot>
-        <CreateProviderNameInput
-          disabled={false}
-          icon={<CloudflareProviderLogo />}
-          onChange={() => {}}
-          placeholder="Cloudflare Worker name"
-          value="field-notes"
-        />
-        <CreateControlMessageSlot>{null}</CreateControlMessageSlot>
       </VaultDashboardCreateDialog>
     </div>
   );
