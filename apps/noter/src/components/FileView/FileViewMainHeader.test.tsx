@@ -1,8 +1,17 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 import { FileViewMainHeader } from "./FileViewMainHeader";
+
+vi.mock("convex/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("convex/react")>();
+
+  return {
+    ...actual,
+    useQuery: () => false,
+  };
+});
 
 describe("FileViewMainHeader", () => {
   it("renders the route URL editor beside quick open", () => {
