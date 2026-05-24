@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Layout, PublicLayoutShell } from "@/Layout";
 import {
   readRouteSearchParamSuggestions,
-  type RouteSearchParamMetadata,
+  type RouteSearchParamMetadataByKey,
 } from "@/lib/routeSearchParamMetadata";
 import { VisualFixturePage } from "@/visualFixture";
 
@@ -12,7 +12,7 @@ type VisualFixtureRouteSearch = {
 
 const visualFixtureRouteSearchParamMetadata = {
   mode: { permission: "public", suggestion: "route", valueKind: "value" },
-} as const satisfies Readonly<Record<keyof VisualFixtureRouteSearch, RouteSearchParamMetadata>>;
+} as const satisfies RouteSearchParamMetadataByKey<VisualFixtureRouteSearch>;
 
 const visualFixtureRouteSearchParamSuggestions = readRouteSearchParamSuggestions(
   visualFixtureRouteSearchParamMetadata,

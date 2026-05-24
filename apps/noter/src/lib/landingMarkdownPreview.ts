@@ -1,6 +1,6 @@
 import {
   readRouteSearchParamSuggestions,
-  type RouteSearchParamMetadata,
+  type RouteSearchParamMetadataByKey,
 } from "@/lib/routeSearchParamMetadata";
 import { z } from "zod";
 
@@ -41,9 +41,7 @@ const landingMarkdownPreviewRouteSearchParamMetadata = {
     suggestion: "route",
     valueKind: "value",
   },
-} as const satisfies Readonly<
-  Record<keyof LandingMarkdownPreviewRouteSearch, RouteSearchParamMetadata>
->;
+} as const satisfies RouteSearchParamMetadataByKey<LandingMarkdownPreviewRouteSearch>;
 
 export const LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS =
   readRouteSearchParamSuggestions(landingMarkdownPreviewRouteSearchParamMetadata, "route");

@@ -2,8 +2,8 @@ export type NoterRoutePermission = "public" | "admin";
 
 export type NoterRouteSearchParamValueKind = "presence" | "value";
 
-export type NoterRouteSearchParamSuggestion = {
-  key: string;
+export type NoterRouteSearchParamSuggestion<Key extends string = string> = {
+  key: Key;
   permission: NoterRoutePermission;
   valueKind: NoterRouteSearchParamValueKind;
 };

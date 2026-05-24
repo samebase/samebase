@@ -7,21 +7,10 @@ import {
 import {
   readRouteSearchParamSuggestions,
   readRouteSearchPresenceKeys,
-  type RouteSearchParamMetadata,
+  type RouteSearchParamMetadataByKey,
 } from "@/lib/routeSearchParamMetadata";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { z } from "zod";
-
-const fileViewRouteSearchParamMetadata = {
-  compare: { permission: "admin", suggestion: "route", valueKind: "presence" },
-  diff: { permission: "admin", suggestion: "route", valueKind: "presence" },
-  mobileLineNumbers: { permission: "admin", suggestion: "route", valueKind: "value" },
-  review: { permission: "admin", suggestion: "route", valueKind: "presence" },
-} as const satisfies Readonly<Record<string, RouteSearchParamMetadata>>;
-
-const FILE_VIEW_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
-  fileViewRouteSearchParamMetadata,
-);
 
 function readOptionalMobileLineNumbers(value: unknown): "1" | undefined {
   return value === "1" ? "1" : undefined;
@@ -37,12 +26,34 @@ const fileViewRouteSearchSchema = z.object({
 export type FileViewRouteSearch = z.infer<typeof fileViewRouteSearchSchema>;
 export type FileViewRouteSearchPatch = SearchPatch<FileViewRouteSearch>;
 
-const fileViewRouteSearchParamMetadataByKey: Readonly<
-  Record<keyof FileViewRouteSearch, RouteSearchParamMetadata>
-> = fileViewRouteSearchParamMetadata;
+const fileViewRouteSearchParamMetadata = {
+  compare: {
+    parseKind: "presence",
+    permission: "admin",
+    suggestion: "route",
+    valueKind: "presence",
+  },
+  diff: {
+    parseKind: "presence",
+    permission: "admin",
+    suggestion: "route",
+    valueKind: "presence",
+  },
+  mobileLineNumbers: { permission: "admin", suggestion: "route", valueKind: "value" },
+  review: {
+    parseKind: "presence",
+    permission: "admin",
+    suggestion: "route",
+    valueKind: "presence",
+  },
+} as const satisfies RouteSearchParamMetadataByKey<FileViewRouteSearch>;
+
+const FILE_VIEW_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
+  fileViewRouteSearchParamMetadata,
+);
 
 export const FILE_VIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
-  fileViewRouteSearchParamMetadataByKey,
+  fileViewRouteSearchParamMetadata,
   "route",
 );
 

@@ -1,4 +1,5 @@
 import type { AppRouter } from "@/router";
+import { entries } from "@noter-md/dependent/object";
 import { filterRouteUrlPathSuggestions } from "@/lib/routeUrlPathSuggestions";
 import {
   canAccessNoterRoutePermission,
@@ -292,7 +293,7 @@ function readMatchingRouteSearchParamSuggestions(args: {
   routesByPath: AppRouter["routesByPath"];
   viewer: NoterRoutePermissionViewer;
 }): readonly NoterRouteSearchParamSuggestion[] {
-  const matches = Object.entries(args.routesByPath)
+  const matches = entries(args.routesByPath)
     .filter(
       ([routePath, route]) =>
         isUserFacingAccessibleRoute(routePath, route.options.staticData.permission, args.viewer) &&
@@ -312,7 +313,7 @@ function readMatchingRoutePath(args: {
   routesByPath: AppRouter["routesByPath"];
   viewer: NoterRoutePermissionViewer;
 }): string | null {
-  const matches = Object.entries(args.routesByPath)
+  const matches = entries(args.routesByPath)
     .filter(
       ([routePath, route]) =>
         isUserFacingAccessibleRoute(routePath, route.options.staticData.permission, args.viewer) &&

@@ -20,7 +20,7 @@ import {
 import {
   readRouteSearchParamSuggestions,
   readRouteSearchPresenceKeys,
-  type RouteSearchParamMetadata,
+  type RouteSearchParamMetadataByKey,
 } from "@/lib/routeSearchParamMetadata";
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
@@ -72,41 +72,6 @@ function readOptionalLogoGridSize(value: unknown): number | undefined {
     : undefined;
 }
 
-const rootRouteSearchParamMetadata = {
-  "add-cloudflare": { permission: "admin", suggestion: "route", valueKind: "presence" },
-  "add-convex": { permission: "admin", suggestion: "route", valueKind: "presence" },
-  auth: { permission: "public", suggestion: "route", valueKind: "value" },
-  base: { permission: "public", suggestion: "hidden", valueKind: "value" },
-  background: { permission: "public", suggestion: "global", valueKind: "value" },
-  border: { permission: "public", suggestion: "global", valueKind: "value" },
-  dark: { permission: "public", suggestion: "global", valueKind: "presence" },
-  delete: { permission: "admin", suggestion: "route", valueKind: "presence" },
-  depth: { permission: "public", suggestion: "global", valueKind: "value" },
-  dev: { permission: "public", suggestion: "global", valueKind: "presence" },
-  devtools: { permission: "public", suggestion: "global", valueKind: "presence" },
-  dist: { permission: "public", suggestion: "global", valueKind: "value" },
-  gridSize: { permission: "public", suggestion: "global", valueKind: "value" },
-  light: { permission: "public", suggestion: "global", valueKind: "presence" },
-  "new-app": { permission: "admin", suggestion: "route", valueKind: "presence" },
-  primary: { permission: "public", suggestion: "global", valueKind: "value" },
-  "prod-ui": { permission: "public", suggestion: "global", valueKind: "presence" },
-  [PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM]: {
-    permission: "public",
-    suggestion: "route",
-    valueKind: "presence",
-  },
-  [SEARCH_RESET_QUERY_PARAM]: {
-    permission: "public",
-    suggestion: "global",
-    valueKind: "presence",
-  },
-  secondary: { permission: "public", suggestion: "global", valueKind: "value" },
-  signup: { permission: "public", suggestion: "route", valueKind: "value" },
-  top: { permission: "public", suggestion: "global", valueKind: "value" },
-} as const satisfies Readonly<Record<string, RouteSearchParamMetadata>>;
-
-const ROOT_ROUTE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(rootRouteSearchParamMetadata);
-
 const rootRouteSearchSchema = z
   .object({
     auth: z.preprocess(readOptionalGoogleAuthProvider, z.literal("google").optional()),
@@ -140,17 +105,95 @@ const rootRouteSearchSchema = z
 
 export type RootRouteSearch = z.infer<typeof rootRouteSearchSchema>;
 
-const rootRouteSearchParamMetadataByKey: Readonly<
-  Record<keyof RootRouteSearch, RouteSearchParamMetadata>
-> = rootRouteSearchParamMetadata;
+const rootRouteSearchParamMetadata = {
+  "add-cloudflare": {
+    parseKind: "presence",
+    permission: "admin",
+    suggestion: "route",
+    valueKind: "presence",
+  },
+  "add-convex": {
+    parseKind: "presence",
+    permission: "admin",
+    suggestion: "route",
+    valueKind: "presence",
+  },
+  auth: { permission: "public", suggestion: "route", valueKind: "value" },
+  base: { permission: "public", suggestion: "hidden", valueKind: "value" },
+  background: { permission: "public", suggestion: "global", valueKind: "value" },
+  border: { permission: "public", suggestion: "global", valueKind: "value" },
+  dark: {
+    parseKind: "presence",
+    permission: "public",
+    suggestion: "global",
+    valueKind: "presence",
+  },
+  delete: {
+    parseKind: "presence",
+    permission: "admin",
+    suggestion: "route",
+    valueKind: "presence",
+  },
+  depth: { permission: "public", suggestion: "global", valueKind: "value" },
+  dev: {
+    parseKind: "presence",
+    permission: "public",
+    suggestion: "global",
+    valueKind: "presence",
+  },
+  devtools: {
+    parseKind: "presence",
+    permission: "public",
+    suggestion: "global",
+    valueKind: "presence",
+  },
+  dist: { permission: "public", suggestion: "global", valueKind: "value" },
+  gridSize: { permission: "public", suggestion: "global", valueKind: "value" },
+  light: {
+    parseKind: "presence",
+    permission: "public",
+    suggestion: "global",
+    valueKind: "presence",
+  },
+  "new-app": {
+    parseKind: "presence",
+    permission: "admin",
+    suggestion: "route",
+    valueKind: "presence",
+  },
+  primary: { permission: "public", suggestion: "global", valueKind: "value" },
+  "prod-ui": {
+    parseKind: "presence",
+    permission: "public",
+    suggestion: "global",
+    valueKind: "presence",
+  },
+  [PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM]: {
+    parseKind: "schema",
+    permission: "public",
+    suggestion: "route",
+    valueKind: "presence",
+  },
+  [SEARCH_RESET_QUERY_PARAM]: {
+    parseKind: "presence",
+    permission: "public",
+    suggestion: "global",
+    valueKind: "presence",
+  },
+  secondary: { permission: "public", suggestion: "global", valueKind: "value" },
+  signup: { permission: "public", suggestion: "route", valueKind: "value" },
+  top: { permission: "public", suggestion: "global", valueKind: "value" },
+} as const satisfies RouteSearchParamMetadataByKey<RootRouteSearch>;
+
+const ROOT_ROUTE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(rootRouteSearchParamMetadata);
 
 export const ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
-  rootRouteSearchParamMetadataByKey,
+  rootRouteSearchParamMetadata,
   "global",
 );
 
 export const ROOT_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
-  rootRouteSearchParamMetadataByKey,
+  rootRouteSearchParamMetadata,
   "route",
 );
 

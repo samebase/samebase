@@ -1,6 +1,6 @@
 import {
   readRouteSearchParamSuggestions,
-  type RouteSearchParamMetadata,
+  type RouteSearchParamMetadataByKey,
 } from "@/lib/routeSearchParamMetadata";
 
 export type CodexResearchRouteSearch = {
@@ -9,7 +9,7 @@ export type CodexResearchRouteSearch = {
 
 const codexResearchRouteSearchParamMetadata = {
   threadId: { permission: "admin", suggestion: "route", valueKind: "value" },
-} as const satisfies Readonly<Record<keyof CodexResearchRouteSearch, RouteSearchParamMetadata>>;
+} as const satisfies RouteSearchParamMetadataByKey<CodexResearchRouteSearch>;
 
 export const CODEX_RESEARCH_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
   codexResearchRouteSearchParamMetadata,
