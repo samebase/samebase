@@ -36,40 +36,76 @@ export type LogoIsoCubePixelSpritePatternParseResult =
     };
 
 const LOGO_ISO_CUBE_PIXEL_PATTERN_ORIGIN_X = 4;
+const LOGO_ISO_CUBE_PIXEL_PATTERN_FRAME_PADDING = 4;
 
 const LOGO_ISO_QUARTER_DIAGONAL_PATTERN = `
-.xxxx...
-xxx.....
+.
+...
+.xxxx
+xxx....
 x....xxx
 ...xxxx.
 .xxxx...
 xxx....x
-.....xxx
-...xxxx.
+ ....xxx
+   xxxx.
+     ...
+       .
 `;
 
 const LOGO_ISO_QUARTER_DIAGONAL_MIRROR_PATTERN = `
-xxxx....
-....xxx.
+.
+...
+xxxx.
+....xxx
 xxx....x
 .xxxx...
 ...xxxx.
 x....xxx
-.xxx....
-....xxxx
+ .xxx...
+   .xxxx
+     ...
+       .
 `;
 
 export function createLogoIsoCubePixelKey(x: number, y: number): string {
   return `${x},${y}`;
 }
 
-function getLogoIsoCubePixelPatternOrigin(cubeSidePixels: number): LogoIsoCubePixelCoordinate {
-  // The text grid edits the secondary-face stripe window: full face width,
-  // starting one quarter below the top of that face.
-  return {
-    x: LOGO_ISO_CUBE_PIXEL_PATTERN_ORIGIN_X,
-    y: 4 + Math.round(cubeSidePixels * 0.75),
-  };
+type LogoIsoCubePixelSpritePatternRow = {
+  startX: number;
+  width: number;
+  y: number;
+};
+
+function getLogoIsoCubePixelSpritePatternRows(
+  cubeSidePixels: number,
+): readonly LogoIsoCubePixelSpritePatternRow[] {
+  // These rows mirror the rasterized secondary face; leading spaces in the
+  // textarea are only outside-face stagger, not editable pixels.
+  const halfCubeSidePixels = Math.round(cubeSidePixels / 2);
+  const topY = LOGO_ISO_CUBE_PIXEL_PATTERN_FRAME_PADDING + halfCubeSidePixels;
+  const rowCount = cubeSidePixels + halfCubeSidePixels;
+  const rows: LogoIsoCubePixelSpritePatternRow[] = [];
+
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    const leftInset =
+      rowIndex < cubeSidePixels
+        ? 0
+        : Math.min(cubeSidePixels - 1, (rowIndex - cubeSidePixels) * 2 + 1);
+    const visibleWidth =
+      rowIndex < halfCubeSidePixels
+        ? Math.min(cubeSidePixels, rowIndex * 2 + 1)
+        : cubeSidePixels - leftInset;
+
+    rows.push({
+      startX: LOGO_ISO_CUBE_PIXEL_PATTERN_ORIGIN_X + leftInset,
+      width: visibleWidth,
+      y: topY + rowIndex,
+    });
+  }
+
+  return rows;
 }
 
 export function parseLogoIsoCubePixelSpritePattern({
@@ -88,15 +124,16 @@ export function parseLogoIsoCubePixelSpritePattern({
   }
 
   const rows = trimmedPattern.split("\n").map((row) => row.trim());
+  const patternRows = getLogoIsoCubePixelSpritePatternRows(cubeSidePixels);
   const pixels: LogoIsoCubePixelCoordinate[] = [];
-  const origin = getLogoIsoCubePixelPatternOrigin(cubeSidePixels);
 
-  if (rows.length !== cubeSidePixels) {
+  if (rows.length !== patternRows.length) {
     return { kind: "invalid" };
   }
 
   for (const [rowIndex, row] of rows.entries()) {
-    if (row.length !== cubeSidePixels) {
+    const patternRow = patternRows[rowIndex];
+    if (row.length !== patternRow.width) {
       return { kind: "invalid" };
     }
 
@@ -110,8 +147,8 @@ export function parseLogoIsoCubePixelSpritePattern({
       }
 
       pixels.push({
-        x: origin.x + columnIndex,
-        y: origin.y + rowIndex,
+        x: patternRow.startX + columnIndex,
+        y: patternRow.y,
       });
     }
   }
@@ -134,14 +171,14 @@ export function serializeLogoIsoCubePixelSpritePattern({
   cubeSidePixels: number;
   sprite: LogoIsoCubePixelSprite | undefined;
 }): string {
-  const origin = getLogoIsoCubePixelPatternOrigin(cubeSidePixels);
+  const patternRows = getLogoIsoCubePixelSpritePatternRows(cubeSidePixels);
   const rows: string[] = [];
 
-  for (let rowIndex = 0; rowIndex < cubeSidePixels; rowIndex += 1) {
-    let row = "";
-    for (let columnIndex = 0; columnIndex < cubeSidePixels; columnIndex += 1) {
+  for (const patternRow of patternRows) {
+    let row = " ".repeat(patternRow.startX - LOGO_ISO_CUBE_PIXEL_PATTERN_ORIGIN_X);
+    for (let columnIndex = 0; columnIndex < patternRow.width; columnIndex += 1) {
       row += sprite?.pixelKeys.has(
-        createLogoIsoCubePixelKey(origin.x + columnIndex, origin.y + rowIndex),
+        createLogoIsoCubePixelKey(patternRow.startX + columnIndex, patternRow.y),
       )
         ? "x"
         : ".";

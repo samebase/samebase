@@ -1303,6 +1303,7 @@ function LogoIsoCubePixelPatternTextarea({
       }),
     [cubeSidePixels, value],
   );
+  const textareaRows = serializedPattern.split("\n").length;
   const isInvalid = parsedPattern.kind === "invalid";
 
   useEffect(() => {
@@ -1355,7 +1356,7 @@ function LogoIsoCubePixelPatternTextarea({
           setIsEditing(true);
           setDraftPattern(serializedPattern);
         }}
-        rows={cubeSidePixels}
+        rows={textareaRows}
         spellCheck={false}
         value={value}
         wrap="off"

@@ -97,14 +97,18 @@ describe("logoIsoCubePixelSprite", () => {
 
   it("serializes and parses the editable stripe pattern", () => {
     const pattern = [
-      ".xxxx...",
-      "xxx.....",
+      ".",
+      "...",
+      ".xxxx",
+      "xxx....",
       "x....xxx",
       "...xxxx.",
       ".xxxx...",
       "xxx....x",
-      ".....xxx",
-      "...xxxx.",
+      " ....xxx",
+      "   xxxx.",
+      "     ...",
+      "       .",
     ].join("\n");
     const parsedPattern = parseLogoIsoCubePixelSpritePattern({
       cubeSidePixels: 8,
@@ -122,6 +126,53 @@ describe("logoIsoCubePixelSprite", () => {
         sprite: parsedPattern.sprite,
       }),
     ).toBe(pattern);
+  });
+
+  it("parses the visible pixels even when the stagger spaces are missing", () => {
+    const pattern = [
+      ".",
+      "...",
+      ".xxxx",
+      "xxx....",
+      "x....xxx",
+      "...xxxx.",
+      ".xxxx...",
+      "xxx....x",
+      "....xxx",
+      "xxxx.",
+      "...",
+      ".",
+    ].join("\n");
+    const parsedPattern = parseLogoIsoCubePixelSpritePattern({
+      cubeSidePixels: 8,
+      pattern,
+    });
+
+    if (parsedPattern.kind === "invalid") {
+      throw new Error("Expected compact editable stripe pattern to parse");
+    }
+
+    expect(
+      serializeLogoIsoCubePixelSpritePattern({
+        cubeSidePixels: 8,
+        sprite: parsedPattern.sprite,
+      }),
+    ).toBe(
+      [
+        ".",
+        "...",
+        ".xxxx",
+        "xxx....",
+        "x....xxx",
+        "...xxxx.",
+        ".xxxx...",
+        "xxx....x",
+        " ....xxx",
+        "   xxxx.",
+        "     ...",
+        "       .",
+      ].join("\n"),
+    );
   });
 
   it("rejects pattern text that does not match the cube side", () => {
