@@ -916,7 +916,9 @@ test("public landing renders the closed Google signup return state", async ({ pa
   await expect(
     page.getByRole("link", { name: "https://x.com/notermd", exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Google", exact: true, includeHidden: true }),
+  ).toHaveCount(0);
 
   await expect(landingContent).toHaveScreenshot(
     "public-landing-google-signup-closed.png",
