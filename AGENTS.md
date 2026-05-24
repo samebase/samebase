@@ -392,6 +392,9 @@ Detailed flow rules live in `docs/agent-workflows.md`.
 - Prefix every PR title with the projected landing-page build label, such as `v1146:`, and refresh
   it after creating, updating, rebasing, marking ready, or whenever `origin/main` advances. Treat
   the label as provisional until merge.
+- When refreshing that projected PR label, explicitly read the latest `origin/main` title or commit
+  subject, add 1 to that single build number, and verify the PR title before reporting success. Do
+  not derive the label from branch commit counts or the number of commits in the PR.
 - When work implements a named or numbered phase from a spec, RFC, rollout, or accepted plan,
   include the phase label in the PR title after the build label, such as
   `v1146: Phase 2: Move app provisioning to Workflow`, so the eventual squash commit preserves the
