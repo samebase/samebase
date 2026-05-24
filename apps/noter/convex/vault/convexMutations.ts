@@ -11,12 +11,18 @@ import type { AppProvisioningStep } from "../schema";
 import { vVaultConvexOrigin } from "./model";
 import { isLiveConnectedVault } from "./state";
 
-const { boolean, id, literal, null: nullValue, object, string } = v;
+const { boolean, id, literal, null: nullValue, object, string, union } = v;
 const CONVEX_CONNECTION_STALE_MS = 10 * 60 * 1000;
 const CONVEX_DEPLOY_KEYS_NOT_CREATED = {
   production: { state: "not_created" },
   preview: { state: "not_created" },
 } as const;
+
+const createdConvexProjectValidator = object({
+  projectName: string(),
+  projectId: string(),
+  projectSlug: string(),
+});
 
 const convexInfrastructureRecordValidator = object({
   convexProjectId: string(),
@@ -362,6 +368,43 @@ export const recordCreatedProjectForRun = internalMutation({
     });
 
     return null;
+  },
+});
+
+export const readReusableCreatedProjectForRun = internalQuery({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    projectName: string(),
+  },
+  returns: union(createdConvexProjectValidator, nullValue()),
+  handler: async (ctx, args) => {
+    await requireConvexDeploymentConnectionRun(ctx, args);
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+      throw new Error("Vault not found.");
+    }
+
+    const runs = await ctx.db
+      .query("appProvisioningRuns")
+      .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", args.vaultId))
+      .collect();
+    const reusableRuns = runs
+      .filter(
+        (run) =>
+          run.userId === args.userId &&
+          run.trigger === "connect_convex_deployment" &&
+          run.createdConvexProject?.projectName === args.projectName,
+      )
+      .sort(
+        (left, right) =>
+          right.updatedAt - left.updatedAt ||
+          right._creationTime - left._creationTime ||
+          right._id.localeCompare(left._id),
+      );
+
+    return reusableRuns[0]?.createdConvexProject ?? null;
   },
 });
 

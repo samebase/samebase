@@ -182,7 +182,7 @@ async function buildConvexPlan(
 
     if (vault.convex.origin === "provisioned") {
       createdProjectIds.push(vault.convex.projectId);
-    } else if (vault.convex.origin !== "selected_existing") {
+    } else if (vault.convex.origin !== "selected_existing" && createdProjectIds.length === 0) {
       const legacyProjectId = infrastructure?.convexProjectId;
       if (
         !isNoterManagedVault(vault) ||

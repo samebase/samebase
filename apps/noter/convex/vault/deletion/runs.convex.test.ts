@@ -309,6 +309,49 @@ describe("vault deletion Convex resource planning", () => {
     });
   });
 
+  it("deletes recorded created Convex projects before legacy ownership checks", async () => {
+    const { ids, t } = await createLegacyNoterManagedVaultWithConvex({
+      withInfrastructure: false,
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.insert("appProvisioningRuns", {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        repositoryFullName: "ada/managed-convex",
+        trigger: "connect_convex_deployment",
+        createdConvexProject: {
+          projectName: "manual-convex",
+          projectId: "created-convex-project",
+          projectSlug: "manual-convex",
+        },
+        state: "failed",
+        currentStep: "ensure_convex",
+        lastError: "Convex project attach failed.",
+        createdAt: 30,
+        updatedAt: 40,
+        completedAt: 40,
+      });
+    });
+
+    const { deletionRunId } = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
+      ...ids,
+      options: deleteConvexOptions,
+    });
+    const run = await t.run(async (ctx) => await ctx.db.get(deletionRunId));
+
+    expect(run).toMatchObject({
+      snapshot: {
+        state: "retained_for_retry",
+        plan: {
+          convex: {
+            action: "delete_project",
+            projectId: "created-convex-project",
+          },
+        },
+      },
+    });
+  });
+
   it("deletes a legacy managed Convex project only when infrastructure proves ownership", async () => {
     const withInfrastructure = await createLegacyNoterManagedVaultWithConvex({
       withInfrastructure: true,

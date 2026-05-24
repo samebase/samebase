@@ -331,4 +331,167 @@ describe("vault Convex deployment connection actions", () => {
       convexSiteUrl: "https://alpha-alt-prod.convex.site",
     });
   });
+
+  it("treats a superseded attach as canceled instead of failed", async () => {
+    const { ids, t } = await createConvexConnectedVault();
+    await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, ids);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: Request) => {
+        if (input.url.includes("/projects/1001")) {
+          return jsonResponse(`{
+            "createTime": 1710000000000,
+            "id": 1001,
+            "name": "Alpha Project",
+            "slug": "alpha",
+            "teamId": 1000,
+            "teamSlug": "noter-team"
+          }`);
+        }
+
+        if (input.url.includes("/deployments/alpha-prod")) {
+          await t.run(async (ctx) => {
+            const ownership = await ctx.db
+              .query("vaultInfrastructureOwnership")
+              .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+              .first();
+            if (!ownership) {
+              throw new Error("Expected active ownership row.");
+            }
+            await ctx.db.patch(ownership._id, {
+              state: "failed",
+              updatedAt: 50,
+            });
+          });
+          return jsonResponse(`{
+            "class": "s16",
+            "createTime": 1710000000100,
+            "deploymentType": "prod",
+            "deploymentUrl": "https://alpha-prod.convex.cloud",
+            "id": 2001,
+            "isDefault": true,
+            "kind": "cloud",
+            "name": "alpha-prod",
+            "projectId": 1001,
+            "reference": "prod",
+            "region": "aws-us-east-1"
+          }`);
+        }
+
+        throw new Error(`Unexpected Convex request: ${input.url}`);
+      }),
+    );
+
+    await expect(
+      t.action(internal.vault.convex.ensureConvexDeploymentConnection, {
+        ...ids,
+        target: {
+          mode: "connect_existing_deployment",
+          projectId: "1001",
+          deploymentName: "alpha-prod",
+        },
+      }),
+    ).resolves.toBeNull();
+
+    const result = await t.run(async (ctx) => {
+      const [run, vault] = await Promise.all([ctx.db.get(ids.runId), ctx.db.get(ids.vaultId)]);
+      const infrastructure = await ctx.db
+        .query("vaultInfrastructure")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .first();
+      return { infrastructure, run, vault };
+    });
+
+    expect(result.run).toMatchObject({
+      state: "canceled",
+      currentStep: "claim_infra",
+    });
+    expect(result.vault).toMatchObject({
+      convex: { state: "provisioning" },
+    });
+    expect(result.infrastructure).toBeNull();
+  });
+
+  it("reuses a previously created Convex project when retrying project creation", async () => {
+    const requests: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: Request) => {
+        requests.push(input.url);
+
+        if (input.url.includes("/projects/1001/deployment")) {
+          return jsonResponse(`{
+            "class": "s16",
+            "createTime": 1710000000100,
+            "deploymentType": "prod",
+            "deploymentUrl": "https://alpha-prod.convex.cloud",
+            "id": 2001,
+            "isDefault": true,
+            "kind": "cloud",
+            "name": "alpha-prod",
+            "projectId": 1001,
+            "reference": "prod",
+            "region": "aws-us-east-1"
+          }`);
+        }
+
+        if (input.url.includes("/projects/1001")) {
+          return jsonResponse(`{
+            "createTime": 1710000000000,
+            "id": 1001,
+            "name": "alpha-project",
+            "slug": "alpha-project",
+            "teamId": 1000,
+            "teamSlug": "noter-team"
+          }`);
+        }
+
+        throw new Error(`Unexpected Convex request: ${input.url}`);
+      }),
+    );
+    const { ids, t } = await createConvexConnectedVault();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("appProvisioningRuns", {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        repositoryFullName: "ada/demo",
+        trigger: "connect_convex_deployment",
+        createdConvexProject: {
+          projectName: "alpha-project",
+          projectId: "1001",
+          projectSlug: "alpha-project",
+        },
+        state: "failed",
+        currentStep: "ensure_convex",
+        lastError: "Convex attach failed.",
+        createdAt: 20,
+        updatedAt: 25,
+        completedAt: 25,
+      });
+    });
+    await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, ids);
+
+    await expect(
+      t.action(internal.vault.convex.ensureConvexDeploymentConnection, {
+        ...ids,
+        target: {
+          mode: "create_project",
+          projectName: "alpha-project",
+        },
+      }),
+    ).resolves.toBeNull();
+
+    const vault = await t.run(async (ctx) => await ctx.db.get(ids.vaultId));
+    expect(vault).toMatchObject({
+      convex: {
+        state: "connected",
+        projectId: "1001",
+        projectSlug: "alpha-project",
+        deploymentName: "alpha-prod",
+        origin: "provisioned",
+      },
+    });
+    expect(requests.some((url) => url.includes("/create_project"))).toBe(false);
+    expect(requests.some((url) => url.includes("/list_projects"))).toBe(false);
+  });
 });

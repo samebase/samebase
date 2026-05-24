@@ -242,6 +242,16 @@ async function createConvexProductionDeployment(args: {
   });
 }
 
+async function readOrCreateDefaultConvexProductionDeployment(args: {
+  token: string;
+  projectId: string;
+}): Promise<ConvexCloudDeployment> {
+  return (
+    (await readDefaultConvexProductionDeployment(args)) ??
+    (await createConvexProductionDeployment(args))
+  );
+}
+
 function toConvexInfrastructureRecord(args: {
   project: PlatformProjectDetails;
   deployment: ConvexCloudDeployment;
@@ -319,13 +329,35 @@ async function resolveExistingConvexDeployment(args: {
 }
 
 async function createConvexProjectDeployment(args: {
-  ctx: Pick<ActionCtx, "runMutation">;
+  ctx: Pick<ActionCtx, "runMutation" | "runQuery">;
   connection: ConvexActionConnection;
   projectName: string;
   runId: Id<"appProvisioningRuns">;
   userId: Id<"users">;
   vaultId: Id<"vaults">;
 }): Promise<ConvexInfrastructureRecord> {
+  const reusableProject = await args.ctx.runQuery(
+    internal.vault.convexMutations.readReusableCreatedProjectForRun,
+    {
+      vaultId: args.vaultId,
+      runId: args.runId,
+      userId: args.userId,
+      projectName: args.projectName,
+    },
+  );
+  if (reusableProject) {
+    const project = await readConvexProjectDetails({
+      token: args.connection.token,
+      teamId: args.connection.teamId,
+      projectId: reusableProject.projectId,
+    });
+    const deployment = await readOrCreateDefaultConvexProductionDeployment({
+      token: args.connection.token,
+      projectId: project.id,
+    });
+    return toConvexInfrastructureRecord({ project, deployment });
+  }
+
   const projects = await listConvexProjects({
     token: args.connection.token,
     teamId: args.connection.teamId,
@@ -365,15 +397,10 @@ async function createConvexProjectDeployment(args: {
     teamId: args.connection.teamId,
     projectId: createResponse.id,
   });
-  const deployment =
-    (await readDefaultConvexProductionDeployment({
-      token: args.connection.token,
-      projectId: project.id,
-    })) ??
-    (await createConvexProductionDeployment({
-      token: args.connection.token,
-      projectId: project.id,
-    }));
+  const deployment = await readOrCreateDefaultConvexProductionDeployment({
+    token: args.connection.token,
+    projectId: project.id,
+  });
 
   return toConvexInfrastructureRecord({ project, deployment });
 }
@@ -427,7 +454,7 @@ async function recordConvexDeployment(
     convex: ConvexInfrastructureRecord;
     origin: VaultConvexOrigin;
   },
-): Promise<void> {
+): Promise<boolean> {
   await ctx.runMutation(internal.providerConnections.setConvexTeamSlug, {
     userId: args.userId,
     teamId: args.teamId,
@@ -443,9 +470,7 @@ async function recordConvexDeployment(
       origin: args.origin,
     },
   );
-  if (!attached) {
-    throw new Error("Convex deployment connection did not attach a deployment.");
-  }
+  return attached;
 }
 
 export const listProductionDeployments = action({
@@ -556,7 +581,7 @@ export const ensureConvexDeploymentConnection = internalAction({
           projectId: args.target.projectId,
           deploymentName: args.target.deploymentName,
         });
-        await recordConvexDeployment(ctx, {
+        const attached = await recordConvexDeployment(ctx, {
           vaultId: args.vaultId,
           runId: args.runId,
           userId: args.userId,
@@ -564,6 +589,9 @@ export const ensureConvexDeploymentConnection = internalAction({
           convex,
           origin: "selected_existing",
         });
+        if (!attached) {
+          return null;
+        }
         return null;
       }
       case "create_project": {
@@ -585,7 +613,7 @@ export const ensureConvexDeploymentConnection = internalAction({
         if (!(await isConvexDeploymentConnectionRunActive(ctx, args))) {
           return null;
         }
-        await recordConvexDeployment(ctx, {
+        const attached = await recordConvexDeployment(ctx, {
           vaultId: args.vaultId,
           runId: args.runId,
           userId: args.userId,
@@ -593,6 +621,9 @@ export const ensureConvexDeploymentConnection = internalAction({
           convex,
           origin: "provisioned",
         });
+        if (!attached) {
+          return null;
+        }
         return null;
       }
     }

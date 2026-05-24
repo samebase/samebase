@@ -280,6 +280,17 @@ function buildConvexDeploymentOptionKey(deployment: ConvexDeploymentOption): str
   return `${deployment.projectId}/${deployment.deploymentName}`;
 }
 
+function compareConvexDeploymentOption(
+  left: ConvexDeploymentOption,
+  right: ConvexDeploymentOption,
+): number {
+  return (
+    left.projectSlug.localeCompare(right.projectSlug) ||
+    left.deploymentName.localeCompare(right.deploymentName) ||
+    left.projectId.localeCompare(right.projectId)
+  );
+}
+
 export type VaultDeleteOptionKey =
   | "removeCodespaces"
   | "removeConvexProvision"
@@ -596,13 +607,14 @@ function useVaultDashboardLocalStore() {
       }));
     },
     setConvexConnectDialogDeployments: (deployments: ConvexDeploymentOption[]) => {
+      const sortedDeployments = [...deployments].sort(compareConvexDeploymentOption);
       setState((state) => ({
         ...state,
         convexConnectDialog: {
           ...state.convexConnectDialog,
-          deployments,
-          selectedDeploymentKey: deployments[0]
-            ? buildConvexDeploymentOptionKey(deployments[0])
+          deployments: sortedDeployments,
+          selectedDeploymentKey: sortedDeployments[0]
+            ? buildConvexDeploymentOptionKey(sortedDeployments[0])
             : "",
         },
       }));
@@ -1171,7 +1183,8 @@ export function VaultDashboardConvexDialog({
   selectedDeploymentKey: string;
   vault: VaultConvexDialogTarget | null;
 }) {
-  const selectedDeployment = deployments.find(
+  const sortedDeployments = [...deployments].sort(compareConvexDeploymentOption);
+  const selectedDeployment = sortedDeployments.find(
     (deployment) => buildConvexDeploymentOptionKey(deployment) === selectedDeploymentKey,
   );
   const submitDisabled =
@@ -1214,7 +1227,7 @@ export function VaultDashboardConvexDialog({
                 modal={false}
                 value={selectedDeploymentKey}
                 onValueChange={onDeploymentChange}
-                disabled={isLoading || deployments.length === 0}
+                disabled={isLoading || sortedDeployments.length === 0}
               >
                 <SelectTrigger aria-label="Convex deployment" className="w-full">
                   <SelectValue
@@ -1226,7 +1239,7 @@ export function VaultDashboardConvexDialog({
                   </SelectValue>
                 </SelectTrigger>
                 <AppSelectContent>
-                  {deployments.map((deployment) => {
+                  {sortedDeployments.map((deployment) => {
                     const key = buildConvexDeploymentOptionKey(deployment);
                     return (
                       <AppSelectItem key={key} value={key}>

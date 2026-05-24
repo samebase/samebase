@@ -232,12 +232,18 @@ export const deleteConvex = internalAction({
         }
         case "delete_projects": {
           for (const projectId of plan.convex.projectIds) {
-            await requestConvexManagementApi(
-              convexConnection.auth.credential,
-              "POST",
-              "/projects/{project_id}/delete",
-              { params: { path: { project_id: projectId } } },
-            );
+            try {
+              await requestConvexManagementApi(
+                convexConnection.auth.credential,
+                "POST",
+                "/projects/{project_id}/delete",
+                { params: { path: { project_id: projectId } } },
+              );
+            } catch (error) {
+              if (!isConvexManagementNotFoundError(error)) {
+                throw error;
+              }
+            }
           }
           break;
         }
