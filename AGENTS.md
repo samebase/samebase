@@ -38,6 +38,12 @@
 - Keep the main thread on the critical path. Split independent questions into narrowly scoped
   agents, ask for concise findings with file/command evidence, and merge only the conclusions needed
   for the next decision.
+- Delegate routine workflow bureaucracy such as PR creation/update, CI watching, review-thread
+  triage, command-table workflows, or release checklist verification to focused sub-agents with
+  explicit pass/fail criteria and short handoffs.
+- Keep the main thread as supervisor for delegated process work. Intervene only when the sub-agent
+  reports a blocker, policy ambiguity, approval boundary, or decision the supervisor must make;
+  otherwise accept the delegated result and continue.
 - Choose the model and isolation level by task. Fast models without a worktree are good for bounded
   searches or summaries; xhigh agents with their own worktrees are appropriate for hard design,
   verification, or implementation probes that need deep reasoning or editable experiments.
