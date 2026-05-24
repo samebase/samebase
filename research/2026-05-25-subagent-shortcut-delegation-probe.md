@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Research note; decision input, not accepted baseline guidance
+- Status: Research note and PR #845 implementation rationale
 - Date: 2026-05-25
 - Related:
   - `AGENTS.md`
@@ -25,9 +25,10 @@ The practical behavior we want:
 
 ## Purpose And Scope
 
-This note records a small corrected-thread probe, not a shipped product or workflow change. Its
-scope is agent behavior around delegation, context hygiene, and shortcut routing. It does not
-authorize cleanup of any resource and does not prove provider-preview cleanup correctness.
+This note records a small corrected-thread probe and the rationale for promoting one narrow
+instruction in PR #845. Its scope is agent behavior around delegation, context hygiene, and shortcut
+routing. It does not authorize cleanup of any resource and does not prove provider-preview cleanup
+correctness.
 
 The probe is useful because it exposed two different behaviors that can look similar in a
 transcript:
@@ -164,6 +165,6 @@ Before broadening the rule further, run at least two more terse-command probes:
 
 ## Current Decision State
 
-This file supports a decision; it does not itself make the rule accepted. The narrowest live change
-would be one `AGENTS.md` bullet plus an explanatory `docs/agent-workflows.md` note, using the
-candidate wording above.
+PR #845 promotes the narrowest live change: one always-loaded `AGENTS.md` bullet plus an explanatory
+`docs/agent-workflows.md` note, using the candidate wording above. The broader options remain
+research-backed follow-ups rather than accepted baseline guidance.
