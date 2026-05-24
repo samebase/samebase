@@ -6,7 +6,7 @@ import {
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { cn } from "@/lib/utils";
 import { Clock, Loader2, Plus, RotateCw, XCircle, type LucideIcon } from "lucide-react";
-import { type ComponentType } from "react";
+import { type ComponentType, type MouseEvent } from "react";
 
 type VaultResourceRailActionKind = "add" | "retry";
 
@@ -161,6 +161,31 @@ function VaultResourceRailActions({
   actions: VaultResourceRailActionList;
   provider: VaultResourceRailProvider;
 }) {
+  function handleActionLinkClick(
+    event: MouseEvent<HTMLAnchorElement>,
+    action: VaultResourceRailAction,
+    isDisabled: boolean,
+  ) {
+    if (isDisabled) {
+      event.preventDefault();
+      return;
+    }
+    if (
+      !action.onClick ||
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.shiftKey
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    action.onClick();
+  }
+
   return (
     <div className="flex min-w-0 flex-wrap gap-1">
       {actions.map((action) => {
@@ -178,13 +203,7 @@ function VaultResourceRailActions({
               aria-disabled={isDisabled ? true : undefined}
               aria-label={actionLabel}
               tabIndex={isDisabled ? -1 : undefined}
-              onClick={
-                isDisabled
-                  ? (event) => {
-                      event.preventDefault();
-                    }
-                  : undefined
-              }
+              onClick={(event) => handleActionLinkClick(event, action, isDisabled)}
               className={cn(
                 RESOURCE_ACTION_LINK_CLASS_NAME,
                 isDisabled && "pointer-events-none opacity-50",

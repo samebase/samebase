@@ -2578,6 +2578,24 @@ function resolveVaultDashboardRepositoryFullNameForHash({
   return undefined;
 }
 
+function applyVaultDashboardProviderAddSearch({
+  currentSearch,
+  provider,
+}: {
+  currentSearch: RootRouteSearch;
+  provider: "cloudflare" | "convex";
+}): RootRouteSearch {
+  return provider === "convex"
+    ? applySearchPatch(currentSearch, {
+        "add-convex": true,
+        "add-cloudflare": null,
+      })
+    : applySearchPatch(currentSearch, {
+        "add-cloudflare": true,
+        "add-convex": null,
+      });
+}
+
 function buildVaultDashboardProviderAddHref({
   provider,
   repositoryHashId,
@@ -2587,20 +2605,12 @@ function buildVaultDashboardProviderAddHref({
   repositoryHashId: string;
   rootRouteSearch: RootRouteSearch;
 }): string {
-  const search =
-    provider === "convex"
-      ? applySearchPatch(rootRouteSearch, {
-          "add-convex": true,
-          "add-cloudflare": null,
-        })
-      : applySearchPatch(rootRouteSearch, {
-          "add-cloudflare": true,
-          "add-convex": null,
-        });
-
   return buildPathWithTanStackSearch({
     pathname: "/",
-    search,
+    search: applyVaultDashboardProviderAddSearch({
+      currentSearch: rootRouteSearch,
+      provider,
+    }),
     hash: repositoryHashId,
   });
 }
@@ -2698,6 +2708,7 @@ function VaultDashboardBody({
   onRetryVaultDeletion,
   onSaveVaultBranchFilters,
 }: VaultDashboardBodyProps) {
+  const navigate = useNavigate();
   const [repositoryLocationHash, setRepositoryLocationHash] = useState(() =>
     typeof window === "undefined" ? "" : window.location.hash,
   );
@@ -2721,6 +2732,27 @@ function VaultDashboardBody({
     // navigation; updating repositoryLocationHash here would feed scrollspy
     // changes back into the "scroll to hash" path.
   }, []);
+  const openProviderAddDialog = useCallback(
+    ({
+      provider,
+      repositoryHashId,
+    }: {
+      provider: "cloudflare" | "convex";
+      repositoryHashId: string;
+    }) => {
+      void navigate({
+        to: "/",
+        hash: repositoryHashId,
+        search: (currentSearch) =>
+          applyVaultDashboardProviderAddSearch({
+            currentSearch,
+            provider,
+          }),
+        state: true,
+      });
+    },
+    [navigate],
+  );
 
   useEffect(() => {
     const syncRepositoryLocationHash = () => {
@@ -2928,11 +2960,17 @@ function VaultDashboardBody({
             repositoryHashId,
             rootRouteSearch,
           }),
+          addCloudflareWorkerOnClick: () => {
+            openProviderAddDialog({ provider: "cloudflare", repositoryHashId });
+          },
           addConvexHref: buildVaultDashboardProviderAddHref({
             provider: "convex",
             repositoryHashId,
             rootRouteSearch,
           }),
+          addConvexOnClick: () => {
+            openProviderAddDialog({ provider: "convex", repositoryHashId });
+          },
           githubRepositoryUrl,
           vault,
         });

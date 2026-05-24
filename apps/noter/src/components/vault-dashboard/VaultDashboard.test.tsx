@@ -556,9 +556,13 @@ describe("buildVaultDashboardResourceRailState", () => {
   });
 
   it("shows missing provider actions after setup is idle", () => {
+    const addCloudflareWorker = vi.fn();
+    const addConvex = vi.fn();
     const state = buildVaultDashboardResourceRailState({
       addCloudflareWorkerHref: "/?add-cloudflare#demo",
+      addCloudflareWorkerOnClick: addCloudflareWorker,
       addConvexHref: "/?add-convex#demo",
+      addConvexOnClick: addConvex,
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({}),
     });
@@ -581,6 +585,12 @@ describe("buildVaultDashboardResourceRailState", () => {
       throw new Error("Expected Convex action row.");
     }
     expect(convexRow.actions).toHaveLength(1);
+    expect(convexRow.actions[0].onClick).toBe(addConvex);
+    const cloudflareRow = state.rows[2];
+    if (cloudflareRow.status !== "action_required") {
+      throw new Error("Expected Cloudflare action row.");
+    }
+    expect(cloudflareRow.actions[0].onClick).toBe(addCloudflareWorker);
   });
 
   it("keeps Convex preview progress on the Convex row", () => {

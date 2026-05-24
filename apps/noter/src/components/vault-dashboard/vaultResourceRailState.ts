@@ -91,12 +91,16 @@ function resolveCloudflareWorkersSubdomain({
 
 export function buildVaultDashboardResourceRailState({
   addCloudflareWorkerHref,
+  addCloudflareWorkerOnClick,
   addConvexHref,
+  addConvexOnClick,
   githubRepositoryUrl,
   vault,
 }: {
   addCloudflareWorkerHref?: string;
+  addCloudflareWorkerOnClick?: () => void;
   addConvexHref?: string;
+  addConvexOnClick?: () => void;
   githubRepositoryUrl: string;
   vault: VaultDashboardVault;
 }): VaultResourceRailState {
@@ -169,6 +173,7 @@ export function buildVaultDashboardResourceRailState({
           label: "?add-convex",
           disabled: !addConvexHref,
           href: addConvexHref,
+          onClick: addConvexOnClick,
         },
       ],
     };
@@ -207,6 +212,7 @@ export function buildVaultDashboardResourceRailState({
           label: "?add-convex",
           disabled: !addConvexHref,
           href: addConvexHref,
+          onClick: addConvexOnClick,
         },
       ],
     };
@@ -241,6 +247,7 @@ export function buildVaultDashboardResourceRailState({
           label: "?add-cloudflare",
           disabled: !addCloudflareWorkerHref,
           href: addCloudflareWorkerHref,
+          onClick: addCloudflareWorkerOnClick,
         },
       ],
     };
@@ -278,6 +285,7 @@ export function buildVaultDashboardResourceRailState({
           label: "?add-cloudflare",
           disabled: !addCloudflareWorkerHref,
           href: addCloudflareWorkerHref,
+          onClick: addCloudflareWorkerOnClick,
         },
       ],
     };
