@@ -54,8 +54,8 @@ export function LogoTransitionTransformsLabPage() {
   return (
     <Layout>
       <PublicLayoutShell>
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-4 text-black sm:px-6">
-          <div className="flex flex-wrap items-center gap-2 border border-black/10 bg-white/88 p-2 backdrop-blur-sm">
+        <div className="mx-auto grid max-w-7xl gap-6 p-4 text-black sm:px-6">
+          <div className="flex flex-wrap items-center gap-2 border border-black/10 bg-white p-2">
             <Button asChild size="sm" variant="outline" className="rounded-none">
               <Link to="/logo">3D</Link>
             </Button>
@@ -80,7 +80,7 @@ export function LogoTransitionTransformsLabPage() {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
-            <div className="grid content-start gap-4 border border-black/10 bg-white/88 p-4">
+            <div className="grid content-start gap-4 border border-black/10 bg-white p-4">
               <div>
                 <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                   Setup
@@ -236,7 +236,7 @@ export function LogoTransitionTransformsLabPage() {
             </div>
 
             <div className="grid gap-4">
-              <div className="grid gap-3 border border-black/10 bg-white/88 p-4">
+              <div className="grid gap-3 border border-black/10 bg-white p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
@@ -253,13 +253,13 @@ export function LogoTransitionTransformsLabPage() {
                 </div>
                 <div className="flex min-h-[38rem] items-center justify-center border border-black/10 bg-[#fcfbf7] p-4">
                   <div
-                    className="block h-auto w-full max-w-[42rem]"
+                    className="w-full max-w-[42rem]"
                     dangerouslySetInnerHTML={{ __html: scene.svgMarkup }}
                   />
                 </div>
               </div>
 
-              <div className="grid gap-3 border border-black/10 bg-white/88 p-4">
+              <div className="grid gap-3 border border-black/10 bg-white p-4">
                 <div>
                   <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                     Live SVG
@@ -273,7 +273,7 @@ export function LogoTransitionTransformsLabPage() {
                   readOnly
                   spellCheck={false}
                   value={scene.svgMarkup}
-                  className="min-h-[18rem] w-full resize-y border border-black/10 bg-[#fcfbf7] p-4 font-mono text-xs leading-5 text-black outline-none"
+                  className="min-h-[18rem] w-full resize-y border border-black/10 bg-[#fcfbf7] p-4 font-mono text-xs leading-5 text-black"
                 />
               </div>
             </div>

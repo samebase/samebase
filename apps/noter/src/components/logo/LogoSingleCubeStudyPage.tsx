@@ -116,8 +116,8 @@ export function LogoSingleCubeStudyPage({ routeSearch }: { routeSearch: LogoRout
   return (
     <Layout>
       <PublicLayoutShell>
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-4 text-black sm:px-6">
-          <div className="flex flex-wrap items-center gap-2 border border-black/10 bg-white/88 p-2 backdrop-blur-sm">
+        <div className="mx-auto grid max-w-7xl gap-6 p-4 text-black sm:px-6">
+          <div className="flex flex-wrap items-center gap-2 border border-black/10 bg-white p-2">
             <Button asChild size="sm" variant="outline" className="rounded-none">
               <Link search={routeSearch} to="/logo">
                 3D
@@ -134,7 +134,7 @@ export function LogoSingleCubeStudyPage({ routeSearch }: { routeSearch: LogoRout
           </div>
 
           <div className="grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
-            <div className="grid content-start gap-4 border border-black/10 bg-white/88 p-4">
+            <div className="grid content-start gap-4 border border-black/10 bg-white p-4">
               <div>
                 <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                   Angle Study
@@ -187,7 +187,7 @@ export function LogoSingleCubeStudyPage({ routeSearch }: { routeSearch: LogoRout
                 <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                   Overlays
                 </div>
-                <div className="grid grid-cols-1 gap-2">
+                <div className="grid gap-2">
                   <Button
                     type="button"
                     size="sm"
@@ -231,7 +231,7 @@ export function LogoSingleCubeStudyPage({ routeSearch }: { routeSearch: LogoRout
             </div>
 
             <div className="grid gap-6">
-              <div className="grid gap-3 border border-black/10 bg-white/88 p-3">
+              <div className="grid gap-3 border border-black/10 bg-white p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
@@ -243,7 +243,7 @@ export function LogoSingleCubeStudyPage({ routeSearch }: { routeSearch: LogoRout
                   </div>
                   <div className="font-mono text-[11px] text-black/45">45° = exact 2:1</div>
                 </div>
-                <div className="flex min-h-[40rem] items-center justify-center border border-black/10 bg-[#fcfbf7] p-0">
+                <div className="flex min-h-[40rem] items-center justify-center border border-black/10 bg-[#fcfbf7]">
                   <CubeStudyCanvas
                     angleDegrees={angleDegrees}
                     className="h-[40rem] w-[40rem] max-w-full"
@@ -254,7 +254,7 @@ export function LogoSingleCubeStudyPage({ routeSearch }: { routeSearch: LogoRout
                 </div>
               </div>
 
-              <div className="grid gap-3 border border-black/10 bg-white/88 p-3">
+              <div className="grid gap-3 border border-black/10 bg-white p-3">
                 <div>
                   <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                     Snap Comparison
@@ -278,7 +278,7 @@ export function LogoSingleCubeStudyPage({ routeSearch }: { routeSearch: LogoRout
                         <span className="text-sm font-medium text-black/80">{sampleAngle}°</span>
                         <span className="font-mono text-[10px] text-black/45">yaw</span>
                       </div>
-                      <div className="flex items-center justify-center border border-black/10 bg-[#fcfbf7] p-0">
+                      <div className="flex items-center justify-center border border-black/10 bg-[#fcfbf7]">
                         <CubeStudyCanvas
                           angleDegrees={sampleAngle}
                           className="h-44 w-44"

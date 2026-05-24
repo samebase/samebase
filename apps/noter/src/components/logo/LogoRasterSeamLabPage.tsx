@@ -231,7 +231,7 @@ function SeamLabCanvas({
           {(result.meanSquaredError * 100).toFixed(1)}%
         </span>
       </div>
-      <div className="flex items-center justify-center border border-black/10 bg-white p-0">
+      <div className="flex items-center justify-center border border-black/10 bg-white">
         <canvas
           ref={canvasRef}
           className={ZOOM_CLASS_NAMES[zoom]}
@@ -334,8 +334,8 @@ export function LogoRasterSeamLabPage({ routeSearch }: { routeSearch: LogoRouteS
   return (
     <Layout>
       <PublicLayoutShell>
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-4 text-black sm:px-6">
-          <div className="flex flex-wrap items-center gap-2 border border-black/10 bg-white/88 p-2 backdrop-blur-sm">
+        <div className="mx-auto grid max-w-7xl gap-6 p-4 text-black sm:px-6">
+          <div className="flex flex-wrap items-center gap-2 border border-black/10 bg-white p-2">
             <Button asChild size="sm" variant="outline" className="rounded-none">
               <Link search={routeSearch} to="/logo/raster">
                 Raster
@@ -352,7 +352,7 @@ export function LogoRasterSeamLabPage({ routeSearch }: { routeSearch: LogoRouteS
           </div>
 
           <div className="grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
-            <div className="grid content-start gap-4 border border-black/10 bg-white/88 p-4">
+            <div className="grid content-start gap-4 border border-black/10 bg-white p-4">
               <div>
                 <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                   {baseGridSize}x{baseGridSize} Image Tile
@@ -522,7 +522,7 @@ export function LogoRasterSeamLabPage({ routeSearch }: { routeSearch: LogoRouteS
 
             <div className="grid gap-6">
               <div
-                className="grid gap-3 border border-black/10 bg-white/88 p-3"
+                className="grid gap-3 border border-black/10 bg-white p-3"
                 data-testid="logo-raster-seam-lab-current-case"
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -562,7 +562,7 @@ export function LogoRasterSeamLabPage({ routeSearch }: { routeSearch: LogoRouteS
               </div>
 
               <div
-                className="grid gap-3 border border-black/10 bg-white/88 p-3"
+                className="grid gap-3 border border-black/10 bg-white p-3"
                 data-testid="logo-raster-seam-lab-merge-sweep"
               >
                 <div>
@@ -590,7 +590,7 @@ export function LogoRasterSeamLabPage({ routeSearch }: { routeSearch: LogoRouteS
                 </div>
               </div>
 
-              <div className="grid gap-3 border border-black/10 bg-white/88 p-3">
+              <div className="grid gap-3 border border-black/10 bg-white p-3">
                 <div>
                   <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                     Angle Sweep
@@ -621,7 +621,7 @@ export function LogoRasterSeamLabPage({ routeSearch }: { routeSearch: LogoRouteS
                 </div>
               </div>
 
-              <div className="grid gap-3 border border-black/10 bg-white/88 p-3">
+              <div className="grid gap-3 border border-black/10 bg-white p-3">
                 <div>
                   <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                     Source Sweep
