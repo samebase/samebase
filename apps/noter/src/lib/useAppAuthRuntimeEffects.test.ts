@@ -170,7 +170,7 @@ describe("useAppAuthRuntimeEffects", () => {
       replace: true,
       search: expect.any(Function),
       state: true,
-      to: "/dashboard",
+      to: "/home",
     });
     const navigateOptions = navigateMock.mock.calls[0]?.[0];
     if (!navigateOptions || typeof navigateOptions.search !== "function") {

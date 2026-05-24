@@ -181,7 +181,7 @@ test.describe("vault dashboard hash scrolling", () => {
   }) => {
     test.slow();
 
-    await page.goto(`/dashboard#${TARGET_REPOSITORY_HASH}`, {
+    await page.goto(`/home#${TARGET_REPOSITORY_HASH}`, {
       waitUntil: "domcontentloaded",
     });
     await signInWithAutofillWhenPresent(page);
@@ -256,7 +256,7 @@ test.describe("vault dashboard hash scrolling", () => {
   test("uses the active vault hash as the delete target", async ({ page }) => {
     test.slow();
 
-    await page.goto(`/dashboard#${TARGET_REPOSITORY_HASH}`, {
+    await page.goto(`/home#${TARGET_REPOSITORY_HASH}`, {
       waitUntil: "domcontentloaded",
     });
     await signInWithAutofillWhenPresent(page);
@@ -271,10 +271,10 @@ test.describe("vault dashboard hash scrolling", () => {
       name: `Remove vault ${TARGET_REPOSITORY_FULL_NAME}`,
     });
 
-    await expect(deleteLink).toHaveAttribute("href", `/dashboard?delete#${TARGET_REPOSITORY_HASH}`);
+    await expect(deleteLink).toHaveAttribute("href", `/home?delete#${TARGET_REPOSITORY_HASH}`);
 
     await deleteLink.click();
-    await expect(page).toHaveURL(new RegExp(`/dashboard\\?delete#${TARGET_REPOSITORY_HASH}$`));
+    await expect(page).toHaveURL(new RegExp(`/home\\?delete#${TARGET_REPOSITORY_HASH}$`));
     await expect(
       page.getByRole("heading", {
         name: `Remove Vault ${TARGET_REPOSITORY_FULL_NAME}`,
@@ -285,7 +285,7 @@ test.describe("vault dashboard hash scrolling", () => {
   test("clears delete mode when the current hash does not target a vault", async ({ page }) => {
     test.slow();
 
-    await page.goto("/dashboard?delete", { waitUntil: "domcontentloaded" });
+    await page.goto("/home?delete", { waitUntil: "domcontentloaded" });
     await signInWithAutofillWhenPresent(page);
 
     const targetVault = vaultHashTarget(page, TARGET_REPOSITORY_HASH);

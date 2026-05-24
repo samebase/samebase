@@ -16,7 +16,7 @@ import { Route as pitchRouteImport } from "./routes/pitch";
 import { Route as machinesRouteImport } from "./routes/machines";
 import { Route as logoRouteImport } from "./routes/logo";
 import { Route as landingPreviewRouteImport } from "./routes/landing-preview";
-import { Route as dashboardRouteImport } from "./routes/dashboard";
+import { Route as dashboardHomeRouteImport } from "./routes/dashboard-home";
 import { Route as addRepositoryRouteImport } from "./routes/add-repository";
 import { Route as publicLayoutRouteImport } from "./routes/public-layout";
 import { Route as vaultFileRouteImport } from "./routes/vault-file";
@@ -32,7 +32,6 @@ import { Route as logoIsoRouteImport } from "./routes/logo-iso";
 import { Route as termsRouteImport } from "./routes/terms";
 import { Route as privacyRouteImport } from "./routes/privacy";
 import { Route as localStorageRouteImport } from "./routes/localStorage";
-import { Route as homeRouteImport } from "./routes/home";
 import { Route as indexRouteImport } from "./routes/index";
 import { Route as codexThreadBrowserResearchRouteImport } from "./routes/codex-thread-browser-research";
 import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobile";
@@ -75,9 +74,9 @@ const landingPreviewRoute = landingPreviewRouteImport.update({
   path: "/landing-preview",
   getParentRoute: () => rootRouteImport,
 } as any);
-const dashboardRoute = dashboardRouteImport.update({
-  id: "/dashboard",
-  path: "/dashboard",
+const dashboardHomeRoute = dashboardHomeRouteImport.update({
+  id: "/home",
+  path: "/home",
   getParentRoute: () => rootRouteImport,
 } as any);
 const addRepositoryRoute = addRepositoryRouteImport.update({
@@ -154,11 +153,6 @@ const localStorageRoute = localStorageRouteImport.update({
   path: "/localStorage",
   getParentRoute: () => publicLayoutRoute,
 } as any);
-const homeRoute = homeRouteImport.update({
-  id: "/home",
-  path: "/home",
-  getParentRoute: () => publicLayoutRoute,
-} as any);
 const indexRoute = indexRouteImport.update({
   id: "/",
   path: "/",
@@ -195,7 +189,7 @@ const codespaceChatRoute = codespaceChatRouteImport.update({
 export interface FileRoutesByFullPath {
   "/": typeof indexRoute;
   "/add": typeof addRepositoryRoute;
-  "/dashboard": typeof dashboardRoute;
+  "/home": typeof dashboardHomeRoute;
   "/landing-preview": typeof landingPreviewRoute;
   "/logo": typeof logoRoute;
   "/machines": typeof machinesRoute;
@@ -203,7 +197,6 @@ export interface FileRoutesByFullPath {
   "/pricing": typeof pricingRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
-  "/home": typeof homeRoute;
   "/localStorage": typeof localStorageRoute;
   "/privacy": typeof privacyRoute;
   "/terms": typeof termsRoute;
@@ -225,7 +218,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   "/add": typeof addRepositoryRoute;
-  "/dashboard": typeof dashboardRoute;
+  "/home": typeof dashboardHomeRoute;
   "/landing-preview": typeof landingPreviewRoute;
   "/logo": typeof logoRoute;
   "/machines": typeof machinesRoute;
@@ -234,7 +227,6 @@ export interface FileRoutesByTo {
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/": typeof indexRoute;
-  "/home": typeof homeRoute;
   "/localStorage": typeof localStorageRoute;
   "/privacy": typeof privacyRoute;
   "/terms": typeof termsRoute;
@@ -258,7 +250,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/_public": typeof publicLayoutRouteWithChildren;
   "/add": typeof addRepositoryRoute;
-  "/dashboard": typeof dashboardRoute;
+  "/home": typeof dashboardHomeRoute;
   "/landing-preview": typeof landingPreviewRoute;
   "/logo": typeof logoRoute;
   "/machines": typeof machinesRoute;
@@ -267,7 +259,6 @@ export interface FileRoutesById {
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/_public/": typeof indexRoute;
-  "/_public/home": typeof homeRoute;
   "/_public/localStorage": typeof localStorageRoute;
   "/_public/privacy": typeof privacyRoute;
   "/_public/terms": typeof termsRoute;
@@ -292,7 +283,7 @@ export interface FileRouteTypes {
   fullPaths:
     | "/"
     | "/add"
-    | "/dashboard"
+    | "/home"
     | "/landing-preview"
     | "/logo"
     | "/machines"
@@ -300,7 +291,6 @@ export interface FileRouteTypes {
     | "/pricing"
     | "/test"
     | "/visual-fixture"
-    | "/home"
     | "/localStorage"
     | "/privacy"
     | "/terms"
@@ -322,7 +312,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/add"
-    | "/dashboard"
+    | "/home"
     | "/landing-preview"
     | "/logo"
     | "/machines"
@@ -331,7 +321,6 @@ export interface FileRouteTypes {
     | "/test"
     | "/visual-fixture"
     | "/"
-    | "/home"
     | "/localStorage"
     | "/privacy"
     | "/terms"
@@ -354,7 +343,7 @@ export interface FileRouteTypes {
     | "__root__"
     | "/_public"
     | "/add"
-    | "/dashboard"
+    | "/home"
     | "/landing-preview"
     | "/logo"
     | "/machines"
@@ -363,7 +352,6 @@ export interface FileRouteTypes {
     | "/test"
     | "/visual-fixture"
     | "/_public/"
-    | "/_public/home"
     | "/_public/localStorage"
     | "/_public/privacy"
     | "/_public/terms"
@@ -387,7 +375,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   publicLayoutRoute: typeof publicLayoutRouteWithChildren;
   addRepositoryRoute: typeof addRepositoryRoute;
-  dashboardRoute: typeof dashboardRoute;
+  dashboardHomeRoute: typeof dashboardHomeRoute;
   landingPreviewRoute: typeof landingPreviewRoute;
   logoRoute: typeof logoRoute;
   machinesRoute: typeof machinesRoute;
@@ -463,11 +451,11 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof landingPreviewRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/dashboard": {
-      id: "/dashboard";
-      path: "/dashboard";
-      fullPath: "/dashboard";
-      preLoaderRoute: typeof dashboardRouteImport;
+    "/home": {
+      id: "/home";
+      path: "/home";
+      fullPath: "/home";
+      preLoaderRoute: typeof dashboardHomeRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/add": {
@@ -575,13 +563,6 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof localStorageRouteImport;
       parentRoute: typeof publicLayoutRoute;
     };
-    "/_public/home": {
-      id: "/_public/home";
-      path: "/home";
-      fullPath: "/home";
-      preLoaderRoute: typeof homeRouteImport;
-      parentRoute: typeof publicLayoutRoute;
-    };
     "/_public/": {
       id: "/_public/";
       path: "/";
@@ -629,7 +610,6 @@ declare module "@tanstack/react-router" {
 
 interface publicLayoutRouteChildren {
   indexRoute: typeof indexRoute;
-  homeRoute: typeof homeRoute;
   localStorageRoute: typeof localStorageRoute;
   privacyRoute: typeof privacyRoute;
   termsRoute: typeof termsRoute;
@@ -637,7 +617,6 @@ interface publicLayoutRouteChildren {
 
 const publicLayoutRouteChildren: publicLayoutRouteChildren = {
   indexRoute: indexRoute,
-  homeRoute: homeRoute,
   localStorageRoute: localStorageRoute,
   privacyRoute: privacyRoute,
   termsRoute: termsRoute,
@@ -650,7 +629,7 @@ const publicLayoutRouteWithChildren = publicLayoutRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   publicLayoutRoute: publicLayoutRouteWithChildren,
   addRepositoryRoute: addRepositoryRoute,
-  dashboardRoute: dashboardRoute,
+  dashboardHomeRoute: dashboardHomeRoute,
   landingPreviewRoute: landingPreviewRoute,
   logoRoute: logoRoute,
   machinesRoute: machinesRoute,

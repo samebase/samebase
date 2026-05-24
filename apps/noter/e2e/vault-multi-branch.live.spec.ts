@@ -99,7 +99,7 @@ test.describe("vault multi-branch live flows", () => {
   test("dashboard branch list includes ahead/behind labels and encoded slash routes", async ({
     page,
   }) => {
-    await page.goto("/dashboard");
+    await page.goto("/home");
     await signInIfNeeded(page);
     await requireVaultOrSkip(page);
     await expect(branchLinkLocator(page, BRANCHES.main)).toBeVisible({
@@ -136,7 +136,7 @@ test.describe("vault multi-branch live flows", () => {
   test("branch edits remain isolated and branch switching stays responsive", async ({
     page,
   }, testInfo) => {
-    await page.goto("/dashboard");
+    await page.goto("/home");
     await signInIfNeeded(page);
     await requireVaultOrSkip(page);
 

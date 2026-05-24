@@ -92,14 +92,14 @@ describe("readRouteUrlEditorSuggestions", () => {
 
   it("keeps signed-in dashboard search params available for admins", () => {
     const suggestions = readRouteUrlEditorSuggestions({
-      currentHref: "/dashboard",
+      currentHref: "/home",
       draftEditedSinceFocus: true,
-      draftRouteAddress: "/dashboard?add-",
+      draftRouteAddress: "/home?add-",
       hashKeys: [],
       kind: "search",
       origin: ORIGIN,
       routesByPath,
-      selectionRouteIndex: "/dashboard?add-".length,
+      selectionRouteIndex: "/home?add-".length,
       viewer: adminViewer,
     });
 

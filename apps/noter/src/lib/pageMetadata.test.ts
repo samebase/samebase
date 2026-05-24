@@ -218,8 +218,8 @@ describe("page metadata", () => {
   });
 
   it("keeps the public root metadata separate from the dashboard app metadata", () => {
-    expect(APP_PAGE_METADATA.canonicalPath).toBe("/dashboard");
-    expect(resolveAppPageTitle("/dashboard")).toBe("Vaults | noter");
+    expect(APP_PAGE_METADATA.canonicalPath).toBe("/home");
+    expect(resolveAppPageTitle("/home")).toBe("Vaults | noter");
     expect(
       resolvePageMetadata({
         pathname: "/",

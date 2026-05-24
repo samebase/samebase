@@ -86,7 +86,7 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
   await expect(linksSidebar).toBeVisible();
   await expect(publicLinks.getByRole("link", { name: "/home", exact: true })).toHaveAttribute(
     "href",
-    "/",
+    "/home",
   );
   await expect(
     publicLinks.getByRole("link", { name: LOCAL_STORAGE_ROUTE, exact: true }),

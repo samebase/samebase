@@ -21,8 +21,8 @@ describe("queueExistingRepositoryAndNavigateToDashboard", () => {
     expect(connectRepository).toHaveBeenCalledWith({
       repositoryFullName: "noter-md/noter",
     });
-    expect(navigateByHref).toHaveBeenCalledWith("/dashboard?prod-ui", undefined);
-    expect(calls).toEqual(["connect:noter-md/noter", "navigate:/dashboard?prod-ui:push"]);
+    expect(navigateByHref).toHaveBeenCalledWith("/home?prod-ui", undefined);
+    expect(calls).toEqual(["connect:noter-md/noter", "navigate:/home?prod-ui:push"]);
   });
 
   it("replaces the direct file route with the dashboard after queueing", async () => {
@@ -40,7 +40,7 @@ describe("queueExistingRepositoryAndNavigateToDashboard", () => {
     expect(connectRepository).toHaveBeenCalledWith({
       repositoryFullName: "noter-md/noter",
     });
-    expect(navigateByHref).toHaveBeenCalledWith("/dashboard?review&mobileLineNumbers=1", {
+    expect(navigateByHref).toHaveBeenCalledWith("/home?review&mobileLineNumbers=1", {
       replace: true,
     });
   });

@@ -795,7 +795,7 @@ describe("Layout", () => {
         <AppSidebarMetaSection showLandingPreviewLink />
       </TestRouterProvider>,
     );
-    const homeHref = 'href="/"';
+    const homeHref = 'href="/home"';
     const machinesHref = 'href="/machines"';
     const machineConnectHref = 'href="/machines/connect"';
     const landingPreviewHref = `href="${LANDING_MARKDOWN_PREVIEW_ROUTE}"`;
