@@ -1,6 +1,7 @@
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { UserMenu } from "@/components/UserMenu";
 import { Button } from "@/components/ui/button";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { Link } from "@tanstack/react-router";
 
 /**
@@ -18,7 +19,7 @@ export function SidebarHomeAccountHeader({
     <SidebarAccountSection dataTestId={dataTestId}>
       <div className="flex items-center justify-between gap-2">
         <Button variant="outline" size="sm" className="h-8 px-2 md:h-6" asChild>
-          <Link to="/">Dashboard</Link>
+          <Link to={DASHBOARD_ROUTE}>Dashboard</Link>
         </Button>
         <UserMenu menuLabel={userDisplayName} />
       </div>

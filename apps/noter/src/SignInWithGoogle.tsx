@@ -6,9 +6,11 @@ import { useRouter } from "@tanstack/react-router";
 import { buildGoogleAuthPopupSearch, buildGoogleRedirectSearch } from "./lib/googleAuthRedirect";
 
 export function SignInWithGoogle({
+  authReturn,
   visible = true,
   markPublicSignupReturn = false,
 }: {
+  authReturn?: "dashboard";
   visible?: boolean;
   markPublicSignupReturn?: boolean;
 } = {}) {
@@ -18,7 +20,7 @@ export function SignInWithGoogle({
     router.buildLocation({
       hash: true,
       search: (currentSearch) =>
-        buildGoogleRedirectSearch(currentSearch, { markPublicSignupReturn }),
+        buildGoogleRedirectSearch(currentSearch, { authReturn, markPublicSignupReturn }),
       state: true,
       to: ".",
     }).href;
@@ -26,9 +28,10 @@ export function SignInWithGoogle({
     router.buildLocation({
       search: (currentSearch) =>
         buildGoogleAuthPopupSearch(currentSearch, "google", {
+          authReturn,
           markPublicSignupReturn,
         }),
-      to: "/",
+      to: authReturn === "dashboard" ? "/" : ".",
     }).href;
 
   if (!visible) {

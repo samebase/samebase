@@ -17,6 +17,7 @@ describe("readRouteUrlPathSuggestions", () => {
     const suggestions = readRouteUrlPathSuggestions(routesByPath, adminViewer, appSurface);
 
     expect(suggestions).toContain("/");
+    expect(suggestions).toContain("/dashboard");
     expect(suggestions).toContain("/logo/transition/transforms");
     expect(suggestions).toContain("/visual-fixture");
     expect(suggestions).toContain("/vault/$");
@@ -49,6 +50,7 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/logo");
     expect(suggestions).not.toContain("/add");
+    expect(suggestions).not.toContain("/dashboard");
     expect(suggestions).not.toContain("/landing-preview");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
     expect(suggestions).not.toContain("/pitch");

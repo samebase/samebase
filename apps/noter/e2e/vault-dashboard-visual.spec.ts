@@ -132,7 +132,7 @@ test("vault dashboard fixture (create control)", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
-  await expect(fixture.locator('a[href="/?new-app"]')).toHaveText("New App");
+  await expect(fixture.locator('a[href="/dashboard?new-app"]')).toHaveText("New App");
   await expect(fixture.locator('a[href="/add"]')).toContainText("Connect existing app");
   await expect(fixture).toHaveScreenshot("vault-create-control.png", {
     animations: "disabled",
@@ -562,7 +562,7 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
     name: "Remove vault noter-md/noter",
   });
   await expect(deleteLink).toBeVisible();
-  await expect(deleteLink).toHaveAttribute("href", "/?delete#noter");
+  await expect(deleteLink).toHaveAttribute("href", "/dashboard?delete#noter");
   await expect(fixture.getByRole("link", { name: "Project settings" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Cloudflare preview" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Preview deploy" })).toBeVisible();
@@ -598,7 +598,7 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
     name: "Remove vault noter-md/noter",
   });
   await expect(deleteLink).toBeVisible();
-  await expect(deleteLink).toHaveAttribute("href", "/?delete#noter");
+  await expect(deleteLink).toHaveAttribute("href", "/dashboard?delete#noter");
   await expect(fixture.getByRole("link", { name: "Project settings" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Cloudflare preview" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Preview deploy" })).toBeVisible();
@@ -861,7 +861,7 @@ test("vault dashboard fixture (mobile branch alignment)", async ({ page }) => {
     name: "Remove vault noter-md/noter",
   });
   await expect(deleteLink).toBeVisible();
-  await expect(deleteLink).toHaveAttribute("href", "/?delete#noter");
+  await expect(deleteLink).toHaveAttribute("href", "/dashboard?delete#noter");
   await expect(fixture).toHaveScreenshot("vault-branch-mobile-alignment.png", {
     animations: "disabled",
     caret: "hide",

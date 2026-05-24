@@ -500,7 +500,7 @@ describe("buildVaultDashboardResourceRailState", () => {
 
   it("lets failed manual Cloudflare setup reopen the connection dialog", () => {
     const state = buildVaultDashboardResourceRailState({
-      addCloudflareWorkerHref: "/?add-cloudflare#demo",
+      addCloudflareWorkerHref: "/dashboard?add-cloudflare#demo",
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
         providerSetup: {
@@ -528,17 +528,17 @@ describe("buildVaultDashboardResourceRailState", () => {
       kind: "add",
       label: "?add-cloudflare",
       disabled: false,
-      href: "/?add-cloudflare#demo",
+      href: "/dashboard?add-cloudflare#demo",
     });
 
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
     expect(markup).toContain("?add-cloudflare");
-    expect(markup).toContain('href="/?add-cloudflare#demo"');
+    expect(markup).toContain('href="/dashboard?add-cloudflare#demo"');
   });
 
   it("lets failed manual Convex setup reopen the deployment dialog", () => {
     const state = buildVaultDashboardResourceRailState({
-      addConvexHref: "/?add-convex#demo",
+      addConvexHref: "/dashboard?add-convex#demo",
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
         providerSetup: {
@@ -566,21 +566,21 @@ describe("buildVaultDashboardResourceRailState", () => {
       kind: "add",
       label: "?add-convex",
       disabled: false,
-      href: "/?add-convex#demo",
+      href: "/dashboard?add-convex#demo",
     });
 
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
     expect(markup).toContain("?add-convex");
-    expect(markup).toContain('href="/?add-convex#demo"');
+    expect(markup).toContain('href="/dashboard?add-convex#demo"');
   });
 
   it("shows missing provider actions after setup is idle", () => {
     const addCloudflareWorker = vi.fn();
     const addConvex = vi.fn();
     const state = buildVaultDashboardResourceRailState({
-      addCloudflareWorkerHref: "/?add-cloudflare#demo",
+      addCloudflareWorkerHref: "/dashboard?add-cloudflare#demo",
       addCloudflareWorkerOnClick: addCloudflareWorker,
-      addConvexHref: "/?add-convex#demo",
+      addConvexHref: "/dashboard?add-convex#demo",
       addConvexOnClick: addConvex,
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({}),
@@ -589,13 +589,20 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(state.rows[1]).toMatchObject({
       provider: "convex",
       status: "action_required",
-      actions: [{ kind: "add", label: "?add-convex", disabled: false, href: "/?add-convex#demo" }],
+      actions: [
+        { kind: "add", label: "?add-convex", disabled: false, href: "/dashboard?add-convex#demo" },
+      ],
     });
     expect(state.rows[2]).toMatchObject({
       provider: "cloudflare",
       status: "action_required",
       actions: [
-        { kind: "add", label: "?add-cloudflare", disabled: false, href: "/?add-cloudflare#demo" },
+        {
+          kind: "add",
+          label: "?add-cloudflare",
+          disabled: false,
+          href: "/dashboard?add-cloudflare#demo",
+        },
       ],
     });
 

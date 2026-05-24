@@ -2,6 +2,7 @@ import {
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "./codexAppServerResearch";
+import { DASHBOARD_ROUTE } from "./dashboardRoute";
 import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "./landingMarkdownPreview";
 import { LOCAL_STORAGE_ROUTE } from "./localStorageRoute";
 import { MACHINES_ROUTE, MACHINE_CONNECT_ROUTE } from "./noterSync";
@@ -71,7 +72,7 @@ export const PITCH_DECK_MOBILE_PRINT_PAGE_METADATA: PageMetadata = {
 export const APP_PAGE_METADATA: PageMetadata = {
   title: "noter App",
   description: "Private noter application workspace.",
-  canonicalPath: "/",
+  canonicalPath: DASHBOARD_ROUTE,
   robots: "noindex,nofollow",
   openGraphType: "website",
 };
@@ -117,7 +118,7 @@ export const LANDING_MARKDOWN_PREVIEW_PAGE_METADATA: PageMetadata = {
 };
 
 export function resolveAppPageTitle(pathname: string): string {
-  if (pathname === "/") {
+  if (pathname === DASHBOARD_ROUTE) {
     return "Vaults | noter";
   }
 
@@ -216,7 +217,7 @@ export function resolvePageMetadata(args: {
     return LOCAL_STORAGE_PAGE_METADATA;
   }
 
-  if (!args.isAuthenticated && args.pathname === "/") {
+  if (args.pathname === "/") {
     return HOME_PAGE_METADATA;
   }
 

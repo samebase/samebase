@@ -1,6 +1,7 @@
 import { GitHubLogoIcon, ClockIcon } from "@/lib/radixIcons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
@@ -312,7 +313,7 @@ export function AddRepositoryPageContent({
           <h1 className="text-xl sm:text-2xl font-semibold">Connect an existing repository</h1>
         </div>
         <Button variant="outline" asChild className="shrink-0">
-          <Link to="/">
+          <Link to={DASHBOARD_ROUTE}>
             <span className="sm:hidden">Back</span>
             <span className="hidden sm:inline">Back to Vaults</span>
           </Link>

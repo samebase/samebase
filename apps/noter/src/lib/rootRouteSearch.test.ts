@@ -9,6 +9,7 @@ describe("rootRouteSearch", () => {
         "add-cloudflare": "",
         "add-convex": "",
         auth: "google",
+        "auth-return": "dashboard",
         base: "#ffffff",
         border: "stone-300",
         delete: "",
@@ -29,6 +30,7 @@ describe("rootRouteSearch", () => {
       "add-cloudflare": true,
       "add-convex": true,
       auth: "google",
+      "auth-return": "dashboard",
       background: "#ffffff",
       border: "stone-300",
       delete: true,
@@ -51,6 +53,7 @@ describe("rootRouteSearch", () => {
     expect(
       validateRootRouteSearch({
         auth: "github",
+        "auth-return": "home",
         background: "bad",
         border: "nope-500",
         depth: "nope",
@@ -97,6 +100,12 @@ describe("rootRouteSearch", () => {
       "prod-ui": true,
       "sidebar-reset": true,
       signup: "google",
+    });
+  });
+
+  it("parses the one-shot dashboard auth return marker", () => {
+    expect(readRootRouteSearch("?auth-return=dashboard")).toEqual({
+      "auth-return": "dashboard",
     });
   });
 

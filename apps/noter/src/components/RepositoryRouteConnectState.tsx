@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { GitHubLogoIcon } from "@/lib/radixIcons";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
 import { Button } from "@/components/ui/button";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
 import type { ReactNode } from "react";
 
@@ -85,7 +86,7 @@ export function RepositoryRouteConnectState({
                   {primaryLabel}
                 </Button>
                 <Button variant="outline" asChild>
-                  <Link to="/">Back to Vaults</Link>
+                  <Link to={DASHBOARD_ROUTE}>Back to Vaults</Link>
                 </Button>
               </div>
             </div>

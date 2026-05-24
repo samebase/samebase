@@ -74,7 +74,7 @@ describe("readRouteUrlEditorSuggestions", () => {
     expect(suggestions.map((suggestion) => suggestion.value)).toEqual([]);
   });
 
-  it("keeps signed-in dashboard search params available for admins", () => {
+  it("keeps dashboard search params off the public root for admins", () => {
     const suggestions = readRouteUrlEditorSuggestions({
       currentHref: "/",
       draftEditedSinceFocus: true,
@@ -84,6 +84,22 @@ describe("readRouteUrlEditorSuggestions", () => {
       origin: ORIGIN,
       routesByPath,
       selectionRouteIndex: "/?add-".length,
+      viewer: adminViewer,
+    });
+
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual([]);
+  });
+
+  it("keeps signed-in dashboard search params available for admins", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/dashboard",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/dashboard?add-",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/dashboard?add-".length,
       viewer: adminViewer,
     });
 

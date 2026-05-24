@@ -217,13 +217,17 @@ export function openAuthPopup(
 export function useAutoSignIn(rootRouteSearch: RootRouteSearch) {
   const { signIn } = useAuthActions();
   const router = useRouter();
+  const authProvider = rootRouteSearch.auth;
+  const authReturn = rootRouteSearch["auth-return"];
+  const signupReturn = rootRouteSearch.signup;
   useEffect(() => {
-    if (rootRouteSearch.auth === "google") {
+    if (authProvider === "google") {
       const redirectTo = router.buildLocation({
         hash: true,
         search: (currentSearch) =>
           buildGoogleRedirectSearch(currentSearch, {
-            markPublicSignupReturn: rootRouteSearch.signup === "google",
+            authReturn,
+            markPublicSignupReturn: signupReturn === "google",
           }),
         state: true,
         to: ".",
@@ -233,5 +237,5 @@ export function useAutoSignIn(rootRouteSearch: RootRouteSearch) {
       window.history.replaceState(window.history.state, "", redirectTo);
       void signInWithGoogleAction({ signIn, redirectTo });
     }
-  }, [rootRouteSearch.auth, rootRouteSearch.signup, router, signIn]);
+  }, [authProvider, authReturn, router, signIn, signupReturn]);
 }

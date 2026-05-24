@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { buildPathWithTanStackSearch, stringifyTanStackSearch } from "./lib/tanstackSearchParams";
+import {
+  buildPathWithTanStackSearch,
+  parseTanStackSearch,
+  stringifyTanStackSearch,
+} from "./lib/tanstackSearchParams";
 
 const {
   buildLocationMock,
@@ -72,9 +76,7 @@ describe("useAutoSignIn", () => {
         hash?: true;
         search?: (currentSearch: Record<string, unknown>) => Record<string, unknown>;
       }) => {
-        const currentSearch = Object.fromEntries(
-          new URLSearchParams(window.location.search).entries(),
-        );
+        const currentSearch = parseTanStackSearch(window.location.search);
         const nextSearch =
           typeof options.search === "function" ? options.search(currentSearch) : currentSearch;
         return {
@@ -179,6 +181,60 @@ describe("useAutoSignIn", () => {
 
     expect(replaceStateMock).toHaveBeenCalledWith(
       { __TSR_index: 8, __TSR_key: "signup-route" },
+      "",
+      expectedRedirectTo,
+    );
+    expect(signInMock).toHaveBeenCalledWith("google", {
+      redirectTo: expectedRedirectTo,
+    });
+  });
+
+  it("preserves the dashboard return marker when public Google auth auto-starts", () => {
+    const popupSearch = stringifyTanStackSearch({
+      auth: "google",
+      "auth-return": "dashboard",
+      signup: "google",
+    });
+    const expectedRedirectTo = buildPathWithTanStackSearch({
+      pathname: "/",
+      search: {
+        "auth-return": "dashboard",
+        signup: "google",
+      },
+    });
+
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        location: {
+          pathname: "/",
+          search: popupSearch,
+          hash: "",
+        },
+        history: {
+          state: { __TSR_index: 9, __TSR_key: "dashboard-return" },
+          replaceState: replaceStateMock,
+        },
+      },
+      configurable: true,
+    });
+
+    Object.defineProperty(globalThis, "localStorage", {
+      value: {
+        removeItem: localStorageRemoveItemMock,
+        setItem: localStorageSetItemMock,
+      },
+      configurable: true,
+    });
+    mockCurrentRouteLocationBuilder();
+
+    useAutoSignIn({
+      auth: "google",
+      "auth-return": "dashboard",
+      signup: "google",
+    });
+
+    expect(replaceStateMock).toHaveBeenCalledWith(
+      { __TSR_index: 9, __TSR_key: "dashboard-return" },
       "",
       expectedRedirectTo,
     );

@@ -7,6 +7,7 @@ import { CodespaceIframe } from "./CodespaceIframe";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { useCacheQuery as useVaultQuery } from "@/lib/convexQueryCache";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { parseVaultPathContext } from "@/lib/vaultRoutes";
 
 const CODESPACE_STATES_REQUIRING_ENSURE = new Set(["stopped", "failed", "deleted"]);
@@ -99,7 +100,7 @@ export function CodespaceChatOnlyView() {
         <div className="space-y-3 text-center">
           <p className="text-sm text-muted-foreground">Invalid vault route.</p>
           <Button asChild variant="outline">
-            <Link to="/">Back to Vaults</Link>
+            <Link to={DASHBOARD_ROUTE}>Back to Vaults</Link>
           </Button>
         </div>
       </div>
@@ -123,7 +124,7 @@ export function CodespaceChatOnlyView() {
             This repository is not connected to your account.
           </p>
           <Button asChild variant="outline">
-            <Link to="/">Back to Vaults</Link>
+            <Link to={DASHBOARD_ROUTE}>Back to Vaults</Link>
           </Button>
         </div>
       </div>

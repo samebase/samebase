@@ -3,6 +3,7 @@ import { type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
 import { GitHubLogoIcon } from "@/lib/radixIcons";
@@ -1008,7 +1009,7 @@ function FixtureDashboardCreateControl() {
           <VaultDashboardProvidersSection open={true} onOpenChange={() => {}} providerRows={[]} />
           <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">
             <Button className="w-full" asChild>
-              <Link to="/" search={{ "new-app": true }}>
+              <Link to={DASHBOARD_ROUTE} search={{ "new-app": true }}>
                 New App
               </Link>
             </Button>

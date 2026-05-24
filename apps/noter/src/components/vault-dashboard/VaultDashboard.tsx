@@ -48,6 +48,7 @@ import {
   type ReactNode,
 } from "react";
 import { isInIframe, useNoterAuthActions } from "@/authClient";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { RouteUrlEditor } from "@/components/RouteUrlEditor";
@@ -815,7 +816,7 @@ export function VaultDashboardDeleteControl({
   return (
     <span className="absolute right-4 top-4">
       <Link
-        to="/"
+        to={DASHBOARD_ROUTE}
         hash={repositoryHashId}
         search={(currentSearch) => ({
           ...currentSearch,
@@ -2773,7 +2774,7 @@ function buildVaultDashboardProviderAddHref({
   rootRouteSearch: RootRouteSearch;
 }): string {
   return buildPathWithTanStackSearch({
-    pathname: "/",
+    pathname: DASHBOARD_ROUTE,
     search: applyVaultDashboardProviderAddSearch({
       currentSearch: rootRouteSearch,
       provider,
@@ -2908,7 +2909,7 @@ function VaultDashboardBody({
       repositoryHashId: string;
     }) => {
       void navigate({
-        to: "/",
+        to: DASHBOARD_ROUTE,
         hash: repositoryHashId,
         search: (currentSearch) =>
           applyVaultDashboardProviderAddSearch({
@@ -5261,7 +5262,7 @@ export function VaultDashboard() {
     <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">
       <Button className="w-full" asChild>
         <Link
-          to="/"
+          to={DASHBOARD_ROUTE}
           search={(currentSearch) =>
             applySearchPatch(currentSearch, {
               "add-cloudflare": null,

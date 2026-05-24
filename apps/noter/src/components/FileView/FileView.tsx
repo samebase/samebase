@@ -2,6 +2,7 @@ import { useLocation, useRouter } from "@tanstack/react-router";
 import { useAction, useMutation, useQuery as useLiveQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { CodeEditorWrapper } from "@/components/CodeEditor";
 import {
   AgentGraphView,
@@ -1830,7 +1831,7 @@ function FileViewInner({
   );
 
   if (!owner || !repoName) {
-    void router.navigate({ to: "/" });
+    void router.navigate({ to: DASHBOARD_ROUTE });
   }
 
   const selectedRebaseConflictFile =
