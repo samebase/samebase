@@ -1,5 +1,4 @@
 import {
-  GRID_SIZE,
   isWithinVoxelGrid,
   type VoxelCoordinate,
   voxelKey,
@@ -11,8 +10,6 @@ import {
   type LogoRotationAxisMode,
 } from "@/components/logo/logoRotationMath";
 
-const CENTER_INDEX = (GRID_SIZE - 1) / 2;
-const CENTER_VOXEL_KEY = voxelKey(CENTER_INDEX, CENTER_INDEX, CENTER_INDEX);
 const SHUFFLE_FACE_DIRECTIONS = [
   {
     normal: [1, 0, 0] as const,
@@ -50,7 +47,7 @@ type ShuffleOriginCandidateContext = {
   blockedKeys: Set<string>;
   elevationDegrees: number;
   filledVoxels: Set<string>;
-  gridSize?: number;
+  gridSize: number;
   lastMovedCubeKey: string | null;
   rotationAxisMode: LogoRotationAxisMode;
   rotationDegrees: number;
@@ -59,6 +56,15 @@ type ShuffleOriginCandidateContext = {
 function voxelCoordinateFromKey(key: string): VoxelCoordinate {
   const [xText, yText, zText] = key.split(",");
   return [Number.parseInt(xText, 10), Number.parseInt(yText, 10), Number.parseInt(zText, 10)];
+}
+
+function readCenterVoxelKey(gridSize: number): string | null {
+  if (gridSize % 2 === 0) {
+    return null;
+  }
+
+  const centerIndex = (gridSize - 1) / 2;
+  return voxelKey(centerIndex, centerIndex, centerIndex);
 }
 
 function getAdjacentFreeDestinations(
@@ -119,7 +125,7 @@ export function getShuffleOriginCandidates({
   blockedKeys,
   elevationDegrees,
   filledVoxels,
-  gridSize = GRID_SIZE,
+  gridSize,
   lastMovedCubeKey,
   rotationAxisMode,
   rotationDegrees,
@@ -130,12 +136,14 @@ export function getShuffleOriginCandidates({
     rotationDegrees,
   });
   const candidates: ShuffleOriginCandidate[] = [];
-  const centerIndex = (gridSize - 1) / 2;
-  const centerVoxelKey =
-    gridSize === GRID_SIZE ? CENTER_VOXEL_KEY : voxelKey(centerIndex, centerIndex, centerIndex);
+  const centerVoxelKey = readCenterVoxelKey(gridSize);
 
   for (const fromKey of filledVoxels) {
-    if (blockedKeys.has(fromKey) || fromKey === lastMovedCubeKey || fromKey === centerVoxelKey) {
+    if (
+      blockedKeys.has(fromKey) ||
+      fromKey === lastMovedCubeKey ||
+      (centerVoxelKey !== null && fromKey === centerVoxelKey)
+    ) {
       continue;
     }
 

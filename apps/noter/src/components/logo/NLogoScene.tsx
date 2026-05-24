@@ -30,11 +30,12 @@ import {
 } from "@/components/logo/logoViewDragConstants";
 import {
   DEFAULT_LOGO_FRACTAL_DEPTH,
-  GRID_SIZE,
+  DEFAULT_LOGO_GRID_SIZE,
   createDefaultFilledVoxelSet,
   createLogoFractalVoxelGrid,
   getLogoFractalGridSize,
   isWithinVoxelGrid,
+  type LogoGridSize,
   type LogoVoxelGrid,
   parseVoxelKey,
   parseVoxelState,
@@ -226,6 +227,7 @@ type LogoSceneMesh =
   | THREE.InstancedMesh<THREE.BufferGeometry, LogoSceneMaterial>;
 
 type ResolvedSceneVoxelGrid = {
+  baseGridSize: LogoGridSize;
   baseFilledVoxels: Set<string>;
   filledVoxels: Set<string>;
   gridSize: number;
@@ -295,6 +297,7 @@ type SceneState = {
   currentFilledVoxels: Set<string>;
   activeCubeMoves: ActiveCubeMove[];
   activeTileMoves: ActiveTileMove[];
+  baseGridSize: LogoGridSize;
   baseFilledVoxels: Set<string>;
   homeFilledVoxels: Set<string>;
   leftFaceMaterialState: LeftFaceMaterialState;
@@ -364,6 +367,7 @@ type RecursiveSurfaceGeometryState = {
 };
 
 type NLogoSceneProps = {
+  baseGridSize?: LogoGridSize;
   backgroundColor: string;
   className?: string;
   distanceScale?: number;
@@ -478,15 +482,21 @@ function randomValueFrom<T>(values: readonly T[]): T | null {
 }
 
 function resolveSceneVoxelGrid({
+  baseGridSize = DEFAULT_LOGO_GRID_SIZE,
   fractalDepth,
   voxelGrid,
   voxelState,
 }: {
+  baseGridSize?: LogoGridSize;
   fractalDepth: number | undefined;
   voxelGrid: LogoVoxelGrid | undefined;
   voxelState: string;
 }): ResolvedSceneVoxelGrid {
-  const baseFilledVoxels = parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet();
+  const parsedVoxelState = parseVoxelState(voxelState);
+  const baseFilledVoxels =
+    parsedVoxelState && parsedVoxelState.gridSize === baseGridSize
+      ? parsedVoxelState.filledVoxels
+      : createDefaultFilledVoxelSet(baseGridSize);
   const normalizedFractalDepth = clampLogoFractalDepthForRenderer(
     fractalDepth ?? DEFAULT_LOGO_FRACTAL_DEPTH,
     "three",
@@ -494,6 +504,7 @@ function resolveSceneVoxelGrid({
 
   if (voxelGrid) {
     return {
+      baseGridSize,
       baseFilledVoxels,
       filledVoxels: new Set(voxelGrid.filledVoxels),
       gridSize: voxelGrid.gridSize,
@@ -503,17 +514,19 @@ function resolveSceneVoxelGrid({
 
   if (normalizedFractalDepth > DEFAULT_LOGO_FRACTAL_DEPTH) {
     return {
+      baseGridSize,
       baseFilledVoxels,
       filledVoxels: new Set(baseFilledVoxels),
-      gridSize: getLogoFractalGridSize(normalizedFractalDepth),
+      gridSize: getLogoFractalGridSize(baseGridSize, normalizedFractalDepth),
       recursiveRenderDepth: normalizedFractalDepth,
     };
   }
 
   return {
+    baseGridSize,
     baseFilledVoxels,
     filledVoxels: new Set(baseFilledVoxels),
-    gridSize: GRID_SIZE,
+    gridSize: baseGridSize,
     recursiveRenderDepth: null,
   };
 }
@@ -892,12 +905,14 @@ function getTileMovePosition(
 }
 
 function createRecursiveInstanceMatrices({
+  baseGridSize,
   baseFilledVoxels,
   distanceScale,
   fullGridSize,
   recursiveRenderDepth,
   tileGridSize,
 }: {
+  baseGridSize: LogoGridSize;
   baseFilledVoxels: ReadonlySet<string>;
   distanceScale: number;
   fullGridSize: number;
@@ -914,6 +929,7 @@ function createRecursiveInstanceMatrices({
   const repeatVoxelGrid = createLogoFractalVoxelGrid({
     depth: repeatDepth,
     filledVoxels: baseFilledVoxels,
+    gridSize: baseGridSize,
   });
   const filledTiles = new Set<string>();
   const keyToIndex = new Map<string, number>();
@@ -948,11 +964,13 @@ function createRecursiveInstanceMatrices({
 }
 
 function createRecursiveLogoMeshes({
+  baseGridSize,
   baseFilledVoxels,
   distanceScale,
   fullGridSize,
   recursiveRenderDepth,
 }: {
+  baseGridSize: LogoGridSize;
   baseFilledVoxels: ReadonlySet<string>;
   distanceScale: number;
   fullGridSize: number;
@@ -962,6 +980,7 @@ function createRecursiveLogoMeshes({
   const tileVoxelGrid = createLogoFractalVoxelGrid({
     depth: tileDepth,
     filledVoxels: baseFilledVoxels,
+    gridSize: baseGridSize,
   });
   const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
   const tileSurfaceQuads = buildDistanceScaledLogoSurfaceQuads(
@@ -972,6 +991,7 @@ function createRecursiveLogoMeshes({
   const surfaceGeometry = buildRecursiveSurfaceGeometry(tileSurfaceQuads);
   const materialState = createRecursiveSurfaceMaterialState();
   const instanceState = createRecursiveInstanceMatrices({
+    baseGridSize,
     baseFilledVoxels,
     distanceScale: normalizedDistanceScale,
     fullGridSize,
@@ -1012,6 +1032,7 @@ function createRecursiveLogoMeshes({
 }
 
 function createLogoGeometryRenderState({
+  baseGridSize,
   baseFilledVoxels,
   distanceScale,
   filledVoxels,
@@ -1019,6 +1040,7 @@ function createLogoGeometryRenderState({
   materials,
   recursiveRenderDepth,
 }: {
+  baseGridSize: LogoGridSize;
   baseFilledVoxels: ReadonlySet<string>;
   distanceScale: number;
   filledVoxels: ReadonlySet<string>;
@@ -1028,6 +1050,7 @@ function createLogoGeometryRenderState({
 }): LogoGeometryRenderState {
   if (recursiveRenderDepth) {
     return createRecursiveLogoMeshes({
+      baseGridSize,
       baseFilledVoxels,
       distanceScale,
       fullGridSize: gridSize,
@@ -1043,7 +1066,7 @@ function createLogoGeometryRenderState({
   return {
     cameraFitRadius,
     meshes: createLogoMeshesFromParts(
-      buildLogoSurfaceParts(surfaceQuads, gridSize > GRID_SIZE),
+      buildLogoSurfaceParts(surfaceQuads, gridSize > baseGridSize),
       materials,
     ),
     recursiveTileState: null,
@@ -1456,6 +1479,7 @@ function replaceLogoGeometry(
   syncCameraFitRadius: boolean,
 ) {
   const nextGeometry = createLogoGeometryRenderState({
+    baseGridSize: sceneState.baseGridSize,
     baseFilledVoxels: sceneState.baseFilledVoxels,
     distanceScale: sceneState.distanceScale,
     filledVoxels: nextFilledVoxels,
@@ -1939,6 +1963,7 @@ function syncCubeShuffleAnimation(
 }
 
 export function NLogoScene({
+  baseGridSize = DEFAULT_LOGO_GRID_SIZE,
   backgroundColor,
   className,
   distanceScale = DEFAULT_LOGO_DISTANCE_SCALE,
@@ -1966,6 +1991,7 @@ export function NLogoScene({
 }: NLogoSceneProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const sceneStateRef = useRef<SceneState | null>(null);
+  const baseGridSizeRef = useRef(baseGridSize);
   const backgroundColorRef = useRef(backgroundColor);
   const editModeRef = useRef(editMode);
   const rotationDegreesRef = useRef(rotationDegrees);
@@ -2137,11 +2163,13 @@ export function NLogoScene({
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
     const { leftFaceMaterialState, materials } = createLogoSceneMaterials();
     const initialVoxelGrid = resolveSceneVoxelGrid({
+      baseGridSize: baseGridSizeRef.current,
       fractalDepth: fractalDepthRef.current,
       voxelGrid: voxelGridRef.current,
       voxelState: voxelStateRef.current,
     });
     const initialGeometry = createLogoGeometryRenderState({
+      baseGridSize: initialVoxelGrid.baseGridSize,
       baseFilledVoxels: initialVoxelGrid.baseFilledVoxels,
       distanceScale: distanceScaleRef.current,
       filledVoxels: initialVoxelGrid.filledVoxels,
@@ -2248,6 +2276,7 @@ export function NLogoScene({
       currentFilledVoxels: new Set(initialVoxelGrid.filledVoxels),
       activeCubeMoves: [],
       activeTileMoves: [],
+      baseGridSize: initialVoxelGrid.baseGridSize,
       baseFilledVoxels: new Set(initialVoxelGrid.baseFilledVoxels),
       homeFilledVoxels: new Set(initialVoxelGrid.filledVoxels),
       leftFaceMaterialState,
@@ -2400,6 +2429,7 @@ export function NLogoScene({
   }, []);
 
   useEffect(() => {
+    baseGridSizeRef.current = baseGridSize;
     fractalDepthRef.current = fractalDepth;
     voxelGridRef.current = voxelGrid;
     voxelStateRef.current = voxelState;
@@ -2410,10 +2440,12 @@ export function NLogoScene({
     }
 
     const nextVoxelGrid = resolveSceneVoxelGrid({
+      baseGridSize,
       fractalDepth,
       voxelGrid,
       voxelState,
     });
+    sceneState.baseGridSize = nextVoxelGrid.baseGridSize;
     sceneState.baseFilledVoxels = new Set(nextVoxelGrid.baseFilledVoxels);
     sceneState.homeFilledVoxels = new Set(nextVoxelGrid.filledVoxels);
     sceneState.gridSize = nextVoxelGrid.gridSize;
@@ -2425,7 +2457,7 @@ export function NLogoScene({
       sceneState,
     });
     renderSceneRef.current(performance.now());
-  }, [fractalDepth, voxelGrid, voxelState]);
+  }, [baseGridSize, fractalDepth, voxelGrid, voxelState]);
 
   useEffect(() => {
     animateFaceColorsRef.current = animateFaceColors;

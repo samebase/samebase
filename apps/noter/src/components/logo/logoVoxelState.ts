@@ -1,5 +1,10 @@
-export const GRID_SIZE = 3;
-export const HALF_GRID = GRID_SIZE / 2;
+export const LOGO_GRID_SIZE_2 = 2;
+export const LOGO_GRID_SIZE_3 = 3;
+export const LOGO_GRID_SIZE_OPTIONS = [LOGO_GRID_SIZE_2, LOGO_GRID_SIZE_3] as const;
+export type LogoGridSize = (typeof LOGO_GRID_SIZE_OPTIONS)[number];
+export const DEFAULT_LOGO_GRID_SIZE: LogoGridSize = LOGO_GRID_SIZE_2;
+export const LEGACY_LOGO_GRID_SIZE: LogoGridSize = LOGO_GRID_SIZE_3;
+export const GRID_SIZE = LEGACY_LOGO_GRID_SIZE;
 export const FAVICON_ROTATION_DEGREES = 45;
 export const DEFAULT_ROTATION_DEGREES = FAVICON_ROTATION_DEGREES;
 export const DEFAULT_ELEVATION_DEGREES = 35.26438968;
@@ -24,20 +29,10 @@ export type LogoVoxelGrid = {
   gridSize: number;
 };
 
-const defaultVoxelCoordinates = [
-  [1, 2, 0],
-  [0, 2, 1],
-  [2, 2, 1],
-  [1, 2, 2],
-  [0, 1, 0],
-  [2, 1, 0],
-  [0, 1, 2],
-  [2, 1, 2],
-  [1, 0, 0],
-  [0, 0, 1],
-  [2, 0, 1],
-  [1, 0, 2],
-] as const satisfies readonly VoxelCoordinate[];
+export type ParsedLogoVoxelState = {
+  filledVoxels: Set<string>;
+  gridSize: LogoGridSize;
+};
 
 export function voxelKey(x: number, y: number, z: number): string {
   return `${x},${y},${z}`;
@@ -62,11 +57,31 @@ export function parseVoxelKey(key: string): VoxelCoordinate | null {
 }
 
 export function isWithinGrid(x: number, y: number, z: number): boolean {
-  return isWithinVoxelGrid(GRID_SIZE, x, y, z);
+  return isWithinVoxelGrid(DEFAULT_LOGO_GRID_SIZE, x, y, z);
 }
 
 export function isWithinVoxelGrid(gridSize: number, x: number, y: number, z: number): boolean {
   return x >= 0 && x < gridSize && y >= 0 && y < gridSize && z >= 0 && z < gridSize;
+}
+
+export function readLogoGridSize(value: number): LogoGridSize | null {
+  if (value === LOGO_GRID_SIZE_2) {
+    return LOGO_GRID_SIZE_2;
+  }
+
+  if (value === LOGO_GRID_SIZE_3) {
+    return LOGO_GRID_SIZE_3;
+  }
+
+  return null;
+}
+
+export function normalizeLogoGridSize(value: number | undefined): LogoGridSize {
+  if (value === LOGO_GRID_SIZE_3) {
+    return LOGO_GRID_SIZE_3;
+  }
+
+  return DEFAULT_LOGO_GRID_SIZE;
 }
 
 export function normalizeRotationDegrees(value: number): number {
@@ -85,8 +100,32 @@ export function createFilledVoxelSet(coordinates: readonly VoxelCoordinate[]): S
   return new Set(coordinates.map(([x, y, z]) => voxelKey(x, y, z)));
 }
 
-export function createDefaultFilledVoxelSet(): Set<string> {
-  return createFilledVoxelSet(defaultVoxelCoordinates);
+export function createDefaultVoxelCoordinates(gridSize: LogoGridSize): VoxelCoordinate[] {
+  const coordinates: VoxelCoordinate[] = [];
+  const centerIndex = (gridSize - 1) / 2;
+
+  for (let x = 0; x < gridSize; x += 1) {
+    for (let y = 0; y < gridSize; y += 1) {
+      for (let z = 0; z < gridSize; z += 1) {
+        const isOddCheckerCell = (x + y + z) % 2 === 1;
+        const isCenterCell = x === centerIndex && y === centerIndex && z === centerIndex;
+
+        if (isOddCheckerCell && !isCenterCell) {
+          coordinates.push([x, y, z]);
+        }
+      }
+    }
+  }
+
+  return coordinates;
+}
+
+export function createDefaultFilledVoxelSet(gridSize: LogoGridSize): Set<string> {
+  return createFilledVoxelSet(createDefaultVoxelCoordinates(gridSize));
+}
+
+export function createDefaultVoxelState(gridSize: LogoGridSize): string {
+  return serializeVoxelState(createDefaultFilledVoxelSet(gridSize), gridSize);
 }
 
 export function normalizeLogoFractalDepth(value: number): number {
@@ -97,11 +136,14 @@ export function normalizeLogoFractalDepth(value: number): number {
   return Math.max(Math.round(value), MIN_LOGO_FRACTAL_DEPTH);
 }
 
-export function getLogoFractalGridSize(depth: number): number {
-  return GRID_SIZE ** normalizeLogoFractalDepth(depth);
+export function getLogoFractalGridSize(gridSize: LogoGridSize, depth: number): number {
+  return gridSize ** normalizeLogoFractalDepth(depth);
 }
 
-function readBaseFractalCoordinates(filledVoxels: ReadonlySet<string>): VoxelCoordinate[] {
+function readBaseFractalCoordinates(
+  filledVoxels: ReadonlySet<string>,
+  gridSize: LogoGridSize,
+): VoxelCoordinate[] {
   const coordinates: VoxelCoordinate[] = [];
 
   for (const key of filledVoxels) {
@@ -111,7 +153,7 @@ function readBaseFractalCoordinates(filledVoxels: ReadonlySet<string>): VoxelCoo
     }
 
     const [x, y, z] = coordinate;
-    if (!isWithinVoxelGrid(GRID_SIZE, x, y, z)) {
+    if (!isWithinVoxelGrid(gridSize, x, y, z)) {
       continue;
     }
 
@@ -129,14 +171,17 @@ function readBaseFractalCoordinates(filledVoxels: ReadonlySet<string>): VoxelCoo
  */
 export function createLogoFractalVoxelGrid({
   depth,
-  filledVoxels = createDefaultFilledVoxelSet(),
+  filledVoxels,
+  gridSize,
 }: {
   depth: number;
   filledVoxels?: ReadonlySet<string>;
+  gridSize: LogoGridSize;
 }): LogoVoxelGrid {
   const normalizedDepth = normalizeLogoFractalDepth(depth);
-  const gridSize = getLogoFractalGridSize(normalizedDepth);
-  const baseCoordinates = readBaseFractalCoordinates(filledVoxels);
+  const resolvedFilledVoxels = filledVoxels ?? createDefaultFilledVoxelSet(gridSize);
+  const fractalGridSize = getLogoFractalGridSize(gridSize, normalizedDepth);
+  const baseCoordinates = readBaseFractalCoordinates(resolvedFilledVoxels, gridSize);
   const nextFilledVoxels = new Set<string>();
   let origins: VoxelCoordinate[] = [[0, 0, 0]];
   let scale = 1;
@@ -160,25 +205,28 @@ export function createLogoFractalVoxelGrid({
     }
 
     origins = nextOrigins;
-    scale *= GRID_SIZE;
+    scale *= gridSize;
   }
 
   return {
     filledVoxels: nextFilledVoxels,
-    gridSize,
+    gridSize: fractalGridSize,
   };
 }
 
-export function serializeVoxelState(filledVoxels: ReadonlySet<string>): string {
+export function serializeVoxelState(
+  filledVoxels: ReadonlySet<string>,
+  gridSize: LogoGridSize,
+): string {
   const layers: string[] = [];
 
-  for (let y = GRID_SIZE - 1; y >= 0; y -= 1) {
+  for (let y = gridSize - 1; y >= 0; y -= 1) {
     const rows: string[] = [];
 
-    for (let z = 0; z < GRID_SIZE; z += 1) {
+    for (let z = 0; z < gridSize; z += 1) {
       let row = "";
 
-      for (let x = 0; x < GRID_SIZE; x += 1) {
+      for (let x = 0; x < gridSize; x += 1) {
         row += filledVoxels.has(voxelKey(x, y, z)) ? "x" : "o";
       }
 
@@ -191,7 +239,7 @@ export function serializeVoxelState(filledVoxels: ReadonlySet<string>): string {
   return layers.join(VOXEL_LAYER_SEPARATOR);
 }
 
-export function parseVoxelState(serializedState: string | null): Set<string> | null {
+export function parseVoxelState(serializedState: string | null): ParsedLogoVoxelState | null {
   if (!serializedState) {
     return null;
   }
@@ -204,7 +252,8 @@ export function parseVoxelState(serializedState: string | null): Set<string> | n
         ? VOXEL_LAYER_SEPARATOR
         : LEGACY_VOXEL_LAYER_SEPARATOR,
     );
-  if (layers.length !== GRID_SIZE) {
+  const gridSize = readLogoGridSize(layers.length);
+  if (gridSize === null) {
     return null;
   }
 
@@ -215,14 +264,14 @@ export function parseVoxelState(serializedState: string | null): Set<string> | n
       ? VOXEL_ROW_SEPARATOR
       : LEGACY_VOXEL_ROW_SEPARATOR;
     const rows = layer.split(rowSeparator);
-    if (rows.length !== GRID_SIZE) {
+    if (rows.length !== gridSize) {
       return null;
     }
 
-    const y = GRID_SIZE - 1 - layerIndex;
+    const y = gridSize - 1 - layerIndex;
 
     for (const [z, row] of rows.entries()) {
-      if (row.length !== GRID_SIZE) {
+      if (row.length !== gridSize) {
         return null;
       }
 
@@ -238,15 +287,26 @@ export function parseVoxelState(serializedState: string | null): Set<string> | n
     }
   }
 
-  return filledVoxels;
+  return {
+    filledVoxels,
+    gridSize,
+  };
 }
 
-export function applyVoxelEdit(serializedState: string, edit: VoxelEdit): string {
-  const filledVoxels = parseVoxelState(serializedState) ?? createDefaultFilledVoxelSet();
+export function applyVoxelEdit(
+  serializedState: string,
+  gridSize: LogoGridSize,
+  edit: VoxelEdit,
+): string {
+  const parsedState = parseVoxelState(serializedState);
+  const filledVoxels =
+    parsedState && parsedState.gridSize === gridSize
+      ? parsedState.filledVoxels
+      : createDefaultFilledVoxelSet(gridSize);
   const [x, y, z] = edit.coordinate;
 
-  if (!isWithinGrid(x, y, z)) {
-    return serializeVoxelState(filledVoxels);
+  if (!isWithinVoxelGrid(gridSize, x, y, z)) {
+    return serializeVoxelState(filledVoxels, gridSize);
   }
 
   const key = voxelKey(x, y, z);
@@ -256,7 +316,7 @@ export function applyVoxelEdit(serializedState: string, edit: VoxelEdit): string
     filledVoxels.delete(key);
   }
 
-  return serializeVoxelState(filledVoxels);
+  return serializeVoxelState(filledVoxels, gridSize);
 }
 
-export const DEFAULT_VOXEL_STATE = serializeVoxelState(createDefaultFilledVoxelSet());
+export const DEFAULT_VOXEL_STATE = createDefaultVoxelState(DEFAULT_LOGO_GRID_SIZE);

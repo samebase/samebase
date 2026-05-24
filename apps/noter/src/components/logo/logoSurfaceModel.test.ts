@@ -5,11 +5,15 @@ import {
   createDefaultFilledVoxelSet,
   createFilledVoxelSet,
   createLogoFractalVoxelGrid,
+  LOGO_GRID_SIZE_3,
 } from "@/components/logo/logoVoxelState";
 
 describe("buildLogoSurfaceQuads", () => {
   it("keeps the default logo as exposed faces without renderer-specific state", () => {
-    const surfaceQuads = buildLogoSurfaceQuads(createDefaultFilledVoxelSet());
+    const surfaceQuads = buildLogoSurfaceQuads(
+      createDefaultFilledVoxelSet(LOGO_GRID_SIZE_3),
+      LOGO_GRID_SIZE_3,
+    );
     const materialCounts = new Map<number, number>();
 
     for (const surfaceQuad of surfaceQuads) {
@@ -50,7 +54,7 @@ describe("buildLogoSurfaceQuads", () => {
   });
 
   it("supports larger recursive grids without changing renderer contracts", () => {
-    const voxelGrid = createLogoFractalVoxelGrid({ depth: 2 });
+    const voxelGrid = createLogoFractalVoxelGrid({ depth: 2, gridSize: LOGO_GRID_SIZE_3 });
     const surfaceQuads = buildLogoSurfaceQuads(voxelGrid.filledVoxels, voxelGrid.gridSize);
 
     expect(surfaceQuads.length).toBeGreaterThan(72);
@@ -67,7 +71,10 @@ describe("buildLogoSurfaceQuads", () => {
 describe("getLogoSurfaceFitRadius", () => {
   it("measures surface bounds from shared quad vertices", () => {
     expect(
-      getLogoSurfaceFitRadius(buildLogoSurfaceQuads(createDefaultFilledVoxelSet())),
+      getLogoSurfaceFitRadius(
+        buildLogoSurfaceQuads(createDefaultFilledVoxelSet(LOGO_GRID_SIZE_3), LOGO_GRID_SIZE_3),
+        LOGO_GRID_SIZE_3,
+      ),
     ).toBeCloseTo(Math.sqrt(4.75));
   });
 });

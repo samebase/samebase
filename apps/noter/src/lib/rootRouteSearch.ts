@@ -1,6 +1,11 @@
 import { getRouteApi } from "@tanstack/react-router";
 import { normalizeLogoDistanceScale } from "@/components/logo/logoDistanceScale";
-import { normalizeLogoFractalDepth } from "@/components/logo/logoVoxelState";
+import {
+  normalizeLogoFractalDepth,
+  normalizeLogoGridSize,
+  LOGO_GRID_SIZE_2,
+  LOGO_GRID_SIZE_3,
+} from "@/components/logo/logoVoxelState";
 import {
   appThemeColorSearchFieldSchema,
   LOGO_THEME_COLOR_SEARCH_KEYS,
@@ -67,6 +72,11 @@ function readOptionalLogoFractalDepth(value: unknown): number | undefined {
   return typeof numericValue === "number" ? normalizeLogoFractalDepth(numericValue) : undefined;
 }
 
+function readOptionalLogoGridSize(value: unknown): number | undefined {
+  const numericValue = readOptionalNumber(value);
+  return typeof numericValue === "number" ? normalizeLogoGridSize(numericValue) : undefined;
+}
+
 const rootRouteSearchSchema = z
   .object({
     auth: z.preprocess(readOptionalGoogleAuthProvider, z.literal("google").optional()),
@@ -84,6 +94,10 @@ const rootRouteSearchSchema = z
         : undefined;
     }, z.number().finite().optional()),
     "prod-ui": z.literal(true).optional(),
+    gridSize: z.preprocess(
+      readOptionalLogoGridSize,
+      z.union([z.literal(LOGO_GRID_SIZE_2), z.literal(LOGO_GRID_SIZE_3)]).optional(),
+    ),
     [SEARCH_RESET_QUERY_PARAM]: z.literal(true).optional(),
     [PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM]: z.preprocess(
       readOptionalSidebarResetFlag,
@@ -105,6 +119,7 @@ export const RETAINED_ROOT_SEARCH_KEYS = [
   "devtools",
   "depth",
   "dist",
+  "gridSize",
   ...ROOT_THEME_MODE_SEARCH_KEYS,
   ...LOGO_THEME_COLOR_SEARCH_KEYS,
 ] as const satisfies readonly (keyof RootRouteSearch)[];

@@ -21,8 +21,11 @@ import {
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_LOGO_FRACTAL_DEPTH,
+  DEFAULT_LOGO_GRID_SIZE,
   DEFAULT_ROTATION_DEGREES,
   DEFAULT_VOXEL_STATE,
+  LOGO_GRID_SIZE_3,
+  createDefaultVoxelState,
 } from "@/components/logo/logoVoxelState";
 import {
   buildLogoRouteSearch,
@@ -89,6 +92,7 @@ describe("logoRouteSearch", () => {
       distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
       elevationDegrees: DEFAULT_ELEVATION_DEGREES,
       fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
+      gridSize: DEFAULT_LOGO_GRID_SIZE,
       isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
       isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
       leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
@@ -114,6 +118,7 @@ describe("logoRouteSearch", () => {
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
+        gridSize: DEFAULT_LOGO_GRID_SIZE,
         isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
@@ -131,6 +136,7 @@ describe("logoRouteSearch", () => {
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
+        gridSize: DEFAULT_LOGO_GRID_SIZE,
         isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
@@ -183,12 +189,44 @@ describe("logoRouteSearch", () => {
     });
   });
 
+  it("keeps grid size and voxel state as one coherent route shape", () => {
+    const legacyVoxelState = createDefaultVoxelState(LOGO_GRID_SIZE_3);
+
+    expect(validateLogoRouteSearch({ gridSize: "3", vox: legacyVoxelState })).toEqual({
+      gridSize: LOGO_GRID_SIZE_3,
+      vox: legacyVoxelState,
+    });
+
+    expect(validateLogoRouteSearch({ gridSize: "3", vox: DEFAULT_VOXEL_STATE })).toEqual({
+      gridSize: LOGO_GRID_SIZE_3,
+    });
+
+    const builtSearch = buildLogoRouteSearch({
+      distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+      elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+      fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
+      gridSize: LOGO_GRID_SIZE_3,
+      isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+      isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+      leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
+      rotationAxisMode: "cube-y",
+      rotationDegrees: DEFAULT_ROTATION_DEGREES,
+      themeColors: DEFAULT_LOGO_THEME_COLORS,
+      viewSnapEnabled: true,
+      voxelState: DEFAULT_VOXEL_STATE,
+    });
+
+    expect(builtSearch.gridSize).toBe(LOGO_GRID_SIZE_3);
+    expect(builtSearch.vox).toBeUndefined();
+  });
+
   it("preserves non-default logo depth when building route search", () => {
     expect(
       buildLogoRouteSearch({
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: 6,
+        gridSize: DEFAULT_LOGO_GRID_SIZE,
         isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
@@ -222,6 +260,7 @@ describe("logoRouteSearch", () => {
         distanceScale: LOGO_DISTANCE_SCALE_SLIDER_MAX + 1,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
+        gridSize: DEFAULT_LOGO_GRID_SIZE,
         isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
@@ -260,6 +299,7 @@ describe("logoRouteSearch", () => {
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
+        gridSize: DEFAULT_LOGO_GRID_SIZE,
         isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         leftFaceStyle: {
@@ -293,6 +333,7 @@ describe("logoRouteSearch", () => {
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
+        gridSize: DEFAULT_LOGO_GRID_SIZE,
         isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         leftFaceStyle: {
@@ -338,6 +379,7 @@ describe("logoRouteSearch", () => {
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
+        gridSize: DEFAULT_LOGO_GRID_SIZE,
         isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         leftFaceStyle: { kind: "secondary" },
@@ -398,6 +440,7 @@ describe("logoRouteSearch", () => {
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
+        gridSize: DEFAULT_LOGO_GRID_SIZE,
         isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         leftFaceStyle: {

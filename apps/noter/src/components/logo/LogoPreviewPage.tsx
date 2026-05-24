@@ -91,7 +91,6 @@ import {
 } from "@/components/logo/logoTailwindColors";
 import {
   CUSTOM_LOGO_PRESET_ID,
-  DEFAULT_LOGO_PRESET_ID,
   LOGO_PRESETS,
   getLogoPreset,
   getLogoPresetSelection,
@@ -112,15 +111,18 @@ import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_LOGO_FRACTAL_DEPTH,
   DEFAULT_ROTATION_DEGREES,
-  DEFAULT_VOXEL_STATE,
+  LOGO_GRID_SIZE_OPTIONS,
   MAX_ELEVATION_DEGREES,
   MIN_LOGO_FRACTAL_DEPTH,
   MIN_ELEVATION_DEGREES,
   applyVoxelEdit,
+  createDefaultVoxelState,
+  normalizeLogoGridSize,
   normalizeElevationDegrees,
   normalizeRotationDegrees,
   parseVoxelState,
   serializeVoxelState,
+  type LogoGridSize,
   type VoxelEdit,
 } from "@/components/logo/logoVoxelState";
 import { resolveLogoViewState, type LogoViewState } from "@/components/logo/logoViewDrag";
@@ -419,17 +421,17 @@ function ThemeColorPicker({
   );
 }
 
-function readVoxelState(routeSearch: LogoRouteSearch): string {
-  const parsedState = parseVoxelState(routeSearch.vox ?? null);
-  if (parsedState === null) {
-    return DEFAULT_VOXEL_STATE;
-  }
-
-  return serializeVoxelState(parsedState);
+function readLogoGridSize(routeSearch: LogoRouteSearch): LogoGridSize {
+  return normalizeLogoGridSize(routeSearch.gridSize);
 }
 
-function readLogoPresetSelection(routeSearch: LogoRouteSearch): LogoPresetSelection {
-  return getLogoPresetSelection(readVoxelState(routeSearch));
+function readVoxelState(routeSearch: LogoRouteSearch, gridSize: LogoGridSize): string {
+  const parsedState = parseVoxelState(routeSearch.vox ?? null);
+  if (parsedState === null || parsedState.gridSize !== gridSize) {
+    return createDefaultVoxelState(gridSize);
+  }
+
+  return serializeVoxelState(parsedState.filledVoxels, gridSize);
 }
 
 function readIsoStyleId(routeSearch: LogoRouteSearch): LogoIsometricStyleId {
@@ -528,6 +530,7 @@ type LogoPreviewRouteState = {
   distanceScale: number;
   elevationDegrees: number;
   fractalDepth: number;
+  gridSize: LogoGridSize;
   isViewSnapEnabled: boolean;
   isoCubeSidePixels: number;
   isoStyleId: LogoIsometricStyleId;
@@ -559,20 +562,23 @@ function readLogoPreviewRouteState(
   renderMode: LogoPreviewRenderMode,
 ): LogoPreviewRouteState {
   const view = readLogoPreviewView(routeSearch);
+  const gridSize = readLogoGridSize(routeSearch);
+  const voxelState = readVoxelState(routeSearch, gridSize);
 
   return {
     distanceScale: readLogoDistanceScale(routeSearch),
     elevationDegrees: view.elevationDegrees,
     fractalDepth: readLogoFractalDepth(routeSearch, renderMode),
+    gridSize,
     isViewSnapEnabled: view.viewSnapEnabled,
     isoCubeSidePixels: readIsoCubeSidePixels(routeSearch),
     isoStyleId: readIsoStyleId(routeSearch),
     leftFaceStyle: readLogoLeftFaceStyle(routeSearch),
     rotationAxisMode: readRotationAxisMode(routeSearch),
     rotationDegrees: view.rotationDegrees,
-    selectedPresetId: readLogoPresetSelection(routeSearch),
+    selectedPresetId: getLogoPresetSelection(voxelState, gridSize),
     themeColors: readLogoThemeColors(routeSearch),
-    voxelState: readVoxelState(routeSearch),
+    voxelState,
   };
 }
 
@@ -599,6 +605,7 @@ function areLogoPreviewRouteStatesEqual(
     left.elevationDegrees === right.elevationDegrees &&
     left.distanceScale === right.distanceScale &&
     left.fractalDepth === right.fractalDepth &&
+    left.gridSize === right.gridSize &&
     left.isViewSnapEnabled === right.isViewSnapEnabled &&
     left.isoCubeSidePixels === right.isoCubeSidePixels &&
     left.isoStyleId === right.isoStyleId &&
@@ -629,6 +636,7 @@ function buildLogoPreviewRouteSearch(
       distanceScale: routeState.distanceScale,
       elevationDegrees: resolvedView.elevationDegrees,
       fractalDepth: clampLogoFractalDepthForRenderer(routeState.fractalDepth, renderMode),
+      gridSize: routeState.gridSize,
       isoCubeSidePixels: routeState.isoCubeSidePixels,
       isoStyleId: routeState.isoStyleId,
       leftFaceStyle: routeState.leftFaceStyle,
@@ -879,6 +887,7 @@ function useLogoPreviewController({
         store.actions.setShuffleEnabled(false);
         commitRouteState((currentState) => ({
           ...currentState,
+          gridSize: preset.gridSize,
           selectedPresetId: presetId,
           voxelState: preset.voxelState,
         }));
@@ -891,11 +900,11 @@ function useLogoPreviewController({
       editVoxel: (edit: VoxelEdit) => {
         store.actions.setShuffleEnabled(false);
         commitRouteState((currentState) => {
-          const voxelState = applyVoxelEdit(currentState.voxelState, edit);
+          const voxelState = applyVoxelEdit(currentState.voxelState, currentState.gridSize, edit);
 
           return {
             ...currentState,
-            selectedPresetId: getLogoPresetSelection(voxelState),
+            selectedPresetId: getLogoPresetSelection(voxelState, currentState.gridSize),
             voxelState,
           };
         });
@@ -929,16 +938,12 @@ function useLogoPreviewController({
         store.actions.setAutoRotating(false);
         store.actions.setShuffleEnabled(false);
         commitRouteState((currentState) => {
-          const presetId =
-            currentState.selectedPresetId === CUSTOM_LOGO_PRESET_ID
-              ? DEFAULT_LOGO_PRESET_ID
-              : currentState.selectedPresetId;
-          const preset = getLogoPreset(presetId);
+          const voxelState = createDefaultVoxelState(currentState.gridSize);
 
           return {
             ...currentState,
-            selectedPresetId: presetId,
-            voxelState: preset.voxelState,
+            selectedPresetId: getLogoPresetSelection(voxelState, currentState.gridSize),
+            voxelState,
           };
         });
       },
@@ -984,6 +989,17 @@ function useLogoPreviewController({
         commitRouteState((currentState) => ({
           ...currentState,
           fractalDepth: nextFractalDepth,
+        }));
+      },
+      setGridSize: (gridSize: LogoGridSize) => {
+        const voxelState = createDefaultVoxelState(gridSize);
+        store.actions.setAutoRotating(false);
+        store.actions.setShuffleEnabled(false);
+        commitRouteState((currentState) => ({
+          ...currentState,
+          gridSize,
+          selectedPresetId: getLogoPresetSelection(voxelState, gridSize),
+          voxelState,
         }));
       },
       setIsoCubeSidePixels: (isoCubeSidePixels: number) => {
@@ -1203,6 +1219,7 @@ function readCanonicalLogoRouteSearch(
       distanceScale: readLogoDistanceScale(routeSearch),
       elevationDegrees: readElevationDegrees(routeSearch),
       fractalDepth: readLogoFractalDepth(routeSearch, renderMode),
+      gridSize: readLogoGridSize(routeSearch),
       isoCubeSidePixels: readIsoCubeSidePixels(routeSearch),
       isoStyleId: readIsoStyleId(routeSearch),
       leftFaceStyle: readLogoLeftFaceStyle(routeSearch),
@@ -1211,7 +1228,7 @@ function readCanonicalLogoRouteSearch(
       themeModeSearch: routeSearch,
       themeColors: readLogoThemeColors(routeSearch),
       viewSnapEnabled: readViewSnapEnabled(routeSearch),
-      voxelState: readVoxelState(routeSearch),
+      voxelState: readVoxelState(routeSearch, readLogoGridSize(routeSearch)),
     }),
     routeSearch,
   );
@@ -1225,6 +1242,7 @@ const LOGO_ROUTE_SEARCH_KEYS = [
   "dist",
   "elev",
   "freeView",
+  "gridSize",
   "isoSide",
   "isoStyle",
   "leftFace",
@@ -1546,6 +1564,7 @@ export function LogoPreviewPage({
       distanceScale: state.distanceScale,
       elevationDegrees: state.elevationDegrees,
       fractalDepth: state.fractalDepth,
+      gridSize: state.gridSize,
       isoCubeSidePixels: state.isoCubeSidePixels,
       isoStyleId: state.isoStyleId,
       leftFaceStyle: state.leftFaceStyle,
@@ -1562,6 +1581,7 @@ export function LogoPreviewPage({
   const logoScene =
     renderMode === "iso" ? (
       <NLogoIsoScene
+        baseGridSize={state.gridSize}
         backgroundColor={backgroundColor}
         className={cn(
           "absolute inset-0 h-full w-full touch-none select-none",
@@ -1582,6 +1602,7 @@ export function LogoPreviewPage({
       />
     ) : renderMode === "raster" ? (
       <NLogoRasterScene
+        baseGridSize={state.gridSize}
         backgroundColor={backgroundColor}
         className={cn(
           "absolute inset-0 h-full w-full touch-none select-none",
@@ -1603,6 +1624,7 @@ export function LogoPreviewPage({
       />
     ) : (
       <NLogoScene
+        baseGridSize={state.gridSize}
         backgroundColor={backgroundColor}
         className={cn(
           "absolute inset-0 h-full w-full touch-none select-none",
@@ -1709,6 +1731,24 @@ export function LogoPreviewPage({
           valueInputMode="numeric"
           valueText={`${state.fractalDepth}`}
         />
+
+        <div className={LOGO_CONTROL_BUTTON_ROW_CLASS_NAME}>
+          {LOGO_GRID_SIZE_OPTIONS.map((gridSize) => (
+            <Button
+              key={gridSize}
+              type="button"
+              size="sm"
+              variant={state.gridSize === gridSize ? "default" : "outline"}
+              className={LOGO_CONTROL_BUTTON_CLASS_NAME}
+              aria-pressed={state.gridSize === gridSize}
+              onClick={() => {
+                controls.setGridSize(gridSize);
+              }}
+            >
+              {gridSize}x{gridSize}
+            </Button>
+          ))}
+        </div>
 
         <Select
           value={state.selectedPresetId}
@@ -1962,6 +2002,7 @@ export function LogoPreviewPage({
               <div key={size} className="flex flex-col items-center gap-1">
                 <div className="flex min-h-16 min-w-16 items-center justify-center border border-border bg-background p-2">
                   <LogoIsoThumbnail
+                    baseGridSize={state.gridSize}
                     backgroundColor={backgroundColor}
                     cubeSidePixels={state.isoCubeSidePixels}
                     faceColors={faceColors}

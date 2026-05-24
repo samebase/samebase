@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Noter frontend
-- Last updated: 2026-05-19
+- Last updated: 2026-05-24
 - Related files: `apps/noter/src/components/logo/logoStaticSvgContract.ts`,
   `apps/noter/src/components/logo/logoStaticSvgAsset.ts`,
   `apps/noter/src/components/logo/logoFaceTreatment.ts`,
@@ -29,8 +29,9 @@ The Noter logo identity is one `3x3x3` voxel shape viewed through three stable c
 The X profile banner already uses this sequence as the brand explanation. This spec makes that
 sequence a code and asset invariant rather than an implied memory.
 
-Recursive `/logo?depth=...` previews are playground render states derived from the same mark. They
-do not change the canonical identity asset contract.
+Recursive `/logo?depth=...` previews and `gridSize=2` playground states are exploration render
+states. They do not change the canonical identity asset contract unless this spec, the generated
+assets, and the synchronization tests are updated together.
 
 When a surface can only use one foreground color plus its background, use the canonical single-color
 stripe treatment. The shape and camera stay the same as the relevant identity view; only the left

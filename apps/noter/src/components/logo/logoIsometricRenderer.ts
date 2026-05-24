@@ -1,9 +1,11 @@
 import {
   DEFAULT_LOGO_FRACTAL_DEPTH,
+  DEFAULT_LOGO_GRID_SIZE,
   FAVICON_ROTATION_DEGREES,
   GRID_SIZE,
   getLogoFractalGridSize,
   isWithinVoxelGrid,
+  type LogoGridSize,
   normalizeLogoFractalDepth,
   parseVoxelKey,
   type VoxelCoordinate,
@@ -272,7 +274,7 @@ const isometricFrameMetricsCache = new Map<string, LogoIsometricFrameMetrics>();
 
 export function getLogoIsometricFrameMetrics(
   cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
-  gridSize = GRID_SIZE,
+  gridSize: number = GRID_SIZE,
 ): LogoIsometricFrameMetrics {
   const normalizedCubeSidePixels = normalizeLogoIsometricFrameCubeSidePixels(cubeSidePixels);
   const cacheKey = `${normalizedCubeSidePixels}:${gridSize}`;
@@ -938,6 +940,7 @@ function drawRecursiveChildImage({
 }
 
 export function createLogoIsometricRecursiveCanvas({
+  baseGridSize = DEFAULT_LOGO_GRID_SIZE,
   cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   cubePixelSprite,
   depth,
@@ -946,6 +949,7 @@ export function createLogoIsometricRecursiveCanvas({
   movingVoxels = [],
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
 }: {
+  baseGridSize?: LogoGridSize;
   cubeSidePixels?: number;
   cubePixelSprite?: LogoIsoCubePixelSprite;
   depth: number;
@@ -958,7 +962,7 @@ export function createLogoIsometricRecursiveCanvas({
   frameMetrics: LogoIsometricFrameMetrics;
 } {
   const normalizedDepth = normalizeLogoFractalDepth(depth);
-  let frameMetrics = getLogoIsometricFrameMetrics(cubeSidePixels, GRID_SIZE);
+  let frameMetrics = getLogoIsometricFrameMetrics(cubeSidePixels, baseGridSize);
   let canvas = createIsometricCanvas(frameMetrics);
   const context = canvas.getContext("2d", {
     willReadFrequently: true,
@@ -975,7 +979,7 @@ export function createLogoIsometricRecursiveCanvas({
     cubePixelSprite,
     faceColors,
     filledVoxels,
-    gridSize: GRID_SIZE,
+    gridSize: baseGridSize,
     movingVoxels,
     paintBackground: false,
     styleId,
@@ -990,8 +994,11 @@ export function createLogoIsometricRecursiveCanvas({
   for (let level = 2; level <= normalizedDepth; level += 1) {
     const childCanvas = canvas;
     const childFrameMetrics = frameMetrics;
-    const childGridSize = getLogoFractalGridSize(level - 1);
-    frameMetrics = getLogoIsometricFrameMetrics(cubeSidePixels, getLogoFractalGridSize(level));
+    const childGridSize = getLogoFractalGridSize(baseGridSize, level - 1);
+    frameMetrics = getLogoIsometricFrameMetrics(
+      cubeSidePixels,
+      getLogoFractalGridSize(baseGridSize, level),
+    );
     canvas = createIsometricCanvas(frameMetrics);
     const nextContext = canvas.getContext("2d", {
       willReadFrequently: true,
@@ -1092,6 +1099,7 @@ export function drawLogoIsometricFrame({
 }
 
 export function drawLogoIsometricRecursiveFrame({
+  baseGridSize = DEFAULT_LOGO_GRID_SIZE,
   backgroundColor,
   context,
   cubePixelSprite,
@@ -1102,6 +1110,7 @@ export function drawLogoIsometricRecursiveFrame({
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
   cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
 }: {
+  baseGridSize?: LogoGridSize;
   backgroundColor: string;
   context: CanvasRenderingContext2D;
   cubePixelSprite?: LogoIsoCubePixelSprite;
@@ -1122,12 +1131,14 @@ export function drawLogoIsometricRecursiveFrame({
       cubeSidePixels,
       faceColors,
       filledVoxels,
+      gridSize: baseGridSize,
       movingVoxels,
       styleId,
     });
   }
 
   const { canvas, frameMetrics } = createLogoIsometricRecursiveCanvas({
+    baseGridSize,
     cubeSidePixels,
     cubePixelSprite,
     depth: normalizedDepth,
@@ -1187,7 +1198,7 @@ export function createLogoIsometricSvgMarkup({
 export function getIsometricAddCoordinate(
   face: IsometricVisibleFace,
   filledVoxels: ReadonlySet<string>,
-  gridSize = GRID_SIZE,
+  gridSize: number = GRID_SIZE,
 ): VoxelCoordinate | null {
   const [x, y, z] = face.coordinate;
   const [dx, dy, dz] = face.normal;

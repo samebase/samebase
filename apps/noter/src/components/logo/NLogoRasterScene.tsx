@@ -23,8 +23,9 @@ import {
   DRAG_ROTATION_DEGREES_PER_PIXEL,
 } from "@/components/logo/logoViewDragConstants";
 import {
-  GRID_SIZE,
+  DEFAULT_LOGO_GRID_SIZE,
   createDefaultFilledVoxelSet,
+  type LogoGridSize,
   parseVoxelKey,
   parseVoxelState,
   voxelKey,
@@ -37,7 +38,7 @@ import { type LogoShuffleAnimationConfig } from "@/components/logo/NLogoScene";
 const DRAG_THRESHOLD_PX = 4;
 const RASTER_BACKING_MIN_SIZE = 256;
 const RASTER_BACKING_MAX_SIZE = 1536;
-// Exact 3-based offscreen levels keep recursive tiles from sampling transparent
+// Exact offscreen levels keep recursive tiles from sampling transparent
 // edges into internal seams while the intermediate canvases stay bounded.
 const RASTER_EXACT_TILE_MAX_SIZE = RASTER_BACKING_MAX_SIZE * 2;
 const RASTER_FRUSTUM_PADDING = 1.18;
@@ -131,6 +132,7 @@ type RasterActiveMove = {
 
 type RasterMotionState = {
   activeMoves: RasterActiveMove[];
+  gridSize: LogoGridSize;
   currentFilledVoxels: Set<string>;
   homeFilledVoxels: Set<string>;
   lastMovedKey: string | null;
@@ -147,6 +149,7 @@ type RasterInteraction = {
 };
 
 type NLogoRasterSceneProps = {
+  baseGridSize?: LogoGridSize;
   backgroundColor: string;
   className?: string;
   distanceScale: number;
@@ -415,9 +418,11 @@ function getProjectionRank(ranks: readonly number[], value: number): number {
 }
 
 function getFaceOnState({
+  baseGridSize,
   filledVoxels,
   projection,
 }: {
+  baseGridSize: LogoGridSize;
   filledVoxels: ReadonlySet<string>;
   projection: RasterProjection;
 }): RasterFaceOnState | null {
@@ -437,17 +442,17 @@ function getFaceOnState({
   }
 
   const projectedGridCenters: Point2D[] = [];
-  for (let x = 0; x < GRID_SIZE; x += 1) {
-    for (let y = 0; y < GRID_SIZE; y += 1) {
-      for (let z = 0; z < GRID_SIZE; z += 1) {
-        projectedGridCenters.push(projection.projectPoint(getMotifCenter([x, y, z])));
+  for (let x = 0; x < baseGridSize; x += 1) {
+    for (let y = 0; y < baseGridSize; y += 1) {
+      for (let z = 0; z < baseGridSize; z += 1) {
+        projectedGridCenters.push(projection.projectPoint(getMotifCenter([x, y, z], baseGridSize)));
       }
     }
   }
 
   const xRanks = getSortedProjectionRanks(projectedGridCenters.map((point) => point.x));
   const yRanks = getSortedProjectionRanks(projectedGridCenters.map((point) => point.y));
-  if (xRanks.length !== GRID_SIZE || yRanks.length !== GRID_SIZE) {
+  if (xRanks.length !== baseGridSize || yRanks.length !== baseGridSize) {
     return null;
   }
 
@@ -458,7 +463,7 @@ function getFaceOnState({
       continue;
     }
 
-    const point = projection.projectPoint(getMotifCenter(coordinate));
+    const point = projection.projectPoint(getMotifCenter(coordinate, baseGridSize));
     cells.add(`${getProjectionRank(xRanks, point.x)},${getProjectionRank(yRanks, point.y)}`);
   }
 
@@ -469,11 +474,13 @@ function getFaceOnState({
 }
 
 function renderFaceOnBaseCanvas({
+  baseGridSize,
   cells,
   color,
   opacity,
   sizePx,
 }: {
+  baseGridSize: LogoGridSize;
   cells: ReadonlySet<string>;
   color: string;
   opacity: number;
@@ -485,7 +492,7 @@ function renderFaceOnBaseCanvas({
     return canvas;
   }
 
-  const childSize = sizePx / GRID_SIZE;
+  const childSize = sizePx / baseGridSize;
   context.fillStyle = color;
   context.globalAlpha = Math.max(0, Math.min(opacity, 1));
   for (const cell of cells) {
@@ -535,12 +542,14 @@ function composeFaceOnRasterLevel({
 }
 
 function renderFaceOnRecursiveImage({
+  baseGridSize,
   depth,
   exactCellSize,
   faceColors,
   faceOnState,
   opacity,
 }: {
+  baseGridSize: LogoGridSize;
   depth: number;
   exactCellSize: number;
   faceColors: FaceColors;
@@ -548,11 +557,13 @@ function renderFaceOnRecursiveImage({
   opacity: number;
 }): HTMLCanvasElement {
   let unitCanvas = renderFaceOnBaseCanvas({
+    baseGridSize,
     cells: faceOnState.cells,
     color: getTailwindColorHex(faceColors[faceOnState.colorKey]),
     opacity,
     sizePx: getExactRasterLevelSize({
       exactCellSize,
+      baseGridSize,
       level: 1,
     }),
   });
@@ -562,6 +573,7 @@ function renderFaceOnRecursiveImage({
       cells: faceOnState.cells,
       childCanvas: unitCanvas,
       sizePx: getExactRasterLevelSize({
+        baseGridSize,
         exactCellSize,
         level,
       }),
@@ -571,8 +583,8 @@ function renderFaceOnRecursiveImage({
   return unitCanvas;
 }
 
-function isWithinRasterGrid([x, y, z]: VoxelCoordinate): boolean {
-  return x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE && z >= 0 && z < GRID_SIZE;
+function isWithinRasterGrid([x, y, z]: VoxelCoordinate, gridSize: LogoGridSize): boolean {
+  return x >= 0 && x < gridSize && y >= 0 && y < gridSize && z >= 0 && z < gridSize;
 }
 
 function offsetRasterCoordinate(
@@ -582,12 +594,15 @@ function offsetRasterCoordinate(
   return [coordinate[0] + offset[0], coordinate[1] + offset[1], coordinate[2] + offset[2]];
 }
 
-function getRasterGridCoordinate(index: number): number {
-  return index / GRID_SIZE - 0.5;
+function getRasterGridCoordinate(index: number, gridSize: LogoGridSize): number {
+  return index / gridSize - 0.5;
 }
 
-function getRasterDistanceProjectionHalfSize(distanceScale: number): number {
-  const cellHalfSize = 0.5 / GRID_SIZE;
+function getRasterDistanceProjectionHalfSize(
+  distanceScale: number,
+  gridSize: LogoGridSize,
+): number {
+  const cellHalfSize = 0.5 / gridSize;
   return cellHalfSize + (0.5 - cellHalfSize) * normalizeLogoDistanceScale(distanceScale);
 }
 
@@ -596,6 +611,7 @@ function isDefaultRasterDistanceScale(distanceScale: number): boolean {
 }
 
 function createRasterGridPoint({
+  baseGridSize,
   planeAxis,
   planeIndex,
   u,
@@ -603,6 +619,7 @@ function createRasterGridPoint({
   v,
   vAxis,
 }: {
+  baseGridSize: LogoGridSize;
   planeAxis: RasterAxisIndex;
   planeIndex: number;
   u: number;
@@ -610,9 +627,9 @@ function createRasterGridPoint({
   v: number;
   vAxis: RasterAxisIndex;
 }): Vector3 {
-  const planeCoordinate = getRasterGridCoordinate(planeIndex);
-  const uCoordinate = getRasterGridCoordinate(u);
-  const vCoordinate = getRasterGridCoordinate(v);
+  const planeCoordinate = getRasterGridCoordinate(planeIndex, baseGridSize);
+  const uCoordinate = getRasterGridCoordinate(u, baseGridSize);
+  const vCoordinate = getRasterGridCoordinate(v, baseGridSize);
   const getCoordinate = (axis: RasterAxisIndex) => {
     if (axis === planeAxis) {
       return planeCoordinate;
@@ -630,8 +647,9 @@ function createRasterGridPoint({
   return [getCoordinate(0), getCoordinate(1), getCoordinate(2)];
 }
 
-function getRasterFaceCellCenter(cell: RasterFaceCell): Vector3 {
+function getRasterFaceCellCenter(cell: RasterFaceCell, baseGridSize: LogoGridSize): Vector3 {
   return createRasterGridPoint({
+    baseGridSize,
     planeAxis: cell.planeAxis,
     planeIndex: cell.planeIndex,
     u: cell.u + 0.5,
@@ -668,12 +686,15 @@ function areRasterFaceCellsAdjacent(left: RasterFaceCell, right: RasterFaceCell)
   );
 }
 
-function collectRasterFaceCells(filledVoxels: ReadonlySet<string>): RasterFaceCell[] {
+function collectRasterFaceCells(
+  filledVoxels: ReadonlySet<string>,
+  baseGridSize: LogoGridSize,
+): RasterFaceCell[] {
   const cells: RasterFaceCell[] = [];
 
   for (const key of filledVoxels) {
     const coordinate = parseVoxelKey(key);
-    if (!coordinate || !isWithinRasterGrid(coordinate)) {
+    if (!coordinate || !isWithinRasterGrid(coordinate, baseGridSize)) {
       continue;
     }
 
@@ -811,14 +832,19 @@ function takeRasterConnectedSurface(
 }
 
 function buildRasterMergedSurfaces({
+  baseGridSize,
   filledVoxels,
   projection,
 }: {
+  baseGridSize: LogoGridSize;
   filledVoxels: ReadonlySet<string>;
   projection: RasterProjection;
 }): RasterMergedSurface[] {
   const remainingCells = new Map(
-    collectRasterFaceCells(filledVoxels).map((cell) => [getRasterFaceCellKey(cell), cell]),
+    collectRasterFaceCells(filledVoxels, baseGridSize).map((cell) => [
+      getRasterFaceCellKey(cell),
+      cell,
+    ]),
   );
   const mergedSurfaces: RasterMergedSurface[] = [];
 
@@ -839,7 +865,7 @@ function buildRasterMergedSurfaces({
         return (
           totalDepth +
           dotProduct(
-            projection.rotatePoint(getRasterFaceCellCenter(componentCell)),
+            projection.rotatePoint(getRasterFaceCellCenter(componentCell, baseGridSize)),
             projection.cameraDirection,
           )
         );
@@ -871,10 +897,12 @@ function buildRasterMergedSurfaces({
 }
 
 function drawRasterMergedSurface({
+  baseGridSize,
   context,
   projection,
   surface,
 }: {
+  baseGridSize: LogoGridSize;
   context: CanvasRenderingContext2D;
   projection: RasterProjection;
   surface: RasterMergedSurface;
@@ -884,6 +912,7 @@ function drawRasterMergedSurface({
     const [firstPoint, ...remainingPoints] = loop;
     const projectedFirstPoint = projection.projectPoint(
       createRasterGridPoint({
+        baseGridSize,
         planeAxis: surface.planeAxis,
         planeIndex: surface.planeIndex,
         u: firstPoint.u,
@@ -897,6 +926,7 @@ function drawRasterMergedSurface({
     for (const point of remainingPoints) {
       const projectedPoint = projection.projectPoint(
         createRasterGridPoint({
+          baseGridSize,
           planeAxis: surface.planeAxis,
           planeIndex: surface.planeIndex,
           u: point.u,
@@ -914,14 +944,16 @@ function drawRasterMergedSurface({
   context.fill();
 }
 
-function scaleRasterCubeLocalPoint(point: Vector3): Vector3 {
-  return scaleVector(point, 1 / GRID_SIZE);
+function scaleRasterCubeLocalPoint(point: Vector3, baseGridSize: LogoGridSize): Vector3 {
+  return scaleVector(point, 1 / baseGridSize);
 }
 
 function collectDistanceScaledRasterFaces({
+  baseGridSize,
   drawItems,
   projection,
 }: {
+  baseGridSize: LogoGridSize;
   drawItems: readonly RasterMotifDrawItem[];
   projection: RasterProjection;
 }): RasterProjectedFace[] {
@@ -934,13 +966,18 @@ function collectDistanceScaledRasterFaces({
         continue;
       }
 
-      const faceCenter = addVectors(item.center, scaleRasterCubeLocalPoint(getFaceCenter(face)));
+      const faceCenter = addVectors(
+        item.center,
+        scaleRasterCubeLocalPoint(getFaceCenter(face), baseGridSize),
+      );
       faces.push({
         colorKey: face.colorKey,
         depth: dotProduct(projection.rotatePoint(faceCenter), projection.cameraDirection),
         key: `${item.key}:${face.colorKey}:${face.normal.join(",")}`,
         points: face.vertices.map((vertex) =>
-          projection.projectPoint(addVectors(item.center, scaleRasterCubeLocalPoint(vertex))),
+          projection.projectPoint(
+            addVectors(item.center, scaleRasterCubeLocalPoint(vertex, baseGridSize)),
+          ),
         ),
       });
     }
@@ -984,6 +1021,7 @@ function drawDistanceScaledRasterFaces({
 
 function renderSurfaceMotifCanvas({
   activeMoves,
+  baseGridSize,
   distanceScale,
   elevationDegrees,
   faceColors,
@@ -994,6 +1032,7 @@ function renderSurfaceMotifCanvas({
   rotationDegrees,
 }: {
   activeMoves: readonly RasterActiveMove[];
+  baseGridSize: LogoGridSize;
   distanceScale: number;
   elevationDegrees: number;
   faceColors: FaceColors;
@@ -1012,6 +1051,7 @@ function renderSurfaceMotifCanvas({
   if (!isDefaultRasterDistanceScale(distanceScale)) {
     const drawItems = getMotifDrawItems({
       activeMoves,
+      baseGridSize,
       distanceScale,
       filledVoxels,
       projection,
@@ -1019,7 +1059,7 @@ function renderSurfaceMotifCanvas({
     drawDistanceScaledRasterFaces({
       context,
       faceColors,
-      faces: collectDistanceScaledRasterFaces({ drawItems, projection }),
+      faces: collectDistanceScaledRasterFaces({ baseGridSize, drawItems, projection }),
       opacity,
       projection,
     });
@@ -1029,15 +1069,15 @@ function renderSurfaceMotifCanvas({
 
   context.globalAlpha = Math.max(0, Math.min(opacity, 1));
 
-  buildRasterMergedSurfaces({ filledVoxels, projection }).forEach((surface) => {
+  buildRasterMergedSurfaces({ baseGridSize, filledVoxels, projection }).forEach((surface) => {
     context.fillStyle = getTailwindColorHex(faceColors[surface.colorKey]);
-    drawRasterMergedSurface({ context, projection, surface });
+    drawRasterMergedSurface({ baseGridSize, context, projection, surface });
   });
 
   context.globalAlpha = 1;
 
   if (activeMoves.length > 0) {
-    const childSize = projection.sizePx / GRID_SIZE;
+    const childSize = projection.sizePx / baseGridSize;
     const cubeCanvas = renderCubeUnitCanvas({
       faceColors,
       opacity,
@@ -1051,6 +1091,7 @@ function renderSurfaceMotifCanvas({
     });
     const movingItems = getMotifDrawItems({
       activeMoves,
+      baseGridSize,
       distanceScale,
       filledVoxels: new Set(),
       projection,
@@ -1073,17 +1114,23 @@ function renderSurfaceMotifCanvas({
   return canvas;
 }
 
-function getMotifCenter([x, y, z]: VoxelCoordinate): Vector3 {
-  return [(x + 0.5) / GRID_SIZE - 0.5, (y + 0.5) / GRID_SIZE - 0.5, (z + 0.5) / GRID_SIZE - 0.5];
+function getMotifCenter([x, y, z]: VoxelCoordinate, baseGridSize: LogoGridSize): Vector3 {
+  return [
+    (x + 0.5) / baseGridSize - 0.5,
+    (y + 0.5) / baseGridSize - 0.5,
+    (z + 0.5) / baseGridSize - 0.5,
+  ];
 }
 
 function getMotifDrawItems({
   activeMoves,
+  baseGridSize,
   distanceScale,
   filledVoxels,
   projection,
 }: {
   activeMoves: readonly RasterActiveMove[];
+  baseGridSize: LogoGridSize;
   distanceScale: number;
   filledVoxels: ReadonlySet<string>;
   projection: RasterProjection;
@@ -1097,7 +1144,7 @@ function getMotifDrawItems({
       continue;
     }
 
-    const center = scaleVector(getMotifCenter(coordinate), normalizedDistanceScale);
+    const center = scaleVector(getMotifCenter(coordinate, baseGridSize), normalizedDistanceScale);
     drawItems.push({
       center,
       depth: dotProduct(projection.rotatePoint(center), projection.cameraDirection),
@@ -1114,8 +1161,11 @@ function getMotifDrawItems({
       Math.max((performance.now() - move.startTimeMs) / move.durationMs, 0),
       1,
     );
-    const startCenter = scaleVector(getMotifCenter(move.from), normalizedDistanceScale);
-    const endCenter = scaleVector(getMotifCenter(move.to), normalizedDistanceScale);
+    const startCenter = scaleVector(
+      getMotifCenter(move.from, baseGridSize),
+      normalizedDistanceScale,
+    );
+    const endCenter = scaleVector(getMotifCenter(move.to, baseGridSize), normalizedDistanceScale);
     const travelProgress = easeInOutCubic(progress);
     const center: Vector3 = [
       startCenter[0] + (endCenter[0] - startCenter[0]) * travelProgress,
@@ -1173,14 +1223,16 @@ function composeRasterLevel({
 }
 
 function getRasterExactCellSize({
+  baseGridSize,
   depth,
   outputSizePx,
 }: {
+  baseGridSize: LogoGridSize;
   depth: number;
   outputSizePx: number;
 }): number {
-  const cellSize = Math.max(1, Math.ceil(outputSizePx / GRID_SIZE ** depth));
-  if (cellSize * GRID_SIZE ** depth <= RASTER_EXACT_TILE_MAX_SIZE) {
+  const cellSize = Math.max(1, Math.ceil(outputSizePx / baseGridSize ** depth));
+  if (cellSize * baseGridSize ** depth <= RASTER_EXACT_TILE_MAX_SIZE) {
     return cellSize;
   }
 
@@ -1188,31 +1240,35 @@ function getRasterExactCellSize({
 }
 
 function getExactRasterLevelSize({
+  baseGridSize,
   exactCellSize,
   level,
 }: {
+  baseGridSize: LogoGridSize;
   exactCellSize: number;
   level: number;
 }): number {
-  return exactCellSize * GRID_SIZE ** level;
+  return exactCellSize * baseGridSize ** level;
 }
 
 function getRasterLevelSize({
+  baseGridSize,
   depth,
   exactCellSize,
   level,
   outputSizePx,
 }: {
+  baseGridSize: LogoGridSize;
   depth: number;
   exactCellSize: number;
   level: number;
   outputSizePx: number;
 }): number {
   if (exactCellSize > 0) {
-    return getExactRasterLevelSize({ exactCellSize, level });
+    return getExactRasterLevelSize({ baseGridSize, exactCellSize, level });
   }
 
-  return Math.max(1, Math.ceil(outputSizePx / GRID_SIZE ** (depth - level)));
+  return Math.max(1, Math.ceil(outputSizePx / baseGridSize ** (depth - level)));
 }
 
 function easeInOutCubic(value: number): number {
@@ -1221,6 +1277,7 @@ function easeInOutCubic(value: number): number {
 
 function renderRasterRecursiveImage({
   activeMoves,
+  baseGridSize,
   depth,
   distanceScale,
   drawItems,
@@ -1233,6 +1290,7 @@ function renderRasterRecursiveImage({
   rotationDegrees,
 }: {
   activeMoves: readonly RasterActiveMove[];
+  baseGridSize: LogoGridSize;
   depth: number;
   distanceScale: number;
   drawItems: readonly RasterMotifDrawItem[];
@@ -1245,8 +1303,9 @@ function renderRasterRecursiveImage({
   rotationDegrees: number;
 }): HTMLCanvasElement {
   const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
-  const worldHalfSize = getRasterDistanceProjectionHalfSize(normalizedDistanceScale);
+  const worldHalfSize = getRasterDistanceProjectionHalfSize(normalizedDistanceScale, baseGridSize);
   const exactCellSize = getRasterExactCellSize({
+    baseGridSize,
     depth,
     outputSizePx,
   });
@@ -1256,6 +1315,7 @@ function renderRasterRecursiveImage({
     rotationAxisMode,
     rotationDegrees,
     sizePx: getRasterLevelSize({
+      baseGridSize,
       depth,
       exactCellSize,
       level: Math.min(depth, 1),
@@ -1268,6 +1328,7 @@ function renderRasterRecursiveImage({
     exactCellSize > 0 &&
     normalizedDistanceScale === DEFAULT_LOGO_DISTANCE_SCALE
       ? getFaceOnState({
+          baseGridSize,
           filledVoxels,
           projection: faceOnProjection,
         })
@@ -1276,6 +1337,7 @@ function renderRasterRecursiveImage({
     // Exact snap-to-face views are 2D coverage, so render the recursive mask
     // directly instead of resampling transparent tile edges into seams.
     return renderFaceOnRecursiveImage({
+      baseGridSize,
       depth,
       exactCellSize,
       faceColors,
@@ -1286,6 +1348,7 @@ function renderRasterRecursiveImage({
 
   let unitCanvas = renderSurfaceMotifCanvas({
     activeMoves,
+    baseGridSize,
     distanceScale: normalizedDistanceScale,
     elevationDegrees,
     faceColors,
@@ -1297,6 +1360,7 @@ function renderRasterRecursiveImage({
       rotationAxisMode,
       rotationDegrees,
       sizePx: getRasterLevelSize({
+        baseGridSize,
         depth,
         exactCellSize,
         level: 1,
@@ -1310,6 +1374,7 @@ function renderRasterRecursiveImage({
 
   for (let level = 2; level <= depth; level += 1) {
     const levelSizePx = getRasterLevelSize({
+      baseGridSize,
       depth,
       exactCellSize,
       level,
@@ -1334,6 +1399,7 @@ function renderRasterRecursiveImage({
 
 function renderRasterScene({
   backgroundColor,
+  baseGridSize,
   canvas,
   distanceScale,
   elevationDegrees,
@@ -1345,6 +1411,7 @@ function renderRasterScene({
   rotationDegrees,
 }: {
   backgroundColor: string;
+  baseGridSize: LogoGridSize;
   canvas: HTMLCanvasElement;
   distanceScale: number;
   elevationDegrees: number;
@@ -1356,7 +1423,7 @@ function renderRasterScene({
   rotationDegrees: number;
 }) {
   const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
-  const worldHalfSize = getRasterDistanceProjectionHalfSize(normalizedDistanceScale);
+  const worldHalfSize = getRasterDistanceProjectionHalfSize(normalizedDistanceScale, baseGridSize);
   const sizePx = getCanvasBackingSize(canvas);
   if (canvas.width !== sizePx) {
     canvas.width = sizePx;
@@ -1380,12 +1447,14 @@ function renderRasterScene({
   });
   const drawItems = getMotifDrawItems({
     activeMoves: motion.activeMoves,
+    baseGridSize,
     distanceScale: normalizedDistanceScale,
     filledVoxels: motion.currentFilledVoxels,
     projection,
   });
   const image = renderRasterRecursiveImage({
     activeMoves: motion.activeMoves,
+    baseGridSize,
     depth: clampLogoFractalDepthForRenderer(fractalDepth, "raster"),
     distanceScale: normalizedDistanceScale,
     drawItems,
@@ -1414,10 +1483,15 @@ function renderRasterScene({
   );
 }
 
-function createRasterMotionState(voxelState: string): RasterMotionState {
-  const homeFilledVoxels = parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet();
+function createRasterMotionState(voxelState: string, gridSize: LogoGridSize): RasterMotionState {
+  const parsedVoxelState = parseVoxelState(voxelState);
+  const homeFilledVoxels =
+    parsedVoxelState && parsedVoxelState.gridSize === gridSize
+      ? parsedVoxelState.filledVoxels
+      : createDefaultFilledVoxelSet(gridSize);
   return {
     activeMoves: [],
+    gridSize,
     currentFilledVoxels: new Set(homeFilledVoxels),
     homeFilledVoxels: new Set(homeFilledVoxels),
     lastMovedKey: null,
@@ -1453,7 +1527,7 @@ function scheduleNextRasterMove({
     blockedKeys,
     elevationDegrees,
     filledVoxels: motion.currentFilledVoxels,
-    gridSize: GRID_SIZE,
+    gridSize: motion.gridSize,
     lastMovedCubeKey: motion.lastMovedKey,
     rotationAxisMode,
     rotationDegrees,
@@ -1534,6 +1608,7 @@ function syncRasterMotion({
 }
 
 export function NLogoRasterScene({
+  baseGridSize = DEFAULT_LOGO_GRID_SIZE,
   backgroundColor,
   className,
   distanceScale,
@@ -1551,7 +1626,7 @@ export function NLogoRasterScene({
   voxelState,
 }: NLogoRasterSceneProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const motionRef = useRef(createRasterMotionState(voxelState));
+  const motionRef = useRef(createRasterMotionState(voxelState, baseGridSize));
   const interactionRef = useRef<RasterInteraction>({
     button: null,
     pointerId: null,
@@ -1570,6 +1645,7 @@ export function NLogoRasterScene({
 
     renderRasterScene({
       backgroundColor,
+      baseGridSize,
       canvas,
       distanceScale,
       elevationDegrees,
@@ -1581,6 +1657,7 @@ export function NLogoRasterScene({
       rotationDegrees,
     });
   }, [
+    baseGridSize,
     backgroundColor,
     distanceScale,
     elevationDegrees,
@@ -1592,9 +1669,9 @@ export function NLogoRasterScene({
   ]);
 
   useEffect(() => {
-    motionRef.current = createRasterMotionState(voxelState);
+    motionRef.current = createRasterMotionState(voxelState, baseGridSize);
     renderScene();
-  }, [renderScene, voxelState]);
+  }, [baseGridSize, renderScene, voxelState]);
 
   useEffect(() => {
     renderScene();
