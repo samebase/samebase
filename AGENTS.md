@@ -41,6 +41,9 @@
 - Delegate routine workflow bureaucracy such as PR creation/update, CI watching, review-thread
   triage, command-table workflows, or release checklist verification to focused sub-agents with
   explicit pass/fail criteria and short handoffs.
+- When delegating or testing shortcut/process commands such as `clean`, `wait`, `create pr`, or
+  `ship`, start the sub-agent in the intended checkout/thread context and send only the exact
+  command shape the operator used. Do not expand it into a checklist prompt.
 - Keep the main thread as supervisor for delegated process work. Intervene only when the sub-agent
   reports a blocker, policy ambiguity, approval boundary, or decision the supervisor must make;
   otherwise accept the delegated result and continue.

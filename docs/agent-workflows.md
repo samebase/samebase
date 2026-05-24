@@ -49,6 +49,10 @@ Use `link machine` when the operator wants the current checkout or worktree to r
 
 These are the intended meanings for the repo shorthand commands:
 
+When a shorthand command is delegated, tested, or handed off for execution, preserve the operator's
+terse command form exactly, such as `clean`, `wait`, `create pr`, or `ship`, and avoid adding extra
+instructions or checklists.
+
 | Command        | Meaning                                                                                                                                                            |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `commit`       | Stage and create a concise commit on the current branch                                                                                                            |
