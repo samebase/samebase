@@ -42,6 +42,7 @@ export function PublicLayoutShell({
   leftToggleVisibility = "hidden",
   main,
   rightToggleVisibility = "desktop",
+  showRightSidebar = true,
 }: {
   children?: ReactNode;
   dataTestId?: WorkspaceLayoutV2FullPageProps["dataTestId"];
@@ -51,6 +52,7 @@ export function PublicLayoutShell({
   leftToggleVisibility?: WorkspaceLayoutV2FullPageProps["leftToggleVisibility"];
   main?: WorkspaceLayoutV2PaneFrameProps;
   rightToggleVisibility?: WorkspaceLayoutV2FullPageProps["rightToggleVisibility"];
+  showRightSidebar?: boolean;
 }) {
   const hasLeftPane = left !== undefined;
   const location = useLocation();
@@ -106,11 +108,13 @@ export function PublicLayoutShell({
     sidebarState,
   });
   const publicRightSidebarPane = usePublicRightSidebarPane();
+  const rightPane = showRightSidebar ? publicRightSidebarPane : undefined;
   // No main or header === undefined means the public shell owns the URL header
   // and body wrapper; an explicit header, even null, preserves caller chrome.
   const mainHeader = main?.header === undefined ? <RouteUrlEditor /> : main.header;
   const hasMainHeader = Boolean(mainHeader);
-  const layoutRightToggleVisibility = hasMainHeader ? rightToggleVisibility : "hidden";
+  const layoutRightToggleVisibility =
+    hasMainHeader && showRightSidebar ? rightToggleVisibility : "hidden";
   const mainContent = main === undefined ? children : main.content;
   const shouldWrapMainContent = main?.header === undefined || !hasMainHeader;
   const mainPane = {
@@ -133,7 +137,7 @@ export function PublicLayoutShell({
           dataTestId={dataTestId}
           left={left}
           main={mainPane}
-          right={publicRightSidebarPane}
+          right={rightPane}
           leftToggleVisibility={leftToggleVisibility}
           rightToggleVisibility={layoutRightToggleVisibility}
         />

@@ -1,6 +1,5 @@
 import { FileText } from "lucide-react";
 import { PublicLayoutShell } from "@/Layout";
-import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
 import { useBrowserLocalStorageSnapshot } from "@/hooks/useBrowserLocalStorageSnapshot";
 import { type LocalStorageSnapshot } from "@/lib/localStorageSnapshot";
 
@@ -98,7 +97,6 @@ export function LocalStorageWorkspacePage() {
       }}
       leftToggleVisibility="desktop"
       main={{
-        header: <RepositoryWorkspacePaneHeader title="localStorage" />,
         content: <LocalStorageEntriesTable snapshot={snapshot} />,
       }}
     />
