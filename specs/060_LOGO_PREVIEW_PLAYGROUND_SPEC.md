@@ -23,8 +23,8 @@ to recolor, easy to reshape, and easy to share through the URL.
 
 The scene is not a generic 3D editor. It is a focused playground for the Noter voxel mark with a
 small, opinionated control surface, plus static recursive depth previews of that mark. The
-exploration state is grid-size-aware and defaults to the `2x2x2` motif; committed brand identity
-assets remain governed by the accepted `3x3x3` identity contract until that contract changes.
+exploration state is grid-size-aware: the route default remains the accepted `3x3x3` motif, and
+`gridSize=2` enables the same controls and renderers for the `2x2x2` motif.
 
 ## Goals
 
@@ -66,7 +66,7 @@ assets remain governed by the accepted `3x3x3` identity contract until that cont
 
 - The logo is modeled as a base voxel grid.
 - The supported base grid sizes are `2x2x2` and `3x3x3`.
-- `/logo` defaults to `2x2x2` so the exploratory recursive model starts from the smaller motif.
+- `/logo` defaults to `3x3x3`; `gridSize=2` switches the same playground state model to `2x2x2`.
 - Canonical public brand assets use the `3x3x3` identity grid from
   `specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md`.
 - Each voxel is either filled or empty.
@@ -74,8 +74,9 @@ assets remain governed by the accepted `3x3x3` identity contract until that cont
 ### 2. URL serialization
 
 - Voxel state is stored in the `vox` query param.
-- The `gridSize` query param selects the base grid. The omitted value means the default `2x2x2`
-  exploration grid.
+- The `gridSize` query param selects the base grid. The omitted value means the default `3x3x3` grid
+  unless a valid `vox` value with another supported layer count infers the grid.
+- Canonical route state should keep non-default grid size explicit once it has been parsed.
 - The canonical `vox` format is one layer per grid row joined by `-`, with rows inside each layer
   joined by `_`.
 - Filled cells use `x`; empty cells use `o`.
@@ -87,13 +88,15 @@ assets remain governed by the accepted `3x3x3` identity contract until that cont
 Example:
 
 - `2x2x2`: `ox_xo-oo_ox`
-- `3x3x3`: `ooo_oxo_ooo-oxo_xox_oxo-ooo_oxo_ooo`
+- `3x3x3`: `oxo_xox_oxo-xox_ooo_xox-oxo_xox_oxo`
 
 ### 3. Default shape
 
 - The default `2x2x2` voxel arrangement is: `ox_xo-oo_ox`
-- The default `3x3x3` voxel arrangement is: `ooo_oxo_ooo-oxo_xox_oxo-ooo_oxo_ooo`
-- Loading `/logo` without `vox` should use the default arrangement for the selected grid size.
+- The default `3x3x3` voxel arrangement is: `oxo_xox_oxo-xox_ooo_xox-oxo_xox_oxo`
+- Loading `/logo` without `gridSize` or `vox` should use the default `3x3x3` arrangement.
+- Loading a selected grid without `vox` should use the default arrangement for that selected grid
+  size.
 
 ### 4. Editing
 
@@ -290,7 +293,8 @@ The playground should expose at least these presets:
 
 ### 2. Preset silhouettes
 
-- The default `Open Cross` preset should read as a plus-like skeleton with the center cube removed.
+- The default `3x3x3` checker preset should read as a plus-like skeleton with the center cube
+  removed.
 - The `N Logo` preset should preserve the lowercase `n` face glyphs.
 
 ## Implemented Baseline

@@ -2,9 +2,8 @@ export const LOGO_GRID_SIZE_2 = 2;
 export const LOGO_GRID_SIZE_3 = 3;
 export const LOGO_GRID_SIZE_OPTIONS = [LOGO_GRID_SIZE_2, LOGO_GRID_SIZE_3] as const;
 export type LogoGridSize = (typeof LOGO_GRID_SIZE_OPTIONS)[number];
-export const DEFAULT_LOGO_GRID_SIZE: LogoGridSize = LOGO_GRID_SIZE_2;
-export const LEGACY_LOGO_GRID_SIZE: LogoGridSize = LOGO_GRID_SIZE_3;
-export const GRID_SIZE = LEGACY_LOGO_GRID_SIZE;
+export const DEFAULT_LOGO_GRID_SIZE: LogoGridSize = LOGO_GRID_SIZE_3;
+export const GRID_SIZE = LOGO_GRID_SIZE_3;
 export const FAVICON_ROTATION_DEGREES = 45;
 export const DEFAULT_ROTATION_DEGREES = FAVICON_ROTATION_DEGREES;
 export const DEFAULT_ELEVATION_DEGREES = 35.26438968;
@@ -83,6 +82,10 @@ export function readLogoGridSize(value: number): LogoGridSize | null {
 }
 
 export function normalizeLogoGridSize(value: number | undefined): LogoGridSize {
+  if (value === LOGO_GRID_SIZE_2) {
+    return LOGO_GRID_SIZE_2;
+  }
+
   if (value === LOGO_GRID_SIZE_3) {
     return LOGO_GRID_SIZE_3;
   }

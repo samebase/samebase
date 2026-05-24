@@ -52,6 +52,7 @@ import {
   LOGO_GRID_SIZE_2,
   LOGO_GRID_SIZE_3,
   createDefaultVoxelState,
+  readLogoGridSize,
   normalizeLogoGridSize,
   normalizeLogoFractalDepth,
   normalizeElevationDegrees,
@@ -107,7 +108,9 @@ function readOptionalNumber(value: unknown): number | undefined {
 
 function readOptionalLogoGridSize(value: unknown): LogoGridSize | undefined {
   const numericValue = readOptionalNumber(value);
-  return typeof numericValue === "number" ? normalizeLogoGridSize(numericValue) : undefined;
+  return typeof numericValue === "number"
+    ? (readLogoGridSize(numericValue) ?? undefined)
+    : undefined;
 }
 
 const LOGO_ROUTE_PRESENCE_SEARCH_KEYS = [
@@ -190,8 +193,11 @@ const logoRouteSearchFieldSchema = z
 
 export const logoRouteSearchSchema = logoRouteSearchFieldSchema.transform((search) => {
   const themeModeSearch = readRootThemeModeSearch(search);
-  const gridSize = normalizeLogoGridSize(search.gridSize);
   const parsedVoxelState = parseVoxelState(search.vox ?? null);
+  const gridSize =
+    typeof search.gridSize === "number"
+      ? normalizeLogoGridSize(search.gridSize)
+      : (parsedVoxelState?.gridSize ?? DEFAULT_LOGO_GRID_SIZE);
   const voxelState =
     parsedVoxelState && parsedVoxelState.gridSize === gridSize
       ? serializeVoxelState(parsedVoxelState.filledVoxels, gridSize)

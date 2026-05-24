@@ -24,6 +24,7 @@ import {
   DEFAULT_LOGO_GRID_SIZE,
   DEFAULT_ROTATION_DEGREES,
   DEFAULT_VOXEL_STATE,
+  LOGO_GRID_SIZE_2,
   LOGO_GRID_SIZE_3,
   createDefaultVoxelState,
 } from "@/components/logo/logoVoxelState";
@@ -190,22 +191,28 @@ describe("logoRouteSearch", () => {
   });
 
   it("keeps grid size and voxel state as one coherent route shape", () => {
-    const legacyVoxelState = createDefaultVoxelState(LOGO_GRID_SIZE_3);
+    const grid2VoxelState = createDefaultVoxelState(LOGO_GRID_SIZE_2);
+    const grid3VoxelState = createDefaultVoxelState(LOGO_GRID_SIZE_3);
 
-    expect(validateLogoRouteSearch({ gridSize: "3", vox: legacyVoxelState })).toEqual({
-      gridSize: LOGO_GRID_SIZE_3,
-      vox: legacyVoxelState,
+    expect(DEFAULT_LOGO_GRID_SIZE).toBe(LOGO_GRID_SIZE_3);
+    expect(validateLogoRouteSearch({ vox: grid3VoxelState })).toEqual({
+      vox: grid3VoxelState,
     });
 
-    expect(validateLogoRouteSearch({ gridSize: "3", vox: DEFAULT_VOXEL_STATE })).toEqual({
-      gridSize: LOGO_GRID_SIZE_3,
+    expect(validateLogoRouteSearch({ vox: grid2VoxelState })).toEqual({
+      gridSize: LOGO_GRID_SIZE_2,
+      vox: grid2VoxelState,
+    });
+
+    expect(validateLogoRouteSearch({ gridSize: "2", vox: grid3VoxelState })).toEqual({
+      gridSize: LOGO_GRID_SIZE_2,
     });
 
     const builtSearch = buildLogoRouteSearch({
       distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
       elevationDegrees: DEFAULT_ELEVATION_DEGREES,
       fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
-      gridSize: LOGO_GRID_SIZE_3,
+      gridSize: LOGO_GRID_SIZE_2,
       isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
       isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
       leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
@@ -213,10 +220,10 @@ describe("logoRouteSearch", () => {
       rotationDegrees: DEFAULT_ROTATION_DEGREES,
       themeColors: DEFAULT_LOGO_THEME_COLORS,
       viewSnapEnabled: true,
-      voxelState: DEFAULT_VOXEL_STATE,
+      voxelState: grid2VoxelState,
     });
 
-    expect(builtSearch.gridSize).toBe(LOGO_GRID_SIZE_3);
+    expect(builtSearch.gridSize).toBe(LOGO_GRID_SIZE_2);
     expect(builtSearch.vox).toBeUndefined();
   });
 

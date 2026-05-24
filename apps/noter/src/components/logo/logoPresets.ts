@@ -10,7 +10,7 @@ import {
 } from "@/components/logo/logoVoxelState";
 
 export const CUSTOM_LOGO_PRESET_ID = "custom";
-export const DEFAULT_LOGO_PRESET_ID = "checker-lattice";
+export const DEFAULT_LOGO_PRESET_ID = "checker-lattice-3";
 
 export type LogoPresetId =
   | "checker-lattice"
@@ -113,18 +113,18 @@ function createSierpinskiCarpetVoxelState(): string {
 
 export const LOGO_PRESETS = [
   {
-    description: "Default 2x2x2 recursive exploration motif",
-    gridSize: LOGO_GRID_SIZE_2,
-    id: "checker-lattice",
-    label: "Default 2",
-    voxelState: DEFAULT_VOXEL_STATE,
-  },
-  {
     description: "3x3x3 alternating lattice with the center cube removed",
     gridSize: LOGO_GRID_SIZE_3,
     id: "checker-lattice-3",
     label: "Checker 3",
-    voxelState: createDefaultVoxelState(LOGO_GRID_SIZE_3),
+    voxelState: DEFAULT_VOXEL_STATE,
+  },
+  {
+    description: "Default 2x2x2 recursive exploration motif",
+    gridSize: LOGO_GRID_SIZE_2,
+    id: "checker-lattice",
+    label: "Default 2",
+    voxelState: createDefaultVoxelState(LOGO_GRID_SIZE_2),
   },
   {
     description: "Original lowercase n voxel mark",

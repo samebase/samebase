@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
+import { LOGO_GRID_SIZE_2, LOGO_GRID_SIZE_3 } from "@/components/logo/logoVoxelState";
 import { readRootRouteSearch, validateRootRouteSearch } from "./rootRouteSearch";
 
 describe("rootRouteSearch", () => {
@@ -112,6 +113,16 @@ describe("rootRouteSearch", () => {
     expect(readRootRouteSearch("?dist=-1")).toEqual({
       dist: 0,
     });
+  });
+
+  it("preserves explicit supported root logo grid sizes", () => {
+    expect(readRootRouteSearch("?gridSize=2")).toEqual({
+      gridSize: LOGO_GRID_SIZE_2,
+    });
+    expect(readRootRouteSearch("?gridSize=3")).toEqual({
+      gridSize: LOGO_GRID_SIZE_3,
+    });
+    expect(readRootRouteSearch("?gridSize=4")).toEqual({});
   });
 
   it("ignores all other parsed root params while reset is present", () => {

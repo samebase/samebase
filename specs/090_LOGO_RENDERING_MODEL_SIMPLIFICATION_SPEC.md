@@ -68,8 +68,8 @@ The settled shape is a `LogoVoxelGrid`-like value:
 - base grid size
 - filled voxel coordinates
 
-The current `/logo` exploration state supports base grid sizes `2` and `3`, with `2` as the route
-default. For the current accepted logo identity, the base grid size is `3`.
+The current `/logo` exploration state supports base grid sizes `2` and `3`, with `3` as the route
+default. The `2` grid is an explicit exploration option with the same renderer support.
 
 ### 2. Motion state
 

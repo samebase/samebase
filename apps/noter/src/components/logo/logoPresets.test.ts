@@ -1,20 +1,38 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { getLogoPreset, getLogoPresetSelection } from "@/components/logo/logoPresets";
 import {
+  DEFAULT_LOGO_PRESET_ID,
+  getLogoPreset,
+  getLogoPresetSelection,
+} from "@/components/logo/logoPresets";
+import {
+  DEFAULT_LOGO_GRID_SIZE,
   DEFAULT_VOXEL_STATE,
   LOGO_GRID_SIZE_2,
+  LOGO_GRID_SIZE_3,
+  createDefaultVoxelState,
   parseVoxelState,
   voxelKey,
 } from "@/components/logo/logoVoxelState";
 
 describe("logoPresets", () => {
-  it("keeps the 2x2 default preset aligned with the route default", () => {
+  it("keeps the 3x3 checker preset aligned with the route default", () => {
+    const preset = getLogoPreset(DEFAULT_LOGO_PRESET_ID);
+
+    expect(DEFAULT_LOGO_PRESET_ID).toBe("checker-lattice-3");
+    expect(preset.label).toBe("Checker 3");
+    expect(preset.gridSize).toBe(DEFAULT_LOGO_GRID_SIZE);
+    expect(preset.gridSize).toBe(LOGO_GRID_SIZE_3);
+    expect(preset.voxelState).toBe(DEFAULT_VOXEL_STATE);
+    expect(getLogoPresetSelection(preset.voxelState, preset.gridSize)).toBe("checker-lattice-3");
+  });
+
+  it("keeps the 2x2 default preset aligned with the 2x2 grid", () => {
     const preset = getLogoPreset("checker-lattice");
 
     expect(preset.label).toBe("Default 2");
     expect(preset.gridSize).toBe(LOGO_GRID_SIZE_2);
-    expect(preset.voxelState).toBe(DEFAULT_VOXEL_STATE);
+    expect(preset.voxelState).toBe(createDefaultVoxelState(LOGO_GRID_SIZE_2));
     expect(getLogoPresetSelection(preset.voxelState, preset.gridSize)).toBe("checker-lattice");
   });
 

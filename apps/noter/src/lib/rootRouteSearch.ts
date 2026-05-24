@@ -2,9 +2,9 @@ import { getRouteApi } from "@tanstack/react-router";
 import { normalizeLogoDistanceScale } from "@/components/logo/logoDistanceScale";
 import {
   normalizeLogoFractalDepth,
-  normalizeLogoGridSize,
   LOGO_GRID_SIZE_2,
   LOGO_GRID_SIZE_3,
+  readLogoGridSize,
 } from "@/components/logo/logoVoxelState";
 import {
   appThemeColorSearchFieldSchema,
@@ -74,7 +74,9 @@ function readOptionalLogoFractalDepth(value: unknown): number | undefined {
 
 function readOptionalLogoGridSize(value: unknown): number | undefined {
   const numericValue = readOptionalNumber(value);
-  return typeof numericValue === "number" ? normalizeLogoGridSize(numericValue) : undefined;
+  return typeof numericValue === "number"
+    ? (readLogoGridSize(numericValue) ?? undefined)
+    : undefined;
 }
 
 const rootRouteSearchSchema = z

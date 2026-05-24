@@ -2,6 +2,8 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   DEFAULT_LOGO_GRID_SIZE,
+  DEFAULT_VOXEL_STATE,
+  LOGO_GRID_SIZE_2,
   LOGO_GRID_SIZE_3,
   createDefaultFilledVoxelSet,
   createDefaultVoxelState,
@@ -11,13 +13,26 @@ import {
 } from "@/components/logo/logoVoxelState";
 
 describe("logoVoxelState", () => {
-  it("creates the 2x2 exploratory default mark", () => {
+  it("keeps the 3x3 checker lattice as the global default mark", () => {
     const voxelGrid = createLogoFractalVoxelGrid({ depth: 1, gridSize: DEFAULT_LOGO_GRID_SIZE });
 
-    expect(voxelGrid.gridSize).toBe(2);
-    expect(createDefaultVoxelState(DEFAULT_LOGO_GRID_SIZE)).toBe("ox_xo-oo_ox");
-    expect(voxelGrid.filledVoxels.size).toBe(3);
+    expect(DEFAULT_LOGO_GRID_SIZE).toBe(LOGO_GRID_SIZE_3);
+    expect(DEFAULT_VOXEL_STATE).toBe("oxo_xox_oxo-xox_ooo_xox-oxo_xox_oxo");
+    expect(voxelGrid.gridSize).toBe(3);
+    expect(voxelGrid.filledVoxels.size).toBe(12);
     expect(voxelGrid.filledVoxels).toEqual(createDefaultFilledVoxelSet(DEFAULT_LOGO_GRID_SIZE));
+    expect(voxelGrid.filledVoxels.has(voxelKey(0, 0, 0))).toBe(false);
+    expect(voxelGrid.filledVoxels.has(voxelKey(1, 0, 0))).toBe(true);
+    expect(voxelGrid.filledVoxels.has(voxelKey(1, 1, 1))).toBe(false);
+  });
+
+  it("creates the 2x2 exploratory default mark when gridSize is 2", () => {
+    const voxelGrid = createLogoFractalVoxelGrid({ depth: 1, gridSize: LOGO_GRID_SIZE_2 });
+
+    expect(createDefaultVoxelState(LOGO_GRID_SIZE_2)).toBe("ox_xo-oo_ox");
+    expect(voxelGrid.gridSize).toBe(2);
+    expect(voxelGrid.filledVoxels.size).toBe(3);
+    expect(voxelGrid.filledVoxels).toEqual(createDefaultFilledVoxelSet(LOGO_GRID_SIZE_2));
     expect(voxelGrid.filledVoxels.has(voxelKey(0, 0, 0))).toBe(false);
     expect(voxelGrid.filledVoxels.has(voxelKey(1, 0, 1))).toBe(true);
     expect(voxelGrid.filledVoxels.has(voxelKey(1, 1, 0))).toBe(true);
