@@ -59,70 +59,92 @@ type SearchToken = {
   tokenStart: number;
 };
 
-const GLOBAL_ROUTE_URL_SEARCH_PARAM_KEYS = [
-  LANDING_DEV_MODE_QUERY_PARAM,
-  "devtools",
-  FORCE_PROD_UI_QUERY_PARAM,
-  SEARCH_RESET_QUERY_PARAM,
-  ...ROOT_THEME_MODE_SEARCH_KEYS,
-  ...APP_THEME_COLOR_SEARCH_KEYS,
-  ...LOGO_THEME_COLOR_SEARCH_KEYS,
-] as const;
+type RouteUrlSearchParamSuggestion = {
+  key: string;
+  permission: NoterRoutePermission;
+};
 
-const ROOT_ROUTE_URL_SEARCH_PARAM_KEYS = [
-  "auth",
-  "connect-cloudflare",
-  "delete",
-  "depth",
-  "dist",
-  "new-app",
-  PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM,
-  "signup",
-] as const;
+const GLOBAL_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS = [
+  { key: LANDING_DEV_MODE_QUERY_PARAM, permission: "public" },
+  { key: "devtools", permission: "public" },
+  { key: FORCE_PROD_UI_QUERY_PARAM, permission: "public" },
+  { key: SEARCH_RESET_QUERY_PARAM, permission: "public" },
+  ...ROOT_THEME_MODE_SEARCH_KEYS.map((key) => ({ key, permission: "public" as const })),
+  ...APP_THEME_COLOR_SEARCH_KEYS.map((key) => ({ key, permission: "public" as const })),
+  ...LOGO_THEME_COLOR_SEARCH_KEYS.map((key) => ({ key, permission: "public" as const })),
+] as const satisfies readonly RouteUrlSearchParamSuggestion[];
 
-const LOGO_ROUTE_URL_SEARCH_PARAM_KEYS = [
-  "axis",
-  "depth",
-  "dist",
-  "elev",
-  "freeView",
-  "isoSide",
-  "isoStyle",
-  "leftFace",
-  "rot",
-  "stripeA",
-  "stripeBasis",
-  "stripeG",
-  "stripeLink",
-  "stripeO",
-  "stripeW",
-  "vox",
-] as const;
+/**
+ * `/` can be the public landing page or the signed-in dashboard, so root search
+ * suggestions cannot inherit the route's public permission wholesale.
+ */
+const ROOT_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS = [
+  { key: "add-cloudflare", permission: "admin" },
+  { key: "add-convex", permission: "admin" },
+  { key: "auth", permission: "public" },
+  { key: "delete", permission: "admin" },
+  { key: "depth", permission: "public" },
+  { key: "dist", permission: "public" },
+  { key: "new-app", permission: "admin" },
+  { key: PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM, permission: "public" },
+  { key: "signup", permission: "public" },
+] as const satisfies readonly RouteUrlSearchParamSuggestion[];
 
-const ROUTE_URL_SEARCH_PARAM_KEYS_BY_PATH: Readonly<Record<string, readonly string[]>> = {
-  "/": ROOT_ROUTE_URL_SEARCH_PARAM_KEYS,
-  "/landing-preview": [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM],
-  "/logo": LOGO_ROUTE_URL_SEARCH_PARAM_KEYS,
-  "/logo/iso": LOGO_ROUTE_URL_SEARCH_PARAM_KEYS,
-  "/logo/raster": LOGO_ROUTE_URL_SEARCH_PARAM_KEYS,
-  "/logo/raster-seams": LOGO_ROUTE_URL_SEARCH_PARAM_KEYS,
-  "/logo/single-cube": LOGO_ROUTE_URL_SEARCH_PARAM_KEYS,
-  "/logo/svg": LOGO_ROUTE_URL_SEARCH_PARAM_KEYS,
-  "/logo/transition": LOGO_ROUTE_URL_SEARCH_PARAM_KEYS,
-  "/logo/transition/transforms": LOGO_ROUTE_URL_SEARCH_PARAM_KEYS,
-  "/machines": ["machineId", "threadId"],
-  "/machines/connect": ["openedByCli", "requestId"],
-  "/oauth/mcp/consent": ["mcp_consent_request"],
-  "/pricing": ["checkout"],
-  "/research/codex-app-server": ["threadId"],
-  "/research/codex-app-server/browser": ["threadId"],
-  "/vault/$": ["compare", "diff", "mobileLineNumbers", "review"],
-  "/visual-fixture": ["mode"],
+const LOGO_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS = [
+  { key: "axis", permission: "public" },
+  { key: "depth", permission: "public" },
+  { key: "dist", permission: "public" },
+  { key: "elev", permission: "public" },
+  { key: "freeView", permission: "public" },
+  { key: "isoSide", permission: "public" },
+  { key: "isoStyle", permission: "public" },
+  { key: "leftFace", permission: "public" },
+  { key: "rot", permission: "public" },
+  { key: "stripeA", permission: "public" },
+  { key: "stripeBasis", permission: "public" },
+  { key: "stripeG", permission: "public" },
+  { key: "stripeLink", permission: "public" },
+  { key: "stripeO", permission: "public" },
+  { key: "stripeW", permission: "public" },
+  { key: "vox", permission: "public" },
+] as const satisfies readonly RouteUrlSearchParamSuggestion[];
+
+const ROUTE_URL_SEARCH_PARAM_SUGGESTIONS_BY_PATH: Readonly<
+  Record<string, readonly RouteUrlSearchParamSuggestion[]>
+> = {
+  "/": ROOT_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS,
+  "/landing-preview": [{ key: LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM, permission: "admin" }],
+  "/logo": LOGO_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS,
+  "/logo/iso": LOGO_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS,
+  "/logo/raster": LOGO_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS,
+  "/logo/raster-seams": LOGO_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS,
+  "/logo/single-cube": LOGO_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS,
+  "/logo/svg": LOGO_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS,
+  "/logo/transition": LOGO_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS,
+  "/logo/transition/transforms": LOGO_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS,
+  "/machines": [
+    { key: "machineId", permission: "admin" },
+    { key: "threadId", permission: "admin" },
+  ],
+  "/machines/connect": [
+    { key: "openedByCli", permission: "admin" },
+    { key: "requestId", permission: "admin" },
+  ],
+  "/oauth/mcp/consent": [{ key: "mcp_consent_request", permission: "admin" }],
+  "/pricing": [{ key: "checkout", permission: "admin" }],
+  "/research/codex-app-server": [{ key: "threadId", permission: "admin" }],
+  "/research/codex-app-server/browser": [{ key: "threadId", permission: "admin" }],
+  "/vault/$": [
+    { key: "compare", permission: "admin" },
+    { key: "diff", permission: "admin" },
+    { key: "mobileLineNumbers", permission: "admin" },
+    { key: "review", permission: "admin" },
+  ],
+  "/visual-fixture": [{ key: "mode", permission: "public" }],
 } as const;
 
 const ROUTE_URL_PRESENCE_SEARCH_PARAM_KEYS = new Set<string>([
   ...ROUTE_SEARCH_PRESENCE_FLAG_KEYS,
-  "connect-cloudflare",
   "sidebar-reset",
   "stripeLink",
 ]);
@@ -300,10 +322,27 @@ function readRouteUrlEditorSearchParamKeys(args: {
     routesByPath: args.routesByPath,
     viewer: args.viewer,
   });
-  const routeSearchKeys =
-    typeof routePath === "string" ? (ROUTE_URL_SEARCH_PARAM_KEYS_BY_PATH[routePath] ?? []) : [];
+  const routeSearchSuggestions =
+    typeof routePath === "string"
+      ? (ROUTE_URL_SEARCH_PARAM_SUGGESTIONS_BY_PATH[routePath] ?? [])
+      : [];
 
-  return uniqueStrings([...GLOBAL_ROUTE_URL_SEARCH_PARAM_KEYS, ...routeSearchKeys]).sort();
+  return uniqueStrings([
+    ...readAccessibleRouteUrlSearchParamKeys(
+      GLOBAL_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS,
+      args.viewer,
+    ),
+    ...readAccessibleRouteUrlSearchParamKeys(routeSearchSuggestions, args.viewer),
+  ]).sort();
+}
+
+function readAccessibleRouteUrlSearchParamKeys(
+  suggestions: readonly RouteUrlSearchParamSuggestion[],
+  viewer: NoterRoutePermissionViewer,
+): string[] {
+  return suggestions
+    .filter((suggestion) => canAccessNoterRoutePermission(suggestion.permission, viewer))
+    .map((suggestion) => suggestion.key);
 }
 
 function readMatchingRoutePath(args: {
