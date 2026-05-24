@@ -616,14 +616,11 @@ function VaultDashboardConnectConvexOpenFixture() {
         </VaultDashboardRepositoryList>
         <VaultDashboardConvexDialog
           createProjectName="noter-app"
-          deployments={[
+          projects={[
             {
-              cloudUrl: "https://noter-app.convex.cloud",
-              deploymentName: "prod:noter-app",
               projectId: "jaded-heron-123",
               projectName: "noter-app",
               projectSlug: "noter-app",
-              siteUrl: "https://noter-app.convex.site",
               teamSlug: "noter",
             },
           ]}
@@ -632,12 +629,12 @@ function VaultDashboardConnectConvexOpenFixture() {
           isSubmitting={false}
           mode="existing"
           onCreateProjectNameChange={() => {}}
-          onDeploymentChange={() => {}}
+          onProjectChange={() => {}}
           onModeChange={() => {}}
           onOpenChange={() => {}}
           onSubmit={() => {}}
           open={true}
-          selectedDeploymentKey="jaded-heron-123/prod:noter-app"
+          selectedProjectId="jaded-heron-123"
           vault={{
             id: fakeVaultId(),
             repositoryFullName: "noter-md/noter-app",

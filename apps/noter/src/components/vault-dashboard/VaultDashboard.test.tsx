@@ -376,19 +376,16 @@ describe("VaultDashboardCloudflareAccountDialog", () => {
 });
 
 describe("VaultDashboardConvexDialog", () => {
-  it("renders selectable Convex production deployments", () => {
+  it("renders selectable Convex projects", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardConvexDialog
         createProjectName="demo"
-        deployments={[
+        projects={[
           {
             projectId: "project-1",
             projectName: "Demo",
             projectSlug: "demo",
             teamSlug: "ada-team",
-            deploymentName: "demo-prod",
-            cloudUrl: "https://demo-prod.convex.cloud",
-            siteUrl: "https://demo-prod.convex.site",
           },
         ]}
         error={null}
@@ -396,12 +393,12 @@ describe("VaultDashboardConvexDialog", () => {
         isSubmitting={false}
         mode="existing"
         onCreateProjectNameChange={vi.fn()}
-        onDeploymentChange={vi.fn()}
+        onProjectChange={vi.fn()}
         onModeChange={vi.fn()}
         onOpenChange={vi.fn()}
         onSubmit={vi.fn()}
         open
-        selectedDeploymentKey="project-1/demo-prod"
+        selectedProjectId="project-1"
         vault={{
           id: fakeVaultId(),
           repositoryFullName: "ada/demo",
@@ -411,8 +408,8 @@ describe("VaultDashboardConvexDialog", () => {
     );
 
     expect(markup).toContain("Connect Convex ada/demo");
-    expect(markup).toContain("demo/demo-prod");
-    expect(markup).toContain("Connect Deployment");
+    expect(markup).toContain("Demo");
+    expect(markup).toContain("Connect Project");
   });
 });
 

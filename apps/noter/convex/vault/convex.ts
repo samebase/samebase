@@ -22,19 +22,15 @@ import {
 } from "./model";
 
 const { array, id, null: nullValue, object, string } = v;
-const CONVEX_DEPLOYMENT_LIST_PAGE_LIMIT = 100;
 
-const convexDeploymentResult = object({
+const convexProjectResult = object({
   projectId: string(),
   projectName: string(),
   projectSlug: string(),
   teamSlug: string(),
-  deploymentName: string(),
-  cloudUrl: string(),
-  siteUrl: string(),
 });
 
-type ConvexDeploymentResult = Infer<typeof convexDeploymentResult>;
+type ConvexProjectResult = Infer<typeof convexProjectResult>;
 type ConvexActionConnection = {
   token: string;
   teamId: string;
@@ -66,14 +62,10 @@ async function resolveConvexConnection(
   return { token, teamId };
 }
 
-function compareConvexDeploymentResult(
-  left: ConvexDeploymentResult,
-  right: ConvexDeploymentResult,
-): number {
+function compareConvexProjectResult(left: ConvexProjectResult, right: ConvexProjectResult): number {
   return (
     left.projectName.localeCompare(right.projectName) ||
     left.projectSlug.localeCompare(right.projectSlug) ||
-    left.deploymentName.localeCompare(right.deploymentName) ||
     left.projectId.localeCompare(right.projectId)
   );
 }
@@ -120,43 +112,6 @@ async function listConvexProjects(args: {
   });
 }
 
-async function listConvexTeamProductionDeployments(args: {
-  token: string;
-  teamId: string;
-}): Promise<ConvexCloudDeployment[]> {
-  const deployments: ConvexCloudDeployment[] = [];
-  let cursor: string | undefined;
-
-  for (;;) {
-    const page = await requestConvexManagementApi(
-      args.token,
-      "GET",
-      "/teams/{team_id}/list_deployments",
-      {
-        params: {
-          path: { team_id: args.teamId },
-          query: {
-            deploymentType: "prod",
-            limit: CONVEX_DEPLOYMENT_LIST_PAGE_LIMIT,
-            ...(cursor ? { cursor } : {}),
-          },
-        },
-      },
-    );
-    for (const deployment of page.items) {
-      if (isConvexCloudDeployment(deployment) && deployment.deploymentType === "prod") {
-        deployments.push(deployment);
-      }
-    }
-
-    const nextCursor = page.pagination.nextCursor?.trim();
-    if (!page.pagination.hasMore || !nextCursor) {
-      return deployments;
-    }
-    cursor = nextCursor;
-  }
-}
-
 async function readConvexProjectDetails(args: {
   token: string;
   teamId: string;
@@ -198,28 +153,6 @@ async function readDefaultConvexProductionDeployment(args: {
     }
     throw error;
   }
-}
-
-async function readConvexProductionDeployment(args: {
-  token: string;
-  projectId: string;
-  deploymentName: string;
-}): Promise<ConvexCloudDeployment> {
-  const deployment = await requestConvexManagementApi(
-    args.token,
-    "GET",
-    "/deployments/{deployment_name}",
-    {
-      params: {
-        path: { deployment_name: args.deploymentName },
-      },
-    },
-  );
-  return requireConvexProductionDeployment({
-    deployment,
-    projectId: args.projectId,
-    description: "Selected Convex production deployment",
-  });
 }
 
 async function createConvexProductionDeployment(args: {
@@ -267,64 +200,41 @@ function toConvexInfrastructureRecord(args: {
   };
 }
 
-function toConvexDeploymentResult(args: {
-  project: PlatformProjectDetails;
-  deployment: ConvexCloudDeployment;
-}): ConvexDeploymentResult {
+function toConvexProjectResult(project: PlatformProjectDetails): ConvexProjectResult {
   return {
-    projectId: args.project.id,
-    projectName: args.project.name,
-    projectSlug: args.project.slug,
-    teamSlug: args.project.teamSlug,
-    deploymentName: args.deployment.name,
-    cloudUrl: args.deployment.deploymentUrl,
-    siteUrl: buildConvexSiteUrl(args.deployment),
+    projectId: project.id,
+    projectName: project.name,
+    projectSlug: project.slug,
+    teamSlug: project.teamSlug,
   };
 }
 
-async function listProductionDeploymentsForConnection(
+async function listProjectsForConnection(
   connection: ConvexActionConnection,
-): Promise<ConvexDeploymentResult[]> {
+): Promise<ConvexProjectResult[]> {
   const projects = await listConvexProjects({
     token: connection.token,
     teamId: connection.teamId,
   });
-  const projectsById = new Map(projects.map((project) => [project.id, project]));
-  const productionDeployments = await listConvexTeamProductionDeployments({
-    token: connection.token,
-    teamId: connection.teamId,
-  });
-  const deployments: ConvexDeploymentResult[] = [];
-  for (const deployment of productionDeployments) {
-    let project = projectsById.get(deployment.projectId);
-    if (!project) {
-      project = await readConvexProjectDetails({
-        token: connection.token,
-        teamId: connection.teamId,
-        projectId: deployment.projectId,
-      });
-      projectsById.set(project.id, project);
-    }
-    deployments.push(toConvexDeploymentResult({ project, deployment }));
-  }
-  return deployments.sort(compareConvexDeploymentResult);
+  return projects.map(toConvexProjectResult).sort(compareConvexProjectResult);
 }
 
-async function resolveExistingConvexDeployment(args: {
+async function resolveExistingConvexProject(args: {
   connection: ConvexActionConnection;
   projectId: string;
-  deploymentName: string;
 }): Promise<ConvexInfrastructureRecord> {
   const project = await readConvexProjectDetails({
     token: args.connection.token,
     teamId: args.connection.teamId,
     projectId: args.projectId,
   });
-  const deployment = await readConvexProductionDeployment({
+  const deployment = await readDefaultConvexProductionDeployment({
     token: args.connection.token,
     projectId: project.id,
-    deploymentName: args.deploymentName,
   });
+  if (!deployment) {
+    throw new Error("Convex project does not have a default production deployment.");
+  }
   return toConvexInfrastructureRecord({ project, deployment });
 }
 
@@ -473,32 +383,27 @@ async function recordConvexDeployment(
   return attached;
 }
 
-export const listProductionDeployments = action({
+export const listProjects = action({
   args: {},
-  returns: array(convexDeploymentResult),
-  handler: async (ctx): Promise<ConvexDeploymentResult[]> => {
+  returns: array(convexProjectResult),
+  handler: async (ctx): Promise<ConvexProjectResult[]> => {
     const userId = await getUserId(ctx);
     const connection = await resolveConvexConnection(ctx, userId);
-    return await listProductionDeploymentsForConnection(connection);
+    return await listProjectsForConnection(connection);
   },
 });
 
-export const connectExistingDeployment = action({
+export const connectExistingProject = action({
   args: {
     vaultId: id("vaults"),
     projectId: string(),
-    deploymentName: string(),
   },
   returns: nullValue(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
     const projectId = args.projectId.trim();
-    const deploymentName = args.deploymentName.trim();
     if (!projectId) {
       throw new Error("Convex project is required.");
-    }
-    if (!deploymentName) {
-      throw new Error("Convex deployment is required.");
     }
     await ctx.runQuery(internal.vault.convexMutations.requireConvexDeploymentConnectionVault, {
       vaultId: args.vaultId,
@@ -514,9 +419,8 @@ export const connectExistingDeployment = action({
       runId,
       userId,
       target: {
-        mode: "connect_existing_deployment",
+        mode: "connect_existing_project",
         projectId,
-        deploymentName,
       },
     });
 
@@ -575,11 +479,10 @@ export const ensureConvexDeploymentConnection = internalAction({
 
     const connection = await resolveConvexConnection(ctx, args.userId);
     switch (args.target.mode) {
-      case "connect_existing_deployment": {
-        const convex = await resolveExistingConvexDeployment({
+      case "connect_existing_project": {
+        const convex = await resolveExistingConvexProject({
           connection,
           projectId: args.target.projectId,
-          deploymentName: args.target.deploymentName,
         });
         const attached = await recordConvexDeployment(ctx, {
           vaultId: args.vaultId,

@@ -214,16 +214,13 @@ type CloudflareWorkerOption = {
   workerTag: string;
 };
 type CloudflareWorkerConnectMode = "existing" | "create";
-type ConvexDeploymentOption = {
+type ConvexProjectOption = {
   projectId: string;
   projectName: string;
   projectSlug: string;
   teamSlug: string;
-  deploymentName: string;
-  cloudUrl: string;
-  siteUrl: string;
 };
-type ConvexDeploymentConnectMode = "existing" | "create";
+type ConvexProjectConnectMode = "existing" | "create";
 
 function compareCloudflareAccountOptions(
   left: CloudflareAccountOption,
@@ -276,17 +273,14 @@ function formatProviderSetupDeveloperLabel(providerSetup: VaultDashboardProvider
   return "Providers";
 }
 
-function buildConvexDeploymentOptionKey(deployment: ConvexDeploymentOption): string {
-  return `${deployment.projectId}/${deployment.deploymentName}`;
+function buildConvexProjectOptionKey(project: ConvexProjectOption): string {
+  return project.projectId;
 }
 
-function compareConvexDeploymentOption(
-  left: ConvexDeploymentOption,
-  right: ConvexDeploymentOption,
-): number {
+function compareConvexProjectOption(left: ConvexProjectOption, right: ConvexProjectOption): number {
   return (
+    left.projectName.localeCompare(right.projectName) ||
     left.projectSlug.localeCompare(right.projectSlug) ||
-    left.deploymentName.localeCompare(right.deploymentName) ||
     left.projectId.localeCompare(right.projectId)
   );
 }
@@ -325,13 +319,13 @@ type VaultDashboardLocalState = {
     workers: CloudflareWorkerOption[];
   };
   convexConnectDialog: {
-    connectMode: ConvexDeploymentConnectMode;
+    connectMode: ConvexProjectConnectMode;
     createProjectName: string;
-    deployments: ConvexDeploymentOption[];
+    projects: ConvexProjectOption[];
     error: string | null;
     isLoadingResources: boolean;
-    isSubmittingDeployment: boolean;
-    selectedDeploymentKey: string;
+    isSubmittingProject: boolean;
+    selectedProjectId: string;
   };
   cloudflarePollingPaused: boolean;
   cloudflareWorkerName: string;
@@ -369,11 +363,11 @@ function readInitialConvexConnectDialogState(): VaultDashboardLocalState["convex
   return {
     connectMode: "existing",
     createProjectName: "",
-    deployments: [],
+    projects: [],
     error: null,
     isLoadingResources: false,
-    isSubmittingDeployment: false,
-    selectedDeploymentKey: "",
+    isSubmittingProject: false,
+    selectedProjectId: "",
   };
 }
 
@@ -594,7 +588,7 @@ function useVaultDashboardLocalStore() {
         },
       }));
     },
-    setConvexConnectDialogConnectMode: (connectMode: ConvexDeploymentConnectMode) => {
+    setConvexConnectDialogConnectMode: (connectMode: ConvexProjectConnectMode) => {
       setState((state) => ({
         ...state,
         convexConnectDialog: { ...state.convexConnectDialog, connectMode },
@@ -606,15 +600,15 @@ function useVaultDashboardLocalStore() {
         convexConnectDialog: { ...state.convexConnectDialog, createProjectName },
       }));
     },
-    setConvexConnectDialogDeployments: (deployments: ConvexDeploymentOption[]) => {
-      const sortedDeployments = [...deployments].sort(compareConvexDeploymentOption);
+    setConvexConnectDialogProjects: (projects: ConvexProjectOption[]) => {
+      const sortedProjects = [...projects].sort(compareConvexProjectOption);
       setState((state) => ({
         ...state,
         convexConnectDialog: {
           ...state.convexConnectDialog,
-          deployments: sortedDeployments,
-          selectedDeploymentKey: sortedDeployments[0]
-            ? buildConvexDeploymentOptionKey(sortedDeployments[0])
+          projects: sortedProjects,
+          selectedProjectId: sortedProjects[0]
+            ? buildConvexProjectOptionKey(sortedProjects[0])
             : "",
         },
       }));
@@ -631,16 +625,16 @@ function useVaultDashboardLocalStore() {
         convexConnectDialog: { ...state.convexConnectDialog, isLoadingResources },
       }));
     },
-    setConvexConnectDialogSelectedDeploymentKey: (selectedDeploymentKey: string) => {
+    setConvexConnectDialogSelectedProjectId: (selectedProjectId: string) => {
       setState((state) => ({
         ...state,
-        convexConnectDialog: { ...state.convexConnectDialog, selectedDeploymentKey },
+        convexConnectDialog: { ...state.convexConnectDialog, selectedProjectId },
       }));
     },
-    setConvexConnectDialogSubmitting: (isSubmittingDeployment: boolean) => {
+    setConvexConnectDialogSubmitting: (isSubmittingProject: boolean) => {
       setState((state) => ({
         ...state,
-        convexConnectDialog: { ...state.convexConnectDialog, isSubmittingDeployment },
+        convexConnectDialog: { ...state.convexConnectDialog, isSubmittingProject },
       }));
     },
     setCloudflareWorkerName: (cloudflareWorkerName: string, mode: CreateResourceNameMode) => {
@@ -1154,43 +1148,43 @@ function useProviderOAuthPopupCompletionReload({
 
 export function VaultDashboardConvexDialog({
   createProjectName,
-  deployments,
+  projects,
   error,
   isLoading,
   isSubmitting,
   mode,
   onCreateProjectNameChange,
-  onDeploymentChange,
+  onProjectChange,
   onModeChange,
   onOpenChange,
   onSubmit,
   open,
-  selectedDeploymentKey,
+  selectedProjectId,
   vault,
 }: {
   createProjectName: string;
-  deployments: ConvexDeploymentOption[];
+  projects: ConvexProjectOption[];
   error: string | null;
   isLoading: boolean;
   isSubmitting: boolean;
-  mode: ConvexDeploymentConnectMode;
+  mode: ConvexProjectConnectMode;
   onCreateProjectNameChange: (projectName: string) => void;
-  onDeploymentChange: (deploymentKey: string) => void;
-  onModeChange: (mode: ConvexDeploymentConnectMode) => void;
+  onProjectChange: (projectId: string) => void;
+  onModeChange: (mode: ConvexProjectConnectMode) => void;
   onOpenChange: (isOpen: boolean) => void;
   onSubmit: () => void;
   open: boolean;
-  selectedDeploymentKey: string;
+  selectedProjectId: string;
   vault: VaultConvexDialogTarget | null;
 }) {
-  const sortedDeployments = [...deployments].sort(compareConvexDeploymentOption);
-  const selectedDeployment = sortedDeployments.find(
-    (deployment) => buildConvexDeploymentOptionKey(deployment) === selectedDeploymentKey,
+  const sortedProjects = [...projects].sort(compareConvexProjectOption);
+  const selectedProject = sortedProjects.find(
+    (project) => buildConvexProjectOptionKey(project) === selectedProjectId,
   );
   const submitDisabled =
     isLoading ||
     isSubmitting ||
-    (mode === "existing" ? !selectedDeployment : !createProjectName.trim());
+    (mode === "existing" ? !selectedProject : !createProjectName.trim());
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1199,7 +1193,7 @@ export function VaultDashboardConvexDialog({
           <DialogTitle>
             {vault ? `Connect Convex ${vault.repositoryFullName}` : "Connect Convex"}
           </DialogTitle>
-          <DialogDescription>Convex production deployment.</DialogDescription>
+          <DialogDescription>Convex project.</DialogDescription>
         </DialogHeader>
         {vault ? (
           <div className="space-y-3">
@@ -1225,25 +1219,21 @@ export function VaultDashboardConvexDialog({
               <Select
                 // The dialog owns modality; a second modal lock here can shift mobile focus/scroll during open.
                 modal={false}
-                value={selectedDeploymentKey}
-                onValueChange={onDeploymentChange}
-                disabled={isLoading || sortedDeployments.length === 0}
+                value={selectedProjectId}
+                onValueChange={onProjectChange}
+                disabled={isLoading || sortedProjects.length === 0}
               >
-                <SelectTrigger aria-label="Convex deployment" className="w-full">
-                  <SelectValue
-                    placeholder={isLoading ? "Loading deployments" : "Convex deployment"}
-                  >
-                    {selectedDeployment
-                      ? `${selectedDeployment.projectSlug}/${selectedDeployment.deploymentName}`
-                      : undefined}
+                <SelectTrigger aria-label="Convex project" className="w-full">
+                  <SelectValue placeholder={isLoading ? "Loading projects" : "Convex project"}>
+                    {selectedProject ? selectedProject.projectName : undefined}
                   </SelectValue>
                 </SelectTrigger>
                 <AppSelectContent>
-                  {sortedDeployments.map((deployment) => {
-                    const key = buildConvexDeploymentOptionKey(deployment);
+                  {sortedProjects.map((project) => {
+                    const key = buildConvexProjectOptionKey(project);
                     return (
                       <AppSelectItem key={key} value={key}>
-                        {deployment.projectSlug}/{deployment.deploymentName}
+                        {project.projectName}
                       </AppSelectItem>
                     );
                   })}
@@ -1272,7 +1262,7 @@ export function VaultDashboardConvexDialog({
           </Button>
           <Button onClick={onSubmit} disabled={submitDisabled}>
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {mode === "existing" ? "Connect Deployment" : "Create Project"}
+            {mode === "existing" ? "Connect Project" : "Create Project"}
           </Button>
         </DialogFooter>
       </AppDialogContent>
@@ -3519,8 +3509,8 @@ export function VaultDashboard() {
   const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
   const getCloudflareMcpOAuthUrl = useAction(api.cloudflareMcpOAuth.getCloudflareMcpOAuthUrl);
   const refreshCloudflareMcpTokenIfNeeded = useAction(api.users.refreshCloudflareMcpTokenIfNeeded);
-  const listConvexProductionDeployments = useAction(api.vault.convex.listProductionDeployments);
-  const connectExistingConvexDeployment = useAction(api.vault.convex.connectExistingDeployment);
+  const listConvexProjects = useAction(api.vault.convex.listProjects);
+  const connectExistingConvexProject = useAction(api.vault.convex.connectExistingProject);
   const createConvexProject = useAction(api.vault.convex.createProject);
   const listCloudflareAccounts = useAction(api.vault.cloudflare.listAccounts);
   const listCloudflareWorkers = useAction(api.vault.cloudflare.listWorkers);
@@ -3749,14 +3739,14 @@ export function VaultDashboard() {
   const {
     connectMode: convexConnectMode,
     createProjectName: convexCreateProjectName,
-    deployments: convexDeployments,
+    projects: convexProjects,
     error: convexDialogError,
     isLoadingResources: isLoadingConvexResources,
-    isSubmittingDeployment: isSubmittingConvexDeployment,
-    selectedDeploymentKey: selectedConvexDeploymentKey,
+    isSubmittingProject: isSubmittingConvexProject,
+    selectedProjectId: selectedConvexProjectId,
   } = convexConnectDialog;
-  const selectedConvexDeployment = convexDeployments.find(
-    (deployment) => buildConvexDeploymentOptionKey(deployment) === selectedConvexDeploymentKey,
+  const selectedConvexProject = convexProjects.find(
+    (project) => buildConvexProjectOptionKey(project) === selectedConvexProjectId,
   );
   const {
     clearCreateError,
@@ -3786,10 +3776,10 @@ export function VaultDashboard() {
     setCommitError,
     setConvexConnectDialogConnectMode,
     setConvexConnectDialogCreateProjectName,
-    setConvexConnectDialogDeployments,
+    setConvexConnectDialogProjects,
     setConvexConnectDialogError,
     setConvexConnectDialogLoading,
-    setConvexConnectDialogSelectedDeploymentKey,
+    setConvexConnectDialogSelectedProjectId,
     setConvexConnectDialogSubmitting,
     setConvexProjectName,
     setCreateError,
@@ -3965,17 +3955,17 @@ export function VaultDashboard() {
     setConvexConnectDialogLoading(true);
     setConvexConnectDialogError(null);
     try {
-      const deployments = await listConvexProductionDeployments({});
+      const projects = await listConvexProjects({});
       if (convexDialogResourcesRequestIdRef.current !== requestId) {
         return;
       }
-      setConvexConnectDialogDeployments(deployments);
+      setConvexConnectDialogProjects(projects);
     } catch (error) {
       if (convexDialogResourcesRequestIdRef.current !== requestId) {
         return;
       }
       setConvexConnectDialogError(
-        error instanceof Error ? error.message : "Could not load Convex deployments.",
+        error instanceof Error ? error.message : "Could not load Convex projects.",
       );
     } finally {
       if (convexDialogResourcesRequestIdRef.current === requestId) {
@@ -3983,8 +3973,8 @@ export function VaultDashboard() {
       }
     }
   }, [
-    listConvexProductionDeployments,
-    setConvexConnectDialogDeployments,
+    listConvexProjects,
+    setConvexConnectDialogProjects,
     setConvexConnectDialogError,
     setConvexConnectDialogLoading,
   ]);
@@ -4380,21 +4370,20 @@ export function VaultDashboard() {
     clearAddConvexSearchParam({ preferHistoryBack: true });
   };
 
-  const handleSubmitConvexDeployment = async () => {
-    if (!vaultToConnectConvex || isSubmittingConvexDeployment) {
+  const handleSubmitConvexProject = async () => {
+    if (!vaultToConnectConvex || isSubmittingConvexProject) {
       return;
     }
     setConvexConnectDialogError(null);
     setConvexConnectDialogSubmitting(true);
     try {
       if (convexConnectMode === "existing") {
-        if (!selectedConvexDeployment) {
-          throw new Error("Convex deployment is required.");
+        if (!selectedConvexProject) {
+          throw new Error("Convex project is required.");
         }
-        await connectExistingConvexDeployment({
+        await connectExistingConvexProject({
           vaultId: vaultToConnectConvex.id,
-          projectId: selectedConvexDeployment.projectId,
-          deploymentName: selectedConvexDeployment.deploymentName,
+          projectId: selectedConvexProject.projectId,
         });
       } else {
         await createConvexProject({
@@ -4406,7 +4395,7 @@ export function VaultDashboard() {
       clearAddConvexSearchParam({ preferHistoryBack: true });
     } catch (error) {
       setConvexConnectDialogError(
-        error instanceof Error ? error.message : "Could not connect Convex deployment.",
+        error instanceof Error ? error.message : "Could not connect Convex project.",
       );
     } finally {
       setConvexConnectDialogSubmitting(false);
@@ -5444,20 +5433,20 @@ export function VaultDashboard() {
       />
       <VaultDashboardConvexDialog
         createProjectName={convexCreateProjectName}
-        deployments={convexDeployments}
+        projects={convexProjects}
         error={convexDialogError}
         isLoading={isLoadingConvexResources}
-        isSubmitting={isSubmittingConvexDeployment}
+        isSubmitting={isSubmittingConvexProject}
         mode={convexConnectMode}
         onCreateProjectNameChange={setConvexConnectDialogCreateProjectName}
-        onDeploymentChange={setConvexConnectDialogSelectedDeploymentKey}
+        onProjectChange={setConvexConnectDialogSelectedProjectId}
         onModeChange={setConvexConnectDialogConnectMode}
         onOpenChange={handleConnectConvexDialogOpenChange}
         onSubmit={() => {
-          void handleSubmitConvexDeployment();
+          void handleSubmitConvexProject();
         }}
         open={vaultToConnectConvex !== null}
-        selectedDeploymentKey={selectedConvexDeploymentKey}
+        selectedProjectId={selectedConvexProjectId}
         vault={vaultToConnectConvex}
       />
       <VaultDashboardCloudflareDialog

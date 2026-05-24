@@ -113,7 +113,7 @@ describe("vault Convex deployment connection actions", () => {
     vi.unstubAllGlobals();
   });
 
-  it("lists every paginated cloud production deployment for the connected team", async () => {
+  it("lists every project for the connected team", async () => {
     const requests: string[] = [];
     vi.stubGlobal(
       "fetch",
@@ -137,82 +137,16 @@ describe("vault Convex deployment connection actions", () => {
               "slug": "beta",
               "teamId": 1000,
               "teamSlug": "noter-team"
+            },
+            {
+              "createTime": 1710000000002,
+              "id": 1003,
+              "name": "Noter",
+              "slug": "noter",
+              "teamId": 1000,
+              "teamSlug": "noter-team"
             }
           ]`);
-        }
-
-        if (input.url.includes("/teams/1000/list_deployments") && !input.url.includes("cursor=")) {
-          return jsonResponse(`{
-            "items": [
-              {
-                "class": "s16",
-                "createTime": 1710000000100,
-                "deploymentType": "prod",
-                "deploymentUrl": "https://alpha-prod.convex.cloud",
-                "id": 2001,
-                "isDefault": true,
-                "kind": "cloud",
-                "name": "alpha-prod",
-                "projectId": 1001,
-                "reference": "prod",
-                "region": "aws-us-east-1"
-              },
-              {
-                "class": "s16",
-                "createTime": 1710000000200,
-                "deploymentType": "prod",
-                "deploymentUrl": "https://alpha-alt-prod.convex.cloud",
-                "id": 2002,
-                "isDefault": false,
-                "kind": "cloud",
-                "name": "alpha-alt-prod",
-                "projectId": 1001,
-                "reference": "production-alt",
-                "region": "aws-us-east-1"
-              },
-              {
-                "class": "s16",
-                "createTime": 1710000000300,
-                "deploymentType": "dev",
-                "deploymentUrl": "https://alpha-dev.convex.cloud",
-                "id": 2003,
-                "isDefault": false,
-                "kind": "cloud",
-                "name": "alpha-dev",
-                "projectId": 1001,
-                "reference": "dev",
-                "region": "aws-us-east-1"
-              }
-            ],
-            "pagination": {
-              "hasMore": true,
-              "nextCursor": "cursor-two"
-            }
-          }`);
-        }
-
-        if (input.url.includes("/teams/1000/list_deployments") && input.url.includes("cursor=")) {
-          return jsonResponse(`{
-            "items": [
-              {
-                "class": "s16",
-                "createTime": 1710000000400,
-                "deploymentType": "prod",
-                "deploymentUrl": "https://beta-prod.convex.cloud",
-                "id": 2004,
-                "isDefault": true,
-                "kind": "cloud",
-                "name": "beta-prod",
-                "projectId": 1002,
-                "reference": "prod",
-                "region": "aws-us-east-1"
-              }
-            ],
-            "pagination": {
-              "hasMore": false,
-              "nextCursor": null
-            }
-          }`);
         }
 
         throw new Error(`Unexpected Convex request: ${input.url}`);
@@ -221,42 +155,49 @@ describe("vault Convex deployment connection actions", () => {
 
     const asUser = await createConvexConnectedUser();
 
-    await expect(asUser.action(api.vault.convex.listProductionDeployments)).resolves.toEqual([
+    await expect(asUser.action(api.vault.convex.listProjects)).resolves.toEqual([
       {
         projectId: "1001",
         projectName: "Alpha Project",
         projectSlug: "alpha",
         teamSlug: "noter-team",
-        deploymentName: "alpha-alt-prod",
-        cloudUrl: "https://alpha-alt-prod.convex.cloud",
-        siteUrl: "https://alpha-alt-prod.convex.site",
-      },
-      {
-        projectId: "1001",
-        projectName: "Alpha Project",
-        projectSlug: "alpha",
-        teamSlug: "noter-team",
-        deploymentName: "alpha-prod",
-        cloudUrl: "https://alpha-prod.convex.cloud",
-        siteUrl: "https://alpha-prod.convex.site",
       },
       {
         projectId: "1002",
         projectName: "Beta Project",
         projectSlug: "beta",
         teamSlug: "noter-team",
-        deploymentName: "beta-prod",
-        cloudUrl: "https://beta-prod.convex.cloud",
-        siteUrl: "https://beta-prod.convex.site",
+      },
+      {
+        projectId: "1003",
+        projectName: "Noter",
+        projectSlug: "noter",
+        teamSlug: "noter-team",
       },
     ]);
-    expect(requests.filter((url) => url.includes("/list_deployments"))).toHaveLength(2);
+    expect(requests.filter((url) => url.includes("/list_deployments"))).toHaveLength(0);
   });
 
-  it("connects a selected non-default cloud production deployment", async () => {
+  it("connects a selected project default production deployment", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: Request) => {
+        if (input.url.includes("/projects/1001/deployment")) {
+          return jsonResponse(`{
+            "class": "s16",
+            "createTime": 1710000000200,
+            "deploymentType": "prod",
+            "deploymentUrl": "https://alpha-prod.convex.cloud",
+            "id": 2002,
+            "isDefault": true,
+            "kind": "cloud",
+            "name": "alpha-prod",
+            "projectId": 1001,
+            "reference": "prod",
+            "region": "aws-us-east-1"
+          }`);
+        }
+
         if (input.url.includes("/projects/1001")) {
           return jsonResponse(`{
             "createTime": 1710000000000,
@@ -265,22 +206,6 @@ describe("vault Convex deployment connection actions", () => {
             "slug": "alpha",
             "teamId": 1000,
             "teamSlug": "noter-team"
-          }`);
-        }
-
-        if (input.url.includes("/deployments/alpha-alt-prod")) {
-          return jsonResponse(`{
-            "class": "s16",
-            "createTime": 1710000000200,
-            "deploymentType": "prod",
-            "deploymentUrl": "https://alpha-alt-prod.convex.cloud",
-            "id": 2002,
-            "isDefault": false,
-            "kind": "cloud",
-            "name": "alpha-alt-prod",
-            "projectId": 1001,
-            "reference": "production-alt",
-            "region": "aws-us-east-1"
           }`);
         }
 
@@ -294,9 +219,8 @@ describe("vault Convex deployment connection actions", () => {
       t.action(internal.vault.convex.ensureConvexDeploymentConnection, {
         ...ids,
         target: {
-          mode: "connect_existing_deployment",
+          mode: "connect_existing_project",
           projectId: "1001",
-          deploymentName: "alpha-alt-prod",
         },
       }),
     ).resolves.toBeNull();
@@ -317,7 +241,7 @@ describe("vault Convex deployment connection actions", () => {
         state: "connected",
         projectId: "1001",
         projectSlug: "alpha",
-        deploymentName: "alpha-alt-prod",
+        deploymentName: "alpha-prod",
         origin: "selected_existing",
       },
     });
@@ -325,10 +249,10 @@ describe("vault Convex deployment connection actions", () => {
       convexProjectId: "1001",
       convexTeamSlug: "noter-team",
       convexProjectSlug: "alpha",
-      convexDeploymentName: "alpha-alt-prod",
+      convexDeploymentName: "alpha-prod",
       convexDeploymentType: "prod",
-      convexCloudUrl: "https://alpha-alt-prod.convex.cloud",
-      convexSiteUrl: "https://alpha-alt-prod.convex.site",
+      convexCloudUrl: "https://alpha-prod.convex.cloud",
+      convexSiteUrl: "https://alpha-prod.convex.site",
     });
   });
 
@@ -338,18 +262,7 @@ describe("vault Convex deployment connection actions", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: Request) => {
-        if (input.url.includes("/projects/1001")) {
-          return jsonResponse(`{
-            "createTime": 1710000000000,
-            "id": 1001,
-            "name": "Alpha Project",
-            "slug": "alpha",
-            "teamId": 1000,
-            "teamSlug": "noter-team"
-          }`);
-        }
-
-        if (input.url.includes("/deployments/alpha-prod")) {
+        if (input.url.includes("/projects/1001/deployment")) {
           await t.run(async (ctx) => {
             const ownership = await ctx.db
               .query("vaultInfrastructureOwnership")
@@ -378,6 +291,17 @@ describe("vault Convex deployment connection actions", () => {
           }`);
         }
 
+        if (input.url.includes("/projects/1001")) {
+          return jsonResponse(`{
+            "createTime": 1710000000000,
+            "id": 1001,
+            "name": "Alpha Project",
+            "slug": "alpha",
+            "teamId": 1000,
+            "teamSlug": "noter-team"
+          }`);
+        }
+
         throw new Error(`Unexpected Convex request: ${input.url}`);
       }),
     );
@@ -386,9 +310,8 @@ describe("vault Convex deployment connection actions", () => {
       t.action(internal.vault.convex.ensureConvexDeploymentConnection, {
         ...ids,
         target: {
-          mode: "connect_existing_deployment",
+          mode: "connect_existing_project",
           projectId: "1001",
-          deploymentName: "alpha-prod",
         },
       }),
     ).resolves.toBeNull();

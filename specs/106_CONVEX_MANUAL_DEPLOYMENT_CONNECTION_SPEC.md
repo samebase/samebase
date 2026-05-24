@@ -20,15 +20,15 @@ connection and separate from deployment wiring.
 
 The dashboard resource rail should let a ready GitHub-connected vault:
 
-- connect an existing Convex cloud production deployment from the connected Convex team
+- connect an existing Convex project from the connected Convex team
 - create a new Convex project with a production deployment
 
-Both flows attach the selected production deployment to `vault.convex` and record enough
-`vaultInfrastructure` metadata for dashboard links and later provider wiring.
+Both flows attach the selected or created project's default production deployment to `vault.convex`
+and record enough `vaultInfrastructure` metadata for dashboard links and later provider wiring.
 
 ## Goals
 
-- Let an existing GitHub vault attach an existing Convex cloud production deployment.
+- Let an existing GitHub vault attach an existing Convex project.
 - Let an existing GitHub vault create a new Convex project and attach its production deployment.
 - Store the attached Convex identity on the vault as the durable product state.
 - Store Convex dashboard/link metadata in `vaultInfrastructure`.
@@ -72,10 +72,10 @@ closed.
 `origin` answers how this vault attached to the Convex production deployment:
 
 - `provisioned` means Noter created the project/deployment during an explicit create flow.
-- `selected_existing` means the user chose an existing deployment from Convex inventory.
+- `selected_existing` means the user chose an existing project from Convex inventory.
 
 Cleanup ownership is derived from `origin`: `provisioned` projects can be removed by managed cleanup
-flows, while `selected_existing` deployments are external.
+flows, while `selected_existing` projects are external.
 
 `vaultInfrastructure` stores dashboard and later wiring metadata:
 
@@ -110,23 +110,21 @@ for later dashboard links.
 
 ## Resource Selection
 
-Existing deployment connection should:
+Existing project connection should:
 
 1. list visible projects for the connected team
-2. read or list production cloud deployments for each project
-3. show deterministic inventory rows with project id, project name, project slug, team slug,
-   deployment name, cloud URL, and site URL
-4. re-read and verify the selected project/deployment server-side before attaching
+2. show deterministic inventory rows with project id, project name, project slug, and team slug
+3. re-read the selected project and its default production deployment server-side before attaching
 
 The server must verify:
 
 - the project belongs to the connected Convex team
-- the deployment belongs to the selected project
-- the deployment is a cloud production deployment
+- the project's default production deployment exists
+- the default deployment belongs to the selected project
+- the default deployment is a cloud production deployment
 
-The existing-deployment picker lists every cloud production deployment returned by Convex's
-paginated team deployment inventory. The create flow still creates and attaches the default
-production deployment for the new project.
+The existing-project picker lists every project returned by Convex's team project inventory. The
+create flow still creates and attaches the default production deployment for the new project.
 
 Project creation should:
 
@@ -159,12 +157,12 @@ The modal submit action should return after the Workflow is queued. The modal cl
 from subscribed dashboard state.
 
 A failed manual Convex run should keep the Convex row failed while offering the same connection
-dialog again, so the operator can choose an existing deployment or create a new project without
-waiting for hidden state cleanup.
+dialog again, so the operator can choose an existing project or create a new project without waiting
+for hidden state cleanup.
 
 ## Route Semantics
 
-`?add-convex#vault-name` opens the Convex deployment connection dialog for the vault matched by the
+`?add-convex#vault-name` opens the Convex project connection dialog for the vault matched by the
 dashboard hash.
 
 The dialog closes by clearing `add-convex` while preserving the hash.

@@ -68,9 +68,8 @@ export type VaultConvexOrigin = Infer<typeof vVaultConvexOrigin>;
 
 export const vVaultConvexConnectionTarget = union(
   object({
-    mode: literal("connect_existing_deployment"),
+    mode: literal("connect_existing_project"),
     projectId: string(),
-    deploymentName: string(),
   }),
   object({
     mode: literal("create_project"),

@@ -431,7 +431,7 @@ test("vault dashboard fixture (connect Convex dialog)", async ({ page }) => {
   await expect(connectDialog).toBeVisible();
   await expect(connectDialog.getByRole("button", { name: "Existing" })).toBeVisible();
   await expect(connectDialog.getByRole("button", { name: "Create" })).toBeVisible();
-  await expect(connectDialog.getByRole("button", { name: "Connect Deployment" })).toBeVisible();
+  await expect(connectDialog.getByRole("button", { name: "Connect Project" })).toBeVisible();
   await expect(page).toHaveScreenshot("vault-dashboard-connect-convex-dialog.png", {
     animations: "disabled",
     caret: "hide",
