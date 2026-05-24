@@ -13,7 +13,13 @@ import {
   type SyntheticEvent,
 } from "react";
 import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
-import { filterRouteUrlPathSuggestions } from "@/lib/routeUrlPathSuggestions";
+import {
+  applyRouteUrlEditorSuggestion,
+  readRouteUrlEditorSuggestionKind,
+  readRouteUrlEditorSuggestions,
+  type RouteUrlEditorSuggestion,
+  type RouteUrlEditorSuggestionKind,
+} from "@/lib/routeUrlEditorSuggestions";
 import { RETAINED_ROOT_SEARCH_KEYS, validateRootRouteSearch } from "@/lib/rootRouteSearch";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { api } from "../../convex/_generated/api";
@@ -24,7 +30,7 @@ const routeUrlEditorIconButtonClassName =
 const routeUrlEditorSubmitButtonClassName =
   "pointer-events-none flex size-7 shrink-0 items-center justify-center text-muted-foreground opacity-0 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 disabled:pointer-events-none disabled:opacity-50";
 
-const routeUrlEditorPathSuggestionButtonClassName =
+const routeUrlEditorSuggestionButtonClassName =
   "flex h-7 w-full items-center px-2 font-mono text-sm text-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground";
 
 function readRouteUrlEditorOrigin(): string {
@@ -104,8 +110,14 @@ function readRouteUrlEditorDraftRouteAddress(args: {
   return `/${args.inputValue.slice(enforcedInputPrefix.length)}`;
 }
 
-function routeAddressHasRouteOptions(routeAddress: string): boolean {
-  return routeAddress.includes("?") || routeAddress.includes("#");
+function readRouteUrlEditorInputRouteIndex(args: {
+  input: HTMLInputElement;
+  origin: string;
+  routeAddress: string;
+}): number {
+  const selectionStart = args.input.selectionStart ?? args.input.value.length;
+  const routeIndex = selectionStart - args.origin.length;
+  return Math.min(Math.max(routeIndex, 0), args.routeAddress.length);
 }
 
 type RouteUrlEditorCommitMode = "route-options" | "route-navigation";
@@ -163,7 +175,7 @@ export function RouteUrlEditor() {
   const currentHref = location.href;
   const currentRouteHistoryIndex = location.state.__TSR_index;
   const inputId = useId();
-  const pathSuggestionsId = `${inputId}-path-suggestions`;
+  const suggestionsId = `${inputId}-suggestions`;
   const [forwardRouteHistoryIndex, setForwardRouteHistoryIndex] =
     useState(currentRouteHistoryIndex);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -172,9 +184,10 @@ export function RouteUrlEditor() {
   const origin = readRouteUrlEditorOrigin();
   const [draftRouteAddress, setDraftRouteAddress] = useState(currentHref);
   const [inputFocused, setInputFocused] = useState(false);
-  const [pathSuggestionsDismissed, setPathSuggestionsDismissed] = useState(false);
-  const [pathSuggestionDraftEditedSinceFocus, setPathSuggestionDraftEditedSinceFocus] =
-    useState(false);
+  const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
+  const [suggestionDraftEditedSinceFocus, setSuggestionDraftEditedSinceFocus] = useState(false);
+  const [suggestionKind, setSuggestionKind] = useState<RouteUrlEditorSuggestionKind>("path");
+  const [selectionRouteIndex, setSelectionRouteIndex] = useState(0);
   const viewerIsAdmin = useQuery(api.users.isCurrentUserAdmin);
   const draftHref = normalizeRouteUrlEditorHref({
     currentHref,
@@ -189,18 +202,17 @@ export function RouteUrlEditor() {
   });
   const focusedInputValue = `${origin}${draftRouteAddress}`;
   const routeInputTitle = draftHref === null ? focusedInputValue : `${origin}${draftHref}`;
-  const pathSuggestions = filterRouteUrlPathSuggestions({
+  const suggestions = readRouteUrlEditorSuggestions({
     currentHref,
-    draftHref: pathSuggestionDraftEditedSinceFocus ? draftRouteAddress : "",
+    draftEditedSinceFocus: suggestionDraftEditedSinceFocus,
+    draftRouteAddress,
+    kind: suggestionKind,
     origin,
     routesByPath: router.routesByPath,
+    selectionRouteIndex,
     viewer: { isAdmin: viewerIsAdmin === true },
   });
-  const pathSuggestionsVisible =
-    inputFocused &&
-    !pathSuggestionsDismissed &&
-    !routeAddressHasRouteOptions(draftRouteAddress) &&
-    pathSuggestions.length > 0;
+  const suggestionsVisible = inputFocused && !suggestionsDismissed && suggestions.length > 0;
 
   const canGoBack = currentRouteHistoryIndex > 0;
   const canGoForward = currentRouteHistoryIndex < forwardRouteHistoryIndex;
@@ -258,6 +270,33 @@ export function RouteUrlEditor() {
     inputSelectionBeforeChangeRef.current = readRouteUrlEditorInputSelection(event.currentTarget);
   }, []);
 
+  const syncSuggestionSelection = useCallback(
+    (input: HTMLInputElement, routeAddress: string) => {
+      inputSelectionBeforeChangeRef.current = readRouteUrlEditorInputSelection(input);
+      const nextSelectionRouteIndex = readRouteUrlEditorInputRouteIndex({
+        input,
+        origin,
+        routeAddress,
+      });
+      setSelectionRouteIndex(nextSelectionRouteIndex);
+      setSuggestionKind(readRouteUrlEditorSuggestionKind(routeAddress, nextSelectionRouteIndex));
+    },
+    [origin],
+  );
+
+  const syncSuggestionSelectionFromInput = useCallback(
+    (event: SyntheticEvent<HTMLInputElement>) => {
+      const nextDraftRouteAddress =
+        readRouteUrlEditorDraftRouteAddress({
+          inputValue: event.currentTarget.value,
+          origin,
+        }) ?? draftRouteAddress;
+      syncSuggestionSelection(event.currentTarget, nextDraftRouteAddress);
+      setSuggestionsDismissed(false);
+    },
+    [draftRouteAddress, origin, syncSuggestionSelection],
+  );
+
   const changeDraftRouteAddress = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const nextDraftRouteAddress = readRouteUrlEditorDraftRouteAddress({
@@ -274,8 +313,9 @@ export function RouteUrlEditor() {
       }
 
       setDraftRouteAddress(nextDraftRouteAddress);
-      setPathSuggestionDraftEditedSinceFocus(true);
-      setPathSuggestionsDismissed(false);
+      setSuggestionDraftEditedSinceFocus(true);
+      setSuggestionsDismissed(false);
+      syncSuggestionSelection(event.currentTarget, nextDraftRouteAddress);
 
       const nextHref = normalizeRouteUrlEditorHref({
         currentHref,
@@ -309,7 +349,7 @@ export function RouteUrlEditor() {
         });
       }
     },
-    [currentHref, inputValue, origin, router],
+    [currentHref, inputValue, origin, router, syncSuggestionSelection],
   );
 
   const resetInput = useCallback(() => {
@@ -387,8 +427,8 @@ export function RouteUrlEditor() {
 
   const blurInput = useCallback(() => {
     setInputFocused(false);
-    setPathSuggestionsDismissed(false);
-    setPathSuggestionDraftEditedSinceFocus(false);
+    setSuggestionsDismissed(false);
+    setSuggestionDraftEditedSinceFocus(false);
 
     if (skipNextBlurCommitRef.current) {
       skipNextBlurCommitRef.current = false;
@@ -399,21 +439,30 @@ export function RouteUrlEditor() {
     commitInput(draftRouteAddress, { replaceRouteOptions: true });
   }, [commitInput, currentHref, draftRouteAddress]);
 
-  const focusInput = useCallback(() => {
-    setInputFocused(true);
-    setPathSuggestionsDismissed(false);
-    setPathSuggestionDraftEditedSinceFocus(false);
-  }, []);
+  const focusInput = useCallback(
+    (event: SyntheticEvent<HTMLInputElement>) => {
+      syncSuggestionSelection(event.currentTarget, draftRouteAddress);
+      setInputFocused(true);
+      setSuggestionsDismissed(false);
+      setSuggestionDraftEditedSinceFocus(false);
+    },
+    [draftRouteAddress, syncSuggestionSelection],
+  );
 
-  const selectPathSuggestion = useCallback(
-    (path: string) => {
-      setDraftRouteAddress(path);
-      setPathSuggestionsDismissed(true);
-      setPathSuggestionDraftEditedSinceFocus(false);
-      commitInput(path, { replaceRouteOptions: false });
+  const selectSuggestion = useCallback(
+    (suggestion: RouteUrlEditorSuggestion) => {
+      const nextDraftRouteAddress = applyRouteUrlEditorSuggestion({
+        routeAddress: draftRouteAddress,
+        selectionRouteIndex,
+        suggestion,
+      });
+      setDraftRouteAddress(nextDraftRouteAddress);
+      setSuggestionsDismissed(true);
+      setSuggestionDraftEditedSinceFocus(false);
+      commitInput(nextDraftRouteAddress, { replaceRouteOptions: false });
       inputRef.current?.focus();
     },
-    [commitInput],
+    [commitInput, draftRouteAddress, selectionRouteIndex],
   );
 
   const handleInputKeyDown = useCallback(
@@ -476,8 +525,8 @@ export function RouteUrlEditor() {
       <input
         ref={inputRef}
         aria-describedby={routeInputInvalid ? `${inputId}-error` : undefined}
-        aria-controls={pathSuggestionsVisible ? pathSuggestionsId : undefined}
-        aria-expanded={pathSuggestionsVisible}
+        aria-controls={suggestionsVisible ? suggestionsId : undefined}
+        aria-expanded={suggestionsVisible}
         aria-invalid={routeInputInvalid}
         aria-autocomplete="list"
         autoCapitalize="none"
@@ -491,35 +540,39 @@ export function RouteUrlEditor() {
         onBeforeInput={rememberInputSelection}
         onBlur={blurInput}
         onChange={changeDraftRouteAddress}
+        onClick={syncSuggestionSelectionFromInput}
         onFocus={focusInput}
         onKeyDown={handleInputKeyDown}
-        onSelect={rememberInputSelection}
+        onKeyUp={syncSuggestionSelectionFromInput}
+        onMouseUp={syncSuggestionSelectionFromInput}
+        onSelect={syncSuggestionSelectionFromInput}
         spellCheck={false}
         suppressHydrationWarning
         title={routeInputTitle}
         type="text"
         value={inputValue}
       />
-      {pathSuggestionsVisible ? (
+      {suggestionsVisible ? (
         <div
           className="absolute inset-x-1 top-full z-50 mt-1 max-h-72 overflow-y-auto rounded-md bg-popover py-1 text-popover-foreground shadow-md ring-1 ring-foreground/10"
-          data-testid="route-url-editor-path-suggestions"
-          id={pathSuggestionsId}
+          data-suggestion-kind={suggestionKind}
+          data-testid="route-url-editor-suggestions"
+          id={suggestionsId}
           role="listbox"
         >
-          {pathSuggestions.map((path) => (
+          {suggestions.map((suggestion) => (
             <button
-              aria-label={`Use ${path}`}
-              aria-selected={path === draftRouteAddress}
-              className={routeUrlEditorPathSuggestionButtonClassName}
-              data-testid="route-url-editor-path-suggestion"
-              key={path}
-              onClick={() => selectPathSuggestion(path)}
+              aria-label={`Use ${suggestion.value}`}
+              aria-selected={suggestion.kind === "path" && suggestion.value === draftRouteAddress}
+              className={routeUrlEditorSuggestionButtonClassName}
+              data-testid="route-url-editor-suggestion"
+              key={`${suggestion.kind}:${suggestion.value}`}
+              onClick={() => selectSuggestion(suggestion)}
               onMouseDown={(event) => event.preventDefault()}
               role="option"
               type="button"
             >
-              {path}
+              {suggestion.value}
             </button>
           ))}
         </div>

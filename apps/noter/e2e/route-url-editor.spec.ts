@@ -130,10 +130,11 @@ test("route URL editor lists route paths and filters them while typing", async (
   const host = await page.evaluate(() => window.location.host);
 
   const input = page.getByTestId("route-url-editor-input");
-  const suggestions = page.getByTestId("route-url-editor-path-suggestions");
+  const suggestions = page.getByTestId("route-url-editor-suggestions");
 
   await input.focus();
   await expect(suggestions).toBeVisible();
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "path");
   await expect(page.getByRole("option", { exact: true, name: "Use /" })).toBeVisible();
   await expect(page.getByRole("option", { exact: true, name: "Use /logo" })).toBeVisible();
   await expect(page.getByRole("option", { exact: true, name: "Use /vault/$" })).toHaveCount(0);
@@ -152,6 +153,46 @@ test("route URL editor lists route paths and filters them while typing", async (
   await expect(page).toHaveURL(`${origin}/logo`);
   await expect(input).toHaveValue(`${host}/logo`);
   await expect(suggestions).toHaveCount(0);
+});
+
+test("route URL editor switches suggestions by URL section", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/logo?dev#top", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const input = page.getByTestId("route-url-editor-input");
+  const suggestions = page.getByTestId("route-url-editor-suggestions");
+
+  await input.focus();
+  await expect(input).toHaveValue(`${origin}/logo?dev#top`);
+
+  await input.evaluate((element, currentOrigin) => {
+    const pathCaret = `${currentOrigin}/l`.length;
+    element.setSelectionRange(pathCaret, pathCaret);
+  }, origin);
+  await input.press("ArrowRight");
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "path");
+  await expect(page.getByRole("option", { exact: true, name: "Use /logo" })).toBeVisible();
+
+  await input.evaluate((element) => {
+    const searchCaret = element.value.indexOf("?dev") + "?d".length;
+    element.setSelectionRange(searchCaret, searchCaret);
+  });
+  await input.press("ArrowRight");
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
+  await expect(page.getByRole("option", { exact: true, name: "Use ?dev" })).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "Use ?devtools" })).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "Use /logo" })).toHaveCount(0);
+
+  await input.evaluate((element) => {
+    const hashCaret = element.value.indexOf("#top") + "#".length;
+    element.setSelectionRange(hashCaret, hashCaret);
+  });
+  await input.press("ArrowRight");
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "hash");
+  await expect(page.getByRole("option", { exact: true, name: "Use #top" })).toBeVisible();
 });
 
 test("route URL editor fixture refuses changes that remove the origin slash prefix", async ({
