@@ -5,7 +5,21 @@ import {
 } from "@/components/logo/NLogoScene";
 import { NLogoRasterScene } from "@/components/logo/NLogoRasterScene";
 import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
-import { LogoIsoThumbnail, NLogoIsoScene } from "@/components/logo/NLogoIsoScene";
+import {
+  LOGO_ISO_CUBE_PIXEL_SPRITE_PRESETS,
+  applyLogoIsoCubePixelSpritePaint,
+  parseLogoIsoCubePixelSpritePattern,
+  serializeLogoIsoCubePixelSpritePattern,
+  type LogoIsoCubePixelEditKind,
+  type LogoIsoCubePixelSprite,
+  type LogoIsoCubePixelSpritePaint,
+  type LogoIsoCubePixelSpritePreset,
+} from "@/components/logo/logoIsoCubePixelSprite";
+import {
+  LogoIsoCubePixelEditor,
+  LogoIsoThumbnail,
+  NLogoIsoScene,
+} from "@/components/logo/NLogoIsoScene";
 import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
@@ -92,6 +106,7 @@ import { LogoNumberInput } from "@/components/logo/LogoNumberInput";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectTrigger } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Layout, PublicLayoutShell } from "@/Layout";
 import {
   DEFAULT_ELEVATION_DEGREES,
@@ -122,7 +137,15 @@ import { cn } from "@/lib/utils";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { Link } from "@tanstack/react-router";
 import { PaletteIcon } from "lucide-react";
-import { useId, useMemo, useRef, type ChangeEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ReactNode,
+} from "react";
 
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 const DEFAULT_LOGO_OPACITY = 1;
@@ -523,6 +546,8 @@ type LogoPreviewLocalStoreState = {
   isLeftFaceStripeAnimationEnabled: boolean;
   isSceneInteracting: boolean;
   isShuffleEnabled: boolean;
+  isoCubePixelSpritesByCubeSide: ReadonlyMap<number, LogoIsoCubePixelSprite>;
+  isoCubePixelTool: LogoIsoCubePixelEditKind | null;
   logoOpacity: number;
   shuffleParallelMoves: LogoShuffleParallelMoves;
 };
@@ -559,6 +584,8 @@ function readLogoPreviewLocalStoreState(): LogoPreviewLocalStoreState {
     isLeftFaceStripeAnimationEnabled: false,
     isSceneInteracting: false,
     isShuffleEnabled: false,
+    isoCubePixelSpritesByCubeSide: new Map(),
+    isoCubePixelTool: null,
     logoOpacity: DEFAULT_LOGO_OPACITY,
     shuffleParallelMoves: 3,
   };
@@ -673,6 +700,63 @@ function useLogoPreviewStore() {
         isFaceColorAnimationEnabled,
       }));
     },
+    clearIsoCubePixelSprite: (cubeSidePixels: number) => {
+      setState((state) => {
+        if (!state.isoCubePixelSpritesByCubeSide.has(cubeSidePixels)) {
+          return state;
+        }
+
+        const isoCubePixelSpritesByCubeSide = new Map(state.isoCubePixelSpritesByCubeSide);
+        isoCubePixelSpritesByCubeSide.delete(cubeSidePixels);
+        return {
+          ...state,
+          isoCubePixelSpritesByCubeSide,
+        };
+      });
+    },
+    setIsoCubePixelSprite: (
+      cubeSidePixels: number,
+      isoCubePixelSprite: LogoIsoCubePixelSprite | undefined,
+    ) => {
+      setState((state) => {
+        const currentSprite = state.isoCubePixelSpritesByCubeSide.get(cubeSidePixels);
+        if (currentSprite === isoCubePixelSprite) {
+          return state;
+        }
+
+        const isoCubePixelSpritesByCubeSide = new Map(state.isoCubePixelSpritesByCubeSide);
+        if (isoCubePixelSprite) {
+          isoCubePixelSpritesByCubeSide.set(cubeSidePixels, isoCubePixelSprite);
+        } else {
+          isoCubePixelSpritesByCubeSide.delete(cubeSidePixels);
+        }
+        return {
+          ...state,
+          isoCubePixelSpritesByCubeSide,
+        };
+      });
+    },
+    paintIsoCubePixelSprite: (paint: LogoIsoCubePixelSpritePaint) => {
+      setState((state) => {
+        const currentSprite = state.isoCubePixelSpritesByCubeSide.get(paint.cubeSidePixels);
+        const nextSprite = applyLogoIsoCubePixelSpritePaint(currentSprite, paint);
+        if (nextSprite === currentSprite) {
+          return state;
+        }
+
+        const isoCubePixelSpritesByCubeSide = new Map(state.isoCubePixelSpritesByCubeSide);
+        if (nextSprite) {
+          isoCubePixelSpritesByCubeSide.set(paint.cubeSidePixels, nextSprite);
+        } else {
+          isoCubePixelSpritesByCubeSide.delete(paint.cubeSidePixels);
+        }
+
+        return {
+          ...state,
+          isoCubePixelSpritesByCubeSide,
+        };
+      });
+    },
     setLeftFaceStripeAnimationEnabled: (isLeftFaceStripeAnimationEnabled: boolean) => {
       setState((state) => ({
         ...state,
@@ -683,6 +767,12 @@ function useLogoPreviewStore() {
       setState((state) => ({
         ...state,
         logoOpacity: clampLogoOpacity(logoOpacity),
+      }));
+    },
+    setIsoCubePixelTool: (isoCubePixelTool: LogoIsoCubePixelEditKind | null) => {
+      setState((state) => ({
+        ...state,
+        isoCubePixelTool,
       }));
     },
     setSceneInteracting: (isSceneInteracting: boolean) => {
@@ -810,10 +900,20 @@ function useLogoPreviewController({
           };
         });
       },
+      applyIsoCubePixelSpritePreset: (preset: LogoIsoCubePixelSpritePreset) => {
+        store.actions.setIsoCubePixelTool(null);
+        store.actions.setIsoCubePixelSprite(preset.cubeSidePixels, preset.sprite);
+        commitRouteState((currentState) => ({
+          ...currentState,
+          isoCubeSidePixels: preset.cubeSidePixels,
+        }));
+      },
+      clearIsoCubePixelSprite: store.actions.clearIsoCubePixelSprite,
       endSceneInteraction: () => {
         store.actions.setSceneInteracting(false);
         pacedRouteState.commitCurrent();
       },
+      paintIsoCubePixelSprite: store.actions.paintIsoCubePixelSprite,
       resetView: () => {
         store.actions.setAutoRotating(false);
         commitRouteState((currentState) => ({
@@ -859,7 +959,10 @@ function useLogoPreviewController({
 
         pacedRouteState.commitCurrent();
       },
-      setEditMode: store.actions.setEditMode,
+      setEditMode: (editMode: VoxelEdit["kind"]) => {
+        store.actions.setIsoCubePixelTool(null);
+        store.actions.setEditMode(editMode);
+      },
       setElevationDegrees: (elevationDegrees: number) => {
         store.actions.setAutoRotating(false);
         debounceRouteState((currentState) =>
@@ -895,6 +998,13 @@ function useLogoPreviewController({
           isoStyleId,
         }));
       },
+      setIsoCubePixelTool: (isoCubePixelTool: LogoIsoCubePixelEditKind | null) => {
+        if (isoCubePixelTool) {
+          store.actions.setShuffleEnabled(false);
+        }
+        store.actions.setIsoCubePixelTool(isoCubePixelTool);
+      },
+      setIsoCubePixelSprite: store.actions.setIsoCubePixelSprite,
       setLeftFaceStyleKind: (kind: LogoLeftFaceStyleKind) => {
         commitRouteState((currentState) => {
           if (kind === "secondary") {
@@ -995,7 +1105,12 @@ function useLogoPreviewController({
           }),
         );
       },
-      setShuffleEnabled: store.actions.setShuffleEnabled,
+      setShuffleEnabled: (isShuffleEnabled: boolean) => {
+        if (isShuffleEnabled) {
+          store.actions.setIsoCubePixelTool(null);
+        }
+        store.actions.setShuffleEnabled(isShuffleEnabled);
+      },
       setShuffleParallelMoves: store.actions.setShuffleParallelMoves,
       setThemeColorFamily: (themeColorKey: LogoThemeColorKey, nextFamily: string) => {
         commitRouteState((currentState) => ({
@@ -1154,6 +1269,99 @@ function LogoPreviewSection({
       </div>
       {children}
     </section>
+  );
+}
+
+function LogoIsoCubePixelPatternTextarea({
+  cubeSidePixels,
+  disabled,
+  onSpriteChange,
+  sprite,
+}: {
+  cubeSidePixels: number;
+  disabled: boolean;
+  onSpriteChange: (sprite: LogoIsoCubePixelSprite | undefined) => void;
+  sprite: LogoIsoCubePixelSprite | undefined;
+}) {
+  const serializedPattern = useMemo(
+    () =>
+      serializeLogoIsoCubePixelSpritePattern({
+        cubeSidePixels,
+        sprite,
+      }),
+    [cubeSidePixels, sprite],
+  );
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftPattern, setDraftPattern] = useState(serializedPattern);
+  const previousSerializedPatternRef = useRef(serializedPattern);
+  const value = isEditing ? draftPattern : serializedPattern;
+  const parsedPattern = useMemo(
+    () =>
+      parseLogoIsoCubePixelSpritePattern({
+        cubeSidePixels,
+        pattern: value,
+      }),
+    [cubeSidePixels, value],
+  );
+  const textareaRows = serializedPattern.split("\n").length;
+  const isInvalid = parsedPattern.kind === "invalid";
+
+  useEffect(() => {
+    if (!isEditing) {
+      setDraftPattern(serializedPattern);
+    }
+  }, [isEditing, serializedPattern]);
+
+  // Presets and canvas drawing can replace the sprite while the textarea has
+  // a draft; keep that draft only when it already matches the serialized sprite.
+  useEffect(() => {
+    if (previousSerializedPatternRef.current === serializedPattern) {
+      return;
+    }
+
+    previousSerializedPatternRef.current = serializedPattern;
+    if (draftPattern !== serializedPattern) {
+      setIsEditing(false);
+      setDraftPattern(serializedPattern);
+    }
+  }, [draftPattern, serializedPattern]);
+
+  return (
+    <div className="w-full">
+      <Textarea
+        aria-invalid={isInvalid}
+        aria-label="Cube pixel pattern"
+        autoCapitalize="off"
+        autoCorrect="off"
+        className="min-h-0 w-full resize-none overflow-hidden rounded-none font-mono leading-4 shadow-none [tab-size:1]"
+        disabled={disabled}
+        onBlur={() => {
+          setIsEditing(false);
+          setDraftPattern(serializedPattern);
+        }}
+        onChange={(event) => {
+          const nextPattern = event.target.value;
+          setIsEditing(true);
+          setDraftPattern(nextPattern);
+
+          const nextParsedPattern = parseLogoIsoCubePixelSpritePattern({
+            cubeSidePixels,
+            pattern: nextPattern,
+          });
+          if (nextParsedPattern.kind === "valid") {
+            onSpriteChange(nextParsedPattern.sprite);
+          }
+        }}
+        onFocus={() => {
+          setIsEditing(true);
+          setDraftPattern(serializedPattern);
+        }}
+        rows={textareaRows}
+        spellCheck={false}
+        value={value}
+        wrap="off"
+      />
+    </div>
   );
 }
 
@@ -1323,6 +1531,15 @@ export function LogoPreviewPage({
     parallelMoves: state.shuffleParallelMoves,
   };
   const stripedLeftFaceStyle = state.leftFaceStyle.kind === "striped" ? state.leftFaceStyle : null;
+  const isoCubePixelSprite = state.isoCubePixelSpritesByCubeSide.get(state.isoCubeSidePixels);
+  const isoCubePixelCount = isoCubePixelSprite ? isoCubePixelSprite.pixelKeys.size : 0;
+  const matchingIsoCubePixelSpritePresets = LOGO_ISO_CUBE_PIXEL_SPRITE_PRESETS.filter(
+    (preset) => preset.cubeSidePixels === state.isoCubeSidePixels,
+  );
+  const visibleIsoCubePixelSpritePresets =
+    matchingIsoCubePixelSpritePresets.length > 0
+      ? matchingIsoCubePixelSpritePresets
+      : LOGO_ISO_CUBE_PIXEL_SPRITE_PRESETS.filter((preset) => preset.cubeSidePixels === 8);
 
   const modeSearch = preserveLogoRouteDevModeSearch(
     buildLogoRouteSearch({
@@ -1346,11 +1563,17 @@ export function LogoPreviewPage({
     renderMode === "iso" ? (
       <NLogoIsoScene
         backgroundColor={backgroundColor}
-        className="absolute inset-0 h-full w-full touch-none select-none"
+        className={cn(
+          "absolute inset-0 h-full w-full touch-none select-none",
+          state.isoCubePixelTool && !isRecursiveDepth ? "cursor-crosshair" : "",
+        )}
         cubeSidePixels={state.isoCubeSidePixels}
         editMode={state.editMode}
         faceColors={faceColors}
         fractalDepth={state.fractalDepth}
+        isoCubePixelSprite={isoCubePixelSprite}
+        isoCubePixelTool={isRecursiveDepth ? null : state.isoCubePixelTool}
+        onIsoCubePixelSpritePaint={controls.paintIsoCubePixelSprite}
         onVoxelEdit={controls.editVoxel}
         shuffleAnimation={shuffleAnimation}
         styleId={state.isoStyleId}
@@ -1648,6 +1871,92 @@ export function LogoPreviewPage({
             </Select>
           </div>
 
+          <div className={LOGO_CONTROL_STACK_CLASS_NAME} data-testid="logo-iso-pixel-controls">
+            <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+              <span>Pixels</span>
+              <span>{isoCubePixelCount}</span>
+            </div>
+            <div className="flex justify-center border border-border bg-background p-2">
+              <LogoIsoCubePixelEditor
+                backgroundColor={backgroundColor}
+                cubePixelSprite={isoCubePixelSprite}
+                cubePixelTool={isRecursiveDepth ? null : state.isoCubePixelTool}
+                cubeSidePixels={state.isoCubeSidePixels}
+                disabled={isRecursiveDepth}
+                faceColors={faceColors}
+                onCubePixelSpritePaint={controls.paintIsoCubePixelSprite}
+                styleId={state.isoStyleId}
+              />
+            </div>
+            <div className="flex justify-center">
+              <LogoIsoCubePixelPatternTextarea
+                cubeSidePixels={state.isoCubeSidePixels}
+                disabled={isRecursiveDepth}
+                onSpriteChange={(sprite) => {
+                  controls.setIsoCubePixelSprite(state.isoCubeSidePixels, sprite);
+                }}
+                sprite={isoCubePixelSprite}
+              />
+            </div>
+            <div className={LOGO_CONTROL_BUTTON_ROW_CLASS_NAME}>
+              <Button
+                type="button"
+                size="sm"
+                variant={state.isoCubePixelTool === "draw" ? "default" : "outline"}
+                className={LOGO_CONTROL_BUTTON_CLASS_NAME}
+                aria-pressed={state.isoCubePixelTool === "draw"}
+                disabled={isRecursiveDepth}
+                onClick={() => {
+                  controls.setIsoCubePixelTool(state.isoCubePixelTool === "draw" ? null : "draw");
+                }}
+              >
+                Draw
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={state.isoCubePixelTool === "erase" ? "default" : "outline"}
+                className={LOGO_CONTROL_BUTTON_CLASS_NAME}
+                aria-pressed={state.isoCubePixelTool === "erase"}
+                disabled={isRecursiveDepth}
+                onClick={() => {
+                  controls.setIsoCubePixelTool(state.isoCubePixelTool === "erase" ? null : "erase");
+                }}
+              >
+                Erase
+              </Button>
+            </div>
+            <div className={LOGO_CONTROL_BUTTON_ROW_CLASS_NAME}>
+              {visibleIsoCubePixelSpritePresets.map((preset) => (
+                <Button
+                  key={`${preset.id}:${preset.cubeSidePixels}`}
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className={LOGO_CONTROL_BUTTON_CLASS_NAME}
+                  disabled={isRecursiveDepth}
+                  onClick={() => {
+                    controls.applyIsoCubePixelSpritePreset(preset);
+                  }}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="w-full rounded-none"
+              disabled={isoCubePixelCount === 0}
+              onClick={() => {
+                controls.clearIsoCubePixelSprite(state.isoCubeSidePixels);
+              }}
+            >
+              Clear pixels
+            </Button>
+          </div>
+
           <div className="flex flex-wrap items-end gap-3">
             {[16, 32, 64].map((size) => (
               <div key={size} className="flex flex-col items-center gap-1">
@@ -1657,6 +1966,7 @@ export function LogoPreviewPage({
                     cubeSidePixels={state.isoCubeSidePixels}
                     faceColors={faceColors}
                     fractalDepth={state.fractalDepth}
+                    isoCubePixelSprite={isoCubePixelSprite}
                     size={size}
                     styleId={state.isoStyleId}
                     voxelState={state.voxelState}
