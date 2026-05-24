@@ -92,7 +92,7 @@ export function FileViewLayoutVisualFixture({ mode }: { mode: FileViewLayoutVisu
             : {
                 content: (
                   <div data-testid="fileview-layout-left-sidebar-links" className="flex flex-col">
-                    <Link to={DASHBOARD_ROUTE}>Dashboard</Link>
+                    <Link to={DASHBOARD_ROUTE}>Home</Link>
                     <Link to="/machines">Machines</Link>
                     <Link to="/add">Connect repository</Link>
                     <Link to="/pricing">Pricing</Link>

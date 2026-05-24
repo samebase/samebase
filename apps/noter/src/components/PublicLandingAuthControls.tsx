@@ -20,8 +20,8 @@ import {
 } from "@/lib/prodUiMode";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { SignInWithGoogle } from "@/SignInWithGoogle";
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { useConvexAuth, useQuery } from "convex/react";
+import { useLocation, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 
@@ -46,7 +46,6 @@ export function PublicLandingAuthControls() {
   });
   const navigate = useNavigate();
   const rootRouteSearch = useRootRouteSearch();
-  const { isAuthenticated } = useConvexAuth();
   const prodUiQueryEnabled = isProdUiModeEnabled(rootRouteSearch);
   const productionPublicOrigin = isBrowserProductionPublicOrigin();
   const showGoogleAuth = shouldShowGoogleAuthForPathname(pathname, rootRouteSearch);
@@ -104,14 +103,6 @@ export function PublicLandingAuthControls() {
     });
     window.history.replaceState(window.history.state, "", nextPath);
   }, [deploymentProfile, prodUiQueryEnabled, productionPublicOrigin]);
-
-  if (isAuthenticated) {
-    return (
-      <Button asChild>
-        <Link to={DASHBOARD_ROUTE}>Dashboard</Link>
-      </Button>
-    );
-  }
 
   if (showGoogleSignupClosedState) {
     return null;

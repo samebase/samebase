@@ -269,7 +269,7 @@ test("fileview mobile left sidebar exposes fixture links", async ({ page }) => {
 
   const leftLinks = page.getByTestId("fileview-layout-left-sidebar-links");
   await expect(leftLinks.getByRole("link")).toHaveCount(4);
-  await expect(leftLinks.getByRole("link", { name: "Dashboard" })).toBeVisible();
+  await expect(leftLinks.getByRole("link", { name: "Home" })).toBeVisible();
   await expect(leftLinks.getByRole("link", { name: "Machines" })).toBeVisible();
   await expect(leftLinks.getByRole("link", { name: "Connect repository" })).toBeVisible();
   await expect(leftLinks.getByRole("link", { name: "Pricing" })).toBeVisible();
