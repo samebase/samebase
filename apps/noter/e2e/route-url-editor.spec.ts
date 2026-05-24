@@ -121,6 +121,44 @@ test("route URL editor fixture selects continuously across host and route text",
   expect(selectedText).toBe(`${host}${routePath}`);
 });
 
+test("route URL editor lists route paths and filters them while typing", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+  const host = await page.evaluate(() => window.location.host);
+
+  const input = page.getByTestId("route-url-editor-input");
+  const suggestions = page.getByTestId("route-url-editor-path-suggestions");
+
+  await input.focus();
+  await expect(suggestions).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "Use /" })).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "Use /vault/$" })).toBeVisible();
+  await expect(
+    page.getByRole("option", {
+      exact: true,
+      name: "Use /vault/$owner/$repo/codespace/$branch/chat",
+    }),
+  ).toBeVisible();
+
+  await input.press("End");
+  await input.type("lo");
+
+  await expect(page.getByRole("option", { exact: true, name: "Use /logo" })).toBeVisible();
+  await expect(
+    page.getByRole("option", { exact: true, name: "Use /logo/transition" }),
+  ).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "Use /pricing" })).toHaveCount(0);
+
+  await page.getByRole("option", { exact: true, name: "Use /logo" }).click();
+
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(input).toHaveValue(`${host}/logo`);
+  await expect(suggestions).toHaveCount(0);
+});
+
 test("route URL editor fixture refuses changes that remove the origin slash prefix", async ({
   page,
 }) => {
