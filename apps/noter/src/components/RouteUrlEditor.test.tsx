@@ -40,7 +40,7 @@ describe("RouteUrlEditor", () => {
     useQueryMock.mockReset();
   });
 
-  function renderEditor(initialEntries: string[] = ["/"]): HTMLInputElement {
+  function renderEditor(initialEntries: string[] = ["/"]): HTMLButtonElement {
     rootElement = document.createElement("div");
     document.body.append(rootElement);
     const mountedRoot = createRoot(rootElement);
@@ -54,7 +54,27 @@ describe("RouteUrlEditor", () => {
       );
     });
 
+    return readRequiredDisplay();
+  }
+
+  function startEditing(initialEntries: string[] = ["/"]): HTMLInputElement {
+    const display = renderEditor(initialEntries);
+    act(() => {
+      display.click();
+    });
+
     return readRequiredInput();
+  }
+
+  function readRequiredDisplay(): HTMLButtonElement {
+    const display = rootElement?.querySelector<HTMLButtonElement>(
+      '[data-testid="route-url-editor-display"]',
+    );
+    if (!display) {
+      throw new Error("Expected route URL editor display.");
+    }
+
+    return display;
   }
 
   function readRequiredInput(): HTMLInputElement {
@@ -75,22 +95,38 @@ describe("RouteUrlEditor", () => {
     );
   }
 
-  it("keeps only route history controls beside the input", () => {
-    renderEditor();
+  it("keeps only route history controls beside the URL surface", () => {
+    const display = renderEditor();
 
     expect(rootElement?.querySelector('button[aria-label="Back"]')).not.toBeNull();
     expect(rootElement?.querySelector('button[aria-label="Forward"]')).not.toBeNull();
     expect(rootElement?.querySelector('button[aria-label="Refresh"]')).toBeNull();
     expect(rootElement?.querySelector('button[aria-label="Go to route URL"]')).toBeNull();
-    expect(rootElement?.querySelectorAll("button")).toHaveLength(2);
+    expect(
+      rootElement?.querySelectorAll('button[aria-label="Back"], button[aria-label="Forward"]'),
+    ).toHaveLength(2);
+    expect(display.textContent).toBe(new URL(window.location.origin).host);
+  });
+
+  it("uses a compact display before focusing a stable absolute URL input", () => {
+    const display = renderEditor(["/?prod-ui#top"]);
+    const origin = window.location.origin;
+
+    expect(display.textContent).toBe(`${new URL(origin).host}/?prod-ui#top`);
+    expect(rootElement?.querySelector('[data-testid="route-url-editor-input"]')).toBeNull();
+
+    act(() => {
+      display.click();
+    });
+
+    const input = readRequiredInput();
+    expect(document.activeElement).toBe(input);
+    expect(input.value).toBe(`${origin}/?prod-ui#top`);
+    expect(input.selectionStart).toBe(input.value.length);
   });
 
   it("blurs the focused input when the page scrolls underneath", () => {
-    const input = renderEditor();
-
-    act(() => {
-      input.focus();
-    });
+    const input = startEditing();
 
     expect(document.activeElement).toBe(input);
     expect(readSuggestions()).not.toBeNull();
@@ -104,11 +140,7 @@ describe("RouteUrlEditor", () => {
   });
 
   it("keeps focus when the suggestions list scrolls", () => {
-    const input = renderEditor();
-
-    act(() => {
-      input.focus();
-    });
+    const input = startEditing();
 
     const suggestions = readSuggestions();
     if (!suggestions) {
