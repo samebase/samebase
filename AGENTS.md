@@ -31,6 +31,21 @@
 - Avoid bulk doc-folder migrations during active branch churn. Reclassify docs in small batches and
   update references in the same change.
 
+## Sub-Agent Research
+
+- Treat available sub-agent tooling as a cheap default option for sidecar research, log/test sweeps,
+  public-doc comparisons, or technical spikes whose details are not needed in the main thread.
+- Keep the main thread on the critical path. Split independent questions into narrowly scoped
+  agents, ask for concise findings with file/command evidence, and merge only the conclusions needed
+  for the next decision.
+- Use fast, inexpensive models for bounded research when the tooling supports model choice, and
+  reserve heavier reasoning for synthesis or difficult implementation.
+- For experiments that may edit files, give each sub-agent an isolated worktree and a disjoint write
+  scope. Have it report changed paths, and keep exploratory changes out of the main worktree until
+  they are intentionally integrated.
+- Close sub-agent threads once findings are integrated. Do not paste raw logs or bulky technical
+  detail into the main thread or final response unless the user asks for it.
+
 ## Convex CLI
 
 Use these from `apps/noter` when debugging runtime issues:
