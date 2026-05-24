@@ -113,10 +113,10 @@ function createSierpinskiCarpetVoxelState(): string {
 
 export const LOGO_PRESETS = [
   {
-    description: "2x2x2 alternating lattice",
+    description: "Default 2x2x2 recursive exploration motif",
     gridSize: LOGO_GRID_SIZE_2,
     id: "checker-lattice",
-    label: "Checker 2",
+    label: "Default 2",
     voxelState: DEFAULT_VOXEL_STATE,
   },
   {

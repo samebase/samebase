@@ -1,9 +1,23 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { getLogoPreset, getLogoPresetSelection } from "@/components/logo/logoPresets";
-import { parseVoxelState, voxelKey } from "@/components/logo/logoVoxelState";
+import {
+  DEFAULT_VOXEL_STATE,
+  LOGO_GRID_SIZE_2,
+  parseVoxelState,
+  voxelKey,
+} from "@/components/logo/logoVoxelState";
 
 describe("logoPresets", () => {
+  it("keeps the 2x2 default preset aligned with the route default", () => {
+    const preset = getLogoPreset("checker-lattice");
+
+    expect(preset.label).toBe("Default 2");
+    expect(preset.gridSize).toBe(LOGO_GRID_SIZE_2);
+    expect(preset.voxelState).toBe(DEFAULT_VOXEL_STATE);
+    expect(getLogoPresetSelection(preset.voxelState, preset.gridSize)).toBe("checker-lattice");
+  });
+
   it("defines the Sierpinski carpet as a level-1 3x3x3 face-carpet model", () => {
     const preset = getLogoPreset("sierpinski-carpet");
     const filledVoxels = parseVoxelState(preset.voxelState);

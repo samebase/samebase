@@ -86,12 +86,12 @@ assets remain governed by the accepted `3x3x3` identity contract until that cont
 
 Example:
 
-- `2x2x2`: `xo_ox-ox_xo`
+- `2x2x2`: `ox_xo-oo_ox`
 - `3x3x3`: `ooo_oxo_ooo-oxo_xox_oxo-ooo_oxo_ooo`
 
 ### 3. Default shape
 
-- The default `2x2x2` voxel arrangement is: `xo_ox-ox_xo`
+- The default `2x2x2` voxel arrangement is: `ox_xo-oo_ox`
 - The default `3x3x3` voxel arrangement is: `ooo_oxo_ooo-oxo_xox_oxo-ooo_oxo_ooo`
 - Loading `/logo` without `vox` should use the default arrangement for the selected grid size.
 
@@ -139,7 +139,7 @@ Example:
 
 The playground should expose at least these presets:
 
-- `Checker 2`
+- `Default 2`
 - `Checker 3`
 - `N Logo`
 - `Sierpinski Carpet`

@@ -34,6 +34,12 @@ export type ParsedLogoVoxelState = {
   gridSize: LogoGridSize;
 };
 
+const DEFAULT_LOGO_GRID_SIZE_2_COORDINATES = [
+  [1, 1, 0],
+  [0, 1, 1],
+  [1, 0, 1],
+] as const satisfies readonly VoxelCoordinate[];
+
 export function voxelKey(x: number, y: number, z: number): string {
   return `${x},${y},${z}`;
 }
@@ -101,6 +107,10 @@ export function createFilledVoxelSet(coordinates: readonly VoxelCoordinate[]): S
 }
 
 export function createDefaultVoxelCoordinates(gridSize: LogoGridSize): VoxelCoordinate[] {
+  if (gridSize === LOGO_GRID_SIZE_2) {
+    return DEFAULT_LOGO_GRID_SIZE_2_COORDINATES.map(([x, y, z]): VoxelCoordinate => [x, y, z]);
+  }
+
   const coordinates: VoxelCoordinate[] = [];
   const centerIndex = (gridSize - 1) / 2;
 

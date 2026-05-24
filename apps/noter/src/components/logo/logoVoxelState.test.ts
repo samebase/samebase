@@ -4,21 +4,24 @@ import {
   DEFAULT_LOGO_GRID_SIZE,
   LOGO_GRID_SIZE_3,
   createDefaultFilledVoxelSet,
+  createDefaultVoxelState,
   createLogoFractalVoxelGrid,
   normalizeLogoFractalDepth,
   voxelKey,
 } from "@/components/logo/logoVoxelState";
 
 describe("logoVoxelState", () => {
-  it("creates the 2x2 checker lattice as the exploratory default mark", () => {
+  it("creates the 2x2 exploratory default mark", () => {
     const voxelGrid = createLogoFractalVoxelGrid({ depth: 1, gridSize: DEFAULT_LOGO_GRID_SIZE });
 
     expect(voxelGrid.gridSize).toBe(2);
-    expect(voxelGrid.filledVoxels.size).toBe(4);
+    expect(createDefaultVoxelState(DEFAULT_LOGO_GRID_SIZE)).toBe("ox_xo-oo_ox");
+    expect(voxelGrid.filledVoxels.size).toBe(3);
     expect(voxelGrid.filledVoxels).toEqual(createDefaultFilledVoxelSet(DEFAULT_LOGO_GRID_SIZE));
     expect(voxelGrid.filledVoxels.has(voxelKey(0, 0, 0))).toBe(false);
-    expect(voxelGrid.filledVoxels.has(voxelKey(1, 0, 0))).toBe(true);
-    expect(voxelGrid.filledVoxels.has(voxelKey(1, 1, 1))).toBe(true);
+    expect(voxelGrid.filledVoxels.has(voxelKey(1, 0, 1))).toBe(true);
+    expect(voxelGrid.filledVoxels.has(voxelKey(1, 1, 0))).toBe(true);
+    expect(voxelGrid.filledVoxels.has(voxelKey(0, 1, 1))).toBe(true);
   });
 
   it("keeps recursive 3D corners empty while preserving the 3x3 side carpet", () => {
