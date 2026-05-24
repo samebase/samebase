@@ -68,6 +68,60 @@ xx....xx
        x
 `;
 
+const LOGO_ISO_QUARTER_DIAGONAL_16_PATTERN = `
+.
+..x
+xxxx.
+xx....x
+....xxxx.
+..xxxx....x
+xxxx....xxxx.
+xx....xxxx....x
+....xxxx....xxxx
+..xxxx....xxxx..
+xxxx....xxxx....
+xx....xxxx....xx
+....xxxx....xxxx
+..xxxx....xxxx..
+xxxx....xxxx....
+xx....xxxx....xx
+ ...xxxx....xxxx
+   xxx....xxxx..
+     ...xxxx....
+       xxx....xx
+         ...xxxx
+           xxx..
+             ...
+               x
+`;
+
+const LOGO_ISO_QUARTER_DIAGONAL_16_MIRROR_PATTERN = `
+.
+x..
+.xxxx
+x....xx
+.xxxx....
+x....xxxx..
+.xxxx....xxxx
+x....xxxx....xx
+xxxx....xxxx....
+..xxxx....xxxx..
+....xxxx....xxxx
+xx....xxxx....xx
+xxxx....xxxx....
+..xxxx....xxxx..
+....xxxx....xxxx
+xx....xxxx....xx
+ xxxx....xxxx...
+   ..xxxx....xxx
+     ....xxxx...
+       xx....xxx
+         xxxx...
+           ..xxx
+             ...
+               x
+`;
+
 export function createLogoIsoCubePixelKey(x: number, y: number): string {
   return `${x},${y}`;
 }
@@ -221,6 +275,24 @@ export const LOGO_ISO_CUBE_PIXEL_SPRITE_PRESETS = [
     sprite: readLogoIsoCubePixelSpritePattern({
       cubeSidePixels: 8,
       pattern: LOGO_ISO_QUARTER_DIAGONAL_MIRROR_PATTERN,
+    }),
+  },
+  {
+    cubeSidePixels: 16,
+    id: "quarter-diagonal",
+    label: "Quarter diag",
+    sprite: readLogoIsoCubePixelSpritePattern({
+      cubeSidePixels: 16,
+      pattern: LOGO_ISO_QUARTER_DIAGONAL_16_PATTERN,
+    }),
+  },
+  {
+    cubeSidePixels: 16,
+    id: "quarter-diagonal-mirror",
+    label: "Mirror diag",
+    sprite: readLogoIsoCubePixelSpritePattern({
+      cubeSidePixels: 16,
+      pattern: LOGO_ISO_QUARTER_DIAGONAL_16_MIRROR_PATTERN,
     }),
   },
 ] as const satisfies readonly LogoIsoCubePixelSpritePreset[];

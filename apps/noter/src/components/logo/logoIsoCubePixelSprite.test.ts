@@ -97,6 +97,51 @@ describe("logoIsoCubePixelSprite", () => {
     );
   });
 
+  it("keeps the saved quarter diagonal preset exact for 16px cubes", () => {
+    const preset = LOGO_ISO_CUBE_PIXEL_SPRITE_PRESETS.find(
+      (candidate) => candidate.id === "quarter-diagonal" && candidate.cubeSidePixels === 16,
+    );
+
+    if (!preset) {
+      throw new Error("Missing 16px quarter diagonal preset");
+    }
+
+    expect(preset.sprite.pixelKeys.size).toBe(128);
+    expect(
+      serializeLogoIsoCubePixelSpritePattern({
+        cubeSidePixels: 16,
+        sprite: preset.sprite,
+      }),
+    ).toBe(
+      [
+        ".",
+        "..x",
+        "xxxx.",
+        "xx....x",
+        "....xxxx.",
+        "..xxxx....x",
+        "xxxx....xxxx.",
+        "xx....xxxx....x",
+        "....xxxx....xxxx",
+        "..xxxx....xxxx..",
+        "xxxx....xxxx....",
+        "xx....xxxx....xx",
+        "....xxxx....xxxx",
+        "..xxxx....xxxx..",
+        "xxxx....xxxx....",
+        "xx....xxxx....xx",
+        " ...xxxx....xxxx",
+        "   xxx....xxxx..",
+        "     ...xxxx....",
+        "       xxx....xx",
+        "         ...xxxx",
+        "           xxx..",
+        "             ...",
+        "               x",
+      ].join("\n"),
+    );
+  });
+
   it("serializes and parses the editable stripe pattern", () => {
     const pattern = [
       ".",

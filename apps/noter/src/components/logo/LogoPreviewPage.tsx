@@ -1533,6 +1533,13 @@ export function LogoPreviewPage({
   const stripedLeftFaceStyle = state.leftFaceStyle.kind === "striped" ? state.leftFaceStyle : null;
   const isoCubePixelSprite = state.isoCubePixelSpritesByCubeSide.get(state.isoCubeSidePixels);
   const isoCubePixelCount = isoCubePixelSprite ? isoCubePixelSprite.pixelKeys.size : 0;
+  const matchingIsoCubePixelSpritePresets = LOGO_ISO_CUBE_PIXEL_SPRITE_PRESETS.filter(
+    (preset) => preset.cubeSidePixels === state.isoCubeSidePixels,
+  );
+  const visibleIsoCubePixelSpritePresets =
+    matchingIsoCubePixelSpritePresets.length > 0
+      ? matchingIsoCubePixelSpritePresets
+      : LOGO_ISO_CUBE_PIXEL_SPRITE_PRESETS.filter((preset) => preset.cubeSidePixels === 8);
 
   const modeSearch = preserveLogoRouteDevModeSearch(
     buildLogoRouteSearch({
@@ -1920,9 +1927,9 @@ export function LogoPreviewPage({
               </Button>
             </div>
             <div className={LOGO_CONTROL_BUTTON_ROW_CLASS_NAME}>
-              {LOGO_ISO_CUBE_PIXEL_SPRITE_PRESETS.map((preset) => (
+              {visibleIsoCubePixelSpritePresets.map((preset) => (
                 <Button
-                  key={preset.id}
+                  key={`${preset.id}:${preset.cubeSidePixels}`}
                   type="button"
                   size="sm"
                   variant="outline"
