@@ -16,6 +16,7 @@ describe("rootRouteSearch", () => {
         dark: "",
         dev: "",
         devtools: "true",
+        "new-app": "",
         primary: "red-600",
         "prod-ui": "",
         secondary: "lime-100",
@@ -35,6 +36,7 @@ describe("rootRouteSearch", () => {
       dark: true,
       dev: true,
       devtools: true,
+      "new-app": true,
       primary: "red-600",
       "prod-ui": true,
       secondary: "lime-100",
@@ -67,6 +69,7 @@ describe("rootRouteSearch", () => {
         dev: "1",
         devtools: "false",
         light: 0,
+        "new-app": "false",
         "prod-ui": false,
       }),
     ).toEqual({
@@ -74,6 +77,7 @@ describe("rootRouteSearch", () => {
       dev: true,
       devtools: true,
       light: true,
+      "new-app": true,
       "prod-ui": true,
     });
   });
@@ -81,12 +85,13 @@ describe("rootRouteSearch", () => {
   it("parses the root search contract from a search string", () => {
     expect(
       readRootRouteSearch(
-        "?prod-ui&dev&sidebar-reset&auth=google&signup=google&primary=red-600&delete",
+        "?prod-ui&dev&sidebar-reset&auth=google&signup=google&primary=red-600&delete&new-app",
       ),
     ).toEqual({
       auth: "google",
       delete: true,
       dev: true,
+      "new-app": true,
       primary: "red-600",
       "prod-ui": true,
       "sidebar-reset": true,

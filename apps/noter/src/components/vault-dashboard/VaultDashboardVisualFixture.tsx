@@ -1,9 +1,7 @@
 import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import { Button } from "@/components/ui/button";
-import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
@@ -20,21 +18,16 @@ import {
   VaultDashboardSidebarContent,
 } from "@/components/vault-dashboard/VaultDashboardChrome";
 import { VaultProvisioningLogViewer } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
-import {
-  CloudflareProviderLogo,
-  ConvexProviderLogo,
-  GitHubProviderLogo,
-} from "@/components/vault-dashboard/VaultDashboardLogos";
 import { buildVaultBranchSectionState } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import {
-  CreateControlMessageSlot,
-  CreateProviderNameInput,
   GitHubRepositoryNameSlashPreview,
   VaultBranchHeaderControls,
   VaultBranchLinkRow,
   VaultBranchListExpansionControl,
   VaultDashboardCloudflareDialog,
   VaultDashboardConvexDialog,
+  VaultDashboardCreateDialog,
+  VaultDashboardCreateFormFields,
   VaultDashboardDeleteControl,
   VaultDashboardDeleteDialog,
   VaultDashboardRepositoryExternalLinks,
@@ -47,6 +40,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 
 export type VaultDashboardVisualMode =
   | "vault-create-control"
+  | "vault-dashboard-create-open"
   | "vault-dashboard-dev-tools-hidden"
   | "vault-dashboard-dev-tools-visible"
   | "vault-dashboard-connect-cloudflare-open"
@@ -1013,40 +1007,11 @@ function FixtureDashboardCreateControl() {
           />
           <VaultDashboardProvidersSection open={true} onOpenChange={() => {}} providerRows={[]} />
           <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">
-            <Select value="nicu-chiciuc" onValueChange={() => {}}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="GitHub owner" />
-              </SelectTrigger>
-              <AppSelectContent>
-                <AppSelectItem value="nicu-chiciuc">nicu-chiciuc</AppSelectItem>
-                <AppSelectItem value="noter-md">noter-md</AppSelectItem>
-              </AppSelectContent>
-            </Select>
-            <CreateProviderNameInput
-              disabled={false}
-              icon={<GitHubProviderLogo />}
-              onChange={() => {}}
-              placeholder="GitHub repo name"
-              value="field/notes"
-            />
-            <CreateControlMessageSlot>
-              <GitHubRepositoryNameSlashPreview rawName="field/notes" />
-            </CreateControlMessageSlot>
-            <CreateProviderNameInput
-              disabled={false}
-              icon={<ConvexProviderLogo />}
-              onChange={() => {}}
-              placeholder="Convex project name"
-              value="field-notes"
-            />
-            <CreateProviderNameInput
-              disabled={false}
-              icon={<CloudflareProviderLogo />}
-              onChange={() => {}}
-              placeholder="Cloudflare Worker name"
-              value="field-notes"
-            />
-            <Button className="w-full">New App</Button>
+            <Button className="w-full" asChild>
+              <Link to="/" search={{ "new-app": true }}>
+                New App
+              </Link>
+            </Button>
             <Button
               variant="outline"
               className="h-auto min-h-8 w-full whitespace-normal py-2"
@@ -1069,9 +1034,52 @@ function FixtureDashboardCreateControl() {
   );
 }
 
+function FixtureDashboardCreateDialog() {
+  return (
+    <div data-testid="vault-dashboard-visual-fixture" className="min-h-screen bg-background">
+      <VaultDashboardCreateDialog
+        createButtonDisabled={false}
+        footerMessages={null}
+        isCreating={false}
+        onOpenChange={() => {}}
+        onSubmit={() => {}}
+        open
+      >
+        <VaultDashboardCreateFormFields
+          cloudflareWorkerName="field-notes"
+          cloudflareWorkerNameSupport={null}
+          convexProjectName="field-notes"
+          convexProjectNameSupport={null}
+          githubConnected
+          githubRepositoryNameSupport={<GitHubRepositoryNameSlashPreview rawName="field/notes" />}
+          githubRepositoryOwnerOptions={[
+            { login: "nicu-chiciuc", kind: "user" },
+            { login: "noter-md", kind: "organization" },
+          ]}
+          hasRequiredCreateConnections
+          isCreating={false}
+          isLoadingGithubRepositoryOwners={false}
+          newRepositoryName="field/notes"
+          onCloudflareWorkerNameBlur={() => {}}
+          onCloudflareWorkerNameChange={() => {}}
+          onConvexProjectNameBlur={() => {}}
+          onConvexProjectNameChange={() => {}}
+          onGithubRepositoryOwnerChange={() => {}}
+          onNewRepositoryNameChange={() => {}}
+          selectedGithubRepositoryOwner="nicu-chiciuc"
+        />
+      </VaultDashboardCreateDialog>
+    </div>
+  );
+}
+
 export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisualMode }) {
   if (mode === "vault-create-control") {
     return <FixtureDashboardCreateControl />;
+  }
+
+  if (mode === "vault-dashboard-create-open") {
+    return <FixtureDashboardCreateDialog />;
   }
 
   if (mode === "vault-dashboard-dev-tools-hidden") {

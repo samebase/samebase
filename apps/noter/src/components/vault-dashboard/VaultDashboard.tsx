@@ -41,6 +41,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type FormEvent,
   type KeyboardEvent,
   type MutableRefObject,
   type ReactElement,
@@ -131,6 +132,7 @@ const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
   rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
 } satisfies WorkspaceSidebarState;
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
+const DASHBOARD_NEW_APP_QUERY_PARAM = "new-app";
 
 type VaultDashboardVault = NonNullable<
   (typeof api.vault.dashboard.getUserVaults)["_returnType"]
@@ -1032,6 +1034,179 @@ export function VaultDashboardDeleteDialog({
         </DialogFooter>
       </AppDialogContent>
     </Dialog>
+  );
+}
+
+export function VaultDashboardCreateDialog({
+  children,
+  createButtonDisabled,
+  footerMessages,
+  isCreating,
+  onOpenChange,
+  onSubmit,
+  open,
+}: {
+  children: ReactNode;
+  createButtonDisabled: boolean;
+  footerMessages: ReactNode;
+  isCreating: boolean;
+  onOpenChange: (isOpen: boolean) => void;
+  onSubmit: () => void;
+  open: boolean;
+}) {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (createButtonDisabled) {
+      return;
+    }
+    onSubmit();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <AppDialogContent showCloseButton={!isCreating}>
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>New App</DialogTitle>
+            <DialogDescription>GitHub, Convex, and Cloudflare resources.</DialogDescription>
+          </DialogHeader>
+          <div className="flex w-full flex-col items-stretch gap-2">{children}</div>
+          <CreateControlMessageSlot size="comfortable">{footerMessages}</CreateControlMessageSlot>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                onOpenChange(false);
+              }}
+              disabled={isCreating}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={createButtonDisabled}>
+              {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {isCreating ? "Creating app..." : "New App"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </AppDialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Visual coverage mounts this same field tree so the create-dialog fixture cannot
+ * drift away from the production dialog layout.
+ */
+export function VaultDashboardCreateFormFields({
+  cloudflareWorkerName,
+  cloudflareWorkerNameSupport,
+  convexProjectName,
+  convexProjectNameSupport,
+  githubConnected,
+  githubRepositoryNameSupport,
+  githubRepositoryOwnerOptions,
+  hasRequiredCreateConnections,
+  isCreating,
+  isLoadingGithubRepositoryOwners,
+  newRepositoryName,
+  onCloudflareWorkerNameBlur,
+  onCloudflareWorkerNameChange,
+  onConvexProjectNameBlur,
+  onConvexProjectNameChange,
+  onGithubRepositoryOwnerChange,
+  onNewRepositoryNameChange,
+  selectedGithubRepositoryOwner,
+}: {
+  cloudflareWorkerName: string;
+  cloudflareWorkerNameSupport: ReactNode;
+  convexProjectName: string;
+  convexProjectNameSupport: ReactNode;
+  githubConnected: boolean;
+  githubRepositoryNameSupport: ReactNode;
+  githubRepositoryOwnerOptions: GitHubRepositoryOwnerOption[];
+  hasRequiredCreateConnections: boolean;
+  isCreating: boolean;
+  isLoadingGithubRepositoryOwners: boolean;
+  newRepositoryName: string;
+  onCloudflareWorkerNameBlur: () => void;
+  onCloudflareWorkerNameChange: (value: string) => void;
+  onConvexProjectNameBlur: () => void;
+  onConvexProjectNameChange: (value: string) => void;
+  onGithubRepositoryOwnerChange: (value: string) => void;
+  onNewRepositoryNameChange: (value: string) => void;
+  selectedGithubRepositoryOwner: string;
+}) {
+  const canEditProviderResourceNames = newRepositoryName.trim().length > 0;
+  const providerResourceNameInputDisabled =
+    !hasRequiredCreateConnections || isCreating || !canEditProviderResourceNames;
+  const ownerSelectPlaceholder = isLoadingGithubRepositoryOwners
+    ? "Loading GitHub owners..."
+    : "GitHub owner";
+  const sortedGithubRepositoryOwnerOptions = [...githubRepositoryOwnerOptions].sort(
+    compareGitHubRepositoryOwnerOptions,
+  );
+
+  return (
+    <>
+      {githubConnected && (
+        <Select
+          value={selectedGithubRepositoryOwner}
+          onValueChange={onGithubRepositoryOwnerChange}
+          disabled={
+            isCreating ||
+            !hasRequiredCreateConnections ||
+            isLoadingGithubRepositoryOwners ||
+            githubRepositoryOwnerOptions.length === 0
+          }
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder={ownerSelectPlaceholder} />
+          </SelectTrigger>
+          <AppSelectContent>
+            {sortedGithubRepositoryOwnerOptions.map((owner) => (
+              <AppSelectItem key={owner.login} value={owner.login}>
+                {owner.login}
+              </AppSelectItem>
+            ))}
+          </AppSelectContent>
+        </Select>
+      )}
+      <CreateProviderNameInput
+        placeholder="GitHub repo name"
+        value={newRepositoryName}
+        onChange={onNewRepositoryNameChange}
+        icon={<GitHubProviderLogo />}
+        disabled={!hasRequiredCreateConnections || isCreating}
+      />
+      <CreateControlMessageSlot>{githubRepositoryNameSupport}</CreateControlMessageSlot>
+      <div
+        className={clsx(
+          "flex w-full flex-col items-stretch gap-2",
+          !canEditProviderResourceNames && "invisible pointer-events-none",
+        )}
+        aria-hidden={canEditProviderResourceNames ? undefined : true}
+      >
+        <CreateProviderNameInput
+          placeholder="Convex project name"
+          value={convexProjectName}
+          onChange={onConvexProjectNameChange}
+          onBlur={onConvexProjectNameBlur}
+          icon={<ConvexProviderLogo />}
+          disabled={providerResourceNameInputDisabled}
+        />
+        <CreateControlMessageSlot>{convexProjectNameSupport}</CreateControlMessageSlot>
+        <CreateProviderNameInput
+          placeholder="Cloudflare Worker name"
+          value={cloudflareWorkerName}
+          onChange={onCloudflareWorkerNameChange}
+          onBlur={onCloudflareWorkerNameBlur}
+          icon={<CloudflareProviderLogo />}
+          disabled={providerResourceNameInputDisabled}
+        />
+        <CreateControlMessageSlot>{cloudflareWorkerNameSupport}</CreateControlMessageSlot>
+      </div>
+    </>
   );
 }
 
@@ -2579,10 +2754,12 @@ function applyVaultDashboardProviderAddSearch({
     ? applySearchPatch(currentSearch, {
         "add-convex": true,
         "add-cloudflare": null,
+        [DASHBOARD_NEW_APP_QUERY_PARAM]: null,
       })
     : applySearchPatch(currentSearch, {
         "add-cloudflare": true,
         "add-convex": null,
+        [DASHBOARD_NEW_APP_QUERY_PARAM]: null,
       });
 }
 
@@ -3586,6 +3763,7 @@ export function VaultDashboard() {
   const dashboardAccountPanelOpen = dashboardSettings?.accountPanelOpen;
   const dashboardGlobalChatOpen = dashboardSettings?.globalChatOpen;
   const dashboardProvidersPanelOpen = dashboardSettings?.providersPanelOpen;
+  const newAppModeActive = rootRouteSearch[DASHBOARD_NEW_APP_QUERY_PARAM] === true;
   const deleteModeActive = rootRouteSearch.delete;
   const addConvexModeActive = rootRouteSearch["add-convex"];
   const addCloudflareWorkerModeActive = rootRouteSearch["add-cloudflare"];
@@ -3873,6 +4051,17 @@ export function VaultDashboard() {
     api.codespaces.mutations.getConnectedCodespacesCount,
     CODESPACES_ENABLED && vaultToDelete ? { vaultId: vaultToDelete.id } : "skip",
   );
+
+  const closeNewAppDialog = () => {
+    void navigate({
+      hash: true,
+      replace: true,
+      search: (currentSearch) =>
+        applySearchPatch(currentSearch, { [DASHBOARD_NEW_APP_QUERY_PARAM]: null }),
+      state: true,
+      to: ".",
+    });
+  };
 
   const clearDeleteSearchParam = useCallback(
     ({ preferHistoryBack }: { preferHistoryBack: boolean }) => {
@@ -4322,6 +4511,11 @@ export function VaultDashboard() {
     void loadCloudflareAccountDialogResources(cloudflareConnection?.accountId);
   };
 
+  const handleOpenCloudflareAccountDialogFromCreate = () => {
+    closeNewAppDialog();
+    handleOpenCloudflareAccountDialog();
+  };
+
   const handleCloudflareAccountDialogOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
       cloudflareAccountDialogRequestIdRef.current += 1;
@@ -4339,6 +4533,7 @@ export function VaultDashboard() {
       await selectCloudflareDefaultAccount({
         accountId: selectedCloudflareDefaultAccountId,
       });
+      clearCreateError();
       handleCloudflareAccountDialogOpenChange(false);
     } catch (error) {
       setCloudflareAccountDialogError(
@@ -4521,7 +4716,7 @@ export function VaultDashboard() {
     }
     if (cloudflareAccountSelectionRequired) {
       setCreateError("Choose a Cloudflare account before creating an app.");
-      handleOpenCloudflareAccountDialog();
+      handleOpenCloudflareAccountDialogFromCreate();
       return;
     }
     const owner = selectedGithubRepositoryOwner.trim();
@@ -4576,16 +4771,11 @@ export function VaultDashboard() {
         private: true,
       });
       resetCreateRepositoryName();
+      closeNewAppDialog();
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : "Failed to create app");
     } finally {
       setIsCreating(false);
-    }
-  };
-
-  const handleCreateRepositoryKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter") {
-      void handleCreateRepository();
     }
   };
 
@@ -4965,18 +5155,6 @@ export function VaultDashboard() {
 
     return null;
   };
-  const createPlaceholder = "GitHub repo name";
-  const createButtonLabel = isCreating ? "Creating app..." : "New App";
-  const canEditProviderResourceNames = createRepositoryName.length > 0;
-  const providerResourceNameInputDisabled =
-    !hasRequiredCreateConnections || isCreating || !canEditProviderResourceNames;
-  const ownerSelectPlaceholder = isLoadingGithubRepositoryOwners
-    ? "Loading GitHub owners..."
-    : "GitHub owner";
-  const sortedGithubRepositoryOwnerOptions = useMemo(
-    () => [...githubRepositoryOwnerOptions].sort(compareGitHubRepositoryOwnerOptions),
-    [githubRepositoryOwnerOptions],
-  );
   const createControlFooterMessages =
     createError ||
     !canCreateRepo ||
@@ -4989,7 +5167,9 @@ export function VaultDashboard() {
             {cloudflareAccountSelectionRequired ? (
               <>
                 Choose a Cloudflare account to create an app.{" "}
-                <CreateResourceNameInlineAction onClick={handleOpenCloudflareAccountDialog}>
+                <CreateResourceNameInlineAction
+                  onClick={handleOpenCloudflareAccountDialogFromCreate}
+                >
                   Select account
                 </CreateResourceNameInlineAction>
               </>
@@ -5014,121 +5194,85 @@ export function VaultDashboard() {
     connectGithubWithApiKey,
     connectConvexWithApiKey,
   });
+  const createButtonDisabled =
+    isCreating ||
+    createRepositoryName.length === 0 ||
+    !canCreateRepo ||
+    hasBlockingCreateResourceName;
+  const createFormFields = (
+    <VaultDashboardCreateFormFields
+      cloudflareWorkerName={resolvedCloudflareWorkerName}
+      cloudflareWorkerNameSupport={renderCreateResourceNameSupport({
+        availability: cloudflareWorkerNameAvailability,
+        checkedName: checkedCloudflareWorkerName,
+        label: "Cloudflare Worker name",
+        mode: cloudflareWorkerNameMode,
+        validation: cloudflareWorkerNameValidation,
+        onUseGeneratedName: () => {
+          setCloudflareWorkerName("", "auto");
+        },
+        onUseSuggestion: (suggestion) => {
+          setCloudflareWorkerName(suggestion, "manual");
+        },
+      })}
+      convexProjectName={resolvedConvexProjectName}
+      convexProjectNameSupport={renderCreateResourceNameSupport({
+        availability: convexProjectNameAvailability,
+        checkedName: checkedConvexProjectName,
+        label: "Convex project name",
+        mode: convexProjectNameMode,
+        validation: convexProjectNameValidation,
+        onUseGeneratedName: () => {
+          setConvexProjectName("", "auto");
+        },
+        onUseSuggestion: (suggestion) => {
+          setConvexProjectName(suggestion, "manual");
+        },
+      })}
+      githubConnected={githubConnected}
+      githubRepositoryNameSupport={renderGitHubRepositoryNameSupport()}
+      githubRepositoryOwnerOptions={githubRepositoryOwnerOptions}
+      hasRequiredCreateConnections={hasRequiredCreateConnections}
+      isCreating={isCreating}
+      isLoadingGithubRepositoryOwners={isLoadingGithubRepositoryOwners}
+      newRepositoryName={newRepositoryName}
+      onCloudflareWorkerNameBlur={() => {
+        if (cloudflareWorkerNameMode === "manual" && !cloudflareWorkerName.trim()) {
+          setCloudflareWorkerName("", "auto");
+        }
+      }}
+      onCloudflareWorkerNameChange={(value) => {
+        setCloudflareWorkerName(value, "manual");
+      }}
+      onConvexProjectNameBlur={() => {
+        if (convexProjectNameMode === "manual" && !convexProjectName.trim()) {
+          setConvexProjectName("", "auto");
+        }
+      }}
+      onConvexProjectNameChange={(value) => {
+        setConvexProjectName(value, "manual");
+      }}
+      onGithubRepositoryOwnerChange={setSelectedGithubRepositoryOwner}
+      onNewRepositoryNameChange={setNewRepositoryName}
+      selectedGithubRepositoryOwner={selectedGithubRepositoryOwner}
+    />
+  );
   const createControl = (
     <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">
-      {githubConnected && (
-        <Select
-          value={selectedGithubRepositoryOwner}
-          onValueChange={setSelectedGithubRepositoryOwner}
-          disabled={
-            isCreating ||
-            !hasRequiredCreateConnections ||
-            isLoadingGithubRepositoryOwners ||
-            githubRepositoryOwnerOptions.length === 0
+      <Button className="w-full" asChild>
+        <Link
+          to="/"
+          search={(currentSearch) =>
+            applySearchPatch(currentSearch, {
+              "add-cloudflare": null,
+              "add-convex": null,
+              delete: null,
+              [DASHBOARD_NEW_APP_QUERY_PARAM]: true,
+            })
           }
         >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder={ownerSelectPlaceholder} />
-          </SelectTrigger>
-          <AppSelectContent>
-            {sortedGithubRepositoryOwnerOptions.map((owner) => (
-              <AppSelectItem key={owner.login} value={owner.login}>
-                {owner.login}
-              </AppSelectItem>
-            ))}
-          </AppSelectContent>
-        </Select>
-      )}
-      <CreateProviderNameInput
-        placeholder={createPlaceholder}
-        value={newRepositoryName}
-        onChange={setNewRepositoryName}
-        onKeyDown={handleCreateRepositoryKeyDown}
-        icon={<GitHubProviderLogo />}
-        disabled={!hasRequiredCreateConnections || isCreating}
-      />
-      <CreateControlMessageSlot>{renderGitHubRepositoryNameSupport()}</CreateControlMessageSlot>
-      <div
-        className={clsx(
-          "flex w-full flex-col items-stretch gap-2",
-          !canEditProviderResourceNames && "invisible pointer-events-none",
-        )}
-        aria-hidden={canEditProviderResourceNames ? undefined : true}
-      >
-        <CreateProviderNameInput
-          placeholder="Convex project name"
-          value={resolvedConvexProjectName}
-          onChange={(value) => {
-            setConvexProjectName(value, "manual");
-          }}
-          onBlur={() => {
-            if (convexProjectNameMode === "manual" && !convexProjectName.trim()) {
-              setConvexProjectName("", "auto");
-            }
-          }}
-          icon={<ConvexProviderLogo />}
-          disabled={providerResourceNameInputDisabled}
-          onKeyDown={handleCreateRepositoryKeyDown}
-        />
-        <CreateControlMessageSlot>
-          {renderCreateResourceNameSupport({
-            availability: convexProjectNameAvailability,
-            checkedName: checkedConvexProjectName,
-            label: "Convex project name",
-            mode: convexProjectNameMode,
-            validation: convexProjectNameValidation,
-            onUseGeneratedName: () => {
-              setConvexProjectName("", "auto");
-            },
-            onUseSuggestion: (suggestion) => {
-              setConvexProjectName(suggestion, "manual");
-            },
-          })}
-        </CreateControlMessageSlot>
-        <CreateProviderNameInput
-          placeholder="Cloudflare Worker name"
-          value={resolvedCloudflareWorkerName}
-          onChange={(value) => {
-            setCloudflareWorkerName(value, "manual");
-          }}
-          onBlur={() => {
-            if (cloudflareWorkerNameMode === "manual" && !cloudflareWorkerName.trim()) {
-              setCloudflareWorkerName("", "auto");
-            }
-          }}
-          icon={<CloudflareProviderLogo />}
-          disabled={providerResourceNameInputDisabled}
-          onKeyDown={handleCreateRepositoryKeyDown}
-        />
-        <CreateControlMessageSlot>
-          {renderCreateResourceNameSupport({
-            availability: cloudflareWorkerNameAvailability,
-            checkedName: checkedCloudflareWorkerName,
-            label: "Cloudflare Worker name",
-            mode: cloudflareWorkerNameMode,
-            validation: cloudflareWorkerNameValidation,
-            onUseGeneratedName: () => {
-              setCloudflareWorkerName("", "auto");
-            },
-            onUseSuggestion: (suggestion) => {
-              setCloudflareWorkerName(suggestion, "manual");
-            },
-          })}
-        </CreateControlMessageSlot>
-      </div>
-      <Button
-        className="w-full"
-        onClick={() => {
-          void handleCreateRepository();
-        }}
-        disabled={
-          isCreating ||
-          newRepositoryName.trim().length === 0 ||
-          !canCreateRepo ||
-          hasBlockingCreateResourceName
-        }
-      >
-        {createButtonLabel}
+          New App
+        </Link>
       </Button>
       {githubConnected ? (
         <Button variant="outline" className="h-auto min-h-8 w-full whitespace-normal py-2" asChild>
@@ -5145,9 +5289,6 @@ export function VaultDashboard() {
           </span>
         </Button>
       )}
-      <CreateControlMessageSlot size="comfortable">
-        {createControlFooterMessages}
-      </CreateControlMessageSlot>
     </div>
   );
 
@@ -5317,6 +5458,14 @@ export function VaultDashboard() {
     void saveVaultBranchFilters(vaultId, nextVaultBranchFilters);
   };
 
+  const handleNewAppDialogOpenChange = (isOpen: boolean) => {
+    if (isOpen || isCreating) {
+      return;
+    }
+
+    closeNewAppDialog();
+  };
+
   const handleDeleteDialogOpenChange = (isOpen: boolean) => {
     if (isOpen || isDeleting || isCommitting) {
       return;
@@ -5408,6 +5557,18 @@ export function VaultDashboard() {
         />
       </PersistedSidebarProvider>
 
+      <VaultDashboardCreateDialog
+        createButtonDisabled={createButtonDisabled}
+        footerMessages={createControlFooterMessages}
+        isCreating={isCreating}
+        onOpenChange={handleNewAppDialogOpenChange}
+        onSubmit={() => {
+          void handleCreateRepository();
+        }}
+        open={newAppModeActive}
+      >
+        {createFormFields}
+      </VaultDashboardCreateDialog>
       <VaultDashboardDeleteDialog
         commitError={commitError}
         connectedCodespacesCount={connectedCodespacesCount}

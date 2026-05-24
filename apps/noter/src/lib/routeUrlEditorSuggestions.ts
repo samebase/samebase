@@ -75,6 +75,7 @@ const ROOT_ROUTE_URL_SEARCH_PARAM_KEYS = [
   "delete",
   "depth",
   "dist",
+  "new-app",
   PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM,
   "signup",
 ] as const;

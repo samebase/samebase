@@ -26,6 +26,7 @@ const ROOT_ROUTE_PRESENCE_SEARCH_KEYS = [
   "dev",
   "devtools",
   "delete",
+  "new-app",
   "prod-ui",
   SEARCH_RESET_QUERY_PARAM,
   ...ROOT_THEME_MODE_SEARCH_KEYS,
@@ -74,6 +75,7 @@ const rootRouteSearchSchema = z
     dev: z.literal(true).optional(),
     devtools: z.literal(true).optional(),
     delete: z.literal(true).optional(),
+    "new-app": z.literal(true).optional(),
     depth: z.preprocess(readOptionalLogoFractalDepth, z.number().finite().optional()),
     dist: z.preprocess((value) => {
       const numericValue = readOptionalNumber(value);
