@@ -195,6 +195,46 @@ test("route URL editor switches suggestions by URL section", async ({ page }) =>
   await expect(page.getByRole("option", { exact: true, name: "Use #top" })).toBeVisible();
 });
 
+test("route URL editor selects suggestions with arrow keys", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+  const host = await page.evaluate(() => window.location.host);
+
+  const input = page.getByTestId("route-url-editor-input");
+  const logoOption = page.getByRole("option", {
+    exact: true,
+    name: "Use /logo",
+  });
+  const logoIsoOption = page.getByRole("option", {
+    exact: true,
+    name: "Use /logo/iso",
+  });
+
+  await input.focus();
+  await input.press("End");
+  await input.type("log");
+
+  await expect(logoOption).toBeVisible();
+  await expect(logoIsoOption).toBeVisible();
+
+  await input.press("ArrowDown");
+  await expect(logoOption).toHaveAttribute("aria-selected", "true");
+
+  await input.press("ArrowDown");
+  await expect(logoIsoOption).toHaveAttribute("aria-selected", "true");
+
+  await input.press("ArrowUp");
+  await expect(logoOption).toHaveAttribute("aria-selected", "true");
+
+  await input.press("Enter");
+
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(input).toHaveValue(`${host}/logo`);
+});
+
 test("route URL editor fixture refuses changes that remove the origin slash prefix", async ({
   page,
 }) => {

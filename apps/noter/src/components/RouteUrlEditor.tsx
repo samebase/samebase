@@ -30,8 +30,18 @@ const routeUrlEditorIconButtonClassName =
 const routeUrlEditorSubmitButtonClassName =
   "pointer-events-none flex size-7 shrink-0 items-center justify-center text-muted-foreground opacity-0 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 disabled:pointer-events-none disabled:opacity-50";
 
-const routeUrlEditorSuggestionButtonClassName =
-  "flex h-7 w-full items-center px-2 font-mono text-sm text-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground";
+function getRouteUrlEditorSuggestionButtonClassName(active: boolean): string {
+  return active
+    ? "flex h-7 w-full items-center bg-accent px-2 font-mono text-sm text-accent-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
+    : "flex h-7 w-full items-center px-2 font-mono text-sm text-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground";
+}
+
+function readRouteUrlEditorSuggestionOptionId(args: {
+  index: number;
+  suggestionsId: string;
+}): string {
+  return `${args.suggestionsId}-${args.index}`;
+}
 
 function readRouteUrlEditorOrigin(): string {
   return typeof window === "undefined" ? "https://noter.local" : window.location.origin;
@@ -188,6 +198,7 @@ export function RouteUrlEditor() {
   const [suggestionDraftEditedSinceFocus, setSuggestionDraftEditedSinceFocus] = useState(false);
   const [suggestionKind, setSuggestionKind] = useState<RouteUrlEditorSuggestionKind>("path");
   const [selectionRouteIndex, setSelectionRouteIndex] = useState(0);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number | null>(null);
   const viewerIsAdmin = useQuery(api.users.isCurrentUserAdmin);
   const draftHref = normalizeRouteUrlEditorHref({
     currentHref,
@@ -213,6 +224,15 @@ export function RouteUrlEditor() {
     viewer: { isAdmin: viewerIsAdmin === true },
   });
   const suggestionsVisible = inputFocused && !suggestionsDismissed && suggestions.length > 0;
+  const activeSuggestion =
+    activeSuggestionIndex === null ? undefined : suggestions[activeSuggestionIndex];
+  const activeSuggestionId =
+    suggestionsVisible && activeSuggestionIndex !== null
+      ? readRouteUrlEditorSuggestionOptionId({
+          index: activeSuggestionIndex,
+          suggestionsId,
+        })
+      : undefined;
 
   const canGoBack = currentRouteHistoryIndex > 0;
   const canGoForward = currentRouteHistoryIndex < forwardRouteHistoryIndex;
@@ -248,6 +268,28 @@ export function RouteUrlEditor() {
     setDraftRouteAddress(currentHref);
   }, [currentHref, inputFocused]);
 
+  useEffect(() => {
+    setActiveSuggestionIndex((currentActiveSuggestionIndex) => {
+      if (!suggestionsVisible) {
+        return null;
+      }
+
+      if (currentActiveSuggestionIndex === null) {
+        return null;
+      }
+
+      return Math.min(currentActiveSuggestionIndex, suggestions.length - 1);
+    });
+  }, [suggestions.length, suggestionsVisible]);
+
+  useEffect(() => {
+    if (!activeSuggestionId) {
+      return;
+    }
+
+    document.getElementById(activeSuggestionId)?.scrollIntoView({ block: "nearest" });
+  }, [activeSuggestionId]);
+
   const goBack = useCallback(() => {
     router.history.back();
   }, [router]);
@@ -280,6 +322,7 @@ export function RouteUrlEditor() {
       });
       setSelectionRouteIndex(nextSelectionRouteIndex);
       setSuggestionKind(readRouteUrlEditorSuggestionKind(routeAddress, nextSelectionRouteIndex));
+      setActiveSuggestionIndex(null);
     },
     [origin],
   );
@@ -449,6 +492,23 @@ export function RouteUrlEditor() {
     [draftRouteAddress, syncSuggestionSelection],
   );
 
+  const moveActiveSuggestion = useCallback(
+    (step: number) => {
+      setActiveSuggestionIndex((currentActiveSuggestionIndex) => {
+        if (!suggestionsVisible || suggestions.length === 0) {
+          return null;
+        }
+
+        if (currentActiveSuggestionIndex === null) {
+          return step > 0 ? 0 : suggestions.length - 1;
+        }
+
+        return (currentActiveSuggestionIndex + step + suggestions.length) % suggestions.length;
+      });
+    },
+    [suggestions.length, suggestionsVisible],
+  );
+
   const selectSuggestion = useCallback(
     (suggestion: RouteUrlEditorSuggestion) => {
       const nextDraftRouteAddress = applyRouteUrlEditorSuggestion({
@@ -469,15 +529,44 @@ export function RouteUrlEditor() {
     (event: KeyboardEvent<HTMLInputElement>) => {
       inputSelectionBeforeChangeRef.current = readRouteUrlEditorInputSelection(event.currentTarget);
 
-      if (event.key !== "Escape") {
+      switch (event.key) {
+        case "ArrowDown":
+          if (suggestionsVisible) {
+            event.preventDefault();
+            moveActiveSuggestion(1);
+          }
+          return;
+        case "ArrowUp":
+          if (suggestionsVisible) {
+            event.preventDefault();
+            moveActiveSuggestion(-1);
+          }
+          return;
+        case "Enter":
+          if (suggestionsVisible && activeSuggestion) {
+            event.preventDefault();
+            selectSuggestion(activeSuggestion);
+          }
+          return;
+        case "Escape":
+          skipNextBlurCommitRef.current = true;
+          resetInput();
+          event.currentTarget.blur();
+          return;
+      }
+    },
+    [activeSuggestion, moveActiveSuggestion, resetInput, selectSuggestion, suggestionsVisible],
+  );
+
+  const handleInputKeyUp = useCallback(
+    (event: KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Enter") {
         return;
       }
 
-      skipNextBlurCommitRef.current = true;
-      resetInput();
-      event.currentTarget.blur();
+      syncSuggestionSelectionFromInput(event);
     },
-    [resetInput],
+    [syncSuggestionSelectionFromInput],
   );
 
   return (
@@ -524,6 +613,7 @@ export function RouteUrlEditor() {
       */}
       <input
         ref={inputRef}
+        aria-activedescendant={activeSuggestionId}
         aria-describedby={routeInputInvalid ? `${inputId}-error` : undefined}
         aria-controls={suggestionsVisible ? suggestionsId : undefined}
         aria-expanded={suggestionsVisible}
@@ -543,7 +633,7 @@ export function RouteUrlEditor() {
         onClick={syncSuggestionSelectionFromInput}
         onFocus={focusInput}
         onKeyDown={handleInputKeyDown}
-        onKeyUp={syncSuggestionSelectionFromInput}
+        onKeyUp={handleInputKeyUp}
         onMouseUp={syncSuggestionSelectionFromInput}
         onSelect={syncSuggestionSelectionFromInput}
         spellCheck={false}
@@ -560,21 +650,30 @@ export function RouteUrlEditor() {
           id={suggestionsId}
           role="listbox"
         >
-          {suggestions.map((suggestion) => (
-            <button
-              aria-label={`Use ${suggestion.value}`}
-              aria-selected={suggestion.kind === "path" && suggestion.value === draftRouteAddress}
-              className={routeUrlEditorSuggestionButtonClassName}
-              data-testid="route-url-editor-suggestion"
-              key={`${suggestion.kind}:${suggestion.value}`}
-              onClick={() => selectSuggestion(suggestion)}
-              onMouseDown={(event) => event.preventDefault()}
-              role="option"
-              type="button"
-            >
-              {suggestion.value}
-            </button>
-          ))}
+          {suggestions.map((suggestion, suggestionIndex) => {
+            const active = suggestionIndex === activeSuggestionIndex;
+            return (
+              <button
+                aria-label={`Use ${suggestion.value}`}
+                aria-selected={
+                  active || (suggestion.kind === "path" && suggestion.value === draftRouteAddress)
+                }
+                className={getRouteUrlEditorSuggestionButtonClassName(active)}
+                data-testid="route-url-editor-suggestion"
+                id={readRouteUrlEditorSuggestionOptionId({
+                  index: suggestionIndex,
+                  suggestionsId,
+                })}
+                key={`${suggestion.kind}:${suggestion.value}`}
+                onClick={() => selectSuggestion(suggestion)}
+                onMouseDown={(event) => event.preventDefault()}
+                role="option"
+                type="button"
+              >
+                {suggestion.value}
+              </button>
+            );
+          })}
         </div>
       ) : null}
       <button
