@@ -179,6 +179,7 @@ const LOGO_VISUAL_MODES = ["logo-three-reference", "logo-snap-angles"] as const 
 
 const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-create-control",
+  "vault-dashboard-create-open",
   "vault-dashboard-dev-tools-hidden",
   "vault-dashboard-dev-tools-visible",
   "vault-dashboard-connect-cloudflare-open",
@@ -381,6 +382,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (
     mode === "vault-create-control" ||
+    mode === "vault-dashboard-create-open" ||
     mode === "vault-dashboard-dev-tools-hidden" ||
     mode === "vault-dashboard-dev-tools-visible" ||
     mode === "vault-dashboard-connect-cloudflare-open" ||

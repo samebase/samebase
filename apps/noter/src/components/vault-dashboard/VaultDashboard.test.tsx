@@ -8,6 +8,7 @@ import {
   GitHubRepositoryNameSlashPreview,
   VaultDashboardCloudflareAccountDialog,
   VaultDashboardConvexDialog,
+  VaultDashboardCreateDialog,
   VaultDashboardDeleteDialog,
   VaultBranchLinkContent,
   VaultProviderSetupSection,
@@ -372,6 +373,28 @@ describe("VaultDashboardCloudflareAccountDialog", () => {
     expect(markup).toContain("Select Cloudflare Account");
     expect(markup).toContain("Account A");
     expect(markup).toContain("Save Account");
+  });
+});
+
+describe("VaultDashboardCreateDialog", () => {
+  it("renders the create form in a dialog shell", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardCreateDialog
+        createButtonDisabled={false}
+        createButtonLabel="New App"
+        footerMessages={null}
+        isCreating={false}
+        onOpenChange={vi.fn()}
+        onSubmit={vi.fn()}
+        open
+      >
+        <GitHubRepositoryNameSlashPreview rawName="field/notes" />
+      </VaultDashboardCreateDialog>,
+    );
+
+    expect(markup).toContain("New App");
+    expect(markup).toContain("GitHub, Convex, and Cloudflare resources.");
+    expect(markup).toContain("GitHub repo name:");
   });
 });
 

@@ -35,6 +35,7 @@ import {
   VaultBranchListExpansionControl,
   VaultDashboardCloudflareDialog,
   VaultDashboardConvexDialog,
+  VaultDashboardCreateDialog,
   VaultDashboardDeleteControl,
   VaultDashboardDeleteDialog,
   VaultDashboardRepositoryExternalLinks,
@@ -47,6 +48,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 
 export type VaultDashboardVisualMode =
   | "vault-create-control"
+  | "vault-dashboard-create-open"
   | "vault-dashboard-dev-tools-hidden"
   | "vault-dashboard-dev-tools-visible"
   | "vault-dashboard-connect-cloudflare-open"
@@ -1013,40 +1015,11 @@ function FixtureDashboardCreateControl() {
           />
           <VaultDashboardProvidersSection open={true} onOpenChange={() => {}} providerRows={[]} />
           <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">
-            <Select value="nicu-chiciuc" onValueChange={() => {}}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="GitHub owner" />
-              </SelectTrigger>
-              <AppSelectContent>
-                <AppSelectItem value="nicu-chiciuc">nicu-chiciuc</AppSelectItem>
-                <AppSelectItem value="noter-md">noter-md</AppSelectItem>
-              </AppSelectContent>
-            </Select>
-            <CreateProviderNameInput
-              disabled={false}
-              icon={<GitHubProviderLogo />}
-              onChange={() => {}}
-              placeholder="GitHub repo name"
-              value="field/notes"
-            />
-            <CreateControlMessageSlot>
-              <GitHubRepositoryNameSlashPreview rawName="field/notes" />
-            </CreateControlMessageSlot>
-            <CreateProviderNameInput
-              disabled={false}
-              icon={<ConvexProviderLogo />}
-              onChange={() => {}}
-              placeholder="Convex project name"
-              value="field-notes"
-            />
-            <CreateProviderNameInput
-              disabled={false}
-              icon={<CloudflareProviderLogo />}
-              onChange={() => {}}
-              placeholder="Cloudflare Worker name"
-              value="field-notes"
-            />
-            <Button className="w-full">New App</Button>
+            <Button className="w-full" asChild>
+              <Link to="/" search={{ "new-app": true }}>
+                New App
+              </Link>
+            </Button>
             <Button
               variant="outline"
               className="h-auto min-h-8 w-full whitespace-normal py-2"
@@ -1069,9 +1042,65 @@ function FixtureDashboardCreateControl() {
   );
 }
 
+function FixtureDashboardCreateDialog() {
+  return (
+    <div data-testid="vault-dashboard-visual-fixture" className="min-h-screen bg-background">
+      <VaultDashboardCreateDialog
+        createButtonDisabled={false}
+        createButtonLabel="New App"
+        footerMessages={null}
+        isCreating={false}
+        onOpenChange={() => {}}
+        onSubmit={() => {}}
+        open
+      >
+        <Select value="nicu-chiciuc" onValueChange={() => {}}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="GitHub owner" />
+          </SelectTrigger>
+          <AppSelectContent>
+            <AppSelectItem value="nicu-chiciuc">nicu-chiciuc</AppSelectItem>
+            <AppSelectItem value="noter-md">noter-md</AppSelectItem>
+          </AppSelectContent>
+        </Select>
+        <CreateProviderNameInput
+          disabled={false}
+          icon={<GitHubProviderLogo />}
+          onChange={() => {}}
+          placeholder="GitHub repo name"
+          value="field/notes"
+        />
+        <CreateControlMessageSlot>
+          <GitHubRepositoryNameSlashPreview rawName="field/notes" />
+        </CreateControlMessageSlot>
+        <CreateProviderNameInput
+          disabled={false}
+          icon={<ConvexProviderLogo />}
+          onChange={() => {}}
+          placeholder="Convex project name"
+          value="field-notes"
+        />
+        <CreateControlMessageSlot>{null}</CreateControlMessageSlot>
+        <CreateProviderNameInput
+          disabled={false}
+          icon={<CloudflareProviderLogo />}
+          onChange={() => {}}
+          placeholder="Cloudflare Worker name"
+          value="field-notes"
+        />
+        <CreateControlMessageSlot>{null}</CreateControlMessageSlot>
+      </VaultDashboardCreateDialog>
+    </div>
+  );
+}
+
 export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisualMode }) {
   if (mode === "vault-create-control") {
     return <FixtureDashboardCreateControl />;
+  }
+
+  if (mode === "vault-dashboard-create-open") {
+    return <FixtureDashboardCreateDialog />;
   }
 
   if (mode === "vault-dashboard-dev-tools-hidden") {

@@ -132,11 +132,27 @@ test("vault dashboard fixture (create control)", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
-  await expect(fixture.getByRole("button", { name: "Connect existing app" })).toHaveAttribute(
-    "href",
-    "/add",
-  );
+  await expect(fixture.locator('a[href="/?new-app"]')).toHaveText("New App");
+  await expect(fixture.locator('a[href="/add"]')).toContainText("Connect existing app");
   await expect(fixture).toHaveScreenshot("vault-create-control.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
+test("vault dashboard fixture (create dialog)", async ({ page }) => {
+  await page.setViewportSize({ width: 960, height: 760 });
+  await page.goto("/visual-fixture?mode=vault-dashboard-create-open", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const dialog = page.getByRole("dialog", { name: "New App" });
+  await expect(dialog.getByPlaceholder("GitHub repo name")).toHaveValue("field/notes");
+  await expect(dialog.getByRole("button", { name: "New App" })).toBeVisible();
+  await expect(page).toHaveScreenshot("vault-dashboard-create-open.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",

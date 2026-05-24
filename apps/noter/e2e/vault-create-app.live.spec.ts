@@ -30,7 +30,11 @@ function vaultCard(page: Page, repoName: string): Locator {
 }
 
 async function createAppIfAvailable(page: Page, repoName: string): Promise<void> {
-  const repositoryNameInput = page.getByPlaceholder("GitHub repo name");
+  await page.getByRole("link", { name: "New App" }).click();
+  await expect(page).toHaveURL(/(?:\?|&)new-app(?:[=&]|&|#|$)/);
+
+  const createDialog = page.getByRole("dialog", { name: "New App" });
+  const repositoryNameInput = createDialog.getByPlaceholder("GitHub repo name");
   const createError = page.locator(".text-red-600").last();
   await expect(repositoryNameInput).toBeVisible({ timeout: 15_000 });
 
@@ -40,13 +44,13 @@ async function createAppIfAvailable(page: Page, repoName: string): Promise<void>
   );
 
   await repositoryNameInput.fill(repoName);
-  await page.getByRole("button", { name: "New App" }).click();
+  await createDialog.getByRole("button", { name: "New App" }).click();
 
-  // Catch the cleared-input assertion so we can inspect createError and skip
+  // Catch the dialog-close assertion so we can inspect createError and skip
   // cleanly when vaultActions.ts reports an environment-only starter seeding
   // failure instead of treating that provider setup issue as a product bug.
   try {
-    await expect(repositoryNameInput).toHaveValue("", { timeout: 30_000 });
+    await expect(page).not.toHaveURL(/(?:\?|&)new-app(?:[=&]|&|#|$)/, { timeout: 30_000 });
     return;
   } catch (error) {
     const createErrorMessage = (await createError.textContent())?.trim() ?? "";
