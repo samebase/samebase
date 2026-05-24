@@ -235,6 +235,23 @@ test("route URL editor selects suggestions with arrow keys", async ({ page }) =>
   await expect(input).toHaveValue(`${host}/logo`);
 });
 
+test("route URL editor hides local route suggestions in prod UI mode", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/?prod-ui", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const input = page.getByTestId("route-url-editor-input");
+
+  await input.focus();
+  await input.press("Home");
+
+  await expect(page.getByRole("option", { exact: true, name: "Use /logo" })).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "Use /visual-fixture" })).toHaveCount(
+    0,
+  );
+});
+
 test("route URL editor fixture refuses changes that remove the origin slash prefix", async ({
   page,
 }) => {

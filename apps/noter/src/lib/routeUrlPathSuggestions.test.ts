@@ -9,13 +9,16 @@ const ORIGIN = "https://noter.local";
 const routesByPath = getRouter().routesByPath;
 const adminViewer = { isAdmin: true };
 const publicViewer = { isAdmin: false };
+const appSurface = { prodUiMode: false };
+const prodUiSurface = { prodUiMode: true };
 
 describe("readRouteUrlPathSuggestions", () => {
   it("exposes sorted user-facing TanStack route paths", () => {
-    const suggestions = readRouteUrlPathSuggestions(routesByPath, adminViewer);
+    const suggestions = readRouteUrlPathSuggestions(routesByPath, adminViewer, appSurface);
 
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/logo/transition/transforms");
+    expect(suggestions).toContain("/visual-fixture");
     expect(suggestions).toContain("/vault/$");
     expect(suggestions).toContain("/vault/$owner/$repo/codespace/$branch/chat");
     expect(suggestions).not.toContain("/_public");
@@ -41,7 +44,7 @@ describe("readRouteUrlPathSuggestions", () => {
   });
 
   it("filters admin route paths for public viewers", () => {
-    const suggestions = readRouteUrlPathSuggestions(routesByPath, publicViewer);
+    const suggestions = readRouteUrlPathSuggestions(routesByPath, publicViewer, appSurface);
 
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/logo");
@@ -50,6 +53,14 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).not.toContain("/pitch");
     expect(suggestions).not.toContain("/research/codex-app-server");
     expect(suggestions).not.toContain("/vault/$");
+  });
+
+  it("hides local-only route paths from the prod UI surface", () => {
+    const suggestions = readRouteUrlPathSuggestions(routesByPath, adminViewer, prodUiSurface);
+
+    expect(suggestions).toContain("/logo");
+    expect(suggestions).not.toContain("/test");
+    expect(suggestions).not.toContain("/visual-fixture");
   });
 });
 
@@ -133,7 +144,7 @@ describe("filterRouteUrlPathSuggestions", () => {
         routesByPath,
         viewer: adminViewer,
       }),
-    ).toEqual(readRouteUrlPathSuggestions(routesByPath, adminViewer));
+    ).toEqual(readRouteUrlPathSuggestions(routesByPath, adminViewer, appSurface));
 
     expect(
       filterRouteUrlPathSuggestions({
@@ -144,5 +155,18 @@ describe("filterRouteUrlPathSuggestions", () => {
         viewer: adminViewer,
       }),
     ).toEqual([]);
+  });
+
+  it("uses the prod UI query as a path suggestion display filter", () => {
+    const suggestions = filterRouteUrlPathSuggestions({
+      currentHref: "/?prod-ui",
+      draftHref: "  ",
+      origin: ORIGIN,
+      routesByPath,
+      viewer: adminViewer,
+    });
+
+    expect(suggestions).toContain("/logo");
+    expect(suggestions).not.toContain("/visual-fixture");
   });
 });

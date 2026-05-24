@@ -1,4 +1,5 @@
 import type { AppRouter } from "@/router";
+import { FORCE_PROD_UI_QUERY_PARAM } from "@/lib/prodUiMode";
 import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
 import {
   canAccessNoterRoutePermission,
@@ -14,6 +15,12 @@ type RouteUrlPathSuggestionsInput = {
   viewer: NoterRoutePermissionViewer;
 };
 
+type RouteUrlPathSuggestionSurface = {
+  prodUiMode: boolean;
+};
+
+const PROD_UI_HIDDEN_ROUTE_URL_PATH_SUGGESTIONS = ["/test", "/visual-fixture"] as const;
+
 /**
  * router.routesByPath is the runtime route truth; pathless layout ids stay out
  * of the URL editor because users cannot navigate to them directly.
@@ -21,10 +28,11 @@ type RouteUrlPathSuggestionsInput = {
 export function readRouteUrlPathSuggestions(
   routesByPath: AppRouter["routesByPath"],
   viewer: NoterRoutePermissionViewer,
+  surface: RouteUrlPathSuggestionSurface,
 ): readonly string[] {
   return Object.entries(routesByPath)
     .filter(([path, route]) =>
-      isRouteUrlPathSuggestion(path, route.options.staticData.permission, viewer),
+      isRouteUrlPathSuggestion(path, route.options.staticData.permission, viewer, surface),
     )
     .map(([path]) => path)
     .sort(compareRouteUrlPathSuggestion);
@@ -37,7 +45,13 @@ export function filterRouteUrlPathSuggestions({
   routesByPath,
   viewer,
 }: RouteUrlPathSuggestionsInput): readonly string[] {
-  const suggestions = readRouteUrlPathSuggestions(routesByPath, viewer);
+  const suggestions = readRouteUrlPathSuggestions(routesByPath, viewer, {
+    prodUiMode: readRouteUrlPathSuggestionProdUiMode({
+      currentHref,
+      draftHref,
+      origin,
+    }),
+  });
   const draftPath = readRouteUrlPathSuggestionDraftPath({
     currentHref,
     draftHref,
@@ -56,10 +70,22 @@ function isRouteUrlPathSuggestion(
   path: string,
   permission: NoterRoutePermission,
   viewer: NoterRoutePermissionViewer,
+  surface: RouteUrlPathSuggestionSurface,
 ): boolean {
   return (
     (path === "/" || (path.startsWith("/") && !path.startsWith("/_"))) &&
+    !isRouteUrlPathSuggestionHiddenForSurface(path, surface) &&
     canAccessNoterRoutePermission(permission, viewer)
+  );
+}
+
+function isRouteUrlPathSuggestionHiddenForSurface(
+  path: string,
+  surface: RouteUrlPathSuggestionSurface,
+): boolean {
+  return (
+    surface.prodUiMode &&
+    PROD_UI_HIDDEN_ROUTE_URL_PATH_SUGGESTIONS.some((hiddenPath) => hiddenPath === path)
   );
 }
 
@@ -77,6 +103,38 @@ function compareRouteUrlPathSuggestion(left: string, right: string): number {
   }
 
   return left.localeCompare(right);
+}
+
+function readRouteUrlPathSuggestionProdUiMode({
+  currentHref,
+  draftHref,
+  origin,
+}: Omit<RouteUrlPathSuggestionsInput, "routesByPath" | "viewer">): boolean {
+  try {
+    const appOrigin = new URL(origin);
+    const currentUrl = new URL(currentHref, appOrigin);
+    if (currentUrl.searchParams.has(FORCE_PROD_UI_QUERY_PARAM)) {
+      return true;
+    }
+
+    const trimmedDraftHref = draftHref.trim();
+    if (!trimmedDraftHref) {
+      return false;
+    }
+
+    const routeHref = normalizeRouteUrlEditorHref({
+      currentHref,
+      origin,
+      rawHref: trimmedDraftHref,
+    });
+    if (routeHref === null) {
+      return false;
+    }
+
+    return new URL(routeHref, appOrigin).searchParams.has(FORCE_PROD_UI_QUERY_PARAM);
+  } catch {
+    return false;
+  }
 }
 
 function readRouteUrlPathSuggestionDraftPath({
