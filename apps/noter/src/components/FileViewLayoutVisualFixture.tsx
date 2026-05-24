@@ -3,6 +3,7 @@ import { useState } from "react";
 import { FileViewMainHeader } from "@/components/FileView/FileViewMainHeader";
 import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import { Button } from "@/components/ui/button";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 import type { WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
@@ -91,7 +92,7 @@ export function FileViewLayoutVisualFixture({ mode }: { mode: FileViewLayoutVisu
             : {
                 content: (
                   <div data-testid="fileview-layout-left-sidebar-links" className="flex flex-col">
-                    <Link to="/">Dashboard</Link>
+                    <Link to={DASHBOARD_ROUTE}>Dashboard</Link>
                     <Link to="/machines">Machines</Link>
                     <Link to="/add">Connect repository</Link>
                     <Link to="/pricing">Pricing</Link>

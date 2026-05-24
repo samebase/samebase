@@ -3,6 +3,7 @@ import {
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "./lib/codexAppServerResearch";
+import { DASHBOARD_ROUTE } from "./lib/dashboardRoute";
 import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "./lib/landingMarkdownPreview";
 import { LOCAL_STORAGE_ROUTE } from "./lib/localStorageRoute";
 import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "./lib/noterSync";
@@ -16,7 +17,6 @@ import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
 export const routes = rootRoute("root.tsx", [
   layout("public", "public-layout.tsx", [
     index("index.tsx"),
-    route("/home", "home.tsx"),
     route(LOCAL_STORAGE_ROUTE, "localStorage.tsx"),
     route("/privacy", "privacy.tsx"),
     route("/terms", "terms.tsx"),
@@ -38,6 +38,7 @@ export const routes = rootRoute("root.tsx", [
   route(CODEX_APP_SERVER_THREAD_BROWSER_ROUTE, "codex-thread-browser-research.tsx"),
   route(MCP_CONSENT_APP_PATH, "mcp-consent.tsx"),
   route(LANDING_MARKDOWN_PREVIEW_ROUTE, "landing-preview.tsx"),
+  route(DASHBOARD_ROUTE, "dashboard-home.tsx"),
   route("/pricing", "pricing.tsx"),
   route("/add", "add-repository.tsx"),
   route(MACHINES_ROUTE, "machines.tsx"),

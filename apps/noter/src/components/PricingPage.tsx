@@ -8,6 +8,7 @@ import type { BillingCycle } from "../../convex/dashboardSettings";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { PLAN_DISPLAY_PRICE, PLAN_FEATURES } from "@/lib/pricingContent";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 
@@ -105,7 +106,7 @@ export function PricingPage() {
               </div>
             </div>
             <Button variant="outline" asChild>
-              <Link to="/">Back to Vaults</Link>
+              <Link to={DASHBOARD_ROUTE}>Back to Vaults</Link>
             </Button>
           </div>
 
@@ -155,7 +156,7 @@ export function PricingPage() {
               </CardContent>
               <CardFooter>
                 <Button className="w-full" variant="outline" asChild>
-                  <Link to="/">Use Free Plan</Link>
+                  <Link to={DASHBOARD_ROUTE}>Use Free Plan</Link>
                 </Button>
               </CardFooter>
             </Card>

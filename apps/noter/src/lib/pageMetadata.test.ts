@@ -217,6 +217,24 @@ describe("page metadata", () => {
     expect(resolveAppPageTitle("/machines")).toBe("Machines | noter");
   });
 
+  it("keeps the public root metadata separate from the dashboard app metadata", () => {
+    expect(APP_PAGE_METADATA.canonicalPath).toBe("/home");
+    expect(resolveAppPageTitle("/home")).toBe("Vaults | noter");
+    expect(
+      resolvePageMetadata({
+        pathname: "/",
+        isAuthenticated: true,
+      }),
+    ).toEqual({
+      canonicalPath: "/",
+      description:
+        "GitHub-backed markdown notes and AI workspace. Keep notes and code in a real repository, collaborate in real time, and ship small apps from the same workspace.",
+      openGraphType: "website",
+      robots: "index,follow",
+      title: "noter | GitHub-backed markdown notes and AI workspace",
+    });
+  });
+
   it("keeps the localStorage diagnostic route public but non-indexed", () => {
     withFakeDocument((document) => {
       applyPageMetadata(

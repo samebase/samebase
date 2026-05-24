@@ -42,6 +42,10 @@ function readOptionalGoogleSignupReturn(value: unknown): "google" | undefined {
   return value === "google" ? "google" : undefined;
 }
 
+function readOptionalAuthReturn(value: unknown): "dashboard" | undefined {
+  return value === "dashboard" ? "dashboard" : undefined;
+}
+
 function readOptionalNumber(value: unknown): number | undefined {
   if (typeof value === "number") {
     return Number.isFinite(value) ? value : undefined;
@@ -75,6 +79,7 @@ function readOptionalLogoGridSize(value: unknown): number | undefined {
 const rootRouteSearchSchema = z
   .object({
     auth: z.preprocess(readOptionalGoogleAuthProvider, z.literal("google").optional()),
+    "auth-return": z.preprocess(readOptionalAuthReturn, z.literal("dashboard").optional()),
     "add-convex": z.literal(true).optional(),
     "add-cloudflare": z.literal(true).optional(),
     dev: z.literal(true).optional(),
@@ -118,6 +123,7 @@ const rootRouteSearchParamMetadata = {
     suggestion: "route",
     valueKind: "presence",
   },
+  "auth-return": { permission: "public", suggestion: "hidden", valueKind: "value" },
   auth: { permission: "public", suggestion: "route", valueKind: "value" },
   base: { permission: "public", suggestion: "hidden", valueKind: "value" },
   background: { permission: "public", suggestion: "global", valueKind: "value" },
@@ -195,6 +201,14 @@ export const ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSu
 export const ROOT_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
   rootRouteSearchParamMetadata,
   "route",
+);
+
+export const DASHBOARD_ROUTE_SEARCH_PARAM_SUGGESTIONS = ROOT_ROUTE_SEARCH_PARAM_SUGGESTIONS.filter(
+  (suggestion) => suggestion.permission === "admin",
+);
+
+export const ROOT_INDEX_ROUTE_SEARCH_PARAM_SUGGESTIONS = ROOT_ROUTE_SEARCH_PARAM_SUGGESTIONS.filter(
+  (suggestion) => suggestion.permission === "public",
 );
 
 /**

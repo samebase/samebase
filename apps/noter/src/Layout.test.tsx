@@ -1,6 +1,6 @@
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import {
   LANDING_DEV_MODE_DISABLE_LINK_LABEL,
@@ -69,6 +69,13 @@ vi.mock("@/lib/rootRouteSearch", async (importOriginal) => {
 });
 
 describe("Layout", () => {
+  beforeEach(() => {
+    useConvexAuthMock.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: false,
+    });
+  });
+
   afterEach(() => {
     signInWithGoogleMock.mockReset();
     signInWithPasswordMock.mockReset();
@@ -788,7 +795,7 @@ describe("Layout", () => {
         <AppSidebarMetaSection showLandingPreviewLink />
       </TestRouterProvider>,
     );
-    const homeHref = 'href="/"';
+    const homeHref = 'href="/home"';
     const machinesHref = 'href="/machines"';
     const machineConnectHref = 'href="/machines/connect"';
     const landingPreviewHref = `href="${LANDING_MARKDOWN_PREVIEW_ROUTE}"`;

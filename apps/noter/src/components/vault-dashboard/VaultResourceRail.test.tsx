@@ -127,7 +127,7 @@ describe("VaultResourceRail", () => {
             {
               kind: "add",
               label: "?add-convex",
-              href: "/?add-convex#weight_tsx",
+              href: "/home?add-convex#weight_tsx",
             },
           ],
         },
@@ -138,7 +138,7 @@ describe("VaultResourceRail", () => {
             {
               kind: "add",
               label: "?add-cloudflare",
-              href: "/?add-cloudflare#weight_tsx",
+              href: "/home?add-cloudflare#weight_tsx",
             },
           ],
         },

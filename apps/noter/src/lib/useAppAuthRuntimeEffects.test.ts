@@ -1,42 +1,21 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { buildPathWithTanStackSearch, parseTanStackSearch } from "./tanstackSearchParams";
 
 const {
   buildLocationMock,
+  navigateMock,
   replaceStateMock,
   useAutoSignInMock,
   useCloseOAuthPopupMock,
   useConvexAuthMock,
 } = vi.hoisted(() => ({
   buildLocationMock: vi.fn(),
+  navigateMock: vi.fn(),
   replaceStateMock: vi.fn(),
   useAutoSignInMock: vi.fn(),
   useCloseOAuthPopupMock: vi.fn(),
   useConvexAuthMock: vi.fn(),
 }));
-
-function buildSearchStringFromObject(search: Record<string, unknown>): string {
-  const searchParams = new URLSearchParams();
-
-  for (const [key, value] of Object.entries(search)) {
-    if (value === false || value === null || typeof value === "undefined") {
-      continue;
-    }
-    if (value === true) {
-      searchParams.set(key, "");
-      continue;
-    }
-    if (typeof value === "string" || typeof value === "number") {
-      searchParams.set(key, `${value}`);
-    }
-  }
-
-  const parts: string[] = [];
-  for (const [key, value] of searchParams.entries()) {
-    const encodedKey = encodeURIComponent(key);
-    parts.push(value.length === 0 ? encodedKey : `${encodedKey}=${encodeURIComponent(value)}`);
-  }
-  return parts.length > 0 ? `?${parts.join("&")}` : "";
-}
 
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof import("react")>("react");
@@ -55,6 +34,7 @@ vi.mock("@/authClient", () => ({
 vi.mock("@tanstack/react-router", () => ({
   useRouter: () => ({
     buildLocation: buildLocationMock,
+    navigate: navigateMock,
   }),
 }));
 
@@ -73,6 +53,7 @@ describe("useAppAuthRuntimeEffects", () => {
 
   afterEach(() => {
     buildLocationMock.mockReset();
+    navigateMock.mockReset();
     replaceStateMock.mockReset();
     useAutoSignInMock.mockReset();
     useCloseOAuthPopupMock.mockReset();
@@ -89,13 +70,15 @@ describe("useAppAuthRuntimeEffects", () => {
         hash?: true;
         search?: (currentSearch: Record<string, unknown>) => Record<string, unknown>;
       }) => {
-        const currentSearch = Object.fromEntries(
-          new URLSearchParams(window.location.search).entries(),
-        );
+        const currentSearch = parseTanStackSearch(window.location.search);
         const nextSearch =
           typeof options.search === "function" ? options.search(currentSearch) : currentSearch;
         return {
-          href: `${window.location.pathname}${buildSearchStringFromObject(nextSearch)}${options.hash === true ? window.location.hash : ""}`,
+          href: buildPathWithTanStackSearch({
+            pathname: window.location.pathname,
+            search: nextSearch,
+            hash: options.hash === true ? window.location.hash : undefined,
+          }),
         };
       },
     );
@@ -158,6 +141,51 @@ describe("useAppAuthRuntimeEffects", () => {
 
     expect(useAutoSignInMock).toHaveBeenCalledWith({
       signup: "google",
+    });
+    expect(replaceStateMock).not.toHaveBeenCalled();
+  });
+
+  it("moves successful public auth handoff to the dashboard route", () => {
+    useConvexAuthMock.mockReturnValue({ isAuthenticated: true });
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        location: {
+          pathname: "/",
+          search: "?auth-return=dashboard&signup=google",
+          hash: "",
+        },
+        history: {
+          replaceState: replaceStateMock,
+        },
+      },
+      configurable: true,
+    });
+
+    useAppAuthRuntimeEffects("/", {
+      "auth-return": "dashboard",
+      signup: "google",
+    });
+
+    expect(navigateMock).toHaveBeenCalledWith({
+      replace: true,
+      search: expect.any(Function),
+      state: true,
+      to: "/home",
+    });
+    const navigateOptions = navigateMock.mock.calls[0]?.[0];
+    if (!navigateOptions || typeof navigateOptions.search !== "function") {
+      throw new Error("Expected dashboard navigation with search updater.");
+    }
+    expect(
+      navigateOptions.search({
+        "auth-return": "dashboard",
+        "prod-ui": true,
+        signup: "google",
+      }),
+    ).toEqual({
+      "auth-return": undefined,
+      "prod-ui": true,
+      signup: undefined,
     });
     expect(replaceStateMock).not.toHaveBeenCalled();
   });

@@ -17,6 +17,7 @@ import {
   LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
   LANDING_MARKDOWN_PREVIEW_ROUTE,
 } from "@/lib/landingMarkdownPreview";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
 import {
   FORCE_PROD_UI_MODE_LINK_LABEL,
@@ -197,8 +198,9 @@ export function AppSidebarMetaSection({
       >
         /logo
       </Link>
-      {/* `/home` routes through `/` to avoid a first-paint logo flash. */}
-      <Link to="/">/home</Link>
+      <Link to={DASHBOARD_ROUTE} search={(currentSearch) => currentSearch}>
+        /home
+      </Link>
       {side === "right" ? (
         <Link
           id="public-local-storage-route-link"

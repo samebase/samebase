@@ -1648,7 +1648,7 @@ test("prod-ui shortcut disappears after entering prod-ui mode", async ({ page })
   await expect(devToggleLink).toBeVisible();
   await expect(devToggleLink).toHaveAttribute("href", "/?prod-ui");
   await expect(homeLink).toBeVisible();
-  await expect(homeLink).toHaveAttribute("href", "/?dev");
+  await expect(homeLink).toHaveAttribute("href", "/home?dev");
 });
 
 test("prod-ui mode omits the prod-ui shortcut", async ({ page }) => {

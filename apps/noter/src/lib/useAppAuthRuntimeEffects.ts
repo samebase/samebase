@@ -1,4 +1,5 @@
 import { useAutoSignIn } from "@/authClient";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { useCloseOAuthPopup } from "@/lib/useCloseOAuthPopup";
 import { type RootRouteSearch } from "@/lib/rootRouteSearch";
 import { useRouter } from "@tanstack/react-router";
@@ -8,12 +9,28 @@ import { useEffect } from "react";
 export function useAppAuthRuntimeEffects(pathname: string, rootRouteSearch: RootRouteSearch) {
   const { isAuthenticated } = useConvexAuth();
   const router = useRouter();
+  const authReturn = rootRouteSearch["auth-return"];
+  const signupReturn = rootRouteSearch.signup;
 
   useAutoSignIn(rootRouteSearch);
   useCloseOAuthPopup(pathname, true);
 
   useEffect(() => {
-    if (!isAuthenticated || rootRouteSearch.signup !== "google") {
+    if (isAuthenticated && authReturn === "dashboard") {
+      void router.navigate({
+        replace: true,
+        search: (currentSearch) => ({
+          ...currentSearch,
+          "auth-return": undefined,
+          signup: undefined,
+        }),
+        state: true,
+        to: DASHBOARD_ROUTE,
+      });
+      return;
+    }
+
+    if (!isAuthenticated || signupReturn !== "google") {
       return;
     }
 
@@ -29,5 +46,5 @@ export function useAppAuthRuntimeEffects(pathname: string, rootRouteSearch: Root
     // Preserve TanStack Router bookkeeping while removing the one-shot
     // signup-return flag from the visible URL.
     window.history.replaceState(window.history.state, "", nextPath);
-  }, [isAuthenticated, rootRouteSearch.signup, router]);
+  }, [authReturn, isAuthenticated, router, signupReturn]);
 }

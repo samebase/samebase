@@ -1,6 +1,7 @@
 import { useNoterSignInActions } from "@/authClient";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import {
   getVisiblePasswordAuthSurface,
   rememberPublicLandingPasswordAuthMode,
@@ -19,8 +20,8 @@ import {
 } from "@/lib/prodUiMode";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { SignInWithGoogle } from "@/SignInWithGoogle";
-import { useLocation } from "@tanstack/react-router";
-import { useQuery } from "convex/react";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { useConvexAuth, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 
@@ -43,7 +44,9 @@ export function PublicLandingAuthControls() {
   const pathname = useLocation({
     select: (location) => location.pathname,
   });
+  const navigate = useNavigate();
   const rootRouteSearch = useRootRouteSearch();
+  const { isAuthenticated } = useConvexAuth();
   const prodUiQueryEnabled = isProdUiModeEnabled(rootRouteSearch);
   const productionPublicOrigin = isBrowserProductionPublicOrigin();
   const showGoogleAuth = shouldShowGoogleAuthForPathname(pathname, rootRouteSearch);
@@ -102,19 +105,51 @@ export function PublicLandingAuthControls() {
     window.history.replaceState(window.history.state, "", nextPath);
   }, [deploymentProfile, prodUiQueryEnabled, productionPublicOrigin]);
 
+  if (isAuthenticated) {
+    return (
+      <Button asChild>
+        <Link to={DASHBOARD_ROUTE}>Dashboard</Link>
+      </Button>
+    );
+  }
+
   if (showGoogleSignupClosedState) {
     return null;
   }
 
+  const authReturn = pathname === "/" ? "dashboard" : undefined;
+
   return (
     <div className="flex flex-col gap-2">
-      <SignInWithGoogle visible={showGoogleAuth} markPublicSignupReturn={markPublicSignupReturn} />
-      {passwordAuthSurface !== "hidden" ? <PasswordAuthForm surface={passwordAuthSurface} /> : null}
+      <SignInWithGoogle
+        authReturn={authReturn}
+        visible={showGoogleAuth}
+        markPublicSignupReturn={markPublicSignupReturn}
+      />
+      {passwordAuthSurface !== "hidden" ? (
+        <PasswordAuthForm
+          onSignIn={() => {
+            if (pathname === "/") {
+              return navigate({
+                search: (currentSearch) => currentSearch,
+                to: DASHBOARD_ROUTE,
+              });
+            }
+          }}
+          surface={passwordAuthSurface}
+        />
+      ) : null}
     </div>
   );
 }
 
-export function PasswordAuthForm({ surface }: { surface: Exclude<PasswordAuthSurface, "hidden"> }) {
+export function PasswordAuthForm({
+  onSignIn,
+  surface,
+}: {
+  onSignIn?: () => Promise<unknown> | void;
+  surface: Exclude<PasswordAuthSurface, "hidden">;
+}) {
   const { signInWithPassword } = useNoterSignInActions();
   const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
   const [email, setEmail] = useState("");
@@ -147,6 +182,7 @@ export function PasswordAuthForm({ surface }: { surface: Exclude<PasswordAuthSur
       email: normalizedEmail,
       password: nextPassword,
     })
+      .then(() => onSignIn?.())
       .catch((signInError: unknown) => {
         setError(signInError instanceof Error ? signInError.message : "Password sign-in failed");
       })

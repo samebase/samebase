@@ -1,29 +1,14 @@
-import { Layout } from "@/Layout";
 import { SignInForm } from "@/SignInForm";
-import { ApprovalGate } from "@/components/ApprovalGate";
 import { useLocation } from "@tanstack/react-router";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
-import { shouldRenderPublicLandingWithoutAuthGate } from "@/lib/publicLandingAuthState";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
-import { useConvexAuth, Authenticated } from "convex/react";
-import { lazy, Suspense, useMemo } from "react";
-
-const VaultDashboard = lazy(async () => {
-  const module = await import("@/components/vault-dashboard/VaultDashboard");
-  return { default: module.VaultDashboard };
-});
+import { Suspense, useMemo } from "react";
 
 export function RootIndexRoutePage() {
   const location = useLocation();
   const rootRouteSearch = useRootRouteSearch();
-  const { isAuthenticated, isLoading } = useConvexAuth();
-  const shouldSkipAuthGate =
-    !isAuthenticated &&
-    shouldRenderPublicLandingWithoutAuthGate(location.pathname, rootRouteSearch);
-  const shouldRenderPublicLanding =
-    !isAuthenticated && (shouldSkipAuthGate || (!isLoading && location.pathname === "/"));
 
   useAppAuthRuntimeEffects(location.pathname, rootRouteSearch);
   usePageMetadata(
@@ -31,31 +16,15 @@ export function RootIndexRoutePage() {
       () =>
         resolvePageMetadata({
           pathname: location.pathname,
-          isAuthenticated,
+          isAuthenticated: false,
         }),
-      [isAuthenticated, location.pathname],
+      [location.pathname],
     ),
   );
 
-  const publicLandingContent = (
+  return (
     <Suspense fallback={null}>
       <SignInForm authPlacement="sidebar" />
     </Suspense>
-  );
-
-  if (shouldRenderPublicLanding) {
-    return publicLandingContent;
-  }
-
-  return (
-    <Layout>
-      <Authenticated>
-        <ApprovalGate>
-          <Suspense fallback={null}>
-            <VaultDashboard />
-          </Suspense>
-        </ApprovalGate>
-      </Authenticated>
-    </Layout>
   );
 }

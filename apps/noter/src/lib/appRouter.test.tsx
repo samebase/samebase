@@ -16,6 +16,10 @@ vi.mock("@/components/RootIndexRoutePage", () => ({
   RootIndexRoutePage: () => <div data-testid="root-index-route">Root index route</div>,
 }));
 
+vi.mock("@/components/DashboardRoutePage", () => ({
+  DashboardRoutePage: () => <div data-testid="dashboard-route">Dashboard route</div>,
+}));
+
 vi.mock("@/components/NotFoundRoutePage", () => ({
   NotFoundRoutePage: () => <div data-testid="not-found-route">Not found route</div>,
 }));
@@ -305,6 +309,26 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
+  it("renders /home through the explicit dashboard route", async () => {
+    await renderRoute("/home?new-app");
+
+    expect(rootElement?.querySelector('[data-testid="dashboard-route"]')?.textContent).toBe(
+      "Dashboard route",
+    );
+    expect(rootElement?.querySelector('[data-testid="root-index-route"]')).toBeNull();
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("does not redirect old root dashboard query URLs to /home", async () => {
+    const router = await renderRoute("/?new-app");
+
+    expect(router.state.location.pathname).toBe("/");
+    expect(rootElement?.querySelector('[data-testid="root-index-route"]')?.textContent).toBe(
+      "Root index route",
+    );
+    expect(rootElement?.querySelector('[data-testid="dashboard-route"]')).toBeNull();
+  });
+
   it("removes all visible search params when reset is present", async () => {
     const router = await renderRoute("/terms?reset&devtools&primary=red-600#top");
 
@@ -325,14 +349,13 @@ describe("appRouter", () => {
     expect(router.state.location.hash).toBe("top");
   });
 
-  it("redirects /home to the routed root index page", async () => {
-    const router = await renderRoute("/home?devtools=true");
+  it("does not keep the removed /dashboard route", async () => {
+    await renderRoute("/dashboard?new-app");
 
-    expect(router.state.location.pathname).toBe("/");
-    expect(rootElement?.querySelector('[data-testid="root-index-route"]')?.textContent).toBe(
-      "Root index route",
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')?.textContent).toBe(
+      "Not found route",
     );
-    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+    expect(rootElement?.querySelector('[data-testid="dashboard-route"]')).toBeNull();
   });
 
   it("renders logo routes through explicit public routes", async () => {

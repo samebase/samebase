@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { buildPathWithTanStackSearch, stringifyTanStackSearch } from "./lib/tanstackSearchParams";
+import {
+  buildPathWithTanStackSearch,
+  parseTanStackSearch,
+  stringifyTanStackSearch,
+} from "./lib/tanstackSearchParams";
 
 const { buildLocationMock, isInIframeMock, openAuthPopupMock, signInWithGoogleMock } = vi.hoisted(
   () => ({
@@ -49,9 +53,7 @@ describe("SignInWithGoogle", () => {
         search?: (currentSearch: Record<string, unknown>) => Record<string, unknown>;
         to?: string;
       }) => {
-        const currentSearch = Object.fromEntries(
-          new URLSearchParams(window.location.search).entries(),
-        );
+        const currentSearch = parseTanStackSearch(window.location.search);
         const nextSearch =
           typeof options.search === "function" ? options.search(currentSearch) : currentSearch;
         return {
@@ -146,6 +148,37 @@ describe("SignInWithGoogle", () => {
     expect(signInWithGoogleMock).toHaveBeenCalledWith(expectedRedirectTo);
   });
 
+  it("marks public root Google auth for a dashboard return", () => {
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        location: {
+          origin: "https://noter.md",
+          pathname: "/",
+          search: "",
+          hash: "",
+        },
+      },
+      configurable: true,
+    });
+    mockCurrentRouteLocationBuilder();
+
+    const element = renderVisibleGoogleButton({
+      authReturn: "dashboard",
+      markPublicSignupReturn: true,
+    });
+    const expectedRedirectTo = buildPathWithTanStackSearch({
+      pathname: "/",
+      search: {
+        "auth-return": "dashboard",
+        signup: "google",
+      },
+    });
+
+    element.props.onClick();
+
+    expect(signInWithGoogleMock).toHaveBeenCalledWith(expectedRedirectTo);
+  });
+
   it("propagates the public signup marker through iframe Google auth", () => {
     isInIframeMock.mockReturnValue(true);
     Object.defineProperty(globalThis, "window", {
@@ -161,12 +194,40 @@ describe("SignInWithGoogle", () => {
     });
     mockCurrentRouteLocationBuilder();
 
-    const element = renderVisibleGoogleButton({ markPublicSignupReturn: true });
+    const element = renderVisibleGoogleButton({
+      authReturn: "dashboard",
+      markPublicSignupReturn: true,
+    });
 
     element.props.onClick();
 
     expect(openAuthPopupMock).toHaveBeenCalledWith("google", {
-      popupPath: "/?auth=google&signup=google",
+      popupPath: "/?auth=google&auth-return=dashboard&signup=google",
+    });
+    expect(signInWithGoogleMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps iframe Google auth on the requested private route", () => {
+    isInIframeMock.mockReturnValue(true);
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        location: {
+          origin: "https://noter.md",
+          pathname: "/vault/noter-md/noter/main/README.md",
+          search: "",
+          hash: "",
+        },
+      },
+      configurable: true,
+    });
+    mockCurrentRouteLocationBuilder();
+
+    const element = renderVisibleGoogleButton();
+
+    element.props.onClick();
+
+    expect(openAuthPopupMock).toHaveBeenCalledWith("google", {
+      popupPath: "/vault/noter-md/noter/main/README.md?auth=google",
     });
     expect(signInWithGoogleMock).not.toHaveBeenCalled();
   });

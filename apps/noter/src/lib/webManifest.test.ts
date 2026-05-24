@@ -13,7 +13,7 @@ describe("web manifest", () => {
       id: "/",
       name: "noter",
       short_name: "noter",
-      start_url: "/",
+      start_url: "/home",
       scope: "/",
       display: "standalone",
       theme_color: "#ffffff",

@@ -1,44 +1,23 @@
 import { Layout, PublicLayoutShell } from "@/Layout";
-import { shouldRenderPublicLandingWithoutAuthGate } from "@/lib/publicLandingAuthState";
-import { type RootRouteSearch, useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
-import { useConvexAuth } from "convex/react";
 
 function isLegalPublicPath(pathname: string) {
   return pathname === "/privacy" || pathname === "/terms";
 }
 
-function shouldUsePublicLayoutShell(args: {
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  pathname: string;
-  rootRouteSearch: RootRouteSearch;
-}) {
-  if (isLegalPublicPath(args.pathname)) {
+function shouldUsePublicLayoutShell(pathname: string) {
+  if (isLegalPublicPath(pathname)) {
     return true;
   }
 
-  if (args.pathname !== "/" || args.isAuthenticated) {
-    return false;
-  }
-
-  return (
-    shouldRenderPublicLandingWithoutAuthGate(args.pathname, args.rootRouteSearch) || !args.isLoading
-  );
+  return pathname === "/";
 }
 
 function PublicLayoutRoute() {
   const pathname = useLocation({
     select: (location) => location.pathname,
   });
-  const rootRouteSearch = useRootRouteSearch();
-  const { isAuthenticated, isLoading } = useConvexAuth();
-  const shouldUseShell = shouldUsePublicLayoutShell({
-    isAuthenticated,
-    isLoading,
-    pathname,
-    rootRouteSearch,
-  });
+  const shouldUseShell = shouldUsePublicLayoutShell(pathname);
 
   if (!shouldUseShell) {
     return <Outlet />;

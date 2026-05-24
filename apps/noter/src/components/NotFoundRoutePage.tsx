@@ -1,6 +1,7 @@
 import { Layout, PublicLayoutShell } from "@/Layout";
 import { ApprovalGate } from "@/components/ApprovalGate";
 import { buttonVariants } from "@/components/ui/button";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { resolveNotFoundPageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
@@ -11,6 +12,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 function NotFoundContent(props: {
   description: string;
   primaryActionLabel: string;
+  primaryActionTo: "/" | typeof DASHBOARD_ROUTE;
   pathname: string;
 }) {
   return (
@@ -24,7 +26,7 @@ function NotFoundContent(props: {
         <code className="max-w-full overflow-x-auto text-xs text-muted-foreground">
           {props.pathname}
         </code>
-        <Link className={buttonVariants({ variant: "outline" })} to="/">
+        <Link className={buttonVariants({ variant: "outline" })} to={props.primaryActionTo}>
           {props.primaryActionLabel}
         </Link>
       </div>
@@ -49,6 +51,7 @@ export function NotFoundRoutePage() {
             description="The requested noter app route does not exist."
             pathname={pathname}
             primaryActionLabel="Go to vaults"
+            primaryActionTo={DASHBOARD_ROUTE}
           />
         </ApprovalGate>
       </Authenticated>
@@ -58,6 +61,7 @@ export function NotFoundRoutePage() {
             description="The requested noter page does not exist."
             pathname={pathname}
             primaryActionLabel="Go home"
+            primaryActionTo="/"
           />
         </PublicLayoutShell>
       </Unauthenticated>
