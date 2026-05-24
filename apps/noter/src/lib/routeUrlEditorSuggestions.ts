@@ -29,6 +29,7 @@ type RouteUrlEditorSuggestionsInput = {
   currentHref: string;
   draftEditedSinceFocus: boolean;
   draftRouteAddress: string;
+  hashKeys: readonly string[];
   kind: RouteUrlEditorSuggestionKind;
   origin: string;
   routesByPath: AppRouter["routesByPath"];
@@ -156,6 +157,7 @@ export function readRouteUrlEditorSuggestions({
   currentHref,
   draftEditedSinceFocus,
   draftRouteAddress,
+  hashKeys,
   kind,
   origin,
   routesByPath,
@@ -184,7 +186,9 @@ export function readRouteUrlEditorSuggestions({
       });
     case "hash":
       return readRouteUrlEditorHashSuggestions({
+        currentHref,
         draftRouteAddress,
+        hashKeys,
         routesByPath,
         selectionRouteIndex,
         viewer,
@@ -252,7 +256,9 @@ function readRouteUrlEditorSearchSuggestions(args: {
 }
 
 function readRouteUrlEditorHashSuggestions(args: {
+  currentHref: string;
   draftRouteAddress: string;
+  hashKeys: readonly string[];
   routesByPath: AppRouter["routesByPath"];
   selectionRouteIndex: number;
   viewer: NoterRoutePermissionViewer;
@@ -270,7 +276,10 @@ function readRouteUrlEditorHashSuggestions(args: {
   });
   const routeHashKeys =
     typeof routePath === "string" ? (ROUTE_URL_HASH_KEYS_BY_PATH[routePath] ?? []) : [];
-  return uniqueStrings([...GLOBAL_ROUTE_URL_HASH_KEYS, ...routeHashKeys])
+  const currentRouteParts = readRouteUrlEditorParts(args.currentHref);
+  const documentHashKeys = parts.path === currentRouteParts.path ? args.hashKeys : [];
+
+  return uniqueStrings([...GLOBAL_ROUTE_URL_HASH_KEYS, ...routeHashKeys, ...documentHashKeys])
     .filter((key) => key.startsWith(hashDraft))
     .map((key) => ({
       key,

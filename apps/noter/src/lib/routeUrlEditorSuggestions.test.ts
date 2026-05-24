@@ -31,6 +31,7 @@ describe("readRouteUrlEditorSuggestions", () => {
       currentHref: "/",
       draftEditedSinceFocus: true,
       draftRouteAddress: "/lo?dev#top",
+      hashKeys: [],
       kind: "path",
       origin: ORIGIN,
       routesByPath,
@@ -46,6 +47,7 @@ describe("readRouteUrlEditorSuggestions", () => {
       currentHref: "/logo",
       draftEditedSinceFocus: true,
       draftRouteAddress: "/logo?dev#top",
+      hashKeys: [],
       kind: "search",
       origin: ORIGIN,
       routesByPath,
@@ -61,6 +63,7 @@ describe("readRouteUrlEditorSuggestions", () => {
       currentHref: "/machines/connect",
       draftEditedSinceFocus: true,
       draftRouteAddress: "/machines/connect#connected",
+      hashKeys: [],
       kind: "hash",
       origin: ORIGIN,
       routesByPath,
@@ -69,6 +72,38 @@ describe("readRouteUrlEditorSuggestions", () => {
     });
 
     expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["#connected-machines"]);
+  });
+
+  it("suggests document hashes for the current route", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/#not",
+      hashKeys: ["tmp-flow", "noter-md/noter"],
+      kind: "hash",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/#not".length,
+      viewer: adminViewer,
+    });
+
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["#noter-md/noter"]);
+  });
+
+  it("does not suggest current document hashes for a different draft route", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo#not",
+      hashKeys: ["noter-md/noter"],
+      kind: "hash",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo#not".length,
+      viewer: adminViewer,
+    });
+
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual([]);
   });
 });
 

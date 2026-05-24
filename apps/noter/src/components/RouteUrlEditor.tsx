@@ -14,6 +14,10 @@ import {
 } from "react";
 import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
 import {
+  ROUTE_URL_EDITOR_DOCUMENT_HASH_SUGGESTION_ATTRIBUTES,
+  readRouteUrlEditorDocumentHashSuggestionKeys,
+} from "@/lib/routeUrlEditorHashSuggestions";
+import {
   applyRouteUrlEditorSuggestion,
   readRouteUrlEditorSuggestionKind,
   readRouteUrlEditorSuggestions,
@@ -45,6 +49,23 @@ function readRouteUrlEditorSuggestionOptionId(args: {
 
 function readRouteUrlEditorOrigin(): string {
   return typeof window === "undefined" ? "https://noter.local" : window.location.origin;
+}
+
+function areRouteUrlEditorHashSuggestionKeysEqual(
+  left: readonly string[],
+  right: readonly string[],
+): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  for (const [index, value] of left.entries()) {
+    if (value !== right[index]) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 /**
@@ -199,6 +220,9 @@ export function RouteUrlEditor() {
   const [suggestionKind, setSuggestionKind] = useState<RouteUrlEditorSuggestionKind>("path");
   const [selectionRouteIndex, setSelectionRouteIndex] = useState(0);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number | null>(null);
+  const [documentHashSuggestionKeys, setDocumentHashSuggestionKeys] = useState<readonly string[]>(
+    [],
+  );
   const viewerIsAdmin = useQuery(api.users.isCurrentUserAdmin);
   const draftHref = normalizeRouteUrlEditorHref({
     currentHref,
@@ -217,6 +241,7 @@ export function RouteUrlEditor() {
     currentHref,
     draftEditedSinceFocus: suggestionDraftEditedSinceFocus,
     draftRouteAddress,
+    hashKeys: documentHashSuggestionKeys,
     kind: suggestionKind,
     origin,
     routesByPath: router.routesByPath,
@@ -308,6 +333,17 @@ export function RouteUrlEditor() {
     window.location.reload();
   }, []);
 
+  const refreshDocumentHashSuggestionKeys = useCallback(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const nextKeys = readRouteUrlEditorDocumentHashSuggestionKeys(document);
+    setDocumentHashSuggestionKeys((currentKeys) =>
+      areRouteUrlEditorHashSuggestionKeysEqual(currentKeys, nextKeys) ? currentKeys : nextKeys,
+    );
+  }, []);
+
   const rememberInputSelection = useCallback((event: SyntheticEvent<HTMLInputElement>) => {
     inputSelectionBeforeChangeRef.current = readRouteUrlEditorInputSelection(event.currentTarget);
   }, []);
@@ -326,6 +362,33 @@ export function RouteUrlEditor() {
     },
     [origin],
   );
+
+  useEffect(() => {
+    refreshDocumentHashSuggestionKeys();
+  }, [currentHref, refreshDocumentHashSuggestionKeys]);
+
+  useEffect(() => {
+    if (
+      !inputFocused ||
+      typeof document === "undefined" ||
+      typeof MutationObserver === "undefined"
+    ) {
+      return;
+    }
+
+    refreshDocumentHashSuggestionKeys();
+    const observer = new MutationObserver(refreshDocumentHashSuggestionKeys);
+    observer.observe(document.body, {
+      attributeFilter: [...ROUTE_URL_EDITOR_DOCUMENT_HASH_SUGGESTION_ATTRIBUTES],
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [inputFocused, refreshDocumentHashSuggestionKeys]);
 
   const syncSuggestionSelectionFromInput = useCallback(
     (event: SyntheticEvent<HTMLInputElement>) => {
@@ -484,12 +547,13 @@ export function RouteUrlEditor() {
 
   const focusInput = useCallback(
     (event: SyntheticEvent<HTMLInputElement>) => {
+      refreshDocumentHashSuggestionKeys();
       syncSuggestionSelection(event.currentTarget, draftRouteAddress);
       setInputFocused(true);
       setSuggestionsDismissed(false);
       setSuggestionDraftEditedSinceFocus(false);
     },
-    [draftRouteAddress, syncSuggestionSelection],
+    [draftRouteAddress, refreshDocumentHashSuggestionKeys, syncSuggestionSelection],
   );
 
   const moveActiveSuggestion = useCallback(

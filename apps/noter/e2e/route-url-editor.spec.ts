@@ -1,4 +1,14 @@
+import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
+import { getLandingMarkdownHeadings } from "../src/lib/landingMarkdownHeadings";
+
+const landingPreviewMarkdown = readFileSync(
+  new URL("../src/content/landing-preview.md", import.meta.url),
+  "utf8",
+);
+const landingPreviewHashSuggestions = getLandingMarkdownHeadings(landingPreviewMarkdown).map(
+  (heading) => heading.href,
+);
 
 test("route URL editor fixture navigates committed same-origin hrefs", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 96 });
@@ -193,6 +203,35 @@ test("route URL editor switches suggestions by URL section", async ({ page }) =>
   await input.press("ArrowRight");
   await expect(suggestions).toHaveAttribute("data-suggestion-kind", "hash");
   await expect(page.getByRole("option", { exact: true, name: "Use #top" })).toBeVisible();
+});
+
+test("route URL editor lists rendered page hash targets", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  const expectedHashSuggestion = landingPreviewHashSuggestions[0];
+  if (expectedHashSuggestion === undefined) {
+    throw new Error("Expected landing preview markdown to have headings.");
+  }
+  const hashKey = expectedHashSuggestion.replace(/^#/, "");
+  const hashDraft = hashKey.slice(0, 10);
+
+  await page.goto("/landing-preview?dev", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  await expect(page.locator(`[data-landing-heading-id="${hashKey}"]`)).toHaveCount(1);
+
+  const origin = await page.evaluate(() => window.location.origin);
+  const input = page.getByTestId("route-url-editor-input");
+  const suggestions = page.getByTestId("route-url-editor-suggestions");
+
+  await input.focus();
+  await input.fill(`${origin}/landing-preview?dev#${hashDraft}`);
+
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "hash");
+  await expect(
+    page.getByRole("option", { exact: true, name: `Use ${expectedHashSuggestion}` }),
+  ).toBeVisible();
 });
 
 test("route URL editor selects suggestions with arrow keys", async ({ page }) => {
