@@ -521,12 +521,6 @@ export function LogoIsoCubePixelEditor({
   });
   const frameMetrics = getLogoIsometricFrameMetrics(cubeSidePixels, 1);
   const cubeHitRows = getLogoIsometricCubeHitRows({ cubeSidePixels, styleId });
-  const displayScale = Math.max(
-    1,
-    Math.floor(112 / Math.max(frameMetrics.canvasWidth, frameMetrics.canvasHeight)),
-  );
-  const displayWidth = frameMetrics.canvasWidth * displayScale;
-  const displayHeight = frameMetrics.canvasHeight * displayScale;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -671,7 +665,7 @@ export function LogoIsoCubePixelEditor({
     <canvas
       ref={canvasRef}
       aria-label="Cube pixel canvas"
-      className={disabled ? "block opacity-60" : "block"}
+      className={disabled ? "block w-full opacity-60" : "block w-full"}
       data-testid="logo-iso-cube-pixel-editor"
       height={frameMetrics.canvasHeight}
       onContextMenu={handleContextMenu}
@@ -680,11 +674,12 @@ export function LogoIsoCubePixelEditor({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       style={{
+        aspectRatio: `${frameMetrics.canvasWidth} / ${frameMetrics.canvasHeight}`,
         cursor: disabled || !cubePixelTool ? "default" : "crosshair",
-        height: `${displayHeight}px`,
+        height: "auto",
         imageRendering: "pixelated",
         touchAction: "none",
-        width: `${displayWidth}px`,
+        width: "100%",
       }}
       width={frameMetrics.canvasWidth}
     />

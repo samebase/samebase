@@ -1283,6 +1283,7 @@ function LogoIsoCubePixelPatternTextarea({
   onSpriteChange: (sprite: LogoIsoCubePixelSprite | undefined) => void;
   sprite: LogoIsoCubePixelSprite | undefined;
 }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const serializedPattern = useMemo(
     () =>
       serializeLogoIsoCubePixelSpritePattern({
@@ -1293,6 +1294,7 @@ function LogoIsoCubePixelPatternTextarea({
   );
   const [isEditing, setIsEditing] = useState(false);
   const [draftPattern, setDraftPattern] = useState(serializedPattern);
+  const [fontSizePixels, setFontSizePixels] = useState(16);
   const previousSerializedPatternRef = useRef(serializedPattern);
   const value = isEditing ? draftPattern : serializedPattern;
   const parsedPattern = useMemo(
@@ -1325,43 +1327,81 @@ function LogoIsoCubePixelPatternTextarea({
     }
   }, [draftPattern, serializedPattern]);
 
-  return (
-    <Textarea
-      aria-invalid={isInvalid}
-      aria-label="Cube pixel pattern"
-      autoCapitalize="off"
-      autoCorrect="off"
-      className="min-h-0 max-w-full resize-none overflow-hidden rounded-none font-mono text-xs leading-4 shadow-none [tab-size:1]"
-      disabled={disabled}
-      onBlur={() => {
-        setIsEditing(false);
-        setDraftPattern(serializedPattern);
-      }}
-      onChange={(event) => {
-        const nextPattern = event.target.value;
-        setIsEditing(true);
-        setDraftPattern(nextPattern);
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
 
-        const nextParsedPattern = parseLogoIsoCubePixelSpritePattern({
-          cubeSidePixels,
-          pattern: nextPattern,
-        });
-        if (nextParsedPattern.kind === "valid") {
-          onSpriteChange(nextParsedPattern.sprite);
-        }
-      }}
-      onFocus={() => {
-        setIsEditing(true);
-        setDraftPattern(serializedPattern);
-      }}
-      rows={cubeSidePixels}
-      spellCheck={false}
-      style={{
-        width: `${cubeSidePixels + 1}ch`,
-      }}
-      value={value}
-      wrap="off"
-    />
+    const measureCanvas = document.createElement("canvas");
+    const measureContext = measureCanvas.getContext("2d");
+    if (!measureContext) {
+      return;
+    }
+
+    const updateFontSize = () => {
+      const containerWidth = container.clientWidth;
+      if (containerWidth <= 0) {
+        return;
+      }
+
+      measureContext.font =
+        '100px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+      const rowWidthAtMeasureSize = measureContext.measureText("x".repeat(cubeSidePixels)).width;
+      const nextFontSizePixels = Math.max(
+        6,
+        Math.floor(((containerWidth - 10) * 100) / rowWidthAtMeasureSize),
+      );
+      setFontSizePixels(nextFontSizePixels);
+    };
+
+    updateFontSize();
+    const resizeObserver = new ResizeObserver(updateFontSize);
+    resizeObserver.observe(container);
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [cubeSidePixels]);
+
+  return (
+    <div ref={containerRef} className="w-full">
+      <Textarea
+        aria-invalid={isInvalid}
+        aria-label="Cube pixel pattern"
+        autoCapitalize="off"
+        autoCorrect="off"
+        className="min-h-0 w-full resize-none overflow-hidden rounded-none p-1 font-mono leading-none shadow-none [tab-size:1]"
+        disabled={disabled}
+        onBlur={() => {
+          setIsEditing(false);
+          setDraftPattern(serializedPattern);
+        }}
+        onChange={(event) => {
+          const nextPattern = event.target.value;
+          setIsEditing(true);
+          setDraftPattern(nextPattern);
+
+          const nextParsedPattern = parseLogoIsoCubePixelSpritePattern({
+            cubeSidePixels,
+            pattern: nextPattern,
+          });
+          if (nextParsedPattern.kind === "valid") {
+            onSpriteChange(nextParsedPattern.sprite);
+          }
+        }}
+        onFocus={() => {
+          setIsEditing(true);
+          setDraftPattern(serializedPattern);
+        }}
+        rows={cubeSidePixels}
+        spellCheck={false}
+        style={{
+          fontSize: `${fontSizePixels}px`,
+        }}
+        value={value}
+        wrap="off"
+      />
+    </div>
   );
 }
 
