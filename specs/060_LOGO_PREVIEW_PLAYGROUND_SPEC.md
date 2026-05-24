@@ -4,7 +4,7 @@
 
 - Status: Proposed
 - Owner: Noter frontend
-- Last updated: 2026-05-19
+- Last updated: 2026-05-24
 - Related files: `apps/noter/src/App.tsx`, `apps/noter/src/components/logo/LogoPreviewPage.tsx`,
   `apps/noter/src/components/logo/NLogoScene.tsx`,
   `apps/noter/src/components/logo/logoLeftFaceStyle.ts`,
@@ -21,8 +21,10 @@ Noter exposes a public `/logo` route as a full-screen interactive playground for
 page is primarily a visual exploration tool: it should make the logo large, easy to manipulate, easy
 to recolor, easy to reshape, and easy to share through the URL.
 
-The scene is not a generic 3D editor. It is a focused playground for one `3x3x3` voxel mark with a
-small, opinionated control surface, plus static recursive depth previews of that mark.
+The scene is not a generic 3D editor. It is a focused playground for the Noter voxel mark with a
+small, opinionated control surface, plus static recursive depth previews of that mark. The
+exploration state is grid-size-aware: the route default remains the accepted `3x3x3` motif, and
+`gridSize=2` enables the same controls and renderers for the `2x2x2` motif.
 
 ## Goals
 
@@ -62,25 +64,39 @@ small, opinionated control surface, plus static recursive depth previews of that
 
 ### 1. Grid
 
-- The logo is modeled as a `3x3x3` voxel grid.
+- The logo is modeled as a base voxel grid.
+- The supported base grid sizes are `2x2x2` and `3x3x3`.
+- `/logo` defaults to `3x3x3`; `gridSize=2` switches the same playground state model to `2x2x2`.
+- Canonical public brand assets use the `3x3x3` identity grid from
+  `specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md`.
 - Each voxel is either filled or empty.
 
 ### 2. URL serialization
 
 - Voxel state is stored in the `vox` query param.
-- The canonical format is three layers joined by `-`, with rows inside each layer joined by `_`.
+- The `gridSize` query param selects the base grid. The omitted value means the default `3x3x3` grid
+  unless a valid `vox` value with another supported layer count infers the grid.
+- Canonical route state should keep non-default grid size explicit once it has been parsed.
+- The canonical `vox` format is one layer per grid row joined by `-`, with rows inside each layer
+  joined by `_`.
 - Filled cells use `x`; empty cells use `o`.
 - Layer order is top to bottom.
 - Within each layer, rows are ordered consistently and must remain stable.
+- A `vox` value only applies when its layer count matches the selected `gridSize`; mismatches fall
+  back to the default shape for the selected grid.
 
 Example:
 
-- `ooo_oxo_ooo-oxo_xox_oxo-ooo_oxo_ooo`
+- `2x2x2`: `ox_xo-oo_ox`
+- `3x3x3`: `oxo_xox_oxo-xox_ooo_xox-oxo_xox_oxo`
 
 ### 3. Default shape
 
-- The default voxel arrangement is: `ooo_oxo_ooo-oxo_xox_oxo-ooo_oxo_ooo`
-- Loading `/logo` without `vox` should normalize to that exact state.
+- The default `2x2x2` voxel arrangement is: `ox_xo-oo_ox`
+- The default `3x3x3` voxel arrangement is: `oxo_xox_oxo-xox_ooo_xox-oxo_xox_oxo`
+- Loading `/logo` without `gridSize` or `vox` should use the default `3x3x3` arrangement.
+- Loading a selected grid without `vox` should use the default arrangement for that selected grid
+  size.
 
 ### 4. Editing
 
@@ -90,6 +106,8 @@ Example:
 - Hidden/internal voxels do not need separate direct manipulation affordances.
 - Direct editing is a depth-1 behavior. Recursive depths render the repeated settled motif but do
   not allow tiny recursive cubes to be edited directly.
+- Changing `gridSize` resets the editable shape to that grid's default motif instead of trying to
+  reinterpret coordinates across incompatible grids.
 
 ### 5. Recursive depth
 
@@ -124,9 +142,12 @@ Example:
 
 The playground should expose at least these presets:
 
-- `Open Cross`
+- `Default 2`
+- `Checker 3`
 - `N Logo`
 - `Sierpinski Carpet`
+- `Full Cube 2`
+- `Full Cube 3`
 - `Cornerless Cube`
 
 ### 2. Sierpinski Carpet definition
@@ -141,7 +162,7 @@ The playground should expose at least these presets:
 ### 4. Reset behavior
 
 - Selecting a preset applies it immediately.
-- `Reset shape` should reset to the currently selected preset.
+- `Reset shape` should reset to the default shape for the current `gridSize`.
 - If the current URL shape does not match a built-in preset, the UI may show it as `Custom`.
 
 ## Camera and Interaction
@@ -190,8 +211,9 @@ The playground should expose at least these presets:
 
 ### 4. Query-param scope
 
-- Only voxel shape is persisted in query params today.
-- Camera and face-color state should not be written to the URL if doing so makes dragging or
+- Route state may persist voxel shape, grid size, depth, view, distance, renderer controls, and face
+  colors when those values are useful for sharing an exploration state.
+- Dragging and animation should still use paced or draft route commits so URL updates do not make
   interaction feel stuttery.
 
 ### 5. Left face style
@@ -271,7 +293,8 @@ The playground should expose at least these presets:
 
 ### 2. Preset silhouettes
 
-- The default `Open Cross` preset should read as a plus-like skeleton with the center cube removed.
+- The default `3x3x3` checker preset should read as a plus-like skeleton with the center cube
+  removed.
 - The `N Logo` preset should preserve the lowercase `n` face glyphs.
 
 ## Implemented Baseline

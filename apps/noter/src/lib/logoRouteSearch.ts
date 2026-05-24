@@ -47,13 +47,19 @@ import {
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_LOGO_FRACTAL_DEPTH,
+  DEFAULT_LOGO_GRID_SIZE,
   DEFAULT_ROTATION_DEGREES,
-  DEFAULT_VOXEL_STATE,
+  LOGO_GRID_SIZE_2,
+  LOGO_GRID_SIZE_3,
+  createDefaultVoxelState,
+  readLogoGridSize,
+  normalizeLogoGridSize,
   normalizeLogoFractalDepth,
   normalizeElevationDegrees,
   normalizeRotationDegrees,
   parseVoxelState,
   serializeVoxelState,
+  type LogoGridSize,
 } from "@/components/logo/logoVoxelState";
 import { LANDING_DEV_MODE_QUERY_PARAM } from "@/lib/landingDevMode";
 import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
@@ -70,6 +76,8 @@ const LOGO_ISOMETRIC_STYLE_VALUES = [
   "cap-3",
   "cap-4",
 ] as const satisfies readonly LogoIsometricStyleId[];
+
+const logoGridSizeSchema = z.union([z.literal(LOGO_GRID_SIZE_2), z.literal(LOGO_GRID_SIZE_3)]);
 
 function readOptionalString(value: unknown): string | undefined {
   if (typeof value !== "string") {
@@ -96,6 +104,13 @@ function readOptionalNumber(value: unknown): number | undefined {
 
   const parsedValue = Number(trimmedValue);
   return Number.isFinite(parsedValue) ? parsedValue : undefined;
+}
+
+function readOptionalLogoGridSize(value: unknown): LogoGridSize | undefined {
+  const numericValue = readOptionalNumber(value);
+  return typeof numericValue === "number"
+    ? (readLogoGridSize(numericValue) ?? undefined)
+    : undefined;
 }
 
 const LOGO_ROUTE_PRESENCE_SEARCH_KEYS = [
@@ -138,7 +153,9 @@ function readCanonicalVoxelState(value: unknown): string | undefined {
   }
 
   const parsedVoxelState = parseVoxelState(voxelState);
-  return parsedVoxelState === null ? undefined : serializeVoxelState(parsedVoxelState);
+  return parsedVoxelState === null
+    ? undefined
+    : serializeVoxelState(parsedVoxelState.filledVoxels, parsedVoxelState.gridSize);
 }
 
 const logoRouteSearchFieldSchema = z
@@ -152,6 +169,7 @@ const logoRouteSearchFieldSchema = z
     dist: z.preprocess(readOptionalNumber, z.number().finite().optional()),
     elev: z.preprocess(readOptionalNumber, z.number().finite().optional()),
     freeView: z.literal(true).optional(),
+    gridSize: z.preprocess(readOptionalLogoGridSize, logoGridSizeSchema.optional()),
     isoSide: z.preprocess(readOptionalNumber, z.number().finite().optional()),
     isoStyle: z.preprocess(readOptionalIsoStyleId, z.enum(LOGO_ISOMETRIC_STYLE_VALUES).optional()),
     leftFace: z.preprocess(
@@ -175,6 +193,15 @@ const logoRouteSearchFieldSchema = z
 
 export const logoRouteSearchSchema = logoRouteSearchFieldSchema.transform((search) => {
   const themeModeSearch = readRootThemeModeSearch(search);
+  const parsedVoxelState = parseVoxelState(search.vox ?? null);
+  const gridSize =
+    typeof search.gridSize === "number"
+      ? normalizeLogoGridSize(search.gridSize)
+      : (parsedVoxelState?.gridSize ?? DEFAULT_LOGO_GRID_SIZE);
+  const voxelState =
+    parsedVoxelState && parsedVoxelState.gridSize === gridSize
+      ? serializeVoxelState(parsedVoxelState.filledVoxels, gridSize)
+      : undefined;
   return {
     ...(themeModeSearch.dark ? { dark: true as const } : {}),
     ...(themeModeSearch.light ? { light: true as const } : {}),
@@ -185,13 +212,14 @@ export const logoRouteSearchSchema = logoRouteSearchFieldSchema.transform((searc
     ...(typeof search.dist === "number" ? { dist: normalizeLogoDistanceScale(search.dist) } : {}),
     ...(typeof search.elev === "number" ? { elev: normalizeElevationDegrees(search.elev) } : {}),
     ...(search.freeView ? { freeView: true } : {}),
+    ...(gridSize !== DEFAULT_LOGO_GRID_SIZE ? { gridSize } : {}),
     ...(typeof search.isoSide === "number"
       ? { isoSide: normalizeLogoIsometricCubeSidePixels(search.isoSide) }
       : {}),
     ...(typeof search.isoStyle === "string" ? { isoStyle: search.isoStyle } : {}),
     ...buildLogoLeftFaceStyleSearch(readLogoLeftFaceStyle(search)),
     ...(typeof search.rot === "number" ? { rot: normalizeRotationDegrees(search.rot) } : {}),
-    ...(typeof search.vox === "string" ? { vox: search.vox } : {}),
+    ...(typeof voxelState === "string" ? { vox: voxelState } : {}),
   };
 });
 
@@ -240,6 +268,7 @@ export function buildLogoRouteSearch(args: {
   distanceScale: number;
   elevationDegrees: number;
   fractalDepth: number;
+  gridSize: LogoGridSize;
   isoCubeSidePixels: number;
   isoStyleId: LogoIsometricStyleId;
   leftFaceStyle: LogoLeftFaceStyle;
@@ -251,6 +280,13 @@ export function buildLogoRouteSearch(args: {
   voxelState: string;
 }): LogoRouteSearch {
   const fractalDepth = normalizeLogoFractalDepth(args.fractalDepth);
+  const gridSize = normalizeLogoGridSize(args.gridSize);
+  const defaultVoxelState = createDefaultVoxelState(gridSize);
+  const parsedVoxelState = parseVoxelState(args.voxelState);
+  const voxelState =
+    parsedVoxelState && parsedVoxelState.gridSize === gridSize
+      ? serializeVoxelState(parsedVoxelState.filledVoxels, gridSize)
+      : defaultVoxelState;
   const distanceScale = normalizeLogoDistanceScale(args.distanceScale);
   const leftFaceStyle = normalizeLogoLeftFaceStyle(args.leftFaceStyle);
 
@@ -267,6 +303,7 @@ export function buildLogoRouteSearch(args: {
     dist:
       distanceScale !== DEFAULT_LOGO_DISTANCE_SCALE ? Number(distanceScale.toFixed(3)) : undefined,
     ...(args.viewSnapEnabled ? {} : { freeView: true }),
+    gridSize: gridSize !== DEFAULT_LOGO_GRID_SIZE ? gridSize : undefined,
     ...(args.isoCubeSidePixels !== DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX
       ? { isoSide: args.isoCubeSidePixels }
       : {}),
@@ -275,7 +312,7 @@ export function buildLogoRouteSearch(args: {
     ...(args.rotationDegrees !== DEFAULT_ROTATION_DEGREES
       ? { rot: Number(args.rotationDegrees.toFixed(1)) }
       : {}),
-    ...(args.voxelState !== DEFAULT_VOXEL_STATE ? { vox: args.voxelState } : {}),
+    ...(voxelState !== defaultVoxelState ? { vox: voxelState } : {}),
   };
 }
 

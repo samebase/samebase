@@ -2,6 +2,7 @@ import {
   STATIC_LOGO_BACKGROUND_COLOR,
   STATIC_LOGO_ELEVATION_DEGREES,
   LOGO_IDENTITY_VIEW_CONTRACTS,
+  STATIC_LOGO_GRID_SIZE,
   STATIC_LOGO_ROTATION_DEGREES,
   STATIC_LOGO_VOXEL_COORDINATES,
   type LogoIdentityViewId,
@@ -15,7 +16,7 @@ import {
 import { type LogoLeftFaceStyle } from "./logoLeftFaceStyle";
 import { DEFAULT_FACE_COLORS, type FaceColors } from "./logoTailwindColors";
 import { createLogoThreeSvgMarkup } from "./logoThreeSvgRenderer";
-import { GRID_SIZE, createFilledVoxelSet } from "./logoVoxelState";
+import { createFilledVoxelSet } from "./logoVoxelState";
 
 type StaticLogoSvgOptions = {
   depth?: number;
@@ -50,7 +51,7 @@ export function createStaticLogoSvgMarkup(options: StaticLogoSvgOptions = {}) {
     elevationDegrees: view.elevationDegrees,
     faceColors: options.faceColors ?? DEFAULT_FACE_COLORS,
     filledVoxels,
-    gridSize: options.gridSize ?? GRID_SIZE,
+    gridSize: options.gridSize ?? STATIC_LOGO_GRID_SIZE,
     leftFaceStyle: readStaticLogoLeftFaceStyle(options),
     rotationDegrees: view.rotationDegrees,
   });
@@ -69,7 +70,7 @@ export function createLogoIdentityViewSvgMarkup(
     elevationDegrees: view.elevationDegrees,
     faceColors: options.faceColors ?? DEFAULT_FACE_COLORS,
     filledVoxels,
-    gridSize: options.gridSize ?? GRID_SIZE,
+    gridSize: options.gridSize ?? STATIC_LOGO_GRID_SIZE,
     leftFaceStyle: readStaticLogoLeftFaceStyle(options),
     rotationDegrees: view.rotationDegrees,
   });

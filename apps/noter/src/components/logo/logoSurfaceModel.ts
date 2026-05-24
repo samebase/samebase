@@ -200,7 +200,7 @@ function toWorld(boundaryIndex: number, gridSize: number): number {
  */
 export function buildLogoSurfaceQuads(
   filledVoxels: ReadonlySet<string>,
-  gridSize = GRID_SIZE,
+  gridSize: number = GRID_SIZE,
 ): LogoSurfaceQuad[] {
   const quads: LogoSurfaceQuad[] = [];
   const facePlanes = collectSurfaceFacePlanes(
@@ -339,7 +339,7 @@ export function buildLogoSurfaceQuads(
 
 export function getLogoSurfaceFitRadius(
   surfaceQuads: readonly LogoSurfaceQuad[],
-  gridSize = GRID_SIZE,
+  gridSize: number = GRID_SIZE,
 ): number {
   let fitRadius = 0;
 

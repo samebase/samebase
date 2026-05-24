@@ -6,12 +6,14 @@ import {
 import { clampLogoFractalDepthForRenderer } from "@/components/logo/logoDepthLimits";
 import {
   STATIC_LOGO_ELEVATION_DEGREES,
+  STATIC_LOGO_GRID_SIZE,
   STATIC_LOGO_ROTATION_DEGREES,
   STATIC_LOGO_VOXEL_STATE,
 } from "@/components/logo/logoStaticSvgContract";
 import {
   createLogoFractalVoxelGrid,
   DEFAULT_LOGO_FRACTAL_DEPTH,
+  normalizeLogoGridSize,
   normalizeRotationDegrees,
 } from "@/components/logo/logoVoxelState";
 import {
@@ -61,6 +63,7 @@ const DEFAULT_LANDING_LOGO_VIEW: RotatedLogoViewState = {
 type PublicLandingLogoSearchInput = LogoThemeColorSearchInput & {
   depth?: number;
   dist?: number;
+  gridSize?: number;
 };
 
 let cachedLandingLogoScene: LandingLogoSceneComponent | null = null;
@@ -106,21 +109,22 @@ export function PublicLandingLogo({
     themeColorSearch.depth ?? DEFAULT_LOGO_FRACTAL_DEPTH,
     "three",
   );
+  const baseGridSize = normalizeLogoGridSize(themeColorSearch.gridSize ?? STATIC_LOGO_GRID_SIZE);
   const distanceScale = normalizeLogoDistanceScale(
     themeColorSearch.dist ?? DEFAULT_LOGO_DISTANCE_SCALE,
   );
   const isRecursiveDepth = fractalDepth > DEFAULT_LOGO_FRACTAL_DEPTH;
   const staticFallbackDepth = Math.min(fractalDepth, LANDING_STATIC_SVG_FALLBACK_DEPTH);
   const staticLogoVoxelGrid = useMemo(
-    () => createLogoFractalVoxelGrid({ depth: staticFallbackDepth }),
-    [staticFallbackDepth],
+    () => createLogoFractalVoxelGrid({ depth: staticFallbackDepth, gridSize: baseGridSize }),
+    [baseGridSize, staticFallbackDepth],
   );
   const staticLogoSvgSrc = `${createStaticLogoSvgDataUrl({
     faceColors,
     filledVoxels: staticLogoVoxelGrid.filledVoxels,
     gridSize: staticLogoVoxelGrid.gridSize,
     view: initialView,
-  })}#${logoTheme.cacheKey}:${fractalDepth}:${distanceScale}`;
+  })}#${logoTheme.cacheKey}:${baseGridSize}:${fractalDepth}:${distanceScale}`;
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [isSvgVisible, setIsSvgVisible] = useState(true);
   const [isAutoRotating, setIsAutoRotating] = useState(autoRotate);
@@ -352,6 +356,7 @@ export function PublicLandingLogo({
             className={`absolute inset-0 z-0 ${isSceneInteractive ? "pointer-events-auto touch-none" : "pointer-events-none"}`}
           >
             <LogoScene
+              baseGridSize={baseGridSize}
               className={`h-full w-full ${isSceneInteractive ? "cursor-grab active:cursor-grabbing" : ""}`}
               backgroundColor={backgroundColor}
               distanceScale={distanceScale}

@@ -1,13 +1,11 @@
-import {
-  DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE,
-  STATIC_LOGO_VOXEL_COORDINATES,
-} from "@/components/logo/logoStaticSvgContract";
+import { DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE } from "@/components/logo/logoStaticSvgContract";
 import { clampLogoFractalDepthForRenderer } from "@/components/logo/logoDepthLimits";
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
 import { readLogoLeftFaceStyle } from "@/components/logo/logoLeftFaceStyle";
 import {
-  createFilledVoxelSet,
   DEFAULT_LOGO_FRACTAL_DEPTH,
+  createDefaultFilledVoxelSet,
+  normalizeLogoGridSize,
   parseVoxelState,
 } from "@/components/logo/logoVoxelState";
 import { Button } from "@/components/ui/button";
@@ -17,8 +15,12 @@ import { Link } from "@tanstack/react-router";
 
 export function LogoStaticSvgPage({ routeSearch }: { routeSearch: LogoRouteSearch }) {
   const logoTheme = useResolvedAppThemeColorState(routeSearch);
+  const gridSize = normalizeLogoGridSize(routeSearch.gridSize);
+  const parsedVoxelState = parseVoxelState(routeSearch.vox ?? null);
   const baseFilledVoxels =
-    parseVoxelState(routeSearch.vox ?? null) ?? createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES);
+    parsedVoxelState && parsedVoxelState.gridSize === gridSize
+      ? parsedVoxelState.filledVoxels
+      : createDefaultFilledVoxelSet(gridSize);
   const fractalDepth = clampLogoFractalDepthForRenderer(
     routeSearch.depth ?? DEFAULT_LOGO_FRACTAL_DEPTH,
     "svg",
@@ -27,6 +29,7 @@ export function LogoStaticSvgPage({ routeSearch }: { routeSearch: LogoRouteSearc
     depth: fractalDepth,
     faceColors: logoTheme.faceColors,
     filledVoxels: baseFilledVoxels,
+    gridSize,
     leftFaceStyle: readLogoLeftFaceStyle(routeSearch),
   })}#${logoTheme.cacheKey}:${fractalDepth}`;
 

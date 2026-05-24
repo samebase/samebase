@@ -1,17 +1,22 @@
 import {
   DEFAULT_VOXEL_STATE,
-  GRID_SIZE,
+  LOGO_GRID_SIZE_2,
+  LOGO_GRID_SIZE_3,
+  createDefaultVoxelState,
   createFilledVoxelSet,
   serializeVoxelState,
+  type LogoGridSize,
   type VoxelCoordinate,
 } from "@/components/logo/logoVoxelState";
 
 export const CUSTOM_LOGO_PRESET_ID = "custom";
-export const DEFAULT_LOGO_PRESET_ID = "checker-lattice";
+export const DEFAULT_LOGO_PRESET_ID = "checker-lattice-3";
 
 export type LogoPresetId =
   | "checker-lattice"
+  | "checker-lattice-3"
   | "cornerless-cube"
+  | "full-cube-2"
   | "full-cube"
   | "n-logo"
   | "sierpinski-carpet";
@@ -19,6 +24,7 @@ export type LogoPresetSelection = LogoPresetId | typeof CUSTOM_LOGO_PRESET_ID;
 
 type LogoPreset = {
   description: string;
+  gridSize: LogoGridSize;
   id: LogoPresetId;
   label: string;
   voxelState: string;
@@ -43,18 +49,19 @@ function createNLogoVoxelState(): string {
       [2, 2, 0],
       [2, 2, 1],
     ]),
+    LOGO_GRID_SIZE_3,
   );
 }
 
-function createCornerlessCubeVoxelState(): string {
+function createCornerlessCubeVoxelState(gridSize: LogoGridSize): string {
   const coordinates: VoxelCoordinate[] = [];
 
-  for (let x = 0; x < GRID_SIZE; x += 1) {
-    for (let y = 0; y < GRID_SIZE; y += 1) {
-      for (let z = 0; z < GRID_SIZE; z += 1) {
-        const isCornerX = x === 0 || x === GRID_SIZE - 1;
-        const isCornerY = y === 0 || y === GRID_SIZE - 1;
-        const isCornerZ = z === 0 || z === GRID_SIZE - 1;
+  for (let x = 0; x < gridSize; x += 1) {
+    for (let y = 0; y < gridSize; y += 1) {
+      for (let z = 0; z < gridSize; z += 1) {
+        const isCornerX = x === 0 || x === gridSize - 1;
+        const isCornerY = y === 0 || y === gridSize - 1;
+        const isCornerZ = z === 0 || z === gridSize - 1;
 
         if (isCornerX && isCornerY && isCornerZ) {
           continue;
@@ -65,30 +72,30 @@ function createCornerlessCubeVoxelState(): string {
     }
   }
 
-  return serializeVoxelState(createFilledVoxelSet(coordinates));
+  return serializeVoxelState(createFilledVoxelSet(coordinates), gridSize);
 }
 
-function createFullCubeVoxelState(): string {
+function createFullCubeVoxelState(gridSize: LogoGridSize): string {
   const coordinates: VoxelCoordinate[] = [];
 
-  for (let x = 0; x < GRID_SIZE; x += 1) {
-    for (let y = 0; y < GRID_SIZE; y += 1) {
-      for (let z = 0; z < GRID_SIZE; z += 1) {
+  for (let x = 0; x < gridSize; x += 1) {
+    for (let y = 0; y < gridSize; y += 1) {
+      for (let z = 0; z < gridSize; z += 1) {
         coordinates.push([x, y, z] as const);
       }
     }
   }
 
-  return serializeVoxelState(createFilledVoxelSet(coordinates));
+  return serializeVoxelState(createFilledVoxelSet(coordinates), gridSize);
 }
 
 function createSierpinskiCarpetVoxelState(): string {
   const coordinates: VoxelCoordinate[] = [];
-  const centerIndex = Math.floor(GRID_SIZE / 2);
+  const centerIndex = Math.floor(LOGO_GRID_SIZE_3 / 2);
 
-  for (let x = 0; x < GRID_SIZE; x += 1) {
-    for (let y = 0; y < GRID_SIZE; y += 1) {
-      for (let z = 0; z < GRID_SIZE; z += 1) {
+  for (let x = 0; x < LOGO_GRID_SIZE_3; x += 1) {
+    for (let y = 0; y < LOGO_GRID_SIZE_3; y += 1) {
+      for (let z = 0; z < LOGO_GRID_SIZE_3; z += 1) {
         const centerAxisCount =
           Number(x === centerIndex) + Number(y === centerIndex) + Number(z === centerIndex);
 
@@ -101,45 +108,67 @@ function createSierpinskiCarpetVoxelState(): string {
     }
   }
 
-  return serializeVoxelState(createFilledVoxelSet(coordinates));
+  return serializeVoxelState(createFilledVoxelSet(coordinates), LOGO_GRID_SIZE_3);
 }
 
 export const LOGO_PRESETS = [
   {
-    description: "Three-layer alternating lattice with the center cube removed",
-    id: "checker-lattice",
-    label: "Checker Lattice",
+    description: "3x3x3 alternating lattice with the center cube removed",
+    gridSize: LOGO_GRID_SIZE_3,
+    id: "checker-lattice-3",
+    label: "Checker 3",
     voxelState: DEFAULT_VOXEL_STATE,
   },
   {
+    description: "Default 2x2x2 recursive exploration motif",
+    gridSize: LOGO_GRID_SIZE_2,
+    id: "checker-lattice",
+    label: "Default 2",
+    voxelState: createDefaultVoxelState(LOGO_GRID_SIZE_2),
+  },
+  {
     description: "Original lowercase n voxel mark",
+    gridSize: LOGO_GRID_SIZE_3,
     id: "n-logo",
     label: "N Logo",
     voxelState: createNLogoVoxelState(),
   },
   {
     description: "3x3x3 level-1 carpet with corners kept and face centers open",
+    gridSize: LOGO_GRID_SIZE_3,
     id: "sierpinski-carpet",
     label: "Sierpinski Carpet",
     voxelState: createSierpinskiCarpetVoxelState(),
   },
   {
+    description: "Solid 2x2x2 block for spotting raster seams across full faces",
+    gridSize: LOGO_GRID_SIZE_2,
+    id: "full-cube-2",
+    label: "Full Cube 2",
+    voxelState: createFullCubeVoxelState(LOGO_GRID_SIZE_2),
+  },
+  {
     description: "Solid 3x3x3 block for spotting raster seams across full faces",
+    gridSize: LOGO_GRID_SIZE_3,
     id: "full-cube",
-    label: "Full Cube",
-    voxelState: createFullCubeVoxelState(),
+    label: "Full Cube 3",
+    voxelState: createFullCubeVoxelState(LOGO_GRID_SIZE_3),
   },
   {
     description: "3x3x3 cube with all 8 corner cubes removed",
+    gridSize: LOGO_GRID_SIZE_3,
     id: "cornerless-cube",
     label: "Cornerless Cube",
-    voxelState: createCornerlessCubeVoxelState(),
+    voxelState: createCornerlessCubeVoxelState(LOGO_GRID_SIZE_3),
   },
 ] as const satisfies readonly LogoPreset[];
 
-export function getLogoPresetSelection(voxelState: string): LogoPresetSelection {
+export function getLogoPresetSelection(
+  voxelState: string,
+  gridSize: LogoGridSize,
+): LogoPresetSelection {
   for (const preset of LOGO_PRESETS) {
-    if (preset.voxelState === voxelState) {
+    if (preset.gridSize === gridSize && preset.voxelState === voxelState) {
       return preset.id;
     }
   }

@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Noter frontend
-- Last updated: 2026-05-17
+- Last updated: 2026-05-24
 - Related files: `specs/060_LOGO_PREVIEW_PLAYGROUND_SPEC.md`,
   `specs/061_USER_LOGO_STATIC_SVG_DELIVERY_SPEC.md`,
   `specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md`, `apps/noter/src/components/NLogoScene.tsx`,
@@ -16,10 +16,10 @@
 
 Noter should simplify logo rendering around one mental model:
 
-1. A settled voxel shape is the source of truth.
+1. A settled voxel shape plus base grid size is the source of truth.
 2. Optional motion state describes cubes that are temporarily moving.
 3. Surface geometry is derived from settled voxels plus motion state.
-4. Renderers are thin adapters for WebGL, smooth SVG, and pixel-art isometric output.
+4. Renderers are thin adapters for WebGL, smooth SVG, raster, and pixel-art isometric output.
 
 The renderer model must preserve the existing Three.js cube shuffle behavior. Moving cubes are not a
 reason to keep each renderer owning its own surface extraction logic; they are a transient layer
@@ -38,8 +38,9 @@ Those paths are valid product surfaces, but they duplicate shape and face concep
 hard to reason about when adding recursive shapes, performance improvements, static SVG changes, or
 motion.
 
-The accepted identity spec still defines the canonical mark as one `3x3x3` voxel shape. Recursive
-depth is a playground/rendering option, not the baseline identity source.
+The accepted identity spec still defines the canonical brand mark as one `3x3x3` voxel shape.
+Recursive depth and `/logo` grid-size exploration are playground/rendering options, not the baseline
+identity source.
 
 ## Goals
 
@@ -64,10 +65,11 @@ depth is a playground/rendering option, not the baseline identity source.
 
 The settled shape is a `LogoVoxelGrid`-like value:
 
-- grid size
+- base grid size
 - filled voxel coordinates
 
-For the current accepted logo identity, the grid size is `3`.
+The current `/logo` exploration state supports base grid sizes `2` and `3`, with `3` as the route
+default. The `2` grid is an explicit exploration option with the same renderer support.
 
 ### 2. Motion state
 
@@ -130,21 +132,22 @@ state.
 ### Phase 5: Recursive Tile Exploration
 
 Add a `depth` route/search option after the renderer model is simpler. Depth `1` is the normal
-editable logo. Higher depths render the recursive settled shape through the shared voxel-grid model
-across Three, smooth SVG, isometric, and public landing logo surfaces. The playground slider should
-stop at `5` as the comfortable exploration range, while direct number input and URL state may use
-higher normalized integer depths deliberately. Recursive depths stay static as shapes: rotation,
-dragging, colors, opacity, and bounded static SVG fallbacks continue to work. Direct tiny-cube
-editing remains a depth-1 behavior. Recursive Three shuffle moves rendered recursive tile units
-rather than the smallest leaf cubes.
+editable logo for the selected base grid size. Higher depths render the recursive settled shape
+through the shared voxel-grid model across Three, smooth SVG, raster, isometric, and public landing
+logo surfaces. The playground slider should stop at `5` as the comfortable exploration range, while
+direct number input and URL state may use higher normalized integer depths deliberately. Recursive
+depths stay static as shapes: rotation, dragging, colors, opacity, and bounded static SVG fallbacks
+continue to work. Direct tiny-cube editing remains a depth-1 behavior. Recursive Three shuffle moves
+rendered recursive tile units rather than the smallest leaf cubes.
 
 The Three preview must not build every tiny surface for recursive depths. Recursive depths may
 render by instancing a smaller recursive tile into the higher-level motif positions. That tiled path
 keeps rotation, dragging, and shuffle responsive without entering the exact tiny-cube mutation path.
 
 The isometric preview must follow the same fake-recursive rule. For depth above 1, it should render
-the 3x3 motif once and compose that image through recursive motif positions instead of materializing
-every leaf voxel. Shuffle remains a tile-level motion repeated through the recursive image.
+the selected base motif once and compose that image through recursive motif positions instead of
+materializing every leaf voxel. Shuffle remains a tile-level motion repeated through the recursive
+image.
 
 The smooth SVG route must also avoid exact recursive voxel expansion. Recursive SVG output should
 stay bounded by defining nested reusable motif groups and placing them with projected translations,
@@ -153,8 +156,8 @@ rather than serializing all leaf faces as independent polygons.
 ### Phase 6: Raster Recursive Experiment
 
 Add `/logo/raster` as an experimental canvas preview for recursive depths. The renderer should
-project one merged 3x3 motif unit for the current view and compose that rendered unit through the
-12-cell Noter motif repeatedly. The motif painter order is calculated once per view and reused for
+project one merged motif unit for the current view and compose that rendered unit through the
+selected base motif repeatedly. The motif painter order is calculated once per view and reused for
 every recursive level. This keeps the rendering model proportional to depth rather than proportional
 to the number of leaf cubes.
 

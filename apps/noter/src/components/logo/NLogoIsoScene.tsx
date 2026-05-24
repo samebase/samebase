@@ -26,8 +26,9 @@ import { type FaceColors } from "@/components/logo/logoTailwindColors";
 import {
   createDefaultFilledVoxelSet,
   DEFAULT_LOGO_FRACTAL_DEPTH,
-  GRID_SIZE,
+  DEFAULT_LOGO_GRID_SIZE,
   getLogoFractalGridSize,
+  type LogoGridSize,
   type LogoVoxelGrid,
   parseVoxelState,
   type VoxelCoordinate,
@@ -66,6 +67,7 @@ type ActiveCubeMove = {
 
 type SceneState = {
   activeCubeMoves: ActiveCubeMove[];
+  baseGridSize: LogoGridSize;
   currentFilledVoxels: Set<string>;
   gridSize: number;
   homeFilledVoxels: Set<string>;
@@ -92,6 +94,7 @@ type SceneViewport = {
 };
 
 type NLogoIsoSceneProps = {
+  baseGridSize?: LogoGridSize;
   backgroundColor: string;
   className?: string;
   cubeSidePixels?: number;
@@ -138,15 +141,18 @@ function randomValueFrom<T>(values: readonly T[]): T | null {
 }
 
 function resolveSceneVoxelGrid({
+  baseGridSize = DEFAULT_LOGO_GRID_SIZE,
   fractalDepth,
   voxelGrid,
   voxelState,
 }: {
+  baseGridSize?: LogoGridSize;
   fractalDepth: number | undefined;
   voxelGrid: LogoVoxelGrid | undefined;
   voxelState: string;
 }): {
   filledVoxels: Set<string>;
+  baseGridSize: LogoGridSize;
   gridSize: number;
   recursiveRenderDepth: number | null;
 } {
@@ -157,24 +163,31 @@ function resolveSceneVoxelGrid({
 
   if (voxelGrid) {
     return {
+      baseGridSize,
       filledVoxels: new Set(voxelGrid.filledVoxels),
       gridSize: voxelGrid.gridSize,
       recursiveRenderDepth: null,
     };
   }
 
-  const filledVoxels = parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet();
+  const parsedVoxelState = parseVoxelState(voxelState);
+  const filledVoxels =
+    parsedVoxelState && parsedVoxelState.gridSize === baseGridSize
+      ? parsedVoxelState.filledVoxels
+      : createDefaultFilledVoxelSet(baseGridSize);
   if (normalizedFractalDepth > DEFAULT_LOGO_FRACTAL_DEPTH) {
     return {
+      baseGridSize,
       filledVoxels,
-      gridSize: GRID_SIZE,
+      gridSize: baseGridSize,
       recursiveRenderDepth: normalizedFractalDepth,
     };
   }
 
   return {
+    baseGridSize,
     filledVoxels,
-    gridSize: GRID_SIZE,
+    gridSize: baseGridSize,
     recursiveRenderDepth: null,
   };
 }
@@ -184,17 +197,19 @@ function getSceneRenderGridSize(sceneState: SceneState): number {
     return sceneState.gridSize;
   }
 
-  return getLogoFractalGridSize(sceneState.recursiveRenderDepth);
+  return getLogoFractalGridSize(sceneState.baseGridSize, sceneState.recursiveRenderDepth);
 }
 
 function getBoundedRecursiveCubeSidePixels({
   containerHeight,
   containerWidth,
+  baseGridSize,
   cubeSidePixels,
   recursiveRenderDepth,
 }: {
   containerHeight: number;
   containerWidth: number;
+  baseGridSize: LogoGridSize;
   cubeSidePixels: number;
   recursiveRenderDepth: number | null;
 }): number {
@@ -202,7 +217,7 @@ function getBoundedRecursiveCubeSidePixels({
     return cubeSidePixels;
   }
 
-  const renderGridSize = getLogoFractalGridSize(recursiveRenderDepth);
+  const renderGridSize = getLogoFractalGridSize(baseGridSize, recursiveRenderDepth);
   let nextCubeSidePixels = cubeSidePixels;
   while (nextCubeSidePixels > MIN_RECURSIVE_ISO_CUBE_SIDE_PX) {
     const frameMetrics = getLogoIsometricFrameMetrics(nextCubeSidePixels, renderGridSize);
@@ -375,6 +390,7 @@ function syncCubeShuffleAnimation(
 }
 
 export function LogoIsoThumbnail({
+  baseGridSize = DEFAULT_LOGO_GRID_SIZE,
   backgroundColor,
   className,
   cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
@@ -387,6 +403,7 @@ export function LogoIsoThumbnail({
   voxelGrid,
   voxelState,
 }: {
+  baseGridSize?: LogoGridSize;
   backgroundColor: string;
   className?: string;
   cubeSidePixels?: number;
@@ -415,6 +432,7 @@ export function LogoIsoThumbnail({
     }
 
     const resolvedVoxelGrid = resolveSceneVoxelGrid({
+      baseGridSize,
       fractalDepth,
       voxelGrid,
       voxelState,
@@ -425,7 +443,10 @@ export function LogoIsoThumbnail({
     const frameMetrics = getLogoIsometricFrameMetrics(
       renderCubeSidePixels,
       resolvedVoxelGrid.recursiveRenderDepth
-        ? getLogoFractalGridSize(resolvedVoxelGrid.recursiveRenderDepth)
+        ? getLogoFractalGridSize(
+            resolvedVoxelGrid.baseGridSize,
+            resolvedVoxelGrid.recursiveRenderDepth,
+          )
         : resolvedVoxelGrid.gridSize,
     );
     const rasterCanvas = document.createElement("canvas");
@@ -440,6 +461,7 @@ export function LogoIsoThumbnail({
 
     if (resolvedVoxelGrid.recursiveRenderDepth) {
       drawLogoIsometricRecursiveFrame({
+        baseGridSize: resolvedVoxelGrid.baseGridSize,
         backgroundColor,
         cubeSidePixels: renderCubeSidePixels,
         context: rasterContext,
@@ -466,6 +488,7 @@ export function LogoIsoThumbnail({
     context.drawImage(rasterCanvas, 0, 0, size, size);
   }, [
     backgroundColor,
+    baseGridSize,
     cubeSidePixels,
     faceColors,
     fractalDepth,
@@ -687,6 +710,7 @@ export function LogoIsoCubePixelEditor({
 }
 
 export function NLogoIsoScene({
+  baseGridSize = DEFAULT_LOGO_GRID_SIZE,
   backgroundColor,
   className,
   cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
@@ -706,6 +730,7 @@ export function NLogoIsoScene({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const baseGridSizeRef = useRef(baseGridSize);
   const backgroundColorRef = useRef(backgroundColor);
   const faceColorsRef = useRef(faceColors);
   const voxelEditingEnabledRef = useRef(voxelEditingEnabled);
@@ -779,6 +804,7 @@ export function NLogoIsoScene({
   }, [shuffleAnimation]);
 
   useEffect(() => {
+    baseGridSizeRef.current = baseGridSize;
     voxelGridRef.current = voxelGrid;
     voxelStateRef.current = voxelState;
     fractalDepthRef.current = fractalDepth;
@@ -789,16 +815,18 @@ export function NLogoIsoScene({
     }
 
     const nextVoxelGrid = resolveSceneVoxelGrid({
+      baseGridSize,
       fractalDepth,
       voxelGrid,
       voxelState,
     });
+    sceneState.baseGridSize = nextVoxelGrid.baseGridSize;
     sceneState.homeFilledVoxels = new Set(nextVoxelGrid.filledVoxels);
     sceneState.gridSize = nextVoxelGrid.gridSize;
     sceneState.recursiveRenderDepth = nextVoxelGrid.recursiveRenderDepth;
     resetShuffleAnimation(sceneState, lastMovedCubeKeyRef);
     renderSceneRef.current(performance.now());
-  }, [fractalDepth, voxelGrid, voxelState]);
+  }, [baseGridSize, fractalDepth, voxelGrid, voxelState]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -813,6 +841,7 @@ export function NLogoIsoScene({
     }
 
     const initialVoxelGrid = resolveSceneVoxelGrid({
+      baseGridSize: baseGridSizeRef.current,
       fractalDepth: fractalDepthRef.current,
       voxelGrid: voxelGridRef.current,
       voxelState: voxelStateRef.current,
@@ -832,6 +861,7 @@ export function NLogoIsoScene({
 
     sceneStateRef.current = {
       activeCubeMoves: [],
+      baseGridSize: initialVoxelGrid.baseGridSize,
       currentFilledVoxels: new Set(initialVoxelGrid.filledVoxels),
       gridSize: initialVoxelGrid.gridSize,
       homeFilledVoxels: new Set(initialVoxelGrid.filledVoxels),
@@ -861,6 +891,7 @@ export function NLogoIsoScene({
       const containerWidth = container.clientWidth || 640;
       const containerHeight = container.clientHeight || 768;
       const renderCubeSidePixels = getBoundedRecursiveCubeSidePixels({
+        baseGridSize: sceneState.baseGridSize,
         containerHeight,
         containerWidth,
         cubeSidePixels,
@@ -880,6 +911,7 @@ export function NLogoIsoScene({
 
       const visibleFaces = sceneState.recursiveRenderDepth
         ? drawLogoIsometricRecursiveFrame({
+            baseGridSize: sceneState.baseGridSize,
             backgroundColor: backgroundColorRef.current,
             cubeSidePixels: renderCubeSidePixels,
             context: offscreenContext,

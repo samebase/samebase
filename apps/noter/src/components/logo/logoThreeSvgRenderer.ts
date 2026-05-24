@@ -15,11 +15,13 @@ import {
 } from "./logoSurfaceModel";
 import {
   DEFAULT_LOGO_FRACTAL_DEPTH,
+  DEFAULT_LOGO_GRID_SIZE,
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_ROTATION_DEGREES,
-  GRID_SIZE,
   getLogoFractalGridSize,
   isWithinVoxelGrid,
+  readLogoGridSize,
+  type LogoGridSize,
   normalizeLogoFractalDepth,
   parseVoxelKey,
   type VoxelCoordinate,
@@ -211,12 +213,18 @@ function getSceneCubeCorners(gridSize: number): LogoWorldPoint[] {
   ];
 }
 
-function readBaseCoordinates(filledVoxels: ReadonlySet<string>): VoxelCoordinate[] {
+function readBaseCoordinates(
+  filledVoxels: ReadonlySet<string>,
+  baseGridSize: LogoGridSize,
+): VoxelCoordinate[] {
   const coordinates: VoxelCoordinate[] = [];
 
   for (const key of filledVoxels) {
     const coordinate = parseVoxelKey(key);
-    if (!coordinate || !isWithinVoxelGrid(GRID_SIZE, coordinate[0], coordinate[1], coordinate[2])) {
+    if (
+      !coordinate ||
+      !isWithinVoxelGrid(baseGridSize, coordinate[0], coordinate[1], coordinate[2])
+    ) {
       continue;
     }
 
@@ -259,7 +267,7 @@ function getProjectedScene({
   elevationDegrees = DEFAULT_ELEVATION_DEGREES,
   faceColors,
   filledVoxels,
-  gridSize = GRID_SIZE,
+  gridSize = DEFAULT_LOGO_GRID_SIZE,
   rotationDegrees = DEFAULT_ROTATION_DEGREES,
   viewBoxSize = LOGO_THREE_SVG_VIEWBOX_SIZE,
 }: {
@@ -306,7 +314,7 @@ function getProjectedScene({
 function createLogoProjectedQuadsWithProjector({
   faceColors,
   filledVoxels,
-  gridSize = GRID_SIZE,
+  gridSize = DEFAULT_LOGO_GRID_SIZE,
   projector,
 }: {
   faceColors: FaceColors;
@@ -361,7 +369,7 @@ export function createLogoThreeProjectedQuads({
   elevationDegrees = DEFAULT_ELEVATION_DEGREES,
   faceColors,
   filledVoxels,
-  gridSize = GRID_SIZE,
+  gridSize = DEFAULT_LOGO_GRID_SIZE,
   rotationDegrees = DEFAULT_ROTATION_DEGREES,
   viewBoxSize = LOGO_THREE_SVG_VIEWBOX_SIZE,
 }: {
@@ -423,7 +431,7 @@ export function createLogoThreeSvgMarkup({
   elevationDegrees = DEFAULT_ELEVATION_DEGREES,
   faceColors,
   filledVoxels,
-  gridSize = GRID_SIZE,
+  gridSize = DEFAULT_LOGO_GRID_SIZE,
   leftFaceStyle = DEFAULT_LOGO_LEFT_FACE_STYLE,
   rotationDegrees = DEFAULT_ROTATION_DEGREES,
   viewBoxSize = LOGO_THREE_SVG_VIEWBOX_SIZE,
@@ -439,9 +447,11 @@ export function createLogoThreeSvgMarkup({
   viewBoxSize?: number;
 }): string {
   const normalizedDepth = normalizeLogoFractalDepth(depth);
-  if (normalizedDepth > DEFAULT_LOGO_FRACTAL_DEPTH && gridSize === GRID_SIZE) {
+  const baseGridSize = readLogoGridSize(gridSize);
+  if (normalizedDepth > DEFAULT_LOGO_FRACTAL_DEPTH && baseGridSize !== null) {
     return createLogoThreeRecursiveSvgMarkup({
       backgroundColor,
+      baseGridSize,
       depth: normalizedDepth,
       elevationDegrees,
       faceColors,
@@ -740,13 +750,15 @@ function readStripedLeftFaceBackgroundColor(backgroundColor: string): string {
 }
 
 function getRecursiveChildCenter({
+  baseGridSize,
   childGridSize,
   coordinate,
 }: {
+  baseGridSize: LogoGridSize;
   childGridSize: number;
   coordinate: VoxelCoordinate;
 }): LogoWorldPoint {
-  const parentGridSize = childGridSize * GRID_SIZE;
+  const parentGridSize = childGridSize * baseGridSize;
   return {
     x: (coordinate[0] + 0.5) * childGridSize - parentGridSize / 2,
     y: (coordinate[1] + 0.5) * childGridSize - parentGridSize / 2,
@@ -771,21 +783,25 @@ function getProjectedTranslation({
 }
 
 function compareRecursiveCoordinates({
+  baseGridSize,
   childGridSize,
   left,
   projector,
   right,
 }: {
+  baseGridSize: LogoGridSize;
   childGridSize: number;
   left: VoxelCoordinate;
   projector: LogoProjector;
   right: VoxelCoordinate;
 }): number {
   const leftCenter = getRecursiveChildCenter({
+    baseGridSize,
     childGridSize,
     coordinate: left,
   });
   const rightCenter = getRecursiveChildCenter({
+    baseGridSize,
     childGridSize,
     coordinate: right,
   });
@@ -806,12 +822,14 @@ function compareRecursiveCoordinates({
 }
 
 function createRecursiveUseGroup({
+  baseGridSize,
   baseCoordinates,
   childGridSize,
   level,
   origin,
   projector,
 }: {
+  baseGridSize: LogoGridSize;
   baseCoordinates: readonly VoxelCoordinate[];
   childGridSize: number;
   level: number;
@@ -822,6 +840,7 @@ function createRecursiveUseGroup({
   const childUses = [...baseCoordinates]
     .sort((left, right) =>
       compareRecursiveCoordinates({
+        baseGridSize,
         childGridSize,
         left,
         projector,
@@ -830,7 +849,7 @@ function createRecursiveUseGroup({
     )
     .map((coordinate) => {
       const translation = getProjectedTranslation({
-        offset: getRecursiveChildCenter({ childGridSize, coordinate }),
+        offset: getRecursiveChildCenter({ baseGridSize, childGridSize, coordinate }),
         origin,
         projector,
       });
@@ -843,6 +862,7 @@ function createRecursiveUseGroup({
 
 function createLogoThreeRecursiveSvgMarkup({
   backgroundColor,
+  baseGridSize,
   depth,
   elevationDegrees,
   faceColors,
@@ -852,6 +872,7 @@ function createLogoThreeRecursiveSvgMarkup({
   viewBoxSize,
 }: {
   backgroundColor: string;
+  baseGridSize: LogoGridSize;
   depth: number;
   elevationDegrees: number;
   faceColors: FaceColors;
@@ -860,7 +881,7 @@ function createLogoThreeRecursiveSvgMarkup({
   rotationDegrees: number;
   viewBoxSize: number;
 }): string {
-  const fullGridSize = getLogoFractalGridSize(depth);
+  const fullGridSize = getLogoFractalGridSize(baseGridSize, depth);
   const projector = createLogoProjector({
     elevationDegrees,
     rotationDegrees,
@@ -868,11 +889,11 @@ function createLogoThreeRecursiveSvgMarkup({
     viewBoxSize,
   });
   const origin = projector.projectRotatedPoint({ x: 0, y: 0, z: 0 });
-  const baseCoordinates = readBaseCoordinates(filledVoxels);
+  const baseCoordinates = readBaseCoordinates(filledVoxels, baseGridSize);
   const baseQuads = createLogoProjectedQuadsWithProjector({
     faceColors,
     filledVoxels,
-    gridSize: GRID_SIZE,
+    gridSize: baseGridSize,
     projector,
   });
   const basePolygons = baseQuads
@@ -890,8 +911,9 @@ function createLogoThreeRecursiveSvgMarkup({
   for (let level = 2; level <= depth; level += 1) {
     recursiveGroups.push(
       createRecursiveUseGroup({
+        baseGridSize,
         baseCoordinates,
-        childGridSize: getLogoFractalGridSize(level - 1),
+        childGridSize: getLogoFractalGridSize(baseGridSize, level - 1),
         level,
         origin,
         projector,

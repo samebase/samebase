@@ -1,12 +1,15 @@
 import {
   FAVICON_ROTATION_DEGREES,
+  LOGO_GRID_SIZE_3,
   createFilledVoxelSet,
   serializeVoxelState,
+  type LogoGridSize,
   type VoxelCoordinate,
 } from "./logoVoxelState";
 import { type LogoFaceTreatment } from "./logoFaceTreatment";
 
 export const LOGO_THREE_SVG_VIEWBOX_SIZE = 360;
+export const STATIC_LOGO_GRID_SIZE: LogoGridSize = LOGO_GRID_SIZE_3;
 
 export const STATIC_LOGO_VOXEL_COORDINATES = [
   [1, 2, 0],
@@ -93,6 +96,7 @@ export function getLogoIdentityAssetPath({
 
 export const STATIC_LOGO_VOXEL_STATE = serializeVoxelState(
   createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES),
+  STATIC_LOGO_GRID_SIZE,
 );
 
 export const DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE = {

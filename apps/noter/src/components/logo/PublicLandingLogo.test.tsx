@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { getLogoRendererFractalDepthHardMax } from "@/components/logo/logoDepthLimits";
+import { STATIC_LOGO_GRID_SIZE } from "@/components/logo/logoStaticSvgContract";
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
 import { createLogoFractalVoxelGrid } from "@/components/logo/logoVoxelState";
 import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
@@ -181,7 +182,10 @@ describe("PublicLandingLogo", () => {
       search: {},
       themeMode: "light",
     });
-    const defaultVoxelGrid = createLogoFractalVoxelGrid({ depth: 1 });
+    const defaultVoxelGrid = createLogoFractalVoxelGrid({
+      depth: 1,
+      gridSize: STATIC_LOGO_GRID_SIZE,
+    });
 
     expect(logoImage.getAttribute("src")).toBe(
       `${createStaticLogoSvgDataUrl({
@@ -189,12 +193,12 @@ describe("PublicLandingLogo", () => {
         filledVoxels: defaultVoxelGrid.filledVoxels,
         gridSize: defaultVoxelGrid.gridSize,
         view: persistedView,
-      })}#${defaultLogoTheme.cacheKey}:1:1`,
+      })}#${defaultLogoTheme.cacheKey}:${STATIC_LOGO_GRID_SIZE}:1:1`,
     );
     expect(logoImage.getAttribute("src")).not.toBe(
       `${createStaticLogoSvgDataUrl({
         faceColors: defaultLogoTheme.faceColors,
-      })}#${defaultLogoTheme.cacheKey}:1:1`,
+      })}#${defaultLogoTheme.cacheKey}:${STATIC_LOGO_GRID_SIZE}:1:1`,
     );
   });
 
@@ -210,7 +214,10 @@ describe("PublicLandingLogo", () => {
       );
     });
 
-    const expectedVoxelGrid = createLogoFractalVoxelGrid({ depth: 2 });
+    const expectedVoxelGrid = createLogoFractalVoxelGrid({
+      depth: 2,
+      gridSize: STATIC_LOGO_GRID_SIZE,
+    });
     const defaultLogoTheme = resolveAppThemeColorState({
       search: {},
       themeMode: "light",
@@ -222,7 +229,7 @@ describe("PublicLandingLogo", () => {
           faceColors: defaultLogoTheme.faceColors,
           filledVoxels: expectedVoxelGrid.filledVoxels,
           gridSize: expectedVoxelGrid.gridSize,
-        })}#${defaultLogoTheme.cacheKey}:2:1`,
+        })}#${defaultLogoTheme.cacheKey}:${STATIC_LOGO_GRID_SIZE}:2:1`,
       ),
     );
   });
@@ -239,7 +246,10 @@ describe("PublicLandingLogo", () => {
       );
     });
 
-    const fallbackVoxelGrid = createLogoFractalVoxelGrid({ depth: 3 });
+    const fallbackVoxelGrid = createLogoFractalVoxelGrid({
+      depth: 3,
+      gridSize: STATIC_LOGO_GRID_SIZE,
+    });
     const defaultLogoTheme = resolveAppThemeColorState({
       search: {},
       themeMode: "light",
@@ -251,7 +261,7 @@ describe("PublicLandingLogo", () => {
           faceColors: defaultLogoTheme.faceColors,
           filledVoxels: fallbackVoxelGrid.filledVoxels,
           gridSize: fallbackVoxelGrid.gridSize,
-        })}#${defaultLogoTheme.cacheKey}:${getLogoRendererFractalDepthHardMax("three")}:1`,
+        })}#${defaultLogoTheme.cacheKey}:${STATIC_LOGO_GRID_SIZE}:${getLogoRendererFractalDepthHardMax("three")}:1`,
       ),
     );
   });
