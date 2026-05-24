@@ -38,11 +38,14 @@
 - Keep the main thread on the critical path. Split independent questions into narrowly scoped
   agents, ask for concise findings with file/command evidence, and merge only the conclusions needed
   for the next decision.
-- Use fast, inexpensive models for bounded research when the tooling supports model choice, and
-  reserve heavier reasoning for synthesis or difficult implementation.
+- Choose the model and isolation level by task. Fast models without a worktree are good for bounded
+  searches or summaries; xhigh agents with their own worktrees are appropriate for hard design,
+  verification, or implementation probes that need deep reasoning or editable experiments.
 - For experiments that may edit files, give each sub-agent an isolated worktree and a disjoint write
   scope. Have it report changed paths, and keep exploratory changes out of the main worktree until
   they are intentionally integrated.
+- Treat sub-agent output as a context filter: pull back only the important facts, tradeoffs,
+  evidence, and recommended next actions that serve the current goal.
 - Close sub-agent threads once findings are integrated. Do not paste raw logs or bulky technical
   detail into the main thread or final response unless the user asks for it.
 
