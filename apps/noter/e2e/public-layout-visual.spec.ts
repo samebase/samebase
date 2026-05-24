@@ -41,22 +41,23 @@ test("public landing header exposes the route URL editor", async ({ page }) => {
   const pageUrl = new URL(page.url());
   const origin = pageUrl.origin;
   const host = pageUrl.host;
-  const routeUrlInput = page.getByTestId("route-url-editor-input");
-  await expect(routeUrlInput).toHaveValue(`${host}/?dev`);
-  await expect(routeUrlInput).toHaveAttribute("title", `${origin}/?dev`);
+  const routeUrlDisplay = page.getByTestId("route-url-editor-display");
+  await expect(routeUrlDisplay).toHaveText(`${host}/?dev`);
+  await expect(routeUrlDisplay).toHaveAttribute("title", `${origin}/?dev`);
   await expect(page).toHaveScreenshot("public-layout-landing-dev.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",
     maxDiffPixelRatio: 0.03,
   });
-  await routeUrlInput.focus();
+  await routeUrlDisplay.click();
+  const routeUrlInput = page.getByTestId("route-url-editor-input");
   await expect(routeUrlInput).toHaveValue(`${origin}/?dev`);
 
   await page.getByRole("link", { name: "/terms", exact: true }).click();
   await expect(page).toHaveURL(/\/terms\?dev$/);
-  await expect(page.getByTestId("route-url-editor-input")).toHaveValue(`${host}/terms?dev`);
-  await expect(page.getByTestId("route-url-editor-input")).toHaveAttribute(
+  await expect(page.getByTestId("route-url-editor-display")).toHaveText(`${host}/terms?dev`);
+  await expect(page.getByTestId("route-url-editor-display")).toHaveAttribute(
     "title",
     `${origin}/terms?dev`,
   );
@@ -76,25 +77,25 @@ test("public route URL editor stays compact for long URLs", async ({ page }) => 
   const origin = pageUrl.origin;
   const host = pageUrl.host;
   const routeUrlEditor = page.getByTestId("route-url-editor");
-  const routeUrlInput = page.getByTestId("route-url-editor-input");
-  await expect(routeUrlInput).toHaveValue(`${host}${longPath}`);
-  await expect(routeUrlInput).toHaveAttribute("title", `${origin}${longPath}`);
+  const routeUrlDisplay = page.getByTestId("route-url-editor-display");
+  await expect(routeUrlDisplay).toHaveText(`${host}${longPath}`);
+  await expect(routeUrlDisplay).toHaveAttribute("title", `${origin}${longPath}`);
 
   const metrics = await routeUrlEditor.evaluate((element) => {
-    const input = element.querySelector('[data-testid="route-url-editor-input"]');
-    if (!(input instanceof HTMLInputElement)) {
-      throw new Error("Expected route URL editor input");
+    const display = element.querySelector('[data-testid="route-url-editor-display"]');
+    if (!(display instanceof HTMLButtonElement)) {
+      throw new Error("Expected route URL editor display");
     }
 
     return {
       height: element.getBoundingClientRect().height,
-      inputClientWidth: input.clientWidth,
-      inputScrollWidth: input.scrollWidth,
+      displayClientWidth: display.clientWidth,
+      displayScrollWidth: display.scrollWidth,
     };
   });
 
   expect(metrics.height).toBeLessThanOrEqual(32);
-  expect(metrics.inputScrollWidth).toBeGreaterThan(metrics.inputClientWidth);
+  expect(metrics.displayScrollWidth).toBeGreaterThan(metrics.displayClientWidth);
 });
 
 test("public landing ProseMark copy survives full selection deletion", async ({ page }) => {

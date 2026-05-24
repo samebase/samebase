@@ -35,6 +35,19 @@ async function dragHorizontalHandle(page: Page, testId: string, deltaXPx: number
   await page.mouse.up();
 }
 
+async function getRightToggleHeaderGap(page: Page, headerTestId: string) {
+  const header = page.getByTestId(headerTestId);
+  const toggleButton = page.getByRole("button", { name: "Toggle Right Sidebar" });
+  const headerBox = await header.boundingBox();
+  const toggleButtonBox = await toggleButton.boundingBox();
+
+  if (headerBox === null || toggleButtonBox === null) {
+    return Number.NaN;
+  }
+
+  return Math.abs(toggleButtonBox.x - (headerBox.x + headerBox.width));
+}
+
 test("fileview sidebar keeps local state across collapse", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 760 });
   await page.goto("/visual-fixture?mode=fileview-layout-persistence", {
@@ -59,24 +72,7 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
 
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).press("Enter");
   await expect
-    .poll(async () => {
-      const fixtureBox = await fixture.boundingBox();
-      const headerBox = await header.boundingBox();
-      const toggleButtonBox = await page
-        .getByRole("button", { name: "Toggle Right Sidebar" })
-        .boundingBox();
-
-      if (fixtureBox === null || headerBox === null || toggleButtonBox === null) {
-        return Number.NaN;
-      }
-
-      return Math.abs(
-        fixtureBox.x +
-          fixtureBox.width -
-          (headerBox.x + headerBox.width) -
-          (toggleButtonBox.width + 8),
-      );
-    })
+    .poll(async () => getRightToggleHeaderGap(page, "fileview-layout-header"))
     .toBeLessThanOrEqual(1);
 
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).press("Enter");
@@ -106,9 +102,7 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
         return Number.NaN;
       }
 
-      return Math.abs(
-        rightSidebarBox.x - (headerBox.x + headerBox.width) - (toggleButtonBox.width + 8),
-      );
+      return Math.abs(rightSidebarBox.x - (headerBox.x + headerBox.width) - toggleButtonBox.width);
     })
     .toBeLessThanOrEqual(1);
   await expect
@@ -144,24 +138,7 @@ test("fileview right sidebar collapses independently", async ({ page }) => {
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
   await expect(rightSidebar).toBeHidden();
   await expect
-    .poll(async () => {
-      const fixtureBox = await fixture.boundingBox();
-      const headerBox = await header.boundingBox();
-      const toggleButtonBox = await page
-        .getByRole("button", { name: "Toggle Right Sidebar" })
-        .boundingBox();
-
-      if (fixtureBox === null || headerBox === null || toggleButtonBox === null) {
-        return Number.NaN;
-      }
-
-      return Math.abs(
-        fixtureBox.x +
-          fixtureBox.width -
-          (headerBox.x + headerBox.width) -
-          (toggleButtonBox.width + 8),
-      );
-    })
+    .poll(async () => getRightToggleHeaderGap(page, "fileview-layout-header"))
     .toBeLessThanOrEqual(1);
 
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();

@@ -76,13 +76,13 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
   const pageUrl = new URL(page.url());
   const origin = pageUrl.origin;
   const host = pageUrl.host;
-  const routeUrlInput = mainPane.getByTestId("route-url-editor-input");
+  const routeUrlDisplay = mainPane.getByTestId("route-url-editor-display");
   const publicLinks = linksSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
 
   await expect(controlsSidebar).toBeVisible();
   await expect(controlsSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID)).toHaveCount(0);
-  await expect(routeUrlInput).toHaveValue(`${host}/logo`);
-  await expect(routeUrlInput).toHaveAttribute("title", `${origin}/logo`);
+  await expect(routeUrlDisplay).toHaveText(`${host}/logo`);
+  await expect(routeUrlDisplay).toHaveAttribute("title", `${origin}/logo`);
   await expect(linksSidebar).toBeVisible();
   await expect(publicLinks.getByRole("link", { name: "/home", exact: true })).toHaveAttribute(
     "href",
@@ -535,12 +535,12 @@ test("logo shape presets include seam stress models", async ({ page }) => {
   });
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
-  const shapeSelect = controlsSidebar.getByRole("combobox").filter({ hasText: "Checker Lattice" });
+  const shapeSelect = controlsSidebar.getByRole("combobox").filter({ hasText: "Checker 3" });
 
   await expect(shapeSelect).toBeVisible();
   await shapeSelect.click();
   await expect(page.getByText("Sierpinski Carpet", { exact: true })).toBeVisible();
-  await expect(page.getByText("Full Cube", { exact: true })).toBeVisible();
+  await expect(page.getByText("Full Cube 3", { exact: true })).toBeVisible();
   await page.getByText("Sierpinski Carpet", { exact: true }).click();
 
   await expect(
@@ -549,10 +549,10 @@ test("logo shape presets include seam stress models", async ({ page }) => {
   await expect(controlsSidebar).toContainText("xxx_xox_xxx-xox_ooo_xox-xxx_xox_xxx");
 
   await controlsSidebar.getByRole("combobox").filter({ hasText: "Sierpinski Carpet" }).click();
-  await page.getByText("Full Cube", { exact: true }).click();
+  await page.getByText("Full Cube 3", { exact: true }).click();
 
   await expect(
-    controlsSidebar.getByRole("combobox").filter({ hasText: "Full Cube" }),
+    controlsSidebar.getByRole("combobox").filter({ hasText: "Full Cube 3" }),
   ).toBeVisible();
   await expect(controlsSidebar).toContainText("xxx_xxx_xxx-xxx_xxx_xxx-xxx_xxx_xxx");
 });
