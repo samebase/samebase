@@ -734,7 +734,7 @@ export function RouteUrlEditor() {
         />
       ) : (
         <button
-          className="h-7 min-w-0 flex-1 truncate border-0 bg-transparent px-1 text-left font-mono text-sm leading-7 outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-7 min-w-0 flex-1 cursor-text truncate border-0 bg-transparent text-left font-mono text-sm leading-7 outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
           data-testid="route-url-editor-display"
           onClick={editDisplayedUrl}
           title={`${origin}${currentHref}`}
