@@ -26,79 +26,74 @@ export type LogoIsoCubePixelSpritePreset = {
   sprite: LogoIsoCubePixelSprite;
 };
 
-const LOGO_ISO_QUARTER_DIAGONAL_PIXELS = [
-  { x: 5, y: 10 },
-  { x: 6, y: 10 },
-  { x: 7, y: 10 },
-  { x: 8, y: 10 },
-  { x: 4, y: 11 },
-  { x: 5, y: 11 },
-  { x: 6, y: 11 },
-  { x: 4, y: 12 },
-  { x: 9, y: 12 },
-  { x: 10, y: 12 },
-  { x: 11, y: 12 },
-  { x: 7, y: 13 },
-  { x: 8, y: 13 },
-  { x: 9, y: 13 },
-  { x: 10, y: 13 },
-  { x: 5, y: 14 },
-  { x: 6, y: 14 },
-  { x: 7, y: 14 },
-  { x: 8, y: 14 },
-  { x: 4, y: 15 },
-  { x: 5, y: 15 },
-  { x: 6, y: 15 },
-  { x: 11, y: 15 },
-  { x: 9, y: 16 },
-  { x: 10, y: 16 },
-  { x: 11, y: 16 },
-  { x: 7, y: 17 },
-  { x: 8, y: 17 },
-  { x: 9, y: 17 },
-  { x: 10, y: 17 },
-] as const satisfies readonly LogoIsoCubePixelCoordinate[];
+const LOGO_ISO_CUBE_PIXEL_PATTERN_ORIGIN = {
+  x: 4,
+  y: 10,
+};
 
-const LOGO_ISO_QUARTER_DIAGONAL_MIRROR_PIXELS = [
-  { x: 4, y: 10 },
-  { x: 5, y: 10 },
-  { x: 6, y: 10 },
-  { x: 7, y: 10 },
-  { x: 8, y: 11 },
-  { x: 9, y: 11 },
-  { x: 10, y: 11 },
-  { x: 4, y: 12 },
-  { x: 5, y: 12 },
-  { x: 6, y: 12 },
-  { x: 11, y: 12 },
-  { x: 5, y: 13 },
-  { x: 6, y: 13 },
-  { x: 7, y: 13 },
-  { x: 8, y: 13 },
-  { x: 7, y: 14 },
-  { x: 8, y: 14 },
-  { x: 9, y: 14 },
-  { x: 10, y: 14 },
-  { x: 4, y: 15 },
-  { x: 9, y: 15 },
-  { x: 10, y: 15 },
-  { x: 11, y: 15 },
-  { x: 5, y: 16 },
-  { x: 6, y: 16 },
-  { x: 7, y: 16 },
-  { x: 8, y: 17 },
-  { x: 9, y: 17 },
-  { x: 10, y: 17 },
-  { x: 11, y: 17 },
-] as const satisfies readonly LogoIsoCubePixelCoordinate[];
+const LOGO_ISO_QUARTER_DIAGONAL_PATTERN = `
+.xxxx...
+xxx.....
+x....xxx
+...xxxx.
+.xxxx...
+xxx....x
+.....xxx
+...xxxx.
+`;
+
+const LOGO_ISO_QUARTER_DIAGONAL_MIRROR_PATTERN = `
+xxxx....
+....xxx.
+xxx....x
+.xxxx...
+...xxxx.
+x....xxx
+.xxx....
+....xxxx
+`;
 
 export function createLogoIsoCubePixelKey(x: number, y: number): string {
   return `${x},${y}`;
 }
 
-function createLogoIsoCubePixelSprite(
-  pixels: readonly LogoIsoCubePixelCoordinate[],
-): LogoIsoCubePixelSprite {
+function createLogoIsoCubePixelSpriteFromPattern({
+  cubeSidePixels,
+  pattern,
+}: {
+  cubeSidePixels: number;
+  pattern: string;
+}): LogoIsoCubePixelSprite {
+  const rows = pattern.trim().split("\n");
+  const pixels: LogoIsoCubePixelCoordinate[] = [];
+
+  if (rows.length !== cubeSidePixels) {
+    throw new Error(`Expected ${cubeSidePixels} sprite rows, received ${rows.length}`);
+  }
+
+  for (const [rowIndex, row] of rows.entries()) {
+    if (row.length !== cubeSidePixels) {
+      throw new Error(
+        `Expected row ${rowIndex} to have ${cubeSidePixels} pixels, received ${row.length}`,
+      );
+    }
+
+    for (const [columnIndex, pixelToken] of Array.from(row).entries()) {
+      if (pixelToken === ".") {
+        continue;
+      }
+
+      if (pixelToken !== "x") {
+        throw new Error(`Unsupported sprite token "${pixelToken}" at ${columnIndex},${rowIndex}`);
+      }
+
+      pixels.push({
+        x: LOGO_ISO_CUBE_PIXEL_PATTERN_ORIGIN.x + columnIndex,
+        y: LOGO_ISO_CUBE_PIXEL_PATTERN_ORIGIN.y + rowIndex,
+      });
+    }
+  }
+
   return {
     pixelKeys: new Set(pixels.map((pixel) => createLogoIsoCubePixelKey(pixel.x, pixel.y))),
   };
@@ -109,13 +104,19 @@ export const LOGO_ISO_CUBE_PIXEL_SPRITE_PRESETS = [
     cubeSidePixels: 8,
     id: "quarter-diagonal",
     label: "Quarter diag",
-    sprite: createLogoIsoCubePixelSprite(LOGO_ISO_QUARTER_DIAGONAL_PIXELS),
+    sprite: createLogoIsoCubePixelSpriteFromPattern({
+      cubeSidePixels: 8,
+      pattern: LOGO_ISO_QUARTER_DIAGONAL_PATTERN,
+    }),
   },
   {
     cubeSidePixels: 8,
     id: "quarter-diagonal-mirror",
     label: "Mirror diag",
-    sprite: createLogoIsoCubePixelSprite(LOGO_ISO_QUARTER_DIAGONAL_MIRROR_PIXELS),
+    sprite: createLogoIsoCubePixelSpriteFromPattern({
+      cubeSidePixels: 8,
+      pattern: LOGO_ISO_QUARTER_DIAGONAL_MIRROR_PATTERN,
+    }),
   },
 ] as const satisfies readonly LogoIsoCubePixelSpritePreset[];
 
