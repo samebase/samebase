@@ -40,32 +40,32 @@ const LOGO_ISO_CUBE_PIXEL_PATTERN_FRAME_PADDING = 4;
 
 const LOGO_ISO_QUARTER_DIAGONAL_PATTERN = `
 .
-...
-.xxxx
-xxx....
-x....xxx
-...xxxx.
-.xxxx...
-xxx....x
- ....xxx
-   xxxx.
+..x
+xxxx.
+xx....x
+....xxxx
+..xxxx..
+xxxx....
+xx....xx
+ ...xxxx
+   xxx..
      ...
-       .
+       x
 `;
 
 const LOGO_ISO_QUARTER_DIAGONAL_MIRROR_PATTERN = `
 .
-...
-xxxx.
-....xxx
-xxx....x
-.xxxx...
-...xxxx.
-x....xxx
- .xxx...
-   .xxxx
+x..
+.xxxx
+x....xx
+xxxx....
+..xxxx..
+....xxxx
+xx....xx
+ xxxx...
+   ..xxx
      ...
-       .
+       x
 `;
 
 export function createLogoIsoCubePixelKey(x: number, y: number): string {
