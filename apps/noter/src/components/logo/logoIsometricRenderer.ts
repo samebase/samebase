@@ -10,6 +10,10 @@ import {
   voxelKey,
 } from "@/components/logo/logoVoxelState";
 import { getTailwindColorHex, type FaceColors } from "@/components/logo/logoTailwindColors";
+import {
+  parseLogoIsoPixelKey,
+  type LogoIsoPixelOverlay,
+} from "@/components/logo/logoIsoPixelOverlay";
 
 const FRAME_PADDING = 4;
 export const DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX = 16;
@@ -387,13 +391,39 @@ function getStyledFaceRowSpans(polygon: readonly Point[], capWidth: 2 | 3 | 4): 
   return widenCapRows(collectPolygonRowSpans(polygon), capWidth);
 }
 
-function fillStyledFace(
-  context: CanvasRenderingContext2D,
-  polygon: readonly Point[],
-  fillStyle: string,
-  capWidth: 2 | 3 | 4,
-) {
-  fillRowSpans(context, getStyledFaceRowSpans(polygon, capWidth), fillStyle);
+function fillIsoPixelOverlay({
+  context,
+  fillStyle,
+  frameMetrics,
+  maskRowSpans,
+  pixelOverlay,
+}: {
+  context: CanvasRenderingContext2D;
+  fillStyle: string;
+  frameMetrics: LogoIsometricFrameMetrics;
+  maskRowSpans: readonly RowSpan[];
+  pixelOverlay: LogoIsoPixelOverlay | undefined;
+}) {
+  if (!pixelOverlay || pixelOverlay.pixelKeys.size === 0) {
+    return;
+  }
+
+  context.fillStyle = fillStyle;
+  for (const pixelKey of pixelOverlay.pixelKeys) {
+    const pixel = parseLogoIsoPixelKey(pixelKey);
+    if (
+      !pixel ||
+      pixel.x < 0 ||
+      pixel.x >= frameMetrics.canvasWidth ||
+      pixel.y < 0 ||
+      pixel.y >= frameMetrics.canvasHeight ||
+      !isPointInsideRowSpans(pixel.x + 0.5, pixel.y + 0.5, maskRowSpans)
+    ) {
+      continue;
+    }
+
+    context.fillRect(pixel.x, pixel.y, 1, 1);
+  }
 }
 
 function escapeSvgAttribute(value: string): string {
@@ -796,6 +826,7 @@ export function createLogoIsometricRecursiveCanvas({
   faceColors,
   filledVoxels,
   movingVoxels = [],
+  pixelOverlay,
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
 }: {
   cubeSidePixels?: number;
@@ -803,6 +834,7 @@ export function createLogoIsometricRecursiveCanvas({
   faceColors: FaceColors;
   filledVoxels: ReadonlySet<string>;
   movingVoxels?: readonly IsometricMovingVoxel[];
+  pixelOverlay?: LogoIsoPixelOverlay;
   styleId?: LogoIsometricStyleId;
 }): {
   canvas: HTMLCanvasElement;
@@ -828,6 +860,7 @@ export function createLogoIsometricRecursiveCanvas({
     gridSize: GRID_SIZE,
     movingVoxels,
     paintBackground: false,
+    pixelOverlay,
     styleId,
   });
 
@@ -875,6 +908,7 @@ export function drawLogoIsometricFrame({
   gridSize = GRID_SIZE,
   movingVoxels = [],
   paintBackground = true,
+  pixelOverlay,
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
 }: {
   backgroundColor: string;
@@ -885,6 +919,7 @@ export function drawLogoIsometricFrame({
   gridSize?: number;
   movingVoxels?: readonly IsometricMovingVoxel[];
   paintBackground?: boolean;
+  pixelOverlay?: LogoIsoPixelOverlay;
   styleId?: LogoIsometricStyleId;
 }): readonly IsometricVisibleFace[] {
   const style = getLogoIsometricStyle(styleId);
@@ -896,14 +931,33 @@ export function drawLogoIsometricFrame({
     ...buildStaticRenderFaces(filledVoxels, faceColors, frameMetrics, gridSize),
     ...buildMovingRenderFaces(filledVoxels, faceColors, frameMetrics, gridSize, movingVoxels),
   ].sort(compareRenderFaces);
+  const visibleFaces: IsometricVisibleFace[] = [];
+  const pixelOverlayMaskRowSpans: RowSpan[] = [];
 
   for (const renderFace of renderFaces) {
-    fillStyledFace(context, renderFace.polygon, renderFace.color, style.capWidth);
+    const hitRows = getStyledFaceRowSpans(renderFace.polygon, style.capWidth);
+    fillRowSpans(context, hitRows, renderFace.color);
+    pixelOverlayMaskRowSpans.push(...hitRows);
+    visibleFaces.push({
+      coordinate: renderFace.coordinate,
+      direction: renderFace.direction,
+      hitRows,
+      normal: renderFace.normal,
+      polygon: renderFace.polygon,
+    });
   }
 
   if (style.edgeMode === "shaded") {
     applyShadedEdges(context, frameMetrics);
   }
+
+  fillIsoPixelOverlay({
+    context,
+    fillStyle: getTailwindColorHex(faceColors.right),
+    frameMetrics,
+    maskRowSpans: pixelOverlayMaskRowSpans,
+    pixelOverlay,
+  });
 
   if (paintBackground) {
     context.save();
@@ -913,13 +967,7 @@ export function drawLogoIsometricFrame({
     context.restore();
   }
 
-  return renderFaces.map(({ coordinate, direction, normal, polygon }) => ({
-    coordinate,
-    direction,
-    hitRows: getStyledFaceRowSpans(polygon, style.capWidth),
-    normal,
-    polygon,
-  }));
+  return visibleFaces;
 }
 
 export function drawLogoIsometricRecursiveFrame({
@@ -929,6 +977,7 @@ export function drawLogoIsometricRecursiveFrame({
   faceColors,
   filledVoxels,
   movingVoxels = [],
+  pixelOverlay,
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
   cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
 }: {
@@ -938,6 +987,7 @@ export function drawLogoIsometricRecursiveFrame({
   faceColors: FaceColors;
   filledVoxels: ReadonlySet<string>;
   movingVoxels?: readonly IsometricMovingVoxel[];
+  pixelOverlay?: LogoIsoPixelOverlay;
   styleId?: LogoIsometricStyleId;
   cubeSidePixels?: number;
 }): readonly IsometricVisibleFace[] {
@@ -951,6 +1001,7 @@ export function drawLogoIsometricRecursiveFrame({
       faceColors,
       filledVoxels,
       movingVoxels,
+      pixelOverlay,
       styleId,
     });
   }
@@ -961,6 +1012,7 @@ export function drawLogoIsometricRecursiveFrame({
     faceColors,
     filledVoxels,
     movingVoxels,
+    pixelOverlay,
     styleId,
   });
 

@@ -5,6 +5,12 @@ import {
 } from "@/components/logo/NLogoScene";
 import { NLogoRasterScene } from "@/components/logo/NLogoRasterScene";
 import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
+import {
+  applyLogoIsoPixelOverlayPaint,
+  type LogoIsoPixelOverlay,
+  type LogoIsoPixelOverlayEditKind,
+  type LogoIsoPixelOverlayPaint,
+} from "@/components/logo/logoIsoPixelOverlay";
 import { LogoIsoThumbnail, NLogoIsoScene } from "@/components/logo/NLogoIsoScene";
 import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
@@ -523,6 +529,8 @@ type LogoPreviewLocalStoreState = {
   isLeftFaceStripeAnimationEnabled: boolean;
   isSceneInteracting: boolean;
   isShuffleEnabled: boolean;
+  isoPixelOverlaysByCubeSide: ReadonlyMap<number, LogoIsoPixelOverlay>;
+  isoPixelTool: LogoIsoPixelOverlayEditKind | null;
   logoOpacity: number;
   shuffleParallelMoves: LogoShuffleParallelMoves;
 };
@@ -559,6 +567,8 @@ function readLogoPreviewLocalStoreState(): LogoPreviewLocalStoreState {
     isLeftFaceStripeAnimationEnabled: false,
     isSceneInteracting: false,
     isShuffleEnabled: false,
+    isoPixelOverlaysByCubeSide: new Map(),
+    isoPixelTool: null,
     logoOpacity: DEFAULT_LOGO_OPACITY,
     shuffleParallelMoves: 3,
   };
@@ -673,6 +683,41 @@ function useLogoPreviewStore() {
         isFaceColorAnimationEnabled,
       }));
     },
+    clearIsoPixelOverlay: (cubeSidePixels: number) => {
+      setState((state) => {
+        if (!state.isoPixelOverlaysByCubeSide.has(cubeSidePixels)) {
+          return state;
+        }
+
+        const isoPixelOverlaysByCubeSide = new Map(state.isoPixelOverlaysByCubeSide);
+        isoPixelOverlaysByCubeSide.delete(cubeSidePixels);
+        return {
+          ...state,
+          isoPixelOverlaysByCubeSide,
+        };
+      });
+    },
+    paintIsoPixelOverlay: (paint: LogoIsoPixelOverlayPaint) => {
+      setState((state) => {
+        const currentOverlay = state.isoPixelOverlaysByCubeSide.get(paint.cubeSidePixels);
+        const nextOverlay = applyLogoIsoPixelOverlayPaint(currentOverlay, paint);
+        if (nextOverlay === currentOverlay) {
+          return state;
+        }
+
+        const isoPixelOverlaysByCubeSide = new Map(state.isoPixelOverlaysByCubeSide);
+        if (nextOverlay) {
+          isoPixelOverlaysByCubeSide.set(paint.cubeSidePixels, nextOverlay);
+        } else {
+          isoPixelOverlaysByCubeSide.delete(paint.cubeSidePixels);
+        }
+
+        return {
+          ...state,
+          isoPixelOverlaysByCubeSide,
+        };
+      });
+    },
     setLeftFaceStripeAnimationEnabled: (isLeftFaceStripeAnimationEnabled: boolean) => {
       setState((state) => ({
         ...state,
@@ -683,6 +728,12 @@ function useLogoPreviewStore() {
       setState((state) => ({
         ...state,
         logoOpacity: clampLogoOpacity(logoOpacity),
+      }));
+    },
+    setIsoPixelTool: (isoPixelTool: LogoIsoPixelOverlayEditKind | null) => {
+      setState((state) => ({
+        ...state,
+        isoPixelTool,
       }));
     },
     setSceneInteracting: (isSceneInteracting: boolean) => {
@@ -810,10 +861,12 @@ function useLogoPreviewController({
           };
         });
       },
+      clearIsoPixelOverlay: store.actions.clearIsoPixelOverlay,
       endSceneInteraction: () => {
         store.actions.setSceneInteracting(false);
         pacedRouteState.commitCurrent();
       },
+      paintIsoPixelOverlay: store.actions.paintIsoPixelOverlay,
       resetView: () => {
         store.actions.setAutoRotating(false);
         commitRouteState((currentState) => ({
@@ -859,7 +912,10 @@ function useLogoPreviewController({
 
         pacedRouteState.commitCurrent();
       },
-      setEditMode: store.actions.setEditMode,
+      setEditMode: (editMode: VoxelEdit["kind"]) => {
+        store.actions.setIsoPixelTool(null);
+        store.actions.setEditMode(editMode);
+      },
       setElevationDegrees: (elevationDegrees: number) => {
         store.actions.setAutoRotating(false);
         debounceRouteState((currentState) =>
@@ -894,6 +950,12 @@ function useLogoPreviewController({
           ...currentState,
           isoStyleId,
         }));
+      },
+      setIsoPixelTool: (isoPixelTool: LogoIsoPixelOverlayEditKind | null) => {
+        if (isoPixelTool) {
+          store.actions.setShuffleEnabled(false);
+        }
+        store.actions.setIsoPixelTool(isoPixelTool);
       },
       setLeftFaceStyleKind: (kind: LogoLeftFaceStyleKind) => {
         commitRouteState((currentState) => {
@@ -995,7 +1057,12 @@ function useLogoPreviewController({
           }),
         );
       },
-      setShuffleEnabled: store.actions.setShuffleEnabled,
+      setShuffleEnabled: (isShuffleEnabled: boolean) => {
+        if (isShuffleEnabled) {
+          store.actions.setIsoPixelTool(null);
+        }
+        store.actions.setShuffleEnabled(isShuffleEnabled);
+      },
       setShuffleParallelMoves: store.actions.setShuffleParallelMoves,
       setThemeColorFamily: (themeColorKey: LogoThemeColorKey, nextFamily: string) => {
         commitRouteState((currentState) => ({
@@ -1323,6 +1390,8 @@ export function LogoPreviewPage({
     parallelMoves: state.shuffleParallelMoves,
   };
   const stripedLeftFaceStyle = state.leftFaceStyle.kind === "striped" ? state.leftFaceStyle : null;
+  const isoPixelOverlay = state.isoPixelOverlaysByCubeSide.get(state.isoCubeSidePixels);
+  const isoPixelCount = isoPixelOverlay ? isoPixelOverlay.pixelKeys.size : 0;
 
   const modeSearch = preserveLogoRouteDevModeSearch(
     buildLogoRouteSearch({
@@ -1346,11 +1415,17 @@ export function LogoPreviewPage({
     renderMode === "iso" ? (
       <NLogoIsoScene
         backgroundColor={backgroundColor}
-        className="absolute inset-0 h-full w-full touch-none select-none"
+        className={cn(
+          "absolute inset-0 h-full w-full touch-none select-none",
+          state.isoPixelTool && !isRecursiveDepth ? "cursor-crosshair" : "",
+        )}
         cubeSidePixels={state.isoCubeSidePixels}
         editMode={state.editMode}
         faceColors={faceColors}
         fractalDepth={state.fractalDepth}
+        isoPixelOverlay={isoPixelOverlay}
+        isoPixelTool={isRecursiveDepth ? null : state.isoPixelTool}
+        onIsoPixelOverlayPaint={controls.paintIsoPixelOverlay}
         onVoxelEdit={controls.editVoxel}
         shuffleAnimation={shuffleAnimation}
         styleId={state.isoStyleId}
@@ -1648,6 +1723,53 @@ export function LogoPreviewPage({
             </Select>
           </div>
 
+          <div className={LOGO_CONTROL_STACK_CLASS_NAME} data-testid="logo-iso-pixel-controls">
+            <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+              <span>Pixels</span>
+              <span>{isoPixelCount}</span>
+            </div>
+            <div className={LOGO_CONTROL_BUTTON_ROW_CLASS_NAME}>
+              <Button
+                type="button"
+                size="sm"
+                variant={state.isoPixelTool === "draw" ? "default" : "outline"}
+                className={LOGO_CONTROL_BUTTON_CLASS_NAME}
+                aria-pressed={state.isoPixelTool === "draw"}
+                disabled={isRecursiveDepth}
+                onClick={() => {
+                  controls.setIsoPixelTool(state.isoPixelTool === "draw" ? null : "draw");
+                }}
+              >
+                Draw
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={state.isoPixelTool === "erase" ? "default" : "outline"}
+                className={LOGO_CONTROL_BUTTON_CLASS_NAME}
+                aria-pressed={state.isoPixelTool === "erase"}
+                disabled={isRecursiveDepth}
+                onClick={() => {
+                  controls.setIsoPixelTool(state.isoPixelTool === "erase" ? null : "erase");
+                }}
+              >
+                Erase
+              </Button>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="w-full rounded-none"
+              disabled={isoPixelCount === 0}
+              onClick={() => {
+                controls.clearIsoPixelOverlay(state.isoCubeSidePixels);
+              }}
+            >
+              Clear pixels
+            </Button>
+          </div>
+
           <div className="flex flex-wrap items-end gap-3">
             {[16, 32, 64].map((size) => (
               <div key={size} className="flex flex-col items-center gap-1">
@@ -1657,6 +1779,7 @@ export function LogoPreviewPage({
                     cubeSidePixels={state.isoCubeSidePixels}
                     faceColors={faceColors}
                     fractalDepth={state.fractalDepth}
+                    isoPixelOverlay={isoPixelOverlay}
                     size={size}
                     styleId={state.isoStyleId}
                     voxelState={state.voxelState}

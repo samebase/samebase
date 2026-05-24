@@ -14,6 +14,12 @@ import {
   type IsometricVisibleFace,
   type LogoIsometricStyleId,
 } from "@/components/logo/logoIsometricRenderer";
+import {
+  type LogoIsoPixelCoordinate,
+  type LogoIsoPixelOverlay,
+  type LogoIsoPixelOverlayEditKind,
+  type LogoIsoPixelOverlayPaint,
+} from "@/components/logo/logoIsoPixelOverlay";
 import { type FaceColors } from "@/components/logo/logoTailwindColors";
 import {
   createDefaultFilledVoxelSet,
@@ -66,12 +72,15 @@ type SceneState = {
 
 type SceneInteraction = {
   button: 0 | 2 | null;
+  lastPixel: LogoIsoPixelCoordinate | null;
   pointerId: number | null;
   startX: number;
   startY: number;
 };
 
 type SceneViewport = {
+  canvasHeight: number;
+  canvasWidth: number;
   faces: readonly IsometricVisibleFace[];
   offsetX: number;
   offsetY: number;
@@ -85,6 +94,9 @@ type NLogoIsoSceneProps = {
   editMode: VoxelEdit["kind"];
   faceColors: FaceColors;
   fractalDepth?: number;
+  isoPixelOverlay?: LogoIsoPixelOverlay;
+  isoPixelTool?: LogoIsoPixelOverlayEditKind | null;
+  onIsoPixelOverlayPaint: (paint: LogoIsoPixelOverlayPaint) => void;
   onVoxelEdit: (edit: VoxelEdit) => void;
   shuffleAnimation: LogoShuffleAnimationConfig;
   styleId?: LogoIsometricStyleId;
@@ -224,6 +236,36 @@ function getIsoFramePixelScale({
   return Math.max(1, Math.floor(rawScale));
 }
 
+function getIsoPixelLine(
+  from: LogoIsoPixelCoordinate,
+  to: LogoIsoPixelCoordinate,
+): readonly LogoIsoPixelCoordinate[] {
+  const pixels: LogoIsoPixelCoordinate[] = [];
+  let x = from.x;
+  let y = from.y;
+  const dx = Math.abs(to.x - from.x);
+  const sx = from.x < to.x ? 1 : -1;
+  const dy = -Math.abs(to.y - from.y);
+  const sy = from.y < to.y ? 1 : -1;
+  let error = dx + dy;
+
+  pixels.push({ x, y });
+  while (x !== to.x || y !== to.y) {
+    const doubledError = error * 2;
+    if (doubledError >= dy) {
+      error += dy;
+      x += sx;
+    }
+    if (doubledError <= dx) {
+      error += dx;
+      y += sy;
+    }
+    pixels.push({ x, y });
+  }
+
+  return pixels;
+}
+
 function resetShuffleAnimation(
   sceneState: SceneState,
   lastMovedCubeKeyRef: MutableRefObject<string | null>,
@@ -335,6 +377,7 @@ export function LogoIsoThumbnail({
   dataTestId,
   faceColors,
   fractalDepth,
+  isoPixelOverlay,
   size,
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
   voxelGrid,
@@ -346,6 +389,7 @@ export function LogoIsoThumbnail({
   dataTestId?: string;
   faceColors: FaceColors;
   fractalDepth?: number;
+  isoPixelOverlay?: LogoIsoPixelOverlay;
   size: number;
   styleId?: LogoIsometricStyleId;
   voxelGrid?: LogoVoxelGrid;
@@ -398,6 +442,7 @@ export function LogoIsoThumbnail({
         depth: resolvedVoxelGrid.recursiveRenderDepth,
         faceColors,
         filledVoxels: resolvedVoxelGrid.filledVoxels,
+        pixelOverlay: isoPixelOverlay,
         styleId,
       });
     } else {
@@ -408,6 +453,7 @@ export function LogoIsoThumbnail({
         faceColors,
         filledVoxels: resolvedVoxelGrid.filledVoxels,
         gridSize: resolvedVoxelGrid.gridSize,
+        pixelOverlay: isoPixelOverlay,
         styleId,
       });
     }
@@ -419,6 +465,7 @@ export function LogoIsoThumbnail({
     cubeSidePixels,
     faceColors,
     fractalDepth,
+    isoPixelOverlay,
     size,
     styleId,
     voxelGrid,
@@ -448,6 +495,9 @@ export function NLogoIsoScene({
   editMode,
   faceColors,
   fractalDepth,
+  isoPixelOverlay,
+  isoPixelTool = null,
+  onIsoPixelOverlayPaint,
   onVoxelEdit,
   shuffleAnimation,
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
@@ -462,9 +512,12 @@ export function NLogoIsoScene({
   const faceColorsRef = useRef(faceColors);
   const voxelEditingEnabledRef = useRef(voxelEditingEnabled);
   const fractalDepthRef = useRef(fractalDepth);
+  const isoPixelOverlayRef = useRef(isoPixelOverlay);
+  const isoPixelToolRef = useRef(isoPixelTool);
   const voxelGridRef = useRef(voxelGrid);
   const voxelStateRef = useRef(voxelState);
   const shuffleAnimationRef = useRef(shuffleAnimation);
+  const onIsoPixelOverlayPaintRef = useRef(onIsoPixelOverlayPaint);
   const onVoxelEditRef = useRef(onVoxelEdit);
   const sceneStateRef = useRef<SceneState | null>(null);
   const viewportRef = useRef<SceneViewport | null>(null);
@@ -473,6 +526,7 @@ export function NLogoIsoScene({
   const lastMovedCubeKeyRef = useRef<string | null>(null);
   const interactionRef = useRef<SceneInteraction>({
     button: null,
+    lastPixel: null,
     pointerId: null,
     startX: 0,
     startY: 0,
@@ -489,12 +543,25 @@ export function NLogoIsoScene({
   }, [faceColors]);
 
   useEffect(() => {
+    isoPixelOverlayRef.current = isoPixelOverlay;
+    renderSceneRef.current(performance.now());
+  }, [isoPixelOverlay]);
+
+  useEffect(() => {
+    isoPixelToolRef.current = isoPixelTool;
+  }, [isoPixelTool]);
+
+  useEffect(() => {
     voxelEditingEnabledRef.current = voxelEditingEnabled;
   }, [voxelEditingEnabled]);
 
   useEffect(() => {
     onVoxelEditRef.current = onVoxelEdit;
   }, [onVoxelEdit]);
+
+  useEffect(() => {
+    onIsoPixelOverlayPaintRef.current = onIsoPixelOverlayPaint;
+  }, [onIsoPixelOverlayPaint]);
 
   useEffect(() => {
     const wasEnabled = shuffleAnimationRef.current.enabled;
@@ -621,6 +688,7 @@ export function NLogoIsoScene({
             faceColors: faceColorsRef.current,
             filledVoxels: sceneState.currentFilledVoxels,
             movingVoxels,
+            pixelOverlay: isoPixelOverlayRef.current,
             styleId,
           })
         : drawLogoIsometricFrame({
@@ -631,6 +699,7 @@ export function NLogoIsoScene({
             filledVoxels: sceneState.currentFilledVoxels,
             gridSize: sceneState.gridSize,
             movingVoxels,
+            pixelOverlay: isoPixelOverlayRef.current,
             styleId,
           });
 
@@ -656,6 +725,8 @@ export function NLogoIsoScene({
       context.drawImage(offscreenCanvas, offsetX, offsetY, drawWidth, drawHeight);
 
       viewportRef.current = {
+        canvasHeight: frameMetrics.canvasHeight,
+        canvasWidth: frameMetrics.canvasWidth,
         faces: visibleFaces,
         offsetX,
         offsetY,
@@ -733,6 +804,7 @@ export function NLogoIsoScene({
 
     interactionRef.current = {
       button: null,
+      lastPixel: null,
       pointerId: null,
       startX: 0,
       startY: 0,
@@ -763,6 +835,61 @@ export function NLogoIsoScene({
     return null;
   };
 
+  const pickIsoPixel = (clientX: number, clientY: number): LogoIsoPixelCoordinate | null => {
+    if (!voxelEditingEnabledRef.current || shuffleAnimationRef.current.enabled) {
+      return null;
+    }
+
+    const canvas = canvasRef.current;
+    const viewport = viewportRef.current;
+    if (!canvas || !viewport) {
+      return null;
+    }
+
+    const canvasRect = canvas.getBoundingClientRect();
+    const x = Math.floor((clientX - canvasRect.left - viewport.offsetX) / viewport.pixelScale);
+    const y = Math.floor((clientY - canvasRect.top - viewport.offsetY) / viewport.pixelScale);
+
+    if (x < 0 || x >= viewport.canvasWidth || y < 0 || y >= viewport.canvasHeight) {
+      return null;
+    }
+
+    const isInsideVisibleLogo = viewport.faces.some((face) =>
+      isPointInsideRowSpans(x + 0.5, y + 0.5, face.hitRows),
+    );
+    if (!isInsideVisibleLogo) {
+      return null;
+    }
+
+    return { x, y };
+  };
+
+  const paintIsoPixel = (clientX: number, clientY: number, button: 0 | 2): boolean => {
+    const tool = isoPixelToolRef.current;
+    const viewport = viewportRef.current;
+    if (!tool || !viewport) {
+      return false;
+    }
+
+    const pixel = pickIsoPixel(clientX, clientY);
+    if (!pixel) {
+      interactionRef.current.lastPixel = null;
+      return true;
+    }
+
+    const previousPixel = interactionRef.current.lastPixel;
+    const pixels = previousPixel ? getIsoPixelLine(previousPixel, pixel) : [pixel];
+    onIsoPixelOverlayPaintRef.current({
+      canvasHeight: viewport.canvasHeight,
+      canvasWidth: viewport.canvasWidth,
+      cubeSidePixels,
+      kind: button === 2 ? "erase" : tool,
+      pixels,
+    });
+    interactionRef.current.lastPixel = pixel;
+    return true;
+  };
+
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 && event.button !== 2) {
       return;
@@ -771,15 +898,36 @@ export function NLogoIsoScene({
     event.currentTarget.setPointerCapture(event.pointerId);
     interactionRef.current = {
       button: event.button,
+      lastPixel: null,
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
     };
+
+    if (isoPixelToolRef.current) {
+      paintIsoPixel(event.clientX, event.clientY, event.button);
+    }
+  };
+
+  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const interaction = interactionRef.current;
+    if (interaction.pointerId !== event.pointerId || interaction.button === null) {
+      return;
+    }
+
+    if (isoPixelToolRef.current) {
+      paintIsoPixel(event.clientX, event.clientY, interaction.button);
+    }
   };
 
   const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
     const interaction = interactionRef.current;
     if (interaction.pointerId !== event.pointerId || interaction.button === null) {
+      return;
+    }
+
+    if (isoPixelToolRef.current) {
+      resetInteraction(event.currentTarget, event.pointerId);
       return;
     }
 
@@ -838,6 +986,7 @@ export function NLogoIsoScene({
       onContextMenu={handleContextMenu}
       onPointerCancel={handlePointerCancel}
       onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
     >
       <canvas ref={canvasRef} className="block h-full w-full" data-logo-renderer="iso" />
