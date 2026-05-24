@@ -46,6 +46,9 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/logo");
     expect(suggestions).not.toContain("/add");
+    expect(suggestions).not.toContain("/landing-preview");
+    expect(suggestions).not.toContain("/pitch");
+    expect(suggestions).not.toContain("/research/codex-app-server");
     expect(suggestions).not.toContain("/vault/$");
   });
 });
