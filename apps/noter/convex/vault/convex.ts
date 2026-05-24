@@ -22,6 +22,7 @@ import {
 } from "./model";
 
 const { array, id, null: nullValue, object, string } = v;
+const CONVEX_DEPLOYMENT_LIST_PAGE_LIMIT = 100;
 
 const convexDeploymentResult = object({
   projectId: string(),
@@ -91,10 +92,19 @@ function requireConvexProductionDeployment(args: {
   if (args.deployment.projectId !== args.projectId) {
     throw new Error(`${args.description} belonged to a different project.`);
   }
-  if (args.deployment.isDefault !== true) {
+  return args.deployment;
+}
+
+function requireDefaultConvexProductionDeployment(args: {
+  deployment: PlatformDeploymentResponse;
+  projectId: string;
+  description: string;
+}): ConvexCloudDeployment {
+  const deployment = requireConvexProductionDeployment(args);
+  if (deployment.isDefault !== true) {
     throw new Error(`${args.description} was not the default production deployment.`);
   }
-  return args.deployment;
+  return deployment;
 }
 
 function buildConvexSiteUrl(deployment: ConvexCloudDeployment): string {
@@ -108,6 +118,43 @@ async function listConvexProjects(args: {
   return await requestConvexManagementApi(args.token, "GET", "/teams/{team_id}/list_projects", {
     params: { path: { team_id: args.teamId } },
   });
+}
+
+async function listConvexTeamProductionDeployments(args: {
+  token: string;
+  teamId: string;
+}): Promise<ConvexCloudDeployment[]> {
+  const deployments: ConvexCloudDeployment[] = [];
+  let cursor: string | undefined;
+
+  for (;;) {
+    const page = await requestConvexManagementApi(
+      args.token,
+      "GET",
+      "/teams/{team_id}/list_deployments",
+      {
+        params: {
+          path: { team_id: args.teamId },
+          query: {
+            deploymentType: "prod",
+            limit: CONVEX_DEPLOYMENT_LIST_PAGE_LIMIT,
+            ...(cursor ? { cursor } : {}),
+          },
+        },
+      },
+    );
+    for (const deployment of page.items) {
+      if (isConvexCloudDeployment(deployment) && deployment.deploymentType === "prod") {
+        deployments.push(deployment);
+      }
+    }
+
+    const nextCursor = page.pagination.nextCursor?.trim();
+    if (!page.pagination.hasMore || !nextCursor) {
+      return deployments;
+    }
+    cursor = nextCursor;
+  }
 }
 
 async function readConvexProjectDetails(args: {
@@ -140,7 +187,7 @@ async function readDefaultConvexProductionDeployment(args: {
         },
       },
     );
-    return requireConvexProductionDeployment({
+    return requireDefaultConvexProductionDeployment({
       deployment,
       projectId: args.projectId,
       description: "Default Convex production deployment",
@@ -188,7 +235,7 @@ async function createConvexProductionDeployment(args: {
       body: { type: "prod" },
     },
   );
-  return requireConvexProductionDeployment({
+  return requireDefaultConvexProductionDeployment({
     deployment,
     projectId: args.projectId,
     description: "Created Convex production deployment",
@@ -232,15 +279,23 @@ async function listProductionDeploymentsForConnection(
     token: connection.token,
     teamId: connection.teamId,
   });
+  const projectsById = new Map(projects.map((project) => [project.id, project]));
+  const productionDeployments = await listConvexTeamProductionDeployments({
+    token: connection.token,
+    teamId: connection.teamId,
+  });
   const deployments: ConvexDeploymentResult[] = [];
-  for (const project of projects) {
-    const deployment = await readDefaultConvexProductionDeployment({
-      token: connection.token,
-      projectId: project.id,
-    });
-    if (deployment) {
-      deployments.push(toConvexDeploymentResult({ project, deployment }));
+  for (const deployment of productionDeployments) {
+    let project = projectsById.get(deployment.projectId);
+    if (!project) {
+      project = await readConvexProjectDetails({
+        token: connection.token,
+        teamId: connection.teamId,
+        projectId: deployment.projectId,
+      });
+      projectsById.set(project.id, project);
     }
+    deployments.push(toConvexDeploymentResult({ project, deployment }));
   }
   return deployments.sort(compareConvexDeploymentResult);
 }

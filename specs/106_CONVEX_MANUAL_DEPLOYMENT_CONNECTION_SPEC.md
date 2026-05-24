@@ -20,7 +20,7 @@ connection and separate from deployment wiring.
 
 The dashboard resource rail should let a ready GitHub-connected vault:
 
-- connect an existing Convex production deployment from the connected Convex team
+- connect an existing Convex cloud production deployment from the connected Convex team
 - create a new Convex project with a production deployment
 
 Both flows attach the selected production deployment to `vault.convex` and record enough
@@ -28,7 +28,7 @@ Both flows attach the selected production deployment to `vault.convex` and recor
 
 ## Goals
 
-- Let an existing GitHub vault attach an existing Convex production deployment.
+- Let an existing GitHub vault attach an existing Convex cloud production deployment.
 - Let an existing GitHub vault create a new Convex project and attach its production deployment.
 - Store the attached Convex identity on the vault as the durable product state.
 - Store Convex dashboard/link metadata in `vaultInfrastructure`.
@@ -123,7 +123,10 @@ The server must verify:
 - the project belongs to the connected Convex team
 - the deployment belongs to the selected project
 - the deployment is a cloud production deployment
-- the deployment is the default production deployment for that project
+
+The existing-deployment picker lists every cloud production deployment returned by Convex's
+paginated team deployment inventory. The create flow still creates and attaches the default
+production deployment for the new project.
 
 Project creation should:
 
