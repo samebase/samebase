@@ -44,7 +44,7 @@ function WorkspaceLayoutV2MainPaneHeader({
     rightToggleVisibility === "hidden" ? null : TOGGLE_BUTTON_CLASS_NAMES[rightToggleVisibility];
 
   return (
-    <div className="flex h-full items-center gap-2">
+    <div className="flex h-full items-center">
       {leftToggleButtonClassName !== null ? (
         <Button
           type="button"
