@@ -1,6 +1,6 @@
 import { useLocation, useRouter } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
-import { ArrowLeft, ArrowRight, ArrowUpRight, RefreshCw } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -30,9 +30,6 @@ import { api } from "../../convex/_generated/api";
 
 const routeUrlEditorIconButtonClassName =
   "flex size-7 shrink-0 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
-
-const routeUrlEditorSubmitButtonClassName =
-  "pointer-events-none flex size-7 shrink-0 items-center justify-center text-muted-foreground opacity-0 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 disabled:pointer-events-none disabled:opacity-50";
 
 function getRouteUrlEditorSuggestionButtonClassName(active: boolean): string {
   return active
@@ -209,6 +206,7 @@ export function RouteUrlEditor() {
   const suggestionsId = `${inputId}-suggestions`;
   const [forwardRouteHistoryIndex, setForwardRouteHistoryIndex] =
     useState(currentRouteHistoryIndex);
+  const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const inputSelectionBeforeChangeRef = useRef<RouteUrlEditorInputSelection | null>(null);
   const skipNextBlurCommitRef = useRef(false);
@@ -323,16 +321,6 @@ export function RouteUrlEditor() {
     router.history.forward();
   }, [router]);
 
-  const refreshRoute = useCallback(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    // Intentionally match address-bar refresh: this is a browser reload, not a
-    // router navigation.
-    window.location.reload();
-  }, []);
-
   const refreshDocumentHashSuggestionKeys = useCallback(() => {
     if (typeof document === "undefined") {
       return;
@@ -366,6 +354,31 @@ export function RouteUrlEditor() {
   useEffect(() => {
     refreshDocumentHashSuggestionKeys();
   }, [currentHref, refreshDocumentHashSuggestionKeys]);
+
+  // A page scroll gesture means the user left URL editing; gestures inside
+  // suggestions stay editor-owned so long lists remain usable.
+  useEffect(() => {
+    if (!inputFocused || typeof window === "undefined") {
+      return;
+    }
+
+    const blurInputOnPageScrollGesture = (event: Event) => {
+      const target = event.target;
+      if (target instanceof Node && formRef.current?.contains(target)) {
+        return;
+      }
+
+      inputRef.current?.blur();
+    };
+
+    window.addEventListener("touchmove", blurInputOnPageScrollGesture, true);
+    window.addEventListener("wheel", blurInputOnPageScrollGesture, true);
+
+    return () => {
+      window.removeEventListener("touchmove", blurInputOnPageScrollGesture, true);
+      window.removeEventListener("wheel", blurInputOnPageScrollGesture, true);
+    };
+  }, [inputFocused]);
 
   useEffect(() => {
     if (
@@ -635,7 +648,8 @@ export function RouteUrlEditor() {
 
   return (
     <form
-      className="group relative flex h-8 w-full min-w-0 items-center gap-1 bg-background px-1 text-foreground"
+      ref={formRef}
+      className="relative flex h-8 w-full min-w-0 items-center gap-1 bg-background px-1 text-foreground"
       data-testid="route-url-editor"
       onSubmit={submitInput}
     >
@@ -661,15 +675,6 @@ export function RouteUrlEditor() {
         type="button"
       >
         <ArrowRight aria-hidden="true" className="size-4" />
-      </button>
-      <button
-        aria-label="Refresh"
-        className={routeUrlEditorIconButtonClassName}
-        onClick={refreshRoute}
-        title="Refresh"
-        type="button"
-      >
-        <RefreshCw aria-hidden="true" className="size-4" />
       </button>
       {/*
         URL reality comes from the router. Draft reality stays local in one
@@ -740,14 +745,6 @@ export function RouteUrlEditor() {
           })}
         </div>
       ) : null}
-      <button
-        aria-label="Go to route URL"
-        className={routeUrlEditorSubmitButtonClassName}
-        title="Go to route URL"
-        type="submit"
-      >
-        <ArrowUpRight aria-hidden="true" className="size-4" />
-      </button>
       {routeInputInvalid ? (
         <span className="sr-only" id={`${inputId}-error`}>
           Enter a same-origin app URL.
