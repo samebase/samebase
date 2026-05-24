@@ -11,9 +11,9 @@ import {
 } from "@/components/logo/logoVoxelState";
 import { getTailwindColorHex, type FaceColors } from "@/components/logo/logoTailwindColors";
 import {
-  parseLogoIsoPixelKey,
-  type LogoIsoPixelOverlay,
-} from "@/components/logo/logoIsoPixelOverlay";
+  parseLogoIsoCubePixelKey,
+  type LogoIsoCubePixelSprite,
+} from "@/components/logo/logoIsoCubePixelSprite";
 
 const FRAME_PADDING = 4;
 export const DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX = 16;
@@ -53,6 +53,8 @@ export type IsometricVisibleFace = {
   hitRows: readonly IsometricHitRowSpan[];
   normal: VoxelCoordinate;
   polygon: readonly Point[];
+  spriteOffsetX: number;
+  spriteOffsetY: number;
 };
 
 export type IsometricMovingVoxel = {
@@ -391,26 +393,26 @@ function getStyledFaceRowSpans(polygon: readonly Point[], capWidth: 2 | 3 | 4): 
   return widenCapRows(collectPolygonRowSpans(polygon), capWidth);
 }
 
-function fillIsoPixelOverlay({
+function fillLogoIsoCubePixelSprite({
   context,
+  cubePixelSprite,
   fillStyle,
   frameMetrics,
   maskRowSpans,
-  pixelOverlay,
 }: {
   context: CanvasRenderingContext2D;
+  cubePixelSprite: LogoIsoCubePixelSprite | undefined;
   fillStyle: string;
   frameMetrics: LogoIsometricFrameMetrics;
   maskRowSpans: readonly RowSpan[];
-  pixelOverlay: LogoIsoPixelOverlay | undefined;
 }) {
-  if (!pixelOverlay || pixelOverlay.pixelKeys.size === 0) {
+  if (!cubePixelSprite || cubePixelSprite.pixelKeys.size === 0) {
     return;
   }
 
   context.fillStyle = fillStyle;
-  for (const pixelKey of pixelOverlay.pixelKeys) {
-    const pixel = parseLogoIsoPixelKey(pixelKey);
+  for (const pixelKey of cubePixelSprite.pixelKeys) {
+    const pixel = parseLogoIsoCubePixelKey(pixelKey);
     if (
       !pixel ||
       pixel.x < 0 ||
@@ -424,6 +426,72 @@ function fillIsoPixelOverlay({
 
     context.fillRect(pixel.x, pixel.y, 1, 1);
   }
+}
+
+function getCubeSpriteDrawOffset(
+  position: CubePosition,
+  frameMetrics: LogoIsometricFrameMetrics,
+  cubeFrameMetrics: LogoIsometricFrameMetrics,
+): Point {
+  const origin = translatePoint(position, frameMetrics);
+  return {
+    x: origin.x - cubeFrameMetrics.offsetX,
+    y: origin.y - cubeFrameMetrics.offsetY,
+  };
+}
+
+function buildSingleCubeRenderFaces(
+  faceColors: FaceColors,
+  frameMetrics: LogoIsometricFrameMetrics,
+): RenderFace[] {
+  const coordinate: VoxelCoordinate = [0, 0, 0];
+  const position: CubePosition = [0, 0, 0];
+  const faceFillColors: Record<IsometricFaceDirection, string> = {
+    left: getTailwindColorHex(faceColors.left),
+    right: getTailwindColorHex(faceColors.right),
+    top: getTailwindColorHex(faceColors.top),
+  };
+  const directions: readonly IsometricFaceDirection[] = ["left", "right", "top"];
+
+  return directions
+    .map((direction) =>
+      createRenderFace({
+        color: faceFillColors[direction],
+        coordinate,
+        direction,
+        frameMetrics,
+        position,
+      }),
+    )
+    .sort(compareRenderFaces);
+}
+
+function getLogoIsometricCubeRowSpans({
+  cubeSidePixels,
+  styleId,
+}: {
+  cubeSidePixels: number;
+  styleId: LogoIsometricStyleId;
+}): readonly RowSpan[] {
+  const style = getLogoIsometricStyle(styleId);
+  const frameMetrics = getLogoIsometricFrameMetrics(cubeSidePixels, 1);
+  const directions: readonly IsometricFaceDirection[] = ["left", "right", "top"];
+  return directions.flatMap((direction) =>
+    getStyledFaceRowSpans(
+      translatePolygon(getCubeFacePolygon([0, 0, 0], direction, frameMetrics), frameMetrics),
+      style.capWidth,
+    ),
+  );
+}
+
+export function getLogoIsometricCubeHitRows({
+  cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+  styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+}: {
+  cubeSidePixels?: number;
+  styleId?: LogoIsometricStyleId;
+}): readonly IsometricHitRowSpan[] {
+  return getLogoIsometricCubeRowSpans({ cubeSidePixels, styleId });
 }
 
 function escapeSvgAttribute(value: string): string {
@@ -753,16 +821,18 @@ function compareRecursiveDrawItems(
 
 function getRecursiveDrawItems({
   filledVoxels,
+  gridSize = GRID_SIZE,
   movingVoxels,
 }: {
   filledVoxels: ReadonlySet<string>;
+  gridSize?: number;
   movingVoxels: readonly IsometricMovingVoxel[];
 }): readonly IsometricRecursiveDrawItem[] {
   const drawItems: IsometricRecursiveDrawItem[] = [];
 
   for (const key of filledVoxels) {
     const coordinate = parseVoxelKey(key);
-    if (!coordinate || !isWithinVoxelGrid(GRID_SIZE, coordinate[0], coordinate[1], coordinate[2])) {
+    if (!coordinate || !isWithinVoxelGrid(gridSize, coordinate[0], coordinate[1], coordinate[2])) {
       continue;
     }
 
@@ -787,6 +857,53 @@ function createIsometricCanvas(frameMetrics: LogoIsometricFrameMetrics): HTMLCan
   canvas.width = frameMetrics.canvasWidth;
   canvas.height = frameMetrics.canvasHeight;
   return canvas;
+}
+
+export function createLogoIsometricCubeCanvas({
+  cubePixelSprite,
+  cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+  faceColors,
+  styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+}: {
+  cubePixelSprite?: LogoIsoCubePixelSprite;
+  cubeSidePixels?: number;
+  faceColors: FaceColors;
+  styleId?: LogoIsometricStyleId;
+}): {
+  canvas: HTMLCanvasElement;
+  frameMetrics: LogoIsometricFrameMetrics;
+} {
+  const frameMetrics = getLogoIsometricFrameMetrics(cubeSidePixels, 1);
+  const canvas = createIsometricCanvas(frameMetrics);
+  const context = canvas.getContext("2d", {
+    willReadFrequently: true,
+  });
+
+  if (!context) {
+    return { canvas, frameMetrics };
+  }
+
+  const style = getLogoIsometricStyle(styleId);
+  const cubeMaskRowSpans: RowSpan[] = [];
+  for (const renderFace of buildSingleCubeRenderFaces(faceColors, frameMetrics)) {
+    const hitRows = getStyledFaceRowSpans(renderFace.polygon, style.capWidth);
+    fillRowSpans(context, hitRows, renderFace.color);
+    cubeMaskRowSpans.push(...hitRows);
+  }
+
+  if (style.edgeMode === "shaded") {
+    applyShadedEdges(context, frameMetrics);
+  }
+
+  fillLogoIsoCubePixelSprite({
+    context,
+    cubePixelSprite,
+    fillStyle: getTailwindColorHex(faceColors.right),
+    frameMetrics,
+    maskRowSpans: cubeMaskRowSpans,
+  });
+
+  return { canvas, frameMetrics };
 }
 
 function drawRecursiveChildImage({
@@ -822,19 +939,19 @@ function drawRecursiveChildImage({
 
 export function createLogoIsometricRecursiveCanvas({
   cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+  cubePixelSprite,
   depth,
   faceColors,
   filledVoxels,
   movingVoxels = [],
-  pixelOverlay,
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
 }: {
   cubeSidePixels?: number;
+  cubePixelSprite?: LogoIsoCubePixelSprite;
   depth: number;
   faceColors: FaceColors;
   filledVoxels: ReadonlySet<string>;
   movingVoxels?: readonly IsometricMovingVoxel[];
-  pixelOverlay?: LogoIsoPixelOverlay;
   styleId?: LogoIsometricStyleId;
 }): {
   canvas: HTMLCanvasElement;
@@ -855,12 +972,12 @@ export function createLogoIsometricRecursiveCanvas({
     backgroundColor: "transparent",
     cubeSidePixels,
     context,
+    cubePixelSprite,
     faceColors,
     filledVoxels,
     gridSize: GRID_SIZE,
     movingVoxels,
     paintBackground: false,
-    pixelOverlay,
     styleId,
   });
 
@@ -901,6 +1018,7 @@ export function createLogoIsometricRecursiveCanvas({
 
 export function drawLogoIsometricFrame({
   backgroundColor,
+  cubePixelSprite,
   cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   context,
   faceColors,
@@ -908,10 +1026,10 @@ export function drawLogoIsometricFrame({
   gridSize = GRID_SIZE,
   movingVoxels = [],
   paintBackground = true,
-  pixelOverlay,
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
 }: {
   backgroundColor: string;
+  cubePixelSprite?: LogoIsoCubePixelSprite;
   cubeSidePixels?: number;
   context: CanvasRenderingContext2D;
   faceColors: FaceColors;
@@ -919,11 +1037,16 @@ export function drawLogoIsometricFrame({
   gridSize?: number;
   movingVoxels?: readonly IsometricMovingVoxel[];
   paintBackground?: boolean;
-  pixelOverlay?: LogoIsoPixelOverlay;
   styleId?: LogoIsometricStyleId;
 }): readonly IsometricVisibleFace[] {
   const style = getLogoIsometricStyle(styleId);
   const frameMetrics = getLogoIsometricFrameMetrics(cubeSidePixels, gridSize);
+  const { canvas: cubeCanvas, frameMetrics: cubeFrameMetrics } = createLogoIsometricCubeCanvas({
+    cubePixelSprite,
+    cubeSidePixels,
+    faceColors,
+    styleId,
+  });
 
   context.clearRect(0, 0, frameMetrics.canvasWidth, frameMetrics.canvasHeight);
 
@@ -932,32 +1055,30 @@ export function drawLogoIsometricFrame({
     ...buildMovingRenderFaces(filledVoxels, faceColors, frameMetrics, gridSize, movingVoxels),
   ].sort(compareRenderFaces);
   const visibleFaces: IsometricVisibleFace[] = [];
-  const pixelOverlayMaskRowSpans: RowSpan[] = [];
 
   for (const renderFace of renderFaces) {
     const hitRows = getStyledFaceRowSpans(renderFace.polygon, style.capWidth);
-    fillRowSpans(context, hitRows, renderFace.color);
-    pixelOverlayMaskRowSpans.push(...hitRows);
+    const spriteOffset = getCubeSpriteDrawOffset(
+      renderFace.position,
+      frameMetrics,
+      cubeFrameMetrics,
+    );
     visibleFaces.push({
       coordinate: renderFace.coordinate,
       direction: renderFace.direction,
       hitRows,
       normal: renderFace.normal,
       polygon: renderFace.polygon,
+      spriteOffsetX: spriteOffset.x,
+      spriteOffsetY: spriteOffset.y,
     });
   }
 
-  if (style.edgeMode === "shaded") {
-    applyShadedEdges(context, frameMetrics);
+  context.imageSmoothingEnabled = false;
+  for (const drawItem of getRecursiveDrawItems({ filledVoxels, gridSize, movingVoxels })) {
+    const spriteOffset = getCubeSpriteDrawOffset(drawItem.position, frameMetrics, cubeFrameMetrics);
+    context.drawImage(cubeCanvas, spriteOffset.x, spriteOffset.y);
   }
-
-  fillIsoPixelOverlay({
-    context,
-    fillStyle: getTailwindColorHex(faceColors.right),
-    frameMetrics,
-    maskRowSpans: pixelOverlayMaskRowSpans,
-    pixelOverlay,
-  });
 
   if (paintBackground) {
     context.save();
@@ -973,21 +1094,21 @@ export function drawLogoIsometricFrame({
 export function drawLogoIsometricRecursiveFrame({
   backgroundColor,
   context,
+  cubePixelSprite,
   depth,
   faceColors,
   filledVoxels,
   movingVoxels = [],
-  pixelOverlay,
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
   cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
 }: {
   backgroundColor: string;
   context: CanvasRenderingContext2D;
+  cubePixelSprite?: LogoIsoCubePixelSprite;
   depth: number;
   faceColors: FaceColors;
   filledVoxels: ReadonlySet<string>;
   movingVoxels?: readonly IsometricMovingVoxel[];
-  pixelOverlay?: LogoIsoPixelOverlay;
   styleId?: LogoIsometricStyleId;
   cubeSidePixels?: number;
 }): readonly IsometricVisibleFace[] {
@@ -997,22 +1118,22 @@ export function drawLogoIsometricRecursiveFrame({
     return drawLogoIsometricFrame({
       backgroundColor,
       context,
+      cubePixelSprite,
       cubeSidePixels,
       faceColors,
       filledVoxels,
       movingVoxels,
-      pixelOverlay,
       styleId,
     });
   }
 
   const { canvas, frameMetrics } = createLogoIsometricRecursiveCanvas({
     cubeSidePixels,
+    cubePixelSprite,
     depth: normalizedDepth,
     faceColors,
     filledVoxels,
     movingVoxels,
-    pixelOverlay,
     styleId,
   });
 

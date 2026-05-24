@@ -1,27 +1,27 @@
-export type LogoIsoPixelOverlayEditKind = "draw" | "erase";
+export type LogoIsoCubePixelEditKind = "draw" | "erase";
 
-export type LogoIsoPixelCoordinate = {
+export type LogoIsoCubePixelCoordinate = {
   x: number;
   y: number;
 };
 
-export type LogoIsoPixelOverlay = {
+export type LogoIsoCubePixelSprite = {
   pixelKeys: ReadonlySet<string>;
 };
 
-export type LogoIsoPixelOverlayPaint = {
+export type LogoIsoCubePixelSpritePaint = {
   canvasHeight: number;
   canvasWidth: number;
   cubeSidePixels: number;
-  kind: LogoIsoPixelOverlayEditKind;
-  pixels: readonly LogoIsoPixelCoordinate[];
+  kind: LogoIsoCubePixelEditKind;
+  pixels: readonly LogoIsoCubePixelCoordinate[];
 };
 
-export function createLogoIsoPixelKey(x: number, y: number): string {
+export function createLogoIsoCubePixelKey(x: number, y: number): string {
   return `${x},${y}`;
 }
 
-export function parseLogoIsoPixelKey(pixelKey: string): LogoIsoPixelCoordinate | null {
+export function parseLogoIsoCubePixelKey(pixelKey: string): LogoIsoCubePixelCoordinate | null {
   const separatorIndex = pixelKey.indexOf(",");
   if (separatorIndex <= 0 || separatorIndex === pixelKey.length - 1) {
     return null;
@@ -37,9 +37,9 @@ export function parseLogoIsoPixelKey(pixelKey: string): LogoIsoPixelCoordinate |
   return { x, y };
 }
 
-function normalizeLogoIsoPixelCoordinate(
-  pixel: LogoIsoPixelCoordinate,
-): LogoIsoPixelCoordinate | null {
+function normalizeLogoIsoCubePixelCoordinate(
+  pixel: LogoIsoCubePixelCoordinate,
+): LogoIsoCubePixelCoordinate | null {
   if (!Number.isFinite(pixel.x) || !Number.isFinite(pixel.y)) {
     return null;
   }
@@ -50,30 +50,30 @@ function normalizeLogoIsoPixelCoordinate(
   };
 }
 
-function isLogoIsoPixelInBounds({
+function isLogoIsoCubePixelInBounds({
   canvasHeight,
   canvasWidth,
   pixel,
 }: {
   canvasHeight: number;
   canvasWidth: number;
-  pixel: LogoIsoPixelCoordinate;
+  pixel: LogoIsoCubePixelCoordinate;
 }): boolean {
   return pixel.x >= 0 && pixel.x < canvasWidth && pixel.y >= 0 && pixel.y < canvasHeight;
 }
 
-export function applyLogoIsoPixelOverlayPaint(
-  overlay: LogoIsoPixelOverlay | undefined,
-  paint: LogoIsoPixelOverlayPaint,
-): LogoIsoPixelOverlay | undefined {
-  const nextPixelKeys = new Set(overlay?.pixelKeys);
+export function applyLogoIsoCubePixelSpritePaint(
+  sprite: LogoIsoCubePixelSprite | undefined,
+  paint: LogoIsoCubePixelSpritePaint,
+): LogoIsoCubePixelSprite | undefined {
+  const nextPixelKeys = new Set(sprite?.pixelKeys);
   let changed = false;
 
   for (const rawPixel of paint.pixels) {
-    const pixel = normalizeLogoIsoPixelCoordinate(rawPixel);
+    const pixel = normalizeLogoIsoCubePixelCoordinate(rawPixel);
     if (
       !pixel ||
-      !isLogoIsoPixelInBounds({
+      !isLogoIsoCubePixelInBounds({
         canvasHeight: paint.canvasHeight,
         canvasWidth: paint.canvasWidth,
         pixel,
@@ -82,7 +82,7 @@ export function applyLogoIsoPixelOverlayPaint(
       continue;
     }
 
-    const pixelKey = createLogoIsoPixelKey(pixel.x, pixel.y);
+    const pixelKey = createLogoIsoCubePixelKey(pixel.x, pixel.y);
     if (paint.kind === "draw") {
       if (!nextPixelKeys.has(pixelKey)) {
         nextPixelKeys.add(pixelKey);
@@ -97,7 +97,7 @@ export function applyLogoIsoPixelOverlayPaint(
   }
 
   if (!changed) {
-    return overlay;
+    return sprite;
   }
 
   if (nextPixelKeys.size === 0) {

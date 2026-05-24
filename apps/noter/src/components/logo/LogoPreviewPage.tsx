@@ -6,12 +6,16 @@ import {
 import { NLogoRasterScene } from "@/components/logo/NLogoRasterScene";
 import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
 import {
-  applyLogoIsoPixelOverlayPaint,
-  type LogoIsoPixelOverlay,
-  type LogoIsoPixelOverlayEditKind,
-  type LogoIsoPixelOverlayPaint,
-} from "@/components/logo/logoIsoPixelOverlay";
-import { LogoIsoThumbnail, NLogoIsoScene } from "@/components/logo/NLogoIsoScene";
+  applyLogoIsoCubePixelSpritePaint,
+  type LogoIsoCubePixelSprite,
+  type LogoIsoCubePixelEditKind,
+  type LogoIsoCubePixelSpritePaint,
+} from "@/components/logo/logoIsoCubePixelSprite";
+import {
+  LogoIsoCubePixelEditor,
+  LogoIsoThumbnail,
+  NLogoIsoScene,
+} from "@/components/logo/NLogoIsoScene";
 import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
@@ -529,8 +533,8 @@ type LogoPreviewLocalStoreState = {
   isLeftFaceStripeAnimationEnabled: boolean;
   isSceneInteracting: boolean;
   isShuffleEnabled: boolean;
-  isoPixelOverlaysByCubeSide: ReadonlyMap<number, LogoIsoPixelOverlay>;
-  isoPixelTool: LogoIsoPixelOverlayEditKind | null;
+  isoCubePixelSpritesByCubeSide: ReadonlyMap<number, LogoIsoCubePixelSprite>;
+  isoCubePixelTool: LogoIsoCubePixelEditKind | null;
   logoOpacity: number;
   shuffleParallelMoves: LogoShuffleParallelMoves;
 };
@@ -567,8 +571,8 @@ function readLogoPreviewLocalStoreState(): LogoPreviewLocalStoreState {
     isLeftFaceStripeAnimationEnabled: false,
     isSceneInteracting: false,
     isShuffleEnabled: false,
-    isoPixelOverlaysByCubeSide: new Map(),
-    isoPixelTool: null,
+    isoCubePixelSpritesByCubeSide: new Map(),
+    isoCubePixelTool: null,
     logoOpacity: DEFAULT_LOGO_OPACITY,
     shuffleParallelMoves: 3,
   };
@@ -683,38 +687,38 @@ function useLogoPreviewStore() {
         isFaceColorAnimationEnabled,
       }));
     },
-    clearIsoPixelOverlay: (cubeSidePixels: number) => {
+    clearIsoCubePixelSprite: (cubeSidePixels: number) => {
       setState((state) => {
-        if (!state.isoPixelOverlaysByCubeSide.has(cubeSidePixels)) {
+        if (!state.isoCubePixelSpritesByCubeSide.has(cubeSidePixels)) {
           return state;
         }
 
-        const isoPixelOverlaysByCubeSide = new Map(state.isoPixelOverlaysByCubeSide);
-        isoPixelOverlaysByCubeSide.delete(cubeSidePixels);
+        const isoCubePixelSpritesByCubeSide = new Map(state.isoCubePixelSpritesByCubeSide);
+        isoCubePixelSpritesByCubeSide.delete(cubeSidePixels);
         return {
           ...state,
-          isoPixelOverlaysByCubeSide,
+          isoCubePixelSpritesByCubeSide,
         };
       });
     },
-    paintIsoPixelOverlay: (paint: LogoIsoPixelOverlayPaint) => {
+    paintIsoCubePixelSprite: (paint: LogoIsoCubePixelSpritePaint) => {
       setState((state) => {
-        const currentOverlay = state.isoPixelOverlaysByCubeSide.get(paint.cubeSidePixels);
-        const nextOverlay = applyLogoIsoPixelOverlayPaint(currentOverlay, paint);
-        if (nextOverlay === currentOverlay) {
+        const currentSprite = state.isoCubePixelSpritesByCubeSide.get(paint.cubeSidePixels);
+        const nextSprite = applyLogoIsoCubePixelSpritePaint(currentSprite, paint);
+        if (nextSprite === currentSprite) {
           return state;
         }
 
-        const isoPixelOverlaysByCubeSide = new Map(state.isoPixelOverlaysByCubeSide);
-        if (nextOverlay) {
-          isoPixelOverlaysByCubeSide.set(paint.cubeSidePixels, nextOverlay);
+        const isoCubePixelSpritesByCubeSide = new Map(state.isoCubePixelSpritesByCubeSide);
+        if (nextSprite) {
+          isoCubePixelSpritesByCubeSide.set(paint.cubeSidePixels, nextSprite);
         } else {
-          isoPixelOverlaysByCubeSide.delete(paint.cubeSidePixels);
+          isoCubePixelSpritesByCubeSide.delete(paint.cubeSidePixels);
         }
 
         return {
           ...state,
-          isoPixelOverlaysByCubeSide,
+          isoCubePixelSpritesByCubeSide,
         };
       });
     },
@@ -730,10 +734,10 @@ function useLogoPreviewStore() {
         logoOpacity: clampLogoOpacity(logoOpacity),
       }));
     },
-    setIsoPixelTool: (isoPixelTool: LogoIsoPixelOverlayEditKind | null) => {
+    setIsoCubePixelTool: (isoCubePixelTool: LogoIsoCubePixelEditKind | null) => {
       setState((state) => ({
         ...state,
-        isoPixelTool,
+        isoCubePixelTool,
       }));
     },
     setSceneInteracting: (isSceneInteracting: boolean) => {
@@ -861,12 +865,12 @@ function useLogoPreviewController({
           };
         });
       },
-      clearIsoPixelOverlay: store.actions.clearIsoPixelOverlay,
+      clearIsoCubePixelSprite: store.actions.clearIsoCubePixelSprite,
       endSceneInteraction: () => {
         store.actions.setSceneInteracting(false);
         pacedRouteState.commitCurrent();
       },
-      paintIsoPixelOverlay: store.actions.paintIsoPixelOverlay,
+      paintIsoCubePixelSprite: store.actions.paintIsoCubePixelSprite,
       resetView: () => {
         store.actions.setAutoRotating(false);
         commitRouteState((currentState) => ({
@@ -913,7 +917,7 @@ function useLogoPreviewController({
         pacedRouteState.commitCurrent();
       },
       setEditMode: (editMode: VoxelEdit["kind"]) => {
-        store.actions.setIsoPixelTool(null);
+        store.actions.setIsoCubePixelTool(null);
         store.actions.setEditMode(editMode);
       },
       setElevationDegrees: (elevationDegrees: number) => {
@@ -951,11 +955,11 @@ function useLogoPreviewController({
           isoStyleId,
         }));
       },
-      setIsoPixelTool: (isoPixelTool: LogoIsoPixelOverlayEditKind | null) => {
-        if (isoPixelTool) {
+      setIsoCubePixelTool: (isoCubePixelTool: LogoIsoCubePixelEditKind | null) => {
+        if (isoCubePixelTool) {
           store.actions.setShuffleEnabled(false);
         }
-        store.actions.setIsoPixelTool(isoPixelTool);
+        store.actions.setIsoCubePixelTool(isoCubePixelTool);
       },
       setLeftFaceStyleKind: (kind: LogoLeftFaceStyleKind) => {
         commitRouteState((currentState) => {
@@ -1059,7 +1063,7 @@ function useLogoPreviewController({
       },
       setShuffleEnabled: (isShuffleEnabled: boolean) => {
         if (isShuffleEnabled) {
-          store.actions.setIsoPixelTool(null);
+          store.actions.setIsoCubePixelTool(null);
         }
         store.actions.setShuffleEnabled(isShuffleEnabled);
       },
@@ -1390,8 +1394,8 @@ export function LogoPreviewPage({
     parallelMoves: state.shuffleParallelMoves,
   };
   const stripedLeftFaceStyle = state.leftFaceStyle.kind === "striped" ? state.leftFaceStyle : null;
-  const isoPixelOverlay = state.isoPixelOverlaysByCubeSide.get(state.isoCubeSidePixels);
-  const isoPixelCount = isoPixelOverlay ? isoPixelOverlay.pixelKeys.size : 0;
+  const isoCubePixelSprite = state.isoCubePixelSpritesByCubeSide.get(state.isoCubeSidePixels);
+  const isoCubePixelCount = isoCubePixelSprite ? isoCubePixelSprite.pixelKeys.size : 0;
 
   const modeSearch = preserveLogoRouteDevModeSearch(
     buildLogoRouteSearch({
@@ -1417,15 +1421,15 @@ export function LogoPreviewPage({
         backgroundColor={backgroundColor}
         className={cn(
           "absolute inset-0 h-full w-full touch-none select-none",
-          state.isoPixelTool && !isRecursiveDepth ? "cursor-crosshair" : "",
+          state.isoCubePixelTool && !isRecursiveDepth ? "cursor-crosshair" : "",
         )}
         cubeSidePixels={state.isoCubeSidePixels}
         editMode={state.editMode}
         faceColors={faceColors}
         fractalDepth={state.fractalDepth}
-        isoPixelOverlay={isoPixelOverlay}
-        isoPixelTool={isRecursiveDepth ? null : state.isoPixelTool}
-        onIsoPixelOverlayPaint={controls.paintIsoPixelOverlay}
+        isoCubePixelSprite={isoCubePixelSprite}
+        isoCubePixelTool={isRecursiveDepth ? null : state.isoCubePixelTool}
+        onIsoCubePixelSpritePaint={controls.paintIsoCubePixelSprite}
         onVoxelEdit={controls.editVoxel}
         shuffleAnimation={shuffleAnimation}
         styleId={state.isoStyleId}
@@ -1726,18 +1730,30 @@ export function LogoPreviewPage({
           <div className={LOGO_CONTROL_STACK_CLASS_NAME} data-testid="logo-iso-pixel-controls">
             <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
               <span>Pixels</span>
-              <span>{isoPixelCount}</span>
+              <span>{isoCubePixelCount}</span>
+            </div>
+            <div className="flex justify-center border border-border bg-background p-2">
+              <LogoIsoCubePixelEditor
+                backgroundColor={backgroundColor}
+                cubePixelSprite={isoCubePixelSprite}
+                cubePixelTool={isRecursiveDepth ? null : state.isoCubePixelTool}
+                cubeSidePixels={state.isoCubeSidePixels}
+                disabled={isRecursiveDepth}
+                faceColors={faceColors}
+                onCubePixelSpritePaint={controls.paintIsoCubePixelSprite}
+                styleId={state.isoStyleId}
+              />
             </div>
             <div className={LOGO_CONTROL_BUTTON_ROW_CLASS_NAME}>
               <Button
                 type="button"
                 size="sm"
-                variant={state.isoPixelTool === "draw" ? "default" : "outline"}
+                variant={state.isoCubePixelTool === "draw" ? "default" : "outline"}
                 className={LOGO_CONTROL_BUTTON_CLASS_NAME}
-                aria-pressed={state.isoPixelTool === "draw"}
+                aria-pressed={state.isoCubePixelTool === "draw"}
                 disabled={isRecursiveDepth}
                 onClick={() => {
-                  controls.setIsoPixelTool(state.isoPixelTool === "draw" ? null : "draw");
+                  controls.setIsoCubePixelTool(state.isoCubePixelTool === "draw" ? null : "draw");
                 }}
               >
                 Draw
@@ -1745,12 +1761,12 @@ export function LogoPreviewPage({
               <Button
                 type="button"
                 size="sm"
-                variant={state.isoPixelTool === "erase" ? "default" : "outline"}
+                variant={state.isoCubePixelTool === "erase" ? "default" : "outline"}
                 className={LOGO_CONTROL_BUTTON_CLASS_NAME}
-                aria-pressed={state.isoPixelTool === "erase"}
+                aria-pressed={state.isoCubePixelTool === "erase"}
                 disabled={isRecursiveDepth}
                 onClick={() => {
-                  controls.setIsoPixelTool(state.isoPixelTool === "erase" ? null : "erase");
+                  controls.setIsoCubePixelTool(state.isoCubePixelTool === "erase" ? null : "erase");
                 }}
               >
                 Erase
@@ -1761,9 +1777,9 @@ export function LogoPreviewPage({
               size="sm"
               variant="outline"
               className="w-full rounded-none"
-              disabled={isoPixelCount === 0}
+              disabled={isoCubePixelCount === 0}
               onClick={() => {
-                controls.clearIsoPixelOverlay(state.isoCubeSidePixels);
+                controls.clearIsoCubePixelSprite(state.isoCubeSidePixels);
               }}
             >
               Clear pixels
@@ -1779,7 +1795,7 @@ export function LogoPreviewPage({
                     cubeSidePixels={state.isoCubeSidePixels}
                     faceColors={faceColors}
                     fractalDepth={state.fractalDepth}
-                    isoPixelOverlay={isoPixelOverlay}
+                    isoCubePixelSprite={isoCubePixelSprite}
                     size={size}
                     styleId={state.isoStyleId}
                     voxelState={state.voxelState}
