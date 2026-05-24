@@ -58,6 +58,41 @@ describe("readRouteUrlEditorSuggestions", () => {
     expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["?dev", "?devtools"]);
   });
 
+  it("hides signed-in dashboard search params from the public landing route", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/?new",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/?new".length,
+      viewer: publicViewer,
+    });
+
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual([]);
+  });
+
+  it("keeps signed-in dashboard search params available for admins", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/?add-",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/?add-".length,
+      viewer: adminViewer,
+    });
+
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual([
+      "?add-cloudflare",
+      "?add-convex",
+    ]);
+  });
+
   it("suggests route-specific hashes when the route is accessible", () => {
     const suggestions = readRouteUrlEditorSuggestions({
       currentHref: "/machines/connect",
@@ -121,7 +156,12 @@ describe("applyRouteUrlEditorSuggestion", () => {
       applyRouteUrlEditorSuggestion({
         routeAddress: "/logo?de#top",
         selectionRouteIndex: "/logo?de".length,
-        suggestion: { key: "devtools", kind: "search", value: "?devtools" },
+        suggestion: {
+          key: "devtools",
+          kind: "search",
+          value: "?devtools",
+          valueKind: "presence",
+        },
       }),
     ).toBe("/logo?devtools#top");
 

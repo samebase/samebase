@@ -1,6 +1,20 @@
+import {
+  readRouteSearchParamSuggestions,
+  type RouteSearchParamMetadataByKey,
+} from "@/lib/routeSearchParamMetadata";
+
 export type CodexResearchRouteSearch = {
   threadId?: string;
 };
+
+const codexResearchRouteSearchParamMetadata = {
+  threadId: { permission: "admin", suggestion: "route", valueKind: "value" },
+} as const satisfies RouteSearchParamMetadataByKey<CodexResearchRouteSearch>;
+
+export const CODEX_RESEARCH_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
+  codexResearchRouteSearchParamMetadata,
+  "route",
+);
 
 function readOptionalThreadId(value: unknown): string | undefined {
   if (typeof value !== "string") {

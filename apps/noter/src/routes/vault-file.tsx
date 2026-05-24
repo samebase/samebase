@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy } from "react";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
-import { validateFileViewRouteSearch } from "@/lib/fileViewRouteSearch";
+import {
+  FILE_VIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+  validateFileViewRouteSearch,
+} from "@/lib/fileViewRouteSearch";
 
 const FileView = lazy(async () => {
   const module = await import("@/components/FileView/FileView");
@@ -21,7 +24,10 @@ function FileViewRouteComponent() {
 }
 
 export const Route = createFileRoute("/vault/$")({
-  staticData: { permission: "admin" },
+  staticData: {
+    permission: "admin",
+    searchParamSuggestions: FILE_VIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+  },
   component: FileViewRouteComponent,
   validateSearch: validateFileViewRouteSearch,
 });

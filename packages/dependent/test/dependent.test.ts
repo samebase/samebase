@@ -88,7 +88,7 @@ describe("dependent object helpers", () => {
     const resultEntries = entries(obj);
 
     expectType<Array<"a" | "b">>()(resultKeys, true);
-    expectType<Array<["a" | "b", 1 | "two"]>>()(resultEntries, true);
+    expectType<Array<["a", 1] | ["b", "two"]>>()(resultEntries, true);
     expect(resultKeys).toEqual(["a", "b"]);
     expect(resultEntries).toEqual([
       ["a", 1],

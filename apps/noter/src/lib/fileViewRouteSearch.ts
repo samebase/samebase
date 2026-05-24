@@ -4,10 +4,13 @@ import {
   normalizeRouteSearchPresenceFlags,
   type SearchPatch,
 } from "@/lib/routeSearchFlags";
+import {
+  readRouteSearchParamSuggestions,
+  readRouteSearchPresenceKeys,
+  type RouteSearchParamMetadataByKey,
+} from "@/lib/routeSearchParamMetadata";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { z } from "zod";
-
-const FILE_VIEW_PRESENCE_SEARCH_KEYS = ["compare", "diff", "review"] as const;
 
 function readOptionalMobileLineNumbers(value: unknown): "1" | undefined {
   return value === "1" ? "1" : undefined;
@@ -22,6 +25,37 @@ const fileViewRouteSearchSchema = z.object({
 
 export type FileViewRouteSearch = z.infer<typeof fileViewRouteSearchSchema>;
 export type FileViewRouteSearchPatch = SearchPatch<FileViewRouteSearch>;
+
+const fileViewRouteSearchParamMetadata = {
+  compare: {
+    parseKind: "presence",
+    permission: "admin",
+    suggestion: "route",
+    valueKind: "presence",
+  },
+  diff: {
+    parseKind: "presence",
+    permission: "admin",
+    suggestion: "route",
+    valueKind: "presence",
+  },
+  mobileLineNumbers: { permission: "admin", suggestion: "route", valueKind: "value" },
+  review: {
+    parseKind: "presence",
+    permission: "admin",
+    suggestion: "route",
+    valueKind: "presence",
+  },
+} as const satisfies RouteSearchParamMetadataByKey<FileViewRouteSearch>;
+
+const FILE_VIEW_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
+  fileViewRouteSearchParamMetadata,
+);
+
+export const FILE_VIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
+  fileViewRouteSearchParamMetadata,
+  "route",
+);
 
 export function validateFileViewRouteSearch(search: Record<string, unknown>): FileViewRouteSearch {
   return fileViewRouteSearchSchema.parse(

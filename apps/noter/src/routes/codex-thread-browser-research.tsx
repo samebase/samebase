@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CodexAppServerThreadBrowserResearchPage } from "@/components/CodexAppServerThreadBrowserResearchPage";
 import { CODEX_APP_SERVER_THREAD_BROWSER_ROUTE } from "@/lib/codexAppServerResearch";
-import { validateCodexResearchRouteSearch } from "@/lib/codexResearchRouteSearch";
+import {
+  CODEX_RESEARCH_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+  validateCodexResearchRouteSearch,
+} from "@/lib/codexResearchRouteSearch";
 import { RoutedPage } from "./-publicRouteComponents";
 
 function ResearchRouteUnavailablePage(props: {
@@ -40,7 +43,10 @@ function CodexThreadBrowserRouteComponent() {
 }
 
 export const Route = createFileRoute("/research/codex-app-server/browser")({
-  staticData: { permission: "admin" },
+  staticData: {
+    permission: "admin",
+    searchParamSuggestions: CODEX_RESEARCH_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+  },
   component: CodexThreadBrowserRouteComponent,
   validateSearch: validateCodexResearchRouteSearch,
 });

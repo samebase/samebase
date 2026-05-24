@@ -1,5 +1,8 @@
 import { LogoRasterSeamLabPage } from "@/components/logo/LogoRasterSeamLabPage";
-import { validateLogoRouteSearch } from "@/lib/logoRouteSearch";
+import {
+  LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+  validateLogoRouteSearch,
+} from "@/lib/logoRouteSearch";
 import { createFileRoute } from "@tanstack/react-router";
 import { RoutedPage } from "./-publicRouteComponents";
 
@@ -16,7 +19,10 @@ function LogoRasterSeamsRouteComponent() {
 }
 
 export const Route = createFileRoute("/logo/raster-seams")({
-  staticData: { permission: "public" },
+  staticData: {
+    permission: "public",
+    searchParamSuggestions: LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+  },
   component: LogoRasterSeamsRouteComponent,
   validateSearch: validateLogoRouteSearch,
 });

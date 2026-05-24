@@ -4,10 +4,11 @@ export function keys<Obj extends object>(value: Obj): Array<keyof Obj & string> 
 }
 
 type PropKey = string | number | symbol;
+type ObjectEntry<Obj extends object> = {
+  [Key in keyof Obj & string]: [Key, Obj[Key]];
+}[keyof Obj & string];
 
-export function entries<Obj extends Record<PropKey, unknown>>(
-  value: Obj,
-): Array<[keyof Obj & string, Obj[keyof Obj]]> {
+export function entries<Obj extends object>(value: Obj): Array<ObjectEntry<Obj>> {
   // @ts-expect-error Object.entries returns the same entries with weaker types.
   return Object.entries(value);
 }

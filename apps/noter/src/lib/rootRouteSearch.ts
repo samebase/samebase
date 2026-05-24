@@ -17,6 +17,11 @@ import {
   ROOT_THEME_MODE_SEARCH_KEYS,
   rootThemeModeSearchFieldSchema,
 } from "@/lib/rootThemeModeSearch";
+import {
+  readRouteSearchParamSuggestions,
+  readRouteSearchPresenceKeys,
+  type RouteSearchParamMetadataByKey,
+} from "@/lib/routeSearchParamMetadata";
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { z } from "zod";
@@ -24,18 +29,6 @@ import { z } from "zod";
 // TanStack Router's root route id is the stable "__root__" literal, and using
 // it directly keeps this helper on the app package boundary.
 const ROOT_ROUTE_ID = "__root__";
-
-const ROOT_ROUTE_PRESENCE_SEARCH_KEYS = [
-  "add-convex",
-  "add-cloudflare",
-  "dev",
-  "devtools",
-  "delete",
-  "new-app",
-  "prod-ui",
-  SEARCH_RESET_QUERY_PARAM,
-  ...ROOT_THEME_MODE_SEARCH_KEYS,
-] as const;
 
 function readOptionalSidebarResetFlag(value: unknown): true | undefined {
   return value === true || value === "" || value === "true" ? true : undefined;
@@ -111,6 +104,98 @@ const rootRouteSearchSchema = z
   .merge(rootThemeModeSearchFieldSchema);
 
 export type RootRouteSearch = z.infer<typeof rootRouteSearchSchema>;
+
+const rootRouteSearchParamMetadata = {
+  "add-cloudflare": {
+    parseKind: "presence",
+    permission: "admin",
+    suggestion: "route",
+    valueKind: "presence",
+  },
+  "add-convex": {
+    parseKind: "presence",
+    permission: "admin",
+    suggestion: "route",
+    valueKind: "presence",
+  },
+  auth: { permission: "public", suggestion: "route", valueKind: "value" },
+  base: { permission: "public", suggestion: "hidden", valueKind: "value" },
+  background: { permission: "public", suggestion: "global", valueKind: "value" },
+  border: { permission: "public", suggestion: "global", valueKind: "value" },
+  dark: {
+    parseKind: "presence",
+    permission: "public",
+    suggestion: "global",
+    valueKind: "presence",
+  },
+  delete: {
+    parseKind: "presence",
+    permission: "admin",
+    suggestion: "route",
+    valueKind: "presence",
+  },
+  depth: { permission: "public", suggestion: "global", valueKind: "value" },
+  dev: {
+    parseKind: "presence",
+    permission: "public",
+    suggestion: "global",
+    valueKind: "presence",
+  },
+  devtools: {
+    parseKind: "presence",
+    permission: "public",
+    suggestion: "global",
+    valueKind: "presence",
+  },
+  dist: { permission: "public", suggestion: "global", valueKind: "value" },
+  gridSize: { permission: "public", suggestion: "global", valueKind: "value" },
+  light: {
+    parseKind: "presence",
+    permission: "public",
+    suggestion: "global",
+    valueKind: "presence",
+  },
+  "new-app": {
+    parseKind: "presence",
+    permission: "admin",
+    suggestion: "route",
+    valueKind: "presence",
+  },
+  primary: { permission: "public", suggestion: "global", valueKind: "value" },
+  "prod-ui": {
+    parseKind: "presence",
+    permission: "public",
+    suggestion: "global",
+    valueKind: "presence",
+  },
+  [PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM]: {
+    parseKind: "schema",
+    permission: "public",
+    suggestion: "route",
+    valueKind: "presence",
+  },
+  [SEARCH_RESET_QUERY_PARAM]: {
+    parseKind: "presence",
+    permission: "public",
+    suggestion: "global",
+    valueKind: "presence",
+  },
+  secondary: { permission: "public", suggestion: "global", valueKind: "value" },
+  signup: { permission: "public", suggestion: "route", valueKind: "value" },
+  top: { permission: "public", suggestion: "global", valueKind: "value" },
+} as const satisfies RouteSearchParamMetadataByKey<RootRouteSearch>;
+
+const ROOT_ROUTE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(rootRouteSearchParamMetadata);
+
+export const ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
+  rootRouteSearchParamMetadata,
+  "global",
+);
+
+export const ROOT_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
+  rootRouteSearchParamMetadata,
+  "route",
+);
 
 /**
  * Root-level preview/debug/theme controls follow public-route navigation unless
