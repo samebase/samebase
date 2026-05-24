@@ -128,7 +128,7 @@ run is active or failed, dashboard state is derived from `vaultInfrastructureOwn
 events. Once the Worker is attached, `vault.cloudflare` remains the only durable resource identity.
 
 The modal submit action should return after the Workflow is queued. The modal then closes by
-clearing `connect-cloudflare`, and the vault header/resource rail shows the Cloudflare row as
+clearing `add-cloudflare-worker`, and the vault header/resource rail shows the Cloudflare row as
 running, failed, or ready from subscribed dashboard state.
 
 If a created Worker cannot be attached to the vault after the provider create call, the Workflow
@@ -139,10 +139,10 @@ existing Worker or create a new one without waiting for hidden state cleanup.
 
 ## Route Semantics
 
-`?connect-cloudflare#vault-name` opens the Cloudflare Worker connection dialog for the vault matched
-by the dashboard hash.
+`?add-cloudflare-worker#vault-name` opens the Cloudflare Worker connection dialog for the vault
+matched by the dashboard hash.
 
-The dialog closes by clearing `connect-cloudflare` while preserving the hash.
+The dialog closes by clearing `add-cloudflare-worker` while preserving the hash.
 
 ## Deployment Wiring
 

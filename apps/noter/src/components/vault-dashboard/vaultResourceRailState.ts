@@ -90,16 +90,14 @@ function resolveCloudflareWorkersSubdomain({
 }
 
 export function buildVaultDashboardResourceRailState({
+  addCloudflareWorkerHref,
+  addConvexHref,
   githubRepositoryUrl,
-  onConfigureConvexCreate,
-  onConfigureConvexExisting,
-  onConfigureCloudflare,
   vault,
 }: {
+  addCloudflareWorkerHref?: string;
+  addConvexHref?: string;
   githubRepositoryUrl: string;
-  onConfigureConvexCreate?: () => void;
-  onConfigureConvexExisting?: () => void;
-  onConfigureCloudflare?: () => void;
   vault: VaultDashboardVault;
 }): VaultResourceRailState {
   const canConfigureMissingResources =
@@ -167,16 +165,10 @@ export function buildVaultDashboardResourceRailState({
       scope: vault.convexProjectSlug ? convexProjectScope : undefined,
       actions: [
         {
-          kind: "connect_existing",
-          label: "Connect",
-          disabled: !onConfigureConvexExisting,
-          onClick: onConfigureConvexExisting,
-        },
-        {
-          kind: "create_new",
-          label: "Create",
-          disabled: !onConfigureConvexCreate,
-          onClick: onConfigureConvexCreate,
+          kind: "add",
+          label: "Add",
+          disabled: !addConvexHref,
+          href: addConvexHref,
         },
       ],
     };
@@ -211,16 +203,10 @@ export function buildVaultDashboardResourceRailState({
       status: "action_required",
       actions: [
         {
-          kind: "connect_existing",
-          label: "Connect",
-          disabled: !onConfigureConvexExisting,
-          onClick: onConfigureConvexExisting,
-        },
-        {
-          kind: "create_new",
-          label: "Create",
-          disabled: !onConfigureConvexCreate,
-          onClick: onConfigureConvexCreate,
+          kind: "add",
+          label: "Add",
+          disabled: !addConvexHref,
+          href: addConvexHref,
         },
       ],
     };
@@ -251,10 +237,10 @@ export function buildVaultDashboardResourceRailState({
       value: vault.cloudflareWorkerName ?? vault.ghRepoName,
       actions: [
         {
-          kind: "connect_existing",
-          label: "Connect",
-          disabled: !onConfigureCloudflare,
-          onClick: onConfigureCloudflare,
+          kind: "add",
+          label: "Add",
+          disabled: !addCloudflareWorkerHref,
+          href: addCloudflareWorkerHref,
         },
       ],
     };
@@ -288,10 +274,10 @@ export function buildVaultDashboardResourceRailState({
       status: "action_required",
       actions: [
         {
-          kind: "connect_existing",
-          label: "Connect",
-          disabled: !onConfigureCloudflare,
-          onClick: onConfigureCloudflare,
+          kind: "add",
+          label: "Add",
+          disabled: !addCloudflareWorkerHref,
+          href: addCloudflareWorkerHref,
         },
       ],
     };

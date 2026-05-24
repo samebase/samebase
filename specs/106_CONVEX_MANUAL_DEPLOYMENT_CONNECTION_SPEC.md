@@ -152,8 +152,8 @@ The run is intentionally narrow:
 5. mark the run complete
 
 The modal submit action should return after the Workflow is queued. The modal closes by clearing
-`connect-convex`, and the vault header/resource rail shows the Convex row as running, failed, or
-ready from subscribed dashboard state.
+`add-convex`, and the vault header/resource rail shows the Convex row as running, failed, or ready
+from subscribed dashboard state.
 
 A failed manual Convex run should keep the Convex row failed while offering the same connection
 dialog again, so the operator can choose an existing deployment or create a new project without
@@ -161,10 +161,10 @@ waiting for hidden state cleanup.
 
 ## Route Semantics
 
-`?connect-convex#vault-name` opens the Convex deployment connection dialog for the vault matched by
-the dashboard hash.
+`?add-convex#vault-name` opens the Convex deployment connection dialog for the vault matched by the
+dashboard hash.
 
-The dialog closes by clearing `connect-convex` while preserving the hash.
+The dialog closes by clearing `add-convex` while preserving the hash.
 
 ## Deployment Wiring
 

@@ -1,6 +1,8 @@
 import { keys } from "@noter-md/dependent/object";
 
 export const ROUTE_SEARCH_PRESENCE_FLAG_KEYS = [
+  "add-cloudflare-worker",
+  "add-convex",
   "compare",
   "dark",
   "delete",

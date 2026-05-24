@@ -480,10 +480,9 @@ describe("buildVaultDashboardResourceRailState", () => {
   });
 
   it("lets failed manual Cloudflare setup reopen the connection dialog", () => {
-    const onConfigureCloudflare = vi.fn();
     const state = buildVaultDashboardResourceRailState({
+      addCloudflareWorkerHref: "/?add-cloudflare-worker#demo",
       githubRepositoryUrl: "https://github.com/ada/demo",
-      onConfigureCloudflare,
       vault: makeResourceRailBuilderVault({
         providerSetup: {
           status: "failed",
@@ -507,24 +506,21 @@ describe("buildVaultDashboardResourceRailState", () => {
     }
     const [action] = cloudflareRow.actions;
     expect(action).toMatchObject({
-      kind: "connect_existing",
-      label: "Connect",
+      kind: "add",
+      label: "Add",
       disabled: false,
+      href: "/?add-cloudflare-worker#demo",
     });
-    action.onClick?.();
-    expect(onConfigureCloudflare).toHaveBeenCalledTimes(1);
 
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
-    expect(markup).toContain("Connect Cloudflare");
+    expect(markup).toContain("Add Cloudflare");
+    expect(markup).toContain('href="/?add-cloudflare-worker#demo"');
   });
 
   it("lets failed manual Convex setup reopen the deployment dialog", () => {
-    const onConfigureConvexCreate = vi.fn();
-    const onConfigureConvexExisting = vi.fn();
     const state = buildVaultDashboardResourceRailState({
+      addConvexHref: "/?add-convex#demo",
       githubRepositoryUrl: "https://github.com/ada/demo",
-      onConfigureConvexCreate,
-      onConfigureConvexExisting,
       vault: makeResourceRailBuilderVault({
         providerSetup: {
           status: "failed",
@@ -546,59 +542,43 @@ describe("buildVaultDashboardResourceRailState", () => {
     if (convexRow.status !== "failed") {
       throw new Error("Expected failed Convex row.");
     }
-    const [connectAction, createAction] = convexRow.actions;
-    expect(connectAction).toMatchObject({
-      kind: "connect_existing",
-      label: "Connect",
+    const [action] = convexRow.actions;
+    expect(action).toMatchObject({
+      kind: "add",
+      label: "Add",
       disabled: false,
+      href: "/?add-convex#demo",
     });
-    expect(createAction).toMatchObject({
-      kind: "create_new",
-      label: "Create",
-      disabled: false,
-    });
-    connectAction.onClick?.();
-    createAction.onClick?.();
-    expect(onConfigureConvexExisting).toHaveBeenCalledTimes(1);
-    expect(onConfigureConvexCreate).toHaveBeenCalledTimes(1);
 
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
-    expect(markup).toContain("Connect Convex");
-    expect(markup).toContain("Create Convex");
+    expect(markup).toContain("Add Convex");
+    expect(markup).toContain('href="/?add-convex#demo"');
   });
 
   it("shows missing provider actions after setup is idle", () => {
-    const onConfigureConvexCreate = vi.fn();
-    const onConfigureConvexExisting = vi.fn();
     const state = buildVaultDashboardResourceRailState({
+      addCloudflareWorkerHref: "/?add-cloudflare-worker#demo",
+      addConvexHref: "/?add-convex#demo",
       githubRepositoryUrl: "https://github.com/ada/demo",
-      onConfigureConvexCreate,
-      onConfigureConvexExisting,
       vault: makeResourceRailBuilderVault({}),
     });
 
     expect(state.rows[1]).toMatchObject({
       provider: "convex",
       status: "action_required",
-      actions: [
-        { kind: "connect_existing", disabled: false },
-        { kind: "create_new", disabled: false },
-      ],
+      actions: [{ kind: "add", disabled: false, href: "/?add-convex#demo" }],
     });
     expect(state.rows[2]).toMatchObject({
       provider: "cloudflare",
       status: "action_required",
-      actions: [{ kind: "connect_existing", disabled: true }],
+      actions: [{ kind: "add", disabled: false, href: "/?add-cloudflare-worker#demo" }],
     });
 
     const convexRow = state.rows[1];
     if (convexRow.status !== "action_required") {
       throw new Error("Expected Convex action row.");
     }
-    convexRow.actions[0].onClick?.();
-    convexRow.actions[1].onClick?.();
-    expect(onConfigureConvexExisting).toHaveBeenCalledTimes(1);
-    expect(onConfigureConvexCreate).toHaveBeenCalledTimes(1);
+    expect(convexRow.actions).toHaveLength(1);
   });
 
   it("keeps Convex preview progress on the Convex row", () => {

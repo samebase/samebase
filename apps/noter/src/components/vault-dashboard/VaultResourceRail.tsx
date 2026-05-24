@@ -1,16 +1,19 @@
 import { Button } from "@/components/ui/button";
+import { linkStyle } from "@/components/styles";
 import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
   GitHubProviderLogo,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
-import { Clock, Link2, Loader2, Plus, RotateCw, XCircle, type LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Clock, Loader2, Plus, RotateCw, XCircle, type LucideIcon } from "lucide-react";
 import { type ComponentType } from "react";
 
-type VaultResourceRailActionKind = "connect_existing" | "create_new" | "retry";
+type VaultResourceRailActionKind = "add" | "retry";
 
 export type VaultResourceRailAction = {
   disabled?: boolean;
+  href?: string;
   kind: VaultResourceRailActionKind;
   label: string;
   onClick?: () => void;
@@ -88,16 +91,9 @@ const PROVIDER_LOGOS = {
 } satisfies Record<VaultResourceRailProvider, ComponentType>;
 
 const ACTION_ICONS = {
-  connect_existing: Link2,
-  create_new: Plus,
+  add: Plus,
   retry: RotateCw,
 } satisfies Record<VaultResourceRailActionKind, LucideIcon>;
-
-const ACTION_VARIANTS = {
-  connect_existing: "outline",
-  create_new: "outline",
-  retry: "outline",
-} as const satisfies Record<VaultResourceRailActionKind, "default" | "outline">;
 
 const STATUS_ICON_CLASS_NAMES = {
   failed: "h-3.5 w-3.5 text-destructive",
@@ -168,17 +164,45 @@ function VaultResourceRailActions({
     <div className="flex min-w-0 flex-wrap gap-1">
       {actions.map((action) => {
         const Icon = ACTION_ICONS[action.kind];
-        const isDisabled = action.disabled || !action.onClick;
+        const isDisabled = action.disabled || (!action.href && !action.onClick);
+        const actionLabel = `${action.label} ${PROVIDER_LABELS[provider]}`;
+        if (action.href) {
+          return (
+            <a
+              key={`${action.kind}:${action.label}`}
+              href={action.href}
+              aria-disabled={isDisabled ? true : undefined}
+              aria-label={actionLabel}
+              tabIndex={isDisabled ? -1 : undefined}
+              onClick={
+                isDisabled
+                  ? (event) => {
+                      event.preventDefault();
+                    }
+                  : undefined
+              }
+              className={cn(
+                "inline-flex h-7 items-center gap-1 px-1 text-sm text-blue-600 underline underline-offset-2",
+                linkStyle,
+                isDisabled && "pointer-events-none opacity-50",
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {action.label}
+            </a>
+          );
+        }
+
         return (
           <Button
             key={`${action.kind}:${action.label}`}
             type="button"
-            variant={ACTION_VARIANTS[action.kind]}
+            variant="outline"
             size="sm"
             className="h-7 gap-1 px-2"
             onClick={action.onClick}
             disabled={isDisabled}
-            aria-label={`${action.label} ${PROVIDER_LABELS[provider]}`}
+            aria-label={actionLabel}
           >
             <Icon className="h-3.5 w-3.5" />
             {action.label}

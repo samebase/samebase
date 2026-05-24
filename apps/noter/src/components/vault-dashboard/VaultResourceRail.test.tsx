@@ -91,12 +91,8 @@ describe("VaultResourceRail", () => {
           status: "action_required",
           actions: [
             {
-              kind: "connect_existing",
-              label: "Connect",
-            },
-            {
-              kind: "create_new",
-              label: "Create",
+              kind: "add",
+              label: "Add",
             },
           ],
         },
@@ -111,10 +107,7 @@ describe("VaultResourceRail", () => {
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
 
     expect(markup).toMatch(
-      /disabled=""[^>]*aria-label="Connect Convex"|aria-label="Connect Convex"[^>]*disabled=""/,
-    );
-    expect(markup).toMatch(
-      /disabled=""[^>]*aria-label="Create Convex"|aria-label="Create Convex"[^>]*disabled=""/,
+      /disabled=""[^>]*aria-label="Add Convex"|aria-label="Add Convex"[^>]*disabled=""/,
     );
   });
 });
