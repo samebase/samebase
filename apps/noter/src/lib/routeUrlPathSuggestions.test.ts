@@ -7,10 +7,12 @@ import {
 
 const ORIGIN = "https://noter.local";
 const routesByPath = getRouter().routesByPath;
+const adminViewer = { isAdmin: true };
+const publicViewer = { isAdmin: false };
 
 describe("readRouteUrlPathSuggestions", () => {
   it("exposes sorted user-facing TanStack route paths", () => {
-    const suggestions = readRouteUrlPathSuggestions(routesByPath);
+    const suggestions = readRouteUrlPathSuggestions(routesByPath, adminViewer);
 
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/logo/transition/transforms");
@@ -37,6 +39,15 @@ describe("readRouteUrlPathSuggestions", () => {
       }),
     );
   });
+
+  it("filters admin route paths for public viewers", () => {
+    const suggestions = readRouteUrlPathSuggestions(routesByPath, publicViewer);
+
+    expect(suggestions).toContain("/");
+    expect(suggestions).toContain("/logo");
+    expect(suggestions).not.toContain("/add");
+    expect(suggestions).not.toContain("/vault/$");
+  });
 });
 
 describe("filterRouteUrlPathSuggestions", () => {
@@ -47,6 +58,7 @@ describe("filterRouteUrlPathSuggestions", () => {
         draftHref: "/logo/t",
         origin: ORIGIN,
         routesByPath,
+        viewer: adminViewer,
       }),
     ).toEqual(["/logo/transition", "/logo/transition/transforms"]);
   });
@@ -58,6 +70,7 @@ describe("filterRouteUrlPathSuggestions", () => {
         draftHref: "https://noter.local/machines/c",
         origin: ORIGIN,
         routesByPath,
+        viewer: adminViewer,
       }),
     ).toEqual(["/machines/connect"]);
   });
@@ -69,6 +82,7 @@ describe("filterRouteUrlPathSuggestions", () => {
         draftHref: "?prod-ui",
         origin: ORIGIN,
         routesByPath,
+        viewer: adminViewer,
       }),
     ).toEqual(["/logo/iso"]);
 
@@ -78,6 +92,7 @@ describe("filterRouteUrlPathSuggestions", () => {
         draftHref: "#thread",
         origin: ORIGIN,
         routesByPath,
+        viewer: adminViewer,
       }),
     ).toEqual(["/research/codex-app-server/browser"]);
   });
@@ -89,6 +104,7 @@ describe("filterRouteUrlPathSuggestions", () => {
         draftHref: "/vault/octo/repo/codespace/main/ch",
         origin: ORIGIN,
         routesByPath,
+        viewer: adminViewer,
       }),
     ).toEqual(["/vault/$", "/vault/$owner/$repo/codespace/$branch/chat"]);
   });
@@ -100,6 +116,7 @@ describe("filterRouteUrlPathSuggestions", () => {
         draftHref: "/vault/octo/repo/main/src/App.tsx",
         origin: ORIGIN,
         routesByPath,
+        viewer: adminViewer,
       }),
     ).toEqual(["/vault/$"]);
   });
@@ -111,8 +128,9 @@ describe("filterRouteUrlPathSuggestions", () => {
         draftHref: "  ",
         origin: ORIGIN,
         routesByPath,
+        viewer: adminViewer,
       }),
-    ).toEqual(readRouteUrlPathSuggestions(routesByPath));
+    ).toEqual(readRouteUrlPathSuggestions(routesByPath, adminViewer));
 
     expect(
       filterRouteUrlPathSuggestions({
@@ -120,6 +138,7 @@ describe("filterRouteUrlPathSuggestions", () => {
         draftHref: "https://example.com/logo",
         origin: ORIGIN,
         routesByPath,
+        viewer: adminViewer,
       }),
     ).toEqual([]);
   });

@@ -11,5 +11,6 @@ function LogoTransitionTransformsLabRouteComponent() {
 }
 
 export const Route = createFileRoute("/logo/transition/transforms")({
+  staticData: { permission: "public" },
   component: LogoTransitionTransformsLabRouteComponent,
 });

@@ -37,5 +37,6 @@ function CodespaceChatRouteComponent() {
 }
 
 export const Route = createFileRoute("/vault/$owner/$repo/codespace/$branch/chat")({
+  staticData: { permission: "admin" },
   component: CodespaceChatRouteComponent,
 });

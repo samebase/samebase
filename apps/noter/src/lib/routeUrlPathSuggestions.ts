@@ -1,11 +1,17 @@
 import type { AppRouter } from "@/router";
 import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
+import {
+  canAccessNoterRoutePermission,
+  type NoterRoutePermission,
+  type NoterRoutePermissionViewer,
+} from "@/lib/routePermissions";
 
 type RouteUrlPathSuggestionsInput = {
   currentHref: string;
   draftHref: string;
   origin: string;
   routesByPath: AppRouter["routesByPath"];
+  viewer: NoterRoutePermissionViewer;
 };
 
 /**
@@ -14,9 +20,13 @@ type RouteUrlPathSuggestionsInput = {
  */
 export function readRouteUrlPathSuggestions(
   routesByPath: AppRouter["routesByPath"],
+  viewer: NoterRoutePermissionViewer,
 ): readonly string[] {
-  return Object.keys(routesByPath)
-    .filter(isRouteUrlPathSuggestion)
+  return Object.entries(routesByPath)
+    .filter(([path, route]) =>
+      isRouteUrlPathSuggestion(path, route.options.staticData.permission, viewer),
+    )
+    .map(([path]) => path)
     .sort(compareRouteUrlPathSuggestion);
 }
 
@@ -25,8 +35,9 @@ export function filterRouteUrlPathSuggestions({
   draftHref,
   origin,
   routesByPath,
+  viewer,
 }: RouteUrlPathSuggestionsInput): readonly string[] {
-  const suggestions = readRouteUrlPathSuggestions(routesByPath);
+  const suggestions = readRouteUrlPathSuggestions(routesByPath, viewer);
   const draftPath = readRouteUrlPathSuggestionDraftPath({
     currentHref,
     draftHref,
@@ -41,8 +52,15 @@ export function filterRouteUrlPathSuggestions({
   );
 }
 
-function isRouteUrlPathSuggestion(path: string): boolean {
-  return path === "/" || (path.startsWith("/") && !path.startsWith("/_"));
+function isRouteUrlPathSuggestion(
+  path: string,
+  permission: NoterRoutePermission,
+  viewer: NoterRoutePermissionViewer,
+): boolean {
+  return (
+    (path === "/" || (path.startsWith("/") && !path.startsWith("/_"))) &&
+    canAccessNoterRoutePermission(permission, viewer)
+  );
 }
 
 function compareRouteUrlPathSuggestion(left: string, right: string): number {
@@ -65,7 +83,7 @@ function readRouteUrlPathSuggestionDraftPath({
   currentHref,
   draftHref,
   origin,
-}: Omit<RouteUrlPathSuggestionsInput, "routesByPath">): string | null {
+}: Omit<RouteUrlPathSuggestionsInput, "routesByPath" | "viewer">): string | null {
   const trimmedDraftHref = draftHref.trim();
   if (!trimmedDraftHref) {
     return "/";

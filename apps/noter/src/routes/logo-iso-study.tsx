@@ -16,6 +16,7 @@ function LogoIsoStudyRouteComponent() {
 }
 
 export const Route = createFileRoute("/logo/single-cube")({
+  staticData: { permission: "public" },
   component: LogoIsoStudyRouteComponent,
   validateSearch: validateLogoRouteSearch,
 });

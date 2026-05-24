@@ -15,6 +15,7 @@ function MachinesRouteComponent() {
 }
 
 export const Route = createFileRoute("/machines")({
+  staticData: { permission: "admin" },
   component: MachinesRouteComponent,
   validateSearch: validateMachinesRouteSearch,
 });

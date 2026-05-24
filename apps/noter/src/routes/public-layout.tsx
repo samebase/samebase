@@ -54,5 +54,6 @@ function PublicLayoutRoute() {
 }
 
 export const Route = createFileRoute("/_public")({
+  staticData: { permission: "public" },
   component: PublicLayoutRoute,
 });

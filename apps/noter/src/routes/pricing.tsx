@@ -12,6 +12,7 @@ function PricingRouteComponent() {
 }
 
 export const Route = createFileRoute("/pricing")({
+  staticData: { permission: "admin" },
   component: PricingRouteComponent,
   validateSearch: validatePricingRouteSearch,
 });

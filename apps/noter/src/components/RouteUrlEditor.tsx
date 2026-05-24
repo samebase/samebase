@@ -1,4 +1,5 @@
 import { useLocation, useRouter } from "@tanstack/react-router";
+import { useQuery } from "convex/react";
 import { ArrowLeft, ArrowRight, ArrowUpRight, RefreshCw } from "lucide-react";
 import {
   useCallback,
@@ -15,6 +16,7 @@ import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
 import { filterRouteUrlPathSuggestions } from "@/lib/routeUrlPathSuggestions";
 import { RETAINED_ROOT_SEARCH_KEYS, validateRootRouteSearch } from "@/lib/rootRouteSearch";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
+import { api } from "../../convex/_generated/api";
 
 const routeUrlEditorIconButtonClassName =
   "flex size-7 shrink-0 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
@@ -173,6 +175,7 @@ export function RouteUrlEditor() {
   const [pathSuggestionsDismissed, setPathSuggestionsDismissed] = useState(false);
   const [pathSuggestionDraftEditedSinceFocus, setPathSuggestionDraftEditedSinceFocus] =
     useState(false);
+  const viewerIsAdmin = useQuery(api.users.isCurrentUserAdmin);
   const draftHref = normalizeRouteUrlEditorHref({
     currentHref,
     origin,
@@ -191,6 +194,7 @@ export function RouteUrlEditor() {
     draftHref: pathSuggestionDraftEditedSinceFocus ? draftRouteAddress : "",
     origin,
     routesByPath: router.routesByPath,
+    viewer: { isAdmin: viewerIsAdmin === true },
   });
   const pathSuggestionsVisible =
     inputFocused &&

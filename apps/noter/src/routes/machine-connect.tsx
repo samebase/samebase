@@ -15,6 +15,7 @@ function MachineConnectRouteComponent() {
 }
 
 export const Route = createFileRoute("/machines/connect")({
+  staticData: { permission: "admin" },
   component: MachineConnectRouteComponent,
   validateSearch: validateMachineConnectRouteSearch,
 });

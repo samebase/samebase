@@ -26,6 +26,7 @@ function LogoRasterRouteComponent() {
 }
 
 export const Route = createFileRoute("/logo/raster")({
+  staticData: { permission: "public" },
   component: LogoRasterRouteComponent,
   validateSearch: validateLogoRouteSearchForRenderer("raster"),
 });

@@ -20,6 +20,7 @@ function LandingPreviewRouteComponent() {
 }
 
 export const Route = createFileRoute("/landing-preview")({
+  staticData: { permission: "public" },
   component: LandingPreviewRouteComponent,
   validateSearch: validateLandingMarkdownPreviewRouteSearch,
 });

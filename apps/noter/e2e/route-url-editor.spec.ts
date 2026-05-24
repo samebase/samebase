@@ -135,13 +135,8 @@ test("route URL editor lists route paths and filters them while typing", async (
   await input.focus();
   await expect(suggestions).toBeVisible();
   await expect(page.getByRole("option", { exact: true, name: "Use /" })).toBeVisible();
-  await expect(page.getByRole("option", { exact: true, name: "Use /vault/$" })).toBeVisible();
-  await expect(
-    page.getByRole("option", {
-      exact: true,
-      name: "Use /vault/$owner/$repo/codespace/$branch/chat",
-    }),
-  ).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "Use /logo" })).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "Use /vault/$" })).toHaveCount(0);
 
   await input.press("End");
   await input.type("lo");
