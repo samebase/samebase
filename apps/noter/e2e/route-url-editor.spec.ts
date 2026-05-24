@@ -1,4 +1,14 @@
+import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
+import { getLandingMarkdownHeadings } from "../src/lib/landingMarkdownHeadings";
+
+const landingPreviewMarkdown = readFileSync(
+  new URL("../src/content/landing-preview.md", import.meta.url),
+  "utf8",
+);
+const landingPreviewHashSuggestions = getLandingMarkdownHeadings(landingPreviewMarkdown).map(
+  (heading) => heading.href,
+);
 
 test("route URL editor fixture navigates committed same-origin hrefs", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 96 });
@@ -119,6 +129,166 @@ test("route URL editor fixture selects continuously across host and route text",
   });
 
   expect(selectedText).toBe(`${host}${routePath}`);
+});
+
+test("route URL editor lists route paths and filters them while typing", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+  const host = await page.evaluate(() => window.location.host);
+
+  const input = page.getByTestId("route-url-editor-input");
+  const suggestions = page.getByTestId("route-url-editor-suggestions");
+
+  await input.focus();
+  await expect(suggestions).toBeVisible();
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "path");
+  await expect(page.getByRole("option", { exact: true, name: "Use /" })).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "Use /logo" })).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "Use /vault/$" })).toHaveCount(0);
+
+  await input.press("End");
+  await input.type("lo");
+
+  await expect(page.getByRole("option", { exact: true, name: "Use /logo" })).toBeVisible();
+  await expect(
+    page.getByRole("option", { exact: true, name: "Use /logo/transition" }),
+  ).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "Use /pricing" })).toHaveCount(0);
+
+  await page.getByRole("option", { exact: true, name: "Use /logo" }).click();
+
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(input).toHaveValue(`${host}/logo`);
+  await expect(suggestions).toHaveCount(0);
+});
+
+test("route URL editor switches suggestions by URL section", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/logo?dev#top", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const input = page.getByTestId("route-url-editor-input");
+  const suggestions = page.getByTestId("route-url-editor-suggestions");
+
+  await input.focus();
+  await expect(input).toHaveValue(`${origin}/logo?dev#top`);
+
+  await input.evaluate((element, currentOrigin) => {
+    const pathCaret = `${currentOrigin}/l`.length;
+    element.setSelectionRange(pathCaret, pathCaret);
+  }, origin);
+  await input.press("ArrowRight");
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "path");
+  await expect(page.getByRole("option", { exact: true, name: "Use /logo" })).toBeVisible();
+
+  await input.evaluate((element) => {
+    const searchCaret = element.value.indexOf("?dev") + "?d".length;
+    element.setSelectionRange(searchCaret, searchCaret);
+  });
+  await input.press("ArrowRight");
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
+  await expect(page.getByRole("option", { exact: true, name: "Use ?dev" })).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "Use ?devtools" })).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "Use /logo" })).toHaveCount(0);
+
+  await input.evaluate((element) => {
+    const hashCaret = element.value.indexOf("#top") + "#".length;
+    element.setSelectionRange(hashCaret, hashCaret);
+  });
+  await input.press("ArrowRight");
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "hash");
+  await expect(page.getByRole("option", { exact: true, name: "Use #top" })).toBeVisible();
+});
+
+test("route URL editor lists rendered page hash targets", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  const expectedHashSuggestion = landingPreviewHashSuggestions[0];
+  if (expectedHashSuggestion === undefined) {
+    throw new Error("Expected landing preview markdown to have headings.");
+  }
+  const hashKey = expectedHashSuggestion.replace(/^#/, "");
+  const hashDraft = hashKey.slice(0, 10);
+
+  await page.goto("/landing-preview?dev", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  await expect(page.locator(`[data-landing-heading-id="${hashKey}"]`)).toHaveCount(1);
+
+  const origin = await page.evaluate(() => window.location.origin);
+  const input = page.getByTestId("route-url-editor-input");
+  const suggestions = page.getByTestId("route-url-editor-suggestions");
+
+  await input.focus();
+  await input.fill(`${origin}/landing-preview?dev#${hashDraft}`);
+
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "hash");
+  await expect(
+    page.getByRole("option", { exact: true, name: `Use ${expectedHashSuggestion}` }),
+  ).toBeVisible();
+});
+
+test("route URL editor selects suggestions with arrow keys", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+  const host = await page.evaluate(() => window.location.host);
+
+  const input = page.getByTestId("route-url-editor-input");
+  const logoOption = page.getByRole("option", {
+    exact: true,
+    name: "Use /logo",
+  });
+  const logoIsoOption = page.getByRole("option", {
+    exact: true,
+    name: "Use /logo/iso",
+  });
+
+  await input.focus();
+  await input.press("End");
+  await input.type("log");
+
+  await expect(logoOption).toBeVisible();
+  await expect(logoIsoOption).toBeVisible();
+
+  await input.press("ArrowDown");
+  await expect(logoOption).toHaveAttribute("aria-selected", "true");
+
+  await input.press("ArrowDown");
+  await expect(logoIsoOption).toHaveAttribute("aria-selected", "true");
+
+  await input.press("ArrowUp");
+  await expect(logoOption).toHaveAttribute("aria-selected", "true");
+
+  await input.press("Enter");
+
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(input).toHaveValue(`${host}/logo`);
+});
+
+test("route URL editor hides local route suggestions in prod UI mode", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/?prod-ui", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const input = page.getByTestId("route-url-editor-input");
+
+  await input.focus();
+  await input.press("Home");
+
+  await expect(page.getByRole("option", { exact: true, name: "Use /logo" })).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "Use /visual-fixture" })).toHaveCount(
+    0,
+  );
 });
 
 test("route URL editor fixture refuses changes that remove the origin slash prefix", async ({

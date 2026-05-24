@@ -21,6 +21,7 @@ function FileViewRouteComponent() {
 }
 
 export const Route = createFileRoute("/vault/$")({
+  staticData: { permission: "admin" },
   component: FileViewRouteComponent,
   validateSearch: validateFileViewRouteSearch,
 });

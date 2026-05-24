@@ -26,6 +26,7 @@ function LogoThreeRouteComponent() {
 }
 
 export const Route = createFileRoute("/logo")({
+  staticData: { permission: "public" },
   component: LogoThreeRouteComponent,
   validateSearch: validateLogoRouteSearchForRenderer("three"),
 });

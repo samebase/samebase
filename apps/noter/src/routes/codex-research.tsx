@@ -40,6 +40,7 @@ function CodexResearchRouteComponent() {
 }
 
 export const Route = createFileRoute("/research/codex-app-server")({
+  staticData: { permission: "admin" },
   component: CodexResearchRouteComponent,
   validateSearch: validateCodexResearchRouteSearch,
 });

@@ -11,5 +11,6 @@ function PitchPrintMobileRouteComponent() {
 }
 
 export const Route = createFileRoute("/pitch/print/mobile")({
+  staticData: { permission: "admin" },
   component: PitchPrintMobileRouteComponent,
 });

@@ -16,6 +16,7 @@ function LogoSvgRouteComponent() {
 }
 
 export const Route = createFileRoute("/logo/svg")({
+  staticData: { permission: "public" },
   component: LogoSvgRouteComponent,
   validateSearch: validateLogoRouteSearchForRenderer("svg"),
 });

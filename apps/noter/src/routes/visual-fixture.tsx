@@ -22,6 +22,7 @@ function VisualFixtureRouteComponent() {
 }
 
 export const Route = createFileRoute("/visual-fixture")({
+  staticData: { permission: "public" },
   component: VisualFixtureRouteComponent,
   validateSearch: validateVisualFixtureRouteSearch,
 });

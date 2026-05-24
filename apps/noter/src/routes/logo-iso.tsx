@@ -26,6 +26,7 @@ function LogoIsoRouteComponent() {
 }
 
 export const Route = createFileRoute("/logo/iso")({
+  staticData: { permission: "public" },
   component: LogoIsoRouteComponent,
   validateSearch: validateLogoRouteSearchForRenderer("iso"),
 });

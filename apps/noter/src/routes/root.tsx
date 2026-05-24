@@ -73,6 +73,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
 }
 
 export const Route = createRootRoute({
+  staticData: { permission: "public" },
   beforeLoad: ({ location, search }) => {
     if (search.reset) {
       throw redirect({

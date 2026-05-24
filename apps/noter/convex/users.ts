@@ -383,6 +383,23 @@ export const isCurrentUserApproved = query({
   },
 });
 
+export const isCurrentUserAdmin = query({
+  args: {},
+  returns: boolean(),
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) return false;
+    const user = await ctx.db.get(userId);
+    if (!user) return false;
+
+    const githubConnection = await getConnectionByUserAndKind(ctx.db, userId, "github");
+    const githubUsername =
+      githubConnection?.kind === "github" ? githubConnection.username : undefined;
+
+    return isAdminUser(githubUsername, user.email);
+  },
+});
+
 export const getGithubConnectionStatus = query({
   args: {},
   returns: v.object({

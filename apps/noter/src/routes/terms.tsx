@@ -11,5 +11,6 @@ function TermsRouteComponent() {
 }
 
 export const Route = createFileRoute("/_public/terms")({
+  staticData: { permission: "public" },
   component: TermsRouteComponent,
 });

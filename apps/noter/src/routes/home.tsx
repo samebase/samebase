@@ -20,5 +20,6 @@ function HomeRouteRedirect() {
 }
 
 export const Route = createFileRoute("/_public/home")({
+  staticData: { permission: "public" },
   component: HomeRouteRedirect,
 });

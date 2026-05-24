@@ -383,7 +383,11 @@ function ConnectedMachineList({ machines }: { machines: ConnectedMachineItem[] }
   }
 
   return (
-    <section id={CONNECTED_MACHINES_SECTION_ID} className="space-y-3">
+    <section
+      data-route-url-hash-suggestion={CONNECTED_MACHINES_SECTION_ID}
+      id={CONNECTED_MACHINES_SECTION_ID}
+      className="space-y-3"
+    >
       <div className="space-y-1">
         <h2 className="text-sm font-medium">Connected machines</h2>
         <p className="text-sm text-muted-foreground">

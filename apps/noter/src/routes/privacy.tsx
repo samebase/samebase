@@ -11,5 +11,6 @@ function PrivacyRouteComponent() {
 }
 
 export const Route = createFileRoute("/_public/privacy")({
+  staticData: { permission: "public" },
   component: PrivacyRouteComponent,
 });
