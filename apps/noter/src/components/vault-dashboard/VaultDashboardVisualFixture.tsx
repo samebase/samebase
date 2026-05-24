@@ -1039,7 +1039,6 @@ function FixtureDashboardCreateDialog() {
     <div data-testid="vault-dashboard-visual-fixture" className="min-h-screen bg-background">
       <VaultDashboardCreateDialog
         createButtonDisabled={false}
-        createButtonLabel="New App"
         footerMessages={null}
         isCreating={false}
         onOpenChange={() => {}}
@@ -1047,7 +1046,6 @@ function FixtureDashboardCreateDialog() {
         open
       >
         <VaultDashboardCreateFormFields
-          canEditProviderResourceNames
           cloudflareWorkerName="field-notes"
           cloudflareWorkerNameSupport={null}
           convexProjectName="field-notes"
@@ -1068,8 +1066,6 @@ function FixtureDashboardCreateDialog() {
           onConvexProjectNameChange={() => {}}
           onGithubRepositoryOwnerChange={() => {}}
           onNewRepositoryNameChange={() => {}}
-          ownerSelectPlaceholder="GitHub owner"
-          providerResourceNameInputDisabled={false}
           selectedGithubRepositoryOwner="nicu-chiciuc"
         />
       </VaultDashboardCreateDialog>

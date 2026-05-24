@@ -1040,7 +1040,6 @@ export function VaultDashboardDeleteDialog({
 export function VaultDashboardCreateDialog({
   children,
   createButtonDisabled,
-  createButtonLabel,
   footerMessages,
   isCreating,
   onOpenChange,
@@ -1049,7 +1048,6 @@ export function VaultDashboardCreateDialog({
 }: {
   children: ReactNode;
   createButtonDisabled: boolean;
-  createButtonLabel: string;
   footerMessages: ReactNode;
   isCreating: boolean;
   onOpenChange: (isOpen: boolean) => void;
@@ -1087,7 +1085,7 @@ export function VaultDashboardCreateDialog({
             </Button>
             <Button type="submit" disabled={createButtonDisabled}>
               {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {createButtonLabel}
+              {isCreating ? "Creating app..." : "New App"}
             </Button>
           </DialogFooter>
         </form>
@@ -1101,7 +1099,6 @@ export function VaultDashboardCreateDialog({
  * drift away from the production dialog layout.
  */
 export function VaultDashboardCreateFormFields({
-  canEditProviderResourceNames,
   cloudflareWorkerName,
   cloudflareWorkerNameSupport,
   convexProjectName,
@@ -1119,11 +1116,8 @@ export function VaultDashboardCreateFormFields({
   onConvexProjectNameChange,
   onGithubRepositoryOwnerChange,
   onNewRepositoryNameChange,
-  ownerSelectPlaceholder,
-  providerResourceNameInputDisabled,
   selectedGithubRepositoryOwner,
 }: {
-  canEditProviderResourceNames: boolean;
   cloudflareWorkerName: string;
   cloudflareWorkerNameSupport: ReactNode;
   convexProjectName: string;
@@ -1141,10 +1135,14 @@ export function VaultDashboardCreateFormFields({
   onConvexProjectNameChange: (value: string) => void;
   onGithubRepositoryOwnerChange: (value: string) => void;
   onNewRepositoryNameChange: (value: string) => void;
-  ownerSelectPlaceholder: string;
-  providerResourceNameInputDisabled: boolean;
   selectedGithubRepositoryOwner: string;
 }) {
+  const canEditProviderResourceNames = newRepositoryName.trim().length > 0;
+  const providerResourceNameInputDisabled =
+    !hasRequiredCreateConnections || isCreating || !canEditProviderResourceNames;
+  const ownerSelectPlaceholder = isLoadingGithubRepositoryOwners
+    ? "Loading GitHub owners..."
+    : "GitHub owner";
   const sortedGithubRepositoryOwnerOptions = [...githubRepositoryOwnerOptions].sort(
     compareGitHubRepositoryOwnerOptions,
   );
@@ -2765,15 +2763,6 @@ function applyVaultDashboardProviderAddSearch({
       });
 }
 
-function applyVaultDashboardNewAppSearch(currentSearch: RootRouteSearch): RootRouteSearch {
-  return applySearchPatch(currentSearch, {
-    "add-cloudflare": null,
-    "add-convex": null,
-    delete: null,
-    [DASHBOARD_NEW_APP_QUERY_PARAM]: true,
-  });
-}
-
 function buildVaultDashboardProviderAddHref({
   provider,
   repositoryHashId,
@@ -3838,8 +3827,6 @@ export function VaultDashboard() {
   const preparedDeleteRepositoryRef = useRef<string | null>(null);
   const preparedAddConvexRepositoryRef = useRef<string | null>(null);
   const preparedAddCloudflareWorkerRepositoryRef = useRef<string | null>(null);
-  const previousNewAppModeActiveRef = useRef(newAppModeActive);
-  const shouldPopNewAppHistoryRef = useRef(false);
   // In-app delete icon clicks should close back to the dashboard entry that
   // existed before the modal; direct links should only replace the delete key.
   const previousDeleteModeActiveRef = useRef(deleteModeActive);
@@ -4065,31 +4052,16 @@ export function VaultDashboard() {
     CODESPACES_ENABLED && vaultToDelete ? { vaultId: vaultToDelete.id } : "skip",
   );
 
-  const clearNewAppSearchParam = useCallback(
-    ({ preferHistoryBack }: { preferHistoryBack: boolean }) => {
-      const shouldPopNewAppRoute =
-        preferHistoryBack &&
-        newAppModeActive &&
-        shouldPopNewAppHistoryRef.current &&
-        router.history.canGoBack();
-      shouldPopNewAppHistoryRef.current = false;
-
-      if (shouldPopNewAppRoute) {
-        router.history.back();
-        return;
-      }
-
-      void navigate({
-        hash: true,
-        replace: true,
-        search: (currentSearch) =>
-          applySearchPatch(currentSearch, { [DASHBOARD_NEW_APP_QUERY_PARAM]: null }),
-        state: true,
-        to: ".",
-      });
-    },
-    [navigate, newAppModeActive, router],
-  );
+  const closeNewAppDialog = () => {
+    void navigate({
+      hash: true,
+      replace: true,
+      search: (currentSearch) =>
+        applySearchPatch(currentSearch, { [DASHBOARD_NEW_APP_QUERY_PARAM]: null }),
+      state: true,
+      to: ".",
+    });
+  };
 
   const clearDeleteSearchParam = useCallback(
     ({ preferHistoryBack }: { preferHistoryBack: boolean }) => {
@@ -4334,17 +4306,6 @@ export function VaultDashboard() {
   );
 
   useEffect(() => {
-    const previousNewAppModeActive = previousNewAppModeActiveRef.current;
-    if (!previousNewAppModeActive && newAppModeActive) {
-      shouldPopNewAppHistoryRef.current = true;
-    }
-    if (!newAppModeActive) {
-      shouldPopNewAppHistoryRef.current = false;
-    }
-    previousNewAppModeActiveRef.current = newAppModeActive;
-  }, [newAppModeActive]);
-
-  useEffect(() => {
     const previousDeleteModeActive = previousDeleteModeActiveRef.current;
     if (!previousDeleteModeActive && deleteModeActive) {
       shouldPopDeleteHistoryRef.current = true;
@@ -4551,7 +4512,7 @@ export function VaultDashboard() {
   };
 
   const handleOpenCloudflareAccountDialogFromCreate = () => {
-    clearNewAppSearchParam({ preferHistoryBack: false });
+    closeNewAppDialog();
     handleOpenCloudflareAccountDialog();
   };
 
@@ -4810,7 +4771,7 @@ export function VaultDashboard() {
         private: true,
       });
       resetCreateRepositoryName();
-      clearNewAppSearchParam({ preferHistoryBack: true });
+      closeNewAppDialog();
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : "Failed to create app");
     } finally {
@@ -5194,13 +5155,6 @@ export function VaultDashboard() {
 
     return null;
   };
-  const createButtonLabel = isCreating ? "Creating app..." : "New App";
-  const canEditProviderResourceNames = createRepositoryName.length > 0;
-  const providerResourceNameInputDisabled =
-    !hasRequiredCreateConnections || isCreating || !canEditProviderResourceNames;
-  const ownerSelectPlaceholder = isLoadingGithubRepositoryOwners
-    ? "Loading GitHub owners..."
-    : "GitHub owner";
   const createControlFooterMessages =
     createError ||
     !canCreateRepo ||
@@ -5242,12 +5196,11 @@ export function VaultDashboard() {
   });
   const createButtonDisabled =
     isCreating ||
-    newRepositoryName.trim().length === 0 ||
+    createRepositoryName.length === 0 ||
     !canCreateRepo ||
     hasBlockingCreateResourceName;
   const createFormFields = (
     <VaultDashboardCreateFormFields
-      canEditProviderResourceNames={canEditProviderResourceNames}
       cloudflareWorkerName={resolvedCloudflareWorkerName}
       cloudflareWorkerNameSupport={renderCreateResourceNameSupport({
         availability: cloudflareWorkerNameAvailability,
@@ -5301,15 +5254,23 @@ export function VaultDashboard() {
       }}
       onGithubRepositoryOwnerChange={setSelectedGithubRepositoryOwner}
       onNewRepositoryNameChange={setNewRepositoryName}
-      ownerSelectPlaceholder={ownerSelectPlaceholder}
-      providerResourceNameInputDisabled={providerResourceNameInputDisabled}
       selectedGithubRepositoryOwner={selectedGithubRepositoryOwner}
     />
   );
   const createControl = (
     <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">
       <Button className="w-full" asChild>
-        <Link to="/" search={applyVaultDashboardNewAppSearch}>
+        <Link
+          to="/"
+          search={(currentSearch) =>
+            applySearchPatch(currentSearch, {
+              "add-cloudflare": null,
+              "add-convex": null,
+              delete: null,
+              [DASHBOARD_NEW_APP_QUERY_PARAM]: true,
+            })
+          }
+        >
           New App
         </Link>
       </Button>
@@ -5502,7 +5463,7 @@ export function VaultDashboard() {
       return;
     }
 
-    clearNewAppSearchParam({ preferHistoryBack: true });
+    closeNewAppDialog();
   };
 
   const handleDeleteDialogOpenChange = (isOpen: boolean) => {
@@ -5598,7 +5559,6 @@ export function VaultDashboard() {
 
       <VaultDashboardCreateDialog
         createButtonDisabled={createButtonDisabled}
-        createButtonLabel={createButtonLabel}
         footerMessages={createControlFooterMessages}
         isCreating={isCreating}
         onOpenChange={handleNewAppDialogOpenChange}

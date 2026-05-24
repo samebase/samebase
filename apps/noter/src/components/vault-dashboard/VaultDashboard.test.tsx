@@ -381,7 +381,6 @@ describe("VaultDashboardCreateDialog", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardCreateDialog
         createButtonDisabled={false}
-        createButtonLabel="New App"
         footerMessages={null}
         isCreating={false}
         onOpenChange={vi.fn()}
