@@ -50,6 +50,7 @@ test("route URL editor fixture navigates committed same-origin hrefs", async ({ 
   await expect(input).toHaveCount(0);
   await expect(display).toHaveText(`${host}/visual-fixture?mode=route-url-editor`);
   await expect(display).toHaveAttribute("title", `${origin}/visual-fixture?mode=route-url-editor`);
+  await expect(display).toHaveCSS("cursor", "text");
   await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
   await expect(backButton).toBeVisible();
   await expect(forwardButton).toBeVisible();
