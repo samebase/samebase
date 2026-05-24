@@ -1,10 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Layout, PublicLayoutShell } from "@/Layout";
+import {
+  readRouteSearchParamSuggestions,
+  type RouteSearchParamMetadata,
+} from "@/lib/routeSearchParamMetadata";
 import { VisualFixturePage } from "@/visualFixture";
 
 type VisualFixtureRouteSearch = {
   mode?: string;
 };
+
+const visualFixtureRouteSearchParamMetadata = {
+  mode: { permission: "public", suggestion: "route", valueKind: "value" },
+} as const satisfies Readonly<Record<keyof VisualFixtureRouteSearch, RouteSearchParamMetadata>>;
+
+const visualFixtureRouteSearchParamSuggestions = readRouteSearchParamSuggestions(
+  visualFixtureRouteSearchParamMetadata,
+  "route",
+);
 
 function validateVisualFixtureRouteSearch(
   search: Record<string, unknown>,
@@ -33,7 +46,10 @@ function VisualFixtureRouteComponent() {
 }
 
 export const Route = createFileRoute("/visual-fixture")({
-  staticData: { permission: "public" },
+  staticData: {
+    permission: "public",
+    searchParamSuggestions: visualFixtureRouteSearchParamSuggestions,
+  },
   component: VisualFixtureRouteComponent,
   validateSearch: validateVisualFixtureRouteSearch,
 });

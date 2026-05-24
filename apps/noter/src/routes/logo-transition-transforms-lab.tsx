@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS } from "@/lib/logoRouteSearch";
 import { LogoTransitionTransformsLabPage } from "@/components/logo/LogoTransitionTransformsLabPage";
 import { RoutedPage } from "./-publicRouteComponents";
 
@@ -11,6 +12,9 @@ function LogoTransitionTransformsLabRouteComponent() {
 }
 
 export const Route = createFileRoute("/logo/transition/transforms")({
-  staticData: { permission: "public" },
+  staticData: {
+    permission: "public",
+    searchParamSuggestions: LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+  },
   component: LogoTransitionTransformsLabRouteComponent,
 });

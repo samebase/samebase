@@ -1,7 +1,16 @@
 export type NoterRoutePermission = "public" | "admin";
 
+export type NoterRouteSearchParamValueKind = "presence" | "value";
+
+export type NoterRouteSearchParamSuggestion = {
+  key: string;
+  permission: NoterRoutePermission;
+  valueKind: NoterRouteSearchParamValueKind;
+};
+
 export type NoterRouteStaticData = {
   permission: NoterRoutePermission;
+  searchParamSuggestions?: readonly NoterRouteSearchParamSuggestion[];
 };
 
 export type NoterRoutePermissionViewer = {

@@ -1,29 +1,31 @@
 import type { AppRouter } from "@/router";
-import {
-  APP_THEME_COLOR_SEARCH_KEYS,
-  LOGO_THEME_COLOR_SEARCH_KEYS,
-} from "@/lib/appThemeColorSearch";
-import { LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM } from "@/lib/landingMarkdownPreview";
-import { LANDING_DEV_MODE_QUERY_PARAM } from "@/lib/landingDevMode";
-import { FORCE_PROD_UI_QUERY_PARAM } from "@/lib/prodUiMode";
-import { PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM } from "@/lib/publicLayoutSidebarPreferences";
 import { filterRouteUrlPathSuggestions } from "@/lib/routeUrlPathSuggestions";
 import {
   canAccessNoterRoutePermission,
   type NoterRoutePermission,
+  type NoterRouteSearchParamSuggestion,
   type NoterRoutePermissionViewer,
 } from "@/lib/routePermissions";
-import { ROUTE_SEARCH_PRESENCE_FLAG_KEYS } from "@/lib/routeSearchFlags";
-import { ROOT_THEME_MODE_SEARCH_KEYS } from "@/lib/rootThemeModeSearch";
-import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
+import { ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS } from "@/lib/rootRouteSearch";
 
 export type RouteUrlEditorSuggestionKind = "hash" | "path" | "search";
 
-export type RouteUrlEditorSuggestion = {
-  kind: RouteUrlEditorSuggestionKind;
+type RouteUrlEditorHashOrPathSuggestion = {
+  kind: Exclude<RouteUrlEditorSuggestionKind, "search">;
   key: string;
   value: string;
 };
+
+type RouteUrlEditorSearchSuggestion = {
+  kind: "search";
+  key: string;
+  value: string;
+  valueKind: NoterRouteSearchParamSuggestion["valueKind"];
+};
+
+export type RouteUrlEditorSuggestion =
+  | RouteUrlEditorHashOrPathSuggestion
+  | RouteUrlEditorSearchSuggestion;
 
 type RouteUrlEditorSuggestionsInput = {
   currentHref: string;
@@ -58,96 +60,6 @@ type SearchToken = {
   tokenEnd: number;
   tokenStart: number;
 };
-
-type RouteUrlSearchParamSuggestion = {
-  key: string;
-  permission: NoterRoutePermission;
-};
-
-const GLOBAL_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS = [
-  { key: LANDING_DEV_MODE_QUERY_PARAM, permission: "public" },
-  { key: "devtools", permission: "public" },
-  { key: FORCE_PROD_UI_QUERY_PARAM, permission: "public" },
-  { key: SEARCH_RESET_QUERY_PARAM, permission: "public" },
-  ...ROOT_THEME_MODE_SEARCH_KEYS.map((key) => ({ key, permission: "public" as const })),
-  ...APP_THEME_COLOR_SEARCH_KEYS.map((key) => ({ key, permission: "public" as const })),
-  ...LOGO_THEME_COLOR_SEARCH_KEYS.map((key) => ({ key, permission: "public" as const })),
-] as const satisfies readonly RouteUrlSearchParamSuggestion[];
-
-/**
- * `/` can be the public landing page or the signed-in dashboard, so root search
- * suggestions cannot inherit the route's public permission wholesale.
- */
-const ROOT_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS = [
-  { key: "add-cloudflare", permission: "admin" },
-  { key: "add-convex", permission: "admin" },
-  { key: "auth", permission: "public" },
-  { key: "delete", permission: "admin" },
-  { key: "depth", permission: "public" },
-  { key: "dist", permission: "public" },
-  { key: "new-app", permission: "admin" },
-  { key: PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM, permission: "public" },
-  { key: "signup", permission: "public" },
-] as const satisfies readonly RouteUrlSearchParamSuggestion[];
-
-const LOGO_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS = [
-  { key: "axis", permission: "public" },
-  { key: "depth", permission: "public" },
-  { key: "dist", permission: "public" },
-  { key: "elev", permission: "public" },
-  { key: "freeView", permission: "public" },
-  { key: "isoSide", permission: "public" },
-  { key: "isoStyle", permission: "public" },
-  { key: "leftFace", permission: "public" },
-  { key: "rot", permission: "public" },
-  { key: "stripeA", permission: "public" },
-  { key: "stripeBasis", permission: "public" },
-  { key: "stripeG", permission: "public" },
-  { key: "stripeLink", permission: "public" },
-  { key: "stripeO", permission: "public" },
-  { key: "stripeW", permission: "public" },
-  { key: "vox", permission: "public" },
-] as const satisfies readonly RouteUrlSearchParamSuggestion[];
-
-const ROUTE_URL_SEARCH_PARAM_SUGGESTIONS_BY_PATH: Readonly<
-  Record<string, readonly RouteUrlSearchParamSuggestion[]>
-> = {
-  "/": ROOT_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS,
-  "/landing-preview": [{ key: LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM, permission: "admin" }],
-  "/logo": LOGO_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS,
-  "/logo/iso": LOGO_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS,
-  "/logo/raster": LOGO_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS,
-  "/logo/raster-seams": LOGO_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS,
-  "/logo/single-cube": LOGO_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS,
-  "/logo/svg": LOGO_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS,
-  "/logo/transition": LOGO_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS,
-  "/logo/transition/transforms": LOGO_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS,
-  "/machines": [
-    { key: "machineId", permission: "admin" },
-    { key: "threadId", permission: "admin" },
-  ],
-  "/machines/connect": [
-    { key: "openedByCli", permission: "admin" },
-    { key: "requestId", permission: "admin" },
-  ],
-  "/oauth/mcp/consent": [{ key: "mcp_consent_request", permission: "admin" }],
-  "/pricing": [{ key: "checkout", permission: "admin" }],
-  "/research/codex-app-server": [{ key: "threadId", permission: "admin" }],
-  "/research/codex-app-server/browser": [{ key: "threadId", permission: "admin" }],
-  "/vault/$": [
-    { key: "compare", permission: "admin" },
-    { key: "diff", permission: "admin" },
-    { key: "mobileLineNumbers", permission: "admin" },
-    { key: "review", permission: "admin" },
-  ],
-  "/visual-fixture": [{ key: "mode", permission: "public" }],
-} as const;
-
-const ROUTE_URL_PRESENCE_SEARCH_PARAM_KEYS = new Set<string>([
-  ...ROUTE_SEARCH_PRESENCE_FLAG_KEYS,
-  "sidebar-reset",
-  "stripeLink",
-]);
 
 const GLOBAL_ROUTE_URL_HASH_KEYS = ["top"] as const;
 
@@ -237,7 +149,11 @@ export function applyRouteUrlEditorSuggestion({
         return routeAddress;
       }
 
-      const nextToken = formatRouteUrlEditorSearchSuggestionValue(suggestion.key, token.first);
+      const nextToken = formatRouteUrlEditorSearchSuggestionValue(
+        suggestion.key,
+        suggestion.valueKind,
+        token.first,
+      );
       return `${routeAddress.slice(0, token.tokenStart)}${nextToken}${routeAddress.slice(
         token.tokenEnd,
       )}`;
@@ -268,13 +184,18 @@ function readRouteUrlEditorSearchSuggestions(args: {
     return [];
   }
 
-  const searchKeys = readRouteUrlEditorSearchParamKeys(args);
-  return searchKeys
-    .filter((key) => key.startsWith(token.key))
-    .map((key) => ({
-      key,
+  const searchParamSuggestions = readRouteUrlEditorSearchParamSuggestions(args);
+  return searchParamSuggestions
+    .filter((suggestion) => suggestion.key.startsWith(token.key))
+    .map((suggestion) => ({
+      key: suggestion.key,
       kind: "search",
-      value: formatRouteUrlEditorSearchSuggestionValue(key, token.first),
+      value: formatRouteUrlEditorSearchSuggestionValue(
+        suggestion.key,
+        suggestion.valueKind,
+        token.first,
+      ),
+      valueKind: suggestion.valueKind,
     }));
 }
 
@@ -311,38 +232,79 @@ function readRouteUrlEditorHashSuggestions(args: {
     }));
 }
 
-function readRouteUrlEditorSearchParamKeys(args: {
+function readRouteUrlEditorSearchParamSuggestions(args: {
   draftRouteAddress: string;
   routesByPath: AppRouter["routesByPath"];
   viewer: NoterRoutePermissionViewer;
-}): readonly string[] {
+}): readonly NoterRouteSearchParamSuggestion[] {
   const parts = readRouteUrlEditorParts(args.draftRouteAddress);
-  const routePath = readMatchingRoutePath({
+  const routeSearchParamSuggestions = readMatchingRouteSearchParamSuggestions({
     path: parts.path,
     routesByPath: args.routesByPath,
     viewer: args.viewer,
   });
-  const routeSearchSuggestions =
-    typeof routePath === "string"
-      ? (ROUTE_URL_SEARCH_PARAM_SUGGESTIONS_BY_PATH[routePath] ?? [])
-      : [];
 
-  return uniqueStrings([
-    ...readAccessibleRouteUrlSearchParamKeys(
-      GLOBAL_ROUTE_URL_SEARCH_PARAM_SUGGESTIONS,
+  return uniqueRouteUrlSearchParamSuggestions([
+    ...readAccessibleRouteUrlSearchParamSuggestions(
+      ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS,
       args.viewer,
     ),
-    ...readAccessibleRouteUrlSearchParamKeys(routeSearchSuggestions, args.viewer),
-  ]).sort();
+    ...readAccessibleRouteUrlSearchParamSuggestions(routeSearchParamSuggestions, args.viewer),
+  ]).sort(compareRouteUrlSearchParamSuggestions);
 }
 
-function readAccessibleRouteUrlSearchParamKeys(
-  suggestions: readonly RouteUrlSearchParamSuggestion[],
+function readAccessibleRouteUrlSearchParamSuggestions(
+  suggestions: readonly NoterRouteSearchParamSuggestion[],
   viewer: NoterRoutePermissionViewer,
-): string[] {
-  return suggestions
-    .filter((suggestion) => canAccessNoterRoutePermission(suggestion.permission, viewer))
-    .map((suggestion) => suggestion.key);
+): NoterRouteSearchParamSuggestion[] {
+  return suggestions.filter((suggestion) =>
+    canAccessNoterRoutePermission(suggestion.permission, viewer),
+  );
+}
+
+function compareRouteUrlSearchParamSuggestions(
+  left: NoterRouteSearchParamSuggestion,
+  right: NoterRouteSearchParamSuggestion,
+): number {
+  return left.key.localeCompare(right.key);
+}
+
+function uniqueRouteUrlSearchParamSuggestions(
+  values: readonly NoterRouteSearchParamSuggestion[],
+): NoterRouteSearchParamSuggestion[] {
+  const keys = new Set<string>();
+  const uniqueValues: NoterRouteSearchParamSuggestion[] = [];
+
+  for (const value of values) {
+    if (keys.has(value.key)) {
+      continue;
+    }
+
+    keys.add(value.key);
+    uniqueValues.push(value);
+  }
+
+  return uniqueValues;
+}
+
+function readMatchingRouteSearchParamSuggestions(args: {
+  path: string;
+  routesByPath: AppRouter["routesByPath"];
+  viewer: NoterRoutePermissionViewer;
+}): readonly NoterRouteSearchParamSuggestion[] {
+  const matches = Object.entries(args.routesByPath)
+    .filter(
+      ([routePath, route]) =>
+        isUserFacingAccessibleRoute(routePath, route.options.staticData.permission, args.viewer) &&
+        routePathTemplateMatchesPath(routePath, args.path),
+    )
+    .map(([routePath, route]) => ({
+      routePath,
+      searchParamSuggestions: route.options.staticData.searchParamSuggestions ?? [],
+    }))
+    .sort((left, right) => compareRoutePathSpecificity(left.routePath, right.routePath));
+
+  return matches[0]?.searchParamSuggestions ?? [];
 }
 
 function readMatchingRoutePath(args: {
@@ -456,9 +418,13 @@ function readRouteUrlEditorSearchToken(
   };
 }
 
-function formatRouteUrlEditorSearchSuggestionValue(key: string, first: boolean): string {
+function formatRouteUrlEditorSearchSuggestionValue(
+  key: string,
+  valueKind: NoterRouteSearchParamSuggestion["valueKind"],
+  first: boolean,
+): string {
   const prefix = first ? "?" : "&";
-  const suffix = ROUTE_URL_PRESENCE_SEARCH_PARAM_KEYS.has(key) ? "" : "=";
+  const suffix = valueKind === "presence" ? "" : "=";
   return `${prefix}${key}${suffix}`;
 }
 

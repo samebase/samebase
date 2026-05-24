@@ -156,7 +156,12 @@ describe("applyRouteUrlEditorSuggestion", () => {
       applyRouteUrlEditorSuggestion({
         routeAddress: "/logo?de#top",
         selectionRouteIndex: "/logo?de".length,
-        suggestion: { key: "devtools", kind: "search", value: "?devtools" },
+        suggestion: {
+          key: "devtools",
+          kind: "search",
+          value: "?devtools",
+          valueKind: "presence",
+        },
       }),
     ).toBe("/logo?devtools#top");
 

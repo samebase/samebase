@@ -39,7 +39,6 @@ import {
   readLogoThemeColorSearch,
 } from "@/lib/appThemeColorSearch";
 import {
-  ROOT_THEME_MODE_SEARCH_KEYS,
   readRootThemeModeSearch,
   rootThemeModeSearchFieldSchema,
   type RootThemeModeSearch,
@@ -63,6 +62,11 @@ import {
 } from "@/components/logo/logoVoxelState";
 import { LANDING_DEV_MODE_QUERY_PARAM } from "@/lib/landingDevMode";
 import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
+import {
+  readRouteSearchParamSuggestions,
+  readRouteSearchPresenceKeys,
+  type RouteSearchParamMetadata,
+} from "@/lib/routeSearchParamMetadata";
 import { z } from "zod";
 
 const LOGO_ROTATION_AXIS_MODE_VALUES = [
@@ -113,12 +117,39 @@ function readOptionalLogoGridSize(value: unknown): LogoGridSize | undefined {
     : undefined;
 }
 
-const LOGO_ROUTE_PRESENCE_SEARCH_KEYS = [
-  LANDING_DEV_MODE_QUERY_PARAM,
-  "freeView",
-  "stripeLink",
-  ...ROOT_THEME_MODE_SEARCH_KEYS,
-] as const;
+const logoRouteSearchParamMetadata = {
+  axis: { permission: "public", suggestion: "route", valueKind: "value" },
+  background: { permission: "public", suggestion: "hidden", valueKind: "value" },
+  border: { permission: "public", suggestion: "hidden", valueKind: "value" },
+  dark: { permission: "public", suggestion: "hidden", valueKind: "presence" },
+  [LANDING_DEV_MODE_QUERY_PARAM]: {
+    permission: "public",
+    suggestion: "hidden",
+    valueKind: "presence",
+  },
+  depth: { permission: "public", suggestion: "route", valueKind: "value" },
+  dist: { permission: "public", suggestion: "route", valueKind: "value" },
+  elev: { permission: "public", suggestion: "route", valueKind: "value" },
+  freeView: { permission: "public", suggestion: "route", valueKind: "presence" },
+  gridSize: { permission: "public", suggestion: "route", valueKind: "value" },
+  isoSide: { permission: "public", suggestion: "route", valueKind: "value" },
+  isoStyle: { permission: "public", suggestion: "route", valueKind: "value" },
+  leftFace: { permission: "public", suggestion: "route", valueKind: "value" },
+  light: { permission: "public", suggestion: "hidden", valueKind: "presence" },
+  primary: { permission: "public", suggestion: "hidden", valueKind: "value" },
+  rot: { permission: "public", suggestion: "route", valueKind: "value" },
+  secondary: { permission: "public", suggestion: "hidden", valueKind: "value" },
+  stripeA: { permission: "public", suggestion: "route", valueKind: "value" },
+  stripeBasis: { permission: "public", suggestion: "route", valueKind: "value" },
+  stripeG: { permission: "public", suggestion: "route", valueKind: "value" },
+  stripeLink: { permission: "public", suggestion: "route", valueKind: "presence" },
+  stripeO: { permission: "public", suggestion: "route", valueKind: "value" },
+  stripeW: { permission: "public", suggestion: "route", valueKind: "value" },
+  top: { permission: "public", suggestion: "hidden", valueKind: "value" },
+  vox: { permission: "public", suggestion: "route", valueKind: "value" },
+} as const satisfies Readonly<Record<string, RouteSearchParamMetadata>>;
+
+const LOGO_ROUTE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(logoRouteSearchParamMetadata);
 
 function isLogoRotationAxisMode(value: string | undefined): value is LogoRotationAxisMode {
   return value === "cube-y" || value === "screen-vertical";
@@ -224,6 +255,15 @@ export const logoRouteSearchSchema = logoRouteSearchFieldSchema.transform((searc
 });
 
 export type LogoRouteSearch = z.infer<typeof logoRouteSearchSchema>;
+
+const logoRouteSearchParamMetadataByKey: Readonly<
+  Record<keyof LogoRouteSearch, RouteSearchParamMetadata>
+> = logoRouteSearchParamMetadata;
+
+export const LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
+  logoRouteSearchParamMetadataByKey,
+  "route",
+);
 
 export function validateLogoRouteSearch(search: Record<string, unknown>): LogoRouteSearch {
   return logoRouteSearchSchema.parse(

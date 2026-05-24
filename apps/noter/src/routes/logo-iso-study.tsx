@@ -1,6 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LogoSingleCubeStudyPage } from "@/components/logo/LogoSingleCubeStudyPage";
-import { validateLogoRouteSearch } from "@/lib/logoRouteSearch";
+import {
+  LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+  validateLogoRouteSearch,
+} from "@/lib/logoRouteSearch";
 import { RoutedPage } from "./-publicRouteComponents";
 
 const pathname = "/logo/single-cube";
@@ -16,7 +19,10 @@ function LogoIsoStudyRouteComponent() {
 }
 
 export const Route = createFileRoute("/logo/single-cube")({
-  staticData: { permission: "public" },
+  staticData: {
+    permission: "public",
+    searchParamSuggestions: LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+  },
   component: LogoIsoStudyRouteComponent,
   validateSearch: validateLogoRouteSearch,
 });

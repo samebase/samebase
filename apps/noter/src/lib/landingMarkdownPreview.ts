@@ -1,3 +1,7 @@
+import {
+  readRouteSearchParamSuggestions,
+  type RouteSearchParamMetadata,
+} from "@/lib/routeSearchParamMetadata";
 import { z } from "zod";
 
 export const LANDING_MARKDOWN_PREVIEW_ROUTE = "/landing-preview";
@@ -30,6 +34,19 @@ const landingMarkdownPreviewRouteSearchSchema = z.object({
 export type LandingMarkdownPreviewRouteSearch = z.infer<
   typeof landingMarkdownPreviewRouteSearchSchema
 >;
+
+const landingMarkdownPreviewRouteSearchParamMetadata = {
+  [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: {
+    permission: "admin",
+    suggestion: "route",
+    valueKind: "value",
+  },
+} as const satisfies Readonly<
+  Record<keyof LandingMarkdownPreviewRouteSearch, RouteSearchParamMetadata>
+>;
+
+export const LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS =
+  readRouteSearchParamSuggestions(landingMarkdownPreviewRouteSearchParamMetadata, "route");
 
 export function validateLandingMarkdownPreviewRouteSearch(
   search: Record<string, unknown>,
