@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  LOGO_ISO_CUBE_PIXEL_SPRITE_PRESETS,
   applyLogoIsoCubePixelSpritePaint,
   createLogoIsoCubePixelKey,
   parseLogoIsoCubePixelKey,
@@ -44,5 +45,51 @@ describe("logoIsoCubePixelSprite", () => {
     expect(parseLogoIsoCubePixelKey("3")).toBeNull();
     expect(parseLogoIsoCubePixelKey("left,4")).toBeNull();
     expect(parseLogoIsoCubePixelKey("3px,4")).toBeNull();
+  });
+
+  it("keeps the saved quarter diagonal preset exact for 8px cubes", () => {
+    const preset = LOGO_ISO_CUBE_PIXEL_SPRITE_PRESETS.find(
+      (candidate) => candidate.id === "quarter-diagonal",
+    );
+
+    if (!preset) {
+      throw new Error("Missing quarter diagonal preset");
+    }
+
+    expect(preset.cubeSidePixels).toBe(8);
+    expect(preset.sprite.pixelKeys).toEqual(
+      new Set([
+        createLogoIsoCubePixelKey(5, 10),
+        createLogoIsoCubePixelKey(6, 10),
+        createLogoIsoCubePixelKey(7, 10),
+        createLogoIsoCubePixelKey(8, 10),
+        createLogoIsoCubePixelKey(4, 11),
+        createLogoIsoCubePixelKey(5, 11),
+        createLogoIsoCubePixelKey(6, 11),
+        createLogoIsoCubePixelKey(4, 12),
+        createLogoIsoCubePixelKey(9, 12),
+        createLogoIsoCubePixelKey(10, 12),
+        createLogoIsoCubePixelKey(11, 12),
+        createLogoIsoCubePixelKey(7, 13),
+        createLogoIsoCubePixelKey(8, 13),
+        createLogoIsoCubePixelKey(9, 13),
+        createLogoIsoCubePixelKey(10, 13),
+        createLogoIsoCubePixelKey(5, 14),
+        createLogoIsoCubePixelKey(6, 14),
+        createLogoIsoCubePixelKey(7, 14),
+        createLogoIsoCubePixelKey(8, 14),
+        createLogoIsoCubePixelKey(4, 15),
+        createLogoIsoCubePixelKey(5, 15),
+        createLogoIsoCubePixelKey(6, 15),
+        createLogoIsoCubePixelKey(11, 15),
+        createLogoIsoCubePixelKey(9, 16),
+        createLogoIsoCubePixelKey(10, 16),
+        createLogoIsoCubePixelKey(11, 16),
+        createLogoIsoCubePixelKey(7, 17),
+        createLogoIsoCubePixelKey(8, 17),
+        createLogoIsoCubePixelKey(9, 17),
+        createLogoIsoCubePixelKey(10, 17),
+      ]),
+    );
   });
 });

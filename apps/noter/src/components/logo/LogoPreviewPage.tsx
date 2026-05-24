@@ -6,10 +6,12 @@ import {
 import { NLogoRasterScene } from "@/components/logo/NLogoRasterScene";
 import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
 import {
+  LOGO_ISO_CUBE_PIXEL_SPRITE_PRESETS,
   applyLogoIsoCubePixelSpritePaint,
-  type LogoIsoCubePixelSprite,
   type LogoIsoCubePixelEditKind,
+  type LogoIsoCubePixelSprite,
   type LogoIsoCubePixelSpritePaint,
+  type LogoIsoCubePixelSpritePreset,
 } from "@/components/logo/logoIsoCubePixelSprite";
 import {
   LogoIsoCubePixelEditor,
@@ -701,6 +703,21 @@ function useLogoPreviewStore() {
         };
       });
     },
+    setIsoCubePixelSprite: (cubeSidePixels: number, isoCubePixelSprite: LogoIsoCubePixelSprite) => {
+      setState((state) => {
+        const currentSprite = state.isoCubePixelSpritesByCubeSide.get(cubeSidePixels);
+        if (currentSprite === isoCubePixelSprite) {
+          return state;
+        }
+
+        const isoCubePixelSpritesByCubeSide = new Map(state.isoCubePixelSpritesByCubeSide);
+        isoCubePixelSpritesByCubeSide.set(cubeSidePixels, isoCubePixelSprite);
+        return {
+          ...state,
+          isoCubePixelSpritesByCubeSide,
+        };
+      });
+    },
     paintIsoCubePixelSprite: (paint: LogoIsoCubePixelSpritePaint) => {
       setState((state) => {
         const currentSprite = state.isoCubePixelSpritesByCubeSide.get(paint.cubeSidePixels);
@@ -864,6 +881,14 @@ function useLogoPreviewController({
             voxelState,
           };
         });
+      },
+      applyIsoCubePixelSpritePreset: (preset: LogoIsoCubePixelSpritePreset) => {
+        store.actions.setIsoCubePixelTool(null);
+        store.actions.setIsoCubePixelSprite(preset.cubeSidePixels, preset.sprite);
+        commitRouteState((currentState) => ({
+          ...currentState,
+          isoCubeSidePixels: preset.cubeSidePixels,
+        }));
       },
       clearIsoCubePixelSprite: store.actions.clearIsoCubePixelSprite,
       endSceneInteraction: () => {
@@ -1771,6 +1796,23 @@ export function LogoPreviewPage({
               >
                 Erase
               </Button>
+            </div>
+            <div className={LOGO_CONTROL_BUTTON_ROW_CLASS_NAME}>
+              {LOGO_ISO_CUBE_PIXEL_SPRITE_PRESETS.map((preset) => (
+                <Button
+                  key={preset.id}
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className={LOGO_CONTROL_BUTTON_CLASS_NAME}
+                  disabled={isRecursiveDepth}
+                  onClick={() => {
+                    controls.applyIsoCubePixelSpritePreset(preset);
+                  }}
+                >
+                  {preset.label}
+                </Button>
+              ))}
             </div>
             <Button
               type="button"
