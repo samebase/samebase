@@ -926,7 +926,7 @@ export function VaultDashboardDeleteDialog({
                 </label>
               </div>
             ) : null}
-            {vaultToDelete.hasConvexProvision ? (
+            {vaultToDelete.hasConvexProvision || vaultToDelete.canRemoveConvexProvision ? (
               <div className="flex items-start gap-2">
                 <Checkbox
                   id="remove-convex-provision"

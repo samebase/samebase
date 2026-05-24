@@ -1,6 +1,6 @@
 import { Infer, v } from "convex/values";
 
-const { id, literal, number, object, string, union } = v;
+const { array, id, literal, number, object, string, union } = v;
 
 export const vVaultDeletionNotDeleting = object({
   state: literal("not_deleting"),
@@ -101,6 +101,10 @@ const providerCleanupPlan = {
     object({
       action: literal("delete_project"),
       projectId: string(),
+    }),
+    object({
+      action: literal("delete_projects"),
+      projectIds: array(string()),
     }),
     object({
       action: literal("delete_deployment"),

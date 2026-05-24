@@ -264,8 +264,12 @@ async function resolveExistingConvexDeployment(args: {
 }
 
 async function createConvexProjectDeployment(args: {
+  ctx: Pick<ActionCtx, "runMutation">;
   connection: ConvexActionConnection;
   projectName: string;
+  runId: Id<"appProvisioningRuns">;
+  userId: Id<"users">;
+  vaultId: Id<"vaults">;
 }): Promise<ConvexInfrastructureRecord> {
   const projects = await listConvexProjects({
     token: args.connection.token,
@@ -293,6 +297,14 @@ async function createConvexProjectDeployment(args: {
       },
     },
   );
+  await args.ctx.runMutation(internal.vault.convexMutations.recordCreatedProjectForRun, {
+    vaultId: args.vaultId,
+    runId: args.runId,
+    userId: args.userId,
+    projectName: args.projectName,
+    projectId: createResponse.id,
+    projectSlug: createResponse.slug,
+  });
   const project = await readConvexProjectDetails({
     token: args.connection.token,
     teamId: args.connection.teamId,
@@ -508,8 +520,12 @@ export const ensureConvexDeploymentConnection = internalAction({
           return null;
         }
         const convex = await createConvexProjectDeployment({
+          ctx,
           connection,
           projectName: validation.value,
+          runId: args.runId,
+          userId: args.userId,
+          vaultId: args.vaultId,
         });
         if (!(await isConvexDeploymentConnectionRunActive(ctx, args))) {
           return null;

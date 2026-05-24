@@ -360,6 +360,32 @@ async function readVaultInfrastructureOwnership(
     .first();
 }
 
+async function hasCreatedConvexProjectForVault(
+  ctx: Pick<QueryCtx, "db">,
+  vaultId: Id<"vaults">,
+): Promise<boolean> {
+  const runs = await ctx.db
+    .query("appProvisioningRuns")
+    .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", vaultId))
+    .collect();
+  return runs.some(
+    (run) => run.trigger === "connect_convex_deployment" && run.createdConvexProject,
+  );
+}
+
+function readManualProviderFromRun(
+  run: Doc<"appProvisioningRuns"> | null,
+): "convex" | "cloudflare" | null {
+  switch (run?.trigger) {
+    case "connect_convex_deployment":
+      return "convex";
+    case "connect_cloudflare_worker":
+      return "cloudflare";
+    default:
+      return null;
+  }
+}
+
 async function resolveProviderSetupSummary(
   ctx: Pick<QueryCtx, "db">,
   vault: ConnectedVault,
@@ -384,15 +410,14 @@ async function resolveProviderSetupSummary(
 
   const ownership = await readVaultInfrastructureOwnership(ctx, vault._id);
   const ownershipRun = ownership ? await ctx.db.get(ownership.runId) : null;
-  // Manual Cloudflare runs share infrastructure ownership, but their run state
-  // belongs in the provider rail before the generic Convex ownership fallback.
+  const manualOwnershipProvider = readManualProviderFromRun(ownershipRun);
   if (
     ownership &&
-    ownershipRun?.trigger === "connect_cloudflare_worker" &&
+    manualOwnershipProvider &&
     (ownership.state === "active" || ownership.state === "failed")
   ) {
     return await readProviderRunSummary(ctx, {
-      provider: "cloudflare",
+      provider: manualOwnershipProvider,
       runId: ownership.runId,
       status: ownership.state === "failed" ? "failed" : "running",
       fallbackUpdatedAt: ownership.updatedAt,
@@ -771,7 +796,13 @@ export const getUserVaults = query({
           };
         }
 
-        const [stagingData, remoteBranches, defaultBranchTree, infrastructure] = await Promise.all([
+        const [
+          stagingData,
+          remoteBranches,
+          defaultBranchTree,
+          infrastructure,
+          hasCreatedConvexProject,
+        ] = await Promise.all([
           ctx.db
             .query("fileStaging")
             .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
@@ -790,6 +821,7 @@ export const getUserVaults = query({
             .query("vaultInfrastructure")
             .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
             .first(),
+          hasCreatedConvexProjectForVault(ctx, vault._id),
         ]);
 
         const fileCount = stagingData.filter(hasBranchStagingChanges).length;
@@ -809,10 +841,12 @@ export const getUserVaults = query({
         const hasConvexProvision = vault.convex.state === "connected";
         const cloudflare = vault.cloudflare;
         const hasCloudflareProvision = cloudflare.state === "connected";
-        const canRemoveConvexProvision = canRemoveConvexProvisionForVault({
-          vault,
-          infrastructure,
-        });
+        const canRemoveConvexProvision =
+          hasCreatedConvexProject ||
+          canRemoveConvexProvisionForVault({
+            vault,
+            infrastructure,
+          });
         const canRemoveCloudflareProvision =
           cloudflare.state === "connected" && cloudflare.origin === "provisioned";
         const convexProjectSlug =

@@ -260,6 +260,12 @@ describe("vault Convex deployment connection mutations", () => {
   it("marks an active Convex connection run and vault row failed when the workflow fails", async () => {
     const { ids, t } = await createConvexConnectionVault();
     await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, ids);
+    await t.mutation(internal.vault.convexMutations.recordCreatedProjectForRun, {
+      ...ids,
+      projectName: "manual-convex",
+      projectId: "created-convex-project",
+      projectSlug: "manual-convex",
+    });
 
     await expect(
       t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
@@ -279,7 +285,14 @@ describe("vault Convex deployment connection mutations", () => {
     });
 
     expect(result.ownership).toMatchObject({ state: "failed" });
-    expect(result.run).toMatchObject({ state: "failed" });
+    expect(result.run).toMatchObject({
+      state: "failed",
+      createdConvexProject: {
+        projectName: "manual-convex",
+        projectId: "created-convex-project",
+        projectSlug: "manual-convex",
+      },
+    });
     expect(result.vault).toMatchObject({
       convex: {
         state: "failed",

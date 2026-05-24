@@ -335,6 +335,36 @@ export const attachDeploymentForRun = internalMutation({
   },
 });
 
+export const recordCreatedProjectForRun = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    projectName: string(),
+    projectId: string(),
+    projectSlug: string(),
+  },
+  returns: nullValue(),
+  handler: async (ctx, args) => {
+    await requireConvexDeploymentConnectionRun(ctx, args);
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+      throw new Error("Vault not found.");
+    }
+
+    await ctx.db.patch(args.runId, {
+      createdConvexProject: {
+        projectName: args.projectName,
+        projectId: args.projectId,
+        projectSlug: args.projectSlug,
+      },
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
 export const finishConvexDeploymentConnection = internalMutation({
   args: {
     vaultId: id("vaults"),

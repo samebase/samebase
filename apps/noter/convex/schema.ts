@@ -525,6 +525,13 @@ export default defineSchema({
     // exists first so early events can still be linked deterministically.
     workflowId: optional(string()),
     trigger: vAppProvisioningRunTrigger,
+    createdConvexProject: optional(
+      object({
+        projectName: string(),
+        projectId: string(),
+        projectSlug: string(),
+      }),
+    ),
     state: vAppProvisioningRunState,
     currentStep: vAppProvisioningRunStep,
     lastError: optional(string()),

@@ -130,13 +130,14 @@ Project creation should:
 1. validate the requested Convex project name
 2. ensure no visible project in the connected team already has that name or slug
 3. create the project with a production deployment
-4. read the project and default production deployment back from Convex
-5. attach the resulting deployment with `origin: "provisioned"`
+4. immediately record the created project id on the Workflow run
+5. read the project and default production deployment back from Convex
+6. attach the resulting deployment with `origin: "provisioned"`
 
 If a created project cannot be attached after the provider create call, the workflow should fail
-closed. Automatic rollback deletion is not part of this slice because project deletion is more
-destructive than deleting an empty Worker; cleanup remains available through the explicit vault
-delete path for provisioned resources.
+closed with the created project id retained on the run. Automatic rollback deletion is not part of
+this slice because project deletion is more destructive than deleting an empty Worker; cleanup
+remains available through the explicit vault delete path for provisioned resources.
 
 ## Durable Execution
 

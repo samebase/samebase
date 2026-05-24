@@ -85,6 +85,23 @@ async function getVaultInfrastructure(
     .first();
 }
 
+async function listCreatedConvexProjectIds(
+  ctx: MutationCtx,
+  vaultId: Id<"vaults">,
+): Promise<string[]> {
+  const runs = await ctx.db
+    .query("appProvisioningRuns")
+    .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", vaultId))
+    .collect();
+  const projectIds = new Set<string>();
+  for (const run of runs) {
+    if (run.trigger === "connect_convex_deployment" && run.createdConvexProject) {
+      projectIds.add(run.createdConvexProject.projectId);
+    }
+  }
+  return [...projectIds];
+}
+
 async function assertVaultIsQuiescentForDeletion(
   ctx: MutationCtx,
   vault: Doc<"vaults">,
@@ -126,6 +143,18 @@ async function buildCodespacesPlan(
   };
 }
 
+function buildConvexProjectDeletionPlan(projectIds: string[]): VaultDeletionPlan["convex"] | null {
+  const uniqueProjectIds = [...new Set(projectIds)];
+  const [projectId, secondProjectId] = uniqueProjectIds;
+  if (!projectId) {
+    return null;
+  }
+  if (!secondProjectId) {
+    return { action: "delete_project", projectId };
+  }
+  return { action: "delete_projects", projectIds: uniqueProjectIds };
+}
+
 async function buildConvexPlan(
   ctx: MutationCtx,
   args: {
@@ -139,17 +168,21 @@ async function buildConvexPlan(
     return { action: "skip", reason: "not_requested" };
   }
 
+  const createdProjectIds = isConnectedVault(vault)
+    ? await listCreatedConvexProjectIds(ctx, vault._id)
+    : [];
   if (!isConnectedVault(vault)) {
     return { action: "skip", reason: "not_recorded" };
   }
 
   if (vault.convex.state === "connected") {
-    if (vault.convex.origin === "selected_existing") {
+    if (vault.convex.origin === "selected_existing" && createdProjectIds.length === 0) {
       return { action: "skip", reason: "not_managed" };
     }
 
-    let projectId = vault.convex.projectId;
-    if (vault.convex.origin !== "provisioned") {
+    if (vault.convex.origin === "provisioned") {
+      createdProjectIds.push(vault.convex.projectId);
+    } else if (vault.convex.origin !== "selected_existing") {
       const legacyProjectId = infrastructure?.convexProjectId;
       if (
         !isNoterManagedVault(vault) ||
@@ -158,14 +191,27 @@ async function buildConvexPlan(
       ) {
         return { action: "skip", reason: "not_managed" };
       }
-      projectId = legacyProjectId;
+      createdProjectIds.push(legacyProjectId);
     }
 
+    const plan = buildConvexProjectDeletionPlan(createdProjectIds);
+    if (!plan) {
+      return { action: "skip", reason: "not_recorded" };
+    }
     await requireProviderConnection(ctx, {
       userId: vault.userId,
       kind: "convex",
     });
-    return { action: "delete_project", projectId };
+    return plan;
+  }
+
+  const projectPlan = buildConvexProjectDeletionPlan(createdProjectIds);
+  if (projectPlan) {
+    await requireProviderConnection(ctx, {
+      userId: vault.userId,
+      kind: "convex",
+    });
+    return projectPlan;
   }
 
   if (!isNoterManagedVault(vault)) {

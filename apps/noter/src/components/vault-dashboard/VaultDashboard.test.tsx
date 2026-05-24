@@ -331,6 +331,26 @@ describe("VaultDashboardDeleteDialog", () => {
     expect(markup).toContain("Also remove Cloudflare Worker");
     expect(markup).not.toContain("Only available for Workers created from this app.");
   });
+
+  it("shows Convex cleanup when a failed create left a removable project", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardDeleteDialog
+        {...baseProps}
+        vaultToDelete={{
+          repositoryFullName: "ada/existing-repo",
+          isNoterManaged: false,
+          canRemoveGithubRepo: false,
+          hasConvexProvision: false,
+          hasCloudflareProvision: false,
+          canRemoveConvexProvision: true,
+          canRemoveCloudflareProvision: false,
+        }}
+      />,
+    );
+
+    expect(markup).toContain("Also remove Convex project/deployment");
+    expect(markup).not.toContain("Only available for infrastructure provisioned by Noter.");
+  });
 });
 
 describe("VaultDashboardCloudflareAccountDialog", () => {

@@ -791,6 +791,107 @@ describe("vault dashboard Convex contract", () => {
     });
   });
 
+  it("keeps failed manual Convex ownership on the Convex provider row after attach", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const sourceRunId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/existing-convex",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 10,
+        updatedAt: 20,
+        completedAt: 20,
+      });
+      const convexRunId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/existing-convex",
+        trigger: "connect_convex_deployment",
+        state: "failed",
+        currentStep: "finish",
+        lastError: "Convex finish failed.",
+        createdAt: 30,
+        updatedAt: 40,
+        completedAt: 40,
+      });
+
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId: sourceRunId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "existing-convex",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 22,
+        convex: {
+          state: "connected",
+          projectId: "convex-project",
+          projectSlug: "existing-convex",
+          deploymentName: "existing-convex-prod",
+          origin: "provisioned",
+          connectedAt: 35,
+        },
+        cloudflare: { state: "not_configured" },
+      });
+      await ctx.db.insert("vaultBranchTrees", {
+        vaultId,
+        branch: "main",
+        treeSHA: "tree",
+        commitSHA: "commit",
+        treeData: {
+          sha: "tree",
+          truncated: false,
+          tree: [],
+        },
+        lastTreeRefreshAt: 24,
+      });
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId,
+        runId: convexRunId,
+        provisioningVersion: 1,
+        state: "failed",
+        updatedAt: 38,
+      });
+
+      return { convexRunId, userId, vaultId };
+    });
+
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+
+    expect(vaults[0]).toMatchObject({
+      _id: ids.vaultId,
+      providerSetup: {
+        status: "failed",
+        provider: "convex",
+        runId: ids.convexRunId,
+        step: "finish",
+        updatedAt: 40,
+      },
+    });
+  });
+
   it("keeps active provider ownership visible but lets connected resources recover failed ownership", async () => {
     const cases = [
       {
