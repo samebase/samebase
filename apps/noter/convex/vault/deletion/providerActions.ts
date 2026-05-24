@@ -220,20 +220,46 @@ export const deleteConvex = internalAction({
     }
 
     try {
-      if (plan.convex.action === "delete_project") {
-        await requestConvexManagementApi(
-          convexConnection.auth.credential,
-          "POST",
-          "/projects/{project_id}/delete",
-          { params: { path: { project_id: plan.convex.projectId } } },
-        );
-      } else {
-        await requestConvexManagementApi(
-          convexConnection.auth.credential,
-          "POST",
-          "/deployments/{deployment_name}/delete",
-          { params: { path: { deployment_name: plan.convex.deploymentName } } },
-        );
+      switch (plan.convex.action) {
+        case "delete_project": {
+          await requestConvexManagementApi(
+            convexConnection.auth.credential,
+            "POST",
+            "/projects/{project_id}/delete",
+            { params: { path: { project_id: plan.convex.projectId } } },
+          );
+          break;
+        }
+        case "delete_projects": {
+          for (const projectId of plan.convex.projectIds) {
+            try {
+              await requestConvexManagementApi(
+                convexConnection.auth.credential,
+                "POST",
+                "/projects/{project_id}/delete",
+                { params: { path: { project_id: projectId } } },
+              );
+            } catch (error) {
+              if (!isConvexManagementNotFoundError(error)) {
+                throw error;
+              }
+            }
+          }
+          break;
+        }
+        case "delete_deployment": {
+          await requestConvexManagementApi(
+            convexConnection.auth.credential,
+            "POST",
+            "/deployments/{deployment_name}/delete",
+            { params: { path: { deployment_name: plan.convex.deploymentName } } },
+          );
+          break;
+        }
+        default: {
+          plan.convex satisfies never;
+          throw new Error("Unsupported Convex deletion action.");
+        }
       }
     } catch (error) {
       if (!isConvexManagementNotFoundError(error)) {

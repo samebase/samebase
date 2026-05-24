@@ -21,7 +21,8 @@ import { z } from "zod";
 const ROOT_ROUTE_ID = "__root__";
 
 const ROOT_ROUTE_PRESENCE_SEARCH_KEYS = [
-  "connect-cloudflare",
+  "add-convex",
+  "add-cloudflare",
   "dev",
   "devtools",
   "delete",
@@ -68,7 +69,8 @@ function readOptionalLogoFractalDepth(value: unknown): number | undefined {
 const rootRouteSearchSchema = z
   .object({
     auth: z.preprocess(readOptionalGoogleAuthProvider, z.literal("google").optional()),
-    "connect-cloudflare": z.literal(true).optional(),
+    "add-convex": z.literal(true).optional(),
+    "add-cloudflare": z.literal(true).optional(),
     dev: z.literal(true).optional(),
     devtools: z.literal(true).optional(),
     delete: z.literal(true).optional(),

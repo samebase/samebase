@@ -4,13 +4,15 @@ import {
   ConvexProviderLogo,
   GitHubProviderLogo,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
-import { Clock, Link2, Loader2, Plus, RotateCw, XCircle, type LucideIcon } from "lucide-react";
-import { type ComponentType } from "react";
+import { cn } from "@/lib/utils";
+import { Clock, Loader2, Plus, RotateCw, XCircle, type LucideIcon } from "lucide-react";
+import { type ComponentType, type MouseEvent } from "react";
 
-type VaultResourceRailActionKind = "connect_existing" | "create_new" | "retry";
+type VaultResourceRailActionKind = "add" | "retry";
 
 export type VaultResourceRailAction = {
   disabled?: boolean;
+  href?: string;
   kind: VaultResourceRailActionKind;
   label: string;
   onClick?: () => void;
@@ -88,16 +90,9 @@ const PROVIDER_LOGOS = {
 } satisfies Record<VaultResourceRailProvider, ComponentType>;
 
 const ACTION_ICONS = {
-  connect_existing: Link2,
-  create_new: Plus,
+  add: Plus,
   retry: RotateCw,
 } satisfies Record<VaultResourceRailActionKind, LucideIcon>;
-
-const ACTION_VARIANTS = {
-  connect_existing: "outline",
-  create_new: "outline",
-  retry: "outline",
-} as const satisfies Record<VaultResourceRailActionKind, "default" | "outline">;
 
 const STATUS_ICON_CLASS_NAMES = {
   failed: "h-3.5 w-3.5 text-destructive",
@@ -114,6 +109,8 @@ const RESOURCE_CONTENT_CLASS_NAME = "flex min-w-0 flex-wrap items-center gap-1.5
 const RESOURCE_VALUE_CLASS_NAME = "min-w-0 max-w-64 truncate";
 const RESOURCE_LINK_VALUE_CLASS_NAME =
   "min-w-0 max-w-64 truncate underline decoration-muted-foreground/40 underline-offset-4 group-hover:decoration-current";
+const RESOURCE_ACTION_LINK_CLASS_NAME =
+  "-mx-1 -my-0.5 inline-flex min-h-7 items-center px-1 py-0.5 text-sm leading-6 text-foreground touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current";
 const RESOURCE_VALUE_SCOPE_CLASS_NAME = "font-normal text-muted-foreground";
 
 function getStatusIcon(status: VaultResourceRailIconStatus): LucideIcon {
@@ -164,21 +161,69 @@ function VaultResourceRailActions({
   actions: VaultResourceRailActionList;
   provider: VaultResourceRailProvider;
 }) {
+  function handleActionLinkClick(
+    event: MouseEvent<HTMLAnchorElement>,
+    action: VaultResourceRailAction,
+    isDisabled: boolean,
+  ) {
+    if (isDisabled) {
+      event.preventDefault();
+      return;
+    }
+    if (
+      !action.onClick ||
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.shiftKey
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    action.onClick();
+  }
+
   return (
     <div className="flex min-w-0 flex-wrap gap-1">
       {actions.map((action) => {
         const Icon = ACTION_ICONS[action.kind];
-        const isDisabled = action.disabled || !action.onClick;
+        const isDisabled = action.disabled || (!action.href && !action.onClick);
+        const actionLabel =
+          action.kind === "add"
+            ? `Add ${PROVIDER_LABELS[provider]}`
+            : `${action.label} ${PROVIDER_LABELS[provider]}`;
+        if (action.href) {
+          return (
+            <a
+              key={`${action.kind}:${action.label}`}
+              href={action.href}
+              aria-disabled={isDisabled ? true : undefined}
+              aria-label={actionLabel}
+              tabIndex={isDisabled ? -1 : undefined}
+              onClick={(event) => handleActionLinkClick(event, action, isDisabled)}
+              className={cn(
+                RESOURCE_ACTION_LINK_CLASS_NAME,
+                isDisabled && "pointer-events-none opacity-50",
+              )}
+            >
+              {action.label}
+            </a>
+          );
+        }
+
         return (
           <Button
             key={`${action.kind}:${action.label}`}
             type="button"
-            variant={ACTION_VARIANTS[action.kind]}
+            variant="outline"
             size="sm"
             className="h-7 gap-1 px-2"
             onClick={action.onClick}
             disabled={isDisabled}
-            aria-label={`${action.label} ${PROVIDER_LABELS[provider]}`}
+            aria-label={actionLabel}
           >
             <Icon className="h-3.5 w-3.5" />
             {action.label}

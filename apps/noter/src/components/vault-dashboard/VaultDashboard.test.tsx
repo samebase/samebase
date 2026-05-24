@@ -7,6 +7,7 @@ import { TestRouterProvider } from "@/test/TestRouterProvider";
 import {
   GitHubRepositoryNameSlashPreview,
   VaultDashboardCloudflareAccountDialog,
+  VaultDashboardConvexDialog,
   VaultDashboardDeleteDialog,
   VaultBranchLinkContent,
   VaultProviderSetupSection,
@@ -75,6 +76,7 @@ function makeResourceRailBuilderVault(
     hasConnectedGitHubRepository: true,
     hasConvexProvision: false,
     hasCloudflareProvision: false,
+    canRemoveConvexProvision: false,
     canRemoveCloudflareProvision: false,
     remoteBranches: [],
   };
@@ -320,6 +322,7 @@ describe("VaultDashboardDeleteDialog", () => {
           canRemoveGithubRepo: false,
           hasConvexProvision: false,
           hasCloudflareProvision: true,
+          canRemoveConvexProvision: false,
           canRemoveCloudflareProvision: true,
         }}
       />,
@@ -327,6 +330,26 @@ describe("VaultDashboardDeleteDialog", () => {
 
     expect(markup).toContain("Also remove Cloudflare Worker");
     expect(markup).not.toContain("Only available for Workers created from this app.");
+  });
+
+  it("shows Convex cleanup when a failed create left a removable project", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardDeleteDialog
+        {...baseProps}
+        vaultToDelete={{
+          repositoryFullName: "ada/existing-repo",
+          isNoterManaged: false,
+          canRemoveGithubRepo: false,
+          hasConvexProvision: false,
+          hasCloudflareProvision: false,
+          canRemoveConvexProvision: true,
+          canRemoveCloudflareProvision: false,
+        }}
+      />,
+    );
+
+    expect(markup).toContain("Also remove Convex project/deployment");
+    expect(markup).not.toContain("Only available for infrastructure provisioned by Noter.");
   });
 });
 
@@ -349,6 +372,44 @@ describe("VaultDashboardCloudflareAccountDialog", () => {
     expect(markup).toContain("Select Cloudflare Account");
     expect(markup).toContain("Account A");
     expect(markup).toContain("Save Account");
+  });
+});
+
+describe("VaultDashboardConvexDialog", () => {
+  it("renders selectable Convex projects", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardConvexDialog
+        createProjectName="demo"
+        projects={[
+          {
+            projectId: "project-1",
+            projectName: "Demo",
+            projectSlug: "demo",
+            teamSlug: "ada-team",
+          },
+        ]}
+        error={null}
+        isLoading={false}
+        isSubmitting={false}
+        mode="existing"
+        onCreateProjectNameChange={vi.fn()}
+        onProjectChange={vi.fn()}
+        onModeChange={vi.fn()}
+        onOpenChange={vi.fn()}
+        onSubmit={vi.fn()}
+        open
+        selectedProjectId="project-1"
+        vault={{
+          id: fakeVaultId(),
+          repositoryFullName: "ada/demo",
+          repositoryName: "demo",
+        }}
+      />,
+    );
+
+    expect(markup).toContain("Connect Convex ada/demo");
+    expect(markup).toContain("Demo");
+    expect(markup).toContain("Connect Project");
   });
 });
 
@@ -416,10 +477,9 @@ describe("buildVaultDashboardResourceRailState", () => {
   });
 
   it("lets failed manual Cloudflare setup reopen the connection dialog", () => {
-    const onConfigureCloudflare = vi.fn();
     const state = buildVaultDashboardResourceRailState({
+      addCloudflareWorkerHref: "/?add-cloudflare#demo",
       githubRepositoryUrl: "https://github.com/ada/demo",
-      onConfigureCloudflare,
       vault: makeResourceRailBuilderVault({
         providerSetup: {
           status: "failed",
@@ -443,19 +503,63 @@ describe("buildVaultDashboardResourceRailState", () => {
     }
     const [action] = cloudflareRow.actions;
     expect(action).toMatchObject({
-      kind: "connect_existing",
-      label: "Connect",
+      kind: "add",
+      label: "?add-cloudflare",
       disabled: false,
+      href: "/?add-cloudflare#demo",
     });
-    action.onClick?.();
-    expect(onConfigureCloudflare).toHaveBeenCalledTimes(1);
 
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
-    expect(markup).toContain("Connect Cloudflare");
+    expect(markup).toContain("?add-cloudflare");
+    expect(markup).toContain('href="/?add-cloudflare#demo"');
+  });
+
+  it("lets failed manual Convex setup reopen the deployment dialog", () => {
+    const state = buildVaultDashboardResourceRailState({
+      addConvexHref: "/?add-convex#demo",
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      vault: makeResourceRailBuilderVault({
+        providerSetup: {
+          status: "failed",
+          provider: "convex",
+          runId: fakeRunId(),
+          step: "ensure_convex",
+          message: "Convex deployment connection failed.",
+          updatedAt: 30,
+        },
+      }),
+    });
+
+    const convexRow = state.rows[1];
+    expect(convexRow).toMatchObject({
+      provider: "convex",
+      status: "failed",
+      value: "demo",
+    });
+    if (convexRow.status !== "failed") {
+      throw new Error("Expected failed Convex row.");
+    }
+    const [action] = convexRow.actions;
+    expect(action).toMatchObject({
+      kind: "add",
+      label: "?add-convex",
+      disabled: false,
+      href: "/?add-convex#demo",
+    });
+
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+    expect(markup).toContain("?add-convex");
+    expect(markup).toContain('href="/?add-convex#demo"');
   });
 
   it("shows missing provider actions after setup is idle", () => {
+    const addCloudflareWorker = vi.fn();
+    const addConvex = vi.fn();
     const state = buildVaultDashboardResourceRailState({
+      addCloudflareWorkerHref: "/?add-cloudflare#demo",
+      addCloudflareWorkerOnClick: addCloudflareWorker,
+      addConvexHref: "/?add-convex#demo",
+      addConvexOnClick: addConvex,
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({}),
     });
@@ -463,16 +567,27 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(state.rows[1]).toMatchObject({
       provider: "convex",
       status: "action_required",
-      actions: [
-        { kind: "connect_existing", disabled: true },
-        { kind: "create_new", disabled: true },
-      ],
+      actions: [{ kind: "add", label: "?add-convex", disabled: false, href: "/?add-convex#demo" }],
     });
     expect(state.rows[2]).toMatchObject({
       provider: "cloudflare",
       status: "action_required",
-      actions: [{ kind: "connect_existing", disabled: true }],
+      actions: [
+        { kind: "add", label: "?add-cloudflare", disabled: false, href: "/?add-cloudflare#demo" },
+      ],
     });
+
+    const convexRow = state.rows[1];
+    if (convexRow.status !== "action_required") {
+      throw new Error("Expected Convex action row.");
+    }
+    expect(convexRow.actions).toHaveLength(1);
+    expect(convexRow.actions[0].onClick).toBe(addConvex);
+    const cloudflareRow = state.rows[2];
+    if (cloudflareRow.status !== "action_required") {
+      throw new Error("Expected Cloudflare action row.");
+    }
+    expect(cloudflareRow.actions[0].onClick).toBe(addCloudflareWorker);
   });
 
   it("keeps Convex preview progress on the Convex row", () => {

@@ -91,12 +91,8 @@ describe("VaultResourceRail", () => {
           status: "action_required",
           actions: [
             {
-              kind: "connect_existing",
-              label: "Connect",
-            },
-            {
-              kind: "create_new",
-              label: "Create",
+              kind: "add",
+              label: "Add",
             },
           ],
         },
@@ -111,10 +107,50 @@ describe("VaultResourceRail", () => {
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
 
     expect(markup).toMatch(
-      /disabled=""[^>]*aria-label="Connect Convex"|aria-label="Connect Convex"[^>]*disabled=""/,
+      /disabled=""[^>]*aria-label="Add Convex"|aria-label="Add Convex"[^>]*disabled=""/,
     );
-    expect(markup).toMatch(
-      /disabled=""[^>]*aria-label="Create Convex"|aria-label="Create Convex"[^>]*disabled=""/,
-    );
+  });
+
+  it("renders provider add actions as standard query links", () => {
+    const state = {
+      rows: [
+        {
+          provider: "github",
+          status: "ready",
+          value: "nicu-chiciuc/weight_tsx",
+          href: "https://github.com/nicu-chiciuc/weight_tsx",
+        },
+        {
+          provider: "convex",
+          status: "action_required",
+          actions: [
+            {
+              kind: "add",
+              label: "?add-convex",
+              href: "/?add-convex#weight_tsx",
+            },
+          ],
+        },
+        {
+          provider: "cloudflare",
+          status: "action_required",
+          actions: [
+            {
+              kind: "add",
+              label: "?add-cloudflare",
+              href: "/?add-cloudflare#weight_tsx",
+            },
+          ],
+        },
+      ],
+    } satisfies VaultResourceRailState;
+
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+
+    expect(markup).toContain("?add-convex");
+    expect(markup).toContain("?add-cloudflare");
+    expect(markup).toContain('aria-label="Add Convex"');
+    expect(markup).toContain('aria-label="Add Cloudflare"');
+    expect(markup).not.toContain("text-blue-600");
   });
 });

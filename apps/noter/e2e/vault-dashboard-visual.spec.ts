@@ -418,6 +418,28 @@ test("vault dashboard fixture (connect Cloudflare worker select mobile)", async 
   await context.close();
 });
 
+test("vault dashboard fixture (connect Convex dialog)", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 360 });
+  await page.goto("/visual-fixture?mode=vault-dashboard-connect-convex-open", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const connectDialog = page.getByRole("dialog", {
+    name: "Connect Convex noter-md/noter-app",
+  });
+  await expect(connectDialog).toBeVisible();
+  await expect(connectDialog.getByRole("button", { name: "Existing" })).toBeVisible();
+  await expect(connectDialog.getByRole("button", { name: "Create" })).toBeVisible();
+  await expect(connectDialog.getByRole("button", { name: "Connect Project" })).toBeVisible();
+  await expect(page).toHaveScreenshot("vault-dashboard-connect-convex-dialog.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
 test("vault dashboard fixture (delete dialog mobile)", async ({ browser }, testInfo) => {
   const baseURL = testInfo.project.use.baseURL;
   if (typeof baseURL !== "string") {

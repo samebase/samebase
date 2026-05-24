@@ -85,9 +85,10 @@ import {
 } from "@/components/vault-dashboard/vaultProviderSetup";
 import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import { type LogoThemeColorSearchInput } from "@/lib/appThemeColorSearch";
-import { useRootRouteSearch } from "@/lib/rootRouteSearch";
+import { type RootRouteSearch, useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { buildPullRequestLabelStyle, normalizePullRequestLabels } from "@/lib/pullRequestLabels";
 import { applySearchPatch } from "@/lib/routeSearchFlags";
+import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
   getDefaultVaultBranchFilters,
   normalizeVaultBranchFilters,
@@ -187,6 +188,7 @@ export type VaultDeleteDialogTarget = {
   canRemoveGithubRepo: boolean;
   hasConvexProvision: boolean;
   hasCloudflareProvision: boolean;
+  canRemoveConvexProvision: boolean;
   canRemoveCloudflareProvision: boolean;
 };
 
@@ -194,6 +196,11 @@ type VaultDeleteIntent = VaultDeleteDialogTarget & {
   id: Id<"vaults">;
 };
 type VaultCloudflareDialogTarget = {
+  id: Id<"vaults">;
+  repositoryFullName: string;
+  repositoryName: string;
+};
+type VaultConvexDialogTarget = {
   id: Id<"vaults">;
   repositoryFullName: string;
   repositoryName: string;
@@ -207,6 +214,13 @@ type CloudflareWorkerOption = {
   workerTag: string;
 };
 type CloudflareWorkerConnectMode = "existing" | "create";
+type ConvexProjectOption = {
+  projectId: string;
+  projectName: string;
+  projectSlug: string;
+  teamSlug: string;
+};
+type ConvexProjectConnectMode = "existing" | "create";
 
 function compareCloudflareAccountOptions(
   left: CloudflareAccountOption,
@@ -259,6 +273,18 @@ function formatProviderSetupDeveloperLabel(providerSetup: VaultDashboardProvider
   return "Providers";
 }
 
+function buildConvexProjectOptionKey(project: ConvexProjectOption): string {
+  return project.projectId;
+}
+
+function compareConvexProjectOption(left: ConvexProjectOption, right: ConvexProjectOption): number {
+  return (
+    left.projectName.localeCompare(right.projectName) ||
+    left.projectSlug.localeCompare(right.projectSlug) ||
+    left.projectId.localeCompare(right.projectId)
+  );
+}
+
 export type VaultDeleteOptionKey =
   | "removeCodespaces"
   | "removeConvexProvision"
@@ -292,6 +318,15 @@ type VaultDashboardLocalState = {
     selectedWorkerName: string;
     workers: CloudflareWorkerOption[];
   };
+  convexConnectDialog: {
+    connectMode: ConvexProjectConnectMode;
+    createProjectName: string;
+    projects: ConvexProjectOption[];
+    error: string | null;
+    isLoadingResources: boolean;
+    isSubmittingProject: boolean;
+    selectedProjectId: string;
+  };
   cloudflarePollingPaused: boolean;
   cloudflareWorkerName: string;
   cloudflareWorkerNameMode: CreateResourceNameMode;
@@ -324,6 +359,18 @@ type VaultDashboardLocalState = {
   shouldAutoFocusChatInput: boolean;
 };
 
+function readInitialConvexConnectDialogState(): VaultDashboardLocalState["convexConnectDialog"] {
+  return {
+    connectMode: "existing",
+    createProjectName: "",
+    projects: [],
+    error: null,
+    isLoadingResources: false,
+    isSubmittingProject: false,
+    selectedProjectId: "",
+  };
+}
+
 function readVaultDashboardInitialLocalState(): VaultDashboardLocalState {
   return {
     cloudflareAccountDialog: {
@@ -345,6 +392,7 @@ function readVaultDashboardInitialLocalState(): VaultDashboardLocalState {
       selectedWorkerName: "",
       workers: [],
     },
+    convexConnectDialog: readInitialConvexConnectDialogState(),
     cloudflarePollingPaused:
       typeof document !== "undefined" ? document.visibilityState !== "visible" : false,
     cloudflareWorkerName: "",
@@ -413,6 +461,12 @@ function useVaultDashboardLocalStore() {
           selectedWorkerName: "",
           workers: [],
         },
+      }));
+    },
+    resetConvexConnectDialogState: () => {
+      setState((state) => ({
+        ...state,
+        convexConnectDialog: readInitialConvexConnectDialogState(),
       }));
     },
     resetCreateRepositoryName: () => {
@@ -532,6 +586,55 @@ function useVaultDashboardLocalStore() {
           selectedWorkerName: workers[0]?.workerName ?? "",
           workers,
         },
+      }));
+    },
+    setConvexConnectDialogConnectMode: (connectMode: ConvexProjectConnectMode) => {
+      setState((state) => ({
+        ...state,
+        convexConnectDialog: { ...state.convexConnectDialog, connectMode },
+      }));
+    },
+    setConvexConnectDialogCreateProjectName: (createProjectName: string) => {
+      setState((state) => ({
+        ...state,
+        convexConnectDialog: { ...state.convexConnectDialog, createProjectName },
+      }));
+    },
+    setConvexConnectDialogProjects: (projects: ConvexProjectOption[]) => {
+      const sortedProjects = [...projects].sort(compareConvexProjectOption);
+      setState((state) => ({
+        ...state,
+        convexConnectDialog: {
+          ...state.convexConnectDialog,
+          projects: sortedProjects,
+          selectedProjectId: sortedProjects[0]
+            ? buildConvexProjectOptionKey(sortedProjects[0])
+            : "",
+        },
+      }));
+    },
+    setConvexConnectDialogError: (error: string | null) => {
+      setState((state) => ({
+        ...state,
+        convexConnectDialog: { ...state.convexConnectDialog, error },
+      }));
+    },
+    setConvexConnectDialogLoading: (isLoadingResources: boolean) => {
+      setState((state) => ({
+        ...state,
+        convexConnectDialog: { ...state.convexConnectDialog, isLoadingResources },
+      }));
+    },
+    setConvexConnectDialogSelectedProjectId: (selectedProjectId: string) => {
+      setState((state) => ({
+        ...state,
+        convexConnectDialog: { ...state.convexConnectDialog, selectedProjectId },
+      }));
+    },
+    setConvexConnectDialogSubmitting: (isSubmittingProject: boolean) => {
+      setState((state) => ({
+        ...state,
+        convexConnectDialog: { ...state.convexConnectDialog, isSubmittingProject },
       }));
     },
     setCloudflareWorkerName: (cloudflareWorkerName: string, mode: CreateResourceNameMode) => {
@@ -674,6 +777,7 @@ function buildVaultDeleteIntent(vault: VaultDashboardVault): VaultDeleteIntent {
     canRemoveGithubRepo: vault.isNoterManaged && vault.hasConnectedGitHubRepository,
     hasConvexProvision: vault.hasConvexProvision,
     hasCloudflareProvision: vault.hasCloudflareProvision,
+    canRemoveConvexProvision: vault.canRemoveConvexProvision,
     canRemoveCloudflareProvision: vault.canRemoveCloudflareProvision,
   };
 }
@@ -829,7 +933,7 @@ export function VaultDashboardDeleteDialog({
                 </label>
               </div>
             ) : null}
-            {vaultToDelete.hasConvexProvision ? (
+            {vaultToDelete.hasConvexProvision || vaultToDelete.canRemoveConvexProvision ? (
               <div className="flex items-start gap-2">
                 <Checkbox
                   id="remove-convex-provision"
@@ -837,12 +941,12 @@ export function VaultDashboardDeleteDialog({
                   onCheckedChange={(checked) =>
                     onDeleteOptionChange("removeConvexProvision", checked === true)
                   }
-                  disabled={!vaultToDelete.isNoterManaged || isDeleting || isCommitting}
+                  disabled={!vaultToDelete.canRemoveConvexProvision || isDeleting || isCommitting}
                   className="mt-0.5"
                 />
                 <label htmlFor="remove-convex-provision" className="text-sm text-muted-foreground">
                   Also remove Convex project/deployment
-                  {!vaultToDelete.isNoterManaged ? (
+                  {!vaultToDelete.canRemoveConvexProvision ? (
                     <div className="text-xs text-muted-foreground">
                       Only available for infrastructure provisioned by Noter.
                     </div>
@@ -1040,6 +1144,130 @@ function useProviderOAuthPopupCompletionReload({
     githubPopupOriginRef,
     githubPopupRef,
   ]);
+}
+
+export function VaultDashboardConvexDialog({
+  createProjectName,
+  projects,
+  error,
+  isLoading,
+  isSubmitting,
+  mode,
+  onCreateProjectNameChange,
+  onProjectChange,
+  onModeChange,
+  onOpenChange,
+  onSubmit,
+  open,
+  selectedProjectId,
+  vault,
+}: {
+  createProjectName: string;
+  projects: ConvexProjectOption[];
+  error: string | null;
+  isLoading: boolean;
+  isSubmitting: boolean;
+  mode: ConvexProjectConnectMode;
+  onCreateProjectNameChange: (projectName: string) => void;
+  onProjectChange: (projectId: string) => void;
+  onModeChange: (mode: ConvexProjectConnectMode) => void;
+  onOpenChange: (isOpen: boolean) => void;
+  onSubmit: () => void;
+  open: boolean;
+  selectedProjectId: string;
+  vault: VaultConvexDialogTarget | null;
+}) {
+  const sortedProjects = [...projects].sort(compareConvexProjectOption);
+  const selectedProject = sortedProjects.find(
+    (project) => buildConvexProjectOptionKey(project) === selectedProjectId,
+  );
+  const submitDisabled =
+    isLoading ||
+    isSubmitting ||
+    (mode === "existing" ? !selectedProject : !createProjectName.trim());
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <AppDialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            {vault ? `Connect Convex ${vault.repositoryFullName}` : "Connect Convex"}
+          </DialogTitle>
+          <DialogDescription>Convex project.</DialogDescription>
+        </DialogHeader>
+        {vault ? (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant={mode === "existing" ? "default" : "outline"}
+                onClick={() => onModeChange("existing")}
+                disabled={isLoading || isSubmitting}
+              >
+                Existing
+              </Button>
+              <Button
+                type="button"
+                variant={mode === "create" ? "default" : "outline"}
+                onClick={() => onModeChange("create")}
+                disabled={isLoading || isSubmitting}
+              >
+                Create
+              </Button>
+            </div>
+            {mode === "existing" ? (
+              <Select
+                // The dialog owns modality; a second modal lock here can shift mobile focus/scroll during open.
+                modal={false}
+                value={selectedProjectId}
+                onValueChange={onProjectChange}
+                disabled={isLoading || sortedProjects.length === 0}
+              >
+                <SelectTrigger aria-label="Convex project" className="w-full">
+                  <SelectValue placeholder={isLoading ? "Loading projects" : "Convex project"}>
+                    {selectedProject ? selectedProject.projectName : undefined}
+                  </SelectValue>
+                </SelectTrigger>
+                <AppSelectContent>
+                  {sortedProjects.map((project) => {
+                    const key = buildConvexProjectOptionKey(project);
+                    return (
+                      <AppSelectItem key={key} value={key}>
+                        {project.projectName}
+                      </AppSelectItem>
+                    );
+                  })}
+                </AppSelectContent>
+              </Select>
+            ) : (
+              <Input
+                value={createProjectName}
+                onChange={(event) => onCreateProjectNameChange(event.target.value)}
+                disabled={isLoading || isSubmitting}
+                placeholder="Project name"
+              />
+            )}
+            {error ? <div className="text-sm text-red-600">{error}</div> : null}
+          </div>
+        ) : null}
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              onOpenChange(false);
+            }}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button onClick={onSubmit} disabled={submitDisabled}>
+            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {mode === "existing" ? "Connect Project" : "Create Project"}
+          </Button>
+        </DialogFooter>
+      </AppDialogContent>
+    </Dialog>
+  );
 }
 
 export function VaultDashboardCloudflareDialog({
@@ -2264,9 +2492,10 @@ type VaultDashboardBodyProps = {
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
   persistedVaultBranchFiltersByVaultId: Map<string, VaultBranchFiltersState>;
   deleteRepositoryFullName?: string;
-  connectCloudflareRepositoryFullName?: string;
+  addConvexRepositoryFullName?: string;
+  addCloudflareWorkerRepositoryFullName?: string;
+  rootRouteSearch: RootRouteSearch;
   vaults: VaultDashboardVault[];
-  onConfigureCloudflare: (repositoryHashId: string) => void;
   onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
   onManualRepositoryRefresh: (vaultId: Id<"vaults">) => void;
   onRetryVaultDeletion: (runId: Id<"vaultDeletionRuns">) => void;
@@ -2337,6 +2566,43 @@ function resolveVaultDashboardRepositoryFullNameForHash({
   }
 
   return undefined;
+}
+
+function applyVaultDashboardProviderAddSearch({
+  currentSearch,
+  provider,
+}: {
+  currentSearch: RootRouteSearch;
+  provider: "cloudflare" | "convex";
+}): RootRouteSearch {
+  return provider === "convex"
+    ? applySearchPatch(currentSearch, {
+        "add-convex": true,
+        "add-cloudflare": null,
+      })
+    : applySearchPatch(currentSearch, {
+        "add-cloudflare": true,
+        "add-convex": null,
+      });
+}
+
+function buildVaultDashboardProviderAddHref({
+  provider,
+  repositoryHashId,
+  rootRouteSearch,
+}: {
+  provider: "cloudflare" | "convex";
+  repositoryHashId: string;
+  rootRouteSearch: RootRouteSearch;
+}): string {
+  return buildPathWithTanStackSearch({
+    pathname: "/",
+    search: applyVaultDashboardProviderAddSearch({
+      currentSearch: rootRouteSearch,
+      provider,
+    }),
+    hash: repositoryHashId,
+  });
 }
 
 function scrollVaultDashboardCardIntoView(element: HTMLElement): boolean {
@@ -2423,20 +2689,23 @@ function VaultDashboardBody({
   openDeveloperToolsByVaultId,
   persistedVaultBranchFiltersByVaultId,
   deleteRepositoryFullName,
-  connectCloudflareRepositoryFullName,
+  addConvexRepositoryFullName,
+  addCloudflareWorkerRepositoryFullName,
+  rootRouteSearch,
   vaults,
-  onConfigureCloudflare,
   onOpenDeveloperToolsChange,
   onManualRepositoryRefresh,
   onRetryVaultDeletion,
   onSaveVaultBranchFilters,
 }: VaultDashboardBodyProps) {
+  const navigate = useNavigate();
   const [repositoryLocationHash, setRepositoryLocationHash] = useState(() =>
     typeof window === "undefined" ? "" : window.location.hash,
   );
   const vaultCardElementsRef = useRef(new Map<string, HTMLDivElement>());
   const lastScrolledDeleteRepositoryRef = useRef<string | null>(null);
-  const lastScrolledConnectCloudflareRepositoryRef = useRef<string | null>(null);
+  const lastScrolledAddConvexRepositoryRef = useRef<string | null>(null);
+  const lastScrolledAddCloudflareWorkerRepositoryRef = useRef<string | null>(null);
   const lastExplicitRepositoryHashScrollRef = useRef<string | null>(null);
   const replaceRepositoryLocationHash = useCallback((hashId: string) => {
     const nextHash = buildVaultDashboardRepositoryHashHref(hashId);
@@ -2453,6 +2722,27 @@ function VaultDashboardBody({
     // navigation; updating repositoryLocationHash here would feed scrollspy
     // changes back into the "scroll to hash" path.
   }, []);
+  const openProviderAddDialog = useCallback(
+    ({
+      provider,
+      repositoryHashId,
+    }: {
+      provider: "cloudflare" | "convex";
+      repositoryHashId: string;
+    }) => {
+      void navigate({
+        to: "/",
+        hash: repositoryHashId,
+        search: (currentSearch) =>
+          applyVaultDashboardProviderAddSearch({
+            currentSearch,
+            provider,
+          }),
+        state: true,
+      });
+    },
+    [navigate],
+  );
 
   useEffect(() => {
     const syncRepositoryLocationHash = () => {
@@ -2563,27 +2853,44 @@ function VaultDashboardBody({
   }, [deleteRepositoryFullName, vaults]);
 
   useEffect(() => {
-    if (!connectCloudflareRepositoryFullName) {
-      lastScrolledConnectCloudflareRepositoryRef.current = null;
+    if (!addConvexRepositoryFullName) {
+      lastScrolledAddConvexRepositoryRef.current = null;
+      return;
+    }
+
+    if (lastScrolledAddConvexRepositoryRef.current === addConvexRepositoryFullName) {
+      return;
+    }
+
+    const addCardElement = vaultCardElementsRef.current.get(addConvexRepositoryFullName);
+    if (!addCardElement) {
+      return;
+    }
+
+    scrollVaultDashboardCardIntoView(addCardElement);
+    lastScrolledAddConvexRepositoryRef.current = addConvexRepositoryFullName;
+  }, [addConvexRepositoryFullName, vaults]);
+
+  useEffect(() => {
+    if (!addCloudflareWorkerRepositoryFullName) {
+      lastScrolledAddCloudflareWorkerRepositoryRef.current = null;
       return;
     }
 
     if (
-      lastScrolledConnectCloudflareRepositoryRef.current === connectCloudflareRepositoryFullName
+      lastScrolledAddCloudflareWorkerRepositoryRef.current === addCloudflareWorkerRepositoryFullName
     ) {
       return;
     }
 
-    const connectCardElement = vaultCardElementsRef.current.get(
-      connectCloudflareRepositoryFullName,
-    );
-    if (!connectCardElement) {
+    const addCardElement = vaultCardElementsRef.current.get(addCloudflareWorkerRepositoryFullName);
+    if (!addCardElement) {
       return;
     }
 
-    scrollVaultDashboardCardIntoView(connectCardElement);
-    lastScrolledConnectCloudflareRepositoryRef.current = connectCloudflareRepositoryFullName;
-  }, [connectCloudflareRepositoryFullName, vaults]);
+    scrollVaultDashboardCardIntoView(addCardElement);
+    lastScrolledAddCloudflareWorkerRepositoryRef.current = addCloudflareWorkerRepositoryFullName;
+  }, [addCloudflareWorkerRepositoryFullName, vaults]);
 
   useEffect(() => {
     const repositoryHash = normalizeVaultDashboardRepositoryHash(repositoryLocationHash);
@@ -2631,13 +2938,30 @@ function VaultDashboardBody({
               })
             : null;
         const githubRepositoryUrl = `https://github.com/${vault.ghRepoOwner}/${vault.ghRepoName}`;
+        const repositoryHashId = buildVaultDashboardHashIdForVault({
+          repositoryNameCounts,
+          vault,
+        });
         const developerToolsOpen =
           developerToolsVisible && (openDeveloperToolsByVaultId[vault._id] ?? false);
         const resourceRailState = buildVaultDashboardResourceRailState({
-          githubRepositoryUrl,
-          onConfigureCloudflare: () => {
-            onConfigureCloudflare(repositoryHashId);
+          addCloudflareWorkerHref: buildVaultDashboardProviderAddHref({
+            provider: "cloudflare",
+            repositoryHashId,
+            rootRouteSearch,
+          }),
+          addCloudflareWorkerOnClick: () => {
+            openProviderAddDialog({ provider: "cloudflare", repositoryHashId });
           },
+          addConvexHref: buildVaultDashboardProviderAddHref({
+            provider: "convex",
+            repositoryHashId,
+            rootRouteSearch,
+          }),
+          addConvexOnClick: () => {
+            openProviderAddDialog({ provider: "convex", repositoryHashId });
+          },
+          githubRepositoryUrl,
           vault,
         });
         const sharedLastSyncedAt = vault.lastTreeRefreshAt;
@@ -2690,10 +3014,6 @@ function VaultDashboardBody({
           ) : undefined;
         const setupSection =
           deletionSection ?? deleteBlockedSection ?? sourceSetupSection ?? providerSetupSection;
-        const repositoryHashId = buildVaultDashboardHashIdForVault({
-          repositoryNameCounts,
-          vault,
-        });
         const titleRepositoryOwnerVisible = (repositoryNameCounts.get(vault.ghRepoName) ?? 0) > 1;
 
         return (
@@ -3189,6 +3509,9 @@ export function VaultDashboard() {
   const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
   const getCloudflareMcpOAuthUrl = useAction(api.cloudflareMcpOAuth.getCloudflareMcpOAuthUrl);
   const refreshCloudflareMcpTokenIfNeeded = useAction(api.users.refreshCloudflareMcpTokenIfNeeded);
+  const listConvexProjects = useAction(api.vault.convex.listProjects);
+  const connectExistingConvexProject = useAction(api.vault.convex.connectExistingProject);
+  const createConvexProject = useAction(api.vault.convex.createProject);
   const listCloudflareAccounts = useAction(api.vault.cloudflare.listAccounts);
   const listCloudflareWorkers = useAction(api.vault.cloudflare.listWorkers);
   const selectCloudflareDefaultAccount = useAction(api.vault.cloudflare.selectDefaultAccount);
@@ -3264,7 +3587,8 @@ export function VaultDashboard() {
   const dashboardGlobalChatOpen = dashboardSettings?.globalChatOpen;
   const dashboardProvidersPanelOpen = dashboardSettings?.providersPanelOpen;
   const deleteModeActive = rootRouteSearch.delete;
-  const connectCloudflareModeActive = rootRouteSearch["connect-cloudflare"];
+  const addConvexModeActive = rootRouteSearch["add-convex"];
+  const addCloudflareWorkerModeActive = rootRouteSearch["add-cloudflare"];
   const deleteRepositoryFullName =
     deleteModeActive && vaults
       ? resolveVaultDashboardRepositoryFullNameForHash({
@@ -3272,8 +3596,15 @@ export function VaultDashboard() {
           vaults,
         })
       : undefined;
-  const connectCloudflareRepositoryFullName =
-    connectCloudflareModeActive && vaults
+  const addCloudflareWorkerRepositoryFullName =
+    addCloudflareWorkerModeActive && vaults
+      ? resolveVaultDashboardRepositoryFullNameForHash({
+          hash: location.hash,
+          vaults,
+        })
+      : undefined;
+  const addConvexRepositoryFullName =
+    addConvexModeActive && vaults
       ? resolveVaultDashboardRepositoryFullNameForHash({
           hash: location.hash,
           vaults,
@@ -3316,13 +3647,17 @@ export function VaultDashboard() {
   const convexPopupOriginRef = useRef<string | null>(null);
   const cloudflarePopupOriginRef = useRef<string | null>(null);
   const preparedDeleteRepositoryRef = useRef<string | null>(null);
-  const preparedConnectCloudflareRepositoryRef = useRef<string | null>(null);
+  const preparedAddConvexRepositoryRef = useRef<string | null>(null);
+  const preparedAddCloudflareWorkerRepositoryRef = useRef<string | null>(null);
   // In-app delete icon clicks should close back to the dashboard entry that
   // existed before the modal; direct links should only replace the delete key.
   const previousDeleteModeActiveRef = useRef(deleteModeActive);
   const shouldPopDeleteHistoryRef = useRef(false);
-  const previousConnectCloudflareModeActiveRef = useRef(connectCloudflareModeActive);
-  const shouldPopConnectCloudflareHistoryRef = useRef(false);
+  const previousAddConvexModeActiveRef = useRef(addConvexModeActive);
+  const shouldPopAddConvexHistoryRef = useRef(false);
+  const previousAddCloudflareWorkerModeActiveRef = useRef(addCloudflareWorkerModeActive);
+  const shouldPopAddCloudflareWorkerHistoryRef = useRef(false);
+  const convexDialogResourcesRequestIdRef = useRef(0);
   const cloudflareWorkersRequestIdRef = useRef(0);
   const cloudflareDialogResourcesRequestIdRef = useRef(0);
   const cloudflareAccountDialogRequestIdRef = useRef(0);
@@ -3356,6 +3691,7 @@ export function VaultDashboard() {
     commitError,
     convexProjectName,
     convexProjectNameMode,
+    convexConnectDialog,
     createError,
     dashboardMountedAt,
     deleteError,
@@ -3401,10 +3737,23 @@ export function VaultDashboard() {
     workers: cloudflareWorkers,
   } = cloudflareConnectDialog;
   const {
+    connectMode: convexConnectMode,
+    createProjectName: convexCreateProjectName,
+    projects: convexProjects,
+    error: convexDialogError,
+    isLoadingResources: isLoadingConvexResources,
+    isSubmittingProject: isSubmittingConvexProject,
+    selectedProjectId: selectedConvexProjectId,
+  } = convexConnectDialog;
+  const selectedConvexProject = convexProjects.find(
+    (project) => buildConvexProjectOptionKey(project) === selectedConvexProjectId,
+  );
+  const {
     clearCreateError,
     markCommitAttempted,
     prepareDeleteDialog,
     resetCloudflareConnectDialogState,
+    resetConvexConnectDialogState,
     resetCreateRepositoryName,
     resetDeleteDialogState,
     setCloudflareAccountDialogError,
@@ -3425,6 +3774,13 @@ export function VaultDashboard() {
     setCloudflarePollingPaused,
     setCloudflareWorkerName,
     setCommitError,
+    setConvexConnectDialogConnectMode,
+    setConvexConnectDialogCreateProjectName,
+    setConvexConnectDialogProjects,
+    setConvexConnectDialogError,
+    setConvexConnectDialogLoading,
+    setConvexConnectDialogSelectedProjectId,
+    setConvexConnectDialogSubmitting,
     setConvexProjectName,
     setCreateError,
     setDeleteError,
@@ -3475,24 +3831,42 @@ export function VaultDashboard() {
     deleteDialogVault.deletion.deleteAction.state === "available";
   const vaultToDelete =
     deleteDialogVault && canOpenDeleteDialog ? buildVaultDeleteIntent(deleteDialogVault) : null;
-  const connectCloudflareDialogVault =
-    connectCloudflareRepositoryFullName && vaults
-      ? (vaults.find((vault) => vault.repositoryFullName === connectCloudflareRepositoryFullName) ??
-        null)
+  const addConvexDialogVault =
+    addConvexRepositoryFullName && vaults
+      ? (vaults.find((vault) => vault.repositoryFullName === addConvexRepositoryFullName) ?? null)
       : null;
-  const canOpenConnectCloudflareDialog =
-    connectCloudflareDialogVault?.state === "ready" &&
-    !connectCloudflareDialogVault.hasCloudflareProvision;
-  const vaultToConnectCloudflare = useMemo(
+  const canOpenConnectConvexDialog =
+    addConvexDialogVault?.state === "ready" && !addConvexDialogVault.hasConvexProvision;
+  const vaultToConnectConvex = useMemo(
     () =>
-      connectCloudflareDialogVault && canOpenConnectCloudflareDialog
+      addConvexDialogVault && canOpenConnectConvexDialog
         ? {
-            id: connectCloudflareDialogVault._id,
-            repositoryFullName: connectCloudflareDialogVault.repositoryFullName,
-            repositoryName: connectCloudflareDialogVault.ghRepoName,
+            id: addConvexDialogVault._id,
+            repositoryFullName: addConvexDialogVault.repositoryFullName,
+            repositoryName: addConvexDialogVault.ghRepoName,
           }
         : null,
-    [canOpenConnectCloudflareDialog, connectCloudflareDialogVault],
+    [addConvexDialogVault, canOpenConnectConvexDialog],
+  );
+  const addCloudflareWorkerDialogVault =
+    addCloudflareWorkerRepositoryFullName && vaults
+      ? (vaults.find(
+          (vault) => vault.repositoryFullName === addCloudflareWorkerRepositoryFullName,
+        ) ?? null)
+      : null;
+  const canOpenConnectCloudflareDialog =
+    addCloudflareWorkerDialogVault?.state === "ready" &&
+    !addCloudflareWorkerDialogVault.hasCloudflareProvision;
+  const vaultToConnectCloudflare = useMemo(
+    () =>
+      addCloudflareWorkerDialogVault && canOpenConnectCloudflareDialog
+        ? {
+            id: addCloudflareWorkerDialogVault._id,
+            repositoryFullName: addCloudflareWorkerDialogVault.repositoryFullName,
+            repositoryName: addCloudflareWorkerDialogVault.ghRepoName,
+          }
+        : null,
+    [addCloudflareWorkerDialogVault, canOpenConnectCloudflareDialog],
   );
   const stagedChangesCount = deleteDialogVault?.fileCount ?? 0;
   const connectedCodespacesCount = useConvexQuery(
@@ -3525,16 +3899,16 @@ export function VaultDashboard() {
     [deleteModeActive, navigate, router],
   );
 
-  const clearConnectCloudflareSearchParam = useCallback(
+  const clearAddConvexSearchParam = useCallback(
     ({ preferHistoryBack }: { preferHistoryBack: boolean }) => {
-      const shouldPopConnectCloudflareRoute =
+      const shouldPopAddConvexRoute =
         preferHistoryBack &&
-        connectCloudflareModeActive &&
-        shouldPopConnectCloudflareHistoryRef.current &&
+        addConvexModeActive &&
+        shouldPopAddConvexHistoryRef.current &&
         router.history.canGoBack();
-      shouldPopConnectCloudflareHistoryRef.current = false;
+      shouldPopAddConvexHistoryRef.current = false;
 
-      if (shouldPopConnectCloudflareRoute) {
+      if (shouldPopAddConvexRoute) {
         router.history.back();
         return;
       }
@@ -3542,13 +3916,73 @@ export function VaultDashboard() {
       void navigate({
         hash: true,
         replace: true,
-        search: (currentSearch) => applySearchPatch(currentSearch, { "connect-cloudflare": null }),
+        search: (currentSearch) => applySearchPatch(currentSearch, { "add-convex": null }),
         state: true,
         to: ".",
       });
     },
-    [connectCloudflareModeActive, navigate, router],
+    [addConvexModeActive, navigate, router],
   );
+
+  const clearAddCloudflareWorkerSearchParam = useCallback(
+    ({ preferHistoryBack }: { preferHistoryBack: boolean }) => {
+      const shouldPopAddCloudflareWorkerRoute =
+        preferHistoryBack &&
+        addCloudflareWorkerModeActive &&
+        shouldPopAddCloudflareWorkerHistoryRef.current &&
+        router.history.canGoBack();
+      shouldPopAddCloudflareWorkerHistoryRef.current = false;
+
+      if (shouldPopAddCloudflareWorkerRoute) {
+        router.history.back();
+        return;
+      }
+
+      void navigate({
+        hash: true,
+        replace: true,
+        search: (currentSearch) => applySearchPatch(currentSearch, { "add-cloudflare": null }),
+        state: true,
+        to: ".",
+      });
+    },
+    [addCloudflareWorkerModeActive, navigate, router],
+  );
+
+  const loadConvexDialogResources = useCallback(async () => {
+    const requestId = convexDialogResourcesRequestIdRef.current + 1;
+    convexDialogResourcesRequestIdRef.current = requestId;
+    setConvexConnectDialogLoading(true);
+    setConvexConnectDialogError(null);
+    try {
+      const projects = await listConvexProjects({});
+      if (convexDialogResourcesRequestIdRef.current !== requestId) {
+        return;
+      }
+      setConvexConnectDialogProjects(projects);
+    } catch (error) {
+      if (convexDialogResourcesRequestIdRef.current !== requestId) {
+        return;
+      }
+      setConvexConnectDialogError(
+        error instanceof Error ? error.message : "Could not load Convex projects.",
+      );
+    } finally {
+      if (convexDialogResourcesRequestIdRef.current === requestId) {
+        setConvexConnectDialogLoading(false);
+      }
+    }
+  }, [
+    listConvexProjects,
+    setConvexConnectDialogProjects,
+    setConvexConnectDialogError,
+    setConvexConnectDialogLoading,
+  ]);
+
+  const resetConvexDialogState = useCallback(() => {
+    convexDialogResourcesRequestIdRef.current += 1;
+    resetConvexConnectDialogState();
+  }, [resetConvexConnectDialogState]);
 
   const loadCloudflareWorkersForAccount = useCallback(
     async (accountId: string) => {
@@ -3723,33 +4157,77 @@ export function VaultDashboard() {
   ]);
 
   useEffect(() => {
-    const previousConnectCloudflareModeActive = previousConnectCloudflareModeActiveRef.current;
-    if (!previousConnectCloudflareModeActive && connectCloudflareModeActive) {
-      shouldPopConnectCloudflareHistoryRef.current = true;
+    const previousAddConvexModeActive = previousAddConvexModeActiveRef.current;
+    if (!previousAddConvexModeActive && addConvexModeActive) {
+      shouldPopAddConvexHistoryRef.current = true;
     }
-    if (!connectCloudflareModeActive) {
-      shouldPopConnectCloudflareHistoryRef.current = false;
+    if (!addConvexModeActive) {
+      shouldPopAddConvexHistoryRef.current = false;
     }
-    previousConnectCloudflareModeActiveRef.current = connectCloudflareModeActive;
+    previousAddConvexModeActiveRef.current = addConvexModeActive;
+
+    if (!vaultToConnectConvex) {
+      if (preparedAddConvexRepositoryRef.current) {
+        preparedAddConvexRepositoryRef.current = null;
+        resetConvexDialogState();
+      }
+      if (addConvexModeActive && vaults) {
+        clearAddConvexSearchParam({ preferHistoryBack: false });
+      }
+      return;
+    }
+
+    if (preparedAddConvexRepositoryRef.current === vaultToConnectConvex.repositoryFullName) {
+      return;
+    }
+
+    preparedAddConvexRepositoryRef.current = vaultToConnectConvex.repositoryFullName;
+    setConvexConnectDialogCreateProjectName(
+      buildDefaultAppResourceName({
+        repositoryName: vaultToConnectConvex.repositoryName,
+        provider: "convex",
+      }),
+    );
+    void loadConvexDialogResources();
+  }, [
+    addConvexModeActive,
+    clearAddConvexSearchParam,
+    loadConvexDialogResources,
+    resetConvexDialogState,
+    setConvexConnectDialogCreateProjectName,
+    vaultToConnectConvex,
+    vaults,
+  ]);
+
+  useEffect(() => {
+    const previousAddCloudflareWorkerModeActive = previousAddCloudflareWorkerModeActiveRef.current;
+    if (!previousAddCloudflareWorkerModeActive && addCloudflareWorkerModeActive) {
+      shouldPopAddCloudflareWorkerHistoryRef.current = true;
+    }
+    if (!addCloudflareWorkerModeActive) {
+      shouldPopAddCloudflareWorkerHistoryRef.current = false;
+    }
+    previousAddCloudflareWorkerModeActiveRef.current = addCloudflareWorkerModeActive;
 
     if (!vaultToConnectCloudflare) {
-      if (preparedConnectCloudflareRepositoryRef.current) {
-        preparedConnectCloudflareRepositoryRef.current = null;
+      if (preparedAddCloudflareWorkerRepositoryRef.current) {
+        preparedAddCloudflareWorkerRepositoryRef.current = null;
         resetCloudflareDialogState();
       }
-      if (connectCloudflareModeActive && vaults) {
-        clearConnectCloudflareSearchParam({ preferHistoryBack: false });
+      if (addCloudflareWorkerModeActive && vaults) {
+        clearAddCloudflareWorkerSearchParam({ preferHistoryBack: false });
       }
       return;
     }
 
     if (
-      preparedConnectCloudflareRepositoryRef.current === vaultToConnectCloudflare.repositoryFullName
+      preparedAddCloudflareWorkerRepositoryRef.current ===
+      vaultToConnectCloudflare.repositoryFullName
     ) {
       return;
     }
 
-    preparedConnectCloudflareRepositoryRef.current = vaultToConnectCloudflare.repositoryFullName;
+    preparedAddCloudflareWorkerRepositoryRef.current = vaultToConnectCloudflare.repositoryFullName;
     setCloudflareConnectDialogCreateWorkerName(
       buildDefaultAppResourceName({
         repositoryName: vaultToConnectCloudflare.repositoryName,
@@ -3758,10 +4236,9 @@ export function VaultDashboard() {
     );
     void loadCloudflareDialogResources(cloudflareConnection?.accountId);
   }, [
-    clearConnectCloudflareSearchParam,
+    addCloudflareWorkerModeActive,
+    clearAddCloudflareWorkerSearchParam,
     cloudflareConnection?.accountId,
-    connectCloudflareDialogVault,
-    connectCloudflareModeActive,
     loadCloudflareDialogResources,
     resetCloudflareDialogState,
     setCloudflareConnectDialogCreateWorkerName,
@@ -3883,16 +4360,46 @@ export function VaultDashboard() {
     if (isOpen) {
       return;
     }
-    clearConnectCloudflareSearchParam({ preferHistoryBack: true });
+    clearAddCloudflareWorkerSearchParam({ preferHistoryBack: true });
   };
 
-  const handleConfigureCloudflare = (repositoryHashId: string) => {
-    void navigate({
-      hash: repositoryHashId,
-      search: (currentSearch) => applySearchPatch(currentSearch, { "connect-cloudflare": true }),
-      state: true,
-      to: ".",
-    });
+  const handleConnectConvexDialogOpenChange = (isOpen: boolean) => {
+    if (isOpen) {
+      return;
+    }
+    clearAddConvexSearchParam({ preferHistoryBack: true });
+  };
+
+  const handleSubmitConvexProject = async () => {
+    if (!vaultToConnectConvex || isSubmittingConvexProject) {
+      return;
+    }
+    setConvexConnectDialogError(null);
+    setConvexConnectDialogSubmitting(true);
+    try {
+      if (convexConnectMode === "existing") {
+        if (!selectedConvexProject) {
+          throw new Error("Convex project is required.");
+        }
+        await connectExistingConvexProject({
+          vaultId: vaultToConnectConvex.id,
+          projectId: selectedConvexProject.projectId,
+        });
+      } else {
+        await createConvexProject({
+          vaultId: vaultToConnectConvex.id,
+          projectName: convexCreateProjectName,
+        });
+      }
+      resetConvexDialogState();
+      clearAddConvexSearchParam({ preferHistoryBack: true });
+    } catch (error) {
+      setConvexConnectDialogError(
+        error instanceof Error ? error.message : "Could not connect Convex project.",
+      );
+    } finally {
+      setConvexConnectDialogSubmitting(false);
+    }
   };
 
   const handleSubmitCloudflareWorker = async () => {
@@ -3916,7 +4423,7 @@ export function VaultDashboard() {
         });
       }
       resetCloudflareDialogState();
-      clearConnectCloudflareSearchParam({ preferHistoryBack: true });
+      clearAddCloudflareWorkerSearchParam({ preferHistoryBack: true });
     } catch (error) {
       setCloudflareConnectDialogError(
         error instanceof Error ? error.message : "Could not connect Cloudflare Worker.",
@@ -3949,10 +4456,9 @@ export function VaultDashboard() {
         removeGithubRepo: vaultToDelete.isNoterManaged
           ? vaultToDelete.canRemoveGithubRepo && removeGithubRepo
           : false,
-        removeConvexProvision:
-          vaultToDelete.isNoterManaged && vaultToDelete.hasConvexProvision
-            ? removeConvexProvision
-            : false,
+        removeConvexProvision: vaultToDelete.canRemoveConvexProvision
+          ? removeConvexProvision
+          : false,
         removeCloudflareProvision: vaultToDelete.canRemoveCloudflareProvision
           ? removeCloudflareProvision
           : false,
@@ -4854,9 +5360,10 @@ export function VaultDashboard() {
       openDeveloperToolsByVaultId={openDeveloperToolsByVaultId}
       persistedVaultBranchFiltersByVaultId={persistedVaultBranchFiltersByVaultId}
       deleteRepositoryFullName={deleteRepositoryFullName}
-      connectCloudflareRepositoryFullName={connectCloudflareRepositoryFullName}
+      addConvexRepositoryFullName={addConvexRepositoryFullName}
+      addCloudflareWorkerRepositoryFullName={addCloudflareWorkerRepositoryFullName}
+      rootRouteSearch={rootRouteSearch}
       vaults={vaults}
-      onConfigureCloudflare={handleConfigureCloudflare}
       onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
       onManualRepositoryRefresh={enqueueManualRepositoryRefresh}
       onRetryVaultDeletion={(runId) => {
@@ -4923,6 +5430,24 @@ export function VaultDashboard() {
         removeCloudflareProvision={removeCloudflareProvision}
         stagedChangesCount={stagedChangesCount}
         vaultToDelete={vaultToDelete}
+      />
+      <VaultDashboardConvexDialog
+        createProjectName={convexCreateProjectName}
+        projects={convexProjects}
+        error={convexDialogError}
+        isLoading={isLoadingConvexResources}
+        isSubmitting={isSubmittingConvexProject}
+        mode={convexConnectMode}
+        onCreateProjectNameChange={setConvexConnectDialogCreateProjectName}
+        onProjectChange={setConvexConnectDialogSelectedProjectId}
+        onModeChange={setConvexConnectDialogConnectMode}
+        onOpenChange={handleConnectConvexDialogOpenChange}
+        onSubmit={() => {
+          void handleSubmitConvexProject();
+        }}
+        open={vaultToConnectConvex !== null}
+        selectedProjectId={selectedConvexProjectId}
+        vault={vaultToConnectConvex}
       />
       <VaultDashboardCloudflareDialog
         accounts={cloudflareAccounts}

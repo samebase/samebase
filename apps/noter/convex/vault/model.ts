@@ -63,6 +63,21 @@ const githubRepositoryWithVisibilityFields = {
   visibility: vGitHubRepositoryVisibility,
 } as const;
 
+export const vVaultConvexOrigin = union(literal("provisioned"), literal("selected_existing"));
+export type VaultConvexOrigin = Infer<typeof vVaultConvexOrigin>;
+
+export const vVaultConvexConnectionTarget = union(
+  object({
+    mode: literal("connect_existing_project"),
+    projectId: string(),
+  }),
+  object({
+    mode: literal("create_project"),
+    projectName: string(),
+  }),
+);
+export type VaultConvexConnectionTarget = Infer<typeof vVaultConvexConnectionTarget>;
+
 export const vVaultConvexState = union(
   object({
     state: literal("not_configured"),
@@ -77,6 +92,12 @@ export const vVaultConvexState = union(
     projectId: string(),
     projectSlug: string(),
     deploymentName: string(),
+    /**
+     * Optional while older connected rows are backfilled. New writes must set
+     * origin so cleanup can distinguish provisioned projects from selected
+     * existing deployments.
+     */
+    origin: optional(vVaultConvexOrigin),
     connectedAt: number(),
   }),
   object({

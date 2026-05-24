@@ -1156,6 +1156,7 @@ export const markConvexConnected = internalMutation({
         projectId: args.projectId,
         projectSlug: args.projectSlug,
         deploymentName: args.deploymentName,
+        origin: "provisioned",
         connectedAt: Date.now(),
       },
     });
@@ -2110,6 +2111,39 @@ export const markWorkflowProvisioningFailed = internalMutation({
           message: args.message,
         },
       );
+      return null;
+    }
+
+    if (run.trigger === "connect_convex_deployment") {
+      const ownership = await getVaultInfrastructureOwnership(ctx, vaultId);
+      const ownsActiveClaim = isActiveProvisioningOwner(ownership, { runId: args.runId });
+      if (ownership && ownsActiveClaim) {
+        await ctx.db.patch(ownership._id, {
+          state: "failed",
+          updatedAt: now,
+        });
+      }
+      if (ownsActiveClaim && isLiveConnectedVault(vault) && vault.convex.state !== "connected") {
+        await ctx.db.patch(vaultId, {
+          convex: {
+            state: "failed",
+            runId: args.runId,
+            failedAt: now,
+          },
+        });
+      }
+      await recordWorkflowRunFailure(ctx, {
+        eventStep,
+        now,
+        run,
+        safeRunError,
+      });
+      console.error("convex:deployment_connection:failed", {
+        vaultId,
+        repo: run.repositoryFullName,
+        step: run.currentStep,
+        message: args.message,
+      });
       return null;
     }
 

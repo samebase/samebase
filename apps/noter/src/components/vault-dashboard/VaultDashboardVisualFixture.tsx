@@ -34,6 +34,7 @@ import {
   VaultBranchLinkRow,
   VaultBranchListExpansionControl,
   VaultDashboardCloudflareDialog,
+  VaultDashboardConvexDialog,
   VaultDashboardDeleteControl,
   VaultDashboardDeleteDialog,
   VaultDashboardRepositoryExternalLinks,
@@ -50,6 +51,7 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-dev-tools-visible"
   | "vault-dashboard-connect-cloudflare-open"
   | "vault-dashboard-connect-cloudflare-mobile-shell-open"
+  | "vault-dashboard-connect-convex-open"
   | "vault-dashboard-delete-open"
   | "vault-dashboard-infra-setup"
   | "vault-dashboard-provisioning-log"
@@ -214,6 +216,7 @@ const fixtureDeleteDialogTarget = {
   canRemoveGithubRepo: true,
   hasConvexProvision: true,
   hasCloudflareProvision: true,
+  canRemoveConvexProvision: true,
   canRemoveCloudflareProvision: true,
 } satisfies VaultDeleteDialogTarget;
 
@@ -589,6 +592,57 @@ function VaultDashboardConnectCloudflareMobileShellOpenFixture() {
       }
       rightContent={<div className="h-full w-full bg-background" />}
     />
+  );
+}
+
+function VaultDashboardConnectConvexOpenFixture() {
+  return (
+    <div
+      data-testid="vault-dashboard-visual-fixture"
+      data-mode="vault-dashboard-connect-convex-open"
+      className="w-full bg-background p-4 text-foreground"
+    >
+      <TestRouterProvider>
+        <VaultDashboardRepositoryList>
+          <VaultDashboardRepositoryCard
+            isReady={true}
+            repositoryOwner="noter-md"
+            repositoryName="noter-app"
+            titleHref="https://github.com/noter-md/noter-app"
+            repositoryLinks={<FixtureRepositoryLinks />}
+            topRightAction={<FixtureDeleteControl />}
+            repositoryStatus={<span>Updated 12s ago</span>}
+          />
+        </VaultDashboardRepositoryList>
+        <VaultDashboardConvexDialog
+          createProjectName="noter-app"
+          projects={[
+            {
+              projectId: "jaded-heron-123",
+              projectName: "noter-app",
+              projectSlug: "noter-app",
+              teamSlug: "noter",
+            },
+          ]}
+          error={null}
+          isLoading={false}
+          isSubmitting={false}
+          mode="existing"
+          onCreateProjectNameChange={() => {}}
+          onProjectChange={() => {}}
+          onModeChange={() => {}}
+          onOpenChange={() => {}}
+          onSubmit={() => {}}
+          open={true}
+          selectedProjectId="jaded-heron-123"
+          vault={{
+            id: fakeVaultId(),
+            repositoryFullName: "noter-md/noter-app",
+            repositoryName: "noter-app",
+          }}
+        />
+      </TestRouterProvider>
+    </div>
   );
 }
 
@@ -1034,6 +1088,10 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
 
   if (mode === "vault-dashboard-connect-cloudflare-mobile-shell-open") {
     return <VaultDashboardConnectCloudflareMobileShellOpenFixture />;
+  }
+
+  if (mode === "vault-dashboard-connect-convex-open") {
+    return <VaultDashboardConnectConvexOpenFixture />;
   }
 
   if (mode === "vault-dashboard-delete-open") {

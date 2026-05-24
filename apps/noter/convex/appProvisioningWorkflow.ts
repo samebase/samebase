@@ -4,7 +4,7 @@ import { WorkflowManager } from "@convex-dev/workflow";
 import { components, internal } from "./_generated/api";
 import { internalMutation } from "./_generated/server";
 import { toErrorMessage } from "./jsonUtils";
-import { vVaultCloudflareOrigin } from "./vault/model";
+import { vVaultCloudflareOrigin, vVaultConvexConnectionTarget } from "./vault/model";
 
 const workflow = new WorkflowManager(components.workflow);
 const { boolean, id, object, string } = v;
@@ -338,6 +338,46 @@ export const connectCloudflareWorker = workflow.define({
   },
 });
 
+export const connectConvexDeployment = workflow.define({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    target: vVaultConvexConnectionTarget,
+  },
+  returns: v.null(),
+  handler: async (step, args): Promise<null> => {
+    const { claimed } = await step.runMutation(
+      internal.vault.convexMutations.claimConvexDeploymentConnection,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+      },
+      { name: "claim_infra" },
+    );
+    if (!claimed) {
+      return null;
+    }
+
+    await step.runAction(internal.vault.convex.ensureConvexDeploymentConnection, args, {
+      name: "ensure_convex",
+      retry: false,
+    });
+    await step.runMutation(
+      internal.vault.convexMutations.finishConvexDeploymentConnection,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+      },
+      { name: "finish" },
+    );
+
+    return null;
+  },
+});
+
 export const startCreateAppProvisioning = internalMutation({
   args: {
     vaultId: id("vaults"),
@@ -492,6 +532,44 @@ export const startCloudflareWorkerConnection = internalMutation({
       step: "claim_infra",
       level: "info",
       message: "Queued Cloudflare Worker connection.",
+      state: "queued",
+    });
+
+    return workflowId;
+  },
+});
+
+export const startConvexDeploymentConnection = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    target: vVaultConvexConnectionTarget,
+  },
+  returns: string(),
+  handler: async (ctx, args): Promise<string> => {
+    const workflowId: string = await workflow.start(
+      ctx,
+      internal.appProvisioningWorkflow.connectConvexDeployment,
+      args,
+      {
+        startAsync: true,
+        onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
+        context: {
+          runId: args.runId,
+        },
+      },
+    );
+
+    await ctx.db.patch(args.runId, {
+      workflowId,
+      updatedAt: Date.now(),
+    });
+    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+      runId: args.runId,
+      step: "claim_infra",
+      level: "info",
+      message: "Queued Convex deployment connection.",
       state: "queued",
     });
 

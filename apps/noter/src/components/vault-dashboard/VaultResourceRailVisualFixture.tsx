@@ -166,14 +166,9 @@ const ADD_VAULT_FLOW_SCENARIOS = [
           status: "action_required",
           actions: [
             {
-              kind: "connect_existing",
-              label: "Connect",
-              onClick: noop,
-            },
-            {
-              kind: "create_new",
-              label: "Create",
-              onClick: noop,
+              kind: "add",
+              label: "?add-convex",
+              href: "/?add-convex#weight_tsx",
             },
           ],
         },
@@ -182,14 +177,9 @@ const ADD_VAULT_FLOW_SCENARIOS = [
           status: "action_required",
           actions: [
             {
-              kind: "connect_existing",
-              label: "Connect",
-              onClick: noop,
-            },
-            {
-              kind: "create_new",
-              label: "Create Worker",
-              onClick: noop,
+              kind: "add",
+              label: "?add-cloudflare",
+              href: "/?add-cloudflare#weight_tsx",
             },
           ],
         },
