@@ -167,7 +167,7 @@ const ADD_VAULT_FLOW_SCENARIOS = [
           actions: [
             {
               kind: "add",
-              label: "Add",
+              label: "?add-convex",
               href: "/?add-convex#weight_tsx",
             },
           ],
@@ -178,8 +178,8 @@ const ADD_VAULT_FLOW_SCENARIOS = [
           actions: [
             {
               kind: "add",
-              label: "Add",
-              href: "/?add-cloudflare-worker#weight_tsx",
+              label: "?add-cloudflare",
+              href: "/?add-cloudflare#weight_tsx",
             },
           ],
         },

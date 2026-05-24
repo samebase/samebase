@@ -166,7 +166,7 @@ export function buildVaultDashboardResourceRailState({
       actions: [
         {
           kind: "add",
-          label: "Add",
+          label: "?add-convex",
           disabled: !addConvexHref,
           href: addConvexHref,
         },
@@ -204,7 +204,7 @@ export function buildVaultDashboardResourceRailState({
       actions: [
         {
           kind: "add",
-          label: "Add",
+          label: "?add-convex",
           disabled: !addConvexHref,
           href: addConvexHref,
         },
@@ -238,7 +238,7 @@ export function buildVaultDashboardResourceRailState({
       actions: [
         {
           kind: "add",
-          label: "Add",
+          label: "?add-cloudflare",
           disabled: !addCloudflareWorkerHref,
           href: addCloudflareWorkerHref,
         },
@@ -275,7 +275,7 @@ export function buildVaultDashboardResourceRailState({
       actions: [
         {
           kind: "add",
-          label: "Add",
+          label: "?add-cloudflare",
           disabled: !addCloudflareWorkerHref,
           href: addCloudflareWorkerHref,
         },

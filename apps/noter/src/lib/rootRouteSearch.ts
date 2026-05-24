@@ -22,7 +22,7 @@ const ROOT_ROUTE_ID = "__root__";
 
 const ROOT_ROUTE_PRESENCE_SEARCH_KEYS = [
   "add-convex",
-  "add-cloudflare-worker",
+  "add-cloudflare",
   "dev",
   "devtools",
   "delete",
@@ -70,7 +70,7 @@ const rootRouteSearchSchema = z
   .object({
     auth: z.preprocess(readOptionalGoogleAuthProvider, z.literal("google").optional()),
     "add-convex": z.literal(true).optional(),
-    "add-cloudflare-worker": z.literal(true).optional(),
+    "add-cloudflare": z.literal(true).optional(),
     dev: z.literal(true).optional(),
     devtools: z.literal(true).optional(),
     delete: z.literal(true).optional(),

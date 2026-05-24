@@ -2578,10 +2578,10 @@ function buildVaultDashboardProviderAddHref({
     provider === "convex"
       ? applySearchPatch(rootRouteSearch, {
           "add-convex": true,
-          "add-cloudflare-worker": null,
+          "add-cloudflare": null,
         })
       : applySearchPatch(rootRouteSearch, {
-          "add-cloudflare-worker": true,
+          "add-cloudflare": true,
           "add-convex": null,
         });
 
@@ -3547,7 +3547,7 @@ export function VaultDashboard() {
   const dashboardProvidersPanelOpen = dashboardSettings?.providersPanelOpen;
   const deleteModeActive = rootRouteSearch.delete;
   const addConvexModeActive = rootRouteSearch["add-convex"];
-  const addCloudflareWorkerModeActive = rootRouteSearch["add-cloudflare-worker"];
+  const addCloudflareWorkerModeActive = rootRouteSearch["add-cloudflare"];
   const deleteRepositoryFullName =
     deleteModeActive && vaults
       ? resolveVaultDashboardRepositoryFullNameForHash({
@@ -3900,8 +3900,7 @@ export function VaultDashboard() {
       void navigate({
         hash: true,
         replace: true,
-        search: (currentSearch) =>
-          applySearchPatch(currentSearch, { "add-cloudflare-worker": null }),
+        search: (currentSearch) => applySearchPatch(currentSearch, { "add-cloudflare": null }),
         state: true,
         to: ".",
       });

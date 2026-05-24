@@ -5,7 +5,7 @@ describe("rootRouteSearch", () => {
   it("accepts the routed root landing flags and auth provider", () => {
     expect(
       validateRootRouteSearch({
-        "add-cloudflare-worker": "",
+        "add-cloudflare": "",
         "add-convex": "",
         auth: "google",
         base: "#ffffff",
@@ -24,7 +24,7 @@ describe("rootRouteSearch", () => {
         top: "white-base",
       }),
     ).toEqual({
-      "add-cloudflare-worker": true,
+      "add-cloudflare": true,
       "add-convex": true,
       auth: "google",
       background: "#ffffff",

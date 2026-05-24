@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { linkStyle } from "@/components/styles";
 import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
@@ -110,6 +109,8 @@ const RESOURCE_CONTENT_CLASS_NAME = "flex min-w-0 flex-wrap items-center gap-1.5
 const RESOURCE_VALUE_CLASS_NAME = "min-w-0 max-w-64 truncate";
 const RESOURCE_LINK_VALUE_CLASS_NAME =
   "min-w-0 max-w-64 truncate underline decoration-muted-foreground/40 underline-offset-4 group-hover:decoration-current";
+const RESOURCE_ACTION_LINK_CLASS_NAME =
+  "-mx-1 -my-0.5 inline-flex min-h-7 items-center px-1 py-0.5 text-sm leading-6 text-foreground touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current";
 const RESOURCE_VALUE_SCOPE_CLASS_NAME = "font-normal text-muted-foreground";
 
 function getStatusIcon(status: VaultResourceRailIconStatus): LucideIcon {
@@ -165,7 +166,10 @@ function VaultResourceRailActions({
       {actions.map((action) => {
         const Icon = ACTION_ICONS[action.kind];
         const isDisabled = action.disabled || (!action.href && !action.onClick);
-        const actionLabel = `${action.label} ${PROVIDER_LABELS[provider]}`;
+        const actionLabel =
+          action.kind === "add"
+            ? `Add ${PROVIDER_LABELS[provider]}`
+            : `${action.label} ${PROVIDER_LABELS[provider]}`;
         if (action.href) {
           return (
             <a
@@ -182,12 +186,10 @@ function VaultResourceRailActions({
                   : undefined
               }
               className={cn(
-                "inline-flex h-7 items-center gap-1 px-1 text-sm text-blue-600 underline underline-offset-2",
-                linkStyle,
+                RESOURCE_ACTION_LINK_CLASS_NAME,
                 isDisabled && "pointer-events-none opacity-50",
               )}
             >
-              <Icon className="h-3.5 w-3.5" />
               {action.label}
             </a>
           );
