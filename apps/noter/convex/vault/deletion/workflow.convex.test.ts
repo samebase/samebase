@@ -40,7 +40,6 @@ describe("vault deletion workflow", () => {
         name: "delete-me",
         defaultBranch: "main",
         visibility: "private",
-        convex: { state: "not_configured" },
         connectedAt: 4,
       });
       await ctx.db.insert("vaultBranchTrees", {
@@ -96,7 +95,6 @@ describe("vault deletion workflow", () => {
         name: "delete-me",
         defaultBranch: "main",
         visibility: "private",
-        convex: { state: "not_configured" },
         connectedAt: 4,
       });
       await ctx.db.insert("vaultBranchTrees", {
@@ -213,7 +211,6 @@ describe("vault deletion workflow", () => {
         name: "existing-repo",
         defaultBranch: "main",
         visibility: "private",
-        convex: { state: "not_configured" },
         connectedAt: 8,
       });
       await ctx.db.insert("vaultCloudflareWorkers", {
@@ -413,7 +410,6 @@ describe("vault deletion workflow", () => {
         name: "delete-me",
         defaultBranch: "main",
         visibility: "private",
-        convex: { state: "not_configured" },
         connectedAt: 4,
       });
       for (let index = 0; index < VAULT_LOCAL_CLEANUP_BATCH_SIZE + 1; index += 1) {
@@ -635,7 +631,6 @@ describe("vault deletion workflow", () => {
         name: "existing",
         defaultBranch: "main",
         visibility: "private",
-        convex: { state: "not_configured" },
         connectedAt: 4,
       });
 
@@ -691,7 +686,6 @@ describe("vault deletion workflow", () => {
         name: "codespaces",
         defaultBranch: "main",
         visibility: "private",
-        convex: { state: "not_configured" },
         connectedAt: 4,
       });
 
@@ -770,7 +764,6 @@ describe("vault deletion workflow", () => {
         name: "retry-me",
         defaultBranch: "main",
         visibility: "private",
-        convex: { state: "not_configured" },
         connectedAt: 4,
       });
 
@@ -871,7 +864,6 @@ describe("vault deletion workflow", () => {
         name: "retry-missing-provider",
         defaultBranch: "main",
         visibility: "private",
-        convex: { state: "not_configured" },
         connectedAt: 6,
       });
 

@@ -35,7 +35,7 @@ async function loadVaultContext(
   ctx: ActionCtx,
   vaultId: Id<"vaults">,
 ): Promise<{
-  infra: Doc<"vaultInfrastructure"> | null;
+  convexDeployments: Doc<"vaultConvexDeployments">[];
   vault: Doc<"vaults"> | null;
   cloudflareWorkers: Doc<"vaultCloudflareWorkers">[];
   vaultUserId: Id<"users"> | null;
@@ -46,20 +46,36 @@ async function loadVaultContext(
     teamSlug?: string;
   } | null;
 }> {
-  const { infra, vault, cloudflareWorkers, vaultUserId, convexConnection } = await ctx.runQuery(
-    internal.infraReadQueries.getVaultReadContext,
-    {
+  const { convexDeployments, vault, cloudflareWorkers, vaultUserId, convexConnection } =
+    await ctx.runQuery(internal.infraReadQueries.getVaultReadContext, {
       vaultId,
-    },
-  );
+    });
 
   return {
-    infra,
+    convexDeployments,
     vault,
     cloudflareWorkers,
     vaultUserId,
     convexConnection,
   };
+}
+
+function selectConvexDeploymentForInfraRead(
+  deployments: Doc<"vaultConvexDeployments">[],
+): Doc<"vaultConvexDeployments"> | null {
+  if (deployments.length === 0) {
+    return null;
+  }
+  const rootDeployment = deployments.find((deployment) => deployment.appRoot === ".");
+  if (rootDeployment) {
+    return rootDeployment;
+  }
+  return [...deployments].sort(
+    (left, right) =>
+      left.appRoot.localeCompare(right.appRoot) ||
+      left.projectSlug.localeCompare(right.projectSlug) ||
+      left.projectId.localeCompare(right.projectId),
+  )[0];
 }
 
 function selectCloudflareWorkerForInfraRead(
@@ -153,9 +169,10 @@ export const getConvexDeploymentStatus = internalAction({
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { infra, convexConnection } = await loadVaultContext(ctx, args.vaultId);
+    const { convexDeployments, convexConnection } = await loadVaultContext(ctx, args.vaultId);
+    const deployment = selectConvexDeploymentForInfraRead(convexDeployments);
 
-    if (!infra) {
+    if (!deployment) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
 
@@ -165,20 +182,20 @@ export const getConvexDeploymentStatus = internalAction({
       method: "GET",
       params: {
         path: {
-          deployment_name: infra.convexDeploymentName,
+          deployment_name: deployment.deploymentName,
         },
       },
     });
-    const deployment = await requestConvexManagementApi(
+    const deploymentStatus = await requestConvexManagementApi(
       convexToken,
       "GET",
       "/deployments/{deployment_name}",
-      { params: { path: { deployment_name: infra.convexDeploymentName } } },
+      { params: { path: { deployment_name: deployment.deploymentName } } },
     );
-    const raw = JSON.stringify(deployment, null, 2);
+    const raw = JSON.stringify(deploymentStatus, null, 2);
 
     return {
-      summary: `Convex deployment status for ${infra.convexDeploymentName}`,
+      summary: `Convex deployment status for ${deployment.deploymentName}`,
       endpoint,
       raw,
       rowCount: 1,
@@ -193,9 +210,10 @@ export const getConvexLogs = internalAction({
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { infra, convexConnection } = await loadVaultContext(ctx, args.vaultId);
+    const { convexDeployments, convexConnection } = await loadVaultContext(ctx, args.vaultId);
+    const deployment = selectConvexDeploymentForInfraRead(convexDeployments);
 
-    if (!infra) {
+    if (!deployment) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
 
@@ -205,7 +223,7 @@ export const getConvexLogs = internalAction({
       method: "GET",
       params: {
         path: {
-          project_id: infra.convexProjectId,
+          project_id: deployment.projectId,
         },
       },
     });
@@ -213,7 +231,7 @@ export const getConvexLogs = internalAction({
       convexToken,
       "GET",
       "/projects/{project_id}/list_deployments",
-      { params: { path: { project_id: infra.convexProjectId } } },
+      { params: { path: { project_id: deployment.projectId } } },
     );
     const max = clamp(args.maxLines ?? 20, 1, 100);
 
@@ -226,7 +244,7 @@ export const getConvexLogs = internalAction({
     }
 
     return {
-      summary: `Convex deployment activity snapshot for project ${infra.convexProjectId}`,
+      summary: `Convex deployment activity snapshot for project ${deployment.projectId}`,
       endpoint,
       raw: lines.join("\n") || "No deployment activity entries returned.",
       logLineCount: lines.length,

@@ -122,7 +122,6 @@ export function buildVaultDashboardResourceRailState({
   const providerSetup = resolveVaultProviderSetupStatus(vault.providerSetup);
   const providerSetupProvider = resolveVaultProviderSetupStepProvider(vault.providerSetup);
   const sourceSetupProvider = resolveSourceSetupResourceProvider(vault.sourceSetup);
-  const convexProjectScope = normalizeResourceScope(vault.convexTeamSlug);
   let githubRow: VaultResourceRailRowState<"github">;
   if (vault.sourceSetup.status === "failed" && sourceSetupProvider === "github") {
     githubRow = {
@@ -152,30 +151,33 @@ export function buildVaultDashboardResourceRailState({
     };
   }
 
-  let convexRow: VaultResourceRailRowState<"convex">;
+  const convexRowsByAppRoot = new Map<string, VaultResourceRailRowState<"convex">>();
   if (vault.sourceSetup.status === "failed" && sourceSetupProvider === "convex") {
-    convexRow = {
+    convexRowsByAppRoot.set(".", {
       provider: "convex",
       status: "failed",
       value: vault.ghRepoName,
       actions: [{ kind: "retry", label: "Retry" }],
-    };
+    });
   } else if (vault.sourceSetup.status === "running" && sourceSetupProvider === "convex") {
-    convexRow = {
+    convexRowsByAppRoot.set(".", {
       provider: "convex",
       status: "running",
       value: vault.ghRepoName,
-    };
+    });
   } else if (
     vault.providerSetup.status === "failed" &&
     providerSetupProvider === "convex" &&
     providerSetup?.status === "failed"
   ) {
-    convexRow = {
+    const rootConvexDeployment = vault.convexDeployments.find(
+      (deployment) => deployment.appRoot === ".",
+    );
+    convexRowsByAppRoot.set(".", {
       provider: "convex",
       status: "failed",
-      value: vault.convexProjectSlug ?? vault.ghRepoName,
-      scope: vault.convexProjectSlug ? convexProjectScope : undefined,
+      value: rootConvexDeployment?.projectSlug ?? vault.ghRepoName,
+      scope: normalizeResourceScope(rootConvexDeployment?.teamSlug),
       actions: [
         {
           kind: "add",
@@ -185,46 +187,49 @@ export function buildVaultDashboardResourceRailState({
           onClick: addConvexOnClick,
         },
       ],
-    };
+    });
   } else if (
     vault.providerSetup.status === "running" &&
     providerSetupProvider === "convex" &&
     providerSetup?.status === "running"
   ) {
-    convexRow = {
+    const rootConvexDeployment = vault.convexDeployments.find(
+      (deployment) => deployment.appRoot === ".",
+    );
+    convexRowsByAppRoot.set(".", {
       provider: "convex",
       status: "running",
-      value: vault.convexProjectSlug ?? vault.ghRepoName,
-      scope: vault.convexProjectSlug ? convexProjectScope : undefined,
-    };
-  } else if (vault.convexProjectSlug) {
-    convexRow = {
-      provider: "convex",
-      status: "ready",
-      value: vault.convexProjectSlug,
-      scope: convexProjectScope,
-      href: vault.convexProjectSettingsDashboardUrl,
-    };
-  } else if (!canConfigureMissingResources) {
-    convexRow = {
-      provider: "convex",
-      status: "pending",
-      value: vault.ghRepoName,
-    };
+      value: rootConvexDeployment?.projectSlug ?? vault.ghRepoName,
+      scope: normalizeResourceScope(rootConvexDeployment?.teamSlug),
+    });
   } else {
-    convexRow = {
-      provider: "convex",
-      status: "action_required",
-      actions: [
-        {
-          kind: "add",
-          label: "?add-convex",
-          disabled: !addConvexHref,
-          href: addConvexHref,
-          onClick: addConvexOnClick,
-        },
-      ],
-    };
+    const sortedConvexDeployments = [...vault.convexDeployments].sort(
+      (left, right) =>
+        compareAppRoots(left.appRoot, right.appRoot) ||
+        left.projectSlug.localeCompare(right.projectSlug) ||
+        left.projectId.localeCompare(right.projectId),
+    );
+    for (const deployment of sortedConvexDeployments) {
+      convexRowsByAppRoot.set(deployment.appRoot, {
+        provider: "convex",
+        status: "ready",
+        value: deployment.projectSlug,
+        scope: normalizeResourceScope(deployment.teamSlug),
+        href: deployment.projectSettingsDashboardUrl,
+        actions:
+          deployment.appRoot === "." && canConfigureMissingResources
+            ? [
+                {
+                  kind: "add",
+                  label: "?add-convex",
+                  disabled: !addConvexHref,
+                  href: addConvexHref,
+                  onClick: addConvexOnClick,
+                },
+              ]
+            : undefined,
+      });
+    }
   }
 
   const cloudflareRowsByAppRoot = new Map<string, VaultResourceRailRowState<"cloudflare">>();
@@ -342,10 +347,35 @@ export function buildVaultDashboardResourceRailState({
   }
 
   const appRoots = Array.from(
-    new Set([".", ...vault.cloudflareWorkers.map((worker) => worker.appRoot)]),
+    new Set([
+      ".",
+      ...vault.convexDeployments.map((deployment) => deployment.appRoot),
+      ...vault.cloudflareWorkers.map((worker) => worker.appRoot),
+    ]),
   ).sort(compareAppRoots);
   const apps = appRoots.map((appRoot) => {
-    const rows: VaultResourceRailState["apps"][number]["rows"] = appRoot === "." ? [convexRow] : [];
+    const convexRow =
+      convexRowsByAppRoot.get(appRoot) ??
+      (canConfigureMissingResources
+        ? {
+            provider: "convex",
+            status: "action_required",
+            actions: [
+              {
+                kind: "add",
+                label: "?add-convex",
+                disabled: !addConvexHref,
+                href: addConvexHref,
+                onClick: addConvexOnClick,
+              },
+            ],
+          }
+        : {
+            provider: "convex",
+            status: "pending",
+            value: appRoot === "." ? vault.ghRepoName : appRoot,
+          });
+    const rows: VaultResourceRailState["apps"][number]["rows"] = [convexRow];
     const cloudflareRow = cloudflareRowsByAppRoot.get(appRoot);
     return {
       appRoot,

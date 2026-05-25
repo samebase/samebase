@@ -70,44 +70,54 @@ export type VaultConvexOrigin = Infer<typeof vVaultConvexOrigin>;
 export const vVaultConvexConnectionTarget = union(
   object({
     mode: literal("connect_existing_project"),
+    appRoot: string(),
     projectId: string(),
   }),
   object({
     mode: literal("create_project"),
+    appRoot: string(),
     projectName: string(),
   }),
 );
 export type VaultConvexConnectionTarget = Infer<typeof vVaultConvexConnectionTarget>;
 
-export const vVaultConvexState = union(
+export const vConvexDeployKeyState = union(
   object({
-    state: literal("not_configured"),
+    state: literal("not_created"),
   }),
   object({
-    state: literal("provisioning"),
-    runId: id("appProvisioningRuns"),
-    startedAt: number(),
-  }),
-  object({
-    state: literal("connected"),
-    projectId: string(),
-    projectSlug: string(),
-    deploymentName: string(),
-    /**
-     * Optional while older connected rows are backfilled. New writes must set
-     * origin so cleanup can distinguish provisioned projects from selected
-     * existing deployments.
-     */
-    origin: optional(vVaultConvexOrigin),
-    connectedAt: number(),
-  }),
-  object({
-    state: literal("failed"),
-    runId: id("appProvisioningRuns"),
-    failedAt: number(),
+    state: literal("created"),
+    id: string(),
   }),
 );
-export type VaultConvexState = Infer<typeof vVaultConvexState>;
+export type ConvexDeployKeyState = Infer<typeof vConvexDeployKeyState>;
+
+export const vConvexDeployKeys = object({
+  production: vConvexDeployKeyState,
+  preview: vConvexDeployKeyState,
+});
+export type ConvexDeployKeys = Infer<typeof vConvexDeployKeys>;
+
+export const vVaultConvexAppRoot = string();
+export type VaultConvexAppRoot = Infer<typeof vVaultConvexAppRoot>;
+
+export const vVaultConvexDeployment = object({
+  vaultId: id("vaults"),
+  userId: id("users"),
+  appRoot: vVaultConvexAppRoot,
+  projectId: string(),
+  teamSlug: string(),
+  projectSlug: string(),
+  deploymentName: string(),
+  deploymentType: literal("prod"),
+  cloudUrl: string(),
+  siteUrl: string(),
+  deployKeys: vConvexDeployKeys,
+  origin: vVaultConvexOrigin,
+  connectedAt: number(),
+  lastObservedAt: number(),
+});
+export type VaultConvexDeployment = Infer<typeof vVaultConvexDeployment>;
 
 export const vVaultCloudflareOrigin = union(literal("provisioned"), literal("selected_existing"));
 export type VaultCloudflareOrigin = Infer<typeof vVaultCloudflareOrigin>;
@@ -243,7 +253,6 @@ export const vVaultRow = union(
     githubMode: literal("create_repository"),
     runId: id("appProvisioningRuns"),
     ...connectedRepositoryIdentityFields,
-    convex: vVaultConvexState,
     connectedAt: number(),
 
     ...githubRepositoryWithVisibilityFields,
@@ -255,7 +264,6 @@ export const vVaultRow = union(
     runId: id("appProvisioningRuns"),
 
     ...connectedRepositoryIdentityFields,
-    convex: vVaultConvexState,
     connectedAt: number(),
 
     ...githubRepositoryWithVisibilityFields,

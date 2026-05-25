@@ -149,7 +149,6 @@ describe("vault records Convex contract", () => {
         name: "shared",
         defaultBranch: "main",
         visibility: "private",
-        convex: { state: "not_configured" },
         connectedAt: 12,
       });
 

@@ -53,7 +53,7 @@ type ProdReadResourceKind =
 
 type AllowedDataTable =
   | "vaults"
-  | "vaultInfrastructure"
+  | "vaultConvexDeployments"
   | "vaultDomains"
   | "codespaces"
   | "fileStaging"
@@ -1253,7 +1253,7 @@ function parseRequestCloudflareWorkersInventoryReadInput(
 function parseConvexDataTable(value: unknown): AllowedDataTable | undefined {
   if (
     value === "vaults" ||
-    value === "vaultInfrastructure" ||
+    value === "vaultConvexDeployments" ||
     value === "vaultDomains" ||
     value === "codespaces" ||
     value === "fileStaging" ||

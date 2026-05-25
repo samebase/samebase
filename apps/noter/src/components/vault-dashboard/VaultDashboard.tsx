@@ -197,6 +197,7 @@ type VaultConvexDialogTarget = {
   id: Id<"vaults">;
   repositoryFullName: string;
   repositoryName: string;
+  convexDeploymentCount: number;
 };
 type CloudflareAccountOption = {
   accountId: string;
@@ -313,6 +314,7 @@ type VaultDashboardLocalState = {
     workers: CloudflareWorkerOption[];
   };
   convexConnectDialog: {
+    appRoot: string;
     connectMode: ConvexProjectConnectMode;
     createProjectName: string;
     projects: ConvexProjectOption[];
@@ -355,6 +357,7 @@ type VaultDashboardLocalState = {
 
 function readInitialConvexConnectDialogState(): VaultDashboardLocalState["convexConnectDialog"] {
   return {
+    appRoot: ROOT_CLOUDFLARE_APP_ROOT,
     connectMode: "existing",
     createProjectName: "",
     projects: [],
@@ -600,6 +603,12 @@ function useVaultDashboardLocalStore() {
       setState((state) => ({
         ...state,
         convexConnectDialog: { ...state.convexConnectDialog, createProjectName },
+      }));
+    },
+    setConvexConnectDialogAppRoot: (appRoot: string) => {
+      setState((state) => ({
+        ...state,
+        convexConnectDialog: { ...state.convexConnectDialog, appRoot },
       }));
     },
     setConvexConnectDialogProjects: (projects: ConvexProjectOption[]) => {
@@ -1322,6 +1331,7 @@ function useProviderOAuthPopupCompletionReload({
 }
 
 export function VaultDashboardConvexDialog({
+  appRoot,
   createProjectName,
   projects,
   error,
@@ -1329,6 +1339,7 @@ export function VaultDashboardConvexDialog({
   isSubmitting,
   mode,
   onCreateProjectNameChange,
+  onAppRootChange,
   onProjectChange,
   onModeChange,
   onOpenChange,
@@ -1337,12 +1348,14 @@ export function VaultDashboardConvexDialog({
   selectedProjectId,
   vault,
 }: {
+  appRoot: string;
   createProjectName: string;
   projects: ConvexProjectOption[];
   error: string | null;
   isLoading: boolean;
   isSubmitting: boolean;
   mode: ConvexProjectConnectMode;
+  onAppRootChange: (appRoot: string) => void;
   onCreateProjectNameChange: (projectName: string) => void;
   onProjectChange: (projectId: string) => void;
   onModeChange: (mode: ConvexProjectConnectMode) => void;
@@ -1359,6 +1372,7 @@ export function VaultDashboardConvexDialog({
   const submitDisabled =
     isLoading ||
     isSubmitting ||
+    !appRoot.trim() ||
     (mode === "existing" ? !selectedProject : !createProjectName.trim());
 
   return (
@@ -1372,6 +1386,12 @@ export function VaultDashboardConvexDialog({
         </DialogHeader>
         {vault ? (
           <div className="space-y-3">
+            <Input
+              value={appRoot}
+              onChange={(event) => onAppRootChange(event.target.value)}
+              disabled={isLoading || isSubmitting}
+              placeholder="App root"
+            />
             <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"
@@ -2734,6 +2754,25 @@ function buildVaultDashboardHashIdForVault({
 }
 
 type VaultDashboardCloudflareWorker = VaultDashboardVault["cloudflareWorkers"][number];
+type VaultDashboardConvexDeployment = VaultDashboardVault["convexDeployments"][number];
+
+function selectPrimaryVaultConvexDeployment(
+  vault: VaultDashboardVault,
+): VaultDashboardConvexDeployment | null {
+  if (vault.convexDeployments.length === 0) {
+    return null;
+  }
+  const rootDeployment = vault.convexDeployments.find((deployment) => deployment.appRoot === ".");
+  if (rootDeployment) {
+    return rootDeployment;
+  }
+  return [...vault.convexDeployments].sort(
+    (left, right) =>
+      left.appRoot.localeCompare(right.appRoot) ||
+      left.projectSlug.localeCompare(right.projectSlug) ||
+      left.projectId.localeCompare(right.projectId),
+  )[0];
+}
 
 function selectPrimaryVaultCloudflareWorker(
   vault: VaultDashboardVault,
@@ -3178,6 +3217,7 @@ function VaultDashboardBody({
           vault,
         });
         const primaryCloudflareWorker = selectPrimaryVaultCloudflareWorker(vault);
+        const primaryConvexDeployment = selectPrimaryVaultConvexDeployment(vault);
         const sharedLastSyncedAt = vault.lastTreeRefreshAt;
         const treeRefreshUiState = getTreeRefreshUiState({
           now,
@@ -3339,7 +3379,9 @@ function VaultDashboardBody({
                     repositoryFullName={vault.repositoryFullName}
                     visibleRemoteBranches={branchSectionState.visibleRemoteBranches}
                     cloudflareWorkersDevUrl={primaryCloudflareWorker?.workersDevUrl}
-                    productionDeploymentDashboardUrl={vault.convexDeploymentDashboardUrl}
+                    productionDeploymentDashboardUrl={
+                      primaryConvexDeployment?.deploymentDashboardUrl
+                    }
                   />
                 ) : undefined
               }
@@ -3953,6 +3995,7 @@ export function VaultDashboard() {
     workers: cloudflareWorkers,
   } = cloudflareConnectDialog;
   const {
+    appRoot: convexAppRoot,
     connectMode: convexConnectMode,
     createProjectName: convexCreateProjectName,
     projects: convexProjects,
@@ -3988,6 +4031,7 @@ export function VaultDashboard() {
     setCloudflareConnectDialogSelectedWorkerName,
     setCloudflareConnectDialogSubmitting,
     setCloudflareConnectDialogWorkers,
+    setConvexConnectDialogAppRoot,
     setCloudflarePollingPaused,
     setCloudflareWorkerName,
     setCommitError,
@@ -4052,8 +4096,7 @@ export function VaultDashboard() {
     addConvexRepositoryFullName && vaults
       ? (vaults.find((vault) => vault.repositoryFullName === addConvexRepositoryFullName) ?? null)
       : null;
-  const canOpenConnectConvexDialog =
-    addConvexDialogVault?.state === "ready" && !addConvexDialogVault.hasConvexProvision;
+  const canOpenConnectConvexDialog = addConvexDialogVault?.state === "ready";
   const vaultToConnectConvex = useMemo(
     () =>
       addConvexDialogVault && canOpenConnectConvexDialog
@@ -4061,6 +4104,7 @@ export function VaultDashboard() {
             id: addConvexDialogVault._id,
             repositoryFullName: addConvexDialogVault.repositoryFullName,
             repositoryName: addConvexDialogVault.ghRepoName,
+            convexDeploymentCount: addConvexDialogVault.convexDeployments.length,
           }
         : null,
     [addConvexDialogVault, canOpenConnectConvexDialog],
@@ -4408,6 +4452,9 @@ export function VaultDashboard() {
     }
 
     preparedAddConvexRepositoryRef.current = vaultToConnectConvex.repositoryFullName;
+    setConvexConnectDialogAppRoot(
+      vaultToConnectConvex.convexDeploymentCount === 0 ? ROOT_CLOUDFLARE_APP_ROOT : "",
+    );
     setConvexConnectDialogCreateProjectName(
       buildDefaultAppResourceName({
         repositoryName: vaultToConnectConvex.repositoryName,
@@ -4420,6 +4467,7 @@ export function VaultDashboard() {
     clearAddConvexSearchParam,
     loadConvexDialogResources,
     resetConvexDialogState,
+    setConvexConnectDialogAppRoot,
     setConvexConnectDialogCreateProjectName,
     vaultToConnectConvex,
     vaults,
@@ -4622,11 +4670,13 @@ export function VaultDashboard() {
         }
         await connectExistingConvexProject({
           vaultId: vaultToConnectConvex.id,
+          appRoot: convexAppRoot,
           projectId: selectedConvexProject.projectId,
         });
       } else {
         await createConvexProject({
           vaultId: vaultToConnectConvex.id,
+          appRoot: convexAppRoot,
           projectName: convexCreateProjectName,
         });
       }
@@ -5638,12 +5688,14 @@ export function VaultDashboard() {
         vaultToDelete={vaultToDelete}
       />
       <VaultDashboardConvexDialog
+        appRoot={convexAppRoot}
         createProjectName={convexCreateProjectName}
         projects={convexProjects}
         error={convexDialogError}
         isLoading={isLoadingConvexResources}
         isSubmitting={isSubmittingConvexProject}
         mode={convexConnectMode}
+        onAppRootChange={setConvexConnectDialogAppRoot}
         onCreateProjectNameChange={setConvexConnectDialogCreateProjectName}
         onProjectChange={setConvexConnectDialogSelectedProjectId}
         onModeChange={setConvexConnectDialogConnectMode}

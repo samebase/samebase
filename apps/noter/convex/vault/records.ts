@@ -249,7 +249,6 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
       visibility: args.visibility,
       defaultBranch: args.defaultBranch,
       connectedAt: Date.now(),
-      convex: { state: "not_configured" },
     });
 
     return null;
@@ -335,6 +334,7 @@ export const createInitializingNoterManagedVaultForUser = internalMutation({
       vaultId,
       convex: {
         state: "planned",
+        appRoot: ROOT_CLOUDFLARE_APP_ROOT,
         projectName: args.convexProjectName,
       },
       cloudflare: {
@@ -411,7 +411,6 @@ export const connectNoterManagedVaultGitHub = internalMutation({
       visibility: args.visibility,
       defaultBranch: args.defaultBranch,
       connectedAt: Date.now(),
-      convex: { state: "not_configured" },
     });
 
     return null;
@@ -498,18 +497,6 @@ export const getById = internalQuery({
   },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.id);
-  },
-});
-
-export const getInfrastructureByVaultId = internalQuery({
-  args: {
-    vaultId: v.id("vaults"),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("vaultInfrastructure")
-      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .first();
   },
 });
 

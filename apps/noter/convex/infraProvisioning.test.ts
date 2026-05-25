@@ -165,7 +165,6 @@ describe("infrastructure provisioning ownership", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: { state: "not_configured" },
       });
 
       return { runId, vaultId };
@@ -216,11 +215,6 @@ describe("infrastructure provisioning ownership", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: {
-          state: "provisioning",
-          runId,
-          startedAt: 25,
-        },
       });
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
@@ -233,6 +227,7 @@ describe("infrastructure provisioning ownership", () => {
         vaultId,
         convex: {
           state: "planned",
+          appRoot: rootCloudflareAppRoot,
           projectName: "provider-retry",
         },
         cloudflare: {
@@ -265,6 +260,7 @@ describe("infrastructure provisioning ownership", () => {
     expect(target).toMatchObject({
       convex: {
         state: "created",
+        appRoot: rootCloudflareAppRoot,
         projectName: "provider-retry",
         projectId: "convex-project-id",
       },
@@ -307,13 +303,6 @@ describe("infrastructure provisioning ownership", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: {
-          state: "connected",
-          projectId: "convex-project-id",
-          projectSlug: "provider-retry",
-          deploymentName: "provider-retry-prod",
-          connectedAt: 25,
-        },
       });
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
@@ -326,6 +315,7 @@ describe("infrastructure provisioning ownership", () => {
         vaultId,
         convex: {
           state: "planned",
+          appRoot: rootCloudflareAppRoot,
           projectName: "provider-retry",
         },
         cloudflare: {
@@ -408,13 +398,6 @@ describe("infrastructure provisioning ownership", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: {
-          state: "connected",
-          projectId: "convex-project-id",
-          projectSlug: "deploy-keys",
-          deploymentName: "deploy-keys-prod",
-          connectedAt: 25,
-        },
       });
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
@@ -423,19 +406,42 @@ describe("infrastructure provisioning ownership", () => {
         state: "active",
         updatedAt: 30,
       });
-      await ctx.db.insert("vaultInfrastructure", {
+      await ctx.db.insert("vaultInfrastructureTargets", {
         vaultId,
-        convexProjectId: "convex-project-id",
-        convexTeamSlug: "ada-team",
-        convexProjectSlug: "deploy-keys",
-        convexDeploymentName: "deploy-keys-prod",
-        convexDeploymentType: "prod",
-        convexCloudUrl: "https://deploy-keys.convex.cloud",
-        convexSiteUrl: "https://deploy-keys.convex.site",
-        convexDeployKeys: {
+        convex: {
+          state: "created",
+          appRoot: rootCloudflareAppRoot,
+          projectName: "deploy-keys",
+          projectId: "convex-project-id",
+        },
+        cloudflare: {
+          state: "planned",
+          appRoot: rootCloudflareAppRoot,
+          accountId: "cloudflare-account-id",
+          workerName: "deploy-keys",
+          build: rootCloudflareBuild,
+        },
+        createdAt: 31,
+        updatedAt: 31,
+      });
+      await ctx.db.insert("vaultConvexDeployments", {
+        vaultId,
+        userId,
+        appRoot: rootCloudflareAppRoot,
+        projectId: "convex-project-id",
+        teamSlug: "ada-team",
+        projectSlug: "deploy-keys",
+        deploymentName: "deploy-keys-prod",
+        deploymentType: "prod",
+        cloudUrl: "https://deploy-keys.convex.cloud",
+        siteUrl: "https://deploy-keys.convex.site",
+        deployKeys: {
           production: { state: "not_created" },
           preview: { state: "not_created" },
         },
+        origin: "provisioned",
+        connectedAt: 25,
+        lastObservedAt: 25,
       });
 
       return { runId, vaultId };
@@ -459,17 +465,17 @@ describe("infrastructure provisioning ownership", () => {
         convexDeployKeyId: "preview-key-id",
       },
     );
-    const infrastructure = await t.run(async (ctx) => {
+    const deployment = await t.run(async (ctx) => {
       return await ctx.db
-        .query("vaultInfrastructure")
+        .query("vaultConvexDeployments")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
     });
 
     expect(productionRecord).toEqual({ applied: true });
     expect(previewRecord).toEqual({ applied: true });
-    expect(infrastructure).toMatchObject({
-      convexDeployKeys: {
+    expect(deployment).toMatchObject({
+      deployKeys: {
         production: { state: "created", id: "production-key-id" },
         preview: { state: "created", id: "preview-key-id" },
       },
@@ -522,13 +528,6 @@ describe("infrastructure provisioning ownership", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: {
-          state: "connected",
-          projectId: "convex-project",
-          projectSlug: "fresh-ownership-project",
-          deploymentName: "fresh-ownership-prod",
-          connectedAt: 25,
-        },
       });
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
@@ -597,11 +596,6 @@ describe("infrastructure provisioning ownership", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: {
-          state: "provisioning",
-          runId,
-          startedAt: 25,
-        },
       });
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
@@ -623,7 +617,7 @@ describe("infrastructure provisioning ownership", () => {
     const vault = await t.run(async (ctx) => await ctx.db.get(ids.vaultId));
 
     expect(vault).toMatchObject({
-      convex: { state: "not_configured" },
+      state: "connected",
     });
   });
 
@@ -664,13 +658,6 @@ describe("infrastructure provisioning ownership", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: {
-          state: "connected",
-          projectId: "convex-project",
-          projectSlug: "cloudflare-token-failure",
-          deploymentName: "cloudflare-token-failure-prod",
-          connectedAt: 25,
-        },
       });
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
@@ -826,13 +813,6 @@ describe("infrastructure provisioning ownership", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: {
-          state: "connected",
-          projectId: convexProjectId,
-          projectSlug: "preview-validation",
-          deploymentName: "preview-validation-prod",
-          connectedAt: 25,
-        },
       });
       await ctx.db.insert("providerConnections", {
         kind: "convex",
@@ -852,19 +832,42 @@ describe("infrastructure provisioning ownership", () => {
         state: "active",
         updatedAt: 30,
       });
-      await ctx.db.insert("vaultInfrastructure", {
+      await ctx.db.insert("vaultInfrastructureTargets", {
         vaultId,
-        convexProjectId,
-        convexTeamSlug: "ada-team",
-        convexProjectSlug: "preview-validation",
-        convexDeploymentName: "preview-validation-prod",
-        convexDeploymentType: "prod",
-        convexCloudUrl: "https://preview-validation.convex.cloud",
-        convexSiteUrl: "https://preview-validation.convex.site",
-        convexDeployKeys: {
+        convex: {
+          state: "created",
+          appRoot: rootCloudflareAppRoot,
+          projectName: "preview-validation",
+          projectId: convexProjectId,
+        },
+        cloudflare: {
+          state: "planned",
+          appRoot: rootCloudflareAppRoot,
+          accountId: "cloudflare-account-id",
+          workerName: "preview-validation",
+          build: rootCloudflareBuild,
+        },
+        createdAt: 31,
+        updatedAt: 31,
+      });
+      await ctx.db.insert("vaultConvexDeployments", {
+        vaultId,
+        userId,
+        appRoot: rootCloudflareAppRoot,
+        projectId: convexProjectId,
+        teamSlug: "ada-team",
+        projectSlug: "preview-validation",
+        deploymentName: "preview-validation-prod",
+        deploymentType: "prod",
+        cloudUrl: "https://preview-validation.convex.cloud",
+        siteUrl: "https://preview-validation.convex.site",
+        deployKeys: {
           production: { state: "not_created" },
           preview: { state: "not_created" },
         },
+        origin: "provisioned",
+        connectedAt: 25,
+        lastObservedAt: 25,
       });
 
       return { runId, vaultId };

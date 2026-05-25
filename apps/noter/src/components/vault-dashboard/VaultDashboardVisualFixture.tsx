@@ -611,6 +611,7 @@ function VaultDashboardConnectConvexOpenFixture() {
           />
         </VaultDashboardRepositoryList>
         <VaultDashboardConvexDialog
+          appRoot="."
           createProjectName="noter-app"
           projects={[
             {
@@ -624,6 +625,7 @@ function VaultDashboardConnectConvexOpenFixture() {
           isLoading={false}
           isSubmitting={false}
           mode="existing"
+          onAppRootChange={() => {}}
           onCreateProjectNameChange={() => {}}
           onProjectChange={() => {}}
           onModeChange={() => {}}
@@ -635,6 +637,7 @@ function VaultDashboardConnectConvexOpenFixture() {
             id: fakeVaultId(),
             repositoryFullName: "noter-md/noter-app",
             repositoryName: "noter-app",
+            convexDeploymentCount: 0,
           }}
         />
       </TestRouterProvider>

@@ -355,6 +355,7 @@ export const connectConvexDeployment = workflow.define({
         vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
+        appRoot: args.target.appRoot,
       },
       { name: "claim_infra" },
     );
@@ -372,6 +373,7 @@ export const connectConvexDeployment = workflow.define({
         vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
+        appRoot: args.target.appRoot,
       },
       { name: "finish" },
     );

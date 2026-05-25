@@ -96,6 +96,7 @@ function makeResourceRailBuilderVault(
     canRemoveConvexProvision: false,
     canRemoveCloudflareProvision: false,
     cloudflareWorkers: [],
+    convexDeployments: [],
     remoteBranches: [],
   };
   return { ...vault, ...overrides };
@@ -418,6 +419,7 @@ describe("VaultDashboardConvexDialog", () => {
   it("renders selectable Convex projects", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardConvexDialog
+        appRoot="."
         createProjectName="demo"
         projects={[
           {
@@ -431,6 +433,7 @@ describe("VaultDashboardConvexDialog", () => {
         isLoading={false}
         isSubmitting={false}
         mode="existing"
+        onAppRootChange={vi.fn()}
         onCreateProjectNameChange={vi.fn()}
         onProjectChange={vi.fn()}
         onModeChange={vi.fn()}
@@ -442,6 +445,7 @@ describe("VaultDashboardConvexDialog", () => {
           id: fakeVaultId(),
           repositoryFullName: "ada/demo",
           repositoryName: "demo",
+          convexDeploymentCount: 0,
         }}
       />,
     );
@@ -640,7 +644,17 @@ describe("buildVaultDashboardResourceRailState", () => {
     const state = buildVaultDashboardResourceRailState({
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
-        convexProjectSlug: "demo-project",
+        convexDeployments: [
+          {
+            appRoot: ".",
+            projectId: "project-1",
+            projectSlug: "demo-project",
+            teamSlug: "ada-team",
+            deploymentName: "demo-production",
+            cloudUrl: "https://demo-production.convex.cloud",
+            siteUrl: "https://demo-production.convex.site",
+          },
+        ],
         providerSetup: {
           status: "running",
           provider: "cloudflare",
@@ -667,10 +681,19 @@ describe("buildVaultDashboardResourceRailState", () => {
     const state = buildVaultDashboardResourceRailState({
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
-        convexTeamSlug: "ada-team",
-        convexProjectSlug: "demo-project",
-        convexProjectSettingsDashboardUrl:
-          "https://dashboard.convex.dev/t/ada-team/demo-project/settings",
+        convexDeployments: [
+          {
+            appRoot: ".",
+            projectId: "project-1",
+            projectSlug: "demo-project",
+            teamSlug: "ada-team",
+            deploymentName: "demo-production",
+            cloudUrl: "https://demo-production.convex.cloud",
+            siteUrl: "https://demo-production.convex.site",
+            projectSettingsDashboardUrl:
+              "https://dashboard.convex.dev/t/ada-team/demo-project/settings",
+          },
+        ],
         cloudflareWorkers: [
           {
             appRoot: ".",
@@ -746,24 +769,49 @@ describe("buildVaultDashboardResourceRailState", () => {
     });
   });
 
-  it("keeps Convex unscoped when the team slug is unknown", () => {
+  it("uses the Convex deployment row as the ready resource", () => {
+    const addConvex = () => {};
     const state = buildVaultDashboardResourceRailState({
+      addConvexHref: "/home?add-convex#demo",
+      addConvexOnClick: addConvex,
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
-        convexProjectSlug: "demo-project",
+        convexDeployments: [
+          {
+            appRoot: ".",
+            projectId: "project-1",
+            projectSlug: "demo-project",
+            teamSlug: "demo-team",
+            deploymentName: "demo-production",
+            cloudUrl: "https://demo-production.convex.cloud",
+            siteUrl: "https://demo-production.convex.site",
+          },
+        ],
       }),
     });
 
-    expect(getResourceRailAppRow(state, ".", "convex")).toEqual({
+    expect(getResourceRailAppRow(state, ".", "convex")).toMatchObject({
       provider: "convex",
       status: "ready",
       value: "demo-project",
-      href: undefined,
-      scope: undefined,
+      scope: "demo-team",
+      actions: [
+        {
+          kind: "add",
+          label: "?add-convex",
+          disabled: false,
+          href: "/home?add-convex#demo",
+        },
+      ],
     });
+    const convexRow = getResourceRailAppRow(state, ".", "convex");
+    if (convexRow.status !== "ready" || !convexRow.actions) {
+      throw new Error("Expected Convex ready row with add action.");
+    }
+    expect(convexRow.actions[0].onClick).toBe(addConvex);
 
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
     expect(markup).toContain("demo-project");
-    expect(markup).not.toContain("38516/demo-project");
+    expect(markup).toContain("demo-team/");
   });
 });

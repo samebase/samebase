@@ -3,6 +3,8 @@ import { describe, expect, it } from "vite-plus/test";
 import { internal } from "../../_generated/api";
 import { makeConvexTest } from "../../test.setup";
 
+const appRoot = ".";
+
 async function createExistingRepositoryVaultWithConvex(args: {
   origin: "provisioned" | "selected_existing";
 }) {
@@ -41,14 +43,25 @@ async function createExistingRepositoryVaultWithConvex(args: {
       visibility: "private",
       defaultBranch: "main",
       connectedAt: 12,
-      convex: {
-        state: "connected",
-        projectId: "convex-project",
-        projectSlug: "manual-convex",
-        deploymentName: "manual-convex-prod",
-        origin: args.origin,
-        connectedAt: 14,
+    });
+    await ctx.db.insert("vaultConvexDeployments", {
+      vaultId,
+      userId,
+      appRoot,
+      projectId: "convex-project",
+      teamSlug: "ada-team",
+      projectSlug: "manual-convex",
+      deploymentName: "manual-convex-prod",
+      deploymentType: "prod",
+      cloudUrl: "https://manual-convex-prod.convex.cloud",
+      siteUrl: "https://manual-convex-prod.convex.site",
+      deployKeys: {
+        production: { state: "not_created" },
+        preview: { state: "not_created" },
       },
+      origin: args.origin,
+      connectedAt: 14,
+      lastObservedAt: 14,
     });
     if (args.origin === "provisioned") {
       await ctx.db.insert("providerConnections", {
@@ -71,7 +84,7 @@ async function createExistingRepositoryVaultWithConvex(args: {
   return { ids, t };
 }
 
-async function createLegacyNoterManagedVaultWithConvex(args: { withInfrastructure: boolean }) {
+async function createNoterManagedVaultWithConvex(args: { withDeployment: boolean }) {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
@@ -107,13 +120,6 @@ async function createLegacyNoterManagedVaultWithConvex(args: { withInfrastructur
       visibility: "private",
       defaultBranch: "main",
       connectedAt: 12,
-      convex: {
-        state: "connected",
-        projectId: "convex-project",
-        projectSlug: "managed-convex",
-        deploymentName: "managed-convex-prod",
-        connectedAt: 14,
-      },
     });
     await ctx.db.insert("providerConnections", {
       kind: "convex",
@@ -127,20 +133,25 @@ async function createLegacyNoterManagedVaultWithConvex(args: { withInfrastructur
       createdAt: 15,
       updatedAt: 15,
     });
-    if (args.withInfrastructure) {
-      await ctx.db.insert("vaultInfrastructure", {
+    if (args.withDeployment) {
+      await ctx.db.insert("vaultConvexDeployments", {
         vaultId,
-        convexProjectId: "convex-project",
-        convexTeamSlug: "ada-team",
-        convexProjectSlug: "managed-convex",
-        convexDeploymentName: "managed-convex-prod",
-        convexDeploymentType: "prod",
-        convexCloudUrl: "https://managed-convex-prod.convex.cloud",
-        convexSiteUrl: "https://managed-convex-prod.convex.site",
-        convexDeployKeys: {
+        userId,
+        appRoot,
+        projectId: "convex-project",
+        teamSlug: "ada-team",
+        projectSlug: "managed-convex",
+        deploymentName: "managed-convex-prod",
+        deploymentType: "prod",
+        cloudUrl: "https://managed-convex-prod.convex.cloud",
+        siteUrl: "https://managed-convex-prod.convex.site",
+        deployKeys: {
           production: { state: "not_created" },
           preview: { state: "not_created" },
         },
+        origin: "provisioned",
+        connectedAt: 14,
+        lastObservedAt: 14,
       });
     }
 
@@ -174,7 +185,7 @@ async function createExistingRepositoryVaultWithFailedCreatedConvexProject() {
       updatedAt: 20,
       completedAt: 20,
     });
-    const convexRunId = await ctx.db.insert("appProvisioningRuns", {
+    await ctx.db.insert("appProvisioningRuns", {
       userId,
       vaultId,
       repositoryFullName: "ada/manual-convex",
@@ -203,11 +214,6 @@ async function createExistingRepositoryVaultWithFailedCreatedConvexProject() {
       visibility: "private",
       defaultBranch: "main",
       connectedAt: 12,
-      convex: {
-        state: "failed",
-        runId: convexRunId,
-        failedAt: 40,
-      },
     });
     await ctx.db.insert("providerConnections", {
       kind: "convex",
@@ -306,9 +312,9 @@ describe("vault deletion Convex resource planning", () => {
     });
   });
 
-  it("deletes recorded created Convex projects before legacy ownership checks", async () => {
-    const { ids, t } = await createLegacyNoterManagedVaultWithConvex({
-      withInfrastructure: false,
+  it("deletes recorded created Convex projects before deployment ownership checks", async () => {
+    const { ids, t } = await createNoterManagedVaultWithConvex({
+      withDeployment: false,
     });
     await t.run(async (ctx) => {
       await ctx.db.insert("appProvisioningRuns", {
@@ -349,31 +355,31 @@ describe("vault deletion Convex resource planning", () => {
     });
   });
 
-  it("deletes a legacy managed Convex project only when infrastructure proves ownership", async () => {
-    const withInfrastructure = await createLegacyNoterManagedVaultWithConvex({
-      withInfrastructure: true,
+  it("deletes a managed Convex project only when the deployment proves ownership", async () => {
+    const withDeployment = await createNoterManagedVaultWithConvex({
+      withDeployment: true,
     });
-    const withoutInfrastructure = await createLegacyNoterManagedVaultWithConvex({
-      withInfrastructure: false,
+    const withoutDeployment = await createNoterManagedVaultWithConvex({
+      withDeployment: false,
     });
 
-    const { deletionRunId: deleteRunId } = await withInfrastructure.t.mutation(
+    const { deletionRunId: deleteRunId } = await withDeployment.t.mutation(
       internal.vault.deletion.runs.createInitialRun,
       {
-        ...withInfrastructure.ids,
+        ...withDeployment.ids,
         options: deleteConvexOptions,
       },
     );
-    const { deletionRunId: skipRunId } = await withoutInfrastructure.t.mutation(
+    const { deletionRunId: skipRunId } = await withoutDeployment.t.mutation(
       internal.vault.deletion.runs.createInitialRun,
       {
-        ...withoutInfrastructure.ids,
+        ...withoutDeployment.ids,
         options: deleteConvexOptions,
       },
     );
     const [deleteRun, skipRun] = await Promise.all([
-      withInfrastructure.t.run(async (ctx) => await ctx.db.get(deleteRunId)),
-      withoutInfrastructure.t.run(async (ctx) => await ctx.db.get(skipRunId)),
+      withDeployment.t.run(async (ctx) => await ctx.db.get(deleteRunId)),
+      withoutDeployment.t.run(async (ctx) => await ctx.db.get(skipRunId)),
     ]);
 
     expect(deleteRun).toMatchObject({
@@ -393,7 +399,7 @@ describe("vault deletion Convex resource planning", () => {
         plan: {
           convex: {
             action: "skip",
-            reason: "not_managed",
+            reason: "not_recorded",
           },
         },
       },
