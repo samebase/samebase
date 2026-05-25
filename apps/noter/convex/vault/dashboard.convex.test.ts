@@ -3,7 +3,6 @@ import { describe, expect, it } from "vite-plus/test";
 import { api, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 import { VAULT_LOCAL_CLEANUP_BATCH_SIZE } from "./deletion/cleanup";
-import { buildVaultCloudflareBuildConfigForAppRoot } from "./model";
 
 const appRoot = ".";
 
@@ -166,130 +165,6 @@ describe("vault dashboard Convex contract", () => {
       name: "Existing-App",
       defaultBranch: "main",
       visibility: "private",
-    });
-  });
-
-  it("hides cached Cloudflare branch previews until preview builds are connected", async () => {
-    const t = makeConvexTest();
-    const ids = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-      const vaultId = await ctx.db.insert("vaults", {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-      });
-      const runId = await ctx.db.insert("appProvisioningRuns", {
-        userId,
-        vaultId,
-        repositoryFullName: "ada/preview-comments",
-        trigger: "connect_existing_repository",
-        state: "succeeded",
-        currentStep: "finish",
-        createdAt: 10,
-        updatedAt: 20,
-        completedAt: 20,
-      });
-      await ctx.db.replace(vaultId, {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "connected",
-        githubMode: "connect_existing_repository",
-        runId,
-        ghRepoId: "123",
-        owner: "ada",
-        name: "preview-comments",
-        visibility: "private",
-        defaultBranch: "main",
-        connectedAt: 20,
-      });
-      await ctx.db.insert("vaultApps", {
-        userId,
-        vaultId,
-        appRoot,
-        createdAt: 21,
-      });
-      await ctx.db.insert("vaultBranchTrees", {
-        vaultId,
-        branch: "main",
-        treeSHA: "tree",
-        commitSHA: "commit",
-        treeData: {
-          sha: "tree",
-          truncated: false,
-          tree: [],
-        },
-        lastTreeRefreshAt: 22,
-      });
-      await ctx.db.insert("vaultRemoteBranches", {
-        vaultId,
-        name: "codex/preview-comment",
-        headCommitSha: "feature-commit",
-        pullRequestNumber: 42,
-        pullRequestUrl: "https://github.com/ada/preview-comments/pull/42",
-        pullRequestTitle: "Preview comment",
-        cloudflareBranchPreviewUrl: "https://codex-preview.cloudflare.example",
-        cloudflarePreviewPullRequestNumber: 42,
-        cloudflarePreviewUrl: "https://commit-preview.cloudflare.example",
-        cloudflarePreviewCommitSha: "feature-commit",
-        cloudflarePreviewStatus: "Deploy successful",
-        cloudflarePreviewLogsUrl: "https://dash.cloudflare.com/builds/42",
-        cloudflarePreviewCommentCreatedAt: 23,
-        isDefault: false,
-        isProtected: false,
-        remoteState: "active",
-        lastSyncedAt: 24,
-      });
-
-      return { userId, vaultId };
-    });
-
-    const asUser = t.withIdentity({
-      subject: `${ids.userId}|test-session`,
-      tokenIdentifier: `test:${ids.userId}`,
-    });
-    const vaultBeforeCloudflare = (await asUser.query(api.vault.dashboard.getUserVaults))[0];
-    const branchBeforeCloudflare = vaultBeforeCloudflare.remoteBranches[0];
-
-    expect(branchBeforeCloudflare).not.toHaveProperty("cloudflareBranchPreviewUrl");
-    expect(branchBeforeCloudflare).not.toHaveProperty("cloudflarePreviewLogsUrl");
-
-    await t.run(async (ctx) => {
-      await ctx.db.insert("vaultCloudflareWorkers", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        appRoot,
-        accountId: "cloudflare-account",
-        workerName: "preview-comments-worker",
-        workerTag: "preview-comments-worker-tag",
-        workersDevUrl: "https://preview-comments.example.workers.dev",
-        origin: "provisioned",
-        deployment: {
-          state: "workers_builds_connected",
-          ...buildVaultCloudflareBuildConfigForAppRoot({ appRoot }),
-          production: {
-            triggerUuid: "production-trigger",
-            buildTokenUuid: "production-token",
-          },
-          preview: {
-            triggerUuid: "preview-trigger",
-            buildTokenUuid: "preview-token",
-          },
-        },
-        connectedAt: 30,
-        lastObservedAt: 30,
-      });
-    });
-
-    const vaultAfterCloudflare = (await asUser.query(api.vault.dashboard.getUserVaults))[0];
-    const branchAfterCloudflare = vaultAfterCloudflare.remoteBranches[0];
-
-    expect(branchAfterCloudflare).toMatchObject({
-      cloudflareBranchPreviewUrl: "https://codex-preview.cloudflare.example",
-      cloudflarePreviewLogsUrl: "https://dash.cloudflare.com/builds/42",
     });
   });
 

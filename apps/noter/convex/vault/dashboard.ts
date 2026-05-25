@@ -989,11 +989,6 @@ export const getUserVaults = query({
           hasCreatedConvexProject ||
           convexDeployments.some((deployment) => canRemoveConvexProvisionForDeployment(deployment));
         const primaryConvexDeployment = convexDeployments.at(0);
-        // GitHub PR comments can mention Cloudflare before this vault has a
-        // Worker preview target; only expose them once the vault can own them.
-        const hasCloudflareBranchPreviewTarget = cloudflareWorkers.some(
-          (worker) => worker.deployment.state === "workers_builds_connected",
-        );
 
         return {
           _id: vault._id,
@@ -1023,50 +1018,41 @@ export const getUserVaults = query({
           appRoots: appRoots.map((app) => ({ appRoot: app.appRoot })),
           cloudflareWorkers: cloudflareWorkerSummaries,
           convexDeployments: convexDeploymentSummaries,
-          remoteBranches: remoteBranches.sort(compareRemoteBranchSortOrder).map((branch) => {
-            const hasCurrentCloudflarePreview =
-              hasCloudflareBranchPreviewTarget &&
+          remoteBranches: remoteBranches.sort(compareRemoteBranchSortOrder).map((branch) => ({
+            name: branch.name,
+            headCommitSha: branch.headCommitSha,
+            lastCommitAt: branch.lastCommitAt,
+            aheadBy: branch.aheadBy,
+            behindBy: branch.behindBy,
+            pullRequestUrl: branch.pullRequestUrl,
+            pullRequestNumber: branch.pullRequestNumber,
+            pullRequestLabels: branch.pullRequestLabels,
+            pullRequestTitle: branch.pullRequestTitle,
+            pullRequestIsDraft: branch.pullRequestIsDraft,
+            isDefault: branch.isDefault,
+            isProtected: branch.isProtected,
+            remoteState: branch.remoteState,
+            lastSyncedAt: branch.lastSyncedAt,
+            cloudflareBranchPreviewUrl: branch.cloudflareBranchPreviewUrl,
+            cloudflarePreviewPullRequestNumber: branch.cloudflarePreviewPullRequestNumber,
+            cloudflarePreviewUrl: branch.cloudflarePreviewUrl,
+            cloudflarePreviewCommitSha: branch.cloudflarePreviewCommitSha,
+            cloudflarePreviewStatus: branch.cloudflarePreviewStatus,
+            cloudflarePreviewLogsUrl: branch.cloudflarePreviewLogsUrl,
+            cloudflarePreviewCommentCreatedAt: branch.cloudflarePreviewCommentCreatedAt,
+            convexPreviewDeploymentDashboardUrl:
+              primaryConvexDeployment &&
               !branch.isDefault &&
               branch.remoteState === "active" &&
               typeof branch.cloudflareBranchPreviewUrl === "string" &&
-              branch.pullRequestNumber === branch.cloudflarePreviewPullRequestNumber;
-            const cloudflarePreviewMetadata = hasCloudflareBranchPreviewTarget
-              ? {
-                  cloudflareBranchPreviewUrl: branch.cloudflareBranchPreviewUrl,
-                  cloudflarePreviewPullRequestNumber: branch.cloudflarePreviewPullRequestNumber,
-                  cloudflarePreviewUrl: branch.cloudflarePreviewUrl,
-                  cloudflarePreviewCommitSha: branch.cloudflarePreviewCommitSha,
-                  cloudflarePreviewStatus: branch.cloudflarePreviewStatus,
-                  cloudflarePreviewLogsUrl: branch.cloudflarePreviewLogsUrl,
-                  cloudflarePreviewCommentCreatedAt: branch.cloudflarePreviewCommentCreatedAt,
-                }
-              : {};
-            return {
-              name: branch.name,
-              headCommitSha: branch.headCommitSha,
-              lastCommitAt: branch.lastCommitAt,
-              aheadBy: branch.aheadBy,
-              behindBy: branch.behindBy,
-              pullRequestUrl: branch.pullRequestUrl,
-              pullRequestNumber: branch.pullRequestNumber,
-              pullRequestLabels: branch.pullRequestLabels,
-              pullRequestTitle: branch.pullRequestTitle,
-              pullRequestIsDraft: branch.pullRequestIsDraft,
-              isDefault: branch.isDefault,
-              isProtected: branch.isProtected,
-              remoteState: branch.remoteState,
-              lastSyncedAt: branch.lastSyncedAt,
-              ...cloudflarePreviewMetadata,
-              convexPreviewDeploymentDashboardUrl:
-                primaryConvexDeployment && hasCurrentCloudflarePreview
-                  ? buildConvexPreviewDeploymentDashboardUrl({
-                      branchName: branch.name,
-                      projectSlug: primaryConvexDeployment.projectSlug,
-                      teamSlug: primaryConvexDeployment.teamSlug,
-                    })
-                  : undefined,
-            };
-          }),
+              branch.pullRequestNumber === branch.cloudflarePreviewPullRequestNumber
+                ? buildConvexPreviewDeploymentDashboardUrl({
+                    branchName: branch.name,
+                    projectSlug: primaryConvexDeployment.projectSlug,
+                    teamSlug: primaryConvexDeployment.teamSlug,
+                  })
+                : undefined,
+          })),
         };
       }),
     );
