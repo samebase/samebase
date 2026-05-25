@@ -20,12 +20,30 @@ For substantial implementation or research tasks:
 
 1. Name the immediate critical-path task you will keep local.
 2. Identify independent lanes that can run in parallel without blocking that local task.
-3. Spawn sub-agents for useful lanes, especially source mapping, implementation spikes,
+3. Spawn focused sub-agents for useful lanes, especially source mapping, implementation spikes,
    verification, alternative design review, PR/CI/review process work, and noisy log or docs sweeps.
-4. Ask for compact findings with file/command evidence and recommended next actions.
-5. Pull back only the conclusions needed for the current decision.
+4. Prefer lower-cost lane owners when the lane is bounded, and have them fan out to Spark or other
+   lower-thinking models for cheap scans, summaries, and evidence gathering before escalating.
+5. Ask for compact findings with file/command evidence and recommended next actions.
+6. Pull back only the conclusions needed for the current decision.
 
 If you keep a substantial task fully local, keep the reason visible in the final handoff.
+
+## Model Routing
+
+Use model tiers deliberately rather than treating the main thread as the only place work happens.
+
+- **Main thread:** owns the user's goal, scope, tradeoffs, final integration, and broad context.
+- **Low-cost lane owner:** use for one focused lane with clear pass/fail criteria or a compact
+  deliverable, such as source mapping, CI triage, review-thread sorting, or risk scans.
+- **Spark / lower-thinking worker:** use inside a lane for bounded fan-out work: file searches, log
+  sweeps, docs comparison, callsite lists, small summaries, and mechanical verification.
+- **High-thinking worker:** use only when a lane finds real ambiguity, architectural risk, a hard
+  bug, or implementation work that needs deeper reasoning.
+
+Prefer a shallow tree: main thread -> focused lane owner -> Spark-style fan-out. Avoid spawning
+agents just to spend model quota; each child should reduce main-thread context load or wall-clock
+time with evidence the supervisor can verify.
 
 ## Delegation Shapes
 
