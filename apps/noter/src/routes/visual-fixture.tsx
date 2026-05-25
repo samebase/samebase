@@ -31,11 +31,13 @@ function validateVisualFixtureRouteSearch(
 
 function VisualFixtureRouteComponent() {
   const { mode } = Route.useSearch();
+
   return <VisualFixturePage mode={mode} />;
 }
 
 export const Route = createFileRoute("/visual-fixture")({
   staticData: {
+    availableOn: ["local"],
     permission: "public",
     searchParamSuggestions: visualFixtureRouteSearchParamSuggestions,
   },

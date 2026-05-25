@@ -1,11 +1,16 @@
 import type { AppRouter } from "@/router";
 import { entries } from "@noter-md/dependent/object";
-import { filterRouteUrlPathSuggestions } from "@/lib/routeUrlPathSuggestions";
+import { type NoterRouteSurface } from "@/lib/routeAvailability";
+import {
+  filterRouteUrlPathSuggestions,
+  readRouteUrlPathSuggestionSurface,
+} from "@/lib/routeUrlPathSuggestions";
 import {
   canAccessNoterRoutePermission,
-  type NoterRoutePermission,
+  canAccessNoterRouteStaticData,
   type NoterRouteSearchParamSuggestion,
   type NoterRoutePermissionViewer,
+  type NoterRouteStaticData,
 } from "@/lib/routePermissions";
 import { ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS } from "@/lib/rootRouteSearch";
 
@@ -115,7 +120,9 @@ export function readRouteUrlEditorSuggestions({
       }));
     case "search":
       return readRouteUrlEditorSearchSuggestions({
+        currentHref,
         draftRouteAddress,
+        origin,
         routesByPath,
         selectionRouteIndex,
         viewer,
@@ -125,6 +132,7 @@ export function readRouteUrlEditorSuggestions({
         currentHref,
         draftRouteAddress,
         hashKeys,
+        origin,
         routesByPath,
         selectionRouteIndex,
         viewer,
@@ -171,7 +179,9 @@ export function applyRouteUrlEditorSuggestion({
 }
 
 function readRouteUrlEditorSearchSuggestions(args: {
+  currentHref: string;
   draftRouteAddress: string;
+  origin: string;
   routesByPath: AppRouter["routesByPath"];
   selectionRouteIndex: number;
   viewer: NoterRoutePermissionViewer;
@@ -204,6 +214,7 @@ function readRouteUrlEditorHashSuggestions(args: {
   currentHref: string;
   draftRouteAddress: string;
   hashKeys: readonly string[];
+  origin: string;
   routesByPath: AppRouter["routesByPath"];
   selectionRouteIndex: number;
   viewer: NoterRoutePermissionViewer;
@@ -216,6 +227,11 @@ function readRouteUrlEditorHashSuggestions(args: {
   const hashDraft = args.draftRouteAddress.slice(parts.hashStart + 1);
   const routePath = readMatchingRoutePath({
     path: parts.path,
+    routeSurface: readRouteUrlPathSuggestionSurface({
+      currentHref: args.currentHref,
+      draftHref: args.draftRouteAddress,
+      origin: args.origin,
+    }),
     routesByPath: args.routesByPath,
     viewer: args.viewer,
   });
@@ -234,13 +250,20 @@ function readRouteUrlEditorHashSuggestions(args: {
 }
 
 function readRouteUrlEditorSearchParamSuggestions(args: {
+  currentHref: string;
   draftRouteAddress: string;
+  origin: string;
   routesByPath: AppRouter["routesByPath"];
   viewer: NoterRoutePermissionViewer;
 }): readonly NoterRouteSearchParamSuggestion[] {
   const parts = readRouteUrlEditorParts(args.draftRouteAddress);
   const routeSearchParamSuggestions = readMatchingRouteSearchParamSuggestions({
     path: parts.path,
+    routeSurface: readRouteUrlPathSuggestionSurface({
+      currentHref: args.currentHref,
+      draftHref: args.draftRouteAddress,
+      origin: args.origin,
+    }),
     routesByPath: args.routesByPath,
     viewer: args.viewer,
   });
@@ -290,14 +313,19 @@ function uniqueRouteUrlSearchParamSuggestions(
 
 function readMatchingRouteSearchParamSuggestions(args: {
   path: string;
+  routeSurface: NoterRouteSurface;
   routesByPath: AppRouter["routesByPath"];
   viewer: NoterRoutePermissionViewer;
 }): readonly NoterRouteSearchParamSuggestion[] {
   const matches = entries(args.routesByPath)
     .filter(
       ([routePath, route]) =>
-        isUserFacingAccessibleRoute(routePath, route.options.staticData.permission, args.viewer) &&
-        routePathTemplateMatchesPath(routePath, args.path),
+        isUserFacingAccessibleRoute(
+          routePath,
+          route.options.staticData,
+          args.viewer,
+          args.routeSurface,
+        ) && routePathTemplateMatchesPath(routePath, args.path),
     )
     .map(([routePath, route]) => ({
       routePath,
@@ -310,14 +338,19 @@ function readMatchingRouteSearchParamSuggestions(args: {
 
 function readMatchingRoutePath(args: {
   path: string;
+  routeSurface: NoterRouteSurface;
   routesByPath: AppRouter["routesByPath"];
   viewer: NoterRoutePermissionViewer;
 }): string | null {
   const matches = entries(args.routesByPath)
     .filter(
       ([routePath, route]) =>
-        isUserFacingAccessibleRoute(routePath, route.options.staticData.permission, args.viewer) &&
-        routePathTemplateMatchesPath(routePath, args.path),
+        isUserFacingAccessibleRoute(
+          routePath,
+          route.options.staticData,
+          args.viewer,
+          args.routeSurface,
+        ) && routePathTemplateMatchesPath(routePath, args.path),
     )
     .map(([routePath]) => routePath)
     .sort(compareRoutePathSpecificity);
@@ -327,12 +360,13 @@ function readMatchingRoutePath(args: {
 
 function isUserFacingAccessibleRoute(
   path: string,
-  permission: NoterRoutePermission,
+  staticData: NoterRouteStaticData,
   viewer: NoterRoutePermissionViewer,
+  routeSurface: NoterRouteSurface,
 ): boolean {
   return (
     (path === "/" || (path.startsWith("/") && !path.startsWith("/_"))) &&
-    canAccessNoterRoutePermission(permission, viewer)
+    canAccessNoterRouteStaticData(staticData, viewer, routeSurface)
   );
 }
 

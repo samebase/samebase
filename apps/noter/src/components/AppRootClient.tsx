@@ -1,8 +1,8 @@
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
-import { Outlet } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect } from "react";
 import "@xyflow/react/dist/style.css";
 import { AppWorkspaceShell } from "@/components/AppWorkspaceShell";
+import { RouteAvailabilityOutlet } from "@/components/RouteAvailabilityOutlet";
 import { RouterGestureDebugOverlay } from "@/components/RouterGestureDebugOverlay";
 import { syncDocumentThemeColorSearch } from "@/lib/appThemeColorSearch";
 import { client } from "@/lib/convexClient";
@@ -68,7 +68,7 @@ function AppRouterRoot() {
   return (
     <OptionalThemeProvider forcedTheme={themeMode}>
       <AppWorkspaceShell>
-        <Outlet />
+        <RouteAvailabilityOutlet />
       </AppWorkspaceShell>
       <RouterGestureDebugOverlay />
     </OptionalThemeProvider>

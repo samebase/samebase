@@ -4,22 +4,28 @@ import { pathToFileURL } from "node:url";
 
 const PROD_CONVEX_DEPLOY_KEY = "PROD_CONVEX_DEPLOY_KEY";
 const PREVIEW_CONVEX_DEPLOY_KEY = "PREVIEW_CONVEX_DEPLOY_KEY";
+const VITE_NOTER_ROUTE_SURFACE = "VITE_NOTER_ROUTE_SURFACE";
+
+type BuildRouteSurface = "local" | "preview" | "production";
 
 type ConvexDeployPlan =
   | {
       kind: "deploy";
       deployKey: string;
       deployKeyName: typeof PROD_CONVEX_DEPLOY_KEY;
+      routeSurface: BuildRouteSurface;
       args: readonly string[];
     }
   | {
       kind: "previewDeploy";
       deployKey: string;
       deployKeyName: typeof PREVIEW_CONVEX_DEPLOY_KEY;
+      routeSurface: BuildRouteSurface;
       args: readonly string[];
     }
   | {
       kind: "frontendOnly";
+      routeSurface: BuildRouteSurface;
     };
 
 function run(command: string, args: readonly string[], env?: NodeJS.ProcessEnv) {
@@ -102,7 +108,7 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
       );
     }
 
-    return { kind: "frontendOnly" };
+    return { kind: "frontendOnly", routeSurface: "local" };
   }
 
   if (branch !== "main") {
@@ -114,6 +120,7 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
         branch,
         deployKeyName: PREVIEW_CONVEX_DEPLOY_KEY,
       }),
+      routeSurface: "preview",
       args: [
         "exec",
         "convex",
@@ -136,6 +143,7 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
       branch,
       deployKeyName: PROD_CONVEX_DEPLOY_KEY,
     }),
+    routeSurface: "production",
     args: ["exec", "convex", "deploy", "--cmd", "pnpm run build:ci"],
   };
 }
@@ -147,13 +155,17 @@ export async function main(env: NodeJS.ProcessEnv = process.env) {
     console.warn(
       `${PROD_CONVEX_DEPLOY_KEY} and ${PREVIEW_CONVEX_DEPLOY_KEY} are not set; building static assets without deploying Convex.`,
     );
-    await run("pnpm", ["run", "build:app"]);
+    await run("pnpm", ["run", "build:app"], {
+      ...env,
+      [VITE_NOTER_ROUTE_SURFACE]: plan.routeSurface,
+    });
     return;
   }
 
   await run("pnpm", plan.args, {
     ...env,
     CONVEX_DEPLOY_KEY: plan.deployKey,
+    [VITE_NOTER_ROUTE_SURFACE]: plan.routeSurface,
   });
 }
 

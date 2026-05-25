@@ -6,16 +6,18 @@ import {
   readRouteUrlPathSuggestions,
 } from "./routeUrlPathSuggestions";
 
-const ORIGIN = "https://noter.local";
+const ORIGIN = "http://localhost:5174";
+const DEPLOYED_ORIGIN = "https://preview.noter.md";
 const routesByPath = getRouter().routesByPath;
 const adminViewer = { isAdmin: true };
 const publicViewer = { isAdmin: false };
-const appSurface = { prodUiMode: false };
-const prodUiSurface = { prodUiMode: true };
+const localSurface = "local";
+const prodUiSurface = "production";
+const deployedSurface = "preview";
 
 describe("readRouteUrlPathSuggestions", () => {
   it("exposes sorted user-facing TanStack route paths", () => {
-    const suggestions = readRouteUrlPathSuggestions(routesByPath, adminViewer, appSurface);
+    const suggestions = readRouteUrlPathSuggestions(routesByPath, adminViewer, localSurface);
 
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/home");
@@ -46,7 +48,7 @@ describe("readRouteUrlPathSuggestions", () => {
   });
 
   it("filters admin route paths for public viewers", () => {
-    const suggestions = readRouteUrlPathSuggestions(routesByPath, publicViewer, appSurface);
+    const suggestions = readRouteUrlPathSuggestions(routesByPath, publicViewer, localSurface);
 
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/logo");
@@ -63,6 +65,13 @@ describe("readRouteUrlPathSuggestions", () => {
     const suggestions = readRouteUrlPathSuggestions(routesByPath, adminViewer, prodUiSurface);
 
     expect(suggestions).toContain("/logo");
+    expect(suggestions).not.toContain("/test");
+    expect(suggestions).not.toContain("/visual-fixture");
+  });
+
+  it("hides local-only route paths outside local route surfaces", () => {
+    const suggestions = readRouteUrlPathSuggestions(routesByPath, adminViewer, deployedSurface);
+
     expect(suggestions).not.toContain("/test");
     expect(suggestions).not.toContain("/visual-fixture");
   });
@@ -85,7 +94,7 @@ describe("filterRouteUrlPathSuggestions", () => {
     expect(
       filterRouteUrlPathSuggestions({
         currentHref: "/",
-        draftHref: "https://noter.local/machines/c",
+        draftHref: `${ORIGIN}/machines/c`,
         origin: ORIGIN,
         routesByPath,
         viewer: adminViewer,
@@ -148,7 +157,7 @@ describe("filterRouteUrlPathSuggestions", () => {
         routesByPath,
         viewer: adminViewer,
       }),
-    ).toEqual(readRouteUrlPathSuggestions(routesByPath, adminViewer, appSurface));
+    ).toEqual(readRouteUrlPathSuggestions(routesByPath, adminViewer, localSurface));
 
     expect(
       filterRouteUrlPathSuggestions({
@@ -172,6 +181,30 @@ describe("filterRouteUrlPathSuggestions", () => {
 
     expect(suggestions).toContain("/logo");
     expect(suggestions).not.toContain("/visual-fixture");
+  });
+
+  it("hides local-only route suggestions on deployed origins", () => {
+    const suggestions = filterRouteUrlPathSuggestions({
+      currentHref: "/",
+      draftHref: "/vis",
+      origin: DEPLOYED_ORIGIN,
+      routesByPath,
+      viewer: adminViewer,
+    });
+
+    expect(suggestions).toEqual([]);
+  });
+
+  it("hides test route suggestions on deployed origins", () => {
+    const suggestions = filterRouteUrlPathSuggestions({
+      currentHref: "/",
+      draftHref: "/test",
+      origin: DEPLOYED_ORIGIN,
+      routesByPath,
+      viewer: adminViewer,
+    });
+
+    expect(suggestions).toEqual([]);
   });
 });
 
