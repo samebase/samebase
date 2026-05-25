@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "noter-domain-router",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-14",
+  "routes": [
+    {
+      "pattern": "*.json.md/*",
+      "zone_name": "json.md",
+    },
+    {
+      "pattern": "*.xml.md/*",
+      "zone_name": "xml.md",
+    },
+  ],
+}
