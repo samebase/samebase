@@ -40,9 +40,8 @@ test("public landing header exposes the route URL editor", async ({ page }) => {
 
   const pageUrl = new URL(page.url());
   const origin = pageUrl.origin;
-  const host = pageUrl.host;
   const routeUrlDisplay = page.getByTestId("route-url-editor-display");
-  await expect(routeUrlDisplay).toHaveText(`${host}/?dev`);
+  await expect(routeUrlDisplay).toHaveValue(`${origin}/?dev`);
   await expect(routeUrlDisplay).toHaveAttribute("title", `${origin}/?dev`);
   await expect(page).toHaveScreenshot("public-layout-landing-dev.png", {
     animations: "disabled",
@@ -56,7 +55,7 @@ test("public landing header exposes the route URL editor", async ({ page }) => {
 
   await page.getByRole("link", { name: "/terms", exact: true }).click();
   await expect(page).toHaveURL(/\/terms\?dev$/);
-  await expect(page.getByTestId("route-url-editor-display")).toHaveText(`${host}/terms?dev`);
+  await expect(page.getByTestId("route-url-editor-display")).toHaveValue(`${origin}/terms?dev`);
   await expect(page.getByTestId("route-url-editor-display")).toHaveAttribute(
     "title",
     `${origin}/terms?dev`,
@@ -75,15 +74,14 @@ test("public route URL editor stays compact for long URLs", async ({ page }) => 
 
   const pageUrl = new URL(page.url());
   const origin = pageUrl.origin;
-  const host = pageUrl.host;
   const routeUrlEditor = page.getByTestId("route-url-editor");
   const routeUrlDisplay = page.getByTestId("route-url-editor-display");
-  await expect(routeUrlDisplay).toHaveText(`${host}${longPath}`);
+  await expect(routeUrlDisplay).toHaveValue(`${origin}${longPath}`);
   await expect(routeUrlDisplay).toHaveAttribute("title", `${origin}${longPath}`);
 
   const metrics = await routeUrlEditor.evaluate((element) => {
     const display = element.querySelector('[data-testid="route-url-editor-display"]');
-    if (!(display instanceof HTMLButtonElement)) {
+    if (!(display instanceof HTMLInputElement)) {
       throw new Error("Expected route URL editor display");
     }
 

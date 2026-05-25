@@ -32,7 +32,7 @@ test("route URL editor fixture navigates committed same-origin hrefs", async ({ 
     waitUntil: "domcontentloaded",
   });
   const origin = await page.evaluate(() => window.location.origin);
-  const host = await page.evaluate(() => window.location.host);
+  const fixtureHref = `${origin}/visual-fixture?mode=route-url-editor`;
 
   const display = getRouteUrlEditorDisplay(page);
   const input = getRouteUrlEditorInput(page);
@@ -48,9 +48,13 @@ test("route URL editor fixture navigates committed same-origin hrefs", async ({ 
   expect(editorBox.x).toBe(0);
   expect(editorBox.height).toBeLessThanOrEqual(40);
   await expect(input).toHaveCount(0);
-  await expect(display).toHaveText(`${host}/visual-fixture?mode=route-url-editor`);
-  await expect(display).toHaveAttribute("title", `${origin}/visual-fixture?mode=route-url-editor`);
+  await expect(display).toHaveValue(fixtureHref);
+  await expect(display).toHaveAttribute("title", fixtureHref);
   await expect(display).toHaveCSS("cursor", "text");
+  const displayTextIndent = await display.evaluate((element) =>
+    Number.parseFloat(window.getComputedStyle(element).textIndent),
+  );
+  expect(displayTextIndent).toBeLessThan(0);
   await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
   await expect(backButton).toBeVisible();
   await expect(forwardButton).toBeVisible();
@@ -74,7 +78,7 @@ test("route URL editor fixture navigates committed same-origin hrefs", async ({ 
   await expect(currentHref).toHaveText("/logo?from=route-url-editor");
   await input.blur();
   await expect(input).toHaveCount(0);
-  await expect(display).toHaveText(`${host}/logo?from=route-url-editor`);
+  await expect(display).toHaveValue(`${origin}/logo?from=route-url-editor`);
   await expect(display).toHaveAttribute("title", `${origin}/logo?from=route-url-editor`);
   await expect(editor).toHaveScreenshot("route-url-editor-committed.png", {
     animations: "disabled",
@@ -97,7 +101,7 @@ test("route URL editor fixture selects continuously across host and route text",
   const display = getRouteUrlEditorDisplay(page);
   const routePath = "/visual-fixture";
 
-  await expect(display).toHaveText(`${host}/visual-fixture?mode=route-url-editor`);
+  await expect(display).toHaveValue(`${origin}/visual-fixture?mode=route-url-editor`);
 
   const input = await editRouteUrl(page);
   await expect(input).toHaveValue(`${origin}/visual-fixture?mode=route-url-editor`);
@@ -122,6 +126,7 @@ test("route URL editor fixture selects continuously across host and route text",
       const xForOffset = (offset: number) =>
         rect.left +
         Number.parseFloat(style.paddingLeft) +
+        Number.parseFloat(style.textIndent) +
         context.measureText(element.value.slice(0, offset)).width;
 
       return {
@@ -150,7 +155,7 @@ test("route URL editor fixture selects continuously across host and route text",
   expect(selectedText).toBe(`${host}${routePath}`);
 });
 
-test("route URL editor keeps the focused URL stable when clicked near the port", async ({
+test("route URL editor places the caret at the visible URL start without rewriting", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 720, height: 96 });
@@ -158,40 +163,30 @@ test("route URL editor keeps the focused URL stable when clicked near the port",
     waitUntil: "domcontentloaded",
   });
   const origin = await page.evaluate(() => window.location.origin);
-  const input = await editRouteUrl(page);
+  const display = getRouteUrlEditorDisplay(page);
   const fullHref = `${origin}/visual-fixture?mode=route-url-editor`;
 
+  await expect(display).toHaveValue(fullHref);
+  const textIndent = await display.evaluate((element) =>
+    Number.parseFloat(window.getComputedStyle(element).textIndent),
+  );
+  expect(textIndent).toBeLessThan(0);
+
+  await display.click({ position: { x: 5, y: 14 } });
+
+  const input = getRouteUrlEditorInput(page);
+  await expect(input).toBeFocused();
   await expect(input).toHaveValue(fullHref);
-
-  const clickPoint = await input.evaluate((element, currentOrigin) => {
-    const style = window.getComputedStyle(element);
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d");
-    if (context === null) {
-      throw new Error("Expected canvas text measurement support.");
-    }
-
-    context.font = style.font;
-    const rect = element.getBoundingClientRect();
-    const originEndX =
-      rect.left +
-      Number.parseFloat(style.paddingLeft) +
-      context.measureText(element.value.slice(0, currentOrigin.length)).width;
-
-    return {
-      x: originEndX - 1,
-      y: rect.top + rect.height / 2,
-    };
-  }, origin);
-
-  await page.mouse.click(clickPoint.x, clickPoint.y);
-
-  await expect(input).toHaveValue(fullHref);
-  const protocolCount = await input.evaluate((element) => {
+  const clickState = await input.evaluate((element) => {
     const matches = element.value.match(/https?:\/\//g);
-    return matches === null ? 0 : matches.length;
+    return {
+      protocolCount: matches === null ? 0 : matches.length,
+      protocolLength: element.value.indexOf("//") + "//".length,
+      selectionStart: element.selectionStart,
+    };
   });
-  expect(protocolCount).toBe(1);
+  expect(clickState.protocolCount).toBe(1);
+  expect(clickState.selectionStart).toBe(clickState.protocolLength);
 });
 
 test("route URL editor lists route paths and filters them while typing", async ({ page }) => {
@@ -200,7 +195,6 @@ test("route URL editor lists route paths and filters them while typing", async (
     waitUntil: "domcontentloaded",
   });
   const origin = await page.evaluate(() => window.location.origin);
-  const host = await page.evaluate(() => window.location.host);
 
   const display = getRouteUrlEditorDisplay(page);
   const input = await editRouteUrl(page);
@@ -225,7 +219,7 @@ test("route URL editor lists route paths and filters them while typing", async (
 
   await expect(page).toHaveURL(`${origin}/logo`);
   await expect(input).toHaveCount(0);
-  await expect(display).toHaveText(`${host}/logo`);
+  await expect(display).toHaveValue(`${origin}/logo`);
   await expect(suggestions).toHaveCount(0);
 });
 
@@ -237,7 +231,6 @@ test("route URL editor dismisses suggestions through blur when the page undernea
     waitUntil: "domcontentloaded",
   });
   const origin = await page.evaluate(() => window.location.origin);
-  const host = await page.evaluate(() => window.location.host);
 
   const display = getRouteUrlEditorDisplay(page);
   const input = await editRouteUrl(page);
@@ -254,7 +247,7 @@ test("route URL editor dismisses suggestions through blur when the page undernea
 
   await expect(input).toHaveCount(0);
   await expect(suggestions).toHaveCount(0);
-  await expect(display).toHaveText(`${host}/logo`);
+  await expect(display).toHaveValue(`${origin}/logo`);
   await expect(page).toHaveURL(`${origin}/logo`);
 });
 
@@ -318,6 +311,11 @@ test("route URL editor lists rendered page hash targets", async ({ page }) => {
   const suggestions = page.getByTestId("route-url-editor-suggestions");
 
   await input.fill(`${origin}/landing-preview?dev#${hashDraft}`);
+  await input.evaluate((element) => {
+    const caret = element.value.length;
+    element.setSelectionRange(caret, caret);
+  });
+  await input.press("ArrowRight");
 
   await expect(suggestions).toHaveAttribute("data-suggestion-kind", "hash");
   await expect(
@@ -331,7 +329,6 @@ test("route URL editor selects suggestions with arrow keys", async ({ page }) =>
     waitUntil: "domcontentloaded",
   });
   const origin = await page.evaluate(() => window.location.origin);
-  const host = await page.evaluate(() => window.location.host);
 
   const display = getRouteUrlEditorDisplay(page);
   const input = await editRouteUrl(page);
@@ -363,7 +360,7 @@ test("route URL editor selects suggestions with arrow keys", async ({ page }) =>
 
   await expect(page).toHaveURL(`${origin}/logo`);
   await expect(input).toHaveCount(0);
-  await expect(display).toHaveText(`${host}/logo`);
+  await expect(display).toHaveValue(`${origin}/logo`);
 });
 
 test("route URL editor hides local route suggestions in prod UI mode", async ({ page }) => {
@@ -472,9 +469,8 @@ test("route URL editor applies same-path search and hash edits while typing", as
 
   await input.blur();
 
-  const host = await page.evaluate(() => window.location.host);
   await expect(input).toHaveCount(0);
-  await expect(display).toHaveText(`${host}/logo?leftFace=secondary#done`);
+  await expect(display).toHaveValue(`${origin}/logo?leftFace=secondary#done`);
   await expect(page).toHaveURL(`${origin}/logo?leftFace=secondary#done`);
 });
 
@@ -489,11 +485,10 @@ test("route URL editor toggles landing dev mode while preserving focused draft t
   const display = getRouteUrlEditorDisplay(page);
   const input = getRouteUrlEditorInput(page);
   const editor = page.getByTestId("route-url-editor");
-  const host = await page.evaluate(() => window.location.host);
   const origin = await page.evaluate(() => window.location.origin);
 
   await expect(input).toHaveCount(0);
-  await expect(display).toHaveText(host);
+  await expect(display).toHaveValue(`${origin}/`);
   await display.click();
   await expect(input).toBeFocused();
   await expect(input).toHaveValue(`${origin}/`);
@@ -511,7 +506,7 @@ test("route URL editor toggles landing dev mode while preserving focused draft t
   await input.blur();
 
   await expect(input).toHaveCount(0);
-  await expect(display).toHaveText(host);
+  await expect(display).toHaveValue(`${origin}/`);
   await expect(page).toHaveURL(`${origin}/`);
   await expect(editor).toHaveScreenshot("route-url-editor-root-blurred.png", {
     animations: "disabled",
@@ -548,9 +543,8 @@ test("route URL editor keeps invalid route search drafts local until blur", asyn
 
   await input.blur();
 
-  const host = await page.evaluate(() => window.location.host);
   await expect(input).toHaveCount(0);
-  await expect(display).toHaveText(`${host}/logo`);
+  await expect(display).toHaveValue(`${origin}/logo`);
   await expect(page).toHaveURL(`${origin}/logo`);
   await expect(editor).toHaveScreenshot("route-url-editor-invalid-draft-blurred.png", {
     animations: "disabled",
@@ -590,7 +584,6 @@ test("route URL editor fixture refuses pasted external origins", async ({ page }
     maxDiffPixelRatio: 0.01,
   });
   await input.press("Escape");
-  const host = await page.evaluate(() => window.location.host);
   await expect(input).toHaveCount(0);
-  await expect(display).toHaveText(`${host}/visual-fixture?mode=route-url-editor`);
+  await expect(display).toHaveValue(`${origin}/visual-fixture?mode=route-url-editor`);
 });
