@@ -40,7 +40,7 @@ describe("RouteUrlEditor", () => {
     useQueryMock.mockReset();
   });
 
-  function renderEditor(initialEntries: string[] = ["/"]): HTMLButtonElement {
+  function renderEditor(initialEntries: string[] = ["/"]): HTMLInputElement {
     rootElement = document.createElement("div");
     document.body.append(rootElement);
     const mountedRoot = createRoot(rootElement);
@@ -60,14 +60,14 @@ describe("RouteUrlEditor", () => {
   function startEditing(initialEntries: string[] = ["/"]): HTMLInputElement {
     const display = renderEditor(initialEntries);
     act(() => {
-      display.click();
+      display.focus();
     });
 
     return readRequiredInput();
   }
 
-  function readRequiredDisplay(): HTMLButtonElement {
-    const display = rootElement?.querySelector<HTMLButtonElement>(
+  function readRequiredDisplay(): HTMLInputElement {
+    const display = rootElement?.querySelector<HTMLInputElement>(
       '[data-testid="route-url-editor-display"]',
     );
     if (!display) {
@@ -105,24 +105,23 @@ describe("RouteUrlEditor", () => {
     expect(
       rootElement?.querySelectorAll('button[aria-label="Back"], button[aria-label="Forward"]'),
     ).toHaveLength(2);
-    expect(display.textContent).toBe(new URL(window.location.origin).host);
+    expect(display.value).toBe(`${window.location.origin}/`);
   });
 
-  it("uses a compact display before focusing a stable absolute URL input", () => {
+  it("uses one stable absolute URL input across display and edit states", () => {
     const display = renderEditor(["/?prod-ui#top"]);
     const origin = window.location.origin;
 
-    expect(display.textContent).toBe(`${new URL(origin).host}/?prod-ui#top`);
+    expect(display.value).toBe(`${origin}/?prod-ui#top`);
     expect(rootElement?.querySelector('[data-testid="route-url-editor-input"]')).toBeNull();
 
     act(() => {
-      display.click();
+      display.focus();
     });
 
     const input = readRequiredInput();
     expect(document.activeElement).toBe(input);
     expect(input.value).toBe(`${origin}/?prod-ui#top`);
-    expect(input.selectionStart).toBe(input.value.length);
   });
 
   it("blurs the focused input when the page scrolls underneath", () => {

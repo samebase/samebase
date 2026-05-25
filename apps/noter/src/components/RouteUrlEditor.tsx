@@ -31,6 +31,11 @@ import { api } from "../../convex/_generated/api";
 const routeUrlEditorIconButtonClassName =
   "flex size-7 shrink-0 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
 
+const routeUrlEditorInputClassName =
+  "h-7 min-w-0 flex-1 border-0 bg-transparent px-1 font-mono text-sm leading-7 outline-none selection:bg-primary/20 aria-invalid:text-destructive";
+
+const routeUrlEditorBlurredInputClassName = `${routeUrlEditorInputClassName} cursor-text hover:bg-muted`;
+
 function getRouteUrlEditorSuggestionButtonClassName(active: boolean): string {
   return active
     ? "flex h-7 w-full items-center bg-accent px-2 font-mono text-sm text-accent-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
@@ -48,6 +53,15 @@ function readRouteUrlEditorOrigin(): string {
   return typeof window === "undefined" ? "https://noter.local" : window.location.origin;
 }
 
+function readRouteUrlEditorProtocolPrefix(origin: string): string {
+  const protocolEndIndex = origin.indexOf("//");
+  if (protocolEndIndex === -1) {
+    return "";
+  }
+
+  return origin.slice(0, protocolEndIndex + "//".length);
+}
+
 function areRouteUrlEditorHashSuggestionKeysEqual(
   left: readonly string[],
   right: readonly string[],
@@ -63,19 +77,6 @@ function areRouteUrlEditorHashSuggestionKeysEqual(
   }
 
   return true;
-}
-
-/**
- * The display layer hides browser boilerplate: protocol, plus the bare root
- * slash when it carries no route text.
- */
-function readRouteUrlEditorDisplayValue(args: { origin: string; routeAddress: string }): string {
-  const displayOrigin = new URL(args.origin).host;
-  if (args.routeAddress === "/") {
-    return displayOrigin;
-  }
-
-  return `${displayOrigin}${args.routeAddress}`;
 }
 
 type RouteUrlEditorInputSelectionDirection = "backward" | "forward" | "none";
@@ -132,6 +133,42 @@ function readRouteUrlEditorDraftRouteAddress(args: {
   }
 
   return `/${args.inputValue.slice(enforcedInputPrefix.length)}`;
+}
+
+type RouteUrlEditorRouteBoundaryBackspace = {
+  inputValue: string;
+  routeAddress: string;
+  selectionOffset: number;
+};
+
+// Modified Backspace can delete across the origin text; keep origin + slash
+// immutable and delete only route-owned text after that boundary.
+function readRouteUrlEditorRouteBoundaryBackspace(args: {
+  input: HTMLInputElement;
+  origin: string;
+}): RouteUrlEditorRouteBoundaryBackspace | null {
+  const selection = readRouteUrlEditorInputSelection(args.input);
+  if (!selection) {
+    return null;
+  }
+
+  const routeInputPrefix = `${args.origin}/`;
+  const deleteEnd = Math.max(selection.start, selection.end, routeInputPrefix.length);
+  const inputValue = `${routeInputPrefix}${args.input.value.slice(deleteEnd)}`;
+  const routeAddress = readRouteUrlEditorDraftRouteAddress({
+    inputValue,
+    origin: args.origin,
+  });
+
+  if (routeAddress === null) {
+    return null;
+  }
+
+  return {
+    inputValue,
+    routeAddress,
+    selectionOffset: routeInputPrefix.length,
+  };
 }
 
 function readRouteUrlEditorInputRouteIndex(args: {
@@ -204,7 +241,6 @@ export function RouteUrlEditor() {
     useState(currentRouteHistoryIndex);
   const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const pendingEditInputFocusRef = useRef(false);
   const inputSelectionBeforeChangeRef = useRef<RouteUrlEditorInputSelection | null>(null);
   const skipNextBlurCommitRef = useRef(false);
   const origin = readRouteUrlEditorOrigin();
@@ -225,10 +261,6 @@ export function RouteUrlEditor() {
     rawHref: draftRouteAddress,
   });
   const routeInputInvalid = draftRouteAddress.trim() !== "" && draftHref === null;
-  const displayValue = readRouteUrlEditorDisplayValue({
-    origin,
-    routeAddress: currentHref,
-  });
   const inputValue = `${origin}${draftRouteAddress}`;
   const routeInputTitle = draftHref === null ? inputValue : `${origin}${draftHref}`;
   const suggestions = readRouteUrlEditorSuggestions({
@@ -351,25 +383,6 @@ export function RouteUrlEditor() {
     refreshDocumentHashSuggestionKeys();
   }, [currentHref, refreshDocumentHashSuggestionKeys]);
 
-  // The display click mounts a fresh input, so that pointer never targets an
-  // input whose native value is rewritten under the caret.
-  useEffect(() => {
-    if (!inputFocused || !pendingEditInputFocusRef.current) {
-      return;
-    }
-
-    const input = inputRef.current;
-    if (!input) {
-      return;
-    }
-
-    pendingEditInputFocusRef.current = false;
-    input.focus();
-    const selectionIndex = input.value.length;
-    input.setSelectionRange(selectionIndex, selectionIndex);
-    syncSuggestionSelection(input, draftRouteAddress);
-  }, [draftRouteAddress, inputFocused, syncSuggestionSelection]);
-
   // A page scroll gesture means the user left URL editing; gestures inside
   // suggestions stay editor-owned so long lists remain usable.
   useEffect(() => {
@@ -431,26 +444,8 @@ export function RouteUrlEditor() {
     [draftRouteAddress, origin, syncSuggestionSelection],
   );
 
-  const changeDraftRouteAddress = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      const nextDraftRouteAddress = readRouteUrlEditorDraftRouteAddress({
-        inputValue: event.currentTarget.value,
-        origin,
-      });
-      if (nextDraftRouteAddress === null) {
-        restoreRouteUrlEditorRejectedInput({
-          input: event.currentTarget,
-          selection: inputSelectionBeforeChangeRef.current,
-          value: inputValue,
-        });
-        return;
-      }
-
-      setDraftRouteAddress(nextDraftRouteAddress);
-      setSuggestionDraftEditedSinceFocus(true);
-      setSuggestionsDismissed(false);
-      syncSuggestionSelection(event.currentTarget, nextDraftRouteAddress);
-
+  const applyDraftRouteOptions = useCallback(
+    (nextDraftRouteAddress: string) => {
       const nextHref = normalizeRouteUrlEditorHref({
         currentHref,
         origin,
@@ -483,7 +478,32 @@ export function RouteUrlEditor() {
         });
       }
     },
-    [currentHref, inputValue, origin, router, syncSuggestionSelection],
+    [currentHref, origin, router],
+  );
+
+  const changeDraftRouteAddress = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const nextDraftRouteAddress = readRouteUrlEditorDraftRouteAddress({
+        inputValue: event.currentTarget.value,
+        origin,
+      });
+      if (nextDraftRouteAddress === null) {
+        restoreRouteUrlEditorRejectedInput({
+          input: event.currentTarget,
+          selection: inputSelectionBeforeChangeRef.current,
+          value: inputValue,
+        });
+        return;
+      }
+
+      setDraftRouteAddress(nextDraftRouteAddress);
+      setSuggestionDraftEditedSinceFocus(true);
+      setSuggestionsDismissed(false);
+      syncSuggestionSelection(event.currentTarget, nextDraftRouteAddress);
+
+      applyDraftRouteOptions(nextDraftRouteAddress);
+    },
+    [applyDraftRouteOptions, inputValue, origin, syncSuggestionSelection],
   );
 
   const resetInput = useCallback(() => {
@@ -584,15 +604,6 @@ export function RouteUrlEditor() {
     [draftRouteAddress, refreshDocumentHashSuggestionKeys, syncSuggestionSelection],
   );
 
-  const editDisplayedUrl = useCallback(() => {
-    pendingEditInputFocusRef.current = true;
-    setDraftRouteAddress(currentHref);
-    setInputFocused(true);
-    setSuggestionsDismissed(false);
-    setSuggestionDraftEditedSinceFocus(false);
-    refreshDocumentHashSuggestionKeys();
-  }, [currentHref, refreshDocumentHashSuggestionKeys]);
-
   const moveActiveSuggestion = useCallback(
     (step: number) => {
       setActiveSuggestionIndex((currentActiveSuggestionIndex) => {
@@ -649,6 +660,37 @@ export function RouteUrlEditor() {
             selectSuggestion(activeSuggestion);
           }
           return;
+        case "Backspace": {
+          if (!event.metaKey && !event.ctrlKey) {
+            return;
+          }
+
+          const routeBoundaryBackspace = readRouteUrlEditorRouteBoundaryBackspace({
+            input: event.currentTarget,
+            origin,
+          });
+          if (routeBoundaryBackspace === null) {
+            return;
+          }
+
+          event.preventDefault();
+          event.currentTarget.value = routeBoundaryBackspace.inputValue;
+          event.currentTarget.setSelectionRange(
+            routeBoundaryBackspace.selectionOffset,
+            routeBoundaryBackspace.selectionOffset,
+          );
+          syncSuggestionSelection(event.currentTarget, routeBoundaryBackspace.routeAddress);
+          setSuggestionsDismissed(false);
+
+          if (routeBoundaryBackspace.routeAddress === draftRouteAddress) {
+            return;
+          }
+
+          setDraftRouteAddress(routeBoundaryBackspace.routeAddress);
+          setSuggestionDraftEditedSinceFocus(true);
+          applyDraftRouteOptions(routeBoundaryBackspace.routeAddress);
+          return;
+        }
         case "Escape":
           skipNextBlurCommitRef.current = true;
           resetInput();
@@ -656,7 +698,17 @@ export function RouteUrlEditor() {
           return;
       }
     },
-    [activeSuggestion, moveActiveSuggestion, resetInput, selectSuggestion, suggestionsVisible],
+    [
+      activeSuggestion,
+      applyDraftRouteOptions,
+      draftRouteAddress,
+      moveActiveSuggestion,
+      origin,
+      resetInput,
+      selectSuggestion,
+      suggestionsVisible,
+      syncSuggestionSelection,
+    ],
   );
 
   const handleInputKeyUp = useCallback(
@@ -700,49 +752,40 @@ export function RouteUrlEditor() {
       >
         <ArrowRight aria-hidden="true" className="size-4" />
       </button>
-      {inputFocused ? (
-        <input
-          ref={inputRef}
-          aria-activedescendant={activeSuggestionId}
-          aria-describedby={routeInputInvalid ? `${inputId}-error` : undefined}
-          aria-controls={suggestionsVisible ? suggestionsId : undefined}
-          aria-expanded={suggestionsVisible}
-          aria-invalid={routeInputInvalid}
-          aria-autocomplete="list"
-          autoCapitalize="none"
-          autoComplete="off"
-          autoCorrect="off"
-          className="h-7 min-w-0 flex-1 border-0 bg-transparent px-1 font-mono text-sm leading-7 outline-none selection:bg-primary/20 aria-invalid:text-destructive"
-          data-testid="route-url-editor-input"
-          id={inputId}
-          inputMode="url"
-          name="routeHref"
-          onBeforeInput={rememberInputSelection}
-          onBlur={blurInput}
-          onChange={changeDraftRouteAddress}
-          onClick={syncSuggestionSelectionFromInput}
-          onFocus={focusInput}
-          onKeyDown={handleInputKeyDown}
-          onKeyUp={handleInputKeyUp}
-          onMouseUp={syncSuggestionSelectionFromInput}
-          onSelect={syncSuggestionSelectionFromInput}
-          spellCheck={false}
-          suppressHydrationWarning
-          title={routeInputTitle}
-          type="text"
-          value={inputValue}
-        />
-      ) : (
-        <button
-          className="h-7 min-w-0 flex-1 cursor-text truncate border-0 bg-transparent text-left font-mono text-sm leading-7 outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
-          data-testid="route-url-editor-display"
-          onClick={editDisplayedUrl}
-          title={`${origin}${currentHref}`}
-          type="button"
-        >
-          {displayValue}
-        </button>
-      )}
+      <input
+        ref={inputRef}
+        aria-activedescendant={activeSuggestionId}
+        aria-describedby={routeInputInvalid ? `${inputId}-error` : undefined}
+        aria-controls={suggestionsVisible ? suggestionsId : undefined}
+        aria-expanded={suggestionsVisible}
+        aria-invalid={routeInputInvalid}
+        aria-autocomplete="list"
+        autoCapitalize="none"
+        autoComplete="off"
+        autoCorrect="off"
+        className={
+          inputFocused ? routeUrlEditorInputClassName : routeUrlEditorBlurredInputClassName
+        }
+        data-testid={inputFocused ? "route-url-editor-input" : "route-url-editor-display"}
+        id={inputId}
+        inputMode="url"
+        name="routeHref"
+        onBeforeInput={rememberInputSelection}
+        onBlur={blurInput}
+        onChange={changeDraftRouteAddress}
+        onClick={syncSuggestionSelectionFromInput}
+        onFocus={focusInput}
+        onKeyDown={handleInputKeyDown}
+        onKeyUp={handleInputKeyUp}
+        onMouseUp={syncSuggestionSelectionFromInput}
+        onSelect={syncSuggestionSelectionFromInput}
+        spellCheck={false}
+        suppressHydrationWarning
+        style={{ textIndent: `-${readRouteUrlEditorProtocolPrefix(origin).length}ch` }}
+        title={routeInputTitle}
+        type="text"
+        value={inputValue}
+      />
       {suggestionsVisible ? (
         <div
           className="absolute inset-x-1 top-full z-50 mt-1 max-h-72 overflow-y-auto rounded-md bg-popover py-1 text-popover-foreground shadow-md ring-1 ring-foreground/10"

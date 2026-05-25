@@ -372,7 +372,7 @@ describe("Layout", () => {
     expect(markup).toContain('data-testid="route-url-editor"');
     expect(markup).toContain('data-testid="route-url-editor-display"');
     expect(markup).toContain('title="https://noter.local/?dev"');
-    expect(markup).toContain(">noter.local/?dev<");
+    expect(markup).toContain('value="https://noter.local/?dev"');
   });
 
   it("renders the route URL editor in the normal public shell", () => {
@@ -393,7 +393,7 @@ describe("Layout", () => {
     expect(markup).toContain('data-testid="route-url-editor"');
     expect(markup).toContain('data-testid="route-url-editor-display"');
     expect(markup).toContain('title="https://noter.local/"');
-    expect(markup).toContain(">noter.local<");
+    expect(markup).toContain('value="https://noter.local/"');
   });
 
   it("can keep a public fixture route in the v2 shell without the right rail", () => {
