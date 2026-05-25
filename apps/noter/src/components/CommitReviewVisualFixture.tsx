@@ -334,7 +334,7 @@ export function CommitReviewVisualFixture({ mode }: { mode: CommitReviewVisualMo
   return (
     <div
       data-testid="commit-review-visual-fixture"
-      className="h-screen w-screen overflow-hidden bg-background p-4 text-foreground"
+      className="h-full w-full overflow-hidden bg-background p-4 text-foreground"
     >
       <div className="grid h-full grid-cols-[240px_minmax(0,1fr)] gap-4">
         <aside

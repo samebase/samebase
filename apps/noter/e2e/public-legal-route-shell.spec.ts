@@ -23,7 +23,8 @@ async function readTermsRouteState(page: Page) {
   await expect(page.locator(".cm-static-markdown")).toBeVisible();
 
   return await page.evaluate(() => ({
-    hasRoutedMain: document.querySelector("main") !== null,
+    hasWorkspaceMain:
+      document.querySelector('[data-testid="workspace-layout-v2-pane-main"]') !== null,
     headingClassName: document.querySelector("h1")?.getAttribute("class") ?? null,
     title: document.title,
   }));
@@ -38,19 +39,19 @@ test("direct terms loads use the same routed app surface as client navigation", 
   await page.getByRole("link", { name: "/terms", exact: true }).first().click();
   await expect(page).toHaveURL(/\/terms$/);
   const clientNavigationState = await readTermsRouteState(page);
-  await expect(page.locator("main")).toHaveScreenshot(
+  await expect(page.getByTestId("workspace-layout-v2-pane-main")).toHaveScreenshot(
     "terms-shell.png",
     getLegalShellScreenshotOptions(page),
   );
 
   await page.goto("/terms", { waitUntil: "networkidle" });
   const directLoadState = await readTermsRouteState(page);
-  await expect(page.locator("main")).toHaveScreenshot(
+  await expect(page.getByTestId("workspace-layout-v2-pane-main")).toHaveScreenshot(
     "terms-shell.png",
     getLegalShellScreenshotOptions(page),
   );
 
   expect(directLoadState).toEqual(clientNavigationState);
-  expect(directLoadState.hasRoutedMain).toBe(true);
+  expect(directLoadState.hasWorkspaceMain).toBe(true);
   expect(directLoadState.title).toBe("Terms of Service | noter");
 });

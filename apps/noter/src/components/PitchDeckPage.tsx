@@ -452,11 +452,11 @@ function PitchDeckSurface({ mode }: { mode: PitchDeckMode }) {
 
 function resolvePageFrameClasses(mode: PitchDeckMode): string {
   if (mode === "print") {
-    return "bg-background text-foreground h-[7.5in] w-[13.333in] overflow-hidden";
+    return "h-[720px] w-[1280px] overflow-hidden bg-background text-foreground";
   }
 
   if (mode === "printMobile") {
-    return "bg-background text-foreground h-[13.333in] w-[7.5in] overflow-hidden";
+    return "h-[1280px] w-[720px] overflow-hidden bg-background text-foreground";
   }
 
   return "bg-background text-foreground min-h-screen px-4 py-6 sm:px-6 sm:py-8";

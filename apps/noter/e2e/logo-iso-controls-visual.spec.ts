@@ -681,7 +681,7 @@ test("logo iso controls mobile boot", async ({ page }) => {
 
   const workspace = page.locator('[data-workspace-layout-v2="mobile"]');
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
-  await expect(workspace).toHaveAttribute("data-mobile-pane", "left");
+  await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
   await expect(controlsSidebar).toContainText("Cube side");
   await expect(controlsSidebar).toContainText("6px");
   await expect(page.getByRole("button", { name: "Controls" })).toHaveCount(0);
@@ -699,14 +699,9 @@ test("logo view mobile header omits the controls sidebar button", async ({ page 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
   const mainHeader = page.getByTestId("workspace-layout-v2-main-pane-header");
 
-  await expect(workspace).toHaveAttribute("data-mobile-pane", "left");
-  await expect(controlsSidebar).toContainText("Pages");
-
-  await carousel.evaluate((element) => {
-    element.scrollLeft = 256;
-    element.dispatchEvent(new Event("scroll", { bubbles: true }));
-  });
   await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
+  await expect(controlsSidebar).toContainText("Pages");
+  await expect(carousel).toBeVisible();
   await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toHaveCount(0);
 
   await expect(mainHeader).toHaveScreenshot("logo-mobile-main-header.png", {

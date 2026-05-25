@@ -179,6 +179,10 @@ test("landing markdown preview sidebar hash links keep the mobile sidebar open",
 
   const sidebar = page.getByTestId(LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID);
   const firstVideo = page.locator(`video[src="${expectedLandingPreviewVideoSrcs[0]}"]`);
+  await expect(page.locator('[data-workspace-layout-v2="mobile"]')).toHaveAttribute(
+    "data-mobile-pane",
+    "left",
+  );
   await expect(sidebar).toBeVisible();
   await expectSidebarLinksToMatchMarkdown(sidebar);
   await expect(firstVideo).toBeVisible();

@@ -38,10 +38,10 @@ export function WorkspaceLayoutV2FixtureFrame({
     <AppWorkspaceRouteChrome
       dataTestId={dataTestId}
       headerAccessory={main.headerAccessory}
-      left={left}
+      left={left ?? null}
       mobileMinResizeBehavior={mobileMinResizeBehavior}
       panel={panel}
-      right={right}
+      right={right ?? null}
       shortcutPaneSide={shortcutPaneSide}
       showMobileResizeGripDots={showMobileResizeGripDots}
     >
