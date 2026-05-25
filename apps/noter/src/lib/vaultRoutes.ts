@@ -1,3 +1,6 @@
+import { buildVaultAppRootSearchValue } from "../../shared/vaultAppRoot";
+import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
+
 export function decodeRouteSegmentSafe(segment: string): string {
   try {
     return decodeURIComponent(segment);
@@ -40,12 +43,19 @@ export function buildVaultFileRoute(args: {
 }
 
 export interface VaultCodespaceChatRouteArgs {
+  appRoot?: string;
   repositoryFullName: string;
   branch: string;
 }
 
 export function buildVaultCodespaceChatRoute(args: VaultCodespaceChatRouteArgs): string {
-  return `/vault/${args.repositoryFullName}/codespace/${encodeVaultBranchSegment(args.branch)}/chat`;
+  const pathname = `/vault/${args.repositoryFullName}/codespace/${encodeVaultBranchSegment(args.branch)}/chat`;
+  const appRoot =
+    typeof args.appRoot === "string" ? buildVaultAppRootSearchValue(args.appRoot) : undefined;
+  return buildPathWithTanStackSearch({
+    pathname,
+    search: typeof appRoot === "string" ? { appRoot } : {},
+  });
 }
 
 export function isChatOnlyCodespaceRoute(pathname: string): boolean {

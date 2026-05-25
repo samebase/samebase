@@ -91,6 +91,7 @@ describe("VaultBranchLinkContent", () => {
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="noter-md/noter"
+          appRoot="."
           branch={{
             name: "codex/dashboard branch-link",
             headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
@@ -114,6 +115,7 @@ describe("VaultBranchLinkContent", () => {
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="noter-md/noter"
+          appRoot="."
           cloudflareWorkersDevUrl="https://tmp-flow.nicuchiciuc.workers.dev"
           branch={{
             name: "main",
@@ -133,6 +135,28 @@ describe("VaultBranchLinkContent", () => {
     expect(markup.indexOf(">https://tmp-flow.nicuchiciuc.workers.dev<")).toBeLessThan(
       markup.indexOf(">main<"),
     );
+  });
+
+  it("keeps non-root app roots in Noter edit links", () => {
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider>
+        <VaultBranchLinkContent
+          repositoryFullName="noter-md/noter"
+          appRoot="apps/noter"
+          branch={{
+            name: "main",
+            headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
+            isDefault: true,
+            isProtected: false,
+            lastSyncedAt: 0,
+            remoteState: "active",
+          }}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain('href="/vault/noter-md/noter/main?appRoot=apps%2Fnoter"');
+    expect(markup).toContain("Edit");
   });
 });
 

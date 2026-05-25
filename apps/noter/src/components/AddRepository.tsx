@@ -7,7 +7,7 @@ import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
-import { useState, type ReactElement } from "react";
+import { useMemo, useState, type ReactElement } from "react";
 import { linkStyle } from "./styles";
 import type { FunctionReturnType } from "convex/server";
 import { isInIframe } from "@/authClient";
@@ -19,6 +19,7 @@ import {
 } from "@/lib/repositorySearch";
 import { resolveDisplayedRepositories } from "@/lib/addRepositoryPicker";
 import { queueExistingRepositoryAndNavigateToDashboard } from "@/lib/existingRepositoryConnectHandoff";
+import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 
 type Repository = FunctionReturnType<typeof api.github.listRepositories>[number];
 
@@ -29,8 +30,19 @@ type AddRepositoryRow = {
   searchMatch: RepositorySearchMatch;
 };
 
+type AddRepositoryAppRootValidation =
+  | {
+      state: "valid";
+      value: string;
+    }
+  | {
+      state: "invalid";
+      message: string;
+    };
+
 type AddRepositoryPageContentProps = {
   appRoot: string;
+  appRootError: string | null;
   connectingRepositoryFullName: string | null;
   emptyRepositoryMessage: string | null;
   error: string | null;
@@ -73,6 +85,17 @@ function formatTimeAgo(timestamp: number) {
   return `${days}d ago`;
 }
 
+function validateAddRepositoryAppRoot(value: string): AddRepositoryAppRootValidation {
+  try {
+    return { state: "valid", value: normalizeVaultAppRoot(value) };
+  } catch (error) {
+    return {
+      state: "invalid",
+      message: error instanceof Error ? error.message : "Invalid app root.",
+    };
+  }
+}
+
 function renderHighlightedText(target: string, matchedIndices: number[]): ReactElement {
   if (matchedIndices.length === 0) {
     return <span>{target}</span>;
@@ -110,6 +133,7 @@ export function AddRepository() {
   const vaults = useQuery(api.vault.dashboard.getUserVaults);
   const [searchQuery, setSearchQuery] = useState("");
   const [appRoot, setAppRoot] = useState(".");
+  const appRootValidation = useMemo(() => validateAddRepositoryAppRoot(appRoot), [appRoot]);
   const [retryingFullRepositories, setRetryingFullRepositories] = useState(false);
   const listRepositoriesPreview = useAction(api.github.listRepositoriesPreview);
   const listRepositories = useAction(api.github.listRepositories);
@@ -191,11 +215,14 @@ export function AddRepository() {
       : null);
 
   const connectedVaults = vaults || [];
+  const normalizedAppRoot = appRootValidation.state === "valid" ? appRootValidation.value : null;
 
   const filteredRepositories = repositories.flatMap((repo: Repository) => {
     const isConnected = connectedVaults.some(
       (vault: (typeof connectedVaults)[number]) =>
-        vault.repositoryFullName === repo.full_name && vault.appRoot === appRoot.trim(),
+        normalizedAppRoot !== null &&
+        vault.repositoryFullName === repo.full_name &&
+        vault.appRoot === normalizedAppRoot,
     );
     if (isConnected) {
       return [];
@@ -244,6 +271,10 @@ export function AddRepository() {
     if (connectingRepositoryFullName !== null) {
       return;
     }
+    if (appRootValidation.state === "invalid") {
+      setConnectError(appRootValidation.message);
+      return;
+    }
 
     void (async () => {
       setConnectError(null);
@@ -251,7 +282,7 @@ export function AddRepository() {
       try {
         await queueExistingRepositoryAndNavigateToDashboard({
           connectRepository,
-          appRoot,
+          appRoot: appRootValidation.value,
           repositoryFullName,
           search: location.search,
           navigateByHref: async (href) => {
@@ -274,6 +305,7 @@ export function AddRepository() {
     <AddRepositoryPageContent
       connectingRepositoryFullName={connectingRepositoryFullName}
       appRoot={appRoot}
+      appRootError={appRootValidation.state === "invalid" ? appRootValidation.message : null}
       emptyRepositoryMessage={emptyRepositoryMessage}
       error={error}
       githubConnected={githubConnected}
@@ -296,6 +328,7 @@ export function AddRepository() {
 
 export function AddRepositoryPageContent({
   appRoot,
+  appRootError,
   connectingRepositoryFullName,
   emptyRepositoryMessage,
   error,
@@ -364,6 +397,7 @@ export function AddRepositoryPageContent({
             className="mt-3 max-w-md"
           />
         )}
+        {appRootError ? <p className="mt-1 text-xs text-red-600">{appRootError}</p> : null}
         {githubConnected && (
           <>
             <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
@@ -476,7 +510,7 @@ export function AddRepositoryPageContent({
                         size="sm"
                         className="mt-2"
                         onClick={() => onConnectRepository(repo.full_name)}
-                        disabled={connectingRepositoryFullName !== null}
+                        disabled={connectingRepositoryFullName !== null || appRootError !== null}
                       >
                         {connectingRepositoryFullName === repo.full_name
                           ? "Connecting..."

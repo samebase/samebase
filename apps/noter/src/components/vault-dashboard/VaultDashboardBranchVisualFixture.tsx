@@ -20,6 +20,7 @@ export function VaultDashboardBranchVisualFixture() {
             <TestRouterProvider>
               <VaultBranchLinkContent
                 repositoryFullName="noter-md/noter"
+                appRoot="."
                 branch={{
                   name: "codex/draft-pr-button",
                   headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",

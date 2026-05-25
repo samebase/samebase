@@ -112,6 +112,8 @@ import {
   validateAppResourceName,
 } from "../../../shared/appResourceNames";
 import { toSafeRepoName } from "../../../shared/repoName";
+import { buildVaultAppRootSearchValue } from "../../../shared/vaultAppRoot";
+import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
@@ -1847,6 +1849,7 @@ interface StagedSummary {
 interface VaultBranchLinkRowProps {
   vaultId?: Id<"vaults">;
   repositoryFullName: string;
+  appRoot: string;
   branch: VaultRemoteBranchListItem;
   cloudflareWorkersDevUrl?: string;
   productionDeploymentDashboardUrl?: string;
@@ -1881,6 +1884,7 @@ const REPOSITORY_EXTERNAL_LINK_ICONS: Record<
 
 function buildVaultDashboardBranchEditRoute(args: {
   repositoryFullName: string;
+  appRoot: string;
   branchName: string;
 }): string | null {
   const [owner, repoName, extraSegment] = args.repositoryFullName.split("/");
@@ -1895,10 +1899,15 @@ function buildVaultDashboardBranchEditRoute(args: {
     return null;
   }
 
-  return buildVaultFileRoute({
+  const pathname = buildVaultFileRoute({
     owner,
     repoName,
     branch: args.branchName,
+  });
+  const appRoot = buildVaultAppRootSearchValue(args.appRoot);
+  return buildPathWithTanStackSearch({
+    pathname,
+    search: typeof appRoot === "string" ? { appRoot } : {},
   });
 }
 
@@ -1946,11 +1955,13 @@ export function VaultDashboardRepositoryExternalLinks({
 
 export function VaultBranchLinkContent({
   repositoryFullName,
+  appRoot,
   branch,
   cloudflareWorkersDevUrl,
   productionDeploymentDashboardUrl,
 }: {
   repositoryFullName: string;
+  appRoot: string;
   branch: VaultRemoteBranchListItem;
   cloudflareWorkersDevUrl?: string;
   productionDeploymentDashboardUrl?: string;
@@ -1988,6 +1999,7 @@ export function VaultBranchLinkContent({
   );
   const branchEditRoute = buildVaultDashboardBranchEditRoute({
     repositoryFullName,
+    appRoot,
     branchName: branch.name,
   });
   const hasCurrentPreviewLink = hasCurrentCloudflareBranchPreview({
@@ -2237,6 +2249,7 @@ export function VaultBranchLinkContent({
 export function VaultBranchLinkRow({
   vaultId,
   repositoryFullName,
+  appRoot,
   branch,
   cloudflareWorkersDevUrl,
   productionDeploymentDashboardUrl,
@@ -2254,6 +2267,7 @@ export function VaultBranchLinkRow({
     >
       <VaultBranchLinkContent
         repositoryFullName={repositoryFullName}
+        appRoot={appRoot}
         branch={branch}
         cloudflareWorkersDevUrl={cloudflareWorkersDevUrl}
         productionDeploymentDashboardUrl={productionDeploymentDashboardUrl}
@@ -2279,6 +2293,7 @@ export function VaultBranchLinkRow({
 interface VaultBranchListProps {
   vaultId: Id<"vaults">;
   repositoryFullName: string;
+  appRoot: string;
   remoteBranches: VaultRemoteBranchListItem[];
   cloudflareWorkersDevUrl?: string;
   productionDeploymentDashboardUrl?: string;
@@ -2322,6 +2337,7 @@ export function VaultBranchListExpansionControl({
 function VaultBranchList({
   vaultId,
   repositoryFullName,
+  appRoot,
   remoteBranches,
   cloudflareWorkersDevUrl,
   productionDeploymentDashboardUrl,
@@ -2345,6 +2361,7 @@ function VaultBranchList({
           branch={branch}
           vaultId={vaultId}
           repositoryFullName={repositoryFullName}
+          appRoot={appRoot}
           stagedSummary={summaryByBranch.get(branch.name)}
           cloudflareWorkersDevUrl={branch.isDefault ? cloudflareWorkersDevUrl : undefined}
           productionDeploymentDashboardUrl={
@@ -2394,6 +2411,7 @@ export function VaultBranchHeaderControls({
 }
 
 function VaultBranchSection({
+  appRoot,
   cloudflareWorkersDevUrl,
   filteredBranchCount,
   productionDeploymentDashboardUrl,
@@ -2401,6 +2419,7 @@ function VaultBranchSection({
   vaultId,
   visibleRemoteBranches,
 }: {
+  appRoot: string;
   cloudflareWorkersDevUrl?: string;
   filteredBranchCount: number;
   productionDeploymentDashboardUrl?: string;
@@ -2414,6 +2433,7 @@ function VaultBranchSection({
         <VaultBranchList
           vaultId={vaultId}
           repositoryFullName={repositoryFullName}
+          appRoot={appRoot}
           remoteBranches={visibleRemoteBranches}
           cloudflareWorkersDevUrl={cloudflareWorkersDevUrl}
           productionDeploymentDashboardUrl={productionDeploymentDashboardUrl}
@@ -3109,6 +3129,7 @@ function VaultDashboardBody({
           primaryBranch && !isDeletingVault
             ? buildVaultCodespaceChatRoute({
                 repositoryFullName: vault.repositoryFullName,
+                appRoot: vault.appRoot,
                 branch: primaryBranch,
               })
             : null;
@@ -3218,31 +3239,38 @@ function VaultDashboardBody({
                 isDeletingVault ? undefined : <VaultResourceRail state={resourceRailState} />
               }
               titleSuffix={
-                deletion.state === "deleting" ? (
-                  <>
-                    <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+                <>
+                  {vault.appRoot !== "." ? (
                     <span className="shrink-0 text-xs font-normal text-muted-foreground">
-                      (deleting...)
+                      {vault.appRoot}
                     </span>
-                  </>
-                ) : deletion.state === "delete_failed" ? (
-                  <span className="shrink-0 text-xs font-normal text-destructive">
-                    (delete failed)
-                  </span>
-                ) : vault.sourceSetup.status === "failed" ? (
-                  <span className="shrink-0 text-xs font-normal text-destructive">
-                    (setup failed)
-                  </span>
-                ) : vault.state === "failed" ? (
-                  <span className="shrink-0 text-xs font-normal text-destructive">(failed)</span>
-                ) : !isReady ? (
-                  <>
-                    <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
-                    <span className="shrink-0 text-xs font-normal text-muted-foreground">
-                      (setting up...)
+                  ) : null}
+                  {deletion.state === "deleting" ? (
+                    <>
+                      <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+                      <span className="shrink-0 text-xs font-normal text-muted-foreground">
+                        (deleting...)
+                      </span>
+                    </>
+                  ) : deletion.state === "delete_failed" ? (
+                    <span className="shrink-0 text-xs font-normal text-destructive">
+                      (delete failed)
                     </span>
-                  </>
-                ) : undefined
+                  ) : vault.sourceSetup.status === "failed" ? (
+                    <span className="shrink-0 text-xs font-normal text-destructive">
+                      (setup failed)
+                    </span>
+                  ) : vault.state === "failed" ? (
+                    <span className="shrink-0 text-xs font-normal text-destructive">(failed)</span>
+                  ) : !isReady ? (
+                    <>
+                      <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+                      <span className="shrink-0 text-xs font-normal text-muted-foreground">
+                        (setting up...)
+                      </span>
+                    </>
+                  ) : null}
+                </>
               }
               setupSection={setupSection}
               topRightAction={
@@ -3295,6 +3323,7 @@ function VaultDashboardBody({
               branchSection={
                 isReady && branchSectionState.filteredRemoteBranches.length > 0 ? (
                   <VaultBranchSection
+                    appRoot={vault.appRoot}
                     filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
                     vaultId={vault._id}
                     repositoryFullName={vault.repositoryFullName}

@@ -11,12 +11,14 @@ describe("fileViewRouteSearch", () => {
   it("accepts routed file-view flags and mobile line numbers", () => {
     expect(
       validateFileViewRouteSearch({
+        appRoot: "apps\\noter/",
         compare: "",
         diff: "true",
         mobileLineNumbers: "1",
         review: true,
       }),
     ).toEqual({
+      appRoot: "apps/noter",
       compare: true,
       diff: true,
       mobileLineNumbers: "1",
@@ -69,6 +71,16 @@ describe("fileViewRouteSearch", () => {
       diff: null,
       review: true,
     });
+  });
+
+  it("preserves app-root identity while changing file-view flags", () => {
+    expect(
+      stringifyTanStackSearch(
+        mergeFileViewRouteSearch(parseTanStackSearch("?appRoot=apps%2Fnoter&compare"), {
+          diff: true,
+        }),
+      ),
+    ).toBe("?appRoot=apps%2Fnoter&diff");
   });
 
   it("updates file-view keys while preserving unrelated query params", () => {

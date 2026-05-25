@@ -410,6 +410,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
                       key={branchRow.branch.name}
                       vaultId={fakeVaultId()}
                       repositoryFullName="noter-md/noter"
+                      appRoot="."
                       branch={branchRow.branch}
                       productionDeploymentDashboardUrl={branchRow.productionDeploymentDashboardUrl}
                     />
@@ -818,6 +819,7 @@ function VaultDashboardBottomTargetScrollFixture() {
                               key={branchRow.branch.name}
                               vaultId={fakeVaultId()}
                               repositoryFullName="noter-md/noter-bottom-target"
+                              appRoot="."
                               branch={branchRow.branch}
                             />
                           ))}
@@ -899,6 +901,7 @@ function VaultDashboardStickyHeaderFixture() {
                       key={branch.name}
                       vaultId={fakeVaultId()}
                       repositoryFullName="noter-md/noter"
+                      appRoot="."
                       branch={branch}
                     />
                   ))}
@@ -1148,6 +1151,7 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
                     <VaultBranchLinkRow
                       vaultId={fakeVaultId()}
                       repositoryFullName="noter-md/noter"
+                      appRoot="."
                       branch={fixtureVaultBranch({
                         name: "main",
                         headCommitSha: "1234567890abcdef1234567890abcdef12345678",
@@ -1160,6 +1164,7 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
                     <VaultBranchLinkRow
                       vaultId={fakeVaultId()}
                       repositoryFullName="noter-md/noter"
+                      appRoot="."
                       branch={fixtureVaultBranch({
                         name: "codex/mobile-branch-card-spacing",
                         headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
@@ -1255,6 +1260,7 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
                     <VaultBranchLinkRow
                       vaultId={fakeVaultId()}
                       repositoryFullName="noter-md/noter"
+                      appRoot="."
                       branch={fixtureVaultBranch({
                         name: "codex/branch-filters",
                         headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
@@ -1291,6 +1297,7 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
           <VaultBranchLinkRow
             vaultId={fakeVaultId()}
             repositoryFullName="octo/repo"
+            appRoot="."
             branch={fixtureVaultBranch({
               name: "feature/pr-labels",
               headCommitSha: "1234567890abcdef1234567890abcdef12345678",

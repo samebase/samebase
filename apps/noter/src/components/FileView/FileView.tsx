@@ -87,6 +87,7 @@ import {
   shouldShowCompareBackToEditor,
 } from "@/lib/fileViewReview";
 import {
+  buildFileViewAppRootSearch,
   buildFileViewSearchHref,
   buildFileViewRouteSearch,
   mergeFileViewRouteSearch,
@@ -136,13 +137,14 @@ function FileViewWrapper() {
   const routeBranch = branchParam;
   const selectedFile = filePathParam ?? "";
   const repositoryFullName = owner && repoName ? `${owner}/${repoName}` : null;
+  const appRoot = routeSearch.appRoot ?? ".";
 
   // Get vault for this repository
   // TODO: Keep vault existence checks on live query until useCacheQuery exposes
   // freshness metadata (cached null can trigger a false redirect to dashboard).
   const vault = useLiveQuery(api.vault.records.getVaultByRepository, {
     repositoryFullName: repositoryFullName ?? "skip",
-    appRoot: ".",
+    appRoot,
     branch: routeBranch,
   });
   const githubConnection = useLiveQuery(api.users.getGithubConnectionStatus);
@@ -291,7 +293,7 @@ function FileViewWrapper() {
       try {
         await queueExistingRepositoryAndNavigateToDashboard({
           connectRepository,
-          appRoot: ".",
+          appRoot,
           navigateByHref,
           repositoryFullName,
           replace: true,
@@ -309,6 +311,7 @@ function FileViewWrapper() {
     })();
   }, [
     connectRepository,
+    appRoot,
     isConnectingRepository,
     location.search,
     navigateByHref,
@@ -1148,6 +1151,7 @@ function FileViewInner({
         filePath: path.length > 0 ? path : undefined,
       });
       const nextFileViewSearch = {
+        ...buildFileViewAppRootSearch(vault.appRoot),
         ...buildFileViewRouteSearch({
           review: preserveReviewOnMount,
           diff: includeDiff,
@@ -1169,6 +1173,7 @@ function FileViewInner({
       routeSearch.compare,
       routeSearch.diff,
       routeSearch.review,
+      vault.appRoot,
     ],
   );
   const {
