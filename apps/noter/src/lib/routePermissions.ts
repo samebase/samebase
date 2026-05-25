@@ -8,11 +8,19 @@ export type NoterRoutePermission = "public" | "admin";
 
 export type NoterRouteSearchParamValueKind = "presence" | "value";
 
-export type NoterRouteSearchParamSuggestion<Key extends string = string> = {
+type NoterRouteSearchParamSuggestionBase<Key extends string> = {
   key: Key;
   permission: NoterRoutePermission;
-  valueKind: NoterRouteSearchParamValueKind;
 };
+
+export type NoterRouteSearchParamSuggestion<Key extends string = string> =
+  | (NoterRouteSearchParamSuggestionBase<Key> & {
+      valueKind: "presence";
+    })
+  | (NoterRouteSearchParamSuggestionBase<Key> & {
+      valueKind: "value";
+      valueSuggestions: readonly string[];
+    });
 
 export type NoterRouteStaticData = {
   availableOn?: NoterRouteAvailability;

@@ -126,8 +126,18 @@ const rootRouteSearchParamMetadata = {
     suggestion: "route",
     valueKind: "presence",
   },
-  "auth-return": { permission: "public", suggestion: "hidden", valueKind: "value" },
-  auth: { permission: "public", suggestion: "route", valueKind: "value" },
+  "auth-return": {
+    permission: "public",
+    suggestion: "hidden",
+    valueKind: "value",
+    valueSuggestions: ["dashboard"],
+  },
+  auth: {
+    permission: "public",
+    suggestion: "route",
+    valueKind: "value",
+    valueSuggestions: ["google"],
+  },
   base: { permission: "public", suggestion: "hidden", valueKind: "value" },
   background: globalLogoRouteSearchParam("background"),
   border: globalLogoRouteSearchParam("border"),
@@ -169,7 +179,12 @@ const rootRouteSearchParamMetadata = {
     valueKind: "presence",
   },
   secondary: globalLogoRouteSearchParam("secondary"),
-  signup: { permission: "public", suggestion: "route", valueKind: "value" },
+  signup: {
+    permission: "public",
+    suggestion: "route",
+    valueKind: "value",
+    valueSuggestions: ["google"],
+  },
   top: globalLogoRouteSearchParam("top"),
 } as const satisfies RouteSearchParamMetadataByKey<RootRouteSearch>;
 

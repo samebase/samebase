@@ -11,7 +11,7 @@ import {
   clampLogoFractalDepthForRenderer,
   type LogoDepthRenderer,
 } from "@/components/logo/logoDepthLimits";
-import { type LogoThemeColors } from "@/components/logo/logoTailwindColors";
+import { type LogoColorToken, type LogoThemeColors } from "@/components/logo/logoTailwindColors";
 import {
   DEFAULT_LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
@@ -81,6 +81,32 @@ const LOGO_ISOMETRIC_STYLE_VALUES = [
   "cap-3",
   "cap-4",
 ] as const satisfies readonly LogoIsometricStyleId[];
+
+const LOGO_GRID_SIZE_VALUE_SUGGESTIONS = [`${LOGO_GRID_SIZE_2}`, `${LOGO_GRID_SIZE_3}`] as const;
+
+const LOGO_THEME_COLOR_VALUE_SUGGESTIONS = [
+  "primary-base",
+  "secondary-base",
+  "background-base",
+  "border-base",
+  "red-500",
+  "orange-500",
+  "amber-400",
+  "yellow-300",
+  "green-500",
+  "emerald-400",
+  "cyan-400",
+  "sky-500",
+  "blue-500",
+  "indigo-500",
+  "violet-500",
+  "purple-500",
+  "fuchsia-500",
+  "pink-500",
+  "rose-500",
+  "white-base",
+  "black-base",
+] as const satisfies readonly LogoColorToken[];
 
 const logoGridSizeSchema = z.union([z.literal(LOGO_GRID_SIZE_2), z.literal(LOGO_GRID_SIZE_3)]);
 
@@ -239,9 +265,24 @@ export type LogoRouteSearchBuildState = {
 };
 
 export const LOGO_ROUTE_SEARCH_PARAM_METADATA = {
-  axis: { permission: "public", suggestion: "route", valueKind: "value" },
-  background: { permission: "public", suggestion: "hidden", valueKind: "value" },
-  border: { permission: "public", suggestion: "hidden", valueKind: "value" },
+  axis: {
+    permission: "public",
+    suggestion: "route",
+    valueKind: "value",
+    valueSuggestions: LOGO_ROTATION_AXIS_MODE_VALUES,
+  },
+  background: {
+    permission: "public",
+    suggestion: "hidden",
+    valueKind: "value",
+    valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,
+  },
+  border: {
+    permission: "public",
+    suggestion: "hidden",
+    valueKind: "value",
+    valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,
+  },
   dark: {
     parseKind: "presence",
     permission: "public",
@@ -263,21 +304,51 @@ export const LOGO_ROUTE_SEARCH_PARAM_METADATA = {
     suggestion: "route",
     valueKind: "presence",
   },
-  gridSize: { permission: "public", suggestion: "route", valueKind: "value" },
+  gridSize: {
+    permission: "public",
+    suggestion: "route",
+    valueKind: "value",
+    valueSuggestions: LOGO_GRID_SIZE_VALUE_SUGGESTIONS,
+  },
   isoSide: { permission: "public", suggestion: "route", valueKind: "value" },
-  isoStyle: { permission: "public", suggestion: "route", valueKind: "value" },
-  leftFace: { permission: "public", suggestion: "route", valueKind: "value" },
+  isoStyle: {
+    permission: "public",
+    suggestion: "route",
+    valueKind: "value",
+    valueSuggestions: LOGO_ISOMETRIC_STYLE_VALUES,
+  },
+  leftFace: {
+    permission: "public",
+    suggestion: "route",
+    valueKind: "value",
+    valueSuggestions: LOGO_LEFT_FACE_STYLE_KINDS,
+  },
   light: {
     parseKind: "presence",
     permission: "public",
     suggestion: "hidden",
     valueKind: "presence",
   },
-  primary: { permission: "public", suggestion: "hidden", valueKind: "value" },
+  primary: {
+    permission: "public",
+    suggestion: "hidden",
+    valueKind: "value",
+    valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,
+  },
   rot: { permission: "public", suggestion: "route", valueKind: "value" },
-  secondary: { permission: "public", suggestion: "hidden", valueKind: "value" },
+  secondary: {
+    permission: "public",
+    suggestion: "hidden",
+    valueKind: "value",
+    valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,
+  },
   stripeA: { permission: "public", suggestion: "route", valueKind: "value" },
-  stripeBasis: { permission: "public", suggestion: "route", valueKind: "value" },
+  stripeBasis: {
+    permission: "public",
+    suggestion: "route",
+    valueKind: "value",
+    valueSuggestions: LOGO_LEFT_FACE_STRIPE_BASIS_VALUES,
+  },
   stripeG: { permission: "public", suggestion: "route", valueKind: "value" },
   stripeLink: {
     parseKind: "presence",
@@ -287,7 +358,12 @@ export const LOGO_ROUTE_SEARCH_PARAM_METADATA = {
   },
   stripeO: { permission: "public", suggestion: "route", valueKind: "value" },
   stripeW: { permission: "public", suggestion: "route", valueKind: "value" },
-  top: { permission: "public", suggestion: "hidden", valueKind: "value" },
+  top: {
+    permission: "public",
+    suggestion: "hidden",
+    valueKind: "value",
+    valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,
+  },
   vox: { permission: "public", suggestion: "route", valueKind: "value" },
 } as const satisfies RouteSearchParamMetadataByKey<LogoRouteSearch>;
 

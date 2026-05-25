@@ -40,6 +40,7 @@ const landingMarkdownPreviewRouteSearchParamMetadata = {
     permission: "admin",
     suggestion: "route",
     valueKind: "value",
+    valueSuggestions: LANDING_MARKDOWN_PREVIEW_LANGUAGES,
   },
 } as const satisfies RouteSearchParamMetadataByKey<LandingMarkdownPreviewRouteSearch>;
 

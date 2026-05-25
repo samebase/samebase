@@ -56,7 +56,12 @@ const pricingRouteSearchSchema = z.object({
 export type PricingRouteSearch = z.infer<typeof pricingRouteSearchSchema>;
 
 const pricingRouteSearchParamMetadata = {
-  checkout: { permission: "admin", suggestion: "route", valueKind: "value" },
+  checkout: {
+    permission: "admin",
+    suggestion: "route",
+    valueKind: "value",
+    valueSuggestions: pricingCheckoutValues,
+  },
 } as const satisfies RouteSearchParamMetadataByKey<PricingRouteSearch>;
 
 export const PRICING_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(

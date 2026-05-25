@@ -2,6 +2,8 @@ import { describe, expect, it } from "vite-plus/test";
 import { getRouter } from "@/router";
 import {
   applyRouteUrlEditorSuggestion,
+  isRouteUrlEditorRouteUpdateReady,
+  readRouteUrlEditorRouteUpdateDraft,
   readRouteUrlEditorSuggestionKind,
   readRouteUrlEditorSuggestions,
 } from "./routeUrlEditorSuggestions";
@@ -23,6 +25,14 @@ describe("readRouteUrlEditorSuggestionKind", () => {
     );
     expect(readRouteUrlEditorSuggestionKind(routeAddress, routeAddress.indexOf("#") + 1)).toBe(
       "hash",
+    );
+  });
+
+  it("switches to search value suggestions after =", () => {
+    const routeAddress = "/logo?leftFace=";
+
+    expect(readRouteUrlEditorSuggestionKind(routeAddress, routeAddress.length)).toBe(
+      "search-value",
     );
   });
 });
@@ -58,6 +68,38 @@ describe("readRouteUrlEditorSuggestions", () => {
     });
 
     expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["?dev", "?devtools"]);
+  });
+
+  it("formats matching search params after an existing token", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?dev&left",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?dev&left".length,
+      viewer: publicViewer,
+    });
+
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["&leftFace="]);
+  });
+
+  it("suggests matching search param values after =", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?leftFace=s",
+      hashKeys: [],
+      kind: "search-value",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?leftFace=s".length,
+      viewer: publicViewer,
+    });
+
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["secondary", "striped"]);
   });
 
   it("hides signed-in dashboard search params from the public landing route", () => {
@@ -192,6 +234,50 @@ describe("readRouteUrlEditorSuggestions", () => {
   });
 });
 
+describe("isRouteUrlEditorRouteUpdateReady", () => {
+  function readRouteUpdateDraft(draftRouteAddress: string): string {
+    return readRouteUrlEditorRouteUpdateDraft({
+      currentHref: "/logo",
+      draftRouteAddress,
+      origin: ORIGIN,
+      routesByPath,
+      viewer: publicViewer,
+    });
+  }
+
+  function isReady(draftRouteAddress: string): boolean {
+    return isRouteUrlEditorRouteUpdateReady({
+      currentHref: "/logo",
+      draftRouteAddress,
+      origin: ORIGIN,
+      routesByPath,
+      viewer: publicViewer,
+    });
+  }
+
+  it("keeps unfinished valued search params local", () => {
+    expect(isReady("/logo?ro")).toBe(false);
+    expect(isReady("/logo?rot")).toBe(false);
+    expect(isReady("/logo?rot=")).toBe(false);
+    expect(isReady("/logo?left")).toBe(false);
+    expect(isReady("/logo?leftFace=s")).toBe(false);
+  });
+
+  it("allows presence params and complete valued search params", () => {
+    expect(isReady("/logo?dark")).toBe(true);
+    expect(isReady("/logo?rot=10")).toBe(true);
+    expect(isReady("/logo?leftFace=secondary")).toBe(true);
+  });
+
+  it("removes unfinished known search tokens from route updates", () => {
+    expect(readRouteUpdateDraft("/logo?dark&rot=")).toBe("/logo?dark");
+    expect(readRouteUpdateDraft("/logo?leftFace=s#top")).toBe("/logo#top");
+    expect(readRouteUpdateDraft("/logo?leftFace=secondary&stripeBasis=v")).toBe(
+      "/logo?leftFace=secondary",
+    );
+  });
+});
+
 describe("applyRouteUrlEditorSuggestion", () => {
   it("edits only the active URL section", () => {
     expect(
@@ -214,6 +300,18 @@ describe("applyRouteUrlEditorSuggestion", () => {
         },
       }),
     ).toBe("/logo?devtools#top");
+
+    expect(
+      applyRouteUrlEditorSuggestion({
+        routeAddress: "/logo?leftFace=s#top",
+        selectionRouteIndex: "/logo?leftFace=s".length,
+        suggestion: {
+          key: "leftFace=secondary",
+          kind: "search-value",
+          value: "secondary",
+        },
+      }),
+    ).toBe("/logo?leftFace=secondary#top");
 
     expect(
       applyRouteUrlEditorSuggestion({

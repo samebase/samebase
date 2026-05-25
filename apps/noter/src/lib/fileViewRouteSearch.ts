@@ -39,7 +39,12 @@ const fileViewRouteSearchParamMetadata = {
     suggestion: "route",
     valueKind: "presence",
   },
-  mobileLineNumbers: { permission: "admin", suggestion: "route", valueKind: "value" },
+  mobileLineNumbers: {
+    permission: "admin",
+    suggestion: "route",
+    valueKind: "value",
+    valueSuggestions: ["1"],
+  },
   review: {
     parseKind: "presence",
     permission: "admin",
