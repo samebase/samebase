@@ -37,8 +37,8 @@ function VisualFixtureRouteComponent() {
   }
 
   return (
-    <Layout dataTestId="visual-fixture-route">
-      <PublicLayoutShell dataTestId="visual-fixture-workspace" showRightSidebar={false}>
+    <Layout>
+      <PublicLayoutShell showRightSidebar={false}>
         <VisualFixturePage />
       </PublicLayoutShell>
     </Layout>

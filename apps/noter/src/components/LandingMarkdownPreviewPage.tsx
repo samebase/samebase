@@ -384,7 +384,6 @@ export function LandingMarkdownPreviewPage({
 }) {
   return (
     <PublicLayoutShell
-      defaultLeftOpen
       defaultMobilePane={getLandingPreviewDefaultMobilePane()}
       left={{ content: <LandingMarkdownPreviewSidebar language={language} /> }}
     >

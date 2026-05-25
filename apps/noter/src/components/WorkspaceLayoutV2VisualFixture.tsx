@@ -21,7 +21,6 @@ export function WorkspaceLayoutV2VisualFixture() {
         ),
       }}
       main={{
-        headerTestId: "workspace-layout-v2-main-pane-header",
         content: (
           <MonacoEditorSurface
             branch="main"

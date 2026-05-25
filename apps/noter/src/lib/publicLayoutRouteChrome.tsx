@@ -1,4 +1,4 @@
-import { useContext, useLayoutEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
+import { useContext, useLayoutEffect, useRef, type ReactNode } from "react";
 import {
   PublicLayoutRouteChromeContext,
   type PublicLayoutRouteChromeConfig,
@@ -17,16 +17,6 @@ export function PublicLayoutRouteChromeProvider({
       {children}
     </PublicLayoutRouteChromeContext.Provider>
   );
-}
-
-export function PublicLayoutRouteLeftContent({ store }: { store: PublicLayoutRouteChromeStore }) {
-  const leftContent = useSyncExternalStore(
-    store.subscribeLeftContent,
-    store.getLeftContentSnapshot,
-    store.getLeftContentSnapshot,
-  );
-
-  return <>{leftContent}</>;
 }
 
 export function PublicLayoutRouteChrome({

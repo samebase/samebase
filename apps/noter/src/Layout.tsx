@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { usePublicRightSidebarPane } from "@/components/PublicRightSidebar";
 import { RouteUrlEditor } from "@/components/RouteUrlEditor";
 import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
@@ -28,46 +28,35 @@ const PUBLIC_LAYOUT_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 const PUBLIC_LAYOUT_RIGHT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 const PUBLIC_LAYOUT_DATA_TEST_ID = "public-layout-workspace";
 
-type WorkspaceLayoutV2FullPageProps = ComponentProps<typeof WorkspaceLayoutV2FullPage>;
-
 function PublicLayoutMainContent({ children }: { children?: ReactNode }) {
   return <div className="relative flex h-full min-h-0 flex-col">{children}</div>;
 }
 
 export type PublicLayoutShellProps = {
   children?: ReactNode;
-  dataTestId?: WorkspaceLayoutV2FullPageProps["dataTestId"];
-  defaultLeftOpen?: boolean;
   defaultMobilePane?: WorkspaceMobileSidebarPane;
   left?: WorkspaceLayoutV2PaneFrameProps;
-  leftToggleVisibility?: WorkspaceLayoutV2FullPageProps["leftToggleVisibility"];
   main?: WorkspaceLayoutV2PaneFrameProps;
-  rightToggleVisibility?: WorkspaceLayoutV2FullPageProps["rightToggleVisibility"];
   showRightSidebar?: boolean;
 };
 
 export function PublicLayoutShell({
   children,
-  dataTestId = PUBLIC_LAYOUT_DATA_TEST_ID,
-  defaultLeftOpen,
   defaultMobilePane,
   left,
-  leftToggleVisibility,
   main,
-  rightToggleVisibility = "desktop",
   showRightSidebar = true,
 }: PublicLayoutShellProps) {
   const hasLeftPane = left !== undefined;
-  const resolvedDefaultLeftOpen = defaultLeftOpen ?? hasLeftPane;
   const resolvedDefaultMobilePane = defaultMobilePane ?? (hasLeftPane ? "left" : "main");
-  const resolvedLeftToggleVisibility = leftToggleVisibility ?? (hasLeftPane ? "desktop" : "hidden");
+  const leftToggleVisibility = hasLeftPane ? "desktop" : "hidden";
   const location = useLocation();
   const rootRouteSearch = readRootRouteSearch(location.searchStr);
   const sidebarResetRequested = isPublicLayoutSidebarResetRequested(rootRouteSearch);
   const defaultSidebarState = useMemo(
     () =>
       ({
-        leftDesktopOpen: hasLeftPane && resolvedDefaultLeftOpen,
+        leftDesktopOpen: hasLeftPane,
         leftDesktopWidthPx: hasLeftPane
           ? PUBLIC_LAYOUT_LEFT_SIDEBAR_DEFAULT_WIDTH_PX
           : WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
@@ -80,7 +69,7 @@ export function PublicLayoutShell({
         rightDesktopWidthPx: PUBLIC_LAYOUT_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
         rightMobileWidthPx: PUBLIC_LAYOUT_RIGHT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX,
       }) satisfies WorkspaceSidebarState,
-    [hasLeftPane, resolvedDefaultLeftOpen, resolvedDefaultMobilePane],
+    [hasLeftPane, resolvedDefaultMobilePane],
   );
   const sidebarState = useLocalStorageWorkspaceSidebarState({
     defaults: defaultSidebarState,
@@ -119,8 +108,7 @@ export function PublicLayoutShell({
   // and body wrapper; an explicit header, even null, preserves caller chrome.
   const mainHeader = main?.header === undefined ? <RouteUrlEditor /> : main.header;
   const hasMainHeader = Boolean(mainHeader);
-  const layoutRightToggleVisibility =
-    hasMainHeader && showRightSidebar ? rightToggleVisibility : "hidden";
+  const rightToggleVisibility = hasMainHeader && showRightSidebar ? "desktop" : "hidden";
   const mainContent = main === undefined ? children : main.content;
   const shouldWrapMainContent = main?.header === undefined || !hasMainHeader;
   const mainPane = {
@@ -140,22 +128,18 @@ export function PublicLayoutShell({
         shortcutPaneSide="right"
       >
         <WorkspaceLayoutV2FullPage
-          dataTestId={dataTestId}
+          dataTestId={PUBLIC_LAYOUT_DATA_TEST_ID}
           left={left}
           main={mainPane}
           right={rightPane}
-          leftToggleVisibility={resolvedLeftToggleVisibility}
-          rightToggleVisibility={layoutRightToggleVisibility}
+          leftToggleVisibility={leftToggleVisibility}
+          rightToggleVisibility={rightToggleVisibility}
         />
       </WorkspacePaneRuntimeProvider>
     </PublicLandingLogoLinkProvider>
   );
 }
 
-export function Layout({ children, dataTestId }: { children: ReactNode; dataTestId?: string }) {
-  return (
-    <main data-testid={dataTestId} className="flex min-h-svh w-full flex-col bg-background">
-      {children}
-    </main>
-  );
+export function Layout({ children }: { children: ReactNode }) {
+  return <main className="flex min-h-svh w-full flex-col bg-background">{children}</main>;
 }
