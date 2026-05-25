@@ -1,4 +1,6 @@
 const approvedHosts: Record<string, string> = {
+  "nicu.json.md": "https://example.com",
+  "nicu.xml.md": "https://example.com",
   // "alice.json.md": "https://example.com",
   // "alice.xml.md": "https://example.com",
 };
