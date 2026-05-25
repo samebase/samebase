@@ -1,4 +1,5 @@
-import { routeSearchValueParam } from "@/lib/routeSearchParamMetadata";
+import { bad, good, pure } from "@samebase/sure";
+import { defineRouteSearchParams, routeSearchValueParam } from "@/lib/routeSearchParamMetadata";
 import {
   APP_THEME_COLOR_KEYS,
   DEFAULT_APP_THEME_COLORS,
@@ -20,7 +21,6 @@ import {
 } from "@/components/logo/logoTailwindColors";
 import { useDocumentThemeMode, type DocumentThemeMode } from "@/hooks/useDocumentThemeMode";
 import { useEffect, useState } from "react";
-import { z } from "zod";
 
 export const APP_THEME_COLOR_SEARCH_KEYS = APP_THEME_COLOR_KEYS;
 export const LOGO_THEME_COLOR_SEARCH_KEYS = LOGO_THEME_COLOR_KEYS;
@@ -114,45 +114,37 @@ const colorVariableSpecs = {
   }
 >;
 
-function readOptionalLogoColorToken(value: unknown): LogoColorToken | undefined {
+const logoColorTokenSearchValue = pure((value: unknown) => {
   if (typeof value !== "string") {
-    return undefined;
+    return bad("not-string");
   }
 
   const trimmedValue = value.trim();
-  return isLogoColorToken(trimmedValue) ? trimmedValue : undefined;
-}
+  return isLogoColorToken(trimmedValue) ? good(trimmedValue) : bad("not-logo-color-token");
+});
 
-const logoColorTokenSchema = z.custom<LogoColorToken>(
-  (value) => typeof value === "string" && isLogoColorToken(value),
-);
-const optionalLogoColorTokenSchema = z.preprocess(
-  readOptionalLogoColorToken,
-  logoColorTokenSchema.optional(),
-);
-
-export const appThemeColorSearchFieldSchema = z.object({
-  background: routeSearchValueParam(optionalLogoColorTokenSchema, {
+export const appThemeColorSearchFieldSchema = defineRouteSearchParams({
+  background: routeSearchValueParam(logoColorTokenSearchValue, {
     permission: "public",
     suggestion: "hidden",
     valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,
   }),
-  border: routeSearchValueParam(optionalLogoColorTokenSchema, {
+  border: routeSearchValueParam(logoColorTokenSearchValue, {
     permission: "public",
     suggestion: "hidden",
     valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,
   }),
-  primary: routeSearchValueParam(optionalLogoColorTokenSchema, {
+  primary: routeSearchValueParam(logoColorTokenSearchValue, {
     permission: "public",
     suggestion: "hidden",
     valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,
   }),
-  secondary: routeSearchValueParam(optionalLogoColorTokenSchema, {
+  secondary: routeSearchValueParam(logoColorTokenSearchValue, {
     permission: "public",
     suggestion: "hidden",
     valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,
   }),
-  top: routeSearchValueParam(optionalLogoColorTokenSchema, {
+  top: routeSearchValueParam(logoColorTokenSearchValue, {
     permission: "public",
     suggestion: "hidden",
     valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,

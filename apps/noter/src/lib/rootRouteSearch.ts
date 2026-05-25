@@ -11,89 +11,70 @@ import {
   type SearchPatch,
 } from "@/lib/routeSearchFlags";
 import {
+  defineRouteSearchParams,
+  type InferRouteSearch,
   readRouteSearchParamSuggestions,
   readRouteSearchPresenceKeys,
   readRouteSearchParamMetadata,
   routeSearchPresenceParam,
+  routeSearchStringValue,
   routeSearchValueParam,
   type RouteSearchParamMetadataByKey,
 } from "@/lib/routeSearchParamMetadata";
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
-import { z } from "zod";
 
 // TanStack Router's root route id is the stable "__root__" literal, and using
 // it directly keeps this helper on the app package boundary.
 const ROOT_ROUTE_ID = "__root__";
 
-function readOptionalGoogleAuthProvider(value: unknown): "google" | undefined {
-  return value === "google" ? "google" : undefined;
-}
-
-function readOptionalGoogleSignupReturn(value: unknown): "google" | undefined {
-  return value === "google" ? "google" : undefined;
-}
-
-function readOptionalAuthReturn(value: unknown): "dashboard" | undefined {
-  return value === "dashboard" ? "dashboard" : undefined;
-}
-
-const rootRouteSearchSchema = z.object({
-  "add-cloudflare": routeSearchPresenceParam(z.literal(true).optional(), {
+const rootRouteSearchSchema = defineRouteSearchParams({
+  "add-cloudflare": routeSearchPresenceParam({
     permission: "admin",
     suggestion: "route",
   }),
-  "add-convex": routeSearchPresenceParam(z.literal(true).optional(), {
+  "add-convex": routeSearchPresenceParam({
     permission: "admin",
     suggestion: "route",
   }),
-  "auth-return": routeSearchValueParam(
-    z.preprocess(readOptionalAuthReturn, z.literal("dashboard").optional()),
-    {
-      permission: "public",
-      suggestion: "hidden",
-      valueSuggestions: ["dashboard"],
-    },
-  ),
-  auth: routeSearchValueParam(
-    z.preprocess(readOptionalGoogleAuthProvider, z.literal("google").optional()),
-    {
-      permission: "public",
-      suggestion: "route",
-      valueSuggestions: ["google"],
-    },
-  ),
-  delete: routeSearchPresenceParam(z.literal(true).optional(), {
+  "auth-return": routeSearchValueParam(routeSearchStringValue(["dashboard"]), {
+    permission: "public",
+    suggestion: "hidden",
+    valueSuggestions: ["dashboard"],
+  }),
+  auth: routeSearchValueParam(routeSearchStringValue(["google"]), {
+    permission: "public",
+    suggestion: "route",
+    valueSuggestions: ["google"],
+  }),
+  delete: routeSearchPresenceParam({
     permission: "admin",
     suggestion: "route",
   }),
-  devtools: routeSearchPresenceParam(z.literal(true).optional(), {
+  devtools: routeSearchPresenceParam({
     permission: "public",
     suggestion: "global",
   }),
-  "new-app": routeSearchPresenceParam(z.literal(true).optional(), {
+  "new-app": routeSearchPresenceParam({
     permission: "admin",
     suggestion: "route",
   }),
-  "prod-ui": routeSearchPresenceParam(z.literal(true).optional(), {
+  "prod-ui": routeSearchPresenceParam({
     permission: "public",
     suggestion: "global",
   }),
-  [SEARCH_RESET_QUERY_PARAM]: routeSearchPresenceParam(z.literal(true).optional(), {
+  [SEARCH_RESET_QUERY_PARAM]: routeSearchPresenceParam({
     permission: "public",
     suggestion: "global",
   }),
-  signup: routeSearchValueParam(
-    z.preprocess(readOptionalGoogleSignupReturn, z.literal("google").optional()),
-    {
-      permission: "public",
-      suggestion: "route",
-      valueSuggestions: ["google"],
-    },
-  ),
+  signup: routeSearchValueParam(routeSearchStringValue(["google"]), {
+    permission: "public",
+    suggestion: "route",
+    valueSuggestions: ["google"],
+  }),
 });
 
-type RootRouteSearchBase = z.infer<typeof rootRouteSearchSchema>;
+type RootRouteSearchBase = InferRouteSearch<typeof rootRouteSearchSchema>;
 export type RootRouteSearch = RootRouteSearchBase & LogoRouteSearch;
 
 function globalLogoRouteSearchParam(key: keyof typeof LOGO_ROUTE_SEARCH_PARAM_METADATA) {

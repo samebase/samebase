@@ -1,40 +1,26 @@
 import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
 import {
+  defineRouteSearchParams,
+  type InferRouteSearch,
   readRouteSearchParamSuggestions,
   readRouteSearchPresenceKeys,
   readRouteSearchParamMetadata,
+  routeSearchNonEmptyString,
   routeSearchPresenceParam,
   routeSearchValueParam,
 } from "@/lib/routeSearchParamMetadata";
-import { z } from "zod";
-
-function readOptionalString(value: unknown): string | undefined {
-  if (typeof value !== "string") {
-    return undefined;
-  }
-
-  const trimmedValue = value.trim();
-  return trimmedValue.length > 0 ? trimmedValue : undefined;
-}
+import { oneOf } from "@samebase/sure";
 
 const pricingCheckoutValues = ["success", "cancel"] as const;
 
-function readOptionalPricingCheckoutState(value: unknown): "success" | "cancel" | undefined {
-  if (value === "success" || value === "cancel") {
-    return value;
-  }
-
-  return undefined;
-}
-
-const mcpConsentRouteSearchSchema = z.object({
-  mcp_consent_request: routeSearchValueParam(
-    z.preprocess(readOptionalString, z.string().optional()),
-    { permission: "admin", suggestion: "route" },
-  ),
+const mcpConsentRouteSearchSchema = defineRouteSearchParams({
+  mcp_consent_request: routeSearchValueParam(routeSearchNonEmptyString, {
+    permission: "admin",
+    suggestion: "route",
+  }),
 });
 
-export type McpConsentRouteSearch = z.infer<typeof mcpConsentRouteSearchSchema>;
+export type McpConsentRouteSearch = InferRouteSearch<typeof mcpConsentRouteSearchSchema>;
 
 const mcpConsentRouteSearchParamMetadata = readRouteSearchParamMetadata(
   mcpConsentRouteSearchSchema,
@@ -51,18 +37,15 @@ export function validateMcpConsentRouteSearch(
   return mcpConsentRouteSearchSchema.parse(search);
 }
 
-const pricingRouteSearchSchema = z.object({
-  checkout: routeSearchValueParam(
-    z.preprocess(readOptionalPricingCheckoutState, z.enum(pricingCheckoutValues).optional()),
-    {
-      permission: "admin",
-      suggestion: "route",
-      valueSuggestions: pricingCheckoutValues,
-    },
-  ),
+const pricingRouteSearchSchema = defineRouteSearchParams({
+  checkout: routeSearchValueParam(oneOf(pricingCheckoutValues), {
+    permission: "admin",
+    suggestion: "route",
+    valueSuggestions: pricingCheckoutValues,
+  }),
 });
 
-export type PricingRouteSearch = z.infer<typeof pricingRouteSearchSchema>;
+export type PricingRouteSearch = InferRouteSearch<typeof pricingRouteSearchSchema>;
 
 const pricingRouteSearchParamMetadata = readRouteSearchParamMetadata(pricingRouteSearchSchema);
 
@@ -81,18 +64,18 @@ export function buildPricingRouteSearch(
   return checkout === "success" || checkout === "cancel" ? { checkout } : {};
 }
 
-const machineConnectRouteSearchSchema = z.object({
-  openedByCli: routeSearchPresenceParam(z.literal(true).optional(), {
+const machineConnectRouteSearchSchema = defineRouteSearchParams({
+  openedByCli: routeSearchPresenceParam({
     permission: "admin",
     suggestion: "route",
   }),
-  requestId: routeSearchValueParam(z.preprocess(readOptionalString, z.string().optional()), {
+  requestId: routeSearchValueParam(routeSearchNonEmptyString, {
     permission: "admin",
     suggestion: "route",
   }),
 });
 
-export type MachineConnectRouteSearch = z.infer<typeof machineConnectRouteSearchSchema>;
+export type MachineConnectRouteSearch = InferRouteSearch<typeof machineConnectRouteSearchSchema>;
 
 const machineConnectRouteSearchParamMetadata = readRouteSearchParamMetadata(
   machineConnectRouteSearchSchema,
@@ -115,18 +98,18 @@ export function validateMachineConnectRouteSearch(
   );
 }
 
-const machinesRouteSearchSchema = z.object({
-  machineId: routeSearchValueParam(z.preprocess(readOptionalString, z.string().optional()), {
+const machinesRouteSearchSchema = defineRouteSearchParams({
+  machineId: routeSearchValueParam(routeSearchNonEmptyString, {
     permission: "admin",
     suggestion: "route",
   }),
-  threadId: routeSearchValueParam(z.preprocess(readOptionalString, z.string().optional()), {
+  threadId: routeSearchValueParam(routeSearchNonEmptyString, {
     permission: "admin",
     suggestion: "route",
   }),
 });
 
-export type MachinesRouteSearch = z.infer<typeof machinesRouteSearchSchema>;
+export type MachinesRouteSearch = InferRouteSearch<typeof machinesRouteSearchSchema>;
 
 const machinesRouteSearchParamMetadata = readRouteSearchParamMetadata(machinesRouteSearchSchema);
 

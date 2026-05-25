@@ -1,24 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  defineRouteSearchParams,
+  type InferRouteSearch,
   readRouteSearchParamSuggestions,
   readRouteSearchParamMetadata,
+  routeSearchString,
   routeSearchValueParam,
 } from "@/lib/routeSearchParamMetadata";
 import { VisualFixturePage } from "@/visualFixture";
-import { z } from "zod";
 
-function readOptionalMode(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
-}
-
-const visualFixtureRouteSearchSchema = z.object({
-  mode: routeSearchValueParam(z.preprocess(readOptionalMode, z.string().optional()), {
+const visualFixtureRouteSearchSchema = defineRouteSearchParams({
+  mode: routeSearchValueParam(routeSearchString, {
     permission: "public",
     suggestion: "route",
   }),
 });
 
-type VisualFixtureRouteSearch = z.infer<typeof visualFixtureRouteSearchSchema>;
+type VisualFixtureRouteSearch = InferRouteSearch<typeof visualFixtureRouteSearchSchema>;
 
 const visualFixtureRouteSearchParamMetadata = readRouteSearchParamMetadata(
   visualFixtureRouteSearchSchema,

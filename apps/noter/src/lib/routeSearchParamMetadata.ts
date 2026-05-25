@@ -1,11 +1,9 @@
 import { entries, fromEntries } from "@noter-md/dependent/object";
+import { bad, good, pure, runUnknown, type InferGood, type UnknownSure } from "@samebase/sure";
 import {
   type NoterRoutePermission,
   type NoterRouteSearchParamSuggestion,
 } from "@/lib/routePermissions";
-import { type z } from "zod";
-
-const ROUTE_SEARCH_PARAM_METADATA_KEY = "noterRouteSearchParamMetadata";
 
 export type RouteSearchParamSuggestionSurface = "global" | "hidden" | "route";
 
@@ -20,7 +18,7 @@ export type RouteSearchParamMetadata =
       valueSuggestions?: readonly string[];
     })
   | (RouteSearchParamMetadataBase & {
-      parseKind: "presence" | "schema";
+      parseKind: "presence";
       valueKind: "presence";
     });
 
@@ -33,121 +31,151 @@ type RouteSearchParamMetadataRecord = Readonly<Record<string, RouteSearchParamMe
 type RouteSearchParamMetadataKey<Metadata extends RouteSearchParamMetadataRecord> = keyof Metadata &
   string;
 
-function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
+export type RouteSearchParam<Value> = {
+  metadata: RouteSearchParamMetadata;
+  parse(value: unknown): Value | undefined;
+};
 
-function isRouteSearchParamPermission(value: unknown): value is NoterRoutePermission {
-  return value === "public" || value === "admin";
-}
+type RouteSearchParamShape = Readonly<Record<string, RouteSearchParam<unknown>>>;
 
-function isRouteSearchParamSuggestionSurface(
-  value: unknown,
-): value is RouteSearchParamSuggestionSurface {
-  return value === "global" || value === "hidden" || value === "route";
-}
+export type RouteSearchParamGroup<Shape extends RouteSearchParamShape> = {
+  shape: Shape;
+  parse(search: Record<string, unknown>): InferRouteSearch<Shape>;
+};
 
-function isRouteSearchParamPresenceParseKind(
-  value: unknown,
-): value is Extract<RouteSearchParamMetadata, { valueKind: "presence" }>["parseKind"] {
-  return value === "presence" || value === "schema";
-}
+type InferRouteSearchParamValue<Param> =
+  Param extends RouteSearchParam<infer Value> ? Value : never;
 
-function readRouteSearchValueSuggestions(value: unknown): readonly string[] | undefined {
-  if (!Array.isArray(value)) {
-    return undefined;
+export type InferRouteSearch<ShapeOrGroup> =
+  ShapeOrGroup extends RouteSearchParamGroup<infer Shape>
+    ? InferRouteSearch<Shape>
+    : ShapeOrGroup extends RouteSearchParamShape
+      ? { [Key in keyof ShapeOrGroup]?: InferRouteSearchParamValue<ShapeOrGroup[Key]> }
+      : never;
+
+export const routeSearchNonEmptyString = pure((value: unknown) => {
+  if (typeof value !== "string") {
+    return bad("not-string");
   }
 
-  return value.every((item) => typeof item === "string") ? value : undefined;
+  const trimmedValue = value.trim();
+  return trimmedValue.length > 0 ? good(trimmedValue) : bad("empty-string");
+});
+
+export const routeSearchString = pure((value: unknown) =>
+  typeof value === "string" ? good(value) : bad("not-string"),
+);
+
+export const routeSearchFiniteNumber = pure((value: unknown) => {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? good(value) : bad("not-finite-number");
+  }
+
+  if (typeof value !== "string") {
+    return bad("not-number");
+  }
+
+  const trimmedValue = value.trim();
+  if (trimmedValue.length === 0) {
+    return bad("empty-number");
+  }
+
+  const parsedValue = Number(trimmedValue);
+  return Number.isFinite(parsedValue) ? good(parsedValue) : bad("not-finite-number");
+});
+
+function includesStringValue<const Values extends readonly string[]>(
+  values: Values,
+  value: string,
+): value is Values[number] {
+  return values.includes(value);
 }
 
-function readRouteSearchFieldMetadata(value: unknown): RouteSearchParamMetadata | undefined {
-  if (!isObjectRecord(value)) {
-    return undefined;
-  }
+export function routeSearchStringValue<const Values extends readonly [string, ...string[]]>(
+  values: Values,
+) {
+  return pure((value: unknown) => {
+    if (typeof value !== "string") {
+      return bad("not-string");
+    }
 
-  const permission = value.permission;
-  const suggestion = value.suggestion;
-  const valueKind = value.valueKind;
-  if (
-    !isRouteSearchParamPermission(permission) ||
-    !isRouteSearchParamSuggestionSurface(suggestion)
-  ) {
-    return undefined;
-  }
-
-  if (valueKind === "value") {
-    const valueSuggestions = readRouteSearchValueSuggestions(value.valueSuggestions);
-    return {
-      permission,
-      suggestion,
-      valueKind,
-      ...(valueSuggestions ? { valueSuggestions } : {}),
-    };
-  }
-
-  const parseKind = value.parseKind;
-  if (valueKind === "presence" && isRouteSearchParamPresenceParseKind(parseKind)) {
-    return {
-      parseKind,
-      permission,
-      suggestion,
-      valueKind,
-    };
-  }
-
-  return undefined;
+    const trimmedValue = value.trim();
+    return includesStringValue(values, trimmedValue)
+      ? good(trimmedValue)
+      : bad("unsupported-value");
+  });
 }
 
-function readRequiredRouteSearchFieldMetadata(field: z.ZodType): RouteSearchParamMetadata {
-  const metadata = readRouteSearchFieldMetadata(field.meta()?.[ROUTE_SEARCH_PARAM_METADATA_KEY]);
-  if (metadata) {
-    return metadata;
-  }
-
-  throw new Error("Route search param field is missing metadata");
-}
-
-export function routeSearchValueParam<FieldSchema extends z.ZodType>(
-  field: FieldSchema,
+export function routeSearchValueParam<const Schema extends UnknownSure>(
+  schema: Schema,
   args: {
     permission: NoterRoutePermission;
     suggestion: RouteSearchParamSuggestionSurface;
     valueSuggestions?: readonly string[];
   },
-): FieldSchema {
-  return field.meta({
-    [ROUTE_SEARCH_PARAM_METADATA_KEY]: {
+): RouteSearchParam<InferGood<Schema>> {
+  return {
+    metadata: {
       ...args,
       valueKind: "value",
     },
-  });
+    parse(value) {
+      const [isGood, output] = runUnknown(schema, value);
+      return isGood ? output : undefined;
+    },
+  };
 }
 
-export function routeSearchPresenceParam<FieldSchema extends z.ZodType>(
-  field: FieldSchema,
-  args: {
-    permission: NoterRoutePermission;
-    suggestion: RouteSearchParamSuggestionSurface;
-  },
-): FieldSchema {
-  return field.meta({
-    [ROUTE_SEARCH_PARAM_METADATA_KEY]: {
+export function routeSearchPresenceParam(args: {
+  permission: NoterRoutePermission;
+  suggestion: RouteSearchParamSuggestionSurface;
+}): RouteSearchParam<true> {
+  return {
+    metadata: {
       ...args,
       parseKind: "presence",
       valueKind: "presence",
     },
-  });
+    parse(value) {
+      return value === null || typeof value === "undefined" ? undefined : true;
+    },
+  };
 }
 
-export function readRouteSearchParamMetadata<
-  const Shape extends Readonly<Record<string, z.ZodType>>,
->(schema: { shape: Shape }): Readonly<Record<keyof Shape & string, RouteSearchParamMetadata>> {
-  return fromEntries(
-    entries(schema.shape).map(
-      ([key, field]) => [key, readRequiredRouteSearchFieldMetadata(field)] as const,
-    ),
-  );
+export function defineRouteSearchParams<const Shape extends RouteSearchParamShape>(
+  shape: Shape,
+): RouteSearchParamGroup<Shape> {
+  return {
+    shape,
+    parse(search) {
+      return parseRouteSearchParams(shape, search);
+    },
+  };
+}
+
+function parseRouteSearchParams<const Shape extends RouteSearchParamShape>(
+  shape: Shape,
+  search: Record<string, unknown>,
+): InferRouteSearch<Shape> {
+  const parsedSearch: Partial<Record<keyof Shape & string, unknown>> = {};
+
+  for (const [key, param] of entries(shape)) {
+    const parsedValue = param.parse(search[key]);
+    if (typeof parsedValue === "undefined") {
+      continue;
+    }
+
+    parsedSearch[key] = parsedValue;
+  }
+
+  // @ts-expect-error Generic object iteration loses the key/parser relationship.
+  return parsedSearch;
+}
+
+export function readRouteSearchParamMetadata<const Shape extends RouteSearchParamShape>(
+  group: RouteSearchParamGroup<Shape>,
+): Readonly<Record<keyof Shape & string, RouteSearchParamMetadata>> {
+  return fromEntries(entries(group.shape).map(([key, param]) => [key, param.metadata] as const));
 }
 
 export function readRouteSearchParamSuggestions<
@@ -189,7 +217,7 @@ export function readRouteSearchPresenceKeys<const Metadata extends RouteSearchPa
   const keys: RouteSearchParamMetadataKey<Metadata>[] = [];
 
   for (const [key, paramMetadata] of entries(metadata)) {
-    if (paramMetadata.valueKind !== "presence" || paramMetadata.parseKind !== "presence") {
+    if (paramMetadata.valueKind !== "presence") {
       continue;
     }
 

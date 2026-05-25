@@ -1,9 +1,11 @@
 import {
+  defineRouteSearchParams,
+  type InferRouteSearch,
   readRouteSearchParamSuggestions,
   readRouteSearchParamMetadata,
   routeSearchValueParam,
 } from "@/lib/routeSearchParamMetadata";
-import { z } from "zod";
+import { oneOf } from "@samebase/sure";
 
 export const LANDING_MARKDOWN_PREVIEW_ROUTE = "/landing-preview";
 
@@ -19,18 +21,9 @@ export type LandingMarkdownPreviewLanguage = (typeof LANDING_MARKDOWN_PREVIEW_LA
 export const LANDING_MARKDOWN_PREVIEW_DEFAULT_LANGUAGE = "en";
 export const LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL = `?${LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM}=ro`;
 
-function readOptionalLandingMarkdownPreviewLanguage(
-  value: unknown,
-): LandingMarkdownPreviewLanguage | undefined {
-  return value === "en" || value === "ro" ? value : undefined;
-}
-
-const landingMarkdownPreviewRouteSearchSchema = z.object({
+const landingMarkdownPreviewRouteSearchSchema = defineRouteSearchParams({
   [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: routeSearchValueParam(
-    z.preprocess(
-      readOptionalLandingMarkdownPreviewLanguage,
-      z.enum(LANDING_MARKDOWN_PREVIEW_LANGUAGES).optional(),
-    ),
+    oneOf(LANDING_MARKDOWN_PREVIEW_LANGUAGES),
     {
       permission: "admin",
       suggestion: "route",
@@ -39,7 +32,7 @@ const landingMarkdownPreviewRouteSearchSchema = z.object({
   ),
 });
 
-export type LandingMarkdownPreviewRouteSearch = z.infer<
+export type LandingMarkdownPreviewRouteSearch = InferRouteSearch<
   typeof landingMarkdownPreviewRouteSearchSchema
 >;
 

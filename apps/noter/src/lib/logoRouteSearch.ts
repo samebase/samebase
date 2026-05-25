@@ -64,14 +64,18 @@ import {
 import { LANDING_DEV_MODE_QUERY_PARAM } from "@/lib/landingDevMode";
 import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
 import {
+  defineRouteSearchParams,
+  type InferRouteSearch,
   readRouteSearchParamSuggestions,
   readRouteSearchPresenceKeys,
   readRouteSearchParamMetadata,
+  routeSearchFiniteNumber,
   routeSearchPresenceParam,
+  routeSearchStringValue,
   routeSearchValueParam,
   type RouteSearchParamMetadataByKey,
 } from "@/lib/routeSearchParamMetadata";
-import { z } from "zod";
+import { bad, good, pure } from "@samebase/sure";
 
 const LOGO_ROTATION_AXIS_MODE_VALUES = [
   "cube-y",
@@ -87,8 +91,6 @@ const LOGO_ISOMETRIC_STYLE_VALUES = [
 
 const LOGO_GRID_SIZE_VALUE_SUGGESTIONS = [`${LOGO_GRID_SIZE_2}`, `${LOGO_GRID_SIZE_3}`] as const;
 
-const logoGridSizeSchema = z.union([z.literal(LOGO_GRID_SIZE_2), z.literal(LOGO_GRID_SIZE_3)]);
-
 function readOptionalString(value: unknown): string | undefined {
   if (typeof value !== "string") {
     return undefined;
@@ -96,57 +98,6 @@ function readOptionalString(value: unknown): string | undefined {
 
   const trimmedValue = value.trim();
   return trimmedValue.length > 0 ? trimmedValue : undefined;
-}
-
-function readOptionalNumber(value: unknown): number | undefined {
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : undefined;
-  }
-
-  if (typeof value !== "string") {
-    return undefined;
-  }
-
-  const trimmedValue = value.trim();
-  if (trimmedValue.length === 0) {
-    return undefined;
-  }
-
-  const parsedValue = Number(trimmedValue);
-  return Number.isFinite(parsedValue) ? parsedValue : undefined;
-}
-
-function readOptionalLogoGridSize(value: unknown): LogoGridSize | undefined {
-  const numericValue = readOptionalNumber(value);
-  return typeof numericValue === "number"
-    ? (readLogoGridSize(numericValue) ?? undefined)
-    : undefined;
-}
-
-function isLogoRotationAxisMode(value: string | undefined): value is LogoRotationAxisMode {
-  return value === "cube-y" || value === "screen-vertical";
-}
-
-function readOptionalRotationAxisMode(value: unknown): LogoRotationAxisMode | undefined {
-  const rotationAxisMode = readOptionalString(value);
-  return isLogoRotationAxisMode(rotationAxisMode) ? rotationAxisMode : undefined;
-}
-
-function readOptionalIsoStyleId(value: unknown): LogoIsometricStyleId | undefined {
-  const isoStyleId = readOptionalString(value);
-  return typeof isoStyleId === "string" && isLogoIsometricStyleId(isoStyleId)
-    ? isoStyleId
-    : undefined;
-}
-
-function readOptionalLeftFaceStyleKind(value: unknown): LogoLeftFaceStyleKind | undefined {
-  const leftFaceStyleKind = readOptionalString(value);
-  return isLogoLeftFaceStyleKind(leftFaceStyleKind) ? leftFaceStyleKind : undefined;
-}
-
-function readOptionalLeftFaceStripeBasis(value: unknown): LogoLeftFaceStripeBasis | undefined {
-  const leftFaceStripeBasis = readOptionalString(value);
-  return isLogoLeftFaceStripeBasis(leftFaceStripeBasis) ? leftFaceStripeBasis : undefined;
 }
 
 function readCanonicalVoxelState(value: unknown): string | undefined {
@@ -161,112 +112,132 @@ function readCanonicalVoxelState(value: unknown): string | undefined {
     : serializeVoxelState(parsedVoxelState.filledVoxels, parsedVoxelState.gridSize);
 }
 
-const logoRouteSearchFieldSchema = z.object({
-  axis: routeSearchValueParam(
-    z.preprocess(readOptionalRotationAxisMode, z.enum(LOGO_ROTATION_AXIS_MODE_VALUES).optional()),
-    {
-      permission: "public",
-      suggestion: "route",
-      valueSuggestions: LOGO_ROTATION_AXIS_MODE_VALUES,
-    },
-  ),
+const logoGridSizeSearchValue = pure((value: unknown) => {
+  const [isGood, numericValue] = routeSearchFiniteNumber(value);
+  if (!isGood) {
+    return bad(numericValue);
+  }
+
+  const gridSize = readLogoGridSize(numericValue);
+  return typeof gridSize === "number" ? good(gridSize) : bad("unsupported-grid-size");
+});
+
+const logoIsometricStyleSearchValue = pure((value: unknown) => {
+  const isoStyleId = readOptionalString(value);
+  return typeof isoStyleId === "string" && isLogoIsometricStyleId(isoStyleId)
+    ? good(isoStyleId)
+    : bad("unsupported-iso-style");
+});
+
+const logoLeftFaceStyleSearchValue = pure((value: unknown) => {
+  const leftFaceStyleKind = readOptionalString(value);
+  return isLogoLeftFaceStyleKind(leftFaceStyleKind)
+    ? good(leftFaceStyleKind)
+    : bad("unsupported-left-face");
+});
+
+const logoLeftFaceStripeBasisSearchValue = pure((value: unknown) => {
+  const leftFaceStripeBasis = readOptionalString(value);
+  return isLogoLeftFaceStripeBasis(leftFaceStripeBasis)
+    ? good(leftFaceStripeBasis)
+    : bad("unsupported-stripe-basis");
+});
+
+const canonicalVoxelStateSearchValue = pure((value: unknown) => {
+  const voxelState = readCanonicalVoxelState(value);
+  return typeof voxelState === "string" ? good(voxelState) : bad("invalid-voxel-state");
+});
+
+const logoRouteSearchFieldSchema = defineRouteSearchParams({
+  axis: routeSearchValueParam(routeSearchStringValue(LOGO_ROTATION_AXIS_MODE_VALUES), {
+    permission: "public",
+    suggestion: "route",
+    valueSuggestions: LOGO_ROTATION_AXIS_MODE_VALUES,
+  }),
   background: appThemeColorSearchFieldSchema.shape.background,
   border: appThemeColorSearchFieldSchema.shape.border,
   dark: rootThemeModeSearchFieldSchema.shape.dark,
-  [LANDING_DEV_MODE_QUERY_PARAM]: routeSearchPresenceParam(z.literal(true).optional(), {
+  [LANDING_DEV_MODE_QUERY_PARAM]: routeSearchPresenceParam({
     permission: "public",
     suggestion: "hidden",
   }),
-  depth: routeSearchValueParam(z.preprocess(readOptionalNumber, z.number().finite().optional()), {
+  depth: routeSearchValueParam(routeSearchFiniteNumber, {
     permission: "public",
     suggestion: "route",
   }),
-  dist: routeSearchValueParam(z.preprocess(readOptionalNumber, z.number().finite().optional()), {
+  dist: routeSearchValueParam(routeSearchFiniteNumber, {
     permission: "public",
     suggestion: "route",
   }),
-  elev: routeSearchValueParam(z.preprocess(readOptionalNumber, z.number().finite().optional()), {
+  elev: routeSearchValueParam(routeSearchFiniteNumber, {
     permission: "public",
     suggestion: "route",
   }),
-  freeView: routeSearchPresenceParam(z.literal(true).optional(), {
+  freeView: routeSearchPresenceParam({
     permission: "public",
     suggestion: "route",
   }),
-  gridSize: routeSearchValueParam(
-    z.preprocess(readOptionalLogoGridSize, logoGridSizeSchema.optional()),
-    {
-      permission: "public",
-      suggestion: "route",
-      valueSuggestions: LOGO_GRID_SIZE_VALUE_SUGGESTIONS,
-    },
-  ),
-  isoSide: routeSearchValueParam(z.preprocess(readOptionalNumber, z.number().finite().optional()), {
+  gridSize: routeSearchValueParam(logoGridSizeSearchValue, {
+    permission: "public",
+    suggestion: "route",
+    valueSuggestions: LOGO_GRID_SIZE_VALUE_SUGGESTIONS,
+  }),
+  isoSide: routeSearchValueParam(routeSearchFiniteNumber, {
     permission: "public",
     suggestion: "route",
   }),
-  isoStyle: routeSearchValueParam(
-    z.preprocess(readOptionalIsoStyleId, z.enum(LOGO_ISOMETRIC_STYLE_VALUES).optional()),
-    {
-      permission: "public",
-      suggestion: "route",
-      valueSuggestions: LOGO_ISOMETRIC_STYLE_VALUES,
-    },
-  ),
-  leftFace: routeSearchValueParam(
-    z.preprocess(readOptionalLeftFaceStyleKind, z.enum(LOGO_LEFT_FACE_STYLE_KINDS).optional()),
-    {
-      permission: "public",
-      suggestion: "route",
-      valueSuggestions: LOGO_LEFT_FACE_STYLE_KINDS,
-    },
-  ),
+  isoStyle: routeSearchValueParam(logoIsometricStyleSearchValue, {
+    permission: "public",
+    suggestion: "route",
+    valueSuggestions: LOGO_ISOMETRIC_STYLE_VALUES,
+  }),
+  leftFace: routeSearchValueParam(logoLeftFaceStyleSearchValue, {
+    permission: "public",
+    suggestion: "route",
+    valueSuggestions: LOGO_LEFT_FACE_STYLE_KINDS,
+  }),
   light: rootThemeModeSearchFieldSchema.shape.light,
   primary: appThemeColorSearchFieldSchema.shape.primary,
-  rot: routeSearchValueParam(z.preprocess(readOptionalNumber, z.number().finite().optional()), {
+  rot: routeSearchValueParam(routeSearchFiniteNumber, {
     permission: "public",
     suggestion: "route",
   }),
   secondary: appThemeColorSearchFieldSchema.shape.secondary,
-  stripeA: routeSearchValueParam(z.preprocess(readOptionalNumber, z.number().finite().optional()), {
+  stripeA: routeSearchValueParam(routeSearchFiniteNumber, {
     permission: "public",
     suggestion: "route",
   }),
-  stripeBasis: routeSearchValueParam(
-    z.preprocess(
-      readOptionalLeftFaceStripeBasis,
-      z.enum(LOGO_LEFT_FACE_STRIPE_BASIS_VALUES).optional(),
-    ),
-    {
-      permission: "public",
-      suggestion: "route",
-      valueSuggestions: LOGO_LEFT_FACE_STRIPE_BASIS_VALUES,
-    },
-  ),
-  stripeG: routeSearchValueParam(z.preprocess(readOptionalNumber, z.number().finite().optional()), {
+  stripeBasis: routeSearchValueParam(logoLeftFaceStripeBasisSearchValue, {
+    permission: "public",
+    suggestion: "route",
+    valueSuggestions: LOGO_LEFT_FACE_STRIPE_BASIS_VALUES,
+  }),
+  stripeG: routeSearchValueParam(routeSearchFiniteNumber, {
     permission: "public",
     suggestion: "route",
   }),
-  stripeLink: routeSearchPresenceParam(z.literal(true).optional(), {
+  stripeLink: routeSearchPresenceParam({
     permission: "public",
     suggestion: "route",
   }),
-  stripeO: routeSearchValueParam(z.preprocess(readOptionalNumber, z.number().finite().optional()), {
+  stripeO: routeSearchValueParam(routeSearchFiniteNumber, {
     permission: "public",
     suggestion: "route",
   }),
-  stripeW: routeSearchValueParam(z.preprocess(readOptionalNumber, z.number().finite().optional()), {
+  stripeW: routeSearchValueParam(routeSearchFiniteNumber, {
     permission: "public",
     suggestion: "route",
   }),
   top: appThemeColorSearchFieldSchema.shape.top,
-  vox: routeSearchValueParam(z.preprocess(readCanonicalVoxelState, z.string().optional()), {
+  vox: routeSearchValueParam(canonicalVoxelStateSearchValue, {
     permission: "public",
     suggestion: "route",
   }),
 });
 
-export const logoRouteSearchSchema = logoRouteSearchFieldSchema.transform((search) => {
+type LogoRouteSearchFields = InferRouteSearch<typeof logoRouteSearchFieldSchema>;
+
+function readLogoRouteSearchFields(search: LogoRouteSearchFields) {
   const themeModeSearch = readRootThemeModeSearch(search);
   const parsedVoxelState = parseVoxelState(search.vox ?? null);
   const gridSize =
@@ -296,9 +267,9 @@ export const logoRouteSearchSchema = logoRouteSearchFieldSchema.transform((searc
     ...(typeof search.rot === "number" ? { rot: normalizeRotationDegrees(search.rot) } : {}),
     ...(typeof voxelState === "string" ? { vox: voxelState } : {}),
   };
-});
+}
 
-export type LogoRouteSearch = z.infer<typeof logoRouteSearchSchema>;
+export type LogoRouteSearch = ReturnType<typeof readLogoRouteSearchFields>;
 
 export type LogoRouteSearchBuildState = {
   distanceScale: number;
@@ -341,8 +312,10 @@ export const LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestio
 );
 
 export function validateLogoRouteSearch(search: Record<string, unknown>): LogoRouteSearch {
-  return logoRouteSearchSchema.parse(
-    normalizeRouteSearchPresenceFlags(search, LOGO_ROUTE_PRESENCE_SEARCH_KEYS),
+  return readLogoRouteSearchFields(
+    logoRouteSearchFieldSchema.parse(
+      normalizeRouteSearchPresenceFlags(search, LOGO_ROUTE_PRESENCE_SEARCH_KEYS),
+    ),
   );
 }
 

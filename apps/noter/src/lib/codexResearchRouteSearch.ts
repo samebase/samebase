@@ -1,27 +1,20 @@
 import {
+  defineRouteSearchParams,
+  type InferRouteSearch,
   readRouteSearchParamSuggestions,
   readRouteSearchParamMetadata,
+  routeSearchNonEmptyString,
   routeSearchValueParam,
 } from "@/lib/routeSearchParamMetadata";
-import { z } from "zod";
 
-function readOptionalThreadId(value: unknown): string | undefined {
-  if (typeof value !== "string") {
-    return undefined;
-  }
-
-  const trimmedValue = value.trim();
-  return trimmedValue.length > 0 ? trimmedValue : undefined;
-}
-
-const codexResearchRouteSearchSchema = z.object({
-  threadId: routeSearchValueParam(z.preprocess(readOptionalThreadId, z.string().optional()), {
+const codexResearchRouteSearchSchema = defineRouteSearchParams({
+  threadId: routeSearchValueParam(routeSearchNonEmptyString, {
     permission: "admin",
     suggestion: "route",
   }),
 });
 
-export type CodexResearchRouteSearch = z.infer<typeof codexResearchRouteSearchSchema>;
+export type CodexResearchRouteSearch = InferRouteSearch<typeof codexResearchRouteSearchSchema>;
 
 const codexResearchRouteSearchParamMetadata = readRouteSearchParamMetadata(
   codexResearchRouteSearchSchema,

@@ -5,6 +5,8 @@ import {
   type SearchPatch,
 } from "@/lib/routeSearchFlags";
 import {
+  defineRouteSearchParams,
+  type InferRouteSearch,
   readRouteSearchParamSuggestions,
   readRouteSearchPresenceKeys,
   readRouteSearchParamMetadata,
@@ -12,36 +14,29 @@ import {
   routeSearchValueParam,
 } from "@/lib/routeSearchParamMetadata";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
-import { z } from "zod";
+import { literal } from "@samebase/sure";
 
-function readOptionalMobileLineNumbers(value: unknown): "1" | undefined {
-  return value === "1" ? "1" : undefined;
-}
-
-const fileViewRouteSearchSchema = z.object({
-  compare: routeSearchPresenceParam(z.literal(true).optional(), {
+const fileViewRouteSearchSchema = defineRouteSearchParams({
+  compare: routeSearchPresenceParam({
     permission: "admin",
     suggestion: "route",
   }),
-  diff: routeSearchPresenceParam(z.literal(true).optional(), {
+  diff: routeSearchPresenceParam({
     permission: "admin",
     suggestion: "route",
   }),
-  mobileLineNumbers: routeSearchValueParam(
-    z.preprocess(readOptionalMobileLineNumbers, z.literal("1").optional()),
-    {
-      permission: "admin",
-      suggestion: "route",
-      valueSuggestions: ["1"],
-    },
-  ),
-  review: routeSearchPresenceParam(z.literal(true).optional(), {
+  mobileLineNumbers: routeSearchValueParam(literal("1"), {
+    permission: "admin",
+    suggestion: "route",
+    valueSuggestions: ["1"],
+  }),
+  review: routeSearchPresenceParam({
     permission: "admin",
     suggestion: "route",
   }),
 });
 
-export type FileViewRouteSearch = z.infer<typeof fileViewRouteSearchSchema>;
+export type FileViewRouteSearch = InferRouteSearch<typeof fileViewRouteSearchSchema>;
 export type FileViewRouteSearchPatch = SearchPatch<FileViewRouteSearch>;
 
 const fileViewRouteSearchParamMetadata = readRouteSearchParamMetadata(fileViewRouteSearchSchema);
