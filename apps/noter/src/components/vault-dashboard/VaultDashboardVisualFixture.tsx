@@ -24,6 +24,7 @@ import {
   VaultBranchHeaderControls,
   VaultBranchLinkRow,
   VaultBranchListExpansionControl,
+  VaultDashboardAppRootDialog,
   VaultDashboardCloudflareDialog,
   VaultDashboardConvexDialog,
   VaultDashboardCreateDialog,
@@ -43,6 +44,7 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-create-open"
   | "vault-dashboard-dev-tools-hidden"
   | "vault-dashboard-dev-tools-visible"
+  | "vault-dashboard-add-app-root-convert-open"
   | "vault-dashboard-connect-cloudflare-open"
   | "vault-dashboard-connect-cloudflare-mobile-shell-open"
   | "vault-dashboard-connect-convex-open"
@@ -569,6 +571,47 @@ function VaultDashboardConnectCloudflareOpenFixture() {
   );
 }
 
+function VaultDashboardAddAppRootConvertOpenFixture() {
+  return (
+    <div
+      data-testid="vault-dashboard-visual-fixture"
+      data-mode="vault-dashboard-add-app-root-convert-open"
+      className="w-full bg-background p-4 text-foreground"
+    >
+      <TestRouterProvider>
+        <VaultDashboardRepositoryList>
+          <VaultDashboardRepositoryCard
+            isReady={true}
+            repositoryOwner="noter-md"
+            repositoryName="noter"
+            titleHref="https://github.com/noter-md/noter"
+            repositoryLinks={<FixtureRepositoryLinks />}
+            topRightAction={<FixtureDeleteControl />}
+            repositoryStatus={<span>Updated 12s ago</span>}
+          />
+        </VaultDashboardRepositoryList>
+        <VaultDashboardAppRootDialog
+          appRoot=""
+          error={null}
+          isSubmitting={false}
+          mode="monorepo"
+          onAppRootChange={() => {}}
+          onModeChange={() => {}}
+          onOpenChange={() => {}}
+          onSubmit={() => {}}
+          open={true}
+          vault={{
+            hasAppRoots: true,
+            hasRootAppRoot: true,
+            id: fakeVaultId(),
+            repositoryFullName: "noter-md/noter",
+          }}
+        />
+      </TestRouterProvider>
+    </div>
+  );
+}
+
 function VaultDashboardConnectCloudflareMobileShellOpenFixture() {
   return (
     <FixtureDashboardShell
@@ -1076,6 +1119,10 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
 
   if (mode === "vault-dashboard-dev-tools-visible") {
     return <VaultDashboardDeveloperToolsFixture visible={true} />;
+  }
+
+  if (mode === "vault-dashboard-add-app-root-convert-open") {
+    return <VaultDashboardAddAppRootConvertOpenFixture />;
   }
 
   if (mode === "vault-dashboard-connect-cloudflare-open") {

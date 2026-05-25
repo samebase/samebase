@@ -57,6 +57,8 @@ function renderAppRootDialog({
         onSubmit={vi.fn()}
         open
         vault={{
+          hasAppRoots: false,
+          hasRootAppRoot: false,
           id: fakeVaultId(),
           repositoryFullName: "ada/demo",
         }}

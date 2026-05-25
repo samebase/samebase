@@ -302,6 +302,151 @@ describe("vault dashboard Convex contract", () => {
     });
   });
 
+  it("converts a root app to a folder app when no root providers exist", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/demo",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 10,
+        updatedAt: 20,
+        completedAt: 20,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "demo",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+      });
+      await ctx.db.insert("vaultApps", {
+        vaultId,
+        userId,
+        appRoot,
+        createdAt: 21,
+      });
+
+      return { userId, vaultId };
+    });
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    await asUser.mutation(api.vault.dashboard.createVaultAppRoot, {
+      vaultId: ids.vaultId,
+      appRoot: "apps/noter",
+    });
+
+    const appRoots = await t.run(async (ctx) => {
+      const apps = await ctx.db
+        .query("vaultApps")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .collect();
+      return apps.map((app) => app.appRoot).sort();
+    });
+
+    expect(appRoots).toEqual(["apps/noter"]);
+  });
+
+  it("blocks monorepo conversion while root providers are attached", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/demo",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 10,
+        updatedAt: 20,
+        completedAt: 20,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "demo",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+      });
+      await ctx.db.insert("vaultApps", {
+        vaultId,
+        userId,
+        appRoot,
+        createdAt: 21,
+      });
+      await ctx.db.insert("vaultConvexDeployments", {
+        vaultId,
+        userId,
+        appRoot,
+        projectId: "convex-project",
+        teamSlug: "ada-team",
+        projectSlug: "demo",
+        deploymentName: "demo-prod",
+        deploymentType: "prod",
+        cloudUrl: "https://demo.convex.cloud",
+        siteUrl: "https://demo.convex.site",
+        deployKeys: {
+          production: { state: "not_created" },
+          preview: { state: "not_created" },
+        },
+        origin: "selected_existing",
+        connectedAt: 22,
+        lastObservedAt: 22,
+      });
+
+      return { userId, vaultId };
+    });
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    await expect(
+      asUser.mutation(api.vault.dashboard.createVaultAppRoot, {
+        vaultId: ids.vaultId,
+        appRoot: "apps/noter",
+      }),
+    ).rejects.toThrow("Disconnect root providers before converting this vault to a monorepo.");
+  });
+
   it("records initializing vault creation before external GitHub work", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {

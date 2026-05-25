@@ -14,7 +14,10 @@ import { vVaultDeletionStep } from "./deletion/model";
 import { readVaultDeletionEligibility } from "./deletion/eligibility";
 import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
 import { compareRemoteBranchSortOrder, hasBranchStagingChanges } from "./branches";
-import { normalizeCloudflareAppRoot } from "../../shared/cloudflareAppRoot";
+import {
+  normalizeCloudflareAppRoot,
+  ROOT_CLOUDFLARE_APP_ROOT,
+} from "../../shared/cloudflareAppRoot";
 
 const nullValidator = v.null();
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
@@ -696,14 +699,47 @@ export const createVaultAppRoot = mutation({
     }
 
     const appRoot = normalizeCloudflareAppRoot(args.appRoot);
-    const existingApp = await ctx.db
+    const apps = await ctx.db
       .query("vaultApps")
-      .withIndex("by_vault_and_appRoot", (q) =>
-        q.eq("vaultId", args.vaultId).eq("appRoot", appRoot),
-      )
-      .first();
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .collect();
+    const existingApp = apps.find((app) => app.appRoot === appRoot);
+    const rootApp = apps.find((app) => app.appRoot === ROOT_CLOUDFLARE_APP_ROOT);
+    const hasFolderApp = apps.some((app) => app.appRoot !== ROOT_CLOUDFLARE_APP_ROOT);
+    if (appRoot === ROOT_CLOUDFLARE_APP_ROOT && hasFolderApp) {
+      throw new Error("Monorepo vaults cannot add the repository root as an app.");
+    }
     if (existingApp) {
       throw new Error("Vault already has this app root.");
+    }
+
+    if (appRoot !== ROOT_CLOUDFLARE_APP_ROOT && rootApp) {
+      const [rootConvexDeployment, rootCloudflareWorker, infrastructureTarget] = await Promise.all([
+        ctx.db
+          .query("vaultConvexDeployments")
+          .withIndex("by_vault_and_appRoot", (q) =>
+            q.eq("vaultId", args.vaultId).eq("appRoot", ROOT_CLOUDFLARE_APP_ROOT),
+          )
+          .first(),
+        ctx.db
+          .query("vaultCloudflareWorkers")
+          .withIndex("by_vault_and_appRoot", (q) =>
+            q.eq("vaultId", args.vaultId).eq("appRoot", ROOT_CLOUDFLARE_APP_ROOT),
+          )
+          .first(),
+        ctx.db
+          .query("vaultInfrastructureTargets")
+          .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+          .first(),
+      ]);
+      const hasRootInfrastructureTarget = infrastructureTarget
+        ? infrastructureTarget.convex.appRoot === ROOT_CLOUDFLARE_APP_ROOT ||
+          infrastructureTarget.cloudflare.appRoot === ROOT_CLOUDFLARE_APP_ROOT
+        : false;
+      if (rootConvexDeployment || rootCloudflareWorker || hasRootInfrastructureTarget) {
+        throw new Error("Disconnect root providers before converting this vault to a monorepo.");
+      }
+      await ctx.db.delete(rootApp._id);
     }
 
     await ctx.db.insert("vaultApps", {

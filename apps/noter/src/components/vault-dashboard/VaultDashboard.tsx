@@ -191,6 +191,8 @@ type VaultDeleteIntent = VaultDeleteDialogTarget & {
   id: Id<"vaults">;
 };
 type VaultAppRootDialogTarget = {
+  hasAppRoots: boolean;
+  hasRootAppRoot: boolean;
   id: Id<"vaults">;
   repositoryFullName: string;
 };
@@ -456,6 +458,17 @@ function useVaultDashboardLocalStore() {
           error: null,
           isSubmitting: false,
           mode: "app",
+        },
+      }));
+    },
+    prepareAddAppRootDialog: ({ hasAppRoots }: { hasAppRoots: boolean }) => {
+      setState((state) => ({
+        ...state,
+        addAppRootDialog: {
+          appRoot: hasAppRoots ? "" : ROOT_CLOUDFLARE_APP_ROOT,
+          error: null,
+          isSubmitting: false,
+          mode: hasAppRoots ? "monorepo" : "app",
         },
       }));
     },
@@ -1308,8 +1321,21 @@ export function VaultDashboardAppRootDialog({
   open: boolean;
   vault: VaultAppRootDialogTarget | null;
 }) {
-  const isRepositoryAppMode = mode === "app";
-  const submitDisabled = isSubmitting || !appRoot.trim();
+  const canSelectAppMode = vault ? !vault.hasAppRoots : false;
+  const effectiveMode = canSelectAppMode ? mode : "monorepo";
+  const isRepositoryAppMode = effectiveMode === "app";
+  const showAppRootInput = !isRepositoryAppMode;
+  const submitDisabled = isSubmitting || (showAppRootInput && !appRoot.trim());
+  const submitLabel = isRepositoryAppMode
+    ? "Use as app"
+    : vault?.hasRootAppRoot
+      ? "Convert to monorepo"
+      : "Add app root";
+  const description = canSelectAppMode
+    ? "Choose whether this repository is one app or a monorepo."
+    : vault?.hasRootAppRoot
+      ? "Add a folder app root to convert this repository to a monorepo."
+      : "Add another folder app root.";
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (submitDisabled) {
@@ -1336,53 +1362,54 @@ export function VaultDashboardAppRootDialog({
             <DialogTitle>
               {vault ? `Add app root ${vault.repositoryFullName}` : "Add app root"}
             </DialogTitle>
-            <DialogDescription>
-              Choose whether this repository is one app or a monorepo.
-            </DialogDescription>
+            <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
           {vault ? (
             <div className="space-y-3">
-              <div className="grid grid-cols-2" role="group" aria-label="App root mode">
-                <button
-                  type="button"
-                  className={clsx(
-                    buttonVariants({
-                      variant: isRepositoryAppMode ? "default" : "outline",
-                      size: "sm",
-                    }),
-                    "rounded-r-none",
-                  )}
-                  aria-pressed={isRepositoryAppMode}
-                  onClick={() => onModeChange("app")}
+              {canSelectAppMode ? (
+                <div className="grid grid-cols-2" role="group" aria-label="App root mode">
+                  <button
+                    type="button"
+                    className={clsx(
+                      buttonVariants({
+                        variant: isRepositoryAppMode ? "default" : "outline",
+                        size: "sm",
+                      }),
+                      "rounded-r-none",
+                    )}
+                    aria-pressed={isRepositoryAppMode}
+                    onClick={() => onModeChange("app")}
+                    disabled={isSubmitting}
+                  >
+                    App
+                  </button>
+                  <button
+                    type="button"
+                    className={clsx(
+                      buttonVariants({
+                        variant: isRepositoryAppMode ? "outline" : "default",
+                        size: "sm",
+                      }),
+                      "rounded-l-none border-l-0",
+                    )}
+                    aria-pressed={!isRepositoryAppMode}
+                    onClick={() => onModeChange("monorepo")}
+                    disabled={isSubmitting}
+                  >
+                    Monorepo
+                  </button>
+                </div>
+              ) : null}
+              {showAppRootInput ? (
+                <Input
+                  aria-label="App root"
+                  value={appRoot}
+                  onChange={(event) => onAppRootChange(event.target.value)}
+                  onKeyDown={handleAppRootInputKeyDown}
                   disabled={isSubmitting}
-                >
-                  App
-                </button>
-                <button
-                  type="button"
-                  className={clsx(
-                    buttonVariants({
-                      variant: isRepositoryAppMode ? "outline" : "default",
-                      size: "sm",
-                    }),
-                    "rounded-l-none border-l-0",
-                  )}
-                  aria-pressed={!isRepositoryAppMode}
-                  onClick={() => onModeChange("monorepo")}
-                  disabled={isSubmitting}
-                >
-                  Monorepo
-                </button>
-              </div>
-              <Input
-                aria-label="App root"
-                value={appRoot}
-                onChange={(event) => onAppRootChange(event.target.value)}
-                onKeyDown={handleAppRootInputKeyDown}
-                disabled={isSubmitting}
-                readOnly={isRepositoryAppMode}
-                placeholder={isRepositoryAppMode ? ROOT_CLOUDFLARE_APP_ROOT : "apps/noter"}
-              />
+                  placeholder="apps/noter"
+                />
+              ) : null}
               {error ? <div className="text-sm text-red-600">{error}</div> : null}
             </div>
           ) : null}
@@ -1399,7 +1426,7 @@ export function VaultDashboardAppRootDialog({
             </Button>
             <Button type="submit" disabled={submitDisabled}>
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Add app root
+              {submitLabel}
             </Button>
           </DialogFooter>
         </form>
@@ -4295,6 +4322,7 @@ export function VaultDashboard() {
     resetAddAppRootDialogState,
     clearCreateError,
     markCommitAttempted,
+    prepareAddAppRootDialog,
     prepareDeleteDialog,
     resetCloudflareConnectDialogState,
     resetConvexConnectDialogState,
@@ -4380,6 +4408,10 @@ export function VaultDashboard() {
     () =>
       addAppRootDialogVault?.state === "ready"
         ? {
+            hasAppRoots: addAppRootDialogVault.appRoots.length > 0,
+            hasRootAppRoot: addAppRootDialogVault.appRoots.some(
+              (app) => app.appRoot === ROOT_CLOUDFLARE_APP_ROOT,
+            ),
             id: addAppRootDialogVault._id,
             repositoryFullName: addAppRootDialogVault.repositoryFullName,
           }
@@ -4753,10 +4785,11 @@ export function VaultDashboard() {
     }
 
     preparedAddAppRootRepositoryRef.current = vaultToAddAppRoot.repositoryFullName;
-    resetAddAppRootDialogState();
+    prepareAddAppRootDialog({ hasAppRoots: vaultToAddAppRoot.hasAppRoots });
   }, [
     addAppRootModeActive,
     clearAddAppRootSearchParam,
+    prepareAddAppRootDialog,
     resetAddAppRootDialogState,
     vaultToAddAppRoot,
     vaults,
@@ -4997,9 +5030,13 @@ export function VaultDashboard() {
     setAddAppRootDialogError(null);
     setAddAppRootDialogSubmitting(true);
     try {
+      const appRoot =
+        !vaultToAddAppRoot.hasAppRoots && addAppRootMode === "app"
+          ? ROOT_CLOUDFLARE_APP_ROOT
+          : addAppRootValue;
       await createVaultAppRoot({
         vaultId: vaultToAddAppRoot.id,
-        appRoot: addAppRootMode === "app" ? ROOT_CLOUDFLARE_APP_ROOT : addAppRootValue,
+        appRoot,
       });
       resetAddAppRootDialogState();
       clearAddAppRootSearchParam({ preferHistoryBack: true });

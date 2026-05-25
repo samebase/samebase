@@ -411,6 +411,8 @@ describe("VaultDashboardAppRootDialog", () => {
         onSubmit={vi.fn()}
         open
         vault={{
+          hasAppRoots: false,
+          hasRootAppRoot: false,
           id: fakeVaultId(),
           repositoryFullName: "ada/demo",
         }}
@@ -421,8 +423,8 @@ describe("VaultDashboardAppRootDialog", () => {
     expect(markup).toContain("Choose whether this repository is one app or a monorepo.");
     expect(markup).toContain("App");
     expect(markup).toContain("Monorepo");
-    expect(markup).toContain("readOnly");
-    expect(markup).toContain('value="."');
+    expect(markup).not.toContain('aria-label="App root"');
+    expect(markup).toContain("Use as app");
     expect(markup).toContain('type="submit"');
   });
 
@@ -439,6 +441,8 @@ describe("VaultDashboardAppRootDialog", () => {
         onSubmit={vi.fn()}
         open
         vault={{
+          hasAppRoots: false,
+          hasRootAppRoot: false,
           id: fakeVaultId(),
           repositoryFullName: "ada/demo",
         }}
@@ -451,6 +455,33 @@ describe("VaultDashboardAppRootDialog", () => {
     expect(markup).not.toContain("readOnly");
     expect(markup).toContain('type="button"');
     expect(markup).toContain('type="submit"');
+  });
+
+  it("renders conversion copy for an existing root app", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardAppRootDialog
+        appRoot="apps/domain-router"
+        error={null}
+        isSubmitting={false}
+        mode="monorepo"
+        onAppRootChange={vi.fn()}
+        onModeChange={vi.fn()}
+        onOpenChange={vi.fn()}
+        onSubmit={vi.fn()}
+        open
+        vault={{
+          hasAppRoots: true,
+          hasRootAppRoot: true,
+          id: fakeVaultId(),
+          repositoryFullName: "ada/demo",
+        }}
+      />,
+    );
+
+    expect(markup).toContain("Add a folder app root to convert this repository to a monorepo.");
+    expect(markup).not.toContain("App root mode");
+    expect(markup).toContain("apps/domain-router");
+    expect(markup).toContain("Convert to monorepo");
   });
 });
 
