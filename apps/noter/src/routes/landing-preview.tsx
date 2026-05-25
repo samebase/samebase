@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Layout } from "@/Layout";
 import { LandingMarkdownPreviewPage } from "@/components/LandingMarkdownPreviewPage";
 import {
   LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS,
@@ -13,11 +12,7 @@ function LandingPreviewRouteComponent() {
   usePageMetadata(LANDING_MARKDOWN_PREVIEW_PAGE_METADATA);
   const language = resolveLandingMarkdownPreviewLanguage(Route.useSearch());
 
-  return (
-    <Layout>
-      <LandingMarkdownPreviewPage language={language} />
-    </Layout>
-  );
+  return <LandingMarkdownPreviewPage language={language} />;
 }
 
 export const Route = createFileRoute("/landing-preview")({

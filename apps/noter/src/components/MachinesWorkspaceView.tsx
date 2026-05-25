@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useWorkspacePaneState } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
-import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
+import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import {
   type CodexThreadSidebarProject,
   type CodexThreadSidebarThread,
@@ -520,7 +520,6 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
     return next;
   });
   const sidebarTestId = props.dataTestId ? `${props.dataTestId}-sidebar` : undefined;
-  const headerTestId = props.dataTestId ? `${props.dataTestId}-header` : undefined;
 
   useEffect(() => {
     setOpenMachineIds((current) => {
@@ -568,8 +567,27 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
   }, [firstProjectKey, projectKeysSignature, selectedProjectKey, validProjectKeys]);
 
   return (
-    <WorkspaceLayoutV2FullPage
+    <AppWorkspaceRouteChrome
       dataTestId={props.dataTestId}
+      headerAccessory={
+        <MachinesWorkspaceThreadHeader
+          hasPendingStartedThread={props.hasPendingStartedThread}
+          isLoading={props.selectedThreadLoading}
+          pendingConversation={
+            props.pendingConversation === null
+              ? null
+              : {
+                  envMode: props.pendingConversation.envMode,
+                  projectLabel: props.pendingConversation.projectLabel,
+                }
+          }
+          selectedMachineDisplayName={props.selectedMachineDisplayName}
+          selectedMachineHostname={props.selectedMachineHostname}
+          selectedMachineStatusReason={props.selectedMachineStatusReason}
+          selectedThreadId={props.selectedThreadId}
+          thread={props.selectedThread}
+        />
+      }
       left={{
         header: props.leftSidebarHeader ?? null,
         content: (
@@ -732,43 +750,20 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
         ),
         footer: props.leftSidebarFooter ?? null,
       }}
-      main={{
-        header: (
-          <MachinesWorkspaceThreadHeader
-            hasPendingStartedThread={props.hasPendingStartedThread}
-            isLoading={props.selectedThreadLoading}
-            pendingConversation={
-              props.pendingConversation === null
-                ? null
-                : {
-                    envMode: props.pendingConversation.envMode,
-                    projectLabel: props.pendingConversation.projectLabel,
-                  }
-            }
-            selectedMachineDisplayName={props.selectedMachineDisplayName}
-            selectedMachineHostname={props.selectedMachineHostname}
-            selectedMachineStatusReason={props.selectedMachineStatusReason}
-            selectedThreadId={props.selectedThreadId}
-            thread={props.selectedThread}
-          />
-        ),
-        headerTestId,
-        content: (
-          <MachinesWorkspaceThreadPane
-            errorMessage={props.selectedThreadError}
-            hasPendingStartedThread={props.hasPendingStartedThread}
-            isLoading={props.selectedThreadLoading}
-            isSubmittingTurn={props.isSubmittingTurn}
-            onTurnDraftChange={props.onTurnDraftChange}
-            onTurnSubmit={props.onTurnSubmit}
-            pendingConversation={props.pendingConversation}
-            selectedMachineStatusReason={props.selectedMachineStatusReason}
-            selectedThreadId={props.selectedThreadId}
-            thread={props.selectedThread}
-            turnDraft={props.turnDraft}
-          />
-        ),
-      }}
-    />
+    >
+      <MachinesWorkspaceThreadPane
+        errorMessage={props.selectedThreadError}
+        hasPendingStartedThread={props.hasPendingStartedThread}
+        isLoading={props.selectedThreadLoading}
+        isSubmittingTurn={props.isSubmittingTurn}
+        onTurnDraftChange={props.onTurnDraftChange}
+        onTurnSubmit={props.onTurnSubmit}
+        pendingConversation={props.pendingConversation}
+        selectedMachineStatusReason={props.selectedMachineStatusReason}
+        selectedThreadId={props.selectedThreadId}
+        thread={props.selectedThread}
+        turnDraft={props.turnDraft}
+      />
+    </AppWorkspaceRouteChrome>
   );
 }

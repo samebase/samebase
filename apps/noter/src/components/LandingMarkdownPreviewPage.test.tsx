@@ -4,8 +4,8 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import { LandingMarkdownPreviewPage } from "@/components/LandingMarkdownPreviewPage";
 import { LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL } from "@/lib/landingMarkdownPreview";
 
-vi.mock("@/Layout", () => ({
-  PublicLayoutShell: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+vi.mock("@/components/AppWorkspaceShell", () => ({
+  AppWorkspaceRouteChrome: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 
 vi.mock("@/components/MarkdownLandingDocument", () => ({

@@ -10,7 +10,7 @@ function TermsRouteComponent() {
   );
 }
 
-export const Route = createFileRoute("/_public/terms")({
+export const Route = createFileRoute("/terms")({
   staticData: { permission: "public" },
   component: TermsRouteComponent,
 });

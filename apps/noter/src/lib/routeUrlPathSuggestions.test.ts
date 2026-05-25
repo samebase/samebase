@@ -2,7 +2,6 @@ import { describe, expect, it } from "vite-plus/test";
 import { getRouter } from "@/router";
 import {
   filterRouteUrlPathSuggestions,
-  isPublicLayoutRouteUrlPathReadyForNavigation,
   isRouteUrlPathReadyForNavigation,
   readRouteUrlPathSuggestions,
 } from "./routeUrlPathSuggestions";
@@ -240,12 +239,10 @@ describe("isRouteUrlPathReadyForNavigation", () => {
       }),
     ).toBe(false);
   });
-});
 
-describe("isPublicLayoutRouteUrlPathReadyForNavigation", () => {
-  it("keeps instant route previews inside the shared public shell", () => {
+  it("accepts every visible route path for instant app-shell previews", () => {
     expect(
-      isPublicLayoutRouteUrlPathReadyForNavigation({
+      isRouteUrlPathReadyForNavigation({
         currentHref: "/",
         draftHref: "/logo/iso?from=route-url-editor",
         origin: ORIGIN,
@@ -255,7 +252,7 @@ describe("isPublicLayoutRouteUrlPathReadyForNavigation", () => {
     ).toBe(true);
 
     expect(
-      isPublicLayoutRouteUrlPathReadyForNavigation({
+      isRouteUrlPathReadyForNavigation({
         currentHref: "/",
         draftHref: "/localStorage",
         origin: ORIGIN,
@@ -265,7 +262,7 @@ describe("isPublicLayoutRouteUrlPathReadyForNavigation", () => {
     ).toBe(true);
 
     expect(
-      isPublicLayoutRouteUrlPathReadyForNavigation({
+      isRouteUrlPathReadyForNavigation({
         currentHref: "/",
         draftHref: "/terms/",
         origin: ORIGIN,
@@ -275,7 +272,7 @@ describe("isPublicLayoutRouteUrlPathReadyForNavigation", () => {
     ).toBe(true);
 
     expect(
-      isPublicLayoutRouteUrlPathReadyForNavigation({
+      isRouteUrlPathReadyForNavigation({
         currentHref: "/",
         draftHref: "/logo/iso/",
         origin: ORIGIN,
@@ -285,7 +282,7 @@ describe("isPublicLayoutRouteUrlPathReadyForNavigation", () => {
     ).toBe(true);
 
     expect(
-      isPublicLayoutRouteUrlPathReadyForNavigation({
+      isRouteUrlPathReadyForNavigation({
         currentHref: "/",
         draftHref: "/localStorage/",
         origin: ORIGIN,
@@ -295,33 +292,43 @@ describe("isPublicLayoutRouteUrlPathReadyForNavigation", () => {
     ).toBe(true);
 
     expect(
-      isPublicLayoutRouteUrlPathReadyForNavigation({
+      isRouteUrlPathReadyForNavigation({
         currentHref: "/",
         draftHref: "/home",
         origin: ORIGIN,
         routesByPath,
         viewer: adminViewer,
       }),
-    ).toBe(false);
+    ).toBe(true);
 
     expect(
-      isPublicLayoutRouteUrlPathReadyForNavigation({
+      isRouteUrlPathReadyForNavigation({
         currentHref: "/",
         draftHref: "/visual-fixture",
         origin: ORIGIN,
         routesByPath,
         viewer: adminViewer,
       }),
+    ).toBe(true);
+
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/home",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: publicViewer,
+      }),
     ).toBe(false);
 
     expect(
-      isPublicLayoutRouteUrlPathReadyForNavigation({
+      isRouteUrlPathReadyForNavigation({
         currentHref: "/home",
         draftHref: "/logo",
         origin: ORIGIN,
         routesByPath,
         viewer: adminViewer,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 });

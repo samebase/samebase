@@ -22,7 +22,7 @@ import {
   FileViewDeveloperTools,
   type FileViewEditorOverride,
 } from "@/components/FileViewDeveloperTools";
-import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
+import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { CommandPalette } from "@/components/CommandPalette";
 import { EditorChatPanel } from "@/components/EditorChatPanel";
 import {
@@ -64,7 +64,6 @@ import { RepositoryMediaViewer } from "@/components/RepositoryMediaViewer";
 import { RepositoryRouteConnectState } from "@/components/RepositoryRouteConnectState";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
-import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
 import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import { MediaUploadDialog } from "@/components/MediaUploadDialog";
 import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
@@ -101,7 +100,6 @@ import {
   type CommitPreview,
   type CommitReviewMode,
   type EffectiveSidebarMode,
-  FILE_VIEW_SIDEBAR_DEFAULT_STATE,
   findBestInitialFile,
   getStagedFileStatus,
   isFileTreeNodeType,
@@ -655,41 +653,38 @@ function FileViewRepositorySetupState({
   repositoryFullName: string;
 }) {
   return (
-    <WorkspaceLayoutV2FullPage
+    <AppWorkspaceRouteChrome
+      headerAccessory={
+        <RepositoryWorkspacePaneHeader
+          title={repositoryFullName}
+          right={
+            <a
+              href={`https://github.com/${repositoryFullName}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+            >
+              GitHub
+            </a>
+          }
+        />
+      }
       left={{ footer: <AppSidebarMetaSection /> }}
-      main={{
-        header: (
-          <RepositoryWorkspacePaneHeader
-            title={repositoryFullName}
-            right={
-              <a
-                href={`https://github.com/${repositoryFullName}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs text-muted-foreground underline-offset-4 hover:underline"
-              >
-                GitHub
-              </a>
-            }
-          />
-        ),
-        content: (
-          <div className="flex h-full min-h-0 items-center justify-center p-6">
-            <div className="w-full max-w-xl">
-              <h1 className="text-xl font-semibold">{repositoryFullName}</h1>
-              <p className="mt-3 max-w-lg text-sm text-muted-foreground">
-                Repository setup is not ready.
-              </p>
-              <div className="mt-5">
-                <Button variant="outline" onClick={onBackToVaults}>
-                  Back to Vaults
-                </Button>
-              </div>
-            </div>
+    >
+      <div className="flex h-full min-h-0 items-center justify-center p-6">
+        <div className="w-full max-w-xl">
+          <h1 className="text-xl font-semibold">{repositoryFullName}</h1>
+          <p className="mt-3 max-w-lg text-sm text-muted-foreground">
+            Repository setup is not ready.
+          </p>
+          <div className="mt-5">
+            <Button variant="outline" onClick={onBackToVaults}>
+              Back to Vaults
+            </Button>
           </div>
-        ),
-      }}
-    />
+        </div>
+      </div>
+    </AppWorkspaceRouteChrome>
   );
 }
 
@@ -2902,43 +2897,40 @@ function FileViewInner({
   );
 
   return (
-    <>
-      <WorkspaceLayoutV2FullPage
-        left={{
-          header: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarHeader : null,
-          content: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarContent : null,
-          footer: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarFooter : null,
-        }}
-        main={{
-          header: fileViewMainHeader,
-          content: fileViewMainContent,
-        }}
-        panel={
-          CHAT_ENABLED
-            ? {
-                content: (
-                  <EditorChatPanel
-                    vaultId={vault._id}
-                    repositoryFullName={repositoryFullName}
-                    branch={branch}
-                    filePath={selectedFile || undefined}
-                    autoFocusInput={shouldAutoFocusChatInput}
-                    onBusyStateChange={setIsEditorChatBusy}
-                    shellMode="embedded"
-                  />
-                ),
-                closeDisabled: isEditorChatBusy,
-                onOpenChange: handleEditorChatOpenChange,
-                open: resolvedEditorChatOpen,
-              }
-            : undefined
-        }
-        right={{
-          header: FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarHeader : null,
-          content: FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarContent : null,
-          footer: FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarFooter : null,
-        }}
-      />
+    <AppWorkspaceRouteChrome
+      headerAccessory={fileViewMainHeader}
+      left={{
+        header: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarHeader : null,
+        content: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarContent : null,
+        footer: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarFooter : null,
+      }}
+      panel={
+        CHAT_ENABLED
+          ? {
+              content: (
+                <EditorChatPanel
+                  vaultId={vault._id}
+                  repositoryFullName={repositoryFullName}
+                  branch={branch}
+                  filePath={selectedFile || undefined}
+                  autoFocusInput={shouldAutoFocusChatInput}
+                  onBusyStateChange={setIsEditorChatBusy}
+                  shellMode="embedded"
+                />
+              ),
+              closeDisabled: isEditorChatBusy,
+              onOpenChange: handleEditorChatOpenChange,
+              open: resolvedEditorChatOpen,
+            }
+          : undefined
+      }
+      right={{
+        header: FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarHeader : null,
+        content: FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarContent : null,
+        footer: FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarFooter : null,
+      }}
+    >
+      {fileViewMainContent}
 
       {/* File Creation Dialog */}
       {fileCreationDialog.isOpen && (
@@ -3009,21 +3001,14 @@ function FileViewInner({
         onFileSelect={handleFileSelect}
         selectedFile={selectedFile}
       />
-    </>
+    </AppWorkspaceRouteChrome>
   );
 }
 
-// Main export with sidebar provider wrapper
 export function FileView() {
   return (
     <DialogProvider>
-      <PersistedSidebarProvider
-        shortcutPaneSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
-        defaultState={FILE_VIEW_SIDEBAR_DEFAULT_STATE}
-        workspaceKey="repository"
-      >
-        <FileViewWrapper />
-      </PersistedSidebarProvider>
+      <FileViewWrapper />
     </DialogProvider>
   );
 }

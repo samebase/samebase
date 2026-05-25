@@ -659,8 +659,6 @@ export function FileViewCodeParityVisualFixture({
   return (
     <WorkspaceLayoutV2FixtureFrame
       dataTestId="file-view-code-parity-visual-fixture"
-      defaultOpen={true}
-      defaultRightOpen={true}
       left={{
         header: (
           <SidebarAccountSection>
@@ -690,7 +688,7 @@ export function FileViewCodeParityVisualFixture({
         ),
       }}
       main={{
-        header: (
+        headerAccessory: (
           <RepositoryWorkspacePaneHeader
             title={FIXTURE_FILE_PATH}
             right={<div className="font-mono text-xs text-muted-foreground">2489719</div>}

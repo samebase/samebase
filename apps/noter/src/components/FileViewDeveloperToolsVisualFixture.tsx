@@ -60,15 +60,13 @@ export function FileViewDeveloperToolsVisualFixture({
   return (
     <WorkspaceLayoutV2FixtureFrame
       dataTestId="file-view-developer-tools-visual-fixture"
-      defaultOpen={FILE_VIEW_TREE_SIDEBAR_SIDE === "left"}
-      defaultRightOpen={FILE_VIEW_TREE_SIDEBAR_SIDE === "right"}
       shortcutPaneSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
       left={{
         header: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarHeader : null,
         content: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarContent : null,
       }}
       main={{
-        header: (
+        headerAccessory: (
           <RepositoryWorkspacePaneHeader
             title="src/components/FileView.tsx"
             right={<div className="font-mono text-xs text-muted-foreground">74f9c18</div>}

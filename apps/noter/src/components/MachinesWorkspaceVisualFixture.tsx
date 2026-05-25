@@ -1,18 +1,11 @@
 import { useMemo, useRef, useState } from "react";
-import { TestRouterProvider } from "@/test/TestRouterProvider";
-import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
-import {
-  MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
-  MachinesWorkspaceView,
-} from "@/components/MachinesWorkspaceView";
+import { MachinesWorkspaceView } from "@/components/MachinesWorkspaceView";
 import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
-import { WorkspaceLayoutV2MemorySidebarProvider } from "@/components/workspace-layout-v2/WorkspaceLayoutV2MemorySidebarProvider";
 import {
   type CodexAppServerThread,
   type CodexAppServerThreadTurn,
 } from "@/lib/codexAppServerResearch";
 import type { MachinesWorkspaceProjectConversationSelection } from "@/lib/machinesWorkspaceConversation";
-import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 
 const FIXTURE_RELATIVE_TIME_REFERENCE_MS = 1_775_541_762_000;
 const FIXTURE_WORKTREE_CWD = "/Users/fixture/.codex/worktrees/demo/noter";
@@ -401,87 +394,72 @@ export function MachinesWorkspaceVisualFixture() {
     setTurnDraft("");
   };
 
-  const initialSidebarState = {
-    leftDesktopOpen: true,
-    leftDesktopWidthPx: MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
-    leftMobileWidthPx: MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
-    mobilePane: "main",
-    mobileSurface: { kind: "unmerged" },
-    rightDesktopOpen: false,
-    rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-    rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-  } satisfies WorkspaceSidebarState;
-
   return (
-    <TestRouterProvider>
-      <WorkspaceLayoutV2MemorySidebarProvider initialState={initialSidebarState}>
-        <div className="bg-slate-100 p-8 text-slate-950">
-          <div
-            data-testid="machines-workspace-visual-fixture-page"
-            className="flex h-[420px] w-[960px] flex-col overflow-hidden"
-          >
-            <MachinesWorkspaceView
-              dataTestId="machines-workspace-visual-fixture"
-              isSubmittingTurn={false}
-              leftSidebarHeader={<SidebarHomeAccountHeader userDisplayName="nicu@noter.md" />}
-              machineInventories={[
-                {
-                  hasLoadedThreadInventory: true,
-                  machineDisplayName: "Research MacBook Pro",
-                  machineHostname: "research-mbp.local",
-                  machineId: "machine-mac",
-                  machineStatus: "online",
-                  machineStatusReason: null,
-                  pinnedThreadIds: machinePinnedThreadIds["machine-mac"] ?? [],
-                  threads: machineThreads["machine-mac"],
-                },
-                {
-                  hasLoadedThreadInventory: true,
-                  machineDisplayName: "Research Windows Workstation",
-                  machineHostname: "research-win.local",
-                  machineId: "machine-win",
-                  machineStatus: "online",
-                  machineStatusReason: null,
-                  pinnedThreadIds: machinePinnedThreadIds["machine-win"] ?? [],
-                  threads: machineThreads["machine-win"],
-                },
-              ]}
-              hasPendingStartedThread={false}
-              pendingPinThreadKey={null}
-              pendingConversation={
-                pendingConversation?.machineId === selectedMachineId
-                  ? {
-                      envMode: pendingConversation.envMode,
-                      machineId: pendingConversation.machineId,
-                      projectId: pendingConversation.projectId,
-                      projectLabel: pendingConversation.projectLabel,
-                      projectRootCwd: pendingConversation.projectRootCwd,
-                    }
-                  : null
-              }
-              selectedMachineId={selectedMachineId}
-              selectedMachineDisplayName={selectedMachineDisplayName}
-              selectedMachineHostname={selectedMachineHostname}
-              selectedMachineStatusReason={null}
-              selectedThread={selectedThread}
-              selectedThreadError={null}
-              selectedThreadLoading={false}
-              selectedThreadId={selectedThreadId}
-              relativeTimeReferenceMs={FIXTURE_RELATIVE_TIME_REFERENCE_MS}
-              turnDraft={turnDraft}
-              onProjectStartConversation={handleProjectStartConversation}
-              onTurnDraftChange={setTurnDraft}
-              onTurnSubmit={handleTurnSubmit}
-              onThreadPinChange={handleThreadPinChange}
-              onThreadSelect={({ machineId, threadId }) => {
-                setPendingConversation(null);
-                setSelectedMachineId(machineId);
-                setSelectedThreadId(threadId);
-              }}
-            />
-          </div>
-        </div>
-      </WorkspaceLayoutV2MemorySidebarProvider>
-    </TestRouterProvider>
+    <div className="bg-slate-100 p-8 text-slate-950">
+      <div
+        data-testid="machines-workspace-visual-fixture-page"
+        className="flex h-[420px] w-[960px] flex-col overflow-hidden"
+      >
+        <MachinesWorkspaceView
+          dataTestId="machines-workspace-visual-fixture"
+          isSubmittingTurn={false}
+          leftSidebarHeader={<SidebarHomeAccountHeader userDisplayName="nicu@noter.md" />}
+          machineInventories={[
+            {
+              hasLoadedThreadInventory: true,
+              machineDisplayName: "Research MacBook Pro",
+              machineHostname: "research-mbp.local",
+              machineId: "machine-mac",
+              machineStatus: "online",
+              machineStatusReason: null,
+              pinnedThreadIds: machinePinnedThreadIds["machine-mac"] ?? [],
+              threads: machineThreads["machine-mac"],
+            },
+            {
+              hasLoadedThreadInventory: true,
+              machineDisplayName: "Research Windows Workstation",
+              machineHostname: "research-win.local",
+              machineId: "machine-win",
+              machineStatus: "online",
+              machineStatusReason: null,
+              pinnedThreadIds: machinePinnedThreadIds["machine-win"] ?? [],
+              threads: machineThreads["machine-win"],
+            },
+          ]}
+          hasPendingStartedThread={false}
+          pendingPinThreadKey={null}
+          pendingConversation={
+            pendingConversation?.machineId === selectedMachineId
+              ? {
+                  envMode: pendingConversation.envMode,
+                  machineId: pendingConversation.machineId,
+                  projectId: pendingConversation.projectId,
+                  projectLabel: pendingConversation.projectLabel,
+                  projectRootCwd: pendingConversation.projectRootCwd,
+                }
+              : null
+          }
+          selectedMachineId={selectedMachineId}
+          selectedMachineDisplayName={selectedMachineDisplayName}
+          selectedMachineHostname={selectedMachineHostname}
+          selectedMachineStatusReason={null}
+          selectedThread={selectedThread}
+          selectedThreadError={null}
+          selectedThreadLoading={false}
+          selectedThreadId={selectedThreadId}
+          relativeTimeReferenceMs={FIXTURE_RELATIVE_TIME_REFERENCE_MS}
+          turnDraft={turnDraft}
+          onProjectStartConversation={handleProjectStartConversation}
+          onTurnDraftChange={setTurnDraft}
+          onTurnSubmit={handleTurnSubmit}
+          onThreadPinChange={handleThreadPinChange}
+          onThreadSelect={({ machineId, threadId }) => {
+            setPendingConversation(null);
+            setSelectedMachineId(machineId);
+            setSelectedThreadId(threadId);
+          }}
+        />
+      </div>
+    </div>
   );
 }

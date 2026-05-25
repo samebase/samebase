@@ -11,31 +11,30 @@
 import { Route as rootRouteImport } from "./routes/root";
 import { Route as visualFixtureRouteImport } from "./routes/visual-fixture";
 import { Route as testRouteImport } from "./routes/test";
+import { Route as termsRouteImport } from "./routes/terms";
+import { Route as privacyRouteImport } from "./routes/privacy";
 import { Route as pricingRouteImport } from "./routes/pricing";
 import { Route as pitchRouteImport } from "./routes/pitch";
 import { Route as machinesRouteImport } from "./routes/machines";
+import { Route as logoRouteImport } from "./routes/logo";
+import { Route as localStorageRouteImport } from "./routes/localStorage";
 import { Route as landingPreviewRouteImport } from "./routes/landing-preview";
 import { Route as dashboardHomeRouteImport } from "./routes/dashboard-home";
 import { Route as addRepositoryRouteImport } from "./routes/add-repository";
-import { Route as publicLayoutRouteImport } from "./routes/public-layout";
+import { Route as indexRouteImport } from "./routes/index";
 import { Route as vaultFileRouteImport } from "./routes/vault-file";
 import { Route as codexResearchRouteImport } from "./routes/codex-research";
 import { Route as pitchPrintRouteImport } from "./routes/pitch-print";
 import { Route as machineConnectRouteImport } from "./routes/machine-connect";
-import { Route as termsRouteImport } from "./routes/terms";
-import { Route as privacyRouteImport } from "./routes/privacy";
-import { Route as logoRouteImport } from "./routes/logo";
-import { Route as localStorageRouteImport } from "./routes/localStorage";
-import { Route as indexRouteImport } from "./routes/index";
-import { Route as codexThreadBrowserResearchRouteImport } from "./routes/codex-thread-browser-research";
-import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobile";
-import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
 import { Route as logoTransitionLabRouteImport } from "./routes/logo-transition-lab";
 import { Route as logoSvgRouteImport } from "./routes/logo-svg";
 import { Route as logoIsoStudyRouteImport } from "./routes/logo-iso-study";
 import { Route as logoRasterSeamsRouteImport } from "./routes/logo-raster-seams";
 import { Route as logoRasterRouteImport } from "./routes/logo-raster";
 import { Route as logoIsoRouteImport } from "./routes/logo-iso";
+import { Route as codexThreadBrowserResearchRouteImport } from "./routes/codex-thread-browser-research";
+import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobile";
+import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
 import { Route as logoTransitionTransformsLabRouteImport } from "./routes/logo-transition-transforms-lab";
 import { Route as codespaceChatRouteImport } from "./routes/codespace-chat";
 
@@ -47,6 +46,16 @@ const visualFixtureRoute = visualFixtureRouteImport.update({
 const testRoute = testRouteImport.update({
   id: "/test",
   path: "/test",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const termsRoute = termsRouteImport.update({
+  id: "/terms",
+  path: "/terms",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const privacyRoute = privacyRouteImport.update({
+  id: "/privacy",
+  path: "/privacy",
   getParentRoute: () => rootRouteImport,
 } as any);
 const pricingRoute = pricingRouteImport.update({
@@ -64,6 +73,16 @@ const machinesRoute = machinesRouteImport.update({
   path: "/machines",
   getParentRoute: () => rootRouteImport,
 } as any);
+const logoRoute = logoRouteImport.update({
+  id: "/logo",
+  path: "/logo",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const localStorageRoute = localStorageRouteImport.update({
+  id: "/localStorage",
+  path: "/localStorage",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const landingPreviewRoute = landingPreviewRouteImport.update({
   id: "/landing-preview",
   path: "/landing-preview",
@@ -79,8 +98,9 @@ const addRepositoryRoute = addRepositoryRouteImport.update({
   path: "/add",
   getParentRoute: () => rootRouteImport,
 } as any);
-const publicLayoutRoute = publicLayoutRouteImport.update({
-  id: "/_public",
+const indexRoute = indexRouteImport.update({
+  id: "/",
+  path: "/",
   getParentRoute: () => rootRouteImport,
 } as any);
 const vaultFileRoute = vaultFileRouteImport.update({
@@ -103,36 +123,42 @@ const machineConnectRoute = machineConnectRouteImport.update({
   path: "/machines/connect",
   getParentRoute: () => rootRouteImport,
 } as any);
-const termsRoute = termsRouteImport.update({
-  id: "/terms",
-  path: "/terms",
-  getParentRoute: () => publicLayoutRoute,
-} as any);
-const privacyRoute = privacyRouteImport.update({
-  id: "/privacy",
-  path: "/privacy",
-  getParentRoute: () => publicLayoutRoute,
-} as any);
-const logoRoute = logoRouteImport.update({
-  id: "/logo",
-  path: "/logo",
-  getParentRoute: () => publicLayoutRoute,
-} as any);
-const localStorageRoute = localStorageRouteImport.update({
-  id: "/localStorage",
-  path: "/localStorage",
-  getParentRoute: () => publicLayoutRoute,
-} as any);
-const indexRoute = indexRouteImport.update({
-  id: "/",
-  path: "/",
-  getParentRoute: () => publicLayoutRoute,
-} as any);
-const codexThreadBrowserResearchRoute = codexThreadBrowserResearchRouteImport.update({
-  id: "/research/codex-app-server/browser",
-  path: "/research/codex-app-server/browser",
+const logoTransitionLabRoute = logoTransitionLabRouteImport.update({
+  id: "/logo/transition",
+  path: "/logo/transition",
   getParentRoute: () => rootRouteImport,
 } as any);
+const logoSvgRoute = logoSvgRouteImport.update({
+  id: "/logo/svg",
+  path: "/logo/svg",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const logoIsoStudyRoute = logoIsoStudyRouteImport.update({
+  id: "/logo/single-cube",
+  path: "/logo/single-cube",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const logoRasterSeamsRoute = logoRasterSeamsRouteImport.update({
+  id: "/logo/raster-seams",
+  path: "/logo/raster-seams",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const logoRasterRoute = logoRasterRouteImport.update({
+  id: "/logo/raster",
+  path: "/logo/raster",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const logoIsoRoute = logoIsoRouteImport.update({
+  id: "/logo/iso",
+  path: "/logo/iso",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const codexThreadBrowserResearchRoute =
+  codexThreadBrowserResearchRouteImport.update({
+    id: "/research/codex-app-server/browser",
+    path: "/research/codex-app-server/browser",
+    getParentRoute: () => rootRouteImport,
+  } as any);
 const pitchPrintMobileRoute = pitchPrintMobileRouteImport.update({
   id: "/pitch/print/mobile",
   path: "/pitch/print/mobile",
@@ -143,41 +169,12 @@ const mcpConsentRoute = mcpConsentRouteImport.update({
   path: "/oauth/mcp/consent",
   getParentRoute: () => rootRouteImport,
 } as any);
-const logoTransitionLabRoute = logoTransitionLabRouteImport.update({
-  id: "/logo/transition",
-  path: "/logo/transition",
-  getParentRoute: () => publicLayoutRoute,
-} as any);
-const logoSvgRoute = logoSvgRouteImport.update({
-  id: "/logo/svg",
-  path: "/logo/svg",
-  getParentRoute: () => publicLayoutRoute,
-} as any);
-const logoIsoStudyRoute = logoIsoStudyRouteImport.update({
-  id: "/logo/single-cube",
-  path: "/logo/single-cube",
-  getParentRoute: () => publicLayoutRoute,
-} as any);
-const logoRasterSeamsRoute = logoRasterSeamsRouteImport.update({
-  id: "/logo/raster-seams",
-  path: "/logo/raster-seams",
-  getParentRoute: () => publicLayoutRoute,
-} as any);
-const logoRasterRoute = logoRasterRouteImport.update({
-  id: "/logo/raster",
-  path: "/logo/raster",
-  getParentRoute: () => publicLayoutRoute,
-} as any);
-const logoIsoRoute = logoIsoRouteImport.update({
-  id: "/logo/iso",
-  path: "/logo/iso",
-  getParentRoute: () => publicLayoutRoute,
-} as any);
-const logoTransitionTransformsLabRoute = logoTransitionTransformsLabRouteImport.update({
-  id: "/logo/transition/transforms",
-  path: "/logo/transition/transforms",
-  getParentRoute: () => publicLayoutRoute,
-} as any);
+const logoTransitionTransformsLabRoute =
+  logoTransitionTransformsLabRouteImport.update({
+    id: "/logo/transition/transforms",
+    path: "/logo/transition/transforms",
+    getParentRoute: () => rootRouteImport,
+  } as any);
 const codespaceChatRoute = codespaceChatRouteImport.update({
   id: "/vault/$owner/$repo/codespace/$branch/chat",
   path: "/vault/$owner/$repo/codespace/$branch/chat",
@@ -189,91 +186,90 @@ export interface FileRoutesByFullPath {
   "/add": typeof addRepositoryRoute;
   "/home": typeof dashboardHomeRoute;
   "/landing-preview": typeof landingPreviewRoute;
+  "/localStorage": typeof localStorageRoute;
+  "/logo": typeof logoRoute;
   "/machines": typeof machinesRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
-  "/test": typeof testRoute;
-  "/visual-fixture": typeof visualFixtureRoute;
-  "/localStorage": typeof localStorageRoute;
-  "/logo": typeof logoRoute;
   "/privacy": typeof privacyRoute;
   "/terms": typeof termsRoute;
-  "/machines/connect": typeof machineConnectRoute;
-  "/pitch/print": typeof pitchPrintRoute;
-  "/research/codex-app-server": typeof codexResearchRoute;
-  "/vault/$": typeof vaultFileRoute;
+  "/test": typeof testRoute;
+  "/visual-fixture": typeof visualFixtureRoute;
   "/logo/iso": typeof logoIsoRoute;
   "/logo/raster": typeof logoRasterRoute;
   "/logo/raster-seams": typeof logoRasterSeamsRoute;
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
   "/logo/transition": typeof logoTransitionLabRoute;
+  "/machines/connect": typeof machineConnectRoute;
+  "/pitch/print": typeof pitchPrintRoute;
+  "/research/codex-app-server": typeof codexResearchRoute;
+  "/vault/$": typeof vaultFileRoute;
+  "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
-  "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
 }
 export interface FileRoutesByTo {
+  "/": typeof indexRoute;
   "/add": typeof addRepositoryRoute;
   "/home": typeof dashboardHomeRoute;
   "/landing-preview": typeof landingPreviewRoute;
+  "/localStorage": typeof localStorageRoute;
+  "/logo": typeof logoRoute;
   "/machines": typeof machinesRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
-  "/test": typeof testRoute;
-  "/visual-fixture": typeof visualFixtureRoute;
-  "/": typeof indexRoute;
-  "/localStorage": typeof localStorageRoute;
-  "/logo": typeof logoRoute;
   "/privacy": typeof privacyRoute;
   "/terms": typeof termsRoute;
-  "/machines/connect": typeof machineConnectRoute;
-  "/pitch/print": typeof pitchPrintRoute;
-  "/research/codex-app-server": typeof codexResearchRoute;
-  "/vault/$": typeof vaultFileRoute;
+  "/test": typeof testRoute;
+  "/visual-fixture": typeof visualFixtureRoute;
   "/logo/iso": typeof logoIsoRoute;
   "/logo/raster": typeof logoRasterRoute;
   "/logo/raster-seams": typeof logoRasterSeamsRoute;
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
   "/logo/transition": typeof logoTransitionLabRoute;
+  "/machines/connect": typeof machineConnectRoute;
+  "/pitch/print": typeof pitchPrintRoute;
+  "/research/codex-app-server": typeof codexResearchRoute;
+  "/vault/$": typeof vaultFileRoute;
+  "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
-  "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
-  "/_public": typeof publicLayoutRouteWithChildren;
+  "/": typeof indexRoute;
   "/add": typeof addRepositoryRoute;
   "/home": typeof dashboardHomeRoute;
   "/landing-preview": typeof landingPreviewRoute;
+  "/localStorage": typeof localStorageRoute;
+  "/logo": typeof logoRoute;
   "/machines": typeof machinesRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
+  "/privacy": typeof privacyRoute;
+  "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
-  "/_public/": typeof indexRoute;
-  "/_public/localStorage": typeof localStorageRoute;
-  "/_public/logo": typeof logoRoute;
-  "/_public/privacy": typeof privacyRoute;
-  "/_public/terms": typeof termsRoute;
+  "/logo/iso": typeof logoIsoRoute;
+  "/logo/raster": typeof logoRasterRoute;
+  "/logo/raster-seams": typeof logoRasterSeamsRoute;
+  "/logo/single-cube": typeof logoIsoStudyRoute;
+  "/logo/svg": typeof logoSvgRoute;
+  "/logo/transition": typeof logoTransitionLabRoute;
   "/machines/connect": typeof machineConnectRoute;
   "/pitch/print": typeof pitchPrintRoute;
   "/research/codex-app-server": typeof codexResearchRoute;
   "/vault/$": typeof vaultFileRoute;
-  "/_public/logo/iso": typeof logoIsoRoute;
-  "/_public/logo/raster": typeof logoRasterRoute;
-  "/_public/logo/raster-seams": typeof logoRasterSeamsRoute;
-  "/_public/logo/single-cube": typeof logoIsoStudyRoute;
-  "/_public/logo/svg": typeof logoSvgRoute;
-  "/_public/logo/transition": typeof logoTransitionLabRoute;
+  "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
-  "/_public/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
 }
 export interface FileRouteTypes {
@@ -283,107 +279,117 @@ export interface FileRouteTypes {
     | "/add"
     | "/home"
     | "/landing-preview"
+    | "/localStorage"
+    | "/logo"
     | "/machines"
     | "/pitch"
     | "/pricing"
-    | "/test"
-    | "/visual-fixture"
-    | "/localStorage"
-    | "/logo"
     | "/privacy"
     | "/terms"
-    | "/machines/connect"
-    | "/pitch/print"
-    | "/research/codex-app-server"
-    | "/vault/$"
+    | "/test"
+    | "/visual-fixture"
     | "/logo/iso"
     | "/logo/raster"
     | "/logo/raster-seams"
     | "/logo/single-cube"
     | "/logo/svg"
     | "/logo/transition"
+    | "/machines/connect"
+    | "/pitch/print"
+    | "/research/codex-app-server"
+    | "/vault/$"
+    | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
     | "/research/codex-app-server/browser"
-    | "/logo/transition/transforms"
     | "/vault/$owner/$repo/codespace/$branch/chat";
   fileRoutesByTo: FileRoutesByTo;
   to:
+    | "/"
     | "/add"
     | "/home"
     | "/landing-preview"
+    | "/localStorage"
+    | "/logo"
     | "/machines"
     | "/pitch"
     | "/pricing"
-    | "/test"
-    | "/visual-fixture"
-    | "/"
-    | "/localStorage"
-    | "/logo"
     | "/privacy"
     | "/terms"
-    | "/machines/connect"
-    | "/pitch/print"
-    | "/research/codex-app-server"
-    | "/vault/$"
+    | "/test"
+    | "/visual-fixture"
     | "/logo/iso"
     | "/logo/raster"
     | "/logo/raster-seams"
     | "/logo/single-cube"
     | "/logo/svg"
     | "/logo/transition"
-    | "/oauth/mcp/consent"
-    | "/pitch/print/mobile"
-    | "/research/codex-app-server/browser"
-    | "/logo/transition/transforms"
-    | "/vault/$owner/$repo/codespace/$branch/chat";
-  id:
-    | "__root__"
-    | "/_public"
-    | "/add"
-    | "/home"
-    | "/landing-preview"
-    | "/machines"
-    | "/pitch"
-    | "/pricing"
-    | "/test"
-    | "/visual-fixture"
-    | "/_public/"
-    | "/_public/localStorage"
-    | "/_public/logo"
-    | "/_public/privacy"
-    | "/_public/terms"
     | "/machines/connect"
     | "/pitch/print"
     | "/research/codex-app-server"
     | "/vault/$"
-    | "/_public/logo/iso"
-    | "/_public/logo/raster"
-    | "/_public/logo/raster-seams"
-    | "/_public/logo/single-cube"
-    | "/_public/logo/svg"
-    | "/_public/logo/transition"
+    | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
     | "/research/codex-app-server/browser"
-    | "/_public/logo/transition/transforms"
+    | "/vault/$owner/$repo/codespace/$branch/chat";
+  id:
+    | "__root__"
+    | "/"
+    | "/add"
+    | "/home"
+    | "/landing-preview"
+    | "/localStorage"
+    | "/logo"
+    | "/machines"
+    | "/pitch"
+    | "/pricing"
+    | "/privacy"
+    | "/terms"
+    | "/test"
+    | "/visual-fixture"
+    | "/logo/iso"
+    | "/logo/raster"
+    | "/logo/raster-seams"
+    | "/logo/single-cube"
+    | "/logo/svg"
+    | "/logo/transition"
+    | "/machines/connect"
+    | "/pitch/print"
+    | "/research/codex-app-server"
+    | "/vault/$"
+    | "/logo/transition/transforms"
+    | "/oauth/mcp/consent"
+    | "/pitch/print/mobile"
+    | "/research/codex-app-server/browser"
     | "/vault/$owner/$repo/codespace/$branch/chat";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
-  publicLayoutRoute: typeof publicLayoutRouteWithChildren;
+  indexRoute: typeof indexRoute;
   addRepositoryRoute: typeof addRepositoryRoute;
   dashboardHomeRoute: typeof dashboardHomeRoute;
   landingPreviewRoute: typeof landingPreviewRoute;
+  localStorageRoute: typeof localStorageRoute;
+  logoRoute: typeof logoRoute;
   machinesRoute: typeof machinesRoute;
   pitchRoute: typeof pitchRoute;
   pricingRoute: typeof pricingRoute;
+  privacyRoute: typeof privacyRoute;
+  termsRoute: typeof termsRoute;
   testRoute: typeof testRoute;
   visualFixtureRoute: typeof visualFixtureRoute;
+  logoIsoRoute: typeof logoIsoRoute;
+  logoRasterRoute: typeof logoRasterRoute;
+  logoRasterSeamsRoute: typeof logoRasterSeamsRoute;
+  logoIsoStudyRoute: typeof logoIsoStudyRoute;
+  logoSvgRoute: typeof logoSvgRoute;
+  logoTransitionLabRoute: typeof logoTransitionLabRoute;
   machineConnectRoute: typeof machineConnectRoute;
   pitchPrintRoute: typeof pitchPrintRoute;
   codexResearchRoute: typeof codexResearchRoute;
   vaultFileRoute: typeof vaultFileRoute;
+  logoTransitionTransformsLabRoute: typeof logoTransitionTransformsLabRoute;
   mcpConsentRoute: typeof mcpConsentRoute;
   pitchPrintMobileRoute: typeof pitchPrintMobileRoute;
   codexThreadBrowserResearchRoute: typeof codexThreadBrowserResearchRoute;
@@ -404,6 +410,20 @@ declare module "@tanstack/react-router" {
       path: "/test";
       fullPath: "/test";
       preLoaderRoute: typeof testRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/terms": {
+      id: "/terms";
+      path: "/terms";
+      fullPath: "/terms";
+      preLoaderRoute: typeof termsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/privacy": {
+      id: "/privacy";
+      path: "/privacy";
+      fullPath: "/privacy";
+      preLoaderRoute: typeof privacyRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/pricing": {
@@ -427,6 +447,20 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof machinesRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/logo": {
+      id: "/logo";
+      path: "/logo";
+      fullPath: "/logo";
+      preLoaderRoute: typeof logoRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/localStorage": {
+      id: "/localStorage";
+      path: "/localStorage";
+      fullPath: "/localStorage";
+      preLoaderRoute: typeof localStorageRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/landing-preview": {
       id: "/landing-preview";
       path: "/landing-preview";
@@ -448,11 +482,11 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof addRepositoryRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/_public": {
-      id: "/_public";
-      path: "";
+    "/": {
+      id: "/";
+      path: "/";
       fullPath: "/";
-      preLoaderRoute: typeof publicLayoutRouteImport;
+      preLoaderRoute: typeof indexRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/vault/$": {
@@ -483,40 +517,47 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof machineConnectRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/_public/terms": {
-      id: "/_public/terms";
-      path: "/terms";
-      fullPath: "/terms";
-      preLoaderRoute: typeof termsRouteImport;
-      parentRoute: typeof publicLayoutRoute;
+    "/logo/transition": {
+      id: "/logo/transition";
+      path: "/logo/transition";
+      fullPath: "/logo/transition";
+      preLoaderRoute: typeof logoTransitionLabRouteImport;
+      parentRoute: typeof rootRouteImport;
     };
-    "/_public/privacy": {
-      id: "/_public/privacy";
-      path: "/privacy";
-      fullPath: "/privacy";
-      preLoaderRoute: typeof privacyRouteImport;
-      parentRoute: typeof publicLayoutRoute;
+    "/logo/svg": {
+      id: "/logo/svg";
+      path: "/logo/svg";
+      fullPath: "/logo/svg";
+      preLoaderRoute: typeof logoSvgRouteImport;
+      parentRoute: typeof rootRouteImport;
     };
-    "/_public/logo": {
-      id: "/_public/logo";
-      path: "/logo";
-      fullPath: "/logo";
-      preLoaderRoute: typeof logoRouteImport;
-      parentRoute: typeof publicLayoutRoute;
+    "/logo/single-cube": {
+      id: "/logo/single-cube";
+      path: "/logo/single-cube";
+      fullPath: "/logo/single-cube";
+      preLoaderRoute: typeof logoIsoStudyRouteImport;
+      parentRoute: typeof rootRouteImport;
     };
-    "/_public/localStorage": {
-      id: "/_public/localStorage";
-      path: "/localStorage";
-      fullPath: "/localStorage";
-      preLoaderRoute: typeof localStorageRouteImport;
-      parentRoute: typeof publicLayoutRoute;
+    "/logo/raster-seams": {
+      id: "/logo/raster-seams";
+      path: "/logo/raster-seams";
+      fullPath: "/logo/raster-seams";
+      preLoaderRoute: typeof logoRasterSeamsRouteImport;
+      parentRoute: typeof rootRouteImport;
     };
-    "/_public/": {
-      id: "/_public/";
-      path: "/";
-      fullPath: "/";
-      preLoaderRoute: typeof indexRouteImport;
-      parentRoute: typeof publicLayoutRoute;
+    "/logo/raster": {
+      id: "/logo/raster";
+      path: "/logo/raster";
+      fullPath: "/logo/raster";
+      preLoaderRoute: typeof logoRasterRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/logo/iso": {
+      id: "/logo/iso";
+      path: "/logo/iso";
+      fullPath: "/logo/iso";
+      preLoaderRoute: typeof logoIsoRouteImport;
+      parentRoute: typeof rootRouteImport;
     };
     "/research/codex-app-server/browser": {
       id: "/research/codex-app-server/browser";
@@ -539,54 +580,12 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof mcpConsentRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/_public/logo/transition": {
-      id: "/_public/logo/transition";
-      path: "/logo/transition";
-      fullPath: "/logo/transition";
-      preLoaderRoute: typeof logoTransitionLabRouteImport;
-      parentRoute: typeof publicLayoutRoute;
-    };
-    "/_public/logo/svg": {
-      id: "/_public/logo/svg";
-      path: "/logo/svg";
-      fullPath: "/logo/svg";
-      preLoaderRoute: typeof logoSvgRouteImport;
-      parentRoute: typeof publicLayoutRoute;
-    };
-    "/_public/logo/single-cube": {
-      id: "/_public/logo/single-cube";
-      path: "/logo/single-cube";
-      fullPath: "/logo/single-cube";
-      preLoaderRoute: typeof logoIsoStudyRouteImport;
-      parentRoute: typeof publicLayoutRoute;
-    };
-    "/_public/logo/raster-seams": {
-      id: "/_public/logo/raster-seams";
-      path: "/logo/raster-seams";
-      fullPath: "/logo/raster-seams";
-      preLoaderRoute: typeof logoRasterSeamsRouteImport;
-      parentRoute: typeof publicLayoutRoute;
-    };
-    "/_public/logo/raster": {
-      id: "/_public/logo/raster";
-      path: "/logo/raster";
-      fullPath: "/logo/raster";
-      preLoaderRoute: typeof logoRasterRouteImport;
-      parentRoute: typeof publicLayoutRoute;
-    };
-    "/_public/logo/iso": {
-      id: "/_public/logo/iso";
-      path: "/logo/iso";
-      fullPath: "/logo/iso";
-      preLoaderRoute: typeof logoIsoRouteImport;
-      parentRoute: typeof publicLayoutRoute;
-    };
-    "/_public/logo/transition/transforms": {
-      id: "/_public/logo/transition/transforms";
+    "/logo/transition/transforms": {
+      id: "/logo/transition/transforms";
       path: "/logo/transition/transforms";
       fullPath: "/logo/transition/transforms";
       preLoaderRoute: typeof logoTransitionTransformsLabRouteImport;
-      parentRoute: typeof publicLayoutRoute;
+      parentRoute: typeof rootRouteImport;
     };
     "/vault/$owner/$repo/codespace/$branch/chat": {
       id: "/vault/$owner/$repo/codespace/$branch/chat";
@@ -598,52 +597,31 @@ declare module "@tanstack/react-router" {
   }
 }
 
-interface publicLayoutRouteChildren {
-  indexRoute: typeof indexRoute;
-  localStorageRoute: typeof localStorageRoute;
-  logoRoute: typeof logoRoute;
-  privacyRoute: typeof privacyRoute;
-  termsRoute: typeof termsRoute;
-  logoIsoRoute: typeof logoIsoRoute;
-  logoRasterRoute: typeof logoRasterRoute;
-  logoRasterSeamsRoute: typeof logoRasterSeamsRoute;
-  logoIsoStudyRoute: typeof logoIsoStudyRoute;
-  logoSvgRoute: typeof logoSvgRoute;
-  logoTransitionLabRoute: typeof logoTransitionLabRoute;
-  logoTransitionTransformsLabRoute: typeof logoTransitionTransformsLabRoute;
-}
-
-const publicLayoutRouteChildren: publicLayoutRouteChildren = {
+const rootRouteChildren: RootRouteChildren = {
   indexRoute: indexRoute,
+  addRepositoryRoute: addRepositoryRoute,
+  dashboardHomeRoute: dashboardHomeRoute,
+  landingPreviewRoute: landingPreviewRoute,
   localStorageRoute: localStorageRoute,
   logoRoute: logoRoute,
+  machinesRoute: machinesRoute,
+  pitchRoute: pitchRoute,
+  pricingRoute: pricingRoute,
   privacyRoute: privacyRoute,
   termsRoute: termsRoute,
+  testRoute: testRoute,
+  visualFixtureRoute: visualFixtureRoute,
   logoIsoRoute: logoIsoRoute,
   logoRasterRoute: logoRasterRoute,
   logoRasterSeamsRoute: logoRasterSeamsRoute,
   logoIsoStudyRoute: logoIsoStudyRoute,
   logoSvgRoute: logoSvgRoute,
   logoTransitionLabRoute: logoTransitionLabRoute,
-  logoTransitionTransformsLabRoute: logoTransitionTransformsLabRoute,
-};
-
-const publicLayoutRouteWithChildren = publicLayoutRoute._addFileChildren(publicLayoutRouteChildren);
-
-const rootRouteChildren: RootRouteChildren = {
-  publicLayoutRoute: publicLayoutRouteWithChildren,
-  addRepositoryRoute: addRepositoryRoute,
-  dashboardHomeRoute: dashboardHomeRoute,
-  landingPreviewRoute: landingPreviewRoute,
-  machinesRoute: machinesRoute,
-  pitchRoute: pitchRoute,
-  pricingRoute: pricingRoute,
-  testRoute: testRoute,
-  visualFixtureRoute: visualFixtureRoute,
   machineConnectRoute: machineConnectRoute,
   pitchPrintRoute: pitchPrintRoute,
   codexResearchRoute: codexResearchRoute,
   vaultFileRoute: vaultFileRoute,
+  logoTransitionTransformsLabRoute: logoTransitionTransformsLabRoute,
   mcpConsentRoute: mcpConsentRoute,
   pitchPrintMobileRoute: pitchPrintMobileRoute,
   codexThreadBrowserResearchRoute: codexThreadBrowserResearchRoute,

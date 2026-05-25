@@ -8,7 +8,7 @@ function isExpectedLocalConvexSyncConsoleError(message: string) {
   return localConvexSyncConsoleErrorPattern.test(message);
 }
 
-test("public landing route uses the stable public shell", async ({ page }) => {
+test("landing route uses the stable app workspace shell", async ({ page }) => {
   await page.addInitScript(() => {
     Math.random = () => 0.57;
   });
@@ -19,7 +19,7 @@ test("public landing route uses the stable public shell", async ({ page }) => {
   });
   await page.waitForLoadState("networkidle");
 
-  await expect(page).toHaveScreenshot("public-layout-landing.png", {
+  await expect(page).toHaveScreenshot("app-workspace-landing.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",
@@ -27,7 +27,7 @@ test("public landing route uses the stable public shell", async ({ page }) => {
   });
 });
 
-test("public landing header exposes the route URL editor", async ({ page }) => {
+test("app workspace header exposes the route URL editor", async ({ page }) => {
   await page.addInitScript(() => {
     Math.random = () => 0.57;
   });
@@ -43,26 +43,24 @@ test("public landing header exposes the route URL editor", async ({ page }) => {
   const routeUrlDisplay = page.getByTestId("route-url-editor-display");
   await expect(routeUrlDisplay).toHaveValue(`${origin}/?dev`);
   await expect(routeUrlDisplay).toHaveAttribute("title", `${origin}/?dev`);
-  await expect(page).toHaveScreenshot("public-layout-landing-dev.png", {
+  await expect(page).toHaveScreenshot("app-workspace-landing-dev.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",
     maxDiffPixelRatio: 0.03,
   });
-  await routeUrlDisplay.click();
+  await routeUrlDisplay.focus();
   const routeUrlInput = page.getByTestId("route-url-editor-input");
   await expect(routeUrlInput).toHaveValue(`${origin}/?dev`);
 
-  await page.getByRole("link", { name: "/terms", exact: true }).click();
+  await page.getByRole("link", { name: "/terms", exact: true }).dispatchEvent("click");
   await expect(page).toHaveURL(/\/terms\?dev$/);
-  await expect(page.getByTestId("route-url-editor-display")).toHaveValue(`${origin}/terms?dev`);
-  await expect(page.getByTestId("route-url-editor-display")).toHaveAttribute(
-    "title",
-    `${origin}/terms?dev`,
-  );
+  await expect(routeUrlInput).toBeFocused();
+  await expect(routeUrlInput).toHaveValue(`${origin}/terms?dev`);
+  await expect(routeUrlInput).toHaveAttribute("title", `${origin}/terms?dev`);
 });
 
-test("public route URL editor stays compact for long URLs", async ({ page }) => {
+test("app workspace route URL editor stays compact for long URLs", async ({ page }) => {
   const longPath =
     "/?dev&route=codex-find-main-header-url-research&state=abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
 
@@ -96,7 +94,7 @@ test("public route URL editor stays compact for long URLs", async ({ page }) => 
   expect(metrics.displayScrollWidth).toBeGreaterThan(metrics.displayClientWidth);
 });
 
-test("public landing ProseMark copy survives full selection deletion", async ({ page }) => {
+test("landing ProseMark copy survives full selection deletion", async ({ page }) => {
   const errorMessages: string[] = [];
   page.on("console", (message) => {
     const text = message.text();
@@ -111,7 +109,7 @@ test("public landing ProseMark copy survives full selection deletion", async ({ 
   await page.goto("/?dev", {
     waitUntil: "domcontentloaded",
   });
-  await page.getByTestId("public-landing-copy").getByRole("textbox").click();
+  await page.getByTestId("public-landing-copy").getByRole("textbox").focus();
   await page.keyboard.press(selectAllShortcut);
   await page.keyboard.press("Backspace");
 

@@ -1,4 +1,3 @@
-import { Layout, PublicLayoutShell } from "@/Layout";
 import { McpConsentSignInView } from "@/McpConsentSignInView";
 import { SignInForm } from "@/SignInForm";
 import { ApprovalGate } from "@/components/ApprovalGate";
@@ -164,17 +163,15 @@ export function McpConsentRoutePage() {
   usePageMetadata(pageMetadata);
 
   return (
-    <Layout>
+    <>
       <Authenticated>
         <ApprovalGate>
           {requestId === null ? null : <McpConsentView requestId={requestId} />}
         </ApprovalGate>
       </Authenticated>
       <Unauthenticated>
-        <PublicLayoutShell>
-          {requestId === null ? <SignInForm /> : <McpConsentSignInView />}
-        </PublicLayoutShell>
+        {requestId === null ? <SignInForm /> : <McpConsentSignInView />}
       </Unauthenticated>
-    </Layout>
+    </>
   );
 }

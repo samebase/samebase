@@ -66,7 +66,7 @@ const notFoundCache = new Set<string>();
  *  - /npm/react@latest           → "react"
  *  - /npm/@types/react@latest    → "@types/react"
  *  - /npm/@components@latest     → "@components"  (malformed, but captured)
- *  - /npm/@/Layout@latest        → "@/Layout"     (path alias, captured)
+ *  - /npm/@/components@latest    → "@/components" (path alias, captured)
  */
 function extractPackageName(url: string): string | null {
   const npmIdx = url.indexOf("/npm/");

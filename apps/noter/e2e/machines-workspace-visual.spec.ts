@@ -27,10 +27,14 @@ async function activateHeaderTitle(page: Page) {
   await page.getByTestId("machines-workspace-thread-header-title-toggle").dispatchEvent("click");
 }
 
+function getMachinesWorkspaceHeader(page: Page) {
+  return page.getByTestId("workspace-layout-v2-main-pane-header");
+}
+
 test("machines workspace fixture", async ({ page }) => {
   await openMachinesWorkspaceFixture(page);
 
-  const header = page.getByTestId("machines-workspace-visual-fixture-header");
+  const header = getMachinesWorkspaceHeader(page);
   await expect(header).toHaveScreenshot("machines-workspace-header.png", {
     animations: "disabled",
     caret: "hide",
@@ -51,7 +55,7 @@ test("machines workspace header expands the selected title on click", async ({ p
   await openMachinesWorkspaceFixture(page);
   await activateHeaderTitle(page);
 
-  const header = page.getByTestId("machines-workspace-visual-fixture-header");
+  const header = getMachinesWorkspaceHeader(page);
   await expect(header).toHaveScreenshot("machines-workspace-header-expanded.png", {
     animations: "disabled",
     caret: "hide",
@@ -163,7 +167,7 @@ test.describe("mobile", () => {
   test("machines workspace fixture mobile", async ({ page }) => {
     await openMachinesWorkspaceFixture(page);
 
-    const header = page.getByTestId("machines-workspace-visual-fixture-header");
+    const header = getMachinesWorkspaceHeader(page);
     await expect(header).toHaveScreenshot("machines-workspace-header-mobile.png", {
       animations: "disabled",
       caret: "hide",
@@ -184,7 +188,7 @@ test.describe("mobile", () => {
     await openMachinesWorkspaceFixture(page);
     await activateHeaderTitle(page);
 
-    const header = page.getByTestId("machines-workspace-visual-fixture-header");
+    const header = getMachinesWorkspaceHeader(page);
     await expect(header).toHaveScreenshot("machines-workspace-header-expanded-mobile.png", {
       animations: "disabled",
       caret: "hide",

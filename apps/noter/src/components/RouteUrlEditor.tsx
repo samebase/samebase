@@ -26,7 +26,7 @@ import {
 } from "@/lib/routeUrlEditorSuggestions";
 import { RETAINED_ROOT_SEARCH_KEYS, validateRootRouteSearch } from "@/lib/rootRouteSearch";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
-import { isPublicLayoutRouteUrlPathReadyForNavigation } from "@/lib/routeUrlPathSuggestions";
+import { isRouteUrlPathReadyForNavigation } from "@/lib/routeUrlPathSuggestions";
 import { api } from "../../convex/_generated/api";
 
 const routeUrlEditorIconButtonClassName =
@@ -316,16 +316,16 @@ export function RouteUrlEditor() {
     [router],
   );
 
-  // Links and Back/Forward change URL reality. While the input is focused,
-  // draft text is allowed to be temporarily invalid or non-canonical.
+  // Links and Back/Forward change URL reality. Keep an untouched focused input
+  // aligned with the route while preserving user-edited local drafts.
   useEffect(() => {
-    if (inputFocused) {
+    if (inputFocused && suggestionDraftEditedSinceFocus) {
       return;
     }
 
     setDraftRouteAddress(currentHref);
     setSuggestionBaseRouteAddress(currentHref);
-  }, [currentHref, inputFocused]);
+  }, [currentHref, inputFocused, suggestionDraftEditedSinceFocus]);
 
   useEffect(() => {
     setActiveSuggestionIndex((currentActiveSuggestionIndex) => {
@@ -530,7 +530,7 @@ export function RouteUrlEditor() {
       });
       if (
         commitMode === "route-navigation" &&
-        !isPublicLayoutRouteUrlPathReadyForNavigation({
+        !isRouteUrlPathReadyForNavigation({
           currentHref,
           draftHref: nextHref,
           origin,

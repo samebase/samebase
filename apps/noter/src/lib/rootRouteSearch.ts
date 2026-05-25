@@ -13,7 +13,6 @@ import {
   validateLogoRouteSearch,
   type LogoRouteSearch,
 } from "@/lib/logoRouteSearch";
-import { PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM } from "@/lib/publicLayoutSidebarPreferences";
 import {
   applySearchPatch,
   normalizeRouteSearchPresenceFlags,
@@ -32,10 +31,6 @@ import { z } from "zod";
 // TanStack Router's root route id is the stable "__root__" literal, and using
 // it directly keeps this helper on the app package boundary.
 const ROOT_ROUTE_ID = "__root__";
-
-function readOptionalSidebarResetFlag(value: unknown): true | undefined {
-  return value === true || value === "" || value === "true" ? true : undefined;
-}
 
 function readOptionalGoogleAuthProvider(value: unknown): "google" | undefined {
   return value === "google" ? "google" : undefined;
@@ -102,10 +97,6 @@ const rootRouteSearchSchema = z
       z.union([z.literal(LOGO_GRID_SIZE_2), z.literal(LOGO_GRID_SIZE_3)]).optional(),
     ),
     [SEARCH_RESET_QUERY_PARAM]: z.literal(true).optional(),
-    [PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM]: z.preprocess(
-      readOptionalSidebarResetFlag,
-      z.literal(true).optional(),
-    ),
     signup: z.preprocess(readOptionalGoogleSignupReturn, z.literal("google").optional()),
   })
   .merge(appThemeColorSearchFieldSchema)
@@ -169,12 +160,6 @@ const rootRouteSearchParamMetadata = {
     parseKind: "presence",
     permission: "public",
     suggestion: "global",
-    valueKind: "presence",
-  },
-  [PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM]: {
-    parseKind: "schema",
-    permission: "public",
-    suggestion: "route",
     valueKind: "presence",
   },
   [SEARCH_RESET_QUERY_PARAM]: {

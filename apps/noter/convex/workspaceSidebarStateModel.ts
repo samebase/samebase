@@ -3,6 +3,7 @@ import { Infer, v } from "convex/values";
 const { boolean, id, literal, number, object, union } = v;
 
 export const vWorkspaceSidebarStateKey = union(
+  literal("app"),
   literal("dashboard"),
   literal("machines"),
   literal("repository"),

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { LOCAL_STORAGE_ROUTE } from "../src/lib/localStorageRoute";
-import { PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY } from "../src/lib/publicLayoutSidebarPreferences";
+import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
 
 const localStorageRouteScreenshotOptions = {
   animations: "disabled",
@@ -28,7 +28,7 @@ test("localStorage route shows raw strings and formatted JSON values", async ({ 
 
   await page.goto("/localStorage", { waitUntil: "networkidle" });
 
-  await expect(page.getByTestId("public-layout-workspace")).toBeVisible();
+  await expect(page.getByTestId("app-workspace")).toBeVisible();
   await expect(page.getByTestId("local-storage-sidebar-file")).toHaveText("localStorage");
   await expect(
     page.getByTestId("local-storage-entry-key").filter({
@@ -75,7 +75,7 @@ test("localStorage route reflects sidebar persistence without manual refresh", a
 
   await expect(
     page.getByTestId("local-storage-entry-key").filter({
-      hasText: PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY,
+      hasText: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
     }),
   ).toBeVisible();
   await expect(

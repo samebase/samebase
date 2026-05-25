@@ -1,4 +1,3 @@
-import { Layout, PublicLayoutShell } from "@/Layout";
 import { ApprovalGate } from "@/components/ApprovalGate";
 import { buttonVariants } from "@/components/ui/button";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
@@ -44,7 +43,7 @@ export function NotFoundRoutePage() {
   usePageMetadata(resolveNotFoundPageMetadata(pathname));
 
   return (
-    <Layout>
+    <>
       <Authenticated>
         <ApprovalGate>
           <NotFoundContent
@@ -56,15 +55,13 @@ export function NotFoundRoutePage() {
         </ApprovalGate>
       </Authenticated>
       <Unauthenticated>
-        <PublicLayoutShell>
-          <NotFoundContent
-            description="The requested noter page does not exist."
-            pathname={pathname}
-            primaryActionLabel="Go home"
-            primaryActionTo="/"
-          />
-        </PublicLayoutShell>
+        <NotFoundContent
+          description="The requested noter page does not exist."
+          pathname={pathname}
+          primaryActionLabel="Go home"
+          primaryActionTo="/"
+        />
       </Unauthenticated>
-    </Layout>
+    </>
   );
 }

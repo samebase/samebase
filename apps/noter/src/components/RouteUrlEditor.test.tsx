@@ -188,7 +188,7 @@ describe("RouteUrlEditor", () => {
     expect(readSuggestions()).not.toBeNull();
   });
 
-  it("does not arrow-preview admin-only routes outside the public shell", async () => {
+  it("arrow-previews visible routes without blurring the stable input", async () => {
     useQueryMock.mockReturnValue(true);
     const input = startEditing();
     const origin = window.location.origin;
@@ -198,7 +198,7 @@ describe("RouteUrlEditor", () => {
     }
 
     expect(input.value).toBe(`${origin}/home`);
-    expect(readRouteHref()).toBe("/");
+    expect(readRouteHref()).toBe("/home");
     expect(document.activeElement).toBe(input);
   });
 });

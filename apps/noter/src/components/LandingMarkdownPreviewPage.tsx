@@ -1,4 +1,4 @@
-import { PublicLayoutShell } from "@/Layout";
+import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { FileTree, type FileTreeItem } from "@/components/FileTree";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
 import {
@@ -196,22 +196,6 @@ function buildLandingPreviewPaneHashPath({
   });
 }
 
-function getLandingPreviewDefaultMobilePane(): WorkspaceMobilePane {
-  if (typeof window === "undefined") {
-    return "main";
-  }
-
-  const searchParams = new URLSearchParams(window.location.search);
-  if (searchParams.has("left")) {
-    return "left";
-  }
-  if (searchParams.has("right")) {
-    return "right";
-  }
-
-  return "main";
-}
-
 function getLandingPreviewArticleHeading(headingId: string) {
   const article = document.querySelector<HTMLElement>(
     `[data-testid="${LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID}"]`,
@@ -383,13 +367,12 @@ export function LandingMarkdownPreviewPage({
   language?: LandingMarkdownPreviewLanguage;
 }) {
   return (
-    <PublicLayoutShell
-      defaultMobilePane={getLandingPreviewDefaultMobilePane()}
+    <AppWorkspaceRouteChrome
       left={{ content: <LandingMarkdownPreviewSidebar language={language} /> }}
     >
       <div data-testid={LANDING_MARKDOWN_PREVIEW_TEST_ID} className="flex min-h-0 flex-1 flex-col">
         <LandingMarkdownPreviewDocument language={language} />
       </div>
-    </PublicLayoutShell>
+    </AppWorkspaceRouteChrome>
   );
 }
