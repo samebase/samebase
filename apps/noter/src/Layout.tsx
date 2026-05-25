@@ -26,6 +26,7 @@ const PUBLIC_LAYOUT_LEFT_SIDEBAR_DEFAULT_WIDTH_PX = 240;
 const PUBLIC_LAYOUT_LEFT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 240;
 const PUBLIC_LAYOUT_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 const PUBLIC_LAYOUT_RIGHT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 288;
+const PUBLIC_LAYOUT_DATA_TEST_ID = "public-layout-workspace";
 
 type WorkspaceLayoutV2FullPageProps = ComponentProps<typeof WorkspaceLayoutV2FullPage>;
 
@@ -47,36 +48,39 @@ export type PublicLayoutShellProps = {
 
 export function PublicLayoutShell({
   children,
-  dataTestId,
-  defaultLeftOpen = false,
-  defaultMobilePane = "main",
+  dataTestId = PUBLIC_LAYOUT_DATA_TEST_ID,
+  defaultLeftOpen,
+  defaultMobilePane,
   left,
-  leftToggleVisibility = "hidden",
+  leftToggleVisibility,
   main,
   rightToggleVisibility = "desktop",
   showRightSidebar = true,
 }: PublicLayoutShellProps) {
   const hasLeftPane = left !== undefined;
+  const resolvedDefaultLeftOpen = defaultLeftOpen ?? hasLeftPane;
+  const resolvedDefaultMobilePane = defaultMobilePane ?? (hasLeftPane ? "left" : "main");
+  const resolvedLeftToggleVisibility = leftToggleVisibility ?? (hasLeftPane ? "desktop" : "hidden");
   const location = useLocation();
   const rootRouteSearch = readRootRouteSearch(location.searchStr);
   const sidebarResetRequested = isPublicLayoutSidebarResetRequested(rootRouteSearch);
   const defaultSidebarState = useMemo(
     () =>
       ({
-        leftDesktopOpen: hasLeftPane && defaultLeftOpen,
+        leftDesktopOpen: hasLeftPane && resolvedDefaultLeftOpen,
         leftDesktopWidthPx: hasLeftPane
           ? PUBLIC_LAYOUT_LEFT_SIDEBAR_DEFAULT_WIDTH_PX
           : WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
         leftMobileWidthPx: hasLeftPane
           ? PUBLIC_LAYOUT_LEFT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX
           : WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX,
-        mobilePane: defaultMobilePane,
+        mobilePane: resolvedDefaultMobilePane,
         mobileSurface: { kind: "unmerged" },
         rightDesktopOpen: true,
         rightDesktopWidthPx: PUBLIC_LAYOUT_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
         rightMobileWidthPx: PUBLIC_LAYOUT_RIGHT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX,
       }) satisfies WorkspaceSidebarState,
-    [defaultLeftOpen, defaultMobilePane, hasLeftPane],
+    [hasLeftPane, resolvedDefaultLeftOpen, resolvedDefaultMobilePane],
   );
   const sidebarState = useLocalStorageWorkspaceSidebarState({
     defaults: defaultSidebarState,
@@ -140,7 +144,7 @@ export function PublicLayoutShell({
           left={left}
           main={mainPane}
           right={rightPane}
-          leftToggleVisibility={leftToggleVisibility}
+          leftToggleVisibility={resolvedLeftToggleVisibility}
           rightToggleVisibility={layoutRightToggleVisibility}
         />
       </WorkspacePaneRuntimeProvider>

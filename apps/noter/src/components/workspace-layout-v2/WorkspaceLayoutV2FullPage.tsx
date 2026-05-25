@@ -27,6 +27,7 @@ const TOGGLE_BUTTON_CLASS_NAMES = {
   all: "h-8 w-8 rounded-none",
   desktop: "hidden h-8 w-8 md:inline-flex",
 } as const satisfies Record<Exclude<WorkspaceLayoutV2ToggleVisibility, "hidden">, string>;
+const WORKSPACE_LAYOUT_V2_MAIN_PANE_HEADER_TEST_ID = "workspace-layout-v2-main-pane-header";
 
 function WorkspaceLayoutV2MainPaneHeader({
   children,
@@ -119,6 +120,7 @@ export function WorkspaceLayoutV2FullPage({
       main={
         <WorkspaceLayoutV2PaneFrame
           {...main}
+          headerTestId={main.headerTestId ?? WORKSPACE_LAYOUT_V2_MAIN_PANE_HEADER_TEST_ID}
           header={
             hideMainHeader ? undefined : (
               <WorkspaceLayoutV2MainPaneHeader

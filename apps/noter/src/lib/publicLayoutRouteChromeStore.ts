@@ -1,82 +1,14 @@
 import { createContext, useSyncExternalStore, type ReactNode } from "react";
-import type { PublicLayoutShellProps } from "@/Layout";
-import type { WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 
-type PublicLayoutRoutePaneFrame = Omit<WorkspaceLayoutV2PaneFrameProps, "content">;
-
-export type PublicLayoutRouteChromeConfig = Omit<
-  PublicLayoutShellProps,
-  "children" | "left" | "main"
-> & {
-  left?: PublicLayoutRoutePaneFrame & { content: ReactNode };
-  main?: PublicLayoutRoutePaneFrame;
+export type PublicLayoutRouteChromeConfig = {
+  left?: ReactNode;
 };
 
-export type PublicLayoutRouteChromeSnapshot = Omit<PublicLayoutRouteChromeConfig, "left"> & {
-  left?: PublicLayoutRoutePaneFrame;
-};
+export type PublicLayoutRouteChromeSnapshot = { hasLeft: boolean };
 
 type PublicLayoutRouteChromeListener = () => void;
 
-const defaultPublicLayoutRouteChromeSnapshot = {};
-
-function arePublicLayoutRoutePaneFramesEqual(
-  left: PublicLayoutRoutePaneFrame | undefined,
-  right: PublicLayoutRoutePaneFrame | undefined,
-) {
-  if (left === right) {
-    return true;
-  }
-
-  if (left === undefined || right === undefined) {
-    return false;
-  }
-
-  return (
-    left.footer === right.footer &&
-    left.header === right.header &&
-    left.headerTestId === right.headerTestId
-  );
-}
-
-function arePublicLayoutRouteChromeSnapshotsEqual(
-  left: PublicLayoutRouteChromeSnapshot,
-  right: PublicLayoutRouteChromeSnapshot,
-) {
-  return (
-    left.dataTestId === right.dataTestId &&
-    left.defaultLeftOpen === right.defaultLeftOpen &&
-    left.defaultMobilePane === right.defaultMobilePane &&
-    left.leftToggleVisibility === right.leftToggleVisibility &&
-    left.rightToggleVisibility === right.rightToggleVisibility &&
-    left.showRightSidebar === right.showRightSidebar &&
-    arePublicLayoutRoutePaneFramesEqual(left.left, right.left) &&
-    arePublicLayoutRoutePaneFramesEqual(left.main, right.main)
-  );
-}
-
-function toPublicLayoutRouteChromeSnapshot(
-  config: PublicLayoutRouteChromeConfig | null,
-): PublicLayoutRouteChromeSnapshot {
-  if (config === null) {
-    return defaultPublicLayoutRouteChromeSnapshot;
-  }
-
-  const { left, ...snapshot } = config;
-  if (left === undefined) {
-    return snapshot;
-  }
-
-  const leftFrame = {
-    footer: left.footer,
-    header: left.header,
-    headerTestId: left.headerTestId,
-  } satisfies PublicLayoutRoutePaneFrame;
-  return {
-    ...snapshot,
-    left: leftFrame,
-  };
-}
+const defaultPublicLayoutRouteChromeSnapshot = { hasLeft: false };
 
 export type PublicLayoutRouteChromeStore = {
   getLeftContentSnapshot: () => ReactNode;
@@ -104,13 +36,13 @@ export function createPublicLayoutRouteChromeStore(): PublicLayoutRouteChromeSto
   const setConfig = (id: symbol, config: PublicLayoutRouteChromeConfig | null) => {
     activeId = config === null ? null : id;
 
-    const nextSnapshot = toPublicLayoutRouteChromeSnapshot(config);
-    if (!arePublicLayoutRouteChromeSnapshotsEqual(snapshot, nextSnapshot)) {
+    const nextSnapshot = { hasLeft: config?.left !== undefined };
+    if (snapshot.hasLeft !== nextSnapshot.hasLeft) {
       snapshot = nextSnapshot;
       notifySnapshotListeners();
     }
 
-    const nextLeftContent = config?.left?.content ?? null;
+    const nextLeftContent = config?.left ?? null;
     if (leftContent !== nextLeftContent) {
       leftContent = nextLeftContent;
       notifyLeftContentListeners();

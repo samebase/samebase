@@ -697,7 +697,7 @@ test("logo view mobile header omits the controls sidebar button", async ({ page 
   const workspace = page.locator('[data-workspace-layout-v2="mobile"]');
   const carousel = page.getByTestId("workspace-layout-v2-pane-main");
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
-  const mainHeader = page.getByTestId("logo-preview-main-header");
+  const mainHeader = page.getByTestId("workspace-layout-v2-main-pane-header");
 
   await expect(workspace).toHaveAttribute("data-mobile-pane", "left");
   await expect(controlsSidebar).toContainText("Pages");

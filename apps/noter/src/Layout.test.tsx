@@ -199,12 +199,9 @@ describe("Layout", () => {
       <TestRouterProvider initialEntries={["/localStorage"]}>
         <Layout>
           <PublicLayoutShell
-            dataTestId="local-storage-workspace"
-            defaultLeftOpen
             left={{
               content: <div data-testid="local-storage-left-pane">localStorage</div>,
             }}
-            leftToggleVisibility="desktop"
             main={{
               header: <div>Storage header</div>,
               content: <div>Storage values</div>,
@@ -214,7 +211,7 @@ describe("Layout", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain('data-testid="local-storage-workspace"');
+    expect(markup).toContain('data-testid="public-layout-workspace"');
     expect(markup).toContain('data-testid="workspace-layout-v2-pane-left"');
     expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
     expect(markup).toContain('aria-label="Toggle Left Sidebar"');

@@ -1,5 +1,3 @@
-import type { PublicLayoutRouteChromeSnapshot } from "@/lib/publicLayoutRouteChromeStore";
-
 export type NoterRoutePermission = "public" | "admin";
 
 export type NoterRouteSearchParamValueKind = "presence" | "value";
@@ -12,7 +10,6 @@ export type NoterRouteSearchParamSuggestion<Key extends string = string> = {
 
 export type NoterRouteStaticData = {
   permission: NoterRoutePermission;
-  publicLayoutRouteChrome?: PublicLayoutRouteChromeSnapshot;
   searchParamSuggestions?: readonly NoterRouteSearchParamSuggestion[];
 };
 

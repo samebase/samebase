@@ -4,7 +4,6 @@ import {
   LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   validateLogoRouteSearchForRenderer,
 } from "@/lib/logoRouteSearch";
-import { LOGO_PREVIEW_PUBLIC_LAYOUT_CHROME } from "@/lib/publicLayoutRouteChromeConfigs";
 import { RoutedPage } from "./-publicRouteComponents";
 
 const pathname = "/logo/raster";
@@ -32,7 +31,6 @@ function LogoRasterRouteComponent() {
 export const Route = createFileRoute("/_public/logo/raster")({
   staticData: {
     permission: "public",
-    publicLayoutRouteChrome: LOGO_PREVIEW_PUBLIC_LAYOUT_CHROME,
     searchParamSuggestions: LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
   component: LogoRasterRouteComponent,
