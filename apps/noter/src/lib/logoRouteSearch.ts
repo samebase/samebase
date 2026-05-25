@@ -311,10 +311,27 @@ export const LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestio
   "route",
 );
 
+function normalizeLogoRouteColorSearchAliases(search: Record<string, unknown>) {
+  const background = search.background ?? search.base;
+  if (typeof background === "undefined" || background === search.background) {
+    return search;
+  }
+
+  return {
+    ...search,
+    background,
+  };
+}
+
 export function validateLogoRouteSearch(search: Record<string, unknown>): LogoRouteSearch {
+  const presenceNormalizedSearch = normalizeRouteSearchPresenceFlags(
+    search,
+    LOGO_ROUTE_PRESENCE_SEARCH_KEYS,
+  );
+
   return readLogoRouteSearchFields(
     logoRouteSearchFieldSchema.parse(
-      normalizeRouteSearchPresenceFlags(search, LOGO_ROUTE_PRESENCE_SEARCH_KEYS),
+      normalizeLogoRouteColorSearchAliases(presenceNormalizedSearch),
     ),
   );
 }

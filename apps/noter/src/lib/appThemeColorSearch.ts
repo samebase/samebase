@@ -33,7 +33,9 @@ export type AppThemeColorSearch = Partial<
 export type LogoThemeColorSearch = Partial<
   Record<LogoThemeColorSearchKey, LogoColorToken | undefined>
 >;
-export type LogoThemeColorSearchInput = LogoThemeColorSearch;
+export type LogoThemeColorSearchInput = LogoThemeColorSearch & {
+  base?: LogoColorToken | undefined;
+};
 type CssVariableName = `--${string}`;
 type ThemeColorRuleSet = Record<CssVariableName, string>;
 export type ResolvedAppThemeColors = Record<AppThemeColorKey, HexColorToken>;
@@ -154,7 +156,8 @@ export const appThemeColorSearchFieldSchema = defineRouteSearchParams({
 export function readAppThemeColorSearch(search: LogoThemeColorSearchInput): AppThemeColorSearch {
   return APP_THEME_COLOR_KEYS.reduce<AppThemeColorSearch>((result, colorKey) => {
     const searchKey = appThemeColorSearchKeyByColorKey[colorKey];
-    const colorToken = search[searchKey];
+    const colorToken =
+      searchKey === "background" ? (search.background ?? search.base) : search[searchKey];
     if (typeof colorToken === "string") {
       result[searchKey] = colorToken;
     }
@@ -164,7 +167,7 @@ export function readAppThemeColorSearch(search: LogoThemeColorSearchInput): AppT
 
 export function readAppThemeColors(search: LogoThemeColorSearchInput): AppThemeColors {
   return {
-    background: search.background ?? DEFAULT_APP_THEME_COLORS.background,
+    background: search.background ?? search.base ?? DEFAULT_APP_THEME_COLORS.background,
     border: search.border ?? DEFAULT_APP_THEME_COLORS.border,
     primary: search.primary ?? DEFAULT_APP_THEME_COLORS.primary,
     secondary: search.secondary ?? DEFAULT_APP_THEME_COLORS.secondary,

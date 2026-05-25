@@ -190,6 +190,16 @@ describe("logoRouteSearch", () => {
     });
   });
 
+  it("accepts the old base color alias as background", () => {
+    expect(validateLogoRouteSearch({ base: "#112233" })).toEqual({
+      background: "#112233",
+    });
+
+    expect(validateLogoRouteSearch({ background: "#445566", base: "#112233" })).toEqual({
+      background: "#445566",
+    });
+  });
+
   it("keeps grid size and voxel state as one coherent route shape", () => {
     const grid2VoxelState = createDefaultVoxelState(LOGO_GRID_SIZE_2);
     const grid3VoxelState = createDefaultVoxelState(LOGO_GRID_SIZE_3);

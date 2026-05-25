@@ -1,5 +1,5 @@
 import { entries, fromEntries } from "@noter-md/dependent/object";
-import { bad, good, pure, runUnknown, type InferGood, type UnknownSure } from "@samebase/sure";
+import { bad, good, pure } from "@samebase/sure";
 import {
   type NoterRoutePermission,
   type NoterRouteSearchParamSuggestion,
@@ -36,6 +36,10 @@ export type RouteSearchParam<Value> = {
   parse(value: unknown): Value | undefined;
 };
 
+type RouteSearchValueSchema = (
+  value: unknown,
+) => readonly [false, unknown] | readonly [true, unknown];
+
 type RouteSearchParamShape = Readonly<Record<string, RouteSearchParam<unknown>>>;
 
 export type RouteSearchParamGroup<Shape extends RouteSearchParamShape> = {
@@ -45,6 +49,11 @@ export type RouteSearchParamGroup<Shape extends RouteSearchParamShape> = {
 
 type InferRouteSearchParamValue<Param> =
   Param extends RouteSearchParam<infer Value> ? Value : never;
+
+type InferRouteSearchSchemaGood<Schema extends RouteSearchValueSchema> =
+  Extract<ReturnType<Schema>, readonly [true, unknown]> extends readonly [true, infer Value]
+    ? Value
+    : never;
 
 export type InferRouteSearch<ShapeOrGroup> =
   ShapeOrGroup extends RouteSearchParamGroup<infer Shape>
@@ -106,22 +115,27 @@ export function routeSearchStringValue<const Values extends readonly [string, ..
   });
 }
 
-export function routeSearchValueParam<const Schema extends UnknownSure>(
+export function routeSearchValueParam<const Schema extends RouteSearchValueSchema>(
   schema: Schema,
   args: {
     permission: NoterRoutePermission;
     suggestion: RouteSearchParamSuggestionSurface;
     valueSuggestions?: readonly string[];
   },
-): RouteSearchParam<InferGood<Schema>> {
+): RouteSearchParam<InferRouteSearchSchemaGood<Schema>> {
   return {
     metadata: {
       ...args,
       valueKind: "value",
     },
-    parse(value) {
-      const [isGood, output] = runUnknown(schema, value);
-      return isGood ? output : undefined;
+    parse(value): InferRouteSearchSchemaGood<Schema> | undefined {
+      const output = schema(value);
+      if (!output[0]) {
+        return undefined;
+      }
+
+      // @ts-expect-error Generic result narrowing loses the schema true-branch payload type.
+      return output[1];
     },
   };
 }

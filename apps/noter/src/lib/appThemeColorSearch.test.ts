@@ -66,6 +66,11 @@ describe("appThemeColorSearch", () => {
       background: "#ffffff",
     });
 
+    expect(readAppThemeColors({ base: "#112233" })).toEqual({
+      ...DEFAULT_APP_THEME_COLORS,
+      background: "#112233",
+    });
+
     expect(
       readLogoThemeColors({
         background: "#112233",

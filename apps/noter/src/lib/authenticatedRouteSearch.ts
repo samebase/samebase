@@ -7,9 +7,9 @@ import {
   readRouteSearchParamMetadata,
   routeSearchNonEmptyString,
   routeSearchPresenceParam,
+  routeSearchStringValue,
   routeSearchValueParam,
 } from "@/lib/routeSearchParamMetadata";
-import { oneOf } from "@samebase/sure";
 
 const pricingCheckoutValues = ["success", "cancel"] as const;
 
@@ -38,7 +38,7 @@ export function validateMcpConsentRouteSearch(
 }
 
 const pricingRouteSearchSchema = defineRouteSearchParams({
-  checkout: routeSearchValueParam(oneOf(pricingCheckoutValues), {
+  checkout: routeSearchValueParam(routeSearchStringValue(pricingCheckoutValues), {
     permission: "admin",
     suggestion: "route",
     valueSuggestions: pricingCheckoutValues,

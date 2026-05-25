@@ -3,9 +3,9 @@ import {
   type InferRouteSearch,
   readRouteSearchParamSuggestions,
   readRouteSearchParamMetadata,
+  routeSearchStringValue,
   routeSearchValueParam,
 } from "@/lib/routeSearchParamMetadata";
-import { oneOf } from "@samebase/sure";
 
 export const LANDING_MARKDOWN_PREVIEW_ROUTE = "/landing-preview";
 
@@ -23,7 +23,7 @@ export const LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL = `?${LANDING_MA
 
 const landingMarkdownPreviewRouteSearchSchema = defineRouteSearchParams({
   [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: routeSearchValueParam(
-    oneOf(LANDING_MARKDOWN_PREVIEW_LANGUAGES),
+    routeSearchStringValue(LANDING_MARKDOWN_PREVIEW_LANGUAGES),
     {
       permission: "admin",
       suggestion: "route",

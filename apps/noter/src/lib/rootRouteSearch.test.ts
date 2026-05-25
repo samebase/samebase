@@ -122,6 +122,12 @@ describe("rootRouteSearch", () => {
     });
   });
 
+  it("accepts the old root logo base color alias as background", () => {
+    expect(readRootRouteSearch("?base=%23112233")).toEqual({
+      background: "#112233",
+    });
+  });
+
   it("preserves explicit supported root logo grid sizes", () => {
     expect(readRootRouteSearch("?gridSize=2")).toEqual({
       gridSize: LOGO_GRID_SIZE_2,
