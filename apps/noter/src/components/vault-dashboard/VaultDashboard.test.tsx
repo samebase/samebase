@@ -6,6 +6,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import {
   GitHubRepositoryNameSlashPreview,
+  VaultDashboardAppRootDialog,
   VaultDashboardCloudflareAccountDialog,
   VaultDashboardConvexDialog,
   VaultDashboardCreateDialog,
@@ -392,6 +393,32 @@ describe("VaultDashboardCloudflareAccountDialog", () => {
     expect(markup).toContain("Select Cloudflare Account");
     expect(markup).toContain("Account A");
     expect(markup).toContain("Save Account");
+  });
+});
+
+describe("VaultDashboardAppRootDialog", () => {
+  it("renders the app root input inside the submit form", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardAppRootDialog
+        appRoot="apps/domain-router"
+        error={null}
+        isSubmitting={false}
+        onAppRootChange={vi.fn()}
+        onOpenChange={vi.fn()}
+        onSubmit={vi.fn()}
+        open
+        vault={{
+          id: fakeVaultId(),
+          repositoryFullName: "ada/demo",
+        }}
+      />,
+    );
+
+    expect(markup).toContain("<form");
+    expect(markup).toContain("Add app root ada/demo");
+    expect(markup).toContain("apps/domain-router");
+    expect(markup).toContain('type="button"');
+    expect(markup).toContain('type="submit"');
   });
 });
 

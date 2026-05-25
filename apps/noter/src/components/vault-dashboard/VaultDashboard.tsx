@@ -1284,43 +1284,64 @@ export function VaultDashboardAppRootDialog({
   vault: VaultAppRootDialogTarget | null;
 }) {
   const submitDisabled = isSubmitting || !appRoot.trim();
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (submitDisabled) {
+      return;
+    }
+    onSubmit();
+  };
+  const handleAppRootInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    if (submitDisabled) {
+      return;
+    }
+    onSubmit();
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppDialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {vault ? `Add app root ${vault.repositoryFullName}` : "Add app root"}
-          </DialogTitle>
-          <DialogDescription>Use . for the repository root.</DialogDescription>
-        </DialogHeader>
-        {vault ? (
-          <div className="space-y-3">
-            <Input
-              aria-label="App root"
-              value={appRoot}
-              onChange={(event) => onAppRootChange(event.target.value)}
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>
+              {vault ? `Add app root ${vault.repositoryFullName}` : "Add app root"}
+            </DialogTitle>
+            <DialogDescription>Use . for the repository root.</DialogDescription>
+          </DialogHeader>
+          {vault ? (
+            <div className="space-y-3">
+              <Input
+                aria-label="App root"
+                value={appRoot}
+                onChange={(event) => onAppRootChange(event.target.value)}
+                onKeyDown={handleAppRootInputKeyDown}
+                disabled={isSubmitting}
+                placeholder="apps/noter"
+              />
+              {error ? <div className="text-sm text-red-600">{error}</div> : null}
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                onOpenChange(false);
+              }}
               disabled={isSubmitting}
-              placeholder="apps/noter"
-            />
-            {error ? <div className="text-sm text-red-600">{error}</div> : null}
-          </div>
-        ) : null}
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => {
-              onOpenChange(false);
-            }}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
-          <Button onClick={onSubmit} disabled={submitDisabled}>
-            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Add app root
-          </Button>
-        </DialogFooter>
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitDisabled}>
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Add app root
+            </Button>
+          </DialogFooter>
+        </form>
       </AppDialogContent>
     </Dialog>
   );
