@@ -8,7 +8,7 @@ function isExpectedLocalConvexSyncConsoleError(message: string) {
   return localConvexSyncConsoleErrorPattern.test(message);
 }
 
-test("public landing route uses the right sidebar shell", async ({ page }) => {
+test("public landing route uses the stable public shell", async ({ page }) => {
   await page.addInitScript(() => {
     Math.random = () => 0.57;
   });

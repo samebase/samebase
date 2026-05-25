@@ -37,6 +37,15 @@ async function editRouteUrl(page: Page): Promise<Locator> {
   return input;
 }
 
+async function readRoundedLeft(locator: Locator, label: string): Promise<number> {
+  const box = await locator.boundingBox();
+  if (box === null) {
+    throw new Error(`Expected ${label} to be visible.`);
+  }
+
+  return Math.round(box.x);
+}
+
 test("route URL editor fixture commits public hrefs from a non-public shell", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 96 });
   await page.goto("/visual-fixture?mode=route-url-editor", {
@@ -461,6 +470,7 @@ test("route URL editor selects suggestions with arrow keys", async ({ page }) =>
 
   const display = getRouteUrlEditorDisplay(page);
   const editor = page.getByTestId("route-url-editor");
+  const suggestions = page.getByTestId("route-url-editor-suggestions");
   const backButton = editor.getByRole("button", { name: "Back" });
   const input = await editRouteUrl(page);
   const logoOption = page.getByRole("option", {
@@ -477,23 +487,31 @@ test("route URL editor selects suggestions with arrow keys", async ({ page }) =>
 
   await expect(logoOption).toBeVisible();
   await expect(logoIsoOption).toBeVisible();
+  const initialEditorLeft = await readRoundedLeft(editor, "route URL editor");
+  const initialSuggestionsLeft = await readRoundedLeft(suggestions, "route URL suggestions");
 
   await input.press("ArrowDown");
   await expect(logoOption).toHaveAttribute("aria-selected", "true");
   await expect(page).toHaveURL(`${origin}/logo`);
   await expect(input).toHaveValue(`${origin}/logo`);
+  expect(await readRoundedLeft(editor, "route URL editor")).toBe(initialEditorLeft);
+  expect(await readRoundedLeft(suggestions, "route URL suggestions")).toBe(initialSuggestionsLeft);
   await expect(backButton).toBeDisabled();
 
   await input.press("ArrowDown");
   await expect(logoIsoOption).toHaveAttribute("aria-selected", "true");
   await expect(page).toHaveURL(`${origin}/logo/iso`);
   await expect(input).toHaveValue(`${origin}/logo/iso`);
+  expect(await readRoundedLeft(editor, "route URL editor")).toBe(initialEditorLeft);
+  expect(await readRoundedLeft(suggestions, "route URL suggestions")).toBe(initialSuggestionsLeft);
   await expect(backButton).toBeDisabled();
 
   await input.press("ArrowUp");
   await expect(logoOption).toHaveAttribute("aria-selected", "true");
   await expect(page).toHaveURL(`${origin}/logo`);
   await expect(input).toHaveValue(`${origin}/logo`);
+  expect(await readRoundedLeft(editor, "route URL editor")).toBe(initialEditorLeft);
+  expect(await readRoundedLeft(suggestions, "route URL suggestions")).toBe(initialSuggestionsLeft);
   await expect(backButton).toBeDisabled();
 
   await input.press("Enter");

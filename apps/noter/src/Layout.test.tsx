@@ -22,9 +22,6 @@ import {
   ROOT_THEME_LIGHT_MODE_LINK_LABEL,
 } from "@/lib/rootThemeModeSearch";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
-import type { WorkspaceSidebarState } from "../convex/workspaceSidebarStateModel";
-import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStateController";
-import { sanitizePublicLayoutSidebarState } from "@/lib/publicLayoutSidebarState";
 import { Layout, PublicLayoutShell } from "./Layout";
 
 const { signInWithGoogleMock, signInWithPasswordMock, useConvexAuthMock, useQueryMock } =
@@ -119,9 +116,9 @@ describe("Layout", () => {
     expect(markup).toContain(FORCE_PROD_UI_MODE_LINK_LABEL);
     expect(markup).toContain(ROOT_THEME_LIGHT_MODE_LINK_LABEL);
     expect(markup).toContain(ROOT_THEME_DARK_MODE_LINK_LABEL);
+    expect(markup).toContain('data-testid="workspace-layout-v2-pane-left"');
     expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
-    expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-left"');
-    expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
+    expect(markup).toContain('aria-label="Toggle Left Sidebar"');
     expect(markup).toContain('aria-label="Toggle Right Sidebar"');
   });
 
@@ -143,51 +140,6 @@ describe("Layout", () => {
     expect(markup).toContain('aria-label="Toggle Right Sidebar"');
     expect(markup).toContain("hidden h-8 w-8 md:inline-flex");
     expect(markup).not.toContain('aria-label="Toggle sidebar"');
-  });
-
-  it("ignores stored left pane values when the public route has no left pane", () => {
-    const defaultSidebarState = {
-      leftDesktopOpen: false,
-      leftDesktopWidthPx: 48,
-      leftMobileWidthPx: 288,
-      mobilePane: "main",
-      mobileSurface: { kind: "unmerged" },
-      rightDesktopOpen: true,
-      rightDesktopWidthPx: 288,
-      rightMobileWidthPx: 288,
-    } satisfies WorkspaceSidebarState;
-    const storedSidebarState = {
-      leftDesktopOpen: true,
-      leftDesktopWidthPx: 420,
-      leftMobileWidthPx: 410,
-      mobilePane: "left",
-      mobileSurface: { kind: "merged", mainWidthPx: 294, side: "left" },
-      rightDesktopOpen: true,
-      rightDesktopWidthPx: 360,
-      rightMobileWidthPx: 340,
-    } satisfies WorkspaceSidebarState;
-    const setState: WorkspaceSidebarStateController["setState"] = () => {};
-    const storedSidebarStateController = {
-      isHydrated: true,
-      state: storedSidebarState,
-      setState,
-    } satisfies WorkspaceSidebarStateController;
-
-    const sanitizedSidebarStateController = sanitizePublicLayoutSidebarState({
-      defaultSidebarState,
-      hasLeftPane: false,
-      sidebarState: storedSidebarStateController,
-    });
-
-    expect(sanitizedSidebarStateController.state).toEqual({
-      ...storedSidebarState,
-      leftDesktopOpen: false,
-      leftDesktopWidthPx: defaultSidebarState.leftDesktopWidthPx,
-      leftMobileWidthPx: defaultSidebarState.leftMobileWidthPx,
-      mobilePane: "main",
-      mobileSurface: { kind: "unmerged" },
-    });
-    expect(sanitizedSidebarStateController.setState).toBe(setState);
   });
 
   it("keeps standard right rail links around public workspace panes", () => {
@@ -755,7 +707,7 @@ describe("Layout", () => {
     expect(markup).toContain('aria-hidden="true"');
     expect(markup).toContain('tabindex="-1"');
     expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
-    expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-left"');
+    expect(markup).toContain('data-testid="workspace-layout-v2-pane-left"');
   });
 
   it("keeps legal links and shows /home away from the plain root landing route", () => {

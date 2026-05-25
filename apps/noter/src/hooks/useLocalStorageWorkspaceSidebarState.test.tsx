@@ -56,9 +56,18 @@ function createTestStorage() {
   } satisfies Storage;
 }
 
-function SidebarStateProbe({ reset = false }: { reset?: boolean }) {
+function SidebarStateProbe({
+  applyDefaultChanges,
+  defaults,
+  reset,
+}: {
+  applyDefaultChanges: boolean;
+  defaults: WorkspaceSidebarState;
+  reset: boolean;
+}) {
   const sidebarState = useLocalStorageWorkspaceSidebarState({
-    defaults: DEFAULT_SIDEBAR_STATE,
+    applyDefaultChanges,
+    defaults,
     reset,
     storageKey: STORAGE_KEY,
   });
@@ -146,15 +155,42 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
     Reflect.deleteProperty(window, "localStorage");
   });
 
-  function renderProbe({ reset = false }: { reset?: boolean } = {}) {
+  function renderSidebarStateProbe({
+    applyDefaultChanges = true,
+    defaults = DEFAULT_SIDEBAR_STATE,
+    reset = false,
+  }: {
+    applyDefaultChanges?: boolean;
+    defaults?: WorkspaceSidebarState;
+    reset?: boolean;
+  } = {}) {
+    const mountedRoot = root;
+    if (mountedRoot === null) {
+      throw new Error("Expected mounted sidebar state probe root.");
+    }
+
+    act(() => {
+      mountedRoot.render(
+        <SidebarStateProbe
+          applyDefaultChanges={applyDefaultChanges}
+          defaults={defaults}
+          reset={reset}
+        />,
+      );
+    });
+  }
+
+  function renderProbe(
+    args: {
+      applyDefaultChanges?: boolean;
+      defaults?: WorkspaceSidebarState;
+      reset?: boolean;
+    } = {},
+  ) {
     rootElement = document.createElement("div");
     document.body.append(rootElement);
     root = createRoot(rootElement);
-    const mountedRoot = root;
-
-    act(() => {
-      mountedRoot.render(<SidebarStateProbe reset={reset} />);
-    });
+    renderSidebarStateProbe(args);
   }
 
   it("hydrates anonymous sidebar preferences from localStorage", () => {
@@ -235,6 +271,39 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
     renderProbe({ reset: true });
 
     expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
+    expect(rootElement?.firstElementChild?.getAttribute("data-mobile-pane")).toBe("main");
+  });
+
+  it("applies default changes while initial route chrome settles", () => {
+    const leftDefaultSidebarState = {
+      ...DEFAULT_SIDEBAR_STATE,
+      mobilePane: "left",
+    } satisfies WorkspaceSidebarState;
+
+    renderProbe();
+
+    expect(rootElement?.firstElementChild?.getAttribute("data-mobile-pane")).toBe("main");
+
+    renderSidebarStateProbe({ defaults: leftDefaultSidebarState });
+
+    expect(rootElement?.firstElementChild?.getAttribute("data-mobile-pane")).toBe("left");
+  });
+
+  it("keeps the active pane when route defaults change after navigation", () => {
+    const leftDefaultSidebarState = {
+      ...DEFAULT_SIDEBAR_STATE,
+      mobilePane: "left",
+    } satisfies WorkspaceSidebarState;
+
+    renderProbe();
+
+    expect(rootElement?.firstElementChild?.getAttribute("data-mobile-pane")).toBe("main");
+
+    renderSidebarStateProbe({
+      applyDefaultChanges: false,
+      defaults: leftDefaultSidebarState,
+    });
+
     expect(rootElement?.firstElementChild?.getAttribute("data-mobile-pane")).toBe("main");
   });
 

@@ -1054,7 +1054,7 @@ test("public landing keeps legal links in the sidebar rail", async ({ page }, te
   const landingContent = page.getByTestId("public-landing-content");
   const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
 
-  await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(0);
+  await expect(page.getByTestId("workspace-layout-v2-pane-left")).toBeVisible();
   await expectLegalLinksUseRightSidebarInnerEdge(statusBar);
   await expectStatusBarInRightSidebar(page, statusBar);
   await expect(landingContent.getByRole("link", { name: "/terms" })).toHaveCount(0);
@@ -1067,16 +1067,23 @@ test("public landing keeps legal links in the sidebar rail", async ({ page }, te
   });
 });
 
-test("public landing omits the sidebar header button on desktop", async ({ page }) => {
+test("public landing keeps both side panes mounted on desktop", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/", { waitUntil: "networkidle" });
 
   const workspace = page.locator('[data-workspace-layout-v2="desktop"]');
+  const leftPane = page.getByTestId("workspace-layout-v2-pane-left");
   const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
 
   await expect(workspace).toBeVisible();
-  await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(0);
+  await expect(leftPane).toBeVisible();
+  await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Toggle sidebar" })).toHaveCount(0);
+  await expect
+    .poll(async () =>
+      leftPane.evaluate((element) => Math.round(element.getBoundingClientRect().width)),
+    )
+    .toBe(240);
   await expect
     .poll(async () =>
       rightPane.evaluate((element) => Math.round(element.getBoundingClientRect().width)),
@@ -1155,7 +1162,8 @@ test.describe("mobile landing dev toggle", () => {
 
     const mobileShell = page.locator('[data-workspace-layout-v2="mobile"]');
     await expect(mobileShell).toHaveAttribute("data-mobile-pane", "main");
-    await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(0);
+    await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Toggle sidebar" })).toHaveCount(0);
   });
 
@@ -1231,7 +1239,7 @@ test.describe("iPhone SE landing sidebar", () => {
   }) => {
     await page.goto("/", { waitUntil: "networkidle" });
 
-    await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(0);
+    await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(1);
 
     const beforeSlideMetrics = await readLandingRightSidebarCopyMetrics(page);
 

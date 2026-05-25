@@ -50,13 +50,11 @@ vi.mock("@/Layout", async () => {
 
       return (
         <div data-testid="public-layout-shell">
-          {left === undefined ? null : (
-            <div data-testid="public-layout-left-pane">
-              {left.header}
-              {left.content}
-              {left.footer}
-            </div>
-          )}
+          <div data-testid="public-layout-left-pane">
+            {left?.header}
+            {left?.content}
+            {left?.footer}
+          </div>
           {main?.header}
           {main?.content ?? children}
           {main?.footer}
@@ -588,13 +586,13 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("does not open an empty initial left pane for logo lab routes", async () => {
+  it("keeps the public left pane mounted for logo lab routes without custom chrome", async () => {
     await renderRoute("/logo/svg");
 
     expect(rootElement?.querySelector('[data-testid="logo-svg-page"]')?.textContent).toBe(
       "Logo SVG page",
     );
-    expect(rootElement?.querySelector('[data-testid="public-layout-left-pane"]')).toBeNull();
+    expect(rootElement?.querySelector('[data-testid="public-layout-left-pane"]')).not.toBeNull();
   });
 
   it("accepts the Romanian landing preview query on the explicit route", async () => {
