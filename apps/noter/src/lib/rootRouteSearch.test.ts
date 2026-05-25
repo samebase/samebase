@@ -10,7 +10,7 @@ describe("rootRouteSearch", () => {
   it("accepts the routed root landing flags and auth provider", () => {
     expect(
       validateRootRouteSearch({
-        "make-monorepo": "",
+        "add-app-root": "",
         "add-cloudflare": "",
         "add-convex": "",
         "app-root": " apps/noter ",
@@ -32,7 +32,7 @@ describe("rootRouteSearch", () => {
         top: "white-base",
       }),
     ).toEqual({
-      "make-monorepo": true,
+      "add-app-root": true,
       "add-cloudflare": true,
       "add-convex": true,
       "app-root": "apps/noter",
@@ -77,7 +77,7 @@ describe("rootRouteSearch", () => {
         dark: "false",
         dev: "1",
         devtools: "false",
-        "make-monorepo": "false",
+        "add-app-root": "false",
         light: 0,
         "new-app": "false",
         "prod-ui": false,
@@ -86,7 +86,7 @@ describe("rootRouteSearch", () => {
       dark: true,
       dev: true,
       devtools: true,
-      "make-monorepo": true,
+      "add-app-root": true,
       light: true,
       "new-app": true,
       "prod-ui": true,
@@ -96,11 +96,11 @@ describe("rootRouteSearch", () => {
   it("parses the root search contract from a search string", () => {
     expect(
       readRootRouteSearch(
-        "?prod-ui&dev&auth=google&signup=google&primary=red-600&delete&new-app&make-monorepo",
+        "?prod-ui&dev&auth=google&signup=google&primary=red-600&delete&new-app&add-app-root",
       ),
     ).toEqual({
       auth: "google",
-      "make-monorepo": true,
+      "add-app-root": true,
       delete: true,
       dev: true,
       "new-app": true,

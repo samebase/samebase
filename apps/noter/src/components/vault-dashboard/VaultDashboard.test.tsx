@@ -518,10 +518,10 @@ describe("VaultDashboardAppRootDialog", () => {
     );
 
     expect(markup).toContain("Add a folder app root to convert this repository to a monorepo.");
-    expect(markup).toContain("Make monorepo ada/demo");
+    expect(markup).toContain("Add app root ada/demo");
     expect(markup).not.toContain("App root mode");
     expect(markup).toContain("apps/domain-router");
-    expect(markup).toContain("Convert to monorepo");
+    expect(markup).toContain("Add app root");
   });
 });
 
@@ -681,11 +681,11 @@ describe("VaultDashboardCloudflareDialog", () => {
 });
 
 describe("buildVaultDashboardResourceRailState", () => {
-  it("puts the make-monorepo action on the GitHub row", () => {
-    const makeMonorepo = vi.fn();
+  it("puts the add-app-root action on the GitHub row", () => {
+    const addAppRoot = vi.fn();
     const state = buildVaultDashboardResourceRailState({
-      buildAddAppRootHref: () => "/home?make-monorepo#demo",
-      addAppRootOnClick: makeMonorepo,
+      buildAddAppRootHref: () => "/home?add-app-root#demo",
+      addAppRootOnClick: addAppRoot,
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({}),
     });
@@ -696,17 +696,17 @@ describe("buildVaultDashboardResourceRailState", () => {
       actions: [
         {
           kind: "add",
-          label: "?make-monorepo",
-          ariaLabel: "Make monorepo",
-          href: "/home?make-monorepo#demo",
+          label: "?add-app-root",
+          ariaLabel: "Add app root",
+          href: "/home?add-app-root#demo",
         },
       ],
     });
     if (state.githubRow.status !== "ready" || !state.githubRow.actions) {
-      throw new Error("Expected GitHub make-monorepo action.");
+      throw new Error("Expected GitHub add-app-root action.");
     }
     state.githubRow.actions[0].onClick?.();
-    expect(makeMonorepo).toHaveBeenCalledOnce();
+    expect(addAppRoot).toHaveBeenCalledOnce();
     expect(state.apps).toEqual([]);
   });
 

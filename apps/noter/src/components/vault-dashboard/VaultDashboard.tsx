@@ -88,7 +88,7 @@ import {
 import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
 import {
-  DASHBOARD_MAKE_MONOREPO_QUERY_PARAM,
+  DASHBOARD_ADD_APP_ROOT_QUERY_PARAM,
   DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM,
   replaceRootLogoRouteSearch,
   type RootRouteSearch,
@@ -1326,16 +1326,8 @@ export function VaultDashboardAppRootDialog({
   const isRepositoryAppMode = effectiveMode === "app";
   const showAppRootInput = !isRepositoryAppMode;
   const submitDisabled = isSubmitting || (showAppRootInput && !appRoot.trim());
-  const submitLabel = isRepositoryAppMode
-    ? "Use as app"
-    : vault?.hasRootAppRoot
-      ? "Convert to monorepo"
-      : "Add app root";
-  const title = vault
-    ? vault.hasRootAppRoot
-      ? `Make monorepo ${vault.repositoryFullName}`
-      : `Add app root ${vault.repositoryFullName}`
-    : "Add app root";
+  const submitLabel = isRepositoryAppMode ? "Use as app" : "Add app root";
+  const title = vault ? `Add app root ${vault.repositoryFullName}` : "Add app root";
   const description = canSelectAppMode
     ? "Choose whether this repository is one app or a monorepo."
     : vault?.hasRootAppRoot
@@ -3091,21 +3083,21 @@ function applyVaultDashboardProviderAddSearch({
         "add-convex": true,
         "add-cloudflare": null,
         ...appRootPatch,
-        [DASHBOARD_MAKE_MONOREPO_QUERY_PARAM]: null,
+        [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: null,
         [DASHBOARD_NEW_APP_QUERY_PARAM]: null,
       })
     : applySearchPatch(currentSearch, {
         "add-cloudflare": true,
         "add-convex": null,
         ...appRootPatch,
-        [DASHBOARD_MAKE_MONOREPO_QUERY_PARAM]: null,
+        [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: null,
         [DASHBOARD_NEW_APP_QUERY_PARAM]: null,
       });
 }
 
-function applyVaultDashboardMakeMonorepoSearch(currentSearch: RootRouteSearch): RootRouteSearch {
+function applyVaultDashboardAddAppRootSearch(currentSearch: RootRouteSearch): RootRouteSearch {
   return applySearchPatch(currentSearch, {
-    [DASHBOARD_MAKE_MONOREPO_QUERY_PARAM]: true,
+    [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: true,
     [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: null,
     "add-cloudflare": null,
     "add-convex": null,
@@ -3135,7 +3127,7 @@ function buildVaultDashboardProviderAddHref({
   });
 }
 
-function buildVaultDashboardMakeMonorepoHref({
+function buildVaultDashboardAddAppRootHref({
   repositoryHashId,
   rootRouteSearch,
 }: {
@@ -3144,7 +3136,7 @@ function buildVaultDashboardMakeMonorepoHref({
 }): string {
   return buildPathWithTanStackSearch({
     pathname: DASHBOARD_ROUTE,
-    search: applyVaultDashboardMakeMonorepoSearch(rootRouteSearch),
+    search: applyVaultDashboardAddAppRootSearch(rootRouteSearch),
     hash: repositoryHashId,
   });
 }
@@ -3296,7 +3288,7 @@ function VaultDashboardBody({
       void navigate({
         to: DASHBOARD_ROUTE,
         hash: repositoryHashId,
-        search: applyVaultDashboardMakeMonorepoSearch,
+        search: applyVaultDashboardAddAppRootSearch,
         state: true,
       });
     },
@@ -3510,7 +3502,7 @@ function VaultDashboardBody({
           developerToolsVisible && (openDeveloperToolsByVaultId[vault._id] ?? false);
         const resourceRailState = buildVaultDashboardResourceRailState({
           buildAddAppRootHref: () =>
-            buildVaultDashboardMakeMonorepoHref({
+            buildVaultDashboardAddAppRootHref({
               repositoryHashId,
               rootRouteSearch,
             }),
@@ -4167,7 +4159,7 @@ export function VaultDashboard() {
   const dashboardAccountPanelOpen = dashboardSettings?.accountPanelOpen;
   const dashboardGlobalChatOpen = dashboardSettings?.globalChatOpen;
   const dashboardProvidersPanelOpen = dashboardSettings?.providersPanelOpen;
-  const makeMonorepoModeActive = rootRouteSearch[DASHBOARD_MAKE_MONOREPO_QUERY_PARAM] === true;
+  const addAppRootModeActive = rootRouteSearch[DASHBOARD_ADD_APP_ROOT_QUERY_PARAM] === true;
   const newAppModeActive = rootRouteSearch[DASHBOARD_NEW_APP_QUERY_PARAM] === true;
   const deleteModeActive = rootRouteSearch.delete;
   const addConvexModeActive = rootRouteSearch["add-convex"];
@@ -4180,8 +4172,8 @@ export function VaultDashboard() {
           vaults,
         })
       : undefined;
-  const makeMonorepoRepositoryFullName =
-    makeMonorepoModeActive && vaults
+  const addAppRootRepositoryFullName =
+    addAppRootModeActive && vaults
       ? resolveVaultDashboardRepositoryFullNameForHash({
           hash: location.hash,
           vaults,
@@ -4237,7 +4229,7 @@ export function VaultDashboard() {
   const githubPopupOriginRef = useRef<string | null>(null);
   const convexPopupOriginRef = useRef<string | null>(null);
   const cloudflarePopupOriginRef = useRef<string | null>(null);
-  const preparedMakeMonorepoRepositoryRef = useRef<string | null>(null);
+  const preparedAddAppRootRepositoryRef = useRef<string | null>(null);
   const preparedDeleteRepositoryRef = useRef<string | null>(null);
   const preparedAddConvexRepositoryRef = useRef<string | null>(null);
   const preparedAddCloudflareWorkerRepositoryRef = useRef<string | null>(null);
@@ -4245,8 +4237,8 @@ export function VaultDashboard() {
   // existed before the modal; direct links should only replace the delete key.
   const previousDeleteModeActiveRef = useRef(deleteModeActive);
   const shouldPopDeleteHistoryRef = useRef(false);
-  const previousMakeMonorepoModeActiveRef = useRef(makeMonorepoModeActive);
-  const shouldPopMakeMonorepoHistoryRef = useRef(false);
+  const previousAddAppRootModeActiveRef = useRef(addAppRootModeActive);
+  const shouldPopAddAppRootHistoryRef = useRef(false);
   const previousAddConvexModeActiveRef = useRef(addConvexModeActive);
   const shouldPopAddConvexHistoryRef = useRef(false);
   const previousAddCloudflareWorkerModeActiveRef = useRef(addCloudflareWorkerModeActive);
@@ -4434,9 +4426,8 @@ export function VaultDashboard() {
   });
 
   const addAppRootDialogVault =
-    makeMonorepoRepositoryFullName && vaults
-      ? (vaults.find((vault) => vault.repositoryFullName === makeMonorepoRepositoryFullName) ??
-        null)
+    addAppRootRepositoryFullName && vaults
+      ? (vaults.find((vault) => vault.repositoryFullName === addAppRootRepositoryFullName) ?? null)
       : null;
   const vaultToAddAppRoot = useMemo(
     () =>
@@ -4517,16 +4508,16 @@ export function VaultDashboard() {
     });
   };
 
-  const clearMakeMonorepoSearchParam = useCallback(
+  const clearAddAppRootSearchParam = useCallback(
     ({ preferHistoryBack }: { preferHistoryBack: boolean }) => {
-      const shouldPopMakeMonorepoRoute =
+      const shouldPopAddAppRootRoute =
         preferHistoryBack &&
-        makeMonorepoModeActive &&
-        shouldPopMakeMonorepoHistoryRef.current &&
+        addAppRootModeActive &&
+        shouldPopAddAppRootHistoryRef.current &&
         router.history.canGoBack();
-      shouldPopMakeMonorepoHistoryRef.current = false;
+      shouldPopAddAppRootHistoryRef.current = false;
 
-      if (shouldPopMakeMonorepoRoute) {
+      if (shouldPopAddAppRootRoute) {
         router.history.back();
         return;
       }
@@ -4535,12 +4526,12 @@ export function VaultDashboard() {
         hash: true,
         replace: true,
         search: (currentSearch) =>
-          applySearchPatch(currentSearch, { [DASHBOARD_MAKE_MONOREPO_QUERY_PARAM]: null }),
+          applySearchPatch(currentSearch, { [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: null }),
         state: true,
         to: ".",
       });
     },
-    [makeMonorepoModeActive, navigate, router],
+    [addAppRootModeActive, navigate, router],
   );
 
   const clearDeleteSearchParam = useCallback(
@@ -4794,35 +4785,35 @@ export function VaultDashboard() {
   );
 
   useEffect(() => {
-    const previousMakeMonorepoModeActive = previousMakeMonorepoModeActiveRef.current;
-    if (!previousMakeMonorepoModeActive && makeMonorepoModeActive) {
-      shouldPopMakeMonorepoHistoryRef.current = true;
+    const previousAddAppRootModeActive = previousAddAppRootModeActiveRef.current;
+    if (!previousAddAppRootModeActive && addAppRootModeActive) {
+      shouldPopAddAppRootHistoryRef.current = true;
     }
-    if (!makeMonorepoModeActive) {
-      shouldPopMakeMonorepoHistoryRef.current = false;
+    if (!addAppRootModeActive) {
+      shouldPopAddAppRootHistoryRef.current = false;
     }
-    previousMakeMonorepoModeActiveRef.current = makeMonorepoModeActive;
+    previousAddAppRootModeActiveRef.current = addAppRootModeActive;
 
     if (!vaultToAddAppRoot) {
-      if (preparedMakeMonorepoRepositoryRef.current) {
-        preparedMakeMonorepoRepositoryRef.current = null;
+      if (preparedAddAppRootRepositoryRef.current) {
+        preparedAddAppRootRepositoryRef.current = null;
         resetAddAppRootDialogState();
       }
-      if (makeMonorepoModeActive && vaults) {
-        clearMakeMonorepoSearchParam({ preferHistoryBack: false });
+      if (addAppRootModeActive && vaults) {
+        clearAddAppRootSearchParam({ preferHistoryBack: false });
       }
       return;
     }
 
-    if (preparedMakeMonorepoRepositoryRef.current === vaultToAddAppRoot.repositoryFullName) {
+    if (preparedAddAppRootRepositoryRef.current === vaultToAddAppRoot.repositoryFullName) {
       return;
     }
 
-    preparedMakeMonorepoRepositoryRef.current = vaultToAddAppRoot.repositoryFullName;
+    preparedAddAppRootRepositoryRef.current = vaultToAddAppRoot.repositoryFullName;
     prepareAddAppRootDialog({ hasAppRoots: vaultToAddAppRoot.hasAppRoots });
   }, [
-    makeMonorepoModeActive,
-    clearMakeMonorepoSearchParam,
+    addAppRootModeActive,
+    clearAddAppRootSearchParam,
     prepareAddAppRootDialog,
     resetAddAppRootDialogState,
     vaultToAddAppRoot,
@@ -5054,7 +5045,7 @@ export function VaultDashboard() {
     if (isOpen || isSubmittingAppRoot) {
       return;
     }
-    clearMakeMonorepoSearchParam({ preferHistoryBack: true });
+    clearAddAppRootSearchParam({ preferHistoryBack: true });
   };
 
   const handleSubmitAppRoot = async () => {
@@ -5073,7 +5064,7 @@ export function VaultDashboard() {
         appRoot,
       });
       resetAddAppRootDialogState();
-      clearMakeMonorepoSearchParam({ preferHistoryBack: true });
+      clearAddAppRootSearchParam({ preferHistoryBack: true });
     } catch (error) {
       setAddAppRootDialogError(error instanceof Error ? error.message : "Could not add app root.");
     } finally {
@@ -5826,7 +5817,7 @@ export function VaultDashboard() {
           to={DASHBOARD_ROUTE}
           search={(currentSearch) =>
             applySearchPatch(currentSearch, {
-              [DASHBOARD_MAKE_MONOREPO_QUERY_PARAM]: null,
+              [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: null,
               "add-cloudflare": null,
               "add-convex": null,
               [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: null,
