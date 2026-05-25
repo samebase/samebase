@@ -225,12 +225,14 @@ Rules:
   sufficient.
 - `archive` removes only the current non-`main` worktree and the local branch. It leaves the remote
   branch and PR intact.
-- `clean` is only for branches whose PR is terminal: merged or closed. Do not clean open PR
-  previews. Run `clean vaults` first.
+- `clean` is only for branches whose PR is terminal: merged or closed. Draft PRs count as PRs: once
+  any PR exists for a branch, assume both Cloudflare and Convex preview deployments exist and must
+  be cleaned before the branch is removed. Do not clean open PR previews. Run `clean vaults` first.
 - Before deleting the remote branch, follow `docs/noter-pr-preview-cleanup.md` for the current
   branch. This is an operator/Codex workflow, not a repo script. It must not change deploy behavior
-  or add tagging. Skip Cloudflare or Convex cleanup when the exact preview resource is not provable
-  from provider or GitHub metadata.
+  or add tagging. Missing local seed env, missing inherited credentials, or missing first-pass
+  metadata is not a reason to skip preview cleanup. Resolve the credentials/resource lookup or leave
+  `clean` blocked; do not delete the branch while provider preview cleanup is incomplete.
 - If the current checkout has a linked machine install, stop that exact checkout-local
   `noter-sync run` process before deleting its state dir.
 - `clean` should remove only the current checkout's isolated `~/.noter/checkouts/<checkout-id>`

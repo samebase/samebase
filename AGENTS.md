@@ -402,9 +402,10 @@ Detailed flow rules live in `docs/agent-workflows.md`.
 - `clean vaults` must fail closed and only remove matching Noter-managed vaults through the
   dashboard delete flow.
 - `clean` must follow `docs/noter-pr-preview-cleanup.md` before deleting the remote branch. The
-  current branch must have a terminal PR: `MERGED` or `CLOSED`. Do not add scripts or deploy
-  metadata for this cleanup. Inspect provider/GitHub metadata and skip any provider whose exact
-  preview resource is not provable.
+  current branch must have a terminal PR: `MERGED` or `CLOSED`. A draft PR still creates preview
+  resources, so any branch that ever had a PR must clean both Cloudflare and Convex previews before
+  branch deletion. Do not add scripts or deploy metadata for this cleanup. Missing local env files
+  or first-pass metadata gaps block `clean`; they are not a reason to skip provider cleanup.
 - `clean` must fail closed and only remove the current checkout's isolated machine state directory
   under `~/.noter/checkouts/<checkout-id>`. Never delete the default `~/.noter` install as part of
   local cleanup.

@@ -3,6 +3,11 @@
 Use this during `clean` for a branch whose PR is merged or closed, after `clean vaults` and before
 deleting the remote branch. This is a Codex/operator workflow, not a repo script.
 
+Any GitHub PR for the branch, including a draft PR, is enough evidence that Noter preview resources
+exist. Treat both the Cloudflare Worker preview and the Convex preview deployment as mandatory
+cleanup targets once the PR is terminal. Missing local environment files or inherited credentials do
+not change that assumption; they only block cleanup until the credentials are available.
+
 The scope is only preview resources created for the `noter.md` app build:
 
 - Cloudflare Worker preview versions, when they can be proven
@@ -18,10 +23,14 @@ Noter-managed vault infrastructure as part of this workflow.
    provider or GitHub metadata.
 3. Delete no active Cloudflare Worker version and never delete the Worker itself.
 4. Delete no Convex deployment unless it is a `preview` deployment for the exact branch.
-5. Load cleanup credentials from the repo seed env before deciding credentials are unavailable.
-   Missing values in the inherited shell environment alone are not a reason to skip.
-6. If metadata is missing, ambiguous, or credentials are unavailable after the seed env preflight,
-   skip that provider and report the skip.
+5. Load cleanup credentials from the repo seed env before using inherited shell values. Missing
+   values in the inherited shell environment alone are not a reason to stop.
+6. If the repo seed env is missing or incomplete, locate the correct cleanup credentials from the
+   primary checkout, the operator-provided environment, or the configured secret source before
+   continuing. Do not treat missing local env as evidence that previews do not exist.
+7. If credentials or resource identity still cannot be resolved, stop with `clean` blocked. Do not
+   delete the local branch, remote branch, or checkout-local machine state while Cloudflare or
+   Convex preview cleanup is incomplete.
 
 ## 0. Load Cleanup Credentials
 
@@ -42,8 +51,9 @@ export CLOUDFLARE_WORKER_NAME="${CLOUDFLARE_WORKER_NAME:-noter-worker}"
 : "${DEV_SEED_CONVEX_TEAM_ID:?missing DEV_SEED_CONVEX_TEAM_ID}"
 ```
 
-Skip a provider for missing credentials only when the required value is still missing after this
-preflight.
+If this preflight fails because the file or a value is missing, cleanup is blocked until the correct
+credentials are available from another trusted source. Do not skip Cloudflare or Convex preview
+cleanup for a branch that has a PR.
 
 ## 1. Confirm The PR Is Terminal
 
@@ -94,7 +104,7 @@ Delete Cloudflare Worker versions only when all of these are true for each versi
 3. the version ID is not present in the active deployments output
 
 If Wrangler output is not enough, or the matching branch is absent from the Wrangler list, inspect
-the paginated Worker versions API before deciding there is no Cloudflare match:
+the paginated Worker versions API before deciding which version to delete:
 
 ```bash
 curl --fail-with-body --request GET \
@@ -113,7 +123,8 @@ curl --fail-with-body --request DELETE \
   --header "Authorization: Bearer $DEV_SEED_CLOUDFLARE_API_KEY"
 ```
 
-If there is no exact version match, leave Cloudflare alone.
+If there is still no exact version match, stop with `clean` blocked and report the lookup evidence.
+Do not treat a missing first-pass match as permission to skip Cloudflare preview cleanup.
 
 ## 3. Inspect Convex Preview Deployments
 
@@ -149,13 +160,15 @@ curl --fail-with-body --request POST \
   --header "Authorization: Bearer $DEV_SEED_CONVEX_MANAGEMENT_API_KEY"
 ```
 
-Never delete a `prod`, `dev`, or local Convex deployment during Noter PR preview cleanup.
+Never delete a `prod`, `dev`, or local Convex deployment during Noter PR preview cleanup. If the
+preview deployment for the exact branch cannot be identified, stop with `clean` blocked and report
+the lookup evidence.
 
 ## 4. Report The Result
 
 In the final `clean` response, include:
 
 - the PR URL and terminal state
-- any Cloudflare Worker version IDs deleted, or why Cloudflare was skipped
-- any Convex deployment name deleted, or why Convex was skipped
-- the remaining local cleanup actions
+- any Cloudflare Worker version IDs deleted, or the blocker that prevented deletion
+- any Convex deployment name deleted, or the blocker that prevented deletion
+- the remaining local cleanup actions, only after provider preview cleanup completed
