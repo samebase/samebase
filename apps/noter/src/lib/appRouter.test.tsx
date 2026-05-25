@@ -272,7 +272,7 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("keeps the public layout mounted while legal route content changes", async () => {
+  it("keeps the public layout mounted while public route content changes", async () => {
     const router = await renderRoute("/terms");
 
     expect(publicLayoutMountMock).toHaveBeenCalledTimes(1);
@@ -298,6 +298,17 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="root-index-route"]')?.textContent).toBe(
       "Root index route",
     );
+
+    await act(async () => {
+      await router.navigate({ to: "/localStorage" });
+      await settleRouterRender();
+    });
+
+    expect(publicLayoutMountMock).toHaveBeenCalledTimes(1);
+    expect(publicLayoutUnmountMock).not.toHaveBeenCalled();
+    expect(
+      rootElement?.querySelector('[data-testid="local-storage-sidebar-file"]')?.textContent,
+    ).toBe("localStorage");
   });
 
   it("renders / through the explicit routed root index page", async () => {

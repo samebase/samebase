@@ -23,7 +23,7 @@ function shouldUsePublicLayoutShell(pathname: string) {
     return true;
   }
 
-  return pathname === "/";
+  return pathname === "/" || pathname === "/localStorage";
 }
 
 function PublicLayoutRoute() {

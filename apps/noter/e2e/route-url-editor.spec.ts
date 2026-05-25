@@ -295,6 +295,15 @@ test("route URL editor keeps the same input focused while typing between public 
     (element) => document.activeElement === element && element.isConnected,
   );
   expect(keptFocusOnLogoIso).toBe(true);
+
+  await input.fill(`${origin}/localStorage`);
+
+  await expect(page).toHaveURL(`${origin}/localStorage`);
+  await expect(input).toHaveValue(`${origin}/localStorage`);
+  const keptFocusOnLocalStorage = await inputHandle.evaluate(
+    (element) => document.activeElement === element && element.isConnected,
+  );
+  expect(keptFocusOnLocalStorage).toBe(true);
 });
 
 test("route URL editor dismisses suggestions through blur when the page underneath scrolls", async ({
