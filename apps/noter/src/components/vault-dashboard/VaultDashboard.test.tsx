@@ -65,6 +65,7 @@ function makeResourceRailBuilderVault(
     ghRepoOwner: "ada",
     ghRepoName: "demo",
     repositoryFullName: "ada/demo",
+    appRoot: ".",
     fileCount: 0,
     state: "ready",
     sourceSetup: { status: "ready" },
@@ -142,6 +143,7 @@ describe("VaultDashboardRepositoryCard", () => {
         hasDuplicateRepositoryName: false,
         repositoryFullName: "nicu-chiciuc/tmp-flow",
         repositoryName: "tmp-flow",
+        appRoot: ".",
       }),
     ).toBe("tmp-flow");
     expect(
@@ -149,6 +151,7 @@ describe("VaultDashboardRepositoryCard", () => {
         hasDuplicateRepositoryName: true,
         repositoryFullName: "nicu-chiciuc/tmp-flow",
         repositoryName: "tmp-flow",
+        appRoot: ".",
       }),
     ).toBe("nicu-chiciuc/tmp-flow");
   });
@@ -319,6 +322,7 @@ describe("VaultDashboardDeleteDialog", () => {
         {...baseProps}
         vaultToDelete={{
           repositoryFullName: "ada/existing-repo",
+          appRoot: ".",
           isNoterManaged: false,
           canRemoveGithubRepo: false,
           hasConvexProvision: false,
@@ -339,6 +343,7 @@ describe("VaultDashboardDeleteDialog", () => {
         {...baseProps}
         vaultToDelete={{
           repositoryFullName: "ada/existing-repo",
+          appRoot: ".",
           isNoterManaged: false,
           canRemoveGithubRepo: false,
           hasConvexProvision: false,

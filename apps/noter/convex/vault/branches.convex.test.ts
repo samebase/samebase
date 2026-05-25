@@ -40,6 +40,7 @@ describe("vault branch mutations", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
+        appRoot: ".",
         owner: "ada",
         name: "secure-refresh",
         defaultBranch: "main",

@@ -206,6 +206,7 @@ function FixtureDeleteControl() {
 
 const fixtureDeleteDialogTarget = {
   repositoryFullName: "noter-md/noter",
+  appRoot: ".",
   isNoterManaged: true,
   canRemoveGithubRepo: true,
   hasConvexProvision: true,

@@ -66,12 +66,14 @@ const skipNotRequested = object({
 
 const githubRepositoryCoordinates = {
   ghRepoId: string(),
+  appRoot: string(),
   owner: string(),
   name: string(),
   repositoryFullName: string(),
 } as const;
 
 const repositorySetupCoordinates = {
+  appRoot: string(),
   owner: string(),
   name: string(),
   repositoryFullName: string(),

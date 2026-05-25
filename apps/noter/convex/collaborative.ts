@@ -86,6 +86,7 @@ export const getDocument = query({
 export const pullUpdates = query({
   args: {
     repositoryFullName: v.string(),
+    appRoot: v.string(),
     branch: v.string(),
     filePath: v.string(),
     version: v.number(),
@@ -105,6 +106,7 @@ export const pullUpdates = query({
 
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
+      appRoot: args.appRoot,
       userId,
     });
 
@@ -139,6 +141,7 @@ export const pullUpdates = query({
 export const pushUpdates = mutation({
   args: {
     repositoryFullName: v.string(),
+    appRoot: v.string(),
     branch: v.string(),
     filePath: v.string(),
     version: v.number(), // Client's current version
@@ -158,6 +161,7 @@ export const pushUpdates = mutation({
 
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
+      appRoot: args.appRoot,
       userId,
     });
 

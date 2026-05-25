@@ -19,6 +19,7 @@ export type VaultSyncStatusStagedFile = NonNullable<
 
 type VaultSyncStatusSharedProps = {
   repositoryFullName: string;
+  appRoot: string;
   branch: string;
   owner: string;
   repoName: string;
@@ -37,6 +38,7 @@ type VaultSyncStatusSharedProps = {
 
 export function VaultSyncStatusContent({
   repositoryFullName,
+  appRoot,
   branch,
   owner,
   repoName,
@@ -120,7 +122,13 @@ export function VaultSyncStatusContent({
             </>
           )}
           {showChecks && !suppressChecks && (
-            <CommitStatus owner={owner} repo={repoName} commitSha={commitSha} className="mr-1" />
+            <CommitStatus
+              owner={owner}
+              repo={repoName}
+              appRoot={appRoot}
+              commitSha={commitSha}
+              className="mr-1"
+            />
           )}
           {commitSha && commitUrl ? (
             <a

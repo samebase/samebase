@@ -42,6 +42,7 @@ interface ChecksPausedState {
 interface CommitStatusProps {
   owner: string;
   repo: string;
+  appRoot: string;
   commitSha?: string;
   className?: string;
 }
@@ -250,7 +251,13 @@ function InlineState({
   );
 }
 
-export function CommitStatus({ owner, repo, commitSha, className = "" }: CommitStatusProps) {
+export function CommitStatus({
+  owner,
+  repo,
+  appRoot,
+  commitSha,
+  className = "",
+}: CommitStatusProps) {
   const [checkRuns, setCheckRuns] = useState<GitHubCheckRun[] | null>(null);
   const [commitStatuses, setCommitStatuses] = useState<GitHubCommitStatus[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -330,6 +337,7 @@ export function CommitStatus({ owner, repo, commitSha, className = "" }: CommitS
         const result = await getCommitStatus({
           owner,
           repo,
+          appRoot,
           ref: commitSha,
         });
 
@@ -427,7 +435,7 @@ export function CommitStatus({ owner, repo, commitSha, className = "" }: CommitS
       emptyAttemptRef.current = 0;
       lastFetchAtRef.current = null;
     };
-  }, [commitSha, owner, repo, getCommitStatus]);
+  }, [appRoot, commitSha, owner, repo, getCommitStatus]);
 
   if (!commitSha) {
     return <InlineState label="Missing commit SHA" className={cn("text-red-600", className)} />;

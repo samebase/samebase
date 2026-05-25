@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { api, internal } from "../_generated/api";
+import { buildCloudflareBuildConfigForAppRoot } from "../infraProvisioning";
 import { makeConvexTest } from "../test.setup";
+
+const cloudflareBuild = buildCloudflareBuildConfigForAppRoot({ appRoot: "." });
 
 describe("vault records Convex contract", () => {
   it("rejects case-insensitive duplicate Noter-managed repository targets", async () => {
@@ -16,25 +19,29 @@ describe("vault records Convex contract", () => {
 
     await t.mutation(internal.vault.records.createInitializingNoterManagedVaultForUser, {
       userId,
+      appRoot: ".",
       ghRepoOwner: "Ada",
       ghRepoName: "Example-App",
       visibility: "private",
       convexProjectName: "example-app",
       cloudflareAccountId: "cloudflare-account",
       cloudflareWorkerName: "example-app",
+      cloudflareBuild,
     });
 
     await expect(
       t.mutation(internal.vault.records.createInitializingNoterManagedVaultForUser, {
         userId,
+        appRoot: ".",
         ghRepoOwner: " ada ",
         ghRepoName: " example-app ",
         visibility: "private",
         convexProjectName: "example-app-2",
         cloudflareAccountId: "cloudflare-account",
         cloudflareWorkerName: "example-app-2",
+        cloudflareBuild,
       }),
-    ).rejects.toThrow("Vault already exists for this repository.");
+    ).rejects.toThrow("Vault already exists for this repository app root.");
   });
 
   it("rejects malformed repository full names with extra path segments", async () => {
@@ -54,6 +61,7 @@ describe("vault records Convex contract", () => {
     await expect(
       asUser.query(api.vault.records.getVaultByRepository, {
         repositoryFullName: "ada/example/extra",
+        appRoot: ".",
       }),
     ).rejects.toThrow("Invalid repository full name");
   });
@@ -88,6 +96,7 @@ describe("vault records Convex contract", () => {
         state: "failed",
         githubMode: "create_repository",
         runId: firstFailedRunId,
+        appRoot: ".",
         owner: "ada",
         name: "shared",
         visibility: "private",
@@ -116,6 +125,7 @@ describe("vault records Convex contract", () => {
         state: "failed",
         githubMode: "create_repository",
         runId: secondFailedRunId,
+        appRoot: ".",
         owner: "ada",
         name: "shared",
         visibility: "private",
@@ -145,6 +155,7 @@ describe("vault records Convex contract", () => {
         githubMode: "create_repository",
         runId: connectedRunId,
         ghRepoId: "123",
+        appRoot: ".",
         owner: "ada",
         name: "shared",
         defaultBranch: "main",

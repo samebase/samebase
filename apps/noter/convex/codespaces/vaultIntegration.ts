@@ -9,6 +9,7 @@ import type { Id } from "../_generated/dataModel";
 import { assertConnectedVault } from "../vault/state";
 import { toErrorMessage } from "../jsonUtils";
 import { assertCodespacesEnabled } from "../../shared/featureFlags";
+import { normalizeVaultAppRoot } from "../vault/model";
 
 async function getGithubAccessToken(ctx: ActionCtx, userId: Id<"users">): Promise<string> {
   const connection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
@@ -32,18 +33,21 @@ export const createVaultWithCodespace = action({
   args: {
     repoOwner: v.string(),
     repoName: v.string(),
+    appRoot: v.string(),
     branch: v.optional(v.string()),
   },
   returns: createVaultWithCodespaceResult,
   handler: async (ctx, args): Promise<Infer<typeof createVaultWithCodespaceResult>> => {
     assertCodespacesEnabled();
     const userId = await getUserId(ctx);
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
     const { vaultId, runId } = await ctx.runMutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
         ghRepoOwner: args.repoOwner,
         ghRepoName: args.repoName,
+        appRoot,
       },
     );
 
@@ -107,6 +111,7 @@ export const createVaultWithCodespace = action({
         ghRepoId: repo.data.id.toString(),
         ghRepoOwner: repo.data.owner.login,
         ghRepoName: repo.data.name,
+        appRoot,
         defaultBranch,
         visibility: repo.data.private ? "private" : "public",
       });

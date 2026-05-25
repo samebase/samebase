@@ -17,11 +17,13 @@ import { isConvexManagementNotFoundError } from "./convexManagementApi/errors";
 import type { PlatformDeploymentResponse } from "./convexManagementApi/types.generated";
 import {
   ensureCloudflareResources,
+  type CloudflareBuildConfig,
   type ExistingCloudflareWorkerIdentity,
 } from "./cloudflareResources";
 import { asRecord, readStringOrNumber } from "./jsonUtils";
-import type { AppProvisioningStep, ConvexDeployKeyState, GithubTreeData } from "./schema";
+import type { AppProvisioningStep, ConvexDeployKeyState } from "./schema";
 import { vaultSuffix } from "./slugUtils";
+import { normalizeVaultAppRoot, type VaultCloudflareBuildConfig } from "./vault/model";
 import {
   isLiveConnectedVault,
   isNoterManagedVault,
@@ -541,53 +543,42 @@ async function createConvexDeployKey(args: {
   };
 }
 
-export function resolveCloudflareBuildConfig(vault: { treeData: GithubTreeData }): {
-  rootDir: string;
-  buildCommand: string;
-  deployCommand: string;
-  previewDeployCommand: string;
-  pathIncludes: string[];
-  pathExcludes: string[];
-} {
-  const hasMonorepoFrontend = vault.treeData.tree.some(
-    (entry) => entry.path === "apps/noter/package.json",
-  );
-  if (hasMonorepoFrontend) {
-    return {
-      rootDir: "apps/noter",
-      buildCommand: "pnpm run build",
-      deployCommand: "pnpm exec wrangler deploy",
-      previewDeployCommand: "pnpm exec wrangler versions upload",
-      // Workers Builds path filters are repo-root trigger gates, so include
-      // the app, current workspace source dependency, and root install inputs.
-      pathIncludes: [
-        "apps/noter/*",
-        "packages/dependent/*",
-        "pnpm-lock.yaml",
-        "pnpm-workspace.yaml",
-        "package.json",
-        ".nvmrc",
-      ],
-      pathExcludes: [],
-    };
-  }
+export function buildCloudflareBuildConfigForAppRoot(args: {
+  appRoot: string;
+}): VaultCloudflareBuildConfig {
+  const appRoot = normalizeVaultAppRoot(args.appRoot);
+  const rootDirectory = appRoot === "." ? "/" : appRoot;
+  const pathIncludes =
+    appRoot === "."
+      ? ["*"]
+      : [
+          `${appRoot}/*`,
+          "packages/dependent/*",
+          "pnpm-lock.yaml",
+          "pnpm-workspace.yaml",
+          "package.json",
+          ".nvmrc",
+        ];
+
   return {
-    rootDir: "/",
+    rootDirectory,
     buildCommand: "pnpm run build",
     deployCommand: "pnpm run deploy",
     previewDeployCommand: "pnpm run deploy:preview",
-    pathIncludes: ["*"],
+    pathIncludes,
     pathExcludes: [],
   };
 }
 
-export function selectCloudflareBuildConfigTreeData(args: {
-  branchTreeData: GithubTreeData | null;
-}): GithubTreeData {
-  if (args.branchTreeData) {
-    return args.branchTreeData;
-  }
-  throw new Error("Default branch tree is not synced yet.");
+function toCloudflareBuildConfig(build: VaultCloudflareBuildConfig): CloudflareBuildConfig {
+  return {
+    rootDir: build.rootDirectory,
+    buildCommand: build.buildCommand,
+    deployCommand: build.deployCommand,
+    previewDeployCommand: build.previewDeployCommand,
+    pathIncludes: build.pathIncludes,
+    pathExcludes: build.pathExcludes,
+  };
 }
 
 export function selectExistingCloudflareWorker(args: {
@@ -1116,6 +1107,7 @@ export const recordCloudflareWorkerIdentity = internalMutation({
         workerName: args.workerName,
         workerTag: args.workerTag,
         workersDevUrl: args.workersDevUrl,
+        build: target.cloudflare.build,
       },
       updatedAt: Date.now(),
     });
@@ -1188,6 +1180,22 @@ export const markCloudflareConnected = internalMutation({
     workerName: v.string(),
     workerTag: v.string(),
     workersDevUrl: v.optional(v.string()),
+    build: v.object({
+      rootDirectory: v.string(),
+      buildCommand: v.string(),
+      deployCommand: v.string(),
+      previewDeployCommand: v.string(),
+      pathIncludes: v.array(v.string()),
+      pathExcludes: v.array(v.string()),
+      production: v.object({
+        triggerUuid: v.string(),
+        buildTokenUuid: v.string(),
+      }),
+      preview: v.object({
+        triggerUuid: v.string(),
+        buildTokenUuid: v.string(),
+      }),
+    }),
   },
   returns: infrastructurePatchResult,
   handler: async (ctx, args) => {
@@ -1209,6 +1217,10 @@ export const markCloudflareConnected = internalMutation({
       workerTag: args.workerTag,
       workersDevUrl: args.workersDevUrl,
       origin: "provisioned",
+      deployment: {
+        state: "workers_builds_connected",
+        ...args.build,
+      },
       connectedAt: vault.cloudflare.state === "connected" ? vault.cloudflare.connectedAt : now,
       lastObservedAt: now,
     } as const;
@@ -1661,13 +1673,6 @@ export const ensureCloudflareInfrastructure = internalAction({
       );
     }
 
-    const defaultBranchTree = await ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
-      vaultId: args.vaultId,
-      branch: vault.defaultBranch,
-    });
-    const buildConfigTreeData = selectCloudflareBuildConfigTreeData({
-      branchTreeData: defaultBranchTree?.treeData ?? null,
-    });
     const defaultBranch = vault.defaultBranch;
     const { githubAccessToken } = await resolveGitHubProvisioningConnection(ctx, vault.userId);
     const { convexToken, convexTeamId } = await resolveConvexProvisioningConnection(
@@ -1761,9 +1766,7 @@ export const ensureCloudflareInfrastructure = internalAction({
       cloudflareToken,
       cloudflareAuthMethod,
       accountId: cloudflareAccountId,
-      buildConfig: resolveCloudflareBuildConfig({
-        treeData: buildConfigTreeData,
-      }),
+      buildConfig: toCloudflareBuildConfig(cloudflareTarget.build),
       existingWorker: existingCloudflareWorker,
       recordApiCall,
       onWorkerResolved: async (worker) => {
@@ -1802,6 +1805,7 @@ export const ensureCloudflareInfrastructure = internalAction({
         workerName: provisionedCloudflare.workerName,
         workerTag: provisionedCloudflare.workerTag,
         workersDevUrl: provisionedCloudflare.workersDevUrl,
+        build: provisionedCloudflare.build,
       },
     );
     if (!connectionMark.applied) {

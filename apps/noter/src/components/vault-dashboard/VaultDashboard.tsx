@@ -176,6 +176,7 @@ type GitHubRepositoryOwnerOption = {
 
 export type VaultDeleteDialogTarget = {
   repositoryFullName: string;
+  appRoot: string;
   isNoterManaged: boolean;
   canRemoveGithubRepo: boolean;
   hasConvexProvision: boolean;
@@ -765,6 +766,7 @@ function buildVaultDeleteIntent(vault: VaultDashboardVault): VaultDeleteIntent {
   return {
     id: vault._id,
     repositoryFullName: vault.repositoryFullName,
+    appRoot: vault.appRoot,
     isNoterManaged: vault.isNoterManaged,
     canRemoveGithubRepo: vault.isNoterManaged && vault.hasConnectedGitHubRepository,
     hasConvexProvision: vault.hasConvexProvision,
@@ -2657,9 +2659,9 @@ type VaultDashboardBodyProps = {
   replaceLogoRouteSearch: (nextSearch: LogoRouteSearch) => void;
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
   persistedVaultBranchFiltersByVaultId: Map<string, VaultBranchFiltersState>;
-  deleteRepositoryFullName?: string;
-  addConvexRepositoryFullName?: string;
-  addCloudflareWorkerRepositoryFullName?: string;
+  deleteVaultId?: Id<"vaults">;
+  addConvexVaultId?: Id<"vaults">;
+  addCloudflareWorkerVaultId?: Id<"vaults">;
   rootRouteSearch: RootRouteSearch;
   vaults: VaultDashboardVault[];
   onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
@@ -2706,19 +2708,20 @@ function buildVaultDashboardHashIdForVault({
   vault: VaultDashboardVault;
 }) {
   return buildVaultDashboardRepositoryHashId({
+    appRoot: vault.appRoot,
     hasDuplicateRepositoryName: (repositoryNameCounts.get(vault.ghRepoName) ?? 0) > 1,
     repositoryFullName: vault.repositoryFullName,
     repositoryName: vault.ghRepoName,
   });
 }
 
-function resolveVaultDashboardRepositoryFullNameForHash({
+function resolveVaultDashboardVaultIdForHash({
   hash,
   vaults,
 }: {
   hash: string;
   vaults: VaultDashboardVault[];
-}) {
+}): Id<"vaults"> | undefined {
   const repositoryHash = normalizeVaultDashboardRepositoryHash(hash);
   if (!repositoryHash) {
     return undefined;
@@ -2727,7 +2730,7 @@ function resolveVaultDashboardRepositoryFullNameForHash({
   const repositoryNameCounts = buildVaultDashboardRepositoryNameCounts(vaults);
   for (const vault of vaults) {
     if (buildVaultDashboardHashIdForVault({ repositoryNameCounts, vault }) === repositoryHash) {
-      return vault.repositoryFullName;
+      return vault._id;
     }
   }
 
@@ -2857,9 +2860,9 @@ function VaultDashboardBody({
   replaceLogoRouteSearch,
   openDeveloperToolsByVaultId,
   persistedVaultBranchFiltersByVaultId,
-  deleteRepositoryFullName,
-  addConvexRepositoryFullName,
-  addCloudflareWorkerRepositoryFullName,
+  deleteVaultId,
+  addConvexVaultId,
+  addCloudflareWorkerVaultId,
   rootRouteSearch,
   vaults,
   onOpenDeveloperToolsChange,
@@ -3001,16 +3004,16 @@ function VaultDashboardBody({
   });
 
   useEffect(() => {
-    if (!deleteRepositoryFullName) {
+    if (!deleteVaultId) {
       lastScrolledDeleteRepositoryRef.current = null;
       return;
     }
 
-    if (lastScrolledDeleteRepositoryRef.current === deleteRepositoryFullName) {
+    if (lastScrolledDeleteRepositoryRef.current === deleteVaultId) {
       return;
     }
 
-    const deleteCardElement = vaultCardElementsRef.current.get(deleteRepositoryFullName);
+    const deleteCardElement = vaultCardElementsRef.current.get(deleteVaultId);
     if (!deleteCardElement) {
       return;
     }
@@ -3018,48 +3021,46 @@ function VaultDashboardBody({
     // Direct ?delete#vault loads resolve after vault data arrives, so anchor
     // the selected card once the target element exists.
     scrollVaultDashboardCardIntoView(deleteCardElement);
-    lastScrolledDeleteRepositoryRef.current = deleteRepositoryFullName;
-  }, [deleteRepositoryFullName, vaults]);
+    lastScrolledDeleteRepositoryRef.current = deleteVaultId;
+  }, [deleteVaultId, vaults]);
 
   useEffect(() => {
-    if (!addConvexRepositoryFullName) {
+    if (!addConvexVaultId) {
       lastScrolledAddConvexRepositoryRef.current = null;
       return;
     }
 
-    if (lastScrolledAddConvexRepositoryRef.current === addConvexRepositoryFullName) {
+    if (lastScrolledAddConvexRepositoryRef.current === addConvexVaultId) {
       return;
     }
 
-    const addCardElement = vaultCardElementsRef.current.get(addConvexRepositoryFullName);
+    const addCardElement = vaultCardElementsRef.current.get(addConvexVaultId);
     if (!addCardElement) {
       return;
     }
 
     scrollVaultDashboardCardIntoView(addCardElement);
-    lastScrolledAddConvexRepositoryRef.current = addConvexRepositoryFullName;
-  }, [addConvexRepositoryFullName, vaults]);
+    lastScrolledAddConvexRepositoryRef.current = addConvexVaultId;
+  }, [addConvexVaultId, vaults]);
 
   useEffect(() => {
-    if (!addCloudflareWorkerRepositoryFullName) {
+    if (!addCloudflareWorkerVaultId) {
       lastScrolledAddCloudflareWorkerRepositoryRef.current = null;
       return;
     }
 
-    if (
-      lastScrolledAddCloudflareWorkerRepositoryRef.current === addCloudflareWorkerRepositoryFullName
-    ) {
+    if (lastScrolledAddCloudflareWorkerRepositoryRef.current === addCloudflareWorkerVaultId) {
       return;
     }
 
-    const addCardElement = vaultCardElementsRef.current.get(addCloudflareWorkerRepositoryFullName);
+    const addCardElement = vaultCardElementsRef.current.get(addCloudflareWorkerVaultId);
     if (!addCardElement) {
       return;
     }
 
     scrollVaultDashboardCardIntoView(addCardElement);
-    lastScrolledAddCloudflareWorkerRepositoryRef.current = addCloudflareWorkerRepositoryFullName;
-  }, [addCloudflareWorkerRepositoryFullName, vaults]);
+    lastScrolledAddCloudflareWorkerRepositoryRef.current = addCloudflareWorkerVaultId;
+  }, [addCloudflareWorkerVaultId, vaults]);
 
   useEffect(() => {
     const repositoryHash = normalizeVaultDashboardRepositoryHash(repositoryLocationHash);
@@ -3174,7 +3175,7 @@ function VaultDashboardBody({
           ) : undefined;
         const deleteBlockedSection =
           !isDeletingVault &&
-          deleteRepositoryFullName === vault.repositoryFullName &&
+          deleteVaultId === vault._id &&
           deletion.deleteAction.state === "disabled" ? (
             <VaultDeleteBlockedSection reason={deletion.deleteAction.reason} />
           ) : undefined;
@@ -3196,12 +3197,12 @@ function VaultDashboardBody({
             data-vault-dashboard-repository-hash-id={repositoryHashId}
             ref={(element) => {
               if (element) {
-                vaultCardElementsRef.current.set(vault.repositoryFullName, element);
+                vaultCardElementsRef.current.set(vault._id, element);
                 scrollVaultCardElementForHash(element);
                 return;
               }
 
-              vaultCardElementsRef.current.delete(vault.repositoryFullName);
+              vaultCardElementsRef.current.delete(vault._id);
             }}
           >
             <VaultDashboardRepositoryCard
@@ -3764,23 +3765,23 @@ export function VaultDashboard() {
   const deleteModeActive = rootRouteSearch.delete;
   const addConvexModeActive = rootRouteSearch["add-convex"];
   const addCloudflareWorkerModeActive = rootRouteSearch["add-cloudflare"];
-  const deleteRepositoryFullName =
+  const deleteVaultId =
     deleteModeActive && vaults
-      ? resolveVaultDashboardRepositoryFullNameForHash({
+      ? resolveVaultDashboardVaultIdForHash({
           hash: location.hash,
           vaults,
         })
       : undefined;
-  const addCloudflareWorkerRepositoryFullName =
+  const addCloudflareWorkerVaultId =
     addCloudflareWorkerModeActive && vaults
-      ? resolveVaultDashboardRepositoryFullNameForHash({
+      ? resolveVaultDashboardVaultIdForHash({
           hash: location.hash,
           vaults,
         })
       : undefined;
-  const addConvexRepositoryFullName =
+  const addConvexVaultId =
     addConvexModeActive && vaults
-      ? resolveVaultDashboardRepositoryFullNameForHash({
+      ? resolveVaultDashboardVaultIdForHash({
           hash: location.hash,
           vaults,
         })
@@ -3821,9 +3822,9 @@ export function VaultDashboard() {
   const githubPopupOriginRef = useRef<string | null>(null);
   const convexPopupOriginRef = useRef<string | null>(null);
   const cloudflarePopupOriginRef = useRef<string | null>(null);
-  const preparedDeleteRepositoryRef = useRef<string | null>(null);
-  const preparedAddConvexRepositoryRef = useRef<string | null>(null);
-  const preparedAddCloudflareWorkerRepositoryRef = useRef<string | null>(null);
+  const preparedDeleteVaultRef = useRef<Id<"vaults"> | null>(null);
+  const preparedAddConvexVaultRef = useRef<Id<"vaults"> | null>(null);
+  const preparedAddCloudflareWorkerVaultRef = useRef<Id<"vaults"> | null>(null);
   // In-app delete icon clicks should close back to the dashboard entry that
   // existed before the modal; direct links should only replace the delete key.
   const previousDeleteModeActiveRef = useRef(deleteModeActive);
@@ -3998,17 +3999,15 @@ export function VaultDashboard() {
   });
 
   const deleteDialogVault =
-    deleteRepositoryFullName && vaults
-      ? (vaults.find((vault) => vault.repositoryFullName === deleteRepositoryFullName) ?? null)
-      : null;
+    deleteVaultId && vaults ? (vaults.find((vault) => vault._id === deleteVaultId) ?? null) : null;
   const canOpenDeleteDialog =
     deleteDialogVault?.deletion.state === "not_deleting" &&
     deleteDialogVault.deletion.deleteAction.state === "available";
   const vaultToDelete =
     deleteDialogVault && canOpenDeleteDialog ? buildVaultDeleteIntent(deleteDialogVault) : null;
   const addConvexDialogVault =
-    addConvexRepositoryFullName && vaults
-      ? (vaults.find((vault) => vault.repositoryFullName === addConvexRepositoryFullName) ?? null)
+    addConvexVaultId && vaults
+      ? (vaults.find((vault) => vault._id === addConvexVaultId) ?? null)
       : null;
   const canOpenConnectConvexDialog =
     addConvexDialogVault?.state === "ready" && !addConvexDialogVault.hasConvexProvision;
@@ -4024,10 +4023,8 @@ export function VaultDashboard() {
     [addConvexDialogVault, canOpenConnectConvexDialog],
   );
   const addCloudflareWorkerDialogVault =
-    addCloudflareWorkerRepositoryFullName && vaults
-      ? (vaults.find(
-          (vault) => vault.repositoryFullName === addCloudflareWorkerRepositoryFullName,
-        ) ?? null)
+    addCloudflareWorkerVaultId && vaults
+      ? (vaults.find((vault) => vault._id === addCloudflareWorkerVaultId) ?? null)
       : null;
   const canOpenConnectCloudflareDialog =
     addCloudflareWorkerDialogVault?.state === "ready" &&
@@ -4313,8 +4310,8 @@ export function VaultDashboard() {
     previousDeleteModeActiveRef.current = deleteModeActive;
 
     if (!vaultToDelete) {
-      if (preparedDeleteRepositoryRef.current) {
-        preparedDeleteRepositoryRef.current = null;
+      if (preparedDeleteVaultRef.current) {
+        preparedDeleteVaultRef.current = null;
         resetDeleteDialogState();
       }
       if (deleteModeActive && vaults && !deleteDialogVault) {
@@ -4323,18 +4320,18 @@ export function VaultDashboard() {
       return;
     }
 
-    if (preparedDeleteRepositoryRef.current === vaultToDelete.repositoryFullName) {
+    if (preparedDeleteVaultRef.current === vaultToDelete.id) {
       return;
     }
 
     // The URL owns which vault is targeted; local state only seeds editable
     // cleanup options when that routed target changes.
     prepareDeleteDialog();
-    preparedDeleteRepositoryRef.current = vaultToDelete.repositoryFullName;
+    preparedDeleteVaultRef.current = vaultToDelete.id;
   }, [
     clearDeleteSearchParam,
     deleteModeActive,
-    deleteRepositoryFullName,
+    deleteVaultId,
     prepareDeleteDialog,
     resetDeleteDialogState,
     deleteDialogVault,
@@ -4353,8 +4350,8 @@ export function VaultDashboard() {
     previousAddConvexModeActiveRef.current = addConvexModeActive;
 
     if (!vaultToConnectConvex) {
-      if (preparedAddConvexRepositoryRef.current) {
-        preparedAddConvexRepositoryRef.current = null;
+      if (preparedAddConvexVaultRef.current) {
+        preparedAddConvexVaultRef.current = null;
         resetConvexDialogState();
       }
       if (addConvexModeActive && vaults) {
@@ -4363,11 +4360,11 @@ export function VaultDashboard() {
       return;
     }
 
-    if (preparedAddConvexRepositoryRef.current === vaultToConnectConvex.repositoryFullName) {
+    if (preparedAddConvexVaultRef.current === vaultToConnectConvex.id) {
       return;
     }
 
-    preparedAddConvexRepositoryRef.current = vaultToConnectConvex.repositoryFullName;
+    preparedAddConvexVaultRef.current = vaultToConnectConvex.id;
     setConvexConnectDialogCreateProjectName(
       buildDefaultAppResourceName({
         repositoryName: vaultToConnectConvex.repositoryName,
@@ -4396,8 +4393,8 @@ export function VaultDashboard() {
     previousAddCloudflareWorkerModeActiveRef.current = addCloudflareWorkerModeActive;
 
     if (!vaultToConnectCloudflare) {
-      if (preparedAddCloudflareWorkerRepositoryRef.current) {
-        preparedAddCloudflareWorkerRepositoryRef.current = null;
+      if (preparedAddCloudflareWorkerVaultRef.current) {
+        preparedAddCloudflareWorkerVaultRef.current = null;
         resetCloudflareDialogState();
       }
       if (addCloudflareWorkerModeActive && vaults) {
@@ -4406,14 +4403,11 @@ export function VaultDashboard() {
       return;
     }
 
-    if (
-      preparedAddCloudflareWorkerRepositoryRef.current ===
-      vaultToConnectCloudflare.repositoryFullName
-    ) {
+    if (preparedAddCloudflareWorkerVaultRef.current === vaultToConnectCloudflare.id) {
       return;
     }
 
-    preparedAddCloudflareWorkerRepositoryRef.current = vaultToConnectCloudflare.repositoryFullName;
+    preparedAddCloudflareWorkerVaultRef.current = vaultToConnectCloudflare.id;
     setCloudflareConnectDialogCreateWorkerName(
       buildDefaultAppResourceName({
         repositoryName: vaultToConnectCloudflare.repositoryName,
@@ -4693,6 +4687,7 @@ export function VaultDashboard() {
     try {
       await commitStaging({
         repositoryFullName: vaultToDelete.repositoryFullName,
+        appRoot: vaultToDelete.appRoot,
       });
     } catch (error) {
       setCommitError(error instanceof Error ? error.message : "Failed to commit changes");
@@ -4765,6 +4760,7 @@ export function VaultDashboard() {
         owner,
         convexProjectName: convexProjectNameValidation.value,
         cloudflareWorkerName: cloudflareWorkerNameValidation.value,
+        appRoot: ".",
         private: true,
       });
       resetCreateRepositoryName();
@@ -5514,9 +5510,9 @@ export function VaultDashboard() {
       }}
       openDeveloperToolsByVaultId={openDeveloperToolsByVaultId}
       persistedVaultBranchFiltersByVaultId={persistedVaultBranchFiltersByVaultId}
-      deleteRepositoryFullName={deleteRepositoryFullName}
-      addConvexRepositoryFullName={addConvexRepositoryFullName}
-      addCloudflareWorkerRepositoryFullName={addCloudflareWorkerRepositoryFullName}
+      deleteVaultId={deleteVaultId}
+      addConvexVaultId={addConvexVaultId}
+      addCloudflareWorkerVaultId={addCloudflareWorkerVaultId}
       rootRouteSearch={rootRouteSearch}
       vaults={vaults}
       onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}

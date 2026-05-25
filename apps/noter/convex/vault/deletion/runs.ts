@@ -85,6 +85,20 @@ async function getVaultInfrastructure(
     .first();
 }
 
+async function hasOtherConnectedVaultForRepository(
+  ctx: MutationCtx,
+  vault: Extract<Doc<"vaults">, { state: "connected" }>,
+): Promise<boolean> {
+  for await (const candidate of ctx.db
+    .query("vaults")
+    .withIndex("by_owner_and_name", (q) => q.eq("owner", vault.owner).eq("name", vault.name))) {
+    if (candidate._id !== vault._id && isConnectedVault(candidate)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 async function listCreatedConvexProjectIds(
   ctx: MutationCtx,
   vaultId: Id<"vaults">,
@@ -304,6 +318,7 @@ async function buildDeletionPlan(
           target: {
             kind: "existing_repository",
             ghRepoId: args.vault.ghRepoId,
+            appRoot: args.vault.appRoot,
             owner: args.vault.owner,
             name: args.vault.name,
             repositoryFullName,
@@ -316,6 +331,11 @@ async function buildDeletionPlan(
       }
 
       if (args.options.removeGithubRepo) {
+        if (await hasOtherConnectedVaultForRepository(ctx, args.vault)) {
+          throw new Error(
+            "GitHub repository deletion is blocked while another vault uses this repository.",
+          );
+        }
         await requireProviderConnection(ctx, {
           userId: args.vault.userId,
           kind: "github",
@@ -329,6 +349,7 @@ async function buildDeletionPlan(
         target: {
           kind: "noter_managed_repository",
           ghRepoId: args.vault.ghRepoId,
+          appRoot: args.vault.appRoot,
           owner: args.vault.owner,
           name: args.vault.name,
           repositoryFullName,
@@ -359,6 +380,7 @@ async function buildDeletionPlan(
         target: {
           kind: "failed_repository_setup",
           githubMode: args.vault.githubMode,
+          appRoot: args.vault.appRoot,
           owner: args.vault.owner,
           name: args.vault.name,
           repositoryFullName,

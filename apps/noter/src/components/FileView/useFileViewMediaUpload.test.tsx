@@ -23,6 +23,7 @@ function MediaUploadProbe() {
     generateUploadUrl: vi.fn(async () => "/upload"),
     navigateByHref: vi.fn(),
     repositoryFullName: "octo/repo",
+    appRoot: ".",
     selectedFile: "README.md",
     stageUploadedMedia: vi.fn(async () => null),
     vaultId: fakeVaultId(),

@@ -46,6 +46,7 @@ function buildRepositoryRow(repository: AddRepositoryRepository, searchQuery: st
 
 function renderAddRepositoryContent(overrides: Partial<AddRepositoryPageContentProps>) {
   const props: AddRepositoryPageContentProps = {
+    appRoot: ".",
     connectingRepositoryFullName: null,
     emptyRepositoryMessage: null,
     error: null,
@@ -60,6 +61,7 @@ function renderAddRepositoryContent(overrides: Partial<AddRepositoryPageContentP
     showBackgroundError: false,
     onConnectGithub: noop,
     onConnectRepository: noop,
+    onAppRootChange: noop,
     onRetryFullRepositories: noop,
     onSearchQueryChange: noop,
     ...overrides,

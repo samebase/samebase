@@ -36,6 +36,7 @@ describe("vault deletion workflow", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
+        appRoot: ".",
         owner: "ada",
         name: "delete-me",
         defaultBranch: "main",
@@ -93,6 +94,7 @@ describe("vault deletion workflow", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
+        appRoot: ".",
         owner: "ada",
         name: "delete-me",
         defaultBranch: "main",
@@ -152,6 +154,7 @@ describe("vault deletion workflow", () => {
           target: {
             kind: "noter_managed_repository",
             ghRepoId: "123",
+            appRoot: ".",
           },
           githubRepository: {
             action: "skip",
@@ -211,6 +214,7 @@ describe("vault deletion workflow", () => {
         githubMode: "connect_existing_repository",
         runId,
         ghRepoId: "123",
+        appRoot: ".",
         owner: "ada",
         name: "existing-repo",
         defaultBranch: "main",
@@ -222,6 +226,7 @@ describe("vault deletion workflow", () => {
           workerName: "existing-repo-worker",
           workerTag: "worker-tag",
           origin: "provisioned",
+          deployment: { state: "not_configured" },
           connectedAt: 6,
           lastObservedAt: 7,
         },
@@ -283,6 +288,7 @@ describe("vault deletion workflow", () => {
       t.query(internal.vault.records.getByRepositoryFullName, {
         userId: ids.userId,
         repositoryFullName: "ada/delete-me",
+        appRoot: ".",
       }),
     ]);
 
@@ -354,6 +360,7 @@ describe("vault deletion workflow", () => {
     });
     await t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
       userId,
+      appRoot: ".",
       ghRepoOwner: "ada",
       ghRepoName: "existing-app",
     });
@@ -408,6 +415,7 @@ describe("vault deletion workflow", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
+        appRoot: ".",
         owner: "ada",
         name: "delete-me",
         defaultBranch: "main",
@@ -566,6 +574,7 @@ describe("vault deletion workflow", () => {
         state: "provisioning",
         githubMode: "create_repository",
         runId,
+        appRoot: ".",
         startedAt: 3,
         owner: "ada",
         name: "provisioning",
@@ -631,6 +640,7 @@ describe("vault deletion workflow", () => {
         githubMode: "connect_existing_repository",
         runId,
         ghRepoId: "456",
+        appRoot: ".",
         owner: "ada",
         name: "existing",
         defaultBranch: "main",
@@ -655,6 +665,90 @@ describe("vault deletion workflow", () => {
         },
       }),
     ).rejects.toThrow("cannot remove the GitHub repository");
+  });
+
+  it("blocks GitHub repository deletion when another app root uses the repository", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const rootVaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const siblingVaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const rootRunId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId: rootVaultId,
+        repositoryFullName: "ada/monorepo",
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: 3,
+      });
+      const siblingRunId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId: siblingVaultId,
+        repositoryFullName: "ada/monorepo",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 4,
+        updatedAt: 5,
+        completedAt: 6,
+      });
+      const shared = {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        ghRepoId: "repo-123",
+        owner: "ada",
+        name: "monorepo",
+        defaultBranch: "main",
+        visibility: "private",
+        convex: { state: "not_configured" },
+        cloudflare: { state: "not_configured" },
+      } as const;
+      await ctx.db.replace(rootVaultId, {
+        ...shared,
+        githubMode: "create_repository",
+        runId: rootRunId,
+        appRoot: ".",
+        connectedAt: 7,
+      });
+      await ctx.db.replace(siblingVaultId, {
+        ...shared,
+        githubMode: "connect_existing_repository",
+        runId: siblingRunId,
+        appRoot: "apps/web",
+        connectedAt: 8,
+      });
+
+      return { rootVaultId, userId };
+    });
+
+    await expect(
+      t.mutation(internal.vault.deletion.runs.createInitialRun, {
+        userId: ids.userId,
+        vaultId: ids.rootVaultId,
+        options: {
+          removeCodespaces: false,
+          removeGithubRepo: true,
+          removeConvexProvision: false,
+          removeCloudflareProvision: false,
+        },
+      }),
+    ).rejects.toThrow("another vault uses this repository");
   });
 
   it("skips Codespaces cleanup while the feature is disabled", async () => {
@@ -688,6 +782,7 @@ describe("vault deletion workflow", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "789",
+        appRoot: ".",
         owner: "ada",
         name: "codespaces",
         defaultBranch: "main",
@@ -768,6 +863,7 @@ describe("vault deletion workflow", () => {
         githubMode: "create_repository",
         runId: setupRunId,
         ghRepoId: "789",
+        appRoot: ".",
         owner: "ada",
         name: "retry-me",
         defaultBranch: "main",
@@ -870,6 +966,7 @@ describe("vault deletion workflow", () => {
         githubMode: "create_repository",
         runId: setupRunId,
         ghRepoId: "789",
+        appRoot: ".",
         owner: "ada",
         name: "retry-missing-provider",
         defaultBranch: "main",

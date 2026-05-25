@@ -18,6 +18,7 @@ export function VaultSyncStatusVisualFixture({ mode }: { mode: VaultSyncStatusVi
           </div>
           <VaultSyncStatusContent
             repositoryFullName="noter-md/noter"
+            appRoot="."
             branch="main"
             owner="noter-md"
             repoName="noter"
@@ -35,6 +36,7 @@ export function VaultSyncStatusVisualFixture({ mode }: { mode: VaultSyncStatusVi
           </div>
           <VaultSyncStatusContent
             repositoryFullName="noter-md/noter"
+            appRoot="."
             branch="main"
             owner="noter-md"
             repoName="noter"
@@ -53,6 +55,7 @@ export function VaultSyncStatusVisualFixture({ mode }: { mode: VaultSyncStatusVi
           </div>
           <VaultSyncStatusContent
             repositoryFullName="noter-md/noter"
+            appRoot="."
             branch="main"
             owner="noter-md"
             repoName="noter"
@@ -74,6 +77,7 @@ export function VaultSyncStatusVisualFixture({ mode }: { mode: VaultSyncStatusVi
           </div>
           <VaultSyncStatusContent
             repositoryFullName="noter-md/noter"
+            appRoot="."
             branch="main"
             owner="noter-md"
             repoName="noter"

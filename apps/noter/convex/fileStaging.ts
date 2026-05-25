@@ -708,6 +708,7 @@ type ClearAllStagingPlan<VaultId extends string = string, UserId extends string 
     userId: UserId;
     owner: string;
     repo: string;
+    appRoot: string;
     target: { scope: "repository" } | { scope: "branch"; branch: string };
     includeAheadBehind: boolean;
     includePullRequestLinks: boolean;
@@ -724,6 +725,7 @@ export function buildClearAllStagingPlan<VaultId extends string, UserId extends 
     userId: UserId;
     owner: string;
     name: string;
+    appRoot: string;
   } | null;
 }): ClearAllStagingPlan<VaultId, UserId> {
   return {
@@ -748,6 +750,7 @@ export function buildClearAllStagingPlan<VaultId extends string, UserId extends 
           userId: args.vault.userId,
           owner: args.vault.owner,
           repo: args.vault.name,
+          appRoot: args.vault.appRoot,
           target:
             args.branch === undefined
               ? { scope: "repository" }
@@ -781,6 +784,7 @@ export async function clearAllStagingImpl(ctx: MutationCtx, args: ClearAllStagin
             userId: vault.userId,
             owner: vault.owner,
             name: vault.name,
+            appRoot: vault.appRoot,
           }
         : null,
   });

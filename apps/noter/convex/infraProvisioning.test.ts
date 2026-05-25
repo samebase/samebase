@@ -2,55 +2,35 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
 import {
-  resolveCloudflareBuildConfig,
+  buildCloudflareBuildConfigForAppRoot,
   resolveConnectionFailureProvider,
-  selectCloudflareBuildConfigTreeData,
   selectExistingCloudflareWorker,
 } from "./infraProvisioning";
-import type { GithubTreeData } from "./schema";
 import { makeConvexTest } from "./test.setup";
 
-const branchTreeData = {
-  sha: "branch-tree",
-  truncated: false,
-  tree: [
-    {
-      path: "apps/noter/package.json",
-      mode: "100644",
-      type: "blob",
-      sha: "package-sha",
-    },
-  ],
-} satisfies GithubTreeData;
+const cloudflareBuild = buildCloudflareBuildConfigForAppRoot({ appRoot: "." });
 const convexProjectId = "9223372036854775807";
 const convexTeamId = "9223372036854775806";
 const otherConvexTeamId = "9223372036854775805";
 
-describe("selectCloudflareBuildConfigTreeData", () => {
-  it("prefers the branch tree cache", () => {
-    expect(
-      selectCloudflareBuildConfigTreeData({
-        branchTreeData,
-      }),
-    ).toBe(branchTreeData);
-  });
-
-  it("fails before provider side effects when no tree is cached", () => {
-    expect(() =>
-      selectCloudflareBuildConfigTreeData({
-        branchTreeData: null,
-      }),
-    ).toThrow("Default branch tree is not synced yet.");
-  });
-});
-
-describe("resolveCloudflareBuildConfig", () => {
-  it("narrows Workers Builds triggers for monorepo Noter apps", () => {
-    expect(resolveCloudflareBuildConfig({ treeData: branchTreeData })).toEqual({
-      rootDir: "apps/noter",
+describe("buildCloudflareBuildConfigForAppRoot", () => {
+  it("uses repository-root build filters for root apps", () => {
+    expect(buildCloudflareBuildConfigForAppRoot({ appRoot: "." })).toEqual({
+      rootDirectory: "/",
       buildCommand: "pnpm run build",
-      deployCommand: "pnpm exec wrangler deploy",
-      previewDeployCommand: "pnpm exec wrangler versions upload",
+      deployCommand: "pnpm run deploy",
+      previewDeployCommand: "pnpm run deploy:preview",
+      pathIncludes: ["*"],
+      pathExcludes: [],
+    });
+  });
+
+  it("uses app-root build filters for monorepo apps", () => {
+    expect(buildCloudflareBuildConfigForAppRoot({ appRoot: "apps/noter" })).toEqual({
+      rootDirectory: "apps/noter",
+      buildCommand: "pnpm run build",
+      deployCommand: "pnpm run deploy",
+      previewDeployCommand: "pnpm run deploy:preview",
       pathIncludes: [
         "apps/noter/*",
         "packages/dependent/*",
@@ -59,32 +39,6 @@ describe("resolveCloudflareBuildConfig", () => {
         "package.json",
         ".nvmrc",
       ],
-      pathExcludes: [],
-    });
-  });
-
-  it("keeps root apps on the broad trigger default", () => {
-    expect(
-      resolveCloudflareBuildConfig({
-        treeData: {
-          sha: "root-tree",
-          truncated: false,
-          tree: [
-            {
-              path: "package.json",
-              mode: "100644",
-              type: "blob",
-              sha: "package-sha",
-            },
-          ],
-        },
-      }),
-    ).toEqual({
-      rootDir: "/",
-      buildCommand: "pnpm run build",
-      deployCommand: "pnpm run deploy",
-      previewDeployCommand: "pnpm run deploy:preview",
-      pathIncludes: ["*"],
       pathExcludes: [],
     });
   });
@@ -106,6 +60,7 @@ describe("selectExistingCloudflareWorker", () => {
           workerTag: "connected-worker-tag",
           workersDevUrl: "https://noter.example.workers.dev",
           origin: "provisioned",
+          deployment: { state: "not_configured" },
           connectedAt: 20,
           lastObservedAt: 20,
         },
@@ -113,6 +68,7 @@ describe("selectExistingCloudflareWorker", () => {
           state: "planned",
           accountId: "account-1",
           workerName: "noter",
+          build: cloudflareBuild,
         },
         accountId: "account-1",
       }),
@@ -129,6 +85,7 @@ describe("selectExistingCloudflareWorker", () => {
           workerName: "noter",
           workerTag: "provisional-worker-tag",
           workersDevUrl: "https://noter.example.workers.dev",
+          build: cloudflareBuild,
         },
         accountId: "account-1",
       }),
@@ -143,6 +100,7 @@ describe("selectExistingCloudflareWorker", () => {
           state: "planned",
           accountId: "account-1",
           workerName: "noter",
+          build: cloudflareBuild,
         },
         accountId: "account-1",
       }),
@@ -157,6 +115,7 @@ describe("selectExistingCloudflareWorker", () => {
           state: "planned",
           accountId: "account-2",
           workerName: "noter",
+          build: cloudflareBuild,
         },
         accountId: "account-2",
       }),
@@ -222,6 +181,7 @@ describe("infrastructure provisioning ownership", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
+        appRoot: ".",
         owner: "ada",
         name: "older-retry",
         visibility: "private",
@@ -274,6 +234,7 @@ describe("infrastructure provisioning ownership", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
+        appRoot: ".",
         owner: "ada",
         name: "provider-retry",
         visibility: "private",
@@ -303,6 +264,7 @@ describe("infrastructure provisioning ownership", () => {
           state: "planned",
           accountId: "cloudflare-account-id",
           workerName: "provider-retry",
+          build: cloudflareBuild,
         },
         createdAt: 31,
         updatedAt: 31,
@@ -364,6 +326,7 @@ describe("infrastructure provisioning ownership", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
+        appRoot: ".",
         owner: "ada",
         name: "provider-retry",
         visibility: "private",
@@ -395,6 +358,7 @@ describe("infrastructure provisioning ownership", () => {
           state: "planned",
           accountId: "cloudflare-account-id",
           workerName: "provider-retry",
+          build: cloudflareBuild,
         },
         createdAt: 31,
         updatedAt: 31,
@@ -431,6 +395,7 @@ describe("infrastructure provisioning ownership", () => {
         state: "created",
         accountId: "cloudflare-account-id",
         workerName: "provider-retry",
+        build: cloudflareBuild,
         workerTag: "cloudflare-worker-tag",
         workersDevUrl: "https://provider-retry.example.workers.dev",
       },
@@ -468,6 +433,7 @@ describe("infrastructure provisioning ownership", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
+        appRoot: ".",
         owner: "ada",
         name: "deploy-keys",
         visibility: "private",
@@ -583,6 +549,7 @@ describe("infrastructure provisioning ownership", () => {
         githubMode: "create_repository",
         runId: activeRunId,
         ghRepoId: "123",
+        appRoot: ".",
         owner: "ada",
         name: "fresh-ownership",
         visibility: "private",
@@ -659,6 +626,7 @@ describe("infrastructure provisioning ownership", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
+        appRoot: ".",
         owner: "ada",
         name: "generic-connection-failure",
         visibility: "private",
@@ -728,6 +696,7 @@ describe("infrastructure provisioning ownership", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
+        appRoot: ".",
         owner: "ada",
         name: "cloudflare-token-failure",
         visibility: "private",
@@ -891,6 +860,7 @@ describe("infrastructure provisioning ownership", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
+        appRoot: ".",
         owner: "ada",
         name: "preview-validation",
         visibility: "private",

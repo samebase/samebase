@@ -28,6 +28,27 @@ export type GithubTreeData = Infer<typeof vGithubTreeData>;
 export const vGitHubRepositoryVisibility = union(literal("private"), literal("public"));
 export type GitHubRepositoryVisibility = Infer<typeof vGitHubRepositoryVisibility>;
 
+export const vVaultAppRoot = string();
+export type VaultAppRoot = Infer<typeof vVaultAppRoot>;
+
+export function normalizeVaultAppRoot(value: string): string {
+  const trimmed = value
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^\/+|\/+$/g, "");
+  if (!trimmed) {
+    throw new Error("App root is required.");
+  }
+  if (trimmed === ".") {
+    return ".";
+  }
+  const segments = trimmed.split("/");
+  if (segments.some((segment) => !segment || segment === "." || segment === "..")) {
+    throw new Error("App root must be a repository-relative path.");
+  }
+  return segments.join("/");
+}
+
 export function parseRepositoryFullName(repositoryFullName: string): {
   owner: string;
   name: string;
@@ -111,6 +132,35 @@ export type VaultConvexState = Infer<typeof vVaultConvexState>;
 export const vVaultCloudflareOrigin = union(literal("provisioned"), literal("selected_existing"));
 export type VaultCloudflareOrigin = Infer<typeof vVaultCloudflareOrigin>;
 
+const vaultCloudflareBuildConfigFields = {
+  rootDirectory: string(),
+  buildCommand: string(),
+  deployCommand: string(),
+  previewDeployCommand: string(),
+  pathIncludes: array(string()),
+  pathExcludes: array(string()),
+} as const;
+export const vVaultCloudflareBuildConfig = object(vaultCloudflareBuildConfigFields);
+export type VaultCloudflareBuildConfig = Infer<typeof vVaultCloudflareBuildConfig>;
+
+const vVaultCloudflareWorkersBuildTrigger = object({
+  triggerUuid: string(),
+  buildTokenUuid: string(),
+});
+
+export const vVaultCloudflareDeployment = union(
+  object({
+    state: literal("not_configured"),
+  }),
+  object({
+    state: literal("workers_builds_connected"),
+    ...vaultCloudflareBuildConfigFields,
+    production: vVaultCloudflareWorkersBuildTrigger,
+    preview: vVaultCloudflareWorkersBuildTrigger,
+  }),
+);
+export type VaultCloudflareDeployment = Infer<typeof vVaultCloudflareDeployment>;
+
 export const vVaultCloudflareState = union(
   object({
     state: literal("not_configured"),
@@ -122,6 +172,7 @@ export const vVaultCloudflareState = union(
     workerTag: string(),
     workersDevUrl: optional(string()),
     origin: vVaultCloudflareOrigin,
+    deployment: vVaultCloudflareDeployment,
     connectedAt: number(),
     lastObservedAt: number(),
   }),
@@ -153,6 +204,7 @@ const vaultOperationalFields = {
 
 const connectedRepositoryIdentityFields = {
   ghRepoId: string(),
+  appRoot: vVaultAppRoot,
   defaultBranch: string(),
 } as const;
 
@@ -167,6 +219,7 @@ export const vVaultRow = union(
     githubMode: literal("create_repository"),
     runId: id("appProvisioningRuns"),
     startedAt: number(),
+    appRoot: vVaultAppRoot,
 
     ...githubRepositoryWithVisibilityFields,
   }),
@@ -176,6 +229,7 @@ export const vVaultRow = union(
     githubMode: literal("connect_existing_repository"),
     runId: id("appProvisioningRuns"),
     startedAt: number(),
+    appRoot: vVaultAppRoot,
 
     ...githubRepositoryCoordinatesFields,
   }),
@@ -210,6 +264,7 @@ export const vVaultRow = union(
     githubMode: literal("create_repository"),
     runId: id("appProvisioningRuns"),
     failedAt: number(),
+    appRoot: vVaultAppRoot,
 
     ...githubRepositoryWithVisibilityFields,
   }),
@@ -219,6 +274,7 @@ export const vVaultRow = union(
     githubMode: literal("connect_existing_repository"),
     runId: id("appProvisioningRuns"),
     failedAt: number(),
+    appRoot: vVaultAppRoot,
 
     ...githubRepositoryCoordinatesFields,
   }),

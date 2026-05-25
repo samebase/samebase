@@ -66,6 +66,7 @@ const repositoryRefreshWorkerInput = union(
     vaultId: id("vaults"),
     owner: string(),
     repo: string(),
+    appRoot: string(),
     demand: vRepositoryScopeRefreshDemand,
   }),
   object({
@@ -620,6 +621,7 @@ export const startRepositoryRefreshRequest = internalMutation({
       vaultId: vault._id,
       owner: vault.owner,
       repo: vault.name,
+      appRoot: vault.appRoot,
       demand: request.demand,
     };
   },
@@ -912,6 +914,7 @@ export const runRepositoryRefreshRequest = internalAction({
           userId: input.userId,
           owner: input.owner,
           repo: input.repo,
+          appRoot: input.appRoot,
           includeAheadBehind: true,
           includePullRequestLinks: true,
           includeCloudflarePreviewLinks: shouldHydrateCloudflarePreviewLinks(input.demand),

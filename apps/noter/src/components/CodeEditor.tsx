@@ -37,12 +37,14 @@ const delay = 500;
 async function pushUpdates({
   version,
   repositoryFullName,
+  appRoot,
   branch,
   filePath,
   fullUpdates,
 }: {
   version: number;
   repositoryFullName: string;
+  appRoot: string;
   branch: string;
   filePath: string;
   fullUpdates: readonly Update[];
@@ -57,6 +59,7 @@ async function pushUpdates({
   return client
     .mutation(api.collaborative.pushUpdates, {
       repositoryFullName,
+      appRoot,
       branch,
       filePath,
       version,
@@ -69,6 +72,7 @@ async function pushUpdates({
 function peerExtension({
   startVersion,
   repositoryFullName,
+  appRoot,
   branch,
   filePath,
   setVersion,
@@ -77,6 +81,7 @@ function peerExtension({
 }: {
   startVersion: number;
   repositoryFullName: string;
+  appRoot: string;
   branch: string;
   filePath: string;
   setVersion: (version: number) => void;
@@ -137,6 +142,7 @@ function peerExtension({
           const success = await pushUpdates({
             version,
             repositoryFullName,
+            appRoot,
             branch,
             filePath,
             fullUpdates: updates,
@@ -231,6 +237,7 @@ function shouldUseCodeMirrorEditor(args: { filePath: string; editorOverride: Cod
 
 export function CodeEditorWrapper({
   repositoryFullName,
+  appRoot,
   branch,
   filePath,
   stagedFile,
@@ -241,6 +248,7 @@ export function CodeEditorWrapper({
   editorOverride = "default",
 }: {
   repositoryFullName: string;
+  appRoot: string;
   branch: string;
   filePath: string;
   stagedFile: NonNullable<GetFunctionReferenceReturnType<typeof api.fileStaging.getByNewPath>>;
@@ -256,6 +264,7 @@ export function CodeEditorWrapper({
         key={`${repositoryFullName}-${branch}-${filePath}`}
         firstDoc={stagedFile}
         repositoryFullName={repositoryFullName}
+        appRoot={appRoot}
         branch={branch}
         filePath={filePath}
       />
@@ -267,6 +276,7 @@ export function CodeEditorWrapper({
       key={`${repositoryFullName}-${branch}-${filePath}`}
       firstDoc={stagedFile}
       repositoryFullName={repositoryFullName}
+      appRoot={appRoot}
       branch={branch}
       filePath={filePath}
       vaultId={vaultId}
@@ -280,11 +290,13 @@ export function CodeEditorWrapper({
 export function CodeEditor({
   firstDoc,
   repositoryFullName,
+  appRoot,
   branch,
   filePath,
 }: {
   firstDoc: { version: number; content: string };
   repositoryFullName: string;
+  appRoot: string;
   branch: string;
   filePath: string;
 }) {
@@ -300,6 +312,7 @@ export function CodeEditor({
     api.collaborative.pullUpdates,
     {
       repositoryFullName,
+      appRoot,
       branch,
       filePath,
       version,
@@ -323,13 +336,14 @@ export function CodeEditor({
 
   useEffect(() => {
     setSyncError(null);
-  }, [repositoryFullName, branch, filePath]);
+  }, [repositoryFullName, appRoot, branch, filePath]);
 
   const collaborationExtensions = useMemo(
     () =>
       peerExtension({
         startVersion: mountedFileVersionRef.current,
         repositoryFullName,
+        appRoot,
         branch,
         filePath,
         setVersion,
@@ -338,7 +352,7 @@ export function CodeEditor({
           pullRef.current = pull;
         },
       }),
-    [branch, filePath, repositoryFullName],
+    [appRoot, branch, filePath, repositoryFullName],
   );
 
   return (

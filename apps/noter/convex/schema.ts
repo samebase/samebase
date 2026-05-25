@@ -5,6 +5,7 @@ import {
   vGithubTree,
   vGithubTreeData,
   vGitHubRepositoryVisibility,
+  vVaultCloudflareBuildConfig,
   vTreeRefreshFailureKind,
   vVaultRow,
 } from "./vault/model";
@@ -377,7 +378,8 @@ export default defineSchema({
   vaults: defineTable(vVaultRow)
     .index("by_userId", ["userId"])
     .index("by_userId_and_state_and_deletion_state", ["userId", "state", "deletion.state"])
-    .index("by_userId_and_ghRepoId", ["userId", "ghRepoId"])
+    .index("by_userId_and_ghRepoId_and_appRoot", ["userId", "ghRepoId", "appRoot"])
+    .index("by_userId_and_owner_and_name_and_appRoot", ["userId", "owner", "name", "appRoot"])
     .index("by_owner_and_name", ["owner", "name"]),
 
   /**
@@ -485,6 +487,7 @@ export default defineSchema({
         state: literal("planned"),
         accountId: string(),
         workerName: string(),
+        build: vVaultCloudflareBuildConfig,
       }),
       object({
         state: literal("created"),
@@ -492,6 +495,7 @@ export default defineSchema({
         workerName: string(),
         workerTag: string(),
         workersDevUrl: optional(string()),
+        build: vVaultCloudflareBuildConfig,
       }),
     ),
     createdAt: number(),

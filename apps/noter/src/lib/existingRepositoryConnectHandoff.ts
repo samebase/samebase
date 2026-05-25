@@ -4,7 +4,10 @@ import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 
 type RouteSearch = RouterState<RegisteredRouter["routeTree"]>["location"]["search"];
 
-type ConnectExistingRepository = (args: { repositoryFullName: string }) => Promise<unknown>;
+type ConnectExistingRepository = (args: {
+  appRoot: string;
+  repositoryFullName: string;
+}) => Promise<unknown>;
 
 type DashboardNavigationOptions = {
   replace?: boolean;
@@ -18,12 +21,16 @@ type NavigateByHref = (href: string, options?: DashboardNavigationOptions) => Pr
  */
 export async function queueExistingRepositoryAndNavigateToDashboard(args: {
   connectRepository: ConnectExistingRepository;
+  appRoot: string;
   navigateByHref: NavigateByHref;
   repositoryFullName: string;
   replace?: boolean;
   search: RouteSearch;
 }) {
-  await args.connectRepository({ repositoryFullName: args.repositoryFullName });
+  await args.connectRepository({
+    appRoot: args.appRoot,
+    repositoryFullName: args.repositoryFullName,
+  });
   await args.navigateByHref(
     buildPathWithTanStackSearch({
       pathname: DASHBOARD_ROUTE,

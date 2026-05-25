@@ -30,6 +30,7 @@ type AddRepositoryRow = {
 };
 
 type AddRepositoryPageContentProps = {
+  appRoot: string;
   connectingRepositoryFullName: string | null;
   emptyRepositoryMessage: string | null;
   error: string | null;
@@ -44,6 +45,7 @@ type AddRepositoryPageContentProps = {
   showBackgroundError: boolean;
   onConnectGithub: () => void;
   onConnectRepository: (repositoryFullName: string) => void;
+  onAppRootChange: (value: string) => void;
   onRetryFullRepositories: () => void;
   onSearchQueryChange: (value: string) => void;
 };
@@ -107,6 +109,7 @@ export function AddRepository() {
   const navigate = useNavigate();
   const vaults = useQuery(api.vault.dashboard.getUserVaults);
   const [searchQuery, setSearchQuery] = useState("");
+  const [appRoot, setAppRoot] = useState(".");
   const [retryingFullRepositories, setRetryingFullRepositories] = useState(false);
   const listRepositoriesPreview = useAction(api.github.listRepositoriesPreview);
   const listRepositories = useAction(api.github.listRepositories);
@@ -191,7 +194,8 @@ export function AddRepository() {
 
   const filteredRepositories = repositories.flatMap((repo: Repository) => {
     const isConnected = connectedVaults.some(
-      (vault: (typeof connectedVaults)[number]) => vault.repositoryFullName === repo.full_name,
+      (vault: (typeof connectedVaults)[number]) =>
+        vault.repositoryFullName === repo.full_name && vault.appRoot === appRoot.trim(),
     );
     if (isConnected) {
       return [];
@@ -247,6 +251,7 @@ export function AddRepository() {
       try {
         await queueExistingRepositoryAndNavigateToDashboard({
           connectRepository,
+          appRoot,
           repositoryFullName,
           search: location.search,
           navigateByHref: async (href) => {
@@ -268,6 +273,7 @@ export function AddRepository() {
   return (
     <AddRepositoryPageContent
       connectingRepositoryFullName={connectingRepositoryFullName}
+      appRoot={appRoot}
       emptyRepositoryMessage={emptyRepositoryMessage}
       error={error}
       githubConnected={githubConnected}
@@ -281,6 +287,7 @@ export function AddRepository() {
       showBackgroundError={showBackgroundError}
       onConnectGithub={connectGithub}
       onConnectRepository={connectSelectedRepository}
+      onAppRootChange={setAppRoot}
       onRetryFullRepositories={retryFullRepositories}
       onSearchQueryChange={setSearchQuery}
     />
@@ -288,6 +295,7 @@ export function AddRepository() {
 }
 
 export function AddRepositoryPageContent({
+  appRoot,
   connectingRepositoryFullName,
   emptyRepositoryMessage,
   error,
@@ -302,6 +310,7 @@ export function AddRepositoryPageContent({
   showBackgroundError,
   onConnectGithub,
   onConnectRepository,
+  onAppRootChange,
   onRetryFullRepositories,
   onSearchQueryChange,
 }: AddRepositoryPageContentProps) {
@@ -346,6 +355,15 @@ export function AddRepositoryPageContent({
           className="max-w-md"
           disabled={!githubConnected}
         />
+        {githubConnected && (
+          <Input
+            aria-label="App root"
+            placeholder="App root"
+            value={appRoot}
+            onChange={(event) => onAppRootChange(event.target.value)}
+            className="mt-3 max-w-md"
+          />
+        )}
         {githubConnected && (
           <>
             <p className="mt-2 max-w-2xl text-xs text-muted-foreground">

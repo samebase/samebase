@@ -369,6 +369,7 @@ describe("buildClearAllStagingPlan", () => {
           userId: "users:owner",
           owner: "octo",
           name: "repo",
+          appRoot: "apps/web",
         },
       }),
     ).toEqual({
@@ -386,6 +387,7 @@ describe("buildClearAllStagingPlan", () => {
         userId: "users:owner",
         owner: "octo",
         repo: "repo",
+        appRoot: "apps/web",
         target: { scope: "branch", branch: "feature/login" },
         includeAheadBehind: false,
         includePullRequestLinks: false,
@@ -404,6 +406,7 @@ describe("buildClearAllStagingPlan", () => {
           userId: "users:owner",
           owner: "octo",
           name: "repo",
+          appRoot: ".",
         },
       }),
     ).toEqual({
@@ -420,6 +423,7 @@ describe("buildClearAllStagingPlan", () => {
         userId: "users:owner",
         owner: "octo",
         repo: "repo",
+        appRoot: ".",
         target: { scope: "repository" },
         includeAheadBehind: false,
         includePullRequestLinks: false,

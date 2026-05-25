@@ -8,7 +8,13 @@ import {
   type QueryCtx,
 } from "../_generated/server";
 import { getUserId } from "../common";
-import { parseRepositoryFullName, vGitHubRepositoryVisibility } from "./model";
+import {
+  normalizeVaultAppRoot,
+  parseRepositoryFullName,
+  vGitHubRepositoryVisibility,
+  vVaultAppRoot,
+  vVaultCloudflareBuildConfig,
+} from "./model";
 import {
   assertConnectedVault,
   isConnectedVault,
@@ -28,6 +34,7 @@ type ProvisioningVault = Extract<Doc<"vaults">, { state: "provisioning" }>;
 export const getVaultByRepository = query({
   args: {
     repositoryFullName: v.string(),
+    appRoot: vVaultAppRoot,
     branch: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -36,6 +43,7 @@ export const getVaultByRepository = query({
     return await getVaultByRepositoryHelper(ctx, {
       userId,
       repositoryFullName: args.repositoryFullName,
+      appRoot: args.appRoot,
       branch: args.branch,
     });
   },
@@ -67,10 +75,12 @@ async function assertUserHasNoVaultForRepository(
     userId: Id<"users">;
     owner: string;
     name: string;
+    appRoot: string;
   },
 ): Promise<void> {
   const normalizedOwner = normalizeGitHubRepositoryCoordinate(args.owner);
   const normalizedName = normalizeGitHubRepositoryCoordinate(args.name);
+  const appRoot = normalizeVaultAppRoot(args.appRoot);
   for await (const vault of ctx.db
     .query("vaults")
     .withIndex("by_userId", (q) => q.eq("userId", args.userId))) {
@@ -79,10 +89,32 @@ async function assertUserHasNoVaultForRepository(
     }
     if (
       normalizeGitHubRepositoryCoordinate(vault.owner) === normalizedOwner &&
-      normalizeGitHubRepositoryCoordinate(vault.name) === normalizedName
+      normalizeGitHubRepositoryCoordinate(vault.name) === normalizedName &&
+      vault.appRoot === appRoot
     ) {
-      throw new Error("Vault already exists for this repository.");
+      throw new Error("Vault already exists for this repository app root.");
     }
+  }
+}
+
+async function assertUserHasNoVaultForRepositoryIdAndAppRoot(
+  ctx: Pick<MutationCtx, "db">,
+  args: {
+    userId: Id<"users">;
+    ghRepoId: string;
+    appRoot: string;
+    excludeVaultId: Id<"vaults">;
+  },
+): Promise<void> {
+  const appRoot = normalizeVaultAppRoot(args.appRoot);
+  const existingVault = await ctx.db
+    .query("vaults")
+    .withIndex("by_userId_and_ghRepoId_and_appRoot", (q) =>
+      q.eq("userId", args.userId).eq("ghRepoId", args.ghRepoId).eq("appRoot", appRoot),
+    )
+    .first();
+  if (existingVault && existingVault._id !== args.excludeVaultId) {
+    throw new Error("Vault already exists for this GitHub repository app root.");
   }
 }
 
@@ -106,6 +138,7 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
     userId: id("users"),
     ghRepoOwner: string(),
     ghRepoName: string(),
+    appRoot: vVaultAppRoot,
   },
   returns: object({
     vaultId: id("vaults"),
@@ -124,6 +157,7 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
     }
     const owner = args.ghRepoOwner.trim();
     const name = args.ghRepoName.trim();
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
     if (!owner || !name) {
       throw new Error("Invalid repository full name");
     }
@@ -131,6 +165,7 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
       userId: args.userId,
       owner,
       name,
+      appRoot,
     });
 
     const now = Date.now();
@@ -159,6 +194,7 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
       startedAt: now,
       owner,
       name,
+      appRoot,
     });
     await ctx.db.insert("appProvisioningEvents", {
       userId: args.userId,
@@ -181,6 +217,7 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
     runId: id("appProvisioningRuns"),
     userId: id("users"),
     ghRepoId: v.string(),
+    appRoot: vVaultAppRoot,
     ghRepoOwner: v.string(),
     ghRepoName: v.string(),
     defaultBranch: v.string(),
@@ -196,20 +233,19 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
       return null;
     }
 
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
     // GitHub repository id stays stable across owner/name renames.
-    const existingVault = await ctx.db
-      .query("vaults")
-      .withIndex("by_userId_and_ghRepoId", (q) =>
-        q.eq("userId", args.userId).eq("ghRepoId", args.ghRepoId),
-      )
-      .first();
-    if (existingVault && existingVault._id !== args.vaultId) {
-      throw new Error("Vault already exists for this GitHub repository.");
-    }
+    await assertUserHasNoVaultForRepositoryIdAndAppRoot(ctx, {
+      userId: args.userId,
+      ghRepoId: args.ghRepoId,
+      appRoot,
+      excludeVaultId: args.vaultId,
+    });
     if (isConnectedVault(vault)) {
       if (
         vault.githubMode !== "connect_existing_repository" ||
         vault.ghRepoId !== args.ghRepoId ||
+        vault.appRoot !== appRoot ||
         vault.runId !== args.runId
       ) {
         throw new Error("Connected vault repository identity cannot be changed.");
@@ -239,6 +275,7 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
       githubMode: "connect_existing_repository",
       runId: args.runId,
       ghRepoId: args.ghRepoId,
+      appRoot,
       owner: args.ghRepoOwner,
       name: args.ghRepoName,
       visibility: args.visibility,
@@ -258,9 +295,11 @@ export const createInitializingNoterManagedVaultForUser = internalMutation({
     ghRepoOwner: string(),
     ghRepoName: string(),
     visibility: vGitHubRepositoryVisibility,
+    appRoot: vVaultAppRoot,
     convexProjectName: string(),
     cloudflareAccountId: string(),
     cloudflareWorkerName: string(),
+    cloudflareBuild: vVaultCloudflareBuildConfig,
   },
   returns: object({
     vaultId: id("vaults"),
@@ -280,6 +319,7 @@ export const createInitializingNoterManagedVaultForUser = internalMutation({
 
     const owner = args.ghRepoOwner.trim();
     const name = args.ghRepoName.trim();
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
     if (!owner || !name) {
       throw new Error("Invalid repository full name");
     }
@@ -287,6 +327,7 @@ export const createInitializingNoterManagedVaultForUser = internalMutation({
       userId: args.userId,
       owner,
       name,
+      appRoot,
     });
 
     const now = Date.now();
@@ -316,6 +357,7 @@ export const createInitializingNoterManagedVaultForUser = internalMutation({
       owner,
       name,
       visibility: args.visibility,
+      appRoot,
     });
     await ctx.db.insert("appProvisioningEvents", {
       userId: args.userId,
@@ -337,6 +379,7 @@ export const createInitializingNoterManagedVaultForUser = internalMutation({
         state: "planned",
         accountId: args.cloudflareAccountId,
         workerName: args.cloudflareWorkerName,
+        build: args.cloudflareBuild,
       },
       createdAt: now,
       updatedAt: now,
@@ -352,6 +395,7 @@ export const connectNoterManagedVaultGitHub = internalMutation({
     runId: id("appProvisioningRuns"),
     userId: id("users"),
     ghRepoId: string(),
+    appRoot: vVaultAppRoot,
     ghRepoOwner: string(),
     ghRepoName: string(),
     defaultBranch: string(),
@@ -366,11 +410,23 @@ export const connectNoterManagedVaultGitHub = internalMutation({
     if (isVaultDeletingOrDeleteFailed(vault)) {
       return null;
     }
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
+    // GitHub repository id stays stable across owner/name renames.
+    await assertUserHasNoVaultForRepositoryIdAndAppRoot(ctx, {
+      userId: args.userId,
+      ghRepoId: args.ghRepoId,
+      appRoot,
+      excludeVaultId: args.vaultId,
+    });
     if (isConnectedVault(vault)) {
       if (!isNoterManagedVault(vault)) {
         throw new Error("Connected vault repository identity cannot be changed.");
       }
-      if (vault.ghRepoId !== args.ghRepoId || vault.runId !== args.runId) {
+      if (
+        vault.ghRepoId !== args.ghRepoId ||
+        vault.appRoot !== appRoot ||
+        vault.runId !== args.runId
+      ) {
         throw new Error("Connected vault repository identity cannot be changed.");
       }
       return null;
@@ -398,6 +454,7 @@ export const connectNoterManagedVaultGitHub = internalMutation({
       githubMode: "create_repository",
       runId: args.runId,
       ghRepoId: args.ghRepoId,
+      appRoot,
       owner: args.ghRepoOwner,
       name: args.ghRepoName,
       visibility: args.visibility,
@@ -439,6 +496,7 @@ export const markGithubProvisioningFailed = internalMutation({
         owner: vault.owner,
         name: vault.name,
         visibility: vault.visibility,
+        appRoot: vault.appRoot,
         failedAt: Date.now(),
       });
       return null;
@@ -451,6 +509,7 @@ export const markGithubProvisioningFailed = internalMutation({
       runId: args.runId,
       owner: vault.owner,
       name: vault.name,
+      appRoot: vault.appRoot,
       failedAt: Date.now(),
     });
 
@@ -530,15 +589,18 @@ async function getVaultByRepositoryHelper(
   args: {
     userId: Id<"users">;
     repositoryFullName: string;
+    appRoot: string;
     branch?: string;
   },
 ) {
   const { owner, name } = parseRepositoryFullName(args.repositoryFullName);
+  const appRoot = normalizeVaultAppRoot(args.appRoot);
 
   const vault = await ctx.db
     .query("vaults")
-    .withIndex("by_owner_and_name", (q) => q.eq("owner", owner).eq("name", name))
-    .filter((q) => q.eq(q.field("userId"), args.userId))
+    .withIndex("by_userId_and_owner_and_name_and_appRoot", (q) =>
+      q.eq("userId", args.userId).eq("owner", owner).eq("name", name).eq("appRoot", appRoot),
+    )
     .first();
 
   if (!isLiveConnectedVault(vault)) {
@@ -572,6 +634,7 @@ async function getVaultByRepositoryHelper(
     _creationTime: vault._creationTime,
     ghRepoOwner: vault.owner,
     ghRepoName: vault.name,
+    appRoot: vault.appRoot,
     owner: vault.owner,
     name: vault.name,
     repositoryFullName: `${vault.owner}/${vault.name}`,
@@ -599,12 +662,14 @@ export const getByRepositoryFullName = internalQuery({
   args: {
     userId: v.id("users"),
     repositoryFullName: v.string(),
+    appRoot: vVaultAppRoot,
     branch: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     return await getVaultByRepositoryHelper(ctx, {
       userId: args.userId,
       repositoryFullName: args.repositoryFullName,
+      appRoot: args.appRoot,
       branch: args.branch,
     });
   },
