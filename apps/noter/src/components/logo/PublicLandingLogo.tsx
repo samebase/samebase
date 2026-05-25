@@ -1,19 +1,15 @@
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
+import { LogoThreeRouteScene } from "@/components/logo/LogoThreeRouteScene";
 import {
-  DEFAULT_LOGO_DISTANCE_SCALE,
-  normalizeLogoDistanceScale,
-} from "@/components/logo/logoDistanceScale";
-import { clampLogoFractalDepthForRenderer } from "@/components/logo/logoDepthLimits";
+  createLogoRouteVoxelGrid,
+  readLogoRouteRenderState,
+} from "@/components/logo/logoRouteRenderState";
 import {
   STATIC_LOGO_ELEVATION_DEGREES,
-  STATIC_LOGO_GRID_SIZE,
   STATIC_LOGO_ROTATION_DEGREES,
-  STATIC_LOGO_VOXEL_STATE,
 } from "@/components/logo/logoStaticSvgContract";
 import {
-  createLogoFractalVoxelGrid,
   DEFAULT_LOGO_FRACTAL_DEPTH,
-  normalizeLogoGridSize,
   normalizeRotationDegrees,
 } from "@/components/logo/logoVoxelState";
 import {
@@ -38,10 +34,8 @@ import {
   type RotatedLogoViewStateKey,
   type RotatedLogoViewStatePersistence,
 } from "@/lib/rotatedLogoViewState";
-import {
-  useResolvedAppThemeColorState,
-  type LogoThemeColorSearchInput,
-} from "@/lib/appThemeColorSearch";
+import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
+import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
 import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -59,12 +53,7 @@ const DEFAULT_LANDING_LOGO_VIEW: RotatedLogoViewState = {
   elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
   rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
 };
-
-type PublicLandingLogoSearchInput = LogoThemeColorSearchInput & {
-  depth?: number;
-  dist?: number;
-  gridSize?: number;
-};
+const EMPTY_LOGO_ROUTE_SEARCH: LogoRouteSearch = {};
 
 let cachedLandingLogoScene: LandingLogoSceneComponent | null = null;
 // Unsupported renderer paths can loop on remount, so keep that failure sticky
@@ -80,7 +69,7 @@ export function PublicLandingLogo({
   autoRotate = false,
   enableViewSnapping = true,
   loadInteractiveScene = true,
-  themeColorSearch = {},
+  routeSearch = EMPTY_LOGO_ROUTE_SEARCH,
   viewStatePersistence = "visit",
   viewStateKey = PUBLIC_LANDING_LOGO_VIEW_STATE_KEY,
 }: {
@@ -88,7 +77,7 @@ export function PublicLandingLogo({
   autoRotate?: boolean;
   enableViewSnapping?: boolean;
   loadInteractiveScene?: boolean;
-  themeColorSearch?: PublicLandingLogoSearchInput;
+  routeSearch?: LogoRouteSearch;
   viewStatePersistence?: RotatedLogoViewStatePersistence;
   viewStateKey?: RotatedLogoViewStateKey;
 }) {
@@ -103,33 +92,42 @@ export function PublicLandingLogo({
       persistence: viewStatePersistence,
     }),
   );
-  const logoTheme = useResolvedAppThemeColorState(themeColorSearch);
+  const routeState = useMemo(
+    () =>
+      readLogoRouteRenderState({
+        defaultView: initialView,
+        enableViewSnapping,
+        routeSearch,
+        snapFallbackView: false,
+      }),
+    [enableViewSnapping, initialView, routeSearch],
+  );
+  const logoTheme = useResolvedAppThemeColorState(routeState.themeColors);
   const { backgroundColor, faceColors } = logoTheme;
-  const fractalDepth = clampLogoFractalDepthForRenderer(
-    themeColorSearch.depth ?? DEFAULT_LOGO_FRACTAL_DEPTH,
-    "three",
+  const staticFallbackView = useMemo(
+    () => ({
+      elevationDegrees: routeState.elevationDegrees,
+      rotationDegrees: routeState.rotationDegrees,
+    }),
+    [routeState.elevationDegrees, routeState.rotationDegrees],
   );
-  const baseGridSize = normalizeLogoGridSize(themeColorSearch.gridSize ?? STATIC_LOGO_GRID_SIZE);
-  const distanceScale = normalizeLogoDistanceScale(
-    themeColorSearch.dist ?? DEFAULT_LOGO_DISTANCE_SCALE,
-  );
-  const isRecursiveDepth = fractalDepth > DEFAULT_LOGO_FRACTAL_DEPTH;
-  const staticFallbackDepth = Math.min(fractalDepth, LANDING_STATIC_SVG_FALLBACK_DEPTH);
+  const staticFallbackDepth = Math.min(routeState.fractalDepth, LANDING_STATIC_SVG_FALLBACK_DEPTH);
   const staticLogoVoxelGrid = useMemo(
-    () => createLogoFractalVoxelGrid({ depth: staticFallbackDepth, gridSize: baseGridSize }),
-    [baseGridSize, staticFallbackDepth],
+    () => createLogoRouteVoxelGrid(routeState, staticFallbackDepth),
+    [routeState, staticFallbackDepth],
   );
   const staticLogoSvgSrc = `${createStaticLogoSvgDataUrl({
     faceColors,
     filledVoxels: staticLogoVoxelGrid.filledVoxels,
     gridSize: staticLogoVoxelGrid.gridSize,
-    view: initialView,
-  })}#${logoTheme.cacheKey}:${baseGridSize}:${fractalDepth}:${distanceScale}`;
+    leftFaceStyle: routeState.leftFaceStyle,
+    view: staticFallbackView,
+  })}#${logoTheme.cacheKey}:${routeState.gridSize}:${routeState.fractalDepth}:${routeState.distanceScale}`;
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [isSvgVisible, setIsSvgVisible] = useState(true);
   const [isAutoRotating, setIsAutoRotating] = useState(autoRotate);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  const [view, setView] = useState<RotatedLogoViewState>(() => initialView);
+  const [view, setView] = useState<RotatedLogoViewState>(() => staticFallbackView);
   const publicLandingLogoLink = useOptionalPublicLandingLogoLink();
   const latestViewRef = useRef(view);
   const lastFrameTimeRef = useRef<number | null>(null);
@@ -143,6 +141,23 @@ export function PublicLandingLogo({
       view: latestViewRef.current,
     });
   }, [viewStateKey, viewStatePersistence]);
+
+  useEffect(() => {
+    const nextView = {
+      elevationDegrees: routeState.elevationDegrees,
+      rotationDegrees: routeState.rotationDegrees,
+    };
+
+    latestViewRef.current = nextView;
+    lastFrameTimeRef.current = null;
+    autoRotateResumeStartedAtRef.current = null;
+    setView((currentView) =>
+      currentView.elevationDegrees === nextView.elevationDegrees &&
+      currentView.rotationDegrees === nextView.rotationDegrees
+        ? currentView
+        : nextView,
+    );
+  }, [routeState.elevationDegrees, routeState.rotationDegrees]);
 
   useEffect(() => {
     if (typeof window.matchMedia !== "function") {
@@ -355,15 +370,11 @@ export function PublicLandingLogo({
             data-rotation-degrees={view.rotationDegrees.toFixed(3)}
             className={`absolute inset-0 z-0 ${isSceneInteractive ? "pointer-events-auto touch-none" : "pointer-events-none"}`}
           >
-            <LogoScene
-              baseGridSize={baseGridSize}
+            <LogoThreeRouteScene
+              LogoScene={LogoScene}
               className={`h-full w-full ${isSceneInteractive ? "cursor-grab active:cursor-grabbing" : ""}`}
               backgroundColor={backgroundColor}
-              distanceScale={distanceScale}
-              editMode="add"
-              elevationDegrees={view.elevationDegrees}
               faceColors={faceColors}
-              opacity={1}
               onInteractionStart={() => {
                 autoRotateResumeStartedAtRef.current = null;
                 setIsAutoRotating(false);
@@ -388,16 +399,17 @@ export function PublicLandingLogo({
                 latestViewRef.current = nextView;
                 setView(nextView);
               }}
-              onVoxelEdit={() => {}}
-              rotationDegrees={view.rotationDegrees}
-              shuffleAnimation={{ enabled: false, parallelMoves: 1 }}
-              animateFaceColors={false}
+              routeState={routeState}
               animateLeftFaceStripes={shouldAnimateLeftFaceStripes}
-              fractalDepth={fractalDepth}
-              voxelGrid={isRecursiveDepth ? undefined : staticLogoVoxelGrid}
-              voxelEditingEnabled={false}
-              viewDragConfig={enableViewSnapping ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined}
-              voxelState={STATIC_LOGO_VOXEL_STATE}
+              voxelGrid={
+                routeState.fractalDepth > DEFAULT_LOGO_FRACTAL_DEPTH
+                  ? undefined
+                  : staticLogoVoxelGrid
+              }
+              view={view}
+              viewDragConfig={
+                routeState.isViewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined
+              }
             />
           </div>
         ) : null}

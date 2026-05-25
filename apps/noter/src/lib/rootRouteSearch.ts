@@ -8,15 +8,17 @@ import {
 } from "@/components/logo/logoVoxelState";
 import {
   appThemeColorSearchFieldSchema,
-  LOGO_THEME_COLOR_SEARCH_KEYS,
   readLogoThemeColorSearch,
 } from "@/lib/appThemeColorSearch";
+import {
+  LOGO_ROUTE_SEARCH_KEYS,
+  LOGO_ROUTE_SEARCH_PARAM_METADATA,
+  validateLogoRouteSearch,
+  type LogoRouteSearch,
+} from "@/lib/logoRouteSearch";
 import { PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM } from "@/lib/publicLayoutSidebarPreferences";
 import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
-import {
-  ROOT_THEME_MODE_SEARCH_KEYS,
-  rootThemeModeSearchFieldSchema,
-} from "@/lib/rootThemeModeSearch";
+import { rootThemeModeSearchFieldSchema } from "@/lib/rootThemeModeSearch";
 import {
   readRouteSearchParamSuggestions,
   readRouteSearchPresenceKeys,
@@ -76,6 +78,10 @@ function readOptionalLogoGridSize(value: unknown): number | undefined {
     : undefined;
 }
 
+function isRouteSearchRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 const rootRouteSearchSchema = z
   .object({
     auth: z.preprocess(readOptionalGoogleAuthProvider, z.literal("google").optional()),
@@ -108,9 +114,11 @@ const rootRouteSearchSchema = z
   .merge(appThemeColorSearchFieldSchema)
   .merge(rootThemeModeSearchFieldSchema);
 
-export type RootRouteSearch = z.infer<typeof rootRouteSearchSchema>;
+type RootRouteSearchBase = z.infer<typeof rootRouteSearchSchema>;
+export type RootRouteSearch = RootRouteSearchBase & LogoRouteSearch;
 
 const rootRouteSearchParamMetadata = {
+  ...LOGO_ROUTE_SEARCH_PARAM_METADATA,
   "add-cloudflare": {
     parseKind: "presence",
     permission: "admin",
@@ -216,23 +224,27 @@ export const ROOT_INDEX_ROUTE_SEARCH_PARAM_SUGGESTIONS = ROOT_ROUTE_SEARCH_PARAM
  * a caller clears the key with a route-search tombstone.
  */
 export const RETAINED_ROOT_SEARCH_KEYS = [
-  "dev",
   "devtools",
-  "depth",
-  "dist",
-  "gridSize",
-  ...ROOT_THEME_MODE_SEARCH_KEYS,
-  ...LOGO_THEME_COLOR_SEARCH_KEYS,
+  ...LOGO_ROUTE_SEARCH_KEYS,
 ] as const satisfies readonly (keyof RootRouteSearch)[];
 
 function parseRootRouteSearch(search: unknown): RootRouteSearch {
-  const parsedSearch = rootRouteSearchSchema.parse(
-    normalizeRouteSearchPresenceFlags(search, ROOT_ROUTE_PRESENCE_SEARCH_KEYS),
+  const presenceNormalizedSearch = normalizeRouteSearchPresenceFlags(
+    search,
+    ROOT_ROUTE_PRESENCE_SEARCH_KEYS,
   );
+  const parsedSearch = rootRouteSearchSchema.parse(presenceNormalizedSearch);
   if (!parsedSearch[SEARCH_RESET_QUERY_PARAM]) {
+    const logoSearch = validateLogoRouteSearch(
+      isRouteSearchRecord(presenceNormalizedSearch) ? presenceNormalizedSearch : {},
+    );
     const normalizedSearch = {
       ...parsedSearch,
-      ...readLogoThemeColorSearch(parsedSearch),
+      ...logoSearch,
+      ...readLogoThemeColorSearch({
+        ...parsedSearch,
+        ...logoSearch,
+      }),
     };
     delete normalizedSearch.base;
     return normalizedSearch;

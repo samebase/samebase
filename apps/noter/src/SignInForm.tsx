@@ -41,7 +41,7 @@ export function SignInForm({ authPlacement = "inline", topNotice }: SignInFormPr
             animateLeftFaceStripes
             autoRotate={landingDevModeEnabled}
             enableViewSnapping={!landingDevModeEnabled}
-            themeColorSearch={rootRouteSearch}
+            routeSearch={rootRouteSearch}
           />
           {showGoogleSignupClosedState ? (
             <GoogleSignupClosedNotice />

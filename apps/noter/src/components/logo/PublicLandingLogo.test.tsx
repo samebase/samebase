@@ -6,9 +6,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { getLogoRendererFractalDepthHardMax } from "@/components/logo/logoDepthLimits";
+import { LOGO_SECONDARY_LEFT_FACE_STYLE } from "@/components/logo/logoLeftFaceStyle";
 import { STATIC_LOGO_GRID_SIZE } from "@/components/logo/logoStaticSvgContract";
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
-import { createLogoFractalVoxelGrid } from "@/components/logo/logoVoxelState";
+import {
+  LOGO_GRID_SIZE_2,
+  createFilledVoxelSet,
+  createLogoFractalVoxelGrid,
+  serializeVoxelState,
+} from "@/components/logo/logoVoxelState";
 import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
 import { resolveAppThemeColorState, syncDocumentThemeColorSearch } from "@/lib/appThemeColorSearch";
 import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
@@ -202,6 +208,69 @@ describe("PublicLandingLogo", () => {
     );
   });
 
+  it("renders static fallback from shareable logo route shape and view params", async () => {
+    window.localStorage.setItem(
+      "noter:logo-view:dashboard-empty",
+      JSON.stringify({
+        elevationDegrees: 90,
+        rotationDegrees: 270,
+      }),
+    );
+
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+
+    const filledVoxelCoordinates = [[0, 0, 0]] as const;
+    const filledVoxels = createFilledVoxelSet(filledVoxelCoordinates);
+    const voxelState = serializeVoxelState(filledVoxels, LOGO_GRID_SIZE_2);
+    const routeView = {
+      elevationDegrees: 0,
+      rotationDegrees: 180,
+    };
+
+    await act(async () => {
+      localRoot.render(
+        <PublicLandingLogo
+          loadInteractiveScene={false}
+          routeSearch={{
+            elev: routeView.elevationDegrees,
+            freeView: true,
+            gridSize: LOGO_GRID_SIZE_2,
+            leftFace: "secondary",
+            rot: routeView.rotationDegrees,
+            vox: voxelState,
+          }}
+          viewStatePersistence="device"
+          viewStateKey={DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY}
+        />,
+      );
+    });
+
+    const expectedVoxelGrid = createLogoFractalVoxelGrid({
+      depth: 1,
+      filledVoxels,
+      gridSize: LOGO_GRID_SIZE_2,
+    });
+    const defaultLogoTheme = resolveAppThemeColorState({
+      search: {},
+      themeMode: "light",
+    });
+
+    expect(getLogoImageDecodedSource(rootElement)).toBe(
+      decodeURIComponent(
+        `${createStaticLogoSvgDataUrl({
+          faceColors: defaultLogoTheme.faceColors,
+          filledVoxels: expectedVoxelGrid.filledVoxels,
+          gridSize: expectedVoxelGrid.gridSize,
+          leftFaceStyle: LOGO_SECONDARY_LEFT_FACE_STYLE,
+          view: routeView,
+        })}#${defaultLogoTheme.cacheKey}:${LOGO_GRID_SIZE_2}:1:1`,
+      ),
+    );
+  });
+
   it("renders static fallback from the logo depth search param", async () => {
     const rootElement = document.createElement("div");
     document.body.append(rootElement);
@@ -210,7 +279,7 @@ describe("PublicLandingLogo", () => {
 
     await act(async () => {
       localRoot.render(
-        <PublicLandingLogo loadInteractiveScene={false} themeColorSearch={{ depth: 2 }} />,
+        <PublicLandingLogo loadInteractiveScene={false} routeSearch={{ depth: 2 }} />,
       );
     });
 
@@ -242,7 +311,7 @@ describe("PublicLandingLogo", () => {
 
     await act(async () => {
       localRoot.render(
-        <PublicLandingLogo loadInteractiveScene={false} themeColorSearch={{ depth: 99 }} />,
+        <PublicLandingLogo loadInteractiveScene={false} routeSearch={{ depth: 99 }} />,
       );
     });
 
@@ -306,7 +375,7 @@ describe("PublicLandingLogo", () => {
       localRoot.render(
         <PublicLandingLogo
           loadInteractiveScene={false}
-          themeColorSearch={{
+          routeSearch={{
             background: "#112233",
             primary: "#445566",
             secondary: "#778899",
@@ -339,7 +408,7 @@ describe("PublicLandingLogo", () => {
       localRoot.render(
         <PublicLandingLogo
           loadInteractiveScene={false}
-          themeColorSearch={{
+          routeSearch={{
             primary: "green-500",
             secondary: "red-500",
             top: "blue-500",
@@ -353,7 +422,7 @@ describe("PublicLandingLogo", () => {
     );
 
     await act(async () => {
-      localRoot.render(<PublicLandingLogo loadInteractiveScene={false} themeColorSearch={{}} />);
+      localRoot.render(<PublicLandingLogo loadInteractiveScene={false} routeSearch={{}} />);
       syncDocumentThemeColorSearch({});
       await new Promise<void>((resolve) => {
         window.setTimeout(resolve, 0);

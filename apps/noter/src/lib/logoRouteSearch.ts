@@ -10,7 +10,7 @@ import {
   clampLogoFractalDepthForRenderer,
   type LogoDepthRenderer,
 } from "@/components/logo/logoDepthLimits";
-import { type LogoThemeColors } from "@/components/logo/logoTailwindColors";
+import { LOGO_THEME_COLOR_KEYS, type LogoThemeColors } from "@/components/logo/logoTailwindColors";
 import {
   DEFAULT_LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
@@ -222,7 +222,31 @@ export const logoRouteSearchSchema = logoRouteSearchFieldSchema.transform((searc
 
 export type LogoRouteSearch = z.infer<typeof logoRouteSearchSchema>;
 
-const logoRouteSearchParamMetadata = {
+export const LOGO_ROUTE_SEARCH_KEYS = [
+  "axis",
+  ...LOGO_THEME_COLOR_KEYS,
+  "dev",
+  "depth",
+  "dist",
+  "elev",
+  "freeView",
+  "gridSize",
+  "isoSide",
+  "isoStyle",
+  "leftFace",
+  "dark",
+  "light",
+  "rot",
+  "stripeA",
+  "stripeBasis",
+  "stripeG",
+  "stripeLink",
+  "stripeO",
+  "stripeW",
+  "vox",
+] as const satisfies readonly (keyof LogoRouteSearch)[];
+
+export const LOGO_ROUTE_SEARCH_PARAM_METADATA = {
   axis: { permission: "public", suggestion: "route", valueKind: "value" },
   background: { permission: "public", suggestion: "hidden", valueKind: "value" },
   border: { permission: "public", suggestion: "hidden", valueKind: "value" },
@@ -275,10 +299,12 @@ const logoRouteSearchParamMetadata = {
   vox: { permission: "public", suggestion: "route", valueKind: "value" },
 } as const satisfies RouteSearchParamMetadataByKey<LogoRouteSearch>;
 
-const LOGO_ROUTE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(logoRouteSearchParamMetadata);
+const LOGO_ROUTE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
+  LOGO_ROUTE_SEARCH_PARAM_METADATA,
+);
 
 export const LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
-  logoRouteSearchParamMetadata,
+  LOGO_ROUTE_SEARCH_PARAM_METADATA,
   "route",
 );
 

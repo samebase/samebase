@@ -86,7 +86,7 @@ import {
   type VaultDashboardProviderSetup,
 } from "@/components/vault-dashboard/vaultProviderSetup";
 import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
-import { type LogoThemeColorSearchInput } from "@/lib/appThemeColorSearch";
+import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
 import { type RootRouteSearch, useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { buildPullRequestLabelStyle, normalizePullRequestLabels } from "@/lib/pullRequestLabels";
 import { applySearchPatch } from "@/lib/routeSearchFlags";
@@ -2664,7 +2664,7 @@ type VaultDashboardBodyProps = {
   isRemovingVault: boolean;
   retryingDeletionRunId: Id<"vaultDeletionRuns"> | null;
   now: number;
-  themeColorSearch: LogoThemeColorSearchInput;
+  logoRouteSearch: LogoRouteSearch;
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
   persistedVaultBranchFiltersByVaultId: Map<string, VaultBranchFiltersState>;
   deleteRepositoryFullName?: string;
@@ -2863,7 +2863,7 @@ function VaultDashboardBody({
   isRemovingVault,
   retryingDeletionRunId,
   now,
-  themeColorSearch,
+  logoRouteSearch,
   openDeveloperToolsByVaultId,
   persistedVaultBranchFiltersByVaultId,
   deleteRepositoryFullName,
@@ -3089,7 +3089,7 @@ function VaultDashboardBody({
   }, [repositoryLocationHash, scrollVaultCardElementForHash, vaults]);
 
   if (vaults.length === 0) {
-    return <VaultDashboardEmptyState themeColorSearch={themeColorSearch} />;
+    return <VaultDashboardEmptyState logoRouteSearch={logoRouteSearch} />;
   }
 
   const repositoryNameCounts = buildVaultDashboardRepositoryNameCounts(vaults);
@@ -5506,7 +5506,7 @@ export function VaultDashboard() {
       isRemovingVault={isDeleting || isCommitting}
       retryingDeletionRunId={retryingDeletionRunId}
       now={now}
-      themeColorSearch={rootRouteSearch}
+      logoRouteSearch={rootRouteSearch}
       openDeveloperToolsByVaultId={openDeveloperToolsByVaultId}
       persistedVaultBranchFiltersByVaultId={persistedVaultBranchFiltersByVaultId}
       deleteRepositoryFullName={deleteRepositoryFullName}
