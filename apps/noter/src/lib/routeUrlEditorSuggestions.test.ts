@@ -291,7 +291,6 @@ describe("readRouteUrlEditorSuggestions", () => {
     });
 
     expect(suggestions.map((suggestion) => suggestion.value)).toEqual([
-      "?add-app-root",
       "?add-cloudflare",
       "?add-convex",
     ]);
@@ -327,6 +326,22 @@ describe("readRouteUrlEditorSuggestions", () => {
     });
 
     expect(suggestions.map((suggestion) => suggestion.value)).toEqual([]);
+  });
+
+  it("keeps the monorepo conversion search param available for admins", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/home",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/home?make-",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/home?make-".length,
+      viewer: adminViewer,
+    });
+
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["?make-monorepo"]);
   });
 
   it("suggests route-specific hashes when the route is accessible", () => {

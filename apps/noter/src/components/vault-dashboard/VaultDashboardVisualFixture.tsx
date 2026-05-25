@@ -44,7 +44,7 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-create-open"
   | "vault-dashboard-dev-tools-hidden"
   | "vault-dashboard-dev-tools-visible"
-  | "vault-dashboard-add-app-root-convert-open"
+  | "vault-dashboard-make-monorepo-open"
   | "vault-dashboard-connect-cloudflare-open"
   | "vault-dashboard-connect-cloudflare-mobile-shell-open"
   | "vault-dashboard-connect-convex-open"
@@ -575,7 +575,7 @@ function VaultDashboardAddAppRootConvertOpenFixture() {
   return (
     <div
       data-testid="vault-dashboard-visual-fixture"
-      data-mode="vault-dashboard-add-app-root-convert-open"
+      data-mode="vault-dashboard-make-monorepo-open"
       className="w-full bg-background p-4 text-foreground"
     >
       <TestRouterProvider>
@@ -1121,7 +1121,7 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
     return <VaultDashboardDeveloperToolsFixture visible={true} />;
   }
 
-  if (mode === "vault-dashboard-add-app-root-convert-open") {
+  if (mode === "vault-dashboard-make-monorepo-open") {
     return <VaultDashboardAddAppRootConvertOpenFixture />;
   }
 

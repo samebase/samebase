@@ -157,8 +157,8 @@ export function buildVaultDashboardResourceRailState({
           ? [
               {
                 kind: "add",
-                label: "?add-app-root",
-                ariaLabel: "Add app root",
+                label: "?make-monorepo",
+                ariaLabel: "Make monorepo",
                 href: buildAddAppRootHref?.(),
                 onClick: addAppRootOnClick,
               },
