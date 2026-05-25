@@ -1560,6 +1560,7 @@ export function VaultDashboardConvexDialog({
   const selectedProject = sortedProjects.find(
     (project) => buildConvexProjectOptionKey(project) === selectedProjectId,
   );
+  const showAppRootInput = appRoot !== ROOT_CLOUDFLARE_APP_ROOT;
   const submitDisabled =
     isLoading ||
     isSubmitting ||
@@ -1577,13 +1578,15 @@ export function VaultDashboardConvexDialog({
         </DialogHeader>
         {vault ? (
           <div className="space-y-3">
-            <Input
-              value={appRoot}
-              onChange={(event) => onAppRootChange(event.target.value)}
-              disabled={isLoading || isSubmitting}
-              readOnly={appRootReadOnly}
-              placeholder="App root"
-            />
+            {showAppRootInput ? (
+              <Input
+                value={appRoot}
+                onChange={(event) => onAppRootChange(event.target.value)}
+                disabled={isLoading || isSubmitting}
+                readOnly={appRootReadOnly}
+                placeholder="App root"
+              />
+            ) : null}
             <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"
@@ -1707,6 +1710,7 @@ export function VaultDashboardCloudflareDialog({
   const sortedWorkers = useMemo(() => [...workers].sort(compareCloudflareWorkerOptions), [workers]);
   const selectedAccount = sortedAccounts.find((account) => account.accountId === selectedAccountId);
   const selectedWorker = sortedWorkers.find((worker) => worker.workerName === selectedWorkerName);
+  const showAppRootInput = appRoot !== ROOT_CLOUDFLARE_APP_ROOT;
   const submitDisabled =
     isLoading ||
     isSubmitting ||
@@ -1739,13 +1743,15 @@ export function VaultDashboardCloudflareDialog({
                 ))}
               </AppSelectContent>
             </Select>
-            <Input
-              value={appRoot}
-              onChange={(event) => onAppRootChange(event.target.value)}
-              disabled={isLoading || isSubmitting}
-              readOnly={appRootReadOnly}
-              placeholder="App root"
-            />
+            {showAppRootInput ? (
+              <Input
+                value={appRoot}
+                onChange={(event) => onAppRootChange(event.target.value)}
+                disabled={isLoading || isSubmitting}
+                readOnly={appRootReadOnly}
+                placeholder="App root"
+              />
+            ) : null}
             <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"

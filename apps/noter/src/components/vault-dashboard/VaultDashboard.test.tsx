@@ -7,6 +7,7 @@ import { TestRouterProvider } from "@/test/TestRouterProvider";
 import {
   GitHubRepositoryNameSlashPreview,
   VaultDashboardAppRootDialog,
+  VaultDashboardCloudflareDialog,
   VaultDashboardCloudflareAccountDialog,
   VaultDashboardConvexDialog,
   VaultDashboardCreateDialog,
@@ -475,7 +476,7 @@ describe("VaultDashboardCreateDialog", () => {
 });
 
 describe("VaultDashboardConvexDialog", () => {
-  it("renders selectable Convex projects", () => {
+  it("hides the app root input for the repository root app", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardConvexDialog
         appRoot="."
@@ -512,8 +513,99 @@ describe("VaultDashboardConvexDialog", () => {
 
     expect(markup).toContain("Connect Convex ada/demo");
     expect(markup).toContain("Demo");
+    expect(markup).not.toContain('placeholder="App root"');
+    expect(markup).not.toContain("readOnly");
+    expect(markup).toContain("Connect Project");
+  });
+
+  it("renders the app root input for monorepo app roots", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardConvexDialog
+        appRoot="apps/noter"
+        appRootReadOnly={true}
+        createProjectName="demo"
+        projects={[
+          {
+            projectId: "project-1",
+            projectName: "Demo",
+            projectSlug: "demo",
+            teamSlug: "ada-team",
+          },
+        ]}
+        error={null}
+        isLoading={false}
+        isSubmitting={false}
+        mode="existing"
+        onAppRootChange={vi.fn()}
+        onCreateProjectNameChange={vi.fn()}
+        onProjectChange={vi.fn()}
+        onModeChange={vi.fn()}
+        onOpenChange={vi.fn()}
+        onSubmit={vi.fn()}
+        open
+        selectedProjectId="project-1"
+        vault={{
+          fixedAppRoot: "apps/noter",
+          id: fakeVaultId(),
+          repositoryFullName: "ada/demo",
+          repositoryName: "demo",
+        }}
+      />,
+    );
+
+    expect(markup).toContain("apps/noter");
+    expect(markup).toContain('placeholder="App root"');
     expect(markup).toContain("readOnly");
     expect(markup).toContain("Connect Project");
+  });
+});
+
+describe("VaultDashboardCloudflareDialog", () => {
+  it("hides the app root input for the repository root app", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardCloudflareDialog
+        accounts={[
+          {
+            accountId: "account-1",
+            accountName: "Ada Cloud",
+          },
+        ]}
+        appRoot="."
+        appRootReadOnly={true}
+        createWorkerName="demo-worker"
+        error={null}
+        isLoading={false}
+        isSubmitting={false}
+        mode="existing"
+        onAccountChange={vi.fn()}
+        onAppRootChange={vi.fn()}
+        onCreateWorkerNameChange={vi.fn()}
+        onModeChange={vi.fn()}
+        onOpenChange={vi.fn()}
+        onSubmit={vi.fn()}
+        onWorkerChange={vi.fn()}
+        open
+        selectedAccountId="account-1"
+        selectedWorkerName="demo-worker"
+        vault={{
+          fixedAppRoot: ".",
+          id: fakeVaultId(),
+          repositoryFullName: "ada/demo",
+          repositoryName: "demo",
+        }}
+        workers={[
+          {
+            workerName: "demo-worker",
+            workerTag: "worker-tag-1",
+          },
+        ]}
+      />,
+    );
+
+    expect(markup).toContain("Connect Cloudflare ada/demo");
+    expect(markup).toContain("demo-worker");
+    expect(markup).not.toContain('placeholder="App root"');
+    expect(markup).not.toContain("readOnly");
   });
 });
 
