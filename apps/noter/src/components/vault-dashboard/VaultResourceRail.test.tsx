@@ -246,7 +246,7 @@ describe("VaultResourceRail", () => {
     expect(markup).not.toContain('target="_blank"');
   });
 
-  it("lets href actions navigate as native links even when a callback exists", () => {
+  it("uses router callbacks for href action clicks when available", () => {
     const onClick = vi.fn();
     const state = buildRootResourceRailState({
       githubRow: {
@@ -276,6 +276,7 @@ describe("VaultResourceRail", () => {
     if (!(link instanceof HTMLAnchorElement)) {
       throw new Error("Expected add action link");
     }
+    expect(link.getAttribute("href")).toBe("/home?add-convex&app-root=apps%2Fnoter#weight_tsx");
 
     const click = new MouseEvent("click", {
       bubbles: true,
@@ -296,8 +297,8 @@ describe("VaultResourceRail", () => {
       link.dispatchEvent(click);
     });
 
-    expect(defaultPreventedBeforeNativeNavigation).toBe(false);
-    expect(onClick).not.toHaveBeenCalled();
+    expect(defaultPreventedBeforeNativeNavigation).toBe(true);
+    expect(onClick).toHaveBeenCalledOnce();
   });
 
   it("keeps root providers top-level and groups subfolder providers under app roots", () => {
