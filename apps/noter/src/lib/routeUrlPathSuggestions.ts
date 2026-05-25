@@ -6,6 +6,7 @@ import {
   type NoterRoutePermission,
   type NoterRoutePermissionViewer,
 } from "@/lib/routePermissions";
+import { isVisualFixtureRouteAvailableOnHostname } from "@/lib/visualFixtureRouteAvailability";
 
 type RouteUrlPathSuggestionsInput = {
   currentHref: string;
@@ -17,6 +18,7 @@ type RouteUrlPathSuggestionsInput = {
 
 type RouteUrlPathSuggestionSurface = {
   prodUiMode: boolean;
+  visualFixtureRouteAvailable: boolean;
 };
 
 const PROD_UI_HIDDEN_ROUTE_URL_PATH_SUGGESTIONS = ["/test", "/visual-fixture"] as const;
@@ -51,6 +53,7 @@ export function filterRouteUrlPathSuggestions({
       draftHref,
       origin,
     }),
+    visualFixtureRouteAvailable: readRouteUrlPathSuggestionVisualFixtureAvailability(origin),
   });
   const draftPath = readRouteUrlPathSuggestionDraftPath({
     currentHref,
@@ -85,6 +88,7 @@ export function isRouteUrlPathReadyForNavigation({
       draftHref,
       origin,
     }),
+    visualFixtureRouteAvailable: readRouteUrlPathSuggestionVisualFixtureAvailability(origin),
   });
   const draftPath = readRouteUrlPathSuggestionDraftPath({
     currentHref,
@@ -117,6 +121,10 @@ function isRouteUrlPathSuggestionHiddenForSurface(
   path: string,
   surface: RouteUrlPathSuggestionSurface,
 ): boolean {
+  if (path === "/visual-fixture" && !surface.visualFixtureRouteAvailable) {
+    return true;
+  }
+
   return (
     surface.prodUiMode &&
     PROD_UI_HIDDEN_ROUTE_URL_PATH_SUGGESTIONS.some((hiddenPath) => hiddenPath === path)
@@ -166,6 +174,14 @@ function readRouteUrlPathSuggestionProdUiMode({
     }
 
     return new URL(routeHref, appOrigin).searchParams.has(FORCE_PROD_UI_QUERY_PARAM);
+  } catch {
+    return false;
+  }
+}
+
+function readRouteUrlPathSuggestionVisualFixtureAvailability(origin: string): boolean {
+  try {
+    return isVisualFixtureRouteAvailableOnHostname(new URL(origin).hostname);
   } catch {
     return false;
   }

@@ -6,12 +6,14 @@ import {
   readRouteUrlPathSuggestions,
 } from "./routeUrlPathSuggestions";
 
-const ORIGIN = "https://noter.local";
+const ORIGIN = "http://localhost:5174";
+const DEPLOYED_ORIGIN = "https://preview.noter.md";
 const routesByPath = getRouter().routesByPath;
 const adminViewer = { isAdmin: true };
 const publicViewer = { isAdmin: false };
-const appSurface = { prodUiMode: false };
-const prodUiSurface = { prodUiMode: true };
+const appSurface = { prodUiMode: false, visualFixtureRouteAvailable: true };
+const prodUiSurface = { prodUiMode: true, visualFixtureRouteAvailable: true };
+const deployedSurface = { prodUiMode: false, visualFixtureRouteAvailable: false };
 
 describe("readRouteUrlPathSuggestions", () => {
   it("exposes sorted user-facing TanStack route paths", () => {
@@ -66,6 +68,13 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).not.toContain("/test");
     expect(suggestions).not.toContain("/visual-fixture");
   });
+
+  it("hides the visual fixture route outside local hosts", () => {
+    const suggestions = readRouteUrlPathSuggestions(routesByPath, adminViewer, deployedSurface);
+
+    expect(suggestions).toContain("/test");
+    expect(suggestions).not.toContain("/visual-fixture");
+  });
 });
 
 describe("filterRouteUrlPathSuggestions", () => {
@@ -85,7 +94,7 @@ describe("filterRouteUrlPathSuggestions", () => {
     expect(
       filterRouteUrlPathSuggestions({
         currentHref: "/",
-        draftHref: "https://noter.local/machines/c",
+        draftHref: `${ORIGIN}/machines/c`,
         origin: ORIGIN,
         routesByPath,
         viewer: adminViewer,
@@ -172,6 +181,18 @@ describe("filterRouteUrlPathSuggestions", () => {
 
     expect(suggestions).toContain("/logo");
     expect(suggestions).not.toContain("/visual-fixture");
+  });
+
+  it("hides visual fixture suggestions on deployed origins", () => {
+    const suggestions = filterRouteUrlPathSuggestions({
+      currentHref: "/",
+      draftHref: "/vis",
+      origin: DEPLOYED_ORIGIN,
+      routesByPath,
+      viewer: adminViewer,
+    });
+
+    expect(suggestions).toEqual([]);
   });
 });
 
