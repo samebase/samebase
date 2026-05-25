@@ -379,16 +379,24 @@ export function VaultResourceRail({ state }: { state: VaultResourceRailState }) 
     <div data-testid="vault-resource-rail" className="mt-1 grid w-full gap-1">
       <div className="grid min-w-0 gap-0.5">
         <VaultResourceRailItem row={state.githubRow} />
-        {state.apps.map((app) => (
-          <div key={app.appRoot} className="grid min-w-0 gap-0.5">
-            <div className={APP_ROOT_CLASS_NAME}>{app.appRoot}</div>
-            <div className={APP_PROVIDER_ROWS_CLASS_NAME}>
+        {state.apps.map((app) =>
+          app.appRoot === "." ? (
+            <div key={app.appRoot} className="grid min-w-0 gap-0.5">
               {app.rows.map((row) => (
                 <VaultResourceRailItem key={row.provider} row={row} />
               ))}
             </div>
-          </div>
-        ))}
+          ) : (
+            <div key={app.appRoot} className="grid min-w-0 gap-0.5">
+              <div className={APP_ROOT_CLASS_NAME}>{app.appRoot}</div>
+              <div className={APP_PROVIDER_ROWS_CLASS_NAME}>
+                {app.rows.map((row) => (
+                  <VaultResourceRailItem key={row.provider} row={row} />
+                ))}
+              </div>
+            </div>
+          ),
+        )}
       </div>
     </div>
   );

@@ -209,7 +209,7 @@ describe("VaultResourceRail", () => {
     expect(markup).toContain('aria-label="Add Cloudflare"');
   });
 
-  it("groups provider resources under app roots", () => {
+  it("keeps root providers top-level and groups subfolder providers under app roots", () => {
     const state = {
       githubRow: {
         provider: "github",
@@ -256,6 +256,9 @@ describe("VaultResourceRail", () => {
 
     expect(markup).toContain("apps/api");
     expect(markup.indexOf("nicu-chiciuc/weight_tsx")).toBeLessThan(markup.indexOf("apps/api"));
+    expect(markup.indexOf("?add-convex")).toBeLessThan(markup.indexOf("apps/api"));
+    expect(markup.indexOf("worker-root")).toBeLessThan(markup.indexOf("apps/api"));
     expect(markup.indexOf("apps/api")).toBeLessThan(markup.indexOf("worker-api"));
+    expect(markup).not.toContain(">.<");
   });
 });
