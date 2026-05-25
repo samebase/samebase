@@ -43,7 +43,6 @@ function CodexResearchRouteComponent() {
 }
 
 export const Route = createFileRoute("/research/codex-app-server")({
-  ssr: false,
   staticData: {
     permission: "admin",
     searchParamSuggestions: CODEX_RESEARCH_ROUTE_SEARCH_PARAM_SUGGESTIONS,

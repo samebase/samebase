@@ -11,7 +11,6 @@ function PitchRouteComponent() {
 }
 
 export const Route = createFileRoute("/pitch")({
-  ssr: false,
   staticData: { permission: "admin" },
   component: PitchRouteComponent,
 });

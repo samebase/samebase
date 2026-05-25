@@ -19,7 +19,6 @@ function LogoRasterSeamsRouteComponent() {
 }
 
 export const Route = createFileRoute("/logo/raster-seams")({
-  ssr: false,
   staticData: {
     permission: "public",
     searchParamSuggestions: LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,

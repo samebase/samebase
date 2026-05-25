@@ -10,7 +10,6 @@ function RootTestRouteComponent() {
 }
 
 export const Route = createFileRoute("/test")({
-  ssr: false,
   staticData: { availableOn: ["local"], permission: "admin" },
   component: RootTestRouteComponent,
 });

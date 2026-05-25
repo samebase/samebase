@@ -41,7 +41,6 @@ function VisualFixtureRouteComponent() {
 }
 
 export const Route = createFileRoute("/visual-fixture")({
-  ssr: false,
   staticData: {
     availableOn: ["local"],
     permission: "public",

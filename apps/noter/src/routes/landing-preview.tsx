@@ -16,7 +16,6 @@ function LandingPreviewRouteComponent() {
 }
 
 export const Route = createFileRoute("/landing-preview")({
-  ssr: false,
   staticData: {
     permission: "admin",
     searchParamSuggestions: LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS,
