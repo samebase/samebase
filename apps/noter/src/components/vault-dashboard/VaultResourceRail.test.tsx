@@ -257,6 +257,7 @@ describe("VaultResourceRail", () => {
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
 
     expect(markup).toContain("apps/api");
+    expect(markup).toContain("lucide-chevron-down");
     expect(markup.indexOf("nicu-chiciuc/weight_tsx")).toBeLessThan(markup.indexOf("apps/api"));
     expect(markup.indexOf("?add-convex")).toBeLessThan(markup.indexOf("apps/api"));
     expect(markup.indexOf("worker-root")).toBeLessThan(markup.indexOf("apps/api"));
