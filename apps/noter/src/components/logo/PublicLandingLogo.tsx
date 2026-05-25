@@ -1,21 +1,7 @@
-import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
-import {
-  DEFAULT_LOGO_DISTANCE_SCALE,
-  normalizeLogoDistanceScale,
-} from "@/components/logo/logoDistanceScale";
-import { clampLogoFractalDepthForRenderer } from "@/components/logo/logoDepthLimits";
-import {
-  STATIC_LOGO_ELEVATION_DEGREES,
-  STATIC_LOGO_GRID_SIZE,
-  STATIC_LOGO_ROTATION_DEGREES,
-  STATIC_LOGO_VOXEL_STATE,
-} from "@/components/logo/logoStaticSvgContract";
-import {
-  createLogoFractalVoxelGrid,
-  DEFAULT_LOGO_FRACTAL_DEPTH,
-  normalizeLogoGridSize,
-  normalizeRotationDegrees,
-} from "@/components/logo/logoVoxelState";
+import { normalizeRotationDegrees } from "@/components/logo/logoVoxelState";
+import { createLogoRouteStaticSvgSrc } from "@/components/logo/logoRouteStaticSvg";
+import { readLogoRouteState, type LogoRouteState } from "@/components/logo/logoRouteState";
+import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
 import {
   PUBLIC_LANDING_LOGO_ALT,
   PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME,
@@ -25,7 +11,6 @@ import {
   PUBLIC_LANDING_LOGO_STAGE_CLASS_NAME,
   PUBLIC_LANDING_LOGO_STAGE_TEST_ID,
   PUBLIC_LANDING_LOGO_TEST_ID,
-  PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
   PUBLIC_LANDING_LOGO_WIDTH,
   shouldRevealPublicLandingLogoLink,
 } from "@/lib/publicLandingLogo";
@@ -38,14 +23,12 @@ import {
   type RotatedLogoViewStateKey,
   type RotatedLogoViewStatePersistence,
 } from "@/lib/rotatedLogoViewState";
-import {
-  useResolvedAppThemeColorState,
-  type LogoThemeColorSearchInput,
-} from "@/lib/appThemeColorSearch";
+import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
 import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-type LandingLogoSceneComponent = typeof import("@/components/logo/NLogoScene").NLogoScene;
+type LandingLogoSceneComponent =
+  typeof import("@/components/logo/LogoRouteMarkScene").LogoRouteMarkScene;
 
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 const AUTO_ROTATE_RESUME_DURATION_MS = 220;
@@ -54,17 +37,6 @@ const REDUCED_MOTION_MEDIA_QUERY = "(prefers-reduced-motion: reduce)";
 // The canvas receives the requested depth; the SVG fallback stays cheap enough
 // to render before the interactive scene is ready.
 const LANDING_STATIC_SVG_FALLBACK_DEPTH = 3;
-
-const DEFAULT_LANDING_LOGO_VIEW: RotatedLogoViewState = {
-  elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
-  rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
-};
-
-type PublicLandingLogoSearchInput = LogoThemeColorSearchInput & {
-  depth?: number;
-  dist?: number;
-  gridSize?: number;
-};
 
 let cachedLandingLogoScene: LandingLogoSceneComponent | null = null;
 // Unsupported renderer paths can loop on remount, so keep that failure sticky
@@ -75,12 +47,16 @@ function easeOutCubic(value: number) {
   return 1 - Math.pow(1 - value, 3);
 }
 
+function hasLogoRouteViewSearch(routeSearch: LogoRouteSearch): boolean {
+  return typeof routeSearch.elev === "number" || typeof routeSearch.rot === "number";
+}
+
 export function PublicLandingLogo({
   animateLeftFaceStripes = false,
   autoRotate = false,
   enableViewSnapping = true,
   loadInteractiveScene = true,
-  themeColorSearch = {},
+  routeSearch = {},
   viewStatePersistence = "visit",
   viewStateKey = PUBLIC_LANDING_LOGO_VIEW_STATE_KEY,
 }: {
@@ -88,48 +64,70 @@ export function PublicLandingLogo({
   autoRotate?: boolean;
   enableViewSnapping?: boolean;
   loadInteractiveScene?: boolean;
-  themeColorSearch?: PublicLandingLogoSearchInput;
+  routeSearch?: LogoRouteSearch;
   viewStatePersistence?: RotatedLogoViewStatePersistence;
   viewStateKey?: RotatedLogoViewStateKey;
 }) {
+  const routeState = useMemo(() => readLogoRouteState(routeSearch, "three"), [routeSearch]);
+  const logoRouteState = useMemo(
+    () =>
+      enableViewSnapping
+        ? routeState
+        : {
+            ...routeState,
+            isViewSnapEnabled: false,
+          },
+    [enableViewSnapping, routeState],
+  );
+  const routeView = useMemo(
+    () => ({
+      elevationDegrees: logoRouteState.elevationDegrees,
+      rotationDegrees: logoRouteState.rotationDegrees,
+    }),
+    [logoRouteState.elevationDegrees, logoRouteState.rotationDegrees],
+  );
+  const routeViewSearchEnabled = hasLogoRouteViewSearch(routeSearch);
+  const readStoredLogoView = useCallback(
+    () =>
+      readRotatedLogoViewState({
+        defaultView: routeView,
+        key: viewStateKey,
+        persistence: viewStatePersistence,
+      }),
+    [routeView, viewStateKey, viewStatePersistence],
+  );
   const [LogoScene, setLogoScene] = useState<LandingLogoSceneComponent | null>(() =>
     loadInteractiveScene ? cachedLandingLogoScene : null,
   );
   const [didSceneFail, setDidSceneFail] = useState(() => didLandingLogoSceneRenderFail);
-  const [initialView] = useState<RotatedLogoViewState>(() =>
-    readRotatedLogoViewState({
-      defaultView: DEFAULT_LANDING_LOGO_VIEW,
-      key: viewStateKey,
-      persistence: viewStatePersistence,
-    }),
-  );
-  const logoTheme = useResolvedAppThemeColorState(themeColorSearch);
+  const logoTheme = useResolvedAppThemeColorState(routeSearch);
   const { backgroundColor, faceColors } = logoTheme;
-  const fractalDepth = clampLogoFractalDepthForRenderer(
-    themeColorSearch.depth ?? DEFAULT_LOGO_FRACTAL_DEPTH,
-    "three",
-  );
-  const baseGridSize = normalizeLogoGridSize(themeColorSearch.gridSize ?? STATIC_LOGO_GRID_SIZE);
-  const distanceScale = normalizeLogoDistanceScale(
-    themeColorSearch.dist ?? DEFAULT_LOGO_DISTANCE_SCALE,
-  );
-  const isRecursiveDepth = fractalDepth > DEFAULT_LOGO_FRACTAL_DEPTH;
-  const staticFallbackDepth = Math.min(fractalDepth, LANDING_STATIC_SVG_FALLBACK_DEPTH);
-  const staticLogoVoxelGrid = useMemo(
-    () => createLogoFractalVoxelGrid({ depth: staticFallbackDepth, gridSize: baseGridSize }),
-    [baseGridSize, staticFallbackDepth],
-  );
-  const staticLogoSvgSrc = `${createStaticLogoSvgDataUrl({
-    faceColors,
-    filledVoxels: staticLogoVoxelGrid.filledVoxels,
-    gridSize: staticLogoVoxelGrid.gridSize,
-    view: initialView,
-  })}#${logoTheme.cacheKey}:${baseGridSize}:${fractalDepth}:${distanceScale}`;
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [isSvgVisible, setIsSvgVisible] = useState(true);
   const [isAutoRotating, setIsAutoRotating] = useState(autoRotate);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  const [view, setView] = useState<RotatedLogoViewState>(() => initialView);
+  const [view, setView] = useState<RotatedLogoViewState>(() =>
+    routeViewSearchEnabled ? routeView : readStoredLogoView(),
+  );
+  const visibleLogoState: LogoRouteState = useMemo(
+    () => ({
+      ...logoRouteState,
+      elevationDegrees: view.elevationDegrees,
+      rotationDegrees: view.rotationDegrees,
+    }),
+    [logoRouteState, view.elevationDegrees, view.rotationDegrees],
+  );
+  const staticFallbackDepth = Math.min(
+    visibleLogoState.fractalDepth,
+    LANDING_STATIC_SVG_FALLBACK_DEPTH,
+  );
+  const staticLogoSvgSrc = createLogoRouteStaticSvgSrc({
+    cacheKey: logoTheme.cacheKey,
+    faceColors,
+    fractalDepth: staticFallbackDepth,
+    state: visibleLogoState,
+    view,
+  });
   const publicLandingLogoLink = useOptionalPublicLandingLogoLink();
   const latestViewRef = useRef(view);
   const lastFrameTimeRef = useRef<number | null>(null);
@@ -143,6 +141,12 @@ export function PublicLandingLogo({
       view: latestViewRef.current,
     });
   }, [viewStateKey, viewStatePersistence]);
+
+  useEffect(() => {
+    const nextView = routeViewSearchEnabled ? routeView : readStoredLogoView();
+    latestViewRef.current = nextView;
+    setView(nextView);
+  }, [readStoredLogoView, routeView, routeViewSearchEnabled]);
 
   useEffect(() => {
     if (typeof window.matchMedia !== "function") {
@@ -188,14 +192,14 @@ export function PublicLandingLogo({
     let frameId2 = 0;
 
     const loadScene = () => {
-      void import("@/components/logo/NLogoScene")
+      void import("@/components/logo/LogoRouteMarkScene")
         .then((module) => {
           if (cancelled) {
             return;
           }
 
-          cachedLandingLogoScene = module.NLogoScene;
-          setLogoScene(() => module.NLogoScene);
+          cachedLandingLogoScene = module.LogoRouteMarkScene;
+          setLogoScene(() => module.LogoRouteMarkScene);
           setDidSceneFail(false);
         })
         .catch((error: unknown) => {
@@ -356,14 +360,9 @@ export function PublicLandingLogo({
             className={`absolute inset-0 z-0 ${isSceneInteractive ? "pointer-events-auto touch-none" : "pointer-events-none"}`}
           >
             <LogoScene
-              baseGridSize={baseGridSize}
-              className={`h-full w-full ${isSceneInteractive ? "cursor-grab active:cursor-grabbing" : ""}`}
               backgroundColor={backgroundColor}
-              distanceScale={distanceScale}
-              editMode="add"
-              elevationDegrees={view.elevationDegrees}
+              className={`h-full w-full ${isSceneInteractive ? "active:cursor-grabbing" : ""}`}
               faceColors={faceColors}
-              opacity={1}
               onInteractionStart={() => {
                 autoRotateResumeStartedAtRef.current = null;
                 setIsAutoRotating(false);
@@ -388,16 +387,10 @@ export function PublicLandingLogo({
                 latestViewRef.current = nextView;
                 setView(nextView);
               }}
-              onVoxelEdit={() => {}}
-              rotationDegrees={view.rotationDegrees}
-              shuffleAnimation={{ enabled: false, parallelMoves: 1 }}
+              state={visibleLogoState}
               animateFaceColors={false}
               animateLeftFaceStripes={shouldAnimateLeftFaceStripes}
-              fractalDepth={fractalDepth}
-              voxelGrid={isRecursiveDepth ? undefined : staticLogoVoxelGrid}
               voxelEditingEnabled={false}
-              viewDragConfig={enableViewSnapping ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined}
-              voxelState={STATIC_LOGO_VOXEL_STATE}
             />
           </div>
         ) : null}

@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
-import { type LogoThemeColorSearchInput } from "@/lib/appThemeColorSearch";
+import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
 import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -226,18 +226,14 @@ export function VaultDashboardProvidersSection({
   );
 }
 
-export function VaultDashboardEmptyState({
-  themeColorSearch,
-}: {
-  themeColorSearch?: LogoThemeColorSearchInput;
-}) {
+export function VaultDashboardEmptyState({ routeSearch }: { routeSearch?: LogoRouteSearch }) {
   return (
     <div className="container mx-auto max-w-2xl py-6">
       <div className="text-center">
         <div className="mx-auto w-full max-w-[8rem]">
           <PublicLandingLogo
             animateLeftFaceStripes
-            themeColorSearch={themeColorSearch}
+            routeSearch={routeSearch}
             viewStatePersistence="device"
             viewStateKey={DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY}
           />

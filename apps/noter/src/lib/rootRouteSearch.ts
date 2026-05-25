@@ -8,9 +8,14 @@ import {
 } from "@/components/logo/logoVoxelState";
 import {
   appThemeColorSearchFieldSchema,
-  LOGO_THEME_COLOR_SEARCH_KEYS,
   readLogoThemeColorSearch,
 } from "@/lib/appThemeColorSearch";
+import {
+  LOGO_ROUTE_SEARCH_KEYS,
+  LOGO_ROUTE_SEARCH_PARAM_METADATA,
+  validateLogoRouteSearch,
+  type LogoRouteSearch,
+} from "@/lib/logoRouteSearch";
 import { PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM } from "@/lib/publicLayoutSidebarPreferences";
 import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
 import {
@@ -108,9 +113,11 @@ const rootRouteSearchSchema = z
   .merge(appThemeColorSearchFieldSchema)
   .merge(rootThemeModeSearchFieldSchema);
 
-export type RootRouteSearch = z.infer<typeof rootRouteSearchSchema>;
+type RootOnlyRouteSearch = z.infer<typeof rootRouteSearchSchema>;
+export type RootRouteSearch = RootOnlyRouteSearch & LogoRouteSearch;
 
 const rootRouteSearchParamMetadata = {
+  ...LOGO_ROUTE_SEARCH_PARAM_METADATA,
   "add-cloudflare": {
     parseKind: "presence",
     permission: "admin",
@@ -216,22 +223,19 @@ export const ROOT_INDEX_ROUTE_SEARCH_PARAM_SUGGESTIONS = ROOT_ROUTE_SEARCH_PARAM
  * a caller clears the key with a route-search tombstone.
  */
 export const RETAINED_ROOT_SEARCH_KEYS = [
-  "dev",
   "devtools",
-  "depth",
-  "dist",
-  "gridSize",
+  ...LOGO_ROUTE_SEARCH_KEYS,
   ...ROOT_THEME_MODE_SEARCH_KEYS,
-  ...LOGO_THEME_COLOR_SEARCH_KEYS,
 ] as const satisfies readonly (keyof RootRouteSearch)[];
 
-function parseRootRouteSearch(search: unknown): RootRouteSearch {
+function parseRootRouteSearch(search: Record<string, unknown>): RootRouteSearch {
   const parsedSearch = rootRouteSearchSchema.parse(
     normalizeRouteSearchPresenceFlags(search, ROOT_ROUTE_PRESENCE_SEARCH_KEYS),
   );
   if (!parsedSearch[SEARCH_RESET_QUERY_PARAM]) {
     const normalizedSearch = {
       ...parsedSearch,
+      ...validateLogoRouteSearch(search),
       ...readLogoThemeColorSearch(parsedSearch),
     };
     delete normalizedSearch.base;

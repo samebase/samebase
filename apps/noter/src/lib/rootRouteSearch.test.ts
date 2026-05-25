@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
-import { LOGO_GRID_SIZE_2, LOGO_GRID_SIZE_3 } from "@/components/logo/logoVoxelState";
+import {
+  DEFAULT_VOXEL_STATE,
+  LOGO_GRID_SIZE_2,
+  LOGO_GRID_SIZE_3,
+} from "@/components/logo/logoVoxelState";
 import { readRootRouteSearch, validateRootRouteSearch } from "./rootRouteSearch";
 
 describe("rootRouteSearch", () => {
@@ -132,6 +136,19 @@ describe("rootRouteSearch", () => {
       gridSize: LOGO_GRID_SIZE_3,
     });
     expect(readRootRouteSearch("?gridSize=4")).toEqual({});
+  });
+
+  it("parses the full logo route search contract on root pages", () => {
+    const search = readRootRouteSearch(
+      `?rot=721&elev=32.4&freeView&axis=screen-vertical&leftFace=secondary&vox=${encodeURIComponent(DEFAULT_VOXEL_STATE)}`,
+    );
+
+    expect(search.axis).toBe("screen-vertical");
+    expect(search.elev).toBe(32.4);
+    expect(search.freeView).toBe(true);
+    expect(search.leftFace).toBe("secondary");
+    expect(search.rot).toBe(1);
+    expect(search.vox).toBe(DEFAULT_VOXEL_STATE);
   });
 
   it("ignores all other parsed root params while reset is present", () => {
