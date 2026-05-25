@@ -54,6 +54,7 @@ describe("VaultResourceRail", () => {
     expect(markup).not.toContain("Not connected");
     expect(markup).toContain("Open Convex: nicu/weight-tsx");
     expect(markup).toContain("Open Cloudflare: nicuchiciuc/weight-tsx");
+    expect(markup).not.toContain('target="_blank"');
     expect(markup).not.toContain("Connected existing");
   });
 
@@ -207,6 +208,7 @@ describe("VaultResourceRail", () => {
     expect(markup).toContain("Open Cloudflare: nicuchiciuc/weight-tsx");
     expect(markup).toContain('href="/home?add-cloudflare#weight_tsx"');
     expect(markup).toContain('aria-label="Add Cloudflare"');
+    expect(markup).not.toContain('target="_blank"');
   });
 
   it("keeps root providers top-level and groups subfolder providers under app roots", () => {

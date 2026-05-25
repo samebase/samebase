@@ -323,8 +323,6 @@ function VaultResourceRailItem({ row }: { row: VaultResourceRailRowState }) {
         <div className={RESOURCE_CONTENT_CLASS_NAME}>
           <a
             href={row.href}
-            target="_blank"
-            rel="noopener noreferrer"
             className={RESOURCE_LINK_VALUE_CLASS_NAME}
             title={`Open ${providerLabel}`}
             aria-label={`Open ${providerLabel}: ${displayValue ?? row.value}`}
@@ -346,8 +344,6 @@ function VaultResourceRailItem({ row }: { row: VaultResourceRailRowState }) {
       <a
         data-provider={row.provider}
         href={row.href}
-        target="_blank"
-        rel="noopener noreferrer"
         className={RESOURCE_LINK_ROW_CLASS_NAME}
         title={`Open ${providerLabel}`}
         aria-label={`Open ${providerLabel}: ${displayValue ?? row.value}`}
