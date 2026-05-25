@@ -89,6 +89,24 @@ function resolveCloudflareWorkersSubdomain({
   return normalizeResourceScope(prefix.slice(workerPrefix.length));
 }
 
+type VaultDashboardCloudflareWorker = VaultDashboardVault["cloudflareWorkers"][number];
+
+function selectPrimaryCloudflareWorker(
+  vault: VaultDashboardVault,
+): VaultDashboardCloudflareWorker | null {
+  if (vault.cloudflareWorkers.length === 0) {
+    return null;
+  }
+  const rootWorker = vault.cloudflareWorkers.find((worker) => worker.appRoot === ".");
+  if (rootWorker) {
+    return rootWorker;
+  }
+  return [...vault.cloudflareWorkers].sort(
+    (left, right) =>
+      left.appRoot.localeCompare(right.appRoot) || left.workerName.localeCompare(right.workerName),
+  )[0];
+}
+
 export function buildVaultDashboardResourceRailState({
   addCloudflareWorkerHref,
   addCloudflareWorkerOnClick,
@@ -110,10 +128,16 @@ export function buildVaultDashboardResourceRailState({
   const providerSetupProvider = resolveVaultProviderSetupStepProvider(vault.providerSetup);
   const sourceSetupProvider = resolveSourceSetupResourceProvider(vault.sourceSetup);
   const convexProjectScope = normalizeResourceScope(vault.convexTeamSlug);
+  const primaryCloudflareWorker = selectPrimaryCloudflareWorker(vault);
   const cloudflareWorkerScope = resolveCloudflareWorkersSubdomain({
-    workersDevUrl: vault.cloudflareWorkersDevUrl,
-    workerName: vault.cloudflareWorkerName,
+    workersDevUrl: primaryCloudflareWorker?.workersDevUrl,
+    workerName: primaryCloudflareWorker?.workerName,
   });
+  const cloudflareWorkerValue = primaryCloudflareWorker
+    ? vault.cloudflareWorkers.length > 1
+      ? `${primaryCloudflareWorker.workerName} +${vault.cloudflareWorkers.length - 1}`
+      : primaryCloudflareWorker.workerName
+    : undefined;
   let githubRow: VaultResourceRailRowState<"github">;
   if (vault.sourceSetup.status === "failed" && sourceSetupProvider === "github") {
     githubRow = {
@@ -240,7 +264,7 @@ export function buildVaultDashboardResourceRailState({
     cloudflareRow = {
       provider: "cloudflare",
       status: "failed",
-      value: vault.cloudflareWorkerName ?? vault.ghRepoName,
+      value: cloudflareWorkerValue ?? vault.ghRepoName,
       actions: [
         {
           kind: "add",
@@ -259,15 +283,26 @@ export function buildVaultDashboardResourceRailState({
     cloudflareRow = {
       provider: "cloudflare",
       status: "running",
-      value: vault.cloudflareWorkerName ?? vault.ghRepoName,
+      value: cloudflareWorkerValue ?? vault.ghRepoName,
     };
-  } else if (vault.cloudflareWorkerName) {
+  } else if (primaryCloudflareWorker) {
     cloudflareRow = {
       provider: "cloudflare",
       status: "ready",
-      value: vault.cloudflareWorkerName,
+      value: cloudflareWorkerValue ?? primaryCloudflareWorker.workerName,
       scope: cloudflareWorkerScope,
-      href: vault.cloudflareProjectDashboardUrl,
+      href: primaryCloudflareWorker.projectDashboardUrl,
+      actions: canConfigureMissingResources
+        ? [
+            {
+              kind: "add",
+              label: "?add-cloudflare",
+              disabled: !addCloudflareWorkerHref,
+              href: addCloudflareWorkerHref,
+              onClick: addCloudflareWorkerOnClick,
+            },
+          ]
+        : undefined,
     };
   } else if (!canConfigureMissingResources) {
     cloudflareRow = {

@@ -43,13 +43,11 @@ async function createConnectedVault() {
       githubMode: "connect_existing_repository",
       runId,
       ghRepoId: "123",
-      appRoot: ".",
       owner: "ada",
       name: "refresh-me",
       defaultBranch: "main",
       visibility: "private",
       convex: { state: "not_configured" },
-      cloudflare: { state: "not_configured" },
       connectedAt: 4,
     });
 
@@ -89,7 +87,6 @@ async function insertConnectedVaultForUser(
     userId: Id<"users">;
     repositoryFullName: string;
     ghRepoId: string;
-    appRoot: string;
     owner: string;
     name: string;
     connectedAt: number;
@@ -119,13 +116,11 @@ async function insertConnectedVaultForUser(
       githubMode: "connect_existing_repository",
       runId,
       ghRepoId: args.ghRepoId,
-      appRoot: args.appRoot,
       owner: args.owner,
       name: args.name,
       defaultBranch: "main",
       visibility: "private",
       convex: { state: "not_configured" },
-      cloudflare: { state: "not_configured" },
       connectedAt: args.connectedAt,
     });
     return vaultId;
@@ -230,7 +225,6 @@ describe("repository refresh demand ingest", () => {
       userId: ids.userId,
       repositoryFullName: "ada/second-refresh",
       ghRepoId: "456",
-      appRoot: ".",
       owner: "ada",
       name: "second-refresh",
       connectedAt: 5,
@@ -275,7 +269,6 @@ describe("repository refresh demand ingest", () => {
       userId: otherUserId,
       repositoryFullName: "grace/private-refresh",
       ghRepoId: "999",
-      appRoot: ".",
       owner: "grace",
       name: "private-refresh",
       connectedAt: 5,
@@ -296,7 +289,6 @@ describe("repository refresh demand ingest", () => {
         userId: ids.userId,
         repositoryFullName: `ada/refresh-${index}`,
         ghRepoId: `bulk-${index}`,
-        appRoot: ".",
         owner: "ada",
         name: `refresh-${index}`,
         connectedAt: index + 4,

@@ -83,13 +83,11 @@ function renderRepositoryMediaAsset(
 
 export function RepositoryMediaViewer({
   repositoryFullName,
-  appRoot,
   filePath,
   branch,
   skipStaging = false,
 }: {
   repositoryFullName: string;
-  appRoot: string;
   filePath: string;
   branch: string;
   skipStaging?: boolean;
@@ -118,7 +116,6 @@ export function RepositoryMediaViewer({
 
     void loadMediaAsset({
       repositoryFullName,
-      appRoot,
       filePath,
       branch,
       skipStaging,
@@ -150,7 +147,7 @@ export function RepositoryMediaViewer({
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [appRoot, branch, filePath, loadMediaAsset, repositoryFullName, skipStaging]);
+  }, [branch, filePath, loadMediaAsset, repositoryFullName, skipStaging]);
 
   if (showLoading) {
     return (

@@ -65,7 +65,6 @@ describe("vault deletion Convex provider actions", () => {
             target: {
               kind: "existing_repository",
               ghRepoId: "123",
-              appRoot: ".",
               owner: "ada",
               name: "demo",
               repositoryFullName: "ada/demo",

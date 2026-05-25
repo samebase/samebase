@@ -1,12 +1,8 @@
 export function buildVaultDashboardRepositoryHashId(args: {
-  appRoot: string;
   hasDuplicateRepositoryName: boolean;
   repositoryFullName: string;
   repositoryName: string;
 }): string {
-  if (args.appRoot !== ".") {
-    return `${args.repositoryFullName}:${args.appRoot}`;
-  }
   return args.hasDuplicateRepositoryName ? args.repositoryFullName : args.repositoryName;
 }
 

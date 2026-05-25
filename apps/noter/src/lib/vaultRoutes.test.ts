@@ -16,16 +16,6 @@ describe("buildVaultCodespaceChatRoute", () => {
       }),
     ).toBe("/vault/octo/repo/codespace/feature%2Flogin-flow/chat");
   });
-
-  it("adds app-root identity to non-root codespace chat routes", () => {
-    expect(
-      buildVaultCodespaceChatRoute({
-        repositoryFullName: "octo/repo",
-        appRoot: "apps/noter",
-        branch: "main",
-      }),
-    ).toBe("/vault/octo/repo/codespace/main/chat?appRoot=apps%2Fnoter");
-  });
 });
 
 describe("buildVaultFileRoute", () => {

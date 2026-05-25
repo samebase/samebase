@@ -37,6 +37,7 @@ async function loadVaultContext(
 ): Promise<{
   infra: Doc<"vaultInfrastructure"> | null;
   vault: Doc<"vaults"> | null;
+  cloudflareWorkers: Doc<"vaultCloudflareWorkers">[];
   vaultUserId: Id<"users"> | null;
   convexConnection: {
     kind: "convex";
@@ -45,7 +46,7 @@ async function loadVaultContext(
     teamSlug?: string;
   } | null;
 }> {
-  const { infra, vault, vaultUserId, convexConnection } = await ctx.runQuery(
+  const { infra, vault, cloudflareWorkers, vaultUserId, convexConnection } = await ctx.runQuery(
     internal.infraReadQueries.getVaultReadContext,
     {
       vaultId,
@@ -55,9 +56,28 @@ async function loadVaultContext(
   return {
     infra,
     vault,
+    cloudflareWorkers,
     vaultUserId,
     convexConnection,
   };
+}
+
+function selectCloudflareWorkerForInfraRead(
+  workers: Doc<"vaultCloudflareWorkers">[],
+): Doc<"vaultCloudflareWorkers"> | null {
+  if (workers.length === 0) {
+    return null;
+  }
+  const rootWorker = workers.find((worker) => worker.appRoot === ".");
+  if (rootWorker) {
+    return rootWorker;
+  }
+  return [...workers].sort(
+    (left, right) =>
+      left.appRoot.localeCompare(right.appRoot) ||
+      left.workerName.localeCompare(right.workerName) ||
+      left.accountId.localeCompare(right.accountId),
+  )[0];
 }
 
 function resolveConvexToken(
@@ -220,11 +240,9 @@ export const getCloudflareWorkerStatus = internalAction({
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { vault, vaultUserId } = await loadVaultContext(ctx, args.vaultId);
+    const { vault, cloudflareWorkers, vaultUserId } = await loadVaultContext(ctx, args.vaultId);
     const cloudflare =
-      vault?.state === "connected" && vault.cloudflare.state === "connected"
-        ? vault.cloudflare
-        : null;
+      vault?.state === "connected" ? selectCloudflareWorkerForInfraRead(cloudflareWorkers) : null;
     if (!cloudflare || !vaultUserId) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
@@ -252,11 +270,9 @@ export const getCloudflareLogs = internalAction({
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { vault, vaultUserId } = await loadVaultContext(ctx, args.vaultId);
+    const { vault, cloudflareWorkers, vaultUserId } = await loadVaultContext(ctx, args.vaultId);
     const cloudflare =
-      vault?.state === "connected" && vault.cloudflare.state === "connected"
-        ? vault.cloudflare
-        : null;
+      vault?.state === "connected" ? selectCloudflareWorkerForInfraRead(cloudflareWorkers) : null;
     if (!cloudflare || !vaultUserId) {
       throw new Error(getVaultInfraError(args.vaultId));
     }

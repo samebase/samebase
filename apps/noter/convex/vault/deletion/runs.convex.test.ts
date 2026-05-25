@@ -36,7 +36,6 @@ async function createExistingRepositoryVaultWithConvex(args: {
       githubMode: "connect_existing_repository",
       runId,
       ghRepoId: "123",
-      appRoot: ".",
       owner: "ada",
       name: "manual-convex",
       visibility: "private",
@@ -50,7 +49,6 @@ async function createExistingRepositoryVaultWithConvex(args: {
         origin: args.origin,
         connectedAt: 14,
       },
-      cloudflare: { state: "not_configured" },
     });
     if (args.origin === "provisioned") {
       await ctx.db.insert("providerConnections", {
@@ -104,7 +102,6 @@ async function createLegacyNoterManagedVaultWithConvex(args: { withInfrastructur
       githubMode: "create_repository",
       runId,
       ghRepoId: "123",
-      appRoot: ".",
       owner: "ada",
       name: "managed-convex",
       visibility: "private",
@@ -117,7 +114,6 @@ async function createLegacyNoterManagedVaultWithConvex(args: { withInfrastructur
         deploymentName: "managed-convex-prod",
         connectedAt: 14,
       },
-      cloudflare: { state: "not_configured" },
     });
     await ctx.db.insert("providerConnections", {
       kind: "convex",
@@ -202,7 +198,6 @@ async function createExistingRepositoryVaultWithFailedCreatedConvexProject() {
       githubMode: "connect_existing_repository",
       runId: sourceRunId,
       ghRepoId: "123",
-      appRoot: ".",
       owner: "ada",
       name: "manual-convex",
       visibility: "private",
@@ -213,7 +208,6 @@ async function createExistingRepositoryVaultWithFailedCreatedConvexProject() {
         runId: convexRunId,
         failedAt: 40,
       },
-      cloudflare: { state: "not_configured" },
     });
     await ctx.db.insert("providerConnections", {
       kind: "convex",

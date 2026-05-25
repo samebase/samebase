@@ -9,6 +9,7 @@ import { toErrorMessage } from "../jsonUtils";
 import type { McpTokenHealth } from "../mcpTokenHealth";
 import { listCloudflareAccountsForToken } from "../cloudflareAccountDiscovery";
 import { validateAppResourceName } from "../../shared/appResourceNames";
+import { normalizeCloudflareAppRoot } from "../../shared/cloudflareAppRoot";
 import {
   createCloudflareWorker,
   deleteCloudflareResources,
@@ -142,6 +143,7 @@ async function startCloudflareWorkerConnectionOrFail(
     vaultId: Id<"vaults">;
     runId: Id<"appProvisioningRuns">;
     userId: Id<"users">;
+    appRoot: string;
     accountId: string;
     workerName: string;
     origin: VaultCloudflareOrigin;
@@ -164,6 +166,7 @@ async function isCloudflareWorkerConnectionRunActive(
     vaultId: Id<"vaults">;
     runId: Id<"appProvisioningRuns">;
     userId: Id<"users">;
+    appRoot: string;
   },
 ): Promise<boolean> {
   const result = await ctx.runQuery(
@@ -172,6 +175,7 @@ async function isCloudflareWorkerConnectionRunActive(
       vaultId: args.vaultId,
       runId: args.runId,
       userId: args.userId,
+      appRoot: args.appRoot,
     },
   );
   return result.active;
@@ -233,6 +237,7 @@ export const listWorkers = action({
 export const connectExistingWorker = action({
   args: {
     vaultId: id("vaults"),
+    appRoot: string(),
     accountId: string(),
     workerName: string(),
   },
@@ -247,9 +252,11 @@ export const connectExistingWorker = action({
     if (!workerName) {
       throw new Error("Cloudflare Worker is required.");
     }
+    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
     await ctx.runQuery(internal.vault.cloudflareMutations.requireCloudflareWorkerConnectionVault, {
       vaultId: args.vaultId,
       userId,
+      appRoot,
     });
     const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
       userId,
@@ -260,6 +267,7 @@ export const connectExistingWorker = action({
       vaultId: args.vaultId,
       runId,
       userId,
+      appRoot,
       accountId,
       workerName,
       origin: "selected_existing",
@@ -272,6 +280,7 @@ export const connectExistingWorker = action({
 export const createWorker = action({
   args: {
     vaultId: id("vaults"),
+    appRoot: string(),
     accountId: string(),
     workerName: string(),
   },
@@ -285,11 +294,13 @@ export const createWorker = action({
     if (!accountId) {
       throw new Error("Cloudflare account is required.");
     }
+    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
 
     const userId = await getUserId(ctx);
     await ctx.runQuery(internal.vault.cloudflareMutations.requireCloudflareWorkerConnectionVault, {
       vaultId: args.vaultId,
       userId,
+      appRoot,
     });
     const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
       userId,
@@ -300,6 +311,7 @@ export const createWorker = action({
       vaultId: args.vaultId,
       runId,
       userId,
+      appRoot,
       accountId,
       workerName: validation.value,
       origin: "provisioned",
@@ -314,6 +326,7 @@ export const ensureCloudflareWorkerConnection = internalAction({
     vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
     userId: id("users"),
+    appRoot: string(),
     accountId: string(),
     workerName: string(),
     origin: vVaultCloudflareOrigin,
@@ -349,6 +362,7 @@ export const ensureCloudflareWorkerConnection = internalAction({
             vaultId: args.vaultId,
             runId: args.runId,
             userId: args.userId,
+            appRoot: args.appRoot,
             accountId: account.accountId,
             workerName: worker.workerName,
             workerTag: worker.workerTag,
@@ -394,6 +408,7 @@ export const ensureCloudflareWorkerConnection = internalAction({
               vaultId: args.vaultId,
               runId: args.runId,
               userId: args.userId,
+              appRoot: args.appRoot,
               accountId: account.accountId,
               workerName: worker.workerName,
               workerTag: worker.workerTag,
@@ -411,6 +426,7 @@ export const ensureCloudflareWorkerConnection = internalAction({
               vaultId: args.vaultId,
               runId: args.runId,
               userId: args.userId,
+              appRoot: args.appRoot,
               accountId: account.accountId,
               workerName: worker.workerName,
             },

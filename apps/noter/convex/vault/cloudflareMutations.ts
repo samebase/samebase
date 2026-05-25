@@ -8,6 +8,7 @@ import {
   type QueryCtx,
 } from "../_generated/server";
 import type { AppProvisioningStep } from "../schema";
+import { normalizeCloudflareAppRoot } from "../../shared/cloudflareAppRoot";
 import { vVaultCloudflareOrigin } from "./model";
 import { isLiveConnectedVault } from "./state";
 
@@ -35,6 +36,65 @@ function isActiveCloudflareWorkerConnectionOwner(
   },
 ): boolean {
   return ownership?.state === "active" && ownership.runId === args.runId;
+}
+
+async function readCloudflareWorkerForAppRoot(
+  ctx: CloudflareWorkerConnectionReadCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    appRoot: string;
+  },
+): Promise<Doc<"vaultCloudflareWorkers"> | null> {
+  return await ctx.db
+    .query("vaultCloudflareWorkers")
+    .withIndex("by_vault_and_appRoot", (q) =>
+      q.eq("vaultId", args.vaultId).eq("appRoot", args.appRoot),
+    )
+    .first();
+}
+
+async function readCloudflareWorkerByProviderIdentity(
+  ctx: CloudflareWorkerConnectionReadCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    accountId: string;
+    workerName: string;
+  },
+): Promise<Doc<"vaultCloudflareWorkers"> | null> {
+  return await ctx.db
+    .query("vaultCloudflareWorkers")
+    .withIndex("by_vault_and_account_and_worker", (q) =>
+      q
+        .eq("vaultId", args.vaultId)
+        .eq("accountId", args.accountId)
+        .eq("workerName", args.workerName),
+    )
+    .first();
+}
+
+async function assertNoExistingCloudflareWorkerTarget(
+  ctx: CloudflareWorkerConnectionReadCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    appRoot: string;
+    accountId?: string;
+    workerName?: string;
+  },
+): Promise<void> {
+  const existingAppRootWorker = await readCloudflareWorkerForAppRoot(ctx, args);
+  if (existingAppRootWorker) {
+    throw new Error("Vault already has a Cloudflare Worker for this app root.");
+  }
+  if (args.accountId && args.workerName) {
+    const existingWorker = await readCloudflareWorkerByProviderIdentity(ctx, {
+      vaultId: args.vaultId,
+      accountId: args.accountId,
+      workerName: args.workerName,
+    });
+    if (existingWorker) {
+      throw new Error("Cloudflare Worker is already attached to this vault.");
+    }
+  }
 }
 
 async function appendCloudflareWorkerConnectionEvent(
@@ -104,6 +164,7 @@ export const requireAttachableVault = internalQuery({
   args: {
     vaultId: id("vaults"),
     userId: id("users"),
+    appRoot: string(),
   },
   returns: nullValue(),
   handler: async (ctx, args) => {
@@ -111,9 +172,11 @@ export const requireAttachableVault = internalQuery({
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
     }
-    if (vault.cloudflare.state !== "not_configured") {
-      throw new Error("Vault already has a Cloudflare Worker attached.");
-    }
+    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    await assertNoExistingCloudflareWorkerTarget(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
     await assertNoActiveCloudflareProvisioning(ctx, args.vaultId);
 
     return null;
@@ -124,6 +187,7 @@ export const requireCloudflareWorkerConnectionVault = internalQuery({
   args: {
     vaultId: id("vaults"),
     userId: id("users"),
+    appRoot: string(),
   },
   returns: nullValue(),
   handler: async (ctx, args) => {
@@ -131,9 +195,11 @@ export const requireCloudflareWorkerConnectionVault = internalQuery({
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
     }
-    if (vault.cloudflare.state !== "not_configured") {
-      throw new Error("Vault already has a Cloudflare Worker attached.");
-    }
+    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    await assertNoExistingCloudflareWorkerTarget(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
 
     return null;
   },
@@ -143,6 +209,7 @@ export const attachWorker = internalMutation({
   args: {
     vaultId: id("vaults"),
     userId: id("users"),
+    appRoot: string(),
     accountId: string(),
     workerName: string(),
     workerTag: string(),
@@ -155,24 +222,28 @@ export const attachWorker = internalMutation({
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
     }
-    if (vault.cloudflare.state !== "not_configured") {
-      throw new Error("Vault already has a Cloudflare Worker attached.");
-    }
+    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    await assertNoExistingCloudflareWorkerTarget(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+      accountId: args.accountId,
+      workerName: args.workerName,
+    });
     await assertNoActiveCloudflareProvisioning(ctx, args.vaultId);
 
     const now = Date.now();
-    await ctx.db.patch(args.vaultId, {
-      cloudflare: {
-        state: "connected",
-        accountId: args.accountId,
-        workerName: args.workerName,
-        workerTag: args.workerTag,
-        workersDevUrl: args.workersDevUrl,
-        origin: args.origin,
-        deployment: { state: "not_configured" },
-        connectedAt: now,
-        lastObservedAt: now,
-      },
+    await ctx.db.insert("vaultCloudflareWorkers", {
+      vaultId: args.vaultId,
+      userId: args.userId,
+      appRoot,
+      accountId: args.accountId,
+      workerName: args.workerName,
+      workerTag: args.workerTag,
+      workersDevUrl: args.workersDevUrl,
+      origin: args.origin,
+      deployment: { state: "not_configured" },
+      connectedAt: now,
+      lastObservedAt: now,
     });
 
     return null;
@@ -184,6 +255,7 @@ export const claimCloudflareWorkerConnection = internalMutation({
     vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
     userId: id("users"),
+    appRoot: string(),
     accountId: string(),
     workerName: string(),
     origin: vVaultCloudflareOrigin,
@@ -195,12 +267,20 @@ export const claimCloudflareWorkerConnection = internalMutation({
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
     }
-    if (vault.cloudflare.state !== "not_configured") {
+    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    try {
+      await assertNoExistingCloudflareWorkerTarget(ctx, {
+        vaultId: args.vaultId,
+        appRoot,
+        accountId: args.accountId,
+        workerName: args.workerName,
+      });
+    } catch (error) {
       await appendCloudflareWorkerConnectionEvent(ctx, {
         runId: args.runId,
         step: "claim_infra",
         level: "warn",
-        message: "Vault already has a Cloudflare Worker attached.",
+        message: error instanceof Error ? error.message : "Cloudflare Worker is already attached.",
         state: "canceled",
       });
       return { claimed: false };
@@ -254,7 +334,7 @@ export const claimCloudflareWorkerConnection = internalMutation({
       runId: args.runId,
       step: "claim_infra",
       level: "info",
-      message: "Started Cloudflare Worker connection.",
+      message: `Started Cloudflare Worker connection for ${appRoot}.`,
       state: "running",
     });
 
@@ -267,6 +347,7 @@ export const readActiveCloudflareWorkerConnection = internalQuery({
     vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
     userId: id("users"),
+    appRoot: string(),
   },
   returns: object({ active: boolean() }),
   handler: async (ctx, args) => {
@@ -275,11 +356,16 @@ export const readActiveCloudflareWorkerConnection = internalQuery({
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
     }
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    const [ownership, worker] = await Promise.all([
+      getVaultInfrastructureOwnership(ctx, args.vaultId),
+      readCloudflareWorkerForAppRoot(ctx, {
+        vaultId: args.vaultId,
+        appRoot,
+      }),
+    ]);
     return {
-      active:
-        vault.cloudflare.state === "not_configured" &&
-        isActiveCloudflareWorkerConnectionOwner(ownership, { runId: args.runId }),
+      active: !worker && isActiveCloudflareWorkerConnectionOwner(ownership, { runId: args.runId }),
     };
   },
 });
@@ -289,6 +375,7 @@ export const attachWorkerForRun = internalMutation({
     vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
     userId: id("users"),
+    appRoot: string(),
     accountId: string(),
     workerName: string(),
     workerTag: string(),
@@ -302,12 +389,20 @@ export const attachWorkerForRun = internalMutation({
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
     }
-    if (vault.cloudflare.state !== "not_configured") {
+    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    try {
+      await assertNoExistingCloudflareWorkerTarget(ctx, {
+        vaultId: args.vaultId,
+        appRoot,
+        accountId: args.accountId,
+        workerName: args.workerName,
+      });
+    } catch (error) {
       await appendCloudflareWorkerConnectionEvent(ctx, {
         runId: args.runId,
         step: "ensure_cloudflare",
         level: "warn",
-        message: "Vault already has a Cloudflare Worker attached.",
+        message: error instanceof Error ? error.message : "Cloudflare Worker is already attached.",
         state: "canceled",
       });
       return { attached: false };
@@ -322,24 +417,24 @@ export const attachWorkerForRun = internalMutation({
     }
 
     const now = Date.now();
-    await ctx.db.patch(args.vaultId, {
-      cloudflare: {
-        state: "connected",
-        accountId: args.accountId,
-        workerName: args.workerName,
-        workerTag: args.workerTag,
-        workersDevUrl: args.workersDevUrl,
-        origin: args.origin,
-        deployment: { state: "not_configured" },
-        connectedAt: now,
-        lastObservedAt: now,
-      },
+    await ctx.db.insert("vaultCloudflareWorkers", {
+      vaultId: args.vaultId,
+      userId: args.userId,
+      appRoot,
+      accountId: args.accountId,
+      workerName: args.workerName,
+      workerTag: args.workerTag,
+      workersDevUrl: args.workersDevUrl,
+      origin: args.origin,
+      deployment: { state: "not_configured" },
+      connectedAt: now,
+      lastObservedAt: now,
     });
     await appendCloudflareWorkerConnectionEvent(ctx, {
       runId: args.runId,
       step: "ensure_cloudflare",
       level: "info",
-      message: `Cloudflare Worker ready: ${args.workerName}.`,
+      message: `Cloudflare Worker ready for ${appRoot}: ${args.workerName}.`,
       state: "running",
     });
 
@@ -352,6 +447,7 @@ export const readCreatedWorkerRollbackSafety = internalQuery({
     vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
     userId: id("users"),
+    appRoot: string(),
     accountId: string(),
     workerName: string(),
   },
@@ -363,12 +459,14 @@ export const readCreatedWorkerRollbackSafety = internalQuery({
       return { shouldDelete: true };
     }
 
-    const cloudflare = vault.cloudflare;
+    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    const worker = await readCloudflareWorkerForAppRoot(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
     return {
       shouldDelete:
-        cloudflare.state !== "connected" ||
-        cloudflare.accountId !== args.accountId ||
-        cloudflare.workerName !== args.workerName,
+        !worker || worker.accountId !== args.accountId || worker.workerName !== args.workerName,
     };
   },
 });
@@ -378,6 +476,7 @@ export const finishCloudflareWorkerConnection = internalMutation({
     vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
     userId: id("users"),
+    appRoot: string(),
   },
   returns: nullValue(),
   handler: async (ctx, args) => {
@@ -394,7 +493,12 @@ export const finishCloudflareWorkerConnection = internalMutation({
       });
       return null;
     }
-    if (vault.cloudflare.state !== "connected") {
+    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    const worker = await readCloudflareWorkerForAppRoot(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
+    if (!worker) {
       throw new Error("Cloudflare Worker connection did not attach a Worker.");
     }
 

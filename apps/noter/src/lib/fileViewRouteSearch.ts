@@ -14,26 +14,9 @@ import {
   routeSearchValueParam,
 } from "@/lib/routeSearchParamMetadata";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
-import { bad, good, literal, pure } from "@samebase/sure";
-import { buildVaultAppRootSearchValue, normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
-
-const fileViewAppRootSearchValue = pure((value: unknown) => {
-  if (typeof value !== "string") {
-    return bad("not-string");
-  }
-
-  try {
-    return good(normalizeVaultAppRoot(value));
-  } catch {
-    return bad("invalid-app-root");
-  }
-});
+import { literal } from "@samebase/sure";
 
 const fileViewRouteSearchSchema = defineRouteSearchParams({
-  appRoot: routeSearchValueParam(fileViewAppRootSearchValue, {
-    permission: "admin",
-    suggestion: "route",
-  }),
   compare: routeSearchPresenceParam({
     permission: "admin",
     suggestion: "route",
@@ -84,13 +67,6 @@ export function buildFileViewRouteSearch(args?: {
     ...(typeof args?.diff === "boolean" ? { diff: args.diff ? true : null } : {}),
     ...(typeof args?.review === "boolean" ? { review: args.review ? true : null } : {}),
   };
-}
-
-export function buildFileViewAppRootSearch(
-  appRoot: string,
-): Pick<FileViewRouteSearchPatch, "appRoot"> {
-  const searchAppRoot = buildVaultAppRootSearchValue(appRoot);
-  return typeof searchAppRoot === "string" ? { appRoot: searchAppRoot } : { appRoot: null };
 }
 
 /**

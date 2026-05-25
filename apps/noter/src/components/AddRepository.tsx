@@ -7,7 +7,7 @@ import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
-import { useMemo, useState, type ReactElement } from "react";
+import { useState, type ReactElement } from "react";
 import { linkStyle } from "./styles";
 import type { FunctionReturnType } from "convex/server";
 import { isInIframe } from "@/authClient";
@@ -19,7 +19,6 @@ import {
 } from "@/lib/repositorySearch";
 import { resolveDisplayedRepositories } from "@/lib/addRepositoryPicker";
 import { queueExistingRepositoryAndNavigateToDashboard } from "@/lib/existingRepositoryConnectHandoff";
-import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 
 type Repository = FunctionReturnType<typeof api.github.listRepositories>[number];
 
@@ -30,19 +29,7 @@ type AddRepositoryRow = {
   searchMatch: RepositorySearchMatch;
 };
 
-type AddRepositoryAppRootValidation =
-  | {
-      state: "valid";
-      value: string;
-    }
-  | {
-      state: "invalid";
-      message: string;
-    };
-
 type AddRepositoryPageContentProps = {
-  appRoot: string;
-  appRootError: string | null;
   connectingRepositoryFullName: string | null;
   emptyRepositoryMessage: string | null;
   error: string | null;
@@ -57,7 +44,6 @@ type AddRepositoryPageContentProps = {
   showBackgroundError: boolean;
   onConnectGithub: () => void;
   onConnectRepository: (repositoryFullName: string) => void;
-  onAppRootChange: (value: string) => void;
   onRetryFullRepositories: () => void;
   onSearchQueryChange: (value: string) => void;
 };
@@ -83,17 +69,6 @@ function formatTimeAgo(timestamp: number) {
   }
 
   return `${days}d ago`;
-}
-
-function validateAddRepositoryAppRoot(value: string): AddRepositoryAppRootValidation {
-  try {
-    return { state: "valid", value: normalizeVaultAppRoot(value) };
-  } catch (error) {
-    return {
-      state: "invalid",
-      message: error instanceof Error ? error.message : "Invalid app root.",
-    };
-  }
 }
 
 function renderHighlightedText(target: string, matchedIndices: number[]): ReactElement {
@@ -132,8 +107,6 @@ export function AddRepository() {
   const navigate = useNavigate();
   const vaults = useQuery(api.vault.dashboard.getUserVaults);
   const [searchQuery, setSearchQuery] = useState("");
-  const [appRoot, setAppRoot] = useState(".");
-  const appRootValidation = useMemo(() => validateAddRepositoryAppRoot(appRoot), [appRoot]);
   const [retryingFullRepositories, setRetryingFullRepositories] = useState(false);
   const listRepositoriesPreview = useAction(api.github.listRepositoriesPreview);
   const listRepositories = useAction(api.github.listRepositories);
@@ -215,14 +188,10 @@ export function AddRepository() {
       : null);
 
   const connectedVaults = vaults || [];
-  const normalizedAppRoot = appRootValidation.state === "valid" ? appRootValidation.value : null;
 
   const filteredRepositories = repositories.flatMap((repo: Repository) => {
     const isConnected = connectedVaults.some(
-      (vault: (typeof connectedVaults)[number]) =>
-        normalizedAppRoot !== null &&
-        vault.repositoryFullName === repo.full_name &&
-        vault.appRoot === normalizedAppRoot,
+      (vault: (typeof connectedVaults)[number]) => vault.repositoryFullName === repo.full_name,
     );
     if (isConnected) {
       return [];
@@ -271,10 +240,6 @@ export function AddRepository() {
     if (connectingRepositoryFullName !== null) {
       return;
     }
-    if (appRootValidation.state === "invalid") {
-      setConnectError(appRootValidation.message);
-      return;
-    }
 
     void (async () => {
       setConnectError(null);
@@ -282,7 +247,6 @@ export function AddRepository() {
       try {
         await queueExistingRepositoryAndNavigateToDashboard({
           connectRepository,
-          appRoot: appRootValidation.value,
           repositoryFullName,
           search: location.search,
           navigateByHref: async (href) => {
@@ -304,8 +268,6 @@ export function AddRepository() {
   return (
     <AddRepositoryPageContent
       connectingRepositoryFullName={connectingRepositoryFullName}
-      appRoot={appRoot}
-      appRootError={appRootValidation.state === "invalid" ? appRootValidation.message : null}
       emptyRepositoryMessage={emptyRepositoryMessage}
       error={error}
       githubConnected={githubConnected}
@@ -319,7 +281,6 @@ export function AddRepository() {
       showBackgroundError={showBackgroundError}
       onConnectGithub={connectGithub}
       onConnectRepository={connectSelectedRepository}
-      onAppRootChange={setAppRoot}
       onRetryFullRepositories={retryFullRepositories}
       onSearchQueryChange={setSearchQuery}
     />
@@ -327,8 +288,6 @@ export function AddRepository() {
 }
 
 export function AddRepositoryPageContent({
-  appRoot,
-  appRootError,
   connectingRepositoryFullName,
   emptyRepositoryMessage,
   error,
@@ -343,7 +302,6 @@ export function AddRepositoryPageContent({
   showBackgroundError,
   onConnectGithub,
   onConnectRepository,
-  onAppRootChange,
   onRetryFullRepositories,
   onSearchQueryChange,
 }: AddRepositoryPageContentProps) {
@@ -388,16 +346,6 @@ export function AddRepositoryPageContent({
           className="max-w-md"
           disabled={!githubConnected}
         />
-        {githubConnected && (
-          <Input
-            aria-label="App root"
-            placeholder="App root"
-            value={appRoot}
-            onChange={(event) => onAppRootChange(event.target.value)}
-            className="mt-3 max-w-md"
-          />
-        )}
-        {appRootError ? <p className="mt-1 text-xs text-red-600">{appRootError}</p> : null}
         {githubConnected && (
           <>
             <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
@@ -510,7 +458,7 @@ export function AddRepositoryPageContent({
                         size="sm"
                         className="mt-2"
                         onClick={() => onConnectRepository(repo.full_name)}
-                        disabled={connectingRepositoryFullName !== null || appRootError !== null}
+                        disabled={connectingRepositoryFullName !== null}
                       >
                         {connectingRepositoryFullName === repo.full_name
                           ? "Connecting..."

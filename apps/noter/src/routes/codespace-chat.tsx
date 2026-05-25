@@ -4,27 +4,22 @@ import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePag
 import { CodespaceChatOnlyView } from "@/components/CodespaceChatOnlyView";
 import { CHAT_ENABLED, CODESPACES_ENABLED } from "../../shared/featureFlags";
 import { buildVaultFileRoute } from "@/lib/vaultRoutes";
-import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 
 function DisabledCodespaceChatRedirect() {
   const navigate = Route.useNavigate();
   const { owner, repo, branch } = Route.useParams();
-  const search = Route.useSearch();
 
   useEffect(() => {
     void navigate({
-      href: buildPathWithTanStackSearch({
-        pathname: buildVaultFileRoute({
-          owner,
-          repoName: repo,
-          branch,
-        }),
-        search,
+      href: buildVaultFileRoute({
+        owner,
+        repoName: repo,
+        branch,
       }),
       replace: true,
       state: true,
     });
-  }, [branch, navigate, owner, repo, search]);
+  }, [branch, navigate, owner, repo]);
 
   return null;
 }

@@ -118,7 +118,7 @@ type SourceSetupVault = Extract<
 >;
 type VaultDomain = Doc<"vaultDomains">;
 type VaultInfrastructureOwnership = Doc<"vaultInfrastructureOwnership">;
-type ConnectedCloudflareState = Extract<ConnectedVault["cloudflare"], { state: "connected" }>;
+type ConnectedCloudflareWorker = Doc<"vaultCloudflareWorkers">;
 const SOURCE_SETUP_ERROR_EVENT_SCAN_LIMIT = 20;
 
 function canRemoveConvexProvisionForVault(args: {
@@ -389,8 +389,8 @@ function readManualProviderFromRun(
 async function resolveProviderSetupSummary(
   ctx: Pick<QueryCtx, "db">,
   vault: ConnectedVault,
+  cloudflareWorkers: ConnectedCloudflareWorker[],
 ): Promise<ProviderSetupSummary> {
-  const cloudflare = vault.cloudflare;
   if (vault.convex.state === "failed") {
     return await readProviderRunSummary(ctx, {
       provider: "convex",
@@ -439,7 +439,7 @@ async function resolveProviderSetupSummary(
     });
     return runningCreateRun ?? { status: "not_applicable" };
   }
-  if (cloudflare.state === "not_configured") {
+  if (cloudflareWorkers.length === 0) {
     if (ownership?.state === "active" || ownership?.state === "failed") {
       return await readProviderRunSummary(ctx, {
         provider: "cloudflare",
@@ -477,6 +477,31 @@ function compareVaultDomainSortOrder(left: VaultDomain, right: VaultDomain): num
   );
 }
 
+function compareCloudflareWorkerSortOrder(
+  left: ConnectedCloudflareWorker,
+  right: ConnectedCloudflareWorker,
+): number {
+  const leftRootOrder = left.appRoot === "." ? 0 : 1;
+  const rightRootOrder = right.appRoot === "." ? 0 : 1;
+  return (
+    leftRootOrder - rightRootOrder ||
+    left.appRoot.localeCompare(right.appRoot) ||
+    left.workerName.localeCompare(right.workerName) ||
+    left.accountId.localeCompare(right.accountId)
+  );
+}
+
+async function readCloudflareWorkersForVault(
+  ctx: Pick<QueryCtx, "db">,
+  vaultId: Id<"vaults">,
+): Promise<ConnectedCloudflareWorker[]> {
+  const workers = await ctx.db
+    .query("vaultCloudflareWorkers")
+    .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+    .collect();
+  return workers.sort(compareCloudflareWorkerSortOrder);
+}
+
 const vaultBranchFiltersValidator = object({
   vaultId: id("vaults"),
   hiddenLabels: array(string()),
@@ -491,7 +516,7 @@ type VaultBranchFilters = Infer<typeof vaultBranchFiltersValidator>;
  * checking presence and encode every segment before handing it to the browser.
  */
 function buildCloudflareWorkerDashboardUrl(
-  cloudflare: Pick<ConnectedCloudflareState, "accountId" | "workerName"> | null | undefined,
+  cloudflare: Pick<ConnectedCloudflareWorker, "accountId" | "workerName"> | null | undefined,
 ): string | undefined {
   if (!cloudflare) {
     return undefined;
@@ -645,7 +670,6 @@ const getUserVaultsResult = array(
     _creationTime: number(),
     ghRepoOwner: string(),
     ghRepoName: string(),
-    appRoot: string(),
     repositoryFullName: string(),
     commitSHA: optional(string()),
     fileCount: number(),
@@ -663,6 +687,14 @@ const getUserVaultsResult = array(
     hasCloudflareProvision: boolean(),
     canRemoveConvexProvision: boolean(),
     canRemoveCloudflareProvision: boolean(),
+    cloudflareWorkers: array(
+      object({
+        appRoot: string(),
+        workerName: string(),
+        workersDevUrl: optional(string()),
+        projectDashboardUrl: optional(string()),
+      }),
+    ),
     remoteBranches: array(
       object({
         name: string(),
@@ -683,9 +715,6 @@ const getUserVaultsResult = array(
         convexPreviewDeploymentDashboardUrl: optional(string()),
       }),
     ),
-    cloudflareWorkersDevUrl: optional(string()),
-    cloudflareWorkerName: optional(string()),
-    cloudflareProjectDashboardUrl: optional(string()),
     convexTeamSlug: optional(string()),
     convexProjectSlug: optional(string()),
     convexProjectSettingsDashboardUrl: optional(string()),
@@ -721,7 +750,6 @@ export const getUserVaults = query({
         _creationTime: vault._creationTime,
         ghRepoOwner: vault.owner,
         ghRepoName: vault.name,
-        appRoot: vault.appRoot,
         repositoryFullName: `${vault.owner}/${vault.name}`,
         commitSHA: undefined,
         fileCount: 0,
@@ -745,10 +773,8 @@ export const getUserVaults = query({
         hasCloudflareProvision: false,
         canRemoveConvexProvision: false,
         canRemoveCloudflareProvision: false,
+        cloudflareWorkers: [],
         remoteBranches: [],
-        cloudflareWorkersDevUrl: undefined,
-        cloudflareWorkerName: undefined,
-        cloudflareProjectDashboardUrl: undefined,
         convexTeamSlug: undefined,
         convexProjectSlug: undefined,
         convexProjectSettingsDashboardUrl: undefined,
@@ -760,13 +786,23 @@ export const getUserVaults = query({
     const vaultResults: UserVaultResult[] = await Promise.all(
       connectedVaults.map(async (vault) => {
         const deletion = await resolveVaultDeletionSummary(ctx, vault);
+        const cloudflareWorkers = await readCloudflareWorkersForVault(ctx, vault._id);
+        const hasCloudflareProvision = cloudflareWorkers.length > 0;
+        const canRemoveCloudflareProvision = cloudflareWorkers.some(
+          (worker) => worker.origin === "provisioned",
+        );
+        const cloudflareWorkerSummaries = cloudflareWorkers.map((worker) => ({
+          appRoot: worker.appRoot,
+          workerName: worker.workerName,
+          workersDevUrl: worker.workersDevUrl,
+          projectDashboardUrl: buildCloudflareWorkerDashboardUrl(worker),
+        }));
         if (deletion.state !== "not_deleting") {
           return {
             _id: vault._id,
             _creationTime: vault._creationTime,
             ghRepoOwner: vault.owner,
             ghRepoName: vault.name,
-            appRoot: vault.appRoot,
             repositoryFullName: `${vault.owner}/${vault.name}`,
             commitSHA: undefined,
             fileCount: 0,
@@ -784,14 +820,11 @@ export const getUserVaults = query({
             isNoterManaged: isNoterManagedVault(vault),
             hasConnectedGitHubRepository: true,
             hasConvexProvision: vault.convex.state === "connected",
-            hasCloudflareProvision: vault.cloudflare.state === "connected",
+            hasCloudflareProvision,
             canRemoveConvexProvision: false,
-            canRemoveCloudflareProvision:
-              vault.cloudflare.state === "connected" && vault.cloudflare.origin === "provisioned",
+            canRemoveCloudflareProvision,
+            cloudflareWorkers: cloudflareWorkerSummaries,
             remoteBranches: [],
-            cloudflareWorkersDevUrl: undefined,
-            cloudflareWorkerName: undefined,
-            cloudflareProjectDashboardUrl: undefined,
             convexTeamSlug: undefined,
             convexProjectSlug: undefined,
             convexProjectSettingsDashboardUrl: undefined,
@@ -839,24 +872,19 @@ export const getUserVaults = query({
           vault,
         });
         const providerSetup = hasUsableDefaultBranchTree
-          ? await resolveProviderSetupSummary(ctx, vault)
+          ? await resolveProviderSetupSummary(ctx, vault, cloudflareWorkers)
           : { status: "not_applicable" as const };
         const hasConvexProvision = vault.convex.state === "connected";
-        const cloudflare = vault.cloudflare;
-        const hasCloudflareProvision = cloudflare.state === "connected";
         const canRemoveConvexProvision =
           hasCreatedConvexProject ||
           canRemoveConvexProvisionForVault({
             vault,
             infrastructure,
           });
-        const canRemoveCloudflareProvision =
-          cloudflare.state === "connected" && cloudflare.origin === "provisioned";
         const convexProjectSlug =
           vault.convex.state === "connected" ? vault.convex.projectSlug : undefined;
         const convexDeploymentName =
           vault.convex.state === "connected" ? vault.convex.deploymentName : undefined;
-        const connectedCloudflare = cloudflare.state === "connected" ? cloudflare : null;
         const convexTeamSlug = infrastructure?.convexTeamSlug;
 
         return {
@@ -864,7 +892,6 @@ export const getUserVaults = query({
           _creationTime: vault._creationTime,
           ghRepoOwner: vault.owner,
           ghRepoName: vault.name,
-          appRoot: vault.appRoot,
           repositoryFullName,
           commitSHA: defaultBranchTree?.commitSHA,
           fileCount,
@@ -885,6 +912,7 @@ export const getUserVaults = query({
           hasCloudflareProvision,
           canRemoveConvexProvision,
           canRemoveCloudflareProvision,
+          cloudflareWorkers: cloudflareWorkerSummaries,
           remoteBranches: remoteBranches.sort(compareRemoteBranchSortOrder).map((branch) => ({
             name: branch.name,
             headCommitSha: branch.headCommitSha,
@@ -919,9 +947,6 @@ export const getUserVaults = query({
                   })
                 : undefined,
           })),
-          cloudflareWorkersDevUrl: connectedCloudflare?.workersDevUrl,
-          cloudflareWorkerName: connectedCloudflare?.workerName,
-          cloudflareProjectDashboardUrl: buildCloudflareWorkerDashboardUrl(connectedCloudflare),
           convexTeamSlug,
           convexProjectSlug,
           convexProjectSettingsDashboardUrl: buildConvexProjectSettingsDashboardUrl({
@@ -1001,9 +1026,10 @@ export const getVaultInfrastructure = query({
       .query("vaultDomains")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .collect();
+    const cloudflareWorkers = await readCloudflareWorkersForVault(ctx, args.vaultId);
 
     return {
-      providerSetup: await resolveProviderSetupSummary(ctx, vault),
+      providerSetup: await resolveProviderSetupSummary(ctx, vault, cloudflareWorkers),
       infrastructure: infrastructure
         ? {
             convexProjectId: infrastructure.convexProjectId,

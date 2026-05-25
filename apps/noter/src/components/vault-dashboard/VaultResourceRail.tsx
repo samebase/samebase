@@ -37,6 +37,7 @@ type VaultResourceRailRunningRow<TProvider extends VaultResourceRailProvider> = 
 };
 
 type VaultResourceRailReadyRow<TProvider extends VaultResourceRailProvider> = {
+  actions?: VaultResourceRailActionList;
   href?: string;
   provider: TProvider;
   scope?: string;
@@ -131,8 +132,9 @@ function getRowActions(row: VaultResourceRailRowState): VaultResourceRailActionL
     case "action_required":
     case "failed":
       return row.actions;
-    case "pending":
     case "ready":
+      return row.actions;
+    case "pending":
     case "running":
       return undefined;
   }
@@ -306,6 +308,33 @@ function VaultResourceRailItem({ row }: { row: VaultResourceRailRowState }) {
       {actions ? <VaultResourceRailActions actions={actions} provider={row.provider} /> : null}
     </div>
   );
+
+  if (row.status === "ready" && row.href && actions) {
+    return (
+      <div data-provider={row.provider} className={RESOURCE_ROW_CLASS_NAME} title={providerLabel}>
+        <span className={RESOURCE_LOGO_SLOT_CLASS_NAME}>
+          <ProviderLogo />
+        </span>
+        <div className={RESOURCE_CONTENT_CLASS_NAME}>
+          <a
+            href={row.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={RESOURCE_LINK_VALUE_CLASS_NAME}
+            title={`Open ${providerLabel}`}
+            aria-label={`Open ${providerLabel}: ${displayValue ?? row.value}`}
+          >
+            <VaultResourceRailValue
+              className={RESOURCE_LINK_VALUE_CLASS_NAME}
+              scope={scope}
+              value={row.value}
+            />
+          </a>
+          <VaultResourceRailActions actions={actions} provider={row.provider} />
+        </div>
+      </div>
+    );
+  }
 
   if (row.status === "ready" && row.href) {
     return (

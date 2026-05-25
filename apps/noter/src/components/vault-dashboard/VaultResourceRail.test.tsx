@@ -153,4 +153,43 @@ describe("VaultResourceRail", () => {
     expect(markup).toContain('aria-label="Add Cloudflare"');
     expect(markup).not.toContain("text-blue-600");
   });
+
+  it("renders ready provider add actions next to the resource link", () => {
+    const state = {
+      rows: [
+        {
+          provider: "github",
+          status: "ready",
+          value: "nicu-chiciuc/weight_tsx",
+          href: "https://github.com/nicu-chiciuc/weight_tsx",
+        },
+        {
+          provider: "convex",
+          status: "ready",
+          value: "weight-tsx",
+          href: "https://dashboard.convex.dev/t/nicu/weight-tsx/settings",
+        },
+        {
+          provider: "cloudflare",
+          status: "ready",
+          scope: "nicuchiciuc",
+          value: "weight-tsx",
+          href: "https://dash.cloudflare.com/?to=/account/workers/services/view/weight-tsx/production/deployments",
+          actions: [
+            {
+              kind: "add",
+              label: "?add-cloudflare",
+              href: "/home?add-cloudflare#weight_tsx",
+            },
+          ],
+        },
+      ],
+    } satisfies VaultResourceRailState;
+
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+
+    expect(markup).toContain("Open Cloudflare: nicuchiciuc/weight-tsx");
+    expect(markup).toContain('href="/home?add-cloudflare#weight_tsx"');
+    expect(markup).toContain('aria-label="Add Cloudflare"');
+  });
 });

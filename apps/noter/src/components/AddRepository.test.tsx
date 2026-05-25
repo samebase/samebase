@@ -46,8 +46,6 @@ function buildRepositoryRow(repository: AddRepositoryRepository, searchQuery: st
 
 function renderAddRepositoryContent(overrides: Partial<AddRepositoryPageContentProps>) {
   const props: AddRepositoryPageContentProps = {
-    appRoot: ".",
-    appRootError: null,
     connectingRepositoryFullName: null,
     emptyRepositoryMessage: null,
     error: null,
@@ -62,7 +60,6 @@ function renderAddRepositoryContent(overrides: Partial<AddRepositoryPageContentP
     showBackgroundError: false,
     onConnectGithub: noop,
     onConnectRepository: noop,
-    onAppRootChange: noop,
     onRetryFullRepositories: noop,
     onSearchQueryChange: noop,
     ...overrides,
@@ -130,20 +127,6 @@ describe("AddRepositoryPageContent", () => {
     });
 
     expect(markup).toContain("Connecting...");
-    expect(markup).toContain("disabled");
-  });
-
-  it("shows app-root validation and disables repository connect", () => {
-    const repository = buildRepository(1, "noter-md/noter");
-
-    const markup = renderAddRepositoryContent({
-      appRoot: "",
-      appRootError: "App root is required.",
-      repositoryRows: [buildRepositoryRow(repository, "")],
-      repositoryTotalCount: 1,
-    });
-
-    expect(markup).toContain("App root is required.");
     expect(markup).toContain("disabled");
   });
 

@@ -122,7 +122,6 @@ const refreshRepositoryTreeForUserInput = union(
     userId: id("users"),
     owner: string(),
     repo: string(),
-    appRoot: string(),
     includeAheadBehind: boolean(),
     includePullRequestLinks: boolean(),
     includeCloudflarePreviewLinks: boolean(),
@@ -134,7 +133,6 @@ const refreshRepositoryTreeForUserInput = union(
     userId: id("users"),
     owner: string(),
     repo: string(),
-    appRoot: string(),
     branch: string(),
     includeAheadBehind: boolean(),
     includePullRequestLinks: boolean(),
@@ -1883,7 +1881,6 @@ function getRepositoryMediaErrorStatus(error: unknown): number | null {
 export const getRepositoryFileContent = action({
   args: {
     repositoryFullName: string(),
-    appRoot: string(),
     filePath: string(),
     branch: optional(string()),
   },
@@ -1902,7 +1899,6 @@ export const getRepositoryFileContent = action({
 
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
-      appRoot: args.appRoot,
       userId,
     });
     if (!vault) {
@@ -1979,7 +1975,6 @@ export const getRepositoryFileContent = action({
 export const getRepositoryMediaAsset = action({
   args: {
     repositoryFullName: string(),
-    appRoot: string(),
     filePath: string(),
     branch: optional(string()),
     skipStaging: optional(boolean()),
@@ -1995,7 +1990,6 @@ export const getRepositoryMediaAsset = action({
     const userId = await getUserId(ctx);
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
-      appRoot: args.appRoot,
       userId,
       branch: requestedBranch,
     });
@@ -2187,7 +2181,6 @@ async function refreshRepositoryTreeForUserHelper(
   const readVault = async (branch: string | undefined) =>
     ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName,
-      appRoot: args.appRoot,
       userId: args.userId,
       branch,
     });
@@ -2263,7 +2256,6 @@ async function refreshRepositoryTreeForUserHelper(
         userId: args.userId,
         owner: args.owner,
         repo: args.repo,
-        appRoot: args.appRoot,
         includeAheadBehind: metadataSyncPlan.includeAheadBehind,
         includePullRequestLinks: metadataSyncPlan.includePullRequestLinks,
         includeCloudflarePreviewLinks: metadataSyncPlan.includeCloudflarePreviewLinks,
@@ -2305,7 +2297,6 @@ async function refreshRepositoryTreeForUserHelper(
         userId: args.userId,
         owner: args.owner,
         repo: args.repo,
-        appRoot: args.appRoot,
         branch: vault.resolvedBranch,
       });
     }
@@ -2395,7 +2386,6 @@ export const refreshRepositoryTree = action({
       userId,
       owner: vault.owner,
       repo: vault.name,
-      appRoot: vault.appRoot,
       branch: args.branch,
       includeAheadBehind: true,
       includePullRequestLinks: true,
@@ -2434,7 +2424,6 @@ export const syncRepositoryMetadata = internalAction({
     userId: id("users"),
     owner: string(),
     repo: string(),
-    appRoot: string(),
     includeAheadBehind: boolean(),
     includePullRequestLinks: boolean(),
     includeCloudflarePreviewLinks: boolean(),
@@ -2461,7 +2450,6 @@ export const syncRepositoryMetadata = internalAction({
 
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: `${args.owner}/${args.repo}`,
-      appRoot: args.appRoot,
       userId: args.userId,
     });
 
@@ -2541,7 +2529,6 @@ export const refreshBranchTree = internalAction({
     userId: id("users"),
     owner: string(),
     repo: string(),
-    appRoot: string(),
     branch: string(),
   },
   returns: nullValidator(),
@@ -2564,7 +2551,6 @@ export const refreshBranchTree = internalAction({
     const targetBranch = normalizeRequiredRepositoryBranch(args.branch);
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: `${args.owner}/${args.repo}`,
-      appRoot: args.appRoot,
       userId: args.userId,
       branch: targetBranch,
     });
@@ -2629,7 +2615,6 @@ export const updateRepositoryTree = internalAction({
     userId: id("users"),
     owner: string(),
     repo: string(),
-    appRoot: string(),
     target: updateRepositoryTreeTarget,
     includeAheadBehind: boolean(),
     includePullRequestLinks: boolean(),
@@ -2661,7 +2646,6 @@ export const updateRepositoryTree = internalAction({
         userId: args.userId,
         owner: args.owner,
         repo: args.repo,
-        appRoot: args.appRoot,
         includeAheadBehind: metadataSyncPlan.includeAheadBehind,
         includePullRequestLinks: metadataSyncPlan.includePullRequestLinks,
         includeCloudflarePreviewLinks: metadataSyncPlan.includeCloudflarePreviewLinks,
@@ -2674,7 +2658,6 @@ export const updateRepositoryTree = internalAction({
     if (!branchToRefresh) {
       const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
         repositoryFullName: `${args.owner}/${args.repo}`,
-        appRoot: args.appRoot,
         userId: args.userId,
       });
       if (!vault) {
@@ -2686,7 +2669,6 @@ export const updateRepositoryTree = internalAction({
       userId: args.userId,
       owner: args.owner,
       repo: args.repo,
-      appRoot: args.appRoot,
       branch: branchToRefresh,
     });
     return null;

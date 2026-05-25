@@ -16,7 +16,6 @@ type StorageId = Id<"_storage">;
 type GenerateUploadUrl = (args: { vaultId: VaultId }) => Promise<string>;
 type StageUploadedMedia = (args: {
   repositoryFullName: string;
-  appRoot: string;
   filePath: string;
   storageId: StorageId;
   branch: string;
@@ -34,7 +33,6 @@ export function useFileViewMediaUpload({
   generateUploadUrl,
   navigateByHref,
   repositoryFullName,
-  appRoot,
   selectedFile,
   stageUploadedMedia,
   vaultId,
@@ -45,7 +43,6 @@ export function useFileViewMediaUpload({
   generateUploadUrl: GenerateUploadUrl;
   navigateByHref: (href: string, options?: { replace?: boolean }) => void;
   repositoryFullName: string;
-  appRoot: string;
   selectedFile: string;
   stageUploadedMedia: StageUploadedMedia;
   vaultId: VaultId;
@@ -129,7 +126,6 @@ export function useFileViewMediaUpload({
         stageUploadedMedia: async (storageId) => {
           await stageUploadedMedia({
             repositoryFullName,
-            appRoot,
             filePath: targetPath,
             // Convex returns upload ids as opaque strings over HTTP even though
             // the generated client types brand storage ids locally.
@@ -177,7 +173,6 @@ export function useFileViewMediaUpload({
       navigateByHref,
       pendingMediaUpload,
       repositoryFullName,
-      appRoot,
       stageUploadedMedia,
       vaultId,
     ],

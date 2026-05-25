@@ -186,15 +186,13 @@ export const getCommitStatus = action({
   args: {
     owner: string(),
     repo: string(),
-    appRoot: string(),
     ref: string(), // commit SHA or branch name
   },
   returns: commitStatusResultValidator,
-  handler: async (ctx, { owner, repo, appRoot, ref }): Promise<CommitStatusResult> => {
+  handler: async (ctx, { owner, repo, ref }): Promise<CommitStatusResult> => {
     const userId = await getUserId(ctx);
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: `${owner}/${repo}`,
-      appRoot,
       userId,
     });
     if (!vault) {

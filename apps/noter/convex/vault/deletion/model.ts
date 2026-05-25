@@ -66,14 +66,12 @@ const skipNotRequested = object({
 
 const githubRepositoryCoordinates = {
   ghRepoId: string(),
-  appRoot: string(),
   owner: string(),
   name: string(),
   repositoryFullName: string(),
 } as const;
 
 const repositorySetupCoordinates = {
-  appRoot: string(),
   owner: string(),
   name: string(),
   repositoryFullName: string(),
@@ -128,6 +126,16 @@ const providerCleanupPlan = {
       accountId: string(),
       workerName: string(),
       workerTag: string(),
+    }),
+    object({
+      action: literal("delete_workers"),
+      workers: array(
+        object({
+          accountId: string(),
+          workerName: string(),
+          workerTag: string(),
+        }),
+      ),
     }),
   ),
 } as const;

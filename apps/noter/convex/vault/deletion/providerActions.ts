@@ -164,7 +164,7 @@ export const deleteCloudflare = internalAction({
       level: "info",
       message: providerStepRetryMessage.delete_cloudflare,
     });
-    if (plan.cloudflare.action !== "delete_worker") {
+    if (plan.cloudflare.action === "skip") {
       return null;
     }
 
@@ -176,16 +176,20 @@ export const deleteCloudflare = internalAction({
       throw new Error("Cloudflare connection is required to remove resources.");
     }
 
-    try {
-      await deleteCloudflareResources({
-        accountId: plan.cloudflare.accountId,
-        workerName: plan.cloudflare.workerName,
-        workerTag: plan.cloudflare.workerTag,
-        cloudflareToken: cloudflareConnection.auth.credential,
-      });
-    } catch (error) {
-      if (!isCloudflareWorkerNotFoundError(error)) {
-        throw error;
+    const workers =
+      plan.cloudflare.action === "delete_worker" ? [plan.cloudflare] : plan.cloudflare.workers;
+    for (const worker of workers) {
+      try {
+        await deleteCloudflareResources({
+          accountId: worker.accountId,
+          workerName: worker.workerName,
+          workerTag: worker.workerTag,
+          cloudflareToken: cloudflareConnection.auth.credential,
+        });
+      } catch (error) {
+        if (!isCloudflareWorkerNotFoundError(error)) {
+          throw error;
+        }
       }
     }
 

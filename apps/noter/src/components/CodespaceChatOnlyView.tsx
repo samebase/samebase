@@ -8,9 +8,7 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { useCacheQuery as useVaultQuery } from "@/lib/convexQueryCache";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
-import { buildVaultFileRoute, parseVaultPathContext } from "@/lib/vaultRoutes";
-import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
-import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
+import { parseVaultPathContext } from "@/lib/vaultRoutes";
 
 const CODESPACE_STATES_REQUIRING_ENSURE = new Set(["stopped", "failed", "deleted"]);
 
@@ -19,24 +17,11 @@ function formatCodespaceState(state: string): string {
 }
 
 export function CodespaceChatOnlyView() {
-  const location = useLocation({
-    select: (currentLocation) => ({
-      pathname: currentLocation.pathname,
-      search: currentLocation.search,
-    }),
+  const pathname = useLocation({
+    select: (location) => location.pathname,
   });
-  const { owner, repoName, branch } = useMemo(
-    () => parseVaultPathContext(location.pathname),
-    [location.pathname],
-  );
+  const { owner, repoName, branch } = useMemo(() => parseVaultPathContext(pathname), [pathname]);
   const targetBranch = branch;
-  const appRoot = useMemo(
-    () =>
-      typeof location.search.appRoot === "string"
-        ? normalizeVaultAppRoot(location.search.appRoot)
-        : ".",
-    [location.search.appRoot],
-  );
   const repositoryFullName = useMemo(() => {
     if (!owner || !repoName) {
       return null;
@@ -49,7 +34,6 @@ export function CodespaceChatOnlyView() {
     repositoryFullName
       ? {
           repositoryFullName,
-          appRoot,
           branch: targetBranch,
         }
       : "skip",
@@ -125,18 +109,8 @@ export function CodespaceChatOnlyView() {
 
   const resolvedBranch = targetBranch ?? vault?.resolvedBranch;
   const fileViewPath = resolvedBranch
-    ? buildPathWithTanStackSearch({
-        pathname: buildVaultFileRoute({
-          owner,
-          repoName,
-          branch: resolvedBranch,
-        }),
-        search: location.search,
-      })
-    : buildPathWithTanStackSearch({
-        pathname: `/vault/${owner}/${repoName}`,
-        search: location.search,
-      });
+    ? `/vault/${owner}/${repoName}/${encodeURIComponent(resolvedBranch)}`
+    : `/vault/${owner}/${repoName}`;
 
   if (vault === undefined) {
     return null;

@@ -371,7 +371,6 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
                 <div className="flex flex-wrap items-center gap-2">
                   <VaultSyncStatusContent
                     repositoryFullName={FIXTURE_REPOSITORY_FULL_NAME}
-                    appRoot="."
                     branch={FIXTURE_BRANCH}
                     owner={FIXTURE_OWNER}
                     repoName={FIXTURE_REPOSITORY_NAME}

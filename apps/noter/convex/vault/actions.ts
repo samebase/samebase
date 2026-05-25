@@ -8,14 +8,13 @@ import { Octokit } from "@octokit/rest";
 import { RequestError } from "@octokit/request-error";
 import { getUserId } from "../common";
 import { toErrorMessage } from "../jsonUtils";
-import { normalizeVaultAppRoot, parseRepositoryFullName } from "./model";
+import { parseRepositoryFullName } from "./model";
 import { isLiveConnectedVault, isNoterManagedVault } from "./state";
 import { toSafeRepoName } from "../../shared/repoName";
 import { requestConvexManagementApi } from "../convexManagementApi/client";
 import {
   resolveCloudflareProvisioningConnection,
   resolveConvexProvisioningConnection,
-  buildCloudflareBuildConfigForAppRoot,
 } from "../infraProvisioning";
 import {
   isCloudflareMcpInvalidAccessTokenError,
@@ -272,7 +271,6 @@ async function startCreateAppProvisioningOrFail(
     userId: Id<"users">;
     repositoryName: string;
     repositoryOwner: string;
-    appRoot: string;
     description: string | null;
     private: boolean;
   },
@@ -298,7 +296,6 @@ async function startConnectExistingRepositoryProvisioningOrFail(
     userId: Id<"users">;
     repositoryName: string;
     repositoryOwner: string;
-    appRoot: string;
   },
 ): Promise<void> {
   try {
@@ -623,7 +620,6 @@ export const listRepositoryOwners = action({
 export const connectRepository = action({
   args: {
     repositoryFullName: v.string(),
-    appRoot: string(),
   },
   returns: v.object({
     vaultId: v.id("vaults"),
@@ -638,7 +634,6 @@ export const connectRepository = action({
   }> => {
     const userId = await getUserId(ctx);
     const { owner, name } = parseRepositoryFullName(args.repositoryFullName);
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
     const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
       userId,
       kind: "github",
@@ -653,7 +648,6 @@ export const connectRepository = action({
         userId,
         ghRepoOwner: owner,
         ghRepoName: name,
-        appRoot,
       },
     );
     await startConnectExistingRepositoryProvisioningOrFail(ctx, {
@@ -662,7 +656,6 @@ export const connectRepository = action({
       userId,
       repositoryOwner: owner,
       repositoryName: name,
-      appRoot,
     });
 
     return { vaultId, runId };
@@ -673,7 +666,6 @@ export const createRepository = action({
   args: {
     name: v.string(),
     owner: string(),
-    appRoot: string(),
     convexProjectName: string(),
     cloudflareWorkerName: string(),
     description: optional(v.string()),
@@ -688,7 +680,6 @@ export const createRepository = action({
     args,
   ): Promise<{ vaultId: Id<"vaults">; runId: Id<"appProvisioningRuns"> }> => {
     const userId = await getUserId(ctx);
-    const appRoot = normalizeVaultAppRoot(args.appRoot);
     const repoName = toSafeRepoName(args.name);
     if (!repoName) {
       throw new Error("Repository name is required.");
@@ -740,11 +731,9 @@ export const createRepository = action({
         ghRepoOwner,
         ghRepoName: repoName,
         visibility,
-        appRoot,
         convexProjectName: convexNameValidation.value,
         cloudflareAccountId,
         cloudflareWorkerName: cloudflareNameValidation.value,
-        cloudflareBuild: buildCloudflareBuildConfigForAppRoot({ appRoot }),
       },
     );
     await startCreateAppProvisioningOrFail(ctx, {
@@ -753,7 +742,6 @@ export const createRepository = action({
       userId,
       repositoryName: repoName,
       repositoryOwner: ghRepoOwner,
-      appRoot,
       description: args.description ?? null,
       private: args.private ?? true,
     });

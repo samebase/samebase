@@ -87,7 +87,6 @@ import {
   shouldShowCompareBackToEditor,
 } from "@/lib/fileViewReview";
 import {
-  buildFileViewAppRootSearch,
   buildFileViewSearchHref,
   buildFileViewRouteSearch,
   mergeFileViewRouteSearch,
@@ -137,14 +136,12 @@ function FileViewWrapper() {
   const routeBranch = branchParam;
   const selectedFile = filePathParam ?? "";
   const repositoryFullName = owner && repoName ? `${owner}/${repoName}` : null;
-  const appRoot = routeSearch.appRoot ?? ".";
 
   // Get vault for this repository
   // TODO: Keep vault existence checks on live query until useCacheQuery exposes
   // freshness metadata (cached null can trigger a false redirect to dashboard).
   const vault = useLiveQuery(api.vault.records.getVaultByRepository, {
     repositoryFullName: repositoryFullName ?? "skip",
-    appRoot,
     branch: routeBranch,
   });
   const githubConnection = useLiveQuery(api.users.getGithubConnectionStatus);
@@ -293,7 +290,6 @@ function FileViewWrapper() {
       try {
         await queueExistingRepositoryAndNavigateToDashboard({
           connectRepository,
-          appRoot,
           navigateByHref,
           repositoryFullName,
           replace: true,
@@ -311,7 +307,6 @@ function FileViewWrapper() {
     })();
   }, [
     connectRepository,
-    appRoot,
     isConnectingRepository,
     location.search,
     navigateByHref,
@@ -581,7 +576,6 @@ function FileViewWrapper() {
     ) {
       void firstDocAction({
         repositoryFullName: `${owner}/${repoName}`,
-        appRoot: vault.appRoot,
         originalFilePath: selectedFile,
         branch,
       }).catch((error: unknown) => {
@@ -1044,7 +1038,6 @@ function FileViewInner({
 
     void loadRepositoryFileContent({
       repositoryFullName,
-      appRoot: vault.appRoot,
       filePath: SIMPLE_VIEW_CONFIG_PATH,
       branch,
     })
@@ -1073,7 +1066,6 @@ function FileViewInner({
     didAttemptRepositoryNoterLoad,
     loadRepositoryFileContent,
     repositoryFullName,
-    vault.appRoot,
     stagedNoterFile,
   ]);
 
@@ -1151,7 +1143,6 @@ function FileViewInner({
         filePath: path.length > 0 ? path : undefined,
       });
       const nextFileViewSearch = {
-        ...buildFileViewAppRootSearch(vault.appRoot),
         ...buildFileViewRouteSearch({
           review: preserveReviewOnMount,
           diff: includeDiff,
@@ -1173,7 +1164,6 @@ function FileViewInner({
       routeSearch.compare,
       routeSearch.diff,
       routeSearch.review,
-      vault.appRoot,
     ],
   );
   const {
@@ -1195,7 +1185,6 @@ function FileViewInner({
     generateUploadUrl,
     navigateByHref,
     repositoryFullName,
-    appRoot: vault.appRoot,
     selectedFile,
     stageUploadedMedia,
     vaultId: vault._id,
@@ -1254,7 +1243,6 @@ function FileViewInner({
 
       return getRebaseConflictPreview({
         repositoryFullName,
-        appRoot: vault.appRoot,
         branch,
       })
         .then((preview) => {
@@ -1298,7 +1286,6 @@ function FileViewInner({
       navigateByHref,
       repositoryFullName,
       selectedFile,
-      vault.appRoot,
     ],
   );
   const handleUpstreamConflictDetected = useCallback(
@@ -1322,7 +1309,6 @@ function FileViewInner({
     try {
       void getRebaseConflictBundle({
         repositoryFullName,
-        appRoot: vault.appRoot,
         branch: rebaseConflictPreview.branch,
       })
         .then((bundle) => navigator.clipboard.writeText(bundle))
@@ -1343,7 +1329,7 @@ function FileViewInner({
           : "Clipboard is unavailable in this browser.";
       setRebaseConflictBundleFeedback(message);
     }
-  }, [getRebaseConflictBundle, rebaseConflictPreview, repositoryFullName, vault.appRoot]);
+  }, [getRebaseConflictBundle, rebaseConflictPreview, repositoryFullName]);
 
   const handleFileSelect = useCallback(
     (path: string, status?: CommitPreviewFileStatus) => {
@@ -1375,7 +1361,6 @@ function FileViewInner({
     try {
       await stageFileForEditing({
         repositoryFullName: `${owner}/${repoName}`,
-        appRoot: vault.appRoot,
         originalFilePath: originalPath,
         branch,
       });
@@ -1415,7 +1400,6 @@ function FileViewInner({
         try {
           await stageFileForEditing({
             repositoryFullName: `${owner}/${repoName}`,
-            appRoot: vault.appRoot,
             originalFilePath: originalPath,
             branch,
           });
@@ -1475,7 +1459,6 @@ function FileViewInner({
       } else if (comparedDeletedFile) {
         await restoreComparedDeletedFileToStaging({
           repositoryFullName,
-          appRoot: vault.appRoot,
           branch,
           filePath,
           previousPath: originalPath !== filePath ? originalPath : comparedDeletedFile.previousPath,
@@ -1551,7 +1534,6 @@ function FileViewInner({
 
     void commitStaging({
       repositoryFullName: repositoryFullName,
-      appRoot: vault.appRoot,
       branch,
     }).catch((error) => {
       console.error("Failed to commit changes:", error);
@@ -1563,7 +1545,7 @@ function FileViewInner({
       }
       setCommitError(message);
     });
-  }, [branch, commitStaging, handleUpstreamConflictDetected, repositoryFullName, vault.appRoot]);
+  }, [branch, commitStaging, handleUpstreamConflictDetected, repositoryFullName]);
 
   const handleDraftPullRequest = useCallback(() => {
     setCommitError(null);
@@ -1638,7 +1620,6 @@ function FileViewInner({
     if (isDefaultBranch) {
       void createDraftPullRequestFromDefaultBranch({
         repositoryFullName,
-        appRoot: vault.appRoot,
         branch,
       })
         .then((result) =>
@@ -1653,7 +1634,6 @@ function FileViewInner({
 
     void createDraftPullRequest({
       repositoryFullName,
-      appRoot: vault.appRoot,
       branch,
     })
       .then((result) =>
@@ -1676,7 +1656,6 @@ function FileViewInner({
     refreshRepositoryTree,
     repositoryFullName,
     selectedFile,
-    vault.appRoot,
     vault._id,
   ]);
 
@@ -1697,7 +1676,6 @@ function FileViewInner({
     setCommitPreviewError(null);
     return getCommitPreview({
       repositoryFullName,
-      appRoot: vault.appRoot,
       branch,
       includePatch: true,
     })
@@ -1722,14 +1700,12 @@ function FileViewInner({
     handleUpstreamConflictDetected,
     repositoryFullName,
     resetRebaseConflictState,
-    vault.appRoot,
   ]);
   const loadBranchComparePreview = useCallback(
     (requestKey: string) => {
       setBranchComparePreviewError(null);
       return getBranchComparePreview({
         repositoryFullName,
-        appRoot: vault.appRoot,
         branch,
         includePatch: true,
       })
@@ -1753,7 +1729,7 @@ function FileViewInner({
           setBranchComparePreviewError(message);
         });
     },
-    [branch, getBranchComparePreview, repositoryFullName, vault.appRoot],
+    [branch, getBranchComparePreview, repositoryFullName],
   );
   const clearBranchComparePreviewReloadTimeout = useCallback(() => {
     if (branchComparePreviewReloadTimeoutRef.current === null) {
@@ -2513,7 +2489,6 @@ function FileViewInner({
             <VaultSyncStatus
               vaultId={vault._id}
               repositoryFullName={repositoryFullName}
-              appRoot={vault.appRoot}
               branch={branch}
               owner={owner}
               repoName={repoName}
@@ -2687,7 +2662,6 @@ function FileViewInner({
                                   </div>
                                   <RepositoryMediaViewer
                                     repositoryFullName={repositoryFullName}
-                                    appRoot={vault.appRoot}
                                     filePath={
                                       selectedRebaseConflictFile.upstreamPath ??
                                       selectedRebaseConflictFile.path
@@ -2812,7 +2786,6 @@ function FileViewInner({
                           ) : selectedFileIsRenderableMedia ? (
                             <RepositoryMediaViewer
                               repositoryFullName={repositoryFullName}
-                              appRoot={vault.appRoot}
                               filePath={selectedFile}
                               branch={branch}
                             />
@@ -2829,7 +2802,6 @@ function FileViewInner({
           ) : selectedFileIsRenderableMedia ? (
             <RepositoryMediaViewer
               repositoryFullName={repositoryFullName}
-              appRoot={vault.appRoot}
               filePath={selectedFile}
               branch={branch}
             />
@@ -2837,7 +2809,6 @@ function FileViewInner({
             <CodeEditorWrapper
               key={`${branch}/${selectedFile}-${stagedFile.parentCommitSha ?? "new"}`}
               repositoryFullName={repositoryFullName}
-              appRoot={vault.appRoot}
               branch={branch}
               filePath={selectedFile}
               vaultId={vault._id}

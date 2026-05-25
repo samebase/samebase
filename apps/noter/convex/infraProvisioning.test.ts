@@ -2,45 +2,49 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
 import {
-  buildCloudflareBuildConfigForAppRoot,
   resolveConnectionFailureProvider,
+  selectCloudflareBuildConfigTreeData,
   selectExistingCloudflareWorker,
 } from "./infraProvisioning";
+import type { GithubTreeData } from "./schema";
 import { makeConvexTest } from "./test.setup";
+import { buildVaultCloudflareBuildConfigForAppRoot } from "./vault/model";
 
-const cloudflareBuild = buildCloudflareBuildConfigForAppRoot({ appRoot: "." });
+const branchTreeData = {
+  sha: "branch-tree",
+  truncated: false,
+  tree: [
+    {
+      path: "apps/noter/package.json",
+      mode: "100644",
+      type: "blob",
+      sha: "package-sha",
+    },
+  ],
+} satisfies GithubTreeData;
 const convexProjectId = "9223372036854775807";
 const convexTeamId = "9223372036854775806";
 const otherConvexTeamId = "9223372036854775805";
+const rootCloudflareAppRoot = ".";
+const rootCloudflareBuild = buildVaultCloudflareBuildConfigForAppRoot({
+  appRoot: rootCloudflareAppRoot,
+});
 
-describe("buildCloudflareBuildConfigForAppRoot", () => {
-  it("uses repository-root build filters for root apps", () => {
-    expect(buildCloudflareBuildConfigForAppRoot({ appRoot: "." })).toEqual({
-      rootDirectory: "/",
-      buildCommand: "pnpm run build",
-      deployCommand: "pnpm run deploy",
-      previewDeployCommand: "pnpm run deploy:preview",
-      pathIncludes: ["*"],
-      pathExcludes: [],
-    });
+describe("selectCloudflareBuildConfigTreeData", () => {
+  it("prefers the branch tree cache", () => {
+    expect(
+      selectCloudflareBuildConfigTreeData({
+        branchTreeData,
+      }),
+    ).toBe(branchTreeData);
   });
 
-  it("uses app-root build filters for monorepo apps", () => {
-    expect(buildCloudflareBuildConfigForAppRoot({ appRoot: "apps/noter" })).toEqual({
-      rootDirectory: "apps/noter",
-      buildCommand: "pnpm run build",
-      deployCommand: "pnpm run deploy",
-      previewDeployCommand: "pnpm run deploy:preview",
-      pathIncludes: [
-        "apps/noter/*",
-        "packages/dependent/*",
-        "pnpm-lock.yaml",
-        "pnpm-workspace.yaml",
-        "package.json",
-        ".nvmrc",
-      ],
-      pathExcludes: [],
-    });
+  it("fails before provider side effects when no tree is cached", () => {
+    expect(() =>
+      selectCloudflareBuildConfigTreeData({
+        branchTreeData: null,
+      }),
+    ).toThrow("Default branch tree is not synced yet.");
   });
 });
 
@@ -50,42 +54,17 @@ afterEach(() => {
 });
 
 describe("selectExistingCloudflareWorker", () => {
-  it("prefers the fully connected Worker tag", () => {
-    expect(
-      selectExistingCloudflareWorker({
-        cloudflare: {
-          state: "connected",
-          accountId: "account-1",
-          workerName: "noter",
-          workerTag: "connected-worker-tag",
-          workersDevUrl: "https://noter.example.workers.dev",
-          origin: "provisioned",
-          deployment: { state: "not_configured" },
-          connectedAt: 20,
-          lastObservedAt: 20,
-        },
-        cloudflareTarget: {
-          state: "planned",
-          accountId: "account-1",
-          workerName: "noter",
-          build: cloudflareBuild,
-        },
-        accountId: "account-1",
-      }),
-    ).toEqual({ state: "created", workerTag: "connected-worker-tag" });
-  });
-
   it("prefers the provisional Worker tag recorded for retries", () => {
     expect(
       selectExistingCloudflareWorker({
-        cloudflare: { state: "not_configured" },
         cloudflareTarget: {
           state: "created",
+          appRoot: rootCloudflareAppRoot,
           accountId: "account-1",
           workerName: "noter",
           workerTag: "provisional-worker-tag",
           workersDevUrl: "https://noter.example.workers.dev",
-          build: cloudflareBuild,
+          build: rootCloudflareBuild,
         },
         accountId: "account-1",
       }),
@@ -95,12 +74,12 @@ describe("selectExistingCloudflareWorker", () => {
   it("keeps missing Worker identity adoptable without a recorded tag", () => {
     expect(
       selectExistingCloudflareWorker({
-        cloudflare: { state: "not_configured" },
         cloudflareTarget: {
           state: "planned",
+          appRoot: rootCloudflareAppRoot,
           accountId: "account-1",
           workerName: "noter",
-          build: cloudflareBuild,
+          build: rootCloudflareBuild,
         },
         accountId: "account-1",
       }),
@@ -110,12 +89,12 @@ describe("selectExistingCloudflareWorker", () => {
   it("keeps planned Worker names adoptable without a recorded tag", () => {
     expect(
       selectExistingCloudflareWorker({
-        cloudflare: { state: "not_configured" },
         cloudflareTarget: {
           state: "planned",
+          appRoot: rootCloudflareAppRoot,
           accountId: "account-2",
           workerName: "noter",
-          build: cloudflareBuild,
+          build: rootCloudflareBuild,
         },
         accountId: "account-2",
       }),
@@ -181,14 +160,12 @@ describe("infrastructure provisioning ownership", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
-        appRoot: ".",
         owner: "ada",
         name: "older-retry",
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
         convex: { state: "not_configured" },
-        cloudflare: { state: "not_configured" },
       });
 
       return { runId, vaultId };
@@ -234,7 +211,6 @@ describe("infrastructure provisioning ownership", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
-        appRoot: ".",
         owner: "ada",
         name: "provider-retry",
         visibility: "private",
@@ -245,7 +221,6 @@ describe("infrastructure provisioning ownership", () => {
           runId,
           startedAt: 25,
         },
-        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
@@ -262,9 +237,10 @@ describe("infrastructure provisioning ownership", () => {
         },
         cloudflare: {
           state: "planned",
+          appRoot: rootCloudflareAppRoot,
           accountId: "cloudflare-account-id",
           workerName: "provider-retry",
-          build: cloudflareBuild,
+          build: rootCloudflareBuild,
         },
         createdAt: 31,
         updatedAt: 31,
@@ -326,7 +302,6 @@ describe("infrastructure provisioning ownership", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
-        appRoot: ".",
         owner: "ada",
         name: "provider-retry",
         visibility: "private",
@@ -339,7 +314,6 @@ describe("infrastructure provisioning ownership", () => {
           deploymentName: "provider-retry-prod",
           connectedAt: 25,
         },
-        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
@@ -356,9 +330,10 @@ describe("infrastructure provisioning ownership", () => {
         },
         cloudflare: {
           state: "planned",
+          appRoot: rootCloudflareAppRoot,
           accountId: "cloudflare-account-id",
           workerName: "provider-retry",
-          build: cloudflareBuild,
+          build: rootCloudflareBuild,
         },
         createdAt: 31,
         updatedAt: 31,
@@ -375,29 +350,24 @@ describe("infrastructure provisioning ownership", () => {
       workerTag: "cloudflare-worker-tag",
       workersDevUrl: "https://provider-retry.example.workers.dev",
     });
-    const { vault, target } = await t.run(async (ctx) => {
-      const vault = await ctx.db.get(ids.vaultId);
+    const target = await t.run(async (ctx) => {
       const target = await ctx.db
         .query("vaultInfrastructureTargets")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
-      return { target, vault };
+      return target;
     });
 
     expect(result).toEqual({ applied: true });
-    expect(vault).toMatchObject({
-      cloudflare: {
-        state: "not_configured",
-      },
-    });
     expect(target).toMatchObject({
       cloudflare: {
         state: "created",
+        appRoot: rootCloudflareAppRoot,
         accountId: "cloudflare-account-id",
         workerName: "provider-retry",
-        build: cloudflareBuild,
         workerTag: "cloudflare-worker-tag",
         workersDevUrl: "https://provider-retry.example.workers.dev",
+        build: rootCloudflareBuild,
       },
     });
   });
@@ -433,7 +403,6 @@ describe("infrastructure provisioning ownership", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
-        appRoot: ".",
         owner: "ada",
         name: "deploy-keys",
         visibility: "private",
@@ -446,7 +415,6 @@ describe("infrastructure provisioning ownership", () => {
           deploymentName: "deploy-keys-prod",
           connectedAt: 25,
         },
-        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
@@ -549,7 +517,6 @@ describe("infrastructure provisioning ownership", () => {
         githubMode: "create_repository",
         runId: activeRunId,
         ghRepoId: "123",
-        appRoot: ".",
         owner: "ada",
         name: "fresh-ownership",
         visibility: "private",
@@ -562,7 +529,6 @@ describe("infrastructure provisioning ownership", () => {
           deploymentName: "fresh-ownership-prod",
           connectedAt: 25,
         },
-        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
@@ -626,7 +592,6 @@ describe("infrastructure provisioning ownership", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
-        appRoot: ".",
         owner: "ada",
         name: "generic-connection-failure",
         visibility: "private",
@@ -637,7 +602,6 @@ describe("infrastructure provisioning ownership", () => {
           runId,
           startedAt: 25,
         },
-        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
@@ -660,7 +624,6 @@ describe("infrastructure provisioning ownership", () => {
 
     expect(vault).toMatchObject({
       convex: { state: "not_configured" },
-      cloudflare: { state: "not_configured" },
     });
   });
 
@@ -696,7 +659,6 @@ describe("infrastructure provisioning ownership", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
-        appRoot: ".",
         owner: "ada",
         name: "cloudflare-token-failure",
         visibility: "private",
@@ -709,7 +671,6 @@ describe("infrastructure provisioning ownership", () => {
           deploymentName: "cloudflare-token-failure-prod",
           connectedAt: 25,
         },
-        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
@@ -860,7 +821,6 @@ describe("infrastructure provisioning ownership", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
-        appRoot: ".",
         owner: "ada",
         name: "preview-validation",
         visibility: "private",
@@ -873,7 +833,6 @@ describe("infrastructure provisioning ownership", () => {
           deploymentName: "preview-validation-prod",
           connectedAt: 25,
         },
-        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("providerConnections", {
         kind: "convex",

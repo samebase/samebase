@@ -5,8 +5,9 @@ import {
   vGithubTree,
   vGithubTreeData,
   vGitHubRepositoryVisibility,
-  vVaultCloudflareBuildConfig,
   vTreeRefreshFailureKind,
+  vVaultCloudflareBuildConfig,
+  vVaultCloudflareWorker,
   vVaultRow,
 } from "./vault/model";
 import {
@@ -378,9 +379,18 @@ export default defineSchema({
   vaults: defineTable(vVaultRow)
     .index("by_userId", ["userId"])
     .index("by_userId_and_state_and_deletion_state", ["userId", "state", "deletion.state"])
-    .index("by_userId_and_ghRepoId_and_appRoot", ["userId", "ghRepoId", "appRoot"])
-    .index("by_userId_and_owner_and_name_and_appRoot", ["userId", "owner", "name", "appRoot"])
+    .index("by_userId_and_ghRepoId", ["userId", "ghRepoId"])
     .index("by_owner_and_name", ["owner", "name"]),
+
+  /**
+   * Cloudflare Worker targets connected to one repo-backed vault. App root is
+   * the monorepo path this Worker deploys; vault identity stays repository-only.
+   */
+  vaultCloudflareWorkers: defineTable(vVaultCloudflareWorker)
+    .index("by_vault", ["vaultId"])
+    .index("by_user", ["userId"])
+    .index("by_vault_and_appRoot", ["vaultId", "appRoot"])
+    .index("by_vault_and_account_and_worker", ["vaultId", "accountId", "workerName"]),
 
   /**
    * Remote Git branches mirrored from GitHub for a vault repository.
@@ -485,12 +495,14 @@ export default defineSchema({
     cloudflare: union(
       object({
         state: literal("planned"),
+        appRoot: string(),
         accountId: string(),
         workerName: string(),
         build: vVaultCloudflareBuildConfig,
       }),
       object({
         state: literal("created"),
+        appRoot: string(),
         accountId: string(),
         workerName: string(),
         workerTag: string(),

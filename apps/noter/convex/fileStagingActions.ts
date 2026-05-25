@@ -1865,7 +1865,6 @@ export const renameFileInStaging = action({
     // So that we guarantee that we have the file in staging
     await ctx.runAction(api.fileStagingActions.getFileForEditing, {
       repositoryFullName: `${connectedVault.owner}/${connectedVault.name}`,
-      appRoot: connectedVault.appRoot,
       originalFilePath: args.originalPath,
       branch,
     });
@@ -1891,7 +1890,6 @@ export const renameFileInStaging = action({
 export const getFileForEditing = action({
   args: {
     repositoryFullName: v.string(),
-    appRoot: v.string(),
     originalFilePath: v.string(),
     branch: v.optional(v.string()),
   },
@@ -1902,7 +1900,6 @@ export const getFileForEditing = action({
 
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
-      appRoot: args.appRoot,
       userId,
     });
 
@@ -2086,7 +2083,6 @@ export const getFileForEditing = action({
 export const stageUploadedMedia = action({
   args: {
     repositoryFullName: string(),
-    appRoot: string(),
     filePath: string(),
     storageId: v.id("_storage"),
     branch: optional(string()),
@@ -2102,7 +2098,6 @@ export const stageUploadedMedia = action({
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
-      appRoot: args.appRoot,
       userId,
     });
     if (!vault) {
@@ -2152,7 +2147,6 @@ export const stageUploadedMedia = action({
 export const commitStaging = action({
   args: {
     repositoryFullName: v.string(),
-    appRoot: v.string(),
     branch: v.optional(v.string()),
   },
   returns: v.null(),
@@ -2162,7 +2156,6 @@ export const commitStaging = action({
     // Get the vault information while we have auth context
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
-      appRoot: args.appRoot,
       userId,
     });
     if (!vault) {
@@ -2184,7 +2177,6 @@ export const commitStaging = action({
 export const createDraftPullRequest = action({
   args: {
     repositoryFullName: string(),
-    appRoot: string(),
     branch: optional(string()),
   },
   returns: draftPullRequestResult,
@@ -2192,7 +2184,6 @@ export const createDraftPullRequest = action({
     const userId = await getUserId(ctx);
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
-      appRoot: args.appRoot,
       userId,
     });
     if (!vault) {
@@ -2242,7 +2233,6 @@ export const createDraftPullRequest = action({
           userId,
           owner: vault.owner,
           repo: vault.name,
-          appRoot: vault.appRoot,
           target: { scope: "repository" },
           includeAheadBehind: true,
           includePullRequestLinks: true,
@@ -2291,7 +2281,6 @@ export const createDraftPullRequest = action({
           userId,
           owner: vault.owner,
           repo: vault.name,
-          appRoot: vault.appRoot,
           target: { scope: "repository" },
           includeAheadBehind: true,
           includePullRequestLinks: true,
@@ -2321,7 +2310,6 @@ export const createDraftPullRequest = action({
             userId,
             owner: vault.owner,
             repo: vault.name,
-            appRoot: vault.appRoot,
             target: { scope: "repository" },
             includeAheadBehind: true,
             includePullRequestLinks: true,
@@ -2352,7 +2340,6 @@ export const createDraftPullRequest = action({
 export const createDraftPullRequestFromDefaultBranch = action({
   args: {
     repositoryFullName: string(),
-    appRoot: string(),
     branch: optional(string()),
   },
   returns: defaultBranchDraftPullRequestResult,
@@ -2360,7 +2347,6 @@ export const createDraftPullRequestFromDefaultBranch = action({
     const userId = await getUserId(ctx);
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
-      appRoot: args.appRoot,
       userId,
     });
     if (!vault) {
@@ -2533,7 +2519,6 @@ export const createDraftPullRequestFromDefaultBranch = action({
           userId,
           owner: vault.owner,
           repo: vault.name,
-          appRoot: vault.appRoot,
           target: { scope: "repository" },
           includeAheadBehind: true,
           includePullRequestLinks: true,
@@ -2852,7 +2837,6 @@ export const pullFromGitHubInternal = internalAction({
         userId: args.userId,
         owner: connectedVault.owner,
         repo: connectedVault.name,
-        appRoot: connectedVault.appRoot,
         target: { scope: "branch", branch },
         includeAheadBehind: false,
         includePullRequestLinks: false,
@@ -2866,7 +2850,6 @@ export const pullFromGitHubInternal = internalAction({
       userId: args.userId,
       owner: connectedVault.owner,
       repo: connectedVault.name,
-      appRoot: connectedVault.appRoot,
       target: { scope: "repository" },
       includeAheadBehind: false,
       includePullRequestLinks: false,
@@ -2917,7 +2900,6 @@ export const batchReadFiles = action({
           userId,
           owner: connectedVault.owner,
           repo: connectedVault.name,
-          appRoot: connectedVault.appRoot,
           target: { scope: "branch", branch: branchToLoad },
           includeAheadBehind: false,
           includePullRequestLinks: false,
@@ -3049,7 +3031,6 @@ export const batchReadFiles = action({
 export const getCommitPreview = action({
   args: {
     repositoryFullName: v.string(),
-    appRoot: v.string(),
     branch: v.optional(v.string()),
     includePatch: v.optional(v.boolean()),
   },
@@ -3060,7 +3041,6 @@ export const getCommitPreview = action({
 
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
-      appRoot: args.appRoot,
       userId,
     });
     if (!vault) {
@@ -3115,7 +3095,6 @@ export const getCommitPreview = action({
 export const getBranchComparePreview = action({
   args: {
     repositoryFullName: v.string(),
-    appRoot: v.string(),
     branch: v.optional(v.string()),
     includePatch: v.optional(v.boolean()),
   },
@@ -3126,7 +3105,6 @@ export const getBranchComparePreview = action({
 
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
-      appRoot: args.appRoot,
       userId,
     });
     if (!vault) {
@@ -3280,7 +3258,6 @@ export const getBranchComparePreview = action({
 export const restoreComparedDeletedFileToStaging = action({
   args: {
     repositoryFullName: v.string(),
-    appRoot: v.string(),
     branch: v.optional(v.string()),
     filePath: v.string(),
     previousPath: v.optional(v.string()),
@@ -3290,7 +3267,6 @@ export const restoreComparedDeletedFileToStaging = action({
     const userId = await getUserId(ctx);
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
-      appRoot: args.appRoot,
       userId,
     });
     if (!vault) {
@@ -3371,7 +3347,6 @@ export const restoreComparedDeletedFileToStaging = action({
 export const getRebaseConflictPreview = action({
   args: {
     repositoryFullName: v.string(),
-    appRoot: v.string(),
     branch: v.optional(v.string()),
   },
   returns: rebaseConflictPreviewResult,
@@ -3380,7 +3355,6 @@ export const getRebaseConflictPreview = action({
 
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
-      appRoot: args.appRoot,
       userId,
     });
     if (!vault) {
@@ -3435,7 +3409,6 @@ export const getRebaseConflictPreview = action({
 export const getRebaseConflictBundle = action({
   args: {
     repositoryFullName: v.string(),
-    appRoot: v.string(),
     branch: v.optional(v.string()),
   },
   returns: v.string(),
@@ -3444,7 +3417,6 @@ export const getRebaseConflictBundle = action({
 
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
-      appRoot: args.appRoot,
       userId,
     });
     if (!vault) {
@@ -3929,7 +3901,6 @@ export const commitAllStaged = internalAction({
             userId: args.userId,
             owner: repoOwner,
             repo: repoName,
-            appRoot: connectedVault.appRoot,
             target: { scope: "branch", branch: commitBranch },
             includeAheadBehind: false,
             includePullRequestLinks: false,
@@ -3940,7 +3911,6 @@ export const commitAllStaged = internalAction({
         loadUpdatedVault: async () =>
           await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
             repositoryFullName: fullRepo,
-            appRoot: connectedVault.appRoot,
             userId: args.userId,
             branch: commitBranch,
           }),

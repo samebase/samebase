@@ -85,20 +85,6 @@ async function getVaultInfrastructure(
     .first();
 }
 
-async function hasOtherConnectedVaultForRepository(
-  ctx: MutationCtx,
-  vault: Extract<Doc<"vaults">, { state: "connected" }>,
-): Promise<boolean> {
-  for await (const candidate of ctx.db
-    .query("vaults")
-    .withIndex("by_owner_and_name", (q) => q.eq("owner", vault.owner).eq("name", vault.name))) {
-    if (candidate._id !== vault._id && isConnectedVault(candidate)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 async function listCreatedConvexProjectIds(
   ctx: MutationCtx,
   vaultId: Id<"vaults">,
@@ -268,22 +254,42 @@ async function buildCloudflarePlan(
     return { action: "skip", reason: "not_recorded" };
   }
 
-  if (vault.cloudflare.state !== "connected") {
+  const workers = await ctx.db
+    .query("vaultCloudflareWorkers")
+    .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
+    .collect();
+  const provisionedWorkers = workers
+    .filter((worker) => worker.origin === "provisioned")
+    .sort(
+      (left, right) =>
+        left.appRoot.localeCompare(right.appRoot) ||
+        left.workerName.localeCompare(right.workerName) ||
+        left.accountId.localeCompare(right.accountId),
+    );
+  if (provisionedWorkers.length === 0) {
     return { action: "skip", reason: "not_recorded" };
-  }
-  if (vault.cloudflare.origin !== "provisioned") {
-    return { action: "skip", reason: "not_managed" };
   }
 
   await requireProviderConnection(ctx, {
     userId: vault.userId,
     kind: "cloudflare",
   });
+  if (provisionedWorkers.length === 1) {
+    const worker = provisionedWorkers[0];
+    return {
+      action: "delete_worker",
+      accountId: worker.accountId,
+      workerName: worker.workerName,
+      workerTag: worker.workerTag,
+    };
+  }
   return {
-    action: "delete_worker",
-    accountId: vault.cloudflare.accountId,
-    workerName: vault.cloudflare.workerName,
-    workerTag: vault.cloudflare.workerTag,
+    action: "delete_workers",
+    workers: provisionedWorkers.map((worker) => ({
+      accountId: worker.accountId,
+      workerName: worker.workerName,
+      workerTag: worker.workerTag,
+    })),
   };
 }
 
@@ -318,7 +324,6 @@ async function buildDeletionPlan(
           target: {
             kind: "existing_repository",
             ghRepoId: args.vault.ghRepoId,
-            appRoot: args.vault.appRoot,
             owner: args.vault.owner,
             name: args.vault.name,
             repositoryFullName,
@@ -331,11 +336,6 @@ async function buildDeletionPlan(
       }
 
       if (args.options.removeGithubRepo) {
-        if (await hasOtherConnectedVaultForRepository(ctx, args.vault)) {
-          throw new Error(
-            "GitHub repository deletion is blocked while another vault uses this repository.",
-          );
-        }
         await requireProviderConnection(ctx, {
           userId: args.vault.userId,
           kind: "github",
@@ -349,7 +349,6 @@ async function buildDeletionPlan(
         target: {
           kind: "noter_managed_repository",
           ghRepoId: args.vault.ghRepoId,
-          appRoot: args.vault.appRoot,
           owner: args.vault.owner,
           name: args.vault.name,
           repositoryFullName,
@@ -380,7 +379,6 @@ async function buildDeletionPlan(
         target: {
           kind: "failed_repository_setup",
           githubMode: args.vault.githubMode,
-          appRoot: args.vault.appRoot,
           owner: args.vault.owner,
           name: args.vault.name,
           repositoryFullName,
@@ -422,7 +420,10 @@ async function assertPlanProviderConnections(
     });
   }
 
-  if (args.plan.cloudflare.action === "delete_worker") {
+  if (
+    args.plan.cloudflare.action === "delete_worker" ||
+    args.plan.cloudflare.action === "delete_workers"
+  ) {
     await requireProviderConnection(ctx, {
       userId: args.userId,
       kind: "cloudflare",

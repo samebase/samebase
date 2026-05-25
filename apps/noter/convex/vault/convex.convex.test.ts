@@ -82,14 +82,12 @@ async function createConvexConnectedVault() {
       githubMode: "connect_existing_repository",
       runId: sourceRunId,
       ghRepoId: "123",
-      appRoot: ".",
       owner: "ada",
       name: "demo",
       visibility: "private",
       defaultBranch: "main",
       connectedAt: 12,
       convex: { state: "not_configured" },
-      cloudflare: { state: "not_configured" },
     });
     const runId = await ctx.db.insert("appProvisioningRuns", {
       userId,

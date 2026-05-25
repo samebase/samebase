@@ -65,7 +65,6 @@ function makeResourceRailBuilderVault(
     ghRepoOwner: "ada",
     ghRepoName: "demo",
     repositoryFullName: "ada/demo",
-    appRoot: ".",
     fileCount: 0,
     state: "ready",
     sourceSetup: { status: "ready" },
@@ -80,6 +79,7 @@ function makeResourceRailBuilderVault(
     hasCloudflareProvision: false,
     canRemoveConvexProvision: false,
     canRemoveCloudflareProvision: false,
+    cloudflareWorkers: [],
     remoteBranches: [],
   };
   return { ...vault, ...overrides };
@@ -91,7 +91,6 @@ describe("VaultBranchLinkContent", () => {
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="noter-md/noter"
-          appRoot="."
           branch={{
             name: "codex/dashboard branch-link",
             headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
@@ -115,7 +114,6 @@ describe("VaultBranchLinkContent", () => {
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="noter-md/noter"
-          appRoot="."
           cloudflareWorkersDevUrl="https://tmp-flow.nicuchiciuc.workers.dev"
           branch={{
             name: "main",
@@ -136,28 +134,6 @@ describe("VaultBranchLinkContent", () => {
       markup.indexOf(">main<"),
     );
   });
-
-  it("keeps non-root app roots in Noter edit links", () => {
-    const markup = renderToStaticMarkup(
-      <TestRouterProvider>
-        <VaultBranchLinkContent
-          repositoryFullName="noter-md/noter"
-          appRoot="apps/noter"
-          branch={{
-            name: "main",
-            headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
-            isDefault: true,
-            isProtected: false,
-            lastSyncedAt: 0,
-            remoteState: "active",
-          }}
-        />
-      </TestRouterProvider>,
-    );
-
-    expect(markup).toContain('href="/vault/noter-md/noter/main?appRoot=apps%2Fnoter"');
-    expect(markup).toContain("Edit");
-  });
 });
 
 describe("VaultDashboardRepositoryCard", () => {
@@ -167,7 +143,6 @@ describe("VaultDashboardRepositoryCard", () => {
         hasDuplicateRepositoryName: false,
         repositoryFullName: "nicu-chiciuc/tmp-flow",
         repositoryName: "tmp-flow",
-        appRoot: ".",
       }),
     ).toBe("tmp-flow");
     expect(
@@ -175,7 +150,6 @@ describe("VaultDashboardRepositoryCard", () => {
         hasDuplicateRepositoryName: true,
         repositoryFullName: "nicu-chiciuc/tmp-flow",
         repositoryName: "tmp-flow",
-        appRoot: ".",
       }),
     ).toBe("nicu-chiciuc/tmp-flow");
   });
@@ -346,7 +320,6 @@ describe("VaultDashboardDeleteDialog", () => {
         {...baseProps}
         vaultToDelete={{
           repositoryFullName: "ada/existing-repo",
-          appRoot: ".",
           isNoterManaged: false,
           canRemoveGithubRepo: false,
           hasConvexProvision: false,
@@ -367,7 +340,6 @@ describe("VaultDashboardDeleteDialog", () => {
         {...baseProps}
         vaultToDelete={{
           repositoryFullName: "ada/existing-repo",
-          appRoot: ".",
           isNoterManaged: false,
           canRemoveGithubRepo: false,
           hasConvexProvision: false,
@@ -683,10 +655,15 @@ describe("buildVaultDashboardResourceRailState", () => {
         convexProjectSlug: "demo-project",
         convexProjectSettingsDashboardUrl:
           "https://dashboard.convex.dev/t/ada-team/demo-project/settings",
-        cloudflareWorkerName: "demo-worker",
-        cloudflareWorkersDevUrl: "https://demo-worker.ada.workers.dev",
-        cloudflareProjectDashboardUrl:
-          "https://dash.cloudflare.com/?to=/account/workers/services/view/demo-worker/production/deployments",
+        cloudflareWorkers: [
+          {
+            appRoot: ".",
+            workerName: "demo-worker",
+            workersDevUrl: "https://demo-worker.ada.workers.dev",
+            projectDashboardUrl:
+              "https://dash.cloudflare.com/?to=/account/workers/services/view/demo-worker/production/deployments",
+          },
+        ],
       }),
     });
 
@@ -706,6 +683,46 @@ describe("buildVaultDashboardResourceRailState", () => {
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
     expect(markup).toContain("Open Convex: ada-team/demo-project");
     expect(markup).toContain("Open Cloudflare: ada/demo-worker");
+  });
+
+  it("keeps Cloudflare add available when a vault already has worker targets", () => {
+    const addCloudflareWorker = () => {};
+    const state = buildVaultDashboardResourceRailState({
+      addCloudflareWorkerHref: "/home?add-cloudflare#demo",
+      addCloudflareWorkerOnClick: addCloudflareWorker,
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      vault: makeResourceRailBuilderVault({
+        cloudflareWorkers: [
+          {
+            appRoot: ".",
+            workerName: "demo-worker",
+            workersDevUrl: "https://demo-worker.ada.workers.dev",
+          },
+          {
+            appRoot: "apps/admin",
+            workerName: "admin-worker",
+            workersDevUrl: "https://admin-worker.ada.workers.dev",
+          },
+        ],
+      }),
+    });
+
+    expect(state.rows[2]).toMatchObject({
+      provider: "cloudflare",
+      status: "ready",
+      value: "demo-worker +1",
+      actions: [
+        {
+          kind: "add",
+          href: "/home?add-cloudflare#demo",
+        },
+      ],
+    });
+    const cloudflareRow = state.rows[2];
+    if (cloudflareRow.status !== "ready" || !cloudflareRow.actions) {
+      throw new Error("Expected Cloudflare ready row with add action.");
+    }
+    expect(cloudflareRow.actions[0].onClick).toBe(addCloudflareWorker);
   });
 
   it("keeps Convex unscoped when the team slug is unknown", () => {

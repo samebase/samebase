@@ -21,14 +21,14 @@ import {
   type ExistingCloudflareWorkerIdentity,
 } from "./cloudflareResources";
 import { asRecord, readStringOrNumber } from "./jsonUtils";
-import type { AppProvisioningStep, ConvexDeployKeyState } from "./schema";
+import type { AppProvisioningStep, ConvexDeployKeyState, GithubTreeData } from "./schema";
 import { vaultSuffix } from "./slugUtils";
-import { normalizeVaultAppRoot, type VaultCloudflareBuildConfig } from "./vault/model";
 import {
   isLiveConnectedVault,
   isNoterManagedVault,
   type NoterManagedConnectedVault,
 } from "./vault/state";
+import type { VaultCloudflareBuildConfig } from "./vault/model";
 import {
   formatProviderApiCallLogMessage,
   type ProviderApiCall,
@@ -543,33 +543,6 @@ async function createConvexDeployKey(args: {
   };
 }
 
-export function buildCloudflareBuildConfigForAppRoot(args: {
-  appRoot: string;
-}): VaultCloudflareBuildConfig {
-  const appRoot = normalizeVaultAppRoot(args.appRoot);
-  const rootDirectory = appRoot === "." ? "/" : appRoot;
-  const pathIncludes =
-    appRoot === "."
-      ? ["*"]
-      : [
-          `${appRoot}/*`,
-          "packages/dependent/*",
-          "pnpm-lock.yaml",
-          "pnpm-workspace.yaml",
-          "package.json",
-          ".nvmrc",
-        ];
-
-  return {
-    rootDirectory,
-    buildCommand: "pnpm run build",
-    deployCommand: "pnpm run deploy",
-    previewDeployCommand: "pnpm run deploy:preview",
-    pathIncludes,
-    pathExcludes: [],
-  };
-}
-
 function toCloudflareBuildConfig(build: VaultCloudflareBuildConfig): CloudflareBuildConfig {
   return {
     rootDir: build.rootDirectory,
@@ -581,8 +554,16 @@ function toCloudflareBuildConfig(build: VaultCloudflareBuildConfig): CloudflareB
   };
 }
 
+export function selectCloudflareBuildConfigTreeData(args: {
+  branchTreeData: GithubTreeData | null;
+}): GithubTreeData {
+  if (args.branchTreeData) {
+    return args.branchTreeData;
+  }
+  throw new Error("Default branch tree is not synced yet.");
+}
+
 export function selectExistingCloudflareWorker(args: {
-  cloudflare: NoterManagedConnectedVault["cloudflare"];
   cloudflareTarget: Doc<"vaultInfrastructureTargets">["cloudflare"];
   accountId: string;
 }): ExistingCloudflareWorkerIdentity {
@@ -591,9 +572,6 @@ export function selectExistingCloudflareWorker(args: {
     args.cloudflareTarget.accountId === args.accountId
   ) {
     return { state: "created", workerTag: args.cloudflareTarget.workerTag.trim() };
-  }
-  if (args.cloudflare.state === "connected" && args.cloudflare.accountId === args.accountId) {
-    return { state: "created", workerTag: args.cloudflare.workerTag.trim() };
   }
   return { state: "planned" };
 }
@@ -733,7 +711,7 @@ async function getManagedProvisioningVault(
   return vault;
 }
 
-type ProviderStatePatch = Partial<Pick<NoterManagedConnectedVault, "cloudflare" | "convex">>;
+type ProviderStatePatch = Partial<Pick<NoterManagedConnectedVault, "convex">>;
 type ProviderFailureTarget = "cloudflare" | "convex";
 
 function hasFreshProviderProvisioningLock(args: {
@@ -766,20 +744,13 @@ function buildProviderFailurePatch(args: {
   now: number;
 }): ProviderStatePatch {
   const patch: ProviderStatePatch = {};
-  const cloudflare = args.vault.cloudflare;
   const resetConvex = () => {
     if (args.vault.convex.state !== "connected") {
       patch.convex = { state: "not_configured" };
     }
   };
-  const resetCloudflare = () => {
-    if (cloudflare.state !== "connected") {
-      patch.cloudflare = { state: "not_configured" };
-    }
-  };
   const resetUnconnectedProviders = () => {
     resetConvex();
-    resetCloudflare();
   };
   const failConvex = () => {
     if (args.vault.convex.state !== "connected") {
@@ -791,9 +762,7 @@ function buildProviderFailurePatch(args: {
     }
   };
   const failCloudflare = () => {
-    if (cloudflare.state !== "connected") {
-      patch.cloudflare = { state: "not_configured" };
-    }
+    resetConvex();
   };
 
   switch (args.step) {
@@ -811,7 +780,6 @@ function buildProviderFailurePatch(args: {
         }
         if (connectionFailureProvider === "convex") {
           failConvex();
-          resetCloudflare();
           break;
         }
       }
@@ -819,10 +787,6 @@ function buildProviderFailurePatch(args: {
       break;
     case "ensure_convex":
       failConvex();
-      if (cloudflare.state !== "connected") {
-        const notConfigured = { state: "not_configured" } as const;
-        patch.cloudflare = notConfigured;
-      }
       break;
     case "ensure_convex_preview":
     case "ensure_cloudflare":
@@ -1103,6 +1067,7 @@ export const recordCloudflareWorkerIdentity = internalMutation({
     await ctx.db.patch(target._id, {
       cloudflare: {
         state: "created",
+        appRoot: target.cloudflare.appRoot,
         accountId: args.accountId,
         workerName: args.workerName,
         workerTag: args.workerTag,
@@ -1208,10 +1173,22 @@ export const markCloudflareConnected = internalMutation({
     if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
       return { applied: false };
     }
+    const target = await readVaultInfrastructureTarget(ctx, args.vaultId);
+    if (!target) {
+      throw new Error("Infrastructure target is required before recording Cloudflare connection.");
+    }
 
     const now = Date.now();
-    const connectedCloudflare = {
-      state: "connected",
+    const existing = await ctx.db
+      .query("vaultCloudflareWorkers")
+      .withIndex("by_vault_and_appRoot", (q) =>
+        q.eq("vaultId", args.vaultId).eq("appRoot", target.cloudflare.appRoot),
+      )
+      .first();
+    const row = {
+      vaultId: args.vaultId,
+      userId: vault.userId,
+      appRoot: target.cloudflare.appRoot,
       accountId: args.accountId,
       workerName: args.workerName,
       workerTag: args.workerTag,
@@ -1221,12 +1198,14 @@ export const markCloudflareConnected = internalMutation({
         state: "workers_builds_connected",
         ...args.build,
       },
-      connectedAt: vault.cloudflare.state === "connected" ? vault.cloudflare.connectedAt : now,
+      connectedAt: existing?.connectedAt ?? now,
       lastObservedAt: now,
     } as const;
-    await ctx.db.patch(args.vaultId, {
-      cloudflare: connectedCloudflare,
-    });
+    if (existing) {
+      await ctx.db.patch(existing._id, row);
+    } else {
+      await ctx.db.insert("vaultCloudflareWorkers", row);
+    }
 
     return { applied: true };
   },
@@ -1331,9 +1310,6 @@ export const claimWorkflowProvisioning = internalMutation({
 
     await assertVaultInfrastructureTargetExists(ctx, vault);
 
-    const cloudflare = vault.cloudflare;
-    const claimedCloudflare =
-      cloudflare.state === "connected" ? cloudflare : ({ state: "not_configured" } as const);
     await ctx.db.patch(args.vaultId, {
       convex:
         vault.convex.state === "connected"
@@ -1343,7 +1319,6 @@ export const claimWorkflowProvisioning = internalMutation({
               runId: args.runId,
               startedAt: now,
             },
-      cloudflare: claimedCloudflare,
     });
 
     const previousVersion = ownership?.provisioningVersion ?? 0;
@@ -1673,6 +1648,13 @@ export const ensureCloudflareInfrastructure = internalAction({
       );
     }
 
+    const defaultBranchTree = await ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
+      vaultId: args.vaultId,
+      branch: vault.defaultBranch,
+    });
+    selectCloudflareBuildConfigTreeData({
+      branchTreeData: defaultBranchTree?.treeData ?? null,
+    });
     const defaultBranch = vault.defaultBranch;
     const { githubAccessToken } = await resolveGitHubProvisioningConnection(ctx, vault.userId);
     const { convexToken, convexTeamId } = await resolveConvexProvisioningConnection(
@@ -1751,7 +1733,6 @@ export const ensureCloudflareInfrastructure = internalAction({
       recordApiCall,
     });
     const existingCloudflareWorker = selectExistingCloudflareWorker({
-      cloudflare: vault.cloudflare,
       cloudflareTarget,
       accountId: cloudflareAccountId,
     });
