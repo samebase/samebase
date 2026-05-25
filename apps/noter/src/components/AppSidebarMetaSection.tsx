@@ -198,9 +198,8 @@ export function AppSidebarMetaSection({
       >
         /logo
       </Link>
-      <Link to={DASHBOARD_ROUTE} search={(currentSearch) => currentSearch}>
-        /home
-      </Link>
+      {/* From /?dev&prod-ui, /home keeps dev but drops the preview-only prod-ui flag. */}
+      <Link to={DASHBOARD_ROUTE}>/home</Link>
       {side === "right" ? (
         <Link
           id="public-local-storage-route-link"

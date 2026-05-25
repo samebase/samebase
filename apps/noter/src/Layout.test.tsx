@@ -13,6 +13,7 @@ import {
   LANDING_MARKDOWN_PREVIEW_ROUTE,
 } from "@/lib/landingMarkdownPreview";
 import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { FORCE_PROD_UI_MODE_LINK_LABEL, FORCE_PROD_UI_QUERY_PARAM } from "@/lib/prodUiMode";
 import { SEARCH_RESET_LINK_LABEL, SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import {
@@ -440,6 +441,34 @@ describe("Layout", () => {
     );
 
     expect(markup).toContain(`href="${encodeStaticHref(logoPath)}"`);
+  });
+
+  it("opens the dashboard shortcut without retaining the prod-ui preview flag", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    const landingProdUiDevPath = buildPathWithTanStackSearch({
+      pathname: "/",
+      search: {
+        [FORCE_PROD_UI_QUERY_PARAM]: true,
+        [LANDING_DEV_MODE_QUERY_PARAM]: true,
+      },
+    });
+    const dashboardDevPath = buildPathWithTanStackSearch({
+      pathname: DASHBOARD_ROUTE,
+      search: {
+        [LANDING_DEV_MODE_QUERY_PARAM]: true,
+      },
+    });
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={[landingProdUiDevPath]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain(`href="${encodeStaticHref(dashboardDevPath)}"`);
+    expect(markup).not.toContain(`href="${DASHBOARD_ROUTE}?dev&amp;prod-ui"`);
   });
 
   it("adds dev to the current URL without dropping other URL parts", () => {
