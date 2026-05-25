@@ -108,7 +108,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectTrigger } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Layout, PublicLayoutShell } from "@/Layout";
+import { PublicLayoutRouteChrome } from "@/lib/publicLayoutRouteChrome";
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_LOGO_FRACTAL_DEPTH,
@@ -2217,19 +2217,18 @@ export function LogoPreviewPage({
   );
 
   return (
-    <Layout>
-      <PublicLayoutShell
-        defaultLeftOpen
-        defaultMobilePane="left"
-        left={{
-          content: controlsContent,
-        }}
-        leftToggleVisibility="desktop"
-        main={{
-          content: sceneContent,
-          headerTestId: "logo-preview-main-header",
-        }}
-      />
-    </Layout>
+    <PublicLayoutRouteChrome
+      defaultLeftOpen
+      defaultMobilePane="left"
+      left={{
+        content: controlsContent,
+      }}
+      leftToggleVisibility="desktop"
+      main={{
+        headerTestId: "logo-preview-main-header",
+      }}
+    >
+      {sceneContent}
+    </PublicLayoutRouteChrome>
   );
 }

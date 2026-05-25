@@ -251,9 +251,50 @@ test("route URL editor lists route paths and filters them while typing", async (
   await page.getByRole("option", { exact: true, name: "Use /logo" }).click();
 
   await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue(`${origin}/logo`);
+  await expect(suggestions).toHaveCount(0);
+
+  await input.blur();
+
   await expect(input).toHaveCount(0);
   await expect(display).toHaveValue(`${origin}/logo`);
   await expect(suggestions).toHaveCount(0);
+});
+
+test("route URL editor keeps the same input focused while typing between public routes", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const input = await editRouteUrl(page);
+  const inputHandle = await input.elementHandle();
+  if (inputHandle === null) {
+    throw new Error("Expected route URL editor input to be mounted.");
+  }
+
+  await input.press("End");
+  await input.type("logo");
+
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(input).toHaveValue(`${origin}/logo`);
+  const keptFocusOnLogo = await inputHandle.evaluate(
+    (element) => document.activeElement === element && element.isConnected,
+  );
+  expect(keptFocusOnLogo).toBe(true);
+
+  await input.type("/iso");
+
+  await expect(page).toHaveURL(`${origin}/logo/iso`);
+  await expect(input).toHaveValue(`${origin}/logo/iso`);
+  const keptFocusOnLogoIso = await inputHandle.evaluate(
+    (element) => document.activeElement === element && element.isConnected,
+  );
+  expect(keptFocusOnLogoIso).toBe(true);
 });
 
 test("route URL editor dismisses suggestions through blur when the page underneath scrolls", async ({
@@ -392,6 +433,11 @@ test("route URL editor selects suggestions with arrow keys", async ({ page }) =>
   await input.press("Enter");
 
   await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue(`${origin}/logo`);
+
+  await input.blur();
+
   await expect(input).toHaveCount(0);
   await expect(display).toHaveValue(`${origin}/logo`);
 });

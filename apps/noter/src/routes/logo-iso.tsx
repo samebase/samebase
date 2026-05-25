@@ -28,7 +28,7 @@ function LogoIsoRouteComponent() {
   );
 }
 
-export const Route = createFileRoute("/logo/iso")({
+export const Route = createFileRoute("/_public/logo/iso")({
   staticData: {
     permission: "public",
     searchParamSuggestions: LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,

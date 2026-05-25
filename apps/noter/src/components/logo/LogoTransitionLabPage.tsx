@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { Layout, PublicLayoutShell } from "@/Layout";
 import { DEFAULT_STATIC_LOGO_SVG_URL } from "@/components/logo/logoStaticSvgContract";
 import { Link } from "@tanstack/react-router";
 import {
@@ -266,275 +265,271 @@ export function LogoTransitionLabPage() {
   };
 
   return (
-    <Layout>
-      <PublicLayoutShell>
-        <div className="mx-auto grid max-w-7xl gap-6 p-4 text-black sm:px-6">
-          <div className="flex flex-wrap items-center gap-2 border border-black/10 bg-white p-2">
-            <Button asChild size="sm" variant="outline" className="rounded-none">
-              <Link to="/logo">3D</Link>
-            </Button>
-            <Button asChild size="sm" variant="outline" className="rounded-none">
-              <Link to="/logo/iso">Iso</Link>
-            </Button>
-            <Button asChild size="sm" variant="outline" className="rounded-none">
-              <Link to="/logo/svg">SVG</Link>
-            </Button>
-            <Button asChild size="sm" variant="outline" className="rounded-none">
-              <Link to="/logo/single-cube">Study</Link>
-            </Button>
-            <Button asChild size="sm" variant="outline" className="rounded-none">
-              <Link to="/logo/transition/transforms">Transform Lab</Link>
-            </Button>
-            <div
-              aria-current="page"
-              className="inline-flex h-9 items-center border border-black bg-black px-3 text-sm font-medium text-white"
+    <div className="mx-auto grid max-w-7xl gap-6 p-4 text-black sm:px-6">
+      <div className="flex flex-wrap items-center gap-2 border border-black/10 bg-white p-2">
+        <Button asChild size="sm" variant="outline" className="rounded-none">
+          <Link to="/logo">3D</Link>
+        </Button>
+        <Button asChild size="sm" variant="outline" className="rounded-none">
+          <Link to="/logo/iso">Iso</Link>
+        </Button>
+        <Button asChild size="sm" variant="outline" className="rounded-none">
+          <Link to="/logo/svg">SVG</Link>
+        </Button>
+        <Button asChild size="sm" variant="outline" className="rounded-none">
+          <Link to="/logo/single-cube">Study</Link>
+        </Button>
+        <Button asChild size="sm" variant="outline" className="rounded-none">
+          <Link to="/logo/transition/transforms">Transform Lab</Link>
+        </Button>
+        <div
+          aria-current="page"
+          className="inline-flex h-9 items-center border border-black bg-black px-3 text-sm font-medium text-white"
+        >
+          Transition Lab
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
+        <div className="grid content-start gap-4 border border-black/10 bg-white p-4">
+          <div>
+            <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+              Setup
+            </div>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight">
+              Start / End Transition Lab
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-black/60">
+              Click a rhombus in the scene, switch between start and end, then drag the active face
+              to where it should land. The scrubber shows the straight interpolation between those
+              two points.
+            </p>
+          </div>
+
+          <div className="grid gap-3">
+            <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+              Active Frame
+            </div>
+            <Tabs
+              value={activeFrame}
+              onValueChange={(value) => {
+                if (value !== "start" && value !== "end") {
+                  return;
+                }
+
+                setActiveFrame(value);
+              }}
             >
-              Transition Lab
+              <TabsList className="grid h-auto grid-cols-2 rounded-none bg-black/5 p-1">
+                <TabsTrigger value="start" className="rounded-none">
+                  Start
+                </TabsTrigger>
+                <TabsTrigger value="end" className="rounded-none">
+                  End
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+
+          <div className="grid gap-2">
+            <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+              <label htmlFor="logo-transition-progress-range">Preview</label>
+              <span>{Math.round(previewProgress * 100)}%</span>
+            </div>
+            <input
+              id="logo-transition-progress-range"
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value={Math.round(previewProgress * 100)}
+              onChange={(event) => {
+                setPreviewProgress(Number(event.target.value) / 100);
+              }}
+              className="h-2 w-full cursor-pointer accent-black"
+            />
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-none"
+                onClick={() => {
+                  setPreviewProgress(0);
+                }}
+              >
+                0%
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-none"
+                onClick={() => {
+                  setPreviewProgress(0.5);
+                }}
+              >
+                50%
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-none"
+                onClick={() => {
+                  setPreviewProgress(1);
+                }}
+              >
+                100%
+              </Button>
             </div>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
-            <div className="grid content-start gap-4 border border-black/10 bg-white p-4">
-              <div>
-                <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                  Setup
-                </div>
-                <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-                  Start / End Transition Lab
-                </h1>
-                <p className="mt-2 text-sm leading-6 text-black/60">
-                  Click a rhombus in the scene, switch between start and end, then drag the active
-                  face to where it should land. The scrubber shows the straight interpolation
-                  between those two points.
-                </p>
+          <div className="grid gap-2 border border-black/10 bg-[#fbfaf6] p-3 text-sm leading-6 text-black/65">
+            <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+              Selected Face
+            </div>
+            <div>Polygon {selectedFaceIndex >= 0 ? selectedFaceIndex + 1 : "?"}</div>
+            <div>Start: {formatOffset(startOffset)}</div>
+            <div>End: {formatOffset(endOffset)}</div>
+          </div>
+
+          <div className="grid gap-2 border border-black/10 bg-[#fbfaf6] p-3 font-mono text-xs leading-6 text-black/70">
+            <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+              Generated Transform
+            </div>
+            <div>{`from="${formatOffset(startOffset)}"`}</div>
+            <div>{`to="${formatOffset(endOffset)}"`}</div>
+          </div>
+
+          <div className="border border-black/10 bg-[#fbfaf6] p-3 text-sm leading-6 text-black/60">
+            <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+              Notes
+            </div>
+            <p className="mt-2">
+              Black outline is the start frame. Orange outline is the end frame. Cyan outline is the
+              scrubbed preview. The solid face is the one you are dragging right now.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-3 border border-black/10 bg-white p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                Workspace
               </div>
-
-              <div className="grid gap-3">
-                <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                  Active Frame
-                </div>
-                <Tabs
-                  value={activeFrame}
-                  onValueChange={(value) => {
-                    if (value !== "start" && value !== "end") {
-                      return;
-                    }
-
-                    setActiveFrame(value);
-                  }}
-                >
-                  <TabsList className="grid h-auto grid-cols-2 rounded-none bg-black/5 p-1">
-                    <TabsTrigger value="start" className="rounded-none">
-                      Start
-                    </TabsTrigger>
-                    <TabsTrigger value="end" className="rounded-none">
-                      End
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
-
-              <div className="grid gap-2">
-                <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                  <label htmlFor="logo-transition-progress-range">Preview</label>
-                  <span>{Math.round(previewProgress * 100)}%</span>
-                </div>
-                <input
-                  id="logo-transition-progress-range"
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="1"
-                  value={Math.round(previewProgress * 100)}
-                  onChange={(event) => {
-                    setPreviewProgress(Number(event.target.value) / 100);
-                  }}
-                  className="h-2 w-full cursor-pointer accent-black"
-                />
-                <div className="grid grid-cols-3 gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="rounded-none"
-                    onClick={() => {
-                      setPreviewProgress(0);
-                    }}
-                  >
-                    0%
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="rounded-none"
-                    onClick={() => {
-                      setPreviewProgress(0.5);
-                    }}
-                  >
-                    50%
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="rounded-none"
-                    onClick={() => {
-                      setPreviewProgress(1);
-                    }}
-                  >
-                    100%
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid gap-2 border border-black/10 bg-[#fbfaf6] p-3 text-sm leading-6 text-black/65">
-                <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                  Selected Face
-                </div>
-                <div>Polygon {selectedFaceIndex >= 0 ? selectedFaceIndex + 1 : "?"}</div>
-                <div>Start: {formatOffset(startOffset)}</div>
-                <div>End: {formatOffset(endOffset)}</div>
-              </div>
-
-              <div className="grid gap-2 border border-black/10 bg-[#fbfaf6] p-3 font-mono text-xs leading-6 text-black/70">
-                <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                  Generated Transform
-                </div>
-                <div>{`from="${formatOffset(startOffset)}"`}</div>
-                <div>{`to="${formatOffset(endOffset)}"`}</div>
-              </div>
-
-              <div className="border border-black/10 bg-[#fbfaf6] p-3 text-sm leading-6 text-black/60">
-                <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                  Notes
-                </div>
-                <p className="mt-2">
-                  Black outline is the start frame. Orange outline is the end frame. Cyan outline is
-                  the scrubbed preview. The solid face is the one you are dragging right now.
-                </p>
+              <div className="mt-1 text-sm text-black/60">
+                Click any rhombus to select it. Drag the solid version of the selected face.
               </div>
             </div>
+            <div className="font-mono text-[11px] text-black/45">/logo-transition-lab</div>
+          </div>
 
-            <div className="grid gap-3 border border-black/10 bg-white p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                    Workspace
-                  </div>
-                  <div className="mt-1 text-sm text-black/60">
-                    Click any rhombus to select it. Drag the solid version of the selected face.
-                  </div>
-                </div>
-                <div className="font-mono text-[11px] text-black/45">/logo-transition-lab</div>
-              </div>
+          <div className="flex min-h-[38rem] items-center justify-center border border-black/10 bg-[#fcfbf7] p-4">
+            {selectedFace ? (
+              <svg
+                ref={svgRef}
+                viewBox={`${viewBox.minX} ${viewBox.minY} ${viewBox.width} ${viewBox.height}`}
+                className="block w-full max-w-[42rem] touch-none"
+                onPointerCancel={endDrag}
+                onPointerMove={updateDrag}
+                onPointerUp={endDrag}
+              >
+                {faces.map((face, index) => (
+                  <polygon
+                    key={`face-${index}`}
+                    points={face.points.map((point) => `${point.x} ${point.y}`).join(" ")}
+                    fill={face.fill}
+                    stroke={face.stroke}
+                    strokeWidth={face.strokeWidth}
+                    opacity={index === selectedFaceIndex ? 0.18 : 1}
+                    onClick={() => {
+                      setSelectedFaceIndex(index);
+                    }}
+                    style={{ cursor: "pointer" }}
+                  />
+                ))}
 
-              <div className="flex min-h-[38rem] items-center justify-center border border-black/10 bg-[#fcfbf7] p-4">
-                {selectedFace ? (
-                  <svg
-                    ref={svgRef}
-                    viewBox={`${viewBox.minX} ${viewBox.minY} ${viewBox.width} ${viewBox.height}`}
-                    className="block w-full max-w-[42rem] touch-none"
-                    onPointerCancel={endDrag}
-                    onPointerMove={updateDrag}
-                    onPointerUp={endDrag}
-                  >
-                    {faces.map((face, index) => (
-                      <polygon
-                        key={`face-${index}`}
-                        points={face.points.map((point) => `${point.x} ${point.y}`).join(" ")}
-                        fill={face.fill}
-                        stroke={face.stroke}
-                        strokeWidth={face.strokeWidth}
-                        opacity={index === selectedFaceIndex ? 0.18 : 1}
-                        onClick={() => {
-                          setSelectedFaceIndex(index);
-                        }}
-                        style={{ cursor: "pointer" }}
-                      />
-                    ))}
+                <polygon
+                  points={selectedFace.points.map((point) => `${point.x} ${point.y}`).join(" ")}
+                  fill="none"
+                  stroke="#111111"
+                  strokeDasharray="4 4"
+                  strokeWidth={1.5}
+                  transform={`translate(${startOffset.x} ${startOffset.y})`}
+                />
 
-                    <polygon
-                      points={selectedFace.points.map((point) => `${point.x} ${point.y}`).join(" ")}
-                      fill="none"
-                      stroke="#111111"
-                      strokeDasharray="4 4"
+                <polygon
+                  points={selectedFace.points.map((point) => `${point.x} ${point.y}`).join(" ")}
+                  fill="none"
+                  stroke="#ff5a1f"
+                  strokeDasharray="4 4"
+                  strokeWidth={1.5}
+                  transform={`translate(${endOffset.x} ${endOffset.y})`}
+                />
+
+                <polygon
+                  points={selectedFace.points.map((point) => `${point.x} ${point.y}`).join(" ")}
+                  fill="none"
+                  stroke="#0ea5e9"
+                  strokeWidth={1.5}
+                  transform={`translate(${previewOffset.x} ${previewOffset.y})`}
+                />
+
+                <polygon
+                  points={selectedFace.points.map((point) => `${point.x} ${point.y}`).join(" ")}
+                  fill={selectedFace.fill}
+                  fillOpacity={0.88}
+                  stroke={selectedFace.stroke}
+                  strokeWidth={selectedFace.strokeWidth}
+                  transform={`translate(${currentEditableOffset.x} ${currentEditableOffset.y})`}
+                  onPointerDown={beginDrag}
+                  style={{ cursor: "grab" }}
+                />
+
+                {selectedFace.points.map((point, pointIndex) => {
+                  const positionedPoint = addOffset(point, currentEditableOffset);
+                  return (
+                    <circle
+                      key={`handle-${pointIndex}`}
+                      cx={positionedPoint.x}
+                      cy={positionedPoint.y}
+                      r={5}
+                      fill={activeFrame === "start" ? "#111111" : "#ff5a1f"}
+                      stroke="#ffffff"
                       strokeWidth={1.5}
-                      transform={`translate(${startOffset.x} ${startOffset.y})`}
-                    />
-
-                    <polygon
-                      points={selectedFace.points.map((point) => `${point.x} ${point.y}`).join(" ")}
-                      fill="none"
-                      stroke="#ff5a1f"
-                      strokeDasharray="4 4"
-                      strokeWidth={1.5}
-                      transform={`translate(${endOffset.x} ${endOffset.y})`}
-                    />
-
-                    <polygon
-                      points={selectedFace.points.map((point) => `${point.x} ${point.y}`).join(" ")}
-                      fill="none"
-                      stroke="#0ea5e9"
-                      strokeWidth={1.5}
-                      transform={`translate(${previewOffset.x} ${previewOffset.y})`}
-                    />
-
-                    <polygon
-                      points={selectedFace.points.map((point) => `${point.x} ${point.y}`).join(" ")}
-                      fill={selectedFace.fill}
-                      fillOpacity={0.88}
-                      stroke={selectedFace.stroke}
-                      strokeWidth={selectedFace.strokeWidth}
-                      transform={`translate(${currentEditableOffset.x} ${currentEditableOffset.y})`}
                       onPointerDown={beginDrag}
                       style={{ cursor: "grab" }}
                     />
+                  );
+                })}
 
-                    {selectedFace.points.map((point, pointIndex) => {
-                      const positionedPoint = addOffset(point, currentEditableOffset);
-                      return (
-                        <circle
-                          key={`handle-${pointIndex}`}
-                          cx={positionedPoint.x}
-                          cy={positionedPoint.y}
-                          r={5}
-                          fill={activeFrame === "start" ? "#111111" : "#ff5a1f"}
-                          stroke="#ffffff"
-                          strokeWidth={1.5}
-                          onPointerDown={beginDrag}
-                          style={{ cursor: "grab" }}
-                        />
-                      );
-                    })}
-
-                    <circle
-                      cx={getFaceCenter(selectedFace.points, startOffset).x}
-                      cy={getFaceCenter(selectedFace.points, startOffset).y}
-                      r={4}
-                      fill="#111111"
-                    />
-                    <circle
-                      cx={getFaceCenter(selectedFace.points, endOffset).x}
-                      cy={getFaceCenter(selectedFace.points, endOffset).y}
-                      r={4}
-                      fill="#ff5a1f"
-                    />
-                    <circle
-                      cx={getFaceCenter(selectedFace.points, previewOffset).x}
-                      cy={getFaceCenter(selectedFace.points, previewOffset).y}
-                      r={4}
-                      fill="#0ea5e9"
-                    />
-                  </svg>
-                ) : (
-                  <div className="text-sm text-black/50">Loading SVG lab…</div>
-                )}
-              </div>
-            </div>
+                <circle
+                  cx={getFaceCenter(selectedFace.points, startOffset).x}
+                  cy={getFaceCenter(selectedFace.points, startOffset).y}
+                  r={4}
+                  fill="#111111"
+                />
+                <circle
+                  cx={getFaceCenter(selectedFace.points, endOffset).x}
+                  cy={getFaceCenter(selectedFace.points, endOffset).y}
+                  r={4}
+                  fill="#ff5a1f"
+                />
+                <circle
+                  cx={getFaceCenter(selectedFace.points, previewOffset).x}
+                  cy={getFaceCenter(selectedFace.points, previewOffset).y}
+                  r={4}
+                  fill="#0ea5e9"
+                />
+              </svg>
+            ) : (
+              <div className="text-sm text-black/50">Loading SVG lab…</div>
+            )}
           </div>
         </div>
-      </PublicLayoutShell>
-    </Layout>
+      </div>
+    </div>
   );
 }

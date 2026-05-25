@@ -11,7 +11,7 @@ function LogoTransitionTransformsLabRouteComponent() {
   );
 }
 
-export const Route = createFileRoute("/logo/transition/transforms")({
+export const Route = createFileRoute("/_public/logo/transition/transforms")({
   staticData: {
     permission: "public",
     searchParamSuggestions: LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,

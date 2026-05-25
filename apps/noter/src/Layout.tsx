@@ -33,6 +33,18 @@ function PublicLayoutMainContent({ children }: { children?: ReactNode }) {
   return <div className="relative flex h-full min-h-0 flex-col">{children}</div>;
 }
 
+export type PublicLayoutShellProps = {
+  children?: ReactNode;
+  dataTestId?: WorkspaceLayoutV2FullPageProps["dataTestId"];
+  defaultLeftOpen?: boolean;
+  defaultMobilePane?: WorkspaceMobileSidebarPane;
+  left?: WorkspaceLayoutV2PaneFrameProps;
+  leftToggleVisibility?: WorkspaceLayoutV2FullPageProps["leftToggleVisibility"];
+  main?: WorkspaceLayoutV2PaneFrameProps;
+  rightToggleVisibility?: WorkspaceLayoutV2FullPageProps["rightToggleVisibility"];
+  showRightSidebar?: boolean;
+};
+
 export function PublicLayoutShell({
   children,
   dataTestId,
@@ -43,17 +55,7 @@ export function PublicLayoutShell({
   main,
   rightToggleVisibility = "desktop",
   showRightSidebar = true,
-}: {
-  children?: ReactNode;
-  dataTestId?: WorkspaceLayoutV2FullPageProps["dataTestId"];
-  defaultLeftOpen?: boolean;
-  defaultMobilePane?: WorkspaceMobileSidebarPane;
-  left?: WorkspaceLayoutV2PaneFrameProps;
-  leftToggleVisibility?: WorkspaceLayoutV2FullPageProps["leftToggleVisibility"];
-  main?: WorkspaceLayoutV2PaneFrameProps;
-  rightToggleVisibility?: WorkspaceLayoutV2FullPageProps["rightToggleVisibility"];
-  showRightSidebar?: boolean;
-}) {
+}: PublicLayoutShellProps) {
   const hasLeftPane = left !== undefined;
   const location = useLocation();
   const rootRouteSearch = readRootRouteSearch(location.searchStr);
