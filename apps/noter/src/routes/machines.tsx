@@ -18,6 +18,7 @@ function MachinesRouteComponent() {
 }
 
 export const Route = createFileRoute("/machines")({
+  ssr: false,
   staticData: {
     permission: "admin",
     searchParamSuggestions: MACHINES_ROUTE_SEARCH_PARAM_SUGGESTIONS,

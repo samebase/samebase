@@ -3,6 +3,7 @@ import { DASHBOARD_ROUTE_SEARCH_PARAM_SUGGESTIONS } from "@/lib/rootRouteSearch"
 import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/home")({
+  ssr: false,
   staticData: {
     permission: "admin",
     searchParamSuggestions: DASHBOARD_ROUTE_SEARCH_PARAM_SUGGESTIONS,

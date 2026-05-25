@@ -11,6 +11,7 @@ function LocalStorageRouteComponent() {
 }
 
 export const Route = createFileRoute("/localStorage")({
+  ssr: false,
   staticData: { permission: "public" },
   component: LocalStorageRouteComponent,
 });

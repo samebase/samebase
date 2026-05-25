@@ -7,7 +7,8 @@ export function RouterGestureDebugOverlay() {
     select: (location) => location.searchStr,
   });
   const isLocalDebugHost =
-    window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
 
   if (!import.meta.env.DEV && !isLocalDebugHost) {
     return null;

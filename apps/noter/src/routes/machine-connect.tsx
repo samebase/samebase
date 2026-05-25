@@ -18,6 +18,7 @@ function MachineConnectRouteComponent() {
 }
 
 export const Route = createFileRoute("/machines/connect")({
+  ssr: false,
   staticData: {
     permission: "admin",
     searchParamSuggestions: MACHINE_CONNECT_ROUTE_SEARCH_PARAM_SUGGESTIONS,

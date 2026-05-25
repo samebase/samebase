@@ -43,6 +43,7 @@ function CodexThreadBrowserRouteComponent() {
 }
 
 export const Route = createFileRoute("/research/codex-app-server/browser")({
+  ssr: false,
   staticData: {
     permission: "admin",
     searchParamSuggestions: CODEX_RESEARCH_ROUTE_SEARCH_PARAM_SUGGESTIONS,

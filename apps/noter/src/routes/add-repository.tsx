@@ -11,6 +11,7 @@ function AddRepositoryRouteComponent() {
 }
 
 export const Route = createFileRoute("/add")({
+  ssr: false,
   staticData: { permission: "admin" },
   component: AddRepositoryRouteComponent,
 });

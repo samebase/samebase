@@ -15,6 +15,7 @@ function PricingRouteComponent() {
 }
 
 export const Route = createFileRoute("/pricing")({
+  ssr: false,
   staticData: {
     permission: "admin",
     searchParamSuggestions: PRICING_ROUTE_SEARCH_PARAM_SUGGESTIONS,

@@ -1,5 +1,4 @@
 import {
-  ClientOnly,
   HeadContent,
   Scripts,
   createRootRoute,
@@ -10,6 +9,7 @@ import {
 } from "@tanstack/react-router";
 import { pick } from "@noter-md/dependent/object";
 import { AppBootErrorBoundary } from "@/components/AppBootErrorBoundary";
+import { AppRootClient } from "@/components/AppRootClient";
 import {
   canAccessNoterRouteMatchesAvailability,
   readNoterRouteSurfaceForRouteGuard,
@@ -22,13 +22,7 @@ import {
 } from "@/lib/rootRouteSearch";
 import { buildRootHead } from "@/lib/rootHead";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
-import { Suspense, lazy, type ReactNode } from "react";
-
-const LazyAppRootClient = lazy(() =>
-  import("@/components/AppRootClient").then((module) => ({
-    default: module.AppRootClient,
-  })),
-);
+import { type ReactNode } from "react";
 type RootSearchMiddlewareArgs = {
   next: (search: RootRouteSearch) => RootRouteSearch;
   search: RootRouteSearch;
@@ -54,11 +48,7 @@ function RootComponent() {
   return (
     <RootDocument>
       <AppBootErrorBoundary>
-        <ClientOnly>
-          <Suspense fallback={null}>
-            <LazyAppRootClient />
-          </Suspense>
-        </ClientOnly>
+        <AppRootClient />
       </AppBootErrorBoundary>
     </RootDocument>
   );

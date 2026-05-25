@@ -29,6 +29,7 @@ function LogoRasterRouteComponent() {
 }
 
 export const Route = createFileRoute("/logo/raster")({
+  ssr: false,
   staticData: {
     permission: "public",
     searchParamSuggestions: LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,

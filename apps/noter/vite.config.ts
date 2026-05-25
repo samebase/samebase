@@ -1,4 +1,5 @@
 import { defineConfig, type ViteDevServer } from "vite";
+import { cloudflare } from "@cloudflare/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
@@ -535,18 +536,13 @@ export default defineConfig({
     codexAppServerResearchBridgePlugin({
       workspaceRoot: gitRoot,
     }),
+    cloudflare({ viteEnvironment: { name: "ssr" } }),
     tailwindcss(),
     tanstackStart({
       router: {
         quoteStyle: "double",
         semicolons: true,
         virtualRouteConfig: "./src/routes.ts",
-      },
-      spa: {
-        enabled: true,
-        prerender: {
-          outputPath: "/index.html",
-        },
       },
     }),
     react(),
