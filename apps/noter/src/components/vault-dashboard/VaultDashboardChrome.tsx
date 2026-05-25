@@ -66,6 +66,8 @@ export function VaultDashboardAccountSection({
 }: VaultDashboardAccountSectionProps) {
   return (
     <div
+      data-1p-ignore=""
+      data-op-ignore=""
       data-testid="dashboard-sidebar-account-section"
       className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
     >
@@ -102,9 +104,9 @@ export function VaultDashboardAccountSection({
                       SIDEBAR_METADATA_TEXT_CLASS,
                       "text-xs leading-5 text-muted-foreground",
                     )}
-                    title={`Signed in with ${providerLabel}`}
+                    title={`Auth provider: ${providerLabel}`}
                   >
-                    Signed in with {providerLabel}
+                    Auth provider: {providerLabel}
                   </div>
                 ) : null}
               </div>

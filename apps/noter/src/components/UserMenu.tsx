@@ -28,17 +28,21 @@ export function UserMenu({ children, menuLabel }: { children?: ReactNode; menuLa
   const emailLabel = viewer?.email ?? "Unknown";
 
   return (
-    <div className={"flex items-center gap-2 text-sm font-medium w-full min-w-0 justify-between"}>
+    <div
+      data-1p-ignore=""
+      data-op-ignore=""
+      className={"flex items-center gap-2 text-sm font-medium w-full min-w-0 justify-between"}
+    >
       {children}
       <Dialog open={accountOpen} onOpenChange={setAccountOpen}>
         <AppDialogContent>
           <DialogHeader>
             <DialogTitle>Account</DialogTitle>
-            <DialogDescription>Sign-in details for this session.</DialogDescription>
+            <DialogDescription>Account details for this session.</DialogDescription>
           </DialogHeader>
           <div className="space-y-2 text-sm">
             <div className="flex items-center justify-between gap-4">
-              <span className="text-muted-foreground">Sign-in method</span>
+              <span className="text-muted-foreground">Provider</span>
               <span className="font-medium">{providerLabel}</span>
             </div>
             <div className="flex items-center justify-between gap-4">
