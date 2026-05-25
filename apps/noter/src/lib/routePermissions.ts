@@ -1,3 +1,9 @@
+import {
+  canAccessNoterRouteAvailability,
+  type NoterRouteAvailability,
+  type NoterRouteSurface,
+} from "@/lib/routeAvailability";
+
 export type NoterRoutePermission = "public" | "admin";
 
 export type NoterRouteSearchParamValueKind = "presence" | "value";
@@ -9,6 +15,7 @@ export type NoterRouteSearchParamSuggestion<Key extends string = string> = {
 };
 
 export type NoterRouteStaticData = {
+  availableOn?: NoterRouteAvailability;
   permission: NoterRoutePermission;
   searchParamSuggestions?: readonly NoterRouteSearchParamSuggestion[];
 };
@@ -29,6 +36,17 @@ export function canAccessNoterRoutePermission(
   }
 
   return permission satisfies never;
+}
+
+export function canAccessNoterRouteStaticData(
+  staticData: NoterRouteStaticData,
+  viewer: NoterRoutePermissionViewer,
+  surface: NoterRouteSurface,
+): boolean {
+  return (
+    canAccessNoterRoutePermission(staticData.permission, viewer) &&
+    canAccessNoterRouteAvailability(staticData.availableOn, surface)
+  );
 }
 
 declare module "@tanstack/react-router" {

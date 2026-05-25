@@ -7,6 +7,8 @@ import {
 } from "./routeUrlEditorSuggestions";
 
 const ORIGIN = "https://noter.local";
+const LOCAL_ORIGIN = "http://localhost:5174";
+const DEPLOYED_ORIGIN = "https://preview.noter.md";
 const routesByPath = getRouter().routesByPath;
 const adminViewer = { isAdmin: true };
 const publicViewer = { isAdmin: false };
@@ -107,6 +109,38 @@ describe("readRouteUrlEditorSuggestions", () => {
       "?add-cloudflare",
       "?add-convex",
     ]);
+  });
+
+  it("keeps local-only route search params on local surfaces", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/visual-fixture",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/visual-fixture?mo",
+      hashKeys: [],
+      kind: "search",
+      origin: LOCAL_ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/visual-fixture?mo".length,
+      viewer: adminViewer,
+    });
+
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["?mode="]);
+  });
+
+  it("hides local-only route search params on deployed surfaces", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/visual-fixture",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/visual-fixture?mo",
+      hashKeys: [],
+      kind: "search",
+      origin: DEPLOYED_ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/visual-fixture?mo".length,
+      viewer: adminViewer,
+    });
+
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual([]);
   });
 
   it("suggests route-specific hashes when the route is accessible", () => {

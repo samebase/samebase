@@ -1,12 +1,12 @@
 import type { AppRouter } from "@/router";
 import { FORCE_PROD_UI_QUERY_PARAM } from "@/lib/prodUiMode";
+import { readNoterRouteSurfaceForOrigin, type NoterRouteSurface } from "@/lib/routeAvailability";
 import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
 import {
-  canAccessNoterRoutePermission,
-  type NoterRoutePermission,
+  canAccessNoterRouteStaticData,
   type NoterRoutePermissionViewer,
+  type NoterRouteStaticData,
 } from "@/lib/routePermissions";
-import { isVisualFixtureRouteAvailableOnHostname } from "@/lib/visualFixtureRouteAvailability";
 
 type RouteUrlPathSuggestionsInput = {
   currentHref: string;
@@ -16,13 +16,6 @@ type RouteUrlPathSuggestionsInput = {
   viewer: NoterRoutePermissionViewer;
 };
 
-type RouteUrlPathSuggestionSurface = {
-  prodUiMode: boolean;
-  visualFixtureRouteAvailable: boolean;
-};
-
-const PROD_UI_HIDDEN_ROUTE_URL_PATH_SUGGESTIONS = ["/test", "/visual-fixture"] as const;
-
 /**
  * router.routesByPath is the runtime route truth; pathless layout ids stay out
  * of the URL editor because users cannot navigate to them directly.
@@ -30,11 +23,11 @@ const PROD_UI_HIDDEN_ROUTE_URL_PATH_SUGGESTIONS = ["/test", "/visual-fixture"] a
 export function readRouteUrlPathSuggestions(
   routesByPath: AppRouter["routesByPath"],
   viewer: NoterRoutePermissionViewer,
-  surface: RouteUrlPathSuggestionSurface,
+  surface: NoterRouteSurface,
 ): readonly string[] {
   return Object.entries(routesByPath)
     .filter(([path, route]) =>
-      isRouteUrlPathSuggestion(path, route.options.staticData.permission, viewer, surface),
+      isRouteUrlPathSuggestion(path, route.options.staticData, viewer, surface),
     )
     .map(([path]) => path)
     .sort(compareRouteUrlPathSuggestion);
@@ -47,14 +40,15 @@ export function filterRouteUrlPathSuggestions({
   routesByPath,
   viewer,
 }: RouteUrlPathSuggestionsInput): readonly string[] {
-  const suggestions = readRouteUrlPathSuggestions(routesByPath, viewer, {
-    prodUiMode: readRouteUrlPathSuggestionProdUiMode({
+  const suggestions = readRouteUrlPathSuggestions(
+    routesByPath,
+    viewer,
+    readRouteUrlPathSuggestionSurface({
       currentHref,
       draftHref,
       origin,
     }),
-    visualFixtureRouteAvailable: readRouteUrlPathSuggestionVisualFixtureAvailability(origin),
-  });
+  );
   const draftPath = readRouteUrlPathSuggestionDraftPath({
     currentHref,
     draftHref,
@@ -82,14 +76,15 @@ export function isRouteUrlPathReadyForNavigation({
   routesByPath,
   viewer,
 }: RouteUrlPathSuggestionsInput): boolean {
-  const suggestions = readRouteUrlPathSuggestions(routesByPath, viewer, {
-    prodUiMode: readRouteUrlPathSuggestionProdUiMode({
+  const suggestions = readRouteUrlPathSuggestions(
+    routesByPath,
+    viewer,
+    readRouteUrlPathSuggestionSurface({
       currentHref,
       draftHref,
       origin,
     }),
-    visualFixtureRouteAvailable: readRouteUrlPathSuggestionVisualFixtureAvailability(origin),
-  });
+  );
   const draftPath = readRouteUrlPathSuggestionDraftPath({
     currentHref,
     draftHref,
@@ -106,28 +101,13 @@ export function isRouteUrlPathReadyForNavigation({
 
 function isRouteUrlPathSuggestion(
   path: string,
-  permission: NoterRoutePermission,
+  staticData: NoterRouteStaticData,
   viewer: NoterRoutePermissionViewer,
-  surface: RouteUrlPathSuggestionSurface,
+  surface: NoterRouteSurface,
 ): boolean {
   return (
     (path === "/" || (path.startsWith("/") && !path.startsWith("/_"))) &&
-    !isRouteUrlPathSuggestionHiddenForSurface(path, surface) &&
-    canAccessNoterRoutePermission(permission, viewer)
-  );
-}
-
-function isRouteUrlPathSuggestionHiddenForSurface(
-  path: string,
-  surface: RouteUrlPathSuggestionSurface,
-): boolean {
-  if (path === "/visual-fixture" && !surface.visualFixtureRouteAvailable) {
-    return true;
-  }
-
-  return (
-    surface.prodUiMode &&
-    PROD_UI_HIDDEN_ROUTE_URL_PATH_SUGGESTIONS.some((hiddenPath) => hiddenPath === path)
+    canAccessNoterRouteStaticData(staticData, viewer, surface)
   );
 }
 
@@ -147,21 +127,21 @@ function compareRouteUrlPathSuggestion(left: string, right: string): number {
   return left.localeCompare(right);
 }
 
-function readRouteUrlPathSuggestionProdUiMode({
+export function readRouteUrlPathSuggestionSurface({
   currentHref,
   draftHref,
   origin,
-}: Omit<RouteUrlPathSuggestionsInput, "routesByPath" | "viewer">): boolean {
+}: Omit<RouteUrlPathSuggestionsInput, "routesByPath" | "viewer">): NoterRouteSurface {
   try {
     const appOrigin = new URL(origin);
     const currentUrl = new URL(currentHref, appOrigin);
     if (currentUrl.searchParams.has(FORCE_PROD_UI_QUERY_PARAM)) {
-      return true;
+      return "production";
     }
 
     const trimmedDraftHref = draftHref.trim();
     if (!trimmedDraftHref) {
-      return false;
+      return readNoterRouteSurfaceForOrigin(origin);
     }
 
     const routeHref = normalizeRouteUrlEditorHref({
@@ -170,20 +150,16 @@ function readRouteUrlPathSuggestionProdUiMode({
       rawHref: trimmedDraftHref,
     });
     if (routeHref === null) {
-      return false;
+      return readNoterRouteSurfaceForOrigin(origin);
     }
 
-    return new URL(routeHref, appOrigin).searchParams.has(FORCE_PROD_UI_QUERY_PARAM);
-  } catch {
-    return false;
-  }
-}
+    if (new URL(routeHref, appOrigin).searchParams.has(FORCE_PROD_UI_QUERY_PARAM)) {
+      return "production";
+    }
 
-function readRouteUrlPathSuggestionVisualFixtureAvailability(origin: string): boolean {
-  try {
-    return isVisualFixtureRouteAvailableOnHostname(new URL(origin).hostname);
+    return readNoterRouteSurfaceForOrigin(origin);
   } catch {
-    return false;
+    return "production";
   }
 }
 

@@ -4,10 +4,16 @@ import {
   Scripts,
   createRootRoute,
   lazyRouteComponent,
+  notFound,
   redirect,
+  rootRouteId,
 } from "@tanstack/react-router";
 import { pick } from "@noter-md/dependent/object";
 import { AppBootErrorBoundary } from "@/components/AppBootErrorBoundary";
+import {
+  canAccessNoterRouteMatchesAvailability,
+  readNoterRouteSurfaceForRouteGuard,
+} from "@/lib/routeAvailability";
 import { applySearchPatch } from "@/lib/routeSearchFlags";
 import {
   RETAINED_ROOT_SEARCH_KEYS,
@@ -74,7 +80,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
 
 export const Route = createRootRoute({
   staticData: { permission: "public" },
-  beforeLoad: ({ location, search }) => {
+  beforeLoad: ({ location, matches, search }) => {
     if (search.reset) {
       throw redirect({
         href: buildPathWithTanStackSearch({
@@ -98,6 +104,11 @@ export const Route = createRootRoute({
         }),
         replace: true,
       });
+    }
+
+    const routeSurface = readNoterRouteSurfaceForRouteGuard();
+    if (routeSurface !== null && !canAccessNoterRouteMatchesAvailability(matches, routeSurface)) {
+      throw notFound({ routeId: rootRouteId });
     }
   },
   component: RootComponent,

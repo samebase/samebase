@@ -252,6 +252,7 @@ describe("appRouter", () => {
     rootElement?.remove();
     rootElement = null;
     useConvexAuthMock.mockReset();
+    vi.unstubAllEnvs();
   });
 
   async function renderRoute(initialEntry: string) {
@@ -666,6 +667,17 @@ describe("appRouter", () => {
 
     expect(rootElement?.querySelector('[data-testid="root-test-route"]')?.textContent).toBe("Test");
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("renders local-only routes as not found on deployed route surfaces", async () => {
+    vi.stubEnv("VITE_NOTER_ROUTE_SURFACE", "production");
+
+    await renderRoute("/test");
+
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')?.textContent).toBe(
+      "Not found route",
+    );
+    expect(rootElement?.querySelector('[data-testid="root-test-route"]')).toBeNull();
   });
 
   it("renders the root not-found route for unresolved paths", async () => {
