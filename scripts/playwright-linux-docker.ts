@@ -12,6 +12,7 @@ const DEFAULT_OUT_DIR = ".tmp/playwright-linux";
 const DEFAULT_PNPM_STORE_VOLUME = "noter-playwright-linux-pnpm-store";
 const DEFAULT_CONVEX_CACHE_VOLUME = "noter-playwright-linux-convex-cache";
 const DEFAULT_VITE_PORT = "43121";
+const DEFAULT_PLAYWRIGHT_LINUX_WORKERS = "8";
 const FULL_GIT_COMMIT_PATTERN = /^[0-9a-f]{40}$/i;
 
 const CONTAINER_SCRIPT = String.raw`set -euo pipefail
@@ -167,6 +168,37 @@ function hasSnapshotUpdateArg(args: string[]): boolean {
   );
 }
 
+function hasPlaywrightOption(args: string[], longName: string, shortName?: string): boolean {
+  return args.some(
+    (arg) =>
+      arg === longName ||
+      arg.startsWith(`${longName}=`) ||
+      (typeof shortName === "string" && (arg === shortName || arg.startsWith(`${shortName}=`))),
+  );
+}
+
+function readLinuxPlaywrightArgs(args: string[]): string[] {
+  if (hasPlaywrightOption(args, "--debug")) {
+    return args;
+  }
+
+  const defaultArgs: string[] = [];
+  if (
+    readEnv("PLAYWRIGHT_LINUX_FULLY_PARALLEL", "1") !== "0" &&
+    !hasPlaywrightOption(args, "--fully-parallel")
+  ) {
+    defaultArgs.push("--fully-parallel");
+  }
+
+  if (!hasPlaywrightOption(args, "--workers", "-j")) {
+    defaultArgs.push(
+      `--workers=${readEnv("PLAYWRIGHT_LINUX_WORKERS", DEFAULT_PLAYWRIGHT_LINUX_WORKERS)}`,
+    );
+  }
+
+  return [...defaultArgs, ...args];
+}
+
 function printRunHeader(image: string, platform: string, outDir: string): void {
   console.log(`Running Noter Playwright visuals in Linux Docker
   image:    ${image}
@@ -253,7 +285,7 @@ async function main(): Promise<void> {
   }
 
   const repoRoot = resolveRepoRoot();
-  const playwrightArgs = stripPnpmSeparator(process.argv.slice(2));
+  const playwrightArgs = readLinuxPlaywrightArgs(stripPnpmSeparator(process.argv.slice(2)));
   const outDirRaw = readEnv("PLAYWRIGHT_LINUX_OUT", DEFAULT_OUT_DIR);
   const outDirPath = path.resolve(repoRoot, outDirRaw);
   const tempDir = path.resolve(repoRoot, ".tmp");
