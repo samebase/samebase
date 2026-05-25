@@ -8,8 +8,8 @@ import {
   PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
 } from "@/lib/publicLanding";
 import { shouldRenderGoogleSignupClosedState } from "@/lib/publicLandingAuthState";
-import { useRootRouteSearch } from "@/lib/rootRouteSearch";
-import { Link, useLocation } from "@tanstack/react-router";
+import { replaceRootLogoRouteSearch, useRootRouteSearch } from "@/lib/rootRouteSearch";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 
 type SignInFormProps = {
@@ -21,6 +21,7 @@ export function SignInForm({ authPlacement = "inline", topNotice }: SignInFormPr
   const pathname = useLocation({
     select: (location) => location.pathname,
   });
+  const navigate = useNavigate();
   const rootRouteSearch = useRootRouteSearch();
   const landingDevModeEnabled = isLandingDevModeEnabled(rootRouteSearch);
   const showGoogleSignupClosedState = shouldRenderGoogleSignupClosedState(
@@ -41,6 +42,15 @@ export function SignInForm({ authPlacement = "inline", topNotice }: SignInFormPr
             animateLeftFaceStripes
             autoRotate={landingDevModeEnabled}
             enableViewSnapping={!landingDevModeEnabled}
+            replaceRouteSearch={(nextSearch) => {
+              void navigate({
+                hash: true,
+                replace: true,
+                search: (currentSearch) => replaceRootLogoRouteSearch(currentSearch, nextSearch),
+                state: true,
+                to: ".",
+              });
+            }}
             routeSearch={rootRouteSearch}
           />
           {showGoogleSignupClosedState ? (

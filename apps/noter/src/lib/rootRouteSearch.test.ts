@@ -4,7 +4,11 @@ import {
   LOGO_GRID_SIZE_2,
   LOGO_GRID_SIZE_3,
 } from "@/components/logo/logoVoxelState";
-import { readRootRouteSearch, validateRootRouteSearch } from "./rootRouteSearch";
+import {
+  readRootRouteSearch,
+  replaceRootLogoRouteSearch,
+  validateRootRouteSearch,
+} from "./rootRouteSearch";
 
 describe("rootRouteSearch", () => {
   it("accepts the routed root landing flags and auth provider", () => {
@@ -165,6 +169,36 @@ describe("rootRouteSearch", () => {
       stripeW: 0.4,
       vox: DEFAULT_VOXEL_STATE,
     });
+  });
+
+  it("replaces logo params without dropping dashboard route state", () => {
+    const nextSearch = replaceRootLogoRouteSearch(
+      {
+        "new-app": true,
+        depth: 2,
+        elev: 24,
+        freeView: true,
+        primary: "red-600",
+        rot: 45,
+        top: "blue-500",
+      },
+      {
+        primary: "green-500",
+        rot: 90,
+      },
+    );
+
+    expect(nextSearch["new-app"]).toBe(true);
+    expect(nextSearch.primary).toBe("green-500");
+    expect(nextSearch.rot).toBe(90);
+    expect(nextSearch.depth).toBeUndefined();
+    expect(nextSearch.elev).toBeUndefined();
+    expect(nextSearch.freeView).toBeUndefined();
+    expect(nextSearch.top).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(nextSearch, "depth")).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(nextSearch, "elev")).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(nextSearch, "freeView")).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(nextSearch, "top")).toBe(true);
   });
 
   it("ignores all other parsed root params while reset is present", () => {

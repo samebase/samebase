@@ -87,7 +87,11 @@ import {
 } from "@/components/vault-dashboard/vaultProviderSetup";
 import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
-import { type RootRouteSearch, useRootRouteSearch } from "@/lib/rootRouteSearch";
+import {
+  replaceRootLogoRouteSearch,
+  type RootRouteSearch,
+  useRootRouteSearch,
+} from "@/lib/rootRouteSearch";
 import { buildPullRequestLabelStyle, normalizePullRequestLabels } from "@/lib/pullRequestLabels";
 import { applySearchPatch } from "@/lib/routeSearchFlags";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
@@ -2665,6 +2669,7 @@ type VaultDashboardBodyProps = {
   retryingDeletionRunId: Id<"vaultDeletionRuns"> | null;
   now: number;
   logoRouteSearch: LogoRouteSearch;
+  replaceLogoRouteSearch: (nextSearch: LogoRouteSearch) => void;
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
   persistedVaultBranchFiltersByVaultId: Map<string, VaultBranchFiltersState>;
   deleteRepositoryFullName?: string;
@@ -2864,6 +2869,7 @@ function VaultDashboardBody({
   retryingDeletionRunId,
   now,
   logoRouteSearch,
+  replaceLogoRouteSearch,
   openDeveloperToolsByVaultId,
   persistedVaultBranchFiltersByVaultId,
   deleteRepositoryFullName,
@@ -3089,7 +3095,12 @@ function VaultDashboardBody({
   }, [repositoryLocationHash, scrollVaultCardElementForHash, vaults]);
 
   if (vaults.length === 0) {
-    return <VaultDashboardEmptyState logoRouteSearch={logoRouteSearch} />;
+    return (
+      <VaultDashboardEmptyState
+        logoRouteSearch={logoRouteSearch}
+        replaceRouteSearch={replaceLogoRouteSearch}
+      />
+    );
   }
 
   const repositoryNameCounts = buildVaultDashboardRepositoryNameCounts(vaults);
@@ -5507,6 +5518,15 @@ export function VaultDashboard() {
       retryingDeletionRunId={retryingDeletionRunId}
       now={now}
       logoRouteSearch={rootRouteSearch}
+      replaceLogoRouteSearch={(nextSearch) => {
+        void navigate({
+          hash: true,
+          replace: true,
+          search: (currentSearch) => replaceRootLogoRouteSearch(currentSearch, nextSearch),
+          state: true,
+          to: ".",
+        });
+      }}
       openDeveloperToolsByVaultId={openDeveloperToolsByVaultId}
       persistedVaultBranchFiltersByVaultId={persistedVaultBranchFiltersByVaultId}
       deleteRepositoryFullName={deleteRepositoryFullName}

@@ -2,6 +2,7 @@ import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset
 import {
   createLogoRouteVoxelGrid,
   readLogoRouteRenderState,
+  type LogoRouteRenderState,
 } from "@/components/logo/logoRouteRenderState";
 import {
   STATIC_LOGO_ELEVATION_DEGREES,
@@ -34,7 +35,11 @@ import {
   type RotatedLogoViewStatePersistence,
 } from "@/lib/rotatedLogoViewState";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
-import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
+import {
+  buildLogoRouteSearch,
+  preserveLogoRouteDevModeSearch,
+  type LogoRouteSearch,
+} from "@/lib/logoRouteSearch";
 import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -65,6 +70,26 @@ let didLandingLogoSceneRenderFail = false;
 
 function ignoreLogoVoxelEdit() {}
 
+function buildPublicLandingLogoRouteSearch({
+  routeSearch,
+  routeState,
+  view,
+}: {
+  routeSearch: LogoRouteSearch;
+  routeState: LogoRouteRenderState;
+  view: RotatedLogoViewState;
+}): LogoRouteSearch {
+  return preserveLogoRouteDevModeSearch(
+    buildLogoRouteSearch({
+      ...routeState,
+      elevationDegrees: view.elevationDegrees,
+      rotationDegrees: view.rotationDegrees,
+      themeModeSearch: routeSearch,
+    }),
+    routeSearch,
+  );
+}
+
 function easeOutCubic(value: number) {
   return 1 - Math.pow(1 - value, 3);
 }
@@ -74,6 +99,7 @@ export function PublicLandingLogo({
   autoRotate = false,
   enableViewSnapping = true,
   loadInteractiveScene = true,
+  replaceRouteSearch,
   routeSearch = EMPTY_LOGO_ROUTE_SEARCH,
   viewStatePersistence = "visit",
   viewStateKey = PUBLIC_LANDING_LOGO_VIEW_STATE_KEY,
@@ -82,6 +108,7 @@ export function PublicLandingLogo({
   autoRotate?: boolean;
   enableViewSnapping?: boolean;
   loadInteractiveScene?: boolean;
+  replaceRouteSearch?: (nextSearch: LogoRouteSearch) => void;
   routeSearch?: LogoRouteSearch;
   viewStatePersistence?: RotatedLogoViewStatePersistence;
   viewStateKey?: RotatedLogoViewStateKey;
@@ -390,6 +417,13 @@ export function PublicLandingLogo({
                 setIsAutoRotating(false);
               }}
               onInteractionEnd={() => {
+                replaceRouteSearch?.(
+                  buildPublicLandingLogoRouteSearch({
+                    routeSearch,
+                    routeState,
+                    view: latestViewRef.current,
+                  }),
+                );
                 persistLatestLogoView();
                 if (!autoRotate) {
                   return;

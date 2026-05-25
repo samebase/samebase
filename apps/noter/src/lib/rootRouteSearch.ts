@@ -14,7 +14,11 @@ import {
   type LogoRouteSearch,
 } from "@/lib/logoRouteSearch";
 import { PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM } from "@/lib/publicLayoutSidebarPreferences";
-import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
+import {
+  applySearchPatch,
+  normalizeRouteSearchPresenceFlags,
+  type SearchPatch,
+} from "@/lib/routeSearchFlags";
 import { rootThemeModeSearchFieldSchema } from "@/lib/rootThemeModeSearch";
 import {
   readRouteSearchParamSuggestions,
@@ -236,6 +240,35 @@ function parseRootRouteSearch(search: Record<string, unknown>): RootRouteSearch 
 
 export function validateRootRouteSearch(search: Record<string, unknown>): RootRouteSearch {
   return parseRootRouteSearch(search);
+}
+
+function setRootLogoRouteSearchPatchValue<Key extends keyof LogoRouteSearch>({
+  key,
+  logoSearchPatch,
+  value,
+}: {
+  key: Key;
+  logoSearchPatch: SearchPatch<RootRouteSearch>;
+  value: LogoRouteSearch[Key];
+}) {
+  logoSearchPatch[key] = typeof value === "undefined" ? null : value;
+}
+
+export function replaceRootLogoRouteSearch(
+  currentSearch: RootRouteSearch,
+  nextLogoSearch: LogoRouteSearch,
+): RootRouteSearch {
+  const logoSearchPatch: SearchPatch<RootRouteSearch> = {};
+
+  for (const key of LOGO_ROUTE_SEARCH_KEYS) {
+    setRootLogoRouteSearchPatchValue({
+      key,
+      logoSearchPatch,
+      value: nextLogoSearch[key],
+    });
+  }
+
+  return applySearchPatch(currentSearch, logoSearchPatch);
 }
 
 /**

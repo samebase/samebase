@@ -228,8 +228,10 @@ export function VaultDashboardProvidersSection({
 
 export function VaultDashboardEmptyState({
   logoRouteSearch,
+  replaceRouteSearch,
 }: {
   logoRouteSearch: LogoRouteSearch;
+  replaceRouteSearch?: (nextSearch: LogoRouteSearch) => void;
 }) {
   return (
     <div className="container mx-auto max-w-2xl py-6">
@@ -237,6 +239,7 @@ export function VaultDashboardEmptyState({
         <div className="mx-auto w-full max-w-[8rem]">
           <PublicLandingLogo
             animateLeftFaceStripes
+            replaceRouteSearch={replaceRouteSearch}
             routeSearch={logoRouteSearch}
             viewStatePersistence="device"
             viewStateKey={DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY}
