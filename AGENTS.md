@@ -33,6 +33,9 @@
 
 ## Sub-Agent Research
 
+- Always load and apply the repo-owned `skills/delegation-orchestrator/SKILL.md` before deciding how
+  to handle implementation, research, review, workflow, or shortcut tasks. The skill may decide that
+  a small task should keep all work local, but consulting it is not optional.
 - Treat available sub-agent tooling as a cheap default option for sidecar research, log/test sweeps,
   public-doc comparisons, or technical spikes whose details are not needed in the main thread.
 - Keep the main thread on the critical path. Split independent questions into narrowly scoped
