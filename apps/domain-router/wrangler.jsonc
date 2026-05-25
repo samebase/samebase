@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "noter-domain-router",
+  "name": "samebase-domains",
   "main": "src/index.ts",
   "compatibility_date": "2026-05-14",
   "routes": [
