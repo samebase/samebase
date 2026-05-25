@@ -126,6 +126,11 @@ export function buildVaultDashboardResourceRailState({
   const providerSetup = resolveVaultProviderSetupStatus(vault.providerSetup);
   const providerSetupProvider = resolveVaultProviderSetupStepProvider(vault.providerSetup);
   const sourceSetupProvider = resolveSourceSetupResourceProvider(vault.sourceSetup);
+  const hasNonRootAppRoot =
+    vault.convexDeployments.some((deployment) => deployment.appRoot !== ".") ||
+    vault.cloudflareWorkers.some((worker) => worker.appRoot !== ".");
+  // When a non-root app exists, "." is no longer a generic add-provider target.
+  const canConfigureRootAppRoot = !hasNonRootAppRoot;
   let githubRow: VaultResourceRailRowState<"github">;
   if (vault.sourceSetup.status === "failed" && sourceSetupProvider === "github") {
     githubRow = {
@@ -202,7 +207,9 @@ export function buildVaultDashboardResourceRailState({
       status: "failed",
       value: rootConvexDeployment?.projectSlug ?? vault.ghRepoName,
       scope: normalizeResourceScope(rootConvexDeployment?.teamSlug),
-      actions: [buildAddConvexAction(".")],
+      actions: canConfigureRootAppRoot
+        ? [buildAddConvexAction(".")]
+        : [{ kind: "retry", label: "Retry" }],
     });
   } else if (
     vault.providerSetup.status === "running" &&
@@ -233,7 +240,7 @@ export function buildVaultDashboardResourceRailState({
         scope: normalizeResourceScope(deployment.teamSlug),
         href: deployment.projectSettingsDashboardUrl,
         actions:
-          deployment.appRoot === "." && canConfigureMissingResources
+          deployment.appRoot === "." && canConfigureRootAppRoot && canConfigureMissingResources
             ? [buildAddConvexAction(deployment.appRoot)]
             : undefined,
       });
@@ -263,7 +270,9 @@ export function buildVaultDashboardResourceRailState({
       provider: "cloudflare",
       status: "failed",
       value: vault.ghRepoName,
-      actions: [buildAddCloudflareWorkerAction(".")],
+      actions: canConfigureRootAppRoot
+        ? [buildAddCloudflareWorkerAction(".")]
+        : [{ kind: "retry", label: "Retry" }],
     });
   } else if (
     vault.providerSetup.status === "running" &&
@@ -292,12 +301,12 @@ export function buildVaultDashboardResourceRailState({
         }),
         href: worker.projectDashboardUrl,
         actions:
-          worker.appRoot === "." && canConfigureMissingResources
+          worker.appRoot === "." && canConfigureRootAppRoot && canConfigureMissingResources
             ? [buildAddCloudflareWorkerAction(worker.appRoot)]
             : undefined,
       });
     }
-    if (!cloudflareRowsByAppRoot.has(".")) {
+    if (!cloudflareRowsByAppRoot.has(".") && canConfigureRootAppRoot) {
       if (!canConfigureMissingResources) {
         cloudflareRowsByAppRoot.set(".", {
           provider: "cloudflare",
@@ -311,7 +320,7 @@ export function buildVaultDashboardResourceRailState({
           actions: [buildAddCloudflareWorkerAction(".")],
         });
       }
-    } else if (canConfigureMissingResources) {
+    } else if (canConfigureRootAppRoot && canConfigureMissingResources) {
       const rootCloudflareRow = cloudflareRowsByAppRoot.get(".");
       if (rootCloudflareRow?.status === "ready") {
         cloudflareRowsByAppRoot.set(".", {
@@ -322,33 +331,40 @@ export function buildVaultDashboardResourceRailState({
     }
   }
 
+  const shouldRenderRootAppRoot =
+    canConfigureRootAppRoot || convexRowsByAppRoot.has(".") || cloudflareRowsByAppRoot.has(".");
   const appRoots = Array.from(
     new Set([
-      ".",
+      ...(shouldRenderRootAppRoot ? ["."] : []),
       ...vault.convexDeployments.map((deployment) => deployment.appRoot),
       ...vault.cloudflareWorkers.map((worker) => worker.appRoot),
     ]),
   ).sort(compareAppRoots);
-  const apps = appRoots.map((appRoot) => {
-    const convexRow =
-      convexRowsByAppRoot.get(appRoot) ??
-      (canConfigureMissingResources
-        ? {
-            provider: "convex",
-            status: "action_required",
-            actions: [buildAddConvexAction(appRoot)],
-          }
-        : {
-            provider: "convex",
-            status: "pending",
-            value: appRoot === "." ? vault.ghRepoName : appRoot,
-          });
-    const rows: VaultResourceRailState["apps"][number]["rows"] = [convexRow];
+  const apps = appRoots.flatMap((appRoot) => {
+    const rows: VaultResourceRailRowState<"cloudflare" | "convex">[] = [];
+    const convexRow = convexRowsByAppRoot.get(appRoot);
+    if (convexRow) {
+      rows.push(convexRow);
+    } else if (canConfigureMissingResources && (appRoot !== "." || canConfigureRootAppRoot)) {
+      rows.push({
+        provider: "convex",
+        status: "action_required",
+        actions: [buildAddConvexAction(appRoot)],
+      });
+    } else if (appRoot !== "." || canConfigureRootAppRoot) {
+      rows.push({
+        provider: "convex",
+        status: "pending",
+        value: appRoot === "." ? vault.ghRepoName : appRoot,
+      });
+    }
+
     const cloudflareRow = cloudflareRowsByAppRoot.get(appRoot);
-    return {
-      appRoot,
-      rows: cloudflareRow ? [...rows, cloudflareRow] : rows,
-    };
+    if (cloudflareRow) {
+      rows.push(cloudflareRow);
+    }
+
+    return rows.length > 0 ? [{ appRoot, rows }] : [];
   });
 
   return {

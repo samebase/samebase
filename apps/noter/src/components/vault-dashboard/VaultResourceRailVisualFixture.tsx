@@ -184,18 +184,6 @@ const ADD_VAULT_FLOW_SCENARIOS = [
               scope: "noter",
               value: "noter",
               href: "https://dashboard.convex.dev/t/noter/noter/settings",
-              actions: [{ kind: "add", label: "?add-convex", href: "/home?add-convex#noter" }],
-            },
-            {
-              provider: "cloudflare",
-              status: "action_required",
-              actions: [
-                {
-                  kind: "add",
-                  label: "?add-cloudflare",
-                  href: "/home?add-cloudflare#noter",
-                },
-              ],
             },
           ],
         },

@@ -729,7 +729,49 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(markup).toContain("Open Cloudflare: ada/demo-worker");
   });
 
-  it("keeps Cloudflare add available when a vault already has worker targets", () => {
+  it("keeps Cloudflare add available for a root-only worker target", () => {
+    const addCloudflareWorker = vi.fn();
+    const buildAddCloudflareWorkerHref = vi.fn((appRoot: string) =>
+      appRoot === "."
+        ? "/home?add-cloudflare#demo"
+        : `/home?add-cloudflare&app-root=${appRoot}#demo`,
+    );
+    const state = buildVaultDashboardResourceRailState({
+      buildAddCloudflareWorkerHref,
+      addCloudflareWorkerOnClick: addCloudflareWorker,
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      vault: makeResourceRailBuilderVault({
+        cloudflareWorkers: [
+          {
+            appRoot: ".",
+            workerName: "demo-worker",
+            workersDevUrl: "https://demo-worker.ada.workers.dev",
+          },
+        ],
+      }),
+    });
+
+    expect(getResourceRailAppRow(state, ".", "cloudflare")).toMatchObject({
+      provider: "cloudflare",
+      status: "ready",
+      value: "demo-worker",
+      actions: [
+        {
+          kind: "add",
+          href: "/home?add-cloudflare#demo",
+        },
+      ],
+    });
+    const cloudflareRow = getResourceRailAppRow(state, ".", "cloudflare");
+    if (cloudflareRow.status !== "ready" || !cloudflareRow.actions) {
+      throw new Error("Expected Cloudflare ready row with add action.");
+    }
+    cloudflareRow.actions[0].onClick?.();
+    expect(addCloudflareWorker).toHaveBeenCalledWith(".");
+    expect(buildAddCloudflareWorkerHref).toHaveBeenCalledWith(".");
+  });
+
+  it("keeps real root resources but omits root add actions for monorepo app roots", () => {
     const addCloudflareWorker = vi.fn();
     const buildAddCloudflareWorkerHref = vi.fn((appRoot: string) =>
       appRoot === "."
@@ -756,29 +798,23 @@ describe("buildVaultDashboardResourceRailState", () => {
       }),
     });
 
-    expect(getResourceRailAppRow(state, ".", "cloudflare")).toMatchObject({
+    const rootCloudflareRow = getResourceRailAppRow(state, ".", "cloudflare");
+    expect(rootCloudflareRow).toMatchObject({
       provider: "cloudflare",
       status: "ready",
       value: "demo-worker",
-      actions: [
-        {
-          kind: "add",
-          href: "/home?add-cloudflare#demo",
-        },
-      ],
     });
-    const cloudflareRow = getResourceRailAppRow(state, ".", "cloudflare");
-    if (cloudflareRow.status !== "ready" || !cloudflareRow.actions) {
-      throw new Error("Expected Cloudflare ready row with add action.");
+    if (rootCloudflareRow.status !== "ready") {
+      throw new Error("Expected root Cloudflare ready row.");
     }
-    cloudflareRow.actions[0].onClick?.();
-    expect(addCloudflareWorker).toHaveBeenCalledWith(".");
-    expect(buildAddCloudflareWorkerHref).toHaveBeenCalledWith(".");
+    expect(rootCloudflareRow.actions).toBeUndefined();
     expect(getResourceRailAppRow(state, "apps/admin", "cloudflare")).toMatchObject({
       provider: "cloudflare",
       status: "ready",
       value: "admin-worker",
     });
+    expect(addCloudflareWorker).not.toHaveBeenCalled();
+    expect(buildAddCloudflareWorkerHref).not.toHaveBeenCalledWith(".");
   });
 
   it("uses the Convex deployment row as the ready resource", () => {
@@ -866,5 +902,7 @@ describe("buildVaultDashboardResourceRailState", () => {
     convexRow.actions[0].onClick?.();
     expect(addConvex).toHaveBeenCalledWith("apps/noter");
     expect(buildAddConvexHref).toHaveBeenCalledWith("apps/noter");
+    expect(state.apps.map((app) => app.appRoot)).toEqual(["apps/noter"]);
+    expect(buildAddConvexHref).not.toHaveBeenCalledWith(".");
   });
 });
