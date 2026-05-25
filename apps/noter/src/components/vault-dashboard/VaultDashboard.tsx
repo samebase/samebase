@@ -2612,36 +2612,6 @@ export function VaultProviderSetupSection({
   );
 }
 
-export function VaultCloudflareWorkerTargetsSection({
-  workers,
-}: {
-  workers: VaultDashboardVault["cloudflareWorkers"];
-}) {
-  if (workers.length <= 1) {
-    return null;
-  }
-
-  return (
-    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-      {workers.map((worker) => (
-        <a
-          key={`${worker.appRoot}:${worker.workerName}`}
-          href={worker.projectDashboardUrl}
-          target="_blank"
-          rel="noreferrer noopener"
-          className={clsx(
-            "inline-flex min-h-7 max-w-full items-center gap-1 rounded-sm py-0.5 touch-manipulation",
-            worker.projectDashboardUrl && linkStyle,
-          )}
-        >
-          <span className="font-mono">{worker.appRoot}</span>
-          <span className="min-w-0 truncate">{worker.workerName}</span>
-        </a>
-      ))}
-    </div>
-  );
-}
-
 function formatVaultDeletionStep(step: VaultDashboardDeletionStep): string {
   return step.replace(/_/g, " ");
 }
@@ -3256,16 +3226,8 @@ function VaultDashboardBody({
               onRetry={onRetryVaultDeletion}
             />
           ) : undefined;
-        const cloudflareWorkersSection =
-          isReady && vault.cloudflareWorkers.length > 1 ? (
-            <VaultCloudflareWorkerTargetsSection workers={vault.cloudflareWorkers} />
-          ) : undefined;
         const setupSection =
-          deletionSection ??
-          deleteBlockedSection ??
-          sourceSetupSection ??
-          providerSetupSection ??
-          cloudflareWorkersSection;
+          deletionSection ?? deleteBlockedSection ?? sourceSetupSection ?? providerSetupSection;
         const titleRepositoryOwnerVisible = (repositoryNameCounts.get(vault.ghRepoName) ?? 0) > 1;
 
         return (

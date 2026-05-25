@@ -56,6 +56,22 @@ function fakeRunId(): Id<"appProvisioningRuns"> {
 
 type ResourceRailBuilderVault = Parameters<typeof buildVaultDashboardResourceRailState>[0]["vault"];
 
+function getResourceRailAppRow(
+  state: ReturnType<typeof buildVaultDashboardResourceRailState>,
+  appRoot: string,
+  provider: "cloudflare" | "convex",
+) {
+  const app = state.apps.find((candidate) => candidate.appRoot === appRoot);
+  if (!app) {
+    throw new Error(`Expected ${appRoot} app group.`);
+  }
+  const row = app.rows.find((candidate) => candidate.provider === provider);
+  if (!row) {
+    throw new Error(`Expected ${provider} row in ${appRoot} app group.`);
+  }
+  return row;
+}
+
 function makeResourceRailBuilderVault(
   overrides: Partial<ResourceRailBuilderVault>,
 ): ResourceRailBuilderVault {
@@ -451,12 +467,12 @@ describe("buildVaultDashboardResourceRailState", () => {
       }),
     });
 
-    expect(state.rows[1]).toMatchObject({
+    expect(getResourceRailAppRow(state, ".", "convex")).toMatchObject({
       provider: "convex",
       status: "running",
       value: "demo",
     });
-    expect(state.rows[2]).toEqual({
+    expect(getResourceRailAppRow(state, ".", "cloudflare")).toEqual({
       provider: "cloudflare",
       status: "pending",
       value: "demo",
@@ -483,12 +499,12 @@ describe("buildVaultDashboardResourceRailState", () => {
       }),
     });
 
-    expect(state.rows[1]).toEqual({
+    expect(getResourceRailAppRow(state, ".", "convex")).toEqual({
       provider: "convex",
       status: "pending",
       value: "demo",
     });
-    expect(state.rows[2]).toMatchObject({
+    expect(getResourceRailAppRow(state, ".", "cloudflare")).toMatchObject({
       provider: "cloudflare",
       status: "running",
       value: "demo",
@@ -515,7 +531,7 @@ describe("buildVaultDashboardResourceRailState", () => {
       }),
     });
 
-    const cloudflareRow = state.rows[2];
+    const cloudflareRow = getResourceRailAppRow(state, ".", "cloudflare");
     expect(cloudflareRow).toMatchObject({
       provider: "cloudflare",
       status: "failed",
@@ -553,7 +569,7 @@ describe("buildVaultDashboardResourceRailState", () => {
       }),
     });
 
-    const convexRow = state.rows[1];
+    const convexRow = getResourceRailAppRow(state, ".", "convex");
     expect(convexRow).toMatchObject({
       provider: "convex",
       status: "failed",
@@ -587,14 +603,14 @@ describe("buildVaultDashboardResourceRailState", () => {
       vault: makeResourceRailBuilderVault({}),
     });
 
-    expect(state.rows[1]).toMatchObject({
+    expect(getResourceRailAppRow(state, ".", "convex")).toMatchObject({
       provider: "convex",
       status: "action_required",
       actions: [
         { kind: "add", label: "?add-convex", disabled: false, href: "/home?add-convex#demo" },
       ],
     });
-    expect(state.rows[2]).toMatchObject({
+    expect(getResourceRailAppRow(state, ".", "cloudflare")).toMatchObject({
       provider: "cloudflare",
       status: "action_required",
       actions: [
@@ -607,13 +623,13 @@ describe("buildVaultDashboardResourceRailState", () => {
       ],
     });
 
-    const convexRow = state.rows[1];
+    const convexRow = getResourceRailAppRow(state, ".", "convex");
     if (convexRow.status !== "action_required") {
       throw new Error("Expected Convex action row.");
     }
     expect(convexRow.actions).toHaveLength(1);
     expect(convexRow.actions[0].onClick).toBe(addConvex);
-    const cloudflareRow = state.rows[2];
+    const cloudflareRow = getResourceRailAppRow(state, ".", "cloudflare");
     if (cloudflareRow.status !== "action_required") {
       throw new Error("Expected Cloudflare action row.");
     }
@@ -635,12 +651,12 @@ describe("buildVaultDashboardResourceRailState", () => {
       }),
     });
 
-    expect(state.rows[1]).toMatchObject({
+    expect(getResourceRailAppRow(state, ".", "convex")).toMatchObject({
       provider: "convex",
       status: "running",
       value: "demo-project",
     });
-    expect(state.rows[2]).toEqual({
+    expect(getResourceRailAppRow(state, ".", "cloudflare")).toEqual({
       provider: "cloudflare",
       status: "pending",
       value: "demo",
@@ -667,13 +683,13 @@ describe("buildVaultDashboardResourceRailState", () => {
       }),
     });
 
-    expect(state.rows[1]).toMatchObject({
+    expect(getResourceRailAppRow(state, ".", "convex")).toMatchObject({
       provider: "convex",
       status: "ready",
       scope: "ada-team",
       value: "demo-project",
     });
-    expect(state.rows[2]).toMatchObject({
+    expect(getResourceRailAppRow(state, ".", "cloudflare")).toMatchObject({
       provider: "cloudflare",
       status: "ready",
       scope: "ada",
@@ -707,10 +723,10 @@ describe("buildVaultDashboardResourceRailState", () => {
       }),
     });
 
-    expect(state.rows[2]).toMatchObject({
+    expect(getResourceRailAppRow(state, ".", "cloudflare")).toMatchObject({
       provider: "cloudflare",
       status: "ready",
-      value: "demo-worker +1",
+      value: "demo-worker",
       actions: [
         {
           kind: "add",
@@ -718,11 +734,16 @@ describe("buildVaultDashboardResourceRailState", () => {
         },
       ],
     });
-    const cloudflareRow = state.rows[2];
+    const cloudflareRow = getResourceRailAppRow(state, ".", "cloudflare");
     if (cloudflareRow.status !== "ready" || !cloudflareRow.actions) {
       throw new Error("Expected Cloudflare ready row with add action.");
     }
     expect(cloudflareRow.actions[0].onClick).toBe(addCloudflareWorker);
+    expect(getResourceRailAppRow(state, "apps/admin", "cloudflare")).toMatchObject({
+      provider: "cloudflare",
+      status: "ready",
+      value: "admin-worker",
+    });
   });
 
   it("keeps Convex unscoped when the team slug is unknown", () => {
@@ -733,7 +754,7 @@ describe("buildVaultDashboardResourceRailState", () => {
       }),
     });
 
-    expect(state.rows[1]).toEqual({
+    expect(getResourceRailAppRow(state, ".", "convex")).toEqual({
       provider: "convex",
       status: "ready",
       value: "demo-project",

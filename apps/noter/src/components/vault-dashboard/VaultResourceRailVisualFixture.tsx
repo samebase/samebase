@@ -5,6 +5,7 @@ import {
 } from "@/components/vault-dashboard/VaultDashboardChrome";
 import {
   VaultResourceRail,
+  type VaultResourceRailRowState,
   type VaultResourceRailState,
 } from "@/components/vault-dashboard/VaultResourceRail";
 
@@ -43,18 +44,31 @@ const ADD_VAULT_READY_URLS = {
   github: "https://github.com/nicu-chiciuc/tmp-my-new-app",
 } as const;
 
+function buildRootFixtureState({
+  appRows,
+  githubRow,
+}: {
+  appRows: readonly VaultResourceRailRowState<"cloudflare" | "convex">[];
+  githubRow: VaultResourceRailRowState<"github">;
+}): VaultResourceRailState {
+  return {
+    githubRow,
+    apps: [{ appRoot: ".", rows: appRows }],
+  };
+}
+
 const ADD_VAULT_FLOW_SCENARIOS = [
   {
     title: "Creating repository",
     repositoryOwner: "nicu-chiciuc",
     repositoryName: "tmp-my-new-app",
-    state: {
-      rows: [
-        {
-          provider: "github",
-          status: "running",
-          value: ADD_VAULT_VALUES.github,
-        },
+    state: buildRootFixtureState({
+      githubRow: {
+        provider: "github",
+        status: "running",
+        value: ADD_VAULT_VALUES.github,
+      },
+      appRows: [
         {
           provider: "convex",
           status: "pending",
@@ -66,20 +80,20 @@ const ADD_VAULT_FLOW_SCENARIOS = [
           value: ADD_VAULT_VALUES.cloudflare,
         },
       ],
-    },
+    }),
   },
   {
     title: "Provisioning Convex",
     repositoryOwner: "nicu-chiciuc",
     repositoryName: "tmp-my-new-app",
-    state: {
-      rows: [
-        {
-          provider: "github",
-          status: "ready",
-          value: ADD_VAULT_READY_VALUES.github,
-          href: ADD_VAULT_READY_URLS.github,
-        },
+    state: buildRootFixtureState({
+      githubRow: {
+        provider: "github",
+        status: "ready",
+        value: ADD_VAULT_READY_VALUES.github,
+        href: ADD_VAULT_READY_URLS.github,
+      },
+      appRows: [
         {
           provider: "convex",
           status: "running",
@@ -91,20 +105,20 @@ const ADD_VAULT_FLOW_SCENARIOS = [
           value: ADD_VAULT_VALUES.cloudflare,
         },
       ],
-    },
+    }),
   },
   {
     title: "Provisioning Cloudflare",
     repositoryOwner: "nicu-chiciuc",
     repositoryName: "tmp-my-new-app",
-    state: {
-      rows: [
-        {
-          provider: "github",
-          status: "ready",
-          value: ADD_VAULT_READY_VALUES.github,
-          href: ADD_VAULT_READY_URLS.github,
-        },
+    state: buildRootFixtureState({
+      githubRow: {
+        provider: "github",
+        status: "ready",
+        value: ADD_VAULT_READY_VALUES.github,
+        href: ADD_VAULT_READY_URLS.github,
+      },
+      appRows: [
         {
           provider: "convex",
           status: "ready",
@@ -118,20 +132,20 @@ const ADD_VAULT_FLOW_SCENARIOS = [
           value: ADD_VAULT_VALUES.cloudflare,
         },
       ],
-    },
+    }),
   },
   {
     title: "Ready",
     repositoryOwner: "nicu-chiciuc",
     repositoryName: "tmp-my-new-app",
-    state: {
-      rows: [
-        {
-          provider: "github",
-          status: "ready",
-          value: ADD_VAULT_READY_VALUES.github,
-          href: ADD_VAULT_READY_URLS.github,
-        },
+    state: buildRootFixtureState({
+      githubRow: {
+        provider: "github",
+        status: "ready",
+        value: ADD_VAULT_READY_VALUES.github,
+        href: ADD_VAULT_READY_URLS.github,
+      },
+      appRows: [
         {
           provider: "convex",
           status: "ready",
@@ -147,20 +161,20 @@ const ADD_VAULT_FLOW_SCENARIOS = [
           href: ADD_VAULT_READY_URLS.cloudflare,
         },
       ],
-    },
+    }),
   },
   {
     title: "Existing repository",
     repositoryOwner: "nicu-chiciuc",
     repositoryName: "weight_tsx",
-    state: {
-      rows: [
-        {
-          provider: "github",
-          status: "ready",
-          value: "nicu-chiciuc/weight_tsx",
-          href: "https://github.com/nicu-chiciuc/weight_tsx",
-        },
+    state: buildRootFixtureState({
+      githubRow: {
+        provider: "github",
+        status: "ready",
+        value: "nicu-chiciuc/weight_tsx",
+        href: "https://github.com/nicu-chiciuc/weight_tsx",
+      },
+      appRows: [
         {
           provider: "convex",
           status: "action_required",
@@ -184,20 +198,20 @@ const ADD_VAULT_FLOW_SCENARIOS = [
           ],
         },
       ],
-    },
+    }),
   },
   {
     title: "Cloudflare failed",
     repositoryOwner: "nicu-chiciuc",
     repositoryName: "tmp-my-new-app",
-    state: {
-      rows: [
-        {
-          provider: "github",
-          status: "ready",
-          value: ADD_VAULT_READY_VALUES.github,
-          href: ADD_VAULT_READY_URLS.github,
-        },
+    state: buildRootFixtureState({
+      githubRow: {
+        provider: "github",
+        status: "ready",
+        value: ADD_VAULT_READY_VALUES.github,
+        href: ADD_VAULT_READY_URLS.github,
+      },
+      appRows: [
         {
           provider: "convex",
           status: "ready",
@@ -218,7 +232,7 @@ const ADD_VAULT_FLOW_SCENARIOS = [
           ],
         },
       ],
-    },
+    }),
   },
 ] satisfies readonly VaultResourceRailFixtureScenario[];
 

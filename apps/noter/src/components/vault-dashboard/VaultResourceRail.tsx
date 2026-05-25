@@ -68,12 +68,14 @@ export type VaultResourceRailRowState<
   | VaultResourceRailReadyRow<TProvider>
   | VaultResourceRailRunningRow<TProvider>;
 
+export type VaultResourceRailAppState = {
+  appRoot: string;
+  rows: readonly VaultResourceRailRowState<"cloudflare" | "convex">[];
+};
+
 export type VaultResourceRailState = {
-  rows: readonly [
-    VaultResourceRailRowState<"github">,
-    VaultResourceRailRowState<"convex">,
-    VaultResourceRailRowState<"cloudflare">,
-  ];
+  apps: readonly VaultResourceRailAppState[];
+  githubRow: VaultResourceRailRowState<"github">;
 };
 
 type VaultResourceRailIconStatus = "failed" | "pending" | "running";
@@ -113,6 +115,9 @@ const RESOURCE_LINK_VALUE_CLASS_NAME =
 const RESOURCE_ACTION_LINK_CLASS_NAME =
   "-mx-1 -my-0.5 inline-flex min-h-7 items-center px-1 py-0.5 text-sm leading-6 text-foreground touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current";
 const RESOURCE_VALUE_SCOPE_CLASS_NAME = "font-normal text-muted-foreground";
+const APP_ROOT_CLASS_NAME =
+  "ml-7 min-h-7 max-w-full truncate font-mono text-sm leading-6 text-muted-foreground";
+const APP_PROVIDER_ROWS_CLASS_NAME = "grid min-w-0 gap-0.5 pl-6";
 
 function getStatusIcon(status: VaultResourceRailIconStatus): LucideIcon {
   switch (status) {
@@ -373,8 +378,16 @@ export function VaultResourceRail({ state }: { state: VaultResourceRailState }) 
   return (
     <div data-testid="vault-resource-rail" className="mt-1 grid w-full gap-1">
       <div className="grid min-w-0 gap-0.5">
-        {state.rows.map((row) => (
-          <VaultResourceRailItem key={row.provider} row={row} />
+        <VaultResourceRailItem row={state.githubRow} />
+        {state.apps.map((app) => (
+          <div key={app.appRoot} className="grid min-w-0 gap-0.5">
+            <div className={APP_ROOT_CLASS_NAME}>{app.appRoot}</div>
+            <div className={APP_PROVIDER_ROWS_CLASS_NAME}>
+              {app.rows.map((row) => (
+                <VaultResourceRailItem key={row.provider} row={row} />
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     </div>
