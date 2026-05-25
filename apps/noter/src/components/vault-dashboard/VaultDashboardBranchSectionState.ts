@@ -24,7 +24,17 @@ export interface VaultRemoteBranchListItem {
   cloudflarePreviewPullRequestNumber?: number;
   cloudflarePreviewLogsUrl?: string;
   cloudflarePreviewStatus?: string;
+  stagedSummary?: VaultRemoteBranchStagedSummary;
   convexPreviewDeploymentDashboardUrl?: string;
+}
+
+export interface VaultRemoteBranchStagedSummary {
+  modified: number;
+  deleted: number;
+  new: number;
+  renamed: number;
+  renamedAndModified: number;
+  total: number;
 }
 
 export function buildVaultBranchSectionState({

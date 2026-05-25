@@ -7,5 +7,8 @@ export const Route = createFileRoute("/home")({
     permission: "admin",
     searchParamSuggestions: DASHBOARD_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
+  loader: () => {
+    void import("@/components/vault-dashboard/VaultDashboard");
+  },
   component: DashboardRoutePage,
 });

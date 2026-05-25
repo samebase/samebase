@@ -600,6 +600,171 @@ describe("vault dashboard Convex contract", () => {
     expect(vaults[0]).not.toHaveProperty("cloudflareProjectDashboardUrl");
   });
 
+  it("returns branch staging summaries with user vaults", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/staged-dashboard",
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 10,
+        updatedAt: 20,
+        completedAt: 20,
+      });
+
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "staged-dashboard",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+        convex: { state: "not_configured" },
+        cloudflare: { state: "not_configured" },
+      });
+      await ctx.db.insert("vaultBranchTrees", {
+        vaultId,
+        branch: "main",
+        treeSHA: "tree",
+        commitSHA: "commit",
+        treeData: {
+          sha: "tree",
+          truncated: false,
+          tree: [],
+        },
+        lastTreeRefreshAt: 29,
+      });
+      await ctx.db.insert("vaultRemoteBranches", {
+        vaultId,
+        name: "main",
+        headCommitSha: "commit",
+        isDefault: true,
+        isProtected: true,
+        remoteState: "active",
+        lastSyncedAt: 30,
+      });
+      await ctx.db.insert("vaultRemoteBranches", {
+        vaultId,
+        name: "feature",
+        headCommitSha: "feature-commit",
+        isDefault: false,
+        isProtected: false,
+        remoteState: "active",
+        lastSyncedAt: 31,
+      });
+      await ctx.db.insert("fileStaging", {
+        ownerId: userId,
+        vaultId,
+        fileDeleted: false,
+        kind: "text",
+        filePath: "README.md",
+        initialFilePath: "README.md",
+        content: "changed",
+        initialContent: "initial",
+        parentCommitSha: "commit",
+        lastEditTime: 40,
+        lastEditUserId: userId,
+        branch: "main",
+        version: 1,
+      });
+      await ctx.db.insert("fileStaging", {
+        ownerId: userId,
+        vaultId,
+        fileDeleted: false,
+        kind: "text",
+        filePath: "draft.md",
+        initialFilePath: "draft.md",
+        content: "draft",
+        initialContent: "",
+        parentCommitSha: null,
+        lastEditTime: 41,
+        lastEditUserId: userId,
+        branch: "main",
+        version: 1,
+      });
+      await ctx.db.insert("fileStaging", {
+        ownerId: userId,
+        vaultId,
+        fileDeleted: true,
+        kind: "text",
+        filePath: "old.md",
+        initialFilePath: "old.md",
+        content: "",
+        initialContent: "old",
+        parentCommitSha: "commit",
+        lastEditTime: 42,
+        lastEditUserId: userId,
+        branch: "feature",
+        version: 1,
+      });
+      await ctx.db.insert("fileStaging", {
+        ownerId: userId,
+        vaultId,
+        fileDeleted: false,
+        kind: "text",
+        filePath: "renamed.md",
+        initialFilePath: "old-name.md",
+        content: "same",
+        initialContent: "same",
+        parentCommitSha: "commit",
+        lastEditTime: 43,
+        lastEditUserId: userId,
+        branch: "feature",
+        version: 1,
+      });
+
+      return { userId, vaultId };
+    });
+
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+    const mainBranch = vaults[0]?.remoteBranches.find((branch) => branch.name === "main");
+    const featureBranch = vaults[0]?.remoteBranches.find((branch) => branch.name === "feature");
+
+    expect(vaults[0]).toMatchObject({
+      _id: ids.vaultId,
+      fileCount: 4,
+      lastEditTime: 43,
+    });
+    expect(mainBranch?.stagedSummary).toEqual({
+      modified: 1,
+      deleted: 0,
+      new: 1,
+      renamed: 0,
+      renamedAndModified: 0,
+      total: 2,
+    });
+    expect(featureBranch?.stagedSummary).toEqual({
+      modified: 0,
+      deleted: 1,
+      new: 0,
+      renamed: 1,
+      renamedAndModified: 0,
+      total: 2,
+    });
+  });
+
   it("uses the active infrastructure retry run while Cloudflare is not configured", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {

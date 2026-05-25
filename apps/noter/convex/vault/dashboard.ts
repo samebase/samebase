@@ -14,6 +14,7 @@ import { vVaultDeletionStep } from "./deletion/model";
 import { readVaultDeletionEligibility } from "./deletion/eligibility";
 import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
 import { compareRemoteBranchSortOrder, hasBranchStagingChanges } from "./branches";
+import { summarizeStagedFilesByBranch, vStagedFilesCategoryCounts } from "../fileStaging";
 
 const nullValidator = v.null();
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
@@ -679,6 +680,7 @@ const getUserVaultsResult = array(
         remoteState: union(literal("active"), literal("deleted_upstream")),
         lastSyncedAt: number(),
         ...cloudflarePreviewMetadataFields,
+        stagedSummary: optional(vStagedFilesCategoryCounts),
         convexPreviewDeploymentDashboardUrl: optional(string()),
       }),
     ),
@@ -701,10 +703,9 @@ export const getUserVaults = query({
   handler: async (ctx, _args) => {
     const userId = await getUserId(ctx);
 
-    // Get user's vaults
     const vaults = await ctx.db
       .query("vaults")
-      .filter((q) => q.eq(q.field("userId"), userId))
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
       .collect();
     // Pre-GitHub vaults render as non-ready cards; repo-backed controls stay
     // gated until a connected vault has branch data.
@@ -825,6 +826,12 @@ export const getUserVaults = query({
         ]);
 
         const fileCount = stagingData.filter(hasBranchStagingChanges).length;
+        const stagingSummaryByBranch = new Map(
+          summarizeStagedFilesByBranch(stagingData).map((summary) => [
+            summary.branch,
+            summary.counts,
+          ]),
+        );
 
         const lastEditTime =
           stagingData.length > 0 ? Math.max(...stagingData.map((s) => s.lastEditTime)) : undefined;
@@ -903,6 +910,7 @@ export const getUserVaults = query({
             cloudflarePreviewStatus: branch.cloudflarePreviewStatus,
             cloudflarePreviewLogsUrl: branch.cloudflarePreviewLogsUrl,
             cloudflarePreviewCommentCreatedAt: branch.cloudflarePreviewCommentCreatedAt,
+            stagedSummary: stagingSummaryByBranch.get(branch.name),
             convexPreviewDeploymentDashboardUrl:
               !branch.isDefault &&
               branch.remoteState === "active" &&

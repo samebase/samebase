@@ -3,7 +3,7 @@ import { StrictMode, startTransition } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { initializeAppBootRecovery } from "@/lib/appBootRecovery";
 
-const APP_FONT_LOAD_TIMEOUT_MS = 3_000;
+const APP_FONT_LOAD_TIMEOUT_MS = 1_000;
 const APP_FONT_DESCRIPTORS = [
   'normal 400 1rem "IBM Plex Sans"',
   'normal 500 1rem "IBM Plex Sans"',
@@ -18,8 +18,8 @@ function waitForTimeout(timeoutMs: number) {
 }
 
 /**
- * First paint should use the bundled app font so slow font files do not reflow
- * landing or workspace chrome after React has already rendered.
+ * Give preloaded app fonts a short head start, then let React render instead
+ * of keeping the client shell blank on slow font fetches.
  */
 async function waitForAppFonts() {
   if (!("fonts" in document)) {

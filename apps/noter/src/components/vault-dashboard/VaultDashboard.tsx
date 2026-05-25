@@ -104,6 +104,7 @@ import {
 import {
   buildVaultBranchSectionState,
   type VaultRemoteBranchListItem,
+  type VaultRemoteBranchStagedSummary,
 } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import { toast } from "@/components/ui/use-toast";
 import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
@@ -1848,22 +1849,13 @@ function useCloudflareMcpTokenAutoCheck({
   ]);
 }
 
-interface StagedSummary {
-  modified: number;
-  deleted: number;
-  new: number;
-  renamed: number;
-  renamedAndModified: number;
-  total: number;
-}
-
 interface VaultBranchLinkRowProps {
   vaultId?: Id<"vaults">;
   repositoryFullName: string;
   branch: VaultRemoteBranchListItem;
   cloudflareWorkersDevUrl?: string;
   productionDeploymentDashboardUrl?: string;
-  stagedSummary?: StagedSummary;
+  stagedSummary?: VaultRemoteBranchStagedSummary;
 }
 
 function formatAheadBehindCounts(
@@ -2340,14 +2332,6 @@ function VaultBranchList({
   productionDeploymentDashboardUrl,
   expansion,
 }: VaultBranchListProps) {
-  const stagedSummaries =
-    useQuery(api.fileStaging.listStagedFilesBranchSummaries, {
-      vaultId,
-    }) ?? [];
-  const summaryByBranch = new Map(
-    stagedSummaries.map((summary) => [summary.branch, summary.counts]),
-  );
-
   return (
     // Let branch rows align with the vault card edge instead of nesting a
     // second inset panel inside the already padded card.
@@ -2358,7 +2342,7 @@ function VaultBranchList({
           branch={branch}
           vaultId={vaultId}
           repositoryFullName={repositoryFullName}
-          stagedSummary={summaryByBranch.get(branch.name)}
+          stagedSummary={branch.stagedSummary}
           cloudflareWorkersDevUrl={branch.isDefault ? cloudflareWorkersDevUrl : undefined}
           productionDeploymentDashboardUrl={
             branch.isDefault ? productionDeploymentDashboardUrl : undefined

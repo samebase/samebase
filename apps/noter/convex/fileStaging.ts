@@ -78,7 +78,7 @@ type StagedFileSnapshot = Infer<typeof stagedFileSnapshotValidator>;
 const stagedFileOrNullValidator = union(stagedFileValidator, nullValue());
 const stagedFileListValidator = array(stagedFileValidator);
 const stagedFileSnapshotListValidator = array(stagedFileSnapshotValidator);
-const stagedFilesCategoryCountsValidator = object({
+export const vStagedFilesCategoryCounts = object({
   modified: number(),
   deleted: number(),
   new: number(),
@@ -88,7 +88,7 @@ const stagedFilesCategoryCountsValidator = object({
 });
 const stagedFilesBranchSummaryValidator = object({
   branch: branchValidator,
-  counts: stagedFilesCategoryCountsValidator,
+  counts: vStagedFilesCategoryCounts,
 });
 const stagedFilesBranchSummaryListValidator = array(stagedFilesBranchSummaryValidator);
 const uploadUrlResultValidator = string();
@@ -190,7 +190,7 @@ const getByOriginalPathArgsValidator = {
   branch: branchValidator,
 };
 
-type StagedFilesCategoryCounts = Infer<typeof stagedFilesCategoryCountsValidator>;
+type StagedFilesCategoryCounts = Infer<typeof vStagedFilesCategoryCounts>;
 type StagedFilesCategory = Exclude<keyof StagedFilesCategoryCounts, "total">;
 type StagedFileSummaryInput = StagedFileChangeCandidate & Pick<StagedFile, "branch">;
 

@@ -1,9 +1,31 @@
 import appCss from "@/index.css?url";
+import ibmPlexSansLatin400 from "@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-400-normal.woff2?url";
+import ibmPlexSansLatin500 from "@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-500-normal.woff2?url";
+import ibmPlexSansLatin600 from "@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-600-normal.woff2?url";
+import ibmPlexSansLatin700 from "@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-700-normal.woff2?url";
 
 const appTitle = "noter | GitHub-backed markdown notes and AI workspace";
 const appDescription =
   "GitHub-backed markdown notes and AI workspace. Keep notes and code in a real repository, collaborate in real time, and ship small apps from the same workspace.";
 const productionHostnames = ["noter.md", "www.noter.md"] as const;
+const appFontPreloadUrls = [
+  ibmPlexSansLatin400,
+  ibmPlexSansLatin500,
+  ibmPlexSansLatin600,
+  ibmPlexSansLatin700,
+] as const;
+const convexPreconnectOrigin = (() => {
+  const convexUrl = import.meta.env.VITE_CONVEX_URL;
+  if (!convexUrl) {
+    return null;
+  }
+
+  try {
+    return new URL(convexUrl).origin;
+  } catch {
+    return null;
+  }
+})();
 const structuredData = {
   "@context": "https://schema.org",
   "@graph": [
@@ -96,6 +118,26 @@ const initialThemeScript = `
 export function buildRootHead() {
   return {
     links: [
+      ...appFontPreloadUrls.map((href) => ({
+        rel: "preload",
+        as: "font",
+        type: "font/woff2",
+        href,
+        crossOrigin: "anonymous" as const,
+      })),
+      ...(convexPreconnectOrigin
+        ? [
+            {
+              rel: "preconnect",
+              href: convexPreconnectOrigin,
+              crossOrigin: "anonymous" as const,
+            },
+            {
+              rel: "dns-prefetch",
+              href: convexPreconnectOrigin,
+            },
+          ]
+        : []),
       {
         rel: "icon",
         type: "image/png",
