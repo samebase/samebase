@@ -1,4 +1,6 @@
 import { useLocation, useRouter } from "@tanstack/react-router";
+import { createIsomorphicFn } from "@tanstack/react-start";
+import { getRequestUrl } from "@tanstack/react-start/server";
 import { useQuery } from "convex/react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import {
@@ -143,9 +145,9 @@ function readRouteUrlEditorSuggestionOptionId(args: {
   return `${args.suggestionsId}-${args.index}`;
 }
 
-function readRouteUrlEditorOrigin(): string {
-  return typeof window === "undefined" ? "https://noter.local" : window.location.origin;
-}
+const readRouteUrlEditorOrigin = createIsomorphicFn()
+  .client(() => window.location.origin)
+  .server(() => getRequestUrl({ xForwardedHost: true, xForwardedProto: true }).origin);
 
 function areRouteUrlEditorHashSuggestionKeysEqual(
   left: readonly string[],

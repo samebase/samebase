@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { useConvexAuth } from "convex/react";
-import { ClientOnly, useLocation } from "@tanstack/react-router";
+import { useLocation } from "@tanstack/react-router";
 import { usePublicRightSidebarPane } from "@/components/PublicRightSidebar";
 import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
 import { RouteUrlEditor } from "@/components/RouteUrlEditor";
@@ -165,9 +165,7 @@ function AppWorkspaceMainHeader({ accessory }: { accessory?: ReactNode }) {
   return (
     <div className="flex h-full min-w-0 items-center gap-2">
       <div className="min-w-0 flex-1">
-        <ClientOnly fallback={<div className="h-7" />}>
-          <RouteUrlEditor />
-        </ClientOnly>
+        <RouteUrlEditor />
       </div>
       {accessory ? <div className="min-w-0 shrink-0">{accessory}</div> : null}
     </div>
