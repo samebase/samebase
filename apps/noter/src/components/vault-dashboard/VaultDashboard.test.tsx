@@ -397,13 +397,43 @@ describe("VaultDashboardCloudflareAccountDialog", () => {
 });
 
 describe("VaultDashboardAppRootDialog", () => {
-  it("renders the app root input inside the submit form", () => {
+  it("renders app mode as the readonly repository root", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardAppRootDialog
+        appRoot="."
+        error={null}
+        isSubmitting={false}
+        mode="app"
+        onAppRootChange={vi.fn()}
+        onModeChange={vi.fn()}
+        onOpenChange={vi.fn()}
+        onSubmit={vi.fn()}
+        open
+        vault={{
+          id: fakeVaultId(),
+          repositoryFullName: "ada/demo",
+        }}
+      />,
+    );
+
+    expect(markup).toContain("<form");
+    expect(markup).toContain("Choose whether this repository is one app or a monorepo.");
+    expect(markup).toContain("App");
+    expect(markup).toContain("Monorepo");
+    expect(markup).toContain("readOnly");
+    expect(markup).toContain('value="."');
+    expect(markup).toContain('type="submit"');
+  });
+
+  it("renders monorepo mode with an editable app root", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardAppRootDialog
         appRoot="apps/domain-router"
         error={null}
         isSubmitting={false}
+        mode="monorepo"
         onAppRootChange={vi.fn()}
+        onModeChange={vi.fn()}
         onOpenChange={vi.fn()}
         onSubmit={vi.fn()}
         open
@@ -417,6 +447,7 @@ describe("VaultDashboardAppRootDialog", () => {
     expect(markup).toContain("<form");
     expect(markup).toContain("Add app root ada/demo");
     expect(markup).toContain("apps/domain-router");
+    expect(markup).not.toContain("readOnly");
     expect(markup).toContain('type="button"');
     expect(markup).toContain('type="submit"');
   });

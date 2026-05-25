@@ -292,6 +292,7 @@ export type VaultDeleteOptionKey =
   | "removeGithubRepo"
   | "removeCloudflareProvision";
 type CreateResourceNameMode = "auto" | "manual";
+type AddAppRootMode = "app" | "monorepo";
 type CreateResourceNameCheckResult =
   (typeof api.vault.actions.checkCreateRepositoryResourceNames)["_returnType"];
 type CreateResourceNameCheckState = {
@@ -299,11 +300,13 @@ type CreateResourceNameCheckState = {
   result: CreateResourceNameCheckResult;
 };
 type CreateResourceNameAvailability = CreateResourceNameCheckResult["convex"];
+
 type VaultDashboardLocalState = {
   addAppRootDialog: {
     appRoot: string;
     error: string | null;
     isSubmitting: boolean;
+    mode: AddAppRootMode;
   };
   cloudflareAccountDialog: {
     error: string | null;
@@ -383,9 +386,10 @@ function readInitialConvexConnectDialogState(): VaultDashboardLocalState["convex
 function readVaultDashboardInitialLocalState(): VaultDashboardLocalState {
   return {
     addAppRootDialog: {
-      appRoot: "",
+      appRoot: ROOT_CLOUDFLARE_APP_ROOT,
       error: null,
       isSubmitting: false,
+      mode: "app",
     },
     cloudflareAccountDialog: {
       error: null,
@@ -448,9 +452,10 @@ function useVaultDashboardLocalStore() {
       setState((state) => ({
         ...state,
         addAppRootDialog: {
-          appRoot: "",
+          appRoot: ROOT_CLOUDFLARE_APP_ROOT,
           error: null,
           isSubmitting: false,
+          mode: "app",
         },
       }));
     },
@@ -458,6 +463,22 @@ function useVaultDashboardLocalStore() {
       setState((state) => ({
         ...state,
         addAppRootDialog: { ...state.addAppRootDialog, appRoot, error: null },
+      }));
+    },
+    setAddAppRootDialogMode: (mode: AddAppRootMode) => {
+      setState((state) => ({
+        ...state,
+        addAppRootDialog: {
+          ...state.addAppRootDialog,
+          appRoot:
+            mode === "app"
+              ? ROOT_CLOUDFLARE_APP_ROOT
+              : state.addAppRootDialog.appRoot === ROOT_CLOUDFLARE_APP_ROOT
+                ? ""
+                : state.addAppRootDialog.appRoot,
+          error: null,
+          mode,
+        },
       }));
     },
     setAddAppRootDialogError: (error: string | null) => {
@@ -1268,7 +1289,9 @@ export function VaultDashboardAppRootDialog({
   appRoot,
   error,
   isSubmitting,
+  mode,
   onAppRootChange,
+  onModeChange,
   onOpenChange,
   onSubmit,
   open,
@@ -1277,12 +1300,15 @@ export function VaultDashboardAppRootDialog({
   appRoot: string;
   error: string | null;
   isSubmitting: boolean;
+  mode: AddAppRootMode;
   onAppRootChange: (appRoot: string) => void;
+  onModeChange: (mode: AddAppRootMode) => void;
   onOpenChange: (isOpen: boolean) => void;
   onSubmit: () => void;
   open: boolean;
   vault: VaultAppRootDialogTarget | null;
 }) {
+  const isRepositoryAppMode = mode === "app";
   const submitDisabled = isSubmitting || !appRoot.trim();
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -1310,17 +1336,52 @@ export function VaultDashboardAppRootDialog({
             <DialogTitle>
               {vault ? `Add app root ${vault.repositoryFullName}` : "Add app root"}
             </DialogTitle>
-            <DialogDescription>Use . for the repository root.</DialogDescription>
+            <DialogDescription>
+              Choose whether this repository is one app or a monorepo.
+            </DialogDescription>
           </DialogHeader>
           {vault ? (
             <div className="space-y-3">
+              <div className="grid grid-cols-2" role="group" aria-label="App root mode">
+                <button
+                  type="button"
+                  className={clsx(
+                    buttonVariants({
+                      variant: isRepositoryAppMode ? "secondary" : "outline",
+                      size: "sm",
+                    }),
+                    "rounded-r-none",
+                  )}
+                  aria-pressed={isRepositoryAppMode}
+                  onClick={() => onModeChange("app")}
+                  disabled={isSubmitting}
+                >
+                  App
+                </button>
+                <button
+                  type="button"
+                  className={clsx(
+                    buttonVariants({
+                      variant: isRepositoryAppMode ? "outline" : "secondary",
+                      size: "sm",
+                    }),
+                    "rounded-l-none border-l-0",
+                  )}
+                  aria-pressed={!isRepositoryAppMode}
+                  onClick={() => onModeChange("monorepo")}
+                  disabled={isSubmitting}
+                >
+                  Monorepo
+                </button>
+              </div>
               <Input
                 aria-label="App root"
                 value={appRoot}
                 onChange={(event) => onAppRootChange(event.target.value)}
                 onKeyDown={handleAppRootInputKeyDown}
                 disabled={isSubmitting}
-                placeholder="apps/noter"
+                readOnly={isRepositoryAppMode}
+                placeholder={isRepositoryAppMode ? ROOT_CLOUDFLARE_APP_ROOT : "apps/noter"}
               />
               {error ? <div className="text-sm text-red-600">{error}</div> : null}
             </div>
@@ -4189,6 +4250,7 @@ export function VaultDashboard() {
     appRoot: addAppRootValue,
     error: addAppRootError,
     isSubmitting: isSubmittingAppRoot,
+    mode: addAppRootMode,
   } = addAppRootDialog;
   const {
     error: cloudflareAccountDialogError,
@@ -4239,6 +4301,7 @@ export function VaultDashboard() {
     setCloudflareAccountSubmitting,
     setAddAppRootDialogAppRoot,
     setAddAppRootDialogError,
+    setAddAppRootDialogMode,
     setAddAppRootDialogSubmitting,
     setCloudflareAccountsLoading,
     setCloudflareConnectDialogAccounts,
@@ -4930,7 +4993,7 @@ export function VaultDashboard() {
     try {
       await createVaultAppRoot({
         vaultId: vaultToAddAppRoot.id,
-        appRoot: addAppRootValue,
+        appRoot: addAppRootMode === "app" ? ROOT_CLOUDFLARE_APP_ROOT : addAppRootValue,
       });
       resetAddAppRootDialogState();
       clearAddAppRootSearchParam({ preferHistoryBack: true });
@@ -5996,7 +6059,9 @@ export function VaultDashboard() {
         appRoot={addAppRootValue}
         error={addAppRootError}
         isSubmitting={isSubmittingAppRoot}
+        mode={addAppRootMode}
         onAppRootChange={setAddAppRootDialogAppRoot}
+        onModeChange={setAddAppRootDialogMode}
         onOpenChange={handleAddAppRootDialogOpenChange}
         onSubmit={() => {
           void handleSubmitAppRoot();
