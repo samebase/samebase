@@ -1,9 +1,36 @@
 import { devices, expect, test, type Locator, type Page } from "@playwright/test";
 import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
+import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
+import type { WorkspaceSidebarState } from "../convex/workspaceSidebarStateModel";
+
+const STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION = 2;
+const VAULT_DASHBOARD_VISUAL_SIDEBAR_STATE = {
+  leftDesktopOpen: true,
+  leftDesktopWidthPx: 240,
+  leftMobileWidthPx: 240,
+  mobilePane: "main",
+  mobileSurface: { kind: "unmerged" },
+  rightDesktopOpen: true,
+  rightDesktopWidthPx: 288,
+  rightMobileWidthPx: 288,
+} satisfies WorkspaceSidebarState;
 
 async function expectInlinePadding(locator: Locator, expectedPx: string) {
   await expect(locator).toHaveCSS("padding-left", expectedPx);
   await expect(locator).toHaveCSS("padding-right", expectedPx);
+}
+
+async function seedAppWorkspaceSidebarState(page: Page, state: WorkspaceSidebarState) {
+  await page.addInitScript(
+    ({ state, storageKey, version }) => {
+      window.localStorage.setItem(storageKey, JSON.stringify({ state, version }));
+    },
+    {
+      state,
+      storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+      version: STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION,
+    },
+  );
 }
 
 async function expectElementsDoNotOverlap(first: Locator, second: Locator) {
@@ -162,6 +189,10 @@ test("vault dashboard fixture (create dialog)", async ({ page }) => {
 
 test("vault dashboard fixture (sidebar account clamp)", async ({ page }) => {
   await page.setViewportSize({ width: 960, height: 760 });
+  await seedAppWorkspaceSidebarState(page, {
+    ...VAULT_DASHBOARD_VISUAL_SIDEBAR_STATE,
+    rightDesktopWidthPx: 160,
+  });
   await page.goto("/visual-fixture?mode=vault-sidebar-account-clamp", {
     waitUntil: "domcontentloaded",
   });
@@ -202,6 +233,11 @@ test("vault dashboard fixture (mobile sidebar min width)", async ({ browser }, t
   });
   const page = await context.newPage();
 
+  await seedAppWorkspaceSidebarState(page, {
+    ...VAULT_DASHBOARD_VISUAL_SIDEBAR_STATE,
+    mobilePane: "right",
+    rightMobileWidthPx: 96,
+  });
   await page.goto("/visual-fixture?mode=vault-sidebar-account-mobile-min", {
     waitUntil: "domcontentloaded",
   });

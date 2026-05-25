@@ -8,7 +8,6 @@ import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUp
 import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
 import { GitHubLogoIcon } from "@/lib/radixIcons";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
-import { type WorkspaceMobileSidebarPane } from "../../../convex/workspaceSidebarStateModel";
 import {
   VaultDashboardAccountSection,
   VaultDashboardEmptyState,
@@ -913,27 +912,16 @@ function VaultDashboardStickyHeaderFixture() {
 }
 
 function FixtureDashboardShell({
-  desktopSidebarWidthPx,
   mainContent,
-  mobilePane,
   rightContent,
-  rightMobileWidthPx,
 }: {
-  desktopSidebarWidthPx?: number;
   mainContent?: ReactNode;
-  mobilePane?: WorkspaceMobileSidebarPane;
   rightContent?: ReactNode;
-  rightMobileWidthPx?: number;
 }) {
   return (
     <TestRouterProvider>
       <WorkspaceLayoutV2FixtureFrame
         dataTestId="vault-dashboard-visual-fixture"
-        defaultOpen={false}
-        defaultRightOpen={true}
-        desktopSidebarWidthPx={desktopSidebarWidthPx}
-        mobilePane={mobilePane}
-        rightMobileWidthPx={rightMobileWidthPx}
         shortcutPaneSide="right"
         right={{
           content: rightContent,
@@ -946,18 +934,9 @@ function FixtureDashboardShell({
   );
 }
 
-function FixtureDashboardSidebarAccountClamp({
-  mobilePane,
-  rightMobileWidthPx,
-}: {
-  mobilePane?: WorkspaceMobileSidebarPane;
-  rightMobileWidthPx?: number;
-} = {}) {
+function FixtureDashboardSidebarAccountClamp() {
   return (
     <FixtureDashboardShell
-      desktopSidebarWidthPx={160}
-      mobilePane={mobilePane}
-      rightMobileWidthPx={rightMobileWidthPx}
       rightContent={
         <VaultDashboardSidebarContent>
           <VaultDashboardAccountSection
@@ -1140,7 +1119,7 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
   }
 
   if (mode === "vault-sidebar-account-mobile-min") {
-    return <FixtureDashboardSidebarAccountClamp mobilePane="right" rightMobileWidthPx={1} />;
+    return <FixtureDashboardSidebarAccountClamp />;
   }
 
   if (mode === "vault-branch-mobile-alignment") {

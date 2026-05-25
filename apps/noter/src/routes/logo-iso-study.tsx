@@ -18,7 +18,7 @@ function LogoIsoStudyRouteComponent() {
   );
 }
 
-export const Route = createFileRoute("/_public/logo/single-cube")({
+export const Route = createFileRoute("/logo/single-cube")({
   staticData: {
     permission: "public",
     searchParamSuggestions: LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,

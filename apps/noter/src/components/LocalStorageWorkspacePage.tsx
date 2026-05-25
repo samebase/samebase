@@ -1,7 +1,7 @@
 import { FileText } from "lucide-react";
+import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { useBrowserLocalStorageSnapshot } from "@/hooks/useBrowserLocalStorageSnapshot";
 import { type LocalStorageSnapshot } from "@/lib/localStorageSnapshot";
-import { PublicLayoutRouteChrome } from "@/lib/publicLayoutRouteChrome";
 
 function LocalStorageSidebarContent() {
   return (
@@ -89,8 +89,8 @@ export function LocalStorageWorkspacePage() {
   const snapshot = useBrowserLocalStorageSnapshot();
 
   return (
-    <PublicLayoutRouteChrome left={<LocalStorageSidebarContent />}>
+    <AppWorkspaceRouteChrome left={{ content: <LocalStorageSidebarContent /> }}>
       <LocalStorageEntriesTable snapshot={snapshot} />
-    </PublicLayoutRouteChrome>
+    </AppWorkspaceRouteChrome>
   );
 }

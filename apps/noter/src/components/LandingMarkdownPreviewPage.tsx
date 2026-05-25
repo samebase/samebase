@@ -1,7 +1,8 @@
-import { PublicLayoutShell } from "@/Layout";
+import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { FileTree, type FileTreeItem } from "@/components/FileTree";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
 import {
+  useWorkspacePaneActions,
   useWorkspacePaneState,
   type WorkspaceMobilePane,
 } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
@@ -17,9 +18,10 @@ import {
   LANDING_MARKDOWN_PREVIEW_TEST_ID,
   type LandingMarkdownPreviewLanguage,
 } from "@/lib/landingMarkdownPreview";
-import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
+import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import landingPreviewMarkdown from "@/content/landing-preview.md?raw";
 import landingPreviewRomanianMarkdown from "@/content/landing-preview.ro.md?raw";
+import { useLocation } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from "react";
 
 const LANDING_MARKDOWN_BY_LANGUAGE = {
@@ -196,20 +198,16 @@ function buildLandingPreviewPaneHashPath({
   });
 }
 
-function getLandingPreviewDefaultMobilePane(): WorkspaceMobilePane {
-  if (typeof window === "undefined") {
-    return "main";
+function getLandingPreviewUrlMobilePane(search: string): WorkspaceMobilePane | null {
+  const searchParams = parseTanStackSearch(search);
+  const hasLeftPane = "left" in searchParams;
+  const hasRightPane = "right" in searchParams;
+
+  if (hasLeftPane === hasRightPane) {
+    return null;
   }
 
-  const searchParams = new URLSearchParams(window.location.search);
-  if (searchParams.has("left")) {
-    return "left";
-  }
-  if (searchParams.has("right")) {
-    return "right";
-  }
-
-  return "main";
+  return hasLeftPane ? "left" : "right";
 }
 
 function getLandingPreviewArticleHeading(headingId: string) {
@@ -257,6 +255,29 @@ function scrollHeadingWithinCurrentPane(target: HTMLElement) {
   const scrollMarginTop = Number.parseFloat(window.getComputedStyle(target).scrollMarginTop) || 0;
 
   scrollContainer.scrollTop += targetBounds.top - containerBounds.top - scrollMarginTop;
+}
+
+/**
+ * Landing hash links preserve the open mobile pane in the URL, so direct loads
+ * and URL editor edits need to feed that marker back into the shared shell.
+ */
+function LandingMarkdownPreviewPaneUrlSync() {
+  const search = useLocation({
+    select: (location) => location.searchStr,
+  });
+  const { setMobilePane } = useWorkspacePaneActions();
+  const { isMobile, mobilePane } = useWorkspacePaneState();
+
+  useEffect(() => {
+    const nextMobilePane = getLandingPreviewUrlMobilePane(search);
+    if (!isMobile || nextMobilePane === null || mobilePane === nextMobilePane) {
+      return;
+    }
+
+    setMobilePane(nextMobilePane);
+  }, [isMobile, mobilePane, search, setMobilePane]);
+
+  return null;
 }
 
 function LandingMarkdownPreviewSidebar({ language }: { language: LandingMarkdownPreviewLanguage }) {
@@ -383,13 +404,13 @@ export function LandingMarkdownPreviewPage({
   language?: LandingMarkdownPreviewLanguage;
 }) {
   return (
-    <PublicLayoutShell
-      defaultMobilePane={getLandingPreviewDefaultMobilePane()}
+    <AppWorkspaceRouteChrome
       left={{ content: <LandingMarkdownPreviewSidebar language={language} /> }}
     >
+      <LandingMarkdownPreviewPaneUrlSync />
       <div data-testid={LANDING_MARKDOWN_PREVIEW_TEST_ID} className="flex min-h-0 flex-1 flex-col">
         <LandingMarkdownPreviewDocument language={language} />
       </div>
-    </PublicLayoutShell>
+    </AppWorkspaceRouteChrome>
   );
 }

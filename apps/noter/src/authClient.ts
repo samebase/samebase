@@ -209,7 +209,7 @@ export function openAuthPopup(
 
 /**
  * Auto-trigger provider sign-in when opened as a popup with ?auth=google
- * or when the fast public shell forces top-level ?auth=google on `/`.
+ * or when the app shell forces top-level ?auth=google on `/`.
  * The popup handles the full OAuth redirect flow (not blocked by CSP
  * since it's a top-level window). After auth completes, the popup
  * auto-closes and the token syncs to the parent via localStorage.

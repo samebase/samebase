@@ -1,4 +1,4 @@
-import { index, layout, rootRoute, route } from "@tanstack/virtual-file-routes";
+import { index, rootRoute, route } from "@tanstack/virtual-file-routes";
 import {
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
@@ -15,20 +15,18 @@ import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
  * `/vault/$`.
  */
 export const routes = rootRoute("root.tsx", [
-  layout("public", "public-layout.tsx", [
-    index("index.tsx"),
-    route(LOCAL_STORAGE_ROUTE, "localStorage.tsx"),
-    route("/logo", "logo.tsx"),
-    route("/logo/iso", "logo-iso.tsx"),
-    route("/logo/raster", "logo-raster.tsx"),
-    route("/logo/raster-seams", "logo-raster-seams.tsx"),
-    route("/logo/svg", "logo-svg.tsx"),
-    route("/logo/single-cube", "logo-iso-study.tsx"),
-    route("/logo/transition", "logo-transition-lab.tsx"),
-    route("/logo/transition/transforms", "logo-transition-transforms-lab.tsx"),
-    route("/privacy", "privacy.tsx"),
-    route("/terms", "terms.tsx"),
-  ]),
+  index("index.tsx"),
+  route(LOCAL_STORAGE_ROUTE, "localStorage.tsx"),
+  route("/logo", "logo.tsx"),
+  route("/logo/iso", "logo-iso.tsx"),
+  route("/logo/raster", "logo-raster.tsx"),
+  route("/logo/raster-seams", "logo-raster-seams.tsx"),
+  route("/logo/svg", "logo-svg.tsx"),
+  route("/logo/single-cube", "logo-iso-study.tsx"),
+  route("/logo/transition", "logo-transition-lab.tsx"),
+  route("/logo/transition/transforms", "logo-transition-transforms-lab.tsx"),
+  route("/privacy", "privacy.tsx"),
+  route("/terms", "terms.tsx"),
   route("/test", "test.tsx"),
   route("/pitch", "pitch.tsx"),
   route("/pitch/print", "pitch-print.tsx"),

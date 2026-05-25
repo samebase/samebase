@@ -93,14 +93,12 @@ export function SidebarMediaUploadVisualFixture() {
       <style>{SIDEBAR_MEDIA_UPLOAD_VISUAL_FIXTURE_FONT_RULES}</style>
       <WorkspaceLayoutV2FixtureFrame
         dataTestId="sidebar-media-upload-visual-fixture"
-        defaultOpen={true}
-        defaultRightOpen={false}
         left={{
           header: sidebarHeader,
           content: sidebarContent,
         }}
         main={{
-          header: <RepositoryWorkspacePaneHeader title="x.png" />,
+          headerAccessory: <RepositoryWorkspacePaneHeader title="x.png" />,
           content: (
             <div className="flex h-full min-h-0 flex-col p-6">
               <div className="mb-3">

@@ -108,7 +108,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectTrigger } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { PublicLayoutRouteChrome } from "@/lib/publicLayoutRouteChrome";
+import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_LOGO_FRACTAL_DEPTH,
@@ -2216,5 +2216,9 @@ export function LogoPreviewPage({
     </div>
   );
 
-  return <PublicLayoutRouteChrome left={controlsContent}>{sceneContent}</PublicLayoutRouteChrome>;
+  return (
+    <AppWorkspaceRouteChrome left={{ content: controlsContent }}>
+      {sceneContent}
+    </AppWorkspaceRouteChrome>
+  );
 }

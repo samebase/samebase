@@ -51,7 +51,7 @@ import { isInIframe, useNoterAuthActions } from "@/authClient";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
-import { RouteUrlEditor } from "@/components/RouteUrlEditor";
+import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import {
   Dialog,
   DialogDescription,
@@ -106,17 +106,12 @@ import {
   type VaultRemoteBranchListItem,
 } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import { toast } from "@/components/ui/use-toast";
-import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
-import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
-import { WorkspaceLayoutV2FullPage } from "../workspace-layout-v2/WorkspaceLayoutV2FullPage";
-import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import { CHAT_ENABLED, CODESPACES_ENABLED } from "../../../shared/featureFlags";
 import {
   buildDefaultAppResourceName,
   validateAppResourceName,
 } from "../../../shared/appResourceNames";
 import { toSafeRepoName } from "../../../shared/repoName";
-import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
@@ -126,16 +121,6 @@ import {
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { useDashboardRepositoryRefreshDemand } from "@/components/vault-dashboard/VaultDashboardRepositoryRefreshDemand";
 
-const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
-  leftDesktopOpen: false,
-  leftDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-  leftMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-  mobilePane: "main",
-  mobileSurface: { kind: "unmerged" },
-  rightDesktopOpen: true,
-  rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-  rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-} satisfies WorkspaceSidebarState;
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 const DASHBOARD_NEW_APP_QUERY_PARAM = "new-app";
 
@@ -5544,39 +5529,29 @@ export function VaultDashboard() {
   );
 
   return (
-    <PublicLandingLogoLinkProvider>
-      <PersistedSidebarProvider
-        defaultState={DASHBOARD_SIDEBAR_DEFAULT_STATE}
-        shortcutPaneSide="right"
-        workspaceKey="dashboard"
-      >
-        <WorkspaceLayoutV2FullPage
-          right={{
-            header: null,
-            content: sidebarContent,
-          }}
-          main={{
-            header: <RouteUrlEditor />,
-            content: dashboardBody,
-          }}
-          panel={
-            CHAT_ENABLED
-              ? {
-                  content: (
-                    <EditorChatPanel
-                      autoFocusInput={shouldAutoFocusChatInput}
-                      onBusyStateChange={setGlobalChatBusy}
-                      shellMode="embedded"
-                    />
-                  ),
-                  closeDisabled: isGlobalChatBusy,
-                  onOpenChange: handleGlobalChatOpenChange,
-                  open: resolvedGlobalChatOpen,
-                }
-              : undefined
-          }
-        />
-      </PersistedSidebarProvider>
+    <AppWorkspaceRouteChrome
+      right={{
+        header: null,
+        content: sidebarContent,
+      }}
+      panel={
+        CHAT_ENABLED
+          ? {
+              content: (
+                <EditorChatPanel
+                  autoFocusInput={shouldAutoFocusChatInput}
+                  onBusyStateChange={setGlobalChatBusy}
+                  shellMode="embedded"
+                />
+              ),
+              closeDisabled: isGlobalChatBusy,
+              onOpenChange: handleGlobalChatOpenChange,
+              open: resolvedGlobalChatOpen,
+            }
+          : undefined
+      }
+    >
+      {dashboardBody}
 
       <VaultDashboardCreateDialog
         createButtonDisabled={createButtonDisabled}
@@ -5669,6 +5644,6 @@ export function VaultDashboard() {
         selectedAccountId={selectedCloudflareDefaultAccountId}
       />
       {apiKeyDialog}
-    </PublicLandingLogoLinkProvider>
+    </AppWorkspaceRouteChrome>
   );
 }

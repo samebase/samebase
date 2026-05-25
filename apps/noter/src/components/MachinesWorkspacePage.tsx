@@ -1,6 +1,5 @@
 import { useNow } from "@/hooks/useNow";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
-import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
 import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import {
   CodexAppServerRequestError,
@@ -15,17 +14,12 @@ import {
   startedDraftConversationThreadMatches,
   type MachinesWorkspaceProjectConversationSelection,
 } from "@/lib/machinesWorkspaceConversation";
-import {
-  MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
-  MachinesWorkspaceView,
-} from "@/components/MachinesWorkspaceView";
+import { MachinesWorkspaceView } from "@/components/MachinesWorkspaceView";
 import type { MachinesWorkspaceSidebarInventory } from "@/lib/machinesWorkspaceSidebar";
-import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import { useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildMachinesRouteSearch } from "@/lib/authenticatedRouteSearch";
 import { getRouteApi } from "@tanstack/react-router";
-import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 import { resolveConnectedMachineStatus } from "../../shared/connectedMachinePresence";
 import type { ConnectedMachineView } from "../../convex/connectedMachineModel";
 import { api } from "../../convex/_generated/api";
@@ -35,16 +29,6 @@ import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
 const THREAD_LIST_LIMIT = 100;
 const THREAD_REFRESH_INTERVAL_MS = 1_500;
 const MACHINE_CONTROL_TOKEN_REFRESH_BUFFER_MS = 30_000;
-const MACHINES_WORKSPACE_SIDEBAR_DEFAULT_STATE = {
-  leftDesktopOpen: true,
-  leftDesktopWidthPx: MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
-  leftMobileWidthPx: MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
-  mobilePane: "main",
-  mobileSurface: { kind: "unmerged" },
-  rightDesktopOpen: false,
-  rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-  rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-} satisfies WorkspaceSidebarState;
 
 type MachineControlTokenState = {
   expiresAt: number;
@@ -969,56 +953,51 @@ export function MachinesWorkspacePage() {
   });
 
   return (
-    <PersistedSidebarProvider
-      defaultState={MACHINES_WORKSPACE_SIDEBAR_DEFAULT_STATE}
-      workspaceKey="machines"
-    >
-      <MachinesWorkspaceView
-        hasPendingStartedThread={selectedThreadIsPendingStart}
-        machineInventories={machineInventories}
-        isSubmittingTurn={isSubmittingTurn}
-        leftSidebarHeader={
-          userDisplayName !== null ? (
-            <SidebarHomeAccountHeader userDisplayName={userDisplayName} />
-          ) : null
+    <MachinesWorkspaceView
+      hasPendingStartedThread={selectedThreadIsPendingStart}
+      machineInventories={machineInventories}
+      isSubmittingTurn={isSubmittingTurn}
+      leftSidebarHeader={
+        userDisplayName !== null ? (
+          <SidebarHomeAccountHeader userDisplayName={userDisplayName} />
+        ) : null
+      }
+      leftSidebarFooter={<AppSidebarMetaSection />}
+      pendingPinThreadKey={pendingPinThreadKey}
+      pendingConversation={
+        selectedPendingConversation === null
+          ? null
+          : {
+              envMode: selectedPendingConversation.envMode,
+              machineId: selectedPendingConversation.machineId,
+              projectId: selectedPendingConversation.projectId,
+              projectLabel: selectedPendingConversation.projectLabel,
+              projectRootCwd: selectedPendingConversation.projectRootCwd,
+            }
+      }
+      selectedMachineId={selectedMachineId}
+      selectedMachineDisplayName={selectedMachine?.displayName ?? null}
+      selectedMachineHostname={selectedMachine?.hostname ?? null}
+      selectedMachineStatusReason={selectedMachineInteractionBlockedReason}
+      selectedThread={selectedThread}
+      selectedThreadError={selectedThreadError}
+      selectedThreadLoading={isSelectedThreadLoading}
+      selectedThreadId={selectedThreadId}
+      relativeTimeReferenceMs={now}
+      turnDraft={turnDraft}
+      onProjectStartConversation={handleProjectStartConversation}
+      onTurnDraftChange={setTurnDraft}
+      onTurnSubmit={handleTurnSubmit}
+      onThreadPinChange={handleThreadPinChange}
+      onThreadSelect={({ machineId, threadId }) => {
+        if (isSubmittingTurn) {
+          return;
         }
-        leftSidebarFooter={<AppSidebarMetaSection />}
-        pendingPinThreadKey={pendingPinThreadKey}
-        pendingConversation={
-          selectedPendingConversation === null
-            ? null
-            : {
-                envMode: selectedPendingConversation.envMode,
-                machineId: selectedPendingConversation.machineId,
-                projectId: selectedPendingConversation.projectId,
-                projectLabel: selectedPendingConversation.projectLabel,
-                projectRootCwd: selectedPendingConversation.projectRootCwd,
-              }
-        }
-        selectedMachineId={selectedMachineId}
-        selectedMachineDisplayName={selectedMachine?.displayName ?? null}
-        selectedMachineHostname={selectedMachine?.hostname ?? null}
-        selectedMachineStatusReason={selectedMachineInteractionBlockedReason}
-        selectedThread={selectedThread}
-        selectedThreadError={selectedThreadError}
-        selectedThreadLoading={isSelectedThreadLoading}
-        selectedThreadId={selectedThreadId}
-        relativeTimeReferenceMs={now}
-        turnDraft={turnDraft}
-        onProjectStartConversation={handleProjectStartConversation}
-        onTurnDraftChange={setTurnDraft}
-        onTurnSubmit={handleTurnSubmit}
-        onThreadPinChange={handleThreadPinChange}
-        onThreadSelect={({ machineId, threadId }) => {
-          if (isSubmittingTurn) {
-            return;
-          }
 
-          setPendingDraftConversation(null);
-          setSelectedMachineId(machineId);
-          setSelectedThreadId(threadId);
-        }}
-      />
-    </PersistedSidebarProvider>
+        setPendingDraftConversation(null);
+        setSelectedMachineId(machineId);
+        setSelectedThreadId(threadId);
+      }}
+    />
   );
 }

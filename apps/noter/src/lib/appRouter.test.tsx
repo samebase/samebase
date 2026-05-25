@@ -6,9 +6,9 @@ import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-const { publicLayoutMountMock, publicLayoutUnmountMock, useConvexAuthMock } = vi.hoisted(() => ({
-  publicLayoutMountMock: vi.fn(),
-  publicLayoutUnmountMock: vi.fn(),
+const { appWorkspaceMountMock, appWorkspaceUnmountMock, useConvexAuthMock } = vi.hoisted(() => ({
+  appWorkspaceMountMock: vi.fn(),
+  appWorkspaceUnmountMock: vi.fn(),
   useConvexAuthMock: vi.fn(),
 }));
 
@@ -24,40 +24,44 @@ vi.mock("@/components/NotFoundRoutePage", () => ({
   NotFoundRoutePage: () => <div data-testid="not-found-route">Not found route</div>,
 }));
 
-vi.mock("@/Layout", async () => {
+vi.mock("@/components/AppWorkspaceShell", async () => {
   const ReactModule = await import("react");
   type MockPaneProps = Pick<WorkspaceLayoutV2PaneFrameProps, "content" | "footer" | "header">;
 
   return {
-    Layout: ({ children }: { children: React.ReactNode }) => (
-      <div data-testid="layout">{children}</div>
-    ),
-    PublicLayoutShell: ({
-      children,
-      left,
-      main,
-    }: {
-      children?: React.ReactNode;
-      left?: MockPaneProps;
-      main?: MockPaneProps;
-    }) => {
+    AppWorkspaceShell: ({ children }: { children?: React.ReactNode }) => {
       ReactModule.useEffect(() => {
-        publicLayoutMountMock();
+        appWorkspaceMountMock();
         return () => {
-          publicLayoutUnmountMock();
+          appWorkspaceUnmountMock();
         };
       }, []);
 
       return (
-        <div data-testid="public-layout-shell">
-          <div data-testid="public-layout-left-pane">
+        <div data-testid="app-workspace">
+          <div data-testid="app-workspace-left-pane" />
+          {children}
+        </div>
+      );
+    },
+    AppWorkspaceRouteChrome: ({
+      children,
+      headerAccessory,
+      left,
+    }: {
+      children?: React.ReactNode;
+      headerAccessory?: React.ReactNode;
+      left?: MockPaneProps;
+    }) => {
+      return (
+        <div data-testid="app-workspace-route-chrome">
+          <div data-testid="app-workspace-route-header-accessory">{headerAccessory}</div>
+          <div data-testid="app-workspace-route-left-pane">
             {left?.header}
             {left?.content}
             {left?.footer}
           </div>
-          {main?.header}
-          {main?.content ?? children}
-          {main?.footer}
+          {children}
         </div>
       );
     },
@@ -167,9 +171,14 @@ vi.mock("@/components/CodexAppServerThreadBrowserResearchPage", () => ({
 
 vi.mock("@/components/AppRootClient", async () => {
   const { Outlet } = await import("@tanstack/react-router");
+  const { AppWorkspaceShell } = await import("@/components/AppWorkspaceShell");
 
   return {
-    AppRootClient: Outlet,
+    AppRootClient: () => (
+      <AppWorkspaceShell>
+        <Outlet />
+      </AppWorkspaceShell>
+    ),
   };
 });
 
@@ -217,8 +226,8 @@ describe("appRouter", () => {
   let root: Root | null = null;
 
   beforeEach(() => {
-    publicLayoutMountMock.mockClear();
-    publicLayoutUnmountMock.mockClear();
+    appWorkspaceMountMock.mockClear();
+    appWorkspaceUnmountMock.mockClear();
     scrollToMock.mockClear();
     useConvexAuthMock.mockReturnValue({
       isAuthenticated: false,
@@ -267,25 +276,25 @@ describe("appRouter", () => {
   it("renders terms through an explicit TanStack route instead of the App fallback", async () => {
     await renderRoute("/terms");
 
-    expect(rootElement?.querySelector('[data-testid="layout"]')).not.toBeNull();
+    expect(rootElement?.querySelector('[data-testid="app-workspace"]')).not.toBeNull();
     expect(rootElement?.querySelector('[data-testid="terms-page"]')?.textContent).toBe(
       "Terms page",
     );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("keeps the public layout mounted while public route content changes", async () => {
+  it("keeps the app workspace shell mounted while route content changes", async () => {
     const router = await renderRoute("/terms");
 
-    expect(publicLayoutMountMock).toHaveBeenCalledTimes(1);
+    expect(appWorkspaceMountMock).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       await router.navigate({ to: "/privacy" });
       await settleRouterRender();
     });
 
-    expect(publicLayoutMountMock).toHaveBeenCalledTimes(1);
-    expect(publicLayoutUnmountMock).not.toHaveBeenCalled();
+    expect(appWorkspaceMountMock).toHaveBeenCalledTimes(1);
+    expect(appWorkspaceUnmountMock).not.toHaveBeenCalled();
     expect(rootElement?.querySelector('[data-testid="privacy-page"]')?.textContent).toBe(
       "Privacy policy page",
     );
@@ -295,8 +304,8 @@ describe("appRouter", () => {
       await settleRouterRender();
     });
 
-    expect(publicLayoutMountMock).toHaveBeenCalledTimes(1);
-    expect(publicLayoutUnmountMock).not.toHaveBeenCalled();
+    expect(appWorkspaceMountMock).toHaveBeenCalledTimes(1);
+    expect(appWorkspaceUnmountMock).not.toHaveBeenCalled();
     expect(rootElement?.querySelector('[data-testid="root-index-route"]')?.textContent).toBe(
       "Root index route",
     );
@@ -306,8 +315,8 @@ describe("appRouter", () => {
       await settleRouterRender();
     });
 
-    expect(publicLayoutMountMock).toHaveBeenCalledTimes(1);
-    expect(publicLayoutUnmountMock).not.toHaveBeenCalled();
+    expect(appWorkspaceMountMock).toHaveBeenCalledTimes(1);
+    expect(appWorkspaceUnmountMock).not.toHaveBeenCalled();
     expect(
       rootElement?.querySelector('[data-testid="local-storage-sidebar-file"]')?.textContent,
     ).toBe("localStorage");
@@ -575,24 +584,24 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("renders localStorage through an explicit public route with the shared public shell", async () => {
+  it("renders localStorage through an explicit route with the shared app workspace shell", async () => {
     await renderRoute("/localStorage");
 
     expect(
       rootElement?.querySelector('[data-testid="local-storage-sidebar-file"]')?.textContent,
     ).toBe("localStorage");
-    expect(rootElement?.querySelector('[data-testid="layout"]')).not.toBeNull();
-    expect(publicLayoutMountMock).toHaveBeenCalledTimes(1);
+    expect(rootElement?.querySelector('[data-testid="app-workspace"]')).not.toBeNull();
+    expect(appWorkspaceMountMock).toHaveBeenCalledTimes(1);
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("keeps the public left pane mounted for logo lab routes without custom chrome", async () => {
+  it("keeps the app left pane mounted for logo lab routes without route chrome", async () => {
     await renderRoute("/logo/svg");
 
     expect(rootElement?.querySelector('[data-testid="logo-svg-page"]')?.textContent).toBe(
       "Logo SVG page",
     );
-    expect(rootElement?.querySelector('[data-testid="public-layout-left-pane"]')).not.toBeNull();
+    expect(rootElement?.querySelector('[data-testid="app-workspace-left-pane"]')).not.toBeNull();
   });
 
   it("accepts the Romanian landing preview query on the explicit route", async () => {

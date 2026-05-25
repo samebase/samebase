@@ -74,7 +74,7 @@ export function FileViewMonacoDragVisualFixture({ mode }: { mode: FileViewMonaco
           ),
         }}
         main={{
-          header: (
+          headerAccessory: (
             <RepositoryWorkspacePaneHeader
               title="vite.config.ts"
               right={<div className="font-mono text-xs text-muted-foreground">4c7e190</div>}
@@ -160,7 +160,7 @@ export function FileViewMonacoDragVisualFixture({ mode }: { mode: FileViewMonaco
         ),
       }}
       main={{
-        header: (
+        headerAccessory: (
           <RepositoryWorkspacePaneHeader
             title="src/mobile-pane-drag.ts"
             right={<div className="font-mono text-xs text-muted-foreground">4c7e190</div>}

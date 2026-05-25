@@ -1,27 +1,13 @@
 import { api } from "../../../convex/_generated/api";
-import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import type { GithubTree } from "../../../convex/schema";
 import type { ProsemarkMergeEditorOptions } from "@/components/ProsemarkMergeEditor";
 import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "@/lib/commitReviewStatus";
-import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
-import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import { getStagedFileStatus as getSharedStagedFileStatus } from "../../../shared/stagedFiles";
 
 /**
  * Keep FileView-specific helpers and derived types together so the main route
  * file can focus on state flow and rendered structure.
  */
-export const FILE_VIEW_SIDEBAR_DEFAULT_STATE = {
-  leftDesktopOpen: FILE_VIEW_TREE_SIDEBAR_SIDE === "left",
-  leftDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-  leftMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-  mobilePane: "main",
-  mobileSurface: { kind: "unmerged" },
-  rightDesktopOpen: true,
-  rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-  rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-} satisfies WorkspaceSidebarState;
-
 export function isFileTreeNodeType(type: string): type is "tree" | "blob" {
   return type === "tree" || type === "blob";
 }

@@ -3,12 +3,8 @@
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
 import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStateController";
-import type {
-  WorkspaceSidebarState,
-  WorkspaceSidebarStateKey,
-} from "../../convex/workspaceSidebarStateModel";
+import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 
 let mockedQueryState: WorkspaceSidebarState | null | undefined = undefined;
 const mockedMutation = vi.fn(async () => null);
@@ -95,18 +91,6 @@ function setLatestMobileSurface(nextSurface: WorkspaceSidebarState["mobileSurfac
       mobileSurface: nextSurface,
     }),
     "immediate",
-  );
-}
-
-function PersistedSidebarProviderProbe({
-  workspaceKey = "machines",
-}: {
-  workspaceKey?: WorkspaceSidebarStateKey;
-}) {
-  return (
-    <PersistedSidebarProvider defaultState={DEFAULT_SIDEBAR_STATE} workspaceKey={workspaceKey}>
-      <div data-testid="provider-child" />
-    </PersistedSidebarProvider>
   );
 }
 
@@ -254,26 +238,5 @@ describe("usePersistedWorkspaceSidebarState", () => {
       },
       workspaceKey: "machines",
     });
-  });
-
-  it("keeps the provider unmounted until the persisted query hydrates", () => {
-    rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    root = createRoot(rootElement);
-    const mountedRoot = root;
-
-    mockedQueryState = undefined;
-    act(() => {
-      mountedRoot.render(<PersistedSidebarProviderProbe />);
-    });
-
-    expect(rootElement.querySelector('[data-testid="provider-child"]')).toBeNull();
-
-    mockedQueryState = null;
-    act(() => {
-      mountedRoot.render(<PersistedSidebarProviderProbe />);
-    });
-
-    expect(rootElement.querySelector('[data-testid="provider-child"]')).not.toBeNull();
   });
 });

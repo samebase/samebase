@@ -119,14 +119,12 @@ export function RepositoryMediaVisualFixture({ mode }: { mode: RepositoryMediaVi
   return (
     <WorkspaceLayoutV2FixtureFrame
       dataTestId="repository-media-visual-fixture"
-      defaultOpen={true}
-      defaultRightOpen={false}
       left={{
         header: sidebarHeader,
         content: sidebarContent,
       }}
       main={{
-        header: (
+        headerAccessory: (
           <RepositoryWorkspacePaneHeader
             title={fixture.selectedFile.split("/").slice(0, -1).join("/") || "/"}
           />

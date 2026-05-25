@@ -79,8 +79,6 @@ export function FileViewLayoutVisualFixture({ mode }: { mode: FileViewLayoutVisu
     <TestRouterProvider>
       <WorkspaceLayoutV2FixtureFrame
         dataTestId="fileview-layout-visual-fixture"
-        defaultOpen={FILE_VIEW_TREE_SIDEBAR_SIDE === "left"}
-        defaultRightOpen={true}
         mobileMinResizeBehavior={
           mode === "fileview-layout-slide" ? "min_resize_to_slide" : undefined
         }
@@ -101,7 +99,7 @@ export function FileViewLayoutVisualFixture({ mode }: { mode: FileViewLayoutVisu
               }
         }
         main={{
-          header: (
+          headerAccessory: (
             <div
               data-testid="fileview-layout-header"
               className="h-full"

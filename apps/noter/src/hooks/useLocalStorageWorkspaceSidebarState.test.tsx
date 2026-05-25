@@ -10,7 +10,7 @@ import { useLocalStorageWorkspaceSidebarState } from "./useLocalStorageWorkspace
 const { act } = React;
 Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
 
-const STORAGE_KEY = "noter_test_public_sidebar_state";
+const STORAGE_KEY = "noter_test_app_workspace_sidebar_state";
 const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
 const DEFAULT_SIDEBAR_STATE = {
   leftDesktopOpen: false,
@@ -57,16 +57,13 @@ function createTestStorage() {
 }
 
 function SidebarStateProbe({
-  applyDefaultChanges,
   defaults,
   reset,
 }: {
-  applyDefaultChanges: boolean;
   defaults: WorkspaceSidebarState;
   reset: boolean;
 }) {
   const sidebarState = useLocalStorageWorkspaceSidebarState({
-    applyDefaultChanges,
     defaults,
     reset,
     storageKey: STORAGE_KEY,
@@ -156,11 +153,9 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
   });
 
   function renderSidebarStateProbe({
-    applyDefaultChanges = true,
     defaults = DEFAULT_SIDEBAR_STATE,
     reset = false,
   }: {
-    applyDefaultChanges?: boolean;
     defaults?: WorkspaceSidebarState;
     reset?: boolean;
   } = {}) {
@@ -170,19 +165,12 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
     }
 
     act(() => {
-      mountedRoot.render(
-        <SidebarStateProbe
-          applyDefaultChanges={applyDefaultChanges}
-          defaults={defaults}
-          reset={reset}
-        />,
-      );
+      mountedRoot.render(<SidebarStateProbe defaults={defaults} reset={reset} />);
     });
   }
 
   function renderProbe(
     args: {
-      applyDefaultChanges?: boolean;
       defaults?: WorkspaceSidebarState;
       reset?: boolean;
     } = {},
@@ -271,39 +259,6 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
     renderProbe({ reset: true });
 
     expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
-    expect(rootElement?.firstElementChild?.getAttribute("data-mobile-pane")).toBe("main");
-  });
-
-  it("applies default changes while initial route chrome settles", () => {
-    const leftDefaultSidebarState = {
-      ...DEFAULT_SIDEBAR_STATE,
-      mobilePane: "left",
-    } satisfies WorkspaceSidebarState;
-
-    renderProbe();
-
-    expect(rootElement?.firstElementChild?.getAttribute("data-mobile-pane")).toBe("main");
-
-    renderSidebarStateProbe({ defaults: leftDefaultSidebarState });
-
-    expect(rootElement?.firstElementChild?.getAttribute("data-mobile-pane")).toBe("left");
-  });
-
-  it("keeps the active pane when route defaults change after navigation", () => {
-    const leftDefaultSidebarState = {
-      ...DEFAULT_SIDEBAR_STATE,
-      mobilePane: "left",
-    } satisfies WorkspaceSidebarState;
-
-    renderProbe();
-
-    expect(rootElement?.firstElementChild?.getAttribute("data-mobile-pane")).toBe("main");
-
-    renderSidebarStateProbe({
-      applyDefaultChanges: false,
-      defaults: leftDefaultSidebarState,
-    });
-
     expect(rootElement?.firstElementChild?.getAttribute("data-mobile-pane")).toBe("main");
   });
 

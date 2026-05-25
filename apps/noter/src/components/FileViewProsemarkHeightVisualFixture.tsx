@@ -338,12 +338,12 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
   return (
     <WorkspaceLayoutV2FixtureFrame
       dataTestId="fileview-prosemark-height-fixture-frame"
-      defaultOpen={FILE_VIEW_TREE_SIDEBAR_SIDE === "left"}
-      defaultRightOpen={FILE_VIEW_TREE_SIDEBAR_SIDE === "right"}
       shortcutPaneSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
       left={FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? activeSidebar : inactiveSidebar}
       main={{
-        header: <RepositoryWorkspacePaneHeader title={headerTitle} onQuickOpen={() => {}} />,
+        headerAccessory: (
+          <RepositoryWorkspacePaneHeader title={headerTitle} onQuickOpen={() => {}} />
+        ),
         content: (
           <div
             data-testid="fileview-prosemark-height-visual-fixture"

@@ -1,71 +1,52 @@
-import { type ComponentProps } from "react";
-import {
-  type WorkspaceMobilePane,
-  type WorkspacePaneSide,
-} from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
-import { Layout } from "@/Layout";
-import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
-import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
-import { WorkspaceLayoutV2MemorySidebarProvider } from "@/components/workspace-layout-v2/WorkspaceLayoutV2MemorySidebarProvider";
+import { type ReactNode } from "react";
+import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
+import { type WorkspacePaneSide } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
+import type { WorkspaceLayoutV2BottomPanelProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2BottomPanel";
+import type { WorkspaceLayoutV2MobileMinResizeBehavior } from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
+import type { WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 
-const WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX = 320;
-
-type WorkspaceLayoutV2FixtureFrameProps = ComponentProps<typeof WorkspaceLayoutV2FullPage> & {
+type WorkspaceLayoutV2FixtureFrameProps = {
+  children?: ReactNode;
   dataTestId: string;
-  defaultOpen?: boolean;
-  defaultRightOpen?: boolean;
-  desktopSidebarWidthPx?: number;
-  mobilePane?: WorkspaceMobilePane;
-  rightMobileWidthPx?: number;
+  left?: WorkspaceLayoutV2PaneFrameProps;
+  main: {
+    content: ReactNode;
+    headerAccessory?: ReactNode;
+  };
+  mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
+  panel?: WorkspaceLayoutV2BottomPanelProps;
+  right?: WorkspaceLayoutV2PaneFrameProps;
   shortcutPaneSide?: WorkspacePaneSide;
+  showMobileResizeGripDots?: boolean;
 };
 
 /**
- * Keep visual fixtures on one shared v2 shell so route-specific tests stop
- * re-implementing wrapper chrome, sidebar sizing, and page containment.
+ * Visual fixture modes use the same app workspace shell as production routes.
  */
 export function WorkspaceLayoutV2FixtureFrame({
+  children,
   dataTestId,
-  defaultOpen = true,
-  defaultRightOpen = true,
-  desktopSidebarWidthPx = WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX,
-  mobilePane,
-  rightMobileWidthPx,
-  shortcutPaneSide,
   left,
   main,
   mobileMinResizeBehavior,
   panel,
   right,
+  shortcutPaneSide,
   showMobileResizeGripDots,
 }: WorkspaceLayoutV2FixtureFrameProps) {
-  const initialSidebarState = {
-    leftDesktopOpen: defaultOpen,
-    leftDesktopWidthPx: desktopSidebarWidthPx,
-    leftMobileWidthPx: WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX,
-    mobilePane: mobilePane ?? "main",
-    mobileSurface: { kind: "unmerged" },
-    rightDesktopOpen: defaultRightOpen,
-    rightDesktopWidthPx: desktopSidebarWidthPx,
-    rightMobileWidthPx: rightMobileWidthPx ?? WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX,
-  } satisfies WorkspaceSidebarState;
-
   return (
-    <Layout>
-      <WorkspaceLayoutV2MemorySidebarProvider
-        initialState={initialSidebarState}
-        shortcutPaneSide={shortcutPaneSide}
-      >
-        <WorkspaceLayoutV2FullPage
-          dataTestId={dataTestId}
-          left={left}
-          main={main}
-          mobileMinResizeBehavior={mobileMinResizeBehavior}
-          panel={panel}
-          right={right}
-          showMobileResizeGripDots={showMobileResizeGripDots}
-        />
-      </WorkspaceLayoutV2MemorySidebarProvider>
-    </Layout>
+    <AppWorkspaceRouteChrome
+      dataTestId={dataTestId}
+      headerAccessory={main.headerAccessory}
+      left={left ?? null}
+      mobileMinResizeBehavior={mobileMinResizeBehavior}
+      panel={panel}
+      right={right ?? null}
+      shortcutPaneSide={shortcutPaneSide}
+      showMobileResizeGripDots={showMobileResizeGripDots}
+    >
+      {main.content}
+      {children}
+    </AppWorkspaceRouteChrome>
   );
 }

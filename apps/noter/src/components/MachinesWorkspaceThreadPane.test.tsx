@@ -18,10 +18,7 @@ vi.mock("@/components/ProsemarkReadOnly", () => ({
   ),
 }));
 
-import {
-  MachinesWorkspaceThreadHeader,
-  MachinesWorkspaceThreadPane,
-} from "./MachinesWorkspaceThreadPane";
+import { MachinesWorkspaceThreadPane } from "./MachinesWorkspaceThreadPane";
 
 const THREAD_FIXTURE: CodexAppServerThread = {
   agentNickname: null,
@@ -154,30 +151,5 @@ describe("MachinesWorkspaceThreadPane", () => {
       "Waiting for the new conversation to hydrate. Its first message will appear here once the machine inventory refreshes.",
     );
     expect(markup).toContain('data-placeholder="Waiting for the new conversation to hydrate..."');
-  });
-
-  it("renders the moved header metadata in the shared route header component", () => {
-    const markup = renderToStaticMarkup(
-      <MachinesWorkspaceThreadHeader
-        thread={null}
-        selectedThreadId={null}
-        pendingConversation={{
-          envMode: "worktree",
-          projectLabel: "noter",
-        }}
-        selectedMachineDisplayName="Research MacBook Pro"
-        selectedMachineHostname="research-mbp.local"
-        selectedMachineStatusReason={null}
-        hasPendingStartedThread={false}
-        isLoading={false}
-      />,
-    );
-
-    expect(markup).toContain("Research MacBook Pro");
-    expect(markup).toContain("noter · New worktree");
-    expect(markup).toContain("New conversation");
-    expect(markup).toContain("machines-workspace-thread-header-title-toggle");
-    expect(markup).toContain("line-clamp-2");
-    expect(markup).toContain("sm:line-clamp-1");
   });
 });
