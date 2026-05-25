@@ -11,6 +11,7 @@ const deleteOnlyByVaultCleanupTables = union(
   literal("folderExpansionState"),
   literal("vaultRemoteBranches"),
   literal("vaultDomains"),
+  literal("vaultApps"),
   literal("vaultConvexDeployments"),
   literal("vaultInfrastructureTargets"),
   literal("vaultInfrastructureOwnership"),
@@ -246,6 +247,10 @@ const vaultLocalCleanupRegistry = [
     cleanup: deleteByVaultBatch("vaultDomains"),
   },
   {
+    table: "vaultApps",
+    cleanup: deleteByVaultBatch("vaultApps"),
+  },
+  {
     table: "vaultConvexDeployments",
     cleanup: deleteByVaultBatch("vaultConvexDeployments"),
   },
@@ -296,6 +301,7 @@ const vaultLocalCleanupRegistryByStep = {
   ],
   cleanup_runtime_state: [
     "vaultDomains",
+    "vaultApps",
     "vaultConvexDeployments",
     "vaultInfrastructureTargets",
     "vaultInfrastructureOwnership",

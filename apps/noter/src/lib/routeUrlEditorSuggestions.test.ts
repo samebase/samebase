@@ -291,6 +291,7 @@ describe("readRouteUrlEditorSuggestions", () => {
     });
 
     expect(suggestions.map((suggestion) => suggestion.value)).toEqual([
+      "?add-app-root",
       "?add-cloudflare",
       "?add-convex",
     ]);

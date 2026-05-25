@@ -53,6 +53,24 @@ async function readCloudflareWorkerForAppRoot(
     .first();
 }
 
+async function assertVaultAppRootExists(
+  ctx: CloudflareWorkerConnectionReadCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    appRoot: string;
+  },
+): Promise<void> {
+  const app = await ctx.db
+    .query("vaultApps")
+    .withIndex("by_vault_and_appRoot", (q) =>
+      q.eq("vaultId", args.vaultId).eq("appRoot", args.appRoot),
+    )
+    .first();
+  if (!app) {
+    throw new Error("Vault app root not found.");
+  }
+}
+
 async function readCloudflareWorkerByProviderIdentity(
   ctx: CloudflareWorkerConnectionReadCtx,
   args: {
@@ -173,6 +191,10 @@ export const requireAttachableVault = internalQuery({
       throw new Error("Vault not found.");
     }
     const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    await assertVaultAppRootExists(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
     await assertNoExistingCloudflareWorkerTarget(ctx, {
       vaultId: args.vaultId,
       appRoot,
@@ -268,6 +290,10 @@ export const claimCloudflareWorkerConnection = internalMutation({
       throw new Error("Vault not found.");
     }
     const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    await assertVaultAppRootExists(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
     try {
       await assertNoExistingCloudflareWorkerTarget(ctx, {
         vaultId: args.vaultId,
@@ -357,6 +383,10 @@ export const readActiveCloudflareWorkerConnection = internalQuery({
       throw new Error("Vault not found.");
     }
     const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    await assertVaultAppRootExists(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
     const [ownership, worker] = await Promise.all([
       getVaultInfrastructureOwnership(ctx, args.vaultId),
       readCloudflareWorkerForAppRoot(ctx, {
@@ -390,6 +420,10 @@ export const attachWorkerForRun = internalMutation({
       throw new Error("Vault not found.");
     }
     const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    await assertVaultAppRootExists(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
     try {
       await assertNoExistingCloudflareWorkerTarget(ctx, {
         vaultId: args.vaultId,

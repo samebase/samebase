@@ -637,11 +637,10 @@ function VaultDashboardConnectConvexOpenFixture() {
           open={true}
           selectedProjectId="jaded-heron-123"
           vault={{
-            fixedAppRoot: null,
+            fixedAppRoot: ".",
             id: fakeVaultId(),
             repositoryFullName: "noter-md/noter-app",
             repositoryName: "noter-app",
-            convexDeploymentCount: 0,
           }}
         />
       </TestRouterProvider>

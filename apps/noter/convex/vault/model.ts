@@ -101,6 +101,14 @@ export type ConvexDeployKeys = Infer<typeof vConvexDeployKeys>;
 export const vVaultConvexAppRoot = string();
 export type VaultConvexAppRoot = Infer<typeof vVaultConvexAppRoot>;
 
+export const vVaultApp = object({
+  vaultId: id("vaults"),
+  userId: id("users"),
+  appRoot: string(),
+  createdAt: number(),
+});
+export type VaultApp = Infer<typeof vVaultApp>;
+
 export const vVaultConvexDeployment = object({
   vaultId: id("vaults"),
   userId: id("users"),

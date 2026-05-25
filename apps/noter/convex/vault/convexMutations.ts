@@ -64,6 +64,24 @@ async function readConvexDeploymentForAppRoot(
     .first();
 }
 
+async function assertVaultAppRootExists(
+  ctx: ConvexDeploymentConnectionReadCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    appRoot: string;
+  },
+): Promise<void> {
+  const app = await ctx.db
+    .query("vaultApps")
+    .withIndex("by_vault_and_appRoot", (q) =>
+      q.eq("vaultId", args.vaultId).eq("appRoot", args.appRoot),
+    )
+    .first();
+  if (!app) {
+    throw new Error("Vault app root not found.");
+  }
+}
+
 async function readConvexDeploymentByProviderIdentity(
   ctx: ConvexDeploymentConnectionReadCtx,
   args: {
@@ -192,6 +210,10 @@ export const requireConvexDeploymentConnectionVault = internalQuery({
       throw new Error("Vault not found.");
     }
     const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    await assertVaultAppRootExists(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
     await assertNoExistingConvexDeploymentTarget(ctx, {
       vaultId: args.vaultId,
       appRoot,
@@ -216,6 +238,10 @@ export const claimConvexDeploymentConnection = internalMutation({
       throw new Error("Vault not found.");
     }
     const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    await assertVaultAppRootExists(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
     try {
       await assertNoExistingConvexDeploymentTarget(ctx, {
         vaultId: args.vaultId,
@@ -304,6 +330,10 @@ export const readActiveConvexDeploymentConnection = internalQuery({
       throw new Error("Vault not found.");
     }
     const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    await assertVaultAppRootExists(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
     const [ownership, deployment] = await Promise.all([
       getVaultInfrastructureOwnership(ctx, args.vaultId),
       readConvexDeploymentForAppRoot(ctx, {
@@ -335,6 +365,10 @@ export const attachDeploymentForRun = internalMutation({
       throw new Error("Vault not found.");
     }
     const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    await assertVaultAppRootExists(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
     try {
       await assertNoExistingConvexDeploymentTarget(ctx, {
         vaultId: args.vaultId,

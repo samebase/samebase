@@ -95,6 +95,7 @@ function makeResourceRailBuilderVault(
     hasCloudflareProvision: false,
     canRemoveConvexProvision: false,
     canRemoveCloudflareProvision: false,
+    appRoots: [],
     cloudflareWorkers: [],
     convexDeployments: [],
     remoteBranches: [],
@@ -447,7 +448,6 @@ describe("VaultDashboardConvexDialog", () => {
           id: fakeVaultId(),
           repositoryFullName: "ada/demo",
           repositoryName: "demo",
-          convexDeploymentCount: 0,
         }}
       />,
     );
@@ -460,10 +460,40 @@ describe("VaultDashboardConvexDialog", () => {
 });
 
 describe("buildVaultDashboardResourceRailState", () => {
+  it("puts the app-root add action on the GitHub row", () => {
+    const addAppRoot = vi.fn();
+    const state = buildVaultDashboardResourceRailState({
+      buildAddAppRootHref: () => "/home?add-app-root#demo",
+      addAppRootOnClick: addAppRoot,
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      vault: makeResourceRailBuilderVault({}),
+    });
+
+    expect(state.githubRow).toMatchObject({
+      provider: "github",
+      status: "ready",
+      actions: [
+        {
+          kind: "add",
+          label: "?add-app-root",
+          ariaLabel: "Add app root",
+          href: "/home?add-app-root#demo",
+        },
+      ],
+    });
+    if (state.githubRow.status !== "ready" || !state.githubRow.actions) {
+      throw new Error("Expected GitHub app-root add action.");
+    }
+    state.githubRow.actions[0].onClick?.();
+    expect(addAppRoot).toHaveBeenCalledOnce();
+    expect(state.apps).toEqual([]);
+  });
+
   it("keeps future provider actions hidden while provisioning is running", () => {
     const state = buildVaultDashboardResourceRailState({
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "." }],
         providerSetup: {
           status: "running",
           provider: "convex",
@@ -495,6 +525,7 @@ describe("buildVaultDashboardResourceRailState", () => {
     const state = buildVaultDashboardResourceRailState({
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "." }],
         isNoterManaged: false,
         providerSetup: {
           status: "running",
@@ -527,6 +558,7 @@ describe("buildVaultDashboardResourceRailState", () => {
       buildAddCloudflareWorkerHref: () => "/home?add-cloudflare#demo",
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "." }],
         providerSetup: {
           status: "failed",
           provider: "cloudflare",
@@ -565,6 +597,7 @@ describe("buildVaultDashboardResourceRailState", () => {
       buildAddConvexHref: () => "/home?add-convex#demo",
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "." }],
         providerSetup: {
           status: "failed",
           provider: "convex",
@@ -607,7 +640,9 @@ describe("buildVaultDashboardResourceRailState", () => {
       buildAddConvexHref: () => "/home?add-convex#demo",
       addConvexOnClick: addConvex,
       githubRepositoryUrl: "https://github.com/ada/demo",
-      vault: makeResourceRailBuilderVault({}),
+      vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "." }],
+      }),
     });
 
     expect(getResourceRailAppRow(state, ".", "convex")).toMatchObject({
@@ -649,6 +684,7 @@ describe("buildVaultDashboardResourceRailState", () => {
     const state = buildVaultDashboardResourceRailState({
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "." }],
         convexDeployments: [
           {
             appRoot: ".",
@@ -686,6 +722,7 @@ describe("buildVaultDashboardResourceRailState", () => {
     const state = buildVaultDashboardResourceRailState({
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "." }],
         convexDeployments: [
           {
             appRoot: ".",
@@ -729,7 +766,7 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(markup).toContain("Open Cloudflare: ada/demo-worker");
   });
 
-  it("keeps Cloudflare add available for a root-only worker target", () => {
+  it("keeps root provider rows from offering duplicate provider adds", () => {
     const addCloudflareWorker = vi.fn();
     const buildAddCloudflareWorkerHref = vi.fn((appRoot: string) =>
       appRoot === "."
@@ -741,6 +778,7 @@ describe("buildVaultDashboardResourceRailState", () => {
       addCloudflareWorkerOnClick: addCloudflareWorker,
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "." }],
         cloudflareWorkers: [
           {
             appRoot: ".",
@@ -755,23 +793,17 @@ describe("buildVaultDashboardResourceRailState", () => {
       provider: "cloudflare",
       status: "ready",
       value: "demo-worker",
-      actions: [
-        {
-          kind: "add",
-          href: "/home?add-cloudflare#demo",
-        },
-      ],
     });
     const cloudflareRow = getResourceRailAppRow(state, ".", "cloudflare");
-    if (cloudflareRow.status !== "ready" || !cloudflareRow.actions) {
-      throw new Error("Expected Cloudflare ready row with add action.");
+    if (cloudflareRow.status !== "ready") {
+      throw new Error("Expected Cloudflare ready row.");
     }
-    cloudflareRow.actions[0].onClick?.();
-    expect(addCloudflareWorker).toHaveBeenCalledWith(".");
-    expect(buildAddCloudflareWorkerHref).toHaveBeenCalledWith(".");
+    expect(cloudflareRow.actions).toBeUndefined();
+    expect(addCloudflareWorker).not.toHaveBeenCalled();
+    expect(buildAddCloudflareWorkerHref).not.toHaveBeenCalledWith(".");
   });
 
-  it("keeps real root resources but omits root add actions for monorepo app roots", () => {
+  it("keeps real root resources with explicit root and subfolder app roots", () => {
     const addCloudflareWorker = vi.fn();
     const buildAddCloudflareWorkerHref = vi.fn((appRoot: string) =>
       appRoot === "."
@@ -783,6 +815,7 @@ describe("buildVaultDashboardResourceRailState", () => {
       addCloudflareWorkerOnClick: addCloudflareWorker,
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "." }, { appRoot: "apps/admin" }],
         cloudflareWorkers: [
           {
             appRoot: ".",
@@ -813,6 +846,10 @@ describe("buildVaultDashboardResourceRailState", () => {
       status: "ready",
       value: "admin-worker",
     });
+    expect(getResourceRailAppRow(state, ".", "convex")).toMatchObject({
+      provider: "convex",
+      status: "action_required",
+    });
     expect(addCloudflareWorker).not.toHaveBeenCalled();
     expect(buildAddCloudflareWorkerHref).not.toHaveBeenCalledWith(".");
   });
@@ -824,6 +861,7 @@ describe("buildVaultDashboardResourceRailState", () => {
       addConvexOnClick: addConvex,
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "." }],
         convexDeployments: [
           {
             appRoot: ".",
@@ -843,21 +881,13 @@ describe("buildVaultDashboardResourceRailState", () => {
       status: "ready",
       value: "demo-project",
       scope: "demo-team",
-      actions: [
-        {
-          kind: "add",
-          label: "?add-convex",
-          disabled: false,
-          href: "/home?add-convex#demo",
-        },
-      ],
     });
     const convexRow = getResourceRailAppRow(state, ".", "convex");
-    if (convexRow.status !== "ready" || !convexRow.actions) {
-      throw new Error("Expected Convex ready row with add action.");
+    if (convexRow.status !== "ready") {
+      throw new Error("Expected Convex ready row.");
     }
-    convexRow.actions[0].onClick?.();
-    expect(addConvex).toHaveBeenCalledWith(".");
+    expect(convexRow.actions).toBeUndefined();
+    expect(addConvex).not.toHaveBeenCalled();
 
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
     expect(markup).toContain("demo-project");
@@ -874,6 +904,7 @@ describe("buildVaultDashboardResourceRailState", () => {
       addConvexOnClick: addConvex,
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "apps/noter" }],
         cloudflareWorkers: [
           {
             appRoot: "apps/noter",

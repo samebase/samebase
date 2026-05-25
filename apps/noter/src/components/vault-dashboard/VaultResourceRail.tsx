@@ -19,6 +19,7 @@ import { type ComponentType, type MouseEvent } from "react";
 type VaultResourceRailActionKind = "add" | "retry";
 
 export type VaultResourceRailAction = {
+  ariaLabel?: string;
   disabled?: boolean;
   href?: string;
   kind: VaultResourceRailActionKind;
@@ -212,9 +213,10 @@ function VaultResourceRailActions({
         const Icon = ACTION_ICONS[action.kind];
         const isDisabled = action.disabled || (!action.href && !action.onClick);
         const actionLabel =
-          action.kind === "add"
+          action.ariaLabel ??
+          (action.kind === "add"
             ? `Add ${PROVIDER_LABELS[provider]}`
-            : `${action.label} ${PROVIDER_LABELS[provider]}`;
+            : `${action.label} ${PROVIDER_LABELS[provider]}`);
         if (action.href) {
           return (
             <a

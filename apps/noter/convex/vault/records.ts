@@ -349,6 +349,12 @@ export const createInitializingNoterManagedVaultForUser = internalMutation({
       createdAt: now,
       updatedAt: now,
     });
+    await ctx.db.insert("vaultApps", {
+      vaultId,
+      userId: args.userId,
+      appRoot: ROOT_CLOUDFLARE_APP_ROOT,
+      createdAt: now,
+    });
 
     return { vaultId, runId };
   },

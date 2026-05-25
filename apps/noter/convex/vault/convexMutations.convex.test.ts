@@ -42,6 +42,12 @@ async function createConvexConnectionVault() {
       defaultBranch: "main",
       connectedAt: 12,
     });
+    await ctx.db.insert("vaultApps", {
+      vaultId,
+      userId,
+      appRoot,
+      createdAt: 25,
+    });
     const runId = await ctx.db.insert("appProvisioningRuns", {
       userId,
       vaultId,

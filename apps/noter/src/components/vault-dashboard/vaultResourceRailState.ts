@@ -111,6 +111,8 @@ export function buildVaultDashboardResourceRailState({
   addCloudflareWorkerOnClick,
   buildAddConvexHref,
   addConvexOnClick,
+  buildAddAppRootHref,
+  addAppRootOnClick,
   githubRepositoryUrl,
   vault,
 }: {
@@ -118,6 +120,8 @@ export function buildVaultDashboardResourceRailState({
   addCloudflareWorkerOnClick?: (appRoot: string) => void;
   buildAddConvexHref?: (appRoot: string) => string;
   addConvexOnClick?: (appRoot: string) => void;
+  buildAddAppRootHref?: () => string;
+  addAppRootOnClick?: () => void;
   githubRepositoryUrl: string;
   vault: VaultDashboardVault;
 }): VaultResourceRailState {
@@ -126,11 +130,8 @@ export function buildVaultDashboardResourceRailState({
   const providerSetup = resolveVaultProviderSetupStatus(vault.providerSetup);
   const providerSetupProvider = resolveVaultProviderSetupStepProvider(vault.providerSetup);
   const sourceSetupProvider = resolveSourceSetupResourceProvider(vault.sourceSetup);
-  const hasNonRootAppRoot =
-    vault.convexDeployments.some((deployment) => deployment.appRoot !== ".") ||
-    vault.cloudflareWorkers.some((worker) => worker.appRoot !== ".");
-  // When a non-root app exists, "." is no longer a generic add-provider target.
-  const canConfigureRootAppRoot = !hasNonRootAppRoot;
+  const appRootSet = new Set(vault.appRoots.map((app) => app.appRoot));
+  const canConfigureRootAppRoot = appRootSet.has(".");
   let githubRow: VaultResourceRailRowState<"github">;
   if (vault.sourceSetup.status === "failed" && sourceSetupProvider === "github") {
     githubRow = {
@@ -151,6 +152,18 @@ export function buildVaultDashboardResourceRailState({
       status: "ready",
       value: vault.repositoryFullName,
       href: githubRepositoryUrl,
+      actions:
+        canConfigureMissingResources && (buildAddAppRootHref || addAppRootOnClick)
+          ? [
+              {
+                kind: "add",
+                label: "?add-app-root",
+                ariaLabel: "Add app root",
+                href: buildAddAppRootHref?.(),
+                onClick: addAppRootOnClick,
+              },
+            ]
+          : undefined,
     };
   } else {
     githubRow = {
@@ -239,10 +252,6 @@ export function buildVaultDashboardResourceRailState({
         value: deployment.projectSlug,
         scope: normalizeResourceScope(deployment.teamSlug),
         href: deployment.projectSettingsDashboardUrl,
-        actions:
-          deployment.appRoot === "." && canConfigureRootAppRoot && canConfigureMissingResources
-            ? [buildAddConvexAction(deployment.appRoot)]
-            : undefined,
       });
     }
   }
@@ -300,10 +309,6 @@ export function buildVaultDashboardResourceRailState({
           workerName: worker.workerName,
         }),
         href: worker.projectDashboardUrl,
-        actions:
-          worker.appRoot === "." && canConfigureRootAppRoot && canConfigureMissingResources
-            ? [buildAddCloudflareWorkerAction(worker.appRoot)]
-            : undefined,
       });
     }
     if (!cloudflareRowsByAppRoot.has(".") && canConfigureRootAppRoot) {
@@ -320,26 +325,10 @@ export function buildVaultDashboardResourceRailState({
           actions: [buildAddCloudflareWorkerAction(".")],
         });
       }
-    } else if (canConfigureRootAppRoot && canConfigureMissingResources) {
-      const rootCloudflareRow = cloudflareRowsByAppRoot.get(".");
-      if (rootCloudflareRow?.status === "ready") {
-        cloudflareRowsByAppRoot.set(".", {
-          ...rootCloudflareRow,
-          actions: [buildAddCloudflareWorkerAction(".")],
-        });
-      }
     }
   }
 
-  const shouldRenderRootAppRoot =
-    canConfigureRootAppRoot || convexRowsByAppRoot.has(".") || cloudflareRowsByAppRoot.has(".");
-  const appRoots = Array.from(
-    new Set([
-      ...(shouldRenderRootAppRoot ? ["."] : []),
-      ...vault.convexDeployments.map((deployment) => deployment.appRoot),
-      ...vault.cloudflareWorkers.map((worker) => worker.appRoot),
-    ]),
-  ).sort(compareAppRoots);
+  const appRoots = vault.appRoots.map((app) => app.appRoot).sort(compareAppRoots);
   const apps = appRoots.flatMap((appRoot) => {
     const rows: VaultResourceRailRowState<"cloudflare" | "convex">[] = [];
     const convexRow = convexRowsByAppRoot.get(appRoot);
@@ -362,6 +351,18 @@ export function buildVaultDashboardResourceRailState({
     const cloudflareRow = cloudflareRowsByAppRoot.get(appRoot);
     if (cloudflareRow) {
       rows.push(cloudflareRow);
+    } else if (canConfigureMissingResources && (appRoot !== "." || canConfigureRootAppRoot)) {
+      rows.push({
+        provider: "cloudflare",
+        status: "action_required",
+        actions: [buildAddCloudflareWorkerAction(appRoot)],
+      });
+    } else if (appRoot !== "." || canConfigureRootAppRoot) {
+      rows.push({
+        provider: "cloudflare",
+        status: "pending",
+        value: appRoot === "." ? vault.ghRepoName : appRoot,
+      });
     }
 
     return rows.length > 0 ? [{ appRoot, rows }] : [];

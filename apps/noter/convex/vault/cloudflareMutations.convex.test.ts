@@ -43,6 +43,12 @@ async function createAttachableVaultWithOwnership(args: { ownershipState: "activ
       defaultBranch: "main",
       connectedAt: 12,
     });
+    await ctx.db.insert("vaultApps", {
+      vaultId,
+      userId,
+      appRoot,
+      createdAt: 25,
+    });
     await ctx.db.insert("vaultInfrastructureOwnership", {
       vaultId,
       runId,
@@ -93,6 +99,12 @@ async function createCloudflareConnectionVault() {
       visibility: "private",
       defaultBranch: "main",
       connectedAt: 12,
+    });
+    await ctx.db.insert("vaultApps", {
+      vaultId,
+      userId,
+      appRoot,
+      createdAt: 25,
     });
     const runId = await ctx.db.insert("appProvisioningRuns", {
       userId,

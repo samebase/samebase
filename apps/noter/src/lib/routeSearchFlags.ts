@@ -1,6 +1,7 @@
 import { keys } from "@noter-md/dependent/object";
 
 export const ROUTE_SEARCH_PRESENCE_FLAG_KEYS = [
+  "add-app-root",
   "add-cloudflare",
   "add-convex",
   "compare",

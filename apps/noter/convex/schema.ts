@@ -6,6 +6,7 @@ import {
   vGithubTreeData,
   vGitHubRepositoryVisibility,
   vTreeRefreshFailureKind,
+  vVaultApp,
   vVaultCloudflareBuildConfig,
   vVaultCloudflareWorker,
   vVaultConvexDeployment,
@@ -365,6 +366,15 @@ export default defineSchema({
     .index("by_userId_and_state_and_deletion_state", ["userId", "state", "deletion.state"])
     .index("by_userId_and_ghRepoId", ["userId", "ghRepoId"])
     .index("by_owner_and_name", ["owner", "name"]),
+
+  /**
+   * Deployable app roots inside a repo-backed vault. Provider resources attach
+   * to these rows; "." is an explicit root app, not a fallback target.
+   */
+  vaultApps: defineTable(vVaultApp)
+    .index("by_vault", ["vaultId"])
+    .index("by_user", ["userId"])
+    .index("by_vault_and_appRoot", ["vaultId", "appRoot"]),
 
   /**
    * Cloudflare Worker targets connected to one repo-backed vault. App root is
