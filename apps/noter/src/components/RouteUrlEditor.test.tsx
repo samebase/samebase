@@ -201,4 +201,26 @@ describe("RouteUrlEditor", () => {
     expect(readRouteHref()).toBe("/home");
     expect(document.activeElement).toBe(input);
   });
+
+  it("hover-previews visible routes without blurring the stable input", async () => {
+    useQueryMock.mockReturnValue(true);
+    const input = startEditing();
+    const origin = window.location.origin;
+    const homeOption = rootElement?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Use /home"]',
+    );
+    if (!homeOption) {
+      throw new Error("Expected /home route URL editor suggestion.");
+    }
+
+    await act(async () => {
+      homeOption.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(homeOption.getAttribute("aria-selected")).toBe("true");
+    expect(input.value).toBe(`${origin}/home`);
+    expect(readRouteHref()).toBe("/home");
+    expect(document.activeElement).toBe(input);
+  });
 });

@@ -488,6 +488,84 @@ test("route URL editor selects suggestions with arrow keys", async ({ page }) =>
   await expect(display).toHaveValue(`${origin}/logo`);
 });
 
+test("route URL editor previews path suggestions on hover", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const editor = page.getByTestId("route-url-editor");
+  const suggestions = page.getByTestId("route-url-editor-suggestions");
+  const backButton = editor.getByRole("button", { name: "Back" });
+  const input = await editRouteUrl(page);
+  const inputElement = await input.elementHandle();
+  if (inputElement === null) {
+    throw new Error("Expected route URL editor input element.");
+  }
+  const logoOption = page.getByRole("option", {
+    exact: true,
+    name: "Use /logo",
+  });
+
+  await input.press("End");
+  await input.type("log");
+
+  await expect(logoOption).toBeVisible();
+  await expect(page).toHaveURL(`${origin}/`);
+
+  await logoOption.hover();
+
+  await expect(logoOption).toHaveAttribute("aria-selected", "true");
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue(`${origin}/logo`);
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(suggestions).toBeVisible();
+  await expect(backButton).toBeDisabled();
+  expect(
+    await inputElement.evaluate(
+      (element) => document.activeElement === element && element.isConnected,
+    ),
+  ).toBe(true);
+});
+
+test("route URL editor previews search suggestions on hover", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/logo", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const input = await editRouteUrl(page);
+  const inputElement = await input.elementHandle();
+  if (inputElement === null) {
+    throw new Error("Expected route URL editor input element.");
+  }
+  const suggestions = page.getByTestId("route-url-editor-suggestions");
+  const devtoolsOption = page.getByRole("option", {
+    exact: true,
+    name: "Use ?devtools",
+  });
+
+  await input.fill(`${origin}/logo?d`);
+
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
+  await expect(devtoolsOption).toBeVisible();
+
+  await devtoolsOption.hover();
+
+  await expect(devtoolsOption).toHaveAttribute("aria-selected", "true");
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue(`${origin}/logo?devtools`);
+  await expect(page).toHaveURL(`${origin}/logo?devtools`);
+  await expect(suggestions).toBeVisible();
+  expect(
+    await inputElement.evaluate(
+      (element) => document.activeElement === element && element.isConnected,
+    ),
+  ).toBe(true);
+});
+
 test("route URL editor arrow-previews visible routes in the app workspace shell", async ({
   page,
 }) => {

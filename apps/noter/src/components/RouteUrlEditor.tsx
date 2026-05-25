@@ -650,19 +650,8 @@ export function RouteUrlEditor() {
     [draftRouteAddress, refreshDocumentHashSuggestionKeys, syncSuggestionSelection],
   );
 
-  const moveActiveSuggestion = useCallback(
-    (step: number) => {
-      if (!suggestionsVisible || suggestions.length === 0) {
-        setActiveSuggestionIndex(null);
-        return;
-      }
-
-      const nextActiveSuggestionIndex =
-        activeSuggestionIndex === null
-          ? step > 0
-            ? 0
-            : suggestions.length - 1
-          : (activeSuggestionIndex + step + suggestions.length) % suggestions.length;
+  const previewSuggestionByIndex = useCallback(
+    (nextActiveSuggestionIndex: number) => {
       const nextSuggestion = suggestions[nextActiveSuggestionIndex];
 
       const nextDraftRouteAddress = applyRouteUrlEditorSuggestion({
@@ -677,14 +666,25 @@ export function RouteUrlEditor() {
 
       previewDraftRouteAddress(nextDraftRouteAddress);
     },
-    [
-      activeSuggestionIndex,
-      draftRouteAddress,
-      previewDraftRouteAddress,
-      selectionRouteIndex,
-      suggestions,
-      suggestionsVisible,
-    ],
+    [draftRouteAddress, previewDraftRouteAddress, selectionRouteIndex, suggestions],
+  );
+
+  const moveActiveSuggestion = useCallback(
+    (step: number) => {
+      if (!suggestionsVisible || suggestions.length === 0) {
+        setActiveSuggestionIndex(null);
+        return;
+      }
+
+      const nextActiveSuggestionIndex =
+        activeSuggestionIndex === null
+          ? step > 0
+            ? 0
+            : suggestions.length - 1
+          : (activeSuggestionIndex + step + suggestions.length) % suggestions.length;
+      previewSuggestionByIndex(nextActiveSuggestionIndex);
+    },
+    [activeSuggestionIndex, previewSuggestionByIndex, suggestions, suggestionsVisible],
   );
 
   const selectSuggestion = useCallback(
@@ -876,6 +876,7 @@ export function RouteUrlEditor() {
                 })}
                 key={`${suggestion.kind}:${suggestion.value}`}
                 onClick={() => selectSuggestion(suggestion)}
+                onMouseEnter={() => previewSuggestionByIndex(suggestionIndex)}
                 onMouseDown={(event) => event.preventDefault()}
                 role="option"
                 type="button"
