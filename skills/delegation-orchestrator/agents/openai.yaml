@@ -1,0 +1,9 @@
+interface:
+  display_name: "Delegation Orchestrator"
+  short_description: "Split complex work into focused agents"
+  default_prompt:
+    "Use $delegation-orchestrator to split this task into focused sub-agent lanes while keeping the
+    main thread on synthesis."
+
+policy:
+  allow_implicit_invocation: true

@@ -11,6 +11,7 @@ Use a skill when all of these are true:
 
 Good skill candidates in this repo:
 
+- context-preserving sub-agent orchestration for substantial work
 - live browser and Playwright debugging on the real app
 - PR creation and update workflows
 - macOS app control tasks
