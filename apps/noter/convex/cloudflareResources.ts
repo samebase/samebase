@@ -27,6 +27,8 @@ type CloudflareBuildConfig = {
   buildCommand: string;
   deployCommand: string;
   previewDeployCommand: string;
+  pathIncludes: string[];
+  pathExcludes: string[];
 };
 
 type CloudflareWorker = Readable<components["schemas"]["workers_Worker"]>;
@@ -805,8 +807,8 @@ async function upsertBuildTrigger(
     root_directory: args.buildConfig.rootDir,
     branch_includes: args.kind === "production" ? [args.defaultBranch] : ["*"],
     branch_excludes: args.kind === "production" ? [] : [args.defaultBranch],
-    path_includes: ["*"],
-    path_excludes: [],
+    path_includes: args.buildConfig.pathIncludes,
+    path_excludes: args.buildConfig.pathExcludes,
   };
 
   const existingTriggerUuid = existingTrigger?.trigger_uuid;
