@@ -288,4 +288,45 @@ describe("RouteUrlEditor", () => {
     expect(rootElement?.querySelector('button[aria-label="Use striped"]')).not.toBeNull();
     expect(document.activeElement).toBe(input);
   });
+
+  it("keeps selected unfinished valued search params local", async () => {
+    const input = startEditing(["/logo"]);
+    const origin = window.location.origin;
+
+    await fillRouteUrlEditorInput(input, `${origin}/logo?ro`);
+    const rotOption = rootElement?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Use ?rot="]',
+    );
+    if (!rotOption) {
+      throw new Error("Expected rot search param suggestion.");
+    }
+
+    await act(async () => {
+      rotOption.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(input.value).toBe(`${origin}/logo?rot=`);
+    expect(readRouteHref()).toBe("/logo");
+    expect(readSuggestions()).toBeNull();
+    expect(document.activeElement).toBe(input);
+  });
+
+  it("keeps typed unfinished valued search params local", async () => {
+    const input = startEditing(["/logo"]);
+    const origin = window.location.origin;
+
+    await fillRouteUrlEditorInput(input, `${origin}/logo?rot=`);
+
+    expect(input.value).toBe(`${origin}/logo?rot=`);
+    expect(readRouteHref()).toBe("/logo");
+
+    await fillRouteUrlEditorInput(input, `${origin}/logo?leftFace=s`);
+
+    expect(input.value).toBe(`${origin}/logo?leftFace=s`);
+    expect(readRouteHref()).toBe("/logo");
+    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search-value");
+  });
 });

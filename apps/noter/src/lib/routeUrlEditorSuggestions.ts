@@ -77,6 +77,7 @@ type RouteUrlEditorParts = {
 type SearchToken = {
   editing: "key" | "value";
   first: boolean;
+  hasValueSeparator: boolean;
   key: string;
   tokenEnd: number;
   tokenStart: number;
@@ -213,6 +214,68 @@ export function applyRouteUrlEditorSuggestion({
       return `${routeAddress.slice(0, parts.hashStart)}#${suggestion.key}`;
     }
   }
+}
+
+export function isRouteUrlEditorRouteUpdateReady(args: {
+  currentHref: string;
+  draftRouteAddress: string;
+  origin: string;
+  routesByPath: AppRouter["routesByPath"];
+  viewer: NoterRoutePermissionViewer;
+}): boolean {
+  return readRouteUrlEditorRouteUpdateDraft(args) === args.draftRouteAddress;
+}
+
+export function readRouteUrlEditorRouteUpdateDraft(args: {
+  currentHref: string;
+  draftRouteAddress: string;
+  origin: string;
+  routesByPath: AppRouter["routesByPath"];
+  viewer: NoterRoutePermissionViewer;
+}): string {
+  const parts = readRouteUrlEditorParts(args.draftRouteAddress);
+  if (parts.searchStart === null) {
+    return args.draftRouteAddress;
+  }
+
+  const searchParamSuggestions = readRouteUrlEditorSearchParamSuggestions(args);
+  const routeUpdateSearchTokens = readRouteUrlEditorSearchTokens(args.draftRouteAddress)
+    .filter((token) => isRouteUrlEditorSearchTokenReady(token, searchParamSuggestions))
+    .map((token) => args.draftRouteAddress.slice(token.tokenStart + 1, token.tokenEnd))
+    .filter((tokenText) => tokenText.length > 0);
+  const search = routeUpdateSearchTokens.length > 0 ? `?${routeUpdateSearchTokens.join("&")}` : "";
+  const hash = parts.hashStart === null ? "" : `#${parts.hash}`;
+
+  return `${parts.path}${search}${hash}`;
+}
+
+function isRouteUrlEditorSearchTokenReady(
+  token: SearchToken,
+  suggestions: readonly NoterRouteSearchParamSuggestion[],
+): boolean {
+  const suggestion = suggestions.find((value) => value.key === token.key);
+  if (!token.hasValueSeparator) {
+    if (suggestion?.valueKind === "presence") {
+      return true;
+    }
+
+    return !(
+      suggestion?.valueKind === "value" ||
+      (token.key.length > 0 && suggestions.some((value) => value.key.startsWith(token.key)))
+    );
+  }
+
+  if (!suggestion || suggestion.valueKind === "presence") {
+    return true;
+  }
+
+  if (token.value.length === 0) {
+    return false;
+  }
+
+  return (
+    suggestion.valueSuggestions.length === 0 || suggestion.valueSuggestions.includes(token.value)
+  );
 }
 
 function readRouteUrlEditorSearchSuggestions(args: {
@@ -531,12 +594,49 @@ function readRouteUrlEditorSearchToken(
   return {
     editing: equalsIndex === -1 || selectionOffset <= equalsIndex ? "key" : "value",
     first: tokenStart === parts.searchStart,
+    hasValueSeparator: equalsIndex !== -1,
     key,
     tokenEnd,
     tokenStart,
     value: equalsIndex === -1 ? "" : tokenText.slice(equalsIndex + 1),
     valueStart,
   };
+}
+
+function readRouteUrlEditorSearchTokens(routeAddress: string): readonly SearchToken[] {
+  const parts = readRouteUrlEditorParts(routeAddress);
+  if (parts.searchStart === null) {
+    return [];
+  }
+
+  const searchEnd = parts.hashStart ?? routeAddress.length;
+  const tokens: SearchToken[] = [];
+  let tokenStart = parts.searchStart;
+
+  while (tokenStart < searchEnd) {
+    const nextAmpersandIndex = routeAddress.indexOf("&", tokenStart + 1);
+    const tokenEnd =
+      nextAmpersandIndex === -1 || nextAmpersandIndex > searchEnd ? searchEnd : nextAmpersandIndex;
+    const tokenText = routeAddress.slice(tokenStart + 1, tokenEnd);
+    const equalsIndex = tokenText.indexOf("=");
+    const key = equalsIndex === -1 ? tokenText : tokenText.slice(0, equalsIndex);
+    const valueStart = equalsIndex === -1 ? tokenEnd : tokenStart + 1 + equalsIndex + 1;
+
+    tokens.push({
+      editing: equalsIndex === -1 ? "key" : "value",
+      first: tokenStart === parts.searchStart,
+      hasValueSeparator: equalsIndex !== -1,
+      key,
+      tokenEnd,
+      tokenStart,
+      value: equalsIndex === -1 ? "" : tokenText.slice(equalsIndex + 1),
+      valueStart,
+    });
+
+    tokenStart = tokenEnd;
+  }
+
+  return tokens;
 }
 
 function formatRouteUrlEditorSearchSuggestionValue(

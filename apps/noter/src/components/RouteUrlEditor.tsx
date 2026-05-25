@@ -19,6 +19,8 @@ import {
 } from "@/lib/routeUrlEditorHashSuggestions";
 import {
   applyRouteUrlEditorSuggestion,
+  isRouteUrlEditorRouteUpdateReady,
+  readRouteUrlEditorRouteUpdateDraft,
   readRouteUrlEditorSuggestionKind,
   readRouteUrlEditorSuggestions,
   type RouteUrlEditorSuggestion,
@@ -188,6 +190,12 @@ type RouteUrlEditorSuggestionFollowup = {
   draftRouteAddress: string;
   kind: "search" | "search-value";
   selectionRouteIndex: number;
+};
+
+type RouteUrlEditorCommitOptions = {
+  commitPreviewToHistory: boolean;
+  replaceRouteOptions: boolean;
+  resetIncompleteDraft: boolean;
 };
 
 function getRouteUrlEditorCommitMode(args: {
@@ -571,10 +579,17 @@ export function RouteUrlEditor() {
 
   const previewDraftRouteAddress = useCallback(
     (nextDraftRouteAddress: string) => {
+      const routeUpdateDraftRouteAddress = readRouteUrlEditorRouteUpdateDraft({
+        currentHref,
+        draftRouteAddress: nextDraftRouteAddress,
+        origin,
+        routesByPath: router.routesByPath,
+        viewer: { isAdmin: viewerIsAdmin === true },
+      });
       const nextHref = normalizeRouteUrlEditorHref({
         currentHref,
         origin,
-        rawHref: nextDraftRouteAddress,
+        rawHref: routeUpdateDraftRouteAddress,
       });
 
       if (nextHref === null || nextHref === currentHref) {
@@ -645,17 +660,14 @@ export function RouteUrlEditor() {
   }, [currentHref]);
 
   const commitInput = useCallback(
-    async (
-      rawAddress: string,
-      options: { commitPreviewToHistory: boolean; replaceRouteOptions: boolean },
-    ) => {
-      const href = normalizeRouteUrlEditorHref({
+    async (rawAddress: string, options: RouteUrlEditorCommitOptions) => {
+      const draftHref = normalizeRouteUrlEditorHref({
         currentHref,
         origin,
         rawHref: rawAddress,
       });
 
-      if (href === null) {
+      if (draftHref === null) {
         suggestionPreviewActiveRef.current = false;
         previewBaseHrefRef.current = null;
         setDraftRouteAddress(currentHref);
@@ -663,11 +675,31 @@ export function RouteUrlEditor() {
         return;
       }
 
+      const routeUpdateDraftRouteAddress = readRouteUrlEditorRouteUpdateDraft({
+        currentHref,
+        draftRouteAddress: draftHref,
+        origin,
+        routesByPath: router.routesByPath,
+        viewer: { isAdmin: viewerIsAdmin === true },
+      });
+      const href = normalizeRouteUrlEditorHref({
+        currentHref,
+        origin,
+        rawHref: routeUpdateDraftRouteAddress,
+      });
+      if (href === null) {
+        return;
+      }
+
       const previewBaseHref = previewBaseHrefRef.current;
       previewBaseHrefRef.current = null;
       suggestionPreviewActiveRef.current = false;
-      setDraftRouteAddress(href);
-      setSuggestionBaseRouteAddress(href);
+      const nextDraftRouteAddress =
+        routeUpdateDraftRouteAddress === draftHref || options.resetIncompleteDraft
+          ? href
+          : draftHref;
+      setDraftRouteAddress(nextDraftRouteAddress);
+      setSuggestionBaseRouteAddress(nextDraftRouteAddress);
 
       if (options.commitPreviewToHistory && previewBaseHref !== null) {
         if (href === previewBaseHref) {
@@ -712,7 +744,7 @@ export function RouteUrlEditor() {
         replaceRouteOptions: options.replaceRouteOptions,
       });
     },
-    [currentHref, navigateRouteUrlEditorHref, origin],
+    [currentHref, navigateRouteUrlEditorHref, origin, router.routesByPath, viewerIsAdmin],
   );
 
   const submitInput = useCallback(
@@ -721,6 +753,7 @@ export function RouteUrlEditor() {
       void commitInput(draftRouteAddress, {
         commitPreviewToHistory: true,
         replaceRouteOptions: false,
+        resetIncompleteDraft: false,
       });
     },
     [commitInput, draftRouteAddress],
@@ -742,6 +775,7 @@ export function RouteUrlEditor() {
     void commitInput(draftRouteAddress, {
       commitPreviewToHistory: false,
       replaceRouteOptions: true,
+      resetIncompleteDraft: true,
     });
   }, [commitInput, currentHref, draftRouteAddress]);
 
@@ -841,14 +875,33 @@ export function RouteUrlEditor() {
             });
       const activeFollowup =
         searchFollowup !== null && followupSuggestions.length > 0 ? searchFollowup : null;
+      const routeUpdateReady = isRouteUrlEditorRouteUpdateReady({
+        currentHref,
+        draftRouteAddress: nextDraftRouteAddress,
+        origin,
+        routesByPath: router.routesByPath,
+        viewer: { isAdmin: viewerIsAdmin === true },
+      });
       setDraftRouteAddress(nextDraftRouteAddress);
       setSuggestionsDismissed(activeFollowup === null);
-      setSuggestionDraftEditedSinceFocus(activeFollowup !== null);
+      setSuggestionDraftEditedSinceFocus(activeFollowup !== null || !routeUpdateReady);
       void commitInput(nextDraftRouteAddress, {
         commitPreviewToHistory: true,
         replaceRouteOptions: false,
+        resetIncompleteDraft: false,
       }).then(() => {
         if (activeFollowup === null) {
+          if (suggestion.kind === "search" && suggestion.valueKind === "value") {
+            const input = inputRef.current;
+            if (input) {
+              restoreRouteUrlEditorInputSelection({
+                input,
+                origin,
+                selectionRouteIndex:
+                  readRouteUrlEditorSearchDraftSelectionRouteIndex(nextDraftRouteAddress),
+              });
+            }
+          }
           return;
         }
 

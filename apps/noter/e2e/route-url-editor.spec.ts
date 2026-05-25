@@ -668,6 +668,41 @@ test("route URL editor lists search param value options after equals", async ({ 
   await expect(stripedOption).toBeVisible();
 });
 
+test("route URL editor keeps unfinished valued search params local", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/logo", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const input = await editRouteUrl(page);
+  const rotOption = page.getByRole("option", {
+    exact: true,
+    name: "Use ?rot=",
+  });
+
+  await input.press("End");
+  await input.type("?");
+  await expect(rotOption).toBeVisible();
+  await rotOption.click();
+
+  await expect(input).toHaveValue(`${origin}/logo?rot=`);
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(input).toHaveJSProperty("selectionStart", `${origin}/logo?rot=`.length);
+  await expect(input).toHaveJSProperty("selectionEnd", `${origin}/logo?rot=`.length);
+
+  await input.press("Backspace");
+
+  await expect(input).toHaveValue(`${origin}/logo?rot`);
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(rotOption).toBeVisible();
+
+  await input.type("=10");
+
+  await expect(input).toHaveValue(`${origin}/logo?rot=10`);
+  await expect(page).toHaveURL(`${origin}/logo?rot=10`);
+});
+
 test("route URL editor arrow-previews visible routes in the app workspace shell", async ({
   page,
 }) => {

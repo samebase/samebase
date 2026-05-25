@@ -2,6 +2,8 @@ import { describe, expect, it } from "vite-plus/test";
 import { getRouter } from "@/router";
 import {
   applyRouteUrlEditorSuggestion,
+  isRouteUrlEditorRouteUpdateReady,
+  readRouteUrlEditorRouteUpdateDraft,
   readRouteUrlEditorSuggestionKind,
   readRouteUrlEditorSuggestions,
 } from "./routeUrlEditorSuggestions";
@@ -229,6 +231,50 @@ describe("readRouteUrlEditorSuggestions", () => {
     });
 
     expect(suggestions.map((suggestion) => suggestion.value)).toEqual([]);
+  });
+});
+
+describe("isRouteUrlEditorRouteUpdateReady", () => {
+  function readRouteUpdateDraft(draftRouteAddress: string): string {
+    return readRouteUrlEditorRouteUpdateDraft({
+      currentHref: "/logo",
+      draftRouteAddress,
+      origin: ORIGIN,
+      routesByPath,
+      viewer: publicViewer,
+    });
+  }
+
+  function isReady(draftRouteAddress: string): boolean {
+    return isRouteUrlEditorRouteUpdateReady({
+      currentHref: "/logo",
+      draftRouteAddress,
+      origin: ORIGIN,
+      routesByPath,
+      viewer: publicViewer,
+    });
+  }
+
+  it("keeps unfinished valued search params local", () => {
+    expect(isReady("/logo?ro")).toBe(false);
+    expect(isReady("/logo?rot")).toBe(false);
+    expect(isReady("/logo?rot=")).toBe(false);
+    expect(isReady("/logo?left")).toBe(false);
+    expect(isReady("/logo?leftFace=s")).toBe(false);
+  });
+
+  it("allows presence params and complete valued search params", () => {
+    expect(isReady("/logo?dark")).toBe(true);
+    expect(isReady("/logo?rot=10")).toBe(true);
+    expect(isReady("/logo?leftFace=secondary")).toBe(true);
+  });
+
+  it("removes unfinished known search tokens from route updates", () => {
+    expect(readRouteUpdateDraft("/logo?dark&rot=")).toBe("/logo?dark");
+    expect(readRouteUpdateDraft("/logo?leftFace=s#top")).toBe("/logo#top");
+    expect(readRouteUpdateDraft("/logo?leftFace=secondary&stripeBasis=v")).toBe(
+      "/logo?leftFace=secondary",
+    );
   });
 });
 
