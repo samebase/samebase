@@ -6,6 +6,11 @@ import {
 import { NLogoRasterScene } from "@/components/logo/NLogoRasterScene";
 import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
 import {
+  readLogoRouteRenderState,
+  type LogoRouteRenderMode,
+  type LogoRouteRenderState,
+} from "@/components/logo/logoRouteRenderState";
+import {
   LOGO_ISO_CUBE_PIXEL_SPRITE_PRESETS,
   applyLogoIsoCubePixelSpritePaint,
   parseLogoIsoCubePixelSpritePattern,
@@ -22,7 +27,6 @@ import {
 } from "@/components/logo/NLogoIsoScene";
 import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
-  DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
   LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX,
   LOGO_ISOMETRIC_STYLES,
   MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX,
@@ -60,7 +64,6 @@ import {
   normalizeLogoLeftFaceStripeGap,
   normalizeLogoLeftFaceStripeOffset,
   normalizeLogoLeftFaceStripeWidth,
-  readLogoLeftFaceStyle,
   type LogoLeftFaceStyle,
   type LogoLeftFaceStyleKind,
   type LogoLeftFaceStripeBasis,
@@ -70,7 +73,6 @@ import {
   clampLogoFractalDepthForRenderer,
   getLogoRendererFractalDepthHardMax,
   getLogoRendererFractalDepthSliderMax,
-  type LogoDepthRenderer,
 } from "@/components/logo/logoDepthLimits";
 import {
   DEFAULT_LOGO_THEME_COLORS,
@@ -117,17 +119,15 @@ import {
   MIN_ELEVATION_DEGREES,
   applyVoxelEdit,
   createDefaultVoxelState,
-  normalizeLogoGridSize,
   normalizeElevationDegrees,
   normalizeRotationDegrees,
-  parseVoxelState,
-  serializeVoxelState,
   type LogoGridSize,
   type VoxelEdit,
 } from "@/components/logo/logoVoxelState";
 import { resolveLogoViewState, type LogoViewState } from "@/components/logo/logoViewDrag";
-import { readLogoThemeColors, useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
+import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
 import {
+  LOGO_ROUTE_SEARCH_KEYS,
   buildLogoRouteSearch,
   preserveLogoRouteDevModeSearch,
   type LogoRouteSearch,
@@ -186,7 +186,7 @@ const LEFT_FACE_STRIPE_BASIS_LABELS: Record<LogoLeftFaceStripeBasis, string> = {
   vertical: "Vertical",
   raw: "Perpendicular",
 };
-type LogoPreviewRenderMode = Exclude<LogoDepthRenderer, "svg">;
+type LogoPreviewRenderMode = LogoRouteRenderMode;
 type LogoPreviewPageProps = {
   renderMode?: LogoPreviewRenderMode;
   replaceRouteSearch: (nextSearch: LogoRouteSearch) => void;
@@ -421,125 +421,8 @@ function ThemeColorPicker({
   );
 }
 
-function readLogoGridSize(routeSearch: LogoRouteSearch): LogoGridSize {
-  return normalizeLogoGridSize(routeSearch.gridSize);
-}
-
-function readVoxelState(routeSearch: LogoRouteSearch, gridSize: LogoGridSize): string {
-  const parsedState = parseVoxelState(routeSearch.vox ?? null);
-  if (parsedState === null || parsedState.gridSize !== gridSize) {
-    return createDefaultVoxelState(gridSize);
-  }
-
-  return serializeVoxelState(parsedState.filledVoxels, gridSize);
-}
-
-function readIsoStyleId(routeSearch: LogoRouteSearch): LogoIsometricStyleId {
-  const isoStyle = routeSearch.isoStyle ?? null;
-  if (!isLogoIsometricStyleId(isoStyle)) {
-    return DEFAULT_LOGO_ISOMETRIC_STYLE_ID;
-  }
-
-  return isoStyle;
-}
-
-function readIsoCubeSidePixels(routeSearch: LogoRouteSearch): number {
-  if (typeof routeSearch.isoSide !== "number") {
-    return DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX;
-  }
-
-  return normalizeLogoIsometricCubeSidePixels(routeSearch.isoSide);
-}
-
-function readRotationDegrees(routeSearch: LogoRouteSearch): number {
-  if (typeof routeSearch.rot !== "number") {
-    return DEFAULT_ROTATION_DEGREES;
-  }
-
-  return normalizeRotationDegrees(routeSearch.rot);
-}
-
-function isLogoRotationAxisMode(value: string | null): value is LogoRotationAxisMode {
-  return value === "cube-y" || value === "screen-vertical";
-}
-
-function readRotationAxisMode(routeSearch: LogoRouteSearch): LogoRotationAxisMode {
-  const value = routeSearch.axis ?? null;
-  if (!isLogoRotationAxisMode(value)) {
-    return DEFAULT_ROTATION_AXIS_MODE;
-  }
-
-  return value;
-}
-
-function readViewSnapEnabled(routeSearch: LogoRouteSearch): boolean {
-  return !routeSearch.freeView;
-}
-
-function resolveLogoPreviewViewState(view: LogoViewState, viewSnapEnabled: boolean): LogoViewState {
-  return resolveLogoViewState({
-    config: viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined,
-    view,
-  });
-}
-
-function readLogoPreviewView(routeSearch: LogoRouteSearch): LogoViewState & {
-  viewSnapEnabled: boolean;
-} {
-  const viewSnapEnabled = readViewSnapEnabled(routeSearch);
-  return {
-    ...resolveLogoPreviewViewState(
-      {
-        elevationDegrees: readElevationDegrees(routeSearch),
-        rotationDegrees: readRotationDegrees(routeSearch),
-      },
-      viewSnapEnabled,
-    ),
-    viewSnapEnabled,
-  };
-}
-
-function readElevationDegrees(routeSearch: LogoRouteSearch): number {
-  if (typeof routeSearch.elev !== "number") {
-    return DEFAULT_ELEVATION_DEGREES;
-  }
-
-  return normalizeElevationDegrees(routeSearch.elev);
-}
-
-function readLogoDistanceScale(routeSearch: LogoRouteSearch): number {
-  if (typeof routeSearch.dist !== "number") {
-    return DEFAULT_LOGO_DISTANCE_SCALE;
-  }
-
-  return normalizeLogoDistanceScale(routeSearch.dist);
-}
-
-function readLogoFractalDepth(
-  routeSearch: LogoRouteSearch,
-  renderMode: LogoPreviewRenderMode,
-): number {
-  if (typeof routeSearch.depth !== "number") {
-    return DEFAULT_LOGO_FRACTAL_DEPTH;
-  }
-
-  return clampLogoFractalDepthForRenderer(routeSearch.depth, renderMode);
-}
-
-type LogoPreviewRouteState = {
-  distanceScale: number;
-  elevationDegrees: number;
-  fractalDepth: number;
-  gridSize: LogoGridSize;
-  isViewSnapEnabled: boolean;
-  isoCubeSidePixels: number;
-  isoStyleId: LogoIsometricStyleId;
-  leftFaceStyle: LogoLeftFaceStyle;
-  rotationAxisMode: LogoRotationAxisMode;
-  rotationDegrees: number;
+type LogoPreviewRouteState = LogoRouteRenderState & {
   selectedPresetId: LogoPresetSelection;
-  themeColors: LogoThemeColors;
-  voxelState: string;
 };
 
 type LogoPreviewLocalStoreState = {
@@ -561,24 +444,14 @@ function readLogoPreviewRouteState(
   routeSearch: LogoRouteSearch,
   renderMode: LogoPreviewRenderMode,
 ): LogoPreviewRouteState {
-  const view = readLogoPreviewView(routeSearch);
-  const gridSize = readLogoGridSize(routeSearch);
-  const voxelState = readVoxelState(routeSearch, gridSize);
+  const routeState = readLogoRouteRenderState({
+    renderMode,
+    routeSearch,
+  });
 
   return {
-    distanceScale: readLogoDistanceScale(routeSearch),
-    elevationDegrees: view.elevationDegrees,
-    fractalDepth: readLogoFractalDepth(routeSearch, renderMode),
-    gridSize,
-    isViewSnapEnabled: view.viewSnapEnabled,
-    isoCubeSidePixels: readIsoCubeSidePixels(routeSearch),
-    isoStyleId: readIsoStyleId(routeSearch),
-    leftFaceStyle: readLogoLeftFaceStyle(routeSearch),
-    rotationAxisMode: readRotationAxisMode(routeSearch),
-    rotationDegrees: view.rotationDegrees,
-    selectedPresetId: getLogoPresetSelection(voxelState, gridSize),
-    themeColors: readLogoThemeColors(routeSearch),
-    voxelState,
+    ...routeState,
+    selectedPresetId: getLogoPresetSelection(routeState.voxelState, routeState.gridSize),
   };
 }
 
@@ -606,7 +479,7 @@ function areLogoPreviewRouteStatesEqual(
     left.distanceScale === right.distanceScale &&
     left.fractalDepth === right.fractalDepth &&
     left.gridSize === right.gridSize &&
-    left.isViewSnapEnabled === right.isViewSnapEnabled &&
+    left.viewSnapEnabled === right.viewSnapEnabled &&
     left.isoCubeSidePixels === right.isoCubeSidePixels &&
     left.isoStyleId === right.isoStyleId &&
     areLogoLeftFaceStylesEqual(left.leftFaceStyle, right.leftFaceStyle) &&
@@ -618,8 +491,15 @@ function areLogoPreviewRouteStatesEqual(
   );
 }
 
+function resolveLogoPreviewViewState(view: LogoViewState, viewSnapEnabled: boolean): LogoViewState {
+  return resolveLogoViewState({
+    config: viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined,
+    view,
+  });
+}
+
 function buildLogoPreviewRouteSearch(
-  routeState: LogoPreviewRouteState,
+  routeState: LogoRouteRenderState,
   routeSearch: LogoRouteSearch,
   renderMode: LogoPreviewRenderMode,
 ): LogoRouteSearch {
@@ -628,24 +508,16 @@ function buildLogoPreviewRouteSearch(
       elevationDegrees: routeState.elevationDegrees,
       rotationDegrees: routeState.rotationDegrees,
     },
-    routeState.isViewSnapEnabled,
+    routeState.viewSnapEnabled,
   );
 
   return preserveLogoRouteDevModeSearch(
     buildLogoRouteSearch({
-      distanceScale: routeState.distanceScale,
+      ...routeState,
       elevationDegrees: resolvedView.elevationDegrees,
       fractalDepth: clampLogoFractalDepthForRenderer(routeState.fractalDepth, renderMode),
-      gridSize: routeState.gridSize,
-      isoCubeSidePixels: routeState.isoCubeSidePixels,
-      isoStyleId: routeState.isoStyleId,
-      leftFaceStyle: routeState.leftFaceStyle,
-      rotationAxisMode: routeState.rotationAxisMode,
       rotationDegrees: resolvedView.rotationDegrees,
       themeModeSearch: routeSearch,
-      themeColors: routeState.themeColors,
-      viewSnapEnabled: routeState.isViewSnapEnabled,
-      voxelState: routeState.voxelState,
     }),
     routeSearch,
   );
@@ -678,7 +550,7 @@ function applyLogoPreviewViewState(
 ): LogoPreviewRouteState {
   const resolvedView = resolveLogoPreviewViewState(
     nextView,
-    options?.viewSnapEnabled ?? state.isViewSnapEnabled,
+    options?.viewSnapEnabled ?? state.viewSnapEnabled,
   );
 
   return {
@@ -1174,12 +1046,12 @@ function useLogoPreviewController({
           },
         }));
       },
-      setViewSnapEnabled: (isViewSnapEnabled: boolean) => {
+      setViewSnapEnabled: (viewSnapEnabled: boolean) => {
         commitRouteState((currentState) => {
-          if (!isViewSnapEnabled) {
+          if (!viewSnapEnabled) {
             return {
               ...currentState,
-              isViewSnapEnabled: false,
+              viewSnapEnabled: false,
             };
           }
 
@@ -1192,7 +1064,7 @@ function useLogoPreviewController({
               },
               { viewSnapEnabled: true },
             ),
-            isViewSnapEnabled: true,
+            viewSnapEnabled: true,
           };
         });
       },
@@ -1214,49 +1086,12 @@ function readCanonicalLogoRouteSearch(
   routeSearch: LogoRouteSearch,
   renderMode: LogoPreviewRenderMode,
 ): LogoRouteSearch {
-  return preserveLogoRouteDevModeSearch(
-    buildLogoRouteSearch({
-      distanceScale: readLogoDistanceScale(routeSearch),
-      elevationDegrees: readElevationDegrees(routeSearch),
-      fractalDepth: readLogoFractalDepth(routeSearch, renderMode),
-      gridSize: readLogoGridSize(routeSearch),
-      isoCubeSidePixels: readIsoCubeSidePixels(routeSearch),
-      isoStyleId: readIsoStyleId(routeSearch),
-      leftFaceStyle: readLogoLeftFaceStyle(routeSearch),
-      rotationAxisMode: readRotationAxisMode(routeSearch),
-      rotationDegrees: readRotationDegrees(routeSearch),
-      themeModeSearch: routeSearch,
-      themeColors: readLogoThemeColors(routeSearch),
-      viewSnapEnabled: readViewSnapEnabled(routeSearch),
-      voxelState: readVoxelState(routeSearch, readLogoGridSize(routeSearch)),
-    }),
+  return buildLogoPreviewRouteSearch(
+    readLogoPreviewRouteState(routeSearch, renderMode),
     routeSearch,
+    renderMode,
   );
 }
-
-const LOGO_ROUTE_SEARCH_KEYS = [
-  "axis",
-  ...LOGO_THEME_COLOR_KEYS,
-  "dev",
-  "depth",
-  "dist",
-  "elev",
-  "freeView",
-  "gridSize",
-  "isoSide",
-  "isoStyle",
-  "leftFace",
-  "dark",
-  "light",
-  "rot",
-  "stripeA",
-  "stripeBasis",
-  "stripeG",
-  "stripeLink",
-  "stripeO",
-  "stripeW",
-  "vox",
-] as const satisfies readonly (keyof LogoRouteSearch)[];
 
 function areLogoRouteSearchesEqual(left: LogoRouteSearch, right: LogoRouteSearch): boolean {
   return LOGO_ROUTE_SEARCH_KEYS.every((key) => left[key] === right[key]);
@@ -1559,24 +1394,7 @@ export function LogoPreviewPage({
       ? matchingIsoCubePixelSpritePresets
       : LOGO_ISO_CUBE_PIXEL_SPRITE_PRESETS.filter((preset) => preset.cubeSidePixels === 8);
 
-  const modeSearch = preserveLogoRouteDevModeSearch(
-    buildLogoRouteSearch({
-      distanceScale: state.distanceScale,
-      elevationDegrees: state.elevationDegrees,
-      fractalDepth: state.fractalDepth,
-      gridSize: state.gridSize,
-      isoCubeSidePixels: state.isoCubeSidePixels,
-      isoStyleId: state.isoStyleId,
-      leftFaceStyle: state.leftFaceStyle,
-      rotationAxisMode: state.rotationAxisMode,
-      rotationDegrees: state.rotationDegrees,
-      themeModeSearch: routeSearch,
-      themeColors: state.themeColors,
-      viewSnapEnabled: state.isViewSnapEnabled,
-      voxelState: state.voxelState,
-    }),
-    routeSearch,
-  );
+  const modeSearch = buildLogoPreviewRouteSearch(state, routeSearch, renderMode);
 
   const logoScene =
     renderMode === "iso" ? (
@@ -1619,7 +1437,7 @@ export function LogoPreviewPage({
         rotationAxisMode={state.rotationAxisMode}
         rotationDegrees={state.rotationDegrees}
         shuffleAnimation={shuffleAnimation}
-        viewDragConfig={state.isViewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined}
+        viewDragConfig={state.viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined}
         voxelState={state.voxelState}
       />
     ) : (
@@ -1647,7 +1465,7 @@ export function LogoPreviewPage({
         animateLeftFaceStripes={state.isLeftFaceStripeAnimationEnabled}
         fractalDepth={state.fractalDepth}
         voxelEditingEnabled={!isRecursiveDepth}
-        viewDragConfig={state.isViewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined}
+        viewDragConfig={state.viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined}
         voxelState={state.voxelState}
       />
     );
@@ -2023,7 +1841,7 @@ export function LogoPreviewPage({
           <div className="flex items-start gap-3">
             <Checkbox
               id={viewSnapCheckboxId}
-              checked={state.isViewSnapEnabled}
+              checked={state.viewSnapEnabled}
               onCheckedChange={(checked) => {
                 controls.setViewSnapEnabled(checked === true);
               }}

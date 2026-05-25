@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vite-plus/test";
-import { LOGO_GRID_SIZE_2, LOGO_GRID_SIZE_3 } from "@/components/logo/logoVoxelState";
-import { readRootRouteSearch, validateRootRouteSearch } from "./rootRouteSearch";
+import {
+  DEFAULT_VOXEL_STATE,
+  LOGO_GRID_SIZE_2,
+  LOGO_GRID_SIZE_3,
+} from "@/components/logo/logoVoxelState";
+import {
+  readRootRouteSearch,
+  replaceRootLogoRouteSearch,
+  validateRootRouteSearch,
+} from "./rootRouteSearch";
 
 describe("rootRouteSearch", () => {
   it("accepts the routed root landing flags and auth provider", () => {
@@ -132,6 +140,65 @@ describe("rootRouteSearch", () => {
       gridSize: LOGO_GRID_SIZE_3,
     });
     expect(readRootRouteSearch("?gridSize=4")).toEqual({});
+  });
+
+  it("accepts logo route params on root surfaces", () => {
+    expect(
+      validateRootRouteSearch({
+        axis: "screen-vertical",
+        elev: "32.4",
+        freeView: "",
+        isoSide: "52",
+        isoStyle: "flat",
+        leftFace: "striped",
+        rot: "721",
+        stripeG: "0.4",
+        stripeLink: "",
+        vox: DEFAULT_VOXEL_STATE,
+      }),
+    ).toEqual({
+      axis: "screen-vertical",
+      elev: 32.4,
+      freeView: true,
+      isoSide: 40,
+      isoStyle: "flat",
+      leftFace: "striped",
+      rot: 1,
+      stripeG: 0.4,
+      stripeLink: true,
+      stripeW: 0.4,
+      vox: DEFAULT_VOXEL_STATE,
+    });
+  });
+
+  it("replaces logo params without dropping dashboard route state", () => {
+    const nextSearch = replaceRootLogoRouteSearch(
+      {
+        "new-app": true,
+        depth: 2,
+        elev: 24,
+        freeView: true,
+        primary: "red-600",
+        rot: 45,
+        top: "blue-500",
+      },
+      {
+        primary: "green-500",
+        rot: 90,
+      },
+    );
+
+    expect(nextSearch["new-app"]).toBe(true);
+    expect(nextSearch.primary).toBe("green-500");
+    expect(nextSearch.rot).toBe(90);
+    expect(nextSearch.depth).toBeUndefined();
+    expect(nextSearch.elev).toBeUndefined();
+    expect(nextSearch.freeView).toBeUndefined();
+    expect(nextSearch.top).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(nextSearch, "depth")).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(nextSearch, "elev")).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(nextSearch, "freeView")).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(nextSearch, "top")).toBe(true);
   });
 
   it("ignores all other parsed root params while reset is present", () => {

@@ -86,8 +86,12 @@ import {
   type VaultDashboardProviderSetup,
 } from "@/components/vault-dashboard/vaultProviderSetup";
 import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
-import { type LogoThemeColorSearchInput } from "@/lib/appThemeColorSearch";
-import { type RootRouteSearch, useRootRouteSearch } from "@/lib/rootRouteSearch";
+import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
+import {
+  replaceRootLogoRouteSearch,
+  type RootRouteSearch,
+  useRootRouteSearch,
+} from "@/lib/rootRouteSearch";
 import { buildPullRequestLabelStyle, normalizePullRequestLabels } from "@/lib/pullRequestLabels";
 import { applySearchPatch } from "@/lib/routeSearchFlags";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
@@ -2664,7 +2668,8 @@ type VaultDashboardBodyProps = {
   isRemovingVault: boolean;
   retryingDeletionRunId: Id<"vaultDeletionRuns"> | null;
   now: number;
-  themeColorSearch: LogoThemeColorSearchInput;
+  logoRouteSearch: LogoRouteSearch;
+  replaceLogoRouteSearch: (nextSearch: LogoRouteSearch) => void;
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
   persistedVaultBranchFiltersByVaultId: Map<string, VaultBranchFiltersState>;
   deleteRepositoryFullName?: string;
@@ -2863,7 +2868,8 @@ function VaultDashboardBody({
   isRemovingVault,
   retryingDeletionRunId,
   now,
-  themeColorSearch,
+  logoRouteSearch,
+  replaceLogoRouteSearch,
   openDeveloperToolsByVaultId,
   persistedVaultBranchFiltersByVaultId,
   deleteRepositoryFullName,
@@ -3089,7 +3095,12 @@ function VaultDashboardBody({
   }, [repositoryLocationHash, scrollVaultCardElementForHash, vaults]);
 
   if (vaults.length === 0) {
-    return <VaultDashboardEmptyState themeColorSearch={themeColorSearch} />;
+    return (
+      <VaultDashboardEmptyState
+        logoRouteSearch={logoRouteSearch}
+        replaceRouteSearch={replaceLogoRouteSearch}
+      />
+    );
   }
 
   const repositoryNameCounts = buildVaultDashboardRepositoryNameCounts(vaults);
@@ -5506,7 +5517,16 @@ export function VaultDashboard() {
       isRemovingVault={isDeleting || isCommitting}
       retryingDeletionRunId={retryingDeletionRunId}
       now={now}
-      themeColorSearch={rootRouteSearch}
+      logoRouteSearch={rootRouteSearch}
+      replaceLogoRouteSearch={(nextSearch) => {
+        void navigate({
+          hash: true,
+          replace: true,
+          search: (currentSearch) => replaceRootLogoRouteSearch(currentSearch, nextSearch),
+          state: true,
+          to: ".",
+        });
+      }}
       openDeveloperToolsByVaultId={openDeveloperToolsByVaultId}
       persistedVaultBranchFiltersByVaultId={persistedVaultBranchFiltersByVaultId}
       deleteRepositoryFullName={deleteRepositoryFullName}

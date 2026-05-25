@@ -987,7 +987,7 @@ function FixtureDashboardSidebarAccountClamp({
           </div>
         </VaultDashboardSidebarContent>
       }
-      mainContent={<VaultDashboardEmptyState />}
+      mainContent={<VaultDashboardEmptyState logoRouteSearch={{}} />}
     />
   );
 }
@@ -1030,7 +1030,7 @@ function FixtureDashboardCreateControl() {
           </div>
         </VaultDashboardSidebarContent>
       }
-      mainContent={<VaultDashboardEmptyState />}
+      mainContent={<VaultDashboardEmptyState logoRouteSearch={{}} />}
     />
   );
 }
