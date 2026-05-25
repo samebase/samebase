@@ -310,7 +310,8 @@ export function RouteUrlEditor() {
   // before pushing the selected URL so Back returns to the pre-preview page.
   const previewBaseHrefRef = useRef<string | null>(null);
   const skipNextBlurCommitRef = useRef(false);
-  const skipNextSuggestionMouseEnterRef = useRef(false);
+  // Keyboard edits can render suggestions under a stationary cursor; hover previews resume after pointer movement.
+  const suppressSuggestionMousePreviewUntilMoveRef = useRef(false);
   // Arrow-key previews rewrite the input value, while suggestions stay anchored
   // to the text the user typed until they type, click, blur, or commit.
   const suggestionPreviewActiveRef = useRef(false);
@@ -643,6 +644,7 @@ export function RouteUrlEditor() {
       setDraftRouteAddress(nextDraftRouteAddress);
       setSuggestionBaseRouteAddress(nextDraftRouteAddress);
       suggestionPreviewActiveRef.current = false;
+      suppressSuggestionMousePreviewUntilMoveRef.current = true;
       setSuggestionDraftEditedSinceFocus(true);
       setSuggestionsDismissed(false);
       syncSuggestionSelection(event.currentTarget, nextDraftRouteAddress);
@@ -906,7 +908,7 @@ export function RouteUrlEditor() {
         }
 
         suggestionPreviewActiveRef.current = true;
-        skipNextSuggestionMouseEnterRef.current = true;
+        suppressSuggestionMousePreviewUntilMoveRef.current = true;
         setDraftRouteAddress(activeFollowup.draftRouteAddress);
         setSuggestionBaseRouteAddress(activeFollowup.draftRouteAddress);
         setSuggestionKind(activeFollowup.kind);
@@ -989,6 +991,7 @@ export function RouteUrlEditor() {
 
           setDraftRouteAddress(routeBoundaryBackspace.routeAddress);
           setSuggestionDraftEditedSinceFocus(true);
+          suppressSuggestionMousePreviewUntilMoveRef.current = true;
           previewDraftRouteAddress(routeBoundaryBackspace.routeAddress);
           return;
         }
@@ -1112,11 +1115,18 @@ export function RouteUrlEditor() {
                 key={`${suggestion.kind}:${suggestion.value}`}
                 onClick={() => selectSuggestion(suggestion)}
                 onMouseEnter={() => {
-                  if (skipNextSuggestionMouseEnterRef.current) {
-                    skipNextSuggestionMouseEnterRef.current = false;
+                  if (suppressSuggestionMousePreviewUntilMoveRef.current) {
                     return;
                   }
 
+                  previewSuggestionByIndex(suggestionIndex);
+                }}
+                onMouseMove={() => {
+                  if (!suppressSuggestionMousePreviewUntilMoveRef.current) {
+                    return;
+                  }
+
+                  suppressSuggestionMousePreviewUntilMoveRef.current = false;
                   previewSuggestionByIndex(suggestionIndex);
                 }}
                 onMouseDown={(event) => event.preventDefault()}

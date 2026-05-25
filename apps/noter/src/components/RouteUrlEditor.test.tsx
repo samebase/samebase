@@ -262,6 +262,60 @@ describe("RouteUrlEditor", () => {
     expect(document.activeElement).toBe(input);
   });
 
+  it("ignores stationary hover on search suggestions after keyboard edits", async () => {
+    const input = startEditing(["/logo"]);
+    const origin = window.location.origin;
+
+    await fillRouteUrlEditorInput(input, `${origin}/logo?d`);
+    const distOption = rootElement?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Use ?dist="]',
+    );
+    if (!distOption) {
+      throw new Error("Expected dist search param suggestion.");
+    }
+
+    await act(async () => {
+      distOption.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(input.value).toBe(`${origin}/logo?d`);
+    expect(readRouteHref()).toBe("/logo");
+    expect(distOption.getAttribute("aria-selected")).toBe("false");
+
+    await act(async () => {
+      distOption.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(input.value).toBe(`${origin}/logo?dist=`);
+    expect(readRouteHref()).toBe("/logo");
+  });
+
+  it("previews keyboard-created search suggestions after pointer movement", async () => {
+    const input = startEditing(["/logo"]);
+    const origin = window.location.origin;
+
+    await fillRouteUrlEditorInput(input, `${origin}/logo?d`);
+    const distOption = rootElement?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Use ?dist="]',
+    );
+    if (!distOption) {
+      throw new Error("Expected dist search param suggestion.");
+    }
+
+    await act(async () => {
+      distOption.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(distOption.getAttribute("aria-selected")).toBe("true");
+    expect(input.value).toBe(`${origin}/logo?dist=`);
+    expect(readRouteHref()).toBe("/logo");
+  });
+
   it("opens value options after selecting a valued search param", async () => {
     const input = startEditing(["/logo"]);
     const origin = window.location.origin;

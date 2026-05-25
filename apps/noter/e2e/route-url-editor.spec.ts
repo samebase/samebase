@@ -703,6 +703,57 @@ test("route URL editor keeps unfinished valued search params local", async ({ pa
   await expect(page).toHaveURL(`${origin}/logo?rot=10`);
 });
 
+test("route URL editor waits for pointer movement before hover-previewing keyboard-created suggestions", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/logo?dev", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const input = await editRouteUrl(page);
+  const distOption = page.getByRole("option", {
+    exact: true,
+    name: "Use &dist=",
+  });
+
+  await input.fill(`${origin}/logo?dev&dist=`);
+
+  await expect(input).toHaveValue(`${origin}/logo?dev&dist=`);
+
+  for (let index = 0; index < 4; index += 1) {
+    await input.press("Backspace");
+  }
+
+  await expect(input).toHaveValue(`${origin}/logo?dev&d`);
+  await expect(page).toHaveURL(`${origin}/logo?dev`);
+  await expect(distOption).toBeVisible();
+
+  await distOption.dispatchEvent("mouseover");
+
+  await expect(input).toHaveValue(`${origin}/logo?dev&d`);
+  await expect(page).toHaveURL(`${origin}/logo?dev`);
+
+  await distOption.click();
+
+  await expect(input).toHaveValue(`${origin}/logo?dev&dist=`);
+  await expect(page).toHaveURL(`${origin}/logo?dev`);
+
+  await input.fill(`${origin}/logo?dev&d`);
+  await expect(distOption).toBeVisible();
+
+  const distOptionBox = await distOption.boundingBox();
+  if (distOptionBox === null) {
+    throw new Error("Expected dist suggestion to be visible.");
+  }
+  await page.mouse.move(distOptionBox.x + distOptionBox.width / 2, distOptionBox.y + 1);
+
+  await expect(distOption).toHaveAttribute("aria-selected", "true");
+  await expect(input).toHaveValue(`${origin}/logo?dev&dist=`);
+  await expect(page).toHaveURL(`${origin}/logo?dev`);
+});
+
 test("route URL editor arrow-previews visible routes in the app workspace shell", async ({
   page,
 }) => {
