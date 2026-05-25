@@ -638,6 +638,16 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await expect(fixture.getByRole("link", { name: "Production deploy" })).toBeVisible();
   await expect(
     fixture.getByRole("link", {
+      name: "apps/domain-router https://domain-router.nicu.workers.dev",
+    }),
+  ).toBeVisible();
+  await expect(
+    fixture.getByRole("link", {
+      name: "apps/noter https://noter-worker.nicu.workers.dev",
+    }),
+  ).toBeVisible();
+  await expect(
+    fixture.getByRole("link", {
       name: "PR #321 Use the full dashboard main pane",
     }),
   ).toBeVisible();
@@ -672,6 +682,16 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   await expect(fixture.getByRole("link", { name: "Cloudflare preview" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Preview deploy" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Production deploy" })).toBeVisible();
+  await expect(
+    fixture.getByRole("link", {
+      name: "apps/domain-router https://domain-router.nicu.workers.dev",
+    }),
+  ).toBeVisible();
+  await expect(
+    fixture.getByRole("link", {
+      name: "apps/noter https://noter-worker.nicu.workers.dev",
+    }),
+  ).toBeVisible();
   await expect(
     fixture.getByRole("link", {
       name: "PR #321 Use the full dashboard main pane",

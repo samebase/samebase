@@ -2118,10 +2118,15 @@ interface VaultBranchLinkRowProps {
   vaultId?: Id<"vaults">;
   repositoryFullName: string;
   branch: VaultRemoteBranchListItem;
-  cloudflareWorkersDevUrl?: string;
+  cloudflareProductionLinks?: readonly VaultBranchCloudflareProductionLink[];
   productionDeploymentDashboardUrl?: string;
   stagedSummary?: StagedSummary;
 }
+
+type VaultBranchCloudflareProductionLink = {
+  appRoot: string;
+  url: string;
+};
 
 function formatAheadBehindCounts(
   aheadBy: number | undefined,
@@ -2217,12 +2222,12 @@ export function VaultDashboardRepositoryExternalLinks({
 export function VaultBranchLinkContent({
   repositoryFullName,
   branch,
-  cloudflareWorkersDevUrl,
+  cloudflareProductionLinks = [],
   productionDeploymentDashboardUrl,
 }: {
   repositoryFullName: string;
   branch: VaultRemoteBranchListItem;
-  cloudflareWorkersDevUrl?: string;
+  cloudflareProductionLinks?: readonly VaultBranchCloudflareProductionLink[];
   productionDeploymentDashboardUrl?: string;
 }) {
   const commitUrl = `https://github.com/${repositoryFullName}/commit/${branch.headCommitSha}`;
@@ -2271,7 +2276,7 @@ export function VaultBranchLinkContent({
     cloudflarePreviewPullRequestNumber: branch.cloudflarePreviewPullRequestNumber,
     cloudflarePreviewStatus: branch.cloudflarePreviewStatus,
   });
-  const hasProductionUrlLink = branch.isDefault && typeof cloudflareWorkersDevUrl === "string";
+  const activeCloudflareProductionLinks = branch.isDefault ? cloudflareProductionLinks : [];
   const hasProductionDeploymentLink =
     branch.isDefault && typeof productionDeploymentDashboardUrl === "string";
   const hasPreviewDeploymentLink =
@@ -2322,20 +2327,34 @@ export function VaultBranchLinkContent({
               </div>
             )
           ) : null}
-          {hasProductionUrlLink ? (
+          {activeCloudflareProductionLinks.length > 0 ? (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-              <a
-                href={cloudflareWorkersDevUrl}
-                target="_blank"
-                rel="noreferrer noopener"
-                className={clsx(metadataLinkClassName, "gap-1.5")}
-                title="Open production app"
-              >
-                <DashboardLinkIconSlot>
-                  <CloudflareProviderLogo />
-                </DashboardLinkIconSlot>
-                <span className="min-w-0 break-all">{cloudflareWorkersDevUrl}</span>
-              </a>
+              {activeCloudflareProductionLinks.map((link) => {
+                const showAppRoot =
+                  activeCloudflareProductionLinks.length > 1 || link.appRoot !== ".";
+                return (
+                  <a
+                    key={`${link.appRoot}\n${link.url}`}
+                    href={link.url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className={clsx(metadataLinkClassName, "gap-1.5")}
+                    title={
+                      link.appRoot === "."
+                        ? "Open production app"
+                        : `Open production app for ${link.appRoot}`
+                    }
+                  >
+                    <DashboardLinkIconSlot>
+                      <CloudflareProviderLogo />
+                    </DashboardLinkIconSlot>
+                    <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                      {showAppRoot ? <span>{link.appRoot}</span> : null}
+                      <span className="min-w-0 break-all">{link.url}</span>
+                    </span>
+                  </a>
+                );
+              })}
             </div>
           ) : null}
           <a
@@ -2508,7 +2527,7 @@ export function VaultBranchLinkRow({
   vaultId,
   repositoryFullName,
   branch,
-  cloudflareWorkersDevUrl,
+  cloudflareProductionLinks,
   productionDeploymentDashboardUrl,
   stagedSummary,
 }: VaultBranchLinkRowProps) {
@@ -2525,7 +2544,7 @@ export function VaultBranchLinkRow({
       <VaultBranchLinkContent
         repositoryFullName={repositoryFullName}
         branch={branch}
-        cloudflareWorkersDevUrl={cloudflareWorkersDevUrl}
+        cloudflareProductionLinks={cloudflareProductionLinks}
         productionDeploymentDashboardUrl={productionDeploymentDashboardUrl}
       />
       {showRowActions ? (
@@ -2550,7 +2569,7 @@ interface VaultBranchListProps {
   vaultId: Id<"vaults">;
   repositoryFullName: string;
   remoteBranches: VaultRemoteBranchListItem[];
-  cloudflareWorkersDevUrl?: string;
+  cloudflareProductionLinks?: readonly VaultBranchCloudflareProductionLink[];
   productionDeploymentDashboardUrl?: string;
   expansion?: VaultBranchListExpansionProps;
 }
@@ -2593,7 +2612,7 @@ function VaultBranchList({
   vaultId,
   repositoryFullName,
   remoteBranches,
-  cloudflareWorkersDevUrl,
+  cloudflareProductionLinks,
   productionDeploymentDashboardUrl,
   expansion,
 }: VaultBranchListProps) {
@@ -2616,7 +2635,7 @@ function VaultBranchList({
           vaultId={vaultId}
           repositoryFullName={repositoryFullName}
           stagedSummary={summaryByBranch.get(branch.name)}
-          cloudflareWorkersDevUrl={branch.isDefault ? cloudflareWorkersDevUrl : undefined}
+          cloudflareProductionLinks={branch.isDefault ? cloudflareProductionLinks : undefined}
           productionDeploymentDashboardUrl={
             branch.isDefault ? productionDeploymentDashboardUrl : undefined
           }
@@ -2664,14 +2683,14 @@ export function VaultBranchHeaderControls({
 }
 
 function VaultBranchSection({
-  cloudflareWorkersDevUrl,
+  cloudflareProductionLinks,
   filteredBranchCount,
   productionDeploymentDashboardUrl,
   repositoryFullName,
   vaultId,
   visibleRemoteBranches,
 }: {
-  cloudflareWorkersDevUrl?: string;
+  cloudflareProductionLinks?: readonly VaultBranchCloudflareProductionLink[];
   filteredBranchCount: number;
   productionDeploymentDashboardUrl?: string;
   repositoryFullName: string;
@@ -2685,7 +2704,7 @@ function VaultBranchSection({
           vaultId={vaultId}
           repositoryFullName={repositoryFullName}
           remoteBranches={visibleRemoteBranches}
-          cloudflareWorkersDevUrl={cloudflareWorkersDevUrl}
+          cloudflareProductionLinks={cloudflareProductionLinks}
           productionDeploymentDashboardUrl={productionDeploymentDashboardUrl}
         />
       ) : null}
@@ -2984,7 +3003,6 @@ function buildVaultDashboardHashIdForVault({
   });
 }
 
-type VaultDashboardCloudflareWorker = VaultDashboardVault["cloudflareWorkers"][number];
 type VaultDashboardConvexDeployment = VaultDashboardVault["convexDeployments"][number];
 
 function selectPrimaryVaultConvexDeployment(
@@ -3005,20 +3023,32 @@ function selectPrimaryVaultConvexDeployment(
   )[0];
 }
 
-function selectPrimaryVaultCloudflareWorker(
+function buildVaultCloudflareProductionLinks(
   vault: VaultDashboardVault,
-): VaultDashboardCloudflareWorker | null {
-  if (vault.cloudflareWorkers.length === 0) {
-    return null;
-  }
-  const rootWorker = vault.cloudflareWorkers.find((worker) => worker.appRoot === ".");
-  if (rootWorker) {
-    return rootWorker;
-  }
-  return [...vault.cloudflareWorkers].sort(
-    (left, right) =>
-      left.appRoot.localeCompare(right.appRoot) || left.workerName.localeCompare(right.workerName),
-  )[0];
+): VaultBranchCloudflareProductionLink[] {
+  return [...vault.cloudflareWorkers]
+    .flatMap((worker) => {
+      if (!worker.workersDevUrl) {
+        return [];
+      }
+      return [
+        {
+          appRoot: worker.appRoot,
+          url: worker.workersDevUrl,
+          workerName: worker.workerName,
+        },
+      ];
+    })
+    .sort(
+      (left, right) =>
+        left.appRoot.localeCompare(right.appRoot) ||
+        left.workerName.localeCompare(right.workerName) ||
+        left.url.localeCompare(right.url),
+    )
+    .map((worker) => ({
+      appRoot: worker.appRoot,
+      url: worker.url,
+    }));
 }
 
 function resolveVaultDashboardRepositoryFullNameForHash({
@@ -3510,7 +3540,7 @@ function VaultDashboardBody({
           githubRepositoryUrl,
           vault,
         });
-        const primaryCloudflareWorker = selectPrimaryVaultCloudflareWorker(vault);
+        const cloudflareProductionLinks = buildVaultCloudflareProductionLinks(vault);
         const primaryConvexDeployment = selectPrimaryVaultConvexDeployment(vault);
         const sharedLastSyncedAt = vault.lastTreeRefreshAt;
         const treeRefreshUiState = getTreeRefreshUiState({
@@ -3672,7 +3702,7 @@ function VaultDashboardBody({
                     vaultId={vault._id}
                     repositoryFullName={vault.repositoryFullName}
                     visibleRemoteBranches={branchSectionState.visibleRemoteBranches}
-                    cloudflareWorkersDevUrl={primaryCloudflareWorker?.workersDevUrl}
+                    cloudflareProductionLinks={cloudflareProductionLinks}
                     productionDeploymentDashboardUrl={
                       primaryConvexDeployment?.deploymentDashboardUrl
                     }

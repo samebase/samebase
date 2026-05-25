@@ -152,6 +152,7 @@ type FixtureVaultBranch = Parameters<typeof VaultBranchLinkRow>[0]["branch"];
 
 interface FixtureVaultBranchRow {
   branch: FixtureVaultBranch;
+  cloudflareProductionLinks?: Parameters<typeof VaultBranchLinkRow>[0]["cloudflareProductionLinks"];
   productionDeploymentDashboardUrl?: string;
 }
 
@@ -263,6 +264,16 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
       aheadBy: 0,
       behindBy: 0,
     }),
+    cloudflareProductionLinks: [
+      {
+        appRoot: "apps/domain-router",
+        url: "https://domain-router.nicu.workers.dev",
+      },
+      {
+        appRoot: "apps/noter",
+        url: "https://noter-worker.nicu.workers.dev",
+      },
+    ],
     productionDeploymentDashboardUrl: "https://dashboard.convex.dev/t/nicu/noter/calm-swan-123",
   },
   {
@@ -412,6 +423,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
                       vaultId={fakeVaultId()}
                       repositoryFullName="noter-md/noter"
                       branch={branchRow.branch}
+                      cloudflareProductionLinks={branchRow.cloudflareProductionLinks}
                       productionDeploymentDashboardUrl={branchRow.productionDeploymentDashboardUrl}
                     />
                   ))}

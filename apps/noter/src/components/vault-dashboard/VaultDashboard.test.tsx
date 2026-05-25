@@ -134,7 +134,12 @@ describe("VaultBranchLinkContent", () => {
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="noter-md/noter"
-          cloudflareWorkersDevUrl="https://tmp-flow.nicuchiciuc.workers.dev"
+          cloudflareProductionLinks={[
+            {
+              appRoot: ".",
+              url: "https://tmp-flow.nicuchiciuc.workers.dev",
+            },
+          ]}
           branch={{
             name: "main",
             headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
@@ -153,6 +158,40 @@ describe("VaultBranchLinkContent", () => {
     expect(markup.indexOf(">https://tmp-flow.nicuchiciuc.workers.dev<")).toBeLessThan(
       markup.indexOf(">main<"),
     );
+  });
+
+  it("links the default branch to every monorepo production app URL", () => {
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider>
+        <VaultBranchLinkContent
+          repositoryFullName="noter-md/noter"
+          cloudflareProductionLinks={[
+            {
+              appRoot: "apps/api",
+              url: "https://api.notermd.workers.dev",
+            },
+            {
+              appRoot: "apps/noter",
+              url: "https://noter.notermd.workers.dev",
+            },
+          ]}
+          branch={{
+            name: "main",
+            headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
+            isDefault: true,
+            isProtected: false,
+            lastSyncedAt: 0,
+            remoteState: "active",
+          }}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain("apps/api");
+    expect(markup).toContain('href="https://api.notermd.workers.dev"');
+    expect(markup).toContain("apps/noter");
+    expect(markup).toContain('href="https://noter.notermd.workers.dev"');
+    expect(markup.indexOf("apps/api")).toBeLessThan(markup.indexOf("apps/noter"));
   });
 });
 
