@@ -184,6 +184,12 @@ function readRouteUrlEditorInputRouteIndex(args: {
 
 type RouteUrlEditorCommitMode = "route-options" | "route-navigation";
 
+type RouteUrlEditorSuggestionFollowup = {
+  draftRouteAddress: string;
+  kind: "search" | "search-value";
+  selectionRouteIndex: number;
+};
+
 function getRouteUrlEditorCommitMode(args: {
   currentHref: string;
   nextHref: string;
@@ -198,6 +204,55 @@ function getRouteUrlEditorCommitMode(args: {
 
 function readRouteUrlEditorHash(url: URL): string {
   return url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
+}
+
+function readRouteUrlEditorSearchDraftSelectionRouteIndex(routeAddress: string): number {
+  const hashIndex = routeAddress.indexOf("#");
+  return hashIndex === -1 ? routeAddress.length : hashIndex;
+}
+
+function readRouteUrlEditorSearchTriggerDraft(routeAddress: string): string {
+  const hashIndex = routeAddress.indexOf("#");
+  const searchIndex = routeAddress.indexOf("?");
+  if (searchIndex !== -1 && (hashIndex === -1 || searchIndex < hashIndex)) {
+    return routeAddress;
+  }
+
+  if (hashIndex === -1) {
+    return `${routeAddress}?`;
+  }
+
+  return `${routeAddress.slice(0, hashIndex)}?${routeAddress.slice(hashIndex)}`;
+}
+
+function restoreRouteUrlEditorInputSelection(args: {
+  input: HTMLInputElement;
+  origin: string;
+  selectionRouteIndex: number;
+}): void {
+  const selectionIndex = args.origin.length + args.selectionRouteIndex;
+  const restoreSelection = () => {
+    if (
+      !args.input.isConnected ||
+      (typeof document !== "undefined" && document.activeElement !== args.input)
+    ) {
+      return;
+    }
+
+    args.input.setSelectionRange(selectionIndex, selectionIndex);
+  };
+
+  if (typeof window === "undefined") {
+    restoreSelection();
+    return;
+  }
+
+  if (typeof window.requestAnimationFrame === "function") {
+    window.requestAnimationFrame(restoreSelection);
+    return;
+  }
+
+  window.setTimeout(restoreSelection, 0);
 }
 
 /**
@@ -247,6 +302,7 @@ export function RouteUrlEditor() {
   // before pushing the selected URL so Back returns to the pre-preview page.
   const previewBaseHrefRef = useRef<string | null>(null);
   const skipNextBlurCommitRef = useRef(false);
+  const skipNextSuggestionMouseEnterRef = useRef(false);
   // Arrow-key previews rewrite the input value, while suggestions stay anchored
   // to the text the user typed until they type, click, blur, or commit.
   const suggestionPreviewActiveRef = useRef(false);
@@ -745,16 +801,88 @@ export function RouteUrlEditor() {
         selectionRouteIndex,
         suggestion,
       });
+      let searchFollowup: RouteUrlEditorSuggestionFollowup | null = null;
+      if (suggestion.kind === "path") {
+        const draftRouteAddress = readRouteUrlEditorSearchTriggerDraft(nextDraftRouteAddress);
+        if (draftRouteAddress !== nextDraftRouteAddress) {
+          searchFollowup = {
+            draftRouteAddress,
+            kind: "search",
+            selectionRouteIndex:
+              readRouteUrlEditorSearchDraftSelectionRouteIndex(draftRouteAddress),
+          };
+        }
+      } else if (
+        suggestion.kind === "search" &&
+        suggestion.valueKind === "value" &&
+        suggestion.valueSuggestions.length > 0
+      ) {
+        searchFollowup = {
+          draftRouteAddress: nextDraftRouteAddress,
+          kind: "search-value",
+          selectionRouteIndex:
+            readRouteUrlEditorSearchDraftSelectionRouteIndex(nextDraftRouteAddress),
+        };
+      }
+
+      const followupSuggestions =
+        searchFollowup === null
+          ? []
+          : readRouteUrlEditorSuggestions({
+              currentHref,
+              draftEditedSinceFocus: true,
+              draftRouteAddress: searchFollowup.draftRouteAddress,
+              hashKeys: documentHashSuggestionKeys,
+              kind: searchFollowup.kind,
+              origin,
+              routesByPath: router.routesByPath,
+              selectionRouteIndex: searchFollowup.selectionRouteIndex,
+              viewer: { isAdmin: viewerIsAdmin === true },
+            });
+      const activeFollowup =
+        searchFollowup !== null && followupSuggestions.length > 0 ? searchFollowup : null;
       setDraftRouteAddress(nextDraftRouteAddress);
-      setSuggestionsDismissed(true);
-      setSuggestionDraftEditedSinceFocus(false);
+      setSuggestionsDismissed(activeFollowup === null);
+      setSuggestionDraftEditedSinceFocus(activeFollowup !== null);
       void commitInput(nextDraftRouteAddress, {
         commitPreviewToHistory: true,
         replaceRouteOptions: false,
+      }).then(() => {
+        if (activeFollowup === null) {
+          return;
+        }
+
+        suggestionPreviewActiveRef.current = true;
+        skipNextSuggestionMouseEnterRef.current = true;
+        setDraftRouteAddress(activeFollowup.draftRouteAddress);
+        setSuggestionBaseRouteAddress(activeFollowup.draftRouteAddress);
+        setSuggestionKind(activeFollowup.kind);
+        setSelectionRouteIndex(activeFollowup.selectionRouteIndex);
+        setActiveSuggestionIndex(null);
+        setSuggestionsDismissed(false);
+        setSuggestionDraftEditedSinceFocus(true);
+
+        const input = inputRef.current;
+        if (input) {
+          restoreRouteUrlEditorInputSelection({
+            input,
+            origin,
+            selectionRouteIndex: activeFollowup.selectionRouteIndex,
+          });
+        }
       });
       inputRef.current?.focus();
     },
-    [commitInput, draftRouteAddress, selectionRouteIndex],
+    [
+      commitInput,
+      currentHref,
+      documentHashSuggestionKeys,
+      draftRouteAddress,
+      origin,
+      router.routesByPath,
+      selectionRouteIndex,
+      viewerIsAdmin,
+    ],
   );
 
   const handleInputKeyDown = useCallback(
@@ -930,7 +1058,14 @@ export function RouteUrlEditor() {
                 })}
                 key={`${suggestion.kind}:${suggestion.value}`}
                 onClick={() => selectSuggestion(suggestion)}
-                onMouseEnter={() => previewSuggestionByIndex(suggestionIndex)}
+                onMouseEnter={() => {
+                  if (skipNextSuggestionMouseEnterRef.current) {
+                    skipNextSuggestionMouseEnterRef.current = false;
+                    return;
+                  }
+
+                  previewSuggestionByIndex(suggestionIndex);
+                }}
                 onMouseDown={(event) => event.preventDefault()}
                 role="option"
                 type="button"

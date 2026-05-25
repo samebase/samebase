@@ -245,8 +245,10 @@ test("route URL editor lists route paths and filters them while typing", async (
 
   await expect(page).toHaveURL(`${origin}/logo`);
   await expect(input).toBeFocused();
-  await expect(input).toHaveValue(`${origin}/logo`);
-  await expect(suggestions).toHaveCount(0);
+  await expect(input).toHaveValue(`${origin}/logo?`);
+  await expect(suggestions).toBeVisible();
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
+  await expect(page.getByRole("option", { exact: true, name: "Use ?leftFace=" })).toBeVisible();
 
   await input.blur();
 
@@ -481,9 +483,12 @@ test("route URL editor selects suggestions with arrow keys", async ({ page }) =>
 
   await expect(page).toHaveURL(`${origin}/logo`);
   await expect(input).toBeFocused();
-  await expect(input).toHaveValue(`${origin}/logo`);
+  await expect(input).toHaveValue(`${origin}/logo?`);
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
   await expect(backButton).toBeEnabled();
 
+  await input.blur();
+  await expect(display).toHaveValue(`${origin}/logo`);
   await backButton.click();
 
   await expect(page).toHaveURL(`${origin}/`);
@@ -621,6 +626,46 @@ test("route URL editor previews search suggestions on hover", async ({ page }) =
       (element) => document.activeElement === element && element.isConnected,
     ),
   ).toBe(true);
+});
+
+test("route URL editor lists search param value options after equals", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/logo", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const input = await editRouteUrl(page);
+  const suggestions = page.getByTestId("route-url-editor-suggestions");
+  const secondaryOption = page.getByRole("option", {
+    exact: true,
+    name: "Use secondary",
+  });
+  const stripedOption = page.getByRole("option", {
+    exact: true,
+    name: "Use striped",
+  });
+
+  await input.fill(`${origin}/logo?leftFace=`);
+
+  await expect(input).toHaveValue(`${origin}/logo?leftFace=`);
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search-value");
+  await expect(secondaryOption).toBeVisible();
+  await expect(stripedOption).toBeVisible();
+
+  await secondaryOption.hover();
+
+  await expect(secondaryOption).toHaveAttribute("aria-selected", "true");
+  await expect(input).toHaveValue(`${origin}/logo?leftFace=secondary`);
+  await expect(page).toHaveURL(`${origin}/logo?leftFace=secondary`);
+  await expect(suggestions).toBeVisible();
+
+  await input.fill(`${origin}/logo?dev&leftFace=s`);
+
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search-value");
+  await expect(secondaryOption).toBeVisible();
+  await expect(stripedOption).toBeVisible();
 });
 
 test("route URL editor arrow-previews visible routes in the app workspace shell", async ({

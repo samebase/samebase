@@ -129,6 +129,20 @@ describe("RouteUrlEditor", () => {
     });
   }
 
+  async function fillRouteUrlEditorInput(input: HTMLInputElement, value: string): Promise<void> {
+    await act(async () => {
+      const valueDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+      if (typeof valueDescriptor?.set === "function") {
+        valueDescriptor.set.call(input, value);
+      } else {
+        input.value = value;
+      }
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: value.at(-1) ?? "" }));
+      await Promise.resolve();
+    });
+  }
+
   it("keeps only route history controls beside the URL surface", () => {
     const display = renderEditor();
 
@@ -221,6 +235,57 @@ describe("RouteUrlEditor", () => {
     expect(homeOption.getAttribute("aria-selected")).toBe("true");
     expect(input.value).toBe(`${origin}/home`);
     expect(readRouteHref()).toBe("/home");
+    expect(document.activeElement).toBe(input);
+  });
+
+  it("opens search params after selecting a path with route options", async () => {
+    const input = startEditing();
+    const origin = window.location.origin;
+    const logoOption = rootElement?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Use /logo"]',
+    );
+    if (!logoOption) {
+      throw new Error("Expected /logo route URL editor suggestion.");
+    }
+
+    await act(async () => {
+      logoOption.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(input.value).toBe(`${origin}/logo?`);
+    expect(readRouteHref()).toBe("/logo");
+    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search");
+    expect(rootElement?.querySelector('button[aria-label="Use ?leftFace="]')).not.toBeNull();
+    expect(document.activeElement).toBe(input);
+  });
+
+  it("opens value options after selecting a valued search param", async () => {
+    const input = startEditing(["/logo"]);
+    const origin = window.location.origin;
+
+    await fillRouteUrlEditorInput(input, `${origin}/logo?left`);
+    const leftFaceOption = rootElement?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Use ?leftFace="]',
+    );
+    if (!leftFaceOption) {
+      throw new Error("Expected leftFace search param suggestion.");
+    }
+
+    await act(async () => {
+      leftFaceOption.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(input.value).toBe(`${origin}/logo?leftFace=`);
+    expect(readRouteHref()).toBe("/logo");
+    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search-value");
+    expect(rootElement?.querySelector('button[aria-label="Use secondary"]')).not.toBeNull();
+    expect(rootElement?.querySelector('button[aria-label="Use striped"]')).not.toBeNull();
     expect(document.activeElement).toBe(input);
   });
 });

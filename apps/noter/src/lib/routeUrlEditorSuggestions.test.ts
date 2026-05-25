@@ -25,6 +25,14 @@ describe("readRouteUrlEditorSuggestionKind", () => {
       "hash",
     );
   });
+
+  it("switches to search value suggestions after =", () => {
+    const routeAddress = "/logo?leftFace=";
+
+    expect(readRouteUrlEditorSuggestionKind(routeAddress, routeAddress.length)).toBe(
+      "search-value",
+    );
+  });
 });
 
 describe("readRouteUrlEditorSuggestions", () => {
@@ -58,6 +66,38 @@ describe("readRouteUrlEditorSuggestions", () => {
     });
 
     expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["?dev", "?devtools"]);
+  });
+
+  it("formats matching search params after an existing token", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?dev&left",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?dev&left".length,
+      viewer: publicViewer,
+    });
+
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["&leftFace="]);
+  });
+
+  it("suggests matching search param values after =", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?leftFace=s",
+      hashKeys: [],
+      kind: "search-value",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?leftFace=s".length,
+      viewer: publicViewer,
+    });
+
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["secondary", "striped"]);
   });
 
   it("hides signed-in dashboard search params from the public landing route", () => {
@@ -214,6 +254,18 @@ describe("applyRouteUrlEditorSuggestion", () => {
         },
       }),
     ).toBe("/logo?devtools#top");
+
+    expect(
+      applyRouteUrlEditorSuggestion({
+        routeAddress: "/logo?leftFace=s#top",
+        selectionRouteIndex: "/logo?leftFace=s".length,
+        suggestion: {
+          key: "leftFace=secondary",
+          kind: "search-value",
+          value: "secondary",
+        },
+      }),
+    ).toBe("/logo?leftFace=secondary#top");
 
     expect(
       applyRouteUrlEditorSuggestion({

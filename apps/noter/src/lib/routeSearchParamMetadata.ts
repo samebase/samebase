@@ -14,6 +14,7 @@ type RouteSearchParamMetadataBase = {
 export type RouteSearchParamMetadata =
   | (RouteSearchParamMetadataBase & {
       valueKind: "value";
+      valueSuggestions?: readonly string[];
     })
   | (RouteSearchParamMetadataBase & {
       parseKind: "presence" | "schema";
@@ -42,10 +43,20 @@ export function readRouteSearchParamSuggestions<
       continue;
     }
 
+    if (paramMetadata.valueKind === "presence") {
+      suggestions.push({
+        key,
+        permission: paramMetadata.permission,
+        valueKind: "presence",
+      });
+      continue;
+    }
+
     suggestions.push({
       key,
       permission: paramMetadata.permission,
-      valueKind: paramMetadata.valueKind,
+      valueKind: "value",
+      valueSuggestions: paramMetadata.valueSuggestions ?? [],
     });
   }
 
