@@ -37,7 +37,6 @@ export type PublicLayoutShellProps = {
   defaultMobilePane?: WorkspaceMobileSidebarPane;
   left?: WorkspaceLayoutV2PaneFrameProps;
   main?: WorkspaceLayoutV2PaneFrameProps;
-  showRightSidebar?: boolean;
 };
 
 export function PublicLayoutShell({
@@ -45,7 +44,6 @@ export function PublicLayoutShell({
   defaultMobilePane,
   left,
   main,
-  showRightSidebar = true,
 }: PublicLayoutShellProps) {
   const hasLeftPane = left !== undefined;
   const resolvedDefaultMobilePane = defaultMobilePane ?? (hasLeftPane ? "left" : "main");
@@ -103,12 +101,12 @@ export function PublicLayoutShell({
     sidebarState,
   });
   const publicRightSidebarPane = usePublicRightSidebarPane();
-  const rightPane = showRightSidebar ? publicRightSidebarPane : undefined;
+  const rightPane = publicRightSidebarPane;
   // No main or header === undefined means the public shell owns the URL header
   // and body wrapper; an explicit header, even null, preserves caller chrome.
   const mainHeader = main?.header === undefined ? <RouteUrlEditor /> : main.header;
   const hasMainHeader = Boolean(mainHeader);
-  const rightToggleVisibility = hasMainHeader && showRightSidebar ? "desktop" : "hidden";
+  const rightToggleVisibility = hasMainHeader ? "desktop" : "hidden";
   const mainContent = main === undefined ? children : main.content;
   const shouldWrapMainContent = main?.header === undefined || !hasMainHeader;
   const mainPane = {

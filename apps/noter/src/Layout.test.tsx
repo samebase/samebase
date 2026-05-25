@@ -393,27 +393,6 @@ describe("Layout", () => {
     expect(markup).toContain('value="https://noter.local/"');
   });
 
-  it("can keep a public fixture route in the v2 shell without the right rail", () => {
-    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
-    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
-    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
-
-    const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/visual-fixture"]}>
-        <Layout>
-          <PublicLayoutShell showRightSidebar={false}>
-            <div>fixtures</div>
-          </PublicLayoutShell>
-        </Layout>
-      </TestRouterProvider>,
-    );
-
-    expect(markup).toContain('data-testid="route-url-editor"');
-    expect(markup).toContain('data-testid="workspace-layout-v2-pane-main"');
-    expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-right"');
-    expect(markup).not.toContain('aria-label="Toggle Right Sidebar"');
-  });
-
   it("opens the logo shortcut without changing root flags", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);

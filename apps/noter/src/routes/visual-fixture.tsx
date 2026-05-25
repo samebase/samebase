@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Layout, PublicLayoutShell } from "@/Layout";
 import {
   readRouteSearchParamSuggestions,
   type RouteSearchParamMetadataByKey,
@@ -32,17 +31,7 @@ function validateVisualFixtureRouteSearch(
 
 function VisualFixtureRouteComponent() {
   const { mode } = Route.useSearch();
-  if (mode !== undefined) {
-    return <VisualFixturePage mode={mode} />;
-  }
-
-  return (
-    <Layout>
-      <PublicLayoutShell showRightSidebar={false}>
-        <VisualFixturePage />
-      </PublicLayoutShell>
-    </Layout>
-  );
+  return <VisualFixturePage mode={mode} />;
 }
 
 export const Route = createFileRoute("/visual-fixture")({
