@@ -365,9 +365,25 @@ async function ensureWorker(
         enabled: true,
         previews_enabled: true,
       },
+      // The Worker API uses the response-shaped observability contract here, so send the
+      // defaults that Wrangler accepts implicitly in wrangler.jsonc.
       observability: {
-        enabled: true,
+        enabled: false,
         head_sampling_rate: 1,
+        logs: {
+          destinations: [],
+          enabled: true,
+          head_sampling_rate: 1,
+          persist: true,
+          invocation_logs: true,
+        },
+        traces: {
+          destinations: [],
+          enabled: false,
+          persist: true,
+          head_sampling_rate: 1,
+          propagation_policy: "authenticated",
+        },
       },
       tags: [],
       tail_consumers: [],
