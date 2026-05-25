@@ -12,7 +12,6 @@ import {
 import {
   normalizeLogoLeftFaceStyle,
   readLogoLeftFaceStyle,
-  type LogoLeftFaceStyle,
 } from "@/components/logo/logoLeftFaceStyle";
 import {
   clampLogoFractalDepthForRenderer,
@@ -34,27 +33,13 @@ import {
 } from "@/components/logo/logoVoxelState";
 import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
 import { resolveLogoViewState, type LogoViewState } from "@/components/logo/logoViewDrag";
-import { type LogoThemeColors } from "@/components/logo/logoTailwindColors";
 import { readLogoThemeColors } from "@/lib/appThemeColorSearch";
-import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
+import { type LogoRouteSearch, type LogoRouteSearchBuildState } from "@/lib/logoRouteSearch";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
 
 export type LogoRouteRenderMode = Exclude<LogoDepthRenderer, "svg">;
 
-export type LogoRouteRenderState = {
-  distanceScale: number;
-  elevationDegrees: number;
-  fractalDepth: number;
-  gridSize: LogoGridSize;
-  isViewSnapEnabled: boolean;
-  isoCubeSidePixels: number;
-  isoStyleId: LogoIsometricStyleId;
-  leftFaceStyle: LogoLeftFaceStyle;
-  rotationAxisMode: LogoRotationAxisMode;
-  rotationDegrees: number;
-  themeColors: LogoThemeColors;
-  voxelState: string;
-};
+export type LogoRouteRenderState = LogoRouteSearchBuildState;
 
 export const DEFAULT_LOGO_ROUTE_VIEW_STATE: LogoViewState = {
   elevationDegrees: DEFAULT_ELEVATION_DEGREES,
@@ -167,8 +152,8 @@ function readRouteViewState({
   enableViewSnapping: boolean;
   routeSearch: LogoRouteSearch;
   snapFallbackView: boolean;
-}): LogoViewState & { isViewSnapEnabled: boolean } {
-  const isViewSnapEnabled = readRouteViewSnapEnabled(routeSearch, enableViewSnapping);
+}): LogoViewState & { viewSnapEnabled: boolean } {
+  const viewSnapEnabled = readRouteViewSnapEnabled(routeSearch, enableViewSnapping);
   const hasSearchView = hasRouteViewSearch(routeSearch);
   const fallbackView = hasSearchView ? DEFAULT_LOGO_ROUTE_VIEW_STATE : defaultView;
   const view = {
@@ -179,12 +164,12 @@ function readRouteViewState({
   return {
     ...resolveLogoViewState({
       config:
-        isViewSnapEnabled && (snapFallbackView || hasSearchView)
+        viewSnapEnabled && (snapFallbackView || hasSearchView)
           ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG
           : undefined,
       view,
     }),
-    isViewSnapEnabled,
+    viewSnapEnabled,
   };
 }
 
@@ -215,13 +200,13 @@ export function readLogoRouteRenderState({
     elevationDegrees: view.elevationDegrees,
     fractalDepth: readRouteFractalDepth(routeSearch, renderMode),
     gridSize,
-    isViewSnapEnabled: view.isViewSnapEnabled,
     isoCubeSidePixels: readRouteIsoCubeSidePixels(routeSearch),
     isoStyleId: readRouteIsoStyleId(routeSearch),
     leftFaceStyle: normalizeLogoLeftFaceStyle(readLogoLeftFaceStyle(routeSearch)),
     rotationAxisMode: readRouteRotationAxisMode(routeSearch),
     rotationDegrees: view.rotationDegrees,
     themeColors: readLogoThemeColors(routeSearch),
+    viewSnapEnabled: view.viewSnapEnabled,
     voxelState,
   };
 }

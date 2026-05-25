@@ -3,7 +3,6 @@ import {
   NLogoScene,
   type LogoShuffleParallelMoves,
 } from "@/components/logo/NLogoScene";
-import { LogoThreeRouteScene } from "@/components/logo/LogoThreeRouteScene";
 import { NLogoRasterScene } from "@/components/logo/NLogoRasterScene";
 import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
 import {
@@ -480,7 +479,7 @@ function areLogoPreviewRouteStatesEqual(
     left.distanceScale === right.distanceScale &&
     left.fractalDepth === right.fractalDepth &&
     left.gridSize === right.gridSize &&
-    left.isViewSnapEnabled === right.isViewSnapEnabled &&
+    left.viewSnapEnabled === right.viewSnapEnabled &&
     left.isoCubeSidePixels === right.isoCubeSidePixels &&
     left.isoStyleId === right.isoStyleId &&
     areLogoLeftFaceStylesEqual(left.leftFaceStyle, right.leftFaceStyle) &&
@@ -500,7 +499,7 @@ function resolveLogoPreviewViewState(view: LogoViewState, viewSnapEnabled: boole
 }
 
 function buildLogoPreviewRouteSearch(
-  routeState: LogoPreviewRouteState,
+  routeState: LogoRouteRenderState,
   routeSearch: LogoRouteSearch,
   renderMode: LogoPreviewRenderMode,
 ): LogoRouteSearch {
@@ -509,24 +508,16 @@ function buildLogoPreviewRouteSearch(
       elevationDegrees: routeState.elevationDegrees,
       rotationDegrees: routeState.rotationDegrees,
     },
-    routeState.isViewSnapEnabled,
+    routeState.viewSnapEnabled,
   );
 
   return preserveLogoRouteDevModeSearch(
     buildLogoRouteSearch({
-      distanceScale: routeState.distanceScale,
+      ...routeState,
       elevationDegrees: resolvedView.elevationDegrees,
       fractalDepth: clampLogoFractalDepthForRenderer(routeState.fractalDepth, renderMode),
-      gridSize: routeState.gridSize,
-      isoCubeSidePixels: routeState.isoCubeSidePixels,
-      isoStyleId: routeState.isoStyleId,
-      leftFaceStyle: routeState.leftFaceStyle,
-      rotationAxisMode: routeState.rotationAxisMode,
       rotationDegrees: resolvedView.rotationDegrees,
       themeModeSearch: routeSearch,
-      themeColors: routeState.themeColors,
-      viewSnapEnabled: routeState.isViewSnapEnabled,
-      voxelState: routeState.voxelState,
     }),
     routeSearch,
   );
@@ -559,7 +550,7 @@ function applyLogoPreviewViewState(
 ): LogoPreviewRouteState {
   const resolvedView = resolveLogoPreviewViewState(
     nextView,
-    options?.viewSnapEnabled ?? state.isViewSnapEnabled,
+    options?.viewSnapEnabled ?? state.viewSnapEnabled,
   );
 
   return {
@@ -1055,12 +1046,12 @@ function useLogoPreviewController({
           },
         }));
       },
-      setViewSnapEnabled: (isViewSnapEnabled: boolean) => {
+      setViewSnapEnabled: (viewSnapEnabled: boolean) => {
         commitRouteState((currentState) => {
-          if (!isViewSnapEnabled) {
+          if (!viewSnapEnabled) {
             return {
               ...currentState,
-              isViewSnapEnabled: false,
+              viewSnapEnabled: false,
             };
           }
 
@@ -1073,7 +1064,7 @@ function useLogoPreviewController({
               },
               { viewSnapEnabled: true },
             ),
-            isViewSnapEnabled: true,
+            viewSnapEnabled: true,
           };
         });
       },
@@ -1095,28 +1086,10 @@ function readCanonicalLogoRouteSearch(
   routeSearch: LogoRouteSearch,
   renderMode: LogoPreviewRenderMode,
 ): LogoRouteSearch {
-  const routeState = readLogoRouteRenderState({
+  return buildLogoPreviewRouteSearch(
+    readLogoPreviewRouteState(routeSearch, renderMode),
+    routeSearch,
     renderMode,
-    routeSearch,
-  });
-
-  return preserveLogoRouteDevModeSearch(
-    buildLogoRouteSearch({
-      distanceScale: routeState.distanceScale,
-      elevationDegrees: routeState.elevationDegrees,
-      fractalDepth: routeState.fractalDepth,
-      gridSize: routeState.gridSize,
-      isoCubeSidePixels: routeState.isoCubeSidePixels,
-      isoStyleId: routeState.isoStyleId,
-      leftFaceStyle: routeState.leftFaceStyle,
-      rotationAxisMode: routeState.rotationAxisMode,
-      rotationDegrees: routeState.rotationDegrees,
-      themeModeSearch: routeSearch,
-      themeColors: routeState.themeColors,
-      viewSnapEnabled: routeState.isViewSnapEnabled,
-      voxelState: routeState.voxelState,
-    }),
-    routeSearch,
   );
 }
 
@@ -1421,24 +1394,7 @@ export function LogoPreviewPage({
       ? matchingIsoCubePixelSpritePresets
       : LOGO_ISO_CUBE_PIXEL_SPRITE_PRESETS.filter((preset) => preset.cubeSidePixels === 8);
 
-  const modeSearch = preserveLogoRouteDevModeSearch(
-    buildLogoRouteSearch({
-      distanceScale: state.distanceScale,
-      elevationDegrees: state.elevationDegrees,
-      fractalDepth: state.fractalDepth,
-      gridSize: state.gridSize,
-      isoCubeSidePixels: state.isoCubeSidePixels,
-      isoStyleId: state.isoStyleId,
-      leftFaceStyle: state.leftFaceStyle,
-      rotationAxisMode: state.rotationAxisMode,
-      rotationDegrees: state.rotationDegrees,
-      themeModeSearch: routeSearch,
-      themeColors: state.themeColors,
-      viewSnapEnabled: state.isViewSnapEnabled,
-      voxelState: state.voxelState,
-    }),
-    routeSearch,
-  );
+  const modeSearch = buildLogoPreviewRouteSearch(state, routeSearch, renderMode);
 
   const logoScene =
     renderMode === "iso" ? (
@@ -1481,34 +1437,36 @@ export function LogoPreviewPage({
         rotationAxisMode={state.rotationAxisMode}
         rotationDegrees={state.rotationDegrees}
         shuffleAnimation={shuffleAnimation}
-        viewDragConfig={state.isViewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined}
+        viewDragConfig={state.viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined}
         voxelState={state.voxelState}
       />
     ) : (
-      <LogoThreeRouteScene
-        LogoScene={NLogoScene}
+      <NLogoScene
+        baseGridSize={state.gridSize}
         backgroundColor={backgroundColor}
         className={cn(
           "absolute inset-0 h-full w-full touch-none select-none",
           state.isSceneInteracting ? "cursor-grabbing" : "cursor-grab",
         )}
+        distanceScale={state.distanceScale}
         editMode={state.editMode}
+        elevationDegrees={state.elevationDegrees}
         faceColors={faceColors}
+        leftFaceStyle={state.leftFaceStyle}
         opacity={state.logoOpacity}
         onInteractionStart={controls.startSceneInteraction}
         onInteractionEnd={controls.endSceneInteraction}
         onViewChange={controls.applyViewState}
         onVoxelEdit={controls.editVoxel}
-        routeState={state}
+        rotationAxisMode={state.rotationAxisMode}
+        rotationDegrees={state.rotationDegrees}
         shuffleAnimation={shuffleAnimation}
         animateFaceColors={state.isFaceColorAnimationEnabled}
         animateLeftFaceStripes={state.isLeftFaceStripeAnimationEnabled}
+        fractalDepth={state.fractalDepth}
         voxelEditingEnabled={!isRecursiveDepth}
-        viewDragConfig={state.isViewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined}
-        view={{
-          elevationDegrees: state.elevationDegrees,
-          rotationDegrees: state.rotationDegrees,
-        }}
+        viewDragConfig={state.viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined}
+        voxelState={state.voxelState}
       />
     );
 
@@ -1883,7 +1841,7 @@ export function LogoPreviewPage({
           <div className="flex items-start gap-3">
             <Checkbox
               id={viewSnapCheckboxId}
-              checked={state.isViewSnapEnabled}
+              checked={state.viewSnapEnabled}
               onCheckedChange={(checked) => {
                 controls.setViewSnapEnabled(checked === true);
               }}

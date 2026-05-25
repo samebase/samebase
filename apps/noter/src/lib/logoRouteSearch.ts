@@ -1,3 +1,4 @@
+import { keys } from "@noter-md/dependent/object";
 import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
 import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
@@ -10,7 +11,7 @@ import {
   clampLogoFractalDepthForRenderer,
   type LogoDepthRenderer,
 } from "@/components/logo/logoDepthLimits";
-import { LOGO_THEME_COLOR_KEYS, type LogoThemeColors } from "@/components/logo/logoTailwindColors";
+import { type LogoThemeColors } from "@/components/logo/logoTailwindColors";
 import {
   DEFAULT_LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
@@ -222,29 +223,20 @@ export const logoRouteSearchSchema = logoRouteSearchFieldSchema.transform((searc
 
 export type LogoRouteSearch = z.infer<typeof logoRouteSearchSchema>;
 
-export const LOGO_ROUTE_SEARCH_KEYS = [
-  "axis",
-  ...LOGO_THEME_COLOR_KEYS,
-  "dev",
-  "depth",
-  "dist",
-  "elev",
-  "freeView",
-  "gridSize",
-  "isoSide",
-  "isoStyle",
-  "leftFace",
-  "dark",
-  "light",
-  "rot",
-  "stripeA",
-  "stripeBasis",
-  "stripeG",
-  "stripeLink",
-  "stripeO",
-  "stripeW",
-  "vox",
-] as const satisfies readonly (keyof LogoRouteSearch)[];
+export type LogoRouteSearchBuildState = {
+  distanceScale: number;
+  elevationDegrees: number;
+  fractalDepth: number;
+  gridSize: LogoGridSize;
+  isoCubeSidePixels: number;
+  isoStyleId: LogoIsometricStyleId;
+  leftFaceStyle: LogoLeftFaceStyle;
+  rotationAxisMode: LogoRotationAxisMode;
+  rotationDegrees: number;
+  themeColors: LogoThemeColors;
+  viewSnapEnabled: boolean;
+  voxelState: string;
+};
 
 export const LOGO_ROUTE_SEARCH_PARAM_METADATA = {
   axis: { permission: "public", suggestion: "route", valueKind: "value" },
@@ -299,6 +291,8 @@ export const LOGO_ROUTE_SEARCH_PARAM_METADATA = {
   vox: { permission: "public", suggestion: "route", valueKind: "value" },
 } as const satisfies RouteSearchParamMetadataByKey<LogoRouteSearch>;
 
+export const LOGO_ROUTE_SEARCH_KEYS = keys(LOGO_ROUTE_SEARCH_PARAM_METADATA);
+
 const LOGO_ROUTE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
   LOGO_ROUTE_SEARCH_PARAM_METADATA,
 );
@@ -347,21 +341,11 @@ export function validateLogoRouteSearchForRenderer(
   return (search) => clampLogoRouteSearchForRenderer(validateLogoRouteSearch(search), renderer);
 }
 
-export function buildLogoRouteSearch(args: {
-  distanceScale: number;
-  elevationDegrees: number;
-  fractalDepth: number;
-  gridSize: LogoGridSize;
-  isoCubeSidePixels: number;
-  isoStyleId: LogoIsometricStyleId;
-  leftFaceStyle: LogoLeftFaceStyle;
-  rotationAxisMode: LogoRotationAxisMode;
-  rotationDegrees: number;
-  themeModeSearch?: RootThemeModeSearch;
-  themeColors: LogoThemeColors;
-  viewSnapEnabled: boolean;
-  voxelState: string;
-}): LogoRouteSearch {
+export function buildLogoRouteSearch(
+  args: LogoRouteSearchBuildState & {
+    themeModeSearch?: RootThemeModeSearch;
+  },
+): LogoRouteSearch {
   const fractalDepth = normalizeLogoFractalDepth(args.fractalDepth);
   const gridSize = normalizeLogoGridSize(args.gridSize);
   const defaultVoxelState = createDefaultVoxelState(gridSize);

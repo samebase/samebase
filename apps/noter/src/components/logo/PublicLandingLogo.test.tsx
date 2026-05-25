@@ -123,17 +123,10 @@ describe("PublicLandingLogo", () => {
     vi.unstubAllGlobals();
   });
 
-  it("reveals the dashboard /logo link from persisted empty-state logo rotation", async () => {
+  it("reveals the landing /logo link from route view params", async () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
-    window.localStorage.setItem(
-      "noter:logo-view:dashboard-empty",
-      JSON.stringify({
-        elevationDegrees: PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES,
-        rotationDegrees: 180,
-      }),
-    );
 
     const rootElement = document.createElement("div");
     document.body.append(rootElement);
@@ -146,8 +139,11 @@ describe("PublicLandingLogo", () => {
           <PublicLandingLogoLinkProvider>
             <PublicLandingLogo
               loadInteractiveScene={false}
-              viewStatePersistence="device"
-              viewStateKey={DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY}
+              routeSearch={{
+                elev: PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES,
+                freeView: true,
+                rot: 180,
+              }}
             />
             <AppSidebarMetaSection showLandingPreviewLink side="right" />
           </PublicLandingLogoLinkProvider>
@@ -159,6 +155,17 @@ describe("PublicLandingLogo", () => {
     expect(logoLink.getAttribute("aria-hidden")).toBeNull();
     expect(logoLink.getAttribute("tabindex")).toBeNull();
     expect(logoLink.className).toContain("animate-underline-color");
+
+    await act(async () => {
+      localRoot.render(
+        <TestRouterProvider initialEntries={["/"]}>
+          <PublicLandingLogoLinkProvider>
+            <PublicLandingLogo loadInteractiveScene={false} />
+            <AppSidebarMetaSection showLandingPreviewLink side="right" />
+          </PublicLandingLogoLinkProvider>
+        </TestRouterProvider>,
+      );
+    });
   });
 
   it("renders the initial static fallback from persisted device view state", async () => {

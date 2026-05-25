@@ -229,7 +229,7 @@ export function VaultDashboardProvidersSection({
 export function VaultDashboardEmptyState({
   logoRouteSearch,
 }: {
-  logoRouteSearch?: LogoRouteSearch;
+  logoRouteSearch: LogoRouteSearch;
 }) {
   return (
     <div className="container mx-auto max-w-2xl py-6">

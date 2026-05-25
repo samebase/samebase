@@ -56,6 +56,14 @@ export function applySearchPatch<Search extends object>(
 }
 
 export function normalizeRouteSearchPresenceFlags(
+  search: URLSearchParams,
+  keys: readonly string[],
+): Record<string, unknown>;
+export function normalizeRouteSearchPresenceFlags(
+  search: Record<string, unknown>,
+  keys: readonly string[],
+): Record<string, unknown>;
+export function normalizeRouteSearchPresenceFlags(
   search: unknown,
   keys: readonly string[],
 ): unknown {

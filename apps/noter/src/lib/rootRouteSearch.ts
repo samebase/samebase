@@ -6,10 +6,7 @@ import {
   LOGO_GRID_SIZE_3,
   readLogoGridSize,
 } from "@/components/logo/logoVoxelState";
-import {
-  appThemeColorSearchFieldSchema,
-  readLogoThemeColorSearch,
-} from "@/lib/appThemeColorSearch";
+import { appThemeColorSearchFieldSchema } from "@/lib/appThemeColorSearch";
 import {
   LOGO_ROUTE_SEARCH_KEYS,
   LOGO_ROUTE_SEARCH_PARAM_METADATA,
@@ -78,10 +75,6 @@ function readOptionalLogoGridSize(value: unknown): number | undefined {
     : undefined;
 }
 
-function isRouteSearchRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 const rootRouteSearchSchema = z
   .object({
     auth: z.preprocess(readOptionalGoogleAuthProvider, z.literal("google").optional()),
@@ -117,6 +110,13 @@ const rootRouteSearchSchema = z
 type RootRouteSearchBase = z.infer<typeof rootRouteSearchSchema>;
 export type RootRouteSearch = RootRouteSearchBase & LogoRouteSearch;
 
+function globalLogoRouteSearchParam(key: keyof typeof LOGO_ROUTE_SEARCH_PARAM_METADATA) {
+  return {
+    ...LOGO_ROUTE_SEARCH_PARAM_METADATA[key],
+    suggestion: "global" as const,
+  };
+}
+
 const rootRouteSearchParamMetadata = {
   ...LOGO_ROUTE_SEARCH_PARAM_METADATA,
   "add-cloudflare": {
@@ -134,48 +134,33 @@ const rootRouteSearchParamMetadata = {
   "auth-return": { permission: "public", suggestion: "hidden", valueKind: "value" },
   auth: { permission: "public", suggestion: "route", valueKind: "value" },
   base: { permission: "public", suggestion: "hidden", valueKind: "value" },
-  background: { permission: "public", suggestion: "global", valueKind: "value" },
-  border: { permission: "public", suggestion: "global", valueKind: "value" },
-  dark: {
-    parseKind: "presence",
-    permission: "public",
-    suggestion: "global",
-    valueKind: "presence",
-  },
+  background: globalLogoRouteSearchParam("background"),
+  border: globalLogoRouteSearchParam("border"),
+  dark: globalLogoRouteSearchParam("dark"),
   delete: {
     parseKind: "presence",
     permission: "admin",
     suggestion: "route",
     valueKind: "presence",
   },
-  depth: { permission: "public", suggestion: "global", valueKind: "value" },
-  dev: {
-    parseKind: "presence",
-    permission: "public",
-    suggestion: "global",
-    valueKind: "presence",
-  },
+  depth: globalLogoRouteSearchParam("depth"),
+  dev: globalLogoRouteSearchParam("dev"),
   devtools: {
     parseKind: "presence",
     permission: "public",
     suggestion: "global",
     valueKind: "presence",
   },
-  dist: { permission: "public", suggestion: "global", valueKind: "value" },
-  gridSize: { permission: "public", suggestion: "global", valueKind: "value" },
-  light: {
-    parseKind: "presence",
-    permission: "public",
-    suggestion: "global",
-    valueKind: "presence",
-  },
+  dist: globalLogoRouteSearchParam("dist"),
+  gridSize: globalLogoRouteSearchParam("gridSize"),
+  light: globalLogoRouteSearchParam("light"),
   "new-app": {
     parseKind: "presence",
     permission: "admin",
     suggestion: "route",
     valueKind: "presence",
   },
-  primary: { permission: "public", suggestion: "global", valueKind: "value" },
+  primary: globalLogoRouteSearchParam("primary"),
   "prod-ui": {
     parseKind: "presence",
     permission: "public",
@@ -194,9 +179,9 @@ const rootRouteSearchParamMetadata = {
     suggestion: "global",
     valueKind: "presence",
   },
-  secondary: { permission: "public", suggestion: "global", valueKind: "value" },
+  secondary: globalLogoRouteSearchParam("secondary"),
   signup: { permission: "public", suggestion: "route", valueKind: "value" },
-  top: { permission: "public", suggestion: "global", valueKind: "value" },
+  top: globalLogoRouteSearchParam("top"),
 } as const satisfies RouteSearchParamMetadataByKey<RootRouteSearch>;
 
 const ROOT_ROUTE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(rootRouteSearchParamMetadata);
@@ -228,23 +213,17 @@ export const RETAINED_ROOT_SEARCH_KEYS = [
   ...LOGO_ROUTE_SEARCH_KEYS,
 ] as const satisfies readonly (keyof RootRouteSearch)[];
 
-function parseRootRouteSearch(search: unknown): RootRouteSearch {
+function parseRootRouteSearch(search: Record<string, unknown>): RootRouteSearch {
   const presenceNormalizedSearch = normalizeRouteSearchPresenceFlags(
     search,
     ROOT_ROUTE_PRESENCE_SEARCH_KEYS,
   );
   const parsedSearch = rootRouteSearchSchema.parse(presenceNormalizedSearch);
   if (!parsedSearch[SEARCH_RESET_QUERY_PARAM]) {
-    const logoSearch = validateLogoRouteSearch(
-      isRouteSearchRecord(presenceNormalizedSearch) ? presenceNormalizedSearch : {},
-    );
+    const logoSearch = validateLogoRouteSearch(presenceNormalizedSearch);
     const normalizedSearch = {
       ...parsedSearch,
       ...logoSearch,
-      ...readLogoThemeColorSearch({
-        ...parsedSearch,
-        ...logoSearch,
-      }),
     };
     delete normalizedSearch.base;
     return normalizedSearch;

@@ -1,5 +1,4 @@
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
-import { LogoThreeRouteScene } from "@/components/logo/LogoThreeRouteScene";
 import {
   createLogoRouteVoxelGrid,
   readLogoRouteRenderState,
@@ -54,11 +53,17 @@ const DEFAULT_LANDING_LOGO_VIEW: RotatedLogoViewState = {
   rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
 };
 const EMPTY_LOGO_ROUTE_SEARCH: LogoRouteSearch = {};
+const LANDING_LOGO_SCENE_SHUFFLE_ANIMATION = {
+  enabled: false,
+  parallelMoves: 1,
+} as const;
 
 let cachedLandingLogoScene: LandingLogoSceneComponent | null = null;
 // Unsupported renderer paths can loop on remount, so keep that failure sticky
 // for the session while still allowing later chunk loads to retry.
 let didLandingLogoSceneRenderFail = false;
+
+function ignoreLogoVoxelEdit() {}
 
 function easeOutCubic(value: number) {
   return 1 - Math.pow(1 - value, 3);
@@ -370,11 +375,16 @@ export function PublicLandingLogo({
             data-rotation-degrees={view.rotationDegrees.toFixed(3)}
             className={`absolute inset-0 z-0 ${isSceneInteractive ? "pointer-events-auto touch-none" : "pointer-events-none"}`}
           >
-            <LogoThreeRouteScene
-              LogoScene={LogoScene}
+            <LogoScene
+              baseGridSize={routeState.gridSize}
               className={`h-full w-full ${isSceneInteractive ? "cursor-grab active:cursor-grabbing" : ""}`}
               backgroundColor={backgroundColor}
+              distanceScale={routeState.distanceScale}
+              editMode="add"
+              elevationDegrees={view.elevationDegrees}
               faceColors={faceColors}
+              leftFaceStyle={routeState.leftFaceStyle}
+              opacity={1}
               onInteractionStart={() => {
                 autoRotateResumeStartedAtRef.current = null;
                 setIsAutoRotating(false);
@@ -399,17 +409,23 @@ export function PublicLandingLogo({
                 latestViewRef.current = nextView;
                 setView(nextView);
               }}
-              routeState={routeState}
+              onVoxelEdit={ignoreLogoVoxelEdit}
+              rotationAxisMode={routeState.rotationAxisMode}
+              rotationDegrees={view.rotationDegrees}
+              shuffleAnimation={LANDING_LOGO_SCENE_SHUFFLE_ANIMATION}
+              animateFaceColors={false}
               animateLeftFaceStripes={shouldAnimateLeftFaceStripes}
+              fractalDepth={routeState.fractalDepth}
               voxelGrid={
                 routeState.fractalDepth > DEFAULT_LOGO_FRACTAL_DEPTH
                   ? undefined
                   : staticLogoVoxelGrid
               }
-              view={view}
+              voxelEditingEnabled={false}
               viewDragConfig={
-                routeState.isViewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined
+                routeState.viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined
               }
+              voxelState={routeState.voxelState}
             />
           </div>
         ) : null}
