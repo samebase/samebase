@@ -28,7 +28,7 @@ test("localStorage route shows raw strings and formatted JSON values", async ({ 
 
   await page.goto("/localStorage", { waitUntil: "networkidle" });
 
-  await expect(page.getByTestId("local-storage-route")).toBeVisible();
+  await expect(page.getByTestId("public-layout-workspace")).toBeVisible();
   await expect(page.getByTestId("local-storage-sidebar-file")).toHaveText("localStorage");
   await expect(
     page.getByTestId("local-storage-entry-key").filter({

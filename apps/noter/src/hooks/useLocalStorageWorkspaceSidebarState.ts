@@ -12,6 +12,19 @@ const SIDEBAR_WIDTH_PERSIST_DELAY_MS = 160;
 const STORED_WORKSPACE_SIDEBAR_STATE_VERSION = 2;
 
 type UseLocalStorageWorkspaceSidebarStateArgs = {
+  /**
+   * true = route chrome is still settling for the current route and defaults
+   * may update the local state.
+   *
+   * false = the route changed inside the same shell; keep the active pane stable.
+   */
+  applyDefaultChanges: boolean;
+  defaults: WorkspaceSidebarState;
+  reset: boolean;
+  storageKey: string;
+};
+
+type LocalStorageWorkspaceSidebarStateReadArgs = {
   defaults: WorkspaceSidebarState;
   reset: boolean;
   storageKey: string;
@@ -131,7 +144,7 @@ function readLocalStorageWorkspaceSidebarState({
   defaults,
   reset,
   storageKey,
-}: UseLocalStorageWorkspaceSidebarStateArgs): WorkspaceSidebarState {
+}: LocalStorageWorkspaceSidebarStateReadArgs): WorkspaceSidebarState {
   if (typeof window === "undefined") {
     return defaults;
   }
@@ -201,6 +214,7 @@ function removeLocalStorageWorkspaceSidebarState(storageKey: string) {
  * use the Convex-backed sidebar preference store.
  */
 export function useLocalStorageWorkspaceSidebarState({
+  applyDefaultChanges,
   defaults,
   reset,
   storageKey,
@@ -293,6 +307,10 @@ export function useLocalStorageWorkspaceSidebarState({
       flushPendingWidthPersist();
     }
 
+    if (!applyDefaultChanges && !reset) {
+      return;
+    }
+
     const nextSidebarState = readLocalStorageWorkspaceSidebarState({
       defaults,
       reset,
@@ -300,7 +318,14 @@ export function useLocalStorageWorkspaceSidebarState({
     });
     latestSidebarStateRef.current = nextSidebarState;
     setSidebarState(nextSidebarState);
-  }, [clearPendingWidthPersist, defaults, flushPendingWidthPersist, reset, storageKey]);
+  }, [
+    applyDefaultChanges,
+    clearPendingWidthPersist,
+    defaults,
+    flushPendingWidthPersist,
+    reset,
+    storageKey,
+  ]);
 
   React.useEffect(() => {
     return () => {

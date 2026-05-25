@@ -22,9 +22,6 @@ import {
   ROOT_THEME_LIGHT_MODE_LINK_LABEL,
 } from "@/lib/rootThemeModeSearch";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
-import type { WorkspaceSidebarState } from "../convex/workspaceSidebarStateModel";
-import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStateController";
-import { sanitizePublicLayoutSidebarState } from "@/lib/publicLayoutSidebarState";
 import { Layout, PublicLayoutShell } from "./Layout";
 
 const { signInWithGoogleMock, signInWithPasswordMock, useConvexAuthMock, useQueryMock } =
@@ -119,9 +116,9 @@ describe("Layout", () => {
     expect(markup).toContain(FORCE_PROD_UI_MODE_LINK_LABEL);
     expect(markup).toContain(ROOT_THEME_LIGHT_MODE_LINK_LABEL);
     expect(markup).toContain(ROOT_THEME_DARK_MODE_LINK_LABEL);
+    expect(markup).toContain('data-testid="workspace-layout-v2-pane-left"');
     expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
-    expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-left"');
-    expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
+    expect(markup).toContain('aria-label="Toggle Left Sidebar"');
     expect(markup).toContain('aria-label="Toggle Right Sidebar"');
   });
 
@@ -145,51 +142,6 @@ describe("Layout", () => {
     expect(markup).not.toContain('aria-label="Toggle sidebar"');
   });
 
-  it("ignores stored left pane values when the public route has no left pane", () => {
-    const defaultSidebarState = {
-      leftDesktopOpen: false,
-      leftDesktopWidthPx: 48,
-      leftMobileWidthPx: 288,
-      mobilePane: "main",
-      mobileSurface: { kind: "unmerged" },
-      rightDesktopOpen: true,
-      rightDesktopWidthPx: 288,
-      rightMobileWidthPx: 288,
-    } satisfies WorkspaceSidebarState;
-    const storedSidebarState = {
-      leftDesktopOpen: true,
-      leftDesktopWidthPx: 420,
-      leftMobileWidthPx: 410,
-      mobilePane: "left",
-      mobileSurface: { kind: "merged", mainWidthPx: 294, side: "left" },
-      rightDesktopOpen: true,
-      rightDesktopWidthPx: 360,
-      rightMobileWidthPx: 340,
-    } satisfies WorkspaceSidebarState;
-    const setState: WorkspaceSidebarStateController["setState"] = () => {};
-    const storedSidebarStateController = {
-      isHydrated: true,
-      state: storedSidebarState,
-      setState,
-    } satisfies WorkspaceSidebarStateController;
-
-    const sanitizedSidebarStateController = sanitizePublicLayoutSidebarState({
-      defaultSidebarState,
-      hasLeftPane: false,
-      sidebarState: storedSidebarStateController,
-    });
-
-    expect(sanitizedSidebarStateController.state).toEqual({
-      ...storedSidebarState,
-      leftDesktopOpen: false,
-      leftDesktopWidthPx: defaultSidebarState.leftDesktopWidthPx,
-      leftMobileWidthPx: defaultSidebarState.leftMobileWidthPx,
-      mobilePane: "main",
-      mobileSurface: { kind: "unmerged" },
-    });
-    expect(sanitizedSidebarStateController.setState).toBe(setState);
-  });
-
   it("keeps standard right rail links around public workspace panes", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
@@ -199,12 +151,9 @@ describe("Layout", () => {
       <TestRouterProvider initialEntries={["/localStorage"]}>
         <Layout>
           <PublicLayoutShell
-            dataTestId="local-storage-workspace"
-            defaultLeftOpen
             left={{
               content: <div data-testid="local-storage-left-pane">localStorage</div>,
             }}
-            leftToggleVisibility="desktop"
             main={{
               header: <div>Storage header</div>,
               content: <div>Storage values</div>,
@@ -214,7 +163,7 @@ describe("Layout", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain('data-testid="local-storage-workspace"');
+    expect(markup).toContain('data-testid="public-layout-workspace"');
     expect(markup).toContain('data-testid="workspace-layout-v2-pane-left"');
     expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
     expect(markup).toContain('aria-label="Toggle Left Sidebar"');
@@ -394,27 +343,6 @@ describe("Layout", () => {
     expect(markup).toContain('data-testid="route-url-editor-display"');
     expect(markup).toContain('title="https://noter.local/"');
     expect(markup).toContain('value="https://noter.local/"');
-  });
-
-  it("can keep a public fixture route in the v2 shell without the right rail", () => {
-    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
-    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
-    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
-
-    const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/visual-fixture"]}>
-        <Layout>
-          <PublicLayoutShell showRightSidebar={false}>
-            <div>fixtures</div>
-          </PublicLayoutShell>
-        </Layout>
-      </TestRouterProvider>,
-    );
-
-    expect(markup).toContain('data-testid="route-url-editor"');
-    expect(markup).toContain('data-testid="workspace-layout-v2-pane-main"');
-    expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-right"');
-    expect(markup).not.toContain('aria-label="Toggle Right Sidebar"');
   });
 
   it("opens the logo shortcut without changing root flags", () => {
@@ -779,7 +707,7 @@ describe("Layout", () => {
     expect(markup).toContain('aria-hidden="true"');
     expect(markup).toContain('tabindex="-1"');
     expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
-    expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-left"');
+    expect(markup).toContain('data-testid="workspace-layout-v2-pane-left"');
   });
 
   it("keeps legal links and shows /home away from the plain root landing route", () => {

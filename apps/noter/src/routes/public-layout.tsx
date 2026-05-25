@@ -1,34 +1,36 @@
 import { Layout, PublicLayoutShell } from "@/Layout";
 import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
-
-function isLegalPublicPath(pathname: string) {
-  return pathname === "/privacy" || pathname === "/terms";
-}
-
-function shouldUsePublicLayoutShell(pathname: string) {
-  if (isLegalPublicPath(pathname)) {
-    return true;
-  }
-
-  return pathname === "/";
-}
+import { useMemo } from "react";
+import { PublicLayoutRouteChromeProvider } from "@/lib/publicLayoutRouteChrome";
+import {
+  createPublicLayoutRouteChromeStore,
+  usePublicLayoutRouteLeftContent,
+} from "@/lib/publicLayoutRouteChromeStore";
+import { isPublicLayoutShellPathname } from "@/lib/publicLayoutPaths";
 
 function PublicLayoutRoute() {
   const pathname = useLocation({
     select: (location) => location.pathname,
   });
-  const shouldUseShell = shouldUsePublicLayoutShell(pathname);
+  const shouldUseShell = isPublicLayoutShellPathname(pathname);
+  const chromeStore = useMemo(createPublicLayoutRouteChromeStore, []);
+  const leftContent = usePublicLayoutRouteLeftContent(chromeStore);
 
   if (!shouldUseShell) {
     return <Outlet />;
   }
 
+  const left = leftContent === null ? undefined : { content: leftContent };
+  const main = {
+    content: <Outlet />,
+  };
+
   return (
-    <Layout>
-      <PublicLayoutShell>
-        <Outlet />
-      </PublicLayoutShell>
-    </Layout>
+    <PublicLayoutRouteChromeProvider store={chromeStore}>
+      <Layout>
+        <PublicLayoutShell left={left} main={main} />
+      </Layout>
+    </PublicLayoutRouteChromeProvider>
   );
 }
 

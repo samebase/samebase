@@ -2,6 +2,8 @@ import { describe, expect, it } from "vite-plus/test";
 import { getRouter } from "@/router";
 import {
   filterRouteUrlPathSuggestions,
+  isPublicLayoutRouteUrlPathReadyForNavigation,
+  isRouteUrlPathReadyForNavigation,
   readRouteUrlPathSuggestions,
 } from "./routeUrlPathSuggestions";
 
@@ -171,5 +173,155 @@ describe("filterRouteUrlPathSuggestions", () => {
 
     expect(suggestions).toContain("/logo");
     expect(suggestions).not.toContain("/visual-fixture");
+  });
+});
+
+describe("isRouteUrlPathReadyForNavigation", () => {
+  it("accepts exact static route paths and keeps partial path drafts local", () => {
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/logo?from=route-url-editor",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: publicViewer,
+      }),
+    ).toBe(true);
+
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/lo",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: publicViewer,
+      }),
+    ).toBe(false);
+
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/logo/",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: publicViewer,
+      }),
+    ).toBe(true);
+  });
+
+  it("accepts concrete dynamic and catch-all route paths", () => {
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/vault/octo/repo/codespace/main/chat",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: adminViewer,
+      }),
+    ).toBe(true);
+
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/vault/octo",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: adminViewer,
+      }),
+    ).toBe(true);
+
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/vault/",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: adminViewer,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("isPublicLayoutRouteUrlPathReadyForNavigation", () => {
+  it("keeps instant route previews inside the shared public shell", () => {
+    expect(
+      isPublicLayoutRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/logo/iso?from=route-url-editor",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: adminViewer,
+      }),
+    ).toBe(true);
+
+    expect(
+      isPublicLayoutRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/localStorage",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: adminViewer,
+      }),
+    ).toBe(true);
+
+    expect(
+      isPublicLayoutRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/terms/",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: adminViewer,
+      }),
+    ).toBe(true);
+
+    expect(
+      isPublicLayoutRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/logo/iso/",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: adminViewer,
+      }),
+    ).toBe(true);
+
+    expect(
+      isPublicLayoutRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/localStorage/",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: adminViewer,
+      }),
+    ).toBe(true);
+
+    expect(
+      isPublicLayoutRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/home",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: adminViewer,
+      }),
+    ).toBe(false);
+
+    expect(
+      isPublicLayoutRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/visual-fixture",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: adminViewer,
+      }),
+    ).toBe(false);
+
+    expect(
+      isPublicLayoutRouteUrlPathReadyForNavigation({
+        currentHref: "/home",
+        draftHref: "/logo",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: adminViewer,
+      }),
+    ).toBe(false);
   });
 });

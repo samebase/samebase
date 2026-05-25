@@ -26,6 +26,7 @@ import {
 } from "@/lib/routeUrlEditorSuggestions";
 import { RETAINED_ROOT_SEARCH_KEYS, validateRootRouteSearch } from "@/lib/rootRouteSearch";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
+import { isPublicLayoutRouteUrlPathReadyForNavigation } from "@/lib/routeUrlPathSuggestions";
 import { api } from "../../convex/_generated/api";
 
 const routeUrlEditorIconButtonClassName =
@@ -226,9 +227,9 @@ function readRouteUrlEditorExactSearch(args: {
 }
 
 /**
- * Displays route reality separately from the focused local draft. Route-option
- * edits can apply while typing, but router normalization does not replace the
- * draft text until the user leaves the field.
+ * Displays route reality separately from the focused local draft. Valid edits
+ * apply while typing, but router normalization does not replace the draft text
+ * until the user leaves the field.
  */
 export function RouteUrlEditor() {
   const location = useLocation();
@@ -243,11 +244,17 @@ export function RouteUrlEditor() {
   const inputRef = useRef<HTMLInputElement>(null);
   const inputSelectionBeforeChangeRef = useRef<RouteUrlEditorInputSelection | null>(null);
   const skipNextBlurCommitRef = useRef(false);
+  // Arrow-key previews rewrite the input value, while suggestions stay anchored
+  // to the text the user typed until they type, click, blur, or commit.
+  const suggestionPreviewActiveRef = useRef(false);
   const origin = readRouteUrlEditorOrigin();
   const [draftRouteAddress, setDraftRouteAddress] = useState(currentHref);
   const [inputFocused, setInputFocused] = useState(false);
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
   const [suggestionDraftEditedSinceFocus, setSuggestionDraftEditedSinceFocus] = useState(false);
+  // The draft can temporarily be a highlighted suggestion; this is the
+  // user-edited URL that filters the suggestion list.
+  const [suggestionBaseRouteAddress, setSuggestionBaseRouteAddress] = useState(currentHref);
   const [suggestionKind, setSuggestionKind] = useState<RouteUrlEditorSuggestionKind>("path");
   const [selectionRouteIndex, setSelectionRouteIndex] = useState(0);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number | null>(null);
@@ -266,7 +273,7 @@ export function RouteUrlEditor() {
   const suggestions = readRouteUrlEditorSuggestions({
     currentHref,
     draftEditedSinceFocus: suggestionDraftEditedSinceFocus,
-    draftRouteAddress,
+    draftRouteAddress: suggestionBaseRouteAddress,
     hashKeys: documentHashSuggestionKeys,
     kind: suggestionKind,
     origin,
@@ -317,6 +324,7 @@ export function RouteUrlEditor() {
     }
 
     setDraftRouteAddress(currentHref);
+    setSuggestionBaseRouteAddress(currentHref);
   }, [currentHref, inputFocused]);
 
   useEffect(() => {
@@ -374,6 +382,7 @@ export function RouteUrlEditor() {
       });
       setSelectionRouteIndex(nextSelectionRouteIndex);
       setSuggestionKind(readRouteUrlEditorSuggestionKind(routeAddress, nextSelectionRouteIndex));
+      setSuggestionBaseRouteAddress(routeAddress);
       setActiveSuggestionIndex(null);
     },
     [origin],
@@ -433,6 +442,11 @@ export function RouteUrlEditor() {
 
   const syncSuggestionSelectionFromInput = useCallback(
     (event: SyntheticEvent<HTMLInputElement>) => {
+      if (suggestionPreviewActiveRef.current && event.type === "select") {
+        return;
+      }
+
+      suggestionPreviewActiveRef.current = false;
       const nextDraftRouteAddress =
         readRouteUrlEditorDraftRouteAddress({
           inputValue: event.currentTarget.value,
@@ -444,7 +458,60 @@ export function RouteUrlEditor() {
     [draftRouteAddress, origin, syncSuggestionSelection],
   );
 
-  const applyDraftRouteOptions = useCallback(
+  /**
+   * Applies one URL draft through the router for typing previews, suggestion
+   * previews, and explicit commits. Same-path edits preserve scroll and can
+   * replace the current entry independently from route-changing previews.
+   */
+  const navigateRouteUrlEditorHref = useCallback(
+    (
+      nextHref: string,
+      options: { replaceRouteNavigation: boolean; replaceRouteOptions: boolean },
+    ) => {
+      const commitMode = getRouteUrlEditorCommitMode({
+        currentHref,
+        nextHref,
+        origin,
+      });
+
+      switch (commitMode) {
+        case "route-options": {
+          const routeOptionsUrl = new URL(nextHref, new URL(origin));
+          void router.navigate({
+            hash: readRouteUrlEditorHash(routeOptionsUrl),
+            replace: options.replaceRouteOptions,
+            search: () =>
+              readRouteUrlEditorExactSearch({
+                currentHref,
+                nextHref,
+                origin,
+              }),
+            resetScroll: false,
+            to: routeOptionsUrl.pathname,
+          });
+          return;
+        }
+        case "route-navigation": {
+          const routeNavigationUrl = new URL(nextHref, new URL(origin));
+          void router.navigate({
+            hash: readRouteUrlEditorHash(routeNavigationUrl),
+            replace: options.replaceRouteNavigation,
+            search: () =>
+              readRouteUrlEditorExactSearch({
+                currentHref,
+                nextHref,
+                origin,
+              }),
+            to: routeNavigationUrl.pathname,
+          });
+          return;
+        }
+      }
+    },
+    [currentHref, origin, router],
+  );
+
+  const previewDraftRouteAddress = useCallback(
     (nextDraftRouteAddress: string) => {
       const nextHref = normalizeRouteUrlEditorHref({
         currentHref,
@@ -461,24 +528,25 @@ export function RouteUrlEditor() {
         nextHref,
         origin,
       });
-
-      if (commitMode === "route-options") {
-        const nextUrl = new URL(nextHref, new URL(origin));
-        void router.navigate({
-          hash: readRouteUrlEditorHash(nextUrl),
-          replace: true,
-          search: () =>
-            readRouteUrlEditorExactSearch({
-              currentHref,
-              nextHref,
-              origin,
-            }),
-          resetScroll: false,
-          to: nextUrl.pathname,
-        });
+      if (
+        commitMode === "route-navigation" &&
+        !isPublicLayoutRouteUrlPathReadyForNavigation({
+          currentHref,
+          draftHref: nextHref,
+          origin,
+          routesByPath: router.routesByPath,
+          viewer: { isAdmin: viewerIsAdmin === true },
+        })
+      ) {
+        return;
       }
+
+      navigateRouteUrlEditorHref(nextHref, {
+        replaceRouteNavigation: true,
+        replaceRouteOptions: true,
+      });
     },
-    [currentHref, origin, router],
+    [currentHref, navigateRouteUrlEditorHref, origin, router.routesByPath, viewerIsAdmin],
   );
 
   const changeDraftRouteAddress = useCallback(
@@ -488,6 +556,7 @@ export function RouteUrlEditor() {
         origin,
       });
       if (nextDraftRouteAddress === null) {
+        suggestionPreviewActiveRef.current = false;
         restoreRouteUrlEditorRejectedInput({
           input: event.currentTarget,
           selection: inputSelectionBeforeChangeRef.current,
@@ -497,17 +566,21 @@ export function RouteUrlEditor() {
       }
 
       setDraftRouteAddress(nextDraftRouteAddress);
+      setSuggestionBaseRouteAddress(nextDraftRouteAddress);
+      suggestionPreviewActiveRef.current = false;
       setSuggestionDraftEditedSinceFocus(true);
       setSuggestionsDismissed(false);
       syncSuggestionSelection(event.currentTarget, nextDraftRouteAddress);
 
-      applyDraftRouteOptions(nextDraftRouteAddress);
+      previewDraftRouteAddress(nextDraftRouteAddress);
     },
-    [applyDraftRouteOptions, inputValue, origin, syncSuggestionSelection],
+    [inputValue, origin, previewDraftRouteAddress, syncSuggestionSelection],
   );
 
   const resetInput = useCallback(() => {
+    suggestionPreviewActiveRef.current = false;
     setDraftRouteAddress(currentHref);
+    setSuggestionBaseRouteAddress(currentHref);
   }, [currentHref]);
 
   const commitInput = useCallback(
@@ -519,56 +592,26 @@ export function RouteUrlEditor() {
       });
 
       if (href === null) {
+        suggestionPreviewActiveRef.current = false;
         setDraftRouteAddress(currentHref);
+        setSuggestionBaseRouteAddress(currentHref);
         return;
       }
 
+      suggestionPreviewActiveRef.current = false;
       setDraftRouteAddress(href);
+      setSuggestionBaseRouteAddress(href);
 
       if (href === currentHref) {
         return;
       }
 
-      const commitMode = getRouteUrlEditorCommitMode({
-        currentHref,
-        nextHref: href,
-        origin,
+      navigateRouteUrlEditorHref(href, {
+        replaceRouteNavigation: false,
+        replaceRouteOptions: options.replaceRouteOptions,
       });
-
-      switch (commitMode) {
-        case "route-options": {
-          const routeOptionsUrl = new URL(href, new URL(origin));
-          void router.navigate({
-            hash: readRouteUrlEditorHash(routeOptionsUrl),
-            replace: options.replaceRouteOptions,
-            search: () =>
-              readRouteUrlEditorExactSearch({
-                currentHref,
-                nextHref: href,
-                origin,
-              }),
-            resetScroll: false,
-            to: routeOptionsUrl.pathname,
-          });
-          return;
-        }
-        case "route-navigation": {
-          const routeNavigationUrl = new URL(href, new URL(origin));
-          void router.navigate({
-            hash: readRouteUrlEditorHash(routeNavigationUrl),
-            search: () =>
-              readRouteUrlEditorExactSearch({
-                currentHref,
-                nextHref: href,
-                origin,
-              }),
-            to: routeNavigationUrl.pathname,
-          });
-          return;
-        }
-      }
     },
-    [currentHref, origin, router],
+    [currentHref, navigateRouteUrlEditorHref, origin],
   );
 
   const submitInput = useCallback(
@@ -583,10 +626,12 @@ export function RouteUrlEditor() {
     setInputFocused(false);
     setSuggestionsDismissed(false);
     setSuggestionDraftEditedSinceFocus(false);
+    suggestionPreviewActiveRef.current = false;
 
     if (skipNextBlurCommitRef.current) {
       skipNextBlurCommitRef.current = false;
       setDraftRouteAddress(currentHref);
+      setSuggestionBaseRouteAddress(currentHref);
       return;
     }
 
@@ -595,6 +640,7 @@ export function RouteUrlEditor() {
 
   const focusInput = useCallback(
     (event: SyntheticEvent<HTMLInputElement>) => {
+      suggestionPreviewActiveRef.current = false;
       refreshDocumentHashSuggestionKeys();
       syncSuggestionSelection(event.currentTarget, draftRouteAddress);
       setInputFocused(true);
@@ -606,19 +652,39 @@ export function RouteUrlEditor() {
 
   const moveActiveSuggestion = useCallback(
     (step: number) => {
-      setActiveSuggestionIndex((currentActiveSuggestionIndex) => {
-        if (!suggestionsVisible || suggestions.length === 0) {
-          return null;
-        }
+      if (!suggestionsVisible || suggestions.length === 0) {
+        setActiveSuggestionIndex(null);
+        return;
+      }
 
-        if (currentActiveSuggestionIndex === null) {
-          return step > 0 ? 0 : suggestions.length - 1;
-        }
+      const nextActiveSuggestionIndex =
+        activeSuggestionIndex === null
+          ? step > 0
+            ? 0
+            : suggestions.length - 1
+          : (activeSuggestionIndex + step + suggestions.length) % suggestions.length;
+      const nextSuggestion = suggestions[nextActiveSuggestionIndex];
 
-        return (currentActiveSuggestionIndex + step + suggestions.length) % suggestions.length;
+      const nextDraftRouteAddress = applyRouteUrlEditorSuggestion({
+        routeAddress: draftRouteAddress,
+        selectionRouteIndex,
+        suggestion: nextSuggestion,
       });
+
+      setActiveSuggestionIndex(nextActiveSuggestionIndex);
+      setDraftRouteAddress(nextDraftRouteAddress);
+      suggestionPreviewActiveRef.current = true;
+
+      previewDraftRouteAddress(nextDraftRouteAddress);
     },
-    [suggestions.length, suggestionsVisible],
+    [
+      activeSuggestionIndex,
+      draftRouteAddress,
+      previewDraftRouteAddress,
+      selectionRouteIndex,
+      suggestions,
+      suggestionsVisible,
+    ],
   );
 
   const selectSuggestion = useCallback(
@@ -688,7 +754,7 @@ export function RouteUrlEditor() {
 
           setDraftRouteAddress(routeBoundaryBackspace.routeAddress);
           setSuggestionDraftEditedSinceFocus(true);
-          applyDraftRouteOptions(routeBoundaryBackspace.routeAddress);
+          previewDraftRouteAddress(routeBoundaryBackspace.routeAddress);
           return;
         }
         case "Escape":
@@ -700,10 +766,10 @@ export function RouteUrlEditor() {
     },
     [
       activeSuggestion,
-      applyDraftRouteOptions,
       draftRouteAddress,
       moveActiveSuggestion,
       origin,
+      previewDraftRouteAddress,
       resetInput,
       selectSuggestion,
       suggestionsVisible,

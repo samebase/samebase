@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 
 import * as React from "react";
+import { useLocation } from "@tanstack/react-router";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { RouteUrlEditor } from "./RouteUrlEditor";
 
@@ -12,6 +13,7 @@ Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
 const { useQueryMock } = vi.hoisted(() => ({
   useQueryMock: vi.fn(),
 }));
+const scrollIntoViewMock = vi.fn();
 
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
@@ -22,9 +24,21 @@ vi.mock("convex/react", async (importOriginal) => {
   };
 });
 
+function RouteUrlEditorLocationProbe() {
+  const location = useLocation();
+  return <output data-testid="route-url-editor-test-href">{location.href}</output>;
+}
+
 describe("RouteUrlEditor", () => {
   let rootElement: HTMLDivElement | null = null;
   let root: Root | null = null;
+
+  beforeEach(() => {
+    Object.defineProperty(Element.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoViewMock,
+    });
+  });
 
   afterEach(() => {
     if (root) {
@@ -37,6 +51,7 @@ describe("RouteUrlEditor", () => {
 
     rootElement?.remove();
     rootElement = null;
+    scrollIntoViewMock.mockReset();
     useQueryMock.mockReset();
   });
 
@@ -50,6 +65,7 @@ describe("RouteUrlEditor", () => {
       mountedRoot.render(
         <TestRouterProvider initialEntries={initialEntries}>
           <RouteUrlEditor />
+          <RouteUrlEditorLocationProbe />
         </TestRouterProvider>,
       );
     });
@@ -93,6 +109,24 @@ describe("RouteUrlEditor", () => {
       rootElement?.querySelector<HTMLElement>('[data-testid="route-url-editor-suggestions"]') ??
       null
     );
+  }
+
+  function readRouteHref(): string {
+    const routeHref = rootElement?.querySelector<HTMLOutputElement>(
+      '[data-testid="route-url-editor-test-href"]',
+    );
+    if (!routeHref?.textContent) {
+      throw new Error("Expected route URL editor route href probe.");
+    }
+
+    return routeHref.textContent;
+  }
+
+  async function pressRouteUrlEditorKey(input: HTMLInputElement, key: string): Promise<void> {
+    await act(async () => {
+      input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key }));
+      await Promise.resolve();
+    });
   }
 
   it("keeps only route history controls beside the URL surface", () => {
@@ -152,5 +186,19 @@ describe("RouteUrlEditor", () => {
 
     expect(document.activeElement).toBe(input);
     expect(readSuggestions()).not.toBeNull();
+  });
+
+  it("does not arrow-preview admin-only routes outside the public shell", async () => {
+    useQueryMock.mockReturnValue(true);
+    const input = startEditing();
+    const origin = window.location.origin;
+
+    for (let step = 0; step < 20 && input.value !== `${origin}/home`; step += 1) {
+      await pressRouteUrlEditorKey(input, "ArrowDown");
+    }
+
+    expect(input.value).toBe(`${origin}/home`);
+    expect(readRouteHref()).toBe("/");
+    expect(document.activeElement).toBe(input);
   });
 });

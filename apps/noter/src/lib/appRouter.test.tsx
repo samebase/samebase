@@ -50,9 +50,11 @@ vi.mock("@/Layout", async () => {
 
       return (
         <div data-testid="public-layout-shell">
-          {left?.header}
-          {left?.content}
-          {left?.footer}
+          <div data-testid="public-layout-left-pane">
+            {left?.header}
+            {left?.content}
+            {left?.footer}
+          </div>
           {main?.header}
           {main?.content ?? children}
           {main?.footer}
@@ -272,7 +274,7 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("keeps the public layout mounted while legal route content changes", async () => {
+  it("keeps the public layout mounted while public route content changes", async () => {
     const router = await renderRoute("/terms");
 
     expect(publicLayoutMountMock).toHaveBeenCalledTimes(1);
@@ -298,6 +300,17 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="root-index-route"]')?.textContent).toBe(
       "Root index route",
     );
+
+    await act(async () => {
+      await router.navigate({ to: "/localStorage" });
+      await settleRouterRender();
+    });
+
+    expect(publicLayoutMountMock).toHaveBeenCalledTimes(1);
+    expect(publicLayoutUnmountMock).not.toHaveBeenCalled();
+    expect(
+      rootElement?.querySelector('[data-testid="local-storage-sidebar-file"]')?.textContent,
+    ).toBe("localStorage");
   });
 
   it("renders / through the explicit routed root index page", async () => {
@@ -571,6 +584,15 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="layout"]')).not.toBeNull();
     expect(publicLayoutMountMock).toHaveBeenCalledTimes(1);
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("keeps the public left pane mounted for logo lab routes without custom chrome", async () => {
+    await renderRoute("/logo/svg");
+
+    expect(rootElement?.querySelector('[data-testid="logo-svg-page"]')?.textContent).toBe(
+      "Logo SVG page",
+    );
+    expect(rootElement?.querySelector('[data-testid="public-layout-left-pane"]')).not.toBeNull();
   });
 
   it("accepts the Romanian landing preview query on the explicit route", async () => {

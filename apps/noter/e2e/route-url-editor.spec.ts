@@ -10,6 +10,17 @@ const landingPreviewHashSuggestions = getLandingMarkdownHeadings(landingPreviewM
   (heading) => heading.href,
 );
 
+const routeUrlEditorScreenshotOptions = {
+  animations: "disabled",
+  caret: "hide",
+  scale: "css",
+  maxDiffPixelRatio: 0.01,
+} as const;
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function getRouteUrlEditorDisplay(page: Page): Locator {
   return page.getByTestId("route-url-editor-display");
 }
@@ -26,7 +37,16 @@ async function editRouteUrl(page: Page): Promise<Locator> {
   return input;
 }
 
-test("route URL editor fixture navigates committed same-origin hrefs", async ({ page }) => {
+async function readRoundedLeft(locator: Locator, label: string): Promise<number> {
+  const box = await locator.boundingBox();
+  if (box === null) {
+    throw new Error(`Expected ${label} to be visible.`);
+  }
+
+  return Math.round(box.x);
+}
+
+test("route URL editor fixture commits public hrefs from a non-public shell", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 96 });
   await page.goto("/visual-fixture?mode=route-url-editor", {
     waitUntil: "domcontentloaded",
@@ -80,12 +100,10 @@ test("route URL editor fixture navigates committed same-origin hrefs", async ({ 
   await expect(input).toHaveCount(0);
   await expect(display).toHaveValue(`${origin}/logo?from=route-url-editor`);
   await expect(display).toHaveAttribute("title", `${origin}/logo?from=route-url-editor`);
-  await expect(editor).toHaveScreenshot("route-url-editor-committed.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    maxDiffPixelRatio: 0.01,
-  });
+  await expect(editor).toHaveScreenshot(
+    "route-url-editor-committed.png",
+    routeUrlEditorScreenshotOptions,
+  );
 });
 
 test("route URL editor fixture selects continuously across host and route text", async ({
@@ -251,9 +269,96 @@ test("route URL editor lists route paths and filters them while typing", async (
   await page.getByRole("option", { exact: true, name: "Use /logo" }).click();
 
   await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue(`${origin}/logo`);
+  await expect(suggestions).toHaveCount(0);
+
+  await input.blur();
+
   await expect(input).toHaveCount(0);
   await expect(display).toHaveValue(`${origin}/logo`);
   await expect(suggestions).toHaveCount(0);
+});
+
+test("route URL editor keeps the same input focused while typing between public routes", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const input = await editRouteUrl(page);
+  const inputHandle = await input.elementHandle();
+  if (inputHandle === null) {
+    throw new Error("Expected route URL editor input to be mounted.");
+  }
+
+  await input.press("End");
+  await input.type("logo");
+
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(input).toHaveValue(`${origin}/logo`);
+  const keptFocusOnLogo = await inputHandle.evaluate(
+    (element) => document.activeElement === element && element.isConnected,
+  );
+  expect(keptFocusOnLogo).toBe(true);
+  const editor = page.getByTestId("route-url-editor");
+  await expect(editor).toHaveScreenshot(
+    "route-url-editor-focused-logo.png",
+    routeUrlEditorScreenshotOptions,
+  );
+
+  await input.type("/iso");
+
+  await expect(page).toHaveURL(`${origin}/logo/iso`);
+  await expect(input).toHaveValue(`${origin}/logo/iso`);
+  const keptFocusOnLogoIso = await inputHandle.evaluate(
+    (element) => document.activeElement === element && element.isConnected,
+  );
+  expect(keptFocusOnLogoIso).toBe(true);
+  await expect(editor).toHaveScreenshot(
+    "route-url-editor-focused-logo-iso.png",
+    routeUrlEditorScreenshotOptions,
+  );
+
+  await input.fill(`${origin}/localStorage`);
+
+  await expect(page).toHaveURL(`${origin}/localStorage`);
+  await expect(input).toHaveValue(`${origin}/localStorage`);
+  const keptFocusOnLocalStorage = await inputHandle.evaluate(
+    (element) => document.activeElement === element && element.isConnected,
+  );
+  expect(keptFocusOnLocalStorage).toBe(true);
+  await expect(editor).toHaveScreenshot(
+    "route-url-editor-focused-local-storage.png",
+    routeUrlEditorScreenshotOptions,
+  );
+});
+
+test("route URL editor previews trailing-slash public routes while typing", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const input = await editRouteUrl(page);
+  const inputHandle = await input.elementHandle();
+  if (inputHandle === null) {
+    throw new Error("Expected route URL editor input to be mounted.");
+  }
+
+  await input.press("End");
+  await input.type("logo/");
+
+  await expect(page).toHaveURL(new RegExp(`^${escapeRegExp(origin)}/logo/?$`));
+  await expect(input).toHaveValue(`${origin}/logo/`);
+  const keptFocusOnLogoTrailingSlash = await inputHandle.evaluate(
+    (element) => document.activeElement === element && element.isConnected,
+  );
+  expect(keptFocusOnLogoTrailingSlash).toBe(true);
 });
 
 test("route URL editor dismisses suggestions through blur when the page underneath scrolls", async ({
@@ -364,6 +469,9 @@ test("route URL editor selects suggestions with arrow keys", async ({ page }) =>
   const origin = await page.evaluate(() => window.location.origin);
 
   const display = getRouteUrlEditorDisplay(page);
+  const editor = page.getByTestId("route-url-editor");
+  const suggestions = page.getByTestId("route-url-editor-suggestions");
+  const backButton = editor.getByRole("button", { name: "Back" });
   const input = await editRouteUrl(page);
   const logoOption = page.getByRole("option", {
     exact: true,
@@ -379,21 +487,101 @@ test("route URL editor selects suggestions with arrow keys", async ({ page }) =>
 
   await expect(logoOption).toBeVisible();
   await expect(logoIsoOption).toBeVisible();
+  const initialEditorLeft = await readRoundedLeft(editor, "route URL editor");
+  const initialSuggestionsLeft = await readRoundedLeft(suggestions, "route URL suggestions");
 
   await input.press("ArrowDown");
   await expect(logoOption).toHaveAttribute("aria-selected", "true");
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(input).toHaveValue(`${origin}/logo`);
+  expect(await readRoundedLeft(editor, "route URL editor")).toBe(initialEditorLeft);
+  expect(await readRoundedLeft(suggestions, "route URL suggestions")).toBe(initialSuggestionsLeft);
+  await expect(backButton).toBeDisabled();
 
   await input.press("ArrowDown");
   await expect(logoIsoOption).toHaveAttribute("aria-selected", "true");
+  await expect(page).toHaveURL(`${origin}/logo/iso`);
+  await expect(input).toHaveValue(`${origin}/logo/iso`);
+  expect(await readRoundedLeft(editor, "route URL editor")).toBe(initialEditorLeft);
+  expect(await readRoundedLeft(suggestions, "route URL suggestions")).toBe(initialSuggestionsLeft);
+  await expect(backButton).toBeDisabled();
 
   await input.press("ArrowUp");
   await expect(logoOption).toHaveAttribute("aria-selected", "true");
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(input).toHaveValue(`${origin}/logo`);
+  expect(await readRoundedLeft(editor, "route URL editor")).toBe(initialEditorLeft);
+  expect(await readRoundedLeft(suggestions, "route URL suggestions")).toBe(initialSuggestionsLeft);
+  await expect(backButton).toBeDisabled();
 
   await input.press("Enter");
 
   await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue(`${origin}/logo`);
+
+  await input.blur();
+
   await expect(input).toHaveCount(0);
   await expect(display).toHaveValue(`${origin}/logo`);
+});
+
+test("route URL editor keeps arrow previews inside the public shell", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const editor = page.getByTestId("route-url-editor");
+  const backButton = editor.getByRole("button", { name: "Back" });
+  const input = await editRouteUrl(page);
+  const visualFixtureOption = page.getByRole("option", {
+    exact: true,
+    name: "Use /visual-fixture",
+  });
+
+  await input.press("End");
+  await input.type("visual");
+
+  await expect(visualFixtureOption).toBeVisible();
+  await expect(page).toHaveURL(`${origin}/`);
+
+  await input.press("ArrowDown");
+
+  await expect(visualFixtureOption).toHaveAttribute("aria-selected", "true");
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue(`${origin}/visual-fixture`);
+  await expect(page).toHaveURL(`${origin}/`);
+  await expect(backButton).toBeDisabled();
+});
+
+test("route URL editor keeps focus-only arrow previews anchored to all paths", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/logo", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const input = await editRouteUrl(page);
+  const rootOption = page.getByRole("option", { exact: true, name: "Use /" });
+  const localStorageOption = page.getByRole("option", {
+    exact: true,
+    name: "Use /localStorage",
+  });
+
+  await expect(rootOption).toBeVisible();
+  await expect(localStorageOption).toBeVisible();
+
+  await input.press("ArrowDown");
+  await expect(rootOption).toHaveAttribute("aria-selected", "true");
+  await expect(page).toHaveURL(`${origin}/`);
+  await expect(input).toHaveValue(`${origin}/`);
+
+  await input.press("ArrowDown");
+  await expect(localStorageOption).toHaveAttribute("aria-selected", "true");
+  await expect(page).toHaveURL(`${origin}/localStorage`);
+  await expect(input).toHaveValue(`${origin}/localStorage`);
 });
 
 test("route URL editor hides local route suggestions in prod UI mode", async ({ page }) => {

@@ -1,5 +1,6 @@
 import type { AppRouter } from "@/router";
 import { FORCE_PROD_UI_QUERY_PARAM } from "@/lib/prodUiMode";
+import { isPublicLayoutShellPathname } from "@/lib/publicLayoutPaths";
 import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
 import {
   canAccessNoterRoutePermission,
@@ -64,6 +65,65 @@ export function filterRouteUrlPathSuggestions({
   return suggestions.filter((pathSuggestion) =>
     routePathSuggestionMatchesDraft(pathSuggestion, draftPath),
   );
+}
+
+/**
+ * True when the current draft path maps to a route suggestion that can load as
+ * written. The current URL, draft text, origin, route table, and viewer decide
+ * which suggestions are visible; null or partial drafts stay local until no
+ * router segment needs to be invented.
+ */
+export function isRouteUrlPathReadyForNavigation({
+  currentHref,
+  draftHref,
+  origin,
+  routesByPath,
+  viewer,
+}: RouteUrlPathSuggestionsInput): boolean {
+  const suggestions = readRouteUrlPathSuggestions(routesByPath, viewer, {
+    prodUiMode: readRouteUrlPathSuggestionProdUiMode({
+      currentHref,
+      draftHref,
+      origin,
+    }),
+  });
+  const draftPath = readRouteUrlPathSuggestionDraftPath({
+    currentHref,
+    draftHref,
+    origin,
+  });
+  if (draftPath === null) {
+    return false;
+  }
+
+  return suggestions.some((pathSuggestion) =>
+    routePathSuggestionCanLoadDraft(pathSuggestion, draftPath),
+  );
+}
+
+/**
+ * True only for route previews that can stay inside the shared public shell.
+ * Wider app-shell previews wait for the larger layout extraction so the focused
+ * URL input is not remounted mid-edit.
+ */
+export function isPublicLayoutRouteUrlPathReadyForNavigation(
+  input: RouteUrlPathSuggestionsInput,
+): boolean {
+  const currentPath = readRouteUrlPathSuggestionDraftPath({
+    currentHref: input.currentHref,
+    draftHref: input.currentHref,
+    origin: input.origin,
+  });
+  if (currentPath === null || !isPublicLayoutShellPathname(currentPath)) {
+    return false;
+  }
+
+  const draftPath = readRouteUrlPathSuggestionDraftPath(input);
+  if (draftPath === null || !isPublicLayoutShellPathname(draftPath)) {
+    return false;
+  }
+
+  return isRouteUrlPathReadyForNavigation(input);
 }
 
 function isRouteUrlPathSuggestion(
@@ -155,7 +215,7 @@ function readRouteUrlPathSuggestionDraftPath({
         return null;
       }
 
-      return draftUrl.pathname;
+      return readRouteUrlPathSuggestionPathname(draftUrl.pathname);
     }
 
     const routeHref = normalizeRouteUrlEditorHref({
@@ -167,10 +227,18 @@ function readRouteUrlPathSuggestionDraftPath({
       return null;
     }
 
-    return new URL(routeHref, appOrigin).pathname;
+    return readRouteUrlPathSuggestionPathname(new URL(routeHref, appOrigin).pathname);
   } catch {
     return null;
   }
+}
+
+function readRouteUrlPathSuggestionPathname(pathname: string): string {
+  if (pathname === "/") {
+    return pathname;
+  }
+
+  return pathname.replace(/\/+$/, "");
 }
 
 function routePathSuggestionMatchesDraft(pathSuggestion: string, draftPath: string): boolean {
@@ -179,6 +247,19 @@ function routePathSuggestionMatchesDraft(pathSuggestion: string, draftPath: stri
   }
 
   return routePathTemplateMatchesDraft(pathSuggestion, draftPath);
+}
+
+/**
+ * Static suggestions require exact path equality; dynamic and catch-all
+ * templates must have every required segment before previews can touch router
+ * state.
+ */
+function routePathSuggestionCanLoadDraft(pathSuggestion: string, draftPath: string): boolean {
+  if (!pathSuggestion.includes("$")) {
+    return pathSuggestion === draftPath;
+  }
+
+  return routePathTemplateCanLoadDraft(pathSuggestion, draftPath);
 }
 
 function routePathTemplateMatchesDraft(templatePath: string, draftPath: string): boolean {
@@ -220,6 +301,32 @@ function routePathTemplateMatchesDraft(templatePath: string, draftPath: string):
   }
 
   return true;
+}
+
+function routePathTemplateCanLoadDraft(templatePath: string, draftPath: string): boolean {
+  const templateSegments = readRoutePathSegments(templatePath);
+  const draftSegments = readRoutePathSegments(draftPath);
+
+  for (const [index, templateSegment] of templateSegments.entries()) {
+    const draftSegment = draftSegments[index];
+    if (!draftSegment) {
+      return false;
+    }
+
+    if (templateSegment === "$" && index === templateSegments.length - 1) {
+      return true;
+    }
+
+    if (templateSegment.startsWith("$")) {
+      continue;
+    }
+
+    if (templateSegment !== draftSegment) {
+      return false;
+    }
+  }
+
+  return draftSegments.length === templateSegments.length;
 }
 
 function readRoutePathSegments(path: string): readonly string[] {
