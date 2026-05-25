@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from "./routes/root";
 import { Route as visualFixtureRouteImport } from "./routes/visual-fixture";
 import { Route as testRouteImport } from "./routes/test";
+import { Route as ssrDemoRouteImport } from "./routes/ssr-demo";
 import { Route as pricingRouteImport } from "./routes/pricing";
 import { Route as pitchRouteImport } from "./routes/pitch";
 import { Route as machinesRouteImport } from "./routes/machines";
@@ -47,6 +48,11 @@ const visualFixtureRoute = visualFixtureRouteImport.update({
 const testRoute = testRouteImport.update({
   id: "/test",
   path: "/test",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const ssrDemoRoute = ssrDemoRouteImport.update({
+  id: "/ssr-demo",
+  path: "/ssr-demo",
   getParentRoute: () => rootRouteImport,
 } as any);
 const pricingRoute = pricingRouteImport.update({
@@ -195,6 +201,7 @@ export interface FileRoutesByFullPath {
   "/machines": typeof machinesRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
+  "/ssr-demo": typeof ssrDemoRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/localStorage": typeof localStorageRoute;
@@ -224,6 +231,7 @@ export interface FileRoutesByTo {
   "/machines": typeof machinesRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
+  "/ssr-demo": typeof ssrDemoRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/": typeof indexRoute;
@@ -256,6 +264,7 @@ export interface FileRoutesById {
   "/machines": typeof machinesRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
+  "/ssr-demo": typeof ssrDemoRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/_public/": typeof indexRoute;
@@ -289,6 +298,7 @@ export interface FileRouteTypes {
     | "/machines"
     | "/pitch"
     | "/pricing"
+    | "/ssr-demo"
     | "/test"
     | "/visual-fixture"
     | "/localStorage"
@@ -318,6 +328,7 @@ export interface FileRouteTypes {
     | "/machines"
     | "/pitch"
     | "/pricing"
+    | "/ssr-demo"
     | "/test"
     | "/visual-fixture"
     | "/"
@@ -349,6 +360,7 @@ export interface FileRouteTypes {
     | "/machines"
     | "/pitch"
     | "/pricing"
+    | "/ssr-demo"
     | "/test"
     | "/visual-fixture"
     | "/_public/"
@@ -381,6 +393,7 @@ export interface RootRouteChildren {
   machinesRoute: typeof machinesRoute;
   pitchRoute: typeof pitchRoute;
   pricingRoute: typeof pricingRoute;
+  ssrDemoRoute: typeof ssrDemoRoute;
   testRoute: typeof testRoute;
   visualFixtureRoute: typeof visualFixtureRoute;
   logoIsoRoute: typeof logoIsoRoute;
@@ -414,6 +427,13 @@ declare module "@tanstack/react-router" {
       path: "/test";
       fullPath: "/test";
       preLoaderRoute: typeof testRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/ssr-demo": {
+      id: "/ssr-demo";
+      path: "/ssr-demo";
+      fullPath: "/ssr-demo";
+      preLoaderRoute: typeof ssrDemoRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/pricing": {
@@ -635,6 +655,7 @@ const rootRouteChildren: RootRouteChildren = {
   machinesRoute: machinesRoute,
   pitchRoute: pitchRoute,
   pricingRoute: pricingRoute,
+  ssrDemoRoute: ssrDemoRoute,
   testRoute: testRoute,
   visualFixtureRoute: visualFixtureRoute,
   logoIsoRoute: logoIsoRoute,

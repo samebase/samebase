@@ -1,10 +1,12 @@
 import {
   ClientOnly,
   HeadContent,
+  Outlet,
   Scripts,
   createRootRoute,
   lazyRouteComponent,
   redirect,
+  useLocation,
 } from "@tanstack/react-router";
 import { pick } from "@noter-md/dependent/object";
 import { AppBootErrorBoundary } from "@/components/AppBootErrorBoundary";
@@ -45,6 +47,19 @@ function retainRootSearchParams({ next, search }: RootSearchMiddlewareArgs): Roo
 }
 
 function RootComponent() {
+  const pathname = useLocation({
+    select: (location) => location.pathname,
+  });
+
+  // Keep the SSR lab outside Convex auth so the first document shows route HTML.
+  if (pathname === "/ssr-demo") {
+    return (
+      <RootDocument>
+        <Outlet />
+      </RootDocument>
+    );
+  }
+
   return (
     <RootDocument>
       <AppBootErrorBoundary>

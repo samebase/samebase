@@ -26,6 +26,7 @@ const devPortRaw = process.env.NOTER_DEV_PORT?.trim();
 const devPort = devPortRaw ? Number(devPortRaw) : undefined;
 const devStrictPort = readBooleanEnv(process.env.NOTER_DEV_STRICT_PORT);
 const devAllowedHosts = readAllowedHostsEnv(process.env.NOTER_DEV_ALLOWED_HOSTS);
+const ssrDemoEnabled = readBooleanEnv(process.env.NOTER_SSR_DEMO) === true;
 
 function readBooleanEnv(value: string | undefined): boolean | undefined {
   if (!value) {
@@ -543,7 +544,7 @@ export default defineConfig({
         virtualRouteConfig: "./src/routes.ts",
       },
       spa: {
-        enabled: true,
+        enabled: !ssrDemoEnabled,
         prerender: {
           outputPath: "/index.html",
         },
