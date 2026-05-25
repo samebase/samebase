@@ -241,7 +241,7 @@ export const logoRouteSearchSchema = logoRouteSearchFieldSchema.transform((searc
       ? { isoSide: normalizeLogoIsometricCubeSidePixels(search.isoSide) }
       : {}),
     ...(typeof search.isoStyle === "string" ? { isoStyle: search.isoStyle } : {}),
-    ...buildLogoLeftFaceStyleSearch(readLogoLeftFaceStyle(search)),
+    ...readLogoLeftFaceStyleSearch(readLogoLeftFaceStyle(search)),
     ...(typeof search.rot === "number" ? { rot: normalizeRotationDegrees(search.rot) } : {}),
     ...(typeof voxelState === "string" ? { vox: voxelState } : {}),
   };
@@ -262,6 +262,16 @@ export type LogoRouteSearchBuildState = {
   themeColors: LogoThemeColors;
   viewSnapEnabled: boolean;
   voxelState: string;
+};
+
+type LogoLeftFaceStyleSearch = {
+  leftFace?: LogoLeftFaceStyleKind;
+  stripeA?: number;
+  stripeBasis?: LogoLeftFaceStripeBasis;
+  stripeG?: number;
+  stripeLink?: true;
+  stripeO?: number;
+  stripeW?: number;
 };
 
 export const LOGO_ROUTE_SEARCH_PARAM_METADATA = {
@@ -459,15 +469,43 @@ export function buildLogoRouteSearch(
   };
 }
 
-function buildLogoLeftFaceStyleSearch(leftFaceStyle: LogoLeftFaceStyle): {
-  leftFace?: LogoLeftFaceStyleKind;
-  stripeA?: number;
-  stripeBasis?: LogoLeftFaceStripeBasis;
-  stripeG?: number;
-  stripeLink?: true;
-  stripeO?: number;
-  stripeW?: number;
-} {
+/**
+ * Route parsing canonicalizes visible params only; explicit logo updates use
+ * buildLogoLeftFaceStyleSearch when they need tombstones for retained keys.
+ */
+function readLogoLeftFaceStyleSearch(leftFaceStyle: LogoLeftFaceStyle): LogoLeftFaceStyleSearch {
+  if (areLogoLeftFaceStylesEqual(leftFaceStyle, DEFAULT_LOGO_LEFT_FACE_STYLE)) {
+    return {};
+  }
+
+  if (leftFaceStyle.kind === "secondary") {
+    return {
+      leftFace: "secondary",
+    };
+  }
+
+  return {
+    leftFace: "striped",
+    ...(leftFaceStyle.stripeAngleDegrees !== DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES
+      ? { stripeA: Number(leftFaceStyle.stripeAngleDegrees.toFixed(3)) }
+      : {}),
+    ...(leftFaceStyle.stripeBasis !== DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS
+      ? { stripeBasis: leftFaceStyle.stripeBasis }
+      : {}),
+    ...(leftFaceStyle.stripeGap !== DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP
+      ? { stripeG: Number(leftFaceStyle.stripeGap.toFixed(2)) }
+      : {}),
+    ...(leftFaceStyle.stripeGapLinked ? { stripeLink: true as const } : {}),
+    ...(leftFaceStyle.stripeOffset !== DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET
+      ? { stripeO: Number(leftFaceStyle.stripeOffset.toFixed(2)) }
+      : {}),
+    ...(leftFaceStyle.stripeWidth !== DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH
+      ? { stripeW: Number(leftFaceStyle.stripeWidth.toFixed(2)) }
+      : {}),
+  };
+}
+
+function buildLogoLeftFaceStyleSearch(leftFaceStyle: LogoLeftFaceStyle): LogoLeftFaceStyleSearch {
   if (areLogoLeftFaceStylesEqual(leftFaceStyle, DEFAULT_LOGO_LEFT_FACE_STYLE)) {
     return {
       leftFace: undefined,

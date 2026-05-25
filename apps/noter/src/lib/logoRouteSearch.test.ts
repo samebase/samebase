@@ -373,12 +373,6 @@ describe("logoRouteSearch", () => {
   it("preserves secondary as the explicit duotone route state", () => {
     expect(validateLogoRouteSearch({ leftFace: "secondary" })).toEqual({
       leftFace: "secondary",
-      stripeA: undefined,
-      stripeBasis: undefined,
-      stripeG: undefined,
-      stripeLink: undefined,
-      stripeO: undefined,
-      stripeW: undefined,
     });
 
     expect(
@@ -407,6 +401,13 @@ describe("logoRouteSearch", () => {
       stripeO: undefined,
       stripeW: undefined,
     });
+  });
+
+  it("does not create left-face tombstones while parsing unrelated logo params", () => {
+    const search = validateLogoRouteSearch({ secondary: "amber-500" });
+
+    expect(search.secondary).toBe("amber-500");
+    expect(Object.prototype.hasOwnProperty.call(search, "leftFace")).toBe(false);
   });
 
   it("preserves linked striped left-face route state", () => {
