@@ -12,6 +12,21 @@ vi.mock("@/components/MarkdownLandingDocument", () => ({
   MarkdownLandingDocument: ({ markdown }: { markdown: string }) => <article>{markdown}</article>,
 }));
 
+vi.mock("@tanstack/react-router", () => ({
+  useLocation: ({ select }: { select: (location: { searchStr: string }) => string }) =>
+    select({ searchStr: "" }),
+}));
+
+vi.mock("@/components/workspace-layout-v2/WorkspacePaneRuntime", () => ({
+  useWorkspacePaneActions: () => ({
+    setMobilePane: () => {},
+  }),
+  useWorkspacePaneState: () => ({
+    isMobile: false,
+    mobilePane: "main",
+  }),
+}));
+
 describe("LandingMarkdownPreviewPage", () => {
   it("renders the English preview by default", () => {
     const markup = renderToStaticMarkup(<LandingMarkdownPreviewPage />);
