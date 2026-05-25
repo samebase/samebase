@@ -635,7 +635,7 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await expect(fixture.getByRole("link", { name: "Project settings" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Cloudflare preview" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Preview deploy" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Production deploy" })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Production: calm-swan-123" })).toBeVisible();
   await expect(fixture.getByText("apps/domain-router").first()).toBeVisible();
   await expect(fixture.getByText("apps/noter").first()).toBeVisible();
   await expect(
@@ -683,7 +683,7 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   await expect(fixture.getByRole("link", { name: "Project settings" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Cloudflare preview" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Preview deploy" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Production deploy" })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Production: calm-swan-123" })).toBeVisible();
   await expect(fixture.getByText("apps/domain-router").first()).toBeVisible();
   await expect(fixture.getByText("apps/noter").first()).toBeVisible();
   await expect(

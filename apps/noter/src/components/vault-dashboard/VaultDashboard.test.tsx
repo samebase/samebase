@@ -195,9 +195,9 @@ describe("VaultBranchLinkContent", () => {
                 },
                 {
                   href: "https://dashboard.convex.dev/t/noter-md/noter/calm-swan-123",
-                  label: "Production deploy",
+                  label: "Production: calm-swan-123",
                   provider: "convex",
-                  title: "Open production Convex deployment dashboard",
+                  title: "Open production Convex deployment calm-swan-123",
                 },
               ],
             },
@@ -219,9 +219,9 @@ describe("VaultBranchLinkContent", () => {
     expect(markup).toContain("apps/noter");
     expect(markup).toContain('href="https://noter.notermd.workers.dev"');
     expect(markup).toContain('href="https://dashboard.convex.dev/t/noter-md/noter/calm-swan-123"');
-    expect(markup).toContain(">Production deploy<");
+    expect(markup).toContain(">Production: calm-swan-123<");
     expect(markup.indexOf("apps/api")).toBeLessThan(markup.indexOf("apps/noter"));
-    expect(markup.indexOf("apps/noter")).toBeLessThan(markup.indexOf("Production deploy"));
+    expect(markup.indexOf("apps/noter")).toBeLessThan(markup.indexOf("Production: calm-swan-123"));
   });
 });
 

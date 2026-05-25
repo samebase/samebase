@@ -2133,6 +2133,15 @@ const BRANCH_PRODUCTION_LINK_ICONS = {
   convex: ConvexProviderLogo,
 } satisfies Record<VaultBranchProductionLinkProvider, VaultDashboardLogoComponent>;
 
+const branchProductionAppRootClassName =
+  "grid min-h-7 max-w-full grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-x-2 text-sm leading-6 text-muted-foreground";
+const branchProductionAppRootIconClassName = "h-3.5 w-3.5";
+const branchProductionAppRootValueClassName = "min-w-0 max-w-full truncate font-mono";
+const branchProductionProviderRowsIndentClassName = "pl-6";
+const branchProductionLinkClassName =
+  "group -mx-1.5 -my-1 grid min-h-8 max-w-full grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-x-2 rounded-sm px-1.5 py-1 text-sm leading-6 text-foreground touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current";
+const branchProductionLinkLabelClassName = "min-w-0 break-all font-mono";
+
 type VaultBranchProductionLinkInput = {
   appRoot: string;
   href: string;
@@ -2187,10 +2196,8 @@ function buildVaultBranchProductionUrlLabel(url: string): string {
 }
 
 function VaultBranchProductionApps({
-  metadataLinkClassName,
   productionApps,
 }: {
-  metadataLinkClassName: string;
   productionApps: readonly VaultBranchProductionApp[];
 }) {
   const showAppRootHeadings =
@@ -2201,16 +2208,21 @@ function VaultBranchProductionApps({
       {productionApps.map((app) => (
         <div key={app.appRoot} className="grid min-w-0 gap-0.5">
           {showAppRootHeadings ? (
-            <div className="grid min-h-7 max-w-full grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-x-2 text-base leading-6 text-muted-foreground">
+            <div className={branchProductionAppRootClassName}>
               <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-                <ChevronDownIcon className="h-3.5 w-3.5" />
+                <ChevronDownIcon className={branchProductionAppRootIconClassName} />
               </span>
-              <span className="min-w-0 max-w-full truncate font-mono">
+              <span className={branchProductionAppRootValueClassName}>
                 {buildVaultBranchProductionAppRootLabel(app.appRoot)}
               </span>
             </div>
           ) : null}
-          <div className={clsx("grid min-w-0 gap-0.5", showAppRootHeadings && "pl-7")}>
+          <div
+            className={clsx(
+              "grid min-w-0 gap-0.5",
+              showAppRootHeadings && branchProductionProviderRowsIndentClassName,
+            )}
+          >
             {app.links.map((link) => {
               const Icon = BRANCH_PRODUCTION_LINK_ICONS[link.provider];
               return (
@@ -2219,13 +2231,13 @@ function VaultBranchProductionApps({
                   href={link.href}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className={clsx(metadataLinkClassName, "gap-1.5")}
+                  className={clsx(branchProductionLinkClassName, linkStyle)}
                   title={link.title}
                 >
                   <DashboardLinkIconSlot>
                     <Icon />
                   </DashboardLinkIconSlot>
-                  <span className="min-w-0 break-all">{link.label}</span>
+                  <span className={branchProductionLinkLabelClassName}>{link.label}</span>
                 </a>
               );
             })}
@@ -2432,10 +2444,7 @@ export function VaultBranchLinkContent({
             )
           ) : null}
           {activeProductionApps.length > 0 ? (
-            <VaultBranchProductionApps
-              metadataLinkClassName={metadataLinkClassName}
-              productionApps={activeProductionApps}
-            />
+            <VaultBranchProductionApps productionApps={activeProductionApps} />
           ) : null}
           <a
             href={branchGithubUrl}
@@ -3087,10 +3096,10 @@ function buildVaultProductionApps(vault: VaultDashboardVault): VaultBranchProduc
         {
           appRoot: deployment.appRoot,
           href: deployment.deploymentDashboardUrl,
-          label: "Production deploy",
+          label: `Production: ${deployment.deploymentName}`,
           provider: "convex",
           sortKey: deployment.deploymentName,
-          title: "Open production Convex deployment dashboard",
+          title: `Open production Convex deployment ${deployment.deploymentName}`,
         },
       ];
     },

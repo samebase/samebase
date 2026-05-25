@@ -286,9 +286,9 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
           },
           {
             href: "https://dashboard.convex.dev/t/nicu/noter/calm-swan-123",
-            label: "Production deploy",
+            label: "Production: calm-swan-123",
             provider: "convex",
-            title: "Open production Convex deployment dashboard",
+            title: "Open production Convex deployment calm-swan-123",
           },
         ],
       },
@@ -1244,9 +1244,9 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
                           links: [
                             {
                               href: "https://dashboard.convex.dev/t/nicu/noter/calm-swan-123",
-                              label: "Production deploy",
+                              label: "Production: calm-swan-123",
                               provider: "convex",
-                              title: "Open production Convex deployment dashboard",
+                              title: "Open production Convex deployment calm-swan-123",
                             },
                           ],
                         },
