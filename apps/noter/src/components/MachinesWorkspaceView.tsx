@@ -20,10 +20,7 @@ import {
 } from "@/lib/machinesWorkspaceSidebar";
 import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
 import { cn } from "@/lib/utils";
-import {
-  MachinesWorkspaceThreadHeader,
-  MachinesWorkspaceThreadPane,
-} from "@/components/MachinesWorkspaceThreadPane";
+import { MachinesWorkspaceThreadPane } from "@/components/MachinesWorkspaceThreadPane";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -569,25 +566,6 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
   return (
     <AppWorkspaceRouteChrome
       dataTestId={props.dataTestId}
-      headerAccessory={
-        <MachinesWorkspaceThreadHeader
-          hasPendingStartedThread={props.hasPendingStartedThread}
-          isLoading={props.selectedThreadLoading}
-          pendingConversation={
-            props.pendingConversation === null
-              ? null
-              : {
-                  envMode: props.pendingConversation.envMode,
-                  projectLabel: props.pendingConversation.projectLabel,
-                }
-          }
-          selectedMachineDisplayName={props.selectedMachineDisplayName}
-          selectedMachineHostname={props.selectedMachineHostname}
-          selectedMachineStatusReason={props.selectedMachineStatusReason}
-          selectedThreadId={props.selectedThreadId}
-          thread={props.selectedThread}
-        />
-      }
       left={{
         header: props.leftSidebarHeader ?? null,
         content: (
