@@ -244,11 +244,17 @@ export function RouteUrlEditor() {
   const inputRef = useRef<HTMLInputElement>(null);
   const inputSelectionBeforeChangeRef = useRef<RouteUrlEditorInputSelection | null>(null);
   const skipNextBlurCommitRef = useRef(false);
+  // Arrow-key previews rewrite the input value, while suggestions stay anchored
+  // to the text the user typed until they type, click, blur, or commit.
+  const suggestionPreviewActiveRef = useRef(false);
   const origin = readRouteUrlEditorOrigin();
   const [draftRouteAddress, setDraftRouteAddress] = useState(currentHref);
   const [inputFocused, setInputFocused] = useState(false);
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
   const [suggestionDraftEditedSinceFocus, setSuggestionDraftEditedSinceFocus] = useState(false);
+  // The draft can temporarily be a highlighted suggestion; this is the
+  // user-edited URL that filters the suggestion list.
+  const [suggestionBaseRouteAddress, setSuggestionBaseRouteAddress] = useState(currentHref);
   const [suggestionKind, setSuggestionKind] = useState<RouteUrlEditorSuggestionKind>("path");
   const [selectionRouteIndex, setSelectionRouteIndex] = useState(0);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number | null>(null);
@@ -267,7 +273,7 @@ export function RouteUrlEditor() {
   const suggestions = readRouteUrlEditorSuggestions({
     currentHref,
     draftEditedSinceFocus: suggestionDraftEditedSinceFocus,
-    draftRouteAddress,
+    draftRouteAddress: suggestionBaseRouteAddress,
     hashKeys: documentHashSuggestionKeys,
     kind: suggestionKind,
     origin,
@@ -318,6 +324,7 @@ export function RouteUrlEditor() {
     }
 
     setDraftRouteAddress(currentHref);
+    setSuggestionBaseRouteAddress(currentHref);
   }, [currentHref, inputFocused]);
 
   useEffect(() => {
@@ -375,6 +382,7 @@ export function RouteUrlEditor() {
       });
       setSelectionRouteIndex(nextSelectionRouteIndex);
       setSuggestionKind(readRouteUrlEditorSuggestionKind(routeAddress, nextSelectionRouteIndex));
+      setSuggestionBaseRouteAddress(routeAddress);
       setActiveSuggestionIndex(null);
     },
     [origin],
@@ -434,6 +442,11 @@ export function RouteUrlEditor() {
 
   const syncSuggestionSelectionFromInput = useCallback(
     (event: SyntheticEvent<HTMLInputElement>) => {
+      if (suggestionPreviewActiveRef.current && event.type === "select") {
+        return;
+      }
+
+      suggestionPreviewActiveRef.current = false;
       const nextDraftRouteAddress =
         readRouteUrlEditorDraftRouteAddress({
           inputValue: event.currentTarget.value,
@@ -538,6 +551,7 @@ export function RouteUrlEditor() {
         origin,
       });
       if (nextDraftRouteAddress === null) {
+        suggestionPreviewActiveRef.current = false;
         restoreRouteUrlEditorRejectedInput({
           input: event.currentTarget,
           selection: inputSelectionBeforeChangeRef.current,
@@ -547,6 +561,8 @@ export function RouteUrlEditor() {
       }
 
       setDraftRouteAddress(nextDraftRouteAddress);
+      setSuggestionBaseRouteAddress(nextDraftRouteAddress);
+      suggestionPreviewActiveRef.current = false;
       setSuggestionDraftEditedSinceFocus(true);
       setSuggestionsDismissed(false);
       syncSuggestionSelection(event.currentTarget, nextDraftRouteAddress);
@@ -557,7 +573,9 @@ export function RouteUrlEditor() {
   );
 
   const resetInput = useCallback(() => {
+    suggestionPreviewActiveRef.current = false;
     setDraftRouteAddress(currentHref);
+    setSuggestionBaseRouteAddress(currentHref);
   }, [currentHref]);
 
   const commitInput = useCallback(
@@ -569,11 +587,15 @@ export function RouteUrlEditor() {
       });
 
       if (href === null) {
+        suggestionPreviewActiveRef.current = false;
         setDraftRouteAddress(currentHref);
+        setSuggestionBaseRouteAddress(currentHref);
         return;
       }
 
+      suggestionPreviewActiveRef.current = false;
       setDraftRouteAddress(href);
+      setSuggestionBaseRouteAddress(href);
 
       if (href === currentHref) {
         return;
@@ -599,10 +621,12 @@ export function RouteUrlEditor() {
     setInputFocused(false);
     setSuggestionsDismissed(false);
     setSuggestionDraftEditedSinceFocus(false);
+    suggestionPreviewActiveRef.current = false;
 
     if (skipNextBlurCommitRef.current) {
       skipNextBlurCommitRef.current = false;
       setDraftRouteAddress(currentHref);
+      setSuggestionBaseRouteAddress(currentHref);
       return;
     }
 
@@ -611,6 +635,7 @@ export function RouteUrlEditor() {
 
   const focusInput = useCallback(
     (event: SyntheticEvent<HTMLInputElement>) => {
+      suggestionPreviewActiveRef.current = false;
       refreshDocumentHashSuggestionKeys();
       syncSuggestionSelection(event.currentTarget, draftRouteAddress);
       setInputFocused(true);
@@ -622,19 +647,55 @@ export function RouteUrlEditor() {
 
   const moveActiveSuggestion = useCallback(
     (step: number) => {
-      setActiveSuggestionIndex((currentActiveSuggestionIndex) => {
-        if (!suggestionsVisible || suggestions.length === 0) {
-          return null;
-        }
+      if (!suggestionsVisible || suggestions.length === 0) {
+        setActiveSuggestionIndex(null);
+        return;
+      }
 
-        if (currentActiveSuggestionIndex === null) {
-          return step > 0 ? 0 : suggestions.length - 1;
-        }
+      const nextActiveSuggestionIndex =
+        activeSuggestionIndex === null
+          ? step > 0
+            ? 0
+            : suggestions.length - 1
+          : (activeSuggestionIndex + step + suggestions.length) % suggestions.length;
+      const nextSuggestion = suggestions[nextActiveSuggestionIndex];
 
-        return (currentActiveSuggestionIndex + step + suggestions.length) % suggestions.length;
+      const nextDraftRouteAddress = applyRouteUrlEditorSuggestion({
+        routeAddress: draftRouteAddress,
+        selectionRouteIndex,
+        suggestion: nextSuggestion,
+      });
+
+      setActiveSuggestionIndex(nextActiveSuggestionIndex);
+      setDraftRouteAddress(nextDraftRouteAddress);
+      suggestionPreviewActiveRef.current = true;
+      setSuggestionDraftEditedSinceFocus(true);
+
+      const nextHref = normalizeRouteUrlEditorHref({
+        currentHref,
+        origin,
+        rawHref: nextDraftRouteAddress,
+      });
+
+      if (nextHref === null || nextHref === currentHref) {
+        return;
+      }
+
+      navigateRouteUrlEditorHref(nextHref, {
+        replaceRouteNavigation: false,
+        replaceRouteOptions: true,
       });
     },
-    [suggestions.length, suggestionsVisible],
+    [
+      activeSuggestionIndex,
+      currentHref,
+      draftRouteAddress,
+      navigateRouteUrlEditorHref,
+      origin,
+      selectionRouteIndex,
+      suggestions,
+      suggestionsVisible,
+    ],
   );
 
   const selectSuggestion = useCallback(

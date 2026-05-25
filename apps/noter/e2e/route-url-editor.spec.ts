@@ -432,12 +432,18 @@ test("route URL editor selects suggestions with arrow keys", async ({ page }) =>
 
   await input.press("ArrowDown");
   await expect(logoOption).toHaveAttribute("aria-selected", "true");
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(input).toHaveValue(`${origin}/logo`);
 
   await input.press("ArrowDown");
   await expect(logoIsoOption).toHaveAttribute("aria-selected", "true");
+  await expect(page).toHaveURL(`${origin}/logo/iso`);
+  await expect(input).toHaveValue(`${origin}/logo/iso`);
 
   await input.press("ArrowUp");
   await expect(logoOption).toHaveAttribute("aria-selected", "true");
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(input).toHaveValue(`${origin}/logo`);
 
   await input.press("Enter");
 
