@@ -26,6 +26,7 @@ import {
 } from "@/lib/routeUrlEditorSuggestions";
 import { RETAINED_ROOT_SEARCH_KEYS, validateRootRouteSearch } from "@/lib/rootRouteSearch";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
+import { isRouteUrlPathReadyForNavigation } from "@/lib/routeUrlPathSuggestions";
 import { api } from "../../convex/_generated/api";
 
 const routeUrlEditorIconButtonClassName =
@@ -226,9 +227,9 @@ function readRouteUrlEditorExactSearch(args: {
 }
 
 /**
- * Displays route reality separately from the focused local draft. Route-option
- * edits can apply while typing, but router normalization does not replace the
- * draft text until the user leaves the field.
+ * Displays route reality separately from the focused local draft. Valid edits
+ * apply while typing, but router normalization does not replace the draft text
+ * until the user leaves the field.
  */
 export function RouteUrlEditor() {
   const location = useLocation();
@@ -444,7 +445,55 @@ export function RouteUrlEditor() {
     [draftRouteAddress, origin, syncSuggestionSelection],
   );
 
-  const applyDraftRouteOptions = useCallback(
+  const navigateRouteUrlEditorHref = useCallback(
+    (
+      nextHref: string,
+      options: { replaceRouteNavigation: boolean; replaceRouteOptions: boolean },
+    ) => {
+      const commitMode = getRouteUrlEditorCommitMode({
+        currentHref,
+        nextHref,
+        origin,
+      });
+
+      switch (commitMode) {
+        case "route-options": {
+          const routeOptionsUrl = new URL(nextHref, new URL(origin));
+          void router.navigate({
+            hash: readRouteUrlEditorHash(routeOptionsUrl),
+            replace: options.replaceRouteOptions,
+            search: () =>
+              readRouteUrlEditorExactSearch({
+                currentHref,
+                nextHref,
+                origin,
+              }),
+            resetScroll: false,
+            to: routeOptionsUrl.pathname,
+          });
+          return;
+        }
+        case "route-navigation": {
+          const routeNavigationUrl = new URL(nextHref, new URL(origin));
+          void router.navigate({
+            hash: readRouteUrlEditorHash(routeNavigationUrl),
+            replace: options.replaceRouteNavigation,
+            search: () =>
+              readRouteUrlEditorExactSearch({
+                currentHref,
+                nextHref,
+                origin,
+              }),
+            to: routeNavigationUrl.pathname,
+          });
+          return;
+        }
+      }
+    },
+    [currentHref, origin, router],
+  );
+
+  const previewDraftRouteAddress = useCallback(
     (nextDraftRouteAddress: string) => {
       const nextHref = normalizeRouteUrlEditorHref({
         currentHref,
@@ -461,24 +510,25 @@ export function RouteUrlEditor() {
         nextHref,
         origin,
       });
-
-      if (commitMode === "route-options") {
-        const nextUrl = new URL(nextHref, new URL(origin));
-        void router.navigate({
-          hash: readRouteUrlEditorHash(nextUrl),
-          replace: true,
-          search: () =>
-            readRouteUrlEditorExactSearch({
-              currentHref,
-              nextHref,
-              origin,
-            }),
-          resetScroll: false,
-          to: nextUrl.pathname,
-        });
+      if (
+        commitMode === "route-navigation" &&
+        !isRouteUrlPathReadyForNavigation({
+          currentHref,
+          draftHref: nextHref,
+          origin,
+          routesByPath: router.routesByPath,
+          viewer: { isAdmin: viewerIsAdmin === true },
+        })
+      ) {
+        return;
       }
+
+      navigateRouteUrlEditorHref(nextHref, {
+        replaceRouteNavigation: false,
+        replaceRouteOptions: true,
+      });
     },
-    [currentHref, origin, router],
+    [currentHref, navigateRouteUrlEditorHref, origin, router.routesByPath, viewerIsAdmin],
   );
 
   const changeDraftRouteAddress = useCallback(
@@ -501,9 +551,9 @@ export function RouteUrlEditor() {
       setSuggestionsDismissed(false);
       syncSuggestionSelection(event.currentTarget, nextDraftRouteAddress);
 
-      applyDraftRouteOptions(nextDraftRouteAddress);
+      previewDraftRouteAddress(nextDraftRouteAddress);
     },
-    [applyDraftRouteOptions, inputValue, origin, syncSuggestionSelection],
+    [inputValue, origin, previewDraftRouteAddress, syncSuggestionSelection],
   );
 
   const resetInput = useCallback(() => {
@@ -529,46 +579,12 @@ export function RouteUrlEditor() {
         return;
       }
 
-      const commitMode = getRouteUrlEditorCommitMode({
-        currentHref,
-        nextHref: href,
-        origin,
+      navigateRouteUrlEditorHref(href, {
+        replaceRouteNavigation: false,
+        replaceRouteOptions: options.replaceRouteOptions,
       });
-
-      switch (commitMode) {
-        case "route-options": {
-          const routeOptionsUrl = new URL(href, new URL(origin));
-          void router.navigate({
-            hash: readRouteUrlEditorHash(routeOptionsUrl),
-            replace: options.replaceRouteOptions,
-            search: () =>
-              readRouteUrlEditorExactSearch({
-                currentHref,
-                nextHref: href,
-                origin,
-              }),
-            resetScroll: false,
-            to: routeOptionsUrl.pathname,
-          });
-          return;
-        }
-        case "route-navigation": {
-          const routeNavigationUrl = new URL(href, new URL(origin));
-          void router.navigate({
-            hash: readRouteUrlEditorHash(routeNavigationUrl),
-            search: () =>
-              readRouteUrlEditorExactSearch({
-                currentHref,
-                nextHref: href,
-                origin,
-              }),
-            to: routeNavigationUrl.pathname,
-          });
-          return;
-        }
-      }
     },
-    [currentHref, origin, router],
+    [currentHref, navigateRouteUrlEditorHref, origin],
   );
 
   const submitInput = useCallback(
@@ -688,7 +704,7 @@ export function RouteUrlEditor() {
 
           setDraftRouteAddress(routeBoundaryBackspace.routeAddress);
           setSuggestionDraftEditedSinceFocus(true);
-          applyDraftRouteOptions(routeBoundaryBackspace.routeAddress);
+          previewDraftRouteAddress(routeBoundaryBackspace.routeAddress);
           return;
         }
         case "Escape":
@@ -700,10 +716,10 @@ export function RouteUrlEditor() {
     },
     [
       activeSuggestion,
-      applyDraftRouteOptions,
       draftRouteAddress,
       moveActiveSuggestion,
       origin,
+      previewDraftRouteAddress,
       resetInput,
       selectSuggestion,
       suggestionsVisible,

@@ -66,6 +66,34 @@ export function filterRouteUrlPathSuggestions({
   );
 }
 
+export function isRouteUrlPathReadyForNavigation({
+  currentHref,
+  draftHref,
+  origin,
+  routesByPath,
+  viewer,
+}: RouteUrlPathSuggestionsInput): boolean {
+  const suggestions = readRouteUrlPathSuggestions(routesByPath, viewer, {
+    prodUiMode: readRouteUrlPathSuggestionProdUiMode({
+      currentHref,
+      draftHref,
+      origin,
+    }),
+  });
+  const draftPath = readRouteUrlPathSuggestionDraftPath({
+    currentHref,
+    draftHref,
+    origin,
+  });
+  if (draftPath === null) {
+    return false;
+  }
+
+  return suggestions.some((pathSuggestion) =>
+    routePathSuggestionCanLoadDraft(pathSuggestion, draftPath),
+  );
+}
+
 function isRouteUrlPathSuggestion(
   path: string,
   permission: NoterRoutePermission,
@@ -181,6 +209,14 @@ function routePathSuggestionMatchesDraft(pathSuggestion: string, draftPath: stri
   return routePathTemplateMatchesDraft(pathSuggestion, draftPath);
 }
 
+function routePathSuggestionCanLoadDraft(pathSuggestion: string, draftPath: string): boolean {
+  if (!pathSuggestion.includes("$")) {
+    return pathSuggestion === draftPath;
+  }
+
+  return routePathTemplateCanLoadDraft(pathSuggestion, draftPath);
+}
+
 function routePathTemplateMatchesDraft(templatePath: string, draftPath: string): boolean {
   if (draftPath === "/") {
     return true;
@@ -220,6 +256,32 @@ function routePathTemplateMatchesDraft(templatePath: string, draftPath: string):
   }
 
   return true;
+}
+
+function routePathTemplateCanLoadDraft(templatePath: string, draftPath: string): boolean {
+  const templateSegments = readRoutePathSegments(templatePath);
+  const draftSegments = readRoutePathSegments(draftPath);
+
+  for (const [index, templateSegment] of templateSegments.entries()) {
+    const draftSegment = draftSegments[index];
+    if (!draftSegment) {
+      return false;
+    }
+
+    if (templateSegment === "$" && index === templateSegments.length - 1) {
+      return true;
+    }
+
+    if (templateSegment.startsWith("$")) {
+      continue;
+    }
+
+    if (templateSegment !== draftSegment) {
+      return false;
+    }
+  }
+
+  return draftSegments.length === templateSegments.length;
 }
 
 function readRoutePathSegments(path: string): readonly string[] {

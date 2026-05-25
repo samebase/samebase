@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { getRouter } from "@/router";
 import {
   filterRouteUrlPathSuggestions,
+  isRouteUrlPathReadyForNavigation,
   readRouteUrlPathSuggestions,
 } from "./routeUrlPathSuggestions";
 
@@ -171,5 +172,61 @@ describe("filterRouteUrlPathSuggestions", () => {
 
     expect(suggestions).toContain("/logo");
     expect(suggestions).not.toContain("/visual-fixture");
+  });
+});
+
+describe("isRouteUrlPathReadyForNavigation", () => {
+  it("accepts exact static route paths and keeps partial path drafts local", () => {
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/logo?from=route-url-editor",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: publicViewer,
+      }),
+    ).toBe(true);
+
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/lo",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: publicViewer,
+      }),
+    ).toBe(false);
+  });
+
+  it("accepts concrete dynamic and catch-all route paths", () => {
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/vault/octo/repo/codespace/main/chat",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: adminViewer,
+      }),
+    ).toBe(true);
+
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/vault/octo",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: adminViewer,
+      }),
+    ).toBe(true);
+
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/vault/",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: adminViewer,
+      }),
+    ).toBe(false);
   });
 });

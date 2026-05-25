@@ -26,7 +26,7 @@ async function editRouteUrl(page: Page): Promise<Locator> {
   return input;
 }
 
-test("route URL editor fixture navigates committed same-origin hrefs", async ({ page }) => {
+test("route URL editor fixture navigates same-origin hrefs while typing", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 96 });
   await page.goto("/visual-fixture?mode=route-url-editor", {
     waitUntil: "domcontentloaded",
@@ -69,7 +69,7 @@ test("route URL editor fixture navigates committed same-origin hrefs", async ({ 
 
   await input.fill(`${origin}/logo?from=route-url-editor`);
   await expect(input).toHaveValue(`${origin}/logo?from=route-url-editor`);
-  await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
+  await expect(currentHref).toHaveText("/logo?from=route-url-editor");
 
   await input.press("Enter");
 
