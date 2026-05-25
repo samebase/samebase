@@ -145,4 +145,5 @@ miss the context-preservation behavior we wanted to study.
 ## Current Decision State
 
 This file supports a follow-up decision. The current best candidate is a compact always-loaded
-delegation-checkpoint rule plus a final-handoff delegation tree for substantial tasks.
+delegation-checkpoint rule for baseline behavior plus an opt-in `delegation-orchestrator` skill for
+stronger multi-agent splitting and final-handoff delegation trees.
