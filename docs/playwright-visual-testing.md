@@ -47,8 +47,9 @@ Reports are written locally after each run:
 
 ## Useful Overrides
 
-- `PLAYWRIGHT_LINUX_PLATFORM=linux/arm64` runs the required Linux ARM64 container for creating
-  screenshots locally.
+- `PLAYWRIGHT_LINUX_PLATFORM=linux/arm64` is the wrapper default. Do not include it in normal
+  commands; use it only when documenting the exact platform or checking that an override path still
+  works.
 - `PLAYWRIGHT_LINUX_PLATFORM=linux/amd64` runs the x86_64/emulated container. Use it only for
   one-off diagnostics, not for accepted screenshot baselines.
 - `PLAYWRIGHT_LINUX_IMAGE=mcr.microsoft.com/playwright:v1.58.2-noble` pins the Playwright browser
