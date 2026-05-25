@@ -1,5 +1,5 @@
 import { Layout, PublicLayoutShell } from "@/Layout";
-import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation, useMatches } from "@tanstack/react-router";
 import { useMemo } from "react";
 import {
   PublicLayoutRouteChromeProvider,
@@ -10,12 +10,7 @@ import {
   type PublicLayoutRouteChromeSnapshot,
   usePublicLayoutRouteChromeSnapshot,
 } from "@/lib/publicLayoutRouteChromeStore";
-import {
-  isPublicLayoutShellPathname,
-  readPublicLayoutShellPathname,
-} from "@/lib/publicLayoutPaths";
-
-const LOGO_PREVIEW_ROUTE_CHROME_PATHS = ["/logo", "/logo/iso", "/logo/raster"] as const;
+import { isPublicLayoutShellPathname } from "@/lib/publicLayoutPaths";
 
 function hasRegisteredRouteChrome(routeChrome: PublicLayoutRouteChromeSnapshot): boolean {
   return (
@@ -30,46 +25,28 @@ function hasRegisteredRouteChrome(routeChrome: PublicLayoutRouteChromeSnapshot):
   );
 }
 
-function readInitialPublicLayoutRouteChrome(pathname: string): PublicLayoutRouteChromeSnapshot {
-  const normalizedPathname = readPublicLayoutShellPathname(pathname);
-  if (normalizedPathname === "/localStorage") {
-    return {
-      dataTestId: "local-storage-workspace",
-      defaultLeftOpen: true,
-      left: {},
-      leftToggleVisibility: "desktop",
-    };
-  }
-
-  if (
-    LOGO_PREVIEW_ROUTE_CHROME_PATHS.some(
-      (logoPreviewPathname) => logoPreviewPathname === normalizedPathname,
-    )
-  ) {
-    return {
-      defaultLeftOpen: true,
-      defaultMobilePane: "left",
-      left: {},
-      leftToggleVisibility: "desktop",
-      main: {
-        headerTestId: "logo-preview-main-header",
-      },
-    };
-  }
-
-  return {};
-}
-
 function PublicLayoutRoute() {
   const pathname = useLocation({
     select: (location) => location.pathname,
+  });
+  const initialRouteChrome = useMatches({
+    select: (matches) => {
+      for (let index = matches.length - 1; index >= 0; index -= 1) {
+        const routeChrome = matches[index]?.staticData.publicLayoutRouteChrome;
+        if (routeChrome !== undefined) {
+          return routeChrome;
+        }
+      }
+
+      return undefined;
+    },
   });
   const shouldUseShell = isPublicLayoutShellPathname(pathname);
   const chromeStore = useMemo(createPublicLayoutRouteChromeStore, []);
   const registeredRouteChrome = usePublicLayoutRouteChromeSnapshot(chromeStore);
   const routeChrome = hasRegisteredRouteChrome(registeredRouteChrome)
     ? registeredRouteChrome
-    : readInitialPublicLayoutRouteChrome(pathname);
+    : (initialRouteChrome ?? {});
 
   if (!shouldUseShell) {
     return <Outlet />;
