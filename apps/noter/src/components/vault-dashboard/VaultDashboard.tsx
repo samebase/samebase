@@ -2110,15 +2110,131 @@ interface VaultBranchLinkRowProps {
   vaultId?: Id<"vaults">;
   repositoryFullName: string;
   branch: VaultRemoteBranchListItem;
-  cloudflareProductionLinks?: readonly VaultBranchCloudflareProductionLink[];
-  productionDeploymentDashboardUrl?: string;
+  productionApps?: readonly VaultBranchProductionApp[];
   stagedSummary?: StagedSummary;
 }
 
-type VaultBranchCloudflareProductionLink = {
-  appRoot: string;
-  url: string;
+type VaultBranchProductionLinkProvider = "cloudflare" | "convex";
+
+type VaultBranchProductionLink = {
+  href: string;
+  label: string;
+  provider: VaultBranchProductionLinkProvider;
+  title: string;
 };
+
+type VaultBranchProductionApp = {
+  appRoot: string;
+  links: readonly VaultBranchProductionLink[];
+};
+
+const BRANCH_PRODUCTION_LINK_ICONS = {
+  cloudflare: CloudflareProviderLogo,
+  convex: ConvexProviderLogo,
+} satisfies Record<VaultBranchProductionLinkProvider, VaultDashboardLogoComponent>;
+
+type VaultBranchProductionLinkInput = {
+  appRoot: string;
+  href: string;
+  label: string;
+  provider: VaultBranchProductionLinkProvider;
+  sortKey: string;
+  title: string;
+};
+
+function buildVaultBranchProductionApps(
+  links: VaultBranchProductionLinkInput[],
+): VaultBranchProductionApp[] {
+  const linksByAppRoot = new Map<string, VaultBranchProductionLinkInput[]>();
+
+  for (const link of links) {
+    linksByAppRoot.set(link.appRoot, [...(linksByAppRoot.get(link.appRoot) ?? []), link]);
+  }
+
+  return [...linksByAppRoot.entries()]
+    .sort(([leftAppRoot], [rightAppRoot]) => leftAppRoot.localeCompare(rightAppRoot))
+    .map(([appRoot, appLinks]) => ({
+      appRoot,
+      links: [...appLinks]
+        .sort(
+          (left, right) =>
+            left.provider.localeCompare(right.provider) ||
+            left.sortKey.localeCompare(right.sortKey) ||
+            left.href.localeCompare(right.href),
+        )
+        .map((link) => ({
+          href: link.href,
+          label: link.label,
+          provider: link.provider,
+          title: link.title,
+        })),
+    }));
+}
+
+function buildVaultBranchProductionAppRootLabel(appRoot: string): string {
+  if (appRoot === ".") {
+    return "Repository root";
+  }
+  return appRoot;
+}
+
+function buildVaultBranchProductionUrlLabel(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url.replace(/^https?:\/\//, "");
+  }
+}
+
+function VaultBranchProductionApps({
+  metadataLinkClassName,
+  productionApps,
+}: {
+  metadataLinkClassName: string;
+  productionApps: readonly VaultBranchProductionApp[];
+}) {
+  const showAppRootHeadings =
+    productionApps.length > 1 || productionApps.some((app) => app.appRoot !== ".");
+
+  return (
+    <div className="grid min-w-0 gap-1">
+      {productionApps.map((app) => (
+        <div key={app.appRoot} className="grid min-w-0 gap-0.5">
+          {showAppRootHeadings ? (
+            <div className="grid min-h-7 max-w-full grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-x-2 text-base leading-6 text-muted-foreground">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                <ChevronDownIcon className="h-3.5 w-3.5" />
+              </span>
+              <span className="min-w-0 max-w-full truncate font-mono">
+                {buildVaultBranchProductionAppRootLabel(app.appRoot)}
+              </span>
+            </div>
+          ) : null}
+          <div className={clsx("grid min-w-0 gap-0.5", showAppRootHeadings && "pl-7")}>
+            {app.links.map((link) => {
+              const Icon = BRANCH_PRODUCTION_LINK_ICONS[link.provider];
+              return (
+                <a
+                  key={`${link.provider}\n${link.href}`}
+                  href={link.href}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className={clsx(metadataLinkClassName, "gap-1.5")}
+                  title={link.title}
+                >
+                  <DashboardLinkIconSlot>
+                    <Icon />
+                  </DashboardLinkIconSlot>
+                  <span className="min-w-0 break-all">{link.label}</span>
+                </a>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function formatAheadBehindCounts(
   aheadBy: number | undefined,
@@ -2214,13 +2330,11 @@ export function VaultDashboardRepositoryExternalLinks({
 export function VaultBranchLinkContent({
   repositoryFullName,
   branch,
-  cloudflareProductionLinks = [],
-  productionDeploymentDashboardUrl,
+  productionApps = [],
 }: {
   repositoryFullName: string;
   branch: VaultRemoteBranchListItem;
-  cloudflareProductionLinks?: readonly VaultBranchCloudflareProductionLink[];
-  productionDeploymentDashboardUrl?: string;
+  productionApps?: readonly VaultBranchProductionApp[];
 }) {
   const commitUrl = `https://github.com/${repositoryFullName}/commit/${branch.headCommitSha}`;
   const branchGithubUrl = buildGitHubBranchTreeUrl({
@@ -2268,9 +2382,7 @@ export function VaultBranchLinkContent({
     cloudflarePreviewPullRequestNumber: branch.cloudflarePreviewPullRequestNumber,
     cloudflarePreviewStatus: branch.cloudflarePreviewStatus,
   });
-  const activeCloudflareProductionLinks = branch.isDefault ? cloudflareProductionLinks : [];
-  const hasProductionDeploymentLink =
-    branch.isDefault && typeof productionDeploymentDashboardUrl === "string";
+  const activeProductionApps = branch.isDefault ? productionApps : [];
   const hasPreviewDeploymentLink =
     !branch.isDefault &&
     hasCurrentPreviewLink &&
@@ -2319,35 +2431,11 @@ export function VaultBranchLinkContent({
               </div>
             )
           ) : null}
-          {activeCloudflareProductionLinks.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-              {activeCloudflareProductionLinks.map((link) => {
-                const showAppRoot =
-                  activeCloudflareProductionLinks.length > 1 || link.appRoot !== ".";
-                return (
-                  <a
-                    key={`${link.appRoot}\n${link.url}`}
-                    href={link.url}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className={clsx(metadataLinkClassName, "gap-1.5")}
-                    title={
-                      link.appRoot === "."
-                        ? "Open production app"
-                        : `Open production app for ${link.appRoot}`
-                    }
-                  >
-                    <DashboardLinkIconSlot>
-                      <CloudflareProviderLogo />
-                    </DashboardLinkIconSlot>
-                    <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-                      {showAppRoot ? <span>{link.appRoot}</span> : null}
-                      <span className="min-w-0 break-all">{link.url}</span>
-                    </span>
-                  </a>
-                );
-              })}
-            </div>
+          {activeProductionApps.length > 0 ? (
+            <VaultBranchProductionApps
+              metadataLinkClassName={metadataLinkClassName}
+              productionApps={activeProductionApps}
+            />
           ) : null}
           <a
             href={branchGithubUrl}
@@ -2492,22 +2580,6 @@ export function VaultBranchLinkContent({
                 </a>
               </div>
             ) : null}
-            {hasProductionDeploymentLink ? (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-                <a
-                  href={productionDeploymentDashboardUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className={clsx(metadataLinkClassName, "gap-1.5")}
-                  title="Open production Convex deployment dashboard"
-                >
-                  <DashboardLinkIconSlot>
-                    <ConvexProviderLogo />
-                  </DashboardLinkIconSlot>
-                  <span>Production deploy</span>
-                </a>
-              </div>
-            ) : null}
           </div>
         </div>
       )}
@@ -2519,8 +2591,7 @@ export function VaultBranchLinkRow({
   vaultId,
   repositoryFullName,
   branch,
-  cloudflareProductionLinks,
-  productionDeploymentDashboardUrl,
+  productionApps,
   stagedSummary,
 }: VaultBranchLinkRowProps) {
   const hasStagedChanges = (stagedSummary?.total ?? 0) > 0;
@@ -2536,8 +2607,7 @@ export function VaultBranchLinkRow({
       <VaultBranchLinkContent
         repositoryFullName={repositoryFullName}
         branch={branch}
-        cloudflareProductionLinks={cloudflareProductionLinks}
-        productionDeploymentDashboardUrl={productionDeploymentDashboardUrl}
+        productionApps={productionApps}
       />
       {showRowActions ? (
         <div className="flex shrink-0 items-start gap-2">
@@ -2561,8 +2631,7 @@ interface VaultBranchListProps {
   vaultId: Id<"vaults">;
   repositoryFullName: string;
   remoteBranches: VaultRemoteBranchListItem[];
-  cloudflareProductionLinks?: readonly VaultBranchCloudflareProductionLink[];
-  productionDeploymentDashboardUrl?: string;
+  productionApps?: readonly VaultBranchProductionApp[];
   expansion?: VaultBranchListExpansionProps;
 }
 
@@ -2604,8 +2673,7 @@ function VaultBranchList({
   vaultId,
   repositoryFullName,
   remoteBranches,
-  cloudflareProductionLinks,
-  productionDeploymentDashboardUrl,
+  productionApps,
   expansion,
 }: VaultBranchListProps) {
   const stagedSummaries =
@@ -2627,10 +2695,7 @@ function VaultBranchList({
           vaultId={vaultId}
           repositoryFullName={repositoryFullName}
           stagedSummary={summaryByBranch.get(branch.name)}
-          cloudflareProductionLinks={branch.isDefault ? cloudflareProductionLinks : undefined}
-          productionDeploymentDashboardUrl={
-            branch.isDefault ? productionDeploymentDashboardUrl : undefined
-          }
+          productionApps={branch.isDefault ? productionApps : undefined}
         />
       ))}
       {expansion ? <VaultBranchListExpansionControl {...expansion} /> : null}
@@ -2675,16 +2740,14 @@ export function VaultBranchHeaderControls({
 }
 
 function VaultBranchSection({
-  cloudflareProductionLinks,
   filteredBranchCount,
-  productionDeploymentDashboardUrl,
+  productionApps,
   repositoryFullName,
   vaultId,
   visibleRemoteBranches,
 }: {
-  cloudflareProductionLinks?: readonly VaultBranchCloudflareProductionLink[];
   filteredBranchCount: number;
-  productionDeploymentDashboardUrl?: string;
+  productionApps?: readonly VaultBranchProductionApp[];
   repositoryFullName: string;
   vaultId: Id<"vaults">;
   visibleRemoteBranches: VaultRemoteBranchListItem[];
@@ -2696,8 +2759,7 @@ function VaultBranchSection({
           vaultId={vaultId}
           repositoryFullName={repositoryFullName}
           remoteBranches={visibleRemoteBranches}
-          cloudflareProductionLinks={cloudflareProductionLinks}
-          productionDeploymentDashboardUrl={productionDeploymentDashboardUrl}
+          productionApps={productionApps}
         />
       ) : null}
     </>
@@ -2995,52 +3057,46 @@ function buildVaultDashboardHashIdForVault({
   });
 }
 
-type VaultDashboardConvexDeployment = VaultDashboardVault["convexDeployments"][number];
-
-function selectPrimaryVaultConvexDeployment(
-  vault: VaultDashboardVault,
-): VaultDashboardConvexDeployment | null {
-  if (vault.convexDeployments.length === 0) {
-    return null;
-  }
-  const rootDeployment = vault.convexDeployments.find((deployment) => deployment.appRoot === ".");
-  if (rootDeployment) {
-    return rootDeployment;
-  }
-  return [...vault.convexDeployments].sort(
-    (left, right) =>
-      left.appRoot.localeCompare(right.appRoot) ||
-      left.projectSlug.localeCompare(right.projectSlug) ||
-      left.projectId.localeCompare(right.projectId),
-  )[0];
-}
-
-function buildVaultCloudflareProductionLinks(
-  vault: VaultDashboardVault,
-): VaultBranchCloudflareProductionLink[] {
-  return [...vault.cloudflareWorkers]
-    .flatMap((worker) => {
+function buildVaultProductionApps(vault: VaultDashboardVault): VaultBranchProductionApp[] {
+  const cloudflareLinks: VaultBranchProductionLinkInput[] = vault.cloudflareWorkers.flatMap(
+    (worker) => {
       if (!worker.workersDevUrl) {
         return [];
       }
       return [
         {
           appRoot: worker.appRoot,
-          url: worker.workersDevUrl,
-          workerName: worker.workerName,
+          href: worker.workersDevUrl,
+          label: buildVaultBranchProductionUrlLabel(worker.workersDevUrl),
+          provider: "cloudflare",
+          sortKey: worker.workerName,
+          title:
+            worker.appRoot === "."
+              ? "Open production app"
+              : `Open production app for ${worker.appRoot}`,
         },
       ];
-    })
-    .sort(
-      (left, right) =>
-        left.appRoot.localeCompare(right.appRoot) ||
-        left.workerName.localeCompare(right.workerName) ||
-        left.url.localeCompare(right.url),
-    )
-    .map((worker) => ({
-      appRoot: worker.appRoot,
-      url: worker.url,
-    }));
+    },
+  );
+  const convexLinks: VaultBranchProductionLinkInput[] = vault.convexDeployments.flatMap(
+    (deployment) => {
+      if (!deployment.deploymentDashboardUrl) {
+        return [];
+      }
+      return [
+        {
+          appRoot: deployment.appRoot,
+          href: deployment.deploymentDashboardUrl,
+          label: "Production deploy",
+          provider: "convex",
+          sortKey: deployment.deploymentName,
+          title: "Open production Convex deployment dashboard",
+        },
+      ];
+    },
+  );
+
+  return buildVaultBranchProductionApps([...cloudflareLinks, ...convexLinks]);
 }
 
 function resolveVaultDashboardRepositoryFullNameForHash({
@@ -3532,8 +3588,7 @@ function VaultDashboardBody({
           githubRepositoryUrl,
           vault,
         });
-        const cloudflareProductionLinks = buildVaultCloudflareProductionLinks(vault);
-        const primaryConvexDeployment = selectPrimaryVaultConvexDeployment(vault);
+        const productionApps = buildVaultProductionApps(vault);
         const sharedLastSyncedAt = vault.lastTreeRefreshAt;
         const treeRefreshUiState = getTreeRefreshUiState({
           now,
@@ -3694,10 +3749,7 @@ function VaultDashboardBody({
                     vaultId={vault._id}
                     repositoryFullName={vault.repositoryFullName}
                     visibleRemoteBranches={branchSectionState.visibleRemoteBranches}
-                    cloudflareProductionLinks={cloudflareProductionLinks}
-                    productionDeploymentDashboardUrl={
-                      primaryConvexDeployment?.deploymentDashboardUrl
-                    }
+                    productionApps={productionApps}
                   />
                 ) : undefined
               }

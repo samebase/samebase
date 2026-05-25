@@ -134,10 +134,17 @@ describe("VaultBranchLinkContent", () => {
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="noter-md/noter"
-          cloudflareProductionLinks={[
+          productionApps={[
             {
               appRoot: ".",
-              url: "https://tmp-flow.nicuchiciuc.workers.dev",
+              links: [
+                {
+                  href: "https://tmp-flow.nicuchiciuc.workers.dev",
+                  label: "tmp-flow.nicuchiciuc.workers.dev",
+                  provider: "cloudflare",
+                  title: "Open production app",
+                },
+              ],
             },
           ]}
           branch={{
@@ -154,8 +161,8 @@ describe("VaultBranchLinkContent", () => {
 
     expect(markup).toContain('href="https://tmp-flow.nicuchiciuc.workers.dev"');
     expect(markup).toContain('title="Open production app"');
-    expect(markup).toContain(">https://tmp-flow.nicuchiciuc.workers.dev<");
-    expect(markup.indexOf(">https://tmp-flow.nicuchiciuc.workers.dev<")).toBeLessThan(
+    expect(markup).toContain(">tmp-flow.nicuchiciuc.workers.dev<");
+    expect(markup.indexOf(">tmp-flow.nicuchiciuc.workers.dev<")).toBeLessThan(
       markup.indexOf(">main<"),
     );
   });
@@ -165,14 +172,34 @@ describe("VaultBranchLinkContent", () => {
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="noter-md/noter"
-          cloudflareProductionLinks={[
+          productionApps={[
             {
               appRoot: "apps/api",
-              url: "https://api.notermd.workers.dev",
+              links: [
+                {
+                  href: "https://api.notermd.workers.dev",
+                  label: "api.notermd.workers.dev",
+                  provider: "cloudflare",
+                  title: "Open production app for apps/api",
+                },
+              ],
             },
             {
               appRoot: "apps/noter",
-              url: "https://noter.notermd.workers.dev",
+              links: [
+                {
+                  href: "https://noter.notermd.workers.dev",
+                  label: "noter.notermd.workers.dev",
+                  provider: "cloudflare",
+                  title: "Open production app for apps/noter",
+                },
+                {
+                  href: "https://dashboard.convex.dev/t/noter-md/noter/calm-swan-123",
+                  label: "Production deploy",
+                  provider: "convex",
+                  title: "Open production Convex deployment dashboard",
+                },
+              ],
             },
           ]}
           branch={{
@@ -191,7 +218,10 @@ describe("VaultBranchLinkContent", () => {
     expect(markup).toContain('href="https://api.notermd.workers.dev"');
     expect(markup).toContain("apps/noter");
     expect(markup).toContain('href="https://noter.notermd.workers.dev"');
+    expect(markup).toContain('href="https://dashboard.convex.dev/t/noter-md/noter/calm-swan-123"');
+    expect(markup).toContain(">Production deploy<");
     expect(markup.indexOf("apps/api")).toBeLessThan(markup.indexOf("apps/noter"));
+    expect(markup.indexOf("apps/noter")).toBeLessThan(markup.indexOf("Production deploy"));
   });
 });
 

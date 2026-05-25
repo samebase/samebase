@@ -152,8 +152,7 @@ type FixtureVaultBranch = Parameters<typeof VaultBranchLinkRow>[0]["branch"];
 
 interface FixtureVaultBranchRow {
   branch: FixtureVaultBranch;
-  cloudflareProductionLinks?: Parameters<typeof VaultBranchLinkRow>[0]["cloudflareProductionLinks"];
-  productionDeploymentDashboardUrl?: string;
+  productionApps?: Parameters<typeof VaultBranchLinkRow>[0]["productionApps"];
 }
 
 function fixtureVaultBranch(
@@ -264,17 +263,36 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
       aheadBy: 0,
       behindBy: 0,
     }),
-    cloudflareProductionLinks: [
+    productionApps: [
       {
         appRoot: "apps/domain-router",
-        url: "https://domain-router.nicu.workers.dev",
+        links: [
+          {
+            href: "https://domain-router.nicu.workers.dev",
+            label: "domain-router.nicu.workers.dev",
+            provider: "cloudflare",
+            title: "Open production app for apps/domain-router",
+          },
+        ],
       },
       {
         appRoot: "apps/noter",
-        url: "https://noter-worker.nicu.workers.dev",
+        links: [
+          {
+            href: "https://noter-worker.nicu.workers.dev",
+            label: "noter-worker.nicu.workers.dev",
+            provider: "cloudflare",
+            title: "Open production app for apps/noter",
+          },
+          {
+            href: "https://dashboard.convex.dev/t/nicu/noter/calm-swan-123",
+            label: "Production deploy",
+            provider: "convex",
+            title: "Open production Convex deployment dashboard",
+          },
+        ],
       },
     ],
-    productionDeploymentDashboardUrl: "https://dashboard.convex.dev/t/nicu/noter/calm-swan-123",
   },
   {
     branch: fixtureVaultBranch({
@@ -423,8 +441,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
                       vaultId={fakeVaultId()}
                       repositoryFullName="noter-md/noter"
                       branch={branchRow.branch}
-                      cloudflareProductionLinks={branchRow.cloudflareProductionLinks}
-                      productionDeploymentDashboardUrl={branchRow.productionDeploymentDashboardUrl}
+                      productionApps={branchRow.productionApps}
                     />
                   ))}
                 </div>
@@ -1221,7 +1238,19 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
                         aheadBy: 0,
                         behindBy: 0,
                       })}
-                      productionDeploymentDashboardUrl="https://dashboard.convex.dev/t/nicu/noter/calm-swan-123"
+                      productionApps={[
+                        {
+                          appRoot: ".",
+                          links: [
+                            {
+                              href: "https://dashboard.convex.dev/t/nicu/noter/calm-swan-123",
+                              label: "Production deploy",
+                              provider: "convex",
+                              title: "Open production Convex deployment dashboard",
+                            },
+                          ],
+                        },
+                      ]}
                     />
                     <VaultBranchLinkRow
                       vaultId={fakeVaultId()}
