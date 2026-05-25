@@ -224,7 +224,13 @@ const ADD_VAULT_FLOW_SCENARIOS = [
             {
               provider: "convex",
               status: "action_required",
-              actions: [{ kind: "add", label: "?add-convex", href: "/home?add-convex#noter" }],
+              actions: [
+                {
+                  kind: "add",
+                  label: "?add-convex",
+                  href: "/home?add-convex&app-root=apps%2Fnoter#noter",
+                },
+              ],
             },
             {
               provider: "cloudflare",

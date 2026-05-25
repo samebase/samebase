@@ -16,6 +16,7 @@ import {
   readRouteSearchParamSuggestions,
   readRouteSearchPresenceKeys,
   readRouteSearchParamMetadata,
+  routeSearchNonEmptyString,
   routeSearchPresenceParam,
   routeSearchStringValue,
   routeSearchValueParam,
@@ -27,6 +28,7 @@ import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 // TanStack Router's root route id is the stable "__root__" literal, and using
 // it directly keeps this helper on the app package boundary.
 const ROOT_ROUTE_ID = "__root__";
+export const DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM = "app-root";
 
 const rootRouteSearchSchema = defineRouteSearchParams({
   "add-cloudflare": routeSearchPresenceParam({
@@ -48,6 +50,10 @@ const rootRouteSearchSchema = defineRouteSearchParams({
     sampleValue: "google",
     suggestion: "route",
     valueSuggestions: ["google"],
+  }),
+  [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: routeSearchValueParam(routeSearchNonEmptyString, {
+    permission: "admin",
+    suggestion: "hidden",
   }),
   delete: routeSearchPresenceParam({
     permission: "admin",
@@ -95,6 +101,8 @@ const rootRouteSearchParamMetadata = {
   "add-convex": rootRouteSearchOwnParamMetadata["add-convex"],
   "auth-return": rootRouteSearchOwnParamMetadata["auth-return"],
   auth: rootRouteSearchOwnParamMetadata.auth,
+  [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]:
+    rootRouteSearchOwnParamMetadata[DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM],
   background: globalLogoRouteSearchParam("background"),
   border: globalLogoRouteSearchParam("border"),
   dark: globalLogoRouteSearchParam("dark"),

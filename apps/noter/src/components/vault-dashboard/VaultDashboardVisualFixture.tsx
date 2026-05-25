@@ -517,6 +517,7 @@ function FixtureCloudflareConnectDialog() {
         },
       ]}
       appRoot="apps/atelier"
+      appRootReadOnly={true}
       createWorkerName="atelier"
       error={null}
       isLoading={false}
@@ -533,6 +534,7 @@ function FixtureCloudflareConnectDialog() {
       selectedAccountId="fe57d01d7ab41f60d00ba1aade20eb33"
       selectedWorkerName="app-start-workers"
       vault={{
+        fixedAppRoot: "apps/atelier",
         id: fakeVaultId(),
         repositoryFullName: "samebase/atelier",
         repositoryName: "atelier",
@@ -612,6 +614,7 @@ function VaultDashboardConnectConvexOpenFixture() {
         </VaultDashboardRepositoryList>
         <VaultDashboardConvexDialog
           appRoot="."
+          appRootReadOnly={false}
           createProjectName="noter-app"
           projects={[
             {
@@ -634,6 +637,7 @@ function VaultDashboardConnectConvexOpenFixture() {
           open={true}
           selectedProjectId="jaded-heron-123"
           vault={{
+            fixedAppRoot: null,
             id: fakeVaultId(),
             repositoryFullName: "noter-md/noter-app",
             repositoryName: "noter-app",

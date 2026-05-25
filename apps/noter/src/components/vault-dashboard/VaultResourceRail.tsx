@@ -187,6 +187,9 @@ function VaultResourceRailActions({
       event.preventDefault();
       return;
     }
+    if (action.href) {
+      return;
+    }
     if (
       !action.onClick ||
       event.defaultPrevented ||

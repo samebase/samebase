@@ -1,10 +1,20 @@
+// @vitest-environment jsdom
+
+import * as React from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { VaultResourceRail, type VaultResourceRailState } from "./VaultResourceRail";
 
+const { act } = React;
+Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
+
 type VaultResourceRailGithubRow = VaultResourceRailState["githubRow"];
 type VaultResourceRailAppRow = VaultResourceRailState["apps"][number]["rows"][number];
+
+let rootElement: HTMLDivElement | null = null;
+let root: Root | null = null;
 
 function buildRootResourceRailState({
   appRows,
@@ -19,7 +29,32 @@ function buildRootResourceRailState({
   };
 }
 
+function renderInteractiveRail(state: VaultResourceRailState): HTMLDivElement {
+  rootElement = document.createElement("div");
+  document.body.append(rootElement);
+  root = createRoot(rootElement);
+
+  act(() => {
+    root?.render(<VaultResourceRail state={state} />);
+  });
+
+  return rootElement;
+}
+
 describe("VaultResourceRail", () => {
+  afterEach(() => {
+    if (root !== null) {
+      const mountedRoot = root;
+      act(() => {
+        mountedRoot.unmount();
+      });
+      root = null;
+    }
+
+    rootElement?.remove();
+    rootElement = null;
+  });
+
   it("renders explicit provider resource states and scoped links", () => {
     const state = buildRootResourceRailState({
       githubRow: {
@@ -209,6 +244,60 @@ describe("VaultResourceRail", () => {
     expect(markup).toContain('href="/home?add-cloudflare#weight_tsx"');
     expect(markup).toContain('aria-label="Add Cloudflare"');
     expect(markup).not.toContain('target="_blank"');
+  });
+
+  it("lets href actions navigate as native links even when a callback exists", () => {
+    const onClick = vi.fn();
+    const state = buildRootResourceRailState({
+      githubRow: {
+        provider: "github",
+        status: "ready",
+        value: "nicu-chiciuc/weight_tsx",
+        href: "https://github.com/nicu-chiciuc/weight_tsx",
+      },
+      appRows: [
+        {
+          provider: "convex",
+          status: "action_required",
+          actions: [
+            {
+              kind: "add",
+              label: "?add-convex",
+              href: "/home?add-convex&app-root=apps%2Fnoter#weight_tsx",
+              onClick,
+            },
+          ],
+        },
+      ],
+    });
+    const container = renderInteractiveRail(state);
+    const link = container.querySelector('a[aria-label="Add Convex"]');
+    expect(link instanceof HTMLAnchorElement).toBe(true);
+    if (!(link instanceof HTMLAnchorElement)) {
+      throw new Error("Expected add action link");
+    }
+
+    const click = new MouseEvent("click", {
+      bubbles: true,
+      button: 0,
+      cancelable: true,
+    });
+    let defaultPreventedBeforeNativeNavigation: boolean | null = null;
+    window.addEventListener(
+      "click",
+      (event) => {
+        defaultPreventedBeforeNativeNavigation = event.defaultPrevented;
+        event.preventDefault();
+      },
+      { once: true },
+    );
+
+    act(() => {
+      link.dispatchEvent(click);
+    });
+
+    expect(defaultPreventedBeforeNativeNavigation).toBe(false);
+    expect(onClick).not.toHaveBeenCalled();
   });
 
   it("keeps root providers top-level and groups subfolder providers under app roots", () => {

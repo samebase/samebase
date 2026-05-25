@@ -12,6 +12,7 @@ describe("rootRouteSearch", () => {
       validateRootRouteSearch({
         "add-cloudflare": "",
         "add-convex": "",
+        "app-root": " apps/noter ",
         auth: "google",
         "auth-return": "dashboard",
         background: "#ffffff",
@@ -32,6 +33,7 @@ describe("rootRouteSearch", () => {
     ).toEqual({
       "add-cloudflare": true,
       "add-convex": true,
+      "app-root": "apps/noter",
       auth: "google",
       "auth-return": "dashboard",
       background: "#ffffff",

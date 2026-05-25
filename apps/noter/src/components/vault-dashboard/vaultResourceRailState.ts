@@ -1,5 +1,9 @@
 import type { api } from "../../../convex/_generated/api";
-import { type VaultResourceRailRowState, type VaultResourceRailState } from "./VaultResourceRail";
+import {
+  type VaultResourceRailAction,
+  type VaultResourceRailRowState,
+  type VaultResourceRailState,
+} from "./VaultResourceRail";
 import { type VaultDashboardSourceSetup } from "./vaultSourceSetup";
 import {
   resolveVaultProviderSetupStatus,
@@ -103,17 +107,17 @@ function compareAppRoots(left: string, right: string): number {
 }
 
 export function buildVaultDashboardResourceRailState({
-  addCloudflareWorkerHref,
+  buildAddCloudflareWorkerHref,
   addCloudflareWorkerOnClick,
-  addConvexHref,
+  buildAddConvexHref,
   addConvexOnClick,
   githubRepositoryUrl,
   vault,
 }: {
-  addCloudflareWorkerHref?: string;
-  addCloudflareWorkerOnClick?: () => void;
-  addConvexHref?: string;
-  addConvexOnClick?: () => void;
+  buildAddCloudflareWorkerHref?: (appRoot: string) => string;
+  addCloudflareWorkerOnClick?: (appRoot: string) => void;
+  buildAddConvexHref?: (appRoot: string) => string;
+  addConvexOnClick?: (appRoot: string) => void;
   githubRepositoryUrl: string;
   vault: VaultDashboardVault;
 }): VaultResourceRailState {
@@ -151,6 +155,26 @@ export function buildVaultDashboardResourceRailState({
     };
   }
 
+  function buildAddConvexAction(appRoot: string): VaultResourceRailAction {
+    return {
+      kind: "add",
+      label: "?add-convex",
+      disabled: !buildAddConvexHref && !addConvexOnClick,
+      href: buildAddConvexHref?.(appRoot),
+      onClick: addConvexOnClick ? () => addConvexOnClick(appRoot) : undefined,
+    };
+  }
+
+  function buildAddCloudflareWorkerAction(appRoot: string): VaultResourceRailAction {
+    return {
+      kind: "add",
+      label: "?add-cloudflare",
+      disabled: !buildAddCloudflareWorkerHref && !addCloudflareWorkerOnClick,
+      href: buildAddCloudflareWorkerHref?.(appRoot),
+      onClick: addCloudflareWorkerOnClick ? () => addCloudflareWorkerOnClick(appRoot) : undefined,
+    };
+  }
+
   const convexRowsByAppRoot = new Map<string, VaultResourceRailRowState<"convex">>();
   if (vault.sourceSetup.status === "failed" && sourceSetupProvider === "convex") {
     convexRowsByAppRoot.set(".", {
@@ -178,15 +202,7 @@ export function buildVaultDashboardResourceRailState({
       status: "failed",
       value: rootConvexDeployment?.projectSlug ?? vault.ghRepoName,
       scope: normalizeResourceScope(rootConvexDeployment?.teamSlug),
-      actions: [
-        {
-          kind: "add",
-          label: "?add-convex",
-          disabled: !addConvexHref,
-          href: addConvexHref,
-          onClick: addConvexOnClick,
-        },
-      ],
+      actions: [buildAddConvexAction(".")],
     });
   } else if (
     vault.providerSetup.status === "running" &&
@@ -218,15 +234,7 @@ export function buildVaultDashboardResourceRailState({
         href: deployment.projectSettingsDashboardUrl,
         actions:
           deployment.appRoot === "." && canConfigureMissingResources
-            ? [
-                {
-                  kind: "add",
-                  label: "?add-convex",
-                  disabled: !addConvexHref,
-                  href: addConvexHref,
-                  onClick: addConvexOnClick,
-                },
-              ]
+            ? [buildAddConvexAction(deployment.appRoot)]
             : undefined,
       });
     }
@@ -255,15 +263,7 @@ export function buildVaultDashboardResourceRailState({
       provider: "cloudflare",
       status: "failed",
       value: vault.ghRepoName,
-      actions: [
-        {
-          kind: "add",
-          label: "?add-cloudflare",
-          disabled: !addCloudflareWorkerHref,
-          href: addCloudflareWorkerHref,
-          onClick: addCloudflareWorkerOnClick,
-        },
-      ],
+      actions: [buildAddCloudflareWorkerAction(".")],
     });
   } else if (
     vault.providerSetup.status === "running" &&
@@ -293,15 +293,7 @@ export function buildVaultDashboardResourceRailState({
         href: worker.projectDashboardUrl,
         actions:
           worker.appRoot === "." && canConfigureMissingResources
-            ? [
-                {
-                  kind: "add",
-                  label: "?add-cloudflare",
-                  disabled: !addCloudflareWorkerHref,
-                  href: addCloudflareWorkerHref,
-                  onClick: addCloudflareWorkerOnClick,
-                },
-              ]
+            ? [buildAddCloudflareWorkerAction(worker.appRoot)]
             : undefined,
       });
     }
@@ -316,15 +308,7 @@ export function buildVaultDashboardResourceRailState({
         cloudflareRowsByAppRoot.set(".", {
           provider: "cloudflare",
           status: "action_required",
-          actions: [
-            {
-              kind: "add",
-              label: "?add-cloudflare",
-              disabled: !addCloudflareWorkerHref,
-              href: addCloudflareWorkerHref,
-              onClick: addCloudflareWorkerOnClick,
-            },
-          ],
+          actions: [buildAddCloudflareWorkerAction(".")],
         });
       }
     } else if (canConfigureMissingResources) {
@@ -332,15 +316,7 @@ export function buildVaultDashboardResourceRailState({
       if (rootCloudflareRow?.status === "ready") {
         cloudflareRowsByAppRoot.set(".", {
           ...rootCloudflareRow,
-          actions: [
-            {
-              kind: "add",
-              label: "?add-cloudflare",
-              disabled: !addCloudflareWorkerHref,
-              href: addCloudflareWorkerHref,
-              onClick: addCloudflareWorkerOnClick,
-            },
-          ],
+          actions: [buildAddCloudflareWorkerAction(".")],
         });
       }
     }
@@ -360,15 +336,7 @@ export function buildVaultDashboardResourceRailState({
         ? {
             provider: "convex",
             status: "action_required",
-            actions: [
-              {
-                kind: "add",
-                label: "?add-convex",
-                disabled: !addConvexHref,
-                href: addConvexHref,
-                onClick: addConvexOnClick,
-              },
-            ],
+            actions: [buildAddConvexAction(appRoot)],
           }
         : {
             provider: "convex",
