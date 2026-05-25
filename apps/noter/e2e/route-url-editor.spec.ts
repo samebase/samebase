@@ -434,6 +434,7 @@ test("route URL editor selects suggestions with arrow keys", async ({ page }) =>
   const editor = page.getByTestId("route-url-editor");
   const suggestions = page.getByTestId("route-url-editor-suggestions");
   const backButton = editor.getByRole("button", { name: "Back" });
+  const forwardButton = editor.getByRole("button", { name: "Forward" });
   const input = await editRouteUrl(page);
   const logoOption = page.getByRole("option", {
     exact: true,
@@ -481,11 +482,16 @@ test("route URL editor selects suggestions with arrow keys", async ({ page }) =>
   await expect(page).toHaveURL(`${origin}/logo`);
   await expect(input).toBeFocused();
   await expect(input).toHaveValue(`${origin}/logo`);
+  await expect(backButton).toBeEnabled();
 
-  await input.blur();
+  await backButton.click();
+
+  await expect(page).toHaveURL(`${origin}/`);
+  await expect(backButton).toBeDisabled();
+  await expect(forwardButton).toBeEnabled();
 
   await expect(input).toHaveCount(0);
-  await expect(display).toHaveValue(`${origin}/logo`);
+  await expect(display).toHaveValue(`${origin}/`);
 });
 
 test("route URL editor previews path suggestions on hover", async ({ page }) => {
@@ -498,6 +504,7 @@ test("route URL editor previews path suggestions on hover", async ({ page }) => 
   const editor = page.getByTestId("route-url-editor");
   const suggestions = page.getByTestId("route-url-editor-suggestions");
   const backButton = editor.getByRole("button", { name: "Back" });
+  const forwardButton = editor.getByRole("button", { name: "Forward" });
   const input = await editRouteUrl(page);
   const inputElement = await input.elementHandle();
   if (inputElement === null) {
@@ -527,6 +534,56 @@ test("route URL editor previews path suggestions on hover", async ({ page }) => 
       (element) => document.activeElement === element && element.isConnected,
     ),
   ).toBe(true);
+
+  await logoOption.click();
+
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(backButton).toBeEnabled();
+  await backButton.click();
+  await expect(page).toHaveURL(`${origin}/`);
+  await expect(backButton).toBeDisabled();
+  await expect(forwardButton).toBeEnabled();
+});
+
+test("route URL editor hover previews replace the current history entry", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const editor = page.getByTestId("route-url-editor");
+  const backButton = editor.getByRole("button", { name: "Back" });
+  const input = await editRouteUrl(page);
+  const logoOption = page.getByRole("option", {
+    exact: true,
+    name: "Use /logo",
+  });
+  const visualFixtureOption = page.getByRole("option", {
+    exact: true,
+    name: "Use /visual-fixture",
+  });
+
+  await input.press("End");
+  await input.type("log");
+  await expect(logoOption).toBeVisible();
+  await logoOption.hover();
+  await logoOption.click();
+
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(backButton).toBeEnabled();
+
+  await input.fill(`${origin}/visual`);
+  await expect(visualFixtureOption).toBeVisible();
+  await visualFixtureOption.hover();
+
+  await expect(page).toHaveURL(`${origin}/visual-fixture`);
+  await expect(backButton).toBeEnabled();
+
+  await backButton.click();
+
+  await expect(page).toHaveURL(`${origin}/`);
+  await expect(backButton).toBeDisabled();
 });
 
 test("route URL editor previews search suggestions on hover", async ({ page }) => {
