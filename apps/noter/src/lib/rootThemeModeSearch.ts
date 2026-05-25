@@ -1,4 +1,5 @@
 import { normalizeRouteSearchPresenceFlags, type SearchPatch } from "@/lib/routeSearchFlags";
+import { routeSearchPresenceParam } from "@/lib/routeSearchParamMetadata";
 import { z } from "zod";
 
 export const ROOT_THEME_MODE_SEARCH_KEYS = ["light", "dark"] as const;
@@ -15,8 +16,14 @@ export type RootThemeModeSearch = Partial<Record<RootThemeModeSearchKey, true | 
 export type RootThemeModeSearchPatch = SearchPatch<RootThemeModeSearch>;
 
 export const rootThemeModeSearchFieldSchema = z.object({
-  dark: z.literal(true).optional(),
-  light: z.literal(true).optional(),
+  dark: routeSearchPresenceParam(z.literal(true).optional(), {
+    permission: "public",
+    suggestion: "hidden",
+  }),
+  light: routeSearchPresenceParam(z.literal(true).optional(), {
+    permission: "public",
+    suggestion: "hidden",
+  }),
 });
 
 export function validateRootThemeModeSearch(search: Record<string, unknown>): RootThemeModeSearch {

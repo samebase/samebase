@@ -1,17 +1,28 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
   readRouteSearchParamSuggestions,
-  type RouteSearchParamMetadataByKey,
+  readRouteSearchParamMetadata,
+  routeSearchValueParam,
 } from "@/lib/routeSearchParamMetadata";
 import { VisualFixturePage } from "@/visualFixture";
+import { z } from "zod";
 
-type VisualFixtureRouteSearch = {
-  mode?: string;
-};
+function readOptionalMode(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
 
-const visualFixtureRouteSearchParamMetadata = {
-  mode: { permission: "public", suggestion: "route", valueKind: "value" },
-} as const satisfies RouteSearchParamMetadataByKey<VisualFixtureRouteSearch>;
+const visualFixtureRouteSearchSchema = z.object({
+  mode: routeSearchValueParam(z.preprocess(readOptionalMode, z.string().optional()), {
+    permission: "public",
+    suggestion: "route",
+  }),
+});
+
+type VisualFixtureRouteSearch = z.infer<typeof visualFixtureRouteSearchSchema>;
+
+const visualFixtureRouteSearchParamMetadata = readRouteSearchParamMetadata(
+  visualFixtureRouteSearchSchema,
+);
 
 const visualFixtureRouteSearchParamSuggestions = readRouteSearchParamSuggestions(
   visualFixtureRouteSearchParamMetadata,
@@ -21,12 +32,7 @@ const visualFixtureRouteSearchParamSuggestions = readRouteSearchParamSuggestions
 function validateVisualFixtureRouteSearch(
   search: Record<string, unknown>,
 ): VisualFixtureRouteSearch {
-  const mode = search.mode;
-  if (typeof mode !== "string") {
-    return {};
-  }
-
-  return { mode };
+  return visualFixtureRouteSearchSchema.parse(search);
 }
 
 function VisualFixtureRouteComponent() {

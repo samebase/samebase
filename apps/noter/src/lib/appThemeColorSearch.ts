@@ -1,3 +1,4 @@
+import { routeSearchValueParam } from "@/lib/routeSearchParamMetadata";
 import {
   APP_THEME_COLOR_KEYS,
   DEFAULT_APP_THEME_COLORS,
@@ -23,7 +24,6 @@ import { z } from "zod";
 
 export const APP_THEME_COLOR_SEARCH_KEYS = APP_THEME_COLOR_KEYS;
 export const LOGO_THEME_COLOR_SEARCH_KEYS = LOGO_THEME_COLOR_KEYS;
-const LEGACY_APP_THEME_COLOR_SEARCH_KEYS = ["base"] as const;
 
 export type AppThemeColorSearchKey = (typeof APP_THEME_COLOR_SEARCH_KEYS)[number];
 export type LogoThemeColorSearchKey = (typeof LOGO_THEME_COLOR_SEARCH_KEYS)[number];
@@ -33,10 +33,7 @@ export type AppThemeColorSearch = Partial<
 export type LogoThemeColorSearch = Partial<
   Record<LogoThemeColorSearchKey, LogoColorToken | undefined>
 >;
-type LegacyAppThemeColorSearch = Partial<
-  Record<(typeof LEGACY_APP_THEME_COLOR_SEARCH_KEYS)[number], LogoColorToken | undefined>
->;
-export type LogoThemeColorSearchInput = LogoThemeColorSearch & LegacyAppThemeColorSearch;
+export type LogoThemeColorSearchInput = LogoThemeColorSearch;
 type CssVariableName = `--${string}`;
 type ThemeColorRuleSet = Record<CssVariableName, string>;
 export type ResolvedAppThemeColors = Record<AppThemeColorKey, HexColorToken>;
@@ -55,6 +52,29 @@ const APP_THEME_COLOR_STYLE_ELEMENT_ID = "noter-app-theme-color-search";
 // invalidate color state even when route search props are already clean.
 const APP_THEME_COLOR_SEARCH_SYNC_EVENT = "noter:app-theme-color-search-sync";
 const LOGO_COLOR_THEME_MODES = ["light", "dark"] as const satisfies readonly LogoColorThemeMode[];
+const LOGO_THEME_COLOR_VALUE_SUGGESTIONS = [
+  "primary-base",
+  "secondary-base",
+  "background-base",
+  "border-base",
+  "red-500",
+  "orange-500",
+  "amber-400",
+  "yellow-300",
+  "green-500",
+  "emerald-400",
+  "cyan-400",
+  "sky-500",
+  "blue-500",
+  "indigo-500",
+  "violet-500",
+  "purple-500",
+  "fuchsia-500",
+  "pink-500",
+  "rose-500",
+  "white-base",
+  "black-base",
+] as const satisfies readonly LogoColorToken[];
 
 const appThemeColorSearchKeyByColorKey = {
   background: "background",
@@ -112,20 +132,37 @@ const optionalLogoColorTokenSchema = z.preprocess(
 );
 
 export const appThemeColorSearchFieldSchema = z.object({
-  base: optionalLogoColorTokenSchema,
-  background: optionalLogoColorTokenSchema,
-  border: optionalLogoColorTokenSchema,
-  primary: optionalLogoColorTokenSchema,
-  secondary: optionalLogoColorTokenSchema,
-  top: optionalLogoColorTokenSchema,
+  background: routeSearchValueParam(optionalLogoColorTokenSchema, {
+    permission: "public",
+    suggestion: "hidden",
+    valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,
+  }),
+  border: routeSearchValueParam(optionalLogoColorTokenSchema, {
+    permission: "public",
+    suggestion: "hidden",
+    valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,
+  }),
+  primary: routeSearchValueParam(optionalLogoColorTokenSchema, {
+    permission: "public",
+    suggestion: "hidden",
+    valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,
+  }),
+  secondary: routeSearchValueParam(optionalLogoColorTokenSchema, {
+    permission: "public",
+    suggestion: "hidden",
+    valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,
+  }),
+  top: routeSearchValueParam(optionalLogoColorTokenSchema, {
+    permission: "public",
+    suggestion: "hidden",
+    valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,
+  }),
 });
 
 export function readAppThemeColorSearch(search: LogoThemeColorSearchInput): AppThemeColorSearch {
   return APP_THEME_COLOR_KEYS.reduce<AppThemeColorSearch>((result, colorKey) => {
     const searchKey = appThemeColorSearchKeyByColorKey[colorKey];
-    // `base` is the pre-background URL key; read it only as a fallback.
-    const colorToken =
-      colorKey === "background" ? (search.background ?? search.base) : search[searchKey];
+    const colorToken = search[searchKey];
     if (typeof colorToken === "string") {
       result[searchKey] = colorToken;
     }
@@ -135,7 +172,7 @@ export function readAppThemeColorSearch(search: LogoThemeColorSearchInput): AppT
 
 export function readAppThemeColors(search: LogoThemeColorSearchInput): AppThemeColors {
   return {
-    background: search.background ?? search.base ?? DEFAULT_APP_THEME_COLORS.background,
+    background: search.background ?? DEFAULT_APP_THEME_COLORS.background,
     border: search.border ?? DEFAULT_APP_THEME_COLORS.border,
     primary: search.primary ?? DEFAULT_APP_THEME_COLORS.primary,
     secondary: search.secondary ?? DEFAULT_APP_THEME_COLORS.secondary,

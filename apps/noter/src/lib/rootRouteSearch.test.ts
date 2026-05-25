@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import {
-  DEFAULT_VOXEL_STATE,
-  LOGO_GRID_SIZE_2,
-  LOGO_GRID_SIZE_3,
-} from "@/components/logo/logoVoxelState";
+import { DEFAULT_VOXEL_STATE, LOGO_GRID_SIZE_2 } from "@/components/logo/logoVoxelState";
 import {
   readRootRouteSearch,
   replaceRootLogoRouteSearch,
@@ -18,7 +14,7 @@ describe("rootRouteSearch", () => {
         "add-convex": "",
         auth: "google",
         "auth-return": "dashboard",
-        base: "#ffffff",
+        background: "#ffffff",
         border: "stone-300",
         delete: "",
         depth: "2",
@@ -130,9 +126,7 @@ describe("rootRouteSearch", () => {
     expect(readRootRouteSearch("?gridSize=2")).toEqual({
       gridSize: LOGO_GRID_SIZE_2,
     });
-    expect(readRootRouteSearch("?gridSize=3")).toEqual({
-      gridSize: LOGO_GRID_SIZE_3,
-    });
+    expect(readRootRouteSearch("?gridSize=3")).toEqual({});
     expect(readRootRouteSearch("?gridSize=4")).toEqual({});
   });
 

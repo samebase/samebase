@@ -1,6 +1,7 @@
 import {
   readRouteSearchParamSuggestions,
-  type RouteSearchParamMetadataByKey,
+  readRouteSearchParamMetadata,
+  routeSearchValueParam,
 } from "@/lib/routeSearchParamMetadata";
 import { z } from "zod";
 
@@ -25,9 +26,16 @@ function readOptionalLandingMarkdownPreviewLanguage(
 }
 
 const landingMarkdownPreviewRouteSearchSchema = z.object({
-  [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: z.preprocess(
-    readOptionalLandingMarkdownPreviewLanguage,
-    z.enum(LANDING_MARKDOWN_PREVIEW_LANGUAGES).optional(),
+  [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: routeSearchValueParam(
+    z.preprocess(
+      readOptionalLandingMarkdownPreviewLanguage,
+      z.enum(LANDING_MARKDOWN_PREVIEW_LANGUAGES).optional(),
+    ),
+    {
+      permission: "admin",
+      suggestion: "route",
+      valueSuggestions: LANDING_MARKDOWN_PREVIEW_LANGUAGES,
+    },
   ),
 });
 
@@ -35,14 +43,9 @@ export type LandingMarkdownPreviewRouteSearch = z.infer<
   typeof landingMarkdownPreviewRouteSearchSchema
 >;
 
-const landingMarkdownPreviewRouteSearchParamMetadata = {
-  [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: {
-    permission: "admin",
-    suggestion: "route",
-    valueKind: "value",
-    valueSuggestions: LANDING_MARKDOWN_PREVIEW_LANGUAGES,
-  },
-} as const satisfies RouteSearchParamMetadataByKey<LandingMarkdownPreviewRouteSearch>;
+const landingMarkdownPreviewRouteSearchParamMetadata = readRouteSearchParamMetadata(
+  landingMarkdownPreviewRouteSearchSchema,
+);
 
 export const LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS =
   readRouteSearchParamSuggestions(landingMarkdownPreviewRouteSearchParamMetadata, "route");

@@ -1,12 +1,4 @@
 import { getRouteApi } from "@tanstack/react-router";
-import { normalizeLogoDistanceScale } from "@/components/logo/logoDistanceScale";
-import {
-  normalizeLogoFractalDepth,
-  LOGO_GRID_SIZE_2,
-  LOGO_GRID_SIZE_3,
-  readLogoGridSize,
-} from "@/components/logo/logoVoxelState";
-import { appThemeColorSearchFieldSchema } from "@/lib/appThemeColorSearch";
 import {
   LOGO_ROUTE_SEARCH_KEYS,
   LOGO_ROUTE_SEARCH_PARAM_METADATA,
@@ -18,10 +10,12 @@ import {
   normalizeRouteSearchPresenceFlags,
   type SearchPatch,
 } from "@/lib/routeSearchFlags";
-import { rootThemeModeSearchFieldSchema } from "@/lib/rootThemeModeSearch";
 import {
   readRouteSearchParamSuggestions,
   readRouteSearchPresenceKeys,
+  readRouteSearchParamMetadata,
+  routeSearchPresenceParam,
+  routeSearchValueParam,
   type RouteSearchParamMetadataByKey,
 } from "@/lib/routeSearchParamMetadata";
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
@@ -44,63 +38,60 @@ function readOptionalAuthReturn(value: unknown): "dashboard" | undefined {
   return value === "dashboard" ? "dashboard" : undefined;
 }
 
-function readOptionalNumber(value: unknown): number | undefined {
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : undefined;
-  }
-
-  if (typeof value !== "string") {
-    return undefined;
-  }
-
-  const trimmedValue = value.trim();
-  if (trimmedValue.length === 0) {
-    return undefined;
-  }
-
-  const parsedValue = Number(trimmedValue);
-  return Number.isFinite(parsedValue) ? parsedValue : undefined;
-}
-
-function readOptionalLogoFractalDepth(value: unknown): number | undefined {
-  const numericValue = readOptionalNumber(value);
-  return typeof numericValue === "number" ? normalizeLogoFractalDepth(numericValue) : undefined;
-}
-
-function readOptionalLogoGridSize(value: unknown): number | undefined {
-  const numericValue = readOptionalNumber(value);
-  return typeof numericValue === "number"
-    ? (readLogoGridSize(numericValue) ?? undefined)
-    : undefined;
-}
-
-const rootRouteSearchSchema = z
-  .object({
-    auth: z.preprocess(readOptionalGoogleAuthProvider, z.literal("google").optional()),
-    "auth-return": z.preprocess(readOptionalAuthReturn, z.literal("dashboard").optional()),
-    "add-convex": z.literal(true).optional(),
-    "add-cloudflare": z.literal(true).optional(),
-    dev: z.literal(true).optional(),
-    devtools: z.literal(true).optional(),
-    delete: z.literal(true).optional(),
-    "new-app": z.literal(true).optional(),
-    depth: z.preprocess(readOptionalLogoFractalDepth, z.number().finite().optional()),
-    dist: z.preprocess((value) => {
-      const numericValue = readOptionalNumber(value);
-      return typeof numericValue === "number"
-        ? normalizeLogoDistanceScale(numericValue)
-        : undefined;
-    }, z.number().finite().optional()),
-    "prod-ui": z.literal(true).optional(),
-    gridSize: z.preprocess(
-      readOptionalLogoGridSize,
-      z.union([z.literal(LOGO_GRID_SIZE_2), z.literal(LOGO_GRID_SIZE_3)]).optional(),
-    ),
-    [SEARCH_RESET_QUERY_PARAM]: z.literal(true).optional(),
-    signup: z.preprocess(readOptionalGoogleSignupReturn, z.literal("google").optional()),
-  })
-  .merge(appThemeColorSearchFieldSchema)
-  .merge(rootThemeModeSearchFieldSchema);
+const rootRouteSearchSchema = z.object({
+  "add-cloudflare": routeSearchPresenceParam(z.literal(true).optional(), {
+    permission: "admin",
+    suggestion: "route",
+  }),
+  "add-convex": routeSearchPresenceParam(z.literal(true).optional(), {
+    permission: "admin",
+    suggestion: "route",
+  }),
+  "auth-return": routeSearchValueParam(
+    z.preprocess(readOptionalAuthReturn, z.literal("dashboard").optional()),
+    {
+      permission: "public",
+      suggestion: "hidden",
+      valueSuggestions: ["dashboard"],
+    },
+  ),
+  auth: routeSearchValueParam(
+    z.preprocess(readOptionalGoogleAuthProvider, z.literal("google").optional()),
+    {
+      permission: "public",
+      suggestion: "route",
+      valueSuggestions: ["google"],
+    },
+  ),
+  delete: routeSearchPresenceParam(z.literal(true).optional(), {
+    permission: "admin",
+    suggestion: "route",
+  }),
+  devtools: routeSearchPresenceParam(z.literal(true).optional(), {
+    permission: "public",
+    suggestion: "global",
+  }),
+  "new-app": routeSearchPresenceParam(z.literal(true).optional(), {
+    permission: "admin",
+    suggestion: "route",
+  }),
+  "prod-ui": routeSearchPresenceParam(z.literal(true).optional(), {
+    permission: "public",
+    suggestion: "global",
+  }),
+  [SEARCH_RESET_QUERY_PARAM]: routeSearchPresenceParam(z.literal(true).optional(), {
+    permission: "public",
+    suggestion: "global",
+  }),
+  signup: routeSearchValueParam(
+    z.preprocess(readOptionalGoogleSignupReturn, z.literal("google").optional()),
+    {
+      permission: "public",
+      suggestion: "route",
+      valueSuggestions: ["google"],
+    },
+  ),
+});
 
 type RootRouteSearchBase = z.infer<typeof rootRouteSearchSchema>;
 export type RootRouteSearch = RootRouteSearchBase & LogoRouteSearch;
@@ -112,79 +103,30 @@ function globalLogoRouteSearchParam(key: keyof typeof LOGO_ROUTE_SEARCH_PARAM_ME
   };
 }
 
+const rootRouteSearchOwnParamMetadata = readRouteSearchParamMetadata(rootRouteSearchSchema);
+
 const rootRouteSearchParamMetadata = {
   ...LOGO_ROUTE_SEARCH_PARAM_METADATA,
-  "add-cloudflare": {
-    parseKind: "presence",
-    permission: "admin",
-    suggestion: "route",
-    valueKind: "presence",
-  },
-  "add-convex": {
-    parseKind: "presence",
-    permission: "admin",
-    suggestion: "route",
-    valueKind: "presence",
-  },
-  "auth-return": {
-    permission: "public",
-    suggestion: "hidden",
-    valueKind: "value",
-    valueSuggestions: ["dashboard"],
-  },
-  auth: {
-    permission: "public",
-    suggestion: "route",
-    valueKind: "value",
-    valueSuggestions: ["google"],
-  },
-  base: { permission: "public", suggestion: "hidden", valueKind: "value" },
+  "add-cloudflare": rootRouteSearchOwnParamMetadata["add-cloudflare"],
+  "add-convex": rootRouteSearchOwnParamMetadata["add-convex"],
+  "auth-return": rootRouteSearchOwnParamMetadata["auth-return"],
+  auth: rootRouteSearchOwnParamMetadata.auth,
   background: globalLogoRouteSearchParam("background"),
   border: globalLogoRouteSearchParam("border"),
   dark: globalLogoRouteSearchParam("dark"),
-  delete: {
-    parseKind: "presence",
-    permission: "admin",
-    suggestion: "route",
-    valueKind: "presence",
-  },
+  delete: rootRouteSearchOwnParamMetadata.delete,
   depth: globalLogoRouteSearchParam("depth"),
   dev: globalLogoRouteSearchParam("dev"),
-  devtools: {
-    parseKind: "presence",
-    permission: "public",
-    suggestion: "global",
-    valueKind: "presence",
-  },
+  devtools: rootRouteSearchOwnParamMetadata.devtools,
   dist: globalLogoRouteSearchParam("dist"),
   gridSize: globalLogoRouteSearchParam("gridSize"),
   light: globalLogoRouteSearchParam("light"),
-  "new-app": {
-    parseKind: "presence",
-    permission: "admin",
-    suggestion: "route",
-    valueKind: "presence",
-  },
+  "new-app": rootRouteSearchOwnParamMetadata["new-app"],
   primary: globalLogoRouteSearchParam("primary"),
-  "prod-ui": {
-    parseKind: "presence",
-    permission: "public",
-    suggestion: "global",
-    valueKind: "presence",
-  },
-  [SEARCH_RESET_QUERY_PARAM]: {
-    parseKind: "presence",
-    permission: "public",
-    suggestion: "global",
-    valueKind: "presence",
-  },
+  "prod-ui": rootRouteSearchOwnParamMetadata["prod-ui"],
+  [SEARCH_RESET_QUERY_PARAM]: rootRouteSearchOwnParamMetadata[SEARCH_RESET_QUERY_PARAM],
   secondary: globalLogoRouteSearchParam("secondary"),
-  signup: {
-    permission: "public",
-    suggestion: "route",
-    valueKind: "value",
-    valueSuggestions: ["google"],
-  },
+  signup: rootRouteSearchOwnParamMetadata.signup,
   top: globalLogoRouteSearchParam("top"),
 } as const satisfies RouteSearchParamMetadataByKey<RootRouteSearch>;
 
@@ -225,11 +167,15 @@ function parseRootRouteSearch(search: Record<string, unknown>): RootRouteSearch 
   const parsedSearch = rootRouteSearchSchema.parse(presenceNormalizedSearch);
   if (!parsedSearch[SEARCH_RESET_QUERY_PARAM]) {
     const logoSearch = validateLogoRouteSearch(presenceNormalizedSearch);
+    const conflictingThemeModeSearch =
+      presenceNormalizedSearch.light && presenceNormalizedSearch.dark
+        ? { dark: true as const, light: true as const }
+        : {};
     const normalizedSearch = {
       ...parsedSearch,
       ...logoSearch,
+      ...conflictingThemeModeSearch,
     };
-    delete normalizedSearch.base;
     return normalizedSearch;
   }
 

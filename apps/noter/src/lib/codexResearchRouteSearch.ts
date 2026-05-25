@@ -1,20 +1,9 @@
 import {
   readRouteSearchParamSuggestions,
-  type RouteSearchParamMetadataByKey,
+  readRouteSearchParamMetadata,
+  routeSearchValueParam,
 } from "@/lib/routeSearchParamMetadata";
-
-export type CodexResearchRouteSearch = {
-  threadId?: string;
-};
-
-const codexResearchRouteSearchParamMetadata = {
-  threadId: { permission: "admin", suggestion: "route", valueKind: "value" },
-} as const satisfies RouteSearchParamMetadataByKey<CodexResearchRouteSearch>;
-
-export const CODEX_RESEARCH_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
-  codexResearchRouteSearchParamMetadata,
-  "route",
-);
+import { z } from "zod";
 
 function readOptionalThreadId(value: unknown): string | undefined {
   if (typeof value !== "string") {
@@ -25,12 +14,28 @@ function readOptionalThreadId(value: unknown): string | undefined {
   return trimmedValue.length > 0 ? trimmedValue : undefined;
 }
 
+const codexResearchRouteSearchSchema = z.object({
+  threadId: routeSearchValueParam(z.preprocess(readOptionalThreadId, z.string().optional()), {
+    permission: "admin",
+    suggestion: "route",
+  }),
+});
+
+export type CodexResearchRouteSearch = z.infer<typeof codexResearchRouteSearchSchema>;
+
+const codexResearchRouteSearchParamMetadata = readRouteSearchParamMetadata(
+  codexResearchRouteSearchSchema,
+);
+
+export const CODEX_RESEARCH_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
+  codexResearchRouteSearchParamMetadata,
+  "route",
+);
+
 export function validateCodexResearchRouteSearch(
   search: Record<string, unknown>,
 ): CodexResearchRouteSearch {
-  const threadId = readOptionalThreadId(search.threadId);
-
-  return typeof threadId === "string" ? { threadId } : {};
+  return codexResearchRouteSearchSchema.parse(search);
 }
 
 export function buildCodexResearchRouteSearch(
