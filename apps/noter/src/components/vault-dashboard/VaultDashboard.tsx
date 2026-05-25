@@ -1347,7 +1347,7 @@ export function VaultDashboardAppRootDialog({
                   type="button"
                   className={clsx(
                     buttonVariants({
-                      variant: isRepositoryAppMode ? "secondary" : "outline",
+                      variant: isRepositoryAppMode ? "default" : "outline",
                       size: "sm",
                     }),
                     "rounded-r-none",
@@ -1362,7 +1362,7 @@ export function VaultDashboardAppRootDialog({
                   type="button"
                   className={clsx(
                     buttonVariants({
-                      variant: isRepositoryAppMode ? "outline" : "secondary",
+                      variant: isRepositoryAppMode ? "outline" : "default",
                       size: "sm",
                     }),
                     "rounded-l-none border-l-0",
