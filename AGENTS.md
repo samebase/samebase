@@ -332,9 +332,10 @@ Key domain entities:
   that ProseMark bug is fixed.
 - Add or update screenshot coverage whenever a patch changes shipped UI.
 - When creating or refreshing Playwright screenshot baselines locally, always use Docker with
-  `linux/arm64`, such as
-  `PLAYWRIGHT_LINUX_PLATFORM=linux/arm64 pnpm test:visual:linux -- --update-snapshots=all <spec>`.
-  Never accept native macOS/browser screenshots as baselines.
+  `pnpm test:visual:linux`; that wrapper defaults to `linux/arm64`. Do not add
+  `PLAYWRIGHT_LINUX_PLATFORM=linux/arm64` to normal commands unless you are intentionally
+  documenting or overriding the wrapper default. Never accept native macOS/browser screenshots as
+  baselines.
 - For bugs involving scroll, touch, drag, focus, selection, pane layout, auth wiring, or route shell
   behavior, reproduce and test the real app route first.
 - Do not create fake visual fixtures just to show or approve a product behavior screenshot. If the
