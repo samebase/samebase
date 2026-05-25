@@ -12,7 +12,7 @@ export type PublicLayoutRouteChromeConfig = Omit<
   main?: PublicLayoutRoutePaneFrame;
 };
 
-type PublicLayoutRouteChromeSnapshot = Omit<PublicLayoutRouteChromeConfig, "left"> & {
+export type PublicLayoutRouteChromeSnapshot = Omit<PublicLayoutRouteChromeConfig, "left"> & {
   left?: PublicLayoutRoutePaneFrame;
 };
 
@@ -24,10 +24,18 @@ function arePublicLayoutRoutePaneFramesEqual(
   left: PublicLayoutRoutePaneFrame | undefined,
   right: PublicLayoutRoutePaneFrame | undefined,
 ) {
+  if (left === right) {
+    return true;
+  }
+
+  if (left === undefined || right === undefined) {
+    return false;
+  }
+
   return (
-    left?.footer === right?.footer &&
-    left?.header === right?.header &&
-    left?.headerTestId === right?.headerTestId
+    left.footer === right.footer &&
+    left.header === right.header &&
+    left.headerTestId === right.headerTestId
   );
 }
 

@@ -26,7 +26,7 @@ import {
 } from "@/lib/routeUrlEditorSuggestions";
 import { RETAINED_ROOT_SEARCH_KEYS, validateRootRouteSearch } from "@/lib/rootRouteSearch";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
-import { isRouteUrlPathReadyForNavigation } from "@/lib/routeUrlPathSuggestions";
+import { isPublicLayoutRouteUrlPathReadyForNavigation } from "@/lib/routeUrlPathSuggestions";
 import { api } from "../../convex/_generated/api";
 
 const routeUrlEditorIconButtonClassName =
@@ -458,6 +458,11 @@ export function RouteUrlEditor() {
     [draftRouteAddress, origin, syncSuggestionSelection],
   );
 
+  /**
+   * Applies one URL draft through the router for typing previews, suggestion
+   * previews, and explicit commits. Same-path edits preserve scroll and can
+   * replace the current entry independently from route-changing previews.
+   */
   const navigateRouteUrlEditorHref = useCallback(
     (
       nextHref: string,
@@ -525,7 +530,7 @@ export function RouteUrlEditor() {
       });
       if (
         commitMode === "route-navigation" &&
-        !isRouteUrlPathReadyForNavigation({
+        !isPublicLayoutRouteUrlPathReadyForNavigation({
           currentHref,
           draftHref: nextHref,
           origin,
@@ -537,7 +542,7 @@ export function RouteUrlEditor() {
       }
 
       navigateRouteUrlEditorHref(nextHref, {
-        replaceRouteNavigation: false,
+        replaceRouteNavigation: true,
         replaceRouteOptions: true,
       });
     },
@@ -669,29 +674,13 @@ export function RouteUrlEditor() {
       setActiveSuggestionIndex(nextActiveSuggestionIndex);
       setDraftRouteAddress(nextDraftRouteAddress);
       suggestionPreviewActiveRef.current = true;
-      setSuggestionDraftEditedSinceFocus(true);
 
-      const nextHref = normalizeRouteUrlEditorHref({
-        currentHref,
-        origin,
-        rawHref: nextDraftRouteAddress,
-      });
-
-      if (nextHref === null || nextHref === currentHref) {
-        return;
-      }
-
-      navigateRouteUrlEditorHref(nextHref, {
-        replaceRouteNavigation: false,
-        replaceRouteOptions: true,
-      });
+      previewDraftRouteAddress(nextDraftRouteAddress);
     },
     [
       activeSuggestionIndex,
-      currentHref,
       draftRouteAddress,
-      navigateRouteUrlEditorHref,
-      origin,
+      previewDraftRouteAddress,
       selectionRouteIndex,
       suggestions,
       suggestionsVisible,

@@ -1,5 +1,6 @@
 import type { AppRouter } from "@/router";
 import { FORCE_PROD_UI_QUERY_PARAM } from "@/lib/prodUiMode";
+import { isPublicLayoutShellPathname } from "@/lib/publicLayoutPaths";
 import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
 import {
   canAccessNoterRoutePermission,
@@ -92,6 +93,22 @@ export function isRouteUrlPathReadyForNavigation({
   return suggestions.some((pathSuggestion) =>
     routePathSuggestionCanLoadDraft(pathSuggestion, draftPath),
   );
+}
+
+/**
+ * True only for route previews that can stay inside the shared public shell.
+ * Wider app-shell previews wait for the larger layout extraction so the focused
+ * URL input is not remounted mid-edit.
+ */
+export function isPublicLayoutRouteUrlPathReadyForNavigation(
+  input: RouteUrlPathSuggestionsInput,
+): boolean {
+  const draftPath = readRouteUrlPathSuggestionDraftPath(input);
+  if (draftPath === null || !isPublicLayoutShellPathname(draftPath)) {
+    return false;
+  }
+
+  return isRouteUrlPathReadyForNavigation(input);
 }
 
 function isRouteUrlPathSuggestion(

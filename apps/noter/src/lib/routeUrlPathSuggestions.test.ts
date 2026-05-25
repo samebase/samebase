@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { getRouter } from "@/router";
 import {
   filterRouteUrlPathSuggestions,
+  isPublicLayoutRouteUrlPathReadyForNavigation,
   isRouteUrlPathReadyForNavigation,
   readRouteUrlPathSuggestions,
 } from "./routeUrlPathSuggestions";
@@ -223,6 +224,50 @@ describe("isRouteUrlPathReadyForNavigation", () => {
       isRouteUrlPathReadyForNavigation({
         currentHref: "/",
         draftHref: "/vault/",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: adminViewer,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("isPublicLayoutRouteUrlPathReadyForNavigation", () => {
+  it("keeps instant route previews inside the shared public shell", () => {
+    expect(
+      isPublicLayoutRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/logo/iso?from=route-url-editor",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: adminViewer,
+      }),
+    ).toBe(true);
+
+    expect(
+      isPublicLayoutRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/localStorage",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: adminViewer,
+      }),
+    ).toBe(true);
+
+    expect(
+      isPublicLayoutRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/home",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: adminViewer,
+      }),
+    ).toBe(false);
+
+    expect(
+      isPublicLayoutRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/visual-fixture",
         origin: ORIGIN,
         routesByPath,
         viewer: adminViewer,

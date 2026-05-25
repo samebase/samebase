@@ -7,32 +7,63 @@ import {
 } from "@/lib/publicLayoutRouteChrome";
 import {
   createPublicLayoutRouteChromeStore,
+  type PublicLayoutRouteChromeSnapshot,
   usePublicLayoutRouteChromeSnapshot,
 } from "@/lib/publicLayoutRouteChromeStore";
+import {
+  isPublicLayoutShellPathname,
+  readPublicLayoutShellPathname,
+} from "@/lib/publicLayoutPaths";
 
-function isLegalPublicPath(pathname: string) {
-  return pathname === "/privacy" || pathname === "/terms";
+function hasRegisteredRouteChrome(routeChrome: PublicLayoutRouteChromeSnapshot): boolean {
+  return (
+    routeChrome.dataTestId !== undefined ||
+    routeChrome.defaultLeftOpen !== undefined ||
+    routeChrome.defaultMobilePane !== undefined ||
+    routeChrome.left !== undefined ||
+    routeChrome.leftToggleVisibility !== undefined ||
+    routeChrome.main !== undefined ||
+    routeChrome.rightToggleVisibility !== undefined ||
+    routeChrome.showRightSidebar !== undefined
+  );
 }
 
-function isLogoPublicPath(pathname: string) {
-  return pathname === "/logo" || pathname.startsWith("/logo/");
-}
-
-function shouldUsePublicLayoutShell(pathname: string) {
-  if (isLegalPublicPath(pathname) || isLogoPublicPath(pathname)) {
-    return true;
+function readInitialPublicLayoutRouteChrome(pathname: string): PublicLayoutRouteChromeSnapshot {
+  const normalizedPathname = readPublicLayoutShellPathname(pathname);
+  if (normalizedPathname === "/localStorage") {
+    return {
+      dataTestId: "local-storage-workspace",
+      defaultLeftOpen: true,
+      left: {},
+      leftToggleVisibility: "desktop",
+    };
   }
 
-  return pathname === "/" || pathname === "/localStorage";
+  if (normalizedPathname === "/logo" || normalizedPathname.startsWith("/logo/")) {
+    return {
+      defaultLeftOpen: true,
+      defaultMobilePane: "left",
+      left: {},
+      leftToggleVisibility: "desktop",
+      main: {
+        headerTestId: "logo-preview-main-header",
+      },
+    };
+  }
+
+  return {};
 }
 
 function PublicLayoutRoute() {
   const pathname = useLocation({
     select: (location) => location.pathname,
   });
-  const shouldUseShell = shouldUsePublicLayoutShell(pathname);
+  const shouldUseShell = isPublicLayoutShellPathname(pathname);
   const chromeStore = useMemo(createPublicLayoutRouteChromeStore, []);
-  const routeChrome = usePublicLayoutRouteChromeSnapshot(chromeStore);
+  const registeredRouteChrome = usePublicLayoutRouteChromeSnapshot(chromeStore);
+  const routeChrome = hasRegisteredRouteChrome(registeredRouteChrome)
+    ? registeredRouteChrome
+    : readInitialPublicLayoutRouteChrome(pathname);
 
   if (!shouldUseShell) {
     return <Outlet />;
