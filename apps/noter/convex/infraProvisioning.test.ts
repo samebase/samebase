@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
 import {
+  resolveCloudflareBuildConfig,
   resolveConnectionFailureProvider,
   selectCloudflareBuildConfigTreeData,
   selectExistingCloudflareWorker,
@@ -40,6 +41,52 @@ describe("selectCloudflareBuildConfigTreeData", () => {
         branchTreeData: null,
       }),
     ).toThrow("Default branch tree is not synced yet.");
+  });
+});
+
+describe("resolveCloudflareBuildConfig", () => {
+  it("narrows Workers Builds triggers for monorepo Noter apps", () => {
+    expect(resolveCloudflareBuildConfig({ treeData: branchTreeData })).toEqual({
+      rootDir: "apps/noter",
+      buildCommand: "pnpm run build",
+      deployCommand: "pnpm exec wrangler deploy",
+      previewDeployCommand: "pnpm exec wrangler versions upload",
+      pathIncludes: [
+        "apps/noter/*",
+        "packages/dependent/*",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "package.json",
+        ".nvmrc",
+      ],
+      pathExcludes: [],
+    });
+  });
+
+  it("keeps root apps on the broad trigger default", () => {
+    expect(
+      resolveCloudflareBuildConfig({
+        treeData: {
+          sha: "root-tree",
+          truncated: false,
+          tree: [
+            {
+              path: "package.json",
+              mode: "100644",
+              type: "blob",
+              sha: "package-sha",
+            },
+          ],
+        },
+      }),
+    ).toEqual({
+      rootDir: "/",
+      buildCommand: "pnpm run build",
+      deployCommand: "pnpm run deploy",
+      previewDeployCommand: "pnpm run deploy:preview",
+      pathIncludes: ["*"],
+      pathExcludes: [],
+    });
   });
 });
 

@@ -541,11 +541,13 @@ async function createConvexDeployKey(args: {
   };
 }
 
-function resolveCloudflareBuildConfig(vault: { treeData: { tree: Array<{ path: string }> } }): {
+export function resolveCloudflareBuildConfig(vault: { treeData: GithubTreeData }): {
   rootDir: string;
   buildCommand: string;
   deployCommand: string;
   previewDeployCommand: string;
+  pathIncludes: string[];
+  pathExcludes: string[];
 } {
   const hasMonorepoFrontend = vault.treeData.tree.some(
     (entry) => entry.path === "apps/noter/package.json",
@@ -556,6 +558,17 @@ function resolveCloudflareBuildConfig(vault: { treeData: { tree: Array<{ path: s
       buildCommand: "pnpm run build",
       deployCommand: "pnpm exec wrangler deploy",
       previewDeployCommand: "pnpm exec wrangler versions upload",
+      // Workers Builds path filters are repo-root trigger gates, so include
+      // the app, current workspace source dependency, and root install inputs.
+      pathIncludes: [
+        "apps/noter/*",
+        "packages/dependent/*",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "package.json",
+        ".nvmrc",
+      ],
+      pathExcludes: [],
     };
   }
   return {
@@ -563,6 +576,8 @@ function resolveCloudflareBuildConfig(vault: { treeData: { tree: Array<{ path: s
     buildCommand: "pnpm run build",
     deployCommand: "pnpm run deploy",
     previewDeployCommand: "pnpm run deploy:preview",
+    pathIncludes: ["*"],
+    pathExcludes: [],
   };
 }
 

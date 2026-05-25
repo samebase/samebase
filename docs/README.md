@@ -16,6 +16,8 @@ Current key docs:
 - `docs/agent-workflows.md` for deeper git/PR/worktree workflow rules
 - `docs/artifacts/notermd-app/` for regenerating the public `notermd/app` artifact history
 - `docs/playwright-visual-testing.md` for Linux-canonical visual test workflow
+- `docs/samebase-domains-workers-builds.md` for the `samebase-domains` Workers Builds trigger
+  settings
 - `docs/compliance/` for compliance artifacts
 
 Do not use `docs/` as a dumping ground for accepted behavior or open-ended research; put those in
