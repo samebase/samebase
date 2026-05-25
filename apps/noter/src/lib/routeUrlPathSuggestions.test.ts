@@ -197,6 +197,16 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         viewer: publicViewer,
       }),
     ).toBe(false);
+
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/logo/",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: publicViewer,
+      }),
+    ).toBe(true);
   });
 
   it("accepts concrete dynamic and catch-all route paths", () => {
@@ -257,6 +267,36 @@ describe("isPublicLayoutRouteUrlPathReadyForNavigation", () => {
     expect(
       isPublicLayoutRouteUrlPathReadyForNavigation({
         currentHref: "/",
+        draftHref: "/terms/",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: adminViewer,
+      }),
+    ).toBe(true);
+
+    expect(
+      isPublicLayoutRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/logo/iso/",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: adminViewer,
+      }),
+    ).toBe(true);
+
+    expect(
+      isPublicLayoutRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/localStorage/",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: adminViewer,
+      }),
+    ).toBe(true);
+
+    expect(
+      isPublicLayoutRouteUrlPathReadyForNavigation({
+        currentHref: "/",
         draftHref: "/home",
         origin: ORIGIN,
         routesByPath,
@@ -268,6 +308,16 @@ describe("isPublicLayoutRouteUrlPathReadyForNavigation", () => {
       isPublicLayoutRouteUrlPathReadyForNavigation({
         currentHref: "/",
         draftHref: "/visual-fixture",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: adminViewer,
+      }),
+    ).toBe(false);
+
+    expect(
+      isPublicLayoutRouteUrlPathReadyForNavigation({
+        currentHref: "/home",
+        draftHref: "/logo",
         origin: ORIGIN,
         routesByPath,
         viewer: adminViewer,

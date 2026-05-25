@@ -50,9 +50,13 @@ vi.mock("@/Layout", async () => {
 
       return (
         <div data-testid="public-layout-shell">
-          {left?.header}
-          {left?.content}
-          {left?.footer}
+          {left === undefined ? null : (
+            <div data-testid="public-layout-left-pane">
+              {left.header}
+              {left.content}
+              {left.footer}
+            </div>
+          )}
           {main?.header}
           {main?.content ?? children}
           {main?.footer}
@@ -582,6 +586,15 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="layout"]')).not.toBeNull();
     expect(publicLayoutMountMock).toHaveBeenCalledTimes(1);
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("does not open an empty initial left pane for logo lab routes", async () => {
+    await renderRoute("/logo/svg");
+
+    expect(rootElement?.querySelector('[data-testid="logo-svg-page"]')?.textContent).toBe(
+      "Logo SVG page",
+    );
+    expect(rootElement?.querySelector('[data-testid="public-layout-left-pane"]')).toBeNull();
   });
 
   it("accepts the Romanian landing preview query on the explicit route", async () => {

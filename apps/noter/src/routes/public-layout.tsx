@@ -15,6 +15,8 @@ import {
   readPublicLayoutShellPathname,
 } from "@/lib/publicLayoutPaths";
 
+const LOGO_PREVIEW_ROUTE_CHROME_PATHS = ["/logo", "/logo/iso", "/logo/raster"] as const;
+
 function hasRegisteredRouteChrome(routeChrome: PublicLayoutRouteChromeSnapshot): boolean {
   return (
     routeChrome.dataTestId !== undefined ||
@@ -39,7 +41,11 @@ function readInitialPublicLayoutRouteChrome(pathname: string): PublicLayoutRoute
     };
   }
 
-  if (normalizedPathname === "/logo" || normalizedPathname.startsWith("/logo/")) {
+  if (
+    LOGO_PREVIEW_ROUTE_CHROME_PATHS.some(
+      (logoPreviewPathname) => logoPreviewPathname === normalizedPathname,
+    )
+  ) {
     return {
       defaultLeftOpen: true,
       defaultMobilePane: "left",

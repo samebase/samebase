@@ -67,6 +67,12 @@ export function filterRouteUrlPathSuggestions({
   );
 }
 
+/**
+ * True when the current draft path maps to a route suggestion that can load as
+ * written. The current URL, draft text, origin, route table, and viewer decide
+ * which suggestions are visible; null or partial drafts stay local until no
+ * router segment needs to be invented.
+ */
 export function isRouteUrlPathReadyForNavigation({
   currentHref,
   draftHref,
@@ -103,6 +109,15 @@ export function isRouteUrlPathReadyForNavigation({
 export function isPublicLayoutRouteUrlPathReadyForNavigation(
   input: RouteUrlPathSuggestionsInput,
 ): boolean {
+  const currentPath = readRouteUrlPathSuggestionDraftPath({
+    currentHref: input.currentHref,
+    draftHref: input.currentHref,
+    origin: input.origin,
+  });
+  if (currentPath === null || !isPublicLayoutShellPathname(currentPath)) {
+    return false;
+  }
+
   const draftPath = readRouteUrlPathSuggestionDraftPath(input);
   if (draftPath === null || !isPublicLayoutShellPathname(draftPath)) {
     return false;
@@ -200,7 +215,7 @@ function readRouteUrlPathSuggestionDraftPath({
         return null;
       }
 
-      return draftUrl.pathname;
+      return readRouteUrlPathSuggestionPathname(draftUrl.pathname);
     }
 
     const routeHref = normalizeRouteUrlEditorHref({
@@ -212,10 +227,18 @@ function readRouteUrlPathSuggestionDraftPath({
       return null;
     }
 
-    return new URL(routeHref, appOrigin).pathname;
+    return readRouteUrlPathSuggestionPathname(new URL(routeHref, appOrigin).pathname);
   } catch {
     return null;
   }
+}
+
+function readRouteUrlPathSuggestionPathname(pathname: string): string {
+  if (pathname === "/") {
+    return pathname;
+  }
+
+  return pathname.replace(/\/+$/, "");
 }
 
 function routePathSuggestionMatchesDraft(pathSuggestion: string, draftPath: string): boolean {
@@ -226,6 +249,11 @@ function routePathSuggestionMatchesDraft(pathSuggestion: string, draftPath: stri
   return routePathTemplateMatchesDraft(pathSuggestion, draftPath);
 }
 
+/**
+ * Static suggestions require exact path equality; dynamic and catch-all
+ * templates must have every required segment before previews can touch router
+ * state.
+ */
 function routePathSuggestionCanLoadDraft(pathSuggestion: string, draftPath: string): boolean {
   if (!pathSuggestion.includes("$")) {
     return pathSuggestion === draftPath;

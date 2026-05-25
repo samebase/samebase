@@ -17,6 +17,10 @@ const routeUrlEditorScreenshotOptions = {
   maxDiffPixelRatio: 0.01,
 } as const;
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function getRouteUrlEditorDisplay(page: Page): Locator {
   return page.getByTestId("route-url-editor-display");
 }
@@ -33,7 +37,7 @@ async function editRouteUrl(page: Page): Promise<Locator> {
   return input;
 }
 
-test("route URL editor fixture navigates same-origin hrefs while typing", async ({ page }) => {
+test("route URL editor fixture commits public hrefs from a non-public shell", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 96 });
   await page.goto("/visual-fixture?mode=route-url-editor", {
     waitUntil: "domcontentloaded",
@@ -76,7 +80,7 @@ test("route URL editor fixture navigates same-origin hrefs while typing", async 
 
   await input.fill(`${origin}/logo?from=route-url-editor`);
   await expect(input).toHaveValue(`${origin}/logo?from=route-url-editor`);
-  await expect(currentHref).toHaveText("/logo?from=route-url-editor");
+  await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
 
   await input.press("Enter");
 
@@ -324,6 +328,30 @@ test("route URL editor keeps the same input focused while typing between public 
   );
 });
 
+test("route URL editor previews trailing-slash public routes while typing", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const input = await editRouteUrl(page);
+  const inputHandle = await input.elementHandle();
+  if (inputHandle === null) {
+    throw new Error("Expected route URL editor input to be mounted.");
+  }
+
+  await input.press("End");
+  await input.type("logo/");
+
+  await expect(page).toHaveURL(new RegExp(`^${escapeRegExp(origin)}/logo/?$`));
+  await expect(input).toHaveValue(`${origin}/logo/`);
+  const keptFocusOnLogoTrailingSlash = await inputHandle.evaluate(
+    (element) => document.activeElement === element && element.isConnected,
+  );
+  expect(keptFocusOnLogoTrailingSlash).toBe(true);
+});
+
 test("route URL editor dismisses suggestions through blur when the page underneath scrolls", async ({
   page,
 }) => {
@@ -478,6 +506,36 @@ test("route URL editor selects suggestions with arrow keys", async ({ page }) =>
 
   await expect(input).toHaveCount(0);
   await expect(display).toHaveValue(`${origin}/logo`);
+});
+
+test("route URL editor keeps arrow previews inside the public shell", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const editor = page.getByTestId("route-url-editor");
+  const backButton = editor.getByRole("button", { name: "Back" });
+  const input = await editRouteUrl(page);
+  const visualFixtureOption = page.getByRole("option", {
+    exact: true,
+    name: "Use /visual-fixture",
+  });
+
+  await input.press("End");
+  await input.type("visual");
+
+  await expect(visualFixtureOption).toBeVisible();
+  await expect(page).toHaveURL(`${origin}/`);
+
+  await input.press("ArrowDown");
+
+  await expect(visualFixtureOption).toHaveAttribute("aria-selected", "true");
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue(`${origin}/visual-fixture`);
+  await expect(page).toHaveURL(`${origin}/`);
+  await expect(backButton).toBeDisabled();
 });
 
 test("route URL editor keeps focus-only arrow previews anchored to all paths", async ({ page }) => {
