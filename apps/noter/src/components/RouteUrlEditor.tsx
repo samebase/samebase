@@ -135,6 +135,42 @@ function readRouteUrlEditorDraftRouteAddress(args: {
   return `/${args.inputValue.slice(enforcedInputPrefix.length)}`;
 }
 
+type RouteUrlEditorRouteBoundaryBackspace = {
+  inputValue: string;
+  routeAddress: string;
+  selectionOffset: number;
+};
+
+// Modified Backspace can delete across the origin text; keep origin + slash
+// immutable and delete only route-owned text after that boundary.
+function readRouteUrlEditorRouteBoundaryBackspace(args: {
+  input: HTMLInputElement;
+  origin: string;
+}): RouteUrlEditorRouteBoundaryBackspace | null {
+  const selection = readRouteUrlEditorInputSelection(args.input);
+  if (!selection) {
+    return null;
+  }
+
+  const routeInputPrefix = `${args.origin}/`;
+  const deleteEnd = Math.max(selection.start, selection.end, routeInputPrefix.length);
+  const inputValue = `${routeInputPrefix}${args.input.value.slice(deleteEnd)}`;
+  const routeAddress = readRouteUrlEditorDraftRouteAddress({
+    inputValue,
+    origin: args.origin,
+  });
+
+  if (routeAddress === null) {
+    return null;
+  }
+
+  return {
+    inputValue,
+    routeAddress,
+    selectionOffset: routeInputPrefix.length,
+  };
+}
+
 function readRouteUrlEditorInputRouteIndex(args: {
   input: HTMLInputElement;
   origin: string;
@@ -408,26 +444,8 @@ export function RouteUrlEditor() {
     [draftRouteAddress, origin, syncSuggestionSelection],
   );
 
-  const changeDraftRouteAddress = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      const nextDraftRouteAddress = readRouteUrlEditorDraftRouteAddress({
-        inputValue: event.currentTarget.value,
-        origin,
-      });
-      if (nextDraftRouteAddress === null) {
-        restoreRouteUrlEditorRejectedInput({
-          input: event.currentTarget,
-          selection: inputSelectionBeforeChangeRef.current,
-          value: inputValue,
-        });
-        return;
-      }
-
-      setDraftRouteAddress(nextDraftRouteAddress);
-      setSuggestionDraftEditedSinceFocus(true);
-      setSuggestionsDismissed(false);
-      syncSuggestionSelection(event.currentTarget, nextDraftRouteAddress);
-
+  const applyDraftRouteOptions = useCallback(
+    (nextDraftRouteAddress: string) => {
       const nextHref = normalizeRouteUrlEditorHref({
         currentHref,
         origin,
@@ -460,7 +478,32 @@ export function RouteUrlEditor() {
         });
       }
     },
-    [currentHref, inputValue, origin, router, syncSuggestionSelection],
+    [currentHref, origin, router],
+  );
+
+  const changeDraftRouteAddress = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const nextDraftRouteAddress = readRouteUrlEditorDraftRouteAddress({
+        inputValue: event.currentTarget.value,
+        origin,
+      });
+      if (nextDraftRouteAddress === null) {
+        restoreRouteUrlEditorRejectedInput({
+          input: event.currentTarget,
+          selection: inputSelectionBeforeChangeRef.current,
+          value: inputValue,
+        });
+        return;
+      }
+
+      setDraftRouteAddress(nextDraftRouteAddress);
+      setSuggestionDraftEditedSinceFocus(true);
+      setSuggestionsDismissed(false);
+      syncSuggestionSelection(event.currentTarget, nextDraftRouteAddress);
+
+      applyDraftRouteOptions(nextDraftRouteAddress);
+    },
+    [applyDraftRouteOptions, inputValue, origin, syncSuggestionSelection],
   );
 
   const resetInput = useCallback(() => {
@@ -617,6 +660,37 @@ export function RouteUrlEditor() {
             selectSuggestion(activeSuggestion);
           }
           return;
+        case "Backspace": {
+          if (!event.metaKey && !event.ctrlKey) {
+            return;
+          }
+
+          const routeBoundaryBackspace = readRouteUrlEditorRouteBoundaryBackspace({
+            input: event.currentTarget,
+            origin,
+          });
+          if (routeBoundaryBackspace === null) {
+            return;
+          }
+
+          event.preventDefault();
+          event.currentTarget.value = routeBoundaryBackspace.inputValue;
+          event.currentTarget.setSelectionRange(
+            routeBoundaryBackspace.selectionOffset,
+            routeBoundaryBackspace.selectionOffset,
+          );
+          syncSuggestionSelection(event.currentTarget, routeBoundaryBackspace.routeAddress);
+          setSuggestionsDismissed(false);
+
+          if (routeBoundaryBackspace.routeAddress === draftRouteAddress) {
+            return;
+          }
+
+          setDraftRouteAddress(routeBoundaryBackspace.routeAddress);
+          setSuggestionDraftEditedSinceFocus(true);
+          applyDraftRouteOptions(routeBoundaryBackspace.routeAddress);
+          return;
+        }
         case "Escape":
           skipNextBlurCommitRef.current = true;
           resetInput();
@@ -624,7 +698,17 @@ export function RouteUrlEditor() {
           return;
       }
     },
-    [activeSuggestion, moveActiveSuggestion, resetInput, selectSuggestion, suggestionsVisible],
+    [
+      activeSuggestion,
+      applyDraftRouteOptions,
+      draftRouteAddress,
+      moveActiveSuggestion,
+      origin,
+      resetInput,
+      selectSuggestion,
+      suggestionsVisible,
+      syncSuggestionSelection,
+    ],
   );
 
   const handleInputKeyUp = useCallback(

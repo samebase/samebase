@@ -189,6 +189,39 @@ test("route URL editor places the caret at the visible URL start without rewriti
   expect(clickState.selectionStart).toBe(clickState.protocolLength);
 });
 
+for (const shortcut of ["Meta+Backspace", "Control+Backspace"]) {
+  test(`route URL editor clamps ${shortcut} to the route boundary`, async ({ page }) => {
+    await page.setViewportSize({ width: 720, height: 96 });
+    await page.goto("/visual-fixture?mode=route-url-editor", {
+      waitUntil: "domcontentloaded",
+    });
+    const origin = await page.evaluate(() => window.location.origin);
+    const routeInputPrefix = `${origin}/`;
+    const input = await editRouteUrl(page);
+    const currentHref = page.getByTestId("route-url-editor-fixture-current-href");
+
+    await expect(input).toHaveValue(`${origin}/visual-fixture?mode=route-url-editor`);
+
+    await input.evaluate((element) => {
+      const end = element.value.length;
+      element.setSelectionRange(end, end);
+    });
+    await input.press(shortcut);
+
+    await expect(input).toHaveValue(routeInputPrefix);
+    await expect(input).toHaveJSProperty("selectionStart", routeInputPrefix.length);
+    await expect(input).toHaveJSProperty("selectionEnd", routeInputPrefix.length);
+    await expect(input).toHaveAttribute("aria-invalid", "false");
+    await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
+
+    await input.press(shortcut);
+
+    await expect(input).toHaveValue(routeInputPrefix);
+    await expect(input).toHaveJSProperty("selectionStart", routeInputPrefix.length);
+    await expect(input).toHaveJSProperty("selectionEnd", routeInputPrefix.length);
+  });
+}
+
 test("route URL editor lists route paths and filters them while typing", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 420 });
   await page.goto("/", {
