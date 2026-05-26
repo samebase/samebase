@@ -13,7 +13,7 @@ import {
   parseRepositoryFullName,
   vGitHubRepositoryVisibility,
 } from "./model";
-import { ROOT_CLOUDFLARE_APP_ROOT } from "../../shared/cloudflareAppRoot";
+import { ROOT_VAULT_APP_ROOT } from "../../shared/vaultAppRoot";
 import {
   assertConnectedVault,
   isConnectedVault,
@@ -334,16 +334,16 @@ export const createInitializingNoterManagedVaultForUser = internalMutation({
       vaultId,
       convex: {
         state: "planned",
-        appRoot: ROOT_CLOUDFLARE_APP_ROOT,
+        appRoot: ROOT_VAULT_APP_ROOT,
         projectName: args.convexProjectName,
       },
       cloudflare: {
         state: "planned",
-        appRoot: ROOT_CLOUDFLARE_APP_ROOT,
+        appRoot: ROOT_VAULT_APP_ROOT,
         accountId: args.cloudflareAccountId,
         workerName: args.cloudflareWorkerName,
         build: buildVaultCloudflareBuildConfigForAppRoot({
-          appRoot: ROOT_CLOUDFLARE_APP_ROOT,
+          appRoot: ROOT_VAULT_APP_ROOT,
         }),
       },
       createdAt: now,
@@ -352,7 +352,7 @@ export const createInitializingNoterManagedVaultForUser = internalMutation({
     await ctx.db.insert("vaultApps", {
       vaultId,
       userId: args.userId,
-      appRoot: ROOT_CLOUDFLARE_APP_ROOT,
+      appRoot: ROOT_VAULT_APP_ROOT,
       createdAt: now,
     });
 

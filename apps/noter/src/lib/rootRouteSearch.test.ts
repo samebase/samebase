@@ -7,7 +7,7 @@ import {
 } from "./rootRouteSearch";
 
 describe("rootRouteSearch", () => {
-  it("accepts the routed root landing flags and auth provider", () => {
+  it("drops conflicting dashboard modal flags while keeping independent root search", () => {
     expect(
       validateRootRouteSearch({
         "add-app-root": "",
@@ -32,21 +32,15 @@ describe("rootRouteSearch", () => {
         top: "white-base",
       }),
     ).toEqual({
-      "add-app-root": true,
-      "add-cloudflare": true,
-      "add-convex": true,
-      "app-root": "apps/noter",
       auth: "google",
       "auth-return": "dashboard",
       background: "#ffffff",
       border: "stone-300",
-      delete: true,
       depth: 2,
       dist: 1.25,
       dark: true,
       dev: true,
       devtools: true,
-      "new-app": true,
       primary: "red-600",
       "prod-ui": true,
       secondary: "lime-100",
@@ -86,11 +80,32 @@ describe("rootRouteSearch", () => {
       dark: true,
       dev: true,
       devtools: true,
-      "add-app-root": true,
       light: true,
-      "new-app": true,
       "prod-ui": true,
     });
+  });
+
+  it("keeps a scoped provider dashboard intent", () => {
+    expect(
+      validateRootRouteSearch({
+        "add-convex": "",
+        "app-root": " apps/noter ",
+      }),
+    ).toEqual({
+      "add-convex": true,
+      "app-root": "apps/noter",
+    });
+  });
+
+  it("drops bare provider dashboard intents", () => {
+    expect(
+      validateRootRouteSearch({
+        "add-cloudflare": "",
+        "add-convex": "",
+        "app-root": " apps/noter ",
+      }),
+    ).toEqual({});
+    expect(validateRootRouteSearch({ "add-cloudflare": "" })).toEqual({});
   });
 
   it("parses the root search contract from a search string", () => {
@@ -100,10 +115,7 @@ describe("rootRouteSearch", () => {
       ),
     ).toEqual({
       auth: "google",
-      "add-app-root": true,
-      delete: true,
       dev: true,
-      "new-app": true,
       primary: "red-600",
       "prod-ui": true,
       signup: "google",

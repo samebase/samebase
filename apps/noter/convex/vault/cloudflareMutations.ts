@@ -8,7 +8,7 @@ import {
   type QueryCtx,
 } from "../_generated/server";
 import type { AppProvisioningStep } from "../schema";
-import { normalizeCloudflareAppRoot } from "../../shared/cloudflareAppRoot";
+import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import { vVaultCloudflareOrigin } from "./model";
 import { isLiveConnectedVault } from "./state";
 
@@ -190,7 +190,7 @@ export const requireAttachableVault = internalQuery({
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
     }
-    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
     await assertVaultAppRootExists(ctx, {
       vaultId: args.vaultId,
       appRoot,
@@ -217,7 +217,11 @@ export const requireCloudflareWorkerConnectionVault = internalQuery({
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
     }
-    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
+    await assertVaultAppRootExists(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
     await assertNoExistingCloudflareWorkerTarget(ctx, {
       vaultId: args.vaultId,
       appRoot,
@@ -244,7 +248,11 @@ export const attachWorker = internalMutation({
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
     }
-    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
+    await assertVaultAppRootExists(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
     await assertNoExistingCloudflareWorkerTarget(ctx, {
       vaultId: args.vaultId,
       appRoot,
@@ -289,7 +297,7 @@ export const claimCloudflareWorkerConnection = internalMutation({
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
     }
-    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
     await assertVaultAppRootExists(ctx, {
       vaultId: args.vaultId,
       appRoot,
@@ -382,7 +390,7 @@ export const readActiveCloudflareWorkerConnection = internalQuery({
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
     }
-    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
     await assertVaultAppRootExists(ctx, {
       vaultId: args.vaultId,
       appRoot,
@@ -419,7 +427,7 @@ export const attachWorkerForRun = internalMutation({
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
     }
-    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
     await assertVaultAppRootExists(ctx, {
       vaultId: args.vaultId,
       appRoot,
@@ -493,7 +501,7 @@ export const readCreatedWorkerRollbackSafety = internalQuery({
       return { shouldDelete: true };
     }
 
-    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
     const worker = await readCloudflareWorkerForAppRoot(ctx, {
       vaultId: args.vaultId,
       appRoot,
@@ -527,7 +535,7 @@ export const finishCloudflareWorkerConnection = internalMutation({
       });
       return null;
     }
-    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
     const worker = await readCloudflareWorkerForAppRoot(ctx, {
       vaultId: args.vaultId,
       appRoot,

@@ -196,6 +196,14 @@ describe("vault Cloudflare attachment mutations", () => {
 
   it("attaches multiple Cloudflare Workers to one vault by app root", async () => {
     const { ids, t } = await createCloudflareConnectionVault();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("vaultApps", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appRoot: "apps/admin",
+        createdAt: 26,
+      });
+    });
 
     await t.mutation(internal.vault.cloudflareMutations.attachWorker, {
       vaultId: ids.vaultId,
@@ -243,6 +251,29 @@ describe("vault Cloudflare attachment mutations", () => {
         vaultId: ids.vaultId,
       },
     ]);
+  });
+
+  it("requires an app root before a Cloudflare Worker can attach", async () => {
+    const { ids, t } = await createCloudflareConnectionVault();
+
+    await expect(
+      t.query(internal.vault.cloudflareMutations.requireCloudflareWorkerConnectionVault, {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appRoot: "apps/missing",
+      }),
+    ).rejects.toThrow("Vault app root not found.");
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.attachWorker, {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appRoot: "apps/missing",
+        accountId: "cloudflare-account",
+        workerName: "missing-cloudflare-worker",
+        workerTag: "missing-cloudflare-worker-tag",
+        origin: "selected_existing",
+      }),
+    ).rejects.toThrow("Vault app root not found.");
   });
 
   it("lets the durable claim supersede stale active ownership", async () => {

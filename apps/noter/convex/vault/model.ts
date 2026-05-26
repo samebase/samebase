@@ -1,5 +1,5 @@
 import { Infer, v } from "convex/values";
-import { normalizeCloudflareAppRoot } from "../../shared/cloudflareAppRoot";
+import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import { vVaultDeletionState } from "./deletion/model";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
@@ -147,7 +147,7 @@ export type VaultCloudflareBuildConfig = Infer<typeof vVaultCloudflareBuildConfi
 export function buildVaultCloudflareBuildConfigForAppRoot(args: {
   appRoot: string;
 }): VaultCloudflareBuildConfig {
-  const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+  const appRoot = normalizeVaultAppRoot(args.appRoot);
   const rootDirectory = appRoot === "." ? "/" : appRoot;
   const pathIncludes =
     appRoot === "."

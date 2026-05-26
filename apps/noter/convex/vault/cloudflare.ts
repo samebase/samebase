@@ -9,7 +9,7 @@ import { toErrorMessage } from "../jsonUtils";
 import type { McpTokenHealth } from "../mcpTokenHealth";
 import { listCloudflareAccountsForToken } from "../cloudflareAccountDiscovery";
 import { validateAppResourceName } from "../../shared/appResourceNames";
-import { normalizeCloudflareAppRoot } from "../../shared/cloudflareAppRoot";
+import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import {
   createCloudflareWorker,
   deleteCloudflareResources,
@@ -252,7 +252,7 @@ export const connectExistingWorker = action({
     if (!workerName) {
       throw new Error("Cloudflare Worker is required.");
     }
-    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
     await ctx.runQuery(internal.vault.cloudflareMutations.requireCloudflareWorkerConnectionVault, {
       vaultId: args.vaultId,
       userId,
@@ -294,7 +294,7 @@ export const createWorker = action({
     if (!accountId) {
       throw new Error("Cloudflare account is required.");
     }
-    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
 
     const userId = await getUserId(ctx);
     await ctx.runQuery(internal.vault.cloudflareMutations.requireCloudflareWorkerConnectionVault, {

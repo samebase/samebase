@@ -345,6 +345,30 @@ describe("vault dashboard Convex contract", () => {
         appRoot,
         createdAt: 21,
       });
+      await ctx.db.insert("vaultInfrastructureTargets", {
+        vaultId,
+        convex: {
+          state: "planned",
+          appRoot,
+          projectName: "demo",
+        },
+        cloudflare: {
+          state: "planned",
+          appRoot,
+          accountId: "cloudflare-account",
+          workerName: "demo",
+          build: {
+            rootDirectory: "/",
+            buildCommand: "pnpm run build",
+            deployCommand: "pnpm run deploy",
+            previewDeployCommand: "pnpm run deploy:preview",
+            pathIncludes: ["*"],
+            pathExcludes: [],
+          },
+        },
+        createdAt: 22,
+        updatedAt: 22,
+      });
 
       return { userId, vaultId };
     });
@@ -445,6 +469,104 @@ describe("vault dashboard Convex contract", () => {
         appRoot: "apps/noter",
       }),
     ).rejects.toThrow("Disconnect root providers before converting this vault to a monorepo.");
+  });
+
+  it("suppresses branch Convex preview links when multiple app deployments exist", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/monorepo",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 10,
+        updatedAt: 20,
+        completedAt: 20,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "monorepo",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+      });
+      await ctx.db.insert("vaultBranchTrees", {
+        vaultId,
+        branch: "main",
+        treeSHA: "tree",
+        commitSHA: "commit",
+        treeData: {
+          sha: "tree",
+          truncated: false,
+          tree: [],
+        },
+        lastTreeRefreshAt: 21,
+      });
+      await ctx.db.insert("vaultRemoteBranches", {
+        vaultId,
+        name: "codex/feature",
+        headCommitSha: "feature",
+        pullRequestNumber: 42,
+        cloudflareBranchPreviewUrl: "https://feature.example.workers.dev",
+        cloudflarePreviewPullRequestNumber: 42,
+        isDefault: false,
+        isProtected: false,
+        remoteState: "active",
+        lastSyncedAt: 22,
+      });
+      for (const deploymentAppRoot of ["apps/api", "apps/web"]) {
+        await ctx.db.insert("vaultConvexDeployments", {
+          vaultId,
+          userId,
+          appRoot: deploymentAppRoot,
+          projectId: `${deploymentAppRoot}-project`,
+          teamSlug: "ada-team",
+          projectSlug: deploymentAppRoot.replace("/", "-"),
+          deploymentName: `${deploymentAppRoot.replace("/", "-")}-prod`,
+          deploymentType: "prod",
+          cloudUrl: `https://${deploymentAppRoot.replace("/", "-")}.convex.cloud`,
+          siteUrl: `https://${deploymentAppRoot.replace("/", "-")}.convex.site`,
+          deployKeys: {
+            production: { state: "not_created" },
+            preview: { state: "not_created" },
+          },
+          origin: "selected_existing",
+          connectedAt: 23,
+          lastObservedAt: 23,
+        });
+      }
+
+      return { userId, vaultId };
+    });
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+    const branch = vaults[0].remoteBranches.find(
+      (remoteBranch) => remoteBranch.name === "codex/feature",
+    );
+
+    expect(branch?.convexPreviewDeploymentDashboardUrl).toBeUndefined();
   });
 
   it("records initializing vault creation before external GitHub work", async () => {

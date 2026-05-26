@@ -1,6 +1,6 @@
-export const ROOT_CLOUDFLARE_APP_ROOT = ".";
+export const ROOT_VAULT_APP_ROOT = ".";
 
-export function normalizeCloudflareAppRoot(value: string): string {
+export function normalizeVaultAppRoot(value: string): string {
   const trimmed = value
     .trim()
     .replace(/\\/g, "/")
@@ -8,8 +8,8 @@ export function normalizeCloudflareAppRoot(value: string): string {
   if (!trimmed) {
     throw new Error("App root is required.");
   }
-  if (trimmed === ROOT_CLOUDFLARE_APP_ROOT) {
-    return ROOT_CLOUDFLARE_APP_ROOT;
+  if (trimmed === ROOT_VAULT_APP_ROOT) {
+    return ROOT_VAULT_APP_ROOT;
   }
   const segments = trimmed.split("/");
   if (segments.some((segment) => !segment || segment === "." || segment === "..")) {

@@ -44,6 +44,7 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-create-open"
   | "vault-dashboard-dev-tools-hidden"
   | "vault-dashboard-dev-tools-visible"
+  | "vault-dashboard-add-first-app-root-open"
   | "vault-dashboard-add-app-root-open"
   | "vault-dashboard-connect-cloudflare-open"
   | "vault-dashboard-connect-cloudflare-mobile-shell-open"
@@ -641,6 +642,47 @@ function VaultDashboardAddAppRootConvertOpenFixture() {
   );
 }
 
+function VaultDashboardAddFirstAppRootOpenFixture() {
+  return (
+    <div
+      data-testid="vault-dashboard-visual-fixture"
+      data-mode="vault-dashboard-add-first-app-root-open"
+      className="w-full bg-background p-4 text-foreground"
+    >
+      <TestRouterProvider>
+        <VaultDashboardRepositoryList>
+          <VaultDashboardRepositoryCard
+            isReady={true}
+            repositoryOwner="samebase"
+            repositoryName="atelier"
+            titleHref="https://github.com/samebase/atelier"
+            repositoryLinks={<FixtureRepositoryLinks />}
+            topRightAction={<FixtureDeleteControl />}
+            repositoryStatus={<span>Updated 12s ago</span>}
+          />
+        </VaultDashboardRepositoryList>
+        <VaultDashboardAppRootDialog
+          appRoot="."
+          error={null}
+          isSubmitting={false}
+          mode="app"
+          onAppRootChange={() => {}}
+          onModeChange={() => {}}
+          onOpenChange={() => {}}
+          onSubmit={() => {}}
+          open={true}
+          vault={{
+            hasAppRoots: false,
+            hasRootAppRoot: false,
+            id: fakeVaultId(),
+            repositoryFullName: "samebase/atelier",
+          }}
+        />
+      </TestRouterProvider>
+    </div>
+  );
+}
+
 function VaultDashboardConnectCloudflareMobileShellOpenFixture() {
   return (
     <FixtureDashboardShell
@@ -1148,6 +1190,10 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
 
   if (mode === "vault-dashboard-dev-tools-visible") {
     return <VaultDashboardDeveloperToolsFixture visible={true} />;
+  }
+
+  if (mode === "vault-dashboard-add-first-app-root-open") {
+    return <VaultDashboardAddFirstAppRootOpenFixture />;
   }
 
   if (mode === "vault-dashboard-add-app-root-open") {

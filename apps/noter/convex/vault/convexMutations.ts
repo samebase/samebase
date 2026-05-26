@@ -8,7 +8,7 @@ import {
   type QueryCtx,
 } from "../_generated/server";
 import type { AppProvisioningStep } from "../schema";
-import { normalizeCloudflareAppRoot } from "../../shared/cloudflareAppRoot";
+import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import { vVaultConvexOrigin } from "./model";
 import { isLiveConnectedVault } from "./state";
 
@@ -209,7 +209,7 @@ export const requireConvexDeploymentConnectionVault = internalQuery({
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
     }
-    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
     await assertVaultAppRootExists(ctx, {
       vaultId: args.vaultId,
       appRoot,
@@ -237,7 +237,7 @@ export const claimConvexDeploymentConnection = internalMutation({
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
     }
-    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
     await assertVaultAppRootExists(ctx, {
       vaultId: args.vaultId,
       appRoot,
@@ -329,7 +329,7 @@ export const readActiveConvexDeploymentConnection = internalQuery({
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
     }
-    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
     await assertVaultAppRootExists(ctx, {
       vaultId: args.vaultId,
       appRoot,
@@ -364,7 +364,7 @@ export const attachDeploymentForRun = internalMutation({
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
     }
-    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
     await assertVaultAppRootExists(ctx, {
       vaultId: args.vaultId,
       appRoot,
@@ -512,7 +512,7 @@ export const finishConvexDeploymentConnection = internalMutation({
       });
       return null;
     }
-    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
     const deployment = await readConvexDeploymentForAppRoot(ctx, {
       vaultId: args.vaultId,
       appRoot,

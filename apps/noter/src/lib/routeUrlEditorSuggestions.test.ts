@@ -290,11 +290,7 @@ describe("readRouteUrlEditorSuggestions", () => {
       viewer: adminViewer,
     });
 
-    expect(suggestions.map((suggestion) => suggestion.value)).toEqual([
-      "?add-app-root",
-      "?add-cloudflare",
-      "?add-convex",
-    ]);
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["?add-app-root"]);
   });
 
   it("keeps local-only route search params on local surfaces", () => {

@@ -60,40 +60,34 @@ async function loadVaultContext(
   };
 }
 
-function selectConvexDeploymentForInfraRead(
+function requireConvexDeploymentForInfraRead(
   deployments: Doc<"vaultConvexDeployments">[],
-): Doc<"vaultConvexDeployments"> | null {
+  vaultId: Id<"vaults">,
+): Doc<"vaultConvexDeployments"> {
   if (deployments.length === 0) {
-    return null;
+    throw new Error(getVaultInfraError(vaultId));
   }
-  const rootDeployment = deployments.find((deployment) => deployment.appRoot === ".");
-  if (rootDeployment) {
-    return rootDeployment;
+  if (deployments.length > 1) {
+    throw new Error(
+      "Multiple Convex deployments are connected. Choose an app root before reading production.",
+    );
   }
-  return [...deployments].sort(
-    (left, right) =>
-      left.appRoot.localeCompare(right.appRoot) ||
-      left.projectSlug.localeCompare(right.projectSlug) ||
-      left.projectId.localeCompare(right.projectId),
-  )[0];
+  return deployments[0];
 }
 
-function selectCloudflareWorkerForInfraRead(
+function requireCloudflareWorkerForInfraRead(
   workers: Doc<"vaultCloudflareWorkers">[],
-): Doc<"vaultCloudflareWorkers"> | null {
+  vaultId: Id<"vaults">,
+): Doc<"vaultCloudflareWorkers"> {
   if (workers.length === 0) {
-    return null;
+    throw new Error(getVaultInfraError(vaultId));
   }
-  const rootWorker = workers.find((worker) => worker.appRoot === ".");
-  if (rootWorker) {
-    return rootWorker;
+  if (workers.length > 1) {
+    throw new Error(
+      "Multiple Cloudflare Workers are connected. Choose an app root before reading production.",
+    );
   }
-  return [...workers].sort(
-    (left, right) =>
-      left.appRoot.localeCompare(right.appRoot) ||
-      left.workerName.localeCompare(right.workerName) ||
-      left.accountId.localeCompare(right.accountId),
-  )[0];
+  return workers[0];
 }
 
 function resolveConvexToken(
@@ -170,11 +164,7 @@ export const getConvexDeploymentStatus = internalAction({
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
     const { convexDeployments, convexConnection } = await loadVaultContext(ctx, args.vaultId);
-    const deployment = selectConvexDeploymentForInfraRead(convexDeployments);
-
-    if (!deployment) {
-      throw new Error(getVaultInfraError(args.vaultId));
-    }
+    const deployment = requireConvexDeploymentForInfraRead(convexDeployments, args.vaultId);
 
     const convexToken = resolveConvexToken(convexConnection);
     const endpoint = formatConvexManagementApiEndpoint({
@@ -211,11 +201,7 @@ export const getConvexLogs = internalAction({
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
     const { convexDeployments, convexConnection } = await loadVaultContext(ctx, args.vaultId);
-    const deployment = selectConvexDeploymentForInfraRead(convexDeployments);
-
-    if (!deployment) {
-      throw new Error(getVaultInfraError(args.vaultId));
-    }
+    const deployment = requireConvexDeploymentForInfraRead(convexDeployments, args.vaultId);
 
     const convexToken = resolveConvexToken(convexConnection);
     const endpoint = formatConvexManagementApiEndpoint({
@@ -259,11 +245,10 @@ export const getCloudflareWorkerStatus = internalAction({
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
     const { vault, cloudflareWorkers, vaultUserId } = await loadVaultContext(ctx, args.vaultId);
-    const cloudflare =
-      vault?.state === "connected" ? selectCloudflareWorkerForInfraRead(cloudflareWorkers) : null;
-    if (!cloudflare || !vaultUserId) {
+    if (vault?.state !== "connected" || !vaultUserId) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
+    const cloudflare = requireCloudflareWorkerForInfraRead(cloudflareWorkers, args.vaultId);
 
     const cloudflareConnection = await ctx.runAction(
       internal.cloudflareMcpOAuth.resolveConnectionForUser,
@@ -289,11 +274,10 @@ export const getCloudflareLogs = internalAction({
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
     const { vault, cloudflareWorkers, vaultUserId } = await loadVaultContext(ctx, args.vaultId);
-    const cloudflare =
-      vault?.state === "connected" ? selectCloudflareWorkerForInfraRead(cloudflareWorkers) : null;
-    if (!cloudflare || !vaultUserId) {
+    if (vault?.state !== "connected" || !vaultUserId) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
+    const cloudflare = requireCloudflareWorkerForInfraRead(cloudflareWorkers, args.vaultId);
 
     const cloudflareConnection = await ctx.runAction(
       internal.cloudflareMcpOAuth.resolveConnectionForUser,

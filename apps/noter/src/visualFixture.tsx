@@ -184,6 +184,7 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-dashboard-create-open",
   "vault-dashboard-dev-tools-hidden",
   "vault-dashboard-dev-tools-visible",
+  "vault-dashboard-add-first-app-root-open",
   "vault-dashboard-add-app-root-open",
   "vault-dashboard-connect-cloudflare-open",
   "vault-dashboard-connect-cloudflare-mobile-shell-open",
@@ -388,6 +389,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "vault-dashboard-create-open" ||
     mode === "vault-dashboard-dev-tools-hidden" ||
     mode === "vault-dashboard-dev-tools-visible" ||
+    mode === "vault-dashboard-add-first-app-root-open" ||
     mode === "vault-dashboard-add-app-root-open" ||
     mode === "vault-dashboard-connect-cloudflare-open" ||
     mode === "vault-dashboard-connect-cloudflare-mobile-shell-open" ||

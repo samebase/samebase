@@ -20,7 +20,7 @@ import {
   type VaultConvexConnectionTarget,
   type VaultConvexOrigin,
 } from "./model";
-import { normalizeCloudflareAppRoot } from "../../shared/cloudflareAppRoot";
+import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 
 const { array, id, null: nullValue, object, string } = v;
 
@@ -407,7 +407,7 @@ export const connectExistingProject = action({
   returns: nullValue(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
     const projectId = args.projectId.trim();
     if (!projectId) {
       throw new Error("Convex project is required.");
@@ -451,7 +451,7 @@ export const createProject = action({
     }
 
     const userId = await getUserId(ctx);
-    const appRoot = normalizeCloudflareAppRoot(args.appRoot);
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
     await ctx.runQuery(internal.vault.convexMutations.requireConvexDeploymentConnectionVault, {
       vaultId: args.vaultId,
       userId,
