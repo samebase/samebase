@@ -185,9 +185,10 @@ function AppWorkspaceClientShell({ children }: { children?: ReactNode }) {
 }
 
 /**
- * SSR must not guess workspace geometry. Keep WorkspaceLayoutV2 out of the
- * first server/client render while route content can still render inside the
- * interim shell.
+ * Route chrome is still registered by child layout effects, and anonymous
+ * sidebar preferences can come from localStorage. Keep the app shell chrome out
+ * of SSR until those inputs are render-time data, while route content can still
+ * render inside the interim shell.
  */
 function AppWorkspaceClientReadyGate({
   children,

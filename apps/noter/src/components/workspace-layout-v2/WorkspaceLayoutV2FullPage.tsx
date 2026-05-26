@@ -1,6 +1,5 @@
 import { type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { PanelLeft, PanelRight } from "lucide-react";
 import {
   WorkspaceLayoutV2PaneFrame,
@@ -102,17 +101,13 @@ export function WorkspaceLayoutV2FullPage({
   rightToggleVisibility?: WorkspaceLayoutV2ToggleVisibility;
   showMobileResizeGripDots?: boolean;
 }) {
-  const isMobile = useIsMobile();
-
   const hasDesktopHeaderToggle =
     (left && leftToggleVisibility !== "hidden") || (right && rightToggleVisibility !== "hidden");
-
   const hasMobileHeaderToggle =
     (left && leftToggleVisibility === "all") || (right && rightToggleVisibility === "all");
-
-  const hideMainHeader = isMobile
-    ? !main.header && !hasMobileHeaderToggle
-    : !main.header && !hasDesktopHeaderToggle;
+  const shouldRenderMainHeader = !!main.header || hasDesktopHeaderToggle || hasMobileHeaderToggle;
+  const mainHeaderVisibility =
+    !main.header && !hasMobileHeaderToggle && hasDesktopHeaderToggle ? "desktop" : "all";
 
   return (
     <WorkspaceLayoutV2
@@ -121,15 +116,16 @@ export function WorkspaceLayoutV2FullPage({
         <WorkspaceLayoutV2PaneFrame
           {...main}
           headerTestId={main.headerTestId ?? WORKSPACE_LAYOUT_V2_MAIN_PANE_HEADER_TEST_ID}
+          headerVisibility={main.headerVisibility ?? mainHeaderVisibility}
           header={
-            hideMainHeader ? undefined : (
+            shouldRenderMainHeader ? (
               <WorkspaceLayoutV2MainPaneHeader
                 leftToggleVisibility={left ? leftToggleVisibility : "hidden"}
                 rightToggleVisibility={right ? rightToggleVisibility : "hidden"}
               >
                 {main.header}
               </WorkspaceLayoutV2MainPaneHeader>
-            )
+            ) : undefined
           }
         />
       }

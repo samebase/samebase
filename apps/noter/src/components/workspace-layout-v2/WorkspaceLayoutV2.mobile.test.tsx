@@ -319,7 +319,11 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     });
 
     expect(rootElement.querySelector('button[aria-label="Toggle sidebar"]')).toBeNull();
-    expect(rootElement.querySelector('[aria-label="Toggle Right Sidebar"]')).toBeNull();
+    expect(
+      getRequiredElement(rootElement, '[aria-label="Toggle Right Sidebar"]').classList.contains(
+        "hidden",
+      ),
+    ).toBe(true);
 
     act(() => {
       mountedRoot.render(renderMobileLayout({ leftToggleVisibility: "all" }));
@@ -975,7 +979,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     }
   });
 
-  it("hides the shared header row on mobile when the route omits main header content", () => {
+  it("keeps the desktop-only shared header row hidden by CSS when mobile omits header content", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -985,11 +989,22 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       mountedRoot.render(renderMobileLayout({}));
     });
 
+    const headerRow = getRequiredElement(
+      rootElement,
+      '[data-testid="workspace-layout-v2-main-header-row"]',
+    );
+    expect(headerRow.classList.contains("hidden")).toBe(true);
+    expect(headerRow.classList.contains("md:block")).toBe(true);
     expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-main-header-row"]'),
-    ).toBeNull();
-    expect(rootElement.querySelector('[aria-label="Toggle Left Sidebar"]')).toBeNull();
-    expect(rootElement.querySelector('[aria-label="Toggle Right Sidebar"]')).toBeNull();
+      getRequiredElement(rootElement, '[aria-label="Toggle Left Sidebar"]').classList.contains(
+        "hidden",
+      ),
+    ).toBe(true);
+    expect(
+      getRequiredElement(rootElement, '[aria-label="Toggle Right Sidebar"]').classList.contains(
+        "hidden",
+      ),
+    ).toBe(true);
   });
 
   it("treats omitted and null main headers the same on mobile", () => {
@@ -1002,11 +1017,22 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       mountedRoot.render(renderMobileLayout({ mainHeader: null }));
     });
 
+    const headerRow = getRequiredElement(
+      rootElement,
+      '[data-testid="workspace-layout-v2-main-header-row"]',
+    );
+    expect(headerRow.classList.contains("hidden")).toBe(true);
+    expect(headerRow.classList.contains("md:block")).toBe(true);
     expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-main-header-row"]'),
-    ).toBeNull();
-    expect(rootElement.querySelector('[aria-label="Toggle Left Sidebar"]')).toBeNull();
-    expect(rootElement.querySelector('[aria-label="Toggle Right Sidebar"]')).toBeNull();
+      getRequiredElement(rootElement, '[aria-label="Toggle Left Sidebar"]').classList.contains(
+        "hidden",
+      ),
+    ).toBe(true);
+    expect(
+      getRequiredElement(rootElement, '[aria-label="Toggle Right Sidebar"]').classList.contains(
+        "hidden",
+      ),
+    ).toBe(true);
   });
 
   it("keeps the shared header row on mobile when the route provides content", () => {

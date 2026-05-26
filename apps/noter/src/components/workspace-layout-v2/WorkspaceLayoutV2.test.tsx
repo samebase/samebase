@@ -79,6 +79,21 @@ function renderFullPageMarkup({
 }
 
 describe("WorkspaceLayoutV2FullPage", () => {
+  it("server-renders one responsive pane tree instead of mobile and desktop branches", () => {
+    const markup = renderFullPageMarkup({});
+
+    expect(markup).toContain('data-workspace-layout-v2="responsive"');
+    expect(markup).not.toContain('data-workspace-layout-v2="mobile"');
+    expect(markup).not.toContain('data-workspace-layout-v2="desktop"');
+    expect((markup.match(/data-testid="workspace-layout-v2-pane-left"/g) ?? []).length).toBe(1);
+    expect((markup.match(/data-testid="workspace-layout-v2-pane-main"/g) ?? []).length).toBe(1);
+    expect((markup.match(/data-testid="workspace-layout-v2-pane-right"/g) ?? []).length).toBe(1);
+    expect(markup).toContain("workspace-layout-v2-responsive-viewport");
+    expect(markup).toContain("workspace-layout-v2-responsive-left-pane");
+    expect(markup).toContain("workspace-layout-v2-responsive-main-pane");
+    expect(markup).toContain("workspace-layout-v2-responsive-right-pane");
+  });
+
   it("keeps main header content rendered while sidebar toggles stay desktop-only", () => {
     const markup = renderToStaticMarkup(
       <WorkspaceLayoutV2TestSidebarProvider>
