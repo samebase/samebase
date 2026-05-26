@@ -162,14 +162,17 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
     suggestion: "hidden",
   }),
   depth: routeSearchValueParam(routeSearchFiniteNumber, {
+    numericDefaultValue: DEFAULT_LOGO_FRACTAL_DEPTH,
     permission: "public",
     suggestion: "route",
   }),
   dist: routeSearchValueParam(routeSearchFiniteNumber, {
+    numericDefaultValue: DEFAULT_LOGO_DISTANCE_SCALE,
     permission: "public",
     suggestion: "route",
   }),
   elev: routeSearchValueParam(routeSearchFiniteNumber, {
+    numericDefaultValue: DEFAULT_ELEVATION_DEGREES,
     permission: "public",
     suggestion: "route",
   }),
@@ -178,11 +181,13 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
     suggestion: "route",
   }),
   gridSize: routeSearchValueParam(logoGridSizeSearchValue, {
+    numericDefaultValue: DEFAULT_LOGO_GRID_SIZE,
     permission: "public",
     suggestion: "route",
     valueSuggestions: LOGO_GRID_SIZE_VALUE_SUGGESTIONS,
   }),
   isoSide: routeSearchValueParam(routeSearchFiniteNumber, {
+    numericDefaultValue: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
     permission: "public",
     suggestion: "route",
   }),
@@ -199,11 +204,13 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
   light: rootThemeModeSearchFieldSchema.shape.light,
   primary: appThemeColorSearchFieldSchema.shape.primary,
   rot: routeSearchValueParam(routeSearchFiniteNumber, {
+    numericDefaultValue: DEFAULT_ROTATION_DEGREES,
     permission: "public",
     suggestion: "route",
   }),
   secondary: appThemeColorSearchFieldSchema.shape.secondary,
   stripeA: routeSearchValueParam(routeSearchFiniteNumber, {
+    numericDefaultValue: DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
     permission: "public",
     suggestion: "route",
   }),
@@ -213,6 +220,7 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
     valueSuggestions: LOGO_LEFT_FACE_STRIPE_BASIS_VALUES,
   }),
   stripeG: routeSearchValueParam(routeSearchFiniteNumber, {
+    numericDefaultValue: DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
     permission: "public",
     suggestion: "route",
   }),
@@ -221,10 +229,12 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
     suggestion: "route",
   }),
   stripeO: routeSearchValueParam(routeSearchFiniteNumber, {
+    numericDefaultValue: DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
     permission: "public",
     suggestion: "route",
   }),
   stripeW: routeSearchValueParam(routeSearchFiniteNumber, {
+    numericDefaultValue: DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
     permission: "public",
     suggestion: "route",
   }),

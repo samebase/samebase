@@ -54,6 +54,11 @@ describe("routeSearchParamMetadata", () => {
         suggestion: "route",
         valueSuggestions: ["google"],
       }),
+      depth: routeSearchValueParam(routeSearchFiniteNumber, {
+        numericDefaultValue: 1,
+        permission: "public",
+        suggestion: "route",
+      }),
       dev: routeSearchPresenceParam({
         permission: "public",
         suggestion: "global",
@@ -69,6 +74,13 @@ describe("routeSearchParamMetadata", () => {
         permission: "public",
         valueKind: "value",
         valueSuggestions: ["google"],
+      },
+      {
+        key: "depth",
+        numericDefaultValue: 1,
+        permission: "public",
+        valueKind: "value",
+        valueSuggestions: [],
       },
     ]);
     expect(readRouteSearchParamSuggestions(metadata, "global")).toEqual([

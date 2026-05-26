@@ -107,6 +107,27 @@ describe("readRouteUrlEditorSuggestions", () => {
     ).toEqual([{ detail: "2 +1", value: "&depth=3" }]);
   });
 
+  it("uses static numeric defaults when the URL does not carry the value", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?depth",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?depth".length,
+      viewer: publicViewer,
+    });
+
+    expect(
+      suggestions.map((suggestion) => ({
+        detail: suggestion.detail ?? null,
+        value: suggestion.value,
+      })),
+    ).toEqual([{ detail: "1 +1", value: "?depth=2" }]);
+  });
+
   it("keeps numeric examples inside finite numeric value suggestions", () => {
     const suggestions = readRouteUrlEditorSuggestions({
       currentHref: "/logo?gridSize=3",

@@ -417,6 +417,7 @@ function readRouteUrlEditorNumericSearchSuggestion(args: {
     draftRouteAddress: args.draftRouteAddress,
     key: args.suggestion.key,
     origin: args.origin,
+    suggestion: args.suggestion,
   });
   if (currentValue === null) {
     return null;
@@ -456,6 +457,7 @@ function readRouteUrlEditorNumericSearchParamValue(args: {
   draftRouteAddress: string;
   key: string;
   origin: string;
+  suggestion: Extract<NoterRouteSearchParamSuggestion, { valueKind: "value" }>;
 }): NumericSearchParamValue | null {
   return (
     readRouteUrlEditorRouteSearchParamNumber({
@@ -467,8 +469,25 @@ function readRouteUrlEditorNumericSearchParamValue(args: {
       key: args.key,
       origin: args.origin,
       routeAddress: args.currentHref,
-    })
+    }) ??
+    readRouteUrlEditorNumericDefaultSearchParamValue(args.suggestion)
   );
+}
+
+function readRouteUrlEditorNumericDefaultSearchParamValue(
+  suggestion: Extract<NoterRouteSearchParamSuggestion, { valueKind: "value" }>,
+): NumericSearchParamValue | null {
+  if (
+    typeof suggestion.numericDefaultValue !== "number" ||
+    !Number.isFinite(suggestion.numericDefaultValue)
+  ) {
+    return null;
+  }
+
+  return {
+    number: suggestion.numericDefaultValue,
+    raw: formatRouteUrlEditorNumericSearchValue(suggestion.numericDefaultValue),
+  };
 }
 
 function readRouteUrlEditorRouteSearchParamNumber(args: {

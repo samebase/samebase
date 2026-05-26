@@ -266,31 +266,31 @@ describe("RouteUrlEditor", () => {
     const input = startEditing(["/logo"]);
     const origin = window.location.origin;
 
-    await fillRouteUrlEditorInput(input, `${origin}/logo?d`);
-    const distOption = rootElement?.querySelector<HTMLButtonElement>(
-      'button[aria-label="Use ?dist="]',
+    await fillRouteUrlEditorInput(input, `${origin}/logo?vo`);
+    const voxOption = rootElement?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Use ?vox="]',
     );
-    if (!distOption) {
-      throw new Error("Expected dist search param suggestion.");
+    if (!voxOption) {
+      throw new Error("Expected vox search param suggestion.");
     }
 
     await act(async () => {
-      distOption.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      voxOption.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
       await Promise.resolve();
     });
 
-    expect(input.value).toBe(`${origin}/logo?d`);
+    expect(input.value).toBe(`${origin}/logo?vo`);
     expect(readRouteHref()).toBe("/logo");
-    expect(distOption.getAttribute("aria-selected")).toBe("false");
+    expect(voxOption.getAttribute("aria-selected")).toBe("false");
 
     await act(async () => {
-      distOption.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      voxOption.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       await Promise.resolve();
       await Promise.resolve();
       await new Promise((resolve) => window.setTimeout(resolve, 0));
     });
 
-    expect(input.value).toBe(`${origin}/logo?dist=`);
+    expect(input.value).toBe(`${origin}/logo?vox=`);
     expect(readRouteHref()).toBe("/logo");
   });
 
@@ -298,21 +298,21 @@ describe("RouteUrlEditor", () => {
     const input = startEditing(["/logo"]);
     const origin = window.location.origin;
 
-    await fillRouteUrlEditorInput(input, `${origin}/logo?d`);
-    const distOption = rootElement?.querySelector<HTMLButtonElement>(
-      'button[aria-label="Use ?dist="]',
+    await fillRouteUrlEditorInput(input, `${origin}/logo?vo`);
+    const voxOption = rootElement?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Use ?vox="]',
     );
-    if (!distOption) {
-      throw new Error("Expected dist search param suggestion.");
+    if (!voxOption) {
+      throw new Error("Expected vox search param suggestion.");
     }
 
     await act(async () => {
-      distOption.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+      voxOption.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
       await Promise.resolve();
     });
 
-    expect(distOption.getAttribute("aria-selected")).toBe("true");
-    expect(input.value).toBe(`${origin}/logo?dist=`);
+    expect(voxOption.getAttribute("aria-selected")).toBe("true");
+    expect(input.value).toBe(`${origin}/logo?vox=`);
     expect(readRouteHref()).toBe("/logo");
   });
 
@@ -423,6 +423,33 @@ describe("RouteUrlEditor", () => {
     expect(document.activeElement).toBe(input);
   });
 
+  it("previews one numeric search example from the static default", async () => {
+    const input = startEditing(["/logo"]);
+    const origin = window.location.origin;
+
+    await fillRouteUrlEditorInput(input, `${origin}/logo?depth`);
+    const optionButtons = [
+      ...(rootElement?.querySelectorAll<HTMLButtonElement>('button[role="option"]') ?? []),
+    ];
+    const nextDepthOption = optionButtons.find(
+      (button) => button.getAttribute("aria-label") === "Use ?depth=2 1 +1",
+    );
+    expect(optionButtons.map((button) => button.getAttribute("aria-label"))).toEqual([
+      "Use ?depth=2 1 +1",
+    ]);
+    if (!nextDepthOption) {
+      throw new Error("Expected default depth search param suggestion.");
+    }
+
+    await pressRouteUrlEditorKey(input, "ArrowDown");
+
+    expect(nextDepthOption.getAttribute("aria-selected")).toBe("true");
+    expect(input.value).toBe(`${origin}/logo?depth=2`);
+    expect(readRouteHref()).toBe("/logo?depth=2");
+    expect(nextDepthOption.textContent).toContain("1 +1");
+    expect(document.activeElement).toBe(input);
+  });
+
   it("opens the next search param slot after committing a key-only suggestion with Enter", async () => {
     const input = startEditing(["/logo"]);
     const origin = window.location.origin;
@@ -506,22 +533,22 @@ describe("RouteUrlEditor", () => {
     const input = startEditing(["/logo"]);
     const origin = window.location.origin;
 
-    await fillRouteUrlEditorInput(input, `${origin}/logo?ro`);
-    const rotOption = rootElement?.querySelector<HTMLButtonElement>(
-      'button[aria-label="Use ?rot="]',
+    await fillRouteUrlEditorInput(input, `${origin}/logo?vo`);
+    const voxOption = rootElement?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Use ?vox="]',
     );
-    if (!rotOption) {
-      throw new Error("Expected rot search param suggestion.");
+    if (!voxOption) {
+      throw new Error("Expected vox search param suggestion.");
     }
 
     await act(async () => {
-      rotOption.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      voxOption.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       await Promise.resolve();
       await Promise.resolve();
       await new Promise((resolve) => window.setTimeout(resolve, 0));
     });
 
-    expect(input.value).toBe(`${origin}/logo?rot=`);
+    expect(input.value).toBe(`${origin}/logo?vox=`);
     expect(readRouteHref()).toBe("/logo");
     expect(readSuggestions()).toBeNull();
     expect(document.activeElement).toBe(input);

@@ -15,6 +15,7 @@ type RouteSearchParamMetadataBase = {
 
 export type RouteSearchParamMetadata =
   | (RouteSearchParamMetadataBase & {
+      numericDefaultValue?: number;
       valueKind: "value";
       valueCompletion?: NoterRouteSearchParamValueCompletion;
       valueSuggestions?: readonly string[];
@@ -120,6 +121,7 @@ export function routeSearchStringValue<const Values extends readonly [string, ..
 export function routeSearchValueParam<const Schema extends RouteSearchValueSchema>(
   schema: Schema,
   args: {
+    numericDefaultValue?: number;
     permission: NoterRoutePermission;
     suggestion: RouteSearchParamSuggestionSurface;
     valueCompletion?: NoterRouteSearchParamValueCompletion;
@@ -223,6 +225,9 @@ export function readRouteSearchParamSuggestions<
       valueKind: "value",
       valueSuggestions: paramMetadata.valueSuggestions ?? [],
     };
+    if (typeof paramMetadata.numericDefaultValue === "number") {
+      suggestion.numericDefaultValue = paramMetadata.numericDefaultValue;
+    }
     if (paramMetadata.valueCompletion) {
       suggestion.valueCompletion = paramMetadata.valueCompletion;
     }
