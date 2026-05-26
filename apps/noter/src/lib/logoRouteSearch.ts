@@ -151,6 +151,7 @@ const canonicalVoxelStateSearchValue = pure((value: unknown) => {
 const logoRouteSearchFieldSchema = defineRouteSearchParams({
   axis: routeSearchValueParam(routeSearchStringValue(LOGO_ROTATION_AXIS_MODE_VALUES), {
     permission: "public",
+    sampleValue: "screen-vertical",
     suggestion: "route",
     valueSuggestions: LOGO_ROTATION_AXIS_MODE_VALUES,
   }),
@@ -164,16 +165,19 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
   depth: routeSearchValueParam(routeSearchFiniteNumber, {
     numericDefaultValue: DEFAULT_LOGO_FRACTAL_DEPTH,
     permission: "public",
+    sampleValue: `${DEFAULT_LOGO_FRACTAL_DEPTH + 1}`,
     suggestion: "route",
   }),
   dist: routeSearchValueParam(routeSearchFiniteNumber, {
     numericDefaultValue: DEFAULT_LOGO_DISTANCE_SCALE,
     permission: "public",
+    sampleValue: `${DEFAULT_LOGO_DISTANCE_SCALE + 1}`,
     suggestion: "route",
   }),
   elev: routeSearchValueParam(routeSearchFiniteNumber, {
     numericDefaultValue: DEFAULT_ELEVATION_DEGREES,
     permission: "public",
+    sampleValue: `${DEFAULT_ELEVATION_DEGREES + 1}`,
     suggestion: "route",
   }),
   freeView: routeSearchPresenceParam({
@@ -183,21 +187,25 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
   gridSize: routeSearchValueParam(logoGridSizeSearchValue, {
     numericDefaultValue: DEFAULT_LOGO_GRID_SIZE,
     permission: "public",
+    sampleValue: `${LOGO_GRID_SIZE_2}`,
     suggestion: "route",
     valueSuggestions: LOGO_GRID_SIZE_VALUE_SUGGESTIONS,
   }),
   isoSide: routeSearchValueParam(routeSearchFiniteNumber, {
     numericDefaultValue: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
     permission: "public",
+    sampleValue: `${DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX + 1}`,
     suggestion: "route",
   }),
   isoStyle: routeSearchValueParam(logoIsometricStyleSearchValue, {
     permission: "public",
+    sampleValue: "shaded-edge",
     suggestion: "route",
     valueSuggestions: LOGO_ISOMETRIC_STYLE_VALUES,
   }),
   leftFace: routeSearchValueParam(logoLeftFaceStyleSearchValue, {
     permission: "public",
+    sampleValue: "secondary",
     suggestion: "route",
     valueSuggestions: LOGO_LEFT_FACE_STYLE_KINDS,
   }),
@@ -206,22 +214,26 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
   rot: routeSearchValueParam(routeSearchFiniteNumber, {
     numericDefaultValue: DEFAULT_ROTATION_DEGREES,
     permission: "public",
+    sampleValue: `${DEFAULT_ROTATION_DEGREES + 1}`,
     suggestion: "route",
   }),
   secondary: appThemeColorSearchFieldSchema.shape.secondary,
   stripeA: routeSearchValueParam(routeSearchFiniteNumber, {
     numericDefaultValue: DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
     permission: "public",
+    sampleValue: `${DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES + 1}`,
     suggestion: "route",
   }),
   stripeBasis: routeSearchValueParam(logoLeftFaceStripeBasisSearchValue, {
     permission: "public",
+    sampleValue: "horizontal",
     suggestion: "route",
     valueSuggestions: LOGO_LEFT_FACE_STRIPE_BASIS_VALUES,
   }),
   stripeG: routeSearchValueParam(routeSearchFiniteNumber, {
     numericDefaultValue: DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
     permission: "public",
+    sampleValue: `${DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP + 1}`,
     suggestion: "route",
   }),
   stripeLink: routeSearchPresenceParam({
@@ -231,16 +243,19 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
   stripeO: routeSearchValueParam(routeSearchFiniteNumber, {
     numericDefaultValue: DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
     permission: "public",
+    sampleValue: `${DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET + 1}`,
     suggestion: "route",
   }),
   stripeW: routeSearchValueParam(routeSearchFiniteNumber, {
     numericDefaultValue: DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
     permission: "public",
+    sampleValue: `${DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH + 1}`,
     suggestion: "route",
   }),
   top: appThemeColorSearchFieldSchema.shape.top,
   vox: routeSearchValueParam(canonicalVoxelStateSearchValue, {
     permission: "public",
+    sampleValue: "xxx_xox_xxx-xxx_xxx_xxx-xxx_xxx_xxx",
     suggestion: "route",
   }),
 });

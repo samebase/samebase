@@ -17,11 +17,13 @@ describe("routeSearchParamMetadata", () => {
     const searchParams = defineRouteSearchParams({
       auth: routeSearchValueParam(literal("google"), {
         permission: "public",
+        sampleValue: "google",
         suggestion: "route",
         valueSuggestions: ["google"],
       }),
       depth: routeSearchValueParam(routeSearchFiniteNumber, {
         permission: "public",
+        sampleValue: "2",
         suggestion: "route",
       }),
       dev: routeSearchPresenceParam({
@@ -51,12 +53,14 @@ describe("routeSearchParamMetadata", () => {
     const searchParams = defineRouteSearchParams({
       auth: routeSearchValueParam(literal("google"), {
         permission: "public",
+        sampleValue: "google",
         suggestion: "route",
         valueSuggestions: ["google"],
       }),
       depth: routeSearchValueParam(routeSearchFiniteNumber, {
         numericDefaultValue: 1,
         permission: "public",
+        sampleValue: "2",
         suggestion: "route",
       }),
       dev: routeSearchPresenceParam({
@@ -72,6 +76,7 @@ describe("routeSearchParamMetadata", () => {
       {
         key: "auth",
         permission: "public",
+        sampleValue: "google",
         valueKind: "value",
         valueSuggestions: ["google"],
       },
@@ -79,6 +84,7 @@ describe("routeSearchParamMetadata", () => {
         key: "depth",
         numericDefaultValue: 1,
         permission: "public",
+        sampleValue: "2",
         valueKind: "value",
         valueSuggestions: [],
       },

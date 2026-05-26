@@ -10,6 +10,7 @@ import {
 const codexResearchRouteSearchSchema = defineRouteSearchParams({
   threadId: routeSearchValueParam(routeSearchNonEmptyString, {
     permission: "admin",
+    sampleValue: "sample-thread",
     suggestion: "route",
   }),
 });

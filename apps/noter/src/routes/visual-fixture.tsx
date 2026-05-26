@@ -12,6 +12,7 @@ import { VisualFixturePage } from "@/visualFixture";
 const visualFixtureRouteSearchSchema = defineRouteSearchParams({
   mode: routeSearchValueParam(routeSearchString, {
     permission: "public",
+    sampleValue: "route-url-editor",
     suggestion: "route",
   }),
 });

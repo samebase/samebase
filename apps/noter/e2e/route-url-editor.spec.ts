@@ -425,7 +425,9 @@ test("route URL editor lists route paths and filters them while typing", async (
   await expect(input).toHaveValue(`${origin}/logo?`);
   await expect(suggestions).toBeVisible();
   await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
-  await expect(page.getByRole("option", { exact: true, name: "Use ?leftFace=" })).toBeVisible();
+  await expect(
+    page.getByRole("option", { exact: true, name: "Use ?leftFace=secondary" }),
+  ).toBeVisible();
 
   await input.blur();
 
@@ -889,6 +891,35 @@ test("route URL editor lists search param value options after equals", async ({ 
   await expect(stripedOption).toBeVisible();
 });
 
+test("route URL editor previews color samples from composed value options", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/logo", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const input = await editRouteUrl(page);
+  const suggestions = page.getByTestId("route-url-editor-suggestions");
+  const emeraldOption = page.getByRole("option", {
+    exact: true,
+    name: "Use emerald-500",
+  });
+
+  await input.fill(`${origin}/logo?primary=em`);
+
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search-value");
+  await expect(emeraldOption).toBeVisible();
+  await expect(suggestions).toHaveScreenshot("route-url-editor-color-sample-suggestions.png", {
+    animations: "disabled",
+  });
+
+  await emeraldOption.hover();
+
+  await expect(emeraldOption).toHaveAttribute("aria-selected", "true");
+  await expect(input).toHaveValue(`${origin}/logo?primary=emerald-500`);
+  await expect(page).toHaveURL(`${origin}/logo?primary=emerald-500`);
+});
+
 test("route URL editor continues with a new search param after Enter commits a value", async ({
   page,
 }) => {
@@ -983,13 +1014,11 @@ test("route URL editor keeps unfinished valued search params local", async ({ pa
   const input = await editRouteUrl(page);
   const rotOption = page.getByRole("option", {
     exact: true,
-    name: "Use ?rot=",
+    name: "Use ?rot=46 45 +1",
   });
 
   await input.press("End");
-  await input.type("?");
-  await expect(rotOption).toBeVisible();
-  await rotOption.click();
+  await input.type("?rot=");
 
   await expect(input).toHaveValue(`${origin}/logo?rot=`);
   await expect(page).toHaveURL(`${origin}/logo`);
@@ -1020,7 +1049,11 @@ test("route URL editor waits for pointer movement before hover-previewing keyboa
   const input = await editRouteUrl(page);
   const distOption = page.getByRole("option", {
     exact: true,
-    name: "Use &dist=",
+    name: "Use &dist=2 1 +1",
+  });
+  const nextDistOption = page.getByRole("option", {
+    exact: true,
+    name: "Use &dist=3 2 +1",
   });
 
   await input.fill(`${origin}/logo?dev&dist=`);
@@ -1042,21 +1075,21 @@ test("route URL editor waits for pointer movement before hover-previewing keyboa
 
   await distOption.click();
 
-  await expect(input).toHaveValue(`${origin}/logo?dev&dist=`);
-  await expect(page).toHaveURL(`${origin}/logo?dev`);
+  await expect(input).toHaveValue(`${origin}/logo?dev&dist=2&`);
+  await expect(page).toHaveURL(`${origin}/logo?dev&dist=2`);
 
   await input.fill(`${origin}/logo?dev&d`);
-  await expect(distOption).toBeVisible();
+  await expect(nextDistOption).toBeVisible();
 
-  const distOptionBox = await distOption.boundingBox();
+  const distOptionBox = await nextDistOption.boundingBox();
   if (distOptionBox === null) {
     throw new Error("Expected dist suggestion to be visible.");
   }
   await page.mouse.move(distOptionBox.x + distOptionBox.width / 2, distOptionBox.y + 1);
 
-  await expect(distOption).toHaveAttribute("aria-selected", "true");
-  await expect(input).toHaveValue(`${origin}/logo?dev&dist=`);
-  await expect(page).toHaveURL(`${origin}/logo?dev`);
+  await expect(nextDistOption).toHaveAttribute("aria-selected", "true");
+  await expect(input).toHaveValue(`${origin}/logo?dev&dist=3`);
+  await expect(page).toHaveURL(`${origin}/logo?dev&dist=3`);
 });
 
 test("route URL editor arrow-previews visible routes in the app workspace shell", async ({

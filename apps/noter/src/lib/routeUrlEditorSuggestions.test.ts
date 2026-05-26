@@ -83,7 +83,7 @@ describe("readRouteUrlEditorSuggestions", () => {
       viewer: publicViewer,
     });
 
-    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["&leftFace="]);
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["&leftFace=secondary"]);
   });
 
   it("replaces valued search params with one different numeric example", () => {
@@ -130,6 +130,25 @@ describe("readRouteUrlEditorSuggestions", () => {
     ).toEqual([
       { detail: "1 +1", value: "?depth=2" },
       { detail: "1 +1", value: "?dist=2" },
+    ]);
+  });
+
+  it("uses sample values in the search param dropdown for every valued param", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?i",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?i".length,
+      viewer: publicViewer,
+    });
+
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual([
+      "?isoSide=17",
+      "?isoStyle=shaded-edge",
     ]);
   });
 
@@ -183,7 +202,21 @@ describe("readRouteUrlEditorSuggestions", () => {
       viewer: publicViewer,
     });
 
-    expect(familySuggestions.map((suggestion) => suggestion.value)).toEqual(["blue-", "black-"]);
+    expect(familySuggestions.map((suggestion) => suggestion.value)).toEqual(["blue-500", "black-"]);
+
+    const emeraldFamilySuggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?primary=em",
+      hashKeys: [],
+      kind: "search-value",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?primary=em".length,
+      viewer: publicViewer,
+    });
+
+    expect(emeraldFamilySuggestions.map((suggestion) => suggestion.value)).toEqual(["emerald-500"]);
 
     const shadeSuggestions = readRouteUrlEditorSuggestions({
       currentHref: "/logo",
@@ -198,17 +231,17 @@ describe("readRouteUrlEditorSuggestions", () => {
     });
 
     expect(shadeSuggestions.map((suggestion) => suggestion.value)).toEqual([
-      "50",
-      "100",
-      "200",
-      "300",
-      "400",
-      "500",
-      "600",
-      "700",
-      "800",
-      "900",
-      "950",
+      "blue-50",
+      "blue-100",
+      "blue-200",
+      "blue-300",
+      "blue-400",
+      "blue-500",
+      "blue-600",
+      "blue-700",
+      "blue-800",
+      "blue-900",
+      "blue-950",
     ]);
   });
 
@@ -276,7 +309,7 @@ describe("readRouteUrlEditorSuggestions", () => {
       viewer: adminViewer,
     });
 
-    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["?mode="]);
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["?mode=route-url-editor"]);
   });
 
   it("hides local-only route search params on deployed surfaces", () => {
@@ -450,7 +483,7 @@ describe("applyRouteUrlEditorSuggestion", () => {
           key: "primary=blue-500",
           kind: "search-value",
           replacementValue: "blue-500",
-          value: "500",
+          value: "blue-500",
         },
       }),
     ).toBe("/logo?primary=blue-500#top");

@@ -21,6 +21,7 @@ export type NoterRouteSearchParamSuggestion<Key extends string = string> =
   | (NoterRouteSearchParamSuggestionBase<Key> & {
       valueKind: "value";
       numericDefaultValue?: number;
+      sampleValue: string;
       valueCompletion?: NoterRouteSearchParamValueCompletion;
       valueSuggestions: readonly string[];
     });

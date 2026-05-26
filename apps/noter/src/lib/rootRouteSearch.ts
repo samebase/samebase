@@ -39,11 +39,13 @@ const rootRouteSearchSchema = defineRouteSearchParams({
   }),
   "auth-return": routeSearchValueParam(routeSearchStringValue(["dashboard"]), {
     permission: "public",
+    sampleValue: "dashboard",
     suggestion: "hidden",
     valueSuggestions: ["dashboard"],
   }),
   auth: routeSearchValueParam(routeSearchStringValue(["google"]), {
     permission: "public",
+    sampleValue: "google",
     suggestion: "route",
     valueSuggestions: ["google"],
   }),
@@ -69,6 +71,7 @@ const rootRouteSearchSchema = defineRouteSearchParams({
   }),
   signup: routeSearchValueParam(routeSearchStringValue(["google"]), {
     permission: "public",
+    sampleValue: "google",
     suggestion: "route",
     valueSuggestions: ["google"],
   }),

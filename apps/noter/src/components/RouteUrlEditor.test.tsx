@@ -258,7 +258,9 @@ describe("RouteUrlEditor", () => {
     expect(input.value).toBe(`${origin}/logo?`);
     expect(readRouteHref()).toBe("/logo");
     expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search");
-    expect(rootElement?.querySelector('button[aria-label="Use ?leftFace="]')).not.toBeNull();
+    expect(
+      rootElement?.querySelector('button[aria-label="Use ?leftFace=secondary"]'),
+    ).not.toBeNull();
     expect(document.activeElement).toBe(input);
   });
 
@@ -268,7 +270,7 @@ describe("RouteUrlEditor", () => {
 
     await fillRouteUrlEditorInput(input, `${origin}/logo?vo`);
     const voxOption = rootElement?.querySelector<HTMLButtonElement>(
-      'button[aria-label="Use ?vox="]',
+      'button[aria-label="Use ?vox=xxx_xox_xxx-xxx_xxx_xxx-xxx_xxx_xxx"]',
     );
     if (!voxOption) {
       throw new Error("Expected vox search param suggestion.");
@@ -290,8 +292,8 @@ describe("RouteUrlEditor", () => {
       await new Promise((resolve) => window.setTimeout(resolve, 0));
     });
 
-    expect(input.value).toBe(`${origin}/logo?vox=`);
-    expect(readRouteHref()).toBe("/logo");
+    expect(input.value).toBe(`${origin}/logo?vox=xxx_xox_xxx-xxx_xxx_xxx-xxx_xxx_xxx&`);
+    expect(readRouteHref()).toBe("/logo?vox=xxx_xox_xxx-xxx_xxx_xxx-xxx_xxx_xxx");
   });
 
   it("previews keyboard-created search suggestions after pointer movement", async () => {
@@ -300,7 +302,7 @@ describe("RouteUrlEditor", () => {
 
     await fillRouteUrlEditorInput(input, `${origin}/logo?vo`);
     const voxOption = rootElement?.querySelector<HTMLButtonElement>(
-      'button[aria-label="Use ?vox="]',
+      'button[aria-label="Use ?vox=xxx_xox_xxx-xxx_xxx_xxx-xxx_xxx_xxx"]',
     );
     if (!voxOption) {
       throw new Error("Expected vox search param suggestion.");
@@ -312,17 +314,17 @@ describe("RouteUrlEditor", () => {
     });
 
     expect(voxOption.getAttribute("aria-selected")).toBe("true");
-    expect(input.value).toBe(`${origin}/logo?vox=`);
-    expect(readRouteHref()).toBe("/logo");
+    expect(input.value).toBe(`${origin}/logo?vox=xxx_xox_xxx-xxx_xxx_xxx-xxx_xxx_xxx`);
+    expect(readRouteHref()).toBe("/logo?vox=xxx_xox_xxx-xxx_xxx_xxx-xxx_xxx_xxx");
   });
 
-  it("opens value options after selecting a valued search param", async () => {
+  it("previews sample values after selecting a valued search param", async () => {
     const input = startEditing(["/logo"]);
     const origin = window.location.origin;
 
     await fillRouteUrlEditorInput(input, `${origin}/logo?left`);
     const leftFaceOption = rootElement?.querySelector<HTMLButtonElement>(
-      'button[aria-label="Use ?leftFace="]',
+      'button[aria-label="Use ?leftFace=secondary"]',
     );
     if (!leftFaceOption) {
       throw new Error("Expected leftFace search param suggestion.");
@@ -335,11 +337,10 @@ describe("RouteUrlEditor", () => {
       await new Promise((resolve) => window.setTimeout(resolve, 0));
     });
 
-    expect(input.value).toBe(`${origin}/logo?leftFace=`);
-    expect(readRouteHref()).toBe("/logo");
-    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search-value");
-    expect(rootElement?.querySelector('button[aria-label="Use secondary"]')).not.toBeNull();
-    expect(rootElement?.querySelector('button[aria-label="Use striped"]')).not.toBeNull();
+    expect(input.value).toBe(`${origin}/logo?leftFace=secondary&`);
+    expect(readRouteHref()).toBe("/logo?leftFace=secondary");
+    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search");
+    expect(rootElement?.querySelector('button[role="option"]')).not.toBeNull();
     expect(document.activeElement).toBe(input);
   });
 
@@ -493,33 +494,48 @@ describe("RouteUrlEditor", () => {
     expect(document.activeElement).toBe(input);
   });
 
-  it("continues color values from family suggestions into shade suggestions", async () => {
+  it("previews color family samples as complete values", async () => {
     const input = startEditing(["/logo"]);
     const origin = window.location.origin;
 
-    await fillRouteUrlEditorInput(input, `${origin}/logo?primary=bl`);
-    const blueFamilyOption = rootElement?.querySelector<HTMLButtonElement>(
-      'button[aria-label="Use blue-"]',
+    await fillRouteUrlEditorInput(input, `${origin}/logo?primary=em`);
+    const emeraldFamilyOption = rootElement?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Use emerald-500"]',
     );
-    if (!blueFamilyOption) {
-      throw new Error("Expected blue color family suggestion.");
+    if (!emeraldFamilyOption) {
+      throw new Error("Expected emerald color family suggestion.");
     }
 
+    await pressRouteUrlEditorKey(input, "ArrowDown");
+
+    expect(emeraldFamilyOption.getAttribute("aria-selected")).toBe("true");
+    expect(input.value).toBe(`${origin}/logo?primary=emerald-500`);
+    expect(readRouteHref()).toBe("/logo?primary=emerald-500");
+
     await act(async () => {
-      blueFamilyOption.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
       await Promise.resolve();
       await Promise.resolve();
       await new Promise((resolve) => window.setTimeout(resolve, 0));
     });
 
-    expect(input.value).toBe(`${origin}/logo?primary=blue-`);
-    expect(readRouteHref()).toBe("/logo");
+    expect(input.value).toBe(`${origin}/logo?primary=emerald-500&`);
+    expect(readRouteHref()).toBe("/logo?primary=emerald-500");
+    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search");
+    expect(document.activeElement).toBe(input);
+  });
+
+  it("previews color shade samples as complete values", async () => {
+    const input = startEditing(["/logo"]);
+    const origin = window.location.origin;
+
+    await fillRouteUrlEditorInput(input, `${origin}/logo?primary=blue-`);
     expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search-value");
-    expect(rootElement?.querySelector('button[aria-label="Use 50"]')).not.toBeNull();
-    expect(rootElement?.querySelector('button[aria-label="Use 500"]')).not.toBeNull();
+    expect(rootElement?.querySelector('button[aria-label="Use blue-50"]')).not.toBeNull();
+    expect(rootElement?.querySelector('button[aria-label="Use blue-500"]')).not.toBeNull();
 
     const blue500Option = rootElement?.querySelector<HTMLButtonElement>(
-      'button[aria-label="Use 500"]',
+      'button[aria-label="Use blue-500"]',
     );
     if (!blue500Option) {
       throw new Error("Expected blue 500 shade suggestion.");
@@ -538,13 +554,13 @@ describe("RouteUrlEditor", () => {
     expect(document.activeElement).toBe(input);
   });
 
-  it("keeps selected unfinished valued search params local", async () => {
+  it("commits sample values after selecting a valued search param", async () => {
     const input = startEditing(["/logo"]);
     const origin = window.location.origin;
 
     await fillRouteUrlEditorInput(input, `${origin}/logo?vo`);
     const voxOption = rootElement?.querySelector<HTMLButtonElement>(
-      'button[aria-label="Use ?vox="]',
+      'button[aria-label="Use ?vox=xxx_xox_xxx-xxx_xxx_xxx-xxx_xxx_xxx"]',
     );
     if (!voxOption) {
       throw new Error("Expected vox search param suggestion.");
@@ -557,9 +573,9 @@ describe("RouteUrlEditor", () => {
       await new Promise((resolve) => window.setTimeout(resolve, 0));
     });
 
-    expect(input.value).toBe(`${origin}/logo?vox=`);
-    expect(readRouteHref()).toBe("/logo");
-    expect(readSuggestions()).toBeNull();
+    expect(input.value).toBe(`${origin}/logo?vox=xxx_xox_xxx-xxx_xxx_xxx-xxx_xxx_xxx&`);
+    expect(readRouteHref()).toBe("/logo?vox=xxx_xox_xxx-xxx_xxx_xxx-xxx_xxx_xxx");
+    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search");
     expect(document.activeElement).toBe(input);
   });
 
