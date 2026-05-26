@@ -40,9 +40,6 @@ importers:
       '@playwright/test':
         specifier: 1.58.2
         version: 1.58.2
-      '@robolex/sure':
-        specifier: ^0.12.0
-        version: 0.12.0
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260413.1
         version: 7.0.0-dev.20260413.1
@@ -163,9 +160,9 @@ importers:
       '@prosemark/core':
         specifier: ^0.0.7
         version: 0.0.7(@codemirror/autocomplete@6.20.0)(@codemirror/commands@6.10.2)(@codemirror/lang-markdown@6.5.0)(@codemirror/language-data@6.5.2)(@codemirror/language@6.12.1)(@codemirror/lint@6.9.3)(@codemirror/search@6.6.0)(@codemirror/state@6.5.4)(@codemirror/view@6.39.12)
-      '@robolex/sure':
-        specifier: ^0.12.0
-        version: 0.12.0
+      '@samebase/sure':
+        specifier: workspace:*
+        version: link:../../packages/sure
       '@tanstack/react-pacer':
         specifier: ^0.22.0
         version: 0.22.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -2146,9 +2143,6 @@ packages:
   '@redocly/openapi-core@1.34.14':
     resolution: {integrity: sha512-y+xFx+Zz54Xhr8jUdnLENYnt7Y7GEDL6Q03ga7rTtX8DVwefX9H+hQEPgJp1nda7vdH+wJ9/HBVvyfBuW9x6rA==}
     engines: {node: '>=18.17.0', npm: '>=9.5.0'}
-
-  '@robolex/sure@0.12.0':
-    resolution: {integrity: sha512-5is2hQizG67fgnginy5Fv1joSQztWlcywXb+rftslSXVtwrz7vOxj1buHoy7GELg0X4+oZagkopiEduFFjyFQA==}
 
   '@rolldown/binding-android-arm64@1.0.0-rc.15':
     resolution: {integrity: sha512-YYe6aWruPZDtHNpwu7+qAHEMbQ/yRl6atqb/AhznLTnD3UY99Q1jE7ihLSahNWkF4EqRPVC4SiR4O0UkLK02tA==}
@@ -7827,8 +7821,6 @@ snapshots:
       yaml-ast-parser: 0.0.43
     transitivePeerDependencies:
       - supports-color
-
-  '@robolex/sure@0.12.0': {}
 
   '@rolldown/binding-android-arm64@1.0.0-rc.15':
     optional: true
