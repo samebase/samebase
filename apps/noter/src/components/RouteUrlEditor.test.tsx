@@ -423,11 +423,11 @@ describe("RouteUrlEditor", () => {
     expect(document.activeElement).toBe(input);
   });
 
-  it("previews one numeric search example from the static default", async () => {
+  it("previews a numeric search example when the dropdown option is focused", async () => {
     const input = startEditing(["/logo"]);
     const origin = window.location.origin;
 
-    await fillRouteUrlEditorInput(input, `${origin}/logo?depth`);
+    await fillRouteUrlEditorInput(input, `${origin}/logo?d`);
     const optionButtons = [
       ...(rootElement?.querySelectorAll<HTMLButtonElement>('button[role="option"]') ?? []),
     ];
@@ -435,11 +435,20 @@ describe("RouteUrlEditor", () => {
       (button) => button.getAttribute("aria-label") === "Use ?depth=2 1 +1",
     );
     expect(optionButtons.map((button) => button.getAttribute("aria-label"))).toEqual([
+      "Use ?dark",
       "Use ?depth=2 1 +1",
+      "Use ?dev",
+      "Use ?devtools",
+      "Use ?dist=2 1 +1",
     ]);
     if (!nextDepthOption) {
       throw new Error("Expected default depth search param suggestion.");
     }
+
+    await pressRouteUrlEditorKey(input, "ArrowDown");
+
+    expect(input.value).toBe(`${origin}/logo?dark`);
+    expect(readRouteHref()).toBe("/logo?dark");
 
     await pressRouteUrlEditorKey(input, "ArrowDown");
 

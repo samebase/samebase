@@ -107,25 +107,30 @@ describe("readRouteUrlEditorSuggestions", () => {
     ).toEqual([{ detail: "2 +1", value: "&depth=3" }]);
   });
 
-  it("uses static numeric defaults when the URL does not carry the value", () => {
+  it("uses static numeric defaults in the search param dropdown", () => {
     const suggestions = readRouteUrlEditorSuggestions({
       currentHref: "/logo",
       draftEditedSinceFocus: true,
-      draftRouteAddress: "/logo?depth",
+      draftRouteAddress: "/logo?d",
       hashKeys: [],
       kind: "search",
       origin: ORIGIN,
       routesByPath,
-      selectionRouteIndex: "/logo?depth".length,
+      selectionRouteIndex: "/logo?d".length,
       viewer: publicViewer,
     });
 
     expect(
-      suggestions.map((suggestion) => ({
-        detail: suggestion.detail ?? null,
-        value: suggestion.value,
-      })),
-    ).toEqual([{ detail: "1 +1", value: "?depth=2" }]);
+      suggestions
+        .filter((suggestion) => suggestion.detail)
+        .map((suggestion) => ({
+          detail: suggestion.detail ?? null,
+          value: suggestion.value,
+        })),
+    ).toEqual([
+      { detail: "1 +1", value: "?depth=2" },
+      { detail: "1 +1", value: "?dist=2" },
+    ]);
   });
 
   it("keeps numeric examples inside finite numeric value suggestions", () => {

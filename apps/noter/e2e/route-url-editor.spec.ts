@@ -805,7 +805,7 @@ test("route URL editor previews search suggestions on hover", async ({ page }) =
   ).toBe(true);
 });
 
-test("route URL editor previews one numeric search example from default state on hover", async ({
+test("route URL editor previews numeric search examples from the dropdown on hover", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 720, height: 420 });
@@ -825,10 +825,10 @@ test("route URL editor previews one numeric search example from default state on
     name: "Use ?depth=2 1 +1",
   });
 
-  await input.fill(`${origin}/logo?depth`);
+  await input.fill(`${origin}/logo?d`);
 
   await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
-  await expect(page.getByRole("option")).toHaveCount(1);
+  await expect(page.getByRole("option")).toHaveCount(5);
   await expect(nextDepthOption).toBeVisible();
   await expect(nextDepthOption).toContainText("1 +1");
   await expect(suggestions).toHaveScreenshot("route-url-editor-numeric-delta-suggestions.png", {
