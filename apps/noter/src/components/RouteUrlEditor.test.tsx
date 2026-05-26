@@ -363,6 +363,76 @@ describe("RouteUrlEditor", () => {
     expect(document.activeElement).toBe(input);
   });
 
+  it("keeps mouse-selected follow-up search params in the query", async () => {
+    const input = startEditing();
+    const origin = window.location.origin;
+    const logoOption = rootElement?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Use /logo"]',
+    );
+    if (!logoOption) {
+      throw new Error("Expected /logo route URL editor suggestion.");
+    }
+
+    await act(async () => {
+      logoOption.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    const borderOption = [
+      ...(rootElement?.querySelectorAll<HTMLButtonElement>('button[role="option"]') ?? []),
+    ].find((button) => button.getAttribute("aria-label") === "Use ?border=stone-300");
+    if (!borderOption) {
+      const optionLabels = [
+        ...(rootElement?.querySelectorAll<HTMLButtonElement>('button[role="option"]') ?? []),
+      ].map((button) => button.getAttribute("aria-label"));
+      throw new Error(`Expected border search param suggestion. Found: ${optionLabels.join(", ")}`);
+    }
+
+    await act(async () => {
+      borderOption.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(input.value).toBe(`${origin}/logo?border=stone-300&`);
+    expect(readRouteHref()).toBe("/logo?border=stone-300");
+
+    const darkOption = [
+      ...(rootElement?.querySelectorAll<HTMLButtonElement>('button[role="option"]') ?? []),
+    ].find((button) => button.getAttribute("aria-label") === "Use &dark");
+    if (!darkOption) {
+      const optionLabels = [
+        ...(rootElement?.querySelectorAll<HTMLButtonElement>('button[role="option"]') ?? []),
+      ].map((button) => button.getAttribute("aria-label"));
+      throw new Error(
+        `Expected dark follow-up search param suggestion. Found: ${optionLabels.join(", ")}`,
+      );
+    }
+
+    await act(async () => {
+      darkOption.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(input.value).toBe(`${origin}/logo?border=stone-300&dark`);
+    expect(readRouteHref()).toBe("/logo?border=stone-300&dark");
+
+    await act(async () => {
+      darkOption.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(input.value).toBe(`${origin}/logo?border=stone-300&dark&`);
+    expect(readRouteHref()).toBe("/logo?border=stone-300&dark");
+    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search");
+    expect(document.activeElement).toBe(input);
+  });
+
   it("opens the next search param slot after committing a value suggestion with Enter", async () => {
     const input = startEditing(["/logo"]);
     const origin = window.location.origin;

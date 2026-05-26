@@ -1049,6 +1049,53 @@ test("route URL editor continues with a new search param after Enter commits a k
   await expect(page).toHaveURL(`${origin}/logo`);
 });
 
+test("route URL editor keeps clicked follow-up search params in the query", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const input = await editRouteUrl(page);
+  const suggestions = page.getByTestId("route-url-editor-suggestions");
+  const logoOption = page.getByRole("option", {
+    exact: true,
+    name: "Use /logo",
+  });
+
+  await logoOption.hover();
+  await logoOption.click();
+
+  await expect(input).toHaveValue(`${origin}/logo?`);
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
+
+  const borderOption = page.getByRole("option", {
+    exact: true,
+    name: "Use ?border=stone-300",
+  });
+  await borderOption.hover();
+  await borderOption.click();
+
+  await expect(input).toHaveValue(`${origin}/logo?border=stone-300&`);
+  await expect(page).toHaveURL(`${origin}/logo?border=stone-300`);
+
+  const darkOption = page.getByRole("option", {
+    exact: true,
+    name: "Use &dark",
+  });
+  await darkOption.hover();
+
+  await expect(input).toHaveValue(`${origin}/logo?border=stone-300&dark`);
+  await expect(page).toHaveURL(`${origin}/logo?border=stone-300&dark`);
+
+  await darkOption.click();
+
+  await expect(input).toHaveValue(`${origin}/logo?border=stone-300&dark&`);
+  await expect(page).toHaveURL(`${origin}/logo?border=stone-300&dark`);
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
+});
+
 test("route URL editor keeps unfinished valued search params local", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 420 });
   await page.goto("/logo", {

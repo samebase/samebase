@@ -464,6 +464,32 @@ describe("applyRouteUrlEditorSuggestion", () => {
 
     expect(
       applyRouteUrlEditorSuggestion({
+        routeAddress: "/logo?border=stone-300",
+        selectionRouteIndex: "/logo?border=stone-300".length,
+        suggestion: {
+          key: "dark",
+          kind: "search",
+          value: "&dark",
+          valueKind: "presence",
+        },
+      }),
+    ).toBe("/logo?border=stone-300&dark");
+
+    expect(
+      applyRouteUrlEditorSuggestion({
+        routeAddress: "/logo?",
+        selectionRouteIndex: "/logo?".length,
+        suggestion: {
+          key: "dark",
+          kind: "search",
+          value: "&dark",
+          valueKind: "presence",
+        },
+      }),
+    ).toBe("/logo?dark");
+
+    expect(
+      applyRouteUrlEditorSuggestion({
         routeAddress: "/logo?leftFace=s#top",
         selectionRouteIndex: "/logo?leftFace=s".length,
         suggestion: {

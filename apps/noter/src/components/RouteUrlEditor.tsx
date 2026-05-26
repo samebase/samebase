@@ -1045,7 +1045,7 @@ export function RouteUrlEditor() {
       const nextSuggestion = suggestions[nextActiveSuggestionIndex];
 
       const nextDraftRouteAddress = applyRouteUrlEditorSuggestion({
-        routeAddress: draftRouteAddress,
+        routeAddress: suggestionBaseRouteAddress,
         selectionRouteIndex,
         suggestion: nextSuggestion,
       });
@@ -1061,7 +1061,7 @@ export function RouteUrlEditor() {
       previewDraftRouteAddress(nextDraftRouteAddress);
       return nextDraftRouteAddress;
     },
-    [draftRouteAddress, previewDraftRouteAddress, selectionRouteIndex, suggestions],
+    [previewDraftRouteAddress, selectionRouteIndex, suggestionBaseRouteAddress, suggestions],
   );
 
   const previewSuggestionByPointerIndex = useCallback(
@@ -1223,7 +1223,7 @@ export function RouteUrlEditor() {
       touchScrollPreviewDraftRouteAddressRef.current = null;
       pointerPreviewBaseRef.current = null;
       const nextDraftRouteAddress = applyRouteUrlEditorSuggestion({
-        routeAddress: draftRouteAddress,
+        routeAddress: suggestionBaseRouteAddress,
         selectionRouteIndex,
         suggestion,
       });
@@ -1363,11 +1363,11 @@ export function RouteUrlEditor() {
       commitInput,
       currentHref,
       documentHashSuggestionKeys,
-      draftRouteAddress,
       origin,
       patchSuggestionState,
       router.routesByPath,
       selectionRouteIndex,
+      suggestionBaseRouteAddress,
       viewerIsAdmin,
     ],
   );
