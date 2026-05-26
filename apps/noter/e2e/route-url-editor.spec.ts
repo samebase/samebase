@@ -1,5 +1,13 @@
 import { readFileSync } from "node:fs";
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type Browser,
+  type BrowserContext,
+  type Locator,
+  type Page,
+  type TestInfo,
+} from "@playwright/test";
 import { getLandingMarkdownHeadings } from "../src/lib/landingMarkdownHeadings";
 
 const landingPreviewMarkdown = readFileSync(
@@ -9,6 +17,12 @@ const landingPreviewMarkdown = readFileSync(
 const landingPreviewHashSuggestions = getLandingMarkdownHeadings(landingPreviewMarkdown).map(
   (heading) => heading.href,
 );
+const routeUrlEditorMobilePickerScreenshotOptions = {
+  animations: "disabled",
+  caret: "hide",
+  scale: "css",
+  maxDiffPixelRatio: 0.03,
+} as const;
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -37,6 +51,171 @@ async function readRoundedLeft(locator: Locator, label: string): Promise<number>
   }
 
   return Math.round(box.x);
+}
+
+async function createMobileRouteUrlEditorPage(
+  browser: Browser,
+  testInfo: TestInfo,
+): Promise<{ context: BrowserContext; page: Page }> {
+  const baseURL = testInfo.project.use.baseURL;
+  if (typeof baseURL !== "string") {
+    throw new Error("Playwright baseURL is required for route URL editor mobile tests.");
+  }
+
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 680 },
+    deviceScaleFactor: 1,
+    isMobile: true,
+    hasTouch: true,
+    baseURL,
+    reducedMotion: "reduce",
+    userAgent:
+      "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36",
+  });
+
+  return {
+    context,
+    page: await context.newPage(),
+  };
+}
+
+async function scrollRouteUrlEditorOptionToSlate(page: Page, optionName: string): Promise<void> {
+  await page.getByTestId("route-url-editor-suggestions").evaluate((scrollport, targetName) => {
+    const slate = document.querySelector('[data-testid="route-url-editor-scroll-slate"]');
+    if (!(slate instanceof HTMLElement)) {
+      throw new Error("Expected route URL editor scroll slate.");
+    }
+
+    let targetOption: HTMLElement | null = null;
+    for (const option of scrollport.querySelectorAll<HTMLElement>('[role="option"]')) {
+      if (option.getAttribute("aria-label") === targetName) {
+        targetOption = option;
+        break;
+      }
+    }
+    if (targetOption === null) {
+      throw new Error(`Expected route URL editor option ${targetName}.`);
+    }
+
+    const targetOptionRect = targetOption.getBoundingClientRect();
+    const slateRect = slate.getBoundingClientRect();
+    const targetOptionCenterY = targetOptionRect.top + targetOptionRect.height / 2;
+    const slateCenterY = slateRect.top + slateRect.height / 2;
+
+    scrollport.scrollTop += targetOptionCenterY - slateCenterY;
+    scrollport.dispatchEvent(new Event("scroll", { bubbles: true }));
+  }, optionName);
+}
+
+async function touchDragRouteUrlEditorSuggestionsByPx(page: Page, deltaY: number): Promise<void> {
+  const suggestionsBox = await page.getByTestId("route-url-editor-suggestions").boundingBox();
+  if (suggestionsBox === null) {
+    throw new Error("Expected route URL editor suggestions to be visible.");
+  }
+  const popoverBox = await page.getByTestId("route-url-editor-suggestions-popover").boundingBox();
+  if (popoverBox === null) {
+    throw new Error("Expected route URL editor suggestions popover to be visible.");
+  }
+
+  const session = await page.context().newCDPSession(page);
+  const gestureStartTimeMs = Date.now();
+  const startX = suggestionsBox.x + suggestionsBox.width / 2;
+  const startY =
+    popoverBox.y + Math.min(popoverBox.height - 12, Math.max(12, popoverBox.height / 2));
+  const touchPoint = {
+    force: 1,
+    id: 1,
+    radiusX: 4,
+    radiusY: 4,
+    x: startX,
+    y: startY,
+  };
+
+  await session.send("Input.dispatchTouchEvent", {
+    timestamp: gestureStartTimeMs / 1000,
+    type: "touchStart",
+    touchPoints: [touchPoint],
+  });
+
+  const stepCount = 6;
+  for (let stepIndex = 1; stepIndex <= stepCount; stepIndex += 1) {
+    await page.waitForTimeout(16);
+    await session.send("Input.dispatchTouchEvent", {
+      timestamp: (gestureStartTimeMs + stepIndex * 16) / 1000,
+      type: "touchMove",
+      touchPoints: [
+        {
+          ...touchPoint,
+          y: startY + (deltaY * stepIndex) / stepCount,
+        },
+      ],
+    });
+  }
+
+  await session.send("Input.dispatchTouchEvent", {
+    timestamp: (gestureStartTimeMs + (stepCount + 1) * 16) / 1000,
+    type: "touchEnd",
+    touchPoints: [],
+  });
+}
+
+async function readRouteUrlEditorScrollSlateGeometry(page: Page): Promise<{
+  popoverClassName: string;
+  popoverBottomY: number;
+  popoverInlineHeight: string;
+  selectedCenterY: number;
+  slateCenterY: number;
+  slateTopY: number;
+  scrollportBottomY: number;
+  scrollportTopY: number;
+  visibleOptionCountAboveSlate: number;
+}> {
+  return page.getByTestId("route-url-editor-suggestions").evaluate((scrollport) => {
+    const slate = document.querySelector('[data-testid="route-url-editor-scroll-slate"]');
+    if (!(slate instanceof HTMLElement)) {
+      throw new Error("Expected route URL editor scroll slate.");
+    }
+
+    const popover = document.querySelector('[data-testid="route-url-editor-suggestions-popover"]');
+    if (!(popover instanceof HTMLElement)) {
+      throw new Error("Expected route URL editor suggestions popover.");
+    }
+
+    const options: HTMLElement[] = [];
+    for (const option of scrollport.querySelectorAll<HTMLElement>('[role="option"]')) {
+      options.push(option);
+    }
+
+    const selectedOption =
+      options.find((option) => option.getAttribute("aria-selected") === "true") ?? null;
+    if (selectedOption === null) {
+      throw new Error("Expected selected route URL editor option.");
+    }
+
+    const slateRect = slate.getBoundingClientRect();
+    const scrollportRect = scrollport.getBoundingClientRect();
+    const selectedOptionRect = selectedOption.getBoundingClientRect();
+    let visibleOptionCountAboveSlate = 0;
+
+    for (const option of options) {
+      const optionRect = option.getBoundingClientRect();
+      if (optionRect.bottom > scrollportRect.top && optionRect.bottom <= slateRect.top) {
+        visibleOptionCountAboveSlate += 1;
+      }
+    }
+
+    return {
+      popoverClassName: popover.className,
+      popoverBottomY: popover.getBoundingClientRect().bottom,
+      popoverInlineHeight: popover.style.height,
+      selectedCenterY: selectedOptionRect.top + selectedOptionRect.height / 2,
+      slateCenterY: slateRect.top + slateRect.height / 2,
+      slateTopY: slateRect.top,
+      scrollportBottomY: scrollportRect.bottom,
+      scrollportTopY: scrollportRect.top,
+      visibleOptionCountAboveSlate,
+    };
+  });
 }
 
 test("route URL editor fixture commits hrefs from the app workspace shell", async ({ page }) => {
@@ -903,6 +1082,98 @@ test("route URL editor keeps focus-only arrow previews anchored to all paths", a
   await expect(localStorageOption).toHaveAttribute("aria-selected", "true");
   await expect(page).toHaveURL(`${origin}/localStorage`);
   await expect(input).toHaveValue(`${origin}/localStorage`);
+});
+
+test("route URL editor mobile scroll picker previews and commits the slated option", async ({
+  browser,
+}, testInfo) => {
+  const { context, page } = await createMobileRouteUrlEditorPage(browser, testInfo);
+  try {
+    await page.goto("/", {
+      waitUntil: "domcontentloaded",
+    });
+    const origin = await page.evaluate(() => window.location.origin);
+
+    const editor = page.getByTestId("route-url-editor");
+    const input = await editRouteUrl(page);
+    const suggestions = page.getByTestId("route-url-editor-suggestions");
+    const popover = page.getByTestId("route-url-editor-suggestions-popover");
+    const slate = page.getByTestId("route-url-editor-scroll-slate");
+    const localStorageOption = page.getByRole("option", {
+      exact: true,
+      name: "Use /localStorage",
+    });
+    const backButton = editor.getByRole("button", { name: "Back" });
+
+    await expect(suggestions).toBeVisible();
+    await expect(slate).toBeVisible();
+    await expect(localStorageOption).toBeVisible();
+
+    await scrollRouteUrlEditorOptionToSlate(page, "Use /localStorage");
+
+    await expect(localStorageOption).toHaveAttribute("aria-selected", "true");
+    await expect(input).toBeFocused();
+    await expect(input).toHaveValue(`${origin}/localStorage`);
+    await expect(page).toHaveURL(`${origin}/localStorage`);
+    await expect(backButton).toBeDisabled();
+    await expect(popover).toHaveScreenshot(
+      "route-url-editor-mobile-scroll-picker-preview.png",
+      routeUrlEditorMobilePickerScreenshotOptions,
+    );
+
+    await page.getByTestId("workspace-layout-v2-pane-main").tap();
+
+    await expect(input).toHaveCount(0);
+    await expect(suggestions).toHaveCount(0);
+    await expect(getRouteUrlEditorDisplay(page)).toHaveValue(`${origin}/localStorage`);
+    await expect(backButton).toBeEnabled();
+
+    await backButton.click();
+
+    await expect(page).toHaveURL(`${origin}/`);
+    await expect(backButton).toBeDisabled();
+  } finally {
+    await context.close();
+  }
+});
+
+test("route URL editor mobile scroll picker lets the last option reach the slate", async ({
+  browser,
+}, testInfo) => {
+  const { context, page } = await createMobileRouteUrlEditorPage(browser, testInfo);
+  try {
+    await page.goto("/", {
+      waitUntil: "domcontentloaded",
+    });
+
+    await editRouteUrl(page);
+    const slate = page.getByTestId("route-url-editor-scroll-slate");
+    const lastOption = page.getByTestId("route-url-editor-suggestion").last();
+
+    await expect(slate).toBeVisible();
+    await expect(lastOption).toBeVisible();
+
+    for (let dragIndex = 0; dragIndex < 3; dragIndex += 1) {
+      await touchDragRouteUrlEditorSuggestionsByPx(page, -360);
+    }
+
+    await expect(lastOption).toHaveAttribute("aria-selected", "true");
+    const geometry = await readRouteUrlEditorScrollSlateGeometry(page);
+
+    expect(Math.round(geometry.slateTopY - geometry.scrollportTopY)).toBe(28);
+    expect(Math.abs(geometry.selectedCenterY - geometry.slateCenterY)).toBeLessThanOrEqual(2);
+    expect(Math.abs(geometry.popoverBottomY - geometry.scrollportBottomY)).toBeLessThanOrEqual(2);
+    expect(geometry.popoverInlineHeight).toBe("");
+    expect(geometry.popoverClassName).toContain("bg-background/35");
+    expect(geometry.popoverClassName).toContain("backdrop-blur-sm");
+    expect(geometry.visibleOptionCountAboveSlate).toBeGreaterThan(0);
+    await expect(page.getByTestId("route-url-editor-suggestions-popover")).toHaveScreenshot(
+      "route-url-editor-mobile-scroll-picker-last-option.png",
+      routeUrlEditorMobilePickerScreenshotOptions,
+    );
+  } finally {
+    await context.close();
+  }
 });
 
 test("route URL editor hides local route suggestions in prod UI mode", async ({ page }) => {
