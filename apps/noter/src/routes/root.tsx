@@ -1,7 +1,7 @@
 import {
   HeadContent,
   Scripts,
-  createRootRoute,
+  createRootRouteWithContext,
   lazyRouteComponent,
   notFound,
   redirect,
@@ -22,6 +22,7 @@ import {
 } from "@/lib/rootRouteSearch";
 import { buildRootHead } from "@/lib/rootHead";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
+import { type AppQueryClients } from "@/lib/appQueryClient";
 import { type ReactNode } from "react";
 type RootSearchMiddlewareArgs = {
   next: (search: RootRouteSearch) => RootRouteSearch;
@@ -56,7 +57,7 @@ function RootComponent() {
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en" translate="no">
+    <html lang="en" suppressHydrationWarning translate="no">
       <head>
         <HeadContent />
       </head>
@@ -68,7 +69,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   );
 }
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<AppQueryClients>()({
   staticData: { permission: "public" },
   beforeLoad: ({ location, matches, search }) => {
     if (search.reset) {

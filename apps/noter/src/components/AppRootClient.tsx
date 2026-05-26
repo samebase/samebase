@@ -1,12 +1,12 @@
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
+import { useRouter } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect } from "react";
 import "@xyflow/react/dist/style.css";
 import { AppWorkspaceShell } from "@/components/AppWorkspaceShell";
 import { RouteAvailabilityOutlet } from "@/components/RouteAvailabilityOutlet";
 import { RouterGestureDebugOverlay } from "@/components/RouterGestureDebugOverlay";
 import { syncDocumentThemeColorSearch } from "@/lib/appThemeColorSearch";
-import { client } from "@/lib/convexClient";
-import { QueryProvider } from "@/lib/providers/query-provider";
+import { QueryDevtools } from "@/lib/providers/query-devtools";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { readRootThemeMode, syncDocumentRootThemeMode } from "@/lib/rootThemeModeSearch";
 import { OptionalThemeProvider } from "@/lib/themeStorageFallback";
@@ -76,11 +76,12 @@ function AppRouterRoot() {
 }
 
 export function AppRootClient() {
+  const router = useRouter();
+
   return (
-    <ConvexAuthProvider client={client}>
-      <QueryProvider>
-        <AppRouterRoot />
-      </QueryProvider>
+    <ConvexAuthProvider client={router.options.context.convexQueryClient.convexClient}>
+      <AppRouterRoot />
+      <QueryDevtools />
     </ConvexAuthProvider>
   );
 }
