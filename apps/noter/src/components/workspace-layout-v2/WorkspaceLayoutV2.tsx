@@ -25,10 +25,7 @@ import {
   type WorkspaceLayoutV2MobileMinResizeBehavior,
 } from "./WorkspaceLayoutV2Geometry";
 import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
-import {
-  WorkspaceLayoutV2DesktopViewport,
-  WorkspaceLayoutV2MobileViewport,
-} from "./WorkspaceLayoutV2Viewports";
+import { WorkspaceLayoutV2Viewport } from "./WorkspaceLayoutV2Viewports";
 import {
   getWorkspaceLayoutV2DesktopResizeHandles,
   getWorkspaceLayoutV2MobileResizeHandles,
@@ -123,6 +120,7 @@ export function WorkspaceLayoutV2({
   } = useWorkspacePaneActions();
   const hasLeftPane = !!left;
   const hasRightPane = !!right;
+  const hasMeasuredViewport = viewportSize.widthPx > 0;
   const shouldShowMobileResizeGripDots =
     showMobileResizeGripDots ?? shouldShowMobileResizeGripDotsByDefault();
   const mobilePanePeekWidthPx = getMobilePanePeekWidthPx(configuredMobilePanePeekWidthPx);
@@ -305,46 +303,32 @@ export function WorkspaceLayoutV2({
     >
       <div
         ref={viewportRef}
-        data-mobile-pane={isMobile ? mobilePane : undefined}
-        data-workspace-layout-v2={isMobile ? "mobile" : "desktop"}
+        data-mobile-pane={mobilePane}
+        data-workspace-layout-v2="responsive"
         className="relative flex min-h-0 flex-1 overflow-hidden bg-background"
       >
-        {isMobile ? (
-          <>
-            <WorkspaceLayoutV2MobileViewport
-              carouselRef={mobileCarouselRef}
-              leftContent={left}
-              leftWidthPx={mobileLeftWidthPx}
-              lockCarouselScroll={
-                activeMobileMergedSurfaceSide !== null && mobileGripResize.lockCarouselScroll
-              }
-              mainContent={mainViewportContent}
-              mergedSurfaceSide={activeMobileMergedSurfaceSide}
-              mobilePane={mobilePane}
-              paneWidthPx={mobileMainWidthPx}
-              peekWidthPx={mobilePanePeekWidthPx}
-              rightContent={right}
-              rightWidthPx={mobileRightWidthPx}
-              showLeftPane={hasLeftPane}
-              showRightPane={hasRightPane}
-            />
-            {mobileResizeHandles.map((resizeHandle) => renderResizeHandle(resizeHandle, "grip"))}
-          </>
-        ) : (
-          <>
-            <WorkspaceLayoutV2DesktopViewport
-              activeResizeSide={activeResizeSide}
-              desktopLeftWidthPx={desktopLeftWidthPx}
-              desktopRightWidthPx={desktopRightWidthPx}
-              leftContent={left}
-              mainContent={mainViewportContent}
-              rightContent={right}
-              showLeftPane={hasLeftPane}
-              showRightPane={hasRightPane}
-            />
-            {desktopResizeHandles.map((resizeHandle) => renderResizeHandle(resizeHandle, "edge"))}
-          </>
-        )}
+        <WorkspaceLayoutV2Viewport
+          activeResizeSide={activeResizeSide}
+          carouselRef={mobileCarouselRef}
+          desktopLeftWidthPx={desktopLeftWidthPx}
+          desktopRightWidthPx={desktopRightWidthPx}
+          hasMeasuredViewport={hasMeasuredViewport}
+          leftContent={left}
+          leftWidthPx={mobileLeftWidthPx}
+          lockCarouselScroll={isMobile && mobileGripResize.lockCarouselScroll}
+          mainContent={mainViewportContent}
+          mergedSurfaceSide={isMobile ? activeMobileMergedSurfaceSide : null}
+          mobilePane={mobilePane}
+          paneWidthPx={mobileMainWidthPx}
+          peekWidthPx={mobilePanePeekWidthPx}
+          rightContent={right}
+          rightWidthPx={mobileRightWidthPx}
+          showLeftPane={hasLeftPane}
+          showRightPane={hasRightPane}
+        />
+        {isMobile
+          ? mobileResizeHandles.map((resizeHandle) => renderResizeHandle(resizeHandle, "grip"))
+          : desktopResizeHandles.map((resizeHandle) => renderResizeHandle(resizeHandle, "edge"))}
       </div>
     </div>
   );

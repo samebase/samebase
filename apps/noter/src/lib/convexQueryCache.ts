@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { convexQuery } from "@convex-dev/react-query";
+import { useQuery } from "@tanstack/react-query";
 import type { FunctionReference } from "convex/server";
 import { getFunctionName } from "convex/server";
-import { useQuery, OptionalRestArgsOrSkip } from "convex/react";
+import type { OptionalRestArgsOrSkip } from "convex/react";
 import {
   CONVEX_QUERY_CACHE_DB_NAME,
   readConvexQueryCacheNamespace,
@@ -42,6 +44,10 @@ const STORE = "kv";
 const DB_VERSION = 1;
 
 type IdbRecord<T = unknown> = { data: T; exp?: number };
+type CachedQueryState<T = unknown> = {
+  cacheKey: string;
+  data: T;
+};
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -62,7 +68,10 @@ async function idbGet<T>(key: string): Promise<IdbRecord<T> | undefined> {
       const tx = db.transaction(STORE, "readonly");
       const store = tx.objectStore(STORE);
       const req = store.get(key);
-      req.onsuccess = () => resolve(req.result as IdbRecord<T> | undefined);
+      req.onsuccess = () => {
+        const result: IdbRecord<T> | undefined = req.result;
+        resolve(result);
+      };
       req.onerror = () => reject(req.error);
     });
   } catch {
@@ -94,8 +103,6 @@ const memoryCache = new Map<string, IdbRecord<unknown>>();
 /**
  * Hashes the query name + stable-stringified args, hydrates from memory/IndexedDB,
  * and returns cached data until the live Convex query resolves.
- *
- * Cache entries may optionally include a TTL by setting `useConvexQuery.ttlMs`.
  */
 export function useCacheQuery<Query extends FunctionReference<"query">>(
   query: Query,
@@ -119,29 +126,41 @@ export function useCacheQuery<Query extends FunctionReference<"query">>(
     dontCache?: boolean;
   } = {},
 ): Query["_returnType"] | undefined {
-  const live = useQuery(query, arg); // live value or undefined while loading
-  const [cached, setCached] = useState<Query["_returnType"]>(undefined);
-  const [fromCache, setFromCache] = useState(false);
+  const { data: live } = useQuery(convexQuery(query, arg));
   const queryName = useMemo(() => getFunctionName(query), [query]);
+  const dontCache = options.dontCache === true;
 
   const cacheKey = useMemo(() => {
     const argsKey = stableStringify(arg);
     return `convex:${readConvexQueryCacheNamespace()}:${queryName}:${argsKey}`;
   }, [arg, queryName]);
 
+  const [cached, setCached] = useState<CachedQueryState<Query["_returnType"]> | undefined>(
+    undefined,
+  );
+  const cachedForCurrentKey = cached?.cacheKey === cacheKey ? cached.data : undefined;
+
   // Hydrate from memory/IDB on mount/args change
   useEffect(() => {
+    if (dontCache) {
+      return;
+    }
+
     const lifecycle = { active: true };
 
     // 1) memory
     const mem = memoryCache.get(cacheKey);
     if (mem) {
       if (!mem.exp || Date.now() <= mem.exp) {
-        setCached(mem.data);
-        setFromCache(true);
+        setCached({
+          cacheKey,
+          data: mem.data,
+        });
       } else {
         memoryCache.delete(cacheKey);
       }
+    } else {
+      setCached((prev) => (prev?.cacheKey === cacheKey ? prev : undefined));
     }
 
     // 2) IDB (async)
@@ -150,8 +169,14 @@ export function useCacheQuery<Query extends FunctionReference<"query">>(
       if (!lifecycle.active) return;
       if (rec) {
         if (!rec.exp || Date.now() <= rec.exp) {
-          setCached((prev) => (prev === undefined ? rec.data : prev)); // don't clobber mem
-          setFromCache(true);
+          setCached((prev) =>
+            prev?.cacheKey === cacheKey
+              ? prev
+              : {
+                  cacheKey,
+                  data: rec.data,
+                },
+          );
           // also copy into memory
           memoryCache.set(cacheKey, rec);
         } else {
@@ -163,41 +188,26 @@ export function useCacheQuery<Query extends FunctionReference<"query">>(
     return () => {
       lifecycle.active = false;
     };
-  }, [cacheKey]);
+  }, [cacheKey, dontCache]);
 
   // When the live value is ready, persist it
   useEffect(() => {
-    if (cacheKey && live !== undefined) {
+    if (!dontCache && cacheKey && live !== undefined) {
       const record: IdbRecord = {
         data: live,
-        exp: useCacheQuery.ttlMs ? Date.now() + useCacheQuery.ttlMs : undefined,
       };
       memoryCache.set(cacheKey, record);
       void idbSet(cacheKey, record);
-      setCached(live);
-      setFromCache(false);
+      setCached({
+        cacheKey,
+        data: live,
+      });
     }
-  }, [live, cacheKey]);
+  }, [live, cacheKey, dontCache]);
 
-  // Returned value mirrors useQuery (data or undefined),
-  // with metadata on the function as a property for opt-in usage.
-  useCacheQuery.last = { fromCache, cacheKey };
-
-  if (options.dontCache) {
+  if (dontCache) {
     return live;
   }
 
-  return cached;
+  return live ?? cachedForCurrentKey;
 }
-
-/**
- * Optional TTL (milliseconds) for all subsequent calls until changed.
- * Example: `useConvexQuery.ttlMs = 12 * 60 * 60 * 1000;`
- */
-useCacheQuery.ttlMs = undefined as number | undefined;
-
-/**
- * Introspection (read-only): last call metadata (for debugging/devtools).
- * Example: `console.log(useConvexQuery.last)`
- */
-useCacheQuery.last = { fromCache: false, cacheKey: null as string | null };

@@ -1,7 +1,3 @@
-@import "@fontsource/ibm-plex-sans/latin-400.css";
-@import "@fontsource/ibm-plex-sans/latin-500.css";
-@import "@fontsource/ibm-plex-sans/latin-600.css";
-@import "@fontsource/ibm-plex-sans/latin-700.css";
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -174,29 +170,60 @@
     }
   }
 
+  .workspace-layout-v2-responsive-viewport {
+    scroll-snap-type: x mandatory;
+  }
+
   .workspace-mobile-pane-separators {
     position: relative;
   }
 
-  .workspace-mobile-pane-separators::before,
-  .workspace-mobile-pane-separators::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    /* Pane contents often paint their own background, so separators must sit above them. */
-    z-index: 1;
-    width: 1px;
-    background: var(--color-border);
-    pointer-events: none;
+  @media (max-width: 767px) {
+    .workspace-mobile-pane-separators::before,
+    .workspace-mobile-pane-separators::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      /* Pane contents often paint their own background, so separators must sit above them. */
+      z-index: 1;
+      width: 1px;
+      background: var(--color-border);
+      pointer-events: none;
+    }
+
+    .workspace-mobile-pane-separators::before {
+      left: 0;
+    }
+
+    .workspace-mobile-pane-separators::after {
+      right: 0;
+    }
   }
 
-  .workspace-mobile-pane-separators::before {
-    left: 0;
-  }
+  @media (min-width: 768px) {
+    .workspace-layout-v2-responsive-viewport {
+      overflow: hidden !important;
+      overscroll-behavior-x: auto;
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+      scroll-snap-type: none;
+      scrollbar-width: auto;
+    }
 
-  .workspace-mobile-pane-separators::after {
-    right: 0;
+    .workspace-layout-v2-responsive-left-pane {
+      width: var(--workspace-layout-v2-left-desktop-width) !important;
+    }
+
+    .workspace-layout-v2-responsive-main-pane {
+      flex: 1 1 0%;
+      min-width: 0;
+      width: auto !important;
+    }
+
+    .workspace-layout-v2-responsive-right-pane {
+      width: var(--workspace-layout-v2-right-desktop-width) !important;
+    }
   }
 
   .cm-static-markdown .cm-scroller {
@@ -548,8 +575,7 @@
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans:
-    "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "BlinkMacSystemFont", "Segoe UI",
-    sans-serif;
+    ui-sans-serif, system-ui, -apple-system, "BlinkMacSystemFont", "Segoe UI", sans-serif;
   --color-sidebar-ring: hsl(var(--sidebar-ring));
   --color-sidebar-border: hsl(var(--sidebar-border));
   --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));

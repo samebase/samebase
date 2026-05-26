@@ -1,19 +1,17 @@
 import { createRouter as createTanStackRouter, type RouterHistory } from "@tanstack/react-router";
+import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import { routeTree } from "./routeTree.gen";
+import { createAppQueryClients } from "@/lib/appQueryClient";
 import { parseTanStackSearch, stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
 
 export function getRouter() {
-  return createTanStackRouter({
-    defaultPreload: false,
-    notFoundMode: "root",
-    parseSearch: parseTanStackSearch,
-    routeTree,
-    stringifySearch: stringifyTanStackSearch,
-  });
+  return createAppRouter();
 }
 
-export function createAppRouter(history: RouterHistory) {
+export function createAppRouter(history?: RouterHistory) {
+  const queryClients = createAppQueryClients();
   const router = createTanStackRouter({
+    context: queryClients,
     defaultPreload: false,
     history,
     notFoundMode: "root",
@@ -22,7 +20,10 @@ export function createAppRouter(history: RouterHistory) {
     stringifySearch: stringifyTanStackSearch,
   });
 
-  void router.load({ sync: true });
+  setupRouterSsrQueryIntegration({
+    queryClient: queryClients.queryClient,
+    router,
+  });
 
   return router;
 }

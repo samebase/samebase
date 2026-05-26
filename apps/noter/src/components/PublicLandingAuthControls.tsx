@@ -65,7 +65,8 @@ export function PublicLandingAuthControls() {
     search: rootRouteSearch,
   });
   const passwordAuthMode = resolvePublicLandingPasswordAuthMode(
-    deploymentAuthPolicy?.passwordAuthMode,
+    deploymentAuthPolicy?.passwordAuthMode ??
+      (readLocalWorktreePasswordCredentials() ? "local_worktree_seed" : undefined),
   );
   const passwordAuthSurface = getVisiblePasswordAuthSurface({
     passwordAuthMode,

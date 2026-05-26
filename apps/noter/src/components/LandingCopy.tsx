@@ -127,12 +127,14 @@ export function LandingCopy({
   markdown?: string;
   onChange?: (value: string) => void;
 }) {
-  if (!editable) {
-    return <StaticLandingCopy className={className} markdown={markdown} />;
+  const staticCopy = <StaticLandingCopy className={className} markdown={markdown} />;
+
+  if (!editable || typeof window === "undefined") {
+    return staticCopy;
   }
 
   return (
-    <Suspense fallback={<StaticLandingCopy className={className} markdown={markdown} />}>
+    <Suspense fallback={staticCopy}>
       <EditableLandingCopy
         value={markdown}
         className={className}

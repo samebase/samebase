@@ -2,8 +2,9 @@ import { McpConsentSignInView } from "@/McpConsentSignInView";
 import { SignInForm } from "@/SignInForm";
 import { ApprovalGate } from "@/components/ApprovalGate";
 import { Button } from "@/components/ui/button";
-import { useCloseOAuthPopup } from "@/lib/useCloseOAuthPopup";
+import { landingPageMarkdown } from "@/lib/landingCopy";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
+import { useCloseOAuthPopup } from "@/lib/useCloseOAuthPopup";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { getRouteApi } from "@tanstack/react-router";
 import { Authenticated, Unauthenticated, useAction, useConvexAuth, useQuery } from "convex/react";
@@ -170,7 +171,15 @@ export function McpConsentRoutePage() {
         </ApprovalGate>
       </Authenticated>
       <Unauthenticated>
-        {requestId === null ? <SignInForm /> : <McpConsentSignInView />}
+        {requestId === null ? (
+          <SignInForm
+            authPlacement="inline"
+            landingPageMarkdown={landingPageMarkdown}
+            topNotice={null}
+          />
+        ) : (
+          <McpConsentSignInView />
+        )}
       </Unauthenticated>
     </>
   );

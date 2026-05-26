@@ -1,4 +1,4 @@
-import { type ReactElement, type RefObject } from "react";
+import { type CSSProperties, type ReactElement, type RefObject } from "react";
 import { cn } from "@/lib/utils";
 import {
   type MobilePane,
@@ -22,76 +22,17 @@ function getMobilePaneSeparatorClass(pane: MobilePane, activePane: MobilePane) {
   return "workspace-mobile-pane-separators";
 }
 
-type WorkspaceLayoutV2DesktopViewportProps = WorkspaceLayoutV2ResolvedPaneContent & {
-  activeResizeSide: WorkspaceLayoutV2ActiveResizeSide;
-  desktopLeftWidthPx: number;
-  desktopRightWidthPx: number;
-  showLeftPane: boolean;
-  showRightPane: boolean;
+type WorkspaceLayoutV2ViewportStyle = CSSProperties & {
+  "--workspace-layout-v2-left-desktop-width": string;
+  "--workspace-layout-v2-right-desktop-width": string;
 };
 
-export function WorkspaceLayoutV2DesktopViewport({
-  activeResizeSide,
-  desktopLeftWidthPx,
-  desktopRightWidthPx,
-  leftContent,
-  mainContent,
-  rightContent,
-  showLeftPane,
-  showRightPane,
-}: WorkspaceLayoutV2DesktopViewportProps) {
-  return (
-    <div className="absolute inset-0 flex min-h-0 overflow-hidden bg-background">
-      {showLeftPane ? (
-        <div className="h-full min-h-0 shrink-0" style={{ width: `${desktopLeftWidthPx}px` }}>
-          <div
-            data-testid="workspace-layout-v2-pane-left"
-            className={cn(
-              "flex h-full min-h-0 flex-col overflow-hidden",
-              desktopLeftWidthPx > 0
-                ? activeResizeSide === "left"
-                  ? "border-r border-primary"
-                  : "border-r border-border"
-                : "border-r-0",
-            )}
-            style={{ width: `${desktopLeftWidthPx}px` }}
-          >
-            {leftContent}
-          </div>
-        </div>
-      ) : null}
-
-      <div
-        data-testid="workspace-layout-v2-pane-main"
-        className="h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-background"
-      >
-        {mainContent}
-      </div>
-
-      {showRightPane ? (
-        <div className="h-full min-h-0 shrink-0" style={{ width: `${desktopRightWidthPx}px` }}>
-          <div
-            data-testid="workspace-layout-v2-pane-right"
-            className={cn(
-              "flex h-full min-h-0 flex-col overflow-hidden",
-              desktopRightWidthPx > 0
-                ? activeResizeSide === "right"
-                  ? "border-l border-primary"
-                  : "border-l border-border"
-                : "border-l-0",
-            )}
-            style={{ width: `${desktopRightWidthPx}px` }}
-          >
-            {rightContent}
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-type WorkspaceLayoutV2MobileViewportProps = WorkspaceLayoutV2ResolvedPaneContent & {
+type WorkspaceLayoutV2ViewportProps = WorkspaceLayoutV2ResolvedPaneContent & {
+  activeResizeSide: WorkspaceLayoutV2ActiveResizeSide;
   carouselRef: RefObject<HTMLDivElement | null>;
+  desktopLeftWidthPx: number;
+  desktopRightWidthPx: number;
+  hasMeasuredViewport: boolean;
   leftWidthPx: number;
   lockCarouselScroll: boolean;
   mergedSurfaceSide: WorkspaceLayoutV2MobileMergedSide | null;
@@ -103,8 +44,12 @@ type WorkspaceLayoutV2MobileViewportProps = WorkspaceLayoutV2ResolvedPaneContent
   showRightPane: boolean;
 };
 
-export function WorkspaceLayoutV2MobileViewport({
+export function WorkspaceLayoutV2Viewport({
+  activeResizeSide,
   carouselRef,
+  desktopLeftWidthPx,
+  desktopRightWidthPx,
+  hasMeasuredViewport,
   leftContent,
   leftWidthPx,
   lockCarouselScroll,
@@ -117,7 +62,19 @@ export function WorkspaceLayoutV2MobileViewport({
   rightWidthPx,
   showLeftPane,
   showRightPane,
-}: WorkspaceLayoutV2MobileViewportProps) {
+}: WorkspaceLayoutV2ViewportProps) {
+  const viewportStyle: WorkspaceLayoutV2ViewportStyle = {
+    "--workspace-layout-v2-left-desktop-width": `${desktopLeftWidthPx}px`,
+    "--workspace-layout-v2-right-desktop-width": `${desktopRightWidthPx}px`,
+    paddingLeft: `${peekWidthPx}px`,
+    paddingRight: `${peekWidthPx}px`,
+  };
+  // Before ResizeObserver reports a real viewport width, mobile must paint the
+  // main pane at full width instead of briefly rendering the 1px numeric floor.
+  const leftPaneWidth = hasMeasuredViewport ? `${leftWidthPx}px` : "0px";
+  const mainPaneWidth = hasMeasuredViewport ? `${paneWidthPx}px` : "100vw";
+  const rightPaneWidth = hasMeasuredViewport ? `${rightWidthPx}px` : "0px";
+
   function renderLeftPane(shouldSnap: boolean) {
     if (!showLeftPane) {
       return null;
@@ -127,12 +84,17 @@ export function WorkspaceLayoutV2MobileViewport({
       <div
         data-testid="workspace-layout-v2-pane-left"
         className={cn(
-          "relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden bg-background",
+          "workspace-layout-v2-responsive-left-pane relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden bg-background",
           shouldSnap && "snap-start snap-always",
           getMobilePaneSeparatorClass("left", mobilePane),
+          desktopLeftWidthPx > 0
+            ? activeResizeSide === "left"
+              ? "md:border-r md:border-primary"
+              : "md:border-r md:border-border"
+            : "md:border-r-0",
         )}
         style={{
-          width: `${leftWidthPx}px`,
+          width: leftPaneWidth,
         }}
       >
         {leftContent}
@@ -145,10 +107,10 @@ export function WorkspaceLayoutV2MobileViewport({
       <div
         data-workspace-layout-v2-mobile-main-pane
         className={cn(
-          "h-full min-h-0 shrink-0",
+          "workspace-layout-v2-responsive-main-pane h-full min-h-0 shrink-0",
           shouldSnap ? "snap-center snap-always" : "snap-none",
         )}
-        style={{ width: `${paneWidthPx}px` }}
+        style={{ width: mainPaneWidth }}
       >
         <div
           className={cn(
@@ -171,12 +133,17 @@ export function WorkspaceLayoutV2MobileViewport({
       <div
         data-testid="workspace-layout-v2-pane-right"
         className={cn(
-          "relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden bg-background",
+          "workspace-layout-v2-responsive-right-pane relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden bg-background",
           shouldSnap && "snap-end snap-always",
           getMobilePaneSeparatorClass("right", mobilePane),
+          desktopRightWidthPx > 0
+            ? activeResizeSide === "right"
+              ? "md:border-l md:border-primary"
+              : "md:border-l md:border-border"
+            : "md:border-l-0",
         )}
         style={{
-          width: `${rightWidthPx}px`,
+          width: rightPaneWidth,
         }}
       >
         {rightContent}
@@ -191,13 +158,10 @@ export function WorkspaceLayoutV2MobileViewport({
       ref={carouselRef}
       data-testid="workspace-layout-v2-pane-main"
       className={cn(
-        "absolute inset-0 flex min-h-0 snap-x snap-mandatory overflow-y-hidden overscroll-x-contain bg-background [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        "workspace-layout-v2-responsive-viewport absolute inset-0 flex min-h-0 snap-x snap-mandatory overflow-y-hidden overscroll-x-contain bg-background [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         lockCarouselScroll ? "overflow-x-hidden" : "overflow-x-auto",
       )}
-      style={{
-        paddingLeft: `${peekWidthPx}px`,
-        paddingRight: `${peekWidthPx}px`,
-      }}
+      style={viewportStyle}
     >
       {mergedSurfaceSide === "left" && showLeftPane ? (
         <div
@@ -206,7 +170,7 @@ export function WorkspaceLayoutV2MobileViewport({
             "flex h-full min-h-0 shrink-0 snap-start snap-always overflow-hidden bg-background",
           )}
           style={{
-            width: `${leftWidthPx + paneWidthPx}px`,
+            width: hasMeasuredViewport ? `${leftWidthPx + paneWidthPx}px` : "100vw",
           }}
         >
           {renderLeftPane(false)}
@@ -225,7 +189,7 @@ export function WorkspaceLayoutV2MobileViewport({
             "flex h-full min-h-0 shrink-0 snap-end snap-always overflow-hidden bg-background",
           )}
           style={{
-            width: `${paneWidthPx + rightWidthPx}px`,
+            width: hasMeasuredViewport ? `${paneWidthPx + rightWidthPx}px` : "100vw",
           }}
         >
           {mainPane}

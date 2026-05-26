@@ -1,4 +1,5 @@
 import { SignInForm } from "./SignInForm";
+import { landingPageMarkdown } from "./lib/landingCopy";
 
 export function McpConsentSignInNotice() {
   return (
@@ -17,5 +18,11 @@ export function McpConsentSignInNotice() {
 }
 
 export function McpConsentSignInView() {
-  return <SignInForm topNotice={<McpConsentSignInNotice />} />;
+  return (
+    <SignInForm
+      authPlacement="inline"
+      landingPageMarkdown={landingPageMarkdown}
+      topNotice={<McpConsentSignInNotice />}
+    />
+  );
 }

@@ -29,11 +29,16 @@ import {
 } from "./vaultProviderSetup";
 import { formatVaultSourceSetupStep } from "./vaultSourceSetup";
 
-vi.mock("convex/react", () => ({
-  useAction: vi.fn(),
-  useMutation: vi.fn(),
-  useQuery: vi.fn(),
-}));
+vi.mock("convex/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("convex/react")>();
+
+  return {
+    ...actual,
+    useAction: vi.fn(),
+    useMutation: vi.fn(),
+    useQuery: vi.fn(),
+  };
+});
 
 vi.mock("@/components/ui/dialog", () => ({
   Dialog: ({ children }: { children?: ReactNode }) => <div>{children}</div>,

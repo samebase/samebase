@@ -14,6 +14,7 @@ import {
   type SyntheticEvent,
 } from "react";
 import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
+import { readIsomorphicOrigin } from "@/lib/isomorphic";
 import {
   ROUTE_URL_EDITOR_DOCUMENT_HASH_SUGGESTION_ATTRIBUTES,
   readRouteUrlEditorDocumentHashSuggestionKeys,
@@ -141,10 +142,6 @@ function readRouteUrlEditorSuggestionOptionId(args: {
   suggestionsId: string;
 }): string {
   return `${args.suggestionsId}-${args.index}`;
-}
-
-function readRouteUrlEditorOrigin(): string {
-  return typeof window === "undefined" ? "https://noter.local" : window.location.origin;
 }
 
 function areRouteUrlEditorHashSuggestionKeysEqual(
@@ -469,7 +466,7 @@ export function RouteUrlEditor() {
   // Arrow-key previews rewrite the input value, while suggestions stay anchored
   // to the text the user typed until they type, click, blur, or commit.
   const suggestionPreviewActiveRef = useRef(false);
-  const origin = readRouteUrlEditorOrigin();
+  const origin = readIsomorphicOrigin();
   const [draftRouteAddress, setDraftRouteAddress] = useState(currentHref);
   const [inputFocused, setInputFocused] = useState(false);
   const [touchScrollPickerEnabled, setTouchScrollPickerEnabled] = useState(false);

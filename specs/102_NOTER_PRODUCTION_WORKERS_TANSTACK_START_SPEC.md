@@ -39,6 +39,11 @@ Use TanStack Start in SPA mode for the first production migration. Do not add SS
 or Worker runtime handlers in this phase. Noter already uses Convex for application state and
 browser-side auth flows, so the Worker can serve static assets only.
 
+Keep the app universal enough that the same route and component tree can also run as Worker SSR on
+the stable `ssr` branch. Production staying SPA-first is a deploy-safety choice, not evidence that
+the app cannot render on the server. Browser-only compatibility code needed to preserve that choice
+belongs in small named isomorphic utilities, not scattered route or component guards.
+
 ## Target Stack
 
 1. React app built by TanStack Start SPA mode
@@ -73,6 +78,47 @@ script uses `WORKERS_CI_BRANCH` to choose between `PROD_CONVEX_DEPLOY_KEY` on `m
 `PREVIEW_CONVEX_DEPLOY_KEY` on non-production branches. The build environment must not set a generic
 `CONVEX_DEPLOY_KEY`; the script passes the selected split key to Convex under that generic name only
 for the child process.
+
+### SPA Index Prerendering
+
+TanStack Start SPA mode produces the client assets and a server entry. Its built-in SPA shell is the
+right primitive for a plain client app, but Noter needs the root route's real landing HTML in
+`dist/client/index.html` so Workers Static Assets can serve useful first paint HTML for `/` while
+still using that file as the SPA fallback for client routes.
+
+The production build therefore runs `node ./scripts/prerender-spa-index.ts` after `vp build`. The
+script imports `dist/server/server.js`, clears `TSS_SHELL` for that import/render, fetches `/` from
+the built server handler, requires an OK HTML response, and overwrites `dist/client/index.html` with
+that full route HTML. `wrangler.jsonc` still deploys only `dist/client` with
+`assets.not_found_handling = "single-page-application"`.
+
+This is build-time prerendering for a static SPA deploy, not request-time SSR. It gives the landing
+page immediate HTML without adding a Worker request handler to production.
+
+The landing slogan list remains dynamic in source. The prerender step selects one slogan during the
+build render, so the deployed SPA fallback varies per build rather than per browser refresh.
+Changing that back to per-request randomness requires request-time SSR; changing it to client-only
+mutation would risk hydration or layout movement.
+
+Do not replace this with copied static shell markup. Public, legal, static, or prerendered output
+must come from the canonical React route tree, as specified in
+`specs/087_WORKSPACE_LAYOUT_V2_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`.
+
+### SSR And Data Boundaries
+
+The `ssr` branch exists to prove the same app can run with Worker SSR enabled by config-level
+change. Keep it rebased on the SPA-first branch and keep the SSR delta small.
+
+Do not server-render browser-geometry-dependent workspace layout variants unless mobile and desktop
+produce the same HTML structure and only CSS changes the presentation. If exact server and client
+HTML cannot be guaranteed, prefer a fast client shell for that surface over a server-rendered layout
+that visibly jumps during hydration.
+
+Convex subscriptions and client-side large-file preservation remain separate from the SPA index
+prerender. If the app later needs SSR data hydration, use the official Convex and TanStack Query
+integration path for serializable query data. Do not remove app-owned large-file client cache code
+unless the replacement preserves its current reason for existing: avoiding repeated large file
+fetches on the client.
 
 ## Current Production Baseline
 

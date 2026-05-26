@@ -5,6 +5,7 @@ export type WorkspaceLayoutV2PaneFrameProps = {
   content?: ReactNode;
   footer?: ReactNode;
   headerTestId?: string;
+  headerVisibility?: "all" | "desktop";
 };
 
 export function WorkspaceLayoutV2PaneFrame({
@@ -12,11 +13,15 @@ export function WorkspaceLayoutV2PaneFrame({
   content,
   footer,
   headerTestId,
+  headerVisibility = "all",
 }: WorkspaceLayoutV2PaneFrameProps) {
+  const headerClassName =
+    headerVisibility === "desktop" ? "hidden h-8 shrink-0 md:block" : "h-8 shrink-0";
+
   return (
     <section className="flex h-full min-h-0 flex-col bg-background">
       {header && (
-        <div data-testid={headerTestId} className="h-8 shrink-0">
+        <div data-testid={headerTestId} className={headerClassName}>
           {header}
         </div>
       )}

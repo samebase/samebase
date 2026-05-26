@@ -63,16 +63,21 @@ export function ensureWindowStorageAccess(storageKey: "localStorage" | "sessionS
   }
 
   try {
-    void window[storageKey];
-  } catch {
-    try {
-      Object.defineProperty(window, storageKey, {
-        configurable: true,
-        enumerable: true,
-        value: createInMemoryStorage(),
-      });
-    } catch {
-      // Leave the native failure in place when the browser prevents overrides.
+    const storage: unknown = Reflect.get(window, storageKey);
+    if (storage) {
+      return;
     }
+  } catch {
+    // Some embedded browsers block storage through a throwing getter; install the same fallback.
+  }
+
+  try {
+    Object.defineProperty(window, storageKey, {
+      configurable: true,
+      enumerable: true,
+      value: createInMemoryStorage(),
+    });
+  } catch {
+    // Leave the native failure in place when the browser prevents overrides.
   }
 }

@@ -222,7 +222,7 @@ function getLandingPreviewArticleHeading(headingId: string) {
 
 function getLandingPreviewMobileCarousel() {
   return document.querySelector<HTMLElement>(
-    '[data-workspace-layout-v2="mobile"] [data-testid="workspace-layout-v2-pane-main"]',
+    '[data-workspace-layout-v2] [data-testid="workspace-layout-v2-pane-main"]',
   );
 }
 
