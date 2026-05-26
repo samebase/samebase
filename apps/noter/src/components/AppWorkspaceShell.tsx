@@ -186,8 +186,8 @@ function AppWorkspaceClientShell({ children }: { children?: ReactNode }) {
 
 /**
  * SSR must not guess workspace geometry. Keep WorkspaceLayoutV2 out of the
- * first server/client render; only explicitly listed route bodies render inside
- * the interim shell.
+ * first server/client render while route content can still render inside the
+ * interim shell.
  */
 function AppWorkspaceClientReadyGate({
   children,
@@ -207,10 +207,6 @@ function AppWorkspaceClientReadyGate({
   }
 
   return children;
-}
-
-function shouldRenderRouteContentBeforeWorkspaceLayout(pathname: string) {
-  return pathname === "/";
 }
 
 function useAppWorkspaceSidebarState() {
@@ -274,9 +270,6 @@ function AppWorkspaceShellFrame({
 }
 
 export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
-  const pathname = useLocation({
-    select: (location) => location.pathname,
-  });
   const chromeStore = useMemo(createAppWorkspaceRouteChromeStore, []);
   const chromeContextValue = useMemo(
     () => ({
@@ -290,11 +283,7 @@ export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
   return (
     <AppWorkspaceRouteChromeContext.Provider value={chromeContextValue}>
       <div className="flex min-h-dvh flex-col bg-background text-foreground">
-        <AppWorkspaceClientReadyGate
-          shellChildren={
-            shouldRenderRouteContentBeforeWorkspaceLayout(pathname) ? children : undefined
-          }
-        >
+        <AppWorkspaceClientReadyGate shellChildren={children}>
           <AppWorkspaceShellFrame chrome={chrome}>{children}</AppWorkspaceShellFrame>
         </AppWorkspaceClientReadyGate>
       </div>

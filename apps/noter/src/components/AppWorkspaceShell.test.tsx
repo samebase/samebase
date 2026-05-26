@@ -4,7 +4,7 @@ import { AppWorkspaceShell } from "./AppWorkspaceShell";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 describe("AppWorkspaceShell", () => {
-  it("server-renders only the exact client workspace shell for workspace routes", () => {
+  it("server-renders route content inside the client shell before workspace layout mounts", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/machines"]}>
         <AppWorkspaceShell>
@@ -15,20 +15,6 @@ describe("AppWorkspaceShell", () => {
 
     expect(markup).toContain('data-testid="app-workspace-client-shell"');
     expect(markup).not.toContain("data-workspace-layout-v2");
-    expect(markup).not.toContain("workspace-route-content");
-  });
-
-  it("server-renders public landing content inside the client shell", () => {
-    const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/"]}>
-        <AppWorkspaceShell>
-          <div data-testid="public-landing-content">public landing content</div>
-        </AppWorkspaceShell>
-      </TestRouterProvider>,
-    );
-
-    expect(markup).toContain('data-testid="app-workspace-client-shell"');
-    expect(markup).not.toContain("data-workspace-layout-v2");
-    expect(markup).toContain("public landing content");
+    expect(markup).toContain("workspace route content");
   });
 });
