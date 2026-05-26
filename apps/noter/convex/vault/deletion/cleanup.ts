@@ -13,6 +13,7 @@ const deleteOnlyByVaultCleanupTables = union(
   literal("vaultDomains"),
   literal("vaultApps"),
   literal("vaultConvexDeployments"),
+  literal("vaultCloudflareWorkers"),
   literal("vaultInfrastructureTargets"),
   literal("vaultInfrastructureOwnership"),
   literal("codespaces"),
@@ -255,6 +256,10 @@ const vaultLocalCleanupRegistry = [
     cleanup: deleteByVaultBatch("vaultConvexDeployments"),
   },
   {
+    table: "vaultCloudflareWorkers",
+    cleanup: deleteByVaultBatch("vaultCloudflareWorkers"),
+  },
+  {
     table: "vaultInfrastructureTargets",
     cleanup: deleteByVaultBatch("vaultInfrastructureTargets"),
   },
@@ -303,6 +308,7 @@ const vaultLocalCleanupRegistryByStep = {
     "vaultDomains",
     "vaultApps",
     "vaultConvexDeployments",
+    "vaultCloudflareWorkers",
     "vaultInfrastructureTargets",
     "vaultInfrastructureOwnership",
     "codespaces",

@@ -425,6 +425,18 @@ describe("vault deletion workflow", () => {
           lastTreeRefreshAt: 5 + index,
         });
       }
+      await ctx.db.insert("vaultCloudflareWorkers", {
+        vaultId,
+        userId,
+        appRoot: ".",
+        accountId: "cloudflare-account",
+        workerName: "delete-me-worker",
+        workerTag: "worker-tag",
+        origin: "provisioned",
+        deployment: { state: "not_configured" },
+        connectedAt: 6,
+        lastObservedAt: 7,
+      });
 
       return { userId, vaultId };
     });
@@ -513,6 +525,10 @@ describe("vault deletion workflow", () => {
           .query("vaultBranchTrees")
           .withIndex("by_vault_and_branch", (q) => q.eq("vaultId", ids.vaultId))
           .collect(),
+        cloudflareWorkers: await ctx.db
+          .query("vaultCloudflareWorkers")
+          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+          .collect(),
         events: await ctx.db
           .query("vaultDeletionEvents")
           .withIndex("by_run_and_created_at", (q) => q.eq("runId", deletionRunId))
@@ -522,6 +538,7 @@ describe("vault deletion workflow", () => {
 
     expect(completed.vault).toBeNull();
     expect(completed.branchTrees).toHaveLength(0);
+    expect(completed.cloudflareWorkers).toHaveLength(0);
     expect(sourceCleanupBatches).toBeGreaterThan(1);
     expect(completed.run).toMatchObject({
       state: "succeeded",

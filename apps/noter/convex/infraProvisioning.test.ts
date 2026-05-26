@@ -59,7 +59,6 @@ describe("selectExistingCloudflareWorker", () => {
       selectExistingCloudflareWorker({
         cloudflareTarget: {
           state: "created",
-          appRoot: rootCloudflareAppRoot,
           accountId: "account-1",
           workerName: "noter",
           workerTag: "provisional-worker-tag",
@@ -76,7 +75,6 @@ describe("selectExistingCloudflareWorker", () => {
       selectExistingCloudflareWorker({
         cloudflareTarget: {
           state: "planned",
-          appRoot: rootCloudflareAppRoot,
           accountId: "account-1",
           workerName: "noter",
           build: rootCloudflareBuild,
@@ -91,7 +89,6 @@ describe("selectExistingCloudflareWorker", () => {
       selectExistingCloudflareWorker({
         cloudflareTarget: {
           state: "planned",
-          appRoot: rootCloudflareAppRoot,
           accountId: "account-2",
           workerName: "noter",
           build: rootCloudflareBuild,
@@ -225,14 +222,13 @@ describe("infrastructure provisioning ownership", () => {
       });
       await ctx.db.insert("vaultInfrastructureTargets", {
         vaultId,
+        appRoot: rootCloudflareAppRoot,
         convex: {
           state: "planned",
-          appRoot: rootCloudflareAppRoot,
           projectName: "provider-retry",
         },
         cloudflare: {
           state: "planned",
-          appRoot: rootCloudflareAppRoot,
           accountId: "cloudflare-account-id",
           workerName: "provider-retry",
           build: rootCloudflareBuild,
@@ -260,10 +256,10 @@ describe("infrastructure provisioning ownership", () => {
     expect(target).toMatchObject({
       convex: {
         state: "created",
-        appRoot: rootCloudflareAppRoot,
         projectName: "provider-retry",
         projectId: "convex-project-id",
       },
+      appRoot: rootCloudflareAppRoot,
     });
   });
 
@@ -313,14 +309,13 @@ describe("infrastructure provisioning ownership", () => {
       });
       await ctx.db.insert("vaultInfrastructureTargets", {
         vaultId,
+        appRoot: rootCloudflareAppRoot,
         convex: {
           state: "planned",
-          appRoot: rootCloudflareAppRoot,
           projectName: "provider-retry",
         },
         cloudflare: {
           state: "planned",
-          appRoot: rootCloudflareAppRoot,
           accountId: "cloudflare-account-id",
           workerName: "provider-retry",
           build: rootCloudflareBuild,
@@ -352,13 +347,13 @@ describe("infrastructure provisioning ownership", () => {
     expect(target).toMatchObject({
       cloudflare: {
         state: "created",
-        appRoot: rootCloudflareAppRoot,
         accountId: "cloudflare-account-id",
         workerName: "provider-retry",
         workerTag: "cloudflare-worker-tag",
         workersDevUrl: "https://provider-retry.example.workers.dev",
         build: rootCloudflareBuild,
       },
+      appRoot: rootCloudflareAppRoot,
     });
   });
 
@@ -408,15 +403,14 @@ describe("infrastructure provisioning ownership", () => {
       });
       await ctx.db.insert("vaultInfrastructureTargets", {
         vaultId,
+        appRoot: rootCloudflareAppRoot,
         convex: {
           state: "created",
-          appRoot: rootCloudflareAppRoot,
           projectName: "deploy-keys",
           projectId: "convex-project-id",
         },
         cloudflare: {
           state: "planned",
-          appRoot: rootCloudflareAppRoot,
           accountId: "cloudflare-account-id",
           workerName: "deploy-keys",
           build: rootCloudflareBuild,
@@ -834,15 +828,14 @@ describe("infrastructure provisioning ownership", () => {
       });
       await ctx.db.insert("vaultInfrastructureTargets", {
         vaultId,
+        appRoot: rootCloudflareAppRoot,
         convex: {
           state: "created",
-          appRoot: rootCloudflareAppRoot,
           projectName: "preview-validation",
           projectId: convexProjectId,
         },
         cloudflare: {
           state: "planned",
-          appRoot: rootCloudflareAppRoot,
           accountId: "cloudflare-account-id",
           workerName: "preview-validation",
           build: rootCloudflareBuild,

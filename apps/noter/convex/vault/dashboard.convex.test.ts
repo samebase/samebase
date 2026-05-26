@@ -347,14 +347,13 @@ describe("vault dashboard Convex contract", () => {
       });
       await ctx.db.insert("vaultInfrastructureTargets", {
         vaultId,
+        appRoot,
         convex: {
           state: "planned",
-          appRoot,
           projectName: "demo",
         },
         cloudflare: {
           state: "planned",
-          appRoot,
           accountId: "cloudflare-account",
           workerName: "demo",
           build: {

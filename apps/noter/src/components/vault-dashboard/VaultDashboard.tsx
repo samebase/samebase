@@ -1606,6 +1606,7 @@ export function VaultDashboardConvexDialog({
                 onChange={(event) => onAppRootChange(event.target.value)}
                 disabled={isLoading || isSubmitting}
                 readOnly={appRootReadOnly}
+                aria-label="App root"
                 placeholder="App root"
               />
             ) : null}
@@ -1771,6 +1772,7 @@ export function VaultDashboardCloudflareDialog({
                 onChange={(event) => onAppRootChange(event.target.value)}
                 disabled={isLoading || isSubmitting}
                 readOnly={appRootReadOnly}
+                aria-label="App root"
                 placeholder="App root"
               />
             ) : null}
@@ -3150,6 +3152,7 @@ function applyVaultDashboardProviderAddSearch({
         ...appRootPatch,
         [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: null,
         [DASHBOARD_NEW_APP_QUERY_PARAM]: null,
+        delete: null,
       })
     : applySearchPatch(currentSearch, {
         "add-cloudflare": true,
@@ -3157,6 +3160,7 @@ function applyVaultDashboardProviderAddSearch({
         ...appRootPatch,
         [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: null,
         [DASHBOARD_NEW_APP_QUERY_PARAM]: null,
+        delete: null,
       });
 }
 
@@ -3167,6 +3171,7 @@ function applyVaultDashboardAddAppRootSearch(currentSearch: RootRouteSearch): Ro
     "add-cloudflare": null,
     "add-convex": null,
     [DASHBOARD_NEW_APP_QUERY_PARAM]: null,
+    delete: null,
   });
 }
 

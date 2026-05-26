@@ -461,21 +461,20 @@ export default defineSchema({
     ]),
 
   /**
-   * User-selected provider names and early provider identities for
-   * Noter-managed infrastructure. These are recorded before later provider
-   * side effects so retries use the original resources.
+   * User-selected app root, provider names, and early provider identities for
+   * Noter-managed infrastructure. The single app root is shared across
+   * provider resources so one target cannot split Convex and Cloudflare.
    */
   vaultInfrastructureTargets: defineTable({
     vaultId: id("vaults"),
+    appRoot: string(),
     convex: union(
       object({
         state: literal("planned"),
-        appRoot: string(),
         projectName: string(),
       }),
       object({
         state: literal("created"),
-        appRoot: string(),
         projectName: string(),
         projectId: string(),
       }),
@@ -483,14 +482,12 @@ export default defineSchema({
     cloudflare: union(
       object({
         state: literal("planned"),
-        appRoot: string(),
         accountId: string(),
         workerName: string(),
         build: vVaultCloudflareBuildConfig,
       }),
       object({
         state: literal("created"),
-        appRoot: string(),
         accountId: string(),
         workerName: string(),
         workerTag: string(),

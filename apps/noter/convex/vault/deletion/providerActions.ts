@@ -178,6 +178,9 @@ export const deleteCloudflare = internalAction({
 
     const workers =
       plan.cloudflare.action === "delete_worker" ? [plan.cloudflare] : plan.cloudflare.workers;
+    if (workers.length === 0) {
+      throw new Error("Cloudflare deletion plan must include at least one Worker.");
+    }
     for (const worker of workers) {
       try {
         await deleteCloudflareResources({

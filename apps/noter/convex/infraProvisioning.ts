@@ -953,7 +953,6 @@ export const recordConvexProjectIdentity = internalMutation({
     await ctx.db.patch(target._id, {
       convex: {
         state: "created",
-        appRoot: target.convex.appRoot,
         projectName: target.convex.projectName,
         projectId: args.projectId,
       },
@@ -986,7 +985,7 @@ export const recordConvexDeployKeyIdentity = internalMutation({
 
     const existing = await readVaultConvexDeploymentForAppRoot(ctx, {
       vaultId: args.vaultId,
-      appRoot: target.convex.appRoot,
+      appRoot: target.appRoot,
     });
     if (!existing) {
       throw new Error("Convex deployment is required before recording deploy key identity.");
@@ -1038,7 +1037,6 @@ export const recordCloudflareWorkerIdentity = internalMutation({
     await ctx.db.patch(target._id, {
       cloudflare: {
         state: "created",
-        appRoot: target.cloudflare.appRoot,
         accountId: args.accountId,
         workerName: args.workerName,
         workerTag: args.workerTag,
@@ -1118,13 +1116,13 @@ export const markCloudflareConnected = internalMutation({
     const existing = await ctx.db
       .query("vaultCloudflareWorkers")
       .withIndex("by_vault_and_appRoot", (q) =>
-        q.eq("vaultId", args.vaultId).eq("appRoot", target.cloudflare.appRoot),
+        q.eq("vaultId", args.vaultId).eq("appRoot", target.appRoot),
       )
       .first();
     const row = {
       vaultId: args.vaultId,
       userId: vault.userId,
-      appRoot: target.cloudflare.appRoot,
+      appRoot: target.appRoot,
       accountId: args.accountId,
       workerName: args.workerName,
       workerTag: args.workerTag,
@@ -1370,7 +1368,7 @@ export const ensureConvexInfrastructure = internalAction({
       internal.infraProvisioning.getConvexDeploymentByVaultAndAppRoot,
       {
         vaultId: args.vaultId,
-        appRoot: infrastructureTarget.convex.appRoot,
+        appRoot: infrastructureTarget.appRoot,
       },
     );
     const { convexToken, convexTeamId } = await resolveConvexProvisioningConnection(
@@ -1415,7 +1413,7 @@ export const ensureConvexInfrastructure = internalAction({
       {
         vaultId: args.vaultId,
         runId: args.runId,
-        appRoot: infrastructureTarget.convex.appRoot,
+        appRoot: infrastructureTarget.appRoot,
         convex: {
           convexProjectId: convex.convexProjectId,
           convexTeamSlug: convex.convexTeamSlug,
@@ -1485,7 +1483,7 @@ export const ensureConvexPreviewInfrastructure = internalAction({
       internal.infraProvisioning.getConvexDeploymentByVaultAndAppRoot,
       {
         vaultId: args.vaultId,
-        appRoot: infrastructureTarget.convex.appRoot,
+        appRoot: infrastructureTarget.appRoot,
       },
     );
     if (!existing) {
@@ -1594,7 +1592,7 @@ export const ensureCloudflareInfrastructure = internalAction({
       internal.infraProvisioning.getConvexDeploymentByVaultAndAppRoot,
       {
         vaultId: args.vaultId,
-        appRoot: cloudflareTarget.appRoot,
+        appRoot: infrastructureTarget.appRoot,
       },
     );
     if (!existing) {

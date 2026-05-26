@@ -1,10 +1,11 @@
 export const ROOT_VAULT_APP_ROOT = ".";
 
 export function normalizeVaultAppRoot(value: string): string {
-  const trimmed = value
-    .trim()
-    .replace(/\\/g, "/")
-    .replace(/^\/+|\/+$/g, "");
+  const raw = value.trim();
+  if (/^[A-Za-z]:[\\/]/.test(raw) || raw.startsWith("\\\\") || raw.startsWith("//")) {
+    throw new Error("App root must be a repository-relative path.");
+  }
+  const trimmed = raw.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
   if (!trimmed) {
     throw new Error("App root is required.");
   }

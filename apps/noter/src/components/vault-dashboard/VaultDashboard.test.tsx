@@ -655,6 +655,7 @@ describe("VaultDashboardConvexDialog", () => {
     );
 
     expect(markup).toContain("apps/noter");
+    expect(markup).toContain('aria-label="App root"');
     expect(markup).toContain('placeholder="App root"');
     expect(markup).toContain("readOnly");
     expect(markup).toContain("Connect Project");
@@ -707,6 +708,53 @@ describe("VaultDashboardCloudflareDialog", () => {
     expect(markup).toContain("demo-worker");
     expect(markup).not.toContain('placeholder="App root"');
     expect(markup).not.toContain("readOnly");
+  });
+
+  it("renders the app root input for monorepo app roots", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardCloudflareDialog
+        accounts={[
+          {
+            accountId: "account-1",
+            accountName: "Ada Cloud",
+          },
+        ]}
+        appRoot="apps/noter"
+        appRootReadOnly={true}
+        createWorkerName="demo-worker"
+        error={null}
+        isLoading={false}
+        isSubmitting={false}
+        mode="existing"
+        onAccountChange={vi.fn()}
+        onAppRootChange={vi.fn()}
+        onCreateWorkerNameChange={vi.fn()}
+        onModeChange={vi.fn()}
+        onOpenChange={vi.fn()}
+        onSubmit={vi.fn()}
+        onWorkerChange={vi.fn()}
+        open
+        selectedAccountId="account-1"
+        selectedWorkerName="demo-worker"
+        vault={{
+          fixedAppRoot: "apps/noter",
+          id: fakeVaultId(),
+          repositoryFullName: "ada/demo",
+          repositoryName: "demo",
+        }}
+        workers={[
+          {
+            workerName: "demo-worker",
+            workerTag: "worker-tag-1",
+          },
+        ]}
+      />,
+    );
+
+    expect(markup).toContain("apps/noter");
+    expect(markup).toContain('aria-label="App root"');
+    expect(markup).toContain('placeholder="App root"');
+    expect(markup).toContain("readOnly");
   });
 });
 

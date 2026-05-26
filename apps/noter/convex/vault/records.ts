@@ -332,14 +332,13 @@ export const createInitializingNoterManagedVaultForUser = internalMutation({
     });
     await ctx.db.insert("vaultInfrastructureTargets", {
       vaultId,
+      appRoot: ROOT_VAULT_APP_ROOT,
       convex: {
         state: "planned",
-        appRoot: ROOT_VAULT_APP_ROOT,
         projectName: args.convexProjectName,
       },
       cloudflare: {
         state: "planned",
-        appRoot: ROOT_VAULT_APP_ROOT,
         accountId: args.cloudflareAccountId,
         workerName: args.cloudflareWorkerName,
         build: buildVaultCloudflareBuildConfigForAppRoot({
