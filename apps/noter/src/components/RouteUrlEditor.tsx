@@ -43,6 +43,9 @@ const routeUrlEditorBlurredInputClassName = `${routeUrlEditorInputClassName} cur
 const routeUrlEditorSuggestionsPopoverClassName =
   "absolute inset-x-1 top-full z-50 mt-1 overflow-hidden rounded-md bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10";
 
+const routeUrlEditorTouchSuggestionsPopoverClassName =
+  "absolute inset-x-1 top-full z-50 mt-1 overflow-hidden rounded-md bg-background/35 text-popover-foreground shadow-md ring-1 ring-foreground/10 backdrop-blur-sm";
+
 const routeUrlEditorSuggestionsScrollportClassName = "relative max-h-72 overflow-y-auto py-1";
 
 const routeUrlEditorTouchSuggestionsScrollportClassName =
@@ -62,15 +65,16 @@ type RouteUrlEditorTouchScrollPickerMetrics = {
   topSpacerHeightPx: number;
 };
 
-type RouteUrlEditorTouchScrollPickerPopoverLayout = {
-  bottomSpacerTransferPx: number;
-  visibleHeightPx: number;
-};
-
 function getRouteUrlEditorSuggestionButtonClassName(active: boolean): string {
   return active
     ? "flex h-7 w-full items-center bg-accent px-2 font-mono text-sm text-accent-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
     : "flex h-7 w-full items-center px-2 font-mono text-sm text-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground";
+}
+
+function getRouteUrlEditorSuggestionsPopoverClassName(touchScrollPickerEnabled: boolean) {
+  return touchScrollPickerEnabled
+    ? routeUrlEditorTouchSuggestionsPopoverClassName
+    : routeUrlEditorSuggestionsPopoverClassName;
 }
 
 function getRouteUrlEditorSuggestionsScrollportClassName(touchScrollPickerEnabled: boolean) {
@@ -116,17 +120,6 @@ function areRouteUrlEditorTouchScrollPickerMetricsEqual(
     left.bottomSpacerHeightPx === right.bottomSpacerHeightPx &&
     left.slateTopPx === right.slateTopPx &&
     left.topSpacerHeightPx === right.topSpacerHeightPx
-  );
-}
-
-function areRouteUrlEditorTouchScrollPickerPopoverLayoutsEqual(
-  left: RouteUrlEditorTouchScrollPickerPopoverLayout | null,
-  right: RouteUrlEditorTouchScrollPickerPopoverLayout,
-): boolean {
-  return (
-    left !== null &&
-    left.bottomSpacerTransferPx === right.bottomSpacerTransferPx &&
-    left.visibleHeightPx === right.visibleHeightPx
   );
 }
 
@@ -203,38 +196,6 @@ function readRouteUrlEditorTouchScrollSuggestionIndex(args: {
   }
 
   return closestSuggestion?.index ?? null;
-}
-
-/**
- * Transfers synthetic end-spacer travel into the popover's visible boundary.
- * The spacer still lets the last option reach the fixed slate, but the overlay
- * stops covering the page once that travel is only blank space.
- */
-function readRouteUrlEditorTouchScrollPickerPopoverLayout(
-  scrollport: HTMLElement,
-): RouteUrlEditorTouchScrollPickerPopoverLayout {
-  const scrollportRect = scrollport.getBoundingClientRect();
-  const options = [
-    ...scrollport.querySelectorAll<HTMLElement>(routeUrlEditorSuggestionOptionSelector),
-  ];
-  if (options.length === 0) {
-    return {
-      bottomSpacerTransferPx: 0,
-      visibleHeightPx: scrollport.clientHeight,
-    };
-  }
-
-  const lastOption = options[options.length - 1];
-  const lastOptionRect = lastOption.getBoundingClientRect();
-  const bottomSpacerTransferPx = Math.max(0, scrollportRect.bottom - lastOptionRect.bottom);
-
-  return {
-    bottomSpacerTransferPx,
-    visibleHeightPx: Math.max(
-      routeUrlEditorSuggestionRowHeightPx,
-      scrollport.clientHeight - bottomSpacerTransferPx,
-    ),
-  };
 }
 
 type RouteUrlEditorInputSelectionDirection = "backward" | "forward" | "none";
@@ -500,8 +461,6 @@ export function RouteUrlEditor() {
   const [touchScrollPickerEnabled, setTouchScrollPickerEnabled] = useState(false);
   const [touchScrollPickerMetrics, setTouchScrollPickerMetrics] =
     useState<RouteUrlEditorTouchScrollPickerMetrics | null>(null);
-  const [touchScrollPickerPopoverLayout, setTouchScrollPickerPopoverLayout] =
-    useState<RouteUrlEditorTouchScrollPickerPopoverLayout | null>(null);
   const [suggestionDraftEditedSinceFocus, setSuggestionDraftEditedSinceFocus] = useState(false);
   // The draft can temporarily be a highlighted suggestion; this is the
   // user-edited URL that filters the suggestion list.
@@ -640,7 +599,6 @@ export function RouteUrlEditor() {
   useLayoutEffect(() => {
     if (!touchScrollPickerEnabled || !suggestionsVisible) {
       setTouchScrollPickerMetrics(null);
-      setTouchScrollPickerPopoverLayout(null);
       return;
     }
 
@@ -655,12 +613,6 @@ export function RouteUrlEditor() {
         areRouteUrlEditorTouchScrollPickerMetricsEqual(currentMetrics, nextMetrics)
           ? currentMetrics
           : nextMetrics,
-      );
-      const nextLayout = readRouteUrlEditorTouchScrollPickerPopoverLayout(suggestionsElement);
-      setTouchScrollPickerPopoverLayout((currentLayout) =>
-        areRouteUrlEditorTouchScrollPickerPopoverLayoutsEqual(currentLayout, nextLayout)
-          ? currentLayout
-          : nextLayout,
       );
     };
 
@@ -1089,13 +1041,6 @@ export function RouteUrlEditor() {
       return;
     }
 
-    const nextLayout = readRouteUrlEditorTouchScrollPickerPopoverLayout(suggestionsElement);
-    setTouchScrollPickerPopoverLayout((currentLayout) =>
-      areRouteUrlEditorTouchScrollPickerPopoverLayoutsEqual(currentLayout, nextLayout)
-        ? currentLayout
-        : nextLayout,
-    );
-
     const nextActiveSuggestionIndex = readRouteUrlEditorTouchScrollSuggestionIndex({
       metrics: touchScrollPickerMetrics,
       scrollport: suggestionsElement,
@@ -1437,13 +1382,8 @@ export function RouteUrlEditor() {
       />
       {suggestionsVisible ? (
         <div
-          className={routeUrlEditorSuggestionsPopoverClassName}
+          className={getRouteUrlEditorSuggestionsPopoverClassName(touchScrollPickerEnabled)}
           data-testid="route-url-editor-suggestions-popover"
-          style={
-            touchScrollPickerPopoverLayout === null
-              ? undefined
-              : { height: touchScrollPickerPopoverLayout.visibleHeightPx }
-          }
         >
           {touchScrollPickerVisible ? (
             <div

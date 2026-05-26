@@ -154,9 +154,10 @@ async function touchDragRouteUrlEditorSuggestionsByPx(page: Page, deltaY: number
 }
 
 async function readRouteUrlEditorScrollSlateGeometry(page: Page): Promise<{
+  popoverClassName: string;
   popoverBottomY: number;
+  popoverInlineHeight: string;
   selectedCenterY: number;
-  selectedBottomY: number;
   slateCenterY: number;
   slateTopY: number;
   scrollportBottomY: number;
@@ -198,9 +199,10 @@ async function readRouteUrlEditorScrollSlateGeometry(page: Page): Promise<{
     }
 
     return {
+      popoverClassName: popover.className,
       popoverBottomY: popover.getBoundingClientRect().bottom,
+      popoverInlineHeight: popover.style.height,
       selectedCenterY: selectedOptionRect.top + selectedOptionRect.height / 2,
-      selectedBottomY: selectedOptionRect.bottom,
       slateCenterY: slateRect.top + slateRect.height / 2,
       slateTopY: slateRect.top,
       scrollportBottomY: scrollportRect.bottom,
@@ -1149,8 +1151,10 @@ test("route URL editor mobile scroll picker lets the last option reach the slate
 
     expect(Math.round(geometry.slateTopY - geometry.scrollportTopY)).toBe(28);
     expect(Math.abs(geometry.selectedCenterY - geometry.slateCenterY)).toBeLessThanOrEqual(2);
-    expect(Math.abs(geometry.popoverBottomY - geometry.selectedBottomY)).toBeLessThanOrEqual(2);
-    expect(geometry.popoverBottomY).toBeLessThan(geometry.scrollportBottomY);
+    expect(Math.abs(geometry.popoverBottomY - geometry.scrollportBottomY)).toBeLessThanOrEqual(2);
+    expect(geometry.popoverInlineHeight).toBe("");
+    expect(geometry.popoverClassName).toContain("bg-background/35");
+    expect(geometry.popoverClassName).toContain("backdrop-blur-sm");
     expect(geometry.visibleOptionCountAboveSlate).toBeGreaterThan(0);
   } finally {
     await context.close();
