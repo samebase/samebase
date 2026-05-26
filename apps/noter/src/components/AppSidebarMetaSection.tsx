@@ -18,13 +18,6 @@ import {
   LANDING_MARKDOWN_PREVIEW_ROUTE,
 } from "@/lib/landingMarkdownPreview";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
-import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
-import {
-  FORCE_PROD_UI_MODE_LINK_LABEL,
-  FORCE_PROD_UI_QUERY_PARAM,
-  isBrowserProductionPublicOrigin,
-  isProdUiModeActive,
-} from "@/lib/prodUiMode";
 import { SEARCH_RESET_LINK_LABEL, SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import {
   ROOT_THEME_DARK_MODE_DISABLE_LINK_LABEL,
@@ -38,7 +31,6 @@ import { applySearchPatch } from "@/lib/routeSearchFlags";
 import { readRootRouteSearch } from "@/lib/rootRouteSearch";
 import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
 import { Link, useLocation } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
 
 function normalizeRepoUrl(repoUrl: string): string {
   return repoUrl.endsWith(".git") ? repoUrl.slice(0, -4) : repoUrl;
@@ -56,8 +48,6 @@ const APP_SIDEBAR_META_VERSION_CLASS_NAMES = {
   left: "flex max-w-full min-w-0 flex-row-reverse flex-wrap items-center justify-end gap-x-2 gap-y-1 font-mono",
   right: "flex max-w-full min-w-0 flex-row flex-wrap items-center gap-x-2 gap-y-1 font-mono",
 } as const satisfies Record<AppSidebarMetaSectionSide, string>;
-const HIDDEN_PUBLIC_LINK_PLACEHOLDER_CLASS_NAME =
-  "pointer-events-none select-none text-background no-underline";
 
 /**
  * Keep build metadata and public-route escape hatches on the rail edge that
@@ -76,17 +66,11 @@ export function AppSidebarMetaSection({
   const location = useLocation();
   const publicLandingLogoLink = useOptionalPublicLandingLogoLink();
   const rootRouteSearch = readRootRouteSearch(location.searchStr);
-  const [browserShortcutsEnabled, setBrowserShortcutsEnabled] = useState(false);
 
   const landingDevEnabled = isLandingDevModeEnabled(rootRouteSearch);
   const landingDevLabel = landingDevEnabled
     ? LANDING_DEV_MODE_DISABLE_LINK_LABEL
     : LANDING_DEV_MODE_LINK_LABEL;
-  const prodUiEnabled = isProdUiModeActive({
-    deploymentProfile: undefined,
-    productionPublicOrigin: isBrowserProductionPublicOrigin(),
-    search: rootRouteSearch,
-  });
   const themeMode = readRootThemeMode(rootRouteSearch);
   const showSearchResetLink = location.searchStr.length > 0;
   const lightModeLabel =
@@ -97,12 +81,6 @@ export function AppSidebarMetaSection({
     themeMode === "dark"
       ? ROOT_THEME_DARK_MODE_DISABLE_LINK_LABEL
       : ROOT_THEME_DARK_MODE_LINK_LABEL;
-
-  useEffect(() => {
-    // The prod-ui shortcut depends on the deployed browser origin. Static SPA
-    // prerender cannot know that origin, so render it only after hydration.
-    setBrowserShortcutsEnabled(true);
-  }, []);
 
   const isLandingPage = location.pathname === "/";
   const showLandingPreviewLanguageLink = location.pathname === LANDING_MARKDOWN_PREVIEW_ROUTE;
@@ -154,19 +132,6 @@ export function AppSidebarMetaSection({
       >
         {darkModeLabel}
       </Link>
-      {browserShortcutsEnabled && !prodUiEnabled ? (
-        <Link
-          id="public-landing-prod-ui-toggle"
-          to={location.pathname}
-          hash={location.hash}
-          search={(currentSearch) => ({
-            ...currentSearch,
-            [FORCE_PROD_UI_QUERY_PARAM]: true,
-          })}
-        >
-          {FORCE_PROD_UI_MODE_LINK_LABEL}
-        </Link>
-      ) : null}
       <Link
         id="public-landing-dev-toggle"
         to={location.pathname}
@@ -206,19 +171,8 @@ export function AppSidebarMetaSection({
       >
         /logo
       </Link>
-      {/* From /?dev&prod-ui, /home keeps dev but drops the preview-only prod-ui flag. */}
+      {/* Path links live below query-param shortcuts. */}
       <Link to={DASHBOARD_ROUTE}>/home</Link>
-      {side === "right" ? (
-        <Link
-          id="public-local-storage-route-link"
-          to={LOCAL_STORAGE_ROUTE}
-          aria-hidden={landingDevEnabled ? undefined : true}
-          className={landingDevEnabled ? undefined : HIDDEN_PUBLIC_LINK_PLACEHOLDER_CLASS_NAME}
-          tabIndex={landingDevEnabled ? undefined : -1}
-        >
-          {LOCAL_STORAGE_ROUTE}
-        </Link>
-      ) : null}
       {showLandingPreviewLink ? (
         <Link to={LANDING_MARKDOWN_PREVIEW_ROUTE}>{LANDING_MARKDOWN_PREVIEW_ROUTE}</Link>
       ) : null}

@@ -85,13 +85,14 @@ test("localStorage route reflects sidebar persistence without manual refresh", a
   ).toBeVisible();
 });
 
-test("localStorage right sidebar reserves the dev link row", async ({ page }) => {
+test("localStorage right sidebar omits the route shortcut", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/localStorage", { waitUntil: "networkidle" });
 
   const publicLinks = page
     .getByTestId("workspace-layout-v2-pane-right")
     .getByTestId("app-build-status-bar");
+  await expect(publicLinks.locator("#public-local-storage-route-link")).toHaveCount(0);
   await expect(
     publicLinks.getByRole("link", {
       name: LOCAL_STORAGE_ROUTE,
@@ -99,17 +100,13 @@ test("localStorage right sidebar reserves the dev link row", async ({ page }) =>
     }),
   ).toHaveCount(0);
 
-  const hiddenLocalStorageRow = publicLinks.locator("#public-local-storage-route-link");
-  await expect(hiddenLocalStorageRow).toHaveAttribute("aria-hidden", "true");
-  await expect(hiddenLocalStorageRow).toHaveAttribute("tabindex", "-1");
-  await expect(hiddenLocalStorageRow).toHaveText(LOCAL_STORAGE_ROUTE);
-
   await page.goto("/localStorage?dev", { waitUntil: "networkidle" });
 
+  await expect(publicLinks.locator("#public-local-storage-route-link")).toHaveCount(0);
   await expect(
     publicLinks.getByRole("link", {
       name: LOCAL_STORAGE_ROUTE,
       exact: true,
     }),
-  ).toHaveAttribute("href", `${LOCAL_STORAGE_ROUTE}?dev`);
+  ).toHaveCount(0);
 });
