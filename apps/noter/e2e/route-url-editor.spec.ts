@@ -101,10 +101,55 @@ async function scrollRouteUrlEditorOptionToSlate(page: Page, optionName: string)
   }, optionName);
 }
 
-async function scrollRouteUrlEditorSuggestionsToEnd(page: Page): Promise<void> {
-  await page.getByTestId("route-url-editor-suggestions").evaluate((scrollport) => {
-    scrollport.scrollTop = scrollport.scrollHeight;
-    scrollport.dispatchEvent(new Event("scroll", { bubbles: true }));
+async function touchDragRouteUrlEditorSuggestionsByPx(page: Page, deltaY: number): Promise<void> {
+  const suggestionsBox = await page.getByTestId("route-url-editor-suggestions").boundingBox();
+  if (suggestionsBox === null) {
+    throw new Error("Expected route URL editor suggestions to be visible.");
+  }
+  const popoverBox = await page.getByTestId("route-url-editor-suggestions-popover").boundingBox();
+  if (popoverBox === null) {
+    throw new Error("Expected route URL editor suggestions popover to be visible.");
+  }
+
+  const session = await page.context().newCDPSession(page);
+  const gestureStartTimeMs = Date.now();
+  const startX = suggestionsBox.x + suggestionsBox.width / 2;
+  const startY =
+    popoverBox.y + Math.min(popoverBox.height - 12, Math.max(12, popoverBox.height / 2));
+  const touchPoint = {
+    force: 1,
+    id: 1,
+    radiusX: 4,
+    radiusY: 4,
+    x: startX,
+    y: startY,
+  };
+
+  await session.send("Input.dispatchTouchEvent", {
+    timestamp: gestureStartTimeMs / 1000,
+    type: "touchStart",
+    touchPoints: [touchPoint],
+  });
+
+  const stepCount = 6;
+  for (let stepIndex = 1; stepIndex <= stepCount; stepIndex += 1) {
+    await page.waitForTimeout(16);
+    await session.send("Input.dispatchTouchEvent", {
+      timestamp: (gestureStartTimeMs + stepIndex * 16) / 1000,
+      type: "touchMove",
+      touchPoints: [
+        {
+          ...touchPoint,
+          y: startY + (deltaY * stepIndex) / stepCount,
+        },
+      ],
+    });
+  }
+
+  await session.send("Input.dispatchTouchEvent", {
+    timestamp: (gestureStartTimeMs + (stepCount + 1) * 16) / 1000,
+    type: "touchEnd",
+    touchPoints: [],
   });
 }
 
@@ -1095,7 +1140,9 @@ test("route URL editor mobile scroll picker lets the last option reach the slate
     await expect(slate).toBeVisible();
     await expect(lastOption).toBeVisible();
 
-    await scrollRouteUrlEditorSuggestionsToEnd(page);
+    for (let dragIndex = 0; dragIndex < 3; dragIndex += 1) {
+      await touchDragRouteUrlEditorSuggestionsByPx(page, -360);
+    }
 
     await expect(lastOption).toHaveAttribute("aria-selected", "true");
     const geometry = await readRouteUrlEditorScrollSlateGeometry(page);

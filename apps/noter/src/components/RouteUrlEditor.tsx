@@ -62,6 +62,11 @@ type RouteUrlEditorTouchScrollPickerMetrics = {
   topSpacerHeightPx: number;
 };
 
+type RouteUrlEditorTouchScrollPickerPopoverLayout = {
+  bottomSpacerTransferPx: number;
+  visibleHeightPx: number;
+};
+
 function getRouteUrlEditorSuggestionButtonClassName(active: boolean): string {
   return active
     ? "flex h-7 w-full items-center bg-accent px-2 font-mono text-sm text-accent-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
@@ -111,6 +116,17 @@ function areRouteUrlEditorTouchScrollPickerMetricsEqual(
     left.bottomSpacerHeightPx === right.bottomSpacerHeightPx &&
     left.slateTopPx === right.slateTopPx &&
     left.topSpacerHeightPx === right.topSpacerHeightPx
+  );
+}
+
+function areRouteUrlEditorTouchScrollPickerPopoverLayoutsEqual(
+  left: RouteUrlEditorTouchScrollPickerPopoverLayout | null,
+  right: RouteUrlEditorTouchScrollPickerPopoverLayout,
+): boolean {
+  return (
+    left !== null &&
+    left.bottomSpacerTransferPx === right.bottomSpacerTransferPx &&
+    left.visibleHeightPx === right.visibleHeightPx
   );
 }
 
@@ -189,23 +205,36 @@ function readRouteUrlEditorTouchScrollSuggestionIndex(args: {
   return closestSuggestion?.index ?? null;
 }
 
-function readRouteUrlEditorTouchScrollPickerPopoverHeightPx(scrollport: HTMLElement): number {
+/**
+ * Transfers synthetic end-spacer travel into the popover's visible boundary.
+ * The spacer still lets the last option reach the fixed slate, but the overlay
+ * stops covering the page once that travel is only blank space.
+ */
+function readRouteUrlEditorTouchScrollPickerPopoverLayout(
+  scrollport: HTMLElement,
+): RouteUrlEditorTouchScrollPickerPopoverLayout {
   const scrollportRect = scrollport.getBoundingClientRect();
   const options = [
     ...scrollport.querySelectorAll<HTMLElement>(routeUrlEditorSuggestionOptionSelector),
   ];
   if (options.length === 0) {
-    return scrollport.clientHeight;
+    return {
+      bottomSpacerTransferPx: 0,
+      visibleHeightPx: scrollport.clientHeight,
+    };
   }
 
   const lastOption = options[options.length - 1];
   const lastOptionRect = lastOption.getBoundingClientRect();
-  const trailingBlankHeightPx = Math.max(0, scrollportRect.bottom - lastOptionRect.bottom);
+  const bottomSpacerTransferPx = Math.max(0, scrollportRect.bottom - lastOptionRect.bottom);
 
-  return Math.max(
-    routeUrlEditorSuggestionRowHeightPx,
-    scrollport.clientHeight - trailingBlankHeightPx,
-  );
+  return {
+    bottomSpacerTransferPx,
+    visibleHeightPx: Math.max(
+      routeUrlEditorSuggestionRowHeightPx,
+      scrollport.clientHeight - bottomSpacerTransferPx,
+    ),
+  };
 }
 
 type RouteUrlEditorInputSelectionDirection = "backward" | "forward" | "none";
@@ -471,9 +500,8 @@ export function RouteUrlEditor() {
   const [touchScrollPickerEnabled, setTouchScrollPickerEnabled] = useState(false);
   const [touchScrollPickerMetrics, setTouchScrollPickerMetrics] =
     useState<RouteUrlEditorTouchScrollPickerMetrics | null>(null);
-  const [touchScrollPickerPopoverHeightPx, setTouchScrollPickerPopoverHeightPx] = useState<
-    number | null
-  >(null);
+  const [touchScrollPickerPopoverLayout, setTouchScrollPickerPopoverLayout] =
+    useState<RouteUrlEditorTouchScrollPickerPopoverLayout | null>(null);
   const [suggestionDraftEditedSinceFocus, setSuggestionDraftEditedSinceFocus] = useState(false);
   // The draft can temporarily be a highlighted suggestion; this is the
   // user-edited URL that filters the suggestion list.
@@ -612,7 +640,7 @@ export function RouteUrlEditor() {
   useLayoutEffect(() => {
     if (!touchScrollPickerEnabled || !suggestionsVisible) {
       setTouchScrollPickerMetrics(null);
-      setTouchScrollPickerPopoverHeightPx(null);
+      setTouchScrollPickerPopoverLayout(null);
       return;
     }
 
@@ -628,8 +656,11 @@ export function RouteUrlEditor() {
           ? currentMetrics
           : nextMetrics,
       );
-      setTouchScrollPickerPopoverHeightPx(
-        readRouteUrlEditorTouchScrollPickerPopoverHeightPx(suggestionsElement),
+      const nextLayout = readRouteUrlEditorTouchScrollPickerPopoverLayout(suggestionsElement);
+      setTouchScrollPickerPopoverLayout((currentLayout) =>
+        areRouteUrlEditorTouchScrollPickerPopoverLayoutsEqual(currentLayout, nextLayout)
+          ? currentLayout
+          : nextLayout,
       );
     };
 
@@ -1058,8 +1089,11 @@ export function RouteUrlEditor() {
       return;
     }
 
-    setTouchScrollPickerPopoverHeightPx(
-      readRouteUrlEditorTouchScrollPickerPopoverHeightPx(suggestionsElement),
+    const nextLayout = readRouteUrlEditorTouchScrollPickerPopoverLayout(suggestionsElement);
+    setTouchScrollPickerPopoverLayout((currentLayout) =>
+      areRouteUrlEditorTouchScrollPickerPopoverLayoutsEqual(currentLayout, nextLayout)
+        ? currentLayout
+        : nextLayout,
     );
 
     const nextActiveSuggestionIndex = readRouteUrlEditorTouchScrollSuggestionIndex({
@@ -1406,9 +1440,9 @@ export function RouteUrlEditor() {
           className={routeUrlEditorSuggestionsPopoverClassName}
           data-testid="route-url-editor-suggestions-popover"
           style={
-            touchScrollPickerPopoverHeightPx === null
+            touchScrollPickerPopoverLayout === null
               ? undefined
-              : { height: touchScrollPickerPopoverHeightPx }
+              : { height: touchScrollPickerPopoverLayout.visibleHeightPx }
           }
         >
           {touchScrollPickerVisible ? (
