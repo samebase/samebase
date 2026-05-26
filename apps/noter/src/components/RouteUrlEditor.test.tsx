@@ -377,11 +377,11 @@ describe("RouteUrlEditor", () => {
     expect(document.activeElement).toBe(input);
   });
 
-  it("previews numeric search deltas and continues after Enter", async () => {
+  it("previews one numeric search example and continues after Enter", async () => {
     const input = startEditing(["/logo?depth=2"]);
     const origin = window.location.origin;
 
-    await fillRouteUrlEditorInput(input, `${origin}/logo?depth=2&de`);
+    await fillRouteUrlEditorInput(input, `${origin}/logo?depth=2&depth`);
     await act(async () => {
       input.setSelectionRange(input.value.length, input.value.length);
       input.dispatchEvent(new Event("select", { bubbles: true }));
@@ -393,6 +393,9 @@ describe("RouteUrlEditor", () => {
     const nextDepthOption = optionButtons.find(
       (button) => button.getAttribute("aria-label") === "Use &depth=3 2 +1",
     );
+    expect(optionButtons.map((button) => button.getAttribute("aria-label"))).toEqual([
+      "Use &depth=3 2 +1",
+    ]);
     if (!nextDepthOption) {
       const optionLabels = optionButtons.map((button) => button.getAttribute("aria-label") ?? "");
       throw new Error(

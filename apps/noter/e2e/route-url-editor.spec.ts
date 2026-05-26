@@ -805,7 +805,7 @@ test("route URL editor previews search suggestions on hover", async ({ page }) =
   ).toBe(true);
 });
 
-test("route URL editor previews numeric search deltas on hover", async ({ page }) => {
+test("route URL editor previews one numeric search example on hover", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 420 });
   await page.goto("/logo?depth=2", {
     waitUntil: "domcontentloaded",
@@ -823,9 +823,10 @@ test("route URL editor previews numeric search deltas on hover", async ({ page }
     name: "Use &depth=3 2 +1",
   });
 
-  await input.fill(`${origin}/logo?depth=2&de`);
+  await input.fill(`${origin}/logo?depth=2&depth`);
 
   await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
+  await expect(page.getByRole("option")).toHaveCount(1);
   await expect(nextDepthOption).toBeVisible();
   await expect(nextDepthOption).toContainText("2 +1");
   await expect(suggestions).toHaveScreenshot("route-url-editor-numeric-delta-suggestions.png", {

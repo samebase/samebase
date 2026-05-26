@@ -86,43 +86,16 @@ describe("readRouteUrlEditorSuggestions", () => {
     expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["&leftFace="]);
   });
 
-  it("adds numeric value deltas to valued search params with current values", () => {
+  it("replaces valued search params with one different numeric example", () => {
     const suggestions = readRouteUrlEditorSuggestions({
       currentHref: "/logo?depth=2",
       draftEditedSinceFocus: true,
-      draftRouteAddress: "/logo?depth=2&de",
+      draftRouteAddress: "/logo?depth=2&depth",
       hashKeys: [],
       kind: "search",
       origin: ORIGIN,
       routesByPath,
-      selectionRouteIndex: "/logo?depth=2&de".length,
-      viewer: publicViewer,
-    });
-
-    expect(
-      suggestions
-        .filter((suggestion) => suggestion.value.startsWith("&depth"))
-        .map((suggestion) => ({
-          detail: suggestion.detail ?? null,
-          value: suggestion.value,
-        })),
-    ).toEqual([
-      { detail: "2 +1", value: "&depth=3" },
-      { detail: "2 -1", value: "&depth=1" },
-      { detail: null, value: "&depth=" },
-    ]);
-  });
-
-  it("keeps numeric deltas inside finite numeric value suggestions", () => {
-    const suggestions = readRouteUrlEditorSuggestions({
-      currentHref: "/logo?gridSize=3",
-      draftEditedSinceFocus: true,
-      draftRouteAddress: "/logo?gridSize=3&grid",
-      hashKeys: [],
-      kind: "search",
-      origin: ORIGIN,
-      routesByPath,
-      selectionRouteIndex: "/logo?gridSize=3&grid".length,
+      selectionRouteIndex: "/logo?depth=2&depth".length,
       viewer: publicViewer,
     });
 
@@ -131,10 +104,28 @@ describe("readRouteUrlEditorSuggestions", () => {
         detail: suggestion.detail ?? null,
         value: suggestion.value,
       })),
-    ).toEqual([
-      { detail: "3 -1", value: "&gridSize=2" },
-      { detail: null, value: "&gridSize=" },
-    ]);
+    ).toEqual([{ detail: "2 +1", value: "&depth=3" }]);
+  });
+
+  it("keeps numeric examples inside finite numeric value suggestions", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo?gridSize=3",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?gridSize=3&gridSize",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?gridSize=3&gridSize".length,
+      viewer: publicViewer,
+    });
+
+    expect(
+      suggestions.map((suggestion) => ({
+        detail: suggestion.detail ?? null,
+        value: suggestion.value,
+      })),
+    ).toEqual([{ detail: "3 -1", value: "&gridSize=2" }]);
   });
 
   it("suggests matching search param values after =", () => {
