@@ -65,6 +65,8 @@ export async function prerenderSpaIndex(args: {
   const previousShellEnv = process.env.TSS_SHELL;
 
   try {
+    // TanStack Start reads this at module import time; clearing it makes the built server render
+    // full route HTML instead of the minimal SPA shell artifact.
     delete process.env.TSS_SHELL;
     args.log(`Importing server entry: ${args.serverEntryPath}`);
     const fetchHandler = await importServerFetchHandler(args.serverEntryPath);
