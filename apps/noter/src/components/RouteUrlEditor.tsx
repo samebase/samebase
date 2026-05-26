@@ -106,6 +106,17 @@ function renderRouteUrlEditorSuggestionValue(
   suggestion: RouteUrlEditorSuggestion,
   active: boolean,
 ) {
+  if (suggestion.kind === "search-value" && typeof suggestion.sampleValueStart === "number") {
+    return (
+      <>
+        {suggestion.value.slice(0, suggestion.sampleValueStart)}
+        <span className={getRouteUrlEditorSuggestionSampleValueClassName(active)}>
+          {suggestion.value.slice(suggestion.sampleValueStart)}
+        </span>
+      </>
+    );
+  }
+
   if (suggestion.kind !== "search" || suggestion.valueKind !== "value") {
     return suggestion.value;
   }
@@ -1045,6 +1056,7 @@ export function RouteUrlEditor() {
       const nextSuggestion = suggestions[nextActiveSuggestionIndex];
 
       const nextDraftRouteAddress = applyRouteUrlEditorSuggestion({
+        mode: "preview",
         routeAddress: suggestionBaseRouteAddress,
         selectionRouteIndex,
         suggestion: nextSuggestion,
@@ -1223,6 +1235,7 @@ export function RouteUrlEditor() {
       touchScrollPreviewDraftRouteAddressRef.current = null;
       pointerPreviewBaseRef.current = null;
       const nextDraftRouteAddress = applyRouteUrlEditorSuggestion({
+        mode: "select",
         routeAddress: suggestionBaseRouteAddress,
         selectionRouteIndex,
         suggestion,
@@ -1246,24 +1259,14 @@ export function RouteUrlEditor() {
           };
         }
       } else if (suggestion.kind === "search") {
-        if (suggestion.valueKind === "value" && suggestion.commitsValue) {
-          const draftRouteAddress = readRouteUrlEditorNextSearchDraft(nextDraftRouteAddress);
-          if (draftRouteAddress !== nextDraftRouteAddress) {
-            searchFollowup = {
-              draftRouteAddress,
-              kind: "search",
-              selectionRouteIndex:
-                readRouteUrlEditorSearchDraftSelectionRouteIndex(draftRouteAddress),
-            };
-          }
-        } else if (suggestion.valueKind === "value" && suggestion.valueSuggestions.length > 0) {
+        if (suggestion.valueKind === "value") {
           searchFollowup = {
             draftRouteAddress: nextDraftRouteAddress,
             kind: "search-value",
             selectionRouteIndex:
               readRouteUrlEditorSearchDraftSelectionRouteIndex(nextDraftRouteAddress),
           };
-        } else if (suggestion.valueKind === "presence") {
+        } else {
           const draftRouteAddress = readRouteUrlEditorNextSearchDraft(nextDraftRouteAddress);
           if (draftRouteAddress !== nextDraftRouteAddress) {
             searchFollowup = {

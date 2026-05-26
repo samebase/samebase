@@ -32,7 +32,6 @@ type RouteUrlEditorSearchSuggestion =
       valueKind: "presence";
     }
   | {
-      commitsValue?: true;
       detail?: string;
       kind: "search";
       key: string;
@@ -45,7 +44,9 @@ type RouteUrlEditorSearchValueSuggestion = {
   detail?: string;
   kind: "search-value";
   key: string;
+  previewReplacementValue?: string;
   replacementValue: string;
+  sampleValueStart?: number;
   value: string;
 };
 
@@ -67,6 +68,7 @@ type RouteUrlEditorSuggestionsInput = {
 };
 
 type RouteUrlEditorSuggestionSelectionInput = {
+  mode: "preview" | "select";
   routeAddress: string;
   selectionRouteIndex: number;
   suggestion: RouteUrlEditorSuggestion;
@@ -185,6 +187,7 @@ export function readRouteUrlEditorSuggestions({
 }
 
 export function applyRouteUrlEditorSuggestion({
+  mode,
   routeAddress,
   selectionRouteIndex,
   suggestion,
@@ -203,6 +206,7 @@ export function applyRouteUrlEditorSuggestion({
       }
 
       return applyRouteUrlEditorSearchSuggestion({
+        mode,
         routeAddress,
         suggestion,
         token,
@@ -214,7 +218,11 @@ export function applyRouteUrlEditorSuggestion({
         return routeAddress;
       }
 
-      return `${routeAddress.slice(0, token.valueStart)}${suggestion.replacementValue}${routeAddress.slice(
+      const replacementValue =
+        mode === "preview"
+          ? (suggestion.previewReplacementValue ?? suggestion.replacementValue)
+          : suggestion.replacementValue;
+      return `${routeAddress.slice(0, token.valueStart)}${replacementValue}${routeAddress.slice(
         token.tokenEnd,
       )}`;
     }
@@ -230,12 +238,21 @@ export function applyRouteUrlEditorSuggestion({
 }
 
 function applyRouteUrlEditorSearchSuggestion(args: {
+  mode: "preview" | "select";
   routeAddress: string;
   suggestion: RouteUrlEditorSearchSuggestion;
   token: SearchToken;
 }): string {
-  if (args.suggestion.valueKind === "value" && args.suggestion.commitsValue) {
-    return applyRouteUrlEditorCommittedSearchSuggestion({
+  if (args.suggestion.valueKind === "value") {
+    if (args.mode === "preview") {
+      return previewRouteUrlEditorSearchValueSuggestion({
+        routeAddress: args.routeAddress,
+        suggestion: args.suggestion,
+        token: args.token,
+      });
+    }
+
+    return applyRouteUrlEditorSearchValueKeySuggestion({
       routeAddress: args.routeAddress,
       suggestion: args.suggestion,
       token: args.token,
@@ -259,7 +276,33 @@ function applyRouteUrlEditorSearchSuggestion(args: {
   )}`;
 }
 
-function applyRouteUrlEditorCommittedSearchSuggestion(args: {
+function applyRouteUrlEditorSearchValueKeySuggestion(args: {
+  routeAddress: string;
+  suggestion: Extract<RouteUrlEditorSearchSuggestion, { valueKind: "value" }>;
+  token: SearchToken;
+}): string {
+  const displayToken = readRouteUrlEditorSearchSuggestionToken(args.suggestion.value);
+  const suggestionToken: SearchSuggestionToken = {
+    prefix: displayToken.prefix,
+    text: `${args.suggestion.key}=`,
+  };
+  if (shouldAppendRouteUrlEditorSearchSuggestion(suggestionToken, args.token)) {
+    return appendRouteUrlEditorSearchSuggestion({
+      routeAddress: args.routeAddress,
+      suggestionToken,
+    });
+  }
+
+  const nextToken = formatRouteUrlEditorSearchToken({
+    first: args.token.first,
+    text: suggestionToken.text,
+  });
+  return `${args.routeAddress.slice(0, args.token.tokenStart)}${nextToken}${args.routeAddress.slice(
+    args.token.tokenEnd,
+  )}`;
+}
+
+function previewRouteUrlEditorSearchValueSuggestion(args: {
   routeAddress: string;
   suggestion: Extract<RouteUrlEditorSearchSuggestion, { valueKind: "value" }>;
   token: SearchToken;
@@ -519,7 +562,6 @@ function readRouteUrlEditorNumericSearchSuggestion(args: {
     }
 
     return {
-      commitsValue: true,
       detail: `${currentValue.raw} ${delta > 0 ? "+" : ""}${delta}`,
       key: args.suggestion.key,
       kind: "search",
@@ -548,7 +590,6 @@ function readRouteUrlEditorSampleSearchSuggestion(args: {
   const sampleValue = readRouteUrlEditorSearchSampleValue(args.suggestion, currentValue);
 
   return {
-    commitsValue: true,
     key: args.suggestion.key,
     kind: "search",
     value: `${args.token.first ? "?" : "&"}${args.suggestion.key}=${sampleValue}`,
@@ -731,10 +772,15 @@ function createRouteUrlEditorSearchValueSuggestion(
   key: string,
   value: string,
   replacementValue: string,
+  options: {
+    previewReplacementValue?: string;
+    sampleValueStart?: number;
+  } = {},
 ): RouteUrlEditorSearchValueSuggestion {
   return {
     key: `${key}=${replacementValue}`,
     kind: "search-value",
+    ...options,
     replacementValue,
     value,
   };
@@ -767,7 +813,10 @@ function readTailwindColorTokenSearchValueSuggestions(args: {
         args.valueSuggestions,
       );
       suggestions.push(
-        createRouteUrlEditorSearchValueSuggestion(args.key, sampleValue, sampleValue),
+        createRouteUrlEditorSearchValueSuggestion(args.key, sampleValue, parsedSuggestion.prefix, {
+          previewReplacementValue: sampleValue,
+          sampleValueStart: parsedSuggestion.prefix.length,
+        }),
       );
     }
 
@@ -787,7 +836,9 @@ function readTailwindColorTokenSearchValueSuggestions(args: {
       return [];
     }
 
-    return [createRouteUrlEditorSearchValueSuggestion(args.key, valueSuggestion, valueSuggestion)];
+    return [
+      createRouteUrlEditorSearchValueSuggestion(args.key, parsedSuggestion.shade, valueSuggestion),
+    ];
   });
 }
 

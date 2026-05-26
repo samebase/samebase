@@ -1077,8 +1077,35 @@ test("route URL editor keeps clicked follow-up search params in the query", asyn
   await borderOption.hover();
   await borderOption.click();
 
+  await expect(input).toHaveValue(`${origin}/logo?border=`);
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search-value");
+
+  const stoneFamilyOption = page.getByRole("option", {
+    exact: true,
+    name: "Use stone-500",
+  });
+  await stoneFamilyOption.hover();
+  await stoneFamilyOption.click();
+
+  await expect(input).toHaveValue(`${origin}/logo?border=stone-`);
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search-value");
+
+  const stone300Option = page.getByRole("option", {
+    exact: true,
+    name: "Use 300",
+  });
+  await stone300Option.hover();
+
+  await expect(input).toHaveValue(`${origin}/logo?border=stone-300`);
+  await expect(page).toHaveURL(`${origin}/logo?border=stone-300`);
+
+  await stone300Option.click();
+
   await expect(input).toHaveValue(`${origin}/logo?border=stone-300&`);
   await expect(page).toHaveURL(`${origin}/logo?border=stone-300`);
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
 
   const darkOption = page.getByRole("option", {
     exact: true,
@@ -1145,7 +1172,7 @@ test("route URL editor waits for pointer movement before hover-previewing keyboa
   });
   const nextDistOption = page.getByRole("option", {
     exact: true,
-    name: "Use &dist=3 2 +1",
+    name: "Use &dist=2 1 +1",
   });
 
   await input.fill(`${origin}/logo?dev&dist=`);
@@ -1167,8 +1194,8 @@ test("route URL editor waits for pointer movement before hover-previewing keyboa
 
   await distOption.click();
 
-  await expect(input).toHaveValue(`${origin}/logo?dev&dist=2&`);
-  await expect(page).toHaveURL(`${origin}/logo?dev&dist=2`);
+  await expect(input).toHaveValue(`${origin}/logo?dev&dist=`);
+  await expect(page).toHaveURL(`${origin}/logo?dev`);
 
   await input.fill(`${origin}/logo?dev&d`);
   await expect(nextDistOption).toBeVisible();
@@ -1180,8 +1207,8 @@ test("route URL editor waits for pointer movement before hover-previewing keyboa
   await page.mouse.move(distOptionBox.x + distOptionBox.width / 2, distOptionBox.y + 1);
 
   await expect(nextDistOption).toHaveAttribute("aria-selected", "true");
-  await expect(input).toHaveValue(`${origin}/logo?dev&dist=3`);
-  await expect(page).toHaveURL(`${origin}/logo?dev&dist=3`);
+  await expect(input).toHaveValue(`${origin}/logo?dev&dist=2`);
+  await expect(page).toHaveURL(`${origin}/logo?dev&dist=2`);
 });
 
 test("route URL editor arrow-previews visible routes in the app workspace shell", async ({
