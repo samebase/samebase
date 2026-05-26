@@ -17,6 +17,12 @@ const landingPreviewMarkdown = readFileSync(
 const landingPreviewHashSuggestions = getLandingMarkdownHeadings(landingPreviewMarkdown).map(
   (heading) => heading.href,
 );
+const routeUrlEditorMobilePickerScreenshotOptions = {
+  animations: "disabled",
+  caret: "hide",
+  scale: "css",
+  maxDiffPixelRatio: 0.03,
+} as const;
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -1091,30 +1097,35 @@ test("route URL editor mobile scroll picker previews and commits the slated opti
     const editor = page.getByTestId("route-url-editor");
     const input = await editRouteUrl(page);
     const suggestions = page.getByTestId("route-url-editor-suggestions");
+    const popover = page.getByTestId("route-url-editor-suggestions-popover");
     const slate = page.getByTestId("route-url-editor-scroll-slate");
-    const visualFixtureOption = page.getByRole("option", {
+    const localStorageOption = page.getByRole("option", {
       exact: true,
-      name: "Use /visual-fixture",
+      name: "Use /localStorage",
     });
     const backButton = editor.getByRole("button", { name: "Back" });
 
     await expect(suggestions).toBeVisible();
     await expect(slate).toBeVisible();
-    await expect(visualFixtureOption).toBeVisible();
+    await expect(localStorageOption).toBeVisible();
 
-    await scrollRouteUrlEditorOptionToSlate(page, "Use /visual-fixture");
+    await scrollRouteUrlEditorOptionToSlate(page, "Use /localStorage");
 
-    await expect(visualFixtureOption).toHaveAttribute("aria-selected", "true");
+    await expect(localStorageOption).toHaveAttribute("aria-selected", "true");
     await expect(input).toBeFocused();
-    await expect(input).toHaveValue(`${origin}/visual-fixture`);
-    await expect(page).toHaveURL(`${origin}/visual-fixture`);
+    await expect(input).toHaveValue(`${origin}/localStorage`);
+    await expect(page).toHaveURL(`${origin}/localStorage`);
     await expect(backButton).toBeDisabled();
+    await expect(popover).toHaveScreenshot(
+      "route-url-editor-mobile-scroll-picker-preview.png",
+      routeUrlEditorMobilePickerScreenshotOptions,
+    );
 
-    await page.touchscreen.tap(12, 360);
+    await page.getByTestId("workspace-layout-v2-pane-main").tap();
 
     await expect(input).toHaveCount(0);
     await expect(suggestions).toHaveCount(0);
-    await expect(getRouteUrlEditorDisplay(page)).toHaveValue(`${origin}/visual-fixture`);
+    await expect(getRouteUrlEditorDisplay(page)).toHaveValue(`${origin}/localStorage`);
     await expect(backButton).toBeEnabled();
 
     await backButton.click();
@@ -1156,6 +1167,10 @@ test("route URL editor mobile scroll picker lets the last option reach the slate
     expect(geometry.popoverClassName).toContain("bg-background/35");
     expect(geometry.popoverClassName).toContain("backdrop-blur-sm");
     expect(geometry.visibleOptionCountAboveSlate).toBeGreaterThan(0);
+    await expect(page.getByTestId("route-url-editor-suggestions-popover")).toHaveScreenshot(
+      "route-url-editor-mobile-scroll-picker-last-option.png",
+      routeUrlEditorMobilePickerScreenshotOptions,
+    );
   } finally {
     await context.close();
   }
