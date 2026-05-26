@@ -56,15 +56,6 @@ function readRouteUrlEditorOrigin(): string {
   return typeof window === "undefined" ? "https://noter.local" : window.location.origin;
 }
 
-function readRouteUrlEditorProtocolPrefix(origin: string): string {
-  const protocolEndIndex = origin.indexOf("//");
-  if (protocolEndIndex === -1) {
-    return "";
-  }
-
-  return origin.slice(0, protocolEndIndex + "//".length);
-}
-
 function areRouteUrlEditorHashSuggestionKeysEqual(
   left: readonly string[],
   right: readonly string[],
@@ -1132,7 +1123,7 @@ export function RouteUrlEditor() {
         onSelect={syncSuggestionSelectionFromInput}
         spellCheck={false}
         suppressHydrationWarning
-        style={{ textIndent: `-${readRouteUrlEditorProtocolPrefix(origin).length}ch` }}
+        style={{ textIndent: `-${origin.length}ch` }}
         title={routeInputTitle}
         type="text"
         value={inputValue}
