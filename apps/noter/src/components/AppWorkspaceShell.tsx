@@ -4,7 +4,6 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
-  useState,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
@@ -173,43 +172,6 @@ function AppWorkspaceMainHeader({ accessory }: { accessory?: ReactNode }) {
   );
 }
 
-function AppWorkspaceClientShell({ children }: { children?: ReactNode }) {
-  return (
-    <div
-      className="flex min-h-0 flex-1 flex-col bg-background"
-      data-testid="app-workspace-client-shell"
-    >
-      {children}
-    </div>
-  );
-}
-
-/**
- * Route chrome is still registered by child layout effects, and anonymous
- * sidebar preferences can come from localStorage. Keep the app shell chrome out
- * of SSR until those inputs are render-time data, while route content can still
- * render inside the interim shell.
- */
-function AppWorkspaceClientReadyGate({
-  children,
-  shellChildren,
-}: {
-  children: ReactNode;
-  shellChildren?: ReactNode;
-}) {
-  const [isClientReady, setIsClientReady] = useState(false);
-
-  useLayoutEffect(() => {
-    setIsClientReady(true);
-  }, []);
-
-  if (!isClientReady) {
-    return <AppWorkspaceClientShell>{shellChildren}</AppWorkspaceClientShell>;
-  }
-
-  return children;
-}
-
 function useAppWorkspaceSidebarState() {
   const { isAuthenticated } = useConvexAuth();
   const localSidebarState = useLocalStorageWorkspaceSidebarState({
@@ -284,9 +246,7 @@ export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
   return (
     <AppWorkspaceRouteChromeContext.Provider value={chromeContextValue}>
       <div className="flex min-h-dvh flex-col bg-background text-foreground">
-        <AppWorkspaceClientReadyGate shellChildren={children}>
-          <AppWorkspaceShellFrame chrome={chrome}>{children}</AppWorkspaceShellFrame>
-        </AppWorkspaceClientReadyGate>
+        <AppWorkspaceShellFrame chrome={chrome}>{children}</AppWorkspaceShellFrame>
       </div>
     </AppWorkspaceRouteChromeContext.Provider>
   );

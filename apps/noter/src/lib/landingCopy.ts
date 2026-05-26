@@ -1,4 +1,8 @@
-import { parseLandingSlogans, selectLandingSlogan } from "@/lib/landingSlogans";
+import {
+  DEFAULT_LANDING_SLOGAN,
+  parseLandingSlogans,
+  selectLandingSlogan,
+} from "@/lib/landingSlogans";
 import slogansRaw from "../../../../slogans.md?raw";
 
 export const landingPageBullets = [
@@ -10,7 +14,13 @@ export const landingPageBullets = [
 
 const landingPageSlogans = parseLandingSlogans(slogansRaw);
 
-export const landingPageSlogan = selectLandingSlogan(landingPageSlogans);
+// SSR and hydration need the same copy height; random rotation would make the
+// landing card move when the browser evaluates this module.
+export const landingPageSlogan = selectLandingSlogan(
+  landingPageSlogans,
+  DEFAULT_LANDING_SLOGAN,
+  () => 0,
+);
 
 export const landingPageMarkdown = `## ${landingPageSlogan}
 

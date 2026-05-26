@@ -32,6 +32,7 @@ type WorkspaceLayoutV2ViewportProps = WorkspaceLayoutV2ResolvedPaneContent & {
   carouselRef: RefObject<HTMLDivElement | null>;
   desktopLeftWidthPx: number;
   desktopRightWidthPx: number;
+  hasMeasuredViewport: boolean;
   leftWidthPx: number;
   lockCarouselScroll: boolean;
   mergedSurfaceSide: WorkspaceLayoutV2MobileMergedSide | null;
@@ -48,6 +49,7 @@ export function WorkspaceLayoutV2Viewport({
   carouselRef,
   desktopLeftWidthPx,
   desktopRightWidthPx,
+  hasMeasuredViewport,
   leftContent,
   leftWidthPx,
   lockCarouselScroll,
@@ -67,6 +69,11 @@ export function WorkspaceLayoutV2Viewport({
     paddingLeft: `${peekWidthPx}px`,
     paddingRight: `${peekWidthPx}px`,
   };
+  // Before ResizeObserver reports a real viewport width, mobile must paint the
+  // main pane at full width instead of briefly rendering the 1px numeric floor.
+  const leftPaneWidth = hasMeasuredViewport ? `${leftWidthPx}px` : "0px";
+  const mainPaneWidth = hasMeasuredViewport ? `${paneWidthPx}px` : "100vw";
+  const rightPaneWidth = hasMeasuredViewport ? `${rightWidthPx}px` : "0px";
 
   function renderLeftPane(shouldSnap: boolean) {
     if (!showLeftPane) {
@@ -87,7 +94,7 @@ export function WorkspaceLayoutV2Viewport({
             : "md:border-r-0",
         )}
         style={{
-          width: `${leftWidthPx}px`,
+          width: leftPaneWidth,
         }}
       >
         {leftContent}
@@ -103,7 +110,7 @@ export function WorkspaceLayoutV2Viewport({
           "workspace-layout-v2-responsive-main-pane h-full min-h-0 shrink-0",
           shouldSnap ? "snap-center snap-always" : "snap-none",
         )}
-        style={{ width: `${paneWidthPx}px` }}
+        style={{ width: mainPaneWidth }}
       >
         <div
           className={cn(
@@ -136,7 +143,7 @@ export function WorkspaceLayoutV2Viewport({
             : "md:border-l-0",
         )}
         style={{
-          width: `${rightWidthPx}px`,
+          width: rightPaneWidth,
         }}
       >
         {rightContent}
@@ -163,7 +170,7 @@ export function WorkspaceLayoutV2Viewport({
             "flex h-full min-h-0 shrink-0 snap-start snap-always overflow-hidden bg-background",
           )}
           style={{
-            width: `${leftWidthPx + paneWidthPx}px`,
+            width: hasMeasuredViewport ? `${leftWidthPx + paneWidthPx}px` : "100vw",
           }}
         >
           {renderLeftPane(false)}
@@ -182,7 +189,7 @@ export function WorkspaceLayoutV2Viewport({
             "flex h-full min-h-0 shrink-0 snap-end snap-always overflow-hidden bg-background",
           )}
           style={{
-            width: `${paneWidthPx + rightWidthPx}px`,
+            width: hasMeasuredViewport ? `${paneWidthPx + rightWidthPx}px` : "100vw",
           }}
         >
           {mainPane}

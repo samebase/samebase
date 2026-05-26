@@ -120,6 +120,7 @@ export function WorkspaceLayoutV2({
   } = useWorkspacePaneActions();
   const hasLeftPane = !!left;
   const hasRightPane = !!right;
+  const hasMeasuredViewport = viewportSize.widthPx > 0;
   const shouldShowMobileResizeGripDots =
     showMobileResizeGripDots ?? shouldShowMobileResizeGripDotsByDefault();
   const mobilePanePeekWidthPx = getMobilePanePeekWidthPx(configuredMobilePanePeekWidthPx);
@@ -311,6 +312,7 @@ export function WorkspaceLayoutV2({
           carouselRef={mobileCarouselRef}
           desktopLeftWidthPx={desktopLeftWidthPx}
           desktopRightWidthPx={desktopRightWidthPx}
+          hasMeasuredViewport={hasMeasuredViewport}
           leftContent={left}
           leftWidthPx={mobileLeftWidthPx}
           lockCarouselScroll={isMobile && mobileGripResize.lockCarouselScroll}

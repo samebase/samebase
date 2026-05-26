@@ -92,6 +92,8 @@ describe("WorkspaceLayoutV2FullPage", () => {
     expect(markup).toContain("workspace-layout-v2-responsive-left-pane");
     expect(markup).toContain("workspace-layout-v2-responsive-main-pane");
     expect(markup).toContain("workspace-layout-v2-responsive-right-pane");
+    expect(markup).toContain('style="width:100vw"');
+    expect((markup.match(/style="width:0px"/g) ?? []).length).toBeGreaterThanOrEqual(2);
   });
 
   it("keeps main header content rendered while sidebar toggles stay desktop-only", () => {
