@@ -3,6 +3,7 @@ import { bad, good, pure } from "@samebase/sure";
 import {
   type NoterRoutePermission,
   type NoterRouteSearchParamValueCompletion,
+  type NoterRouteSearchParamValueSuggestions,
   type NoterRouteSearchParamSuggestion,
 } from "@/lib/routePermissions";
 
@@ -19,7 +20,7 @@ export type RouteSearchParamMetadata =
       sampleValue: string;
       valueKind: "value";
       valueCompletion?: NoterRouteSearchParamValueCompletion;
-      valueSuggestions?: readonly string[];
+      valueSuggestions?: NoterRouteSearchParamValueSuggestions;
     })
   | (RouteSearchParamMetadataBase & {
       parseKind: "presence";
@@ -104,7 +105,7 @@ function includesStringValue<const Values extends readonly string[]>(
   return values.includes(value);
 }
 
-export function routeSearchStringValue<const Values extends readonly [string, ...string[]]>(
+export function routeSearchStringValue<const Values extends NoterRouteSearchParamValueSuggestions>(
   values: Values,
 ) {
   return pure((value: unknown) => {
@@ -127,7 +128,7 @@ export function routeSearchValueParam<const Schema extends RouteSearchValueSchem
     sampleValue: string;
     suggestion: RouteSearchParamSuggestionSurface;
     valueCompletion?: NoterRouteSearchParamValueCompletion;
-    valueSuggestions?: readonly string[];
+    valueSuggestions?: NoterRouteSearchParamValueSuggestions;
   },
 ): RouteSearchParam<InferRouteSearchSchemaGood<Schema>> {
   return {
@@ -226,13 +227,15 @@ export function readRouteSearchParamSuggestions<
       permission: paramMetadata.permission,
       sampleValue: paramMetadata.sampleValue,
       valueKind: "value",
-      valueSuggestions: paramMetadata.valueSuggestions ?? [],
     };
     if (typeof paramMetadata.numericDefaultValue === "number") {
       suggestion.numericDefaultValue = paramMetadata.numericDefaultValue;
     }
     if (paramMetadata.valueCompletion) {
       suggestion.valueCompletion = paramMetadata.valueCompletion;
+    }
+    if (paramMetadata.valueSuggestions) {
+      suggestion.valueSuggestions = paramMetadata.valueSuggestions;
     }
     suggestions.push(suggestion);
   }

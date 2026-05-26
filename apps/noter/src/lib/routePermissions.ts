@@ -8,6 +8,7 @@ export type NoterRoutePermission = "public" | "admin";
 
 export type NoterRouteSearchParamValueKind = "presence" | "value";
 export type NoterRouteSearchParamValueCompletion = "tailwind-color-token";
+export type NoterRouteSearchParamValueSuggestions = readonly [string, ...string[]];
 
 type NoterRouteSearchParamSuggestionBase<Key extends string> = {
   key: Key;
@@ -23,7 +24,7 @@ export type NoterRouteSearchParamSuggestion<Key extends string = string> =
       numericDefaultValue?: number;
       sampleValue: string;
       valueCompletion?: NoterRouteSearchParamValueCompletion;
-      valueSuggestions: readonly string[];
+      valueSuggestions?: NoterRouteSearchParamValueSuggestions;
     });
 
 export type NoterRouteStaticData = {

@@ -478,7 +478,10 @@ const tailwindColorOptions: TailwindColorOption[] = tailwindColorFamilies.flatMa
     })),
 );
 
-export const TAILWIND_COLOR_TOKEN_SUGGESTIONS = tailwindColorOptions.map(({ token }) => token);
+export const TAILWIND_COLOR_TOKEN_SUGGESTIONS = [
+  "primary-base",
+  ...tailwindColorOptions.map(({ token }) => token).filter((token) => token !== "primary-base"),
+] satisfies readonly [TailwindColorToken, ...TailwindColorToken[]];
 
 const tailwindColorOptionMap = new Map<string, TailwindColorOption>(
   tailwindColorOptions.map((option) => [option.token, option]),

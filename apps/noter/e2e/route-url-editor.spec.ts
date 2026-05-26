@@ -8,6 +8,7 @@ import {
   type Page,
   type TestInfo,
 } from "@playwright/test";
+import { DEFAULT_LOGO_PRESET_ID, getLogoPreset } from "../src/components/logo/logoPresets";
 import { getLandingMarkdownHeadings } from "../src/lib/landingMarkdownHeadings";
 
 const landingPreviewMarkdown = readFileSync(
@@ -978,6 +979,11 @@ test("route URL editor lists search param value options after equals", async ({ 
     exact: true,
     name: "Use striped",
   });
+  const defaultVoxelStateSuggestion = getLogoPreset(DEFAULT_LOGO_PRESET_ID).voxelState;
+  const defaultVoxelStateOption = page.getByRole("option", {
+    exact: true,
+    name: `Use ${defaultVoxelStateSuggestion}`,
+  });
 
   await input.fill(`${origin}/logo?leftFace=`);
 
@@ -999,6 +1005,13 @@ test("route URL editor lists search param value options after equals", async ({ 
   await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search-value");
   await expect(secondaryOption).toBeVisible();
   await expect(stripedOption).toBeVisible();
+
+  await input.fill(`${origin}/logo?vox=`);
+
+  await expect(input).toHaveValue(`${origin}/logo?vox=`);
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search-value");
+  await expect(defaultVoxelStateOption).toBeVisible();
 });
 
 test("route URL editor previews color samples from composed value options", async ({ page }) => {
