@@ -5,53 +5,41 @@ import {
   type SearchPatch,
 } from "@/lib/routeSearchFlags";
 import {
+  defineRouteSearchParams,
+  type InferRouteSearch,
   readRouteSearchParamSuggestions,
   readRouteSearchPresenceKeys,
-  type RouteSearchParamMetadataByKey,
+  readRouteSearchParamMetadata,
+  routeSearchPresenceParam,
+  routeSearchValueParam,
 } from "@/lib/routeSearchParamMetadata";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
-import { z } from "zod";
+import { literal } from "@samebase/sure";
 
-function readOptionalMobileLineNumbers(value: unknown): "1" | undefined {
-  return value === "1" ? "1" : undefined;
-}
-
-const fileViewRouteSearchSchema = z.object({
-  compare: z.literal(true).optional(),
-  diff: z.literal(true).optional(),
-  mobileLineNumbers: z.preprocess(readOptionalMobileLineNumbers, z.literal("1").optional()),
-  review: z.literal(true).optional(),
+const fileViewRouteSearchSchema = defineRouteSearchParams({
+  compare: routeSearchPresenceParam({
+    permission: "admin",
+    suggestion: "route",
+  }),
+  diff: routeSearchPresenceParam({
+    permission: "admin",
+    suggestion: "route",
+  }),
+  mobileLineNumbers: routeSearchValueParam(literal("1"), {
+    permission: "admin",
+    suggestion: "route",
+    valueSuggestions: ["1"],
+  }),
+  review: routeSearchPresenceParam({
+    permission: "admin",
+    suggestion: "route",
+  }),
 });
 
-export type FileViewRouteSearch = z.infer<typeof fileViewRouteSearchSchema>;
+export type FileViewRouteSearch = InferRouteSearch<typeof fileViewRouteSearchSchema>;
 export type FileViewRouteSearchPatch = SearchPatch<FileViewRouteSearch>;
 
-const fileViewRouteSearchParamMetadata = {
-  compare: {
-    parseKind: "presence",
-    permission: "admin",
-    suggestion: "route",
-    valueKind: "presence",
-  },
-  diff: {
-    parseKind: "presence",
-    permission: "admin",
-    suggestion: "route",
-    valueKind: "presence",
-  },
-  mobileLineNumbers: {
-    permission: "admin",
-    suggestion: "route",
-    valueKind: "value",
-    valueSuggestions: ["1"],
-  },
-  review: {
-    parseKind: "presence",
-    permission: "admin",
-    suggestion: "route",
-    valueKind: "presence",
-  },
-} as const satisfies RouteSearchParamMetadataByKey<FileViewRouteSearch>;
+const fileViewRouteSearchParamMetadata = readRouteSearchParamMetadata(fileViewRouteSearchSchema);
 
 const FILE_VIEW_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
   fileViewRouteSearchParamMetadata,

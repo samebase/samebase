@@ -1,39 +1,30 @@
 import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
 import {
+  defineRouteSearchParams,
+  type InferRouteSearch,
   readRouteSearchParamSuggestions,
   readRouteSearchPresenceKeys,
-  type RouteSearchParamMetadataByKey,
+  readRouteSearchParamMetadata,
+  routeSearchNonEmptyString,
+  routeSearchPresenceParam,
+  routeSearchStringValue,
+  routeSearchValueParam,
 } from "@/lib/routeSearchParamMetadata";
-import { z } from "zod";
-
-function readOptionalString(value: unknown): string | undefined {
-  if (typeof value !== "string") {
-    return undefined;
-  }
-
-  const trimmedValue = value.trim();
-  return trimmedValue.length > 0 ? trimmedValue : undefined;
-}
 
 const pricingCheckoutValues = ["success", "cancel"] as const;
 
-function readOptionalPricingCheckoutState(value: unknown): "success" | "cancel" | undefined {
-  if (value === "success" || value === "cancel") {
-    return value;
-  }
-
-  return undefined;
-}
-
-const mcpConsentRouteSearchSchema = z.object({
-  mcp_consent_request: z.preprocess(readOptionalString, z.string().optional()),
+const mcpConsentRouteSearchSchema = defineRouteSearchParams({
+  mcp_consent_request: routeSearchValueParam(routeSearchNonEmptyString, {
+    permission: "admin",
+    suggestion: "route",
+  }),
 });
 
-export type McpConsentRouteSearch = z.infer<typeof mcpConsentRouteSearchSchema>;
+export type McpConsentRouteSearch = InferRouteSearch<typeof mcpConsentRouteSearchSchema>;
 
-const mcpConsentRouteSearchParamMetadata = {
-  mcp_consent_request: { permission: "admin", suggestion: "route", valueKind: "value" },
-} as const satisfies RouteSearchParamMetadataByKey<McpConsentRouteSearch>;
+const mcpConsentRouteSearchParamMetadata = readRouteSearchParamMetadata(
+  mcpConsentRouteSearchSchema,
+);
 
 export const MCP_CONSENT_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
   mcpConsentRouteSearchParamMetadata,
@@ -46,23 +37,17 @@ export function validateMcpConsentRouteSearch(
   return mcpConsentRouteSearchSchema.parse(search);
 }
 
-const pricingRouteSearchSchema = z.object({
-  checkout: z.preprocess(
-    readOptionalPricingCheckoutState,
-    z.enum(pricingCheckoutValues).optional(),
-  ),
-});
-
-export type PricingRouteSearch = z.infer<typeof pricingRouteSearchSchema>;
-
-const pricingRouteSearchParamMetadata = {
-  checkout: {
+const pricingRouteSearchSchema = defineRouteSearchParams({
+  checkout: routeSearchValueParam(routeSearchStringValue(pricingCheckoutValues), {
     permission: "admin",
     suggestion: "route",
-    valueKind: "value",
     valueSuggestions: pricingCheckoutValues,
-  },
-} as const satisfies RouteSearchParamMetadataByKey<PricingRouteSearch>;
+  }),
+});
+
+export type PricingRouteSearch = InferRouteSearch<typeof pricingRouteSearchSchema>;
+
+const pricingRouteSearchParamMetadata = readRouteSearchParamMetadata(pricingRouteSearchSchema);
 
 export const PRICING_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
   pricingRouteSearchParamMetadata,
@@ -79,22 +64,22 @@ export function buildPricingRouteSearch(
   return checkout === "success" || checkout === "cancel" ? { checkout } : {};
 }
 
-const machineConnectRouteSearchSchema = z.object({
-  openedByCli: z.literal(true).optional(),
-  requestId: z.preprocess(readOptionalString, z.string().optional()),
-});
-
-export type MachineConnectRouteSearch = z.infer<typeof machineConnectRouteSearchSchema>;
-
-const machineConnectRouteSearchParamMetadata = {
-  openedByCli: {
-    parseKind: "presence",
+const machineConnectRouteSearchSchema = defineRouteSearchParams({
+  openedByCli: routeSearchPresenceParam({
     permission: "admin",
     suggestion: "route",
-    valueKind: "presence",
-  },
-  requestId: { permission: "admin", suggestion: "route", valueKind: "value" },
-} as const satisfies RouteSearchParamMetadataByKey<MachineConnectRouteSearch>;
+  }),
+  requestId: routeSearchValueParam(routeSearchNonEmptyString, {
+    permission: "admin",
+    suggestion: "route",
+  }),
+});
+
+export type MachineConnectRouteSearch = InferRouteSearch<typeof machineConnectRouteSearchSchema>;
+
+const machineConnectRouteSearchParamMetadata = readRouteSearchParamMetadata(
+  machineConnectRouteSearchSchema,
+);
 
 const MACHINE_CONNECT_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
   machineConnectRouteSearchParamMetadata,
@@ -113,17 +98,20 @@ export function validateMachineConnectRouteSearch(
   );
 }
 
-const machinesRouteSearchSchema = z.object({
-  machineId: z.preprocess(readOptionalString, z.string().optional()),
-  threadId: z.preprocess(readOptionalString, z.string().optional()),
+const machinesRouteSearchSchema = defineRouteSearchParams({
+  machineId: routeSearchValueParam(routeSearchNonEmptyString, {
+    permission: "admin",
+    suggestion: "route",
+  }),
+  threadId: routeSearchValueParam(routeSearchNonEmptyString, {
+    permission: "admin",
+    suggestion: "route",
+  }),
 });
 
-export type MachinesRouteSearch = z.infer<typeof machinesRouteSearchSchema>;
+export type MachinesRouteSearch = InferRouteSearch<typeof machinesRouteSearchSchema>;
 
-const machinesRouteSearchParamMetadata = {
-  machineId: { permission: "admin", suggestion: "route", valueKind: "value" },
-  threadId: { permission: "admin", suggestion: "route", valueKind: "value" },
-} as const satisfies RouteSearchParamMetadataByKey<MachinesRouteSearch>;
+const machinesRouteSearchParamMetadata = readRouteSearchParamMetadata(machinesRouteSearchSchema);
 
 export const MACHINES_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
   machinesRouteSearchParamMetadata,

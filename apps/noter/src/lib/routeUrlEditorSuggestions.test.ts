@@ -102,6 +102,48 @@ describe("readRouteUrlEditorSuggestions", () => {
     expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["secondary", "striped"]);
   });
 
+  it("suggests color families before color shades", () => {
+    const familySuggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?primary=bl",
+      hashKeys: [],
+      kind: "search-value",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?primary=bl".length,
+      viewer: publicViewer,
+    });
+
+    expect(familySuggestions.map((suggestion) => suggestion.value)).toEqual(["blue-", "black-"]);
+
+    const shadeSuggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?primary=blue-",
+      hashKeys: [],
+      kind: "search-value",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?primary=blue-".length,
+      viewer: publicViewer,
+    });
+
+    expect(shadeSuggestions.map((suggestion) => suggestion.value)).toEqual([
+      "50",
+      "100",
+      "200",
+      "300",
+      "400",
+      "500",
+      "600",
+      "700",
+      "800",
+      "900",
+      "950",
+    ]);
+  });
+
   it("hides signed-in dashboard search params from the public landing route", () => {
     const suggestions = readRouteUrlEditorSuggestions({
       currentHref: "/",
@@ -261,12 +303,14 @@ describe("isRouteUrlEditorRouteUpdateReady", () => {
     expect(isReady("/logo?rot=")).toBe(false);
     expect(isReady("/logo?left")).toBe(false);
     expect(isReady("/logo?leftFace=s")).toBe(false);
+    expect(isReady("/logo?primary=blue-")).toBe(false);
   });
 
   it("allows presence params and complete valued search params", () => {
     expect(isReady("/logo?dark")).toBe(true);
     expect(isReady("/logo?rot=10")).toBe(true);
     expect(isReady("/logo?leftFace=secondary")).toBe(true);
+    expect(isReady("/logo?primary=blue-500")).toBe(true);
   });
 
   it("removes unfinished known search tokens from route updates", () => {
@@ -308,10 +352,24 @@ describe("applyRouteUrlEditorSuggestion", () => {
         suggestion: {
           key: "leftFace=secondary",
           kind: "search-value",
+          replacementValue: "secondary",
           value: "secondary",
         },
       }),
     ).toBe("/logo?leftFace=secondary#top");
+
+    expect(
+      applyRouteUrlEditorSuggestion({
+        routeAddress: "/logo?primary=blue-#top",
+        selectionRouteIndex: "/logo?primary=blue-".length,
+        suggestion: {
+          key: "primary=blue-500",
+          kind: "search-value",
+          replacementValue: "blue-500",
+          value: "500",
+        },
+      }),
+    ).toBe("/logo?primary=blue-500#top");
 
     expect(
       applyRouteUrlEditorSuggestion({

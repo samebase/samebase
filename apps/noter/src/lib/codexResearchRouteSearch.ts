@@ -1,36 +1,34 @@
 import {
+  defineRouteSearchParams,
+  type InferRouteSearch,
   readRouteSearchParamSuggestions,
-  type RouteSearchParamMetadataByKey,
+  readRouteSearchParamMetadata,
+  routeSearchNonEmptyString,
+  routeSearchValueParam,
 } from "@/lib/routeSearchParamMetadata";
 
-export type CodexResearchRouteSearch = {
-  threadId?: string;
-};
+const codexResearchRouteSearchSchema = defineRouteSearchParams({
+  threadId: routeSearchValueParam(routeSearchNonEmptyString, {
+    permission: "admin",
+    suggestion: "route",
+  }),
+});
 
-const codexResearchRouteSearchParamMetadata = {
-  threadId: { permission: "admin", suggestion: "route", valueKind: "value" },
-} as const satisfies RouteSearchParamMetadataByKey<CodexResearchRouteSearch>;
+export type CodexResearchRouteSearch = InferRouteSearch<typeof codexResearchRouteSearchSchema>;
+
+const codexResearchRouteSearchParamMetadata = readRouteSearchParamMetadata(
+  codexResearchRouteSearchSchema,
+);
 
 export const CODEX_RESEARCH_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
   codexResearchRouteSearchParamMetadata,
   "route",
 );
 
-function readOptionalThreadId(value: unknown): string | undefined {
-  if (typeof value !== "string") {
-    return undefined;
-  }
-
-  const trimmedValue = value.trim();
-  return trimmedValue.length > 0 ? trimmedValue : undefined;
-}
-
 export function validateCodexResearchRouteSearch(
   search: Record<string, unknown>,
 ): CodexResearchRouteSearch {
-  const threadId = readOptionalThreadId(search.threadId);
-
-  return typeof threadId === "string" ? { threadId } : {};
+  return codexResearchRouteSearchSchema.parse(search);
 }
 
 export function buildCodexResearchRouteSearch(

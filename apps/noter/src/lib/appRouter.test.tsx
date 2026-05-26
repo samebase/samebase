@@ -513,6 +513,31 @@ describe("appRouter", () => {
     expect(router.state.location.searchStr).toBe(stringifyTanStackSearch({ dev: true }));
   });
 
+  it("retains the explicit logo left face across logo to dashboard navigation", async () => {
+    const router = await renderRoute(
+      buildPathWithTanStackSearch({
+        pathname: "/logo",
+        search: {
+          leftFace: "secondary",
+          secondary: "amber-500",
+        },
+      }),
+    );
+
+    await act(async () => {
+      await router.navigate({
+        to: "/home",
+      });
+      await settleRouterRender();
+    });
+
+    const searchParams = new URLSearchParams(router.state.location.searchStr);
+
+    expect(router.state.location.pathname).toBe("/home");
+    expect(searchParams.get("leftFace")).toBe("secondary");
+    expect(searchParams.get("secondary")).toBe("amber-500");
+  });
+
   it("renders MCP consent through an explicit TanStack route instead of the App fallback", async () => {
     await renderRoute("/oauth/mcp/consent?mcp_consent_request=mcpar_test");
 

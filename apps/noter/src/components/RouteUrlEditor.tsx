@@ -857,6 +857,13 @@ export function RouteUrlEditor() {
         selectionRouteIndex,
         suggestion,
       });
+      const routeUpdateReady = isRouteUrlEditorRouteUpdateReady({
+        currentHref,
+        draftRouteAddress: nextDraftRouteAddress,
+        origin,
+        routesByPath: router.routesByPath,
+        viewer: { isAdmin: viewerIsAdmin === true },
+      });
       let searchFollowup: RouteUrlEditorSuggestionFollowup | null = null;
       if (suggestion.kind === "path") {
         const draftRouteAddress = readRouteUrlEditorSearchTriggerDraft(nextDraftRouteAddress);
@@ -888,14 +895,23 @@ export function RouteUrlEditor() {
           }
         }
       } else if (suggestion.kind === "search-value") {
-        const draftRouteAddress = readRouteUrlEditorNextSearchDraft(nextDraftRouteAddress);
-        if (draftRouteAddress !== nextDraftRouteAddress) {
+        if (!routeUpdateReady) {
           searchFollowup = {
-            draftRouteAddress,
-            kind: "search",
+            draftRouteAddress: nextDraftRouteAddress,
+            kind: "search-value",
             selectionRouteIndex:
-              readRouteUrlEditorSearchDraftSelectionRouteIndex(draftRouteAddress),
+              readRouteUrlEditorSearchDraftSelectionRouteIndex(nextDraftRouteAddress),
           };
+        } else {
+          const draftRouteAddress = readRouteUrlEditorNextSearchDraft(nextDraftRouteAddress);
+          if (draftRouteAddress !== nextDraftRouteAddress) {
+            searchFollowup = {
+              draftRouteAddress,
+              kind: "search",
+              selectionRouteIndex:
+                readRouteUrlEditorSearchDraftSelectionRouteIndex(draftRouteAddress),
+            };
+          }
         }
       }
 
@@ -915,13 +931,6 @@ export function RouteUrlEditor() {
             });
       const activeFollowup =
         searchFollowup !== null && followupSuggestions.length > 0 ? searchFollowup : null;
-      const routeUpdateReady = isRouteUrlEditorRouteUpdateReady({
-        currentHref,
-        draftRouteAddress: nextDraftRouteAddress,
-        origin,
-        routesByPath: router.routesByPath,
-        viewer: { isAdmin: viewerIsAdmin === true },
-      });
       setDraftRouteAddress(nextDraftRouteAddress);
       setSuggestionsDismissed(activeFollowup === null);
       setSuggestionDraftEditedSinceFocus(activeFollowup !== null || !routeUpdateReady);

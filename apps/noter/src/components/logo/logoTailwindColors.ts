@@ -478,6 +478,8 @@ const tailwindColorOptions: TailwindColorOption[] = tailwindColorFamilies.flatMa
     })),
 );
 
+export const TAILWIND_COLOR_TOKEN_SUGGESTIONS = tailwindColorOptions.map(({ token }) => token);
+
 const tailwindColorOptionMap = new Map<string, TailwindColorOption>(
   tailwindColorOptions.map((option) => [option.token, option]),
 );

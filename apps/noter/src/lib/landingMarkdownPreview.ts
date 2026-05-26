@@ -1,8 +1,11 @@
 import {
+  defineRouteSearchParams,
+  type InferRouteSearch,
   readRouteSearchParamSuggestions,
-  type RouteSearchParamMetadataByKey,
+  readRouteSearchParamMetadata,
+  routeSearchStringValue,
+  routeSearchValueParam,
 } from "@/lib/routeSearchParamMetadata";
-import { z } from "zod";
 
 export const LANDING_MARKDOWN_PREVIEW_ROUTE = "/landing-preview";
 
@@ -18,31 +21,24 @@ export type LandingMarkdownPreviewLanguage = (typeof LANDING_MARKDOWN_PREVIEW_LA
 export const LANDING_MARKDOWN_PREVIEW_DEFAULT_LANGUAGE = "en";
 export const LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL = `?${LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM}=ro`;
 
-function readOptionalLandingMarkdownPreviewLanguage(
-  value: unknown,
-): LandingMarkdownPreviewLanguage | undefined {
-  return value === "en" || value === "ro" ? value : undefined;
-}
-
-const landingMarkdownPreviewRouteSearchSchema = z.object({
-  [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: z.preprocess(
-    readOptionalLandingMarkdownPreviewLanguage,
-    z.enum(LANDING_MARKDOWN_PREVIEW_LANGUAGES).optional(),
+const landingMarkdownPreviewRouteSearchSchema = defineRouteSearchParams({
+  [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: routeSearchValueParam(
+    routeSearchStringValue(LANDING_MARKDOWN_PREVIEW_LANGUAGES),
+    {
+      permission: "admin",
+      suggestion: "route",
+      valueSuggestions: LANDING_MARKDOWN_PREVIEW_LANGUAGES,
+    },
   ),
 });
 
-export type LandingMarkdownPreviewRouteSearch = z.infer<
+export type LandingMarkdownPreviewRouteSearch = InferRouteSearch<
   typeof landingMarkdownPreviewRouteSearchSchema
 >;
 
-const landingMarkdownPreviewRouteSearchParamMetadata = {
-  [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: {
-    permission: "admin",
-    suggestion: "route",
-    valueKind: "value",
-    valueSuggestions: LANDING_MARKDOWN_PREVIEW_LANGUAGES,
-  },
-} as const satisfies RouteSearchParamMetadataByKey<LandingMarkdownPreviewRouteSearch>;
+const landingMarkdownPreviewRouteSearchParamMetadata = readRouteSearchParamMetadata(
+  landingMarkdownPreviewRouteSearchSchema,
+);
 
 export const LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS =
   readRouteSearchParamSuggestions(landingMarkdownPreviewRouteSearchParamMetadata, "route");

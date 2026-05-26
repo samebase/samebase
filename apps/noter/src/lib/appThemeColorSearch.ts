@@ -1,8 +1,11 @@
+import { bad, good, pure } from "@samebase/sure";
+import { defineRouteSearchParams, routeSearchValueParam } from "@/lib/routeSearchParamMetadata";
 import {
   APP_THEME_COLOR_KEYS,
   DEFAULT_APP_THEME_COLORS,
   DEFAULT_LOGO_THEME_COLORS,
   LOGO_THEME_COLOR_KEYS,
+  TAILWIND_COLOR_TOKEN_SUGGESTIONS,
   getFaceColorsFromLogoThemeColors,
   getLogoColorCssHsl,
   getLogoColorForegroundCssHsl,
@@ -19,11 +22,9 @@ import {
 } from "@/components/logo/logoTailwindColors";
 import { useDocumentThemeMode, type DocumentThemeMode } from "@/hooks/useDocumentThemeMode";
 import { useEffect, useState } from "react";
-import { z } from "zod";
 
 export const APP_THEME_COLOR_SEARCH_KEYS = APP_THEME_COLOR_KEYS;
 export const LOGO_THEME_COLOR_SEARCH_KEYS = LOGO_THEME_COLOR_KEYS;
-const LEGACY_APP_THEME_COLOR_SEARCH_KEYS = ["base"] as const;
 
 export type AppThemeColorSearchKey = (typeof APP_THEME_COLOR_SEARCH_KEYS)[number];
 export type LogoThemeColorSearchKey = (typeof LOGO_THEME_COLOR_SEARCH_KEYS)[number];
@@ -33,10 +34,9 @@ export type AppThemeColorSearch = Partial<
 export type LogoThemeColorSearch = Partial<
   Record<LogoThemeColorSearchKey, LogoColorToken | undefined>
 >;
-type LegacyAppThemeColorSearch = Partial<
-  Record<(typeof LEGACY_APP_THEME_COLOR_SEARCH_KEYS)[number], LogoColorToken | undefined>
->;
-export type LogoThemeColorSearchInput = LogoThemeColorSearch & LegacyAppThemeColorSearch;
+export type LogoThemeColorSearchInput = LogoThemeColorSearch & {
+  base?: LogoColorToken | undefined;
+};
 type CssVariableName = `--${string}`;
 type ThemeColorRuleSet = Record<CssVariableName, string>;
 export type ResolvedAppThemeColors = Record<AppThemeColorKey, HexColorToken>;
@@ -55,6 +55,14 @@ const APP_THEME_COLOR_STYLE_ELEMENT_ID = "noter-app-theme-color-search";
 // invalidate color state even when route search props are already clean.
 const APP_THEME_COLOR_SEARCH_SYNC_EVENT = "noter:app-theme-color-search-sync";
 const LOGO_COLOR_THEME_MODES = ["light", "dark"] as const satisfies readonly LogoColorThemeMode[];
+const LOGO_THEME_COLOR_VALUE_SUGGESTIONS = TAILWIND_COLOR_TOKEN_SUGGESTIONS;
+
+const logoThemeColorValueParamOptions = {
+  permission: "public",
+  suggestion: "hidden",
+  valueCompletion: "tailwind-color-token",
+  valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,
+} as const;
 
 const appThemeColorSearchKeyByColorKey = {
   background: "background",
@@ -94,38 +102,38 @@ const colorVariableSpecs = {
   }
 >;
 
-function readOptionalLogoColorToken(value: unknown): LogoColorToken | undefined {
+const logoColorTokenSearchValue = pure((value: unknown) => {
   if (typeof value !== "string") {
-    return undefined;
+    return bad("not-string");
   }
 
   const trimmedValue = value.trim();
-  return isLogoColorToken(trimmedValue) ? trimmedValue : undefined;
-}
+  return isLogoColorToken(trimmedValue) ? good(trimmedValue) : bad("not-logo-color-token");
+});
 
-const logoColorTokenSchema = z.custom<LogoColorToken>(
-  (value) => typeof value === "string" && isLogoColorToken(value),
-);
-const optionalLogoColorTokenSchema = z.preprocess(
-  readOptionalLogoColorToken,
-  logoColorTokenSchema.optional(),
-);
-
-export const appThemeColorSearchFieldSchema = z.object({
-  base: optionalLogoColorTokenSchema,
-  background: optionalLogoColorTokenSchema,
-  border: optionalLogoColorTokenSchema,
-  primary: optionalLogoColorTokenSchema,
-  secondary: optionalLogoColorTokenSchema,
-  top: optionalLogoColorTokenSchema,
+export const appThemeColorSearchFieldSchema = defineRouteSearchParams({
+  background: routeSearchValueParam(logoColorTokenSearchValue, {
+    ...logoThemeColorValueParamOptions,
+  }),
+  border: routeSearchValueParam(logoColorTokenSearchValue, {
+    ...logoThemeColorValueParamOptions,
+  }),
+  primary: routeSearchValueParam(logoColorTokenSearchValue, {
+    ...logoThemeColorValueParamOptions,
+  }),
+  secondary: routeSearchValueParam(logoColorTokenSearchValue, {
+    ...logoThemeColorValueParamOptions,
+  }),
+  top: routeSearchValueParam(logoColorTokenSearchValue, {
+    ...logoThemeColorValueParamOptions,
+  }),
 });
 
 export function readAppThemeColorSearch(search: LogoThemeColorSearchInput): AppThemeColorSearch {
   return APP_THEME_COLOR_KEYS.reduce<AppThemeColorSearch>((result, colorKey) => {
     const searchKey = appThemeColorSearchKeyByColorKey[colorKey];
-    // `base` is the pre-background URL key; read it only as a fallback.
     const colorToken =
-      colorKey === "background" ? (search.background ?? search.base) : search[searchKey];
+      searchKey === "background" ? (search.background ?? search.base) : search[searchKey];
     if (typeof colorToken === "string") {
       result[searchKey] = colorToken;
     }

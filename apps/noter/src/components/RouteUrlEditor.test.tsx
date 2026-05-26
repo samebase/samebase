@@ -411,6 +411,51 @@ describe("RouteUrlEditor", () => {
     expect(document.activeElement).toBe(input);
   });
 
+  it("continues color values from family suggestions into shade suggestions", async () => {
+    const input = startEditing(["/logo"]);
+    const origin = window.location.origin;
+
+    await fillRouteUrlEditorInput(input, `${origin}/logo?primary=bl`);
+    const blueFamilyOption = rootElement?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Use blue-"]',
+    );
+    if (!blueFamilyOption) {
+      throw new Error("Expected blue color family suggestion.");
+    }
+
+    await act(async () => {
+      blueFamilyOption.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(input.value).toBe(`${origin}/logo?primary=blue-`);
+    expect(readRouteHref()).toBe("/logo");
+    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search-value");
+    expect(rootElement?.querySelector('button[aria-label="Use 50"]')).not.toBeNull();
+    expect(rootElement?.querySelector('button[aria-label="Use 500"]')).not.toBeNull();
+
+    const blue500Option = rootElement?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Use 500"]',
+    );
+    if (!blue500Option) {
+      throw new Error("Expected blue 500 shade suggestion.");
+    }
+
+    await act(async () => {
+      blue500Option.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(input.value).toBe(`${origin}/logo?primary=blue-500&`);
+    expect(readRouteHref()).toBe("/logo?primary=blue-500");
+    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search");
+    expect(document.activeElement).toBe(input);
+  });
+
   it("keeps selected unfinished valued search params local", async () => {
     const input = startEditing(["/logo"]);
     const origin = window.location.origin;

@@ -1,17 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  defineRouteSearchParams,
+  type InferRouteSearch,
   readRouteSearchParamSuggestions,
-  type RouteSearchParamMetadataByKey,
+  readRouteSearchParamMetadata,
+  routeSearchString,
+  routeSearchValueParam,
 } from "@/lib/routeSearchParamMetadata";
 import { VisualFixturePage } from "@/visualFixture";
 
-type VisualFixtureRouteSearch = {
-  mode?: string;
-};
+const visualFixtureRouteSearchSchema = defineRouteSearchParams({
+  mode: routeSearchValueParam(routeSearchString, {
+    permission: "public",
+    suggestion: "route",
+  }),
+});
 
-const visualFixtureRouteSearchParamMetadata = {
-  mode: { permission: "public", suggestion: "route", valueKind: "value" },
-} as const satisfies RouteSearchParamMetadataByKey<VisualFixtureRouteSearch>;
+type VisualFixtureRouteSearch = InferRouteSearch<typeof visualFixtureRouteSearchSchema>;
+
+const visualFixtureRouteSearchParamMetadata = readRouteSearchParamMetadata(
+  visualFixtureRouteSearchSchema,
+);
 
 const visualFixtureRouteSearchParamSuggestions = readRouteSearchParamSuggestions(
   visualFixtureRouteSearchParamMetadata,
@@ -21,12 +30,7 @@ const visualFixtureRouteSearchParamSuggestions = readRouteSearchParamSuggestions
 function validateVisualFixtureRouteSearch(
   search: Record<string, unknown>,
 ): VisualFixtureRouteSearch {
-  const mode = search.mode;
-  if (typeof mode !== "string") {
-    return {};
-  }
-
-  return { mode };
+  return visualFixtureRouteSearchSchema.parse(search);
 }
 
 function VisualFixtureRouteComponent() {

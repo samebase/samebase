@@ -61,9 +61,14 @@ describe("appThemeColorSearch", () => {
   });
 
   it("reads route search into semantic app theme colors", () => {
-    expect(readAppThemeColors({ base: "#ffffff" })).toEqual({
+    expect(readAppThemeColors({ background: "#ffffff" })).toEqual({
       ...DEFAULT_APP_THEME_COLORS,
       background: "#ffffff",
+    });
+
+    expect(readAppThemeColors({ base: "#112233" })).toEqual({
+      ...DEFAULT_APP_THEME_COLORS,
+      background: "#112233",
     });
 
     expect(

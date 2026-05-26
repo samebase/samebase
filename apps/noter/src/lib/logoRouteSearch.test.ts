@@ -47,7 +47,7 @@ describe("logoRouteSearch", () => {
         freeView: "",
         isoSide: "52",
         isoStyle: "flat",
-        base: "sky-500",
+        background: "sky-500",
         border: "stone-300",
         dark: "",
         leftFace: "striped",
@@ -173,7 +173,7 @@ describe("logoRouteSearch", () => {
         isoSide: Number.NaN,
         isoStyle: "wireframe",
         leftFace: "dots",
-        base: null,
+        background: null,
         border: 2,
         primary: "not-a-color",
         rot: "not-a-number",
@@ -187,6 +187,16 @@ describe("logoRouteSearch", () => {
       }),
     ).toEqual({
       freeView: true,
+    });
+  });
+
+  it("accepts the old base color alias as background", () => {
+    expect(validateLogoRouteSearch({ base: "#112233" })).toEqual({
+      background: "#112233",
+    });
+
+    expect(validateLogoRouteSearch({ background: "#445566", base: "#112233" })).toEqual({
+      background: "#445566",
     });
   });
 
@@ -373,12 +383,6 @@ describe("logoRouteSearch", () => {
   it("preserves secondary as the explicit duotone route state", () => {
     expect(validateLogoRouteSearch({ leftFace: "secondary" })).toEqual({
       leftFace: "secondary",
-      stripeA: undefined,
-      stripeBasis: undefined,
-      stripeG: undefined,
-      stripeLink: undefined,
-      stripeO: undefined,
-      stripeW: undefined,
     });
 
     expect(
@@ -407,6 +411,13 @@ describe("logoRouteSearch", () => {
       stripeO: undefined,
       stripeW: undefined,
     });
+  });
+
+  it("does not create left-face tombstones while parsing unrelated logo params", () => {
+    const search = validateLogoRouteSearch({ secondary: "amber-500" });
+
+    expect(search.secondary).toBe("amber-500");
+    expect(Object.prototype.hasOwnProperty.call(search, "leftFace")).toBe(false);
   });
 
   it("preserves linked striped left-face route state", () => {
