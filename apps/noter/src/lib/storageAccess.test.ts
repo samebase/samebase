@@ -15,6 +15,22 @@ afterEach(() => {
 });
 
 describe("storageAccess", () => {
+  it("installs fallback localStorage when the browser omits storage", () => {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: undefined,
+    });
+
+    ensureWindowStorageAccess("localStorage");
+
+    window.localStorage.setItem("__convexAuthToken", "secret");
+
+    expect(window.localStorage.length).toBe(1);
+    expect(window.localStorage.key(0)).toBe("__convexAuthToken");
+    expect(window.localStorage.getItem("__convexAuthToken")).toBe("secret");
+    expect(Object.keys(window.localStorage)).toEqual(["__convexAuthToken"]);
+  });
+
   it("exposes fallback localStorage keys through both Storage and Object.keys", () => {
     Object.defineProperty(window, "localStorage", {
       configurable: true,

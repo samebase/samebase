@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import { normalizeEnvValue } from "./scripts/normalizeEnvValue.ts";
 
+const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+
 export function readEnvFileValue(envPath: string, key: string): string | undefined {
   if (!fs.existsSync(envPath)) {
     return undefined;
@@ -18,6 +20,14 @@ export function readEnvFileValue(envPath: string, key: string): string | undefin
   return undefined;
 }
 
+function isLoopbackDevOrigin(origin: string): boolean {
+  try {
+    return LOOPBACK_HOSTNAMES.has(new URL(origin).hostname);
+  } catch {
+    return false;
+  }
+}
+
 export function resolveBrowserConvexProxyTarget(args: {
   devOrigin: string | undefined;
   envProxyTarget: string | undefined;
@@ -27,7 +37,7 @@ export function resolveBrowserConvexProxyTarget(args: {
   const envProxyTarget = normalizeEnvValue(args.envProxyTarget);
   const localEnvConvexUrl = normalizeEnvValue(args.localEnvConvexUrl);
 
-  if (!devOrigin) {
+  if (!devOrigin || isLoopbackDevOrigin(devOrigin)) {
     return envProxyTarget;
   }
 
