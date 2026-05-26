@@ -54,7 +54,7 @@ const routeUrlEditorTouchScrollSlateClassName =
 const routeUrlEditorTouchScrollPickerMediaQuery = "(hover: none), (pointer: coarse)";
 const routeUrlEditorSuggestionOptionSelector = "[data-route-url-editor-suggestion-index]";
 const routeUrlEditorSuggestionRowHeightPx = 28;
-const routeUrlEditorTouchScrollSlateRatio = 0.42;
+const routeUrlEditorTouchScrollSlateOptionOffset = 2;
 
 type RouteUrlEditorTouchScrollPickerMetrics = {
   bottomSpacerHeightPx: number;
@@ -119,6 +119,16 @@ function readRouteUrlEditorCssPx(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function readRouteUrlEditorTouchScrollSlateCenterPx(scrollportHeightPx: number): number {
+  const rowHalfHeightPx = routeUrlEditorSuggestionRowHeightPx / 2;
+  const requestedSlateCenterPx =
+    rowHalfHeightPx +
+    (routeUrlEditorTouchScrollSlateOptionOffset - 1) * routeUrlEditorSuggestionRowHeightPx;
+  const maxSlateCenterPx = Math.max(rowHalfHeightPx, scrollportHeightPx - rowHalfHeightPx);
+
+  return Math.min(Math.max(requestedSlateCenterPx, rowHalfHeightPx), maxSlateCenterPx);
+}
+
 function readRouteUrlEditorTouchScrollPickerMetrics(
   scrollport: HTMLElement,
 ): RouteUrlEditorTouchScrollPickerMetrics {
@@ -127,14 +137,7 @@ function readRouteUrlEditorTouchScrollPickerMetrics(
   const scrollportStyle = window.getComputedStyle(scrollport);
   const scrollportPaddingBottomPx = readRouteUrlEditorCssPx(scrollportStyle.paddingBottom);
   const scrollportPaddingTopPx = readRouteUrlEditorCssPx(scrollportStyle.paddingTop);
-  const preferredSlateCenterPx = Math.round(
-    scrollportHeightPx * routeUrlEditorTouchScrollSlateRatio,
-  );
-  const maxSlateCenterPx = Math.max(rowHalfHeightPx, scrollportHeightPx - rowHalfHeightPx);
-  const slateCenterPx = Math.min(
-    Math.max(preferredSlateCenterPx, rowHalfHeightPx),
-    maxSlateCenterPx,
-  );
+  const slateCenterPx = readRouteUrlEditorTouchScrollSlateCenterPx(scrollportHeightPx);
 
   return {
     bottomSpacerHeightPx: Math.max(
@@ -154,7 +157,7 @@ function readRouteUrlEditorTouchScrollSuggestionIndex(args: {
   const slateCenterClientY =
     scrollportRect.top +
     (args.metrics === null
-      ? Math.round(scrollportRect.height * routeUrlEditorTouchScrollSlateRatio)
+      ? readRouteUrlEditorTouchScrollSlateCenterPx(scrollportRect.height)
       : args.metrics.slateTopPx + routeUrlEditorSuggestionRowHeightPx / 2);
   let closestSuggestion: { distancePx: number; index: number } | null = null;
 

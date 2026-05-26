@@ -111,6 +111,8 @@ async function scrollRouteUrlEditorSuggestionsToEnd(page: Page): Promise<void> {
 async function readRouteUrlEditorScrollSlateGeometry(page: Page): Promise<{
   selectedCenterY: number;
   slateCenterY: number;
+  slateTopY: number;
+  scrollportTopY: number;
   visibleOptionCountAboveSlate: number;
 }> {
   return page.getByTestId("route-url-editor-suggestions").evaluate((scrollport) => {
@@ -145,6 +147,8 @@ async function readRouteUrlEditorScrollSlateGeometry(page: Page): Promise<{
     return {
       selectedCenterY: selectedOptionRect.top + selectedOptionRect.height / 2,
       slateCenterY: slateRect.top + slateRect.height / 2,
+      slateTopY: slateRect.top,
+      scrollportTopY: scrollportRect.top,
       visibleOptionCountAboveSlate,
     };
   });
@@ -1085,6 +1089,7 @@ test("route URL editor mobile scroll picker lets the last option reach the slate
     await expect(lastOption).toHaveAttribute("aria-selected", "true");
     const geometry = await readRouteUrlEditorScrollSlateGeometry(page);
 
+    expect(Math.round(geometry.slateTopY - geometry.scrollportTopY)).toBe(28);
     expect(Math.abs(geometry.selectedCenterY - geometry.slateCenterY)).toBeLessThanOrEqual(2);
     expect(geometry.visibleOptionCountAboveSlate).toBeGreaterThan(0);
   } finally {
