@@ -8,6 +8,7 @@ import {
   type QueryCtx,
 } from "../_generated/server";
 import type { AppProvisioningStep } from "../schema";
+import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import { vVaultConvexOrigin } from "./model";
 import { isLiveConnectedVault } from "./state";
 
@@ -46,6 +47,77 @@ async function getVaultInfrastructureOwnership(
     .query("vaultInfrastructureOwnership")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
     .first();
+}
+
+async function readConvexDeploymentForAppRoot(
+  ctx: ConvexDeploymentConnectionReadCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    appRoot: string;
+  },
+): Promise<Doc<"vaultConvexDeployments"> | null> {
+  return await ctx.db
+    .query("vaultConvexDeployments")
+    .withIndex("by_vault_and_appRoot", (q) =>
+      q.eq("vaultId", args.vaultId).eq("appRoot", args.appRoot),
+    )
+    .first();
+}
+
+async function assertVaultAppRootExists(
+  ctx: ConvexDeploymentConnectionReadCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    appRoot: string;
+  },
+): Promise<void> {
+  const app = await ctx.db
+    .query("vaultApps")
+    .withIndex("by_vault_and_appRoot", (q) =>
+      q.eq("vaultId", args.vaultId).eq("appRoot", args.appRoot),
+    )
+    .first();
+  if (!app) {
+    throw new Error("Vault app root not found.");
+  }
+}
+
+async function readConvexDeploymentByProviderIdentity(
+  ctx: ConvexDeploymentConnectionReadCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    projectId: string;
+  },
+): Promise<Doc<"vaultConvexDeployments"> | null> {
+  return await ctx.db
+    .query("vaultConvexDeployments")
+    .withIndex("by_vault_and_project", (q) =>
+      q.eq("vaultId", args.vaultId).eq("projectId", args.projectId),
+    )
+    .first();
+}
+
+async function assertNoExistingConvexDeploymentTarget(
+  ctx: ConvexDeploymentConnectionReadCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    appRoot: string;
+    projectId?: string;
+  },
+): Promise<void> {
+  const existingAppRootDeployment = await readConvexDeploymentForAppRoot(ctx, args);
+  if (existingAppRootDeployment) {
+    throw new Error("Vault already has a Convex deployment for this app root.");
+  }
+  if (args.projectId) {
+    const existingProject = await readConvexDeploymentByProviderIdentity(ctx, {
+      vaultId: args.vaultId,
+      projectId: args.projectId,
+    });
+    if (existingProject) {
+      throw new Error("Convex project is already attached to this vault.");
+    }
+  }
 }
 
 function isActiveConvexDeploymentConnectionOwner(
@@ -108,7 +180,6 @@ async function requireConvexDeploymentConnectionRun(
 }
 
 function hasFreshConvexDeploymentConnectionLock(args: {
-  vault: Doc<"vaults">;
   ownership: VaultInfrastructureOwnership | null;
   runId: Id<"appProvisioningRuns">;
   now: number;
@@ -123,19 +194,14 @@ function hasFreshConvexDeploymentConnectionLock(args: {
     return true;
   }
 
-  const vault = args.vault;
-  return (
-    isLiveConnectedVault(vault) &&
-    vault.convex.state === "provisioning" &&
-    vault.convex.runId !== args.runId &&
-    args.now - vault.convex.startedAt < CONVEX_CONNECTION_STALE_MS
-  );
+  return false;
 }
 
 export const requireConvexDeploymentConnectionVault = internalQuery({
   args: {
     vaultId: id("vaults"),
     userId: id("users"),
+    appRoot: string(),
   },
   returns: nullValue(),
   handler: async (ctx, args) => {
@@ -143,9 +209,15 @@ export const requireConvexDeploymentConnectionVault = internalQuery({
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
     }
-    if (vault.convex.state === "connected") {
-      throw new Error("Vault already has a Convex deployment attached.");
-    }
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
+    await assertVaultAppRootExists(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
+    await assertNoExistingConvexDeploymentTarget(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
 
     return null;
   },
@@ -156,6 +228,7 @@ export const claimConvexDeploymentConnection = internalMutation({
     vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
     userId: id("users"),
+    appRoot: string(),
   },
   returns: object({ claimed: boolean() }),
   handler: async (ctx, args) => {
@@ -164,12 +237,22 @@ export const claimConvexDeploymentConnection = internalMutation({
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
     }
-    if (vault.convex.state === "connected") {
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
+    await assertVaultAppRootExists(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
+    try {
+      await assertNoExistingConvexDeploymentTarget(ctx, {
+        vaultId: args.vaultId,
+        appRoot,
+      });
+    } catch (error) {
       await appendConvexDeploymentConnectionEvent(ctx, {
         runId: args.runId,
         step: "claim_infra",
         level: "warn",
-        message: "Vault already has a Convex deployment attached.",
+        message: error instanceof Error ? error.message : "Convex deployment is already attached.",
         state: "canceled",
       });
       return { claimed: false };
@@ -179,7 +262,6 @@ export const claimConvexDeploymentConnection = internalMutation({
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
     if (
       hasFreshConvexDeploymentConnectionLock({
-        vault,
         ownership,
         runId: args.runId,
         now,
@@ -221,18 +303,11 @@ export const claimConvexDeploymentConnection = internalMutation({
       });
     }
 
-    await ctx.db.patch(args.vaultId, {
-      convex: {
-        state: "provisioning",
-        runId: args.runId,
-        startedAt: now,
-      },
-    });
     await appendConvexDeploymentConnectionEvent(ctx, {
       runId: args.runId,
       step: "claim_infra",
       level: "info",
-      message: "Started Convex deployment connection.",
+      message: `Started Convex deployment connection for ${appRoot}.`,
       state: "running",
     });
 
@@ -245,6 +320,7 @@ export const readActiveConvexDeploymentConnection = internalQuery({
     vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
     userId: id("users"),
+    appRoot: string(),
   },
   returns: object({ active: boolean() }),
   handler: async (ctx, args) => {
@@ -253,12 +329,21 @@ export const readActiveConvexDeploymentConnection = internalQuery({
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
     }
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
+    await assertVaultAppRootExists(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
+    const [ownership, deployment] = await Promise.all([
+      getVaultInfrastructureOwnership(ctx, args.vaultId),
+      readConvexDeploymentForAppRoot(ctx, {
+        vaultId: args.vaultId,
+        appRoot,
+      }),
+    ]);
     return {
       active:
-        vault.convex.state === "provisioning" &&
-        vault.convex.runId === args.runId &&
-        isActiveConvexDeploymentConnectionOwner(ownership, { runId: args.runId }),
+        !deployment && isActiveConvexDeploymentConnectionOwner(ownership, { runId: args.runId }),
     };
   },
 });
@@ -268,6 +353,7 @@ export const attachDeploymentForRun = internalMutation({
     vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
     userId: id("users"),
+    appRoot: string(),
     convex: convexInfrastructureRecordValidator,
     origin: vVaultConvexOrigin,
   },
@@ -278,62 +364,58 @@ export const attachDeploymentForRun = internalMutation({
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
     }
-    if (vault.convex.state === "connected") {
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
+    await assertVaultAppRootExists(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
+    try {
+      await assertNoExistingConvexDeploymentTarget(ctx, {
+        vaultId: args.vaultId,
+        appRoot,
+        projectId: args.convex.convexProjectId,
+      });
+    } catch (error) {
       await appendConvexDeploymentConnectionEvent(ctx, {
         runId: args.runId,
         step: "ensure_convex",
         level: "warn",
-        message: "Vault already has a Convex deployment attached.",
+        message: error instanceof Error ? error.message : "Convex deployment is already attached.",
         state: "canceled",
       });
       return { attached: false };
     }
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (
-      !ownership ||
-      !isActiveConvexDeploymentConnectionOwner(ownership, { runId: args.runId }) ||
-      vault.convex.state !== "provisioning" ||
-      vault.convex.runId !== args.runId
-    ) {
+    if (!ownership || !isActiveConvexDeploymentConnectionOwner(ownership, { runId: args.runId })) {
       await cancelSupersededConvexDeploymentConnectionRun(ctx, {
         runId: args.runId,
       });
       return { attached: false };
     }
 
-    const existing = await ctx.db
-      .query("vaultInfrastructure")
-      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .first();
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        ...args.convex,
-        convexDeployKeys: CONVEX_DEPLOY_KEYS_NOT_CREATED,
-      });
-    } else {
-      await ctx.db.insert("vaultInfrastructure", {
-        vaultId: args.vaultId,
-        ...args.convex,
-        convexDeployKeys: CONVEX_DEPLOY_KEYS_NOT_CREATED,
-      });
-    }
-
-    await ctx.db.patch(args.vaultId, {
-      convex: {
-        state: "connected",
-        projectId: args.convex.convexProjectId,
-        projectSlug: args.convex.convexProjectSlug,
-        deploymentName: args.convex.convexDeploymentName,
-        origin: args.origin,
-        connectedAt: Date.now(),
-      },
+    const now = Date.now();
+    await ctx.db.insert("vaultConvexDeployments", {
+      vaultId: args.vaultId,
+      userId: args.userId,
+      appRoot,
+      projectId: args.convex.convexProjectId,
+      teamSlug: args.convex.convexTeamSlug,
+      projectSlug: args.convex.convexProjectSlug,
+      deploymentName: args.convex.convexDeploymentName,
+      deploymentType: args.convex.convexDeploymentType,
+      cloudUrl: args.convex.convexCloudUrl,
+      siteUrl: args.convex.convexSiteUrl,
+      deployKeys: CONVEX_DEPLOY_KEYS_NOT_CREATED,
+      origin: args.origin,
+      connectedAt: now,
+      lastObservedAt: now,
     });
     await appendConvexDeploymentConnectionEvent(ctx, {
       runId: args.runId,
       step: "ensure_convex",
       level: "info",
-      message: `Convex deployment ready: ${args.convex.convexDeploymentName}.`,
+      message: `Convex deployment ready for ${appRoot}: ${args.convex.convexDeploymentName}.`,
       state: "running",
     });
 
@@ -413,6 +495,7 @@ export const finishConvexDeploymentConnection = internalMutation({
     vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
     userId: id("users"),
+    appRoot: string(),
   },
   returns: nullValue(),
   handler: async (ctx, args) => {
@@ -429,7 +512,12 @@ export const finishConvexDeploymentConnection = internalMutation({
       });
       return null;
     }
-    if (vault.convex.state !== "connected") {
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
+    const deployment = await readConvexDeploymentForAppRoot(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
+    if (!deployment) {
       throw new Error("Convex deployment connection did not attach a deployment.");
     }
 

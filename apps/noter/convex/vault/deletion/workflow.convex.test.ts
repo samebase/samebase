@@ -40,8 +40,6 @@ describe("vault deletion workflow", () => {
         name: "delete-me",
         defaultBranch: "main",
         visibility: "private",
-        convex: { state: "not_configured" },
-        cloudflare: { state: "not_configured" },
         connectedAt: 4,
       });
       await ctx.db.insert("vaultBranchTrees", {
@@ -97,8 +95,6 @@ describe("vault deletion workflow", () => {
         name: "delete-me",
         defaultBranch: "main",
         visibility: "private",
-        convex: { state: "not_configured" },
-        cloudflare: { state: "not_configured" },
         connectedAt: 4,
       });
       await ctx.db.insert("vaultBranchTrees", {
@@ -215,17 +211,19 @@ describe("vault deletion workflow", () => {
         name: "existing-repo",
         defaultBranch: "main",
         visibility: "private",
-        convex: { state: "not_configured" },
-        cloudflare: {
-          state: "connected",
-          accountId: "cloudflare-account",
-          workerName: "existing-repo-worker",
-          workerTag: "worker-tag",
-          origin: "provisioned",
-          connectedAt: 6,
-          lastObservedAt: 7,
-        },
         connectedAt: 8,
+      });
+      await ctx.db.insert("vaultCloudflareWorkers", {
+        vaultId,
+        userId,
+        appRoot: ".",
+        accountId: "cloudflare-account",
+        workerName: "existing-repo-worker",
+        workerTag: "worker-tag",
+        origin: "provisioned",
+        deployment: { state: "not_configured" },
+        connectedAt: 6,
+        lastObservedAt: 7,
       });
 
       return { userId, vaultId };
@@ -412,8 +410,6 @@ describe("vault deletion workflow", () => {
         name: "delete-me",
         defaultBranch: "main",
         visibility: "private",
-        convex: { state: "not_configured" },
-        cloudflare: { state: "not_configured" },
         connectedAt: 4,
       });
       for (let index = 0; index < VAULT_LOCAL_CLEANUP_BATCH_SIZE + 1; index += 1) {
@@ -429,6 +425,18 @@ describe("vault deletion workflow", () => {
           lastTreeRefreshAt: 5 + index,
         });
       }
+      await ctx.db.insert("vaultCloudflareWorkers", {
+        vaultId,
+        userId,
+        appRoot: ".",
+        accountId: "cloudflare-account",
+        workerName: "delete-me-worker",
+        workerTag: "worker-tag",
+        origin: "provisioned",
+        deployment: { state: "not_configured" },
+        connectedAt: 6,
+        lastObservedAt: 7,
+      });
 
       return { userId, vaultId };
     });
@@ -517,6 +525,10 @@ describe("vault deletion workflow", () => {
           .query("vaultBranchTrees")
           .withIndex("by_vault_and_branch", (q) => q.eq("vaultId", ids.vaultId))
           .collect(),
+        cloudflareWorkers: await ctx.db
+          .query("vaultCloudflareWorkers")
+          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+          .collect(),
         events: await ctx.db
           .query("vaultDeletionEvents")
           .withIndex("by_run_and_created_at", (q) => q.eq("runId", deletionRunId))
@@ -526,6 +538,7 @@ describe("vault deletion workflow", () => {
 
     expect(completed.vault).toBeNull();
     expect(completed.branchTrees).toHaveLength(0);
+    expect(completed.cloudflareWorkers).toHaveLength(0);
     expect(sourceCleanupBatches).toBeGreaterThan(1);
     expect(completed.run).toMatchObject({
       state: "succeeded",
@@ -635,8 +648,6 @@ describe("vault deletion workflow", () => {
         name: "existing",
         defaultBranch: "main",
         visibility: "private",
-        convex: { state: "not_configured" },
-        cloudflare: { state: "not_configured" },
         connectedAt: 4,
       });
 
@@ -692,8 +703,6 @@ describe("vault deletion workflow", () => {
         name: "codespaces",
         defaultBranch: "main",
         visibility: "private",
-        convex: { state: "not_configured" },
-        cloudflare: { state: "not_configured" },
         connectedAt: 4,
       });
 
@@ -772,8 +781,6 @@ describe("vault deletion workflow", () => {
         name: "retry-me",
         defaultBranch: "main",
         visibility: "private",
-        convex: { state: "not_configured" },
-        cloudflare: { state: "not_configured" },
         connectedAt: 4,
       });
 
@@ -874,8 +881,6 @@ describe("vault deletion workflow", () => {
         name: "retry-missing-provider",
         defaultBranch: "main",
         visibility: "private",
-        convex: { state: "not_configured" },
-        cloudflare: { state: "not_configured" },
         connectedAt: 6,
       });
 

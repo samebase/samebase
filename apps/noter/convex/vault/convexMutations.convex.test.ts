@@ -3,6 +3,8 @@ import { describe, expect, it } from "vite-plus/test";
 import { internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
+const appRoot = ".";
+
 async function createConvexConnectionVault() {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
@@ -39,8 +41,12 @@ async function createConvexConnectionVault() {
       visibility: "private",
       defaultBranch: "main",
       connectedAt: 12,
-      convex: { state: "not_configured" },
-      cloudflare: { state: "not_configured" },
+    });
+    await ctx.db.insert("vaultApps", {
+      vaultId,
+      userId,
+      appRoot,
+      createdAt: 25,
     });
     const runId = await ctx.db.insert("appProvisioningRuns", {
       userId,
@@ -74,25 +80,31 @@ describe("vault Convex deployment connection mutations", () => {
     const { ids, t } = await createConvexConnectionVault();
 
     await expect(
-      t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, ids),
+      t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
+        ...ids,
+        appRoot,
+      }),
     ).resolves.toEqual({ claimed: true });
     await expect(
       t.mutation(internal.vault.convexMutations.attachDeploymentForRun, {
         ...ids,
+        appRoot,
         convex: convexRecord,
         origin: "selected_existing",
       }),
     ).resolves.toEqual({ attached: true });
     await expect(
-      t.mutation(internal.vault.convexMutations.finishConvexDeploymentConnection, ids),
+      t.mutation(internal.vault.convexMutations.finishConvexDeploymentConnection, {
+        ...ids,
+        appRoot,
+      }),
     ).resolves.toBeNull();
 
     const result = await t.run(async (ctx) => {
-      const [vault, run, infrastructure] = await Promise.all([
-        ctx.db.get(ids.vaultId),
+      const [run, deployment] = await Promise.all([
         ctx.db.get(ids.runId),
         ctx.db
-          .query("vaultInfrastructure")
+          .query("vaultConvexDeployments")
           .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
           .first(),
       ]);
@@ -104,7 +116,7 @@ describe("vault Convex deployment connection mutations", () => {
         .query("appProvisioningEvents")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
         .collect();
-      return { events, infrastructure, ownership, run, vault };
+      return { deployment, events, ownership, run };
     });
 
     expect(result.ownership).toMatchObject({
@@ -115,18 +127,14 @@ describe("vault Convex deployment connection mutations", () => {
       state: "succeeded",
       currentStep: "finish",
     });
-    expect(result.vault).toMatchObject({
-      convex: {
-        state: "connected",
-        projectId: "convex-project",
-        projectSlug: "manual-convex",
-        deploymentName: "manual-convex-prod",
-        origin: "selected_existing",
-      },
-    });
-    expect(result.infrastructure).toMatchObject({
-      ...convexRecord,
-      convexDeployKeys: {
+    expect(result.deployment).toMatchObject({
+      appRoot,
+      projectId: "convex-project",
+      teamSlug: "ada-team",
+      projectSlug: "manual-convex",
+      deploymentName: "manual-convex-prod",
+      origin: "selected_existing",
+      deployKeys: {
         production: { state: "not_created" },
         preview: { state: "not_created" },
       },
@@ -138,79 +146,40 @@ describe("vault Convex deployment connection mutations", () => {
     ]);
   });
 
-  it("allows a failed Convex connection row to be claimed again", async () => {
+  it("allows a failed Convex connection owner to be claimed again", async () => {
     const { ids, t } = await createConvexConnectionVault();
     await t.run(async (ctx) => {
-      await ctx.db.patch(ids.vaultId, {
-        convex: {
-          state: "failed",
-          runId: ids.runId,
-          failedAt: 40,
-        },
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+        provisioningVersion: 1,
+        state: "failed",
+        updatedAt: 40,
       });
     });
 
     await expect(
-      t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, ids),
+      t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
+        ...ids,
+        appRoot,
+      }),
     ).resolves.toEqual({ claimed: true });
 
-    const vault = await t.run(async (ctx) => await ctx.db.get(ids.vaultId));
-    expect(vault).toMatchObject({
-      convex: {
-        state: "provisioning",
-        runId: ids.runId,
-      },
+    const ownership = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("vaultInfrastructureOwnership")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .first();
     });
-  });
-
-  it("resets deploy keys when attaching through an existing infrastructure row", async () => {
-    const { ids, t } = await createConvexConnectionVault();
-    await t.run(async (ctx) => {
-      await ctx.db.insert("vaultInfrastructure", {
-        vaultId: ids.vaultId,
-        convexProjectId: "old-project",
-        convexTeamSlug: "ada-team",
-        convexProjectSlug: "old-project",
-        convexDeploymentName: "old-prod",
-        convexDeploymentType: "prod",
-        convexCloudUrl: "https://old-prod.convex.cloud",
-        convexSiteUrl: "https://old-prod.convex.site",
-        convexDeployKeys: {
-          production: { state: "created", id: "prod-key" },
-          preview: { state: "created", id: "preview-key" },
-        },
-      });
-    });
-
-    await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, ids);
-    await expect(
-      t.mutation(internal.vault.convexMutations.attachDeploymentForRun, {
-        ...ids,
-        convex: convexRecord,
-        origin: "provisioned",
-      }),
-    ).resolves.toEqual({ attached: true });
-
-    const infrastructure = await t.run(
-      async (ctx) =>
-        await ctx.db
-          .query("vaultInfrastructure")
-          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-          .first(),
-    );
-
-    expect(infrastructure).toMatchObject({
-      ...convexRecord,
-      convexDeployKeys: {
-        production: { state: "not_created" },
-        preview: { state: "not_created" },
-      },
-    });
+    expect(ownership).toMatchObject({ state: "active", runId: ids.runId });
   });
 
   it("does not attach when ownership was superseded", async () => {
     const { ids, t } = await createConvexConnectionVault();
-    await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, ids);
+    await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
+      ...ids,
+      appRoot,
+    });
     await t.run(async (ctx) => {
       const otherRunId = await ctx.db.insert("appProvisioningRuns", {
         userId: ids.userId,
@@ -238,28 +207,26 @@ describe("vault Convex deployment connection mutations", () => {
     await expect(
       t.mutation(internal.vault.convexMutations.attachDeploymentForRun, {
         ...ids,
+        appRoot,
         convex: convexRecord,
         origin: "provisioned",
       }),
     ).resolves.toEqual({ attached: false });
 
-    const result = await t.run(async (ctx) => {
-      const [run, vault] = await Promise.all([ctx.db.get(ids.runId), ctx.db.get(ids.vaultId)]);
-      return { run, vault };
-    });
+    const result = await t.run(async (ctx) => await ctx.db.get(ids.runId));
 
-    expect(result.run).toMatchObject({
+    expect(result).toMatchObject({
       state: "canceled",
       currentStep: "claim_infra",
     });
-    expect(result.vault).toMatchObject({
-      convex: { state: "provisioning" },
-    });
   });
 
-  it("marks an active Convex connection run and vault row failed when the workflow fails", async () => {
+  it("marks an active Convex connection owner failed when the workflow fails", async () => {
     const { ids, t } = await createConvexConnectionVault();
-    await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, ids);
+    await t.mutation(internal.vault.convexMutations.claimConvexDeploymentConnection, {
+      ...ids,
+      appRoot,
+    });
     await t.mutation(internal.vault.convexMutations.recordCreatedProjectForRun, {
       ...ids,
       projectName: "manual-convex",
@@ -276,12 +243,12 @@ describe("vault Convex deployment connection mutations", () => {
     ).resolves.toBeNull();
 
     const result = await t.run(async (ctx) => {
-      const [vault, run] = await Promise.all([ctx.db.get(ids.vaultId), ctx.db.get(ids.runId)]);
+      const run = await ctx.db.get(ids.runId);
       const ownership = await ctx.db
         .query("vaultInfrastructureOwnership")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
-      return { ownership, run, vault };
+      return { ownership, run };
     });
 
     expect(result.ownership).toMatchObject({ state: "failed" });
@@ -291,12 +258,6 @@ describe("vault Convex deployment connection mutations", () => {
         projectName: "manual-convex",
         projectId: "created-convex-project",
         projectSlug: "manual-convex",
-      },
-    });
-    expect(result.vault).toMatchObject({
-      convex: {
-        state: "failed",
-        runId: ids.runId,
       },
     });
   });

@@ -80,7 +80,8 @@ const requestCloudflareWorkersInventoryReadInputSchema = z.object({
 });
 const convexDataTableSchema = z.enum([
   "vaults",
-  "vaultInfrastructure",
+  "vaultConvexDeployments",
+  "vaultCloudflareWorkers",
   "vaultDomains",
   "codespaces",
   "fileStaging",

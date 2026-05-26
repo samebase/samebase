@@ -127,6 +127,16 @@ const providerCleanupPlan = {
       workerName: string(),
       workerTag: string(),
     }),
+    object({
+      action: literal("delete_workers"),
+      workers: array(
+        object({
+          accountId: string(),
+          workerName: string(),
+          workerTag: string(),
+        }),
+      ),
+    }),
   ),
 } as const;
 

@@ -5,12 +5,21 @@ import {
   GitHubProviderLogo,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { cn } from "@/lib/utils";
-import { Clock, Loader2, Plus, RotateCw, XCircle, type LucideIcon } from "lucide-react";
+import {
+  ChevronDown,
+  Clock,
+  Loader2,
+  Plus,
+  RotateCw,
+  XCircle,
+  type LucideIcon,
+} from "lucide-react";
 import { type ComponentType, type MouseEvent } from "react";
 
 type VaultResourceRailActionKind = "add" | "retry";
 
 export type VaultResourceRailAction = {
+  ariaLabel?: string;
   disabled?: boolean;
   href?: string;
   kind: VaultResourceRailActionKind;
@@ -37,6 +46,7 @@ type VaultResourceRailRunningRow<TProvider extends VaultResourceRailProvider> = 
 };
 
 type VaultResourceRailReadyRow<TProvider extends VaultResourceRailProvider> = {
+  actions?: VaultResourceRailActionList;
   href?: string;
   provider: TProvider;
   scope?: string;
@@ -67,12 +77,14 @@ export type VaultResourceRailRowState<
   | VaultResourceRailReadyRow<TProvider>
   | VaultResourceRailRunningRow<TProvider>;
 
+export type VaultResourceRailAppState = {
+  appRoot: string;
+  rows: readonly VaultResourceRailRowState<"cloudflare" | "convex">[];
+};
+
 export type VaultResourceRailState = {
-  rows: readonly [
-    VaultResourceRailRowState<"github">,
-    VaultResourceRailRowState<"convex">,
-    VaultResourceRailRowState<"cloudflare">,
-  ];
+  apps: readonly VaultResourceRailAppState[];
+  githubRow: VaultResourceRailRowState<"github">;
 };
 
 type VaultResourceRailIconStatus = "failed" | "pending" | "running";
@@ -112,6 +124,11 @@ const RESOURCE_LINK_VALUE_CLASS_NAME =
 const RESOURCE_ACTION_LINK_CLASS_NAME =
   "-mx-1 -my-0.5 inline-flex min-h-7 items-center px-1 py-0.5 text-sm leading-6 text-foreground touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current";
 const RESOURCE_VALUE_SCOPE_CLASS_NAME = "font-normal text-muted-foreground";
+const APP_ROOT_CLASS_NAME =
+  "grid min-h-7 max-w-full grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-x-2 text-sm leading-6 text-muted-foreground";
+const APP_ROOT_ICON_CLASS_NAME = "h-3.5 w-3.5 text-muted-foreground";
+const APP_ROOT_VALUE_CLASS_NAME = "min-w-0 max-w-full truncate font-mono";
+const APP_PROVIDER_ROWS_CLASS_NAME = "grid min-w-0 gap-0.5 pl-6";
 
 function getStatusIcon(status: VaultResourceRailIconStatus): LucideIcon {
   switch (status) {
@@ -131,8 +148,9 @@ function getRowActions(row: VaultResourceRailRowState): VaultResourceRailActionL
     case "action_required":
     case "failed":
       return row.actions;
-    case "pending":
     case "ready":
+      return row.actions;
+    case "pending":
     case "running":
       return undefined;
   }
@@ -192,9 +210,10 @@ function VaultResourceRailActions({
         const Icon = ACTION_ICONS[action.kind];
         const isDisabled = action.disabled || (!action.href && !action.onClick);
         const actionLabel =
-          action.kind === "add"
+          action.ariaLabel ??
+          (action.kind === "add"
             ? `Add ${PROVIDER_LABELS[provider]}`
-            : `${action.label} ${PROVIDER_LABELS[provider]}`;
+            : `${action.label} ${PROVIDER_LABELS[provider]}`);
         if (action.href) {
           return (
             <a
@@ -307,13 +326,36 @@ function VaultResourceRailItem({ row }: { row: VaultResourceRailRowState }) {
     </div>
   );
 
+  if (row.status === "ready" && row.href && actions) {
+    return (
+      <div data-provider={row.provider} className={RESOURCE_ROW_CLASS_NAME} title={providerLabel}>
+        <span className={RESOURCE_LOGO_SLOT_CLASS_NAME}>
+          <ProviderLogo />
+        </span>
+        <div className={RESOURCE_CONTENT_CLASS_NAME}>
+          <a
+            href={row.href}
+            className={RESOURCE_LINK_VALUE_CLASS_NAME}
+            title={`Open ${providerLabel}`}
+            aria-label={`Open ${providerLabel}: ${displayValue ?? row.value}`}
+          >
+            <VaultResourceRailValue
+              className={RESOURCE_LINK_VALUE_CLASS_NAME}
+              scope={scope}
+              value={row.value}
+            />
+          </a>
+          <VaultResourceRailActions actions={actions} provider={row.provider} />
+        </div>
+      </div>
+    );
+  }
+
   if (row.status === "ready" && row.href) {
     return (
       <a
         data-provider={row.provider}
         href={row.href}
-        target="_blank"
-        rel="noopener noreferrer"
         className={RESOURCE_LINK_ROW_CLASS_NAME}
         title={`Open ${providerLabel}`}
         aria-label={`Open ${providerLabel}: ${displayValue ?? row.value}`}
@@ -344,9 +386,30 @@ export function VaultResourceRail({ state }: { state: VaultResourceRailState }) 
   return (
     <div data-testid="vault-resource-rail" className="mt-1 grid w-full gap-1">
       <div className="grid min-w-0 gap-0.5">
-        {state.rows.map((row) => (
-          <VaultResourceRailItem key={row.provider} row={row} />
-        ))}
+        <VaultResourceRailItem row={state.githubRow} />
+        {state.apps.map((app) =>
+          app.appRoot === "." ? (
+            <div key={app.appRoot} className="grid min-w-0 gap-0.5">
+              {app.rows.map((row) => (
+                <VaultResourceRailItem key={row.provider} row={row} />
+              ))}
+            </div>
+          ) : (
+            <div key={app.appRoot} className="grid min-w-0 gap-0.5">
+              <div className={APP_ROOT_CLASS_NAME}>
+                <span className={RESOURCE_LOGO_SLOT_CLASS_NAME}>
+                  <ChevronDown className={APP_ROOT_ICON_CLASS_NAME} aria-hidden="true" />
+                </span>
+                <span className={APP_ROOT_VALUE_CLASS_NAME}>{app.appRoot}</span>
+              </div>
+              <div className={APP_PROVIDER_ROWS_CLASS_NAME}>
+                {app.rows.map((row) => (
+                  <VaultResourceRailItem key={row.provider} row={row} />
+                ))}
+              </div>
+            </div>
+          ),
+        )}
       </div>
     </div>
   );

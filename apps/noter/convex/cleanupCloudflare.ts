@@ -25,11 +25,6 @@ export const cleanupCloudflareData = internalMutation({
       await ctx.db.replace(user._id, stripSystemFields(user));
     }
 
-    const infrastructure = await ctx.db.query("vaultInfrastructure").collect();
-    for (const infra of infrastructure) {
-      await ctx.db.replace(infra._id, stripSystemFields(infra));
-    }
-
     const domains = await ctx.db.query("vaultDomains").collect();
     for (const domain of domains) {
       const source = readUnknownField(domain, "source");

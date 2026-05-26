@@ -16,6 +16,7 @@ import {
   readRouteSearchParamSuggestions,
   readRouteSearchPresenceKeys,
   readRouteSearchParamMetadata,
+  routeSearchNonEmptyString,
   routeSearchPresenceParam,
   routeSearchStringValue,
   routeSearchValueParam,
@@ -27,15 +28,21 @@ import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 // TanStack Router's root route id is the stable "__root__" literal, and using
 // it directly keeps this helper on the app package boundary.
 const ROOT_ROUTE_ID = "__root__";
+export const DASHBOARD_ADD_APP_ROOT_QUERY_PARAM = "add-app-root";
+export const DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM = "app-root";
 
 const rootRouteSearchSchema = defineRouteSearchParams({
-  "add-cloudflare": routeSearchPresenceParam({
+  [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: routeSearchPresenceParam({
     permission: "admin",
     suggestion: "route",
   }),
+  "add-cloudflare": routeSearchPresenceParam({
+    permission: "admin",
+    suggestion: "hidden",
+  }),
   "add-convex": routeSearchPresenceParam({
     permission: "admin",
-    suggestion: "route",
+    suggestion: "hidden",
   }),
   "auth-return": routeSearchValueParam(routeSearchStringValue(["dashboard"]), {
     permission: "public",
@@ -48,6 +55,11 @@ const rootRouteSearchSchema = defineRouteSearchParams({
     sampleValue: "google",
     suggestion: "route",
     valueSuggestions: ["google"],
+  }),
+  [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: routeSearchValueParam(routeSearchNonEmptyString, {
+    permission: "admin",
+    sampleValue: "apps/noter",
+    suggestion: "hidden",
   }),
   delete: routeSearchPresenceParam({
     permission: "admin",
@@ -91,10 +103,14 @@ const rootRouteSearchOwnParamMetadata = readRouteSearchParamMetadata(rootRouteSe
 
 const rootRouteSearchParamMetadata = {
   ...LOGO_ROUTE_SEARCH_PARAM_METADATA,
+  [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]:
+    rootRouteSearchOwnParamMetadata[DASHBOARD_ADD_APP_ROOT_QUERY_PARAM],
   "add-cloudflare": rootRouteSearchOwnParamMetadata["add-cloudflare"],
   "add-convex": rootRouteSearchOwnParamMetadata["add-convex"],
   "auth-return": rootRouteSearchOwnParamMetadata["auth-return"],
   auth: rootRouteSearchOwnParamMetadata.auth,
+  [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]:
+    rootRouteSearchOwnParamMetadata[DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM],
   background: globalLogoRouteSearchParam("background"),
   border: globalLogoRouteSearchParam("border"),
   dark: globalLogoRouteSearchParam("dark"),
@@ -115,6 +131,13 @@ const rootRouteSearchParamMetadata = {
 } as const satisfies RouteSearchParamMetadataByKey<RootRouteSearch>;
 
 const ROOT_ROUTE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(rootRouteSearchParamMetadata);
+const DASHBOARD_MODAL_SEARCH_KEYS = [
+  DASHBOARD_ADD_APP_ROOT_QUERY_PARAM,
+  "add-cloudflare",
+  "add-convex",
+  "delete",
+  "new-app",
+] as const satisfies readonly (keyof RootRouteSearchBase)[];
 
 export const ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
   rootRouteSearchParamMetadata,
@@ -134,6 +157,38 @@ export const ROOT_INDEX_ROUTE_SEARCH_PARAM_SUGGESTIONS = ROOT_ROUTE_SEARCH_PARAM
   (suggestion) => suggestion.permission === "public",
 );
 
+function normalizeDashboardModalSearch(parsedSearch: RootRouteSearchBase): RootRouteSearchBase {
+  const providerAppRoot = parsedSearch[DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM];
+  const validModalKeys = DASHBOARD_MODAL_SEARCH_KEYS.filter((key) => {
+    if (!parsedSearch[key]) {
+      return false;
+    }
+    if (key === "add-cloudflare" || key === "add-convex") {
+      return typeof providerAppRoot === "string";
+    }
+    return true;
+  });
+  if (validModalKeys.length === 1) {
+    const key = validModalKeys[0];
+    if (key === "add-cloudflare" || key === "add-convex") {
+      return parsedSearch;
+    }
+    return {
+      ...parsedSearch,
+      [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: undefined,
+    };
+  }
+
+  const normalizedSearch = {
+    ...parsedSearch,
+    [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: undefined,
+  };
+  for (const key of DASHBOARD_MODAL_SEARCH_KEYS) {
+    normalizedSearch[key] = undefined;
+  }
+  return normalizedSearch;
+}
+
 /**
  * Root-level preview/debug/theme controls follow public-route navigation unless
  * a caller clears the key with a route-search tombstone.
@@ -148,7 +203,9 @@ function parseRootRouteSearch(search: Record<string, unknown>): RootRouteSearch 
     search,
     ROOT_ROUTE_PRESENCE_SEARCH_KEYS,
   );
-  const parsedSearch = rootRouteSearchSchema.parse(presenceNormalizedSearch);
+  const parsedSearch = normalizeDashboardModalSearch(
+    rootRouteSearchSchema.parse(presenceNormalizedSearch),
+  );
   if (!parsedSearch[SEARCH_RESET_QUERY_PARAM]) {
     const logoSearch = validateLogoRouteSearch(presenceNormalizedSearch);
     const conflictingThemeModeSearch =

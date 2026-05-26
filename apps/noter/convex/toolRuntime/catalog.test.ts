@@ -139,6 +139,9 @@ describe("buildMcpToolInputSchema", () => {
 
     const schema = buildMcpToolInputSchema(proposalTool);
     expect(schema.properties).toHaveProperty("table");
+    expect(schema.properties.table).toMatchObject({
+      enum: expect.arrayContaining(["vaultCloudflareWorkers"]),
+    });
     expect(schema.properties).toHaveProperty("vaultId");
     expect(schema.properties).toHaveProperty("threadId");
     expect(schema.required).toEqual(["table", "vaultId", "threadId"]);

@@ -290,10 +290,7 @@ describe("readRouteUrlEditorSuggestions", () => {
       viewer: adminViewer,
     });
 
-    expect(suggestions.map((suggestion) => suggestion.value)).toEqual([
-      "?add-cloudflare",
-      "?add-convex",
-    ]);
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["?add-app-root"]);
   });
 
   it("keeps local-only route search params on local surfaces", () => {
@@ -326,6 +323,22 @@ describe("readRouteUrlEditorSuggestions", () => {
     });
 
     expect(suggestions.map((suggestion) => suggestion.value)).toEqual([]);
+  });
+
+  it("keeps the app root search param available for admins", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/home",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/home?add-app-r",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/home?add-app-r".length,
+      viewer: adminViewer,
+    });
+
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["?add-app-root"]);
   });
 
   it("suggests route-specific hashes when the route is accessible", () => {

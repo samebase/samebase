@@ -47,8 +47,6 @@ async function createConnectedVault() {
       name: "refresh-me",
       defaultBranch: "main",
       visibility: "private",
-      convex: { state: "not_configured" },
-      cloudflare: { state: "not_configured" },
       connectedAt: 4,
     });
 
@@ -121,8 +119,6 @@ async function insertConnectedVaultForUser(
       name: args.name,
       defaultBranch: "main",
       visibility: "private",
-      convex: { state: "not_configured" },
-      cloudflare: { state: "not_configured" },
       connectedAt: args.connectedAt,
     });
     return vaultId;

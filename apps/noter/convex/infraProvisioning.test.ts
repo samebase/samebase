@@ -2,13 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
 import {
-  resolveCloudflareBuildConfig,
   resolveConnectionFailureProvider,
   selectCloudflareBuildConfigTreeData,
   selectExistingCloudflareWorker,
 } from "./infraProvisioning";
 import type { GithubTreeData } from "./schema";
 import { makeConvexTest } from "./test.setup";
+import { buildVaultCloudflareBuildConfigForAppRoot } from "./vault/model";
 
 const branchTreeData = {
   sha: "branch-tree",
@@ -25,6 +25,10 @@ const branchTreeData = {
 const convexProjectId = "9223372036854775807";
 const convexTeamId = "9223372036854775806";
 const otherConvexTeamId = "9223372036854775805";
+const rootCloudflareAppRoot = ".";
+const rootCloudflareBuild = buildVaultCloudflareBuildConfigForAppRoot({
+  appRoot: rootCloudflareAppRoot,
+});
 
 describe("selectCloudflareBuildConfigTreeData", () => {
   it("prefers the branch tree cache", () => {
@@ -44,91 +48,22 @@ describe("selectCloudflareBuildConfigTreeData", () => {
   });
 });
 
-describe("resolveCloudflareBuildConfig", () => {
-  it("narrows Workers Builds triggers for monorepo Noter apps", () => {
-    expect(resolveCloudflareBuildConfig({ treeData: branchTreeData })).toEqual({
-      rootDir: "apps/noter",
-      buildCommand: "pnpm run build",
-      deployCommand: "pnpm exec wrangler deploy",
-      previewDeployCommand: "pnpm exec wrangler versions upload",
-      pathIncludes: [
-        "apps/noter/*",
-        "packages/dependent/*",
-        "pnpm-lock.yaml",
-        "pnpm-workspace.yaml",
-        "package.json",
-        ".nvmrc",
-      ],
-      pathExcludes: [],
-    });
-  });
-
-  it("keeps root apps on the broad trigger default", () => {
-    expect(
-      resolveCloudflareBuildConfig({
-        treeData: {
-          sha: "root-tree",
-          truncated: false,
-          tree: [
-            {
-              path: "package.json",
-              mode: "100644",
-              type: "blob",
-              sha: "package-sha",
-            },
-          ],
-        },
-      }),
-    ).toEqual({
-      rootDir: "/",
-      buildCommand: "pnpm run build",
-      deployCommand: "pnpm run deploy",
-      previewDeployCommand: "pnpm run deploy:preview",
-      pathIncludes: ["*"],
-      pathExcludes: [],
-    });
-  });
-});
-
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
 describe("selectExistingCloudflareWorker", () => {
-  it("prefers the fully connected Worker tag", () => {
-    expect(
-      selectExistingCloudflareWorker({
-        cloudflare: {
-          state: "connected",
-          accountId: "account-1",
-          workerName: "noter",
-          workerTag: "connected-worker-tag",
-          workersDevUrl: "https://noter.example.workers.dev",
-          origin: "provisioned",
-          connectedAt: 20,
-          lastObservedAt: 20,
-        },
-        cloudflareTarget: {
-          state: "planned",
-          accountId: "account-1",
-          workerName: "noter",
-        },
-        accountId: "account-1",
-      }),
-    ).toEqual({ state: "created", workerTag: "connected-worker-tag" });
-  });
-
   it("prefers the provisional Worker tag recorded for retries", () => {
     expect(
       selectExistingCloudflareWorker({
-        cloudflare: { state: "not_configured" },
         cloudflareTarget: {
           state: "created",
           accountId: "account-1",
           workerName: "noter",
           workerTag: "provisional-worker-tag",
           workersDevUrl: "https://noter.example.workers.dev",
+          build: rootCloudflareBuild,
         },
         accountId: "account-1",
       }),
@@ -138,11 +73,11 @@ describe("selectExistingCloudflareWorker", () => {
   it("keeps missing Worker identity adoptable without a recorded tag", () => {
     expect(
       selectExistingCloudflareWorker({
-        cloudflare: { state: "not_configured" },
         cloudflareTarget: {
           state: "planned",
           accountId: "account-1",
           workerName: "noter",
+          build: rootCloudflareBuild,
         },
         accountId: "account-1",
       }),
@@ -152,11 +87,11 @@ describe("selectExistingCloudflareWorker", () => {
   it("keeps planned Worker names adoptable without a recorded tag", () => {
     expect(
       selectExistingCloudflareWorker({
-        cloudflare: { state: "not_configured" },
         cloudflareTarget: {
           state: "planned",
           accountId: "account-2",
           workerName: "noter",
+          build: rootCloudflareBuild,
         },
         accountId: "account-2",
       }),
@@ -227,8 +162,6 @@ describe("infrastructure provisioning ownership", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: { state: "not_configured" },
-        cloudflare: { state: "not_configured" },
       });
 
       return { runId, vaultId };
@@ -279,12 +212,6 @@ describe("infrastructure provisioning ownership", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: {
-          state: "provisioning",
-          runId,
-          startedAt: 25,
-        },
-        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
@@ -295,6 +222,7 @@ describe("infrastructure provisioning ownership", () => {
       });
       await ctx.db.insert("vaultInfrastructureTargets", {
         vaultId,
+        appRoot: rootCloudflareAppRoot,
         convex: {
           state: "planned",
           projectName: "provider-retry",
@@ -303,6 +231,7 @@ describe("infrastructure provisioning ownership", () => {
           state: "planned",
           accountId: "cloudflare-account-id",
           workerName: "provider-retry",
+          build: rootCloudflareBuild,
         },
         createdAt: 31,
         updatedAt: 31,
@@ -330,6 +259,7 @@ describe("infrastructure provisioning ownership", () => {
         projectName: "provider-retry",
         projectId: "convex-project-id",
       },
+      appRoot: rootCloudflareAppRoot,
     });
   });
 
@@ -369,14 +299,6 @@ describe("infrastructure provisioning ownership", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: {
-          state: "connected",
-          projectId: "convex-project-id",
-          projectSlug: "provider-retry",
-          deploymentName: "provider-retry-prod",
-          connectedAt: 25,
-        },
-        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
@@ -387,6 +309,7 @@ describe("infrastructure provisioning ownership", () => {
       });
       await ctx.db.insert("vaultInfrastructureTargets", {
         vaultId,
+        appRoot: rootCloudflareAppRoot,
         convex: {
           state: "planned",
           projectName: "provider-retry",
@@ -395,6 +318,7 @@ describe("infrastructure provisioning ownership", () => {
           state: "planned",
           accountId: "cloudflare-account-id",
           workerName: "provider-retry",
+          build: rootCloudflareBuild,
         },
         createdAt: 31,
         updatedAt: 31,
@@ -411,21 +335,15 @@ describe("infrastructure provisioning ownership", () => {
       workerTag: "cloudflare-worker-tag",
       workersDevUrl: "https://provider-retry.example.workers.dev",
     });
-    const { vault, target } = await t.run(async (ctx) => {
-      const vault = await ctx.db.get(ids.vaultId);
+    const target = await t.run(async (ctx) => {
       const target = await ctx.db
         .query("vaultInfrastructureTargets")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
-      return { target, vault };
+      return target;
     });
 
     expect(result).toEqual({ applied: true });
-    expect(vault).toMatchObject({
-      cloudflare: {
-        state: "not_configured",
-      },
-    });
     expect(target).toMatchObject({
       cloudflare: {
         state: "created",
@@ -433,7 +351,9 @@ describe("infrastructure provisioning ownership", () => {
         workerName: "provider-retry",
         workerTag: "cloudflare-worker-tag",
         workersDevUrl: "https://provider-retry.example.workers.dev",
+        build: rootCloudflareBuild,
       },
+      appRoot: rootCloudflareAppRoot,
     });
   });
 
@@ -473,14 +393,6 @@ describe("infrastructure provisioning ownership", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: {
-          state: "connected",
-          projectId: "convex-project-id",
-          projectSlug: "deploy-keys",
-          deploymentName: "deploy-keys-prod",
-          connectedAt: 25,
-        },
-        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
@@ -489,19 +401,41 @@ describe("infrastructure provisioning ownership", () => {
         state: "active",
         updatedAt: 30,
       });
-      await ctx.db.insert("vaultInfrastructure", {
+      await ctx.db.insert("vaultInfrastructureTargets", {
         vaultId,
-        convexProjectId: "convex-project-id",
-        convexTeamSlug: "ada-team",
-        convexProjectSlug: "deploy-keys",
-        convexDeploymentName: "deploy-keys-prod",
-        convexDeploymentType: "prod",
-        convexCloudUrl: "https://deploy-keys.convex.cloud",
-        convexSiteUrl: "https://deploy-keys.convex.site",
-        convexDeployKeys: {
+        appRoot: rootCloudflareAppRoot,
+        convex: {
+          state: "created",
+          projectName: "deploy-keys",
+          projectId: "convex-project-id",
+        },
+        cloudflare: {
+          state: "planned",
+          accountId: "cloudflare-account-id",
+          workerName: "deploy-keys",
+          build: rootCloudflareBuild,
+        },
+        createdAt: 31,
+        updatedAt: 31,
+      });
+      await ctx.db.insert("vaultConvexDeployments", {
+        vaultId,
+        userId,
+        appRoot: rootCloudflareAppRoot,
+        projectId: "convex-project-id",
+        teamSlug: "ada-team",
+        projectSlug: "deploy-keys",
+        deploymentName: "deploy-keys-prod",
+        deploymentType: "prod",
+        cloudUrl: "https://deploy-keys.convex.cloud",
+        siteUrl: "https://deploy-keys.convex.site",
+        deployKeys: {
           production: { state: "not_created" },
           preview: { state: "not_created" },
         },
+        origin: "provisioned",
+        connectedAt: 25,
+        lastObservedAt: 25,
       });
 
       return { runId, vaultId };
@@ -525,17 +459,17 @@ describe("infrastructure provisioning ownership", () => {
         convexDeployKeyId: "preview-key-id",
       },
     );
-    const infrastructure = await t.run(async (ctx) => {
+    const deployment = await t.run(async (ctx) => {
       return await ctx.db
-        .query("vaultInfrastructure")
+        .query("vaultConvexDeployments")
         .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
         .first();
     });
 
     expect(productionRecord).toEqual({ applied: true });
     expect(previewRecord).toEqual({ applied: true });
-    expect(infrastructure).toMatchObject({
-      convexDeployKeys: {
+    expect(deployment).toMatchObject({
+      deployKeys: {
         production: { state: "created", id: "production-key-id" },
         preview: { state: "created", id: "preview-key-id" },
       },
@@ -588,14 +522,6 @@ describe("infrastructure provisioning ownership", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: {
-          state: "connected",
-          projectId: "convex-project",
-          projectSlug: "fresh-ownership-project",
-          deploymentName: "fresh-ownership-prod",
-          connectedAt: 25,
-        },
-        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
@@ -664,12 +590,6 @@ describe("infrastructure provisioning ownership", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: {
-          state: "provisioning",
-          runId,
-          startedAt: 25,
-        },
-        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
@@ -691,8 +611,7 @@ describe("infrastructure provisioning ownership", () => {
     const vault = await t.run(async (ctx) => await ctx.db.get(ids.vaultId));
 
     expect(vault).toMatchObject({
-      convex: { state: "not_configured" },
-      cloudflare: { state: "not_configured" },
+      state: "connected",
     });
   });
 
@@ -733,14 +652,6 @@ describe("infrastructure provisioning ownership", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: {
-          state: "connected",
-          projectId: "convex-project",
-          projectSlug: "cloudflare-token-failure",
-          deploymentName: "cloudflare-token-failure-prod",
-          connectedAt: 25,
-        },
-        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
@@ -896,14 +807,6 @@ describe("infrastructure provisioning ownership", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: {
-          state: "connected",
-          projectId: convexProjectId,
-          projectSlug: "preview-validation",
-          deploymentName: "preview-validation-prod",
-          connectedAt: 25,
-        },
-        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("providerConnections", {
         kind: "convex",
@@ -923,19 +826,41 @@ describe("infrastructure provisioning ownership", () => {
         state: "active",
         updatedAt: 30,
       });
-      await ctx.db.insert("vaultInfrastructure", {
+      await ctx.db.insert("vaultInfrastructureTargets", {
         vaultId,
-        convexProjectId,
-        convexTeamSlug: "ada-team",
-        convexProjectSlug: "preview-validation",
-        convexDeploymentName: "preview-validation-prod",
-        convexDeploymentType: "prod",
-        convexCloudUrl: "https://preview-validation.convex.cloud",
-        convexSiteUrl: "https://preview-validation.convex.site",
-        convexDeployKeys: {
+        appRoot: rootCloudflareAppRoot,
+        convex: {
+          state: "created",
+          projectName: "preview-validation",
+          projectId: convexProjectId,
+        },
+        cloudflare: {
+          state: "planned",
+          accountId: "cloudflare-account-id",
+          workerName: "preview-validation",
+          build: rootCloudflareBuild,
+        },
+        createdAt: 31,
+        updatedAt: 31,
+      });
+      await ctx.db.insert("vaultConvexDeployments", {
+        vaultId,
+        userId,
+        appRoot: rootCloudflareAppRoot,
+        projectId: convexProjectId,
+        teamSlug: "ada-team",
+        projectSlug: "preview-validation",
+        deploymentName: "preview-validation-prod",
+        deploymentType: "prod",
+        cloudUrl: "https://preview-validation.convex.cloud",
+        siteUrl: "https://preview-validation.convex.site",
+        deployKeys: {
           production: { state: "not_created" },
           preview: { state: "not_created" },
         },
+        origin: "provisioned",
+        connectedAt: 25,
+        lastObservedAt: 25,
       });
 
       return { runId, vaultId };

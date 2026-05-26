@@ -44,8 +44,6 @@ describe("vault branch mutations", () => {
         name: "secure-refresh",
         defaultBranch: "main",
         visibility: "private",
-        convex: { state: "not_configured" },
-        cloudflare: { state: "not_configured" },
         connectedAt: 4,
       });
       return { ownerId, otherUserId, vaultId };

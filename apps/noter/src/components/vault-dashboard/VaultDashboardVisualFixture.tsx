@@ -24,6 +24,7 @@ import {
   VaultBranchHeaderControls,
   VaultBranchLinkRow,
   VaultBranchListExpansionControl,
+  VaultDashboardAppRootDialog,
   VaultDashboardCloudflareDialog,
   VaultDashboardConvexDialog,
   VaultDashboardCreateDialog,
@@ -43,6 +44,8 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-create-open"
   | "vault-dashboard-dev-tools-hidden"
   | "vault-dashboard-dev-tools-visible"
+  | "vault-dashboard-add-first-app-root-open"
+  | "vault-dashboard-add-app-root-open"
   | "vault-dashboard-connect-cloudflare-open"
   | "vault-dashboard-connect-cloudflare-mobile-shell-open"
   | "vault-dashboard-connect-convex-open"
@@ -150,7 +153,7 @@ type FixtureVaultBranch = Parameters<typeof VaultBranchLinkRow>[0]["branch"];
 
 interface FixtureVaultBranchRow {
   branch: FixtureVaultBranch;
-  productionDeploymentDashboardUrl?: string;
+  productionApps?: Parameters<typeof VaultBranchLinkRow>[0]["productionApps"];
 }
 
 function fixtureVaultBranch(
@@ -261,7 +264,36 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
       aheadBy: 0,
       behindBy: 0,
     }),
-    productionDeploymentDashboardUrl: "https://dashboard.convex.dev/t/nicu/noter/calm-swan-123",
+    productionApps: [
+      {
+        appRoot: "apps/domain-router",
+        links: [
+          {
+            href: "https://domain-router.nicu.workers.dev",
+            label: "domain-router.nicu.workers.dev",
+            provider: "cloudflare",
+            title: "Open production app for apps/domain-router",
+          },
+        ],
+      },
+      {
+        appRoot: "apps/noter",
+        links: [
+          {
+            href: "https://noter-worker.nicu.workers.dev",
+            label: "noter-worker.nicu.workers.dev",
+            provider: "cloudflare",
+            title: "Open production app for apps/noter",
+          },
+          {
+            href: "https://dashboard.convex.dev/t/nicu/noter/calm-swan-123",
+            label: "Production: calm-swan-123",
+            provider: "convex",
+            title: "Open production Convex deployment calm-swan-123",
+          },
+        ],
+      },
+    ],
   },
   {
     branch: fixtureVaultBranch({
@@ -410,7 +442,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
                       vaultId={fakeVaultId()}
                       repositoryFullName="noter-md/noter"
                       branch={branchRow.branch}
-                      productionDeploymentDashboardUrl={branchRow.productionDeploymentDashboardUrl}
+                      productionApps={branchRow.productionApps}
                     />
                   ))}
                 </div>
@@ -516,12 +548,15 @@ function FixtureCloudflareConnectDialog() {
           accountName: "Samebase",
         },
       ]}
+      appRoot="apps/atelier"
+      appRootReadOnly={true}
       createWorkerName="atelier"
       error={null}
       isLoading={false}
       isSubmitting={false}
       mode="existing"
       onAccountChange={() => {}}
+      onAppRootChange={() => {}}
       onCreateWorkerNameChange={() => {}}
       onModeChange={() => {}}
       onOpenChange={() => {}}
@@ -531,6 +566,7 @@ function FixtureCloudflareConnectDialog() {
       selectedAccountId="fe57d01d7ab41f60d00ba1aade20eb33"
       selectedWorkerName="app-start-workers"
       vault={{
+        fixedAppRoot: "apps/atelier",
         id: fakeVaultId(),
         repositoryFullName: "samebase/atelier",
         repositoryName: "atelier",
@@ -560,6 +596,88 @@ function VaultDashboardConnectCloudflareOpenFixture() {
           />
         </VaultDashboardRepositoryList>
         <FixtureCloudflareConnectDialog />
+      </TestRouterProvider>
+    </div>
+  );
+}
+
+function VaultDashboardAddAppRootConvertOpenFixture() {
+  return (
+    <div
+      data-testid="vault-dashboard-visual-fixture"
+      data-mode="vault-dashboard-add-app-root-open"
+      className="w-full bg-background p-4 text-foreground"
+    >
+      <TestRouterProvider>
+        <VaultDashboardRepositoryList>
+          <VaultDashboardRepositoryCard
+            isReady={true}
+            repositoryOwner="noter-md"
+            repositoryName="noter"
+            titleHref="https://github.com/noter-md/noter"
+            repositoryLinks={<FixtureRepositoryLinks />}
+            topRightAction={<FixtureDeleteControl />}
+            repositoryStatus={<span>Updated 12s ago</span>}
+          />
+        </VaultDashboardRepositoryList>
+        <VaultDashboardAppRootDialog
+          appRoot=""
+          error={null}
+          isSubmitting={false}
+          mode="monorepo"
+          onAppRootChange={() => {}}
+          onModeChange={() => {}}
+          onOpenChange={() => {}}
+          onSubmit={() => {}}
+          open={true}
+          vault={{
+            hasAppRoots: true,
+            hasRootAppRoot: true,
+            id: fakeVaultId(),
+            repositoryFullName: "noter-md/noter",
+          }}
+        />
+      </TestRouterProvider>
+    </div>
+  );
+}
+
+function VaultDashboardAddFirstAppRootOpenFixture() {
+  return (
+    <div
+      data-testid="vault-dashboard-visual-fixture"
+      data-mode="vault-dashboard-add-first-app-root-open"
+      className="w-full bg-background p-4 text-foreground"
+    >
+      <TestRouterProvider>
+        <VaultDashboardRepositoryList>
+          <VaultDashboardRepositoryCard
+            isReady={true}
+            repositoryOwner="samebase"
+            repositoryName="atelier"
+            titleHref="https://github.com/samebase/atelier"
+            repositoryLinks={<FixtureRepositoryLinks />}
+            topRightAction={<FixtureDeleteControl />}
+            repositoryStatus={<span>Updated 12s ago</span>}
+          />
+        </VaultDashboardRepositoryList>
+        <VaultDashboardAppRootDialog
+          appRoot="."
+          error={null}
+          isSubmitting={false}
+          mode="app"
+          onAppRootChange={() => {}}
+          onModeChange={() => {}}
+          onOpenChange={() => {}}
+          onSubmit={() => {}}
+          open={true}
+          vault={{
+            hasAppRoots: false,
+            hasRootAppRoot: false,
+            id: fakeVaultId(),
+            repositoryFullName: "samebase/atelier",
+          }}
+        />
       </TestRouterProvider>
     </div>
   );
@@ -609,6 +727,8 @@ function VaultDashboardConnectConvexOpenFixture() {
           />
         </VaultDashboardRepositoryList>
         <VaultDashboardConvexDialog
+          appRoot="."
+          appRootReadOnly={false}
           createProjectName="noter-app"
           projects={[
             {
@@ -622,6 +742,7 @@ function VaultDashboardConnectConvexOpenFixture() {
           isLoading={false}
           isSubmitting={false}
           mode="existing"
+          onAppRootChange={() => {}}
           onCreateProjectNameChange={() => {}}
           onProjectChange={() => {}}
           onModeChange={() => {}}
@@ -630,6 +751,7 @@ function VaultDashboardConnectConvexOpenFixture() {
           open={true}
           selectedProjectId="jaded-heron-123"
           vault={{
+            fixedAppRoot: ".",
             id: fakeVaultId(),
             repositoryFullName: "noter-md/noter-app",
             repositoryName: "noter-app",
@@ -1070,6 +1192,14 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
     return <VaultDashboardDeveloperToolsFixture visible={true} />;
   }
 
+  if (mode === "vault-dashboard-add-first-app-root-open") {
+    return <VaultDashboardAddFirstAppRootOpenFixture />;
+  }
+
+  if (mode === "vault-dashboard-add-app-root-open") {
+    return <VaultDashboardAddAppRootConvertOpenFixture />;
+  }
+
   if (mode === "vault-dashboard-connect-cloudflare-open") {
     return <VaultDashboardConnectCloudflareOpenFixture />;
   }
@@ -1154,7 +1284,19 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
                         aheadBy: 0,
                         behindBy: 0,
                       })}
-                      productionDeploymentDashboardUrl="https://dashboard.convex.dev/t/nicu/noter/calm-swan-123"
+                      productionApps={[
+                        {
+                          appRoot: ".",
+                          links: [
+                            {
+                              href: "https://dashboard.convex.dev/t/nicu/noter/calm-swan-123",
+                              label: "Production: calm-swan-123",
+                              provider: "convex",
+                              title: "Open production Convex deployment calm-swan-123",
+                            },
+                          ],
+                        },
+                      ]}
                     />
                     <VaultBranchLinkRow
                       vaultId={fakeVaultId()}

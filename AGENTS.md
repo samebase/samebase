@@ -289,6 +289,10 @@ Key domain entities:
   content sub-APIs like `title`, `meta`, `leading`, or `trailing` unless the product truly needs one
   shared content pattern.
 - Do not construct Tailwind or CSS class names dynamically. Map state to full literal class strings.
+- Default app-internal navigation to SPA navigation through TanStack Router `Link` or `navigate`.
+  Plain anchors are for external URLs, downloads, or deliberate document reloads only; if an
+  internal action keeps an `href` for copy/open-in-new-tab behavior, ordinary left-clicks must still
+  route through the SPA path.
 
 ## Non-Functional Guardrails
 

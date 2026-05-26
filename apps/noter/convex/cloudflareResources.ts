@@ -22,7 +22,7 @@ type CloudflareProvisionConvexState = {
   };
 };
 
-type CloudflareBuildConfig = {
+export type CloudflareBuildConfig = {
   rootDir: string;
   buildCommand: string;
   deployCommand: string;
@@ -902,6 +902,22 @@ export type ProvisionedCloudflareResources = {
   workerName: string;
   workerTag: string;
   workersDevUrl?: string;
+  build: {
+    rootDirectory: string;
+    buildCommand: string;
+    deployCommand: string;
+    previewDeployCommand: string;
+    pathIncludes: string[];
+    pathExcludes: string[];
+    production: {
+      triggerUuid: string;
+      buildTokenUuid: string;
+    };
+    preview: {
+      triggerUuid: string;
+      buildTokenUuid: string;
+    };
+  };
 };
 
 type EnsureCloudflareResourcesArgs = {
@@ -1045,6 +1061,22 @@ export async function ensureCloudflareResources(
       workerName: worker.workerName,
       workerTag: worker.workerTag,
       workersDevUrl: worker.workersDevUrl,
+      build: {
+        rootDirectory: args.buildConfig.rootDir,
+        buildCommand: args.buildConfig.buildCommand,
+        deployCommand: args.buildConfig.deployCommand,
+        previewDeployCommand: args.buildConfig.previewDeployCommand,
+        pathIncludes: args.buildConfig.pathIncludes,
+        pathExcludes: args.buildConfig.pathExcludes,
+        production: {
+          triggerUuid: productionTriggerUuid,
+          buildTokenUuid,
+        },
+        preview: {
+          triggerUuid: previewTriggerUuid,
+          buildTokenUuid,
+        },
+      },
     };
 
     console.log("infra:cloudflare:provision:success", {

@@ -35,8 +35,9 @@ async function loadVaultContext(
   ctx: ActionCtx,
   vaultId: Id<"vaults">,
 ): Promise<{
-  infra: Doc<"vaultInfrastructure"> | null;
+  convexDeployments: Doc<"vaultConvexDeployments">[];
   vault: Doc<"vaults"> | null;
+  cloudflareWorkers: Doc<"vaultCloudflareWorkers">[];
   vaultUserId: Id<"users"> | null;
   convexConnection: {
     kind: "convex";
@@ -45,19 +46,48 @@ async function loadVaultContext(
     teamSlug?: string;
   } | null;
 }> {
-  const { infra, vault, vaultUserId, convexConnection } = await ctx.runQuery(
-    internal.infraReadQueries.getVaultReadContext,
-    {
+  const { convexDeployments, vault, cloudflareWorkers, vaultUserId, convexConnection } =
+    await ctx.runQuery(internal.infraReadQueries.getVaultReadContext, {
       vaultId,
-    },
-  );
+    });
 
   return {
-    infra,
+    convexDeployments,
     vault,
+    cloudflareWorkers,
     vaultUserId,
     convexConnection,
   };
+}
+
+function requireConvexDeploymentForInfraRead(
+  deployments: Doc<"vaultConvexDeployments">[],
+  vaultId: Id<"vaults">,
+): Doc<"vaultConvexDeployments"> {
+  if (deployments.length === 0) {
+    throw new Error(getVaultInfraError(vaultId));
+  }
+  if (deployments.length > 1) {
+    throw new Error(
+      "Multiple Convex deployments are connected. Choose an app root before reading production.",
+    );
+  }
+  return deployments[0];
+}
+
+function requireCloudflareWorkerForInfraRead(
+  workers: Doc<"vaultCloudflareWorkers">[],
+  vaultId: Id<"vaults">,
+): Doc<"vaultCloudflareWorkers"> {
+  if (workers.length === 0) {
+    throw new Error(getVaultInfraError(vaultId));
+  }
+  if (workers.length > 1) {
+    throw new Error(
+      "Multiple Cloudflare Workers are connected. Choose an app root before reading production.",
+    );
+  }
+  return workers[0];
 }
 
 function resolveConvexToken(
@@ -133,11 +163,8 @@ export const getConvexDeploymentStatus = internalAction({
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { infra, convexConnection } = await loadVaultContext(ctx, args.vaultId);
-
-    if (!infra) {
-      throw new Error(getVaultInfraError(args.vaultId));
-    }
+    const { convexDeployments, convexConnection } = await loadVaultContext(ctx, args.vaultId);
+    const deployment = requireConvexDeploymentForInfraRead(convexDeployments, args.vaultId);
 
     const convexToken = resolveConvexToken(convexConnection);
     const endpoint = formatConvexManagementApiEndpoint({
@@ -145,20 +172,20 @@ export const getConvexDeploymentStatus = internalAction({
       method: "GET",
       params: {
         path: {
-          deployment_name: infra.convexDeploymentName,
+          deployment_name: deployment.deploymentName,
         },
       },
     });
-    const deployment = await requestConvexManagementApi(
+    const deploymentStatus = await requestConvexManagementApi(
       convexToken,
       "GET",
       "/deployments/{deployment_name}",
-      { params: { path: { deployment_name: infra.convexDeploymentName } } },
+      { params: { path: { deployment_name: deployment.deploymentName } } },
     );
-    const raw = JSON.stringify(deployment, null, 2);
+    const raw = JSON.stringify(deploymentStatus, null, 2);
 
     return {
-      summary: `Convex deployment status for ${infra.convexDeploymentName}`,
+      summary: `Convex deployment status for ${deployment.deploymentName}`,
       endpoint,
       raw,
       rowCount: 1,
@@ -173,11 +200,8 @@ export const getConvexLogs = internalAction({
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { infra, convexConnection } = await loadVaultContext(ctx, args.vaultId);
-
-    if (!infra) {
-      throw new Error(getVaultInfraError(args.vaultId));
-    }
+    const { convexDeployments, convexConnection } = await loadVaultContext(ctx, args.vaultId);
+    const deployment = requireConvexDeploymentForInfraRead(convexDeployments, args.vaultId);
 
     const convexToken = resolveConvexToken(convexConnection);
     const endpoint = formatConvexManagementApiEndpoint({
@@ -185,7 +209,7 @@ export const getConvexLogs = internalAction({
       method: "GET",
       params: {
         path: {
-          project_id: infra.convexProjectId,
+          project_id: deployment.projectId,
         },
       },
     });
@@ -193,7 +217,7 @@ export const getConvexLogs = internalAction({
       convexToken,
       "GET",
       "/projects/{project_id}/list_deployments",
-      { params: { path: { project_id: infra.convexProjectId } } },
+      { params: { path: { project_id: deployment.projectId } } },
     );
     const max = clamp(args.maxLines ?? 20, 1, 100);
 
@@ -206,7 +230,7 @@ export const getConvexLogs = internalAction({
     }
 
     return {
-      summary: `Convex deployment activity snapshot for project ${infra.convexProjectId}`,
+      summary: `Convex deployment activity snapshot for project ${deployment.projectId}`,
       endpoint,
       raw: lines.join("\n") || "No deployment activity entries returned.",
       logLineCount: lines.length,
@@ -220,14 +244,11 @@ export const getCloudflareWorkerStatus = internalAction({
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { vault, vaultUserId } = await loadVaultContext(ctx, args.vaultId);
-    const cloudflare =
-      vault?.state === "connected" && vault.cloudflare.state === "connected"
-        ? vault.cloudflare
-        : null;
-    if (!cloudflare || !vaultUserId) {
+    const { vault, cloudflareWorkers, vaultUserId } = await loadVaultContext(ctx, args.vaultId);
+    if (vault?.state !== "connected" || !vaultUserId) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
+    const cloudflare = requireCloudflareWorkerForInfraRead(cloudflareWorkers, args.vaultId);
 
     const cloudflareConnection = await ctx.runAction(
       internal.cloudflareMcpOAuth.resolveConnectionForUser,
@@ -252,14 +273,11 @@ export const getCloudflareLogs = internalAction({
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { vault, vaultUserId } = await loadVaultContext(ctx, args.vaultId);
-    const cloudflare =
-      vault?.state === "connected" && vault.cloudflare.state === "connected"
-        ? vault.cloudflare
-        : null;
-    if (!cloudflare || !vaultUserId) {
+    const { vault, cloudflareWorkers, vaultUserId } = await loadVaultContext(ctx, args.vaultId);
+    if (vault?.state !== "connected" || !vaultUserId) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
+    const cloudflare = requireCloudflareWorkerForInfraRead(cloudflareWorkers, args.vaultId);
 
     const cloudflareConnection = await ctx.runAction(
       internal.cloudflareMcpOAuth.resolveConnectionForUser,

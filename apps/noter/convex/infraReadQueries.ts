@@ -4,7 +4,8 @@ import { clamp } from "./jsonUtils";
 
 export const vAllowedInfraReadTable = v.union(
   v.literal("vaults"),
-  v.literal("vaultInfrastructure"),
+  v.literal("vaultConvexDeployments"),
+  v.literal("vaultCloudflareWorkers"),
   v.literal("vaultDomains"),
   v.literal("codespaces"),
   v.literal("fileStaging"),
@@ -29,16 +30,26 @@ export const readTableSample = internalQuery({
       return await ctx.db.query("vaults").take(limit);
     }
 
-    if (args.table === "vaultInfrastructure") {
+    if (args.table === "vaultConvexDeployments") {
       const vaultId = args.vaultId;
       if (vaultId) {
-        const row = await ctx.db
-          .query("vaultInfrastructure")
+        return await ctx.db
+          .query("vaultConvexDeployments")
           .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-          .first();
-        return row ? [row] : [];
+          .take(limit);
       }
-      return await ctx.db.query("vaultInfrastructure").take(limit);
+      return await ctx.db.query("vaultConvexDeployments").take(limit);
+    }
+
+    if (args.table === "vaultCloudflareWorkers") {
+      const vaultId = args.vaultId;
+      if (vaultId) {
+        return await ctx.db
+          .query("vaultCloudflareWorkers")
+          .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+          .take(limit);
+      }
+      return await ctx.db.query("vaultCloudflareWorkers").take(limit);
     }
 
     if (args.table === "vaultDomains") {
@@ -97,18 +108,23 @@ export const getVaultReadContext = internalQuery({
     const vault = await ctx.db.get(args.vaultId);
     if (!vault) {
       return {
-        infra: null,
+        convexDeployments: [],
         vault: null,
+        cloudflareWorkers: [],
         vaultUserId: null,
         convexConnection: null,
       };
     }
 
-    const [infra, convexConnectionRaw] = await Promise.all([
+    const [convexDeployments, cloudflareWorkers, convexConnectionRaw] = await Promise.all([
       ctx.db
-        .query("vaultInfrastructure")
+        .query("vaultConvexDeployments")
         .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-        .first(),
+        .collect(),
+      ctx.db
+        .query("vaultCloudflareWorkers")
+        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+        .collect(),
       ctx.db
         .query("providerConnections")
         .withIndex("by_user_kind", (q) => q.eq("userId", vault.userId).eq("kind", "convex"))
@@ -116,8 +132,9 @@ export const getVaultReadContext = internalQuery({
     ]);
 
     return {
-      infra,
+      convexDeployments,
       vault,
+      cloudflareWorkers,
       vaultUserId: vault.userId,
       convexConnection: convexConnectionRaw?.kind === "convex" ? convexConnectionRaw : null,
     };

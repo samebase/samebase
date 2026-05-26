@@ -8,7 +8,12 @@ import {
   type QueryCtx,
 } from "../_generated/server";
 import { getUserId } from "../common";
-import { parseRepositoryFullName, vGitHubRepositoryVisibility } from "./model";
+import {
+  buildVaultCloudflareBuildConfigForAppRoot,
+  parseRepositoryFullName,
+  vGitHubRepositoryVisibility,
+} from "./model";
+import { ROOT_VAULT_APP_ROOT } from "../../shared/vaultAppRoot";
 import {
   assertConnectedVault,
   isConnectedVault,
@@ -244,8 +249,6 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
       visibility: args.visibility,
       defaultBranch: args.defaultBranch,
       connectedAt: Date.now(),
-      convex: { state: "not_configured" },
-      cloudflare: { state: "not_configured" },
     });
 
     return null;
@@ -329,6 +332,7 @@ export const createInitializingNoterManagedVaultForUser = internalMutation({
     });
     await ctx.db.insert("vaultInfrastructureTargets", {
       vaultId,
+      appRoot: ROOT_VAULT_APP_ROOT,
       convex: {
         state: "planned",
         projectName: args.convexProjectName,
@@ -337,9 +341,18 @@ export const createInitializingNoterManagedVaultForUser = internalMutation({
         state: "planned",
         accountId: args.cloudflareAccountId,
         workerName: args.cloudflareWorkerName,
+        build: buildVaultCloudflareBuildConfigForAppRoot({
+          appRoot: ROOT_VAULT_APP_ROOT,
+        }),
       },
       createdAt: now,
       updatedAt: now,
+    });
+    await ctx.db.insert("vaultApps", {
+      vaultId,
+      userId: args.userId,
+      appRoot: ROOT_VAULT_APP_ROOT,
+      createdAt: now,
     });
 
     return { vaultId, runId };
@@ -403,8 +416,6 @@ export const connectNoterManagedVaultGitHub = internalMutation({
       visibility: args.visibility,
       defaultBranch: args.defaultBranch,
       connectedAt: Date.now(),
-      convex: { state: "not_configured" },
-      cloudflare: { state: "not_configured" },
     });
 
     return null;
@@ -491,18 +502,6 @@ export const getById = internalQuery({
   },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.id);
-  },
-});
-
-export const getInfrastructureByVaultId = internalQuery({
-  args: {
-    vaultId: v.id("vaults"),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("vaultInfrastructure")
-      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .first();
   },
 });
 

@@ -12,7 +12,7 @@ const PROD_READ_SENTINEL = "__PROD_READ_PROPOSAL__:";
 
 const dataTableSchema = z.union([
   z.literal("vaults"),
-  z.literal("vaultInfrastructure"),
+  z.literal("vaultConvexDeployments"),
   z.literal("vaultDomains"),
   z.literal("codespaces"),
   z.literal("fileStaging"),

@@ -380,6 +380,62 @@ test("vault dashboard fixture (delete dialog)", async ({ page }) => {
   });
 });
 
+test("vault dashboard fixture (add app root dialog)", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 360 });
+  await page.goto("/visual-fixture?mode=vault-dashboard-add-app-root-open", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const appRootDialog = page.getByRole("dialog", {
+    name: "Add app root noter-md/noter",
+  });
+  await expect(appRootDialog).toBeVisible();
+  await expect(appRootDialog.getByText("convert this repository to a monorepo")).toBeVisible();
+  await expect(appRootDialog.getByRole("textbox", { name: "App root" })).toBeVisible();
+  await expect(
+    appRootDialog.getByRole("button", {
+      name: "Add app root",
+    }),
+  ).toBeDisabled();
+  await expect(page).toHaveScreenshot("vault-dashboard-add-app-root-dialog.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
+test("vault dashboard fixture (add first app root dialog)", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 360 });
+  await page.goto("/visual-fixture?mode=vault-dashboard-add-first-app-root-open", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const appRootDialog = page.getByRole("dialog", {
+    name: "Add app root samebase/atelier",
+  });
+  await expect(appRootDialog).toBeVisible();
+  await expect(appRootDialog.getByText("one app or a monorepo")).toBeVisible();
+  await expect(appRootDialog.getByRole("button", { name: "App", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(appRootDialog.getByRole("textbox", { name: "App root" })).toHaveCount(0);
+  await expect(
+    appRootDialog.getByRole("button", {
+      name: "Use as app",
+    }),
+  ).toBeEnabled();
+  await expect(page).toHaveScreenshot("vault-dashboard-add-first-app-root-dialog.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
 test("vault dashboard fixture (connect Cloudflare dialog)", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 360 });
   await page.goto("/visual-fixture?mode=vault-dashboard-connect-cloudflare-open", {
@@ -609,7 +665,19 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await expect(fixture.getByRole("link", { name: "Project settings" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Cloudflare preview" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Preview deploy" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Production deploy" })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Production: calm-swan-123" })).toBeVisible();
+  await expect(fixture.getByText("apps/domain-router").first()).toBeVisible();
+  await expect(fixture.getByText("apps/noter").first()).toBeVisible();
+  await expect(
+    fixture.getByRole("link", {
+      name: "domain-router.nicu.workers.dev",
+    }),
+  ).toBeVisible();
+  await expect(
+    fixture.getByRole("link", {
+      name: "noter-worker.nicu.workers.dev",
+    }),
+  ).toBeVisible();
   await expect(
     fixture.getByRole("link", {
       name: "PR #321 Use the full dashboard main pane",
@@ -645,7 +713,19 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   await expect(fixture.getByRole("link", { name: "Project settings" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Cloudflare preview" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Preview deploy" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Production deploy" })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Production: calm-swan-123" })).toBeVisible();
+  await expect(fixture.getByText("apps/domain-router").first()).toBeVisible();
+  await expect(fixture.getByText("apps/noter").first()).toBeVisible();
+  await expect(
+    fixture.getByRole("link", {
+      name: "domain-router.nicu.workers.dev",
+    }),
+  ).toBeVisible();
+  await expect(
+    fixture.getByRole("link", {
+      name: "noter-worker.nicu.workers.dev",
+    }),
+  ).toBeVisible();
   await expect(
     fixture.getByRole("link", {
       name: "PR #321 Use the full dashboard main pane",

@@ -23,7 +23,7 @@ const MODEL = "claude-sonnet-4-20250514";
 
 const allowedDataTableSchema = z.enum([
   "vaults",
-  "vaultInfrastructure",
+  "vaultConvexDeployments",
   "vaultDomains",
   "codespaces",
   "fileStaging",

@@ -53,15 +53,6 @@ export async function readVaultDeletionEligibility(
       reason: "Vault source setup is still running.",
     };
   }
-  if (vault.state === "connected") {
-    if (vault.convex.state === "provisioning") {
-      return {
-        state: "blocked",
-        reason: "Vault Convex provisioning is still running.",
-      };
-    }
-  }
-
   const activeProvisioningRun = await hasActiveProvisioningRun(ctx, vault._id);
   if (activeProvisioningRun === "queued") {
     return {

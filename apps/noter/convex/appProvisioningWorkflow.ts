@@ -305,6 +305,7 @@ export const connectCloudflareWorker = workflow.define({
     vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
     userId: id("users"),
+    appRoot: string(),
     accountId: string(),
     workerName: string(),
     origin: vVaultCloudflareOrigin,
@@ -330,6 +331,7 @@ export const connectCloudflareWorker = workflow.define({
         vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
+        appRoot: args.appRoot,
       },
       { name: "finish" },
     );
@@ -353,6 +355,7 @@ export const connectConvexDeployment = workflow.define({
         vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
+        appRoot: args.target.appRoot,
       },
       { name: "claim_infra" },
     );
@@ -370,6 +373,7 @@ export const connectConvexDeployment = workflow.define({
         vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
+        appRoot: args.target.appRoot,
       },
       { name: "finish" },
     );
@@ -504,6 +508,7 @@ export const startCloudflareWorkerConnection = internalMutation({
     vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
     userId: id("users"),
+    appRoot: string(),
     accountId: string(),
     workerName: string(),
     origin: vVaultCloudflareOrigin,

@@ -4,6 +4,8 @@ import { api, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 import { VAULT_LOCAL_CLEANUP_BATCH_SIZE } from "./deletion/cleanup";
 
+const appRoot = ".";
+
 describe("vault dashboard Convex contract", () => {
   it("records initializing existing repository connection before external GitHub work", async () => {
     const t = makeConvexTest();
@@ -163,8 +165,6 @@ describe("vault dashboard Convex contract", () => {
       name: "Existing-App",
       defaultBranch: "main",
       visibility: "private",
-      convex: { state: "not_configured" },
-      cloudflare: { state: "not_configured" },
     });
   });
 
@@ -240,8 +240,6 @@ describe("vault dashboard Convex contract", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: { state: "not_configured" },
-        cloudflare: { state: "not_configured" },
       });
 
       return { runId, userId, vaultId };
@@ -302,6 +300,272 @@ describe("vault dashboard Convex contract", () => {
         updatedAt: expect.any(Number),
       },
     });
+  });
+
+  it("converts a root app to a folder app when no root providers exist", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/demo",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 10,
+        updatedAt: 20,
+        completedAt: 20,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "demo",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+      });
+      await ctx.db.insert("vaultApps", {
+        vaultId,
+        userId,
+        appRoot,
+        createdAt: 21,
+      });
+      await ctx.db.insert("vaultInfrastructureTargets", {
+        vaultId,
+        appRoot,
+        convex: {
+          state: "planned",
+          projectName: "demo",
+        },
+        cloudflare: {
+          state: "planned",
+          accountId: "cloudflare-account",
+          workerName: "demo",
+          build: {
+            rootDirectory: "/",
+            buildCommand: "pnpm run build",
+            deployCommand: "pnpm run deploy",
+            previewDeployCommand: "pnpm run deploy:preview",
+            pathIncludes: ["*"],
+            pathExcludes: [],
+          },
+        },
+        createdAt: 22,
+        updatedAt: 22,
+      });
+
+      return { userId, vaultId };
+    });
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    await asUser.mutation(api.vault.dashboard.createVaultAppRoot, {
+      vaultId: ids.vaultId,
+      appRoot: "apps/noter",
+    });
+
+    const appRoots = await t.run(async (ctx) => {
+      const apps = await ctx.db
+        .query("vaultApps")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .collect();
+      return apps.map((app) => app.appRoot).sort();
+    });
+
+    expect(appRoots).toEqual(["apps/noter"]);
+  });
+
+  it("blocks monorepo conversion while root providers are attached", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/demo",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 10,
+        updatedAt: 20,
+        completedAt: 20,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "demo",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+      });
+      await ctx.db.insert("vaultApps", {
+        vaultId,
+        userId,
+        appRoot,
+        createdAt: 21,
+      });
+      await ctx.db.insert("vaultConvexDeployments", {
+        vaultId,
+        userId,
+        appRoot,
+        projectId: "convex-project",
+        teamSlug: "ada-team",
+        projectSlug: "demo",
+        deploymentName: "demo-prod",
+        deploymentType: "prod",
+        cloudUrl: "https://demo.convex.cloud",
+        siteUrl: "https://demo.convex.site",
+        deployKeys: {
+          production: { state: "not_created" },
+          preview: { state: "not_created" },
+        },
+        origin: "selected_existing",
+        connectedAt: 22,
+        lastObservedAt: 22,
+      });
+
+      return { userId, vaultId };
+    });
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    await expect(
+      asUser.mutation(api.vault.dashboard.createVaultAppRoot, {
+        vaultId: ids.vaultId,
+        appRoot: "apps/noter",
+      }),
+    ).rejects.toThrow("Disconnect root providers before converting this vault to a monorepo.");
+  });
+
+  it("suppresses branch Convex preview links when multiple app deployments exist", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/monorepo",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 10,
+        updatedAt: 20,
+        completedAt: 20,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "monorepo",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+      });
+      await ctx.db.insert("vaultBranchTrees", {
+        vaultId,
+        branch: "main",
+        treeSHA: "tree",
+        commitSHA: "commit",
+        treeData: {
+          sha: "tree",
+          truncated: false,
+          tree: [],
+        },
+        lastTreeRefreshAt: 21,
+      });
+      await ctx.db.insert("vaultRemoteBranches", {
+        vaultId,
+        name: "codex/feature",
+        headCommitSha: "feature",
+        pullRequestNumber: 42,
+        cloudflareBranchPreviewUrl: "https://feature.example.workers.dev",
+        cloudflarePreviewPullRequestNumber: 42,
+        isDefault: false,
+        isProtected: false,
+        remoteState: "active",
+        lastSyncedAt: 22,
+      });
+      for (const deploymentAppRoot of ["apps/api", "apps/web"]) {
+        await ctx.db.insert("vaultConvexDeployments", {
+          vaultId,
+          userId,
+          appRoot: deploymentAppRoot,
+          projectId: `${deploymentAppRoot}-project`,
+          teamSlug: "ada-team",
+          projectSlug: deploymentAppRoot.replace("/", "-"),
+          deploymentName: `${deploymentAppRoot.replace("/", "-")}-prod`,
+          deploymentType: "prod",
+          cloudUrl: `https://${deploymentAppRoot.replace("/", "-")}.convex.cloud`,
+          siteUrl: `https://${deploymentAppRoot.replace("/", "-")}.convex.site`,
+          deployKeys: {
+            production: { state: "not_created" },
+            preview: { state: "not_created" },
+          },
+          origin: "selected_existing",
+          connectedAt: 23,
+          lastObservedAt: 23,
+        });
+      }
+
+      return { userId, vaultId };
+    });
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+    const branch = vaults[0].remoteBranches.find(
+      (remoteBranch) => remoteBranch.name === "codex/feature",
+    );
+
+    expect(branch?.convexPreviewDeploymentDashboardUrl).toBeUndefined();
   });
 
   it("records initializing vault creation before external GitHub work", async () => {
@@ -396,8 +660,6 @@ describe("vault dashboard Convex contract", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: { state: "not_configured" },
-        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("appProvisioningEvents", {
         userId,
@@ -472,8 +734,6 @@ describe("vault dashboard Convex contract", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: { state: "not_configured" },
-        cloudflare: { state: "not_configured" },
       });
       await ctx.db.delete(runId);
 
@@ -537,14 +797,6 @@ describe("vault dashboard Convex contract", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: {
-          state: "connected",
-          projectId: "convex-project",
-          projectSlug: "provider-state-project",
-          deploymentName: "provider-state-prod",
-          connectedAt: 24,
-        },
-        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("vaultBranchTrees", {
         vaultId,
@@ -558,19 +810,24 @@ describe("vault dashboard Convex contract", () => {
         },
         lastTreeRefreshAt: 29,
       });
-      await ctx.db.insert("vaultInfrastructure", {
+      await ctx.db.insert("vaultConvexDeployments", {
         vaultId,
-        convexProjectId: "stale-convex-project",
-        convexTeamSlug: "provider-state-team",
-        convexProjectSlug: "stale-project",
-        convexDeploymentName: "stale-prod",
-        convexDeploymentType: "prod",
-        convexCloudUrl: "https://stale.convex.cloud",
-        convexSiteUrl: "https://stale.convex.site",
-        convexDeployKeys: {
+        userId,
+        appRoot,
+        projectId: "convex-project",
+        teamSlug: "provider-state-team",
+        projectSlug: "provider-state-project",
+        deploymentName: "provider-state-prod",
+        deploymentType: "prod",
+        cloudUrl: "https://provider-state.convex.cloud",
+        siteUrl: "https://provider-state.convex.site",
+        deployKeys: {
           production: { state: "not_created" },
           preview: { state: "not_created" },
         },
+        origin: "provisioned",
+        connectedAt: 24,
+        lastObservedAt: 24,
       });
 
       return { runId, userId, vaultId };
@@ -647,14 +904,25 @@ describe("vault dashboard Convex contract", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: {
-          state: "connected",
-          projectId: "convex-project",
-          projectSlug: "cloudflare-retry-project",
-          deploymentName: "cloudflare-retry-prod",
-          connectedAt: 24,
+      });
+      await ctx.db.insert("vaultConvexDeployments", {
+        vaultId,
+        userId,
+        appRoot,
+        projectId: "convex-project",
+        teamSlug: "cloudflare-retry-team",
+        projectSlug: "cloudflare-retry-project",
+        deploymentName: "cloudflare-retry-prod",
+        deploymentType: "prod",
+        cloudUrl: "https://cloudflare-retry.convex.cloud",
+        siteUrl: "https://cloudflare-retry.convex.site",
+        deployKeys: {
+          production: { state: "not_created" },
+          preview: { state: "not_created" },
         },
-        cloudflare: { state: "not_configured" },
+        origin: "provisioned",
+        connectedAt: 24,
+        lastObservedAt: 24,
       });
       await ctx.db.insert("vaultBranchTrees", {
         vaultId,
@@ -745,8 +1013,6 @@ describe("vault dashboard Convex contract", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 22,
-        convex: { state: "not_configured" },
-        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("vaultBranchTrees", {
         vaultId,
@@ -840,15 +1106,6 @@ describe("vault dashboard Convex contract", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 22,
-        convex: {
-          state: "connected",
-          projectId: "convex-project",
-          projectSlug: "existing-convex",
-          deploymentName: "existing-convex-prod",
-          origin: "provisioned",
-          connectedAt: 35,
-        },
-        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("vaultBranchTrees", {
         vaultId,
@@ -967,23 +1224,38 @@ describe("vault dashboard Convex contract", () => {
           visibility: "private",
           defaultBranch: "main",
           connectedAt: 20,
-          convex: {
-            state: "connected",
-            projectId: "convex-project",
-            projectSlug: `provider-${testCase.label}-project`,
-            deploymentName: `provider-${testCase.label}-prod`,
-            connectedAt: 24,
+        });
+        await ctx.db.insert("vaultConvexDeployments", {
+          vaultId,
+          userId,
+          appRoot,
+          projectId: "convex-project",
+          teamSlug: `provider-${testCase.label}-team`,
+          projectSlug: `provider-${testCase.label}-project`,
+          deploymentName: `provider-${testCase.label}-prod`,
+          deploymentType: "prod",
+          cloudUrl: `https://provider-${testCase.label}.convex.cloud`,
+          siteUrl: `https://provider-${testCase.label}.convex.site`,
+          deployKeys: {
+            production: { state: "not_created" },
+            preview: { state: "not_created" },
           },
-          cloudflare: {
-            state: "connected",
-            accountId: "cloudflare-account",
-            workerName: `provider-${testCase.label}-worker`,
-            workerTag: `provider-${testCase.label}-worker-tag`,
-            workersDevUrl: `https://provider-${testCase.label}.example.workers.dev`,
-            origin: "provisioned",
-            connectedAt: 26,
-            lastObservedAt: 26,
-          },
+          origin: "provisioned",
+          connectedAt: 24,
+          lastObservedAt: 24,
+        });
+        await ctx.db.insert("vaultCloudflareWorkers", {
+          vaultId,
+          userId,
+          appRoot: ".",
+          accountId: "cloudflare-account",
+          workerName: `provider-${testCase.label}-worker`,
+          workerTag: `provider-${testCase.label}-worker-tag`,
+          workersDevUrl: `https://provider-${testCase.label}.example.workers.dev`,
+          origin: "provisioned",
+          deployment: { state: "not_configured" },
+          connectedAt: 26,
+          lastObservedAt: 26,
         });
         await ctx.db.insert("vaultBranchTrees", {
           vaultId,
@@ -1060,8 +1332,6 @@ describe("vault dashboard Convex contract", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: { state: "not_configured" },
-        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("vaultBranchTrees", {
         vaultId,
@@ -1137,12 +1407,6 @@ describe("vault dashboard Convex contract", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: {
-          state: "provisioning",
-          runId,
-          startedAt: 25,
-        },
-        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("vaultBranchTrees", {
         vaultId,
@@ -1170,16 +1434,12 @@ describe("vault dashboard Convex contract", () => {
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
       providerSetup: {
-        status: "failed",
-        provider: "convex",
-        runId: ids.runId,
-        step: "finish",
-        updatedAt: 30,
+        status: "not_applicable",
       },
     });
   });
 
-  it("does not use the Convex team id as a display scope", async () => {
+  it("returns Convex deployment dashboard metadata", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
@@ -1227,14 +1487,25 @@ describe("vault dashboard Convex contract", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: {
-          state: "connected",
-          projectId: "project-1",
-          projectSlug: "demo-project",
-          deploymentName: "demo-production",
-          connectedAt: 25,
+      });
+      await ctx.db.insert("vaultConvexDeployments", {
+        vaultId,
+        userId,
+        appRoot,
+        projectId: "project-1",
+        teamSlug: "demo-team",
+        projectSlug: "demo-project",
+        deploymentName: "demo-production",
+        deploymentType: "prod",
+        cloudUrl: "https://demo-production.convex.cloud",
+        siteUrl: "https://demo-production.convex.site",
+        deployKeys: {
+          production: { state: "not_created" },
+          preview: { state: "not_created" },
         },
-        cloudflare: { state: "not_configured" },
+        origin: "provisioned",
+        connectedAt: 25,
+        lastObservedAt: 25,
       });
       await ctx.db.insert("vaultBranchTrees", {
         vaultId,
@@ -1259,10 +1530,15 @@ describe("vault dashboard Convex contract", () => {
 
     const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
 
-    expect(vaults[0]?.convexProjectSlug).toBe("demo-project");
-    expect(vaults[0]?.convexTeamSlug).toBeUndefined();
-    expect(vaults[0]?.convexProjectSettingsDashboardUrl).toBeUndefined();
-    expect(vaults[0]?.convexDeploymentDashboardUrl).toBeUndefined();
+    expect(vaults[0]?.convexDeployments[0]).toMatchObject({
+      appRoot,
+      projectId: "project-1",
+      projectSlug: "demo-project",
+      teamSlug: "demo-team",
+      projectSettingsDashboardUrl: "https://dashboard.convex.dev/t/demo-team/demo-project/settings",
+      deploymentDashboardUrl:
+        "https://dashboard.convex.dev/t/demo-team/demo-project/demo-production",
+    });
   });
 
   it("returns infrastructure domains in a stable display order", async () => {
@@ -1302,23 +1578,19 @@ describe("vault dashboard Convex contract", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
-        convex: {
-          state: "connected",
-          projectId: "convex-project",
-          projectSlug: "domain-order-project",
-          deploymentName: "domain-order-prod",
-          connectedAt: 24,
-        },
-        cloudflare: {
-          state: "connected",
-          accountId: "cloudflare-account",
-          workerName: "domain-order-worker",
-          workerTag: "domain-order-worker-tag",
-          workersDevUrl: "https://domain-order.example.workers.dev",
-          origin: "provisioned",
-          connectedAt: 26,
-          lastObservedAt: 26,
-        },
+      });
+      await ctx.db.insert("vaultCloudflareWorkers", {
+        vaultId,
+        userId,
+        appRoot: ".",
+        accountId: "cloudflare-account",
+        workerName: "domain-order-worker",
+        workerTag: "domain-order-worker-tag",
+        workersDevUrl: "https://domain-order.example.workers.dev",
+        origin: "provisioned",
+        deployment: { state: "not_configured" },
+        connectedAt: 26,
+        lastObservedAt: 26,
       });
       await ctx.db.insert("vaultDomains", {
         vaultId,
@@ -1579,19 +1851,24 @@ describe("vault dashboard Convex contract", () => {
         active: true,
         lastSyncedAt: 8,
       });
-      await ctx.db.insert("vaultInfrastructure", {
+      await ctx.db.insert("vaultConvexDeployments", {
         vaultId,
-        convexProjectId: "delete-convex-project",
-        convexTeamSlug: "delete-team",
-        convexProjectSlug: "delete-convex",
-        convexDeploymentName: "delete-convex-prod",
-        convexDeploymentType: "prod",
-        convexCloudUrl: "https://delete-convex.convex.cloud",
-        convexSiteUrl: "https://delete-convex.convex.site",
-        convexDeployKeys: {
+        userId,
+        appRoot,
+        projectId: "delete-convex-project",
+        teamSlug: "delete-team",
+        projectSlug: "delete-convex",
+        deploymentName: "delete-convex-prod",
+        deploymentType: "prod",
+        cloudUrl: "https://delete-convex.convex.cloud",
+        siteUrl: "https://delete-convex.convex.site",
+        deployKeys: {
           production: { state: "created", id: "delete-convex-key" },
           preview: { state: "created", id: "delete-preview-convex-key" },
         },
+        origin: "provisioned",
+        connectedAt: 9,
+        lastObservedAt: 9,
       });
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
@@ -1695,7 +1972,7 @@ describe("vault dashboard Convex contract", () => {
         "vaultRemoteBranches",
         "vaultBranchTrees",
         "vaultDomains",
-        "vaultInfrastructure",
+        "vaultConvexDeployments",
         "vaultInfrastructureOwnership",
         "codespaces",
         "agentGraphNodeLayout",

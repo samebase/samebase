@@ -6,6 +6,10 @@ import {
   vGithubTreeData,
   vGitHubRepositoryVisibility,
   vTreeRefreshFailureKind,
+  vVaultApp,
+  vVaultCloudflareBuildConfig,
+  vVaultCloudflareWorker,
+  vVaultConvexDeployment,
   vVaultRow,
 } from "./vault/model";
 import {
@@ -114,23 +118,6 @@ export const vAppProvisioningRunState = union(
   literal("canceled"),
 );
 export type AppProvisioningRunState = Infer<typeof vAppProvisioningRunState>;
-
-export const vConvexDeployKeyState = union(
-  object({
-    state: literal("not_created"),
-  }),
-  object({
-    state: literal("created"),
-    id: string(),
-  }),
-);
-export type ConvexDeployKeyState = Infer<typeof vConvexDeployKeyState>;
-
-export const vConvexDeployKeys = object({
-  production: vConvexDeployKeyState,
-  preview: vConvexDeployKeyState,
-});
-export type ConvexDeployKeys = Infer<typeof vConvexDeployKeys>;
 
 export const vVaultDomainKind = union(literal("main"), literal("branch_preview"));
 
@@ -381,6 +368,35 @@ export default defineSchema({
     .index("by_owner_and_name", ["owner", "name"]),
 
   /**
+   * Deployable app roots inside a repo-backed vault. Provider resources attach
+   * to these rows; "." is an explicit root app, not a fallback target.
+   */
+  vaultApps: defineTable(vVaultApp)
+    .index("by_vault", ["vaultId"])
+    .index("by_user", ["userId"])
+    .index("by_vault_and_appRoot", ["vaultId", "appRoot"]),
+
+  /**
+   * Cloudflare Worker targets connected to one repo-backed vault. App root is
+   * the monorepo path this Worker deploys; vault identity stays repository-only.
+   */
+  vaultCloudflareWorkers: defineTable(vVaultCloudflareWorker)
+    .index("by_vault", ["vaultId"])
+    .index("by_user", ["userId"])
+    .index("by_vault_and_appRoot", ["vaultId", "appRoot"])
+    .index("by_vault_and_account_and_worker", ["vaultId", "accountId", "workerName"]),
+
+  /**
+   * Convex deployments connected to one repo-backed vault. App root is the
+   * monorepo path this deployment serves; vault identity stays repository-only.
+   */
+  vaultConvexDeployments: defineTable(vVaultConvexDeployment)
+    .index("by_vault", ["vaultId"])
+    .index("by_user", ["userId"])
+    .index("by_vault_and_appRoot", ["vaultId", "appRoot"])
+    .index("by_vault_and_project", ["vaultId", "projectId"]),
+
+  /**
    * Remote Git branches mirrored from GitHub for a vault repository.
    */
   vaultRemoteBranches: defineTable({
@@ -445,30 +461,13 @@ export default defineSchema({
     ]),
 
   /**
-   * Convex resource identifiers that provider calls need after the vault row
-   * records product readiness. Run state lives on the Workflow and vault
-   * provider states.
-   */
-  vaultInfrastructure: defineTable({
-    vaultId: id("vaults"),
-
-    convexProjectId: string(),
-    convexTeamSlug: string(),
-    convexProjectSlug: string(),
-    convexDeploymentName: string(),
-    convexDeploymentType: union(literal("prod"), literal("dev")),
-    convexCloudUrl: string(),
-    convexSiteUrl: string(),
-    convexDeployKeys: vConvexDeployKeys,
-  }).index("by_vault", ["vaultId"]),
-
-  /**
-   * User-selected provider names and early provider identities for
-   * Noter-managed infrastructure. These are recorded before later provider
-   * side effects so retries use the original resources.
+   * User-selected app root, provider names, and early provider identities for
+   * Noter-managed infrastructure. The single app root is shared across
+   * provider resources so one target cannot split Convex and Cloudflare.
    */
   vaultInfrastructureTargets: defineTable({
     vaultId: id("vaults"),
+    appRoot: string(),
     convex: union(
       object({
         state: literal("planned"),
@@ -485,6 +484,7 @@ export default defineSchema({
         state: literal("planned"),
         accountId: string(),
         workerName: string(),
+        build: vVaultCloudflareBuildConfig,
       }),
       object({
         state: literal("created"),
@@ -492,6 +492,7 @@ export default defineSchema({
         workerName: string(),
         workerTag: string(),
         workersDevUrl: optional(string()),
+        build: vVaultCloudflareBuildConfig,
       }),
     ),
     createdAt: number(),

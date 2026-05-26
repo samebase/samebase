@@ -11,7 +11,7 @@ import {
   type VaultDeletionRetainedSnapshot,
 } from "./model";
 import { readVaultDeletionEligibility } from "./eligibility";
-import { isConnectedVault, isNoterManagedVault } from "../state";
+import { isConnectedVault } from "../state";
 import { readVaultDeletionState } from "./state";
 import { CODESPACES_ENABLED } from "../../../shared/featureFlags";
 
@@ -75,14 +75,14 @@ async function requireProviderConnection(
   throw new Error(providerConnectionMessage(args.kind));
 }
 
-async function getVaultInfrastructure(
+async function listVaultConvexDeployments(
   ctx: MutationCtx,
   vaultId: Id<"vaults">,
-): Promise<Doc<"vaultInfrastructure"> | null> {
+): Promise<Doc<"vaultConvexDeployments">[]> {
   return await ctx.db
-    .query("vaultInfrastructure")
+    .query("vaultConvexDeployments")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-    .first();
+    .collect();
 }
 
 async function listCreatedConvexProjectIds(
@@ -159,11 +159,11 @@ async function buildConvexPlan(
   ctx: MutationCtx,
   args: {
     vault: Doc<"vaults">;
-    infrastructure: Doc<"vaultInfrastructure"> | null;
+    convexDeployments: Doc<"vaultConvexDeployments">[];
     options: DeletionRequestOptions;
   },
 ): Promise<VaultDeletionPlan["convex"]> {
-  const { vault, infrastructure, options } = args;
+  const { vault, convexDeployments, options } = args;
   if (!options.removeConvexProvision) {
     return { action: "skip", reason: "not_requested" };
   }
@@ -175,34 +175,10 @@ async function buildConvexPlan(
     return { action: "skip", reason: "not_recorded" };
   }
 
-  if (vault.convex.state === "connected") {
-    if (vault.convex.origin === "selected_existing" && createdProjectIds.length === 0) {
-      return { action: "skip", reason: "not_managed" };
+  for (const deployment of convexDeployments) {
+    if (deployment.origin === "provisioned") {
+      createdProjectIds.push(deployment.projectId);
     }
-
-    if (vault.convex.origin === "provisioned") {
-      createdProjectIds.push(vault.convex.projectId);
-    } else if (vault.convex.origin !== "selected_existing" && createdProjectIds.length === 0) {
-      const legacyProjectId = infrastructure?.convexProjectId;
-      if (
-        !isNoterManagedVault(vault) ||
-        !legacyProjectId ||
-        legacyProjectId !== vault.convex.projectId
-      ) {
-        return { action: "skip", reason: "not_managed" };
-      }
-      createdProjectIds.push(legacyProjectId);
-    }
-
-    const plan = buildConvexProjectDeletionPlan(createdProjectIds);
-    if (!plan) {
-      return { action: "skip", reason: "not_recorded" };
-    }
-    await requireProviderConnection(ctx, {
-      userId: vault.userId,
-      kind: "convex",
-    });
-    return plan;
   }
 
   const projectPlan = buildConvexProjectDeletionPlan(createdProjectIds);
@@ -214,26 +190,8 @@ async function buildConvexPlan(
     return projectPlan;
   }
 
-  if (!isNoterManagedVault(vault)) {
-    return { action: "skip", reason: "not_noter_managed" };
-  }
-
-  const projectId = infrastructure?.convexProjectId;
-  if (typeof projectId === "string") {
-    await requireProviderConnection(ctx, {
-      userId: vault.userId,
-      kind: "convex",
-    });
-    return { action: "delete_project", projectId };
-  }
-
-  const deploymentName = infrastructure?.convexDeploymentName;
-  if (typeof deploymentName === "string") {
-    await requireProviderConnection(ctx, {
-      userId: vault.userId,
-      kind: "convex",
-    });
-    return { action: "delete_deployment", deploymentName };
+  if (convexDeployments.length > 0) {
+    return { action: "skip", reason: "not_managed" };
   }
 
   return { action: "skip", reason: "not_recorded" };
@@ -254,22 +212,42 @@ async function buildCloudflarePlan(
     return { action: "skip", reason: "not_recorded" };
   }
 
-  if (vault.cloudflare.state !== "connected") {
+  const workers = await ctx.db
+    .query("vaultCloudflareWorkers")
+    .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
+    .collect();
+  const provisionedWorkers = workers
+    .filter((worker) => worker.origin === "provisioned")
+    .sort(
+      (left, right) =>
+        left.appRoot.localeCompare(right.appRoot) ||
+        left.workerName.localeCompare(right.workerName) ||
+        left.accountId.localeCompare(right.accountId),
+    );
+  if (provisionedWorkers.length === 0) {
     return { action: "skip", reason: "not_recorded" };
-  }
-  if (vault.cloudflare.origin !== "provisioned") {
-    return { action: "skip", reason: "not_managed" };
   }
 
   await requireProviderConnection(ctx, {
     userId: vault.userId,
     kind: "cloudflare",
   });
+  if (provisionedWorkers.length === 1) {
+    const worker = provisionedWorkers[0];
+    return {
+      action: "delete_worker",
+      accountId: worker.accountId,
+      workerName: worker.workerName,
+      workerTag: worker.workerTag,
+    };
+  }
   return {
-    action: "delete_worker",
-    accountId: vault.cloudflare.accountId,
-    workerName: vault.cloudflare.workerName,
-    workerTag: vault.cloudflare.workerTag,
+    action: "delete_workers",
+    workers: provisionedWorkers.map((worker) => ({
+      accountId: worker.accountId,
+      workerName: worker.workerName,
+      workerTag: worker.workerTag,
+    })),
   };
 }
 
@@ -277,7 +255,7 @@ async function buildDeletionPlan(
   ctx: MutationCtx,
   args: {
     vault: Exclude<Doc<"vaults">, { state: "not_connected" | "provisioning" }>;
-    infrastructure: Doc<"vaultInfrastructure"> | null;
+    convexDeployments: Doc<"vaultConvexDeployments">[];
     options: DeletionRequestOptions;
   },
 ): Promise<VaultDeletionPlan> {
@@ -400,7 +378,10 @@ async function assertPlanProviderConnections(
     });
   }
 
-  if (args.plan.cloudflare.action === "delete_worker") {
+  if (
+    args.plan.cloudflare.action === "delete_worker" ||
+    args.plan.cloudflare.action === "delete_workers"
+  ) {
     await requireProviderConnection(ctx, {
       userId: args.userId,
       kind: "cloudflare",
@@ -458,10 +439,10 @@ export const createInitialRun = internalMutation({
       throw new Error("Vault is not ready to delete yet.");
     }
 
-    const infrastructure = await getVaultInfrastructure(ctx, args.vaultId);
+    const convexDeployments = await listVaultConvexDeployments(ctx, args.vaultId);
     const plan = await buildDeletionPlan(ctx, {
       vault,
-      infrastructure,
+      convexDeployments,
       options: args.options,
     });
     const now = Date.now();

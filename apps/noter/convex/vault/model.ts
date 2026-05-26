@@ -1,4 +1,5 @@
 import { Infer, v } from "convex/values";
+import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import { vVaultDeletionState } from "./deletion/model";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
@@ -69,64 +70,139 @@ export type VaultConvexOrigin = Infer<typeof vVaultConvexOrigin>;
 export const vVaultConvexConnectionTarget = union(
   object({
     mode: literal("connect_existing_project"),
+    appRoot: string(),
     projectId: string(),
   }),
   object({
     mode: literal("create_project"),
+    appRoot: string(),
     projectName: string(),
   }),
 );
 export type VaultConvexConnectionTarget = Infer<typeof vVaultConvexConnectionTarget>;
 
-export const vVaultConvexState = union(
+export const vConvexDeployKeyState = union(
   object({
-    state: literal("not_configured"),
+    state: literal("not_created"),
   }),
   object({
-    state: literal("provisioning"),
-    runId: id("appProvisioningRuns"),
-    startedAt: number(),
-  }),
-  object({
-    state: literal("connected"),
-    projectId: string(),
-    projectSlug: string(),
-    deploymentName: string(),
-    /**
-     * Optional while older connected rows are backfilled. New writes must set
-     * origin so cleanup can distinguish provisioned projects from selected
-     * existing deployments.
-     */
-    origin: optional(vVaultConvexOrigin),
-    connectedAt: number(),
-  }),
-  object({
-    state: literal("failed"),
-    runId: id("appProvisioningRuns"),
-    failedAt: number(),
+    state: literal("created"),
+    id: string(),
   }),
 );
-export type VaultConvexState = Infer<typeof vVaultConvexState>;
+export type ConvexDeployKeyState = Infer<typeof vConvexDeployKeyState>;
+
+export const vConvexDeployKeys = object({
+  production: vConvexDeployKeyState,
+  preview: vConvexDeployKeyState,
+});
+export type ConvexDeployKeys = Infer<typeof vConvexDeployKeys>;
+
+export const vVaultConvexAppRoot = string();
+export type VaultConvexAppRoot = Infer<typeof vVaultConvexAppRoot>;
+
+export const vVaultApp = object({
+  vaultId: id("vaults"),
+  userId: id("users"),
+  appRoot: string(),
+  createdAt: number(),
+});
+export type VaultApp = Infer<typeof vVaultApp>;
+
+export const vVaultConvexDeployment = object({
+  vaultId: id("vaults"),
+  userId: id("users"),
+  appRoot: vVaultConvexAppRoot,
+  projectId: string(),
+  teamSlug: string(),
+  projectSlug: string(),
+  deploymentName: string(),
+  deploymentType: literal("prod"),
+  cloudUrl: string(),
+  siteUrl: string(),
+  deployKeys: vConvexDeployKeys,
+  origin: vVaultConvexOrigin,
+  connectedAt: number(),
+  lastObservedAt: number(),
+});
+export type VaultConvexDeployment = Infer<typeof vVaultConvexDeployment>;
 
 export const vVaultCloudflareOrigin = union(literal("provisioned"), literal("selected_existing"));
 export type VaultCloudflareOrigin = Infer<typeof vVaultCloudflareOrigin>;
 
-export const vVaultCloudflareState = union(
+export const vVaultCloudflareAppRoot = string();
+export type VaultCloudflareAppRoot = Infer<typeof vVaultCloudflareAppRoot>;
+
+const vaultCloudflareBuildConfigFields = {
+  rootDirectory: string(),
+  buildCommand: string(),
+  deployCommand: string(),
+  previewDeployCommand: string(),
+  pathIncludes: array(string()),
+  pathExcludes: array(string()),
+} as const;
+export const vVaultCloudflareBuildConfig = object(vaultCloudflareBuildConfigFields);
+export type VaultCloudflareBuildConfig = Infer<typeof vVaultCloudflareBuildConfig>;
+
+export function buildVaultCloudflareBuildConfigForAppRoot(args: {
+  appRoot: string;
+}): VaultCloudflareBuildConfig {
+  const appRoot = normalizeVaultAppRoot(args.appRoot);
+  const rootDirectory = appRoot === "." ? "/" : appRoot;
+  const pathIncludes =
+    appRoot === "."
+      ? ["*"]
+      : [
+          `${appRoot}/*`,
+          "packages/dependent/*",
+          "pnpm-lock.yaml",
+          "pnpm-workspace.yaml",
+          "package.json",
+          ".nvmrc",
+        ];
+
+  return {
+    rootDirectory,
+    buildCommand: "pnpm run build",
+    deployCommand: "pnpm run deploy",
+    previewDeployCommand: "pnpm run deploy:preview",
+    pathIncludes,
+    pathExcludes: [],
+  };
+}
+
+const vVaultCloudflareWorkersBuildTrigger = object({
+  triggerUuid: string(),
+  buildTokenUuid: string(),
+});
+
+export const vVaultCloudflareDeployment = union(
   object({
     state: literal("not_configured"),
   }),
   object({
-    state: literal("connected"),
-    accountId: string(),
-    workerName: string(),
-    workerTag: string(),
-    workersDevUrl: optional(string()),
-    origin: vVaultCloudflareOrigin,
-    connectedAt: number(),
-    lastObservedAt: number(),
+    state: literal("workers_builds_connected"),
+    ...vaultCloudflareBuildConfigFields,
+    production: vVaultCloudflareWorkersBuildTrigger,
+    preview: vVaultCloudflareWorkersBuildTrigger,
   }),
 );
-export type VaultCloudflareState = Infer<typeof vVaultCloudflareState>;
+export type VaultCloudflareDeployment = Infer<typeof vVaultCloudflareDeployment>;
+
+export const vVaultCloudflareWorker = object({
+  vaultId: id("vaults"),
+  userId: id("users"),
+  appRoot: vVaultCloudflareAppRoot,
+  accountId: string(),
+  workerName: string(),
+  workerTag: string(),
+  workersDevUrl: optional(string()),
+  origin: vVaultCloudflareOrigin,
+  deployment: vVaultCloudflareDeployment,
+  connectedAt: number(),
+  lastObservedAt: number(),
+});
+export type VaultCloudflareWorker = Infer<typeof vVaultCloudflareWorker>;
 
 /**
  * Compatibility fields from the pre-vault-first vault row. They stay on every
@@ -185,8 +261,6 @@ export const vVaultRow = union(
     githubMode: literal("create_repository"),
     runId: id("appProvisioningRuns"),
     ...connectedRepositoryIdentityFields,
-    convex: vVaultConvexState,
-    cloudflare: vVaultCloudflareState,
     connectedAt: number(),
 
     ...githubRepositoryWithVisibilityFields,
@@ -198,8 +272,6 @@ export const vVaultRow = union(
     runId: id("appProvisioningRuns"),
 
     ...connectedRepositoryIdentityFields,
-    convex: vVaultConvexState,
-    cloudflare: vVaultCloudflareState,
     connectedAt: number(),
 
     ...githubRepositoryWithVisibilityFields,
