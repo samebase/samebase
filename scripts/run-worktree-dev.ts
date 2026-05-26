@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { execa, execaSync } from "execa";
@@ -19,9 +20,11 @@ import {
   LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
   LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
 } from "../runtime/localWorktreePasswordAuth.ts";
+import { buildPrimaryDevArgs, buildPrimaryDevEnvironment } from "./run-primary-dev.ts";
 
 const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const DEFAULT_WORKTREE_DEV_VITE_PORT = 5174;
+const ONCE_BOOTSTRAP_MARKER = "worktree-anonymous-seed-auth-bootstrap-v1";
 
 const HELP_TEXT = `Usage: scripts/run-worktree-dev.ts [options]
 
@@ -33,6 +36,7 @@ Options:
   --no-branch                Skip detached-HEAD branch creation during bootstrap.
   --vite-port <port>         Frontend port for the long-running dev server.
                              Default: ${DEFAULT_WORKTREE_DEV_VITE_PORT}
+  --force-bootstrap          Ignore the completed --once marker and rerun seed/auth setup.
   --source-env <path>        Explicit cloud dev source env file for local seed generation.
   --source-deploy-key <key>  Explicit cloud deploy key for source-env queries.
   --allow-missing-source-env Allow local-only seed generation when no cloud source env exists.
@@ -42,6 +46,7 @@ Options:
 type WorktreeDevOptions = {
   once: boolean;
   enableBranch: boolean;
+  forceBootstrap: boolean;
   vitePort: number;
   sourceEnv: string | null;
   sourceDeployKey: string | null;
@@ -54,8 +59,8 @@ type CommandSpec = {
   cwd: string;
   command: string;
   args: string[];
+  phase: "always" | "once-bootstrap" | "long-running";
   env?: NodeJS.ProcessEnv;
-  longRunning?: boolean;
 };
 
 const LOCAL_WORKTREE_PASSWORD_AUTH_VITE_ENV = {
@@ -77,6 +82,7 @@ export function parseWorktreeDevArgs(
   const options: WorktreeDevOptions = {
     once: false,
     enableBranch: !readBooleanEnvValue(env.WORKTREE_DEV_NO_BRANCH),
+    forceBootstrap: false,
     vitePort: readDefaultVitePort(env),
     sourceEnv: readOptionalEnvValue(env.WORKTREE_DEV_SOURCE_ENV),
     sourceDeployKey: readOptionalEnvValue(env.WORKTREE_DEV_SOURCE_DEPLOY_KEY),
@@ -99,6 +105,10 @@ export function parseWorktreeDevArgs(
     }
     if (arg === "--no-branch") {
       options.enableBranch = false;
+      continue;
+    }
+    if (arg === "--force-bootstrap") {
+      options.forceBootstrap = true;
       continue;
     }
     if (arg === "--allow-missing-source-env") {
@@ -190,6 +200,7 @@ export function buildWorktreeDevCommandPlan(
       cwd: repoRoot,
       command: process.execPath,
       args: [path.join(repoRoot, "scripts", "killport.ts")],
+      phase: "always",
     },
     {
       label: "validate anonymous seed env prerequisites",
@@ -200,6 +211,7 @@ export function buildWorktreeDevCommandPlan(
         ...buildWorktreeDevSeedEnvArgs(options, "check-prereqs"),
       ],
       env: seedEnv,
+      phase: "once-bootstrap",
     },
     {
       label: "bootstrap the current worktree",
@@ -209,6 +221,7 @@ export function buildWorktreeDevCommandPlan(
         path.join(repoRoot, "scripts", "bootstrap-worktree.ts"),
         ...buildWorktreeDevBootstrapArgs(options),
       ],
+      phase: "always",
     },
     {
       label: "bootstrap the anonymous local backend once",
@@ -222,6 +235,7 @@ export function buildWorktreeDevCommandPlan(
         "--typecheck=disable",
       ],
       env: anonymousEnv,
+      phase: "always",
     },
     {
       label: "sync allowlisted seed env values into the local backend",
@@ -232,12 +246,14 @@ export function buildWorktreeDevCommandPlan(
         ...buildWorktreeDevSeedEnvArgs(options, "sync"),
       ],
       env: seedEnv,
+      phase: "once-bootstrap",
     },
     {
       label: "seed the local password-auth development account",
       cwd: repoRoot,
       command: process.execPath,
       args: [path.join(repoRoot, "scripts", "convex-seed-dev-auth.ts")],
+      phase: "once-bootstrap",
     },
     {
       label: "refresh anonymous auth keys",
@@ -252,6 +268,7 @@ export function buildWorktreeDevCommandPlan(
         "--typecheck=disable",
       ],
       env: anonymousEnv,
+      phase: "once-bootstrap",
     },
   ];
 
@@ -265,15 +282,38 @@ export function buildWorktreeDevCommandPlan(
       label: "launch the long-running worktree dev server",
       cwd: repoRoot,
       command: PNPM_COMMAND,
-      args: ["dev:primary"],
-      env: {
+      args: buildPrimaryDevArgs([], "dev:raw"),
+      env: buildPrimaryDevEnvironment({
         ...anonymousEnv,
         ...LOCAL_WORKTREE_PASSWORD_AUTH_VITE_ENV,
         VITE_PORT: String(options.vitePort),
-      },
-      longRunning: true,
+      }),
+      phase: "long-running",
     },
   ];
+}
+
+function onceBootstrapMarkerPath(repoRoot: string): string {
+  return path.join(repoRoot, ".tmp", "worktree-dev-once-bootstrap");
+}
+
+function hasCompletedOnceBootstrap(options: WorktreeDevOptions, repoRoot: string): boolean {
+  if (options.once || options.forceBootstrap) {
+    return false;
+  }
+
+  const markerPath = onceBootstrapMarkerPath(repoRoot);
+  if (!existsSync(markerPath)) {
+    return false;
+  }
+
+  return readFileSync(markerPath, "utf8").trim() === ONCE_BOOTSTRAP_MARKER;
+}
+
+function writeOnceBootstrapMarker(repoRoot: string): void {
+  const markerPath = onceBootstrapMarkerPath(repoRoot);
+  mkdirSync(path.dirname(markerPath), { recursive: true });
+  writeFileSync(markerPath, `${ONCE_BOOTSTRAP_MARKER}\n`, "utf8");
 }
 
 function runBlockingCommand(spec: CommandSpec): void {
@@ -317,12 +357,33 @@ async function main(): Promise<void> {
 
   const repoRoot = resolveRepoRoot();
   const plan = buildWorktreeDevCommandPlan(options, repoRoot);
+  const onceBootstrapAlreadyCompleted = hasCompletedOnceBootstrap(options, repoRoot);
+  if (onceBootstrapAlreadyCompleted) {
+    console.log("Worktree --once bootstrap already completed; skipping seed/auth setup.");
+  } else if (options.forceBootstrap) {
+    console.log("Forcing anonymous seed/auth setup.");
+  }
+
+  let ranOnceBootstrap = false;
   for (const spec of plan) {
-    if (spec.longRunning) {
+    if (onceBootstrapAlreadyCompleted && spec.phase === "once-bootstrap") {
+      continue;
+    }
+    if (spec.phase === "long-running") {
+      if (!onceBootstrapAlreadyCompleted && ranOnceBootstrap) {
+        writeOnceBootstrapMarker(repoRoot);
+      }
       await runStreamingCommand(spec);
       return;
     }
     runBlockingCommand(spec);
+    if (spec.phase === "once-bootstrap") {
+      ranOnceBootstrap = true;
+    }
+  }
+
+  if (!onceBootstrapAlreadyCompleted && ranOnceBootstrap) {
+    writeOnceBootstrapMarker(repoRoot);
   }
 }
 

@@ -5,7 +5,8 @@
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
-    "dev": "npm-run-all --parallel dev:frontend dev:backend",
+    "dev": "pnpm run dev:raw",
+    "dev:raw": "npm-run-all --parallel dev:frontend dev:backend",
     "dev:frontend": "node ./scripts/run-vite-dev.ts",
     "dev:backend": "node ./scripts/convex-dev.ts",
     "generate:cloudflare-api": "node ./scripts/generate-cloudflare-api.ts",

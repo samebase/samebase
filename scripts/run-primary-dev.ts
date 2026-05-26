@@ -48,8 +48,8 @@ export function buildPrimaryDevEnvironment(
   return nextEnv;
 }
 
-export function buildPrimaryDevArgs(args: string[]): string[] {
-  return ["exec", "vp", "run", "--filter=noter", "dev", ...args];
+export function buildPrimaryDevArgs(args: string[], script: "dev" | "dev:raw" = "dev"): string[] {
+  return ["exec", "vp", "run", "--filter=noter", script, ...args];
 }
 
 function isMainModule() {

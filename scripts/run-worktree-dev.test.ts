@@ -11,6 +11,7 @@ describe("run-worktree-dev", () => {
     expect(parseWorktreeDevArgs([])).toMatchObject({
       once: false,
       enableBranch: true,
+      forceBootstrap: false,
       vitePort: 5174,
       sourceEnv: null,
       sourceDeployKey: null,
@@ -28,6 +29,7 @@ describe("run-worktree-dev", () => {
       }),
     ).toMatchObject({
       allowMissingSourceEnv: true,
+      forceBootstrap: false,
       sourceDeployKey: "dev:key|token",
       sourceEnv: "apps/noter/.env.source.local",
       vitePort: 6210,
@@ -37,7 +39,15 @@ describe("run-worktree-dev", () => {
   it("lets explicit CLI flags override env defaults", () => {
     expect(
       parseWorktreeDevArgs(
-        ["--once", "--no-branch", "--vite-port", "6001", "--source-env", "custom.env.local"],
+        [
+          "--once",
+          "--no-branch",
+          "--force-bootstrap",
+          "--vite-port",
+          "6001",
+          "--source-env",
+          "custom.env.local",
+        ],
         {
           WORKTREE_DEV_ALLOW_MISSING_SOURCE_ENV: "1",
           WORKTREE_DEV_VITE_PORT: "5174",
@@ -46,6 +56,7 @@ describe("run-worktree-dev", () => {
     ).toMatchObject({
       once: true,
       enableBranch: false,
+      forceBootstrap: true,
       vitePort: 6001,
       sourceEnv: "custom.env.local",
       allowMissingSourceEnv: true,
@@ -57,6 +68,7 @@ describe("run-worktree-dev", () => {
       {
         once: true,
         enableBranch: true,
+        forceBootstrap: false,
         vitePort: 5174,
         sourceEnv: null,
         sourceDeployKey: null,
@@ -68,6 +80,7 @@ describe("run-worktree-dev", () => {
     );
 
     expect(plan.at(-1)?.label).toBe("refresh anonymous auth keys");
+    expect(plan.at(-1)?.phase).toBe("once-bootstrap");
     expect(plan.at(-1)?.args).toContain("--once");
   });
 
@@ -76,6 +89,7 @@ describe("run-worktree-dev", () => {
       {
         once: false,
         enableBranch: false,
+        forceBootstrap: false,
         vitePort: 6001,
         sourceEnv: "seed.env",
         sourceDeployKey: "dev:key|token",
@@ -89,17 +103,47 @@ describe("run-worktree-dev", () => {
     expect(plan.at(-1)).toMatchObject({
       label: "launch the long-running worktree dev server",
       cwd: "/repo",
-      args: ["dev:primary"],
+      args: ["exec", "vp", "run", "--filter=noter", "dev:raw"],
       env: {
         CONVEX_AGENT_MODE: "anonymous",
+        DEV_ENV_ORIGIN: "http://localhost:6001",
         VITE_LOCAL_WORKTREE_PASSWORD_EMAIL: LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
         VITE_LOCAL_WORKTREE_PASSWORD_VALUE: LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
         VITE_PORT: "6001",
       },
-      longRunning: true,
+      phase: "long-running",
     });
     expect(plan[0]).toMatchObject({
       args: ["/repo/scripts/killport.ts"],
+      phase: "always",
     });
+  });
+
+  it("marks one-time seed and auth work separately from always-on startup work", () => {
+    const plan = buildWorktreeDevCommandPlan(
+      {
+        once: false,
+        enableBranch: true,
+        forceBootstrap: false,
+        vitePort: 5174,
+        sourceEnv: null,
+        sourceDeployKey: null,
+        allowMissingSourceEnv: false,
+        showHelp: false,
+      },
+      "/repo",
+      {},
+    );
+
+    expect(plan.map(({ label, phase }) => [label, phase])).toEqual([
+      ["stop existing local backend listeners", "always"],
+      ["validate anonymous seed env prerequisites", "once-bootstrap"],
+      ["bootstrap the current worktree", "always"],
+      ["bootstrap the anonymous local backend once", "always"],
+      ["sync allowlisted seed env values into the local backend", "once-bootstrap"],
+      ["seed the local password-auth development account", "once-bootstrap"],
+      ["refresh anonymous auth keys", "once-bootstrap"],
+      ["launch the long-running worktree dev server", "long-running"],
+    ]);
   });
 });
