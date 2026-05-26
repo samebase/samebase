@@ -22,15 +22,14 @@ jobs:
           testbox_id: ${{ inputs.testbox_id }}
       - name: Checkout code
         uses: actions/checkout@v6
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 11.1.1
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: 24.x
-          cache: "pnpm"
+      - name: Setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.1.1 --activate
       - name: Install dependencies without lifecycle scripts
         run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Audit package signatures
