@@ -843,6 +843,7 @@ test("vault dashboard fixture (branch filters popover)", async ({ page }) => {
   await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: "Filters", exact: true }).click();
 
+  await expect(page.getByPlaceholder("Filter labels")).toHaveCSS("font-size", "16px");
   await expect(page).toHaveScreenshot("vault-branch-filters-popover.png", {
     animations: "disabled",
     caret: "hide",
@@ -871,6 +872,7 @@ test("vault dashboard fixture (branch filters mobile sheet)", async ({ browser }
   await page.getByRole("button", { name: "Filters", exact: true }).click();
 
   const sheet = page.locator("[data-slot='sheet-content']");
+  await expect(sheet.getByPlaceholder("Filter labels")).toHaveCSS("font-size", "16px");
   await expectElementsDoNotOverlap(
     sheet.getByRole("button", { name: "Reset all" }),
     sheet.getByRole("button", { name: "Close" }),
