@@ -1,0 +1,25 @@
+{
+  "name": "@samebase/sure",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "src"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "pnpm --dir ../.. exec tsgo -p packages/sure/tsconfig.json --pretty false",
+    "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/sure/tsconfig.json --report-unused-disable-directives -A typescript/no-explicit-any -A eslint/no-unused-vars -A eslint/no-unused-expressions -A typescript/consistent-type-assertions --ignore-pattern 'packages/sure/src/__tests__/learning/**' --ignore-pattern 'packages/sure/src/__tests__/types/understandingInferGoodRaw.tsc_test.ts' packages/sure/src",
+    "test": "pnpm --dir ../.. exec vp test packages/sure/src/__tests__",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run test"
+  },
+  "devDependencies": {
+    "ajv": "8.18.0",
+    "vite-plus": "0.1.18"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}

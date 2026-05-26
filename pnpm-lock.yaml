@@ -425,6 +425,15 @@ importers:
         specifier: 1.58.2
         version: 1.58.2
 
+  packages/sure:
+    devDependencies:
+      ajv:
+        specifier: 8.18.0
+        version: 8.18.0(patch_hash=1520dfda3a91b505a18bc6c6f1af247d934fb0350173bef2ebc8cccf7354f529)
+      vite-plus:
+        specifier: 0.1.18
+        version: 0.1.18(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@20.19.32)(esbuild@0.27.3)(jiti@2.7.0)(jsdom@29.0.1(@noble/hashes@1.8.0))(typescript@5.9.2)(vite@8.0.8(@types/node@20.19.32)(esbuild@0.27.3)(jiti@2.7.0)(yaml@2.8.3))(yaml@2.8.3)
+
   packages/sync: {}
 
 packages:
