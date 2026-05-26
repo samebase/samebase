@@ -149,6 +149,19 @@ const readRouteUrlEditorOrigin = createIsomorphicFn()
   .client(() => window.location.origin)
   .server(() => getRequestUrl({ xForwardedHost: true, xForwardedProto: true }).origin);
 
+function readRouteUrlEditorRenderOrigin(): string {
+  const origin: unknown = readRouteUrlEditorOrigin();
+  if (typeof origin === "string" && origin.length > 0) {
+    return origin;
+  }
+
+  if (typeof window !== "undefined") {
+    return window.location.origin;
+  }
+
+  throw new Error("Expected route URL editor request origin.");
+}
+
 function areRouteUrlEditorHashSuggestionKeysEqual(
   left: readonly string[],
   right: readonly string[],
@@ -471,7 +484,7 @@ export function RouteUrlEditor() {
   // Arrow-key previews rewrite the input value, while suggestions stay anchored
   // to the text the user typed until they type, click, blur, or commit.
   const suggestionPreviewActiveRef = useRef(false);
-  const origin = readRouteUrlEditorOrigin();
+  const origin = readRouteUrlEditorRenderOrigin();
   const [draftRouteAddress, setDraftRouteAddress] = useState(currentHref);
   const [inputFocused, setInputFocused] = useState(false);
   const [touchScrollPickerEnabled, setTouchScrollPickerEnabled] = useState(false);
