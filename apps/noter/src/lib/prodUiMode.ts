@@ -3,8 +3,6 @@ import { applySearchPatch } from "@/lib/routeSearchFlags";
 import { type DeploymentProfile } from "../../convex/deploymentProfile";
 
 export const FORCE_PROD_UI_QUERY_PARAM = "prod-ui";
-const QUERY_PARAM_LINK_LABEL_PREFIX = "?";
-export const FORCE_PROD_UI_MODE_LINK_LABEL = `${QUERY_PARAM_LINK_LABEL_PREFIX}${FORCE_PROD_UI_QUERY_PARAM}`;
 const PRODUCTION_PUBLIC_HOSTNAMES = ["noter.md", "www.noter.md"] as const;
 
 export function isProdUiModeEnabled(search: Readonly<Record<string, unknown>>): boolean {

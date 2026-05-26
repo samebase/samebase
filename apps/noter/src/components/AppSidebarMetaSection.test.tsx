@@ -5,7 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import { FORCE_PROD_UI_MODE_LINK_LABEL } from "@/lib/prodUiMode";
+import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
 import { AppSidebarMetaSection } from "./AppSidebarMetaSection";
 
 const { act } = React;
@@ -36,7 +36,7 @@ describe("AppSidebarMetaSection", () => {
     vi.unstubAllGlobals();
   });
 
-  it("omits the prod-ui shortcut from prerendered markup", () => {
+  it("omits hidden dev shortcuts from prerendered markup", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/"]}>
         <AppSidebarMetaSection side="right" />
@@ -44,10 +44,12 @@ describe("AppSidebarMetaSection", () => {
     );
 
     expect(markup).not.toContain('id="public-landing-prod-ui-toggle"');
-    expect(markup).not.toContain(`>${FORCE_PROD_UI_MODE_LINK_LABEL}<`);
+    expect(markup).not.toContain(">?prod-ui<");
+    expect(markup).not.toContain('id="public-local-storage-route-link"');
+    expect(markup).not.toContain(`>${LOCAL_STORAGE_ROUTE}<`);
   });
 
-  it("adds the prod-ui shortcut after local browser load", () => {
+  it("does not add hidden dev shortcuts after local browser load", () => {
     rootElement = document.createElement("div");
     document.body.append(rootElement);
     const mountedRoot = createRoot(rootElement);
@@ -62,6 +64,11 @@ describe("AppSidebarMetaSection", () => {
     });
 
     const prodUiShortcut = rootElement.querySelector("#public-landing-prod-ui-toggle");
-    expect(prodUiShortcut?.textContent).toBe(FORCE_PROD_UI_MODE_LINK_LABEL);
+    const localStorageShortcut = rootElement.querySelector("#public-local-storage-route-link");
+
+    expect(prodUiShortcut).toBeNull();
+    expect(localStorageShortcut).toBeNull();
+    expect(rootElement.textContent).not.toContain("?prod-ui");
+    expect(rootElement.textContent).not.toContain(LOCAL_STORAGE_ROUTE);
   });
 });
