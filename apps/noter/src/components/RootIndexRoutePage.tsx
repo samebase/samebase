@@ -4,7 +4,7 @@ import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
-import { Suspense, useMemo } from "react";
+import { useMemo } from "react";
 
 export function RootIndexRoutePage({ landingPageMarkdown }: { landingPageMarkdown: string }) {
   const location = useLocation();
@@ -23,12 +23,10 @@ export function RootIndexRoutePage({ landingPageMarkdown }: { landingPageMarkdow
   );
 
   return (
-    <Suspense fallback={null}>
-      <SignInForm
-        authPlacement="sidebar"
-        landingPageMarkdown={landingPageMarkdown}
-        topNotice={null}
-      />
-    </Suspense>
+    <SignInForm
+      authPlacement="sidebar"
+      landingPageMarkdown={landingPageMarkdown}
+      topNotice={null}
+    />
   );
 }
