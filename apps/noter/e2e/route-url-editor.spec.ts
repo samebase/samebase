@@ -729,6 +729,43 @@ test("route URL editor previews path suggestions on hover", async ({ page }) => 
   await expect(forwardButton).toBeEnabled();
 });
 
+test("route URL editor restores the typed draft after leaving a hovered dropdown option", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/logo", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const input = await editRouteUrl(page);
+  const suggestions = page.getByTestId("route-url-editor-suggestions");
+  const secondaryOption = page.getByRole("option", {
+    exact: true,
+    name: "Use secondary",
+  });
+
+  await input.fill(`${origin}/logo?leftFace=`);
+
+  await expect(input).toHaveValue(`${origin}/logo?leftFace=`);
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search-value");
+  await expect(secondaryOption).toBeVisible();
+
+  await secondaryOption.hover();
+
+  await expect(secondaryOption).toHaveAttribute("aria-selected", "true");
+  await expect(input).toHaveValue(`${origin}/logo?leftFace=secondary`);
+  await expect(page).toHaveURL(`${origin}/logo?leftFace=secondary`);
+
+  await page.mouse.move(10, 10);
+
+  await expect(secondaryOption).toHaveAttribute("aria-selected", "false");
+  await expect(input).toHaveValue(`${origin}/logo?leftFace=`);
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(suggestions).toBeVisible();
+});
+
 test("route URL editor hover previews replace the current history entry", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 420 });
   await page.goto("/", {
@@ -763,6 +800,14 @@ test("route URL editor hover previews replace the current history entry", async 
 
   await expect(page).toHaveURL(`${origin}/visual-fixture`);
   await expect(backButton).toBeEnabled();
+
+  await page.mouse.move(10, 10);
+
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(backButton).toBeEnabled();
+
+  await input.press("Escape");
+  await expect(getRouteUrlEditorDisplay(page)).toHaveValue(`${origin}/logo`);
 
   await backButton.click();
 
