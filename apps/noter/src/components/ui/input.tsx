@@ -3,6 +3,9 @@ import { Input as InputPrimitive } from "@base-ui/react/input";
 
 import { cn } from "@/lib/utils";
 
+// Intentional shadcn divergence: editable input text stays at 16px+ so
+// iOS/iPadOS WebKit does not zoom the viewport on focus. `file:text-sm`
+// styles only the file picker button, not the text-entry control.
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   return (
     <InputPrimitive

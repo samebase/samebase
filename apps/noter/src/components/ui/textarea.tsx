@@ -2,6 +2,8 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+// Intentional shadcn divergence: editable textarea text stays at 16px+ so
+// iOS/iPadOS WebKit does not zoom the viewport on focus.
 function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
   return (
     <textarea
