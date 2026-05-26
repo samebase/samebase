@@ -24,7 +24,11 @@ export function RootIndexRoutePage({ landingPageMarkdown }: { landingPageMarkdow
 
   return (
     <Suspense fallback={null}>
-      <SignInForm authPlacement="sidebar" landingPageMarkdown={landingPageMarkdown} />
+      <SignInForm
+        authPlacement="sidebar"
+        landingPageMarkdown={landingPageMarkdown}
+        topNotice={null}
+      />
     </Suspense>
   );
 }

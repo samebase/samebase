@@ -2,7 +2,6 @@ import { LandingCopy } from "@/components/LandingCopy";
 import { PublicLandingAuthControls } from "@/components/PublicLandingAuthControls";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
-import { landingPageMarkdown as defaultLandingPageMarkdown } from "@/lib/landingCopy";
 import {
   PUBLIC_LANDING_COPY_TEST_ID,
   PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
@@ -13,16 +12,12 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 
 type SignInFormProps = {
-  authPlacement?: "inline" | "sidebar";
-  landingPageMarkdown?: string;
-  topNotice?: ReactNode;
+  authPlacement: "inline" | "sidebar";
+  landingPageMarkdown: string;
+  topNotice: ReactNode;
 };
 
-export function SignInForm({
-  authPlacement = "inline",
-  landingPageMarkdown = defaultLandingPageMarkdown,
-  topNotice,
-}: SignInFormProps = {}) {
+export function SignInForm({ authPlacement, landingPageMarkdown, topNotice }: SignInFormProps) {
   const pathname = useLocation({
     select: (location) => location.pathname,
   });

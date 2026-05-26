@@ -1,6 +1,7 @@
 import { SignInForm } from "@/SignInForm";
 import { ApprovalGate } from "@/components/ApprovalGate";
 import { useLocation } from "@tanstack/react-router";
+import { landingPageMarkdown } from "@/lib/landingCopy";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
@@ -35,7 +36,11 @@ export function AuthenticatedAppRoutePage({ children }: { children: ReactNode })
       </Authenticated>
       <Unauthenticated>
         <Suspense fallback={null}>
-          <SignInForm />
+          <SignInForm
+            authPlacement="inline"
+            landingPageMarkdown={landingPageMarkdown}
+            topNotice={null}
+          />
         </Suspense>
       </Unauthenticated>
     </>
