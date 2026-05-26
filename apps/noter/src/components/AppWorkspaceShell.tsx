@@ -4,6 +4,7 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
@@ -172,6 +173,29 @@ function AppWorkspaceMainHeader({ accessory }: { accessory?: ReactNode }) {
   );
 }
 
+function AppWorkspaceClientShell() {
+  return <div className="min-h-0 flex-1 bg-background" data-testid="app-workspace-client-shell" />;
+}
+
+/**
+ * SSR must not guess workspace geometry. Render the same empty shell for SSR
+ * and first hydration, then mount WorkspaceLayoutV2 so viewport reads happen on
+ * the client before that layout's first paint.
+ */
+function AppWorkspaceClientReadyGate({ children }: { children: ReactNode }) {
+  const [isClientReady, setIsClientReady] = useState(false);
+
+  useLayoutEffect(() => {
+    setIsClientReady(true);
+  }, []);
+
+  if (!isClientReady) {
+    return <AppWorkspaceClientShell />;
+  }
+
+  return children;
+}
+
 function useAppWorkspaceSidebarState() {
   const { isAuthenticated } = useConvexAuth();
   const localSidebarState = useLocalStorageWorkspaceSidebarState({
@@ -246,7 +270,9 @@ export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
   return (
     <AppWorkspaceRouteChromeContext.Provider value={chromeContextValue}>
       <div className="flex min-h-dvh flex-col bg-background text-foreground">
-        <AppWorkspaceShellFrame chrome={chrome}>{children}</AppWorkspaceShellFrame>
+        <AppWorkspaceClientReadyGate>
+          <AppWorkspaceShellFrame chrome={chrome}>{children}</AppWorkspaceShellFrame>
+        </AppWorkspaceClientReadyGate>
       </div>
     </AppWorkspaceRouteChromeContext.Provider>
   );
