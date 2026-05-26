@@ -1,7 +1,7 @@
 import { notEmpty } from "@noter-md/dependent/main";
 
 import { requestCloudflareApi, CloudflareApiError } from "./cloudflareApi/client";
-import type { components, Readable } from "./cloudflareApi/types.generated";
+import type { components, Readable, Writable } from "./cloudflareApi/types.generated";
 import { clamp, toErrorMessage } from "./jsonUtils";
 import type { ProviderApiCallRecorder } from "./providerApiLog";
 
@@ -32,6 +32,7 @@ type CloudflareBuildConfig = {
 };
 
 type CloudflareWorker = Readable<components["schemas"]["workers_Worker"]>;
+type CloudflareWorkerCreateBody = Writable<components["schemas"]["workers_Worker"]>;
 type CloudflareWorkerTagSource = {
   id?: string;
   external_script_id?: string;
@@ -133,6 +134,32 @@ export type CloudflareWorkerInventoryItem = {
 export type ExistingCloudflareWorkerIdentity =
   | { state: "planned" }
   | { state: "created"; workerTag: string };
+
+export function buildCloudflareWorkerCreateBody(workerName: string): CloudflareWorkerCreateBody {
+  return {
+    name: workerName,
+    logpush: false,
+    subdomain: {
+      enabled: true,
+      previews_enabled: true,
+    },
+    // Cloudflare rejects propagation_policy unless trace propagation is enabled,
+    // even when traces are disabled, so leave that optional default out.
+    observability: {
+      enabled: false,
+      head_sampling_rate: 1,
+      logs: {
+        destinations: [],
+        enabled: true,
+        head_sampling_rate: 1,
+        persist: true,
+        invocation_logs: true,
+      },
+    },
+    tags: [],
+    tail_consumers: [],
+  };
+}
 
 function readCloudflareWorkerInventoryItem(worker: {
   id?: string;
@@ -360,36 +387,7 @@ async function ensureWorker(
       },
     },
     recordApiCall: args.recordApiCall,
-    body: {
-      name: args.workerName,
-      logpush: false,
-      subdomain: {
-        enabled: true,
-        previews_enabled: true,
-      },
-      // The Worker API uses the response-shaped observability contract here, so send the
-      // defaults that Wrangler accepts implicitly in wrangler.jsonc.
-      observability: {
-        enabled: false,
-        head_sampling_rate: 1,
-        logs: {
-          destinations: [],
-          enabled: true,
-          head_sampling_rate: 1,
-          persist: true,
-          invocation_logs: true,
-        },
-        traces: {
-          destinations: [],
-          enabled: false,
-          persist: true,
-          head_sampling_rate: 1,
-          propagation_policy: "authenticated",
-        },
-      },
-      tags: [],
-      tail_consumers: [],
-    },
+    body: buildCloudflareWorkerCreateBody(args.workerName),
   });
   const created = requireCloudflareResult(
     createdRaw,

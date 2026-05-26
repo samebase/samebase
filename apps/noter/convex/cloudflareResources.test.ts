@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  buildCloudflareWorkerCreateBody,
   buildCloudflareWorkersEnvVars,
   isCloudflareMcpInvalidAccessTokenError,
   isWorkersBuildsInvalidTokenMessage,
@@ -14,6 +15,10 @@ import {
 } from "./cloudflareAccountDiscovery";
 
 describe("cloudflare resources", () => {
+  it("omits trace propagation policy when creating Workers with traces disabled", () => {
+    expect(buildCloudflareWorkerCreateBody("noter-app").observability.traces).toBe(undefined);
+  });
+
   it("uses the split production Convex deploy key for production Workers builds", () => {
     expect(
       buildCloudflareWorkersEnvVars({
