@@ -7,6 +7,7 @@ import {
 export type NoterRoutePermission = "public" | "admin";
 
 export type NoterRouteSearchParamValueKind = "presence" | "value";
+export type NoterRouteSearchParamValueCompletion = "tailwind-color-token";
 
 type NoterRouteSearchParamSuggestionBase<Key extends string> = {
   key: Key;
@@ -19,6 +20,7 @@ export type NoterRouteSearchParamSuggestion<Key extends string = string> =
     })
   | (NoterRouteSearchParamSuggestionBase<Key> & {
       valueKind: "value";
+      valueCompletion?: NoterRouteSearchParamValueCompletion;
       valueSuggestions: readonly string[];
     });
 

@@ -40,6 +40,7 @@ type RouteUrlEditorSearchSuggestion =
 type RouteUrlEditorSearchValueSuggestion = {
   kind: "search-value";
   key: string;
+  replacementValue: string;
   value: string;
 };
 
@@ -201,7 +202,7 @@ export function applyRouteUrlEditorSuggestion({
         return routeAddress;
       }
 
-      return `${routeAddress.slice(0, token.valueStart)}${suggestion.value}${routeAddress.slice(
+      return `${routeAddress.slice(0, token.valueStart)}${suggestion.replacementValue}${routeAddress.slice(
         token.tokenEnd,
       )}`;
     }
@@ -344,16 +345,98 @@ function readRouteUrlEditorSearchValueSuggestions(args: {
       continue;
     }
 
+    if (searchParamSuggestion.valueCompletion === "tailwind-color-token") {
+      return readTailwindColorTokenSearchValueSuggestions({
+        key: token.key,
+        tokenValue: token.value,
+        valueSuggestions: searchParamSuggestion.valueSuggestions,
+      });
+    }
+
     return searchParamSuggestion.valueSuggestions
       .filter((value) => value.startsWith(token.value))
-      .map((value) => ({
-        key: `${token.key}=${value}`,
-        kind: "search-value",
-        value,
-      }));
+      .map((value) => createRouteUrlEditorSearchValueSuggestion(token.key, value, value));
   }
 
   return [];
+}
+
+function createRouteUrlEditorSearchValueSuggestion(
+  key: string,
+  value: string,
+  replacementValue: string,
+): RouteUrlEditorSearchValueSuggestion {
+  return {
+    key: `${key}=${replacementValue}`,
+    kind: "search-value",
+    replacementValue,
+    value,
+  };
+}
+
+function readTailwindColorTokenSearchValueSuggestions(args: {
+  key: string;
+  tokenValue: string;
+  valueSuggestions: readonly string[];
+}): readonly RouteUrlEditorSearchValueSuggestion[] {
+  const dashIndex = args.tokenValue.indexOf("-");
+
+  if (dashIndex === -1) {
+    const suggestedPrefixes = new Set<string>();
+    const suggestions: RouteUrlEditorSearchValueSuggestion[] = [];
+
+    for (const valueSuggestion of args.valueSuggestions) {
+      const parsedSuggestion = readTailwindColorTokenSuggestion(valueSuggestion);
+      if (parsedSuggestion === null || suggestedPrefixes.has(parsedSuggestion.prefix)) {
+        continue;
+      }
+
+      if (!parsedSuggestion.prefix.startsWith(args.tokenValue)) {
+        continue;
+      }
+
+      suggestedPrefixes.add(parsedSuggestion.prefix);
+      suggestions.push(
+        createRouteUrlEditorSearchValueSuggestion(
+          args.key,
+          parsedSuggestion.prefix,
+          parsedSuggestion.prefix,
+        ),
+      );
+    }
+
+    return suggestions;
+  }
+
+  const prefix = args.tokenValue.slice(0, dashIndex + 1);
+  const shadeDraft = args.tokenValue.slice(dashIndex + 1);
+
+  return args.valueSuggestions.flatMap((valueSuggestion) => {
+    const parsedSuggestion = readTailwindColorTokenSuggestion(valueSuggestion);
+    if (
+      parsedSuggestion === null ||
+      parsedSuggestion.prefix !== prefix ||
+      !parsedSuggestion.shade.startsWith(shadeDraft)
+    ) {
+      return [];
+    }
+
+    return [
+      createRouteUrlEditorSearchValueSuggestion(args.key, parsedSuggestion.shade, valueSuggestion),
+    ];
+  });
+}
+
+function readTailwindColorTokenSuggestion(value: string): { prefix: string; shade: string } | null {
+  const dashIndex = value.indexOf("-");
+  if (dashIndex === -1) {
+    return null;
+  }
+
+  return {
+    prefix: value.slice(0, dashIndex + 1),
+    shade: value.slice(dashIndex + 1),
+  };
 }
 
 function readRouteUrlEditorHashSuggestions(args: {

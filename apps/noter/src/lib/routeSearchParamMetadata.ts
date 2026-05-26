@@ -2,6 +2,7 @@ import { entries, fromEntries } from "@noter-md/dependent/object";
 import { bad, good, pure } from "@samebase/sure";
 import {
   type NoterRoutePermission,
+  type NoterRouteSearchParamValueCompletion,
   type NoterRouteSearchParamSuggestion,
 } from "@/lib/routePermissions";
 
@@ -15,6 +16,7 @@ type RouteSearchParamMetadataBase = {
 export type RouteSearchParamMetadata =
   | (RouteSearchParamMetadataBase & {
       valueKind: "value";
+      valueCompletion?: NoterRouteSearchParamValueCompletion;
       valueSuggestions?: readonly string[];
     })
   | (RouteSearchParamMetadataBase & {
@@ -120,6 +122,7 @@ export function routeSearchValueParam<const Schema extends RouteSearchValueSchem
   args: {
     permission: NoterRoutePermission;
     suggestion: RouteSearchParamSuggestionSurface;
+    valueCompletion?: NoterRouteSearchParamValueCompletion;
     valueSuggestions?: readonly string[];
   },
 ): RouteSearchParam<InferRouteSearchSchemaGood<Schema>> {
@@ -214,12 +217,16 @@ export function readRouteSearchParamSuggestions<
       continue;
     }
 
-    suggestions.push({
+    const suggestion: NoterRouteSearchParamSuggestion<RouteSearchParamMetadataKey<Metadata>> = {
       key,
       permission: paramMetadata.permission,
       valueKind: "value",
       valueSuggestions: paramMetadata.valueSuggestions ?? [],
-    });
+    };
+    if (paramMetadata.valueCompletion) {
+      suggestion.valueCompletion = paramMetadata.valueCompletion;
+    }
+    suggestions.push(suggestion);
   }
 
   return suggestions;

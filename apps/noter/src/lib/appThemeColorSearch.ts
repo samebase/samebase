@@ -5,6 +5,7 @@ import {
   DEFAULT_APP_THEME_COLORS,
   DEFAULT_LOGO_THEME_COLORS,
   LOGO_THEME_COLOR_KEYS,
+  TAILWIND_COLOR_TOKEN_SUGGESTIONS,
   getFaceColorsFromLogoThemeColors,
   getLogoColorCssHsl,
   getLogoColorForegroundCssHsl,
@@ -54,29 +55,14 @@ const APP_THEME_COLOR_STYLE_ELEMENT_ID = "noter-app-theme-color-search";
 // invalidate color state even when route search props are already clean.
 const APP_THEME_COLOR_SEARCH_SYNC_EVENT = "noter:app-theme-color-search-sync";
 const LOGO_COLOR_THEME_MODES = ["light", "dark"] as const satisfies readonly LogoColorThemeMode[];
-const LOGO_THEME_COLOR_VALUE_SUGGESTIONS = [
-  "primary-base",
-  "secondary-base",
-  "background-base",
-  "border-base",
-  "red-500",
-  "orange-500",
-  "amber-400",
-  "yellow-300",
-  "green-500",
-  "emerald-400",
-  "cyan-400",
-  "sky-500",
-  "blue-500",
-  "indigo-500",
-  "violet-500",
-  "purple-500",
-  "fuchsia-500",
-  "pink-500",
-  "rose-500",
-  "white-base",
-  "black-base",
-] as const satisfies readonly LogoColorToken[];
+const LOGO_THEME_COLOR_VALUE_SUGGESTIONS = TAILWIND_COLOR_TOKEN_SUGGESTIONS;
+
+const logoThemeColorValueParamOptions = {
+  permission: "public",
+  suggestion: "hidden",
+  valueCompletion: "tailwind-color-token",
+  valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,
+} as const;
 
 const appThemeColorSearchKeyByColorKey = {
   background: "background",
@@ -127,29 +113,19 @@ const logoColorTokenSearchValue = pure((value: unknown) => {
 
 export const appThemeColorSearchFieldSchema = defineRouteSearchParams({
   background: routeSearchValueParam(logoColorTokenSearchValue, {
-    permission: "public",
-    suggestion: "hidden",
-    valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,
+    ...logoThemeColorValueParamOptions,
   }),
   border: routeSearchValueParam(logoColorTokenSearchValue, {
-    permission: "public",
-    suggestion: "hidden",
-    valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,
+    ...logoThemeColorValueParamOptions,
   }),
   primary: routeSearchValueParam(logoColorTokenSearchValue, {
-    permission: "public",
-    suggestion: "hidden",
-    valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,
+    ...logoThemeColorValueParamOptions,
   }),
   secondary: routeSearchValueParam(logoColorTokenSearchValue, {
-    permission: "public",
-    suggestion: "hidden",
-    valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,
+    ...logoThemeColorValueParamOptions,
   }),
   top: routeSearchValueParam(logoColorTokenSearchValue, {
-    permission: "public",
-    suggestion: "hidden",
-    valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,
+    ...logoThemeColorValueParamOptions,
   }),
 });
 
