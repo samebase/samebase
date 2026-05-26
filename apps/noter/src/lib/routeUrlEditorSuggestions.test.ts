@@ -490,6 +490,19 @@ describe("applyRouteUrlEditorSuggestion", () => {
 
     expect(
       applyRouteUrlEditorSuggestion({
+        routeAddress: "/logo?dark&de",
+        selectionRouteIndex: "/logo?dark&de".length,
+        suggestion: {
+          key: "devtools",
+          kind: "search",
+          value: "?devtools",
+          valueKind: "presence",
+        },
+      }),
+    ).toBe("/logo?dark&devtools");
+
+    expect(
+      applyRouteUrlEditorSuggestion({
         routeAddress: "/logo?leftFace=s#top",
         selectionRouteIndex: "/logo?leftFace=s".length,
         suggestion: {

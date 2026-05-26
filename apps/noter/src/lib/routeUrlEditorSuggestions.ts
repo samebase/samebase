@@ -96,6 +96,11 @@ type NumericSearchParamValue = {
   raw: string;
 };
 
+type SearchSuggestionToken = {
+  prefix: "first" | "next";
+  text: string;
+};
+
 const GLOBAL_ROUTE_URL_HASH_KEYS = ["top"] as const;
 
 const ROUTE_URL_HASH_KEYS_BY_PATH: Readonly<Record<string, readonly string[]>> = {
@@ -197,25 +202,11 @@ export function applyRouteUrlEditorSuggestion({
         return routeAddress;
       }
 
-      if (suggestion.valueKind === "value" && suggestion.commitsValue) {
-        return applyRouteUrlEditorCommittedSearchSuggestion({
-          routeAddress,
-          suggestion,
-          token,
-        });
-      }
-
-      if (suggestion.value.startsWith("&") && token.first) {
-        return appendRouteUrlEditorSearchSuggestion({
-          routeAddress,
-          suggestionValue: suggestion.value,
-        });
-      }
-
-      const nextToken = suggestion.value;
-      return `${routeAddress.slice(0, token.tokenStart)}${nextToken}${routeAddress.slice(
-        token.tokenEnd,
-      )}`;
+      return applyRouteUrlEditorSearchSuggestion({
+        routeAddress,
+        suggestion,
+        token,
+      });
     }
     case "search-value": {
       const token = readRouteUrlEditorSearchToken(routeAddress, selectionRouteIndex);
@@ -238,6 +229,36 @@ export function applyRouteUrlEditorSuggestion({
   }
 }
 
+function applyRouteUrlEditorSearchSuggestion(args: {
+  routeAddress: string;
+  suggestion: RouteUrlEditorSearchSuggestion;
+  token: SearchToken;
+}): string {
+  if (args.suggestion.valueKind === "value" && args.suggestion.commitsValue) {
+    return applyRouteUrlEditorCommittedSearchSuggestion({
+      routeAddress: args.routeAddress,
+      suggestion: args.suggestion,
+      token: args.token,
+    });
+  }
+
+  const suggestionToken = readRouteUrlEditorSearchSuggestionToken(args.suggestion.value);
+  if (shouldAppendRouteUrlEditorSearchSuggestion(suggestionToken, args.token)) {
+    return appendRouteUrlEditorSearchSuggestion({
+      routeAddress: args.routeAddress,
+      suggestionToken,
+    });
+  }
+
+  const nextToken = formatRouteUrlEditorSearchToken({
+    first: args.token.first,
+    text: suggestionToken.text,
+  });
+  return `${args.routeAddress.slice(0, args.token.tokenStart)}${nextToken}${args.routeAddress.slice(
+    args.token.tokenEnd,
+  )}`;
+}
+
 function applyRouteUrlEditorCommittedSearchSuggestion(args: {
   routeAddress: string;
   suggestion: Extract<RouteUrlEditorSearchSuggestion, { valueKind: "value" }>;
@@ -256,16 +277,15 @@ function applyRouteUrlEditorCommittedSearchSuggestion(args: {
         candidate.key === args.suggestion.key &&
         areRouteUrlEditorSearchTokensEqual(candidate, args.token),
     );
-  const suggestionTokenText = args.suggestion.value.slice(1);
+  const suggestionToken = readRouteUrlEditorSearchSuggestionToken(args.suggestion.value);
 
   if (
-    args.suggestion.value.startsWith("&") &&
-    args.token.first &&
+    shouldAppendRouteUrlEditorSearchSuggestion(suggestionToken, args.token) &&
     typeof replacementToken === "undefined"
   ) {
     return appendRouteUrlEditorSearchSuggestion({
       routeAddress: args.routeAddress,
-      suggestionValue: args.suggestion.value,
+      suggestionToken,
     });
   }
 
@@ -278,7 +298,7 @@ function applyRouteUrlEditorCommittedSearchSuggestion(args: {
       areRouteUrlEditorSearchTokensEqual(searchToken, replacementToken);
 
     if (replaceToken || (activeToken && typeof replacementToken === "undefined")) {
-      tokenTexts.push(suggestionTokenText);
+      tokenTexts.push(suggestionToken.text);
       continue;
     }
 
@@ -301,16 +321,41 @@ function applyRouteUrlEditorCommittedSearchSuggestion(args: {
 
 function appendRouteUrlEditorSearchSuggestion(args: {
   routeAddress: string;
-  suggestionValue: string;
+  suggestionToken: SearchSuggestionToken;
 }): string {
   const parts = readRouteUrlEditorParts(args.routeAddress);
   const search =
     parts.search.length > 0
-      ? `?${parts.search}${args.suggestionValue}`
-      : `?${args.suggestionValue.slice(1)}`;
+      ? `?${parts.search}&${args.suggestionToken.text}`
+      : `?${args.suggestionToken.text}`;
   const hash = parts.hashStart === null ? "" : `#${parts.hash}`;
 
   return `${parts.path}${search}${hash}`;
+}
+
+function readRouteUrlEditorSearchSuggestionToken(value: string): SearchSuggestionToken {
+  if (value.startsWith("&")) {
+    return {
+      prefix: "next",
+      text: value.slice(1),
+    };
+  }
+
+  return {
+    prefix: "first",
+    text: value.startsWith("?") ? value.slice(1) : value,
+  };
+}
+
+function shouldAppendRouteUrlEditorSearchSuggestion(
+  suggestionToken: SearchSuggestionToken,
+  token: SearchToken,
+): boolean {
+  return suggestionToken.prefix === "next" && token.first;
+}
+
+function formatRouteUrlEditorSearchToken(args: { first: boolean; text: string }): string {
+  return `${args.first ? "?" : "&"}${args.text}`;
 }
 
 function areRouteUrlEditorSearchTokensEqual(left: SearchToken, right: SearchToken): boolean {
