@@ -282,6 +282,65 @@ describe("RouteUrlEditor", () => {
     expect(document.activeElement).toBe(input);
   });
 
+  it("opens a search param slot when clicking the end of a route with options", async () => {
+    const input = startEditing(["/logo"]);
+    const origin = window.location.origin;
+
+    await act(async () => {
+      input.setSelectionRange(input.value.length, input.value.length);
+      input.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      await Promise.resolve();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(input.value).toBe(`${origin}/logo?`);
+    expect(readRouteHref()).toBe("/logo");
+    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search");
+    expect(
+      rootElement?.querySelector('button[aria-label="Use ?leftFace=secondary"]'),
+    ).not.toBeNull();
+    expect(document.activeElement).toBe(input);
+  });
+
+  it("keeps path suggestions when clicking the end of the root route", async () => {
+    const input = startEditing();
+    const origin = window.location.origin;
+
+    await act(async () => {
+      input.setSelectionRange(input.value.length, input.value.length);
+      input.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      await Promise.resolve();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(input.value).toBe(`${origin}/`);
+    expect(readRouteHref()).toBe("/");
+    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("path");
+    expect(rootElement?.querySelector('button[aria-label="Use /logo"]')).not.toBeNull();
+    expect(document.activeElement).toBe(input);
+  });
+
+  it("opens another search param slot when clicking the end of a complete query", async () => {
+    const input = startEditing(["/logo?leftFace=secondary"]);
+    const origin = window.location.origin;
+
+    await act(async () => {
+      input.setSelectionRange(input.value.length, input.value.length);
+      input.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      await Promise.resolve();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(input.value).toBe(`${origin}/logo?leftFace=secondary&`);
+    expect(readRouteHref()).toBe("/logo?leftFace=secondary");
+    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search");
+    const searchSuggestionLabels = [
+      ...(rootElement?.querySelectorAll<HTMLButtonElement>('button[role="option"]') ?? []),
+    ].map((button) => button.getAttribute("aria-label") ?? "");
+    expect(searchSuggestionLabels.some((label) => label.startsWith("Use &"))).toBe(true);
+    expect(document.activeElement).toBe(input);
+  });
+
   it("ignores stationary hover on search suggestions after keyboard edits", async () => {
     const input = startEditing(["/logo"]);
     const origin = window.location.origin;

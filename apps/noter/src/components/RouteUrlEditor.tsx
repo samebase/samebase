@@ -59,6 +59,7 @@ const routeUrlEditorTouchScrollSlateClassName =
 const routeUrlEditorTouchScrollPickerMediaQuery = "(hover: none), (pointer: coarse)";
 const routeUrlEditorSuggestionRowHeightPx = 28;
 const routeUrlEditorTouchScrollSlateOptionOffset = 2;
+const routeUrlEditorEndPointerInsetPx = 8;
 
 type RouteUrlEditorTouchScrollPickerMetrics = {
   bottomSpacerHeightPx: number;
@@ -318,6 +319,11 @@ type RouteUrlEditorSuggestionFollowup = {
   selectionRouteIndex: number;
 };
 
+type RouteUrlEditorSearchContinuation = {
+  draftRouteAddress: string;
+  selectionRouteIndex: number;
+};
+
 type RouteUrlEditorCommitOptions = {
   commitPreviewToHistory: boolean;
   replaceRouteOptions: boolean;
@@ -377,6 +383,49 @@ function readRouteUrlEditorNextSearchDraft(routeAddress: string): string {
   }
 
   return `${routeAddress.slice(0, hashIndex)}&${routeAddress.slice(hashIndex)}`;
+}
+
+function readRouteUrlEditorSearchContinuationDraft(args: {
+  routeAddress: string;
+  selectionRouteIndex: number;
+}): string | null {
+  const hashIndex = args.routeAddress.indexOf("#");
+  if (hashIndex !== -1 && args.selectionRouteIndex > hashIndex) {
+    return null;
+  }
+
+  const searchEnd = hashIndex === -1 ? args.routeAddress.length : hashIndex;
+  if (args.selectionRouteIndex !== searchEnd) {
+    return null;
+  }
+
+  const searchIndex = args.routeAddress.indexOf("?");
+  if (searchIndex === -1 || searchIndex > searchEnd) {
+    if (args.routeAddress === "/") {
+      return null;
+    }
+
+    return readRouteUrlEditorSearchTriggerDraft(args.routeAddress);
+  }
+
+  return readRouteUrlEditorNextSearchDraft(args.routeAddress);
+}
+
+function readRouteUrlEditorPointerSelectionRouteIndex(args: {
+  event: SyntheticEvent<HTMLInputElement>;
+  routeAddress: string;
+}): number | null {
+  const nativeEvent = args.event.nativeEvent;
+  if (!(nativeEvent instanceof MouseEvent)) {
+    return null;
+  }
+
+  const inputRect = args.event.currentTarget.getBoundingClientRect();
+  if (nativeEvent.clientX < inputRect.right - routeUrlEditorEndPointerInsetPx) {
+    return null;
+  }
+
+  return args.routeAddress.length;
 }
 
 function restoreRouteUrlEditorInputSelection(args: {
@@ -702,6 +751,101 @@ export function RouteUrlEditor() {
     [origin, patchSuggestionState],
   );
 
+  const readSearchContinuationFromSelection = useCallback(
+    (
+      routeAddress: string,
+      selectionRouteIndex: number,
+    ): RouteUrlEditorSearchContinuation | null => {
+      const draftRouteAddress = readRouteUrlEditorSearchContinuationDraft({
+        routeAddress,
+        selectionRouteIndex,
+      });
+      if (draftRouteAddress === null || draftRouteAddress === routeAddress) {
+        return null;
+      }
+
+      if (
+        !isRouteUrlEditorRouteUpdateReady({
+          currentHref,
+          draftRouteAddress: routeAddress,
+          origin,
+          routesByPath: router.routesByPath,
+          viewer: { isAdmin: viewerIsAdmin === true },
+        })
+      ) {
+        return null;
+      }
+
+      if (
+        !isRouteUrlPathReadyForNavigation({
+          currentHref,
+          draftHref: routeAddress,
+          origin,
+          routesByPath: router.routesByPath,
+          viewer: { isAdmin: viewerIsAdmin === true },
+        })
+      ) {
+        return null;
+      }
+
+      const continuationSelectionRouteIndex =
+        readRouteUrlEditorSearchDraftSelectionRouteIndex(draftRouteAddress);
+      const continuationSuggestions = readRouteUrlEditorSuggestions({
+        currentHref,
+        draftEditedSinceFocus: true,
+        draftRouteAddress,
+        hashKeys: [],
+        kind: "search",
+        origin,
+        routesByPath: router.routesByPath,
+        selectionRouteIndex: continuationSelectionRouteIndex,
+        viewer: { isAdmin: viewerIsAdmin === true },
+      });
+      if (continuationSuggestions.length === 0) {
+        return null;
+      }
+
+      return {
+        draftRouteAddress,
+        selectionRouteIndex: continuationSelectionRouteIndex,
+      };
+    },
+    [currentHref, origin, router.routesByPath, viewerIsAdmin],
+  );
+
+  const openSearchContinuationFromInput = useCallback(
+    (input: HTMLInputElement, routeAddress: string, pointerSelectionRouteIndex: number | null) => {
+      const selectionRouteIndex =
+        pointerSelectionRouteIndex ??
+        readRouteUrlEditorInputRouteIndex({
+          input,
+          origin,
+          routeAddress,
+        });
+      const continuation = readSearchContinuationFromSelection(routeAddress, selectionRouteIndex);
+      if (continuation === null) {
+        return;
+      }
+
+      setDraftRouteAddress(continuation.draftRouteAddress);
+      suppressSuggestionMousePreviewUntilMoveRef.current = true;
+      patchSuggestionState({
+        activeIndex: null,
+        baseRouteAddress: continuation.draftRouteAddress,
+        dismissed: false,
+        draftEditedSinceFocus: true,
+        kind: "search",
+        selectionRouteIndex: continuation.selectionRouteIndex,
+      });
+      restoreRouteUrlEditorInputSelection({
+        input,
+        origin,
+        selectionRouteIndex: continuation.selectionRouteIndex,
+      });
+    },
+    [origin, patchSuggestionState, readSearchContinuationFromSelection],
+  );
+
   useEffect(() => {
     refreshDocumentHashSuggestionKeys();
   }, [currentHref, refreshDocumentHashSuggestionKeys]);
@@ -754,22 +898,52 @@ export function RouteUrlEditor() {
     };
   }, [inputFocused, refreshDocumentHashSuggestionKeys]);
 
+  const syncSuggestionSelectionForInput = useCallback(
+    (input: HTMLInputElement): string => {
+      suggestionPreviewActiveRef.current = false;
+      const nextDraftRouteAddress =
+        readRouteUrlEditorDraftRouteAddress({
+          inputValue: input.value,
+          origin,
+        }) ?? draftRouteAddress;
+      syncSuggestionSelection(input, nextDraftRouteAddress);
+      patchSuggestionState({ dismissed: false });
+
+      return nextDraftRouteAddress;
+    },
+    [draftRouteAddress, origin, patchSuggestionState, syncSuggestionSelection],
+  );
+
   const syncSuggestionSelectionFromInput = useCallback(
     (event: SyntheticEvent<HTMLInputElement>) => {
       if (suggestionPreviewActiveRef.current && event.type === "select") {
         return;
       }
 
-      suggestionPreviewActiveRef.current = false;
-      const nextDraftRouteAddress =
-        readRouteUrlEditorDraftRouteAddress({
-          inputValue: event.currentTarget.value,
-          origin,
-        }) ?? draftRouteAddress;
-      syncSuggestionSelection(event.currentTarget, nextDraftRouteAddress);
-      patchSuggestionState({ dismissed: false });
+      syncSuggestionSelectionForInput(event.currentTarget);
     },
-    [draftRouteAddress, origin, patchSuggestionState, syncSuggestionSelection],
+    [syncSuggestionSelectionForInput],
+  );
+
+  const syncSuggestionSelectionFromInputAndOpenSearch = useCallback(
+    (event: SyntheticEvent<HTMLInputElement>) => {
+      if (suggestionPreviewActiveRef.current && event.type === "select") {
+        return;
+      }
+
+      const nextDraftRouteAddress = syncSuggestionSelectionForInput(event.currentTarget);
+      // The hidden origin indent can leave right-edge clicks at selectionStart 0;
+      // treat that pointer zone as the end of the editable route text.
+      openSearchContinuationFromInput(
+        event.currentTarget,
+        nextDraftRouteAddress,
+        readRouteUrlEditorPointerSelectionRouteIndex({
+          event,
+          routeAddress: nextDraftRouteAddress,
+        }),
+      );
+    },
+    [openSearchContinuationFromInput, syncSuggestionSelectionForInput],
   );
 
   /**
@@ -1510,11 +1684,11 @@ export function RouteUrlEditor() {
         onBeforeInput={rememberInputSelection}
         onBlur={blurInput}
         onChange={changeDraftRouteAddress}
-        onClick={syncSuggestionSelectionFromInput}
+        onClick={syncSuggestionSelectionFromInputAndOpenSearch}
         onFocus={focusInput}
         onKeyDown={handleInputKeyDown}
         onKeyUp={handleInputKeyUp}
-        onMouseUp={syncSuggestionSelectionFromInput}
+        onMouseUp={syncSuggestionSelectionFromInputAndOpenSearch}
         onSelect={syncSuggestionSelectionFromInput}
         spellCheck={false}
         suppressHydrationWarning

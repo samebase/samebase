@@ -436,6 +436,71 @@ test("route URL editor lists route paths and filters them while typing", async (
   await expect(suggestions).toHaveCount(0);
 });
 
+test("route URL editor opens search params when clicking the end of a focused route", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/logo?leftFace=secondary", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const display = getRouteUrlEditorDisplay(page);
+  const suggestions = page.getByTestId("route-url-editor-suggestions");
+  await expect(display).toHaveValue(`${origin}/logo?leftFace=secondary`);
+  const inputBox = await display.boundingBox();
+  if (inputBox === null) {
+    throw new Error("Expected route URL editor display to be visible.");
+  }
+
+  await display.click({
+    position: {
+      x: inputBox.width - 4,
+      y: inputBox.height / 2,
+    },
+  });
+
+  const input = getRouteUrlEditorInput(page);
+  await expect(input).toBeFocused();
+  await expect(page).toHaveURL(`${origin}/logo?leftFace=secondary`);
+  await expect(input).toHaveValue(`${origin}/logo?leftFace=secondary&`);
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
+  await expect(page.getByTestId("route-url-editor-suggestion").first()).toHaveAttribute(
+    "aria-label",
+    /^Use &/,
+  );
+});
+
+test("route URL editor keeps path suggestions when clicking the end of root", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const display = getRouteUrlEditorDisplay(page);
+  const suggestions = page.getByTestId("route-url-editor-suggestions");
+  await expect(display).toHaveValue(`${origin}/`);
+  const inputBox = await display.boundingBox();
+  if (inputBox === null) {
+    throw new Error("Expected route URL editor display to be visible.");
+  }
+
+  await display.click({
+    position: {
+      x: inputBox.width - 4,
+      y: inputBox.height / 2,
+    },
+  });
+
+  const input = getRouteUrlEditorInput(page);
+  await expect(input).toBeFocused();
+  await expect(page).toHaveURL(`${origin}/`);
+  await expect(input).toHaveValue(`${origin}/`);
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "path");
+  await expect(page.getByRole("option", { exact: true, name: "Use /logo" })).toBeVisible();
+});
+
 test("route URL editor keeps the same input focused while typing between app routes", async ({
   page,
 }) => {
