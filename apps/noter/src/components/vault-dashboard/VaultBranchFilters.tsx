@@ -93,7 +93,7 @@ function VaultBranchFiltersPanel({
             value={labelSearch}
             onChange={(event) => setLabelSearch(event.target.value)}
             placeholder="Filter labels"
-            className="h-8 text-sm"
+            className="h-8"
           />
           <div className="max-h-64 overflow-y-auto corner-notch-1 border border-border/60 bg-muted/10">
             {visibleOptions.map((option) => (

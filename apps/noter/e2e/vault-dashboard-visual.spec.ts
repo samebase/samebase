@@ -20,6 +20,10 @@ async function expectInlinePadding(locator: Locator, expectedPx: string) {
   await expect(locator).toHaveCSS("padding-right", expectedPx);
 }
 
+async function expectMobileSafeTextEntrySize(locator: Locator) {
+  await expect(locator).toHaveCSS("font-size", "16px");
+}
+
 async function seedAppWorkspaceSidebarState(page: Page, state: WorkspaceSidebarState) {
   await page.addInitScript(
     ({ state, storageKey, version }) => {
@@ -178,6 +182,9 @@ test("vault dashboard fixture (create dialog)", async ({ page }) => {
 
   const dialog = page.getByRole("dialog", { name: "New App" });
   await expect(dialog.getByPlaceholder("GitHub repo name")).toHaveValue("field/notes");
+  await expectMobileSafeTextEntrySize(dialog.getByPlaceholder("GitHub repo name"));
+  await expectMobileSafeTextEntrySize(dialog.getByPlaceholder("Convex project name"));
+  await expectMobileSafeTextEntrySize(dialog.getByPlaceholder("Cloudflare Worker name"));
   await expect(dialog.getByRole("button", { name: "New App" })).toBeVisible();
   await expect(page).toHaveScreenshot("vault-dashboard-create-open.png", {
     animations: "disabled",
@@ -843,6 +850,7 @@ test("vault dashboard fixture (branch filters popover)", async ({ page }) => {
   await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: "Filters", exact: true }).click();
 
+  await expectMobileSafeTextEntrySize(page.getByPlaceholder("Filter labels"));
   await expect(page).toHaveScreenshot("vault-branch-filters-popover.png", {
     animations: "disabled",
     caret: "hide",
@@ -871,6 +879,7 @@ test("vault dashboard fixture (branch filters mobile sheet)", async ({ browser }
   await page.getByRole("button", { name: "Filters", exact: true }).click();
 
   const sheet = page.locator("[data-slot='sheet-content']");
+  await expectMobileSafeTextEntrySize(sheet.getByPlaceholder("Filter labels"));
   await expectElementsDoNotOverlap(
     sheet.getByRole("button", { name: "Reset all" }),
     sheet.getByRole("button", { name: "Close" }),
