@@ -109,9 +109,12 @@ async function scrollRouteUrlEditorSuggestionsToEnd(page: Page): Promise<void> {
 }
 
 async function readRouteUrlEditorScrollSlateGeometry(page: Page): Promise<{
+  popoverBottomY: number;
   selectedCenterY: number;
+  selectedBottomY: number;
   slateCenterY: number;
   slateTopY: number;
+  scrollportBottomY: number;
   scrollportTopY: number;
   visibleOptionCountAboveSlate: number;
 }> {
@@ -119,6 +122,11 @@ async function readRouteUrlEditorScrollSlateGeometry(page: Page): Promise<{
     const slate = document.querySelector('[data-testid="route-url-editor-scroll-slate"]');
     if (!(slate instanceof HTMLElement)) {
       throw new Error("Expected route URL editor scroll slate.");
+    }
+
+    const popover = document.querySelector('[data-testid="route-url-editor-suggestions-popover"]');
+    if (!(popover instanceof HTMLElement)) {
+      throw new Error("Expected route URL editor suggestions popover.");
     }
 
     const options: HTMLElement[] = [];
@@ -145,9 +153,12 @@ async function readRouteUrlEditorScrollSlateGeometry(page: Page): Promise<{
     }
 
     return {
+      popoverBottomY: popover.getBoundingClientRect().bottom,
       selectedCenterY: selectedOptionRect.top + selectedOptionRect.height / 2,
+      selectedBottomY: selectedOptionRect.bottom,
       slateCenterY: slateRect.top + slateRect.height / 2,
       slateTopY: slateRect.top,
+      scrollportBottomY: scrollportRect.bottom,
       scrollportTopY: scrollportRect.top,
       visibleOptionCountAboveSlate,
     };
@@ -1091,6 +1102,8 @@ test("route URL editor mobile scroll picker lets the last option reach the slate
 
     expect(Math.round(geometry.slateTopY - geometry.scrollportTopY)).toBe(28);
     expect(Math.abs(geometry.selectedCenterY - geometry.slateCenterY)).toBeLessThanOrEqual(2);
+    expect(Math.abs(geometry.popoverBottomY - geometry.selectedBottomY)).toBeLessThanOrEqual(2);
+    expect(geometry.popoverBottomY).toBeLessThan(geometry.scrollportBottomY);
     expect(geometry.visibleOptionCountAboveSlate).toBeGreaterThan(0);
   } finally {
     await context.close();

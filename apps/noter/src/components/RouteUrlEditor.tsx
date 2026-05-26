@@ -41,7 +41,7 @@ const routeUrlEditorInputClassName =
 const routeUrlEditorBlurredInputClassName = `${routeUrlEditorInputClassName} cursor-text hover:bg-muted`;
 
 const routeUrlEditorSuggestionsPopoverClassName =
-  "absolute inset-x-1 top-full z-50 mt-1 rounded-md bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10";
+  "absolute inset-x-1 top-full z-50 mt-1 overflow-hidden rounded-md bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10";
 
 const routeUrlEditorSuggestionsScrollportClassName = "relative max-h-72 overflow-y-auto py-1";
 
@@ -187,6 +187,25 @@ function readRouteUrlEditorTouchScrollSuggestionIndex(args: {
   }
 
   return closestSuggestion?.index ?? null;
+}
+
+function readRouteUrlEditorTouchScrollPickerPopoverHeightPx(scrollport: HTMLElement): number {
+  const scrollportRect = scrollport.getBoundingClientRect();
+  const options = [
+    ...scrollport.querySelectorAll<HTMLElement>(routeUrlEditorSuggestionOptionSelector),
+  ];
+  if (options.length === 0) {
+    return scrollport.clientHeight;
+  }
+
+  const lastOption = options[options.length - 1];
+  const lastOptionRect = lastOption.getBoundingClientRect();
+  const trailingBlankHeightPx = Math.max(0, scrollportRect.bottom - lastOptionRect.bottom);
+
+  return Math.max(
+    routeUrlEditorSuggestionRowHeightPx,
+    scrollport.clientHeight - trailingBlankHeightPx,
+  );
 }
 
 type RouteUrlEditorInputSelectionDirection = "backward" | "forward" | "none";
@@ -452,6 +471,9 @@ export function RouteUrlEditor() {
   const [touchScrollPickerEnabled, setTouchScrollPickerEnabled] = useState(false);
   const [touchScrollPickerMetrics, setTouchScrollPickerMetrics] =
     useState<RouteUrlEditorTouchScrollPickerMetrics | null>(null);
+  const [touchScrollPickerPopoverHeightPx, setTouchScrollPickerPopoverHeightPx] = useState<
+    number | null
+  >(null);
   const [suggestionDraftEditedSinceFocus, setSuggestionDraftEditedSinceFocus] = useState(false);
   // The draft can temporarily be a highlighted suggestion; this is the
   // user-edited URL that filters the suggestion list.
@@ -590,6 +612,7 @@ export function RouteUrlEditor() {
   useLayoutEffect(() => {
     if (!touchScrollPickerEnabled || !suggestionsVisible) {
       setTouchScrollPickerMetrics(null);
+      setTouchScrollPickerPopoverHeightPx(null);
       return;
     }
 
@@ -604,6 +627,9 @@ export function RouteUrlEditor() {
         areRouteUrlEditorTouchScrollPickerMetricsEqual(currentMetrics, nextMetrics)
           ? currentMetrics
           : nextMetrics,
+      );
+      setTouchScrollPickerPopoverHeightPx(
+        readRouteUrlEditorTouchScrollPickerPopoverHeightPx(suggestionsElement),
       );
     };
 
@@ -1032,6 +1058,10 @@ export function RouteUrlEditor() {
       return;
     }
 
+    setTouchScrollPickerPopoverHeightPx(
+      readRouteUrlEditorTouchScrollPickerPopoverHeightPx(suggestionsElement),
+    );
+
     const nextActiveSuggestionIndex = readRouteUrlEditorTouchScrollSuggestionIndex({
       metrics: touchScrollPickerMetrics,
       scrollport: suggestionsElement,
@@ -1372,7 +1402,15 @@ export function RouteUrlEditor() {
         value={inputValue}
       />
       {suggestionsVisible ? (
-        <div className={routeUrlEditorSuggestionsPopoverClassName}>
+        <div
+          className={routeUrlEditorSuggestionsPopoverClassName}
+          data-testid="route-url-editor-suggestions-popover"
+          style={
+            touchScrollPickerPopoverHeightPx === null
+              ? undefined
+              : { height: touchScrollPickerPopoverHeightPx }
+          }
+        >
           {touchScrollPickerVisible ? (
             <div
               aria-hidden="true"
