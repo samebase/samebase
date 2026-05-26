@@ -38,6 +38,7 @@ import { applySearchPatch } from "@/lib/routeSearchFlags";
 import { readRootRouteSearch } from "@/lib/rootRouteSearch";
 import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
 import { Link, useLocation } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 
 function normalizeRepoUrl(repoUrl: string): string {
   return repoUrl.endsWith(".git") ? repoUrl.slice(0, -4) : repoUrl;
@@ -75,6 +76,7 @@ export function AppSidebarMetaSection({
   const location = useLocation();
   const publicLandingLogoLink = useOptionalPublicLandingLogoLink();
   const rootRouteSearch = readRootRouteSearch(location.searchStr);
+  const [browserShortcutsEnabled, setBrowserShortcutsEnabled] = useState(false);
 
   const landingDevEnabled = isLandingDevModeEnabled(rootRouteSearch);
   const landingDevLabel = landingDevEnabled
@@ -95,6 +97,12 @@ export function AppSidebarMetaSection({
     themeMode === "dark"
       ? ROOT_THEME_DARK_MODE_DISABLE_LINK_LABEL
       : ROOT_THEME_DARK_MODE_LINK_LABEL;
+
+  useEffect(() => {
+    // The prod-ui shortcut depends on the deployed browser origin. Static SPA
+    // prerender cannot know that origin, so render it only after hydration.
+    setBrowserShortcutsEnabled(true);
+  }, []);
 
   const isLandingPage = location.pathname === "/";
   const showLandingPreviewLanguageLink = location.pathname === LANDING_MARKDOWN_PREVIEW_ROUTE;
@@ -146,7 +154,7 @@ export function AppSidebarMetaSection({
       >
         {darkModeLabel}
       </Link>
-      {prodUiEnabled ? null : (
+      {browserShortcutsEnabled && !prodUiEnabled ? (
         <Link
           id="public-landing-prod-ui-toggle"
           to={location.pathname}
@@ -158,7 +166,7 @@ export function AppSidebarMetaSection({
         >
           {FORCE_PROD_UI_MODE_LINK_LABEL}
         </Link>
-      )}
+      ) : null}
       <Link
         id="public-landing-dev-toggle"
         to={location.pathname}

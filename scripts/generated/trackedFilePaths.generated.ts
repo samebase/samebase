@@ -598,6 +598,7 @@ export type TrackedFilePath =
   | "apps/noter/src/components/AppPageScrollShell.tsx"
   | "apps/noter/src/components/AppRootClient.tsx"
   | "apps/noter/src/components/AppSelect.tsx"
+  | "apps/noter/src/components/AppSidebarMetaSection.test.tsx"
   | "apps/noter/src/components/AppSidebarMetaSection.tsx"
   | "apps/noter/src/components/AppWorkspaceShell.test.tsx"
   | "apps/noter/src/components/AppWorkspaceShell.tsx"
