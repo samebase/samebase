@@ -64,6 +64,15 @@ type RouteUrlEditorTouchScrollPickerMetrics = {
   topSpacerHeightPx: number;
 };
 
+type RouteUrlEditorSuggestionState = {
+  activeIndex: number | null;
+  baseRouteAddress: string;
+  dismissed: boolean;
+  draftEditedSinceFocus: boolean;
+  kind: RouteUrlEditorSuggestionKind;
+  selectionRouteIndex: number;
+};
+
 function getRouteUrlEditorSuggestionButtonClassName(active: boolean): string {
   return active
     ? "flex h-7 w-full items-center bg-accent px-2 font-mono text-sm text-accent-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
@@ -405,20 +414,30 @@ export function RouteUrlEditor() {
   const origin = readRouteUrlEditorOrigin();
   const [draftRouteAddress, setDraftRouteAddress] = useState(currentHref);
   const [inputFocused, setInputFocused] = useState(false);
-  const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
   const [touchScrollPickerEnabled, setTouchScrollPickerEnabled] = useState(false);
   const [touchScrollPickerMetrics, setTouchScrollPickerMetrics] =
     useState<RouteUrlEditorTouchScrollPickerMetrics | null>(null);
-  const [suggestionDraftEditedSinceFocus, setSuggestionDraftEditedSinceFocus] = useState(false);
   // The draft can temporarily be a highlighted suggestion; this is the
   // user-edited URL that filters the suggestion list.
-  const [suggestionBaseRouteAddress, setSuggestionBaseRouteAddress] = useState(currentHref);
-  const [suggestionKind, setSuggestionKind] = useState<RouteUrlEditorSuggestionKind>("path");
-  const [selectionRouteIndex, setSelectionRouteIndex] = useState(0);
-  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number | null>(null);
+  const [suggestionState, setSuggestionState] = useState<RouteUrlEditorSuggestionState>({
+    activeIndex: null,
+    baseRouteAddress: currentHref,
+    dismissed: false,
+    draftEditedSinceFocus: false,
+    kind: "path",
+    selectionRouteIndex: 0,
+  });
   const [documentHashSuggestionKeys, setDocumentHashSuggestionKeys] = useState<readonly string[]>(
     [],
   );
+  const {
+    activeIndex: activeSuggestionIndex,
+    baseRouteAddress: suggestionBaseRouteAddress,
+    dismissed: suggestionsDismissed,
+    draftEditedSinceFocus: suggestionDraftEditedSinceFocus,
+    kind: suggestionKind,
+    selectionRouteIndex,
+  } = suggestionState;
   const viewerIsAdmin = useQuery(api.users.isCurrentUserAdmin);
   const draftHref = normalizeRouteUrlEditorHref({
     currentHref,
@@ -453,6 +472,9 @@ export function RouteUrlEditor() {
 
   const canGoBack = currentRouteHistoryIndex > 0;
   const canGoForward = currentRouteHistoryIndex < forwardRouteHistoryIndex;
+  const patchSuggestionState = useCallback((nextState: Partial<RouteUrlEditorSuggestionState>) => {
+    setSuggestionState((currentState) => ({ ...currentState, ...nextState }));
+  }, []);
 
   // TanStack writes __TSR_index into each route entry; keep the largest seen
   // index so Forward only enables after this chrome has observed one.
@@ -483,20 +505,25 @@ export function RouteUrlEditor() {
     }
 
     setDraftRouteAddress(currentHref);
-    setSuggestionBaseRouteAddress(currentHref);
-  }, [currentHref, inputFocused, suggestionDraftEditedSinceFocus]);
+    patchSuggestionState({ baseRouteAddress: currentHref });
+  }, [currentHref, inputFocused, patchSuggestionState, suggestionDraftEditedSinceFocus]);
 
   useEffect(() => {
-    setActiveSuggestionIndex((currentActiveSuggestionIndex) => {
+    setSuggestionState((currentState) => {
       if (!suggestionsVisible) {
-        return null;
+        return currentState.activeIndex === null
+          ? currentState
+          : { ...currentState, activeIndex: null };
       }
 
-      if (currentActiveSuggestionIndex === null) {
-        return null;
+      if (currentState.activeIndex === null) {
+        return currentState;
       }
 
-      return Math.min(currentActiveSuggestionIndex, suggestions.length - 1);
+      const nextActiveIndex = Math.min(currentState.activeIndex, suggestions.length - 1);
+      return nextActiveIndex === currentState.activeIndex
+        ? currentState
+        : { ...currentState, activeIndex: nextActiveIndex };
     });
   }, [suggestions.length, suggestionsVisible]);
 
@@ -609,12 +636,14 @@ export function RouteUrlEditor() {
         origin,
         routeAddress,
       });
-      setSelectionRouteIndex(nextSelectionRouteIndex);
-      setSuggestionKind(readRouteUrlEditorSuggestionKind(routeAddress, nextSelectionRouteIndex));
-      setSuggestionBaseRouteAddress(routeAddress);
-      setActiveSuggestionIndex(null);
+      patchSuggestionState({
+        activeIndex: null,
+        baseRouteAddress: routeAddress,
+        kind: readRouteUrlEditorSuggestionKind(routeAddress, nextSelectionRouteIndex),
+        selectionRouteIndex: nextSelectionRouteIndex,
+      });
     },
-    [origin],
+    [origin, patchSuggestionState],
   );
 
   useEffect(() => {
@@ -682,9 +711,9 @@ export function RouteUrlEditor() {
           origin,
         }) ?? draftRouteAddress;
       syncSuggestionSelection(event.currentTarget, nextDraftRouteAddress);
-      setSuggestionsDismissed(false);
+      patchSuggestionState({ dismissed: false });
     },
-    [draftRouteAddress, origin, syncSuggestionSelection],
+    [draftRouteAddress, origin, patchSuggestionState, syncSuggestionSelection],
   );
 
   /**
@@ -805,18 +834,19 @@ export function RouteUrlEditor() {
       }
 
       setDraftRouteAddress(nextDraftRouteAddress);
-      setSuggestionBaseRouteAddress(nextDraftRouteAddress);
       suggestionPreviewActiveRef.current = false;
       touchScrollPreviewCommitPendingRef.current = false;
       touchScrollPreviewDraftRouteAddressRef.current = null;
       suppressSuggestionMousePreviewUntilMoveRef.current = true;
-      setSuggestionDraftEditedSinceFocus(true);
-      setSuggestionsDismissed(false);
       syncSuggestionSelection(event.currentTarget, nextDraftRouteAddress);
+      patchSuggestionState({
+        dismissed: false,
+        draftEditedSinceFocus: true,
+      });
 
       previewDraftRouteAddress(nextDraftRouteAddress);
     },
-    [inputValue, origin, previewDraftRouteAddress, syncSuggestionSelection],
+    [inputValue, origin, patchSuggestionState, previewDraftRouteAddress, syncSuggestionSelection],
   );
 
   const resetInput = useCallback(() => {
@@ -825,8 +855,8 @@ export function RouteUrlEditor() {
     touchScrollPreviewCommitPendingRef.current = false;
     touchScrollPreviewDraftRouteAddressRef.current = null;
     setDraftRouteAddress(currentHref);
-    setSuggestionBaseRouteAddress(currentHref);
-  }, [currentHref]);
+    patchSuggestionState({ baseRouteAddress: currentHref });
+  }, [currentHref, patchSuggestionState]);
 
   const commitInput = useCallback(
     async (rawAddress: string, options: RouteUrlEditorCommitOptions) => {
@@ -840,7 +870,7 @@ export function RouteUrlEditor() {
         suggestionPreviewActiveRef.current = false;
         previewBaseHrefRef.current = null;
         setDraftRouteAddress(currentHref);
-        setSuggestionBaseRouteAddress(currentHref);
+        patchSuggestionState({ baseRouteAddress: currentHref });
         return;
       }
 
@@ -868,7 +898,7 @@ export function RouteUrlEditor() {
           ? href
           : draftHref;
       setDraftRouteAddress(nextDraftRouteAddress);
-      setSuggestionBaseRouteAddress(nextDraftRouteAddress);
+      patchSuggestionState({ baseRouteAddress: nextDraftRouteAddress });
 
       if (options.commitPreviewToHistory && previewBaseHref !== null) {
         if (href === previewBaseHref) {
@@ -913,7 +943,14 @@ export function RouteUrlEditor() {
         replaceRouteOptions: options.replaceRouteOptions,
       });
     },
-    [currentHref, navigateRouteUrlEditorHref, origin, router.routesByPath, viewerIsAdmin],
+    [
+      currentHref,
+      navigateRouteUrlEditorHref,
+      origin,
+      patchSuggestionState,
+      router.routesByPath,
+      viewerIsAdmin,
+    ],
   );
 
   const submitInput = useCallback(
@@ -936,10 +973,17 @@ export function RouteUrlEditor() {
       refreshDocumentHashSuggestionKeys();
       syncSuggestionSelection(event.currentTarget, draftRouteAddress);
       setInputFocused(true);
-      setSuggestionsDismissed(false);
-      setSuggestionDraftEditedSinceFocus(false);
+      patchSuggestionState({
+        dismissed: false,
+        draftEditedSinceFocus: false,
+      });
     },
-    [draftRouteAddress, refreshDocumentHashSuggestionKeys, syncSuggestionSelection],
+    [
+      draftRouteAddress,
+      patchSuggestionState,
+      refreshDocumentHashSuggestionKeys,
+      syncSuggestionSelection,
+    ],
   );
 
   const previewSuggestionByIndex = useCallback(
@@ -952,7 +996,11 @@ export function RouteUrlEditor() {
         suggestion: nextSuggestion,
       });
 
-      setActiveSuggestionIndex(nextActiveSuggestionIndex);
+      setSuggestionState((currentState) =>
+        currentState.activeIndex === nextActiveSuggestionIndex
+          ? currentState
+          : { ...currentState, activeIndex: nextActiveSuggestionIndex },
+      );
       setDraftRouteAddress(nextDraftRouteAddress);
       suggestionPreviewActiveRef.current = true;
 
@@ -1004,8 +1052,10 @@ export function RouteUrlEditor() {
 
   const blurInput = useCallback(() => {
     setInputFocused(false);
-    setSuggestionsDismissed(false);
-    setSuggestionDraftEditedSinceFocus(false);
+    patchSuggestionState({
+      dismissed: false,
+      draftEditedSinceFocus: false,
+    });
     suggestionPreviewActiveRef.current = false;
     if (touchScrollPreviewFrameRef.current !== null && typeof window !== "undefined") {
       window.cancelAnimationFrame(touchScrollPreviewFrameRef.current);
@@ -1021,7 +1071,7 @@ export function RouteUrlEditor() {
     if (skipNextBlurCommitRef.current) {
       skipNextBlurCommitRef.current = false;
       setDraftRouteAddress(currentHref);
-      setSuggestionBaseRouteAddress(currentHref);
+      patchSuggestionState({ baseRouteAddress: currentHref });
       return;
     }
 
@@ -1030,12 +1080,20 @@ export function RouteUrlEditor() {
       replaceRouteOptions: true,
       resetIncompleteDraft: true,
     });
-  }, [commitInput, currentHref, draftRouteAddress, previewSuggestionUnderTouchScrollSlate]);
+  }, [
+    commitInput,
+    currentHref,
+    draftRouteAddress,
+    patchSuggestionState,
+    previewSuggestionUnderTouchScrollSlate,
+  ]);
 
   const moveActiveSuggestion = useCallback(
     (step: number) => {
       if (!suggestionsVisible || suggestions.length === 0) {
-        setActiveSuggestionIndex(null);
+        setSuggestionState((currentState) =>
+          currentState.activeIndex === null ? currentState : { ...currentState, activeIndex: null },
+        );
         return;
       }
 
@@ -1134,8 +1192,10 @@ export function RouteUrlEditor() {
       const activeFollowup =
         searchFollowup !== null && followupSuggestions.length > 0 ? searchFollowup : null;
       setDraftRouteAddress(nextDraftRouteAddress);
-      setSuggestionsDismissed(activeFollowup === null);
-      setSuggestionDraftEditedSinceFocus(activeFollowup !== null || !routeUpdateReady);
+      patchSuggestionState({
+        dismissed: activeFollowup === null,
+        draftEditedSinceFocus: activeFollowup !== null || !routeUpdateReady,
+      });
       void commitInput(nextDraftRouteAddress, {
         commitPreviewToHistory: true,
         replaceRouteOptions: false,
@@ -1159,12 +1219,14 @@ export function RouteUrlEditor() {
         suggestionPreviewActiveRef.current = true;
         suppressSuggestionMousePreviewUntilMoveRef.current = true;
         setDraftRouteAddress(activeFollowup.draftRouteAddress);
-        setSuggestionBaseRouteAddress(activeFollowup.draftRouteAddress);
-        setSuggestionKind(activeFollowup.kind);
-        setSelectionRouteIndex(activeFollowup.selectionRouteIndex);
-        setActiveSuggestionIndex(null);
-        setSuggestionsDismissed(false);
-        setSuggestionDraftEditedSinceFocus(true);
+        patchSuggestionState({
+          activeIndex: null,
+          baseRouteAddress: activeFollowup.draftRouteAddress,
+          dismissed: false,
+          draftEditedSinceFocus: true,
+          kind: activeFollowup.kind,
+          selectionRouteIndex: activeFollowup.selectionRouteIndex,
+        });
 
         const input = inputRef.current;
         if (input) {
@@ -1183,6 +1245,7 @@ export function RouteUrlEditor() {
       documentHashSuggestionKeys,
       draftRouteAddress,
       origin,
+      patchSuggestionState,
       router.routesByPath,
       selectionRouteIndex,
       viewerIsAdmin,
@@ -1232,14 +1295,14 @@ export function RouteUrlEditor() {
             routeBoundaryBackspace.selectionOffset,
           );
           syncSuggestionSelection(event.currentTarget, routeBoundaryBackspace.routeAddress);
-          setSuggestionsDismissed(false);
+          patchSuggestionState({ dismissed: false });
 
           if (routeBoundaryBackspace.routeAddress === draftRouteAddress) {
             return;
           }
 
           setDraftRouteAddress(routeBoundaryBackspace.routeAddress);
-          setSuggestionDraftEditedSinceFocus(true);
+          patchSuggestionState({ draftEditedSinceFocus: true });
           suppressSuggestionMousePreviewUntilMoveRef.current = true;
           previewDraftRouteAddress(routeBoundaryBackspace.routeAddress);
           return;
@@ -1256,6 +1319,7 @@ export function RouteUrlEditor() {
       draftRouteAddress,
       moveActiveSuggestion,
       origin,
+      patchSuggestionState,
       previewDraftRouteAddress,
       resetInput,
       selectSuggestion,
