@@ -231,17 +231,17 @@ describe("readRouteUrlEditorSuggestions", () => {
     });
 
     expect(shadeSuggestions.map((suggestion) => suggestion.value)).toEqual([
-      "blue-50",
-      "blue-100",
-      "blue-200",
-      "blue-300",
-      "blue-400",
-      "blue-500",
-      "blue-600",
-      "blue-700",
-      "blue-800",
-      "blue-900",
-      "blue-950",
+      "50",
+      "100",
+      "200",
+      "300",
+      "400",
+      "500",
+      "600",
+      "700",
+      "800",
+      "900",
+      "950",
     ]);
   });
 
@@ -427,6 +427,7 @@ describe("applyRouteUrlEditorSuggestion", () => {
   it("edits only the active URL section", () => {
     expect(
       applyRouteUrlEditorSuggestion({
+        mode: "select",
         routeAddress: "/lo?dev#top",
         selectionRouteIndex: "/lo".length,
         suggestion: { key: "/logo", kind: "path", value: "/logo" },
@@ -435,6 +436,7 @@ describe("applyRouteUrlEditorSuggestion", () => {
 
     expect(
       applyRouteUrlEditorSuggestion({
+        mode: "select",
         routeAddress: "/logo?de#top",
         selectionRouteIndex: "/logo?de".length,
         suggestion: {
@@ -448,10 +450,10 @@ describe("applyRouteUrlEditorSuggestion", () => {
 
     expect(
       applyRouteUrlEditorSuggestion({
+        mode: "preview",
         routeAddress: "/logo?depth=2&de#top",
         selectionRouteIndex: "/logo?depth=2&de".length,
         suggestion: {
-          commitsValue: true,
           detail: "2 +1",
           key: "depth",
           kind: "search",
@@ -464,6 +466,65 @@ describe("applyRouteUrlEditorSuggestion", () => {
 
     expect(
       applyRouteUrlEditorSuggestion({
+        mode: "select",
+        routeAddress: "/logo?depth=2&de#top",
+        selectionRouteIndex: "/logo?depth=2&de".length,
+        suggestion: {
+          detail: "2 +1",
+          key: "depth",
+          kind: "search",
+          value: "&depth=3",
+          valueKind: "value",
+          valueSuggestions: [],
+        },
+      }),
+    ).toBe("/logo?depth=2&depth=#top");
+
+    expect(
+      applyRouteUrlEditorSuggestion({
+        mode: "select",
+        routeAddress: "/logo?border=stone-300",
+        selectionRouteIndex: "/logo?border=stone-300".length,
+        suggestion: {
+          key: "dark",
+          kind: "search",
+          value: "&dark",
+          valueKind: "presence",
+        },
+      }),
+    ).toBe("/logo?border=stone-300&dark");
+
+    expect(
+      applyRouteUrlEditorSuggestion({
+        mode: "select",
+        routeAddress: "/logo?",
+        selectionRouteIndex: "/logo?".length,
+        suggestion: {
+          key: "dark",
+          kind: "search",
+          value: "&dark",
+          valueKind: "presence",
+        },
+      }),
+    ).toBe("/logo?dark");
+
+    expect(
+      applyRouteUrlEditorSuggestion({
+        mode: "select",
+        routeAddress: "/logo?dark&de",
+        selectionRouteIndex: "/logo?dark&de".length,
+        suggestion: {
+          key: "devtools",
+          kind: "search",
+          value: "?devtools",
+          valueKind: "presence",
+        },
+      }),
+    ).toBe("/logo?dark&devtools");
+
+    expect(
+      applyRouteUrlEditorSuggestion({
+        mode: "select",
         routeAddress: "/logo?leftFace=s#top",
         selectionRouteIndex: "/logo?leftFace=s".length,
         suggestion: {
@@ -477,11 +538,13 @@ describe("applyRouteUrlEditorSuggestion", () => {
 
     expect(
       applyRouteUrlEditorSuggestion({
+        mode: "preview",
         routeAddress: "/logo?primary=blue-#top",
         selectionRouteIndex: "/logo?primary=blue-".length,
         suggestion: {
           key: "primary=blue-500",
           kind: "search-value",
+          previewReplacementValue: "blue-500",
           replacementValue: "blue-500",
           value: "blue-500",
         },
@@ -490,6 +553,23 @@ describe("applyRouteUrlEditorSuggestion", () => {
 
     expect(
       applyRouteUrlEditorSuggestion({
+        mode: "select",
+        routeAddress: "/logo?primary=bl#top",
+        selectionRouteIndex: "/logo?primary=bl".length,
+        suggestion: {
+          key: "primary=blue-",
+          kind: "search-value",
+          previewReplacementValue: "blue-500",
+          replacementValue: "blue-",
+          sampleValueStart: "blue-".length,
+          value: "blue-500",
+        },
+      }),
+    ).toBe("/logo?primary=blue-#top");
+
+    expect(
+      applyRouteUrlEditorSuggestion({
+        mode: "select",
         routeAddress: "/machines/connect?openedByCli#connected",
         selectionRouteIndex: "/machines/connect?openedByCli#connected".length,
         suggestion: { key: "connected-machines", kind: "hash", value: "#connected-machines" },

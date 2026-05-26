@@ -310,8 +310,8 @@ describe("RouteUrlEditor", () => {
       await new Promise((resolve) => window.setTimeout(resolve, 0));
     });
 
-    expect(input.value).toBe(`${origin}/logo?vox=xxx_xox_xxx-xxx_xxx_xxx-xxx_xxx_xxx&`);
-    expect(readRouteHref()).toBe("/logo?vox=xxx_xox_xxx-xxx_xxx_xxx-xxx_xxx_xxx");
+    expect(input.value).toBe(`${origin}/logo?vox=`);
+    expect(readRouteHref()).toBe("/logo");
   });
 
   it("previews keyboard-created search suggestions after pointer movement", async () => {
@@ -337,7 +337,7 @@ describe("RouteUrlEditor", () => {
     expect(readRouteHref()).toBe("/logo?vox=xxx_xox_xxx-xxx_xxx_xxx-xxx_xxx_xxx");
   });
 
-  it("previews sample values after selecting a valued search param", async () => {
+  it("opens value suggestions after selecting a valued search param sample", async () => {
     const input = startEditing(["/logo"]);
     const origin = window.location.origin;
 
@@ -356,10 +356,123 @@ describe("RouteUrlEditor", () => {
       await new Promise((resolve) => window.setTimeout(resolve, 0));
     });
 
-    expect(input.value).toBe(`${origin}/logo?leftFace=secondary&`);
-    expect(readRouteHref()).toBe("/logo?leftFace=secondary");
+    expect(input.value).toBe(`${origin}/logo?leftFace=`);
+    expect(readRouteHref()).toBe("/logo");
+    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search-value");
+    expect(rootElement?.querySelector('button[aria-label="Use secondary"]')).not.toBeNull();
+    expect(document.activeElement).toBe(input);
+  });
+
+  it("keeps mouse-selected follow-up search params in the query", async () => {
+    const input = startEditing();
+    const origin = window.location.origin;
+    const logoOption = rootElement?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Use /logo"]',
+    );
+    if (!logoOption) {
+      throw new Error("Expected /logo route URL editor suggestion.");
+    }
+
+    await act(async () => {
+      logoOption.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    const borderOption = [
+      ...(rootElement?.querySelectorAll<HTMLButtonElement>('button[role="option"]') ?? []),
+    ].find((button) => button.getAttribute("aria-label") === "Use ?border=stone-300");
+    if (!borderOption) {
+      const optionLabels = [
+        ...(rootElement?.querySelectorAll<HTMLButtonElement>('button[role="option"]') ?? []),
+      ].map((button) => button.getAttribute("aria-label"));
+      throw new Error(`Expected border search param suggestion. Found: ${optionLabels.join(", ")}`);
+    }
+
+    await act(async () => {
+      borderOption.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(input.value).toBe(`${origin}/logo?border=`);
+    expect(readRouteHref()).toBe("/logo");
+    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search-value");
+
+    const stoneFamilyOption = [
+      ...(rootElement?.querySelectorAll<HTMLButtonElement>('button[role="option"]') ?? []),
+    ].find((button) => button.getAttribute("aria-label") === "Use stone-500");
+    if (!stoneFamilyOption) {
+      const optionLabels = [
+        ...(rootElement?.querySelectorAll<HTMLButtonElement>('button[role="option"]') ?? []),
+      ].map((button) => button.getAttribute("aria-label"));
+      throw new Error(`Expected stone color family suggestion. Found: ${optionLabels.join(", ")}`);
+    }
+
+    await act(async () => {
+      stoneFamilyOption.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(input.value).toBe(`${origin}/logo?border=stone-`);
+    expect(readRouteHref()).toBe("/logo");
+    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search-value");
+
+    const stone300Option = [
+      ...(rootElement?.querySelectorAll<HTMLButtonElement>('button[role="option"]') ?? []),
+    ].find((button) => button.getAttribute("aria-label") === "Use 300");
+    if (!stone300Option) {
+      const optionLabels = [
+        ...(rootElement?.querySelectorAll<HTMLButtonElement>('button[role="option"]') ?? []),
+      ].map((button) => button.getAttribute("aria-label"));
+      throw new Error(`Expected stone 300 shade suggestion. Found: ${optionLabels.join(", ")}`);
+    }
+
+    await act(async () => {
+      stone300Option.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(input.value).toBe(`${origin}/logo?border=stone-300&`);
+    expect(readRouteHref()).toBe("/logo?border=stone-300");
     expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search");
-    expect(rootElement?.querySelector('button[role="option"]')).not.toBeNull();
+
+    const darkOption = [
+      ...(rootElement?.querySelectorAll<HTMLButtonElement>('button[role="option"]') ?? []),
+    ].find((button) => button.getAttribute("aria-label") === "Use &dark");
+    if (!darkOption) {
+      const optionLabels = [
+        ...(rootElement?.querySelectorAll<HTMLButtonElement>('button[role="option"]') ?? []),
+      ].map((button) => button.getAttribute("aria-label"));
+      throw new Error(
+        `Expected dark follow-up search param suggestion. Found: ${optionLabels.join(", ")}`,
+      );
+    }
+
+    await act(async () => {
+      darkOption.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(input.value).toBe(`${origin}/logo?border=stone-300&dark`);
+    expect(readRouteHref()).toBe("/logo?border=stone-300&dark");
+
+    await act(async () => {
+      darkOption.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(input.value).toBe(`${origin}/logo?border=stone-300&dark&`);
+    expect(readRouteHref()).toBe("/logo?border=stone-300&dark");
+    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search");
     expect(document.activeElement).toBe(input);
   });
 
@@ -437,9 +550,9 @@ describe("RouteUrlEditor", () => {
       await new Promise((resolve) => window.setTimeout(resolve, 0));
     });
 
-    expect(input.value).toBe(`${origin}/logo?depth=3&`);
-    expect(readRouteHref()).toBe("/logo?depth=3");
-    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search");
+    expect(input.value).toBe(`${origin}/logo?depth=2&depth=`);
+    expect(readRouteHref()).toBe("/logo?depth=2");
+    expect(readSuggestions()).toBeNull();
     expect(document.activeElement).toBe(input);
   });
 
@@ -538,9 +651,10 @@ describe("RouteUrlEditor", () => {
       await new Promise((resolve) => window.setTimeout(resolve, 0));
     });
 
-    expect(input.value).toBe(`${origin}/logo?primary=emerald-500&`);
-    expect(readRouteHref()).toBe("/logo?primary=emerald-500");
-    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search");
+    expect(input.value).toBe(`${origin}/logo?primary=emerald-`);
+    expect(readRouteHref()).toBe("/logo");
+    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search-value");
+    expect(rootElement?.querySelector('button[aria-label="Use 500"]')).not.toBeNull();
     expect(document.activeElement).toBe(input);
   });
 
@@ -550,11 +664,11 @@ describe("RouteUrlEditor", () => {
 
     await fillRouteUrlEditorInput(input, `${origin}/logo?primary=blue-`);
     expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search-value");
-    expect(rootElement?.querySelector('button[aria-label="Use blue-50"]')).not.toBeNull();
-    expect(rootElement?.querySelector('button[aria-label="Use blue-500"]')).not.toBeNull();
+    expect(rootElement?.querySelector('button[aria-label="Use 50"]')).not.toBeNull();
+    expect(rootElement?.querySelector('button[aria-label="Use 500"]')).not.toBeNull();
 
     const blue500Option = rootElement?.querySelector<HTMLButtonElement>(
-      'button[aria-label="Use blue-500"]',
+      'button[aria-label="Use 500"]',
     );
     if (!blue500Option) {
       throw new Error("Expected blue 500 shade suggestion.");
@@ -573,7 +687,7 @@ describe("RouteUrlEditor", () => {
     expect(document.activeElement).toBe(input);
   });
 
-  it("commits sample values after selecting a valued search param", async () => {
+  it("opens an unfinished value after selecting a valued search param sample", async () => {
     const input = startEditing(["/logo"]);
     const origin = window.location.origin;
 
@@ -592,9 +706,9 @@ describe("RouteUrlEditor", () => {
       await new Promise((resolve) => window.setTimeout(resolve, 0));
     });
 
-    expect(input.value).toBe(`${origin}/logo?vox=xxx_xox_xxx-xxx_xxx_xxx-xxx_xxx_xxx&`);
-    expect(readRouteHref()).toBe("/logo?vox=xxx_xox_xxx-xxx_xxx_xxx-xxx_xxx_xxx");
-    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search");
+    expect(input.value).toBe(`${origin}/logo?vox=`);
+    expect(readRouteHref()).toBe("/logo");
+    expect(readSuggestions()).toBeNull();
     expect(document.activeElement).toBe(input);
   });
 
