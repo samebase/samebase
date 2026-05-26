@@ -1,6 +1,4 @@
 import { useLocation, useRouter } from "@tanstack/react-router";
-import { createIsomorphicFn } from "@tanstack/react-start";
-import { getRequestUrl } from "@tanstack/react-start/server";
 import { useQuery } from "convex/react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import {
@@ -16,6 +14,7 @@ import {
   type SyntheticEvent,
 } from "react";
 import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
+import { readIsomorphicOrigin } from "@/lib/isomorphic";
 import {
   ROUTE_URL_EDITOR_DOCUMENT_HASH_SUGGESTION_ATTRIBUTES,
   readRouteUrlEditorDocumentHashSuggestionKeys,
@@ -143,23 +142,6 @@ function readRouteUrlEditorSuggestionOptionId(args: {
   suggestionsId: string;
 }): string {
   return `${args.suggestionsId}-${args.index}`;
-}
-
-const readRouteUrlEditorOrigin = createIsomorphicFn()
-  .client(() => window.location.origin)
-  .server(() => getRequestUrl({ xForwardedHost: true, xForwardedProto: true }).origin);
-
-function readRouteUrlEditorRenderOrigin(): string {
-  const origin: unknown = readRouteUrlEditorOrigin();
-  if (typeof origin === "string" && origin.length > 0) {
-    return origin;
-  }
-
-  if (typeof window !== "undefined") {
-    return window.location.origin;
-  }
-
-  throw new Error("Expected route URL editor request origin.");
 }
 
 function areRouteUrlEditorHashSuggestionKeysEqual(
@@ -484,7 +466,7 @@ export function RouteUrlEditor() {
   // Arrow-key previews rewrite the input value, while suggestions stay anchored
   // to the text the user typed until they type, click, blur, or commit.
   const suggestionPreviewActiveRef = useRef(false);
-  const origin = readRouteUrlEditorRenderOrigin();
+  const origin = readIsomorphicOrigin();
   const [draftRouteAddress, setDraftRouteAddress] = useState(currentHref);
   const [inputFocused, setInputFocused] = useState(false);
   const [touchScrollPickerEnabled, setTouchScrollPickerEnabled] = useState(false);

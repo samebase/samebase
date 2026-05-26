@@ -1,15 +1,17 @@
 import { ConvexReactClient } from "convex/react";
+import { readBrowserOrigin } from "@/lib/isomorphic";
 
 const browserConvexProxyPath =
   typeof __BROWSER_CONVEX_PROXY_PATH__ === "undefined" ? null : __BROWSER_CONVEX_PROXY_PATH__;
 const fallbackConvexUrl = import.meta.env.MODE === "test" ? "http://127.0.0.1:3210" : null;
 
 function readBrowserConvexProxyUrl(proxyPath: string): string | null {
-  if (typeof window === "undefined") {
+  const browserOrigin = readBrowserOrigin();
+  if (!browserOrigin) {
     return null;
   }
 
-  return new URL(proxyPath, window.location.origin).toString();
+  return new URL(proxyPath, browserOrigin).toString();
 }
 
 // Prefer the browser proxy when Vite exposes one for public dev origins, then
