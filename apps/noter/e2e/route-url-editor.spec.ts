@@ -805,6 +805,47 @@ test("route URL editor previews search suggestions on hover", async ({ page }) =
   ).toBe(true);
 });
 
+test("route URL editor previews numeric search deltas on hover", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/logo?depth=2", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const input = await editRouteUrl(page);
+  const inputElement = await input.elementHandle();
+  if (inputElement === null) {
+    throw new Error("Expected route URL editor input element.");
+  }
+  const suggestions = page.getByTestId("route-url-editor-suggestions");
+  const nextDepthOption = page.getByRole("option", {
+    exact: true,
+    name: "Use &depth=3 2 +1",
+  });
+
+  await input.fill(`${origin}/logo?depth=2&de`);
+
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
+  await expect(nextDepthOption).toBeVisible();
+  await expect(nextDepthOption).toContainText("2 +1");
+  await expect(suggestions).toHaveScreenshot("route-url-editor-numeric-delta-suggestions.png", {
+    animations: "disabled",
+  });
+
+  await nextDepthOption.hover();
+
+  await expect(nextDepthOption).toHaveAttribute("aria-selected", "true");
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue(`${origin}/logo?depth=3`);
+  await expect(page).toHaveURL(`${origin}/logo?depth=3`);
+  await expect(suggestions).toBeVisible();
+  expect(
+    await inputElement.evaluate(
+      (element) => document.activeElement === element && element.isConnected,
+    ),
+  ).toBe(true);
+});
+
 test("route URL editor lists search param value options after equals", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 420 });
   await page.goto("/logo", {

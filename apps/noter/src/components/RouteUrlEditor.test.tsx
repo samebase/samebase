@@ -377,6 +377,49 @@ describe("RouteUrlEditor", () => {
     expect(document.activeElement).toBe(input);
   });
 
+  it("previews numeric search deltas and continues after Enter", async () => {
+    const input = startEditing(["/logo?depth=2"]);
+    const origin = window.location.origin;
+
+    await fillRouteUrlEditorInput(input, `${origin}/logo?depth=2&de`);
+    await act(async () => {
+      input.setSelectionRange(input.value.length, input.value.length);
+      input.dispatchEvent(new Event("select", { bubbles: true }));
+      await Promise.resolve();
+    });
+    const optionButtons = [
+      ...(rootElement?.querySelectorAll<HTMLButtonElement>('button[role="option"]') ?? []),
+    ];
+    const nextDepthOption = optionButtons.find(
+      (button) => button.getAttribute("aria-label") === "Use &depth=3 2 +1",
+    );
+    if (!nextDepthOption) {
+      const optionLabels = optionButtons.map((button) => button.getAttribute("aria-label") ?? "");
+      throw new Error(
+        `Expected next depth search param suggestion. Found: ${optionLabels.join(", ")}`,
+      );
+    }
+
+    await pressRouteUrlEditorKey(input, "ArrowDown");
+
+    expect(nextDepthOption.getAttribute("aria-selected")).toBe("true");
+    expect(input.value).toBe(`${origin}/logo?depth=3`);
+    expect(readRouteHref()).toBe("/logo?depth=3");
+    expect(nextDepthOption.textContent).toContain("2 +1");
+
+    await act(async () => {
+      input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+      await Promise.resolve();
+      await Promise.resolve();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(input.value).toBe(`${origin}/logo?depth=3&`);
+    expect(readRouteHref()).toBe("/logo?depth=3");
+    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search");
+    expect(document.activeElement).toBe(input);
+  });
+
   it("opens the next search param slot after committing a key-only suggestion with Enter", async () => {
     const input = startEditing(["/logo"]);
     const origin = window.location.origin;

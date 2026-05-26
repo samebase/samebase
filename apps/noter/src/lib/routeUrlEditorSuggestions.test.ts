@@ -86,6 +86,57 @@ describe("readRouteUrlEditorSuggestions", () => {
     expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["&leftFace="]);
   });
 
+  it("adds numeric value deltas to valued search params with current values", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo?depth=2",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?depth=2&de",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?depth=2&de".length,
+      viewer: publicViewer,
+    });
+
+    expect(
+      suggestions
+        .filter((suggestion) => suggestion.value.startsWith("&depth"))
+        .map((suggestion) => ({
+          detail: suggestion.detail ?? null,
+          value: suggestion.value,
+        })),
+    ).toEqual([
+      { detail: "2 +1", value: "&depth=3" },
+      { detail: "2 -1", value: "&depth=1" },
+      { detail: null, value: "&depth=" },
+    ]);
+  });
+
+  it("keeps numeric deltas inside finite numeric value suggestions", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo?gridSize=3",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?gridSize=3&grid",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?gridSize=3&grid".length,
+      viewer: publicViewer,
+    });
+
+    expect(
+      suggestions.map((suggestion) => ({
+        detail: suggestion.detail ?? null,
+        value: suggestion.value,
+      })),
+    ).toEqual([
+      { detail: "3 -1", value: "&gridSize=2" },
+      { detail: null, value: "&gridSize=" },
+    ]);
+  });
+
   it("suggests matching search param values after =", () => {
     const suggestions = readRouteUrlEditorSuggestions({
       currentHref: "/logo",
@@ -344,6 +395,22 @@ describe("applyRouteUrlEditorSuggestion", () => {
         },
       }),
     ).toBe("/logo?devtools#top");
+
+    expect(
+      applyRouteUrlEditorSuggestion({
+        routeAddress: "/logo?depth=2&de#top",
+        selectionRouteIndex: "/logo?depth=2&de".length,
+        suggestion: {
+          commitsValue: true,
+          detail: "2 +1",
+          key: "depth",
+          kind: "search",
+          value: "&depth=3",
+          valueKind: "value",
+          valueSuggestions: [],
+        },
+      }),
+    ).toBe("/logo?depth=3#top");
 
     expect(
       applyRouteUrlEditorSuggestion({
