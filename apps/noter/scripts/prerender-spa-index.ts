@@ -17,6 +17,8 @@ export type FetchHandler = {
   fetch: (request: Request) => Promise<Response> | Response;
 };
 
+type PrerenderSpaIndexLog = (message: string) => void;
+
 function hasUnknownProperty<Key extends string>(
   value: unknown,
   key: Key,
@@ -56,6 +58,7 @@ export async function renderSpaIndexHtml(
 
 export async function prerenderSpaIndex(args: {
   clientIndexPath: string;
+  log: PrerenderSpaIndexLog;
   requestUrl: string;
   serverEntryPath: string;
 }): Promise<void> {
@@ -63,9 +66,12 @@ export async function prerenderSpaIndex(args: {
 
   try {
     delete process.env.TSS_SHELL;
+    args.log(`Importing server entry: ${args.serverEntryPath}`);
     const fetchHandler = await importServerFetchHandler(args.serverEntryPath);
+    args.log(`Rendering SPA index from ${args.requestUrl}`);
     const html = await renderSpaIndexHtml(fetchHandler, new Request(args.requestUrl));
     await writeFile(args.clientIndexPath, html, "utf8");
+    args.log(`Wrote ${args.clientIndexPath} (${html.length} bytes)`);
   } finally {
     if (previousShellEnv === undefined) {
       delete process.env.TSS_SHELL;
@@ -79,6 +85,7 @@ const entrypoint = process.argv[1];
 if (entrypoint && import.meta.url === pathToFileURL(entrypoint).href) {
   await prerenderSpaIndex({
     clientIndexPath: defaultClientIndexPath,
+    log: (message) => console.log(`[prerender-spa-index] ${message}`),
     requestUrl: defaultRequestUrl,
     serverEntryPath: defaultServerEntryPath,
   });

@@ -11,6 +11,7 @@ describe("prerender-spa-index", () => {
     const serverEntryPath = path.join(tempDir, "server.mjs");
     const clientIndexPath = path.join(tempDir, "index.html");
     const previousShellEnv = process.env.TSS_SHELL;
+    const logs: string[] = [];
 
     try {
       process.env.TSS_SHELL = "true";
@@ -32,11 +33,17 @@ export default {
 
       await prerenderSpaIndex({
         clientIndexPath,
+        log: (message) => logs.push(message),
         requestUrl: "http://127.0.0.1/",
         serverEntryPath,
       });
 
       await expect(readFile(clientIndexPath, "utf8")).resolves.toBe("<!doctype html><p>shell=</p>");
+      expect(logs).toEqual([
+        `Importing server entry: ${serverEntryPath}`,
+        "Rendering SPA index from http://127.0.0.1/",
+        `Wrote ${clientIndexPath} (28 bytes)`,
+      ]);
       expect(process.env.TSS_SHELL).toBe("true");
     } finally {
       if (previousShellEnv === undefined) {
