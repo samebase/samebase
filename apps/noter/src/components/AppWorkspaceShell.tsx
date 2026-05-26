@@ -185,9 +185,9 @@ function AppWorkspaceClientShell({ children }: { children?: ReactNode }) {
 }
 
 /**
- * SSR must not guess workspace geometry. Routes without safe static content get
- * an empty shell until viewport reads happen on the client; the public landing
- * route can still stream its server-rendered body inside that stable shell.
+ * SSR must not guess workspace geometry. Keep WorkspaceLayoutV2 out of the
+ * first server/client render; only explicitly listed route bodies render inside
+ * the interim shell.
  */
 function AppWorkspaceClientReadyGate({
   children,
@@ -209,7 +209,7 @@ function AppWorkspaceClientReadyGate({
   return children;
 }
 
-function shouldRenderRouteContentInClientShell(pathname: string) {
+function shouldRenderRouteContentBeforeWorkspaceLayout(pathname: string) {
   return pathname === "/";
 }
 
@@ -291,7 +291,9 @@ export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
     <AppWorkspaceRouteChromeContext.Provider value={chromeContextValue}>
       <div className="flex min-h-dvh flex-col bg-background text-foreground">
         <AppWorkspaceClientReadyGate
-          shellChildren={shouldRenderRouteContentInClientShell(pathname) ? children : undefined}
+          shellChildren={
+            shouldRenderRouteContentBeforeWorkspaceLayout(pathname) ? children : undefined
+          }
         >
           <AppWorkspaceShellFrame chrome={chrome}>{children}</AppWorkspaceShellFrame>
         </AppWorkspaceClientReadyGate>
