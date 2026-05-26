@@ -76,8 +76,47 @@ type RouteUrlEditorSuggestionState = {
 
 function getRouteUrlEditorSuggestionButtonClassName(active: boolean): string {
   return active
-    ? "flex h-7 w-full items-center bg-accent px-2 font-mono text-sm text-accent-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
-    : "flex h-7 w-full items-center px-2 font-mono text-sm text-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground";
+    ? "flex h-7 w-full min-w-0 items-center bg-accent px-2 font-mono text-sm text-accent-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
+    : "flex h-7 w-full min-w-0 items-center px-2 font-mono text-sm text-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground";
+}
+
+function getRouteUrlEditorSuggestionDetailClassName(active: boolean): string {
+  return active
+    ? "ml-auto shrink-0 pl-3 text-accent-foreground/75"
+    : "ml-auto shrink-0 pl-3 text-muted-foreground";
+}
+
+function getRouteUrlEditorSuggestionSampleValueClassName(active: boolean): string {
+  return active ? "text-accent-foreground/60" : "text-muted-foreground";
+}
+
+function readRouteUrlEditorSuggestionLabel(suggestion: RouteUrlEditorSuggestion): string {
+  return typeof suggestion.detail === "string"
+    ? `${suggestion.value} ${suggestion.detail}`
+    : suggestion.value;
+}
+
+function renderRouteUrlEditorSuggestionValue(
+  suggestion: RouteUrlEditorSuggestion,
+  active: boolean,
+) {
+  if (suggestion.kind !== "search" || suggestion.valueKind !== "value") {
+    return suggestion.value;
+  }
+
+  const valueStart = suggestion.value.indexOf("=");
+  if (valueStart === -1 || valueStart === suggestion.value.length - 1) {
+    return suggestion.value;
+  }
+
+  return (
+    <>
+      {suggestion.value.slice(0, valueStart + 1)}
+      <span className={getRouteUrlEditorSuggestionSampleValueClassName(active)}>
+        {suggestion.value.slice(valueStart + 1)}
+      </span>
+    </>
+  );
 }
 
 function readRouteUrlEditorSuggestionOptionId(args: {
@@ -448,8 +487,9 @@ export function RouteUrlEditor() {
   const routeInputInvalid = draftRouteAddress.trim() !== "" && draftHref === null;
   const inputValue = `${origin}${draftRouteAddress}`;
   const routeInputTitle = draftHref === null ? inputValue : `${origin}${draftHref}`;
+  const suggestionCurrentHref = previewBaseHrefRef.current ?? currentHref;
   const suggestions = readRouteUrlEditorSuggestions({
-    currentHref,
+    currentHref: suggestionCurrentHref,
     draftEditedSinceFocus: suggestionDraftEditedSinceFocus,
     draftRouteAddress: suggestionBaseRouteAddress,
     hashKeys: documentHashSuggestionKeys,
@@ -1137,7 +1177,17 @@ export function RouteUrlEditor() {
           };
         }
       } else if (suggestion.kind === "search") {
-        if (suggestion.valueKind === "value" && suggestion.valueSuggestions.length > 0) {
+        if (suggestion.valueKind === "value" && suggestion.commitsValue) {
+          const draftRouteAddress = readRouteUrlEditorNextSearchDraft(nextDraftRouteAddress);
+          if (draftRouteAddress !== nextDraftRouteAddress) {
+            searchFollowup = {
+              draftRouteAddress,
+              kind: "search",
+              selectionRouteIndex:
+                readRouteUrlEditorSearchDraftSelectionRouteIndex(draftRouteAddress),
+            };
+          }
+        } else if (suggestion.valueKind === "value" && suggestion.valueSuggestions.length > 0) {
           searchFollowup = {
             draftRouteAddress: nextDraftRouteAddress,
             kind: "search-value",
@@ -1445,9 +1495,10 @@ export function RouteUrlEditor() {
             ) : null}
             {suggestions.map((suggestion, suggestionIndex) => {
               const active = suggestionIndex === activeSuggestionIndex;
+              const suggestionLabel = readRouteUrlEditorSuggestionLabel(suggestion);
               return (
                 <button
-                  aria-label={`Use ${suggestion.value}`}
+                  aria-label={`Use ${suggestionLabel}`}
                   aria-selected={
                     active || (suggestion.kind === "path" && suggestion.value === draftRouteAddress)
                   }
@@ -1478,7 +1529,14 @@ export function RouteUrlEditor() {
                   role="option"
                   type="button"
                 >
-                  {suggestion.value}
+                  <span className="min-w-0 flex-1 truncate text-left">
+                    {renderRouteUrlEditorSuggestionValue(suggestion, active)}
+                  </span>
+                  {typeof suggestion.detail === "string" ? (
+                    <span className={getRouteUrlEditorSuggestionDetailClassName(active)}>
+                      {suggestion.detail}
+                    </span>
+                  ) : null}
                 </button>
               );
             })}

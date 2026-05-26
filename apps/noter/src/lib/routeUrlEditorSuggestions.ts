@@ -17,6 +17,7 @@ import { ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS } from "@/lib/rootRouteSearc
 export type RouteUrlEditorSuggestionKind = "hash" | "path" | "search" | "search-value";
 
 type RouteUrlEditorHashOrPathSuggestion = {
+  detail?: string;
   kind: Exclude<RouteUrlEditorSuggestionKind, "search" | "search-value">;
   key: string;
   value: string;
@@ -24,12 +25,15 @@ type RouteUrlEditorHashOrPathSuggestion = {
 
 type RouteUrlEditorSearchSuggestion =
   | {
+      detail?: string;
       kind: "search";
       key: string;
       value: string;
       valueKind: "presence";
     }
   | {
+      commitsValue?: true;
+      detail?: string;
       kind: "search";
       key: string;
       value: string;
@@ -38,6 +42,7 @@ type RouteUrlEditorSearchSuggestion =
     };
 
 type RouteUrlEditorSearchValueSuggestion = {
+  detail?: string;
   kind: "search-value";
   key: string;
   replacementValue: string;
@@ -84,6 +89,11 @@ type SearchToken = {
   tokenStart: number;
   value: string;
   valueStart: number;
+};
+
+type NumericSearchParamValue = {
+  number: number;
+  raw: string;
 };
 
 const GLOBAL_ROUTE_URL_HASH_KEYS = ["top"] as const;
@@ -187,11 +197,15 @@ export function applyRouteUrlEditorSuggestion({
         return routeAddress;
       }
 
-      const nextToken = formatRouteUrlEditorSearchSuggestionValue(
-        suggestion.key,
-        suggestion.valueKind,
-        token.first,
-      );
+      if (suggestion.valueKind === "value" && suggestion.commitsValue) {
+        return applyRouteUrlEditorCommittedSearchSuggestion({
+          routeAddress,
+          suggestion,
+          token,
+        });
+      }
+
+      const nextToken = suggestion.value;
       return `${routeAddress.slice(0, token.tokenStart)}${nextToken}${routeAddress.slice(
         token.tokenEnd,
       )}`;
@@ -215,6 +229,59 @@ export function applyRouteUrlEditorSuggestion({
       return `${routeAddress.slice(0, parts.hashStart)}#${suggestion.key}`;
     }
   }
+}
+
+function applyRouteUrlEditorCommittedSearchSuggestion(args: {
+  routeAddress: string;
+  suggestion: Extract<RouteUrlEditorSearchSuggestion, { valueKind: "value" }>;
+  token: SearchToken;
+}): string {
+  const searchTokens = readRouteUrlEditorSearchTokens(args.routeAddress);
+  const replacementToken =
+    searchTokens.find(
+      (candidate) =>
+        candidate.key === args.suggestion.key &&
+        candidate.hasValueSeparator &&
+        !areRouteUrlEditorSearchTokensEqual(candidate, args.token),
+    ) ??
+    searchTokens.find(
+      (candidate) =>
+        candidate.key === args.suggestion.key &&
+        areRouteUrlEditorSearchTokensEqual(candidate, args.token),
+    );
+  const suggestionTokenText = args.suggestion.value.slice(1);
+  const tokenTexts: string[] = [];
+
+  for (const searchToken of searchTokens) {
+    const activeToken = areRouteUrlEditorSearchTokensEqual(searchToken, args.token);
+    const replaceToken =
+      typeof replacementToken !== "undefined" &&
+      areRouteUrlEditorSearchTokensEqual(searchToken, replacementToken);
+
+    if (replaceToken || (activeToken && typeof replacementToken === "undefined")) {
+      tokenTexts.push(suggestionTokenText);
+      continue;
+    }
+
+    if (activeToken && typeof replacementToken !== "undefined") {
+      continue;
+    }
+
+    const tokenText = args.routeAddress.slice(searchToken.tokenStart + 1, searchToken.tokenEnd);
+    if (tokenText.length > 0) {
+      tokenTexts.push(tokenText);
+    }
+  }
+
+  const parts = readRouteUrlEditorParts(args.routeAddress);
+  const search = tokenTexts.length > 0 ? `?${tokenTexts.join("&")}` : "";
+  const hash = parts.hashStart === null ? "" : `#${parts.hash}`;
+
+  return `${parts.path}${search}${hash}`;
+}
+
+function areRouteUrlEditorSearchTokensEqual(left: SearchToken, right: SearchToken): boolean {
+  return left.tokenStart === right.tokenStart && left.tokenEnd === right.tokenEnd;
 }
 
 export function isRouteUrlEditorRouteUpdateReady(args: {
@@ -299,32 +366,253 @@ function readRouteUrlEditorSearchSuggestions(args: {
   const searchParamSuggestions = readRouteUrlEditorSearchParamSuggestions(args);
   return searchParamSuggestions
     .filter((suggestion) => suggestion.key.startsWith(token.key))
-    .map((suggestion): RouteUrlEditorSearchSuggestion => {
+    .flatMap((suggestion): RouteUrlEditorSearchSuggestion[] => {
       if (suggestion.valueKind === "presence") {
-        return {
-          key: suggestion.key,
-          kind: "search",
-          value: formatRouteUrlEditorSearchSuggestionValue(
-            suggestion.key,
-            suggestion.valueKind,
-            token.first,
-          ),
-          valueKind: "presence",
-        };
+        return [
+          {
+            key: suggestion.key,
+            kind: "search",
+            value: formatRouteUrlEditorSearchSuggestionValue(
+              suggestion.key,
+              suggestion.valueKind,
+              token.first,
+            ),
+            valueKind: "presence",
+          },
+        ];
       }
 
-      return {
-        key: suggestion.key,
-        kind: "search",
-        value: formatRouteUrlEditorSearchSuggestionValue(
-          suggestion.key,
-          suggestion.valueKind,
-          token.first,
-        ),
-        valueKind: "value",
-        valueSuggestions: suggestion.valueSuggestions,
-      };
+      const exampleSuggestion = readRouteUrlEditorValueSearchSuggestion({
+        currentHref: args.currentHref,
+        draftRouteAddress: args.draftRouteAddress,
+        origin: args.origin,
+        suggestion,
+        token,
+      });
+
+      return [exampleSuggestion];
     });
+}
+
+function readRouteUrlEditorValueSearchSuggestion(args: {
+  currentHref: string;
+  draftRouteAddress: string;
+  origin: string;
+  suggestion: Extract<NoterRouteSearchParamSuggestion, { valueKind: "value" }>;
+  token: SearchToken;
+}): Extract<RouteUrlEditorSearchSuggestion, { valueKind: "value" }> {
+  return (
+    readRouteUrlEditorNumericSearchSuggestion(args) ??
+    readRouteUrlEditorSampleSearchSuggestion(args)
+  );
+}
+
+function readRouteUrlEditorNumericSearchSuggestion(args: {
+  currentHref: string;
+  draftRouteAddress: string;
+  origin: string;
+  suggestion: Extract<NoterRouteSearchParamSuggestion, { valueKind: "value" }>;
+  token: SearchToken;
+}): Extract<RouteUrlEditorSearchSuggestion, { valueKind: "value" }> | null {
+  const currentValue = readRouteUrlEditorNumericSearchParamValue({
+    currentHref: args.currentHref,
+    draftRouteAddress: args.draftRouteAddress,
+    key: args.suggestion.key,
+    origin: args.origin,
+    suggestion: args.suggestion,
+  });
+  if (currentValue === null) {
+    return null;
+  }
+
+  const deltas = [1, -1] as const;
+  for (const delta of deltas) {
+    const nextNumericValue = currentValue.number + delta;
+    const nextValue =
+      args.suggestion.valueSuggestions.length === 0
+        ? formatRouteUrlEditorNumericSearchValue(nextNumericValue)
+        : readRouteUrlEditorNumericValueSuggestion(
+            args.suggestion.valueSuggestions,
+            nextNumericValue,
+          );
+
+    if (nextValue === null) {
+      continue;
+    }
+
+    return {
+      commitsValue: true,
+      detail: `${currentValue.raw} ${delta > 0 ? "+" : ""}${delta}`,
+      key: args.suggestion.key,
+      kind: "search",
+      value: `${args.token.first ? "?" : "&"}${args.suggestion.key}=${nextValue}`,
+      valueKind: "value",
+      valueSuggestions: args.suggestion.valueSuggestions,
+    };
+  }
+
+  return null;
+}
+
+function readRouteUrlEditorSampleSearchSuggestion(args: {
+  currentHref: string;
+  draftRouteAddress: string;
+  origin: string;
+  suggestion: Extract<NoterRouteSearchParamSuggestion, { valueKind: "value" }>;
+  token: SearchToken;
+}): Extract<RouteUrlEditorSearchSuggestion, { valueKind: "value" }> {
+  const currentValue = readRouteUrlEditorSearchParamValue({
+    currentHref: args.currentHref,
+    draftRouteAddress: args.draftRouteAddress,
+    key: args.suggestion.key,
+    origin: args.origin,
+  });
+  const sampleValue = readRouteUrlEditorSearchSampleValue(args.suggestion, currentValue);
+
+  return {
+    commitsValue: true,
+    key: args.suggestion.key,
+    kind: "search",
+    value: `${args.token.first ? "?" : "&"}${args.suggestion.key}=${sampleValue}`,
+    valueKind: "value",
+    valueSuggestions: args.suggestion.valueSuggestions,
+  };
+}
+
+function readRouteUrlEditorSearchSampleValue(
+  suggestion: Extract<NoterRouteSearchParamSuggestion, { valueKind: "value" }>,
+  currentValue: string | null,
+): string {
+  if (currentValue === null || suggestion.sampleValue !== currentValue) {
+    return suggestion.sampleValue;
+  }
+
+  return (
+    suggestion.valueSuggestions.find((valueSuggestion) => valueSuggestion !== currentValue) ??
+    suggestion.sampleValue
+  );
+}
+
+function readRouteUrlEditorNumericSearchParamValue(args: {
+  currentHref: string;
+  draftRouteAddress: string;
+  key: string;
+  origin: string;
+  suggestion: Extract<NoterRouteSearchParamSuggestion, { valueKind: "value" }>;
+}): NumericSearchParamValue | null {
+  return (
+    readRouteUrlEditorRouteSearchParamNumber({
+      key: args.key,
+      origin: args.origin,
+      routeAddress: args.draftRouteAddress,
+    }) ??
+    readRouteUrlEditorRouteSearchParamNumber({
+      key: args.key,
+      origin: args.origin,
+      routeAddress: args.currentHref,
+    }) ??
+    readRouteUrlEditorNumericDefaultSearchParamValue(args.suggestion)
+  );
+}
+
+function readRouteUrlEditorSearchParamValue(args: {
+  currentHref: string;
+  draftRouteAddress: string;
+  key: string;
+  origin: string;
+}): string | null {
+  return (
+    readRouteUrlEditorRouteSearchParamValue({
+      key: args.key,
+      origin: args.origin,
+      routeAddress: args.draftRouteAddress,
+    }) ??
+    readRouteUrlEditorRouteSearchParamValue({
+      key: args.key,
+      origin: args.origin,
+      routeAddress: args.currentHref,
+    })
+  );
+}
+
+function readRouteUrlEditorRouteSearchParamValue(args: {
+  key: string;
+  origin: string;
+  routeAddress: string;
+}): string | null {
+  const url = new URL(args.routeAddress, new URL(args.origin));
+  const raw = url.searchParams.get(args.key);
+  if (raw === null) {
+    return null;
+  }
+
+  const trimmedRaw = raw.trim();
+  return trimmedRaw.length > 0 ? raw : null;
+}
+
+function readRouteUrlEditorNumericDefaultSearchParamValue(
+  suggestion: Extract<NoterRouteSearchParamSuggestion, { valueKind: "value" }>,
+): NumericSearchParamValue | null {
+  if (
+    typeof suggestion.numericDefaultValue !== "number" ||
+    !Number.isFinite(suggestion.numericDefaultValue)
+  ) {
+    return null;
+  }
+
+  return {
+    number: suggestion.numericDefaultValue,
+    raw: formatRouteUrlEditorNumericSearchValue(suggestion.numericDefaultValue),
+  };
+}
+
+function readRouteUrlEditorRouteSearchParamNumber(args: {
+  key: string;
+  origin: string;
+  routeAddress: string;
+}): NumericSearchParamValue | null {
+  const url = new URL(args.routeAddress, new URL(args.origin));
+  const raw = url.searchParams.get(args.key);
+  if (raw === null) {
+    return null;
+  }
+
+  const trimmedRaw = raw.trim();
+  if (trimmedRaw.length === 0) {
+    return null;
+  }
+
+  const numericValue = Number(trimmedRaw);
+  if (!Number.isFinite(numericValue)) {
+    return null;
+  }
+
+  return {
+    number: numericValue,
+    raw,
+  };
+}
+
+function readRouteUrlEditorNumericValueSuggestion(
+  valueSuggestions: readonly string[],
+  numericValue: number,
+): string | null {
+  for (const valueSuggestion of valueSuggestions) {
+    const numericSuggestion = Number(valueSuggestion.trim());
+    if (Number.isFinite(numericSuggestion) && numericSuggestion === numericValue) {
+      return valueSuggestion;
+    }
+  }
+
+  return null;
+}
+
+function formatRouteUrlEditorNumericSearchValue(value: number): string {
+  if (Number.isInteger(value)) {
+    return `${value}`;
+  }
+
+  return `${Number(value.toFixed(12))}`;
 }
 
 function readRouteUrlEditorSearchValueSuggestions(args: {
@@ -396,12 +684,12 @@ function readTailwindColorTokenSearchValueSuggestions(args: {
       }
 
       suggestedPrefixes.add(parsedSuggestion.prefix);
+      const sampleValue = readTailwindColorTokenFamilySampleValue(
+        parsedSuggestion.prefix,
+        args.valueSuggestions,
+      );
       suggestions.push(
-        createRouteUrlEditorSearchValueSuggestion(
-          args.key,
-          parsedSuggestion.prefix,
-          parsedSuggestion.prefix,
-        ),
+        createRouteUrlEditorSearchValueSuggestion(args.key, sampleValue, sampleValue),
       );
     }
 
@@ -421,10 +709,16 @@ function readTailwindColorTokenSearchValueSuggestions(args: {
       return [];
     }
 
-    return [
-      createRouteUrlEditorSearchValueSuggestion(args.key, parsedSuggestion.shade, valueSuggestion),
-    ];
+    return [createRouteUrlEditorSearchValueSuggestion(args.key, valueSuggestion, valueSuggestion)];
   });
+}
+
+function readTailwindColorTokenFamilySampleValue(
+  prefix: string,
+  valueSuggestions: readonly string[],
+): string {
+  const sampleValue = `${prefix}500`;
+  return valueSuggestions.includes(sampleValue) ? sampleValue : prefix;
 }
 
 function readTailwindColorTokenSuggestion(value: string): { prefix: string; shade: string } | null {

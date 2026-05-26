@@ -59,6 +59,7 @@ const LOGO_THEME_COLOR_VALUE_SUGGESTIONS = TAILWIND_COLOR_TOKEN_SUGGESTIONS;
 
 const logoThemeColorValueParamOptions = {
   permission: "public",
+  sampleValue: "emerald-500",
   suggestion: "hidden",
   valueCompletion: "tailwind-color-token",
   valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,
@@ -114,18 +115,23 @@ const logoColorTokenSearchValue = pure((value: unknown) => {
 export const appThemeColorSearchFieldSchema = defineRouteSearchParams({
   background: routeSearchValueParam(logoColorTokenSearchValue, {
     ...logoThemeColorValueParamOptions,
+    sampleValue: "stone-50",
   }),
   border: routeSearchValueParam(logoColorTokenSearchValue, {
     ...logoThemeColorValueParamOptions,
+    sampleValue: "stone-300",
   }),
   primary: routeSearchValueParam(logoColorTokenSearchValue, {
     ...logoThemeColorValueParamOptions,
+    sampleValue: "emerald-500",
   }),
   secondary: routeSearchValueParam(logoColorTokenSearchValue, {
     ...logoThemeColorValueParamOptions,
+    sampleValue: "rose-500",
   }),
   top: routeSearchValueParam(logoColorTokenSearchValue, {
     ...logoThemeColorValueParamOptions,
+    sampleValue: "sky-500",
   }),
 });
 

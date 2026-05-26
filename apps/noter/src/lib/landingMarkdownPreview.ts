@@ -26,6 +26,7 @@ const landingMarkdownPreviewRouteSearchSchema = defineRouteSearchParams({
     routeSearchStringValue(LANDING_MARKDOWN_PREVIEW_LANGUAGES),
     {
       permission: "admin",
+      sampleValue: "ro",
       suggestion: "route",
       valueSuggestions: LANDING_MARKDOWN_PREVIEW_LANGUAGES,
     },

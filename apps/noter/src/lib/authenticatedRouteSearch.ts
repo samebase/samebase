@@ -16,6 +16,7 @@ const pricingCheckoutValues = ["success", "cancel"] as const;
 const mcpConsentRouteSearchSchema = defineRouteSearchParams({
   mcp_consent_request: routeSearchValueParam(routeSearchNonEmptyString, {
     permission: "admin",
+    sampleValue: "sample-request",
     suggestion: "route",
   }),
 });
@@ -40,6 +41,7 @@ export function validateMcpConsentRouteSearch(
 const pricingRouteSearchSchema = defineRouteSearchParams({
   checkout: routeSearchValueParam(routeSearchStringValue(pricingCheckoutValues), {
     permission: "admin",
+    sampleValue: "success",
     suggestion: "route",
     valueSuggestions: pricingCheckoutValues,
   }),
@@ -71,6 +73,7 @@ const machineConnectRouteSearchSchema = defineRouteSearchParams({
   }),
   requestId: routeSearchValueParam(routeSearchNonEmptyString, {
     permission: "admin",
+    sampleValue: "sample-request",
     suggestion: "route",
   }),
 });
@@ -101,10 +104,12 @@ export function validateMachineConnectRouteSearch(
 const machinesRouteSearchSchema = defineRouteSearchParams({
   machineId: routeSearchValueParam(routeSearchNonEmptyString, {
     permission: "admin",
+    sampleValue: "sample-machine",
     suggestion: "route",
   }),
   threadId: routeSearchValueParam(routeSearchNonEmptyString, {
     permission: "admin",
+    sampleValue: "sample-thread",
     suggestion: "route",
   }),
 });

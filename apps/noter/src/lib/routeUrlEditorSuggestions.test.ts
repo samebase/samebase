@@ -83,7 +83,94 @@ describe("readRouteUrlEditorSuggestions", () => {
       viewer: publicViewer,
     });
 
-    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["&leftFace="]);
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["&leftFace=secondary"]);
+  });
+
+  it("replaces valued search params with one different numeric example", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo?depth=2",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?depth=2&depth",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?depth=2&depth".length,
+      viewer: publicViewer,
+    });
+
+    expect(
+      suggestions.map((suggestion) => ({
+        detail: suggestion.detail ?? null,
+        value: suggestion.value,
+      })),
+    ).toEqual([{ detail: "2 +1", value: "&depth=3" }]);
+  });
+
+  it("uses static numeric defaults in the search param dropdown", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?d",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?d".length,
+      viewer: publicViewer,
+    });
+
+    expect(
+      suggestions
+        .filter((suggestion) => suggestion.detail)
+        .map((suggestion) => ({
+          detail: suggestion.detail ?? null,
+          value: suggestion.value,
+        })),
+    ).toEqual([
+      { detail: "1 +1", value: "?depth=2" },
+      { detail: "1 +1", value: "?dist=2" },
+    ]);
+  });
+
+  it("uses sample values in the search param dropdown for every valued param", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?i",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?i".length,
+      viewer: publicViewer,
+    });
+
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual([
+      "?isoSide=17",
+      "?isoStyle=shaded-edge",
+    ]);
+  });
+
+  it("keeps numeric examples inside finite numeric value suggestions", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo?gridSize=3",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?gridSize=3&gridSize",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?gridSize=3&gridSize".length,
+      viewer: publicViewer,
+    });
+
+    expect(
+      suggestions.map((suggestion) => ({
+        detail: suggestion.detail ?? null,
+        value: suggestion.value,
+      })),
+    ).toEqual([{ detail: "3 -1", value: "&gridSize=2" }]);
   });
 
   it("suggests matching search param values after =", () => {
@@ -115,7 +202,21 @@ describe("readRouteUrlEditorSuggestions", () => {
       viewer: publicViewer,
     });
 
-    expect(familySuggestions.map((suggestion) => suggestion.value)).toEqual(["blue-", "black-"]);
+    expect(familySuggestions.map((suggestion) => suggestion.value)).toEqual(["blue-500", "black-"]);
+
+    const emeraldFamilySuggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?primary=em",
+      hashKeys: [],
+      kind: "search-value",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?primary=em".length,
+      viewer: publicViewer,
+    });
+
+    expect(emeraldFamilySuggestions.map((suggestion) => suggestion.value)).toEqual(["emerald-500"]);
 
     const shadeSuggestions = readRouteUrlEditorSuggestions({
       currentHref: "/logo",
@@ -130,17 +231,17 @@ describe("readRouteUrlEditorSuggestions", () => {
     });
 
     expect(shadeSuggestions.map((suggestion) => suggestion.value)).toEqual([
-      "50",
-      "100",
-      "200",
-      "300",
-      "400",
-      "500",
-      "600",
-      "700",
-      "800",
-      "900",
-      "950",
+      "blue-50",
+      "blue-100",
+      "blue-200",
+      "blue-300",
+      "blue-400",
+      "blue-500",
+      "blue-600",
+      "blue-700",
+      "blue-800",
+      "blue-900",
+      "blue-950",
     ]);
   });
 
@@ -208,7 +309,7 @@ describe("readRouteUrlEditorSuggestions", () => {
       viewer: adminViewer,
     });
 
-    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["?mode="]);
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["?mode=route-url-editor"]);
   });
 
   it("hides local-only route search params on deployed surfaces", () => {
@@ -347,6 +448,22 @@ describe("applyRouteUrlEditorSuggestion", () => {
 
     expect(
       applyRouteUrlEditorSuggestion({
+        routeAddress: "/logo?depth=2&de#top",
+        selectionRouteIndex: "/logo?depth=2&de".length,
+        suggestion: {
+          commitsValue: true,
+          detail: "2 +1",
+          key: "depth",
+          kind: "search",
+          value: "&depth=3",
+          valueKind: "value",
+          valueSuggestions: [],
+        },
+      }),
+    ).toBe("/logo?depth=3#top");
+
+    expect(
+      applyRouteUrlEditorSuggestion({
         routeAddress: "/logo?leftFace=s#top",
         selectionRouteIndex: "/logo?leftFace=s".length,
         suggestion: {
@@ -366,7 +483,7 @@ describe("applyRouteUrlEditorSuggestion", () => {
           key: "primary=blue-500",
           kind: "search-value",
           replacementValue: "blue-500",
-          value: "500",
+          value: "blue-500",
         },
       }),
     ).toBe("/logo?primary=blue-500#top");

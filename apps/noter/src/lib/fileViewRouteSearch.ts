@@ -27,6 +27,7 @@ const fileViewRouteSearchSchema = defineRouteSearchParams({
   }),
   mobileLineNumbers: routeSearchValueParam(literal("1"), {
     permission: "admin",
+    sampleValue: "1",
     suggestion: "route",
     valueSuggestions: ["1"],
   }),
