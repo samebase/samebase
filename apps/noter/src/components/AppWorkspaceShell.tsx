@@ -173,16 +173,29 @@ function AppWorkspaceMainHeader({ accessory }: { accessory?: ReactNode }) {
   );
 }
 
-function AppWorkspaceClientShell() {
-  return <div className="min-h-0 flex-1 bg-background" data-testid="app-workspace-client-shell" />;
+function AppWorkspaceClientShell({ children }: { children?: ReactNode }) {
+  return (
+    <div
+      className="flex min-h-0 flex-1 flex-col bg-background"
+      data-testid="app-workspace-client-shell"
+    >
+      {children}
+    </div>
+  );
 }
 
 /**
- * SSR must not guess workspace geometry. Render the same empty shell for SSR
- * and first hydration, then mount WorkspaceLayoutV2 so viewport reads happen on
- * the client before that layout's first paint.
+ * SSR must not guess workspace geometry. Routes without safe static content get
+ * an empty shell until viewport reads happen on the client; the public landing
+ * route can still stream its server-rendered body inside that stable shell.
  */
-function AppWorkspaceClientReadyGate({ children }: { children: ReactNode }) {
+function AppWorkspaceClientReadyGate({
+  children,
+  shellChildren,
+}: {
+  children: ReactNode;
+  shellChildren?: ReactNode;
+}) {
   const [isClientReady, setIsClientReady] = useState(false);
 
   useLayoutEffect(() => {
@@ -190,10 +203,14 @@ function AppWorkspaceClientReadyGate({ children }: { children: ReactNode }) {
   }, []);
 
   if (!isClientReady) {
-    return <AppWorkspaceClientShell />;
+    return <AppWorkspaceClientShell>{shellChildren}</AppWorkspaceClientShell>;
   }
 
   return children;
+}
+
+function shouldRenderRouteContentInClientShell(pathname: string) {
+  return pathname === "/";
 }
 
 function useAppWorkspaceSidebarState() {
@@ -257,6 +274,9 @@ function AppWorkspaceShellFrame({
 }
 
 export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
+  const pathname = useLocation({
+    select: (location) => location.pathname,
+  });
   const chromeStore = useMemo(createAppWorkspaceRouteChromeStore, []);
   const chromeContextValue = useMemo(
     () => ({
@@ -270,7 +290,9 @@ export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
   return (
     <AppWorkspaceRouteChromeContext.Provider value={chromeContextValue}>
       <div className="flex min-h-dvh flex-col bg-background text-foreground">
-        <AppWorkspaceClientReadyGate>
+        <AppWorkspaceClientReadyGate
+          shellChildren={shouldRenderRouteContentInClientShell(pathname) ? children : undefined}
+        >
           <AppWorkspaceShellFrame chrome={chrome}>{children}</AppWorkspaceShellFrame>
         </AppWorkspaceClientReadyGate>
       </div>

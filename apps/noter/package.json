@@ -61,7 +61,6 @@
     "@convex-dev/react-query": "^0.1.0",
     "@convex-dev/workflow": "^0.3.12",
     "@convex-dev/workpool": "^0.4.6",
-    "@fontsource/ibm-plex-sans": "^5.2.8",
     "@lezer-unofficial/printer": "^1.0.1",
     "@lezer/markdown": "^1.4.0",
     "@monaco-editor/react": "^4.7.0",
