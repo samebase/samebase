@@ -233,6 +233,26 @@ function readRouteUrlEditorSearchTriggerDraft(routeAddress: string): string {
   return `${routeAddress.slice(0, hashIndex)}?${routeAddress.slice(hashIndex)}`;
 }
 
+// Keep the committed query exact while opening a local empty token before any hash.
+function readRouteUrlEditorNextSearchDraft(routeAddress: string): string {
+  const hashIndex = routeAddress.indexOf("#");
+  const searchIndex = routeAddress.indexOf("?");
+  if (searchIndex === -1 || (hashIndex !== -1 && searchIndex > hashIndex)) {
+    return routeAddress;
+  }
+
+  const searchEnd = hashIndex === -1 ? routeAddress.length : hashIndex;
+  if (routeAddress.slice(searchIndex + 1, searchEnd).endsWith("&")) {
+    return routeAddress;
+  }
+
+  if (hashIndex === -1) {
+    return `${routeAddress}&`;
+  }
+
+  return `${routeAddress.slice(0, hashIndex)}&${routeAddress.slice(hashIndex)}`;
+}
+
 function restoreRouteUrlEditorInputSelection(args: {
   input: HTMLInputElement;
   origin: string;
@@ -859,6 +879,16 @@ export function RouteUrlEditor() {
           selectionRouteIndex:
             readRouteUrlEditorSearchDraftSelectionRouteIndex(nextDraftRouteAddress),
         };
+      } else if (suggestion.kind === "search-value") {
+        const draftRouteAddress = readRouteUrlEditorNextSearchDraft(nextDraftRouteAddress);
+        if (draftRouteAddress !== nextDraftRouteAddress) {
+          searchFollowup = {
+            draftRouteAddress,
+            kind: "search",
+            selectionRouteIndex:
+              readRouteUrlEditorSearchDraftSelectionRouteIndex(draftRouteAddress),
+          };
+        }
       }
 
       const followupSuggestions =
