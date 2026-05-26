@@ -122,6 +122,15 @@ describe("RouteUrlEditor", () => {
     return routeHref.textContent;
   }
 
+  function readSuggestionSampleValue(option: HTMLButtonElement): HTMLSpanElement {
+    const sampleValue = option.querySelector<HTMLSpanElement>("span span");
+    if (!sampleValue) {
+      throw new Error("Expected suggestion sample value span.");
+    }
+
+    return sampleValue;
+  }
+
   async function pressRouteUrlEditorKey(input: HTMLInputElement, key: string): Promise<void> {
     await act(async () => {
       input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key }));
@@ -261,6 +270,15 @@ describe("RouteUrlEditor", () => {
     expect(
       rootElement?.querySelector('button[aria-label="Use ?leftFace=secondary"]'),
     ).not.toBeNull();
+    const leftFaceOption = rootElement?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Use ?leftFace=secondary"]',
+    );
+    if (!leftFaceOption) {
+      throw new Error("Expected leftFace search param suggestion.");
+    }
+    const sampleValue = readSuggestionSampleValue(leftFaceOption);
+    expect(sampleValue.textContent).toBe("secondary");
+    expect(sampleValue.className).toContain("text-muted-foreground");
     expect(document.activeElement).toBe(input);
   });
 
@@ -314,6 +332,7 @@ describe("RouteUrlEditor", () => {
     });
 
     expect(voxOption.getAttribute("aria-selected")).toBe("true");
+    expect(readSuggestionSampleValue(voxOption).className).toContain("text-accent-foreground/60");
     expect(input.value).toBe(`${origin}/logo?vox=xxx_xox_xxx-xxx_xxx_xxx-xxx_xxx_xxx`);
     expect(readRouteHref()).toBe("/logo?vox=xxx_xox_xxx-xxx_xxx_xxx-xxx_xxx_xxx");
   });
