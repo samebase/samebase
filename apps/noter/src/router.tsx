@@ -5,25 +5,10 @@ import { createAppQueryClients } from "@/lib/appQueryClient";
 import { parseTanStackSearch, stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
 
 export function getRouter() {
-  const queryClients = createAppQueryClients();
-  const router = createTanStackRouter({
-    context: queryClients,
-    defaultPreload: false,
-    notFoundMode: "root",
-    parseSearch: parseTanStackSearch,
-    routeTree,
-    stringifySearch: stringifyTanStackSearch,
-  });
-
-  setupRouterSsrQueryIntegration({
-    queryClient: queryClients.queryClient,
-    router,
-  });
-
-  return router;
+  return createAppRouter();
 }
 
-export function createAppRouter(history: RouterHistory) {
+export function createAppRouter(history?: RouterHistory) {
   const queryClients = createAppQueryClients();
   const router = createTanStackRouter({
     context: queryClients,
@@ -39,8 +24,6 @@ export function createAppRouter(history: RouterHistory) {
     queryClient: queryClients.queryClient,
     router,
   });
-
-  void router.load({ sync: true });
 
   return router;
 }

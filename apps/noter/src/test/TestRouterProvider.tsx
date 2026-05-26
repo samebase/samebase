@@ -18,14 +18,20 @@ export function TestRouterProvider({
   initialEntries = ["/"],
   initialIndex,
 }: TestRouterProviderProps): ReactElement {
-  const [router] = useState(() =>
-    createAppRouter(
+  const [router] = useState(() => {
+    const router = createAppRouter(
       createMemoryHistory({
         initialEntries,
         initialIndex,
       }),
-    ),
-  );
+    );
+
+    // RouterContextProvider only provides context; it does not mount
+    // RouterProvider's loading lifecycle before children read useLocation.
+    void router.load({ sync: true });
+
+    return router;
+  });
 
   // Fixtures mount router context without TanStack's Matches/Transitioner tree,
   // so keep memory-history navigations loading the same way production does.
