@@ -1,8 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "compatibility_date": "2026-05-14",
-  "compatibility_flags": ["nodejs_compat"],
-  "main": "@tanstack/react-start/server-entry",
   "preview_urls": true,
   "observability": {
     "enabled": false,
@@ -18,5 +16,9 @@
       "persist": true,
       "head_sampling_rate": 1,
     },
+  },
+  "assets": {
+    "directory": "./dist/client",
+    "not_found_handling": "single-page-application",
   },
 }
