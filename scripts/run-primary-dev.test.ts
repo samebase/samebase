@@ -69,4 +69,14 @@ describe("run-primary-dev", () => {
       "--continue",
     ]);
   });
+
+  it("can build the raw app dev command for worktree startup", () => {
+    expect(buildPrimaryDevArgs([], "dev:raw")).toEqual([
+      "exec",
+      "vp",
+      "run",
+      "--filter=noter",
+      "dev:raw",
+    ]);
+  });
 });
