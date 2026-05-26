@@ -710,6 +710,48 @@ test("route URL editor continues with a new search param after Enter commits a v
   await expect(page).toHaveURL(`${origin}/logo`);
 });
 
+test("route URL editor continues with a new search param after Enter commits a key-only param", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/logo", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const editor = page.getByTestId("route-url-editor");
+  const input = await editRouteUrl(page);
+  const suggestions = page.getByTestId("route-url-editor-suggestions");
+  const backButton = editor.getByRole("button", { name: "Back" });
+  const devtoolsOption = page.getByRole("option", {
+    exact: true,
+    name: "Use ?devtools",
+  });
+  const nextSearchSuggestion = page.getByTestId("route-url-editor-suggestion").first();
+
+  await input.fill(`${origin}/logo?devt`);
+  await expect(devtoolsOption).toBeVisible();
+
+  await input.press("ArrowDown");
+
+  await expect(devtoolsOption).toHaveAttribute("aria-selected", "true");
+  await expect(input).toHaveValue(`${origin}/logo?devtools`);
+  await expect(page).toHaveURL(`${origin}/logo?devtools`);
+  await expect(backButton).toBeDisabled();
+
+  await input.press("Enter");
+
+  await expect(page).toHaveURL(`${origin}/logo?devtools`);
+  await expect(input).toHaveValue(`${origin}/logo?devtools&`);
+  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
+  await expect(nextSearchSuggestion).toHaveAttribute("aria-label", /^Use &/);
+  await expect(backButton).toBeEnabled();
+
+  await backButton.click();
+
+  await expect(page).toHaveURL(`${origin}/logo`);
+});
+
 test("route URL editor keeps unfinished valued search params local", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 420 });
   await page.goto("/logo", {

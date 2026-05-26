@@ -868,17 +868,25 @@ export function RouteUrlEditor() {
               readRouteUrlEditorSearchDraftSelectionRouteIndex(draftRouteAddress),
           };
         }
-      } else if (
-        suggestion.kind === "search" &&
-        suggestion.valueKind === "value" &&
-        suggestion.valueSuggestions.length > 0
-      ) {
-        searchFollowup = {
-          draftRouteAddress: nextDraftRouteAddress,
-          kind: "search-value",
-          selectionRouteIndex:
-            readRouteUrlEditorSearchDraftSelectionRouteIndex(nextDraftRouteAddress),
-        };
+      } else if (suggestion.kind === "search") {
+        if (suggestion.valueKind === "value" && suggestion.valueSuggestions.length > 0) {
+          searchFollowup = {
+            draftRouteAddress: nextDraftRouteAddress,
+            kind: "search-value",
+            selectionRouteIndex:
+              readRouteUrlEditorSearchDraftSelectionRouteIndex(nextDraftRouteAddress),
+          };
+        } else if (suggestion.valueKind === "presence") {
+          const draftRouteAddress = readRouteUrlEditorNextSearchDraft(nextDraftRouteAddress);
+          if (draftRouteAddress !== nextDraftRouteAddress) {
+            searchFollowup = {
+              draftRouteAddress,
+              kind: "search",
+              selectionRouteIndex:
+                readRouteUrlEditorSearchDraftSelectionRouteIndex(draftRouteAddress),
+            };
+          }
+        }
       } else if (suggestion.kind === "search-value") {
         const draftRouteAddress = readRouteUrlEditorNextSearchDraft(nextDraftRouteAddress);
         if (draftRouteAddress !== nextDraftRouteAddress) {

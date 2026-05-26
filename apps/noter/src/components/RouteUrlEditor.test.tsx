@@ -377,6 +377,40 @@ describe("RouteUrlEditor", () => {
     expect(document.activeElement).toBe(input);
   });
 
+  it("opens the next search param slot after committing a key-only suggestion with Enter", async () => {
+    const input = startEditing(["/logo"]);
+    const origin = window.location.origin;
+
+    await fillRouteUrlEditorInput(input, `${origin}/logo?devt`);
+    const devtoolsOption = rootElement?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Use ?devtools"]',
+    );
+    if (!devtoolsOption) {
+      throw new Error("Expected devtools search param suggestion.");
+    }
+
+    await pressRouteUrlEditorKey(input, "ArrowDown");
+
+    expect(devtoolsOption.getAttribute("aria-selected")).toBe("true");
+    expect(input.value).toBe(`${origin}/logo?devtools`);
+
+    await act(async () => {
+      input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+      await Promise.resolve();
+      await Promise.resolve();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(input.value).toBe(`${origin}/logo?devtools&`);
+    expect(readRouteHref()).toBe("/logo?devtools");
+    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search");
+    const searchSuggestionLabels = [
+      ...(rootElement?.querySelectorAll<HTMLButtonElement>('button[role="option"]') ?? []),
+    ].map((button) => button.getAttribute("aria-label") ?? "");
+    expect(searchSuggestionLabels.some((label) => label.startsWith("Use &"))).toBe(true);
+    expect(document.activeElement).toBe(input);
+  });
+
   it("keeps selected unfinished valued search params local", async () => {
     const input = startEditing(["/logo"]);
     const origin = window.location.origin;
