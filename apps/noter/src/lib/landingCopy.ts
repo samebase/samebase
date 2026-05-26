@@ -12,16 +12,18 @@ export const landingPageBullets = [
   "use Codex to ship small apps directly from your workspace",
 ] as const;
 
-const landingPageSlogans = parseLandingSlogans(slogansRaw);
+export const landingPageSlogans = parseLandingSlogans(slogansRaw);
 
-// SSR and hydration need the same copy height; random rotation would make the
-// landing card move when the browser evaluates this module.
-export const landingPageSlogan = selectLandingSlogan(
-  landingPageSlogans,
-  DEFAULT_LANDING_SLOGAN,
-  () => 0,
-);
-
-export const landingPageMarkdown = `## ${landingPageSlogan}
+export function buildLandingPageMarkdown(slogan: string): string {
+  return `## ${slogan}
 
 ${landingPageBullets.map((bullet) => `- ${bullet}`).join("\n")}`;
+}
+
+export function selectLandingPageMarkdown(random = Math.random): string {
+  return buildLandingPageMarkdown(
+    selectLandingSlogan(landingPageSlogans, DEFAULT_LANDING_SLOGAN, random),
+  );
+}
+
+export const landingPageMarkdown = buildLandingPageMarkdown(DEFAULT_LANDING_SLOGAN);

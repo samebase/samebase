@@ -6,7 +6,7 @@ import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { Suspense, useMemo } from "react";
 
-export function RootIndexRoutePage() {
+export function RootIndexRoutePage({ landingPageMarkdown }: { landingPageMarkdown: string }) {
   const location = useLocation();
   const rootRouteSearch = useRootRouteSearch();
 
@@ -24,7 +24,7 @@ export function RootIndexRoutePage() {
 
   return (
     <Suspense fallback={null}>
-      <SignInForm authPlacement="sidebar" />
+      <SignInForm authPlacement="sidebar" landingPageMarkdown={landingPageMarkdown} />
     </Suspense>
   );
 }

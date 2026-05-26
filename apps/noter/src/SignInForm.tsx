@@ -2,7 +2,7 @@ import { LandingCopy } from "@/components/LandingCopy";
 import { PublicLandingAuthControls } from "@/components/PublicLandingAuthControls";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
-import { landingPageMarkdown } from "@/lib/landingCopy";
+import { landingPageMarkdown as defaultLandingPageMarkdown } from "@/lib/landingCopy";
 import {
   PUBLIC_LANDING_COPY_TEST_ID,
   PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
@@ -14,10 +14,15 @@ import { type ReactNode, useState } from "react";
 
 type SignInFormProps = {
   authPlacement?: "inline" | "sidebar";
+  landingPageMarkdown?: string;
   topNotice?: ReactNode;
 };
 
-export function SignInForm({ authPlacement = "inline", topNotice }: SignInFormProps = {}) {
+export function SignInForm({
+  authPlacement = "inline",
+  landingPageMarkdown = defaultLandingPageMarkdown,
+  topNotice,
+}: SignInFormProps = {}) {
   const pathname = useLocation({
     select: (location) => location.pathname,
   });
