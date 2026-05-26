@@ -68,7 +68,7 @@
     "@octokit/rest": "^22.0.0",
     "@polar-sh/sdk": "^0.46.0",
     "@prosemark/core": "^0.0.7",
-    "@robolex/sure": "^0.12.0",
+    "@samebase/sure": "workspace:*",
     "@tanstack/react-pacer": "^0.22.0",
     "@tanstack/react-query": "^5.83.0",
     "@tanstack/react-query-devtools": "^5.83.0",
