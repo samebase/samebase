@@ -318,6 +318,9 @@ Key domain entities:
   them.
 - For pane rails that should feel nearly flush, prefer `px-1` over `px-0` so the content keeps a
   small nonzero inset without reading as padded.
+- On iOS/iPadOS WebKit, focused text-entry controls below 16 CSS px can trigger viewport zoom.
+  Shipped inputs, textareas, selects, and contenteditable editor fields must render at 16px or
+  larger unless the product intentionally accepts focus zoom for that control.
 - Browser-owned page scroll is the default for route surfaces. Do not use route-level `h-screen`,
   `h-dvh`, `overflow-hidden`, or full-page `overflow-y-auto` shells under shared app chrome unless
   the route truly needs contained pane behavior.

@@ -1137,6 +1137,25 @@ test("route URL editor mobile scroll picker previews and commits the slated opti
   }
 });
 
+test("route URL editor mobile input avoids iOS focus zoom text sizing", async ({
+  browser,
+}, testInfo) => {
+  const { context, page } = await createMobileRouteUrlEditorPage(browser, testInfo);
+  try {
+    await page.goto("/", {
+      waitUntil: "domcontentloaded",
+    });
+
+    const display = getRouteUrlEditorDisplay(page);
+    await expect(display).toHaveCSS("font-size", "16px");
+
+    const input = await editRouteUrl(page);
+    await expect(input).toHaveCSS("font-size", "16px");
+  } finally {
+    await context.close();
+  }
+});
+
 test("route URL editor mobile scroll picker lets the last option reach the slate", async ({
   browser,
 }, testInfo) => {
