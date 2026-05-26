@@ -224,6 +224,13 @@ export function buildWorktreeDevCommandPlan(
       phase: "always",
     },
     {
+      label: "generate tracked file path types",
+      cwd: repoRoot,
+      command: process.execPath,
+      args: [path.join(repoRoot, "scripts", "generate-tracked-file-paths.ts")],
+      phase: "always",
+    },
+    {
       label: "bootstrap the anonymous local backend once",
       cwd: appDir,
       command: process.execPath,

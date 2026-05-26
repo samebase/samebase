@@ -29,7 +29,7 @@
     "check:workspace": "vp run --filter noter check && pnpm run check:packages",
     "check:workspace:ci": "vp run --filter noter check:ci && pnpm run check:packages",
     "check:root": "pnpm run check:scripts",
-    "check:scripts": "pnpm run typecheck:scripts && pnpm run lint:scripts",
+    "check:scripts": "pnpm run typecheck:scripts && git diff --exit-code -- scripts/generated/trackedFilePaths.generated.ts && pnpm run lint:scripts",
     "audit:signatures": "pnpm audit signatures",
     "audit:vulnerabilities": "pnpm audit",
     "audit:supply-chain": "pnpm install --frozen-lockfile --ignore-scripts && pnpm run audit:signatures && pnpm run audit:vulnerabilities",
@@ -60,11 +60,13 @@
     "playwright:open": "node ./scripts/playwright-session.ts open",
     "playwright:record:start": "node ./scripts/playwright-session.ts record-start",
     "playwright:record:stop": "node ./scripts/playwright-session.ts record-stop",
+    "generate:tracked-file-paths": "node ./scripts/generate-tracked-file-paths.ts",
+    "verify:tracked-file-paths": "pnpm run generate:tracked-file-paths && git diff --exit-code -- scripts/generated/trackedFilePaths.generated.ts",
     "onboarding-video:landing-demo": "pnpm --filter @noter-md/onboarding-video-tools landing-demo",
     "onboarding-video:screen-demo": "pnpm --filter @noter-md/onboarding-video-tools screen-demo",
     "share:local": "node ./scripts/worktree-share.ts --mode local",
     "share:worktree": "node ./scripts/worktree-share.ts",
-    "typecheck:scripts": "tsgo -p tsconfig.scripts.json --pretty false"
+    "typecheck:scripts": "pnpm run generate:tracked-file-paths && tsgo -p tsconfig.scripts.json --pretty false"
   },
   "devDependencies": {
     "@convex-dev/eslint-plugin": "2.0.0",

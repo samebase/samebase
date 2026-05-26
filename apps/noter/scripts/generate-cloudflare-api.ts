@@ -6,26 +6,34 @@ import { standaloneCode } from "ajv/dist/standalone/index.js";
 import openapiTS, { astToString, COMMENT_HEADER, type OpenAPI3 } from "openapi-typescript";
 import { includes } from "@noter-md/dependent/main";
 
+import { noterAppFilePath } from "../../../scripts/lib/trackedFilePath.ts";
+
 const sourceUrl = "https://raw.githubusercontent.com/cloudflare/api-schemas/main/openapi.json";
 const sourceFetchTimeoutMs = 30_000;
 const cloudflareApiOpenApiSchemaId = "noter://cloudflare-api/openApi.generated.json";
 const appRoot = fileURLToPath(new URL("../", import.meta.url));
 const openApiDocumentOutputPath = fileURLToPath(
-  new URL("../convex/cloudflareApi/openApi.generated.json", import.meta.url),
+  new URL(`../${noterAppFilePath("convex/cloudflareApi/openApi.generated.json")}`, import.meta.url),
 );
 const validatorsOutputPath = fileURLToPath(
-  new URL("../convex/cloudflareApi/validators.generated.js", import.meta.url),
+  new URL(
+    `../${noterAppFilePath("convex/cloudflareApi/validators.generated.js")}`,
+    import.meta.url,
+  ),
 );
 const validatorTypesOutputPath = fileURLToPath(
-  new URL("../convex/cloudflareApi/validators.generated.d.ts", import.meta.url),
+  new URL(
+    `../${noterAppFilePath("convex/cloudflareApi/validators.generated.d.ts")}`,
+    import.meta.url,
+  ),
 );
-const typesOutputPath = "convex/cloudflareApi/types.generated.d.ts";
+const typesOutputPath = noterAppFilePath("convex/cloudflareApi/types.generated.d.ts");
 const typesOutputFilePath = fileURLToPath(new URL(`../${typesOutputPath}`, import.meta.url));
 const generatedFormatPaths = [
-  "convex/cloudflareApi/openApi.generated.json",
+  noterAppFilePath("convex/cloudflareApi/openApi.generated.json"),
   typesOutputPath,
-  "convex/cloudflareApi/validators.generated.js",
-  "convex/cloudflareApi/validators.generated.d.ts",
+  noterAppFilePath("convex/cloudflareApi/validators.generated.js"),
+  noterAppFilePath("convex/cloudflareApi/validators.generated.d.ts"),
 ];
 const cloudflareApiFamilyPathPrefixes = [
   "/accounts/{account_id}/workers",
