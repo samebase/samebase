@@ -74,6 +74,12 @@ type RouteUrlEditorSuggestionState = {
   selectionRouteIndex: number;
 };
 
+type RouteUrlEditorPointerPreviewBase = {
+  draftRouteAddress: string;
+  href: string;
+  previewBaseHrefBeforePointerPreview: string | null;
+};
+
 function getRouteUrlEditorSuggestionButtonClassName(active: boolean): string {
   return active
     ? "flex h-7 w-full min-w-0 items-center bg-accent px-2 font-mono text-sm text-accent-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
@@ -445,6 +451,7 @@ export function RouteUrlEditor() {
   // Preview replaces the current entry; explicit selection restores this base
   // before pushing the selected URL so Back returns to the pre-preview page.
   const previewBaseHrefRef = useRef<string | null>(null);
+  const pointerPreviewBaseRef = useRef<RouteUrlEditorPointerPreviewBase | null>(null);
   const skipNextBlurCommitRef = useRef(false);
   // Keyboard edits can render suggestions under a stationary cursor; hover previews resume after pointer movement.
   const suppressSuggestionMousePreviewUntilMoveRef = useRef(false);
@@ -863,6 +870,7 @@ export function RouteUrlEditor() {
       });
       if (nextDraftRouteAddress === null) {
         suggestionPreviewActiveRef.current = false;
+        pointerPreviewBaseRef.current = null;
         previewBaseHrefRef.current = null;
         touchScrollPreviewCommitPendingRef.current = false;
         touchScrollPreviewDraftRouteAddressRef.current = null;
@@ -876,6 +884,7 @@ export function RouteUrlEditor() {
 
       setDraftRouteAddress(nextDraftRouteAddress);
       suggestionPreviewActiveRef.current = false;
+      pointerPreviewBaseRef.current = null;
       touchScrollPreviewCommitPendingRef.current = false;
       touchScrollPreviewDraftRouteAddressRef.current = null;
       suppressSuggestionMousePreviewUntilMoveRef.current = true;
@@ -892,6 +901,7 @@ export function RouteUrlEditor() {
 
   const resetInput = useCallback(() => {
     suggestionPreviewActiveRef.current = false;
+    pointerPreviewBaseRef.current = null;
     previewBaseHrefRef.current = null;
     touchScrollPreviewCommitPendingRef.current = false;
     touchScrollPreviewDraftRouteAddressRef.current = null;
@@ -909,6 +919,7 @@ export function RouteUrlEditor() {
 
       if (draftHref === null) {
         suggestionPreviewActiveRef.current = false;
+        pointerPreviewBaseRef.current = null;
         previewBaseHrefRef.current = null;
         setDraftRouteAddress(currentHref);
         patchSuggestionState({ baseRouteAddress: currentHref });
@@ -934,6 +945,7 @@ export function RouteUrlEditor() {
       const previewBaseHref = previewBaseHrefRef.current;
       previewBaseHrefRef.current = null;
       suggestionPreviewActiveRef.current = false;
+      pointerPreviewBaseRef.current = null;
       const nextDraftRouteAddress =
         routeUpdateDraftRouteAddress === draftHref || options.resetIncompleteDraft
           ? href
@@ -1009,6 +1021,7 @@ export function RouteUrlEditor() {
   const focusInput = useCallback(
     (event: SyntheticEvent<HTMLInputElement>) => {
       suggestionPreviewActiveRef.current = false;
+      pointerPreviewBaseRef.current = null;
       touchScrollPreviewCommitPendingRef.current = false;
       touchScrollPreviewDraftRouteAddressRef.current = null;
       refreshDocumentHashSuggestionKeys();
@@ -1049,6 +1062,53 @@ export function RouteUrlEditor() {
       return nextDraftRouteAddress;
     },
     [draftRouteAddress, previewDraftRouteAddress, selectionRouteIndex, suggestions],
+  );
+
+  const previewSuggestionByPointerIndex = useCallback(
+    (nextActiveSuggestionIndex: number) => {
+      pointerPreviewBaseRef.current ??= {
+        draftRouteAddress,
+        href: currentHref,
+        previewBaseHrefBeforePointerPreview: previewBaseHrefRef.current,
+      };
+
+      return previewSuggestionByIndex(nextActiveSuggestionIndex);
+    },
+    [currentHref, draftRouteAddress, previewSuggestionByIndex],
+  );
+
+  const restorePointerSuggestionPreview = useCallback(
+    (options: { preservePreviewBase: boolean }) => {
+      const pointerPreviewBase = pointerPreviewBaseRef.current;
+      if (pointerPreviewBase === null) {
+        return false;
+      }
+
+      pointerPreviewBaseRef.current = null;
+      suggestionPreviewActiveRef.current = false;
+      previewBaseHrefRef.current = options.preservePreviewBase
+        ? pointerPreviewBase.previewBaseHrefBeforePointerPreview
+        : null;
+      setDraftRouteAddress(pointerPreviewBase.draftRouteAddress);
+      patchSuggestionState({
+        activeIndex: null,
+        baseRouteAddress: pointerPreviewBase.draftRouteAddress,
+      });
+
+      if (pointerPreviewBase.href !== currentHref) {
+        void navigateRouteUrlEditorHref(
+          pointerPreviewBase.href,
+          {
+            replaceRouteNavigation: true,
+            replaceRouteOptions: true,
+          },
+          currentHref,
+        );
+      }
+
+      return true;
+    },
+    [currentHref, navigateRouteUrlEditorHref, patchSuggestionState],
   );
 
   const previewSuggestionUnderTouchScrollSlate = useCallback(() => {
@@ -1098,6 +1158,9 @@ export function RouteUrlEditor() {
       draftEditedSinceFocus: false,
     });
     suggestionPreviewActiveRef.current = false;
+    const restoredPointerPreview = restorePointerSuggestionPreview({
+      preservePreviewBase: false,
+    });
     if (touchScrollPreviewFrameRef.current !== null && typeof window !== "undefined") {
       window.cancelAnimationFrame(touchScrollPreviewFrameRef.current);
       touchScrollPreviewFrameRef.current = null;
@@ -1116,6 +1179,10 @@ export function RouteUrlEditor() {
       return;
     }
 
+    if (restoredPointerPreview) {
+      return;
+    }
+
     void commitInput(commitDraftRouteAddress, {
       commitPreviewToHistory: commitTouchScrollPreview,
       replaceRouteOptions: true,
@@ -1127,6 +1194,7 @@ export function RouteUrlEditor() {
     draftRouteAddress,
     patchSuggestionState,
     previewSuggestionUnderTouchScrollSlate,
+    restorePointerSuggestionPreview,
   ]);
 
   const moveActiveSuggestion = useCallback(
@@ -1153,6 +1221,7 @@ export function RouteUrlEditor() {
     (suggestion: RouteUrlEditorSuggestion) => {
       touchScrollPreviewCommitPendingRef.current = false;
       touchScrollPreviewDraftRouteAddressRef.current = null;
+      pointerPreviewBaseRef.current = null;
       const nextDraftRouteAddress = applyRouteUrlEditorSuggestion({
         routeAddress: draftRouteAddress,
         selectionRouteIndex,
@@ -1484,6 +1553,9 @@ export function RouteUrlEditor() {
             data-suggestion-kind={suggestionKind}
             data-testid="route-url-editor-suggestions"
             id={suggestionsId}
+            onMouseLeave={() => {
+              restorePointerSuggestionPreview({ preservePreviewBase: true });
+            }}
             onScroll={handleSuggestionsScroll}
             role="listbox"
           >
@@ -1515,7 +1587,7 @@ export function RouteUrlEditor() {
                       return;
                     }
 
-                    previewSuggestionByIndex(suggestionIndex);
+                    previewSuggestionByPointerIndex(suggestionIndex);
                   }}
                   onMouseMove={() => {
                     if (!suppressSuggestionMousePreviewUntilMoveRef.current) {
@@ -1523,7 +1595,7 @@ export function RouteUrlEditor() {
                     }
 
                     suppressSuggestionMousePreviewUntilMoveRef.current = false;
-                    previewSuggestionByIndex(suggestionIndex);
+                    previewSuggestionByPointerIndex(suggestionIndex);
                   }}
                   onMouseDown={(event) => event.preventDefault()}
                   role="option"
