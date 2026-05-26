@@ -1,6 +1,6 @@
 import { landingPageMarkdown } from "@/lib/landingCopy";
 import { cn } from "@/lib/utils";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense } from "react";
 
 const EditableLandingCopy = lazy(async () => {
   const module = await import("@/components/ProsemarkReadOnly");
@@ -127,20 +127,14 @@ export function LandingCopy({
   markdown?: string;
   onChange?: (value: string) => void;
 }) {
-  const [canRenderEditable, setCanRenderEditable] = useState(false);
+  const staticCopy = <StaticLandingCopy className={className} markdown={markdown} />;
 
-  // Keep SSR and hydration on the static copy; the editor can replace it after
-  // first paint without leaving an empty Suspense fallback in the layout.
-  useEffect(() => {
-    setCanRenderEditable(editable);
-  }, [editable]);
-
-  if (!editable || !canRenderEditable) {
-    return <StaticLandingCopy className={className} markdown={markdown} />;
+  if (!editable || typeof window === "undefined") {
+    return staticCopy;
   }
 
   return (
-    <Suspense fallback={<StaticLandingCopy className={className} markdown={markdown} />}>
+    <Suspense fallback={staticCopy}>
       <EditableLandingCopy
         value={markdown}
         className={className}
