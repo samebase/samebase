@@ -106,7 +106,7 @@ import {
   routeSearchValueParam,
   type RouteSearchParamMetadataByKey,
 } from "@/lib/routeSearchParamMetadata";
-import { bad, good, pure } from "@samebase/sure";
+import { after, bad, good, pure } from "@samebase/sure";
 
 const LOGO_ROTATION_AXIS_MODE_VALUES = [
   "cube-y",
@@ -149,12 +149,7 @@ function readCanonicalVoxelState(value: unknown): string | undefined {
     : serializeVoxelState(parsedVoxelState.filledVoxels, parsedVoxelState.gridSize);
 }
 
-const logoGridSizeSearchValue = pure((value) => {
-  const [isGood, numericValue] = routeSearchFiniteNumber(value);
-  if (!isGood) {
-    return bad(numericValue);
-  }
-
+const logoGridSizeSearchValue = after(routeSearchFiniteNumber, (numericValue) => {
   const gridSize = readLogoGridSize(numericValue);
   return typeof gridSize === "number" ? good(gridSize) : bad("unsupported-grid-size");
 });

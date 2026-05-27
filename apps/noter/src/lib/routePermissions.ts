@@ -6,7 +6,6 @@ import {
 
 export type NoterRoutePermission = "public" | "admin";
 
-export type NoterRouteSearchParamKind = "presence" | "value";
 export type NoterRouteSearchParamValueCompletion = "tailwind-color-token";
 export type NoterRouteSearchParamNumericRange =
   | {
@@ -63,19 +62,21 @@ export type NoterRouteSearchParamValueSemantics =
       valueType: "completion";
     };
 
+export type NoterRouteSearchParamSemantics =
+  | {
+      searchParamKind: "presence";
+    }
+  | (NoterRouteSearchParamValueSemantics & {
+      searchParamKind: "value";
+    });
+
 type NoterRouteSearchParamSuggestionBase<Key extends string> = {
   key: Key;
   permission: NoterRoutePermission;
 };
 
 export type NoterRouteSearchParamSuggestion<Key extends string = string> =
-  | (NoterRouteSearchParamSuggestionBase<Key> & {
-      searchParamKind: "presence";
-    })
-  | (NoterRouteSearchParamSuggestionBase<Key> &
-      NoterRouteSearchParamValueSemantics & {
-        searchParamKind: "value";
-      });
+  NoterRouteSearchParamSuggestionBase<Key> & NoterRouteSearchParamSemantics;
 
 export type NoterRouteStaticData = {
   availableOn?: NoterRouteAvailability;

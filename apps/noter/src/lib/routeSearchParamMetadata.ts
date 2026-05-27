@@ -1,7 +1,17 @@
 import { entries, fromEntries } from "@noter-md/dependent/object";
-import { bad, good, pure, sure, type MetaObj, type Sure } from "@samebase/sure";
+import {
+  after,
+  bad,
+  good,
+  pure,
+  sure,
+  type InferGood,
+  type MetaObj,
+  type Sure,
+} from "@samebase/sure";
 import {
   type NoterRoutePermission,
+  type NoterRouteSearchParamSemantics,
   type NoterRouteSearchParamValueSemantics,
   type NoterRouteSearchParamValueSuggestions,
   type NoterRouteSearchParamSuggestion,
@@ -14,15 +24,8 @@ type RouteSearchParamMetadataBase = {
   suggestion: RouteSearchParamSuggestionSurface;
 };
 
-export type RouteSearchParamMetadata =
-  | (RouteSearchParamMetadataBase &
-      NoterRouteSearchParamValueSemantics & {
-        searchParamKind: "value";
-      })
-  | (RouteSearchParamMetadataBase & {
-      parseKind: "presence";
-      searchParamKind: "presence";
-    });
+export type RouteSearchParamMetadata = RouteSearchParamMetadataBase &
+  NoterRouteSearchParamSemantics;
 
 export type RouteSearchParamMetadataByKey<Search extends object> = Readonly<
   Record<keyof Search & string, RouteSearchParamMetadata>
@@ -47,28 +50,21 @@ export type RouteSearchParamGroup<Shape extends RouteSearchParamShape> = {
   parse(search: Record<string, unknown>): InferRouteSearch<Shape>;
 };
 
-type InferRouteSearchParamValue<Param> =
-  Param extends RouteSearchParam<infer Value> ? Value : never;
-
 export type InferRouteSearch<ShapeOrGroup> =
   ShapeOrGroup extends RouteSearchParamGroup<infer Shape>
     ? InferRouteSearch<Shape>
     : ShapeOrGroup extends RouteSearchParamShape
-      ? { [Key in keyof ShapeOrGroup]?: InferRouteSearchParamValue<ShapeOrGroup[Key]> }
+      ? { [Key in keyof ShapeOrGroup]?: InferGood<ShapeOrGroup[Key]> }
       : never;
-
-export const routeSearchNonEmptyString = pure((value) => {
-  if (typeof value !== "string") {
-    return bad("not-string");
-  }
-
-  const trimmedValue = value.trim();
-  return trimmedValue.length > 0 ? good(trimmedValue) : bad("empty-string");
-});
 
 export const routeSearchString = pure((value) =>
   typeof value === "string" ? good(value) : bad("not-string"),
 );
+
+export const routeSearchNonEmptyString = after(routeSearchString, (value) => {
+  const trimmedValue = value.trim();
+  return trimmedValue.length > 0 ? good(trimmedValue) : bad("empty-string");
+});
 
 export const routeSearchFiniteNumber = pure((value) => {
   if (typeof value === "number") {
@@ -89,12 +85,7 @@ export const routeSearchFiniteNumber = pure((value) => {
 });
 
 export function routeSearchNormalizedFiniteNumber(normalizeValue: (value: number) => number) {
-  return pure((value) => {
-    const [isGood, numericValue] = routeSearchFiniteNumber(value);
-    if (!isGood) {
-      return bad(numericValue);
-    }
-
+  return after(routeSearchFiniteNumber, (numericValue) => {
     return good(normalizeValue(numericValue));
   });
 }
@@ -109,11 +100,7 @@ function includesStringValue<const Values extends readonly string[]>(
 export function routeSearchStringValue<const Values extends NoterRouteSearchParamValueSuggestions>(
   values: Values,
 ) {
-  return pure((value) => {
-    if (typeof value !== "string") {
-      return bad("not-string");
-    }
-
+  return after(routeSearchString, (value) => {
     const trimmedValue = value.trim();
     return includesStringValue(values, trimmedValue)
       ? good(trimmedValue)
@@ -140,7 +127,6 @@ export function routeSearchPresenceParam(args: {
       value === null || typeof value === "undefined" ? bad("missing-presence") : good(true),
     {
       ...args,
-      parseKind: "presence",
       searchParamKind: "presence",
     },
   );
@@ -182,6 +168,17 @@ export function readRouteSearchParamMetadata<const Shape extends RouteSearchPara
   return fromEntries(entries(group.shape).map(([key, param]) => [key, param.meta] as const));
 }
 
+function readRouteSearchParamSuggestion<Key extends string>(
+  key: Key,
+  metadata: RouteSearchParamMetadata,
+): NoterRouteSearchParamSuggestion<Key> {
+  const { suggestion: _suggestion, ...paramSuggestion } = metadata;
+  return {
+    key,
+    ...paramSuggestion,
+  };
+}
+
 export function readRouteSearchParamSuggestions<
   const Metadata extends RouteSearchParamMetadataRecord,
 >(
@@ -195,73 +192,7 @@ export function readRouteSearchParamSuggestions<
       continue;
     }
 
-    if (paramMetadata.searchParamKind === "presence") {
-      suggestions.push({
-        key,
-        permission: paramMetadata.permission,
-        searchParamKind: "presence",
-      });
-      continue;
-    }
-
-    const suggestionBase = {
-      key,
-      permission: paramMetadata.permission,
-      searchParamKind: "value" as const,
-    };
-    switch (paramMetadata.valueType) {
-      case "manual":
-        suggestions.push({
-          ...suggestionBase,
-          valueType: paramMetadata.valueType,
-        });
-        continue;
-      case "freeform":
-        suggestions.push({
-          ...suggestionBase,
-          sampleValue: paramMetadata.sampleValue,
-          valueType: paramMetadata.valueType,
-        });
-        continue;
-      case "numeric":
-        suggestions.push({
-          ...suggestionBase,
-          numericDefaultValue: paramMetadata.numericDefaultValue,
-          numericRange: paramMetadata.numericRange,
-          numericStepValue: paramMetadata.numericStepValue,
-          sampleValue: paramMetadata.sampleValue,
-          valueType: paramMetadata.valueType,
-        });
-        continue;
-      case "numeric-options":
-        suggestions.push({
-          ...suggestionBase,
-          numericDefaultValue: paramMetadata.numericDefaultValue,
-          sampleValue: paramMetadata.sampleValue,
-          valueSuggestions: paramMetadata.valueSuggestions,
-          valueType: paramMetadata.valueType,
-        });
-        continue;
-      case "options":
-        suggestions.push({
-          ...suggestionBase,
-          sampleValue: paramMetadata.sampleValue,
-          valueSuggestions: paramMetadata.valueSuggestions,
-          valueType: paramMetadata.valueType,
-        });
-        continue;
-      case "completion":
-        suggestions.push({
-          ...suggestionBase,
-          sampleValue: paramMetadata.sampleValue,
-          valueCompletion: paramMetadata.valueCompletion,
-          valueSuggestions: paramMetadata.valueSuggestions,
-          valueType: paramMetadata.valueType,
-        });
-        continue;
-    }
-
-    paramMetadata satisfies never;
+    suggestions.push(readRouteSearchParamSuggestion(key, paramMetadata));
   }
 
   return suggestions;
