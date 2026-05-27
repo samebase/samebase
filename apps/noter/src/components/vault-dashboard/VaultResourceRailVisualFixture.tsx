@@ -316,7 +316,7 @@ function VaultResourceRailFixtureCard({
       repositoryOwner={scenario.repositoryOwner}
       repositoryName={scenario.repositoryName}
       repositoryLinks={<VaultResourceRail state={scenario.state} />}
-      repositoryLinksOpen={false}
+      repositoryLinksOpen={true}
       onRepositoryLinksOpenChange={() => {}}
     />
   );
