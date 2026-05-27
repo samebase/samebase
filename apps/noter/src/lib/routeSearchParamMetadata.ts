@@ -1,5 +1,5 @@
 import { entries, fromEntries } from "@noter-md/dependent/object";
-import { bad, good, pure } from "@samebase/sure";
+import { bad, good, pure, sure, type MetaObj, type Sure } from "@samebase/sure";
 import {
   type NoterRoutePermission,
   type NoterRouteSearchParamValueSemantics,
@@ -33,14 +33,12 @@ type RouteSearchParamMetadataRecord = Readonly<Record<string, RouteSearchParamMe
 type RouteSearchParamMetadataKey<Metadata extends RouteSearchParamMetadataRecord> = keyof Metadata &
   string;
 
-export type RouteSearchParam<Value> = {
-  metadata: RouteSearchParamMetadata;
-  parse(value: unknown): Value | undefined;
-};
-
-type RouteSearchValueSchema = (
-  value: unknown,
-) => readonly [false, unknown] | readonly [true, unknown];
+export type RouteSearchParam<Value> = Sure<
+  unknown,
+  Value,
+  unknown,
+  MetaObj<RouteSearchParamMetadata>
+>;
 
 type RouteSearchParamShape = Readonly<Record<string, RouteSearchParam<unknown>>>;
 
@@ -51,11 +49,6 @@ export type RouteSearchParamGroup<Shape extends RouteSearchParamShape> = {
 
 type InferRouteSearchParamValue<Param> =
   Param extends RouteSearchParam<infer Value> ? Value : never;
-
-type InferRouteSearchSchemaGood<Schema extends RouteSearchValueSchema> =
-  Extract<ReturnType<Schema>, readonly [true, unknown]> extends readonly [true, infer Value]
-    ? Value
-    : never;
 
 export type InferRouteSearch<ShapeOrGroup> =
   ShapeOrGroup extends RouteSearchParamGroup<infer Shape>
@@ -128,41 +121,29 @@ export function routeSearchStringValue<const Values extends NoterRouteSearchPara
   });
 }
 
-export function routeSearchValueParam<const Schema extends RouteSearchValueSchema>(
-  schema: Schema,
+export function routeSearchValueParam<Bad, Value>(
+  schema: Sure<Bad, Value, unknown>,
   args: RouteSearchParamMetadataBase & NoterRouteSearchParamValueSemantics,
-): RouteSearchParam<InferRouteSearchSchemaGood<Schema>> {
-  return {
-    metadata: {
-      ...args,
-      valueKind: "value",
-    },
-    parse(value): InferRouteSearchSchemaGood<Schema> | undefined {
-      const output = schema(value);
-      if (!output[0]) {
-        return undefined;
-      }
-
-      // @ts-expect-error Generic result narrowing loses the schema true-branch payload type.
-      return output[1];
-    },
-  };
+): RouteSearchParam<Value> {
+  return sure((value: unknown) => schema(value), {
+    ...args,
+    valueKind: "value",
+  });
 }
 
 export function routeSearchPresenceParam(args: {
   permission: NoterRoutePermission;
   suggestion: RouteSearchParamSuggestionSurface;
 }): RouteSearchParam<true> {
-  return {
-    metadata: {
+  return sure(
+    (value: unknown) =>
+      value === null || typeof value === "undefined" ? bad("missing-presence") : good(true),
+    {
       ...args,
       parseKind: "presence",
       valueKind: "presence",
     },
-    parse(value) {
-      return value === null || typeof value === "undefined" ? undefined : true;
-    },
-  };
+  );
 }
 
 export function defineRouteSearchParams<const Shape extends RouteSearchParamShape>(
@@ -183,8 +164,8 @@ function parseRouteSearchParams<const Shape extends RouteSearchParamShape>(
   const parsedSearch: Partial<Record<keyof Shape & string, unknown>> = {};
 
   for (const [key, param] of entries(shape)) {
-    const parsedValue = param.parse(search[key]);
-    if (typeof parsedValue === "undefined") {
+    const [isGood, parsedValue] = param(search[key]);
+    if (!isGood) {
       continue;
     }
 
@@ -198,7 +179,7 @@ function parseRouteSearchParams<const Shape extends RouteSearchParamShape>(
 export function readRouteSearchParamMetadata<const Shape extends RouteSearchParamShape>(
   group: RouteSearchParamGroup<Shape>,
 ): Readonly<Record<keyof Shape & string, RouteSearchParamMetadata>> {
-  return fromEntries(entries(group.shape).map(([key, param]) => [key, param.metadata] as const));
+  return fromEntries(entries(group.shape).map(([key, param]) => [key, param.meta] as const));
 }
 
 export function readRouteSearchParamSuggestions<
