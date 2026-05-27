@@ -10,6 +10,7 @@ async function readStaticHeadingStyle(landingCopy: Locator) {
     .evaluate((node) => {
       const style = getComputedStyle(node);
       return {
+        fontFamily: style.fontFamily,
         fontSize: style.fontSize,
         fontWeight: style.fontWeight,
       };
@@ -26,6 +27,7 @@ async function readProsemarkHeadingStyle(landingCopy: Locator) {
         if (rect.width > 0 && rect.height > 0 && span.textContent?.trim()) {
           const style = getComputedStyle(span);
           return {
+            fontFamily: style.fontFamily,
             fontSize: style.fontSize,
             fontWeight: style.fontWeight,
           };
@@ -34,6 +36,7 @@ async function readProsemarkHeadingStyle(landingCopy: Locator) {
 
       const style = getComputedStyle(line);
       return {
+        fontFamily: style.fontFamily,
         fontSize: style.fontSize,
         fontWeight: style.fontWeight,
       };
