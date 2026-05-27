@@ -127,7 +127,7 @@ import { useDashboardRepositoryRefreshDemand } from "@/components/vault-dashboar
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 const DASHBOARD_NEW_APP_QUERY_PARAM = "new-app";
 
-type VaultDashboardVault = NonNullable<
+export type VaultDashboardVault = NonNullable<
   (typeof api.vault.dashboard.getUserVaults)["_returnType"]
 >[number];
 
@@ -3013,6 +3013,7 @@ type VaultDashboardBodyProps = {
   replaceLogoRouteSearch: (nextSearch: LogoRouteSearch) => void;
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
   persistedVaultBranchFiltersByVaultId: Map<string, VaultBranchFiltersState>;
+  persistedVaultResourceLinksOpenByVaultId: Map<string, boolean>;
   deleteRepositoryFullName?: string;
   addConvexRepositoryFullName?: string;
   addCloudflareWorkerRepositoryFullName?: string;
@@ -3025,6 +3026,7 @@ type VaultDashboardBodyProps = {
     vaultId: Id<"vaults">,
     nextVaultBranchFilters: VaultBranchFiltersState,
   ) => void;
+  onResourceLinksOpenChange: (vaultId: Id<"vaults">, resourceLinksOpen: boolean) => void;
 };
 
 function findVaultDashboardCardScrollport(element: HTMLElement): HTMLElement | null {
@@ -3286,7 +3288,7 @@ function resolveActiveVaultDashboardCardHashId({
   return closestVisibleHeader?.hashId ?? null;
 }
 
-function VaultDashboardBody({
+export function VaultDashboardBody({
   developerToolsVisible,
   isRemovingVault,
   retryingDeletionRunId,
@@ -3295,6 +3297,7 @@ function VaultDashboardBody({
   replaceLogoRouteSearch,
   openDeveloperToolsByVaultId,
   persistedVaultBranchFiltersByVaultId,
+  persistedVaultResourceLinksOpenByVaultId,
   deleteRepositoryFullName,
   addConvexRepositoryFullName,
   addCloudflareWorkerRepositoryFullName,
@@ -3304,6 +3307,7 @@ function VaultDashboardBody({
   onManualRepositoryRefresh,
   onRetryVaultDeletion,
   onSaveVaultBranchFilters,
+  onResourceLinksOpenChange,
 }: VaultDashboardBodyProps) {
   const navigate = useNavigate();
   const [repositoryLocationHash, setRepositoryLocationHash] = useState(() =>
@@ -3551,6 +3555,8 @@ function VaultDashboardBody({
         const remoteBranches = vault.remoteBranches;
         const vaultBranchFilters =
           persistedVaultBranchFiltersByVaultId.get(vault._id) ?? getDefaultVaultBranchFilters();
+        const vaultResourceLinksOpen =
+          persistedVaultResourceLinksOpenByVaultId.get(vault._id) ?? false;
         const activeRemoteBranches = remoteBranches.filter(
           (branch) => branch.remoteState === "active",
         );
@@ -3681,6 +3687,7 @@ function VaultDashboardBody({
               repositoryLinks={
                 isDeletingVault ? undefined : <VaultResourceRail state={resourceRailState} />
               }
+              repositoryLinksOpen={vaultResourceLinksOpen}
               titleSuffix={
                 deletion.state === "deleting" ? (
                   <>
@@ -3814,6 +3821,9 @@ function VaultDashboardBody({
                   </div>
                 ) : undefined
               }
+              onRepositoryLinksOpenChange={(nextOpen) => {
+                onResourceLinksOpenChange(vault._id, nextOpen);
+              }}
             />
           </div>
         );
@@ -4218,6 +4228,9 @@ export function VaultDashboard() {
   const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus);
   const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus);
   const userVaultBranchFilters = useConvexQuery(api.vault.dashboard.getUserVaultBranchFilters);
+  const userVaultResourceLinksState = useConvexQuery(
+    api.vault.dashboard.getUserVaultResourceLinksState,
+  );
   const user = useConvexQuery(api.users.viewer);
   const authProviders = useConvexQuery(api.users.getViewerAuthProviders);
   const dashboardSettings = useConvexQuery(api.dashboardSettings.getDashboardSettings);
@@ -4288,6 +4301,25 @@ export function VaultDashboard() {
     }
 
     localStore.setQuery(api.vault.dashboard.getUserVaultBranchFilters, {}, nextFilters);
+  });
+  const setVaultResourceLinksOpen = useMutation(
+    api.vault.dashboard.setVaultResourceLinksOpen,
+  ).withOptimisticUpdate((localStore, args) => {
+    const currentState = localStore.getQuery(
+      api.vault.dashboard.getUserVaultResourceLinksState,
+      {},
+    );
+    if (!currentState) {
+      return;
+    }
+
+    const nextState = currentState.filter((state) => state.vaultId !== args.vaultId);
+    nextState.push({
+      resourceLinksOpen: args.resourceLinksOpen,
+      vaultId: args.vaultId,
+    });
+
+    localStore.setQuery(api.vault.dashboard.getUserVaultResourceLinksState, {}, nextState);
   });
   const githubPopupRef = useRef<Window | null>(null);
   const convexPopupRef = useRef<Window | null>(null);
@@ -6044,6 +6076,9 @@ export function VaultDashboard() {
       normalizeVaultBranchFilters(vaultBranchFilter),
     ]),
   );
+  const persistedVaultResourceLinksOpenByVaultId = new Map<string, boolean>(
+    (userVaultResourceLinksState ?? []).map((state) => [state.vaultId, state.resourceLinksOpen]),
+  );
 
   const saveVaultBranchFilters = async (
     vaultId: Id<"vaults">,
@@ -6068,6 +6103,18 @@ export function VaultDashboard() {
     }
   };
 
+  const saveVaultResourceLinksOpen = async (vaultId: Id<"vaults">, resourceLinksOpen: boolean) => {
+    try {
+      await setVaultResourceLinksOpen({ vaultId, resourceLinksOpen });
+    } catch (error: unknown) {
+      toast({
+        title: "Could not save resource links",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleVaultDeveloperToolsOpenChange = (vaultId: Id<"vaults">, isOpen: boolean) => {
     setDeveloperToolsOpen(vaultId, isOpen);
   };
@@ -6077,6 +6124,13 @@ export function VaultDashboard() {
     nextVaultBranchFilters: VaultBranchFiltersState,
   ) => {
     void saveVaultBranchFilters(vaultId, nextVaultBranchFilters);
+  };
+
+  const handleVaultResourceLinksOpenChange = (
+    vaultId: Id<"vaults">,
+    resourceLinksOpen: boolean,
+  ) => {
+    void saveVaultResourceLinksOpen(vaultId, resourceLinksOpen);
   };
 
   const handleNewAppDialogOpenChange = (isOpen: boolean) => {
@@ -6138,6 +6192,7 @@ export function VaultDashboard() {
       }}
       openDeveloperToolsByVaultId={openDeveloperToolsByVaultId}
       persistedVaultBranchFiltersByVaultId={persistedVaultBranchFiltersByVaultId}
+      persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
       deleteRepositoryFullName={deleteRepositoryFullName}
       addConvexRepositoryFullName={addConvexRepositoryFullName}
       addCloudflareWorkerRepositoryFullName={addCloudflareWorkerRepositoryFullName}
@@ -6149,6 +6204,7 @@ export function VaultDashboard() {
         void handleRetryVaultDeletion(runId);
       }}
       onSaveVaultBranchFilters={handleVaultBranchFiltersChange}
+      onResourceLinksOpenChange={handleVaultResourceLinksOpenChange}
     />
   );
 

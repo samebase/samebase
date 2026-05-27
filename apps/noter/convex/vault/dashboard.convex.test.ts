@@ -98,6 +98,58 @@ describe("vault dashboard Convex contract", () => {
     });
   });
 
+  it("persists vault resource link expansion per user vault", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+
+      return { userId, vaultId };
+    });
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    await expect(asUser.query(api.vault.dashboard.getUserVaultResourceLinksState)).resolves.toEqual(
+      [],
+    );
+
+    await asUser.mutation(api.vault.dashboard.setVaultResourceLinksOpen, {
+      vaultId: ids.vaultId,
+      resourceLinksOpen: true,
+    });
+    await expect(asUser.query(api.vault.dashboard.getUserVaultResourceLinksState)).resolves.toEqual(
+      [
+        {
+          vaultId: ids.vaultId,
+          resourceLinksOpen: true,
+        },
+      ],
+    );
+
+    await asUser.mutation(api.vault.dashboard.setVaultResourceLinksOpen, {
+      vaultId: ids.vaultId,
+      resourceLinksOpen: false,
+    });
+    await expect(asUser.query(api.vault.dashboard.getUserVaultResourceLinksState)).resolves.toEqual(
+      [
+        {
+          vaultId: ids.vaultId,
+          resourceLinksOpen: false,
+        },
+      ],
+    );
+  });
+
   it("rejects duplicate existing repository targets before GitHub fetch", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
@@ -1764,6 +1816,12 @@ describe("vault dashboard Convex contract", () => {
         hiddenLabels: ["wip"],
         includeDrafts: true,
       });
+      await ctx.db.insert("vaultResourceLinksState", {
+        userId,
+        vaultId,
+        resourceLinksOpen: true,
+        updatedAt: 4,
+      });
       await ctx.db.insert("fileStaging", {
         ownerId: userId,
         vaultId,
@@ -1965,6 +2023,7 @@ describe("vault dashboard Convex contract", () => {
     expect(tables).toEqual(
       expect.arrayContaining([
         "vaultBranchFilters",
+        "vaultResourceLinksState",
         "fileStaging",
         "collaborativeUpdates",
         "blobs",
@@ -1998,6 +2057,10 @@ describe("vault dashboard Convex contract", () => {
           .query("vaultBranchFilters")
           .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
           .collect(),
+        resourceLinksState: await ctx.db
+          .query("vaultResourceLinksState")
+          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+          .collect(),
         branchTrees: await ctx.db
           .query("vaultBranchTrees")
           .withIndex("by_vault_and_branch", (q) => q.eq("vaultId", ids.vaultId))
@@ -2011,6 +2074,7 @@ describe("vault dashboard Convex contract", () => {
 
     expect(snapshot.vault).toBeNull();
     expect(snapshot.branchFilters).toHaveLength(0);
+    expect(snapshot.resourceLinksState).toHaveLength(0);
     expect(snapshot.branchTrees).toHaveLength(0);
     expect(snapshot.prodRequestsForVault).toHaveLength(0);
     expect(snapshot.storage).toBeNull();

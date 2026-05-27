@@ -15,6 +15,7 @@ import { readVaultDeletionEligibility } from "./deletion/eligibility";
 import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
 import { compareRemoteBranchSortOrder, hasBranchStagingChanges } from "./branches";
 import { normalizeVaultAppRoot, ROOT_VAULT_APP_ROOT } from "../../shared/vaultAppRoot";
+import { vVaultResourceLinksState, type VaultResourceLinksState } from "./resourceLinksStateModel";
 
 const nullValidator = v.null();
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
@@ -627,6 +628,61 @@ export const getUserVaultBranchFilters = query({
       includeNoLabel: vaultBranchFilter.includeNoLabel !== false,
       branchesExpanded: vaultBranchFilter.branchesExpanded === true,
     }));
+  },
+});
+
+export const getUserVaultResourceLinksState = query({
+  args: {},
+  returns: array(vVaultResourceLinksState),
+  handler: async (ctx): Promise<VaultResourceLinksState[]> => {
+    const userId = await getUserId(ctx);
+    const states = (
+      await ctx.db
+        .query("vaultResourceLinksState")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect()
+    ).map((state) => ({
+      resourceLinksOpen: state.resourceLinksOpen,
+      vaultId: state.vaultId,
+    }));
+
+    return states.sort((left, right) => left.vaultId.localeCompare(right.vaultId));
+  },
+});
+
+export const setVaultResourceLinksOpen = mutation({
+  args: vVaultResourceLinksState,
+  returns: nullValidator,
+  handler: async (ctx, args: VaultResourceLinksState) => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || vault.userId !== userId) {
+      throw new Error("Vault not found");
+    }
+    if (isVaultDeletingOrDeleteFailed(vault)) {
+      throw new Error("Vault deletion is in progress.");
+    }
+
+    const existing = await ctx.db
+      .query("vaultResourceLinksState")
+      .withIndex("by_user_and_vault", (q) => q.eq("userId", userId).eq("vaultId", args.vaultId))
+      .first();
+    const nextState = {
+      resourceLinksOpen: args.resourceLinksOpen,
+      updatedAt: Date.now(),
+    };
+
+    if (existing) {
+      await ctx.db.patch(existing._id, nextState);
+      return null;
+    }
+
+    await ctx.db.insert("vaultResourceLinksState", {
+      userId,
+      vaultId: args.vaultId,
+      ...nextState,
+    });
+    return null;
   },
 });
 

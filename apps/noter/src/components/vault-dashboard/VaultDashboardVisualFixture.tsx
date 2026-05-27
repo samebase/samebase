@@ -1,5 +1,5 @@
 import { useCreateStore, useSelector } from "@tanstack/react-store";
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
@@ -23,7 +23,7 @@ import {
   GitHubRepositoryNameSlashPreview,
   VaultBranchHeaderControls,
   VaultBranchLinkRow,
-  VaultBranchListExpansionControl,
+  VaultDashboardBody,
   VaultDashboardAppRootDialog,
   VaultDashboardCloudflareDialog,
   VaultDashboardConvexDialog,
@@ -33,10 +33,15 @@ import {
   VaultDashboardDeleteDialog,
   VaultDashboardRepositoryExternalLinks,
   type VaultDeleteDialogTarget,
+  type VaultDashboardVault,
   VaultSetupProgressSection,
 } from "@/components/vault-dashboard/VaultDashboard";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
-import { type VaultBranchFilters } from "@/components/vault-dashboard/vaultDashboardBranchFilters";
+import {
+  getDefaultVaultBranchFilters,
+  type VaultBranchFilters,
+} from "@/components/vault-dashboard/vaultDashboardBranchFilters";
+import { validateRootRouteSearch } from "@/lib/rootRouteSearch";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 export type VaultDashboardVisualMode =
@@ -63,6 +68,7 @@ export type VaultDashboardVisualMode =
   | "vault-sidebar-account-mobile-min";
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
+const FIXTURE_ROOT_ROUTE_SEARCH = validateRootRouteSearch({});
 
 type FixtureRefreshCountState = {
   refreshCount: number;
@@ -153,7 +159,6 @@ type FixtureVaultBranch = Parameters<typeof VaultBranchLinkRow>[0]["branch"];
 
 interface FixtureVaultBranchRow {
   branch: FixtureVaultBranch;
-  productionApps?: Parameters<typeof VaultBranchLinkRow>[0]["productionApps"];
 }
 
 function fixtureVaultBranch(
@@ -264,36 +269,6 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
       aheadBy: 0,
       behindBy: 0,
     }),
-    productionApps: [
-      {
-        appRoot: "apps/domain-router",
-        links: [
-          {
-            href: "https://domain-router.nicu.workers.dev",
-            label: "domain-router.nicu.workers.dev",
-            provider: "cloudflare",
-            title: "Open production app for apps/domain-router",
-          },
-        ],
-      },
-      {
-        appRoot: "apps/noter",
-        links: [
-          {
-            href: "https://noter-worker.nicu.workers.dev",
-            label: "noter-worker.nicu.workers.dev",
-            provider: "cloudflare",
-            title: "Open production app for apps/noter",
-          },
-          {
-            href: "https://dashboard.convex.dev/t/nicu/noter/calm-swan-123",
-            label: "Production: calm-swan-123",
-            provider: "convex",
-            title: "Open production Convex deployment calm-swan-123",
-          },
-        ],
-      },
-    ],
   },
   {
     branch: fixtureVaultBranch({
@@ -388,6 +363,62 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
   },
 ];
 
+const LIST_SPACING_VAULT_ID = fakeVaultId();
+const LIST_SPACING_VAULT = {
+  _id: LIST_SPACING_VAULT_ID,
+  _creationTime: FIXTURE_NOW - 900_000,
+  ghRepoOwner: "noter-md",
+  ghRepoName: "noter",
+  repositoryFullName: "noter-md/noter",
+  commitSHA: "1234567890abcdef1234567890abcdef12345678",
+  fileCount: 18,
+  lastTreeRefreshAt: FIXTURE_NOW - 12_000,
+  state: "ready",
+  sourceSetup: { status: "ready" },
+  providerSetup: { status: "ready" },
+  deletion: {
+    state: "not_deleting",
+    deleteAction: { state: "available" },
+  },
+  isNoterManaged: true,
+  hasConnectedGitHubRepository: true,
+  hasConvexProvision: true,
+  hasCloudflareProvision: true,
+  canRemoveConvexProvision: true,
+  canRemoveCloudflareProvision: true,
+  appRoots: [{ appRoot: "apps/domain-router" }, { appRoot: "apps/noter" }],
+  cloudflareWorkers: [
+    {
+      appRoot: "apps/domain-router",
+      workerName: "domain-router",
+      workersDevUrl: "https://domain-router.nicu.workers.dev",
+      projectDashboardUrl:
+        "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/domain-router/production/deployments",
+    },
+    {
+      appRoot: "apps/noter",
+      workerName: "noter-worker",
+      workersDevUrl: "https://noter-worker.nicu.workers.dev",
+      projectDashboardUrl:
+        "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/noter-worker/production/deployments",
+    },
+  ],
+  convexDeployments: [
+    {
+      appRoot: "apps/noter",
+      projectId: "noter",
+      projectSlug: "noter",
+      teamSlug: "nicu",
+      deploymentName: "calm-swan-123",
+      cloudUrl: "https://calm-swan-123.convex.cloud",
+      siteUrl: "https://calm-swan-123.convex.site",
+      projectSettingsDashboardUrl: "https://dashboard.convex.dev/t/nicu/noter/settings",
+      deploymentDashboardUrl: "https://dashboard.convex.dev/t/nicu/noter/calm-swan-123",
+    },
+  ],
+  remoteBranches: LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch),
+} satisfies VaultDashboardVault;
+
 const STICKY_HEADER_BRANCHES: FixtureVaultBranchRow[] = Array.from({ length: 32 }, (_, index) => ({
   branch: fixtureVaultBranch({
     name: index === 0 ? "main" : `codex/sticky-dashboard-branch-${String(index).padStart(2, "0")}`,
@@ -401,13 +432,16 @@ const STICKY_HEADER_BRANCHES: FixtureVaultBranchRow[] = Array.from({ length: 32 
 }));
 
 function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisualMode }) {
-  const branchExpansionStore = useFixtureBranchExpansionStore();
-  const branchesExpanded = useSelector(branchExpansionStore, (state) => state.branchesExpanded);
-  const { toggleBranchesExpanded } = branchExpansionStore.actions;
-  const visibleBranches = branchesExpanded
-    ? LIST_SPACING_BRANCHES
-    : LIST_SPACING_BRANCHES.slice(0, 5);
-  const hiddenBranchCount = LIST_SPACING_BRANCHES.length - visibleBranches.length;
+  const [vaultBranchFilters, setVaultBranchFilters] = useState(() =>
+    getDefaultVaultBranchFilters(),
+  );
+  const [resourceLinksOpen, setResourceLinksOpen] = useState(false);
+  const persistedVaultBranchFiltersByVaultId = new Map<string, VaultBranchFilters>([
+    [LIST_SPACING_VAULT_ID, vaultBranchFilters],
+  ]);
+  const persistedVaultResourceLinksOpenByVaultId = new Map<string, boolean>([
+    [LIST_SPACING_VAULT_ID, resourceLinksOpen],
+  ]);
 
   return (
     <div
@@ -416,40 +450,32 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
       className="w-full bg-background text-foreground"
     >
       <TestRouterProvider>
-        <VaultDashboardRepositoryList>
-          <VaultDashboardRepositoryCard
-            isReady={true}
-            repositoryOwner="noter-md"
-            repositoryName="noter"
-            titleHref="https://github.com/noter-md/noter"
-            repositoryLinks={<FixtureRepositoryLinks />}
-            topRightAction={<FixtureDeleteControl />}
-            headerControls={
-              <VaultBranchListExpansionControl
-                isExpanded={branchesExpanded}
-                hiddenBranchCount={hiddenBranchCount}
-                onToggle={toggleBranchesExpanded}
-                placement="header"
-              />
+        <VaultDashboardBody
+          developerToolsVisible={false}
+          isRemovingVault={false}
+          retryingDeletionRunId={null}
+          now={FIXTURE_NOW}
+          logoRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
+          replaceLogoRouteSearch={() => {}}
+          openDeveloperToolsByVaultId={{}}
+          persistedVaultBranchFiltersByVaultId={persistedVaultBranchFiltersByVaultId}
+          persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
+          rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
+          vaults={[LIST_SPACING_VAULT]}
+          onOpenDeveloperToolsChange={() => {}}
+          onManualRepositoryRefresh={() => {}}
+          onRetryVaultDeletion={() => {}}
+          onSaveVaultBranchFilters={(vaultId, nextVaultBranchFilters) => {
+            if (vaultId === LIST_SPACING_VAULT_ID) {
+              setVaultBranchFilters(nextVaultBranchFilters);
             }
-            branchSection={
-              <div className="space-y-1.5">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground/80">Branches</p>
-                <div className="-mx-4 overflow-hidden border bg-muted">
-                  {visibleBranches.map((branchRow) => (
-                    <VaultBranchLinkRow
-                      key={branchRow.branch.name}
-                      vaultId={fakeVaultId()}
-                      repositoryFullName="noter-md/noter"
-                      branch={branchRow.branch}
-                      productionApps={branchRow.productionApps}
-                    />
-                  ))}
-                </div>
-              </div>
+          }}
+          onResourceLinksOpenChange={(vaultId, nextOpen) => {
+            if (vaultId === LIST_SPACING_VAULT_ID) {
+              setResourceLinksOpen(nextOpen);
             }
-          />
-        </VaultDashboardRepositoryList>
+          }}
+        />
       </TestRouterProvider>
     </div>
   );
@@ -471,6 +497,8 @@ function VaultDashboardDeveloperToolsFixture({ visible }: { visible: boolean }) 
               repositoryName="noter"
               titleHref="https://github.com/noter-md/noter"
               repositoryLinks={<FixtureRepositoryLinks />}
+              repositoryLinksOpen={false}
+              onRepositoryLinksOpenChange={() => {}}
               topRightAction={<FixtureDeleteControl />}
               branchSection={
                 <div className="space-y-1.5">
@@ -511,6 +539,8 @@ function VaultDashboardDeleteOpenFixture() {
             repositoryName="noter"
             titleHref="https://github.com/noter-md/noter"
             repositoryLinks={<FixtureRepositoryLinks />}
+            repositoryLinksOpen={false}
+            onRepositoryLinksOpenChange={() => {}}
             topRightAction={<FixtureDeleteControl />}
             repositoryStatus={<span>Updated 12s ago</span>}
           />
@@ -591,6 +621,8 @@ function VaultDashboardConnectCloudflareOpenFixture() {
             repositoryName="atelier"
             titleHref="https://github.com/samebase/atelier"
             repositoryLinks={<FixtureRepositoryLinks />}
+            repositoryLinksOpen={false}
+            onRepositoryLinksOpenChange={() => {}}
             topRightAction={<FixtureDeleteControl />}
             repositoryStatus={<span>Updated 12s ago</span>}
           />
@@ -616,6 +648,8 @@ function VaultDashboardAddAppRootConvertOpenFixture() {
             repositoryName="noter"
             titleHref="https://github.com/noter-md/noter"
             repositoryLinks={<FixtureRepositoryLinks />}
+            repositoryLinksOpen={false}
+            onRepositoryLinksOpenChange={() => {}}
             topRightAction={<FixtureDeleteControl />}
             repositoryStatus={<span>Updated 12s ago</span>}
           />
@@ -657,6 +691,8 @@ function VaultDashboardAddFirstAppRootOpenFixture() {
             repositoryName="atelier"
             titleHref="https://github.com/samebase/atelier"
             repositoryLinks={<FixtureRepositoryLinks />}
+            repositoryLinksOpen={false}
+            onRepositoryLinksOpenChange={() => {}}
             topRightAction={<FixtureDeleteControl />}
             repositoryStatus={<span>Updated 12s ago</span>}
           />
@@ -695,6 +731,8 @@ function VaultDashboardConnectCloudflareMobileShellOpenFixture() {
               repositoryName="atelier"
               titleHref="https://github.com/samebase/atelier"
               repositoryLinks={<FixtureRepositoryLinks />}
+              repositoryLinksOpen={false}
+              onRepositoryLinksOpenChange={() => {}}
               topRightAction={<FixtureDeleteControl />}
               repositoryStatus={<span>Updated 12s ago</span>}
             />
@@ -722,6 +760,8 @@ function VaultDashboardConnectConvexOpenFixture() {
             repositoryName="noter-app"
             titleHref="https://github.com/noter-md/noter-app"
             repositoryLinks={<FixtureRepositoryLinks />}
+            repositoryLinksOpen={false}
+            onRepositoryLinksOpenChange={() => {}}
             topRightAction={<FixtureDeleteControl />}
             repositoryStatus={<span>Updated 12s ago</span>}
           />
@@ -777,6 +817,8 @@ function VaultDashboardProvisioningLogFixture() {
             repositoryName="noter-app"
             titleHref="https://github.com/noter-md/noter-app"
             repositoryLinks={<FixtureRepositoryLinks />}
+            repositoryLinksOpen={false}
+            onRepositoryLinksOpenChange={() => {}}
             developerToolsSection={{
               visible: true,
               open: true,
@@ -842,6 +884,8 @@ function VaultDashboardInfrastructureSetupFixture() {
             repositoryName="noter-app"
             titleHref="https://github.com/noter-md/noter-app"
             repositoryLinks={<FixtureRepositoryLinks />}
+            repositoryLinksOpen={false}
+            onRepositoryLinksOpenChange={() => {}}
             setupSection={
               <VaultSetupProgressSection status="running" label="Infra: provisioning">
                 <VaultProvisioningLogViewer
@@ -925,6 +969,8 @@ function VaultDashboardBottomTargetScrollFixture() {
                   repositoryName={repositoryName}
                   titleHref={`https://github.com/noter-md/${repositoryName}`}
                   repositoryLinks={<FixtureRepositoryLinks />}
+                  repositoryLinksOpen={false}
+                  onRepositoryLinksOpenChange={() => {}}
                   repositoryStatus={<span>Updated 12s ago</span>}
                   topRightAction={<FixtureDeleteControl />}
                   branchSection={
@@ -991,6 +1037,8 @@ function VaultDashboardStickyHeaderFixture() {
               repositoryName="noter"
               titleHref="https://github.com/noter-md/noter"
               repositoryLinks={<FixtureRepositoryLinks />}
+              repositoryLinksOpen={false}
+              onRepositoryLinksOpenChange={() => {}}
               topRightAction={<FixtureDeleteControl />}
               repositoryStatus={<span data-testid="sticky-header-status">Updated 12s ago</span>}
               headerControls={
@@ -1266,6 +1314,8 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
               repositoryOwner="noter-md"
               repositoryName="noter"
               titleHref="https://github.com/noter-md/noter"
+              repositoryLinksOpen={false}
+              onRepositoryLinksOpenChange={() => {}}
               topRightAction={<FixtureDeleteControl />}
               repositoryStatus={<span>Updated 12s ago</span>}
               branchSection={

@@ -109,6 +109,7 @@ import type * as vault_deletion_state from "../vault/deletion/state.js";
 import type * as vault_deletion_workflow from "../vault/deletion/workflow.js";
 import type * as vault_model from "../vault/model.js";
 import type * as vault_records from "../vault/records.js";
+import type * as vault_resourceLinksStateModel from "../vault/resourceLinksStateModel.js";
 import type * as vault_state from "../vault/state.js";
 import type * as waitlist from "../waitlist.js";
 import type * as waitlistActions from "../waitlistActions.js";
@@ -223,6 +224,7 @@ declare const fullApi: ApiFromModules<{
   "vault/deletion/workflow": typeof vault_deletion_workflow;
   "vault/model": typeof vault_model;
   "vault/records": typeof vault_records;
+  "vault/resourceLinksStateModel": typeof vault_resourceLinksStateModel;
   "vault/state": typeof vault_state;
   waitlist: typeof waitlist;
   waitlistActions: typeof waitlistActions;

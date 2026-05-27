@@ -263,6 +263,8 @@ describe("VaultDashboardRepositoryCard", () => {
         isReady={false}
         repositoryOwner="noter-md"
         repositoryName="noter"
+        repositoryLinksOpen={false}
+        onRepositoryLinksOpenChange={() => {}}
         titleSuffix={
           <span className="shrink-0 text-xs font-normal text-muted-foreground">(deleting...)</span>
         }
@@ -282,6 +284,8 @@ describe("VaultDashboardRepositoryCard", () => {
         isReady={true}
         repositoryOwner="nicu-chiciuc"
         repositoryName="tmp-flow"
+        repositoryLinksOpen={false}
+        onRepositoryLinksOpenChange={() => {}}
         titleHref="#tmp-flow"
       />,
     );
@@ -290,6 +294,8 @@ describe("VaultDashboardRepositoryCard", () => {
         isReady={true}
         repositoryOwner="nicu-chiciuc"
         repositoryName="tmp-flow"
+        repositoryLinksOpen={false}
+        onRepositoryLinksOpenChange={() => {}}
         titleHref="#nicu-chiciuc/tmp-flow"
         titleRepositoryOwnerVisible
       />,
@@ -301,6 +307,53 @@ describe("VaultDashboardRepositoryCard", () => {
     expect(ownerQualifiedMarkup).toContain("#");
     expect(ownerQualifiedMarkup).toContain("nicu-chiciuc/");
     expect(ownerQualifiedMarkup).toContain("tmp-flow");
+  });
+
+  it("keeps resource links collapsed behind a header trigger", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardRepositoryCard
+        isReady={true}
+        repositoryOwner="noter-md"
+        repositoryName="noter"
+        repositoryLinks={
+          <nav aria-label="Repository resources">
+            <a href="https://github.com/noter-md/noter">GitHub</a>
+          </nav>
+        }
+        repositoryLinksOpen={false}
+        onRepositoryLinksOpenChange={() => {}}
+        topRightAction={<span>Delete</span>}
+      />,
+    );
+
+    expect(markup).toContain("Show resource links");
+    expect(markup).toContain("Delete");
+    expect(markup).toContain("lucide-chevron-down");
+    expect(markup).not.toContain("lucide-chevron-up");
+    expect(markup).not.toContain("GitHub");
+  });
+
+  it("shows resource links when the persisted header state is open", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardRepositoryCard
+        isReady={true}
+        repositoryOwner="noter-md"
+        repositoryName="noter"
+        repositoryLinks={
+          <nav aria-label="Repository resources">
+            <a href="https://github.com/noter-md/noter">GitHub</a>
+          </nav>
+        }
+        repositoryLinksOpen={true}
+        onRepositoryLinksOpenChange={() => {}}
+        topRightAction={<span>Delete</span>}
+      />,
+    );
+
+    expect(markup).toContain("Hide resource links");
+    expect(markup).toContain("lucide-chevron-up");
+    expect(markup).not.toContain("lucide-chevron-down");
+    expect(markup).toContain("GitHub");
   });
 });
 

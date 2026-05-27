@@ -288,6 +288,7 @@ export type TrackedFilePath =
   | "apps/noter/convex/vault/model.ts"
   | "apps/noter/convex/vault/records.convex.test.ts"
   | "apps/noter/convex/vault/records.ts"
+  | "apps/noter/convex/vault/resourceLinksStateModel.ts"
   | "apps/noter/convex/vault/state.ts"
   | "apps/noter/convex/waitlist.ts"
   | "apps/noter/convex/waitlistActions.ts"
