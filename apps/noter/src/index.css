@@ -570,6 +570,11 @@
   .animate-underline-color {
     animation: underline-color-cycle 10s ease-in-out infinite;
   }
+
+  .route-preview-link-interaction:hover {
+    animation: underline-color-cycle 10s ease-in-out infinite;
+    text-decoration-line: underline;
+  }
 }
 
 @theme inline {

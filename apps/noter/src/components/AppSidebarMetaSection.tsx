@@ -31,6 +31,7 @@ import { applySearchPatch } from "@/lib/routeSearchFlags";
 import { readRootRouteSearch } from "@/lib/rootRouteSearch";
 import { readIsomorphicOrigin } from "@/lib/isomorphic";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
+import { routePreviewLinkInteractionClassName } from "@/components/routePreviewLinkStyles";
 import { Link, useLocation, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, type MouseEvent, type ReactNode } from "react";
 
@@ -60,7 +61,7 @@ const APP_SIDEBAR_META_QUERY_LINK_ROW_CLASS_NAMES = {
   right: "flex max-w-full min-w-0 flex-row items-baseline justify-start",
 } as const satisfies Record<AppSidebarMetaSectionSide, string>;
 
-const APP_SIDEBAR_META_QUERY_LINK_CLASS_NAME =
+const APP_SIDEBAR_META_QUERY_LINK_LAYOUT_CLASS_NAME =
   "min-w-0 max-w-full line-clamp-2 [overflow-wrap:anywhere]";
 
 const APP_SIDEBAR_META_QUERY_SUFFIX_CLASS_NAMES = {
@@ -302,6 +303,7 @@ export function AppSidebarMetaSection({
       {showSearchResetLink ? (
         <Link
           id="public-landing-search-reset"
+          className={routePreviewLinkInteractionClassName}
           to={location.pathname}
           hash={location.hash}
           onClick={commitRoutePreview}
@@ -321,7 +323,7 @@ export function AppSidebarMetaSection({
       >
         <Link
           id="public-landing-theme-light-toggle"
-          className={APP_SIDEBAR_META_QUERY_LINK_CLASS_NAME}
+          className={`${routePreviewLinkInteractionClassName} ${APP_SIDEBAR_META_QUERY_LINK_LAYOUT_CLASS_NAME}`}
           aria-label={lightModeLabel}
           to={location.pathname}
           hash={location.hash}
@@ -342,7 +344,7 @@ export function AppSidebarMetaSection({
       >
         <Link
           id="public-landing-theme-dark-toggle"
-          className={APP_SIDEBAR_META_QUERY_LINK_CLASS_NAME}
+          className={`${routePreviewLinkInteractionClassName} ${APP_SIDEBAR_META_QUERY_LINK_LAYOUT_CLASS_NAME}`}
           aria-label={darkModeLabel}
           to={location.pathname}
           hash={location.hash}
@@ -363,7 +365,7 @@ export function AppSidebarMetaSection({
       >
         <Link
           id="public-landing-dev-toggle"
-          className={APP_SIDEBAR_META_QUERY_LINK_CLASS_NAME}
+          className={`${routePreviewLinkInteractionClassName} ${APP_SIDEBAR_META_QUERY_LINK_LAYOUT_CLASS_NAME}`}
           aria-label={landingDevLabel}
           to={location.pathname}
           hash={location.hash}
@@ -382,6 +384,7 @@ export function AppSidebarMetaSection({
       {showLandingPreviewLanguageLink ? (
         <Link
           id="landing-preview-romanian-toggle"
+          className={routePreviewLinkInteractionClassName}
           to={location.pathname}
           hash={location.hash}
           onClick={commitRoutePreview}
@@ -401,6 +404,7 @@ export function AppSidebarMetaSection({
 
       {/* Path links live below query-param shortcuts. */}
       <Link
+        className={routePreviewLinkInteractionClassName}
         to={DASHBOARD_ROUTE}
         onClick={commitRoutePreview}
         onMouseEnter={previewRouteLink}
@@ -410,6 +414,7 @@ export function AppSidebarMetaSection({
       </Link>
       {showLandingPreviewLink ? (
         <Link
+          className={routePreviewLinkInteractionClassName}
           to={LANDING_MARKDOWN_PREVIEW_ROUTE}
           onClick={commitRoutePreview}
           onMouseEnter={previewRouteLink}
@@ -419,6 +424,7 @@ export function AppSidebarMetaSection({
         </Link>
       ) : null}
       <Link
+        className={routePreviewLinkInteractionClassName}
         to="/terms"
         onClick={commitRoutePreview}
         onMouseEnter={previewRouteLink}
@@ -427,6 +433,7 @@ export function AppSidebarMetaSection({
         /terms
       </Link>
       <Link
+        className={routePreviewLinkInteractionClassName}
         to="/privacy"
         onClick={commitRoutePreview}
         onMouseEnter={previewRouteLink}

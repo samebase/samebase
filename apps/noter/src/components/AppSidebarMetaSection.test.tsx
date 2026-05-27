@@ -113,6 +113,24 @@ describe("AppSidebarMetaSection", () => {
     expect(rootElement.textContent).not.toContain(LOCAL_STORAGE_ROUTE);
   });
 
+  it("renders hover-preview links with a pressed click state", async () => {
+    const element = await renderSidebarMetaSection();
+    const devLink = element.querySelector<HTMLAnchorElement>("#public-landing-dev-toggle");
+    const termsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (link) => link.textContent === "/terms",
+    );
+    if (!devLink || !termsLink) {
+      throw new Error("Expected public landing preview shortcuts.");
+    }
+
+    expect(devLink.className).toContain("active:bg-foreground");
+    expect(devLink.className).toContain("active:text-background");
+    expect(devLink.className).toContain("route-preview-link-interaction");
+    expect(termsLink.className).toContain("active:bg-foreground");
+    expect(termsLink.className).toContain("active:text-background");
+    expect(termsLink.className).toContain("route-preview-link-interaction");
+  });
+
   it("previews and restores non-reset landing query shortcuts on hover", async () => {
     const element = await renderSidebarMetaSection();
     const devLink = element.querySelector<HTMLAnchorElement>("#public-landing-dev-toggle");
