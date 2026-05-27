@@ -3,13 +3,13 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 /**
- * Rewrites the SPA fallback with full `/` HTML from the built server entry.
+ * Writes full `/` HTML from the built server entry without replacing the SPA fallback.
  * Keep this filename stable: package scripts call it directly after `vp build`.
  */
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(currentDir, "..");
-const defaultClientIndexPath = path.resolve(appRoot, "dist/client/index.html");
+const defaultSsgIndexPath = path.resolve(appRoot, "dist/client/ssg-index.html");
 const defaultServerEntryPath = path.resolve(appRoot, "dist/server/server.js");
 const defaultRequestUrl = "http://127.0.0.1/";
 
@@ -56,11 +56,11 @@ export async function renderSpaIndexHtml(
   return await response.text();
 }
 
-export async function prerenderSpaIndex(args: {
-  clientIndexPath: string;
+export async function prerenderSsgIndex(args: {
   log: PrerenderSpaIndexLog;
   requestUrl: string;
   serverEntryPath: string;
+  ssgIndexPath: string;
 }): Promise<void> {
   const previousShellEnv = process.env.TSS_SHELL;
 
@@ -70,10 +70,10 @@ export async function prerenderSpaIndex(args: {
     delete process.env.TSS_SHELL;
     args.log(`Importing server entry: ${args.serverEntryPath}`);
     const fetchHandler = await importServerFetchHandler(args.serverEntryPath);
-    args.log(`Rendering SPA index from ${args.requestUrl}`);
+    args.log(`Rendering SSG index from ${args.requestUrl}`);
     const html = await renderSpaIndexHtml(fetchHandler, new Request(args.requestUrl));
-    await writeFile(args.clientIndexPath, html, "utf8");
-    args.log(`Wrote ${args.clientIndexPath} (${html.length} bytes)`);
+    await writeFile(args.ssgIndexPath, html, "utf8");
+    args.log(`Wrote ${args.ssgIndexPath} (${html.length} bytes)`);
   } finally {
     if (previousShellEnv === undefined) {
       delete process.env.TSS_SHELL;
@@ -85,10 +85,10 @@ export async function prerenderSpaIndex(args: {
 
 const entrypoint = process.argv[1];
 if (entrypoint && import.meta.url === pathToFileURL(entrypoint).href) {
-  await prerenderSpaIndex({
-    clientIndexPath: defaultClientIndexPath,
+  await prerenderSsgIndex({
     log: (message) => console.log(`[prerender-spa-index] ${message}`),
     requestUrl: defaultRequestUrl,
     serverEntryPath: defaultServerEntryPath,
+    ssgIndexPath: defaultSsgIndexPath,
   });
 }
