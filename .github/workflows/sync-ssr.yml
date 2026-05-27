@@ -21,6 +21,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          # The branch comparison below needs the merge base between main and ssr.
+          fetch-depth: 0
 
       - name: Configure Git committer
         run: |
