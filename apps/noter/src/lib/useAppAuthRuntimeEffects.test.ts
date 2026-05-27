@@ -85,7 +85,7 @@ describe("useAppAuthRuntimeEffects", () => {
   }
 
   it("clears the Google signup marker after successful authentication", () => {
-    useConvexAuthMock.mockReturnValue({ isAuthenticated: true });
+    useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
     Object.defineProperty(globalThis, "window", {
       value: {
         location: {
@@ -120,7 +120,7 @@ describe("useAppAuthRuntimeEffects", () => {
   });
 
   it("leaves the URL alone while still unauthenticated", () => {
-    useConvexAuthMock.mockReturnValue({ isAuthenticated: false });
+    useConvexAuthMock.mockReturnValue({ isAuthenticated: false, isLoading: false });
     Object.defineProperty(globalThis, "window", {
       value: {
         location: {
@@ -142,11 +142,62 @@ describe("useAppAuthRuntimeEffects", () => {
     expect(useAutoSignInMock).toHaveBeenCalledWith({
       signup: "google",
     });
+    expect(navigateMock).not.toHaveBeenCalled();
+    expect(replaceStateMock).not.toHaveBeenCalled();
+  });
+
+  it("redirects signed-out dashboard loads to the public root route", () => {
+    useConvexAuthMock.mockReturnValue({ isAuthenticated: false, isLoading: false });
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        location: {
+          pathname: "/home",
+          search: "?new-app",
+          hash: "#vaults",
+        },
+        history: {
+          replaceState: replaceStateMock,
+        },
+      },
+      configurable: true,
+    });
+
+    useAppAuthRuntimeEffects("/home", {
+      "new-app": true,
+    });
+
+    expect(navigateMock).toHaveBeenCalledWith({
+      href: "/",
+      replace: true,
+      state: true,
+    });
+    expect(replaceStateMock).not.toHaveBeenCalled();
+  });
+
+  it("waits for auth loading before redirecting dashboard loads", () => {
+    useConvexAuthMock.mockReturnValue({ isAuthenticated: false, isLoading: true });
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        location: {
+          pathname: "/home",
+          search: "",
+          hash: "",
+        },
+        history: {
+          replaceState: replaceStateMock,
+        },
+      },
+      configurable: true,
+    });
+
+    useAppAuthRuntimeEffects("/home", {});
+
+    expect(navigateMock).not.toHaveBeenCalled();
     expect(replaceStateMock).not.toHaveBeenCalled();
   });
 
   it("moves successful public auth handoff to the dashboard route", () => {
-    useConvexAuthMock.mockReturnValue({ isAuthenticated: true });
+    useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
     Object.defineProperty(globalThis, "window", {
       value: {
         location: {
