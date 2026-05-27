@@ -154,16 +154,18 @@ describe("RouteUrlEditor", () => {
     });
   }
 
-  it("keeps only route history controls beside the URL surface", () => {
+  it("keeps browser navigation controls beside the URL surface", () => {
     const display = renderEditor();
 
     expect(rootElement?.querySelector('button[aria-label="Back"]')).not.toBeNull();
     expect(rootElement?.querySelector('button[aria-label="Forward"]')).not.toBeNull();
-    expect(rootElement?.querySelector('button[aria-label="Refresh"]')).toBeNull();
+    expect(rootElement?.querySelector('button[aria-label="Refresh"]')).not.toBeNull();
     expect(rootElement?.querySelector('button[aria-label="Go to route URL"]')).toBeNull();
     expect(
-      rootElement?.querySelectorAll('button[aria-label="Back"], button[aria-label="Forward"]'),
-    ).toHaveLength(2);
+      rootElement?.querySelectorAll(
+        'button[aria-label="Back"], button[aria-label="Forward"], button[aria-label="Refresh"]',
+      ),
+    ).toHaveLength(3);
     expect(display.value).toBe(`${window.location.origin}/`);
   });
 
