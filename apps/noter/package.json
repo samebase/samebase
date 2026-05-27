@@ -25,7 +25,7 @@
     "build": "pnpm run build:cloudflare",
     "build:app": "convex codegen && pnpm run build:ci",
     "build:cloudflare": "node ./scripts/build-cloudflare.ts",
-    "build:ci": "tsgo && vp build && node ./scripts/prerender-spa-index.ts",
+    "build:ci": "tsgo && vp build",
     "deploy": "node ./scripts/deploy-cloudflare.ts deploy",
     "deploy:preview": "node ./scripts/deploy-cloudflare.ts preview",
     "deploy:dry-run": "node ./scripts/deploy-cloudflare.ts deploy --dry-run",

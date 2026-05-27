@@ -542,10 +542,21 @@ export default defineConfig({
         semicolons: true,
         virtualRouteConfig: "./src/routes.ts",
       },
+      pages: [
+        { path: "/", prerender: { enabled: true, outputPath: "/index.html" } },
+        { path: "/terms", prerender: { enabled: true, outputPath: "/terms/index.html" } },
+        { path: "/privacy", prerender: { enabled: true, outputPath: "/privacy/index.html" } },
+      ],
+      prerender: {
+        autoStaticPathsDiscovery: false,
+        crawlLinks: false,
+        enabled: true,
+      },
       spa: {
         enabled: true,
+        maskPath: "/pricing",
         prerender: {
-          outputPath: "/index.html",
+          outputPath: "/_shell",
         },
       },
     }),

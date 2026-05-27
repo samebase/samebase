@@ -1,0 +1,40 @@
+# Cloudflare Workers _redirects apply before asset serving, so pass-through
+# rules for generated/public files must stay above the SPA shell fallback.
+/apple-touch-icon.png /apple-touch-icon.png 200
+/favicon.ico /favicon.png 200
+/favicon-32.png /favicon-32.png 200
+/favicon.png /favicon.png 200
+/icon-192.png /icon-192.png 200
+/icon-512.png /icon-512.png 200
+/icon-maskable-192.png /icon-maskable-192.png 200
+/icon-maskable-512.png /icon-maskable-512.png 200
+/install-icon.svg /install-icon.svg 200
+/logo_pick.svg /logo_pick.svg 200
+/logo-static.svg /logo-static.svg 200
+/logo-v1-side-primary.svg /logo-v1-side-primary.svg 200
+/logo-v2-side-diagonal.svg /logo-v2-side-diagonal.svg 200
+/manifest.webmanifest /manifest.webmanifest 200
+/media-visual-fixture.svg /media-visual-fixture.svg 200
+/noter-social-card.png /noter-social-card.png 200
+/noter-social-card.svg /noter-social-card.svg 200
+/noter-x-profile-banner.png /noter-x-profile-banner.png 200
+/noter-x-profile-banner.svg /noter-x-profile-banner.svg 200
+/noter.ts /noter.ts 200
+/robots.txt /robots.txt 200
+/sitemap.xml /sitemap.xml 200
+
+/ /index.html 200
+/index.html /index.html 200
+/terms /terms/index.html 200
+/terms/ /terms/index.html 200
+/terms/index.html /terms/index.html 200
+/privacy /privacy/index.html 200
+/privacy/ /privacy/index.html 200
+/privacy/index.html /privacy/index.html 200
+
+/assets/* /assets/:splat 200
+/landing-preview/* /landing-preview/:splat 200
+/repository-media-fixtures/* /repository-media-fixtures/:splat 200
+/visual-fixtures/* /visual-fixtures/:splat 200
+
+/* /_shell.html 200
