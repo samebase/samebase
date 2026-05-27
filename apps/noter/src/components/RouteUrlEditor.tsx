@@ -1,6 +1,6 @@
 import { useLocation, useRouter } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, RefreshCw } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -754,6 +754,14 @@ export function RouteUrlEditor() {
   const goForward = useCallback(() => {
     router.history.forward();
   }, [router]);
+
+  const refreshPage = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.location.reload();
+  }, []);
 
   const refreshDocumentHashSuggestionKeys = useCallback(() => {
     if (typeof document === "undefined") {
@@ -1722,6 +1730,15 @@ export function RouteUrlEditor() {
         type="button"
       >
         <ArrowRight aria-hidden="true" className="size-4" />
+      </button>
+      <button
+        aria-label="Refresh"
+        className={routeUrlEditorIconButtonClassName}
+        onClick={refreshPage}
+        title="Refresh"
+        type="button"
+      >
+        <RefreshCw aria-hidden="true" className="size-4" />
       </button>
       <input
         ref={inputRef}

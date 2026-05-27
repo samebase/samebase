@@ -43,6 +43,19 @@ body,
 That makes `h-full min-h-0` a valid CSS-only shell height: the app shell fills the root document
 height and the nested workspace flex tree owns scrolling internally.
 
+## Follow-up: Do Not Restore App-Owned Pull-to-Refresh
+
+On 2026-05-28, `c5ec86d3a` reverted `fc92f103c` (`v1414: Add iOS PWA pull refresh`) directly on
+`main`. The iOS-oriented pull-to-refresh addition touched `AppWorkspaceShell`, global CSS, and a
+gesture dependency. It did not work cleanly across platforms: it broke standard refresh behavior on
+Android, where the browser/PWA refresh gesture needs to remain browser-owned.
+
+Treat that revert as part of the Android PWA finding, not just a temporary rollback. Future fixes
+should avoid reintroducing route-shell gesture interception or global overscroll changes as the
+default refresh solution unless Android installed-PWA refresh is tested first. The safer current
+product direction is an explicit refresh affordance in the top URL editor chrome so refresh is
+available on all platforms without overriding native Android refresh behavior.
+
 ## External Research
 
 Primary documentation did not turn up an exact public Chromium bug for "Android installed PWA

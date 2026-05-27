@@ -261,6 +261,7 @@ test("route URL editor fixture commits hrefs from the app workspace shell", asyn
   const currentHref = page.getByTestId("route-url-editor-fixture-current-href");
   const backButton = page.getByRole("button", { name: "Back" });
   const forwardButton = page.getByRole("button", { name: "Forward" });
+  const refreshButton = page.getByRole("button", { name: "Refresh" });
   const editorBox = await editor.boundingBox();
   if (editorBox === null) {
     throw new Error("Expected route URL editor to be visible.");
@@ -276,10 +277,11 @@ test("route URL editor fixture commits hrefs from the app workspace shell", asyn
   await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
   await expect(backButton).toBeVisible();
   await expect(forwardButton).toBeVisible();
-  await expect(page.getByRole("button", { name: "Refresh" })).toHaveCount(0);
+  await expect(refreshButton).toBeVisible();
   await expect(page.getByRole("button", { name: "Go to route URL" })).toHaveCount(0);
   await expect(backButton).toBeDisabled();
   await expect(forwardButton).toBeDisabled();
+  await expect(refreshButton).toBeEnabled();
 
   await editRouteUrl(page);
   await expect(input).toBeFocused();
