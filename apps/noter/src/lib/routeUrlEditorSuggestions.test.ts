@@ -108,6 +108,27 @@ describe("readRouteUrlEditorSuggestions", () => {
     ).toEqual([{ detail: "2 +1", value: "&depth=3" }]);
   });
 
+  it("keeps depth examples inside the current renderer recovery max", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo?depth=5",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?depth=5&depth",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?depth=5&depth".length,
+      viewer: publicViewer,
+    });
+
+    expect(
+      suggestions.map((suggestion) => ({
+        detail: suggestion.detail ?? null,
+        value: suggestion.value,
+      })),
+    ).toEqual([{ detail: "5 -1", value: "&depth=4" }]);
+  });
+
   it("uses static numeric defaults in the search param dropdown", () => {
     const suggestions = readRouteUrlEditorSuggestions({
       currentHref: "/logo",

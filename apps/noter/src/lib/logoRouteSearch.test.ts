@@ -3,7 +3,10 @@ import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
 } from "@/components/logo/logoIsometricRenderer";
-import { getLogoRendererFractalDepthHardMax } from "@/components/logo/logoDepthLimits";
+import {
+  getLogoRendererFractalDepthHardMax,
+  MAX_LOGO_FRACTAL_DEPTH,
+} from "@/components/logo/logoDepthLimits";
 import { DEFAULT_LOGO_THEME_COLORS } from "@/components/logo/logoTailwindColors";
 import {
   DEFAULT_LOGO_DISTANCE_SCALE,
@@ -67,7 +70,7 @@ describe("logoRouteSearch", () => {
       background: "sky-500",
       border: "stone-300",
       dark: true,
-      depth: 99,
+      depth: MAX_LOGO_FRACTAL_DEPTH,
       dev: true,
       dist: 0,
       elev: 32.4,
@@ -254,6 +257,25 @@ describe("logoRouteSearch", () => {
         voxelState: DEFAULT_VOXEL_STATE,
       }),
     ).toEqual({ depth: 6 });
+  });
+
+  it("caps built logo depth at the route recovery limit", () => {
+    expect(
+      buildLogoRouteSearch({
+        distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+        fractalDepth: MAX_LOGO_FRACTAL_DEPTH + 1,
+        gridSize: DEFAULT_LOGO_GRID_SIZE,
+        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+        leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
+        rotationAxisMode: "cube-y",
+        rotationDegrees: DEFAULT_ROTATION_DEGREES,
+        themeColors: DEFAULT_LOGO_THEME_COLORS,
+        viewSnapEnabled: true,
+        voxelState: DEFAULT_VOXEL_STATE,
+      }),
+    ).toEqual({ depth: MAX_LOGO_FRACTAL_DEPTH });
   });
 
   it("caps logo depth at renderer recovery limits", () => {

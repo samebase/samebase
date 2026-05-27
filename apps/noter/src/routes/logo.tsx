@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LogoPreviewPage } from "@/components/logo/LogoPreviewPage";
 import {
-  LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+  readLogoRouteSearchParamSuggestionsForRenderer,
   validateLogoRouteSearchForRenderer,
 } from "@/lib/logoRouteSearch";
 import { RoutedPage } from "./-publicRouteComponents";
@@ -31,7 +31,7 @@ function LogoThreeRouteComponent() {
 export const Route = createFileRoute("/logo")({
   staticData: {
     permission: "public",
-    searchParamSuggestions: LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+    searchParamSuggestions: readLogoRouteSearchParamSuggestionsForRenderer("three"),
   },
   component: LogoThreeRouteComponent,
   validateSearch: validateLogoRouteSearchForRenderer("three"),

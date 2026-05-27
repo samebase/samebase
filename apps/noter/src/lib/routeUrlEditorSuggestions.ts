@@ -1014,11 +1014,11 @@ function readRouteUrlEditorSearchParamSuggestions(args: {
   });
 
   return uniqueRouteUrlSearchParamSuggestions([
+    ...readAccessibleRouteUrlSearchParamSuggestions(routeSearchParamSuggestions, args.viewer),
     ...readAccessibleRouteUrlSearchParamSuggestions(
       ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS,
       args.viewer,
     ),
-    ...readAccessibleRouteUrlSearchParamSuggestions(routeSearchParamSuggestions, args.viewer),
   ]).sort(compareRouteUrlSearchParamSuggestions);
 }
 

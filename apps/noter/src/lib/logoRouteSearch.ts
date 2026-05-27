@@ -12,6 +12,9 @@ import {
 } from "@/components/logo/logoIsometricRenderer";
 import {
   clampLogoFractalDepthForRenderer,
+  getLogoRendererFractalDepthHardMax,
+  MAX_LOGO_FRACTAL_DEPTH,
+  normalizeLogoFractalDepthForRoute,
   type LogoDepthRenderer,
 } from "@/components/logo/logoDepthLimits";
 import { type LogoThemeColors } from "@/components/logo/logoTailwindColors";
@@ -64,7 +67,10 @@ import {
   rootThemeModeSearchFieldSchema,
   type RootThemeModeSearch,
 } from "@/lib/rootThemeModeSearch";
-import { type NoterRouteSearchParamValueSuggestions } from "@/lib/routePermissions";
+import {
+  type NoterRouteSearchParamSuggestion,
+  type NoterRouteSearchParamValueSuggestions,
+} from "@/lib/routePermissions";
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_LOGO_FRACTAL_DEPTH,
@@ -78,7 +84,6 @@ import {
   createDefaultVoxelState,
   readLogoGridSize,
   normalizeLogoGridSize,
-  normalizeLogoFractalDepth,
   normalizeElevationDegrees,
   normalizeRotationDegrees,
   parseVoxelState,
@@ -195,18 +200,22 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
     permission: "public",
     suggestion: "hidden",
   }),
-  depth: routeSearchValueParam(routeSearchNormalizedFiniteNumber(normalizeLogoFractalDepth), {
-    numericDefaultValue: DEFAULT_LOGO_FRACTAL_DEPTH,
-    numericRange: {
-      minValue: MIN_LOGO_FRACTAL_DEPTH,
-      rangeType: "min",
+  depth: routeSearchValueParam(
+    routeSearchNormalizedFiniteNumber(normalizeLogoFractalDepthForRoute),
+    {
+      numericDefaultValue: DEFAULT_LOGO_FRACTAL_DEPTH,
+      numericRange: {
+        maxValue: MAX_LOGO_FRACTAL_DEPTH,
+        minValue: MIN_LOGO_FRACTAL_DEPTH,
+        rangeType: "closed",
+      },
+      numericStepValue: 1,
+      permission: "public",
+      sampleValue: `${DEFAULT_LOGO_FRACTAL_DEPTH + 1}`,
+      suggestion: "route",
+      valueType: "numeric",
     },
-    numericStepValue: 1,
-    permission: "public",
-    sampleValue: `${DEFAULT_LOGO_FRACTAL_DEPTH + 1}`,
-    suggestion: "route",
-    valueType: "numeric",
-  }),
+  ),
   dist: routeSearchValueParam(routeSearchNormalizedFiniteNumber(normalizeLogoDistanceScale), {
     numericDefaultValue: DEFAULT_LOGO_DISTANCE_SCALE,
     numericRange: {
@@ -448,10 +457,44 @@ const LOGO_ROUTE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
   LOGO_ROUTE_SEARCH_PARAM_METADATA,
 );
 
-export const LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
-  LOGO_ROUTE_SEARCH_PARAM_METADATA,
-  "route",
-);
+function readLogoRouteSearchParamSuggestionsWithDepthMax(
+  depthMax: number,
+): readonly NoterRouteSearchParamSuggestion[] {
+  const depthNumericRange = {
+    maxValue: depthMax,
+    minValue: MIN_LOGO_FRACTAL_DEPTH,
+    rangeType: "closed" as const,
+  };
+
+  return readRouteSearchParamSuggestions(LOGO_ROUTE_SEARCH_PARAM_METADATA, "route").map(
+    (suggestion) => {
+      if (
+        suggestion.key !== "depth" ||
+        suggestion.valueKind !== "value" ||
+        suggestion.valueType !== "numeric"
+      ) {
+        return suggestion;
+      }
+
+      return {
+        ...suggestion,
+        numericRange: depthNumericRange,
+        sampleValue: `${Math.min(DEFAULT_LOGO_FRACTAL_DEPTH + 1, depthMax)}`,
+      };
+    },
+  );
+}
+
+export const LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS =
+  readLogoRouteSearchParamSuggestionsWithDepthMax(MAX_LOGO_FRACTAL_DEPTH);
+
+export function readLogoRouteSearchParamSuggestionsForRenderer(
+  renderer: LogoDepthRenderer,
+): readonly NoterRouteSearchParamSuggestion[] {
+  return readLogoRouteSearchParamSuggestionsWithDepthMax(
+    getLogoRendererFractalDepthHardMax(renderer),
+  );
+}
 
 function normalizeLogoRouteColorSearchAliases(search: Record<string, unknown>) {
   const background = search.background ?? search.base;
@@ -516,7 +559,7 @@ export function buildLogoRouteSearch(
     themeModeSearch?: RootThemeModeSearch;
   },
 ): LogoRouteSearch {
-  const fractalDepth = normalizeLogoFractalDepth(args.fractalDepth);
+  const fractalDepth = normalizeLogoFractalDepthForRoute(args.fractalDepth);
   const gridSize = normalizeLogoGridSize(args.gridSize);
   const defaultVoxelState = createDefaultVoxelState(gridSize);
   const parsedVoxelState = parseVoxelState(args.voxelState);
