@@ -1,5 +1,6 @@
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { PublicLandingAccountSection } from "@/components/PublicLandingAccountSection";
+import { PublicLandingPasswordAuthControls } from "@/components/PublicLandingAuthControls";
 import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { VaultDashboardSidebarContent } from "@/components/vault-dashboard/VaultDashboardChrome";
 import { useLocation } from "@tanstack/react-router";
@@ -15,7 +16,12 @@ export function usePublicRightSidebarPane(): WorkspaceLayoutV2PaneFrameProps {
   return {
     content: (
       <VaultDashboardSidebarContent>
-        {isPublicLandingRoute ? <PublicLandingAccountSection /> : null}
+        {isPublicLandingRoute ? (
+          <>
+            <PublicLandingAccountSection />
+            <PublicLandingPasswordAuthControls />
+          </>
+        ) : null}
         <div className="mt-auto">
           <AppSidebarMetaSection side="right" />
         </div>

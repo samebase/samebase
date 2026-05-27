@@ -2,6 +2,7 @@ import { useNoterSignInActions } from "@/authClient";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
+import { PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID } from "@/lib/publicLanding";
 import {
   getVisiblePasswordAuthSurface,
   rememberPublicLandingPasswordAuthMode,
@@ -21,7 +22,7 @@ import {
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { SignInWithGoogle } from "@/SignInWithGoogle";
 import { useLocation, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 
@@ -40,7 +41,10 @@ function readLocalWorktreePasswordCredentials(): {
   return { email, password };
 }
 
-export function PublicLandingAuthControls() {
+function usePublicLandingPasswordAuthControls(): {
+  onPasswordSignIn: () => Promise<unknown> | void;
+  passwordAuthSurface: PasswordAuthSurface;
+} {
   const pathname = useLocation({
     select: (location) => location.pathname,
   });
@@ -48,15 +52,6 @@ export function PublicLandingAuthControls() {
   const rootRouteSearch = useRootRouteSearch();
   const prodUiQueryEnabled = isProdUiModeEnabled(rootRouteSearch);
   const productionPublicOrigin = isBrowserProductionPublicOrigin();
-  const showGoogleAuth = shouldShowGoogleAuthForPathname(pathname, rootRouteSearch);
-  const showGoogleSignupClosedState = shouldRenderGoogleSignupClosedState(
-    pathname,
-    rootRouteSearch,
-  );
-  const markPublicSignupReturn = shouldRenderPublicLandingWithoutAuthGate(
-    pathname,
-    rootRouteSearch,
-  );
   const deploymentAuthPolicy = useQuery(api.deploymentProfile.getPublicDeploymentAuthPolicy);
   const deploymentProfile = deploymentAuthPolicy?.deploymentProfile;
   const prodUiModeEnabled = isProdUiModeActive({
@@ -105,6 +100,35 @@ export function PublicLandingAuthControls() {
     window.history.replaceState(window.history.state, "", nextPath);
   }, [deploymentProfile, prodUiQueryEnabled, productionPublicOrigin]);
 
+  return {
+    onPasswordSignIn: () => {
+      if (pathname === "/") {
+        return navigate({
+          search: (currentSearch) => currentSearch,
+          to: DASHBOARD_ROUTE,
+        });
+      }
+    },
+    passwordAuthSurface,
+  };
+}
+
+export function PublicLandingAuthControls() {
+  const pathname = useLocation({
+    select: (location) => location.pathname,
+  });
+  const rootRouteSearch = useRootRouteSearch();
+  const showGoogleAuth = shouldShowGoogleAuthForPathname(pathname, rootRouteSearch);
+  const showGoogleSignupClosedState = shouldRenderGoogleSignupClosedState(
+    pathname,
+    rootRouteSearch,
+  );
+  const markPublicSignupReturn = shouldRenderPublicLandingWithoutAuthGate(
+    pathname,
+    rootRouteSearch,
+  );
+  const { onPasswordSignIn, passwordAuthSurface } = usePublicLandingPasswordAuthControls();
+
   if (showGoogleSignupClosedState) {
     return null;
   }
@@ -119,18 +143,26 @@ export function PublicLandingAuthControls() {
         markPublicSignupReturn={markPublicSignupReturn}
       />
       {passwordAuthSurface !== "hidden" ? (
-        <PasswordAuthForm
-          onSignIn={() => {
-            if (pathname === "/") {
-              return navigate({
-                search: (currentSearch) => currentSearch,
-                to: DASHBOARD_ROUTE,
-              });
-            }
-          }}
-          surface={passwordAuthSurface}
-        />
+        <PasswordAuthForm onSignIn={onPasswordSignIn} surface={passwordAuthSurface} />
       ) : null}
+    </div>
+  );
+}
+
+export function PublicLandingPasswordAuthControls() {
+  const { isAuthenticated } = useConvexAuth();
+  const { onPasswordSignIn, passwordAuthSurface } = usePublicLandingPasswordAuthControls();
+
+  if (isAuthenticated || passwordAuthSurface === "hidden") {
+    return null;
+  }
+
+  return (
+    <div
+      data-testid={PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID}
+      className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
+    >
+      <PasswordAuthForm onSignIn={onPasswordSignIn} surface={passwordAuthSurface} />
     </div>
   );
 }
@@ -186,9 +218,7 @@ export function PasswordAuthForm({
   return (
     <div className="flex flex-col gap-2 rounded-md border p-3">
       <div className="flex items-center justify-between gap-2">
-        <div className="text-sm font-medium">
-          {surface === "preview" ? "Preview password sign in" : "Password auth (local worktree)"}
-        </div>
+        <div className="text-sm font-medium">Password auth (dev)</div>
         {surface === "local_worktree" ? (
           <Button
             type="button"
