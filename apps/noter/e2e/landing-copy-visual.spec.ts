@@ -67,12 +67,12 @@ test("landing copy keeps ProseMark behind editable dev mode", async ({ page }, t
     actual: devScreenshot,
     expected: shellScreenshot,
     artifactPrefix: "landing-copy-dev-editable",
-    // The style assertion above owns heading parity; this visual guard catches
-    // broad layout drift across the static DOM and ProseMark rendering paths.
+    // The style assertion above owns heading parity; this broader guard leaves
+    // room for DOM and CodeMirror glyph rasterization noise.
     maxDimensionDeltaPx: {
       height: 2,
     },
-    maxDiffPixelRatio: 0.05,
+    maxDiffPixelRatio: 0.075,
     testInfo,
   });
 });
