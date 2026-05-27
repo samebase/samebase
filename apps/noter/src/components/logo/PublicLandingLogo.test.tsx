@@ -20,12 +20,15 @@ import { resolveAppThemeColorState, syncDocumentThemeColorSearch } from "@/lib/a
 import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
 import {
   PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES,
+  PUBLIC_LANDING_LOGO_SCENE_TEST_ID,
   PUBLIC_LANDING_LOGO_TEST_ID,
 } from "@/lib/publicLandingLogo";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 const { act } = React;
 Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
+const originalMatchMedia = window.matchMedia;
+const originalUserAgent = window.navigator.userAgent;
 
 function installLocalStorageStub() {
   const entries = new Map<string, string>();
@@ -98,6 +101,25 @@ function installLogoThemeStyle() {
   document.head.append(styleElement);
 }
 
+function installMatchMediaStub(matches: (query: string) => boolean) {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn((query: string): MediaQueryList => {
+      const mediaQueryList: MediaQueryList = {
+        addEventListener: vi.fn(),
+        addListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+        matches: matches(query),
+        media: query,
+        onchange: null,
+        removeEventListener: vi.fn(),
+        removeListener: vi.fn(),
+      };
+      return mediaQueryList;
+    }),
+  });
+}
+
 describe("PublicLandingLogo", () => {
   let root: Root | null = null;
 
@@ -117,6 +139,14 @@ describe("PublicLandingLogo", () => {
     document.documentElement.className = "";
     document.querySelectorAll("[data-public-logo-theme-test-style]").forEach((element) => {
       element.remove();
+    });
+    Object.defineProperty(window.navigator, "userAgent", {
+      configurable: true,
+      value: originalUserAgent,
+    });
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: originalMatchMedia,
     });
     syncDocumentThemeColorSearch({});
     window.localStorage.clear();
@@ -212,6 +242,29 @@ describe("PublicLandingLogo", () => {
       `${createStaticLogoSvgDataUrl({
         faceColors: defaultLogoTheme.faceColors,
       })}#${defaultLogoTheme.cacheKey}:${STATIC_LOGO_GRID_SIZE}:1:1`,
+    );
+  });
+
+  it("keeps the static fallback visible in Android standalone display mode", async () => {
+    Object.defineProperty(window.navigator, "userAgent", {
+      configurable: true,
+      value:
+        "Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Mobile Safari/537.36",
+    });
+    installMatchMediaStub((query) => query === "(display-mode: standalone)");
+
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+
+    await act(async () => {
+      localRoot.render(<PublicLandingLogo />);
+    });
+
+    expect(getLogoImage(rootElement).className).toContain("opacity-100");
+    expect(rootElement.querySelector(`[data-testid="${PUBLIC_LANDING_LOGO_SCENE_TEST_ID}"]`)).toBe(
+      null,
     );
   });
 

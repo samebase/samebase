@@ -1224,6 +1224,85 @@ test.describe("mobile landing dev toggle", () => {
     expect(verticalOverflow.routeOverflow).toBeLessThanOrEqual(1);
   });
 
+  test("Android installed PWA keeps the landing logo visible without vertical overflow", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(window.navigator, "userAgent", {
+        configurable: true,
+        value:
+          "Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Mobile Safari/537.36",
+      });
+      const originalMatchMedia = window.matchMedia.bind(window);
+      window.matchMedia = (query: string) => {
+        if (query === "(display-mode: standalone)") {
+          return {
+            addEventListener() {},
+            addListener() {},
+            dispatchEvent() {
+              return false;
+            },
+            matches: true,
+            media: query,
+            onchange: null,
+            removeEventListener() {},
+            removeListener() {},
+          };
+        }
+        return originalMatchMedia(query);
+      };
+    });
+    await page.setViewportSize({ width: 411, height: 866 });
+    await page.goto("/", { waitUntil: "networkidle" });
+
+    const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
+    await expectLandingLogoReady(landingLogo);
+    await expect(landingLogo).toHaveClass(/opacity-100/);
+    await expect(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID)).toHaveCount(0);
+
+    const pwaLayout = await page.evaluate(() => {
+      const shell = document.querySelector('[data-testid="public-landing-scroll-shell"]');
+      const content = document.querySelector('[data-testid="public-landing-content"]');
+      const scrollingElement = document.scrollingElement;
+
+      if (!(shell instanceof HTMLElement)) {
+        throw new Error("Expected landing shell");
+      }
+      if (!(content instanceof HTMLElement)) {
+        throw new Error("Expected landing content");
+      }
+      if (!(scrollingElement instanceof HTMLElement)) {
+        throw new Error("Expected document scrolling element");
+      }
+
+      let routeScrollport = shell.parentElement;
+      while (routeScrollport) {
+        const overflowY = getComputedStyle(routeScrollport).overflowY;
+        if (overflowY === "auto" || overflowY === "scroll") {
+          break;
+        }
+        routeScrollport = routeScrollport.parentElement;
+      }
+
+      if (!(routeScrollport instanceof HTMLElement)) {
+        throw new Error("Expected landing route scrollport");
+      }
+
+      return {
+        contentBottom: content.getBoundingClientRect().bottom,
+        contentTop: content.getBoundingClientRect().top,
+        documentOverflow: scrollingElement.scrollHeight - scrollingElement.clientHeight,
+        routeBottom: routeScrollport.getBoundingClientRect().bottom,
+        routeOverflow: routeScrollport.scrollHeight - routeScrollport.clientHeight,
+      };
+    });
+
+    expect(pwaLayout.contentTop).toBeGreaterThan(0);
+    expect(pwaLayout.contentBottom).toBeLessThanOrEqual(pwaLayout.routeBottom + 1);
+    expect(pwaLayout.documentOverflow).toBeLessThanOrEqual(1);
+    expect(pwaLayout.routeOverflow).toBeLessThanOrEqual(1);
+  });
+
   test("landing avoids an inner scroll shell on mobile", async ({ page }) => {
     await page.goto("/?prod-ui", { waitUntil: "networkidle" });
     await page.setViewportSize({ width: 390, height: 320 });

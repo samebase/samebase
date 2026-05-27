@@ -62,6 +62,7 @@ const LANDING_LOGO_SCENE_SHUFFLE_ANIMATION = {
   enabled: false,
   parallelMoves: 1,
 } as const;
+const ANDROID_USER_AGENT_PATTERN = /\bAndroid\b/i;
 
 let cachedLandingLogoScene: LandingLogoSceneComponent | null = null;
 // Unsupported renderer paths can loop on remount, so keep that failure sticky
@@ -94,6 +95,18 @@ function easeOutCubic(value: number) {
   return 1 - Math.pow(1 - value, 3);
 }
 
+function shouldUseStaticLogoForAndroidStandalone() {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    return false;
+  }
+
+  return (
+    ANDROID_USER_AGENT_PATTERN.test(navigator.userAgent) &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(display-mode: standalone)").matches
+  );
+}
+
 export function PublicLandingLogo({
   animateLeftFaceStripes = false,
   autoRotate = false,
@@ -113,8 +126,9 @@ export function PublicLandingLogo({
   viewStatePersistence?: RotatedLogoViewStatePersistence;
   viewStateKey?: RotatedLogoViewStateKey;
 }) {
+  const useStaticLogo = shouldUseStaticLogoForAndroidStandalone();
   const [LogoScene, setLogoScene] = useState<LandingLogoSceneComponent | null>(() =>
-    loadInteractiveScene ? cachedLandingLogoScene : null,
+    loadInteractiveScene && !useStaticLogo ? cachedLandingLogoScene : null,
   );
   const [didSceneFail, setDidSceneFail] = useState(() => didLandingLogoSceneRenderFail);
   const [initialView] = useState<RotatedLogoViewState>(() =>
@@ -210,7 +224,7 @@ export function PublicLandingLogo({
   }, []);
 
   useEffect(() => {
-    if (!loadInteractiveScene) {
+    if (!loadInteractiveScene || useStaticLogo) {
       setLogoScene(null);
       setDidSceneFail(false);
       setIsSceneReady(false);
@@ -272,7 +286,7 @@ export function PublicLandingLogo({
       window.cancelAnimationFrame(frameId);
       window.cancelAnimationFrame(frameId2);
     };
-  }, [loadInteractiveScene]);
+  }, [loadInteractiveScene, useStaticLogo]);
 
   useEffect(() => {
     if (!isSceneReady || !isSvgVisible) {
