@@ -315,7 +315,7 @@ export function WorkspaceLayoutV2ResizeHandle({
               aria-hidden="true"
               data-workspace-layout-v2-resize-grip-dots
               className={cn(
-                "relative z-10 flex flex-col items-center gap-1 text-foreground/70",
+                "relative z-10 flex flex-col items-center gap-1 text-border",
                 gripDotsClassName,
               )}
             >
