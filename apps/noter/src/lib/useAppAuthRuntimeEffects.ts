@@ -7,7 +7,7 @@ import { useConvexAuth } from "convex/react";
 import { useEffect } from "react";
 
 export function useAppAuthRuntimeEffects(pathname: string, rootRouteSearch: RootRouteSearch) {
-  const { isAuthenticated } = useConvexAuth();
+  const { isAuthenticated, isLoading } = useConvexAuth();
   const router = useRouter();
   const authReturn = rootRouteSearch["auth-return"];
   const signupReturn = rootRouteSearch.signup;
@@ -16,6 +16,15 @@ export function useAppAuthRuntimeEffects(pathname: string, rootRouteSearch: Root
   useCloseOAuthPopup(pathname, true);
 
   useEffect(() => {
+    if (!isLoading && !isAuthenticated && pathname === DASHBOARD_ROUTE) {
+      void router.navigate({
+        href: "/",
+        replace: true,
+        state: true,
+      });
+      return;
+    }
+
     if (isAuthenticated && authReturn === "dashboard") {
       void router.navigate({
         replace: true,
@@ -46,5 +55,5 @@ export function useAppAuthRuntimeEffects(pathname: string, rootRouteSearch: Root
     // Preserve TanStack Router bookkeeping while removing the one-shot
     // signup-return flag from the visible URL.
     window.history.replaceState(window.history.state, "", nextPath);
-  }, [authReturn, isAuthenticated, router, signupReturn]);
+  }, [authReturn, isAuthenticated, isLoading, pathname, router, signupReturn]);
 }
