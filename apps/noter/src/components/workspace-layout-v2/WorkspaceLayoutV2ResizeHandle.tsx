@@ -320,7 +320,7 @@ export function WorkspaceLayoutV2ResizeHandle({
               )}
             >
               {Array.from({ length: 3 }, (_, index) => (
-                <span key={index} className="h-1 w-1 rounded-full bg-current" />
+                <span key={index} className="h-[3px] w-[3px] rounded-full bg-current" />
               ))}
             </div>
           </div>

@@ -1,4 +1,5 @@
 import { clampNumber } from "@/lib/clampNumber";
+import { MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import type { WorkspaceMobileSurface } from "../../../convex/workspaceSidebarStateModel";
 
 export const WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
@@ -58,7 +59,14 @@ export function getMobilePanePeekWidthPx(configuredPeekWidthPx: number) {
 }
 
 export function getMobileSidebarMaxWidthPx(args: { peekWidthPx: number; viewportWidthPx: number }) {
-  return Math.max(1, Math.floor(args.viewportWidthPx - args.peekWidthPx * 2));
+  // Preserve the existing mobile sidebar invariant: even when a route removes
+  // carousel peeks, the active sidebar cannot cover the whole viewport because
+  // the resize grip must stay visible and reachable.
+  const reservedMainPeekWidthPx = Math.max(
+    MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX,
+    args.peekWidthPx * 2,
+  );
+  return Math.max(1, Math.floor(args.viewportWidthPx - reservedMainPeekWidthPx));
 }
 
 export function getMobileSidebarMinWidthPx(args: {

@@ -42,7 +42,6 @@ type AppWorkspaceRouteChromeConfig = {
   right?: AppWorkspaceRouteChromePane;
   rightToggleVisibility?: AppWorkspaceShellToggleVisibility;
   shortcutPaneSide?: WorkspacePaneSide;
-  showMobileResizeGripDots?: boolean;
 };
 
 type AppWorkspaceRouteChromeSnapshot = AppWorkspaceRouteChromeConfig & {
@@ -225,7 +224,6 @@ function AppWorkspaceShellFrame({
           panel={chrome?.panel}
           right={rightPane}
           rightToggleVisibility={chrome?.rightToggleVisibility ?? "desktop"}
-          showMobileResizeGripDots={chrome?.showMobileResizeGripDots}
         />
       </WorkspacePaneRuntimeProvider>
     </PublicLandingLogoLinkProvider>

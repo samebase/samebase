@@ -3,7 +3,10 @@
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
+import {
+  DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+  MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX,
+} from "@/lib/workspacePaneSizes";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2FullPage";
 import { type WorkspaceLayoutV2MobileMinResizeBehavior } from "./WorkspaceLayoutV2Geometry";
@@ -75,7 +78,6 @@ type RenderMobileLayoutArgs = {
   mobilePane?: WorkspaceSidebarState["mobilePane"];
   rightMobileWidthPx?: number;
   rightToggleVisibility?: "all" | "desktop" | "hidden";
-  showMobileResizeGripDots?: boolean;
 };
 
 function createMobileSidebarState({
@@ -106,7 +108,6 @@ function renderMobileLayoutContent({
   mobileMinResizeBehavior,
   mobilePanePeekWidthPx = MOBILE_PANE_PEEK_PX,
   rightToggleVisibility,
-  showMobileResizeGripDots,
 }: Omit<RenderMobileLayoutArgs, "leftMobileWidthPx" | "mobilePane" | "rightMobileWidthPx">) {
   const mainProps =
     mainHeader === OMIT_HEADER
@@ -141,7 +142,6 @@ function renderMobileLayoutContent({
       }
       leftToggleVisibility={leftToggleVisibility}
       rightToggleVisibility={rightToggleVisibility}
-      showMobileResizeGripDots={showMobileResizeGripDots}
     />
   );
 }
@@ -194,7 +194,7 @@ function ControlledMergedLeftMobileLayout() {
 
   return (
     <WorkspacePaneRuntimeProvider controller={controller}>
-      {renderMobileLayoutContent({ showMobileResizeGripDots: true })}
+      {renderMobileLayoutContent({})}
     </WorkspacePaneRuntimeProvider>
   );
 }
@@ -407,7 +407,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     ).toBe("main");
   });
 
-  it("lets routes remove the mobile pane peek from carousel geometry", () => {
+  it("lets routes remove carousel peeks while keeping the resize grip reachable", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -418,16 +418,21 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         renderMobileLayout({
           mobilePane: "right",
           mobilePanePeekWidthPx: 0,
-          showMobileResizeGripDots: true,
+          rightMobileWidthPx: VIEWPORT_WIDTH_PX,
         }),
       );
     });
 
+    const maxReachableSidebarWidthPx = VIEWPORT_WIDTH_PX - MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX;
     const carouselNode = getRequiredElement(
       rootElement,
       '[data-testid="workspace-layout-v2-pane-main"]',
     );
     const mainPane = getRequiredElement(rootElement, "[data-workspace-layout-v2-mobile-main-pane]");
+    const rightPane = getRequiredElement(
+      rootElement,
+      '[data-testid="workspace-layout-v2-pane-right"]',
+    );
     const rightHandle = getRequiredElement(
       rootElement,
       '[data-testid="workspace-layout-v2-right-resize"]',
@@ -435,9 +440,16 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
     expect(carouselNode.style.paddingLeft).toBe("0px");
     expect(carouselNode.style.paddingRight).toBe("0px");
-    expect(carouselNode.scrollLeft).toBe(DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX * 2);
+    expect(carouselNode.scrollLeft).toBe(
+      DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX + maxReachableSidebarWidthPx,
+    );
     expect(mainPane.style.width).toBe(`${VIEWPORT_WIDTH_PX}px`);
-    expect(rightHandle.getAttribute("aria-valuemax")).toBe(`${VIEWPORT_WIDTH_PX}`);
+    expect(rightPane.style.width).toBe(`${maxReachableSidebarWidthPx}px`);
+    expect(rightHandle.getAttribute("aria-valuemax")).toBe(`${maxReachableSidebarWidthPx}`);
+    expect(rightHandle.getAttribute("aria-valuenow")).toBe(`${maxReachableSidebarWidthPx}`);
+    expect(rightHandle.parentElement?.style.left).toBe(
+      `${MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX}px`,
+    );
   });
 
   it("lets the left sidebar stay borderless while the main pane owns the separator", () => {
@@ -530,7 +542,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     expectMobilePaneSeparatorOwnership(rootElement, "right");
   });
 
-  it("omits mobile resize grips by default", () => {
+  it("omits mobile resize grips on the main pane", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -539,7 +551,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     act(() => {
       mountedRoot.render(
         renderMobileLayout({
-          mobilePane: "left",
+          mobilePane: "main",
         }),
       );
     });
@@ -550,7 +562,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     ).toBeNull();
   });
 
-  it("renders a mobile resize grip on the active left sidebar when grip dots are enabled", () => {
+  it("renders a mobile resize grip on the active left sidebar by default", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -562,7 +574,6 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
           leftMobileWidthPx: 220,
           mobilePane: "left",
           rightMobileWidthPx: 300,
-          showMobileResizeGripDots: true,
         }),
       );
     });
@@ -586,7 +597,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     ).toBeNull();
   });
 
-  it("renders a mobile resize grip on a left-only route when grip dots are enabled", () => {
+  it("renders a mobile resize grip on a left-only route by default", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -598,7 +609,6 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
           includeRightPane: false,
           leftMobileWidthPx: 220,
           mobilePane: "left",
-          showMobileResizeGripDots: true,
         }),
       );
     });
@@ -623,7 +633,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     ).toBeNull();
   });
 
-  it("renders a mobile resize grip on the active right sidebar when grip dots are enabled", () => {
+  it("renders a mobile resize grip on the active right sidebar by default", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -635,7 +645,6 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
           leftMobileWidthPx: 220,
           mobilePane: "right",
           rightMobileWidthPx: 300,
-          showMobileResizeGripDots: true,
         }),
       );
     });
@@ -669,7 +678,6 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
           leftMobileWidthPx: 1,
           mobilePane: "left",
           rightMobileWidthPx: 1,
-          showMobileResizeGripDots: true,
         }),
       );
     });
@@ -694,7 +702,6 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
           leftMobileWidthPx: 1,
           mobilePane: "right",
           rightMobileWidthPx: 1,
-          showMobileResizeGripDots: true,
         }),
       );
     });
@@ -728,7 +735,6 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
           renderMobileLayout({
             leftMobileWidthPx: MOBILE_SIDEBAR_MIN_WIDTH_PX,
             mobilePane: "left",
-            showMobileResizeGripDots: true,
           }),
         );
       });
@@ -810,7 +816,6 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         mountedRoot.render(
           renderMobileLayout({
             mobilePane: "right",
-            showMobileResizeGripDots: true,
           }),
         );
       });

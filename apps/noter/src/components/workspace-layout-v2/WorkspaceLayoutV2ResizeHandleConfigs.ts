@@ -79,8 +79,9 @@ export function getWorkspaceLayoutV2DesktopResizeHandles(args: {
 }
 
 /**
- * Builds visible mobile grip handles only when the selected pane is settled;
- * otherwise an invisible grip could steal touch input from the pane content.
+ * Mobile resize grips are ordinary sidebar chrome: show the active settled
+ * sidebar's grip, but skip unsettled carousel states so the grip cannot steal
+ * touch input from the pane content mid-scroll.
  */
 export function getWorkspaceLayoutV2MobileResizeHandles(args: {
   hasLeftPane: boolean;
@@ -93,14 +94,9 @@ export function getWorkspaceLayoutV2MobileResizeHandles(args: {
   mobileSidebarMinWidthPx: number;
   setLeftMobileWidthPx: (nextWidthPx: number) => void;
   setRightMobileWidthPx: (nextWidthPx: number) => void;
-  shouldShowMobileResizeGripDots: boolean;
   viewportWidthPx: number;
 }) {
-  if (
-    args.viewportWidthPx <= 0 ||
-    !args.isMobilePaneSettled ||
-    !args.shouldShowMobileResizeGripDots
-  ) {
+  if (args.viewportWidthPx <= 0 || !args.isMobilePaneSettled) {
     return [];
   }
 
